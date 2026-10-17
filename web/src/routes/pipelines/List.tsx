@@ -32,6 +32,7 @@ import {
 } from '@/shell/ui/select';
 
 import {
+  pipelineStreams,
   signalTypeFromPipeline,
   type PipelineSignalType,
 } from './PipelineGraph';
@@ -51,6 +52,8 @@ import {
 interface DisplayPipeline extends pipelinesApi.ScheduledPipeline {
   type: PipelineSignalType;
   health: PipelineHealth;
+  /** Every stream it reads and writes, its own first. */
+  streams: { sources: string[]; sinks: string[] };
 }
 
 type DotTone = NonNullable<React.ComponentProps<typeof Dot>['tone']>;
@@ -89,6 +92,7 @@ export function Pipelines() {
         ...pipeline,
         type: signalTypeFromPipeline(pipeline),
         health: pipelineHealth(pipeline),
+        streams: pipelineStreams(pipeline),
       })),
     [listQuery.data],
   );
@@ -100,8 +104,9 @@ export function Pipelines() {
       const matchesSearch =
         !needle ||
         pipeline.name.toLowerCase().includes(needle) ||
-        pipeline.source_stream?.toLowerCase().includes(needle) ||
-        pipeline.target_stream?.toLowerCase().includes(needle);
+        [...pipeline.streams.sources, ...pipeline.streams.sinks].some((stream) =>
+          stream.toLowerCase().includes(needle),
+        );
       return matchesType && matchesHealth && matchesSearch;
     });
   }, [healthFilter, pipelines, search, typeFilter]);
@@ -279,7 +284,7 @@ export function Pipelines() {
                     {pipeline.name}
                   </div>
                   <div className="mt-1 truncate font-mono text-xs text-tx-3">
-                    {pipeline.source_stream ?? '—'} → {pipeline.target_stream ?? '—'}
+                    {pipeline.streams.sources.join(', ') || '—'} → {pipeline.streams.sinks.join(', ') || '—'}
                   </div>
                 </div>
               ),

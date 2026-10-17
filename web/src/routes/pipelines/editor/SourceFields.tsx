@@ -7,8 +7,9 @@ import { StreamField } from './StreamField';
 import type { PipelineGraphModel } from '../PipelineGraph/model';
 
 /**
- * The stream a pipeline reads. A scheduled pipeline reads one that exists; a
- * realtime one names the stream it listens on, which may not exist yet.
+ * A stream a pipeline reads. A scheduled pipeline reads streams that exist,
+ * each from where its last run left off; a realtime one names the stream it
+ * listens on, which may not exist yet.
  */
 export function SourceFields({
   model,
@@ -29,15 +30,6 @@ export function SourceFields({
       ...model,
       sources: model.sources.map((item, at) => (at === index ? next : item)),
     });
-
-  // A name an earlier editor saved beside the source. There is nothing to set on it.
-  if (index > 0) {
-    return (
-      <p className="m-0 max-w-[640px] font-sans text-sm leading-relaxed text-tx-2">
-        {t('editor.source_unread', { name: value, read: model.sources[0] ?? '' })}
-      </p>
-    );
-  }
 
   return (
     <div className="grid max-w-[640px] gap-[12px]">

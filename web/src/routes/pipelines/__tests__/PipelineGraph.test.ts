@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest';
 import {
   blocksSave,
   defaultPipelineGraph,
+  MAX_STREAMS,
   pipelineInputFromGraph,
   pipelineGraphFromPipeline,
   pipelineGraphStats,
   pipelineStreamOptions,
+  pipelineStreams,
   stepType,
   validateGraph,
   type PipelineGraphModel,
@@ -60,35 +62,67 @@ describe('validateGraph', () => {
     expect(found(graph({ sinks: ['..'] }))).toEqual([['error', 'stream_name_invalid', 'sink-0']]);
   });
 
-  it('will not write a scheduled pipeline back into the stream it reads', () => {
+  it('will not write a scheduled pipeline into any stream it reads', () => {
     expect(validateGraph(graph({ sinks: ['app_logs'] }))).toEqual([
       { level: 'error', code: 'source_is_sink', params: { name: 'app_logs' }, node: 'sink-0' },
     ]);
+    expect(
+      found(graph({ sources: ['app_logs', 'audit_logs'], sinks: ['clean_logs', 'audit_logs'] })),
+    ).toEqual([['error', 'source_is_sink', 'sink-1']]);
     // A realtime pipeline may: the processed event takes the place of the one that arrived.
     expect(validateGraph(graph({ mode: 'realtime', sinks: ['app_logs'] }))).toEqual([]);
   });
 
-  it('says of a name that is saved but never read or written that it is', () => {
+  it('reads every source and writes every stream, and says when a name is there twice', () => {
     const issues = validateGraph(
-      graph({ sources: ['app_logs', 'audit_logs'], sinks: ['clean_logs', 'connector:c1', 'archive_logs'] }),
+      graph({
+        sources: ['app_logs', 'audit_logs', 'app_logs'],
+        sinks: ['clean_logs', 'connector:c1', 'archive_logs', 'clean_logs'],
+      }),
       ['c1'],
     );
 
     expect(issues).toEqual([
-      {
-        level: 'warning',
-        code: 'source_unread',
-        params: { name: 'audit_logs', read: 'app_logs' },
-        node: 'source-1',
-      },
-      {
-        level: 'warning',
-        code: 'sink_unwritten',
-        params: { name: 'archive_logs', written: 'clean_logs' },
-        node: 'sink-2',
-      },
+      { level: 'warning', code: 'source_duplicate', params: { name: 'app_logs' }, node: 'source-2' },
+      { level: 'warning', code: 'sink_duplicate', params: { name: 'clean_logs' }, node: 'sink-3' },
     ]);
     expect(blocksSave(issues)).toBe(false);
+    // Each source still to be chosen is work to do.
+    expect(found(graph({ sources: ['app_logs', ''], sinks: ['clean_logs', ''] }))).toEqual([
+      ['error', 'source_missing', 'source-1'],
+      ['error', 'sink_missing', 'sink-1'],
+    ]);
+  });
+
+  it(`holds a pipeline to ${MAX_STREAMS} streams on either side`, () => {
+    const names = (prefix: string, count: number) =>
+      Array.from({ length: count }, (_, index) => `${prefix}_${index}`);
+
+    expect(validateGraph(graph({ sources: names('in', MAX_STREAMS), sinks: names('out', MAX_STREAMS) }))).toEqual(
+      [],
+    );
+    expect(found(graph({ sources: names('in', MAX_STREAMS + 1) }))).toEqual([
+      ['error', 'too_many_sources', undefined],
+    ]);
+    // Connectors do not count.
+    expect(
+      found(graph({ sinks: [...names('out', MAX_STREAMS), 'connector:c1'] })),
+    ).toEqual([]);
+    expect(found(graph({ sinks: names('out', MAX_STREAMS + 1) }))).toEqual([
+      ['error', 'too_many_sinks', undefined],
+    ]);
+  });
+
+  it('wants a dead letter stream the pipeline neither reads nor writes', () => {
+    expect(validateGraph(graph({ deadLetterStream: 'failed_events' }))).toEqual([]);
+    expect(validateGraph(graph({ deadLetterStream: 'failed events' }))).toEqual([
+      { level: 'error', code: 'dead_letter_invalid', params: { name: 'failed events' } },
+    ]);
+    for (const taken of ['app_logs', 'clean_logs']) {
+      expect(found(graph({ deadLetterStream: taken }))).toEqual([['error', 'dead_letter_conflict', undefined]]);
+    }
+    // A realtime pipeline keeps no dead letters, so there is nothing to check.
+    expect(validateGraph(graph({ mode: 'realtime', deadLetterStream: 'app_logs' }))).toEqual([]);
   });
 
   it('wants a connector chosen, once, and one the workspace has', () => {
@@ -127,8 +161,12 @@ describe('validateGraph', () => {
     ]);
   });
 
-  it('leaves the destination to a routing step when there is one', () => {
+  it('leaves the first stream to a routing step when there is one, and checks the others', () => {
     expect(validateGraph(graph({ sinks: [''], transforms: [route()] }))).toEqual([]);
+    expect(found(graph({ sinks: ['', ''], transforms: [route()] }))).toEqual([['error', 'sink_missing', 'sink-1']]);
+    expect(found(graph({ sinks: ['', 'app_logs'], transforms: [route()] }))).toEqual([
+      ['error', 'source_is_sink', 'sink-1'],
+    ]);
   });
 
   it('checks a routing step the way the backend will', () => {
@@ -154,7 +192,7 @@ describe('validateGraph', () => {
     expect(one(route({}, { kind: 'field', field: 'appname', prefix: 'app_' }))).toEqual([]);
   });
 
-  it('will not route a scheduled run back into what it reads, since the run would fail', () => {
+  it('will not route a scheduled pipeline into a stream it reads', () => {
     const back = graph({ transforms: [route({ target: 'app_logs' })] });
 
     expect(validateGraph(back)).toEqual([
@@ -170,6 +208,10 @@ describe('validateGraph', () => {
       found(graph({ transforms: [route({}, { kind: 'field', field: 'appname', fallback: 'app_logs' })] })),
     ).toEqual([['error', 'route_to_source', 'transform-0']]);
     expect(validateGraph({ ...back, mode: 'realtime' })).toEqual([]);
+    // Any of the streams it reads.
+    expect(
+      found(graph({ sources: ['app_logs', 'audit_logs'], transforms: [route({ target: 'audit_logs' })] })),
+    ).toEqual([['error', 'route_to_source', 'transform-0']]);
   });
 
   it('holds an unfinished step against that step, as work to do', () => {
@@ -193,6 +235,16 @@ describe('validateGraph', () => {
       { level: 'error', code: 'transform_script_missing', params: { name: '3' }, node: 'transform-2', pending: true },
     ]);
   });
+
+  it('holds a sample to a share of events that is one', () => {
+    const sample: ProcessorConfig = { op: 'sample', percent: '150', by: '' };
+
+    expect(
+      validateGraph(graph({ transforms: [{ name: 'sample', script: compileProcessor(sample), processor: sample }] })),
+    ).toEqual([
+      { level: 'error', code: 'processor_percent_invalid', params: { name: 'sample' }, node: 'transform-0' },
+    ]);
+  });
 });
 
 describe('a pipeline as the editor opens it', () => {
@@ -204,7 +256,11 @@ describe('a pipeline as the editor opens it', () => {
       sources: [''],
       sinks: [''],
       transforms: [],
-      retryPolicy: 'exponential',
+      // What the backend does when a pipeline says nothing of it.
+      retry: { runRetries: 3, deliveryRetries: 3 },
+      deadLetterStream: '',
+      dedupeField: '',
+      delaySecs: 60,
     });
     expect(defaultPipelineGraph('metrics').signalType).toBe('metrics');
   });
@@ -273,7 +329,8 @@ describe('a pipeline as it is saved', () => {
         sinks: ['clean_logs'],
         // A connector nobody chose is not one.
         sink_connectors: ['c1'],
-        retry_policy: 'exponential',
+        delay_secs: 60,
+        retry: { run_retries: 3, delivery_retries: 3 },
         steps: [
           { transform_name: 'parse', kind: 'vrl', script: '. = parse_json!(.message)' },
           // A step nobody named goes by its place.
@@ -309,6 +366,78 @@ describe('a pipeline as it is saved', () => {
 
     expect(payload.target_stream).toBe('misc');
     expect(payload.function_steps).toMatchObject({ sinks: ['misc'], sink_connectors: ['c1'] });
+  });
+
+  it('keeps every other stream beside a routing step, to take every event', () => {
+    const payload = pipelineInputFromGraph({
+      name: 'routed',
+      graph: graph({
+        sinks: ['', 'archive_logs', 'connector:c1', 'audit_logs'],
+        transforms: [route({ target: 'orders' })],
+      }),
+      cron: 'every:5m',
+    });
+
+    expect(payload.target_stream).toBe('orders');
+    expect(payload.function_steps).toMatchObject({ sinks: ['orders', 'archive_logs', 'audit_logs'] });
+  });
+
+  it('sends every source and every stream, the first of each as the pipeline’s own', () => {
+    const payload = pipelineInputFromGraph({
+      name: 'fan',
+      graph: graph({ sources: ['app_logs', ' audit_logs '], sinks: ['clean_logs', 'archive_logs'] }),
+      cron: 'every:5m',
+    });
+
+    expect(payload).toMatchObject({ source_stream: 'app_logs', target_stream: 'clean_logs' });
+    expect(payload.function_steps).toMatchObject({
+      sources: ['app_logs', 'audit_logs'],
+      sinks: ['clean_logs', 'archive_logs'],
+    });
+  });
+
+  it('saves how a scheduled pipeline reads and fails, and opens it again', () => {
+    const model = graph({
+      retry: { runRetries: 0, deliveryRetries: 5 },
+      deadLetterStream: ' failed_events ',
+      dedupeField: ' trace_id ',
+      delaySecs: 300,
+    });
+    const payload = pipelineInputFromGraph({ name: 'careful', graph: model, cron: 'every:5m' });
+
+    expect(payload.function_steps).toMatchObject({
+      delay_secs: 300,
+      retry: { run_retries: 0, delivery_retries: 5 },
+      dead_letter_stream: 'failed_events',
+      dedupe_field: 'trace_id',
+    });
+    expect(pipelineGraphFromPipeline({ ...payload, id: 'one' })).toMatchObject({
+      retry: { runRetries: 0, deliveryRetries: 5 },
+      deadLetterStream: 'failed_events',
+      dedupeField: 'trace_id',
+      delaySecs: 300,
+    });
+    // Blank is none: nothing is saved for it.
+    const plain = pipelineInputFromGraph({ name: 'plain', graph: graph(), cron: 'every:5m' });
+    expect(plain.function_steps).not.toHaveProperty('dead_letter_stream');
+    expect(plain.function_steps).not.toHaveProperty('dedupe_field');
+    // A realtime pipeline neither waits nor retries.
+    const realtime = pipelineInputFromGraph({ name: 'live', graph: { ...model, mode: 'realtime' }, cron: '' });
+    expect(realtime.function_steps).not.toHaveProperty('retry');
+    expect(realtime.function_steps).not.toHaveProperty('delay_secs');
+    expect(realtime.function_steps).not.toHaveProperty('dead_letter_stream');
+  });
+
+  it('opens a saved value out of range as the default', () => {
+    const opened = pipelineGraphFromPipeline({
+      id: 'p',
+      name: 'p',
+      source_stream: 'a',
+      target_stream: 'b',
+      function_steps: { retry: { run_retries: 99, delivery_retries: 'x' }, delay_secs: -5 },
+    });
+
+    expect(opened).toMatchObject({ retry: { runRetries: 3, deliveryRetries: 3 }, delaySecs: 60 });
   });
 });
 
@@ -364,19 +493,36 @@ describe('processor steps', () => {
 });
 
 describe('pipelineGraphStats', () => {
-  it('counts what runs: the source, the steps, the stream and the connectors', () => {
+  it('counts every source, step and destination, and the links between them', () => {
     const model = graph({
       sources: ['app_logs', 'audit_logs'],
       transforms: [
         { name: 'normalize', script: '.level = downcase(.level)' },
         { name: 'enrich', script: '.environment = "prod"' },
       ],
-      sinks: ['logs_enriched', 'connector:archive', 'never_written'],
+      sinks: ['logs_enriched', 'connector:archive', 'logs_archive'],
     });
 
-    // app_logs → normalize → enrich → logs_enriched and the connector.
-    expect(pipelineGraphStats(model)).toEqual({ nodes: 5, edges: 4 });
+    // Both sources → normalize → enrich → the two streams and the connector.
+    expect(pipelineGraphStats(model)).toEqual({ nodes: 7, edges: 6 });
     expect(pipelineGraphStats(graph())).toEqual({ nodes: 2, edges: 1 });
+    // Without steps, every source leads into every destination.
+    expect(pipelineGraphStats(graph({ sources: ['a', 'b'], sinks: ['c', 'd'] }))).toEqual({ nodes: 4, edges: 4 });
+  });
+});
+
+describe('pipelineStreams', () => {
+  it('names every stream a saved pipeline reads and writes, its own first', () => {
+    expect(
+      pipelineStreams({
+        id: 'p',
+        name: 'p',
+        source_stream: 'app_logs',
+        target_stream: 'clean_logs',
+        function_steps: { sources: ['nginx_logs', 'app_logs'], sinks: ['archive_logs'] },
+      }),
+    ).toEqual({ sources: ['app_logs', 'nginx_logs'], sinks: ['clean_logs', 'archive_logs'] });
+    expect(pipelineStreams({ id: 'p', name: 'p' })).toEqual({ sources: [], sinks: [] });
   });
 });
 

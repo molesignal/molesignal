@@ -18,6 +18,9 @@ export function StreamField({
   signalType,
   resources,
   creatable = false,
+  clearable = false,
+  placeholder,
+  disabled = false,
   onChange,
 }: {
   label: string;
@@ -26,6 +29,10 @@ export function StreamField({
   signalType: PipelineSignalType;
   resources: PipelineResources;
   creatable?: boolean;
+  /** No stream is a choice too; `placeholder` then says what that means. */
+  clearable?: boolean;
+  placeholder?: string;
+  disabled?: boolean;
   onChange: (stream: string) => void;
 }) {
   const { t } = useTranslation('pipelines');
@@ -37,7 +44,10 @@ export function StreamField({
         value={value}
         streams={streams}
         creatable={creatable}
+        clearable={clearable}
+        placeholder={placeholder}
         pending={resources.streamsPending}
+        disabled={disabled}
         onChange={onChange}
       />
       {resources.streamsFailed && (

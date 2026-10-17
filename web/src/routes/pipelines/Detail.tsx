@@ -38,11 +38,12 @@ import { useConnectorNames } from './editor/resources';
 import {
   connectorOf,
   executionMode,
+  firstStreamIndex,
+  isRouted,
   pipelineGraphFromPipeline,
   pipelineGraphStats,
   signalTypeFromPipeline,
   stepType,
-  writtenSinkIndex,
 } from './PipelineGraph';
 import {
   getPipelineRunsTableLabels,
@@ -153,14 +154,13 @@ export function PipelineDetail() {
     ...(runs[0]?.state ? { last_run_state: runs[0].state } : {}),
   });
   const graph = pipelineGraphFromPipeline(pipeline, type);
-  const routed = graph.transforms.some((step) => step.kind === 'builtin');
-  const written = writtenSinkIndex(graph.sinks);
-  // What the events reach: the one stream that is written, then every connector.
-  const destinations = graph.sinks.flatMap((sink, index) => {
+  const routed = isRouted(graph);
+  const first = firstStreamIndex(graph.sinks);
+  // What the events reach: every stream (the first one as a routing step picks it), then every connector.
+  const destinations = graph.sinks.map((sink, index) => {
     const connector = connectorOf(sink);
-    if (connector !== null) return [connectorNames[connector] ?? connector];
-    if (index !== written) return [];
-    return [routed ? t('flow.routed_detail') : sink];
+    if (connector !== null) return connectorNames[connector] ?? connector;
+    return routed && index === first ? t('flow.routed_detail') : sink;
   });
   const {
     lastRun,

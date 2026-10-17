@@ -28,14 +28,16 @@ function graph(overrides: Partial<PipelineGraphModel>): PipelineGraphModel {
 }
 
 describe('runPipelineTest', () => {
+  const passed = (output: unknown) => ({ output, dropped: false });
+
   it('hands each step what the one before left', async () => {
-    const runScript = vi.fn(async (source: string, input: unknown) => ({
-      ...(input as object),
-      [source]: true,
-    }));
+    const runScript = vi.fn(async (script: string, input: unknown) =>
+      passed({ ...(input as object), [script]: true }),
+    );
 
     const outcome = await runPipelineTest(
       graph({
+        sources: ['app'],
         sinks: ['out', 'connector:archive', ' '],
         transforms: [
           { name: 'first', script: 'a' },
@@ -46,9 +48,10 @@ describe('runPipelineTest', () => {
       runScript,
     );
 
+    // Each step sees the stream the event was read from, the first source unless another is said.
     expect(runScript.mock.calls).toEqual([
-      ['a', { n: 1 }],
-      ['b', { n: 1, a: true }],
+      ['a', { n: 1 }, 'app'],
+      ['b', { n: 1, a: true }, 'app'],
     ]);
     expect(outcome).toEqual({
       steps: [
@@ -64,7 +67,7 @@ describe('runPipelineTest', () => {
   it('stops at the step that fails, as a run does, and writes nothing', async () => {
     const runScript = vi
       .fn()
-      .mockResolvedValueOnce({ ok: 1 })
+      .mockResolvedValueOnce(passed({ ok: 1 }))
       .mockRejectedValueOnce(apiFailure(500, 'internal error'));
 
     const outcome = await runPipelineTest(
@@ -86,6 +89,49 @@ describe('runPipelineTest', () => {
     expect(runScript).toHaveBeenCalledTimes(2);
   });
 
+  it('stops at the step that drops the event, which then goes nowhere', async () => {
+    const runScript = vi
+      .fn()
+      .mockResolvedValueOnce(passed({ level: 'debug', tagged: true }))
+      .mockResolvedValueOnce({ output: { level: 'debug', tagged: true }, dropped: true });
+
+    const outcome = await runPipelineTest(
+      graph({
+        sinks: ['out', 'connector:c1'],
+        transforms: [
+          { name: 'tag', script: 'a' },
+          { name: 'quiet', script: 'b' },
+          { name: 'after', script: 'c' },
+        ],
+      }),
+      { level: 'debug' },
+      runScript,
+    );
+
+    expect(outcome.steps).toEqual([
+      { index: 0, name: 'tag', status: 'passed', output: { level: 'debug', tagged: true } },
+      // As it came to the step that dropped it.
+      { index: 1, name: 'quiet', status: 'dropped', output: { level: 'debug', tagged: true } },
+      { index: 2, name: 'after', status: 'skipped' },
+    ]);
+    expect(outcome.output).toBeUndefined();
+    expect(outcome.destinations).toEqual([]);
+    expect(runScript).toHaveBeenCalledTimes(2);
+  });
+
+  it('runs the steps on the event as read from the source it is said to come from', async () => {
+    const runScript = vi.fn(async (_script: string, input: unknown) => passed(input));
+
+    await runPipelineTest(
+      graph({ sources: ['app', 'nginx'], transforms: [{ name: 'tag', script: 'a' }] }),
+      {},
+      runScript,
+      'nginx',
+    );
+
+    expect(runScript).toHaveBeenCalledWith('a', {}, 'nginx');
+  });
+
   it('lets a routing step choose the stream from the event as it is at that point', async () => {
     const outcome = await runPipelineTest(
       graph({
@@ -97,7 +143,7 @@ describe('runPipelineTest', () => {
         ],
       }),
       {},
-      async (source) => (source === 'tag' ? { appname: 'orders' } : { appname: 'changed' }),
+      async (script) => passed(script === 'tag' ? { appname: 'orders' } : { appname: 'changed' }),
     );
 
     expect(outcome.steps[1]).toEqual({
@@ -111,22 +157,28 @@ describe('runPipelineTest', () => {
     expect(outcome.output).toEqual({ appname: 'changed' });
   });
 
-  it('writes one stream, whatever other names are saved beside it, and delivers to every connector', async () => {
-    const model = graph({ sinks: ['clean', 'connector:c1', 'never_written', 'connector:c2', 'connector:'] });
+  it('writes every stream and delivers to every connector', async () => {
+    const model = graph({ sinks: ['clean', 'connector:c1', 'archive', 'connector:c2', 'connector:'] });
+    const nothing = async () => passed({});
 
-    expect((await runPipelineTest(model, {}, async () => ({}))).destinations).toEqual([
+    expect((await runPipelineTest(model, {}, nothing)).destinations).toEqual([
       'clean',
+      'archive',
       'connector:c1',
       'connector:c2',
     ]);
-    // A routing step changes the stream, not who else gets the event.
+    // A routing step changes the first stream, not who else gets the event.
     expect(
-      (await runPipelineTest({ ...model, transforms: [route({}, 'orders')] }, {}, async () => ({}))).destinations,
-    ).toEqual(['orders', 'connector:c1', 'connector:c2']);
+      (await runPipelineTest({ ...model, transforms: [route({}, 'orders')] }, {}, nothing)).destinations,
+    ).toEqual(['orders', 'archive', 'connector:c1', 'connector:c2']);
+    // Routed into one of the other streams, the event is written there once.
+    expect(
+      (await runPipelineTest({ ...model, transforms: [route({}, 'archive')] }, {}, nothing)).destinations,
+    ).toEqual(['archive', 'connector:c1', 'connector:c2']);
     // A realtime pipeline writes to its stream and nowhere else.
-    expect(
-      (await runPipelineTest({ ...model, mode: 'realtime' }, {}, async () => ({}))).destinations,
-    ).toEqual(['clean']);
+    expect((await runPipelineTest({ ...model, mode: 'realtime' }, {}, nothing)).destinations).toEqual([
+      'clean',
+    ]);
   });
 
   it('gives the event back as it came when there are no steps', async () => {

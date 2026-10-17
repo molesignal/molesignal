@@ -1,4 +1,4 @@
-import { Database, Plug, Plus, Send, type LucideIcon } from 'lucide-react';
+import { Database, Plug, Plus, Send, Waypoints, type LucideIcon } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -16,8 +16,10 @@ import {
 import { STEP_ICONS } from './steps';
 import {
   connectorOf,
+  firstStreamIndex,
+  isRouted,
+  MAX_STREAMS,
   stepType,
-  writtenSinkIndex,
   type PipelineGraphModel,
   type StepType,
 } from '../PipelineGraph/model';
@@ -32,15 +34,17 @@ interface FlowNode {
   placeholder?: boolean;
   detail: string;
   ordinal?: number;
-  /** Saved with the pipeline but no part of what runs: a stream that is never read or written. */
-  idle?: boolean;
 }
+
+/** What a new destination is: another stream to write, or a connector to deliver to. */
+export type DestinationKind = 'stream' | 'connector';
 
 export interface FlowEditing {
   selectedId: string;
   onSelect: (id: string) => void;
   onAddStep: (type: StepType) => void;
-  onAddConnector: () => void;
+  onAddSource: () => void;
+  onAddDestination: (kind: DestinationKind) => void;
   issues: readonly GraphIssue[];
   /** A save was held back: what is not filled in yet is now an error to look at. */
   urgent?: boolean;
@@ -49,11 +53,11 @@ export interface FlowEditing {
 }
 
 /**
- * A pipeline drawn the way it runs: the stream it reads, the steps one after
- * another, and where the events go, which is one stream and any number of
- * connectors. That is the whole of what a pipeline can be, so there is
- * nothing to drag or to wire: a node is picked to edit it, and a step or a
- * connector is added at the end of its lane.
+ * A pipeline drawn the way it runs: the streams it reads, the steps one after
+ * another, and where the events go, which is streams that each take every
+ * event and any number of connectors. That is the whole of what a pipeline
+ * can be, so there is nothing to drag or to wire: a node is picked to edit it,
+ * and a source, a step or a destination is added at the end of its lane.
  *
  * Without `editing` it is a picture of a saved pipeline.
  */
@@ -69,22 +73,27 @@ export function PipelineFlow({
   className?: string;
 }) {
   const { t } = useTranslation('pipelines');
-  const routed = model.transforms.some((step) => step.kind === 'builtin');
+  const routed = isRouted(model);
   const single = model.mode === 'realtime';
-  const written = writtenSinkIndex(model.sinks);
+  const first = firstStreamIndex(model.sinks);
+  const streamCount = model.sinks.filter((sink) => connectorOf(sink) === null).length;
 
   const sources: FlowNode[] = model.sources.map((source, index) => ({
     id: `source-${index}`,
     icon: Database,
     title: source.trim() || t('flow.choose_stream'),
     placeholder: !source.trim(),
-    detail: index > 0 ? t('flow.not_read') : t('graph.node_subtitles.stream_input'),
-    idle: index > 0,
+    detail: t('graph.node_subtitles.stream_input'),
   }));
 
   const steps: FlowNode[] = model.transforms.map((step, index) => {
     const type = stepType(step);
-    const summary = step.processor ? processorSummary(step.processor) : '';
+    const fields = step.processor ? processorSummary(step.processor) : '';
+    // Whether a filter keeps or drops what it matches is the half of it that matters most.
+    const summary =
+      step.processor?.op === 'filter' && fields
+        ? t(`processors.filter_short.${step.processor.action}`, { test: fields })
+        : fields;
 
     return {
       id: `transform-${index}`,
@@ -109,19 +118,17 @@ export function PipelineFlow({
         detail: t('graph.node_subtitles.connector_sink'),
       };
     }
-    if (index !== written) {
-      return { id, icon: Send, title: sink.trim(), detail: t('flow.not_written'), idle: true };
-    }
-    // A routing step decides the stream; the destination node stands for whatever it picks.
-    if (routed) {
-      return { id, icon: Send, title: t('processing.output'), detail: t('flow.routed_detail') };
+    // A routing step decides the first stream; that node stands for whatever it picks.
+    if (routed && index === first) {
+      return { id, icon: Waypoints, title: t('processing.output'), detail: t('flow.routed_detail') };
     }
     return {
       id,
       icon: Send,
       title: sink.trim() || t('flow.choose_stream'),
       placeholder: !sink.trim(),
-      detail: t('graph.node_subtitles.stream_output'),
+      // Beside a routed output, a stream takes every event whatever the route picks.
+      detail: t(routed ? 'flow.copy_detail' : 'graph.node_subtitles.stream_output'),
     };
   });
 
@@ -129,14 +136,14 @@ export function PipelineFlow({
   const node = (item: FlowNode, className?: string) => (
     <FlowNodeCard key={item.id} node={item} editing={editing} className={className} />
   );
-  const add = (label: string, onClick: () => void) =>
+  const add = (label: string, onClick: () => void, full = false) =>
     editing && (
       <ChromeButton
         size="sm"
         variant="ghost"
         className="justify-self-start text-tx-2"
-        disabled={editing.disabled}
-        disabledReason={editing.disabledReason}
+        disabled={editing.disabled || full}
+        disabledReason={full ? t('flow.at_most', { max: MAX_STREAMS }) : editing.disabledReason}
         onClick={onClick}
       >
         <Plus aria-hidden className="h-3.5 w-3.5" />
@@ -198,12 +205,17 @@ export function PipelineFlow({
 
       {editing && (
         <>
+          <div className="col-start-1 row-start-3 grid">
+            {/* A realtime pipeline listens on one stream. */}
+            {!single &&
+              add(t('flow.add_source'), editing.onAddSource, model.sources.length >= MAX_STREAMS)}
+          </div>
           <div className="col-start-3 row-start-3 grid">
             <AddStepMenu editing={editing} />
           </div>
           <div className="col-start-5 row-start-3 grid">
             {/* A realtime pipeline writes to its stream and nowhere else. */}
-            {!single && add(t('flow.add_connector'), editing.onAddConnector)}
+            {!single && <AddDestinationMenu editing={editing} streamsFull={streamCount >= MAX_STREAMS} />}
           </div>
         </>
       )}
@@ -333,11 +345,7 @@ function FlowNodeCard({
           <span
             className={cn(
               'min-w-0 truncate font-sans text-sm',
-              node.placeholder
-                ? 'font-body text-tx-3'
-                : node.idle
-                  ? 'font-body text-tx-2'
-                  : 'font-strong text-tx-0',
+              node.placeholder ? 'font-body text-tx-3' : 'font-strong text-tx-0',
             )}
           >
             {node.title}
@@ -364,11 +372,7 @@ function FlowNodeCard({
 
   if (!editing) {
     return (
-      <div
-        data-pipeline-node={node.id}
-        data-idle={node.idle || undefined}
-        className={cn(shape, 'bg-[var(--control-surface)]')}
-      >
+      <div data-pipeline-node={node.id} className={cn(shape, 'bg-[var(--control-surface)]')}>
         {body}
       </div>
     );
@@ -379,7 +383,6 @@ function FlowNodeCard({
       ref={ref}
       type="button"
       data-pipeline-node={node.id}
-      data-idle={node.idle || undefined}
       aria-pressed={selected}
       aria-invalid={broken || undefined}
       aria-label={
@@ -398,6 +401,42 @@ function FlowNodeCard({
     >
       {body}
     </button>
+  );
+}
+
+/** What a new destination can be: another stream that takes every event, or a connector. */
+function AddDestinationMenu({ editing, streamsFull }: { editing: FlowEditing; streamsFull: boolean }) {
+  const { t } = useTranslation('pipelines');
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <ChromeButton
+          size="sm"
+          variant="ghost"
+          className="justify-self-start text-tx-2"
+          disabled={editing.disabled}
+          disabledReason={editing.disabledReason}
+        >
+          <Plus aria-hidden className="h-3.5 w-3.5" />
+          {t('flow.add_destination')}
+        </ChromeButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[208px]">
+        <DropdownMenuItem
+          disabled={streamsFull}
+          disabledReason={streamsFull ? t('flow.at_most', { max: MAX_STREAMS }) : undefined}
+          onSelect={() => editing.onAddDestination('stream')}
+        >
+          <Send aria-hidden className="h-3.5 w-3.5 text-tx-2" />
+          {t('flow.destination_stream')}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => editing.onAddDestination('connector')}>
+          <Plug aria-hidden className="h-3.5 w-3.5 text-tx-2" />
+          {t('flow.destination_connector')}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

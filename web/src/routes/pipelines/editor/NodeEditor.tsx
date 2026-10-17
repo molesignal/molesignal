@@ -14,7 +14,6 @@ import { StepFields } from './StepFields';
 import { moveStep, retypeStep } from './steps';
 import {
   connectorOf,
-  writtenSinkIndex,
   type PipelineGraphModel,
   type StepType,
   type TransformStep,
@@ -29,9 +28,10 @@ export function parseNodeId(id: string): { kind: NodeKind; index: number } | nul
 }
 
 /**
- * The node picked in the flow, opened to be edited: the source, a step or a
- * destination. The source and the stream that is written are what a pipeline
- * is, so they are changed and never removed; steps and connectors come and go.
+ * The node picked in the flow, opened to be edited: a source, a step or a
+ * destination. A pipeline reads at least one stream and writes at least one,
+ * so the last of each is changed and never removed; everything else comes
+ * and goes.
  */
 export function NodeEditor({
   model,
@@ -80,9 +80,10 @@ export function NodeEditor({
         : connector !== null
           ? (resources.connectorNames[connector] ?? connector)
           : sink.trim();
+  const streams = model.sinks.filter((item) => connectorOf(item) === null).length;
   const removable =
     node.kind === 'transform' ||
-    (node.kind === 'source' ? node.index > 0 : connector !== null || node.index !== writtenSinkIndex(model.sinks));
+    (node.kind === 'source' ? model.sources.length > 1 : connector !== null || streams > 1);
 
   const remove = () => {
     if (node.kind === 'source') {
@@ -92,7 +93,7 @@ export function NodeEditor({
     } else {
       onChange({ ...model, transforms: model.transforms.filter((_, at) => at !== node.index) });
     }
-    // The node before it takes its place under the cursor; with no step left, the source does.
+    // The node before it takes its place under the cursor; with no step left, the first source does.
     onSelect(
       node.kind === 'transform' && model.transforms.length === 1
         ? 'source-0'

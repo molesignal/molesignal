@@ -6,7 +6,9 @@ import {
   Equal,
   Eraser,
   EyeOff,
+  Filter,
   PenLine,
+  Percent,
   Regex,
   Replace,
   Split,
@@ -37,6 +39,8 @@ export const STEP_ICONS: Record<StepType, LucideIcon> = {
   mask: EyeOff,
   case: CaseSensitive,
   convert: Replace,
+  filter: Filter,
+  sample: Percent,
 };
 
 /**

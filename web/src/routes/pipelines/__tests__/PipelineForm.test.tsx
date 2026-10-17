@@ -152,6 +152,11 @@ async function addStep(user: ReturnType<typeof userEvent.setup>, kind: string) {
   await user.click(await screen.findByRole('menuitem', { name: kind }));
 }
 
+async function addDestination(user: ReturnType<typeof userEvent.setup>, kind: 'Stream' | 'Connector') {
+  await user.click(screen.getByRole('button', { name: 'Add destination' }));
+  await user.click(await screen.findByRole('menuitem', { name: kind }));
+}
+
 beforeEach(async () => {
   await i18n.changeLanguage('en-us');
   Element.prototype.scrollIntoView = vi.fn();
@@ -236,7 +241,7 @@ describe('pipeline editor', () => {
 
     expect(status()).toBe('error');
     expect(issues()).toEqual([
-      ['error', 'The pipeline would write to app_logs, the stream it reads. Choose another destination.'],
+      ['error', 'The pipeline would write to app_logs, a stream it reads. Choose another destination.'],
     ]);
     save();
     expect(submit).not.toHaveBeenCalled();
@@ -248,13 +253,41 @@ describe('pipeline editor', () => {
 
     type(settings().getByRole('spinbutton', { name: 'Run every: number' }), '15');
     type(settings().getByRole('combobox', { name: 'Run every: unit' }), 's');
-    type(settings().getByRole('spinbutton', { name: 'Read the last: number' }), '2');
-    type(settings().getByRole('combobox', { name: 'Read the last: unit' }), 'h');
+    type(settings().getByRole('spinbutton', { name: 'First run reads back: number' }), '2');
+    type(settings().getByRole('combobox', { name: 'First run reads back: unit' }), 'h');
     save();
 
     expect(payload()).toMatchObject({ name: 'tidy', cron: 'every:15s', lookback_secs: 7200, enabled: true });
-    // Nothing on the page claims to set how a failed run is retried: nothing reads it.
-    expect(settings().queryByText(/retry/i)).toBeNull();
+    // What the backend does when nothing else is said.
+    expect(payload().function_steps).toMatchObject({
+      delay_secs: 60,
+      retry: { run_retries: 3, delivery_retries: 3 },
+    });
+  });
+
+  it('saves how long a run waits for late events and what it does when something fails', () => {
+    const { save, payload } = renderForm();
+    fillIn();
+
+    type(settings().getByRole('combobox', { name: 'Wait for late events' }), '300');
+    type(settings().getByRole('combobox', { name: 'Retry a failed run' }), '5');
+    type(settings().getByRole('combobox', { name: 'Retry a failed delivery' }), '0');
+    type(settings().getByRole('textbox', { name: 'Dead letter stream' }), 'failed_events');
+    type(settings().getByRole('textbox', { name: 'Dedupe by field' }), 'trace_id');
+    save();
+
+    expect(payload().function_steps).toMatchObject({
+      delay_secs: 300,
+      retry: { run_retries: 5, delivery_retries: 0 },
+      dead_letter_stream: 'failed_events',
+      dedupe_field: 'trace_id',
+    });
+
+    // A dead letter stream the pipeline reads would feed it its own failures.
+    type(settings().getByRole('textbox', { name: 'Dead letter stream' }), 'app_logs');
+    expect(issues()).toEqual([
+      ['error', 'The dead letter stream cannot be a stream the pipeline reads or writes: app_logs'],
+    ]);
   });
 
   it('reads a saved pipeline back: its schedule in counts and units, its first step picked', () => {
@@ -263,10 +296,10 @@ describe('pipeline editor', () => {
     expect(settings().getByRole<HTMLInputElement>('spinbutton', { name: 'Run every: number' }).value).toBe('2');
     expect(settings().getByRole<HTMLSelectElement>('combobox', { name: 'Run every: unit' }).value).toBe('h');
     expect(
-      settings().getByRole<HTMLInputElement>('spinbutton', { name: 'Read the last: number' }).value,
+      settings().getByRole<HTMLInputElement>('spinbutton', { name: 'First run reads back: number' }).value,
     ).toBe('90');
     expect(
-      settings().getByRole<HTMLSelectElement>('combobox', { name: 'Read the last: unit' }).value,
+      settings().getByRole<HTMLSelectElement>('combobox', { name: 'First run reads back: unit' }).value,
     ).toBe('s');
     expect(settings().getByRole('switch').getAttribute('aria-checked')).toBe('false');
     expect(nodes('source')).toEqual(['app_logs Stream input']);
@@ -417,9 +450,10 @@ describe('pipeline editor', () => {
   });
 
   it('delivers to connectors beside the stream, each one chosen and not guessed', async () => {
+    const user = userEvent.setup();
     const { save, submit, payload } = renderForm(SAVED);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add connector' }));
+    await addDestination(user, 'Connector');
 
     expect(nodes('sink')).toEqual(['clean_logs Stream output', 'Choose a connector Connector delivery']);
     expect(node('sink-1').getAttribute('aria-pressed')).toBe('true');
@@ -451,7 +485,7 @@ describe('pipeline editor', () => {
     expect(payload().function_steps).toMatchObject({ sink_connectors: [] });
   });
 
-  it('says of names an earlier editor saved that nothing reads or writes them, and lets them go', () => {
+  it('reads every source and writes every stream, the pipeline’s own first', () => {
     const { save, payload } = renderForm({
       ...SAVED,
       function_steps: {
@@ -461,26 +495,70 @@ describe('pipeline editor', () => {
       },
     });
 
-    // What runs leads; what does not is marked as such.
-    expect(nodes('source')).toEqual(['app_logs Stream input', 'audit_logs Saved, never read']);
-    expect(nodes('sink')).toEqual(['clean_logs Stream output', 'archive_logs Saved, never written']);
-    expect(screen.queryByRole('button', { name: /Add source/ })).toBeNull();
-    expect(status()).toBe('warning');
-    expect(issues()).toEqual([
-      ['warning', 'audit_logs is never read: a pipeline reads one stream, app_logs.'],
-      ['warning', 'Nothing is written to archive_logs: events go to clean_logs.'],
-    ]);
-
-    fireEvent.click(screen.getByRole('button', { name: /audit_logs is never read/ }));
-    expect(editor().getByText(/audit_logs is saved with it but is never read/)).not.toBeNull();
-    fireEvent.click(editor().getByRole('button', { name: 'Remove' }));
-    fireEvent.click(screen.getByRole('button', { name: /Nothing is written to archive_logs/ }));
-    fireEvent.click(editor().getByRole('button', { name: 'Remove' }));
-
+    expect(nodes('source')).toEqual(['app_logs Stream input', 'audit_logs Stream input']);
+    expect(nodes('sink')).toEqual(['clean_logs Stream output', 'archive_logs Stream output']);
     expect(status()).toBe('valid');
     save();
+
     expect(payload()).toMatchObject({ source_stream: 'app_logs', target_stream: 'clean_logs' });
-    expect(payload().function_steps).toMatchObject({ sources: ['app_logs'], sinks: ['clean_logs'] });
+    expect(payload().function_steps).toMatchObject({
+      sources: ['app_logs', 'audit_logs'],
+      sinks: ['clean_logs', 'archive_logs'],
+    });
+  });
+
+  it('adds a source and a stream to write, each to be chosen, and removes all but the last of each', async () => {
+    const user = userEvent.setup();
+    const { save, payload } = renderForm(SAVED);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add source' }));
+    expect(node('source-1').getAttribute('aria-pressed')).toBe('true');
+    expect(marks()['source-1']).toBe('pending');
+    type(sourceField(), 'audit_logs');
+
+    await addDestination(user, 'Stream');
+    // A stream goes after the other streams.
+    expect(node('sink-1').getAttribute('aria-pressed')).toBe('true');
+    type(destinationField(), 'archive_logs');
+    expect(nodes('sink')).toEqual(['clean_logs Stream output', 'archive_logs Stream output']);
+    save();
+    expect(payload().function_steps).toMatchObject({
+      sources: ['app_logs', 'audit_logs'],
+      sinks: ['clean_logs', 'archive_logs'],
+    });
+
+    // Either may now go, down to one of each.
+    fireEvent.click(node('source-0'));
+    fireEvent.click(editor().getByRole('button', { name: 'Remove' }));
+    expect(nodes('source')).toEqual(['audit_logs Stream input']);
+    expect(editor().queryByRole('button', { name: 'Remove' })).toBeNull();
+    fireEvent.click(node('sink-1'));
+    fireEvent.click(editor().getByRole('button', { name: 'Remove' }));
+    expect(nodes('sink')).toEqual(['clean_logs Stream output']);
+    expect(editor().queryByRole('button', { name: 'Remove' })).toBeNull();
+    save();
+    expect(payload()).toMatchObject({ source_stream: 'audit_logs', target_stream: 'clean_logs' });
+  });
+
+  it('drops what a filter step says, saved as VRL that aborts the event', async () => {
+    const user = userEvent.setup();
+    const { save, steps } = renderForm(SAVED);
+
+    await addStep(user, 'Filter events');
+    expect(marks()['transform-1']).toBe('pending');
+    fireEvent.click(editor().getByRole('button', { name: 'Drop' }));
+    type(editor().getByRole('textbox', { name: /^Field/ }), 'level');
+    type(editor().getByRole('textbox', { name: 'Value' }), 'debug');
+
+    expect(nodes('transform')[1]).toBe('2 filter Filter events · drop level = debug');
+    expect(status()).toBe('valid');
+    save();
+    expect(steps()[1]).toEqual({
+      transform_name: 'filter',
+      kind: 'vrl',
+      script: 'value = .level\nmatched = value == "debug"\nif matched {\n  abort\n}',
+      processor: { op: 'filter', action: 'drop', field: 'level', test: 'equals', value: 'debug' },
+    });
   });
 
   it('asks for the streams again when the signal changes, since streams belong to a signal', async () => {
@@ -499,13 +577,16 @@ describe('pipeline editor', () => {
     const user = userEvent.setup();
     const { save, payload, steps } = renderForm();
     fillIn();
-    fireEvent.click(screen.getByRole('button', { name: 'Add connector' }));
+    await addDestination(user, 'Connector');
 
     fireEvent.click(settings().getByRole('button', { name: 'Realtime' }));
 
     expect(settings().queryByText('Run every')).toBeNull();
+    // Nothing waits or retries: an event is processed as it is written.
+    expect(settings().queryByRole('combobox', { name: 'Retry a failed run' })).toBeNull();
     expect(settings().getByRole('combobox', { name: 'Signal type' })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: 'Add connector' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add destination' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add source' })).toBeNull();
     // The connector went with the mode; a realtime source may be a stream that is yet to come.
     expect(nodes('sink')).toEqual(['clean_logs Stream output']);
     fireEvent.click(node('source-0'));
@@ -553,7 +634,7 @@ describe('pipeline editor', () => {
     expect(issues()).toEqual([
       [
         'error',
-        'Step "route" would route events back into app_logs, the stream this pipeline reads. Every run would fail.',
+        'Step "route" would route events back into app_logs, a stream this pipeline reads. Choose another stream.',
       ],
     ]);
     save();

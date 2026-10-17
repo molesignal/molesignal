@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
 import { uiLabelClass } from '@/shell/chrome';
@@ -8,9 +9,11 @@ import { surfacePanelClass } from '@/shell/SurfaceWorkbench';
 import { Switch } from '@/shell/ui/switch';
 
 import { IntervalField } from './IntervalField';
+import type { PipelineResources } from './resources';
 import type { Interval } from './schedule';
 import { Segmented } from './Segmented';
-import type { PipelineSignalType } from '../PipelineGraph/model';
+import { StreamField } from './StreamField';
+import { MAX_RETRIES, type PipelineSignalType, type RetrySettings } from '../PipelineGraph/model';
 
 export type PipelineMode = 'scheduled' | 'realtime';
 
@@ -21,15 +24,24 @@ export interface PipelineSettingsValue {
   every: Interval;
   lookback: Interval;
   enabled: boolean;
+  delaySecs: number;
+  retry: RetrySettings;
+  deadLetterStream: string;
+  dedupeField: string;
 }
+
+/** The waits for late events offered, in seconds. */
+const DELAYS = [0, 30, 60, 120, 300, 600, 1_800, 3_600];
 
 /**
  * What a pipeline is and when it runs: its name, the signal it carries,
  * whether it works on events as they arrive or on a schedule, and for a
- * schedule how often and how far back each run reads.
+ * schedule how often it runs, how far back its first run reads, how long it
+ * leaves the latest events to arrive, and what it does when something fails.
  */
 export function PipelineSettings({
   value,
+  resources,
   onChange,
   onModeChange,
   onSignalChange,
@@ -39,6 +51,7 @@ export function PipelineSettings({
   enabledDisabledReason,
 }: {
   value: PipelineSettingsValue;
+  resources: PipelineResources;
   onChange: (patch: Partial<PipelineSettingsValue>) => void;
   /** Changing the mode or the signal reshapes the flow, so each has its own handler. */
   onModeChange: (mode: PipelineMode) => void;
@@ -125,6 +138,17 @@ export function PipelineSettings({
                 disabledReason={disabledReason}
               />
             </div>
+            <FormField label={t('settings.delay')} className="w-[148px]">
+              <FormSelect
+                value={String(value.delaySecs)}
+                onChange={(next) => onChange({ delaySecs: Number(next) })}
+                options={[...new Set([...DELAYS, value.delaySecs])]
+                  .sort((a, b) => a - b)
+                  .map((secs) => ({ value: String(secs), label: delayLabel(secs, t) }))}
+                disabled={disabled}
+                disabledReason={disabledReason}
+              />
+            </FormField>
           </>
         )}
 
@@ -149,6 +173,73 @@ export function PipelineSettings({
           </label>
         </DisabledControl>
       </div>
+
+      {!realtime && (
+        <div
+          data-pipeline-reliability
+          className="mt-[12px] grid gap-x-[16px] gap-y-[12px] sm:grid-cols-2 xl:grid-cols-[148px_148px_minmax(0,1fr)_minmax(0,1fr)]"
+        >
+          <FormField label={t('settings.run_retries')}>
+            <FormSelect
+              value={String(value.retry.runRetries)}
+              onChange={(next) => onChange({ retry: { ...value.retry, runRetries: Number(next) } })}
+              options={retryOptions(t)}
+              disabled={disabled}
+              disabledReason={disabledReason}
+            />
+          </FormField>
+          <FormField label={t('settings.delivery_retries')}>
+            <FormSelect
+              value={String(value.retry.deliveryRetries)}
+              onChange={(next) => onChange({ retry: { ...value.retry, deliveryRetries: Number(next) } })}
+              options={retryOptions(t)}
+              disabled={disabled}
+              disabledReason={disabledReason}
+            />
+          </FormField>
+          <StreamField
+            label={t('settings.dead_letter')}
+            value={value.deadLetterStream}
+            // Dead letters are read in Logs whatever the pipeline carries.
+            signalType="logs"
+            resources={resources}
+            creatable
+            clearable
+            placeholder={t('settings.dead_letter_none')}
+            disabled={disabled}
+            onChange={(deadLetterStream) => onChange({ deadLetterStream })}
+          />
+          <FormField label={t('settings.dedupe')}>
+            <FormInput
+              value={value.dedupeField}
+              onChange={(event) => onChange({ dedupeField: event.target.value })}
+              placeholder={t('settings.dedupe_none')}
+              className="font-mono text-xs"
+              autoComplete="off"
+              spellCheck={false}
+              disabled={disabled}
+              disabledReason={disabledReason}
+            />
+          </FormField>
+          <p className="col-span-full m-0 font-sans text-xs leading-relaxed text-tx-3">
+            {t('settings.reliability_hint')}
+          </p>
+        </div>
+      )}
     </section>
   );
+}
+
+function delayLabel(secs: number, t: TFunction<'pipelines'>): string {
+  if (secs === 0) return t('settings.delay_none');
+  if (secs % 3_600 === 0) return t('settings.delay_hours', { count: secs / 3_600 });
+  if (secs % 60 === 0) return t('settings.delay_minutes', { count: secs / 60 });
+  return t('settings.delay_seconds', { count: secs });
+}
+
+function retryOptions(t: TFunction<'pipelines'>) {
+  return Array.from({ length: MAX_RETRIES + 1 }, (_, count) => ({
+    value: String(count),
+    label: count === 0 ? t('settings.retries_none') : t('settings.retries', { count }),
+  }));
 }

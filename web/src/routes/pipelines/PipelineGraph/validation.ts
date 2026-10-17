@@ -1,7 +1,9 @@
 import {
   connectorOf,
   defaultRouting,
-  writtenSinkIndex,
+  firstStreamIndex,
+  isRouted,
+  MAX_STREAMS,
   type PipelineGraphModel,
   type TransformStep,
 } from './model';
@@ -34,9 +36,10 @@ export function blocksSave(issues: readonly GraphIssue[]): boolean {
  * 流水线图校验：返回错误/警告列表（`code` 在 UI 侧用 i18n 渲染）。
  *
  * An error is something the backend would reject (`scheduled_pipelines/
- * validation.rs`, `domain/pipeline/realtime.rs`), a run would fail on
- * (`infra/pipeline/exec/processing.rs`), or the save would have to make up. A
- * warning is saved as it is: it says what the pipeline will not do.
+ * validation.rs`, `domain/pipeline/scheduled.rs`, `domain/pipeline/
+ * realtime.rs`), a run would fail on (`infra/pipeline/exec/processing.rs`),
+ * or the save would have to make up. A warning is saved as it is: it says
+ * what the pipeline will do differently from how it looks.
  */
 export function validateGraph(
   model: PipelineGraphModel,
@@ -46,25 +49,30 @@ export function validateGraph(
   const scheduled = model.mode !== 'realtime';
   const sources = model.sources.map((item) => item.trim());
   const sinks = model.sinks.map((item) => item.trim());
-  const routed = model.transforms.some((step) => step.kind === 'builtin');
-  const read = sources[0] ?? '';
-  const written = writtenSinkIndex(sinks);
+  const routed = isRouted(model);
+  const first = firstStreamIndex(sinks);
+  const streams = sinks.filter((sink) => connectorOf(sink) === null);
+  const read = new Set(sources.filter(Boolean));
 
   if (sources.length === 0) issues.push({ level: 'error', code: 'no_source' });
   // Every destination a connector: nothing says which stream the events are written to.
-  if (written === -1 && !routed) issues.push({ level: 'error', code: 'no_sink' });
+  if (first === -1 && !routed) issues.push({ level: 'error', code: 'no_sink' });
 
   sources.forEach((source, index) => {
     const node = `source-${index}`;
 
-    if (index > 0) {
-      issues.push({ level: 'warning', code: 'source_unread', params: { name: source, read }, node });
-    } else if (!source) {
+    if (!source) {
       issues.push({ level: 'error', code: 'source_missing', node, pending: true });
     } else if (!isStreamName(source)) {
       issues.push({ level: 'error', code: 'stream_name_invalid', params: { name: source }, node });
+    } else if (sources.indexOf(source) < index) {
+      issues.push({ level: 'warning', code: 'source_duplicate', params: { name: source }, node });
     }
   });
+
+  if (sources.length > MAX_STREAMS) {
+    issues.push({ level: 'error', code: 'too_many_sources', params: { max: MAX_STREAMS } });
+  }
 
   const connectors = new Set<string>();
   sinks.forEach((sink, index) => {
@@ -83,31 +91,38 @@ export function validateGraph(
       return;
     }
 
-    if (index !== written) {
-      issues.push({
-        level: 'warning',
-        code: 'sink_unwritten',
-        params: { name: sink, written: sinks[written] ?? '' },
-        node,
-      });
-      return;
-    }
-    // A routing step decides where events go; the destination node only stands for that.
-    if (routed) return;
+    // A routing step decides where the first stream's events go; that node only stands for it.
+    if (routed && index === first) return;
 
     if (!sink) {
       issues.push({ level: 'error', code: 'sink_missing', node, pending: true });
     } else if (!isStreamName(sink)) {
       issues.push({ level: 'error', code: 'stream_name_invalid', params: { name: sink }, node });
-    } else if (scheduled && sink === read) {
+    } else if (scheduled && read.has(sink)) {
       issues.push({ level: 'error', code: 'source_is_sink', params: { name: sink }, node });
+    } else if (sinks.indexOf(sink) < index) {
+      issues.push({ level: 'warning', code: 'sink_duplicate', params: { name: sink }, node });
     }
   });
 
+  if (streams.length > MAX_STREAMS) {
+    issues.push({ level: 'error', code: 'too_many_sinks', params: { max: MAX_STREAMS } });
+  }
+
   if (!scheduled) {
     if (model.signalType !== 'logs') issues.push({ level: 'error', code: 'realtime_logs' });
-    if (sources.length !== 1 || sinks.length !== 1 || connectors.size > 0) {
+    if (sources.length !== 1 || streams.length !== 1 || connectors.size > 0) {
       issues.push({ level: 'error', code: 'realtime_nodes' });
+    }
+  }
+
+  const deadLetters = model.deadLetterStream.trim();
+
+  if (scheduled && deadLetters) {
+    if (!isStreamName(deadLetters)) {
+      issues.push({ level: 'error', code: 'dead_letter_invalid', params: { name: deadLetters } });
+    } else if (read.has(deadLetters) || streams.includes(deadLetters)) {
+      issues.push({ level: 'error', code: 'dead_letter_conflict', params: { name: deadLetters } });
     }
   }
 
@@ -154,29 +169,30 @@ function routeIssue(step: TransformStep, sources: readonly string[]): StepIssue 
 function scriptIssue(step: TransformStep): StepIssue | null {
   const problem = step.processor ? processorProblem(step.processor) : null;
 
-  if (problem) return { code: problem, ...(problem !== 'processor_number_invalid' && { pending: true }) };
+  // A value that is there but wrong is a mistake; one that is not there yet is work to do.
+  const mistake = problem === 'processor_number_invalid' || problem === 'processor_percent_invalid';
+
+  if (problem) return { code: problem, ...(!mistake && { pending: true }) };
   if (!step.script.trim()) return { code: 'transform_script_missing', pending: true };
 
   return null;
 }
 
 /**
- * How many nodes a pipeline has and how many links join them: the source into
- * the first step, the steps in a chain, the last one into every destination.
- * Names that are saved but neither read nor written are not part of it.
+ * How many nodes a pipeline has and how many links join them: every source
+ * into the first step, the steps in a chain, the last one into every
+ * destination. Without steps, every source leads into every destination.
  */
 export function pipelineGraphStats(model: PipelineGraphModel): {
   nodes: number;
   edges: number;
 } {
-  const written = writtenSinkIndex(model.sinks);
-  const destinations = model.sinks.filter(
-    (sink, index) => connectorOf(sink) !== null || index === written,
-  ).length;
-  const sources = Math.min(1, model.sources.length);
+  const sources = model.sources.length;
+  const steps = model.transforms.length;
+  const destinations = model.sinks.length;
 
   return {
-    nodes: sources + model.transforms.length + destinations,
-    edges: sources === 0 ? 0 : model.transforms.length + destinations,
+    nodes: sources + steps + destinations,
+    edges: steps === 0 ? sources * destinations : sources + steps - 1 + destinations,
   };
 }

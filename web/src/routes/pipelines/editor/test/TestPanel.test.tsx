@@ -18,6 +18,7 @@ const access = vi.hoisted(() => ({ disabled: false }));
 
 vi.mock('@/api/functions', () => ({ run: vi.fn() }));
 vi.mock('./recentEvent', () => ({ recentEvent: vi.fn() }));
+vi.mock('@/shell/ui/select', () => import('../../__tests__/nativeSelect'));
 vi.mock('@/product/actionAccess', () => ({
   useActionAccess: () => ({
     allowed: !access.disabled,
@@ -122,9 +123,11 @@ describe('TestPanel', () => {
     fireEvent.click(runButton());
     await finished();
 
+    // Each step sees the stream the sample stands for.
+    const metadata = { source_stream: 'app_logs' };
     expect(run.mock.calls.map(([request]) => request)).toEqual([
-      { language: 'vrl', source: 'one', input: JSON.parse(sampleEvent('logs')) },
-      { language: 'vrl', source: 'two', input: { level: 'warn' } },
+      { language: 'vrl', source: 'one', input: JSON.parse(sampleEvent('logs')), metadata },
+      { language: 'vrl', source: 'two', input: { level: 'warn' }, metadata },
     ]);
     expect(result().getAttribute('data-pipeline-test-result')).toBe('passed');
     expect(steps()).toEqual([
@@ -180,14 +183,56 @@ describe('TestPanel', () => {
     expect(result().textContent).toContain('Written to clean_logs, Archive');
   });
 
-  it('writes one stream, whatever other names are saved beside it', async () => {
+  it('writes every stream and delivers to every connector', async () => {
     run.mockResolvedValue({ output: {} });
-    renderPanel({ ...MODEL, sinks: ['clean_logs', 'never_written', 'connector:c1'] });
+    renderPanel({ ...MODEL, sinks: ['clean_logs', 'archive_logs', 'connector:c1'] });
     fireEvent.click(runButton());
     await finished();
 
-    expect(result().textContent).toContain('Written to clean_logs, Archive');
-    expect(result().textContent).not.toContain('never_written');
+    expect(result().textContent).toContain('Written to clean_logs, archive_logs, Archive');
+  });
+
+  it('says which step dropped the event, and that it goes nowhere', async () => {
+    run
+      .mockResolvedValueOnce({ output: { level: 'debug' } })
+      .mockResolvedValueOnce({ output: { level: 'debug' }, dropped: true });
+    renderPanel({ ...MODEL, transforms: [...MODEL.transforms, { name: 'after', script: 'three' }] });
+    fireEvent.click(runButton());
+    await finished();
+
+    expect(result().getAttribute('data-pipeline-test-result')).toBe('dropped');
+    expect(steps()).toEqual([
+      ['passed', '1parse'],
+      ['dropped', '2tidy · dropped'],
+      ['skipped', '3after · not run'],
+    ]);
+    expect(run).toHaveBeenCalledTimes(2);
+    // The event as it came to the step that dropped it.
+    expect(shown()).toEqual({ level: 'debug' });
+    expect(within(result()).getByText('Dropped by step 2')).not.toBeNull();
+    expect(result().textContent).not.toContain('Written to');
+    expect(result().textContent).toContain('counts it as dropped, not as failed');
+  });
+
+  it('runs the sample as read from the source it is said to come from', async () => {
+    run.mockResolvedValue({ output: {} });
+    recent.mockResolvedValueOnce({ host: 'web-1' });
+    renderPanel({ ...MODEL, sources: ['app_logs', 'nginx'] });
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Sample from' }), { target: { value: 'nginx' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Use a recent event from nginx' }));
+    await waitFor(() => expect(JSON.parse(sample().value)).toEqual({ host: 'web-1' }));
+    fireEvent.click(runButton());
+    await finished();
+
+    expect(recent).toHaveBeenCalledWith('org-1', 'nginx', 'logs');
+    expect(run.mock.calls[0]?.[0]).toMatchObject({ metadata: { source_stream: 'nginx' } });
+  });
+
+  it('asks where the sample comes from only when there is more than one source', () => {
+    renderPanel();
+
+    expect(screen.queryByRole('combobox', { name: 'Sample from' })).toBeNull();
   });
 
   it('stops at a script that is not valid VRL and says what is wrong with it', async () => {
@@ -208,7 +253,7 @@ describe('TestPanel', () => {
     ]);
     expect(run).toHaveBeenCalledTimes(1);
     expect(document.querySelector('[data-pipeline-test-output]')).toBeNull();
-    expect(result().textContent).toContain('an event that fails a step is skipped and counted as an error');
+    expect(result().textContent).toContain('an event that fails a step counts as failed');
   });
 
   it('keeps what the steps before a failure made of the event', async () => {

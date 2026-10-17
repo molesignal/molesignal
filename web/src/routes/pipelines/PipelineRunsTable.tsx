@@ -19,6 +19,9 @@ interface PipelineRunsTableLabels {
   error: React.ReactNode;
   emptyTitle: React.ReactNode;
   emptyDescription: React.ReactNode;
+  /** How many events of a kind, the number already formatted. */
+  count: (kind: 'scanned' | 'written' | 'dropped' | 'failed', value: string) => string;
+  attempt: (attempt: number) => string;
 }
 
 export function getPipelineRunsTableLabels(
@@ -27,11 +30,13 @@ export function getPipelineRunsTableLabels(
   return {
     state: t('detail.run_columns.state'),
     started: t('detail.run_columns.started'),
-    duration: t('flows.history.columns.duration'),
+    duration: t('detail.run_columns.duration'),
     rows: t('detail.run_columns.rows'),
     error: t('detail.run_columns.error'),
     emptyTitle: t('detail.runs_empty_title'),
     emptyDescription: t('detail.runs_empty_description'),
+    count: (kind, value) => t(`detail.run_counts.${kind}`, { value }),
+    attempt: (attempt) => t('detail.run_attempt', { attempt }),
   };
 }
 
@@ -81,7 +86,14 @@ export function PipelineRunsTable({
           key: 'state',
           header: labels.state,
           width: 120,
-          cell: (run) => renderState(run.state),
+          cell: (run) => (
+            <div>
+              {renderState(run.state)}
+              {(run.attempt ?? 1) > 1 && (
+                <div className="mt-0.5 font-sans text-xs text-tx-3">{labels.attempt(run.attempt ?? 1)}</div>
+              )}
+            </div>
+          ),
         },
         {
           key: 'started',
@@ -109,19 +121,60 @@ export function PipelineRunsTable({
         {
           key: 'rows',
           header: labels.rows,
-          width: 140,
-          cell: (run) => new Intl.NumberFormat(locale).format(run.scanned_rows),
+          width: 200,
+          cell: (run) => <RunCounts run={run} locale={locale} labels={labels} />,
         },
         {
           key: 'error',
           header: labels.error,
+          // A failure says why; a run that went through may still say what went wrong on the way.
           cell: (run) => (
-            <span className={run.error ? 'text-red-soft' : 'text-tx-3'}>
-              {run.error ?? '—'}
+            <span
+              className={
+                run.error ? 'text-red-soft' : run.warning ? 'text-tx-2' : 'text-tx-3'
+              }
+            >
+              {run.error ?? run.warning ?? '—'}
             </span>
           ),
         },
       ]}
     />
+  );
+}
+
+/**
+ * Where a run's events ended: how many it read and wrote, then the dropped
+ * and failed ones when there are any.
+ */
+function RunCounts({
+  run,
+  locale,
+  labels,
+}: {
+  run: PipelineRun;
+  locale: string;
+  labels: PipelineRunsTableLabels;
+}) {
+  const format = (value: number) => new Intl.NumberFormat(locale).format(value);
+  const dropped = run.dropped_rows ?? 0;
+  const failed = run.failed_rows ?? 0;
+
+  return (
+    <div className="font-sans text-xs tabular-nums">
+      <div className="text-tx-1">
+        {labels.count('scanned', format(run.scanned_rows))}
+        {run.written_rows !== undefined && (
+          <span className="text-tx-3"> · {labels.count('written', format(run.written_rows))}</span>
+        )}
+      </div>
+      {(dropped > 0 || failed > 0) && (
+        <div className="mt-0.5">
+          {dropped > 0 && <span className="text-tx-3">{labels.count('dropped', format(dropped))}</span>}
+          {dropped > 0 && failed > 0 && <span className="text-tx-3"> · </span>}
+          {failed > 0 && <span className="text-red-soft">{labels.count('failed', format(failed))}</span>}
+        </div>
+      )}
+    </div>
   );
 }

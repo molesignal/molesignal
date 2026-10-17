@@ -137,6 +137,84 @@ describe('compileProcessor', () => {
     expect(compileProcessor({ op: 'convert', field: 'n', to: 'boolean' })).toContain('to_bool(.n)');
     expect(compileProcessor({ op: 'convert', field: 'n', to: 'string' })).toContain('to_string(.n)');
   });
+
+  // These scripts are also pinned, and run, in the VRL runtime's own test
+  // (`the_editors_filter_and_sample_programs_drop_what_they_say`).
+  it('keeps the events a filter matches and aborts the rest', () => {
+    expect(vrl({ op: 'filter', action: 'keep', field: 'level', test: 'equals', value: 'error' })).toEqual([
+      'value = .level',
+      'matched = value == "error"',
+      'if !matched {',
+      '  abort',
+      '}',
+    ]);
+  });
+
+  it('compares numbers as numbers, text that reads as one included', () => {
+    expect(vrl({ op: 'filter', action: 'drop', field: 'status', test: 'gte', value: '500' })).toEqual([
+      'value = .status',
+      'matched = false',
+      'if value != null {',
+      '  number, err = to_float(value)',
+      '  matched = err == null && number >= 500.0',
+      '}',
+      'if matched {',
+      '  abort',
+      '}',
+    ]);
+    // A value typed as a number equals the number and its text.
+    expect(compileProcessor({ op: 'filter', action: 'drop', field: 'code', test: 'not_equals', value: '200' })).toContain(
+      'matched = !(value == 200 || value == "200")',
+    );
+  });
+
+  it('looks for a dotted field as a key, then as a path, and tests text only as text', () => {
+    expect(
+      vrl({ op: 'filter', action: 'drop', field: 'service.name', test: 'matches', value: '^test-' }),
+    ).toEqual([
+      'value = null',
+      'if exists(."service.name") {',
+      '  value = ."service.name"',
+      '} else if exists(.service.name) {',
+      '  value = .service.name',
+      '}',
+      "matched = is_string(value) && match(string!(value), r'^test-')",
+      'if matched {',
+      '  abort',
+      '}',
+    ]);
+    expect(vrl({ op: 'filter', action: 'keep', field: 'user.id', test: 'exists', value: '' })).toEqual([
+      'matched = exists(."user.id") || exists(.user.id)',
+      'if !matched {',
+      '  abort',
+      '}',
+    ]);
+    expect(compileProcessor({ op: 'filter', action: 'keep', field: 'message', test: 'contains', value: 'time"out' })).toContain(
+      'matched = is_string(value) && contains(string!(value), "time\\"out")',
+    );
+  });
+
+  it('samples at random, or by a field so that one value is kept or dropped whole', () => {
+    expect(vrl({ op: 'sample', percent: '10', by: '' })).toEqual([
+      'if !(random_float(0.0, 100.0) < 10.0) {',
+      '  abort',
+      '}',
+    ]);
+    expect(vrl({ op: 'sample', percent: '25', by: 'trace_id' })).toEqual([
+      'value = .trace_id',
+      'key, err = to_string(value)',
+      'sampled = false',
+      'if value == null || err != null {',
+      '  sampled = random_float(0.0, 100.0) < 25.0',
+      '} else {',
+      '  sampled = mod(abs(seahash(key)), 10000) < 2500',
+      '}',
+      'if !sampled {',
+      '  abort',
+      '}',
+    ]);
+    expect(compileProcessor({ op: 'sample', percent: '0.5', by: 'id' })).toContain('< 50\n');
+  });
 });
 
 describe('processors', () => {
@@ -156,6 +234,9 @@ describe('processors', () => {
       mask: 'processor_field_missing',
       case: 'processor_field_missing',
       convert: 'processor_field_missing',
+      filter: 'processor_field_missing',
+      // A tenth of the events, picked at random.
+      sample: null,
     });
   });
 
@@ -170,9 +251,32 @@ describe('processors', () => {
       { op: 'mask', field: 'a', mode: 'hash' },
       { op: 'case', field: 'a', to: 'upper' },
       { op: 'convert', field: 'a', to: 'string' },
+      { op: 'filter', action: 'keep', field: 'a', test: 'equals', value: 'b' },
+      // Whether a field is there needs no value.
+      { op: 'filter', action: 'drop', field: 'a', test: 'missing', value: '' },
+      { op: 'filter', action: 'drop', field: 'a', test: 'lt', value: '-2.5' },
+      { op: 'sample', percent: '100', by: '' },
+      { op: 'sample', percent: '0.1', by: 'trace_id' },
     ];
 
     for (const config of complete) expect(processorProblem(config), config.op).toBeNull();
+  });
+
+  it('say what a filter or a sample still lacks, or has wrong', () => {
+    const filter = (test: 'equals' | 'matches' | 'gt', value: string): ProcessorConfig => ({
+      op: 'filter',
+      action: 'keep',
+      field: 'a',
+      test,
+      value,
+    });
+
+    expect(processorProblem(filter('equals', ' '))).toBe('processor_field_missing');
+    expect(processorProblem(filter('matches', ''))).toBe('processor_pattern_missing');
+    expect(processorProblem(filter('gt', 'many'))).toBe('processor_number_invalid');
+    for (const percent of ['0', '101', '-5', 'ten', '']) {
+      expect(processorProblem({ op: 'sample', percent, by: '' }), percent).toBe('processor_percent_invalid');
+    }
   });
 
   it('refuse a number that is not one', () => {
@@ -200,6 +304,14 @@ describe('processors', () => {
       'message',
     );
     expect(processorSummary({ op: 'convert', field: 'status', to: 'integer' })).toBe('status → integer');
+    expect(processorSummary({ op: 'filter', action: 'drop', field: 'level', test: 'equals', value: 'debug' })).toBe(
+      'level = debug',
+    );
+    expect(processorSummary({ op: 'filter', action: 'keep', field: 'user.id', test: 'exists', value: 'x' })).toBe(
+      'user.id ∃',
+    );
+    expect(processorSummary({ op: 'sample', percent: '10', by: '' })).toBe('10%');
+    expect(processorSummary({ op: 'sample', percent: '5', by: 'trace_id' })).toBe('5% · trace_id');
   });
 
   it('read back what they stored and nothing else', () => {
@@ -214,6 +326,9 @@ describe('processors', () => {
     expect(parseProcessor({ op: 'rename', from: 'a' })).toBeNull();
     expect(parseProcessor({ op: 'mask', field: 'a', mode: 'blur' })).toBeNull();
     expect(parseProcessor({ op: 'remove', fields: ['a', 1] })).toBeNull();
+    expect(parseProcessor({ op: 'filter', action: 'skip', field: 'a', test: 'equals', value: 'b' })).toBeNull();
+    expect(parseProcessor({ op: 'filter', action: 'keep', field: 'a', test: 'like', value: 'b' })).toBeNull();
+    expect(parseProcessor({ op: 'sample', percent: 10, by: '' })).toBeNull();
     // Whatever else rode along is dropped.
     expect(parseProcessor({ op: 'rename', from: 'a', to: 'b', extra: true })).toEqual({
       op: 'rename',

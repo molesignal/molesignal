@@ -6,7 +6,7 @@ import { toApiError } from '@/lib/http';
 import { cn } from '@/shell/lib/cn';
 import { surfacePanelClass } from '@/shell/SurfaceWorkbench';
 
-import { PipelineFlow } from './editor/Flow';
+import { PipelineFlow, type DestinationKind } from './editor/Flow';
 import { FlowIssues, FlowStatus } from './editor/Issues';
 import { NodeEditor, parseNodeId } from './editor/NodeEditor';
 import { usePipelineResources } from './editor/resources';
@@ -166,12 +166,36 @@ export function PipelineForm({
     if (patch.every !== undefined) setEvery(patch.every);
     if (patch.lookback !== undefined) setLookback(patch.lookback);
     if (patch.enabled !== undefined) setEnabled(patch.enabled);
+
+    // How the pipeline reads and what it does when something fails is saved with its flow.
+    const { delaySecs, retry, deadLetterStream, dedupeField } = patch;
+    if (delaySecs === undefined && !retry && deadLetterStream === undefined && dedupeField === undefined) {
+      return;
+    }
+
+    setGraph((current) => ({
+      ...current,
+      ...(delaySecs !== undefined && { delaySecs }),
+      ...(retry && { retry }),
+      ...(deadLetterStream !== undefined && { deadLetterStream }),
+      ...(dedupeField !== undefined && { dedupeField }),
+    }));
   };
 
-  // A new connector starts unchosen: which one it is has to be said, not guessed.
-  const addConnector = () => {
-    setSelectedId(`sink-${graph.sinks.length}`);
-    setGraph({ ...graph, sinks: [...graph.sinks, CONNECTOR_PREFIX] });
+  // A new source or destination starts unchosen: which one it is has to be said, not guessed.
+  const addSource = () => {
+    setSelectedId(`source-${graph.sources.length}`);
+    setGraph({ ...graph, sources: [...graph.sources, ''] });
+  };
+  const addDestination = (kind: DestinationKind) => {
+    const sink = kind === 'connector' ? CONNECTOR_PREFIX : '';
+    // A new stream goes after the other streams, before the connectors, as the flow lists them.
+    const at =
+      kind === 'connector'
+        ? graph.sinks.length
+        : graph.sinks.filter((item) => connectorOf(item) === null).length;
+    setSelectedId(`sink-${at}`);
+    setGraph({ ...graph, sinks: [...graph.sinks.slice(0, at), sink, ...graph.sinks.slice(at)] });
   };
   const addStep = (type: StepType) => {
     const step = newStep(type, graph.transforms.map((item) => item.name));
@@ -194,7 +218,12 @@ export function PipelineForm({
           every,
           lookback,
           enabled,
+          delaySecs: graph.delaySecs,
+          retry: graph.retry,
+          deadLetterStream: graph.deadLetterStream,
+          dedupeField: graph.dedupeField,
         }}
+        resources={resources}
         onChange={changeSettings}
         onModeChange={changeMode}
         onSignalChange={changeSignalType}
@@ -220,7 +249,8 @@ export function PipelineForm({
             selectedId,
             onSelect: setSelectedId,
             onAddStep: addStep,
-            onAddConnector: addConnector,
+            onAddSource: addSource,
+            onAddDestination: addDestination,
             issues,
             urgent: heldBack,
             disabled,

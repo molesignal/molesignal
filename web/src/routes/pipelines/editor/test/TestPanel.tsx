@@ -1,5 +1,6 @@
 import {
   CircleCheck,
+  CircleSlash,
   CircleX,
   Database,
   LoaderCircle,
@@ -15,6 +16,7 @@ import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
 import { ChromeButton, uiLabelClass } from '@/shell/chrome';
 import { CodeEditor } from '@/shell/codeEditor';
+import { FormSelect } from '@/shell/FormDrawer';
 import { cn } from '@/shell/lib/cn';
 import { surfacePanelClass } from '@/shell/SurfaceWorkbench';
 import { useCurrentOrgSelection } from '@/stores/useOrgStore';
@@ -37,7 +39,9 @@ function stepsKey(model: PipelineGraphModel): string {
 /**
  * Tries the pipeline on one event before it is saved: the event goes through
  * every step on the backend's own runtime and comes back as it would be
- * written, with the stream it would be written to. Nothing is stored.
+ * written, with where it would go, or with the step that dropped it. With
+ * several sources, the sample is said to come from one of them, which the
+ * steps see as `%source_stream`. Nothing is stored.
  */
 export function TestPanel({
   model,
@@ -56,7 +60,10 @@ export function TestPanel({
   const runs = React.useRef(0);
   const [loading, setLoading] = React.useState(false);
   const [sampleNote, setSampleNote] = React.useState<string | null>(null);
-  const source = model.sources[0]?.trim() ?? '';
+  const sources = [...new Set(model.sources.map((item) => item.trim()).filter(Boolean))];
+  const [chosenSource, setChosenSource] = React.useState('');
+  // The source picked for the sample while it is still one; the first one otherwise.
+  const source = sources.includes(chosenSource) ? chosenSource : (sources[0] ?? '');
 
   // Another signal is another shape of event; a sample nobody edited follows it.
   const signalRef = React.useRef(model.signalType);
@@ -83,10 +90,20 @@ export function TestPanel({
     const steps = stepsKey(model);
     runs.current += 1;
     setState({ kind: 'running' });
-    const outcome = await runPipelineTest(model, input.value, async (source, event) => {
-      const response = await functionsApi.run({ language: 'vrl', source, input: event });
-      return response.output;
-    });
+    const outcome = await runPipelineTest(
+      model,
+      input.value,
+      async (script, event, from) => {
+        const response = await functionsApi.run({
+          language: 'vrl',
+          source: script,
+          input: event,
+          metadata: { source_stream: from },
+        });
+        return { output: response.output, dropped: response.dropped === true };
+      },
+      source,
+    );
     setState({ kind: 'done', run: runs.current, outcome, steps });
   };
 
@@ -134,7 +151,17 @@ export function TestPanel({
       </header>
 
       <div className="mt-[10px] flex min-w-0 items-center gap-[12px]">
-        <span className={cn('mr-auto', uiLabelClass)}>{t('test.sample')}</span>
+        <span className={cn('mr-auto shrink-0 whitespace-nowrap', uiLabelClass)}>{t('test.sample')}</span>
+        {sources.length > 1 && (
+          <div className="w-[150px] min-w-0">
+            <FormSelect
+              value={source}
+              onChange={setChosenSource}
+              ariaLabel={t('test.sample_source')}
+              options={sources.map((name) => ({ value: name, label: t('test.from_source', { stream: name }) }))}
+            />
+          </div>
+        )}
         {source && (
           <SampleAction disabled={loading} onClick={() => void loadRecent()}>
             {loading ? (
@@ -230,15 +257,17 @@ function TestResult({
 }) {
   const { t } = useTranslation('pipelines');
   const failed = outcome.steps.some((step) => step.status === 'failed');
+  const dropper = outcome.steps.find((step) => step.status === 'dropped');
   const passed = outcome.steps.filter((step) => step.status === 'passed');
-  const last = passed.at(-1);
+  // A dropped event is shown as it came to the step that dropped it.
+  const last = dropper ?? passed.at(-1);
   // The event is shown as the last step left it, or as any earlier one did when that one is picked.
   const [picked, setPicked] = React.useState<number | null>(null);
   const captionId = React.useId();
   const shown = passed.find((step) => step.index === picked) ?? last;
   // With no steps there is no step to have left it: the event is what was put in.
   const untouched = outcome.steps.length === 0;
-  const final = !failed && shown === last;
+  const final = !failed && !dropper && shown === last;
   const event = untouched ? { output: outcome.output } : shown;
   const destinations = outcome.destinations.map((destination) => {
     const connector = connectorOf(destination);
@@ -247,7 +276,7 @@ function TestResult({
 
   return (
     <div
-      data-pipeline-test-result={failed ? 'failed' : 'passed'}
+      data-pipeline-test-result={failed ? 'failed' : dropper ? 'dropped' : 'passed'}
       data-stale={stale || undefined}
       className={cn('mt-[14px] min-w-0 transition-opacity', stale && 'opacity-60')}
     >
@@ -263,7 +292,7 @@ function TestResult({
             key={step.index}
             step={step}
             shown={step === shown}
-            onShow={step.status === 'passed' ? () => setPicked(step.index) : undefined}
+            onShow={step.status === 'passed' || step.status === 'dropped' ? () => setPicked(step.index) : undefined}
           />
         ))}
       </ol>
@@ -272,7 +301,11 @@ function TestResult({
         <>
           <div className="mt-[12px] flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <span id={captionId} className={uiLabelClass}>
-              {final || !shown ? t('test.output') : t('test.after_step', { number: shown.index + 1 })}
+              {final || !shown
+                ? t('test.output')
+                : shown === dropper
+                  ? t('test.dropped_at', { number: shown.index + 1 })
+                  : t('test.after_step', { number: shown.index + 1 })}
             </span>
             {final && destinations.length > 0 && (
               <span className="min-w-0 truncate font-sans text-xs text-tx-3">
@@ -295,6 +328,9 @@ function TestResult({
       {failed && (
         <p className="m-0 mt-[10px] font-sans text-xs leading-relaxed text-tx-3">{t('test.failed_note')}</p>
       )}
+      {dropper && (
+        <p className="m-0 mt-[10px] font-sans text-xs leading-relaxed text-tx-3">{t('test.dropped_note')}</p>
+      )}
     </div>
   );
 }
@@ -310,7 +346,14 @@ function StepResult({
   onShow: (() => void) | undefined;
 }) {
   const { t } = useTranslation('pipelines');
-  const Icon = step.status === 'passed' ? CircleCheck : step.status === 'failed' ? CircleX : MinusCircle;
+  const Icon =
+    step.status === 'passed'
+      ? CircleCheck
+      : step.status === 'failed'
+        ? CircleX
+        : step.status === 'dropped'
+          ? CircleSlash
+          : MinusCircle;
   const row = 'flex w-full min-w-0 items-start gap-[8px] rounded px-[6px] py-[3px] text-left font-sans text-xs';
   const body = (
     <>
@@ -320,6 +363,7 @@ function StepResult({
           'mt-[1px] h-3.5 w-3.5 shrink-0',
           step.status === 'passed' && 'text-green',
           step.status === 'failed' && 'text-red-soft',
+          step.status === 'dropped' && 'text-tx-2',
           step.status === 'skipped' && 'text-tx-3',
         )}
       />
@@ -335,6 +379,7 @@ function StepResult({
           </span>
         )}
         {step.status === 'skipped' && <span className="text-tx-3"> · {t('test.skipped')}</span>}
+        {step.status === 'dropped' && <span className="text-tx-2"> · {t('test.dropped')}</span>}
         {step.failure && (
           <span className="mt-[2px] block leading-relaxed text-red-soft">
             {step.failure.kind === 'runtime'

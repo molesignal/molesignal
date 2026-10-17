@@ -27,10 +27,14 @@ export interface FunctionRunInput {
   language: FunctionLanguage;
   source: string;
   input: unknown;
+  /** What the function reads beside the event (VRL `%name`), such as the stream it was read from. */
+  metadata?: Record<string, unknown>;
 }
 
 export interface FunctionRunResp {
   output: unknown;
+  /** The function dropped the event on purpose (VRL `abort`): it would go no further. */
+  dropped?: boolean;
 }
 
 export async function list(): Promise<FunctionResp[]> {

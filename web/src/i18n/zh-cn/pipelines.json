@@ -135,10 +135,18 @@
     "run_columns": {
       "state": "状态",
       "started": "开始时间",
+      "duration": "时长",
       "finished": "结束时间",
-      "rows": "行数",
-      "error": "错误"
-    }
+      "rows": "事件",
+      "error": "问题"
+    },
+    "run_counts": {
+      "scanned": "读入 {{value}}",
+      "written": "写出 {{value}}",
+      "dropped": "丢弃 {{value}}",
+      "failed": "失败 {{value}}"
+    },
+    "run_attempt": "第 {{attempt}} 次尝试"
   },
   "flows": {
     "add": {
@@ -178,8 +186,11 @@
     },
     "backfill": {
       "title": "回填",
-      "back_to_edit": "← 编辑流水线",
+      "subtitle": "在一段历史时间上把流水线重新跑一遍。",
+      "title_named": "回填 · {{name}}",
+      "back_to_edit": "编辑流水线",
       "window_title": "时间窗口",
+      "window_hint": "每个来源各提交一个任务，结果写到运行时写入的地方；流水线的读取位点不受影响。",
       "from_label": "起始",
       "from_hint": "ISO 8601 / RFC3339",
       "from_placeholder": "2026-05-20T00:00:00Z",
@@ -191,22 +202,15 @@
       "submitting": "提交中…",
       "toast_invalid": "两个时间字段需为合法的 RFC3339。",
       "toast_to_before_from": "`to` 必须大于 `from`。",
-      "toast_queued": "回填已排队（{{jobIdShort}}）",
-      "monitor_link": "查看任务 {{jobIdShort}} ↗"
+      "toast_queued": "已为 {{count}} 个来源提交回填任务",
+      "monitor_link": "{{source}} · 任务 {{jobIdShort}} ↗"
     },
     "history": {
       "title": "运行历史",
-      "back_to_edit": "← 编辑流水线",
-      "empty_title": "暂无运行记录",
-      "empty_description": "调度器尚未触发该流水线。",
-      "columns": {
-        "run_id": "运行 id",
-        "state": "状态",
-        "started": "开始时间",
-        "duration": "时长",
-        "scanned": "扫描行数",
-        "error": "错误"
-      }
+      "retry": "{{source}} 有一段时间的数据读取或写入失败，{{when}}进行第 {{attempt}} 次尝试。",
+      "subtitle": "每次运行读入多少事件、它们最后写出、丢弃还是失败，以及失败的原因。",
+      "title_named": "运行历史 · {{name}}",
+      "back_to_edit": "编辑流水线"
     },
     "form": {
       "identity_title": "身份信息",
@@ -221,7 +225,7 @@
     }
   },
   "workspace": {
-    "subtitle": "从一个数据流读取事件，逐步处理后写入目标。",
+    "subtitle": "从一个或多个数据流读取事件，逐步处理后写入目标。",
     "more_actions": "更多",
     "stage_graph": "流程",
     "graph_stats": "{{nodes}} 个节点 · {{edges}} 条连接",
@@ -270,20 +274,25 @@
       "processor_field_missing": "步骤「{{name}}」还有未填写的字段。",
       "processor_pattern_missing": "步骤「{{name}}」需要填写正则表达式。",
       "processor_number_invalid": "步骤「{{name}}」的值不是数字。",
+      "processor_percent_invalid": "步骤「{{name}}」的保留比例需在 0 到 100 之间。",
       "pending_one": "还有 {{count}} 处待填写",
       "pending_other": "还有 {{count}} 处待填写",
       "warnings_one": "{{count}} 条提醒",
       "warnings_other": "{{count}} 条提醒",
       "stream_name_invalid": "「{{name}}」不是合法的流名：只能包含字母、数字、_、- 和 .",
-      "source_unread": "{{name}} 不会被读取：一条流水线只读取一个数据流（{{read}}）。",
-      "sink_unwritten": "不会有数据写入 {{name}}：事件只写入 {{written}}。",
+      "source_duplicate": "{{name}} 已在来源中，只会读取一次。",
+      "sink_duplicate": "{{name}} 已是目标之一，只会写入一次。",
+      "too_many_sources": "一条流水线最多读取 {{max}} 个数据流。",
+      "too_many_sinks": "一条流水线最多写入 {{max}} 个数据流。",
+      "dead_letter_invalid": "死信数据流「{{name}}」不是合法的流名：只能包含字母、数字、_、- 和 .",
+      "dead_letter_conflict": "死信数据流不能是流水线读取或写入的数据流：{{name}}",
       "connector_unset": "请为该目标选择连接器。",
       "connector_duplicate": "该连接器已是目标之一：事件会被重复投递。",
       "route_target_missing": "步骤「{{name}}」需要指定分流到的数据流。",
       "route_field_missing": "步骤「{{name}}」需要填写分流字段和兜底数据流。",
       "route_stream_invalid": "步骤「{{name}}」：「{{stream}}」不是合法的流名。",
       "route_prefix_invalid": "步骤「{{name}}」：流名前缀只能包含字母、数字、_、- 和 .",
-      "route_to_source": "步骤「{{name}}」会把事件写回本流水线读取的 {{stream}}，每次运行都会失败。"
+      "route_to_source": "步骤「{{name}}」会把事件写回本流水线读取的 {{stream}}，请换一个数据流。"
     }
   },
   "drawer": {
@@ -347,7 +356,21 @@
     "aria": "流水线设置",
     "name_placeholder": "为流水线命名",
     "every": "运行间隔",
-    "lookback": "每次读取最近",
+    "lookback": "首次运行往回读",
+    "delay": "等待迟到数据",
+    "delay_none": "不等待",
+    "delay_seconds": "{{count}} 秒",
+    "delay_minutes": "{{count}} 分钟",
+    "delay_hours": "{{count}} 小时",
+    "run_retries": "运行失败重试",
+    "delivery_retries": "投递失败重试",
+    "retries_none": "不重试",
+    "retries": "{{count}} 次",
+    "dead_letter": "死信数据流",
+    "dead_letter_none": "不保留失败事件",
+    "dedupe": "去重字段",
+    "dedupe_none": "不去重",
+    "reliability_hint": "读源或写入失败时，同一段时间从 30 秒起成倍退避重试（不超过运行间隔），次数用完后跳过；投递失败在本次运行内重试。处理出错、被拒收或投递不成功的事件写进死信数据流（日志），附带阶段和原因。去重只在同一次运行内生效。",
     "interval_count": "{{label}}：数值",
     "interval_unit": "{{label}}：单位",
     "units": {
@@ -364,13 +387,16 @@
     "choose_stream": "选择数据流",
     "unnamed_step": "未命名步骤",
     "routed_detail": "由分流步骤决定",
+    "copy_detail": "收到全部事件",
     "node_with_issues_one": "{{name}}，{{count}} 处问题",
     "node_with_issues_other": "{{name}}，{{count}} 处问题",
     "source": "来源",
-    "not_read": "已保存，不会被读取",
-    "not_written": "已保存，不会被写入",
+    "add_source": "添加来源",
     "choose_connector": "选择连接器",
-    "add_connector": "添加连接器",
+    "add_destination": "添加目标",
+    "destination_stream": "数据流",
+    "destination_connector": "连接器",
+    "at_most": "最多 {{max}} 个数据流",
     "no_steps": "没有处理步骤：事件按读到的原样写入。"
   },
   "steps": {
@@ -382,7 +408,8 @@
     "generated_vrl": "生成的 VRL",
     "groups": {
       "parse": "解析",
-      "fields": "字段"
+      "fields": "字段",
+      "events": "事件"
     },
     "types": {
       "parse_json": "解析 JSON",
@@ -394,6 +421,8 @@
       "mask": "字段脱敏",
       "case": "大小写转换",
       "convert": "类型转换",
+      "filter": "过滤事件",
+      "sample": "采样",
       "route": "数据分流",
       "vrl": "自定义 VRL"
     }
@@ -404,10 +433,9 @@
     "move_later": "后移",
     "remove": "移除",
     "fix_before_saving": "保存前需先解决以下问题",
-    "source_hint": "每次运行读取该流在上方时间窗口内收到的事件。",
+    "source_hint": "每次运行从上次读到的位置接着读这个流。第一次运行往回读到「首次运行往回读」设定的时间。",
     "source_realtime_hint": "写入该流的每条事件都会即时经过各步骤。该流可以尚未创建。",
-    "source_unread": "一条流水线只读取一个数据流，这条读取的是 {{read}}。{{name}} 虽然保存在配置里，但从不会被读取。请移除它，或为它单独建一条流水线。",
-    "sink_unwritten": "事件只会写入 {{written}}。{{name}} 虽然保存在配置里，但不会有任何数据写入。请移除它，或添加数据分流步骤来为每条事件选择目标流。",
+    "copy_hint": "每条事件都会写一份到这里，不受分流步骤影响。目标流不存在时，会在写入第一条事件时自动创建。",
     "connector": "连接器",
     "connector_placeholder": "选择连接器…",
     "connector_hint": "流水线写入的每条事件也会投递到该连接器。",
@@ -460,7 +488,35 @@
       "float": "小数",
       "boolean": "布尔",
       "string": "文本"
-    }
+    },
+    "filter_action": "匹配条件的事件",
+    "filter_actions": {
+      "keep": "保留，其余丢弃",
+      "drop": "丢弃"
+    },
+    "filter_short": {
+      "keep": "保留 {{test}}",
+      "drop": "丢弃 {{test}}"
+    },
+    "filter_test": "条件",
+    "filter_tests": {
+      "equals": "等于",
+      "not_equals": "不等于",
+      "contains": "包含",
+      "starts_with": "开头是",
+      "matches": "匹配正则",
+      "exists": "存在",
+      "missing": "不存在",
+      "gt": "大于",
+      "gte": "大于等于",
+      "lt": "小于",
+      "lte": "小于等于"
+    },
+    "filter_number_hint": "数字，或能读成数字的文本；其他值都不匹配。",
+    "sample_percent": "保留比例（%）",
+    "sample_percent_hint": "大于 0、不超过 100，可以是小数。",
+    "sample_by": "按字段一致采样（可选）",
+    "sample_by_hint": "同一个值的事件要么全部保留，要么全部丢弃，例如同一条 trace。留空则逐条随机抽样。"
   },
   "test": {
     "title": "试运行",
@@ -468,6 +524,8 @@
     "run": "运行",
     "running": "运行中…",
     "sample": "样例事件",
+    "sample_source": "样例来自",
+    "from_source": "来自 {{stream}}",
     "reset_sample": "重置",
     "sample_invalid": "样例不是合法的 JSON。",
     "hint": "把样例改成你的数据的样子，运行后即可看到各步骤的处理结果。",
@@ -475,12 +533,15 @@
     "output": "处理结果",
     "written_to": "写入",
     "skipped": "未执行",
+    "dropped": "已丢弃",
     "failure_runtime": "处理这条事件时失败。",
     "failure_compile": "VRL 语法无效：{{message}}",
-    "failed_note": "流水线运行时，在某一步失败的事件会被跳过并计为错误。",
+    "failed_note": "流水线运行时，在某一步失败的事件计为失败；配置了死信数据流时会写进去。",
+    "dropped_note": "这条事件被有意丢弃，不会写入任何地方；运行时计为丢弃，不算失败。",
     "use_recent": "取 {{stream}} 的一条近期事件",
     "no_recent": "{{stream}} 最近 24 小时内没有事件。",
     "after_step": "步骤 {{number}} 之后",
+    "dropped_at": "被步骤 {{number}} 丢弃",
     "no_steps": "这条流水线没有处理步骤：事件按原样写入。"
   },
   "streams": {
@@ -490,7 +551,8 @@
     "name_invalid": "流名只能包含字母、数字、_、- 和 .",
     "none_yet_creatable": "还没有数据流，输入名称即可使用新流。",
     "no_match": "没有匹配的数据流。",
-    "use_new": "使用新数据流「{{name}}」"
+    "use_new": "使用新数据流「{{name}}」",
+    "clear": "不使用"
   },
   "connectors": {
     "title": "连接器",

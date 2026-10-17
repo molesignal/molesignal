@@ -12,6 +12,10 @@ export interface ScheduledPipeline {
   lookback_secs?: number;
   enabled?: boolean;
   last_run_at_micros?: number;
+  /** Per source, the time before which its events have been handled (microseconds). */
+  read_until_micros?: Record<string, number>;
+  /** The soonest planned retry of a stretch of time that failed. */
+  retry?: PipelineRetry | null;
   last_run_state?: 'running' | 'succeeded' | 'failed' | 'cancelled' | string;
   last_run_started_at_micros?: number;
   last_run_finished_at_micros?: number;
@@ -23,6 +27,14 @@ export interface ScheduledPipeline {
   created_at_micros?: number;
   updated_at_micros?: number;
   [key: string]: unknown;
+}
+
+export interface PipelineRetry {
+  source: string;
+  /** The attempt the retry will be. */
+  attempt: number;
+  next_at_micros: number;
+  error: string;
 }
 
 export interface PipelineInput {

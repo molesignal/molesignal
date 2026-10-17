@@ -9,13 +9,15 @@ import { StreamField } from './StreamField';
 import {
   CONNECTOR_PREFIX,
   connectorOf,
-  writtenSinkIndex,
+  firstStreamIndex,
+  isRouted,
   type PipelineGraphModel,
 } from '../PipelineGraph/model';
 
 /**
- * Where a pipeline writes: the one stream its events go to, or a connector
- * that also carries them out of the workspace.
+ * Where a pipeline writes: a stream that takes every event, or a connector
+ * that also carries them out of the workspace. With a routing step, the
+ * first stream stands for the stream the route picks.
  */
 export function DestinationFields({
   model,
@@ -31,7 +33,7 @@ export function DestinationFields({
   const { t } = useTranslation('pipelines');
   const value = model.sinks[index] ?? '';
   const connector = connectorOf(value);
-  const written = writtenSinkIndex(model.sinks);
+  const routed = isRouted(model);
   const setSink = (next: string) =>
     onChange({
       ...model,
@@ -72,18 +74,14 @@ export function DestinationFields({
     );
   }
 
-  // A name an earlier editor saved beside the destination. There is nothing to set on it.
-  if (index !== written) {
-    return note(t('editor.sink_unwritten', { name: value, written: model.sinks[written] ?? '' }));
-  }
   // A routing step picks the stream for every event; there is nothing to choose here.
-  if (model.transforms.some((step) => step.kind === 'builtin')) return note(t('processing.output_hint'));
+  if (routed && index === firstStreamIndex(model.sinks)) return note(t('processing.output_hint'));
 
   return (
     <div className="max-w-[420px]">
       <StreamField
         label={t('graph.sink_name')}
-        hint={t('realtime.auto_create')}
+        hint={t(routed ? 'editor.copy_hint' : 'realtime.auto_create')}
         value={value}
         signalType={model.signalType}
         resources={resources}

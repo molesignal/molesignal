@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 
-import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
+import { expect, FROZEN_NOW_ISO, mountMockRoutes, test } from '../fixtures/mockBackend';
 
 interface PipelineBody {
   name: string;
@@ -15,6 +15,10 @@ interface PipelineBody {
     sinks?: string[];
     sink_connectors?: string[];
     retain_source?: boolean;
+    delay_secs?: number;
+    retry?: { run_retries: number; delivery_retries: number };
+    dead_letter_stream?: string;
+    dedupe_field?: string;
     steps: Array<Record<string, unknown>>;
   };
 }
@@ -22,6 +26,7 @@ interface PipelineBody {
 interface TestRun {
   source: string;
   input: Record<string, unknown>;
+  metadata?: Record<string, unknown> | undefined;
 }
 
 const stream = (name: string, type: 'logs' | 'metrics') => ({
@@ -74,8 +79,8 @@ async function mountPipelines(page: Page) {
   );
   await page.route('**/api/v1/functions', (route) => route.fulfill({ json: [] }));
   await page.route('**/api/v1/functions/run', (route) => {
-    const { source, input } = route.request().postDataJSON() as TestRun;
-    runs.push({ source, input });
+    const { source, input, metadata } = route.request().postDataJSON() as TestRun;
+    runs.push({ source, input, metadata });
 
     if (source.includes('to_int(.level)')) {
       return route.fulfill({
@@ -83,8 +88,14 @@ async function mountPipelines(page: Page) {
         json: { error: 'invalid_argument', message: COMPILE_ERROR },
       });
     }
+    // A filter that matches the sample's level aborts it, as the runtime does.
+    if (source.includes('abort') && source.includes(`"${String(input.level)}"`)) {
+      return route.fulfill({ json: { output: input, dropped: true } });
+    }
     // Stands in for the runtime: each script leaves its mark on the event.
-    return route.fulfill({ json: { output: { ...input, ran: [...((input.ran as string[]) ?? []), source.length] } } });
+    return route.fulfill({
+      json: { output: { ...input, ran: [...((input.ran as string[]) ?? []), source.length] }, dropped: false },
+    });
   });
   await page.route('**/api/v1/scheduled_pipelines', (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
@@ -118,9 +129,24 @@ const nameField = (page: Page) => page.getByRole('textbox', { name: /^(Name|名�
 const save = (page: Page) => page.getByRole('button', { name: 'Create pipeline' });
 const streamPicker = (page: Page) => nodeEditor(page).locator('[data-stream-combobox]');
 
+/**
+ * Chooses from one of the flow's menus. The menu hands the focus back to its
+ * button a moment after it closes, which would close a popover opened in that
+ * moment, so this waits for it.
+ */
+async function choose(page: Page, menu: string, item: string) {
+  const trigger = page.getByRole('button', { name: menu });
+  await trigger.click();
+  await page.getByRole('menuitem', { name: item, exact: true }).click();
+  await expect(trigger).toBeFocused();
+}
+
 async function addStep(page: Page, type: string) {
-  await page.getByRole('button', { name: 'Add step' }).click();
-  await page.getByRole('menuitem', { name: type, exact: true }).click();
+  await choose(page, 'Add step', type);
+}
+
+async function addDestination(page: Page, kind: 'Stream' | 'Connector') {
+  await choose(page, 'Add destination', kind);
 }
 
 /** Picks one of the workspace's streams for the node that is open. */
@@ -187,11 +213,14 @@ test.describe('Pipeline editor', () => {
     await expect(flowStatus(page)).toHaveText('2 left to fill in');
     await expect(page.locator('[aria-invalid="true"]')).toHaveCount(0);
 
-    // A pipeline reads one stream and writes one: neither lane grows, and no control promises
-    // what nothing does.
-    await expect(page.getByRole('button', { name: /Add source|Add destination/ })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Add connector' })).toBeVisible();
-    await expect(page.locator('[data-pipeline-settings]')).not.toContainText(/retry/i);
+    // Either side takes more streams, and the destinations take connectors too.
+    await expect(page.getByRole('button', { name: 'Add source' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add destination' })).toBeVisible();
+    // How a run reads and what it does when something fails is set beside the schedule.
+    const settingsCard = page.locator('[data-pipeline-settings]');
+    await expect(settingsCard.getByRole('combobox', { name: 'Wait for late events' })).toHaveText('1 min');
+    await expect(settingsCard.getByRole('combobox', { name: 'Retry a failed run' })).toHaveText('3 times');
+    await expect(settingsCard.getByRole('combobox', { name: 'Retry a failed delivery' })).toHaveText('3 times');
 
     // The cards stand on one pair of edges; the node and the test run share a row.
     const [settings, flow, editor, panel] = await Promise.all([
@@ -377,10 +406,10 @@ test.describe('Pipeline editor', () => {
     await expect(testResult(page).locator('[data-test-step]').last()).toContainText('→ app_checkout');
     await expect(testResult(page)).toContainText('Written to app_checkout');
 
-    // Routing back into the stream that is read would fail every run: held against the step.
+    // Routing back into a stream that is read would feed the pipeline its own output.
     await nodeEditor(page).getByRole('textbox', { name: /^Fallback stream/ }).fill('app_logs');
     await expect(flowCard(page).locator('[data-flow-issue="error"]')).toHaveText([
-      'Step "route" would route events back into app_logs, the stream this pipeline reads. Every run would fail.',
+      'Step "route" would route events back into app_logs, a stream this pipeline reads. Choose another stream.',
     ]);
     await nodeEditor(page).getByRole('textbox', { name: /^Fallback stream/ }).fill('default');
     await expect(flowStatus(page)).toHaveAttribute('data-flow-status', 'valid');
@@ -405,7 +434,7 @@ test.describe('Pipeline editor', () => {
     const backend = await mountPipelines(page);
     await startPipeline(page, 'archive-logs');
 
-    await page.getByRole('button', { name: 'Add connector' }).click();
+    await addDestination(page, 'Connector');
     await expect(node(page, 'sink-1')).toContainText('Choose a connector');
     await expect(flowStatus(page)).toHaveText('1 left to fill in');
     await expect(node(page, 'sink-1').locator('[data-flow-node-issue]')).toHaveAttribute(
@@ -436,10 +465,11 @@ test.describe('Pipeline editor', () => {
     await expect(settings.getByText('Run every')).toBeVisible();
     await settings.getByRole('button', { name: 'Realtime', exact: true }).click();
 
-    // No schedule to set, one stream in and one out, logs only.
+    // No schedule to set and nothing to retry, one stream in and one out, logs only.
     await expect(settings.getByText('Run every')).toHaveCount(0);
+    await expect(settings.getByRole('combobox', { name: 'Retry a failed run' })).toHaveCount(0);
     await expect(settings.getByRole('combobox', { name: 'Signal type' })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Add connector' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Add (source|destination)$/ })).toHaveCount(0);
 
     await node(page, 'source-0').click();
     await nodeEditor(page).getByRole('checkbox', { name: 'Also retain in source stream' }).click();
@@ -492,7 +522,7 @@ test.describe('Pipeline editor', () => {
     await expect(node(page, 'transform-1')).toHaveAttribute('aria-pressed', 'true');
   });
 
-  test('shows a saved pipeline as the same flow, and says what in it nothing reads or writes', async ({
+  test('shows a saved pipeline as the same flow: every source, every stream, every connector', async ({
     page,
   }) => {
     const backend = await mountPipelines(page);
@@ -504,9 +534,8 @@ test.describe('Pipeline editor', () => {
       lookback_secs: 900,
       enabled: true,
       function_steps: {
-        // As an earlier editor could save it: two sources, though only the first was ever read.
         sources: ['app_logs', 'audit_logs'],
-        sinks: ['clean_logs'],
+        sinks: ['clean_logs', 'archive_logs'],
         sink_connectors: ['c1'],
         steps: [{ transform_name: 'keep', kind: 'vrl', script: '. = .' }],
       },
@@ -516,21 +545,148 @@ test.describe('Pipeline editor', () => {
     const flow = page.locator('[data-pipeline-flow]').first();
     await expect(flow.getByRole('group', { name: 'Source' }).locator('[data-pipeline-node]')).toHaveText([
       'app_logsStream input',
-      'audit_logsSaved, never read',
+      'audit_logsStream input',
     ]);
     // The connector goes by its name.
     await expect(flow.getByRole('group', { name: 'Destinations' }).locator('[data-pipeline-node]')).toHaveText([
       'clean_logsStream output',
+      'archive_logsStream output',
       'ArchiveConnector delivery',
     ]);
     await expect(flow.getByRole('button')).toHaveCount(0);
 
-    // The editor says it too, and lets the name go.
+    // The editor opens it as it is, with nothing to say about it.
     await page.goto('/pipelines/p-1/edit');
-    await expect(flowStatus(page)).toHaveText('1 note');
-    await page.getByRole('button', { name: /audit_logs is never read/ }).click();
-    await nodeEditor(page).getByRole('button', { name: 'Remove' }).click();
     await expect(flowStatus(page)).toHaveAttribute('data-flow-status', 'valid');
+  });
+
+  test('reads several streams and writes several, every one of them taking every event', async ({ page }) => {
+    const backend = await mountPipelines(page);
+    await startPipeline(page, 'fan');
+
+    await page.getByRole('button', { name: 'Add source' }).click();
+    await expect(node(page, 'source-1')).toHaveAttribute('aria-pressed', 'true');
+    await pickStream(page, 'audit_logs');
+    await addDestination(page, 'Stream');
+    await expect(node(page, 'sink-1')).toHaveAttribute('aria-pressed', 'true');
+    await nameStream(page, 'logs_archive');
+    await expect(flowStatus(page)).toHaveAttribute('data-flow-status', 'valid');
+
+    // The sample is said to come from one of the sources, which the steps see as %source_stream.
+    await addStep(page, 'Custom VRL');
+    await testPanel(page).getByRole('combobox', { name: 'Sample from' }).click();
+    await page.getByRole('option', { name: 'From audit_logs' }).click();
+    await page.getByRole('button', { name: 'Run test' }).click();
+    await expect(testResult(page)).toContainText('Written to app_logs_clean, logs_archive');
+    expect(backend.runs.at(-1)!.metadata).toEqual({ source_stream: 'audit_logs' });
+
+    await save(page).click();
+    await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
+    expect(backend.saved[0]).toMatchObject({ source_stream: 'app_logs', target_stream: 'app_logs_clean' });
+    expect(backend.saved[0]!.function_steps).toMatchObject({
+      sources: ['app_logs', 'audit_logs'],
+      sinks: ['app_logs_clean', 'logs_archive'],
+    });
+  });
+
+  test('drops what a filter says, in the test run as when the pipeline runs', async ({ page }) => {
+    const backend = await mountPipelines(page);
+    await startPipeline(page, 'quiet');
+
+    await addStep(page, 'Filter events');
+    await nodeEditor(page).getByRole('button', { name: 'Drop', exact: true }).click();
+    await nodeEditor(page).getByRole('textbox', { name: /^Field/ }).fill('level');
+    await nodeEditor(page).getByRole('textbox', { name: 'Value', exact: true }).fill('WARN');
+    await expect(node(page, 'transform-0')).toHaveText(/Filter events · drop level = WARN$/);
+    await addStep(page, 'Custom VRL');
+
+    // The sample's level is WARN: dropped at the filter, so the step after it never runs.
+    await page.getByRole('button', { name: 'Run test' }).click();
+    await expect(testResult(page)).toHaveAttribute('data-pipeline-test-result', 'dropped');
+    await expect(testResult(page).locator('[data-test-step]')).toHaveText([/dropped$/, /not run$/]);
+    await expect(testResult(page)).toContainText('Dropped by step 1');
+    await expect(testResult(page)).not.toContainText('Written to');
+    expect(backend.runs).toHaveLength(1);
+
+    await save(page).click();
+    await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
+    expect(backend.saved[0]!.function_steps.steps[0]).toMatchObject({
+      transform_name: 'filter',
+      processor: { op: 'filter', action: 'drop', field: 'level', test: 'equals', value: 'WARN' },
+    });
+    expect(String(backend.saved[0]!.function_steps.steps[0]!.script)).toContain('abort');
+  });
+
+  test('saves how a run waits for late events, retries, keeps dead letters and dedupes', async ({ page }) => {
+    const backend = await mountPipelines(page);
+    await startPipeline(page, 'careful');
+
+    const settings = page.locator('[data-pipeline-settings]');
+    await settings.getByRole('combobox', { name: 'Wait for late events' }).click();
+    await page.getByRole('option', { name: '5 min' }).click();
+    await settings.getByRole('combobox', { name: 'Retry a failed run' }).click();
+    await page.getByRole('option', { name: 'No retry' }).click();
+    await settings.locator('[data-stream-combobox]').click();
+    await page.getByPlaceholder('Search, or type a new name…').fill('failed_events');
+    await page.getByRole('option', { name: 'Use new stream "failed_events"' }).click();
+    await settings.getByRole('textbox', { name: 'Dedupe by field' }).fill('trace_id');
+
+    await save(page).click();
+    await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
+    expect(backend.saved[0]!.function_steps).toMatchObject({
+      delay_secs: 300,
+      retry: { run_retries: 0, delivery_retries: 3 },
+      dead_letter_stream: 'failed_events',
+      dedupe_field: 'trace_id',
+    });
+
+    // Saved, it opens with them; a dead letter stream can be let go again.
+    await expect(settings.locator('[data-stream-combobox]')).toHaveText('failed_events');
+    await settings.locator('[data-stream-combobox]').click();
+    await page.getByRole('option', { name: 'Keep no failed events' }).click();
+    await expect(settings.locator('[data-stream-combobox]')).toHaveText('Keep no failed events');
+  });
+
+  test('lists what each run read and where its events ended, under the retry that is due', async ({ page }) => {
+    const now = Date.parse(FROZEN_NOW_ISO) * 1000;
+    await page.route('**/api/v1/scheduled_pipelines/p-1', (route) =>
+      route.fulfill({
+        json: {
+          id: 'p-1',
+          name: 'checkout-logs',
+          source_stream: 'app_logs',
+          target_stream: 'clean_logs',
+          cron: 'every:5m',
+          lookback_secs: 300,
+          enabled: true,
+          retry: {
+            source: 'nginx_logs',
+            attempt: 2,
+            next_at_micros: now + 120_000_000,
+            error: 'read: unavailable: storage unavailable',
+          },
+          function_steps: { sources: ['app_logs', 'nginx_logs'], sinks: ['clean_logs'], steps: [] },
+        },
+      }),
+    );
+    await page.goto('/pipelines/p-1/history');
+
+    const header = page.getByTestId('page-header');
+    await expect(header.getByRole('heading', { level: 1 })).toHaveText('Run history · checkout-logs');
+    await expect(page.locator('[data-pipeline-retry]')).toHaveText(
+      'Reading or writing a stretch of nginx_logs failed; attempt 2 is in 2 minutes.read: unavailable: storage unavailable',
+    );
+
+    // The mock's two runs: one that went through with some events dropped or failed, one retried.
+    const rows = page.getByRole('row');
+    await expect(rows.nth(1)).toContainText('18,420 read · 18,200 written');
+    await expect(rows.nth(1)).toContainText('214 dropped · 6 failed');
+    await expect(rows.nth(1)).toContainText('6 event(s) failed');
+    await expect(rows.nth(2)).toContainText('Attempt 2');
+    await expect(rows.nth(2)).toContainText('`logs`: read: unavailable: storage unavailable');
+
+    await header.getByRole('button', { name: 'Edit pipeline' }).click();
+    await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
   });
 
   test('reads in Chinese when the interface does', async ({ page }) => {

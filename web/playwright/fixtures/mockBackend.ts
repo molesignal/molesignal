@@ -725,7 +725,12 @@ export function registerRoutes(app: Express): void {
         started_at_micros: finished - 4_000_000,
         finished_at_micros: finished,
         scanned_rows: 18_420,
+        written_rows: 18_200,
+        dropped_rows: 214,
+        failed_rows: 6,
+        attempt: 1,
         error: null,
+        warning: '6 event(s) failed: step `normalize-level` run: function call error',
       },
       {
         id: 'run-1',
@@ -734,7 +739,12 @@ export function registerRoutes(app: Express): void {
         started_at_micros: finished - 304_000_000,
         finished_at_micros: finished - 300_000_000,
         scanned_rows: 0,
-        error: 'stream not found: access_logs',
+        written_rows: 0,
+        dropped_rows: 0,
+        failed_rows: 0,
+        attempt: 2,
+        error: '`logs`: read: unavailable: storage unavailable',
+        warning: null,
       },
     ]);
   });
@@ -747,13 +757,16 @@ export function registerRoutes(app: Express): void {
       cron: 'every:5m',
       lookback_secs: 300,
       enabled: true,
+      read_until_micros: { logs: Date.parse(FROZEN_NOW_ISO) * 1000 - 60_000_000 },
+      retry: null,
       function_steps: {
         mode: 'scheduled',
         signal_type: 'logs',
         sources: ['logs'],
         sinks: ['access_logs'],
         sink_connectors: [],
-        retry_policy: 'exponential',
+        delay_secs: 60,
+        retry: { run_retries: 3, delivery_retries: 3 },
         steps: [
           {
             transform_name: 'normalize-level',

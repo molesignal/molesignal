@@ -51,17 +51,33 @@ function processorOf(step: TransformStep): ProcessorConfig | undefined {
     : undefined;
 }
 
+/** How often what failed is tried again. */
+export interface RetrySettings {
+  /** More attempts at a window whose read or write failed, after a backoff, before it is skipped. */
+  runRetries: number;
+  /** More attempts at a delivery to a connector within the run, before its events become dead letters. */
+  deliveryRetries: number;
+}
+
+/** What the backend uses when a pipeline leaves these out (`domain/pipeline/scheduled.rs`). */
+export const DEFAULT_RETRY: RetrySettings = { runRetries: 3, deliveryRetries: 3 };
+export const DEFAULT_DELAY_SECS = 60;
+export const MAX_RETRIES = 10;
+export const MAX_DELAY_SECS = 3_600;
+/** At most this many streams on either side of a pipeline. */
+export const MAX_STREAMS = 8;
+
 /**
- * A pipeline as the editor holds it. What runs is narrower than the lists
- * suggest, and the editor shows it that way:
- *  - `sources[0]` is the stream that is read. A pipeline reads one stream; any
- *    name after it was saved by an earlier editor and is never read.
- *  - The first entry of `sinks` that is not a connector is the stream that is
- *    written (unless a routing step picks the stream per event). Later stream
- *    names are likewise never written. `connector:<id>` entries are all
+ * A pipeline as the editor holds it:
+ *  - every stream in `sources` is read; a realtime pipeline reads one.
+ *  - `sinks` are where events go. Every stream there takes every event, except
+ *    that a routing step decides where the first one's events go (the first
+ *    stream stands for the routed output then). `connector:<id>` entries are
  *    delivered to; the id is empty until a connector is chosen.
  *  - `transforms` run in order and may be none: the events are then written
  *    as they were read.
+ *  - the rest says how a scheduled pipeline reads and what it does when
+ *    something fails.
  */
 export interface PipelineGraphModel {
   mode?: 'scheduled' | 'realtime';
@@ -70,8 +86,13 @@ export interface PipelineGraphModel {
   sources: string[];
   sinks: string[];
   transforms: TransformStep[];
-  /** Kept as it was saved. Nothing reads it, so the editor does not offer it. */
-  retryPolicy: string;
+  retry: RetrySettings;
+  /** The logs stream that events which could not be processed, written or delivered go to; blank for none. */
+  deadLetterStream: string;
+  /** Within a run, an event whose value of this field was already seen is dropped; blank for none. */
+  dedupeField: string;
+  /** How long a run leaves the latest stretch of time for late events before it reads it. */
+  delaySecs: number;
 }
 
 export const CONNECTOR_PREFIX = 'connector:';
@@ -81,9 +102,14 @@ export function connectorOf(sink: string): string | null {
   return sink.startsWith(CONNECTOR_PREFIX) ? sink.slice(CONNECTOR_PREFIX.length) : null;
 }
 
-/** Where in `sinks` the stream that is written sits; -1 when every destination is a connector. */
-export function writtenSinkIndex(sinks: readonly string[]): number {
+/** Where in `sinks` the first stream sits, the one a routing step decides for; -1 when there is none. */
+export function firstStreamIndex(sinks: readonly string[]): number {
   return sinks.findIndex((sink) => connectorOf(sink) === null);
+}
+
+/** Whether a routing step decides where events go. */
+export function isRouted(model: Pick<PipelineGraphModel, 'transforms'>): boolean {
+  return model.transforms.some((step) => step.kind === 'builtin');
 }
 
 
@@ -121,6 +147,8 @@ export function pipelineGraphFromPipeline(
   const streamSinks = unique([...stringsFrom(pipeline?.target_stream), ...stringsFrom(steps.sinks)]);
   const connectorSinks = unique(stringsFrom(steps.sink_connectors)).map((id) => `${CONNECTOR_PREFIX}${id}`);
 
+  const retry = stepObject(steps.retry);
+
   return {
     mode: executionMode(pipeline),
     retainSource: typeof steps.retain_source === 'boolean' ? steps.retain_source : stepObject(steps.routing).retain_source === true,
@@ -129,7 +157,23 @@ export function pipelineGraphFromPipeline(
     sources: sources.length > 0 ? sources : [''],
     sinks: [...(streamSinks.length > 0 ? streamSinks : ['']), ...connectorSinks],
     transforms: processingStepsFromPipeline(pipeline),
-    retryPolicy: typeof steps.retry_policy === 'string' ? steps.retry_policy : 'exponential',
+    retry: {
+      runRetries: wholeNumber(retry.run_retries, DEFAULT_RETRY.runRetries, MAX_RETRIES),
+      deliveryRetries: wholeNumber(retry.delivery_retries, DEFAULT_RETRY.deliveryRetries, MAX_RETRIES),
+    },
+    deadLetterStream: firstString(steps, ['dead_letter_stream']),
+    dedupeField: firstString(steps, ['dedupe_field']),
+    delaySecs: wholeNumber(steps.delay_secs, DEFAULT_DELAY_SECS, MAX_DELAY_SECS),
+  };
+}
+
+/** The streams a saved pipeline reads and writes, its own first: what a list names it by. */
+export function pipelineStreams(pipeline: ScheduledPipeline): { sources: string[]; sinks: string[] } {
+  const steps = stepObject(pipeline.function_steps);
+
+  return {
+    sources: unique([...stringsFrom(pipeline.source_stream), ...stringsFrom(steps.sources)]),
+    sinks: unique([...stringsFrom(pipeline.target_stream), ...stringsFrom(steps.sinks)]),
   };
 }
 
@@ -156,18 +200,21 @@ export function pipelineInputFromGraph({
   lookbackSecs?: number;
   enabled?: boolean;
 }): PipelineInput {
+  const scheduled = graph.mode !== 'realtime';
   const sources = named(graph.sources);
-  const sinks = named(graph.sinks);
+  const streams = graph.sinks.filter((sink) => connectorOf(sink) === null);
   const route = graph.transforms.filter((step) => step.kind === 'builtin').at(-1);
   const routeTarget = route ? (route.routing?.kind === 'field' ? route.routing.fallback : route.target) : undefined;
-  const streamSinks = routeTarget ? [routeTarget] : sinks.filter((sink) => connectorOf(sink) === null);
-  const connectorSinks = sinks.map(connectorOf).filter((id): id is string => Boolean(id));
-  const targetStream = streamSinks[0] ?? '';
+  // The first stream is where a routing step's events go when it picks none; the rest take copies.
+  const streamSinks = named([routeTarget ?? streams[0] ?? '', ...streams.slice(1)]);
+  const connectorSinks = unique(graph.sinks.map(connectorOf).filter((id): id is string => Boolean(id)));
+  const deadLetterStream = graph.deadLetterStream.trim();
+  const dedupeField = graph.dedupeField.trim();
 
   return {
     name,
     source_stream: sources[0] ?? '',
-    target_stream: targetStream,
+    target_stream: streamSinks[0] ?? '',
     function_steps: {
       mode: graph.mode ?? 'scheduled',
       ...(graph.mode === 'realtime' && { retain_source: graph.retainSource ?? false }),
@@ -175,7 +222,12 @@ export function pipelineInputFromGraph({
       sources,
       sinks: streamSinks,
       sink_connectors: connectorSinks,
-      retry_policy: graph.retryPolicy || 'exponential',
+      ...(scheduled && {
+        delay_secs: graph.delaySecs,
+        retry: { run_retries: graph.retry.runRetries, delivery_retries: graph.retry.deliveryRetries },
+        ...(deadLetterStream && { dead_letter_stream: deadLetterStream }),
+        ...(dedupeField && { dedupe_field: dedupeField }),
+      }),
       steps: graph.transforms.map((step, index) => ({
         transform_name: step.name.trim() || `step-${index + 1}`,
         kind: step.kind ?? 'vrl',
@@ -216,6 +268,11 @@ function named(value: string[]): string[] {
 
 function unique(value: string[]): string[] {
   return [...new Set(value)];
+}
+
+/** A whole number from 0 to `max` as saved, or `fallback` for anything else. */
+function wholeNumber(value: unknown, fallback: number, max: number): number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= max ? value : fallback;
 }
 
 function firstString(obj: Record<string, unknown>, keys: string[]): string {

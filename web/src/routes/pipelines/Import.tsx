@@ -2,13 +2,14 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
-import { PageHeader } from '@/admin';
 import * as pipelinesApi from '@/api/pipelines';
 import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
 import { ChromeButton } from '@/shell/chrome';
 import { CodeEditor } from '@/shell/codeEditor';
-import { FormField, FormSection } from '@/shell/FormDrawer';
+import { FormField } from '@/shell/FormDrawer';
+import { PageBody, PageHeader } from '@/shell/PageHeader';
+import { surfacePanelClass } from '@/shell/SurfaceWorkbench';
 import { toast } from '@/shell/ui/sonner';
 
 /**
@@ -69,7 +70,8 @@ export function PipelineImport() {
     <>
       <PageHeader
         title={t('flows.import.title')}
-        actions={
+        subtitle={t('flows.import.definition_description')}
+        toolbar={
           <>
             <ChromeButton onClick={() => navigate('/pipelines')}>{t('flows.import.cancel')}</ChromeButton>
             <ChromeButton
@@ -84,28 +86,28 @@ export function PipelineImport() {
           </>
         }
       />
-      <div className="mx-auto max-w-3xl p-4">
-        <form id="import-form" onSubmit={submit}>
-          <FormSection
-            title={t('flows.import.definition_title')}
-            description={t('flows.import.definition_description')}
-          >
-            <FormField label={t('flows.import.definition_label')}>
-              <CodeEditor
-                value={text}
-                onChange={setText}
-                language={text.trim().startsWith('{') ? 'json' : 'yaml'}
-                label={text.trim().startsWith('{') ? 'JSON' : 'YAML'}
-                ariaLabel={t('flows.import.definition_aria')}
-                placeholder={t('flows.import.definition_placeholder')}
-                readOnly={createAccess.disabled}
-                minHeight={420}
-                maxHeight={640}
-              />
-            </FormField>
-          </FormSection>
+      <PageBody>
+        <form
+          id="import-form"
+          onSubmit={submit}
+          aria-label={t('flows.import.definition_title')}
+          className={`px-[16px] pb-[16px] pt-[12px] ${surfacePanelClass}`}
+        >
+          <FormField label={t('flows.import.definition_label')}>
+            <CodeEditor
+              value={text}
+              onChange={setText}
+              language={text.trim().startsWith('{') ? 'json' : 'yaml'}
+              label={text.trim().startsWith('{') ? 'JSON' : 'YAML'}
+              ariaLabel={t('flows.import.definition_aria')}
+              placeholder={t('flows.import.definition_placeholder')}
+              readOnly={createAccess.disabled}
+              minHeight={420}
+              maxHeight={640}
+            />
+          </FormField>
         </form>
-      </div>
+      </PageBody>
     </>
   );
 }

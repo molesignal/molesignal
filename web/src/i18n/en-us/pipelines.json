@@ -135,10 +135,18 @@
     "run_columns": {
       "state": "State",
       "started": "Started",
+      "duration": "Duration",
       "finished": "Finished",
-      "rows": "Rows",
-      "error": "Error"
-    }
+      "rows": "Events",
+      "error": "Problems"
+    },
+    "run_counts": {
+      "scanned": "{{value}} read",
+      "written": "{{value}} written",
+      "dropped": "{{value}} dropped",
+      "failed": "{{value}} failed"
+    },
+    "run_attempt": "Attempt {{attempt}}"
   },
   "flows": {
     "add": {
@@ -178,8 +186,11 @@
     },
     "backfill": {
       "title": "Backfill",
-      "back_to_edit": "← Edit pipeline",
+      "subtitle": "Runs the pipeline again over a past stretch of time.",
+      "title_named": "Backfill · {{name}}",
+      "back_to_edit": "Edit pipeline",
       "window_title": "Window",
+      "window_hint": "Each source gets a job of its own, written where a run writes. The pipeline’s read positions stay where they are.",
       "from_label": "From",
       "from_hint": "ISO 8601 / RFC3339",
       "from_placeholder": "2026-05-20T00:00:00Z",
@@ -191,22 +202,15 @@
       "submitting": "Submitting…",
       "toast_invalid": "Provide valid RFC3339 timestamps for both fields.",
       "toast_to_before_from": "`to` must be greater than `from`.",
-      "toast_queued": "Backfill queued ({{jobIdShort}})",
-      "monitor_link": "Monitor job {{jobIdShort}} ↗"
+      "toast_queued": "Backfill submitted for {{count}} source(s)",
+      "monitor_link": "{{source}} · job {{jobIdShort}} ↗"
     },
     "history": {
       "title": "Run history",
-      "back_to_edit": "← Edit pipeline",
-      "empty_title": "No runs yet",
-      "empty_description": "The scheduler hasn't fired this pipeline yet.",
-      "columns": {
-        "run_id": "Run id",
-        "state": "State",
-        "started": "Started",
-        "duration": "Duration",
-        "scanned": "Scanned rows",
-        "error": "Error"
-      }
+      "retry": "Reading or writing a stretch of {{source}} failed; attempt {{attempt}} is {{when}}.",
+      "subtitle": "How many events each run read, whether they ended written, dropped or failed, and why a run failed.",
+      "title_named": "Run history · {{name}}",
+      "back_to_edit": "Edit pipeline"
     },
     "form": {
       "identity_title": "Identity",
@@ -221,7 +225,7 @@
     }
   },
   "workspace": {
-    "subtitle": "Read events from a stream, process them step by step, and write them where they are needed.",
+    "subtitle": "Read events from one or more streams, process them step by step, and write them where they are needed.",
     "more_actions": "More",
     "stage_graph": "Flow",
     "graph_stats": "{{nodes}} nodes · {{edges}} connections",
@@ -259,7 +263,7 @@
       "summary_other": "{{count}} issues",
       "no_source": "A pipeline needs a stream to read.",
       "no_sink": "A pipeline needs a stream to write to.",
-      "source_is_sink": "The pipeline would write to {{name}}, the stream it reads. Choose another destination.",
+      "source_is_sink": "The pipeline would write to {{name}}, a stream it reads. Choose another destination.",
       "transform_name_missing": "Step {{index}} has no name.",
       "transform_script_missing": "Step \"{{name}}\" has no VRL script.",
       "connector_missing": "This connector is gone, or is not one a pipeline can deliver to: {{id}}",
@@ -270,20 +274,25 @@
       "processor_field_missing": "Step \"{{name}}\" still has an empty field.",
       "processor_pattern_missing": "Step \"{{name}}\" needs a pattern.",
       "processor_number_invalid": "Step \"{{name}}\": the value is not a number.",
+      "processor_percent_invalid": "Step \"{{name}}\": the share to keep is a number above 0, up to 100.",
       "pending_one": "{{count}} left to fill in",
       "pending_other": "{{count}} left to fill in",
       "warnings_one": "{{count}} note",
       "warnings_other": "{{count}} notes",
       "stream_name_invalid": "\"{{name}}\" is not a stream name: use letters, numbers, _ - and . only.",
-      "source_unread": "{{name}} is never read: a pipeline reads one stream, {{read}}.",
-      "sink_unwritten": "Nothing is written to {{name}}: events go to {{written}}.",
+      "source_duplicate": "{{name}} is already a source; it is read once.",
+      "sink_duplicate": "{{name}} is already a destination; it is written once.",
+      "too_many_sources": "A pipeline reads at most {{max}} streams.",
+      "too_many_sinks": "A pipeline writes at most {{max}} streams.",
+      "dead_letter_invalid": "Dead letter stream \"{{name}}\" is not a stream name: use letters, numbers, _ - and . only.",
+      "dead_letter_conflict": "The dead letter stream cannot be a stream the pipeline reads or writes: {{name}}",
       "connector_unset": "Choose a connector for this destination.",
       "connector_duplicate": "This connector is already a destination: events would be delivered to it twice.",
       "route_target_missing": "Step \"{{name}}\" needs a stream to route to.",
       "route_field_missing": "Step \"{{name}}\" needs a field and a fallback stream.",
       "route_stream_invalid": "Step \"{{name}}\": \"{{stream}}\" is not a stream name.",
       "route_prefix_invalid": "Step \"{{name}}\": a stream prefix holds letters, numbers, _ - and . only.",
-      "route_to_source": "Step \"{{name}}\" would route events back into {{stream}}, the stream this pipeline reads. Every run would fail."
+      "route_to_source": "Step \"{{name}}\" would route events back into {{stream}}, a stream this pipeline reads. Choose another stream."
     }
   },
   "drawer": {
@@ -347,7 +356,21 @@
     "aria": "Pipeline settings",
     "name_placeholder": "Name this pipeline",
     "every": "Run every",
-    "lookback": "Read the last",
+    "lookback": "First run reads back",
+    "delay": "Wait for late events",
+    "delay_none": "No wait",
+    "delay_seconds": "{{count}} s",
+    "delay_minutes": "{{count}} min",
+    "delay_hours": "{{count}} h",
+    "run_retries": "Retry a failed run",
+    "delivery_retries": "Retry a failed delivery",
+    "retries_none": "No retry",
+    "retries": "{{count}} times",
+    "dead_letter": "Dead letter stream",
+    "dead_letter_none": "Keep no failed events",
+    "dedupe": "Dedupe by field",
+    "dedupe_none": "No dedupe",
+    "reliability_hint": "A failed read or write is retried on the same stretch of time after 30 s, then twice as long each time up to the run interval, and skipped when the retries run out; a failed delivery is retried within the run. Events a step fails on, a stream rejects or a connector does not take go to the dead letter stream (logs) with the stage and the reason. Dedupe works within one run.",
     "interval_count": "{{label}}: number",
     "interval_unit": "{{label}}: unit",
     "units": {
@@ -364,13 +387,16 @@
     "choose_stream": "Choose a stream",
     "unnamed_step": "Unnamed step",
     "routed_detail": "Chosen by the routing step",
+    "copy_detail": "Takes every event",
     "node_with_issues_one": "{{name}}, {{count}} issue",
     "node_with_issues_other": "{{name}}, {{count}} issues",
     "source": "Source",
-    "not_read": "Saved, never read",
-    "not_written": "Saved, never written",
+    "add_source": "Add source",
     "choose_connector": "Choose a connector",
-    "add_connector": "Add connector",
+    "add_destination": "Add destination",
+    "destination_stream": "Stream",
+    "destination_connector": "Connector",
+    "at_most": "At most {{max}} streams",
     "no_steps": "No steps: events are written as they are read."
   },
   "steps": {
@@ -382,7 +408,8 @@
     "generated_vrl": "Generated VRL",
     "groups": {
       "parse": "Parse",
-      "fields": "Fields"
+      "fields": "Fields",
+      "events": "Events"
     },
     "types": {
       "parse_json": "Parse JSON",
@@ -394,6 +421,8 @@
       "mask": "Mask field",
       "case": "Change case",
       "convert": "Convert type",
+      "filter": "Filter events",
+      "sample": "Sample",
       "route": "Route to stream",
       "vrl": "Custom VRL"
     }
@@ -404,10 +433,9 @@
     "move_later": "Move later",
     "remove": "Remove",
     "fix_before_saving": "Fix these before saving",
-    "source_hint": "Each run reads the events this stream received in the window set above.",
+    "source_hint": "Each run reads this stream from where the last one stopped. The first run reaches back as far as \"First run reads back\" says.",
     "source_realtime_hint": "Every event written to this stream goes through the steps as it arrives. The stream may not exist yet.",
-    "source_unread": "A pipeline reads one stream, and this one reads {{read}}. {{name}} is saved with it but is never read. Remove it, or give it a pipeline of its own.",
-    "sink_unwritten": "Events are written to {{written}} only. {{name}} is saved with this pipeline but nothing is written to it. Remove it, or add a routing step to choose the stream for each event.",
+    "copy_hint": "Every event is written here too, whatever the routing step picks. The stream is created by the first event written to it.",
     "connector": "Connector",
     "connector_placeholder": "Choose a connector…",
     "connector_hint": "Every event the pipeline writes is also delivered to this connector.",
@@ -460,7 +488,35 @@
       "float": "Decimal",
       "boolean": "Boolean",
       "string": "Text"
-    }
+    },
+    "filter_action": "Events that match",
+    "filter_actions": {
+      "keep": "Keep, drop the rest",
+      "drop": "Drop"
+    },
+    "filter_short": {
+      "keep": "keep {{test}}",
+      "drop": "drop {{test}}"
+    },
+    "filter_test": "Test",
+    "filter_tests": {
+      "equals": "equals",
+      "not_equals": "does not equal",
+      "contains": "contains",
+      "starts_with": "starts with",
+      "matches": "matches the pattern",
+      "exists": "exists",
+      "missing": "is missing",
+      "gt": "is greater than",
+      "gte": "is at least",
+      "lt": "is less than",
+      "lte": "is at most"
+    },
+    "filter_number_hint": "A number, or text that reads as one; any other value does not match.",
+    "sample_percent": "Share to keep (%)",
+    "sample_percent_hint": "Above 0 and up to 100; decimals are fine.",
+    "sample_by": "Sample by field (optional)",
+    "sample_by_hint": "Events with the same value are all kept or all dropped, such as one trace. Leave it blank to pick events at random."
   },
   "test": {
     "title": "Test",
@@ -468,6 +524,8 @@
     "run": "Run test",
     "running": "Running…",
     "sample": "Sample event",
+    "sample_source": "Sample from",
+    "from_source": "From {{stream}}",
     "reset_sample": "Reset",
     "sample_invalid": "The sample is not valid JSON.",
     "hint": "Edit the sample to look like your data, then run it to see what the steps make of it.",
@@ -475,12 +533,15 @@
     "output": "Result",
     "written_to": "Written to",
     "skipped": "not run",
+    "dropped": "dropped",
     "failure_runtime": "Failed on this event.",
     "failure_compile": "Not valid VRL: {{message}}",
-    "failed_note": "When the pipeline runs, an event that fails a step is skipped and counted as an error.",
+    "failed_note": "When the pipeline runs, an event that fails a step counts as failed, and goes to the dead letter stream when there is one.",
+    "dropped_note": "The event is dropped on purpose and goes nowhere; a run counts it as dropped, not as failed.",
     "use_recent": "Use a recent event from {{stream}}",
     "no_recent": "No events in {{stream}} in the last 24 hours.",
     "after_step": "After step {{number}}",
+    "dropped_at": "Dropped by step {{number}}",
     "no_steps": "This pipeline has no steps: the event is written as it is."
   },
   "streams": {
@@ -490,7 +551,8 @@
     "name_invalid": "A stream name holds letters, numbers, _ - and . only.",
     "none_yet_creatable": "No streams yet. Type a name to use a new one.",
     "no_match": "No stream matches.",
-    "use_new": "Use new stream \"{{name}}\""
+    "use_new": "Use new stream \"{{name}}\"",
+    "clear": "None"
   },
   "connectors": {
     "title": "Connectors",

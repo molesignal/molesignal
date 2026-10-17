@@ -5,7 +5,16 @@ import { uiLabelClass } from '@/shell/chrome';
 import { FormField, FormInput, FormSelect } from '@/shell/FormDrawer';
 import { Checkbox } from '@/shell/ui/checkbox';
 
-import type { ConvertTarget, MaskMode, ProcessorConfig, SetValueType } from './catalog';
+import {
+  FILTER_TESTS,
+  filterTestTakesValue,
+  type ConvertTarget,
+  type FilterAction,
+  type FilterTest,
+  type MaskMode,
+  type ProcessorConfig,
+  type SetValueType,
+} from './catalog';
 import { Segmented } from '../editor/Segmented';
 
 const FIELD_INPUT = 'font-mono text-xs';
@@ -223,6 +232,62 @@ export function ProcessorFields({
               }))}
             />
           </FormField>
+        </Grid>
+      );
+
+    case 'filter': {
+      const numeric = ['gt', 'gte', 'lt', 'lte'].includes(config.test);
+
+      return (
+        <Grid>
+          <div className="max-w-[420px] sm:col-span-2 xl:col-span-3">
+            {choice<FilterAction>(
+              t('processors.filter_action'),
+              config.action,
+              ['keep', 'drop'],
+              (action) => onChange({ ...config, action }),
+              'processors.filter_actions',
+            )}
+          </div>
+          {field(t('processors.field'), config.field, (name) => onChange({ ...config, field: name }), {
+            placeholder: 'level',
+            hint: t('processors.path_hint'),
+          })}
+          <FormField label={t('processors.filter_test')}>
+            <FormSelect
+              value={config.test}
+              onChange={(test) => onChange({ ...config, test: test as FilterTest })}
+              options={FILTER_TESTS.map((test) => ({
+                value: test,
+                label: t(`processors.filter_tests.${test}`),
+              }))}
+            />
+          </FormField>
+          {filterTestTakesValue(config.test) &&
+            field(
+              config.test === 'matches' ? t('processors.pattern') : t('processors.value'),
+              config.value,
+              (value) => onChange({ ...config, value }),
+              {
+                placeholder: config.test === 'matches' ? '^health' : numeric ? '500' : 'debug',
+                ...(numeric && { hint: t('processors.filter_number_hint') }),
+              },
+            )}
+        </Grid>
+      );
+    }
+
+    case 'sample':
+      return (
+        <Grid>
+          {field(t('processors.sample_percent'), config.percent, (percent) => onChange({ ...config, percent }), {
+            placeholder: '10',
+            hint: t('processors.sample_percent_hint'),
+          })}
+          {field(t('processors.sample_by'), config.by, (by) => onChange({ ...config, by }), {
+            placeholder: 'trace_id',
+            hint: t('processors.sample_by_hint'),
+          })}
         </Grid>
       );
   }

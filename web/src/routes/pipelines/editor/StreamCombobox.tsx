@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Plus } from 'lucide-react';
+import { Ban, Check, ChevronDown, Plus } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -18,13 +18,16 @@ import { isStreamName } from '../PipelineGraph/streamName';
  * A stream, found among those the workspace has or, where `creatable`, named
  * anew: a stream that does not exist yet is created by the first event
  * written to it. A name already chosen that the workspace does not list is
- * still shown, so an old pipeline does not open with a blank field.
+ * still shown, so an old pipeline does not open with a blank field. Where
+ * `clearable`, no stream at all is a choice too.
  */
 export function StreamCombobox({
   value,
   streams,
   onChange,
   creatable = false,
+  clearable = false,
+  placeholder,
   pending = false,
   disabled = false,
 }: {
@@ -33,6 +36,9 @@ export function StreamCombobox({
   streams: readonly string[];
   onChange: (stream: string) => void;
   creatable?: boolean;
+  clearable?: boolean;
+  /** What the field says while no stream is chosen. */
+  placeholder?: string | undefined;
   /** The list is still on its way. */
   pending?: boolean;
   disabled?: boolean;
@@ -71,6 +77,7 @@ export function StreamCombobox({
         >
           <span className={cn('min-w-0 flex-1 truncate', !value && 'text-tx-3')}>
             {value ||
+              placeholder ||
               t(
                 pending
                   ? 'graph.stream_loading'
@@ -95,6 +102,15 @@ export function StreamCombobox({
             className="text-xs"
           />
           <CommandList className="max-h-[260px]">
+            {clearable && value && !typed && (
+              <CommandGroup>
+                {/* No stream is named with a space, so this value is no stream's. */}
+                <CommandItem value=" none" onSelect={() => choose('')}>
+                  <Ban aria-hidden className="h-3.5 w-3.5 shrink-0 text-tx-2" />
+                  <span className="truncate">{placeholder ?? t('streams.clear')}</span>
+                </CommandItem>
+              </CommandGroup>
+            )}
             {matches.length === 0 && !fresh ? (
               <p className="m-0 px-[12px] py-[14px] font-sans text-xs leading-relaxed text-tx-3">
                 {t(
