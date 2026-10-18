@@ -84,4 +84,18 @@ describe('Mole Agent profile tool selection', () => {
       max_tool_calls: 7,
     });
   });
+
+  it('keeps the default temperature unless one is given, and bounds the run limits', () => {
+    const base = { ...createProfileDraft('new', 1, ['query_logs']), name: 'Bounded' };
+
+    expect(profileInputFromDraft(base, 'Fallback')?.temperature).toBeNull();
+    expect(
+      profileInputFromDraft({ ...base, temperature: '0.7' }, 'Fallback')?.temperature,
+    ).toBe(0.7);
+    expect(profileInputFromDraft({ ...base, temperature: '2.5' }, 'Fallback')).toBeNull();
+    expect(profileInputFromDraft({ ...base, temperature: '-1' }, 'Fallback')).toBeNull();
+    expect(
+      profileInputFromDraft({ ...base, maxInvestigationMinutes: '121' }, 'Fallback'),
+    ).toBeNull();
+  });
 });

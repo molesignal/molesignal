@@ -6,6 +6,11 @@ import type {
 } from '@/api/agent';
 
 import { parseDelimitedList } from '../../editorModel';
+import { optionalAmount } from '../amount';
+
+/** Bounds the backend enforces on a profile's run limits. */
+export const MAX_INVESTIGATION_MINUTES = 120;
+export const MAX_TEMPERATURE = 2;
 
 export type ProfileEditorSection =
   | 'profile'
@@ -49,6 +54,10 @@ export interface ProfileDraft {
   maxContextTokens: string;
   maxInvestigationMinutes: string;
   maxToolCalls: string;
+  /** Empty keeps Mole Agent's default temperature. */
+  temperature: string;
+  /** Chats using the profile may pick Bypass permissions. */
+  allowBypassPermissions: boolean;
   l0Policy: string;
   l1Policy: string;
   l2Policy: string;
@@ -96,6 +105,8 @@ export function createProfileDraft(
       maxContextTokens: '32000',
       maxInvestigationMinutes: '30',
       maxToolCalls: '32',
+      temperature: '',
+      allowBypassPermissions: false,
       l0Policy: 'automatic',
       l1Policy: 'automatic',
       l2Policy: 'approval',
@@ -122,6 +133,8 @@ export function createProfileDraft(
       Math.max(1, Math.round(target.max_investigation_secs / 60)),
     ),
     maxToolCalls: String(target.max_tool_calls),
+    temperature: target.temperature == null ? '' : String(target.temperature),
+    allowBypassPermissions: target.allow_bypass_permissions ?? false,
     l0Policy: String(target.risk_policy.l0 ?? 'automatic'),
     l1Policy: String(target.risk_policy.l1 ?? 'automatic'),
     l2Policy: String(target.risk_policy.l2 ?? 'approval'),
@@ -138,14 +151,18 @@ export function profileInputFromDraft(
   const maxContextTokens = Number(draft.maxContextTokens);
   const maxInvestigationMinutes = Number(draft.maxInvestigationMinutes);
   const maxToolCalls = Number(draft.maxToolCalls);
+  const temperature = optionalAmount(draft.temperature);
   if (
     !Number.isFinite(maxContextTokens) ||
     maxContextTokens < 1 ||
     !Number.isFinite(maxInvestigationMinutes) ||
     maxInvestigationMinutes < 1 ||
+    maxInvestigationMinutes > MAX_INVESTIGATION_MINUTES ||
     !Number.isFinite(maxToolCalls) ||
     maxToolCalls < 1 ||
-    maxToolCalls > 256
+    maxToolCalls > 256 ||
+    temperature === 'invalid' ||
+    (temperature !== null && temperature > MAX_TEMPERATURE)
   ) {
     return null;
   }
@@ -172,6 +189,8 @@ export function profileInputFromDraft(
     max_context_tokens: Math.round(maxContextTokens),
     max_investigation_secs: Math.round(maxInvestigationMinutes * 60),
     max_tool_calls: Math.round(maxToolCalls),
+    temperature,
+    allow_bypass_permissions: draft.allowBypassPermissions,
     is_default: draft.isDefault,
     enabled: draft.enabled,
   };

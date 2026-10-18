@@ -24,18 +24,18 @@ import { Switch } from '@/shell/ui/switch';
 import { Textarea } from '@/shell/ui/textarea';
 
 import {
-  CopyButton,
   EndpointField,
   Field,
   NumberField,
+  ConnectPrompt,
   OAuthConnections,
 } from './components';
 
 interface SettingsDraft {
   enabled: boolean;
   origins: string;
-  requestBytes: string;
-  responseBytes: string;
+  requestSize: string;
+  responseSize: string;
   concurrentCalls: string;
   callsPerMinute: string;
   readTimeoutMs: string;
@@ -47,8 +47,8 @@ function createDraft(
   return {
     enabled: settings.enabled,
     origins: settings.allowed_origins.join('\n'),
-    requestBytes: String(settings.max_request_bytes),
-    responseBytes: String(settings.max_response_bytes),
+    requestSize: String(settings.max_request_size),
+    responseSize: String(settings.max_response_size),
     concurrentCalls: String(settings.max_concurrent_calls),
     callsPerMinute: String(settings.calls_per_minute),
     readTimeoutMs: String(settings.read_timeout_ms),
@@ -134,14 +134,14 @@ export function InboundMcpPanel() {
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    const maxRequestBytes = Number(draft.requestBytes);
-    const maxResponseBytes = Number(draft.responseBytes);
+    const maxRequestSize = Number(draft.requestSize);
+    const maxResponseSize = Number(draft.responseSize);
     const maxConcurrentCalls = Number(draft.concurrentCalls);
     const callsPerMinute = Number(draft.callsPerMinute);
     const readTimeoutMs = Number(draft.readTimeoutMs);
     const values = [
-      maxRequestBytes,
-      maxResponseBytes,
+      maxRequestSize,
+      maxResponseSize,
       maxConcurrentCalls,
       callsPerMinute,
       readTimeoutMs,
@@ -160,8 +160,8 @@ export function InboundMcpPanel() {
         .split(/[,\n]/)
         .map((value) => value.trim())
         .filter(Boolean),
-      max_request_bytes: maxRequestBytes,
-      max_response_bytes: maxResponseBytes,
+      max_request_size: maxRequestSize,
+      max_response_size: maxResponseSize,
       max_concurrent_calls: maxConcurrentCalls,
       calls_per_minute: callsPerMinute,
       read_timeout_ms: readTimeoutMs,
@@ -197,22 +197,16 @@ export function InboundMcpPanel() {
           </div>
         </div>
         <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <EndpointField
+            label={t('settings.inbound_mcp.endpoint')}
+            value={endpointUrl}
+          />
           <div>
-            <Label className="text-xs text-tx-3">
-              {t('settings.inbound_mcp.endpoint')}
-            </Label>
-            <div className="mt-1 flex min-w-0 items-center gap-2 rounded-md border border-bd-0 bg-bg-2 px-3 py-2">
-              <code className="min-w-0 flex-1 truncate text-xs text-tx-1">
-                {endpointUrl}
-              </code>
-              <CopyButton value={endpointUrl} />
-            </div>
-          </div>
-          <div>
-            <Label className="text-xs text-tx-3">
+            <Label className="text-xs text-tx-2">
               {t('settings.inbound_mcp.protocols')}
             </Label>
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            {/* As high as the endpoint field beside it, the versions centred on it. */}
+            <div className="mt-1.5 flex min-h-9 flex-wrap items-center gap-1.5">
               {settingsQuery.data.protocol_versions.map((version) => (
                 <Badge key={version} variant="outline" className="font-mono">
                   {version}
@@ -324,8 +318,8 @@ export function InboundMcpPanel() {
           {t('settings.inbound_mcp.runtime.description')}
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <NumberField label={t('settings.inbound_mcp.runtime.request_bytes')} value={draft.requestBytes} min={1_024} max={settingsQuery.data.hard_max_body_bytes} onChange={(requestBytes) => setDraft({ ...draft, requestBytes })} />
-          <NumberField label={t('settings.inbound_mcp.runtime.response_bytes')} value={draft.responseBytes} min={1_024} max={settingsQuery.data.hard_max_body_bytes} onChange={(responseBytes) => setDraft({ ...draft, responseBytes })} />
+          <NumberField label={t('settings.inbound_mcp.runtime.request_size')} value={draft.requestSize} min={1} max={settingsQuery.data.hard_max_size} onChange={(requestSize) => setDraft({ ...draft, requestSize })} />
+          <NumberField label={t('settings.inbound_mcp.runtime.response_size')} value={draft.responseSize} min={1} max={settingsQuery.data.hard_max_size} onChange={(responseSize) => setDraft({ ...draft, responseSize })} />
           <NumberField label={t('settings.inbound_mcp.runtime.concurrent_calls')} value={draft.concurrentCalls} min={1} max={128} onChange={(concurrentCalls) => setDraft({ ...draft, concurrentCalls })} />
           <NumberField label={t('settings.inbound_mcp.runtime.calls_per_minute')} value={draft.callsPerMinute} min={1} max={10_000} onChange={(callsPerMinute) => setDraft({ ...draft, callsPerMinute })} />
           <NumberField label={t('settings.inbound_mcp.runtime.read_timeout')} value={draft.readTimeoutMs} min={100} max={300_000} onChange={(readTimeoutMs) => setDraft({ ...draft, readTimeoutMs })} />
@@ -339,6 +333,8 @@ export function InboundMcpPanel() {
         revoking={revoke.isPending}
         onRevoke={(id) => revoke.mutate(id)}
       />
+
+      <ConnectPrompt endpoint={endpointUrl} />
 
       <div className="flex justify-end border-t border-bd-0 pt-4">
         <Button type="submit" disabled={save.isPending}>

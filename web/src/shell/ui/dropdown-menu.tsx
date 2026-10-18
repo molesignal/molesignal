@@ -22,6 +22,8 @@ const DropdownMenuGroup = DropdownMenuPrimitive.Group;
 const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
 const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
+/** Shown inside a checked item only: for an item that places its own check. */
+const DropdownMenuItemIndicator = DropdownMenuPrimitive.ItemIndicator;
 
 /** The distance a menu keeps from the edges of the window, the same a tooltip keeps. */
 const WINDOW_EDGE_GAP = 8;
@@ -172,25 +174,33 @@ const DropdownMenuCheckboxItem = React.forwardRef<
 ));
 DropdownMenuCheckboxItem.displayName = DropdownMenuPrimitive.CheckboxItem.displayName;
 
+/**
+ * A choice of a radio group. Its check sits at the start; with `indicator="none"`
+ * the item draws none, and places a `DropdownMenuItemIndicator` where it wants one.
+ */
 const DropdownMenuRadioItem = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.RadioItem>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.RadioItem>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.RadioItem> & {
+    indicator?: 'start' | 'none';
+  }
+>(({ className, children, indicator = 'start', ...props }, ref) => (
   <DropdownMenuPrimitive.RadioItem
     ref={ref}
     className={cn(
       floatingMenuItemClass,
       floatingMenuSelectedClass,
-      'pl-[30px] pr-[10px]',
+      indicator === 'start' ? 'pl-[30px] pr-[10px]' : 'px-[10px]',
       className,
     )}
     {...props}
   >
-    <span className="absolute left-[8px] flex h-[14px] w-[14px] items-center justify-center">
-      <DropdownMenuPrimitive.ItemIndicator>
-        <Check className="h-[14px] w-[14px] text-indigo-soft" />
-      </DropdownMenuPrimitive.ItemIndicator>
-    </span>
+    {indicator === 'start' && (
+      <span className="absolute left-[8px] flex h-[14px] w-[14px] items-center justify-center">
+        <DropdownMenuPrimitive.ItemIndicator>
+          <Check className="h-[14px] w-[14px] text-indigo-soft" />
+        </DropdownMenuPrimitive.ItemIndicator>
+      </span>
+    )}
     {children}
   </DropdownMenuPrimitive.RadioItem>
 ));
@@ -234,6 +244,7 @@ DropdownMenuShortcut.displayName = 'DropdownMenuShortcut';
 
 export {
   DropdownMenu,
+  DropdownMenuItemIndicator,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,

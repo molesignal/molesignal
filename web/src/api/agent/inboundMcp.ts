@@ -4,8 +4,10 @@ export interface InboundMcpSettings {
   org_id: string;
   enabled: boolean;
   allowed_origins: string[];
-  max_request_bytes: number;
-  max_response_bytes: number;
+  /** MiB a request body may take. */
+  max_request_size: number;
+  /** MiB a response may take. */
+  max_response_size: number;
   max_concurrent_calls: number;
   calls_per_minute: number;
   read_timeout_ms: number;
@@ -18,8 +20,8 @@ export type InboundMcpSettingsInput = Pick<
   InboundMcpSettings,
   | 'enabled'
   | 'allowed_origins'
-  | 'max_request_bytes'
-  | 'max_response_bytes'
+  | 'max_request_size'
+  | 'max_response_size'
   | 'max_concurrent_calls'
   | 'calls_per_minute'
   | 'read_timeout_ms'
@@ -30,7 +32,8 @@ export interface InboundMcpSettingsResponse {
   endpoint: string;
   protocol_versions: string[];
   transports: string[];
-  hard_max_body_bytes: number;
+  /** The most MiB a request or response size can be set to. */
+  hard_max_size: number;
   oauth: {
     protected_resource_metadata: string;
     authorization_server_metadata: string;

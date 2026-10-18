@@ -1,5 +1,10 @@
-import { http } from '@/lib/http';
-import { useAuthStore } from '@/stores/auth';
+import { AxiosError } from 'axios';
+
+import { http, toApiError } from '@/lib/http';
+
+import { type CommandRefusal, type MessageCommand, commandRefusal } from './commands';
+import type { Run } from './runs';
+import type { Cost } from './usage';
 
 export interface Chat {
   id: string;
@@ -12,6 +17,22 @@ export interface Chat {
   time_range_start_micros?: number | null;
   time_range_end_micros?: number | null;
   archive_object_key?: string | null;
+  /** A personal chat, or one for a team whose members read and continue it. */
+  scope?: 'personal' | 'team';
+  team_id?: string | null;
+  /** Teams whose skills and MCP servers a personal chat has taken in. */
+  mounted_team_ids?: string[];
+  /** Who started the chat. */
+  owner_id?: string;
+  /** False when only the title and usage can be seen. */
+  readable?: boolean;
+  /** What the chat investigates, such as the incident it was started from. */
+  subject_kind?: 'incident' | null;
+  subject_id?: string | null;
+  /** The investigation record the answers of the chat write to. */
+  investigation_id?: string | null;
+  /** The chat this one was forked from. */
+  parent_chat_id?: string | null;
   created_at_micros: number;
   updated_at_micros: number;
 }
@@ -31,17 +52,42 @@ export interface ChatMessageRow {
   evidence_json?: unknown;
   prompt_tokens?: number | null;
   completion_tokens?: number | null;
-  cost_usd?: number | null;
+  /** In the currency of the model provider; null when it has no prices. */
+  cost?: Cost | null;
+  /** The command the user message was; `content` keeps what was typed. */
+  command?: MessageCommand | null;
+  /** Who asked: in a team chat the questions can come from different people. */
+  sender_id?: string | null;
+  sender_name?: string | null;
+  /** What was attached to a question with @. */
+  references?: MessageReference[] | null;
+  /** The run an answer came from. */
+  run_id?: string | null;
   created_at_micros: number;
+}
+
+export type ReferenceKind = 'incident' | 'alert_rule' | 'service' | 'dashboard' | 'stream';
+
+/** Something attached to a question with @: the model reads it as the subject of the question. */
+export interface MessageReference {
+  kind: ReferenceKind;
+  id: string;
+  label: string;
 }
 
 export interface CreateChatInput {
   provider: string;
   model: string;
   title?: string | undefined;
+  /** The title is the first question for now: the server names the chat while answering it. */
+  title_provisional?: boolean | undefined;
   provider_id?: string | undefined;
   analysis_mode?: string | undefined;
   capability?: ChatCapability | undefined;
+  /** The team a team chat is for; none for a personal chat. */
+  team_id?: string | undefined;
+  /** What the chat investigates: the incident it is started from. */
+  subject?: { kind: 'incident'; id: string } | undefined;
 }
 
 export interface TimeRange {
@@ -56,36 +102,56 @@ export interface PostMessageBody {
   time_range?: TimeRange | undefined;
   analysis_mode?: string | undefined;
   capability?: ChatCapability | undefined;
-  execution_policy?: 'advice_only' | 'read_only' | 'policy' | undefined;
+  execution_policy?:
+    | 'advice_only'
+    | 'read_only'
+    | 'policy'
+    | 'auto'
+    | 'bypass_permissions'
+    | undefined;
   stream_hints?: string[] | undefined;
   agent_profile_id?: string | undefined;
   provider_id?: string | undefined;
   model?: string | undefined;
   prompt_template_id?: string | undefined;
+  references?: MessageReference[] | undefined;
 }
 
-export interface ToolStartEvent {
-  id: string;
-  name: string;
-  arguments: string;
-}
-export interface ToolEndEvent {
-  id: string;
-  result: string;
-  is_error: boolean;
-}
-export interface DoneEvent {
-  prompt_tokens: number;
-  completion_tokens: number;
-  finish_reason: string;
+/**
+ * The organization's day budget, said along with an answer once it is close to
+ * or past its limit, or instead of one when chats are blocked at the limit.
+ */
+export interface BudgetNotice {
+  kind: 'budget';
+  level: 'warning' | 'exhausted';
+  used_tokens: number;
+  limit_tokens: number;
+  resets_at_micros: number;
+  /** The question was not sent: the organization blocks chats once the budget is used up. */
+  blocked?: boolean;
 }
 
-export interface StreamHandlers {
-  onChunk?: (text: string) => void;
-  onToolStart?: (e: ToolStartEvent) => void;
-  onToolEnd?: (e: ToolEndEvent) => void;
-  onDone?: (e: DoneEvent) => void;
-  onError?: (message: string) => void;
+/** The backend's code for a request refused because the day's budget is used up. */
+export const BUDGET_EXHAUSTED = 'agent_budget_exhausted';
+
+/** A 429 that refused the question for the day's budget, read into a notice. */
+export function budgetRefusal(status: number, body: string): BudgetNotice | null {
+  if (status !== 429) return null;
+  let payload: Record<string, unknown>;
+  try {
+    payload = JSON.parse(body) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+  if (payload.error !== BUDGET_EXHAUSTED && payload.code !== BUDGET_EXHAUSTED) return null;
+  return {
+    kind: 'budget',
+    level: 'exhausted',
+    used_tokens: Number(payload.used_tokens ?? 0),
+    limit_tokens: Number(payload.limit_tokens ?? 0),
+    resets_at_micros: Number(payload.resets_at_micros ?? 0),
+    blocked: true,
+  };
 }
 
 export async function listChats(): Promise<Chat[]> {
@@ -95,6 +161,23 @@ export async function listChats(): Promise<Chat[]> {
 
 export async function createChat(input: CreateChatInput): Promise<Chat> {
   const { data } = await http.post<Chat>('/agent/chat', input);
+  return data;
+}
+
+/**
+ * A new chat holding this one's messages up to `messageId` (all of them without
+ * it), to go on another way from there; the person's own.
+ */
+export async function forkChat(id: string, messageId?: string): Promise<Chat> {
+  const { data } = await http.post<Chat>(`/agent/chat/${encodeURIComponent(id)}/fork`, {
+    message_id: messageId,
+  });
+  return data;
+}
+
+/** Names the chat; the server no longer names it from its first question afterwards. */
+export async function renameChat(id: string, title: string): Promise<Chat> {
+  const { data } = await http.patch<Chat>(`/agent/chat/${encodeURIComponent(id)}`, { title });
   return data;
 }
 
@@ -116,96 +199,38 @@ export async function archiveChat(id: string): Promise<{ status: string; object_
   return data;
 }
 
+/** What became of a message: queued as a run, or refused before anything was kept. */
+export type PostResult =
+  | { kind: 'queued'; run: Run; userMessageId: string }
+  | { kind: 'budget'; notice: BudgetNotice }
+  | { kind: 'refused'; refusal: CommandRefusal }
+  | { kind: 'error'; message: string };
+
 /**
- * Stream a chat reply over SSE. Uses fetch (not axios) so we can read the
- * response body incrementally; dispatches typed events to `handlers`.
+ * Send a message. It is kept and queued as a run of the chat; the answer is read
+ * from the run's events. A run already answering in the chat goes first.
  */
-export async function postMessageStream(
-  chatId: string,
-  body: PostMessageBody,
-  handlers: StreamHandlers,
-  signal?: AbortSignal,
-): Promise<void> {
-  const token = useAuthStore.getState().token;
-  let resp: Response;
+export async function postMessage(chatId: string, body: PostMessageBody): Promise<PostResult> {
   try {
-    resp = await fetch(
-      `/api/v1/agent/chat/${encodeURIComponent(chatId)}/messages`,
-      {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          accept: 'text/event-stream',
-          ...(token ? { authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(body),
-        signal: signal ?? null,
-      },
+    const { data } = await http.post<{ run: Run; user_message_id: string }>(
+      `/agent/chat/${encodeURIComponent(chatId)}/messages`,
+      body,
     );
-  } catch (e) {
-    if ((e as Error)?.name === 'AbortError') return;
-    handlers.onError?.(String((e as Error)?.message ?? e));
-    return;
-  }
-
-  if (!resp.ok || !resp.body) {
-    const text = await resp.text().catch(() => '');
-    handlers.onError?.(text || `HTTP ${resp.status}`);
-    return;
-  }
-
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  for (;;) {
-    let chunk: ReadableStreamReadResult<Uint8Array>;
-    try {
-      chunk = await reader.read();
-    } catch (e) {
-      if ((e as Error)?.name === 'AbortError') return;
-      handlers.onError?.(String((e as Error)?.message ?? e));
-      return;
+    return { kind: 'queued', run: data.run, userMessageId: data.user_message_id };
+  } catch (error) {
+    if (error instanceof AxiosError && error.response) {
+      const raw = error.response.data;
+      const text = typeof raw === 'string' ? raw : JSON.stringify(raw ?? {});
+      const notice = budgetRefusal(error.response.status, text);
+      if (notice) return { kind: 'budget', notice };
+      const refusal = commandRefusal(text);
+      if (refusal) return { kind: 'refused', refusal };
     }
-    if (chunk.done) break;
-    buffer += decoder.decode(chunk.value, { stream: true });
-    let sep: number;
-    while ((sep = buffer.indexOf('\n\n')) !== -1) {
-      const frame = buffer.slice(0, sep);
-      buffer = buffer.slice(sep + 2);
-      dispatchFrame(frame, handlers);
-    }
+    return { kind: 'error', message: toApiError(error).message };
   }
 }
 
-function dispatchFrame(frame: string, handlers: StreamHandlers): void {
-  let event = 'message';
-  let data = '';
-  for (const line of frame.split('\n')) {
-    if (line.startsWith('event:')) event = line.slice(6).trim();
-    else if (line.startsWith('data:')) data += line.slice(5).trim();
-  }
-  if (!data) return;
-  let payload: Record<string, unknown>;
-  try {
-    payload = JSON.parse(data);
-  } catch {
-    return;
-  }
-  switch (event) {
-    case 'chunk':
-      handlers.onChunk?.(String(payload.text ?? ''));
-      break;
-    case 'tool_start':
-      handlers.onToolStart?.(payload as unknown as ToolStartEvent);
-      break;
-    case 'tool_end':
-      handlers.onToolEnd?.(payload as unknown as ToolEndEvent);
-      break;
-    case 'done':
-      handlers.onDone?.(payload as unknown as DoneEvent);
-      break;
-    case 'error':
-      handlers.onError?.(String(payload.message ?? 'error'));
-      break;
-  }
+/** Write an answer of a chat started from an incident back to the incident as its RCA. */
+export async function writeIncidentRca(chatId: string, messageId: string): Promise<void> {
+  await http.post(`/agent/chat/${encodeURIComponent(chatId)}/rca`, { message_id: messageId });
 }

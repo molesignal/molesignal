@@ -15,6 +15,10 @@ export interface AgentProfile {
   max_context_tokens: number;
   max_investigation_secs: number;
   max_tool_calls: number;
+  /** Sampling temperature; unset uses Mole Agent's default (0.2). */
+  temperature?: number | null;
+  /** Chats using it may pick Bypass permissions: nothing is asked in the chat, approvals stay. */
+  allow_bypass_permissions?: boolean;
   is_default: boolean;
   enabled: boolean;
   created_by: string;
@@ -34,6 +38,8 @@ export interface AgentProfileInput {
   max_context_tokens: number;
   max_investigation_secs: number;
   max_tool_calls: number;
+  temperature?: number | null;
+  allow_bypass_permissions?: boolean;
   is_default: boolean;
   enabled: boolean;
 }

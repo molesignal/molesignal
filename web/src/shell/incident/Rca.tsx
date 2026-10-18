@@ -2,9 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { BUDGET_EXHAUSTED } from '@/api/agent/chat';
 import * as incidentsApi from '@/api/incidents';
 import { toApiError } from '@/lib/http';
 import { formatMicrosActive } from '@/lib/time';
+import { FeedbackControl } from '@/routes/agent/feedback/FeedbackControl';
+import { useFeedbackMap } from '@/routes/agent/feedback/useFeedback';
 import { MarkdownMessage } from '@/routes/agent/markdown';
 import { ChromeButton } from '@/shell/chrome';
 import { LoadingState } from '@/shell/LoadingState';
@@ -36,10 +39,19 @@ export function IncidentRcaSection({ incidentId, surface = false }: { incidentId
       queryClient.setQueryData(['incident-rca', incidentId], rca);
       toast.success(t('drawer.rca.generated'));
     },
-    onError: (error: unknown) => toast.error(toApiError(error).message),
+    onError: (error: unknown) => {
+      const apiError = toApiError(error);
+      toast.error(
+        apiError.code === BUDGET_EXHAUSTED
+          ? t('drawer.rca.budget_exhausted')
+          : apiError.message,
+      );
+    },
   });
 
   const rca = query.data ?? null;
+  // The signed-in person's 👍 / 👎 on this analysis; asked for only once there is one.
+  const feedback = useFeedbackMap('incident_rca', rca ? [incidentId] : []);
   const generateButton = (
     <ChromeButton
       size="sm"
@@ -75,6 +87,11 @@ export function IncidentRcaSection({ incidentId, surface = false }: { incidentId
           <div className="flex items-center gap-2 font-sans text-xs text-tx-2">
             {rca.model && <span className="truncate">{rca.model}</span>}
             <span className="ml-auto tabular-nums">{formatMicrosActive(rca.created_at)}</span>
+            <FeedbackControl
+              kind="incident_rca"
+              targetId={incidentId}
+              value={feedback.get(incidentId)}
+            />
             {generateButton}
           </div>
         </div>

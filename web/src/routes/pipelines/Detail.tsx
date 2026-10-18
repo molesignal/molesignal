@@ -253,7 +253,7 @@ export function PipelineDetail() {
       />
       <PageBody
         padded={false}
-        className="!min-h-0 h-[calc(100vh-var(--topbar-h)-var(--pageheader-h,0px))] overflow-hidden"
+        className="!min-h-0 h-[calc(100vh-var(--topbar-h)-var(--pageheader-h,0px)-var(--contextbar-h,0px))] overflow-hidden"
       >
         <PipelineDetailMetadata
           health={health}

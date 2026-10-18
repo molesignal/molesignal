@@ -11,7 +11,7 @@ test.describe('Mole Agent pages', () => {
     const surface = page.locator('[data-agent-content-surface]');
     const head = surface.locator('[data-agent-page-head]');
     // One line: what the tab is for, and the one thing that can be added to it.
-    await expect(head).toContainText('Collect cross-signal evidence');
+    await expect(head).toContainText('Investigations from incidents or by hand');
     await expect(head.getByRole('button', { name: 'Create investigation' })).toBeVisible();
     expect((await head.boundingBox())!.height).toBeLessThanOrEqual(48);
     // The tabs name the page: its own name is kept for the outline, not drawn a second time.
@@ -46,7 +46,7 @@ test.describe('Mole Agent pages', () => {
     const surface = page.locator('[data-agent-content-surface]');
     await expect(surface.getByText('No investigations yet')).toBeVisible();
     // What the tab is for and how its first entry comes about, in the empty state itself.
-    await expect(surface).toContainText('Collect cross-signal evidence');
+    await expect(surface).toContainText('Investigations from incidents or by hand');
     await expect(surface).toContainText('Turn complex or long-running questions into tracked investigations.');
     // The action stood twice: over the empty state and in it.
     await expect(surface.getByRole('button', { name: 'Create investigation' })).toHaveCount(1);
@@ -61,7 +61,9 @@ test.describe('Mole Agent pages', () => {
     const names = [
       'Agent profiles',
       'Models & reasoning',
+      'Usage',
       'Prompt management',
+      'Skills',
       'Tools & capabilities',
       'Inbound MCP',
       'Data access',
@@ -107,6 +109,36 @@ test.describe('Mole Agent pages', () => {
     // Outside the settings the navigation has no second row.
     await page.goto('/agent/approvals');
     await expect(header.locator('[data-agent-subnavigation]')).toHaveCount(0);
+  });
+
+  test('a memory reads in one rhythm and names the chat it came from', async ({ page }) => {
+    await page.goto('/agent/knowledge/memory');
+
+    const row = page.locator('[data-agent-memory-row="Payments database"]');
+    await row.locator('summary').click();
+
+    // The chat it came from is named by its title, and leads to it.
+    const source = row.locator('[data-agent-memory-source]');
+    await expect(source).toHaveText('Payments latency in eu-west-1');
+    await expect(source).toHaveAttribute('href', '/agent/chat?chat=chat-payments-latency');
+    // A memory written outside a chat names none.
+    await page.locator('[data-agent-memory-row="Time zone"] summary').click();
+    await expect(
+      page.locator('[data-agent-memory-row="Time zone"] [data-agent-memory-source]'),
+    ).toHaveCount(0);
+
+    // Name, when it applies, the memory and its date: the same room between each two lines.
+    const gaps = await row.evaluate((element) => {
+      const lines = [
+        element.querySelector('summary > span:first-child')!,
+        element.querySelector('summary > span:last-child')!,
+        element.querySelector('details > p:first-of-type')!,
+        element.querySelector('details > p:last-of-type')!,
+      ].map((line) => line.getBoundingClientRect());
+      return lines.slice(1).map((line, index) => Math.round(line.top - lines[index]!.bottom));
+    });
+    expect(gaps[0]).toBeGreaterThan(0);
+    expect(new Set(gaps).size).toBe(1);
   });
 
   test('prompts say how many there are in one line, and a built-in one shows no date of 1970', async ({

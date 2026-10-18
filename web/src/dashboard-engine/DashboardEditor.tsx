@@ -452,7 +452,7 @@ export function DashboardEditor() {
   }
 
   return (
-    <main className="dashboard-editor flex h-[calc(100vh-var(--app-topbar-h,0px))] min-h-[680px] flex-col overflow-hidden bg-bg-0">
+    <main className="dashboard-editor flex h-[calc(100vh-var(--topbar-h)-var(--contextbar-h,0px))] min-h-[680px] flex-col overflow-hidden bg-bg-0">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-bd-0 bg-bg-1 px-3">
         <ChromeButton
           aria-label={tr('Back to dashboard')}

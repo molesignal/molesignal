@@ -11,7 +11,6 @@ import {
   Info,
   ListFilter,
   Network,
-  Pencil,
   Plus,
   RefreshCw,
   Search,
@@ -38,7 +37,6 @@ import {
 import { cn } from '@/shell/lib/cn';
 import { Badge } from '@/shell/ui/badge';
 import { Button } from '@/shell/ui/button';
-import { Checkbox } from '@/shell/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -66,15 +64,11 @@ import {
   TooltipTrigger,
 } from '@/shell/ui/tooltip';
 
+import { McpServersDrawer } from './mcp/McpServersDrawer';
 import { localizeToolMetadata } from './toolMetadata';
 
 type ToolFilter = 'all' | 'read_only' | 'automatic' | 'approval' | 'disabled';
 type GroupMode = 'domain' | 'mcp' | 'none';
-type McpRemovalTarget = {
-  server: agentApi.McpServer;
-  tools: agentApi.RegisteredTool[];
-  dependencies: agentApi.ToolDependencies[];
-};
 
 const DOMAIN_ORDER: agentApi.ToolDomain[] = [
   'observability',
@@ -105,8 +99,14 @@ const EXPANDED_STORAGE_KEY = 'molesignal.agent.tools.expanded.v1';
 
 export function ToolCapabilitiesPanel({
   registry,
+  manager = true,
 }: {
   registry: UseQueryResult<agentApi.ToolRegistry, Error>;
+  /**
+   * Holds `agent.manage`: tool policies are the organization's. Members still
+   * open the MCP servers, where they manage their own and their teams'.
+   */
+  manager?: boolean;
 }) {
   const { t } = useTranslation('agent');
   const queryClient = useQueryClient();
@@ -296,7 +296,7 @@ export function ToolCapabilitiesPanel({
             {t('settings.tools.description')}
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={() => setPolicyDefaultsOpen(true)}>
+            <Button size="sm" disabled={!manager} onClick={() => setPolicyDefaultsOpen(true)}>
               <SlidersHorizontal className="h-3.5 w-3.5" />
               {t('settings.tools.actions.configure_policy')}
             </Button>
@@ -401,7 +401,11 @@ export function ToolCapabilitiesPanel({
             </p>
           </div>
         ) : (
-          <div className="mt-4">
+          <fieldset
+            disabled={!manager}
+            aria-disabled={!manager || undefined}
+            className="mt-4 min-w-0"
+          >
             {groups.map((group) => (
               <ToolGroup
                 key={group.key}
@@ -420,7 +424,7 @@ export function ToolCapabilitiesPanel({
                 }
               />
             ))}
-          </div>
+          </fieldset>
         )}
       </section>
 
@@ -1906,673 +1910,6 @@ function EnvironmentPolicyEditor({
   );
 }
 
-function McpServersDrawer({
-  open,
-  onClose,
-  onChanged,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onChanged: () => Promise<void>;
-}) {
-  const { t } = useTranslation('agent');
-  const queryClient = useQueryClient();
-  const [editor, setEditor] = React.useState<agentApi.McpServer | 'new' | null>(null);
-  const [discoveries, setDiscoveries] = React.useState<
-    Record<string, agentApi.DiscoveredMcpTool[]>
-  >({});
-  const [selected, setSelected] = React.useState<Record<string, string[]>>({});
-  const [removalTarget, setRemovalTarget] =
-    React.useState<McpRemovalTarget | null>(null);
-  const servers = useQuery({
-    queryKey: ['agent', 'mcp-servers'],
-    queryFn: agentApi.listMcpServers,
-    enabled: open,
-    retry: false,
-  });
-  const testMutation = useMutation({
-    mutationFn: agentApi.testMcpServer,
-    onSuccess: async (result) => {
-      if (result.success) {
-        setDiscoveries((current) => ({
-          ...current,
-          [result.server.id]: result.discovered_tools,
-        }));
-        setSelected((current) => ({
-          ...current,
-          [result.server.id]: result.discovered_tools.map((tool) => tool.name),
-        }));
-        toast.success(
-          t('settings.tools.mcp.feedback.test_success', {
-            count: result.discovered_tools.length,
-          }),
-        );
-      } else {
-        toast.error(result.error ?? t('settings.tools.mcp.feedback.test_failed'));
-      }
-      await servers.refetch();
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-  const syncMutation = useMutation({
-    mutationFn: ({ id, tools }: { id: string; tools: string[] }) =>
-      agentApi.syncMcpServer(id, tools),
-    onSuccess: async (result) => {
-      toast.success(
-        t('settings.tools.mcp.feedback.sync_success', {
-          count: result.tools.length,
-        }),
-      );
-      await Promise.all([
-        servers.refetch(),
-        onChanged(),
-      ]);
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-  const deleteMutation = useMutation({
-    mutationFn: agentApi.deleteMcpServer,
-    onSuccess: async () => {
-      setRemovalTarget(null);
-      toast.success(t('settings.tools.mcp.feedback.deleted'));
-      await Promise.all([servers.refetch(), onChanged()]);
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-  const inspectRemovalMutation = useMutation({
-    mutationFn: async (server: agentApi.McpServer) => {
-      const detail = await agentApi.getMcpServer(server.id);
-      const dependencies = await Promise.all(
-        detail.tools.map((tool) =>
-          agentApi.getToolDependencies(tool.id || tool.name),
-        ),
-      );
-      return { server, tools: detail.tools, dependencies };
-    },
-    onSuccess: setRemovalTarget,
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-  const refresh = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['agent', 'mcp-servers'] }),
-      onChanged(),
-    ]);
-  };
-  return (
-    <>
-      <FormDrawer
-        open={open}
-        onOpenChange={(next) => {
-          if (!next) onClose();
-        }}
-        title={t('settings.tools.mcp.title')}
-        subtitle={t('settings.tools.mcp.description')}
-        width={760}
-        footer={
-          <Button onClick={() => setEditor('new')}>
-            <Plus className="h-3.5 w-3.5" />
-            {t('settings.tools.actions.add_mcp')}
-          </Button>
-        }
-      >
-        {servers.isLoading ? (
-          <ToolsLoading compact />
-        ) : servers.isError ? (
-          <ToolsError compact onRetry={() => servers.refetch()} />
-        ) : servers.data?.length ? (
-          <div className="space-y-3">
-            {servers.data.map((server) => {
-              const discovered = discoveries[server.id] ?? [];
-              const selectedNames = selected[server.id] ?? [];
-              return (
-                <section
-                  key={server.id}
-                  className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1"
-                >
-                  <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-                    <span className="grid h-9 w-9 place-items-center rounded-md border border-bd-0 bg-bg-2">
-                      <Server className="h-4 w-4 text-tx-2" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-strong text-tx-0">{server.name}</span>
-                        <McpStatusBadge status={server.status} />
-                      </div>
-                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-tx-3">
-                        <span>{t(`settings.tools.mcp.transport.${server.transport}`)}</span>
-                        <span>
-                          {t('settings.tools.mcp.tool_count', {
-                            count: server.tool_count ?? 0,
-                          })}
-                        </span>
-                        {server.last_error && (
-                          <span className="text-red-soft">{server.last_error}</span>
-                        )}
-                      </div>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => testMutation.mutate(server.id)}
-                      disabled={testMutation.isPending}
-                    >
-                      <FlaskConical className="h-3.5 w-3.5" />
-                      {t('settings.tools.mcp.test_connection')}
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" aria-label={t('common.actions')}>
-                          <Ellipsis className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => setEditor(server)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                          {t('common.edit')}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-red-soft"
-                          disabled={inspectRemovalMutation.isPending}
-                          onSelect={() => inspectRemovalMutation.mutate(server)}
-                        >
-                          <Unplug className="h-3.5 w-3.5" />
-                          {t('settings.tools.mcp.remove')}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                  {discovered.length > 0 && (
-                    <div className="border-t border-bd-0 bg-bg-2 p-4">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-strong text-tx-1">
-                          {t('settings.tools.mcp.discovered', {
-                            count: discovered.length,
-                          })}
-                        </span>
-                        <span className="text-xs text-tx-3">
-                          {t('settings.tools.mcp.new_tools_disabled')}
-                        </span>
-                        <Button
-                          size="sm"
-                          className="ml-auto"
-                          onClick={() =>
-                            syncMutation.mutate({
-                              id: server.id,
-                              tools: selectedNames,
-                            })
-                          }
-                          disabled={selectedNames.length === 0 || syncMutation.isPending}
-                        >
-                          <RefreshCw className="h-3.5 w-3.5" />
-                          {t('settings.tools.mcp.sync_selected')}
-                        </Button>
-                      </div>
-                      <div className="mt-3 max-h-60 divide-y divide-bd-0 overflow-auto rounded-md border border-bd-0 bg-bg-1">
-                        {discovered.map((tool) => (
-                          <label
-                            key={tool.name}
-                            className="flex cursor-pointer items-start gap-3 px-3 py-2.5"
-                          >
-                            <Checkbox
-                              checked={selectedNames.includes(tool.name)}
-                              onCheckedChange={() =>
-                                setSelected((current) => ({
-                                  ...current,
-                                  [server.id]: toggleListValue(
-                                    current[server.id] ?? [],
-                                    tool.name,
-                                  ),
-                                }))
-                              }
-                            />
-                            <span className="min-w-0">
-                              <span className="block font-mono text-xs font-strong text-tx-0">
-                                {tool.name}
-                              </span>
-                              <span className="mt-0.5 block text-xs text-tx-3">
-                                {tool.description}
-                              </span>
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </section>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="rounded-lg border border-dashed border-bd-1 px-6 py-12 text-center">
-            <Server className="mx-auto h-6 w-6 text-tx-3" />
-            <div className="mt-3 text-sm font-strong text-tx-1">
-              {t('settings.tools.mcp.empty_title')}
-            </div>
-            <p className="mt-1 text-xs text-tx-3">
-              {t('settings.tools.mcp.empty_description')}
-            </p>
-            <Button className="mt-4" onClick={() => setEditor('new')}>
-              <Plus className="h-3.5 w-3.5" />
-              {t('settings.tools.actions.add_mcp')}
-            </Button>
-          </div>
-        )}
-      </FormDrawer>
-      <McpServerEditorDrawer
-        target={editor}
-        onClose={() => setEditor(null)}
-        onSaved={refresh}
-      />
-      <McpRemovalDrawer
-        target={removalTarget}
-        pending={deleteMutation.isPending}
-        onClose={() => setRemovalTarget(null)}
-        onConfirm={(server) => deleteMutation.mutate(server.id)}
-      />
-    </>
-  );
-}
-
-function McpRemovalDrawer({
-  target,
-  pending,
-  onClose,
-  onConfirm,
-}: {
-  target: McpRemovalTarget | null;
-  pending: boolean;
-  onClose: () => void;
-  onConfirm: (server: agentApi.McpServer) => void;
-}) {
-  const { t } = useTranslation('agent');
-  if (!target) return null;
-  const enabledTools = target.tools.filter((tool) => tool.enabled);
-  const dependencyCount = target.dependencies.reduce(
-    (total, dependency) => total + dependency.total,
-    0,
-  );
-  const canRemove = enabledTools.length === 0 && dependencyCount === 0;
-  return (
-    <FormDrawer
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-      title={t('settings.tools.mcp.remove_drawer.title', {
-        name: target.server.name,
-      })}
-      subtitle={t('settings.tools.mcp.remove_drawer.description')}
-      width={620}
-      footer={
-        <>
-          <Button variant="outline" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={!canRemove || pending}
-            onClick={() => onConfirm(target.server)}
-          >
-            {t('settings.tools.mcp.remove_drawer.confirm')}
-          </Button>
-        </>
-      }
-    >
-      <div
-        className={cn(
-          'rounded-md border p-3 text-xs leading-5',
-          canRemove
-            ? 'border-green/20 bg-green/5 text-[var(--green-ink)]'
-            : 'border-yellow/25 bg-yellow/5 text-[var(--yellow-ink)]',
-        )}
-      >
-        {canRemove
-          ? t('settings.tools.mcp.remove_drawer.safe')
-          : t('settings.tools.mcp.remove_drawer.blocked', {
-              enabled: enabledTools.length,
-              dependencies: dependencyCount,
-            })}
-      </div>
-      <FormSection
-        title={t('settings.tools.mcp.remove_drawer.tools_title')}
-        className="mt-6"
-      >
-        {target.tools.length === 0 ? (
-          <p className="text-xs text-tx-3">
-            {t('settings.tools.mcp.remove_drawer.no_tools')}
-          </p>
-        ) : (
-          <div className="divide-y divide-bd-0 overflow-hidden rounded-md border border-bd-0">
-            {target.tools.map((tool, index) => {
-              const dependencies = target.dependencies[index];
-              return (
-                <div key={tool.id} className="flex items-center gap-3 bg-bg-2 px-3 py-2.5">
-                  <span className="min-w-0 flex-1 truncate font-mono text-xs text-tx-1">
-                    {tool.name}
-                  </span>
-                  {tool.enabled && (
-                    <Badge variant="outline" className="border-yellow/30 text-[var(--yellow-ink)]">
-                      {t('settings.tools.status.enabled')}
-                    </Badge>
-                  )}
-                  <Badge variant="secondary">
-                    {t('settings.tools.mcp.remove_drawer.dependency_count', {
-                      count: dependencies?.total ?? 0,
-                    })}
-                  </Badge>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </FormSection>
-    </FormDrawer>
-  );
-}
-
-function McpServerEditorDrawer({
-  target,
-  onClose,
-  onSaved,
-}: {
-  target: agentApi.McpServer | 'new' | null;
-  onClose: () => void;
-  onSaved: () => Promise<void>;
-}) {
-  const { t } = useTranslation('agent');
-  const existing = target && target !== 'new' ? target : null;
-  const [name, setName] = React.useState('');
-  const [transport, setTransport] =
-    React.useState<agentApi.McpTransport>('streamable_http');
-  const [endpointUrl, setEndpointUrl] = React.useState('');
-  const [authType, setAuthType] =
-    React.useState<agentApi.McpAuthType>('none');
-  const [authHeader, setAuthHeader] = React.useState('');
-  const [credential, setCredential] = React.useState('');
-  const [privateOnly, setPrivateOnly] = React.useState(true);
-  const [allowedDomains, setAllowedDomains] = React.useState('');
-  const [allowedCidrs, setAllowedCidrs] = React.useState('');
-  const [tlsVerify, setTlsVerify] = React.useState(true);
-  const [timeoutMs, setTimeoutMs] = React.useState('10000');
-  const [maxResponseBytes, setMaxResponseBytes] = React.useState('1048576');
-  const [enabled, setEnabled] = React.useState(true);
-  React.useEffect(() => {
-    setName(existing?.name ?? '');
-    setTransport(existing?.transport ?? 'streamable_http');
-    setEndpointUrl(existing?.endpoint_url ?? '');
-    setAuthType(existing?.auth_type ?? 'none');
-    setAuthHeader(existing?.auth_header ?? '');
-    setCredential('');
-    setPrivateOnly(existing?.private_only ?? true);
-    setAllowedDomains((existing?.allowed_domains ?? []).join('\n'));
-    setAllowedCidrs((existing?.allowed_cidrs ?? []).join('\n'));
-    setTlsVerify(existing?.tls_verify ?? true);
-    setTimeoutMs(String(existing?.timeout_ms ?? 10000));
-    setMaxResponseBytes(String(existing?.max_response_bytes ?? 1048576));
-    setEnabled(existing?.enabled ?? true);
-  }, [existing, target]);
-  const mutation = useMutation({
-    mutationFn: () => {
-      const input: agentApi.McpServerInput = {
-        name,
-        transport,
-        auth_type: authType,
-        private_only: privateOnly,
-        allowed_domains: splitLines(allowedDomains),
-        allowed_cidrs: splitLines(allowedCidrs),
-        follow_redirects: false,
-        tls_verify: tlsVerify,
-        timeout_ms: Number(timeoutMs),
-        max_response_bytes: Number(maxResponseBytes),
-        enabled,
-        ...(endpointUrl ? { endpoint_url: endpointUrl } : {}),
-        ...(authHeader ? { auth_header: authHeader } : {}),
-        ...(credential ? { credential } : {}),
-      };
-      return existing
-        ? agentApi.updateMcpServer(existing.id, input)
-        : agentApi.createMcpServer(input);
-    },
-    onSuccess: async () => {
-      toast.success(
-        t(
-          existing
-            ? 'settings.tools.mcp.feedback.updated'
-            : 'settings.tools.mcp.feedback.created',
-        ),
-      );
-      await onSaved();
-      onClose();
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-  if (!target) return null;
-  return (
-    <FormDrawer
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-      title={t(
-        existing
-          ? 'settings.tools.mcp.editor.edit_title'
-          : 'settings.tools.mcp.editor.create_title',
-      )}
-      subtitle={t('settings.tools.mcp.editor.description')}
-      width={680}
-      footer={
-        <>
-          <Button variant="outline" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button
-            onClick={() => mutation.mutate()}
-            disabled={mutation.isPending || !name.trim() || !endpointUrl.trim()}
-          >
-            {mutation.isPending ? t('common.saving') : t('common.save')}
-          </Button>
-        </>
-      }
-    >
-      <FormSection title={t('settings.tools.mcp.editor.basic')}>
-        <FormField label={t('settings.tools.mcp.fields.name')} required>
-          <FormInput
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder={t('settings.tools.mcp.fields.name_placeholder')}
-          />
-        </FormField>
-        <FormField label={t('settings.tools.mcp.fields.transport')} required>
-          <FormSelect
-            value={transport}
-            onChange={(value) => setTransport(value as agentApi.McpTransport)}
-            options={(
-              ['streamable_http', 'sse', 'stdio', 'unix_socket'] as agentApi.McpTransport[]
-            ).map((value) => ({
-              value,
-              label: t(`settings.tools.mcp.transport.${value}`),
-            }))}
-            className="w-full"
-          />
-        </FormField>
-        {transport === 'streamable_http' ? (
-          <FormField label={t('settings.tools.mcp.fields.endpoint')} required>
-            <FormInput
-              type="url"
-              value={endpointUrl}
-              onChange={(event) => setEndpointUrl(event.target.value)}
-              placeholder={t('settings.tools.mcp.fields.endpoint_placeholder')}
-            />
-          </FormField>
-        ) : (
-          <div className="rounded-md border border-yellow/25 bg-yellow/5 p-3 text-xs leading-5 text-[var(--yellow-ink)]">
-            {t('settings.tools.mcp.editor.transport_restricted')}
-          </div>
-        )}
-      </FormSection>
-      <FormSection
-        title={t('settings.tools.mcp.editor.authentication')}
-        description={
-          existing?.credential_set
-            ? t('settings.tools.mcp.editor.credential_set', {
-                last4: existing.credential_last4 ?? '',
-              })
-            : t('settings.tools.mcp.editor.credential_not_set')
-        }
-      >
-        <FormField label={t('settings.tools.mcp.fields.auth_type')}>
-          <FormSelect
-            value={authType}
-            onChange={(value) => setAuthType(value as agentApi.McpAuthType)}
-            options={(
-              [
-                'none',
-                'bearer_token',
-                'api_key',
-                'oauth',
-                'mtls',
-                'internal_service_identity',
-              ] as agentApi.McpAuthType[]
-            ).map((value) => ({
-              value,
-              label: t(`settings.tools.mcp.auth.${value}`),
-            }))}
-            className="w-full"
-          />
-        </FormField>
-        {['api_key', 'internal_service_identity'].includes(authType) && (
-          <FormField label={t('settings.tools.mcp.fields.auth_header')}>
-            <FormInput
-              value={authHeader}
-              onChange={(event) => setAuthHeader(event.target.value)}
-              placeholder={t('settings.tools.mcp.fields.auth_header_placeholder')}
-            />
-          </FormField>
-        )}
-        {authType !== 'none' && (
-          <FormField
-            label={t('settings.tools.mcp.fields.credential')}
-            hint={t('settings.tools.mcp.fields.credential_hint')}
-            required={!existing?.credential_set}
-          >
-            <FormInput
-              type="password"
-              autoComplete="new-password"
-              value={credential}
-              onChange={(event) => setCredential(event.target.value)}
-              placeholder={t('settings.tools.mcp.fields.credential_placeholder')}
-            />
-          </FormField>
-        )}
-      </FormSection>
-      <FormSection title={t('settings.tools.mcp.editor.network')}>
-        <ToggleField
-          label={t('settings.tools.mcp.fields.private_only')}
-          hint={t('settings.tools.mcp.fields.private_only_hint')}
-          checked={privateOnly}
-          onChange={setPrivateOnly}
-        />
-        <FormRow>
-          <FormField
-            label={t('settings.tools.mcp.fields.allowed_domains')}
-            hint={t('settings.tools.mcp.fields.one_per_line')}
-          >
-            <textarea
-              className="min-h-24 rounded-md border border-bd-1 bg-[var(--control-surface)] px-3 py-2 font-mono text-xs text-tx-0"
-              value={allowedDomains}
-              onChange={(event) => setAllowedDomains(event.target.value)}
-            />
-          </FormField>
-          <FormField
-            label={t('settings.tools.mcp.fields.allowed_cidrs')}
-            hint={t('settings.tools.mcp.fields.one_per_line')}
-          >
-            <textarea
-              className="min-h-24 rounded-md border border-bd-1 bg-[var(--control-surface)] px-3 py-2 font-mono text-xs text-tx-0"
-              value={allowedCidrs}
-              onChange={(event) => setAllowedCidrs(event.target.value)}
-            />
-          </FormField>
-        </FormRow>
-        <ToggleField
-          label={t('settings.tools.mcp.fields.tls_verify')}
-          checked={tlsVerify}
-          onChange={setTlsVerify}
-        />
-        <div className="rounded-md border border-green/20 bg-green/5 p-3 text-xs text-[var(--green-ink)]">
-          {t('settings.tools.mcp.fields.redirects_blocked')}
-        </div>
-      </FormSection>
-      <FormSection title={t('settings.tools.mcp.editor.runtime')}>
-        <FormRow>
-          <FormField label={t('settings.tools.mcp.fields.timeout_ms')}>
-            <FormInput
-              type="number"
-              min={1000}
-              max={120000}
-              value={timeoutMs}
-              onChange={(event) => setTimeoutMs(event.target.value)}
-            />
-          </FormField>
-          <FormField label={t('settings.tools.mcp.fields.max_response_bytes')}>
-            <FormInput
-              type="number"
-              min={1024}
-              max={16777216}
-              value={maxResponseBytes}
-              onChange={(event) => setMaxResponseBytes(event.target.value)}
-            />
-          </FormField>
-        </FormRow>
-        <ToggleField
-          label={t('settings.tools.mcp.fields.enabled')}
-          checked={enabled}
-          onChange={setEnabled}
-        />
-      </FormSection>
-    </FormDrawer>
-  );
-}
-
-function McpStatusBadge({ status }: { status: agentApi.McpServer['status'] }) {
-  const { t } = useTranslation('agent');
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        'text-type-micro',
-        status === 'healthy' && 'border-green/30 text-[var(--green-ink)]',
-        status === 'error' && 'border-red/30 text-red-soft',
-        status === 'connecting' && 'border-yellow/30 text-[var(--yellow-ink)]',
-      )}
-    >
-      {t(`settings.tools.mcp.status.${status}`, { defaultValue: status })}
-    </Badge>
-  );
-}
-
-function ToggleField({
-  label,
-  hint,
-  checked,
-  onChange,
-}: {
-  label: string;
-  hint?: string;
-  checked: boolean;
-  onChange: (value: boolean) => void;
-}) {
-  return (
-    <label className="flex items-center justify-between gap-4 rounded-md border border-bd-0 bg-bg-2 px-3 py-2.5">
-      <span>
-        <span className="block text-xs font-strong text-tx-1">{label}</span>
-        {hint && <span className="mt-0.5 block text-xs text-tx-3">{hint}</span>}
-      </span>
-      <Switch checked={checked} onCheckedChange={onChange} />
-    </label>
-  );
-}
-
 function CallRecords({
   calls,
   loading,
@@ -2926,13 +2263,6 @@ function toggleListValue(values: string[], value: string): string[] {
   return values.includes(value)
     ? values.filter((candidate) => candidate !== value)
     : [...values, value];
-}
-
-function splitLines(value: string): string[] {
-  return value
-    .split(/[\n,]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
 }
 
 function formatBytes(value: number): string {

@@ -61,7 +61,9 @@ describe('the sections of the settings', () => {
     expect(AGENT_SETTINGS_SECTIONS.map((section) => section.value)).toEqual([
       'profiles',
       'models',
+      'usage',
       'prompts',
+      'skills',
       'tools',
       'inbound-mcp',
       'data',

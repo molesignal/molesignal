@@ -15,6 +15,7 @@ import type {
   AlertRule,
   EscalationPolicy,
   Incident,
+  IncidentRca,
   MuteRule,
   Schedule,
   Severity,
@@ -249,10 +250,44 @@ function semanticGroups(now: number): SemanticGroup[] {
   ];
 }
 
-/** Registers the alert centre's endpoints on the mock backend. */
-export function registerAlertRoutes(app: Express, nowIso: string): void {
+/** Whether the mock has an incident by this id. */
+export function mockIncidentExists(id: string): boolean {
+  return INCIDENT_SEEDS.some((seed) => seed.id === id);
+}
+
+/** An analysis the way the backend writes one for an incident. */
+function rootCauseAnalysis(incidentId: string, now: number): IncidentRca {
+  return {
+    incident_id: incidentId,
+    org_id: ORG,
+    summary:
+      '## Likely cause\n\nThe edge proxy rollout at 09:04 dropped the keep-alive pool for the public API, so 16% of requests get a 502.\n\n- Roll back the edge proxy change.',
+    provider: 'openai',
+    model: 'gpt-4o',
+    prompt_builtin_key: 'incident_rca',
+    prompt_hash: 'rca-hash-1',
+    prompt_tokens: 6_400,
+    completion_tokens: 820,
+    finish_reason: 'stop',
+    created_at: now,
+    updated_at: now,
+  };
+}
+
+/**
+ * Registers the alert centre's endpoints on the mock backend. An incident has
+ * no root cause analysis until one is asked for; asking is refused the way the
+ * backend refuses it while `budgetRefusal` says the Mole Agent budget is used
+ * up.
+ */
+export function registerAlertRoutes(
+  app: Express,
+  nowIso: string,
+  budgetRefusal: () => Record<string, unknown> | null = () => null,
+): void {
   const now = Date.parse(nowIso) * 1_000;
   const seedOf = (id: string) => INCIDENT_SEEDS.find((seed) => seed.id === id) ?? INCIDENT_SEEDS[0]!;
+  const analyses = new Map<string, IncidentRca>();
 
   app.get('/api/v1/alerts/rules', (_req, res) => res.json(rules(now)));
   app.get('/api/v1/alerts/rules/:id', (req, res) =>
@@ -268,7 +303,18 @@ export function registerAlertRoutes(app: Express, nowIso: string): void {
     );
   });
   app.get('/api/v1/alerts/incidents/:id', (req, res) => res.json(incident(seedOf(req.params.id), now, true)));
-  app.get('/api/v1/alerts/incidents/:id/rca', (_req, res) => res.status(404).json({ error: 'not_found', message: 'no analysis yet' }));
+  app.get('/api/v1/alerts/incidents/:id/rca', (req, res) => {
+    const analysis = analyses.get(req.params.id);
+    if (!analysis) return res.status(404).json({ error: 'not_found', message: 'no analysis yet' });
+    return res.json(analysis);
+  });
+  app.post('/api/v1/alerts/incidents/:id/rca', (req, res) => {
+    const refusal = budgetRefusal();
+    if (refusal) return res.status(429).json(refusal);
+    const analysis = rootCauseAnalysis(req.params.id, now);
+    analyses.set(req.params.id, analysis);
+    return res.json(analysis);
+  });
   app.get('/api/v1/alerts/insights', (req, res) => res.json(insights(now, Number(req.query.window_secs ?? 7 * 86_400))));
   app.get('/api/v1/alerts/escalations', (_req, res) => res.json(ESCALATIONS));
   app.get('/api/v1/alerts/escalations/:id', (req, res) =>

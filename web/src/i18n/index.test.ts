@@ -91,7 +91,7 @@ describe('builtin tool catalog translations', () => {
   const zhCatalog = leafValue(ZH.agent ?? {}, 'tools') as Bundle;
 
   it('contains complete localized metadata for all builtin tools', () => {
-    expect(Object.keys(enCatalog)).toHaveLength(190);
+    expect(Object.keys(enCatalog)).toHaveLength(209);
     expect(Object.keys(zhCatalog).sort()).toEqual(Object.keys(enCatalog).sort());
 
     for (const [name, metadata] of Object.entries(enCatalog)) {

@@ -9,8 +9,20 @@ export interface ModelProvider {
   base_url?: string | null;
   default_model: string;
   enabled: boolean;
+  /** How long a call may go without receiving any data before it fails. */
   timeout_ms: number;
   max_tokens?: number | null;
+  /** ISO 4217: what the prices, and the costs they give, are in. */
+  price_currency: string;
+  /**
+   * Per million input tokens; with a provider that caches, the price of input
+   * not found in the cache. Input and output both unset: cost is not computed.
+   */
+  input_price_per_mtok?: number | null;
+  /** Per million input tokens found in the cache; unset, they cost the input price. */
+  cached_input_price_per_mtok?: number | null;
+  /** Per million output tokens. */
+  output_price_per_mtok?: number | null;
   /** masked last 4 chars of the API key; the plaintext key is never returned. */
   key_last4?: string | null;
   key_set: boolean;
@@ -26,6 +38,10 @@ export interface CreateProviderInput {
   enabled?: boolean | undefined;
   timeout_ms?: number | undefined;
   max_tokens?: number | undefined;
+  price_currency?: string | undefined;
+  input_price_per_mtok?: number | null | undefined;
+  cached_input_price_per_mtok?: number | null | undefined;
+  output_price_per_mtok?: number | null | undefined;
   /** write-only API key; stored encrypted, never echoed back. */
   api_key?: string | undefined;
 }
@@ -38,7 +54,16 @@ export interface UpdateProviderInput {
   enabled: boolean;
   timeout_ms?: number | undefined;
   max_tokens?: number | undefined;
+  price_currency?: string | undefined;
+  input_price_per_mtok?: number | null | undefined;
+  cached_input_price_per_mtok?: number | null | undefined;
+  output_price_per_mtok?: number | null | undefined;
 }
+
+/** Default and bounds of `timeout_ms`, the same as the backend's. */
+export const DEFAULT_TIMEOUT_MS = 120_000;
+export const MIN_TIMEOUT_MS = 1_000;
+export const MAX_TIMEOUT_MS = 600_000;
 
 export async function list(): Promise<ModelProvider[]> {
   const { data } = await http.get<ModelProvider[]>('/agent/settings/model-providers');

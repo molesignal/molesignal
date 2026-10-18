@@ -16,6 +16,10 @@ import {
 import { toast } from '@/shell/ui/sonner';
 import { Switch } from '@/shell/ui/switch';
 
+import { optionalAmount } from './amount';
+import { currencyLabel, currencySymbol, DEFAULT_CURRENCY } from './money';
+import { useCurrencies } from './useCurrencies';
+
 export type ProviderEditorTarget = providersApi.ModelProvider | 'new' | null;
 
 interface ProviderDraft {
@@ -25,6 +29,10 @@ interface ProviderDraft {
   model: string;
   timeoutMs: string;
   maxTokens: string;
+  currency: string;
+  inputPrice: string;
+  cachedInputPrice: string;
+  outputPrice: string;
   apiKey: string;
   enabled: boolean;
 }
@@ -36,8 +44,12 @@ function providerDraft(target: Exclude<ProviderEditorTarget, null>): ProviderDra
       name: '',
       baseUrl: '',
       model: '',
-      timeoutMs: '30000',
+      timeoutMs: String(providersApi.DEFAULT_TIMEOUT_MS),
       maxTokens: '',
+      currency: DEFAULT_CURRENCY,
+      inputPrice: '',
+      cachedInputPrice: '',
+      outputPrice: '',
       apiKey: '',
       enabled: true,
     };
@@ -49,6 +61,15 @@ function providerDraft(target: Exclude<ProviderEditorTarget, null>): ProviderDra
     model: target.default_model,
     timeoutMs: String(target.timeout_ms),
     maxTokens: target.max_tokens == null ? '' : String(target.max_tokens),
+    currency: target.price_currency || DEFAULT_CURRENCY,
+    inputPrice:
+      target.input_price_per_mtok == null ? '' : String(target.input_price_per_mtok),
+    cachedInputPrice:
+      target.cached_input_price_per_mtok == null
+        ? ''
+        : String(target.cached_input_price_per_mtok),
+    outputPrice:
+      target.output_price_per_mtok == null ? '' : String(target.output_price_per_mtok),
     apiKey: '',
     enabled: target.enabled,
   };
@@ -61,8 +82,9 @@ export function ModelProviderEditorDrawer({
   target: ProviderEditorTarget;
   onClose: () => void;
 }) {
-  const { t } = useTranslation('agent');
+  const { t, i18n } = useTranslation('agent');
   const queryClient = useQueryClient();
+  const { currencies, symbolOf } = useCurrencies();
   const [draft, setDraft] = React.useState<ProviderDraft>(() =>
     providerDraft('new'),
   );
@@ -117,11 +139,18 @@ export function ModelProviderEditorDrawer({
     const maxTokens = draft.maxTokens.trim()
       ? Number(draft.maxTokens)
       : undefined;
+    const inputPrice = optionalAmount(draft.inputPrice);
+    const cachedInputPrice = optionalAmount(draft.cachedInputPrice);
+    const outputPrice = optionalAmount(draft.outputPrice);
     if (
       !Number.isFinite(timeoutMs) ||
-      timeoutMs <= 0 ||
+      timeoutMs < providersApi.MIN_TIMEOUT_MS ||
+      timeoutMs > providersApi.MAX_TIMEOUT_MS ||
       (maxTokens !== undefined &&
-        (!Number.isFinite(maxTokens) || maxTokens <= 0))
+        (!Number.isFinite(maxTokens) || maxTokens <= 0)) ||
+      inputPrice === 'invalid' ||
+      cachedInputPrice === 'invalid' ||
+      outputPrice === 'invalid'
     ) {
       setFormError(t('settings.models.invalid_limits'));
       return;
@@ -137,12 +166,20 @@ export function ModelProviderEditorDrawer({
         enabled: draft.enabled,
         timeout_ms: Math.round(timeoutMs),
         max_tokens: maxTokens === undefined ? undefined : Math.round(maxTokens),
+        price_currency: draft.currency,
+        input_price_per_mtok: inputPrice,
+        cached_input_price_per_mtok: cachedInputPrice,
+        output_price_per_mtok: outputPrice,
       },
       apiKey: draft.apiKey.trim(),
     });
   };
 
   const formId = 'agent-model-provider-editor';
+  // Every price is per million tokens, in the currency chosen above them.
+  const unit = t('settings.models.price_unit', {
+    symbol: currencySymbol(draft.currency, symbolOf),
+  });
   return (
     <FormDrawer
       open={target !== null}
@@ -221,10 +258,15 @@ export function ModelProviderEditorDrawer({
 
         <FormSection title={t('settings.models.sections.runtime')}>
           <FormRow>
-            <FormField label={t('settings.models.fields.timeout_ms')} required>
+            <FormField
+              label={t('settings.models.fields.timeout_ms')}
+              hint={t('settings.models.timeout_hint')}
+              required
+            >
               <FormInput
                 type="number"
-                min={1}
+                min={providersApi.MIN_TIMEOUT_MS}
+                max={providersApi.MAX_TIMEOUT_MS}
                 value={draft.timeoutMs}
                 onChange={(event) =>
                   setDraft((value) => ({
@@ -256,6 +298,54 @@ export function ModelProviderEditorDrawer({
               setDraft((value) => ({ ...value, enabled }))
             }
           />
+        </FormSection>
+
+        <FormSection
+          title={t('settings.models.sections.pricing')}
+          description={t('settings.models.pricing_description')}
+        >
+          <FormRow>
+            <FormField label={t('settings.models.fields.currency')}>
+              <FormSelect
+                value={draft.currency}
+                onChange={(currency) => setDraft((value) => ({ ...value, currency }))}
+                options={[
+                  ...currencies.map((currency) => ({
+                    value: currency.code,
+                    label: currencyLabel(currency.code, i18n.language, currency.name),
+                  })),
+                  // The provider's currency stays shown while the list loads.
+                  ...(currencies.some((currency) => currency.code === draft.currency)
+                    ? []
+                    : [{ value: draft.currency, label: currencyLabel(draft.currency, i18n.language) }]),
+                ]}
+              />
+            </FormField>
+          </FormRow>
+          <FormRow>
+            <PriceField
+              label={t('settings.models.fields.input_price', { unit })}
+              value={draft.inputPrice}
+              placeholder={t('settings.models.price_placeholder')}
+              onChange={(inputPrice) => setDraft((value) => ({ ...value, inputPrice }))}
+            />
+            <PriceField
+              label={t('settings.models.fields.cached_input_price', { unit })}
+              value={draft.cachedInputPrice}
+              placeholder={t('settings.models.cached_price_placeholder')}
+              onChange={(cachedInputPrice) =>
+                setDraft((value) => ({ ...value, cachedInputPrice }))
+              }
+            />
+          </FormRow>
+          <FormRow>
+            <PriceField
+              label={t('settings.models.fields.output_price', { unit })}
+              value={draft.outputPrice}
+              placeholder={t('settings.models.price_placeholder')}
+              onChange={(outputPrice) => setDraft((value) => ({ ...value, outputPrice }))}
+            />
+          </FormRow>
         </FormSection>
 
         <FormSection
@@ -313,5 +403,32 @@ function FormError({ children }: { children: React.ReactNode }) {
     >
       {children}
     </div>
+  );
+}
+
+/** A unit price: a number of zero or more, in the currency chosen for the provider. */
+function PriceField({
+  label,
+  value,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <FormField label={label}>
+      <FormInput
+        type="number"
+        min={0}
+        step="any"
+        inputMode="decimal"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+      />
+    </FormField>
   );
 }

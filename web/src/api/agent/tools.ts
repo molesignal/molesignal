@@ -78,7 +78,8 @@ export interface RegisteredTool {
     | 'preflight'
     | 'managed_mutation'
     | 'creates_approval_request'
-    | 'executes_approved_operation';
+    | 'executes_approved_operation'
+    | 'chat_record';
 }
 
 export interface ToolRegistry {

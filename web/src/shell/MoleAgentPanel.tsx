@@ -48,7 +48,12 @@ export function MoleAgentPanel() {
   React.useEffect(() => {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
+      if (e.key !== 'Escape') return;
+      // Something in the panel that closes on Escape itself claims it. The composer is a rich
+      // text editor, which prevents every Escape's default: the menus in it claim theirs by not
+      // letting the key go further.
+      const fromEditor = e.target instanceof Element && e.target.closest('.ProseMirror') !== null;
+      if (fromEditor || !e.defaultPrevented) close();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

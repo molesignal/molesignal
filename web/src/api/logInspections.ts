@@ -27,6 +27,7 @@ export type InspectionRunFailure =
   | 'identity'
   | 'model'
   | 'agent'
+  | 'budget'
   | 'internal';
 
 export interface InspectionNotifyRoute {

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import {
   Activity,
+  BookOpen,
   Bot,
   ClipboardCheck,
   ListTodo,
@@ -20,6 +21,7 @@ import {
 import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 import { ViewTabs } from '@/shell/tabs/ViewTabs';
 
+import { KNOWLEDGE_VIEWS, knowledgeViewOf } from './knowledge/KnowledgePage';
 import {
   AGENT_SETTINGS_SECTIONS,
   agentSettingsPath,
@@ -29,6 +31,7 @@ import {
 const MODULE_NAV = [
   { to: '/agent/chat', key: 'nav.chat', icon: MessageSquareText },
   { to: '/agent/investigations', key: 'nav.investigations', icon: ListTodo },
+  { to: '/agent/knowledge', key: 'nav.knowledge', icon: BookOpen },
   { to: '/agent/automations', key: 'nav.automations', icon: Workflow },
   { to: '/agent/approvals', key: 'nav.approvals', icon: ClipboardCheck },
   { to: '/agent/executions', key: 'nav.executions', icon: Activity },
@@ -39,6 +42,7 @@ export function AgentLayout() {
   const { t } = useTranslation('agent');
   const { pathname } = useLocation();
   const settingsSection = agentSettingsSectionOf(pathname);
+  const knowledgeView = knowledgeViewOf(pathname);
   const overview = useQuery({
     queryKey: ['agent', 'overview'],
     queryFn: agentApi.overview,
@@ -51,7 +55,7 @@ export function AgentLayout() {
     <section
       data-page-appearance="surface"
       className={cn(
-        'flex h-[calc(100vh-var(--topbar-h))] min-h-0 flex-col',
+        'flex h-[calc(100vh-var(--topbar-h)-var(--contextbar-h,0px))] min-h-0 flex-col',
         surfacePageRootClass,
       )}
     >
@@ -109,6 +113,24 @@ export function AgentLayout() {
                     to: agentSettingsPath(section.value),
                     label: t(section.key),
                     active: section.value === settingsSection,
+                  }))}
+                />
+              </div>
+            </div>
+          )}
+          {knowledgeView && (
+            <div className="border-t border-bd-0">
+              <div
+                data-agent-subnavigation="knowledge"
+                className="flex h-[40px] items-center px-[10px] [@media(pointer:coarse)]:h-[44px]"
+              >
+                <ViewTabs
+                  label={t('nav.knowledge')}
+                  items={KNOWLEDGE_VIEWS.map((view) => ({
+                    key: view.value,
+                    to: view.path,
+                    label: t(view.key),
+                    active: view.value === knowledgeView,
                   }))}
                 />
               </div>

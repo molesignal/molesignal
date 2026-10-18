@@ -385,7 +385,8 @@
     },
     "fields": {
       "name": "名称"
-    }
+    },
+    "agent_resources": "先移交或删除这个团队名下的 Mole Agent 资源：{{names}}"
   },
   "permission_domains": {
     "platform": "平台管理",

@@ -1,19 +1,17 @@
-import { Check, Clipboard, Link2, Unplug } from 'lucide-react';
+import { Link2, MessageSquareCode, Unplug } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { InboundMcpOAuthConnection } from '@/api/agent/inboundMcp';
 import { writeClipboardText } from '@/lib/clipboard';
 import { ProductState } from '@/product/states';
+import { CopyField } from '@/shell/CopyField';
+import { CopyIconButton } from '@/shell/CopyIconButton';
+import { ViewTabs } from '@/shell/tabs/ViewTabs';
 import { Badge } from '@/shell/ui/badge';
 import { Button } from '@/shell/ui/button';
 import { Input } from '@/shell/ui/input';
 import { Label } from '@/shell/ui/label';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/shell/ui/tooltip';
 
 export function OAuthConnections({
   connections,
@@ -149,6 +147,10 @@ export function NumberField({
   );
 }
 
+/**
+ * An address to copy out, the way the settings show the organization's ID and
+ * slug: a filled field one control high, with the shared copy button inside.
+ */
 export function EndpointField({
   label,
   value,
@@ -156,47 +158,90 @@ export function EndpointField({
   label: string;
   value: string;
 }) {
+  const { t } = useTranslation('agent');
   return (
     <Field label={label}>
-      <div className="flex min-w-0 items-center gap-2 rounded-md border border-bd-0 bg-bg-2 px-3 py-2">
-        <code className="min-w-0 flex-1 truncate text-xs text-tx-1">
-          {value}
-        </code>
-        <CopyButton value={value} />
-      </div>
+      <CopyField value={value} copyLabel={t('settings.inbound_mcp.copy')} />
     </Field>
-  );
-}
-
-export function CopyButton({ value }: { value: string }) {
-  const { t } = useTranslation('agent');
-  const [copied, setCopied] = React.useState(false);
-  const label = t(
-    copied ? 'settings.inbound_mcp.copied' : 'settings.inbound_mcp.copy',
-  );
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          aria-label={label}
-          onClick={async () => {
-            await writeClipboardText(value);
-            setCopied(true);
-            window.setTimeout(() => setCopied(false), 1_500);
-          }}
-        >
-          {copied ? <Check /> : <Clipboard />}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
   );
 }
 
 function formatTimestamp(micros: number): string {
   if (!Number.isFinite(micros)) return '—';
   return new Date(micros / 1_000).toLocaleString();
+}
+
+/** How an agent tool reaches MoleSignal: it starts the CLI over stdio, or calls the endpoint. */
+type PromptProtocol = 'stdio' | 'http';
+
+/**
+ * A prompt to paste into an agent tool (Claude Code, Cursor and the like): it
+ * tells the tool how to add MoleSignal as an MCP server. stdio by default: the
+ * tool starts `molesignalctl mcp`, signed in once in the browser; or the
+ * Streamable HTTP endpoint with OAuth, where the tool calls MoleSignal itself.
+ */
+export function ConnectPrompt({ endpoint }: { endpoint: string }) {
+  const { t } = useTranslation('agent');
+  const [protocol, setProtocol] = React.useState<PromptProtocol>('stdio');
+  const [copied, setCopied] = React.useState(false);
+  const resetTimer = React.useRef<number | undefined>(undefined);
+  // The address MoleSignal is reached at: the endpoint without its MCP path.
+  const address = endpoint.replace(/\/api\/v1\/mcp\/?$/, '');
+  const prompt =
+    protocol === 'stdio'
+      ? t('settings.inbound_mcp.prompt.text_stdio', { address })
+      : t('settings.inbound_mcp.prompt.text_http', { endpoint });
+
+  React.useEffect(() => () => window.clearTimeout(resetTimer.current), []);
+
+  const copy = async () => {
+    try {
+      await writeClipboardText(prompt);
+      setCopied(true);
+      window.clearTimeout(resetTimer.current);
+      resetTimer.current = window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // The browser may refuse the clipboard; the text stays there to select.
+    }
+  };
+
+  return (
+    <section data-inbound-mcp-prompt className="border-t border-bd-0 py-5">
+      <div className="flex items-start gap-3">
+        <MessageSquareCode aria-hidden="true" className="mt-0.5 h-4 w-4 text-indigo" />
+        <div className="min-w-0 flex-1">
+          <h3 className="font-strong text-tx-0">{t('settings.inbound_mcp.prompt.title')}</h3>
+          <p className="mt-1 text-xs leading-5 text-tx-3">
+            {t('settings.inbound_mcp.prompt.description')}
+          </p>
+        </div>
+        <ViewTabs<PromptProtocol>
+          label={t('settings.inbound_mcp.prompt.protocol')}
+          value={protocol}
+          onValueChange={setProtocol}
+          items={[
+            { key: 'stdio', label: t('settings.inbound_mcp.prompt.stdio') },
+            { key: 'http', label: t('settings.inbound_mcp.prompt.http') },
+          ]}
+        />
+      </div>
+      {/* The copy button sits in the box, the way the settings show the organization's ID. */}
+      <div className="relative mt-3 rounded-md bg-[var(--control-surface)]">
+        <pre
+          data-inbound-mcp-prompt-text={protocol}
+          className="whitespace-pre-wrap break-words py-2.5 pl-3 pr-12 font-sans text-xs leading-5 text-tx-1"
+        >
+          {prompt}
+        </pre>
+        <CopyIconButton
+          onClick={() => void copy()}
+          label={t('settings.inbound_mcp.prompt.copy')}
+          copied={copied}
+          copiedLabel={t('settings.inbound_mcp.prompt.copied')}
+          wrapperClassName="absolute right-[2px] top-[2px]"
+          className="h-11 w-11 lg:h-8 lg:w-8"
+        />
+      </div>
+    </section>
+  );
 }

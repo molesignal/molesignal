@@ -14,6 +14,7 @@ import { DetailPage } from '@/product/templates';
 import { ChromeButton, Pill } from '@/shell/chrome';
 import { IncidentBody } from '@/shell/incident/Body';
 import { courseDuration } from '@/shell/incident/Course';
+import { InvestigateWithAgent } from '@/shell/incident/InvestigateWithAgent';
 import { IncidentSilenceDialog } from '@/shell/incident/SilenceDialog';
 import { STATUS_TONE } from '@/shell/incident/tones';
 import { queryStateFor } from '@/shell/query/State';
@@ -131,9 +132,13 @@ export function IncidentDetail() {
         state={pageState}
         toolbar={
           // Only what still moves the incident forward: one that has recovered is a record,
-          // and one somebody has taken is not offered to be taken again.
-          incident && active ? (
+          // and one somebody has taken is not offered to be taken again. Investigating it
+          // is open to every incident.
+          incident && !active ? (
+            <InvestigateWithAgent incident={incident} />
+          ) : incident && active ? (
             <>
+              <InvestigateWithAgent incident={incident} />
               <ChromeButton
                 onClick={() => silenceAccess.allowed && setSilencing(true)}
                 disabled={silenceAccess.disabled}

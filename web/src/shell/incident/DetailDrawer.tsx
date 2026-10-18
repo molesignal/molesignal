@@ -14,6 +14,7 @@ import { LoadingState } from '@/shell/LoadingState';
 import { toast } from '@/shell/ui/sonner';
 
 import { IncidentBody } from './Body';
+import { InvestigateWithAgent } from './InvestigateWithAgent';
 import { IncidentSilenceDialog } from './SilenceDialog';
 import { SEVERITY_TONE, STATUS_TONE } from './tones';
 
@@ -132,6 +133,9 @@ export function IncidentDetailDrawer({ incidentId, onClose }: IncidentDetailDraw
         footer={
           incident ? (
             <>
+              <span className="mr-auto">
+                <InvestigateWithAgent incident={incident} size="sm" />
+              </span>
               <ChromeButton
                 size="sm"
                 disabled={silenceAccess.disabled}

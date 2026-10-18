@@ -421,7 +421,8 @@
       "regenerate": "Regenerate",
       "generating": "Generating…",
       "generated": "Root-cause analysis generated",
-      "empty": "No analysis yet — generate one or wait for the background pass."
+      "empty": "No analysis yet — generate one or wait for the background pass.",
+      "budget_exhausted": "Today's Mole Agent token budget for the organization is used up, so no analysis was generated. Try again once it resets or is raised."
     },
     "signals": {
       "services": "Services",

@@ -26,7 +26,12 @@ import express, { type Express, type Request, type Response } from 'express';
 
 import type { UserPreferences } from '../../src/api/me';
 import { PRODUCT_ROUTES } from '../../src/product/ia';
-import { registerAlertRoutes } from './mockAlerts';
+import { registerAgentCommandRoutes } from './mockAgentCommands';
+import { registerAgentKnowledgeRoutes } from './mockAgentKnowledge';
+import { registerAgentResourceRoutes } from './mockAgentResources';
+import { registerAgentRunRoutes } from './mockAgentRuns';
+import { registerAgentUsageRoutes } from './mockAgentUsage';
+import { mockIncidentExists, registerAlertRoutes } from './mockAlerts';
 import { registerBusinessServiceRoutes } from './mockBusinessServices';
 import { registerLogInspectionRoutes } from './mockLogInspections';
 import { registerReliabilityRoutes } from './mockReliability';
@@ -366,7 +371,10 @@ interface Fixtures {
 }
 
 export function registerRoutes(app: Express): void {
-  registerAlertRoutes(app, FROZEN_NOW_ISO);
+  const agentUsage = registerAgentUsageRoutes(app, FROZEN_NOW_ISO);
+  const agentCommands = registerAgentCommandRoutes(app, mockIncidentExists);
+  registerAlertRoutes(app, FROZEN_NOW_ISO, () => agentUsage.refusal());
+  registerAgentKnowledgeRoutes(app, FROZEN_NOW_ISO);
   registerReliabilityRoutes(app, FROZEN_NOW_ISO);
   registerBusinessServiceRoutes(app, FROZEN_NOW_ISO);
   registerSearchJobRoutes(app, FROZEN_NOW_ISO);
@@ -807,86 +815,80 @@ export function registerRoutes(app: Express): void {
       provider: req.body?.provider ?? 'openai',
       model: req.body?.model ?? 'gpt-4o',
       title: req.body?.title ?? 'Mole Agent 对话',
+      // The first question for now: the first answer names the chat (see mockAgentRuns).
+      title_provisional: Boolean(req.body?.title_provisional),
       provider_id: req.body?.provider_id ?? null,
       analysis_mode: req.body?.analysis_mode ?? null,
       time_range_start_micros: null,
       time_range_end_micros: null,
       archive_object_key: null,
+      scope: req.body?.team_id ? 'team' : 'personal',
+      team_id: req.body?.team_id ?? null,
+      mounted_team_ids: [],
+      owner_id: 'dev',
+      readable: true,
+      // Started from an incident: the chat records an investigation of it.
+      subject_kind: req.body?.subject?.kind ?? null,
+      subject_id: req.body?.subject?.id ?? null,
+      investigation_id: req.body?.subject ? `mock-investigation-${now}` : null,
       created_at_micros: now,
       updated_at_micros: now,
     };
     agentChats.unshift(chat);
     res.json(chat);
   });
+  // A rename: the chat keeps its place in the list, and is no longer named by its first answer.
+  app.patch('/api/v1/agent/chat/:id', (req, res) => {
+    const chat = agentChats.find((item) => item.id === req.params.id);
+    const title = String(req.body?.title ?? '').trim();
+    if (!chat) return res.status(404).json({ error: 'not_found', message: 'chat not found' });
+    if (!title) return res.status(400).json({ error: 'invalid_argument', message: 'a name is needed' });
+    Object.assign(chat, { title, title_provisional: false });
+    return res.json(chat);
+  });
+  // A fork: a new chat with every message of its source, under it in the list.
+  app.post('/api/v1/agent/chat/:id/fork', (req, res) => {
+    const source = agentChats.find((chat) => chat.id === req.params.id);
+    if (!source) {
+      res.status(404).json({ error: 'not_found', message: 'chat not found' });
+      return;
+    }
+    const now = Date.now() * 1000;
+    const id = `mock-chat-${now}`;
+    chatMessages.set(
+      id,
+      (chatMessages.get(req.params.id) ?? []).map((message, index) => ({
+        ...message,
+        id: `${id}-m${index}`,
+        chat_id: id,
+        run_id: null,
+      })),
+    );
+    const fork = {
+      ...source,
+      id,
+      parent_chat_id: source.id,
+      subject_kind: null,
+      subject_id: null,
+      investigation_id: null,
+      owner_id: 'dev',
+      created_at_micros: now,
+      updated_at_micros: now,
+    };
+    agentChats.unshift(fork);
+    res.json(fork);
+  });
   app.get('/api/v1/agent/chat/:id/messages', (req, res) =>
     res.json({ messages: chatMessages.get(req.params.id) ?? [] }),
   );
-  app.post('/api/v1/agent/chat/:id/messages', (req, res) => {
-    const now = Date.now() * 1000;
-    const messages = chatMessages.get(req.params.id) ?? [];
-    chatMessages.set(req.params.id, messages);
-    if (!req.body?.regenerate_from_message_id) {
-      messages.push({
-        id: `mock-user-${now}`,
-        chat_id: req.params.id,
-        org_id: 'default',
-        role: 'user',
-        content: req.body?.content ?? '',
-        created_at_micros: now,
-      });
-    }
-    res.setHeader('content-type', 'text/event-stream');
-    res.setHeader('cache-control', 'no-cache');
-    res.flushHeaders();
-    res.write(
-      `event: tool_start\ndata: ${JSON.stringify({
-        id: `mock-tool-${now}`,
-        name: 'list_streams',
-        arguments: JSON.stringify({ time_range: req.body?.time_range ?? null }),
-      })}\n\n`,
-    );
-    setTimeout(() => {
-      const answer = JSON.stringify({
-        summary: 'The selected data scope is available for investigation.',
-        evidence: [{ label: 'One observable data source is available', kind: 'logs' }],
-        likely_causes: [],
-        limitations: [],
-        suggested_next_steps: ['Continue with the selected service and time range'],
-        related_links: [],
-        confidence: 'medium',
-      });
-      messages.push({
-        id: `mock-assistant-${Date.now() * 1000}`,
-        chat_id: req.params.id,
-        org_id: 'default',
-        role: 'assistant',
-        content: answer,
-        evidence_json: [
-          {
-            tool_call_id: `mock-tool-${now}`,
-            tool: 'list_streams',
-            status: 'success',
-            summary: '1 row',
-            row_count: 1,
-            took_ms: 84,
-            arguments: { time_range: req.body?.time_range ?? null },
-          },
-        ],
-        created_at_micros: Date.now() * 1000,
-      });
-      const chat = agentChats.find((item) => item.id === req.params.id);
-      if (chat) chat.updated_at_micros = Date.now() * 1000;
-      res.write(
-        `event: tool_end\ndata: ${JSON.stringify({
-          id: `mock-tool-${now}`,
-          result: JSON.stringify({ streams: ['logs/default'], row_count: 1 }),
-          is_error: false,
-        })}\n\n`,
-      );
-      res.write(`event: chunk\ndata: ${JSON.stringify({ text: answer })}\n\n`);
-      res.write('event: done\ndata: {"prompt_tokens":10,"completion_tokens":12,"finish_reason":"stop"}\n\n');
-      res.end();
-    }, 350);
+  // A message is kept and queued as a run; its answer is read from the run's events.
+  registerAgentRunRoutes(app, {
+    chatMessages,
+    agentChats,
+    readCommand: (content) => agentCommands.read(content),
+    budgetRefusal: () => agentUsage.refusal(),
+    budgetNotice: () => agentUsage.notice(),
+    userId: 'dev',
   });
   app.post('/api/v1/agent/chat/:id/archive', (req, res) =>
     res.json({
@@ -924,7 +926,7 @@ export function registerRoutes(app: Express): void {
             evidence_json: [{ tool: 'query_logs', status: 'success', row_count: 12 }],
             prompt_tokens: 128,
             completion_tokens: 64,
-            cost_usd: 0.0012,
+            cost: { amount: 0.0012, currency: 'USD' },
             created_at_micros: now - 1_000_000,
           },
         ]
@@ -981,6 +983,10 @@ export function registerRoutes(app: Express): void {
       enabled: true,
       timeout_ms: 30_000,
       max_tokens: 4096,
+      price_currency: 'USD',
+      input_price_per_mtok: 2.5,
+      cached_input_price_per_mtok: 1.25,
+      output_price_per_mtok: 10,
       key_last4: '1234',
       key_set: true,
       created_at_micros: Date.now() * 1000,
@@ -995,6 +1001,7 @@ export function registerRoutes(app: Express): void {
       enabled: true,
       timeout_ms: 30_000,
       max_tokens: 8192,
+      price_currency: 'CNY',
       key_last4: '5678',
       key_set: true,
       created_at_micros: Date.now() * 1000,
@@ -1004,8 +1011,40 @@ export function registerRoutes(app: Express): void {
   app.get('/api/v1/agent/settings/model-providers', (_req, res) =>
     res.json(modelProviders),
   );
+  // The organization's currencies: the common ones, a symbol of its own on CNY.
+  const currencies: Array<{ code: string; name: string | null; symbol: string | null }> = [
+    'USD', 'CNY', 'EUR', 'GBP', 'JPY', 'HKD', 'SGD', 'KRW',
+  ].map((code) => ({ code, name: null, symbol: null }));
+  const currencyView = (currency: (typeof currencies)[number]) => ({
+    ...currency,
+    used_by: modelProviders
+      .filter((provider) => (provider.price_currency ?? 'USD') === currency.code)
+      .map((provider) => String(provider.name)),
+    updated_at_micros: Date.now() * 1000,
+  });
+  app.get('/api/v1/agent/settings/currencies', (_req, res) =>
+    res.json({ currencies: currencies.map(currencyView) }),
+  );
+  app.put('/api/v1/agent/settings/currencies/:code', (req, res) => {
+    const code = String(req.params.code);
+    const next = {
+      code,
+      name: (req.body?.name as string | null) ?? null,
+      symbol: (req.body?.symbol as string | null) ?? null,
+    };
+    const index = currencies.findIndex((currency) => currency.code === code);
+    if (index >= 0) currencies[index] = next;
+    else currencies.push(next);
+    res.json(currencyView(next));
+  });
+  app.delete('/api/v1/agent/settings/currencies/:code', (req, res) => {
+    const index = currencies.findIndex((currency) => currency.code === req.params.code);
+    if (index >= 0) currencies.splice(index, 1);
+    res.json({ deleted: index >= 0 });
+  });
   app.post('/api/v1/agent/settings/model-providers', (req, res) => {
     const provider = {
+      price_currency: 'USD',
       ...req.body,
       id: `model-provider-${modelProviders.length + 1}`,
       key_last4:
@@ -1168,8 +1207,8 @@ export function registerRoutes(app: Express): void {
     org_id: 'acme-prod',
     enabled: true,
     allowed_origins: [] as string[],
-    max_request_bytes: 1_048_576,
-    max_response_bytes: 1_048_576,
+    max_request_size: 1,
+    max_response_size: 1,
     max_concurrent_calls: 8,
     calls_per_minute: 60,
     read_timeout_ms: 30_000,
@@ -1182,7 +1221,7 @@ export function registerRoutes(app: Express): void {
     endpoint: 'https://molesignal.example/api/v1/mcp',
     protocol_versions: ['2026-07-28', '2025-11-25', '2025-06-18', '2025-03-26'],
     transports: ['streamable_http'],
-    hard_max_body_bytes: 8_388_608,
+    hard_max_size: 8,
     oauth: {
       protected_resource_metadata: 'https://molesignal.example/.well-known/oauth-protected-resource/api/v1/mcp',
       authorization_server_metadata: 'https://molesignal.example/.well-known/oauth-authorization-server',
@@ -1604,8 +1643,20 @@ export function registerRoutes(app: Express): void {
     {
       id: 'mcp-observability',
       org_id: 'acme-prod',
+      scope: { scope: 'org' },
+      handle: 'internal_observability',
       name: 'internal-observability',
       transport: 'streamable_http',
+      member_credential: null,
+      headers: [
+        { name: 'x-tenant', secret: false, value: 'acme', set: true },
+        { name: 'x-api-key', secret: true, last4: '9c1d', set: true },
+      ],
+      env: [],
+      editable: true,
+      moderatable: true,
+      prompt_count: 0,
+      my_credential: null,
       endpoint_url: 'https://mcp.internal.example/v1',
       command_template: null,
       auth_type: 'bearer_token',
@@ -1629,7 +1680,49 @@ export function registerRoutes(app: Express): void {
       updated_at: nowMicros - 600_000_000,
       tool_count: 0,
     },
+    {
+      id: 'mcp-linear',
+      org_id: 'acme-prod',
+      scope: { scope: 'team', team_id: 'team-platform' },
+      handle: 'linear',
+      name: 'Linear',
+      transport: 'sse',
+      endpoint_url: 'https://mcp.linear.app/sse',
+      command_template: null,
+      auth_type: 'member_secret',
+      auth_header: null,
+      credential_last4: null,
+      credential_set: false,
+      member_credential: {
+        header: 'authorization',
+        bearer: true,
+        instructions: 'Create a personal API key under Linear → Settings → API.',
+      },
+      headers: [],
+      env: [],
+      private_only: false,
+      allowed_domains: [],
+      allowed_cidrs: [],
+      follow_redirects: false,
+      tls_verify: true,
+      timeout_ms: 10_000,
+      max_response_bytes: 1_048_576,
+      enabled: true,
+      status: 'healthy',
+      last_error: null,
+      last_tested_at: nowMicros - 300_000_000,
+      last_synced_at: nowMicros - 600_000_000,
+      created_by: 'dev',
+      created_at: nowMicros - 86_400_000_000,
+      updated_at: nowMicros - 600_000_000,
+      tool_count: 0,
+      prompt_count: 1,
+      editable: true,
+      moderatable: true,
+      my_credential: null,
+    },
   ];
+  registerAgentResourceRoutes(app, FROZEN_NOW_ISO, mcpServers);
 
   app.get('/api/v1/agent/tools', (_req, res) =>
     res.json({
@@ -1728,10 +1821,22 @@ export function registerRoutes(app: Express): void {
     res.json({ servers: mcpServers }),
   );
   app.post('/api/v1/agent/mcp-servers', (req, res) => {
+    const headers = (Array.isArray(req.body?.headers) ? req.body.headers : []) as Array<{
+      name: string;
+      secret: boolean;
+      value?: string;
+    }>;
     const server = {
       id: `mcp-${mcpServers.length + 1}`,
       org_id: 'acme-prod',
+      handle: String(req.body?.name ?? 'mcp').toLowerCase().replace(/[^a-z0-9]+/g, '_'),
       command_template: null,
+      member_credential: null,
+      env: [],
+      editable: true,
+      moderatable: true,
+      prompt_count: 0,
+      my_credential: null,
       credential_last4:
         typeof req.body?.credential === 'string'
           ? req.body.credential.slice(-4)
@@ -1746,8 +1851,20 @@ export function registerRoutes(app: Express): void {
       updated_at: nowMicros,
       tool_count: 0,
       ...req.body,
+      scope:
+        req.body?.scope === 'team'
+          ? { scope: 'team', team_id: String(req.body.team_id) }
+          : req.body?.scope === 'personal'
+            ? { scope: 'personal', owner_id: 'dev' }
+            : { scope: 'org' },
+      headers: headers.map((header) =>
+        header.secret
+          ? { name: header.name, secret: true, last4: (header.value ?? '').slice(-4), set: Boolean(header.value) }
+          : { name: header.name, secret: false, value: header.value ?? '', set: true },
+      ),
     };
     delete server.credential;
+    delete server.team_id;
     mcpServers.push(server);
     res.json(server);
   });
@@ -1761,8 +1878,22 @@ export function registerRoutes(app: Express): void {
         return source?.kind === 'mcp' && source.server_id === req.params.id;
       },
     );
+    const prompts =
+      req.params.id === 'mcp-linear'
+        ? [
+            {
+              org_id: 'acme-prod',
+              server_id: 'mcp-linear',
+              name: 'triage',
+              title: 'Triage an issue',
+              description: 'Triage a Linear issue',
+              arguments: [{ name: 'issue', description: 'The issue key', required: true }],
+              synced_at: nowMicros,
+            },
+          ]
+        : [];
     return server
-      ? res.json({ server, tools })
+      ? res.json({ server, tools, prompts })
       : res.status(404).json({ error: 'not found' });
   });
   app.put('/api/v1/agent/mcp-servers/:id', (req, res) => {

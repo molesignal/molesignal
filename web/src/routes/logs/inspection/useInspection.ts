@@ -2,6 +2,7 @@ import * as React from 'react';
 
 import * as chatApi from '@/api/agent/chat';
 import type { ModelProvider } from '@/api/agent/modelProviders';
+import { cancelRun, followRun } from '@/api/agent/runs';
 import { toApiError } from '@/lib/http';
 
 /** A tool the model called while it inspected, and how the call ended. */
@@ -50,13 +51,17 @@ export interface LogInspection {
 export function useLogInspection(): LogInspection {
   const [run, setRun] = React.useState<InspectionRun>(IDLE);
   const controller = React.useRef<AbortController | null>(null);
+  // The run the inspection is answered in: stopping it stops the model on the server too.
+  const runId = React.useRef<string | null>(null);
 
-  // A page that is left gives up what it was waiting for.
+  // A page that is left stops reading; the answer goes on and stays in Mole Agent.
   React.useEffect(() => () => controller.current?.abort(), []);
 
   const stop = React.useCallback(() => {
     controller.current?.abort();
     controller.current = null;
+    if (runId.current) void cancelRun(runId.current).catch(() => undefined);
+    runId.current = null;
     setRun((current) => (current.status === 'running' ? { ...current, status: 'stopped' } : current));
   }, []);
   const reset = React.useCallback(() => {
@@ -88,35 +93,64 @@ export function useLogInspection(): LogInspection {
         });
 
         update((current) => ({ ...current, chatId: chat.id }));
-        await chatApi.postMessageStream(
-          chat.id,
-          {
-            content: prompt,
-            time_range: { start_micros: range.start, end_micros: range.end },
-            // It reads and reports: nothing it finds is acted on.
-            execution_policy: 'read_only',
-            stream_hints: [stream],
-            provider_id: provider.id,
-            model: provider.default_model,
-          },
-          {
-            onChunk: (text) => update((current) => ({ ...current, report: current.report + text })),
-            onToolStart: (tool) =>
+        const posted = await chatApi.postMessage(chat.id, {
+          content: prompt,
+          time_range: { start_micros: range.start, end_micros: range.end },
+          // It reads and reports: nothing it finds is acted on.
+          execution_policy: 'read_only',
+          stream_hints: [stream],
+          provider_id: provider.id,
+          model: provider.default_model,
+        });
+
+        if (posted.kind !== 'queued') {
+          failed = true;
+          const message =
+            posted.kind === 'error'
+              ? posted.message
+              : posted.kind === 'budget'
+                ? 'budget'
+                : posted.refusal.code;
+          update((current) => ({ ...current, status: 'failed', error: message }));
+          return;
+        }
+
+        runId.current = posted.run.id;
+
+        // The report is written as the model writes it; its last word is the end event's.
+        await followRun(
+          posted.run.id,
+          (event) => {
+            if (event.kind === 'text') {
+              update((current) => ({ ...current, report: current.report + event.payload.text }));
+            } else if (event.kind === 'tool_start') {
+              const { id, name } = event.payload;
               update((current) => ({
                 ...current,
-                tools: [...current.tools, { id: tool.id, name: tool.name, status: 'running' }],
-              })),
-            onToolEnd: (tool) =>
+                report: '',
+                tools: [...current.tools, { id, name, status: 'running' }],
+              }));
+            } else if (event.kind === 'tool_end') {
+              const { id, is_error: isError } = event.payload;
               update((current) => ({
                 ...current,
                 tools: current.tools.map((item) =>
-                  item.id === tool.id ? { ...item, status: tool.is_error ? 'error' : 'done' } : item,
+                  item.id === id ? { ...item, status: isError ? 'error' : 'done' } : item,
                 ),
-              })),
-            onError: (message) => {
-              failed = true;
-              update((current) => ({ ...current, status: 'failed', error: message }));
-            },
+              }));
+            } else if (event.kind === 'done') {
+              const done = event.payload;
+              if (done.status === 'succeeded') {
+                update((current) => ({ ...current, report: done.content ?? current.report }));
+              } else if (done.status !== 'cancelled') {
+                failed = true;
+                update((current) => ({
+                  ...current,
+                  status: 'failed',
+                  error: done.error ?? done.code ?? done.status,
+                }));
+              }
+            }
           },
           abort.signal,
         );

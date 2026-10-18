@@ -421,7 +421,8 @@
       "regenerate": "重新生成",
       "generating": "生成中…",
       "generated": "根因分析已生成",
-      "empty": "暂无分析 - 可手动生成，或等待后台自动分析。"
+      "empty": "暂无分析 - 可手动生成，或等待后台自动分析。",
+      "budget_exhausted": "组织今天的 Mole Agent token 预算已用完，根因分析没有生成。预算重置或调高后再试。"
     },
     "signals": {
       "services": "服务",

@@ -115,6 +115,7 @@ const PROVIDER: ModelProvider = {
   default_model: 'gpt-4o',
   enabled: true,
   timeout_ms: 30_000,
+  price_currency: 'USD',
   key_set: true,
   created_at_micros: 1,
   updated_at_micros: 1,

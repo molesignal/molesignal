@@ -73,7 +73,21 @@ export function Teams() {
       void qc.invalidateQueries({ queryKey: ['iam', 'teams'] });
       setRemoving(null);
     },
-    onError: (err) => toast.error(toApiError(err).message),
+    onError: (err) => {
+      // A team that still has Mole Agent skills or MCP servers is not deleted: say which.
+      const resources = teamsApi.teamAgentResources(err);
+      if (resources) {
+        toast.error(
+          t('teams.agent_resources', {
+            defaultValue:
+              'Move or delete the team’s Mole Agent resources first: {{names}}',
+            names: resources.map((resource) => resource.name).join(', '),
+          }),
+        );
+        return;
+      }
+      toast.error(toApiError(err).message);
+    },
   });
 
   return (

@@ -4,6 +4,9 @@
   "untitled": "未命名",
   "chat_list_resize": "拖动调整对话列表宽度，双击恢复默认宽度",
   "chat_delete": "删除对话",
+  "chat_rename": "重命名",
+  "chat_rename_label": "对话名称",
+  "forked": "已分叉成新对话",
   "chat_delete_title": "删除对话？",
   "chat_delete_confirm": "“{{title}}”的记录会先归档，再从对话历史中删除。",
   "chat_delete_action": "删除",
@@ -13,11 +16,25 @@
   "history_empty_description": "开始调查后，会话与上下文会保存在这里。",
   "quick_title": "快速开始",
   "quick": {
-    "service_errors": "为什么 {{service}} 错误率升高？",
-    "service_errors_fallback": "哪个服务的错误率最高？",
-    "recent_anomalies": "分析日志、指标和链路中的最近异常",
-    "unacknowledged_alerts": "查看当前未确认的告警",
-    "build_dashboard": "创建最近 1 小时的服务健康仪表盘"
+    "scenes": {
+      "incident": {
+        "title": "排查一个事件",
+        "prompt": "排查当前最严重的未解决事件：先列调查计划，再逐条给出证据，不执行生产变更。"
+      },
+      "query": {
+        "title": "用自然语言查数据",
+        "prompt": "过去一小时哪个服务的错误最多？按服务列出数量。",
+        "prompt_service": "{{service}} 过去一小时的错误按状态码分布是什么样？"
+      },
+      "noise": {
+        "title": "治理告警噪音",
+        "hint": "找出过去 7 天无谓打扰人的告警规则，提出修改供审批"
+      },
+      "inspection": {
+        "title": "建一条定时巡检",
+        "hint": "按时让 Mole Agent 检查日志，有问题就通知你"
+      }
+    }
   },
   "chat_groups": {
     "today": "今天",
@@ -47,7 +64,8 @@
     "automations": "自动化",
     "approvals": "审批",
     "executions": "执行记录",
-    "settings": "设置"
+    "settings": "设置",
+    "knowledge": "知识"
   },
   "overview": {
     "label": "AI 运维概览",
@@ -141,7 +159,7 @@
   },
   "investigations": {
     "title": "调查任务",
-    "description": "跨日志、指标、链路和告警持续收集证据并验证根因假设。",
+    "description": "从事件发起的和手动建的调查：Mole Agent 边做边记下步骤、证据与结论。",
     "create": "创建调查任务",
     "created": "调查任务已创建",
     "edit": "编辑调查任务",
@@ -168,7 +186,8 @@
     },
     "columns": {
       "task": "调查任务",
-      "current_step": "当前步骤"
+      "current_step": "当前步骤",
+      "source": "来源"
     },
     "default_steps": {
       "context": "获取告警与服务上下文",
@@ -177,7 +196,10 @@
       "traces": "关联异常链路",
       "hypothesis": "验证主要根因假设",
       "recommendation": "提出处置建议"
-    }
+    },
+    "from_incident": "来自事件",
+    "by_hand": "手动创建",
+    "open_chat": "打开对话"
   },
   "investigation_detail": {
     "description": "每一步工具调用、证据与假设均可追溯。",
@@ -291,7 +313,9 @@
       "inbound_mcp": "Inbound MCP",
       "data": "数据访问范围",
       "network": "网络策略",
-      "approvals": "审批规则"
+      "approvals": "审批规则",
+      "usage": "用量",
+      "skills": "技能"
     },
     "inbound_mcp": {
       "title": "Inbound MCP Server",
@@ -319,8 +343,8 @@
       "runtime": {
         "title": "单次请求运行限制",
         "description": "修改会在下一次 MCP HTTP 请求开始时生效，已经开始的请求继续使用其配置快照。",
-        "request_bytes": "请求字节数",
-        "response_bytes": "响应字节数",
+        "request_size": "请求大小（MB）",
+        "response_size": "响应大小（MB）",
         "concurrent_calls": "每凭证并发调用",
         "calls_per_minute": "每凭证每分钟调用",
         "read_timeout": "读取超时（毫秒）"
@@ -340,6 +364,17 @@
         "expires": "最新 Token 到期时间：{{value}}",
         "revoke": "撤销",
         "revoked": "OAuth 连接已撤销"
+      },
+      "prompt": {
+        "title": "配置提示词",
+        "description": "复制后粘贴到 Claude Code、Cursor 等 Agent 工具里，它会把 MoleSignal 添加为 MCP 服务器。",
+        "copy": "复制提示词",
+        "copied": "已复制",
+        "protocol": "传输方式",
+        "stdio": "stdio（推荐）",
+        "http": "Streamable HTTP",
+        "text_stdio": "请把 MoleSignal 添加为一个 MCP 服务器并连接：\n- 名称：molesignal\n- 传输方式：stdio\n- 命令：npx -y @molesignal/cli mcp\n添加前先在终端运行 npx -y @molesignal/cli login --url {{address}}：它会打开浏览器，登录 MoleSignal 并同意授权，不需要 API Key。\n如果打不开浏览器，就改在这个 MCP 服务器的环境变量里设置 MOLESIGNAL_URL={{address}} 和 MOLESIGNAL_TOKEN=<MoleSignal API Token>，Token 由我在 MoleSignal 里创建后交给你。\n配置好后，列出 molesignal 提供的工具，确认已经连上。",
+        "text_http": "请把 MoleSignal 添加为一个 MCP 服务器并连接：\n- 名称：molesignal\n- 地址：{{endpoint}}\n- 传输方式：Streamable HTTP\n- 认证：OAuth 2.1。连接时会打开浏览器，登录 MoleSignal 并同意授权，不需要 API Key。\n如果你不支持 OAuth，就在请求头里带上 Authorization: Bearer <MoleSignal API Token>，Token 由我在 MoleSignal 里创建后交给你。\n配置好后，列出 molesignal 提供的工具，确认已经连上。"
       }
     },
     "profiles": {
@@ -382,7 +417,7 @@
         "next_aria": "下一页 Profile",
         "last_aria": "最后一页 Profile"
       },
-      "invalid_limits": "运行限制必须为正数，最大工具调用次数不能超过 256。",
+      "invalid_limits": "运行限制必须为正数：最长调查时间不超过 120 分钟，最大工具调用次数不超过 256，温度在 0 到 2 之间。",
       "default": "默认",
       "empty_title": "还没有 Agent Profile",
       "empty_description": "创建 Profile 以定义模型、工具、数据范围与运行限制。",
@@ -421,13 +456,18 @@
         "network": "网络访问",
         "context_tokens": "最大上下文 Token",
         "duration_minutes": "最长调查时间（分钟）",
-        "tool_calls": "最大工具调用次数"
+        "tool_calls": "最大工具调用次数",
+        "temperature": "温度",
+        "allow_bypass_permissions": "允许 Bypass permissions"
       },
       "policies": {
         "automatic": "自动执行",
         "approval": "单人审批",
         "two_person_approval": "双人审批"
-      }
+      },
+      "temperature_hint": "0 到 2，越低回答越稳定、可复现；不填用默认值 0.2。",
+      "temperature_placeholder": "默认 0.2",
+      "allow_bypass_hint": "用这个 Profile 的对话可以选 Bypass permissions：改动不再逐条问提问人，要求审批的改动仍提交审批。"
     },
     "models": {
       "title": "模型与推理",
@@ -443,7 +483,7 @@
       "base_url_placeholder": "例如：https://api.example.com/v1",
       "base_url_hint": "OpenAI-compatible 服务必须填写；官方服务可留空使用默认端点。",
       "base_url_required": "OpenAI-compatible 模型服务必须填写 Base URL。",
-      "invalid_limits": "超时时间与最大 Token 必须是正数。",
+      "invalid_limits": "超时须在 1000 到 600000 毫秒之间，最大输出 Token 须为正数，单价须为非负数。",
       "max_tokens_placeholder": "留空使用服务默认值",
       "default_endpoint": "使用官方默认端点",
       "key_placeholder": "API Key（仅写入）",
@@ -455,17 +495,53 @@
       "sections": {
         "connection": "连接配置",
         "runtime": "运行参数",
-        "credentials": "访问凭据"
+        "credentials": "访问凭据",
+        "pricing": "单价"
       },
       "fields": {
         "provider": "服务类型",
         "name": "显示名称",
         "base_url": "Base URL",
         "model": "默认模型",
-        "timeout_ms": "超时时间（毫秒）",
+        "timeout_ms": "无响应超时（毫秒）",
         "max_tokens": "最大输出 Token",
         "enabled": "启用模型服务",
-        "api_key": "API Key"
+        "api_key": "API Key",
+        "currency": "币种",
+        "input_price": "输入单价，未命中缓存（{{unit}}）",
+        "cached_input_price": "输入单价，命中缓存（{{unit}}）",
+        "output_price": "输出单价（{{unit}}）"
+      },
+      "timeout_hint": "多久没有收到模型服务的任何数据就判定失败；连接失败、限流和服务暂时不可用会自动重试两次。非流式调用要等整段回答生成完，按最长的回答来设。",
+      "pricing_description": "填了单价，用量页才显示成本，成本用这里选的币种记；按这个模型服务的所有模型计价。输入分缓存命中与未命中两个价的厂商，两个都填；不分的只填未命中那栏。不填不影响使用。",
+      "price_placeholder": "不填不计算成本",
+      "price_unit": "{{symbol}} / 百万 token",
+      "cached_price_placeholder": "不填按未命中价计算",
+      "price_summary": "输入 {{input}} · 命中缓存 {{cached}} · 输出 {{output}}（每百万 token）",
+      "price_summary_flat": "输入 {{input}} · 输出 {{output}}（每百万 token）",
+      "unpriced": "未填单价，不计算成本"
+    },
+    "currencies": {
+      "title": "币种",
+      "description": "模型服务的单价从这里选币种；名称和符号留空时用标准的。被模型服务用着的币种不能删除。",
+      "add": "添加币种",
+      "edit": "编辑 {{code}}",
+      "edit_title": "编辑币种",
+      "delete": "删除 {{code}}",
+      "delete_title": "删除币种 {{code}}？",
+      "delete_confirm": "删除后模型服务不能再选它；用它记下的成本仍按它显示。",
+      "delete_action": "删除",
+      "deleting": "正在删除…",
+      "deleted": "已删除币种",
+      "saved": "已保存币种",
+      "used_by": "{{count}} 个模型服务在用",
+      "unused": "未使用",
+      "in_use": "正被 {{names}} 使用，先给它们换一个币种",
+      "editor_description": "代码是 ISO 4217 的三个大写字母，保存后不能改。",
+      "fields": {
+        "code": "代码",
+        "name": "名称",
+        "symbol": "符号"
       }
     },
     "prompts": {
@@ -826,7 +902,7 @@
         "sync_selected": "同步所选工具",
         "transport": {
           "streamable_http": "Streamable HTTP",
-          "sse": "SSE",
+          "sse": "SSE（旧版）",
           "stdio": "stdio",
           "unix_socket": "Unix Socket"
         },
@@ -836,7 +912,8 @@
           "api_key": "API Key",
           "oauth": "OAuth Token",
           "mtls": "mTLS",
-          "internal_service_identity": "内部服务身份"
+          "internal_service_identity": "内部服务身份",
+          "member_secret": "成员凭据（每人填自己的）"
         },
         "status": {
           "healthy": "已连接",
@@ -852,7 +929,9 @@
           "deleted": "MCP Server 已移除",
           "test_success": "连接成功，发现 {{count}} 个工具",
           "test_failed": "MCP Server 连接失败",
-          "sync_success": "已同步 {{count}} 个工具"
+          "sync_success": "已同步 {{count}} 个工具",
+          "enabled": "服务器已启用",
+          "disabled": "服务器已停用"
         },
         "editor": {
           "create_title": "添加 MCP Server",
@@ -864,7 +943,15 @@
           "runtime": "运行限制",
           "transport_restricted": "当前运行时仅执行 Streamable HTTP；其他连接方式可保存，但连接测试会保持不可用。",
           "credential_set": "凭据已设置（末四位 {{last4}}）；留空将保留现有凭据。",
-          "credential_not_set": "尚未设置凭据。"
+          "credential_not_set": "尚未设置凭据。",
+          "headers": "请求头",
+          "headers_description": "每个请求都带上。名称含 key、token、secret、password、auth 等词的值会加密保存，只显示末四位；修改时留空表示不变。",
+          "env": "环境变量",
+          "env_description": "启动命令时使用；敏感的值同样加密保存。",
+          "stdio_note": "stdio 服务器由 MoleSignal 服务端启动，只有组织的服务器能用，命令要在这个实例允许的范围内：{{commands}}。",
+          "stdio_off": "这个 MoleSignal 实例没有允许任何 stdio 命令；运维可以在配置项 [agent] mcp_stdio_commands 中列出允许的命令。",
+          "stdio_org_only": "stdio 只给组织的服务器用；个人与团队的服务器连接一个地址。",
+          "member_network": "团队与个人的服务器只能连公网，以及管理员在「网络策略」里允许的内网地址；TLS 证书一律校验。"
         },
         "fields": {
           "name": "名称",
@@ -887,7 +974,73 @@
           "redirects_blocked": "重定向由服务端安全策略强制禁止。",
           "timeout_ms": "请求超时（毫秒）",
           "max_response_bytes": "最大响应体（字节）",
-          "enabled": "启用 MCP Server"
+          "enabled": "启用 MCP Server",
+          "command": "启动命令",
+          "endpoint_sse_hint": "旧版 SSE 传输的事件流地址；发消息的地址由服务器给出，必须与它同源。",
+          "endpoint_sse_placeholder": "例如：https://mcp.example.com/sse"
+        },
+        "prompt_count": "{{count}} 个 prompt",
+        "stdio_not_allowed": "这个实例不允许它的命令",
+        "enable": "启用服务器",
+        "disable": "停用服务器",
+        "member": {
+          "description": "每个成员保存自己的凭据，只有本人的调用会用到，管理员也读不到。没有填写的人调用工具时，会被提示先去填写。",
+          "header": "凭据放在哪个请求头",
+          "bearer": "加 Bearer 前缀",
+          "bearer_hint": "以 Bearer <凭据> 的形式发送",
+          "instructions": "获取说明",
+          "instructions_hint": "告诉成员去哪里创建凭据、需要哪些权限。"
+        },
+        "my_credential": {
+          "title": "我在 {{name}} 的凭据",
+          "description": "只有你的调用会用到它，加密保存，任何人都读不到明文。",
+          "value": "凭据",
+          "value_hint": "放在 {{header}} 请求头里发送",
+          "value_bearer_hint": "以 Bearer <凭据> 的形式放在 {{header}} 请求头里发送",
+          "state_saved": "已保存（末四位 {{last4}}，{{time}}）；填写新值会替换它。",
+          "state_missing": "你还没有保存凭据，调用这台服务器的工具前需要先填写。",
+          "saved": "凭据已保存",
+          "cleared": "凭据已清除",
+          "clear": "清除凭据",
+          "button_saved": "我的凭据 ••••{{last4}}",
+          "button_missing": "填写我的凭据"
+        },
+        "import": {
+          "open": "导入配置",
+          "title": "导入 MCP 配置",
+          "description": "粘贴 Claude Desktop、Claude Code、Cursor 或 VS Code 的 MCP 配置，一次添加一台或多台服务器。",
+          "config": "配置 JSON",
+          "config_hint": "带 url 的服务器可以直接测试；带 command 的是 stdio 服务器，只能导入到组织，命令要在这个实例允许的范围内。引用 ${input:…} 等变量的值不会导入，导入后再填。",
+          "submit": "导入",
+          "result": "导入结果",
+          "made": "已添加",
+          "stdio": "stdio 服务器，由服务端启动",
+          "missing": "需要补填：{{names}}",
+          "created": "已添加 {{count}} 台服务器"
+        },
+        "details": {
+          "toggle": "工具与 prompt",
+          "tools": "工具（{{count}}）",
+          "prompts": "Prompt（{{count}}）",
+          "prompts_hint": "在对话里输入下面的命令调用。",
+          "read_only": "只读",
+          "enable_read_only": "启用全部只读工具（{{count}}）",
+          "read_only_enabled": "已启用 {{count}} 个只读工具",
+          "tool_switch": "启用 {{name}}"
+        },
+        "values": {
+          "header_name": "请求头名称",
+          "header_name_placeholder": "例如：X-Org",
+          "env_name": "变量名",
+          "env_name_placeholder": "例如：GITHUB_TOKEN",
+          "value": "值",
+          "value_placeholder": "值",
+          "saved": "已保存 ••••{{last4}}，留空不变",
+          "secret_toggle": "按敏感值保存",
+          "secret_forced": "名称像敏感信息，自动加密保存",
+          "remove": "删除这一行",
+          "add_header": "添加请求头",
+          "add_env": "添加环境变量"
         }
       },
       "feedback": {
@@ -906,7 +1059,8 @@
         "preflight": "仅预检",
         "managed_mutation": "由策略管理的变更",
         "creates_approval_request": "只创建审批请求",
-        "executes_approved_operation": "执行已审批操作"
+        "executes_approved_operation": "执行已审批操作",
+        "chat_record": "写在对话里的记录（在对话里确认或撤销）"
       }
     },
     "data": {
@@ -940,7 +1094,17 @@
       "dynamic_http": "任意 HTTP 工具",
       "shell": "通用 Shell",
       "browser": "浏览器工具",
-      "open_mcp": "开放式 MCP"
+      "open_mcp": "开放式 MCP",
+      "members": {
+        "title": "团队与个人连接的内网",
+        "description": "团队成员和个人添加的技能仓库、MCP 服务器默认只能连公网。这里列出的内网主机与网段对他们开放；组织级的连接按各自的设置。",
+        "hosts": "内网主机",
+        "hosts_hint": "每行一个域名，包含其子域名，例如 git.corp.example",
+        "cidrs": "内网网段",
+        "cidrs_hint": "每行一个 CIDR，例如 10.20.0.0/16",
+        "saved": "已保存成员可连的内网",
+        "updated": "最后修改于 {{time}}"
+      }
     },
     "approval_policy": {
       "title": "审批规则",
@@ -957,6 +1121,154 @@
       "configurable": "默认自动，可由 Profile 收紧",
       "single": "默认单人审批，发起人不能自批",
       "two_person": "强制双人审批"
+    },
+    "usage": {
+      "title": "用量与预算",
+      "description": "Mole Agent 每次调用模型都计入组织的用量，按 UTC 自然日统计。预算用完后，自动根因分析、日志巡检和写入管道里的 LLM 函数不再调用模型。",
+      "today": "今日已用",
+      "limit": "每日上限",
+      "unlimited": "不限",
+      "used_share": "已用",
+      "resets": "重置于",
+      "cost_today": "今日成本",
+      "by_origin": "按来源",
+      "origins": {
+        "chat": "对话",
+        "rca": "根因分析",
+        "inspection": "日志巡检",
+        "llm_eval": "LLM 函数"
+      },
+      "calls_hint": "调用 {{calls}} 次",
+      "tokens_value": "{{value}} token",
+      "daily_limit": "每日 token 上限",
+      "limit_choice": {
+        "inherit": "跟随实例默认（{{value}}）",
+        "custom": "自定义",
+        "unlimited": "不限"
+      },
+      "custom_limit": "token 数",
+      "interactive_mode": "预算用完时，对话与手动根因分析",
+      "interactive": {
+        "block": "不再调用模型",
+        "warn": "照常回答，只提示"
+      },
+      "save": "保存预算",
+      "saved": "预算已保存",
+      "invalid_limit": "自定义上限须是正整数。",
+      "history": "最近 30 天",
+      "empty": "最近 30 天没有模型调用。",
+      "columns": {
+        "day": "日期（UTC）",
+        "total": "合计 token",
+        "calls": "调用次数",
+        "cost": "成本"
+      },
+      "cost_unknown": "在模型服务里填写单价后，这里会显示成本。",
+      "cost_partial": "标 ≥ 的成本没有算上模型服务未填单价的调用（最近 30 天共 {{calls}} 次）。"
+    },
+    "skills": {
+      "title": "技能",
+      "description": "随产品提供的、实例目录里的，以及组织、团队和个人上传或从仓库拉取的技能。对话会按会话的归属自动选用，每个技能也是一个 / 命令。",
+      "search_placeholder": "搜索技能",
+      "filters": {
+        "all": "全部",
+        "instance": "内置与实例",
+        "org": "组织",
+        "team": "团队",
+        "personal": "个人"
+      },
+      "source": {
+        "builtin": "内置",
+        "path": "实例目录",
+        "upload": "上传",
+        "repository": "仓库"
+      },
+      "needs_runner": "需要 Mole Runner",
+      "empty_title": "还没有技能",
+      "empty_filter": "没有符合条件的技能",
+      "switch": "启用 {{name}}",
+      "inspect": "查看",
+      "move": "移到",
+      "delete": "删除",
+      "deleted": "技能已删除",
+      "upload": {
+        "open": "上传技能",
+        "title": "上传技能",
+        "description": "一个 .zip、.skill 或 .tar.gz 包，里面的目录包含 SKILL.md（开放的 Agent Skills 格式）。",
+        "file": "技能包",
+        "file_hint": "最大 20 MiB；脚本只会在 Mole Runner 上运行。",
+        "submit": "上传",
+        "replace": "替换现有技能",
+        "exists": "这个归属里已经有名为 {{name}} 的技能。再点一次会用新包替换它。",
+        "done": "技能已上传"
+      },
+      "repository": {
+        "open": "添加仓库",
+        "title": "技能仓库",
+        "empty": "还没有仓库。添加 GitHub、GitLab、Gitea 等仓库后，其中每个含 SKILL.md 的目录都是一个技能。",
+        "create_title": "添加技能仓库",
+        "edit_title": "编辑技能仓库",
+        "description": "按分支或标签下载压缩包，仓库（或其中一个目录）下每个含 SKILL.md 的目录是一个技能。保存时会同步一次。",
+        "url": "仓库地址",
+        "host": "托管方式",
+        "hosts": {
+          "auto": "按地址识别",
+          "github": "GitHub",
+          "gitlab": "GitLab",
+          "gitea": "Gitea / Forgejo",
+          "bitbucket": "Bitbucket",
+          "archive": "压缩包地址"
+        },
+        "ref": "分支或标签",
+        "ref_hint": "留空是默认分支",
+        "archive_url": "压缩包地址",
+        "archive_url_hint": "含 {ref} 的 .tar.gz 或 .zip 地址",
+        "dir": "目录",
+        "dir_hint": "技能所在的目录；留空是整个仓库",
+        "token": "访问令牌",
+        "token_hint": "私有仓库需要；只写，不会回显",
+        "token_saved": "令牌已保存（末四位 {{last4}}）；留空保持不变",
+        "clear_token": "清除已保存的令牌",
+        "auto_sync": "每天自动同步",
+        "auto_sync_hint": "仓库里改了的技能每天更新一次",
+        "network_org": "组织级仓库按组织的设置连接，可以是内网地址。",
+        "network_member": "团队与个人的仓库只能连公网，以及管理员在「网络策略」里允许的内网地址。",
+        "syncing": "同步中…",
+        "sync": "同步",
+        "delete": "删除仓库",
+        "deleted": "仓库已删除，它的技能一并移除",
+        "default_branch": "默认分支",
+        "synced_at": "同步于 {{time}}",
+        "daily": "每天同步",
+        "status": {
+          "pending": "未同步",
+          "ok": "正常",
+          "partial": "部分导入",
+          "failed": "失败"
+        },
+        "sync_done": "同步完成：新增 {{imported}}，更新 {{updated}}，移除 {{removed}}。",
+        "sync_problems": "有 {{count}} 个目录没有导入，原因见仓库列表。",
+        "sync_failed": "同步失败：{{reason}}"
+      },
+      "paths": {
+        "title": "实例目录",
+        "description": "服务器配置的技能目录（[agent] skill_paths）里的技能，只读；组织可以停用。",
+        "rescan": "重新扫描",
+        "scanned_at": "扫描于 {{time}}"
+      },
+      "detail": {
+        "invoke": "调用",
+        "version": "版本",
+        "hash": "内容 hash",
+        "allowed_tools": "可直接使用的工具",
+        "dir": "目录",
+        "needs_runner": "这个技能要运行脚本，需要 Mole Runner，现在还不能在对话里使用。",
+        "examples": "试试这样问",
+        "instructions": "说明（SKILL.md）",
+        "files": "文件（{{count}}）",
+        "download": "下载",
+        "try": "在对话中试试"
+      }
     }
   },
   "starter_title": "今晚想调查什么？",
@@ -1031,7 +1343,8 @@
   "controls": {
     "time": "时间",
     "mode": "模式",
-    "execution": "执行"
+    "execution": "执行",
+    "team": "团队"
   },
   "mode": {
     "auto": "自动模式",
@@ -1039,10 +1352,35 @@
     "deep": "深度调查",
     "query_only": "仅生成查询"
   },
+  "mode_descriptions": {
+    "auto": "自由提问，按问题决定查什么",
+    "quick": "找出时间范围内的异常",
+    "deep": "关联指标、日志与链路，找出根因",
+    "query_only": "只写出查询，不执行"
+  },
   "execution_policy": {
     "advice_only": "建议模式",
     "read_only": "调查模式",
-    "policy": "执行模式（需审批）"
+    "policy": "执行模式（需审批）",
+    "auto": "自动模式",
+    "bypass_permissions": "Bypass permissions"
+  },
+  "execution_mode": {
+    "title": "模式",
+    "recommended": "推荐",
+    "descriptions": {
+      "advice_only": "查询数据并给出改动建议，不执行改动",
+      "read_only": "按需自动运行只读查询，不做任何改动",
+      "policy": "查询自动运行；改动提交审批，批准后执行",
+      "auto": "查询和可撤回的改动自动执行，删除仍先问你",
+      "bypass_permissions": "改动不再逐条问你，需审批的仍提交审批"
+    },
+    "bypass_locked": "需管理员先在 Agent Profile 中允许",
+    "bypass_confirm": {
+      "title": "开启 Bypass permissions？",
+      "description": "开启后，Mole Agent 改动时不再逐条问你，删除也一样；组织要求审批的改动仍会提交审批。请只在清楚它要做什么时开启。",
+      "confirm": "开启"
+    }
   },
   "provider_auto": "自动选择服务",
   "model_prefix": "模型",
@@ -1052,7 +1390,6 @@
   "advanced": {
     "trigger": "更多",
     "title": "Agent 设置",
-    "description": "仅在默认配置不适合当前调查时调整 Agent 行为。",
     "agent_mode": "Agent 模式",
     "overrides_active": "已启用自定义 Agent 设置",
     "profile": "Agent Profile",
@@ -1063,7 +1400,8 @@
     "calls": "{{count}} 次",
     "manage_profile": "管理 Agent Profile"
   },
-  "composer_placeholder": "询问异常、服务状态，或输入一个运维任务…",
+  "composer_label": "询问异常、服务状态，或输入一个运维任务…",
+  "composer_placeholder": "询问异常、服务状态，或输入一个运维任务…输入 / 使用命令",
   "send": "发送",
   "resend": "重新发送",
   "stop": "停止",
@@ -1087,6 +1425,22 @@
     "regenerate": "重新生成",
     "regenerating": "正在重新生成…"
   },
+  "message_actions": {
+    "copy": "复制",
+    "copied": "已复制",
+    "copy_failed": "没能复制到剪贴板",
+    "edit": "编辑后重新发送",
+    "retry": "重试",
+    "fork": "从这条回答分叉出新对话",
+    "pin": "置顶这条回答",
+    "unpin": "取消置顶",
+    "pinned_one": "已置顶 {{count}} 条",
+    "pinned_other": "已置顶 {{count}} 条"
+  },
+  "message_time": {
+    "days_ago_one": "{{count}} 天前",
+    "days_ago_other": "{{count}} 天前"
+  },
   "investigation_process": {
     "running": "正在检查 {{count}} 项数据源",
     "completed": "已检查 {{count}} 项数据源",
@@ -1097,23 +1451,59 @@
     "rows": "返回 {{count}} 条",
     "technical_detail": "详情"
   },
+  "activity": {
+    "separator": "，",
+    "look_one": "查看了 {{count}} 项",
+    "look_other": "查看了 {{count}} 项",
+    "query_one": "查询了 {{count}} 次",
+    "query_other": "查询了 {{count}} 次",
+    "knowledge_one": "读了知识库",
+    "knowledge_other": "读了 {{count}} 次知识库",
+    "knowledge_edit_one": "改了 {{count}} 个知识文件",
+    "knowledge_edit_other": "改了 {{count}} 个知识文件",
+    "memory_one": "回忆了一条记忆",
+    "memory_other": "回忆了 {{count}} 条记忆",
+    "remember_one": "记住了 {{count}} 条",
+    "remember_other": "记住了 {{count}} 条",
+    "question_one": "问了你一个问题",
+    "question_other": "问了你 {{count}} 个问题",
+    "plan_one": "更新了计划",
+    "plan_other": "更新了 {{count}} 次计划",
+    "change_one": "提出了 {{count}} 项改动",
+    "change_other": "提出了 {{count}} 项改动",
+    "tool_one": "调用了 {{count}} 个工具",
+    "tool_other": "调用了 {{count}} 个工具",
+    "failed_one": "{{count}} 个没有完成",
+    "failed_other": "{{count}} 个没有完成",
+    "running": "正在处理"
+  },
   "oauth": {
     "invalid_request": "这个 OAuth 授权请求无效或缺少必要参数。",
-    "eyebrow": "MoleSignal Inbound MCP",
-    "title": "授权 {{client}}",
-    "description": "这个 MCP 客户端正在申请使用你的身份和当前组织访问 MoleSignal。",
-    "access_title": "这个连接可以",
-    "access_tools": "• 发现并调用你的 IAM 权限和组织 Tool Policy 共同允许的 Tool。",
-    "access_policy": "• 提出受管变更，并且只能通过组织配置的审批策略继续执行。",
-    "access_credentials": "• 仅在 OAuth 授权有效期内代表你操作，且不能读取 API Token 明文。",
-    "client": "客户端",
+    "title": "想要访问你的 MoleSignal 账号",
     "organization": "组织",
-    "resource": "受保护资源",
-    "scopes": "Scope",
-    "client_website": "打开客户端网站",
-    "deny": "拒绝",
+    "switch_organization": "切换授权的组织",
+    "allows": "授权后，{{client}} 可以：",
+    "permission": {
+      "tools_title": "以你的身份使用 MoleSignal 工具",
+      "tools_body": "读取日志、指标、链路等数据。只能用你的权限和组织工具策略都允许的工具。",
+      "changes_title": "提出变更，审批通过后才执行",
+      "changes_body": "受管变更按组织的审批策略处理，不能绕过审批。",
+      "offline_title": "保持访问，直到你撤销",
+      "offline_body": "不必每次重新授权；访问凭据会自动续期。"
+    },
+    "trust_title": "确认你信任 {{client}}",
+    "trust_registered": "{{client}} 是自行注册的客户端，MoleSignal 没有核实它的名称和发布者。授权后，它能看到你在这个组织里能看到的数据。可以随时在 <revoke>Mole Agent → 设置 → Inbound MCP</revoke> 中撤销。",
+    "trust_metadata": "{{client}} 的信息由 {{host}} 发布。授权后，它能看到你在这个组织里能看到的数据。可以随时在 <revoke>Mole Agent → 设置 → Inbound MCP</revoke> 中撤销。",
+    "client_website": "客户端网站",
+    "cancel": "取消",
     "allow": "授权",
-    "footer": "授权会绑定到这个客户端、回调地址、用户、组织和 MCP 资源。"
+    "redirect": "授权后会跳转到 {{origin}}",
+    "details": "授权详情",
+    "client_id": "客户端 ID",
+    "resource": "受保护资源",
+    "scopes": "权限范围",
+    "redirect_uri": "回调地址",
+    "binding": "授权绑定到这个客户端、回调地址、你的账号、组织和 MCP 资源，换任何一项都要重新授权。"
   },
   "tools": {
     "tool_search": {
@@ -1171,6 +1561,22 @@
     "search_field_values": {
       "title": "搜索字段值",
       "description": "返回单个精确字段的有界去重值及计数。"
+    },
+    "list_log_inspections": {
+      "title": "列出定时巡检",
+      "description": "列出组织的定时日志巡检：读哪个数据流、关注什么、执行周期、是否启用，以及最近一次执行的结果。"
+    },
+    "list_log_inspection_runs": {
+      "title": "列出巡检执行",
+      "description": "按时间倒序列出一条定时巡检最近的执行，含状态、结论等级和一句话结论。"
+    },
+    "get_log_inspection_run": {
+      "title": "获取巡检报告",
+      "description": "读取一次巡检执行的结论、发现和报告原文。"
+    },
+    "run_log_inspection": {
+      "title": "立即执行巡检",
+      "description": "立即执行一条定时巡检。执行会排队并计入组织的模型用量，结束后读取它的报告。"
     },
     "list_traces": {
       "title": "检索链路",
@@ -1395,6 +1801,10 @@
     "get_rum_related_traces": {
       "title": "关联 RUM 与链路",
       "description": "查找 RUM 会话直接关联的链路，并提供有界时间关联回退。"
+    },
+    "get_rum_vitals": {
+      "title": "汇总 Web Vitals",
+      "description": "按页面汇总真实用户的 Core Web Vitals：LCP、INP、CLS、TTFB 的 P75 与浏览量，并附好与差的阈值。"
     },
     "list_continuous_profiles": {
       "title": "查询持续剖析",
@@ -1776,6 +2186,10 @@
       "title": "恢复 Status Page 自动化",
       "description": "恢复一个 Status Page 的自动化。"
     },
+    "draft_status_page_postmortem": {
+      "title": "撰写复盘草稿",
+      "description": "为一条已发布的 Status Page 事件写入或替换 Markdown 复盘草稿。草稿不会发布；已发布的复盘在 Status Page 上修改。"
+    },
     "get_user_profile": {
       "title": "获取用户资料",
       "description": "获取组织用户的安全资料字段。用户主体可省略目标以读取自己；Service Account 主体必须指定目标，读取其他用户需要成员读取权限。"
@@ -1875,6 +2289,58 @@
     "list_agent_automations": {
       "title": "列出 Agent 自动化",
       "description": "列出已配置的 Mole Agent 自动化。"
+    },
+    "list_skills": {
+      "title": "列出技能",
+      "description": "列出当前对话可用的技能：名称、说明、版本与参数写法。"
+    },
+    "load_skill": {
+      "title": "读取技能",
+      "description": "按名称读取一个技能的做法说明，以及它的参考文件清单。"
+    },
+    "read_skill_file": {
+      "title": "读取技能文件",
+      "description": "读取技能里的一个文本参考文件。"
+    },
+    "todo_write": {
+      "title": "任务清单",
+      "description": "写下这次调查的步骤与各步状态，对话里显示为「第 X/N 步」。"
+    },
+    "ask_user": {
+      "title": "向提问人提问",
+      "description": "在答案会改变下一步、又没法用其他工具查到时，向提问人提一个问题，等回答后继续。"
+    },
+    "list_knowledge": {
+      "title": "列出知识",
+      "description": "列出组织或某个团队的知识文件：路径、大小和修改时间。"
+    },
+    "read_knowledge": {
+      "title": "读取知识",
+      "description": "按路径读一个知识文件，MOLE.md 里写成 @路径 的就是知识文件。"
+    },
+    "search_knowledge": {
+      "title": "搜索知识",
+      "description": "在知识文件里找词，例如服务名或报错，给出匹配的行。"
+    },
+    "edit_knowledge": {
+      "title": "修改知识",
+      "description": "写入或删除这个对话作用域的一个知识文件，每次修改都请发起人在对话里确认。"
+    },
+    "remember": {
+      "title": "记住",
+      "description": "把偏好、做法、事实或教训记下来，之后的对话也能用；个人对话记给本人，团队对话记给团队。"
+    },
+    "forget": {
+      "title": "忘掉",
+      "description": "按名称忘掉这个对话作用域里的一条记忆。"
+    },
+    "read_memory": {
+      "title": "读取记忆",
+      "description": "按名称读一条记忆的正文。"
+    },
+    "update_investigation": {
+      "title": "记录调查",
+      "description": "把调查的步骤、证据、假设和结论记到这个对话的调查上。"
     }
   },
   "dashboard_authoring": {
@@ -1943,5 +2409,242 @@
       "medium": "中",
       "low": "低"
     }
+  },
+  "feedback": {
+    "up": "有帮助",
+    "withdraw_up": "撤回\"有帮助\"",
+    "down": "没帮助",
+    "what_was_wrong": "哪里不对？",
+    "reasons_label": "原因",
+    "reasons": {
+      "wrong_conclusion": "结论或根因错了",
+      "missed_cause": "没定位到问题",
+      "unusable_advice": "建议用不上",
+      "off_topic": "答非所问",
+      "other": "其他"
+    },
+    "comment_label": "补充说明",
+    "comment_placeholder": "补充说明（可选）",
+    "withdraw": "撤回评价",
+    "cancel": "取消",
+    "submit": "提交",
+    "thanks": "已收到反馈"
+  },
+  "chat_budget": {
+    "warning": "今天的 Mole Agent 用量已到上限的 {{percent}}%（{{used}} / {{limit}} token），{{time}} 重置。",
+    "exhausted": "今天的 Mole Agent 用量已超出预算（{{used}} / {{limit}} token），本组织设为照常回答，{{time}} 重置。",
+    "blocked": "今天的 Mole Agent token 预算已用完（{{used}} / {{limit}}），这个问题没有发出，{{time}} 重置。需要继续请管理员调高预算。",
+    "open_usage": "查看用量"
+  },
+  "commands": {
+    "menu_label": "命令",
+    "groups": {
+      "builtin": "内置",
+      "skill": "技能",
+      "mcp": "MCP"
+    },
+    "applied": "已切换为 {{value}}",
+    "exported": "已导出 {{file}}",
+    "export_you": "你",
+    "notice": {
+      "unknown_command": "没有 /{{command}} 这个命令。输入 / 查看所有命令；要原样发送以 / 开头的文字，请写成 \\/。",
+      "client_command": "/{{command}} 只能在输入框里使用。",
+      "argument_missing": "/{{command}} 需要参数：{{detail}}",
+      "argument_invalid": "/{{command}} 的参数只能是：{{detail}}",
+      "name_not_found": "/{{command}}：没有叫「{{detail}}」的选项，请从菜单中选择。",
+      "unavailable": "/{{command}} 现在不可用：{{detail}}",
+      "target_not_found": "/{{command}}：找不到这个事件，或你没有权限查看。",
+      "nothing_to_export": "这个对话还没有内容可以导出。",
+      "ambiguous": "/{{command}} 有不止一个同名技能，请写明团队：{{detail}}",
+      "needs_runner": "/{{command}} 要在 Mole Runner 上运行其中的脚本，现在还不能用。",
+      "needs_credential": "/{{command}} 要用你自己的凭据：先在 Mole Agent 设置的「工具」里为 {{detail}} 填写。",
+      "failed": "/{{command}}：MCP 服务器没能给出这个 prompt，请稍后再试或检查服务器状态。",
+      "nothing_to_compact": "这个对话还没有内容可以压缩。"
+    }
+  },
+  "team": {
+    "personal": "个人",
+    "label": "团队"
+  },
+  "chat_filter": {
+    "label": "按归属筛选对话",
+    "all": "全部",
+    "personal": "个人",
+    "team": "团队"
+  },
+  "scope": {
+    "field": "归属",
+    "personal": "个人",
+    "org": "组织",
+    "team": "团队",
+    "member": "成员个人",
+    "instance": "实例",
+    "hint_org": "组织内所有人都能用，只有 Mole Agent 管理员能改。",
+    "hint_team": "这个团队的成员与管理员能改；只在这个团队的会话里使用，个人会话调用时会把团队挂进来。",
+    "hint_personal": "只有你能改、能用；管理员能看到并停用、删除。"
+  },
+  "queue_send": "排在当前回答之后发送",
+  "run": {
+    "queued": "排队中",
+    "question": {
+      "title": "问题",
+      "other": "其他回答",
+      "placeholder": "写下回答",
+      "send": "回答"
+    },
+    "confirmation": {
+      "title": "执行「{{tool}}」？",
+      "delete_title": "删除？由「{{tool}}」执行",
+      "approve": "执行",
+      "decline": "不执行",
+      "waiting": "等 {{name}} 确认：工具以发起人的身份执行"
+    },
+    "todo": {
+      "progress": "第 {{current}}/{{total}} 步"
+    },
+    "notice": {
+      "compacting": "正在把到现在为止的对话压缩成摘要…",
+      "compacted": "已把 {{count}} 条消息压缩成摘要，之后的回答带上摘要和新消息",
+      "compacted_auto": "对话太长，已把较早的部分压缩成摘要",
+      "team_mounted": "读了团队 {{team}} 的知识，它的知识、技能和 MCP 已加进这个对话",
+      "no_response": "等了一小时没有回答，Mole Agent 按自己的判断继续",
+      "memories": "从这段对话里记下了 {{count}} 条记忆",
+      "bypass_unavailable": "这个对话的 Agent Profile 已不允许 Bypass permissions，这次回答改为逐条确认"
+    },
+    "memory": {
+      "remembered": "已记住「{{name}}」",
+      "forgotten": "已忘掉「{{name}}」",
+      "undo": "撤销",
+      "undone": "已撤销"
+    },
+    "ended": {
+      "interrupted": "这一轮没有答完：执行它的服务器停了。可以重新回答。",
+      "cancelled": "这一轮已停止。"
+    }
+  },
+  "references": {
+    "menu_title": "插入引用",
+    "searching": "正在查找…",
+    "remove": "去掉 {{name}}",
+    "kinds": {
+      "incident": "事件",
+      "alert_rule": "告警规则",
+      "service": "服务",
+      "dashboard": "仪表盘",
+      "stream": "数据流"
+    },
+    "what": "可引用事件、告警规则、服务、仪表盘和数据流，输入名称查找",
+    "none": "还没有可引用的事件、告警规则、服务、仪表盘或数据流",
+    "no_match": "没有找到名称含「{{query}}」的对象",
+    "failed": "查找失败：{{reason}}"
+  },
+  "investigate": {
+    "write_rca": "写回事件 RCA",
+    "rca_written": "已写成事件的 RCA",
+    "start": "用 Mole Agent 调查",
+    "prefill": "先列调查计划，再逐条给出证据；不执行生产变更。"
+  },
+  "knowledge": {
+    "views": {
+      "knowledge": "知识",
+      "memory": "记忆"
+    },
+    "bases_label": "各份知识",
+    "files_label": "知识文件",
+    "org": "组织",
+    "file_count": "{{count}} 个文件",
+    "updated": "{{time}} 修改",
+    "quota": "{{files}}/{{maxFiles}} 个文件 · {{size}}/{{maxSize}}",
+    "entry_missing": "没有 MOLE.md",
+    "entry_badge": "入口",
+    "stale_short": "入口可能过期",
+    "stale": "MOLE.md 写好后又改了 {{count}} 个文件，入口文件可能已经过期。",
+    "update_entry": "让 AI 更新 MOLE.md",
+    "update_entry_prompt": "MOLE.md 写好之后其他知识文件又改过了。请对照现在的文件更新 MOLE.md：每个文件一行，用 @路径 指向它，写清它讲什么。",
+    "read_only": "只能查看：组织的知识由持有 agent.manage 的人修改，团队的知识由团队成员修改。",
+    "new_file": "新建文件",
+    "new_file_path": "文件路径",
+    "new_file_hint": "例如 runbooks/payments.md，可以带目录",
+    "new_entry": "新建 MOLE.md",
+    "create": "新建",
+    "cancel": "取消",
+    "upload_files": "上传文件",
+    "upload_folder": "上传文件夹",
+    "uploaded": "已上传 {{count}} 个文件",
+    "skipped": "跳过了 {{count}} 个文件：{{paths}}",
+    "skip_reasons": {
+      "hidden_or_invalid_path": "隐藏文件或路径不对",
+      "too_large": "超过 1 MiB",
+      "not_text": "不是文本"
+    },
+    "ask_ai": "AI",
+    "ai_prompt": "请修改知识文件 {{path}}：",
+    "ai_prompt_base": "请帮我整理这份知识：",
+    "init": "用 /init 写出来",
+    "empty_title": "这份知识还是空的",
+    "empty_description": "写一个 MOLE.md 作为入口，用 @路径 指向其他文件；或者用 /init 让 Mole Agent 先看看已有的配置，再问你几个问题，确认后一份份写好。",
+    "select_file": "选一个文件查看。",
+    "mode_label": "查看方式",
+    "preview": "预览",
+    "edit": "编辑",
+    "source": "源码",
+    "edit_label": "编辑 {{path}}",
+    "source_label": "按源码编辑 {{path}}",
+    "source_only": "这个文件里有实时编辑保留不了的写法（如 HTML 注释），在这里按源码修改。",
+    "unsaved": "有没保存的修改",
+    "discard": "放弃修改",
+    "save": "保存",
+    "saved": "已保存",
+    "rename": "改名",
+    "rename_to": "新路径",
+    "renamed": "已改名",
+    "delete": "删除",
+    "deleting": "正在删除…",
+    "delete_title": "删除 {{path}}？",
+    "delete_confirm": "删除后对话里不会再读到它；如果是目录，里面的文件一起删除。",
+    "deleted": "已删除",
+    "new": "新建",
+    "new_folder": "新建文件夹",
+    "new_folder_path": "文件夹路径",
+    "new_folder_hint": "文件夹名，如 runbooks",
+    "upload": "上传",
+    "next": "下一步",
+    "folder_first_file": "文件夹在写入第一个文件后出现：在 / 后面写文件名。",
+    "ai_hint": "让 Mole Agent 修改这个文件"
+  },
+  "memory": {
+    "scope_label": "谁的记忆",
+    "personal": "我的",
+    "description": "Mole Agent 在对话里记下的偏好、做法、事实和教训：个人对话记给你本人，团队对话记给团队。这里可以修改和删除，记忆由对话写下。",
+    "distill": "对话结束后提炼记忆",
+    "distill_hint": "对话停下半小时后，由模型从中挑出值得记住的内容，会用掉组织的模型预算。默认关闭，由持有 agent.manage 的人设置。",
+    "empty": "还没有记忆。在对话里说「记住……」，Mole Agent 就会记下来。",
+    "kinds": {
+      "preference": "偏好",
+      "procedure": "做法",
+      "fact": "事实",
+      "lesson": "教训"
+    },
+    "kind_hints": {
+      "preference": "在它说明的范围内，优先于技能的默认做法",
+      "procedure": "用之前先按当前情况核实",
+      "fact": "用之前先按当前情况核实",
+      "lesson": "用之前先按当前情况核实"
+    },
+    "updated": "{{time}} 修改",
+    "from_chat": "打开记下它的对话",
+    "edit": "修改",
+    "edit_title": "修改记忆",
+    "kind": "类型",
+    "name": "名称",
+    "applies_when": "适用场合",
+    "body": "内容",
+    "save": "保存",
+    "saved": "已保存",
+    "delete": "删除",
+    "deleting": "正在删除…",
+    "delete_title": "删除记忆「{{name}}」？",
+    "delete_confirm": "删除后之后的对话不会再用到它。",
+    "deleted": "已删除"
   }
 }

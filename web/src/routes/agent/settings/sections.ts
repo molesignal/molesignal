@@ -2,7 +2,9 @@
 export const AGENT_SETTINGS_SECTIONS = [
   { value: 'profiles', key: 'settings.tabs.profiles' },
   { value: 'models', key: 'settings.tabs.models' },
+  { value: 'usage', key: 'settings.tabs.usage' },
   { value: 'prompts', key: 'settings.tabs.prompts' },
+  { value: 'skills', key: 'settings.tabs.skills' },
   { value: 'tools', key: 'settings.tabs.tools' },
   { value: 'inbound-mcp', key: 'settings.tabs.inbound_mcp' },
   { value: 'data', key: 'settings.tabs.data' },

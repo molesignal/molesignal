@@ -385,7 +385,8 @@
     },
     "fields": {
       "name": "Name"
-    }
+    },
+    "agent_resources": "Move or delete the team’s Mole Agent resources first: {{names}}"
   },
   "permission_domains": {
     "platform": "Platform administration",

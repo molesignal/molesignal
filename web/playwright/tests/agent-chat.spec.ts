@@ -95,28 +95,34 @@ test.describe('Mole Agent operations workspace', () => {
       page.getByRole('combobox', { name: 'Mode', exact: true }),
     ).toHaveCount(0);
     await expect(
-      page.getByRole('combobox', { name: 'Execution' }),
+      page.getByRole('button', { name: 'Execution' }),
     ).toContainText('Advice mode');
     await expect(page.getByRole('combobox', { name: 'Model' })).toHaveCount(0);
     await expect(page.getByRole('combobox', { name: 'Prompt' })).toHaveCount(0);
 
+    // The question is written on a card of its own that floats: no border, the floating
+    // surface and a shadow.
     const composerShell = page.getByTestId('composer-shell');
-    const composerAppearance = await composerShell.evaluate((element) => {
-      const styles = getComputedStyle(element);
-      const colorProbe = document.createElement('span');
-      colorProbe.style.color = styles
-        .getPropertyValue('--control-surface')
-        .trim();
-      return {
-        borderTop: styles.borderTopWidth,
-        background: styles.backgroundColor,
-        controlSurface: colorProbe.style.color,
-      };
-    });
+    const composerAppearance = await page
+      .locator('[data-agent-composer-field]')
+      .evaluate((element) => {
+        const styles = getComputedStyle(element);
+        const colorProbe = document.createElement('span');
+        colorProbe.style.color = styles
+          .getPropertyValue('--floating-surface')
+          .trim();
+        return {
+          borderTop: styles.borderTopWidth,
+          background: styles.backgroundColor,
+          floatingSurface: colorProbe.style.color,
+          shadow: styles.boxShadow,
+        };
+      });
     expect(composerAppearance.borderTop).toBe('0px');
     expect(composerAppearance.background).toBe(
-      composerAppearance.controlSurface,
+      composerAppearance.floatingSurface,
     );
+    expect(composerAppearance.shadow).not.toBe('none');
     const compactComposerBox = await composerShell.boundingBox();
     expect(compactComposerBox?.height).toBeLessThanOrEqual(100);
     const composer = page.getByLabel(
@@ -130,7 +136,9 @@ test.describe('Mole Agent operations workspace', () => {
       (element) => element.getBoundingClientRect().height,
     );
     expect(expandedHeight).toBeGreaterThan(collapsedHeight);
-    await composer.fill('');
+    await composer.click();
+    await composer.press('ControlOrMeta+a');
+    await composer.press('Backspace');
     const resetHeight = await composer.evaluate(
       (element) => element.getBoundingClientRect().height,
     );
@@ -149,62 +157,56 @@ test.describe('Mole Agent operations workspace', () => {
     await page.keyboard.press('Escape');
 
     await expect(page.getByRole('button', { name: 'Tools' })).toHaveCount(0);
+    // "More" holds the rest of what shapes an answer: a line per setting with its value.
     await page.getByRole('button', { name: 'More' }).click();
-    await expect(
-      page.getByRole('combobox', { name: 'Agent mode' }),
-    ).toContainText('Auto mode');
-    await expect(page.getByRole('combobox', { name: 'Agent Profile' })).toBeVisible();
-    await expect(page.getByRole('combobox', { name: 'Model' })).toBeVisible();
-    await expect(page.getByRole('combobox', { name: 'Prompt' })).toBeVisible();
-    await expect(page.getByText('Investigation limit')).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Agent mode: Auto mode' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /^Agent Profile: / })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /^Model: / })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /^Prompt: / })).toBeVisible();
     await page.keyboard.press('Escape');
 
-    await page
-      .getByRole('button', {
-        name: /Why is web.*error rate increasing/,
-      })
-      .click();
+    // A scene puts its question in the composer, about the service the page knows.
+    await page.getByRole('button', { name: /Ask for data in plain words/ }).click();
     await expect(
-      page.getByLabel(
-        'Ask about incidents, services, or operational tasks…',
-      ),
-    ).toHaveValue(
-      "Why is web's error rate increasing?",
-    );
-    await expect(
-      page.getByRole('button', {
-        name: /Create a service health dashboard for the last hour/,
-      }),
-    ).toBeVisible();
+      page.getByLabel('Ask about incidents, services, or operational tasks…'),
+    ).toHaveText('How are the errors of web in the last hour spread across status codes?');
     await expect(
       page.getByTestId('conversation-context').getByText('web', { exact: true }),
     ).toBeVisible();
-    await page.getByRole('button', { name: /More/ }).click();
-    await expect(
-      page.getByRole('combobox', { name: 'Agent mode' }),
-    ).toContainText('Deep investigation');
 
-    await page.keyboard.press('Escape');
-    await page
-      .getByRole('button', {
-        name: /Create a service health dashboard for the last hour/,
-      })
-      .click();
-    await expect(
-      page.getByLabel(
-        'Ask about incidents, services, or operational tasks…',
-      ),
-    ).toHaveValue('Create a service health dashboard for the last hour');
-    await expect(page.getByRole('combobox', { name: 'Time' })).toContainText(
-      'Last 1h',
-    );
-    await expect(
-      page.getByRole('combobox', { name: 'Execution' }),
-    ).toContainText('Execute with approval');
+    // The incident scene asks for a deep investigation.
+    await page.getByRole('button', { name: /Investigate an incident/ }).click();
     await page.getByRole('button', { name: 'More' }).click();
     await expect(
-      page.getByRole('combobox', { name: 'Agent mode' }),
-    ).toContainText('Auto mode');
+      page.getByRole('menuitem', { name: 'Agent mode: Deep investigation' }),
+    ).toBeVisible();
+    await page.keyboard.press('Escape');
+  });
+
+  test('names a new chat by what it is about while answering its first question', async ({
+    page,
+  }) => {
+    await page.goto('/agent/chat');
+    const composer = page.getByLabel('Ask about incidents, services, or operational tasks…');
+    const titles = page.getByTestId('conversation-history-title');
+    const send = page.getByTestId('composer-shell').getByRole('button', { name: 'Send' });
+
+    // A greeting has nothing to name yet: the chat keeps the question as its title.
+    await composer.fill('hi');
+    await send.click();
+    await expect(page.getByText('The selected data scope is available.')).toBeVisible();
+    await expect(titles.first()).toHaveText('hi');
+
+    // The first question with a subject names it, and the name stays.
+    await composer.fill('Why are checkout requests failing with 502 since ten?');
+    await send.click();
+    await expect(titles.first()).toHaveText('Checkout requests failing with 502');
+    await expect(page.locator('[data-agent-run-notices]')).toHaveCount(0);
+    await expect(page.getByText('The selected data scope is available.')).toHaveCount(2);
+    await composer.fill('Why is payments slow?');
+    await send.click();
+    await expect(page.getByText('The selected data scope is available.')).toHaveCount(3);
+    await expect(titles.first()).toHaveText('Checkout requests failing with 502');
   });
 
   test('renders product evidence and regenerates an answer without duplicating the question', async ({
@@ -215,11 +217,14 @@ test.describe('Mole Agent operations workspace', () => {
     const initialComposerBox = await page
       .getByTestId('composer-shell')
       .boundingBox();
+    // A scene about a service also opens the shell's filter strip: the page makes room for
+    // it above, and the composer stays where it was.
     await page
       .getByRole('button', {
-        name: /Show current unacknowledged alerts/,
+        name: /Ask for data in plain words/,
       })
       .click();
+    await expect(page.getByTestId('investigation-context-bar')).toBeVisible();
     const sendButton = page.getByRole('button', { name: 'Send' });
     await expect(sendButton).toHaveClass(/rounded-full/);
     expect((await sendButton.textContent())?.trim()).toBe('');
@@ -230,34 +235,16 @@ test.describe('Mole Agent operations workspace', () => {
     expect((await stopButton.textContent())?.trim()).toBe('');
 
     await expect(page.locator('[data-message-role="user"]')).toHaveCount(1);
-    await expect(
-      page.getByText('The selected data scope is available for investigation.'),
-    ).toBeVisible();
-    const conversationTitle = page
-      .getByTestId('conversation-history-title')
-      .first();
-    const conversationTime = page
-      .getByTestId('conversation-history-time')
-      .first();
-    await expect(conversationTitle).toBeVisible();
-    await expect(conversationTime).toBeVisible();
-    const conversationTitleBox = await conversationTitle.boundingBox();
-    const conversationTimeBox = await conversationTime.boundingBox();
-    expect(conversationTitleBox).not.toBeNull();
-    expect(conversationTimeBox).not.toBeNull();
-    expect(
-      Math.abs(
-        (conversationTitleBox?.y ?? 0) +
-          (conversationTitleBox?.height ?? 0) / 2 -
-          ((conversationTimeBox?.y ?? 0) +
-            (conversationTimeBox?.height ?? 0) / 2),
-      ),
-    ).toBeLessThan(3);
+    await expect(page.getByText('The selected data scope is available.')).toBeVisible();
+    // The list names a chat without a time.
+    await expect(page.getByTestId('conversation-history-title').first()).toBeVisible();
+    await expect(page.getByTestId('conversation-history-time')).toHaveCount(0);
     await expect(page.getByText('Checked 1 data sources')).toHaveCount(0);
+    // The work before the answer reads as one line over it.
     const investigationProcess = page.getByTestId('investigation-process');
     await expect(investigationProcess).not.toHaveClass(/border|bg-bg-1|rounded/);
-    const investigationSummary = investigationProcess.locator('summary').first();
-    await expect(investigationSummary).toContainText('Processed');
+    const investigationSummary = investigationProcess.getByRole('button').first();
+    await expect(investigationSummary).toHaveText('Looked at 1 item');
     await expect(page.getByText('list_streams')).not.toBeVisible();
     const historyComposerBox = await page
       .getByTestId('composer-shell')
@@ -278,7 +265,9 @@ test.describe('Mole Agent operations workspace', () => {
     await page.getByText('Technical detail').click();
     await expect(page.getByText('list_streams')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Regenerate' }).click();
+    // The question is answered again from the question itself.
+    await page.locator('[data-message-role="user"]').hover();
+    await page.getByRole('button', { name: 'Retry' }).click();
     await expect(page.getByText('Answer 2 / 2')).toBeVisible();
     await expect(page.locator('[data-message-role="user"]')).toHaveCount(1);
   });
@@ -295,7 +284,7 @@ test.describe('Mole Agent operations workspace', () => {
     await page.goto('/agent/chat');
 
     const genericStarter = page.getByRole('button', {
-      name: 'Which service has the highest error rate?',
+      name: /Ask for data in plain words/,
     });
     await expect(genericStarter).toBeVisible();
     await expect(page.getByText('checkout-api', { exact: false })).toHaveCount(0);
@@ -303,7 +292,7 @@ test.describe('Mole Agent operations workspace', () => {
     await genericStarter.click();
     await expect(
       page.getByLabel('Ask about incidents, services, or operational tasks…'),
-    ).toHaveValue('Which service has the highest error rate?');
+    ).toHaveText('Which service had the most errors in the last hour? List the counts by service.');
     await expect(page.getByTestId('composer-context')).toHaveCount(0);
   });
 
@@ -319,13 +308,11 @@ test.describe('Mole Agent operations workspace', () => {
     await page.goto('/agent/chat');
     await page
       .getByRole('button', {
-        name: /Show current unacknowledged alerts/,
+        name: /Ask for data in plain words/,
       })
       .click();
     await page.getByRole('button', { name: 'Send' }).click();
-    await expect(
-      page.getByText('The selected data scope is available for investigation.'),
-    ).toBeVisible();
+    await expect(page.getByText('The selected data scope is available.')).toBeVisible();
 
     await page.getByRole('button', { name: 'Delete chat' }).click();
     const confirmDialog = page.getByRole('dialog', { name: 'Delete chat?' });

@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { ArrowUpRight, Bot } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 import { useAuthStore } from '@/stores/auth';
 
 import type { StarterSelection } from './types';
-import { dashboardStarterSelection } from '../../dashboard-authoring/starter';
 import { greetingPeriodForHour } from '../../greeting';
 import { discoverStarterService } from '../../starterService';
 
@@ -14,8 +14,23 @@ export interface QuickActionsProps {
   onPrime: (selection: StarterSelection) => void;
 }
 
+/** A way to start: a question put in the composer, or a page that does the job. */
+interface Scene {
+  key: string;
+  title: string;
+  hint: string;
+  selection?: StarterSelection;
+  to?: string;
+}
+
+/**
+ * What a new chat offers to start with: the jobs of an SRE it is built for.
+ * Investigate an incident, ask for data in plain words, cut alert noise, and
+ * set up a scheduled inspection.
+ */
 export function QuickActions({ displayName, onPrime }: QuickActionsProps) {
   const { t } = useTranslation('agent');
+  const navigate = useNavigate();
   const orgId = useAuthStore((state) => state.ctx?.org_id ?? '');
   const starterService = useQuery({
     queryKey: ['agent', 'starter-service', orgId],
@@ -25,52 +40,42 @@ export function QuickActions({ displayName, onPrime }: QuickActionsProps) {
     retry: false,
   });
   const targetService = starterService.data?.trim() || null;
-  const serviceErrorPrompt = targetService
-    ? t('quick.service_errors', { service: targetService })
-    : t('quick.service_errors_fallback');
+  const queryPrompt = targetService
+    ? t('quick.scenes.query.prompt_service', { service: targetService })
+    : t('quick.scenes.query.prompt');
   const greetingPeriod = greetingPeriodForHour(new Date().getHours());
   const greetingKey = displayName
     ? `greeting.${greetingPeriod}_named`
     : `greeting.${greetingPeriod}`;
 
-  const suggestions: Array<{
-    key: string;
-    label: string;
-    selection: StarterSelection;
-  }> = [
+  const scenes: Scene[] = [
     {
-      key: 'service-errors',
-      label: serviceErrorPrompt,
+      key: 'investigate-incident',
+      title: t('quick.scenes.incident.title'),
+      hint: t('quick.scenes.incident.prompt'),
+      selection: { prompt: t('quick.scenes.incident.prompt'), mode: 'deep' },
+    },
+    {
+      key: 'query-data',
+      title: t('quick.scenes.query.title'),
+      hint: queryPrompt,
       selection: {
-        prompt: serviceErrorPrompt,
-        ...(targetService
-          ? { context: { service: targetService } }
-          : {}),
+        prompt: queryPrompt,
+        ...(targetService ? { context: { service: targetService } } : {}),
         rangePreset: '1h',
-        mode: 'deep',
       },
     },
     {
-      key: 'recent-anomalies',
-      label: t('quick.recent_anomalies'),
-      selection: {
-        prompt: t('quick.recent_anomalies'),
-        rangePreset: '30m',
-        mode: 'deep',
-      },
+      key: 'alert-noise',
+      title: t('quick.scenes.noise.title'),
+      hint: t('quick.scenes.noise.hint'),
+      selection: { prompt: '/alert-noise-reduction 7d' },
     },
     {
-      key: 'active-alerts',
-      label: t('quick.unacknowledged_alerts'),
-      selection: {
-        prompt: t('quick.unacknowledged_alerts'),
-        mode: 'quick',
-      },
-    },
-    {
-      key: 'build-dashboard',
-      label: t('quick.build_dashboard'),
-      selection: dashboardStarterSelection(t('quick.build_dashboard')),
+      key: 'scheduled-inspection',
+      title: t('quick.scenes.inspection.title'),
+      hint: t('quick.scenes.inspection.hint'),
+      to: '/logs/inspections',
     },
   ];
 
@@ -104,14 +109,21 @@ export function QuickActions({ displayName, onPrime }: QuickActionsProps) {
           data-testid="agent-quick-actions"
           className="mt-2 divide-y divide-bd-0 border-y border-bd-0"
         >
-          {suggestions.map((suggestion) => (
+          {scenes.map((scene) => (
             <button
-              key={suggestion.key}
+              key={scene.key}
               type="button"
-              onClick={() => onPrime(suggestion.selection)}
+              data-agent-scene={scene.key}
+              onClick={() => {
+                if (scene.selection) onPrime(scene.selection);
+                else if (scene.to) navigate(scene.to);
+              }}
               className="group flex min-h-12 w-full items-center gap-3 px-1 py-3 text-left text-base text-tx-1 transition-colors duration-fast hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0 sm:px-3 sm:text-sm"
             >
-              <span className="min-w-0 flex-1">{suggestion.label}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-strong text-tx-0">{scene.title}</span>
+                <span className="mt-0.5 block truncate text-xs text-tx-3">{scene.hint}</span>
+              </span>
               <ArrowUpRight
                 aria-hidden="true"
                 className="h-4 w-4 shrink-0 text-tx-4 transition-colors duration-fast group-hover:text-indigo group-focus-visible:text-indigo"

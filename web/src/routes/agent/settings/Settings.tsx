@@ -23,20 +23,26 @@ import { Badge } from '@/shell/ui/badge';
 import { Button } from '@/shell/ui/button';
 import { Tabs, TabsContent } from '@/shell/ui/tabs';
 
+import { CurrenciesSection } from './Currencies';
 import { InboundMcpPanel } from './InboundMcp';
+import { MemberNetworkPolicy } from './MemberNetwork';
 import { ProfilesPanel } from './Profile';
 import {
   ProfileEditorDrawer,
   type ProfileEditorTarget,
 } from './Profile/Editor';
+import { ProviderPrices } from './ProviderPrices';
 import { agentSettingsSection } from './sections';
 import {
   ModelProviderEditorDrawer,
   type ProviderEditorTarget,
 } from './SettingsEditors';
 import { AgentSettingsSection } from './Surfaces';
+import { UsagePanel } from './Usage';
+import { useCurrencies } from './useCurrencies';
 import { ModulePage } from '../operations/Pages';
 import { PromptManagementPanel } from '../prompt/Management';
+import { SkillsPanel } from '../skills/SkillsPanel';
 import { ToolCapabilitiesPanel } from '../ToolCapabilities';
 import { localizeToolMetadataList } from '../toolMetadata';
 
@@ -75,10 +81,12 @@ export function AgentSettingsPage() {
     profileRows.find((profile) => profile.is_default) ?? profileRows[0];
   // Which section is open is chosen in the module's navigation, a row under its tabs.
   const activeTab = agentSettingsSection(section);
+  // Skills and MCP servers have team and personal ones members manage themselves.
+  const memberSection = activeTab === 'skills' || activeTab === 'tools';
   return (
     <ModulePage title={t('settings.title')} bare>
       <Tabs value={activeTab}>
-        {manageAccess.disabled && manageAccess.reason && (
+        {manageAccess.disabled && manageAccess.reason && !memberSection && (
           <div
             role="status"
             className="mb-3 rounded-md border border-bd-1 bg-bg-2 px-3 py-2 font-sans text-xs text-tx-2"
@@ -106,11 +114,11 @@ export function AgentSettingsPage() {
         <TabsContent value="models" className="mt-0">
           <ModelsPanel providers={providers} />
         </TabsContent>
+        <TabsContent value="usage" className="mt-0">
+          <UsagePanel />
+        </TabsContent>
         <TabsContent value="prompts" className="mt-0">
           <PromptManagementPanel />
-        </TabsContent>
-        <TabsContent value="tools" className="mt-0">
-          <ToolCapabilitiesPanel registry={tools} />
         </TabsContent>
         <TabsContent value="inbound-mcp" className="mt-0">
           <InboundMcpPanel />
@@ -159,6 +167,12 @@ export function AgentSettingsPage() {
           />
         </TabsContent>
         </fieldset>
+        <TabsContent value="skills" className="mt-0">
+          <SkillsPanel />
+        </TabsContent>
+        <TabsContent value="tools" className="mt-0">
+          <ToolCapabilitiesPanel registry={tools} manager={!manageAccess.disabled} />
+        </TabsContent>
       </Tabs>
       <ProfileEditorDrawer
         target={profileEditor}
@@ -178,9 +192,12 @@ function ModelsPanel({
 }) {
   const { t } = useTranslation('agent');
   const [editor, setEditor] = React.useState<ProviderEditorTarget>(null);
+  const { symbolOf } = useCurrencies();
+  const manageAccess = useActionAccess({ permission: 'agent.manage' });
   if (providers.isLoading) return <ProductState variant="loading" />;
   if (providers.isError) return <ProductState variant="error" error={providers.error} />;
   return (
+    <div className="flex flex-col gap-6">
     <AgentSettingsSection
       title={t('settings.models.title')}
       description={t('settings.models.description')}
@@ -199,6 +216,7 @@ function ModelsPanel({
                 <div className="mt-0.5 max-w-xl truncate font-mono text-xs text-tx-3">
                   {provider.base_url ?? t('settings.models.default_endpoint')}
                 </div>
+                <ProviderPrices provider={provider} symbolOf={symbolOf} />
               </div>
               <Badge variant="outline">{provider.provider}</Badge>
               <span className="inline-flex items-center gap-1.5 text-xs text-tx-3">
@@ -231,6 +249,8 @@ function ModelsPanel({
         onClose={() => setEditor(null)}
       />
     </AgentSettingsSection>
+    <CurrenciesSection canManage={manageAccess.allowed} />
+    </div>
   );
 }
 
@@ -353,6 +373,7 @@ function NetworkPanel({
           </div>
         ))}
       </div>
+      <MemberNetworkPolicy />
     </AgentSettingsSection>
   );
 }

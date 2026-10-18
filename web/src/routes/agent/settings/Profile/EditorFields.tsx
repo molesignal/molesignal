@@ -25,7 +25,12 @@ import { cn } from '@/shell/lib/cn';
 import { Button } from '@/shell/ui/button';
 import { Switch } from '@/shell/ui/switch';
 
-import type { ProfileDraft, ProfileEditorPane } from './model';
+import {
+  MAX_INVESTIGATION_MINUTES,
+  MAX_TEMPERATURE,
+  type ProfileDraft,
+  type ProfileEditorPane,
+} from './model';
 import { ProfileTagInput } from './TagInput';
 import { AgentToolChecklist } from '../../AgentToolChecklist';
 
@@ -278,6 +283,7 @@ export function ProfileEditorFields({
             <FormInput
               type="number"
               min={1}
+              max={MAX_INVESTIGATION_MINUTES}
               value={draft.maxInvestigationMinutes}
               onChange={(event) =>
                 onChange({ maxInvestigationMinutes: event.target.value })
@@ -286,16 +292,33 @@ export function ProfileEditorFields({
             />
           </FormField>
         </FormRow>
-        <FormField label={t('settings.profiles.fields.tool_calls')} required>
-          <FormInput
-            type="number"
-            min={1}
-            max={256}
-            value={draft.maxToolCalls}
-            onChange={(event) => onChange({ maxToolCalls: event.target.value })}
-            required
-          />
-        </FormField>
+        <FormRow>
+          <FormField label={t('settings.profiles.fields.tool_calls')} required>
+            <FormInput
+              type="number"
+              min={1}
+              max={256}
+              value={draft.maxToolCalls}
+              onChange={(event) => onChange({ maxToolCalls: event.target.value })}
+              required
+            />
+          </FormField>
+          <FormField
+            label={t('settings.profiles.fields.temperature')}
+            hint={t('settings.profiles.temperature_hint')}
+          >
+            <FormInput
+              type="number"
+              min={0}
+              max={MAX_TEMPERATURE}
+              step="any"
+              inputMode="decimal"
+              value={draft.temperature}
+              onChange={(event) => onChange({ temperature: event.target.value })}
+              placeholder={t('settings.profiles.temperature_placeholder')}
+            />
+          </FormField>
+        </FormRow>
       </FormSection>
     );
   }
@@ -322,22 +345,33 @@ export function ProfileEditorFields({
           />
         </FormField>
       ))}
+      <SwitchRow
+        label={t('settings.profiles.fields.allow_bypass_permissions')}
+        hint={t('settings.profiles.allow_bypass_hint')}
+        checked={draft.allowBypassPermissions}
+        onCheckedChange={(allowBypassPermissions) => onChange({ allowBypassPermissions })}
+      />
     </FormSection>
   );
 }
 
 function SwitchRow({
   label,
+  hint,
   checked,
   onCheckedChange,
 }: {
   label: string;
+  hint?: string;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
 }) {
   return (
     <div className="flex min-h-11 items-center gap-3 py-2">
-      <span className="min-w-0 flex-1 text-sm font-strong text-tx-1">{label}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-strong text-tx-1">{label}</span>
+        {hint && <span className="mt-0.5 block type-micro text-tx-3">{hint}</span>}
+      </span>
       <Switch
         checked={checked}
         onCheckedChange={onCheckedChange}

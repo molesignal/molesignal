@@ -1,26 +1,57 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { ArrowRight, ExternalLink, ShieldCheck, X } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 
 import * as oauthApi from '@/api/inboundMcpOAuth';
+import * as meApi from '@/api/me';
+import { toApiError } from '@/lib/http';
 import { ProductState } from '@/product/states';
-import { LogoMark } from '@/shell/LogoMark';
-import { Badge } from '@/shell/ui/badge';
+import { AuthStage } from '@/shell/signin/AuthStage';
 import { Button } from '@/shell/ui/button';
 import { toast } from '@/shell/ui/sonner';
+import { useCurrentOrgSelection, useOrgStore } from '@/stores/useOrgStore';
 
+import {
+  AccountRow,
+  ConnectionMarks,
+  GrantDetails,
+  PermissionList,
+  redirectOrigin,
+  TrustNote,
+} from './consentParts';
+
+/**
+ * The page an MCP client sends the browser to for access: who is asking, the
+ * account and organization the access is for, what it allows, whether to trust
+ * the client, and where the browser goes next. It sits on the sign-in stage, as
+ * the consent pages of Google and GitHub sit on their sign-in pages.
+ */
 export function InboundMcpOAuthAuthorize() {
   const { t } = useTranslation('agent');
   const [params] = useSearchParams();
+  const queryClient = useQueryClient();
   const query = params.toString();
   const request = React.useMemo(() => authorizationRequest(params), [params]);
+  const selection = useCurrentOrgSelection();
+  const loadOrgs = useOrgStore((state) => state.loadOrgs);
+  const switchOrg = useOrgStore((state) => state.switchOrg);
+
+  React.useEffect(() => {
+    void loadOrgs();
+  }, [loadOrgs]);
+
   const inspection = useQuery({
-    queryKey: ['inbound-mcp', 'oauth', 'authorization', query],
+    queryKey: ['inbound-mcp', 'oauth', 'authorization', selection.currentOrgId, query],
     queryFn: () => oauthApi.inspectAuthorization(query),
     enabled: request !== null,
     retry: false,
+  });
+  const profile = useQuery({ queryKey: ['me', 'profile'], queryFn: meApi.profile, retry: false });
+
+  const switching = useMutation({
+    mutationFn: (id: string) => switchOrg(id, { queryClient }),
+    onError: (error) => toast.error(toApiError(error).message),
   });
   const decision = useMutation({
     mutationFn: (approve: boolean) => {
@@ -28,140 +59,103 @@ export function InboundMcpOAuthAuthorize() {
       return oauthApi.decideAuthorization(request, approve);
     },
     onSuccess: (redirectTo) => window.location.replace(redirectTo),
-    onError: (error) => toast.error(String(error)),
+    onError: (error) => toast.error(toApiError(error).message),
   });
 
   if (!request) {
     return (
-      <ConsentShell>
-        <ProductState
-          variant="error"
-          error={new Error(t('oauth.invalid_request'))}
-        />
-      </ConsentShell>
+      <ConsentStage>
+        <ProductState variant="error" error={new Error(t('oauth.invalid_request'))} />
+      </ConsentStage>
     );
   }
-  if (inspection.isLoading) {
-    return <ConsentShell><ProductState variant="loading" /></ConsentShell>;
+  if (inspection.isLoading || switching.isPending) {
+    return (
+      <ConsentStage>
+        <ProductState variant="loading" />
+      </ConsentStage>
+    );
   }
   if (inspection.isError || !inspection.data) {
     return (
-      <ConsentShell>
+      <ConsentStage>
         <ProductState variant="error" error={inspection.error} />
-      </ConsentShell>
+      </ConsentStage>
     );
   }
 
   const details = inspection.data;
+  const client = details.client.client_name;
+  // An organization entered only from the platform cannot grant MCP access.
+  const organizations = selection.orgOptions.filter((org) => !org.system && !org.disabled);
+
   return (
-    <ConsentShell>
-      <div className="border-b border-bd-0 px-6 py-5">
-        <div className="flex items-start gap-4">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-indigo/30 bg-indigo/10">
-            <LogoMark size={28} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-strong tracking-normalr text-indigo">
-              {t('oauth.eyebrow')}
-            </p>
-            <h1 className="mt-1 text-xl font-strong text-tx-0">
-              {t('oauth.title', { client: details.client.client_name })}
-            </h1>
-            <p className="mt-2 text-sm leading-6 text-tx-2">
-              {t('oauth.description')}
-            </p>
-          </div>
-        </div>
+    <ConsentStage client={client}>
+      {/* The client's name on a line of its own: a balanced heading would break a Chinese sentence mid-word. */}
+      <h1 className="m-0 text-center font-sans" data-oauth-title>
+        <span className="block text-xl font-display tracking-tight text-tx-0">{client}</span>
+        <span className="mt-1 block text-[13px] font-strong text-tx-2">{t('oauth.title')}</span>
+      </h1>
+
+      <AccountRow
+        profile={profile.data}
+        organization={details.organization}
+        organizations={organizations}
+        switching={switching.isPending}
+        onSwitch={(id) => {
+          if (id !== details.organization.id) switching.mutate(id);
+        }}
+      />
+
+      <PermissionList client={client} scope={details.scope} />
+      <TrustNote client={details.client} />
+
+      <div className="mt-6 grid grid-cols-2 gap-2">
+        <Button
+          variant="outline"
+          size="lg"
+          disabled={decision.isPending}
+          onClick={() => decision.mutate(false)}
+        >
+          {t('oauth.cancel')}
+        </Button>
+        <Button size="lg" disabled={decision.isPending} onClick={() => decision.mutate(true)}>
+          {t('oauth.allow')}
+        </Button>
       </div>
 
-      <div className="space-y-5 p-6">
-        <div className="rounded-md border border-bd-0 bg-bg-2 p-4">
-          <div className="flex items-center gap-2 text-sm font-strong text-tx-1">
-            <ShieldCheck className="h-4 w-4 text-[var(--green-ink)]" />
-            {t('oauth.access_title')}
-          </div>
-          <ul className="mt-3 space-y-2 text-sm leading-6 text-tx-2">
-            <li>{t('oauth.access_tools')}</li>
-            <li>{t('oauth.access_policy')}</li>
-            <li>{t('oauth.access_credentials')}</li>
-          </ul>
-        </div>
+      <p className="mt-3 text-center font-sans text-xs text-tx-3" data-oauth-redirect>
+        {t('oauth.redirect', { origin: redirectOrigin(details.redirect_uri) })}
+      </p>
 
-        <dl className="grid gap-3 text-sm sm:grid-cols-2">
-          <Detail label={t('oauth.client')} value={details.client.client_name} />
-          <Detail label={t('oauth.organization')} value={details.organization.name} />
-          <Detail label={t('oauth.resource')} value={details.resource} mono wide />
-          <div className="sm:col-span-2">
-            <dt className="text-xs text-tx-3">{t('oauth.scopes')}</dt>
-            <dd className="mt-1.5 flex flex-wrap gap-1.5">
-              {details.scope.split(/\s+/).filter(Boolean).map((scope) => (
-                <Badge key={scope} variant="outline" className="font-mono">
-                  {scope}
-                </Badge>
-              ))}
-            </dd>
-          </div>
-        </dl>
-
-        {details.client.client_uri && (
-          <a
-            href={details.client.client_uri}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-indigo hover:text-indigo-soft"
-          >
-            {t('oauth.client_website')} <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        )}
-
-        <div className="flex flex-col-reverse gap-2 border-t border-bd-0 pt-5 sm:flex-row sm:justify-end">
-          <Button
-            variant="outline"
-            disabled={decision.isPending}
-            onClick={() => decision.mutate(false)}
-          >
-            <X /> {t('oauth.deny')}
-          </Button>
-          <Button
-            disabled={decision.isPending}
-            onClick={() => decision.mutate(true)}
-          >
-            {t('oauth.allow')} <ArrowRight />
-          </Button>
-        </div>
-      </div>
-    </ConsentShell>
+      <GrantDetails details={details} />
+    </ConsentStage>
   );
 }
 
-function ConsentShell({ children }: { children: React.ReactNode }) {
-  const { t } = useTranslation('agent');
+/**
+ * The sign-in stage with the connection marks over one card. A loading or error
+ * state brings its own card, so it stands on the stage alone.
+ */
+function ConsentStage({ client, children }: { client?: string; children: React.ReactNode }) {
+  if (!client) {
+    return <AuthStage>{children}</AuthStage>;
+  }
+
   return (
-    <main className="grid min-h-screen place-items-center bg-bg-0 px-4 py-10">
-      <div className="w-full max-w-2xl overflow-hidden rounded-xl border border-bd-0 bg-bg-1">
+    <AuthStage>
+      <ConnectionMarks client={client} />
+      <section
+        className="ms-auth-card mt-7 flex w-full min-w-0 flex-col rounded-2xl border border-bd-0 bg-bg-1 p-6 shadow-login sm:p-8"
+        data-testid="oauth-consent"
+      >
         {children}
-        <div className="border-t border-bd-0 bg-bg-2 px-6 py-3 text-center text-xs text-tx-3">
-          {t('oauth.footer')}
-        </div>
-      </div>
-    </main>
+      </section>
+    </AuthStage>
   );
 }
 
-function Detail({ label, value, mono = false, wide = false }: { label: string; value: string; mono?: boolean; wide?: boolean }) {
-  return (
-    <div className={wide ? 'sm:col-span-2' : undefined}>
-      <dt className="text-xs text-tx-3">{label}</dt>
-      <dd className={`mt-1 break-all text-tx-1 ${mono ? 'font-mono text-xs' : 'font-strong'}`}>
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-function authorizationRequest(
-  params: URLSearchParams,
-): oauthApi.OAuthAuthorizationRequest | null {
+function authorizationRequest(params: URLSearchParams): oauthApi.OAuthAuthorizationRequest | null {
   const required = [
     'response_type',
     'client_id',

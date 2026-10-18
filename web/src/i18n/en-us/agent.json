@@ -4,6 +4,9 @@
   "untitled": "Untitled",
   "chat_list_resize": "Drag to resize the chat list; double-click to reset",
   "chat_delete": "Delete chat",
+  "chat_rename": "Rename",
+  "chat_rename_label": "Chat name",
+  "forked": "Forked into a new chat",
   "chat_delete_title": "Delete chat?",
   "chat_delete_confirm": "“{{title}}” will be archived before it is removed from chat history.",
   "chat_delete_action": "Delete",
@@ -13,11 +16,25 @@
   "history_empty_description": "Start an investigation and its context will stay here.",
   "quick_title": "Quick start",
   "quick": {
-    "service_errors": "Why is {{service}}'s error rate increasing?",
-    "service_errors_fallback": "Which service has the highest error rate?",
-    "recent_anomalies": "Analyze recent anomalies across logs, metrics, and traces",
-    "unacknowledged_alerts": "Show current unacknowledged alerts",
-    "build_dashboard": "Create a service health dashboard for the last hour"
+    "scenes": {
+      "incident": {
+        "title": "Investigate an incident",
+        "prompt": "Investigate the worst open incident: list the investigation plan first, then give the evidence point by point, and make no production changes."
+      },
+      "query": {
+        "title": "Ask for data in plain words",
+        "prompt": "Which service had the most errors in the last hour? List the counts by service.",
+        "prompt_service": "How are the errors of {{service}} in the last hour spread across status codes?"
+      },
+      "noise": {
+        "title": "Cut alert noise",
+        "hint": "Find the rules that paged people for nothing in the last 7 days and propose changes for review"
+      },
+      "inspection": {
+        "title": "Set up a scheduled inspection",
+        "hint": "Have Mole Agent check the logs on a schedule and notify you when something is wrong"
+      }
+    }
   },
   "chat_groups": {
     "today": "Today",
@@ -47,7 +64,8 @@
     "automations": "Automations",
     "approvals": "Approvals",
     "executions": "Executions",
-    "settings": "Settings"
+    "settings": "Settings",
+    "knowledge": "Knowledge"
   },
   "overview": {
     "label": "Mole Agent overview",
@@ -141,7 +159,7 @@
   },
   "investigations": {
     "title": "Investigations",
-    "description": "Collect cross-signal evidence and test root-cause hypotheses over time.",
+    "description": "Investigations from incidents or by hand: Mole Agent records the steps, evidence and conclusion as it works.",
     "create": "Create investigation",
     "created": "Investigation created",
     "edit": "Edit investigation",
@@ -168,7 +186,8 @@
     },
     "columns": {
       "task": "Investigation",
-      "current_step": "Current step"
+      "current_step": "Current step",
+      "source": "Source"
     },
     "default_steps": {
       "context": "Collect alert and service context",
@@ -177,7 +196,10 @@
       "traces": "Correlate anomalous traces",
       "hypothesis": "Test the primary root-cause hypothesis",
       "recommendation": "Propose remediation"
-    }
+    },
+    "from_incident": "From an incident",
+    "by_hand": "Written by hand",
+    "open_chat": "Open the chat"
   },
   "investigation_detail": {
     "description": "Every tool call, evidence item, and hypothesis is traceable.",
@@ -291,7 +313,9 @@
       "inbound_mcp": "Inbound MCP",
       "data": "Data access",
       "network": "Network policy",
-      "approvals": "Approval policy"
+      "approvals": "Approval policy",
+      "usage": "Usage",
+      "skills": "Skills"
     },
     "inbound_mcp": {
       "title": "Inbound MCP Server",
@@ -319,8 +343,8 @@
       "runtime": {
         "title": "Per-request runtime limits",
         "description": "Changes take effect when the next MCP HTTP request starts. Existing requests keep their current snapshot.",
-        "request_bytes": "Request bytes",
-        "response_bytes": "Response bytes",
+        "request_size": "Request size (MB)",
+        "response_size": "Response size (MB)",
         "concurrent_calls": "Concurrent calls / credential",
         "calls_per_minute": "Calls / minute / credential",
         "read_timeout": "Read timeout (ms)"
@@ -340,6 +364,17 @@
         "expires": "Latest token expires {{value}}",
         "revoke": "Revoke",
         "revoked": "OAuth connection revoked"
+      },
+      "prompt": {
+        "title": "Setup prompt",
+        "description": "Copy it into an agent tool such as Claude Code or Cursor, and it adds MoleSignal as an MCP server.",
+        "copy": "Copy prompt",
+        "copied": "Copied",
+        "protocol": "Transport",
+        "stdio": "stdio (recommended)",
+        "http": "Streamable HTTP",
+        "text_stdio": "Add MoleSignal as an MCP server and connect to it:\n- Name: molesignal\n- Transport: stdio\n- Command: npx -y @molesignal/cli mcp\nBefore adding it, run npx -y @molesignal/cli login --url {{address}} in a terminal: it opens a browser to sign in to MoleSignal and approve access; no API key is needed.\nIf no browser can open, set MOLESIGNAL_URL={{address}} and MOLESIGNAL_TOKEN=<MoleSignal API token> in this MCP server's environment instead; I will create the token in MoleSignal and give it to you.\nOnce it is set up, list the tools molesignal offers to confirm the connection.",
+        "text_http": "Add MoleSignal as an MCP server and connect to it:\n- Name: molesignal\n- URL: {{endpoint}}\n- Transport: Streamable HTTP\n- Authentication: OAuth 2.1. Connecting opens a browser to sign in to MoleSignal and approve access; no API key is needed.\nIf you do not support OAuth, send the header Authorization: Bearer <MoleSignal API token> instead; I will create the token in MoleSignal and give it to you.\nOnce it is set up, list the tools molesignal offers to confirm the connection."
       }
     },
     "profiles": {
@@ -382,7 +417,7 @@
         "next_aria": "Next profile page",
         "last_aria": "Last profile page"
       },
-      "invalid_limits": "Runtime limits must be positive and max tool calls cannot exceed 256.",
+      "invalid_limits": "Runtime limits must be positive: at most 120 minutes per investigation, at most 256 tool calls, and a temperature between 0 and 2.",
       "default": "Default",
       "empty_title": "No agent profiles yet",
       "empty_description": "Create a profile to define models, tools, data scope, and runtime limits.",
@@ -421,13 +456,18 @@
         "network": "Network access",
         "context_tokens": "Max context tokens",
         "duration_minutes": "Max investigation duration (minutes)",
-        "tool_calls": "Max tool calls"
+        "tool_calls": "Max tool calls",
+        "temperature": "Temperature",
+        "allow_bypass_permissions": "Allow Bypass permissions"
       },
       "policies": {
         "automatic": "Automatic",
         "approval": "Single approval",
         "two_person_approval": "Two-person approval"
-      }
+      },
+      "temperature_hint": "From 0 to 2; lower gives steadier, repeatable answers. Empty uses the default, 0.2.",
+      "temperature_placeholder": "Default 0.2",
+      "allow_bypass_hint": "Chats using this profile may pick Bypass permissions: changes are made without asking the person, and changes that need approval still go for approval."
     },
     "models": {
       "title": "Models & reasoning",
@@ -443,7 +483,7 @@
       "base_url_placeholder": "For example: https://api.example.com/v1",
       "base_url_hint": "Required for OpenAI-compatible providers; leave empty to use an official default endpoint.",
       "base_url_required": "A Base URL is required for OpenAI-compatible providers.",
-      "invalid_limits": "Timeout and max token values must be positive.",
+      "invalid_limits": "The timeout must be between 1000 and 600000 ms, max output tokens must be positive, and prices cannot be negative.",
       "max_tokens_placeholder": "Leave empty to use the provider default",
       "default_endpoint": "Using the official default endpoint",
       "key_placeholder": "API key (write-only)",
@@ -455,17 +495,53 @@
       "sections": {
         "connection": "Connection",
         "runtime": "Runtime",
-        "credentials": "Credentials"
+        "credentials": "Credentials",
+        "pricing": "Pricing"
       },
       "fields": {
         "provider": "Provider type",
         "name": "Display name",
         "base_url": "Base URL",
         "model": "Default model",
-        "timeout_ms": "Timeout (milliseconds)",
+        "timeout_ms": "No-response timeout (ms)",
         "max_tokens": "Max output tokens",
         "enabled": "Enable model provider",
-        "api_key": "API key"
+        "api_key": "API key",
+        "currency": "Currency",
+        "input_price": "Input price, not cached ({{unit}})",
+        "cached_input_price": "Input price, cached ({{unit}})",
+        "output_price": "Output price ({{unit}})"
+      },
+      "timeout_hint": "How long a call may go without receiving any data before it fails. Failed connections, rate limits and temporary outages are retried twice. A non-streaming call waits for the whole answer, so allow for the longest one.",
+      "pricing_description": "With prices set, the Usage page shows cost, in the currency chosen here; every model of this provider is priced the same. For a provider that prices cached input apart, fill in both input prices; otherwise only the one not cached. Leaving them empty changes nothing else.",
+      "price_placeholder": "Leave empty to skip cost",
+      "price_unit": "{{symbol}} per million tokens",
+      "cached_price_placeholder": "Empty: charged as input not cached",
+      "price_summary": "Input {{input}} · cached {{cached}} · output {{output}} per million tokens",
+      "price_summary_flat": "Input {{input}} · output {{output}} per million tokens",
+      "unpriced": "No prices: cost is not counted"
+    },
+    "currencies": {
+      "title": "Currencies",
+      "description": "Model providers are priced in one of these currencies; an empty name or symbol means the standard one. A currency a model provider uses cannot be deleted.",
+      "add": "Add currency",
+      "edit": "Edit {{code}}",
+      "edit_title": "Edit currency",
+      "delete": "Delete {{code}}",
+      "delete_title": "Delete currency {{code}}?",
+      "delete_confirm": "Model providers can no longer choose it; costs recorded in it still show in it.",
+      "delete_action": "Delete",
+      "deleting": "Deleting…",
+      "deleted": "Currency deleted",
+      "saved": "Currency saved",
+      "used_by": "Used by {{count}} model providers",
+      "unused": "Not used",
+      "in_use": "Used by {{names}}: price them in another currency first",
+      "editor_description": "The code is the ISO 4217 code of three capital letters; it cannot change once saved.",
+      "fields": {
+        "code": "Code",
+        "name": "Name",
+        "symbol": "Symbol"
       }
     },
     "prompts": {
@@ -826,7 +902,7 @@
         "sync_selected": "Sync selected tools",
         "transport": {
           "streamable_http": "Streamable HTTP",
-          "sse": "SSE",
+          "sse": "SSE (legacy)",
           "stdio": "stdio",
           "unix_socket": "Unix Socket"
         },
@@ -836,7 +912,8 @@
           "api_key": "API Key",
           "oauth": "OAuth Token",
           "mtls": "mTLS",
-          "internal_service_identity": "Internal service identity"
+          "internal_service_identity": "Internal service identity",
+          "member_secret": "Member credential (everyone their own)"
         },
         "status": {
           "healthy": "Connected",
@@ -852,7 +929,9 @@
           "deleted": "MCP Server removed",
           "test_success": "Connected; {{count}} tools discovered",
           "test_failed": "MCP Server connection failed",
-          "sync_success": "{{count}} tools synchronized"
+          "sync_success": "{{count}} tools synchronized",
+          "enabled": "Server enabled",
+          "disabled": "Server disabled"
         },
         "editor": {
           "create_title": "Add MCP Server",
@@ -864,7 +943,15 @@
           "runtime": "Runtime limits",
           "transport_restricted": "This runtime executes Streamable HTTP only. Other transports may be saved but remain unavailable in connection tests.",
           "credential_set": "Credential set (ending {{last4}}). Leave blank to retain it.",
-          "credential_not_set": "No credential is set."
+          "credential_not_set": "No credential is set.",
+          "headers": "Headers",
+          "headers_description": "Sent with every request. Values of names with key, token, secret, password, auth and the like are encrypted and show only their last four characters; leave one empty to keep it.",
+          "env": "Environment",
+          "env_description": "Used when the command is started; secret values are encrypted as well.",
+          "stdio_note": "MoleSignal starts a stdio server on its own server. Only the organization's servers can use it, with a command this instance allows: {{commands}}.",
+          "stdio_off": "This MoleSignal instance allows no stdio commands; an operator lists the allowed ones in [agent] mcp_stdio_commands.",
+          "stdio_org_only": "Only the organization's servers use stdio; a personal or team server connects to an address.",
+          "member_network": "Team and personal servers reach only the internet and the internal addresses administrators allow under Network; TLS certificates are always checked."
         },
         "fields": {
           "name": "Name",
@@ -887,7 +974,73 @@
           "redirects_blocked": "Redirects are always blocked by server security policy.",
           "timeout_ms": "Request timeout (milliseconds)",
           "max_response_bytes": "Max response bytes",
-          "enabled": "Enable MCP Server"
+          "enabled": "Enable MCP Server",
+          "command": "Command",
+          "endpoint_sse_hint": "The event stream of the legacy SSE transport; the server gives the address messages go to, which must be on the same origin.",
+          "endpoint_sse_placeholder": "Such as https://mcp.example.com/sse"
+        },
+        "prompt_count": "{{count}} prompts",
+        "stdio_not_allowed": "Its command is not allowed on this instance",
+        "enable": "Enable server",
+        "disable": "Disable server",
+        "member": {
+          "description": "Every member saves their own credential. Only their own calls use it, and administrators cannot read it either. Members who have not saved one are asked to when they call a tool.",
+          "header": "Header the credential goes in",
+          "bearer": "Add the Bearer prefix",
+          "bearer_hint": "Sent as Bearer <credential>",
+          "instructions": "How to get one",
+          "instructions_hint": "Where members create their credential and which permissions it needs."
+        },
+        "my_credential": {
+          "title": "My credential for {{name}}",
+          "description": "Only your calls use it. It is encrypted and nobody can read it back.",
+          "value": "Credential",
+          "value_hint": "Sent in the {{header}} header",
+          "value_bearer_hint": "Sent as Bearer <credential> in the {{header}} header",
+          "state_saved": "Saved (ending {{last4}}, {{time}}); a new value replaces it.",
+          "state_missing": "You have not saved a credential; add one before calling this server's tools.",
+          "saved": "Credential saved",
+          "cleared": "Credential removed",
+          "clear": "Remove credential",
+          "button_saved": "My credential ••••{{last4}}",
+          "button_missing": "Add my credential"
+        },
+        "import": {
+          "open": "Import",
+          "title": "Import MCP configuration",
+          "description": "Paste the MCP configuration of Claude Desktop, Claude Code, Cursor or VS Code to add one or more servers.",
+          "config": "Configuration JSON",
+          "config_hint": "Servers with a url can be tested at once; those with a command are stdio servers, which only the organization can have and which must use a command this instance allows. Values referring to ${input:…} and other variables are not imported; fill them in afterwards.",
+          "submit": "Import",
+          "result": "Result",
+          "made": "Added",
+          "stdio": "A stdio server, started by MoleSignal",
+          "missing": "Still to fill in: {{names}}",
+          "created": "Added {{count}} servers"
+        },
+        "details": {
+          "toggle": "Tools and prompts",
+          "tools": "Tools ({{count}})",
+          "prompts": "Prompts ({{count}})",
+          "prompts_hint": "Type these commands in a chat.",
+          "read_only": "Read-only",
+          "enable_read_only": "Enable all read-only tools ({{count}})",
+          "read_only_enabled": "Enabled {{count}} read-only tools",
+          "tool_switch": "Enable {{name}}"
+        },
+        "values": {
+          "header_name": "Header name",
+          "header_name_placeholder": "Such as X-Org",
+          "env_name": "Variable",
+          "env_name_placeholder": "Such as GITHUB_TOKEN",
+          "value": "Value",
+          "value_placeholder": "Value",
+          "saved": "Saved ••••{{last4}}; leave empty to keep",
+          "secret_toggle": "Keep as a secret",
+          "secret_forced": "The name reads as a secret; it is encrypted",
+          "remove": "Remove this row",
+          "add_header": "Add header",
+          "add_env": "Add variable"
         }
       },
       "feedback": {
@@ -906,7 +1059,8 @@
         "preflight": "Preflight only",
         "managed_mutation": "Policy-managed mutation",
         "creates_approval_request": "Creates approval only",
-        "executes_approved_operation": "Executes approved operation"
+        "executes_approved_operation": "Executes approved operation",
+        "chat_record": "Chat record (confirmed or undone in the chat)"
       }
     },
     "data": {
@@ -940,7 +1094,17 @@
       "dynamic_http": "Arbitrary HTTP tools",
       "shell": "General shell",
       "browser": "Browser tools",
-      "open_mcp": "Open MCP"
+      "open_mcp": "Open MCP",
+      "members": {
+        "title": "Internal network for team and personal connections",
+        "description": "Skill repositories and MCP servers that team members and individuals add can only reach the internet. The internal hosts and ranges listed here are open to them; organization connections follow their own settings.",
+        "hosts": "Internal hosts",
+        "hosts_hint": "One domain per line, its subdomains included, such as git.corp.example",
+        "cidrs": "Internal ranges",
+        "cidrs_hint": "One CIDR per line, such as 10.20.0.0/16",
+        "saved": "Saved what members may connect to",
+        "updated": "Last changed {{time}}"
+      }
     },
     "approval_policy": {
       "title": "Approval policy",
@@ -957,6 +1121,154 @@
       "configurable": "Automatic by default; profiles may tighten it",
       "single": "Single approver; requester cannot self-approve",
       "two_person": "Mandatory two-person approval"
+    },
+    "usage": {
+      "title": "Usage and budget",
+      "description": "Every model call Mole Agent makes counts toward the organization's usage, per UTC day. Once the budget is used up, automatic root cause analysis, log inspections and LLM functions in pipelines stop calling the model.",
+      "today": "Used today",
+      "limit": "Daily limit",
+      "unlimited": "No limit",
+      "used_share": "Used",
+      "resets": "Resets at",
+      "cost_today": "Cost today",
+      "by_origin": "By source",
+      "origins": {
+        "chat": "Chat",
+        "rca": "Root cause analysis",
+        "inspection": "Log inspections",
+        "llm_eval": "LLM functions"
+      },
+      "calls_hint": "{{calls}} calls",
+      "tokens_value": "{{value}} tokens",
+      "daily_limit": "Daily token limit",
+      "limit_choice": {
+        "inherit": "Instance default ({{value}})",
+        "custom": "Custom",
+        "unlimited": "No limit"
+      },
+      "custom_limit": "Tokens",
+      "interactive_mode": "When the budget is used up, chats and on-demand analyses",
+      "interactive": {
+        "block": "Stop calling the model",
+        "warn": "Answer and only warn"
+      },
+      "save": "Save budget",
+      "saved": "Budget saved",
+      "invalid_limit": "A custom limit must be a positive whole number.",
+      "history": "Last 30 days",
+      "empty": "No model calls in the last 30 days.",
+      "columns": {
+        "day": "Day (UTC)",
+        "total": "Total tokens",
+        "calls": "Calls",
+        "cost": "Cost"
+      },
+      "cost_unknown": "Set prices on a model provider to see cost here.",
+      "cost_partial": "Costs marked ≥ leave out calls to model providers without prices ({{calls}} in the last 30 days)."
+    },
+    "skills": {
+      "title": "Skills",
+      "description": "Skills that ship with Mole Agent, those in the instance's folders, and those the organization, teams and people upload or pull from repositories. A chat picks the skills of its scope by itself, and each skill is also a / command.",
+      "search_placeholder": "Search skills",
+      "filters": {
+        "all": "All",
+        "instance": "Built-in and instance",
+        "org": "Organization",
+        "team": "Team",
+        "personal": "Personal"
+      },
+      "source": {
+        "builtin": "Built-in",
+        "path": "Instance folder",
+        "upload": "Uploaded",
+        "repository": "Repository"
+      },
+      "needs_runner": "Needs a Mole Runner",
+      "empty_title": "No skills yet",
+      "empty_filter": "No skills match",
+      "switch": "Enable {{name}}",
+      "inspect": "View",
+      "move": "Move to",
+      "delete": "Delete",
+      "deleted": "Skill deleted",
+      "upload": {
+        "open": "Upload skill",
+        "title": "Upload a skill",
+        "description": "A .zip, .skill or .tar.gz package with a folder holding SKILL.md (the open Agent Skills format).",
+        "file": "Package",
+        "file_hint": "Up to 20 MiB; scripts only ever run on a Mole Runner.",
+        "submit": "Upload",
+        "replace": "Replace the skill",
+        "exists": "This scope already has a skill called {{name}}. Upload again to replace it with this package.",
+        "done": "Skill uploaded"
+      },
+      "repository": {
+        "open": "Add repository",
+        "title": "Skill repositories",
+        "empty": "No repositories yet. Add one on GitHub, GitLab, Gitea and the like: each folder in it holding SKILL.md is a skill.",
+        "create_title": "Add a skill repository",
+        "edit_title": "Edit skill repository",
+        "description": "Downloads a branch or a tag as an archive; each folder holding SKILL.md, in the repository or one of its folders, is a skill. Saving synchronizes it once.",
+        "url": "Repository address",
+        "host": "Hosted on",
+        "hosts": {
+          "auto": "Read from the address",
+          "github": "GitHub",
+          "gitlab": "GitLab",
+          "gitea": "Gitea / Forgejo",
+          "bitbucket": "Bitbucket",
+          "archive": "Archive address"
+        },
+        "ref": "Branch or tag",
+        "ref_hint": "Empty is the default branch",
+        "archive_url": "Archive address",
+        "archive_url_hint": "A .tar.gz or .zip address with {ref} in it",
+        "dir": "Folder",
+        "dir_hint": "Where the skills are; empty is the whole repository",
+        "token": "Access token",
+        "token_hint": "For private repositories; write-only",
+        "token_saved": "Token saved (ending {{last4}}); leave empty to keep it",
+        "clear_token": "Remove the saved token",
+        "auto_sync": "Synchronize every day",
+        "auto_sync_hint": "Skills changed in the repository are updated once a day",
+        "network_org": "Organization repositories connect by the organization's settings and can be internal.",
+        "network_member": "Team and personal repositories reach only the internet and the internal addresses administrators allow under Network.",
+        "syncing": "Synchronizing…",
+        "sync": "Synchronize",
+        "delete": "Delete repository",
+        "deleted": "Repository deleted, with its skills",
+        "default_branch": "Default branch",
+        "synced_at": "Synchronized {{time}}",
+        "daily": "Every day",
+        "status": {
+          "pending": "Not synchronized",
+          "ok": "OK",
+          "partial": "Partly imported",
+          "failed": "Failed"
+        },
+        "sync_done": "Synchronized: {{imported}} added, {{updated}} updated, {{removed}} removed.",
+        "sync_problems": "{{count}} folders were not imported; the repository list says why.",
+        "sync_failed": "Synchronization failed: {{reason}}"
+      },
+      "paths": {
+        "title": "Instance folders",
+        "description": "Skills in the folders the server is configured with ([agent] skill_paths). They are read-only; the organization can turn them off.",
+        "rescan": "Scan again",
+        "scanned_at": "Scanned {{time}}"
+      },
+      "detail": {
+        "invoke": "Call",
+        "version": "Version",
+        "hash": "Content hash",
+        "allowed_tools": "Tools it may use",
+        "dir": "Folder",
+        "needs_runner": "This skill runs scripts and needs a Mole Runner; it cannot be used in a chat yet.",
+        "examples": "Try asking",
+        "instructions": "Instructions (SKILL.md)",
+        "files": "Files ({{count}})",
+        "download": "Download",
+        "try": "Try in a chat"
+      }
     }
   },
   "starter_title": "What should we investigate tonight?",
@@ -1031,7 +1343,8 @@
   "controls": {
     "time": "Time",
     "mode": "Mode",
-    "execution": "Execution"
+    "execution": "Execution",
+    "team": "Team"
   },
   "mode": {
     "auto": "Auto mode",
@@ -1039,10 +1352,35 @@
     "deep": "Deep investigation",
     "query_only": "Generate query only"
   },
+  "mode_descriptions": {
+    "auto": "Ask anything; it decides what to look at",
+    "quick": "Finds what is unusual in the time range",
+    "deep": "Links metrics, logs and traces to find the cause",
+    "query_only": "Writes the query without running it"
+  },
   "execution_policy": {
     "advice_only": "Advice mode",
     "read_only": "Investigate mode",
-    "policy": "Execute with approval"
+    "policy": "Execute with approval",
+    "auto": "Auto mode",
+    "bypass_permissions": "Bypass permissions"
+  },
+  "execution_mode": {
+    "title": "Mode",
+    "recommended": "Recommended",
+    "descriptions": {
+      "advice_only": "Looks at the data and suggests changes without making them",
+      "read_only": "Runs read-only queries as needed and changes nothing",
+      "policy": "Queries run on their own; changes go to approval and run once approved",
+      "auto": "Runs queries and changes that can be undone; asks before deleting",
+      "bypass_permissions": "Makes changes without asking you; approvals still apply"
+    },
+    "bypass_locked": "An administrator allows it in the Agent Profile first",
+    "bypass_confirm": {
+      "title": "Turn on Bypass permissions?",
+      "description": "Mole Agent will make changes without asking you first, deletions included; changes your organization sends for approval still go for approval. Turn it on only when you know what it is about to do.",
+      "confirm": "Turn on"
+    }
   },
   "provider_auto": "Auto provider",
   "model_prefix": "Model",
@@ -1052,7 +1390,6 @@
   "advanced": {
     "trigger": "More",
     "title": "Agent settings",
-    "description": "Tune Agent behavior only when the defaults do not fit this investigation.",
     "agent_mode": "Agent mode",
     "overrides_active": "Custom Agent settings are active",
     "profile": "Agent Profile",
@@ -1063,7 +1400,8 @@
     "calls": "{{count}} calls",
     "manage_profile": "Manage Agent Profiles"
   },
-  "composer_placeholder": "Ask about incidents, services, or operational tasks…",
+  "composer_label": "Ask about incidents, services, or operational tasks…",
+  "composer_placeholder": "Ask about incidents, services, or operational tasks… Type / for commands",
   "send": "Send",
   "resend": "Resend",
   "stop": "Stop",
@@ -1087,6 +1425,22 @@
     "regenerate": "Regenerate",
     "regenerating": "Regenerating…"
   },
+  "message_actions": {
+    "copy": "Copy",
+    "copied": "Copied",
+    "copy_failed": "Could not copy to the clipboard",
+    "edit": "Edit and send again",
+    "retry": "Retry",
+    "fork": "Fork a new chat from this answer",
+    "pin": "Pin this answer",
+    "unpin": "Unpin",
+    "pinned_one": "{{count}} pinned",
+    "pinned_other": "{{count}} pinned"
+  },
+  "message_time": {
+    "days_ago_one": "{{count}} day ago",
+    "days_ago_other": "{{count}} days ago"
+  },
   "investigation_process": {
     "running": "Checking {{count}} data sources",
     "completed": "Checked {{count}} data sources",
@@ -1097,23 +1451,59 @@
     "rows": "{{count}} results",
     "technical_detail": "Technical detail"
   },
+  "activity": {
+    "separator": ", ",
+    "look_one": "looked at {{count}} item",
+    "look_other": "looked at {{count}} items",
+    "query_one": "ran {{count}} query",
+    "query_other": "ran {{count}} queries",
+    "knowledge_one": "read the knowledge base",
+    "knowledge_other": "read the knowledge base {{count}} times",
+    "knowledge_edit_one": "edited {{count}} knowledge file",
+    "knowledge_edit_other": "edited {{count}} knowledge files",
+    "memory_one": "recalled a memory",
+    "memory_other": "recalled {{count}} memories",
+    "remember_one": "remembered {{count}} thing",
+    "remember_other": "remembered {{count}} things",
+    "question_one": "asked you a question",
+    "question_other": "asked you {{count}} questions",
+    "plan_one": "updated the plan",
+    "plan_other": "updated the plan {{count}} times",
+    "change_one": "proposed {{count}} change",
+    "change_other": "proposed {{count}} changes",
+    "tool_one": "used {{count}} tool",
+    "tool_other": "used {{count}} tools",
+    "failed_one": "{{count}} did not finish",
+    "failed_other": "{{count}} did not finish",
+    "running": "Working"
+  },
   "oauth": {
     "invalid_request": "This OAuth authorization request is invalid or incomplete.",
-    "eyebrow": "MoleSignal Inbound MCP",
-    "title": "Authorize {{client}}",
-    "description": "This MCP client is requesting access to MoleSignal using your identity and current organization.",
-    "access_title": "This connection can",
-    "access_tools": "• Discover and call tools permitted by your IAM permissions and the organization Tool Policy.",
-    "access_policy": "• Propose managed changes and continue them only through the configured approval policy.",
-    "access_credentials": "• Act only while this OAuth grant remains active; it cannot read API token plaintext.",
-    "client": "Client",
+    "title": "wants to access your MoleSignal account",
     "organization": "Organization",
+    "switch_organization": "Organization to authorize",
+    "allows": "This will allow {{client}} to:",
+    "permission": {
+      "tools_title": "Use MoleSignal tools as you",
+      "tools_body": "Read logs, metrics, traces and other data, with only the tools your permissions and the organization's tool policy both allow.",
+      "changes_title": "Propose changes that run once approved",
+      "changes_body": "Managed changes follow the organization's approval policy and cannot skip it.",
+      "offline_title": "Keep access until you revoke it",
+      "offline_body": "No need to authorize again each time; the access renews itself."
+    },
+    "trust_title": "Make sure you trust {{client}}",
+    "trust_registered": "{{client}} registered itself; MoleSignal has not checked its name or publisher. Once authorized, it sees the data you can see in this organization. Revoke the access at any time in <revoke>Mole Agent → Settings → Inbound MCP</revoke>.",
+    "trust_metadata": "{{client}} is described by {{host}}. Once authorized, it sees the data you can see in this organization. Revoke the access at any time in <revoke>Mole Agent → Settings → Inbound MCP</revoke>.",
+    "client_website": "Client website",
+    "cancel": "Cancel",
+    "allow": "Authorize",
+    "redirect": "Authorizing will redirect to {{origin}}",
+    "details": "Authorization details",
+    "client_id": "Client ID",
     "resource": "Protected resource",
     "scopes": "Scopes",
-    "client_website": "Open client website",
-    "deny": "Deny",
-    "allow": "Authorize",
-    "footer": "Authorization is bound to this client, redirect URI, user, organization, and MCP resource."
+    "redirect_uri": "Redirect URI",
+    "binding": "The authorization is bound to this client, redirect URI, your account, the organization and the MCP resource; changing any of them needs a new authorization."
   },
   "tools": {
     "tool_search": {
@@ -1171,6 +1561,22 @@
     "search_field_values": {
       "title": "Search field values",
       "description": "Return bounded distinct values and counts for one exact stream field."
+    },
+    "list_log_inspections": {
+      "title": "List log inspections",
+      "description": "List the organization's scheduled log inspections: the stream each reads, what it looks for, its schedule, whether it is on, and how its last run ended."
+    },
+    "list_log_inspection_runs": {
+      "title": "List log inspection runs",
+      "description": "List the recent runs of one log inspection, newest first, with their status, verdict and summary."
+    },
+    "get_log_inspection_run": {
+      "title": "Get log inspection report",
+      "description": "Read one run of a log inspection: its verdict, findings and the report it wrote."
+    },
+    "run_log_inspection": {
+      "title": "Run log inspection",
+      "description": "Run one log inspection now. The run is queued and counts toward the organization's model usage; read its report once it ends."
     },
     "list_traces": {
       "title": "List traces",
@@ -1395,6 +1801,10 @@
     "get_rum_related_traces": {
       "title": "Get RUM related traces",
       "description": "Find traces directly linked to a RUM session, with bounded time-correlation fallback."
+    },
+    "get_rum_vitals": {
+      "title": "Summarize Web Vitals",
+      "description": "Summarize the Core Web Vitals real users had, page by page: the 75th percentile of LCP, INP, CLS and TTFB with page views, and the good and poor thresholds."
     },
     "list_continuous_profiles": {
       "title": "List continuous profiles",
@@ -1776,6 +2186,10 @@
       "title": "Resume status page automation",
       "description": "Resume automation for one status page."
     },
+    "draft_status_page_postmortem": {
+      "title": "Draft status page postmortem",
+      "description": "Write or replace the Markdown draft postmortem of one published status-page incident. The draft is not published; a published postmortem is revised on the status page."
+    },
     "get_user_profile": {
       "title": "Get user profile",
       "description": "Get safe profile fields for an organization user. User principals may omit the target for themselves; Service Account principals must specify it, and other-user access requires member read permission."
@@ -1875,6 +2289,58 @@
     "list_agent_automations": {
       "title": "List agent automations",
       "description": "List configured Mole Agent automations."
+    },
+    "list_skills": {
+      "title": "List skills",
+      "description": "List the skills this chat can use: name, description, version, and how the argument is written."
+    },
+    "load_skill": {
+      "title": "Load a skill",
+      "description": "Read the instructions of one skill by name, with the list of its reference files."
+    },
+    "read_skill_file": {
+      "title": "Read a skill file",
+      "description": "Read one text reference file of a skill."
+    },
+    "todo_write": {
+      "title": "Task list",
+      "description": "Write the steps of this investigation and the state of each; the chat shows them as step X of N."
+    },
+    "ask_user": {
+      "title": "Ask the asker",
+      "description": "Ask the person who asked when the answer changes the next step and no other tool can find it, then continue with the answer."
+    },
+    "list_knowledge": {
+      "title": "List knowledge",
+      "description": "List the knowledge files of the organization or a team: path, size and when each was changed."
+    },
+    "read_knowledge": {
+      "title": "Read knowledge",
+      "description": "Read one knowledge file by its path; paths written as @path in MOLE.md are knowledge files."
+    },
+    "search_knowledge": {
+      "title": "Search knowledge",
+      "description": "Search the knowledge files for words, such as a service name or an error, and give the matching lines."
+    },
+    "edit_knowledge": {
+      "title": "Change knowledge",
+      "description": "Write or delete one knowledge file of this chat's scope; the person who asked confirms each change in the chat."
+    },
+    "remember": {
+      "title": "Remember",
+      "description": "Keep a preference, procedure, fact or lesson for later chats: a personal chat keeps it for the person, a team chat for the team."
+    },
+    "forget": {
+      "title": "Forget",
+      "description": "Forget a memory of this chat's scope by its name."
+    },
+    "read_memory": {
+      "title": "Read memory",
+      "description": "Read the body of a memory by its name."
+    },
+    "update_investigation": {
+      "title": "Record investigation",
+      "description": "Record the steps, evidence, hypotheses and conclusion of the investigation this chat belongs to."
     }
   },
   "dashboard_authoring": {
@@ -1943,5 +2409,242 @@
       "medium": "Medium",
       "low": "Low"
     }
+  },
+  "feedback": {
+    "up": "Helpful",
+    "withdraw_up": "Take back \"Helpful\"",
+    "down": "Not helpful",
+    "what_was_wrong": "What was wrong?",
+    "reasons_label": "Reasons",
+    "reasons": {
+      "wrong_conclusion": "Wrong conclusion or cause",
+      "missed_cause": "Did not find the problem",
+      "unusable_advice": "Advice not usable",
+      "off_topic": "Off topic",
+      "other": "Other"
+    },
+    "comment_label": "Comment",
+    "comment_placeholder": "Anything to add (optional)",
+    "withdraw": "Take back",
+    "cancel": "Cancel",
+    "submit": "Submit",
+    "thanks": "Thanks for the feedback"
+  },
+  "chat_budget": {
+    "warning": "Mole Agent has used {{percent}}% of today's limit ({{used}} of {{limit}} tokens). It resets at {{time}}.",
+    "exhausted": "Mole Agent is past today's budget ({{used}} of {{limit}} tokens); this organization keeps answering. It resets at {{time}}.",
+    "blocked": "Today's Mole Agent token budget is used up ({{used}} of {{limit}}), so this question was not sent. It resets at {{time}}; an administrator can raise the budget.",
+    "open_usage": "View usage"
+  },
+  "commands": {
+    "menu_label": "Commands",
+    "groups": {
+      "builtin": "Built-in",
+      "skill": "Skills",
+      "mcp": "MCP"
+    },
+    "applied": "Now using {{value}}",
+    "exported": "Downloaded {{file}}",
+    "export_you": "You",
+    "notice": {
+      "unknown_command": "There is no /{{command}} command. Type / to see the commands; to send text that starts with /, write \\/ instead.",
+      "client_command": "/{{command}} only works in the message box.",
+      "argument_missing": "/{{command}} needs an argument: {{detail}}",
+      "argument_invalid": "/{{command}} takes one of: {{detail}}",
+      "name_not_found": "/{{command}}: nothing is called “{{detail}}”. Pick one from the menu.",
+      "unavailable": "/{{command}} is not available to you: {{detail}}",
+      "target_not_found": "/{{command}}: the incident was not found, or you cannot see it.",
+      "nothing_to_export": "There is nothing in this chat to export yet.",
+      "ambiguous": "More than one skill is called /{{command}}. Name the team: {{detail}}",
+      "needs_runner": "/{{command}} runs scripts on a Mole Runner and cannot be used yet.",
+      "needs_credential": "/{{command}} uses your own credential. Add it for {{detail}} under Tools in the Mole Agent settings first.",
+      "failed": "/{{command}}: the MCP server could not give this prompt. Try again later or check the server.",
+      "nothing_to_compact": "There is nothing in this chat to compact yet."
+    }
+  },
+  "team": {
+    "personal": "Personal",
+    "label": "Team"
+  },
+  "chat_filter": {
+    "label": "Filter chats by whose they are",
+    "all": "All",
+    "personal": "Personal",
+    "team": "Team"
+  },
+  "scope": {
+    "field": "Belongs to",
+    "personal": "Personal",
+    "org": "Organization",
+    "team": "Team",
+    "member": "A member's",
+    "instance": "Instance",
+    "hint_org": "Everyone in the organization can use it; only Mole Agent administrators change it.",
+    "hint_team": "The team's members and administrators change it. It is used in the team's chats; calling it from a personal chat brings the team in.",
+    "hint_personal": "Only you change and use it; administrators can see, disable and remove it."
+  },
+  "queue_send": "Send after this answer",
+  "run": {
+    "queued": "Queued",
+    "question": {
+      "title": "Question",
+      "other": "Another answer",
+      "placeholder": "Write the answer",
+      "send": "Answer"
+    },
+    "confirmation": {
+      "title": "Run “{{tool}}”?",
+      "delete_title": "Delete? Done by “{{tool}}”",
+      "approve": "Run it",
+      "decline": "Don't run it",
+      "waiting": "Waiting for {{name}} to confirm: the tool runs as the person who asked"
+    },
+    "todo": {
+      "progress": "Step {{current}} of {{total}}"
+    },
+    "notice": {
+      "compacting": "Compacting the chat so far into a summary…",
+      "compacted": "{{count}} messages are now a summary; later answers carry the summary and the new messages",
+      "compacted_auto": "The chat grew long: its earlier part is now a summary",
+      "team_mounted": "Read the knowledge of the team {{team}}: its knowledge, skills and MCP servers are now part of this chat",
+      "no_response": "No answer came within an hour; Mole Agent went on with its own judgment",
+      "memories": "Remembered {{count}} things from this chat",
+      "bypass_unavailable": "This chat's Agent Profile no longer allows Bypass permissions, so this answer asks before each change"
+    },
+    "memory": {
+      "remembered": "Remembered “{{name}}”",
+      "forgotten": "Forgot “{{name}}”",
+      "undo": "Undo",
+      "undone": "Undone"
+    },
+    "ended": {
+      "interrupted": "This answer did not finish: the server running it stopped. It can be answered again.",
+      "cancelled": "This answer was stopped."
+    }
+  },
+  "references": {
+    "menu_title": "Attach",
+    "searching": "Searching…",
+    "remove": "Remove {{name}}",
+    "kinds": {
+      "incident": "Incident",
+      "alert_rule": "Alert rule",
+      "service": "Service",
+      "dashboard": "Dashboard",
+      "stream": "Stream"
+    },
+    "what": "Attach an incident, alert rule, service, dashboard or stream: type its name",
+    "none": "There are no incidents, alert rules, services, dashboards or streams to attach yet",
+    "no_match": "Nothing found named “{{query}}”",
+    "failed": "Search failed: {{reason}}"
+  },
+  "investigate": {
+    "write_rca": "Write back as the incident's RCA",
+    "rca_written": "Written as the incident's RCA",
+    "start": "Investigate with Mole Agent",
+    "prefill": "List the investigation plan first, then give the evidence point by point; make no production changes."
+  },
+  "knowledge": {
+    "views": {
+      "knowledge": "Knowledge",
+      "memory": "Memory"
+    },
+    "bases_label": "Knowledge bases",
+    "files_label": "Knowledge files",
+    "org": "Organization",
+    "file_count": "{{count}} files",
+    "updated": "Changed {{time}}",
+    "quota": "{{files}}/{{maxFiles}} files · {{size}}/{{maxSize}}",
+    "entry_missing": "No MOLE.md",
+    "entry_badge": "Entry",
+    "stale_short": "Entry may be out of date",
+    "stale": "{{count}} files changed after MOLE.md was written: the entry file may be out of date.",
+    "update_entry": "Have AI update MOLE.md",
+    "update_entry_prompt": "Other knowledge files changed after MOLE.md was written. Update MOLE.md to match the files as they are: one line per file, pointing to it with @path and saying what it covers.",
+    "read_only": "Read only: the organization's knowledge is changed by holders of agent.manage, a team's by its members.",
+    "new_file": "New file",
+    "new_file_path": "File path",
+    "new_file_hint": "Such as runbooks/payments.md; folders are fine",
+    "new_entry": "New MOLE.md",
+    "create": "Create",
+    "cancel": "Cancel",
+    "upload_files": "Upload files",
+    "upload_folder": "Upload folder",
+    "uploaded": "Uploaded {{count}} files",
+    "skipped": "Skipped {{count}} files: {{paths}}",
+    "skip_reasons": {
+      "hidden_or_invalid_path": "hidden or not a valid path",
+      "too_large": "over 1 MiB",
+      "not_text": "not text"
+    },
+    "ask_ai": "AI",
+    "ai_prompt": "Change the knowledge file {{path}}: ",
+    "ai_prompt_base": "Help me tidy up this knowledge: ",
+    "init": "Write it with /init",
+    "empty_title": "This knowledge is empty",
+    "empty_description": "Write a MOLE.md as the entry, pointing to other files with @path; or let /init have Mole Agent look at what is set up, ask you a few questions, and write each file once you confirm it.",
+    "select_file": "Pick a file to read.",
+    "mode_label": "View",
+    "preview": "Preview",
+    "edit": "Edit",
+    "source": "Source",
+    "edit_label": "Edit {{path}}",
+    "source_label": "Edit the source of {{path}}",
+    "source_only": "This file has Markdown the live editor would not keep (such as HTML comments), so it is changed as source here.",
+    "unsaved": "Unsaved changes",
+    "discard": "Discard",
+    "save": "Save",
+    "saved": "Saved",
+    "rename": "Rename",
+    "rename_to": "New path",
+    "renamed": "Renamed",
+    "delete": "Delete",
+    "deleting": "Deleting…",
+    "delete_title": "Delete {{path}}?",
+    "delete_confirm": "Chats stop reading it; a folder is deleted with everything in it.",
+    "deleted": "Deleted",
+    "new": "New",
+    "new_folder": "New folder",
+    "new_folder_path": "Folder path",
+    "new_folder_hint": "Folder name, such as runbooks",
+    "upload": "Upload",
+    "next": "Next",
+    "folder_first_file": "A folder appears with its first file: write the file's name after the /.",
+    "ai_hint": "Have Mole Agent change this file"
+  },
+  "memory": {
+    "scope_label": "Whose memory",
+    "personal": "Mine",
+    "description": "The preferences, procedures, facts and lessons Mole Agent kept from chats: a personal chat keeps them for you, a team chat for the team. They can be changed and deleted here; chats write them.",
+    "distill": "Distill memories after chats",
+    "distill_hint": "Half an hour after a chat goes quiet, the model picks out what is worth remembering from it, using the organization's model budget. Off by default; set by holders of agent.manage.",
+    "empty": "Nothing remembered yet. Say “remember …” in a chat and Mole Agent keeps it.",
+    "kinds": {
+      "preference": "Preferences",
+      "procedure": "Procedures",
+      "fact": "Facts",
+      "lesson": "Lessons"
+    },
+    "kind_hints": {
+      "preference": "Win over a skill's default way, within what they say",
+      "procedure": "Checked against the current state before use",
+      "fact": "Checked against the current state before use",
+      "lesson": "Checked against the current state before use"
+    },
+    "updated": "Changed {{time}}",
+    "from_chat": "Open the chat it came from",
+    "edit": "Change",
+    "edit_title": "Change memory",
+    "kind": "Kind",
+    "name": "Name",
+    "applies_when": "Applies when",
+    "body": "What it says",
+    "save": "Save",
+    "saved": "Saved",
+    "delete": "Delete",
+    "deleting": "Deleting…",
+    "delete_title": "Delete the memory “{{name}}”?",
+    "delete_confirm": "Later chats no longer use it.",
+    "deleted": "Deleted"
   }
 }

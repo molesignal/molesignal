@@ -37,3 +37,22 @@ export async function update(id: string, input: TeamInput): Promise<Team> {
 export async function remove(id: string): Promise<void> {
   await http.delete(`/teams/${encodeURIComponent(id)}`);
 }
+
+/** A Mole Agent resource that keeps a team from being deleted. */
+export interface TeamAgentResource {
+  kind: 'skill' | 'skill_repository' | 'mcp_server';
+  id: string;
+  name: string;
+}
+
+/**
+ * The Mole Agent resources a refused team deletion lists: they have to be moved
+ * or deleted first. Null when the error is something else.
+ */
+export function teamAgentResources(error: unknown): TeamAgentResource[] | null {
+  const response = (error as { response?: { status?: number; data?: unknown } } | null)?.response;
+  if (response?.status !== 409) return null;
+  const data = response.data as { code?: unknown; resources?: unknown } | undefined;
+  if (data?.code !== 'team_has_agent_resources' || !Array.isArray(data.resources)) return null;
+  return data.resources as TeamAgentResource[];
+}

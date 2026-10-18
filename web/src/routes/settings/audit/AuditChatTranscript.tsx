@@ -88,7 +88,7 @@ function TranscriptMessage({
     message.prompt_hash ||
     message.prompt_tokens ||
     message.completion_tokens ||
-    message.cost_usd;
+    message.cost;
 
   return (
     <article
@@ -123,7 +123,7 @@ function TranscriptMessage({
                 evidence_json: evidence,
                 prompt_tokens: message.prompt_tokens,
                 completion_tokens: message.completion_tokens,
-                cost_usd: message.cost_usd,
+                cost: message.cost,
               },
               null,
               2,

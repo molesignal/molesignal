@@ -147,37 +147,59 @@ export function parseMarkdownBlocks(content: string): MarkdownBlock[] {
   return blocks;
 }
 
+/**
+ * How Markdown is set: `answer` is a Mole Agent answer in the chat, every line
+ * 25px apart, the items of a list too, 40px from one block to the next, headings a
+ * step larger than the text, bold and a tone darker.
+ */
+export type MarkdownVariant = 'default' | 'answer';
+
 export function MarkdownMessage({
   content,
   streaming,
   className,
+  variant = 'default',
 }: {
   content: string;
   streaming?: boolean;
   className?: string;
+  variant?: MarkdownVariant;
 }) {
   const blocks = React.useMemo(() => parseMarkdownBlocks(content), [content]);
   // While streaming, the trailing block is the one still being written — give
   // it the live-text shimmer so the freshly arriving copy reads as "in flight".
   const lastIndex = blocks.length - 1;
   return (
-    <div className={cn('flex flex-col gap-2.5 leading-relaxed', className)}>
+    <div
+      className={cn(
+        'flex flex-col',
+        variant === 'answer' ? 'gap-[15px] leading-[25px] text-tx-1' : 'gap-2.5 leading-relaxed',
+        className,
+      )}
+    >
       {blocks.map((block, index) =>
-        renderBlock(block, index, Boolean(streaming) && index === lastIndex),
+        renderBlock(block, index, Boolean(streaming) && index === lastIndex, variant),
       )}
       {streaming && <span className="inline-block h-4 w-1.5 animate-pulse rounded-sm bg-indigo align-text-bottom" />}
     </div>
   );
 }
 
-function renderBlock(block: MarkdownBlock, index: number, shimmer = false): React.ReactNode {
+function renderBlock(
+  block: MarkdownBlock,
+  index: number,
+  shimmer = false,
+  variant: MarkdownVariant = 'default',
+): React.ReactNode {
+  const answer = variant === 'answer';
   switch (block.type) {
     case 'heading': {
       const className = cn(
         'font-sans font-display-strong tracking-normal text-tx-0',
-        block.level === 1 && 'text-lg',
-        block.level === 2 && 'text-base',
-        block.level >= 3 && 'text-sm',
+        answer && 'text-md',
+        !answer && block.level === 1 && 'text-lg',
+        !answer && block.level === 2 && 'text-base',
+        !answer && block.level >= 3 && 'text-sm',
       );
       const children = renderInline(block.text);
       if (block.level === 1) return <h1 key={index} className={className}>{children}</h1>;
@@ -189,7 +211,11 @@ function renderBlock(block: MarkdownBlock, index: number, shimmer = false): Reac
       return (
         <p
           key={index}
-          className={cn('whitespace-pre-wrap break-words text-tx-1', shimmer && 'text-shimmer')}
+          className={cn(
+            'whitespace-pre-wrap break-words',
+            'text-tx-1',
+            shimmer && 'text-shimmer',
+          )}
         >
           {renderInline(block.text)}
         </p>
@@ -200,7 +226,8 @@ function renderBlock(block: MarkdownBlock, index: number, shimmer = false): Reac
         <ListTag
           key={index}
           className={cn(
-            'space-y-1 pl-5 text-tx-1',
+            'pl-5',
+            answer ? 'text-tx-1' : 'space-y-1 text-tx-1',
             block.ordered ? 'list-decimal' : 'list-disc',
           )}
         >

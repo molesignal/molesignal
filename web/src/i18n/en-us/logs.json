@@ -324,7 +324,8 @@
       "identity": "The user the inspection runs as can no longer be used. Save the inspection again to run it as yourself.",
       "model": "The AI model chosen for the inspection is missing, switched off, or has no key.",
       "agent": "The AI model call failed.",
-      "internal": "The inspection failed for an internal reason."
+      "internal": "The inspection failed for an internal reason.",
+      "budget": "Today's Mole Agent token budget for the organization is used up. The inspection runs again once the budget resets or is raised."
     },
     "triggers": {
       "manual": "Manual"
