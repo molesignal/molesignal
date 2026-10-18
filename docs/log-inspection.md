@@ -91,7 +91,7 @@
 | 状态 | 原因 |
 | --- | --- |
 | 超时 `timed_out` | 超过了单次执行的时间上限 |
-| 失败 `failed` | 执行身份已不可用；所选 AI 模型不存在、已停用或没有密钥；模型调用失败；执行节点中途退出；一直没有节点来执行；内部原因 |
+| 失败 `failed` | 执行身份已不可用；所选 AI 模型不存在、已停用或没有密钥；组织当天的 Mole Agent token 预算已用尽；模型调用失败；执行节点中途退出；一直没有节点来执行；内部原因 |
 
 报告保留 30 天（实例配置可调），过期的每小时清理一次；删除一条巡检时，它的全部报告一并
 删除。
@@ -137,8 +137,9 @@ report_retention_days = 30
 | `log_inspection_runs_total{outcome}` | 结束的执行次数，`outcome` 为结束时的状态：`succeeded`、`failed`、`timed_out` |
 | `log_inspection_run_duration_seconds` | 单次执行的耗时 |
 
-模型调用的用量与 Mole Agent 的其他调用一样写入 `_agent_model_traces`，`source` 为
-`log_inspection`。
+每次模型调用与 Mole Agent 的其他调用一样计入组织的每日用量（`agent_usage_daily`），并在
+`_agent_model_traces` 写一条记录，`origin` 为 `inspection`，`user_id` 为执行身份（最后保存的
+人）。组织当天的 token 预算用尽时，执行不调用模型，以失败原因 `budget` 结束。
 
 ## API
 

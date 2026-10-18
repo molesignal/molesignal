@@ -1401,20 +1401,54 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/LogInspectionRun' }
 
-  /api/v1/agent/stats:
-    get: { summary: Agent LLM overall stats }
-  /api/v1/agent/top_models:
+  /api/v1/agent/telemetry/stats:
+    get: { summary: "Mole Agent model calls in a time range: calls, tokens, cost (null when no call was priced) and average latency" }
+  /api/v1/agent/telemetry/top-models:
     get: { summary: Top models by call count }
-  /api/v1/agent/top_users:
-    get: { summary: Top users by call count }
+  /api/v1/agent/telemetry/top-users:
+    get: { summary: "Top users by call count (the person who asked in a chat, the run-as user of a log inspection); calls of root cause analysis and LLM functions are left out" }
+  /api/v1/agent/usage:
+    get:
+      summary: "The organization's Mole Agent token usage today against its daily budget, and usage per UTC day and source"
+      parameters:
+        - { name: days, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 90, default: 30 } }
+  /api/v1/agent/usage/budget:
+    put:
+      summary: "Set the organization's daily token limit and what chats and on-demand analyses do once it is used up"
+      description: "Requires `agent.manage`. `daily_token_limit` null follows the instance default (`[agent] daily_token_budget`), 0 is unlimited. `interactive_mode` is `block` or `warn`; background calls always stop at the limit."
+  /api/v1/agent/feedback:
+    get:
+      summary: "The current user's ratings of the given chat answers or incident root cause analyses"
+      parameters:
+        - { name: target_kind, in: query, required: true, schema: { type: string, enum: [chat_message, incident_rca] } }
+        - { name: target_ids, in: query, required: false, description: "Comma-separated, at most 200", schema: { type: string } }
+    put:
+      summary: Rate a chat answer or an incident root cause analysis, one rating per person and object
+      description: "`rating` is `up` or `down`; `reasons` (only kept for `down`) from `wrong_conclusion`, `missed_cause`, `unusable_advice`, `off_topic`, `other`; `comment` up to 2000 characters. A chat answer needs `chat_id` and can only be rated by the person who asked."
+  /api/v1/agent/feedback/{target_kind}/{target_id}:
+    delete:
+      summary: "Withdraw the current user's rating"
+      parameters:
+        - { name: target_kind, in: path, required: true, schema: { type: string, enum: [chat_message, incident_rca] } }
+        - { name: target_id, in: path, required: true, schema: { type: string } }
   /api/v1/agent/chat:
-    get: { summary: List the current user's Mole Agent chats }
-    post: { summary: Create a Mole Agent chat }
+    get: { summary: "The current user's personal chats and the team chats of the teams they are in, newest first; each says `scope` (`personal` or `team`), `team_id` and whether it is `readable`" }
+    post:
+      summary: Create a Mole Agent chat
+      description: "`team_id` makes it a team chat: the team's members and `agent.manage` holders read and continue it, and it loads the organization's and that team's skills and MCP servers. Without it the chat is personal and only its owner reads it. The scope cannot change once the chat exists."
   /api/v1/agent/chat/{id}:
     delete: { summary: Archive and soft-delete a chat }
   /api/v1/agent/chat/{id}/messages:
-    get: { summary: List chat messages }
-    post: { summary: Send or regenerate a message with context, Agent Profile, Prompt, and execution policy; stream Mole Agent events over SSE }
+    get: { summary: "List chat messages; a user message that was a slash command carries `command` (name, args, source) beside the text as typed" }
+    post:
+      summary: Send or regenerate a message with context, Agent Profile, Prompt, and execution policy; stream Mole Agent events over SSE
+      description: "A message that starts with `/name` is a slash command: `/query`, `/dashboard` and `/rca <incident>` change the mode, time range and question of that round; other built-in commands are carried out by the client. Any other name is a skill the chat can use (`/name@team` names a team's skill and, in a personal chat, brings that team in), and `/<server>:<prompt> arguments` runs an MCP server's prompt with the sender's own credential. A refused command answers 400, 403, 404, 409 or 502 with `code` (`unknown_command`, `client_command`, `command_argument_missing`, `command_unavailable`, `command_target_not_found`, `command_ambiguous` with the `options` to write instead, `command_needs_runner`, `command_needs_credential`, `command_failed`) and `command`, and nothing is kept. `\\/` at the start sends the slash as text."
+  /api/v1/agent/commands:
+    get:
+      summary: "The slash commands of the chat for the current user: name, kind (control or task), source (`builtin`, `skill`, `mcp`), description and argument hint in the reader's language, choices, where argument suggestions come from, the `team` of a team skill or the `server` of an MCP prompt, and whether the command is available"
+      parameters:
+        - { name: chat_id, in: query, required: false, description: "Commands of this chat: its skills and MCP prompts follow its scope", schema: { type: string } }
+        - { name: team_id, in: query, required: false, description: "For a chat not started yet that will be for this team; neither means a personal chat", schema: { type: string } }
   /api/v1/agent/chat/{id}/archive:
     post: { summary: Archive the chat transcript to object storage }
   /api/v1/agent/dashboard-authoring/capabilities:
@@ -1497,7 +1531,63 @@ paths:
   /api/v1/agent/settings/prompts/{id}/restore:
     post: { summary: Restore an override body and variable schema from its built-in parent }
   /api/v1/agent/tools:
-    get: { summary: List the compile-time Mole Agent tool allowlist and runtime capabilities }
+    get: { summary: "List the compile-time Mole Agent tool allowlist and runtime capabilities, with the tools of the MCP servers the current user can see" }
+  /api/v1/agent/skills:
+    get: { summary: "The skills the current user can see: built-in and instance-folder skills (read-only, `scope` `instance`), and the organization's, their teams' and their own uploaded and repository skills, each with `editable` and `moderatable`; `paths` lists the instance skill folders, with read problems for `agent.manage` holders" }
+    post:
+      summary: "Upload a skill package (multipart: `file`, `scope`, `team_id`, `replace`)"
+      description: "A `.zip` or `.tar.gz` of up to 20 MiB holding one folder with `SKILL.md`. A skill of the same name in the scope answers 409 with `code` `skill_exists` unless `replace` is `true`. Organization skills need `agent.manage`; team skills a member of the team or `agent.manage`; personal skills belong to the uploader."
+  /api/v1/agent/skills/rescan:
+    post: { summary: "Read the instance skill folders (`[agent] skill_paths`) again; `agent.manage`" }
+  /api/v1/agent/skills/{id}:
+    get: { summary: "A skill with the body of its `SKILL.md` and its files" }
+    patch: { summary: "Turn a skill on or off (`enabled`) or move an uploaded skill to another scope (`scope`, `team_id`)" }
+    delete: { summary: Delete an uploaded skill }
+  /api/v1/agent/skills/{id}/file:
+    get:
+      summary: One text file of a skill
+      parameters:
+        - { name: path, in: query, required: true, schema: { type: string } }
+  /api/v1/agent/skills/{id}/package:
+    get: { summary: "Download a skill: the uploaded package, or a `.zip` of its files" }
+  /api/v1/agent/skill-repositories:
+    get: { summary: "The skill repositories the current user can see, with their last synchronization; the access token is never returned, only `token_set` and `token_last4`" }
+    post:
+      summary: Add a skill repository and synchronize it once
+      description: "`url`, `host` (`github`, `gitlab`, `gitea`, `bitbucket`, `archive`; read from the address when left out), `archive_url` with `{ref}` for `archive`, `git_ref`, `dir`, `auto_sync` (daily), write-only `token`, `scope`, `team_id`. Team and personal repositories reach only public addresses and those in the network policy. The answer carries `sync`: `status` (`ok`, `partial`, `failed`), counts and `problems`."
+  /api/v1/agent/skill-repositories/{id}:
+    put: { summary: "Change a skill repository and synchronize it; an empty `token` keeps the saved one, `clear_token` removes it" }
+    delete: { summary: Delete a skill repository with its skills }
+  /api/v1/agent/skill-repositories/{id}/sync:
+    post: { summary: Synchronize a skill repository now }
+  /api/v1/agent/network-policy:
+    get: { summary: "The internal hosts and CIDR ranges that team and personal skill repositories and MCP servers may reach; `agent.manage`" }
+    put: { summary: "Set them (`private_hosts`, `private_cidrs`); `agent.manage`" }
+  /api/v1/agent/mcp-servers:
+    get: { summary: "The MCP servers the current user can see, with their `scope`, `handle`, headers (secret values only as `last4`), tool and prompt counts, `editable`, `moderatable` and the user's own saved credential (`my_credential`); `stdio_commands` lists the programs this instance lets an organization's stdio server start" }
+    post:
+      summary: Add an MCP server
+      description: "`scope` (`org` by default, `team` with `team_id`, `personal`), `transport` (`streamable_http`, `sse`, or `stdio` for organization servers only: MoleSignal starts `command_template` without a shell when its program is in `[agent].mcp_stdio_commands`, and the server takes its credentials in `env`, with `auth_type` `none` and no `headers`), `endpoint_url` or `command_template`, `auth_type` (`none`, `bearer_token`, `api_key`, `member_secret` with `member_credential` {`header`, `bearer`, `instructions`}, ...), write-only `credential`, `headers` and `env` as `{name, secret, value}` (names with key, token, secret, password, credential, auth or cookie are always secret; a secret without a value keeps the saved one). Organization servers need `agent.manage` and may set `private_only`, `allowed_domains`, `allowed_cidrs` and `tls_verify`; team and personal servers reach only public addresses and those in the network policy, and always verify TLS."
+  /api/v1/agent/mcp-servers/import:
+    post: { summary: "Add servers from a pasted `mcpServers` / `servers` configuration of Claude Desktop, Claude Code, Cursor or VS Code (`config` as text or JSON, `scope`, `team_id`); values that refer to variables come back in `missing`, servers of the same name in the scope in `skipped`; a server with a `command` is a stdio server, imported only into the organization and only with a command the instance allows" }
+  /api/v1/agent/mcp-servers/{id}:
+    get: { summary: "A server with its tools and prompts" }
+    put: { summary: "Change a server or move it to another scope the user manages" }
+    patch: { summary: "Turn a server on or off (`enabled`); also open to `agent.manage` holders on servers they cannot edit" }
+    delete: { summary: "Delete a server once none of its tools is enabled or in use" }
+  /api/v1/agent/mcp-servers/{id}/test:
+    post: { summary: "Connect and list the tools; a server with member credentials uses the caller's own" }
+  /api/v1/agent/mcp-servers/{id}/sync:
+    post: { summary: "Import the selected tools (`selected_tools`, all when empty; new tools stay off) and the server's prompts; tools the server no longer lists become unavailable" }
+  /api/v1/agent/mcp-servers/{id}/tools:
+    get: { summary: Tools of a server }
+  /api/v1/agent/mcp-servers/{id}/tools/{tool_id}:
+    patch: { summary: "Turn one tool on or off (`enabled`); tool policies still apply" }
+  /api/v1/agent/mcp-servers/{id}/enable-read-only:
+    post: { summary: "Turn on every read-only tool (readOnlyHint, risk floor L0) of the server that is still off" }
+  /api/v1/agent/mcp-servers/{id}/my-credential:
+    put: { summary: "Save the caller's own credential (`value`) for a server with `auth_type` `member_secret`; only the caller's calls use it" }
+    delete: { summary: "Remove the caller's own credential" }
   /api/v1/agent/audit/chat/{id}:
     get: { summary: Read an audited chat transcript (Admin or Owner) }
 
