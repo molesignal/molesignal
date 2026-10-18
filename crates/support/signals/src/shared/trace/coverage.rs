@@ -48,6 +48,22 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
         policy: WorkerTracePolicy::RootPerRun,
     },
     WorkerCoverage {
+        source: "src/bootstrap/workers/agent_mcp.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
+        source: "src/bootstrap/workers/agent_runs.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
+        source: "src/bootstrap/workers/agent_skills.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
+        source: "src/bootstrap/workers/agent_traces.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
         source: "src/bootstrap/workers/business_service_health.rs",
         policy: WorkerTracePolicy::RootPerRun,
     },
@@ -64,7 +80,7 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
         policy: WorkerTracePolicy::RootPerRun,
     },
     WorkerCoverage {
-        source: "src/bootstrap/workers/pipeline_exec.rs",
+        source: "src/bootstrap/workers/pipeline_exec/mod.rs",
         policy: WorkerTracePolicy::RootPerRun,
     },
     WorkerCoverage {
@@ -122,7 +138,9 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
 ];
 
 pub const HTTP_CLIENT_COVERAGE: &[&str] = &[
-    "src/api/http/routes/agent/mcp/runtime.rs",
+    "src/app/mcp/sse.rs",
+    "src/app/mcp/transport.rs",
+    "src/app/skills/fetch.rs",
     "src/app/trace/export.rs",
     "src/bootstrap/workers/scheduled_reports.rs",
     "src/infra/connectors/cloudwatch_logs.rs",

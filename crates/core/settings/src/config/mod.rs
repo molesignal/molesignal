@@ -23,6 +23,7 @@
 //! 数据模型按 TOML section 域拆到各子模块（`node` / `network` / `object_store` / …），
 //! 全部 `pub use` 到 crate 根——对外是扁平的 `crate::config::XxxSettings`。
 
+mod agent;
 mod alerting;
 mod apm;
 mod auth;
@@ -43,6 +44,7 @@ pub mod watcher;
 
 use std::path::Path;
 
+pub use agent::*;
 pub use alerting::*;
 pub use apm::*;
 pub use auth::*;
@@ -129,6 +131,9 @@ pub struct Settings {
     /// `[log_inspection]`：定时日志巡检的周期下限、数量上限、并发、超时与报告保留期。
     #[serde(default)]
     pub log_inspection: LogInspectionSettings,
+    /// `[agent]`：Mole Agent 的每日 token 预算与提醒阈值。
+    #[serde(default)]
+    pub agent: AgentSettings,
     /// `[storage]` Catalog lifecycle, index maintenance, delayed GC, and reconciliation.
     #[serde(default)]
     pub storage: StorageSettings,

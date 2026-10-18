@@ -6,6 +6,8 @@
 //! Schema 只接受 `{ "builtin": ["query_logs", ...] }`。动态 HTTP endpoint、
 //! Shell、Browser 与任意 MCP 定义不会被解析，也没有执行路径。
 //! 默认 Agent Profile 与组织 Toolset 均为收窄策略；两者同时存在时取交集。
+//! 外部 MCP 服务器按会话的作用域加载：不在会话里的（别的团队的、别人的个人服务器）连同
+//! 它们的工具都不进解析结果。
 
 use std::collections::{HashMap, HashSet};
 
@@ -14,7 +16,9 @@ use serde::Deserialize;
 
 use crate::{
     agent::{
-        model::{NetworkAccess, RiskLevel},
+        chat::LoopLimits,
+        model::{AgentProfile, NetworkAccess, RiskLevel},
+        scope::{ChatScope, Scope, Viewer},
         tool_control::{McpServer, McpTool, ToolExecutionMode, ToolPolicy, ToolPolicyDefaults},
         tools::{is_builtin_tool, is_meta_tool, risk_for_tool},
     },
@@ -23,6 +27,9 @@ use crate::{
 };
 
 mod api;
+mod limits;
+
+pub use limits::{CHAT_MAX_DURATION, CHAT_MAX_TOOL_CALLS, chat_limits};
 
 pub fn routes() -> Router<AppState> {
     api::routes()
@@ -49,6 +56,10 @@ pub struct ToolsetResolution {
     pub network_access: NetworkAccess,
     pub default_risk_modes: serde_json::Value,
     pub default_environment_overrides: serde_json::Value,
+    /// 一轮对话的工具调用次数、总时限与温度，来自生效的 Agent Profile。
+    pub limits: LoopLimits,
+    /// 生效的 Agent Profile 允许对话选 bypass permissions。
+    pub allow_bypass_permissions: bool,
 }
 
 impl ToolsetResolution {
@@ -182,6 +193,8 @@ impl Default for ToolsetResolution {
                 "l4": "disabled"
             }),
             default_environment_overrides: serde_json::json!({}),
+            limits: chat_limits(None),
+            allow_bypass_permissions: false,
         }
     }
 }
@@ -201,8 +214,23 @@ pub(crate) fn validate_toolset_schema(value: &serde_json::Value) -> Result<()> {
     Ok(())
 }
 
+/// 不在会话里时（工具页、看板草稿）只加载组织级的 MCP 服务器。
 pub async fn resolve_toolsets(state: &AppState, org_id: &Id) -> Result<ToolsetResolution> {
-    resolve_toolsets_for_profile(state, org_id, None).await
+    resolve_toolsets_for_profile(state, org_id, None, None).await
+}
+
+/// 工具页按看的人算：他在个人会话里能用到的 MCP 服务器（组织的、本人的、所在团队的）。
+pub async fn resolve_toolsets_for_viewer(
+    state: &AppState,
+    org_id: &Id,
+    viewer: &Viewer,
+) -> Result<ToolsetResolution> {
+    let scope = ChatScope::Personal {
+        owner_id: viewer.user_id.clone(),
+        mounted_teams: viewer.teams.iter().cloned().collect(),
+    };
+
+    resolve_toolsets_for_profile(state, org_id, None, Some(&scope)).await
 }
 
 /// Resolve only organization Tool Policy for the Inbound MCP surface.
@@ -239,10 +267,12 @@ pub async fn resolve_inbound_tool_policies(
     })
 }
 
+/// `chat` 是会话的作用域，决定加载哪些 MCP 服务器；`None` 只加载组织级的。
 pub async fn resolve_toolsets_for_profile(
     state: &AppState,
     org_id: &Id,
     requested_profile_id: Option<&Id>,
+    chat: Option<&ChatScope>,
 ) -> Result<ToolsetResolution> {
     let toolsets = state.agent.toolsets.list(org_id).await?;
     let mut builtin_allowed: Option<HashSet<String>> = None;
@@ -272,24 +302,7 @@ pub async fn resolve_toolsets_for_profile(
     }
 
     let profiles = state.agent.repository.list_profiles(org_id).await?;
-
-    let active_profile = if let Some(profile_id) = requested_profile_id {
-        Some(
-            profiles
-                .into_iter()
-                .find(|profile| profile.enabled && profile.id == *profile_id)
-                .ok_or_else(|| {
-                    Error::invalid(format!(
-                        "Agent Profile `{}` is not enabled or does not exist",
-                        profile_id.0
-                    ))
-                })?,
-        )
-    } else {
-        profiles
-            .into_iter()
-            .find(|profile| profile.enabled && profile.is_default)
-    };
+    let active_profile = active_profile(profiles, requested_profile_id)?;
 
     let mcp_tools = state
         .agent
@@ -337,12 +350,13 @@ pub async fn resolve_toolsets_for_profile(
             ToolPolicyDefaults::system_defaults(org_id.clone(), Id("system".into()))
         });
 
-    let mcp_servers = state
+    let mcp_servers: HashMap<String, McpServer> = state
         .agent
         .tool_control
         .list_mcp_servers(org_id)
         .await?
         .into_iter()
+        .filter(|server| chat.map_or(server.scope == Scope::Org, |chat| chat.loads(&server.scope)))
         .map(|server| (server.id.0.clone(), server))
         .collect();
 
@@ -371,10 +385,12 @@ pub async fn resolve_toolsets_for_profile(
         builtin_policies: policies,
         mcp_tools: mcp_tools
             .into_iter()
+            .filter(|tool| mcp_servers.contains_key(&tool.server_id.0))
             .map(|tool| (tool.name.clone(), tool))
             .collect(),
         mcp_servers,
         active_profile_id: active_profile.as_ref().map(|profile| profile.id.clone()),
+        limits: chat_limits(active_profile.as_ref()),
         active_environments,
         network_access: active_profile
             .as_ref()
@@ -382,7 +398,45 @@ pub async fn resolve_toolsets_for_profile(
             .unwrap_or(NetworkAccess::Blocked),
         default_risk_modes: defaults.risk_modes,
         default_environment_overrides: defaults.environment_overrides,
+        allow_bypass_permissions: active_profile
+            .as_ref()
+            .is_some_and(|profile| profile.allow_bypass_permissions),
     })
+}
+
+/// 生效的 Agent Profile：指定的（须启用）；没指定时是启用的默认 Profile，没有时为空。
+fn active_profile(
+    profiles: Vec<AgentProfile>,
+    requested_profile_id: Option<&Id>,
+) -> Result<Option<AgentProfile>> {
+    let Some(profile_id) = requested_profile_id else {
+        return Ok(profiles
+            .into_iter()
+            .find(|profile| profile.enabled && profile.is_default));
+    };
+
+    profiles
+        .into_iter()
+        .find(|profile| profile.enabled && profile.id == *profile_id)
+        .map(Some)
+        .ok_or_else(|| {
+            Error::invalid(format!(
+                "Agent Profile `{}` is not enabled or does not exist",
+                profile_id.0
+            ))
+        })
+}
+
+/// 对话能不能用 bypass permissions：生效的 Agent Profile 允许时才能。
+pub async fn bypass_permissions_allowed(
+    state: &AppState,
+    org_id: &Id,
+    requested_profile_id: Option<&Id>,
+) -> Result<bool> {
+    let profiles = state.agent.repository.list_profiles(org_id).await?;
+    let active = active_profile(profiles, requested_profile_id)?;
+
+    Ok(active.is_some_and(|profile| profile.allow_bypass_permissions))
 }
 
 fn parse_execution_mode(value: &str) -> Option<ToolExecutionMode> {

@@ -17,12 +17,12 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::{
-    agent::telemetry::{AGENT_STREAM, AgentStatsQuery},
+    agent::telemetry::{AGENT_STREAM, AgentStatsQuery, OptionalColumns},
     api::AppState,
     app::iam::IamContext,
     domain::{
         iam::permission,
-        query::{QueryLanguage, QueryRequest, StreamHint},
+        query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
         stream::StreamType,
     },
     shared::{
@@ -51,6 +51,36 @@ fn resolve_range(p: &AgentQueryParams) -> (i64, i64) {
     (from, to)
 }
 
+/// 统计查询的时间范围与用量流里写过的可选列。流还不存在时报 404，与直接查询一致。
+async fn stats_query(
+    state: &AppState,
+    ctx: &IamContext,
+    params: &AgentQueryParams,
+) -> Result<AgentStatsQuery> {
+    let (from, to) = resolve_range(params);
+
+    let definition = state
+        .telemetry
+        .streams
+        .get(&ctx.org_id, AGENT_STREAM, StreamType::LOGS)
+        .await?;
+
+    let columns = OptionalColumns::from_names(
+        definition
+            .schema
+            .fields
+            .iter()
+            .map(|field| field.name.as_str()),
+    );
+
+    Ok(AgentStatsQuery {
+        org_id: ctx.org_id.clone(),
+        from_micros: from,
+        to_micros: to,
+        columns,
+    })
+}
+
 async fn run_sql(
     state: &AppState,
     ctx: &IamContext,
@@ -63,9 +93,10 @@ async fn run_sql(
         language: QueryLanguage::Sql,
         statement: sql,
         time_range: TimeRange::new(TimestampMicros(from), TimestampMicros(to)),
+        // 用量流按日志写入（见 `agent_traces` worker），按同一类型读。
         stream: Some(StreamHint {
             name: AGENT_STREAM.to_string(),
-            stream_type: StreamType::TRACES,
+            stream_type: StreamType::LOGS,
         }),
         limit: None,
         federation_clusters: Vec::new(),
@@ -81,15 +112,9 @@ async fn stats(
     Extension(ctx): Extension<IamContext>,
     Query(p): Query<AgentQueryParams>,
 ) -> Result<Json<Value>> {
-    let (from, to) = resolve_range(&p);
+    let q = stats_query(&state, &ctx, &p).await?;
 
-    let q = AgentStatsQuery {
-        org_id: ctx.org_id.clone(),
-        from_micros: from,
-        to_micros: to,
-    };
-
-    let v = run_sql(&state, &ctx, q.overall_sql(), from, to).await?;
+    let v = run_sql(&state, &ctx, q.overall_sql(), q.from_micros, q.to_micros).await?;
     Ok(Json(v))
 }
 
@@ -99,16 +124,18 @@ async fn top_models(
     Extension(ctx): Extension<IamContext>,
     Query(p): Query<AgentQueryParams>,
 ) -> Result<Json<Value>> {
-    let (from, to) = resolve_range(&p);
     let limit = p.limit.unwrap_or(10).clamp(1, 1000);
+    let q = stats_query(&state, &ctx, &p).await?;
 
-    let q = AgentStatsQuery {
-        org_id: ctx.org_id.clone(),
-        from_micros: from,
-        to_micros: to,
-    };
+    let v = run_sql(
+        &state,
+        &ctx,
+        q.top_models_sql(limit),
+        q.from_micros,
+        q.to_micros,
+    )
+    .await?;
 
-    let v = run_sql(&state, &ctx, q.top_models_sql(limit), from, to).await?;
     Ok(Json(v))
 }
 
@@ -118,15 +145,22 @@ async fn top_users(
     Extension(ctx): Extension<IamContext>,
     Query(p): Query<AgentQueryParams>,
 ) -> Result<Json<Value>> {
-    let (from, to) = resolve_range(&p);
     let limit = p.limit.unwrap_or(10).clamp(1, 1000);
+    let q = stats_query(&state, &ctx, &p).await?;
 
-    let q = AgentStatsQuery {
-        org_id: ctx.org_id.clone(),
-        from_micros: from,
-        to_micros: to,
+    // 还没有记在谁名下的调用：没有可排的人。
+    let Some(sql) = q.top_users_sql(limit) else {
+        let empty = QueryResult {
+            columns: vec!["user_id".into(), "calls".into(), "tokens".into()],
+            rows: Vec::new(),
+            scanned_rows: 0,
+            took_ms: 0,
+            federation: None,
+        };
+
+        return Ok(Json(serde_json::to_value(empty).unwrap_or(Value::Null)));
     };
 
-    let v = run_sql(&state, &ctx, q.top_users_sql(limit), from, to).await?;
+    let v = run_sql(&state, &ctx, sql, q.from_micros, q.to_micros).await?;
     Ok(Json(v))
 }

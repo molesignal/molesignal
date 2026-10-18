@@ -519,6 +519,25 @@ mod tests {
     }
 
     #[test]
+    fn seeded_language_keys_fit_the_key_constraint() {
+        // `chk_i18n_language_key`: a migration that seeds another key fails on a fresh database.
+        let row = regex::Regex::new(r"\('([^']*\.[^']*)',\s*'[a-z]{2,3}(?:-[a-z0-9]{2,8})*',")
+            .expect("valid language row regex");
+        let key = regex::Regex::new(r"^[a-z0-9_]+([.][a-z0-9_]+)+$").expect("valid key regex");
+
+        assert!(INITIAL_SQL.contains("language_key ~ '^[a-z0-9_]+([.][a-z0-9_]+)+$'"));
+
+        for sql in [INITIAL_SQL, BUILTIN_DASHBOARDS_SQL, IAM_ROUTE_CATALOG_SQL] {
+            let bad: Vec<&str> = row
+                .captures_iter(sql)
+                .map(|capture| capture.get(1).expect("key capture").as_str())
+                .filter(|seeded| !key.is_match(seeded))
+                .collect();
+            assert!(bad.is_empty(), "language keys outside [a-z0-9_.]: {bad:?}");
+        }
+    }
+
+    #[test]
     fn iam_route_catalog_owns_root_and_navigation_invariants() {
         assert!(IAM_ROUTE_CATALOG_SQL.contains("uq_iam_platform_administrators_single_active"));
         assert!(IAM_ROUTE_CATALOG_SQL.contains("trg_protect_configured_root_assignment"));

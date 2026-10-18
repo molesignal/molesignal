@@ -65,6 +65,8 @@ pub enum AgentFailure {
     Model(String),
     /// 调用模型的过程失败了。
     Call(String),
+    /// 组织今天的 token 预算用完了，没有调用模型。
+    Budget(String),
 }
 
 /// 让模型巡检一次。

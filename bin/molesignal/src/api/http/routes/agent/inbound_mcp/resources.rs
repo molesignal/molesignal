@@ -130,7 +130,7 @@ pub(super) async fn read(
     let text = serde_json::to_string_pretty(&value)
         .map_err(|error| ErrorData::internal_error(error.to_string(), None))?;
 
-    if text.len() > data.settings.max_response_bytes.max(1) as usize {
+    if text.len() > data.settings.max_response_bytes() {
         return Err(ErrorData::invalid_request(
             "resource response exceeds the configured response limit",
             None,

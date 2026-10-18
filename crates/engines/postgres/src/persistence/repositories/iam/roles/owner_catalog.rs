@@ -25,11 +25,15 @@ use crate::{
 pub(super) async fn grant_catalog_to_organization_owners(pool: &PgPool) -> Result<u64> {
     let mut tx = sqlx::begin(pool).await.map_err(sqlx_err)?;
 
-    // The owner entry of the built-in catalog lists every permission there is.
+    // The owner entry of the built-in catalog lists every permission there is. The keys are
+    // aggregated as TEXT: the role column is TEXT[], and since PostgreSQL 14 a COALESCE of a
+    // VARCHAR[] and a TEXT[] is VARCHAR[], for which `TEXT[] @>` has no operator.
     let catalog_added: i64 = sqlx::query_scalar(
         "WITH catalog AS (
-             SELECT COALESCE(array_agg(permission_key ORDER BY permission_key), ARRAY[]::TEXT[])
-                        AS keys
+             SELECT COALESCE(
+                        array_agg(permission_key::TEXT ORDER BY permission_key),
+                        ARRAY[]::TEXT[]
+                    ) AS keys
                FROM iam_permissions
          ), lacking AS (
              SELECT role.role_key,

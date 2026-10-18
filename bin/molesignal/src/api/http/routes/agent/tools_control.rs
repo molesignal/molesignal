@@ -14,7 +14,6 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::{
-    mcp::validate_schema,
     tool_dispatcher::{RealToolDispatcher, redact_sensitive_value},
     toolsets,
 };
@@ -59,12 +58,16 @@ async fn list_tools(
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
     let tools = managed_tools(&state, &ctx).await?;
+    let viewer = super::viewer::viewer(&state, &ctx).await?;
 
     let servers = state
         .agent
         .tool_control
         .list_mcp_servers(&ctx.org_id)
-        .await?;
+        .await?
+        .into_iter()
+        .filter(|server| viewer.can_see(&server.scope))
+        .collect::<Vec<_>>();
 
     Ok(Json(json!({
         "tools": tools,
@@ -103,8 +106,11 @@ async fn get_tool(
     Ok(Json(json!({"tool": tool, "dependencies": dependencies})))
 }
 
+/// 看的人能看到的工具：内置工具，加上他看得到的 MCP 服务器的工具。能不能用按他在个人会话里
+/// 能用到的服务器算。
 async fn managed_tools(state: &AppState, ctx: &IamContext) -> Result<Vec<Value>> {
-    let resolution = toolsets::resolve_toolsets(state, &ctx.org_id).await?;
+    let viewer = super::viewer::viewer(state, ctx).await?;
+    let resolution = toolsets::resolve_toolsets_for_viewer(state, &ctx.org_id, &viewer).await?;
 
     let policies = state
         .agent
@@ -127,6 +133,7 @@ async fn managed_tools(state: &AppState, ctx: &IamContext) -> Result<Vec<Value>>
         .list_mcp_servers(&ctx.org_id)
         .await?
         .into_iter()
+        .filter(|server| viewer.can_see(&server.scope))
         .map(|server| (server.id.0.clone(), server))
         .collect::<HashMap<_, _>>();
 
@@ -179,7 +186,10 @@ async fn managed_tools(state: &AppState, ctx: &IamContext) -> Result<Vec<Value>>
         .await?;
 
     for tool in mcp_tools {
-        let server = servers.get(&tool.server_id.0);
+        let Some(server) = servers.get(&tool.server_id.0) else {
+            continue;
+        };
+
         let policy = policies.get(&tool.name);
         let execution_mode = resolution.execution_mode_for_mcp(&tool);
         let available_to_agent = resolution.mcp_tool(&tool.name).is_some();
@@ -187,7 +197,7 @@ async fn managed_tools(state: &AppState, ctx: &IamContext) -> Result<Vec<Value>>
 
         result.push(mcp_tool_value(
             &tool,
-            server,
+            Some(server),
             policy,
             execution_mode,
             available_to_agent,
@@ -240,7 +250,8 @@ fn mcp_tool_value(
             "kind": "mcp",
             "label": server.map(|value| value.name.as_str()).unwrap_or("MCP"),
             "server_id": tool.server_id,
-            "server_name": server.map(|value| value.name.as_str())
+            "server_name": server.map(|value| value.name.as_str()),
+            "server_scope": server.map(|value| value.scope.kind())
         },
         "risk": tool.risk,
         "minimum_risk": tool.minimum_risk,
@@ -910,7 +921,7 @@ async fn test_tool(
         })
         .ok_or_else(|| Error::not_found(format!("tool `{id}` not found")))?;
 
-    validate_schema(&tool["input_schema"], &request.arguments)?;
+    crate::app::mcp::validate_schema(&tool["input_schema"], &request.arguments)?;
     let read_only = tool["capabilities"]["read_only"].as_bool().unwrap_or(false);
 
     if request.validate_only || !read_only {
@@ -946,7 +957,8 @@ async fn test_tool(
         })));
     }
 
-    let resolution = toolsets::resolve_toolsets(&state, &ctx.org_id).await?;
+    let viewer = super::viewer::viewer(&state, &ctx).await?;
+    let resolution = toolsets::resolve_toolsets_for_viewer(&state, &ctx.org_id, &viewer).await?;
     let dispatcher = RealToolDispatcher::new(state.clone()).with_toolsets(resolution);
     let started = Instant::now();
 

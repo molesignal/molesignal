@@ -12,8 +12,8 @@ pub use tool_runtime::{
     ExecutionPolicy as AgentExecutionPolicy, PermissionMode, ToolAccess, ToolAnnotations, ToolCall,
     ToolContent, ToolExecutionMode, ToolExposure, ToolResult, ToolSpec as Tool, ToolSurface,
     catalog::{
-        BuiltinToolKind, builtin_tools, is_builtin_tool, is_meta_tool, pinned_tools, risk_for_tool,
-        tools_for_surface,
+        BuiltinToolKind, builtin_tools, is_builtin_tool, is_meta_tool, is_session_tool,
+        is_skill_tool, is_workspace_tool, pinned_tools, risk_for_tool, tools_for_surface,
     },
 };
 
@@ -170,9 +170,11 @@ mod tests {
     }
 
     #[test]
-    fn only_policy_mode_can_create_approval_requests() {
+    fn only_the_modes_that_change_things_can_create_approval_requests() {
         assert!(!AgentExecutionPolicy::AdviceOnly.allows_approval_request());
         assert!(!AgentExecutionPolicy::ReadOnly.allows_approval_request());
         assert!(AgentExecutionPolicy::Policy.allows_approval_request());
+        assert!(AgentExecutionPolicy::Auto.allows_approval_request());
+        assert!(AgentExecutionPolicy::BypassPermissions.allows_approval_request());
     }
 }

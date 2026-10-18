@@ -150,11 +150,13 @@ pub(in crate::api::http::routes::agent::inbound_mcp) async fn execute_resolved(
     }
     .map(sanitize_result)
     .map(|result| {
+        // 工具自己的上限按字节记，不会放宽组织设的响应大小。
+        let organization = data.settings.max_response_bytes();
         let configured = resolved
             .max_response_bytes
-            .unwrap_or(data.settings.max_response_bytes)
-            .min(data.settings.max_response_bytes)
-            .max(1) as usize;
+            .map_or(organization, |limit| {
+                usize::try_from(limit.max(1)).unwrap_or(usize::MAX).min(organization)
+            });
 
         if result.serialized_len() > configured {
             ToolResult::error(format!(

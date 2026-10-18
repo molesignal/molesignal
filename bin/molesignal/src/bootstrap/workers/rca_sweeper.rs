@@ -8,8 +8,8 @@
 //! 单点周期任务：每个 alert 节点都起，但只有主节点（见 [`WorkOwnership::is_primary`]）执行，否则
 //! 同一个 incident 会被多个节点各调一次模型。RCA 是 agent 能力 ——
 
-//! 无可用 provider 的 org 直接跳过；已有 RCA 的 incident 不重复生成。失败仅 warn、下个
-//! tick 自然重试（不落失败行）。
+//! 无可用 provider 的 org 直接跳过；已有 RCA 的 incident 不重复生成；组织今天的 Mole Agent
+//! token 预算用完时跳过，预算重置后自然补上。失败仅 warn、下个 tick 自然重试（不落失败行）。
 
 use std::{sync::Arc, time::Duration};
 
@@ -134,6 +134,12 @@ impl RcaSweeper {
                 // 仅对尚无 RCA 的 incident 生成。
                 if self.generator.has_rca(&incident.id).await? {
                     continue;
+                }
+
+                // 后台生成没有人在等：预算用完就留到预算重置之后。
+                if self.generator.budget(&org.id, false).await.refused() {
+                    tracing::debug!(org = %org.id.0, "rca skipped: daily agent token budget exhausted");
+                    break;
                 }
 
                 match self

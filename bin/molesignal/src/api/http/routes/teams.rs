@@ -15,9 +15,11 @@ use axum::{
     Json, Router,
     extract::{Path, State},
     http::StatusCode,
+    response::{IntoResponse, Response},
     routing::get,
 };
 use serde::Deserialize;
+use serde_json::json;
 
 use crate::{
     api::AppState,
@@ -158,18 +160,40 @@ async fn update_team(
     Ok(Json(state.iam.teams.update(team).await?))
 }
 
+/// 团队名下还有 Mole Agent 资源（Skill、Skill 仓库、MCP 服务器）时不删，返回冲突并列出
+/// 它们：先移交或删除，团队私有的内容才不会被并入组织。
 #[permission("iam.policies.manage")]
 async fn delete_team(
     State(state): State<AppState>,
     axum::Extension(ctx): axum::Extension<IamContext>,
     Path(id): Path<String>,
-) -> Result<StatusCode> {
+) -> Result<Response> {
     let existing = state.iam.teams.get(&Id::from_string(id)).await?;
 
     if existing.org_id != ctx.org_id {
         return Err(Error::forbidden("team belongs to another org"));
     }
 
+    let resources = crate::api::http::routes::agent::team_resources::team_resources(
+        &state,
+        &ctx.org_id,
+        &existing.id,
+    )
+    .await?;
+
+    if !resources.is_empty() {
+        return Ok((
+            StatusCode::CONFLICT,
+            Json(json!({
+                "error": "team_has_agent_resources",
+                "code": "team_has_agent_resources",
+                "message": "move or delete the team's Mole Agent resources before deleting the team",
+                "resources": resources,
+            })),
+        )
+            .into_response());
+    }
+
     state.iam.teams.delete(&existing.id).await?;
-    Ok(StatusCode::NO_CONTENT)
+    Ok(StatusCode::NO_CONTENT.into_response())
 }

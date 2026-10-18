@@ -18,6 +18,8 @@ use crate::{
     },
 };
 
+mod vitals;
+
 const DEFAULT_LIMIT: usize = 100;
 const MAX_LIMIT: usize = 500;
 const RUM_LOOKBACK_MICROS: i64 = 12 * 60 * 60 * 1_000_000;
@@ -64,6 +66,7 @@ pub(super) async fn execute(
         }
         BuiltinToolKind::GetRumSession => get_session(runtime, auth, arguments).await,
         BuiltinToolKind::GetRumRelatedTraces => related_traces(runtime, auth, arguments).await,
+        BuiltinToolKind::GetRumVitals => vitals::summarize(runtime, auth, arguments).await,
         _ => unreachable!("RUM handler received unrelated tool"),
     }
 }

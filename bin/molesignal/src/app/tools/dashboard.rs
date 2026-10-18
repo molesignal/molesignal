@@ -295,6 +295,8 @@ pub(crate) fn operation_policy(action: &str) -> Result<(RiskLevel, &'static str)
         "restore_status_page"
         | "pause_status_page_automation"
         | "resume_status_page_automation" => Ok((RiskLevel::L2, "status_pages.manage")),
+        "draft_status_page_postmortem" => Ok((RiskLevel::L1, "status_pages.manage")),
+        "run_log_inspection" => Ok((RiskLevel::L1, "inspections.manage")),
         "retry_notification_delivery" => Ok((RiskLevel::L2, "alerts.manage")),
         "acknowledge_notification_delivery" => Ok((RiskLevel::L2, "alerts.acknowledge")),
         "enable_scheduled_pipeline" | "disable_scheduled_pipeline" => {

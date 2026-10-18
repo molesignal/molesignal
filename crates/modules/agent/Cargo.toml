@@ -11,18 +11,27 @@ bytes.workspace = true
 contracts = { path = "../../core/contracts" }
 domain = { path = "../../core/domain" }
 eventsource-stream.workspace = true
+flate2.workspace = true
 futures.workspace = true
+hex.workspace = true
+ipnet.workspace = true
 kernel = { path = "../../core/kernel" }
 once_cell.workspace = true
+percent-encoding.workspace = true
 regex.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+serde_yaml.workspace = true
+sha2.workspace = true
 signals = { path = "../../support/signals" }
+tar.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
 tracing.workspace = true
 tool-runtime = { path = "../tool-runtime" }
+url.workspace = true
+zip.workspace = true
 
 [dev-dependencies]
 wiremock = "0.6"

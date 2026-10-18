@@ -20,7 +20,11 @@ use futures::stream::StreamExt;
 use crate::{
     agent::chat::{
         ChatStream, ChunkOrToolCall, CompletionRequest, CompletionResponse, MessageRole, Provider,
-        ProviderAdapter, ToolChoice, providers::sse::response_to_sse,
+        ProviderAdapter, ToolChoice,
+        providers::{
+            sse::response_to_sse,
+            transport::{TransportOptions, send_with_retry},
+        },
     },
     shared::{Error, Result, trace_stream::segmented_result_stream},
 };
@@ -30,15 +34,26 @@ pub struct OpenAiAdapter {
     pub base_url: String,
     pub api_key: String,
     pub client: reqwest::Client,
+    pub transport: TransportOptions,
 }
 
 impl OpenAiAdapter {
     pub fn new(base_url: impl Into<String>, api_key: impl Into<String>) -> Self {
+        let transport = TransportOptions::default();
+
         Self {
             base_url: base_url.into(),
             api_key: api_key.into(),
-            client: reqwest::Client::new(),
+            client: transport.client(),
+            transport,
         }
+    }
+
+    /// 换用模型服务自己的超时与重试设置。
+    pub fn with_transport(mut self, transport: TransportOptions) -> Self {
+        self.client = transport.client();
+        self.transport = transport;
+        self
     }
 
     pub(crate) fn body(&self, req: &CompletionRequest, stream: bool) -> serde_json::Value {
@@ -119,18 +134,21 @@ impl OpenAiAdapter {
     ) -> Result<reqwest::Response> {
         req.validate_tool_choice()?;
         let url = format!("{}/chat/completions", self.base_url.trim_end_matches('/'));
+        let body = self.body(req, stream);
 
-        let request = self
-            .client
-            .post(&url)
-            .bearer_auth(&self.api_key)
-            .json(&self.body(req, stream));
+        let resp = send_with_retry(self.transport, || {
+            let request = self
+                .client
+                .post(&url)
+                .bearer_auth(&self.api_key)
+                .json(&body);
 
-        let resp = crate::shared::http_trace::send(
-            &self.client,
-            request,
-            crate::shared::http_trace::HttpTarget::ThirdParty,
-        )
+            crate::shared::http_trace::send(
+                &self.client,
+                request,
+                crate::shared::http_trace::HttpTarget::ThirdParty,
+            )
+        })
         .await
         .map_err(|e| Error::internal(format!("openai request: {e}")))?;
 
@@ -182,6 +200,7 @@ impl ProviderAdapter for OpenAiAdapter {
             content,
             tool_calls,
             prompt_tokens: v["usage"]["prompt_tokens"].as_i64().unwrap_or(0) as i32,
+            cached_prompt_tokens: cached_prompt_tokens(&v["usage"]),
             completion_tokens: v["usage"]["completion_tokens"].as_i64().unwrap_or(0) as i32,
             finish_reason: choice["finish_reason"]
                 .as_str()
@@ -239,6 +258,7 @@ impl ProviderAdapter for OpenAiAdapter {
                     let _ = tx
                         .send(Ok(ChunkOrToolCall::Usage {
                             prompt_tokens: pt,
+                            cached_prompt_tokens: cached_prompt_tokens(&v["usage"]),
                             completion_tokens: ct,
                         }))
                         .await;
@@ -323,6 +343,18 @@ pub fn from_env(env_prefix: &str) -> Result<Arc<OpenAiAdapter>> {
     let base_url =
         std::env::var(&base_url_var).unwrap_or_else(|_| "https://api.openai.com/v1".into());
     Ok(Arc::new(OpenAiAdapter::new(base_url, api_key)))
+}
+
+/// 输入里命中缓存的 token，各家写法不同：OpenAI 与多数兼容服务写在
+/// `prompt_tokens_details.cached_tokens`，DeepSeek 写 `prompt_cache_hit_tokens`，Kimi 写
+/// `cached_tokens`。都含在 `prompt_tokens` 里；没有报时为 0。
+fn cached_prompt_tokens(usage: &serde_json::Value) -> i32 {
+    usage["prompt_tokens_details"]["cached_tokens"]
+        .as_i64()
+        .or_else(|| usage["prompt_cache_hit_tokens"].as_i64())
+        .or_else(|| usage["cached_tokens"].as_i64())
+        .unwrap_or(0)
+        .max(0) as i32
 }
 
 #[cfg(test)]
@@ -425,6 +457,7 @@ mod tests {
                 ChunkOrToolCall::Usage {
                     prompt_tokens,
                     completion_tokens,
+                    ..
                 } => usage = (prompt_tokens, completion_tokens),
                 ChunkOrToolCall::Done(r) => done = Some(r),
                 ChunkOrToolCall::ToolCall { .. } => panic!("unexpected tool call"),
@@ -448,7 +481,10 @@ mod tests {
             )
             .mount(&srv)
             .await;
-        let ad = OpenAiAdapter::new(srv.uri(), "test");
+        let ad = OpenAiAdapter::new(srv.uri(), "test").with_transport(TransportOptions {
+            max_retries: 0,
+            ..TransportOptions::default()
+        });
         let result = ad.complete_stream(mk_req("gpt-4o")).await;
         let err = match result {
             Ok(_) => panic!("expected Err for HTTP 429"),
@@ -456,6 +492,41 @@ mod tests {
         };
         let msg = err.to_string();
         assert!(msg.contains("429"), "{msg}");
+    }
+
+    /// 限流一次之后成功：适配器自己重发，调用方拿到的是第二次的回答。
+    #[tokio::test]
+    async fn rate_limited_request_is_retried_before_streaming() {
+        let srv = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .respond_with(ResponseTemplate::new(429).insert_header("retry-after", "0"))
+            .up_to_n_times(1)
+            .mount(&srv)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("content-type", "text/event-stream")
+                    .set_body_string(concat!(
+                        "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}]}\n\n",
+                        "data: [DONE]\n\n",
+                    )),
+            )
+            .mount(&srv)
+            .await;
+
+        let ad = OpenAiAdapter::new(srv.uri(), "test");
+        let mut stream = ad.complete_stream(mk_req("gpt-4o")).await.unwrap();
+        let mut text = String::new();
+        while let Some(item) = stream.next().await {
+            if let ChunkOrToolCall::Text(t) = item.unwrap() {
+                text.push_str(&t);
+            }
+        }
+        assert_eq!(text, "ok");
+        assert_eq!(srv.received_requests().await.unwrap().len(), 2);
     }
 
     #[tokio::test]
@@ -500,5 +571,18 @@ mod tests {
         assert_eq!(name, "get_w");
         assert_eq!(args, "{\"loc\":\"SF\"}");
         assert_eq!(done.as_deref(), Some("tool_calls"));
+    }
+
+    #[test]
+    fn cached_input_is_read_the_way_each_provider_reports_it() {
+        let openai = serde_json::json!({"prompt_tokens": 100, "prompt_tokens_details": {"cached_tokens": 64}});
+        let deepseek = serde_json::json!({"prompt_tokens": 100, "prompt_cache_hit_tokens": 40, "prompt_cache_miss_tokens": 60});
+        let kimi = serde_json::json!({"prompt_tokens": 100, "cached_tokens": 10});
+        let none = serde_json::json!({"prompt_tokens": 100});
+
+        assert_eq!(cached_prompt_tokens(&openai), 64);
+        assert_eq!(cached_prompt_tokens(&deepseek), 40);
+        assert_eq!(cached_prompt_tokens(&kimi), 10);
+        assert_eq!(cached_prompt_tokens(&none), 0);
     }
 }

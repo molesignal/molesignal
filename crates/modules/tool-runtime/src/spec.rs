@@ -32,6 +32,9 @@ pub enum ToolAccess {
     ManagedMutation,
     CreatesApprovalRequest,
     ExecutesApprovedOperation,
+    /// Writes what belongs to the chat it runs in - knowledge, memory, the investigation
+    /// record - confirmed or undone in the chat itself, never through an approval request.
+    ChatRecord,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -280,6 +283,24 @@ impl ToolSpec {
             idempotent,
             open_world: false,
             supports_dry_run: true,
+            streaming: false,
+        };
+
+        self
+    }
+
+    /// Write a record of the chat (knowledge, memory, the investigation) instead of a platform
+    /// resource: the chat confirms or undoes it, so it never creates an approval request.
+    pub fn chat_record(mut self, risk: RiskLevel, destructive: bool) -> Self {
+        self.risk = risk;
+        self.access = ToolAccess::ChatRecord;
+
+        self.annotations = ToolAnnotations {
+            read_only: false,
+            destructive,
+            idempotent: true,
+            open_world: false,
+            supports_dry_run: false,
             streaming: false,
         };
 

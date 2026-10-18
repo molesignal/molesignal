@@ -31,6 +31,10 @@ const MAX_KEY_CHARS: usize = 255;
 const MAX_VALUE_BYTES: usize = 16 * 1024;
 /// The most columns an arrangement names.
 const MAX_LOG_COLUMNS: usize = 64;
+/// The most answers one keeps pinned in a chat.
+const MAX_PINNED_MESSAGES: usize = 100;
+/// The longest a message's id is.
+const MAX_MESSAGE_ID_CHARS: usize = 64;
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new().route(
@@ -44,12 +48,16 @@ pub(super) fn routes() -> Router<AppState> {
 enum Scope {
     /// The columns a log stream is listed in, in their order. Keyed by the stream's name.
     LogColumns,
+    /// The answers of a Mole Agent chat kept at the top of it, the last pinned first. Keyed
+    /// by the chat's id.
+    AgentMessagePins,
 }
 
 impl Scope {
     fn parse(raw: &str) -> Result<Self> {
         match raw {
             "logs.columns" => Ok(Self::LogColumns),
+            "agent.message_pins" => Ok(Self::AgentMessagePins),
             _ => Err(Error::invalid(format!(
                 "unknown interface preference: {raw}"
             ))),
@@ -59,6 +67,7 @@ impl Scope {
     fn as_str(self) -> &'static str {
         match self {
             Self::LogColumns => "logs.columns",
+            Self::AgentMessagePins => "agent.message_pins",
         }
     }
 
@@ -66,6 +75,7 @@ impl Scope {
     fn validate(self, value: &Value) -> Result<()> {
         match self {
             Self::LogColumns => validate_log_columns(value),
+            Self::AgentMessagePins => validate_message_pins(value),
         }
     }
 }
@@ -96,6 +106,39 @@ fn validate_log_columns(value: &Value) -> Result<()> {
         if columns.fields[..index].contains(field) {
             return Err(Error::invalid(format!(
                 "log columns: {field} is listed twice"
+            )));
+        }
+    }
+
+    Ok(())
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MessagePins {
+    messages: Vec<String>,
+}
+
+fn validate_message_pins(value: &Value) -> Result<()> {
+    let pins: MessagePins = serde_json::from_value(value.clone())
+        .map_err(|error| Error::invalid(format!("pinned answers: {error}")))?;
+
+    if pins.messages.len() > MAX_PINNED_MESSAGES {
+        return Err(Error::invalid(format!(
+            "pinned answers: at most {MAX_PINNED_MESSAGES}"
+        )));
+    }
+
+    for (index, message) in pins.messages.iter().enumerate() {
+        if message.is_empty() || message.chars().count() > MAX_MESSAGE_ID_CHARS {
+            return Err(Error::invalid(
+                "pinned answers: a message id is 1 to 64 characters",
+            ));
+        }
+
+        if pins.messages[..index].contains(message) {
+            return Err(Error::invalid(format!(
+                "pinned answers: {message} is pinned twice"
             )));
         }
     }
@@ -268,6 +311,29 @@ mod tests {
             .map(|index| format!("f{index}"))
             .collect();
         assert!(scope.validate(&json!({ "fields": many })).is_err());
+    }
+
+    #[test]
+    fn pinned_answers_are_ids_in_an_order() {
+        let scope = Scope::parse("agent.message_pins").unwrap();
+        assert_eq!(scope.as_str(), "agent.message_pins");
+
+        assert!(
+            scope
+                .validate(&json!({ "messages": ["m-2", "m-1"] }))
+                .is_ok()
+        );
+        assert!(scope.validate(&json!({ "messages": [] })).is_ok());
+        assert!(
+            scope
+                .validate(&json!({ "messages": ["m-1", "m-1"] }))
+                .is_err()
+        );
+        assert!(scope.validate(&json!({ "messages": [""] })).is_err());
+        assert!(scope.validate(&json!(["m-1"])).is_err());
+
+        let too_many: Vec<String> = (0..101).map(|n| format!("m{n}")).collect();
+        assert!(scope.validate(&json!({ "messages": too_many })).is_err());
     }
 
     #[test]

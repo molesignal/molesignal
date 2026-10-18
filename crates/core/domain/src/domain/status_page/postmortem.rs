@@ -28,6 +28,9 @@ pub struct StatusPagePostmortem {
 pub enum PostmortemWrite {
     /// Keep it a draft, or take a published one back to a draft.
     Draft,
+    /// Write a draft only while nothing is published, refused otherwise in the
+    /// same transaction: for writers that must not change the public page.
+    DraftOnly,
     /// Publish it, or revise the published text. Subscribers are told only
     /// when `notify_subscribers` is set.
     Publish { notify_subscribers: bool },

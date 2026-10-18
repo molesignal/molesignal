@@ -7,10 +7,13 @@ use object_store::ObjectStore;
 
 use crate::{
     agent::{
-        inbound_mcp::InboundMcpRepository, model::AgentRepository,
+        currencies::CurrencyRepository, feedback::AgentFeedbackRepository,
+        inbound_mcp::InboundMcpRepository, knowledge::KnowledgeStore, memory::MemoryStore,
+        model::AgentRepository, network::NetworkPolicyStore, runs::RunRepository,
         tool_control::ToolControlRepository,
     },
     app::{
+        agent_usage::AgentUsage,
         alerting::{AlertingService, RuleEvaluator},
         business_service::BusinessServiceService,
         cluster::ClusterRegistry,
@@ -18,11 +21,13 @@ use crate::{
         iam::{IamAccessService, IamService},
         intake::{FunctionExecutor, IntakeService},
         log_inspection::LogInspectionService,
+        mcp::McpService,
         notify::{NotifyEngine, NotifyService},
         profile_storage::ProfileStorageService,
         profiling::ProfilingService,
         query::QueryService,
         self_telemetry::SelfTelemetryRuntime,
+        skills::SkillService,
         status_page::StatusPageService,
         synthetics::{ProbeControlService, SyntheticService},
         tools::ToolRuntime,
@@ -281,8 +286,25 @@ pub struct AgentState {
     pub inbound_mcp: Arc<dyn InboundMcpRepository>,
     pub(crate) inbound_mcp_request_state_key: [u8; 32],
     pub model_providers: Arc<dyn ModelProviderRepository>,
+    /// 模型服务单价可选的币种。
+    pub currencies: Arc<dyn CurrencyRepository>,
     pub prompts: Arc<dyn AgentPromptRepository>,
     pub chat_archives: Arc<dyn ChatArchiveRepository>,
     pub incident_rca: Arc<dyn IncidentRcaRepository>,
     pub slow_queries: Arc<dyn SlowQueryRepository>,
+    /// 每次模型调用的用量记账与组织的每日预算。
+    pub usage: Arc<AgentUsage>,
+    pub feedback: Arc<dyn AgentFeedbackRepository>,
+    /// 内置、实例目录、上传与仓库来源的 Skill。
+    pub skills: Arc<SkillService>,
+    /// 团队成员与个人建的连接可以连的内网主机与网段。
+    pub network: Arc<dyn NetworkPolicyStore>,
+    /// 外部 MCP 服务器：作用域、连接、同步与调用。
+    pub mcp: Arc<McpService>,
+    /// 一轮回答 = 一个 Run：排队、执行、事件与续读。
+    pub runs: Arc<dyn RunRepository>,
+    /// 组织与各团队的知识文件。
+    pub knowledge: Arc<dyn KnowledgeStore>,
+    /// 个人与团队的记忆。
+    pub memory: Arc<dyn MemoryStore>,
 }

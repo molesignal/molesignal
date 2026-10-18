@@ -6,15 +6,15 @@
 //! 这里是协议中立的应用层入口：Mole Agent 和未来的入站 MCP Server 都把可信身份
 //! 上下文交给同一个 runtime。HTTP、SSE、MCP JSON-RPC 和模型供应商格式不得进入本层。
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use tool_runtime::{
     PermissionMode, ToolAccess, ToolExecutionMode, ToolInvocationContext, ToolResult,
-    catalog::BuiltinToolKind,
+    catalog::{BuiltinToolKind, is_session_tool, is_workspace_tool},
 };
 
 use crate::{
-    app::iam::IamContext,
+    app::{iam::IamContext, log_inspection::LogInspectionService},
     shared::{Error, Result},
 };
 
@@ -29,6 +29,7 @@ pub(crate) mod dashboard;
 mod data_management;
 pub mod dependencies;
 mod incidents;
+mod inspections;
 mod mutations;
 mod notifications;
 mod observability;
@@ -58,6 +59,8 @@ pub struct ToolRuntime {
     pub(super) status_pages: Arc<crate::app::status_page::StatusPageService>,
     pub(super) administration: AdministrationToolDependencies,
     pub(super) agent: AgentToolDependencies,
+    /// Bound after start-up: the inspection service runs its inspections with these tools.
+    log_inspections: Arc<OnceLock<Arc<LogInspectionService>>>,
 }
 
 impl ToolRuntime {
@@ -71,7 +74,22 @@ impl ToolRuntime {
             status_pages: dependencies.status_pages,
             administration: dependencies.administration,
             agent: dependencies.agent,
+            log_inspections: Arc::default(),
         }
+    }
+
+    /// Gives the inspection tools their service, which is built with this runtime.
+    pub fn bind_log_inspections(&self, service: Arc<LogInspectionService>) {
+        if self.log_inspections.set(service).is_err() {
+            tracing::warn!("log inspection service was already bound to the tool runtime");
+        }
+    }
+
+    pub(super) fn log_inspections(&self) -> Result<&LogInspectionService> {
+        self.log_inspections
+            .get()
+            .map(AsRef::as_ref)
+            .ok_or_else(|| Error::unavailable("log inspections are not available yet"))
     }
 
     pub async fn execute(
@@ -88,6 +106,23 @@ impl ToolRuntime {
         ) {
             return Ok(ToolResult::error(
                 "meta tools must be handled by the entry adapter",
+            ));
+        }
+
+        if matches!(
+            kind,
+            BuiltinToolKind::ListSkills
+                | BuiltinToolKind::LoadSkill
+                | BuiltinToolKind::ReadSkillFile
+        ) {
+            return Ok(ToolResult::error(
+                "skill tools read the skills of a chat and are handled by Mole Agent",
+            ));
+        }
+
+        if is_session_tool(kind.name()) || is_workspace_tool(kind.name()) {
+            return Ok(ToolResult::error(
+                "this tool belongs to a Mole Agent chat and is handled by its run",
             ));
         }
 
@@ -109,6 +144,11 @@ impl ToolRuntime {
             | BuiltinToolKind::SearchAround
             | BuiltinToolKind::SearchFieldValues => {
                 observability::execute(self, auth, kind, arguments).await
+            }
+            BuiltinToolKind::ListLogInspections
+            | BuiltinToolKind::ListLogInspectionRuns
+            | BuiltinToolKind::GetLogInspectionRun => {
+                inspections::execute(self, auth, kind, arguments).await
             }
             BuiltinToolKind::ListTraces
             | BuiltinToolKind::GetTrace
@@ -164,9 +204,8 @@ impl ToolRuntime {
             | BuiltinToolKind::GetRumSession
             | BuiltinToolKind::ListRumActions
             | BuiltinToolKind::ListRumErrors
-            | BuiltinToolKind::GetRumRelatedTraces => {
-                rum::execute(self, auth, kind, arguments).await
-            }
+            | BuiltinToolKind::GetRumRelatedTraces
+            | BuiltinToolKind::GetRumVitals => rum::execute(self, auth, kind, arguments).await,
             BuiltinToolKind::ListContinuousProfiles
             | BuiltinToolKind::GetProfileFlamegraph
             | BuiltinToolKind::CompareProfiles => {
@@ -294,6 +333,8 @@ impl ToolRuntime {
             | BuiltinToolKind::RestoreStatusPage
             | BuiltinToolKind::PauseStatusPageAutomation
             | BuiltinToolKind::ResumeStatusPageAutomation
+            | BuiltinToolKind::DraftStatusPagePostmortem
+            | BuiltinToolKind::RunLogInspection
             | BuiltinToolKind::RetryNotificationDelivery
             | BuiltinToolKind::AcknowledgeNotificationDelivery
             | BuiltinToolKind::CreateApiToken
@@ -317,7 +358,21 @@ impl ToolRuntime {
             BuiltinToolKind::ExecuteAgentApproval => unreachable!(
                 "approved execution must be handled by the entry operation coordinator"
             ),
-            BuiltinToolKind::ToolSearch | BuiltinToolKind::ToolsCall => unreachable!(),
+            BuiltinToolKind::ToolSearch
+            | BuiltinToolKind::ToolsCall
+            | BuiltinToolKind::ListSkills
+            | BuiltinToolKind::LoadSkill
+            | BuiltinToolKind::ReadSkillFile
+            | BuiltinToolKind::TodoWrite
+            | BuiltinToolKind::AskUser
+            | BuiltinToolKind::ListKnowledge
+            | BuiltinToolKind::ReadKnowledge
+            | BuiltinToolKind::SearchKnowledge
+            | BuiltinToolKind::EditKnowledge
+            | BuiltinToolKind::Remember
+            | BuiltinToolKind::Forget
+            | BuiltinToolKind::ReadMemory
+            | BuiltinToolKind::UpdateInvestigation => unreachable!(),
         }?;
 
         if result.serialized_len() > HARD_RESULT_BYTES {

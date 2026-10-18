@@ -234,7 +234,7 @@ fn confirmation_required(
 
     let input_required = InputRequiredResult::new(Some(requests), Some(sealed));
     let within_limit = serde_json::to_vec(&input_required)
-        .is_ok_and(|encoded| encoded.len() <= data.settings.max_response_bytes.max(1) as usize);
+        .is_ok_and(|encoded| encoded.len() <= data.settings.max_response_bytes());
 
     if within_limit {
         Ok(input_required.into())
@@ -332,7 +332,7 @@ async fn execute_reserved(
         .map_err(super::super::handler::protocol_error)?
     {
         InboundMcpIdempotencyReservation::Existing(existing) => {
-            return Ok(replay(*existing, data.settings.max_response_bytes));
+            return Ok(replay(*existing, data.settings.max_response_bytes()));
         }
         InboundMcpIdempotencyReservation::Acquired => {}
     }
@@ -364,14 +364,14 @@ async fn execute_reserved(
 
 fn replay(
     record: crate::agent::inbound_mcp::InboundMcpIdempotencyRecord,
-    max_response_bytes: i64,
+    max_response_bytes: usize,
 ) -> CallToolResponse {
     if let Some(result) = record.result
         && let Ok(result) = serde_json::from_value::<ToolResult>(result)
     {
         let result = execution::sanitize_result(result);
 
-        if result.serialized_len() > max_response_bytes.max(1) as usize {
+        if result.serialized_len() > max_response_bytes {
             return visible_error("persisted idempotent result exceeds the current response limit");
         }
 

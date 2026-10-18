@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 pub use super::tracing::activate_self_telemetry;
 use super::{
-    agent::{AgentRuntime, build_model_providers},
+    agent::{AgentRuntime, build_agent_usage, build_model_providers},
     alerting::AlertingRuntime,
     core::Core,
     iam::IamRuntime,
@@ -57,8 +57,16 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
     super::tls::install_crypto_provider()?;
     let core = Core::build(settings).await?;
     let agent_model_providers = build_model_providers(&core);
-    let storage_runtime =
-        StorageRuntime::build(settings, &core, agent_model_providers.clone()).await?;
+    let (agent_usage, agent_traces) = build_agent_usage(&core, settings);
+
+    let storage_runtime = StorageRuntime::build(
+        settings,
+        &core,
+        agent_model_providers.clone(),
+        agent_usage.clone(),
+    )
+    .await?;
+
     let query_runtime = QueryRuntime::build(settings, &core, &storage_runtime).await;
 
     let dashboard_contract_registry = Arc::new(DashboardContractRegistryService::new(
@@ -166,7 +174,13 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         &storage_runtime,
         &iam_runtime,
     )?;
-    let agent_runtime = AgentRuntime::build(&core, &iam_runtime, agent_model_providers.clone());
+    let agent_runtime = AgentRuntime::build(
+        &core,
+        &iam_runtime,
+        settings,
+        agent_model_providers.clone(),
+        agent_usage.clone(),
+    );
 
     let dashboard_authoring = Arc::new(
         DashboardAuthoringService::new(
@@ -322,7 +336,18 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         chat_archives: agent_chat_archives,
         incident_rca,
         slow_queries,
+        feedback: agent_feedback,
+        skills: agent_skills,
+        network: agent_network,
+        mcp: agent_mcp,
+        runs: agent_runs,
+        knowledge: agent_knowledge,
+        memory: agent_memory,
+        currencies: agent_currencies,
     } = agent_runtime;
+
+    let _agent_trace_writer =
+        super::workers::agent_traces::AgentTraceWriter::new(agent_traces, intake.clone()).spawn();
 
     let stream_repository: Arc<dyn StreamRepository> = streams.clone();
 
@@ -399,9 +424,9 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             pool: core.pool.clone(),
             streams: stream_repository.clone(),
             model_providers: agent_model_providers.clone(),
+            agent_usage: agent_usage.clone(),
             tool_control: agent_tool_control.clone(),
             tools: tools.clone(),
-            intake: intake.clone(),
             notify: notify.clone(),
             iam: iam.clone(),
             iam_access: iam_access.clone(),
@@ -409,6 +434,8 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             run_gate: core.roles.run_alert.then(|| core.alert_run_gate.clone()),
         },
     );
+
+    tools.bind_log_inspections(log_inspections.clone());
 
     Ok(AppState {
         intake,
@@ -547,10 +574,19 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             inbound_mcp,
             inbound_mcp_request_state_key,
             model_providers: agent_model_providers,
+            currencies: agent_currencies,
             prompts: agent_prompts,
             chat_archives: agent_chat_archives,
             incident_rca,
             slow_queries,
+            usage: agent_usage,
+            feedback: agent_feedback,
+            skills: agent_skills,
+            network: agent_network,
+            mcp: agent_mcp,
+            runs: agent_runs,
+            knowledge: agent_knowledge,
+            memory: agent_memory,
         },
         tools,
     })

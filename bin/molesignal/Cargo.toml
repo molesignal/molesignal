@@ -100,6 +100,7 @@ serde_json.workspace = true
 service-graph = { path = "../../crates/engines/service-graph" }
 settings = { path = "../../crates/core/settings" }
 sha2.workspace = true
+shlex.workspace = true
 signals = { path = "../../crates/support/signals" }
 snap.workspace = true
 sourcemap.workspace = true

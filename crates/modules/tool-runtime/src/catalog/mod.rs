@@ -19,6 +19,7 @@ mod content;
 mod dashboard;
 mod data_management;
 mod incidents;
+mod inspections;
 mod kind;
 mod meta;
 mod notifications;
@@ -27,9 +28,12 @@ mod platform;
 mod profiles;
 mod reports;
 mod rum;
+mod session;
+mod skills;
 mod status_pages;
 mod synthetics;
 mod traces;
+mod workspace;
 
 pub use kind::BuiltinToolKind;
 
@@ -37,6 +41,16 @@ impl BuiltinToolKind {
     pub fn spec(self) -> ToolSpec {
         match self {
             Self::ToolSearch | Self::ToolsCall => meta::spec(self),
+            Self::ListSkills | Self::LoadSkill | Self::ReadSkillFile => skills::spec(self),
+            Self::TodoWrite | Self::AskUser => session::spec(self),
+            Self::ListKnowledge
+            | Self::ReadKnowledge
+            | Self::SearchKnowledge
+            | Self::EditKnowledge
+            | Self::Remember
+            | Self::Forget
+            | Self::ReadMemory
+            | Self::UpdateInvestigation => workspace::spec(self),
             Self::GetPlatformCapabilities => platform::spec(self),
             Self::QueryLogs
             | Self::QueryMetrics
@@ -105,7 +119,12 @@ impl BuiltinToolKind {
             | Self::GetRumSession
             | Self::ListRumActions
             | Self::ListRumErrors
-            | Self::GetRumRelatedTraces => rum::spec(self),
+            | Self::GetRumRelatedTraces
+            | Self::GetRumVitals => rum::spec(self),
+            Self::ListLogInspections
+            | Self::ListLogInspectionRuns
+            | Self::GetLogInspectionRun
+            | Self::RunLogInspection => inspections::spec(self),
             Self::ListContinuousProfiles | Self::GetProfileFlamegraph | Self::CompareProfiles => {
                 profiles::spec(self)
             }
@@ -200,7 +219,8 @@ impl BuiltinToolKind {
             Self::ArchiveStatusPage
             | Self::RestoreStatusPage
             | Self::PauseStatusPageAutomation
-            | Self::ResumeStatusPageAutomation => status_pages::spec(self),
+            | Self::ResumeStatusPageAutomation
+            | Self::DraftStatusPagePostmortem => status_pages::spec(self),
             Self::GetUserProfile
             | Self::GetUserPreferences
             | Self::ListOrganizationMembers
@@ -254,6 +274,44 @@ pub fn tools_for_surface(surface: ToolSurface) -> Vec<ToolSpec> {
 
 pub fn is_builtin_tool(name: &str) -> bool {
     BuiltinToolKind::from_name(name).is_some()
+}
+
+/// Skill 的三个工具：按会话能用的 Skill 执行，由 Mole Agent 的入口处理。
+pub fn is_skill_tool(name: &str) -> bool {
+    matches!(
+        BuiltinToolKind::from_name(name),
+        Some(
+            BuiltinToolKind::ListSkills
+                | BuiltinToolKind::LoadSkill
+                | BuiltinToolKind::ReadSkillFile
+        )
+    )
+}
+
+/// 一轮回答里与提问人打交道的两个工具：任务清单与提问。由 Mole Agent 的 Run 处理。
+pub fn is_session_tool(name: &str) -> bool {
+    matches!(
+        BuiltinToolKind::from_name(name),
+        Some(BuiltinToolKind::TodoWrite | BuiltinToolKind::AskUser)
+    )
+}
+
+/// 知识、记忆与调查记录：跟着会话走（读哪个团队的知识、写谁的记忆、记哪个调查），由 Mole Agent
+/// 的 Run 处理。
+pub fn is_workspace_tool(name: &str) -> bool {
+    matches!(
+        BuiltinToolKind::from_name(name),
+        Some(
+            BuiltinToolKind::ListKnowledge
+                | BuiltinToolKind::ReadKnowledge
+                | BuiltinToolKind::SearchKnowledge
+                | BuiltinToolKind::EditKnowledge
+                | BuiltinToolKind::Remember
+                | BuiltinToolKind::Forget
+                | BuiltinToolKind::ReadMemory
+                | BuiltinToolKind::UpdateInvestigation
+        )
+    )
 }
 
 pub fn is_meta_tool(name: &str) -> bool {

@@ -12,8 +12,8 @@ use std::sync::Arc;
 use crate::{
     agent::tool_control::ToolControlRepository,
     app::{
+        agent_usage::AgentUsage,
         iam::{IamAccessService, IamService},
-        intake::IntakeService,
         log_inspection::{
             ConnectorSender, IamRunIdentity, InspectionAgent, InspectionLimits, InspectionRunner,
             LogInspectionService, NotificationSender,
@@ -33,9 +33,10 @@ pub(super) struct LogInspectionDependencies {
     pub(super) pool: sqlx::PgPool,
     pub(super) streams: Arc<dyn StreamRepository>,
     pub(super) model_providers: Arc<dyn ModelProviderRepository>,
+    /// 巡检的模型调用记进组织的每日用量，预算用完时不执行。
+    pub(super) agent_usage: Arc<AgentUsage>,
     pub(super) tool_control: Arc<dyn ToolControlRepository>,
     pub(super) tools: Arc<ToolRuntime>,
-    pub(super) intake: Arc<IntakeService>,
     pub(super) notify: Arc<NotifyService>,
     pub(super) iam: Arc<IamService>,
     pub(super) iam_access: Arc<IamAccessService>,
@@ -56,7 +57,7 @@ pub(super) fn build(
         dependencies.model_providers,
         dependencies.tool_control,
         dependencies.tools,
-        dependencies.intake,
+        dependencies.agent_usage,
     ));
 
     let sender: Arc<dyn NotificationSender> = Arc::new(ConnectorSender::new(dependencies.notify));

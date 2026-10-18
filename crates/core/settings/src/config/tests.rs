@@ -28,6 +28,12 @@ fn example_config_file_parses_all_sections() {
     assert_eq!(s.log_inspection.min_interval_secs, 3600);
     assert_eq!(s.log_inspection.max_per_org, 20);
     assert_eq!(s.log_inspection.run_timeout_secs, 300);
+    assert_eq!(s.agent.daily_token_budget, 0);
+    assert_eq!(s.agent.budget_warning_percent, 80);
+    assert!(s.agent.skill_paths.is_empty());
+    assert!(s.agent.mcp_stdio_commands.is_empty());
+    assert_eq!(s.agent.max_concurrent_runs, 8);
+    assert_eq!(s.agent.max_context_tokens, 128_000);
     assert_eq!(
         s.mmdb.db_path,
         "/usr/share/molesignal/mmdb/dbip-city-lite.mmdb"

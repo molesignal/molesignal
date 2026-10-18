@@ -14,8 +14,15 @@ use std::sync::Arc;
 use serde_json::{Map, Value};
 
 use crate::{
-    agent::chat::{ChatMessage, CompletionRequest, MessageRole, Provider, adapter_from_parts},
+    agent::{
+        chat::{
+            ChatMessage, CompletionRequest, MessageRole, ModelCallObserver, Provider,
+            TransportOptions, adapter_from_parts, observed_complete,
+        },
+        usage::UsageOrigin,
+    },
     api::AppState,
+    app::agent_usage::{AgentUsage, BudgetGate, UsageScope},
     domain::alerting::{
         incident::{Incident, IncidentRca},
         repositories::IncidentRcaRepository,
@@ -117,6 +124,8 @@ pub struct RcaGenerator {
     agent_model_providers: Arc<dyn ModelProviderRepository>,
     agent_prompts: Arc<dyn AgentPromptRepository>,
     incident_rca: Arc<dyn IncidentRcaRepository>,
+    /// 每次生成记进组织的每日用量；预算由调用方在生成前用 [`Self::budget`] 判定。
+    usage: Arc<AgentUsage>,
     cfg: RcaGenConfig,
 }
 
@@ -125,12 +134,14 @@ impl RcaGenerator {
         agent_model_providers: Arc<dyn ModelProviderRepository>,
         agent_prompts: Arc<dyn AgentPromptRepository>,
         incident_rca: Arc<dyn IncidentRcaRepository>,
+        usage: Arc<AgentUsage>,
         cfg: RcaGenConfig,
     ) -> Self {
         Self {
             agent_model_providers,
             agent_prompts,
             incident_rca,
+            usage,
             cfg,
         }
     }
@@ -141,8 +152,14 @@ impl RcaGenerator {
             state.agent.model_providers.clone(),
             state.agent.prompts.clone(),
             state.agent.incident_rca.clone(),
+            state.agent.usage.clone(),
             RcaGenConfig::default(),
         )
+    }
+
+    /// 组织今天的预算还允不允许生成。`interactive`：有人在事件页上等这次生成。
+    pub async fn budget(&self, org_id: &Id, interactive: bool) -> BudgetGate {
+        self.usage.gate(org_id, interactive).await
     }
 
     /// 列出并选 org 可用 provider（enabled + key_set，取最近更新的一个）。
@@ -221,6 +238,7 @@ impl RcaGenerator {
             Provider::parse(&provider.provider)?,
             provider.base_url.clone(),
             key,
+            TransportOptions::from_timeout_ms(provider.timeout_ms),
         )?;
 
         // 解析 root_cause prompt（user→org→builtin）作系统消息；哨兵 user 落 org/builtin 默认。
@@ -250,7 +268,14 @@ impl RcaGenerator {
             temperature: Some(self.cfg.temperature),
         };
 
-        let resp = adapter.complete(req).await?;
+        let recorder: Arc<dyn ModelCallObserver> = self.usage.recorder(UsageScope {
+            provider_id: Some(provider.id.clone()),
+            prices: provider.prices(),
+            prompt_hash: Some(phash.clone()),
+            ..UsageScope::new(org_id.clone(), UsageOrigin::Rca)
+        });
+
+        let resp = observed_complete(adapter.as_ref(), req, Some(&recorder)).await?;
         let summary = resp.content.unwrap_or_default();
 
         if summary.trim().is_empty() {
@@ -325,6 +350,15 @@ fn streams_str(incident: &Incident) -> String {
 
 /// 把 incident 的跨信号上下文渲染成给 LLM 的证据文本（user 消息）。
 fn build_evidence(incident: &Incident, locale: RcaOutputLocale) -> String {
+    let mut s = incident_facts(incident);
+    s.push('\n');
+    s.push_str(locale.evidence_instruction());
+    s
+}
+
+/// 一个事件的跨信号上下文，给模型读：摘要、级别、状态、受影响的服务与主机、trace、标签、
+/// 注解与触发查询。对话里的 `/rca` 也用它。
+pub(crate) fn incident_facts(incident: &Incident) -> String {
     let mut s = String::new();
     s.push_str(&format!("Incident: {}\n", incident.summary));
     s.push_str(&format!("Severity: {:?}\n", incident.severity));
@@ -376,8 +410,6 @@ fn build_evidence(incident: &Incident, locale: RcaOutputLocale) -> String {
         }
     }
 
-    s.push('\n');
-    s.push_str(locale.evidence_instruction());
     s
 }
 
@@ -434,6 +466,10 @@ mod tests {
             enabled,
             timeout_ms: 30000,
             max_tokens: None,
+            price_currency: crate::agent::usage::Currency::USD,
+            input_price_per_mtok: None,
+            cached_input_price_per_mtok: None,
+            output_price_per_mtok: None,
             key_last4: None,
             key_set,
             created_at: TimestampMicros(0),

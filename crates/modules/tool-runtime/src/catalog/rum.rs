@@ -56,6 +56,19 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             json!({"type": "object", "required": ["session_id"], "properties": {"session_id": {"type": "string"}, "time_range": time_range_schema(), "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}}, "additionalProperties": false}),
             vec!["RUM", "Traces", "Correlation"],
         ),
+        BuiltinToolKind::GetRumVitals => {
+            let mut fields = common.clone();
+            fields["page"] =
+                json!({"type": "string", "description": "Only pages whose path contains this"});
+            fields["limit"] =
+                json!({"type": "integer", "minimum": 1, "maximum": 200, "default": 50});
+
+            (
+                "Summarize the Core Web Vitals real users had, page by page: the 75th percentile of LCP, INP, CLS and TTFB with the number of page views, slowest LCP first, and the thresholds a good and a poor value cross.",
+                object_schema(fields),
+                vec!["RUM", "Web Vitals", "Performance"],
+            )
+        }
         _ => unreachable!("RUM catalog received unrelated kind"),
     };
 

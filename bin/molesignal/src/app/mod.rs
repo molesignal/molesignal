@@ -9,14 +9,17 @@
 //! app 层只依赖 domain 抽象，不直接依赖 infra 实现。
 //! 具体绑定在 server crate 的启动阶段完成。
 
+pub mod agent_usage;
 pub mod alerting;
 pub mod apm;
 pub mod business_service;
 pub mod cluster;
 pub mod dashboard;
+pub mod egress;
 pub mod iam;
 pub mod intake;
 pub mod log_inspection;
+pub mod mcp;
 pub mod notify;
 pub mod profile_storage;
 pub mod profiling;
@@ -25,6 +28,7 @@ pub mod recommendations;
 pub mod reporting;
 pub mod search;
 pub mod self_telemetry;
+pub mod skills;
 pub mod status_page;
 pub mod synthetics;
 pub mod tools;

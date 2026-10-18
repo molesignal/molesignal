@@ -25,11 +25,24 @@ pub mod shared {
 
 pub mod capabilities;
 pub mod chat;
+pub mod commands;
+pub mod currencies;
+pub mod feedback;
 pub mod inbound_mcp;
+pub mod knowledge;
+pub mod mcp;
+pub mod memory;
 pub mod model;
+pub mod network;
+pub mod references;
+pub mod runs;
+pub mod scope;
+pub mod skills;
 pub mod telemetry;
+pub mod titles;
 pub mod tool_control;
 pub mod tools;
+pub mod usage;
 
 pub const PRODUCT_NAME: &str = "Mole Agent";
 pub const AGENT_NAME: &str = "Mole Agent";

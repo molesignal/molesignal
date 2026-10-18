@@ -35,7 +35,7 @@ pub(super) async fn list(
         .collect::<Vec<_>>();
 
     let response_too_large = match serde_json::to_vec(&prompts) {
-        Ok(encoded) => encoded.len() > data.settings.max_response_bytes.max(1) as usize,
+        Ok(encoded) => encoded.len() > data.settings.max_response_bytes(),
         Err(_) => true,
     };
 
@@ -78,7 +78,7 @@ pub(super) async fn get(
     validate_arguments(&template.variables_schema, &arguments)?;
     let rendered = render_prompt(&template.body, &arguments);
 
-    if rendered.len() > data.settings.max_response_bytes.max(1) as usize {
+    if rendered.len() > data.settings.max_response_bytes() {
         return Err(ErrorData::invalid_request(
             "rendered prompt exceeds the configured response limit",
             None,

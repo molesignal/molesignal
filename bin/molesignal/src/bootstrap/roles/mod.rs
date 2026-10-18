@@ -95,6 +95,11 @@ pub async fn run(state: AppState, settings: &Settings) -> anyhow::Result<()> {
 
     let mut set = tokio::task::JoinSet::new();
 
+    // Mole Agent 的回答在提供完整 HTTP 的节点上执行：执行要用到的东西都在完整的 AppState 里。
+    let _agent_runs = (plan.http == HttpKind::Full).then(|| {
+        crate::bootstrap::workers::agent_runs::AgentRunWorker::new(state.clone(), settings).spawn()
+    });
+
     {
         let (state, settings) = (state.clone(), settings.clone());
 

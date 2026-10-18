@@ -180,7 +180,7 @@ pub(super) async fn get(
     let payload_bytes = serde_json::to_vec(&(&task.input_requests, &task.result, &task.error))
         .map_err(|error| ErrorData::internal_error(error.to_string(), None))?;
 
-    if payload_bytes.len() > data.settings.max_response_bytes.max(1) as usize {
+    if payload_bytes.len() > data.settings.max_response_bytes() {
         return Err(ErrorData::invalid_request(
             "task payload exceeds the current response limit",
             None,

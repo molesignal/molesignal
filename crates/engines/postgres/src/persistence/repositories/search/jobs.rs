@@ -219,7 +219,7 @@ impl PgSearchJobRepository {
     }
 }
 
-fn notification_reconnect_delay(failures: u32) -> Duration {
+pub(crate) fn notification_reconnect_delay(failures: u32) -> Duration {
     let shift = failures.saturating_sub(1).min(6);
     let cap_millis = 1_000_u64.saturating_mul(1_u64 << shift).min(60_000);
 

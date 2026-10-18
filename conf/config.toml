@@ -596,6 +596,24 @@ run_timeout_secs = 300
 # 巡检报告的保留天数，过期的报告每小时清理一次；0 按 1 处理。
 report_retention_days = 30
 
+# === Mole Agent ===
+# 每个组织每天能用多少模型 token。对话、事件根因分析、定时巡检与写入管道里的 LLM 函数
+# 都算在内，按 UTC 自然日统计。组织管理员可以在 Mole Agent → 设置 → 用量 里为本组织另设上限。
+# 用完以后，后台调用（自动根因分析、巡检、LLM 函数）跳过；对话与手动生成根因分析按组织
+# 设置拦截或只提示。
+[agent]
+# 每个组织每天的 token 上限（输入加输出）；0 表示不限。
+daily_token_budget = 0
+# 用到上限的这个百分比时在对话里提醒；小于 1 按 1、大于 100 按 100 处理。
+budget_warning_percent = 80
+# 实例级 Skill 目录：每个含 SKILL.md 的子目录是一个 Skill，所有组织可见、只读。
+# 环境变量写法：MS_AGENT_SKILL_PATHS='["/var/lib/molesignal/skills"]'
+skill_paths = []
+# 每个节点同时执行的回答数；等提问人回答或确认的不占名额。
+max_concurrent_runs = 8
+# 模型能读的上下文（token）；交给模型的历史超过它的 80% 时先压缩更早的对话。
+max_context_tokens = 128000
+
 # === FileCatalog 生命周期与后台维护 ===
 [storage.catalog]
 # 分区结束超过该小时数后写入 immutable manifest；0 表示不封存。

@@ -89,6 +89,20 @@ impl TeamRepository for PgTeamRepository {
         rows.into_iter().map(row_to_team).collect()
     }
 
+    async fn list_for_member(&self, org_id: &Id, user_id: &Id) -> Result<Vec<Team>> {
+        let rows = sqlx::query(
+            "SELECT id, org_id, name, member_ids FROM teams
+             WHERE org_id = $1 AND member_ids @> jsonb_build_array($2::TEXT)",
+        )
+        .bind(&org_id.0)
+        .bind(&user_id.0)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
+
+        rows.into_iter().map(row_to_team).collect()
+    }
+
     async fn delete(&self, id: &Id) -> Result<()> {
         sqlx::query("DELETE FROM teams WHERE id = $1")
             .bind(&id.0)

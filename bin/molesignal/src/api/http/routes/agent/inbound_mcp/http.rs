@@ -21,7 +21,7 @@ use super::{
     admission::AdmissionRejection, handler::InboundMcpHandler, runtime::InboundMcpAdapterRuntime,
 };
 use crate::{
-    agent::inbound_mcp::{HARD_BODY_BYTES, InboundMcpSettings},
+    agent::inbound_mcp::{InboundMcpSettings, hard_max_bytes},
     api::{
         AppState,
         http::middleware::auth::{
@@ -49,7 +49,7 @@ pub(super) fn routes(state: AppState, runtime: Arc<InboundMcpAdapterRuntime>) ->
                 .with_legacy_session_mode(true)
                 .with_json_response(true)
                 .with_sse_keep_alive(Some(Duration::from_secs(10)))
-                .with_max_request_body_bytes(HARD_BODY_BYTES as usize)
+                .with_max_request_body_bytes(hard_max_bytes())
                 .disable_allowed_hosts()
                 .disable_allowed_origins(),
         );
@@ -172,7 +172,7 @@ async fn prepare_request(
     }
 
     validate_origin(state, request.headers(), &settings)?;
-    enforce_body_limit(request, settings.max_request_bytes).await?;
+    enforce_body_limit(request, settings.max_request_bytes()).await?;
 
     let runtime = request
         .extensions()
@@ -236,9 +236,9 @@ fn bearer_token(headers: &HeaderMap) -> Result<&str, McpHttpRejection> {
 
 async fn enforce_body_limit(
     request: &mut Request,
-    configured_limit: i64,
+    configured_limit: usize,
 ) -> Result<(), McpHttpRejection> {
-    let limit = configured_limit.clamp(1, HARD_BODY_BYTES) as usize;
+    let limit = configured_limit.clamp(1, hard_max_bytes());
     let body = std::mem::replace(request.body_mut(), Body::empty());
 
     let bytes = to_bytes(body, limit)

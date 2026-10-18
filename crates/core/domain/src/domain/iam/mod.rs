@@ -388,6 +388,16 @@ pub trait TeamRepository: Send + Sync {
     async fn get(&self, id: &Id) -> Result<Team>;
     async fn list(&self, org_id: &Id) -> Result<Vec<Team>>;
     async fn delete(&self, id: &Id) -> Result<()>;
+
+    /// 一个人所在的团队。数据库实现按 `member_ids` 的 GIN 索引查。
+    async fn list_for_member(&self, org_id: &Id, user_id: &Id) -> Result<Vec<Team>> {
+        Ok(self
+            .list(org_id)
+            .await?
+            .into_iter()
+            .filter(|team| team.member_ids.contains(user_id))
+            .collect())
+    }
 }
 
 /// 邮箱域准入判定。

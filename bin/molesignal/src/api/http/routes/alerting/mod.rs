@@ -14,6 +14,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use axum::{
     Extension, Json, Router,
     extract::{Path, Query, State},
+    response::IntoResponse,
     routing::{get, post},
 };
 use chrono::{TimeZone, Timelike, Utc};
@@ -486,15 +487,23 @@ async fn generate_incident_rca(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
     Query(query): Query<IncidentRcaGenerateQuery>,
-) -> Result<Json<Value>> {
+) -> Result<axum::response::Response> {
     let language = match query.locale {
         Some(locale) => locale,
         None => state.iam.user_preferences.get(&ctx.user_id).await?.language,
     };
 
     let locale = crate::api::rca::RcaOutputLocale::from_language_tag(&language);
+    let generator = crate::api::rca::RcaGenerator::from_state(&state);
 
-    let rca = crate::api::rca::RcaGenerator::from_state(&state)
+    // 有人在事件页上等：预算用完时按组织设置拦截或照做。
+    if let crate::app::agent_usage::BudgetGate::Refuse(status) =
+        generator.budget(&incident.org_id, true).await
+    {
+        return Ok(super::agent::budget::exhausted_response(&status));
+    }
+
+    let rca = generator
         .generate_for_locale(
             &incident.org_id,
             &incident,
@@ -503,7 +512,7 @@ async fn generate_incident_rca(
         )
         .await?;
 
-    Ok(Json(serde_json::to_value(rca).unwrap()))
+    Ok(Json(serde_json::to_value(rca).unwrap()).into_response())
 }
 
 #[resource_permission(

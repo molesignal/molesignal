@@ -7,33 +7,47 @@
 //! 的权限与执行均委托给 `app::tools::ToolRuntime`，未来入站 MCP adapter 可直接复用后者。
 
 use std::{
-    cmp::Reverse,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
 use async_trait::async_trait;
-use serde::Deserialize;
 use serde_json::{Value, json};
+pub(crate) use session::{Reply, RunInteraction};
 use tool_runtime::{ToolCallSource, ToolContent, ToolInvocationContext};
+pub(crate) use workspace::ChatWorkspace;
 
 use crate::{
     agent::{
         model::{RiskLevel, ToolCallRecord},
         tool_control::ToolExecutionMode,
         tools::{
-            BuiltinToolKind, ToolAuthContext, ToolCall, ToolDispatcher, ToolResult, builtin_tools,
-            is_builtin_tool, is_meta_tool, risk_for_tool,
+            BuiltinToolKind, ToolAuthContext, ToolCall, ToolDispatcher, ToolResult,
+            is_builtin_tool, is_meta_tool, is_session_tool, is_skill_tool, is_workspace_tool,
+            risk_for_tool,
         },
     },
     api::AppState,
+    app::skills::SessionSkills,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
+
+mod meta;
+mod session;
+mod skills;
+mod workspace;
 
 const DEFAULT_MAX_RESPONSE_BYTES: i64 = 1_048_576;
 
 pub struct RealToolDispatcher {
     state: AppState,
     resolution: super::toolsets::ToolsetResolution,
+    /// 这个会话能用的 Skill：Skill 的三个工具只在这里面找。
+    skills: Arc<SessionSkills>,
+    /// 和发起这一轮的人说话：任务清单、提问与「确认」模式的确认。
+    interaction: Option<Arc<dyn RunInteraction>>,
+    /// 会话在知识、记忆与调查上的位置。
+    workspace: Option<Arc<ChatWorkspace>>,
 }
 
 impl RealToolDispatcher {
@@ -41,11 +55,29 @@ impl RealToolDispatcher {
         Self {
             state,
             resolution: super::toolsets::ToolsetResolution::default(),
+            skills: Arc::new(SessionSkills::default()),
+            interaction: None,
+            workspace: None,
         }
+    }
+
+    pub(crate) fn with_workspace(mut self, workspace: ChatWorkspace) -> Self {
+        self.workspace = Some(Arc::new(workspace));
+        self
+    }
+
+    pub(crate) fn with_interaction(mut self, interaction: Arc<dyn RunInteraction>) -> Self {
+        self.interaction = Some(interaction);
+        self
     }
 
     pub fn with_toolsets(mut self, resolution: super::toolsets::ToolsetResolution) -> Self {
         self.resolution = resolution;
+        self
+    }
+
+    pub fn with_skills(mut self, skills: Arc<SessionSkills>) -> Self {
+        self.skills = skills;
         self
     }
 }
@@ -91,11 +123,44 @@ impl RealToolDispatcher {
             };
         }
 
-        let org_id = Id(ctx.org_id().to_string());
+        if is_skill_tool(&call.name) {
+            if !self.resolution.builtin_enabled(&call.name) {
+                return Ok(ToolResult::error(format!(
+                    "tool `{}` is not enabled for this organization",
+                    call.name
+                )));
+            }
+
+            let Some(kind) = BuiltinToolKind::from_name(&call.name) else {
+                return Ok(ToolResult::error(format!("unknown tool: {}", call.name)));
+            };
+
+            let result = skills::execute(&self.state, &self.skills, kind, call.arguments).await?;
+            return Ok(self.enforce_response_limit(kind.name(), result));
+        }
 
         let Some(kind) = BuiltinToolKind::from_name(&call.name) else {
-            return self.execute_mcp(ctx, &org_id, call).await;
+            return self.execute_mcp(ctx, call).await;
         };
+
+        if is_session_tool(&call.name) && self.resolution.builtin_enabled(&call.name) {
+            return session::execute(self.interaction.as_deref(), kind, call.arguments).await;
+        }
+
+        if is_workspace_tool(&call.name) && self.resolution.builtin_enabled(&call.name) {
+            let interaction = self.interaction.as_deref();
+            let workspace = self.workspace.as_ref();
+
+            return workspace::execute(
+                &self.state,
+                ctx,
+                workspace,
+                interaction,
+                kind,
+                call.arguments,
+            )
+            .await;
+        }
 
         if !kind.spec().exposure.mole_agent {
             return Ok(ToolResult::error(format!(
@@ -111,7 +176,29 @@ impl RealToolDispatcher {
             )));
         }
 
-        let execution_mode = self.resolution.execution_mode_for_builtin(&call.name);
+        // 「确认」模式：提问人在对话里同意后照自动执行。「自动」不问可以撤回的改动，bypass
+        // permissions 什么都不问。
+        let mut execution_mode = self.resolution.execution_mode_for_builtin(&call.name);
+
+        if execution_mode == ToolExecutionMode::Confirmation {
+            let spec = kind.spec();
+
+            if !ctx
+                .execution_policy()
+                .skips_confirmation(spec.annotations.destructive)
+                && let Err(result) = session::confirmation(
+                    self.interaction.as_deref(),
+                    &call.name,
+                    &call.arguments,
+                    spec.risk,
+                )
+                .await
+            {
+                return Ok(result);
+            }
+
+            execution_mode = ToolExecutionMode::Automatic;
+        }
 
         let invocation = ToolInvocationContext::from_iam(ctx.iam_context())
             .with_source(ToolCallSource::MoleAgent)
@@ -143,12 +230,7 @@ impl RealToolDispatcher {
         Ok(self.enforce_response_limit(kind.name(), result))
     }
 
-    async fn execute_mcp(
-        &self,
-        ctx: &ToolAuthContext,
-        org_id: &Id,
-        call: ToolCall,
-    ) -> Result<ToolResult> {
+    async fn execute_mcp(&self, ctx: &ToolAuthContext, call: ToolCall) -> Result<ToolResult> {
         let Some(tool) = self.resolution.mcp_tools.get(&call.name) else {
             return Ok(ToolResult::error(format!("unknown tool: {}", call.name)));
         };
@@ -169,7 +251,20 @@ impl RealToolDispatcher {
 
         let execution_mode = self.resolution.execution_mode_for_mcp(tool);
 
-        if execution_mode != ToolExecutionMode::Automatic {
+        // 标了 destructiveHint 的工具导入时风险至少是 L4，到不了「确认」：能确认的都不是破坏性的。
+        if execution_mode == ToolExecutionMode::Confirmation {
+            if !ctx.execution_policy().skips_confirmation(false)
+                && let Err(result) = session::confirmation(
+                    self.interaction.as_deref(),
+                    &call.name,
+                    &call.arguments,
+                    tool.risk,
+                )
+                .await
+            {
+                return Ok(result);
+            }
+        } else if execution_mode != ToolExecutionMode::Automatic {
             return Ok(ToolResult::error(format!(
                 "MCP tool `{}` requires `{}` and cannot execute directly",
                 call.name,
@@ -189,104 +284,17 @@ impl RealToolDispatcher {
             server.max_response_bytes = server.max_response_bytes.min(policy.max_response_bytes);
         }
 
-        super::mcp::execute_tool(&self.state, org_id, &server, tool, call.arguments).await
-    }
-
-    fn tool_search(&self, arguments: Value) -> Result<ToolResult> {
-        let args: ToolSearchArgs = serde_json::from_value(arguments)
-            .map_err(|error| Error::invalid(format!("invalid tool arguments: {error}")))?;
-        let query = args.query.unwrap_or_default().trim().to_ascii_lowercase();
-        let domain = args.domain.as_deref().map(str::to_ascii_lowercase);
-
-        let mut entries = builtin_tools()
-            .into_iter()
-            .filter(|tool| {
-                tool.exposure.mole_agent
-                    && !is_meta_tool(&tool.name)
-                    && self.resolution.builtin_enabled(&tool.name)
-            })
-            .filter(|tool| domain.as_ref().is_none_or(|domain| tool.domain.eq_ignore_ascii_case(domain)))
-            .filter_map(|tool| {
-                let score = search_score(
-                    &query,
-                    &tool.name,
-                    &tool.display_name,
-                    &tool.description,
-                    &tool.domain,
-                    &tool.tags,
-                )?;
-
-                Some((score, json!({
-                    "name": tool.name, "display_name": tool.display_name,
-                    "description": tool.description,
-                    "domain": tool.domain, "category": tool.category, "tags": tool.tags,
-                    "required_permissions": tool.required_permissions,
-                    "permission_mode": tool.permission_mode,
-                    "execution_mode": self.resolution.execution_mode_for_builtin(&tool.name),
-                    "input_schema": args.include_schema.unwrap_or(true).then_some(tool.input_schema),
-                    "output_schema": args.include_schema.unwrap_or(true).then_some(tool.output_schema),
-                })))
-            })
-            .collect::<Vec<_>>();
-
-        entries.extend(
-            self.resolution
-                .mcp_tools
-                .values()
-                .filter(|tool| self.resolution.mcp_tool(&tool.name).is_some())
-                .filter(|_| domain.as_ref().is_none_or(|domain| domain == "mcp"))
-                .filter_map(|tool| {
-                    let score = search_score(
-                        &query,
-                        &tool.name,
-                        &tool.display_name,
-                        &tool.description,
-                        "mcp",
-                        &tool.tags,
-                    )?;
-
-                    Some((score, json!({
-                        "name": tool.name, "display_name": tool.display_name,
-                        "description": tool.description, "tags": tool.tags,
-                        "risk": tool.risk, "source": "mcp",
-                        "execution_mode": self.resolution.execution_mode_for_mcp(tool),
-                        "input_schema": args.include_schema.unwrap_or(true).then_some(tool.input_schema.clone()),
-                        "output_schema": args.include_schema.unwrap_or(true).then_some(tool.output_schema.clone()),
-                    })))
-                }),
-        );
-
-        entries.sort_by_key(|(score, value)| {
-            (
-                Reverse(*score),
-                value["name"].as_str().unwrap_or_default().to_string(),
+        // 成员凭据与数据权限都按发这条消息的人。
+        self.state
+            .agent
+            .mcp
+            .execute_tool(
+                &server,
+                tool,
+                &Id(ctx.principal_id().to_string()),
+                call.arguments,
             )
-        });
-
-        let limit = args.limit.unwrap_or(10).clamp(1, 50);
-        entries.truncate(limit);
-
-        Ok(ToolResult::json(json!({
-            "query": query, "tools": entries.into_iter().map(|(_, value)| value).collect::<Vec<_>>(),
-        })))
-    }
-
-    async fn tools_call(&self, ctx: &ToolAuthContext, arguments: Value) -> Result<ToolResult> {
-        let args: ToolsCallArgs = serde_json::from_value(arguments)
-            .map_err(|error| Error::invalid(format!("invalid tool arguments: {error}")))?;
-
-        if is_meta_tool(&args.name) {
-            return Ok(ToolResult::error("meta tools cannot call themselves"));
-        }
-
-        Box::pin(self.dispatch(
-            ctx,
-            ToolCall {
-                name: args.name,
-                arguments: args.arguments,
-            },
-        ))
-        .await
+            .await
     }
 
     fn enforce_response_limit(&self, name: &str, result: ToolResult) -> ToolResult {
@@ -396,62 +404,6 @@ fn redacted_result_summary(result: &ToolResult) -> Option<String> {
     })
 }
 
-#[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ToolSearchArgs {
-    #[serde(default)]
-    query: Option<String>,
-    #[serde(default)]
-    domain: Option<String>,
-    #[serde(default)]
-    limit: Option<usize>,
-    #[serde(default)]
-    include_schema: Option<bool>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ToolsCallArgs {
-    name: String,
-    arguments: Value,
-}
-
-fn search_score(
-    query: &str,
-    name: &str,
-    display_name: &str,
-    description: &str,
-    domain: &str,
-    tags: &[String],
-) -> Option<u16> {
-    if query.is_empty() {
-        return Some(1);
-    }
-
-    let name = name.to_ascii_lowercase();
-
-    if name == query {
-        return Some(1_000);
-    }
-
-    let display_name = display_name.to_ascii_lowercase();
-    let description = description.to_ascii_lowercase();
-    let domain = domain.to_ascii_lowercase();
-
-    query.split_whitespace().try_fold(0u16, |score, token| {
-        let token_score = u16::from(name.contains(token)) * 300
-            + u16::from(display_name.contains(token)) * 160
-            + u16::from(domain.contains(token)) * 120
-            + u16::from(
-                tags.iter()
-                    .any(|tag| tag.to_ascii_lowercase().contains(token)),
-            ) * 100
-            + u16::from(description.contains(token)) * 40;
-
-        (token_score > 0).then_some(score.saturating_add(token_score))
-    })
-}
-
 fn execution_mode_label(mode: ToolExecutionMode) -> &'static str {
     match mode {
         ToolExecutionMode::Automatic => "automatic",
@@ -498,16 +450,6 @@ pub(crate) fn redact_sensitive_value(value: &Value) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn search_prefers_exact_name_and_matches_tags() {
-        assert_eq!(
-            search_score("get_trace", "get_trace", "", "", "", &[]),
-            Some(1_000)
-        );
-        assert!(search_score("traces", "x", "", "", "", &["Traces".into()]).is_some());
-        assert_eq!(search_score("missing", "x", "", "", "", &[]), None);
-    }
 
     #[test]
     fn audit_redaction_is_recursive() {

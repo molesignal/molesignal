@@ -487,6 +487,7 @@ pub(super) mod tests {
                 RunFailure::Identity,
                 RunFailure::Model,
                 RunFailure::Agent,
+                RunFailure::Budget,
                 RunFailure::Internal,
             ] {
                 let key = format!("log_inspection.failure.{}", failure.as_str());

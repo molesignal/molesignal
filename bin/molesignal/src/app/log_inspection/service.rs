@@ -289,6 +289,8 @@ impl LogInspectionService {
                 )));
             }
             Err(AgentFailure::Call(reason)) => return Err(Error::internal(reason)),
+            // 保存时只核对模型配置，不调用模型，预算与它无关。
+            Err(AgentFailure::Budget(_)) => {}
         }
 
         for route in &input.notify_routes {

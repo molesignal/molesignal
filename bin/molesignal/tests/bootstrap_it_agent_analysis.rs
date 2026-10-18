@@ -142,6 +142,10 @@ async fn http_chat_prompt_metadata_and_archive() {
             enabled: true,
             timeout_ms: 30_000,
             max_tokens: Some(1024),
+            price_currency: molesignal::agent::usage::Currency::USD,
+            input_price_per_mtok: None,
+            cached_input_price_per_mtok: None,
+            output_price_per_mtok: None,
         };
     let provider = server
         .state

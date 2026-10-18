@@ -8,6 +8,7 @@ use std::{sync::Arc, time::Duration};
 use super::core::Core;
 use crate::{
     app::{
+        agent_usage::AgentUsage,
         cluster::{PeerRole, WorkOwnership},
         intake::IntakeService,
         profile_storage::ProfileStorageService,
@@ -67,6 +68,7 @@ impl StorageRuntime {
         settings: &Settings,
         core: &Core,
         model_providers: Arc<dyn ModelProviderRepository>,
+        agent_usage: Arc<AgentUsage>,
     ) -> Result<Self> {
         let segment_bytes = (settings.wal.segment_size_mb as usize)
             .saturating_mul(1024 * 1024)
@@ -200,7 +202,10 @@ impl StorageRuntime {
                 tracing::info!("LLM eval function runtime enabled");
 
                 Some(Arc::new(
-                    crate::bootstrap::llm_executor::LlmFunctionExecutor::new(model_providers),
+                    crate::bootstrap::llm_executor::LlmFunctionExecutor::new(
+                        model_providers,
+                        agent_usage,
+                    ),
                 ))
             } else {
                 None

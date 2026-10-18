@@ -1,55 +1,54 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! MCP Server 控制面与受限 Streamable HTTP runtime。
+//! 外部 MCP 服务器的接口。谁能看、能改、能停用按 `agent::scope` 判定：组织级的要
+//! `agent.manage`，团队的由团队成员与管理员管理，个人的只有本人能改（管理员能停用、删除）。
 //!
-//! 安全边界：
-//! - 仅管理员可 CRUD / 测试 / 同步；
-//! - 任意 stdio 命令、Unix Socket 与旧 SSE transport 没有执行入口；
-//! - HTTP 目标在每次请求前做域名、CIDR 与私网解析校验，禁用重定向；
-//! - 凭据由 repository 即时解密，只进入请求 header，不进入响应、日志或审计；
-//! - 同步发现的工具默认关闭，风险下限取 MCP annotations 的保守推断；
-//! - 模型提供的租户、用户与审批身份字段在转发前移除。
-
-use std::collections::HashMap;
+//! - `GET    /api/v1/agent/mcp-servers`                       看得到的服务器
+//! - `POST   /api/v1/agent/mcp-servers`                       新建（`scope`、`team_id`）
+//! - `POST   /api/v1/agent/mcp-servers/import`                粘贴其他客户端的配置导入
+//! - `GET    /api/v1/agent/mcp-servers/{id}`                  服务器、工具与 prompt
+//! - `PUT    /api/v1/agent/mcp-servers/{id}`                  修改、移交作用域
+//! - `PATCH  /api/v1/agent/mcp-servers/{id}`                  启停
+//! - `DELETE /api/v1/agent/mcp-servers/{id}`                  删除（工具都关掉、没有依赖之后）
+//! - `POST   /api/v1/agent/mcp-servers/{id}/test|sync`        测试连接、同步工具与 prompt
+//! - `GET    /api/v1/agent/mcp-servers/{id}/tools`            工具
+//! - `PATCH  /api/v1/agent/mcp-servers/{id}/tools/{tool_id}`  启停一个工具
+//! - `POST   /api/v1/agent/mcp-servers/{id}/enable-read-only` 启用全部只读工具
+//! - `PUT | DELETE /api/v1/agent/mcp-servers/{id}/my-credential` 本人的成员凭据
+//!
+//! 凭据、敏感请求头与成员凭据只写不读：响应里只有是否已填与末四位，不进日志与审计。
 
 use axum::{
     Extension, Json, Router,
     extract::{Path, State},
-    routing::{get, post},
+    routing::{get, patch, post, put},
 };
-use ipnet::IpNet;
-use reqwest::header::HeaderName;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use super::viewer::{requested_scope, viewer};
 use crate::{
-    agent::tool_control::{McpServer, McpServerInput},
     api::{AppState, http::routes::activity_audit},
-    app::iam::IamContext,
+    app::{iam::IamContext, mcp::ServerDraft},
     domain::iam::permission,
     shared::{Error, Result, ids::Id},
 };
 
-mod execution;
-mod runtime;
-mod schema;
+mod import;
+mod members;
 mod synchronization;
-pub(crate) use execution::execute_tool;
-pub(crate) use schema::validate_schema;
-
-const MCP_PROTOCOL_VERSION: &str = "2025-03-26";
-const DEFAULT_TIMEOUT_MS: i64 = 10_000;
-const MAX_TIMEOUT_MS: i64 = 120_000;
-const DEFAULT_MAX_RESPONSE_BYTES: i64 = 1_048_576;
-const MAX_RESPONSE_BYTES: i64 = 16 * 1_048_576;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/agent/mcp-servers", get(list_servers).post(create_server))
+        .route("/agent/mcp-servers/import", post(import::import_servers))
         .route(
             "/agent/mcp-servers/{id}",
-            get(get_server).put(update_server).delete(delete_server),
+            get(get_server)
+                .put(update_server)
+                .patch(set_server_enabled)
+                .delete(delete_server),
         )
         .route(
             "/agent/mcp-servers/{id}/test",
@@ -60,201 +59,33 @@ pub fn routes() -> Router<AppState> {
             post(synchronization::sync_server),
         )
         .route("/agent/mcp-servers/{id}/tools", get(list_server_tools))
+        .route(
+            "/agent/mcp-servers/{id}/tools/{tool_id}",
+            patch(members::set_tool_enabled),
+        )
+        .route(
+            "/agent/mcp-servers/{id}/enable-read-only",
+            post(members::enable_read_only),
+        )
+        .route(
+            "/agent/mcp-servers/{id}/my-credential",
+            put(members::put_my_credential).delete(members::delete_my_credential),
+        )
 }
 
 #[derive(Debug, Deserialize)]
-struct McpServerRequest {
-    name: String,
-    #[serde(default = "default_transport")]
-    transport: String,
-    endpoint_url: Option<String>,
-    command_template: Option<String>,
-    #[serde(default = "default_auth_type")]
-    auth_type: String,
-    auth_header: Option<String>,
-    /// write-only；响应结构中没有此字段。
-    credential: Option<String>,
-    #[serde(default = "default_true")]
-    private_only: bool,
+struct ServerRequest {
+    /// 不填是组织级（只有 `agent.manage` 能建）。
+    #[serde(default = "organization")]
+    scope: String,
     #[serde(default)]
-    allowed_domains: Vec<String>,
-    #[serde(default)]
-    allowed_cidrs: Vec<String>,
-    #[serde(default)]
-    follow_redirects: bool,
-    #[serde(default = "default_true")]
-    tls_verify: bool,
-    #[serde(default = "default_timeout_ms")]
-    timeout_ms: i64,
-    #[serde(default = "default_max_response_bytes")]
-    max_response_bytes: i64,
-    #[serde(default = "default_true")]
-    enabled: bool,
+    team_id: Option<String>,
+    #[serde(flatten)]
+    draft: ServerDraft,
 }
 
-fn default_transport() -> String {
-    "streamable_http".into()
-}
-
-fn default_auth_type() -> String {
-    "none".into()
-}
-
-const fn default_true() -> bool {
-    true
-}
-
-const fn default_timeout_ms() -> i64 {
-    DEFAULT_TIMEOUT_MS
-}
-
-const fn default_max_response_bytes() -> i64 {
-    DEFAULT_MAX_RESPONSE_BYTES
-}
-
-fn normalize_server_request(
-    request: McpServerRequest,
-    id: Id,
-    org_id: Id,
-    created_by: Id,
-) -> Result<(McpServerInput, Option<String>)> {
-    let name = request.name.trim();
-
-    if name.is_empty() || name.chars().count() > 255 {
-        return Err(Error::invalid(
-            "MCP Server name must contain 1 to 255 characters",
-        ));
-    }
-
-    if !matches!(
-        request.transport.as_str(),
-        "streamable_http" | "sse" | "stdio" | "unix_socket"
-    ) {
-        return Err(Error::invalid("unsupported MCP transport"));
-    }
-
-    if request.transport == "streamable_http" {
-        let endpoint = request
-            .endpoint_url
-            .as_deref()
-            .ok_or_else(|| Error::invalid("Endpoint URL is required"))?;
-
-        runtime::validate_endpoint_shape(endpoint)?;
-    } else if request.transport == "stdio" && request.command_template.is_none() {
-        return Err(Error::invalid(
-            "stdio MCP requires an administrator-provided command template",
-        ));
-    }
-
-    if request.follow_redirects {
-        return Err(Error::invalid(
-            "MCP redirects are blocked by the server security policy",
-        ));
-    }
-
-    if !matches!(
-        request.auth_type.as_str(),
-        "none" | "bearer_token" | "api_key" | "oauth" | "mtls" | "internal_service_identity"
-    ) {
-        return Err(Error::invalid("unsupported MCP authentication type"));
-    }
-
-    let credential = request
-        .credential
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty());
-
-    if request.auth_type != "none" && credential.is_none() {
-        // 更新时允许留空以保留旧 secret；handler 会根据现有元数据补充校验。
-    }
-
-    if !(1_000..=MAX_TIMEOUT_MS).contains(&request.timeout_ms) {
-        return Err(Error::invalid(
-            "MCP timeout_ms must be between 1000 and 120000",
-        ));
-    }
-
-    if !(1_024..=MAX_RESPONSE_BYTES).contains(&request.max_response_bytes) {
-        return Err(Error::invalid(
-            "MCP max_response_bytes must be between 1024 and 16777216",
-        ));
-    }
-
-    let allowed_domains = request
-        .allowed_domains
-        .into_iter()
-        .map(|value| value.trim().trim_start_matches('.').to_ascii_lowercase())
-        .filter(|value| !value.is_empty())
-        .collect::<Vec<_>>();
-
-    for domain in &allowed_domains {
-        if domain.contains('/') || domain.contains(':') || domain.contains(char::is_whitespace) {
-            return Err(Error::invalid(format!(
-                "invalid allowed MCP domain `{domain}`"
-            )));
-        }
-    }
-
-    for cidr in &request.allowed_cidrs {
-        cidr.parse::<IpNet>()
-            .map_err(|_| Error::invalid(format!("invalid MCP CIDR `{cidr}`")))?;
-    }
-
-    let auth_header = request
-        .auth_header
-        .map(|value| value.trim().to_ascii_lowercase())
-        .filter(|value| !value.is_empty());
-
-    if auth_header.is_some()
-        && !matches!(
-            request.auth_type.as_str(),
-            "api_key" | "internal_service_identity"
-        )
-    {
-        return Err(Error::invalid(
-            "a custom authentication header is only valid for API key or internal identity auth",
-        ));
-    }
-
-    if let Some(header) = auth_header.as_deref() {
-        let parsed = HeaderName::from_bytes(header.as_bytes())
-            .map_err(|_| Error::invalid("invalid MCP authentication header"))?;
-
-        if !parsed.as_str().starts_with("x-") {
-            return Err(Error::invalid(
-                "custom MCP authentication headers must use an X- prefix",
-            ));
-        }
-    }
-
-    Ok((
-        McpServerInput {
-            id,
-            org_id,
-            name: name.to_string(),
-            transport: request.transport,
-            endpoint_url: request
-                .endpoint_url
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty()),
-            command_template: request
-                .command_template
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty()),
-            auth_type: request.auth_type,
-            auth_header,
-            private_only: request.private_only,
-            allowed_domains,
-            allowed_cidrs: request.allowed_cidrs,
-            follow_redirects: false,
-            tls_verify: request.tls_verify,
-            timeout_ms: request.timeout_ms,
-            max_response_bytes: request.max_response_bytes,
-            enabled: request.enabled,
-            created_by,
-        },
-        credential,
-    ))
+fn organization() -> String {
+    "org".into()
 }
 
 #[permission("agent.use")]
@@ -262,31 +93,13 @@ async fn list_servers(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
-    let servers = state
-        .agent
-        .tool_control
-        .list_mcp_servers(&ctx.org_id)
-        .await?;
+    let viewer = viewer(&state, &ctx).await?;
+    let servers = state.agent.mcp.list(&ctx.org_id, &viewer).await?;
 
-    let tools = state
-        .agent
-        .tool_control
-        .list_mcp_tools(&ctx.org_id, None)
-        .await?;
-
-    let mut counts = HashMap::<String, usize>::new();
-
-    for tool in tools {
-        *counts.entry(tool.server_id.0).or_default() += 1;
-    }
-
+    // 页面据此只在组织级、实例允许时提供 stdio。
     Ok(Json(json!({
-        "servers": servers.into_iter().map(|server| {
-            let tool_count = counts.get(&server.id.0).copied().unwrap_or_default();
-            let mut value = serde_json::to_value(server).unwrap_or_else(|_| json!({}));
-            value["tool_count"] = json!(tool_count);
-            value
-        }).collect::<Vec<_>>()
+        "servers": servers,
+        "stdio_commands": state.agent.mcp.stdio_commands(),
     })))
 }
 
@@ -296,13 +109,9 @@ async fn get_server(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
+    let viewer = viewer(&state, &ctx).await?;
     let id = Id(id);
-
-    let server = state
-        .agent
-        .tool_control
-        .get_mcp_server(&ctx.org_id, &id)
-        .await?;
+    let server = state.agent.mcp.view(&ctx.org_id, &viewer, &id).await?;
 
     let tools = state
         .agent
@@ -310,28 +119,26 @@ async fn get_server(
         .list_mcp_tools(&ctx.org_id, Some(&id))
         .await?;
 
-    Ok(Json(json!({"server": server, "tools": tools})))
+    let prompts = state.agent.mcp.prompts_of(&ctx.org_id, &id).await?;
+
+    Ok(Json(
+        json!({"server": server, "tools": tools, "prompts": prompts}),
+    ))
 }
 
-#[permission("agent.manage")]
+#[permission("agent.use")]
 async fn create_server(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
-    Json(request): Json<McpServerRequest>,
-) -> Result<Json<McpServer>> {
-    let (input, credential) =
-        normalize_server_request(request, Id::new(), ctx.org_id.clone(), ctx.user_id.clone())?;
-
-    if input.auth_type != "none" && credential.is_none() {
-        return Err(Error::invalid(
-            "credential is required for the selected authentication type",
-        ));
-    }
+    Json(request): Json<ServerRequest>,
+) -> Result<Json<Value>> {
+    let scope = requested_scope(&state, &ctx, &request.scope, request.team_id.as_deref()).await?;
+    let viewer = viewer(&state, &ctx).await?;
 
     let server = state
         .agent
-        .tool_control
-        .create_mcp_server(input, credential.as_deref())
+        .mcp
+        .create(&ctx.org_id, &viewer, scope, request.draft)
         .await?;
 
     activity_audit::record(
@@ -342,44 +149,37 @@ async fn create_server(
         &server.id.0,
         json!({
             "name": server.name,
+            "scope": server.scope.kind(),
             "transport": server.transport,
             "auth_type": server.auth_type,
-            "credential_set": server.credential_set
+            "credential_set": server.credential_set,
+            "headers": server.headers.iter().map(|header| &header.name).collect::<Vec<_>>(),
         }),
     )
     .await;
 
-    Ok(Json(server))
+    Ok(Json(json!(server)))
 }
 
-#[permission("agent.manage")]
+#[permission("agent.use")]
 async fn update_server(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
-    Json(request): Json<McpServerRequest>,
-) -> Result<Json<McpServer>> {
-    let id = Id(id);
+    Json(request): Json<ServerRequest>,
+) -> Result<Json<Value>> {
+    let scope = requested_scope(&state, &ctx, &request.scope, request.team_id.as_deref()).await?;
+    let viewer = viewer(&state, &ctx).await?;
+    let credential_rotated = request
+        .draft
+        .credential
+        .as_deref()
+        .is_some_and(|value| !value.trim().is_empty());
 
-    let existing = state
+    let (before, server) = state
         .agent
-        .tool_control
-        .get_mcp_server(&ctx.org_id, &id)
-        .await?;
-
-    let (input, credential) =
-        normalize_server_request(request, id, ctx.org_id.clone(), existing.created_by)?;
-
-    if input.auth_type != "none" && credential.is_none() && !existing.credential_set {
-        return Err(Error::invalid(
-            "credential is required for the selected authentication type",
-        ));
-    }
-
-    let server = state
-        .agent
-        .tool_control
-        .update_mcp_server(input, credential.as_deref())
+        .mcp
+        .update(&ctx.org_id, &viewer, &Id(id), scope, request.draft)
         .await?;
 
     activity_audit::record(
@@ -390,23 +190,69 @@ async fn update_server(
         &server.id.0,
         json!({
             "name": server.name,
+            "scope": server.scope.kind(),
+            "moved_from": (before.scope != server.scope).then(|| before.scope.kind()),
             "transport": server.transport,
             "enabled": server.enabled,
-            "credential_rotated": credential.is_some()
+            "credential_rotated": credential_rotated,
+            "headers": server.headers.iter().map(|header| &header.name).collect::<Vec<_>>(),
         }),
     )
     .await;
 
-    Ok(Json(server))
+    Ok(Json(json!(server)))
 }
 
-#[permission("agent.manage")]
+#[derive(Debug, Deserialize)]
+struct EnabledRequest {
+    enabled: bool,
+}
+
+#[permission("agent.use")]
+async fn set_server_enabled(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<IamContext>,
+    Path(id): Path<String>,
+    Json(request): Json<EnabledRequest>,
+) -> Result<Json<Value>> {
+    let viewer = viewer(&state, &ctx).await?;
+
+    let server = state
+        .agent
+        .mcp
+        .set_enabled(&ctx.org_id, &viewer, &Id(id), request.enabled)
+        .await?;
+
+    activity_audit::record(
+        &state,
+        &ctx,
+        if server.enabled {
+            "agent.mcp_server.enabled"
+        } else {
+            "agent.mcp_server.disabled"
+        },
+        "agent_mcp_server",
+        &server.id.0,
+        json!({"name": server.name, "scope": server.scope.kind()}),
+    )
+    .await;
+
+    Ok(Json(json!(server)))
+}
+
+#[permission("agent.use")]
 async fn delete_server(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
+    let viewer = viewer(&state, &ctx).await?;
     let id = Id(id);
+    let server = state
+        .agent
+        .mcp
+        .moderatable(&ctx.org_id, &viewer, &id)
+        .await?;
 
     let tools = state
         .agent
@@ -447,26 +293,23 @@ async fn delete_server(
         "agent.mcp_server.deleted",
         "agent_mcp_server",
         &id.0,
-        json!({"tool_count": tools.len()}),
+        json!({"name": server.name, "scope": server.scope.kind(), "tool_count": tools.len()}),
     )
     .await;
 
     Ok(Json(json!({"deleted": true})))
 }
 
-#[permission("agent.manage")]
+#[permission("agent.use")]
 async fn list_server_tools(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
+    let viewer = viewer(&state, &ctx).await?;
     let id = Id(id);
 
-    let _ = state
-        .agent
-        .tool_control
-        .get_mcp_server(&ctx.org_id, &id)
-        .await?;
+    state.agent.mcp.visible(&ctx.org_id, &viewer, &id).await?;
 
     Ok(Json(json!({
         "tools": state.agent.tool_control

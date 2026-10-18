@@ -259,6 +259,8 @@ pub enum RunFailure {
     Model,
     /// 模型调用失败。
     Agent,
+    /// 组织今天的 Mole Agent token 预算用完了。
+    Budget,
     Internal,
 }
 
@@ -271,6 +273,7 @@ impl RunFailure {
             Self::Identity => "identity",
             Self::Model => "model",
             Self::Agent => "agent",
+            Self::Budget => "budget",
             Self::Internal => "internal",
         }
     }
@@ -283,6 +286,7 @@ impl RunFailure {
             "identity" => Ok(Self::Identity),
             "model" => Ok(Self::Model),
             "agent" => Ok(Self::Agent),
+            "budget" => Ok(Self::Budget),
             "internal" => Ok(Self::Internal),
             other => Err(Error::internal(format!(
                 "unknown log inspection run failure: {other}"

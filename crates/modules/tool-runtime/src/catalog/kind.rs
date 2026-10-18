@@ -37,6 +37,22 @@ builtin_tool_kinds! {
     ToolsCall => "tools_call",
     GetPlatformCapabilities => "get_platform_capabilities",
 
+    ListSkills => "list_skills",
+    LoadSkill => "load_skill",
+    ReadSkillFile => "read_skill_file",
+
+    TodoWrite => "todo_write",
+    AskUser => "ask_user",
+
+    ListKnowledge => "list_knowledge",
+    ReadKnowledge => "read_knowledge",
+    SearchKnowledge => "search_knowledge",
+    EditKnowledge => "edit_knowledge",
+    Remember => "remember",
+    Forget => "forget",
+    ReadMemory => "read_memory",
+    UpdateInvestigation => "update_investigation",
+
     QueryLogs => "query_logs",
     QueryMetrics => "query_metrics",
     ListStreams => "list_streams",
@@ -48,6 +64,10 @@ builtin_tool_kinds! {
     ListMetricSeries => "list_metric_series",
     SearchAround => "search_around",
     SearchFieldValues => "search_field_values",
+    ListLogInspections => "list_log_inspections",
+    ListLogInspectionRuns => "list_log_inspection_runs",
+    GetLogInspectionRun => "get_log_inspection_run",
+    RunLogInspection => "run_log_inspection",
 
     ListTraces => "list_traces",
     GetTrace => "get_trace",
@@ -109,6 +129,7 @@ builtin_tool_kinds! {
     ListRumActions => "list_rum_actions",
     ListRumErrors => "list_rum_errors",
     GetRumRelatedTraces => "get_rum_related_traces",
+    GetRumVitals => "get_rum_vitals",
 
     ListContinuousProfiles => "list_continuous_profiles",
     GetProfileFlamegraph => "get_profile_flamegraph",
@@ -209,6 +230,7 @@ builtin_tool_kinds! {
     RestoreStatusPage => "restore_status_page",
     PauseStatusPageAutomation => "pause_status_page_automation",
     ResumeStatusPageAutomation => "resume_status_page_automation",
+    DraftStatusPagePostmortem => "draft_status_page_postmortem",
 
     GetUserProfile => "get_user_profile",
     GetUserPreferences => "get_user_preferences",

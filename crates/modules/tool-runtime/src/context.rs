@@ -8,6 +8,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{ToolCall, ToolResult, ToolSurface};
 
+/// What a chat lets Mole Agent run, chosen by the person in the chat.
+///
+/// Only the person's own confirmations depend on it: a change the organization's Tool Policy sends
+/// for approval goes to its approvers in every mode, and a disabled tool stays disabled.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecutionPolicy {
@@ -15,6 +19,11 @@ pub enum ExecutionPolicy {
     ReadOnly,
     #[default]
     Policy,
+    /// A change the person would be asked about runs without asking when it can be undone; a
+    /// destructive one is still asked about.
+    Auto,
+    /// Nothing is asked in the chat. Only where the chat's Agent Profile allows it.
+    BypassPermissions,
 }
 
 /// Trusted execution decision resolved from organization Tool Policy and environment overrides.
@@ -71,7 +80,16 @@ impl ToolExecutionMode {
 
 impl ExecutionPolicy {
     pub const fn allows_approval_request(self) -> bool {
-        matches!(self, Self::Policy)
+        matches!(self, Self::Policy | Self::Auto | Self::BypassPermissions)
+    }
+
+    /// Whether a change that only asks the person in the chat runs without asking them.
+    pub const fn skips_confirmation(self, destructive: bool) -> bool {
+        match self {
+            Self::Auto => !destructive,
+            Self::BypassPermissions => true,
+            Self::AdviceOnly | Self::ReadOnly | Self::Policy => false,
+        }
     }
 }
 
@@ -301,6 +319,47 @@ mod tests {
         assert_eq!(
             ToolInvocationContext::from_iam(&iam).execution_mode(),
             ToolExecutionMode::Disabled
+        );
+    }
+
+    #[test]
+    fn only_auto_and_bypass_skip_the_persons_confirmation() {
+        for policy in [
+            ExecutionPolicy::AdviceOnly,
+            ExecutionPolicy::ReadOnly,
+            ExecutionPolicy::Policy,
+        ] {
+            assert!(!policy.skips_confirmation(false));
+            assert!(!policy.skips_confirmation(true));
+        }
+
+        assert!(ExecutionPolicy::Auto.skips_confirmation(false));
+        assert!(!ExecutionPolicy::Auto.skips_confirmation(true));
+        assert!(ExecutionPolicy::BypassPermissions.skips_confirmation(false));
+        assert!(ExecutionPolicy::BypassPermissions.skips_confirmation(true));
+    }
+
+    #[test]
+    fn the_policies_are_named_as_the_page_sends_them() {
+        let names = [
+            ExecutionPolicy::AdviceOnly,
+            ExecutionPolicy::ReadOnly,
+            ExecutionPolicy::Policy,
+            ExecutionPolicy::Auto,
+            ExecutionPolicy::BypassPermissions,
+        ]
+        .map(|policy| serde_json::to_value(policy).unwrap());
+
+        assert_eq!(
+            names,
+            [
+                "advice_only",
+                "read_only",
+                "policy",
+                "auto",
+                "bypass_permissions"
+            ]
+            .map(serde_json::Value::from)
         );
     }
 

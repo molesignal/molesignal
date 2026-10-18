@@ -87,6 +87,22 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "Resume automation for one status page.",
             &["Status Page", "Automation", "Resume"],
         ),
+        BuiltinToolKind::DraftStatusPagePostmortem => (
+            "Write or replace the draft postmortem of one published status-page incident, in Markdown. The draft is not published: people publish it from the status page once the incident is resolved. A postmortem that is already published is revised there, not here.",
+            "incidents",
+            json!({
+                "type": "object", "required": ["page_id", "event_id", "body", "reason", "impact"],
+                "properties": {
+                    "page_id": {"type": "string", "minLength": 1},
+                    "event_id": {"type": "string", "minLength": 1, "description": "The incident's id, as list_status_page_incidents gives it"},
+                    "body": {"type": "string", "minLength": 1, "maxLength": 20000},
+                    "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
+                    "impact": {"type": "string", "minLength": 1, "maxLength": 2000},
+                    "expires_at_micros": {"type": "integer"}
+                }, "additionalProperties": false
+            }),
+            vec!["Status Page", "Incidents", "Postmortems"],
+        ),
         _ => unreachable!("status-page catalog received unrelated kind"),
     };
 
@@ -96,6 +112,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             | BuiltinToolKind::RestoreStatusPage
             | BuiltinToolKind::PauseStatusPageAutomation
             | BuiltinToolKind::ResumeStatusPageAutomation
+            | BuiltinToolKind::DraftStatusPagePostmortem
     ) {
         &["status_pages.manage"][..]
     } else {
@@ -120,6 +137,10 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             tool.managed_mutation(RiskLevel::L2, false, true)
         }
         BuiltinToolKind::ArchiveStatusPage => tool.managed_mutation(RiskLevel::L3, true, true),
+        // A draft is the organization's own text; nothing public changes until a person publishes it.
+        BuiltinToolKind::DraftStatusPagePostmortem => {
+            tool.managed_mutation(RiskLevel::L1, false, true)
+        }
         _ => tool,
     }
 }

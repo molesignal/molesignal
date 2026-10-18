@@ -104,6 +104,11 @@ fn operation_target(
         BuiltinToolKind::ResumeStatusPageAutomation => {
             ("resume_status_page_automation", Some("page_id"))
         }
+        // The page stays in the parameters: an incident is read through its page.
+        BuiltinToolKind::DraftStatusPagePostmortem => {
+            ("draft_status_page_postmortem", Some("event_id"))
+        }
+        BuiltinToolKind::RunLogInspection => ("run_log_inspection", Some("inspection_id")),
         BuiltinToolKind::RetryNotificationDelivery => {
             ("retry_notification_delivery", Some("delivery_id"))
         }
@@ -168,6 +173,8 @@ mod tests {
             "delivery_id",
             "token_id",
             "service_account_id",
+            "inspection_id",
+            "event_id",
         ];
         for kind in BuiltinToolKind::ALL
             .iter()

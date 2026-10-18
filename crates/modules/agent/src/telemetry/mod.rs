@@ -13,7 +13,7 @@ pub mod stats;
 
 pub use fanout::{AgentFanoutHook, extract_batch};
 pub use redact::redact_pii;
-pub use stats::AgentStatsQuery;
+pub use stats::{AgentStatsQuery, OptionalColumns};
 
 /// 派生 stream 名（全局常量，wire / handler / 测试统一引用）。
 pub const AGENT_STREAM: &str = "_agent_model_traces";

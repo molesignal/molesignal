@@ -206,6 +206,7 @@ impl InspectionRunner {
             },
             Ok(Err(AgentFailure::Model(error))) => Attempt::failed(RunFailure::Model, error),
             Ok(Err(AgentFailure::Call(error))) => Attempt::failed(RunFailure::Agent, error),
+            Ok(Err(AgentFailure::Budget(error))) => Attempt::failed(RunFailure::Budget, error),
             Err(_) => Attempt::Failed {
                 status: RunStatus::TimedOut,
                 failure: RunFailure::TimedOut,

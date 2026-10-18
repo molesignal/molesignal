@@ -44,7 +44,7 @@ pub(super) async fn list(
         .map_err(protocol_error)?;
 
     let response_too_large = match serde_json::to_vec(&tools) {
-        Ok(encoded) => encoded.len() > request.settings.max_response_bytes.max(1) as usize,
+        Ok(encoded) => encoded.len() > request.settings.max_response_bytes(),
         Err(_) => true,
     };
 
@@ -81,9 +81,9 @@ pub(super) async fn call(
                 .await
                 .map_err(protocol_error)?;
 
-            if serde_json::to_vec(&value).is_ok_and(|encoded| {
-                encoded.len() <= data.settings.max_response_bytes.max(1) as usize
-            }) {
+            if serde_json::to_vec(&value)
+                .is_ok_and(|encoded| encoded.len() <= data.settings.max_response_bytes())
+            {
                 Ok(rmcp::model::CallToolResult::structured(value).into())
             } else {
                 Ok(visible_error(

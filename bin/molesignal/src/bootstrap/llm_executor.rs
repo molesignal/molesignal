@@ -12,6 +12,7 @@
 //!
 //! ⚠️ **每条命中事件触发一次模型调用** —— 成本/延迟随 intake 量线性放大，仅宜用于低
 //! 吞吐流。失败（未配 provider / 模型报错）按单步失败处理：该 event 进 `IntakeResult.errors`。
+//! 每次调用记进组织的每日用量；组织今天的 token 预算用完后不再调用模型，同样按单步失败处理。
 
 use std::sync::Arc;
 
@@ -19,9 +20,18 @@ use async_trait::async_trait;
 use serde_json::Value;
 
 use crate::{
-    agent::chat::{ChatMessage, CompletionRequest, MessageRole, Provider, adapter_from_parts},
+    agent::{
+        chat::{
+            ChatMessage, CompletionRequest, MessageRole, ModelCallObserver, Provider,
+            TransportOptions, adapter_from_parts, observed_complete,
+        },
+        usage::UsageOrigin,
+    },
     api::rca::pick_provider,
-    app::intake::FunctionExecutor,
+    app::{
+        agent_usage::{AgentUsage, BudgetGate, UsageScope},
+        intake::FunctionExecutor,
+    },
     domain::function::{Function, FunctionOutcome},
     infra::persistence::repositories::agent::model_providers::ModelProviderRepository,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
@@ -32,14 +42,19 @@ const DEFAULT_OUTPUT_FIELD: &str = "_llm_eval";
 
 pub struct LlmFunctionExecutor {
     agent_model_providers: Arc<dyn ModelProviderRepository>,
+    usage: Arc<AgentUsage>,
     default_max_tokens: i32,
     temperature: f32,
 }
 
 impl LlmFunctionExecutor {
-    pub fn new(agent_model_providers: Arc<dyn ModelProviderRepository>) -> Self {
+    pub fn new(
+        agent_model_providers: Arc<dyn ModelProviderRepository>,
+        usage: Arc<AgentUsage>,
+    ) -> Self {
         Self {
             agent_model_providers,
+            usage,
             default_max_tokens: 512,
             temperature: 0.0,
         }
@@ -49,6 +64,14 @@ impl LlmFunctionExecutor {
 #[async_trait]
 impl FunctionExecutor for LlmFunctionExecutor {
     async fn run(&self, function: &Function, event: &mut Value) -> Result<FunctionOutcome> {
+        // 写入管道里没有人在等：预算用完就不调用模型。状况在内存里缓存，不会每条事件查一次库。
+        if let BudgetGate::Refuse(status) = self.usage.gate(&function.org_id, false).await {
+            return Err(Error::ResourceExhausted(format!(
+                "llm eval: daily Mole Agent token budget exhausted ({} of {} tokens used)",
+                status.used_tokens, status.limit_tokens
+            )));
+        }
+
         // 选 org 的可用 provider（enabled + key_set）。
         let providers = self.agent_model_providers.list(&function.org_id).await?;
 
@@ -68,7 +91,14 @@ impl FunctionExecutor for LlmFunctionExecutor {
             Provider::parse(&provider.provider)?,
             provider.base_url.clone(),
             key,
+            TransportOptions::from_timeout_ms(provider.timeout_ms),
         )?;
+
+        let recorder: Arc<dyn ModelCallObserver> = self.usage.recorder(UsageScope {
+            provider_id: Some(provider.id.clone()),
+            prices: provider.prices(),
+            ..UsageScope::new(function.org_id.clone(), UsageOrigin::LlmEval)
+        });
 
         let now = TimestampMicros::now();
         // 指令 = function.source；输入 = 当前事件 JSON（紧凑）。
@@ -89,7 +119,7 @@ impl FunctionExecutor for LlmFunctionExecutor {
             temperature: Some(self.temperature),
         };
 
-        let resp = adapter.complete(req).await?;
+        let resp = observed_complete(adapter.as_ref(), req, Some(&recorder)).await?;
         let text = resp.content.unwrap_or_default();
 
         // 写回结果到配置的输出字段（缺省 `_llm_eval`）。

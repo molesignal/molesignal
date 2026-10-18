@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
+    agent::usage::Cost,
     api::AppState,
     app::iam::IamContext,
     domain::iam::permission,
@@ -124,9 +125,10 @@ struct AuditChatMessageResp {
     prompt_version: Option<i32>,
     prompt_hash: Option<String>,
     evidence_json: Option<Value>,
+    command_json: Option<Value>,
     prompt_tokens: Option<i64>,
     completion_tokens: Option<i64>,
-    cost_usd: Option<f64>,
+    cost: Option<Cost>,
     created_at_micros: i64,
 }
 
@@ -324,9 +326,10 @@ async fn get_agent_chat_transcript(
                 prompt_version: m.prompt_version,
                 prompt_hash: m.prompt_hash,
                 evidence_json: m.evidence_json,
+                command_json: m.command_json,
                 prompt_tokens: m.prompt_tokens,
                 completion_tokens: m.completion_tokens,
-                cost_usd: m.cost_usd,
+                cost: m.cost,
                 created_at_micros: m.created_at.0,
             })
             .collect(),

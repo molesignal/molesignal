@@ -63,7 +63,11 @@ impl AgentFanoutHook {
             "total_tokens",
         );
 
-        copy(&mut out, &ev.fields, "gen_ai.usage.cost_usd", "cost_usd");
+        // 外部应用报的成本是美元（`gen_ai.usage.cost_usd`），与 Mole Agent 自己的调用记在同两列。
+        if let Some(cost) = ev.fields.get("gen_ai.usage.cost_usd") {
+            out.insert("cost".to_string(), cost.clone());
+            out.insert("cost_currency".to_string(), Value::String("USD".into()));
+        }
         copy(&mut out, &ev.fields, "duration_ms", "latency_ms");
         copy(&mut out, &ev.fields, "status", "status");
         copy(&mut out, &ev.fields, "error", "error");

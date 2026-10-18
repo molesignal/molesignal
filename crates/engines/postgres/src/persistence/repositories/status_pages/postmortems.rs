@@ -40,8 +40,14 @@ impl StatusPagePostmortemRepository for PgStatusPageRepository {
         let state = state.ok_or_else(|| Error::not_found("status-page event not found"))?;
         let was_published = state.as_deref() == Some("published");
 
+        if write == PostmortemWrite::DraftOnly && was_published {
+            return Err(Error::conflict(
+                "the postmortem of this incident is published; revise it on the status page",
+            ));
+        }
+
         match write {
-            PostmortemWrite::Draft => {
+            PostmortemWrite::Draft | PostmortemWrite::DraftOnly => {
                 sqlx::query(
                     "UPDATE status_page_incidents SET
                          postmortem_body = $4, postmortem_state = 'draft',

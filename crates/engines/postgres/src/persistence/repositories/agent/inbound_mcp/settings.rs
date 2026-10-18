@@ -10,7 +10,7 @@ use crate::{
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
-const COLS: &str = "org_id,enabled,allowed_origins,max_request_bytes,max_response_bytes,\
+const COLS: &str = "org_id,enabled,allowed_origins,max_request_size,max_response_size,\
     max_concurrent_calls,calls_per_minute,read_timeout_ms,updated_by,\
     created_at_micros,updated_at_micros";
 
@@ -23,8 +23,8 @@ fn row_to_settings(row: sqlx::postgres::PgRow) -> Result<InboundMcpSettings> {
         org_id: Id(row.try_get("org_id").map_err(sqlx_err)?),
         enabled: row.try_get("enabled").map_err(sqlx_err)?,
         allowed_origins,
-        max_request_bytes: row.try_get("max_request_bytes").map_err(sqlx_err)?,
-        max_response_bytes: row.try_get("max_response_bytes").map_err(sqlx_err)?,
+        max_request_size: row.try_get("max_request_size").map_err(sqlx_err)?,
+        max_response_size: row.try_get("max_response_size").map_err(sqlx_err)?,
         max_concurrent_calls: row.try_get("max_concurrent_calls").map_err(sqlx_err)?,
         calls_per_minute: row.try_get("calls_per_minute").map_err(sqlx_err)?,
         read_timeout_ms: row.try_get("read_timeout_ms").map_err(sqlx_err)?,
@@ -55,8 +55,8 @@ pub(super) async fn upsert(
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
          ON CONFLICT (org_id) DO UPDATE SET
             enabled=EXCLUDED.enabled,allowed_origins=EXCLUDED.allowed_origins,
-            max_request_bytes=EXCLUDED.max_request_bytes,
-            max_response_bytes=EXCLUDED.max_response_bytes,
+            max_request_size=EXCLUDED.max_request_size,
+            max_response_size=EXCLUDED.max_response_size,
             max_concurrent_calls=EXCLUDED.max_concurrent_calls,
             calls_per_minute=EXCLUDED.calls_per_minute,
             read_timeout_ms=EXCLUDED.read_timeout_ms,updated_by=EXCLUDED.updated_by,
@@ -66,8 +66,8 @@ pub(super) async fn upsert(
     .bind(&settings.org_id.0)
     .bind(settings.enabled)
     .bind(Json(&settings.allowed_origins))
-    .bind(settings.max_request_bytes)
-    .bind(settings.max_response_bytes)
+    .bind(settings.max_request_size)
+    .bind(settings.max_response_size)
     .bind(settings.max_concurrent_calls)
     .bind(settings.calls_per_minute)
     .bind(settings.read_timeout_ms)

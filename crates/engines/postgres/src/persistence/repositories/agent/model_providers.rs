@@ -15,6 +15,7 @@ use sqlx::{PgPool, Row};
 
 use super::super::sqlx_err;
 use crate::{
+    agent::usage::{Currency, ModelPrices},
     infra::cipher::CipherRootKey,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
@@ -29,14 +30,35 @@ pub struct ModelProvider {
     pub base_url: Option<String>,
     pub default_model: String,
     pub enabled: bool,
+    /// 多久没有收到模型服务的任何数据就判定这次调用失败（毫秒）。
     pub timeout_ms: i64,
     pub max_tokens: Option<i64>,
+    /// 单价的币种（ISO 4217），成本也用它记。
+    pub price_currency: Currency,
+    /// 每百万输入 token 的价，有缓存的厂商是未命中缓存的价；空表示没有填，不计算成本。
+    pub input_price_per_mtok: Option<f64>,
+    /// 每百万命中缓存的输入 token 的价；空时命中的输入也按输入价算。
+    pub cached_input_price_per_mtok: Option<f64>,
+    /// 每百万输出 token 的价。
+    pub output_price_per_mtok: Option<f64>,
     /// API key 后 4 位（masked 显示用）。
     pub key_last4: Option<String>,
     /// 是否已设置 key。
     pub key_set: bool,
     pub created_at: TimestampMicros,
     pub updated_at: TimestampMicros,
+}
+
+impl ModelProvider {
+    /// 填了单价时的价格，用来把用量算成成本。
+    pub fn prices(&self) -> Option<ModelPrices> {
+        ModelPrices::from_parts(
+            self.price_currency,
+            self.input_price_per_mtok,
+            self.cached_input_price_per_mtok,
+            self.output_price_per_mtok,
+        )
+    }
 }
 
 /// 创建 / 更新元数据的入参（不含 key；key 走单独参数）。
@@ -51,6 +73,10 @@ pub struct ModelProviderInput {
     pub enabled: bool,
     pub timeout_ms: i64,
     pub max_tokens: Option<i64>,
+    pub price_currency: Currency,
+    pub input_price_per_mtok: Option<f64>,
+    pub cached_input_price_per_mtok: Option<f64>,
+    pub output_price_per_mtok: Option<f64>,
 }
 
 #[async_trait]
@@ -84,7 +110,8 @@ impl PgModelProviderRepository {
 }
 
 const COLS: &str = "id, org_id, provider, name, base_url, default_model, enabled, timeout_ms, \
-    max_tokens, key_last4, key_set, created_at_micros, updated_at_micros";
+    max_tokens, price_currency, input_price_per_mtok, cached_input_price_per_mtok, \
+    output_price_per_mtok, key_last4, key_set, created_at_micros, updated_at_micros";
 
 /// 取 key 后 4 位作 masked 显示；短 key 退化为全部。
 fn last4(api_key: &str) -> String {
@@ -95,6 +122,8 @@ fn last4(api_key: &str) -> String {
 }
 
 fn row_to(r: sqlx::postgres::PgRow) -> Result<ModelProvider> {
+    let currency: String = r.try_get("price_currency").map_err(sqlx_err)?;
+
     Ok(ModelProvider {
         id: Id(r.try_get::<String, _>("id").map_err(sqlx_err)?),
         org_id: Id(r.try_get::<String, _>("org_id").map_err(sqlx_err)?),
@@ -105,6 +134,10 @@ fn row_to(r: sqlx::postgres::PgRow) -> Result<ModelProvider> {
         enabled: r.try_get("enabled").map_err(sqlx_err)?,
         timeout_ms: r.try_get("timeout_ms").map_err(sqlx_err)?,
         max_tokens: r.try_get("max_tokens").map_err(sqlx_err)?,
+        price_currency: Currency::parse(&currency)?,
+        input_price_per_mtok: r.try_get("input_price_per_mtok").map_err(sqlx_err)?,
+        cached_input_price_per_mtok: r.try_get("cached_input_price_per_mtok").map_err(sqlx_err)?,
+        output_price_per_mtok: r.try_get("output_price_per_mtok").map_err(sqlx_err)?,
         key_last4: r.try_get("key_last4").map_err(sqlx_err)?,
         key_set: r.try_get("key_set").map_err(sqlx_err)?,
         created_at: TimestampMicros(r.try_get("created_at_micros").map_err(sqlx_err)?),
@@ -185,8 +218,9 @@ impl ModelProviderRepository for PgModelProviderRepository {
         sqlx::query(
             "INSERT INTO agent_model_providers
                 (id, org_id, provider, name, base_url, default_model, enabled, timeout_ms,
-                 max_tokens, key_last4, key_set, created_at_micros, updated_at_micros)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)",
+                 max_tokens, price_currency, input_price_per_mtok, cached_input_price_per_mtok,
+                 output_price_per_mtok, key_last4, key_set, created_at_micros, updated_at_micros)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $16)",
         )
         .bind(&input.id.0)
         .bind(&input.org_id.0)
@@ -197,6 +231,10 @@ impl ModelProviderRepository for PgModelProviderRepository {
         .bind(input.enabled)
         .bind(input.timeout_ms)
         .bind(input.max_tokens)
+        .bind(input.price_currency.as_str())
+        .bind(input.input_price_per_mtok)
+        .bind(input.cached_input_price_per_mtok)
+        .bind(input.output_price_per_mtok)
         .bind(&key_last4)
         .bind(key_set)
         .bind(now.0)
@@ -217,7 +255,9 @@ impl ModelProviderRepository for PgModelProviderRepository {
         let res = sqlx::query(
             "UPDATE agent_model_providers SET
                 provider = $3, name = $4, base_url = $5, default_model = $6,
-                enabled = $7, timeout_ms = $8, max_tokens = $9, updated_at_micros = $10
+                enabled = $7, timeout_ms = $8, max_tokens = $9, price_currency = $10,
+                input_price_per_mtok = $11, cached_input_price_per_mtok = $12,
+                output_price_per_mtok = $13, updated_at_micros = $14
              WHERE org_id = $1 AND id = $2",
         )
         .bind(&input.org_id.0)
@@ -229,6 +269,10 @@ impl ModelProviderRepository for PgModelProviderRepository {
         .bind(input.enabled)
         .bind(input.timeout_ms)
         .bind(input.max_tokens)
+        .bind(input.price_currency.as_str())
+        .bind(input.input_price_per_mtok)
+        .bind(input.cached_input_price_per_mtok)
+        .bind(input.output_price_per_mtok)
         .bind(now.0)
         .execute(&self.pool)
         .await

@@ -12,7 +12,7 @@ use url::Url;
 
 use super::runtime::InboundMcpAdapterRuntime;
 use crate::{
-    agent::inbound_mcp::{HARD_BODY_BYTES, InboundMcpSettings},
+    agent::inbound_mcp::{HARD_MAX_SIZE, InboundMcpSettings},
     api::AppState,
     app::iam::IamContext,
     domain::iam::permission,
@@ -41,8 +41,10 @@ struct UpdateSettingsRequest {
     enabled: bool,
     #[serde(default)]
     allowed_origins: Vec<String>,
-    max_request_bytes: i64,
-    max_response_bytes: i64,
+    /// MiB。
+    max_request_size: i32,
+    /// MiB。
+    max_response_size: i32,
     max_concurrent_calls: i32,
     calls_per_minute: i32,
     read_timeout_ms: i64,
@@ -79,7 +81,7 @@ fn settings_response(state: &AppState, settings: InboundMcpSettings) -> Value {
             "registration_endpoint": format!("{base}/api/v1/oauth/register"),
             "revocation_endpoint": format!("{base}/api/v1/oauth/revoke"),
         },
-        "hard_max_body_bytes": HARD_BODY_BYTES,
+        "hard_max_size": HARD_MAX_SIZE,
     })
 }
 
@@ -126,8 +128,8 @@ async fn update_settings(
             org_id: ctx.org_id,
             enabled: request.enabled,
             allowed_origins: origins,
-            max_request_bytes: request.max_request_bytes,
-            max_response_bytes: request.max_response_bytes,
+            max_request_size: request.max_request_size,
+            max_response_size: request.max_response_size,
             max_concurrent_calls: request.max_concurrent_calls,
             calls_per_minute: request.calls_per_minute,
             read_timeout_ms: request.read_timeout_ms,
@@ -142,15 +144,15 @@ async fn update_settings(
 }
 
 fn validate_limits(request: &UpdateSettingsRequest) -> Result<()> {
-    if !(1_024..=HARD_BODY_BYTES).contains(&request.max_request_bytes) {
+    if !(1..=HARD_MAX_SIZE).contains(&request.max_request_size) {
         return Err(Error::invalid(format!(
-            "max_request_bytes must be between 1024 and {HARD_BODY_BYTES}"
+            "max_request_size must be between 1 and {HARD_MAX_SIZE} MiB"
         )));
     }
 
-    if !(1_024..=HARD_BODY_BYTES).contains(&request.max_response_bytes) {
+    if !(1..=HARD_MAX_SIZE).contains(&request.max_response_size) {
         return Err(Error::invalid(format!(
-            "max_response_bytes must be between 1024 and {HARD_BODY_BYTES}"
+            "max_response_size must be between 1 and {HARD_MAX_SIZE} MiB"
         )));
     }
 

@@ -19,6 +19,8 @@ mod dashboard_panels;
 mod dashboards;
 mod folders;
 mod functions;
+mod log_inspections;
+mod postmortems;
 mod saved_views;
 mod search_jobs;
 mod service_accounts;
@@ -34,6 +36,8 @@ pub(super) fn supports(action: &str) -> bool {
             | "restore_status_page"
             | "pause_status_page_automation"
             | "resume_status_page_automation"
+            | "draft_status_page_postmortem"
+            | "run_log_inspection"
             | "retry_notification_delivery"
             | "acknowledge_notification_delivery"
             | "enable_scheduled_pipeline"
@@ -100,6 +104,8 @@ pub(super) async fn execute(
         "resume_status_page_automation" => {
             status_page_automation(state, ctx, &approval.target, false).await
         }
+        "draft_status_page_postmortem" => postmortems::draft(state, ctx, approval).await,
+        "run_log_inspection" => log_inspections::run(state, ctx, approval).await,
         "retry_notification_delivery" => retry_notification(state, ctx, &approval.target).await,
         "acknowledge_notification_delivery" => {
             acknowledge_notification(state, ctx, &approval.target).await

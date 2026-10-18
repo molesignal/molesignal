@@ -115,6 +115,8 @@ CREATE TABLE IF NOT EXISTS teams (
     member_ids  JSONB        NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_teams_org ON teams(org_id);
+-- 「我在哪些团队」「是否成员」：member_ids @> '["<user>"]'。
+CREATE INDEX IF NOT EXISTS idx_teams_member_ids ON teams USING GIN (member_ids);
 
 CREATE TABLE IF NOT EXISTS iam_roles (
     id                  VARCHAR(64)  PRIMARY KEY,
@@ -1262,10 +1264,36 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     time_range_start_micros BIGINT,
     time_range_end_micros   BIGINT,
     archive_object_key      TEXT,
-    deleted_at_micros       BIGINT
+    deleted_at_micros       BIGINT,
+    -- personal | team：第一条消息前选定，之后不再改变。团队会话由团队成员共用。
+    scope                   VARCHAR(16) NOT NULL DEFAULT 'personal',
+    team_id                 VARCHAR(64),
+    -- 个人会话里挂进来的团队：它们的 Skill 与 MCP 在会话里可用。
+    mounted_team_ids        JSONB NOT NULL DEFAULT '[]'::JSONB,
+    -- 回答用的语言：建会话时发起人的界面语言，之后不变。
+    reply_language          VARCHAR(16) NOT NULL DEFAULT '',
+    -- 上下文压缩：截至 context_summary_upto_micros（含）的消息交给模型时换成这段摘要。
+    context_summary         TEXT,
+    context_summary_upto_micros BIGINT,
+    -- 会话调查的对象（例如从事件页发起：incident + 事件 ID）与对应的调查记录。
+    subject_kind            VARCHAR(16),
+    subject_id              VARCHAR(64),
+    investigation_id        VARCHAR(64),
+    -- 会话结束后提炼记忆：提炼到的位置（会话的 updated_at_micros）。
+    memory_distilled_at_micros BIGINT,
+    -- 从哪个会话分叉出来的：分叉时复制了它当时的全部消息。
+    parent_chat_id          VARCHAR(64),
+    -- 标题还是对话页取自第一个问题的临时标题：回答时由模型起名，起好后为 FALSE。
+    title_provisional       BOOLEAN NOT NULL DEFAULT FALSE,
+    CONSTRAINT chk_agent_chats_scope CHECK (
+        (scope = 'personal' AND team_id IS NULL) OR (scope = 'team' AND team_id IS NOT NULL)
+    )
 );
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_org_user
     ON chat_sessions(org_id, user_id, updated_at_micros DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_org_team
+    ON chat_sessions(org_id, team_id, updated_at_micros DESC)
+    WHERE team_id IS NOT NULL AND deleted_at_micros IS NULL;
 -- 软删过滤索引：正常 history 列表只看 deleted_at_micros IS NULL 的会话。
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_org_user_active
     ON chat_sessions(org_id, user_id, updated_at_micros DESC)
@@ -1277,18 +1305,30 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     org_id             VARCHAR(64)  NOT NULL,
     role               VARCHAR(16)  NOT NULL,    -- system | user | assistant | tool
     content            TEXT         NOT NULL,
+    -- 用户消息的发送人：团队会话里每条问题可能来自不同的人。
+    user_id            VARCHAR(64),
     tool_calls_json    JSONB,
     tool_result_for    VARCHAR(64),
     prompt_tokens      BIGINT,
     completion_tokens  BIGINT,
-    cost_usd           DOUBLE PRECISION,
+    -- 这次回答的成本，用模型服务选的币种记；模型服务没有填单价时为空。
+    cost               DOUBLE PRECISION,
+    cost_currency      VARCHAR(3),
     created_at_micros  BIGINT       NOT NULL,
     -- AI chat prompt 溯源 + evidence 摘要（nullable，旧行兼容）。
     prompt_template_id   VARCHAR(64),
     prompt_builtin_key   VARCHAR(64),
     prompt_version       INTEGER,
     prompt_hash          VARCHAR(64),
-    evidence_json        JSONB
+    evidence_json        JSONB,
+    -- 用户消息是斜杠命令时记下的命令（名称、参数、来源、交给模型的问题）；content 仍是原文。
+    command_json         JSONB,
+    -- 回答出自哪个 Run。
+    run_id               VARCHAR(64),
+    -- 回答过程中模型走过的步骤：说明、工具调用与结果（结果过长时只留开头）。
+    tool_transcript      JSONB,
+    -- 用户消息里用 @ 插入的引用：[{kind, id, label}]
+    references_json      JSONB
 );
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session
     ON chat_messages(session_id, created_at_micros);
@@ -1489,8 +1529,16 @@ CREATE TABLE IF NOT EXISTS ai_model_providers (
     base_url           TEXT,
     default_model      VARCHAR(128) NOT NULL,
     enabled            BOOLEAN      NOT NULL DEFAULT TRUE,
-    timeout_ms         BIGINT       NOT NULL DEFAULT 30000,
+    -- 多久没有收到模型服务的任何数据就判定失败（毫秒）。
+    timeout_ms         BIGINT       NOT NULL DEFAULT 120000,
     max_tokens         BIGINT,
+    -- 单价的币种（ISO 4217），成本也用它记。
+    price_currency     VARCHAR(3)   NOT NULL DEFAULT 'USD',
+    -- 每百万 token 的价：输入（有缓存的厂商是未命中缓存的价）、命中缓存的输入、输出。
+    -- 输入与输出都空表示没有填，不计算成本；命中价空时命中的输入也按输入价算。
+    input_price_per_mtok        DOUBLE PRECISION,
+    cached_input_price_per_mtok DOUBLE PRECISION,
+    output_price_per_mtok       DOUBLE PRECISION,
     key_last4          VARCHAR(8),
     key_set            BOOLEAN      NOT NULL DEFAULT FALSE,
     created_at_micros  BIGINT       NOT NULL,
@@ -1826,6 +1874,8 @@ ALTER INDEX IF EXISTS idx_chat_sessions_org_user
     RENAME TO idx_agent_chats_org_user;
 ALTER INDEX IF EXISTS idx_chat_sessions_org_user_active
     RENAME TO idx_agent_chats_org_user_active;
+ALTER INDEX IF EXISTS idx_chat_sessions_org_team
+    RENAME TO idx_agent_chats_org_team;
 
 ALTER TABLE chat_messages RENAME TO agent_messages;
 ALTER TABLE agent_messages RENAME COLUMN session_id TO chat_id;
@@ -2149,13 +2199,19 @@ CREATE TABLE IF NOT EXISTS agent_profiles (
     max_context_tokens         INTEGER NOT NULL DEFAULT 32000,
     max_investigation_secs     INTEGER NOT NULL DEFAULT 1800,
     max_tool_calls             INTEGER NOT NULL DEFAULT 32,
+    -- 采样温度；空时用 Mole Agent 的默认值。
+    temperature                REAL,
+    -- 用这个 Profile 的对话能选 bypass permissions：对话里不再问提问人，组织审批照旧。
+    allow_bypass_permissions   BOOLEAN NOT NULL DEFAULT FALSE,
     is_default                 BOOLEAN NOT NULL DEFAULT FALSE,
     enabled                    BOOLEAN NOT NULL DEFAULT TRUE,
     created_by                 VARCHAR(64) NOT NULL,
     created_at_micros          BIGINT NOT NULL,
     updated_at_micros          BIGINT NOT NULL,
     CONSTRAINT agent_profile_network_blocked
-        CHECK (network_access = 'blocked')
+        CHECK (network_access = 'blocked'),
+    CONSTRAINT agent_profile_temperature_range
+        CHECK (temperature IS NULL OR (temperature >= 0 AND temperature <= 2))
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_profiles_org_name
     ON agent_profiles(org_id, name);
@@ -2212,17 +2268,29 @@ CREATE TABLE IF NOT EXISTS agent_tool_policy_defaults (
     updated_at_micros      BIGINT NOT NULL
 );
 
+-- 外部 MCP 服务器。作用域：组织（org）、团队（team_id）、个人（owner_id）；scope_key 是
+-- `org`、`team:<id>`、`personal:<id>`，同一作用域里名称不分大小写唯一。handle 是工具名与
+-- prompt 命令的前缀，组织内唯一。headers / env 只记名称、是否敏感、明文值或末四位，敏感值的
+-- 密文在 agent_mcp_server_secrets。member_credential 说明成员凭据放在哪个请求头。
 CREATE TABLE IF NOT EXISTS agent_mcp_servers (
     id                     VARCHAR(64) PRIMARY KEY,
     org_id                 VARCHAR(64) NOT NULL,
+    scope                  VARCHAR(16) NOT NULL DEFAULT 'org',
+    team_id                VARCHAR(64),
+    owner_id               VARCHAR(64),
+    scope_key              VARCHAR(160) NOT NULL DEFAULT 'org',
+    handle                 VARCHAR(32) NOT NULL,
     name                   VARCHAR(255) NOT NULL,
     transport              VARCHAR(32) NOT NULL,
     endpoint_url           TEXT,
-    command_template       VARCHAR(255),
+    command_template       TEXT,
     auth_type              VARCHAR(32) NOT NULL DEFAULT 'none',
     auth_header            VARCHAR(128),
     credential_last4       VARCHAR(16),
     credential_set         BOOLEAN NOT NULL DEFAULT FALSE,
+    member_credential      JSONB,
+    headers                JSONB NOT NULL DEFAULT '[]'::JSONB,
+    env                    JSONB NOT NULL DEFAULT '[]'::JSONB,
     private_only           BOOLEAN NOT NULL DEFAULT TRUE,
     allowed_domains        JSONB NOT NULL DEFAULT '[]'::JSONB,
     allowed_cidrs          JSONB NOT NULL DEFAULT '[]'::JSONB,
@@ -2237,23 +2305,65 @@ CREATE TABLE IF NOT EXISTS agent_mcp_servers (
     last_synced_at_micros  BIGINT,
     created_by             VARCHAR(64) NOT NULL,
     created_at_micros      BIGINT NOT NULL,
-    updated_at_micros      BIGINT NOT NULL
+    updated_at_micros      BIGINT NOT NULL,
+    CONSTRAINT ck_agent_mcp_servers_scope CHECK (
+        (scope = 'org' AND team_id IS NULL AND owner_id IS NULL)
+        OR (scope = 'team' AND team_id IS NOT NULL AND owner_id IS NULL)
+        OR (scope = 'personal' AND owner_id IS NOT NULL AND team_id IS NULL)
+    )
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_mcp_servers_org_name
-    ON agent_mcp_servers(org_id, name);
+    ON agent_mcp_servers(org_id, scope_key, lower(name));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_mcp_servers_org_handle
+    ON agent_mcp_servers(org_id, handle);
 CREATE INDEX IF NOT EXISTS idx_agent_mcp_servers_org_updated
     ON agent_mcp_servers(org_id, updated_at_micros DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_mcp_servers_resync
+    ON agent_mcp_servers(COALESCE(last_tested_at_micros, last_synced_at_micros))
+    WHERE enabled AND last_synced_at_micros IS NOT NULL;
 
+-- 一台服务器的密文：slot 为 `credential`（认证凭据）、`header:<名称>`、`env:<名称>`。
 CREATE TABLE IF NOT EXISTS agent_mcp_server_secrets (
-    server_id              VARCHAR(64) PRIMARY KEY,
+    server_id              VARCHAR(64) NOT NULL,
+    slot                   VARCHAR(160) NOT NULL DEFAULT 'credential',
     org_id                 VARCHAR(64) NOT NULL,
     ciphertext             BYTEA NOT NULL,
     nonce                  BYTEA NOT NULL,
     created_at_micros      BIGINT NOT NULL,
-    updated_at_micros      BIGINT NOT NULL
+    updated_at_micros      BIGINT NOT NULL,
+    PRIMARY KEY (server_id, slot)
 );
 CREATE INDEX IF NOT EXISTS idx_agent_mcp_server_secrets_org
     ON agent_mcp_server_secrets(org_id);
+
+-- 成员凭据：每个人给一台服务器存自己的值，只有本人的调用会解密。
+CREATE TABLE IF NOT EXISTS agent_mcp_member_credentials (
+    server_id              VARCHAR(64) NOT NULL,
+    user_id                VARCHAR(64) NOT NULL,
+    org_id                 VARCHAR(64) NOT NULL,
+    ciphertext             BYTEA NOT NULL,
+    nonce                  BYTEA NOT NULL,
+    last4                  VARCHAR(16) NOT NULL,
+    created_at_micros      BIGINT NOT NULL,
+    updated_at_micros      BIGINT NOT NULL,
+    PRIMARY KEY (server_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_mcp_member_credentials_user
+    ON agent_mcp_member_credentials(org_id, user_id);
+
+-- 服务器提供的 prompt，命令菜单里写成 `/<handle>:<prompt>`。
+CREATE TABLE IF NOT EXISTS agent_mcp_prompts (
+    server_id              VARCHAR(64) NOT NULL,
+    name                   VARCHAR(192) NOT NULL,
+    org_id                 VARCHAR(64) NOT NULL,
+    title                  VARCHAR(255),
+    description            TEXT NOT NULL DEFAULT '',
+    arguments              JSONB NOT NULL DEFAULT '[]'::JSONB,
+    synced_at_micros       BIGINT NOT NULL,
+    PRIMARY KEY (server_id, name)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_mcp_prompts_org
+    ON agent_mcp_prompts(org_id);
 
 CREATE TABLE IF NOT EXISTS agent_mcp_tools (
     id                     VARCHAR(64) PRIMARY KEY,
@@ -2296,6 +2406,312 @@ ALTER TABLE agent_tool_calls
     ADD COLUMN IF NOT EXISTS audit_id VARCHAR(64);
 
 -- ============================================================
+-- Mole Agent usage, budgets and feedback
+-- ============================================================
+
+-- 每日用量：每个组织、每个 UTC 日期、每种调用来源、每个币种一行，每次模型调用累加一次。
+-- 不同币种的成本不能相加，所以分行；没有单价的调用记在币种为空串的那行。
+CREATE TABLE IF NOT EXISTS agent_usage_daily (
+    org_id             VARCHAR(64)      NOT NULL,
+    day                DATE             NOT NULL,
+    -- chat | rca | inspection | llm_eval
+    origin             VARCHAR(32)      NOT NULL,
+    -- 模型服务选的币种（ISO 4217）；没有单价的调用为空串
+    cost_currency      VARCHAR(3)       NOT NULL DEFAULT '',
+    calls              BIGINT           NOT NULL DEFAULT 0,
+    -- 模型服务没有填单价的调用：不计入成本
+    unpriced_calls     BIGINT           NOT NULL DEFAULT 0,
+    prompt_tokens      BIGINT           NOT NULL DEFAULT 0,
+    completion_tokens  BIGINT           NOT NULL DEFAULT 0,
+    cost               DOUBLE PRECISION NOT NULL DEFAULT 0,
+    updated_at_micros  BIGINT           NOT NULL,
+    PRIMARY KEY (org_id, day, origin, cost_currency)
+);
+
+-- 模型服务单价可选的币种，每个组织一份，管理员可以增改删。代码是 ISO 4217 的三个大写字母；
+-- 名称与符号为空时界面按读者的语言用标准的。组织第一次读时写入常用的几种，按写入时间排。
+CREATE TABLE IF NOT EXISTS agent_currencies (
+    org_id             VARCHAR(64) NOT NULL,
+    code               VARCHAR(3)  NOT NULL,
+    name               VARCHAR(64),
+    symbol             VARCHAR(8),
+    created_at_micros  BIGINT      NOT NULL,
+    updated_at_micros  BIGINT      NOT NULL,
+    PRIMARY KEY (org_id, code),
+    CONSTRAINT chk_agent_currencies_code CHECK (code ~ '^[A-Z]{3}$')
+);
+
+-- 组织自己的每日预算。没有这一行时跟随实例配置 `[agent] daily_token_budget`。
+CREATE TABLE IF NOT EXISTS agent_usage_budgets (
+    org_id             VARCHAR(64) PRIMARY KEY,
+    -- 每日 token 上限；空跟随实例默认值，0 表示不限。
+    daily_token_limit  BIGINT,
+    -- 预算用完时对话与手动 RCA 的处理：block 拦截 | warn 只提示。
+    interactive_mode   VARCHAR(16) NOT NULL DEFAULT 'block',
+    updated_by         VARCHAR(64) NOT NULL,
+    updated_at_micros  BIGINT      NOT NULL,
+    CONSTRAINT chk_agent_usage_budgets_limit
+        CHECK (daily_token_limit IS NULL OR daily_token_limit >= 0),
+    CONSTRAINT chk_agent_usage_budgets_mode
+        CHECK (interactive_mode IN ('block', 'warn'))
+);
+
+-- 对 Mole Agent 产出的评价：每人对每个对象（对话回答、事件 RCA）一行。
+CREATE TABLE IF NOT EXISTS agent_feedback (
+    id                 VARCHAR(64) PRIMARY KEY,
+    org_id             VARCHAR(64) NOT NULL,
+    -- chat_message（对象 ID 为消息 ID）| incident_rca（对象 ID 为事件 ID）
+    target_kind        VARCHAR(32) NOT NULL,
+    target_id          VARCHAR(64) NOT NULL,
+    user_id            VARCHAR(64) NOT NULL,
+    -- up | down
+    rating             VARCHAR(8)  NOT NULL,
+    reasons            JSONB       NOT NULL DEFAULT '[]'::JSONB,
+    comment            TEXT        NOT NULL DEFAULT '',
+    -- 被评价的回答当时用的模型服务、模型与 prompt 版本。
+    provenance         JSONB       NOT NULL DEFAULT '{}'::JSONB,
+    created_at_micros  BIGINT      NOT NULL,
+    updated_at_micros  BIGINT      NOT NULL,
+    CONSTRAINT chk_agent_feedback_target_kind
+        CHECK (target_kind IN ('chat_message', 'incident_rca')),
+    CONSTRAINT chk_agent_feedback_rating
+        CHECK (rating IN ('up', 'down'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_feedback_target_user
+    ON agent_feedback(org_id, target_kind, target_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_agent_feedback_org_updated
+    ON agent_feedback(org_id, updated_at_micros DESC);
+
+-- Mole Agent Skills uploaded or pulled from a repository. Built-in skills and the
+-- instance's skill folders are read by the server and only switched per organization.
+CREATE TABLE IF NOT EXISTS agent_skills (
+    id                  VARCHAR(64)  PRIMARY KEY,
+    org_id              VARCHAR(64)  NOT NULL,
+    -- upload | repository
+    source              VARCHAR(16)  NOT NULL,
+    repository_id       VARCHAR(64),
+    repository_dir      TEXT,
+    -- org | team | personal
+    scope               VARCHAR(16)  NOT NULL,
+    team_id             VARCHAR(64),
+    owner_id            VARCHAR(64),
+    -- org、team:<id>、personal:<id>：同一作用域里名称不分大小写唯一
+    scope_key           VARCHAR(96)  NOT NULL,
+    name                VARCHAR(64)  NOT NULL,
+    description         TEXT         NOT NULL,
+    version             VARCHAR(64),
+    manifest            JSONB        NOT NULL,
+    -- [{path, size, text}]
+    files               JSONB        NOT NULL DEFAULT '[]'::JSONB,
+    content_hash        VARCHAR(64)  NOT NULL,
+    -- agent_skills/v1/{org}/{id}/{hash}/
+    object_prefix       TEXT         NOT NULL,
+    package_object_key  TEXT,
+    package_name        VARCHAR(255),
+    enabled             BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_by          VARCHAR(64)  NOT NULL,
+    updated_by          VARCHAR(64)  NOT NULL,
+    created_at_micros   BIGINT       NOT NULL,
+    updated_at_micros   BIGINT       NOT NULL,
+    CONSTRAINT chk_agent_skills_source CHECK (source IN ('upload', 'repository')),
+    CONSTRAINT chk_agent_skills_scope CHECK (
+        (scope = 'org' AND team_id IS NULL AND owner_id IS NULL)
+        OR (scope = 'team' AND team_id IS NOT NULL AND owner_id IS NULL)
+        OR (scope = 'personal' AND owner_id IS NOT NULL AND team_id IS NULL)
+    )
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_skills_scope_name
+    ON agent_skills(org_id, scope_key, lower(name));
+CREATE INDEX IF NOT EXISTS idx_agent_skills_repository
+    ON agent_skills(repository_id) WHERE repository_id IS NOT NULL;
+
+-- 组织对实例级 Skill（builtin:<name>、path:<name>）的启停；没有记录为启用。
+CREATE TABLE IF NOT EXISTS agent_skill_org_settings (
+    org_id              VARCHAR(64)  NOT NULL,
+    skill_key           VARCHAR(160) NOT NULL,
+    enabled             BOOLEAN      NOT NULL,
+    updated_by          VARCHAR(64)  NOT NULL,
+    updated_at_micros   BIGINT       NOT NULL,
+    PRIMARY KEY (org_id, skill_key)
+);
+
+-- Repositories skills are pulled from, as archives of a branch or tag.
+CREATE TABLE IF NOT EXISTS agent_skill_repositories (
+    id                     VARCHAR(64)  PRIMARY KEY,
+    org_id                 VARCHAR(64)  NOT NULL,
+    scope                  VARCHAR(16)  NOT NULL,
+    team_id                VARCHAR(64),
+    owner_id               VARCHAR(64),
+    scope_key              VARCHAR(96)  NOT NULL,
+    url                    TEXT         NOT NULL,
+    -- github | gitlab | gitea | bitbucket | archive
+    host                   VARCHAR(16)  NOT NULL,
+    archive_url            TEXT,
+    git_ref                VARCHAR(255) NOT NULL DEFAULT '',
+    dir                    TEXT         NOT NULL DEFAULT '',
+    auto_sync              BOOLEAN      NOT NULL DEFAULT FALSE,
+    token_set              BOOLEAN      NOT NULL DEFAULT FALSE,
+    token_last4            VARCHAR(8),
+    -- pending | ok | partial | failed
+    status                 VARCHAR(16)  NOT NULL DEFAULT 'pending',
+    last_error             TEXT,
+    last_commit            VARCHAR(64),
+    last_synced_at_micros  BIGINT,
+    created_by             VARCHAR(64)  NOT NULL,
+    updated_by             VARCHAR(64)  NOT NULL,
+    created_at_micros      BIGINT       NOT NULL,
+    updated_at_micros      BIGINT       NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_agent_skill_repositories_org
+    ON agent_skill_repositories(org_id);
+CREATE INDEX IF NOT EXISTS idx_agent_skill_repositories_auto
+    ON agent_skill_repositories(last_synced_at_micros) WHERE auto_sync;
+
+-- 团队成员与个人建的连接（Skill 仓库、MCP 服务器）可以连的内网主机与网段。
+CREATE TABLE IF NOT EXISTS agent_network_settings (
+    org_id                VARCHAR(64) PRIMARY KEY,
+    member_private_hosts  JSONB       NOT NULL DEFAULT '[]'::JSONB,
+    member_private_cidrs  JSONB       NOT NULL DEFAULT '[]'::JSONB,
+    updated_by            VARCHAR(64) NOT NULL,
+    updated_at_micros     BIGINT      NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS agent_skill_repository_secrets (
+    repository_id       VARCHAR(64)  PRIMARY KEY,
+    org_id              VARCHAR(64)  NOT NULL,
+    ciphertext          BYTEA        NOT NULL,
+    nonce               BYTEA        NOT NULL,
+    updated_at_micros   BIGINT       NOT NULL
+);
+
+-- 知识：组织一份，每个团队一份；文件是 UTF-8 文本，入口文件 MOLE.md 在会话里自动加载。
+CREATE TABLE IF NOT EXISTS agent_knowledge_files (
+    org_id             VARCHAR(64)  NOT NULL,
+    -- org | team
+    scope              VARCHAR(16)  NOT NULL,
+    team_id            VARCHAR(64),
+    -- org、team:<id>
+    scope_key          VARCHAR(96)  NOT NULL,
+    -- 相对路径，`/` 分隔，例如 runbooks/payments.md
+    path               VARCHAR(512) NOT NULL,
+    content            TEXT         NOT NULL,
+    size_bytes         BIGINT       NOT NULL,
+    content_hash       VARCHAR(64)  NOT NULL,
+    created_by         VARCHAR(64)  NOT NULL,
+    updated_by         VARCHAR(64)  NOT NULL,
+    created_at_micros  BIGINT       NOT NULL,
+    updated_at_micros  BIGINT       NOT NULL,
+    PRIMARY KEY (org_id, scope_key, path),
+    CONSTRAINT chk_agent_knowledge_files_scope CHECK (
+        (scope = 'org' AND team_id IS NULL) OR (scope = 'team' AND team_id IS NOT NULL)
+    )
+);
+
+-- 记忆：个人的与团队的；忘掉只是标记，可以撤销。
+CREATE TABLE IF NOT EXISTS agent_memories (
+    id                  VARCHAR(64)  PRIMARY KEY,
+    org_id              VARCHAR(64)  NOT NULL,
+    -- team | personal
+    scope               VARCHAR(16)  NOT NULL,
+    team_id             VARCHAR(64),
+    owner_id            VARCHAR(64),
+    -- team:<id>、personal:<id>
+    scope_key           VARCHAR(96)  NOT NULL,
+    -- preference | procedure | fact | lesson
+    kind                VARCHAR(16)  NOT NULL,
+    name                VARCHAR(120) NOT NULL,
+    description         VARCHAR(300) NOT NULL,
+    body                TEXT         NOT NULL,
+    source_chat_id      VARCHAR(64),
+    created_by          VARCHAR(64)  NOT NULL,
+    updated_by          VARCHAR(64)  NOT NULL,
+    created_at_micros   BIGINT       NOT NULL,
+    updated_at_micros   BIGINT       NOT NULL,
+    forgotten_at_micros BIGINT,
+    CONSTRAINT chk_agent_memories_kind
+        CHECK (kind IN ('preference', 'procedure', 'fact', 'lesson')),
+    CONSTRAINT chk_agent_memories_scope CHECK (
+        (scope = 'team' AND team_id IS NOT NULL AND owner_id IS NULL)
+        OR (scope = 'personal' AND owner_id IS NOT NULL AND team_id IS NULL)
+    )
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_memories_scope_name
+    ON agent_memories(org_id, scope_key, lower(name)) WHERE forgotten_at_micros IS NULL;
+CREATE INDEX IF NOT EXISTS idx_agent_memories_scope
+    ON agent_memories(org_id, scope_key, updated_at_micros DESC);
+
+-- 组织对记忆的设置：会话结束后是否由模型提炼记忆（默认关，计入预算）。
+CREATE TABLE IF NOT EXISTS agent_memory_settings (
+    org_id               VARCHAR(64) PRIMARY KEY,
+    distill_after_chat   BOOLEAN     NOT NULL DEFAULT FALSE,
+    updated_by           VARCHAR(64) NOT NULL,
+    updated_at_micros    BIGINT      NOT NULL
+);
+
+-- 一轮回答 = 一个 Run：发消息只排进队列，由某个节点领走执行；同一会话的 Run 一个接一个。
+CREATE TABLE IF NOT EXISTS agent_runs (
+    id                       VARCHAR(64) PRIMARY KEY,
+    org_id                   VARCHAR(64) NOT NULL,
+    chat_id                  VARCHAR(64) NOT NULL,
+    -- chat | automation | incident | api | im
+    source                   VARCHAR(16) NOT NULL,
+    -- queued | running | waiting_input | waiting_approval | succeeded | failed | cancelled | interrupted
+    status                   VARCHAR(24) NOT NULL,
+    -- 以谁的身份执行：用户与凭据范围；权限在执行时重新解析。
+    principal                JSONB       NOT NULL,
+    -- 执行这一轮要用的请求：问题、模式、时间、模型、命令带来的指令。
+    request                  JSONB       NOT NULL,
+    user_message_id          VARCHAR(64),
+    assistant_message_id     VARCHAR(64),
+    -- 执行它的节点与租约；租约过期说明节点没了。
+    node                     VARCHAR(128),
+    lease_expires_at_micros  BIGINT,
+    cancel_requested         BOOLEAN     NOT NULL DEFAULT FALSE,
+    -- 在等提问人回答的问题或确认，以及提问人的回答。
+    pending                  JSONB,
+    response                 JSONB,
+    prompt_tokens            BIGINT      NOT NULL DEFAULT 0,
+    completion_tokens        BIGINT      NOT NULL DEFAULT 0,
+    -- 成本，用模型服务选的币种记；没有单价时为空。
+    cost                     DOUBLE PRECISION,
+    cost_currency            VARCHAR(3),
+    error                    TEXT,
+    -- 最后一个事件的序号。
+    last_seq                 BIGINT      NOT NULL DEFAULT 0,
+    created_at_micros        BIGINT      NOT NULL,
+    started_at_micros        BIGINT,
+    finished_at_micros       BIGINT,
+    updated_at_micros        BIGINT      NOT NULL,
+    CONSTRAINT chk_agent_runs_source
+        CHECK (source IN ('chat', 'automation', 'incident', 'api', 'im')),
+    CONSTRAINT chk_agent_runs_status CHECK (status IN (
+        'queued', 'running', 'waiting_input', 'waiting_approval',
+        'succeeded', 'failed', 'cancelled', 'interrupted'
+    ))
+);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_queued
+    ON agent_runs(created_at_micros, id) WHERE status = 'queued';
+CREATE INDEX IF NOT EXISTS idx_agent_runs_live
+    ON agent_runs(lease_expires_at_micros)
+    WHERE status IN ('running', 'waiting_input', 'waiting_approval');
+CREATE INDEX IF NOT EXISTS idx_agent_runs_chat
+    ON agent_runs(chat_id, created_at_micros DESC);
+
+-- Run 的事件，按序号递增；浏览器从某个序号之后续读。只留近期，回答本身在 agent_messages。
+CREATE TABLE IF NOT EXISTS agent_run_events (
+    run_id             VARCHAR(64) NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
+    seq                BIGINT      NOT NULL,
+    org_id             VARCHAR(64) NOT NULL,
+    -- status | text | tool_start | tool_end | todo | question | confirmation | response | notice | done
+    kind               VARCHAR(24) NOT NULL,
+    payload            JSONB       NOT NULL,
+    created_at_micros  BIGINT      NOT NULL,
+    PRIMARY KEY (run_id, seq)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_run_events_created
+    ON agent_run_events(created_at_micros);
+
+-- ============================================================
 -- Inbound MCP Server and OAuth 2.1 authorization server
 -- ============================================================
 
@@ -2303,8 +2719,9 @@ CREATE TABLE IF NOT EXISTS inbound_mcp_settings (
     org_id                 VARCHAR(64) PRIMARY KEY REFERENCES organizations(id) ON DELETE CASCADE,
     enabled                BOOLEAN NOT NULL DEFAULT TRUE,
     allowed_origins        JSONB NOT NULL DEFAULT '[]'::JSONB,
-    max_request_bytes      BIGINT NOT NULL DEFAULT 1048576,
-    max_response_bytes     BIGINT NOT NULL DEFAULT 1048576,
+    -- 一次请求与响应的大小上限，单位 MiB。
+    max_request_size       INTEGER NOT NULL DEFAULT 1,
+    max_response_size      INTEGER NOT NULL DEFAULT 1,
     max_concurrent_calls   INTEGER NOT NULL DEFAULT 8,
     calls_per_minute       INTEGER NOT NULL DEFAULT 60,
     read_timeout_ms        BIGINT NOT NULL DEFAULT 30000,
@@ -2312,9 +2729,9 @@ CREATE TABLE IF NOT EXISTS inbound_mcp_settings (
     created_at_micros      BIGINT NOT NULL,
     updated_at_micros      BIGINT NOT NULL,
     CONSTRAINT inbound_mcp_settings_request_limit
-        CHECK (max_request_bytes BETWEEN 1024 AND 8388608),
+        CHECK (max_request_size BETWEEN 1 AND 8),
     CONSTRAINT inbound_mcp_settings_response_limit
-        CHECK (max_response_bytes BETWEEN 1024 AND 8388608),
+        CHECK (max_response_size BETWEEN 1 AND 8),
     CONSTRAINT inbound_mcp_settings_concurrency_limit
         CHECK (max_concurrent_calls BETWEEN 1 AND 128),
     CONSTRAINT inbound_mcp_settings_rate_limit
@@ -6881,6 +7298,90 @@ FROM (VALUES
     ('agent.prompt.query.generate.name', 'zh-cn', '查询生成'),
     ('agent.prompt.dashboard.authoring.v1.name', 'en-us', 'Dashboard Authoring v1'),
     ('agent.prompt.dashboard.authoring.v1.name', 'zh-cn', '仪表盘创作 v1'),
+    -- Slash commands of the Mole Agent chat, in the interface language of
+    -- whoever lists them: what each does and how its argument is written.
+    ('agent.command.help.description', 'en-us', 'List the commands'),
+    ('agent.command.help.description', 'zh-cn', '列出可用的命令'),
+    ('agent.command.new.description', 'en-us', 'Start a new chat'),
+    ('agent.command.new.description', 'zh-cn', '开始新对话'),
+    ('agent.command.mode.description', 'en-us', 'Switch the analysis mode'),
+    ('agent.command.mode.description', 'zh-cn', '切换分析模式'),
+    ('agent.command.time.description', 'en-us', 'Set the time range'),
+    ('agent.command.time.description', 'zh-cn', '设置时间范围'),
+    ('agent.command.policy.description', 'en-us', 'Set what Mole Agent may run'),
+    ('agent.command.policy.description', 'zh-cn', '设置执行策略'),
+    ('agent.command.model.description', 'en-us', 'Choose the model'),
+    ('agent.command.model.description', 'zh-cn', '选择模型'),
+    ('agent.command.model.argument', 'en-us', '<model provider>'),
+    ('agent.command.model.argument', 'zh-cn', '<模型服务>'),
+    ('agent.command.profile.description', 'en-us', 'Choose the agent profile'),
+    ('agent.command.profile.description', 'zh-cn', '选择 Agent 配置'),
+    ('agent.command.profile.argument', 'en-us', '<agent profile>'),
+    ('agent.command.profile.argument', 'zh-cn', '<Agent 配置>'),
+    ('agent.command.prompt.description', 'en-us', 'Choose the prompt'),
+    ('agent.command.prompt.description', 'zh-cn', '选择 Prompt'),
+    ('agent.command.prompt.argument', 'en-us', '<prompt>'),
+    ('agent.command.prompt.argument', 'zh-cn', '<Prompt>'),
+    ('agent.command.query.description', 'en-us', 'Write a query without running it'),
+    ('agent.command.query.description', 'zh-cn', '只生成查询，不执行'),
+    ('agent.command.query.argument', 'en-us', '<question>'),
+    ('agent.command.query.argument', 'zh-cn', '<问题>'),
+    ('agent.command.dashboard.description', 'en-us', 'Build a dashboard'),
+    ('agent.command.dashboard.description', 'zh-cn', '创建仪表盘'),
+    ('agent.command.dashboard.argument', 'en-us', '<what it should show>'),
+    ('agent.command.dashboard.argument', 'zh-cn', '<要展示的内容>'),
+    ('agent.command.rca.description', 'en-us', 'Investigate the root cause of an incident'),
+    ('agent.command.rca.description', 'zh-cn', '调查一个事件的根因'),
+    ('agent.command.rca.argument', 'en-us', '<incident>'),
+    ('agent.command.rca.argument', 'zh-cn', '<事件>'),
+    ('agent.command.rca.question', 'en-us', 'Find the root cause of the incident "{summary}".'),
+    ('agent.command.rca.question', 'zh-cn', '找出事件「{summary}」的根因。'),
+    ('agent.command.compact.description', 'en-us', 'Summarize the chat so far to free up context'),
+    ('agent.command.compact.description', 'zh-cn', '把到现在为止的对话压缩成摘要，腾出上下文'),
+    ('agent.command.export.description', 'en-us', 'Download this chat as Markdown'),
+    ('agent.command.export.description', 'zh-cn', '把本对话导出为 Markdown'),
+    ('agent.command.unavailable.permission', 'en-us', 'Needs the {permission} permission'),
+    ('agent.command.unavailable.permission', 'zh-cn', '需要 {permission} 权限'),
+    ('agent.command.team.description', 'en-us', 'Start this chat for a team'),
+    ('agent.command.team.description', 'zh-cn', '把这个对话设为团队会话'),
+    ('agent.command.team.argument', 'en-us', '<team>'),
+    ('agent.command.team.argument', 'zh-cn', '<团队>'),
+    ('agent.command.skill.run', 'en-us', 'Follow the skill {name}.'),
+    ('agent.command.skill.run', 'zh-cn', '按 Skill {name} 的做法处理。'),
+    ('agent.command.unavailable.runner', 'en-us', 'Needs a Mole Runner to run its scripts'),
+    ('agent.command.unavailable.runner', 'zh-cn', '需要 Mole Runner 来运行其中的脚本'),
+    ('agent.command.unavailable.mcp_credential', 'en-us', 'Add your own credential for {server} first'),
+    ('agent.command.unavailable.mcp_credential', 'zh-cn', '先为 {server} 填写你自己的凭据'),
+    ('agent.skill.bundled.incident_triage.title', 'en-us', 'Incident triage'),
+    ('agent.skill.bundled.incident_triage.title', 'zh-cn', '事件分诊'),
+    ('agent.skill.bundled.incident_triage.description', 'en-us', 'Confirm what is broken, how badly, since when and who owns it, then the first safe actions.'),
+    ('agent.skill.bundled.incident_triage.description', 'zh-cn', '确认坏了什么、影响多大、从何时开始、谁负责，再给出最先该做的安全操作。'),
+    ('agent.skill.bundled.log_error_spike.title', 'en-us', 'Log error spike'),
+    ('agent.skill.bundled.log_error_spike.title', 'zh-cn', '日志错误突增排查'),
+    ('agent.skill.bundled.log_error_spike.description', 'en-us', 'Find when errors in logs jumped, which messages and services they come from, and what changed then.'),
+    ('agent.skill.bundled.log_error_spike.description', 'zh-cn', '找出日志错误何时突增、来自哪些消息和服务，以及当时发生了什么变化。'),
+    ('agent.skill.bundled.latency_regression.title', 'en-us', 'Latency regression'),
+    ('agent.skill.bundled.latency_regression.title', 'zh-cn', '延迟回归'),
+    ('agent.skill.bundled.latency_regression.description', 'en-us', 'From APM to slow traces and dependencies, then versions and CPU profiles before and after.'),
+    ('agent.skill.bundled.latency_regression.description', 'zh-cn', '从 APM 到慢链路与依赖，再对比前后的版本与 CPU Profile。'),
+    ('agent.skill.bundled.init.title', 'en-us', 'Initialize knowledge'),
+    ('agent.skill.bundled.init.title', 'zh-cn', '初始化知识'),
+    ('agent.skill.bundled.init.description', 'en-us', 'Scan what is set up, interview you topic by topic, and write the knowledge one confirmed file at a time, with MOLE.md pointing to the rest.'),
+    ('agent.skill.bundled.init.description', 'zh-cn', '先扫描已有的配置，再按主题访谈，每个文件确认后才写入，最后写好指向其他文件的 MOLE.md。'),
+    ('agent.skill.bundled.alert_noise_reduction.title', 'en-us', 'Alert noise reduction'),
+    ('agent.skill.bundled.alert_noise_reduction.title', 'zh-cn', '告警降噪'),
+    ('agent.skill.bundled.alert_noise_reduction.description', 'en-us', 'Find rules that page without need - flapping, duplicated, never acted on - and propose changes for review.'),
+    ('agent.skill.bundled.alert_noise_reduction.description', 'zh-cn', '找出无谓打扰人的告警规则（抖动、重复、从不处理），提出修改供审批。'),
+    ('agent.skill.bundled.incident_triage.argument_hint', 'en-us', '<incident id or service>'),
+    ('agent.skill.bundled.incident_triage.argument_hint', 'zh-cn', '<事件 ID 或服务>'),
+    ('agent.skill.bundled.log_error_spike.argument_hint', 'en-us', '<service or stream> [time range]'),
+    ('agent.skill.bundled.log_error_spike.argument_hint', 'zh-cn', '<服务或数据流> [时间范围]'),
+    ('agent.skill.bundled.latency_regression.argument_hint', 'en-us', '<service> [endpoint]'),
+    ('agent.skill.bundled.latency_regression.argument_hint', 'zh-cn', '<服务> [接口]'),
+    ('agent.skill.bundled.init.argument_hint', 'en-us', '[what to focus on]'),
+    ('agent.skill.bundled.init.argument_hint', 'zh-cn', '[侧重哪些方面]'),
+    ('agent.skill.bundled.alert_noise_reduction.argument_hint', 'en-us', '[time range, default 7d]'),
+    ('agent.skill.bundled.alert_noise_reduction.argument_hint', 'zh-cn', '[时间范围，默认 7d]'),
     -- What each built-in function does, in the interface language of whoever
     -- lists them. The key carries the function's name, with _ for -.
     ('function.preset.normalize_logs.description', 'en-us', 'Parses the JSON message, adds environment and cluster fields, and normalizes level to lowercase.'),
@@ -6935,6 +7436,8 @@ FROM (VALUES
     ('log_inspection.failure.model', 'zh-cn', '巡检所选的 AI 模型不存在、已停用或没有密钥。'),
     ('log_inspection.failure.agent', 'en-us', 'The AI model call failed.'),
     ('log_inspection.failure.agent', 'zh-cn', 'AI 模型调用失败。'),
+    ('log_inspection.failure.budget', 'en-us', 'Today''s Mole Agent token budget for the organization is used up. The inspection runs again once the budget resets or is raised.'),
+    ('log_inspection.failure.budget', 'zh-cn', '组织今天的 Mole Agent token 预算已用完。预算重置或调高后，巡检会照常执行。'),
     ('log_inspection.failure.internal', 'en-us', 'The inspection failed for an internal reason.'),
     ('log_inspection.failure.internal', 'zh-cn', '巡检因内部原因失败。')
 ) AS seed(language_key, language_code, language_value);

@@ -286,6 +286,12 @@ pub struct AgentProfile {
     pub max_context_tokens: i32,
     pub max_investigation_secs: i32,
     pub max_tool_calls: i32,
+    /// 采样温度；`None` 时用 Mole Agent 的默认值。
+    #[serde(default)]
+    pub temperature: Option<f32>,
+    /// 用它的对话能选 bypass permissions：对话里不再问提问人；组织审批照旧。
+    #[serde(default)]
+    pub allow_bypass_permissions: bool,
     pub is_default: bool,
     pub enabled: bool,
     pub created_by: Id,

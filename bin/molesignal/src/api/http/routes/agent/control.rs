@@ -15,10 +15,9 @@ use tool_runtime::{ToolSurface, catalog::tools_for_surface};
 use crate::{
     agent::{
         model::{
-            AgentProfile, ApprovalRequest, ApprovalStatus, Automation, ConfidenceLevel, Execution,
-            FactStatus, HypothesisStatus, Investigation, InvestigationEvidence,
-            InvestigationHypothesis, InvestigationStatus, InvestigationStep, NetworkAccess,
-            StepStatus,
+            ApprovalRequest, ApprovalStatus, Automation, ConfidenceLevel, Execution, FactStatus,
+            HypothesisStatus, Investigation, InvestigationEvidence, InvestigationHypothesis,
+            InvestigationStatus, InvestigationStep, StepStatus,
         },
         tools::builtin_tools,
     },
@@ -37,10 +36,12 @@ use crate::{
 mod approval_execution;
 mod dashboard_operation;
 mod execution_response;
+mod profiles;
 mod resource_operation;
 
 use approval_execution::OperationOutcome;
 pub(super) use approval_execution::{OperationExecution, execute_approved_operation};
+use profiles::{create_profile, get_profile, list_profiles, update_profile};
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -852,180 +853,13 @@ async fn get_execution(
     ))
 }
 
-#[derive(Debug, Deserialize)]
-struct AgentProfileRequest {
-    name: String,
-    #[serde(default)]
-    description: String,
-    model_provider_id: Option<Id>,
-    model: Option<String>,
-    #[serde(default)]
-    allowed_tools: Vec<String>,
-    #[serde(default)]
-    data_scope: Value,
-    #[serde(default)]
-    risk_policy: Value,
-    #[serde(default = "blocked_network")]
-    network_access: NetworkAccess,
-    #[serde(default = "default_context_tokens")]
-    max_context_tokens: i32,
-    #[serde(default = "default_investigation_secs")]
-    max_investigation_secs: i32,
-    #[serde(default = "default_tool_calls")]
-    max_tool_calls: i32,
-    #[serde(default)]
-    is_default: bool,
-    #[serde(default = "default_true")]
-    enabled: bool,
-}
-
-fn blocked_network() -> NetworkAccess {
-    NetworkAccess::Blocked
-}
-
-fn default_context_tokens() -> i32 {
-    32_000
-}
-
-fn default_investigation_secs() -> i32 {
-    1_800
-}
-
-fn default_tool_calls() -> i32 {
-    32
-}
-
-fn validate_profile_request(request: &AgentProfileRequest) -> Result<()> {
-    if request.max_tool_calls < 1 || request.max_tool_calls > 256 {
-        return Err(Error::invalid("max_tool_calls must be between 1 and 256"));
-    }
-
-    Ok(())
-}
-
-#[permission("agent.use")]
-async fn list_profiles(
-    State(state): State<AppState>,
-    Extension(ctx): Extension<IamContext>,
-) -> Result<Json<Value>> {
-    Ok(Json(json!({
-        "profiles": state.agent.repository.list_profiles(&ctx.org_id).await?
-    })))
-}
-
-#[permission("agent.manage")]
-async fn create_profile(
-    State(state): State<AppState>,
-    Extension(ctx): Extension<IamContext>,
-    Json(request): Json<AgentProfileRequest>,
-) -> Result<Json<AgentProfile>> {
-    validate_profile_request(&request)?;
-
-    validate_allowed_tools(
-        &state,
-        &ctx.org_id,
-        &request.allowed_tools,
-        ToolSurface::MoleAgent,
-    )
-    .await?;
-
-    let now = TimestampMicros::now();
-
-    let profile = AgentProfile {
-        id: Id::new(),
-        org_id: ctx.org_id.clone(),
-        name: request.name,
-        description: request.description,
-        model_provider_id: request.model_provider_id,
-        model: request.model,
-        allowed_tools: request.allowed_tools,
-        data_scope: request.data_scope,
-        risk_policy: request.risk_policy,
-        network_access: request.network_access,
-        max_context_tokens: request.max_context_tokens,
-        max_investigation_secs: request.max_investigation_secs,
-        max_tool_calls: request.max_tool_calls,
-        is_default: request.is_default,
-        enabled: request.enabled,
-        created_by: ctx.principal_id().clone(),
-        created_at: now,
-        updated_at: now,
-    };
-
-    Ok(Json(state.agent.repository.create_profile(profile).await?))
-}
-
-#[permission("agent.use")]
-async fn get_profile(
-    State(state): State<AppState>,
-    Extension(ctx): Extension<IamContext>,
-    Path(id): Path<String>,
-) -> Result<Json<AgentProfile>> {
-    Ok(Json(
-        state
-            .agent
-            .repository
-            .get_profile(&ctx.org_id, &Id(id))
-            .await?,
-    ))
-}
-
-#[permission("agent.manage")]
-async fn update_profile(
-    State(state): State<AppState>,
-    Extension(ctx): Extension<IamContext>,
-    Path(id): Path<String>,
-    Json(request): Json<AgentProfileRequest>,
-) -> Result<Json<AgentProfile>> {
-    validate_profile_request(&request)?;
-
-    validate_allowed_tools(
-        &state,
-        &ctx.org_id,
-        &request.allowed_tools,
-        ToolSurface::MoleAgent,
-    )
-    .await?;
-
-    let existing = state
-        .agent
-        .repository
-        .get_profile(&ctx.org_id, &Id(id))
-        .await?;
-
-    let profile = AgentProfile {
-        name: request.name,
-        description: request.description,
-        model_provider_id: request.model_provider_id,
-        model: request.model,
-        allowed_tools: request.allowed_tools,
-        data_scope: request.data_scope,
-        risk_policy: request.risk_policy,
-        network_access: request.network_access,
-        max_context_tokens: request.max_context_tokens,
-        max_investigation_secs: request.max_investigation_secs,
-        max_tool_calls: request.max_tool_calls,
-        is_default: request.is_default,
-        enabled: request.enabled,
-        updated_at: TimestampMicros::now(),
-        ..existing
-    };
-
-    Ok(Json(state.agent.repository.update_profile(profile).await?))
-}
-
 #[cfg(test)]
 mod tests {
     use serde_json::json;
 
-    use super::{
-        AgentProfileRequest, UpdateInvestigationRequest, operation_policy, validate_profile_request,
-    };
+    use super::{UpdateInvestigationRequest, operation_policy};
     use crate::{
-        agent::{
-            model::{NetworkAccess, RiskLevel},
-            tool_control::ToolExecutionMode,
-        },
+        agent::{model::RiskLevel, tool_control::ToolExecutionMode},
         app::tools::dashboard::dashboard_required_approvals,
     };
 
@@ -1068,26 +902,5 @@ mod tests {
             serde_json::from_value(json!({"summary": "Recovered", "confidence": "high"})).unwrap();
         assert_eq!(populated.summary, Some(Some("Recovered".to_owned())));
         assert!(matches!(populated.confidence, Some(Some(_))));
-    }
-
-    #[test]
-    fn profile_network_access_accepts_blocked_and_allowed() {
-        let defaulted: AgentProfileRequest =
-            serde_json::from_value(json!({"name": "default"})).unwrap();
-        assert_eq!(defaulted.network_access, NetworkAccess::Blocked);
-        assert!(validate_profile_request(&defaulted).is_ok());
-
-        let allowed: AgentProfileRequest =
-            serde_json::from_value(json!({"name": "networked", "network_access": "allowed"}))
-                .unwrap();
-        assert_eq!(allowed.network_access, NetworkAccess::Allowed);
-        assert!(validate_profile_request(&allowed).is_ok());
-
-        assert!(
-            serde_json::from_value::<AgentProfileRequest>(
-                json!({"name": "invalid", "network_access": "unrestricted"}),
-            )
-            .is_err()
-        );
     }
 }

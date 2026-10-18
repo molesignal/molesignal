@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use std::sync::Mutex;
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
-use super::*;
-use crate::agent::tools::ToolContent;
+use super::{agent_loop::contains_internal_tool_transport, *};
+use crate::agent::tools::{ToolAuthContext, ToolCall, ToolContent, ToolDispatcher, ToolResult};
 
 #[test]
 fn provider_string_roundtrip() {
@@ -42,6 +45,7 @@ impl ProviderAdapter for ScriptedProvider {
                     arguments: serde_json::json!({"sql": "SELECT 1"}),
                 }],
                 prompt_tokens: 50,
+                cached_prompt_tokens: 0,
                 completion_tokens: 30,
                 finish_reason: "tool_calls".into(),
             })
@@ -50,6 +54,7 @@ impl ProviderAdapter for ScriptedProvider {
                 content: Some("There were 100 errors.".into()),
                 tool_calls: vec![],
                 prompt_tokens: 80,
+                cached_prompt_tokens: 0,
                 completion_tokens: 20,
                 finish_reason: "stop".into(),
             })
@@ -123,7 +128,7 @@ async fn loop_executes_one_tool_call_then_stops() {
     assert_eq!(r.completion_tokens_total, 50); // 30 + 20
 }
 
-// Provider 永远返 tool_call → 触发 MAX_TOOL_LOOPS 后走无工具收尾。
+// Provider 永远返 tool_call → 用完工具调用额度后走无工具收尾。
 struct LoopForeverProvider;
 
 #[async_trait]
@@ -141,6 +146,7 @@ impl ProviderAdapter for LoopForeverProvider {
                 arguments: serde_json::Value::Null,
             }],
             prompt_tokens: 1,
+            cached_prompt_tokens: 0,
             completion_tokens: 1,
             finish_reason: "tool_calls".into(),
         })
@@ -156,7 +162,7 @@ async fn loop_finalizes_after_max_loops() {
         .run(&ctx(), "m".into(), vec![user_msg("hi")], None, None)
         .await
         .unwrap();
-    assert_eq!(r.tool_calls_made, MAX_TOOL_LOOPS);
+    assert_eq!(r.tool_calls_made, DEFAULT_MAX_TOOL_CALLS);
     assert!(r.assistant_content.contains("工具调用次数"));
 }
 
@@ -204,6 +210,8 @@ async fn stream_run_executes_tool_then_finalizes() {
             }
             AgentStreamEvent::Error(e) => panic!("unexpected error: {e}"),
             AgentStreamEvent::Chunk(chunk) => visible_chunks.push_str(chunk),
+            // 写出中的文字（含中间的说明）只用于实时显示，回答以 Chunk 为准。
+            AgentStreamEvent::Delta(_) => {}
         }
     }
     assert!(saw_tool_start, "ToolStart missing in {events:?}");
@@ -218,7 +226,7 @@ async fn stream_run_executes_tool_then_finalizes() {
     );
 }
 
-/// MAX_TOOL_LOOPS 在 stream 模式下应走 Done，不把内部预算错误暴露给用户。
+/// 额度用完在 stream 模式下应走 Done，不把内部预算错误暴露给用户。
 #[tokio::test]
 async fn stream_run_finalizes_after_max_loops() {
     use futures::StreamExt;
@@ -237,11 +245,13 @@ async fn stream_run_finalizes_after_max_loops() {
             AgentStreamEvent::ToolStart { .. } => tool_starts += 1,
             AgentStreamEvent::Done { content, .. } => final_content = content,
             AgentStreamEvent::Error(_) => saw_error = true,
-            AgentStreamEvent::Chunk(_) | AgentStreamEvent::ToolEnd { .. } => {}
+            AgentStreamEvent::Chunk(_)
+            | AgentStreamEvent::Delta(_)
+            | AgentStreamEvent::ToolEnd { .. } => {}
         }
     }
     assert!(!saw_error, "budget exhaustion should not emit Error");
-    assert_eq!(tool_starts, MAX_TOOL_LOOPS);
+    assert_eq!(tool_starts, DEFAULT_MAX_TOOL_CALLS);
     assert!(final_content.contains("工具调用次数"), "{final_content}");
 }
 
@@ -261,6 +271,7 @@ impl ProviderAdapter for DsmlAfterBudgetProvider {
                 ),
                 tool_calls: vec![],
                 prompt_tokens: 1,
+                cached_prompt_tokens: 0,
                 completion_tokens: 1,
                 finish_reason: "stop".into(),
             });
@@ -274,6 +285,7 @@ impl ProviderAdapter for DsmlAfterBudgetProvider {
                 arguments: serde_json::Value::Null,
             }],
             prompt_tokens: 1,
+            cached_prompt_tokens: 0,
             completion_tokens: 1,
             finish_reason: "tool_calls".into(),
         })
@@ -306,7 +318,7 @@ async fn loop_replaces_dsml_budget_final_with_safe_fallback() {
         )
         .await
         .unwrap();
-    assert_eq!(result.tool_calls_made, MAX_TOOL_LOOPS);
+    assert_eq!(result.tool_calls_made, DEFAULT_MAX_TOOL_CALLS);
     assert!(!result.assistant_content.contains("DSML"));
     assert!(result.assistant_content.contains("工具调用次数"));
 }
@@ -333,7 +345,9 @@ async fn stream_replaces_dsml_budget_final_without_leaking_internal_narration() 
             AgentStreamEvent::Chunk(chunk) => visible_chunks.push_str(&chunk),
             AgentStreamEvent::Done { content, .. } => final_content = content,
             AgentStreamEvent::Error(error) => panic!("unexpected error: {error}"),
-            AgentStreamEvent::ToolStart { .. } | AgentStreamEvent::ToolEnd { .. } => {}
+            AgentStreamEvent::ToolStart { .. }
+            | AgentStreamEvent::ToolEnd { .. }
+            | AgentStreamEvent::Delta(_) => {}
         }
     }
     assert!(!visible_chunks.contains("DSML"));
@@ -367,6 +381,7 @@ impl ProviderAdapter for DashboardAuthoringProvider {
                 arguments,
             }],
             prompt_tokens: 10,
+            cached_prompt_tokens: 0,
             completion_tokens: 5,
             finish_reason: "tool_calls".into(),
         };
@@ -419,6 +434,7 @@ impl ProviderAdapter for DashboardAuthoringProvider {
                 ),
                 tool_calls: Vec::new(),
                 prompt_tokens: 10,
+                cached_prompt_tokens: 0,
                 completion_tokens: 5,
                 finish_reason: "stop".into(),
             }),
@@ -555,6 +571,7 @@ impl ProviderAdapter for PreviewOnlyProvider {
                     arguments: serde_json::json!({"authoringVersion": 1}),
                 }],
                 prompt_tokens: 5,
+                cached_prompt_tokens: 0,
                 completion_tokens: 3,
                 finish_reason: "tool_calls".into(),
             });
@@ -572,6 +589,7 @@ impl ProviderAdapter for PreviewOnlyProvider {
             content: Some("Preview ready; creation is unavailable in this chat.".into()),
             tool_calls: Vec::new(),
             prompt_tokens: 5,
+            cached_prompt_tokens: 0,
             completion_tokens: 3,
             finish_reason: "stop".into(),
         })
@@ -613,4 +631,328 @@ async fn dashboard_chat_degrades_to_preview_when_proposal_tool_is_absent() {
             ToolChoice::Auto
         ]
     );
+}
+
+/// 记下每次请求，按脚本回答：前 `rounds` 次每次请求 `calls_per_round` 个工具调用。
+struct RecordingProvider {
+    rounds: usize,
+    calls_per_round: usize,
+    requests: Mutex<Vec<CompletionRequest>>,
+}
+
+impl RecordingProvider {
+    fn new(rounds: usize, calls_per_round: usize) -> Self {
+        Self {
+            rounds,
+            calls_per_round,
+            requests: Mutex::new(Vec::new()),
+        }
+    }
+}
+
+#[async_trait]
+impl ProviderAdapter for RecordingProvider {
+    fn provider(&self) -> Provider {
+        Provider::OpenAi
+    }
+
+    async fn complete(&self, req: CompletionRequest) -> Result<CompletionResponse> {
+        let round = {
+            let mut requests = self.requests.lock().unwrap();
+            requests.push(req.clone());
+            requests.len()
+        };
+
+        if round <= self.rounds && req.tools.is_some() {
+            return Ok(CompletionResponse {
+                content: None,
+                tool_calls: (0..self.calls_per_round)
+                    .map(|index| RequestedToolCall {
+                        id: format!("tc-{round}-{index}"),
+                        name: "query_logs".into(),
+                        arguments: serde_json::json!({}),
+                    })
+                    .collect(),
+                prompt_tokens: 10,
+                cached_prompt_tokens: 0,
+                completion_tokens: 2,
+                finish_reason: "tool_calls".into(),
+            });
+        }
+
+        Ok(CompletionResponse {
+            content: Some("done".into()),
+            tool_calls: Vec::new(),
+            prompt_tokens: 10,
+            cached_prompt_tokens: 0,
+            completion_tokens: 2,
+            finish_reason: "stop".into(),
+        })
+    }
+}
+
+#[derive(Default)]
+struct CountingDispatcher {
+    calls: Mutex<usize>,
+}
+
+#[async_trait]
+impl ToolDispatcher for CountingDispatcher {
+    async fn dispatch(&self, _ctx: &ToolAuthContext, _call: ToolCall) -> Result<ToolResult> {
+        *self.calls.lock().unwrap() += 1;
+
+        Ok(ToolResult {
+            content: vec![ToolContent::Text { text: "ok".into() }],
+            is_error: false,
+        })
+    }
+}
+
+#[derive(Default)]
+struct RecordingObserver {
+    calls: Mutex<Vec<ModelCall>>,
+}
+
+#[async_trait]
+impl ModelCallObserver for RecordingObserver {
+    async fn observe(&self, call: ModelCall) {
+        self.calls.lock().unwrap().push(call);
+    }
+}
+
+fn tools() -> Option<serde_json::Value> {
+    Some(serde_json::json!([{"type": "function", "function": {"name": "query_logs"}}]))
+}
+
+#[tokio::test]
+async fn the_tool_call_limit_comes_from_the_caller() {
+    let provider = Arc::new(RecordingProvider::new(usize::MAX, 1));
+    let dispatcher = Arc::new(CountingDispatcher::default());
+
+    let result = AgentLoop::new(provider.clone(), dispatcher.clone())
+        .with_limits(LoopLimits {
+            max_tool_calls: 3,
+            ..LoopLimits::default()
+        })
+        .run(&ctx(), "m".into(), vec![user_msg("hi")], tools(), None)
+        .await
+        .unwrap();
+
+    assert_eq!(result.tool_calls_made, 3);
+    assert_eq!(*dispatcher.calls.lock().unwrap(), 3);
+    assert_eq!(result.finish_reason, "tool_budget_exhausted");
+
+    let requests = provider.requests.lock().unwrap();
+    let last = requests.last().unwrap();
+    assert!(last.tools.is_none());
+    assert_eq!(last.tool_choice, ToolChoice::None);
+}
+
+#[tokio::test]
+async fn calls_beyond_the_limit_get_a_result_without_running() {
+    let provider = Arc::new(RecordingProvider::new(1, 3));
+    let dispatcher = Arc::new(CountingDispatcher::default());
+
+    let result = AgentLoop::new(provider.clone(), dispatcher.clone())
+        .with_limits(LoopLimits {
+            max_tool_calls: 2,
+            ..LoopLimits::default()
+        })
+        .run(&ctx(), "m".into(), vec![user_msg("hi")], tools(), None)
+        .await
+        .unwrap();
+
+    assert_eq!(*dispatcher.calls.lock().unwrap(), 2);
+    assert_eq!(result.tool_calls_made, 2);
+
+    // 收尾请求里三个调用都有结果，第三个说明没有执行。
+    let requests = provider.requests.lock().unwrap();
+    let final_request = requests.last().unwrap();
+    let results: Vec<&ChatMessage> = final_request
+        .messages
+        .iter()
+        .filter(|m| m.role == MessageRole::Tool)
+        .collect();
+    assert_eq!(results.len(), 3);
+    assert_eq!(results[2].tool_call_id.as_deref(), Some("tc-1-2"));
+    assert!(
+        results[2].content.contains("Not executed"),
+        "{}",
+        results[2].content
+    );
+}
+
+#[tokio::test]
+async fn a_spent_time_budget_ends_the_answer_without_tools() {
+    let provider = Arc::new(RecordingProvider::new(usize::MAX, 1));
+    let dispatcher = Arc::new(CountingDispatcher::default());
+
+    let result = AgentLoop::new(provider.clone(), dispatcher.clone())
+        .with_limits(LoopLimits {
+            max_duration: Some(Duration::ZERO),
+            ..LoopLimits::default()
+        })
+        .run(&ctx(), "m".into(), vec![user_msg("hi")], tools(), None)
+        .await
+        .unwrap();
+
+    assert_eq!(*dispatcher.calls.lock().unwrap(), 0);
+    assert_eq!(result.finish_reason, "time_budget_exhausted");
+
+    let requests = provider.requests.lock().unwrap();
+    assert_eq!(requests.len(), 1);
+    assert!(
+        requests[0]
+            .messages
+            .iter()
+            .any(|m| m.role == MessageRole::System && m.content.contains("time budget"))
+    );
+}
+
+#[tokio::test]
+async fn temperature_comes_from_the_limits() {
+    for temperature in [Some(0.7), None] {
+        let provider = Arc::new(RecordingProvider::new(0, 0));
+
+        AgentLoop::new(provider.clone(), Arc::new(CountingDispatcher::default()))
+            .with_limits(LoopLimits {
+                temperature,
+                ..LoopLimits::default()
+            })
+            .run(&ctx(), "m".into(), vec![user_msg("hi")], None, None)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            provider.requests.lock().unwrap()[0].temperature,
+            temperature
+        );
+    }
+
+    let provider = Arc::new(RecordingProvider::new(0, 0));
+
+    AgentLoop::new(provider.clone(), Arc::new(CountingDispatcher::default()))
+        .run(&ctx(), "m".into(), vec![user_msg("hi")], None, None)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        provider.requests.lock().unwrap()[0].temperature,
+        Some(DEFAULT_TEMPERATURE)
+    );
+}
+
+#[tokio::test]
+async fn the_observer_sees_every_model_call() {
+    let observer = Arc::new(RecordingObserver::default());
+
+    AgentLoop::new(
+        Arc::new(ScriptedProvider {
+            calls: Mutex::new(0),
+        }),
+        Arc::new(EchoDispatcher),
+    )
+    .with_observer(observer.clone())
+    .run(
+        &ctx(),
+        "gpt-4o".into(),
+        vec![user_msg("how many errors?")],
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    let calls = observer.calls.lock().unwrap();
+    assert_eq!(calls.len(), 2);
+    assert_eq!(
+        (calls[0].prompt_tokens, calls[0].completion_tokens),
+        (50, 30)
+    );
+    assert_eq!(calls[0].tool_calls, 1);
+    assert_eq!(
+        (calls[1].prompt_tokens, calls[1].completion_tokens),
+        (80, 20)
+    );
+    assert!(calls.iter().all(|call| call.succeeded() && !call.streaming));
+    assert!(calls.iter().all(|call| call.model == "gpt-4o"));
+}
+
+#[tokio::test]
+async fn the_observer_sees_streamed_calls_and_their_usage() {
+    use futures::StreamExt;
+
+    let observer = Arc::new(RecordingObserver::default());
+
+    let loop_ = Arc::new(
+        AgentLoop::new(
+            Arc::new(ScriptedProvider {
+                calls: Mutex::new(0),
+            }),
+            Arc::new(EchoDispatcher),
+        )
+        .with_observer(observer.clone()),
+    );
+
+    let mut stream = loop_.run_stream(
+        ctx(),
+        "gpt-4o".into(),
+        vec![user_msg("how many errors?")],
+        None,
+        None,
+    );
+
+    while stream.next().await.is_some() {}
+
+    let calls = observer.calls.lock().unwrap();
+    assert_eq!(calls.len(), 2);
+    assert!(calls.iter().all(|call| call.streaming));
+    assert_eq!(calls.iter().map(ModelCall::total_tokens).sum::<i64>(), 180);
+}
+
+struct FailingProvider;
+
+#[async_trait]
+impl ProviderAdapter for FailingProvider {
+    fn provider(&self) -> Provider {
+        Provider::Anthropic
+    }
+
+    async fn complete(&self, _req: CompletionRequest) -> Result<CompletionResponse> {
+        Err(Error::internal("anthropic status 529 Overloaded"))
+    }
+}
+
+#[tokio::test]
+async fn failed_calls_are_observed_with_their_error() {
+    let observer = Arc::new(RecordingObserver::default());
+
+    let outcome = AgentLoop::new(Arc::new(FailingProvider), Arc::new(EchoDispatcher))
+        .with_observer(observer.clone())
+        .run(&ctx(), "claude".into(), vec![user_msg("hi")], None, None)
+        .await;
+
+    assert!(outcome.is_err());
+
+    let calls = observer.calls.lock().unwrap();
+    assert_eq!(calls.len(), 1);
+    assert!(calls[0].error.as_deref().is_some_and(|e| e.contains("529")));
+    assert_eq!(calls[0].provider, Provider::Anthropic);
+}
+
+/// 调用方丢掉事件流（停止按钮、离开页面）后，循环不再调用模型。
+#[tokio::test]
+async fn a_dropped_stream_stops_before_the_next_model_call() {
+    let provider = Arc::new(RecordingProvider::new(usize::MAX, 1));
+    let dispatcher = Arc::new(CountingDispatcher::default());
+    let loop_ = Arc::new(AgentLoop::new(provider.clone(), dispatcher.clone()));
+
+    let stream = loop_.run_stream(ctx(), "m".into(), vec![user_msg("hi")], tools(), None);
+    drop(stream);
+
+    // 单线程运行时里，后台任务要等这里让出才开始；开始时事件流已经没人收了。
+    tokio::time::sleep(Duration::from_millis(20)).await;
+
+    assert!(provider.requests.lock().unwrap().is_empty());
+    assert_eq!(*dispatcher.calls.lock().unwrap(), 0);
 }

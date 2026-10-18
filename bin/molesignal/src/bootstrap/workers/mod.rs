@@ -7,6 +7,10 @@
 //! 配置 reload 钩子等），而 app crate 受架构约束不能依赖 infra。
 
 pub mod admission_load_sync;
+pub mod agent_mcp;
+pub mod agent_runs;
+pub mod agent_skills;
+pub mod agent_traces;
 pub mod business_service_health;
 pub mod cluster;
 pub mod log_inspection;

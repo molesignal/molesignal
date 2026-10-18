@@ -13,7 +13,7 @@ use async_trait::async_trait;
 use crate::{
     agent::chat::{
         ChatStream, CompletionRequest, CompletionResponse, Provider, ProviderAdapter,
-        providers::openai::OpenAiAdapter,
+        providers::{openai::OpenAiAdapter, transport::TransportOptions},
     },
     shared::Result,
 };
@@ -27,6 +27,13 @@ impl OpenAiCompatibleAdapter {
     pub fn new(base_url: impl Into<String>, api_key: impl Into<String>) -> Self {
         Self {
             inner: OpenAiAdapter::new(base_url, api_key),
+        }
+    }
+
+    /// 换用模型服务自己的超时与重试设置。
+    pub fn with_transport(self, transport: TransportOptions) -> Self {
+        Self {
+            inner: self.inner.with_transport(transport),
         }
     }
 }

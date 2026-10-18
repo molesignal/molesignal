@@ -4,7 +4,9 @@
 //! Mole Agent 工具控制面领域模型。
 //!
 //! 内置工具定义仍由 [`crate::agent::tools`] 编译期注册；本模块只保存
-//! 组织级启用状态、执行策略，以及经管理员显式导入的 MCP Server / tool 元数据。
+//! 组织级启用状态、执行策略，以及显式导入的 MCP Server / tool / prompt 元数据。MCP 服务器
+//! 有组织、团队、个人三级作用域（[`Scope`]）；敏感请求头与凭据由 repository 加密保存，
+//! 成员凭据按人保存、彼此隔离。
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -12,7 +14,11 @@ use serde_json::Value;
 pub use tool_runtime::ToolExecutionMode;
 
 use crate::{
-    agent::model::RiskLevel,
+    agent::{
+        mcp::{McpPrompt, NamedValue, NamedValueInput},
+        model::RiskLevel,
+        scope::Scope,
+    },
     shared::{Result, ids::Id, time::TimestampMicros},
 };
 
@@ -74,19 +80,41 @@ impl ToolPolicyDefaults {
     }
 }
 
+/// 成员凭据：每个人填自己的值，调用时放进这个请求头。`auth_type` 为 `member_secret` 时有。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MemberCredentialSpec {
+    /// 小写的请求头名，例如 `authorization`、`x-api-key`。
+    pub header: String,
+    /// 值前面加 `Bearer `。
+    #[serde(default)]
+    pub bearer: bool,
+    /// 告诉成员去哪里拿凭据、要哪些权限。
+    #[serde(default)]
+    pub instructions: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpServer {
     pub id: Id,
     pub org_id: Id,
+    pub scope: Scope,
+    /// 工具名与 prompt 命令的前缀，组织内唯一，改名时不变。
+    pub handle: String,
     pub name: String,
     pub transport: String,
     pub endpoint_url: Option<String>,
+    /// stdio 服务器的命令行，由服务端按实例允许的命令起。
     pub command_template: Option<String>,
     pub auth_type: String,
     pub auth_header: Option<String>,
     /// 仅用于掩码展示；永远不包含完整凭据。
     pub credential_last4: Option<String>,
     pub credential_set: bool,
+    pub member_credential: Option<MemberCredentialSpec>,
+    /// 请求头；敏感的只有末四位。
+    pub headers: Vec<NamedValue>,
+    /// stdio 服务器的环境变量；敏感的只有末四位。
+    pub env: Vec<NamedValue>,
     pub private_only: bool,
     pub allowed_domains: Vec<String>,
     pub allowed_cidrs: Vec<String>,
@@ -108,12 +136,18 @@ pub struct McpServer {
 pub struct McpServerInput {
     pub id: Id,
     pub org_id: Id,
+    pub scope: Scope,
+    pub handle: String,
     pub name: String,
     pub transport: String,
     pub endpoint_url: Option<String>,
     pub command_template: Option<String>,
     pub auth_type: String,
     pub auth_header: Option<String>,
+    pub member_credential: Option<MemberCredentialSpec>,
+    /// 敏感值为 `None` 时保留原来的值。
+    pub headers: Vec<NamedValueInput>,
+    pub env: Vec<NamedValueInput>,
     pub private_only: bool,
     pub allowed_domains: Vec<String>,
     pub allowed_cidrs: Vec<String>,
@@ -129,6 +163,21 @@ pub struct McpServerInput {
 pub struct McpServerRuntime {
     pub server: McpServer,
     pub credential: Option<String>,
+    /// 请求头的明文，敏感的已解密；还没填值的不在里面。
+    pub headers: Vec<(String, String)>,
+    /// stdio 服务器的环境变量的明文，敏感的已解密；还没填值的不在里面。
+    pub env: Vec<(String, String)>,
+    /// 这次调用的发起人自己的凭据。
+    pub member_credential: Option<String>,
+}
+
+/// 一个成员给一台服务器存的凭据，只有末四位。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MemberCredential {
+    pub server_id: Id,
+    pub user_id: Id,
+    pub last4: String,
+    pub updated_at: TimestampMicros,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -176,7 +225,13 @@ pub trait ToolControlRepository: Send + Sync {
 
     async fn list_mcp_servers(&self, org_id: &Id) -> Result<Vec<McpServer>>;
     async fn get_mcp_server(&self, org_id: &Id, id: &Id) -> Result<McpServer>;
-    async fn get_mcp_server_runtime(&self, org_id: &Id, id: &Id) -> Result<McpServerRuntime>;
+    /// 连接用的明文；`member` 是这次调用的发起人，带上他自己的凭据。
+    async fn get_mcp_server_runtime(
+        &self,
+        org_id: &Id,
+        id: &Id,
+        member: Option<&Id>,
+    ) -> Result<McpServerRuntime>;
     async fn create_mcp_server(
         &self,
         input: McpServerInput,
@@ -196,7 +251,43 @@ pub trait ToolControlRepository: Send + Sync {
         tested_at: Option<TimestampMicros>,
         synced_at: Option<TimestampMicros>,
     ) -> Result<McpServer>;
+    async fn set_mcp_server_enabled(
+        &self,
+        org_id: &Id,
+        id: &Id,
+        enabled: bool,
+    ) -> Result<McpServer>;
     async fn delete_mcp_server(&self, org_id: &Id, id: &Id) -> Result<()>;
+    /// 所有组织里到了重新同步时间的服务器：启用、同步过、不靠成员凭据，上次检查早于 `before`。
+    async fn mcp_servers_due(&self, before: TimestampMicros, limit: i64) -> Result<Vec<McpServer>>;
+
+    async fn list_member_credentials(
+        &self,
+        org_id: &Id,
+        user_id: &Id,
+    ) -> Result<Vec<MemberCredential>>;
+    async fn put_member_credential(
+        &self,
+        org_id: &Id,
+        server_id: &Id,
+        user_id: &Id,
+        value: &str,
+    ) -> Result<MemberCredential>;
+    async fn delete_member_credential(
+        &self,
+        org_id: &Id,
+        server_id: &Id,
+        user_id: &Id,
+    ) -> Result<bool>;
+
+    async fn list_mcp_prompts(&self, org_id: &Id) -> Result<Vec<McpPrompt>>;
+    /// 换成服务器现在列出的 prompt。
+    async fn replace_mcp_prompts(
+        &self,
+        org_id: &Id,
+        server_id: &Id,
+        prompts: Vec<McpPrompt>,
+    ) -> Result<()>;
 
     async fn list_mcp_tools(&self, org_id: &Id, server_id: Option<&Id>) -> Result<Vec<McpTool>>;
     async fn get_mcp_tool_by_name(&self, org_id: &Id, name: &str) -> Result<Option<McpTool>>;
