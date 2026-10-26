@@ -313,7 +313,7 @@ fn redact_credentials_in_text(text: &str) -> String {
         Regex::new(
             r"(?x)
             (?:ms_|msrum_)[A-Za-z0-9]{16}_[A-Za-z0-9]{32}
-            |(?:msoauth_|msrefresh_|mscode_|msmcp_secret_)[A-Za-z0-9_-]{32,128}
+            |(?:msoauth_|msrefresh_|msmcp_secret_)[A-Za-z0-9_-]{32,128}
             |ms_sp_[A-Fa-f0-9]{16}
             ",
         )

@@ -142,7 +142,7 @@ async fn register(
 
     let scopes =
         super::client::normalize_scope(&request.scope).map_err(OAuthError::invalid_request)?;
-    let client_id = format!("msmcp_client_{}", super::token::random_secret(18));
+    let client_id = format!("ms_cli_{}", super::token::random_secret(18));
     let client_secret = (request.token_endpoint_auth_method != "none")
         .then(|| format!("msmcp_secret_{}", super::token::random_secret(32)));
 

@@ -120,7 +120,7 @@ async fn exchange_authorization_code(
     }
 
     let code = required(request.code, "code")?;
-    validate_credential(&code, "mscode_", "authorization code")?;
+    validate_credential(&code, "", "authorization code")?;
     let redirect_uri = required(request.redirect_uri, "redirect_uri")?;
     let verifier = required(request.code_verifier, "code_verifier")?;
     let resource = required(request.resource, "resource")?;

@@ -205,7 +205,7 @@ async fn authorize(
     }
 
     let now = TimestampMicros::now();
-    let plaintext = format!("mscode_{}", super::token::random_secret(32));
+    let plaintext = super::token::random_secret(32);
     let scope = normalize_scope(&decision.request.scope).map_err(Error::invalid)?;
 
     state
