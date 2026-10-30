@@ -1,0 +1,120 @@
+name: e2e
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'web/**'
+  workflow_dispatch:
+
+# main 上连续推送时只跑最新的一份；推新 commit 自动取消旧 run。
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 全套 Playwright（不含 @perf），本地要 35～55 分钟，所以放到这里分片跑。
+  # 不需要真实后端：webServer 由 Playwright 起 pnpm dev，mock 后端在
+  # web/playwright/fixtures/mockBackend.ts。
+  shard:
+    name: shard ${{ matrix.shard }}/${{ strategy.job-total }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm -C web install --frozen-lockfile
+
+      - name: cache chromium
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ hashFiles('web/pnpm-lock.yaml') }}
+
+      # 系统库和字体（含 CJK，i18n 用例要量中文宽度）每次都要装；浏览器已在缓存里时不会再下载。
+      - name: install chromium
+        run: pnpm -C web exec playwright install --with-deps chromium
+
+      # 视觉基线只有 *-chromium-darwin.png，现有的三个视觉 spec 在 linux 上自己 skip；
+      # --ignore-snapshots 防的是以后新加的截图断言：基线缺失会直接判失败。
+      # --global-timeout 比 job 的超时短：到点后还能写出 blob 报告，这一片的结果不会丢。
+      - name: playwright
+        run: pnpm -C web playwright --ignore-snapshots --shard=${{ matrix.shard }}/${{ strategy.job-total }} --global-timeout=3000000
+
+      - name: upload blob report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: web/blob-report
+          retention-days: 7
+
+  # 合并各片结果：失败和 flaky 的清单写进 job summary；flaky 不让 run 变红，也要有报告可看。
+  report:
+    needs: shard
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm -C web install --frozen-lockfile
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: blob-report-*
+          path: web/blob-reports
+          merge-multiple: true
+
+      - name: merge reports
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: results.json
+        run: pnpm -C web exec playwright merge-reports --reporter=html,json blob-reports
+
+      - name: summarize
+        id: summary
+        run: |
+          jq -r '
+            def listed($status; $heading):
+              [.. | .specs? // empty | .[] | select(any(.tests[]; .status == $status)) | "- `\(.file):\(.line)` \(.title)"]
+              | if length > 0 then "\n#### \($heading) (\(length))\n", .[] else empty end;
+            "**\(.stats.expected) passed, \(.stats.unexpected) failed, \(.stats.flaky) flaky, \(.stats.skipped) skipped**",
+            listed("unexpected"; "Failed"),
+            listed("flaky"; "Flaky"),
+            (.errors[]? | "\n```\n\(.message)\n```")
+          ' web/results.json >> "$GITHUB_STEP_SUMMARY"
+          echo "flaky=$(jq '.stats.flaky' web/results.json)" >> "$GITHUB_OUTPUT"
+
+      - name: upload results
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-results
+          path: web/results.json
+          retention-days: 14
+
+      - name: upload html report
+        if: ${{ needs.shard.result == 'failure' || steps.summary.outputs.flaky != '0' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-report
+          path: web/playwright-report
+          retention-days: 14
