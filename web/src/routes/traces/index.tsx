@@ -608,8 +608,8 @@ export function Traces() {
     onClearFilters: clearRecoveryFilters,
     onWidenRange: widenRecoveryRange,
     docsHref: `https://docs.molesignal.com/${
-      (i18n.resolvedLanguage ?? i18n.language).toLowerCase().startsWith('zh') ? 'zh' : 'en'
-    }/query/traces`,
+      (i18n.resolvedLanguage ?? i18n.language).toLowerCase().startsWith('zh') ? 'zh-Hans' : 'en-US'
+    }/traces`,
   };
 
   return (

@@ -868,8 +868,8 @@ export function Logs() {
     setTimeWindow(widenTimeWindow(timeWindow));
   }, [setTimeWindow, timeWindow]);
   const queryDocsHref = `https://docs.molesignal.com/${
-    (i18n.resolvedLanguage ?? i18n.language).toLowerCase().startsWith('zh') ? 'zh' : 'en'
-  }/query/logs`;
+    (i18n.resolvedLanguage ?? i18n.language).toLowerCase().startsWith('zh') ? 'zh-Hans' : 'en-US'
+  }/logs`;
 
   React.useEffect(() => {
     if (previousTimeWindowRef.current === timeWindow) return;
