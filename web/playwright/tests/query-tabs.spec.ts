@@ -291,15 +291,12 @@ test.describe('Query tabs', () => {
     await expect(tabs(page).nth(1)).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('every explorer lists its tabs as blocks in its query box, folded or open', async ({ page }) => {
-    // What the bar stands under: the top bar, or the module's tabs on RUM. It is 12px off either.
-    const explorers = [
-      { path: '/logs', above: page.getByRole('banner') },
-      { path: '/traces', above: page.getByRole('banner') },
-      { path: '/metrics', above: page.getByRole('banner') },
-      { path: '/rum/explorer', above: page.locator('[data-rum-navigation="surface"]') },
-    ];
-    for (const { path, above } of explorers) {
+  for (const path of ['/logs', '/traces', '/metrics', '/rum/explorer']) {
+    test(`${path} lists its tabs as blocks in its query box, folded or open`, async ({ page }) => {
+      // The query bar is 12px below the top bar or RUM's module navigation.
+      const above = path === '/rum/explorer'
+        ? page.locator('[data-rum-navigation="surface"]')
+        : page.getByRole('banner');
       await page.goto(path);
       const workbench = front(page).locator('[data-query-workbench-appearance="surface"]');
       const folded = workbench.locator('[data-query-editor-state="collapsed"]');
@@ -327,8 +324,8 @@ test.describe('Query tabs', () => {
       await expect(workbench.locator('[data-query-editor-tabs] [data-query-tab-strip]')).toBeVisible();
       await expect(tabs(page)).toHaveCount(2);
       await expect(page.getByRole('tablist', { name: 'Open queries' })).toHaveCount(1);
-    }
-  });
+    });
+  }
 
   test('the tabs keep the focus when another tab comes forward with its own query box', async ({ page }) => {
     await page.goto('/logs');

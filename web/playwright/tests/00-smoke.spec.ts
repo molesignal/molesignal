@@ -13,6 +13,7 @@ test.describe('shell smoke', () => {
 
   test('palette opens on ⌘K and lists static actions', async ({ page }) => {
     await page.goto('/investigate');
+    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
     await page.keyboard.press('Meta+K');
     await expect(page.getByPlaceholder(/search commands/i)).toBeVisible();
     await expect(page.getByText(/Go to APM Services/i)).toBeVisible();
@@ -20,12 +21,14 @@ test.describe('shell smoke', () => {
 
   test('time picker opens on modified shortcut', async ({ page }) => {
     await page.goto('/investigate');
+    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
     await page.keyboard.press('Meta+Alt+E');
     await expect(page.getByText(/Time range/i)).toBeVisible();
   });
 
   test('help overlay opens on modified shortcut', async ({ page }) => {
     await page.goto('/investigate');
+    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
     await page.keyboard.press('Meta+/');
     await expect(page.getByText(/Keyboard shortcuts/i)).toBeVisible();
   });

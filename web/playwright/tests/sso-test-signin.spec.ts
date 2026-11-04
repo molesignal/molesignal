@@ -256,12 +256,8 @@ test.describe('a test sign-in', () => {
     await expect(mapping).toContainText('The provider’s default role');
   });
 
-  test('a new account and an account waiting to be linked are told apart', async ({
-    page,
-    mockServer,
-  }) => {
+  test('a new account is identified before its first sign-in', async ({ page, mockServer }) => {
     await page.goto('/iam/sso');
-
     const created = await testInNewTab(page, mockServer.port, 'new_account', () =>
       testButton(page, /Okta/).click(),
     );
@@ -269,11 +265,10 @@ test.describe('a test sign-in', () => {
       'No account has this email. The first sign-in creates new@example.com',
     );
     await expect(created.getByTestId('sso-test-identity')).toContainText('None');
-    await created.close();
+  });
 
-    await page.bringToFront();
-    await page.context().unroute(`${MOCK_IDP_ORIGIN}/**`);
-
+  test('an account waiting to be linked is identified by its email', async ({ page, mockServer }) => {
+    await page.goto('/iam/sso');
     const linked = await testInNewTab(page, mockServer.port, 'link', () =>
       testButton(page, /Okta/).click(),
     );

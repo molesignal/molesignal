@@ -25,8 +25,13 @@ export function useSyncStateToUrl() {
   // Debounce writes; rapid keyboard navigation otherwise spams history.
   React.useEffect(() => {
     const handle = globalThis.setTimeout(() => {
-      const next = new URLSearchParams(location.search);
-      writeTimeParams(next, window, anchor);
+      // Router rendering may lag behind navigation under startTransition. Merge
+      // into the address that is actually current, never a captured query string.
+      const address = globalThis.location;
+      if (address.pathname !== location.pathname) return;
+      const next = new URLSearchParams(address.search);
+      const time = useTimeStore.getState();
+      writeTimeParams(next, time.window, time.anchor);
       // stack
       if (frames.length === 0) {
         next.delete('stack');
@@ -37,12 +42,12 @@ export function useSyncStateToUrl() {
       if (filters.length === 0) next.delete('filters');
       else next.set('filters', encodeFilters(filters));
       const search = next.size > 0 ? `?${next}` : '';
-      if (search === location.search) return;
+      if (search === address.search) return;
       navigate(
         {
-          pathname: location.pathname,
+          pathname: address.pathname,
           search,
-          hash: location.hash,
+          hash: address.hash,
         },
         { replace: true },
       );
