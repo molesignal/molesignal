@@ -11,6 +11,9 @@ on:
       - 'Cargo.lock'
       - 'rust-toolchain.toml'
       - 'Makefile'
+      - 'web/package.json'
+      - 'web/pnpm-lock.yaml'
+      - 'web/pnpm-workspace.yaml'
       - '.github/workflows/rust.yml'
   pull_request:
     paths:
@@ -22,6 +25,9 @@ on:
       - 'Cargo.lock'
       - 'rust-toolchain.toml'
       - 'Makefile'
+      - 'web/package.json'
+      - 'web/pnpm-lock.yaml'
+      - 'web/pnpm-workspace.yaml'
       - '.github/workflows/rust.yml'
 
 env:
