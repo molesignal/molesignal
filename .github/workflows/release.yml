@@ -11,6 +11,8 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_BUILD_JOBS: "2"
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
   PROBE_IMAGE_NAME: ${{ github.repository_owner }}/probe-agent
@@ -96,7 +98,7 @@ jobs:
     name: quality gate
     needs: [detect-channel, web-assets]
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
 
@@ -129,10 +131,13 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: release-quality
+          shared-key: ci
+
+      - name: install nightly rustfmt
+        run: rustup toolchain install nightly --profile minimal --component rustfmt
 
       - name: fmt-check
-        run: cargo fmt --all -- --check
+        run: cargo +nightly fmt --all -- --check
 
       - name: clippy (-D warnings)
         run: cargo clippy --workspace --all-targets -- -D warnings
