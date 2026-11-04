@@ -517,7 +517,10 @@ mod tests {
             tantivy::IndexSettings::default(),
         )
         .unwrap();
-        let mut writer: tantivy::IndexWriter = index.writer(50_000_000).unwrap();
+        // Keep the segment layout independent of CPU count and worker scheduling so the
+        // one-read assertions exercise a fixed archive within the hot-cache budget.
+        let mut writer: tantivy::IndexWriter =
+            index.writer_with_num_threads(1, 50_000_000).unwrap();
 
         for row in 0..2_000 {
             let mut doc = TantivyDocument::default();
