@@ -73,8 +73,11 @@ describe('QueryIconAction', () => {
         <QueryIconAction icon={RefreshCw} label="Refresh" aria-expanded={false} />
       </TooltipProvider>,
     );
+    // A busy page can return focus well after the closing render.
+    const now = vi.spyOn(performance, 'now').mockReturnValue(performance.now() + 1_000);
     button.focus();
     await Promise.resolve();
+    now.mockRestore();
 
     expect(document.activeElement).toBe(button);
     expect(screen.queryByRole('tooltip')).toBeNull();

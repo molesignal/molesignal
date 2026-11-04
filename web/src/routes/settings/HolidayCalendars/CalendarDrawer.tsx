@@ -8,6 +8,7 @@ import type { DayKind, HolidayCalendar, HolidayDay } from '@/api/holidays';
 import { toApiError } from '@/lib/http';
 import type { ActionAccess } from '@/product/actionAccess';
 import { ChromeButton, IconButton } from '@/shell/chrome';
+import { DateTimePicker } from '@/shell/DateTimePicker';
 import {
   FormDrawer,
   FormField,
@@ -188,10 +189,11 @@ export function CalendarDrawer({
 
           <FormRow>
             <FormField label={t('holidays.fields.date')}>
-              <FormInput
-                type="date"
+              <DateTimePicker
+                dateOnly
+                aria-label={t('holidays.fields.date')}
                 value={adding.date}
-                onChange={(event) => setAdding({ ...adding, date: event.target.value })}
+                onChange={(date) => setAdding({ ...adding, date })}
               />
             </FormField>
             <FormField label={t('holidays.fields.kind')}>

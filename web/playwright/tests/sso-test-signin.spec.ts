@@ -57,6 +57,7 @@ async function testInNewTab(
   release();
 
   await expect(tab).toHaveURL(/\/iam\/sso\/tests\//);
+  await tab.waitForLoadState('load');
   return tab;
 }
 
@@ -177,6 +178,7 @@ test.describe('a test sign-in', () => {
     await testButton(page, /Okta/).click();
 
     await expect(page).toHaveURL(/\/iam\/sso\/tests\//);
+    await page.waitForLoadState('load');
     await expect(page.getByTestId('sso-test-verdict')).toContainText('This provider signs in');
   });
 

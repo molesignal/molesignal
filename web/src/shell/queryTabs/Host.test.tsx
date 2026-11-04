@@ -181,7 +181,7 @@ describe('QueryTabs', () => {
   });
 
   it('gives each tab its own time range and keeps the app on the range of the tab in front', () => {
-    renderExplorer();
+    const { router } = renderExplorer();
     addTab();
 
     fireEvent.click(front().getByRole('button', { name: COPY.setRange }));
@@ -193,10 +193,12 @@ describe('QueryTabs', () => {
     fireEvent.click(tabs()[0]!);
     expect(front().getByTestId('range').textContent).toBe('now-1h..now');
     expect(useTimeStore.getState().window).toEqual(DEFAULT_WINDOW);
+    expect(router.state.location.search).not.toContain('time=');
 
     fireEvent.click(tabs()[1]!);
     expect(front().getByTestId('range').textContent).toBe('now-6h..now');
     expect(useTimeStore.getState().window).toEqual(SIX_HOURS);
+    expect(router.state.location.search).toContain('time=now-6h..now');
   });
 
   it('applies a range set outside the tabs to the one in front only', () => {

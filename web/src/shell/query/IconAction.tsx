@@ -16,13 +16,6 @@ interface QueryIconActionProps
 }
 
 /**
- * How long after a menu or panel the button opened has closed a focus on the
- * button is that menu handing focus back, not someone arriving at the button.
- * The hand-back comes a task later, which a busy page can delay.
- */
-const HANDED_BACK_MS = 250;
-
-/**
  * An action of an explorer that is said by its sign alone: run, refresh,
  * share, columns, the histogram, download. Every one is the same box with the
  * same size of sign, so a row of them reads as one and leaves its room to the
@@ -35,12 +28,10 @@ export const QueryIconAction = React.forwardRef<HTMLButtonElement, QueryIconActi
   ) {
     // A trigger says through the button whether what it opens is open.
     const expanded = button['aria-expanded'] === true || button['aria-expanded'] === 'true';
-    const wasExpandedRef = React.useRef(expanded);
-    const closedAtRef = React.useRef(Number.NEGATIVE_INFINITY);
+    const awaitingReturnFocus = React.useRef(expanded);
 
     React.useLayoutEffect(() => {
-      if (wasExpandedRef.current && !expanded) closedAtRef.current = performance.now();
-      wasExpandedRef.current = expanded;
+      if (expanded) awaitingReturnFocus.current = true;
     }, [expanded]);
 
     return (
@@ -55,7 +46,10 @@ export const QueryIconAction = React.forwardRef<HTMLButtonElement, QueryIconActi
               onFocus?.(event);
               // What the button opened hands focus back as it closes. That is not a question
               // about the button: the focus is held back from the tip, which opens on any other.
-              if (performance.now() - closedAtRef.current < HANDED_BACK_MS) event.preventDefault();
+              if (expanded || awaitingReturnFocus.current) {
+                awaitingReturnFocus.current = false;
+                event.preventDefault();
+              }
             }}
             // The edge every variant is given, so the filled one is the box the gray ones are.
             className={cn('relative border border-transparent', className)}

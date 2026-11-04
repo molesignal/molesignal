@@ -161,6 +161,7 @@ export function ExtendTables() {
               />
             </label>
             <FormSelect
+              ariaLabel={t('extend_tables.filters.all_status')}
               value={statusFilter}
               onChange={(value) => setStatusFilter(value as StatusFilter)}
               className="w-36"
@@ -171,6 +172,7 @@ export function ExtendTables() {
               ]}
             />
             <FormSelect
+              ariaLabel={t('extend_tables.filters.all_usage')}
               value={usageFilter}
               onChange={(value) => setUsageFilter(value as UsageFilter)}
               className="w-40"

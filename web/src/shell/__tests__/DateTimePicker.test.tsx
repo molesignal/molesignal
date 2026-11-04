@@ -16,6 +16,16 @@ describe.sequential('DateTimePicker', () => {
     await i18n.changeLanguage('en-us');
   });
 
+  it('keeps a calendar day without adding a time or changing its timezone', async () => {
+    await i18n.changeLanguage('en-us');
+    const onChange = vi.fn();
+    render(<DateTimePicker dateOnly value="2026-10-01" onChange={onChange} aria-label="Date" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Date' }));
+    expect(document.querySelector('[data-date-time-picker-section="time"]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(onChange).toHaveBeenCalledWith('2026-10-01');
+  });
+
   it('round-trips strict local wall-clock values', () => {
     const parsed = parseLocalDateTime('2026-07-28T15:11:09');
 

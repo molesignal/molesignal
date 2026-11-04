@@ -1725,7 +1725,7 @@ export function registerRoutes(app: Express): void {
         type: 'object',
         properties: {
           streams: { type: 'string' },
-          timeRange: { type: 'string' },
+          time_range: { type: 'string' },
         },
       },
       isDefault: true,

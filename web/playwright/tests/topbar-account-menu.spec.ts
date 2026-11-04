@@ -237,7 +237,7 @@ test.describe('language in the user menu', () => {
     await language.click();
     const options = page.locator("[data-ui='language-menu']").getByRole('menuitemradio');
     // Each language is named in itself, whatever language is on screen.
-    await expect(options).toHaveText(['简体中文', 'English']);
+    await expect(options).toHaveText(['中文（简体）', 'English']);
     await expect(options.nth(1)).toHaveAttribute('aria-checked', 'true');
 
     const saved = page.waitForRequest(
@@ -251,7 +251,7 @@ test.describe('language in the user menu', () => {
     await page.reload();
     await page.getByRole('button', { name: '用户菜单' }).click();
     await expect(page.locator("[data-ui='language-trigger']")).toContainText('语言');
-    await expect(page.locator("[data-ui='language-current']")).toHaveText('简体中文');
+    await expect(page.locator("[data-ui='language-current']")).toHaveText('中文（简体）');
   });
 
   test('what the backend names in the reader\'s language is read again once the language is kept', async ({
@@ -276,7 +276,7 @@ test.describe('language in the user menu', () => {
 
     await page.getByRole('button', { name: 'User menu' }).click();
     await page.locator("[data-ui='language-trigger']").click();
-    await page.getByRole('menuitemradio', { name: '简体中文' }).click();
+    await page.getByRole('menuitemradio', { name: '中文（简体）' }).click();
 
     // After the save, not before it: the backend goes by the language it has kept.
     await expect.poll(() => order).toEqual(['functions read', 'language kept', 'functions read']);
@@ -292,7 +292,7 @@ test.describe('language in the user menu', () => {
     await page.goto('/account/settings/profile');
     await page.getByRole('button', { name: 'User menu' }).click();
     await page.locator("[data-ui='language-trigger']").click();
-    await page.getByRole('menuitemradio', { name: '简体中文' }).click();
+    await page.getByRole('menuitemradio', { name: '中文（简体）' }).click();
 
     await expect(page.getByText('preferences unavailable')).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('lang', 'en-us');

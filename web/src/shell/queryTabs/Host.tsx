@@ -237,6 +237,13 @@ function QueryTabsHost({
       book.replace = true;
     };
 
+    // Tabs can have identical queries and different time ranges. Switching between
+    // them must publish the time too, before the shell reads the old URL back.
+    if (book.seen !== null && !book.seen.startsWith(`${activeId}\n`)) {
+      book.seen = wanted;
+      ask();
+      return;
+    }
     if (shown === activeSearch) {
       book.pending = null;
       book.seen = wanted;

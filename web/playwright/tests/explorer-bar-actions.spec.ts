@@ -109,6 +109,8 @@ test.describe('Explorer bar actions', () => {
     const columns = page.locator('[data-log-columns]');
     await columns.click();
     await expect(page.getByRole('menu')).toBeVisible();
+    // Wait until the opening animation finishes and outside-pointer handling is mounted.
+    await expect(page.getByRole('menu')).toHaveCSS('opacity', '1');
     // Closed by the pointer, away from the button: focus goes back to it, and nothing is said.
     await page.mouse.click(400, 600);
     await expect(page.getByRole('menu')).toHaveCount(0);

@@ -235,18 +235,16 @@ test.describe('RUM retention: what the pages say', () => {
     await mountMockRoutes(page, mockServer.port);
   });
 
-  test('says that the totals are estimates when only a share of the sessions was kept', async ({ page }) => {
-    await answerKept(page, 4_000, 1_000);
-
-    for (const path of ['/rum/overview', '/rum/errors', '/rum/performance', '/rum/frustration', '/rum/analytics']) {
+  for (const path of ['/rum/overview', '/rum/errors', '/rum/performance', '/rum/frustration', '/rum/analytics']) {
+    test(`says that totals are estimates when only a share of sessions was kept on ${path}`, async ({ page }) => {
+      await answerKept(page, 4_000, 1_000);
       await page.goto(path);
 
-      await expect(page.locator('[data-rum-estimate]'), path).toHaveText('Estimated · 25% of sessions kept');
-    }
-
-    await page.locator('[data-rum-estimate]').hover();
-    await expect(page.getByRole('tooltip')).toContainText('Only 25% of the sessions in this range were kept.');
-  });
+      await expect(page.locator('[data-rum-estimate]')).toHaveText('Estimated · 25% of sessions kept');
+      await page.locator('[data-rum-estimate]').hover();
+      await expect(page.getByRole('tooltip')).toContainText('Only 25% of the sessions in this range were kept.');
+    });
+  }
 
   test('says nothing while every session is kept', async ({ page }) => {
     await page.goto('/rum/overview');

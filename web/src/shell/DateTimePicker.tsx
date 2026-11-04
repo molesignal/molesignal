@@ -29,6 +29,7 @@ export interface DateTimePickerProps {
   className?: string;
   placeholder?: string;
   includeSeconds?: boolean;
+  dateOnly?: boolean;
   disabled?: boolean;
   readOnly?: boolean;
   disabledReason?: React.ReactNode;
@@ -52,6 +53,7 @@ export function DateTimePicker({
   className,
   placeholder,
   includeSeconds = false,
+  dateOnly = false,
   disabled = false,
   readOnly = false,
   disabledReason,
@@ -60,20 +62,23 @@ export function DateTimePicker({
   'aria-invalid': ariaInvalid,
 }: DateTimePickerProps) {
   const { t, i18n } = useTranslation('common');
+  const localValue = dateOnly && value ? `${value}T00:00` : value;
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState(() =>
-    initialDraft(value, includeSeconds),
+    initialDraft(localValue, includeSeconds),
   );
-  const parsedValue = parseLocalDateTime(value);
+  const parsedValue = parseLocalDateTime(localValue);
   const interactionDisabled = disabled || readOnly;
   const language = i18n.resolvedLanguage ?? i18n.language;
   const displayValue = parsedValue
-    ? formatDateTimeDisplay(parsedValue, language, includeSeconds)
+    ? dateOnly
+      ? new Intl.DateTimeFormat(toIntlLocale(language), { dateStyle: 'medium' }).format(parsedValue)
+      : formatDateTimeDisplay(parsedValue, language, includeSeconds)
     : value;
 
   const changeOpen = (next: boolean) => {
     if (next && interactionDisabled) return;
-    if (next) setDraft(initialDraft(value, includeSeconds));
+    if (next) setDraft(initialDraft(localValue, includeSeconds));
     setOpen(next);
   };
 
@@ -186,7 +191,7 @@ export function DateTimePicker({
           onSelect={setDatePart}
         />
 
-        <div
+        {!dateOnly && <div
           data-date-time-picker-section="time"
           className="px-3 pb-2 pt-2"
         >
@@ -217,7 +222,7 @@ export function DateTimePicker({
               />
             )}
           </div>
-        </div>
+        </div>}
 
         <div
           data-date-time-picker-section="actions"
@@ -245,7 +250,8 @@ export function DateTimePicker({
               size="sm"
               variant="primary"
               onClick={() => {
-                onChange(formatLocalDateTime(draft, includeSeconds));
+                const next = formatLocalDateTime(draft, includeSeconds);
+                onChange(dateOnly ? next.slice(0, 10) : next);
                 setOpen(false);
               }}
             >

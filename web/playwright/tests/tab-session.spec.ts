@@ -39,6 +39,8 @@ test.describe('sessions across tabs', () => {
     context,
     mockServer,
   }) => {
+    // Multiple full app boots share this test's deadline on the CI runner.
+    test.slow();
     const first = await openTab(context, mockServer.port, { signedIn: true });
     await first.goto('/home');
     await shellVisible(first);
@@ -67,6 +69,8 @@ test.describe('sessions across tabs', () => {
     context,
     mockServer,
   }) => {
+    // Multiple full app boots share this test's deadline on the CI runner.
+    test.slow();
     const first = await openTab(context, mockServer.port, { signedIn: true });
     await first.goto('/home');
     await shellVisible(first);
