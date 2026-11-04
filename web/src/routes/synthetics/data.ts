@@ -8,6 +8,7 @@ import type {
   SyntheticMonitor,
   SyntheticResult,
 } from '@/api/synthetics';
+import type { TimeWindow } from '@/stores/useTimeStore';
 
 import {
   activeRevision,
@@ -16,6 +17,7 @@ import {
   resultDurationMicros,
   successRate,
 } from './model';
+import { windowMicros } from './time';
 
 export interface CheckRow {
   monitor: SyntheticMonitor;
@@ -29,6 +31,23 @@ export interface CheckRow {
 
 /** How often a tab asks again: checks run on their own, so the page follows without being told to. */
 export const SYNTHETICS_REFRESH_MILLIS = 30_000;
+
+/**
+ * How the checks, or one check, did over a range. The range is asked for as it is written, so a
+ * relative one follows the clock each time the query runs again.
+ */
+export function useSyntheticsAvailability(window: TimeWindow, monitorId?: string) {
+  return useQuery({
+    queryKey: ['synthetics', 'availability', window.from, window.to, window.mode, monitorId ?? null],
+    queryFn: () =>
+      syntheticsApi.getAvailability({
+        ...windowMicros(window),
+        ...(monitorId ? { monitorId: monitorId } : {}),
+      }),
+    staleTime: 10_000,
+    refetchInterval: SYNTHETICS_REFRESH_MILLIS,
+  });
+}
 
 export function useSyntheticsWorkspace(options: {
   kinds?: MonitorKind[] | undefined;
@@ -56,6 +75,8 @@ export function useSyntheticsWorkspace(options: {
       queryKey: ['synthetics', 'monitor', monitor.id],
       queryFn: () => syntheticsApi.getMonitor(monitor.id),
       staleTime: 15_000,
+      // Where a check is missing runs comes with it, and changes as runs are missed.
+      refetchInterval: SYNTHETICS_REFRESH_MILLIS,
     })),
   });
   const results = useQueries({
@@ -74,7 +95,8 @@ export function useSyntheticsWorkspace(options: {
     const detail = details[index]?.data;
     const monitorResults = results[index]?.data ?? [];
     const metricResults = operationalResults(monitorResults);
-    const latestResult = metricResults[0];
+    // A skipped run did not happen: the last run and its time are those of the latest that did.
+    const latestResult = metricResults.find((result) => result.outcome !== 'skipped');
     return {
       monitor,
       detail,
@@ -87,7 +109,7 @@ export function useSyntheticsWorkspace(options: {
   });
   const allResults = rows
     .flatMap((row) => row.results)
-    .sort((left, right) => right.started_at - left.started_at);
+    .sort((left, right) => right.startedAt - left.startedAt);
   const allOperationalResults = operationalResults(allResults);
   const error =
     monitorQuery.error ??

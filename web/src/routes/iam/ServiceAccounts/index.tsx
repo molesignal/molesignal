@@ -79,7 +79,7 @@ export function ServiceAccounts() {
             {
               key: 'role',
               header: t('service_accounts.columns.role'),
-              cell: (account) => account.role_name,
+              cell: (account) => account.roleName,
               width: 160,
             },
             {

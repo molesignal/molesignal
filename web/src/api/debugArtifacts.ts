@@ -9,21 +9,21 @@ export type DebugArtifactKind =
 
 export interface DebugArtifactMeta {
   id: string;
-  application_id: string;
+  applicationId: string;
   service: string;
   release: string;
   kind: DebugArtifactKind;
   platform: string;
   architecture: string;
-  debug_id: string;
+  debugId: string;
   filename: string;
-  size_bytes: number;
-  checksum_sha256: string;
-  uploaded_at_micros: number;
+  sizeBytes: number;
+  checksumSha256: string;
+  uploadedAt: number;
 }
 
 export interface ListParams {
-  application_id?: string;
+  applicationId?: string;
   service?: string;
   kind?: DebugArtifactKind;
   platform?: string;
@@ -35,25 +35,25 @@ export async function list(params: ListParams = {}): Promise<DebugArtifactMeta[]
 }
 
 export interface UploadParams {
-  application_id: string;
+  applicationId: string;
   service: string;
   release: string;
   kind: DebugArtifactKind;
   platform: string;
   architecture?: string;
-  debug_id?: string;
+  debugId?: string;
   file: File;
 }
 
 export async function upload(params: UploadParams): Promise<DebugArtifactMeta> {
   const form = new FormData();
-  form.append('application_id', params.application_id);
+  form.append('applicationId', params.applicationId);
   form.append('service', params.service);
   form.append('release', params.release);
   form.append('kind', params.kind);
   form.append('platform', params.platform);
   if (params.architecture) form.append('architecture', params.architecture);
-  if (params.debug_id) form.append('debug_id', params.debug_id);
+  if (params.debugId) form.append('debugId', params.debugId);
   form.append('file', params.file, params.file.name);
   const { data } = await http.post<DebugArtifactMeta>('/debug-artifacts', form);
   return data;

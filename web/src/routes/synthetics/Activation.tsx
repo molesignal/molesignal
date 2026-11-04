@@ -23,7 +23,7 @@ const STARTING_POINTS = [
 export function SyntheticsActivation() {
   const { t } = useTranslation('synthetics');
   const navigate = useNavigate();
-  const createAccess = useActionAccess({ permission: 'synthetics.manage' });
+  const createAccess = useActionAccess({ permission: 'synthetics.monitors.manage' });
 
   return (
     <FirstRun

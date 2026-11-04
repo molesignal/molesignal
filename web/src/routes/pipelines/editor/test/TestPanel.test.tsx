@@ -17,7 +17,11 @@ import { defaultPipelineGraph, type PipelineGraphModel } from '../../PipelineGra
 const access = vi.hoisted(() => ({ disabled: false }));
 
 vi.mock('@/api/functions', () => ({ run: vi.fn() }));
-vi.mock('./recentEvent', () => ({ recentEvent: vi.fn() }));
+vi.mock('./recentEvent', () => ({
+  recentEvent: vi.fn(),
+  recentIncidents: vi.fn(() => Promise.resolve([])),
+  alertEventOf: vi.fn(),
+}));
 vi.mock('@/shell/ui/select', () => import('../../__tests__/nativeSelect'));
 vi.mock('@/product/actionAccess', () => ({
   useActionAccess: () => ({
@@ -64,7 +68,7 @@ const ROUTE = {
   operation: 'route' as const,
   script: '',
   target: 'default',
-  routing: { kind: 'field' as const, field: 'appname', prefix: 'app_', fallback: 'default', retain_source: false },
+  routing: { kind: 'field' as const, field: 'appname', prefix: 'app_', fallback: 'default', retainSource: false },
 };
 
 const MODEL: PipelineGraphModel = {
@@ -91,7 +95,8 @@ function renderPanel(model: PipelineGraphModel = MODEL) {
 const sample = () => screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Sample event' });
 const runButton = () => screen.getByRole('button', { name: 'Run test' });
 const result = () => document.querySelector<HTMLElement>('[data-pipeline-test-result]')!;
-const shown = () => JSON.parse(document.querySelector('[data-pipeline-test-output]')!.textContent ?? '') as unknown;
+const shown = () =>
+  JSON.parse(document.querySelector<HTMLTextAreaElement>('[data-pipeline-test-output] textarea')!.value) as unknown;
 const steps = () =>
   Array.from(document.querySelectorAll('[data-test-step]'), (step) => [
     step.getAttribute('data-test-step'),

@@ -16,6 +16,7 @@
  * appears in a path.
  */
 
+import { DEPLOYMENT_SOURCES } from './deploySources';
 import { MOBILE_RUM_SOURCES } from './mobileRum/sources';
 
 export type Category =
@@ -534,33 +535,11 @@ FORMAT JSONEachRow`,
   },
 
   /* ───────── DevOps ───────── */
-  {
-    id: 'github-actions',
-    category: 'devops',
-    signals: ['logs'],
-    steps: [
-      {
-        code: {
-          lang: 'yaml',
-          content: `- name: Notify MoleSignal
-  uses: peter-evans/repository-dispatch@v3
-  with:
-    event-type: deploy_completed
-    client-payload: '{"service":"\${{ github.repository }}","sha":"\${{ github.sha }}"}'`,
-        },
-      },
-    ],
-  },
+  ...DEPLOYMENT_SOURCES,
   {
     id: 'argocd',
     category: 'devops',
     signals: ['logs', 'metrics'],
-    steps: [{}],
-  },
-  {
-    id: 'jenkins',
-    category: 'devops',
-    signals: ['logs'],
     steps: [{}],
   },
 

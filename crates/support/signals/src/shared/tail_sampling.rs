@@ -30,6 +30,7 @@ use crate::shared::{
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TraceRuntimePolicy {
     pub version: u64,
     #[serde(default = "default_true")]
@@ -112,6 +113,7 @@ impl TraceRuntimePolicy {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SlowThresholds {
     #[serde(default = "default_http_ms")]
     pub http: u64,
@@ -181,6 +183,7 @@ impl SlowThresholds {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SamplingRule {
     pub name: String,
     #[serde(default)]
@@ -369,6 +372,7 @@ pub struct TailSamplerMetrics {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TailSamplerMetricSnapshot {
     pub accepted: u64,
     pub kept: u64,

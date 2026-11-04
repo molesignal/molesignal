@@ -6,7 +6,7 @@
     "progress": "已完成 {{completed}}/{{total}}",
     "progress_short": "{{completed}}/{{total}}",
     "ready": "核心工作流已激活",
-    "empty": "完成前三步即可让该组织进入可运营状态。",
+    "empty": "接入数据，再创建仪表盘和告警，该组织即可进入可运营状态。",
     "remaining_single": "还有 1 个设置步骤",
     "remaining_multiple": "还有 {{count}} 个设置步骤",
     "next": "下一步",
@@ -25,13 +25,25 @@
         "title": "创建告警",
         "description": "定义第一个服务或平台信号。"
       },
+      "schedule": {
+        "title": "配置值班排班",
+        "description": "安排谁在什么时候接手告警。"
+      },
+      "notification": {
+        "title": "配置通知渠道",
+        "description": "添加连接器，通过 IM、邮件、短信或电话通知到人。"
+      },
+      "ai": {
+        "title": "接入 AI 模型",
+        "description": "添加模型服务，让 Mole Agent 协助排查问题。"
+      },
       "pipeline": {
         "title": "自动化流水线",
         "description": "调度数据移动或回填工作流。"
       },
       "sample_data": {
         "title": "加载示例数据",
-        "description": "使用 HTTP JSON 指南加载一条小型预览流。"
+        "description": "用一小批相互关联的日志、指标和链路体验产品。"
       }
     },
     "load": "加载",
@@ -126,7 +138,8 @@
       "stored_bytes": "压缩后数据量",
       "compression_pending": "等待原始摄入计量",
       "compression_saved": "较原始体积减少 {{percent}}%",
-      "compression_overhead": "小批量存储开销 +{{percent}}%"
+      "compression_overhead": "小批量存储开销 +{{percent}}%",
+      "unavailable": "暂时无法获取"
     },
     "health": {
       "title": "系统健康概览",
@@ -203,7 +216,8 @@
       "pending_summary_one": "{{count}} 个事件需要确认",
       "pending_summary_other": "{{count}} 个事件需要确认",
       "open_incidents": "打开事件",
-      "view_schedule": "查看排班"
+      "view_schedule": "查看排班",
+      "unavailable_title": "无法加载值班信息"
     },
     "dashboards": {
       "title": "最近仪表盘",
@@ -223,7 +237,7 @@
     "rum_client_token": "RUM Client Token",
     "copy_token": "复制 Token",
     "token_loading": "加载中…",
-    "token_description": "默认接入 token - 粘贴到上面的 Authorization: Bearer 头里即可。可在 API Token 页管理或新建。",
+    "token_description": "默认接入 token - 粘贴到上面的 Authorization: Bearer 头里即可。可在个人设置的 API tokens 里管理或新建。",
     "validation": "验证",
     "test_event": "发送测试事件",
     "test_event_sending": "发送中…",
@@ -282,18 +296,19 @@
     "manage_tokens": "管理 Token",
     "show_token": "显示 Token",
     "hide_token": "隐藏 Token",
-    "token_permission": "角色",
+    "token_permission": "权限范围",
     "token_workspace": "工作区",
     "token_expiry": "有效期",
     "token_never_expires": "永久",
-    "token_load_failed": "无法加载接入 Token，请确认拥有 API Token 管理权限。",
-    "rum_application_id": "RUM 应用 ID",
-    "rum_application_hint": "稳定标识一个移动端应用；同一应用的事件、Token 和调试产物必须使用相同值。",
-    "rum_application_invalid": "仅支持 1–128 位字母、数字、点、下划线、冒号或连字符。",
-    "rum_application_required": "先填写有效的 RUM 应用 ID，系统才会签发该应用专属 Token。",
-    "rum_application_confirm": "使用此应用",
-    "rum_application_confirmed": "应用已确认",
-    "rum_application_confirm_hint": "确认后才会签发或复用该应用专属的 RUM Client Token。",
+    "token_load_failed": "无法加载接入 Token，接入 Token 需要写入数据的权限。",
+    "rum_application_id": "RUM 应用",
+    "rum_application_hint": "下方的 RUM Client Token 绑定这个应用；发给其他应用的事件会被拒收。",
+    "rum_application_required": "请先选择 RUM 应用，选择后才会显示它的 Client Token。",
+    "rum_application_placeholder": "选择应用",
+    "rum_application_loading": "正在加载应用…",
+    "rum_application_none": "还没有 RUM 应用。",
+    "rum_application_create": "创建应用",
+    "rum_application_load_failed": "无法加载应用列表。",
     "validation_overview_unavailable": "暂时无法读取接收概览。",
     "validation_endpoint_failed": "接收端健康检查失败。",
     "validating": "检测中…",
@@ -326,7 +341,7 @@
     "validation_volume": "{{rate}} · {{rows}} 行 · {{bytes}}",
     "possible_causes": "可能原因",
     "cause_collector": "采集器尚未启动，或当前配置没有产生遥测数据。",
-    "cause_token": "Token 无效、已过期，或写入角色与当前配置不匹配。",
+    "cause_token": "Token 无效、已过期，或权限范围不包含写入数据。",
     "cause_network": "采集器无法访问接入端点，或代理 / 防火墙阻断请求。",
     "view_received_data": "查看已接收数据",
     "create_pipeline": "创建流水线",

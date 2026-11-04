@@ -17,7 +17,11 @@ use crate::shared::{Error, Result};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct GeoLocation {
+    /// ISO 3166-1 alpha-2 code.
     pub country: Option<String>,
+    pub country_name: Option<String>,
+    pub continent_code: Option<String>,
+    pub continent: Option<String>,
     pub region: Option<String>,
     pub city: Option<String>,
     pub latitude: Option<f64>,
@@ -81,6 +85,9 @@ impl GeoLookup for GeoIp {
 
         Some(GeoLocation {
             country: city.country.iso_code.map(String::from),
+            country_name: city.country.names.english.map(String::from),
+            continent_code: city.continent.code.map(String::from),
+            continent: city.continent.names.english.map(String::from),
             region: city
                 .subdivisions
                 .first()

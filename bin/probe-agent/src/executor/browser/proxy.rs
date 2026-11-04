@@ -21,6 +21,7 @@ use super::super::security::EgressGuard;
 const MAX_HEADER_BYTES: usize = 64 * 1024;
 const MAX_CONNECTIONS: usize = 64;
 const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(10);
+const REQUEST_HEAD_READ_TURN: Duration = Duration::from_secs(2);
 
 pub(super) struct EgressProxy {
     address: SocketAddr,
@@ -121,8 +122,14 @@ fn handle_connection(
     denied: &Mutex<Option<String>>,
     deadline: Instant,
 ) -> Result<()> {
-    configure_stream(&client, deadline)?;
+    // On BSD and macOS an accepted socket inherits O_NONBLOCK from the listener; `tunnel` would
+    // read WouldBlock at once and close the connection before the answer comes.
+    client.set_nonblocking(false)?;
     let (request, header_end) = read_request_head(&mut client, deadline)?;
+
+    // After the head, which is read in short turns: a browser sends nothing while it waits for an
+    // answer, and `tunnel` takes a read that times out for a connection that is done.
+    configure_stream(&client, deadline)?;
     let header =
         str::from_utf8(&request[..header_end]).context("Browser proxy request is not UTF-8")?;
 
@@ -226,7 +233,7 @@ fn read_request_head(stream: &mut TcpStream, deadline: Instant) -> Result<(Vec<u
             bail!("Browser proxy request headers exceed 64 KiB");
         }
 
-        stream.set_read_timeout(Some(remaining(deadline)?.min(Duration::from_secs(2))))?;
+        stream.set_read_timeout(Some(remaining(deadline)?.min(REQUEST_HEAD_READ_TURN)))?;
 
         match stream.read(&mut chunk) {
             Ok(0) => bail!("Browser proxy connection closed before request headers"),
@@ -353,9 +360,21 @@ fn record_denied(denied: &Mutex<Option<String>>, message: String) {
 
 #[cfg(test)]
 mod tests {
+    use std::{
+        io::{Read as _, Write as _},
+        net::{TcpListener, TcpStream},
+        sync::Arc,
+        thread,
+        time::{Duration, Instant},
+    };
+
     use url::Url;
 
-    use super::{parse_authority, rewrite_http_request};
+    use super::{
+        super::super::security::EgressGuard, EgressProxy, REQUEST_HEAD_READ_TURN, parse_authority,
+        rewrite_http_request,
+    };
+    use crate::protocol::v1 as wire;
 
     #[test]
     fn parses_connect_authorities() {
@@ -384,5 +403,45 @@ mod tests {
         assert!(request.contains("Host: example.test\r\n"));
         assert!(request.contains("Connection: close\r\n"));
         assert!(!request.contains("Proxy-Connection"));
+    }
+
+    #[test]
+    fn brings_back_an_answer_while_the_browser_has_nothing_more_to_send() {
+        let upstream = TcpListener::bind(("127.0.0.1", 0)).expect("upstream");
+        let port = upstream.local_addr().expect("address").port();
+
+        let server = thread::spawn(move || {
+            let (mut stream, _) = upstream.accept().expect("a request");
+            let mut head = [0_u8; 1024];
+            let _ = stream.read(&mut head).expect("request head");
+
+            // A slow page: longer than a turn of reading the head, and the browser sends nothing
+            // in the meantime.
+            thread::sleep(REQUEST_HEAD_READ_TURN + Duration::from_millis(200));
+            stream
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok")
+                .expect("answer");
+        });
+
+        let guard = EgressGuard::new(Some(wire::EgressPolicy {
+            allow_loopback: true,
+            ..Default::default()
+        }))
+        .expect("guard");
+
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let proxy = EgressProxy::start(guard, Arc::default(), deadline).expect("proxy");
+        let mut browser = TcpStream::connect(proxy.address).expect("connect");
+
+        write!(
+            browser,
+            "GET http://127.0.0.1:{port}/ HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n"
+        )
+        .expect("request");
+
+        let mut answer = String::new();
+        browser.read_to_string(&mut answer).expect("answer");
+        server.join().expect("upstream");
+        assert!(answer.ends_with("\r\n\r\nok"), "{answer:?}");
     }
 }

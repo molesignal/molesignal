@@ -5,10 +5,8 @@ import {
   Check,
   CircleDot,
   Clock3,
-  FlaskConical,
   Pencil,
   Play,
-  Plus,
   ShieldCheck,
   X,
 } from 'lucide-react';
@@ -20,6 +18,7 @@ import * as agentApi from '@/api/agent';
 import { formatMicrosActive } from '@/lib/time';
 import { useActionAccess } from '@/product/actionAccess';
 import { ProductState } from '@/product/states';
+import { uiSectionTitleClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { PageTitleRow } from '@/shell/PageTitleRow';
 import { Badge } from '@/shell/ui/badge';
@@ -35,16 +34,8 @@ import {
 } from '@/shell/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shell/ui/tabs';
 
-import {
-  AutomationEditorDrawer,
-  InvestigationEditorDrawer,
-  type AutomationEditorTarget,
-  type InvestigationEditorTarget,
-} from './Editors';
-import { localizeToolMetadataList } from '../toolMetadata';
+import { InvestigationEditorDrawer, type InvestigationEditorTarget } from './Editors';
 import { OneTimeApiTokenDialog } from './OneTimeApiTokenDialog';
-
-const EMPTY_TOOLS: agentApi.RegisteredTool[] = [];
 
 export function InvestigationDetailPage() {
   const { t } = useTranslation('agent');
@@ -84,8 +75,8 @@ export function InvestigationDetailPage() {
             {t('investigation_detail.confidence')}: {t(`confidence.${investigation.confidence}`)}
           </Badge>
         )}
-        {investigation.current_step && <Badge variant="secondary">{investigation.current_step}</Badge>}
-        <span>{formatMicrosActive(investigation.updated_at)}</span>
+        {investigation.currentStep && <Badge variant="secondary">{investigation.currentStep}</Badge>}
+        <span>{formatMicrosActive(investigation.updatedAt)}</span>
       </div>
       <Tabs defaultValue="overview" className="min-h-0">
         <TabsList className="max-w-full justify-start overflow-x-auto">
@@ -168,11 +159,11 @@ function StepList({ steps, verbose = false }: { steps: agentApi.InvestigationSte
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-strong text-tx-1">{step.title}</span>
-              {step.tool_name && <Badge variant="outline" className="font-mono">{step.tool_name}</Badge>}
+              {step.toolName && <Badge variant="outline" className="font-mono">{step.toolName}</Badge>}
             </div>
-            {verbose && (step.output_summary || step.conclusion_impact || step.error) && (
+            {verbose && (step.outputSummary || step.conclusionImpact || step.error) && (
               <p className={cn('mt-1 text-xs text-tx-3', step.error && 'text-red-soft')}>
-                {step.error ?? step.output_summary ?? step.conclusion_impact}
+                {step.error ?? step.outputSummary ?? step.conclusionImpact}
               </p>
             )}
           </div>
@@ -204,7 +195,7 @@ function EvidenceList({
   return (
     <div className="grid gap-3 lg:grid-cols-2">
       {evidence.map((item) => (
-        <SectionCard key={item.id} title={item.label} badge={<StateBadge value={item.fact_status} />}>
+        <SectionCard key={item.id} title={item.label} badge={<StateBadge value={item.factStatus} />}>
           <p className="text-sm leading-6 text-tx-1">{item.summary}</p>
           {item.query && (
             <pre className="mt-3 max-h-48 overflow-auto rounded-md border border-bd-0 bg-bg-2 p-3 font-mono text-xs text-tx-1">
@@ -218,119 +209,6 @@ function EvidenceList({
   );
 }
 
-export function AutomationsPage() {
-  const { t } = useTranslation('agent');
-  const manageAccess = useActionAccess({
-    permission: 'agent.manage',
-  });
-  const [editor, setEditor] = React.useState<AutomationEditorTarget>(null);
-  const automations = useQuery({
-    queryKey: ['agent', 'automations'],
-    queryFn: agentApi.listAutomations,
-    retry: false,
-  });
-  const tools = useQuery({
-    queryKey: ['agent', 'tools'],
-    queryFn: agentApi.listTools,
-    retry: false,
-  });
-  const toolRows = React.useMemo(
-    () => localizeToolMetadataList(tools.data?.tools ?? EMPTY_TOOLS, t),
-    [t, tools.data?.tools],
-  );
-  const toolLabels = React.useMemo(
-    () => new Map(toolRows.map((tool) => [tool.name, tool.display_name])),
-    [toolRows],
-  );
-  const dryRun = useMutation({
-    mutationFn: (id: string) => agentApi.dryRunAutomation(id, { type: 'manual.preview' }),
-    onSuccess: () => toast.success(t('automations.dry_run_success')),
-    onError: (error) => toast.error(String(error)),
-  });
-  return (
-    <ModulePage
-      title={t('automations.title')}
-      description={t('automations.description')}
-      empty={automations.isSuccess && automations.data.length === 0}
-      action={
-        <Button
-          size="sm"
-          disabled={manageAccess.disabled}
-          disabledReason={manageAccess.reason}
-          onClick={() => setEditor('new')}
-        >
-          <Plus />{t('automations.create')}
-        </Button>
-      }
-    >
-      {automations.isLoading ? (
-        <ProductState variant="loading" />
-      ) : automations.isError ? (
-        <ProductState variant="error" error={automations.error} />
-      ) : automations.data?.length ? (
-        <div className="grid gap-3 xl:grid-cols-2">
-          {automations.data.map((automation) => (
-            <SectionCard
-              key={automation.id}
-              title={automation.name}
-              badge={<StateBadge value={automation.enabled ? 'enabled' : 'disabled'} />}
-            >
-              <p className="text-sm text-tx-2">{automation.description}</p>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {automation.allowed_tools.map((tool) => (
-                  <Badge key={tool} variant="outline">{toolLabels.get(tool) ?? tool}</Badge>
-                ))}
-              </div>
-              <div className="mt-4 flex items-center justify-between border-t border-bd-0 pt-3">
-                <span className="text-xs text-tx-3">{String(automation.trigger.type ?? t('automations.manual'))}</span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={manageAccess.disabled}
-                    disabledReason={manageAccess.reason}
-                    onClick={() => setEditor(automation)}
-                  >
-                    <Pencil /> {t('common.edit')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={dryRun.isPending}
-                    onClick={() => dryRun.mutate(automation.id)}
-                  >
-                    <FlaskConical /> {t('automations.dry_run')}
-                  </Button>
-                </div>
-              </div>
-            </SectionCard>
-          ))}
-        </div>
-      ) : (
-        <EmptyTab
-          title={t('automations.empty_title')}
-          purpose={t('automations.description')}
-          hint={t('automations.empty_description')}
-          action={
-            <Button
-              disabled={manageAccess.disabled}
-              disabledReason={manageAccess.reason}
-              onClick={() => setEditor('new')}
-            >
-              {t('automations.create')}
-            </Button>
-          }
-        />
-      )}
-      <AutomationEditorDrawer
-        target={editor}
-        tools={toolRows}
-        onClose={() => setEditor(null)}
-      />
-    </ModulePage>
-  );
-}
-
 export function ApprovalsPage() {
   const { t } = useTranslation('agent');
   const queryClient = useQueryClient();
@@ -338,7 +216,7 @@ export function ApprovalsPage() {
     permission: 'agent.approve',
   });
   const executeAccess = useActionAccess({
-    permission: 'agent.use',
+    permission: 'agent.approvals.request',
   });
   const [oneTimeApiToken, setOneTimeApiToken] = React.useState<string | null>(
     null,
@@ -363,7 +241,7 @@ export function ApprovalsPage() {
       return agentApi.reviewApproval(id, approve, '');
     },
     onSuccess: async (result) => {
-      const token = result.execution?.one_time_result?.api_token?.token;
+      const token = result.execution?.oneTimeResult?.apiToken?.token;
       if (token) setOneTimeApiToken(token);
       await refresh();
       if (result.execution) toast.success(t('approvals.execution_started'));
@@ -378,7 +256,7 @@ export function ApprovalsPage() {
       return agentApi.executeApproval(id, `mole-${id}-${Date.now()}`);
     },
     onSuccess: async (execution) => {
-      const token = execution.one_time_result?.api_token?.token;
+      const token = execution.oneTimeResult?.apiToken?.token;
       if (token) setOneTimeApiToken(token);
       await refresh();
       toast.success(t('approvals.execution_started'));
@@ -518,7 +396,7 @@ export function ExecutionsPage() {
                 <TableRow key={execution.id}>
                   <TableCell>
                     <div className="font-strong text-tx-0">{execution.action}</div>
-                    <div className="mt-0.5 font-mono text-xs text-tx-3">{execution.idempotency_key}</div>
+                    <div className="mt-0.5 font-mono text-xs text-tx-3">{execution.idempotencyKey}</div>
                   </TableCell>
                   <TableCell>{execution.target}</TableCell>
                   <TableCell><StateBadge value={execution.status} /></TableCell>
@@ -526,7 +404,7 @@ export function ExecutionsPage() {
                     <StateBadge value={execution.verification.verified === true ? 'verified' : 'unverified'} />
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-xs text-tx-3">
-                    {formatMicrosActive(execution.finished_at ?? execution.created_at)}
+                    {formatMicrosActive(execution.finishedAt ?? execution.createdAt)}
                   </TableCell>
                 </TableRow>
               ))}
@@ -664,7 +542,7 @@ function SectionCard({
   return (
     <section className="rounded-lg border border-bd-0 bg-bg-1">
       <div className="flex min-h-10 items-center gap-2 border-b border-bd-0 px-4 py-2">
-        <h2 className="font-sans text-sm font-display-strong text-tx-0">{title}</h2>
+        <h2 className={uiSectionTitleClass}>{title}</h2>
         {badge && <div className="ml-auto">{badge}</div>}
       </div>
       <div className="p-4">{children}</div>

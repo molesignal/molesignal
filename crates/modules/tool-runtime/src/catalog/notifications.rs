@@ -3,7 +3,7 @@
 
 use serde_json::json;
 
-use super::{BuiltinToolKind, object_schema, open_output};
+use super::{BuiltinToolKind, object_schema, open_output, timestamp_schema};
 use crate::{RiskLevel, ToolSpec};
 
 pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
@@ -17,7 +17,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::GetNotificationConnector => (
             "Get notification connector metadata with credentials omitted.",
             "connectors",
-            id_input("connector_id"),
+            id_input("connectorId"),
             vec!["Notify", "Connectors"],
         ),
         BuiltinToolKind::ListNotificationPolicies => (
@@ -29,7 +29,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::GetNotificationPolicy => (
             "Get one notification routing policy.",
             "policies",
-            id_input("policy_id"),
+            id_input("policyId"),
             vec!["Notify", "Policies"],
         ),
         BuiltinToolKind::ListNotificationTemplates => (
@@ -41,14 +41,14 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::GetNotificationTemplate => (
             "Get one notification template.",
             "templates",
-            id_input("template_id"),
+            id_input("templateId"),
             vec!["Notify", "Templates"],
         ),
         BuiltinToolKind::ListNotificationDeliveries => (
             "List bounded notification delivery attempts.",
             "deliveries",
             object_schema(json!({
-                "status": {"type": "string"}, "event_id": {"type": "string"},
+                "status": {"type": "string"}, "eventId": {"type": "string"},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}
             })),
             vec!["Notify", "Deliveries"],
@@ -56,30 +56,30 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::GetNotificationDelivery => (
             "Get one notification delivery attempt.",
             "deliveries",
-            id_input("delivery_id"),
+            id_input("deliveryId"),
             vec!["Notify", "Deliveries"],
         ),
         BuiltinToolKind::RetryNotificationDelivery => (
             "Retry one failed notification delivery.",
             "deliveries",
-            proposal_input("delivery_id"),
+            proposal_input("deliveryId"),
             vec!["Notify", "Deliveries", "Retry"],
         ),
         BuiltinToolKind::AcknowledgeNotificationDelivery => (
             "Acknowledge one notification delivery.",
             "deliveries",
-            proposal_input("delivery_id"),
+            proposal_input("deliveryId"),
             vec!["Notify", "Deliveries", "Acknowledge"],
         ),
         _ => unreachable!("notification catalog received unrelated kind"),
     };
 
     let permissions = if matches!(kind, BuiltinToolKind::AcknowledgeNotificationDelivery) {
-        &["alerts.acknowledge"][..]
+        &["notify.deliveries.acknowledge"][..]
     } else if matches!(kind, BuiltinToolKind::RetryNotificationDelivery) {
-        &["alerts.manage"][..]
+        &["notify.deliveries.retry"][..]
     } else {
-        &["alerts.read"][..]
+        &["notify.deliveries.read"][..]
     };
 
     let tool = ToolSpec::read(
@@ -119,7 +119,7 @@ fn proposal_input(field: &str) -> serde_json::Value {
             (field): {"type": "string", "minLength": 1},
             "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
             "impact": {"type": "string", "minLength": 1, "maxLength": 2000},
-            "expires_at_micros": {"type": "integer"}
+            "expiresAt": timestamp_schema()
         }, "additionalProperties": false
     })
 }

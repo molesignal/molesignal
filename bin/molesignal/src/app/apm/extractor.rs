@@ -18,7 +18,9 @@ use crate::{
     shared::{
         ids::Id,
         time::TimestampMicros,
-        trace_normalization::{CanonicalEvent, CanonicalSpan, optional_hmac_fingerprint},
+        trace_normalization::{
+            CanonicalEvent, CanonicalSpan, effective_service_name, optional_hmac_fingerprint,
+        },
     },
 };
 
@@ -31,7 +33,19 @@ pub fn extract_apm_fact(org_id: &str, span: &CanonicalSpan) -> Option<ApmSpanFac
     let org_id = bounded_text(org_id, MAX_DIMENSION_BYTES)?;
     let resource = &span.resource.attributes;
     let namespace = safe_resource_dimension(resource, "service.namespace");
-    let service_name = safe_resource_dimension(resource, "service.name");
+    let reported_name = safe_resource_dimension(resource, "service.name");
+
+    // MoleSignal's own roles are told apart as the trace store and the service graph tell
+    // them (`molesignal-<role>`), so a service of APM is the service of its traces.
+    let execution_role = span
+        .attributes
+        .get("molesignal.execution.role")
+        .or_else(|| resource.get("molesignal.execution.role"))
+        .and_then(Value::as_str);
+
+    let service_name = reported_name
+        .as_deref()
+        .map(|name| effective_service_name(Some(name), namespace.as_deref(), execution_role));
     let preferred_environment = safe_resource_dimension(resource, "deployment.environment.name");
     let legacy_environment = safe_resource_dimension(resource, "deployment.environment");
 
@@ -64,13 +78,17 @@ pub fn extract_apm_fact(org_id: &str, span: &CanonicalSpan) -> Option<ApmSpanFac
 
     let error = (outcome == ApmOutcome::Error)
         .then(|| error_identity(span, transaction.as_ref(), exception.as_ref(), &protocol));
+    let ran_out_of_time = timed_out(span, &protocol, exception.as_ref());
 
     Some(ApmSpanFact {
         schema_version: APM_FACT_SCHEMA_VERSION,
         org_id: Id::from_string(org_id),
         service,
         service_version: safe_resource_dimension(resource, "service.version"),
-        service_instance_id: safe_resource_dimension(resource, "service.instance.id"),
+        // As the instances are told apart: the SDK's own id, else the pod, else the host.
+        service_instance_id: super::instance::INSTANCE_KEYS
+            .iter()
+            .find_map(|key| safe_resource_dimension(resource, key)),
         instrumentation: InstrumentationMetadata {
             language: safe_resource_dimension(resource, "telemetry.sdk.language")
                 .or_else(|| safe_resource_dimension(resource, "process.runtime.name")),
@@ -86,14 +104,35 @@ pub fn extract_apm_fact(org_id: &str, span: &CanonicalSpan) -> Option<ApmSpanFac
         event_time: TimestampMicros(
             i64::try_from(span.start_time_unix_nano / 1_000).unwrap_or(i64::MAX),
         ),
-        duration_micros: span.duration_ns / 1_000,
+        duration: span.duration_ns / 1_000,
         span_kind,
         outcome,
         transaction,
         dependency,
         error,
         exception,
+        response_status: protocol.response_status(),
+        timed_out: ran_out_of_time,
+        retried: integer_attr(span, &["http.request.resend_count"]).is_some_and(|count| count > 0),
+        instance: None,
     })
+}
+
+/// A timeout error, gRPC `DEADLINE_EXCEEDED`, or an HTTP 408 or 504 answer.
+fn timed_out(
+    span: &CanonicalSpan,
+    protocol: &ProtocolStatus,
+    exception: Option<&SanitizedException>,
+) -> bool {
+    let named = |name: &str| {
+        let name = name.to_ascii_lowercase();
+        name.contains("timeout") || name.contains("timedout") || name.contains("deadline")
+    };
+
+    matches!(protocol.http_status_code, Some(408 | 504))
+        || protocol.rpc_status_code == Some(4)
+        || exception.is_some_and(|exception| named(&exception.error_type))
+        || string_attr(&span.attributes, "error.type").is_some_and(named)
 }
 
 fn map_span_kind(kind: i32) -> ApmSpanKind {
@@ -178,10 +217,20 @@ fn dependency_identity(span: &CanonicalSpan, kind: ApmSpanKind) -> Option<Depend
             DependencyCategory::Database
         };
 
+        // A statement is kept as its template only; a cache's command is its operation.
+        let template = (category == DependencyCategory::Database)
+            .then(|| {
+                ["db.query.summary", "db.query.text", "db.statement"]
+                    .into_iter()
+                    .find_map(|key| string_attr(&span.attributes, key))
+                    .and_then(|statement| sql::sql_template(statement, &system))
+            })
+            .flatten();
+
         return Some(DependencyIdentity {
             category,
             target,
-            operation: safe_attr(span, &["db.operation.name", "db.operation"]),
+            operation: template.or_else(|| safe_attr(span, &["db.operation.name", "db.operation"])),
         });
     }
 
@@ -445,5 +494,6 @@ fn volatile_exception_regex() -> &'static Regex {
     })
 }
 
+mod sql;
 #[cfg(test)]
 mod tests;

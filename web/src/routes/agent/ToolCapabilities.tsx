@@ -34,6 +34,7 @@ import {
   FormSection,
   FormSelect,
 } from '@/shell/FormDrawer';
+import { JsonView } from '@/shell/JsonEditor';
 import { cn } from '@/shell/lib/cn';
 import { Badge } from '@/shell/ui/badge';
 import { Button } from '@/shell/ui/button';
@@ -153,12 +154,12 @@ export function ToolCapabilitiesPanel({
         !needle ||
         [
           tool.name,
-          tool.display_name,
+          tool.displayName,
           tool.description,
-          tool.technical_description,
+          tool.technicalDescription,
           tool.domain,
           tool.category,
-          tool.source.server_name,
+          tool.source.serverName,
           tool.source.label,
           ...tool.tags,
         ]
@@ -168,11 +169,11 @@ export function ToolCapabilitiesPanel({
       if (sourceFilter.length > 0 && !sourceFilter.includes(tool.source.kind)) return false;
       if (domainFilter.length > 0 && !domainFilter.includes(tool.domain)) return false;
       if (riskFilter.length > 0 && !riskFilter.includes(tool.risk)) return false;
-      if (filter === 'read_only' && !tool.capabilities.read_only) return false;
-      if (filter === 'automatic' && tool.execution_mode !== 'automatic') return false;
+      if (filter === 'read_only' && !tool.capabilities.readOnly) return false;
+      if (filter === 'automatic' && tool.executionMode !== 'automatic') return false;
       if (
         filter === 'approval' &&
-        !['confirmation', 'single_approval', 'dual_approval'].includes(tool.execution_mode)
+        !['confirmation', 'single_approval', 'dual_approval'].includes(tool.executionMode)
       ) {
         return false;
       }
@@ -190,14 +191,14 @@ export function ToolCapabilitiesPanel({
   // filters gave the same numbers a second place and the same filters a second set of buttons.
   const filterCounts: Record<ToolFilter, number> = {
     all: tools.length,
-    read_only: tools.filter((tool) => tool.capabilities.read_only).length,
-    automatic: tools.filter((tool) => tool.execution_mode === 'automatic').length,
+    read_only: tools.filter((tool) => tool.capabilities.readOnly).length,
+    automatic: tools.filter((tool) => tool.executionMode === 'automatic').length,
     approval: tools.filter((tool) =>
-      ['confirmation', 'single_approval', 'dual_approval'].includes(tool.execution_mode),
+      ['confirmation', 'single_approval', 'dual_approval'].includes(tool.executionMode),
     ).length,
     disabled: tools.filter((tool) => !tool.enabled).length,
   };
-  const mcpSummary = registry.data?.mcp_servers ?? { total: 0, healthy: 0, unhealthy: 0 };
+  const mcpSummary = registry.data?.mcpServers ?? { total: 0, healthy: 0, unhealthy: 0 };
 
   const refresh = React.useCallback(async () => {
     await Promise.all([
@@ -609,7 +610,7 @@ function ToolGroup({
         <div role="table" aria-label={group.title}>
           <div
             role="row"
-            className="hidden min-h-8 grid-cols-[minmax(260px,1fr)_110px_82px_124px_60px_36px] items-center gap-3 border-b border-bd-0 bg-bg-2 px-3 text-type-micro font-strong lowercase tracking-[0.06em] text-tx-3 xl:grid"
+            className="hidden min-h-8 grid-cols-[minmax(260px,1fr)_110px_82px_124px_60px_36px] items-center gap-3 border-b border-bd-0 bg-[var(--table-head-surface)] px-3 font-sans text-xs font-strong text-tx-0 xl:grid"
           >
             <span role="columnheader">{t('settings.tools.fields.tool')}</span>
             <span role="columnheader">{t('settings.tools.fields.source')}</span>
@@ -665,7 +666,7 @@ function ToolRow({
   const hasWarning =
     tool.status === 'degraded' ||
     tool.status === 'unavailable' ||
-    Boolean(tool.statistics.last_error);
+    Boolean(tool.statistics.lastError);
   return (
     <div
       role="row"
@@ -680,11 +681,11 @@ function ToolRow({
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-[var(--yellow-ink)]" />
               </TooltipTrigger>
               <TooltipContent>
-                {tool.statistics.last_error ?? t('settings.tools.status.unavailable')}
+                {tool.statistics.lastError ?? t('settings.tools.status.unavailable')}
               </TooltipContent>
             </Tooltip>
           )}
-          {!tool.available_to_agent && tool.enabled && (
+          {!tool.availableToAgent && tool.enabled && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Info className="h-3.5 w-3.5 shrink-0 text-tx-3" />
@@ -704,7 +705,7 @@ function ToolRow({
         <RiskBadge risk={tool.risk} />
       </div>
       <div className="hidden xl:block">
-        <ExecutionBadge mode={tool.execution_mode} />
+        <ExecutionBadge mode={tool.executionMode} />
       </div>
       <div className="flex items-center justify-end">
         <Switch
@@ -753,9 +754,9 @@ function ToolMenu({
       JSON.stringify(
         {
           name: tool.name,
-          description: tool.technical_description,
-          input_schema: tool.input_schema,
-          output_schema: tool.output_schema,
+          description: tool.technicalDescription,
+          input_schema: tool.inputSchema,
+          output_schema: tool.outputSchema,
         },
         null,
         2,
@@ -845,7 +846,7 @@ function SourceBadge({
         className="max-w-full truncate rounded-md border border-indigo/20 bg-indigo/5 px-2 py-0.5 text-type-micro text-indigo hover:border-indigo/40"
         onClick={onMcp}
       >
-        {t('settings.tools.sources.mcp')} · {source.server_name ?? source.label}
+        {t('settings.tools.sources.mcp')} · {source.serverName ?? source.label}
       </button>
     );
   }
@@ -957,7 +958,7 @@ function ToolDetailDrawer({
           <FormSection title={t('settings.tools.detail.basic')}>
             <DetailGrid
               rows={[
-                [t('settings.tools.fields.display_name'), tool.display_name],
+                [t('settings.tools.fields.display_name'), tool.displayName],
                 [
                   t('settings.tools.fields.domain'),
                   t(`settings.tools.domains.${tool.domain}.title`),
@@ -965,7 +966,7 @@ function ToolDetailDrawer({
                 [
                   t('settings.tools.fields.source'),
                   tool.source.kind === 'mcp'
-                    ? `${t('settings.tools.sources.mcp')} · ${tool.source.server_name ?? tool.source.label}`
+                    ? `${t('settings.tools.sources.mcp')} · ${tool.source.serverName ?? tool.source.label}`
                     : t(`settings.tools.sources.${tool.source.kind}`),
                 ],
                 [t('settings.tools.fields.status'), t(`settings.tools.status.${tool.status}`)],
@@ -974,13 +975,13 @@ function ToolDetailDrawer({
           </FormSection>
           <FormSection title={t('settings.tools.detail.description')}>
             <p className="text-sm leading-6 text-tx-1">{tool.description}</p>
-            {tool.technical_description !== tool.description && (
+            {tool.technicalDescription !== tool.description && (
               // The definition the model is given is English whatever language the page is read
               // in: it is said to be that, so it does not read as a line left untranslated.
               <div data-agent-tool-definition="">
                 <p className="mb-1 text-xs text-tx-3">{t('settings.tools.detail.model_definition')}</p>
                 <p className="rounded-md bg-[var(--control-surface)] p-3 font-mono text-xs leading-5 text-tx-2">
-                  {tool.technical_description}
+                  {tool.technicalDescription}
                 </p>
               </div>
             )}
@@ -989,32 +990,32 @@ function ToolDetailDrawer({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <MiniStat
                 label={t('settings.tools.stats.calls_24h')}
-                value={String(tool.statistics.calls_24h)}
+                value={String(tool.statistics.calls24h)}
               />
               <MiniStat
                 label={t('settings.tools.stats.success_rate')}
                 value={
-                  tool.statistics.success_rate == null
+                  tool.statistics.successRate == null
                     ? '—'
-                    : `${tool.statistics.success_rate.toFixed(1)}%`
+                    : `${tool.statistics.successRate.toFixed(1)}%`
                 }
               />
               <MiniStat
                 label={t('settings.tools.stats.p95')}
                 value={
-                  tool.statistics.p95_ms == null
+                  tool.statistics.p95Ms == null
                     ? '—'
-                    : `${tool.statistics.p95_ms}ms`
+                    : `${tool.statistics.p95Ms}ms`
                 }
               />
               <MiniStat
                 label={t('settings.tools.stats.last_error')}
                 value={
-                  tool.statistics.last_error
+                  tool.statistics.lastError
                     ? t('settings.tools.stats.has_error')
                     : t('settings.tools.stats.no_error')
                 }
-                warning={Boolean(tool.statistics.last_error)}
+                warning={Boolean(tool.statistics.lastError)}
               />
             </div>
           </FormSection>
@@ -1022,18 +1023,18 @@ function ToolDetailDrawer({
         <TabsContent value="schema" className="mt-5">
           <SchemaSection
             title={t('settings.tools.detail.input_schema')}
-            schema={tool.input_schema}
+            schema={tool.inputSchema}
           />
           <SchemaSection
             title={t('settings.tools.detail.output_schema')}
-            schema={tool.output_schema ?? {}}
+            schema={tool.outputSchema ?? {}}
           />
         </TabsContent>
         <TabsContent value="policy" className="mt-5">
           <FormSection title={t('settings.tools.detail.permissions')}>
             <div className="flex flex-wrap gap-2">
               <RiskBadge risk={tool.risk} />
-              <ExecutionBadge mode={tool.execution_mode} />
+              <ExecutionBadge mode={tool.executionMode} />
               <Badge variant="outline">
                 {tool.enabled
                   ? t('settings.tools.status.enabled')
@@ -1044,20 +1045,20 @@ function ToolDetailDrawer({
               rows={[
                 [
                   t('settings.tools.fields.timeout'),
-                  `${Math.round(tool.limits.timeout_ms / 1000)}s`,
+                  `${Math.round(tool.limits.timeoutMs / 1000)}s`,
                 ],
                 [
                   t('settings.tools.fields.max_calls'),
-                  String(tool.limits.max_calls_per_run),
+                  String(tool.limits.maxCallsPerRun),
                 ],
                 [
                   t('settings.tools.fields.max_response'),
-                  formatBytes(tool.limits.max_response_bytes),
+                  formatBytes(tool.limits.maxResponseBytes),
                 ],
                 [
                   t('settings.tools.fields.dry_run'),
                   t(
-                    tool.capabilities.supports_dry_run
+                    tool.capabilities.supportsDryRun
                       ? 'settings.tools.common.yes'
                       : 'settings.tools.common.no',
                   ),
@@ -1107,9 +1108,7 @@ function SchemaSection({
         />
       </div>
       {showJson ? (
-        <pre className="max-h-80 overflow-auto rounded-md border border-bd-0 bg-bg-2 p-3 font-mono text-xs leading-5 text-tx-2">
-          {JSON.stringify(schema, null, 2)}
-        </pre>
+        <JsonView value={schema} ariaLabel={title} maxHeight={320} />
       ) : properties.length > 0 ? (
         <div className="divide-y divide-bd-0 overflow-hidden rounded-md border border-bd-0">
           {properties.map(([name, definition]) => (
@@ -1161,14 +1160,14 @@ function ToolPolicyDrawer({
   React.useEffect(() => {
     if (!tool) return;
     setRisk(tool.risk);
-    setExecutionMode(tool.execution_mode);
-    setTimeoutMs(String(tool.limits.timeout_ms));
-    setMaxCalls(String(tool.limits.max_calls_per_run));
-    setMaxResponse(String(tool.limits.max_response_bytes));
+    setExecutionMode(tool.executionMode);
+    setTimeoutMs(String(tool.limits.timeoutMs));
+    setMaxCalls(String(tool.limits.maxCallsPerRun));
+    setMaxResponse(String(tool.limits.maxResponseBytes));
     setEnvironmentModes({
-      development: tool.environment_overrides.development ?? '',
-      staging: tool.environment_overrides.staging ?? '',
-      production: tool.environment_overrides.production ?? '',
+      development: tool.environmentOverrides.development ?? '',
+      staging: tool.environmentOverrides.staging ?? '',
+      production: tool.environmentOverrides.production ?? '',
     });
   }, [tool]);
   const mutation = useMutation({
@@ -1179,11 +1178,11 @@ function ToolPolicyDrawer({
       ) as Record<string, agentApi.ToolExecutionMode>;
       return agentApi.updateToolPolicy(tool.id || tool.name, {
         risk,
-        execution_mode: executionMode,
-        environment_overrides,
-        timeout_ms: Number(timeoutMs),
-        max_calls_per_run: Number(maxCalls),
-        max_response_bytes: Number(maxResponse),
+        executionMode: executionMode,
+        environmentOverrides: environment_overrides,
+        timeoutMs: Number(timeoutMs),
+        maxCallsPerRun: Number(maxCalls),
+        maxResponseBytes: Number(maxResponse),
       });
     },
     onSuccess: async () => {
@@ -1329,7 +1328,7 @@ function ToolTestDrawer({
   const [values, setValues] = React.useState<Record<string, unknown>>({});
   const [result, setResult] = React.useState<agentApi.ToolTestResult | null>(null);
   React.useEffect(() => {
-    setValues(schemaDefaults(tool?.input_schema ?? {}));
+    setValues(schemaDefaults(tool?.inputSchema ?? {}));
     setResult(null);
   }, [tool]);
   const mutation = useMutation({
@@ -1337,8 +1336,8 @@ function ToolTestDrawer({
       if (!tool) throw new Error(t('settings.tools.errors.no_tool'));
       return agentApi.testTool(tool.id || tool.name, {
         arguments: values,
-        dry_run: true,
-        validate_only: validateOnly,
+        dryRun: true,
+        validateOnly: validateOnly,
       });
     },
     onSuccess: (next) => setResult(next),
@@ -1353,7 +1352,7 @@ function ToolTestDrawer({
       }}
       title={t('settings.tools.test.title', { name: tool.name })}
       subtitle={t(
-        tool.capabilities.read_only
+        tool.capabilities.readOnly
           ? 'settings.tools.test.read_description'
           : 'settings.tools.test.write_description',
       )}
@@ -1369,7 +1368,7 @@ function ToolTestDrawer({
           </Button>
           <Button onClick={() => mutation.mutate(false)} disabled={mutation.isPending}>
             <FlaskConical className="h-3.5 w-3.5" />
-            {tool.capabilities.read_only
+            {tool.capabilities.readOnly
               ? t('settings.tools.test.execute')
               : t('settings.tools.test.dry_run')}
           </Button>
@@ -1378,7 +1377,7 @@ function ToolTestDrawer({
     >
       <FormSection title={t('settings.tools.test.parameters')}>
         <SchemaForm
-          schema={tool.input_schema}
+          schema={tool.inputSchema}
           values={values}
           onChange={setValues}
         />
@@ -1540,9 +1539,9 @@ function TestResult({ result }: { result: agentApi.ToolTestResult }) {
                 : 'settings.tools.test.failed',
             )}
           </span>
-          {result.duration_ms != null && (
+          {result.durationMs != null && (
             <Badge variant="outline" className="ml-auto font-mono">
-              {result.duration_ms}ms
+              {result.durationMs}ms
             </Badge>
           )}
         </div>
@@ -1554,10 +1553,18 @@ function TestResult({ result }: { result: agentApi.ToolTestResult }) {
           <TabsTrigger value="request">{t('settings.tools.test.request')}</TabsTrigger>
         </TabsList>
         <TabsContent value="response" className="mt-3">
-          <JsonBlock value={result.response ?? result} />
+          <JsonView
+            value={result.response ?? result}
+            ariaLabel={t('settings.tools.test.response')}
+            maxHeight={288}
+          />
         </TabsContent>
         <TabsContent value="request" className="mt-3">
-          <JsonBlock value={result.request ?? {}} />
+          <JsonView
+            value={result.request ?? {}}
+            ariaLabel={t('settings.tools.test.request')}
+            maxHeight={288}
+          />
         </TabsContent>
       </Tabs>
     </FormSection>
@@ -1619,9 +1626,8 @@ function DependencyContent({
     );
   }
   const sections = [
-    ['agent_profiles', dependencies.agent_profiles],
-    ['automations', dependencies.automations],
-    ['investigation_templates', dependencies.investigation_templates],
+    ['agent_profiles', dependencies.agentProfiles],
+    ['investigation_templates', dependencies.investigationTemplates],
   ] as const;
   return (
     <div className="space-y-5">
@@ -1745,14 +1751,14 @@ function PolicyDefaultsDrawer({
   >({});
   React.useEffect(() => {
     if (!query.data) return;
-    setRiskModes(query.data.risk_modes);
-    setEnvironmentOverrides(query.data.environment_overrides ?? {});
+    setRiskModes(query.data.riskModes);
+    setEnvironmentOverrides(query.data.environmentOverrides ?? {});
   }, [query.data]);
   const mutation = useMutation({
     mutationFn: () =>
       agentApi.updateToolPolicyDefaults({
-        risk_modes: riskModes,
-        environment_overrides: environmentOverrides,
+        riskModes: riskModes,
+        environmentOverrides: environmentOverrides,
       }),
     onSuccess: async () => {
       toast.success(t('settings.tools.feedback.defaults_saved'));
@@ -1929,48 +1935,71 @@ function CallRecords({
   return (
     <div className="space-y-2">
       {calls.map((call) => (
-        <details key={call.id} className="overflow-hidden rounded-md border border-bd-0 bg-bg-1">
-          <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-2.5">
-            {call.status === 'success' ? (
-              <CheckCircle2 className="h-3.5 w-3.5 text-[var(--green-ink)]" />
-            ) : (
-              <XCircle className="h-3.5 w-3.5 text-red-soft" />
-            )}
-            <span className="min-w-0 flex-1 truncate text-xs text-tx-1">
-              {t(`settings.tools.calls.source.${call.call_source}`, {
-                defaultValue: call.call_source,
-              })}
-            </span>
-            <RiskBadge risk={call.risk} />
-            <span className="font-mono text-xs tabular-nums text-tx-3">
-              {call.duration_ms}ms
-            </span>
-            <span className="font-mono text-type-micro text-tx-3">
-              {formatTimestamp(call.created_at)}
-            </span>
-          </summary>
-          <div className="space-y-3 border-t border-bd-0 bg-bg-2 p-3">
-            <div>
-              <div className="mb-1 text-type-micro font-strong text-tx-3">
-                {t('settings.tools.calls.arguments')}
-              </div>
-              <JsonBlock value={call.input} />
-            </div>
-            <div>
-              <div className="mb-1 text-type-micro font-strong text-tx-3">
-                {t('settings.tools.calls.policy_decision')}
-              </div>
-              <JsonBlock value={call.policy_decision} />
-            </div>
-            {(call.error || call.output_summary) && (
-              <p className={cn('text-xs text-tx-2', call.error && 'text-red-soft')}>
-                {call.error ?? call.output_summary}
-              </p>
-            )}
-          </div>
-        </details>
+        <CallRecord key={call.id} call={call} />
       ))}
     </div>
+  );
+}
+
+/** A call: what it was asked and what was decided are made once it is opened, not an editor each closed. */
+function CallRecord({ call }: { call: agentApi.ToolCallRecord }) {
+  const { t } = useTranslation('agent');
+  const [open, setOpen] = React.useState(false);
+
+  return (
+    <details
+      className="overflow-hidden rounded-md border border-bd-0 bg-bg-1"
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-2.5">
+        {call.status === 'success' ? (
+          <CheckCircle2 className="h-3.5 w-3.5 text-[var(--green-ink)]" />
+        ) : (
+          <XCircle className="h-3.5 w-3.5 text-red-soft" />
+        )}
+        <span className="min-w-0 flex-1 truncate text-xs text-tx-1">
+          {t(`settings.tools.calls.source.${call.callSource}`, {
+            defaultValue: call.callSource,
+          })}
+        </span>
+        <RiskBadge risk={call.risk} />
+        <span className="font-mono text-xs tabular-nums text-tx-3">
+          {call.durationMs}ms
+        </span>
+        <span className="font-mono text-type-micro text-tx-3">
+          {formatTimestamp(call.createdAt)}
+        </span>
+      </summary>
+      {open && (
+        <div className="space-y-3 border-t border-bd-0 bg-bg-2 p-3">
+          <div>
+            <div className="mb-1 text-type-micro font-strong text-tx-3">
+              {t('settings.tools.calls.arguments')}
+            </div>
+            <JsonView
+              value={call.input}
+              ariaLabel={t('settings.tools.calls.arguments')}
+              maxHeight={288}
+            />
+          </div>
+          <div>
+            <div className="mb-1 text-type-micro font-strong text-tx-3">
+              {t('settings.tools.calls.policy_decision')}
+            </div>
+            <JsonView
+              value={call.policyDecision}
+              ariaLabel={t('settings.tools.calls.policy_decision')}
+              maxHeight={288}
+            />
+          </div>
+          {(call.error || call.outputSummary) && (
+            <p className={cn('text-xs text-tx-2', call.error && 'text-red-soft')}>
+              {call.error ?? call.outputSummary}
+            </p>
+          )}
+        </div>
+      )}
+    </details>
   );
 }
 
@@ -2008,14 +2037,6 @@ function MiniStat({
         {value}
       </div>
     </div>
-  );
-}
-
-function JsonBlock({ value }: { value: unknown }) {
-  return (
-    <pre className="max-h-72 overflow-auto rounded-md border border-bd-0 bg-bg-1 p-3 font-mono text-type-micro leading-5 text-tx-2">
-      {JSON.stringify(value, null, 2)}
-    </pre>
   );
 }
 
@@ -2089,35 +2110,35 @@ function normalizeTool(
   return {
     ...raw,
     id: raw.id ?? raw.name,
-    display_name: raw.display_name ?? raw.name,
+    displayName: raw.displayName ?? raw.name,
     description: raw.description ?? '',
-    technical_description: raw.technical_description ?? raw.description ?? '',
+    technicalDescription: raw.technicalDescription ?? raw.description ?? '',
     domain: raw.domain ?? inferDomain(raw.name),
     category: raw.category ?? inferCategory(raw.name),
     source,
     risk,
-    execution_mode:
-      raw.execution_mode ??
+    executionMode:
+      raw.executionMode ??
       (access === 'read_only' ? 'automatic' : 'confirmation'),
     enabled: raw.enabled ?? true,
-    available_to_agent: raw.available_to_agent ?? raw.enabled ?? true,
+    availableToAgent: raw.availableToAgent ?? raw.enabled ?? true,
     status: raw.status ?? (raw.enabled === false ? 'disabled' : 'healthy'),
-    input_schema: raw.input_schema ?? {},
-    output_schema: raw.output_schema ?? {},
+    inputSchema: raw.inputSchema ?? {},
+    outputSchema: raw.outputSchema ?? {},
     capabilities: raw.capabilities ?? {
-      read_only: access === 'read_only',
-      supports_dry_run: true,
+      readOnly: access === 'read_only',
+      supportsDryRun: true,
       idempotent: access === 'read_only',
       streaming: false,
     },
     limits: raw.limits ?? {
-      timeout_ms: 30000,
-      max_calls_per_run: 32,
-      max_response_bytes: 1048576,
+      timeoutMs: 30000,
+      maxCallsPerRun: 32,
+      maxResponseBytes: 1048576,
     },
-    environment_overrides: raw.environment_overrides ?? {},
+    environmentOverrides: raw.environmentOverrides ?? {},
     tags: raw.tags ?? [inferCategory(raw.name)],
-    statistics: raw.statistics ?? { calls_24h: 0 },
+    statistics: raw.statistics ?? { calls24h: 0 },
     access,
   };
 }
@@ -2163,7 +2184,7 @@ function groupTools(
       mode === 'domain'
         ? tool.domain
         : tool.source.kind === 'mcp'
-          ? tool.source.server_name ?? tool.source.label
+          ? tool.source.serverName ?? tool.source.label
           : 'builtin';
     const group = map.get(key) ?? [];
     group.push(tool);

@@ -57,8 +57,8 @@ export function AgentTokenFormDrawer({
       ? syntheticsApi.rotateAgentToken(rotateToken.id, Number(expiry))
       : syntheticsApi.createAgentToken({
           name: name.trim(),
-          location_id: locationId,
-          expires_in_days: Number(expiry),
+          locationId: locationId,
+          expiresInDays: Number(expiry),
         }),
     onSuccess: (instructions) => {
       onOpenChange(false);
@@ -99,7 +99,7 @@ export function AgentTokenFormDrawer({
         <FormSection description={t('agent_tokens.form_hint')}>
           {rotateToken ? (
             <div className="rounded-md bg-bg-2 px-3 py-2 text-sm text-tx-1">
-              {rotateToken.name} · <span className="font-code">{rotateToken.token_prefix}…</span>
+              {rotateToken.name} · <span className="font-code">{rotateToken.tokenPrefix}…</span>
             </div>
           ) : (
             <>
@@ -155,7 +155,7 @@ export function AgentTokenInstructionsDrawer({
     >
       <FormSection title={t('agent_tokens.token')}>
         <CopyValue
-          value={instructions?.agent_token ?? ''}
+          value={instructions?.agentToken ?? ''}
           label={t('agent_tokens.copy_token')}
         />
       </FormSection>
@@ -197,7 +197,7 @@ function CopyValue({
         label={label}
         copied={copied}
         copiedLabel={t('agent_tokens.copied')}
-        className="absolute right-2 top-2"
+        wrapperClassName="absolute right-2 top-2"
         onClick={() => {
           void writeClipboardText(value).then(() => setCopied(true));
         }}

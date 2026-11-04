@@ -21,6 +21,8 @@ export function streamStorageColumns(t: TFunction<'streams'>): DataTableColumn<D
     key: field,
     header: t(`list.columns.${label}`),
     width: 144,
+    sortable: true,
+    value: (stream) => (stream.runtime?.stats_available ? stream.runtime[field] : null),
     cell: (stream) => {
       const value = stream.runtime?.stats_available ? stream.runtime[field] : null;
       const partial = field === 'collected_bytes' && value != null && !stream.runtime?.collected_bytes_complete;

@@ -1,26 +1,26 @@
+import type { TFunction } from 'i18next';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { setActiveTimePreference } from '@/lib/time';
 import type { MuteWindow } from '@/types/alerting';
 
 import {
-  clampHour,
   defaultSilenceWindow,
+  durationLabel,
   silenceStanding,
-  weekdayLabel,
+  windowOfKind,
   windowSummary,
 } from './window';
 
 const micros = (iso: string) => Date.parse(iso) * 1000;
 
+/** Writes the key and its values, so a summary can be checked without the translations. */
+const t = ((key: string, values?: Record<string, unknown>) =>
+  values ? `${key}${JSON.stringify(values)}` : key) as unknown as TFunction<'alerts'>;
+
 describe('silence windows', () => {
   beforeAll(() => {
     setActiveTimePreference('UTC', 'iso_24h', 'yyyy_mm_dd_dash');
-  });
-
-  it('names the days from Sunday, as the mask counts them', () => {
-    expect(weekdayLabel(0, 'en-US')).toBe('Sun');
-    expect(weekdayLabel(6, 'en-US')).toBe('Sat');
   });
 
   it('starts a new silence as the hour that begins now', () => {
@@ -33,37 +33,57 @@ describe('silence windows', () => {
     });
   });
 
-  it('keeps an hour inside the day', () => {
-    expect(clampHour('7.9')).toBe(7);
-    expect(clampHour('-3')).toBe(0);
-    expect(clampHour('99')).toBe(24);
-    expect(clampHour('night')).toBe(0);
+  it('switches kinds keeping the zone it had', () => {
+    expect(windowOfKind('weekly', 'Asia/Shanghai')).toEqual({
+      type: 'weekly',
+      timezone: 'Asia/Shanghai',
+      ranges: [{ weekdayMask: 0b111_1111, start: '00:00', end: '24:00' }],
+    });
+    expect(windowOfKind('monthly')).toMatchObject({ type: 'monthly', timezone: 'UTC', durationMinutes: 240 });
   });
 
   it('writes a fixed window in the app time format, not the browser locale', () => {
     expect(
-      windowSummary({
-        type: 'fixed',
-        start: micros('2026-05-23T09:40:00Z'),
-        end: micros('2026-05-23T11:40:00Z'),
-      }),
+      windowSummary(
+        {
+          type: 'fixed',
+          start: micros('2026-05-23T09:40:00Z'),
+          end: micros('2026-05-23T11:40:00Z'),
+        },
+        t,
+      ),
     ).toBe('2026-05-23 09:40 → 2026-05-23 11:40');
   });
 
-  it('writes a recurring window as its days, its hours and its zone', () => {
-    const window = (weekday_mask: number): MuteWindow => ({
-      type: 'recurring',
+  it('writes a weekly window as its ranges and its zone', () => {
+    const window: MuteWindow = {
+      type: 'weekly',
       timezone: 'UTC',
-      weekday_mask,
-      hour_start: 20,
-      hour_end: 6,
-    });
+      ranges: [
+        { weekdayMask: 0b0111110, start: '20:00', end: '06:00' },
+        { weekdayMask: 0b1000001, start: '00:00', end: '24:00' },
+      ],
+    };
 
-    // Monday to Friday is a run, so it is written as one.
-    expect(windowSummary(window(0b0111110), 'en-US')).toBe('Mon–Fri · 20:00–06:00 UTC');
-    expect(windowSummary(window(0b0101010), 'en-US')).toBe('Mon, Wed, Fri · 20:00–06:00 UTC');
-    expect(windowSummary(window(0b1000001), 'en-US')).toBe('Sun, Sat · 20:00–06:00 UTC');
-    expect(windowSummary(window(0), 'en-US')).toBe('— · 20:00–06:00 UTC');
+    expect(windowSummary(window, t, 'en-US')).toBe('Mon–Fri 20:00–06:00; Sun, Sat 00:00–24:00 UTC');
+  });
+
+  it('writes a monthly window from its day, start and length', () => {
+    const window: MuteWindow = {
+      type: 'monthly',
+      timezone: 'Asia/Shanghai',
+      day: { kind: 'weekday', ordinal: -1, weekday: 0 },
+      start: '02:00',
+      durationMinutes: 90,
+    };
+    const summary = windowSummary(window, t, 'en-US');
+
+    expect(summary).toContain('silences.summary.monthly');
+    expect(summary).toContain('silences.ordinals.last');
+    expect(summary).toContain('"start":"02:00"');
+    expect(durationLabel(90, t)).toBe('silences.duration.hours_minutes{"hours":1,"minutes":30}');
+    expect(durationLabel(120, t)).toBe('silences.duration.hours{"count":2}');
+    expect(durationLabel(45, t)).toBe('silences.duration.minutes{"count":45}');
   });
 
   it('says how a fixed silence stands at a moment', () => {
@@ -79,32 +99,12 @@ describe('silence windows', () => {
     expect(silenceStanding({ enabled: false, window }, micros('2026-05-23T10:00:00Z'))).toBe('off');
   });
 
-  it('places a recurring window in its own time zone, over midnight too', () => {
-    // 23 May 2026 is a Saturday.
-    const nightly: MuteWindow = {
-      type: 'recurring',
-      timezone: 'UTC',
-      weekday_mask: 0b1000000,
-      hour_start: 22,
-      hour_end: 6,
-    };
+  it('takes the server’s word on whether a repeating window is on now', () => {
+    const window = windowOfKind('weekly');
 
-    expect(silenceStanding({ enabled: true, window: nightly }, micros('2026-05-23T23:30:00Z'))).toBe('active');
-    expect(silenceStanding({ enabled: true, window: nightly }, micros('2026-05-23T03:00:00Z'))).toBe('active');
-    expect(silenceStanding({ enabled: true, window: nightly }, micros('2026-05-23T12:00:00Z'))).toBe('waiting');
-    // The same moment is already Sunday in Shanghai, which the mask leaves out.
-    expect(
-      silenceStanding(
-        { enabled: true, window: { ...nightly, timezone: 'Asia/Shanghai' } },
-        micros('2026-05-23T23:30:00Z'),
-      ),
-    ).toBe('waiting');
-    // A zone nobody knows cannot be placed, so it is not claimed to be silencing.
-    expect(
-      silenceStanding(
-        { enabled: true, window: { ...nightly, timezone: 'Mars/Olympus' } },
-        micros('2026-05-23T23:30:00Z'),
-      ),
-    ).toBe('waiting');
+    expect(silenceStanding({ enabled: true, window, active: true }, 0)).toBe('active');
+    expect(silenceStanding({ enabled: true, window, active: false }, 0)).toBe('waiting');
+    expect(silenceStanding({ enabled: true, window }, 0)).toBe('waiting');
+    expect(silenceStanding({ enabled: false, window, active: true }, 0)).toBe('off');
   });
 });

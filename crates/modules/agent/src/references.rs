@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 消息里的引用：输入框里用 `@` 插入的事件、告警规则、服务、仪表盘与数据流。
+//! 消息里的引用：输入框里用 `@` 插入的事件、告警规则、服务、RUM 应用、仪表盘与数据流。
 //!
 //! 发消息时后端核对提问人能不能读每个引用，再把它们解析成上下文块交给模型（事件的摘要、触发
 //! 查询、时间窗、相关服务……）；用户消息上记下引用，界面据此画胶囊。
@@ -17,6 +17,7 @@ pub enum ReferenceKind {
     Incident,
     AlertRule,
     Service,
+    RumApplication,
     Dashboard,
     Stream,
 }
@@ -27,6 +28,7 @@ impl ReferenceKind {
             Self::Incident => "incident",
             Self::AlertRule => "alert_rule",
             Self::Service => "service",
+            Self::RumApplication => "rum_application",
             Self::Dashboard => "dashboard",
             Self::Stream => "stream",
         }
@@ -59,6 +61,18 @@ pub const REFERENCES_INTRODUCTION: &str = "The person attached the objects below
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_rum_application_is_a_kind_of_its_own() {
+        let reference: MessageReference = serde_json::from_value(
+            serde_json::json!({"kind": "rum_application", "id": "shop-web", "label": "Shop"}),
+        )
+        .unwrap();
+
+        assert_eq!(reference.kind, ReferenceKind::RumApplication);
+        assert_eq!(reference.kind.as_str(), "rum_application");
+        assert!(context_block(&reference, "x").starts_with("<reference kind=\"rum_application\""));
+    }
 
     #[test]
     fn a_reference_names_what_it_is() {

@@ -76,7 +76,7 @@ export function NavIndicator({
       aria-hidden
       data-testid={testId}
       className={cn(
-        'pointer-events-none absolute left-0 top-0 w-[3px] rounded-r-full bg-[image:var(--signal-gradient-v)]',
+        'pointer-events-none absolute left-0 top-0 w-[2px] rounded-r-full bg-[image:var(--signal-gradient-v)]',
         animated && 'transition-[transform,opacity] duration-300 ease-expo-out',
       )}
       style={{

@@ -1,5 +1,5 @@
 import { GripVertical, Pin } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { type ReactNode, type Ref, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -18,6 +18,7 @@ import {
 } from '@/product/ia';
 import { cn } from '@/shell/lib/cn';
 import { NavIndicator, useNavIndicator } from '@/shell/NavIndicator';
+import { useFlipList } from '@/shell/polish/useFlipList';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/shell/ui/tooltip';
 import { useSidebarStore } from '@/stores/useSidebarStore';
 
@@ -46,7 +47,10 @@ export function Sidebar({
   const unpin = useSidebarStore((s) => s.unpin);
   const reorderPinned = useSidebarStore((s) => s.reorderPinned);
   const [dragId, setDragId] = useState<string | null>(null);
-  const [overId, setOverId] = useState<string | null>(null);
+  // While a pinned row is dragged the list already stands in the order the drop would make;
+  // the store is written once, on the drop.
+  const [previewIds, setPreviewIds] = useState<string[] | null>(null);
+  const pinnedListRef = useRef<HTMLDivElement>(null);
 
   const indicator = useNavIndicator(
     navRef,
@@ -55,12 +59,13 @@ export function Sidebar({
   );
 
   const pinnedSet = new Set(pinned);
-  const pinnedRoutes = pinned
+  const pinnedRoutes = (previewIds ?? pinned)
     .map(getProductRouteById)
     .filter(
       (route): route is ProductRouteMeta =>
         !!route && canAccessProductRoute(route, access),
     );
+  useFlipList(pinnedListRef, pinnedRoutes.map((route) => route.id).join(','));
   // Render one nav group, minus any items currently pinned (those live in the
   // Pinned section instead, so nothing shows twice). Returns null when the
   // group has nothing left to show — e.g. when Home itself is pinned.
@@ -132,6 +137,7 @@ export function Sidebar({
             <MiniSection
               labelKey="pinned"
               current={pinnedRoutes.some((route) => isProductRouteActive(route, pathname))}
+              listRef={pinnedListRef}
             >
               {pinnedRoutes.map((route) => (
                 <MiniNavRow
@@ -141,17 +147,27 @@ export function Sidebar({
                   action={{ kind: 'unpin', onToggle: () => unpin(route.id) }}
                   drag={{
                     dragging: dragId === route.id,
-                    over: overId === route.id && dragId !== null && dragId !== route.id,
-                    onDragStart: () => setDragId(route.id),
-                    onDragEnter: () => setOverId(route.id),
+                    onDragStart: () => {
+                      setDragId(route.id);
+                      setPreviewIds(pinned);
+                    },
+                    onDragEnter: () => {
+                      if (dragId && dragId !== route.id) {
+                        setPreviewIds((ids) => movedOnto(ids ?? pinned, dragId, route.id));
+                      }
+                    },
                     onDrop: () => {
-                      if (dragId && dragId !== route.id) reorderPinned(dragId, route.id);
+                      if (dragId && previewIds) {
+                        // The store moves a row to sit before another; before the next one, or last.
+                        const next = previewIds[previewIds.indexOf(dragId) + 1];
+                        reorderPinned(dragId, next ?? '');
+                      }
                       setDragId(null);
-                      setOverId(null);
+                      setPreviewIds(null);
                     },
                     onDragEnd: () => {
                       setDragId(null);
-                      setOverId(null);
+                      setPreviewIds(null);
                     },
                   }}
                 />
@@ -168,10 +184,12 @@ export function Sidebar({
 function MiniSection({
   labelKey,
   current,
+  listRef,
   children,
 }: {
   labelKey: string;
   current: boolean;
+  listRef?: Ref<HTMLDivElement>;
   children: ReactNode;
 }) {
   const { t } = useTranslation('nav');
@@ -179,9 +197,20 @@ function MiniSection({
     <div className="mb-1">
       <div aria-hidden className="mx-[22px] mb-0.5 mt-2 h-px bg-bd-0" />
       <GroupLabel current={current}>{t(labelKey)}</GroupLabel>
-      <div className="flex flex-col gap-0.5 px-[12px]">{children}</div>
+      <div ref={listRef} className="flex flex-col gap-0.5 px-[12px]">{children}</div>
     </div>
   );
+}
+
+/** `ids` with `fromId` moved to the place `ontoId` holds, the rows between shifting one step. */
+function movedOnto(ids: readonly string[], fromId: string, ontoId: string): string[] {
+  const from = ids.indexOf(fromId);
+  const onto = ids.indexOf(ontoId);
+  if (from < 0 || onto < 0 || from === onto) return [...ids];
+  const next = [...ids];
+  next.splice(from, 1);
+  next.splice(onto, 0, fromId);
+  return next;
 }
 
 /**
@@ -203,7 +232,6 @@ function GroupLabel({ children, current = false }: { children: ReactNode; curren
 
 interface MiniRowDrag {
   dragging: boolean;
-  over: boolean;
   onDragStart: () => void;
   onDragEnter: () => void;
   onDrop: () => void;
@@ -235,11 +263,10 @@ function MiniNavRow({
   const armedRef = useRef(false);
   return (
     <div
+      data-flip-key={route.id}
       className={cn(
         'group/mini relative rounded-md',
-        // Drop-target hint: a 2px indigo rule along the top of the hovered row.
-        drag?.over &&
-          'before:absolute before:inset-x-1 before:-top-px before:z-10 before:h-0.5 before:rounded-full before:bg-indigo',
+        // The dragged row holds the place it would drop into, faint; the others slide round it.
         drag?.dragging && 'opacity-40',
       )}
       draggable={drag ? true : undefined}
@@ -289,20 +316,20 @@ function MiniNavRow({
         draggable={false}
         aria-current={active ? 'page' : undefined}
         className={`${cn(
-          // Match NavRow metrics (h-sidebar-item / text-xs / text-tx-1) so the
+          // Match NavRow metrics (h-sidebar-item / text-sm / text-tx-1) so the
           // Pinned rows share the fixed groups' density.
-          'group relative flex h-sidebar-item items-center gap-2 rounded-md pl-[10px] text-xs text-tx-1',
+          'group relative flex h-sidebar-item items-center gap-2 rounded-md pl-[10px] text-sm text-[var(--nav-ink)]',
           // extra right padding for the grip + pin controls (grip only on pinned rows)
           drag ? 'pr-16' : 'pr-9',
-          'transition-colors duration-fast ease-default hover:bg-bg-3 hover:text-tx-0',
+          'transition-colors duration-fast ease-default hover:bg-[var(--nav-hover-surface)] hover:text-[var(--nav-hover-ink)]',
           'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
           active &&
-            'bg-indigo-dim font-strong text-indigo-soft hover:bg-indigo-dim hover:text-indigo-soft',
+            'bg-[var(--nav-current-surface)] text-[var(--nav-current-ink)] hover:bg-[var(--nav-current-surface)] hover:text-[var(--nav-current-ink)]',
         )} font-sidebar-face`}
       >
         <route.icon
           strokeWidth={1.75}
-          className="h-4 w-4 shrink-0 text-tx-2 transition-colors duration-fast group-hover:text-tx-0 group-aria-[current=page]:text-indigo-soft"
+          className="h-4 w-4 shrink-0 text-tx-2 transition-colors duration-fast group-hover:text-tx-0 group-aria-[current=page]:text-[var(--nav-current-ink)]"
         />
         <span className="flex-1 truncate">{label}</span>
       </Link>
@@ -372,20 +399,21 @@ function NavRow({
       aria-label={collapsed ? label : undefined}
       aria-current={active ? 'page' : undefined}
       className={`${cn(
-        // Shell navigation stays stable across density modes. Rows are regular
-        // weight so the one that is current is the one that stands out.
-        'group relative flex h-sidebar-item items-center gap-2 rounded-md pl-[10px] pr-2 text-xs text-tx-1',
+        // Shell navigation stays stable across density modes. Rows are at the
+        // body weight in the menu ink, as Ant Design Pro's menus; the current one
+        // says so on a faint fill.
+        'group relative flex h-sidebar-item items-center gap-2 rounded-md pl-[10px] pr-2 text-sm text-[var(--nav-ink)]',
         'transition-colors duration-fast ease-default',
-        'hover:bg-bg-3 hover:text-tx-0',
+        'hover:bg-[var(--nav-hover-surface)] hover:text-[var(--nav-hover-ink)]',
         'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
-        active && 'bg-indigo-dim font-strong text-indigo-soft hover:bg-indigo-dim hover:text-indigo-soft',
+        active && 'bg-[var(--nav-current-surface)] text-[var(--nav-current-ink)] hover:bg-[var(--nav-current-surface)] hover:text-[var(--nav-current-ink)]',
         collapsed && 'justify-center pl-0 pr-0',
         !collapsed && pinControl && 'pr-10',
       )} font-sidebar-face`}
     >
       <item.icon
         strokeWidth={1.75}
-        className="h-4 w-4 shrink-0 text-tx-2 transition-colors duration-fast group-hover:text-tx-0 group-aria-[current=page]:text-indigo-soft"
+        className="h-4 w-4 shrink-0 text-tx-2 transition-colors duration-fast group-hover:text-tx-0 group-aria-[current=page]:text-[var(--nav-current-ink)]"
       />
       {!collapsed && <span className="flex-1 truncate">{label}</span>}
     </Link>

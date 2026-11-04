@@ -63,6 +63,15 @@ pub(super) struct ValidInput {
 pub(super) fn validate(input: InspectionInput, limits: &InspectionLimits) -> Result<ValidInput> {
     let name = bounded("name", input.name.trim(), 1, NAME_CHARS)?;
     let stream = bounded("stream", input.stream.trim(), 1, STREAM_CHARS)?;
+
+    // An inspection runs in the background, where nobody's audit.read applies.
+    if stream == crate::domain::stream::AUDIT_STREAM {
+        return Err(Error::invalid(
+            "a scheduled log inspection cannot read `_audit`: it runs in the background, where \
+             nobody's audit.read applies",
+        ));
+    }
+
     let statement = bounded("statement", input.statement.trim(), 0, STATEMENT_CHARS)?;
 
     let requirements = bounded(
@@ -127,7 +136,7 @@ fn routes(routes: Vec<InspectionNotifyRoute>) -> Result<Vec<InspectionNotifyRout
         };
 
         if kept.contains(&route) {
-            return Err(Error::invalid("notify_routes must not repeat a channel"));
+            return Err(Error::invalid("notifyRoutes must not repeat a channel"));
         }
 
         kept.push(route);
@@ -204,10 +213,11 @@ pub(super) mod tests {
     fn what_cannot_be_inspected_or_scheduled_is_refused() {
         type Change = fn(&mut InspectionInput);
 
-        let cases: [(&str, Change); 9] = [
+        let cases: [(&str, Change); 10] = [
             ("no name", |input| input.name = "   ".into()),
             ("long name", |input| input.name = "x".repeat(121)),
             ("no stream", |input| input.stream = String::new()),
+            ("the audit trail", |input| input.stream = "_audit".into()),
             ("short window", |input| input.window_secs = 60),
             ("long window", |input| input.window_secs = 8 * 24 * 3600),
             ("unknown time zone", |input| input.timezone = "Local".into()),

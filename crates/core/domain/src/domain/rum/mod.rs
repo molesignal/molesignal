@@ -3,12 +3,60 @@
 
 //! Real User Monitoring domain contracts.
 
+mod alert;
+mod application;
+mod comment;
 mod debug_artifact;
+pub mod event;
+mod issue;
+mod playlist;
+mod ports;
+mod retention;
+mod segment;
+mod summary;
 
+pub use alert::{
+    MAX_PERIOD_SECS, MIN_PERIOD_SECS, RumAlertFilter, RumAlertMeasure, RumAlertMetric,
+    RumAlertQuery, RumAlertSearch, RumAlertStatistic,
+};
+pub use application::{
+    DEFAULT_ISSUES_PER_HOUR, MAX_ISSUES_PER_HOUR, MAX_SESSION_SAMPLE_RATE, RumApplication,
+    RumApplicationPatch, RumApplicationRepository, RumApplicationSettings,
+    RumApplicationSettingsPatch, RumPlatform, RumSdkSettings, ScrubKind, id_from_name, resolve_id,
+    validate_name,
+};
+pub use comment::{
+    MAX_COMMENT_LEN, MAX_COMMENTS_PER_SESSION, RumReplayComment, RumReplayCommentRepository,
+    validate_comment_body,
+};
 pub use debug_artifact::{
     DebugArtifactKind, DebugArtifactLookup, DebugArtifactMeta, DebugArtifactRepository,
     DebugArtifactUpsert,
 };
+pub use issue::{
+    MAX_ENVIRONMENT_LEN, MAX_LOCATION_LEN, MAX_MESSAGE_LEN, MAX_VERSION_LEN, RumIssue,
+    RumIssueChange, RumIssueEnvironment, RumIssueMoment, RumIssueRepository, RumIssueSighting,
+    RumIssueStatus, RumVersionRepository, cut, environment_key, version_key,
+};
+pub use playlist::{
+    MAX_PLAYLIST_DESCRIPTION_LEN, MAX_PLAYLIST_NAME_LEN, MAX_PLAYLIST_SESSIONS, RumPlaylist,
+    RumPlaylistEntry, RumPlaylistPatch, RumPlaylistRepository, validate_playlist_description,
+    validate_playlist_name, validate_playlist_session,
+};
+pub use ports::{
+    RumAlertPoint, RumAlertReading, RumAlertSample, RumAlertSource, RumEventWriter,
+    RumIssueTracker, RumSessionMerger,
+};
+pub use retention::{
+    DEFAULT_FILTER, ERRORS_FILTER, MAX_RETENTION_CONDITIONS, MAX_RETENTION_FILTERS,
+    MAX_RETENTION_VALUES, RETENTION_FIELDS, RetentionCondition, RetentionFilter, RetentionOp,
+    normalize_filters,
+};
+pub use segment::{
+    MAX_SEGMENT_CONDITIONS, MAX_SEGMENT_VALUES, MAX_SEGMENTS, RumSegment, SEGMENT_FIELDS,
+    SEGMENT_USER_PREFIX, normalize_segments,
+};
+pub use summary::{RumSessionSummary, RumSessionSummaryRepository, RumSummaryChapter};
 
 use crate::shared::{Error, Result};
 

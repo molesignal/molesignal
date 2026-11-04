@@ -1,29 +1,29 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { TFunction } from 'i18next';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ConfirmDialog, DataTable } from '@/admin';
+import * as policiesApi from '@/api/policies';
 import * as rolesApi from '@/api/roles';
 import { toApiError } from '@/lib/http';
+import { useSessionPermissionScope } from '@/product/access';
 import {
   type ActionAccess,
   useActionAccess,
 } from '@/product/actionAccess';
 import { useIamPermissionCatalog } from '@/product/iamCatalog';
 import {
-  permissionDefinition,
   permissionDefinitionsByDomain,
   type PermissionCatalog,
 } from '@/product/permissions';
 import { productStateFor } from '@/product/states';
 import { ChromeButton, IconButton, Pill } from '@/shell/chrome';
 import {
-  FormChecklist,
   FormDrawer,
   FormField,
   FormInput,
-  FormSelect,
   FormSection,
   FormSubmitFooter,
   FormTextarea,
@@ -32,6 +32,10 @@ import { queryStateFor } from '@/shell/query/State';
 import { toast } from '@/shell/ui/sonner';
 
 import { IamListPage } from './IamLayout';
+import { PermissionPicker } from './PermissionPicker';
+import { PermissionSummary } from './PermissionSummary';
+import { policyName } from './Policies/labels';
+import { PolicyChecklist } from './Policies/PolicyChecklist';
 
 export function Roles() {
   const { t } = useTranslation('iam');
@@ -39,10 +43,19 @@ export function Roles() {
   const [creating, setCreating] = React.useState(false);
   const [editing, setEditing] = React.useState<rolesApi.IamRole | null>(null);
   const [removing, setRemoving] = React.useState<rolesApi.IamRole | null>(null);
+  const scope = useSessionPermissionScope();
   const manageAccess = useActionAccess({
-    permission: 'iam.roles.manage',
+    permission: scope === 'platform' ? 'sys.administrators.manage' : 'iam.roles.manage',
+  });
+  const deleteAccess = useActionAccess({
+    permission: scope === 'platform' ? 'sys.administrators.manage' : 'iam.roles.delete',
   });
   const catalogQuery = useIamPermissionCatalog();
+  const policiesQuery = useQuery({
+    queryKey: policiesApi.POLICIES_QUERY_KEY,
+    queryFn: policiesApi.list,
+  });
+  const policies = policiesQuery.data ?? [];
 
   const q = useQuery({
     queryKey: ['iam', 'roles'],
@@ -50,11 +63,11 @@ export function Roles() {
   });
   const rows = q.data ?? [];
   const state = productStateFor(queryStateFor({
-    isLoading: q.isLoading || catalogQuery.isLoading,
-    isError: q.isError || catalogQuery.isError,
+    isLoading: q.isLoading || catalogQuery.isLoading || policiesQuery.isLoading,
+    isError: q.isError || catalogQuery.isError || policiesQuery.isError,
     data: rows,
   }), {
-    error: q.error ?? catalogQuery.error,
+    error: q.error ?? catalogQuery.error ?? policiesQuery.error,
     emptyTitle: t('roles.empty_title'),
     emptyDescription: t('roles.empty_description'),
   });
@@ -120,8 +133,14 @@ export function Roles() {
             {
               key: 'description',
               header: t('roles.columns.description'),
-              cell: (row) => row.description || '-',
+              cell: (row) => roleDescription(row, t) || '-',
               className: 'max-w-[320px]',
+            },
+            {
+              key: 'policies',
+              header: t('roles.columns.policies'),
+              cell: (row) => <AttachedPolicies ids={row.policyIds} policies={policies} />,
+              width: 200,
             },
             {
               key: 'permissions',
@@ -129,10 +148,11 @@ export function Roles() {
               cell: (row) => (
                 <PermissionSummary
                   catalog={catalogQuery.data}
-                  permissions={row.permissions}
+                  permissions={row.effectivePermissions}
+                  scope={scope}
                 />
               ),
-              width: 300,
+              width: 280,
             },
             {
               key: 'usage',
@@ -142,7 +162,7 @@ export function Roles() {
                 <span
                   title={t('roles.usage_breakdown', {
                     memberships: row.usage.memberships,
-                    api_tokens: row.usage.api_tokens,
+                    service_accounts: row.usage.serviceAccounts,
                     invitations: row.usage.invitations,
                     bindings: row.usage.bindings,
                   })}
@@ -179,8 +199,8 @@ export function Roles() {
                       <Pencil className="h-3 w-3" />
                     </IconButton>
                     <IconButton
-                      disabled={disabled}
-                      disabledReason={reason}
+                      disabled={deleteAccess.disabled || row.builtin}
+                      disabledReason={row.builtin ? t('roles.builtin_read_only') : deleteAccess.reason}
                       onClick={(event) => {
                         event.stopPropagation();
                         setRemoving(row);
@@ -200,12 +220,14 @@ export function Roles() {
 
       <RoleDrawer
         catalog={catalogQuery.data}
+        policies={policies}
         open={creating}
         access={manageAccess}
         onClose={() => setCreating(false)}
       />
       <RoleDrawer
         catalog={catalogQuery.data}
+        policies={policies}
         role={editing}
         open={editing !== null}
         access={manageAccess}
@@ -223,14 +245,14 @@ export function Roles() {
         }) : undefined}
         confirmLabel={t('roles.delete')}
         busy={remove.isPending}
-        disabled={manageAccess.disabled || Boolean(removing?.builtin)}
+        disabled={deleteAccess.disabled || Boolean(removing?.builtin)}
         disabledReason={
           removing?.builtin
             ? t('roles.builtin_read_only')
-            : manageAccess.reason
+            : deleteAccess.reason
         }
         onConfirm={() => {
-          if (removing && !removing.builtin && manageAccess.allowed) {
+          if (removing && !removing.builtin && deleteAccess.allowed) {
             remove.mutate(removing);
           }
         }}
@@ -239,62 +261,46 @@ export function Roles() {
   );
 }
 
-function PermissionSummary({
-  catalog,
-  permissions,
+/** The policies a role attaches, by name: the first two, and how many more. */
+function AttachedPolicies({
+  ids,
+  policies,
 }: {
-  catalog: PermissionCatalog | undefined;
-  permissions: rolesApi.PermissionKey[];
+  ids: readonly string[];
+  policies: readonly policiesApi.IamPolicy[];
 }) {
   const { t } = useTranslation('iam');
-  if (permissions.length === 0) {
-    return <span className="text-tx-3">-</span>;
-  }
-  // A role that holds the whole catalog says so, instead of naming three of its
-  // permissions and counting the rest: it is the one fact about it worth reading.
-  if (catalog && holdsWholeCatalog(catalog, permissions)) {
-    return (
-      <span data-role-permissions="all">
-        <Pill tone="indigo">{t('roles.all_permissions', { count: permissions.length })}</Pill>
-      </span>
-    );
-  }
-  const visible = permissions.slice(0, 3);
+
+  if (ids.length === 0) return <span className="text-tx-3">-</span>;
+
+  const names = ids.map((id) => {
+    const policy = policies.find((candidate) => candidate.id === id);
+    return policy ? policyName(policy, t) : id;
+  });
+  const shown = names.slice(0, 2).join('、');
+  const rest = names.length - 2;
+
   return (
-    <div className="flex min-w-0 items-center gap-1 overflow-hidden">
-      {visible.map((permission) => {
-        const option = permissionDefinition(catalog, permission);
-        return (
-          <Pill key={permission} tone="neutral">
-            {option ? t(option.label_key) : permission}
-          </Pill>
-        );
-      })}
-      {permissions.length > visible.length && (
-        <Pill tone="dim">+{permissions.length - visible.length}</Pill>
-      )}
-    </div>
+    <span
+      className="block max-w-[200px] truncate text-xs text-tx-1"
+      title={names.join('、')}
+      data-role-policies
+    >
+      {rest > 0 ? t('roles.policies_more', { shown, count: rest }) : shown}
+    </span>
   );
-}
-
-/** Whether the role's permissions are every one the catalog has, platform scope included. */
-function holdsWholeCatalog(
-  catalog: PermissionCatalog,
-  permissions: readonly rolesApi.PermissionKey[],
-): boolean {
-  const held = new Set<string>(permissions);
-
-  return catalog.permissions.length > 0 && catalog.permissions.every((permission) => held.has(permission.key));
 }
 
 function RoleDrawer({
   catalog,
+  policies,
   role,
   open,
   access,
   onClose,
 }: {
   catalog: PermissionCatalog | undefined;
+  policies: readonly policiesApi.IamPolicy[];
   role?: rolesApi.IamRole | null;
   open: boolean;
   access: ActionAccess;
@@ -307,9 +313,27 @@ function RoleDrawer({
   const [name, setName] = React.useState('');
   const [description, setDescription] = React.useState('');
   const [permissions, setPermissions] = React.useState<rolesApi.PermissionKey[]>([]);
+  const [policyIds, setPolicyIds] = React.useState<string[]>([]);
   const [keyEdited, setKeyEdited] = React.useState(false);
   const isEdit = Boolean(role);
-  const permissionGroups = permissionDefinitionsByDomain(catalog);
+  const scope = useSessionPermissionScope();
+  const permissionGroups = permissionDefinitionsByDomain(catalog, scope);
+
+  // What the attached policies grant, each permission with the policies that grant it.
+  const inherited = React.useMemo(() => {
+    const sources = new Map<string, string[]>();
+
+    for (const id of policyIds) {
+      const policy = policies.find((candidate) => candidate.id === id);
+      if (!policy) continue;
+
+      for (const permission of policy.permissions) {
+        sources.set(permission, [...(sources.get(permission) ?? []), policyName(policy, t)]);
+      }
+    }
+
+    return new Map([...sources].map(([permission, names]) => [permission, names.join('、')]));
+  }, [policies, policyIds, t]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -317,6 +341,7 @@ function RoleDrawer({
     setName(role?.name ?? '');
     setDescription(role?.description ?? '');
     setPermissions(role?.permissions ?? []);
+    setPolicyIds(role?.policyIds ?? []);
     setKeyEdited(Boolean(role));
   }, [open, role]);
 
@@ -332,6 +357,7 @@ function RoleDrawer({
           name,
           description,
           permissions,
+          policyIds: policyIds,
         });
       }
       return rolesApi.create({
@@ -339,12 +365,16 @@ function RoleDrawer({
         name,
         description,
         permissions,
+        policyIds: policyIds,
       });
     },
     onSuccess: async () => {
       toast.success(isEdit ? t('roles.toast_updated') : t('roles.toast_created'));
       onClose();
-      await qc.invalidateQueries({ queryKey: ['iam', 'roles'] });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['iam', 'roles'] }),
+        qc.invalidateQueries({ queryKey: policiesApi.POLICIES_QUERY_KEY }),
+      ]);
     },
     onError: (err) => toast.error(toApiError(err).message),
   });
@@ -354,7 +384,8 @@ function RoleDrawer({
     name !== role.name ||
     description !== role.description ||
     [...permissions].sort().join('\n') !==
-      [...role.permissions].sort().join('\n');
+      [...role.permissions].sort().join('\n') ||
+    [...policyIds].sort().join('\n') !== [...role.policyIds].sort().join('\n');
   const controlsDisabled = access.disabled || save.isPending;
   const submitDisabled = access.disabled || Boolean(role && !dirty);
 
@@ -425,59 +456,39 @@ function RoleDrawer({
           </FormField>
         </FormSection>
         <FormSection
-          title={t('roles.sections.permissions')}
-          description={t('roles.sections.permissions_description')}
+          title={t('roles.sections.policies')}
+          description={t('roles.sections.policies_description')}
         >
-          <FormField
-            label={t('roles.fields.bundle')}
-            hint={t('roles.fields.bundle_hint')}
-          >
-            <FormSelect
-              value=""
-              disabled={controlsDisabled}
-              disabledReason={access.reason}
-              onChange={(value) => {
-                const bundle = catalog?.bundles.find(
-                  (candidate) => candidate.key === value,
-                );
-                if (bundle) setPermissions([...bundle.permissions]);
-              }}
-              options={[
-                { value: '', label: t('roles.fields.bundle_placeholder') },
-                ...(catalog?.bundles ?? []).map((bundle) => ({
-                  value: bundle.key,
-                  label: t(bundle.label_key),
-                })),
-              ]}
-            />
-          </FormField>
-          <div className="space-y-4">
-            {permissionGroups.map((group) => (
-              <section
-                key={group.domain}
-                className="rounded-md border border-border bg-bg-1 p-3"
-              >
-                <h4 className="mb-2 font-sans text-xs font-semibold text-tx-1">
-                  {t(`permission_domains.${group.domain}`)}
-                </h4>
-                <FormChecklist<rolesApi.PermissionKey>
-                  selected={permissions}
-                  onChange={setPermissions}
-                  disabled={controlsDisabled}
-                  disabledReason={access.reason}
-                  options={group.permissions.map((permission) => ({
-                    value: permission.key,
-                    label: t(permission.label_key),
-                    hint: t(permission.description_key),
-                  }))}
-                />
-              </section>
-            ))}
-          </div>
+          <PolicyChecklist
+            policies={policies}
+            selected={policyIds}
+            onChange={setPolicyIds}
+            disabled={controlsDisabled}
+            disabledReason={access.reason}
+          />
+        </FormSection>
+        <FormSection
+          title={t('roles.sections.own_permissions')}
+          description={t('roles.sections.own_permissions_description')}
+        >
+          <PermissionPicker
+            groups={permissionGroups}
+            selected={permissions}
+            onChange={setPermissions}
+            inherited={inherited}
+            disabled={controlsDisabled}
+            disabledReason={access.reason}
+          />
         </FormSection>
       </form>
     </FormDrawer>
   );
+}
+
+/** A built-in role describes itself in the interface language; a custom role as written. */
+function roleDescription(role: rolesApi.IamRole, t: TFunction<'iam'>): string {
+  if (!role.builtin) return role.description;
+  return t(`roles.builtin_descriptions.${role.key}`, { defaultValue: role.description });
 }
 
 function roleKeyFromName(name: string): string {

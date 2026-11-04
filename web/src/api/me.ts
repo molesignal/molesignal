@@ -11,39 +11,39 @@ export type PreferenceDateFormat =
   | 'mm_dd_yyyy_slash';
 
 export interface MeProfile {
-  user_id: string;
+  userId: string;
   email: string;
   username?: string;
-  display_name: string;
-  avatar_url?: string | null;
+  displayName: string;
+  avatarUrl?: string | null;
   bio?: string;
-  org_id: string;
-  org_name: string;
-  org_slug: string;
-  display_role: string;
-  created_at_micros?: number;
+  orgId: string;
+  orgName: string;
+  orgSlug: string;
+  displayRole: string;
+  createdAt?: number;
 }
 
 export interface UserPreferences {
   theme: PreferenceTheme;
   density: PreferenceDensity;
   language: PreferenceLanguage;
-  default_home_route: string;
-  time_format: PreferenceTimeFormat;
-  date_format: PreferenceDateFormat;
+  defaultHomeRoute: string;
+  timeFormat: PreferenceTimeFormat;
+  dateFormat: PreferenceDateFormat;
   timezone: string;
-  keyboard_shortcuts_enabled: boolean;
+  keyboardShortcutsEnabled: boolean;
 }
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   theme: 'system',
   density: 'normal',
   language: 'en-us',
-  default_home_route: '/home',
-  time_format: 'iso_24h',
-  date_format: 'yyyy_mm_dd_dash',
+  defaultHomeRoute: '/home',
+  timeFormat: 'iso_24h',
+  dateFormat: 'yyyy_mm_dd_dash',
   timezone: '',
-  keyboard_shortcuts_enabled: true,
+  keyboardShortcutsEnabled: true,
 };
 
 export async function profile(): Promise<MeProfile> {
@@ -52,8 +52,8 @@ export async function profile(): Promise<MeProfile> {
 }
 
 export interface UpdateProfileInput {
-  display_name?: string;
-  avatar_url?: string;
+  displayName?: string;
+  avatarUrl?: string;
   bio?: string;
 }
 
@@ -74,7 +74,7 @@ export async function uploadAvatar(file: File): Promise<MeProfile> {
 export interface UiPreferenceEntry {
   value: unknown;
   /** Microseconds since epoch. */
-  updated_at_micros: number | null;
+  updatedAt: number | null;
 }
 
 const uiPreferencePath = (scope: string, key: string) =>
@@ -82,12 +82,12 @@ const uiPreferencePath = (scope: string, key: string) =>
 
 export async function getUiPreference(scope: string, key: string): Promise<UiPreferenceEntry> {
   const { data } = await http.get<Partial<UiPreferenceEntry>>(uiPreferencePath(scope, key));
-  return { value: data.value ?? null, updated_at_micros: data.updated_at_micros ?? null };
+  return { value: data.value ?? null, updatedAt: data.updatedAt ?? null };
 }
 
 export async function putUiPreference(scope: string, key: string, value: unknown): Promise<UiPreferenceEntry> {
   const { data } = await http.put<Partial<UiPreferenceEntry>>(uiPreferencePath(scope, key), { value });
-  return { value: data.value ?? null, updated_at_micros: data.updated_at_micros ?? null };
+  return { value: data.value ?? null, updatedAt: data.updatedAt ?? null };
 }
 
 export async function deleteUiPreference(scope: string, key: string): Promise<void> {

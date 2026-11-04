@@ -82,6 +82,34 @@ test.describe('personal preferences page', () => {
     expect(hasHorizontalOverflow).toBe(false);
   });
 
+  test('switches both favicon formats with system and explicit app themes', async ({ page }) => {
+    const expectIcons = async (theme: 'light' | 'dark') => {
+      const suffix = theme === 'dark' ? '-dark' : '';
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      for (const format of ['svg', 'ico']) {
+        const path = `/favicon${suffix}.${format}?v=20261104`;
+        await expect(page.locator(`link[data-favicon="${format}"]`)).toHaveAttribute('href', path);
+        const response = await page.request.get(path);
+        expect(response.ok()).toBe(true);
+        expect(response.headers()['content-type']).toContain(format === 'svg' ? 'image/svg+xml' : 'image/');
+      }
+    };
+
+    await page.emulateMedia({ colorScheme: 'light' });
+    await expectIcons('light');
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await expectIcons('dark');
+
+    const preferences = page.locator('main');
+    await preferences.getByRole('radio', { name: 'Light', exact: true }).click();
+    await expectIcons('light');
+    await preferences.getByRole('radio', { name: 'Dark', exact: true }).click();
+    await page.emulateMedia({ colorScheme: 'light' });
+    await expectIcons('dark');
+    await preferences.getByRole('radio', { name: 'System', exact: true }).click();
+    await expectIcons('light');
+  });
+
   test('previews theme and restores the saved value on cancel', async ({
     page,
   }) => {
@@ -138,14 +166,14 @@ test.describe('personal preferences page', () => {
     const response = await saveResponse;
     const request = response.request().postDataJSON() as {
       theme: string;
-      time_format: string;
-      date_format: string;
-      default_home_route: string;
+      timeFormat: string;
+      dateFormat: string;
+      defaultHomeRoute: string;
     };
     expect(request.theme).toBe('system');
-    expect(request.time_format).toBe('local_12h');
-    expect(request.date_format).toBe('yyyy_mm_dd_dash');
-    expect(request.default_home_route).toMatch(/^\/dashboards\/.+/);
+    expect(request.timeFormat).toBe('local_12h');
+    expect(request.dateFormat).toBe('yyyy_mm_dd_dash');
+    expect(request.defaultHomeRoute).toMatch(/^\/dashboards\/.+/);
     await expect(saveButton).toBeDisabled();
   });
 
@@ -158,7 +186,7 @@ test.describe('personal preferences page', () => {
     );
     await page.getByRole('button', { name: 'User menu' }).click();
     await page.locator("[data-ui='language-trigger']").click();
-    await page.getByRole('menuitemradio', { name: '简体中文' }).click();
+    await page.getByRole('menuitemradio', { name: '中文（简体）' }).click();
 
     // Kept with the reader's other preferences, without a save button.
     expect((await saved).postDataJSON()).toMatchObject({ language: 'zh-cn' });
@@ -207,32 +235,36 @@ test.describe('preference entry-point synchronization', () => {
     ).toHaveAttribute('aria-checked', 'true');
   });
 
-  test('page timezone override can be promoted to the personal default', async ({
+  test('a timezone picked in the time picker holds for the page, and can be made the personal default', async ({
     page,
   }) => {
     await page.goto('/metrics');
-    const timezone = page.getByRole('combobox', { name: 'Page timezone' });
-    await expect(timezone).toContainText('Timezone: use default');
+    const trigger = page.getByRole('button', { name: /^Time range:/ });
+    await trigger.click();
 
-    await timezone.click();
+    const section = page.locator('[data-time-picker-timezone]');
+    const current = section.locator('[data-time-picker-timezone-current]');
+    await expect(current).toContainText('Use personal default');
+
+    await section.getByRole('button', { name: 'Change' }).click();
     await page.getByPlaceholder('Search timezones…').fill('Europe/Paris');
-    await page.getByText(/Europe\/Paris · UTC[+-]\d+/).click();
-    await expect(timezone).toContainText('this page only');
+    await section.getByRole('option', { name: /Europe\/Paris · UTC[+-]\d+/ }).click();
+    await expect(current).toContainText('this page only');
+    // The range says the zone beside it, as long as one is picked.
+    await expect(trigger).toHaveAccessibleName(/ · UTC[+-]\d+$/);
 
-    await timezone.click();
     const responsePromise = page.waitForResponse(
       (response) =>
         response.url().includes('/api/v1/me/preferences') &&
         response.request().method() === 'PUT',
     );
-    await page
-      .getByRole('button', { name: 'Set as my default timezone' })
-      .click();
+    await section.getByRole('button', { name: 'Set as my default timezone' }).click();
     const response = await responsePromise;
     expect(response.request().postDataJSON()).toMatchObject({
       timezone: 'Europe/Paris',
     });
-    await expect(timezone).toContainText('Timezone: use default');
+    await expect(current).toContainText('Use personal default');
+    await expect(trigger).not.toHaveAccessibleName(/ · UTC/);
   });
 });
 

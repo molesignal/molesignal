@@ -17,8 +17,8 @@ describe('dashboard DataFrame pipeline', () => {
           [2, 'alpha', 7],
           [1, 'beta', 2],
         ],
-        scanned_rows: 14,
-        took_ms: 3,
+        scannedRows: 14,
+        tookMs: 3,
       },
       'A',
       'metrics',
@@ -40,8 +40,8 @@ describe('dashboard DataFrame pipeline', () => {
           [2, 'checkout', 'GET', 7],
           [1, 'gateway', 'POST', 2],
         ],
-        scanned_rows: 3,
-        took_ms: 1,
+        scannedRows: 3,
+        tookMs: 1,
       },
       'A',
       'metrics',
@@ -54,6 +54,42 @@ describe('dashboard DataFrame pipeline', () => {
     ]);
   });
 
+  it('draws a SQL time series that is long as a line for each set of labels', () => {
+    const result = {
+      columns: ['time', 'browser.name', 'count'],
+      rows: [
+        [1, 'Chrome', 4],
+        [1, 'Safari', 2],
+        [2, 'Chrome', 7],
+        [2, null, 1],
+      ],
+      scannedRows: 4,
+      tookMs: 1,
+    };
+    const frames = queryResultToDataFrames(result, 'A', 'sql', undefined, 'time_series');
+
+    expect(frames.map((frame) => frame.name)).toEqual(['Chrome', 'Safari', '—']);
+    expect(frames[0]?.fields.map((field) => field.values)).toEqual([
+      [1, 2],
+      [4, 7],
+    ]);
+    expect(frames[0]?.fields[1]?.labels).toEqual({ 'browser.name': 'Chrome' });
+    expect(frames[2]?.fields[1]?.labels).toEqual({});
+    expect(new Set(frames.flatMap((frame) => frame.fields.map((field) => field.id))).size).toBe(6);
+
+    // Without the format, or without a label to split by, a result stays one frame.
+    expect(queryResultToDataFrames(result, 'A', 'sql')).toHaveLength(1);
+    expect(
+      queryResultToDataFrames(
+        { columns: ['time', 'count'], rows: [[1, 4]], scannedRows: 1, tookMs: 1 },
+        'A',
+        'sql',
+        undefined,
+        'time_series',
+      ),
+    ).toHaveLength(1);
+  });
+
   it('keeps legend formatting isolated between multiple queries', () => {
     const result = {
       columns: ['timestamp', 'service', 'value'],
@@ -61,8 +97,8 @@ describe('dashboard DataFrame pipeline', () => {
         [1, 'checkout', 4],
         [1, 'gateway', 2],
       ],
-      scanned_rows: 2,
-      took_ms: 1,
+      scannedRows: 2,
+      tookMs: 1,
     };
 
     const serviceFrames = queryResultToDataFrames(
@@ -105,8 +141,8 @@ describe('dashboard DataFrame pipeline', () => {
           ['a', 4, 10],
           ['b', 1, 20],
         ],
-        scanned_rows: 2,
-        took_ms: 1,
+        scannedRows: 2,
+        tookMs: 1,
       },
       'A',
       'sql',

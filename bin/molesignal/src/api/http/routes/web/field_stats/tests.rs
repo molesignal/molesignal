@@ -179,7 +179,7 @@ async fn a_whole_number_is_counted_ranked_and_measured() {
     // A code is followed over time like any value that repeats: the three 200s
     // lie in the first three milliseconds of the eight.
     let trend = stats.trend.expect("a value that repeats has a trend");
-    assert_eq!((trend.origin_micros, trend.bucket_micros), (0, 1_000_000));
+    assert_eq!((trend.origin_time, trend.bucket_time), (0, 1_000_000));
     assert_eq!(trend.series.len(), 4);
     assert_eq!(trend.series[0].value, "200");
     assert_eq!(trend.series[0].counts, [3]);
@@ -230,7 +230,7 @@ async fn the_commonest_values_are_followed_over_time() {
         .expect("analysis");
     let trend = stats.trend.expect("trend");
 
-    assert_eq!((trend.origin_micros, trend.bucket_micros), (0, 1_000_000));
+    assert_eq!((trend.origin_time, trend.bucket_time), (0, 1_000_000));
     assert_eq!(
         trend.series,
         [
@@ -267,7 +267,7 @@ async fn a_trend_counts_each_value_in_the_stretch_it_fell_in() {
         .expect("analysis");
     let trend = stats.trend.expect("trend");
 
-    assert_eq!(trend.bucket_micros, 1_000_000);
+    assert_eq!(trend.bucket_time, 1_000_000);
     assert_eq!(trend.series.len(), 3);
     assert_eq!(trend.series[0].value, "api");
     assert_eq!(trend.series[0].counts, [3, 0, 0, 0, 0, 0, 0, 0, 0, 0]);

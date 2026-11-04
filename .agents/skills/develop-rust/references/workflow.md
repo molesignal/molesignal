@@ -15,30 +15,23 @@ rustup toolchain install nightly --profile minimal --component rustfmt
 先完成任务范围内全部修改，再执行一轮：
 
 ```bash
-make fmt
-make check-license-headers
-make lint
-make test
+scripts/verify/verify.py <本 session 改过的文件...>
 ```
+
+它按文件选 crate：`clippy` 查改动的 crate 及其下游，`cargo test --lib` 测改动的 crate 和读全仓源码的守卫 crate（`signals`、`postgres`），都用共享的 `target/verify`，重型步骤全机排队。
 
 规则：
 
-- 不在每个小改动后重复运行上述命令。
+- 不在每个小改动后重复运行。
+- 失败或中断后，修完重跑同一条命令，只补失败项和文件有变化的步骤。
 - 不额外运行 `cargo build` 或 `cargo check`；`clippy` 和 `test` 已提供编译覆盖。
 - 仅文档或非 Rust 配置修改不需要 Rust 编译验证。
-- 若最终验证失败，先集中修复所有已发现问题，再只重跑失败项。
-- 如果任务明确要求更窄或更广的验证，以用户要求为准，但仍只做一次完整收尾。
+- 全量（`make lint`、`make test`、`scripts/verify/verify.py --all`）只在用户明确要求时运行；日常全量由 CI 负责。
 
-`make test` 对应：
-
-```bash
-cargo test --frozen --locked --workspace --lib --bins
-```
-
-`make lint` 对应：
+诊断单个测试：
 
 ```bash
-cargo clippy --workspace --all-targets -- -D warnings
+scripts/verify/verify.py --run -- cargo test -p signals --lib every_spawned
 ```
 
 ## Integration Tests
@@ -53,11 +46,14 @@ MS_RUN_IT=1 cargo test -p molesignal --tests -- --test-threads=1
 
 ## Pre-commit
 
-`.githooks/pre-commit` 依次执行：
+`.githooks/pre-commit` 只查暂存文件，依次执行：
 
 1. license header check
-2. nightly `cargo fmt --check`
-3. workspace clippy
+2. nightly rustfmt `--check`
+3. 前端类型检查（暂存了前端代码时）
+4. 相关 crate 及其下游的 clippy（暂存了 Rust 相关文件时）
+
+已经由 `scripts/verify/verify.py` 通过的内容不会重跑。
 
 安装：
 

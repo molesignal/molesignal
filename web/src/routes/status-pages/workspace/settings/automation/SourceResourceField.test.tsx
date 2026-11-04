@@ -42,7 +42,7 @@ function renderField(sourceKind: 'alert_incident' | 'synthetic_monitor' = 'alert
 function alertRule(): AlertRule {
   return {
     id: 'rule-api-latency',
-    org_id: 'org-one',
+    orgId: 'org-one',
     name: 'API latency',
     description: '',
     enabled: true,
@@ -50,16 +50,16 @@ function alertRule(): AlertRule {
     query: {
       language: 'promql',
       statement: 'up == 0',
-      period_secs: 60,
-      stream: { name: 'http_server', stream_type: 'metrics' },
+      periodSecs: 60,
+      stream: { name: 'http_server', streamType: 'metrics' },
     },
     trigger: {
       operator: 'gt',
       threshold: 0,
-      for_periods: 1,
-      silence_secs: 0,
+      forPeriods: 1,
+      silenceSecs: 0,
     },
-    escalation_policy_id: '',
+    escalationPolicyId: '',
     labels: {},
     annotations: {},
   };

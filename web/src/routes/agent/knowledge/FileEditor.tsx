@@ -139,7 +139,7 @@ export function FileEditor({
         )}
         {file.data && renaming === null && (
           <span className="type-micro text-tx-3">
-            {t('knowledge.updated', { time: formatMicrosActive(file.data.updated_at_micros) })}
+            {t('knowledge.updated', { time: formatMicrosActive(file.data.updatedAt) })}
           </span>
         )}
         <span className="flex-1" />

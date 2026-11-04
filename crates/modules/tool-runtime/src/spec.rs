@@ -45,6 +45,7 @@ pub enum PermissionMode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolAnnotations {
     pub read_only: bool,
     pub destructive: bool,
@@ -93,17 +94,18 @@ impl ToolAnnotations {
 
     pub fn capabilities(self) -> Value {
         json!({
-            "read_only": self.read_only,
+            "readOnly": self.read_only,
             "destructive": self.destructive,
             "idempotent": self.idempotent,
-            "open_world": self.open_world,
-            "supports_dry_run": self.supports_dry_run,
+            "openWorld": self.open_world,
+            "supportsDryRun": self.supports_dry_run,
             "streaming": self.streaming,
         })
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolExposure {
     pub pinned: bool,
     pub mole_agent: bool,
@@ -168,6 +170,7 @@ impl ToolExposure {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolSpec {
     pub name: String,
     /// Canonical en-US fallback generated from the stable tool name.

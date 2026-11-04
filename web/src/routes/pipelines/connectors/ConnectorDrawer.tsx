@@ -1,5 +1,4 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { TFunction } from 'i18next';
 import { ChevronLeft } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -12,18 +11,9 @@ import { FormDrawer, FormSubmitFooter } from '@/shell/FormDrawer';
 import { toast } from '@/shell/ui/sonner';
 
 import { ConnectorForm } from './ConnectorForm';
+import { configOf, draftOf, draftProblem, newDraft, problemText, type ConnectorDraft } from './draft';
 import { KIND_ICONS } from './kindIcons';
-import {
-  configOf,
-  draftOf,
-  draftProblem,
-  KINDS,
-  newDraft,
-  type ConnectorDraft,
-  type ConnectorKind,
-  type Direction,
-  type DraftProblem,
-} from './kinds';
+import { KINDS, type ConnectorKind, type Direction } from './kinds';
 import { PushSetup } from './PushSetup';
 import { newPushToken } from './pushToken';
 
@@ -67,7 +57,7 @@ export function ConnectorDrawer({
       const payload = {
         name: current.name.trim(),
         kind: current.kind,
-        config_json: configOf(current, saved),
+        configJson: configOf(current, saved),
         enabled: current.enabled,
       };
 
@@ -81,7 +71,7 @@ export function ConnectorDrawer({
       void queryClient.invalidateQueries({ queryKey: ['connectors'] });
 
       // A token that was just saved is handed over now: it cannot be read back later.
-      const token = current.auth === 'push_token' ? (current.values.push_token ?? '') : '';
+      const token = current.auth === 'push_token' ? (current.values.pushToken ?? '') : '';
       if (token) setIssued({ kind: current.kind, token });
       else onClose();
     },
@@ -152,15 +142,7 @@ export function ConnectorDrawer({
 function startDraft(kind: ConnectorKind): ConnectorDraft {
   const draft = newDraft(kind);
 
-  return draft.auth === 'push_token' ? { ...draft, values: { push_token: newPushToken() } } : draft;
-}
-
-function problemText(problem: DraftProblem, t: TFunction<'pipelines'>): string {
-  if (problem.code === 'field_missing' || problem.code === 'secret_missing') {
-    return t(`connectors.problems.${problem.code}`, { field: t(`connectors.fields.${problem.key}`) });
-  }
-
-  return t(`connectors.problems.${problem.code}`);
+  return draft.auth === 'push_token' ? { ...draft, values: { pushToken: newPushToken() } } : draft;
 }
 
 /** What the connector is of, at the head of its settings. A new one can still be another kind. */

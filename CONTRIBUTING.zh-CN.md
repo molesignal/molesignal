@@ -51,13 +51,14 @@ git commit -s -m "your message"
 - `protoc`（例如 `apt-get install protobuf-compiler` 或 `brew install protobuf`）以及 [Buf CLI](https://buf.build/docs/installation)。
 - Docker（跑集成测试和 sandbox compose 用）。
 - 需要 Node 20 + `pnpm` 9；每个 `molesignal` 二进制都会嵌入 Vite 生产资源。
+- Python 3（标准库即可）：`scripts/verify` 和 pre-commit 钩子用它。
 
 最小快路径：
 
 ```bash
 make proto-lint                                     # 校验 Proto；binding 由 Cargo 自动生成
 make fmt-check                                      # 使用仓库 rustfmt 配置
-make lint                                           # 先构建 web/dist，再执行 Clippy
+make lint                                           # web/dist 缺失时先构建，再执行 Clippy
 make test                                           # 快：仅单元 + bin 测试
 
 # Sandbox：Postgres + RustFS + molesignal standalone
@@ -73,7 +74,9 @@ pnpm -C web test:run
 pnpm -C web dev          # vite dev server
 ```
 
-通过 `make install-hooks` 安装的 pre-commit 钩子会本地校验 license header、nightly fmt 和 clippy —— 请不要用 `--no-verify` 绕过。
+日常验证用 `scripts/verify/verify.py <改过的文件...>`：只跑相关检查，通过的不再跑，失败后重跑同一条命令只补失败项。全量用 `make verify-all`，同样能续跑。
+
+通过 `make install-hooks` 安装的 pre-commit 钩子只校验暂存文件：license header、nightly fmt、前端类型和相关 crate 的 clippy —— 请不要用 `--no-verify` 绕过。
 
 ## 代码约定
 

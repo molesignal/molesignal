@@ -14,14 +14,15 @@ import { queryStateFor } from '@/shell/query/State';
 import { toast } from '@/shell/ui/sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/shell/ui/tooltip';
 
-import { connectorName } from '../model';
+import { connectorName, policyName } from '../model';
 import { PolicyEditor } from './Editor';
 import { NotifySettingsPage } from '../SettingsPage';
 
 export function NotifyPoliciesPage() {
   const { t } = useTranslation('notify');
   const qc = useQueryClient();
-  const manage = useActionAccess({ permission: 'alerts.manage' });
+  const manage = useActionAccess({ permission: 'notify.policies.manage' });
+  const canDelete = useActionAccess({ permission: 'notify.policies.delete' });
   const [editing, setEditing] = React.useState<notifyApi.NotifyPolicy | null>(null);
   const [editorOpen, setEditorOpen] = React.useState(false);
   const [removing, setRemoving] = React.useState<notifyApi.NotifyPolicy | null>(null);
@@ -109,8 +110,9 @@ export function NotifyPoliciesPage() {
                 width: '25%',
                 cell: (row) => (
                   <div>
-                    <div className="truncate text-sm font-semibold text-tx-0">{row.name}</div>
+                    <div className="truncate text-sm font-semibold text-tx-0">{policyName(t, row)}</div>
                     <div className="truncate text-xs text-tx-3">
+                      {row.builtinKey && `${t('policies.builtin_label')} · `}
                       {t(`preferences.${row.category}`)} · P
                       {row.priority}
                     </div>
@@ -123,8 +125,8 @@ export function NotifyPoliciesPage() {
                 width: '18%',
                 cell: (row) => (
                   <Pill tone="blue">
-                    {t(`event_types.${row.event_type}`, {
-                      defaultValue: row.event_type,
+                    {t(`event_types.${row.eventType}`, {
+                      defaultValue: row.eventType,
                     })}
                   </Pill>
                 ),
@@ -135,8 +137,8 @@ export function NotifyPoliciesPage() {
                 width: '18%',
                 cell: (row) => (
                   <span className="text-xs">
-                    {t(`resolver_types.${row.recipient_resolver}`, {
-                      defaultValue: row.recipient_resolver,
+                    {t(`resolver_types.${row.recipientResolver}`, {
+                      defaultValue: row.recipientResolver,
                     })}
                   </span>
                 ),
@@ -147,10 +149,10 @@ export function NotifyPoliciesPage() {
                 width: '20%',
                 cell: (row) => (
                   <div className="text-xs text-tx-2">
-                    <div>{t(`policies.delivery_modes.${row.delivery_mode}`)}</div>
-                    {row.delivery_config.connector_ids.length > 0 && (
+                    <div>{t(`policies.delivery_modes.${row.deliveryMode}`)}</div>
+                    {row.deliveryConfig.connectorIds.length > 0 && (
                       <div className="truncate text-tx-3">
-                        {row.delivery_config.connector_ids
+                        {row.deliveryConfig.connectorIds
                           .map((id) => connectorName(connectors.data ?? [], id))
                           .join(', ')}
                       </div>
@@ -165,9 +167,9 @@ export function NotifyPoliciesPage() {
                 cell: (row) => (
                   <span className="text-xs text-tx-2">
                     {[
-                      row.fallback_config.use_user_fallbacks && 'U',
-                      row.fallback_config.use_team_defaults && 'T',
-                      row.fallback_config.use_organization_defaults && 'O',
+                      row.fallbackConfig.useUserFallbacks && 'U',
+                      row.fallbackConfig.useTeamDefaults && 'T',
+                      row.fallbackConfig.useOrganizationDefaults && 'O',
                     ]
                       .filter(Boolean)
                       .join(' → ') || '—'}
@@ -210,8 +212,10 @@ export function NotifyPoliciesPage() {
                       <TooltipTrigger asChild>
                         <IconButton
                           aria-label={t('common.delete')}
-                          disabled={manage.disabled}
-                          disabledReason={manage.reason}
+                          disabled={canDelete.disabled || row.builtinKey !== null}
+                          disabledReason={
+                            row.builtinKey !== null ? t('policies.builtin_not_deletable') : canDelete.reason
+                          }
                           onClick={(event) => {
                             event.stopPropagation();
                             setRemoving(row);

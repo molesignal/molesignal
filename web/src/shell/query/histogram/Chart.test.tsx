@@ -80,8 +80,8 @@ const QUARTER_HOUR = 15 * 60 * 1_000_000;
 /** A day of matches: a busy quarter of an hour in the morning with errors, a quiet one at night. */
 const COUNTED: HistogramCountsAnswer = {
   bars: [
-    { startMicros: micros('2026-10-11T10:00:00Z'), total: 1200, errors: 30 },
-    { startMicros: micros('2026-10-11T23:15:00Z'), total: 5, errors: 0 },
+    { startTime: micros('2026-10-11T10:00:00Z'), total: 1200, errors: 30 },
+    { startTime: micros('2026-10-11T23:15:00Z'), total: 5, errors: 0 },
   ],
   split: true,
 };
@@ -124,7 +124,7 @@ describe('ResultHistogram', () => {
   });
 
   it('writes the time as the reader has asked to see it', () => {
-    const { module } = renderHistogram({}, { time_format: 'local_12h', date_format: 'dd_mm_yyyy_slash', timezone: 'Asia/Shanghai' });
+    const { module } = renderHistogram({}, { timeFormat: 'local_12h', dateFormat: 'dd_mm_yyyy_slash', timezone: 'Asia/Shanghai' });
 
     // The same instants, eight hours on: the next morning there.
     expect(texts(module, '[data-histogram-axis="time"] .type-micro')[0]).toBe('07:22:50 AM');
@@ -252,7 +252,7 @@ describe('ResultHistogram with counts of everything the query matches', () => {
 
     // A day in ninety-six bars: a quarter of an hour each, from midnight on the reader's clock.
     expect(counts.load).toHaveBeenCalledExactlyOnceWith(
-      { range: DAY, binMicros: QUARTER_HOUR, originMicros: DAY.start },
+      { range: DAY, binMicros: QUARTER_HOUR, originTime: DAY.start },
       expect.any(AbortSignal),
     );
     const frame = current()?.querySelector<HTMLElement>('[data-histogram-frame]');

@@ -33,7 +33,7 @@ export function groupChats(
     .map((key) => ({
       key,
       chats: chats.filter(
-        (chat) => chatDateGroup(chat.updated_at_micros, now) === key,
+        (chat) => chatDateGroup(chat.updatedAt, now) === key,
       ),
     }))
     .filter((group) => group.chats.length > 0);
@@ -62,7 +62,7 @@ export function displayTitleForChat(chat: Chat, chats: readonly Chat[]): string 
       candidate.title.trim().toLocaleLowerCase() === title.toLocaleLowerCase(),
   ).length;
   if (duplicateCount <= 1 || / · \d{2}:\d{2}$/.test(title)) return title;
-  const updated = new Date(chat.updated_at_micros / 1000);
+  const updated = new Date(chat.updatedAt / 1000);
   const hh = String(updated.getHours()).padStart(2, '0');
   const mm = String(updated.getMinutes()).padStart(2, '0');
   return `${title} · ${hh}:${mm}`;

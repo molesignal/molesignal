@@ -3,7 +3,7 @@ import type { ChatMessageRow } from '@/api/agent/chat';
 export interface PendingUserMessage {
   chatId: string;
   content: string;
-  sentAtMicros: number;
+  sentAt: number;
 }
 
 export interface ConversationTurn {
@@ -63,7 +63,7 @@ export function hasPersistedPendingUser(
   const content = normalizeMessageContent(pending.content);
   return (
     lastMessage.role === 'user' &&
-    lastMessage.chat_id === pending.chatId &&
+    lastMessage.chatId === pending.chatId &&
     normalizeMessageContent(lastMessage.content) === content
   );
 }
@@ -95,7 +95,7 @@ function lastChatMessage(messages: ChatMessageRow[]): ChatMessageRow | null {
 
 function sameVisibleMessage(a: ChatMessageRow, b: ChatMessageRow): boolean {
   return (
-    a.chat_id === b.chat_id &&
+    a.chatId === b.chatId &&
     a.role === 'user' &&
     b.role === 'user' &&
     normalizeMessageContent(a.content) === normalizeMessageContent(b.content)

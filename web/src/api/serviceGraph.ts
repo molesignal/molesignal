@@ -3,18 +3,18 @@ import { http } from '@/lib/http';
 export interface TopologyNode {
   id: string;
   name: string;
-  error_rate: number;
-  p95_ms: number;
+  errorRate: number;
+  p95Ms: number;
   rps: number;
-  span_count: number;
+  spanCount: number;
 }
 
 export interface TopologyEdge {
   source: string;
   target: string;
   rps: number;
-  err_rate: number;
-  p95_ms: number;
+  errRate: number;
+  p95Ms: number;
 }
 
 export interface TopologySnapshot {

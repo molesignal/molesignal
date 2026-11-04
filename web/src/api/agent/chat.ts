@@ -11,62 +11,64 @@ export interface Chat {
   provider: string;
   model: string;
   title: string;
-  provider_id?: string | null;
-  analysis_mode?: string | null;
+  providerId?: string | null;
+  analysisMode?: string | null;
   capability?: ChatCapability | null;
-  time_range_start_micros?: number | null;
-  time_range_end_micros?: number | null;
-  archive_object_key?: string | null;
+  timeRangeStart?: number | null;
+  timeRangeEnd?: number | null;
+  archiveObjectKey?: string | null;
   /** A personal chat, or one for a team whose members read and continue it. */
   scope?: 'personal' | 'team';
-  team_id?: string | null;
+  teamId?: string | null;
   /** Teams whose skills and MCP servers a personal chat has taken in. */
-  mounted_team_ids?: string[];
+  mountedTeamIds?: string[];
   /** Who started the chat. */
-  owner_id?: string;
+  ownerId?: string;
   /** False when only the title and usage can be seen. */
   readable?: boolean;
   /** What the chat investigates, such as the incident it was started from. */
-  subject_kind?: 'incident' | null;
-  subject_id?: string | null;
+  subjectKind?: 'incident' | 'service' | 'rum' | 'finding' | null;
+  subjectId?: string | null;
   /** The investigation record the answers of the chat write to. */
-  investigation_id?: string | null;
+  investigationId?: string | null;
   /** The chat this one was forked from. */
-  parent_chat_id?: string | null;
-  created_at_micros: number;
-  updated_at_micros: number;
+  parentChatId?: string | null;
+  /** A run of this automation: the chat is not listed and cannot be continued. */
+  automationId?: string | null;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export type ChatCapability = 'dashboard_authoring';
 
 export interface ChatMessageRow {
   id: string;
-  chat_id: string;
-  org_id: string;
+  chatId: string;
+  orgId: string;
   role: string;
   content: string;
-  prompt_template_id?: string | null;
-  prompt_builtin_key?: string | null;
-  prompt_version?: number | null;
-  prompt_hash?: string | null;
-  evidence_json?: unknown;
-  prompt_tokens?: number | null;
-  completion_tokens?: number | null;
+  promptTemplateId?: string | null;
+  promptBuiltinKey?: string | null;
+  promptVersion?: number | null;
+  promptHash?: string | null;
+  evidenceJson?: unknown;
+  promptTokens?: number | null;
+  completionTokens?: number | null;
   /** In the currency of the model provider; null when it has no prices. */
   cost?: Cost | null;
   /** The command the user message was; `content` keeps what was typed. */
   command?: MessageCommand | null;
   /** Who asked: in a team chat the questions can come from different people. */
-  sender_id?: string | null;
-  sender_name?: string | null;
+  senderId?: string | null;
+  senderName?: string | null;
   /** What was attached to a question with @. */
   references?: MessageReference[] | null;
   /** The run an answer came from. */
-  run_id?: string | null;
-  created_at_micros: number;
+  runId?: string | null;
+  createdAt: number;
 }
 
-export type ReferenceKind = 'incident' | 'alert_rule' | 'service' | 'dashboard' | 'stream';
+export type ReferenceKind = 'incident' | 'alert_rule' | 'service' | 'rum_application' | 'dashboard' | 'stream';
 
 /** Something attached to a question with @: the model reads it as the subject of the question. */
 export interface MessageReference {
@@ -80,40 +82,40 @@ export interface CreateChatInput {
   model: string;
   title?: string | undefined;
   /** The title is the first question for now: the server names the chat while answering it. */
-  title_provisional?: boolean | undefined;
-  provider_id?: string | undefined;
-  analysis_mode?: string | undefined;
+  titleProvisional?: boolean | undefined;
+  providerId?: string | undefined;
+  analysisMode?: string | undefined;
   capability?: ChatCapability | undefined;
   /** The team a team chat is for; none for a personal chat. */
-  team_id?: string | undefined;
-  /** What the chat investigates: the incident it is started from. */
-  subject?: { kind: 'incident'; id: string } | undefined;
+  teamId?: string | undefined;
+  /** What the chat investigates: the incident it is started from, a service by its name, or a RUM application by its id. */
+  subject?: { kind: 'incident' | 'service' | 'rum' | 'finding'; id: string } | undefined;
 }
 
 export interface TimeRange {
-  start_micros: number;
-  end_micros: number;
+  startTime: number;
+  endTime: number;
 }
 
 export interface PostMessageBody {
   content: string;
-  regenerate_from_message_id?: string | undefined;
-  investigation_id?: string | undefined;
-  time_range?: TimeRange | undefined;
-  analysis_mode?: string | undefined;
+  regenerateFromMessageId?: string | undefined;
+  investigationId?: string | undefined;
+  timeRange?: TimeRange | undefined;
+  analysisMode?: string | undefined;
   capability?: ChatCapability | undefined;
-  execution_policy?:
+  executionPolicy?:
     | 'advice_only'
     | 'read_only'
     | 'policy'
     | 'auto'
     | 'bypass_permissions'
     | undefined;
-  stream_hints?: string[] | undefined;
-  agent_profile_id?: string | undefined;
-  provider_id?: string | undefined;
+  streamHints?: string[] | undefined;
+  agentProfileId?: string | undefined;
+  providerId?: string | undefined;
   model?: string | undefined;
-  prompt_template_id?: string | undefined;
+  promptTemplateId?: string | undefined;
   references?: MessageReference[] | undefined;
 }
 
@@ -124,9 +126,9 @@ export interface PostMessageBody {
 export interface BudgetNotice {
   kind: 'budget';
   level: 'warning' | 'exhausted';
-  used_tokens: number;
-  limit_tokens: number;
-  resets_at_micros: number;
+  usedTokens: number;
+  limitTokens: number;
+  resetsAt: number;
   /** The question was not sent: the organization blocks chats once the budget is used up. */
   blocked?: boolean;
 }
@@ -147,15 +149,21 @@ export function budgetRefusal(status: number, body: string): BudgetNotice | null
   return {
     kind: 'budget',
     level: 'exhausted',
-    used_tokens: Number(payload.used_tokens ?? 0),
-    limit_tokens: Number(payload.limit_tokens ?? 0),
-    resets_at_micros: Number(payload.resets_at_micros ?? 0),
+    usedTokens: Number(payload.usedTokens ?? 0),
+    limitTokens: Number(payload.limitTokens ?? 0),
+    resetsAt: Number(payload.resetsAt ?? 0),
     blocked: true,
   };
 }
 
 export async function listChats(): Promise<Chat[]> {
   const { data } = await http.get<Chat[]>('/agent/chat');
+  return data;
+}
+
+/** One chat the reader can read, listed or not (the run of an automation is not). */
+export async function getChat(id: string): Promise<Chat> {
+  const { data } = await http.get<Chat>(`/agent/chat/${encodeURIComponent(id)}`);
   return data;
 }
 
@@ -170,7 +178,7 @@ export async function createChat(input: CreateChatInput): Promise<Chat> {
  */
 export async function forkChat(id: string, messageId?: string): Promise<Chat> {
   const { data } = await http.post<Chat>(`/agent/chat/${encodeURIComponent(id)}/fork`, {
-    message_id: messageId,
+    messageId: messageId,
   });
   return data;
 }
@@ -192,8 +200,8 @@ export async function listMessages(id: string): Promise<ChatMessageRow[]> {
   return data.messages ?? [];
 }
 
-export async function archiveChat(id: string): Promise<{ status: string; object_key?: string | null }> {
-  const { data } = await http.post<{ status: string; object_key?: string | null }>(
+export async function archiveChat(id: string): Promise<{ status: string; objectKey?: string | null }> {
+  const { data } = await http.post<{ status: string; objectKey?: string | null }>(
     `/agent/chat/${encodeURIComponent(id)}/archive`,
   );
   return data;
@@ -212,11 +220,11 @@ export type PostResult =
  */
 export async function postMessage(chatId: string, body: PostMessageBody): Promise<PostResult> {
   try {
-    const { data } = await http.post<{ run: Run; user_message_id: string }>(
+    const { data } = await http.post<{ run: Run; userMessageId: string }>(
       `/agent/chat/${encodeURIComponent(chatId)}/messages`,
       body,
     );
-    return { kind: 'queued', run: data.run, userMessageId: data.user_message_id };
+    return { kind: 'queued', run: data.run, userMessageId: data.userMessageId };
   } catch (error) {
     if (error instanceof AxiosError && error.response) {
       const raw = error.response.data;
@@ -232,5 +240,5 @@ export async function postMessage(chatId: string, body: PostMessageBody): Promis
 
 /** Write an answer of a chat started from an incident back to the incident as its RCA. */
 export async function writeIncidentRca(chatId: string, messageId: string): Promise<void> {
-  await http.post(`/agent/chat/${encodeURIComponent(chatId)}/rca`, { message_id: messageId });
+  await http.post(`/agent/chat/${encodeURIComponent(chatId)}/rca`, { messageId: messageId });
 }

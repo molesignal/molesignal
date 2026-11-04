@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::shared::{Result, ids::Id, tail_sampling::TraceRuntimePolicy, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PersistedTracePolicy {
     pub id: Id,
     pub system_org_id: Id,

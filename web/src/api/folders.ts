@@ -2,14 +2,14 @@ import { http } from '@/lib/http';
 
 export interface Folder {
   id: string;
-  org_id: string;
+  orgId: string;
   name: string;
-  parent_id?: string;
+  parentId?: string;
 }
 
 export interface FolderInput {
   name: string;
-  parent_id?: string;
+  parentId?: string;
 }
 
 type FolderListResponse = Folder[] | { items?: unknown[] };
@@ -26,18 +26,18 @@ function normalizeFolder(raw: unknown): Folder {
   const record = isRecord(raw) ? raw : {};
   const folder: Folder = {
     id: stringValue(record.id) ?? stringValue(record.uid) ?? stringValue(record.name) ?? '',
-    org_id: stringValue(record.org_id) ?? stringValue(record.orgId) ?? '',
+    orgId: stringValue(record.orgId) ?? '',
     name: stringValue(record.name) ?? 'Untitled folder',
   };
-  const parentId = stringValue(record.parent_id) ?? stringValue(record.parentId);
-  if (parentId) folder.parent_id = parentId;
+  const parentId = stringValue(record.parentId);
+  if (parentId) folder.parentId = parentId;
   return folder;
 }
 
 function cleanInput(input: FolderInput): FolderInput {
   const payload: FolderInput = { name: input.name.trim() };
-  const parentId = input.parent_id?.trim();
-  if (parentId) payload.parent_id = parentId;
+  const parentId = input.parentId?.trim();
+  if (parentId) payload.parentId = parentId;
   return payload;
 }
 

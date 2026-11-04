@@ -21,8 +21,8 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
     ) -> Result<ProbeRegisterToken> {
         let rows = sqlx::query(
             "INSERT INTO synthetic_probe_register_tokens
-                (id, location_id, token_hash, expires_at_micros, used_at_micros,
-                 used_by_agent_id, created_by, created_at_micros)
+                (id, location_id, token_hash, expires_at, used_at,
+                 used_by_agent_id, created_by, created_at)
              SELECT $1, location.id, $4, $5, NULL, NULL, $6, $7
              FROM synthetic_probe_locations location
              WHERE location.id = $3 AND location.organization_id = $2
@@ -33,9 +33,9 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
         .bind(&token.organization_id.0)
         .bind(&token.location_id.0)
         .bind(token_hash)
-        .bind(token.expires_at.0)
+        .bind(token.expires_at)
         .bind(&token.created_by.0)
-        .bind(token.created_at.0)
+        .bind(token.created_at)
         .execute(&self.pool)
         .await
         .map_err(super::sqlx_err)?
@@ -56,13 +56,13 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
         use sqlx::Row;
 
         let row = sqlx::query(
-            "SELECT grant.organization_id, grant.location_id
+            "SELECT registration_grant.organization_id, registration_grant.location_id
              FROM (
                  SELECT location.organization_id, token.location_id, 1 AS priority
                  FROM synthetic_probe_register_tokens token
                  JOIN synthetic_probe_locations location ON location.id = token.location_id
-                 WHERE token.token_hash = $1 AND token.used_at_micros IS NULL
-                   AND token.expires_at_micros > $2 AND location.organization_id IS NOT NULL
+                 WHERE token.token_hash = $1 AND token.used_at IS NULL
+                   AND token.expires_at > $2 AND location.organization_id IS NOT NULL
                    AND location.lifecycle = 'active' AND location.execution = 'agent_pool'
                  UNION ALL
                  SELECT token.organization_id, token.location_id, 2 AS priority
@@ -71,14 +71,14 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
                    ON location.organization_id = token.organization_id
                   AND location.id = token.location_id
                  WHERE token.token_hash = $1 AND token.status = 'active'
-                   AND (token.expires_at_micros IS NULL OR token.expires_at_micros > $2)
+                   AND (token.expires_at IS NULL OR token.expires_at > $2)
                    AND location.lifecycle = 'active' AND location.execution = 'agent_pool'
-             ) grant
-             ORDER BY grant.priority
+             ) registration_grant
+             ORDER BY registration_grant.priority
              LIMIT 1",
         )
         .bind(token_hash)
-        .bind(now.0)
+        .bind(now)
         .fetch_one(&self.pool)
         .await
         .map_err(|error| match error {
@@ -112,14 +112,14 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
             "SELECT token.id
              FROM synthetic_probe_register_tokens token
              JOIN synthetic_probe_locations location ON location.id = token.location_id
-             WHERE token.token_hash = $1 AND token.used_at_micros IS NULL
-               AND token.expires_at_micros > $2 AND token.location_id = $3
+             WHERE token.token_hash = $1 AND token.used_at IS NULL
+               AND token.expires_at > $2 AND token.location_id = $3
                AND location.organization_id = $4 AND location.lifecycle = 'active'
                AND location.execution = 'agent_pool'
              FOR UPDATE OF token",
         )
         .bind(token_hash)
-        .bind(consumed_at.0)
+        .bind(consumed_at)
         .bind(&agent.location_id.0)
         .bind(&org_id.0)
         .fetch_optional(&mut *transaction)
@@ -134,13 +134,13 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
                    ON location.organization_id = token.organization_id
                   AND location.id = token.location_id
                  WHERE token.token_hash = $1 AND token.status = 'active'
-                   AND (token.expires_at_micros IS NULL OR token.expires_at_micros > $2)
+                   AND (token.expires_at IS NULL OR token.expires_at > $2)
                    AND token.location_id = $3 AND token.organization_id = $4
                    AND location.lifecycle = 'active' AND location.execution = 'agent_pool'
                  FOR UPDATE OF token",
             )
             .bind(token_hash)
-            .bind(consumed_at.0)
+            .bind(consumed_at)
             .bind(&agent.location_id.0)
             .bind(&org_id.0)
             .fetch_optional(&mut *transaction)
@@ -160,8 +160,8 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
             "INSERT INTO synthetic_probe_agents
                 (id, location_id, name, hostname, status, agent_version, protocol_version,
                  capabilities, capacity, labels, public_key_der, certificate_serial,
-                 certificate_expires_at_micros, last_heartbeat_at_micros,
-                 last_result_sequence, revoked_at_micros, created_at_micros, updated_at_micros)
+                 certificate_expires_at, last_heartbeat_at,
+                 last_result_sequence, revoked_at, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NULL,
                      0, NULL, $14, $14)",
         )
@@ -183,8 +183,8 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
         .bind(sqlx::types::Json(&agent.labels))
         .bind(&agent.public_key_der)
         .bind(&agent.certificate_serial)
-        .bind(agent.certificate_expires_at.map(|value| value.0))
-        .bind(consumed_at.0)
+        .bind(agent.certificate_expires_at)
+        .bind(consumed_at)
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -192,10 +192,10 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
         if let Some(token_id) = register_token_id {
             sqlx::query(
                 "UPDATE synthetic_probe_register_tokens
-                 SET used_at_micros = $2, used_by_agent_id = $3 WHERE id = $1",
+                 SET used_at = $2, used_by_agent_id = $3 WHERE id = $1",
             )
             .bind(token_id)
-            .bind(consumed_at.0)
+            .bind(consumed_at)
             .bind(&agent.id.0)
             .execute(&mut *transaction)
             .await
@@ -203,10 +203,10 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
         } else if let Some(token_id) = agent_token_id {
             sqlx::query(
                 "UPDATE synthetic_probe_agent_tokens
-                 SET last_used_at_micros = $2, updated_at_micros = $2 WHERE id = $1",
+                 SET last_used_at = $2, updated_at = $2 WHERE id = $1",
             )
             .bind(token_id)
-            .bind(consumed_at.0)
+            .bind(consumed_at)
             .execute(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;

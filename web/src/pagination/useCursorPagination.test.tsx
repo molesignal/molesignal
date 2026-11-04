@@ -12,8 +12,8 @@ describe('useCursorPagination', () => {
 
     act(() => {
       result.current.goNext({
-        next_cursor: 'page-2',
-        previous_cursor: null,
+        nextCursor: 'page-2',
+        previousCursor: null,
       });
     });
     expect(result.current.cursor).toBe('page-2');
@@ -31,8 +31,8 @@ describe('useCursorPagination', () => {
     );
     act(() => {
       result.current.goNext({
-        next_cursor: 'page-2',
-        previous_cursor: null,
+        nextCursor: 'page-2',
+        previousCursor: null,
       });
       result.current.setPageSize(50);
     });

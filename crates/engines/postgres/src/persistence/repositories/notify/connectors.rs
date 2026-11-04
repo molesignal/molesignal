@@ -70,21 +70,24 @@ impl PgNotifyConnectorRepository {
             enabled: row.try_get("enabled").map_err(sqlx_err)?,
             status: ConnectorStatus::parse(&status)?,
             last_tested_at: row
-                .try_get::<Option<i64>, _>("last_tested_at_micros")
-                .map_err(sqlx_err)?
-                .map(TimestampMicros),
+                .try_get::<Option<TimestampMicros>, _>("last_tested_at")
+                .map_err(sqlx_err)?,
             last_test_status: test_status,
             last_test_error: row.try_get("last_test_error").map_err(sqlx_err)?,
-            created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-            updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+            created_at: row
+                .try_get::<TimestampMicros, _>("created_at")
+                .map_err(sqlx_err)?,
+            updated_at: row
+                .try_get::<TimestampMicros, _>("updated_at")
+                .map_err(sqlx_err)?,
         })
     }
 }
 
 const COLS: &str = "id, organization_id, name, connector_type,
     config_ciphertext, config_nonce, capabilities, enabled, status,
-    last_tested_at_micros, last_test_status, last_test_error, created_at_micros,
-    updated_at_micros";
+    last_tested_at, last_test_status, last_test_error, created_at,
+    updated_at";
 
 #[async_trait]
 impl NotifyConnectorRepository for PgNotifyConnectorRepository {
@@ -95,8 +98,8 @@ impl NotifyConnectorRepository for PgNotifyConnectorRepository {
             "INSERT INTO notify_connectors (
                  id, organization_id, name, connector_type,
                  config_ciphertext, config_nonce, capabilities, enabled, status,
-                 last_tested_at_micros, last_test_status, last_test_error,
-                 created_at_micros, updated_at_micros
+                 last_tested_at, last_test_status, last_test_error,
+                 created_at, updated_at
              ) VALUES (
                  $1, $2, $3, $4, $5, $6, $7, $8, $9,
                  $10, $11, $12, $13, $14
@@ -111,11 +114,11 @@ impl NotifyConnectorRepository for PgNotifyConnectorRepository {
         .bind(Json(&connector.capabilities))
         .bind(connector.enabled)
         .bind(connector.status.as_str())
-        .bind(connector.last_tested_at.map(|value| value.0))
+        .bind(connector.last_tested_at)
         .bind(connector.last_test_status.map(ConnectorTestStatus::as_str))
         .bind(&connector.last_test_error)
-        .bind(connector.created_at.0)
-        .bind(connector.updated_at.0)
+        .bind(connector.created_at)
+        .bind(connector.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -134,7 +137,7 @@ impl NotifyConnectorRepository for PgNotifyConnectorRepository {
                     capabilities = $6,
                     enabled = $7,
                     status = $8,
-                    updated_at_micros = $9
+                    updated_at = $9
               WHERE organization_id = $1 AND id = $2",
         )
         .bind(&connector.organization_id.0)
@@ -145,7 +148,7 @@ impl NotifyConnectorRepository for PgNotifyConnectorRepository {
         .bind(Json(&connector.capabilities))
         .bind(connector.enabled)
         .bind(connector.status.as_str())
-        .bind(connector.updated_at.0)
+        .bind(connector.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -170,6 +173,20 @@ impl NotifyConnectorRepository for PgNotifyConnectorRepository {
         .map_err(sqlx_err)?;
 
         self.row_to_connector(row)
+    }
+
+    async fn find(&self, id: &Id) -> Result<Option<NotifyConnector>> {
+        let row = sqlx::query(&format!(
+            "SELECT {COLS}
+               FROM notify_connectors
+              WHERE id = $1"
+        ))
+        .bind(&id.0)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
+
+        row.map(|row| self.row_to_connector(row)).transpose()
     }
 
     async fn list(&self, organization_id: &Id) -> Result<Vec<NotifyConnector>> {
@@ -205,16 +222,16 @@ impl NotifyConnectorRepository for PgNotifyConnectorRepository {
         let updated = sqlx::query(
             "UPDATE notify_connectors
                 SET status = $3,
-                    last_tested_at_micros = $4,
+                    last_tested_at = $4,
                     last_test_status = $5,
                     last_test_error = $6,
-                    updated_at_micros = $4
+                    updated_at = $4
               WHERE organization_id = $1 AND id = $2",
         )
         .bind(&organization_id.0)
         .bind(&id.0)
         .bind(connector_status.as_str())
-        .bind(tested_at.0)
+        .bind(tested_at)
         .bind(status.as_str())
         .bind(error)
         .execute(&self.pool)

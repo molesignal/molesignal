@@ -162,7 +162,7 @@ export function templateFormatOptions(sourceKind: SourceKind) {
 export function adaptReport(
   report: reportsApi.ScheduledReport,
 ): DisplayReport {
-  const metadata = readReportMetadata(report.time_range_json);
+  const metadata = readReportMetadata(report.timeRangeJson);
   const source = reportSource(report);
 
   return {
@@ -187,14 +187,14 @@ export function reportInputFromDisplay(
 ): reportsApi.ReportInput {
   return {
     name: report.title,
-    dashboard_id:
+    dashboardId:
       report.sourceKind === 'dashboard' ? report.sourceId : null,
-    saved_view_id:
+    savedViewId:
       report.sourceKind === 'saved_view' ? report.sourceId : null,
     cron: report.cron,
     recipients: report.recipients,
     format: report.format,
-    time_range_json: buildReportMetadata({
+    timeRangeJson: buildReportMetadata({
       preset: report.rangePreset,
       timezone: report.timezone,
       description: report.description,
@@ -208,12 +208,12 @@ export function reportInputFromDraft(
 ): reportsApi.ReportInput {
   return {
     name: draft.title.trim(),
-    dashboard_id: draft.sourceKind === 'dashboard' ? draft.sourceId : null,
-    saved_view_id: draft.sourceKind === 'saved_view' ? draft.sourceId : null,
+    dashboardId: draft.sourceKind === 'dashboard' ? draft.sourceId : null,
+    savedViewId: draft.sourceKind === 'saved_view' ? draft.sourceId : null,
     cron: draft.cron.trim(),
     recipients: draft.recipients,
     format: draft.format,
-    time_range_json: buildReportMetadata({
+    timeRangeJson: buildReportMetadata({
       preset: draft.rangePreset,
       timezone: draft.timezone,
       description: draft.description,

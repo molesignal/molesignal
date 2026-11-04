@@ -10,25 +10,27 @@ import {
 } from './valueFilter';
 
 const fields = deriveTraceFields([
-  { name: 'trace_id', data_type: 'utf8', nullable: false, indexed: true },
-  { name: 'span_id', data_type: 'utf8', nullable: false, indexed: true },
-  { name: 'service.name', data_type: 'utf8', nullable: true, indexed: true },
-  { name: 'name', data_type: 'utf8', nullable: true, indexed: true },
-  { name: 'duration_ns', data_type: 'int64', nullable: false, indexed: false },
-  { name: 'http.status_code', data_type: 'int64', nullable: true, indexed: false },
-  { name: 'ratio', data_type: 'float64', nullable: true, indexed: false },
-  { name: 'conflict', data_type: 'bool', nullable: true, indexed: false },
-  { name: 'seen_at', data_type: 'timestamp', nullable: true, indexed: false },
-  { name: 'attributes', data_type: 'json', nullable: true, indexed: false },
-  { name: 'http.request.header.x-request-id', data_type: 'utf8', nullable: true, indexed: false },
+  { name: 'trace_id', dataType: 'utf8', nullable: false, indexed: true },
+  { name: 'span_id', dataType: 'utf8', nullable: false, indexed: true },
+  { name: 'service.name', dataType: 'utf8', nullable: true, indexed: true },
+  { name: 'name', dataType: 'utf8', nullable: true, indexed: true },
+  { name: 'duration_ns', dataType: 'int64', nullable: false, indexed: false },
+  { name: 'http.status_code', dataType: 'int64', nullable: true, indexed: false },
+  { name: 'ratio', dataType: 'float64', nullable: true, indexed: false },
+  { name: 'conflict', dataType: 'bool', nullable: true, indexed: false },
+  { name: 'seen_at', dataType: 'timestamp', nullable: true, indexed: false },
+  { name: 'attributes', dataType: 'json', nullable: true, indexed: false },
+  { name: 'http.request.header.x-request-id', dataType: 'utf8', nullable: true, indexed: false },
 ]);
 const field = (name: string): TraceFieldDef => fields.find((candidate) => candidate.name === name)!;
 
 describe('whether a value can be filtered by', () => {
-  it('asks a field query for a value, and only leaves one out where a trace has one value', () => {
+  it('asks a field query for a value, or for the traces without it, on every field', () => {
     expect(canFilterTraceValue(field('service.name'), 'checkout', '=', 'fields')).toBe(true);
-    // Any span of another service would satisfy "not checkout": that is not leaving it out.
-    expect(canFilterTraceValue(field('service.name'), 'checkout', '!=', 'fields')).toBe(false);
+    // A trace passes "not checkout" when none of its spans is of checkout.
+    expect(canFilterTraceValue(field('service.name'), 'checkout', '!=', 'fields')).toBe(true);
+    expect(canFilterTraceValue(field('http.status_code'), '500', '!=', 'fields')).toBe(true);
+    expect(canFilterTraceValue(field('conflict'), 'true', '!=', 'fields')).toBe(true);
     expect(canFilterTraceValue(field('trace_id'), 'abc', '!=', 'fields')).toBe(true);
     expect(canFilterTraceValue(field('span_count'), '3', '!=', 'fields')).toBe(true);
   });
@@ -82,7 +84,7 @@ describe('a value in a field query', () => {
   });
 
   it('is not written twice, however the first was spelt', () => {
-    const statement = 'service_name eq "checkout"';
+    const statement = 'service.name eq "checkout"';
 
     expect(insertTraceValueClause(statement, field('service.name'), 'checkout', '=')).toBe(statement);
   });
@@ -92,11 +94,49 @@ describe('a value in a field query', () => {
     expect(insertTraceValueClause('span_count = 3', field('span_count'), '3', '!=')).toBe('span_count != 3');
   });
 
-  it('keeps a second value for a field of a span, and replaces it for a field of a trace', () => {
-    // A trace can have spans of both services; it cannot have two ids.
+  it('leaves a value of a span out in place of the same value asked for, and beside another', () => {
+    expect(insertTraceValueClause("service.name = 'checkout'", field('service.name'), 'checkout', '!='))
+      .toBe("service.name != 'checkout'");
+    // A trace can call `web` and not `payments`.
+    expect(insertTraceValueClause("service.name = 'web'", field('service.name'), 'payments', '!='))
+      .toBe("service.name = 'web' AND service.name != 'payments'");
+    expect(parseTraceStatement("service.name != 'payments'", fields).filters)
+      .toEqual([{ field: 'service.name', op: '!=', value: 'payments' }]);
+  });
+
+  it('joins a second value asked for to the first, as boxes ticked in a list', () => {
+    // Any of them: a trace with a span of either service, either of two traces.
     expect(insertTraceValueClause("service.name = 'web'", field('service.name'), 'checkout', '='))
-      .toBe("service.name = 'web' AND service.name = 'checkout'");
-    expect(insertTraceValueClause("trace_id = 'abc'", field('trace_id'), 'def', '=')).toBe("trace_id = 'def'");
+      .toBe("service.name in ('web', 'checkout')");
+    expect(insertTraceValueClause("trace_id = 'abc'", field('trace_id'), 'def', '=')).toBe("trace_id in ('abc', 'def')");
+    expect(insertTraceValueClause("error AND service.name in ('web', 'checkout')", field('service.name'), 'payments', '='))
+      .toBe("error AND service.name in ('web', 'checkout', 'payments')");
+    expect(insertTraceValueClause('http.status_code = 500', field('http.status_code'), '503', '=')).toBe('http.status_code in (500, 503)');
+    // The empty comparison the field's "+" left goes when a value joins the one asked for.
+    expect(insertTraceValueClause("service.name = 'web' AND service.name = ''", field('service.name'), 'checkout', '='))
+      .toBe("service.name in ('web', 'checkout')");
+  });
+
+  it('finds a value in a list, and takes it out leaving the others asked for', () => {
+    const list = "service.name in ('web', 'checkout', 'payments')";
+
+    expect(hasTraceValueFilter('fields', list, field('service.name'), 'checkout', '=', 'default')).toBe(true);
+    expect(hasTraceValueFilter('fields', list, field('service.name'), 'cart', '=', 'default')).toBe(false);
+    expect(hasTraceValueFilter('fields', list, field('service.name'), 'checkout', '!=', 'default')).toBe(false);
+    expect(insertTraceValueClause(list, field('service.name'), 'checkout', '=')).toBe(list);
+    expect(removeTraceValueFilter('fields', list, field('service.name'), 'checkout', '=', 'default'))
+      .toBe("service.name in ('web', 'payments')");
+    expect(removeTraceValueFilter('fields', "error AND service.name in ('web', 'checkout')", field('service.name'), 'web', '=', 'default'))
+      .toBe("error AND service.name = 'checkout'");
+  });
+
+  it('keeps a list beside a value left out, and takes the value out of it when it was asked for', () => {
+    const list = "service.name in ('web', 'checkout')";
+
+    expect(insertTraceValueClause(list, field('service.name'), 'payments', '!='))
+      .toBe("service.name in ('web', 'checkout') AND service.name != 'payments'");
+    expect(insertTraceValueClause(list, field('service.name'), 'checkout', '!='))
+      .toBe("service.name = 'web' AND service.name != 'checkout'");
   });
 
   it('moves a bound instead of stacking another on the same side', () => {
@@ -106,13 +146,26 @@ describe('a value in a field query', () => {
   });
 
   it('is found and taken out again, leaving the rest as written', () => {
-    const statement = "error AND service_name = 'checkout' AND span_count >= 3";
+    const statement = "error AND service.name = 'checkout' AND span_count >= 3";
 
     expect(hasTraceValueFilter('fields', statement, field('service.name'), 'checkout', '=', 'default')).toBe(true);
     expect(hasTraceValueFilter('fields', statement, field('service.name'), 'web', '=', 'default')).toBe(false);
     expect(removeTraceValueFilter('fields', statement, field('service.name'), 'checkout', '=', 'default'))
       .toBe('error AND span_count >= 3');
     expect(removeTraceValueFilter('fields', "service.name = 'checkout'", field('service.name'), 'checkout', '=', 'default')).toBe('');
+  });
+
+  it('narrows a statement of alternatives as a whole, and takes the value out again', () => {
+    const either = "service.name = 'checkout' OR service.name = 'payments'";
+    const narrowed = insertTraceValueClause(either, field('http.status_code'), '500', '=');
+
+    expect(narrowed).toBe("(service.name = 'checkout' OR service.name = 'payments') AND http.status_code = 500");
+    expect(hasTraceValueFilter('fields', narrowed, field('http.status_code'), '500', '=', 'default')).toBe(true);
+    expect(removeTraceValueFilter('fields', narrowed, field('http.status_code'), '500', '=', 'default')).toBe(either);
+    // A value of a field the alternatives speak of joins no list of theirs.
+    expect(insertTraceValueClause(either, field('service.name'), 'web', '=')).toBe(
+      "(service.name = 'checkout' OR service.name = 'payments') AND service.name = 'web'",
+    );
   });
 });
 
@@ -149,7 +202,7 @@ describe('a value in SQL', () => {
     );
     // A span without the field is not one that has the value.
     expect(appendTraceSqlValueFilter(spans, field('service.name'), 'web', '!=', 'default')).toContain(
-      `WHERE "service.name" IS DISTINCT FROM 'web'`,
+      `WHERE ("service.name" IS DISTINCT FROM 'web')\nORDER BY`,
     );
     expect(appendTraceSqlValueFilter(spans, field('duration_ns'), '500', '>=', 'default')).toContain('WHERE "duration_ns" >= 500');
     expect(appendTraceSqlValueFilter(spans, field('seen_at'), '1791701313537673', '>=', 'default')).toContain(
@@ -180,6 +233,43 @@ describe('a value in SQL', () => {
     expect(removeTraceValueFilter('sql', two, status, '500', '=', 'default')).toBe(one);
     expect(removeTraceValueFilter('sql', two, service, 'web', '=', 'default')).toBe(
       appendTraceSqlValueFilter(template, status, '500', '=', 'default'),
+    );
+  });
+
+  it('keeps a value left out in brackets, so a condition added after it holds beside it', () => {
+    const service = field('service.name');
+    const status = field('http.status_code');
+    const left = appendTraceSqlValueFilter(spans, service, 'web', '!=', 'default');
+    const both = appendTraceSqlValueFilter(left, status, '500', '=', 'default');
+
+    // Without the brackets the engine would read `IS DISTINCT FROM ('web' AND "http.status_code" = 500)`.
+    expect(both).toBe(
+      `SELECT * FROM "default"\nWHERE ("service.name" IS DISTINCT FROM 'web')\n  AND "http.status_code" = 500\nORDER BY start_time_unix_nano DESC\nLIMIT 200`,
+    );
+    expect(appendTraceSqlValueFilter(left, service, 'web', '!=', 'default')).toBe(left);
+    expect(hasTraceValueFilter('sql', both, service, 'web', '!=', 'default')).toBe(true);
+    expect(removeTraceValueFilter('sql', both, service, 'web', '!=', 'default')).toBe(
+      appendTraceSqlValueFilter(spans, status, '500', '=', 'default'),
+    );
+    expect(removeTraceValueFilter('sql', both, status, '500', '=', 'default')).toBe(left);
+  });
+
+  it('narrows every alternative of the statement, its WHERE or its HAVING put in brackets', () => {
+    const status = field('http.status_code');
+    const either = `SELECT * FROM "default"\nWHERE "service.name" = 'a' OR "service.name" = 'b'\nORDER BY start_time_unix_nano DESC\nLIMIT 200`;
+    const narrowed = appendTraceSqlValueFilter(either, status, '500', '=', 'default');
+
+    expect(narrowed).toBe(
+      `SELECT * FROM "default"\nWHERE ("service.name" = 'a' OR "service.name" = 'b')\n  AND "http.status_code" = 500\nORDER BY start_time_unix_nano DESC\nLIMIT 200`,
+    );
+    // Taking the value out again leaves the alternatives in their brackets.
+    expect(removeTraceValueFilter('sql', narrowed, status, '500', '=', 'default')).toBe(
+      `SELECT * FROM "default"\nWHERE ("service.name" = 'a' OR "service.name" = 'b')\nORDER BY start_time_unix_nano DESC\nLIMIT 200`,
+    );
+
+    const grouped = `SELECT trace_id FROM "default"\nGROUP BY trace_id\nHAVING COUNT(*) > 10 OR SUM(CASE WHEN status_code = 'ERROR' THEN 1 ELSE 0 END) > 0\nLIMIT 200`;
+    expect(appendTraceSqlValueFilter(grouped, field('service.name'), 'web', '=', 'default')).toBe(
+      `SELECT trace_id FROM "default"\nGROUP BY trace_id\nHAVING (COUNT(*) > 10 OR SUM(CASE WHEN status_code = 'ERROR' THEN 1 ELSE 0 END) > 0)\n  AND MAX(CASE WHEN "service.name" = 'web' THEN 1 ELSE 0 END) = 1\nLIMIT 200`,
     );
   });
 });

@@ -26,6 +26,8 @@ pub struct SyntheticService {
     pub(super) register_endpoint: String,
     pub(super) control_endpoint: String,
     pub(super) probe_ca_certificate_pem: String,
+    /// Where scheduled runs go on their way to the `_synthetic_results` stream.
+    pub(super) result_stream: Option<super::ResultStreamQueue>,
 }
 
 impl SyntheticService {
@@ -36,6 +38,7 @@ impl SyntheticService {
             register_endpoint: String::new(),
             control_endpoint: String::new(),
             probe_ca_certificate_pem: String::new(),
+            result_stream: None,
         }
     }
 
@@ -53,6 +56,11 @@ impl SyntheticService {
 
     pub fn with_transition_sink(mut self, sink: Arc<dyn super::SyntheticTransitionSink>) -> Self {
         self.transition_sink = Some(sink);
+        self
+    }
+
+    pub fn with_result_stream(mut self, queue: super::ResultStreamQueue) -> Self {
+        self.result_stream = Some(queue);
         self
     }
 
@@ -163,7 +171,6 @@ impl SyntheticService {
         ttl_minutes: u32,
     ) -> Result<crate::domain::synthetics::ProbeRegisterInstructions> {
         use base64::Engine as _;
-        use rand::TryRng as _;
         use sha2::{Digest, Sha256};
 
         if self.register_endpoint.is_empty()
@@ -192,13 +199,7 @@ impl SyntheticService {
                 .saturating_add(i64::from(ttl_minutes) * 60 * 1_000_000),
         );
 
-        let mut raw = [0u8; 32];
-
-        rand::rngs::SysRng
-            .try_fill_bytes(&mut raw)
-            .map_err(|error| Error::internal(format!("generate register token: {error}")))?;
-
-        let plaintext = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(raw);
+        let plaintext = crate::infra::persistence::repositories::api_tokens::generate_token();
         let hash = Sha256::digest(plaintext.as_bytes()).to_vec();
 
         let token = self
@@ -408,7 +409,8 @@ impl SyntheticService {
             None
         };
 
-        self.repository
+        let monitor = self
+            .repository
             .update_monitor_runtime(
                 org_id,
                 monitor_id,
@@ -417,7 +419,21 @@ impl SyntheticService {
                 next,
                 TimestampMicros::now(),
             )
-            .await
+            .await?;
+
+        // A check that stops running has no results left to resolve its incidents with.
+        if let Some(sink) = &self.transition_sink
+            && let Err(error) = sink.on_lifecycle(&monitor).await
+        {
+            tracing::error!(
+                monitor_id = %monitor.id,
+                lifecycle = monitor.lifecycle.as_str(),
+                %error,
+                "synthetic lifecycle sink failed"
+            );
+        }
+
+        Ok(monitor)
     }
 
     pub async fn list_monitors(&self, org_id: &Id) -> Result<Vec<SyntheticMonitor>> {

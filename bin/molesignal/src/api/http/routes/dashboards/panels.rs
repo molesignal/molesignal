@@ -24,13 +24,14 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/dashboards/{id}/panels", post(add))
         .route(
-            "/dashboards/{id}/panels/{panel_id}",
+            "/dashboards/{id}/panels/{panelId}",
             axum::routing::put(update).delete(delete),
         )
-        .route("/dashboards/{id}/panels/{panel_id}/move", post(move_panel))
+        .route("/dashboards/{id}/panels/{panelId}/move", post(move_panel))
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct PanelReq {
     panel: Value,
     #[serde(default)]
@@ -42,6 +43,7 @@ struct PanelReq {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct UpdatePanelReq {
     panel: Value,
     #[serde(default)]
@@ -49,12 +51,14 @@ struct UpdatePanelReq {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct DeletePanelReq {
     #[serde(default)]
     expected_version: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct MovePanelReq {
     #[serde(default)]
     container_id: Option<String>,

@@ -178,6 +178,7 @@ mod tests {
         let context = ExecutionContext {
             secrets: HashMap::from([("token".into(), b"secret/value".to_vec())]),
             variables: HashMap::new(),
+            dialled: Default::default(),
         };
         let mut value = json!({
             "secret/value": { "url": "https://example.test/?token=secret%2Fvalue" }

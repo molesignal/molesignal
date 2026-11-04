@@ -9,14 +9,16 @@ use super::{
     rows::{to_i64, to_u64},
     sqlx_err,
     writes::{
-        bump_dataset_version, enqueue_object_gc, lock_dataset_version, tombstone_segment_artifacts,
+        bump_dataset_version, enqueue_object_gc, insert_artifact, lock_dataset_version,
+        tombstone_segment_artifacts,
     },
 };
 use crate::{
     domain::storage::{
-        GcReason, ObjectChecksum, ObjectKey, OrganizationScope, PublishPartitionManifest,
+        ArtifactReplacement, ArtifactState, GcReason, ObjectChecksum, ObjectKey, OrganizationScope,
+        PublishPartitionManifest,
     },
-    shared::{Error, Result},
+    shared::{Error, Result, time::TimestampMicros},
 };
 
 pub(super) async fn publish(
@@ -34,12 +36,14 @@ pub(super) async fn publish(
 
     let active = sqlx::query(
         "SELECT generation, object_key, checksum FROM partition_manifests \
-         WHERE org_id = $1 AND dataset_id = $2 AND partition_start_micros = $3 \
-           AND partition_shard = $4 AND state = 'active' FOR UPDATE",
+         WHERE org_id = $1 AND dataset_id = $2 AND partition_start = $3 \
+           AND partition_end = $4 AND partition_shard = $5 AND state = 'active' \
+         FOR UPDATE",
     )
     .bind(scope.organization_id.as_str())
     .bind(command.dataset_id.as_str())
-    .bind(command.partition.start_micros)
+    .bind(TimestampMicros(command.partition.start_micros))
+    .bind(TimestampMicros(command.partition.end_micros))
     .bind(command.partition.shard as i16)
     .fetch_optional(&mut *tx)
     .await
@@ -73,31 +77,46 @@ pub(super) async fn publish(
 
     validate_tombstones(&mut tx, scope, &command).await?;
 
+    for replacement in &command.replace_artifacts {
+        replace_sealed_artifact(&mut tx, scope, &command, replacement).await?;
+    }
+
     if let Some(active) = active {
         sqlx::query(
             "UPDATE partition_manifests SET state = 'retired' \
-             WHERE org_id = $1 AND dataset_id = $2 AND partition_start_micros = $3 \
-               AND partition_shard = $4 AND state = 'active'",
+             WHERE org_id = $1 AND dataset_id = $2 AND partition_start = $3 \
+               AND partition_end = $4 AND partition_shard = $5 AND state = 'active'",
         )
         .bind(scope.organization_id.as_str())
         .bind(command.dataset_id.as_str())
-        .bind(command.partition.start_micros)
+        .bind(TimestampMicros(command.partition.start_micros))
+        .bind(TimestampMicros(command.partition.end_micros))
         .bind(command.partition.shard as i16)
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
 
+        let retired_key = active
+            .try_get::<String, _>("object_key")
+            .map_err(sqlx_err)?;
+
         enqueue_object_gc(
             &mut tx,
             scope,
-            &ObjectKey::from_string(
-                active
-                    .try_get::<String, _>("object_key")
-                    .map_err(sqlx_err)?,
-            ),
+            &ObjectKey::from_string(retired_key.clone()),
             Some(&ObjectChecksum::from_string(
                 active.try_get::<String, _>("checksum").map_err(sqlx_err)?,
             )),
+            GcReason::Replaced,
+            command.gc_not_before_micros,
+        )
+        .await?;
+
+        enqueue_object_gc(
+            &mut tx,
+            scope,
+            &bloom_key(&retired_key),
+            None,
             GcReason::Replaced,
             command.gc_not_before_micros,
         )
@@ -106,15 +125,15 @@ pub(super) async fn publish(
 
     if let Some(pointer) = &command.new_manifest {
         sqlx::query(
-            "INSERT INTO partition_manifests (org_id, dataset_id, partition_start_micros, \
-             partition_end_micros, partition_shard, generation, object_key, size_bytes, \
-             checksum, etag, segment_count, state, created_at_micros) \
+            "INSERT INTO partition_manifests (org_id, dataset_id, partition_start, \
+             partition_end, partition_shard, generation, object_key, size_bytes, \
+             checksum, etag, segment_count, state, created_at) \
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'active', $12)",
         )
         .bind(scope.organization_id.as_str())
         .bind(command.dataset_id.as_str())
-        .bind(command.partition.start_micros)
-        .bind(command.partition.end_micros)
+        .bind(TimestampMicros(command.partition.start_micros))
+        .bind(TimestampMicros(command.partition.end_micros))
         .bind(command.partition.shard as i16)
         .bind(to_i64(pointer.generation, "manifest generation")?)
         .bind(pointer.object.key.as_str())
@@ -125,7 +144,7 @@ pub(super) async fn publish(
             i32::try_from(pointer.segment_count)
                 .map_err(|_| Error::invalid("manifest segment_count exceeds INTEGER"))?,
         )
-        .bind(pointer.created_at_micros)
+        .bind(TimestampMicros(pointer.created_at_micros))
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
@@ -176,6 +195,94 @@ pub(super) async fn publish(
     bump_dataset_version(&mut tx, scope, &command.dataset_id, new_version).await?;
     tx.commit().await.map_err(sqlx_err)?;
     Ok(new_version)
+}
+
+/// Swaps an index artifact of a sealed row of this partition for its rebuilt replacement, in the
+/// transaction that publishes the manifest naming the replacement: the old row is tombstoned and
+/// its object enters delayed GC, the replacement takes the slot.
+async fn replace_sealed_artifact(
+    conn: &mut sqlx::PgConnection,
+    scope: &OrganizationScope,
+    command: &PublishPartitionManifest,
+    replacement: &ArtifactReplacement,
+) -> Result<()> {
+    let current = sqlx::query(
+        "SELECT a.state, a.role, a.artifact_type, a.object_key, a.checksum, \
+                a.source_artifact_id, a.source_checksum \
+         FROM catalog_artifacts a \
+         JOIN catalog_segments s ON s.org_id = a.org_id AND s.id = a.segment_id \
+         WHERE a.org_id = $1 AND a.id = $2 AND a.segment_id = $3 AND s.dataset_id = $4 \
+           AND s.state = 'sealed' AND s.partition_start = $5 \
+           AND s.partition_end = $6 AND s.partition_shard = $7 \
+         FOR UPDATE OF a",
+    )
+    .bind(scope.organization_id.as_str())
+    .bind(replacement.artifact_id.as_str())
+    .bind(replacement.segment_id.as_str())
+    .bind(command.dataset_id.as_str())
+    .bind(TimestampMicros(command.partition.start_micros))
+    .bind(TimestampMicros(command.partition.end_micros))
+    .bind(command.partition.shard as i16)
+    .fetch_optional(&mut *conn)
+    .await
+    .map_err(sqlx_err)?
+    .ok_or_else(|| {
+        Error::conflict(format!(
+            "artifact {} is not on a sealed row of this partition",
+            replacement.artifact_id
+        ))
+    })?;
+
+    let text = |column: &str| current.try_get::<String, _>(column).map_err(sqlx_err);
+    let optional = |column: &str| {
+        current
+            .try_get::<Option<String>, _>(column)
+            .map_err(sqlx_err)
+    };
+    let rebuilt = &replacement.replacement;
+
+    let same_slot = text("state")? == ArtifactState::Ready.as_str()
+        && text("role")? == rebuilt.role.as_str()
+        && text("artifact_type")? == rebuilt.artifact_type.as_str()
+        && optional("source_artifact_id")?.as_deref()
+            == rebuilt.source_artifact_id.as_ref().map(|id| id.as_str())
+        && optional("source_checksum")?.as_deref()
+            == rebuilt.source_checksum.as_ref().map(ObjectChecksum::as_str);
+
+    if !same_slot || rebuilt.state != ArtifactState::Ready {
+        return Err(Error::invalid(
+            "a rebuilt artifact must be ready and keep the slot and source of the one it replaces",
+        ));
+    }
+
+    sqlx::query(
+        "UPDATE catalog_artifacts SET state = 'tombstoned', updated_at = $3 \
+         WHERE org_id = $1 AND id = $2",
+    )
+    .bind(scope.organization_id.as_str())
+    .bind(replacement.artifact_id.as_str())
+    .bind(TimestampMicros::now())
+    .execute(&mut *conn)
+    .await
+    .map_err(sqlx_err)?;
+
+    enqueue_object_gc(
+        conn,
+        scope,
+        &ObjectKey::from_string(text("object_key")?),
+        Some(&ObjectChecksum::from_string(text("checksum")?)),
+        GcReason::IndexRebuilt,
+        command.gc_not_before_micros,
+    )
+    .await?;
+
+    insert_artifact(conn, scope, &replacement.segment_id, rebuilt).await
+}
+
+/// The Bloom filters written beside a manifest. A partition without exact fields has none; the
+/// collector treats an object that is already gone as deleted.
+pub(super) fn bloom_key(manifest_key: &str) -> ObjectKey {
+    ObjectKey::from_string(format!("{manifest_key}.bloom"))
 }
 
 fn validate_command(scope: &OrganizationScope, command: &PublishPartitionManifest) -> Result<()> {
@@ -236,14 +343,14 @@ async fn validate_segment_rows(
 
     let rows = sqlx::query(
         "SELECT id FROM catalog_segments WHERE org_id = $1 AND dataset_id = $2 AND id = ANY($3) \
-         AND partition_start_micros = $4 AND partition_end_micros = $5 \
+         AND partition_start = $4 AND partition_end = $5 \
          AND partition_shard = $6 AND state = $7 FOR UPDATE",
     )
     .bind(scope.organization_id.as_str())
     .bind(command.dataset_id.as_str())
     .bind(id_strings(ids))
-    .bind(command.partition.start_micros)
-    .bind(command.partition.end_micros)
+    .bind(TimestampMicros(command.partition.start_micros))
+    .bind(TimestampMicros(command.partition.end_micros))
     .bind(command.partition.shard as i16)
     .bind(state)
     .fetch_all(conn)
@@ -272,14 +379,14 @@ async fn validate_tombstones(
 
     let rows = sqlx::query(
         "SELECT id FROM catalog_segments WHERE org_id = $1 AND dataset_id = $2 AND id = ANY($3) \
-         AND partition_start_micros = $4 AND partition_end_micros = $5 \
+         AND partition_start = $4 AND partition_end = $5 \
          AND partition_shard = $6 AND state IN ('active', 'sealed') FOR UPDATE",
     )
     .bind(scope.organization_id.as_str())
     .bind(command.dataset_id.as_str())
     .bind(id_strings(ids))
-    .bind(command.partition.start_micros)
-    .bind(command.partition.end_micros)
+    .bind(TimestampMicros(command.partition.start_micros))
+    .bind(TimestampMicros(command.partition.end_micros))
     .bind(command.partition.shard as i16)
     .fetch_all(conn)
     .await

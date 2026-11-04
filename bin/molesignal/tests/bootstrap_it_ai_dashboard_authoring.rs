@@ -115,7 +115,7 @@ async fn propose(server: &common::TestServer, draft: &DashboardDraft) -> reqwest
         ))
         .header(server.auth_header().0, server.auth_header().1)
         .json(&json!({
-            "expected_hash": draft.model_hash,
+            "expectedHash": draft.model_hash,
             "reason": "Create a reviewed operations Dashboard",
             "impact": "Adds one native Dashboard"
         }))
@@ -136,7 +136,7 @@ async fn execute(
             server.base_url
         ))
         .header(server.auth_header().0, server.auth_header().1)
-        .json(&json!({"idempotency_key": idempotency_key}))
+        .json(&json!({"idempotencyKey": idempotency_key}))
         .send()
         .await
         .unwrap()
@@ -184,10 +184,10 @@ fn openai_text_response(summary: &str) -> ResponseTemplate {
     let answer = json!({
         "summary": summary,
         "evidence": [],
-        "likely_causes": [],
+        "likelyCauses": [],
         "limitations": [],
-        "suggested_next_steps": [],
-        "related_links": [],
+        "suggestedNextSteps": [],
+        "relatedLinks": [],
         "confidence": "high"
     })
     .to_string();
@@ -222,7 +222,7 @@ fn tool_json_result(sse: &str, call_id: &str) -> Value {
         if payload["id"] != call_id {
             continue;
         }
-        assert_eq!(payload["is_error"], false, "tool failed: {payload}");
+        assert_eq!(payload["isError"], false, "tool failed: {payload}");
         let content: Value =
             serde_json::from_str(payload["result"].as_str().expect("serialized tool result"))
                 .unwrap();
@@ -344,7 +344,7 @@ async fn dashboard_authoring_control_plane_is_tenant_safe_and_exactly_once() {
         assert_eq!(response.status(), 200);
         let body: Value = response.json().await.unwrap();
         assert_eq!(body["approval"]["status"], "pending");
-        assert_eq!(body["approval"]["required_approvals"], required);
+        assert_eq!(body["approval"]["requiredApprovals"], required);
     }
 
     set_policy(&server, ToolExecutionMode::Confirmation, true).await;
@@ -425,9 +425,9 @@ async fn dashboard_authoring_control_plane_is_tenant_safe_and_exactly_once() {
     assert_eq!(response.status(), 200);
     let proposal: Value = response.json().await.unwrap();
     assert_eq!(proposal["approval"]["status"], "approved");
-    assert_eq!(proposal["approval"]["required_approvals"], 0);
+    assert_eq!(proposal["approval"]["requiredApprovals"], 0);
     assert!(
-        proposal["approval"]["expires_at"]
+        proposal["approval"]["expiresAt"]
             .as_i64()
             .is_some_and(|expires| expires <= ready.expires_at.0)
     );
@@ -471,8 +471,8 @@ async fn dashboard_authoring_control_plane_is_tenant_safe_and_exactly_once() {
     assert_eq!(fetched.status(), 200);
     let fetched: Value = fetched.json().await.unwrap();
     assert_eq!(fetched["status"], "succeeded");
-    assert_eq!(fetched["verification"]["draft_consumed"], true);
-    let dashboard_route = fetched["verification"]["dashboard_route"].as_str().unwrap();
+    assert_eq!(fetched["verification"]["draftConsumed"], true);
+    let dashboard_route = fetched["verification"]["dashboardRoute"].as_str().unwrap();
 
     for key in ["concurrent-key-left", "late-different-key"] {
         let replay = execute(&server, &approval_id, key).await;
@@ -481,7 +481,7 @@ async fn dashboard_authoring_control_plane_is_tenant_safe_and_exactly_once() {
         assert_eq!(replay["id"], fetched["id"]);
     }
 
-    let dashboard_id = fetched["verification"]["dashboard_id"].as_str().unwrap();
+    let dashboard_id = fetched["verification"]["dashboardId"].as_str().unwrap();
     let response = server
         .client
         .get(format!(
@@ -523,7 +523,7 @@ async fn dashboard_authoring_control_plane_is_tenant_safe_and_exactly_once() {
     let audit_rows = sqlx::query(
         "SELECT action, payload FROM audit_events
          WHERE org_id = $1 AND (
-           (action = 'dashboard.created_from_ai_draft' AND payload->>'draft_id' = $2)
+           (action = 'dashboard.created_from_ai_draft' AND payload->>'draftId' = $2)
            OR (action = 'agent.execution.completed' AND payload->>'target' = $2)
          )
          ORDER BY action",
@@ -540,7 +540,7 @@ async fn dashboard_authoring_control_plane_is_tenant_safe_and_exactly_once() {
     for row in audit_rows {
         let payload: sqlx::types::Json<Value> = row.try_get("payload").unwrap();
         let serialized = payload.0.to_string();
-        assert!(!serialized.contains("compiled_model"));
+        assert!(!serialized.contains("compiledModel"));
         assert!(!serialized.contains("elements"));
     }
 }
@@ -551,7 +551,8 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
         eprintln!("skipping AI Dashboard chat E2E (set MS_RUN_IT=1)");
         return;
     }
-    let server = common::TestServer::start().await;
+    let server = common::TestServer::start_with_fast_flush().await;
+    let _agent_runs = server.spawn_agent_runs();
 
     set_policy(&server, ToolExecutionMode::Confirmation, true).await;
 
@@ -581,13 +582,13 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
     let flush_pool = pool.clone();
     let flush_org = server.root_org_id.0.clone();
     assert!(
-        common::wait_until_async(10, move || {
+        common::wait_until_async(30, move || {
             let pool = flush_pool.clone();
             let org_id = flush_org.clone();
             async move {
                 sqlx::query_scalar::<i64>(
-                    "SELECT COUNT(*) FROM query_file
-                     WHERE org_id = $1 AND stream = 'app_errors' AND deleted = FALSE",
+                    "SELECT COUNT(*) FROM catalog_segments
+                     WHERE org_id = $1 AND state = 'active'",
                 )
                 .bind(org_id)
                 .fetch_one(&pool)
@@ -612,7 +613,7 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
                 0 => openai_tool_response(
                     "e2e_streams",
                     "list_streams",
-                    json!({"stream_type": "logs"}),
+                    json!({"streamType": "logs"}),
                 ),
                 1 => openai_tool_response(
                     "e2e_prepare",
@@ -646,8 +647,8 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
                         "e2e_propose",
                         "propose_dashboard_creation",
                         json!({
-                            "draft_id": draft_id,
-                            "expected_hash": expected_hash,
+                            "draftId": draft_id,
+                            "expectedHash": expected_hash,
                             "reason": "Create the reviewed application error Dashboard",
                             "impact": "Adds one native Dashboard"
                         }),
@@ -692,7 +693,7 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
         .json(&json!({
             "provider": "openai",
             "model": "gpt-4o",
-            "provider_id": provider.id,
+            "providerId": provider.id,
             "title": "Application errors",
             "capability": "dashboard_authoring"
         }))
@@ -706,25 +707,16 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
     assert_eq!(chat["capability"], "dashboard_authoring");
 
     let first_sse = server
-        .client
-        .post(format!(
-            "{}/api/v1/agent/chat/{chat_id}/messages",
-            server.base_url
-        ))
-        .header(server.auth_header().0, server.auth_header().1)
-        .header("accept", "text/event-stream")
-        .json(&json!({
-            "content": "Create an app_errors error Dashboard from 2026-08-03T00:00:00Z to 2026-08-03T01:00:00Z",
-            "capability": "dashboard_authoring",
-            "execution_policy": "policy",
-            "provider_id": provider.id
-        }))
-        .send()
-        .await
-        .unwrap()
-        .text()
-        .await
-        .unwrap();
+        .ask_agent(
+            chat_id,
+            &json!({
+                "content": "Create an app_errors error Dashboard from 2026-08-03T00:00:00Z to 2026-08-03T01:00:00Z",
+                "capability": "dashboard_authoring",
+                "executionPolicy": "policy",
+                "providerId": provider.id
+            }),
+        )
+        .await;
     assert!(
         first_sse.contains("event: done"),
         "chat did not finish: {first_sse}"
@@ -736,10 +728,10 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
             .is_some_and(|streams| streams.iter().any(|stream| stream["name"] == "app_errors"))
     );
     let prepared = tool_json_result(&first_sse, "e2e_prepare");
-    let draft_id = prepared["draft_id"].as_str().unwrap().to_string();
-    let model_hash = prepared["model_hash"].as_str().unwrap().to_string();
+    let draft_id = prepared["draftId"].as_str().unwrap().to_string();
+    let model_hash = prepared["modelHash"].as_str().unwrap().to_string();
     assert_eq!(
-        prepared["preview_route"],
+        prepared["previewRoute"],
         format!("/ai/dashboard-drafts/{draft_id}")
     );
     *proposal_reference.lock().unwrap() = Some((draft_id.clone(), model_hash.clone()));
@@ -758,41 +750,49 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
         .await
         .unwrap();
     assert_eq!(preview["status"], "ready");
-    assert_eq!(preview["model_hash"], model_hash);
-    assert_eq!(preview["compiled_model"]["schemaVersion"], 2);
+    assert_eq!(preview["modelHash"], model_hash);
+    assert_eq!(preview["compiledModel"]["schemaVersion"], 2);
 
     let second_sse = server
+        .ask_agent(
+            chat_id,
+            &json!({
+                "content": "I reviewed the persisted preview; propose its creation.",
+                "capability": "dashboard_authoring",
+                "executionPolicy": "policy",
+                "providerId": provider.id
+            }),
+        )
+        .await;
+    assert!(
+        second_sse.contains("event: confirmation"),
+        "the proposal waits for the person who asked: {second_sse}"
+    );
+
+    // Once the person who asked agrees, the tool runs as an automatic one: no one reviews the
+    // approval, and the Dashboard is already created when it answers.
+    let proposed = tool_json_result(&second_sse, "e2e_propose");
+    let approval_id = proposed["approvalId"].as_str().unwrap();
+
+    let approval: Value = server
         .client
-        .post(format!(
-            "{}/api/v1/agent/chat/{chat_id}/messages",
+        .get(format!(
+            "{}/api/v1/agent/approvals/{approval_id}",
             server.base_url
         ))
         .header(server.auth_header().0, server.auth_header().1)
-        .header("accept", "text/event-stream")
-        .json(&json!({
-            "content": "I reviewed the persisted preview; propose its creation.",
-            "capability": "dashboard_authoring",
-            "execution_policy": "policy",
-            "provider_id": provider.id
-        }))
         .send()
         .await
         .unwrap()
-        .text()
-        .await
-        .unwrap();
-    let proposed = tool_json_result(&second_sse, "e2e_propose");
-    let approval_id = proposed["approval"]["id"].as_str().unwrap();
-    assert_eq!(proposed["approval"]["status"], "approved");
-    assert_eq!(proposed["approval"]["required_approvals"], 0);
-
-    let execution: Value = execute(&server, approval_id, "dashboard-chat-e2e")
-        .await
         .json()
         .await
         .unwrap();
+
+    assert_eq!(approval["requiredApprovals"], 0);
+
+    let execution = &proposed["execution"];
     assert_eq!(execution["status"], "succeeded");
-    let dashboard_id = execution["verification"]["dashboard_id"].as_str().unwrap();
+    let dashboard_id = execution["verification"]["dashboardId"].as_str().unwrap();
     let dashboard = server
         .client
         .get(format!(

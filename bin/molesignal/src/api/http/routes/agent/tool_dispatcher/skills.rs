@@ -56,7 +56,7 @@ pub(super) async fn execute(
                 "name": skill.invocation,
                 "description": skill.description,
                 "version": skill.version,
-                "argument_hint": skill.manifest.argument_hint,
+                "argumentHint": skill.manifest.argument_hint,
                 "source": skill.source,
             })).collect::<Vec<_>>()
         })));

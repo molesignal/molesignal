@@ -14,6 +14,7 @@ pub mod access;
 pub mod api_token;
 pub mod catalog;
 pub mod navigation;
+pub mod policy;
 pub mod service_account;
 mod sso;
 
@@ -23,17 +24,26 @@ pub use sso::*;
 pub const SYSTEM_ORG_NAME: &str = "_sys";
 pub const SYSTEM_ORG_SLUG: &str = "_sys";
 
-/// Stable business purpose whose concrete `_sys` role is selected by the
-/// `purpose` of `iam_builtin_roles`. This is deliberately not a role key or name.
-pub const PLATFORM_ADMINISTRATOR_ROLE_PURPOSE: &str = "platform_administrator";
-
 /// Stable business purpose of the role an organization's first member receives: its owner.
 ///
-/// An owner holds the whole permission catalog, platform scope included. That is kept true by
-/// `IamRoleRepository::grant_catalog_to_organization_owners`, not by listing keys per permission.
+/// An owner holds the organization permissions of the catalog, and nothing of the platform's. That
+/// is kept true by `IamRoleRepository::grant_catalog_to_organization_owners`, not by listing keys
+/// per permission.
 pub const ORGANIZATION_BOOTSTRAP_ROLE_PURPOSE: &str = "organization_bootstrap";
 
+/// How root reads wherever an account's roles are shown. Root holds what counts in the session it
+/// is in without any role, so this names no row of `iam_roles`.
+pub fn super_administrator() -> IamAssignedRole {
+    IamAssignedRole {
+        id: Id::from_string("super_administrator"),
+        key: "super_administrator".into(),
+        name: "Super administrator".into(),
+        builtin: true,
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Organization {
     pub id: Id,
     pub name: String,
@@ -89,6 +99,7 @@ impl Organization {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct User {
     pub id: Id,
     pub email: String,
@@ -102,6 +113,14 @@ pub struct User {
     #[serde(default)]
     pub status: UserStatus,
     pub created_at: TimestampMicros,
+    /// 早于这个时间开始的登录作废。只由专门的写入更新，[`UserRepository::update`] 不改它。
+    #[serde(default = "sessions_always_valid")]
+    pub sessions_valid_after: TimestampMicros,
+}
+
+/// 从未让登录作废过的账号。
+pub fn sessions_always_valid() -> TimestampMicros {
+    TimestampMicros(0)
 }
 
 /// 用户激活状态。`pending` 仅出现在「自助注册 + 需审批」流程，Owner/Admin 审批后转 `active`。
@@ -116,6 +135,7 @@ pub enum UserStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Team {
     pub id: Id,
     pub org_id: Id,
@@ -124,6 +144,7 @@ pub struct Team {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IamMembership {
     pub user_id: Id,
     pub org_id: Id,
@@ -159,8 +180,8 @@ pub struct IamContext {
     /// Server-resolved display metadata. Authorization never reads this field.
     pub display_role: String,
     pub roles: Vec<IamAssignedRole>,
-    /// API tokens are directly scoped to one database IAM role.
-    pub credential_role_id: Option<Id>,
+    /// The API token the request authenticated with. Its scope bounds `permissions`.
+    pub credential_token_id: Option<Id>,
     /// Public RUM credentials are bound to one application and never inherit user access.
     pub credential_application_id: Option<String>,
     /// Present only for credentials authenticating a first-class non-human principal.
@@ -207,6 +228,7 @@ impl IamContext {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IamPlatformAdministrator {
     pub user_id: Id,
     pub active: bool,
@@ -258,7 +280,7 @@ pub enum ClientIpMode {
 
 /// 部署级 RUM 客户端 IP 识别配置，持久化在 `instance_settings` 单例中。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct ClientIpResolverSettings {
     pub mode: ClientIpMode,
     pub header_name: String,
@@ -284,6 +306,7 @@ impl Default for ClientIpResolverSettings {
 
 /// 实例级（全局，非 per-org）设置：自助注册策略、数据面来源与入口安全策略。
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InstanceSettings {
     /// 是否开放自助注册（公开 signup 接口）。
     pub signup_enabled: bool,
@@ -306,10 +329,167 @@ pub struct InstanceSettings {
     /// RUM 入口如何从可信连接来源识别客户端 IP。
     #[serde(default)]
     pub rum_client_ip_resolver: ClientIpResolverSettings,
+    /// 审计记录保留天数（组织审计与平台审计共用）：更早的记录每天清理一次；0 = 永久保留。
+    #[serde(default = "default_audit_retention_days")]
+    pub audit_retention_days: u32,
+    /// 数据流没有设置保留天数时保留的天数：compactor 与分区清单维护每一轮读一次。
+    #[serde(default = "default_stream_retention_days")]
+    pub default_retention_days: u32,
+    /// 拨测结果保留天数：更早的结果、它们的附件与已结束的任务每天清理一次；0 = 永久保留。
+    #[serde(default = "default_synthetic_result_retention_days")]
+    pub synthetic_result_retention_days: u32,
+    /// Prometheus 写入：一个组织同时保持活跃的 series 数上限。
+    #[serde(default = "default_max_active_series_per_org")]
+    pub max_active_series_per_org: u32,
+    /// Prometheus 写入：一个组织里一个指标同时保持活跃的 series 数上限，不超过组织的上限。
+    #[serde(default = "default_max_active_series_per_metric")]
+    pub max_active_series_per_metric: u32,
+    /// The most distinct values APM records an hour.
+    #[serde(default)]
+    pub apm_limits: crate::domain::apm::ApmLimits,
+    /// 分角色集群里，告警规则没设评估延迟时往回挪多少秒（0 到 3600）：查询只读已刷写的文件。
+    #[serde(default = "default_alert_evaluation_delay_secs")]
+    pub alert_evaluation_delay_secs: u32,
+    /// 密码登录限速。
+    #[serde(default)]
+    pub signin_limits: SigninLimits,
+    /// 接入用量的小时记录保留天数：compactor 主节点每天清理更早的记录。
+    #[serde(default = "default_intake_usage_retention_days")]
+    pub intake_usage_retention_days: u32,
+    /// 一个节点上，一个组织每小时最多分别记下多少个服务，超出的计入「其他服务」。
+    #[serde(default = "default_intake_usage_max_services_per_org")]
+    pub intake_usage_max_services_per_org: u32,
     pub updated_at: TimestampMicros,
 }
 
+/// 密码登录限速的可调参数。次数为 0 时关掉这一项。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
+pub struct SigninLimits {
+    /// 同一来源对同一账号失败几次后，这个来源对这个账号锁定。
+    pub account_source_failures: u32,
+    /// 同一来源失败几次后，不管哪个账号，这个来源锁定。
+    pub source_failures: u32,
+    /// 一个账号所有来源累计失败几次后开始限速。
+    pub account_failures: u32,
+    /// 账号限速时，隔几秒核对一次密码。
+    pub account_interval_secs: u32,
+    /// 来源锁多久，也是计数的时间窗。
+    pub lock_minutes: u32,
+}
+
+impl Default for SigninLimits {
+    fn default() -> Self {
+        Self {
+            account_source_failures: 5,
+            source_failures: 30,
+            account_failures: 20,
+            account_interval_secs: 60,
+            lock_minutes: 15,
+        }
+    }
+}
+
+/// 登录限速各项的上限（与 `instance_settings` 的 CHECK 约束一致）。
+pub const MAX_SIGNIN_LIMIT_FAILURES: u32 = 100_000;
+pub const MAX_SIGNIN_LIMIT_INTERVAL_SECS: u32 = 600;
+pub const MAX_SIGNIN_LIMIT_LOCK_MINUTES: u32 = 1440;
+
+/// 告警规则默认评估延迟（分角色集群）：intake 默认 30 秒刷写一次，留一倍余量。
+pub const DEFAULT_ALERT_EVALUATION_DELAY_SECS: u32 = 60;
+
+fn default_alert_evaluation_delay_secs() -> u32 {
+    DEFAULT_ALERT_EVALUATION_DELAY_SECS
+}
+
+/// 审计记录默认保留天数。
+pub const DEFAULT_AUDIT_RETENTION_DAYS: u32 = 90;
+/// 审计记录保留天数上限（与 `instance_settings` 的 CHECK 约束一致）。
+pub const MAX_AUDIT_RETENTION_DAYS: u32 = 3650;
+
+fn default_audit_retention_days() -> u32 {
+    DEFAULT_AUDIT_RETENTION_DAYS
+}
+
+/// 数据流默认保留天数。
+pub const DEFAULT_STREAM_RETENTION_DAYS: u32 = 30;
+/// 数据流保留天数的上限（与 `instance_settings` 的 CHECK 约束、数据流设置一致）。
+pub const MAX_STREAM_RETENTION_DAYS: u32 = 3650;
+
+fn default_stream_retention_days() -> u32 {
+    DEFAULT_STREAM_RETENTION_DAYS
+}
+
+/// 拨测结果默认保留天数。
+pub const DEFAULT_SYNTHETIC_RESULT_RETENTION_DAYS: u32 = 30;
+/// 拨测结果保留天数上限（与 `instance_settings` 的 CHECK 约束一致）。
+pub const MAX_SYNTHETIC_RESULT_RETENTION_DAYS: u32 = 3650;
+
+fn default_synthetic_result_retention_days() -> u32 {
+    DEFAULT_SYNTHETIC_RESULT_RETENTION_DAYS
+}
+
+/// Prometheus 写入的活跃 series 上限的默认值：每个组织、每个指标。
+pub const DEFAULT_MAX_ACTIVE_SERIES_PER_ORG: u32 = 200_000;
+pub const DEFAULT_MAX_ACTIVE_SERIES_PER_METRIC: u32 = 100_000;
+/// 活跃 series 上限的最大值（与 `instance_settings` 的 CHECK 约束一致）。
+pub const MAX_ACTIVE_SERIES_LIMIT: u32 = 100_000_000;
+
+fn default_max_active_series_per_org() -> u32 {
+    DEFAULT_MAX_ACTIVE_SERIES_PER_ORG
+}
+
+fn default_max_active_series_per_metric() -> u32 {
+    DEFAULT_MAX_ACTIVE_SERIES_PER_METRIC
+}
+
+/// 接入用量默认保留天数。
+pub const DEFAULT_INTAKE_USAGE_RETENTION_DAYS: u32 = 90;
+/// 接入用量保留天数的下限：一个自然月的预算周期要读得全（与 `instance_settings` 的 CHECK 约束一致）。
+pub const MIN_INTAKE_USAGE_RETENTION_DAYS: u32 = 35;
+/// 接入用量保留天数的上限（与 `instance_settings` 的 CHECK 约束一致）。
+pub const MAX_INTAKE_USAGE_RETENTION_DAYS: u32 = 3650;
+/// 一个组织每小时分别记下的服务数：默认值与上限（与 `instance_settings` 的 CHECK 约束一致）。
+pub const DEFAULT_INTAKE_USAGE_MAX_SERVICES_PER_ORG: u32 = 1000;
+pub const MAX_INTAKE_USAGE_MAX_SERVICES_PER_ORG: u32 = 100_000;
+
+fn default_intake_usage_retention_days() -> u32 {
+    DEFAULT_INTAKE_USAGE_RETENTION_DAYS
+}
+
+fn default_intake_usage_max_services_per_org() -> u32 {
+    DEFAULT_INTAKE_USAGE_MAX_SERVICES_PER_ORG
+}
+
+/// `days` 天前的那一刻：早于它的记录可以删除。0 天（永久保留）时为 `None`。
+fn retention_cutoff(days: u32, now: TimestampMicros) -> Option<TimestampMicros> {
+    if days == 0 {
+        return None;
+    }
+
+    let window = i64::from(days).saturating_mul(86_400 * 1_000_000);
+    Some(TimestampMicros(now.0.saturating_sub(window)))
+}
+
 impl InstanceSettings {
+    /// 审计记录的保留起点：早于它的记录可以删除。保留天数为 0（永久保留）时为 `None`。
+    pub fn audit_retention_cutoff(&self, now: TimestampMicros) -> Option<TimestampMicros> {
+        retention_cutoff(self.audit_retention_days, now)
+    }
+
+    /// 拨测结果的保留起点：早于它的结果可以删除。保留天数为 0（永久保留）时为 `None`。
+    pub fn synthetic_result_retention_cutoff(
+        &self,
+        now: TimestampMicros,
+    ) -> Option<TimestampMicros> {
+        retention_cutoff(self.synthetic_result_retention_days, now)
+    }
+
+    /// 接入用量的保留起点：早于它的小时记录可以删除。
+    pub fn intake_usage_retention_cutoff(&self, now: TimestampMicros) -> Option<TimestampMicros> {
+        retention_cutoff(self.intake_usage_retention_days, now)
+    }
+
     /// 服务图是否走"存储重算"模式（跨节点正确）。
     pub fn service_graph_storage_mode(&self) -> bool {
         self.service_graph_source.eq_ignore_ascii_case("storage")
@@ -438,8 +618,58 @@ pub fn email_domain_allowed(email: &str, allowed: &[String]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{Organization, SYSTEM_ORG_NAME, SYSTEM_ORG_SLUG, email_domain_allowed};
+    use super::{
+        ClientIpResolverSettings, DEFAULT_AUDIT_RETENTION_DAYS, InstanceSettings, Organization,
+        SYSTEM_ORG_NAME, SYSTEM_ORG_SLUG, email_domain_allowed,
+    };
     use crate::shared::{ids::Id, time::TimestampMicros};
+
+    fn instance_settings(audit_retention_days: u32) -> InstanceSettings {
+        InstanceSettings {
+            signup_enabled: false,
+            signup_require_approval: true,
+            service_graph_source: "intake".into(),
+            federation_cluster_id: String::new(),
+            federation_drain_interval_secs: 10,
+            federation_push_batch_size: 100,
+            federation_seen_events_ttl_secs: 604_800,
+            federation_gossip_interval_secs: 60,
+            rum_client_ip_resolver: ClientIpResolverSettings::default(),
+            audit_retention_days,
+            default_retention_days: super::DEFAULT_STREAM_RETENTION_DAYS,
+            synthetic_result_retention_days: super::DEFAULT_SYNTHETIC_RESULT_RETENTION_DAYS,
+            max_active_series_per_org: super::DEFAULT_MAX_ACTIVE_SERIES_PER_ORG,
+            max_active_series_per_metric: super::DEFAULT_MAX_ACTIVE_SERIES_PER_METRIC,
+            apm_limits: crate::domain::apm::ApmLimits::default(),
+            alert_evaluation_delay_secs: 60,
+            intake_usage_retention_days: 90,
+            intake_usage_max_services_per_org: 1000,
+            signin_limits: super::SigninLimits::default(),
+            updated_at: TimestampMicros(0),
+        }
+    }
+
+    #[test]
+    fn audit_retention_cutoff_is_the_number_of_days_back_and_none_keeps_forever() {
+        let day = 86_400 * 1_000_000;
+        let now = TimestampMicros(1_000 * day);
+
+        assert_eq!(
+            instance_settings(90).audit_retention_cutoff(now),
+            Some(TimestampMicros(910 * day))
+        );
+        assert_eq!(instance_settings(0).audit_retention_cutoff(now), None);
+    }
+
+    #[test]
+    fn settings_stored_before_audit_retention_existed_default_to_ninety_days() {
+        let mut stored = serde_json::to_value(instance_settings(30)).unwrap();
+
+        stored.as_object_mut().unwrap().remove("auditRetentionDays");
+
+        let settings: InstanceSettings = serde_json::from_value(stored).unwrap();
+        assert_eq!(settings.audit_retention_days, DEFAULT_AUDIT_RETENTION_DAYS);
+    }
 
     fn organization(name: &str, slug: &str, system: bool) -> Organization {
         Organization {

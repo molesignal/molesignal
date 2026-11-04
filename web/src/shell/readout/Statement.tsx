@@ -61,7 +61,7 @@ export function Statement({
       data-statement
       style={{ '--tone': tone } as React.CSSProperties}
       className={cn(
-        'ms-rise grid overflow-hidden rounded-md bg-bd-0 [box-shadow:inset_3px_0_0_var(--tone),var(--shadow-functional-surface)]',
+        'ms-rise grid overflow-hidden rounded-md bg-bd-0 [box-shadow:inset_2px_0_0_var(--tone),var(--shadow-functional-surface)]',
         readouts && 'xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,2fr)] xl:gap-px',
         className,
       )}
@@ -85,7 +85,7 @@ export function Statement({
         >
           {title}
         </h2>
-        {detail && <p className="type-data mt-1 text-pretty text-tx-1">{detail}</p>}
+        {detail && <p className="type-data mt-1 text-pretty text-tx-2">{detail}</p>}
         {children}
       </div>
 

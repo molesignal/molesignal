@@ -8,6 +8,7 @@ import { toApiError } from '@/lib/http';
 import {
   type ActionAccess,
   useActionAccess,
+  useOrganizationActionAccess,
 } from '@/product/actionAccess';
 import { ProductState, productStateFor } from '@/product/states';
 import { ChromeButton, Pill } from '@/shell/chrome';
@@ -25,6 +26,9 @@ import { useOrgStore } from '@/stores/useOrgStore';
 
 import { CopyableValue, SectionBody } from './_atoms';
 
+/** For a dialog that is closed: there is nothing to act on. */
+const NO_TARGET: ActionAccess = { allowed: false, disabled: true };
+
 export function OrganizationManagement({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation('settings-admin');
   const { t: tc } = useTranslation('common');
@@ -33,13 +37,15 @@ export function OrganizationManagement({ embedded = false }: { embedded?: boolea
   const setOrgs = useOrgStore((s) => s.setOrgs);
   const upsertOrg = useOrgStore((s) => s.upsertOrg);
   const removeOrgFromStore = useOrgStore((s) => s.removeOrg);
-  const manageAccess = useActionAccess({
-    permission: 'sys.organizations.manage',
-  });
+  const createAccess = useActionAccess({ permission: 'sys.organizations.create' });
+  const updateAccess = useOrganizationActionAccess('sys.organizations.update');
+  const disableAccess = useOrganizationActionAccess('sys.organizations.disable');
+  const deleteAccess = useOrganizationActionAccess('sys.organizations.delete');
   const [creating, setCreating] = React.useState(false);
   const [editing, setEditing] = React.useState<orgsApi.Org | null>(null);
   const [removing, setRemoving] = React.useState<orgsApi.Org | null>(null);
   const [statusTarget, setStatusTarget] = React.useState<orgsApi.Org | null>(null);
+  const removingAccess = removing ? deleteAccess(removing.id) : NO_TARGET;
 
   const q = useQuery({ queryKey: ['orgs', 'list'], queryFn: () => orgsApi.listOrgs() });
   const rows = q.data ?? [];
@@ -98,10 +104,10 @@ export function OrganizationManagement({ embedded = false }: { embedded?: boolea
           <ChromeButton
             variant="primary"
             onClick={() => {
-              if (manageAccess.allowed) setCreating(true);
+              if (createAccess.allowed) setCreating(true);
             }}
-            disabled={manageAccess.disabled}
-            disabledReason={manageAccess.reason}
+            disabled={createAccess.disabled}
+            disabledReason={createAccess.reason}
           >
             {t('organization_management.new_org')}
           </ChromeButton>
@@ -114,10 +120,10 @@ export function OrganizationManagement({ embedded = false }: { embedded?: boolea
             <ChromeButton
               variant="primary"
               onClick={() => {
-                if (manageAccess.allowed) setCreating(true);
+                if (createAccess.allowed) setCreating(true);
               }}
-              disabled={manageAccess.disabled}
-              disabledReason={manageAccess.reason}
+              disabled={createAccess.disabled}
+              disabledReason={createAccess.reason}
             >
               {t('organization_management.new_org')}
             </ChromeButton>
@@ -125,7 +131,7 @@ export function OrganizationManagement({ embedded = false }: { embedded?: boolea
         />
       )}
       <CreateDrawer
-        access={manageAccess}
+        access={createAccess}
         open={creating}
         onClose={() => setCreating(false)}
         onCreated={(org) => {
@@ -134,7 +140,7 @@ export function OrganizationManagement({ embedded = false }: { embedded?: boolea
         }}
       />
       <EditDrawer
-        access={manageAccess}
+        access={editing ? updateAccess(editing.id) : NO_TARGET}
         org={editing}
         onClose={() => setEditing(null)}
         onUpdated={(org) => {
@@ -158,12 +164,13 @@ export function OrganizationManagement({ embedded = false }: { embedded?: boolea
         destructive
         title={t('organization_management.delete_title')}
         description={t('organization_management.delete_description', { name: removing?.name ?? '' })}
+        typeToConfirm={removing?.name}
         confirmLabel={tc('actions.delete')}
         busy={remove.isPending}
-        disabled={manageAccess.disabled}
-        disabledReason={manageAccess.reason}
+        disabled={removingAccess.disabled}
+        disabledReason={removingAccess.reason}
         onConfirm={() => {
-          if (manageAccess.allowed && removing) remove.mutate(removing.id);
+          if (removingAccess.allowed && removing) remove.mutate(removing.id);
         }}
       />
       <SectionBody className={embedded ? 'pt-3' : ''}>
@@ -217,25 +224,28 @@ export function OrganizationManagement({ embedded = false }: { embedded?: boolea
                 header: '',
                 width: 260,
                 cell: (r: orgsApi.Org) => {
-                  const editDisabled = manageAccess.disabled || Boolean(r.system);
+                  const canUpdate = updateAccess(r.id);
+                  const canDisable = disableAccess(r.id);
+                  const canDelete = deleteAccess(r.id);
+                  const editDisabled = canUpdate.disabled || Boolean(r.system);
                   const tenantOrganizations = rows.filter((org) => !org.system);
                   const enabledTenantCount = tenantOrganizations.filter((org) => !org.disabled).length;
                   const lastEnabled = !r.disabled && enabledTenantCount <= 1;
-                  const statusDisabled = manageAccess.disabled || Boolean(r.system) || lastEnabled;
+                  const statusDisabled = canDisable.disabled || Boolean(r.system) || lastEnabled;
                   const statusReason = r.system
                     ? tc('access.system_workspace')
                     : lastEnabled
                       ? t('organization_management.last_enabled')
-                      : manageAccess.reason;
+                      : canDisable.reason;
                   const deleteReason = r.system
                     ? tc('access.system_workspace')
                     : r.id === currentOrgId
                       ? tc('access.current_workspace')
                       : tenantOrganizations.length <= 1 || lastEnabled
                         ? tc('access.last_workspace')
-                        : manageAccess.reason;
+                        : canDelete.reason;
                   const deleteDisabled =
-                    manageAccess.disabled ||
+                    canDelete.disabled ||
                     Boolean(r.system) ||
                     r.id === currentOrgId ||
                     tenantOrganizations.length <= 1 ||
@@ -262,7 +272,7 @@ export function OrganizationManagement({ embedded = false }: { embedded?: boolea
                         disabledReason={
                           r.system
                             ? tc('access.system_workspace')
-                            : manageAccess.reason
+                            : canUpdate.reason
                         }
                         onClick={() => {
                           if (!editDisabled) setEditing(r);

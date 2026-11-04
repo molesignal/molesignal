@@ -1,12 +1,19 @@
 import { toApiError } from '@/lib/http';
 
+import { countingOutcome, type CountingOutcome } from '../../counting/evaluate';
+import { isCountingKind } from '../../counting/model';
 import {
-  connectorOf,
+  changesInPlace,
+  DEFAULT_QUERY_ANNOTATION,
+  DEFAULT_SUMMARY_ANNOTATION,
   defaultRouting,
   firstStreamIndex,
+  isOwnAlertLabel,
+  isStreamSink,
   type PipelineGraphModel,
   type Routing,
 } from '../../PipelineGraph/model';
+import { changedProtectedField } from '../../PipelineGraph/protectedFields';
 import { isStreamName } from '../../PipelineGraph/streamName';
 
 export interface StepOutcome {
@@ -18,12 +25,20 @@ export interface StepOutcome {
   output?: unknown;
   /** Where a routing step sends the event. */
   destination?: string;
+  /** The step goes outside MoleSignal, which a test does not do: it passed without being run. */
+  outside?: boolean;
+  /** What a step that keeps count would count the event as; a test counts nothing for real. */
+  counting?: CountingOutcome;
   failure?: TestFailure;
 }
 
 export interface TestFailure {
-  /** `compile`: the script is not valid VRL. `runtime`: it is, and failed on this event. */
-  kind: 'compile' | 'runtime' | 'request';
+  /**
+   * `compile`: the script is not valid VRL. `runtime`: it is, and failed on
+   * this event. `protected`: it changed a field the pipeline keeps as it
+   * arrives, named by `message`, which fails the event when it is written.
+   */
+  kind: 'compile' | 'runtime' | 'request' | 'protected';
   message: string;
 }
 
@@ -47,6 +62,12 @@ export interface ScriptResult {
 
 /** Runs one VRL script on one event read from `source`, which the script sees as `%source_stream`. */
 export type RunScript = (script: string, input: unknown, source: string) => Promise<ScriptResult>;
+
+/**
+ * What an AI summary step puts into its annotation in a test: the model is
+ * asked only about a real event, when its incident opens.
+ */
+export const SUMMARY_PLACEHOLDER = '…';
 
 /**
  * Takes one event, as read from `source`, through a pipeline's steps the way
@@ -79,12 +100,43 @@ export async function runPipelineTest(
       continue;
     }
 
+    // One event never goes past a limit: the step says what it would count it as and lets it on.
+    if (isCountingKind(step.kind)) {
+      steps.push({ index, name, status: 'passed', output: event, counting: countingOutcome(step.kind, step, event) });
+      continue;
+    }
+
+    if (step.kind === 'ai_summary') {
+      event = withAnnotation(event, step.annotation?.trim() || DEFAULT_SUMMARY_ANNOTATION, SUMMARY_PLACEHOLDER);
+      steps.push({ index, name, status: 'passed', output: event });
+      continue;
+    }
+
+    // A test calls nothing outside: a real event does that, when its incident opens.
+    if (step.kind === 'http_enrich') {
+      steps.push({ index, name, status: 'passed', output: event, outside: true });
+      continue;
+    }
+
+    if (step.kind === 'query_enrich') {
+      event = withAnnotation(event, step.query?.annotation.trim() || DEFAULT_QUERY_ANNOTATION, SUMMARY_PLACEHOLDER);
+      steps.push({ index, name, status: 'passed', output: event, outside: true });
+      continue;
+    }
+
     try {
       const result = await runScript(step.script, event, source);
+
+      const kept = changesInPlace(model)
+        ? changedProtectedField(model.signalType, event, result.output, source)
+        : null;
 
       if (result.dropped) {
         ended = true;
         steps.push({ index, name, status: 'dropped', output: event });
+      } else if (kept) {
+        ended = true;
+        steps.push({ index, name, status: 'failed', failure: { kind: 'protected', message: kept } });
       } else {
         event = result.output;
         steps.push({ index, name, status: 'passed', output: event });
@@ -97,7 +149,30 @@ export async function runPipelineTest(
 
   if (ended) return { steps, destinations: [] };
 
-  return { steps, output: event, destinations: destinationsOf(model, routed) };
+  return {
+    steps,
+    output: model.mode === 'alert' ? withOwnLabels(input, event) : event,
+    destinations: destinationsOf(model, routed),
+  };
+}
+
+/** An alert event as it comes out: the labels MoleSignal set itself stay what they were. */
+function withOwnLabels(input: unknown, output: unknown): unknown {
+  if (!isRecord(output) || !isRecord(output.labels)) return output;
+
+  const own = isRecord(input) && isRecord(input.labels) ? input.labels : {};
+
+  return {
+    ...output,
+    labels: Object.fromEntries([
+      ...Object.entries(output.labels).filter(([key]) => !isOwnAlertLabel(key)),
+      ...Object.entries(own).filter(([key]) => isOwnAlertLabel(key)),
+    ]),
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -106,15 +181,34 @@ export async function runPipelineTest(
  * stream only.
  */
 function destinationsOf(model: PipelineGraphModel, routed: string | undefined): string[] {
+  // Metrics and spans changed as they arrive go back into the stream they came from.
+  if (changesInPlace(model)) return [model.sources[0]?.trim() ?? ''].filter(Boolean);
+
   const first = firstStreamIndex(model.sinks);
   const streams = model.sinks.flatMap((sink, index) => {
-    if (connectorOf(sink) !== null) return [];
+    if (!isStreamSink(sink)) return [];
     if (index === first) return [routed ?? sink.trim()];
     return model.mode === 'realtime' ? [] : [sink.trim()];
   });
-  const connectors = model.mode === 'realtime' ? [] : model.sinks.filter((sink) => Boolean(connectorOf(sink)));
+  const others =
+    model.mode === 'realtime'
+      ? []
+      : model.sinks.filter((sink) => !isStreamSink(sink) && sink !== 'connector:' && sink !== 'table:');
 
-  return [...new Set([...streams.filter(Boolean), ...connectors])];
+  return [...new Set([...streams.filter(Boolean), ...others])];
+}
+
+/** The event with `text` under the annotation `key`, as an AI summary step leaves it. */
+function withAnnotation(event: unknown, key: string, text: string): unknown {
+  if (typeof event !== 'object' || event === null || Array.isArray(event)) return event;
+
+  const fields = event as Record<string, unknown>;
+  const annotations =
+    typeof fields.annotations === 'object' && fields.annotations !== null && !Array.isArray(fields.annotations)
+      ? (fields.annotations as Record<string, unknown>)
+      : {};
+
+  return { ...fields, annotations: { ...annotations, [key]: text } };
 }
 
 /**

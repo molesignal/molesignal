@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { Link, type To, useLocation } from 'react-router-dom';
 
 import { cn } from '@/shell/lib/cn';
@@ -5,6 +6,12 @@ import { cn } from '@/shell/lib/cn';
 import { pickActiveTab } from './matchTab';
 import { useTabStrip } from './useTabStrip';
 import './tabs.css';
+
+/**
+ * Set around a page whose list has not answered, or failed: its counts are not
+ * zeros, nobody knows them yet. The tabs draw a dash so a view keeps its place.
+ */
+export const ViewCountsUnknownContext = React.createContext(false);
 
 export interface ViewTabItem<T extends string = string> {
   key: T;
@@ -128,6 +135,7 @@ function View<T extends string>({
   mode: 'link' | 'value';
   onSelect?: ((key: T) => void) | undefined;
 }) {
+  const countsUnknown = React.useContext(ViewCountsUnknownContext);
   const className = cn(
     'relative z-10 inline-flex h-[28px] shrink-0 items-center gap-[6px] rounded-md px-[10px] font-sans text-xs outline-none transition-colors duration-fast [@media(pointer:coarse)]:h-[36px]',
     active
@@ -136,10 +144,10 @@ function View<T extends string>({
   );
   const content = (
     <>
-      {/* The bold label is laid out invisibly under the shown one, so the view
-          keeps the width it has when selected and nothing shifts. */}
+      {/* The label is laid out a second time, invisibly, in the weight of the selected one, so
+          the view keeps its width and nothing shifts. */}
       <span className="inline-grid">
-        <span className={cn('col-start-1 row-start-1', active ? 'font-strong' : 'font-body')}>
+        <span className="col-start-1 row-start-1 font-strong">
           {item.label}
         </span>
         <span aria-hidden="true" className="invisible col-start-1 row-start-1 font-strong">
@@ -153,7 +161,7 @@ function View<T extends string>({
             active ? 'text-indigo-soft' : 'text-tx-3',
           )}
         >
-          {item.count}
+          {countsUnknown ? '–' : item.count}
         </span>
       )}
     </>

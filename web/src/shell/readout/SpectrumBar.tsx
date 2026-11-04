@@ -8,6 +8,13 @@ export interface SpectrumSegment {
   color: string;
 }
 
+const STATUS_TONE = /^var\(--(red|orange|yellow|green|blue|purple)\)$/;
+
+/** The bar is an area and takes a status tone's fill (`var(--red-fill)`); the legend's dots keep the tone itself. */
+function areaFill(color: string): string {
+  return color.replace(STATUS_TONE, 'var(--$1-fill)');
+}
+
 /**
  * How a whole divides into parts, as one bar: each part takes the share of the
  * bar it has of the total, with what the parts are and how many spelled out
@@ -50,7 +57,7 @@ export function SpectrumBar({
             data-spectrum-segment={segment.key}
             // Even a single one among hundreds is wide enough to be seen.
             className="min-w-[6px] rounded-full"
-            style={{ flexGrow: segment.value, flexBasis: 0, background: segment.color }}
+            style={{ flexGrow: segment.value, flexBasis: 0, background: areaFill(segment.color) }}
           />
         ))}
       </div>

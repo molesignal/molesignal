@@ -50,7 +50,8 @@ impl BuiltinToolKind {
             | Self::Remember
             | Self::Forget
             | Self::ReadMemory
-            | Self::UpdateInvestigation => workspace::spec(self),
+            | Self::UpdateInvestigation
+            | Self::GetAgentInsights => workspace::spec(self),
             Self::GetPlatformCapabilities => platform::spec(self),
             Self::QueryLogs
             | Self::QueryMetrics
@@ -78,6 +79,27 @@ impl BuiltinToolKind {
             | Self::GetIncidentInsights
             | Self::AcknowledgeIncident
             | Self::ResolveIncident
+            | Self::ReassignIncident
+            | Self::AddIncidentResponders
+            | Self::EscalateIncident
+            | Self::SnoozeIncident
+            | Self::LiftIncidentInhibition
+            | Self::SetIncidentSeverity
+            | Self::SetIncidentPriority
+            | Self::SetIncidentUrgency
+            | Self::CreateIncident
+            | Self::MergeIncidents
+            | Self::AddIncidentNote
+            | Self::GetIncidentTimeline
+            | Self::GetIncidentTickets
+            | Self::CreateTicket
+            | Self::ListRemediationActions
+            | Self::RunRemediationAction
+            | Self::DeclareMajorIncident
+            | Self::AssignIncidentRole
+            | Self::PostIncidentUpdate
+            | Self::AddIncidentTask
+            | Self::DraftIncidentPostmortem
             | Self::ListOnCallSchedules
             | Self::GetOnCallSchedule
             | Self::GetCurrentOnCall => incidents::spec(self),
@@ -92,8 +114,12 @@ impl BuiltinToolKind {
             | Self::GetIncidentGroup
             | Self::ListMuteRules
             | Self::GetMuteRule
+            | Self::ListInhibitRules
+            | Self::GetInhibitRule
             | Self::ListEscalationPolicies
-            | Self::GetEscalationPolicy => alerting::spec(self),
+            | Self::GetEscalationPolicy
+            | Self::ListDiscoveryFindings
+            | Self::GetDiscoveryFinding => alerting::spec(self),
             Self::ListNotificationConnectors
             | Self::GetNotificationConnector
             | Self::ListNotificationPolicies
@@ -114,13 +140,27 @@ impl BuiltinToolKind {
             | Self::ListApmErrors
             | Self::GetApmError
             | Self::CompareApmVersions
-            | Self::GetApmHealth => apm::spec(self),
+            | Self::GetApmHealth
+            | Self::GetApmInsights
+            | Self::GetApmBlastRadius => apm::spec(self),
             Self::ListRumSessions
             | Self::GetRumSession
             | Self::ListRumActions
             | Self::ListRumErrors
             | Self::GetRumRelatedTraces
-            | Self::GetRumVitals => rum::spec(self),
+            | Self::GetRumVitals
+            | Self::ListRumIssues
+            | Self::GetRumIssue
+            | Self::GetRumOverview
+            | Self::GetRumFrustration
+            | Self::GetRumViewWaterfall
+            | Self::AggregateRum
+            | Self::GetRumFunnel
+            | Self::GetRumPaths
+            | Self::GetRumRetention
+            | Self::GetRumFeatureFlags
+            | Self::GetRumHeatmap
+            | Self::GetRumSessionNotes => rum::spec(self),
             Self::ListLogInspections
             | Self::ListLogInspectionRuns
             | Self::GetLogInspectionRun
@@ -310,6 +350,7 @@ pub fn is_workspace_tool(name: &str) -> bool {
                 | BuiltinToolKind::Forget
                 | BuiltinToolKind::ReadMemory
                 | BuiltinToolKind::UpdateInvestigation
+                | BuiltinToolKind::GetAgentInsights
         )
     )
 }
@@ -333,13 +374,18 @@ pub(super) fn open_output() -> Value {
     json!({"type": "object", "additionalProperties": true})
 }
 
+/// 时间点参数：名字里不带单位，单位写在说明里。
+pub(super) fn timestamp_schema() -> Value {
+    json!({"type": "integer", "description": "Microseconds since the Unix epoch."})
+}
+
 pub(super) fn time_range_schema() -> Value {
     json!({
         "type": "object",
-        "required": ["start_micros", "end_micros"],
+        "required": ["startTime", "endTime"],
         "properties": {
-            "start_micros": {"type": "integer"},
-            "end_micros": {"type": "integer"}
+            "startTime": timestamp_schema(),
+            "endTime": timestamp_schema()
         },
         "additionalProperties": false
     })
@@ -410,7 +456,7 @@ mod tests {
                 .get("properties")
                 .and_then(Value::as_object);
             assert!(properties.is_none_or(|properties| {
-                !properties.contains_key("org_id") && !properties.contains_key("user_id")
+                !properties.contains_key("orgId") && !properties.contains_key("userId")
             }));
         }
     }

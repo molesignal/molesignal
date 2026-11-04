@@ -18,6 +18,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DrainResp {
     /// `running` / `draining` / `drained`。
     pub phase: &'static str,
@@ -27,7 +28,7 @@ pub struct DrainResp {
     pub newly_started: bool,
 }
 
-#[permission("org.settings.manage")]
+#[permission("sys.nodes.drain")]
 async fn begin_drain(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -42,7 +43,7 @@ async fn begin_drain(
     }))
 }
 
-#[permission("org.settings.read")]
+#[permission("sys.nodes.read")]
 async fn drain_status(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

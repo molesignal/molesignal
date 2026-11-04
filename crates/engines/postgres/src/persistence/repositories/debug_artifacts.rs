@@ -27,7 +27,7 @@ impl PgDebugArtifactRepository {
 
 const COLS: &str = "id, org_id, application_id, service, release, artifact_kind, platform,
                     architecture, debug_id, filename, object_key, size_bytes, checksum_sha256,
-                    uploaded_at_micros";
+                    uploaded_at";
 
 fn row_to(row: sqlx::postgres::PgRow) -> DebugArtifactMeta {
     let kind = row
@@ -57,10 +57,9 @@ fn row_to(row: sqlx::postgres::PgRow) -> DebugArtifactMeta {
         checksum_sha256: row
             .try_get::<String, _>("checksum_sha256")
             .unwrap_or_default(),
-        uploaded_at: TimestampMicros(
-            row.try_get::<i64, _>("uploaded_at_micros")
-                .unwrap_or_default(),
-        ),
+        uploaded_at: row
+            .try_get::<TimestampMicros, _>("uploaded_at")
+            .unwrap_or_default(),
     }
 }
 
@@ -111,7 +110,7 @@ impl DebugArtifactRepository for PgDebugArtifactRepository {
             "INSERT INTO debug_artifacts
                 (id, org_id, application_id, service, release, artifact_kind, platform,
                  architecture, debug_id, filename, object_key, size_bytes, checksum_sha256,
-                 uploaded_at_micros)
+                 uploaded_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
              ON CONFLICT (
                  org_id, application_id, service, release, artifact_kind, platform,
@@ -120,7 +119,7 @@ impl DebugArtifactRepository for PgDebugArtifactRepository {
                  object_key = EXCLUDED.object_key,
                  size_bytes = EXCLUDED.size_bytes,
                  checksum_sha256 = EXCLUDED.checksum_sha256,
-                 uploaded_at_micros = EXCLUDED.uploaded_at_micros
+                 uploaded_at = EXCLUDED.uploaded_at
              RETURNING {COLS}"
         );
 
@@ -138,7 +137,7 @@ impl DebugArtifactRepository for PgDebugArtifactRepository {
             .bind(&artifact.object_key)
             .bind(artifact.size_bytes.min(i64::MAX as u64) as i64)
             .bind(&artifact.checksum_sha256)
-            .bind(artifact.uploaded_at.0)
+            .bind(artifact.uploaded_at)
             .fetch_one(&mut *transaction)
             .await
             .map_err(sqlx_err)?;
@@ -166,7 +165,7 @@ impl DebugArtifactRepository for PgDebugArtifactRepository {
                AND ($3::TEXT IS NULL OR service = $3)
                AND ($4::TEXT IS NULL OR artifact_kind = $4)
                AND ($5::TEXT IS NULL OR platform = $5)
-             ORDER BY uploaded_at_micros DESC LIMIT 500"
+             ORDER BY uploaded_at DESC LIMIT 500"
         );
 
         let rows = sqlx::query(&sql)
@@ -201,7 +200,7 @@ impl DebugArtifactRepository for PgDebugArtifactRepository {
              ORDER BY
                CASE WHEN architecture = COALESCE($7, '') THEN 0 ELSE 1 END,
                CASE WHEN debug_id = COALESCE($8, '') THEN 0 ELSE 1 END,
-               uploaded_at_micros DESC
+               uploaded_at DESC
              LIMIT 65"
         );
 

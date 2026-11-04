@@ -4,10 +4,13 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import * as alertsApi from '@/api/alerts';
+import * as alertSourcesApi from '@/api/alertSources';
+import type { AlertSource } from '@/api/alertSources';
 import * as incidentsApi from '@/api/incidents';
 import type { AlertInsights } from '@/api/incidents';
 import type { ProductStateProps } from '@/product/states';
 import { ChromeButton } from '@/shell/chrome';
+import { MANUAL_RULE_ID } from '@/shell/incident/origin';
 import { cn } from '@/shell/lib/cn';
 import { queryStateFor } from '@/shell/query/State';
 import { Readout } from '@/shell/readout/Readout';
@@ -22,7 +25,11 @@ import {
 import type { AlertRule, Incident, Severity } from '@/types/alerting';
 
 import { AlertsPage } from './Frame';
+import { formatDuration, formatPercent } from './insights/format';
 import { IncidentTimeline } from './insights/IncidentTimeline';
+import { OncallLoadSection } from './insights/OncallLoad';
+import { ResponseSection } from './insights/Response';
+import { SectionHeading } from './insights/SectionHeading';
 
 const WINDOW_OPTIONS = [
   { value: 86_400, labelKey: 'last_24h' },
@@ -54,9 +61,16 @@ export function AlertsInsights() {
     staleTime: 30_000,
     retry: false,
   });
+  // Incidents an alert source opened count under the source, whose id stands where a rule's would.
+  const sourcesQuery = useQuery({
+    queryKey: ['alert-sources'],
+    queryFn: () => alertSourcesApi.list(),
+    staleTime: 30_000,
+    retry: false,
+  });
   const incidentsQuery = useQuery({
     queryKey: ['alerts', 'insights-incidents', windowSecs],
-    queryFn: () => incidentsApi.list({ scope: 'all', window_secs: windowSecs }),
+    queryFn: () => incidentsApi.list({ scope: 'all', windowSecs: windowSecs }),
     staleTime: 30_000,
     retry: false,
   });
@@ -69,6 +83,11 @@ export function AlertsInsights() {
   const rulesById = React.useMemo(
     () => new Map((rulesQuery.data ?? []).map((rule) => [rule.id, rule])),
     [rulesQuery.data],
+  );
+  const sourcesById = React.useMemo(
+    // Names are a nicety here: an answer that is not a list names nothing rather than breaking the page.
+    () => new Map((Array.isArray(sourcesQuery.data) ? sourcesQuery.data : []).map((source) => [source.id, source])),
+    [sourcesQuery.data],
   );
 
   const pageState: ProductStateProps | null =
@@ -122,6 +141,7 @@ export function AlertsInsights() {
           incidents={incidentsQuery.data}
           locale={i18n.resolvedLanguage ?? i18n.language}
           rulesById={rulesById}
+          sourcesById={sourcesById}
           t={t}
           windowSecs={windowSecs}
           windowLabel={t(
@@ -138,6 +158,7 @@ function InsightsDashboard({
   incidents,
   locale,
   rulesById,
+  sourcesById,
   t,
   windowLabel,
   windowSecs,
@@ -146,28 +167,45 @@ function InsightsDashboard({
   incidents: Incident[];
   locale: string;
   rulesById: Map<string, AlertRule>;
+  sourcesById: Map<string, AlertSource>;
   t: TFn;
   windowLabel: string;
   windowSecs: WindowSecs;
 }) {
   const recoveredRate = data.total > 0 ? data.closed / data.total : 0;
-  const rapidRecoveryCount = Math.round(data.closed * data.noise_rate);
+  const rapidRecoveryCount = Math.round(data.closed * data.noiseRate);
   const headline = data.active
     ? t('insights.summary.active_headline', { total: data.total, active: data.active })
     : t('insights.summary.recovered_headline', { total: data.total });
 
-  const ruleItems = data.top_rules.map((item) => {
+  const ruleItems = data.topRules.map((item) => {
     const rule = rulesById.get(item.key);
+    const source = rule ? undefined : sourcesById.get(item.key);
+
+    if (source) {
+      return {
+        ...item,
+        label: source.name,
+        secondary: t(`alert_sources.kinds.${source.kind}`),
+        to: `/alerts/sources/${encodeURIComponent(source.id)}`,
+      };
+    }
+
+    // Every incident opened by hand counts under one row.
+    if (!rule && item.key === MANUAL_RULE_ID) {
+      return { ...item, label: t('sources.manual'), secondary: t('insights.rules.manual_secondary') };
+    }
+
     return {
       ...item,
       label: rule?.name ?? t('insights.rules.unknown_rule'),
       secondary: rule
-        ? [rule.query.stream?.name, rule.query.stream?.stream_type].filter(Boolean).join(' · ')
+        ? [rule.query.stream?.name, rule.query.stream?.streamType].filter(Boolean).join(' · ')
         : shortIdentifier(item.key),
       ...(rule ? { to: `/alerts/rules/${encodeURIComponent(rule.id)}/edit` } : {}),
     };
   });
-  const serviceItems = data.top_services.map((item) => ({ ...item, label: item.key }));
+  const serviceItems = data.topServices.map((item) => ({ ...item, label: item.key }));
 
   return (
     <div className="mx-auto w-full max-w-[2200px] space-y-[12px]">
@@ -194,7 +232,7 @@ function InsightsDashboard({
               className={STATEMENT_CELL}
               riseIndex={2}
               label={t('insights.summary.mttr')}
-              value={data.mttr_secs > 0 ? formatDuration(data.mttr_secs, t) : '—'}
+              value={data.mttrSecs > 0 ? formatDuration(data.mttrSecs, t) : '—'}
               detail={t('insights.summary.mttr_description')}
             />
             <Readout
@@ -202,8 +240,8 @@ function InsightsDashboard({
               riseIndex={3}
               label={t('insights.summary.noise')}
               value={String(rapidRecoveryCount)}
-              tone={data.noise_rate > 0.3 ? 'warn' : undefined}
-              detail={t('insights.summary.noise_description', { rate: formatPercent(data.noise_rate) })}
+              tone={data.noiseRate > 0.3 ? 'warn' : undefined}
+              detail={t('insights.summary.noise_description', { rate: formatPercent(data.noiseRate) })}
             />
           </>
         }
@@ -218,6 +256,10 @@ function InsightsDashboard({
         />
         <SeverityBreakdown data={data} t={t} />
       </section>
+
+      <ResponseSection response={data.response} t={t} />
+
+      <OncallLoadSection windowSecs={windowSecs} t={t} />
 
       <section className="grid gap-12 rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)] xl:grid-cols-2">
         <RankedList
@@ -248,7 +290,7 @@ function InsightsDashboard({
 function SeverityBreakdown({ data, t }: { data: AlertInsights; t: TFn }) {
   const entries = SEVERITY_ORDER.map((severity) => ({
     severity,
-    count: data.by_severity[severity] ?? 0,
+    count: data.bySeverity[severity] ?? 0,
   })).filter(({ count }) => count > 0);
 
   return (
@@ -361,51 +403,6 @@ function RankedList({
       )}
     </section>
   );
-}
-
-function SectionHeading({
-  id,
-  title,
-  description,
-  aside,
-}: {
-  id: string;
-  title: string;
-  description: string;
-  aside?: string;
-}) {
-  return (
-    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-      <div>
-        <h3 id={id} className="font-sans text-base font-display-strong text-tx-0">
-          {title}
-        </h3>
-        <p className="mt-0.5 font-sans text-xs text-tx-2">{description}</p>
-      </div>
-      {aside && <p className="shrink-0 font-sans text-xs tabular-nums text-tx-2">{aside}</p>}
-    </div>
-  );
-}
-
-function formatDuration(secs: number, t: TFn): string {
-  const rounded = Math.max(0, Math.round(secs));
-  if (rounded < 60) return t('insights.duration.seconds', { count: rounded });
-  if (rounded < 3_600) {
-    const minutes = Math.floor(rounded / 60);
-    const seconds = rounded % 60;
-    return seconds
-      ? t('insights.duration.minutes_seconds', { minutes, seconds })
-      : t('insights.duration.minutes', { count: minutes });
-  }
-  const hours = Math.floor(rounded / 3_600);
-  const minutes = Math.floor((rounded % 3_600) / 60);
-  return minutes
-    ? t('insights.duration.hours_minutes', { hours, minutes })
-    : t('insights.duration.hours', { count: hours });
-}
-
-function formatPercent(value: number): string {
-  return `${(value * 100).toFixed(value > 0 && value < 0.01 ? 1 : 0)}%`;
 }
 
 function shortIdentifier(value: string): string {

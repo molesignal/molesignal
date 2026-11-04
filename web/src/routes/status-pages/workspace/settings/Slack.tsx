@@ -54,12 +54,12 @@ function SlackAppForm({
 }) {
   const { t } = useTranslation('status-pages');
   const queryClient = useQueryClient();
-  const [connectorId, setConnectorId] = React.useState(setting.connector_id ?? '');
+  const [connectorId, setConnectorId] = React.useState(setting.connectorId ?? '');
   const mutation = useMutation({
     mutationFn: () => statusPagesApi.setSlackApp(pageId, connectorId || null),
     onSuccess: (next) => {
       queryClient.setQueryData(['status-pages', pageId, 'slack-app'], next);
-      toast.success(t(next.connector_id ? 'toast.slack_app_on' : 'toast.slack_app_off'));
+      toast.success(t(next.connectorId ? 'toast.slack_app_on' : 'toast.slack_app_off'));
     },
     onError: (error: unknown) => toast.error(toApiError(error).message),
   });
@@ -68,7 +68,7 @@ function SlackAppForm({
     ...setting.connectors.map((connector) => ({
       value: connector.id,
       label: connector.name,
-      disabled: !connector.enabled || !connector.adds_channels,
+      disabled: !connector.enabled || !connector.addsChannels,
       disabledReason: !connector.enabled
         ? t('settings.slack.connector_off')
         : t('settings.slack.connector_without_client'),
@@ -92,8 +92,8 @@ function SlackAppForm({
       {/* Not a <label>: a click on its text would press the copy button. */}
       <div className="grid min-w-0 gap-1.5">
         <span className={uiLabelClass}>{t('fields.slack_redirect_url')}</span>
-        {setting.redirect_url ? (
-          <CopyField value={setting.redirect_url} copyLabel={t('actions.copy')} />
+        {setting.redirectUrl ? (
+          <CopyField value={setting.redirectUrl} copyLabel={t('actions.copy')} />
         ) : (
           <p className="text-xs leading-5 text-yellow">{t('settings.slack.needs_https')}</p>
         )}
@@ -102,7 +102,7 @@ function SlackAppForm({
       <SettingsFooter>
         <ChromeButton
           variant="primary"
-          disabled={!editable || connectorId === (setting.connector_id ?? '') || mutation.isPending}
+          disabled={!editable || connectorId === (setting.connectorId ?? '') || mutation.isPending}
           onClick={() => mutation.mutate()}
         >
           {t('actions.save')}

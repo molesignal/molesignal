@@ -148,6 +148,7 @@ fn http_check(url: String, assertion: wire::Assertion, verify_tls: bool) -> prob
         follow_redirects: true,
         max_redirects: 3,
         verify_tls,
+        ..Default::default()
     })
 }
 
@@ -328,7 +329,9 @@ async fn a_failed_https_handshake_still_counts() {
 
     let timing = timing(&result, 0);
 
-    assert_eq!(result.outcome, ProbeOutcome::Unknown as i32);
+    // A server that cannot finish a TLS handshake fails the check.
+    assert_eq!(result.outcome, ProbeOutcome::Failing as i32);
+    assert_eq!(result.attempts[0].error_category, "tls_failed");
     assert!(timing.connect_micros.is_some());
     assert!(at_least(timing.tls_micros, PAUSE));
     assert_eq!(timing.first_byte_micros, None);
@@ -349,7 +352,7 @@ async fn only_a_check_that_verifies_minds_an_untrusted_certificate() {
     let refused = execute(task(verifying, 1), 1).await.expect("result");
     let served = execute(task(trusting, 1), 2).await.expect("result");
 
-    assert_eq!(refused.outcome, ProbeOutcome::Unknown as i32);
+    assert_eq!(refused.outcome, ProbeOutcome::Failing as i32);
     assert!(refused.attempts[0].error_message.contains("certificate"));
     assert_eq!(served.outcome, ProbeOutcome::Healthy as i32);
 }
@@ -380,7 +383,9 @@ async fn http_gives_up_when_its_time_runs_out() {
     let result = execute(hurried, 1).await.expect("result");
     let timing = timing(&result, 0);
 
-    assert_eq!(result.outcome, ProbeOutcome::Unknown as i32);
+    // A server that does not answer in time fails the check.
+    assert_eq!(result.outcome, ProbeOutcome::Failing as i32);
+    assert_eq!(result.attempts[0].error_category, "timeout");
     assert!(result.attempts[0].error_message.contains("timed out"));
     assert!(at_least(timing.first_byte_micros, PAUSE));
     assert!(phases_within_total(timing));
@@ -452,7 +457,7 @@ async fn a_failed_tls_handshake_still_counts() {
 
     let timing = timing(&result, 0);
 
-    assert_eq!(result.outcome, ProbeOutcome::Unknown as i32);
+    assert_eq!(result.outcome, ProbeOutcome::Failing as i32);
     assert!(timing.connect_micros.is_some());
     assert!(at_least(timing.tls_micros, PAUSE));
     assert_eq!(timing.first_byte_micros, None);

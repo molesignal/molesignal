@@ -45,7 +45,7 @@ use crate::{
 pub enum RunStatus {
     Queued,
     Running,
-    /// 等提问人回答一个问题。
+    /// 等提问人回答一个问题，或存下他在一台 MCP 服务器上的凭据。
     WaitingInput,
     /// 等提问人确认执行一个工具。
     WaitingApproval,
@@ -138,11 +138,12 @@ impl RunSource {
 
 /// 以谁的身份执行。只记身份，不记权限：执行时重新解析，这期间被收回的权限不会被用上。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RunPrincipal {
     pub user_id: Id,
     pub scope: IamScope,
     #[serde(default)]
-    pub credential_role_id: Option<Id>,
+    pub credential_token_id: Option<Id>,
     #[serde(default)]
     pub credential_application_id: Option<String>,
     #[serde(default)]
@@ -154,7 +155,7 @@ impl RunPrincipal {
         Self {
             user_id: ctx.user_id.clone(),
             scope: ctx.scope,
-            credential_role_id: ctx.credential_role_id.clone(),
+            credential_token_id: ctx.credential_token_id.clone(),
             credential_application_id: ctx.credential_application_id.clone(),
             credential_service_account_id: ctx.credential_service_account_id.clone(),
         }
@@ -167,7 +168,7 @@ impl RunPrincipal {
             org_id: org_id.clone(),
             display_role: String::new(),
             roles: Vec::new(),
-            credential_role_id: self.credential_role_id.clone(),
+            credential_token_id: self.credential_token_id.clone(),
             credential_application_id: self.credential_application_id.clone(),
             credential_service_account_id: self.credential_service_account_id.clone(),
             scope: self.scope,
@@ -189,7 +190,11 @@ pub enum QuestionKind {
 
 /// 在等提问人的东西。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(
+    tag = "type",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub enum Pending {
     Question {
         call_id: String,
@@ -205,18 +210,40 @@ pub enum Pending {
         arguments: Value,
         risk: RiskLevel,
     },
+    /// 「授权以继续」：一台要成员凭据的 MCP 服务器缺提问人的凭据，或拒绝了他存的那个。
+    /// 存好后这次工具调用再执行一次。
+    Authorization {
+        call_id: String,
+        /// 要用这个凭据的工具。
+        tool: String,
+        server_id: String,
+        server: String,
+        /// 凭据放进的请求头，小写。
+        header: String,
+        /// 值前面加 `Bearer `。
+        #[serde(default)]
+        bearer: bool,
+        /// 管理员写的：去哪里拿凭据、要哪些权限。
+        #[serde(default)]
+        instructions: String,
+        /// 存过的凭据被远端拒绝了。
+        #[serde(default)]
+        rejected: bool,
+    },
 }
 
 impl Pending {
     pub fn call_id(&self) -> &str {
         match self {
-            Self::Question { call_id, .. } | Self::Confirmation { call_id, .. } => call_id,
+            Self::Question { call_id, .. }
+            | Self::Confirmation { call_id, .. }
+            | Self::Authorization { call_id, .. } => call_id,
         }
     }
 
     pub fn status(&self) -> RunStatus {
         match self {
-            Self::Question { .. } => RunStatus::WaitingInput,
+            Self::Question { .. } | Self::Authorization { .. } => RunStatus::WaitingInput,
             Self::Confirmation { .. } => RunStatus::WaitingApproval,
         }
     }
@@ -224,7 +251,11 @@ impl Pending {
 
 /// 提问人的回答或决定。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(
+    tag = "type",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub enum RunResponse {
     Answer {
         call_id: String,
@@ -242,27 +273,37 @@ pub enum RunResponse {
         approved: bool,
         responder: Id,
     },
+    /// 提问人存好了凭据，接着执行；或者跳过这台服务器。
+    Authorization {
+        call_id: String,
+        authorized: bool,
+        responder: Id,
+    },
 }
 
 impl RunResponse {
     pub fn call_id(&self) -> &str {
         match self {
-            Self::Answer { call_id, .. } | Self::Decision { call_id, .. } => call_id,
+            Self::Answer { call_id, .. }
+            | Self::Decision { call_id, .. }
+            | Self::Authorization { call_id, .. } => call_id,
         }
     }
 
-    /// 对得上在等的那个问题或确认。
+    /// 对得上在等的那个问题、确认或授权。
     pub fn answers(&self, pending: &Pending) -> bool {
         self.call_id() == pending.call_id()
             && matches!(
                 (self, pending),
                 (Self::Answer { .. }, Pending::Question { .. })
                     | (Self::Decision { .. }, Pending::Confirmation { .. })
+                    | (Self::Authorization { .. }, Pending::Authorization { .. })
             )
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Run {
     pub id: Id,
     pub org_id: Id,
@@ -449,11 +490,56 @@ mod tests {
     }
 
     #[test]
+    fn an_authorization_waits_for_input_and_takes_only_an_authorization() {
+        let pending = Pending::Authorization {
+            call_id: "call-1".into(),
+            tool: "linear_search_issues".into(),
+            server_id: "server-1".into(),
+            server: "Linear".into(),
+            header: "authorization".into(),
+            bearer: true,
+            instructions: String::new(),
+            rejected: false,
+        };
+
+        let authorized = RunResponse::Authorization {
+            call_id: "call-1".into(),
+            authorized: true,
+            responder: Id::from_string("u1"),
+        };
+
+        let decision = RunResponse::Decision {
+            call_id: "call-1".into(),
+            approved: true,
+            responder: Id::from_string("u1"),
+        };
+
+        assert!(authorized.answers(&pending));
+        assert!(!decision.answers(&pending));
+        assert_eq!(pending.status(), RunStatus::WaitingInput);
+
+        // 存在 Run 上的样子：旧的记录没有可选字段也读得出来。
+        let stored = serde_json::json!({
+            "type": "authorization", "callId": "call-1", "tool": "t",
+            "serverId": "s", "server": "S", "header": "x-api-key",
+        });
+        let read: Pending = serde_json::from_value(stored).unwrap();
+        assert!(matches!(
+            read,
+            Pending::Authorization {
+                bearer: false,
+                rejected: false,
+                ..
+            }
+        ));
+    }
+
+    #[test]
     fn the_principal_keeps_the_credential_it_came_with() {
         let principal = RunPrincipal {
             user_id: Id::from_string("u1"),
             scope: IamScope::ApiToken,
-            credential_role_id: Some(Id::from_string("role-1")),
+            credential_token_id: Some(Id::from_string("token-1")),
             credential_application_id: None,
             credential_service_account_id: None,
         };

@@ -67,7 +67,7 @@ pub(super) async fn list(
           WHERE org_id = $1
             AND (cardinality($2::text[]) = 0 OR state = ANY($2::text[]))
             AND ($3::text IS NULL OR user_id = $3::text)
-          ORDER BY submitted_at_micros DESC, id DESC
+          ORDER BY submitted_at DESC, id DESC
           LIMIT $4 OFFSET $5"
     );
 

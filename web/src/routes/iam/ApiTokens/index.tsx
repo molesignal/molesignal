@@ -1,47 +1,45 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 
-import { DataTable } from '@/admin';
+import { DataTable, TableExportButton } from '@/admin';
 import * as apiTokens from '@/api/apiTokens';
 import * as serviceAccountsApi from '@/api/serviceAccounts';
 import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
 import { productStateFor } from '@/product/states';
-import { ChromeButton, IconButton, Pill } from '@/shell/chrome';
+import { ChromeButton } from '@/shell/chrome';
 import { queryStateFor } from '@/shell/query/State';
+import { ViewTabs } from '@/shell/tabs/ViewTabs';
 import { toast } from '@/shell/ui/sonner';
+import { useUsers } from '@/shell/useUsers';
 
 import { IamListPage } from '../IamLayout';
-import { CreateApiTokenDrawer } from './CreateApiTokenDrawer';
-import { formatMicros } from '../../rum/_helpers';
+import { TOKEN_TABLE_MIN_WIDTH, useTokenColumns } from './columns';
+import { CreateApiTokenDrawer, TOKEN_LIST_KEYS } from './CreateApiTokenDrawer';
+import { countRisks, TOKEN_RISKS, tokenRisks, type TokenRisk } from './risk';
 
-function formatOptionalMicros(
-  value: number | null | undefined,
-  fallback: string,
-): string {
-  return value ? formatMicros(value) : fallback;
-}
+type RiskView = 'all' | TokenRisk;
 
-function displayPrefix(token: apiTokens.ApiToken): string {
-  return `${token.token_kind === 'rum_client' ? 'msrum' : 'ms'}_${token.prefix}`;
-}
-
+/**
+ * Every token of the organization. Tokens for service accounts are issued
+ * here; people issue their own tokens in their account settings.
+ */
 export function ApiTokens() {
   const { t } = useTranslation('iam');
-  const { t: tc } = useTranslation('common');
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const manageAccess = useActionAccess({ permission: 'api_tokens.manage' });
-  const serviceAccountAccess = useActionAccess({
-    permission: 'service_accounts.read',
-  });
+  const revokeAccess = useActionAccess({ permission: 'api_tokens.revoke' });
+  const issueAccess = useActionAccess({ permission: 'api_tokens.issue' });
+  const serviceAccountAccess = useActionAccess({ permission: 'service_accounts.read' });
+  const { nameOf } = useUsers();
   const [creating, setCreating] = React.useState(false);
-  const serviceAccountId = searchParams.get('service_account_id') ?? '';
+  const [riskView, setRiskView] = React.useState<RiskView>('all');
+  const serviceAccountId = searchParams.get('serviceAccountId') ?? '';
   const query = useQuery({
-    queryKey: ['iam', 'api-tokens'],
+    queryKey: TOKEN_LIST_KEYS.service_account,
     queryFn: apiTokens.list,
   });
   const serviceAccounts = useQuery({
@@ -53,8 +51,7 @@ export function ApiTokens() {
     (serviceAccounts.data ?? []).map((account) => [account.id, account.name]),
   );
   const rows = (query.data ?? []).filter(
-    (token) =>
-      !serviceAccountId || token.service_account_id === serviceAccountId,
+    (token) => !serviceAccountId || token.serviceAccountId === serviceAccountId,
   );
   const queryState = queryStateFor({
     isLoading: query.isLoading,
@@ -66,19 +63,41 @@ export function ApiTokens() {
     onSuccess: async (_result, token) => {
       toast.success(t('api_tokens.toast_revoked'));
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['iam', 'api-tokens'] }),
+        queryClient.invalidateQueries({ queryKey: TOKEN_LIST_KEYS.service_account }),
+        queryClient.invalidateQueries({ queryKey: TOKEN_LIST_KEYS.me }),
         queryClient.invalidateQueries({
           queryKey:
-            token.token_kind === 'rum_client'
-              ? ['rum-client-token']
-              : ['default-intake-token'],
+            token.tokenKind === 'rum_client' ? ['rum-client-token'] : ['default-intake-token'],
         }),
       ]);
     },
     onError: (error) => toast.error(toApiError(error).message),
   });
-  const filteredAccountName =
-    accountNames.get(serviceAccountId) || serviceAccountId;
+  const principalName = (token: apiTokens.ApiToken) =>
+    token.serviceAccountId
+      ? accountNames.get(token.serviceAccountId) || token.serviceAccountId
+      : token.applicationId
+        ? t('api_tokens.application_principal')
+        : nameOf(token.userId);
+  const columns = useTokenColumns({
+    principal: {
+      key: 'principal',
+      header: t('api_tokens.columns.principal'),
+      value: principalName,
+      cell: (token) => <span title={principalName(token)}>{principalName(token)}</span>,
+      width: 150,
+    },
+    revoke: {
+      access: revokeAccess,
+      pending: revoke.isPending,
+      onRevoke: (token) => revoke.mutate(token),
+    },
+  });
+  const filteredAccountName = accountNames.get(serviceAccountId) || serviceAccountId;
+  const nowMicros = Date.now() * 1000;
+  const riskCounts = countRisks(rows, nowMicros);
+  const shownRows =
+    riskView === 'all' ? rows : rows.filter((token) => tokenRisks(token, nowMicros).includes(riskView));
 
   return (
     <>
@@ -86,9 +105,7 @@ export function ApiTokens() {
         title={t('api_tokens.title')}
         subtitle={
           serviceAccountId
-            ? t('api_tokens.filtered_subtitle', {
-                serviceAccount: filteredAccountName,
-              })
+            ? t('api_tokens.filtered_subtitle', { serviceAccount: filteredAccountName })
             : t('api_tokens.subtitle')
         }
         toolbar={
@@ -96,7 +113,7 @@ export function ApiTokens() {
             {serviceAccountId && (
               <ChromeButton
                 onClick={() => {
-                  searchParams.delete('service_account_id');
+                  searchParams.delete('serviceAccountId');
                   setSearchParams(searchParams, { replace: true });
                 }}
               >
@@ -107,125 +124,48 @@ export function ApiTokens() {
             <ChromeButton
               variant="primary"
               onClick={() => setCreating(true)}
-              disabled={manageAccess.disabled}
-              disabledReason={manageAccess.reason}
+              disabled={issueAccess.disabled}
+              disabledReason={issueAccess.reason}
             >
               <Plus className="h-3 w-3" />
-              {t('api_tokens.create')}
+              {t('api_tokens.create_for_service_account')}
             </ChromeButton>
           </div>
         }
-        state={productStateFor(
-          queryState === 'empty' ? null : queryState,
-          { error: query.error },
-        )}
+        state={productStateFor(queryState === 'empty' ? null : queryState, {
+          error: query.error,
+        })}
       >
-        <DataTable
-          rows={rows}
-          rowKey={(token) => token.id}
-          emptyLabel={t('api_tokens.empty_title')}
-          columns={[
-            {
-              key: 'name',
-              header: t('api_tokens.columns.name'),
-              cell: (token) => token.name,
-              width: 210,
-            },
-            {
-              key: 'prefix',
-              header: t('api_tokens.columns.prefix'),
-              cell: displayPrefix,
-              width: 205,
-            },
-            {
-              key: 'principal',
-              header: t('api_tokens.columns.principal'),
-              cell: (token) =>
-                token.service_account_id
-                  ? accountNames.get(token.service_account_id) ||
-                    token.service_account_id
-                  : t('api_tokens.current_user'),
-              width: 180,
-            },
-            {
-              key: 'role',
-              header: t('api_tokens.columns.role'),
-              cell: (token) => token.role_name,
-              width: 150,
-            },
-            {
-              key: 'kind',
-              header: t('api_tokens.columns.kind'),
-              cell: (token) => (
-                <span className="text-xs text-tx-2">
-                  {t(`api_tokens.kinds.${token.token_kind}`)}
-                  {token.application_id ? ` · ${token.application_id}` : ''}
-                </span>
-              ),
-              width: 180,
-            },
-            {
-              key: 'status',
-              header: t('api_tokens.columns.status'),
-              cell: (token) => (
-                <Pill tone={token.revoked ? 'red' : 'green'}>
-                  {token.revoked
-                    ? t('api_tokens.status_revoked')
-                    : t('api_tokens.status_active')}
-                </Pill>
-              ),
-              width: 105,
-            },
-            {
-              key: 'expires',
-              header: t('api_tokens.columns.expires'),
-              cell: (token) =>
-                formatOptionalMicros(
-                  token.expires_at_micros,
-                  t('api_tokens.never_expires'),
-                ),
-              width: 160,
-            },
-            {
-              key: 'last_used',
-              header: t('api_tokens.columns.last_used'),
-              cell: (token) =>
-                formatOptionalMicros(token.last_used_at_micros, '—'),
-              width: 160,
-            },
-            {
-              key: 'actions',
-              header: t('api_tokens.columns.actions'),
-              width: 80,
-              cell: (token) => (
-                <IconButton
-                  disabled={
-                    manageAccess.disabled || token.revoked || revoke.isPending
-                  }
-                  disabledReason={
-                    manageAccess.reason ??
-                    (token.revoked
-                      ? t('api_tokens.already_revoked')
-                      : revoke.isPending
-                        ? tc('access.operation_pending')
-                        : undefined)
-                  }
-                  onClick={() => revoke.mutate(token)}
-                  className="enabled:hover:bg-red-dim enabled:hover:text-red-soft"
-                  aria-label={t('api_tokens.revoke_token', {
-                    name: token.name,
-                  })}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </IconButton>
-              ),
-            },
-          ]}
-        />
+        <>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <ViewTabs<RiskView>
+              label={t('api_tokens.risks_label')}
+              value={riskView}
+              onValueChange={setRiskView}
+              items={[
+                { key: 'all', label: t('api_tokens.risks.all'), count: rows.length },
+                ...TOKEN_RISKS.filter((risk) => riskCounts[risk] > 0 || risk === riskView).map((risk) => ({
+                  key: risk,
+                  label: t(`api_tokens.risks.${risk}`),
+                  count: riskCounts[risk],
+                })),
+              ]}
+            />
+            <TableExportButton name="molesignal-api-tokens" columns={columns} rows={shownRows} />
+          </div>
+          <DataTable
+            rows={shownRows}
+            rowKey={(token) => token.id}
+            emptyLabel={riskView === 'all' ? t('api_tokens.empty_title') : t('api_tokens.no_risky')}
+            columns={columns}
+            fixedMinWidth={TOKEN_TABLE_MIN_WIDTH.all}
+          />
+        </>
       </IamListPage>
       <CreateApiTokenDrawer
         open={creating}
-        access={manageAccess}
+        access={issueAccess}
+        principal="service_account"
         {...(serviceAccountId ? { defaultServiceAccountId: serviceAccountId } : {})}
         onClose={() => setCreating(false)}
       />

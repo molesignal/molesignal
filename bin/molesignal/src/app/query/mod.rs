@@ -50,12 +50,13 @@ pub struct ActiveQuery {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ActiveQuerySnapshot {
     pub id: String,
     pub org_id: String,
     pub user_id: String,
     pub statement: String,
-    pub started_at_micros: i64,
+    pub started_at: i64,
     pub cancelled: bool,
 }
 
@@ -108,7 +109,7 @@ impl QueryRegistry {
                 org_id: q.org_id.0.clone(),
                 user_id: q.user_id.0.clone(),
                 statement: q.statement.clone(),
-                started_at_micros: q.started_at.0,
+                started_at: q.started_at.0,
                 cancelled: q.cancel.load(Ordering::Relaxed),
             })
             .collect()
@@ -287,9 +288,10 @@ impl QueryService {
             return Ok(result);
         };
 
-        // 角色进缓存键：不同角色可见的数据范围不同，不能共用一份结果。
+        // 角色进缓存键：不同角色可见的数据范围不同，不能共用一份结果。读得到 `_audit` 的调用者
+        // 另有一份，读不到的调用者拿不到它的结果。
         // 时间窗未封闭时 get/put 都是 no-op，实时查询照常直通。
-        let role_filter = role_key.to_string();
+        let role_filter = crate::infra::query::grants::current().cache_role(role_key);
         let now = TimestampMicros::now().0;
 
         if let Some(mut hit) = cache.get(&req, &role_filter, now).await {
@@ -454,6 +456,7 @@ mod tests {
             time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(1)),
             stream: None,
             limit: None,
+            step: None,
             federation_clusters: vec![],
         }
     }

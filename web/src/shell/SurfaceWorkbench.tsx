@@ -40,6 +40,18 @@ export function SurfacePageBody({
 }
 
 /**
+ * A page that is only a state: not found, denied, failed. The gap over it is inside
+ * the body, because a surface shell sets the padding of the body itself.
+ */
+export function SurfaceStatePage({ children }: { children: React.ReactNode }) {
+  return (
+    <SurfacePageBody>
+      <div className="pt-[12px]">{children}</div>
+    </SurfacePageBody>
+  );
+}
+
+/**
  * A page's name set into the first row of its workbench.
  *
  * The explorers (Logs, Traces) give every row they can to the data, so the name

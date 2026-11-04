@@ -29,7 +29,7 @@ pub(super) async fn execute(
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SavedViewWrite {
     name: String,
     language: QueryLanguage,
@@ -121,7 +121,7 @@ async fn delete(
 
     Ok(OperationOutcome {
         summary: "saved view deleted".into(),
-        verification: json!({"verified": true, "view_id": view.id, "deleted": true}),
+        verification: json!({"verified": true, "viewId": view.id, "deleted": true}),
     })
 }
 
@@ -171,7 +171,7 @@ fn validate(value: &SavedViewWrite) -> Result<()> {
 
     if value.time_range_secs == 0 || value.time_range_secs > MAX_RANGE_SECS {
         return Err(Error::invalid(
-            "time_range_secs must be between 1 and 31622400",
+            "timeRangeSecs must be between 1 and 31622400",
         ));
     }
 
@@ -181,7 +181,7 @@ fn validate(value: &SavedViewWrite) -> Result<()> {
 fn outcome(summary: &str, view: SavedView) -> Result<OperationOutcome> {
     Ok(OperationOutcome {
         summary: summary.into(),
-        verification: json!({"verified": true, "saved_view": view}),
+        verification: json!({"verified": true, "savedView": view}),
     })
 }
 

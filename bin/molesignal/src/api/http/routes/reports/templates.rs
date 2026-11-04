@@ -29,7 +29,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct WriteReq {
     pub name: String,
     #[serde(default)]
@@ -40,6 +40,7 @@ pub struct WriteReq {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Resp {
     pub id: String,
     pub name: String,
@@ -48,8 +49,8 @@ pub struct Resp {
     pub format: String,
     pub time_range_preset: String,
     pub is_builtin: bool,
-    pub created_at_micros: Option<i64>,
-    pub updated_at_micros: Option<i64>,
+    pub created_at: Option<i64>,
+    pub updated_at: Option<i64>,
 }
 
 fn builtins() -> Vec<Resp> {
@@ -68,8 +69,8 @@ fn to_resp(template: ReportTemplate) -> Resp {
         format: template.format,
         time_range_preset: template.time_range_preset,
         is_builtin: false,
-        created_at_micros: Some(template.created_at.0),
-        updated_at_micros: Some(template.updated_at.0),
+        created_at: Some(template.created_at.0),
+        updated_at: Some(template.updated_at.0),
     }
 }
 
@@ -91,9 +92,7 @@ fn normalize_and_validate(mut req: WriteReq) -> Result<WriteReq> {
     }
 
     if !matches!(req.target_type.as_str(), "dashboard" | "saved_view") {
-        return Err(Error::invalid(
-            "target_type must be dashboard or saved_view",
-        ));
+        return Err(Error::invalid("targetType must be dashboard or saved_view"));
     }
 
     if !matches!(req.format.as_str(), "pdf" | "csv" | "json") {
@@ -116,7 +115,7 @@ fn normalize_and_validate(mut req: WriteReq) -> Result<WriteReq> {
             | "custom"
     ) {
         return Err(Error::invalid(
-            "time_range_preset is not a supported report template range",
+            "timeRangePreset is not a supported report template range",
         ));
     }
 
@@ -296,9 +295,9 @@ mod tests {
         let input = serde_json::json!({
             "name": "Weekly health",
             "description": "Ops",
-            "target_type": "dashboard",
+            "targetType": "dashboard",
             "format": "pdf",
-            "time_range_preset": "previous-calendar-week",
+            "timeRangePreset": "previous-calendar-week",
             "cron": "every:7d"
         });
         assert!(serde_json::from_value::<WriteReq>(input).is_err());

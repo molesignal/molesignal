@@ -4,6 +4,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type * as productAccess from '@/product/access';
 import { reduceMotionInTests } from '@/shell/readout/reduceMotionInTests';
 
 import { NOW, checkRow, location, runs } from '../__tests__/builders';
@@ -12,15 +13,21 @@ import { SyntheticsOverview } from './index';
 
 const mocks = vi.hoisted(() => ({
   workspace: { current: {} as Record<string, unknown> },
+  availability: { current: undefined as unknown },
   access: { current: { allowed: true, disabled: false } as Record<string, unknown> },
 }));
 
 vi.mock('../data', () => ({
   SYNTHETICS_REFRESH_MILLIS: 30_000,
   useSyntheticsWorkspace: () => mocks.workspace.current,
+  useSyntheticsAvailability: () => ({ data: mocks.availability.current }),
 }));
 vi.mock('@/product/actionAccess', () => ({
   useActionAccess: () => mocks.access.current,
+}));
+vi.mock('@/product/access', async (importOriginal) => ({
+  ...(await importOriginal<typeof productAccess>()),
+  useProductAccess: () => null,
 }));
 vi.mock('../map/WorldAvailabilityMap', () => ({
   WorldAvailabilityMap: () => <div data-testid="availability-map" />,
@@ -70,12 +77,20 @@ describe('Synthetics overview', () => {
     mocks.workspace.current = workspace([
       checkRow({
         monitor: { id: 'signin', name: 'Sign-in journey', kind: 'browser', state: 'failing' },
-        revision: { escalation_policy_id: 'policy-1' },
+        revision: { escalationPolicyId: 'policy-1' },
         results: runs(['failing', 'failing', 'healthy']),
       }),
       checkRow({ monitor: { id: 'api', name: 'Checkout API' }, results: runs(['healthy', 'healthy']) }),
       checkRow({ monitor: { id: 'vpn', name: 'Legacy VPN', lifecycle: 'paused', state: 'failing' } }),
     ]);
+    // How the runs went over the range: 3 of the 5 that were judged were available.
+    mocks.availability.current = {
+      total: { runs: 6, available: 3, failing: 2, undecided: 1, availability: 0.6 },
+      checks: [],
+      locations: [],
+      buckets: [],
+      locationBuckets: [],
+    };
     const { container } = renderOverview();
 
     const statement = screen.getByRole('region', { name: 'Synthetic checks now' });
@@ -84,7 +99,7 @@ describe('Synthetics overview', () => {
     expect(statement.getAttribute('data-checks-standing')).toBe('failing');
     // The figures the verdict rests on: runs, places, and whether anyone is told.
     expect(statement.textContent).toContain('60.0%');
-    expect(statement.textContent).toContain('of the last 5 runs');
+    expect(statement.textContent).toContain('of 5 runs in range');
     expect(statement.textContent).toContain('1of 2');
     expect(statement.textContent).toContain('Frankfurt not online');
     expect(statement.textContent).toContain('checks with an escalation policy');
@@ -101,15 +116,15 @@ describe('Synthetics overview', () => {
       checkRow({
         monitor: { id: 'signin', name: 'Sign-in journey', kind: 'browser', state: 'failing' },
         results: runs(['failing', 'failing', 'healthy'], {
-          location_id: 'loc-eu',
+          locationId: 'loc-eu',
           attempts: [
             {
               number: 1,
-              started_at: 0,
-              finished_at: 1,
+              startedAt: 0,
+              finishedAt: 1,
               outcome: 'failing',
               timing: {},
-              error_message: 'Timed out waiting for the dashboard',
+              errorMessage: 'Timed out waiting for the dashboard',
               metadata: {},
             },
           ],
@@ -130,7 +145,7 @@ describe('Synthetics overview', () => {
     expect(within(attention).queryByText('Checkout API')).toBeNull();
   });
 
-  it('draws no list of trouble when every check passes', () => {
+  it('draws no list of trouble when every check passes', async () => {
     mocks.workspace.current = workspace([
       checkRow({ monitor: { id: 'api' }, results: runs(['healthy', 'healthy']) }),
     ]);
@@ -141,7 +156,8 @@ describe('Synthetics overview', () => {
         .textContent,
     ).toBe('1 check, and it is passing');
     expect(screen.queryByRole('region', { name: 'Needs attention' })).toBeNull();
-    expect(screen.getByTestId('availability-map')).toBeTruthy();
+    // The map is loaded when it is first drawn.
+    expect(await screen.findByTestId('availability-map')).toBeTruthy();
   });
 
   it('says how to begin when there is no check, with the one way to a first one', () => {

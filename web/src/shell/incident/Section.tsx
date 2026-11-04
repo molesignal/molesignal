@@ -1,5 +1,6 @@
 import * as React from 'react';
 
+import { uiSectionTitleClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { SignalReference } from '@/shell/SignalReference';
 
@@ -27,7 +28,7 @@ export function IncidentSection({
         data-incident-section
         className="min-w-0 rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]"
       >
-        <h2 className="flex min-h-12 items-center gap-2 px-4 font-sans text-sm font-display-strong text-tx-0">
+        <h2 className={cn('flex min-h-12 items-center gap-2 px-4', uiSectionTitleClass)}>
           {icon && <span className="text-tx-2">{icon}</span>}
           {title}
         </h2>

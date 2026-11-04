@@ -26,6 +26,7 @@ pub const MAX_PATH_CHARS: usize = 512;
 const ENTRY_PROMPT_BYTES: usize = 32 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct KnowledgeFile {
     pub org_id: Id,
     pub scope: Scope,
@@ -41,6 +42,7 @@ pub struct KnowledgeFile {
 
 /// 不带内容的文件。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct KnowledgeFileMeta {
     pub path: String,
     pub size_bytes: i64,
@@ -50,6 +52,7 @@ pub struct KnowledgeFileMeta {
 
 /// 一份知识的概况。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct KnowledgeBase {
     pub scope: Scope,
     pub files: i64,

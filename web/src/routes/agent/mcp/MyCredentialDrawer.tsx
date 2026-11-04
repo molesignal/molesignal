@@ -48,8 +48,8 @@ export function MyCredentialDrawer({
   });
 
   if (!server) return null;
-  const spec = server.member_credential;
-  const saved = server.my_credential;
+  const spec = server.memberCredential;
+  const saved = server.myCredential;
 
   return (
     <FormDrawer
@@ -94,7 +94,7 @@ export function MyCredentialDrawer({
           {saved
             ? t('settings.tools.mcp.my_credential.state_saved', {
                 last4: saved.last4,
-                time: formatMicrosActive(saved.updated_at),
+                time: formatMicrosActive(saved.updatedAt),
               })
             : t('settings.tools.mcp.my_credential.state_missing')}
         </p>

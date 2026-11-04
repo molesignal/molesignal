@@ -29,15 +29,15 @@ pub(super) async fn execute(
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct CreateAnnotation {
     title: String,
     #[serde(default)]
     description: Option<String>,
     #[serde(default)]
     tags: Vec<String>,
-    time_start_micros: i64,
-    time_end_micros: i64,
+    time_start: i64,
+    time_end: i64,
     #[serde(default)]
     dashboard_id: Option<String>,
     #[serde(default)]
@@ -54,8 +54,8 @@ async fn create(
     let (title, tags) = validate_annotation(
         parameters.title,
         parameters.tags,
-        parameters.time_start_micros,
-        parameters.time_end_micros,
+        parameters.time_start,
+        parameters.time_end,
     )?;
 
     let annotation = state
@@ -67,10 +67,10 @@ async fn create(
             title,
             description: parameters.description,
             tags,
-            time_start: TimestampMicros(parameters.time_start_micros),
-            time_end: TimestampMicros(parameters.time_end_micros),
-            dashboard_id: optional_id(parameters.dashboard_id, "dashboard_id")?,
-            stream_name: optional_text(parameters.stream_name, "stream_name")?,
+            time_start: TimestampMicros(parameters.time_start),
+            time_end: TimestampMicros(parameters.time_end),
+            dashboard_id: optional_id(parameters.dashboard_id, "dashboardId")?,
+            stream_name: optional_text(parameters.stream_name, "streamName")?,
             created_by: approval.requested_by.clone(),
             created_at: TimestampMicros::now(),
         })
@@ -92,10 +92,10 @@ async fn update(
             "title",
             "description",
             "tags",
-            "time_start_micros",
-            "time_end_micros",
-            "dashboard_id",
-            "stream_name",
+            "timeStart",
+            "timeEnd",
+            "dashboardId",
+            "streamName",
         ],
     )?;
 
@@ -123,20 +123,20 @@ async fn update(
         annotation.tags = parse(value)?;
     }
 
-    if let Some(value) = parameters.get("time_start_micros") {
+    if let Some(value) = parameters.get("timeStart") {
         annotation.time_start = TimestampMicros(parse(value)?);
     }
 
-    if let Some(value) = parameters.get("time_end_micros") {
+    if let Some(value) = parameters.get("timeEnd") {
         annotation.time_end = TimestampMicros(parse(value)?);
     }
 
-    if let Some(value) = parameters.get("dashboard_id") {
-        annotation.dashboard_id = optional_id(parse(value)?, "dashboard_id")?;
+    if let Some(value) = parameters.get("dashboardId") {
+        annotation.dashboard_id = optional_id(parse(value)?, "dashboardId")?;
     }
 
-    if let Some(value) = parameters.get("stream_name") {
-        annotation.stream_name = optional_text(parse(value)?, "stream_name")?;
+    if let Some(value) = parameters.get("streamName") {
+        annotation.stream_name = optional_text(parse(value)?, "streamName")?;
     }
 
     let (title, tags) = validate_annotation(
@@ -164,7 +164,7 @@ async fn delete(
 
     Ok(OperationOutcome {
         summary: "annotation deleted".into(),
-        verification: json!({"verified": true, "annotation_id": id, "deleted": true}),
+        verification: json!({"verified": true, "annotationId": id, "deleted": true}),
     })
 }
 
@@ -191,7 +191,7 @@ fn validate_annotation(
 
     if end < start {
         return Err(Error::invalid(
-            "time_end_micros must be greater than or equal to time_start_micros",
+            "timeEnd must be greater than or equal to timeStart",
         ));
     }
 

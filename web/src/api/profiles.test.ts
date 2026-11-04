@@ -44,7 +44,7 @@ describe('profile reads before the first profile', () => {
       mocks.get.mockRejectedValueOnce(error);
 
       await expect(flamegraph()).resolves.toMatchObject({
-        profile_count: 0,
+        profileCount: 0,
         truncated: false,
         flamebearer: { numTicks: 0, levels: [] },
       });

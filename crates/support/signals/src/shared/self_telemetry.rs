@@ -550,6 +550,23 @@ fn execution_role(
         .unwrap_or("standalone")
 }
 
+/// The kind a span declares with `otel.kind`, as OTLP numbers kinds. A span that
+/// declares none is internal, which is what OpenTelemetry takes a span to be
+/// unless it is told otherwise.
+fn span_kind(declared: Option<&Value>) -> i32 {
+    match declared
+        .and_then(Value::as_str)
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("server") => 2,
+        Some("client") => 3,
+        Some("producer") => 4,
+        Some("consumer") => 5,
+        _ => 1,
+    }
+}
+
 fn deny_target(target: &str) -> bool {
     target.starts_with("molesignal::shared::self_telemetry")
         || target.starts_with("molesignal::app::self_telemetry")
@@ -751,6 +768,15 @@ where
             _ => "UNSET",
         };
 
+        let kind = span_kind(fields.remove("otel.kind").as_ref());
+
+        // A span whose tracing name is a category ("http.server") names itself with `otel.name`.
+        let name = fields
+            .remove("otel.name")
+            .and_then(|value| value.as_str().map(str::to_owned))
+            .filter(|name| !name.is_empty())
+            .unwrap_or(data.name);
+
         if !data.events.is_empty() {
             fields.insert(
                 "events".into(),
@@ -763,11 +789,11 @@ where
         let event = finished_span_to_event(
             fields,
             FinishedSpan {
-                name: data.name,
+                name,
                 trace_id: Some(data.trace_id),
                 span_id: Some(data.span_id),
                 parent_span_id: data.parent_span_id,
-                kind: 0,
+                kind,
                 start_time_unix_nano: start_ns,
                 end_time_unix_nano: end_ns,
                 status_code: status.into(),
@@ -939,6 +965,73 @@ mod tests {
         assert_eq!(
             trace.fields["molesignal.execution.role"],
             Value::String("standalone".into())
+        );
+    }
+
+    #[test]
+    fn spans_carry_the_kind_they_declare() {
+        let hub = SelfTelemetryHub::new(init(8));
+        let mut traces = hub.take_receiver(SelfTelemetrySignal::Traces).unwrap();
+        let subscriber = tracing_subscriber::registry().with(SelfTelemetryLayer::new(hub));
+
+        tracing::subscriber::with_default(subscriber, || {
+            for kind in ["server", "client", "producer", "consumer", "internal"] {
+                tracing::info_span!(target: "test.app", "call", otel.kind = kind).in_scope(|| {});
+            }
+
+            tracing::info_span!(target: "test.app", "plain").in_scope(|| {});
+        });
+
+        let traces = std::iter::from_fn(|| traces.try_recv().ok()).collect::<Vec<_>>();
+        let kinds = traces
+            .iter()
+            .map(|trace| trace.fields["kind"].clone())
+            .collect::<Vec<_>>();
+
+        // OTLP numbers them 2 to 5 and 1; a span that declares none is internal.
+        assert_eq!(kinds, [2, 3, 4, 5, 1, 1].map(Value::from));
+        assert!(
+            traces
+                .iter()
+                .all(|trace| !trace.fields.contains_key("otel.kind"))
+        );
+    }
+
+    #[test]
+    fn spans_carry_the_name_they_declare() {
+        let hub = SelfTelemetryHub::new(init(8));
+        let mut traces = hub.take_receiver(SelfTelemetrySignal::Traces).unwrap();
+        let subscriber = tracing_subscriber::registry().with(SelfTelemetryLayer::new(hub));
+
+        tracing::subscriber::with_default(subscriber, || {
+            let route = "/api/things";
+
+            tracing::info_span!(
+                target: "test.app",
+                "http.server",
+                otel.name = %format!("GET {route}")
+            )
+            .in_scope(|| {});
+
+            tracing::info_span!(target: "test.app", "worker.cleanup").in_scope(|| {});
+        });
+
+        let names = std::iter::from_fn(|| traces.try_recv().ok())
+            .map(|trace| {
+                (
+                    trace.fields["name"].clone(),
+                    trace.fields.contains_key("otel.name"),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        // The declared name stands in for the category; a span that declares none keeps its own.
+        assert_eq!(
+            names,
+            [
+                (Value::from("GET /api/things"), false),
+                (Value::from("worker.cleanup"), false),
+            ]
         );
     }
 

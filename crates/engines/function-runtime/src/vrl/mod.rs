@@ -4,7 +4,9 @@
 //! VRL runtime and intake executor.
 
 pub mod executor;
+pub mod lookups;
 pub mod runtime;
 
 pub use executor::VrlFunctionExecutor;
+pub use lookups::VrlLookups;
 pub use runtime::VrlRuntime;

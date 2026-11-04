@@ -31,17 +31,17 @@ pub struct ObjectStoreSettings {
     #[serde(default)]
     pub credentials_file: Option<std::path::PathBuf>,
     /// 写入对象达到该大小（MiB）时改用 multipart 上传。
-    #[serde(default = "default_multipart_threshold_mb")]
-    pub multipart_threshold_mb: u32,
+    #[serde(default = "default_multipart_threshold_size")]
+    pub multipart_threshold_size: u32,
     /// multipart 上传的单分片大小（MiB）。
-    #[serde(default = "default_multipart_part_size_mb")]
-    pub multipart_part_size_mb: u32,
+    #[serde(default = "default_multipart_part_size")]
+    pub multipart_part_size: u32,
     /// 范围读取达到该大小（MiB）时拆成多个块并发读取。
-    #[serde(default = "default_range_threshold_mb")]
-    pub range_threshold_mb: u32,
+    #[serde(default = "default_range_threshold_size")]
+    pub range_threshold_size: u32,
     /// 分段读取的单块大小（MiB）。
-    #[serde(default = "default_range_chunk_mb")]
-    pub range_chunk_mb: u32,
+    #[serde(default = "default_range_chunk_size")]
+    pub range_chunk_size: u32,
     #[serde(default = "default_max_concurrency")]
     pub max_concurrency: u32,
     #[serde(default = "default_op_timeout_secs")]
@@ -100,19 +100,19 @@ fn default_object_root() -> String {
     "./data/objects".into()
 }
 
-fn default_multipart_threshold_mb() -> u32 {
+fn default_multipart_threshold_size() -> u32 {
     32
 }
 
-fn default_multipart_part_size_mb() -> u32 {
+fn default_multipart_part_size() -> u32 {
     8
 }
 
-fn default_range_threshold_mb() -> u32 {
+fn default_range_threshold_size() -> u32 {
     16
 }
 
-fn default_range_chunk_mb() -> u32 {
+fn default_range_chunk_size() -> u32 {
     8
 }
 
@@ -136,25 +136,24 @@ const MAX_TRANSFER_UNIT_MB: u32 = 1024;
 
 impl ObjectStoreSettings {
     pub fn validate(&self) -> anyhow::Result<()> {
-        if self.multipart_threshold_mb == 0 {
-            anyhow::bail!("object_store.multipart_threshold_mb must be at least 1");
+        if self.multipart_threshold_size == 0 {
+            anyhow::bail!("object_store.multipart_threshold_size must be at least 1");
         }
 
-        if !(MIN_MULTIPART_PART_SIZE_MB..=MAX_TRANSFER_UNIT_MB)
-            .contains(&self.multipart_part_size_mb)
+        if !(MIN_MULTIPART_PART_SIZE_MB..=MAX_TRANSFER_UNIT_MB).contains(&self.multipart_part_size)
         {
             anyhow::bail!(
-                "object_store.multipart_part_size_mb must be in \
+                "object_store.multipart_part_size must be in \
                  {MIN_MULTIPART_PART_SIZE_MB}..={MAX_TRANSFER_UNIT_MB}"
             );
         }
 
-        if self.range_threshold_mb == 0 {
-            anyhow::bail!("object_store.range_threshold_mb must be at least 1");
+        if self.range_threshold_size == 0 {
+            anyhow::bail!("object_store.range_threshold_size must be at least 1");
         }
 
-        if !(1..=MAX_TRANSFER_UNIT_MB).contains(&self.range_chunk_mb) {
-            anyhow::bail!("object_store.range_chunk_mb must be in 1..={MAX_TRANSFER_UNIT_MB}");
+        if !(1..=MAX_TRANSFER_UNIT_MB).contains(&self.range_chunk_size) {
+            anyhow::bail!("object_store.range_chunk_size must be in 1..={MAX_TRANSFER_UNIT_MB}");
         }
 
         Ok(())
@@ -173,10 +172,10 @@ impl Default for ObjectStoreSettings {
             secret_key: String::new(),
             path_style: false,
             credentials_file: None,
-            multipart_threshold_mb: default_multipart_threshold_mb(),
-            multipart_part_size_mb: default_multipart_part_size_mb(),
-            range_threshold_mb: default_range_threshold_mb(),
-            range_chunk_mb: default_range_chunk_mb(),
+            multipart_threshold_size: default_multipart_threshold_size(),
+            multipart_part_size: default_multipart_part_size(),
+            range_threshold_size: default_range_threshold_size(),
+            range_chunk_size: default_range_chunk_size(),
             max_concurrency: default_max_concurrency(),
             op_timeout_secs: default_op_timeout_secs(),
             health_probe_interval_secs: default_health_probe_interval_secs(),

@@ -86,7 +86,7 @@ export function Verification({
     facts.push(
       {
         label: t('datasource_page.validation_metrics.last_received'),
-        value: formatRelativeMicros(summary.lastReceivedAtMicros, i18n.language),
+        value: formatRelativeMicros(summary.lastReceivedAt, i18n.language),
       },
       {
         label: t('datasource_page.validation_metrics.streams'),

@@ -3,7 +3,9 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{DependencyIdentity, ErrorIdentity, ServiceIdentity, TransactionIdentity};
+use super::{
+    DependencyIdentity, ErrorIdentity, InstanceSighting, ServiceIdentity, TransactionIdentity,
+};
 use crate::shared::{ids::Id, time::TimestampMicros};
 
 pub const APM_FACT_SCHEMA_VERSION: u16 = 1;
@@ -42,6 +44,20 @@ pub struct ProtocolStatus {
 }
 
 impl ProtocolStatus {
+    /// The status as buckets count it: an HTTP code from 100 to 599, else a gRPC code from 0 to 16.
+    pub fn response_status(&self) -> Option<String> {
+        if let Some(code) = self
+            .http_status_code
+            .filter(|code| (100..=599).contains(code))
+        {
+            return Some(format!("http:{code}"));
+        }
+
+        self.rpc_status_code
+            .filter(|code| (0..=16).contains(code))
+            .map(|code| format!("grpc:{code}"))
+    }
+
     pub fn outcome(&self) -> ApmOutcome {
         if self.otel_status.eq_ignore_ascii_case("error")
             || self.http_status_code.is_some_and(|code| code >= 500)
@@ -99,7 +115,7 @@ pub struct ApmSpanFact {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parent_span_id: Option<String>,
     pub event_time: TimestampMicros,
-    pub duration_micros: u64,
+    pub duration: u64,
     pub span_kind: ApmSpanKind,
     pub outcome: ApmOutcome,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -110,6 +126,19 @@ pub struct ApmSpanFact {
     pub error: Option<ErrorIdentity>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exception: Option<SanitizedException>,
+    /// What the request answered, as its protocol writes it: `http:503`, `grpc:14`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_status: Option<String>,
+    /// The request ran out of time: a timeout error, gRPC `DEADLINE_EXCEEDED`, HTTP 408 or 504.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub timed_out: bool,
+    /// The request was sent again: `http.request.resend_count` above 0.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub retried: bool,
+    /// A look at the instance, on the first span of a while from it; the
+    /// other spans carry none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instance: Option<Box<InstanceSighting>>,
 }
 
 impl ApmSpanFact {

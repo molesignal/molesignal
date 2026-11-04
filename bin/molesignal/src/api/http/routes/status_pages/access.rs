@@ -28,19 +28,19 @@ pub(super) fn management_routes() -> Router<AppState> {
     Router::new()
         .merge(domain_management::routes())
         .route(
-            "/status-pages/{page_id}/access-rules",
+            "/status-pages/{pageId}/access-rules",
             get(list_rules).post(create_rule),
         )
         .route(
-            "/status-pages/{page_id}/access-rules/{rule_id}",
+            "/status-pages/{pageId}/access-rules/{ruleId}",
             delete(delete_rule),
         )
         .route(
-            "/status-pages/{page_id}/access-sessions",
+            "/status-pages/{pageId}/access-sessions",
             get(list_sessions).delete(revoke_all_sessions),
         )
         .route(
-            "/status-pages/{page_id}/access-sessions/{session_id}",
+            "/status-pages/{pageId}/access-sessions/{sessionId}",
             delete(revoke_session),
         )
 }
@@ -79,6 +79,7 @@ struct AccessConsumeRequest {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct AccessRuleResponse {
     id: Id,
     kind: StatusPageAccessRuleKind,
@@ -100,6 +101,7 @@ impl From<StatusPageAccessRule> for AccessRuleResponse {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct AccessSessionResponse {
     id: Id,
     masked_email: String,
@@ -122,7 +124,7 @@ impl From<StatusPageAccessSession> for AccessSessionResponse {
     }
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.access.manage")]
 async fn list_rules(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -139,7 +141,7 @@ async fn list_rules(
     ))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.access.manage")]
 async fn create_rule(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -168,7 +170,7 @@ async fn create_rule(
         "access_rule.create",
         &page_id,
         serde_json::json!({
-            "rule_id": rule_id,
+            "ruleId": rule_id,
             "kind": rule.kind,
         }),
     )
@@ -177,7 +179,7 @@ async fn create_rule(
     Ok((StatusCode::CREATED, Json(rule.into())))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.access.manage")]
 async fn delete_rule(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -196,7 +198,7 @@ async fn delete_rule(
         "access_rule.delete",
         &page_id,
         serde_json::json!({
-            "rule_id": rule_id,
+            "ruleId": rule_id,
         }),
     )
     .await;
@@ -204,7 +206,7 @@ async fn delete_rule(
     Ok(Json(serde_json::json!({"deleted": true})))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.access.manage")]
 async fn list_sessions(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -221,7 +223,7 @@ async fn list_sessions(
     ))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.access.manage")]
 async fn revoke_session(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -240,7 +242,7 @@ async fn revoke_session(
         "access_session.revoke",
         &page_id,
         serde_json::json!({
-            "session_id": session_id,
+            "sessionId": session_id,
         }),
     )
     .await;
@@ -248,7 +250,7 @@ async fn revoke_session(
     Ok(Json(serde_json::json!({"revoked": true})))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.access.manage")]
 async fn revoke_all_sessions(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -340,7 +342,7 @@ async fn consume_access(
 
     let mut response = Json(serde_json::json!({
         "authenticated": true,
-        "expires_at": outcome.session.expires_at,
+        "expiresAt": outcome.session.expires_at,
     }))
     .into_response();
 

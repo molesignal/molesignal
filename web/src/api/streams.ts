@@ -3,15 +3,23 @@ import { http } from '@/lib/http';
 
 export type StreamType = 'logs' | 'metrics' | 'traces' | 'profiles' | 'extend';
 export type FieldType = 'bool' | 'int64' | 'float64' | 'utf8' | 'timestamp' | 'json';
-export type StreamIndexType = 'none' | 'exact' | 'full_text' | 'bloom' | 'skip';
+export type StreamIndexType =
+  | 'none'
+  | 'exact'
+  | 'full_text'
+  | 'bloom'
+  | 'skip'
+  | 'ngram'
+  | 'ip'
+  | 'key_value';
 
 export interface StreamField {
   name: string;
-  data_type: FieldType;
+  dataType: FieldType;
   nullable: boolean;
   indexed: boolean;
   /** 新版 schema 直接持久化的规范索引类型；旧服务响应可能缺失。 */
-  index_type?: StreamIndexType;
+  indexType?: StreamIndexType;
   /** 字段级静态加密：写入前用 cipher key 加密、密文落盘；查询用 decrypt(col) 还原。 */
   encrypted?: boolean;
 }
@@ -19,16 +27,7 @@ export interface StreamField {
 export interface FieldIndexRule {
   field: string;
   enabled: boolean;
-  index_type: StreamIndexType;
-  condition?: string | null;
-  sdr_patterns: string[];
-}
-
-export interface StreamCondition {
-  name: string;
-  expression: string;
-  enabled: boolean;
-  retention_days?: number | null;
+  indexType: StreamIndexType;
 }
 
 export interface FieldMaskingOverride {
@@ -37,23 +36,54 @@ export interface FieldMaskingOverride {
   algorithm: FieldMaskingAlgorithm | null;
 }
 
+/** 指标流的降采样：早于 `after_days` 天的样本按 `interval_secs` 秒的时间桶聚合。 */
+export interface StreamDownsample {
+  /** 原始样本保留的天数；0 表示不降采样。 */
+  afterDays: number;
+  intervalSecs: number;
+}
+
+/** 降采样默认的时间桶：一小时。 */
+export const DEFAULT_DOWNSAMPLE_INTERVAL_SECS = 3600;
+
 export interface StreamSettings {
   description?: string | null;
-  index_rules: FieldIndexRule[];
-  retention_filter?: string | null;
-  keep_conditions: StreamCondition[];
-  max_query_range_hours?: number | null;
-  flatten_level?: number | null;
-  use_stream_stats_for_partitioning: boolean;
-  store_original_data: boolean;
-  enable_distinct_values: boolean;
+  indexRules: FieldIndexRule[];
+  /**
+   * 写入时第一次出现的字段按名字定索引：按次序第一条名字匹配、类型合适的生效。`*` 是任意一段文字，
+   * `?` 是任意一个字符。同名的字段规则优先；都没有时按数据流类型的默认规则。
+   */
+  indexPatterns?: StreamIndexPattern[];
+  /** 一次查询最多覆盖的小时数，更长的时间范围会被拒绝；null 表示不限。 */
+  maxQueryRangeHours?: number | null;
   /**
    * 是否允许被查询。false 时该 stream 照常采集与保留，但查询端拒绝访问、且从查询选择器隐藏。
    * 用于「源 stream 仅作入口、数据经 pipeline 分流到下游 stream」的场景。默认 true。
    */
   queryable: boolean;
-  field_masking?: FieldMaskingOverride[];
+  fieldMasking?: FieldMaskingOverride[];
+  /** 日志与链路：一天结束一小时后，当天不超过合并目标大小的文件合成一个。默认 true。 */
+  dailyMerge?: boolean;
+  /** 指标：早于若干天的样本按时间桶聚合；默认不降采样。 */
+  downsample?: StreamDownsample;
+  /** 日志与链路：按一两个文本字段的值把新写入的数据分进几个分片；空表示不分。 */
+  partitions?: StreamFieldPartition[];
 }
+
+export interface StreamIndexPattern {
+  pattern: string;
+  indexType: StreamIndexType;
+}
+
+/**
+ * hash：按值的哈希分进 buckets 片，带这个字段等值条件（= / IN）的查询只读值所在分片的文件。
+ * prefix：按值的首字符分片，等值条件与以文字开头的 LIKE（'abc%'）只读首字符所在分片的文件。
+ */
+export type StreamFieldPartition =
+  | { field: string; type: 'hash'; buckets: number }
+  | { field: string; type: 'prefix' };
+
+export type StreamPartitionScheme = StreamFieldPartition['type'];
 
 export interface StreamSchema {
   fields: StreamField[];
@@ -72,35 +102,37 @@ export type StreamRuntimeStatus =
   | 'unknown';
 
 export interface StreamRuntimeBucket {
-  start_micros: number;
-  end_micros: number;
+  startTime: number;
+  endTime: number;
   rows: number;
-  stored_bytes: number;
+  storedBytes: number;
 }
 
 export interface StreamRuntime {
   id: string;
   name: string;
-  stream_type: Exclude<StreamType, 'extend'>;
+  streamType: Exclude<StreamType, 'extend'>;
   status: StreamRuntimeStatus;
   rows: number;
-  stored_bytes: number;
-  current_stored_bytes: number;
-  total_rows?: number | null;
-  collected_bytes?: number | null;
-  collected_bytes_complete?: boolean;
-  index_bytes?: number | null;
-  first_received_at_micros: number | null;
-  last_received_at_micros: number | null;
-  stats_available: boolean;
+  storedBytes: number;
+  currentStoredBytes: number;
+  totalRows?: number | null;
+  collectedBytes?: number | null;
+  collectedBytesComplete?: boolean;
+  indexBytes?: number | null;
+  /** 改了已有字段的索引以后，索引还按旧设置建的文件数：后台补建到它为 0。 */
+  staleIndexFiles?: number;
+  firstReceivedAt: number | null;
+  lastReceivedAt: number | null;
+  statsAvailable: boolean;
   buckets: StreamRuntimeBucket[];
 }
 
 export interface StreamRuntimeOverview {
-  generated_at_micros: number;
-  window_start_micros: number;
-  window_end_micros: number;
-  window_secs: number;
+  generatedAt: number;
+  windowStart: number;
+  windowEnd: number;
+  windowSecs: number;
   streams: StreamRuntime[];
 }
 
@@ -108,47 +140,45 @@ export interface StreamSummary {
   id: string;
   label: string;
   name: string;
-  stream_type: StreamType;
+  streamType: StreamType;
   type: StreamType;
   subtitle?: string;
   schema: StreamSchema;
   retention: StreamRetention | null;
-  effective_retention: StreamRetention;
+  effectiveRetention: StreamRetention;
   settings: StreamSettings;
-  created_at_micros: number;
-  updated_at_micros: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
 interface StreamResponse {
   id: string;
   name: string;
-  stream_type: StreamType;
+  streamType: StreamType;
   schema: StreamSchema;
   retention?: StreamRetention | null;
-  effective_retention?: StreamRetention | null;
+  effectiveRetention?: StreamRetention | null;
   settings?: Partial<StreamSettings> | null;
-  created_at_micros: number;
-  updated_at_micros: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
 type StreamListResponse = StreamResponse[] | { items?: unknown[] };
 
 export interface CreateStreamRequest {
   name: string;
-  stream_type: StreamType;
-  retention_days?: number | null;
-  fields?: Array<Pick<StreamField, 'name' | 'data_type' | 'nullable' | 'indexed' | 'index_type' | 'encrypted'>>;
+  streamType: StreamType;
+  retentionDays?: number | null;
+  fields?: Array<Pick<StreamField, 'name' | 'dataType' | 'nullable' | 'indexed' | 'indexType' | 'encrypted'>>;
   settings?: Partial<StreamSettings>;
 }
 
 export interface UpdateStreamSettingsRequest {
-  retention_days?: number | null;
+  retentionDays?: number | null;
   fields?: Array<{
     name: string;
     indexed: boolean;
-    index_type: StreamIndexType;
-    condition?: string | null;
-    sdr_patterns: string[];
+    indexType: StreamIndexType;
   }>;
   settings?: StreamSettings;
 }
@@ -156,16 +186,17 @@ export interface UpdateStreamSettingsRequest {
 export function defaultStreamSettings(settings?: Partial<StreamSettings> | null): StreamSettings {
   return {
     description: settings?.description ?? null,
-    index_rules: settings?.index_rules ?? [],
-    retention_filter: settings?.retention_filter ?? null,
-    keep_conditions: settings?.keep_conditions ?? [],
-    max_query_range_hours: settings?.max_query_range_hours ?? null,
-    flatten_level: settings?.flatten_level ?? null,
-    use_stream_stats_for_partitioning: settings?.use_stream_stats_for_partitioning ?? false,
-    store_original_data: settings?.store_original_data ?? false,
-    enable_distinct_values: settings?.enable_distinct_values ?? true,
+    indexRules: settings?.indexRules ?? [],
+    indexPatterns: settings?.indexPatterns ?? [],
+    maxQueryRangeHours: settings?.maxQueryRangeHours ?? null,
     queryable: settings?.queryable ?? true,
-    field_masking: settings?.field_masking ?? [],
+    fieldMasking: settings?.fieldMasking ?? [],
+    dailyMerge: settings?.dailyMerge ?? true,
+    downsample: settings?.downsample ?? {
+      afterDays: 0,
+      intervalSecs: DEFAULT_DOWNSAMPLE_INTERVAL_SECS,
+    },
+    partitions: settings?.partitions ?? [],
   };
 }
 
@@ -176,21 +207,21 @@ export function isQueryable(s: StreamSummary): boolean {
 
 function adapt(resp: StreamResponse): StreamSummary {
   const settings = defaultStreamSettings(resp.settings);
-  const subtitle = settings.description || resp.stream_type;
-  const effectiveRetention = resp.effective_retention ?? resp.retention ?? { days: 30 };
+  const subtitle = settings.description || resp.streamType;
+  const effectiveRetention = resp.effectiveRetention ?? resp.retention ?? { days: 30 };
   return {
     id: resp.id,
     label: resp.name,
     name: resp.name,
-    stream_type: resp.stream_type,
-    type: resp.stream_type,
+    streamType: resp.streamType,
+    type: resp.streamType,
     subtitle,
     schema: resp.schema,
     retention: resp.retention ?? null,
-    effective_retention: effectiveRetention,
+    effectiveRetention: effectiveRetention,
     settings,
-    created_at_micros: resp.created_at_micros,
-    updated_at_micros: resp.updated_at_micros,
+    createdAt: resp.createdAt,
+    updatedAt: resp.updatedAt,
   };
 }
 
@@ -215,8 +246,8 @@ export async function runtimeOverview(params?: {
 }): Promise<StreamRuntimeOverview> {
   const { data } = await http.get<StreamRuntimeOverview>('/streams/runtime', {
     params: {
-      window_secs: params?.windowSecs ?? 24 * 60 * 60,
-      bucket_count: params?.bucketCount ?? 24,
+      windowSecs: params?.windowSecs ?? 24 * 60 * 60,
+      bucketCount: params?.bucketCount ?? 24,
     },
   });
   return data;

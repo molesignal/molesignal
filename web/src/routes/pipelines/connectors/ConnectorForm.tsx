@@ -1,26 +1,16 @@
-import { RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import type { Connector } from '@/api/connectors';
-import { ChromeButton, uiLabelClass } from '@/shell/chrome';
-import { FormField, FormInput } from '@/shell/FormDrawer';
+import { FormField, FormInput, FormRow, FormSelect, FormTextarea } from '@/shell/FormDrawer';
 import { Checkbox } from '@/shell/ui/checkbox';
 import { Switch } from '@/shell/ui/switch';
 
-import {
-  AUTH_FIELDS,
-  authModeOf,
-  hasStoredSecret,
-  keepsSecrets,
-  specOf,
-  type AuthMode,
-  type ConnectorDraft,
-  type FieldSpec,
-} from './kinds';
-import { PushSetup } from './PushSetup';
-import { newPushToken } from './pushToken';
+import { AuthSettings, SettingsGroup } from './AuthSettings';
+import { ConnectionTest } from './ConnectionTest';
+import { keepsStored, storedFor, type ConnectorDraft } from './draft';
+import { isKafkaKind, isS3Kind, specOf, type FieldSpec } from './kinds';
+import { ReadStateNote } from './ReadState';
 import { usePipelineResources } from '../editor/resources';
-import { Segmented } from '../editor/Segmented';
 import { StreamCombobox } from '../editor/StreamCombobox';
 import { pipelineStreamOptions } from '../PipelineGraph/streamOptions';
 
@@ -41,7 +31,10 @@ export function ConnectorForm({
   const { t } = useTranslation('pipelines');
   const spec = specOf(draft.kind);
   const set = (key: string, value: string) => onChange({ ...draft, values: { ...draft.values, [key]: value } });
-  const fields = spec.fields.filter((field) => !field.compatible);
+  const fields = spec.fields.filter((field) => !field.compatible && !field.tls);
+  // Settings picked from a few short choices sit side by side.
+  const typed = fields.filter((field) => !field.choices);
+  const picked = fields.filter((field) => field.choices);
 
   return (
     <div className="grid gap-[20px]">
@@ -55,41 +48,26 @@ export function ConnectorForm({
         />
       </FormField>
 
-      <Group title={t(spec.direction === 'source' ? 'connectors.drawer.reads' : 'connectors.drawer.delivers_to')}>
-        {fields.map((field) => (
-          <SettingField key={field.key} field={field} draft={draft} onChange={set} />
+      <SettingsGroup title={t(spec.direction === 'source' ? 'connectors.drawer.reads' : 'connectors.drawer.delivers_to')}>
+        {typed.map((field) => (
+          <SettingField key={field.key} field={field} draft={draft} saved={saved} onChange={set} />
         ))}
-        {draft.kind === 's3' && <CompatibleStorage draft={draft} onChange={onChange} />}
-      </Group>
+        {picked.length > 0 && (
+          <FormRow>
+            {picked.map((field) => (
+              <SettingField key={field.key} field={field} draft={draft} saved={saved} onChange={set} />
+            ))}
+          </FormRow>
+        )}
+        {isS3Kind(draft.kind) && <CompatibleStorage draft={draft} saved={saved} onChange={onChange} />}
+        {isKafkaKind(draft.kind) && <TlsSettings draft={draft} saved={saved} onChange={onChange} />}
+      </SettingsGroup>
 
-      <Group title={t('connectors.auth.label')}>
-        {spec.auth.length > 1 && (
-          <Segmented<AuthMode>
-            label={t('connectors.auth.label')}
-            value={draft.auth}
-            onChange={(auth) => onChange({ ...draft, auth })}
-            options={spec.auth.map((mode) => ({ value: mode, label: t(`connectors.auth.modes.${mode}`) }))}
-          />
-        )}
-        <p data-connector-auth-hint className="m-0 font-sans text-xs leading-relaxed text-tx-3">
-          {t(`connectors.auth.hints.${draft.auth}`)}
-        </p>
-        {draft.auth === 'push_token' ? (
-          <PushToken draft={draft} saved={saved} onChange={set} />
-        ) : (
-          AUTH_FIELDS[draft.auth].map((field) => (
-            <CredentialField
-              key={field.key}
-              name={field.key}
-              secret={field.secret}
-              value={draft.values[field.key] ?? ''}
-              stored={Boolean(saved) && storedFor(draft, saved, field.key)}
-              keeps={saved ? keepsSecrets(saved) : true}
-              onChange={(value) => set(field.key, value)}
-            />
-          ))
-        )}
-      </Group>
+      <AuthSettings draft={draft} saved={saved} onChange={onChange} />
+
+      {saved && <ReadStateNote connector={saved} />}
+
+      {spec.transport !== 'push' && <ConnectionTest draft={draft} saved={saved} />}
 
       {saved && (
         <label className="flex cursor-pointer items-center gap-[10px] font-sans text-sm text-tx-1">
@@ -101,48 +79,32 @@ export function ConnectorForm({
   );
 }
 
-/** Whether the saved connector holds this secret for the way of authenticating now chosen. */
-function storedFor(draft: ConnectorDraft, saved: Connector | undefined, key: string): boolean {
-  return (
-    saved !== undefined &&
-    saved.kind === draft.kind &&
-    hasStoredSecret(saved, key) &&
-    AUTH_FIELDS[authModeOf(saved)].some((field) => field.key === key)
-  );
-}
-
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="grid gap-[12px]">
-      <h3 className="m-0 font-sans text-sm font-strong text-tx-0">{title}</h3>
-      {children}
-    </section>
-  );
-}
-
 function SettingField({
   field,
   draft,
+  saved,
   onChange,
 }: {
   field: FieldSpec;
   draft: ConnectorDraft;
+  saved?: Connector | undefined;
   onChange: (key: string, value: string) => void;
 }) {
   const { t, i18n } = useTranslation('pipelines');
   const resources = usePipelineResources();
   const value = draft.values[field.key] ?? '';
+  const stored = Boolean(field.secret) && storedFor(draft, saved, field.key);
+  const kept = stored && keepsStored(draft, saved, field.key);
   // The same setting can want a different word of advice from one kind to the next.
   const hintKey = [`connectors.hints.${field.key}_${draft.kind}`, `connectors.hints.${field.key}`].find((key) =>
     i18n.exists(key, { ns: 'pipelines' }),
   );
+  const savedHint = !stored ? undefined : kept ? t('connectors.secret.saved') : t('connectors.secret.retype');
+  const hint = [savedHint, hintKey ? t(hintKey) : undefined].filter(Boolean).join(' ');
+  const required = (field.required ?? false) && !kept;
 
   return (
-    <FormField
-      label={t(`connectors.fields.${field.key}`)}
-      {...(hintKey ? { hint: t(hintKey) } : {})}
-      required={field.required ?? false}
-    >
+    <FormField label={t(`connectors.fields.${field.key}`)} {...(hint ? { hint } : {})} required={required}>
       {field.stream ? (
         <StreamCombobox
           value={value}
@@ -152,165 +114,136 @@ function SettingField({
           creatable
           onChange={(stream) => onChange(field.key, stream)}
         />
-      ) : (
-        <FormInput
+      ) : field.choices ? (
+        <FormSelect
+          value={value || (field.choices[0] ?? '')}
+          onChange={(choice) => onChange(field.key, choice)}
+          ariaLabel={t(`connectors.fields.${field.key}`)}
+          options={field.choices.map((choice) => ({
+            value: choice,
+            label: t(`connectors.choices.${field.key}.${choice}`),
+          }))}
+        />
+      ) : field.multiline ? (
+        <FormTextarea
           value={value}
           onChange={(event) => onChange(field.key, event.target.value)}
-          placeholder={field.example}
+          placeholder={kept ? '••••••••••••' : field.example}
+          spellCheck={false}
           autoComplete="off"
-          className="font-mono text-xs"
-          required={field.required ?? false}
+          className="min-h-[96px] font-mono text-xs"
+          required={required}
+        />
+      ) : (
+        <FormInput
+          type={field.secret ? 'password' : 'text'}
+          value={value}
+          onChange={(event) => onChange(field.key, event.target.value)}
+          // A saved secret is not shown, only stood in for.
+          placeholder={kept ? '••••••••••••' : field.example}
+          autoComplete={field.secret ? 'new-password' : 'off'}
+          className="font-mono"
+          required={required}
         />
       )}
     </FormField>
   );
 }
 
-/** The settings only an S3-compatible store needs, kept out of the way of a plain AWS bucket. */
-function CompatibleStorage({
-  draft,
-  onChange,
+/** A switch with its word of advice, and what it opens below it. */
+function Disclosure({
+  checked,
+  label,
+  hint,
+  onCheckedChange,
+  children,
 }: {
-  draft: ConnectorDraft;
-  onChange: (next: ConnectorDraft) => void;
+  checked: boolean;
+  label: string;
+  hint: string;
+  onCheckedChange: (checked: boolean) => void;
+  children?: React.ReactNode;
 }) {
-  const { t } = useTranslation('pipelines');
-  const endpoint = specOf('s3').fields.find((field) => field.key === 'endpoint');
-
   return (
     <div className="grid gap-[12px]">
       <div>
         <label className="flex cursor-pointer items-center gap-2 font-sans text-sm text-tx-1">
-          <Checkbox
-            checked={draft.compatible}
-            onCheckedChange={(checked) => onChange({ ...draft, compatible: checked === true })}
-          />
-          {t('connectors.compatible.toggle')}
+          <Checkbox checked={checked} onCheckedChange={(next) => onCheckedChange(next === true)} />
+          {label}
         </label>
-        <p className="m-0 mt-1 pl-[26px] font-sans text-xs leading-relaxed text-tx-3">
-          {t('connectors.compatible.hint')}
-        </p>
+        <p className="m-0 mt-1 pl-[26px] font-sans text-xs leading-relaxed text-tx-3">{hint}</p>
       </div>
-      {draft.compatible && endpoint && (
-        <div className="grid gap-[12px] pl-[26px]">
-          <SettingField
-            field={endpoint}
-            draft={draft}
-            onChange={(key, value) => onChange({ ...draft, values: { ...draft.values, [key]: value } })}
-          />
-          <div>
-            <label className="flex cursor-pointer items-center gap-2 font-sans text-sm text-tx-1">
-              <Checkbox
-                checked={draft.virtualHostedStyle}
-                onCheckedChange={(checked) => onChange({ ...draft, virtualHostedStyle: checked === true })}
-              />
-              {t('connectors.compatible.virtual_hosted')}
-            </label>
-            <p className="m-0 mt-1 pl-[26px] font-sans text-xs leading-relaxed text-tx-3">
-              {t('connectors.compatible.virtual_hosted_hint')}
-            </p>
-          </div>
-        </div>
-      )}
+      {checked && children && <div className="grid gap-[12px] pl-[26px]">{children}</div>}
     </div>
   );
 }
 
-function CredentialField({
-  name,
-  secret,
-  value,
-  stored,
-  keeps,
-  onChange,
-}: {
-  name: string;
-  secret: boolean;
-  value: string;
-  /** The saved connector holds this secret. */
-  stored: boolean;
-  /** The backend keeps a stored secret that is left empty. */
-  keeps: boolean;
-  onChange: (value: string) => void;
-}) {
-  const { t } = useTranslation('pipelines');
-  const kept = stored && keeps;
-  const hint = !stored ? undefined : keeps ? t('connectors.secret.saved') : t('connectors.secret.retype');
-
-  return (
-    <FormField label={t(`connectors.fields.${name}`)} {...(hint ? { hint } : {})} required={!kept}>
-      <FormInput
-        type={secret ? 'password' : 'text'}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        // A saved secret is not shown, only stood in for.
-        placeholder={kept ? '••••••••••••' : undefined}
-        // Not a sign-in form: a password manager has nothing to offer or to save here.
-        autoComplete={secret ? 'new-password' : 'off'}
-        className="font-mono text-xs"
-        required={!kept}
-      />
-    </FormField>
-  );
-}
-
-/**
- * A push connector's token. It is made here and never typed: a new connector
- * gets one when it is created, a saved one keeps its own until a new one is
- * asked for, which then replaces it on save.
- */
-function PushToken({
+/** The settings only an S3-compatible store needs, kept out of the way of a plain AWS bucket. */
+function CompatibleStorage({
   draft,
   saved,
   onChange,
 }: {
   draft: ConnectorDraft;
   saved?: Connector | undefined;
-  onChange: (key: string, value: string) => void;
+  onChange: (next: ConnectorDraft) => void;
 }) {
   const { t } = useTranslation('pipelines');
-  const stored = storedFor(draft, saved, 'push_token');
-  const fresh = (draft.values.push_token ?? '') !== '';
-
-  if (!saved) {
-    return (
-      <>
-        <PushSetup kind={draft.kind} />
-        <p className="m-0 font-sans text-xs leading-relaxed text-tx-3">{t('connectors.push.will_generate')}</p>
-      </>
-    );
-  }
+  const endpoint = specOf(draft.kind).fields.find((field) => field.key === 'endpoint');
 
   return (
-    <>
-      <PushSetup kind={draft.kind} />
-      <div className="grid gap-1.5">
-        <span className={uiLabelClass}>{t('connectors.push.token')}</span>
-        <p data-connector-token-state className="m-0 font-sans text-sm leading-relaxed text-tx-1">
-          {fresh
-            ? t('connectors.push.regenerated')
-            : stored
-              ? keepsSecrets(saved)
-                ? t('connectors.push.saved_token')
-                : t('connectors.secret.retype')
-              : t('connectors.push.no_token')}
-        </p>
-        <div>
-          {fresh ? (
-            // With nothing kept there is no current token to go back to.
-            stored && keepsSecrets(saved) && (
-              <ChromeButton size="sm" variant="ghost" onClick={() => onChange('push_token', '')}>
-                {t('connectors.push.keep')}
-              </ChromeButton>
-            )
-          ) : (
-            <ChromeButton size="sm" onClick={() => onChange('push_token', newPushToken())}>
-              <RefreshCw aria-hidden className="h-3.5 w-3.5" />
-              {t('connectors.push.regenerate')}
-            </ChromeButton>
-          )}
-        </div>
-      </div>
-    </>
+    <Disclosure
+      checked={draft.compatible}
+      label={t('connectors.compatible.toggle')}
+      hint={t('connectors.compatible.hint')}
+      onCheckedChange={(compatible) => onChange({ ...draft, compatible })}
+    >
+      {endpoint && (
+        <SettingField
+          field={endpoint}
+          draft={draft}
+          saved={saved}
+          onChange={(key, value) => onChange({ ...draft, values: { ...draft.values, [key]: value } })}
+        />
+      )}
+      <Disclosure
+        checked={draft.virtualHostedStyle}
+        label={t('connectors.compatible.virtual_hosted')}
+        hint={t('connectors.compatible.virtual_hosted_hint')}
+        onCheckedChange={(virtualHostedStyle) => onChange({ ...draft, virtualHostedStyle })}
+      />
+    </Disclosure>
+  );
+}
+
+/** Whether the connection to the brokers is encrypted, and the CA to trust when it is a private one. */
+function TlsSettings({
+  draft,
+  saved,
+  onChange,
+}: {
+  draft: ConnectorDraft;
+  saved?: Connector | undefined;
+  onChange: (next: ConnectorDraft) => void;
+}) {
+  const { t } = useTranslation('pipelines');
+  const ca = specOf(draft.kind).fields.find((field) => field.key === 'tlsCaCert');
+
+  return (
+    <Disclosure
+      checked={draft.tls}
+      label={t('connectors.tls.toggle')}
+      hint={t('connectors.tls.hint')}
+      onCheckedChange={(tls) => onChange({ ...draft, tls })}
+    >
+      {ca && (
+        <SettingField
+          field={ca}
+          draft={draft}
+          saved={saved}
+          onChange={(key, value) => onChange({ ...draft, values: { ...draft.values, [key]: value } })}
+        />
+      )}
+    </Disclosure>
   );
 }

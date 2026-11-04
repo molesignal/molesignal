@@ -2,22 +2,26 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 //! 告警屏蔽（mute）：matchers 全命中且时间窗 active 时，dispatcher 暂停对该 incident 的
-//! 派发与升级推进（incident 仍照常创建/记录，仅静音通知）。窗口结束后若仍 firing，恢复派发。
+//! 派发与升级推进，通知引擎压着它的告警通知（incident 仍照常创建/记录，仅静音通知）。窗口结束后
+//! 若仍 firing，恢复派发并补发压着的通知。
 
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use super::{schedule::ActiveWindow, semantic_group::LabelMatcher};
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
+use super::{
+    semantic_group::LabelMatcher,
+    time_window::{CalendarUse, MonthlyWindow, WeeklyWindows},
+};
+use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 /// Reserved matcher label injected only while evaluating mute rules. It lets
 /// the API create a silence that targets exactly one incident without
 /// persisting implementation labels into the incident itself.
 pub const INCIDENT_ID_MATCHER_LABEL: &str = "__molesignal_incident_id";
 
-/// Build the label view used by the dispatcher when evaluating mute rules.
+/// Build the label view used by the dispatcher and the notify engine when evaluating mute rules.
 /// User labels cannot spoof the reserved incident id because it is always
 /// overwritten here.
 pub fn match_labels_for_incident(
@@ -29,7 +33,10 @@ pub fn match_labels_for_incident(
     output
 }
 
-/// 屏蔽时间窗：一次性固定窗或周期性窗（周期窗复用 [`ActiveWindow`] 的 weekday/hour 判定）。
+/// 一次最长看多远找下一次开始或结束：一年零一个月，每月一次的窗口也找得到。
+const NEXT_CHANGE_HORIZON_MICROS: i64 = 400 * 86_400_000_000;
+
+/// 屏蔽时间窗：一次性固定窗，或按时区每周、每月重复的窗口。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum MuteWindow {
@@ -38,14 +45,10 @@ pub enum MuteWindow {
         start: TimestampMicros,
         end: TimestampMicros,
     },
-    /// 周期性窗口（如每周工作日 22:00–06:00），按 `timezone` 本地时间判定。
-    Recurring {
-        timezone: String,
-        /// bit0=周日 … bit6=周六。
-        weekday_mask: u8,
-        hour_start: u8,
-        hour_end: u8,
-    },
+    /// 每周重复（如工作日 22:00–06:00），可以多段，按 `timezone` 本地时间判定。
+    Weekly(WeeklyWindows),
+    /// 每月一次（如每月第一个周日 02:00 起 4 小时）。
+    Monthly(MonthlyWindow),
 }
 
 impl MuteWindow {
@@ -53,28 +56,48 @@ impl MuteWindow {
     pub fn active(&self, now: TimestampMicros) -> bool {
         match self {
             MuteWindow::Fixed { start, end } => now.0 >= start.0 && now.0 < end.0,
-            MuteWindow::Recurring {
-                timezone,
-                weekday_mask,
-                hour_start,
-                hour_end,
-            } => {
-                let tz = timezone.parse::<chrono_tz::Tz>().unwrap_or(chrono_tz::UTC);
-
-                let w = ActiveWindow {
-                    weekday_mask: *weekday_mask,
-                    hour_start: *hour_start,
-                    hour_end: *hour_end,
-                };
-
-                w.contains(now.to_datetime(), tz)
-            }
+            MuteWindow::Weekly(windows) => windows.contains(now),
+            MuteWindow::Monthly(window) => window.contains(now),
         }
+    }
+
+    /// 固定窗口结束晚于开始；重复的窗口时区、时段说得通。
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            MuteWindow::Fixed { start, end } if end.0 <= start.0 => {
+                Err(Error::invalid("a silence must end after it starts"))
+            }
+            MuteWindow::Fixed { .. } => Ok(()),
+            MuteWindow::Weekly(windows) => windows.validate(),
+            MuteWindow::Monthly(window) => window.validate(),
+        }
+    }
+
+    /// 每周窗口引用的节假日日历。
+    pub fn calendar(&self) -> Option<&CalendarUse> {
+        match self {
+            MuteWindow::Weekly(windows) => windows.calendar.as_ref(),
+            _ => None,
+        }
+    }
+
+    /// `now` 之后下一次开始或结束的时刻；固定窗口已经结束、或一年多里都不再变化时为空。
+    pub fn next_change(&self, now: TimestampMicros) -> Option<TimestampMicros> {
+        let horizon = TimestampMicros(now.0.saturating_add(NEXT_CHANGE_HORIZON_MICROS));
+
+        let next = match self {
+            MuteWindow::Fixed { start, end } => [start.0, end.0].into_iter().find(|at| *at > now.0),
+            MuteWindow::Weekly(windows) => windows.transitions(now, horizon).first().copied(),
+            MuteWindow::Monthly(window) => window.transitions(now, horizon).first().copied(),
+        };
+
+        next.map(TimestampMicros)
     }
 }
 
 /// 告警屏蔽规则：`matchers` 全命中且 `window` active 时屏蔽匹配的 incident 通知。
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MuteRule {
     pub id: Id,
     pub org_id: Id,
@@ -106,7 +129,7 @@ pub trait MuteRuleRepository: Send + Sync {
     async fn get(&self, id: &Id) -> Result<MuteRule>;
     async fn list(&self, org_id: &Id) -> Result<Vec<MuteRule>>;
     async fn delete(&self, id: &Id) -> Result<()>;
-    /// dispatcher 用：取该 org 所有 enabled 规则。
+    /// dispatcher 与通知引擎用：取该 org 所有 enabled 规则。
     async fn list_enabled(&self, org_id: &Id) -> Result<Vec<MuteRule>>;
 }
 
@@ -192,5 +215,73 @@ mod tests {
 
         assert!(r.is_muting(&incident_a, TimestampMicros(1_000)));
         assert!(!r.is_muting(&incident_b, TimestampMicros(1_000)));
+    }
+
+    fn at(text: &str) -> TimestampMicros {
+        TimestampMicros::from_datetime(
+            chrono::DateTime::parse_from_rfc3339(text)
+                .unwrap()
+                .with_timezone(&chrono::Utc),
+        )
+    }
+
+    #[test]
+    fn repeating_windows_mute_inside_and_say_when_they_change_next() {
+        use super::super::time_window::{ClockTime, MonthDay, WeeklyRange};
+
+        let nightly = MuteWindow::Weekly(WeeklyWindows {
+            timezone: "UTC".into(),
+            ranges: vec![WeeklyRange {
+                weekday_mask: 0b111_1111,
+                start: ClockTime::parse("02:00").unwrap(),
+                end: ClockTime::parse("04:30").unwrap(),
+            }],
+            calendar: None,
+        });
+
+        assert!(nightly.validate().is_ok());
+        assert!(nightly.active(at("2026-05-18T04:29:00Z")));
+        assert!(!nightly.active(at("2026-05-18T04:30:00Z")));
+        assert_eq!(
+            nightly.next_change(at("2026-05-18T03:00:00Z")),
+            Some(at("2026-05-18T04:30:00Z"))
+        );
+        assert_eq!(
+            nightly.next_change(at("2026-05-18T05:00:00Z")),
+            Some(at("2026-05-19T02:00:00Z"))
+        );
+
+        let monthly = MuteWindow::Monthly(MonthlyWindow {
+            timezone: "UTC".into(),
+            day: MonthDay::Date { day: 1 },
+            start: ClockTime::parse("02:00").unwrap(),
+            duration_minutes: 60,
+        });
+
+        assert_eq!(
+            monthly.next_change(at("2026-05-18T00:00:00Z")),
+            Some(at("2026-06-01T02:00:00Z"))
+        );
+
+        let fixed = MuteWindow::Fixed {
+            start: TimestampMicros(1_000),
+            end: TimestampMicros(2_000),
+        };
+
+        assert_eq!(
+            fixed.next_change(TimestampMicros(1_500)),
+            Some(TimestampMicros(2_000))
+        );
+        assert_eq!(fixed.next_change(TimestampMicros(2_500)), None);
+
+        let backwards = MuteWindow::Fixed {
+            start: TimestampMicros(2_000),
+            end: TimestampMicros(1_000),
+        };
+        assert!(backwards.validate().is_err());
+
+        let json = serde_json::to_value(&nightly).unwrap();
+        assert_eq!(json["type"], "weekly");
+        assert_eq!(json["ranges"][0]["start"], "02:00");
     }
 }

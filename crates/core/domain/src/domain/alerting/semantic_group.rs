@@ -41,37 +41,62 @@ impl LabelMatcher {
     /// matcher 不命中**（对 `Re` 与 `Nre` 都 fail-safe——否则坏的 `Nre` 会反转成
     /// 「匹配一切」、把所有 incident 吸进该 group）。
     pub fn matches(&self, labels: &BTreeMap<String, String>) -> bool {
-        let actual = labels.get(&self.label).map(String::as_str).unwrap_or("");
+        self.compiled().matches(labels)
+    }
 
-        match self.op {
-            MatchOp::Eq => actual == self.value,
-            MatchOp::Neq => actual != self.value,
+    /// 编译好的样子：同一个条件要比很多标签集时，正则只编译一次。
+    pub fn compiled(&self) -> CompiledMatcher<'_> {
+        let regex = matches!(self.op, MatchOp::Re | MatchOp::Nre)
+            .then(|| full_match_regex(&self.value))
+            .flatten();
+
+        CompiledMatcher {
+            matcher: self,
+            regex,
+        }
+    }
+
+    /// 正则写得对不对；不是正则的算对。
+    pub fn regex_is_valid(&self) -> bool {
+        !matches!(self.op, MatchOp::Re | MatchOp::Nre) || full_match_regex(&self.value).is_some()
+    }
+}
+
+/// 编译好的 [`LabelMatcher`]，判断与它一样。
+pub struct CompiledMatcher<'a> {
+    matcher: &'a LabelMatcher,
+    regex: Option<regex::Regex>,
+}
+
+impl CompiledMatcher<'_> {
+    pub fn matches(&self, labels: &BTreeMap<String, String>) -> bool {
+        let actual = labels
+            .get(&self.matcher.label)
+            .map(String::as_str)
+            .unwrap_or("");
+
+        match self.matcher.op {
+            MatchOp::Eq => actual == self.matcher.value,
+            MatchOp::Neq => actual != self.matcher.value,
             MatchOp::Re | MatchOp::Nre => {
-                let Some(is_match) = try_full_match_regex(&self.value, actual) else {
+                let Some(regex) = &self.regex else {
                     // 编译失败：Re / Nre 都返回「不命中」，绝不反转成 match-everything。
                     return false;
                 };
 
-                if self.op == MatchOp::Re {
-                    is_match
-                } else {
-                    !is_match
-                }
+                regex.is_match(actual) == (self.matcher.op == MatchOp::Re)
             }
         }
     }
 }
 
-/// 整串正则匹配；编译失败返回 None（caller 把它当「该 matcher 不命中」）。
-fn try_full_match_regex(pattern: &str, value: &str) -> Option<bool> {
-    let anchored = format!("^(?:{pattern})$");
-
-    regex::Regex::new(&anchored)
-        .ok()
-        .map(|re| re.is_match(value))
+/// 匹配整串的正则；写错了是 `None`（caller 把它当「该 matcher 不命中」）。
+fn full_match_regex(pattern: &str) -> Option<regex::Regex> {
+    regex::Regex::new(&format!("^(?:{pattern})$")).ok()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SemanticGroup {
     pub id: Id,
     pub org_id: Id,

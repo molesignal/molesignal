@@ -31,17 +31,17 @@ pub(super) async fn execute(
                     "category": tool.category,
                     "access": tool.access,
                     "risk": tool.risk,
-                    "required_permissions": tool.required_permissions,
-                    "permission_mode": tool.permission_mode,
+                    "requiredPermissions": tool.required_permissions,
+                    "permissionMode": tool.permission_mode,
                     "exposure": tool.exposure,
                 }));
             }
 
             Ok(ToolResult::json(json!({
-                "builtin_tool_count": domains.values().map(Vec::len).sum::<usize>(),
+                "builtinToolCount": domains.values().map(Vec::len).sum::<usize>(),
                 "surface": ctx.source().surface(),
                 "domains": domains,
-                "directly_excluded_entrypoints": [
+                "directlyExcludedEntrypoints": [
                     "authentication and password reset",
                     "credential or secret material",
                     "raw intake protocols and external webhooks",
@@ -49,11 +49,11 @@ pub(super) async fn execute(
                     "node drain and runtime profiling",
                     "public unauthenticated routes"
                 ],
-                "mutation_policy": {
+                "mutationPolicy": {
                     "automatic": "create an auditable approval record and execute immediately",
                     "confirmation": "create an approved request and wait for explicit execution",
-                    "single_approval": "execute automatically after the final required approval",
-                    "dual_approval": "execute automatically after two distinct approvals",
+                    "singleApproval": "execute automatically after the final required approval",
+                    "dualApproval": "execute automatically after two distinct approvals",
                     "disabled": "reject the operation before creating an approval request"
                 }
             })))

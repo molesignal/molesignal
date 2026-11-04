@@ -10,15 +10,15 @@ import { formatTimeWindowLabel } from '@/time/TimePicker';
 
 /** Param keys, in priority order, that carry a human-recognizable signal. */
 const SIGNAL_KEYS = [
-  'trace_id',
-  'span_id',
+  'traceId',
+  'spanId',
   'service',
-  'service_name',
+  'serviceName',
   'host',
-  'host_id',
+  'hostId',
   'stream',
   'metric',
-  'incident_id',
+  'incidentId',
 ] as const;
 
 function shorten(value: string): string {
@@ -62,7 +62,7 @@ export function InvestigationContextBar() {
   const barRef = React.useRef<HTMLDivElement>(null);
 
   const sourceTraceId =
-    searchParams.get('source') === 'trace' ? searchParams.get('source_id')?.trim() ?? '' : '';
+    searchParams.get('source') === 'trace' ? searchParams.get('sourceId')?.trim() ?? '' : '';
   const active = frames.length > 0 || filters.length > 0 || Boolean(sourceTraceId);
 
   React.useEffect(() => {
@@ -91,7 +91,7 @@ export function InvestigationContextBar() {
 
   const latest = frames[frames.length - 1];
   // Under the name the time picker gives the range, in the product's language.
-  const windowLabel = formatTimeWindowLabel(latest?.time_range_override ?? timeWindow, tCommon);
+  const windowLabel = formatTimeWindowLabel(latest?.timeRangeOverride ?? timeWindow, tCommon);
 
   return (
     <div
@@ -165,7 +165,7 @@ export function InvestigationContextBar() {
           setSearchParams((current) => {
             const next = new URLSearchParams(current);
             next.delete('source');
-            next.delete('source_id');
+            next.delete('sourceId');
             return next;
           }, { replace: true });
         }}

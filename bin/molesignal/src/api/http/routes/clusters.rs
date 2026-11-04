@@ -28,7 +28,7 @@ pub fn routes() -> Router<AppState> {
         // 接收端 remote_org→local_org 反查否则拒收。token_secret_ref 响应 mask。
         .route("/clusters/{id}/org_map", get(list_org_map).put(put_org_map))
         .route(
-            "/clusters/{id}/org_map/{local_org_id}",
+            "/clusters/{id}/org_map/{localOrgId}",
             axum::routing::delete(delete_org_map),
         )
         // 远端节点可见性：经 gRPC 调远端 NodeService.List，返回其活跃 querier/节点（运维 + 路由）。
@@ -36,6 +36,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateReq {
     pub name: String,
     pub advertise_addr: String,
@@ -47,6 +48,7 @@ pub struct CreateReq {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateReq {
     pub name: String,
     pub advertise_addr: String,
@@ -60,6 +62,7 @@ fn default_true() -> bool {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClusterResp {
     pub id: String,
     pub name: String,
@@ -69,8 +72,8 @@ pub struct ClusterResp {
     pub enabled: bool,
     /// gossip 发现、尚未由 admin 启用/配置的待审集群。
     pub discovered: bool,
-    pub created_at_micros: i64,
-    pub updated_at_micros: i64,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
 fn mask(c: RemoteCluster) -> ClusterResp {
@@ -82,12 +85,12 @@ fn mask(c: RemoteCluster) -> ClusterResp {
         tls_verify: c.tls_verify,
         enabled: c.enabled,
         discovered: c.discovered,
-        created_at_micros: c.created_at.0,
-        updated_at_micros: c.updated_at.0,
+        created_at: c.created_at.0,
+        updated_at: c.updated_at.0,
     }
 }
 
-#[permission("org.settings.read")]
+#[permission("sys.clusters.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -104,7 +107,7 @@ async fn list(
     ))
 }
 
-#[permission("org.settings.read")]
+#[permission("sys.clusters.read")]
 async fn get_one(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -114,7 +117,7 @@ async fn get_one(
     Ok(Json(mask(c)))
 }
 
-#[permission("org.settings.manage")]
+#[permission("sys.clusters.manage")]
 async fn create(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -138,7 +141,7 @@ async fn create(
     Ok(Json(mask(c)))
 }
 
-#[permission("org.settings.manage")]
+#[permission("sys.clusters.manage")]
 async fn update(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -165,7 +168,7 @@ async fn update(
     Ok(Json(mask(c)))
 }
 
-#[permission("org.settings.manage")]
+#[permission("sys.clusters.manage")]
 async fn delete(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -178,6 +181,7 @@ async fn delete(
 // ===== org 映射（cluster_org_link）=====
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OrgMapReq {
     /// 本集群的 org id。
     pub local_org_id: String,
@@ -189,6 +193,7 @@ pub struct OrgMapReq {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OrgMapResp {
     pub remote_cluster_id: String,
     pub local_org_id: String,
@@ -214,7 +219,7 @@ fn mask_link(l: OrgLink) -> OrgMapResp {
     }
 }
 
-#[permission("org.settings.read")]
+#[permission("sys.clusters.read")]
 async fn list_org_map(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -224,7 +229,7 @@ async fn list_org_map(
     Ok(Json(links.into_iter().map(mask_link).collect()))
 }
 
-#[permission("org.settings.manage")]
+#[permission("sys.clusters.manage")]
 async fn put_org_map(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -232,9 +237,7 @@ async fn put_org_map(
     Json(req): Json<OrgMapReq>,
 ) -> Result<Json<OrgMapResp>> {
     if req.local_org_id.trim().is_empty() || req.remote_org_id.trim().is_empty() {
-        return Err(Error::invalid(
-            "local_org_id and remote_org_id are required",
-        ));
+        return Err(Error::invalid("localOrgId and remoteOrgId are required"));
     }
 
     // 集群必须存在。
@@ -251,7 +254,7 @@ async fn put_org_map(
     Ok(Json(mask_link(link)))
 }
 
-#[permission("org.settings.manage")]
+#[permission("sys.clusters.manage")]
 async fn delete_org_map(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -269,6 +272,7 @@ async fn delete_org_map(
 // ===== 远端节点可见性（GET /clusters/{id}/nodes）=====
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RemoteNodeResp {
     pub node_id: String,
     pub advertise_addr: String,
@@ -291,7 +295,7 @@ fn role_name(v: i32) -> String {
     .to_string()
 }
 
-#[permission("org.settings.read")]
+#[permission("sys.clusters.read")]
 async fn list_nodes(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

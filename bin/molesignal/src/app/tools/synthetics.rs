@@ -15,6 +15,7 @@ use crate::{
 };
 
 #[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SyntheticArgs {
     monitor_id: Option<String>,
     location_id: Option<String>,
@@ -46,7 +47,7 @@ pub(super) async fn execute(
             json_result(&bounded(filtered, args.limit, 500))
         }
         BuiltinToolKind::GetSyntheticMonitor => {
-            let monitor_id = required_id(args.monitor_id, "monitor_id")?;
+            let monitor_id = required_id(args.monitor_id, "monitorId")?;
 
             let monitor = runtime
                 .synthetics
@@ -64,7 +65,7 @@ pub(super) async fn execute(
             })))
         }
         BuiltinToolKind::ListSyntheticRevisions => {
-            let monitor_id = required_id(args.monitor_id, "monitor_id")?;
+            let monitor_id = required_id(args.monitor_id, "monitorId")?;
 
             let revisions = runtime
                 .synthetics
@@ -120,7 +121,7 @@ pub(super) async fn execute(
 
             Ok(ToolResult::json(serde_json::json!({
                 "items": items,
-                "total_before_local_filters": total,
+                "totalBeforeLocalFilters": total,
             })))
         }
         BuiltinToolKind::ListSyntheticLocations => {

@@ -23,16 +23,16 @@ export interface ComponentColumnActions {
   onDelete: (component: StatusPageComponent) => void;
 }
 
-/** The columns of the components list: name, status, the business service it stands for, and what can be done. */
+/** The columns of the components list: name, status, what it depends on, and what can be done. */
 export function componentColumns({
   t,
   actions,
-  serviceNames,
+  dependenciesShown,
 }: {
   t: TFunction;
   actions: ComponentColumnActions;
-  /** Names of business services, when the list shows which one each component stands for. */
-  serviceNames: Map<string, string> | null;
+  /** Whether the list shows what each component depends on. */
+  dependenciesShown: boolean;
 }): DataTableColumn<ComponentListRow>[] {
   return [
     {
@@ -69,20 +69,18 @@ export function componentColumns({
           <Pill tone={COMPONENT_TONE[status]}>{componentStatusLabel(t, status)}</Pill>
         ),
     },
-    ...(serviceNames
+    ...(dependenciesShown
       ? [{
-          key: 'business_service',
-          header: t('columns.business_service'),
+          key: 'dependencies',
+          header: t('columns.dependencies'),
           width: 220,
           cell: ({ component }: ComponentListRow) => {
-            const link = component.business_service;
-            if (!link) return <span className="text-tx-3">{t('values.none')}</span>;
+            const count = component.dependencies?.length ?? 0;
+            if (count === 0) return <span className="text-tx-3">{t('values.none')}</span>;
             return (
               <div className="flex min-w-0 items-center gap-2">
-                <span className="truncate text-tx-1">
-                  {serviceNames.get(link.business_service_id) ?? t('forms.component.unknown_business_service')}
-                </span>
-                <Pill tone="dim">{t(`service_link_mode.${link.mode}_short`)}</Pill>
+                <span className="truncate text-tx-1">{t('dependencies.count', { count })}</span>
+                <Pill tone="dim">{t(`dependencies.modes.${component.dependencyMode ?? 'follow'}_short`)}</Pill>
               </div>
             );
           },

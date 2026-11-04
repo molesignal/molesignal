@@ -145,7 +145,7 @@
     "event": "事件",
     "attempts": "尝试次数",
     "duration": "持续时间",
-    "business_service": "业务服务",
+    "dependencies": "依赖",
     "subscription_scope": "接收范围"
   },
   "fields": {
@@ -183,10 +183,9 @@
     "allowed_value": "允许的邮箱或域名",
     "next_update": "下次更新",
     "notify_subscribers": "通知订阅者",
-    "business_service": "业务服务",
     "group_name": "分组名称",
     "component_group": "所属分组",
-    "slack_app": "Slack 应用",
+    "slack_app": "Slack App",
     "slack_redirect_url": "重定向地址"
   },
   "visibility": {
@@ -286,14 +285,7 @@
       "create_title": "添加组件",
       "edit_title": "编辑组件",
       "subtitle": "组件用于表达客户可感知能力的当前健康状态。",
-      "business_service": "业务服务",
-      "business_service_hint": "让这个组件代表一项业务服务，客户看到的状态与内部健康度保持一致。",
-      "no_business_service": "不关联",
-      "unknown_business_service": "已不可用的业务服务",
-      "no_business_services": "还没有业务服务。",
-      "open_business_services": "去创建业务服务",
-      "follow_notify_hint": "跟随产生的状态变化是否通知订阅者。",
-      "follow_status_hint": "跟随业务服务时，状态会在下次健康度变化时被覆盖。",
+      "follow_status_hint": "跟随依赖时，状态会在依赖的健康度下次变化时被覆盖。",
       "notify_hint": "订阅者会收到这次状态变化。",
       "silent_hint": "只改状态页上的状态，不发送通知。",
       "edit_group_title": "编辑分组",
@@ -559,12 +551,12 @@
       "title": "添加到 Slack",
       "description": "访客在自己的 Slack 工作区里选一个频道，页面的更新就会发到那里。所用的 Slack App 连接器需要填写 Client ID 和 Client Secret，它们随连接器加密保存。",
       "private_page": "私有页面不会向访客提供“添加到 Slack”。",
-      "loading": "正在加载 Slack 应用…",
+      "loading": "正在加载 Slack App…",
       "off": "关闭",
       "connector_off": "该连接器已停用。",
       "connector_without_client": "该连接器没有填写 Client ID 和 Client Secret。",
-      "no_connectors": "还没有 Slack App 连接器。请在<connectors>连接器</connectors>中新建一个，填入 Slack 应用的 Client ID 和 Client Secret。",
-      "redirect_hint": "在 Slack 应用的 OAuth & Permissions → Redirect URLs 中添加该地址，并为应用开启 incoming-webhook 权限。",
+      "no_connectors": "还没有 Slack App 连接器。请在<connectors>连接器</connectors>中新建一个，填入 Slack App 的 Client ID 和 Client Secret。",
+      "redirect_hint": "在 Slack App 的 OAuth & Permissions → Redirect URLs 中添加该地址，并为应用开启 incoming-webhook 权限。",
       "needs_https": "需要把 http.external_url 设为 HTTPS 地址。"
     }
   },
@@ -619,12 +611,12 @@
       "resolved_template": "已解决更新",
       "correlation_template": "关联键",
       "template_hint": "允许使用：{{source.id}}、{{source.kind}}、{{severity}} 和 {{labels.key}}。",
-      "business_service_components_hint": "不选时，发布到本页关联了该业务服务、并选择“交给自动化规则”的组件。"
+      "dependency_components_hint": "不选时，发布到依赖发生变化、并选择“交给自动化规则”的组件。"
     },
     "source": {
       "alert_incident": "告警事件",
       "synthetic_monitor": "拨测检查",
-      "business_service": "业务服务"
+      "component_dependencies": "组件依赖"
     },
     "source_picker": {
       "alert_rule": "告警规则",
@@ -644,12 +636,12 @@
       "unavailable": "不可用的来源 · {{id}}",
       "enabled": "已启用",
       "disabled": "已停用",
-      "business_service": "业务服务",
-      "business_service_hint": "选择一项业务服务；选择“全部业务服务”会匹配所有业务服务的健康度变化。",
-      "business_service_required_hint": "选择用于模拟的业务服务。",
-      "all_business_service": "全部业务服务",
-      "select_business_service": "请选择业务服务",
-      "empty_business_service": "暂无业务服务"
+      "component": "组件",
+      "component_hint": "选择一个组件；选择“全部组件”会匹配本页所有组件的依赖健康度变化。",
+      "component_required_hint": "选择用于模拟的组件。",
+      "all_component": "全部组件",
+      "select_component": "请选择组件",
+      "empty_component": "本页还没有带依赖的组件"
     },
     "mode": {
       "approval": "生成草稿并审批",
@@ -793,7 +785,7 @@
     "subscription": {
       "trigger": "订阅",
       "title": "接收状态更新",
-      "description": "选择邮箱、HTTPS Webhook 或 Slack；确认成功后才会开始发送通知。",
+      "description": "通过邮箱、HTTPS Webhook、Slack 或 RSS 接收更新；邮箱、Webhook 和 Slack 确认后才开始发送。",
       "channel": "接收方式",
       "email": "邮箱",
       "webhook": "Webhook",
@@ -803,6 +795,11 @@
       "webhook_hint": "HTTPS 端点必须先接收并完成确认请求，之后才会收到状态更新。",
       "private_email_hint": "通知将发送到当前私有会话已验证的邮箱地址。",
       "rss": "RSS 订阅",
+      "feed_rss": "RSS 订阅地址",
+      "feed_atom": "Atom 订阅地址",
+      "feed_hint": "把地址添加到阅读器即可，包含页面上的全部事件和维护，不需要确认。",
+      "feed_copy": "复制{{name}}",
+      "feed_copied": "已复制{{name}}",
       "submit": "发送确认",
       "submitting": "正在发送…",
       "accepted_title": "请检查接收端",
@@ -915,13 +912,42 @@
     "import": "导入",
     "slack_app": "Add to Slack"
   },
-  "service_link_mode": {
-    "follow": "跟随健康度",
-    "follow_short": "跟随",
-    "follow_hint": "组件状态随业务服务的健康度自动变化。",
-    "automation": "交给自动化规则",
-    "automation_short": "自动化",
-    "automation_hint": "业务服务的健康度变化作为本页自动化规则的来源，按规则的延迟、审批和文案发布事件。"
+  "dependencies": {
+    "title": "依赖",
+    "hint": "组件的健康度取依赖传递的最差状态。“影响按原样传递”让依赖的状态直接成为组件状态；“最多算性能下降”适合有降级方案的依赖。",
+    "empty": "没有依赖时，组件状态由人工设置。",
+    "add": "添加依赖",
+    "remove": "移除依赖",
+    "kind": "依赖类型",
+    "target": "依赖对象",
+    "impact": "影响方式",
+    "kinds": {
+      "technical_service": "技术服务",
+      "synthetic_monitor": "拨测检查",
+      "alert_rule": "告警规则"
+    },
+    "impacts": {
+      "outage": "影响按原样传递",
+      "degraded": "最多算性能下降"
+    },
+    "technical_service_placeholder": "服务名，与链路和告警中的服务名一致",
+    "select_synthetic_monitor": "选择拨测检查",
+    "select_alert_rule": "选择告警规则",
+    "unavailable_target": "已不可用（{{id}}）",
+    "modes": {
+      "follow": "跟随健康度",
+      "follow_short": "跟随",
+      "follow_hint": "组件状态随依赖的健康度自动变化。",
+      "automation": "交给自动化规则",
+      "automation_short": "自动化",
+      "automation_hint": "健康度的变化作为本页自动化规则的来源，按规则的延迟、审批和文案发布事件。"
+    },
+    "follow_notify_hint": "跟随产生的状态变化是否通知订阅者。",
+    "health": "依赖的健康度",
+    "open_incidents_one": "{{count}} 个未关闭的告警事件",
+    "open_incidents_other": "{{count}} 个未关闭的告警事件",
+    "count_one": "{{count}} 项依赖",
+    "count_other": "{{count}} 项依赖"
   },
   "component_kind": {
     "component": "组件",

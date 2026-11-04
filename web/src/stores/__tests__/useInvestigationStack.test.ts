@@ -13,7 +13,7 @@ const KINDS: FrameKind[] = ['trace', 'log', 'metric', 'host', 'service'];
 
 /** A frame the way an address names it, after the trip through JSON. */
 function named(frame: Frame, change: Partial<FrameContent> = {}): FrameContent {
-  const { id: _id, created_at: _createdAt, ...content } = frame;
+  const { id: _id, createdAt: _createdAt, ...content } = frame;
   return { ...(JSON.parse(JSON.stringify(content)) as FrameContent), ...change };
 }
 
@@ -97,7 +97,7 @@ describe('useInvestigationStack', () => {
     it('changes nothing when the address names the frames that are already open', () => {
       const { push, back, hydrate } = useInvestigationStack.getState();
       const web = push({ kind: 'service', params: { service: 'web' } })!;
-      const api = push({ kind: 'service', params: { service: 'api' }, parent_frame_id: web.id })!;
+      const api = push({ kind: 'service', params: { service: 'api' }, parentFrameId: web.id })!;
       push({ kind: 'log', params: { stream: 'logs', row: undefined } });
       back();
       const before = useInvestigationStack.getState();

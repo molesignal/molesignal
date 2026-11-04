@@ -72,6 +72,8 @@ const BUILTIN: &[(&str, &str)] = &[
         include_str!("builtin/alert-noise-reduction/SKILL.md"),
     ),
     ("init", include_str!("builtin/init/SKILL.md")),
+    ("insight", include_str!("builtin/insight/SKILL.md")),
+    ("rum-triage", include_str!("builtin/rum-triage/SKILL.md")),
 ];
 
 fn builtin_skills() -> Vec<Arc<InstanceSkill>> {

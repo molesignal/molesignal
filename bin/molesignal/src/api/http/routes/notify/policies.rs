@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use std::collections::BTreeMap;
+
 use axum::{
     Extension, Json, Router,
     extract::{Path, State},
@@ -17,8 +19,10 @@ use crate::{
         notify::{NotifyPolicyInput, NotifyPolicyPreview},
     },
     domain::{
+        alerting::time_window::TimeCondition,
         iam::permission,
         notify::{
+            connector::NotifyChannel,
             policy::{
                 NotifyDeliveryConfig, NotifyDeliveryMode, NotifyEvent, NotifyFallbackConfig,
                 NotifyPolicy,
@@ -45,9 +49,14 @@ pub(super) fn routes() -> Router<AppState> {
             get(get_one).put(update).delete(delete),
         )
         .route("/notify/policies/{id}/test", axum::routing::post(test))
+        .route(
+            "/notify/policies/{id}/restore",
+            axum::routing::post(restore),
+        )
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct PolicyRequest {
     name: String,
     event_type: String,
@@ -64,11 +73,17 @@ struct PolicyRequest {
     #[serde(default)]
     template_id: Option<Id>,
     #[serde(default)]
+    channel_templates: BTreeMap<NotifyChannel, Id>,
+    #[serde(default)]
     fallback_config: NotifyFallbackConfig,
     #[serde(default)]
     ack_timeout_seconds: Option<i32>,
     #[serde(default)]
     escalation_config: Option<Value>,
+    #[serde(default)]
+    merge_window_secs: Option<u32>,
+    #[serde(default)]
+    time: Option<TimeCondition>,
     #[serde(default = "default_true")]
     enabled: bool,
     #[serde(default = "default_priority")]
@@ -76,13 +91,14 @@ struct PolicyRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct PolicyTestRequest {
     #[serde(default)]
     event_id: Option<String>,
     #[serde(default)]
     event_type: Option<String>,
     #[serde(default)]
-    occurred_at_micros: Option<i64>,
+    occurred_at: Option<i64>,
     #[serde(default = "empty_object")]
     attributes: Value,
 }
@@ -117,16 +133,19 @@ impl From<PolicyRequest> for NotifyPolicyInput {
             delivery_mode: request.delivery_mode,
             delivery_config: request.delivery_config,
             template_id: request.template_id,
+            channel_templates: request.channel_templates,
             fallback_config: request.fallback_config,
             ack_timeout_seconds: request.ack_timeout_seconds,
             escalation_config: request.escalation_config,
+            merge_window_secs: request.merge_window_secs,
+            time: request.time,
             enabled: request.enabled,
             priority: request.priority,
         }
     }
 }
 
-#[permission("alerts.read")]
+#[permission("notify.policies.read")]
 async fn list_recipient_resolver_types(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -136,7 +155,7 @@ async fn list_recipient_resolver_types(
     ))
 }
 
-#[permission("alerts.read")]
+#[permission("notify.policies.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -150,7 +169,7 @@ async fn list(
     ))
 }
 
-#[permission("alerts.read")]
+#[permission("notify.policies.read")]
 async fn get_one(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -165,7 +184,7 @@ async fn get_one(
     ))
 }
 
-#[permission("alerts.manage")]
+#[permission("notify.policies.manage")]
 async fn create(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -180,7 +199,7 @@ async fn create(
     Ok((StatusCode::CREATED, Json(policy)))
 }
 
-#[permission("alerts.manage")]
+#[permission("notify.policies.manage")]
 async fn update(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -196,7 +215,7 @@ async fn update(
     ))
 }
 
-#[permission("alerts.manage")]
+#[permission("notify.policies.delete")]
 async fn delete(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -211,7 +230,22 @@ async fn delete(
     Ok(StatusCode::NO_CONTENT)
 }
 
-#[permission("alerts.manage")]
+#[permission("notify.policies.manage")]
+async fn restore(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<IamContext>,
+    Path(id): Path<String>,
+) -> Result<Json<NotifyPolicy>> {
+    Ok(Json(
+        state
+            .alerting
+            .notify_engine
+            .restore_policy(&ctx.org_id, &Id::from_string(id))
+            .await?,
+    ))
+}
+
+#[permission("notify.policies.manage")]
 async fn test(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -233,7 +267,7 @@ async fn test(
         event_type: request.event_type.unwrap_or(policy.event_type),
         organization_id: ctx.org_id.clone(),
         occurred_at: request
-            .occurred_at_micros
+            .occurred_at
             .map(TimestampMicros)
             .unwrap_or_else(TimestampMicros::now),
         attributes: request.attributes,
@@ -248,7 +282,7 @@ async fn test(
     ))
 }
 
-#[permission("alerts.manage")]
+#[permission("notify.policies.manage")]
 async fn preview_draft(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -269,7 +303,7 @@ async fn preview_draft(
         organization_id: ctx.org_id.clone(),
         occurred_at: request
             .event
-            .occurred_at_micros
+            .occurred_at
             .map(TimestampMicros)
             .unwrap_or_else(TimestampMicros::now),
         attributes: request.event.attributes,

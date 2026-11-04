@@ -9,6 +9,7 @@ import * as rolesApi from '@/api/roles';
 import * as teamsApi from '@/api/teams';
 import * as usersApi from '@/api/users';
 import { toApiError } from '@/lib/http';
+import { useSessionPermissionScope } from '@/product/access';
 import {
   restrictActionAccess,
   useActionAccess,
@@ -22,6 +23,7 @@ import { useCurrentOrgSelection } from '@/stores/useOrgStore';
 
 import { AccessGrantDrawer } from './AccessGrantDrawer';
 import { CrossOrgGrantDrawer } from './CrossOrgGrantDrawer';
+import { PlatformGrants } from './PlatformGrants';
 import {
   invalidateIamAccess,
   PermissionPills,
@@ -31,7 +33,12 @@ import {
 import { formatMicros } from '../../rum/_helpers';
 import { IamListPage } from '../IamLayout';
 
+/** Grants of the organization; the platform organization grants platform roles to accounts. */
 export function Groups() {
+  return useSessionPermissionScope() === 'platform' ? <PlatformGrants /> : <OrganizationGrants />;
+}
+
+function OrganizationGrants() {
   const { t } = useTranslation('iam');
   const qc = useQueryClient();
   const [creating, setCreating] = React.useState(false);
@@ -40,8 +47,14 @@ export function Groups() {
     React.useState<grantsApi.RoleBinding | null>(null);
   const { currentOrgId } = useCurrentOrgSelection();
   const manageAccess = useActionAccess({
-    permission: 'iam.policies.manage',
+    permission: 'iam.grants.manage',
   });
+  const shareAccess = useActionAccess({
+    permission: 'iam.cross_org.manage',
+  });
+  const readsShares = useActionAccess({
+    permission: 'iam.cross_org.read',
+  }).allowed;
   const catalogQuery = useIamPermissionCatalog();
 
   const bindingsQuery = useQuery({
@@ -51,6 +64,7 @@ export function Groups() {
   const grantsQuery = useQuery({
     queryKey: ['iam', 'cross-org-grants', currentOrgId],
     queryFn: () => grantsApi.listCrossOrgGrants(),
+    enabled: readsShares,
   });
   const rolesQuery = useQuery({
     queryKey: ['iam', 'roles'],
@@ -147,9 +161,9 @@ export function Groups() {
         toolbar={
           <div className="flex items-center gap-2">
             <ChromeButton
-              disabled={manageAccess.disabled}
-              disabledReason={manageAccess.reason}
-              onClick={() => manageAccess.allowed && setSharing(true)}
+              disabled={shareAccess.disabled}
+              disabledReason={shareAccess.reason}
+              onClick={() => shareAccess.allowed && setSharing(true)}
             >
               <Share2 className="h-3 w-3" />
               {t('groups.share_cross_org')}
@@ -188,7 +202,7 @@ export function Groups() {
                   key: 'role',
                   header: t('groups.columns.role'),
                   cell: (row) => {
-                    const role = rolesById.get(row.role_id);
+                    const role = rolesById.get(row.roleId);
                     return role ? (
                       <div>
                         <div className="text-tx-0">{role.name}</div>
@@ -206,9 +220,9 @@ export function Groups() {
                   key: 'resource',
                   header: t('groups.columns.resource'),
                   cell: (row) =>
-                    row.resource_type
-                      ? `${t(`groups.resources.${row.resource_type}`)} · ${
-                          row.resource_id ?? t('groups.all_resources')
+                    row.resourceType
+                      ? `${t(`groups.resources.${row.resourceType}`)} · ${
+                          row.resourceId ?? t('groups.all_resources')
                         }`
                       : t('groups.organization_wide'),
                 },
@@ -216,8 +230,8 @@ export function Groups() {
                   key: 'validity',
                   header: t('groups.columns.validity'),
                   cell: (row) =>
-                    row.expires_at
-                      ? formatMicros(row.expires_at)
+                    row.expiresAt
+                      ? formatMicros(row.expiresAt)
                       : t('groups.no_expiry'),
                 },
                 {
@@ -264,14 +278,14 @@ export function Groups() {
                   key: 'organizations',
                   header: t('groups.columns.organizations'),
                   cell: (row) =>
-                    `${row.source_organization_id} → ${row.target_organization_id}`,
+                    `${row.sourceOrganizationId} → ${row.targetOrganizationId}`,
                 },
                 {
                   key: 'resource',
                   header: t('groups.columns.resource'),
                   cell: (row) =>
-                    `${t(`groups.resources.${row.resource_type}`)} · ${
-                      row.resource_selector.ids?.join(', ') ??
+                    `${t(`groups.resources.${row.resourceType}`)} · ${
+                      row.resourceSelector.ids?.join(', ') ??
                       t('groups.all_resources')
                     }`,
                 },
@@ -307,8 +321,8 @@ export function Groups() {
                   key: 'expiry',
                   header: t('groups.columns.validity'),
                   cell: (row) =>
-                    row.expires_at
-                      ? formatMicros(row.expires_at)
+                    row.expiresAt
+                      ? formatMicros(row.expiresAt)
                       : t('groups.no_expiry'),
                 },
                 {
@@ -317,18 +331,18 @@ export function Groups() {
                   width: 170,
                   cell: (row) => {
                     const acceptAccess = restrictActionAccess(
-                      manageAccess,
+                      shareAccess,
                       row.status === 'pending' &&
-                        row.target_organization_id === currentOrgId &&
+                        row.targetOrganizationId === currentOrgId &&
                         !changeGrantStatus.isPending,
                       row.status !== 'pending'
                         ? t('groups.accept_pending_only')
-                        : row.target_organization_id !== currentOrgId
+                        : row.targetOrganizationId !== currentOrgId
                           ? t('groups.accept_target_only')
                           : t('groups.action_pending'),
                     );
                     const revokeAccess = restrictActionAccess(
-                      manageAccess,
+                      shareAccess,
                       row.status !== 'revoked' && !changeGrantStatus.isPending,
                       row.status === 'revoked'
                         ? t('groups.already_revoked')
@@ -389,7 +403,7 @@ export function Groups() {
         onClose={() => setCreating(false)}
       />
       <CrossOrgGrantDrawer
-        access={manageAccess}
+        access={shareAccess}
         catalog={catalogQuery.data}
         open={sharing}
         onClose={() => setSharing(false)}

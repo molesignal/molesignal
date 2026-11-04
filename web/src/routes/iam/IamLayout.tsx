@@ -6,6 +6,7 @@ import {
   canAccessProductPath,
   useProductAccess,
 } from '@/product/access';
+import { listContent } from '@/product/listContent';
 import { ProductState, type ProductStateProps } from '@/product/states';
 import { ManagementPage } from '@/product/templates';
 import { cn } from '@/shell/lib/cn';
@@ -46,6 +47,7 @@ const IAM_GROUPS: IamSectionGroup[] = [
     key: 'group_permissions',
     sections: [
       { to: '/iam/roles', key: 'roles', contentWidth: 'table' },
+      { to: '/iam/policies', key: 'policies', contentWidth: 'table' },
       { to: '/iam/groups', key: 'groups', contentWidth: 'table' },
     ],
   },
@@ -120,11 +122,13 @@ export function IamLayout() {
 
 export function IamIndexRedirect() {
   const access = useProductAccess();
+  const { key } = useLocation();
   const landingPath = IAM_GROUPS.flatMap((group) => group.sections).find(
     (section) => canAccessProductPath(section.to, access),
   )?.to;
   return (
     <Navigate
+      key={key}
       to={landingPath ?? '/account/settings/profile'}
       replace
     />
@@ -169,8 +173,8 @@ export function IamListPage({
   title,
   subtitle,
   toolbar,
-  state,
-  children,
+  state: requestedState,
+  children: list,
 }: {
   title: React.ReactNode;
   subtitle?: string | undefined;
@@ -178,12 +182,14 @@ export function IamListPage({
   state?: ProductStateProps | null | undefined;
   children?: React.ReactNode | undefined;
 }) {
+  const { state, children } = listContent(requestedState, list);
+
   return (
     <section className="min-w-0 rounded-md bg-[var(--functional-surface)]" data-iam-list-page>
       {/* The head has the same room over it as under it: the padding above is the padding below
           plus the body's own, so a button in the row stands midway between the card's edge and
           the list. */}
-      <header className="min-h-12 px-4 pb-1.5 pt-2.5">
+      <header className="min-h-12 px-4 pb-1 pt-2.5">
         <PageTitleRow
           title={title}
           description={subtitle}

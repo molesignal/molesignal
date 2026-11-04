@@ -6,13 +6,13 @@ import { emptyDraft, inputFromDraft } from './model';
 
 const SECRET: SyntheticSecret = {
   id: 'secret-api-key',
-  organization_id: 'org-a',
+  organizationId: 'org-a',
   name: 'API_KEY',
   description: 'Test credential',
-  current_version: 2,
-  created_by: 'user-a',
-  created_at: 1,
-  updated_at: 2,
+  currentVersion: 2,
+  createdBy: 'user-a',
+  createdAt: 1,
+  updatedAt: 2,
 };
 
 describe('synthetics editor model', () => {
@@ -34,7 +34,7 @@ describe('synthetics editor model', () => {
     expect(step?.headers[0]?.value).toEqual({
       source: 'secret',
       reference: 'API_KEY',
-      secret_id: SECRET.id,
+      secretId: SECRET.id,
     });
   });
 
@@ -49,8 +49,8 @@ describe('synthetics editor model', () => {
       locationIds: ['location-a'],
     });
 
-    expect(input.schedule).toEqual({ kind: 'interval', every_seconds: 60 });
-    expect(input.timeout_millis).toBe(59_999);
+    expect(input.schedule).toEqual({ kind: 'interval', everySeconds: 60 });
+    expect(input.timeoutMillis).toBe(59_999);
   });
 
   it('creates a location-free heartbeat schedule', () => {
@@ -65,10 +65,10 @@ describe('synthetics editor model', () => {
     expect(input.spec).toEqual({ kind: 'heartbeat' });
     expect(input.schedule).toEqual({
       kind: 'heartbeat',
-      expected_seconds: 300,
-      grace_seconds: 600,
+      expectedSeconds: 300,
+      graceSeconds: 600,
     });
-    expect(input.location_ids).toEqual([]);
+    expect(input.locationIds).toEqual([]);
   });
 
   it('sends a gRPC endpoint as the host and port typed, with TLS from the switch', () => {
@@ -87,7 +87,7 @@ describe('synthetics editor model', () => {
       kind: 'grpc',
       configuration: {
         endpoint: 'orders.example.com:443',
-        use_tls: true,
+        useTls: true,
         metadata: [],
         call: { kind: 'health', service: 'orders.v1.Orders' },
         assertions: [],
@@ -111,7 +111,7 @@ describe('synthetics editor model', () => {
       configuration: {
         host: { source: 'variable', name: 'bastion_host' },
         port: 22,
-        expected_identification_regex: '^SSH-2\\.0-OpenSSH_',
+        expectedIdentificationRegex: '^SSH-2\\.0-OpenSSH_',
       },
     });
   });
@@ -134,7 +134,9 @@ describe('synthetics editor model', () => {
       locationIds: ['private-vpc'],
     }, [SECRET]);
 
-    expect(input.alert_on_flaky).toBe(true);
+    expect(input.alertOnFlaky).toBe(true);
+    // A check alerts when it stops getting results unless told not to.
+    expect(input.alertOnNoData).toBe(true);
     expect(input.spec).toEqual({
       kind: 'ssh',
       configuration: {
@@ -146,14 +148,67 @@ describe('synthetics editor model', () => {
           password: {
             source: 'secret',
             reference: 'API_KEY',
-            secret_id: SECRET.id,
+            secretId: SECRET.id,
           },
         },
-        expected_host_key_sha256: `SHA256:${'A'.repeat(43)}`,
+        expectedHostKeySha256: `SHA256:${'A'.repeat(43)}`,
         command: { source: 'literal', value: 'systemctl is-active app' },
-        expected_output_regex: '^active$',
-        expected_exit_status: 0,
+        expectedOutputRegex: '^active$',
+        expectedExitStatus: 0,
       },
     });
+  });
+
+  it('sends the HTTP connection settings, the client certificate as written', () => {
+    const input = inputFromDraft({
+      ...emptyDraft([]),
+      name: 'Partner API',
+      url: 'https://api.example.com/health',
+      httpVersion: 'http2',
+      clientCertificate: ' -----BEGIN CERTIFICATE-----\n ',
+      clientKey: '-----BEGIN PRIVATE KEY-----\n',
+      dnsServer: ' 1.1.1.1:53 ',
+      hostBindings: [
+        { name: ' api.example.com ', addresses: '192.0.2.10, 2001:db8::1' },
+        { name: '', addresses: '192.0.2.11' },
+      ],
+      locationIds: ['location-a'],
+    });
+
+    if (input.spec.kind !== 'http') throw new Error('expected HTTP spec');
+    expect(input.spec.configuration).toMatchObject({
+      httpVersion: 'http2',
+      clientCertificate: {
+        certificate: '-----BEGIN CERTIFICATE-----',
+        privateKey: { state: 'new', pem: '-----BEGIN PRIVATE KEY-----' },
+      },
+      dnsServer: '1.1.1.1:53',
+      hosts: [{ name: 'api.example.com', addresses: ['192.0.2.10', '2001:db8::1'] }],
+    });
+  });
+
+  it('keeps the saved private key unless a new one is given', () => {
+    const draft = {
+      ...emptyDraft([]),
+      name: 'Partner API',
+      url: 'https://api.example.com/health',
+      clientCertificate: '-----BEGIN CERTIFICATE-----',
+      clientKeyRevision: 'revision-3',
+      locationIds: ['location-a'],
+    };
+
+    const kept = inputFromDraft(draft).spec;
+    const replaced = inputFromDraft({ ...draft, clientKey: '-----BEGIN PRIVATE KEY-----' }).spec;
+    const dropped = inputFromDraft({ ...draft, clientCertificate: '' }).spec;
+
+    if (kept.kind !== 'http' || replaced.kind !== 'http' || dropped.kind !== 'http') {
+      throw new Error('expected HTTP specs');
+    }
+    expect(kept.configuration.clientCertificate?.privateKey).toEqual({
+      state: 'kept',
+      revisionId: 'revision-3',
+    });
+    expect(replaced.configuration.clientCertificate?.privateKey.state).toBe('new');
+    expect(dropped.configuration.clientCertificate).toBeUndefined();
   });
 });

@@ -1,6 +1,6 @@
 import { Settings as SettingsIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
 import {
   canAccessProductPath,
@@ -27,6 +27,7 @@ interface SectionGroup {
     | 'group_account'
     | 'group_organization'
     | 'group_notify'
+    | 'group_alerting'
     | 'group_data_plane'
     | 'group_security'
     | 'group_ml_ops'
@@ -77,11 +78,46 @@ const GROUPS: SectionGroup[] = [
     ],
   },
   {
+    key: 'group_alerting',
+    sections: [
+      {
+        to: '/settings/alerting/holidays',
+        key: 'holidays',
+        contentWidth: 'table',
+      },
+      {
+        to: '/settings/alerting/importance',
+        key: 'importance',
+        contentWidth: 'form',
+      },
+    ],
+  },
+  {
     key: 'group_data_plane',
     sections: [
       {
         to: '/settings/client_ip',
         key: 'client_ip',
+        contentWidth: 'form',
+      },
+      {
+        to: '/settings/stream_retention',
+        key: 'stream_retention',
+        contentWidth: 'form',
+      },
+      {
+        to: '/settings/series_limits',
+        key: 'series_limits',
+        contentWidth: 'form',
+      },
+      {
+        to: '/settings/intake_usage',
+        key: 'intake_usage',
+        contentWidth: 'form',
+      },
+      {
+        to: '/settings/alert_evaluation',
+        key: 'alert_evaluation',
         contentWidth: 'form',
       },
       { to: '/settings/nodes', key: 'nodes', contentWidth: 'table' },
@@ -99,6 +135,11 @@ const GROUPS: SectionGroup[] = [
         contentWidth: 'table',
       },
       { to: '/settings/audit', key: 'audit', contentWidth: 'table' },
+      {
+        to: '/settings/audit_retention',
+        key: 'audit_retention',
+        contentWidth: 'form',
+      },
     ],
   },
   {
@@ -114,6 +155,16 @@ const GROUPS: SectionGroup[] = [
   {
     key: 'group_platform',
     sections: [
+      {
+        to: '/settings/signin_requirements',
+        key: 'signin_requirements',
+        contentWidth: 'form',
+      },
+      {
+        to: '/settings/signin_limits',
+        key: 'signin_limits',
+        contentWidth: 'form',
+      },
       {
         to: '/settings/organization_management',
         key: 'organization_management',
@@ -132,9 +183,27 @@ const CONTENT_WIDTH_CLASS: Record<Section['contentWidth'], string> = {
 };
 
 /**
+ * `/settings` opens General, or organization management in the platform organization, and otherwise
+ * the first page within reach: a permission over one section is enough to get here.
+ */
+export function SettingsIndexRedirect() {
+  const access = useProductAccess();
+  const { key } = useLocation();
+
+  const landingPath = [
+    '/settings/general',
+    '/settings/organization_management',
+    ...GROUPS.flatMap((group) => group.sections.map((section) => section.to)),
+  ].find((path) => canAccessProductPath(path, access));
+
+  // Keyed by the navigation: a click on the sidebar that lands here while this redirect is under way
+  // would otherwise cancel it and leave the page empty.
+  return <Navigate key={key} to={landingPath ?? '/account/settings/profile'} replace />;
+}
+
+/**
  * Routed Settings hub. Mounts at `/settings` with `<Outlet />` rendering
- * the per-section sub-page; `/settings` itself redirects to
- * `/settings/general` via the router config.
+ * the per-section sub-page.
  */
 export function SettingsLayout() {
   return (

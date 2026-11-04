@@ -7,15 +7,14 @@ use serde_json::{Value, json};
 use super::super::OperationOutcome;
 use crate::{
     agent::model::ApprovalRequest,
-    api::AppState,
+    api::{
+        AppState,
+        http::routes::api_tokens::{
+            RequestedScope, TokenSpec, expires_at, issue_scope, new_token, validate_name,
+        },
+    },
     app::iam::IamContext,
-    domain::iam::{
-        access::IamPrincipalType,
-        api_token::{ApiToken, ApiTokenKind},
-    },
-    infra::persistence::repositories::api_tokens::{
-        assemble_token, generate_token_parts, hash_secret,
-    },
+    domain::iam::{IamScope, access::IamPrincipalType, api_token::ApiTokenKind},
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
@@ -36,132 +35,79 @@ pub(super) async fn execute(
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct CreateToken {
     name: String,
     #[serde(default)]
-    role_id: Option<String>,
+    policy_id: Option<String>,
+    #[serde(default)]
+    permissions: Option<Vec<String>>,
     #[serde(default)]
     expires_in_days: Option<i64>,
 }
 
+/// A personal token for whoever asked for it. Like one issued on the account page, it comes from
+/// a signed-in person, never from another token.
 async fn create(
     state: &AppState,
     ctx: &IamContext,
     approval: &ApprovalRequest,
 ) -> Result<OperationOutcome> {
-    if ctx.principal_type() != IamPrincipalType::User {
+    if ctx.principal_type() != IamPrincipalType::User || ctx.scope != IamScope::Organization {
         return Err(Error::forbidden(
-            "personal API tokens can only be created by an authenticated user",
+            "personal API tokens can only be created by a signed-in user",
         ));
     }
 
     let parameters: CreateToken = parse(&approval.parameters)?;
-    let name = parameters.name.trim();
+    let name = validate_name(&parameters.name)?;
 
-    if name.is_empty() || name.chars().count() > 255 {
-        return Err(Error::invalid(
-            "name must contain between 1 and 255 characters",
-        ));
-    }
+    let scope = issue_scope(
+        state,
+        ctx,
+        RequestedScope {
+            policy_id: parameters.policy_id,
+            permissions: parameters.permissions,
+        },
+    )
+    .await?;
 
-    let role_id = match parameters.role_id {
-        Some(role_id) => Id(role_id),
-        None => {
-            state
-                .iam
-                .service
-                .iam_memberships
-                .role_id_for_purpose(&ctx.org_id, "default_api_token")
-                .await?
-        }
-    };
-
-    let role = state.iam.roles.get(&ctx.org_id, &role_id).await?;
-
-    if role.role_type != "organization" || role.scope != "organization" {
-        return Err(Error::invalid(
-            "API token role must have organization type and scope",
-        ));
-    }
-
-    if role.key == "rum_client" {
-        return Err(Error::invalid(
-            "RUM client credentials must be issued through the application-bound token flow",
-        ));
-    }
-
-    if role
-        .permissions
-        .iter()
-        .any(|permission| !ctx.has_permission(permission))
-    {
-        return Err(Error::forbidden(
-            "token role permissions cannot exceed executor IAM capabilities",
-        ));
-    }
-
-    let (prefix, secret) = generate_token_parts();
-    let plaintext = assemble_token(&prefix, &secret);
     let now = TimestampMicros::now();
 
-    let expires_at = parameters.expires_in_days.map(|days| {
-        let micros = days.clamp(1, 365 * 5).saturating_mul(86_400 * 1_000_000);
-        TimestampMicros(now.0.saturating_add(micros))
-    });
-
-    let token = state
-        .iam
-        .api_tokens
-        .create(ApiToken {
+    let (row, plaintext) = new_token(
+        TokenSpec {
             id: Id(approval.target.clone()),
-            prefix,
-            secret_hash: hash_secret(&secret)?,
             org_id: ctx.org_id.clone(),
             user_id: approval.requested_by.clone(),
-            role_id: role.id.clone(),
-            name: name.to_string(),
-            expires_at,
-            last_used_at: None,
-            revoked: false,
-            created_at: now,
-            is_default: false,
+            name,
+            scope,
             token_kind: ApiTokenKind::Personal,
-            application_id: None,
             service_account_id: None,
-        })
-        .await?;
+            expires_at: expires_at(now, parameters.expires_in_days),
+        },
+        now,
+    );
+
+    let token = state.iam.api_tokens.create(row).await?;
+
+    let metadata = json!({
+        "id": token.id,
+        "name": token.name,
+        "prefix": token.prefix,
+        "policyId": token.scope.policy_id(),
+        "permissions": token.scope.permissions(),
+        "tokenKind": token.token_kind,
+        "expiresAt": token.expires_at.map(|value| value.0),
+        "createdAt": token.created_at.0
+    });
+
+    let mut secret = metadata.clone();
+    secret["token"] = Value::String(plaintext);
 
     Ok(OperationOutcome::with_one_time_result(
         "personal API token created",
-        json!({
-            "verified": true,
-            "api_token": {
-                "id": token.id,
-                "name": token.name,
-                "prefix": token.prefix,
-                "role_id": token.role_id,
-                "role_key": role.key,
-                "role_name": role.name,
-                "token_kind": token.token_kind,
-                "expires_at_micros": token.expires_at.map(|value| value.0),
-                "created_at_micros": token.created_at.0
-            }
-        }),
-        json!({
-            "api_token": {
-                "id": token.id,
-                "name": token.name,
-                "prefix": token.prefix,
-                "token": plaintext,
-                "role_id": token.role_id,
-                "role_key": role.key,
-                "role_name": role.name,
-                "token_kind": token.token_kind,
-                "expires_at_micros": token.expires_at.map(|value| value.0),
-                "created_at_micros": token.created_at.0
-            }
-        }),
+        json!({"verified": true, "apiToken": metadata}),
+        json!({"apiToken": secret}),
     ))
 }
 
@@ -180,7 +126,7 @@ async fn revoke(
 
     Ok(OperationOutcome {
         summary: "API token revoked".into(),
-        verification: json!({"verified": true, "token_id": id, "revoked": true}),
+        verification: json!({"verified": true, "tokenId": id, "revoked": true}),
     })
 }
 

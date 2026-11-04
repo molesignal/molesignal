@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 
 import { PageHeader } from '@/admin';
 import * as dashboardsApi from '@/api/dashboards';
-import * as instanceApi from '@/api/instance';
 import * as meApi from '@/api/me';
 import * as orgsApi from '@/api/orgs';
 import * as resourceSharesApi from '@/api/resourceShares';
@@ -29,19 +28,18 @@ import { DangerZone } from './DangerZone';
 import {
   PreferenceDefaultsSection,
   SharingPolicySection,
-  SignupPolicySection,
 } from './sections';
 import { useAutoSave } from './useAutoSave';
 import { WorkspaceSection } from './WorkspaceSection';
 import { useSettingsSaveStatus } from '../SettingsSaveStatus';
 
 const SHARE_POLICY_FIELDS = [
-  'allow_public_links',
-  'allow_public_dashboards',
-  'max_public_expiry_secs',
-  'require_public_report_password',
-  'deny_production_public_shares',
-  'allow_public_csv_download',
+  'allowPublicLinks',
+  'allowPublicDashboards',
+  'maxPublicExpirySecs',
+  'requirePublicReportPassword',
+  'denyProductionPublicShares',
+  'allowPublicCsvDownload',
 ] as const satisfies readonly (keyof resourceSharesApi.ResourceSharePolicy)[];
 
 export function General() {
@@ -55,14 +53,16 @@ export function General() {
   });
   const profile = profileQuery.data;
   const access = useProductAccess();
-  const canReadSettings = hasPermission('org.settings.read', access);
+  const canReadSettings = hasPermission('org.preferences.read', access);
   const manageAccess = useActionAccess({
-    permission: 'org.settings.manage',
+    permission: 'org.preferences.manage',
   });
   const canManageSettings = manageAccess.allowed;
+  const canReadSharing = hasPermission('org.sharing.read', access);
+  const shareAccess = useActionAccess({
+    permission: 'org.sharing.manage',
+  });
   const [workspaceName, setWorkspaceName] = React.useState('');
-  const [signupPolicyDraft, setSignupPolicyDraft] =
-    React.useState<instanceApi.SignupPolicy | null>(null);
   const [sharePolicyDraft, setSharePolicyDraft] =
     React.useState<resourceSharesApi.ResourceSharePolicy | null>(null);
   const [preferenceDefaults, setPreferenceDefaults] =
@@ -71,13 +71,13 @@ export function General() {
     React.useState<meApi.UserPreferences>(meApi.DEFAULT_USER_PREFERENCES);
 
   React.useEffect(() => {
-    if (profile) setWorkspaceName(profile.org_name);
+    if (profile) setWorkspaceName(profile.orgName);
   }, [profile]);
 
   React.useEffect(() => {
     saveStatus.setDraftDirty(
       'general.workspace_name',
-      Boolean(profile && workspaceName.trim() !== profile.org_name),
+      Boolean(profile && workspaceName.trim() !== profile.orgName),
     );
   }, [profile, saveStatus, workspaceName]);
 
@@ -93,7 +93,7 @@ export function General() {
   const updateWorkspaceName = useMutation({
     mutationFn: (name: string) => {
       if (!profile) throw new Error('missing workspace profile');
-      return orgsApi.updateOrg(profile.org_id, { name });
+      return orgsApi.updateOrg(profile.orgId, { name });
     },
     onMutate: () => saveStatus.beginSave(),
     onSuccess: (organization) => {
@@ -103,8 +103,8 @@ export function General() {
         current
           ? {
               ...current,
-              org_name: organization.name,
-              org_slug: organization.slug ?? current.org_slug,
+              orgName: organization.name,
+              orgSlug: organization.slug ?? current.orgSlug,
             }
           : current,
       );
@@ -116,20 +116,14 @@ export function General() {
     },
   });
 
-  const policyQuery = useQuery({
-    queryKey: ['settings', 'signup'],
-    queryFn: () => instanceApi.getSignupPolicy(),
-    enabled: canReadSettings,
-  });
-  const policy = signupPolicyDraft ?? policyQuery.data;
   const sharePolicyQuery = useQuery({
-    queryKey: ['resource-shares', 'policy', profile?.org_id],
+    queryKey: ['resource-shares', 'policy', profile?.orgId],
     queryFn: resourceSharesApi.getPolicy,
-    enabled: canReadSettings,
+    enabled: canReadSharing,
   });
   const sharePolicy = sharePolicyDraft ?? sharePolicyQuery.data;
   const preferenceDefaultsQuery = useQuery({
-    queryKey: ['workspace', 'preference-defaults', profile?.org_id],
+    queryKey: ['workspace', 'preference-defaults', profile?.orgId],
     queryFn: () => orgsApi.preferenceDefaults(),
     enabled: canReadSettings,
   });
@@ -144,16 +138,9 @@ export function General() {
     preferenceDefaultsBaseline,
   );
   const workspaceNameDirty = Boolean(
-    profile && workspaceName.trim() !== profile.org_name,
+    profile && workspaceName.trim() !== profile.orgName,
   );
   const workspaceNameInvalid = workspaceName.trim().length === 0;
-  const signupPolicyDirty = Boolean(
-    policyQuery.data &&
-      policy &&
-      (policy.signup_enabled !== policyQuery.data.signup_enabled ||
-        policy.signup_require_approval !==
-          policyQuery.data.signup_require_approval),
-  );
   const sharePolicyDirty = Boolean(
     sharePolicyQuery.data &&
       sharePolicy &&
@@ -172,10 +159,6 @@ export function General() {
   }, [preferenceDefaultsQuery.data]);
 
   React.useEffect(() => {
-    if (policyQuery.data) setSignupPolicyDraft(policyQuery.data);
-  }, [policyQuery.data]);
-
-  React.useEffect(() => {
     if (sharePolicyQuery.data) setSharePolicyDraft(sharePolicyQuery.data);
   }, [sharePolicyQuery.data]);
 
@@ -185,10 +168,6 @@ export function General() {
       preferenceDefaultsDirty,
     );
   }, [preferenceDefaultsDirty, saveStatus]);
-
-  React.useEffect(() => {
-    saveStatus.setDraftDirty('general.signup_policy', signupPolicyDirty);
-  }, [saveStatus, signupPolicyDirty]);
 
   React.useEffect(() => {
     saveStatus.setDraftDirty('general.sharing_policy', sharePolicyDirty);
@@ -201,21 +180,6 @@ export function General() {
     [saveStatus],
   );
 
-  const updatePolicy = useMutation({
-    mutationFn: (next: instanceApi.SignupPolicy) => instanceApi.updateSignupPolicy(next),
-    onMutate: () => {
-      saveStatus.beginSave();
-    },
-    onSuccess: (saved) => {
-      qc.setQueryData(['settings', 'signup'], saved);
-      setSignupPolicyDraft(saved);
-      saveStatus.completeSave();
-    },
-    onError: (error) => {
-      saveStatus.failSave();
-      toast.error(toApiError(error).message);
-    },
-  });
   const updateSharePolicy = useMutation({
     mutationFn: resourceSharesApi.updatePolicy,
     onMutate: () => {
@@ -223,7 +187,7 @@ export function General() {
     },
     onSuccess: (saved) => {
       qc.setQueryData(
-        ['resource-shares', 'policy', profile?.org_id],
+        ['resource-shares', 'policy', profile?.orgId],
         saved,
       );
       setSharePolicyDraft(saved);
@@ -242,7 +206,7 @@ export function General() {
       setPreferenceDefaults(normalized);
       setPreferenceDefaultsBaseline(normalized);
       qc.setQueryData(
-        ['workspace', 'preference-defaults', profile?.org_id],
+        ['workspace', 'preference-defaults', profile?.orgId],
         normalized,
       );
       void qc.invalidateQueries({ queryKey: USER_PREFERENCES_QUERY_KEY });
@@ -254,31 +218,26 @@ export function General() {
     },
   });
 
-  const setPolicy = (patch: Partial<instanceApi.SignupPolicy>) => {
-    if (!canManageSettings || !policy || updatePolicy.isPending) return;
-    updatePolicy.reset();
-    setSignupPolicyDraft({ ...policy, ...patch });
-  };
   const setSharePolicy = (
     patch: Partial<
       Omit<
         resourceSharesApi.ResourceSharePolicy,
-        'organization_id' | 'updated_by' | 'updated_at'
+        'organizationId' | 'updatedBy' | 'updatedAt'
       >
     >,
   ) => {
-    if (!canManageSettings || !sharePolicy || updateSharePolicy.isPending) return;
+    if (!shareAccess.allowed || !sharePolicy || updateSharePolicy.isPending) return;
     updateSharePolicy.reset();
     setSharePolicyDraft({
       ...sharePolicy,
-      allow_public_links: sharePolicy.allow_public_links,
-      allow_public_dashboards: sharePolicy.allow_public_dashboards,
-      max_public_expiry_secs: sharePolicy.max_public_expiry_secs,
-      require_public_report_password:
-        sharePolicy.require_public_report_password,
-      deny_production_public_shares:
-        sharePolicy.deny_production_public_shares,
-      allow_public_csv_download: sharePolicy.allow_public_csv_download,
+      allowPublicLinks: sharePolicy.allowPublicLinks,
+      allowPublicDashboards: sharePolicy.allowPublicDashboards,
+      maxPublicExpirySecs: sharePolicy.maxPublicExpirySecs,
+      requirePublicReportPassword:
+        sharePolicy.requirePublicReportPassword,
+      denyProductionPublicShares:
+        sharePolicy.denyProductionPublicShares,
+      allowPublicCsvDownload: sharePolicy.allowPublicCsvDownload,
       ...patch,
     });
   };
@@ -294,35 +253,23 @@ export function General() {
     save: () => updateWorkspaceName.mutateAsync(workspaceName.trim()),
   });
 
-  const retrySignupPolicy = useAutoSave({
-    fingerprint: policy
-      ? `${policy.signup_enabled}:${policy.signup_require_approval}`
-      : '',
-    enabled: canManageSettings && Boolean(policy) && signupPolicyDirty,
-    busy: updatePolicy.isPending,
-    save: () => {
-      if (!policy) return Promise.resolve();
-      return updatePolicy.mutateAsync(policy);
-    },
-  });
-
   const retrySharePolicy = useAutoSave({
     fingerprint: sharePolicy
       ? JSON.stringify(SHARE_POLICY_FIELDS.map((field) => sharePolicy[field]))
       : '',
-    enabled: canManageSettings && Boolean(sharePolicy) && sharePolicyDirty,
+    enabled: shareAccess.allowed && Boolean(sharePolicy) && sharePolicyDirty,
     busy: updateSharePolicy.isPending,
     save: () => {
       if (!sharePolicy) return Promise.resolve();
       return updateSharePolicy.mutateAsync({
-        allow_public_links: sharePolicy.allow_public_links,
-        allow_public_dashboards: sharePolicy.allow_public_dashboards,
-        max_public_expiry_secs: sharePolicy.max_public_expiry_secs,
-        require_public_report_password:
-          sharePolicy.require_public_report_password,
-        deny_production_public_shares:
-          sharePolicy.deny_production_public_shares,
-        allow_public_csv_download: sharePolicy.allow_public_csv_download,
+        allowPublicLinks: sharePolicy.allowPublicLinks,
+        allowPublicDashboards: sharePolicy.allowPublicDashboards,
+        maxPublicExpirySecs: sharePolicy.maxPublicExpirySecs,
+        requirePublicReportPassword:
+          sharePolicy.requirePublicReportPassword,
+        denyProductionPublicShares:
+          sharePolicy.denyProductionPublicShares,
+        allowPublicCsvDownload: sharePolicy.allowPublicCsvDownload,
       });
     },
   });
@@ -344,7 +291,6 @@ export function General() {
         'general.workspace_preference_defaults',
         false,
       );
-      saveStatus.setDraftDirty('general.signup_policy', false);
       saveStatus.setDraftDirty('general.sharing_policy', false);
     },
     [saveStatus],
@@ -374,77 +320,63 @@ export function General() {
             }}
             onReset={() => {
               updateWorkspaceName.reset();
-              setWorkspaceName(profile?.org_name ?? '');
+              setWorkspaceName(profile?.orgName ?? '');
             }}
             onSave={retryWorkspaceName}
           />
 
-          <SettingsSection
-            title={t('general.access_control.title')}
-            description={t('general.access_control.subtitle')}
-            contentClassName="gap-0"
-          >
-            <SignupPolicySection
-              policy={policy}
-              isLoading={policyQuery.isLoading}
-              isError={policyQuery.isError}
-              error={policyQuery.error}
-              pending={updatePolicy.isPending}
-              saveError={updatePolicy.isError}
-              dirty={signupPolicyDirty}
+          {canReadSharing ? (
+            <SettingsSection
+              title={t('general.access_control.title')}
+              description={t('general.access_control.subtitle')}
+              contentClassName="gap-0"
+            >
+              <SharingPolicySection
+                policy={sharePolicy}
+                isLoading={sharePolicyQuery.isLoading}
+                isError={sharePolicyQuery.isError}
+                error={sharePolicyQuery.error}
+                pending={updateSharePolicy.isPending}
+                saveError={updateSharePolicy.isError}
+                dirty={sharePolicyDirty}
+                canManage={shareAccess.allowed}
+                disabledReason={shareAccess.reason}
+                onChange={setSharePolicy}
+                onReset={() => {
+                  updateSharePolicy.reset();
+                  setSharePolicyDraft(sharePolicyQuery.data ?? null);
+                }}
+                onSave={retrySharePolicy}
+              />
+            </SettingsSection>
+          ) : null}
+
+          {canReadSettings ? (
+            <PreferenceDefaultsSection
+              value={preferenceDefaults}
+              dashboards={dashboardsQuery.data ?? []}
+              dirty={preferenceDefaultsDirty}
+              isLoading={preferenceDefaultsQuery.isLoading}
+              isError={preferenceDefaultsQuery.isError}
+              error={preferenceDefaultsQuery.error}
+              pending={updatePreferenceDefaults.isPending}
+              saveError={updatePreferenceDefaults.isError}
               canManage={canManageSettings}
               disabledReason={manageAccess.reason}
-              onChange={setPolicy}
-              onReset={() => {
-                updatePolicy.reset();
-                setSignupPolicyDraft(policyQuery.data ?? null);
+              onChange={(patch) => {
+                updatePreferenceDefaults.reset();
+                setPreferenceDefaults((current) => ({
+                  ...current,
+                  ...patch,
+                }));
               }}
-              onSave={retrySignupPolicy}
-            />
-
-            <SharingPolicySection
-              policy={sharePolicy}
-              isLoading={sharePolicyQuery.isLoading}
-              isError={sharePolicyQuery.isError}
-              error={sharePolicyQuery.error}
-              pending={updateSharePolicy.isPending}
-              saveError={updateSharePolicy.isError}
-              dirty={sharePolicyDirty}
-              canManage={canManageSettings}
-              disabledReason={manageAccess.reason}
-              onChange={setSharePolicy}
               onReset={() => {
-                updateSharePolicy.reset();
-                setSharePolicyDraft(sharePolicyQuery.data ?? null);
+                updatePreferenceDefaults.reset();
+                resetPreferenceDefaults();
               }}
-              onSave={retrySharePolicy}
+              onSave={retryPreferenceDefaults}
             />
-          </SettingsSection>
-
-          <PreferenceDefaultsSection
-            value={preferenceDefaults}
-            dashboards={dashboardsQuery.data ?? []}
-            dirty={preferenceDefaultsDirty}
-            isLoading={preferenceDefaultsQuery.isLoading}
-            isError={preferenceDefaultsQuery.isError}
-            error={preferenceDefaultsQuery.error}
-            pending={updatePreferenceDefaults.isPending}
-            saveError={updatePreferenceDefaults.isError}
-            canManage={canManageSettings}
-            disabledReason={manageAccess.reason}
-            onChange={(patch) => {
-              updatePreferenceDefaults.reset();
-              setPreferenceDefaults((current) => ({
-                ...current,
-                ...patch,
-              }));
-            }}
-            onReset={() => {
-              updatePreferenceDefaults.reset();
-              resetPreferenceDefaults();
-            }}
-            onSave={retryPreferenceDefaults}
-          />
+          ) : null}
 
           <DangerZone />
         </SettingsGroupStack>

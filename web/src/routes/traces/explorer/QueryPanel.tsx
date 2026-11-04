@@ -16,6 +16,7 @@ import {
   QueryWorkbench,
   type QueryToolbarTab,
 } from '@/shell/query/Workbench';
+import { useQueryTabStrip } from '@/shell/queryTabs';
 import { WorkbenchTitle } from '@/shell/SurfaceWorkbench';
 
 import { traceBuilderDialect, traceBuilderFields } from '../builderDialect';
@@ -24,10 +25,11 @@ import {
   type TraceFieldDef,
   type TraceQueryMode,
 } from '../fieldQueryModel';
+import { describeTraceCondition } from '../inClause';
 import type { TraceTab } from './types';
 
 // The hint in an empty Code editor: a field query, or SQL on the next line.
-const FIELD_QUERY_HINT = 'trace_id = "..." / service_name contains "checkout"';
+const FIELD_QUERY_HINT = 'trace_id = "..." / service.name contains "checkout"';
 
 interface TraceQueryPanelProps {
   tab: TraceTab;
@@ -96,18 +98,22 @@ export function TraceQueryPanel({
   const runIfReady = () => {
     if (!running && canRun) onApplySearch();
   };
-  const isQueryTab = tab === 'spans' || tab === 'traces';
+  // Every view but the map is of the query, and shows it.
+  const isQueryTab = tab !== 'service-graph';
+  // The query tabs stand in the query box; over the map, which has none, in the bar.
+  const queryTabs = useQueryTabStrip();
   // SQL 检索函数（MATCH / MATCH_TEXT）由后端能力驱动，仅 SQL 模式注入（fields 走 q 全文搜索）。
   const sqlFunctions = useSqlFunctionCompletions();
 
   return (
     <QueryWorkbench
       appearance="surface"
-      className="mt-[6px] shrink-0"
-      inlineBody={isQueryTab && collapsed}
+      // The first card under the top bar, as far off it as the cards are off each other.
+      className="mt-[12px] shrink-0"
+      inlineBody={isQueryTab ? collapsed : queryTabs !== null}
       // No title row on this page: the bar carries the name and the row goes to the data.
       title={<WorkbenchTitle title={t('explore.title')} />}
-      {...(!isQueryTab ? { bodyClassName: 'hidden' } : {})}
+      {...(!isQueryTab && !queryTabs ? { bodyClassName: 'hidden' } : {})}
       toolbar={
         <>
           <QueryToolbarTabs
@@ -153,10 +159,16 @@ export function TraceQueryPanel({
         </>
       }
     >
+      {!isQueryTab && queryTabs && (
+        <div data-query-tab-blocks className="flex h-9 min-w-0 items-center">
+          {queryTabs}
+        </div>
+      )}
       {isQueryTab && (
         <>
           <QueryEditorFrame
             queryRef="A"
+            tabs={queryTabs}
             value={activeDraft}
             // One editor for both languages: what is typed says which it is.
             onChange={onCodeDraftChange}
@@ -209,6 +221,17 @@ export function TraceQueryPanel({
                   {filter.field} {filter.op} {filter.value}
                 </span>
               ))}
+              {(parsedQuery.where ? ('and' in parsedQuery.where ? parsedQuery.where.and : [parsedQuery.where]) : []).map(
+                (alternatives, index) => (
+                  <span
+                    key={`where-${index}`}
+                    data-trace-query-alternatives
+                    className="inline-flex h-6 items-center rounded-md bg-[var(--control-surface)] px-2 font-mono text-tx-1"
+                  >
+                    {describeTraceCondition(alternatives)}
+                  </span>
+                ),
+              )}
               {parsedQuery.rejected.map((item) => (
                 <span key={item} className="inline-flex h-6 items-center rounded-md bg-[var(--yellow-tint)] px-2 text-yellow">
                   {t('explore.query.ignored_label')} {item}

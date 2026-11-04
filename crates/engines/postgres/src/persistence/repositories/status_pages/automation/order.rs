@@ -49,7 +49,7 @@ pub(super) async fn reorder(
 
     let rows = sqlx::query(
         "UPDATE status_page_automation_rules rule
-         SET position=(ordered.position - 1)::INTEGER, updated_at_micros=$4
+         SET position=(ordered.position - 1)::INTEGER, updated_at=$4
          FROM UNNEST($3::TEXT[]) WITH ORDINALITY AS ordered(id, position)
          WHERE rule.organization_id=$1 AND rule.status_page_id=$2
            AND rule.lifecycle <> 'archived' AND rule.id=ordered.id",
@@ -57,7 +57,7 @@ pub(super) async fn reorder(
     .bind(&org_id.0)
     .bind(&page_id.0)
     .bind(ordered_ids)
-    .bind(updated_at.0)
+    .bind(updated_at)
     .execute(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?

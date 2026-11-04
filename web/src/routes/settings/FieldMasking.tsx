@@ -37,7 +37,7 @@ export function FieldMasking() {
   const { t } = useTranslation('settings-admin');
   const { t: tc } = useTranslation('common');
   const qc = useQueryClient();
-  const access = useActionAccess({ permission: 'org.settings.manage' });
+  const access = useActionAccess({ permission: 'org.field_masking.manage' });
   const [ordered, setOrdered] = React.useState<maskingApi.FieldMaskingRule[]>([]);
   const [draggedId, setDraggedId] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
@@ -167,9 +167,9 @@ export function FieldMasking() {
                     <div className="font-strong text-tx-0">{row.name}</div>
                   </TableCell>
                   <TableCell>
-                    <code className="text-xs text-tx-1">{row.field_pattern}</code>
+                    <code className="text-xs text-tx-1">{row.fieldPattern}</code>
                     <div className="mt-0.5 text-xs text-tx-3">
-                      {[row.stream_type, row.stream_pattern].filter(Boolean).join(' · ') || t('field_masking.all_streams')}
+                      {[row.streamType, row.streamPattern].filter(Boolean).join(' · ') || t('field_masking.all_streams')}
                     </div>
                   </TableCell>
                   <TableCell className="text-xs text-tx-1">
@@ -225,9 +225,9 @@ function RuleDrawer({
     if (!open) return;
     setName(editing?.name ?? '');
     setEnabled(editing?.enabled ?? true);
-    setFieldPattern(editing?.field_pattern ?? '');
-    setStreamPattern(editing?.stream_pattern ?? '');
-    setStreamType(editing?.stream_type ?? '');
+    setFieldPattern(editing?.fieldPattern ?? '');
+    setStreamPattern(editing?.streamPattern ?? '');
+    setStreamType(editing?.streamType ?? '');
     setAlgorithm(editing?.algorithm ?? defaultAlgorithm('full'));
   }, [editing, open]);
 
@@ -236,9 +236,9 @@ function RuleDrawer({
       const input: maskingApi.FieldMaskingRuleInput = {
         name,
         enabled,
-        field_pattern: fieldPattern,
-        stream_pattern: streamPattern || null,
-        stream_type: (streamType || null) as StreamType | null,
+        fieldPattern: fieldPattern,
+        streamPattern: streamPattern || null,
+        streamType: (streamType || null) as StreamType | null,
         algorithm,
       };
       return editing ? maskingApi.updateRule(editing.id, input) : maskingApi.createRule(input);

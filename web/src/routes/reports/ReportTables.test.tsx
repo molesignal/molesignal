@@ -25,12 +25,12 @@ vi.mock('@/product/actionAccess', async (importOriginal) => ({
 const REPORT: DisplayReport = adaptReport({
   id: 'r1',
   name: 'Weekly SLO',
-  dashboard_id: 'd1',
+  dashboardId: 'd1',
   format: 'pdf',
   enabled: true,
   recipients: [{ kind: 'email', target: 'sre@example.com' }],
-  run_as_user_id: 'u-dana',
-  run_as_user: { id: 'u-dana', display_name: 'Dana Reyes', email: 'dana@example.com' },
+  runAsUserId: 'u-dana',
+  runAsUser: { id: 'u-dana', displayName: 'Dana Reyes', email: 'dana@example.com' },
 });
 
 function renderTable() {
@@ -61,14 +61,13 @@ function renderTable() {
 beforeEach(() => {
   mocks.granted = new Set(['reports.schedule', 'reports.share']);
   useAuthStore.setState({
-    token: 'token',
-    ctx: { user_id: 'u-me', org_id: 'org-1', display_role: 'Editor', roles: [] },
+    ctx: { userId: 'u-me', orgId: 'org-1', displayRole: 'Editor', roles: [] },
   });
 });
 
 afterEach(() => {
   cleanup();
-  useAuthStore.setState({ token: null, ctx: null });
+  useAuthStore.setState({ ctx: null });
 });
 
 describe('ScheduleTable', () => {

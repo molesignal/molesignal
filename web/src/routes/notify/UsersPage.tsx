@@ -46,7 +46,7 @@ export function NotifyUsersPage() {
       row.preferences.find((value) => value.category === category),
       row.endpoints,
     );
-    return endpoint ? connectorName(connectorRows, endpoint.connector_id) : '—';
+    return endpoint ? connectorName(connectorRows, endpoint.connectorId) : '—';
   };
 
   return (
@@ -59,7 +59,7 @@ export function NotifyUsersPage() {
         <div className="overflow-x-auto">
           <DataTable
             rows={rows}
-            rowKey={(row) => row.user_id}
+            rowKey={(row) => row.userId}
             onRowClick={setSelected}
             columns={[
               {
@@ -69,11 +69,11 @@ export function NotifyUsersPage() {
                 cell: (row) => (
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-indigo-dim text-xs font-bold text-indigo-soft">
-                      {(row.display_name || row.email).slice(0, 1).toUpperCase()}
+                      {(row.displayName || row.email).slice(0, 1).toUpperCase()}
                     </span>
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold text-tx-0">
-                        {row.display_name || row.email}
+                        {row.displayName || row.email}
                       </div>
                       <div className="truncate text-xs text-tx-3">{row.email}</div>
                     </div>
@@ -91,7 +91,7 @@ export function NotifyUsersPage() {
                       : Array.from(
                           new Set(
                             row.endpoints.map((endpoint) =>
-                              connectorName(connectorRows, endpoint.connector_id),
+                              connectorName(connectorRows, endpoint.connectorId),
                             ),
                           ),
                         ).map((name) => <Pill key={name} tone="dim">{name}</Pill>)}
@@ -138,12 +138,12 @@ export function NotifyUsersPage() {
         onOpenChange={(open) => !open && setSelected(null)}
         width={980}
         title={t('users.drawer_title', {
-          name: selected?.display_name || selected?.email || '',
+          name: selected?.displayName || selected?.email || '',
         })}
         subtitle={t('users.drawer_subtitle')}
         footer={null}
       >
-        {selected && <UserNotifyPanel userId={selected.user_id} />}
+        {selected && <UserNotifyPanel userId={selected.userId} />}
       </FormDrawer>
     </>
   );

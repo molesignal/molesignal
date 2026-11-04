@@ -25,17 +25,17 @@ const DAY = 24 * HOUR;
 function component(id: string, overrides: Partial<StatusPageComponent> = {}): StatusPageComponent {
   return {
     id,
-    org_id: 'org',
-    status_page_id: 'page',
+    orgId: 'org',
+    statusPageId: 'page',
     name: id,
     description: '',
     status: 'operational',
     visibility: 'enabled',
     lifecycle: 'active',
     position: 0,
-    archived_at: null,
-    created_at: now,
-    updated_at: now,
+    archivedAt: null,
+    createdAt: now,
+    updatedAt: now,
     ...overrides,
   };
 }
@@ -43,22 +43,22 @@ function component(id: string, overrides: Partial<StatusPageComponent> = {}): St
 function event(id: string, overrides: Partial<StatusPageIncident> = {}): StatusPageIncident {
   return {
     id,
-    org_id: 'org',
-    status_page_id: 'page',
-    source_incident_id: null,
+    orgId: 'org',
+    statusPageId: 'page',
+    sourceIncidentId: null,
     kind: 'incident',
     title: id,
     impact: 'major',
     status: 'investigating',
-    publication_state: 'published',
-    draft_message: null,
-    component_ids: ['API'],
+    publicationState: 'published',
+    draftMessage: null,
+    componentIds: ['API'],
     updates: [],
-    started_at: now - 38 * MINUTE,
-    ended_at: null,
-    published_at: now - 38 * MINUTE,
-    created_at: now - 38 * MINUTE,
-    updated_at: now - 12 * MINUTE,
+    startedAt: now - 38 * MINUTE,
+    endedAt: null,
+    publishedAt: now - 38 * MINUTE,
+    createdAt: now - 38 * MINUTE,
+    updatedAt: now - 12 * MINUTE,
     ...overrides,
   };
 }
@@ -68,17 +68,20 @@ function renderOverview(snapshot: Partial<StatusPageSnapshot>, allowed = true) {
     pageId: 'page',
     snapshot: {
       page: { lifecycle: 'active' },
-      overall_status: 'operational',
+      overallStatus: 'operational',
       components: [component('API'), component('Dashboard', { position: 1 }), component('Billing', { position: 2 })],
-      component_status_events: [],
-      active_incidents: [],
-      scheduled_maintenance: [],
+      componentStatusEvents: [],
+      activeIncidents: [],
+      scheduledMaintenance: [],
       history: [],
-      updated_at: now - 12 * MINUTE,
-      generated_at: now,
+      updatedAt: now - 12 * MINUTE,
+      generatedAt: now,
       ...snapshot,
     },
     manageAccess: { allowed, disabled: !allowed, reason: allowed ? undefined : 'No access' },
+    eventsAccess: { allowed, disabled: !allowed, reason: allowed ? undefined : 'No access' },
+    subscribersAccess: { allowed, disabled: !allowed, reason: allowed ? undefined : 'No access' },
+    automationAccess: { allowed, disabled: !allowed, reason: allowed ? undefined : 'No access' },
   } as unknown as ReturnType<typeof useStatusPageWorkspace>);
 
   return render(
@@ -100,17 +103,17 @@ describe('StatusPageOverview', () => {
 
   it('opens with what customers see: the verdict, what it rests on, how the components divide', () => {
     const { container } = renderOverview({
-      overall_status: 'partial_outage',
-      active_incidents: [
+      overallStatus: 'partial_outage',
+      activeIncidents: [
         event('API errors', {
           updates: [
-            { id: 'u1', org_id: 'org', status_page_id: 'page', incident_id: 'API errors', status: 'investigating', message: 'Looking into it.', created_at: now - 38 * MINUTE },
-            { id: 'u2', org_id: 'org', status_page_id: 'page', incident_id: 'API errors', status: 'identified', message: 'Rolling the change back.', created_at: now - 12 * MINUTE },
+            { id: 'u1', orgId: 'org', statusPageId: 'page', incidentId: 'API errors', status: 'investigating', message: 'Looking into it.', createdAt: now - 38 * MINUTE },
+            { id: 'u2', orgId: 'org', statusPageId: 'page', incidentId: 'API errors', status: 'identified', message: 'Rolling the change back.', createdAt: now - 12 * MINUTE },
           ],
         }),
       ],
-      scheduled_maintenance: [
-        event('Export move', { kind: 'maintenance', impact: 'maintenance', status: 'scheduled', component_ids: ['Billing'], started_at: now + 2 * DAY }),
+      scheduledMaintenance: [
+        event('Export move', { kind: 'maintenance', impact: 'maintenance', status: 'scheduled', componentIds: ['Billing'], startedAt: now + 2 * DAY }),
       ],
     });
 
@@ -140,8 +143,8 @@ describe('StatusPageOverview', () => {
 
   it('sends maintenance that is under way to the maintenance tab, not to the incidents', () => {
     renderOverview({
-      overall_status: 'maintenance',
-      active_incidents: [
+      overallStatus: 'maintenance',
+      activeIncidents: [
         event('Database upgrade', { kind: 'maintenance', impact: 'maintenance', status: 'in_progress' }),
       ],
     });
@@ -171,8 +174,8 @@ describe('StatusPageOverview', () => {
       history: Array.from({ length: 6 }, (_, index) =>
         event(`Ended ${index + 1}`, {
           status: 'resolved',
-          started_at: now - (index + 1) * DAY - 2 * HOUR,
-          ended_at: now - (index + 1) * DAY,
+          startedAt: now - (index + 1) * DAY - 2 * HOUR,
+          endedAt: now - (index + 1) * DAY,
         }),
       ),
     });

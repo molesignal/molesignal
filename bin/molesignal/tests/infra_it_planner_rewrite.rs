@@ -183,6 +183,7 @@ async fn cte_union_subquery_isolated_per_org() {
                 stream_type: StreamType::LOGS,
             }),
             limit: None,
+            step: None,
             federation_clusters: Vec::new(),
         }
     }

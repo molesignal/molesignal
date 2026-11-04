@@ -13,12 +13,12 @@ describe('Mole Agent investigation presentation', () => {
     expect(
       parseInvestigationEvidence([
         {
-          tool_call_id: 'call-1',
+          toolCallId: 'call-1',
           tool: 'list_recent_alerts',
           status: 'success',
           summary: '0 rows',
-          row_count: 0,
-          took_ms: 64,
+          rowCount: 0,
+          tookMs: 64,
           arguments: { severity: 'critical' },
         },
       ]),

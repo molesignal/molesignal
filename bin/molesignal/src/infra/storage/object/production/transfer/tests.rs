@@ -160,10 +160,10 @@ impl MultipartUpload for RecordingUpload {
 
 fn settings() -> ObjectStoreSettings {
     ObjectStoreSettings {
-        multipart_threshold_mb: 1,
-        multipart_part_size_mb: 1,
-        range_threshold_mb: 1,
-        range_chunk_mb: 1,
+        multipart_threshold_size: 1,
+        multipart_part_size: 1,
+        range_threshold_size: 1,
+        range_chunk_size: 1,
         ..ObjectStoreSettings::default()
     }
 }
@@ -206,7 +206,7 @@ async fn payload_at_threshold_uploads_in_parts() {
         assert_eq!(
             calls.uploads,
             vec![vec![MIB_USIZE, MIB_USIZE, 512 * KIB]],
-            "parts follow multipart_part_size_mb"
+            "parts follow multipart_part_size"
         );
     }
     let stored = store.get(&path).await.unwrap().bytes().await.unwrap();
@@ -439,7 +439,7 @@ async fn get_ranges_splits_only_the_large_ranges() {
             Some(GetRange::Bounded(range)) => range.end - range.start <= MIB_USIZE as u64,
             _ => false,
         }),
-        "no backend request exceeds range_chunk_mb: {gets:?}"
+        "no backend request exceeds range_chunk_size: {gets:?}"
     );
 }
 

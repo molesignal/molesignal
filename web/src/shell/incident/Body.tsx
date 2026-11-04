@@ -10,9 +10,21 @@ import {
 import { useUsers } from '@/shell/useUsers';
 import type { AlertRule, Incident } from '@/types/alerting';
 
-import { IncidentCourse } from './Course';
+import { IncidentBlastRadius } from './BlastRadius';
+import { IncidentExternalAlert } from './ExternalAlert';
+import { IncidentHandlingNote } from './HandlingNote';
+import { InhibitionNote } from './InhibitionNote';
+import { IncidentMajor } from './MajorIncident';
+import { manualCreatorOf } from './origin';
+import { IncidentPostmortem } from './Postmortem';
 import { IncidentRcaSection } from './Rca';
+import { IncidentChanges, IncidentSimilar } from './Related';
+import { IncidentRemediation } from './Remediation';
+import { IncidentTeam } from './Routing';
+import { IncidentRumSessions } from './RumSessions';
 import { IncidentSection, KvBlock, SignalRow } from './Section';
+import { IncidentTickets } from './Tickets';
+import { IncidentTimelineView } from './Timeline';
 import { TriggeringQueryBlock } from './TriggeringQuery';
 
 /**
@@ -38,12 +50,16 @@ export function IncidentBody({
   const surface = layout === 'page';
   const timeWindow = React.useMemo(() => buildIncidentTimeWindow(incident), [incident]);
   const hasSignals =
-    incident.trace_ids.length > 0 || incident.host_ids.length > 0 || incident.affected_services.length > 0;
+    incident.traceIds.length > 0 || incident.hostIds.length > 0 || incident.affectedServices.length > 0;
   const hasInvestigationContext = Boolean(
-    incident.triggering_query || hasSignals || incident.labels.service || incident.labels.svc,
+    incident.triggeringQuery || hasSignals || incident.labels.service || incident.labels.svc,
   );
   const hasLabels = Object.keys(incident.labels).length > 0;
   const hasAnnotations = Object.keys(incident.annotations).length > 0;
+  const creator = manualCreatorOf(incident);
+  const annotations = creator?.userId
+    ? { ...incident.annotations, created_by: users.nameOf(creator.userId) }
+    : incident.annotations;
 
   const course = (
     <IncidentSection
@@ -51,9 +67,14 @@ export function IncidentBody({
       icon={<Workflow className="h-3.5 w-3.5" />}
       surface={surface}
     >
-      <IncidentCourse incident={incident} />
+      <InhibitionNote incident={incident} />
+      <IncidentTimelineView incident={incident} />
     </IncidentSection>
   );
+  // The sessions that tell an incident of a RUM rule; nothing for any other.
+  const rumSessions = <IncidentRumSessions incident={incident} rule={rule} surface={surface} />;
+  // What the sender said of an incident an alert source opened; nothing for any other.
+  const external = <IncidentExternalAlert incident={incident} surface={surface} />;
   const investigation = hasInvestigationContext && (
     <IncidentSection
       title={t('drawer.incident_sections.investigation')}
@@ -64,25 +85,32 @@ export function IncidentBody({
     </IncidentSection>
   );
   const analysis = <IncidentRcaSection incidentId={incident.id} surface={surface} />;
+  const blastRadius = <IncidentBlastRadius incident={incident} surface={surface} />;
+  const similar = <IncidentSimilar incident={incident} surface={surface} />;
+  const changes = <IncidentChanges incident={incident} surface={surface} />;
+  const remediation = <IncidentRemediation incident={incident} surface={surface} />;
+  const major = <IncidentMajor incident={incident} surface={surface} />;
+  const postmortem = <IncidentPostmortem incident={incident} surface={surface} />;
+  const tickets = <IncidentTickets incident={incident} surface={surface} />;
   const signals = hasSignals && (
     <IncidentSection
       title={t('drawer.incident_sections.signals')}
       icon={<Hash className="h-3.5 w-3.5" />}
       surface={surface}
     >
-      {incident.affected_services.length > 0 && (
+      {incident.affectedServices.length > 0 && (
         <SignalRow
           label={t('drawer.signals.services')}
-          items={incident.affected_services}
+          items={incident.affectedServices}
           type="service"
           time={timeWindow}
         />
       )}
-      {incident.trace_ids.length > 0 && (
-        <SignalRow label={t('drawer.signals.traces')} items={incident.trace_ids} type="trace_id" time={timeWindow} />
+      {incident.traceIds.length > 0 && (
+        <SignalRow label={t('drawer.signals.traces')} items={incident.traceIds} type="trace_id" time={timeWindow} />
       )}
-      {incident.host_ids.length > 0 && (
-        <SignalRow label={t('drawer.signals.hosts')} items={incident.host_ids} type="host" time={timeWindow} />
+      {incident.hostIds.length > 0 && (
+        <SignalRow label={t('drawer.signals.hosts')} items={incident.hostIds} type="host" time={timeWindow} />
       )}
     </IncidentSection>
   );
@@ -93,16 +121,16 @@ export function IncidentBody({
       surface={surface}
     >
       {hasLabels && <KvBlock label={t('drawer.labels.title')} entries={incident.labels} />}
-      {hasAnnotations && <KvBlock label={t('drawer.annotations.title')} entries={incident.annotations} />}
+      {hasAnnotations && <KvBlock label={t('drawer.annotations.title')} entries={annotations} />}
     </IncidentSection>
   );
-  const query = incident.triggering_query && (
+  const query = incident.triggeringQuery && (
     <IncidentSection
       title={t('drawer.incident_sections.triggering_query')}
       icon={<Server className="h-3.5 w-3.5" />}
       surface={surface}
     >
-      <TriggeringQueryBlock query={incident.triggering_query} />
+      <TriggeringQueryBlock query={incident.triggeringQuery} />
     </IncidentSection>
   );
   const assignees = (
@@ -122,6 +150,8 @@ export function IncidentBody({
           ))}
         </ul>
       )}
+      <IncidentTeam incident={incident} />
+      <IncidentHandlingNote incident={incident} />
     </IncidentSection>
   );
 
@@ -129,8 +159,17 @@ export function IncidentBody({
     return (
       <div className="flex flex-col gap-5">
         {course}
+        {major}
+        {external}
+        {rumSessions}
         {investigation}
         {analysis}
+        {changes}
+        {remediation}
+        {tickets}
+        {postmortem}
+        {blastRadius}
+        {similar}
         {signals}
         {metadata}
         {query}
@@ -147,12 +186,21 @@ export function IncidentBody({
       {/* What happened and how to look into it. */}
       <div className="grid min-w-0 gap-[12px]">
         {course}
+        {major}
+        {external}
+        {rumSessions}
         {investigation}
         {query}
         {analysis}
+        {changes}
+        {remediation}
       </div>
       {/* What the incident is: what it touches, what it carries, who has it. */}
       <div className="grid min-w-0 gap-[12px]">
+        {tickets}
+        {postmortem}
+        {blastRadius}
+        {similar}
         {signals}
         {metadata}
         {assignees}

@@ -1,23 +1,95 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
-use super::preference::NotifyCategory;
+use super::{connector::NotifyChannel, preference::NotifyCategory};
 use crate::shared::ids::Id;
 
 mod presets;
 
-pub use presets::notify_template_preset_catalog;
+pub use presets::{
+    NOTIFY_TEMPLATE_PRESET_LANGUAGE_PREFIX, notify_template_preset_catalog, notify_template_presets,
+};
 
 /// Notify 引擎消费的品牌无关模板投影。
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NotifyTemplate {
     pub id: Id,
     pub organization_id: Id,
     pub category: NotifyCategory,
+    /// 用在哪个渠道；空着是通用模板，哪个渠道都能用。
+    pub channel: Option<NotifyChannel>,
     pub body: String,
     pub format: String,
+    /// 服务商审核过的模板，按服务商的名字（阿里云是 `aliyun`）。只有短信与电话模板有。
+    pub provider_templates: BTreeMap<String, ProviderTemplate>,
+    /// 即时通讯的 App 与群机器人发成的卡片。只有即时通讯模板有；没有时照旧发文本。
+    pub card: Option<NotifyCard>,
+}
+
+/// 即时通讯的 App 与群机器人发的卡片：标题、标题的颜色、字段与链接按钮，正文是模板的正文。飞书、钉钉、
+/// 企业微信、Slack、Teams、Google Chat 各按自己的卡片发出。各处都可以用占位符；字段的值与链接的地址填不
+/// 出来时，这个字段或链接不显示。
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NotifyCard {
+    /// 卡片的标题；空着用通知的标题。
+    #[serde(default)]
+    pub title: String,
+    #[serde(default)]
+    pub color: NotifyCardColor,
+    #[serde(default)]
+    pub fields: Vec<NotifyCardField>,
+    #[serde(default)]
+    pub links: Vec<NotifyCardLink>,
+    /// 卡片最下面的一行小字。
+    #[serde(default)]
+    pub note: String,
+}
+
+/// 卡片标题的颜色。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NotifyCardColor {
+    /// 按告警的严重度：严重是红、错误是橙、警告是黄，其余是蓝；恢复了是绿。
+    #[default]
+    Severity,
+    Blue,
+    Green,
+    Yellow,
+    Orange,
+    Red,
+    Grey,
+}
+
+/// 卡片上的一个字段：名称与值。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NotifyCardField {
+    pub label: String,
+    pub value: String,
+}
+
+/// 卡片上的一个链接按钮：文字与地址。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NotifyCardLink {
+    pub label: String,
+    pub url: String,
+}
+
+/// 服务商审核过的一个模板：阿里云的短信与语音只发这种。`code` 是服务商给的模板编号，`params` 是模板
+/// 里每个变量填什么，写法与正文一样，可以用占位符。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderTemplate {
+    pub code: String,
+    #[serde(default)]
+    pub params: BTreeMap<String, String>,
+    /// 每个变量最多填多少个字，多出的截掉；空着用服务商的默认上限。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_param_chars: Option<u32>,
 }
 
 /// 模板字段在编辑器中的分组。
@@ -31,6 +103,7 @@ pub enum NotifyTemplateFieldGroup {
     Trigger,
     Labels,
     Annotations,
+    Escalation,
     Schedule,
     Oncall,
     Override,
@@ -38,6 +111,7 @@ pub enum NotifyTemplateFieldGroup {
 
 /// 一个可插入的模板字段。`key` 是前端 i18n 的稳定标识。
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NotifyTemplateField {
     pub key: String,
     pub token: String,
@@ -47,11 +121,14 @@ pub struct NotifyTemplateField {
     pub event_types: Vec<String>,
 }
 
-/// 编辑器可直接套用的模板预设。
+/// 编辑器可直接套用的模板预设。`channel` 空着的是通用模板的预设；`event_type` 是照着哪种事件写的，
+/// 编辑器按它预览。
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NotifyTemplatePreset {
     pub key: String,
     pub category: NotifyCategory,
+    pub channel: Option<NotifyChannel>,
     pub event_type: String,
     pub format: String,
     pub body: String,
@@ -79,12 +156,13 @@ fn field(
 ///
 /// 告警模板使用 `rule.*`、`incident.*`、`evaluated_at` 等正式占位符；
 /// 值班排班使用 `schedule.*`、`oncall.*` 与 `override.*`。所有类别都可
-/// 使用通用 `event.*` / `message.*` 字段。
+/// 使用通用 `event.*` / `message.*` 字段。名字以 `_at` 结尾的是微秒时间戳，
+/// 以 `_time` 结尾的是写给人看的时间（UTC）。
 pub fn notify_template_field_catalog() -> Vec<NotifyTemplateField> {
     use NotifyCategory::{Alert, Escalation, Oncall, Report, Security, System};
     use NotifyTemplateFieldGroup::{
-        Annotations, Event, Incident, Labels, Message, Oncall as OncallGroup, Override, Rule,
-        Schedule, Trigger,
+        Annotations, Escalation as EscalationGroup, Event, Incident, Labels, Message,
+        Oncall as OncallGroup, Override, Rule, Schedule, Trigger,
     };
 
     let all = [Alert, Oncall, Escalation, Report, Security, System];
@@ -95,6 +173,7 @@ pub fn notify_template_field_catalog() -> Vec<NotifyTemplateField> {
         "alert.acknowledged",
         "alert.resolved",
         "alert.escalated",
+        "incident.status_update",
     ];
 
     let oncall_events = [
@@ -102,6 +181,8 @@ pub fn notify_template_field_catalog() -> Vec<NotifyTemplateField> {
         "oncall.shift.started",
         "oncall.override.created",
         "oncall.coverage.missing",
+        "oncall.swap.updated",
+        "oncall.member.unreachable",
     ];
 
     vec![
@@ -127,6 +208,14 @@ pub fn notify_template_field_catalog() -> Vec<NotifyTemplateField> {
             Event,
             &all,
             "1785283200000000",
+            &[],
+        ),
+        field(
+            "event_time",
+            "{{event.time}}",
+            Event,
+            &all,
+            "2026-07-29 00:00:00 UTC",
             &[],
         ),
         field(
@@ -210,11 +299,131 @@ pub fn notify_template_field_catalog() -> Vec<NotifyTemplateField> {
             &alert_events,
         ),
         field(
+            "incident_url",
+            "{{incident.url}}",
+            Incident,
+            &alert_categories,
+            "https://molesignal.example.com/alerts/incidents/inc_01H...",
+            &alert_events,
+        ),
+        field(
+            "incident_started_time",
+            "{{incident.started_time}}",
+            Incident,
+            &alert_categories,
+            "2026-07-28 23:55:00 UTC",
+            &alert_events,
+        ),
+        field(
+            "incident_duration",
+            "{{incident.duration}}",
+            Incident,
+            &alert_categories,
+            "1h 5m",
+            &alert_events,
+        ),
+        field(
+            "incident_acknowledged_time",
+            "{{incident.acknowledged_time}}",
+            Incident,
+            &alert_categories,
+            "2026-07-29 00:10:00 UTC",
+            &["alert.acknowledged", "alert.resolved"],
+        ),
+        field(
+            "incident_acknowledged_by",
+            "{{incident.acknowledged_by}}",
+            Incident,
+            &alert_categories,
+            "user_01H...",
+            &["alert.acknowledged", "alert.resolved"],
+        ),
+        field(
+            "incident_resolved_time",
+            "{{incident.resolved_time}}",
+            Incident,
+            &alert_categories,
+            "2026-07-29 01:00:00 UTC",
+            &["alert.resolved"],
+        ),
+        field(
+            "incident_resolved_by",
+            "{{incident.resolved_by}}",
+            Incident,
+            &alert_categories,
+            "user_01H...",
+            &["alert.resolved"],
+        ),
+        field(
+            "incident_assignees",
+            "{{incident.assignees}}",
+            Incident,
+            &alert_categories,
+            "user_01H..., user_01J...",
+            &alert_events,
+        ),
+        field(
+            "service",
+            "{{service}}",
+            Incident,
+            &alert_categories,
+            "api",
+            &alert_events,
+        ),
+        field(
+            "environment",
+            "{{environment}}",
+            Incident,
+            &alert_categories,
+            "production",
+            &alert_events,
+        ),
+        field(
+            "affected_services",
+            "{{affected_services}}",
+            Incident,
+            &alert_categories,
+            "api, checkout",
+            &alert_events,
+        ),
+        field(
             "severity",
             "{{severity}}",
             Incident,
             &alert_categories,
             "critical",
+            &alert_events,
+        ),
+        field(
+            "urgency",
+            "{{urgency}}",
+            Incident,
+            &alert_categories,
+            "high",
+            &alert_events,
+        ),
+        field(
+            "priority",
+            "{{priority}}",
+            Incident,
+            &alert_categories,
+            "P2",
+            &alert_events,
+        ),
+        field(
+            "urgency_name",
+            "{{urgency_name}}",
+            Incident,
+            &alert_categories,
+            "Business hours",
+            &alert_events,
+        ),
+        field(
+            "priority_name",
+            "{{priority_name}}",
+            Incident,
+            &alert_categories,
+            "Major",
             &alert_events,
         ),
         field(
@@ -242,6 +451,14 @@ pub fn notify_template_field_catalog() -> Vec<NotifyTemplateField> {
             &alert_events,
         ),
         field(
+            "labels_all",
+            "{{labels}}",
+            Labels,
+            &alert_categories,
+            "service=api, env=production",
+            &alert_events,
+        ),
+        field(
             "labels_key",
             "{{labels.<key>}}",
             Labels,
@@ -256,6 +473,55 @@ pub fn notify_template_field_catalog() -> Vec<NotifyTemplateField> {
             &alert_categories,
             "{{annotations.runbook_url}}",
             &alert_events,
+        ),
+        // 收回复的短信发出时才填上（见 `notify::reply`），别处原样留下。
+        field(
+            "reply_ack",
+            "{{reply.ack}}",
+            Incident,
+            &alert_categories,
+            "31",
+            &["alert.triggered", "alert.escalated"],
+        ),
+        field(
+            "reply_resolve",
+            "{{reply.resolve}}",
+            Incident,
+            &alert_categories,
+            "32",
+            &["alert.triggered", "alert.escalated"],
+        ),
+        field(
+            "escalation_step",
+            "{{escalation.step}}",
+            EscalationGroup,
+            &[Escalation],
+            "2",
+            &["alert.escalated"],
+        ),
+        field(
+            "escalation_loop",
+            "{{escalation.loop}}",
+            EscalationGroup,
+            &[Escalation],
+            "1",
+            &["alert.escalated"],
+        ),
+        field(
+            "escalation_target",
+            "{{escalation.target}}",
+            EscalationGroup,
+            &[Escalation],
+            "schedule",
+            &["alert.escalated"],
+        ),
+        field(
+            "escalation_reason",
+            "{{escalation.reason}}",
+            EscalationGroup,
+            &[Escalation],
+            "step",
+            &["alert.escalated"],
         ),
         field(
             "schedule_id",
@@ -314,6 +580,14 @@ pub fn notify_template_field_catalog() -> Vec<NotifyTemplateField> {
             &["oncall.shift.starting", "oncall.shift.started"],
         ),
         field(
+            "oncall_transition_time",
+            "{{oncall.transition_time}}",
+            OncallGroup,
+            &[Oncall],
+            "2026-07-29 00:30:00 UTC",
+            &["oncall.shift.starting", "oncall.shift.started"],
+        ),
+        field(
             "override_id",
             "{{override.id}}",
             Override,
@@ -354,6 +628,22 @@ pub fn notify_template_field_catalog() -> Vec<NotifyTemplateField> {
             &["oncall.override.created"],
         ),
         field(
+            "override_start_time",
+            "{{override.start_time}}",
+            Override,
+            &[Oncall],
+            "2026-07-29 00:00:00 UTC",
+            &["oncall.override.created"],
+        ),
+        field(
+            "override_end_time",
+            "{{override.end_time}}",
+            Override,
+            &[Oncall],
+            "2026-07-29 02:00:00 UTC",
+            &["oncall.override.created"],
+        ),
+        field(
             "override_reason",
             "{{override.reason}}",
             Override,
@@ -386,7 +676,7 @@ mod tests {
                 .iter()
                 .any(|field| field.token == "{{override.reason}}")
         );
-        let presets = notify_template_preset_catalog();
+        let presets = notify_template_presets();
         for category in [
             NotifyCategory::Alert,
             NotifyCategory::Oncall,
@@ -406,5 +696,21 @@ mod tests {
                 );
             }
         }
+
+        let keys = presets
+            .iter()
+            .map(|preset| preset.key.as_str())
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(keys.len(), presets.len(), "preset keys are unique");
+
+        assert!(
+            presets
+                .iter()
+                .filter(|preset| matches!(
+                    preset.channel,
+                    Some(NotifyChannel::Sms | NotifyChannel::Phone)
+                ))
+                .all(|preset| preset.format == "text")
+        );
     }
 }

@@ -36,7 +36,7 @@ export function ReportRenderFrame() {
   const { t } = useTranslation(['common', 'iam']);
   const [search] = useSearchParams();
   const location = useLocation();
-  const token = useAuthStore((state) => state.token);
+  const signedIn = useAuthStore((state) => Boolean(state.ctx));
   const access = useProductAccess();
   const setLanguage = useThemeStore((state) => state.setLanguage);
   const timezone = reportTimezone(search);
@@ -44,7 +44,7 @@ export function ReportRenderFrame() {
   const preferencesQuery = useQuery({
     queryKey: USER_PREFERENCES_QUERY_KEY,
     queryFn: () => meApi.preferences(),
-    enabled: Boolean(token),
+    enabled: signedIn,
     staleTime: 5 * 60_000,
   });
   const preferences = preferencesQuery.data;
@@ -65,8 +65,8 @@ export function ReportRenderFrame() {
     const formats = preferences ?? meApi.DEFAULT_USER_PREFERENCES;
     setActiveTimePreference(
       timezone ?? formats.timezone,
-      formats.time_format,
-      formats.date_format,
+      formats.timeFormat,
+      formats.dateFormat,
     );
     setPersonalized(true);
   }, [preferences, preferencesSettled, setLanguage, timezone]);

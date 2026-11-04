@@ -11,7 +11,7 @@ export function Alerts() {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const createAccess = useActionAccess({ permission: 'alerts.manage' });
+  const createAccess = useActionAccess({ permission: 'alerts.rules.manage' });
 
   React.useEffect(() => {
     if (searchParams.get('create') === '1' && createAccess.allowed) {

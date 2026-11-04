@@ -13,23 +13,23 @@ import {
 function agent(id: string, status: ProbeAgent['status'], available: number): ProbeAgent {
   return {
     id,
-    location_id: id === 'edge' ? 'private-sg' : 'builtin-local',
+    locationId: id === 'edge' ? 'private-sg' : 'builtin-local',
     name: id,
     hostname: `${id}.example.test`,
     status,
-    agent_version: '0.1.0',
-    protocol_version: 1,
+    agentVersion: '0.1.0',
+    protocolVersion: 1,
     capabilities: ['http'],
     capacity: {
-      max_concurrent: 8,
-      max_browser_concurrent: 2,
+      maxConcurrent: 8,
+      maxBrowserConcurrent: 2,
       available,
-      available_browser: Math.min(available, 2),
+      availableBrowser: Math.min(available, 2),
     },
     labels: { region: id === 'edge' ? 'sg' : 'local' },
-    last_result_sequence: 0,
-    created_at: 1,
-    updated_at: 1,
+    lastResultSequence: 0,
+    createdAt: 1,
+    updatedAt: 1,
   };
 }
 
@@ -43,18 +43,18 @@ function location(id: string, name: string): ProbeLocation {
     execution: id === 'builtin-local' ? 'embedded' : 'agent_pool',
     lifecycle: 'active',
     health: 'online',
-    system_managed: id === 'builtin-local',
-    egress_policy: {
-      allowed_cidrs: [],
-      denied_cidrs: [],
-      allowed_domains: [],
-      denied_domains: [],
-      allowed_ports: [],
-      allow_private_networks: false,
-      allow_loopback: false,
+    systemManaged: id === 'builtin-local',
+    egressPolicy: {
+      allowedCidrs: [],
+      deniedCidrs: [],
+      allowedDomains: [],
+      deniedDomains: [],
+      allowedPorts: [],
+      allowPrivateNetworks: false,
+      allowLoopback: false,
     },
-    created_at: 1,
-    updated_at: 1,
+    createdAt: 1,
+    updatedAt: 1,
   };
 }
 

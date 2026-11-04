@@ -2,12 +2,19 @@ import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 
 const TABS = [
   ['Insights', '/alerts/insights'],
+  ['Discovery', '/alerts/discovery'],
   ['Incidents', '/alerts/incidents'],
   ['Rules', '/alerts/rules'],
+  ['Sources', '/alerts/sources'],
   ['History', '/alerts/history'],
+  ['Postmortems', '/alerts/postmortems'],
   ['Silence policies', '/alerts/silences'],
+  ['Inhibition', '/alerts/inhibitions'],
+  ['Routing', '/alerts/routing'],
   ['Escalations', '/alerts/escalations'],
   ['On-call schedules', '/alerts/schedules'],
+  ['Remediation', '/alerts/remediation'],
+  ['Tickets', '/alerts/tickets'],
   ['Groups', '/alerts/semantic-groups'],
 ] as const;
 
@@ -68,7 +75,10 @@ test.describe('alerts', () => {
 
     await views.getByRole('button', { name: /^Disabled/ }).click();
     await expect(page.locator('tbody tr')).toHaveCount(1);
-    await expect(page.getByTestId('page-header').getByRole('button')).toHaveCount(1);
+    const actions = page.getByTestId('page-header').getByRole('button');
+    await expect(actions).toHaveCount(2);
+    await expect(actions.nth(0)).toHaveAccessibleName('Import/export');
+    await expect(actions.nth(1)).toHaveAccessibleName('New rule');
   });
 
   test('says how each silence and each escalation stands', async ({ page }) => {
@@ -84,7 +94,7 @@ test.describe('alerts', () => {
 
   test('opens an incident beside the list, and on a page of its own', async ({ page }) => {
     await page.goto('/alerts/incidents');
-    await page.locator('tbody tr').first().click();
+    await page.getByRole('row', { name: /Public API answers 16% of requests with 502/ }).click();
     await expect(page.getByRole('dialog')).toContainText(
       'Public API answers 16% of requests with 502',
     );

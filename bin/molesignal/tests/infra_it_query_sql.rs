@@ -148,11 +148,13 @@ async fn count_and_aggregate_round_trip() {
                 stream_type: StreamType::LOGS,
             }),
             limit: None,
+            step: None,
             federation_clusters: Vec::new(),
         })
         .await
         .expect("execute count");
-    assert_eq!(res.scanned_rows, 3);
+    // 文件整体落在时间窗内：行数直接取自 Catalog，不扫描。
+    assert_eq!(res.scanned_rows, 0);
     assert_eq!(res.columns, vec!["cnt"]);
     assert_eq!(res.rows.len(), 1);
     assert_eq!(res.rows[0][0], 3);
@@ -172,6 +174,7 @@ async fn count_and_aggregate_round_trip() {
                     stream_type: StreamType::LOGS,
                 }),
                 limit: None,
+                step: None,
                 federation_clusters: Vec::new(),
             })
             .await
@@ -195,6 +198,7 @@ async fn count_and_aggregate_round_trip() {
                 stream_type: StreamType::LOGS,
             }),
             limit: None,
+            step: None,
             federation_clusters: Vec::new(),
         })
         .await
@@ -220,13 +224,14 @@ async fn max_scan_rows_rejects_queries_that_read_too_many_rows() {
     let request = || QueryRequest {
         org_id: org.clone(),
         language: QueryLanguage::Sql,
-        statement: "SELECT COUNT(*) AS cnt FROM app".into(),
+        statement: "SELECT * FROM app".into(),
         time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(10_000_000)),
         stream: Some(StreamHint {
             name: "app".into(),
             stream_type: StreamType::LOGS,
         }),
         limit: None,
+        step: None,
         federation_clusters: Vec::new(),
     };
 
@@ -332,6 +337,7 @@ fn match_text_request(org: &Id, statement: &str) -> QueryRequest {
             stream_type: StreamType::LOGS,
         }),
         limit: None,
+        step: None,
         federation_clusters: Vec::new(),
     }
 }

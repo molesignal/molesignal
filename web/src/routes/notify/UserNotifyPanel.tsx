@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Check, Pencil, Plus, Send, Trash2 } from 'lucide-react';
+import { Check, Pencil, Plus, Send, Trash2 } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -8,21 +8,20 @@ import * as notifyApi from '@/api/notify';
 import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
 import { ProductState } from '@/product/states';
-import { ChromeButton, IconButton, Pill } from '@/shell/chrome';
-import { FormField, FormInput } from '@/shell/FormDrawer';
+import { ChromeButton, IconButton, Pill, uiSectionTitleClass } from '@/shell/chrome';
 import { toast } from '@/shell/ui/sonner';
-import { Switch } from '@/shell/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/shell/ui/tooltip';
 
 import { EndpointEditor } from './EndpointEditor';
 import { connectorName } from './model';
+import { PreferenceSection } from './PreferenceSection';
 
 const CATEGORIES: notifyApi.NotifyCategory[] = ['alert', 'oncall', 'report'];
 
 export function UserNotifyPanel({ userId }: { userId: string }) {
   const { t } = useTranslation('notify');
   const qc = useQueryClient();
-  const verifyAccess = useActionAccess({ permission: 'org.members.manage' });
+  const verifyAccess = useActionAccess({ permission: 'org.members.update' });
   const [editorOpen, setEditorOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<notifyApi.UserNotifyEndpoint | null>(null);
   const [removing, setRemoving] = React.useState<notifyApi.UserNotifyEndpoint | null>(null);
@@ -83,9 +82,9 @@ export function UserNotifyPanel({ userId }: { userId: string }) {
   return (
     <div className="space-y-8">
       <section>
-        <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-tx-0">{t('endpoints.title')}</h3>
+            <h3 className={uiSectionTitleClass}>{t('endpoints.title')}</h3>
             <p className="mt-1 text-xs leading-relaxed text-tx-2">{t('endpoints.description')}</p>
           </div>
           <ChromeButton
@@ -107,10 +106,10 @@ export function UserNotifyPanel({ userId }: { userId: string }) {
             <div key={endpoint.id} className="flex min-h-16 items-center gap-3 px-3 py-3">
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-semibold text-tx-0">
-                  {endpoint.display_name ?? connectorName(connectorRows, endpoint.connector_id)}
+                  {endpoint.displayName ?? connectorName(connectorRows, endpoint.connectorId)}
                 </div>
                 <div className="mt-0.5 truncate font-mono text-xs text-tx-2">
-                  {endpoint.external_identity}
+                  {endpoint.externalIdentity}
                 </div>
               </div>
               <Pill tone={endpoint.verified ? 'green' : 'yellow'}>
@@ -154,7 +153,7 @@ export function UserNotifyPanel({ userId }: { userId: string }) {
       </section>
 
       <section>
-        <h3 className="text-sm font-semibold text-tx-0">{t('preferences.title')}</h3>
+        <h3 className={uiSectionTitleClass}>{t('preferences.title')}</h3>
         <p className="mt-1 text-xs leading-relaxed text-tx-2">{t('preferences.description')}</p>
         <div className="mt-4 space-y-3">
           {CATEGORIES.map((category) => (
@@ -165,6 +164,7 @@ export function UserNotifyPanel({ userId }: { userId: string }) {
               endpoints={endpointRows}
               connectors={connectorRows}
               preference={preferenceRows.find((value) => value.category === category)}
+              onSaved={() => invalidate(qc, userId)}
             />
           ))}
         </div>
@@ -193,161 +193,6 @@ export function UserNotifyPanel({ userId }: { userId: string }) {
         onConfirm={() => removing && remove.mutate(removing.id)}
       />
     </div>
-  );
-}
-
-function PreferenceSection({
-  userId,
-  category,
-  endpoints,
-  connectors,
-  preference,
-}: {
-  userId: string;
-  category: notifyApi.NotifyCategory;
-  endpoints: notifyApi.UserNotifyEndpoint[];
-  connectors: notifyApi.NotifyConnector[];
-  preference: notifyApi.UserNotifyPreference | undefined;
-}) {
-  const { t } = useTranslation('notify');
-  const qc = useQueryClient();
-  const quiet = preference?.quiet_hours;
-  const [enabled, setEnabled] = React.useState(preference?.enabled ?? true);
-  const [selected, setSelected] = React.useState<string[]>([]);
-  const [quietEnabled, setQuietEnabled] = React.useState(Boolean(quiet?.enabled));
-  const [timezone, setTimezone] = React.useState(String(quiet?.timezone ?? 'UTC'));
-  const [start, setStart] = React.useState(String(quiet?.start ?? '22:00'));
-  const [end, setEnd] = React.useState(String(quiet?.end ?? '08:00'));
-  const [criticalBypass, setCriticalBypass] = React.useState(
-    preference?.allow_critical_bypass ?? true,
-  );
-  React.useEffect(() => {
-    const nextQuiet = preference?.quiet_hours;
-    setEnabled(preference?.enabled ?? true);
-    setSelected(
-      (preference?.steps ?? [])
-        .slice()
-        .sort((left, right) => left.step_order - right.step_order)
-        .map((step) => step.endpoint_id),
-    );
-    setQuietEnabled(Boolean(nextQuiet?.enabled));
-    setTimezone(String(nextQuiet?.timezone ?? 'UTC'));
-    setStart(String(nextQuiet?.start ?? '22:00'));
-    setEnd(String(nextQuiet?.end ?? '08:00'));
-    setCriticalBypass(preference?.allow_critical_bypass ?? true);
-  }, [preference]);
-  const save = useMutation({
-    mutationFn: () =>
-      notifyApi.updatePreference(userId, category, {
-        enabled,
-        endpoint_ids: selected,
-        quiet_hours: quietEnabled
-          ? { enabled: true, timezone, start, end }
-          : null,
-        allow_critical_bypass: criticalBypass,
-      }),
-    onSuccess: () => {
-      toast.success(t('common.saved'));
-      invalidate(qc, userId);
-    },
-    onError: (error) => toast.error(toApiError(error).message),
-  });
-  const toggleEndpoint = (id: string) => {
-    setSelected((current) =>
-      current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
-    );
-  };
-  const move = (index: number, direction: -1 | 1) => {
-    setSelected((current) => {
-      const target = index + direction;
-      if (target < 0 || target >= current.length) return current;
-      const next = [...current];
-      [next[index], next[target]] = [next[target]!, next[index]!];
-      return next;
-    });
-  };
-
-  return (
-    <article className="py-5 [&+&]:border-t [&+&]:border-bd-0">
-      <div className="flex items-center justify-between gap-4">
-        <h4 className="text-sm font-semibold text-tx-0">{t(`preferences.${category}`)}</h4>
-        <Switch checked={enabled} onCheckedChange={setEnabled} />
-      </div>
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <div>
-          <div className="mb-2 text-xs font-semibold text-tx-2">{t('preferences.endpoint_order')}</div>
-          {endpoints.length === 0 ? (
-            <div className="rounded-md bg-bg-2 px-3 py-4 text-xs text-tx-3">{t('preferences.no_endpoints')}</div>
-          ) : (
-            <div className="divide-y divide-bd-0 bg-bg-2">
-              {endpoints.map((endpoint) => {
-                const index = selected.indexOf(endpoint.id);
-                return (
-                  <div
-                    key={endpoint.id}
-                    className="flex min-h-11 items-center gap-2 px-3"
-                  >
-                    <button
-                      type="button"
-                      className="min-w-0 flex-1 truncate text-left text-sm text-tx-1 hover:text-tx-0"
-                      onClick={() => toggleEndpoint(endpoint.id)}
-                    >
-                      {index >= 0 ? `${index + 1}. ` : ''}
-                      {connectorName(connectors, endpoint.connector_id)} · {endpoint.display_name ?? endpoint.external_identity}
-                    </button>
-                    {index >= 0 && (
-                      <>
-                        <IconButton aria-label={t('preferences.move_up')} disabled={index === 0} onClick={() => move(index, -1)}>
-                          <ArrowUp className="h-3 w-3" />
-                        </IconButton>
-                        <IconButton aria-label={t('preferences.move_down')} disabled={index === selected.length - 1} onClick={() => move(index, 1)}>
-                          <ArrowDown className="h-3 w-3" />
-                        </IconButton>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-        <div className="space-y-3">
-          <label className="flex min-h-11 items-center justify-between gap-3 bg-bg-2 px-3 text-sm text-tx-1">
-            <span>{t('preferences.quiet_enabled')}</span>
-            <Switch checked={quietEnabled} onCheckedChange={setQuietEnabled} />
-          </label>
-          {quietEnabled && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <FormField label={t('preferences.timezone')}>
-                <FormInput className="h-11 md:h-9" value={timezone} onChange={(event) => setTimezone(event.target.value)} />
-              </FormField>
-              <FormField label={t('preferences.start')}>
-                <FormInput className="h-11 md:h-9" value={start} onChange={(event) => setStart(event.target.value)} />
-              </FormField>
-              <FormField label={t('preferences.end')}>
-                <FormInput className="h-11 md:h-9" value={end} onChange={(event) => setEnd(event.target.value)} />
-              </FormField>
-            </div>
-          )}
-          <label className="flex min-h-11 items-center justify-between gap-3 bg-bg-2 px-3 text-sm text-tx-1">
-            <span>{t('preferences.critical_bypass')}</span>
-            <Switch checked={criticalBypass} onCheckedChange={setCriticalBypass} />
-          </label>
-        </div>
-      </div>
-      <div className="mt-4 flex justify-end">
-        <ChromeButton
-          variant="primary"
-          className="h-11 md:h-9"
-          disabled={save.isPending}
-          onClick={() => save.mutate()}
-        >
-          {save.isPending
-            ? t('common.saving')
-            : t('preferences.save', { category: t(`preferences.${category}`) })}
-        </ChromeButton>
-      </div>
-    </article>
   );
 }
 

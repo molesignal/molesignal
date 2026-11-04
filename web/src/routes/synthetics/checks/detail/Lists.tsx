@@ -43,15 +43,15 @@ export function CheckRuns({
             key: 'location',
             header: t('results.columns.location'),
             cell: (result) =>
-              locations.find((location) => location.id === result.location_id)?.name ??
-              result.location_id,
+              locations.find((location) => location.id === result.locationId)?.name ??
+              result.locationId,
           },
           {
             key: 'started',
             header: t('results.columns.started'),
             width: 190,
             cell: (result) => (
-              <span className="tabular-nums text-tx-1">{formatMicrosActive(result.started_at)}</span>
+              <span className="tabular-nums text-tx-1">{formatMicrosActive(result.startedAt)}</span>
             ),
           },
           {
@@ -76,7 +76,7 @@ export function CheckRuns({
             width: 150,
             cell: (result) => (
               <span className="text-tx-2">
-                {t(result.is_test ? 'results.test_run' : 'results.operational_run')}
+                {t(result.isTest ? 'results.test_run' : 'results.operational_run')}
               </span>
             ),
           },
@@ -128,14 +128,14 @@ export function CheckRevisions({
             key: 'created',
             header: t('detail.created'),
             cell: (revision) => (
-              <span className="tabular-nums text-tx-1">{formatMicrosActive(revision.created_at)}</span>
+              <span className="tabular-nums text-tx-1">{formatMicrosActive(revision.createdAt)}</span>
             ),
           },
           {
             key: 'hash',
             header: t('detail.content_hash'),
             cell: (revision) => (
-              <span className="font-code text-xs text-tx-2">{revision.content_hash.slice(0, 16)}</span>
+              <span className="font-code text-xs text-tx-2">{revision.contentHash.slice(0, 16)}</span>
             ),
           },
         ]}

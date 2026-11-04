@@ -18,7 +18,7 @@ use tokio::task::JoinHandle;
 use crate::{
     app::cluster::WorkOwnership,
     domain::{
-        iam::OrganizationRepository,
+        iam::{InstanceSettingsRepository, OrganizationRepository},
         storage::OrganizationScope,
         stream::{StreamDefinition, StreamRepository},
     },
@@ -37,6 +37,7 @@ pub fn spawn(
     manifests: Arc<PartitionManifestManager>,
     organizations: Arc<dyn OrganizationRepository>,
     streams: Arc<dyn StreamRepository>,
+    instance_settings: Arc<dyn InstanceSettingsRepository>,
     ownership: Arc<WorkOwnership>,
     drain: Arc<DrainController>,
 ) -> Vec<JoinHandle<()>> {
@@ -54,7 +55,14 @@ pub fn spawn(
             ownership.clone(),
             drain.clone(),
         ),
-        spawn_manifest_loop(manifests, organizations, streams, ownership, drain),
+        spawn_manifest_loop(
+            manifests,
+            organizations,
+            streams,
+            instance_settings,
+            ownership,
+            drain,
+        ),
     ]
 }
 
@@ -155,6 +163,7 @@ fn spawn_manifest_loop(
     manager: Arc<PartitionManifestManager>,
     organizations: Arc<dyn OrganizationRepository>,
     streams: Arc<dyn StreamRepository>,
+    instance_settings: Arc<dyn InstanceSettingsRepository>,
     ownership: Arc<WorkOwnership>,
     drain: Arc<DrainController>,
 ) -> JoinHandle<()> {
@@ -171,14 +180,37 @@ fn spawn_manifest_loop(
                 break;
             }
 
+            // 清单维护也按保留期删数据：平台设置读不出时这一轮不做。
+            let default_retention_days = match instance_settings.get().await {
+                Ok(settings) => settings.default_retention_days,
+                Err(error) => {
+                    tracing::warn!(%error, "instance settings unreadable; manifest round skipped");
+                    continue;
+                }
+            };
+
             let manifests = manager.as_ref();
+            let repository = streams.as_ref();
 
             let result = for_each_stream(
                 "partition_manifest",
                 organizations.as_ref(),
                 streams.as_ref(),
                 ownership.as_ref(),
-                |stream| async move { manifests.maintain_stream(&stream).await },
+                |stream| async move {
+                    // 改了已有字段的索引以后，之前建索引的封存段按新设置重建。
+                    let index_changed_at = match repository.get_settings(&stream.id).await {
+                        Ok(settings) => settings.index_changed_at,
+                        Err(error) => {
+                            tracing::warn!(stream = %stream.name, %error, "stream settings unreadable");
+                            None
+                        }
+                    };
+
+                    manifests
+                        .maintain_stream(&stream, default_retention_days, index_changed_at)
+                        .await
+                },
             )
             .await;
 

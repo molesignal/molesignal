@@ -55,7 +55,7 @@ pub async fn resolve_secret_ref(
 
 /// 为**集群级控制 RPC**（gossip / CancelQuery）解析一个可用 bearer token。
 ///
-/// 这类 RPC 非 org 维度，但 `cluster_secrets` 是按 `(org_id, ref_id)` 存的、`cipher_keys:`
+/// 这类 RPC 非 org 维度，但联邦令牌在 `sealed_secrets` 里按 `(org_id, owner_id)` 存、`cipher_keys:`
 /// 解析需要 org 上下文。接收端只要求 bearer 是**合法 api token**（证明是已知 peer），
 /// 故任一有 org 上下文的 per-org link token 即可用。解析顺序：
 /// 1. 各 per-org link 的 `token_secret_ref`（带其 `local_org_id`，`cipher_keys:` 可解）；

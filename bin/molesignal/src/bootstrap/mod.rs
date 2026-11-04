@@ -5,8 +5,10 @@
 //! [`build_state`] 与 role 启动函数。
 
 mod agent;
+mod alert_sources;
 mod alerting;
-mod business_services;
+mod alerting_notify;
+mod alerting_response;
 #[path = "bootstrap.rs"]
 mod composition;
 mod core;
@@ -17,6 +19,8 @@ mod log_inspection;
 mod platform;
 mod query;
 pub mod roles;
+mod rum;
+mod status_page_dependencies;
 mod storage;
 mod synthetics;
 #[cfg(test)]
@@ -37,4 +41,4 @@ pub mod tls;
 // `allocator::ensure_malloc_conf_linked()` 强制链入。
 pub mod allocator;
 
-pub use composition::{activate_self_telemetry, build_state, rewrap_kek};
+pub use composition::{activate_self_telemetry, build_state, reset_mfa, rewrap_kek};

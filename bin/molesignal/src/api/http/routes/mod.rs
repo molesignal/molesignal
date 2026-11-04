@@ -12,7 +12,6 @@ pub mod api_tokens;
 pub mod apm;
 pub mod audit;
 pub mod auth;
-pub mod business_services;
 pub mod cipher_keys;
 pub mod clusters;
 pub mod connectors;
@@ -37,11 +36,13 @@ pub mod log_inspections;
 pub mod log_patterns;
 pub mod me;
 pub mod metrics;
+pub mod mfa;
 pub mod mutes;
 pub mod node;
 pub mod notify;
 pub mod oauth;
 pub mod onboarding;
+pub mod policies;
 pub mod profiles;
 pub mod profiling;
 pub mod query;
@@ -51,6 +52,9 @@ pub mod resource_shares;
 pub mod roles;
 pub mod rum;
 pub mod saved_views;
+pub mod schedule_calendar;
+mod schedule_coverage;
+mod schedule_swaps;
 pub mod scheduled_pipelines;
 pub mod schedules;
 pub mod search_jobs;
@@ -73,6 +77,7 @@ pub fn api_v1(state: AppState) -> Router<AppState> {
         .merge(health::routes())
         .merge(home::routes())
         .merge(auth::routes())
+        .merge(mfa::routes())
         .merge(sso::routes())
         .merge(iam::routes())
         .merge(teams::routes())
@@ -88,6 +93,9 @@ pub fn api_v1(state: AppState) -> Router<AppState> {
         .merge(alerting::routes())
         .merge(notify::routes())
         .merge(schedules::routes())
+        .merge(schedule_calendar::routes())
+        .merge(schedule_coverage::routes())
+        .merge(schedule_swaps::routes())
         .merge(mutes::routes())
         .merge(system::routes())
         .merge(traces::routes())
@@ -110,7 +118,6 @@ pub fn api_v1(state: AppState) -> Router<AppState> {
         .merge(reports::routes())
         .merge(streams::routes())
         .merge(status_pages::routes())
-        .merge(business_services::routes())
         .merge(synthetics::routes())
         .merge(metrics::api_routes())
         .merge(me::routes())
@@ -125,6 +132,7 @@ pub fn api_v1(state: AppState) -> Router<AppState> {
         .merge(jwt_secrets::routes())
         .merge(regex_patterns::routes())
         .merge(roles::routes())
+        .merge(policies::routes())
         .merge(web::routes());
 
     let r = r
@@ -133,3 +141,8 @@ pub fn api_v1(state: AppState) -> Router<AppState> {
 
     r.with_state(state)
 }
+
+#[cfg(test)]
+mod json_naming_tests;
+#[cfg(test)]
+mod permission_coverage_tests;

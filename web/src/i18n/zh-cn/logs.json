@@ -225,6 +225,25 @@
       "clear_filters": "清除过滤并重试",
       "query_docs": "日志查询文档"
     },
+    "conditions": {
+      "unmatched_one": "未加入查询：{{conditions}}。数据流 {{stream}} 没有对应的字段。",
+      "unmatched_other": "未加入查询：{{conditions}}。数据流 {{stream}} 没有对应的字段。",
+      "pinned_one": "固定筛选 {{conditions}}",
+      "pinned_other": "固定筛选 {{conditions}}",
+      "groups": "{{link}}；{{pinned}}",
+      "meanings": {
+        "trace_id": "Trace ID",
+        "span_id": "Span ID",
+        "service": "服务",
+        "host": "主机",
+        "route": "路由",
+        "operation": "操作",
+        "method": "请求方法",
+        "status": "状态码",
+        "environment": "环境",
+        "pod": "Pod"
+      }
+    },
     "results": {
       "content": "内容",
       "columns": "列设置",
@@ -280,6 +299,7 @@
       "download_json": "下载日志 JSON",
       "tabs": {
         "fields": "字段",
+        "trace": "调用链",
         "json": "原始 JSON",
         "context": "上下文"
       },
@@ -292,7 +312,10 @@
       "copy_value": "复制值",
       "copied_value": "已复制字段值",
       "show_column": "显示为列",
-      "hide_column": "隐藏列"
+      "hide_column": "隐藏列",
+      "open_trace": "打开调用链",
+      "stream": "数据流",
+      "resize": "调整日志抽屉宽度"
     }
   },
   "inspections": {
@@ -399,7 +422,7 @@
     },
     "denied": {
       "title": "没有查看定时巡检的权限",
-      "description": "定时巡检由 Mole Agent 完成，报告里会引用日志，需要 agent.use 和 streams.query 两项权限。",
+      "description": "定时巡检由 Mole Agent 完成，报告里会引用日志，需要 inspections.read 和 logs.read 两项权限。",
       "manage": "需要 inspections.manage 权限"
     },
     "no_model": {
@@ -450,7 +473,7 @@
       "enabled": "保存后按周期自动执行",
       "notify_when": "何时通知",
       "channels": "通知渠道",
-      "channels_denied": "选择通知渠道需要 alerts.read 权限。",
+      "channels_denied": "选择通知渠道需要 notify.connectors.read 权限。",
       "channels_none": "还没有启用的通知连接器，可在「设置 → 通知」里添加。",
       "channels_failed": "通知连接器加载失败。",
       "channels_kept_one": "已选的 {{count}} 个渠道保持不变。",

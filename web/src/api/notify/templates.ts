@@ -1,44 +1,74 @@
 import { http } from '@/lib/http';
 
-import type { NotifyCategory } from './index';
+import type { NotifyCategory, NotifyChannel } from './index';
+
+/** A template a provider approved (Alibaba Cloud sends no other): its code, and what each of its
+ * variables is filled with, written like the body with placeholders. */
+export interface ProviderTemplate {
+  code: string;
+  params: Record<string, string>;
+  /** Longer values are cut to this many characters; none is the provider's own limit. */
+  maxParamChars?: number | null;
+}
+
+/** The colour of a card's title: by the alert's severity, or one chosen. */
+export type NotifyCardColor = 'severity' | 'blue' | 'green' | 'yellow' | 'orange' | 'red' | 'grey';
+
+/** The card IM apps and group bots send for an instant messaging template; its body is the
+ * template's body. A field or link whose placeholders an event cannot fill is left out. */
+export interface NotifyCard {
+  /** Empty is the notification's own title. */
+  title: string;
+  color: NotifyCardColor;
+  fields: Array<{ label: string; value: string }>;
+  links: Array<{ label: string; url: string }>;
+  note: string;
+}
 
 export interface NotifyTemplate {
   id: string;
-  organization_id?: string;
+  organizationId?: string;
   name: string;
   body: string;
-  format?: 'text' | 'markdown' | 'html';
+  /** `json` only for webhook templates: values are escaped as JSON string content. */
+  format?: 'text' | 'markdown' | 'html' | 'json';
   category: NotifyCategory;
-  created_at_micros?: number;
-  updated_at_micros?: number;
+  /** The channel the template is for; null is a general template, for every channel. */
+  channel: NotifyChannel | null;
+  /** By provider name; only SMS and phone templates have them. */
+  providerTemplates: Record<string, ProviderTemplate>;
+  /** The card IM apps and group bots send; only instant messaging templates have one. */
+  card: NotifyCard | null;
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 interface NotifyTemplateWire
   extends Omit<
     NotifyTemplate,
-    'category' | 'created_at_micros' | 'updated_at_micros'
+    'category' | 'channel' | 'providerTemplates' | 'card'
   > {
   category?: NotifyCategory;
-  created_at?: number;
-  updated_at?: number;
-  created_at_micros?: number;
-  updated_at_micros?: number;
+  channel?: NotifyChannel | null;
+  providerTemplates?: Record<string, ProviderTemplate>;
+  card?: NotifyCard | null;
 }
 
 function normalize(row: NotifyTemplateWire): NotifyTemplate {
   const {
     category,
-    created_at,
-    updated_at,
-    created_at_micros,
-    updated_at_micros,
+    channel,
+    providerTemplates: provider_templates,
+    card,
     ...rest
   } = row;
-  const out: NotifyTemplate = { ...rest, category: category ?? 'alert' };
-  const created = created_at_micros ?? created_at;
-  const updated = updated_at_micros ?? updated_at;
-  if (created !== undefined) out.created_at_micros = created;
-  if (updated !== undefined) out.updated_at_micros = updated;
+  const out: NotifyTemplate = {
+    ...rest,
+    category: category ?? 'alert',
+    channel: channel ?? null,
+    providerTemplates: provider_templates ?? {},
+    card: card ?? null,
+  };
   return out;
 }
 
@@ -56,7 +86,7 @@ export async function get(id: string): Promise<NotifyTemplate> {
 
 export type NotifyTemplateInput = Pick<
   NotifyTemplate,
-  'name' | 'body' | 'format' | 'category'
+  'name' | 'body' | 'format' | 'category' | 'channel' | 'providerTemplates' | 'card'
 >;
 
 export async function create(payload: NotifyTemplateInput): Promise<NotifyTemplate> {
@@ -87,6 +117,7 @@ export type NotifyTemplateFieldGroup =
   | 'trigger'
   | 'labels'
   | 'annotations'
+  | 'escalation'
   | 'schedule'
   | 'oncall'
   | 'override';
@@ -97,13 +128,15 @@ export interface NotifyTemplateField {
   group: NotifyTemplateFieldGroup;
   categories: NotifyCategory[];
   example: string;
-  event_types: string[];
+  eventTypes: string[];
 }
 
 export interface NotifyTemplatePreset {
   key: string;
   category: NotifyCategory;
-  event_type: string;
+  /** The channel the preset is written for; null for a general template. */
+  channel: NotifyChannel | null;
+  eventType: string;
   format: NonNullable<NotifyTemplate['format']>;
   body: string;
 }
@@ -111,10 +144,11 @@ export interface NotifyTemplatePreset {
 export interface NotifyTemplateFields {
   fields: NotifyTemplateField[];
   presets: NotifyTemplatePreset[];
-  label_keys: string[];
-  annotation_keys: string[];
+  labelKeys: string[];
+  annotationKeys: string[];
 }
 
+/** The variables and presets of templates; the presets are in the reader's interface language. */
 export async function listFields(): Promise<NotifyTemplateFields> {
   const { data } = await http.get<NotifyTemplateFields>(
     '/notify/template-fields',

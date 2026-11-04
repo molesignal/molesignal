@@ -16,11 +16,13 @@ vi.mock('@/api/connectors', () => ({
   create: vi.fn(),
   update: vi.fn(),
   remove: vi.fn(),
+  testConnection: vi.fn(),
+  awsExternalId: vi.fn(),
 }));
 vi.mock('@/api/streams', () => ({
-  list: async () => [{ name: 'edge', stream_type: 'logs' }],
+  list: async () => [{ name: 'edge', streamType: 'logs' }],
 }));
-vi.mock('@/api/instance', () => ({ get: async () => ({ external_url: 'https://obs.example.com/' }) }));
+vi.mock('@/api/instance', () => ({ get: async () => ({ externalUrl: 'https://obs.example.com/' }) }));
 vi.mock('@/product/actionAccess', () => ({
   useActionAccess: () => ({ allowed: true, disabled: false, reason: undefined }),
 }));
@@ -45,17 +47,17 @@ function saved(
     id,
     name,
     kind,
-    config_json: config,
-    secret_keys: Object.keys(config).filter((key) => config[key] === '***'),
+    configJson: config,
+    secretKeys: Object.keys(config).filter((key) => config[key] === '***'),
     enabled: true,
-    created_at_micros: 1,
-    updated_at_micros: 1,
+    createdAt: 1,
+    updatedAt: 1,
     ...extra,
   };
 }
 
-const ARCHIVE = saved('c-s3', 'archive', 's3', { bucket: 'acme-logs', prefix: 'out/', access_key: '***', secret_key: '***' });
-const EDGE = saved('c-cf', 'edge-requests', 'cloudflare_logpush', { target_stream: 'edge', push_token: '***' });
+const ARCHIVE = saved('c-s3', 'archive', 's3', { bucket: 'acme-logs', prefix: 'out/', accessKey: '***', secretKey: '***' });
+const EDGE = saved('c-cf', 'edge-requests', 'cloudflare_logpush', { targetStream: 'edge', pushToken: '***' });
 const BUS = saved('c-kafka', 'events-bus', 'kafka', { brokers: 'b1:9092', topic: 'logs' });
 
 function renderPage(connectors: connectorsApi.Connector[] = []) {
@@ -93,13 +95,30 @@ async function newConnector(kind: string) {
   fireEvent.click(drawer().getByRole('button', { name: new RegExp(`^${kind}`) }));
 }
 
+/** The ways on offer, as the list of them reads. */
+function authModes(): string[] {
+  fireEvent.keyDown(drawer().getByRole('combobox', { name: 'Authentication' }), { key: 'Enter' });
+  const names = screen.getAllByRole('option').map((option) => option.textContent ?? '');
+  fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Escape' });
+
+  return names;
+}
+
+function chooseAuth(name: string) {
+  fireEvent.keyDown(drawer().getByRole('combobox', { name: 'Authentication' }), { key: 'Enter' });
+  fireEvent.click(screen.getByRole('option', { name }));
+}
+
+const hint = () => document.querySelector('[data-connector-auth-hint]')?.textContent;
+
 beforeEach(async () => {
   await i18n.changeLanguage('en-us');
   Element.prototype.scrollIntoView = vi.fn();
   vi.clearAllMocks();
-  api.create.mockImplementation(async (payload) => saved('new', payload.name, payload.kind, payload.config_json));
-  api.update.mockImplementation(async (id, payload) => saved(id, payload.name, payload.kind, payload.config_json));
+  api.create.mockImplementation(async (payload) => saved('new', payload.name, payload.kind, payload.configJson));
+  api.update.mockImplementation(async (id, payload) => saved(id, payload.name, payload.kind, payload.configJson));
   api.remove.mockResolvedValue(undefined);
+  api.awsExternalId.mockResolvedValue('molesignal-org-1');
 });
 
 afterEach(cleanup);
@@ -119,6 +138,20 @@ describe('connectors', () => {
       ['events-bus', 'Apache Kafka', 'logs · b1:9092', 'None'],
     ]);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Connectors');
+  });
+
+  it('says when a source last failed to read, and why', async () => {
+    renderPage([
+      {
+        ...saved('c-topic', 'orders-topic', 'kafka_source', { brokers: 'b1:9092', topic: 'orders' }),
+        readState: { lastError: { atTime: 1, text: 'kafka metadata: broker down' } },
+      },
+    ]);
+
+    const sources = await screen.findByRole('region', { name: 'Sources' });
+
+    expect(within(sources).getByText('orders-topic')).toBeTruthy();
+    expect(within(sources).getByRole('img', { name: 'The last read failed' })).toBeTruthy();
   });
 
   it('says so in each section when it has none', async () => {
@@ -162,37 +195,62 @@ describe('connectors', () => {
     expect(sent()).toEqual({
       name: 'archive',
       kind: 's3',
-      config_json: { bucket: 'acme-logs', access_key: 'AKIAEXAMPLE', secret_key: 's3cr3t' },
+      configJson: { bucket: 'acme-logs', auth: 'access_key', accessKey: 'AKIAEXAMPLE', secretKey: 's3cr3t' },
       enabled: true,
     });
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
-  it('offers every way an S3 connector can authenticate, and stores no key for the node role', async () => {
+  it('offers every way an S3 connector can authenticate, and stores no key for the node identity', async () => {
     renderPage();
     await newConnector('Amazon S3');
     type(drawer().getByRole('textbox', { name: 'Name' }), 'audit');
     type(drawer().getByRole('textbox', { name: 'Bucket' }), 'acme-audit');
     type(drawer().getByLabelText(/^Access key ID/), 'AKIAEXAMPLE');
 
-    const modes = within(drawer().getByRole('group', { name: 'Authentication' }));
-    expect(modes.getAllByRole('button').map((mode) => mode.textContent)).toEqual([
-      'Access key',
-      'Temporary key',
-      'Node role',
-    ]);
-    fireEvent.click(modes.getByRole('button', { name: 'Temporary key' }));
+    expect(authModes()).toEqual(['Access key', 'Temporary key', 'Node identity', 'Assume a role', 'Web identity']);
+    chooseAuth('Temporary key');
     expect(drawer().getByLabelText(/^Session token/)).not.toBeNull();
-    expect(document.querySelector('[data-connector-auth-hint]')?.textContent).toContain('valid only together with its session token');
+    expect(hint()).toContain('valid only together with its session token');
 
-    fireEvent.click(modes.getByRole('button', { name: 'Node role' }));
+    chooseAuth('Node identity');
     expect(drawer().queryByLabelText(/^Access key ID/)).toBeNull();
-    expect(document.querySelector('[data-connector-auth-hint]')?.textContent).toContain('No key is stored');
+    expect(hint()).toContain('s3:PutObject on the bucket');
+    expect(hint()).toContain('every organization in this deployment can choose it');
     fireEvent.click(submit());
 
     await waitFor(() => expect(api.create).toHaveBeenCalledTimes(1));
     // The key typed for another way of authenticating is not sent.
-    expect(sent()?.config_json).toEqual({ bucket: 'acme-audit' });
+    expect(sent()?.configJson).toEqual({ bucket: 'acme-audit', auth: 'node_role' });
+  });
+
+  it('assumes a role with the organization\'s external ID, as the node unless a key is asked for', async () => {
+    renderPage();
+    await newConnector('Amazon S3');
+    type(drawer().getByRole('textbox', { name: 'Name' }), 'cross-account');
+    type(drawer().getByRole('textbox', { name: 'Bucket' }), 'acme-partner');
+    chooseAuth('Assume a role');
+
+    expect(await drawer().findByText('molesignal-org-1')).not.toBeNull();
+    expect(hint()).toContain('require the external ID below');
+    type(drawer().getByRole('textbox', { name: /^Role ARN/ }), 'molesignal-delivery');
+    expect(submit()).toBeDisabled();
+    type(drawer().getByRole('textbox', { name: /^Role ARN/ }), 'arn:aws:iam::123456789012:role/molesignal-delivery');
+
+    fireEvent.click(drawer().getByRole('checkbox', { name: /with an access key/ }));
+    expect(submit()).toBeDisabled();
+    type(drawer().getByLabelText(/^Access key ID/), 'AKIAEXAMPLE');
+    type(drawer().getByLabelText(/^Secret access key/), 's3cr3t');
+    fireEvent.click(submit());
+
+    await waitFor(() => expect(api.create).toHaveBeenCalledTimes(1));
+    expect(sent()?.configJson).toEqual({
+      bucket: 'acme-partner',
+      auth: 'assume_role',
+      roleArn: 'arn:aws:iam::123456789012:role/molesignal-delivery',
+      accessKey: 'AKIAEXAMPLE',
+      secretKey: 's3cr3t',
+    });
   });
 
   it('reaches an S3-compatible store by its endpoint, addressed the way it asks', async () => {
@@ -200,7 +258,7 @@ describe('connectors', () => {
     await newConnector('Amazon S3');
     type(drawer().getByRole('textbox', { name: 'Name' }), 'oss');
     type(drawer().getByRole('textbox', { name: 'Bucket' }), 'acme-backup');
-    fireEvent.click(within(drawer().getByRole('group', { name: 'Authentication' })).getByRole('button', { name: 'Node role' }));
+    chooseAuth('Node identity');
 
     expect(drawer().queryByRole('textbox', { name: /^Endpoint/ })).toBeNull();
     fireEvent.click(drawer().getByRole('checkbox', { name: 'S3-compatible storage' }));
@@ -211,32 +269,155 @@ describe('connectors', () => {
     fireEvent.click(submit());
 
     await waitFor(() => expect(api.create).toHaveBeenCalledTimes(1));
-    expect(sent()?.config_json).toEqual({
+    expect(sent()?.configJson).toEqual({
       bucket: 'acme-backup',
       endpoint: 'https://oss-cn-hangzhou.aliyuncs.com',
-      virtual_hosted_style: true,
+      virtualHostedStyle: true,
+      auth: 'node_role',
     });
   });
 
-  it('is plain about what a Kafka connection does not protect', async () => {
+  it('connects to Kafka over TLS with SCRAM, and is plain about PLAIN without it', async () => {
     renderPage();
     await newConnector('Apache Kafka');
-    const hint = () => document.querySelector('[data-connector-auth-hint]')?.textContent;
 
-    expect(hint()).toContain('The connection is not encrypted');
-    fireEvent.click(within(drawer().getByRole('group', { name: 'Authentication' })).getByRole('button', { name: 'User name and password' }));
-    expect(hint()).toContain('TLS and SCRAM are not supported yet');
+    expect(authModes()).toEqual(['None', 'SASL/PLAIN', 'SCRAM-SHA-256', 'SCRAM-SHA-512', 'Client certificate']);
+    expect(hint()).toBe('For a broker that asks for no credentials.');
+    chooseAuth('SASL/PLAIN');
+    expect(hint()).toContain('without TLS, use it on a private network only');
 
     type(drawer().getByRole('textbox', { name: 'Name' }), 'bus');
-    type(drawer().getByRole('textbox', { name: /^Brokers/ }), 'b1:9092');
+    type(drawer().getByRole('textbox', { name: /^Brokers/ }), 'b1:9096');
     type(drawer().getByRole('textbox', { name: 'Topic' }), 'logs');
+    expect(drawer().queryByRole('textbox', { name: /^CA certificate/ })).toBeNull();
+    fireEvent.click(drawer().getByRole('checkbox', { name: 'Encrypt the connection with TLS' }));
+    expect(drawer().getByRole('textbox', { name: /^CA certificate/ })).not.toBeNull();
+
+    chooseAuth('SCRAM-SHA-512');
     type(drawer().getByRole('textbox', { name: 'User name' }), 'svc');
     expect(submit()).toBeDisabled();
     type(drawer().getByLabelText(/^Password/), 'pw');
     fireEvent.click(submit());
 
     await waitFor(() => expect(api.create).toHaveBeenCalledTimes(1));
-    expect(sent()?.config_json).toEqual({ brokers: 'b1:9092', topic: 'logs', sasl_username: 'svc', sasl_password: 'pw' });
+    expect(sent()?.configJson).toEqual({
+      brokers: 'b1:9096',
+      topic: 'logs',
+      tls: true,
+      auth: 'sasl_scram_sha_512',
+      saslUsername: 'svc',
+      saslPassword: 'pw',
+    });
+  });
+
+  it('presents a client certificate to Kafka, which turns TLS on', async () => {
+    const certificate = '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----';
+    const key = '-----BEGIN PRIVATE KEY-----\nMIIE\n-----END PRIVATE KEY-----';
+
+    renderPage();
+    await newConnector('Apache Kafka');
+    type(drawer().getByRole('textbox', { name: 'Name' }), 'msk');
+    type(drawer().getByRole('textbox', { name: /^Brokers/ }), 'b-1.msk:9094');
+    type(drawer().getByRole('textbox', { name: 'Topic' }), 'logs');
+    chooseAuth('Client certificate');
+
+    expect(drawer().getByRole('checkbox', { name: 'Encrypt the connection with TLS' })).toBeChecked();
+    type(drawer().getByRole('textbox', { name: /^Client certificate/ }), certificate);
+    type(drawer().getByRole('textbox', { name: /^Client private key/ }), certificate);
+    // The certificate pasted where the key goes is told apart.
+    expect(submit()).toBeDisabled();
+    type(drawer().getByRole('textbox', { name: /^Client private key/ }), key);
+    fireEvent.click(submit());
+
+    await waitFor(() => expect(api.create).toHaveBeenCalledTimes(1));
+    expect(sent()?.configJson).toEqual({
+      brokers: 'b-1.msk:9094',
+      topic: 'logs',
+      tls: true,
+      auth: 'mtls',
+      tlsClientCert: certificate,
+      tlsClientKey: key,
+    });
+  });
+
+  it('delivers to an HTTP address, signed with a shared secret', async () => {
+    renderPage();
+    await newConnector('HTTP / Webhook');
+    type(drawer().getByRole('textbox', { name: 'Name' }), 'collector');
+    type(drawer().getByLabelText(/^URL/), 'https://in.example.com/v1/logs');
+
+    expect(authModes()).toEqual(['None', 'Bearer token', 'Basic auth', 'Custom header', 'HMAC signature']);
+    chooseAuth('HMAC signature');
+    expect(hint()).toContain('X-MoleSignal-Sign: sha256=<hex>');
+    type(drawer().getByLabelText(/^Shared secret/), 'short');
+    expect(submit()).toBeDisabled();
+    type(drawer().getByLabelText(/^Shared secret/), '0123456789abcdef');
+    fireEvent.click(submit());
+
+    await waitFor(() => expect(api.create).toHaveBeenCalledTimes(1));
+    expect(sent()?.configJson).toEqual({
+      url: 'https://in.example.com/v1/logs',
+      auth: 'hmac',
+      hmacSecret: '0123456789abcdef',
+    });
+  });
+
+  it('tests the settings as they stand, and forgets the answer once they change', async () => {
+    api.testConnection.mockResolvedValue({
+      ok: false,
+      code: 'denied',
+      detail: 's3 put: <Code>AccessDenied</Code>',
+      elapsedMs: 42,
+    });
+
+    renderPage();
+    await newConnector('Amazon S3');
+    chooseAuth('Node identity');
+    const test = () => drawer().getByRole('button', { name: 'Test connection' });
+    const status = () => document.querySelector('[data-connector-test]')?.querySelector('[role="status"]')?.textContent;
+
+    // Nothing to test until it says where to deliver; a name is not needed.
+    expect(test()).toBeDisabled();
+    type(drawer().getByRole('textbox', { name: 'Bucket' }), 'acme-logs');
+    expect(test()).toBeEnabled();
+    fireEvent.click(test());
+
+    await waitFor(() => expect(status()).toBe('Credentials or permissions refused'));
+    expect(api.testConnection).toHaveBeenCalledWith({
+      kind: 's3',
+      configJson: { bucket: 'acme-logs', auth: 'node_role' },
+    });
+    expect(drawer().getByText('s3 put: <Code>AccessDenied</Code>')).not.toBeNull();
+
+    type(drawer().getByRole('textbox', { name: 'Bucket' }), 'acme-logs-2');
+    expect(status()).toBe('');
+    expect(drawer().queryByText('s3 put: <Code>AccessDenied</Code>')).toBeNull();
+
+    api.testConnection.mockResolvedValue({ ok: true, code: 'ok', elapsedMs: 87 });
+    fireEvent.click(test());
+    await waitFor(() => expect(status()).toBe('Connected in 87 ms'));
+  });
+
+  it('tests a saved connector with the secrets it holds', async () => {
+    api.testConnection.mockResolvedValue({ ok: true, code: 'ok', elapsedMs: 5 });
+    renderPage([ARCHIVE]);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    fireEvent.click(drawer().getByRole('button', { name: 'Test connection' }));
+
+    await waitFor(() => expect(api.testConnection).toHaveBeenCalledTimes(1));
+    expect(api.testConnection).toHaveBeenCalledWith({
+      kind: 's3',
+      configJson: { bucket: 'acme-logs', prefix: 'out/', auth: 'access_key', accessKey: '***', secretKey: '***' },
+      id: 'c-s3',
+    });
+  });
+
+  it('offers no test for a push connector, which is sent to', async () => {
+    renderPage();
+    await newConnector('Cloudflare Logpush');
+
+    expect(drawer().queryByRole('button', { name: 'Test connection' })).toBeNull();
   });
 
   it('gives a push connector a token, and hands it over once with where to point the service', async () => {
@@ -250,7 +431,7 @@ describe('connectors', () => {
     fireEvent.click(submit());
 
     await waitFor(() => expect(api.create).toHaveBeenCalledTimes(1));
-    const token = String(sent()?.config_json.push_token);
+    const token = String(sent()?.configJson.pushToken);
     expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
 
     expect(await drawer().findByRole('heading', { name: 'Point Cloudflare Logpush here' })).not.toBeNull();
@@ -271,7 +452,7 @@ describe('connectors', () => {
     fireEvent.click(submit());
 
     await waitFor(() => expect(api.create).toHaveBeenCalledTimes(1));
-    const token = String(sent()?.config_json.push_token);
+    const token = String(sent()?.configJson.pushToken);
     expect(
       await drawer().findByText(`heroku drains:add "https://obs.example.com/api/v1/_heroku?token=${token}"`),
     ).not.toBeNull();
@@ -293,7 +474,13 @@ describe('connectors', () => {
     await waitFor(() => expect(api.update).toHaveBeenCalledTimes(1));
     expect(api.update.mock.calls[0]?.[0]).toBe('c-s3');
     // The mask goes back for what was left alone; the backend keeps what it has.
-    expect(sent()?.config_json).toEqual({ bucket: 'acme-logs', prefix: 'archive/', access_key: '***', secret_key: '***' });
+    expect(sent()?.configJson).toEqual({
+      bucket: 'acme-logs',
+      prefix: 'archive/',
+      auth: 'access_key',
+      accessKey: '***',
+      secretKey: '***',
+    });
   });
 
   it('replaces only the secret that was typed', async () => {
@@ -304,11 +491,11 @@ describe('connectors', () => {
     fireEvent.click(submit());
 
     await waitFor(() => expect(api.update).toHaveBeenCalledTimes(1));
-    expect(sent()?.config_json).toMatchObject({ access_key: '***', secret_key: 'rotated' });
+    expect(sent()?.configJson).toMatchObject({ accessKey: '***', secretKey: 'rotated' });
   });
 
   it('asks for the secrets again, and sends no mask, where the backend would save the mask itself', async () => {
-    const { secret_keys: _unlisted, ...older } = ARCHIVE;
+    const { secretKeys: _unlisted, ...older } = ARCHIVE;
     renderPage([older]);
 
     // Switching it would send its configuration back, masks and all.
@@ -323,7 +510,13 @@ describe('connectors', () => {
     fireEvent.click(submit());
 
     await waitFor(() => expect(api.update).toHaveBeenCalledTimes(1));
-    expect(sent()?.config_json).toEqual({ bucket: 'acme-logs', prefix: 'out/', access_key: 'AKIAEXAMPLE', secret_key: 's3cr3t' });
+    expect(sent()?.configJson).toEqual({
+      bucket: 'acme-logs',
+      prefix: 'out/',
+      auth: 'access_key',
+      accessKey: 'AKIAEXAMPLE',
+      secretKey: 's3cr3t',
+    });
   });
 
   it('keeps a push token until a new one is asked for, then shows the new one once', async () => {
@@ -341,7 +534,7 @@ describe('connectors', () => {
     fireEvent.click(submit());
 
     await waitFor(() => expect(api.update).toHaveBeenCalledTimes(1));
-    const token = String(sent()?.config_json.push_token);
+    const token = String(sent()?.configJson.pushToken);
     expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(await drawer().findByText(token)).not.toBeNull();
   });
@@ -354,7 +547,7 @@ describe('connectors', () => {
     await waitFor(() => expect(api.update).toHaveBeenCalledTimes(1));
     expect(api.update.mock.calls[0]).toEqual([
       'c-s3',
-      { name: 'archive', kind: 's3', config_json: ARCHIVE.config_json, enabled: false },
+      { name: 'archive', kind: 's3', configJson: ARCHIVE.configJson, enabled: false },
     ]);
   });
 

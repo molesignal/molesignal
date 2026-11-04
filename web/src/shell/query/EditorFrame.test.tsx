@@ -63,7 +63,7 @@ describe('QueryEditorFrame clear action', () => {
 
     const editor = screen.getByTestId('query-editor-value');
     expect(editor.getAttribute('data-font-size')).toBe('12');
-    expect(editor.getAttribute('data-font-weight')).toBe('600');
+    expect(editor.getAttribute('data-font-weight')).toBe('500');
     expect(editor.getAttribute('data-line-height')).toBe('20');
   });
 
@@ -72,13 +72,13 @@ describe('QueryEditorFrame clear action', () => {
       <QueryEditorHarness
         initialValue="rate(http_requests_total[5m])"
         fontSize={14}
-        fontWeight={500}
+        fontWeight={400}
       />,
     );
 
     const editor = screen.getByTestId('query-editor-value');
     expect(editor.getAttribute('data-font-size')).toBe('14');
-    expect(editor.getAttribute('data-font-weight')).toBe('500');
+    expect(editor.getAttribute('data-font-weight')).toBe('400');
   });
 
   it('clears only the current editor value', () => {
@@ -103,5 +103,57 @@ describe('QueryEditorFrame clear action', () => {
     expect((clearButton as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(clearButton);
     expect(screen.getByTestId('query-editor-value').textContent).toBe('   ');
+  });
+});
+
+describe('QueryEditorFrame query tabs', () => {
+  const TABS = (
+    <div role="tablist" aria-label="Queries">
+      <button type="button" role="tab" aria-selected>
+        Query 1
+      </button>
+    </div>
+  );
+
+  it('puts the tabs where the letter and the name of the query stand', () => {
+    render(
+      <QueryEditorFrame
+        value="status = 500"
+        onChange={() => undefined}
+        onCollapsedChange={() => undefined}
+        label="Query"
+        tabs={TABS}
+      />,
+    );
+
+    expect(screen.getByRole('tab', { name: 'Query 1' })).not.toBeNull();
+    expect(screen.queryByText('A')).toBeNull();
+    expect(screen.queryByText('Query')).toBeNull();
+  });
+
+  it('keeps the tabs of a folded frame out of the button that opens it', () => {
+    const opened = vi.fn();
+    render(
+      <QueryEditorFrame
+        value="status = 500"
+        onChange={() => undefined}
+        collapsed
+        onCollapsedChange={opened}
+        label="Query"
+        expandLabel="Expand query"
+        summary="status = 500"
+        tabs={TABS}
+      />,
+    );
+
+    const expand = screen.getByRole('button', { name: 'Expand query' });
+    const tab = screen.getByRole('tab', { name: 'Query 1' });
+    expect(expand.contains(tab)).toBe(false);
+    expect(expand.textContent).toContain('status = 500');
+
+    fireEvent.click(tab);
+    expect(opened).not.toHaveBeenCalled();
+    fireEvent.click(expand);
+    expect(opened).toHaveBeenCalledWith(false);
   });
 });

@@ -9,22 +9,24 @@ use crate::{
             AlertIncidentLifecycleSink,
             realtime::{self, RealtimeAlerts},
         },
-        notify::{
-            ALERT_ACKNOWLEDGED_EVENT, ALERT_RESOLVED_EVENT, NotifyEngine, alert_dispatch,
-            triggered_event_id,
-        },
+        notify::{ALERT_ACKNOWLEDGED_EVENT, ALERT_RESOLVED_EVENT, NotifyEngine, alert_dispatch},
     },
     domain::alerting::{
+        discovery,
         escalation::{DEFAULT_POLICY_ID, EscalationPolicy, EscalationStep, EscalationStepInput},
         incident::{Incident, IncidentStatus},
         repositories::{
             AlertRuleRepository, EscalationPolicyRepository, IncidentRepository, ScheduleRepository,
         },
-        rule::AlertRule,
+        rule::{AlertQuery, AlertRule, validate_conditions},
         schedule::Schedule,
+        timeline::{ActionVia, IncidentTimelineRepository, TimelineEntry, TimelineKind},
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
+
+/// 写回一个事件最多试几次：每次落空都是别人刚改过，重读再改。
+pub(crate) const WRITE_ATTEMPTS: usize = 5;
 
 pub struct AlertingService {
     pub rules: Arc<dyn AlertRuleRepository>,
@@ -37,6 +39,8 @@ pub struct AlertingService {
     default_ack_timeout_secs: u32,
     /// 规则变更后通知实时告警匹配器重新加载。
     realtime_alerts: Option<Arc<RealtimeAlerts>>,
+    /// 事件的时间线：确认、解决记在这里。
+    timeline: Option<Arc<dyn IncidentTimelineRepository>>,
 }
 
 impl AlertingService {
@@ -56,7 +60,13 @@ impl AlertingService {
             default_ack_timeout_secs: crate::config::AlertSettings::default()
                 .default_ack_timeout_secs,
             realtime_alerts: None,
+            timeline: None,
         }
+    }
+
+    pub fn with_timeline(mut self, timeline: Arc<dyn IncidentTimelineRepository>) -> Self {
+        self.timeline = Some(timeline);
+        self
     }
 
     pub fn with_realtime_alerts(mut self, alerts: Arc<RealtimeAlerts>) -> Self {
@@ -94,8 +104,11 @@ impl AlertingService {
     }
 
     // ---- AlertRule CRUD ----
-    pub async fn create_rule(&self, rule: AlertRule) -> Result<AlertRule> {
+    pub async fn create_rule(&self, mut rule: AlertRule) -> Result<AlertRule> {
+        discovery::shape_rule(&mut rule)?;
+        refuse_audit_trail(&rule)?;
         realtime::validate(&rule)?;
+        validate_conditions(rule.kind, &rule.trigger, &rule.thresholds)?;
         self.ensure_policy_exists(&rule.org_id, &rule.escalation_policy_id)
             .await?;
         let created = self.rules.create(rule).await?;
@@ -107,8 +120,11 @@ impl AlertingService {
         self.rules.get(id).await
     }
 
-    pub async fn update_rule(&self, rule: AlertRule) -> Result<AlertRule> {
+    pub async fn update_rule(&self, mut rule: AlertRule) -> Result<AlertRule> {
+        discovery::shape_rule(&mut rule)?;
+        refuse_audit_trail(&rule)?;
         realtime::validate(&rule)?;
+        validate_conditions(rule.kind, &rule.trigger, &rule.thresholds)?;
         // 只校验被改动的引用：策略事后被删的规则仍可继续编辑其它字段。
         let existing = self.rules.get(&rule.id).await?;
 
@@ -124,6 +140,24 @@ impl AlertingService {
 
     pub async fn list_rules(&self, org_id: &Id) -> Result<Vec<AlertRule>> {
         self.rules.list(org_id).await
+    }
+
+    /// 不写库地检查一条要导入的规则，和保存时一样：统一自动发现规则的形状，校验实时规则与触发
+    /// 条件，升级策略要在本组织。
+    pub async fn check_rule(&self, rule: &mut AlertRule) -> Result<()> {
+        discovery::shape_rule(rule)?;
+        refuse_audit_trail(rule)?;
+        realtime::validate(rule)?;
+        validate_conditions(rule.kind, &rule.trigger, &rule.thresholds)?;
+        self.ensure_policy_exists(&rule.org_id, &rule.escalation_policy_id)
+            .await
+    }
+
+    /// 导入：检查过的一批规则一次写进去，都写进或都不写。
+    pub async fn save_rules(&self, creates: Vec<AlertRule>, updates: Vec<AlertRule>) -> Result<()> {
+        self.rules.save_all(creates, updates).await?;
+        self.rules_changed();
+        Ok(())
     }
 
     pub async fn delete_rule(&self, id: &Id) -> Result<()> {
@@ -208,82 +242,169 @@ impl AlertingService {
         incident_id: &Id,
         by: Id,
         at: TimestampMicros,
+        via: ActionVia,
     ) -> Result<Incident> {
-        let mut next = self.incidents.get(incident_id).await?;
+        for _ in 0..WRITE_ATTEMPTS {
+            let mut next = self.incidents.get(incident_id).await?;
 
-        match next.status {
-            IncidentStatus::Acknowledged => return Ok(next),
-            IncidentStatus::Resolved | IncidentStatus::Closed => {
-                return Err(Error::conflict("only an open incident can be acknowledged"));
+            match next.status {
+                IncidentStatus::Acknowledged => return Ok(next),
+                IncidentStatus::Resolved | IncidentStatus::Closed => {
+                    return Err(Error::conflict("only an open incident can be acknowledged"));
+                }
+                IncidentStatus::Open => {}
             }
-            IncidentStatus::Open => {}
-        }
 
-        next.status = IncidentStatus::Acknowledged;
-        next.acknowledged_at = Some(at);
-        next.acknowledged_by = Some(by.clone());
+            next.status = IncidentStatus::Acknowledged;
+            next.acknowledged_at = Some(at);
+            next.acknowledged_by = Some(by.clone());
+            next.handling.clear_snooze();
 
-        if !next.assignees.contains(&by) {
-            next.assignees.push(by);
-        }
+            if !next.assignees.contains(&by) {
+                next.assignees.push(by.clone());
+            }
 
-        let Some(incident) = self
-            .incidents
-            .update_if_status(next, &[IncidentStatus::Open])
-            .await?
-        else {
-            // 读到状态之后被并发操作抢先：以库里的最新状态为准。
-            let latest = self.incidents.get(incident_id).await?;
-
-            return match latest.status {
-                IncidentStatus::Acknowledged => Ok(latest),
-                _ => Err(Error::conflict("only an open incident can be acknowledged")),
+            // 读出之后被别人改过（调度器升级、评估器解决、别人确认）：重读再看。
+            let Some(incident) = self
+                .incidents
+                .update_if_status(next, &[IncidentStatus::Open])
+                .await?
+            else {
+                continue;
             };
-        };
 
-        self.emit_lifecycle(&incident).await;
-        self.notify_transition(&incident, ALERT_ACKNOWLEDGED_EVENT, at)
-            .await;
-        Ok(incident)
+            self.record(&incident, TimelineKind::Acknowledged, &by, at, via)
+                .await;
+            self.emit_lifecycle(&incident).await;
+            self.notify_transition(&incident, ALERT_ACKNOWLEDGED_EVENT, at)
+                .await;
+            return Ok(incident);
+        }
+
+        Err(Error::conflict(
+            "incident changed while it was being acknowledged; retry",
+        ))
     }
 
-    /// 解决一个 `open` 或 `acknowledged` 事件。已解决或关闭的事件原样返回。
-    pub async fn resolve(&self, incident_id: &Id, by: Id, at: TimestampMicros) -> Result<Incident> {
-        let mut next = self.incidents.get(incident_id).await?;
+    /// 解决一个 `open` 或 `acknowledged` 事件，并入它的事件一并解决。已解决或关闭的事件原样返回。
+    pub async fn resolve(
+        &self,
+        incident_id: &Id,
+        by: Id,
+        at: TimestampMicros,
+        via: ActionVia,
+    ) -> Result<Incident> {
+        let incident = self.resolve_one(incident_id, &by, at, via).await?;
 
-        if matches!(
-            next.status,
-            IncidentStatus::Resolved | IncidentStatus::Closed
-        ) {
-            return Ok(next);
+        if let Some(incident) = &incident {
+            self.resolve_merged(incident, &by, at, via).await;
         }
 
-        next.status = IncidentStatus::Resolved;
-        next.resolved_at = Some(at);
-        next.resolved_by = Some(by);
-
-        let Some(incident) = self
-            .incidents
-            .update_if_status(next, &[IncidentStatus::Open, IncidentStatus::Acknowledged])
-            .await?
-        else {
-            let latest = self.incidents.get(incident_id).await?;
-
-            return match latest.status {
-                IncidentStatus::Resolved | IncidentStatus::Closed => Ok(latest),
-                _ => Err(Error::conflict(
-                    "incident changed while it was being resolved; retry",
-                )),
-            };
-        };
-
-        self.emit_lifecycle(&incident).await;
-        self.notify_transition(&incident, ALERT_RESOLVED_EVENT, at)
-            .await;
-        Ok(incident)
+        match incident {
+            Some(incident) => Ok(incident),
+            None => self.incidents.get(incident_id).await,
+        }
     }
 
-    /// 状态迁移成功后的通知副作用：把触发事件标为已处理，并发出迁移事件。失败只记日志。
+    /// 解决一个事件，返回解决后的事件；它早已解决时返回 `None`。
+    async fn resolve_one(
+        &self,
+        incident_id: &Id,
+        by: &Id,
+        at: TimestampMicros,
+        via: ActionVia,
+    ) -> Result<Option<Incident>> {
+        for _ in 0..WRITE_ATTEMPTS {
+            let mut next = self.incidents.get(incident_id).await?;
+            let status = next.status;
+
+            if matches!(status, IncidentStatus::Resolved | IncidentStatus::Closed) {
+                return Ok(None);
+            }
+
+            next.status = IncidentStatus::Resolved;
+            next.resolved_at = Some(at);
+            next.resolved_by = Some(by.clone());
+            next.handling.clear_snooze();
+
+            let Some(incident) = self.incidents.update_if_status(next, &[status]).await? else {
+                continue;
+            };
+
+            self.record(&incident, TimelineKind::Resolved, by, at, via)
+                .await;
+            self.emit_lifecycle(&incident).await;
+            self.notify_transition(&incident, ALERT_RESOLVED_EVENT, at)
+                .await;
+            return Ok(Some(incident));
+        }
+
+        Err(Error::conflict(
+            "incident changed while it was being resolved; retry",
+        ))
+    }
+
+    /// 主事件解决了：并入它、还没解决的事件一并解决。失败只记日志。
+    async fn resolve_merged(
+        &self,
+        target: &Incident,
+        by: &Id,
+        at: TimestampMicros,
+        via: ActionVia,
+    ) {
+        let merged = match self
+            .incidents
+            .list_merged_into(&target.org_id, &target.id)
+            .await
+        {
+            Ok(merged) => merged,
+            Err(error) => {
+                tracing::warn!(incident_id = %target.id, %error, "merged incidents could not be listed");
+                return;
+            }
+        };
+
+        for incident in merged.into_iter().filter(Incident::is_active) {
+            if let Err(error) = self.resolve_one(&incident.id, by, at, via).await {
+                tracing::warn!(
+                    incident_id = %incident.id,
+                    target_id = %target.id,
+                    %error,
+                    "merged incident could not be resolved with its target"
+                );
+            }
+        }
+    }
+
+    /// 在时间线上记下有人确认或解决了事件。失败只记日志：操作本身已经生效。
+    async fn record(
+        &self,
+        incident: &Incident,
+        kind: TimelineKind,
+        by: &Id,
+        at: TimestampMicros,
+        via: ActionVia,
+    ) {
+        let Some(timeline) = &self.timeline else {
+            return;
+        };
+
+        let entry = TimelineEntry::new(
+            &incident.org_id,
+            &incident.id,
+            at,
+            kind,
+            Some(by.clone()),
+            serde_json::json!({ "via": via.as_str() }),
+        );
+
+        if let Err(error) = timeline.append(entry).await {
+            tracing::warn!(incident_id = %incident.id, %error, "incident timeline entry could not be written");
+        }
+    }
+
+    /// 状态迁移成功后的通知副作用：把触发与各次升级的通知标为已处理（不再有后续步骤和来电），并发出
+    /// 迁移事件。失败只记日志。
     async fn notify_transition(
         &self,
         incident: &Incident,
@@ -295,7 +416,7 @@ impl AlertingService {
         };
 
         if let Err(error) = engine
-            .acknowledge_event(&incident.org_id, &triggered_event_id(&incident.id), at)
+            .acknowledge_alert(&incident.org_id, &incident.id, at)
             .await
         {
             tracing::warn!(
@@ -346,5 +467,58 @@ impl AlertingService {
                 "alert Incident lifecycle sink failed"
             );
         }
+    }
+}
+
+/// Whether a rule's query reads the audit trail (`_audit`).
+fn reads_audit_trail(query: &AlertQuery) -> bool {
+    query
+        .stream
+        .as_ref()
+        .is_some_and(|stream| stream.name == crate::domain::stream::AUDIT_STREAM)
+        || crate::infra::query::grants::statement_names_audit(&query.statement)
+}
+
+/// A rule is evaluated in the background, where nobody's `audit.read` applies: one that reads the
+/// audit trail could never see it, and would show healthy for ever.
+fn refuse_audit_trail(rule: &AlertRule) -> Result<()> {
+    if reads_audit_trail(&rule.query) {
+        return Err(Error::invalid(
+            "an alert rule cannot read `_audit`: rules are evaluated in the background, where \
+             nobody's audit.read applies",
+        ));
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_rule_that_reads_the_audit_trail_is_told_apart() {
+        let query =
+            |value: serde_json::Value| -> AlertQuery { serde_json::from_value(value).unwrap() };
+        let on = |statement: &str, stream: &str| {
+            query(serde_json::json!({
+                "language": "sql",
+                "statement": statement,
+                "periodSecs": 60,
+                "stream": { "name": stream, "streamType": "logs" },
+            }))
+        };
+
+        assert!(reads_audit_trail(&on(
+            "SELECT count(*) FROM _audit",
+            "_audit"
+        )));
+        assert!(reads_audit_trail(&on("SELECT count(*) FROM _audit", "app")));
+        assert!(reads_audit_trail(&on("SELECT 1", "_audit")));
+        assert!(reads_audit_trail(&on(
+            "SELECT count(*) FROM app WHERE a IN (SELECT action FROM _audit)",
+            "app"
+        )));
+        assert!(!reads_audit_trail(&on("SELECT count(*) FROM app", "app")));
     }
 }

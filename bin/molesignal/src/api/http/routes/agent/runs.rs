@@ -6,11 +6,11 @@
 //! - `GET  /api/v1/agent/runs/{id}`          状态
 //! - `GET  /api/v1/agent/runs/{id}/events`   事件（SSE），`?after=序号` 或 `Last-Event-ID` 续读
 //! - `POST /api/v1/agent/runs/{id}/cancel`   停止
-//! - `POST /api/v1/agent/runs/{id}/respond`  回答问题，或决定一个确认
+//! - `POST /api/v1/agent/runs/{id}/respond`  回答问题、决定一个确认，或在存好凭据后继续
 //! - `GET  /api/v1/agent/chat/{id}/runs`     会话最近的 Run，新的在前
 //!
 //! 能读会话的人能看它的 Run、停止它、回答它的问题；确认只能由发起这一轮的人决定，工具以他的
-//! 身份执行。
+//! 身份执行；「授权以继续」也只有他能回，凭据是他自己的。
 
 use axum::{
     Extension, Json, Router,
@@ -44,6 +44,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct RunResp {
     pub id: String,
     pub chat_id: String,
@@ -56,7 +57,7 @@ pub(crate) struct RunResp {
     pub initiator_id: String,
     pub user_message_id: Option<String>,
     pub assistant_message_id: Option<String>,
-    /// 在等的问题或确认。
+    /// 在等的问题、确认或授权。
     pub pending: Option<Value>,
     pub cancel_requested: bool,
     /// 最后一个事件的序号：续读从它之后开始。
@@ -65,9 +66,9 @@ pub(crate) struct RunResp {
     pub completion_tokens: i64,
     pub cost: Option<Cost>,
     pub error: Option<String>,
-    pub created_at_micros: i64,
-    pub started_at_micros: Option<i64>,
-    pub finished_at_micros: Option<i64>,
+    pub created_at: i64,
+    pub started_at: Option<i64>,
+    pub finished_at: Option<i64>,
 }
 
 impl RunResp {
@@ -91,9 +92,9 @@ impl RunResp {
             completion_tokens: run.completion_tokens,
             cost: run.cost,
             error: run.error.clone(),
-            created_at_micros: run.created_at.0,
-            started_at_micros: run.started_at.map(|at| at.0),
-            finished_at_micros: run.finished_at.map(|at| at.0),
+            created_at: run.created_at.0,
+            started_at: run.started_at.map(|at| at.0),
+            finished_at: run.finished_at.map(|at| at.0),
         }
     }
 }
@@ -169,7 +170,7 @@ async fn cancel_run(
         "agent.run.cancelled",
         "agent_chat",
         &run.chat_id.0,
-        json!({ "run_id": run.id.0, "status": run.status.as_str() }),
+        json!({ "runId": run.id.0, "status": run.status.as_str() }),
     )
     .await;
 
@@ -177,7 +178,7 @@ async fn cancel_run(
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct RespondReq {
     call_id: String,
     /// 选中的选项。
@@ -189,6 +190,9 @@ struct RespondReq {
     /// 确认：同意或拒绝。
     #[serde(default)]
     approved: Option<bool>,
+    /// 授权：存好了凭据接着执行，或跳过这台服务器。
+    #[serde(default)]
+    authorized: Option<bool>,
 }
 
 /// 把请求读成对在等的东西的回答；对不上时报错。
@@ -246,6 +250,24 @@ fn response_to(
                 responder: ctx.user_id.clone(),
             })
         }
+        Pending::Authorization { .. } => {
+            let authorized = req
+                .authorized
+                .ok_or_else(|| Error::invalid("an authorization needs `authorized`"))?;
+
+            // 凭据是发起人自己的，工具也以他的身份执行。
+            if ctx.user_id != *initiator {
+                return Err(Error::forbidden(
+                    "only the person who asked can authorize a tool in their answer",
+                ));
+            }
+
+            Ok(RunResponse::Authorization {
+                call_id: req.call_id,
+                authorized,
+                responder: ctx.user_id.clone(),
+            })
+        }
     }
 }
 
@@ -263,10 +285,31 @@ async fn respond(
         .as_ref()
         .filter(|pending| pending.call_id() == req.call_id)
         .ok_or_else(|| {
-            Error::conflict("the answer is not waiting for this question or confirmation")
+            Error::conflict(
+                "the answer is not waiting for this question, confirmation or authorization",
+            )
         })?;
 
     let response = response_to(pending, req, &ctx, run.initiator())?;
+
+    // 说存好了就要真的存过：不然再调一次还是缺凭据。
+    if let (
+        Pending::Authorization { server_id, .. },
+        RunResponse::Authorization {
+            authorized: true, ..
+        },
+    ) = (pending, &response)
+        && !state
+            .agent
+            .mcp
+            .has_my_credential(&ctx.org_id, &ctx.user_id, &Id(server_id.clone()))
+            .await?
+    {
+        return Err(Error::conflict(
+            "save your credential for this MCP server before continuing",
+        ));
+    }
+
     let run = state
         .agent
         .runs
@@ -275,9 +318,12 @@ async fn respond(
 
     let detail = match &response {
         RunResponse::Decision { approved, .. } => {
-            json!({ "run_id": run.id.0, "approved": approved })
+            json!({ "runId": run.id.0, "approved": approved })
         }
-        RunResponse::Answer { .. } => json!({ "run_id": run.id.0, "answered": true }),
+        RunResponse::Answer { .. } => json!({ "runId": run.id.0, "answered": true }),
+        RunResponse::Authorization { authorized, .. } => {
+            json!({ "runId": run.id.0, "authorized": authorized })
+        }
     };
 
     activity_audit::record(
@@ -302,7 +348,7 @@ mod tests {
         crate::agent::runs::RunPrincipal {
             user_id: Id::from_string(user),
             scope: IamScope::Organization,
-            credential_role_id: None,
+            credential_token_id: None,
             credential_application_id: None,
             credential_service_account_id: None,
         }
@@ -325,7 +371,7 @@ mod tests {
         let asker = Id::from_string("u1");
         let ok = response_to(
             &pending,
-            request(json!({"call_id": "c1", "approved": true})),
+            request(json!({"callId": "c1", "approved": true})),
             &ctx("u1"),
             &asker,
         );
@@ -336,7 +382,7 @@ mod tests {
 
         let other = response_to(
             &pending,
-            request(json!({"call_id": "c1", "approved": true})),
+            request(json!({"callId": "c1", "approved": true})),
             &ctx("u2"),
             &asker,
         );
@@ -344,11 +390,56 @@ mod tests {
 
         let missing = response_to(
             &pending,
-            request(json!({"call_id": "c1"})),
+            request(json!({"callId": "c1"})),
             &ctx("u1"),
             &asker,
         );
         assert!(missing.is_err());
+    }
+
+    #[test]
+    fn only_the_person_who_asked_authorizes_with_their_own_credential() {
+        let pending = Pending::Authorization {
+            call_id: "a1".into(),
+            tool: "linear_search_issues".into(),
+            server_id: "server-1".into(),
+            server: "Linear".into(),
+            header: "authorization".into(),
+            bearer: true,
+            instructions: String::new(),
+            rejected: false,
+        };
+
+        let asker = Id::from_string("u1");
+
+        for authorized in [true, false] {
+            let ok = response_to(
+                &pending,
+                request(json!({"callId": "a1", "authorized": authorized})),
+                &ctx("u1"),
+                &asker,
+            );
+            assert!(
+                matches!(ok, Ok(RunResponse::Authorization { authorized: value, .. }) if value == authorized)
+            );
+        }
+
+        let teammate = response_to(
+            &pending,
+            request(json!({"callId": "a1", "authorized": true})),
+            &ctx("u2"),
+            &asker,
+        );
+        assert!(matches!(teammate, Err(Error::Forbidden(_))));
+
+        // 确认的 `approved` 不能当作授权。
+        let wrong = response_to(
+            &pending,
+            request(json!({"callId": "a1", "approved": true})),
+            &ctx("u1"),
+            &asker,
+        );
+        assert!(wrong.is_err());
     }
 
     #[test]
@@ -366,7 +457,7 @@ mod tests {
         assert!(
             response_to(
                 &pending,
-                request(json!({"call_id": "q1", "choices": ["production"]})),
+                request(json!({"callId": "q1", "choices": ["production"]})),
                 &teammate,
                 &asker
             )
@@ -375,7 +466,7 @@ mod tests {
         assert!(
             response_to(
                 &pending,
-                request(json!({"call_id": "q1", "choices": ["dev"]})),
+                request(json!({"callId": "q1", "choices": ["dev"]})),
                 &teammate,
                 &asker
             )
@@ -384,7 +475,7 @@ mod tests {
         assert!(
             response_to(
                 &pending,
-                request(json!({"call_id": "q1", "choices": ["staging", "production"]})),
+                request(json!({"callId": "q1", "choices": ["staging", "production"]})),
                 &teammate,
                 &asker
             )
@@ -393,7 +484,7 @@ mod tests {
         assert!(
             response_to(
                 &pending,
-                request(json!({"call_id": "q1", "text": "the canary"})),
+                request(json!({"callId": "q1", "text": "the canary"})),
                 &teammate,
                 &asker
             )
@@ -402,7 +493,7 @@ mod tests {
         assert!(
             response_to(
                 &pending,
-                request(json!({"call_id": "q1"})),
+                request(json!({"callId": "q1"})),
                 &teammate,
                 &asker
             )

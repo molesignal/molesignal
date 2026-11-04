@@ -22,6 +22,7 @@ export function queryResultToDataFrames(
   refId: string,
   sourceType: PanelDataSourceType,
   legend?: string,
+  format?: string,
 ): DataFrame[] {
   if (sourceType === 'metrics') {
     const series = rowsToSeries(result);
@@ -58,21 +59,71 @@ export function queryResultToDataFrames(
         meta: {
           sourceType,
           preferredVisualization: 'time_series',
-          queryDurationMs: result.took_ms,
-          scannedRows: result.scanned_rows,
+          queryDurationMs: result.tookMs,
+          scannedRows: result.scannedRows,
         },
       }));
     }
   }
 
-  return [
-    rowsToDataFrame(result.columns, result.rows, {
-      refId,
-      sourceType,
-      queryDurationMs: result.took_ms,
-      scannedRows: result.scanned_rows,
-    }),
-  ];
+  const frame = rowsToDataFrame(result.columns, result.rows, {
+    refId,
+    sourceType,
+    queryDurationMs: result.tookMs,
+    scannedRows: result.scannedRows,
+  });
+
+  return format === 'time_series' ? longToSeriesFrames(frame) : [frame];
+}
+
+/**
+ * A result formatted as a time series that is long, a row for each time and
+ * set of labels, as one frame for each set: its text columns are the labels of
+ * its numbers, so a chart draws a line for each, named by them. A result with
+ * no text column is one frame, as it was.
+ */
+export function longToSeriesFrames(frame: DataFrame): DataFrame[] {
+  const time = frame.fields.find((field) => field.type === 'time');
+  const labels = frame.fields.filter(
+    (field) => field.type === 'string' || field.type === 'boolean',
+  );
+  const numbers = frame.fields.filter((field) => field.type === 'number');
+  if (!time || labels.length === 0 || numbers.length === 0) return [frame];
+
+  const groups = new Map<string, { labels: Record<string, string>; rows: number[] }>();
+  for (let row = 0; row < frame.length; row += 1) {
+    const set = Object.fromEntries(
+      labels.flatMap((field) => {
+        const value = field.values[row];
+        return value === null || value === undefined ? [] : [[field.name, String(value)]];
+      }),
+    );
+    const key = JSON.stringify(labels.map((field) => set[field.name] ?? null));
+    const group = groups.get(key) ?? { labels: set, rows: [] };
+    group.rows.push(row);
+    groups.set(key, group);
+  }
+
+  return [...groups.values()].map((group, index) => {
+    const pick = (values: readonly unknown[]) => group.rows.map((row) => values[row]);
+    const named = Object.values(group.labels).join(' · ');
+    return {
+      ...frame,
+      // One number is named by its labels alone, a row without any as a value that is missing;
+      // several numbers keep their own names beside the labels.
+      name: numbers.length === 1 ? named || '—' : frame.name,
+      length: group.rows.length,
+      fields: [
+        { ...time, id: `${time.id}-${index}`, values: pick(time.values) },
+        ...numbers.map((field) => ({
+          ...field,
+          id: `${field.id}-${index}`,
+          values: pick(field.values),
+          labels: group.labels,
+        })),
+      ],
+    };
+  });
 }
 
 export function rowsToDataFrame(

@@ -1,4 +1,10 @@
 import type { StreamField, FieldType } from '@/api/streams';
+import {
+  andFieldClause,
+  type FieldExpression,
+  parseFieldExpression,
+  quotedText,
+} from '@/shell/query/fieldExpression';
 import type { QueryResult } from '@/types/query';
 
 export type LogFieldDisplayType =
@@ -33,6 +39,12 @@ export interface ParsedLogFieldStatement {
   rejected: string[];
 }
 
+/** What one part of a field query says: a filter, text to find, or nothing the query can read. */
+export type LogFieldPart =
+  | { kind: 'filter'; filter: ParsedLogFieldClause }
+  | { kind: 'text'; value: string }
+  | { kind: 'rejected' };
+
 export function escapeSqlIdentifier(identifier: string): string {
   return identifier.replace(/"/g, '""');
 }
@@ -53,6 +65,10 @@ export function formatLogFieldQueryValue(value: unknown): string {
     .replace(/\t/g, '\\t')}'`;
 }
 
+/**
+ * Adds a clause on a value. It narrows the whole statement: one that joins
+ * alternatives with OR is put in brackets first.
+ */
 export function appendLogFieldValueClause(
   current: string,
   field: string,
@@ -61,29 +77,22 @@ export function appendLogFieldValueClause(
 ): string {
   const clause = `${field} ${mode === 'exclude' ? '!=' : '='} ${formatLogFieldQueryValue(value)}`;
   const trimmed = current.trim();
-  if (!trimmed) return clause;
   if (trimmed.includes(clause)) return trimmed;
-  if (/\bAND\s*$/i.test(trimmed)) return `${trimmed} ${clause}`;
-  return `${trimmed} AND ${clause}`;
+  return andFieldClause(trimmed, clause);
 }
 
 /** Adds a clause that asks for the records whose field has `text` somewhere in it. */
 export function appendLogFieldContainsClause(current: string, field: string, text: string): string {
   const clause = `${field} contains ${formatLogFieldQueryValue(text)}`;
   const trimmed = current.trim();
-  if (!trimmed) return clause;
   if (trimmed.includes(clause)) return trimmed;
-  if (/\bAND\s*$/i.test(trimmed)) return `${trimmed} ${clause}`;
-  return `${trimmed} AND ${clause}`;
+  return andFieldClause(trimmed, clause);
 }
 
 export function appendLogFieldClause(current: string, field: LogFieldDef): string {
   const trimmed = current.trim();
   if (hasLogFieldClause(trimmed, field.name)) return current;
-  const clause = `${field.name} ${fieldPlaceholder(field.dataType)}`;
-  if (!trimmed) return clause;
-  if (/\bAND\s*$/i.test(trimmed)) return `${trimmed} ${clause}`;
-  return `${trimmed} AND ${clause}`;
+  return andFieldClause(trimmed, `${field.name} ${fieldPlaceholder(field.dataType)}`);
 }
 
 export function isLogFieldFilterable(field: LogFieldDef, mode: 'fields' | 'sql'): boolean {
@@ -95,7 +104,7 @@ export function deriveLogFields(
   result?: QueryResult,
 ): LogFieldDef[] {
   if (schemaFields.length === 0 && !result) return [];
-  const schema = new Map(schemaFields.map((field) => [field.name, field.data_type]));
+  const schema = new Map(schemaFields.map((field) => [field.name, field.dataType]));
   schema.set('_timestamp', 'timestamp');
   const indexed = new Set(schemaFields.filter((field) => field.indexed).map((field) => field.name));
   // Time is not a field a stream declares an index for: every stream is partitioned by it, and a
@@ -122,45 +131,6 @@ export function deriveLogFields(
       ...(indexed.has(name) ? { indexed: true } : {}),
     };
   });
-}
-
-function splitLogFieldStatement(input: string): string[] {
-  const parts: string[] = [];
-  let start = 0;
-  let quote: "'" | '"' | null = null;
-  let escaped = false;
-
-  for (let index = 0; index < input.length; index += 1) {
-    const character = input[index]!;
-
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
-    if (character === '\\') {
-      escaped = true;
-      continue;
-    }
-    if (quote) {
-      if (character === quote) quote = null;
-      continue;
-    }
-    if (character === "'" || character === '"') {
-      quote = character;
-      continue;
-    }
-
-    const remaining = input.slice(index);
-    const conjunction = remaining.match(/^\s+AND\s+/i);
-    if (!conjunction) continue;
-
-    parts.push(input.slice(start, index));
-    index += conjunction[0].length - 1;
-    start = index + 1;
-  }
-
-  parts.push(input.slice(start));
-  return parts;
 }
 
 function decodeLogFieldEscapes(value: string): string {
@@ -222,61 +192,86 @@ export function isLogFieldPresenceClause(
   return clause.quoted && clause.value === '' && (clause.op === '=' || clause.op === '!=');
 }
 
-export function parseLogFieldStatement(input: string): ParsedLogFieldStatement {
-  const trimmed = input.trim();
-  if (!trimmed) return { filters: [], freeText: [], rejected: [] };
-
-  const filters: ParsedLogFieldClause[] = [];
-  const freeText: string[] = [];
-  const rejected: string[] = [];
-
-  for (const rawPart of splitLogFieldStatement(trimmed)) {
-    const part = rawPart.trim();
-    if (!part) continue;
-    // Functions are converted to structured filters before crossing the API
-    // boundary. Raw function text must never be interpolated into backend SQL.
-    const functionMatch = part.match(
-      /^(MATCH_TEXT|MATCH)\s*\(\s*([a-zA-Z_][\w.]*)\s*,\s*([\s\S]*?)\s*\)$/i,
-    );
-    if (functionMatch) {
-      const { value, quoted } = unquoteLogFieldValue(functionMatch[3]!);
-      if (!quoted) {
-        rejected.push(part);
-        continue;
-      }
-      filters.push({
+/**
+ * Reads one part of a field query: a search function, a comparison, or text
+ * to find, a quoted phrase as the words it holds. A part that opens a bracket
+ * it does not close as a group is nothing the query can read.
+ */
+export function readLogFieldPart(part: string): LogFieldPart {
+  // Functions are converted to structured filters before crossing the API
+  // boundary. Raw function text must never be interpolated into backend SQL.
+  const functionMatch = part.match(
+    /^(MATCH_TEXT|MATCH)\s*\(\s*([a-zA-Z_][\w.]*)\s*,\s*([\s\S]*?)\s*\)$/i,
+  );
+  if (functionMatch) {
+    const { value, quoted } = unquoteLogFieldValue(functionMatch[3]!);
+    if (!quoted) return { kind: 'rejected' };
+    return {
+      kind: 'filter',
+      filter: {
         field: functionMatch[2]!,
         op: functionMatch[1]!.toLowerCase() as 'match' | 'match_text',
         value,
         quoted: true,
-      });
-      continue;
-    }
-    if (/^(MATCH_TEXT|MATCH)\b/i.test(part)) {
-      rejected.push(part);
-      continue;
-    }
-    const match = part.match(
-      /^([a-zA-Z_][\w.]*)\s*(>=|<=|!=|=|>|<|eq\b|ne\b|contains\b|like\b)\s*([\s\S]+)$/i,
-    );
-    if (!match) {
-      freeText.push(part);
-      continue;
-    }
-    const rawOp = match[2]!.toLowerCase();
-    const { value, quoted } = unquoteLogFieldValue(match[3]!);
-    const op: ParsedLogFieldClause['op'] = rawOp === 'eq'
-      ? '='
-      : rawOp === 'ne'
-        ? '!='
-        : rawOp === 'like'
-          ? 'contains'
-          : rawOp as ParsedLogFieldClause['op'];
-    if (!value && !isLogFieldPresenceClause({ op, value, quoted })) {
-      rejected.push(part);
-      continue;
-    }
-    filters.push({ field: match[1]!, op, value, quoted });
+      },
+    };
+  }
+  if (/^(MATCH_TEXT|MATCH)\b/i.test(part) || part.startsWith('(')) return { kind: 'rejected' };
+
+  const match = part.match(
+    /^([a-zA-Z_][\w.]*)\s*(>=|<=|!=|=|>|<|eq\b|ne\b|contains\b|like\b)\s*([\s\S]+)$/i,
+  );
+  if (!match) {
+    const phrase = quotedText(part);
+    if (phrase === null) return { kind: 'text', value: part };
+    return phrase.trim() ? { kind: 'text', value: phrase } : { kind: 'rejected' };
+  }
+  const rawOp = match[2]!.toLowerCase();
+  const { value, quoted } = unquoteLogFieldValue(match[3]!);
+  const op: ParsedLogFieldClause['op'] = rawOp === 'eq'
+    ? '='
+    : rawOp === 'ne'
+      ? '!='
+      : rawOp === 'like'
+        ? 'contains'
+        : rawOp as ParsedLogFieldClause['op'];
+  if (!value && !isLogFieldPresenceClause({ op, value, quoted })) return { kind: 'rejected' };
+  return { kind: 'filter', filter: { field: match[1]!, op, value, quoted } };
+}
+
+/** The parts of a field query that all hold: those of an AND outside brackets, or the one statement. */
+function heldParts(statement: string): FieldExpression[] {
+  const read = parseFieldExpression(statement);
+  if (read === null) return [];
+  return read.kind === 'and' ? read.items : [read];
+}
+
+/** The fields a field query compares anywhere, its alternatives included. */
+export function logStatementFields(statement: string): string[] {
+  const named = (expression: FieldExpression): string[] => {
+    if (expression.kind !== 'part') return expression.items.flatMap(named);
+    const read = readLogFieldPart(expression.text);
+    return read.kind === 'filter' ? [read.filter.field] : [];
+  };
+  const read = parseFieldExpression(statement);
+  return read === null ? [] : named(read);
+}
+
+/**
+ * A field query read as the lists of what all has to hold: filters and text
+ * to find. Alternatives, which a list cannot say, are kept with what it
+ * cannot read, as written.
+ */
+export function parseLogFieldStatement(input: string): ParsedLogFieldStatement {
+  const filters: ParsedLogFieldClause[] = [];
+  const freeText: string[] = [];
+  const rejected: string[] = [];
+
+  for (const part of heldParts(input)) {
+    const read = part.kind === 'part' ? readLogFieldPart(part.text) : { kind: 'rejected' as const };
+    if (read.kind === 'filter') filters.push(read.filter);
+    else if (read.kind === 'text') freeText.push(read.value);
+    else rejected.push(part.text);
   }
 
   return { filters, freeText, rejected };
@@ -399,15 +394,29 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** The conditions a field statement selects by, each as SQL. */
-export function logFieldQueryConditions(statement: string): string[] {
-  const parsed = parseLogFieldStatement(statement);
-  const conditions = parsed.filters.map(logFieldClauseToSql);
-  parsed.freeText.forEach((part) => {
-    conditions.push(`"message" LIKE '%${escapeSqlString(part)}%'`);
-  });
+/** A part of a field query as SQL; `null` where it holds something the query cannot read. */
+function logExpressionSql(expression: FieldExpression): string | null {
+  if (expression.kind === 'part') {
+    const read = readLogFieldPart(expression.text);
+    if (read.kind === 'filter') return logFieldClauseToSql(read.filter);
+    if (read.kind === 'text') return `"message" LIKE '%${escapeSqlString(read.value)}%'`;
+    return null;
+  }
 
-  return conditions;
+  const items = expression.items.map(logExpressionSql);
+  if (items.some((item) => item === null)) return null;
+  return `(${items.join(expression.kind === 'and' ? ' AND ' : ' OR ')})`;
+}
+
+/**
+ * The conditions a field statement selects by, each as SQL: one for each part
+ * that has to hold, alternatives in brackets. A part the query cannot read
+ * selects nothing here; the list refuses it.
+ */
+export function logFieldQueryConditions(statement: string): string[] {
+  return heldParts(statement)
+    .map(logExpressionSql)
+    .filter((condition): condition is string => condition !== null);
 }
 
 export function buildLogFieldQuerySql(

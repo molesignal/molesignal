@@ -3,6 +3,7 @@ import {
   Background,
   BackgroundVariant,
   Controls,
+  MarkerType,
   MiniMap,
   ReactFlow,
   useEdgesState,
@@ -15,6 +16,7 @@ import {
 import 'reactflow/dist/style.css';
 
 import type { TopologyResponse } from '@/api/web';
+import { isNestedControlClick } from '@/shell/lib/nestedControl';
 import { useTopologyFlags } from '@/stores/useTopologyFlags';
 import { useThemePalette } from '@/viz/timeseries/themeAdapter';
 
@@ -26,6 +28,7 @@ import {
   useTopologyLayoutCache,
 } from './forceLayout';
 import { useTopology } from './loader';
+import { callStroke } from './MapNodeView';
 import { ServiceEdge, type ServiceEdgeData } from './ServiceEdge';
 import { ServiceNode, type ServiceNodeData } from './ServiceNode';
 
@@ -55,7 +58,7 @@ export function ServiceTopology({
   from,
   to,
   topology,
-  layout = 'graph',
+  layout = 'tree',
   direction = 'horizontal',
   searchQuery = '',
   showNodeMetrics = true,
@@ -156,18 +159,21 @@ export function ServiceTopology({
         position: positions[n.id] ?? { x: 0, y: 0 },
         data: {
           name: n.name,
-          error_rate: n.error_rate,
-          p95_ms: n.p95_ms,
+          error_rate: n.errorRate,
+          p95_ms: n.p95Ms,
           rps: n.rps,
-          span_count: n.span_count,
+          span_count: n.spanCount,
           matchesSearch: matchedIds.has(n.id),
           showMetrics: showNodeMetrics,
           showType: showServiceTypes,
           direction,
         },
       })),
+      // Every service map draws a call alike: an arrow as thick as its
+      // traffic, in the colour of how it fails.
       edges: data.edges.map((e) => {
         const touchesMatch = matchedIds.has(e.source) || matchedIds.has(e.target);
+        const stroke = callStroke(e.errRate, palette);
         return {
           id: `${e.source}->${e.target}`,
           source: e.source,
@@ -175,14 +181,15 @@ export function ServiceTopology({
           type: 'service',
           data: {
             rps: e.rps,
-            err_rate: e.err_rate,
-            p95_ms: e.p95_ms,
+            err_rate: e.errRate,
+            p95_ms: e.p95Ms,
             showLabel: showEdgeMetrics,
           },
+          markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: stroke },
           style: {
-            stroke: palette['--border'],
+            stroke,
             strokeWidth: 1.2 + Math.min(1.8, (e.rps / maxRps) * 1.8),
-            opacity: normalizedSearch ? (touchesMatch ? 0.9 : 0.12) : 0.72,
+            opacity: normalizedSearch ? (touchesMatch ? 0.85 : 0.12) : 0.85,
           },
           animated: false,
         };
@@ -267,7 +274,10 @@ export function ServiceTopology({
         nodesDraggable
         nodesConnectable={false}
         nodeDragThreshold={2}
-        onNodeClick={(_, n) => onNodeClick?.(n.id)}
+        // A click on the reference that names a service is the reference's, not the node's.
+        onNodeClick={(event, n) => {
+          if (!isNestedControlClick(event)) onNodeClick?.(n.id);
+        }}
         onEdgeClick={(_, e) => onEdgeClick?.({ source: e.source, target: e.target })}
         proOptions={{ hideAttribution: true }}
       >

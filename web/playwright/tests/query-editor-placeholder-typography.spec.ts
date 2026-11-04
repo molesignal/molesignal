@@ -50,7 +50,7 @@ test('keeps Metrics and Traces query hints on the shared editor typography', asy
   if (await expandQuery.isVisible()) await expandQuery.click();
   const tracesPlaceholder = page
     .locator(editorHint)
-    .filter({ hasText: 'trace_id = "..." / service_name contains "checkout"' });
+    .filter({ hasText: 'trace_id = "..." / service.name contains "checkout"' });
   await expect(tracesPlaceholder).toBeVisible();
   const tracesTypography = await readTypography(tracesPlaceholder);
 

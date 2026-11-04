@@ -43,6 +43,7 @@ pub struct IamRouteCatalog {
 /// keeps route/menu rendering generic while the database remains the single
 /// source of truth for the permission relationship.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IamRouteAccess {
     pub id: String,
     pub path_pattern: String,

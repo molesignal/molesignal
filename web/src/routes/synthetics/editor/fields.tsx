@@ -9,8 +9,10 @@ import {
   FormSelect,
   FormTextarea,
 } from '@/shell/FormDrawer';
+import { JsonEditor } from '@/shell/JsonEditor';
 
 import { clientId } from '../model';
+import { ClientCertificateFields } from './ClientCertificateFields';
 import type { AssertionDraft, CheckDraft } from './model';
 import { HostPortFields, SshFields } from './networkFields';
 
@@ -261,14 +263,118 @@ function TcpFields({ draft, patch }: { draft: CheckDraft; patch: DraftPatch }) {
   );
 }
 
+/**
+ * How an HTTP check reaches its server: the HTTP version it speaks, the DNS server and the host
+ * bindings it finds the server's addresses by, and the certificate it shows a server that asks.
+ */
+export function HttpConnectionFields({ draft, patch }: { draft: CheckDraft; patch: DraftPatch }) {
+  const { t } = useTranslation('synthetics');
+
+  return (
+    <>
+      <FormRow className="grid-cols-1 sm:grid-cols-2">
+        <FormField label={t('editor.http_version')}>
+          <FormSelect
+            value={draft.httpVersion}
+            onChange={(value) => patch('httpVersion', value as CheckDraft['httpVersion'])}
+            options={(['auto', 'http1', 'http2'] as const).map((version) => ({
+              value: version,
+              label: t(`editor.http_versions.${version}`),
+            }))}
+          />
+        </FormField>
+        <FormField label={t('editor.dns_server')} hint={t('editor.dns_server_hint')}>
+          <FormInput
+            value={draft.dnsServer}
+            onChange={(event) => patch('dnsServer', event.target.value)}
+            placeholder="1.1.1.1"
+          />
+        </FormField>
+      </FormRow>
+      <FormField label={t('editor.host_bindings')} hint={t('editor.host_bindings_hint')}>
+        <FieldArray
+          items={draft.hostBindings}
+          onChange={(hostBindings) => patch('hostBindings', hostBindings)}
+          newItem={() => ({ name: '', addresses: '' })}
+          addLabel={t('actions.add_host_binding')}
+          renderItem={(binding, _index, setBinding) => (
+            <FormRow className="grid-cols-1 sm:grid-cols-2">
+              <FormInput
+                aria-label={t('editor.host_binding_name')}
+                value={binding.name}
+                onChange={(event) => setBinding({ ...binding, name: event.target.value })}
+                placeholder="api.example.com"
+              />
+              <FormInput
+                aria-label={t('editor.host_binding_addresses')}
+                value={binding.addresses}
+                onChange={(event) => setBinding({ ...binding, addresses: event.target.value })}
+                placeholder="192.0.2.10, 192.0.2.11"
+              />
+            </FormRow>
+          )}
+        />
+      </FormField>
+      <ClientCertificateFields draft={draft} patch={patch} />
+    </>
+  );
+}
+
+/** What an assertion of each kind of check can read: the values the Agent takes from its reply. */
+const ASSERTION_SOURCES: Partial<Record<MonitorKind, readonly string[]>> = {
+  http: [
+    'status',
+    'body',
+    'json',
+    'header',
+    'duration_ms',
+    'size_bytes',
+    'timing.dns_ms',
+    'timing.connect_ms',
+    'timing.tls_ms',
+    'timing.first_byte_ms',
+  ],
+  tcp: ['response', 'duration_ms'],
+  dns: ['answers', 'answer_count', 'rcode', 'duration_ms'],
+  grpc: ['status', 'duration_ms'],
+};
+
+const ASSERTION_OPERATORS: readonly AssertionDraft['operator'][] = [
+  'equals',
+  'not_equals',
+  'contains',
+  'not_contains',
+  'matches',
+  'less_than',
+  'greater_than',
+  'exists',
+  'json_schema',
+];
+
+/** A source read by a name or a path carries it after a prefix: `header:<name>`, `json:<path>`. */
+const NAMED_SOURCES = ['header', 'json'] as const;
+
+function sourceKey(source: string) {
+  return NAMED_SOURCES.find((prefix) => source.startsWith(`${prefix}:`)) ?? source;
+}
+
+/** Whether a `kind` check can assert on `source`, as the server holds it. */
+export function assertionSourceAllowed(kind: MonitorKind, source: string) {
+  return (ASSERTION_SOURCES[kind] ?? []).includes(sourceKey(source));
+}
+
 export function AssertionEditor({
+  kind,
   assertions,
   onChange,
 }: {
+  kind: MonitorKind;
   assertions: AssertionDraft[];
   onChange: (value: AssertionDraft[]) => void;
 }) {
   const { t } = useTranslation('synthetics');
+  const sources = ASSERTION_SOURCES[kind] ?? [];
+
   return (
     <FieldArray
       items={assertions}
@@ -276,54 +382,98 @@ export function AssertionEditor({
       newItem={(): AssertionDraft => ({
         id: clientId(),
         name: '',
-        source: 'status',
+        source: sources[0] ?? 'status',
         operator: 'equals',
         expected: '',
         severity: 'critical',
       })}
       addLabel={t('actions.add_assertion')}
-      renderItem={(assertion, _index, setAssertion) => (
-        <div className="grid gap-2 rounded-md bg-bg-2 p-3 sm:grid-cols-2">
-          <FormInput
-            aria-label={t('editor.assertion_source')}
-            value={assertion.source}
-            onChange={(event) => setAssertion({ ...assertion, source: event.target.value })}
-            placeholder="status / body / duration_ms / header:name"
-          />
-          <FormSelect
-            ariaLabel={t('editor.assertion_operator')}
-            value={assertion.operator}
-            onChange={(operator) =>
-              setAssertion({ ...assertion, operator: operator as AssertionDraft['operator'] })
-            }
-            options={[
-              'equals',
-              'not_equals',
-              'contains',
-              'not_contains',
-              'matches',
-              'less_than',
-              'greater_than',
-              'exists',
-            ]}
-          />
-          <FormInput
-            aria-label={t('editor.assertion_expected')}
-            value={assertion.expected}
-            onChange={(event) => setAssertion({ ...assertion, expected: event.target.value })}
-            disabled={assertion.operator === 'exists'}
-            placeholder={t('editor.assertion_expected')}
-          />
-          <FormSelect
-            ariaLabel={t('editor.assertion_severity')}
-            value={assertion.severity}
-            onChange={(severity) =>
-              setAssertion({ ...assertion, severity: severity as AssertionDraft['severity'] })
-            }
-            options={['critical', 'warning']}
-          />
-        </div>
-      )}
+      renderItem={(assertion, _index, setAssertion) => {
+        const key = sourceKey(assertion.source);
+        const named = key === 'header' || key === 'json';
+        const schema = assertion.operator === 'json_schema';
+
+        return (
+          <div className="grid gap-2 rounded-md bg-bg-2 p-3 sm:grid-cols-2">
+            <div className={named ? 'grid grid-cols-2 gap-2' : undefined}>
+              <FormSelect
+                ariaLabel={t('editor.assertion_source')}
+                value={key}
+                onChange={(next) =>
+                  setAssertion({
+                    ...assertion,
+                    source: next === 'header' || next === 'json' ? `${next}:` : next,
+                    // A schema holds a body to it; any other source compares a value.
+                    operator: next !== 'body' && schema ? 'equals' : assertion.operator,
+                  })
+                }
+                options={sources.map((source) => ({
+                  value: source,
+                  // A gRPC check's status is the health service's word for itself, not an HTTP code.
+                  label: t(
+                    `editor.assertion_sources.${kind === 'grpc' && source === 'status' ? 'serving_status' : source}`,
+                  ),
+                }))}
+              />
+              {named && (
+                <FormInput
+                  aria-label={t(key === 'header' ? 'editor.assertion_header' : 'editor.assertion_json_path')}
+                  value={assertion.source.slice(key.length + 1)}
+                  onChange={(event) =>
+                    setAssertion({ ...assertion, source: `${key}:${event.target.value.trim()}` })
+                  }
+                  placeholder={key === 'header' ? 'content-type' : '$.status'}
+                  className={key === 'json' ? 'font-code' : undefined}
+                />
+              )}
+            </div>
+            <FormSelect
+              ariaLabel={t('editor.assertion_operator')}
+              value={assertion.operator}
+              onChange={(operator) =>
+                setAssertion({ ...assertion, operator: operator as AssertionDraft['operator'] })
+              }
+              options={ASSERTION_OPERATORS.filter(
+                (operator) => operator !== 'json_schema' || key === 'body',
+              ).map((operator) => ({
+                value: operator,
+                label: t(`editor.operators.${operator}`),
+              }))}
+            />
+            {schema ? (
+              <div className="sm:col-span-2">
+                <JsonEditor
+                  value={assertion.expected}
+                  onChange={(expected) => setAssertion({ ...assertion, expected })}
+                  ariaLabel={t('editor.assertion_schema')}
+                  placeholder='{"type": "object", "required": ["status"]}'
+                  minHeight={120}
+                  maxHeight={320}
+                />
+              </div>
+            ) : (
+              <FormInput
+                aria-label={t('editor.assertion_expected')}
+                value={assertion.expected}
+                onChange={(event) => setAssertion({ ...assertion, expected: event.target.value })}
+                disabled={assertion.operator === 'exists'}
+                placeholder={t('editor.assertion_expected')}
+              />
+            )}
+            <FormSelect
+              ariaLabel={t('editor.assertion_severity')}
+              value={assertion.severity}
+              onChange={(severity) =>
+                setAssertion({ ...assertion, severity: severity as AssertionDraft['severity'] })
+              }
+              options={(['critical', 'warning'] as const).map((severity) => ({
+                value: severity,
+                label: t(`detail.severity.${severity}`),
+              }))}
+            />
+          </div>
+        );
+      }}
     />
   );
 }
@@ -364,6 +514,16 @@ export const KIND_OPTIONS: MonitorKind[] = [
 
 export function supportsAssertions(kind: MonitorKind) {
   return ['http', 'tcp', 'dns', 'grpc'].includes(kind);
+}
+
+/** Whether a kind of check sends requests that can carry a trace context. */
+export function carriesTraceContext(kind: MonitorKind) {
+  return kind === 'http' || kind === 'grpc';
+}
+
+/** Whether a kind of check reaches one address, so that a failure to reach it can be traced. */
+export function tracesRoute(kind: MonitorKind) {
+  return ['http', 'tcp', 'tls', 'grpc', 'icmp', 'ssh'].includes(kind);
 }
 
 export function intervalLabel(seconds: number) {

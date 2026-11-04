@@ -123,7 +123,7 @@ export function HealthHero({
             'radial-gradient(110% 170% at 0% 0%, color-mix(in srgb, var(--tone) 9%, transparent), transparent 62%)',
         } as React.CSSProperties
       }
-      className="home-canvas-hero home-rise relative isolate flex min-w-0 flex-col justify-center overflow-hidden rounded-md bg-[var(--functional-surface)] px-[20px] pb-[26px] pt-[14px] [box-shadow:inset_3px_0_0_var(--tone),var(--shadow-functional-surface)]"
+      className="home-canvas-hero home-rise relative isolate flex min-w-0 flex-col justify-center overflow-hidden rounded-md bg-[var(--functional-surface)] px-[20px] pb-[26px] pt-[14px] [box-shadow:inset_2px_0_0_var(--tone),var(--shadow-functional-surface)]"
     >
       {decoration}
       <div className="relative z-10 flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5">
@@ -153,7 +153,7 @@ export function HealthHero({
           {loading ? (
             <Skeleton className="mt-2 h-3.5 w-64 max-w-full" />
           ) : (
-            <p className="type-data mt-1 text-pretty text-tx-1">
+            <p className="type-data mt-1 text-pretty text-tx-2">
               {detail}
               {showLastReceived && (
                 <span className="ml-1.5 text-tx-2">

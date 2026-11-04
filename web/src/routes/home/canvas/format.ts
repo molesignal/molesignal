@@ -64,9 +64,10 @@ export function formatByteRate(
 
 export function streamExplorePath(stream: HomeStreamOverview): string {
   const name = encodeURIComponent(stream.name);
-  if (stream.stream_type === 'logs') return `/logs?stream=${name}`;
-  if (stream.stream_type === 'metrics') return `/metrics?metric=${name}`;
-  if (stream.stream_type === 'traces') return `/traces?stream=${name}`;
+  if (stream.streamType === 'logs') return `/logs?stream=${name}`;
+  // A metrics stream holds the metrics of one source, not one metric.
+  if (stream.streamType === 'metrics') return '/metrics';
+  if (stream.streamType === 'traces') return `/traces?stream=${name}`;
   return `/streams/${encodeURIComponent(stream.id)}`;
 }
 
@@ -75,7 +76,7 @@ export function auditTarget(event: AuditEvent): string {
     const value = event.payload[key];
     if (typeof value === 'string' && value.trim()) return value;
   }
-  return event.target_id ?? event.target_kind ?? event.actor_kind;
+  return event.targetId ?? event.targetKind ?? event.actorKind;
 }
 
 export function humanizeAction(action: string): string {

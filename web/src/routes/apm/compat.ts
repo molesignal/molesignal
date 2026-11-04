@@ -29,16 +29,12 @@ export function legacyServicesTarget(
   return `/apm/services${suffix}${search}${hash}`;
 }
 
-export function apmIndexTarget(search = '', hash = ''): string {
-  return `/apm/overview${search}${hash}`;
-}
-
-export function legacyVersionCompareTarget(search = '', hash = ''): string {
-  return `/apm/deployments${search}${hash}`;
+export function apmIndexTarget(search = '', hash = '', page = '/apm/overview'): string {
+  return `${page}${search}${hash}`;
 }
 
 function rumDestination(suffix: string): string {
-  if (!suffix || suffix === '/') return '/overview';
+  if (!suffix || suffix === '/' || suffix === '/overview') return '/explorer';
   if (suffix === '/source-maps') return '/settings/source-maps';
   if (suffix === '/upload-source-maps') return '/settings/source-maps/upload';
   return suffix;

@@ -28,15 +28,20 @@ export function Nodes() {
   const [mapping, setMapping] = React.useState<clustersApi.RemoteCluster | null>(null);
   const [viewingNodes, setViewingNodes] = React.useState<clustersApi.RemoteCluster | null>(null);
   const manageAccess = useActionAccess({
-    permission: 'org.settings.manage',
+    permission: 'sys.clusters.manage',
   });
   const readAccess = useActionAccess({
-    permission: 'org.settings.read',
+    permission: 'sys.clusters.read',
+  });
+
+  const topologyAccess = useActionAccess({
+    permission: 'sys.settings.topology.read',
   });
 
   const q = useQuery({
     queryKey: ['clusters'],
     queryFn: () => clustersApi.list(),
+    enabled: readAccess.allowed,
   });
   const rows = q.data ?? [];
   const state = queryStateFor({ isLoading: q.isLoading, isError: q.isError, data: rows });
@@ -106,7 +111,8 @@ export function Nodes() {
         }}
       />
       <SectionBody opensOnSection className="space-y-8 pb-10">
-        <DataPlaneRuntimeSettings />
+        {topologyAccess.allowed && <DataPlaneRuntimeSettings />}
+        {readAccess.allowed && (
         <SettingsSection
           title={t('nodes.remote_clusters_title')}
           description={t('nodes.remote_clusters_description')}
@@ -124,13 +130,13 @@ export function Nodes() {
                   {
                     key: 'addr',
                     header: t('nodes.columns.address'),
-                    cell: (r) => <span className="font-sans text-tx-2">{r.advertise_addr}</span>,
+                    cell: (r) => <span className="font-sans text-tx-2">{r.advertiseAddr}</span>,
                   },
                   {
                     key: 'tls',
                     header: t('nodes.columns.tls'),
                     cell: (r) =>
-                      r.tls_verify ? (
+                      r.tlsVerify ? (
                         <Pill tone="green">{t('nodes.tls_verify_on')}</Pill>
                       ) : (
                         <Pill tone="dim">{tc('status.off')}</Pill>
@@ -204,6 +210,7 @@ export function Nodes() {
             )}
           </div>
         </SettingsSection>
+        )}
       </SectionBody>
     </>
   );

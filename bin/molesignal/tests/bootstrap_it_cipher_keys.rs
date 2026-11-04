@@ -32,7 +32,7 @@ async fn cipher_keys_crud_roundtrip() {
         .header(hk, &hv)
         .json(&serde_json::json!({
             "name": "pii-key",
-            "key_material_b64": b64_key(7),
+            "keyMaterialB64": b64_key(7),
         }))
         .send()
         .await
@@ -46,7 +46,7 @@ async fn cipher_keys_crud_roundtrip() {
     assert_eq!(created["name"], "pii-key");
     assert_eq!(created["version"], 1);
     assert_eq!(created["alg"], "aes-256-gcm");
-    assert!(created.get("raw_key").is_none(), "raw_key must never leak");
+    assert!(created.get("rawKey").is_none(), "rawKey must never leak");
 
     // 2) get_latest
     let resp = s
@@ -65,7 +65,7 @@ async fn cipher_keys_crud_roundtrip() {
         .client
         .post(format!("{}{}/pii-key/rotate", s.base_url, URL))
         .header(hk, &hv)
-        .json(&serde_json::json!({"key_material_b64": b64_key(9)}))
+        .json(&serde_json::json!({"keyMaterialB64": b64_key(9)}))
         .send()
         .await
         .unwrap();
@@ -76,7 +76,7 @@ async fn cipher_keys_crud_roundtrip() {
     );
     let v: Value = resp.json().await.unwrap();
     assert_eq!(v["version"], 2);
-    assert!(v["rotated_at_micros"].is_i64());
+    assert!(v["rotatedAt"].is_i64());
 
     // 4) list → 两条 (version 1 + 2)
     let resp = s
@@ -113,7 +113,7 @@ async fn cipher_keys_create_rejects_short_material() {
         .client
         .post(format!("{}{}", s.base_url, URL))
         .header(hk, &hv)
-        .json(&serde_json::json!({"name": "short", "key_material_b64": bad}))
+        .json(&serde_json::json!({"name": "short", "keyMaterialB64": bad}))
         .send()
         .await
         .unwrap();
@@ -133,7 +133,7 @@ async fn cipher_keys_unknown_name_is_not_found_and_never_created() {
         .client
         .post(format!("{}{}/ghost/rotate", s.base_url, URL))
         .header(hk, &hv)
-        .json(&serde_json::json!({"key_material_b64": b64_key(3)}))
+        .json(&serde_json::json!({"keyMaterialB64": b64_key(3)}))
         .send()
         .await
         .unwrap();
@@ -165,7 +165,7 @@ async fn cipher_keys_duplicate_create_is_a_conflict() {
     }
     let s = common::TestServer::start().await;
     let (hk, hv) = s.auth_header();
-    let body = serde_json::json!({"name": "dup-key", "key_material_b64": b64_key(5)});
+    let body = serde_json::json!({"name": "dup-key", "keyMaterialB64": b64_key(5)});
 
     let first = s
         .client
@@ -207,7 +207,7 @@ async fn cipher_rotate_keeps_old_key_for_decrypt() {
             .header(hk, &hv)
             .json(&serde_json::json!({
                 "name": n,
-                "key_material_b64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+                "keyMaterialB64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
             }))
             .send()
             .await;

@@ -29,6 +29,7 @@ import type {
   MonitorState,
   ProbeAgent,
   ProbeAgentToken,
+  ProbeAttempt,
   ProbeLocation,
   ProbeOutcome,
   SyntheticMonitor,
@@ -55,13 +56,13 @@ function sequence(seed: number): () => number {
 // ───────────────────────────── Synthetics ─────────────────────────────
 
 const NO_EGRESS_LIMITS = {
-  allowed_cidrs: [],
-  denied_cidrs: [],
-  allowed_domains: [],
-  denied_domains: [],
-  allowed_ports: [],
-  allow_private_networks: false,
-  allow_loopback: false,
+  allowedCidrs: [],
+  deniedCidrs: [],
+  allowedDomains: [],
+  deniedDomains: [],
+  allowedPorts: [],
+  allowPrivateNetworks: false,
+  allowLoopback: false,
 };
 
 function locations(now: number): ProbeLocation[] {
@@ -80,10 +81,10 @@ function locations(now: number): ProbeLocation[] {
     execution: 'agent_pool',
     lifecycle: 'active',
     health: 'online',
-    system_managed: true,
-    egress_policy: NO_EGRESS_LIMITS,
-    created_at: now - 120 * DAY,
-    updated_at: now - 2 * HOUR,
+    systemManaged: true,
+    egressPolicy: NO_EGRESS_LIMITS,
+    createdAt: now - 120 * DAY,
+    updatedAt: now - 2 * HOUR,
     ...overrides,
   });
 
@@ -92,14 +93,14 @@ function locations(now: number): ProbeLocation[] {
     location('loc-eu-central', 'Frankfurt', 'eu-central-1', 'Public probes in central Europe.'),
     location('loc-ap-southeast', 'Singapore', 'ap-southeast-1', 'Public probes in south-east Asia.', {
       health: 'degraded',
-      updated_at: now - 12 * MINUTE,
+      updatedAt: now - 12 * MINUTE,
     }),
     location('loc-shanghai', 'Shanghai office', 'cn-sha-office', 'Private probes behind the office firewall.', {
-      organization_id: ORG,
+      organizationId: ORG,
       scope: 'organization',
-      system_managed: false,
-      egress_policy: { ...NO_EGRESS_LIMITS, allow_private_networks: true, allowed_ports: [22, 443, 5432] },
-      created_at: now - 40 * DAY,
+      systemManaged: false,
+      egressPolicy: { ...NO_EGRESS_LIMITS, allowPrivateNetworks: true, allowedPorts: [22, 443, 5432] },
+      createdAt: now - 40 * DAY,
     }),
   ];
 }
@@ -113,47 +114,48 @@ function agents(now: number): ProbeAgent[] {
     overrides: Partial<ProbeAgent> = {},
   ): ProbeAgent => ({
     id,
-    organization_id: location_id === 'loc-shanghai' ? ORG : undefined,
-    location_id,
+    organizationId: location_id === 'loc-shanghai' ? ORG : undefined,
+    locationId: location_id,
     name,
     hostname,
     status: 'online',
-    agent_version: '0.9.2',
-    protocol_version: 3,
+    agentVersion: '0.9.2',
+    protocolVersion: 3,
+    featureLevel: 1,
     capabilities: ['http', 'tcp', 'ssh', 'dns', 'icmp', 'tls', 'grpc', 'browser'],
-    capacity: { max_concurrent: 16, max_browser_concurrent: 2, available: 13, available_browser: 2 },
+    capacity: { maxConcurrent: 16, maxBrowserConcurrent: 2, available: 13, availableBrowser: 2 },
     labels: { tier: 'production' },
-    certificate_serial: `4a:1f:${id.slice(-2)}`,
-    certificate_expires_at: now + 61 * DAY,
-    last_heartbeat_at: now - 9_000_000,
-    last_result_sequence: 48_210,
-    created_at: now - 40 * DAY,
-    updated_at: now - 9_000_000,
+    certificateSerial: `4a:1f:${id.slice(-2)}`,
+    certificateExpiresAt: now + 61 * DAY,
+    lastHeartbeatAt: now - 9_000_000,
+    lastResultSequence: 48_210,
+    createdAt: now - 40 * DAY,
+    updatedAt: now - 9_000_000,
     ...overrides,
   }) as ProbeAgent;
 
   return [
     agent('agent-use-01', 'loc-us-east', 'use1-probe-a', 'probe-a.use1.acme.internal'),
     agent('agent-use-02', 'loc-us-east', 'use1-probe-b', 'probe-b.use1.acme.internal', {
-      capacity: { max_concurrent: 16, max_browser_concurrent: 2, available: 4, available_browser: 0 },
+      capacity: { maxConcurrent: 16, maxBrowserConcurrent: 2, available: 4, availableBrowser: 0 },
     }),
     agent('agent-euc-01', 'loc-eu-central', 'euc1-probe-a', 'probe-a.euc1.acme.internal'),
     agent('agent-aps-01', 'loc-ap-southeast', 'apse1-probe-a', 'probe-a.apse1.acme.internal', {
       status: 'degraded',
-      agent_version: '0.9.0',
-      last_heartbeat_at: now - 3 * MINUTE,
-      certificate_expires_at: now + 6 * DAY,
+      agentVersion: '0.9.0',
+      lastHeartbeatAt: now - 3 * MINUTE,
+      certificateExpiresAt: now + 6 * DAY,
     }),
     agent('agent-sha-01', 'loc-shanghai', 'sha-office-1', 'probe-1.sha.acme.corp', {
       capabilities: ['http', 'tcp', 'ssh', 'dns', 'icmp', 'tls'],
-      capacity: { max_concurrent: 8, max_browser_concurrent: 0, available: 8, available_browser: 0 },
+      capacity: { maxConcurrent: 8, maxBrowserConcurrent: 0, available: 8, availableBrowser: 0 },
       labels: { tier: 'office', owner: 'it-ops' },
     }),
     agent('agent-sha-02', 'loc-shanghai', 'sha-office-2', 'probe-2.sha.acme.corp', {
       status: 'offline',
       capabilities: ['http', 'tcp', 'dns'],
-      capacity: { max_concurrent: 8, max_browser_concurrent: 0, available: 0, available_browser: 0 },
-      last_heartbeat_at: now - 5 * HOUR,
+      capacity: { maxConcurrent: 8, maxBrowserConcurrent: 0, available: 0, availableBrowser: 0 },
+      lastHeartbeatAt: now - 5 * HOUR,
       labels: { tier: 'office', owner: 'it-ops' },
     }),
   ];
@@ -213,9 +215,9 @@ function monitorSpec(seed: MonitorSeed): MonitorSpec {
               ],
             },
           ],
-          follow_redirects: true,
-          max_redirects: 5,
-          verify_tls: true,
+          followRedirects: true,
+          maxRedirects: 5,
+          verifyTls: true,
         },
       };
     case 'browser':
@@ -228,23 +230,23 @@ function monitorSpec(seed: MonitorSeed): MonitorSpec {
             { id: 's3', name: 'Wait for the dashboard', action: { action: 'wait_for', selector: '[data-page="home"]' } },
           ],
           viewport: { width: 1440, height: 900 },
-          capture_screenshot_on_failure: true,
-          capture_har_on_failure: true,
-          capture_trace_on_failure: false,
+          captureScreenshotOnFailure: true,
+          captureHarOnFailure: true,
+          captureTraceOnFailure: false,
         },
       };
     case 'tcp':
-      return { kind: 'tcp', configuration: { host: literal(host), port: Number(port), use_tls: false, assertions: [] } };
+      return { kind: 'tcp', configuration: { host: literal(host), port: Number(port), useTls: false, assertions: [] } };
     case 'ssh':
-      return { kind: 'ssh', configuration: { host: literal(host), port: Number(port), expected_identification_regex: '^SSH-2\\.0-OpenSSH' } };
+      return { kind: 'ssh', configuration: { host: literal(host), port: Number(port), expectedIdentificationRegex: '^SSH-2\\.0-OpenSSH' } };
     case 'dns':
-      return { kind: 'dns', configuration: { name: seed.target, record_type: 'A', require_dnssec: true, expected_values: [], assertions: [] } };
+      return { kind: 'dns', configuration: { name: seed.target, recordType: 'A', requireDnssec: true, expectedValues: [], assertions: [] } };
     case 'icmp':
-      return { kind: 'icmp', configuration: { host: seed.target, count: 4, interval_millis: 250, max_packet_loss_ratio: 0.25 } };
+      return { kind: 'icmp', configuration: { host: seed.target, count: 4, intervalMillis: 250, maxPacketLossRatio: 0.25 } };
     case 'tls':
-      return { kind: 'tls', configuration: { host, port: Number(port), minimum_days_remaining: 21, expected_sans: [host] } };
+      return { kind: 'tls', configuration: { host, port: Number(port), minimumDaysRemaining: 21, expectedSans: [host] } };
     case 'grpc':
-      return { kind: 'grpc', configuration: { endpoint: seed.target, use_tls: true, metadata: [], call: { kind: 'health', service: 'orders.v1.Orders' }, assertions: [] } };
+      return { kind: 'grpc', configuration: { endpoint: seed.target, useTls: true, metadata: [], call: { kind: 'health', service: 'orders.v1.Orders' }, assertions: [] } };
     case 'heartbeat':
       return { kind: 'heartbeat' };
   }
@@ -253,45 +255,48 @@ function monitorSpec(seed: MonitorSeed): MonitorSpec {
 function monitors(now: number): SyntheticMonitor[] {
   return MONITOR_SEEDS.map((seed, index) => ({
     id: seed.id,
-    organization_id: ORG,
+    organizationId: ORG,
     name: seed.name,
     description: seed.description,
     kind: seed.kind,
     lifecycle: seed.lifecycle ?? 'active',
     state: seed.state,
     tags: seed.tags,
-    active_revision_id: `${seed.id}-rev-3`,
-    ...(seed.lifecycle === 'paused' ? {} : { next_due_at: now + ((index * 7) % 50 + 4) * 1_000_000 }),
-    created_by: 'u1',
-    created_at: now - (90 - index * 4) * DAY,
-    updated_at: now - (index + 1) * 3 * HOUR,
+    activeRevisionId: `${seed.id}-rev-3`,
+    ...(seed.lifecycle === 'paused' ? {} : { nextDueAt: now + ((index * 7) % 50 + 4) * 1_000_000 }),
+    createdBy: 'u1',
+    createdAt: now - (90 - index * 4) * DAY,
+    updatedAt: now - (index + 1) * 3 * HOUR,
   }));
 }
 
 function revisions(seed: MonitorSeed, now: number): MonitorRevision[] {
   return [3, 2, 1].map((number) => ({
     id: `${seed.id}-rev-${number}`,
-    organization_id: ORG,
-    monitor_id: seed.id,
+    organizationId: ORG,
+    monitorId: seed.id,
     number,
     spec: monitorSpec(seed),
     schedule:
       seed.kind === 'heartbeat'
-        ? { kind: 'heartbeat', expected_seconds: seed.every, grace_seconds: 1_800 }
-        : { kind: 'interval', every_seconds: seed.every },
-    timeout_millis: seed.kind === 'browser' ? 45_000 : 10_000,
-    max_retries: 1,
-    consecutive_failures: 2,
-    consecutive_recoveries: 2,
-    freshness_seconds: seed.every * 3,
-    location_policy: seed.locationIds.length > 2 ? { kind: 'majority' } : { kind: 'any' },
-    location_ids: seed.locationIds,
-    alert_on_degraded: true,
-    alert_on_flaky: false,
-    last_test_passed_at: now - (4 - number) * 9 * DAY,
-    created_by: 'u1',
-    created_at: now - (4 - number) * 9 * DAY,
-    content_hash: `sha256:${seed.id}:${number}`,
+        ? { kind: 'heartbeat', expectedSeconds: seed.every, graceSeconds: 1_800 }
+        : { kind: 'interval', everySeconds: seed.every },
+    timeoutMillis: seed.kind === 'browser' ? 45_000 : 10_000,
+    maxRetries: 1,
+    consecutiveFailures: 2,
+    consecutiveRecoveries: 2,
+    freshnessSeconds: seed.every * 3,
+    locationPolicy: seed.locationIds.length > 2 ? { kind: 'majority' } : { kind: 'any' },
+    locationIds: seed.locationIds,
+    alertOnDegraded: true,
+    alertOnFlaky: false,
+    alertOnNoData: true,
+    injectTraceContext: true,
+    tracerouteOnFailure: true,
+    lastTestPassedAt: now - (4 - number) * 9 * DAY,
+    createdBy: 'u1',
+    createdAt: now - (4 - number) * 9 * DAY,
+    contentHash: `sha256:${seed.id}:${number}`,
   }));
 }
 
@@ -305,7 +310,7 @@ function outcomeFor(seed: MonitorSeed, roll: number, recent: boolean): ProbeOutc
   return 'healthy';
 }
 
-type PhaseKey = Exclude<keyof TimingBreakdown, 'total_micros'>;
+type PhaseKey = Exclude<keyof TimingBreakdown, 'totalTime'>;
 
 /**
  * The share of an attempt each kind of check spends in the phases its probe
@@ -316,12 +321,12 @@ type PhaseKey = Exclude<keyof TimingBreakdown, 'total_micros'>;
  * the lookup inside its client, and a browser run times the journey as a whole.
  */
 const PHASE_SHARES: Partial<Record<MonitorKind, Partial<Record<PhaseKey, number>>>> = {
-  http: { dns_micros: 0.06, connect_micros: 0.09, tls_micros: 0.21, first_byte_micros: 0.52 },
-  tcp: { dns_micros: 0.24, connect_micros: 0.68 },
-  dns: { dns_micros: 0.94 },
-  tls: { dns_micros: 0.07, connect_micros: 0.21, tls_micros: 0.64 },
-  grpc: { dns_micros: 0.09 },
-  ssh: { dns_micros: 0.08, connect_micros: 0.27, first_byte_micros: 0.56 },
+  http: { dnsTime: 0.06, connectTime: 0.09, tlsTime: 0.21, firstByteTime: 0.52 },
+  tcp: { dnsTime: 0.24, connectTime: 0.68 },
+  dns: { dnsTime: 0.94 },
+  tls: { dnsTime: 0.07, connectTime: 0.21, tlsTime: 0.64 },
+  grpc: { dnsTime: 0.09 },
+  ssh: { dnsTime: 0.08, connectTime: 0.27, firstByteTime: 0.56 },
 };
 
 function timing(kind: MonitorKind, total: number): TimingBreakdown {
@@ -330,7 +335,60 @@ function timing(kind: MonitorKind, total: number): TimingBreakdown {
     Math.round(total * share),
   ]);
 
-  return { ...Object.fromEntries(phases), total_micros: total };
+  return { ...Object.fromEntries(phases), totalTime: total };
+}
+
+/** The route a failed HTTP run traced, breaking off after the provider's edge. */
+const TRACEROUTE_HOPS = JSON.stringify([
+  [1, '10.20.0.1', 1, 4, 4, 0.4, 0.6, 1.1],
+  [2, '100.64.12.1', 1, 4, 4, 2.1, 2.8, 3.9],
+  [3, '203.0.113.1', 2, 4, 4, 8.7, 9.4, 11.2],
+  [4, null, 0, 4, 0, null, null, null],
+  [5, '198.51.100.17', 1, 4, 1, 31.5, 31.5, 31.5],
+]);
+
+/** What an HTTP run's attempt left as steps: its request, and the traceroute a failure ran. */
+function httpEvidence(
+  run: number,
+  startedAt: number,
+  total: number,
+  failed: boolean,
+): NonNullable<ProbeAttempt['evidence']> {
+  const request = {
+    stepId: 'step-1',
+    name: 'Request',
+    action: 'http',
+    startedAt: startedAt,
+    finishedAt: startedAt + total,
+    outcome: failed ? ('failing' as const) : ('healthy' as const),
+    ...(failed ? { errorCategory: 'timeout', errorMessage: 'timed out after 10000 ms' } : {}),
+    metadata: {
+      ...(failed ? {} : { status: '200', httpVersion: 'HTTP/2' }),
+      remote_address: '203.0.113.10:443',
+      trace_id: `4bf92f3577b34da6a3ce929d0e0e${run.toString(16).padStart(4, '0')}`,
+    },
+  };
+
+  if (!failed) return [request];
+
+  return [
+    request,
+    {
+      stepId: 'traceroute',
+      name: 'Traceroute to 203.0.113.10',
+      action: 'traceroute',
+      startedAt: startedAt + total,
+      finishedAt: startedAt + total + 4_100_000,
+      outcome: 'unknown',
+      metadata: {
+        target: '203.0.113.10',
+        hops: TRACEROUTE_HOPS,
+        reached: 'false',
+        mode: 'unprivileged',
+        rounds: '4',
+      },
+    },
+  ];
 }
 
 function results(now: number): SyntheticResult[] {
@@ -354,70 +412,71 @@ function results(now: number): SyntheticResult[] {
 
         items.push({
           id: `res-${seed.id}-${locationId}-${run}`,
-          organization_id: ORG,
-          monitor_id: seed.id,
-          monitor_revision_id: `${seed.id}-rev-3`,
-          location_id: locationId,
-          agent_id: agents(now).find((agent) => agent.location_id === locationId)?.id,
-          task_id: `task-${seed.id}-${run}`,
-          is_test: false,
-          result_sequence: 48_210 - run,
-          scheduled_at: startedAt - 200_000,
-          started_at: startedAt,
-          finished_at: startedAt + total,
-          received_at: startedAt + total + 150_000,
+          organizationId: ORG,
+          monitorId: seed.id,
+          monitorRevisionId: `${seed.id}-rev-3`,
+          locationId: locationId,
+          agentId: agents(now).find((agent) => agent.locationId === locationId)?.id,
+          taskId: `task-${seed.id}-${run}`,
+          isTest: false,
+          resultSequence: 48_210 - run,
+          scheduledAt: startedAt - 200_000,
+          startedAt: startedAt,
+          finishedAt: startedAt + total,
+          receivedAt: startedAt + total + 150_000,
           outcome,
           attempts: [
             {
               number: 1,
-              started_at: startedAt,
-              finished_at: startedAt + total,
+              startedAt: startedAt,
+              finishedAt: startedAt + total,
               outcome,
               timing: timing(seed.kind, total),
               ...(failed
                 ? {
-                    error_category: seed.kind === 'browser' ? 'assertion_failed' : 'timeout',
-                    error_message:
+                    errorCategory: seed.kind === 'browser' ? 'assertion_failed' : 'timeout',
+                    errorMessage:
                       seed.kind === 'browser'
                         ? 'Timed out after 30000 ms waiting for [data-page="home"]'
                         : 'Deadline exceeded while reading the response headers',
                   }
                 : {}),
               metadata: seed.kind === 'http' ? { status: failed ? '504' : '200', protocol: 'h2' } : {},
+              ...(seed.kind === 'http' ? { evidence: httpEvidence(run, startedAt, total, failed) } : {}),
             },
           ],
           assertions:
             seed.kind === 'http'
               ? [
-                  { assertion_id: 'a-status', severity: 'critical', passed: !failed, actual: failed ? '504' : '200' },
-                  { assertion_id: 'a-latency', severity: 'warning', passed: total < 800_000, actual: String(Math.round(total / 1_000)) },
+                  { assertionId: 'a-status', severity: 'critical', passed: !failed, actual: failed ? '504' : '200' },
+                  { assertionId: 'a-latency', severity: 'warning', passed: total < 800_000, actual: String(Math.round(total / 1_000)) },
                 ]
               : [],
-          secret_versions: {},
-          protocol_version: 3,
+          secretVersions: {},
+          protocolVersion: 3,
           metadata: {},
         } as SyntheticResult);
       }
     }
   }
 
-  return items.sort((left, right) => right.started_at - left.started_at);
+  return items.sort((left, right) => right.startedAt - left.startedAt);
 }
 
 function agentTokens(now: number): ProbeAgentToken[] {
   return [
     {
       id: 'tok-sha-pool',
-      organization_id: ORG,
-      location_id: 'loc-shanghai',
+      organizationId: ORG,
+      locationId: 'loc-shanghai',
       name: 'Shanghai office pool',
-      token_prefix: 'mspa_7Qx2',
+      tokenPrefix: 'mspat-7qx2k7m2q9',
       status: 'active',
-      expires_at: now + 200 * DAY,
-      last_used_at: now - 40 * DAY,
-      created_by: 'u1',
-      created_at: now - 41 * DAY,
-      updated_at: now - 40 * DAY,
+      expiresAt: now + 200 * DAY,
+      lastUsedAt: now - 40 * DAY,
+      createdBy: 'u1',
+      createdAt: now - 41 * DAY,
+      updatedAt: now - 40 * DAY,
     },
   ];
 }
@@ -425,13 +484,13 @@ function agentTokens(now: number): ProbeAgentToken[] {
 function secrets(now: number): SyntheticSecret[] {
   const secret = (id: string, name: string, description: string, version: number, age: number): SyntheticSecret => ({
     id,
-    organization_id: ORG,
+    organizationId: ORG,
     name,
     description,
-    current_version: version,
-    created_by: 'u1',
-    created_at: now - (age + 60) * DAY,
-    updated_at: now - age * DAY,
+    currentVersion: version,
+    createdBy: 'u1',
+    createdAt: now - (age + 60) * DAY,
+    updatedAt: now - age * DAY,
   });
 
   return [
@@ -446,41 +505,41 @@ function secrets(now: number): SyntheticSecret[] {
 function statusPages(now: number): StatusPage[] {
   const page = (id: string, name: string, slug: string, overrides: Partial<StatusPage> = {}): StatusPage => ({
     id,
-    org_id: ORG,
+    orgId: ORG,
     name,
     slug,
-    logo_url: null,
-    brand_color: '#3b46c4',
-    custom_domain: null,
+    logoUrl: null,
+    brandColor: '#3b46c4',
+    customDomain: null,
     timezone: 'UTC',
     language: 'en-us',
     languages: ['en-us', 'zh-cn'],
-    history_days: 90,
-    delivery_retention_days: 30,
-    private_session_days: 7,
+    historyDays: 90,
+    deliveryRetentionDays: 30,
+    privateSessionDays: 7,
     visibility: 'public',
     lifecycle: 'active',
-    archived_at: null,
-    purge_after: null,
-    created_at: now - 200 * DAY,
-    updated_at: now - 38 * MINUTE,
+    archivedAt: null,
+    purgeAfter: null,
+    createdAt: now - 200 * DAY,
+    updatedAt: now - 38 * MINUTE,
     ...overrides,
   });
 
   return [
-    page('sp-acme-cloud', 'Acme Cloud', 'acme-cloud', { custom_domain: 'status.acme.example' }),
+    page('sp-acme-cloud', 'Acme Cloud', 'acme-cloud', { customDomain: 'status.acme.example' }),
     page('sp-internal', 'Internal platform', 'acme-internal', {
       visibility: 'private',
-      brand_color: '#0f766e',
+      brandColor: '#0f766e',
       languages: ['en-us'],
-      created_at: now - 60 * DAY,
-      updated_at: now - 6 * DAY,
+      createdAt: now - 60 * DAY,
+      updatedAt: now - 6 * DAY,
     }),
     page('sp-legacy', 'Acme Classic', 'acme-classic', {
       lifecycle: 'archived',
-      archived_at: now - 20 * DAY,
-      purge_after: now + 10 * DAY,
-      updated_at: now - 20 * DAY,
+      archivedAt: now - 20 * DAY,
+      purgeAfter: now + 10 * DAY,
+      updatedAt: now - 20 * DAY,
     }),
   ];
 }
@@ -494,27 +553,43 @@ const COMPONENT_SEEDS: Array<[string, string, string, ComponentStatus]> = [
   ['cmp-eu', 'EU region', 'Everything served from Frankfurt.', 'maintenance'],
 ];
 
-/** The components that stand for a business service of the business service mocks. */
-const COMPONENT_SERVICE_LINKS: Record<string, StatusPageComponent['business_service']> = {
-  'cmp-api': { business_service_id: 'bs-public-api', mode: 'follow', notify_subscribers: true },
-  'cmp-payments': { business_service_id: 'bs-checkout', mode: 'automation', notify_subscribers: true },
+/** What the components of the first page depend on, and how they are doing. */
+const COMPONENT_DEPENDENCIES: Record<string, Pick<StatusPageComponent, 'dependencies' | 'dependencyMode' | 'dependencyHealth'>> = {
+  'cmp-api': {
+    dependencies: [
+      { kind: 'technical_service', target: 'api-gateway', impact: 'outage' },
+      { kind: 'alert_rule', target: 'rule-api-5xx', impact: 'outage' },
+    ],
+    dependencyMode: 'follow',
+    dependencyHealth: {
+      status: 'partial_outage',
+      causes: [{ kind: 'alert_rule', target: 'rule-api-5xx', status: 'partial_outage', incidentCount: 1 }],
+      changedAt: Date.parse('2026-05-23T09:20:00Z') * 1000,
+      evaluatedAt: Date.parse('2026-05-23T09:58:00Z') * 1000,
+    },
+  },
+  'cmp-payments': {
+    dependencies: [{ kind: 'technical_service', target: 'payments-gateway', impact: 'outage' }],
+    dependencyMode: 'automation',
+    dependencyHealth: null,
+  },
 };
 
 function components(pageId: string, now: number): StatusPageComponent[] {
   return COMPONENT_SEEDS.map(([id, name, description, status], position) => ({
     id,
-    org_id: ORG,
-    status_page_id: pageId,
+    orgId: ORG,
+    statusPageId: pageId,
     name,
     description,
     status,
     visibility: 'enabled',
     lifecycle: 'active',
     position,
-    archived_at: null,
-    created_at: now - 200 * DAY,
-    updated_at: now - 38 * MINUTE,
-    business_service: pageId === 'sp-acme-cloud' ? COMPONENT_SERVICE_LINKS[id] ?? null : null,
+    archivedAt: null,
+    createdAt: now - 200 * DAY,
+    updatedAt: now - 38 * MINUTE,
+    ...(pageId === 'sp-acme-cloud' ? COMPONENT_DEPENDENCIES[id] : undefined),
   }));
 }
 
@@ -546,13 +621,13 @@ function componentStatusEvents(pageId: string, now: number): StatusPageComponent
   const event = (componentId: string, status: ComponentStatus, startedAgo: number, endedAgo: number | null) =>
     events.push({
       id: `evt-${componentId}-${events.length}`,
-      org_id: ORG,
-      status_page_id: pageId,
-      component_id: componentId,
+      orgId: ORG,
+      statusPageId: pageId,
+      componentId: componentId,
       status,
-      started_at: now - startedAgo,
-      ended_at: endedAgo === null ? null : now - endedAgo,
-      created_at: now - startedAgo,
+      startedAt: now - startedAgo,
+      endedAt: endedAgo === null ? null : now - endedAgo,
+      createdAt: now - startedAgo,
     });
 
   for (const [componentId, list] of Object.entries(interruptions)) {
@@ -579,93 +654,93 @@ function incidents(pageId: string, now: number): StatusPageIncident[] {
     updates: Array<[StatusPageIncident['status'], string, number]>,
   ): StatusPageIncident => ({
     id,
-    org_id: ORG,
-    status_page_id: pageId,
-    source_incident_id: null,
+    orgId: ORG,
+    statusPageId: pageId,
+    sourceIncidentId: null,
     kind: 'incident',
     title,
     impact: 'major',
     status: updates[0]![0],
-    publication_state: 'published',
-    draft_message: null,
-    component_ids: ['cmp-api'],
+    publicationState: 'published',
+    draftMessage: null,
+    componentIds: ['cmp-api'],
     updates: updates.map(([status, message, ago], index) => ({
       id: `${id}-u${updates.length - index}`,
-      org_id: ORG,
-      status_page_id: pageId,
-      incident_id: id,
+      orgId: ORG,
+      statusPageId: pageId,
+      incidentId: id,
       status,
       message,
-      created_at: now - ago,
+      createdAt: now - ago,
     })),
-    started_at: now - updates.at(-1)![2],
-    ended_at: null,
-    published_at: now - updates.at(-1)![2],
-    created_at: now - updates.at(-1)![2],
-    updated_at: now - updates[0]![2],
+    startedAt: now - updates.at(-1)![2],
+    endedAt: null,
+    publishedAt: now - updates.at(-1)![2],
+    createdAt: now - updates.at(-1)![2],
+    updatedAt: now - updates[0]![2],
     ...overrides,
   });
 
   return [
-    incident('inc-api-errors', 'Elevated error rates on the public API', { impact: 'major', component_ids: ['cmp-api', 'cmp-dashboard'] }, [
+    incident('inc-api-errors', 'Elevated error rates on the public API', { impact: 'major', componentIds: ['cmp-api', 'cmp-dashboard'] }, [
       ['identified', 'A configuration change to the edge proxies is rejecting a share of requests with 502. We are rolling it back region by region.', 12 * MINUTE],
       ['investigating', 'Roughly one request in six to the public API fails. The dashboard is slower than usual because it retries them.', 27 * MINUTE],
       ['investigating', 'We are looking into reports of failed API requests.', 38 * MINUTE],
     ]),
-    incident('mnt-eu-database', 'Database upgrade in the EU region', { kind: 'maintenance', impact: 'maintenance', component_ids: ['cmp-eu'], started_at: now - 20 * MINUTE }, [
+    incident('mnt-eu-database', 'Database upgrade in the EU region', { kind: 'maintenance', impact: 'maintenance', componentIds: ['cmp-eu'], startedAt: now - 20 * MINUTE }, [
       ['in_progress', 'The upgrade has started. Writes in the EU region may take a few seconds longer during the switch-over.', 20 * MINUTE],
       ['scheduled', 'We will upgrade the primary database of the EU region. No downtime is expected.', 3 * DAY],
     ]),
-    incident('mnt-billing-export', 'Billing export maintenance', { kind: 'maintenance', impact: 'maintenance', component_ids: ['cmp-payments'], started_at: now + 2 * DAY }, [
+    incident('mnt-billing-export', 'Billing export maintenance', { kind: 'maintenance', impact: 'maintenance', componentIds: ['cmp-payments'], startedAt: now + 2 * DAY }, [
       ['scheduled', 'Invoice exports will be unavailable for about 30 minutes while the export service is moved.', 1 * DAY],
     ]),
-    incident('inc-draft-search', 'Search results delayed', { impact: 'minor', publication_state: 'draft', published_at: null, draft_message: 'Indexing is running about four minutes behind.', component_ids: ['cmp-dashboard'] }, [
+    incident('inc-draft-search', 'Search results delayed', { impact: 'minor', publicationState: 'draft', publishedAt: null, draftMessage: 'Indexing is running about four minutes behind.', componentIds: ['cmp-dashboard'] }, [
       ['investigating', 'Indexing is running about four minutes behind.', 9 * MINUTE],
     ]),
-    incident('inc-ingest-lag', 'Delayed ingestion of logs', { impact: 'minor', component_ids: ['cmp-ingest'], ended_at: now - (6 * DAY + 1 * HOUR) }, [
+    incident('inc-ingest-lag', 'Delayed ingestion of logs', { impact: 'minor', componentIds: ['cmp-ingest'], endedAt: now - (6 * DAY + 1 * HOUR) }, [
       ['resolved', 'The backlog has been processed and ingestion is back to real time.', 6 * DAY + 1 * HOUR],
       ['monitoring', 'Capacity has been added and the backlog is draining.', 6 * DAY + 2 * HOUR],
       ['investigating', 'Logs are arriving several minutes late.', 6 * DAY + 3 * HOUR],
     ]),
-    incident('inc-api-outage', 'Public API unavailable', { impact: 'critical', component_ids: ['cmp-api'], ended_at: now - (19 * DAY + 2 * HOUR) }, [
+    incident('inc-api-outage', 'Public API unavailable', { impact: 'critical', componentIds: ['cmp-api'], endedAt: now - (19 * DAY + 2 * HOUR) }, [
       ['resolved', 'All requests have been served normally for an hour. A full write-up will follow.', 19 * DAY + 2 * HOUR],
       ['monitoring', 'Traffic has been moved to the standby load balancers and requests are succeeding again.', 19 * DAY + 4 * HOUR],
       ['identified', 'A failed certificate rotation took the primary load balancers out of service.', 19 * DAY + 4.5 * HOUR],
       ['investigating', 'The public API is not answering.', 19 * DAY + 5 * HOUR],
     ]),
-    incident('inc-notify-delay', 'Notifications delivered late', { impact: 'major', component_ids: ['cmp-alerting'], ended_at: now - (33 * DAY + 1 * HOUR) }, [
+    incident('inc-notify-delay', 'Notifications delivered late', { impact: 'major', componentIds: ['cmp-alerting'], endedAt: now - (33 * DAY + 1 * HOUR) }, [
       ['resolved', 'The queue is empty and notifications are delivered within seconds again.', 33 * DAY + 1 * HOUR],
       ['investigating', 'Some alert notifications are delivered up to ten minutes late.', 33 * DAY + 2 * HOUR],
     ]),
-    incident('mnt-eu-network', 'Network maintenance in the EU region', { kind: 'maintenance', impact: 'maintenance', component_ids: ['cmp-eu'], ended_at: now - 58 * DAY }, [
+    incident('mnt-eu-network', 'Network maintenance in the EU region', { kind: 'maintenance', impact: 'maintenance', componentIds: ['cmp-eu'], endedAt: now - 58 * DAY }, [
       ['completed', 'The maintenance is complete.', 58 * DAY],
       ['in_progress', 'Maintenance is under way.', 58 * DAY + 2 * HOUR],
     ]),
   ];
 }
 
-const isOpen = (incident: StatusPageIncident) => incident.ended_at === null;
+const isOpen = (incident: StatusPageIncident) => incident.endedAt === null;
 
 const isAnnounced = (incident: StatusPageIncident, now: number) =>
-  incident.kind === 'maintenance' && (incident.status === 'scheduled' || incident.started_at > now);
+  incident.kind === 'maintenance' && (incident.status === 'scheduled' || incident.startedAt > now);
 
 function snapshot(page: StatusPage, now: number): StatusPageSnapshot {
-  const all = incidents(page.id, now).filter((incident) => incident.publication_state === 'published');
+  const all = incidents(page.id, now).filter((incident) => incident.publicationState === 'published');
   // The second page is quiet: everything works and nothing is planned.
   const quiet = page.id !== 'sp-acme-cloud';
 
   return {
     page,
-    overall_status: quiet ? 'operational' : 'partial_outage',
+    overallStatus: quiet ? 'operational' : 'partial_outage',
     components: components(page.id, now).map((component) => (quiet ? { ...component, status: 'operational' } : component)),
-    component_status_events: quiet ? [] : componentStatusEvents(page.id, now),
+    componentStatusEvents: quiet ? [] : componentStatusEvents(page.id, now),
     // As the server sorts them: maintenance that has not begun is announced, everything else
     // that is still open is going on now, maintenance under way included.
-    active_incidents: quiet ? [] : all.filter((incident) => isOpen(incident) && !isAnnounced(incident, now)),
-    scheduled_maintenance: quiet ? [] : all.filter((incident) => isOpen(incident) && isAnnounced(incident, now)),
+    activeIncidents: quiet ? [] : all.filter((incident) => isOpen(incident) && !isAnnounced(incident, now)),
+    scheduledMaintenance: quiet ? [] : all.filter((incident) => isOpen(incident) && isAnnounced(incident, now)),
     history: quiet ? [] : all.filter((incident) => !isOpen(incident)),
-    updated_at: now - 12 * MINUTE,
-    generated_at: now,
+    updatedAt: now - 12 * MINUTE,
+    generatedAt: now,
   };
 }
 
@@ -677,32 +752,32 @@ function publicSnapshot(page: StatusPage, now: number): PublicStatusPageSnapshot
     title: incident.title,
     impact: incident.impact,
     status: incident.status,
-    component_ids: incident.component_ids,
-    started_at: incident.started_at,
-    ended_at: incident.ended_at,
-    updates: incident.updates.map(({ id, status, message, created_at }) => ({ id, status, message, created_at })),
+    componentIds: incident.componentIds,
+    startedAt: incident.startedAt,
+    endedAt: incident.endedAt,
+    updates: incident.updates.map(({ id, status, message, createdAt: createdAt }) => ({ id, status, message, createdAt: createdAt })),
   });
 
   return {
     page: {
       name: page.name,
       slug: page.slug,
-      logo_url: page.logo_url,
-      brand_color: page.brand_color,
+      logoUrl: page.logoUrl,
+      brandColor: page.brandColor,
       timezone: page.timezone,
       language: page.language,
       languages: page.languages,
-      history_days: page.history_days,
+      historyDays: page.historyDays,
       visibility: page.visibility,
     },
-    overall_status: full.overall_status,
+    overallStatus: full.overallStatus,
     components: full.components.map(({ id, name, description, status }) => ({ id, name, description, status })),
-    component_status_events: full.component_status_events.map(({ component_id, status, started_at, ended_at }) => ({ component_id, status, started_at, ended_at })),
-    active_incidents: full.active_incidents.map(publicIncident),
-    scheduled_maintenance: full.scheduled_maintenance.map(publicIncident),
+    componentStatusEvents: full.componentStatusEvents.map(({ componentId: componentId, status, startedAt: startedAt, endedAt: endedAt }) => ({ componentId: componentId, status, startedAt: startedAt, endedAt: endedAt })),
+    activeIncidents: full.activeIncidents.map(publicIncident),
+    scheduledMaintenance: full.scheduledMaintenance.map(publicIncident),
     history: full.history.map(publicIncident),
-    updated_at: full.updated_at,
-    generated_at: now,
+    updatedAt: full.updatedAt,
+    generatedAt: now,
   };
 }
 
@@ -718,16 +793,16 @@ function subscribers(now: number): StatusPageSubscriber[] {
     ['email', 'm***@proseware.example', 'unsubscribed', 150],
   ];
 
-  return targets.map(([channel, masked_target, status, age], index) => ({
+  return targets.map(([channel, maskedTarget, status, age], index) => ({
     id: `sub-${index + 1}`,
     channel,
-    masked_target,
+    maskedTarget: maskedTarget,
     status,
-    confirmation_sent_at: now - age * DAY,
-    confirmed_at: status === 'pending' ? null : now - age * DAY + 4 * MINUTE,
-    unsubscribed_at: status === 'unsubscribed' ? now - 12 * DAY : null,
-    created_at: now - age * DAY,
-    updated_at: now - Math.min(age, 12) * DAY,
+    confirmationSentAt: now - age * DAY,
+    confirmedAt: status === 'pending' ? null : now - age * DAY + 4 * MINUTE,
+    unsubscribedAt: status === 'unsubscribed' ? now - 12 * DAY : null,
+    createdAt: now - age * DAY,
+    updatedAt: now - Math.min(age, 12) * DAY,
   }));
 }
 
@@ -736,17 +811,17 @@ function deliveries(now: number): StatusPageDelivery[] {
 
   return active.map((subscriber, index) => ({
     id: `dlv-${index + 1}`,
-    subscriber_id: subscriber.id,
+    subscriberId: subscriber.id,
     channel: subscriber.channel,
-    masked_target: subscriber.masked_target,
-    event_key: 'inc-api-errors:u3',
+    maskedTarget: subscriber.maskedTarget,
+    eventKey: 'inc-api-errors:u3',
     status: index === 2 ? 'failed' : index === 5 ? 'pending' : 'delivered',
     attempts: index === 2 ? 4 : 1,
-    next_attempt_at: now + 5 * MINUTE,
-    last_error: index === 2 ? 'The endpoint answered 503 Service Unavailable' : null,
-    delivered_at: index === 2 || index === 5 ? null : now - 11 * MINUTE,
-    created_at: now - 12 * MINUTE,
-    updated_at: now - 11 * MINUTE,
+    nextAttemptAt: now + 5 * MINUTE,
+    lastError: index === 2 ? 'The endpoint answered 503 Service Unavailable' : null,
+    deliveredAt: index === 2 || index === 5 ? null : now - 11 * MINUTE,
+    createdAt: now - 12 * MINUTE,
+    updatedAt: now - 11 * MINUTE,
   }));
 }
 
@@ -754,45 +829,45 @@ function automationRules(pageId: string, now: number): ActiveAutomationRule[] {
   const rule = (id: string, name: string, position: number, sourceKind: 'alert_incident' | 'synthetic_monitor', automatic: boolean): ActiveAutomationRule => ({
     rule: {
       id,
-      organization_id: ORG,
-      status_page_id: pageId,
+      organizationId: ORG,
+      statusPageId: pageId,
       name,
       position,
       lifecycle: 'active',
-      active_revision_id: `${id}-rev-2`,
-      draft_revision_id: null,
-      created_by: 'u1',
-      created_at: now - 50 * DAY,
-      updated_at: now - 8 * DAY,
+      activeRevisionId: `${id}-rev-2`,
+      draftRevisionId: null,
+      createdBy: 'u1',
+      createdAt: now - 50 * DAY,
+      updatedAt: now - 8 * DAY,
     },
     revision: {
       id: `${id}-rev-2`,
-      organization_id: ORG,
-      status_page_id: pageId,
-      rule_id: id,
+      organizationId: ORG,
+      statusPageId: pageId,
+      ruleId: id,
       number: 2,
       matchers: {
-        source_kind: sourceKind,
-        source_id: sourceKind === 'synthetic_monitor' ? 'mon-checkout-api' : null,
+        sourceKind: sourceKind,
+        sourceId: sourceKind === 'synthetic_monitor' ? 'mon-checkout-api' : null,
         labels: sourceKind === 'alert_incident' ? { service: 'api-gateway' } : {},
-        minimum_severity: 'error',
+        minimumSeverity: 'error',
       },
       action: {
-        component_ids: ['cmp-api'],
-        publication_mode: automatic ? 'automatic' : 'approval',
-        sustained_delay_seconds: 300,
-        impact_map: { degraded: 'minor', failing: 'major' },
+        componentIds: ['cmp-api'],
+        publicationMode: automatic ? 'automatic' : 'approval',
+        sustainedDelaySeconds: 300,
+        impactMap: { degraded: 'minor', failing: 'major' },
         templates: {
           title: 'Problems with {{component}}',
           investigating: 'We are investigating problems with {{component}}.',
           update: 'We are still working on {{component}}.',
           resolved: '{{component}} is working normally again.',
         },
-        correlation_key_template: '{{source_id}}',
+        correlationKeyTemplate: '{{source_id}}',
       },
-      content_hash: `sha256:${id}`,
-      created_by: 'u1',
-      created_at: now - 8 * DAY,
+      contentHash: `sha256:${id}`,
+      createdBy: 'u1',
+      createdAt: now - 8 * DAY,
     },
   });
 
@@ -806,33 +881,91 @@ function automationCandidates(pageId: string, now: number): AutomationCandidate[
   return [
     {
       id: 'cand-api-gateway',
-      organization_id: ORG,
-      status_page_id: pageId,
-      rule_revision_id: 'aut-api-alerts-rev-2',
-      correlation_key: 'api-gateway',
+      organizationId: ORG,
+      statusPageId: pageId,
+      ruleRevisionId: 'aut-api-alerts-rev-2',
+      correlationKey: 'api-gateway',
       state: 'pending_approval',
       title: 'Problems with Public API',
       message: 'We are investigating problems with Public API.',
-      resolved_message: 'Public API is working normally again.',
+      resolvedMessage: 'Public API is working normally again.',
       impact: 'major',
-      component_ids: ['cmp-api'],
+      componentIds: ['cmp-api'],
       automatic: false,
-      status_incident_id: null,
-      due_at: now - 4 * MINUTE,
-      created_at: now - 9 * MINUTE,
-      updated_at: now - 4 * MINUTE,
-      last_error: null,
+      statusIncidentId: null,
+      dueAt: now - 4 * MINUTE,
+      createdAt: now - 9 * MINUTE,
+      updatedAt: now - 4 * MINUTE,
+      lastError: null,
     },
   ];
 }
 
 // ───────────────────────────── Routes ─────────────────────────────
 
+/** How a set of mock runs went, as the availability endpoint sums them. */
+function summarize(runs: SyntheticResult[]) {
+  const available = runs.filter((run) => ['healthy', 'flaky', 'degraded'].includes(run.outcome)).length;
+  const failing = runs.filter((run) => run.outcome === 'failing').length;
+  const durations = runs
+    .map((run) => run.attempts.at(-1)?.timing.totalTime)
+    .filter((micros): micros is number => micros !== undefined)
+    .map((micros) => micros / 1_000)
+    .sort((left, right) => left - right);
+  const at = (share: number) =>
+    durations.length > 0 ? durations[Math.min(durations.length - 1, Math.floor(share * durations.length))]! : null;
+
+  return {
+    runs: runs.length,
+    available,
+    failing,
+    undecided: runs.length - available - failing,
+    availability: available + failing > 0 ? available / (available + failing) : null,
+    p50Ms: at(0.5),
+    p95Ms: at(0.95),
+    maxMs: durations.at(-1) ?? null,
+  };
+}
+
+/** The availability endpoint over the mock runs: in all, by check, by location and step by step. */
+function availability(all: SyntheticResult[], from: number, to: number, monitorId: string) {
+  const runs = all.filter(
+    (run) => !run.isTest && run.startedAt >= from && run.startedAt < to && (!monitorId || run.monitorId === monitorId),
+  );
+  const step = Math.max(60_000_000, Math.ceil((to - from) / 48 / 60_000_000) * 60_000_000);
+  const groupBy = (key: (run: SyntheticResult) => string) => {
+    const groups = new Map<string, SyntheticResult[]>();
+    for (const run of runs) groups.set(key(run), [...(groups.get(key(run)) ?? []), run]);
+    return [...groups.entries()];
+  };
+  const stepOf = (run: SyntheticResult) => String(from + Math.floor((run.startedAt - from) / step) * step);
+
+  return {
+    from,
+    to,
+    step,
+    total: summarize(runs),
+    checks: groupBy((run) => run.monitorId).map(([checkId, group]) => ({ checkId: checkId, ...summarize(group) })),
+    locations: groupBy((run) => run.locationId).map(([locationId, group]) => ({ locationId: locationId, ...summarize(group) })),
+    buckets: groupBy(stepOf)
+      .map(([start, group]) => ({ start: Number(start), ...summarize(group) }))
+      .sort((left, right) => left.start - right.start),
+    locationBuckets: monitorId
+      ? groupBy((run) => `${run.locationId} ${stepOf(run)}`)
+          .map(([key, group]) => {
+            const [location_id, start] = key.split(' ');
+            return { locationId: location_id!, start: Number(start), ...summarize(group) };
+          })
+          .sort((left, right) => left.start - right.start)
+      : [],
+  };
+}
+
 const paged = <T>(req: Request, items: T[]) => {
   const page = Math.max(1, Number(req.query.page ?? 1));
-  const perPage = Math.max(1, Number(req.query.per_page ?? 25));
+  const perPage = Math.max(1, Number(req.query.perPage ?? 25));
 
-  return { items: items.slice((page - 1) * perPage, page * perPage), page, per_page: perPage, total: items.length };
+  return { items: items.slice((page - 1) * perPage, page * perPage), page, perPage: perPage, total: items.length };
 };
 
 /** Registers the Synthetics and Status pages endpoints on the mock backend. */
@@ -848,19 +981,31 @@ export function registerReliabilityRoutes(app: Express, nowIso: string): void {
   );
   app.get('/api/v1/synthetics/monitors/:id/results', (req, res) => {
     const limit = Number(req.query.limit ?? 100);
-    res.json(results(now).filter((result) => result.monitor_id === seedOf(req.params.id).id).slice(0, limit));
+    res.json(results(now).filter((result) => result.monitorId === seedOf(req.params.id).id).slice(0, limit));
   });
   app.get('/api/v1/synthetics/results', (req, res) => {
     const outcome = typeof req.query.outcome === 'string' ? req.query.outcome : '';
-    const monitorId = typeof req.query.monitor_id === 'string' ? req.query.monitor_id : '';
+    const monitorId = typeof req.query.monitorId === 'string' ? req.query.monitorId : '';
+    const from = Number(req.query.fromTime ?? Number.NEGATIVE_INFINITY);
+    const to = Number(req.query.toTime ?? Number.POSITIVE_INFINITY);
     const filtered = results(now).filter(
-      (result) => (!outcome || result.outcome === outcome) && (!monitorId || result.monitor_id === monitorId),
+      (result) =>
+        (!outcome || result.outcome === outcome) &&
+        (!monitorId || result.monitorId === monitorId) &&
+        result.finishedAt >= from &&
+        result.finishedAt < to,
     );
     res.json(paged(req, filtered));
   });
+  app.get('/api/v1/synthetics/availability', (req, res) => {
+    const to = Number(req.query.to ?? now);
+    const from = Number(req.query.from ?? to - 24 * 60 * 60 * 1_000_000);
+    const monitorId = typeof req.query.monitorId === 'string' ? req.query.monitorId : '';
+    res.json(availability(results(now), from, to, monitorId));
+  });
   app.get('/api/v1/synthetics/locations', (_req, res) => res.json(locations(now)));
   app.get('/api/v1/synthetics/locations/:id/agents', (req, res) =>
-    res.json(agents(now).filter((agent) => agent.location_id === req.params.id)),
+    res.json(agents(now).filter((agent) => agent.locationId === req.params.id)),
   );
   app.get('/api/v1/synthetics/agents', (_req, res) => res.json(agents(now)));
   app.get('/api/v1/synthetics/agent-tokens', (_req, res) => res.json(agentTokens(now)));
@@ -881,8 +1026,8 @@ export function registerReliabilityRoutes(app: Express, nowIso: string): void {
     const quiet = pageOf(req.params.id).id !== 'sp-acme-cloud';
     const items = (quiet ? [] : incidents(req.params.id, now)).filter((incident) => {
       if (incident.kind !== kind) return false;
-      if (view === 'draft') return incident.publication_state === 'draft';
-      if (incident.publication_state !== 'published') return false;
+      if (view === 'draft') return incident.publicationState === 'draft';
+      if (incident.publicationState !== 'published') return false;
       if (view === 'resolved' || view === 'completed') return !isOpen(incident);
       if (view === 'upcoming') return isOpen(incident) && incident.status === 'scheduled';
       if (view === 'in_progress') return isOpen(incident) && incident.status !== 'scheduled';
@@ -902,28 +1047,28 @@ export function registerReliabilityRoutes(app: Express, nowIso: string): void {
   app.get('/api/v1/status-pages/:id/deliveries', (req, res) => res.json(paged(req, deliveries(now))));
   app.get('/api/v1/status-pages/:id/domain', (req, res) => {
     const page = pageOf(req.params.id);
-    if (!page.custom_domain) return res.json(null);
+    if (!page.customDomain) return res.json(null);
 
     return res.json({
       config: {
-        org_id: ORG,
-        status_page_id: page.id,
-        hostname: page.custom_domain,
-        verification_token: 'ms-verify-8f2c',
+        orgId: ORG,
+        statusPageId: page.id,
+        hostname: page.customDomain,
+        verificationToken: 'ms-v-8f2c',
         state: 'active',
-        domain_id: 'dom-1',
-        routing_valid: true,
-        last_checked_at: now - 20 * MINUTE,
-        last_error: null,
-        cert_not_after: now + 64 * DAY,
-        last_alerted_state: null,
-        last_alerted_at: null,
-        created_at: now - 150 * DAY,
-        updated_at: now - 20 * MINUTE,
+        domainId: 'dom-1',
+        routingValid: true,
+        lastCheckedAt: now - 20 * MINUTE,
+        lastError: null,
+        certNotAfter: now + 64 * DAY,
+        lastAlertedState: null,
+        lastAlertedAt: null,
+        createdAt: now - 150 * DAY,
+        updatedAt: now - 20 * MINUTE,
       },
-      txt_name: `_molesignal.${page.custom_domain}`,
-      txt_value: 'ms-verify-8f2c',
-      routing_target: 'status.molesignal.example',
+      txtName: `_molesignal.${page.customDomain}`,
+      txtValue: 'ms-v-8f2c',
+      routingTarget: 'status.molesignal.example',
     });
   });
   app.get('/api/v1/status-pages/:id/domain/capability', (_req, res) => res.json({ available: true }));
@@ -931,8 +1076,8 @@ export function registerReliabilityRoutes(app: Express, nowIso: string): void {
     res.json(
       pageOf(req.params.id).visibility === 'private'
         ? [
-            { id: 'rule-1', kind: 'domain', masked_value: 'acme.example', created_at: now - 50 * DAY, updated_at: now - 50 * DAY },
-            { id: 'rule-2', kind: 'email', masked_value: 'a***@partner.example', created_at: now - 9 * DAY, updated_at: now - 9 * DAY },
+            { id: 'rule-1', kind: 'domain', maskedValue: 'acme.example', createdAt: now - 50 * DAY, updatedAt: now - 50 * DAY },
+            { id: 'rule-2', kind: 'email', maskedValue: 'a***@partner.example', createdAt: now - 9 * DAY, updatedAt: now - 9 * DAY },
           ]
         : [],
     ),
@@ -940,9 +1085,9 @@ export function registerReliabilityRoutes(app: Express, nowIso: string): void {
   app.get('/api/v1/status-pages/:id/access-sessions', (_req, res) => res.json([]));
   app.get('/api/v1/status-pages/:id/slack-app', (_req, res) =>
     res.json({
-      connector_id: null,
-      redirect_url: 'https://status.acme.example/api/v1/public/slack/callback',
-      connectors: [{ id: 'conn-slack-status', name: 'Acme status Slack app', enabled: true, adds_channels: true }],
+      connectorId: null,
+      redirectUrl: 'https://status.acme.example/api/v1/public/slack/callback',
+      connectors: [{ id: 'conn-slack-status', name: 'Acme status Slack app', enabled: true, addsChannels: true }],
     }),
   );
   app.get('/api/v1/status-pages/:id/automation/rules', (req, res) => res.json(automationRules(req.params.id, now)));
@@ -957,8 +1102,8 @@ export function registerReliabilityRoutes(app: Express, nowIso: string): void {
     res.json({
       name: page.name,
       slug: page.slug,
-      logo_url: page.logo_url,
-      brand_color: page.brand_color,
+      logoUrl: page.logoUrl,
+      brandColor: page.brandColor,
       language: page.language,
       languages: page.languages,
       visibility: page.visibility,

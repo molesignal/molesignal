@@ -100,6 +100,7 @@ struct RouterMetrics {
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TraceCandidateRouterHealth {
     pub accepting: bool,
     pub queue_depth: usize,

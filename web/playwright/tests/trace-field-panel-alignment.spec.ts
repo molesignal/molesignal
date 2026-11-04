@@ -1,18 +1,19 @@
 import type { Locator } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
+import { explorerRead, explorerReadBody } from '../fixtures/explorerReads';
 import { installMockShellSession } from '../fixtures/mockSession';
 
 const SETTINGS = {
   description: null,
-  index_rules: [],
-  retention_filter: null,
-  keep_conditions: [],
-  max_query_range_hours: null,
-  flatten_level: null,
-  use_stream_stats_for_partitioning: false,
-  store_original_data: false,
-  enable_distinct_values: true,
+  indexRules: [],
+  retentionFilter: null,
+  keepConditions: [],
+  maxQueryRangeHours: null,
+  flattenLevel: null,
+  useStreamStatsForPartitioning: false,
+  storeOriginalData: false,
+  enableDistinctValues: true,
   queryable: true,
 };
 
@@ -21,7 +22,7 @@ const INDEXED = new Set(['trace_id', 'service.name']);
 
 const field = (name: string, dataType: 'utf8' | 'int64' = 'utf8') => ({
   name,
-  data_type: dataType,
+  dataType: dataType,
   nullable: true,
   indexed: INDEXED.has(name),
 });
@@ -29,7 +30,7 @@ const field = (name: string, dataType: 'utf8' | 'int64' = 'utf8') => ({
 const TRACE_STREAM = {
   id: 'trace-fields',
   name: 'default',
-  stream_type: 'traces',
+  streamType: 'traces',
   schema: {
     fields: [
       field('trace_id'),
@@ -47,10 +48,10 @@ const TRACE_STREAM = {
     ],
   },
   retention: { days: 7 },
-  effective_retention: { days: 7 },
+  effectiveRetention: { days: 7 },
   settings: SETTINGS,
-  created_at_micros: 1,
-  updated_at_micros: 1,
+  createdAt: 1,
+  updatedAt: 1,
 };
 
 async function boundingBox(locator: Locator) {
@@ -72,63 +73,76 @@ test.beforeEach(async ({ page }) => {
       json: {
         items: [
           {
-            trace_id: 'trace-1',
+            traceId: 'trace-1',
             service: 'checkout-api',
             operation: 'POST /api/orders',
-            start_ns: 1_786_704_600_000_000_000,
-            duration_ms: 442,
-            span_count: 11,
-            error_count: 0,
+            startNs: 1_786_704_600_000_000_000,
+            durationMs: 442,
+            spanCount: 11,
+            errorCount: 0,
           },
           {
-            trace_id: 'trace-2',
+            traceId: 'trace-2',
             service: 'checkout-api',
             operation: 'POST /api/orders',
-            start_ns: 1_786_704_599_000_000_000,
-            duration_ms: 2450,
-            span_count: 12,
-            error_count: 6,
+            startNs: 1_786_704_599_000_000_000,
+            durationMs: 2450,
+            spanCount: 12,
+            errorCount: 6,
           },
         ],
-        next_cursor: null,
-        previous_cursor: null,
-        has_more: false,
+        nextCursor: null,
+        previousCursor: null,
+        hasMore: false,
       },
     }),
   );
 });
 
-test('matches log field rows and expands values without a redundant header', async ({ page }) => {
+test('lists the fields as rows under headings like the table head, and opens values under a row', async ({ page }) => {
   await page.goto('/traces');
 
   const panel = page.locator('aside[data-variant="utility"]');
-  // The list is divided by what a field is to the reader: kept in an index, or not. The Spans view
-  // has no place to put a field on display, so it has no such part.
+  // The fields a trace is first narrowed by come first, then those kept in an index, then the rest.
   const sections = panel.locator('[data-side-panel-section]');
-  await expect(sections.getByRole('button', { name: /^(Displayed|Indexed|Other) fields/ })).toHaveText([
-    'Indexed fields2',
-    'Other fields12',
+  await expect(sections.getByRole('button', { name: /^(Common|Displayed|Indexed|Other) fields/ })).toHaveText([
+    'Common fields4',
+    'Indexed fields1',
+    'Other fields9',
   ]);
-  await expect(sections.nth(0).locator('[data-trace-field]')).toHaveCount(2);
+  await expect(sections.nth(0).locator('[data-trace-field]')).toHaveCount(4);
   await expect(sections.nth(0).locator('[data-trace-field="service.name"]')).toBeVisible();
-  await expect(sections.nth(1).locator('[data-trace-field="span_id"]')).toBeVisible();
+  await expect(sections.nth(1).locator('[data-trace-field="trace_id"]')).toBeVisible();
 
   // A part folds away under its heading, and comes back.
-  const indexedHeading = sections.nth(0).getByRole('button', { name: /^Indexed fields/ });
+  const indexedHeading = sections.nth(1).getByRole('button', { name: /^Indexed fields/ });
   await indexedHeading.click();
   await expect(indexedHeading).toHaveAttribute('aria-expanded', 'false');
-  await expect(panel.locator('[data-trace-field="service.name"]')).toHaveCount(0);
+  await expect(panel.locator('[data-trace-field="trace_id"]')).toHaveCount(0);
   await indexedHeading.click();
-  await expect(panel.locator('[data-trace-field="service.name"]')).toBeVisible();
+  await expect(panel.locator('[data-trace-field="trace_id"]')).toBeVisible();
 
-  // A field is a small card lifted off the ground of the list.
-  const card = panel.locator('[data-trace-field="service.name"]');
-  await expect(card).not.toHaveCSS('box-shadow', 'none');
-  expect(await card.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe(
-    await card.evaluate((element) => getComputedStyle(element.closest('[data-side-panel-section]')!.parentElement!).backgroundColor),
-  );
+  // A heading of the list stands on the panel, without a band of its own; the table's head is the
+  // band every table head is.
+  const background = (locator: Locator) => locator.evaluate((element) => getComputedStyle(element).backgroundColor);
+  expect(await background(indexedHeading)).toBe('rgba(0, 0, 0, 0)');
+  const band = await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.style.backgroundColor = 'var(--table-head-surface)';
+    document.body.append(probe);
+    const fill = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return fill;
+  });
+  expect(await background(page.locator('[data-trace-table-head]'))).toBe(band);
 
+  // A field is a row of the list from edge to edge with a line under it, not a card.
   const fieldRow = panel.locator('[data-trace-field="trace_id"]');
+  await expect(fieldRow).toHaveCSS('box-shadow', 'none');
+  await expect(fieldRow).toHaveCSS('border-bottom-width', '1px');
+  const [rowBox, sectionBox] = await Promise.all([boundingBox(fieldRow), boundingBox(sections.nth(1))]);
+  expect(Math.abs(rowBox.width - sectionBox.width)).toBeLessThanOrEqual(1);
+
   const label = fieldRow.getByText('trace_id', { exact: true });
   const add = fieldRow.getByRole('button', { name: 'Add trace_id to query' });
   await fieldRow.hover();
@@ -142,24 +156,20 @@ test('matches log field rows and expands values without a redundant header', asy
   await expect(values.getByText('Top values', { exact: true })).toHaveCount(0);
   await expect(values.getByText('Count', { exact: true })).toHaveCount(0);
 
-  // Open, the values are inside the field's card, under its head, set in from the card's edges
-  // and on a ground of their own: what belongs to a field is seen inside it. The click left the
-  // button focused; it has no fill of its own, which would light only the part of the row it covers.
+  // Open, the values are under the field's line, as wide as the list, on a ground of their own.
+  // The click left the button focused; it has no fill of its own, which would light only the part
+  // of the line it covers.
   const row = fieldRow.locator('[data-trace-field-row]');
   const toggle = fieldRow.locator('button').first();
   await page.mouse.move(0, 0);
-  const [cardBox, rowBox, valuesBox] = await Promise.all([boundingBox(fieldRow), boundingBox(row), boundingBox(values)]);
-  expect(valuesBox.x).toBeGreaterThan(cardBox.x);
-  expect(valuesBox.x + valuesBox.width).toBeLessThan(cardBox.x + cardBox.width);
-  expect(valuesBox.y).toBeGreaterThanOrEqual(rowBox.y + rowBox.height);
-  expect(valuesBox.y + valuesBox.height).toBeLessThan(cardBox.y + cardBox.height);
-  const background = (locator: Locator) =>
-    locator.evaluate((element) => getComputedStyle(element).backgroundColor);
+  const [lineBox, valuesBox] = await Promise.all([boundingBox(row), boundingBox(values)]);
+  expect(valuesBox.y).toBeGreaterThanOrEqual(lineBox.y + lineBox.height);
+  expect(Math.abs(valuesBox.width - lineBox.width)).toBeLessThanOrEqual(1);
   expect(await background(values)).not.toBe('rgba(0, 0, 0, 0)');
   expect(await background(row)).not.toBe(await background(values));
   expect(await background(toggle)).toBe('rgba(0, 0, 0, 0)');
 
-  // Under the keyboard the whole row is lit, not a piece of it.
+  // Under the keyboard the whole line is lit, not a piece of it.
   await page.keyboard.press('Tab');
   await page.keyboard.press('Shift+Tab');
   await expect(toggle).toBeFocused();
@@ -182,21 +192,22 @@ test('lists the attributes that share the first part of their names under it', a
   await expect(panel.locator('[data-trace-field="service.name"] [data-trace-field-row]')).toHaveText('Tservice.name');
   await expect(panel.locator('[data-field-group="service"]')).toHaveCount(0);
 
-  // Open, its fields are inside its card by the rest of their names, each a row on a ground of its own.
+  // Open, its fields are rows of the list under its own, by the rest of their names, set in further.
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   const fields = group.locator('[data-field-group-fields="molesignal"]');
   const level = fields.locator('[data-trace-field="molesignal.compaction.level"]');
   await expect(fields.locator('[data-trace-field-row]')).toHaveText(['Tcompaction.level', '#db.pool.size']);
-  const [groupBox, levelBox] = await Promise.all([boundingBox(group), boundingBox(level)]);
-  expect(levelBox.x).toBeGreaterThan(groupBox.x);
-  expect(levelBox.x + levelBox.width).toBeLessThan(groupBox.x + groupBox.width);
-  expect(levelBox.y + levelBox.height).toBeLessThan(groupBox.y + groupBox.height);
-  const ground = (locator: Locator) => locator.evaluate((element) => getComputedStyle(element).backgroundColor);
-  expect(await ground(level)).not.toBe('rgba(0, 0, 0, 0)');
-  expect(await ground(level)).not.toBe(await ground(group));
-  // The group is one card; the fields in it are not cards of their own.
-  await expect(group).not.toHaveCSS('box-shadow', 'none');
+  const [toggleBox, levelBox] = await Promise.all([boundingBox(toggle), boundingBox(level)]);
+  expect(Math.abs(levelBox.width - toggleBox.width)).toBeLessThanOrEqual(1);
+  expect(levelBox.y).toBeGreaterThanOrEqual(toggleBox.y + toggleBox.height - 1);
+  const [groupName, levelName] = await Promise.all([
+    boundingBox(toggle.getByText('molesignal', { exact: true })),
+    boundingBox(level.getByText('compaction.level', { exact: true })),
+  ]);
+  expect(levelName.x).toBeGreaterThan(groupName.x);
+  // Neither the group nor the fields in it are cards.
+  await expect(group).toHaveCSS('box-shadow', 'none');
   await expect(level).toHaveCSS('box-shadow', 'none');
   // The whole name is a pointer away.
   await expect(level.getByText('compaction.level', { exact: true })).toHaveAttribute('title', 'molesignal.compaction.level');
@@ -212,17 +223,17 @@ test('lists the attributes that share the first part of their names under it', a
 
 test('reads a span field from the loaded traces and switches a value filter on and off', async ({ page }) => {
   const statements: string[] = [];
-  await page.route('**/api/v1/query', async (route) => {
-    const statement = String(route.request().postDataJSON().statement);
+  await page.route(explorerRead('query'), async (route) => {
+    const statement = String(explorerReadBody(route.request()).statement);
     statements.push(statement);
     await route.fulfill({
       json: statement.includes('distinct_values')
-        ? { columns: ['distinct_values', 'traces', 'samples'], rows: [[2, 2, 23]], scanned_rows: 23, took_ms: 1 }
+        ? { columns: ['distinct_values', 'traces', 'samples'], rows: [[2, 2, 23]], scannedRows: 23, tookMs: 1 }
         : {
             columns: ['value', 'traces', 'spans'],
             rows: [['checkout-api', 2, 20], ['payments', 1, 3]],
-            scanned_rows: 23,
-            took_ms: 1,
+            scannedRows: 23,
+            tookMs: 1,
           },
     });
   });
@@ -232,7 +243,7 @@ test('reads a span field from the loaded traces and switches a value filter on a
   });
   const filters = () => listed.at(-1)?.searchParams.get('filters') ?? null;
 
-  await page.goto('/traces');
+  await page.goto('/traces?tab=spans');
 
   const panel = page.locator('aside[data-variant="utility"]');
   const fieldRow = panel.locator('[data-trace-field="service.name"]');
@@ -258,35 +269,46 @@ test('reads a span field from the loaded traces and switches a value filter on a
   const wordsBox = await boundingBox(payments.locator('[title="payments"]'));
   expect(trackBox.y).toBeGreaterThanOrEqual(wordsBox.y + wordsBox.height);
 
-  // A field query matches a trace when any span does, so it cannot leave a span's value out:
-  // only the filter that means what it says is offered.
+  // A field query keeps a trace when one of its spans has the value, and with `!=` when none has
+  // it: a value of a span is offered both ways.
   await payments.hover();
-  await expect(payments.getByRole('button')).toHaveCount(1);
+  await expect(payments.getByRole('button')).toHaveCount(2);
   const filter = payments.getByRole('button', { name: 'Filter for service.name = payments' });
-  await expect(filter).toHaveAttribute('aria-pressed', 'false');
-  await filter.click();
+  const filterOut = payments.getByRole('button', { name: 'Filter out service.name = payments' });
+  await expect(filterOut).toHaveAttribute('aria-pressed', 'false');
+  await filterOut.click();
 
   // The filter is whole, so it is written and run at once, and the view stays where it was.
+  const workbench = page.locator('[data-query-workbench-appearance="surface"]');
+  await expect.poll(filters).toBe(JSON.stringify([{ field: 'service.name', op: '!=', value: 'payments' }]));
+  await expect(filterOut).toHaveAttribute('aria-pressed', 'true');
+  await expect(workbench).toContainText("service.name != 'payments'");
+  await expect(page.getByRole('tab', { name: /Spans/ })).toHaveAttribute('aria-selected', 'true');
+
+  // Asked for instead, the value takes the place of the filter that left it out.
+  await expect(filter).toHaveAttribute('aria-pressed', 'false');
+  await filter.click();
   await expect.poll(filters).toBe(JSON.stringify([{ field: 'service.name', op: '=', value: 'payments' }]));
   await expect(filter).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('[data-query-workbench-appearance="surface"]')).toContainText("service.name = 'payments'");
-  await expect(page.getByRole('tab', { name: /Spans/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(filterOut).toHaveAttribute('aria-pressed', 'false');
+  await expect(workbench).toContainText("service.name = 'payments'");
+  await expect(workbench).not.toContainText('!=');
 
   // On, the button stays in view without the pointer, and takes the filter out again.
   await page.mouse.move(0, 0);
   await expect(filter).toHaveCSS('opacity', '1');
   await filter.click();
   await expect(filter).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.locator('[data-query-workbench-appearance="surface"]')).not.toContainText('payments');
+  await expect(workbench).not.toContainText('payments');
 });
 
 test('reads what a trace has one of from the loaded rows, and a measure as a range', async ({ page }) => {
   let queried = 0;
-  await page.route('**/api/v1/query', (route) => {
+  await page.route(explorerRead('query'), (route) => {
     queried += 1;
-    return route.fulfill({ json: { columns: [], rows: [], scanned_rows: 0, took_ms: 0 } });
+    return route.fulfill({ json: { columns: [], rows: [], scannedRows: 0, tookMs: 0 } });
   });
-  await page.goto('/traces?tab=traces');
+  await page.goto('/traces');
 
   const panel = page.locator('aside[data-variant="utility"]');
   const spanCount = panel.locator('[data-trace-field="span_count"]');
@@ -294,17 +316,52 @@ test('reads what a trace has one of from the loaded rows, and a measure as a ran
   const values = panel.locator('[data-trace-field-values="span_count"]');
   await expect(values.locator('[data-trace-field-summary]')).toHaveText('2 values · in 2 of 2 traces');
 
-  // A trace has one count, so leaving a value out means what it says here.
+  // A trace has one count, which either filter compares on the trace itself.
   const eleven = values.locator('[data-field-value="11"]');
   await eleven.hover();
   await expect(eleven.getByRole('button', { name: 'Filter for span_count = 11' })).toBeVisible();
   await expect(eleven.getByRole('button', { name: 'Filter out span_count = 11' })).toBeVisible();
   expect(queried).toBe(0);
 
-  // The eye picks what stands beside a picked trace, which this view has.
+  // The eye puts a field of each trace's root span beside the traces as a column; a count the
+  // trace carries is a column of its own, and a span's id is no field of the root to show.
+  const eye = /^(Show .* as a column|Remove the .* column)$/;
   await spanCount.locator('[data-trace-field-row]').hover();
-  await expect(spanCount.getByRole('button', { name: 'Hide span_count' })).toBeVisible();
-  await expect(panel.locator('[data-trace-field="span_id"]').getByRole('button', { name: /^(Show|Hide) / })).toHaveCount(0);
+  await expect(spanCount.getByRole('button', { name: eye })).toHaveCount(0);
+  await expect(panel.locator('[data-trace-field="span_id"]').getByRole('button', { name: eye })).toHaveCount(0);
+  const start = panel.locator('[data-trace-field="start_time_unix_nano"]');
+  await start.locator('[data-trace-field-row]').hover();
+  await expect(start.getByRole('button', { name: "Show start_time_unix_nano of each trace's root span as a column" })).toBeVisible();
+});
+
+test('counts on each tab what it has loaded: the traces, and the spans once they are listed', async ({ page }) => {
+  await page.route('**/api/v1/web/traces/spans**', (route) =>
+    route.fulfill({
+      json: {
+        items: ['a', 'b', 'c'].map((spanId, index) => ({
+          traceId: 'trace-1',
+          spanId: spanId,
+          service: 'checkout-api',
+          operation: 'POST /api/orders',
+          startNs: 1_786_704_600_000_000_000 + index * 1_000_000,
+          durationNs: 1_000_000,
+          status: 'OK',
+        })),
+        nextCursor: null,
+        previousCursor: null,
+        hasMore: false,
+      },
+    }),
+  );
+  await page.goto('/traces');
+
+  const tabs = page.locator('[data-query-workbench-appearance="surface"] [data-query-tab-selection="underline"]');
+  await expect(tabs.getByRole('tab', { name: /^Traces/ })).toHaveText(/^Traces\s*2$/);
+  // The spans are listed when their tab is opened, and counted then.
+  await expect(tabs.getByRole('tab', { name: /^Spans/ })).toHaveText(/^Spans$/);
+  await tabs.getByRole('tab', { name: /^Spans/ }).click();
+  await expect(tabs.getByRole('tab', { name: /^Spans/ })).toHaveText(/^Spans\s*3$/);
+  await expect(page.locator('[data-span-list-row]')).toHaveCount(3);
 });
 
 test('drags the field panel in both directions and clamps its maximum width', async ({ page }) => {
@@ -339,7 +396,7 @@ test('drags the field panel in both directions and clamps its maximum width', as
   expect((await boundingBox(panel)).width).toBe(260);
 });
 
-test('uses canvas gutters and surface depth for the trace workbench hierarchy', async ({ page }) => {
+test('stands the field list and the results on one surface, under the workbench bar', async ({ page }) => {
   await page.goto('/traces');
 
   const shell = page.locator('[data-shell-layout="surface-workbench"]');
@@ -349,13 +406,12 @@ test('uses canvas gutters and surface depth for the trace workbench hierarchy', 
   const querySurface = page.locator('[data-query-workbench-appearance="surface"]');
   // The explorer has no title row: its name sits at the start of the workbench bar.
   const barTitle = querySurface.locator('[data-workbench-title]');
-  const workspace = page.locator('[data-trace-workspace-layout="surface-grid"]');
+  const workspace = page.locator('[data-trace-workspace-layout="joined"]');
   const fieldPanel = page.locator('aside[data-variant="utility"]');
   const results = page.locator('[data-workspace-pane="trace-results"]');
-  const detail = page.locator('[data-workspace-pane="trace-detail"]');
   const pagination = results.getByRole('navigation');
   const primaryTabs = querySurface.locator('[data-query-tab-selection="underline"]');
-  const activeTab = primaryTabs.getByRole('tab', { name: /Spans/ });
+  const activeTab = primaryTabs.getByRole('tab', { name: /^Traces/ });
   const syntaxHelp = querySurface.getByRole('button', { name: /query syntax reference/i });
   const timeRange = querySurface.getByRole('button', { name: /^Time range:/ });
 
@@ -382,24 +438,27 @@ test('uses canvas gutters and surface depth for the trace workbench hierarchy', 
       (element) => getComputedStyle(element, '::after').backgroundColor,
     ),
   ).not.toBe('rgba(0, 0, 0, 0)');
-  expect(await workspace.evaluate((element) => getComputedStyle(element).gap)).toBe('8px');
-  expect((await boundingBox(fieldPanel)).width).toBe(260);
-  expect((await boundingBox(results)).width).toBe(380);
+  // One surface: the list set off from the results by its own line, with no gutter between.
+  const [workspaceSize, panelSize, resultsSize] = await Promise.all([boundingBox(workspace), boundingBox(fieldPanel), boundingBox(results)]);
+  expect(panelSize.width).toBe(260);
+  expect(Math.abs(panelSize.x + panelSize.width - resultsSize.x)).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(resultsSize.x + resultsSize.width - (workspaceSize.x + workspaceSize.width))).toBeLessThanOrEqual(0.5);
+  await expect(fieldPanel).toHaveCSS('border-right-width', '1px');
 
   const [canvasBox, queryBox, workspaceBox] = await Promise.all([
     boundingBox(canvas),
     boundingBox(querySurface),
     boundingBox(workspace),
   ]);
-  // The bar sits close under the query tabs that name it (6px), and a 12px gutter
-  // sets it off from the panes below.
+  // The query tabs are in the query box: the bar is the first card under the top bar,
+  // 12px off it, as a 12px gutter sets it off from the panes below.
   const barTopGap = queryBox.y - canvasBox.y;
   const barBottomGap = workspaceBox.y - queryBox.y - queryBox.height;
-  expect(barTopGap).toBe(6);
+  expect(barTopGap).toBe(12);
   expect(barBottomGap).toBe(12);
 
   const surfaceBackgrounds = await Promise.all(
-    [querySurface, fieldPanel, results, detail].map((locator) =>
+    [querySurface, fieldPanel, workspace].map((locator) =>
       locator.evaluate((element) => getComputedStyle(element).backgroundColor),
     ),
   );

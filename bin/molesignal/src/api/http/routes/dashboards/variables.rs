@@ -8,8 +8,9 @@
 //! 来，后端跑 distinct query 把候选返回，前端用首个值做默认。
 //!
 //! 解析规则：
-//! - `label_values(<metric>, <label>)`：翻译为 `SELECT DISTINCT <label> FROM <metric>`，
-//!   stream_type 默认 metrics（也允许 body 显式覆盖）；
+//! - `label_values(<metric>, <label>)`：在指标目录里持有该指标、带这个标签的每个指标流上跑
+//!   `SELECT DISTINCT <label> FROM <stream> WHERE metric_name = '<metric>'`，合并去重；body 可以
+//!   显式指定只查一个流；
 //! - 其他：原样作为 SQL 执行，必须由前端在 `stream` 字段里提供 hint。
 //!
 //! 不在后端扩展查询宏（例如 `$__rate_interval`）— 这些由前端处理。
@@ -24,6 +25,7 @@ use crate::{
     app::iam::IamContext,
     domain::{
         iam::permission,
+        metrics::METRIC_NAME_FIELD,
         query::{QueryLanguage, QueryRequest, StreamHint},
         stream::StreamType,
     },
@@ -35,6 +37,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResolveRequest {
     pub variable: VariableSpec,
     pub time_range: TimeRangeInput,
@@ -62,6 +65,7 @@ pub struct TimeRangeInput {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StreamHintInput {
     pub name: String,
     pub stream_type: StreamType,
@@ -91,7 +95,12 @@ async fn resolve(
         return Err(Error::invalid("variable.query empty"));
     }
 
-    let (statement, hint) = match req.variable.kind.as_str() {
+    let time_range = TimeRange::new(
+        crate::shared::time::TimestampMicros(req.time_range.start),
+        crate::shared::time::TimestampMicros(req.time_range.end),
+    );
+
+    let queries = match req.variable.kind.as_str() {
         "sql" => {
             let hint = req
                 .variable
@@ -99,13 +108,13 @@ async fn resolve(
                 .as_ref()
                 .ok_or_else(|| Error::invalid("kind = sql requires `stream` hint"))?;
 
-            (
+            vec![(
                 raw_query,
                 StreamHint {
                     name: hint.name.clone(),
                     stream_type: hint.stream_type,
                 },
-            )
+            )]
         }
         "query" | "" => {
             // 默认按 label_values 解
@@ -116,29 +125,25 @@ async fn resolve(
                 ))
             })?;
 
-            let hint = req
-                .variable
-                .stream
-                .clone()
-                .map(|s| StreamHint {
-                    name: s.name,
-                    stream_type: s.stream_type,
+            let streams =
+                label_streams(&state, &ctx, &req.variable, &metric, &label, time_range).await?;
+
+            streams
+                .into_iter()
+                .map(|hint| {
+                    let sql = format!(
+                        "SELECT DISTINCT {label} FROM {stream} \
+                         WHERE {name} = '{metric}' AND {label} IS NOT NULL AND {label} != '' \
+                         ORDER BY {label} \
+                         LIMIT {limit}",
+                        label = quote_ident(&label),
+                        stream = quote_ident(&hint.name),
+                        name = quote_ident(METRIC_NAME_FIELD),
+                    );
+
+                    (sql, hint)
                 })
-                .unwrap_or(StreamHint {
-                    name: metric.clone(),
-                    stream_type: StreamType::METRICS,
-                });
-
-            let sql = format!(
-                "SELECT DISTINCT {label} FROM {metric} \
-                 WHERE {label} IS NOT NULL AND {label} != '' \
-                 ORDER BY {label} \
-                 LIMIT {limit}",
-                label = sql_ident(&label),
-                metric = sql_ident(&metric),
-            );
-
-            (sql, hint)
+                .collect()
         }
         other => {
             return Err(Error::invalid(format!(
@@ -147,37 +152,36 @@ async fn resolve(
         }
     };
 
-    let result = state
-        .query
-        .run(QueryRequest {
-            org_id: ctx.org_id.clone(),
-            language: QueryLanguage::Sql,
-            statement,
-            time_range: TimeRange::new(
-                crate::shared::time::TimestampMicros(req.time_range.start),
-                crate::shared::time::TimestampMicros(req.time_range.end),
-            ),
-            stream: Some(hint),
-            limit: Some(limit),
-            federation_clusters: Vec::new(),
-        })
-        .await?;
+    let mut values: Vec<String> = Vec::new();
 
-    let mut values: Vec<String> = Vec::with_capacity(result.rows.len());
+    for (statement, hint) in queries {
+        let result = state
+            .query
+            .run(QueryRequest {
+                org_id: ctx.org_id.clone(),
+                language: QueryLanguage::Sql,
+                statement,
+                time_range,
+                stream: Some(hint),
+                limit: Some(limit),
+                step: None,
+                federation_clusters: Vec::new(),
+            })
+            .await?;
 
-    for row in &result.rows {
-        if let Some(v) = row.first()
-            && let Some(s) = json_as_string(v)
-            && !s.is_empty()
-            && !values.contains(&s)
-        {
-            values.push(s);
-        }
-
-        if values.len() >= limit {
-            break;
+        for row in &result.rows {
+            if let Some(v) = row.first()
+                && let Some(s) = json_as_string(v)
+                && !s.is_empty()
+                && !values.contains(&s)
+            {
+                values.push(s);
+            }
         }
     }
+
+    values.sort();
+    values.truncate(limit);
 
     let default = values.first().cloned();
 
@@ -221,9 +225,69 @@ fn valid_ident(s: &str) -> bool {
             .unwrap_or(false)
 }
 
-fn sql_ident(s: &str) -> String {
-    // valid_ident 已过滤特殊字符，直接拼即可（query engine 自带 quoted ident 解析）。
-    s.to_string()
+fn quote_ident(s: &str) -> String {
+    format!("\"{}\"", s.replace('"', "\"\""))
+}
+
+/// The streams `label_values(metric, label)` reads: the one the variable names, or every queryable
+/// metrics stream the directory says held the metric in `time_range` and whose schema has `label`.
+async fn label_streams(
+    state: &AppState,
+    ctx: &IamContext,
+    variable: &VariableSpec,
+    metric: &str,
+    label: &str,
+    time_range: TimeRange,
+) -> Result<Vec<StreamHint>> {
+    if let Some(stream) = &variable.stream {
+        return Ok(vec![StreamHint {
+            name: stream.name.clone(),
+            stream_type: stream.stream_type,
+        }]);
+    }
+
+    let entries = state
+        .telemetry
+        .metric_directory
+        .find(&ctx.org_id, metric)
+        .await?;
+
+    let mut streams = Vec::new();
+
+    for entry in entries.iter().filter(|entry| entry.overlaps(time_range)) {
+        let definition = match state
+            .telemetry
+            .streams
+            .get(&ctx.org_id, &entry.stream_name, StreamType::METRICS)
+            .await
+        {
+            Ok(definition) => definition,
+            Err(Error::NotFound(_)) => continue,
+            Err(error) => return Err(error),
+        };
+
+        let labelled = definition
+            .schema
+            .fields
+            .iter()
+            .any(|field| field.name == label);
+
+        if labelled
+            && state
+                .telemetry
+                .streams
+                .get_settings(&definition.id)
+                .await?
+                .queryable
+        {
+            streams.push(StreamHint {
+                name: definition.name,
+                stream_type: StreamType::METRICS,
+            });
+        }
+    }
+
+    Ok(streams)
 }
 
 fn json_as_string(v: &Value) -> Option<String> {

@@ -17,17 +17,17 @@ export const NOW = Date.UTC(2026, 9, 11, 12) * 1_000;
 export function monitor(overrides: Partial<SyntheticMonitor> = {}): SyntheticMonitor {
   return {
     id: 'check-1',
-    organization_id: 'org-1',
+    organizationId: 'org-1',
     name: 'Checkout API',
     description: '',
     kind: 'http',
     lifecycle: 'active',
     state: 'healthy',
     tags: [],
-    active_revision_id: 'revision-1',
-    created_by: 'user-1',
-    created_at: NOW - 30 * 24 * 60 * MINUTE,
-    updated_at: NOW - 60 * MINUTE,
+    activeRevisionId: 'revision-1',
+    createdBy: 'user-1',
+    createdAt: NOW - 30 * 24 * 60 * MINUTE,
+    updatedAt: NOW - 60 * MINUTE,
     ...overrides,
   };
 }
@@ -35,50 +35,53 @@ export function monitor(overrides: Partial<SyntheticMonitor> = {}): SyntheticMon
 export function revision(overrides: Partial<MonitorRevision> = {}): MonitorRevision {
   return {
     id: 'revision-1',
-    organization_id: 'org-1',
-    monitor_id: 'check-1',
+    organizationId: 'org-1',
+    monitorId: 'check-1',
     number: 1,
     spec: {
       kind: 'tcp',
       configuration: { host: { source: 'literal', value: 'db.acme.corp' }, port: 5432 },
     } as MonitorRevision['spec'],
-    schedule: { kind: 'interval', every_seconds: 60 },
-    timeout_millis: 10_000,
-    max_retries: 1,
-    consecutive_failures: 2,
-    consecutive_recoveries: 2,
-    freshness_seconds: 300,
-    location_policy: { kind: 'majority' },
-    location_ids: ['loc-us', 'loc-eu'],
-    alert_on_degraded: true,
-    alert_on_flaky: false,
-    created_by: 'user-1',
-    created_at: NOW - 30 * 24 * 60 * MINUTE,
-    content_hash: 'abcdef0123456789abcdef',
+    schedule: { kind: 'interval', everySeconds: 60 },
+    timeoutMillis: 10_000,
+    maxRetries: 1,
+    consecutiveFailures: 2,
+    consecutiveRecoveries: 2,
+    freshnessSeconds: 300,
+    locationPolicy: { kind: 'majority' },
+    locationIds: ['loc-us', 'loc-eu'],
+    alertOnDegraded: true,
+    alertOnFlaky: false,
+    alertOnNoData: true,
+    injectTraceContext: true,
+    tracerouteOnFailure: true,
+    createdBy: 'user-1',
+    createdAt: NOW - 30 * 24 * 60 * MINUTE,
+    contentHash: 'abcdef0123456789abcdef',
     ...overrides,
   };
 }
 
 export function result(overrides: Partial<SyntheticResult> = {}): SyntheticResult {
-  const startedAt = overrides.started_at ?? NOW - MINUTE;
+  const startedAt = overrides.startedAt ?? NOW - MINUTE;
 
   return {
-    id: `result-${startedAt}-${overrides.location_id ?? 'loc-us'}`,
-    organization_id: 'org-1',
-    monitor_id: 'check-1',
-    monitor_revision_id: 'revision-1',
-    location_id: 'loc-us',
-    task_id: 'task-1',
-    is_test: false,
-    scheduled_at: startedAt,
-    started_at: startedAt,
-    finished_at: startedAt + 200_000,
-    received_at: startedAt + 250_000,
+    id: `result-${startedAt}-${overrides.locationId ?? 'loc-us'}`,
+    organizationId: 'org-1',
+    monitorId: 'check-1',
+    monitorRevisionId: 'revision-1',
+    locationId: 'loc-us',
+    taskId: 'task-1',
+    isTest: false,
+    scheduledAt: startedAt,
+    startedAt: startedAt,
+    finishedAt: startedAt + 200_000,
+    receivedAt: startedAt + 250_000,
     outcome: 'healthy',
     attempts: [],
     assertions: [],
-    secret_versions: {},
-    protocol_version: 1,
+    secretVersions: {},
+    protocolVersion: 1,
     metadata: {},
     ...overrides,
   };
@@ -93,7 +96,7 @@ export function runs(
   overrides: Partial<SyntheticResult> = {},
 ): SyntheticResult[] {
   return outcomes.map((outcome, index) =>
-    result({ ...overrides, outcome, started_at: NOW - (index + 1) * MINUTE }),
+    result({ ...overrides, outcome, startedAt: NOW - (index + 1) * MINUTE }),
   );
 }
 
@@ -107,10 +110,10 @@ export function checkRow({
   results?: SyntheticResult[];
 } = {}): CheckRow {
   const check = monitor(monitorOverrides);
-  const checkRevision = revision({ monitor_id: check.id, ...revisionOverrides });
+  const checkRevision = revision({ monitorId: check.id, ...revisionOverrides });
   const scheduled = results
-    .filter((item) => !item.is_test)
-    .sort((left, right) => right.started_at - left.started_at);
+    .filter((item) => !item.isTest)
+    .sort((left, right) => right.startedAt - left.startedAt);
   const latest = scheduled[0];
   const decided = scheduled.filter(
     (item) => item.outcome !== 'unknown' && item.outcome !== 'skipped',
@@ -122,7 +125,7 @@ export function checkRow({
     revision: checkRevision,
     results,
     latestResult: latest,
-    latestLatencyMicros: latest ? latest.finished_at - latest.started_at : undefined,
+    latestLatencyMicros: latest ? latest.finishedAt - latest.startedAt : undefined,
     successRate: decided.length
       ? decided.filter((item) => item.outcome === 'healthy').length / decided.length
       : undefined,
@@ -139,18 +142,18 @@ export function location(overrides: Partial<ProbeLocation> = {}): ProbeLocation 
     execution: 'agent_pool',
     lifecycle: 'active',
     health: 'online',
-    system_managed: true,
-    egress_policy: {
-      allowed_cidrs: [],
-      denied_cidrs: [],
-      allowed_domains: [],
-      denied_domains: [],
-      allowed_ports: [],
-      allow_private_networks: false,
-      allow_loopback: false,
+    systemManaged: true,
+    egressPolicy: {
+      allowedCidrs: [],
+      deniedCidrs: [],
+      allowedDomains: [],
+      deniedDomains: [],
+      allowedPorts: [],
+      allowPrivateNetworks: false,
+      allowLoopback: false,
     },
-    created_at: NOW - 90 * 24 * 60 * MINUTE,
-    updated_at: NOW - 120 * MINUTE,
+    createdAt: NOW - 90 * 24 * 60 * MINUTE,
+    updatedAt: NOW - 120 * MINUTE,
     ...overrides,
   };
 }
@@ -158,19 +161,19 @@ export function location(overrides: Partial<ProbeLocation> = {}): ProbeLocation 
 export function agent(overrides: Partial<ProbeAgent> = {}): ProbeAgent {
   return {
     id: 'agent-1',
-    location_id: 'loc-us',
+    locationId: 'loc-us',
     name: 'probe-a',
     hostname: 'probe-a.acme.internal',
     status: 'online',
-    agent_version: '0.9.2',
-    protocol_version: 3,
+    agentVersion: '0.9.2',
+    protocolVersion: 3,
     capabilities: ['http', 'tcp'],
-    capacity: { max_concurrent: 16, max_browser_concurrent: 2, available: 12, available_browser: 2 },
+    capacity: { maxConcurrent: 16, maxBrowserConcurrent: 2, available: 12, availableBrowser: 2 },
     labels: {},
-    last_heartbeat_at: NOW - 9_000_000,
-    last_result_sequence: 1,
-    created_at: NOW - 90 * 24 * 60 * MINUTE,
-    updated_at: NOW - 9_000_000,
+    lastHeartbeatAt: NOW - 9_000_000,
+    lastResultSequence: 1,
+    createdAt: NOW - 90 * 24 * 60 * MINUTE,
+    updatedAt: NOW - 9_000_000,
     ...overrides,
   };
 }

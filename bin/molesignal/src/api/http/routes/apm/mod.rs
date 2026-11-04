@@ -17,9 +17,9 @@ use crate::{
     app::{
         apm::{
             ApmQueryRequest, ApmTenantHealthResponse, DependencySummary, ErrorDetailResponse,
-            ErrorSummary, OverviewResponse, PagedResponse, ServiceDetailResponse, ServiceSummary,
-            TransactionDetailResponse, TransactionSummary, VersionCompareResponse,
-            record_apm_query_latency,
+            ErrorIssueFilter, ErrorListResponse, InstanceSummary, OverviewResponse, PagedResponse,
+            ServiceDetailResponse, ServiceSummary, TransactionDetailResponse, TransactionSummary,
+            VersionCompareResponse, record_apm_query_latency,
         },
         iam::IamContext,
     },
@@ -30,7 +30,15 @@ use crate::{
     shared::{Result, time::TimestampMicros},
 };
 
+mod coverage;
 mod cursor;
+mod deployments;
+mod error_rules;
+mod insights;
+mod map;
+mod people;
+mod settings;
+mod slo;
 
 const DAY_MICROS: i64 = 86_400_000_000;
 
@@ -39,6 +47,11 @@ pub fn routes() -> Router<AppState> {
         .route("/apm/overview", get(overview))
         .route("/apm/services", get(services))
         .route("/apm/services/{service}", get(service_detail))
+        .route("/apm/services/{service}/instances", get(service_instances))
+        .route(
+            "/apm/services/{service}/coverage",
+            get(coverage::service_coverage),
+        )
         .route("/apm/transactions", get(transactions))
         .route("/apm/transactions/{transaction}", get(transaction_detail))
         .route("/apm/dependencies", get(dependencies))
@@ -46,6 +59,13 @@ pub fn routes() -> Router<AppState> {
         .route("/apm/errors/{fingerprint}", get(error_detail))
         .route("/apm/versions/compare", get(version_compare))
         .route("/apm/health", get(health))
+        .merge(people::routes())
+        .merge(error_rules::routes())
+        .merge(map::routes())
+        .merge(slo::routes())
+        .merge(deployments::routes())
+        .merge(settings::routes())
+        .merge(insights::routes())
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -64,6 +84,8 @@ struct QueryParams {
     baseline: Option<String>,
     candidate: Option<String>,
     kind: Option<TransactionKind>,
+    /// Error lists: which groups to keep by what is being done about them.
+    status: Option<ErrorIssueFilter>,
 }
 
 impl QueryParams {
@@ -86,7 +108,7 @@ impl QueryParams {
     }
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("apm.services.read", "sys.telemetry.read"))]
 async fn overview(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -106,7 +128,7 @@ async fn overview(
     Ok(Json(response))
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("apm.services.read", "sys.telemetry.read"))]
 async fn services(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -128,7 +150,7 @@ async fn services(
     Ok(Json(response))
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("apm.services.read", "sys.telemetry.read"))]
 async fn service_detail(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -150,7 +172,35 @@ async fn service_detail(
     Ok(Json(response))
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+/// The instances of a service in an environment within the range, the most
+/// recently seen first, of the version in view when one is, each with what it
+/// served.
+#[permission(any("apm.services.read", "sys.telemetry.read"))]
+async fn service_instances(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<IamContext>,
+    Path(service): Path<String>,
+    Query(mut params): Query<QueryParams>,
+) -> Result<Json<Vec<InstanceSummary>>> {
+    params.service = Some(service);
+
+    let context = state.telemetry.apm_query.context(
+        ctx.org_id,
+        params.request(),
+        &["request_count"],
+        "request_count",
+    )?;
+
+    Ok(Json(
+        state
+            .telemetry
+            .apm_query
+            .service_instances(&context)
+            .await?,
+    ))
+}
+
+#[permission(any("apm.services.read", "sys.telemetry.read"))]
 async fn transactions(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -172,7 +222,7 @@ async fn transactions(
     Ok(Json(response))
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("apm.services.read", "sys.telemetry.read"))]
 async fn transaction_detail(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -198,7 +248,7 @@ async fn transaction_detail(
     Ok(Json(response))
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("apm.services.read", "sys.telemetry.read"))]
 async fn dependencies(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -220,12 +270,12 @@ async fn dependencies(
     Ok(Json(response))
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("apm.errors.read", "sys.telemetry.read"))]
 async fn errors(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
     Query(params): Query<QueryParams>,
-) -> Result<Json<PagedResponse<ErrorSummary>>> {
+) -> Result<Json<ErrorListResponse>> {
     let started = Instant::now();
     let request = cursor::request(&state, &ctx, &params, cursor::ERRORS)?;
 
@@ -236,13 +286,17 @@ async fn errors(
         "occurrence_count",
     )?;
 
-    let response = state.telemetry.apm_query.errors(&context).await?;
-    let response = cursor::sign_page(&state, &ctx, cursor::ERRORS, &context, response)?;
+    let mut response = state
+        .telemetry
+        .apm_query
+        .errors(&context, params.status.unwrap_or_default())
+        .await?;
+    response.page = cursor::sign_page(&state, &ctx, cursor::ERRORS, &context, response.page)?;
     record_apm_query_latency("errors", started.elapsed());
     Ok(Json(response))
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("apm.errors.read", "sys.telemetry.read"))]
 async fn error_detail(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -268,7 +322,7 @@ async fn error_detail(
     Ok(Json(response))
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("apm.services.read", "sys.telemetry.read"))]
 async fn version_compare(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -303,7 +357,7 @@ async fn version_compare(
     Ok(Json(response))
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("apm.services.read", "sys.telemetry.read"))]
 async fn health(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

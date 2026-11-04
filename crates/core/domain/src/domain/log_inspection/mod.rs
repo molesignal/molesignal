@@ -17,7 +17,11 @@ use crate::{
 
 /// 多久执行一次。带时刻的周期按巡检的时区（[`LogInspection::timezone`]）解释。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(
+    tag = "type",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub enum InspectionSchedule {
     /// 每隔 `every_minutes` 分钟一次，从保存的时刻起算。
     Interval { every_minutes: u32 },
@@ -117,6 +121,7 @@ impl InspectionLevel {
 
 /// 通知发到哪里：一个通知连接器上的固定地址或固定群组。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InspectionNotifyRoute {
     pub connector_id: Id,
     pub target_type: NotifyTargetType,
@@ -133,6 +138,7 @@ pub struct LastInspectionRun {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LogInspection {
     pub id: Id,
     pub org_id: Id,
@@ -304,6 +310,7 @@ pub struct InspectionToolCall {
 
 /// 一次执行向一个通知渠道投递的结果。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InspectionNotification {
     pub connector_id: Id,
     pub target_type: NotifyTargetType,
@@ -314,6 +321,7 @@ pub struct InspectionNotification {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LogInspectionRun {
     pub id: Id,
     pub inspection_id: Id,

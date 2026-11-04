@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next';
 import type { InboundMcpOAuthConnection } from '@/api/agent/inboundMcp';
 import { writeClipboardText } from '@/lib/clipboard';
 import { ProductState } from '@/product/states';
-import { CopyField } from '@/shell/CopyField';
+import { CopyableValue } from '@/routes/settings/_atoms';
+import { uiSectionTitleClass } from '@/shell/chrome';
 import { CopyIconButton } from '@/shell/CopyIconButton';
 import { ViewTabs } from '@/shell/tabs/ViewTabs';
 import { Badge } from '@/shell/ui/badge';
@@ -18,12 +19,14 @@ export function OAuthConnections({
   loading,
   error,
   revoking,
+  locked,
   onRevoke,
 }: {
   connections: InboundMcpOAuthConnection[];
   loading: boolean;
   error: Error | null;
   revoking: boolean;
+  locked: boolean;
   onRevoke: (id: string) => void;
 }) {
   const { t } = useTranslation('agent');
@@ -32,7 +35,7 @@ export function OAuthConnections({
       <div>
         <div className="flex items-center gap-2">
           <Link2 className="h-4 w-4 text-indigo" />
-          <h3 className="font-strong text-tx-0">
+          <h3 className={uiSectionTitleClass}>
             {t('settings.inbound_mcp.oauth.title')}
           </h3>
         </div>
@@ -55,13 +58,13 @@ export function OAuthConnections({
         <div className="mt-4 divide-y divide-bd-0">
           {connections.map((connection) => (
             <div
-              key={connection.family_id}
+              key={connection.familyId}
               className="flex flex-wrap items-center gap-3 py-3"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-strong text-tx-0">
-                    {connection.client_name}
+                    {connection.clientName}
                   </span>
                   <Badge variant={connection.active ? 'accent' : 'outline'}>
                     {t(
@@ -70,16 +73,16 @@ export function OAuthConnections({
                   </Badge>
                 </div>
                 <div className="mt-1 truncate font-mono text-xs text-tx-3">
-                  {connection.client_id} · {connection.scope}
+                  {connection.clientId} · {connection.scope}
                 </div>
                 <div className="mt-1 text-xs text-tx-3">
                   {t('settings.inbound_mcp.oauth.authorized_by', {
-                    value: connection.user_display_name,
+                    value: connection.userDisplayName,
                   })}
                 </div>
                 <div className="mt-1 text-xs text-tx-3">
                   {t('settings.inbound_mcp.oauth.expires', {
-                    value: formatTimestamp(connection.last_expires_at),
+                    value: formatTimestamp(connection.lastExpiresAt),
                   })}
                 </div>
               </div>
@@ -88,8 +91,8 @@ export function OAuthConnections({
                   type="button"
                   size="sm"
                   variant="outline"
-                  disabled={revoking}
-                  onClick={() => onRevoke(connection.family_id)}
+                  disabled={locked || revoking}
+                  onClick={() => onRevoke(connection.familyId)}
                 >
                   <Unplug /> {t('settings.inbound_mcp.oauth.revoke')}
                 </Button>
@@ -124,12 +127,14 @@ export function NumberField({
   value,
   min,
   max,
+  disabled,
   onChange,
 }: {
   label: string;
   value: string;
   min: number;
   max: number;
+  disabled: boolean;
   onChange: (value: string) => void;
 }) {
   const inputId = React.useId();
@@ -141,6 +146,7 @@ export function NumberField({
         min={min}
         max={max}
         value={value}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
       />
     </Field>
@@ -148,8 +154,8 @@ export function NumberField({
 }
 
 /**
- * An address to copy out, the way the settings show the organization's ID and
- * slug: a filled field one control high, with the shared copy button inside.
+ * An address to copy out and not to change, shown as the settings show the organization's ID: in
+ * a well of the page's canvas rather than a field, so nothing in it looks as if it could be typed in.
  */
 export function EndpointField({
   label,
@@ -161,7 +167,11 @@ export function EndpointField({
   const { t } = useTranslation('agent');
   return (
     <Field label={label}>
-      <CopyField value={value} copyLabel={t('settings.inbound_mcp.copy')} />
+      <CopyableValue
+        value={value}
+        copyLabel={t('settings.inbound_mcp.copy')}
+        copiedLabel={t('settings.inbound_mcp.copied')}
+      />
     </Field>
   );
 }
@@ -208,9 +218,9 @@ export function ConnectPrompt({ endpoint }: { endpoint: string }) {
   return (
     <section data-inbound-mcp-prompt className="border-t border-bd-0 py-5">
       <div className="flex items-start gap-3">
-        <MessageSquareCode aria-hidden="true" className="mt-0.5 h-4 w-4 text-indigo" />
+        <MessageSquareCode aria-hidden="true" className="mt-1 h-4 w-4 text-indigo" />
         <div className="min-w-0 flex-1">
-          <h3 className="font-strong text-tx-0">{t('settings.inbound_mcp.prompt.title')}</h3>
+          <h3 className={uiSectionTitleClass}>{t('settings.inbound_mcp.prompt.title')}</h3>
           <p className="mt-1 text-xs leading-5 text-tx-3">
             {t('settings.inbound_mcp.prompt.description')}
           </p>

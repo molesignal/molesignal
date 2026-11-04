@@ -13,11 +13,13 @@ use prometheus::{Histogram, IntCounter};
 use crate::{
     config::GarbageCollectionSettings,
     domain::storage::{FileCatalog, GcQueueEntry, OrganizationScope},
+    infra::storage::object_reader::ObjectReader,
     shared::{Result, time::TimestampMicros},
 };
 
 pub struct ObjectGcWorker {
     catalog: Arc<dyn FileCatalog>,
+    object_reader: Arc<ObjectReader>,
     object_store: Arc<dyn ObjectStore>,
     settings: GarbageCollectionSettings,
 }
@@ -25,11 +27,13 @@ pub struct ObjectGcWorker {
 impl ObjectGcWorker {
     pub fn new(
         catalog: Arc<dyn FileCatalog>,
+        object_reader: Arc<ObjectReader>,
         object_store: Arc<dyn ObjectStore>,
         settings: GarbageCollectionSettings,
     ) -> Self {
         Self {
             catalog,
+            object_reader,
             object_store,
             settings,
         }
@@ -90,6 +94,8 @@ impl ObjectGcWorker {
 
         match self.object_store.delete(&path).await {
             Ok(()) | Err(object_store::Error::NotFound { .. }) => {
+                self.object_reader.forget(entry.object_key.as_str()).await;
+
                 self.catalog
                     .complete_gc_entry(scope, &entry.object_key)
                     .await?;

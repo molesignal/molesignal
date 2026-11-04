@@ -19,15 +19,15 @@ describe('profileTypesIn', () => {
   it('lists the types profiles were captured of, in the order types are offered in', () => {
     expect(
       profileTypesIn([
-        { profile_type: 'alloc_space' },
-        { profile_type: 'cpu' },
-        { profile_type: 'alloc_space' },
+        { profileType: 'alloc_space' },
+        { profileType: 'cpu' },
+        { profileType: 'alloc_space' },
       ]),
     ).toEqual(['cpu', 'alloc_space']);
   });
 
   it('puts a type the product does not name after the ones it does', () => {
-    expect(profileTypesIn([{ profile_type: 'zz_custom' }, { profile_type: 'lock' }, { profile_type: 'block' }])).toEqual([
+    expect(profileTypesIn([{ profileType: 'zz_custom' }, { profileType: 'lock' }, { profileType: 'block' }])).toEqual([
       'lock',
       'block',
       'zz_custom',

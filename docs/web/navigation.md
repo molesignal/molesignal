@@ -35,7 +35,7 @@ inspections (`/logs/inspections` and `/logs/inspections/:id`, reached from the
 AI inspection tab of Logs and kept out of the sidebar),
 intake source drilldowns, pipeline create/import/edit/history/backfill,
 APM overview/service/Transaction/dependency/backend-error/deployment pages,
-independent RUM application/session/page/error/performance/replay/settings flows, Notify management under system settings
+independent RUM explorer/application/session/settings flows, Notify management under system settings
 (`/settings/notify/{connectors,users,policies,templates,defaults,deliveries}`), personal
 Notify settings (`/account/settings/notify`), and key settings detail routes.
 
@@ -57,14 +57,13 @@ and Profiles remain independent canonical signal routes.
 
 RUM owns the canonical user-centric `/rum/*` hierarchy:
 
-- `/rum/overview`, `/rum/applications`, `/rum/sessions`, `/rum/pages`
-- `/rum/errors`, `/rum/performance/*`, `/rum/session-replay`
+- `/rum/overview`, `/rum/explorer`, `/rum/errors`, `/rum/performance`, `/rum/performance/resources`, `/rum/performance/long-tasks`, `/rum/frustration`, `/rum/analytics`, `/rum/analytics/heatmaps`, `/rum/feature-flags`, `/rum/applications`, `/rum/sessions/view/:id`
 - `/rum/settings/{sdk,source-maps,sampling,privacy,session-replay}`
 
-Every legacy `/apm/user-experience/*` suffix maps back to `/rum/*`; path
-parameters, query strings, and URL fragments are preserved. Source Map legacy
-paths map to `/rum/settings/source-maps*`. The internal RUM API, stream names,
-and component ownership remain unchanged.
+`/rum` opens the overview. Every legacy `/apm/user-experience/*` suffix maps
+back to `/rum/*`, and the legacy overview opens the explorer; path parameters, query
+strings, and URL fragments are preserved. Source Map legacy paths map to
+`/rum/settings/source-maps*`. The RUM API is `/api/v1/rum/*`.
 
 Backend APM pages require either `streams.query` in organization scope or
 `sys.telemetry.read` in system scope. RUM remains

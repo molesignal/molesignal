@@ -23,7 +23,10 @@ export type RuleDisplayState =
   | 'not_evaluated'
   | 'healthy'
   | 'pending'
+  | 'no_data'
   | 'firing'
+  | 'inhibited'
+  | 'dropped'
   | 'disabled';
 
 export interface DisplayRule {
@@ -51,6 +54,8 @@ export interface AlertRulePreviewInput {
   queryLanguage: QueryLanguage;
   streamName: string;
   statement: string;
+  /** The columns the rule is split by: a preview checks its result has them. */
+  groupBy?: readonly string[];
 }
 
 export function severityRank(severity: Severity): number {
@@ -83,36 +88,51 @@ export function adaptRule(
   rule: AlertRule,
   incidents: Incident[],
 ): DisplayRule {
-  const activeIncident = incidents.find(
-    (incident) => incident.rule_id === rule.id && isActiveIncident(incident),
+  const activeIncidents = incidents.filter(
+    (incident) => incident.ruleId === rule.id && isActiveIncident(incident),
   );
+  const activeIncident = activeIncidents[0];
   const threshold = topThreshold(rule) ?? rule.trigger;
-  const duration = threshold.for_periods * rule.query.period_secs;
+  const duration = threshold.forPeriods * rule.query.periodSecs;
   const state: RuleDisplayState = !rule.enabled
     ? 'disabled'
     : activeIncident
-      ? 'firing'
-      : !rule.last_eval_at
+      ? activeIncidents.every((incident) => incident.inhibition)
+        ? 'inhibited'
+        : 'firing'
+      : !rule.lastEvalAt
         ? 'not_evaluated'
-        : rule.last_state?.kind === 'pending'
-          ? 'pending'
-          : 'healthy';
+        : rule.lastState?.kind === 'dropped'
+          ? 'dropped'
+          : rule.lastState?.kind === 'pending'
+            ? 'pending'
+            : rule.lastState?.kind === 'no_data'
+              ? 'no_data'
+              : 'healthy';
 
   return {
     id: rule.id,
     name: rule.name,
     severity: ruleSeverity(rule),
     service: rule.labels.service ?? rule.labels.svc ?? '—',
-    source: rule.query.stream
-      ? `${rule.query.stream.name} · ${rule.query.stream.stream_type}`
-      : '—',
-    condition: `${COMPARISON_LABEL[threshold.operator]} ${threshold.threshold} · ${formatDurationSecs(duration)}`,
+    source: rule.query.discovery
+      ? DISCOVERY_SOURCE
+      : rule.query.stream
+        ? `${rule.query.stream.name} · ${rule.query.stream.streamType}`
+        : '—',
+    // A discovery rule has no threshold of its own: every finding it takes is an incident.
+    condition: rule.query.discovery
+      ? DISCOVERY_SOURCE
+      : `${COMPARISON_LABEL[threshold.operator]} ${threshold.threshold} · ${formatDurationSecs(duration)}`,
     state,
-    lastEvaluation: rule.last_eval_at ?? null,
+    lastEvaluation: rule.lastEvalAt ?? null,
     kind: rule.kind ?? 'scheduled',
     raw: rule,
   };
 }
+
+/** What the list says of a discovery rule's source and condition; the page reads it in its language. */
+export const DISCOVERY_SOURCE = 'discovery';
 
 export function isActiveIncident(incident: Incident): boolean {
   return incident.status === 'open' || incident.status === 'acknowledged';
@@ -127,6 +147,7 @@ export function alertRulePreviewFingerprint(
     language: input.queryLanguage,
     stream: input.streamName.trim(),
     statement: input.statement.trim(),
+    ...(input.groupBy?.length ? { group_by: input.groupBy } : {}),
   });
 }
 
@@ -153,11 +174,11 @@ export function seedThresholds(rule?: AlertRule): SeverityThreshold[] {
         severity: ruleSeverity(rule),
         operator: rule.trigger.operator,
         threshold: rule.trigger.threshold,
-        for_periods: rule.trigger.for_periods,
+        forPeriods: rule.trigger.forPeriods,
       },
     ];
   }
-  return [{ severity: 'warning', operator: 'gt', threshold: 0.05, for_periods: 5 }];
+  return [{ severity: 'warning', operator: 'gt', threshold: 0.05, forPeriods: 5 }];
 }
 
 export function formatDurationSecs(seconds: number): string {
@@ -235,34 +256,6 @@ export function conditionMatches(
   if (operator === 'lte') return value <= threshold;
   if (operator === 'eq') return value === threshold;
   return value !== threshold;
-}
-
-/**
- * Estimate distinct firing episodes from historical samples. An episode
- * starts when the configured consecutive-period requirement is first met and
- * ends when the signal returns inside the threshold.
- */
-export function estimateTriggerEpisodes(
-  values: number[],
-  band: SeverityThreshold,
-): number {
-  let consecutive = 0;
-  let active = false;
-  let episodes = 0;
-  const required = Math.max(1, band.for_periods);
-  for (const value of values) {
-    if (conditionMatches(value, band.operator, band.threshold)) {
-      consecutive += 1;
-      if (!active && consecutive >= required) {
-        active = true;
-        episodes += 1;
-      }
-    } else {
-      consecutive = 0;
-      active = false;
-    }
-  }
-  return episodes;
 }
 
 export function thresholdConflict(thresholds: SeverityThreshold[]): boolean {

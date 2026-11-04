@@ -40,6 +40,7 @@ pub struct StatusPageSubscriberImport {
 /// What an import did, or would do. An address that is already active is left
 /// as it is, and one that unsubscribed from the page is not subscribed again.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusPageSubscriberImportOutcome {
     /// Addresses that became active, or pending awaiting confirmation.
     pub imported: u64,

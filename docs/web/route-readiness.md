@@ -50,21 +50,24 @@ coverage, and API integration work.
 
 | MoleSignal path | Status | Backend |
 | --- | --- | --- |
-| `/rum/overview` | ✓ | 🚧 RUM stream queries |
-| `/rum/applications` | ✓ | 🚧 `rum_sessions` aggregation |
-| `/rum/sessions` | ✓ | 🚧 RUM stream queries |
-| `/rum/sessions/view/:id` | ✓ | 🚧 `rum_sessions` + `rum_actions` queries |
-| `/rum/pages` | ✓ | 🚧 `rum_actions` aggregation |
-| `/rum/errors` | ✓ | 🚧 `rum_errors` queries |
-| `/rum/errors/view/:id` | ✓ | 🚧 `rum_errors` queries |
-| `/rum/performance/*` | ✓ | 🚧 RUM stream aggregation |
-| `/rum/session-replay` | ✓ | 🔌 `GET /rum/replay/:session_id` |
+| `/rum/overview` | ✓ | 🔌 `GET /api/v1/rum/aggregate`, `/rum/facets`, `/rum/applications` |
+| `/rum/errors` | ✓ | 🔌 `GET /api/v1/rum/issues`, `/rum/issues/{id}`, `PATCH /rum/issues/{id}`, `/rum/aggregate`, `/rum/facets` |
+| `/rum/performance` | ✓ | 🔌 `GET /api/v1/rum/aggregate`, `/rum/search`, `/rum/facets`, `/rum/applications` |
+| `/rum/performance/resources` | ✓ | 🔌 `GET /api/v1/rum/aggregate`, `/rum/search`, `/rum/entity`, `/rum/facets`, `/rum/applications` |
+| `/rum/performance/long-tasks` | ✓ | 🔌 `GET /api/v1/rum/aggregate`, `/rum/search`, `/rum/entity`, `/rum/facets`, `/rum/applications` |
+| `/rum/frustration` | ✓ | 🔌 `GET /api/v1/rum/aggregate`, `/rum/search`, `/rum/facets`, `/rum/applications` |
+| `/rum/explorer` | ✓ | 🔌 `GET /api/v1/rum/search`, `/rum/facets`, `/rum/histogram`, `/rum/distribution`, `/rum/schema/{type}`, `/me/ui-preference/rum.saved_views/explorer` |
+| `/rum/analytics/heatmaps` | ✓ | 🔌 `GET /api/v1/rum/heatmaps/clicks`, `/rum/heatmaps/scroll`, `/rum/heatmaps/snapshot`, `/rum/facets` |
+| `/rum/feature-flags` | ✓ | 🔌 `GET /api/v1/rum/keys`, `/rum/aggregate`, `/rum/applications` |
+| `/rum/applications` | ✓ | 🔌 `/api/v1/rum/applications`, `GET /api/v1/auth/tokens/rum` |
+| `/rum/sessions/view/:id` | ✓ | 🔌 `GET /api/v1/rum/sessions/{id}/timeline`, `/rum/replay/{session_id}`, `/rum/sessions/{id}/related-traces`, `/rum/sessions/{id}/comments`, `/rum/sessions/{id}/summary` |
+| `/rum/settings/{sdk,sampling,privacy,session-replay}` | ✓ | — |
 | `/rum/settings/source-maps` | ✓ | 🔌 `GET /debug-artifacts` |
 | `/rum/settings/source-maps/upload` | ✓ | 🔌 `POST /debug-artifacts` |
 
-RUM intake uses `POST /rum/{sessions,actions,errors,replay}`. Browser pages query
-the `rum_sessions`, `rum_actions`, and `rum_errors` log streams and render an
-explicit empty state when no data is available.
+RUM intake uses `POST /rum/events` and `POST /rum/replay`. The explorer reads the eight `rum_*` log streams (sessions,
+views, actions, errors, resources, long tasks, vitals, and logs) through the RUM endpoints, and shows a first-run guide while the
+organization has no application.
 
 ## Data workflows
 

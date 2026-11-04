@@ -34,7 +34,7 @@ export function OneTimeApiTokenDialog({
 
   return (
     <Dialog open={Boolean(token)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="w-[min(560px,calc(100vw-24px))]">
+      <DialogContent className="w-[min(560px,calc(100vw-24px))] max-w-none">
         <DialogHeader>
           <DialogTitle>{t('approvals.one_time_token_title')}</DialogTitle>
           <DialogDescription>

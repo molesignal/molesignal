@@ -21,43 +21,27 @@ pub(super) struct EventMetadata {
 }
 
 impl EventMetadata {
-    pub(super) fn from_event(event: &Value) -> Result<Self> {
-        let application_id = string_at(event, &["/application", "/application_id"])
+    /// What the debug artifacts of an event are looked up by. The application is the one the
+    /// client token is bound to; a token bound to none leaves the event to name it.
+    pub(super) fn from_event(event: &Value, bound_application: Option<&str>) -> Result<Self> {
+        let application_id = bound_application
+            .or_else(|| string_at(event, &["/application/id"]))
             .ok_or_else(|| Error::invalid("RUM application is missing"))?;
         let service = string_at(event, &["/service"])
             .ok_or_else(|| Error::invalid("RUM service is missing"))?;
-        let release = string_at(event, &["/version", "/release"])
-            .ok_or_else(|| Error::invalid("RUM version/release is missing"))?;
+        let release = string_at(event, &["/version"])
+            .ok_or_else(|| Error::invalid("RUM version is missing"))?;
 
-        let runtime = string_at(
-            event,
-            &[
-                "/runtime",
-                "/runtime/name",
-                "/sdk/name",
-                "/sdk_name",
-                "/context/runtime/name",
-            ],
-        )
-        .unwrap_or_default()
-        .to_ascii_lowercase();
-
-        let flutter = runtime.contains("flutter")
-            || string_at(event, &["/framework"])
-                .is_some_and(|value| value.eq_ignore_ascii_case("flutter"));
+        let flutter = string_at(event, &["/source"]).is_some_and(|source| source == "flutter")
+            || string_at(event, &["/sdk/name"])
+                .is_some_and(|name| name.to_ascii_lowercase().contains("flutter"));
 
         let platform = normalize_platform(
-            string_at(
-                event,
-                &[
-                    "/platform",
-                    "/os",
-                    "/os/name",
-                    "/device/os",
-                    "/context/platform",
-                ],
-            )
-            .unwrap_or(if flutter { "flutter" } else { "web" }),
+            string_at(event, &["/os/name", "/source"]).unwrap_or(if flutter {
+                "flutter"
+            } else {
+                "web"
+            }),
         );
 
         Ok(Self {
@@ -65,20 +49,8 @@ impl EventMetadata {
             service: service.to_string(),
             release: release.to_string(),
             platform,
-            architecture: string_at(
-                event,
-                &[
-                    "/architecture",
-                    "/device/architecture",
-                    "/context/architecture",
-                ],
-            )
-            .map(normalize_architecture),
-            debug_id: string_at(
-                event,
-                &["/debug_id", "/build/debug_id", "/context/debug_id"],
-            )
-            .map(normalize_debug_id),
+            architecture: string_at(event, &["/device/architecture"]).map(normalize_architecture),
+            debug_id: string_at(event, &["/build_id"]).map(normalize_debug_id),
             flutter,
         })
     }
@@ -371,6 +343,44 @@ mod tests {
         )
         .expect("native plugin frame");
         assert_eq!(plan.kind, DebugArtifactKind::AndroidNativeSymbols);
+    }
+
+    #[test]
+    fn an_event_is_described_by_the_fields_of_the_contract() {
+        let event = json!({
+            "service": "mobile",
+            "version": "1.2.0",
+            "source": "flutter",
+            "os": {"name": "Android 14"},
+            "device": {"architecture": "arm64-v8a"},
+            "build_id": "AABB",
+            "application": {"id": "shop"},
+        });
+
+        let found = EventMetadata::from_event(&event, None).expect("event");
+
+        assert_eq!(found.application_id, "shop");
+        assert_eq!(found.service, "mobile");
+        assert_eq!(found.release, "1.2.0");
+        assert_eq!(found.platform, "android");
+        assert_eq!(found.debug_id.as_deref(), Some("aabb"));
+        assert!(found.flutter);
+
+        let bound = EventMetadata::from_event(&event, Some("bound")).expect("bound event");
+
+        assert_eq!(bound.application_id, "bound");
+    }
+
+    #[test]
+    fn a_browser_event_is_a_web_event_and_one_without_a_release_is_not_looked_up() {
+        let event = json!({"service": "web", "version": "3", "source": "browser"});
+        let found = EventMetadata::from_event(&event, Some("shop")).expect("event");
+
+        assert_eq!(found.platform, "web");
+        assert!(!found.flutter);
+        assert!(EventMetadata::from_event(&json!({"service": "web"}), Some("shop")).is_err());
+        assert!(EventMetadata::from_event(&json!({"version": "3"}), Some("shop")).is_err());
+        assert!(EventMetadata::from_event(&event, None).is_err());
     }
 
     #[test]

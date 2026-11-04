@@ -22,10 +22,20 @@ use crate::{
     },
     infra::{
         intake::{BufferPool, buffer_pool::align_to_schema, physical_schema},
-        storage::{arrow_schema, manifest::PartitionManifestReader, object_reader::ObjectReader},
+        search::tantivy_index,
+        storage::{
+            arrow_schema,
+            filters::Filters,
+            manifest::{PartitionManifestReader, bloom_key},
+            object_reader::ObjectReader,
+        },
     },
     shared::{Error, Result, ids::Id, time::TimeRange},
 };
+
+mod segment_sizes;
+
+pub use segment_sizes::SegmentSize;
 
 #[derive(Debug, Clone)]
 pub struct QueryDatasetSnapshot {
@@ -38,6 +48,10 @@ pub struct QueryDatasetSnapshot {
     pub index_bytes: u64,
     /// Explicit Primary Artifact object key → Tantivy Artifact object key mapping.
     pub tantivy_indexes: HashMap<String, String>,
+    /// Segment id of a sealed partition → object key of that partition's Bloom filters.
+    pub bloom_keys: HashMap<String, String>,
+    /// Segment id → object key of the segment's own filter artifact.
+    pub filter_keys: HashMap<String, String>,
     pub buffered_batches: Vec<RecordBatch>,
 }
 
@@ -83,6 +97,20 @@ impl StreamStorageSnapshot {
             .collect()
     }
 
+    pub fn bloom_keys(&self) -> HashMap<String, String> {
+        self.datasets
+            .iter()
+            .flat_map(|dataset| dataset.bloom_keys.clone())
+            .collect()
+    }
+
+    pub fn filter_keys(&self) -> HashMap<String, String> {
+        self.datasets
+            .iter()
+            .flat_map(|dataset| dataset.filter_keys.clone())
+            .collect()
+    }
+
     pub fn dataset(&self, dataset_type: &DatasetTypeId) -> Option<&QueryDatasetSnapshot> {
         self.datasets
             .iter()
@@ -102,6 +130,12 @@ pub struct CatalogQuerySource {
 }
 
 impl CatalogQuerySource {
+    /// The filters stored at `key`, beside a sealed partition's manifest or as a segment's filter
+    /// artifact, if any.
+    pub async fn partition_blooms(&self, key: &str) -> Result<Option<Arc<Filters>>> {
+        self.manifests.blooms(key).await
+    }
+
     pub async fn intake_usage(
         &self,
         organization_id: &Id,
@@ -261,20 +295,23 @@ impl CatalogQuerySource {
 
         for dataset in &catalog.datasets {
             let mut segments = Vec::new();
+            let mut bloom_keys = HashMap::new();
 
             for pointer in &dataset.manifests {
                 let manifest = self.manifests.load(pointer).await?;
+                let key = bloom_key(&pointer.object.key);
 
-                segments.extend(
-                    manifest
-                        .segments
-                        .iter()
-                        .filter(|segment| segment.time_range.overlaps(time_range))
-                        .cloned(),
-                );
+                for segment in manifest
+                    .segments
+                    .iter()
+                    .filter(|segment| segment.time_range.overlaps(time_range))
+                {
+                    bloom_keys.insert(segment.id.as_str().to_owned(), key.clone());
+                    segments.push(segment.clone());
+                }
             }
 
-            manifest_segments.insert(dataset.dataset_id.clone(), segments);
+            manifest_segments.insert(dataset.dataset_id.clone(), (segments, bloom_keys));
         }
 
         let mut output = Vec::with_capacity(selections.len());
@@ -322,11 +359,17 @@ fn select_datasets(
         .collect()
 }
 
+/// Segments of sealed partitions, with the object key of each one's Bloom filters.
+type Sealed = (
+    Vec<crate::domain::storage::DataSegment>,
+    HashMap<String, String>,
+);
+
 fn build_dataset_snapshot(
     stream: &StreamDefinition,
     dataset: &PhysicalDataset,
     catalog: &CatalogSnapshot,
-    manifest_segments: Vec<crate::domain::storage::DataSegment>,
+    (manifest_segments, bloom_keys): Sealed,
     buffer_batches: Vec<crate::infra::intake::BufferedRecordBatch>,
     time_range: TimeRange,
     object_reader: &ObjectReader,
@@ -354,6 +397,7 @@ fn build_dataset_snapshot(
         .collect::<Result<Vec<_>>>()?;
 
     let tantivy_indexes = segments.iter().filter_map(segment_tantivy_index).collect();
+    let filter_keys = segments.iter().filter_map(segment_filter_key).collect();
 
     let physical_stream = physical_schema::project(stream, &dataset_type);
     let target_schema = arrow_schema::to_arrow(&physical_stream.schema);
@@ -392,6 +436,8 @@ fn build_dataset_snapshot(
             }),
         files,
         tantivy_indexes,
+        bloom_keys,
+        filter_keys,
         buffered_batches: visible_buffers,
     })
 }
@@ -411,7 +457,7 @@ fn segment_tantivy_index(
                 && artifact.role == ArtifactRole::Index
                 && artifact.state == ArtifactState::Ready
                 && artifact.artifact_type.as_str() == type_id::builtin::ARTIFACT_TANTIVY
-                && artifact.format_version == 1
+                && (1..=tantivy_index::FORMAT_VERSION).contains(&artifact.format_version)
                 && artifact.source_artifact_id.as_ref() == Some(&segment.primary.id)
                 && artifact.source_checksum.as_ref() == Some(&segment.primary.object.checksum)
                 && artifact.schema_fingerprint == segment.primary.schema_fingerprint
@@ -419,6 +465,25 @@ fn segment_tantivy_index(
         .map(|artifact| {
             (
                 segment.primary.object.key.as_str().to_owned(),
+                artifact.object.key.as_str().to_owned(),
+            )
+        })
+}
+
+/// The segment's own ready filter artifact, built from its primary file: segment id → object key.
+fn segment_filter_key(segment: &crate::domain::storage::DataSegment) -> Option<(String, String)> {
+    segment
+        .auxiliaries
+        .iter()
+        .find(|artifact| {
+            artifact.role == ArtifactRole::Index
+                && artifact.state == ArtifactState::Ready
+                && artifact.artifact_type.as_str() == type_id::builtin::ARTIFACT_BLOOM
+                && artifact.source_artifact_id.as_ref() == Some(&segment.primary.id)
+        })
+        .map(|artifact| {
+            (
+                segment.id.as_str().to_owned(),
                 artifact.object.key.as_str().to_owned(),
             )
         })
@@ -456,6 +521,16 @@ fn segment_to_query_file(
         size_bytes: primary.object.size_bytes,
         min_values: segment.column_stats.min_values.clone(),
         max_values: segment.column_stats.max_values.clone(),
+        value_sets: segment.column_stats.value_sets.clone(),
+        address_ranges: segment.column_stats.address_ranges.clone(),
+        null_counts: segment.column_stats.null_counts.clone(),
+        indexed_at_micros: segment.column_stats.indexed_at_micros,
+        shard: (!segment.column_stats.partitions.is_empty()).then(|| {
+            crate::domain::storage::FileShard {
+                partitions: segment.column_stats.partitions.clone(),
+                shard: segment.partition.shard,
+            }
+        }),
     })
 }
 
@@ -650,7 +725,13 @@ mod tests {
 
         let provenance = generation.provenance();
         let segments = ParquetWriter::new(Arc::new(InMemory::new()))
-            .flush_catalog(&stream, &raw.dataset, &provenance, generation.batch.clone())
+            .flush_catalog(
+                &stream,
+                &raw.dataset,
+                &provenance,
+                generation.batch.clone(),
+                None,
+            )
             .await
             .unwrap();
         catalog

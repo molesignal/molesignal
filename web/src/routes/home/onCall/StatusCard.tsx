@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { ProductState } from '@/product/states';
 import {
   Card,
   CardBody,
@@ -99,6 +100,8 @@ export interface OnCallStatusCardProps {
   nowMicros: number;
   locale: string;
   loading: boolean;
+  /** Set when the schedules did not answer: nobody can say they are not configured. */
+  error?: unknown;
   onViewSchedule: () => void;
   onViewEscalations: () => void;
   onOpenIncidents: () => void;
@@ -117,6 +120,7 @@ export function OnCallStatusCard({
   nowMicros,
   locale,
   loading,
+  error,
   onViewSchedule,
   onViewEscalations,
   onOpenIncidents,
@@ -247,6 +251,14 @@ export function OnCallStatusCard({
             <Skeleton className="h-3 w-3/4" />
           </div>
         </div>
+      ) : !feature && error ? (
+        <ProductState
+          variant="error"
+          compact
+          title={t('home.on_call.unavailable_title')}
+          error={error}
+          className="relative z-10 min-h-0 rounded-none bg-transparent pt-0 [box-shadow:none]"
+        />
       ) : !feature ? (
         <EmptyState
           size="compact"

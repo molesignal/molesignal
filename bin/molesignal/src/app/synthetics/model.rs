@@ -14,6 +14,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateLocationInput {
     pub name: String,
     pub code: String,
@@ -50,6 +51,7 @@ impl std::fmt::Debug for CreateSecretInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateMonitorInput {
     pub name: String,
     #[serde(default)]
@@ -77,6 +79,16 @@ pub struct CreateMonitorInput {
     pub alert_on_degraded: bool,
     #[serde(default)]
     pub alert_on_flaky: bool,
+    #[serde(default = "enabled")]
+    pub alert_on_no_data: bool,
+    #[serde(default = "enabled")]
+    pub inject_trace_context: bool,
+    #[serde(default = "enabled")]
+    pub traceroute_on_failure: bool,
+}
+
+const fn enabled() -> bool {
+    true
 }
 
 const fn default_failure_threshold() -> u32 {
@@ -123,6 +135,9 @@ pub(super) fn build_revision(
         escalation_policy_id: input.escalation_policy_id,
         alert_on_degraded: input.alert_on_degraded,
         alert_on_flaky: input.alert_on_flaky,
+        alert_on_no_data: input.alert_on_no_data,
+        inject_trace_context: input.inject_trace_context,
+        traceroute_on_failure: input.traceroute_on_failure,
         last_test_result_id: None,
         last_test_passed_at: None,
         created_by: actor_id.clone(),

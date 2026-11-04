@@ -2,15 +2,21 @@ import { MailCheck } from 'lucide-react';
 import type * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type { PublicSsoProvider } from '@/api/sso';
-import { ChromeButton } from '@/shell/chrome';
-import { Checkbox } from '@/shell/ui/checkbox';
-
 import { BackButton, Field, PrimaryButton } from './AuthControls';
 import { AuthStage } from './AuthStage';
 import { BrandHeader } from './BrandHeader';
+import { MfaPanel, type MfaPanelProps } from './MfaPanel';
+import { SigninSteps, type SigninStepsProps, useStepHeading } from './SigninSteps';
+import { SsoLinkPanel, type SsoLinkPanelProps } from './SsoLinkPanel';
 
-export type SigninView = 'signin' | 'forgot-password' | 'forgot-password-sent' | 'reset-password';
+export type SigninView =
+  | 'signin'
+  | 'forgot-password'
+  | 'forgot-password-sent'
+  | 'reset-password'
+  | 'sso-link'
+  | 'mfa'
+  | 'mfa-enroll';
 
 /**
  * SigninShell is the public-facing authentication surface: the brand and one
@@ -32,8 +38,19 @@ export interface SigninShellProps {
   onSubmit: (event: React.FormEvent) => void;
   onOpenForgotPassword: () => void;
   onBackToSignin: () => void;
-  ssoProviders: PublicSsoProvider[];
-  onBeginSso: (provider: PublicSsoProvider) => void;
+  /** The sign-in view's step and the ways in it lists. */
+  signin: Pick<
+    SigninStepsProps,
+    'step' | 'rows' | 'canGoBack' | 'onBack' | 'onChoose' | 'passkeyBusy' | 'passkeyAutofill'
+  >;
+  /** Why the last redirect sign-in (OIDC, OAuth 2.0, SAML) failed. */
+  ssoError?: string | null;
+  /** The confirmation a first single sign-on into an existing account waits for. */
+  ssoLink?: Omit<SsoLinkPanelProps, 'busy' | 'onBack'> | null;
+  /** The second step of an account with multi-factor authentication. */
+  mfa?: Omit<MfaPanelProps, 'busy' | 'onBack'> | null;
+  /** Setting up a second factor on the spot, for the organization that asks for one. */
+  enroll?: { organizationName: string; panel: React.ReactNode } | null;
   /** Product version only; the deployment's release channel is not shown here. */
   buildVersion?: string | undefined;
   signupEnabled?: boolean;
@@ -54,40 +71,62 @@ export function SigninShell({
   onSubmit,
   onOpenForgotPassword,
   onBackToSignin,
-  ssoProviders,
-  onBeginSso,
+  signin,
+  ssoError,
+  ssoLink,
+  mfa,
+  enroll,
   buildVersion,
   signupEnabled,
   onSignup,
 }: SigninShellProps) {
-  const { t } = useTranslation(['shell', 'common']);
+  const { t } = useTranslation(['shell', 'common', 'errors']);
   const passwordMismatch = Boolean(confirmPassword) && password !== confirmPassword;
   const shortPassword = Boolean(password) && [...password].length < 8;
-  const hasLdapProvider = ssoProviders.some((provider) => provider.kind === 'ldap');
   const version = buildVersion?.trim();
+  const stepHeading = useStepHeading(signin.step);
   const submitDisabled =
     busy ||
-    (view === 'signin' && (!email || !password)) ||
     (view === 'forgot-password' && !email) ||
     (view === 'reset-password' &&
       (!password || !confirmPassword || passwordMismatch || shortPassword));
 
   const heading =
     view === 'signin'
-      ? t('common:actions.sign_in')
+      ? stepHeading.title
       : view === 'forgot-password'
         ? t('shell:signin.forgot_title')
         : view === 'forgot-password-sent'
           ? t('shell:signin.forgot_sent_title')
-          : t('shell:signin.reset_title');
+          : view === 'sso-link'
+            ? t('shell:signin.link.title')
+            : view === 'mfa'
+              ? t('shell:signin.mfa.title')
+              : view === 'mfa-enroll'
+                ? t('shell:signin.enroll.title')
+                : t('shell:signin.reset_title');
   const subtitle =
     view === 'signin'
-      ? t('shell:signin.subtitle')
+      ? stepHeading.subtitle
       : view === 'forgot-password'
         ? t('shell:signin.forgot_subtitle')
         : view === 'forgot-password-sent'
           ? t('shell:signin.forgot_sent_subtitle', { email })
-          : t('shell:signin.reset_subtitle');
+          : view === 'sso-link'
+            ? t('shell:signin.link.subtitle', {
+                email: ssoLink?.link.emailHint ?? '',
+                provider: ssoLink?.link.providerName ?? '',
+                organization: ssoLink?.link.organizationName ?? '',
+              })
+            : view === 'mfa'
+              ? mfa?.method === 'recovery_code'
+                ? t('shell:signin.mfa.subtitle_recovery')
+                : mfa?.method === 'passkey'
+                  ? t('shell:signin.mfa.subtitle_passkey')
+                  : t('shell:signin.mfa.subtitle_totp')
+              : view === 'mfa-enroll'
+                ? t('shell:signin.enroll.subtitle', { organization: enroll?.organizationName ?? '' })
+                : t('shell:signin.reset_subtitle');
 
   return (
     <AuthStage>
@@ -99,83 +138,31 @@ export function SigninShell({
         data-testid="signin-card"
       >
         <h1 className="m-0 font-sans text-xl font-display tracking-tight text-tx-0">{heading}</h1>
-        <div className="mt-1.5 font-sans text-xs leading-relaxed text-tx-2">{subtitle}</div>
+        <div className="mt-1.5 font-sans text-xs leading-6 text-tx-2">{subtitle}</div>
+
+        {view === 'signin' && ssoError && (
+          <div
+            role="alert"
+            className="mt-5 rounded-md bg-red-dim px-3 py-2.5 font-sans text-xs leading-relaxed text-red-soft"
+            data-testid="signin-sso-error"
+          >
+            <div className="font-strong">{t('errors:sign_in_failed')}</div>
+            <div className="mt-0.5 break-words">{ssoError}</div>
+          </div>
+        )}
 
         {view === 'signin' && (
-          <div className="mt-6 flex flex-col gap-4">
-            <Field
-              label={
-                hasLdapProvider ? t('shell:signin.email_or_username') : t('common:labels.email')
-              }
-              value={email}
-              onChange={onEmailChange}
-              placeholder={t('shell:signin.email_placeholder')}
-              type={hasLdapProvider ? 'text' : 'email'}
-              autoComplete="username"
-              autoFocus
-            />
-            <Field
-              label={t('common:labels.password')}
-              value={password}
-              onChange={onPasswordChange}
-              placeholder={t('shell:signin.password_placeholder')}
-              type="password"
-              autoComplete="current-password"
-            />
-
-            <div className="flex items-center justify-between font-sans text-xs">
-              <label className="flex items-center gap-1.5 text-tx-1">
-                <Checkbox
-                  checked={remember}
-                  onCheckedChange={(checked) => onRememberChange(checked === true)}
-                />
-                {t('common:labels.remember_me')}
-              </label>
-              <button
-                type="button"
-                className="cursor-pointer text-[var(--blue-ink)] hover:underline"
-                onClick={onOpenForgotPassword}
-              >
-                {t('shell:signin.forgot_password')}
-              </button>
-            </div>
-
-            <PrimaryButton disabled={submitDisabled} busy={busy}>
-              {busy ? t('shell:signin.signing_in') : `${t('common:actions.sign_in')} →`}
-            </PrimaryButton>
-
-            {ssoProviders.length > 0 && (
-              <>
-                <div className="flex items-center gap-2.5 font-sans text-xs text-tx-2">
-                  <div className="h-px flex-1 bg-bd-0" />
-                  {t('shell:signin.or')}
-                  <div className="h-px flex-1 bg-bd-0" />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {ssoProviders.map((provider) => (
-                    <ChromeButton
-                      key={provider.id}
-                      type="button"
-                      onClick={() => onBeginSso(provider)}
-                      disabled={
-                        busy ||
-                        (provider.kind === 'ldap' && (!email.trim() || !password))
-                      }
-                      disabledReason={
-                        provider.kind === 'ldap' && (!email.trim() || !password)
-                          ? t('shell:signin.ldap_credentials_required')
-                          : undefined
-                      }
-                      className="flex-1 justify-center"
-                      aria-label={t('shell:signin.sso_button_aria', { name: provider.name })}
-                    >
-                      {provider.name} · {provider.kind.toUpperCase()}
-                    </ChromeButton>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+          <SigninSteps
+            {...signin}
+            email={email}
+            onEmailChange={onEmailChange}
+            password={password}
+            onPasswordChange={onPasswordChange}
+            remember={remember}
+            onRememberChange={onRememberChange}
+            busy={busy}
+            onOpenForgotPassword={onOpenForgotPassword}
+          />
         )}
 
         {view === 'forgot-password' && (
@@ -254,6 +241,14 @@ export function SigninShell({
             <BackButton onClick={onBackToSignin}>{t('shell:signin.back_to_signin')}</BackButton>
           </div>
         )}
+
+        {view === 'sso-link' && ssoLink && (
+          <SsoLinkPanel {...ssoLink} busy={busy} onBack={onBackToSignin} />
+        )}
+
+        {view === 'mfa' && mfa && <MfaPanel {...mfa} busy={busy} onBack={onBackToSignin} />}
+
+        {view === 'mfa-enroll' && enroll?.panel}
       </form>
 
       {view === 'signin' && signupEnabled && (

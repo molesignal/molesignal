@@ -22,13 +22,8 @@
     "span_match": "匹配",
     "close_span": "关闭 Span 详情",
     "span_id": "Span ID",
-    "span_start_offset": "开始于 {{offset}}",
-    "span_into_trace": "位于链路 {{percent}}% 处",
-    "span_duration": "耗时",
-    "span_start": "开始",
-    "span_offset": "偏移",
+    "span_start_offset": "开始于 {{offset}}（{{percent}}%）",
     "span_events": "事件",
-    "span_events_empty": "暂无 Span 事件",
     "span_count_one": "{{count}} 个 Span",
     "span_count_other": "{{count}} 个 Span",
     "service_count_one": "{{count}} 个服务",
@@ -51,7 +46,6 @@
   },
   "session": {
     "title": "会话链路",
-    "back": "链路",
     "session_id": "session_id",
     "empty_title": "该会话没有链路",
     "empty_description": "最近七天内没有找到匹配该 session id 的链路。",
@@ -73,8 +67,8 @@
     "tabs": {
       "spans": "Span",
       "traces": "链路",
-      "service_graph": "服务图",
-      "service_catalog": "服务目录"
+      "red": "RED 下钻",
+      "service_graph": "服务图"
     },
     "service_graph": {
       "title": "服务图",
@@ -101,22 +95,7 @@
       "show_types": "类型图标",
       "hide_types": "隐藏类型图标",
       "no_match": "没有匹配“{{query}}”的服务。",
-      "compact_map_title": "紧凑视图",
-      "empty": "最近一小时无服务图数据。",
-      "latency_distribution": "时延分布 · 服务边 p95 分桶",
-      "kpis": {
-        "total_rps": "总 RPS",
-        "max_p95": "最大 p95",
-        "err_rate": "错误率"
-      },
-      "latency_buckets": {
-        "under_50ms": "<50ms",
-        "over_500ms": "500ms+"
-      },
-      "bucket_aria": "{{label}}：{{count}} 条服务边",
-      "edge_count": "{{count}} 条服务边",
-      "no_latency": "所选时间范围内没有时延数据。",
-      "slowest_edges": "最慢的边"
+      "empty": "最近一小时无服务图数据。"
     },
     "query": {
       "editor_label": "查询编辑器",
@@ -137,26 +116,17 @@
       "ok": "非错误",
       "errors": "错误",
       "hide": "隐藏直方图",
-      "show": "显示直方图"
+      "show": "显示直方图",
+      "latency_label": "链路耗时",
+      "span_label": "Span 数量随时间",
+      "span_ok": "Span",
+      "span_errors": "失败的 span"
     },
     "results": {
       "no_match": "没有匹配查询条件的链路。",
-      "no_traces": "所选时间范围内没有链路。",
       "loaded_count_one": "已加载 {{count}} 条链路",
       "loaded_count_other": "已加载 {{count}} 条链路",
-      "select_prompt": "选择一条链路以查看摘要。",
-      "select_description": "无需离开结果列表，即可查看服务调用、Span 耗时、错误和属性。",
-      "select_trace_aria": "查看链路 {{operation}}",
-      "span_count_one": "{{count}} 个 Span",
-      "span_count_other": "{{count}} 个 Span",
-      "error_count_one": "{{count}} 个错误",
-      "error_count_other": "{{count}} 个错误",
-      "open_detail": "链路详情 >>",
-      "inspect_hint": "点击查看摘要",
-      "view_spans": "查看 spans",
-      "visible_labels": "可见字段",
-      "close_summary": "关闭链路详情",
-      "summary_drawer_aria": "链路详情面板"
+      "close_detail": "关闭链路详情"
     },
     "recovery": {
       "query_failed": "链路查询失败",
@@ -165,15 +135,6 @@
       "expand_time": "扩大时间范围 4 倍",
       "clear_filters": "清空查询并重试",
       "query_docs": "链路查询文档"
-    },
-    "sort": {
-      "aria": "链路排序",
-      "latest": "最新优先",
-      "earliest": "最早优先",
-      "duration_desc": "耗时最长",
-      "duration_asc": "耗时最短",
-      "span_count_desc": "Span 数最多",
-      "errors_desc": "错误优先"
     },
     "pagination": {
       "aria": "链路结果分页",
@@ -187,13 +148,35 @@
       "last_aria": "链路尾页"
     },
     "table": {
-      "trace": "链路",
-      "service": "服务",
-      "operation": "操作",
-      "spans": "Span 数",
-      "errors": "错误数",
-      "duration": "时长",
-      "start": "开始"
+      "columns": {
+        "status": "状态",
+        "http": "状态码",
+        "start": "开始时间",
+        "service": "服务",
+        "operation": "操作",
+        "duration": "耗时",
+        "spans": "Span 数",
+        "errors": "错误",
+        "trace": "Trace ID",
+        "kind": "种类"
+      },
+      "sort_by": "按{{column}}排序",
+      "sorted_descending": "按{{column}}从大到小（或从新到旧）排序，点击反转",
+      "sorted_ascending": "按{{column}}从小到大（或从旧到新）排序，点击反转",
+      "open_aria": "打开链路 {{operation}}，{{service}}，{{duration}}",
+      "open_span_aria": "打开 span {{operation}}，{{service}}，{{duration}}",
+      "status_ok": "正常",
+      "status_error": "错误"
+    },
+    "columns": {
+      "title": "列设置",
+      "visible": "显示列",
+      "reorder_hint": "拖动排序",
+      "drag_aria": "调整 {{name}} 的顺序。可拖动，或按 Alt+上/下方向键。",
+      "reset": "恢复默认",
+      "available": "可添加的列",
+      "root_fields": "根 Span 字段",
+      "full": "最多显示 {{count}} 列，请先移除一列。"
     },
     "labels": {
       "title": "字段",
@@ -202,12 +185,13 @@
       "resize": "拖动调整字段宽度，双击恢复默认宽度",
       "filter_placeholder": "搜索字段",
       "filter_aria": "过滤链路字段",
+      "common_fields": "常用字段",
       "displayed_fields": "显示字段",
       "indexed_fields": "索引字段",
       "no_indexed_fields": "该数据流没有建索引的字段。",
       "other_fields": "其他字段",
-      "show_field_aria": "显示 {{name}}",
-      "hide_field_aria": "隐藏 {{name}}",
+      "show_field_aria": "把每条链路根 span 的 {{name}} 显示为列",
+      "hide_field_aria": "移除 {{name}} 列",
       "add_field_aria": "把 {{name}} 加入查询",
       "json_query_required": "{{name}} 需要在 SQL 模式中使用 JSON 路径查询",
       "direct_query_unavailable": "{{name}} 不能直接查询",
@@ -244,30 +228,113 @@
       "range_earliest": "最早",
       "range_latest": "最晚"
     },
-    "field_hints": {
-      "service": "服务名",
-      "operation": "Span 操作",
-      "trace_id": "Trace 标识",
-      "span_id": "Span 标识",
-      "parent_span": "父 Span",
-      "duration_ms": "链路时长",
-      "span_count": "Span 数量",
-      "error_count": "错误 Span 数量"
+    "red": {
+      "select_range": "在图上拖选一段时间，缩小时间范围",
+      "lead_hint": "按这个指标排序下方的拆分表",
+      "ok": "成功",
+      "rate": {
+        "title": "速率",
+        "aria": "请求速率随时间的变化",
+        "detail": "共 {{requests}} 次请求"
+      },
+      "errors": {
+        "title": "错误",
+        "rate": "错误率",
+        "aria": "错误率随时间的变化",
+        "detail": "{{errors}} 次失败",
+        "untold": "数据流没有可判断失败的状态字段",
+        "only": "只看失败的请求"
+      },
+      "duration": {
+        "title": "耗时",
+        "aria": "耗时分位数随时间的变化",
+        "view_label": "耗时视图",
+        "trend": "趋势",
+        "distribution": "分布",
+        "distribution_name": "耗时分布",
+        "distribution_aria": "{{name}}：最高的柱有 {{max}} 次请求。左右方向键在柱之间移动，回车只看这段耗时的请求，拖选可以选多段。",
+        "bar_readout": "{{range}}：{{total}} 次请求，其中 {{errors}} 次失败",
+        "percentiles_aria": "p95 {{p95}}，p99 {{p99}}"
+      },
+      "scope": {
+        "label": "统计口径",
+        "entry": "入口 Span",
+        "all": "全部 Span",
+        "hint": "入口 Span 是服务接收请求的地方：Server、Consumer 类型的 Span，以及每条链路的根 Span（根本身是 Client、Producer 调用的除外），每个计为一次请求。"
+      },
+      "path": {
+        "label": "下钻路径",
+        "root": "全部",
+        "back_to": "回到 {{step}}",
+        "remove": "移除 {{step}}"
+      },
+      "breakdown": {
+        "by": "按 <field></field> 拆分",
+        "dimension": "拆分字段",
+        "no_dimension": "选择字段",
+        "search": "搜索字段",
+        "no_match": "没有匹配的字段",
+        "common": "常用",
+        "other": "其他字段",
+        "values": "{{count}} 个值",
+        "values_more": "前 {{count}} 个值",
+        "value": "值",
+        "requests": "请求",
+        "error_rate": "错误率",
+        "p95": "p95",
+        "trend": "趋势",
+        "actions": "操作",
+        "no_value": "（无值）",
+        "drill": "下钻到 {{clause}}",
+        "open_spans": "查看这些请求的链路",
+        "loading": "正在拆分…",
+        "empty": "没有可拆分的值",
+        "failed": "拆分加载失败"
+      },
+      "states": {
+        "sql_title": "SQL 语句没有 RED 指标",
+        "sql_description": "RED 统计字段查询匹配的请求。清空语句，或改写成字段查询。",
+        "sql_action": "清空语句",
+        "empty_entry_title": "没有匹配的入口 Span",
+        "empty_entry_description": "条件可能只匹配到内部调用或下游 Span，改为统计全部 Span 看看。",
+        "empty_entry_action": "统计全部 Span",
+        "empty_title": "没有匹配的 Span",
+        "empty_description": "当前时间范围内没有符合条件的 Span，扩大时间范围再看。",
+        "empty_action": "扩大时间范围",
+        "failed_title": "RED 指标加载失败",
+        "unavailable_title": "暂时无法统计 RED 指标",
+        "retry": "重试",
+        "unavailable": {
+          "time_budget": "统计超时。缩小时间范围或增加条件后再试。",
+          "busy": "正在运行的查询太多，请稍后再试。",
+          "scan_limit": "范围内的 Span 超过单次查询的读取上限。缩小时间范围或增加条件。",
+          "timestamp_masked": "时间字段对你遮掩，无法按时间展开。",
+          "field_protected": "这个字段对你遮掩，不能用来拆分请求。"
+        }
+      }
     },
-    "service_catalog": {
-      "title": "服务目录",
-      "empty": "所选时间范围内没有服务目录条目。",
-      "slowest_operations": "最慢操作"
+    "spans": {
+      "loaded_count_one": "已加载 {{count}} 个 span",
+      "loaded_count_other": "已加载 {{count}} 个 span"
+    },
+    "compare": {
+      "start": "挑选两条链路进行对比",
+      "stop": "结束挑选",
+      "bar": "已挑选的对比链路",
+      "hint": "挑选两条链路进行对比。",
+      "ready": "以 A 为基准对比 B：",
+      "unpick": "取消挑选 {{operation}}",
+      "compare": "对比",
+      "cancel": "取消",
+      "pick_aria": "挑选链路 {{operation}}，{{service}}，{{duration}} 进行对比"
     }
   },
   "attributes": {
-    "title": "标签",
     "view": "属性视图",
     "list": "表格",
     "json": "原始 JSON",
     "search": "搜索标签",
     "copy_failed": "无法复制到剪贴板",
-    "empty": "暂无标签",
     "no_matches": "没有匹配的标签",
     "copy_value_for": "复制 {{key}} 的值",
     "copied": "已复制",
@@ -278,16 +345,309 @@
     "include": "添加到查询条件",
     "exclude": "排除该值",
     "fields_only": "切换到字段模式后添加筛选条件。",
-    "scalar_only": "仅支持非空标量值及有效字段名的筛选。",
-    "show_all": "展开全部 {{count}} 项",
-    "show_less": "收起",
+    "scalar_only": "仅支持非空标量值及有效字段名的筛选。"
+  },
+  "view": {
+    "views": {
+      "label": "链路视图",
+      "waterfall": "瀑布图",
+      "flame": "火焰图",
+      "spans": "Span 列表",
+      "map": "服务地图"
+    },
+    "summary": {
+      "duration": "耗时",
+      "start": "开始",
+      "size": "规模",
+      "trace_id": "Trace ID",
+      "errors_one": "{{count}} 个错误",
+      "errors_other": "{{count}} 个错误",
+      "spans_one": "{{count}} 个 span",
+      "spans_other": "{{count}} 个 span",
+      "services_one": "{{count}} 个服务",
+      "services_other": "{{count}} 个服务",
+      "depth": "深度 {{depth}}",
+      "orphans_one": "{{count}} 个 span 缺少父 span",
+      "orphans_other": "{{count}} 个 span 缺少父 span",
+      "orphans_hint": "它们的父 span 没有收到，作为单独的根显示。",
+      "links_one": "{{count}} 个指向其他 span 的链接",
+      "links_other": "{{count}} 个指向其他 span 的链接",
+      "jumps": "关联信号",
+      "jump": {
+        "logs": "相关日志",
+        "metrics": "服务指标",
+        "profiles": "Profiles",
+        "session": "用户会话"
+      }
+    },
+    "toolbar": {
+      "search": "搜索 span",
+      "search_placeholder": "搜索 span、service:api、duration>100ms",
+      "no_match": "无",
+      "previous_match": "上一个匹配（Shift+Enter）",
+      "next_match": "下一个匹配（Enter）",
+      "errors_only_one": "只看失败的 span（{{count}}）",
+      "errors_only_other": "只看失败的 span（{{count}}）",
+      "expand_all": "全部展开",
+      "collapse_all": "全部折叠",
+      "focused": "聚焦：{{operation}}",
+      "unfocus": "显示整条链路",
+      "zoomed": "已放大到 {{from}} – {{to}}",
+      "unzoom": "显示完整时间轴",
+      "open_panel": "显示 span 详情",
+      "critical_path": "关键路径"
+    },
+    "legend": {
+      "aria": "链路中的服务",
+      "item": "{{service}}：占链路自身耗时 {{percent}}%",
+      "more_one": "还有 {{count}} 个",
+      "more_other": "还有 {{count}} 个",
+      "critical": "关键路径 {{duration}}",
+      "critical_aria": "关键路径上的服务",
+      "critical_item": "{{service}}：占关键路径 {{percent}}%，{{duration}}"
+    },
+    "overview": {
+      "aria": "整条链路",
+      "hint": "拖选一段放大时间轴，双击还原"
+    },
+    "waterfall": {
+      "column": "Span",
+      "resize_names": "调整 span 名称列宽度"
+    },
+    "row": {
+      "select_aria": "选中 span {{operation}}，{{service}}，{{duration}}",
+      "expand": "展开它调用的 span",
+      "collapse": "折叠它调用的 span",
+      "descendants_one": "下面有 {{count}} 个 span",
+      "descendants_other": "下面有 {{count}} 个 span",
+      "failed": "失败",
+      "links_one": "{{count}} 个指向其他 span 的链接",
+      "links_other": "{{count}} 个指向其他 span 的链接",
+      "critical": "在关键路径上",
+      "profiled": "有 profile 样本关联到此 span"
+    },
     "groups": {
-      "database": "数据库",
-      "service": "服务",
-      "deployment": "部署",
-      "telemetry": "遥测",
+      "name": "服务 / 操作",
+      "spans": "Span 数",
+      "errors": "错误",
+      "average": "平均耗时",
+      "total": "总耗时",
+      "self": "自身耗时",
+      "share": "自身耗时占比",
+      "fold": "收起 {{service}} 的操作",
+      "unfold": "展开 {{service}} 的操作"
+    },
+    "map": {
+      "entry": "入口",
+      "calls_one": "{{count}} 次调用",
+      "calls_other": "{{count}} 次调用",
+      "errors_one": "{{count}} 次失败",
+      "errors_other": "{{count}} 次失败",
+      "spans_one": "{{count}} 个 span",
+      "spans_other": "{{count}} 个 span",
+      "share": "自身耗时 {{percent}}%"
+    },
+    "panel": {
+      "aria": "Span 详情",
+      "tabs": "Span 详情分类",
+      "focus": "只看这个 span 及其下游",
+      "close": "收起 span 详情",
+      "resize": "调整 span 详情宽度",
+      "duration": "耗时",
+      "self": "自身耗时",
+      "offset": "开始于",
+      "share": "占链路 {{percent}}%",
+      "span_id": "Span ID",
+      "parent": "父 span"
+    },
+    "kind": {
+      "unspecified": "未指定",
+      "internal": "内部",
+      "server": "服务端",
+      "client": "客户端",
+      "producer": "生产者",
+      "consumer": "消费者"
+    },
+    "status": {
+      "ok": "正常",
+      "error": "错误",
+      "unset": "未设置"
+    },
+    "tabs": {
+      "attributes": "属性",
       "resource": "资源",
-      "other": "其他"
+      "events": "事件",
+      "links": "链接",
+      "logs": "日志",
+      "metrics": "指标",
+      "profile": "性能分析"
+    },
+    "tags": {
+      "empty": "这个 span 没有自己的属性。",
+      "empty_resource": "这个 span 的资源没有属性。",
+      "groups": {
+        "http": "HTTP",
+        "database": "数据库",
+        "rpc": "RPC",
+        "messaging": "消息",
+        "error": "错误",
+        "code": "代码",
+        "service": "服务",
+        "deployment": "部署",
+        "host": "主机",
+        "process": "进程",
+        "container": "容器与云",
+        "telemetry": "遥测 SDK",
+        "other": "其他"
+      }
+    },
+    "metadata": {
+      "title": "记录信息",
+      "scope": "埋点库",
+      "trace_state": "Trace state",
+      "trace_flags": "Trace flags",
+      "sampling": "保留原因",
+      "dropped_attributes": "丢弃的属性",
+      "dropped_events": "丢弃的事件",
+      "dropped_links": "丢弃的链接",
+      "notes": "说明",
+      "flags": {
+        "partial": "不完整",
+        "late": "迟到",
+        "duplicate": "重复收到",
+        "conflict": "副本冲突"
+      }
+    },
+    "events": {
+      "empty": "这个 span 没有记录事件。"
+    },
+    "links": {
+      "outgoing": "这个 span 的链接",
+      "incoming": "链接到这里的 span",
+      "none_outgoing": "这个 span 没有链接。",
+      "none_incoming": "链路前后一小时内，没有其他链路的 span 链接到这个 span。",
+      "searching": "正在查找链接到这里的 span…",
+      "failed": "无法读取链接到这里的 span。",
+      "more": "链接到这里的 span 比列出的更多。",
+      "trace": "链路",
+      "this_trace": "本链路",
+      "span": "Span",
+      "unavailable": {
+        "time_budget": "查找超时，稍后再打开这条链路。",
+        "busy": "正在运行的查询太多，稍后再试。",
+        "scan_limit": "链路前后一小时的 span 超过了单次查询的读取上限。"
+      }
+    },
+    "logs": {
+      "scope": "日志范围",
+      "span": "本 span",
+      "trace": "整条链路",
+      "open": "在日志中打开",
+      "loading": "正在读取日志…",
+      "no_stream": "没有记录 trace id 的日志流。",
+      "failed": "无法读取日志。",
+      "none_span": "没有日志提到这个 span。",
+      "none_trace": "没有日志提到这条链路。"
+    },
+    "metrics": {
+      "window": "span 前后各 15 分钟，按分钟统计。",
+      "service": "服务",
+      "operation": "操作",
+      "requests": "请求数",
+      "errors": "错误数",
+      "p95": "p95 耗时",
+      "open_red": "在 RED 下钻中打开",
+      "loading": "正在读取…",
+      "failed": "无法读取指标。"
+    },
+    "drawer": {
+      "back": "返回上一条链路",
+      "previous": "列表中的上一条（K）",
+      "next": "列表中的下一条（J）",
+      "open_page": "打开链路详情页",
+      "resize": "调整链路抽屉宽度"
+    },
+    "export": {
+      "label": "下载链路",
+      "json": "JSON",
+      "json_hint": "span 按链路接口返回的原样保存",
+      "otlp": "OTLP JSON",
+      "otlp_hint": "resourceSpans 格式，可直接交给 Collector 接收"
+    },
+    "profile": {
+      "loading": "正在查找 profile…",
+      "none": "没有 profile 样本关联到此 span。",
+      "none_hint": "profiler 记录样本时带上链路上下文（例如 OTLP profiles），样本才会关联到采样时所在的 span。",
+      "around": "查看此 span 前后的 profile",
+      "linked_one": "{{count}} 个 profile 关联到此 span。",
+      "linked_other": "{{count}} 个 profile 关联到此 span。",
+      "samples_one": "{{samples}} 个样本",
+      "samples_other": "{{samples}} 个样本",
+      "types": "Profile 类型",
+      "top": "主要函数",
+      "top_of": "{{type}} 自身消耗最多的函数",
+      "failed": "火焰图读取失败。",
+      "empty": "样本中没有调用栈。",
+      "open_flame": "打开火焰图",
+      "open_page": "在 Profiles 中打开",
+      "dialog_title": "{{operation}} 的 profile",
+      "dialog_description_one": "{{service}} · {{type}} · 合并了 {{count}} 个 profile",
+      "dialog_description_other": "{{service}} · {{type}} · 合并了 {{count}} 个 profile"
+    }
+  },
+  "compare": {
+    "page_title": "链路对比",
+    "side": "链路 {{side}}",
+    "open": "打开",
+    "loading": "加载中…",
+    "swap": "交换 A 和 B",
+    "stop": "结束对比",
+    "duration": {
+      "same": "两条链路都用了 {{duration}}。",
+      "longer": "B 比 A 慢：",
+      "shorter": "B 比 A 快："
+    },
+    "change": {
+      "none": "相同",
+      "new": "新增",
+      "gone": "B 中没有"
+    },
+    "tabs": {
+      "label": "对比",
+      "services": "按服务",
+      "operations": "按操作",
+      "calls": "仅一侧有"
+    },
+    "columns": {
+      "service": "服务",
+      "operation": "服务 / 操作",
+      "spans_a": "A 的 span",
+      "spans_b": "B 的 span",
+      "time_a": "A 耗时",
+      "time_b": "B 耗时",
+      "time_hint": "自身耗时：span 自己干活的时间，不含等待它调用的 span",
+      "change": "B 相比 A"
+    },
+    "more_one": "另有 {{count}} 行未显示",
+    "more_other": "另有 {{count}} 行未显示",
+    "calls": {
+      "only_a": "仅 A 有",
+      "only_b": "仅 B 有",
+      "spans_one": "{{count}} 个 span",
+      "spans_other": "{{count}} 个 span",
+      "none": "这条链路的调用另一条都有。",
+      "same": "两条链路的调用相同，次数也一样。",
+      "under_one": "及其下 {{count}} 个 span",
+      "under_other": "及其下 {{count}} 个 span"
+    },
+    "unavailable_title": "无法对比这两条链路",
+    "unavailable_description": "其中一条没有找到。超过一天的链路要从带有运行时间的链接打开，例如链路列表中的一行。",
+    "with": {
+      "label": "与另一条链路对比",
+      "field": "要对比的 Trace ID",
+      "placeholder": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "same": "这就是当前链路。",
+      "submit": "对比"
     }
   }
 }

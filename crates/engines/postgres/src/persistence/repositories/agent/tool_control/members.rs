@@ -3,14 +3,15 @@
 
 //! 成员凭据与服务器的 prompt。
 //!
-//! 成员凭据按（服务器，成员）一行，只有本人的调用会解密它；列表里只有末四位。
+//! 成员凭据存在 `sealed_secrets` 里 `owner_kind = 'mcp_member'` 的行，按（服务器，成员）一行：`owner_id`
+//! 是服务器，`slot` 是成员。只有本人的调用会解密它；列表里只有末四位。
 
 use sqlx::{Row, types::Json};
 
 use super::{
     super::super::sqlx_err,
     PgToolControlRepository,
-    rows::{PROMPT_COLS, member_credential_row, prompt_row},
+    rows::{StoredPrompt, member_credential_row, stored_prompts},
 };
 use crate::{
     agent::{
@@ -28,8 +29,8 @@ impl PgToolControlRepository {
         user_id: &Id,
     ) -> Result<Option<String>> {
         let row = sqlx::query(
-            "SELECT ciphertext,nonce FROM agent_mcp_member_credentials
-             WHERE org_id=$1 AND server_id=$2 AND user_id=$3",
+            "SELECT ciphertext,nonce FROM sealed_secrets
+             WHERE org_id=$1 AND owner_kind='mcp_member' AND owner_id=$2 AND slot=$3",
         )
         .bind(&org_id.0)
         .bind(&server_id.0)
@@ -54,8 +55,8 @@ impl PgToolControlRepository {
         user_id: &Id,
     ) -> Result<Vec<MemberCredential>> {
         let rows = sqlx::query(
-            "SELECT server_id,user_id,last4,updated_at_micros FROM agent_mcp_member_credentials
-             WHERE org_id=$1 AND user_id=$2",
+            "SELECT owner_id AS server_id,slot AS user_id,last4,updated_at FROM sealed_secrets
+             WHERE org_id=$1 AND owner_kind='mcp_member' AND slot=$2",
         )
         .bind(&org_id.0)
         .bind(&user_id.0)
@@ -77,20 +78,20 @@ impl PgToolControlRepository {
         let now = TimestampMicros::now();
 
         sqlx::query(
-            "INSERT INTO agent_mcp_member_credentials
-                (server_id,user_id,org_id,ciphertext,nonce,last4,created_at_micros,updated_at_micros)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$7)
-             ON CONFLICT (server_id,user_id) DO UPDATE SET
+            "INSERT INTO sealed_secrets
+                (org_id,owner_kind,owner_id,slot,ciphertext,nonce,last4,created_at,updated_at)
+             VALUES ($1,'mcp_member',$2,$3,$4,$5,$6,$7,$7)
+             ON CONFLICT (org_id,owner_kind,owner_id,slot) DO UPDATE SET
                 ciphertext=EXCLUDED.ciphertext,nonce=EXCLUDED.nonce,last4=EXCLUDED.last4,
-                updated_at_micros=EXCLUDED.updated_at_micros",
+                updated_at=EXCLUDED.updated_at",
         )
+        .bind(&org_id.0)
         .bind(&server_id.0)
         .bind(&user_id.0)
-        .bind(&org_id.0)
         .bind(ciphertext)
         .bind(nonce)
         .bind(last4(value))
-        .bind(now.0)
+        .bind(now)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -110,8 +111,8 @@ impl PgToolControlRepository {
         user_id: &Id,
     ) -> Result<bool> {
         let result = sqlx::query(
-            "DELETE FROM agent_mcp_member_credentials
-             WHERE org_id=$1 AND server_id=$2 AND user_id=$3",
+            "DELETE FROM sealed_secrets
+             WHERE org_id=$1 AND owner_kind='mcp_member' AND owner_id=$2 AND slot=$3",
         )
         .bind(&org_id.0)
         .bind(&server_id.0)
@@ -124,22 +125,33 @@ impl PgToolControlRepository {
     }
 
     pub(super) async fn prompts_in(&self, org_id: &Id) -> Result<Vec<McpPrompt>> {
-        let rows = sqlx::query(&format!(
-            "SELECT {PROMPT_COLS} FROM agent_mcp_prompts WHERE org_id=$1 ORDER BY server_id,name"
-        ))
+        let rows = sqlx::query(
+            "SELECT id, prompts FROM agent_mcp_servers
+             WHERE org_id=$1 AND prompts <> '[]'::JSONB
+             ORDER BY id",
+        )
         .bind(&org_id.0)
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
 
-        rows.into_iter().map(prompt_row).collect()
+        let mut prompts = Vec::new();
+
+        for row in rows {
+            let server_id = Id(row.try_get("id").map_err(sqlx_err)?);
+            let stored: Json<Vec<StoredPrompt>> = row.try_get("prompts").map_err(sqlx_err)?;
+
+            prompts.extend(
+                stored
+                    .0
+                    .into_iter()
+                    .map(|prompt| prompt.into_prompt(org_id, &server_id)),
+            );
+        }
+
+        Ok(prompts)
     }
 
-    #[tracing::instrument(
-        name = "db.transaction",
-        skip_all,
-        fields(db.system.name = "postgresql", db.operation.name = "TRANSACTION", db.collection.name = "agent_mcp_prompts")
-    )]
     pub(super) async fn put_prompts(
         &self,
         org_id: &Id,
@@ -155,35 +167,14 @@ impl PgToolControlRepository {
             ));
         }
 
-        let mut transaction = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
-
-        sqlx::query("DELETE FROM agent_mcp_prompts WHERE org_id=$1 AND server_id=$2")
+        sqlx::query("UPDATE agent_mcp_servers SET prompts=$3 WHERE org_id=$1 AND id=$2")
             .bind(&org_id.0)
             .bind(&server_id.0)
-            .execute(&mut *transaction)
+            .bind(Json(stored_prompts(prompts)))
+            .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
 
-        for prompt in &prompts {
-            sqlx::query(
-                "INSERT INTO agent_mcp_prompts
-                    (server_id,name,org_id,title,description,arguments,synced_at_micros)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7)
-                 ON CONFLICT (server_id,name) DO NOTHING",
-            )
-            .bind(&server_id.0)
-            .bind(&prompt.name)
-            .bind(&org_id.0)
-            .bind(&prompt.title)
-            .bind(&prompt.description)
-            .bind(Json(&prompt.arguments))
-            .bind(prompt.synced_at.0)
-            .execute(&mut *transaction)
-            .await
-            .map_err(sqlx_err)?;
-        }
-
-        transaction.commit().await.map_err(sqlx_err)?;
         Ok(())
     }
 }

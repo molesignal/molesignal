@@ -10,9 +10,9 @@ const fold = (events: RunEvent[]) =>
     emptyView({
       id: 'run-1',
       status: 'running',
-      initiator_id: 'user-1',
-      created_at_micros: 1,
-      started_at_micros: 2,
+      initiatorId: 'user-1',
+      createdAt: 1,
+      startedAt: 2,
     }),
   );
 
@@ -25,7 +25,7 @@ describe('a followed run', () => {
       {
         seq: 4,
         kind: 'tool_end',
-        payload: { id: 'c1', name: 'query_logs', result: '[]', truncated: false, is_error: false },
+        payload: { id: 'c1', name: 'query_logs', result: '[]', truncated: false, isError: false },
       },
       { seq: 5, kind: 'text', payload: { text: 'The API ' } },
       { seq: 6, kind: 'text', payload: { text: 'is failing.' } },
@@ -66,17 +66,50 @@ describe('a followed run', () => {
       {
         seq: 4,
         kind: 'question',
-        payload: { type: 'question', call_id: 'p1', question: 'Which region?', kind: 'single', options: ['eu', 'us'] },
+        payload: { type: 'question', callId: 'p1', question: 'Which region?', kind: 'single', options: ['eu', 'us'] },
       },
       { seq: 5, kind: 'status', payload: { status: 'waiting_input' } },
     ]);
 
     expect(waiting.tools).toEqual([]);
-    expect(waiting.pending?.call_id).toBe('p1');
+    expect(waiting.pending?.callId).toBe('p1');
     expect(waiting.status).toBe('waiting_input');
     expect(todoProgress(waiting.todo)).toEqual({ current: 2, total: 3 });
 
-    const answered = applyEvent(waiting, { seq: 6, kind: 'response', payload: { call_id: 'p1' } });
+    const answered = applyEvent(waiting, { seq: 6, kind: 'response', payload: { callId: 'p1' } });
+    expect(answered.pending).toBeNull();
+  });
+
+  it('keeps the tool that waits for an authorization on show until it is answered', () => {
+    const waiting = fold([
+      {
+        seq: 1,
+        kind: 'tool_start',
+        payload: { id: 'l1', name: 'linear_search_issues', arguments: { query: 'payments' } },
+      },
+      {
+        seq: 2,
+        kind: 'authorization',
+        payload: {
+          type: 'authorization',
+          callId: 'a1',
+          tool: 'linear_search_issues',
+          serverId: 'mcp-linear',
+          server: 'Linear',
+          header: 'authorization',
+          bearer: true,
+          instructions: '',
+          rejected: false,
+        },
+      },
+      { seq: 3, kind: 'status', payload: { status: 'waiting_input' } },
+    ]);
+
+    expect(waiting.pending?.type).toBe('authorization');
+    expect(waiting.tools.map((tool) => tool.status)).toEqual(['running']);
+    expect(waiting.status).toBe('waiting_input');
+
+    const answered = applyEvent(waiting, { seq: 4, kind: 'response', payload: { callId: 'a1' } });
     expect(answered.pending).toBeNull();
   });
 
@@ -90,7 +123,7 @@ describe('a followed run', () => {
 
     const view = fold([
       { seq: 1, kind: 'tool_start', payload: { id: 'r1', name: 'remember', arguments: {} } },
-      { seq: 2, kind: 'tool_end', payload: { id: 'r1', name: 'remember', result, truncated: false, is_error: false } },
+      { seq: 2, kind: 'tool_end', payload: { id: 'r1', name: 'remember', result, truncated: false, isError: false } },
       { seq: 3, kind: 'done', payload: { status: 'succeeded', content: 'Noted.' } },
     ]);
 
@@ -101,7 +134,7 @@ describe('a followed run', () => {
 
   it('has no progress without a task list, and counts time from the start', () => {
     expect(todoProgress([])).toBeNull();
-    expect(fold([]).startedAtMicros).toBe(2);
+    expect(fold([]).startedAt).toBe(2);
     expect(fold([]).initiatorId).toBe('user-1');
   });
 });

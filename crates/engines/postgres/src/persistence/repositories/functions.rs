@@ -27,7 +27,7 @@ impl PgFunctionRepository {
 }
 
 const COLS: &str = "id, org_id, name, language, source, params_schema,
-                    created_at_micros, updated_at_micros";
+                    created_at, updated_at";
 
 fn lang_str(l: FunctionLanguage) -> &'static str {
     match l {
@@ -57,8 +57,12 @@ fn row_to(r: sqlx::postgres::PgRow) -> Function {
         language: lang_parse(&r.try_get::<String, _>("language").unwrap_or_default()),
         source: r.try_get::<String, _>("source").unwrap_or_default(),
         params_schema: params.0,
-        created_at: TimestampMicros(r.try_get::<i64, _>("created_at_micros").unwrap_or_default()),
-        updated_at: TimestampMicros(r.try_get::<i64, _>("updated_at_micros").unwrap_or_default()),
+        created_at: r
+            .try_get::<TimestampMicros, _>("created_at")
+            .unwrap_or_default(),
+        updated_at: r
+            .try_get::<TimestampMicros, _>("updated_at")
+            .unwrap_or_default(),
     }
 }
 
@@ -68,7 +72,7 @@ impl FunctionRepository for PgFunctionRepository {
         sqlx::query(
             "INSERT INTO functions
                 (id, org_id, name, language, source, params_schema,
-                 created_at_micros, updated_at_micros)
+                 created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
         )
         .bind(&f.id.0)
@@ -77,8 +81,8 @@ impl FunctionRepository for PgFunctionRepository {
         .bind(lang_str(f.language))
         .bind(&f.source)
         .bind(Json(&f.params_schema))
-        .bind(f.created_at.0)
-        .bind(f.updated_at.0)
+        .bind(f.created_at)
+        .bind(f.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -90,7 +94,7 @@ impl FunctionRepository for PgFunctionRepository {
         sqlx::query(
             "UPDATE functions SET
                 name = $3, language = $4, source = $5, params_schema = $6,
-                updated_at_micros = $7
+                updated_at = $7
              WHERE id = $1 AND org_id = $2",
         )
         .bind(&f.id.0)
@@ -99,7 +103,7 @@ impl FunctionRepository for PgFunctionRepository {
         .bind(lang_str(f.language))
         .bind(&f.source)
         .bind(Json(&f.params_schema))
-        .bind(f.updated_at.0)
+        .bind(f.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;

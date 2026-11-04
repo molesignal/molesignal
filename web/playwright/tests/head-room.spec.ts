@@ -122,28 +122,18 @@ test.describe('the head of a Settings page', () => {
 test.describe('the head of a list card in User Experience', () => {
   const head = '[data-rum-section-head]';
 
-  // The Pages list stands in the same card; the mock backend has no pages to fill it with.
-  for (const route of ['/rum/applications']) {
-    test(`${route} has as much room over it as under it`, async ({ page }) => {
-      await page.goto(route);
-      await expect(page.locator(head).first()).toBeVisible();
-
-      const room = await page.evaluate((selector) => {
-        const row = document.querySelector(selector)!;
-        const rowBox = row.getBoundingClientRect();
-        const card = row.parentElement!.getBoundingClientRect();
-        const under = row.nextElementSibling!.getBoundingClientRect();
-        return { above: rowBox.top - card.top, below: under.top - rowBox.bottom };
-      }, head);
-
-      expect(Math.abs(room.above - room.below)).toBeLessThanOrEqual(0.5);
-    });
-  }
-
-  test('its filters stand at the middle of the head, not on the table under it', async ({ page }) => {
+  test('the applications list has as much room over its head as under it', async ({ page }) => {
     await page.goto('/rum/applications');
-    await expect(page.locator(`${head} [data-rum-filter]`).first()).toBeVisible();
+    await expect(page.locator(head).first()).toBeVisible();
 
-    expect(await offCentre(page, head, `${head} [data-rum-filter]`)).toBeLessThanOrEqual(0.5);
+    const room = await page.evaluate((selector) => {
+      const row = document.querySelector(selector)!;
+      const rowBox = row.getBoundingClientRect();
+      const card = row.parentElement!.getBoundingClientRect();
+      const under = row.nextElementSibling!.getBoundingClientRect();
+      return { above: rowBox.top - card.top, below: under.top - rowBox.bottom };
+    }, head);
+
+    expect(Math.abs(room.above - room.below)).toBeLessThanOrEqual(0.5);
   });
 });

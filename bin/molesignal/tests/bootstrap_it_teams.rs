@@ -22,7 +22,7 @@ async fn teams_crud_with_members() {
         .client
         .post(format!("{}/api/v1/teams", s.base_url))
         .header(hk, &hv)
-        .json(&serde_json::json!({ "name": "platform", "member_ids": [member] }))
+        .json(&serde_json::json!({ "name": "platform", "memberIds": [member] }))
         .send()
         .await
         .unwrap();
@@ -39,7 +39,7 @@ async fn teams_crud_with_members() {
         .to_string();
     assert_eq!(
         created
-            .get("member_ids")
+            .get("memberIds")
             .and_then(Value::as_array)
             .map(Vec::len),
         Some(1)
@@ -68,7 +68,7 @@ async fn teams_crud_with_members() {
         .client
         .put(format!("{}/api/v1/teams/{id}", s.base_url))
         .header(hk, &hv)
-        .json(&serde_json::json!({ "name": "platform-eng", "member_ids": [] }))
+        .json(&serde_json::json!({ "name": "platform-eng", "memberIds": [] }))
         .send()
         .await
         .unwrap();
@@ -80,7 +80,7 @@ async fn teams_crud_with_members() {
     );
     assert_eq!(
         upd_v
-            .get("member_ids")
+            .get("memberIds")
             .and_then(Value::as_array)
             .map(Vec::len),
         Some(0)
@@ -171,13 +171,13 @@ async fn team_writes_require_org_admin() {
         .service
         .issue_token(&viewer_user.id, &s.root_org_id)
         .expect("viewer token");
-    let vhdr = format!("Bearer {viewer}");
+    let vhdr = format!("accessToken={viewer}");
 
     let create = s
         .client
         .post(format!("{}/api/v1/teams", s.base_url))
-        .header("authorization", &vhdr)
-        .json(&serde_json::json!({ "name": "nope", "member_ids": [] }))
+        .header("cookie", &vhdr)
+        .json(&serde_json::json!({ "name": "nope", "memberIds": [] }))
         .send()
         .await
         .unwrap();
@@ -186,7 +186,7 @@ async fn team_writes_require_org_admin() {
     let list = s
         .client
         .get(format!("{}/api/v1/teams", s.base_url))
-        .header("authorization", &vhdr)
+        .header("cookie", &vhdr)
         .send()
         .await
         .unwrap();
@@ -210,7 +210,7 @@ async fn team_member_ids_must_be_org_members() {
         .client
         .post(format!("{}/api/v1/teams", s.base_url))
         .header(hk, &hv)
-        .json(&serde_json::json!({ "name": "ghosts", "member_ids": ["not-a-member-id"] }))
+        .json(&serde_json::json!({ "name": "ghosts", "memberIds": ["not-a-member-id"] }))
         .send()
         .await
         .unwrap();
@@ -228,7 +228,7 @@ async fn team_validation_rejects_blank_name() {
         .client
         .post(format!("{}/api/v1/teams", s.base_url))
         .header(hk, &hv)
-        .json(&serde_json::json!({ "name": "  ", "member_ids": [] }))
+        .json(&serde_json::json!({ "name": "  ", "memberIds": [] }))
         .send()
         .await
         .unwrap();

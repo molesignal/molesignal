@@ -71,21 +71,13 @@ test.describe('global focus treatment', () => {
   test('keeps text and combobox fills stable without a focus filter', async ({
     page,
   }) => {
-    await page.goto('/rum/sessions');
+    await page.goto('/rum/applications');
+    await page.getByRole('button', { name: 'Create application' }).first().click();
 
-    const searchDecoration = await focusDecoration(
-      page.getByPlaceholder(
-        'Search users, pages, browsers, versions, or sessions…',
-      ),
-    );
-    expectUnfilteredFormFocus(searchDecoration);
-    expect(searchDecoration.backgroundChannels).toEqual(
-      searchDecoration.controlBackgroundChannels,
-    );
-
+    expectUnfilteredFormFocus(await focusDecoration(page.getByPlaceholder('Checkout web')));
     expectUnfilteredFormFocus(
       await focusDecoration(
-        page.getByRole('combobox', { name: 'Browser' }),
+        page.getByRole('combobox', { name: 'Platform' }),
       ),
     );
 

@@ -7,8 +7,17 @@ export interface HistogramRange {
 export interface HistogramBucket {
   ok: number;
   err: number;
-  startMicros: number;
-  endMicros: number;
+  startTime: number;
+  endTime: number;
+  /** How long the bar's results took at three percentiles, in nanoseconds, where they were counted. */
+  latency?: HistogramLatency | undefined;
+}
+
+/** How long some results took at the median and the 95th and 99th percentile, in nanoseconds. */
+export interface HistogramLatency {
+  p50Ns: number;
+  p95Ns: number;
+  p99Ns: number;
 }
 
 export interface HistogramPoint {
@@ -36,9 +45,10 @@ export interface HistogramPlan {
 /** What one bar holds, counted somewhere else. */
 export interface HistogramCount {
   /** Where the bar begins, in microseconds. */
-  startMicros: number;
+  startTime: number;
   total: number;
   errors: number;
+  latency?: HistogramLatency | undefined;
 }
 
 const MILLISECOND = 1_000;
@@ -173,7 +183,7 @@ export function histogramFromCounts(plan: HistogramPlan, counts: readonly Histog
   const buckets = emptyBuckets(plan);
 
   for (const count of counts) {
-    const index = (count.startMicros - plan.frame.start) / plan.binMicros;
+    const index = (count.startTime - plan.frame.start) / plan.binMicros;
     const bucket = Number.isInteger(index) ? buckets[index] : undefined;
     if (!bucket) continue;
 
@@ -181,6 +191,7 @@ export function histogramFromCounts(plan: HistogramPlan, counts: readonly Histog
     const errors = Math.max(0, Math.min(count.errors, total));
     bucket.err += errors;
     bucket.ok += total - errors;
+    if (count.latency) bucket.latency = count.latency;
   }
 
   return { buckets, ...plan };
@@ -192,8 +203,8 @@ function emptyBuckets({ binMicros, frame }: HistogramPlan): HistogramBucket[] {
   return Array.from({ length: count }, (_, index) => ({
     ok: 0,
     err: 0,
-    startMicros: frame.start + binMicros * index,
-    endMicros: frame.start + binMicros * (index + 1),
+    startTime: frame.start + binMicros * index,
+    endTime: frame.start + binMicros * (index + 1),
   }));
 }
 

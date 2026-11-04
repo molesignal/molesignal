@@ -1,15 +1,27 @@
 import { useQuery } from '@tanstack/react-query';
-import { Braces, FileText } from 'lucide-react';
+import { Braces, FileText, GitBranch } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { NotifyCategory } from '@/api/notify';
 import * as templatesApi from '@/api/notify/templates';
 
+import { FoldSection } from './FoldSection';
+import { isPlainText, type TemplateChannel } from './model';
+
+/** Conditions ready to insert: the template keeps what is inside only when they hold. */
+const CONDITION_SNIPPETS = [
+  { key: 'triggered', token: '{{#if event.type == "alert.triggered"}}…{{/if}}' },
+  { key: 'resolved', token: '{{#if event.type == "alert.resolved"}}…{{/if}}' },
+  { key: 'severity', token: '{{#if severity == "critical"}}…{{else}}…{{/if}}' },
+  { key: 'runbook', token: '{{#if annotations.runbook_url}}{{annotations.runbook_url}}{{/if}}' },
+] as const;
+
 type ReferenceTabKey =
   | 'common'
   | 'rule'
   | 'incident'
+  | 'escalation'
   | 'metadata'
   | 'schedule'
   | 'oncall'
@@ -30,6 +42,9 @@ function referenceTabs(category: NotifyCategory): ReferenceTab[] {
       common,
       { key: 'rule', groups: ['rule'] },
       { key: 'incident', groups: ['incident', 'trigger'] },
+      ...(category === 'escalation'
+        ? [{ key: 'escalation' as const, groups: ['escalation' as const] }]
+        : []),
       { key: 'metadata', groups: ['labels', 'annotations'] },
     ];
   }
@@ -42,6 +57,20 @@ function referenceTabs(category: NotifyCategory): ReferenceTab[] {
     ];
   }
   return [common];
+}
+
+/** The presets a template on `channel` is offered: an SMS or phone template only those written for
+ * its channel, others the general ones and those written for their channel, these first. */
+function presetsFor(
+  presets: templatesApi.NotifyTemplatePreset[],
+  category: NotifyCategory,
+  channel: TemplateChannel,
+): templatesApi.NotifyTemplatePreset[] {
+  return presets.filter(
+    (preset) =>
+      preset.category === category &&
+      (preset.channel === channel || (preset.channel === null && !isPlainText(channel))),
+  );
 }
 
 function TokenButton({
@@ -75,21 +104,25 @@ function TokenButton({
   );
 }
 
+/** The variables a template can use and the presets it can start from, each folded until opened. */
 export function TemplateReferencePanel({
   category,
+  channel,
   onInsert,
   onUsePreset,
 }: {
   category: NotifyCategory;
+  channel: TemplateChannel;
   onInsert: (token: string) => void;
   onUsePreset: (preset: templatesApi.NotifyTemplatePreset) => void;
 }) {
-  const { t } = useTranslation('notify');
+  const { t, i18n } = useTranslation('notify');
   const tabs = React.useMemo(() => referenceTabs(category), [category]);
   const [activeTabKey, setActiveTabKey] =
     React.useState<ReferenceTabKey>('common');
+  // The presets come in the reader's interface language.
   const catalog = useQuery({
-    queryKey: ['notify', 'template-fields'],
+    queryKey: ['notify', 'template-fields', i18n.language],
     queryFn: templatesApi.listFields,
   });
   const activeTab =
@@ -102,34 +135,25 @@ export function TemplateReferencePanel({
   const dynamicFields =
     activeTab.key === 'metadata'
       ? [
-          ...(catalog.data?.label_keys ?? []).map((key) => ({
+          ...(catalog.data?.labelKeys ?? []).map((key) => ({
             key: `labels.${key}`,
             token: `{{labels.${key}}}`,
           })),
-          ...(catalog.data?.annotation_keys ?? []).map((key) => ({
+          ...(catalog.data?.annotationKeys ?? []).map((key) => ({
             key: `annotations.${key}`,
             token: `{{annotations.${key}}}`,
           })),
         ]
       : [];
-  const presets = (catalog.data?.presets ?? []).filter(
-    (preset) => preset.category === category,
-  );
+  const presets = presetsFor(catalog.data?.presets ?? [], category, channel);
 
   return (
     <div className="space-y-4">
-      <section className="rounded-md border border-bd-0 bg-bg-2">
-        <div className="flex min-h-11 items-center gap-2 border-b border-bd-0 px-3">
-          <Braces className="h-4 w-4 text-tx-2" />
-          <div>
-            <h3 className="text-xs font-semibold text-tx-0">
-              {t('templates.reference.title')}
-            </h3>
-            <p className="text-xs text-tx-3">
-              {t('templates.reference.description')}
-            </p>
-          </div>
-        </div>
+      <FoldSection
+        icon={Braces}
+        title={t('templates.reference.title')}
+        description={t('templates.reference.description')}
+      >
         <div
           role="tablist"
           aria-label={t('templates.reference.title')}
@@ -188,22 +212,32 @@ export function TemplateReferencePanel({
             </div>
           </div>
         )}
-      </section>
+      </FoldSection>
+
+      <FoldSection
+        icon={GitBranch}
+        title={t('templates.conditions.title')}
+        description={t('templates.conditions.description')}
+      >
+        <div className="grid grid-cols-1 gap-0.5 p-2">
+          {CONDITION_SNIPPETS.map((snippet) => (
+            <TokenButton
+              key={snippet.key}
+              token={snippet.token}
+              description={t(`templates.conditions.items.${snippet.key}`)}
+              onInsert={onInsert}
+            />
+          ))}
+        </div>
+      </FoldSection>
 
       {presets.length > 0 && (
-        <section className="rounded-md border border-bd-0 bg-bg-2">
-          <div className="flex min-h-11 items-center gap-2 border-b border-bd-0 px-3">
-            <FileText className="h-4 w-4 text-tx-2" />
-            <div>
-              <h3 className="text-xs font-semibold text-tx-0">
-                {t('templates.presets.title')}
-              </h3>
-              <p className="text-xs text-tx-3">
-                {t('templates.presets.description')}
-              </p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-1 p-2 sm:grid-cols-3">
+        <FoldSection
+          icon={FileText}
+          title={t('templates.presets.title')}
+          description={t('templates.presets.description')}
+        >
+          <div className="grid grid-cols-1 gap-1 p-2 sm:grid-cols-2">
             {presets.map((preset) => (
               <button
                 key={preset.key}
@@ -221,7 +255,7 @@ export function TemplateReferencePanel({
               </button>
             ))}
           </div>
-        </section>
+        </FoldSection>
       )}
     </div>
   );

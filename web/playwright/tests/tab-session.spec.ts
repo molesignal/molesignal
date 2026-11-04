@@ -5,8 +5,10 @@ import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 const AUTH_KEY = 'molesignal-auth';
 
 /**
- * A tab of one browser. Like a sign-in without "remember me", the session of a
- * signed-in tab lives in its own sessionStorage and nowhere else.
+ * A tab of one browser. The session is the browser's cookie, shared by its
+ * tabs; like a sign-in without "remember me", the identity a signed-in tab
+ * shows lives in its own sessionStorage and nowhere else. The first tab of a
+ * test decides whether the browser starts signed in.
  */
 async function openTab(
   context: BrowserContext,
@@ -14,7 +16,7 @@ async function openTab(
   { signedIn }: { signedIn: boolean },
 ): Promise<Page> {
   const page = await context.newPage();
-  await mountMockRoutes(page, port);
+  await mountMockRoutes(page, port, signedIn ? {} : { signedOut: true });
   // Runs after the fixture's own script, which seeds localStorage. Only the
   // tab's first document is seeded: a reload after signing out must stay signed out.
   await page.addInitScript(
@@ -33,7 +35,7 @@ async function openTab(
 const shellVisible = (page: Page) => expect(page.getByTestId('user-menu-trigger')).toBeVisible();
 
 test.describe('sessions across tabs', () => {
-  test('a tab opened by hand takes the session of an open tab instead of asking to sign in', async ({
+  test('a tab opened by hand finds the browser session instead of asking to sign in', async ({
     context,
     mockServer,
   }) => {
@@ -51,7 +53,7 @@ test.describe('sessions across tabs', () => {
     expect(await second.evaluate((key) => localStorage.getItem(key), AUTH_KEY)).toBeNull();
   });
 
-  test('a tab with nobody to borrow from asks to sign in, and returns to the page afterwards', async ({
+  test('a tab of a browser without a session asks to sign in, and returns to the page afterwards', async ({
     context,
     mockServer,
   }) => {
@@ -61,7 +63,7 @@ test.describe('sessions across tabs', () => {
     await expect(lone).toHaveURL(/\/signin\?next=%2Falerts/);
   });
 
-  test('signing out in one tab signs out the others, and later tabs have nothing to borrow', async ({
+  test('signing out in one tab signs out the others, and later tabs find no session', async ({
     context,
     mockServer,
   }) => {
@@ -77,9 +79,9 @@ test.describe('sessions across tabs', () => {
 
     await expect(first).toHaveURL(/\/signin/);
     await expect(second).toHaveURL(/\/signin\?next=%2Falerts/);
-    // The token is gone from the tab (the store persists the signed-out state).
+    // The identity is gone from the tab (the store persists the signed-out state).
     const kept = await second.evaluate(
-      (key) => JSON.parse(sessionStorage.getItem(key) ?? '{"state":{}}').state.token ?? null,
+      (key) => JSON.parse(sessionStorage.getItem(key) ?? '{"state":{}}').state.ctx ?? null,
       AUTH_KEY,
     );
     expect(kept).toBeNull();

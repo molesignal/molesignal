@@ -38,7 +38,7 @@ describe('SavedViewsRoute', () => {
   });
 
   it('is the view alone when the report renderer asks for it', () => {
-    renderRoute('/saved-views?view=v1&report_render=1&time=now-24h..now');
+    renderRoute('/saved-views?view=v1&reportRender=1&time=now-24h..now');
 
     expect(screen.getByText('one view on a document')).toBeTruthy();
     expect(screen.queryByText('the list a person manages')).toBeNull();

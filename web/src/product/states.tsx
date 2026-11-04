@@ -1,8 +1,11 @@
-import { AlertTriangle, Ban, ServerCrash, type LucideIcon } from 'lucide-react';
+import { QueryClientContext } from '@tanstack/react-query';
+import { AlertTriangle, Ban, RotateCw, ServerCrash, type LucideIcon } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { toApiError } from '@/lib/http';
+import { ChromeButton } from '@/shell/chrome';
+import { ErrorReference } from '@/shell/ErrorReference';
 import { cn } from '@/shell/lib/cn';
 import { PulseLine } from '@/shell/PulseLine';
 
@@ -19,8 +22,11 @@ export interface ProductStateProps {
   description?: React.ReactNode;
   action?: React.ReactNode;
   error?: unknown;
+  /** Try again. Without it, a failure with no other action offers to retry the page's failed queries. */
+  onRetry?: (() => void) | undefined;
   compact?: boolean | undefined;
   className?: string | undefined;
+  'data-testid'?: string | undefined;
 }
 
 export type QueryProductState = 'loading' | 'empty' | 'error' | null;
@@ -89,27 +95,70 @@ function StateMark({ variant, compact }: { variant: ProductStateVariant; compact
   );
 }
 
+/**
+ * The way to try again: what the caller says, else the queries of this page that
+ * failed. A failure that came from no query (a bad address, a refused link) has
+ * nothing to repeat, so it offers nothing.
+ */
+function useRetry(onRetry: (() => void) | undefined) {
+  const client = React.useContext(QueryClientContext);
+  const [retrying, setRetrying] = React.useState(false);
+  const failedQueries = {
+    type: 'active',
+    predicate: (query: { state: { status: string } }) => query.state.status === 'error',
+  } as const;
+
+  const canRepeat = (client?.getQueryCache().findAll(failedQueries).length ?? 0) > 0;
+  if (onRetry) return { retry: onRetry, retrying: false };
+  if (!client || !canRepeat) return null;
+
+  return {
+    retrying,
+    retry: () => {
+      setRetrying(true);
+      void client.refetchQueries(failedQueries).finally(() => setRetrying(false));
+    },
+  };
+}
+
+function RetryButton({ retry, retrying }: { retry: () => void; retrying: boolean }) {
+  const { t } = useTranslation('common');
+  return (
+    <ChromeButton onClick={retry} disabled={retrying} data-testid="error-retry">
+      <RotateCw className={cn('h-3.5 w-3.5', retrying && 'animate-spin')} />
+      {t('actions.retry')}
+    </ChromeButton>
+  );
+}
+
 export function ProductState({
   variant,
   title,
   description,
   action,
   error,
+  onRetry,
   compact = false,
   className,
+  'data-testid': testId,
 }: ProductStateProps) {
   const { t } = useTranslation('design-system');
+  const failed = variant === 'error';
   const stateTitle = title ?? t(`states.${variant}.title`);
   const stateDescription =
     description ??
-    (variant === 'error' && error
+    (failed && error
       ? toApiError(error).message
       : t(`states.${variant}.description`));
+  const retry = useRetry(onRetry);
+  // A caller's own action already says what to do next, unless it asked for a retry beside it.
+  const showRetry = failed && retry !== null && (Boolean(onRetry) || !action);
 
   return (
     <section
       data-product-state
-      role={variant === 'error' ? 'alert' : 'status'}
+      data-testid={testId}
+      role={failed ? 'alert' : 'status'}
       aria-live={variant === 'loading' ? 'polite' : undefined}
       className={cn(
         'flex flex-col items-center justify-center rounded-md border-0 bg-[var(--functional-surface)] text-center [box-shadow:var(--shadow-functional-surface)]',
@@ -119,14 +168,20 @@ export function ProductState({
     >
       <StateMark variant={variant} compact={compact} />
       <div className="max-w-lg">
-        <div className="type-section-title text-balance font-sans font-semibold text-tx-0">{stateTitle}</div>
+        <div className="type-section-title text-balance font-sans font-display text-tx-0">{stateTitle}</div>
         {stateDescription && (
           <div className="mt-1.5 text-pretty font-sans text-sm leading-relaxed text-tx-2">
             {stateDescription}
           </div>
         )}
       </div>
-      {action && <div className="mt-1 flex flex-wrap items-center justify-center gap-2">{action}</div>}
+      {(showRetry || action) && (
+        <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
+          {showRetry && <RetryButton retry={retry.retry} retrying={retry.retrying} />}
+          {action}
+        </div>
+      )}
+      {failed && error !== undefined && error !== null && <ErrorReference error={error} />}
     </section>
   );
 }

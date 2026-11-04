@@ -9,22 +9,22 @@ const NOW = Date.UTC(2026, 9, 16, 8);
 function incident(overrides: Partial<StatusPageIncident> = {}): StatusPageIncident {
   return {
     id: 'event',
-    org_id: 'org',
-    status_page_id: 'page',
-    source_incident_id: null,
+    orgId: 'org',
+    statusPageId: 'page',
+    sourceIncidentId: null,
     kind: 'incident',
     title: 'API is slow',
     impact: 'major',
     status: 'investigating',
-    publication_state: 'published',
-    draft_message: null,
-    component_ids: ['api'],
+    publicationState: 'published',
+    draftMessage: null,
+    componentIds: ['api'],
     updates: [],
-    started_at: NOW * 1_000,
-    ended_at: null,
-    published_at: NOW * 1_000,
-    created_at: NOW * 1_000,
-    updated_at: NOW * 1_000,
+    startedAt: NOW * 1_000,
+    endedAt: null,
+    publishedAt: NOW * 1_000,
+    createdAt: NOW * 1_000,
+    updatedAt: NOW * 1_000,
     ...overrides,
   };
 }
@@ -50,15 +50,15 @@ describe('event drafts', () => {
     expect(eventInput('incident', draft, 'draft', NOW)).not.toHaveProperty('notify');
     expect(eventInput('incident', draft, 'published', NOW)).toMatchObject({
       notify: false,
-      next_update_at: (NOW + 60 * 60_000) * 1_000,
+      nextUpdateAt: (NOW + 60 * 60_000) * 1_000,
     });
   });
 
   it('reads the promise of the latest update and none once the event is over', () => {
     const promised = (NOW + 15 * 60_000) * 1_000;
     const updates = [
-      { id: 'b', org_id: 'org', status_page_id: 'page', incident_id: 'event', status: 'identified' as const, message: 'b', created_at: 2, next_update_at: promised },
-      { id: 'a', org_id: 'org', status_page_id: 'page', incident_id: 'event', status: 'investigating' as const, message: 'a', created_at: 1, next_update_at: 99 },
+      { id: 'b', orgId: 'org', statusPageId: 'page', incidentId: 'event', status: 'identified' as const, message: 'b', createdAt: 2, nextUpdateAt: promised },
+      { id: 'a', orgId: 'org', statusPageId: 'page', incidentId: 'event', status: 'investigating' as const, message: 'a', createdAt: 1, nextUpdateAt: 99 },
     ];
 
     expect(promisedNextUpdate(incident({ updates }))).toBe(promised);

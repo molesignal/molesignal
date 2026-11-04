@@ -22,8 +22,8 @@ use std::{collections::BTreeSet, ops::ControlFlow};
 
 use sqlparser::{
     ast::{
-        BinaryOperator, Cte, Expr, ObjectName, Query, Select, SetExpr, Statement, TableFactor,
-        TableWithJoins, Value, visit_relations_mut,
+        Cte, ObjectName, Query, Select, SetExpr, Statement, TableFactor, TableWithJoins,
+        visit_relations, visit_relations_mut,
     },
     dialect::GenericDialect,
     parser::Parser,
@@ -33,6 +33,27 @@ use crate::{
     domain::stream::StreamType,
     shared::{Error, Result},
 };
+
+mod conjuncts;
+mod count;
+pub mod field_query;
+mod key_value;
+mod template;
+mod where_tree;
+
+pub use conjuncts::{
+    EqualitySet, LikePattern, LikeSet, equality_atom, equality_sets, like_atom, like_sets,
+    reads_one_table,
+};
+pub use count::{
+    BarCounts, FieldSummary, PlainCount, TopValues, bar_counts, column_name, field_summary,
+    plain_count, top_values,
+};
+pub use key_value::{
+    KEY_VALUE_SUFFIX, json_member, key_term, key_value_field, key_value_term, key_value_terms,
+};
+pub use template::{fill_template, template_sample};
+pub use where_tree::{MAX_ATOMS, Refuted, WhereTree, atom_bit};
 
 pub mod domain {
     pub use ::domain::*;
@@ -111,83 +132,24 @@ pub fn extract_referenced_tables(stmt: &str) -> Result<Vec<TableRef>> {
     Ok(out)
 }
 
-/// 从 SQL 提取 `col = 'literal'` 形态的等值谓词，返回 `(列名, 字面量)` 列表。
-///
-/// 用途：查询侧对 `exact`-indexed 字段（`trace_id` 等）的等值查询走 tantivy 候选裁剪
-/// （应用侧由 Tantivy pruner 消费）。调用方需自行按 stream schema 过滤出
-/// 真正 exact-indexed 的列，本函数只做纯语法提取。
-///
-/// - 走 AST（非正则）：避免把字符串字面量内部、`LIKE`、`!=` 里的 `=` 误当等值。
-/// - 覆盖 `t.col`（取末段列名）与镜像 `'x' = col`。
-/// - 仅裸单引号字符串字面量（`Value::SingleQuotedString`）——这正是 `trace_id = '...'`
-///   的形态，也是唯一能安全喂给未分词 STRING 索引 `count_term` 的常量。
-/// - 解析失败返回空（调用方无谓词即不裁剪，保守且安全）。
-pub fn extract_equality_predicates(sql: &str) -> Vec<(String, String)> {
-    let Ok(statements) = Parser::parse_sql(&GenericDialect, sql) else {
-        return Vec::new();
+/// Whether a statement names a table anywhere in it: in a subquery of a `WHERE` too, which
+/// [`extract_referenced_tables`] leaves for the planner to refuse. A CTE's own name counts, and a
+/// statement that does not parse names nothing.
+pub fn statement_names_table(stmt: &str, table: &str) -> bool {
+    let Ok(statements) = Parser::parse_sql(&GenericDialect, stmt) else {
+        return false;
     };
 
-    let mut out: Vec<(String, String)> = Vec::new();
+    visit_relations(&statements, |name: &ObjectName| {
+        let last = name.0.last().and_then(|part| part.as_ident());
 
-    for stmt in &statements {
-        // 只看顶层 SELECT 的 WHERE：子查询/CTE 的谓词作用于别的表，不能用来裁主表候选。
-        if let Statement::Query(q) = stmt
-            && let SetExpr::Select(select) = q.body.as_ref()
-            && let Some(selection) = &select.selection
-        {
-            collect_conjunct_equalities(selection, &mut out);
+        if last.is_some_and(|ident| ident.value.eq_ignore_ascii_case(table)) {
+            ControlFlow::Break(())
+        } else {
+            ControlFlow::Continue(())
         }
-    }
-
-    out
-}
-
-/// 只在**合取**（顶层 `AND` 链）里收集等值谓词。合取项对结果的每一行都必然成立，才可
-/// 安全用于**文件级**候选裁剪；一旦下潜到 `OR`（析取）分支就停止——那里的等值对某文件
-/// 不成立不代表该文件无匹配行（可经 OR 的另一支满足），拿它裁剪会漏数据。
-fn collect_conjunct_equalities(expr: &Expr, out: &mut Vec<(String, String)>) {
-    match expr {
-        Expr::BinaryOp {
-            left,
-            op: BinaryOperator::And,
-            right,
-        } => {
-            collect_conjunct_equalities(left, out);
-            collect_conjunct_equalities(right, out);
-        }
-        Expr::BinaryOp {
-            left,
-            op: BinaryOperator::Eq,
-            right,
-        } => {
-            if let Some(pair) = eq_col_literal(left, right).or_else(|| eq_col_literal(right, left))
-            {
-                out.push(pair);
-            }
-        }
-        // 括号分组 `(a AND b)` 透传继续拆合取。
-        Expr::Nested(inner) => collect_conjunct_equalities(inner, out),
-        // OR / NOT / 比较 / LIKE / 函数调用等：不可用于裁剪，整支忽略。
-        _ => {}
-    }
-}
-
-/// 若 `col_expr` 是列引用、`lit_expr` 是单引号字符串字面量，返回 `(列名, 字面量)`。
-fn eq_col_literal(col_expr: &Expr, lit_expr: &Expr) -> Option<(String, String)> {
-    let col = match col_expr {
-        Expr::Identifier(id) => id.value.clone(),
-        Expr::CompoundIdentifier(parts) => parts.last()?.value.clone(),
-        _ => return None,
-    };
-
-    let Expr::Value(vws) = lit_expr else {
-        return None;
-    };
-
-    match &vws.value {
-        Value::SingleQuotedString(s) => Some((col, s.clone())),
-        _ => None,
-    }
+    })
+    .is_break()
 }
 
 /// Flight SQL（spec flight-sql）：经 [`prepare_flight_sql_select`] 校验 + 改写后的语句。
@@ -443,68 +405,6 @@ mod tests {
     }
 
     #[test]
-    fn equality_predicates_basic_and_mirror_and_compound() {
-        // 基本形态（trace 端点的实际 SQL）。
-        let p = extract_equality_predicates(
-            "SELECT * FROM traces WHERE trace_id = '0af7651916cd43dd' ORDER BY _timestamp",
-        );
-        assert_eq!(
-            p,
-            vec![("trace_id".to_string(), "0af7651916cd43dd".to_string())]
-        );
-
-        // 镜像：字面量在左。
-        let p = extract_equality_predicates("SELECT * FROM t WHERE 'x' = span_id");
-        assert_eq!(p, vec![("span_id".to_string(), "x".to_string())]);
-
-        // 限定列 t.col → 取末段列名。
-        let p = extract_equality_predicates("SELECT * FROM traces t WHERE t.service_name = 'api'");
-        assert_eq!(p, vec![("service_name".to_string(), "api".to_string())]);
-
-        // 多个 AND 谓词都提取。
-        let p =
-            extract_equality_predicates("SELECT * FROM t WHERE trace_id = 'a' AND span_id = 'b'");
-        assert_eq!(p.len(), 2);
-    }
-
-    #[test]
-    fn equality_predicates_ignores_non_string_and_non_eq() {
-        // 数值字面量不提取（STRING 索引只接字符串等值）。
-        assert!(extract_equality_predicates("SELECT * FROM t WHERE code = 500").is_empty());
-        // 非等值算子不提取。
-        assert!(extract_equality_predicates("SELECT * FROM t WHERE n > 3").is_empty());
-        assert!(extract_equality_predicates("SELECT * FROM t WHERE msg LIKE '%x%'").is_empty());
-        // 列 = 列 不提取（右侧非字面量）。
-        assert!(extract_equality_predicates("SELECT * FROM t WHERE a = b").is_empty());
-        // 解析失败 → 空。
-        assert!(extract_equality_predicates("NOT SQL @@@").is_empty());
-    }
-
-    /// OR 分支里的等值**不得**用于裁剪：文件可经 OR 另一支满足，裁了会漏数据。
-    #[test]
-    fn equality_predicates_skips_disjunction() {
-        // 顶层 OR → 一个都不提取（保守，不裁）。
-        assert!(
-            extract_equality_predicates("SELECT * FROM t WHERE trace_id = 'a' OR span_id = 'b'")
-                .is_empty()
-        );
-        // AND 顶层但一支是 OR：只提取纯合取那一支，OR 支忽略。
-        let p = extract_equality_predicates(
-            "SELECT * FROM t WHERE trace_id = 'a' AND (span_id = 'b' OR span_id = 'c')",
-        );
-        assert_eq!(p, vec![("trace_id".to_string(), "a".to_string())]);
-        // 括号包裹的合取仍拆开。
-        let p =
-            extract_equality_predicates("SELECT * FROM t WHERE (trace_id = 'a' AND span_id = 'b')");
-        assert_eq!(p.len(), 2);
-        // 子查询里的等值不提取（作用于别的表）。
-        let p = extract_equality_predicates(
-            "SELECT * FROM t WHERE id IN (SELECT id FROM u WHERE k = 'v')",
-        );
-        assert!(p.is_empty());
-    }
-
-    #[test]
     fn sample_hint_parsed_and_stripped() {
         let (n, sql) = parse_sample_hint("/*+ sample(10000) */ SELECT * FROM logs");
         assert_eq!(n, Some(10_000));
@@ -557,6 +457,36 @@ mod tests {
         got.sort();
         assert_eq!(got, vec!["services", "traces"]);
         assert!(!got.contains(&"high_lat"));
+    }
+
+    #[test]
+    fn a_table_is_named_anywhere_in_a_statement() {
+        for statement in [
+            "SELECT * FROM t",
+            "SELECT * FROM logs.t",
+            "SELECT * FROM \"t\"",
+            "SELECT * FROM T",
+            "SELECT * FROM a JOIN t ON a.x = t.x",
+            "SELECT * FROM (SELECT * FROM t) s",
+            "WITH c AS (SELECT * FROM t) SELECT * FROM c",
+            "SELECT x FROM a UNION ALL SELECT x FROM t",
+            "SELECT * FROM a WHERE x IN (SELECT x FROM t)",
+            "SELECT * FROM a WHERE EXISTS (SELECT 1 FROM t)",
+            "SELECT (SELECT count(*) FROM t) FROM a",
+            "SELECT * FROM a GROUP BY x HAVING count(*) > (SELECT count(*) FROM t)",
+        ] {
+            assert!(statement_names_table(statement, "t"), "{statement}");
+        }
+
+        for statement in [
+            "SELECT t FROM a",
+            "SELECT * FROM a WHERE x = 't'",
+            "SELECT * FROM t2",
+            "up{job=\"t\"}",
+            "",
+        ] {
+            assert!(!statement_names_table(statement, "t"), "{statement}");
+        }
     }
 
     #[test]

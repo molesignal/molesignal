@@ -1,0 +1,118 @@
+{
+  "type": "view",
+  "date": 1760000000000,
+  "source": "browser",
+  "service": "web",
+  "env": "prod",
+  "version": "1.4.0",
+  "session": {
+    "id": "6f1c2b7e-1d5a-4c6b-9a3e-0a1b2c3d4e5f",
+    "type": "user",
+    "start": 1759999998000,
+    "has_replay": true
+  },
+  "view": {
+    "id": "a91e0d52-7b8c-4f10-8d63-5e2f7c9a1b34",
+    "url": "https://shop.example.com/checkout",
+    "name": "/checkout",
+    "revision": 4,
+    "time_spent": 8200000000,
+    "is_active": false,
+    "loading_type": "initial_load",
+    "loading_time": 1200000000,
+    "first_byte": 180000000,
+    "dom_interactive": 640000000,
+    "dom_content_loaded": 700000000,
+    "dom_complete": 1150000000,
+    "load_event": 1200000000,
+    "performance": {
+      "fcp": {
+        "timestamp": 520000000
+      },
+      "lcp": {
+        "timestamp": 900000000,
+        "target_selector": "img.hero",
+        "resource_url": "https://cdn.example.com/hero.webp",
+        "sub_parts": {
+          "load_delay": 120000000,
+          "load_time": 300000000,
+          "render_delay": 80000000
+        }
+      },
+      "inp": {
+        "duration": 160000000,
+        "timestamp": 4100000000,
+        "target_selector": "button#pay",
+        "sub_parts": {
+          "input_delay": 20000000,
+          "processing_duration": 110000000,
+          "presentation_delay": 30000000
+        }
+      },
+      "cls": {
+        "score": 0,
+        "timestamp": 2000000000
+      }
+    },
+    "custom_timings": {
+      "cart_ready": 760000000
+    },
+    "action": {
+      "count": 4
+    },
+    "error": {
+      "count": 1
+    },
+    "resource": {
+      "count": 22
+    },
+    "long_task": {
+      "count": 2
+    },
+    "frustration": {
+      "count": 1
+    }
+  },
+  "usr": {
+    "id": "u-42",
+    "name": "Ada",
+    "email": "ada@example.com",
+    "plan": "pro"
+  },
+  "account": {
+    "id": "acme"
+  },
+  "tab": {
+    "id": "7d0a6f3e-5c1b-4a52-8c47-1e9b2d3f4a50"
+  },
+  "connectivity": {
+    "status": "connected",
+    "interfaces": [
+      "wifi"
+    ],
+    "effective_type": "4g"
+  },
+  "display": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    }
+  },
+  "device": {
+    "type": "desktop",
+    "locale": "en-US",
+    "time_zone": "Europe/Berlin"
+  },
+  "sdk": {
+    "name": "molesignal-browser-rum",
+    "version": "0.2.0",
+    "session_sample_rate": 100,
+    "replay_sample_rate": 20
+  },
+  "context": {
+    "checkout_step": "payment"
+  },
+  "feature_flags": {
+    "new_checkout": true
+  }
+}

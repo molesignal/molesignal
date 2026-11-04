@@ -36,7 +36,7 @@ export function ScheduleField({ draft, limits, timezone, onChange }: ScheduleFie
   // A kind the instance cannot run at all (every interval too short) is left out.
   const kinds = SCHEDULE_KINDS.filter((kind) => {
     if (kind === 'interval') return intervals.length > 0;
-    return (kind === 'daily' ? 86_400 : 7 * 86_400) >= limits.min_interval_secs;
+    return (kind === 'daily' ? 86_400 : 7 * 86_400) >= limits.minIntervalSecs;
   });
   const timed = draft.scheduleKind !== 'interval';
 

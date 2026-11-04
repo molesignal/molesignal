@@ -5,24 +5,16 @@ import {
   legacyApmUserExperienceTarget,
   legacyRumSettingsTarget,
   legacyServicesTarget,
-  legacyVersionCompareTarget,
 } from './compat';
 
 describe('APM legacy route compatibility', () => {
   it.each([
-    ['/apm/user-experience', '/rum/overview'],
-    ['/apm/user-experience/overview', '/rum/overview'],
+    ['/apm/user-experience', '/rum/explorer'],
+    ['/apm/user-experience/overview', '/rum/explorer'],
+    ['/apm/user-experience/applications', '/rum/applications'],
     [
       '/apm/user-experience/sessions/view/session%2Fone',
       '/rum/sessions/view/session%2Fone',
-    ],
-    [
-      '/apm/user-experience/errors/view/fingerprint',
-      '/rum/errors/view/fingerprint',
-    ],
-    [
-      '/apm/user-experience/performance/web-vitals',
-      '/rum/performance/web-vitals',
     ],
     ['/apm/user-experience/source-maps', '/rum/settings/source-maps'],
     [
@@ -36,12 +28,12 @@ describe('APM legacy route compatibility', () => {
   it('preserves query strings and hashes', () => {
     expect(
       legacyApmUserExperienceTarget(
-        '/apm/user-experience/sessions',
+        '/apm/user-experience/applications',
         '?app=shop',
         '#event-2',
       ),
     ).toBe(
-      '/rum/sessions?app=shop#event-2',
+      '/rum/applications?app=shop#event-2',
     );
     expect(legacyRumSettingsTarget('/rum/source-maps', '?app=shop')).toBe(
       '/rum/settings/source-maps?app=shop',
@@ -49,13 +41,6 @@ describe('APM legacy route compatibility', () => {
     expect(legacyServicesTarget('/services/checkout', '?environment=prod')).toBe(
       '/apm/services/checkout?environment=prod',
     );
-    expect(apmIndexTarget('?service=checkout')).toBe(
-      '/apm/overview?service=checkout',
-    );
-    expect(
-      legacyVersionCompareTarget(
-        '?service=checkout&baseline=1.0&candidate=2.0',
-      ),
-    ).toBe('/apm/deployments?service=checkout&baseline=1.0&candidate=2.0');
+    expect(apmIndexTarget('?environment=prod')).toBe('/apm/overview?environment=prod');
   });
 });

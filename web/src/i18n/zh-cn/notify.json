@@ -2,7 +2,7 @@
   "nav": {
     "label": "通知管理",
     "root": "通知管理",
-    "connectors": "企业连接器",
+    "connectors": "连接器",
     "users": "用户通知",
     "policies": "通知策略",
     "defaults": "兜底路由",
@@ -34,26 +34,54 @@
   },
   "connector_types": {
     "email_smtp": "Email SMTP",
-    "slack_app": "Slack 应用",
+    "slack_app": "Slack App",
     "slack_webhook": "Slack Webhook",
-    "lark_app": "飞书应用",
+    "lark_app": "飞书 App",
     "lark_webhook": "飞书 Webhook",
+    "dingtalk_app": "钉钉 App",
+    "dingtalk_webhook": "钉钉 Webhook",
+    "wecom_app": "企业微信 App",
+    "wecom_webhook": "企业微信 Webhook",
+    "wecom_bot": "企业微信智能机器人",
+    "teams_app": "Microsoft Teams 机器人",
+    "teams_webhook": "Microsoft Teams Webhook",
+    "google_chat_app": "Google Chat App",
+    "google_chat_webhook": "Google Chat Webhook",
+    "aliyun_voice": "阿里云语音通知",
+    "aliyun_sms": "阿里云短信",
+    "tencent_voice": "腾讯云语音消息",
+    "tencent_sms": "腾讯云短信",
+    "huawei_voice": "华为云语音通知",
+    "huawei_sms": "华为云短信",
+    "twilio_voice": "Twilio 电话",
+    "twilio_sms": "Twilio 短信",
+    "aws_voice": "AWS 语音",
+    "aws_sms": "AWS 短信",
+    "http_sms": "通用 HTTP 短信",
     "webhook": "Webhook"
   },
+  "connector_channels": {
+    "im": "即时通讯",
+    "phone": "电话",
+    "sms": "短信",
+    "email": "邮件",
+    "webhook": "自定义",
+    "other": "其他"
+  },
   "capabilities": {
-    "direct_user": "个人",
+    "directUser": "个人",
     "group": "群组",
-    "rich_text": "富文本",
+    "richText": "富文本",
     "interactive": "交互",
     "acknowledgement": "确认",
     "attachments": "附件"
   },
   "connectors": {
-    "title": "企业连接器",
+    "title": "连接器",
     "subtitle": "将企业发送凭证与接收人、路由规则分开管理。",
     "new": "新建连接器",
     "empty_title": "暂无连接器",
-    "empty_description": "绑定用户端点或配置兜底路由前，请先添加企业连接器。",
+    "empty_description": "绑定用户端点或配置兜底路由前，请先添加连接器。",
     "columns": {
       "name": "名称",
       "type": "类型",
@@ -74,13 +102,17 @@
       "subtitle": "凭证会加密保存，接口不会返回明文。",
       "identity": "连接器",
       "configuration": "服务配置",
-      "slack_app_hint": "Bot Token 用于发送通知。填写 Client ID 和 Client Secret 后，状态页访客可以把页面添加到自己的 Slack 频道，在状态页的 Slack 设置里选用此连接器即可。两者至少填一种。",
       "name": "名称",
       "type": "连接器类型",
       "enabled": "允许此连接器投递",
       "test_target": "测试目标",
       "target_type": "目标类型",
       "target": "目标",
+      "test_template": "测试用模板",
+      "test_template_hint": "这家服务商只发审核过的模板：测试发送这个模板，占位符填示例值。",
+      "test_template_none": "还没有写给这家服务商的{{channel}}模板：先在通知模板里写一个。",
+      "test_card_hint": "选一个即时通讯模板，测试时发出它的卡片，占位符填示例值；不选就发一条测试消息。",
+      "test_without_template": "不套用模板",
       "save": "保存连接器",
       "test": "测试连接",
       "save_before_test": "请先保存连接器，再发送测试。",
@@ -91,19 +123,221 @@
         "password": "密码",
         "from": "发件地址",
         "tls": "TLS 模式",
-        "timeout_secs": "超时（秒）",
-        "bot_token": "Bot Token",
-        "client_id": "Client ID",
-        "client_secret": "Client Secret",
-        "api_base_url": "API 基础地址",
-        "webhook_url": "Webhook 地址",
-        "app_id": "App ID",
-        "app_secret": "App Secret",
-        "receive_id_type": "接收人 ID 类型",
+        "timeoutSecs": "超时（秒）",
+        "bodyFormat": "请求体格式",
+        "body": "请求体",
+        "phoneFormat": "号码写法",
+        "successField": "成功字段",
+        "successValue": "成功值",
+        "botToken": "Bot Token",
+        "clientId": "Client ID",
+        "clientSecret": "Client Secret",
+        "apiBaseUrl": "API 基础地址",
+        "webhookUrl": "Webhook 地址",
+        "appId": "App ID",
+        "appSecret": "AppSecret",
+        "receiveIdType": "接收人 ID 类型",
         "secret": "签名密钥",
         "url": "默认地址",
         "method": "HTTP 方法",
-        "headers": "请求头（JSON）"
+        "headers": "请求头（JSON）",
+        "appToken": "App-Level Token",
+        "robotCode": "机器人 RobotCode",
+        "cardTemplateId": "互动卡片模板 ID",
+        "corpId": "企业 ID",
+        "corpSecret": "应用 Secret",
+        "agentId": "AgentId",
+        "callbackToken": "接收消息 Token",
+        "callbackAesKey": "EncodingAESKey",
+        "tenantId": "租户 ID",
+        "serviceUrl": "服务地址",
+        "credentials": "服务账号密钥（JSON）",
+        "botId": "Bot ID",
+        "botSecret": "长连接 Secret",
+        "wsUrl": "长连接地址",
+        "pubsubBaseUrl": "Pub/Sub 地址",
+        "subscription": "Pub/Sub 订阅",
+        "accessKeyId": "AccessKey ID",
+        "secretId": "SecretId",
+        "sdkAppId": "应用 ID（SdkAppId）",
+        "appKey": "AppKey",
+        "signature": "签名名称",
+        "accessKeySecret": "AccessKey Secret",
+        "showNumber": "外显号码",
+        "signName": "短信签名",
+        "playTimes": "播放遍数",
+        "accountSid": "Account SID",
+        "authToken": "Auth Token",
+        "fromNumber": "主叫号码",
+        "language": "语言",
+        "voice": "声音",
+        "sender": "发送方",
+        "region": "区域",
+        "site": "平台",
+        "cloud": "云环境",
+        "auth": "认证方式",
+        "accessKey": "Access key ID",
+        "secretKey": "Secret access key",
+        "sessionToken": "会话令牌",
+        "roleArn": "角色 ARN",
+        "originationIdentity": "发送方身份",
+        "voiceId": "Polly 声音",
+        "externalId": "外部 ID",
+        "signingSecret": "签名密钥",
+        "replies": "回复处理告警",
+        "replyTopicArn": "回复的 SNS 主题 ARN"
+      },
+      "hints": {
+        "slack_app": "Bot Token 用于发送通知。填写 Client ID 和 Client Secret 后，状态页访客可以把页面添加到自己的 Slack 频道，在状态页的 Slack 设置里选用此连接器即可。两者至少填一种。填了 App-Level Token（xapp-）后，Mole Agent 可以通过 Socket Mode 在 Slack 里回答。",
+        "lark_app": "飞书 App 用长连接接收事件后，Mole Agent 也能在飞书里回答，在 Mole Agent → 设置 → IM 接入 里开启。",
+        "dingtalk_app": "企业内部应用的机器人。机器人 RobotCode 不填时就是 Client ID。单聊目标是 userId，群目标是 openConversationId。机器人的消息用 Stream 模式接收后，Mole Agent 也能在钉钉里回答。告警通知要带确认、解决按钮：在钉钉卡片平台按文档建一个互动卡片模板，模板 ID 填在这里，再在 Mole Agent → 设置 → IM 接入 里开启这个机器人。",
+        "dingtalk_webhook": "群里的自定义机器人。机器人开了加签时填写签名密钥。",
+        "wecom_app": "自建应用：企业 ID、应用的 Secret 和 AgentId。单聊目标是成员 UserID，群目标是应用群聊的 chatid。请把服务器的出口地址加到应用的企业可信 IP。发给成员的告警通知要带确认、解决按钮：在应用的「接收消息」里设置 API 接收，随机获取的 Token 和 EncodingAESKey 填在这里，保存后把下面的回调地址填回去。",
+        "wecom_webhook": "群机器人的 Webhook 地址。",
+        "wecom_bot": "企业微信的智能机器人（API 模式，用长连接）：Bot ID 和长连接专用的 Secret。在 Mole Agent → 设置 → IM 接入 里开启后，Mole Agent 能在企业微信里回答，机器人也发通知，告警通知带确认、解决按钮。单聊目标是成员的 userid，群目标是群的 chatid；机器人只能发到有人给它发过消息的会话：私聊过它的人，有人 @ 过它的群。",
+        "teams_app": "Bot Framework 机器人：应用 ID、客户端密码和租户（较早的多租户机器人填 botframework.com）。云环境选全球、GCC，或美国政府云 GCC High、DoD，服务地址随之确定。单聊目标是用户 ID，群目标是会话 ID。机器人要先安装给要接收消息的人或团队。Mole Agent 也能在 Teams 里回答：在 Mole Agent → 设置 → IM 接入 里开启，再把那里给出的回调地址填到 Azure Bot 的 Messaging endpoint。",
+        "teams_webhook": "频道的 Webhook：Workflows 流程生成的地址，或旧版 Incoming Webhook。消息以 Adaptive Card 发送。",
+        "google_chat_app": "Chat 应用的服务账号：粘贴它的 JSON 密钥。群目标是空间（spaces/…），单聊目标是用户（users/…），对方要先给应用发过消息。填了 Pub/Sub 订阅（projects/…/subscriptions/…）后，Mole Agent 也能在 Google Chat 里回答，在 Mole Agent → 设置 → IM 接入 里开启。",
+        "google_chat_webhook": "空间的 Incoming Webhook 地址。",
+        "aliyun_voice": "只能拨内地号码。在阿里云语音服务控制台申请文本转语音模板（TTS_ 开头），模板编号与变量写进电话渠道的通知模板，通知策略给电话渠道选它。外显号码空着是公共模式，填了是专属模式，模板要与模式一致。同一号码每分钟最多拨 1 次、每小时 5 次、每天 20 次。",
+        "aliyun_sms": "在阿里云短信服务控制台申请签名和通知类模板（SMS_ 开头）。签名填在这里；模板编号与变量写进短信渠道的通知模板，通知策略给短信渠道选它。通知类模板的每个变量默认最多 35 个字，不能放网址和 IP。",
+        "tencent_voice": "在腾讯云语音消息控制台建应用，申请语音通知模板；模板 ID 与变量写进电话渠道的通知模板，变量按位置写成 1、2、3，通知策略给电话渠道选它。语音是预付费的：套餐用完后拨不出去，错误会记在投递记录上。",
+        "tencent_sms": "在腾讯云短信控制台建应用，申请签名和模板；签名的文字填在这里（内地短信必填），模板 ID 与变量写进短信渠道的通知模板，变量按位置写成 1、2、3。2024 年 1 月 25 日以后开通的账号和长期闲置的账号，单个变量默认最多 6 个字符，向腾讯云放宽后把上限写在通知模板里。",
+        "huawei_voice": "在华为云语音通话控制台建应用、订购固话号码、提交语音模板。AppKey、AppSecret 和 APP 接入地址在「应用管理」里，地址要照抄（没有接口能查）。外显号码写国家码加区号加号码。模板 ID 与变量写进电话渠道的通知模板，变量按位置写成 1、2、3；每个变量最多 32 个字节，一个汉字占 3 个。",
+        "huawei_sms": "在华为云消息&短信控制台建应用、办理签名和模板。AppKey、AppSecret 和 APP 接入地址在「应用管理」里，地址要照抄（没有接口能查）。发送方写签名对应的通道号；通用模板还要写签名名称。模板 ID 与变量写进短信渠道的通知模板，变量按位置写成 1、2、3。",
+        "twilio_voice": "主叫号码是账号里能打电话的号码，如 +14155550100。语言如 en-US、cmn-CN；声音如 Polly.Joanna、Polly.Zhiyu，空着用 Twilio 的默认声音。",
+        "twilio_sms": "发送方是账号里的号码、Messaging Service（MG 开头）或字母发送方 ID。发往美国号码要先完成 A2P 10DLC 注册。",
+        "aws_voice": "AWS End User Messaging 的语音消息，由 Amazon Polly 念出。发送方身份填能打电话的号码、号码池或它们的 ARN；Polly 声音空着是 MATTHEW，中文用 ZHIYU。沙盒里的账号只能打给验证过的号码。区域从这个账号开通的区域里选，列出区域要有 ec2:DescribeRegions 权限。",
+        "aws_sms": "AWS End User Messaging 的事务类短信。发送方身份空着时由 AWS 按目的地选号码，也可以填号码、发送方 ID 或号码池。沙盒里的账号只能发给验证过的号码。区域从这个账号开通的区域里选，列出区域要有 ec2:DescribeRegions 权限。",
+        "http_sms": "把短信交给自己的短信网关，或没有专门连接器的服务商。网关地址、请求头和请求体里写占位符：{{phone}} 是号码，{{content}} 是短信内容（标题一行、正文一行，最多 320 字），还有 {{title}}、{{text}}，以及 {{secret}}（下面的密钥，加密保存）。JSON 请求体里的值按 JSON 转义，表单和地址里按 URL 编码。网关返回 2xx 算发出；填了成功字段，还要它的值等于成功值。",
+        "webhook": "每个请求都带 X-MoleSignal-Event（通知类型）和 X-MoleSignal-Delivery（投递 ID，可用来去重）。填了签名密钥（至少 16 位，例如 openssl rand -hex 32 生成），还带 X-MoleSignal-Timestamp 和 X-MoleSignal-Sign: sha256=<十六进制>，即用密钥对「时间戳.请求体」算的 HMAC-SHA256。只连解析得到的地址，云元数据地址一律拒绝，不跟随跳转。"
+      },
+      "options": {
+        "auth": {
+          "access_key": "访问密钥",
+          "temporary_key": "临时密钥",
+          "node_role": "节点身份",
+          "assume_role": "扮演角色",
+          "web_identity": "Web Identity"
+        },
+        "site": {
+          "feishu": "飞书",
+          "lark": "Lark",
+          "slack": "Slack",
+          "govslack": "GovSlack（美国政府）"
+        },
+        "cloud": {
+          "global": "全球",
+          "gcc": "GCC（美国政府社区云）",
+          "gcc_high": "GCC High（美国政府）",
+          "dod": "DoD（美国国防部）"
+        },
+        "method": {
+          "post": "POST",
+          "put": "PUT",
+          "patch": "PATCH",
+          "get": "GET"
+        },
+        "body_format": {
+          "json": "JSON",
+          "form": "表单（x-www-form-urlencoded）"
+        },
+        "phone_format": {
+          "e164": "+8613800138000（E.164）",
+          "digits": "8613800138000（不带 +）",
+          "mainland": "13800138000（内地号码不带国家码）"
+        },
+        "body": {
+          "event": "MoleSignal 事件",
+          "template": "通知模板的正文"
+        }
+      },
+      "option_hints": {
+        "auth": {
+          "access_key": "IAM 用户的长期密钥。只给该用户需要的权限：发短信、打电话的 sms-voice:SendTextMessage 与 sms-voice:SendVoiceMessage，以及列出区域的 ec2:DescribeRegions。",
+          "temporary_key": "AWS STS 签发的短期密钥，必须与会话令牌一起使用。过期后失效，需要在这里更换。",
+          "node_role": "不保存任何密钥，使用 MoleSignal 所在节点的身份：EKS 的 IRSA 或 Pod Identity、ECS 任务角色，或 EC2 实例配置文件。本部署中的每个组织都可以选用它。",
+          "assume_role": "通过 AWS STS 扮演这个角色：填了访问密钥就用它去扮演，否则用节点身份。角色的信任策略需要允许这个身份，并要求下面的外部 ID。",
+          "web_identity": "用节点上的 Web Identity 令牌直接扮演这个角色，例如 EKS 为 IRSA 投射的服务账号令牌（路径由 AWS_WEB_IDENTITY_TOKEN_FILE 给出）。"
+        },
+        "cloud": {
+          "gcc_high": "美国政府云：令牌向 login.microsoftonline.us 要，Mole Agent 收到的消息按政府云的 Bot Framework 验证。",
+          "dod": "美国政府云：令牌向 login.microsoftonline.us 要，Mole Agent 收到的消息按政府云的 Bot Framework 验证。"
+        },
+        "site": {
+          "govslack": "美国政府的 Slack：接口与状态页的授权都在 slack-gov.com。"
+        },
+        "body": {
+          "event": "请求体是写给机器读的事件：版本、事件、告警、规则、升级，加上目标和渲染好的消息。字段只增不改。",
+          "template": "请求体是通知策略为 Webhook 渠道选的模板的正文，原样发出；模板是 JSON 格式时按 JSON 发，变量自动转义。"
+        }
+      },
+      "switch_hints": {
+        "replies": {
+          "twilio_sms": "收到告警短信的人回复里面的代码就能处理，例如 31 确认、32 解决，一天内有效。按收信人的身份和权限处理。",
+          "aws_sms": "收到告警短信的人回复里面的代码就能处理，例如 31 确认、32 解决，一天内有效。按收信人的身份和权限处理；回复由双向短信经 SNS 推送过来。",
+          "http_sms": "收到告警短信的人回复里面的代码就能处理，例如 31 确认、32 解决，一天内有效。按收信人的身份和权限处理；需要网关把收到的回复转发过来。",
+          "aliyun_sms": "阿里云只发审核过的模板：在模板参数里填上变量 reply.ack、reply.resolve，收到的人回复对应的代码就能确认或解决，一天内有效。按收信人的身份和权限处理。",
+          "twilio_voice": "接听的人按 1 确认、按 2 解决。按接听人的身份和权限处理。",
+          "aliyun_voice": "改用交互式语音（IvrCall）拨打，接听的人按 1 确认、按 2 解决。要填主叫号码：为 IvrCall 购买的真实号码。",
+          "tencent_sms": "腾讯云只发审核过的模板：在模板变量里填上 reply.ack、reply.resolve，收到的人回复对应的代码就能确认或解决，一天内有效。按收信人的身份和权限处理。",
+          "tencent_voice": "接听的人按 1 确认、按 2 解决。模板里要自己写上这句，控制台要打开按键回调；按键按被叫号码最近的一通电话处理。",
+          "huawei_sms": "华为云只发审核过的模板：在模板变量里填上 reply.ack、reply.resolve，收到的人回复对应的代码就能确认或解决，一天内有效。按收信人的身份和权限处理。",
+          "huawei_voice": "放音后收一位按键，接听的人按 1 确认、按 2 解决。模板里要自己写上这句。"
+        }
+      },
+      "type_fields": {
+        "http_sms": {
+          "url": "网关地址",
+          "secret": "密钥"
+        },
+        "twilio_voice": {
+          "replies": "按键处理告警"
+        },
+        "aliyun_voice": {
+          "replies": "按键处理告警"
+        },
+        "tencent_voice": {
+          "replies": "按键处理告警",
+          "secretKey": "SecretKey"
+        },
+        "tencent_sms": {
+          "secretKey": "SecretKey"
+        },
+        "huawei_voice": {
+          "replies": "按键处理告警",
+          "apiBaseUrl": "APP 接入地址"
+        },
+        "huawei_sms": {
+          "apiBaseUrl": "APP 接入地址",
+          "sender": "通道号"
+        }
+      },
+      "copy": "复制",
+      "copied": "已复制",
+      "copy_external_id": "复制外部 ID",
+      "external_id_hint": "本组织扮演角色时都带这个外部 ID，无法修改。在角色的信任策略里用 sts:ExternalId 条件要求它，别的组织即使知道角色的 ARN 也扮演不了。",
+      "address_by_region": "由区域决定",
+      "regions_loading": "正在向服务商查询可用的区域…",
+      "regions_need_credentials": "填好凭证后，列出这个账号开通的区域。",
+      "regions_failed": "读不到区域：{{error}}",
+      "callbacks": {
+        "label": "回调地址",
+        "after_save": "保存后在这里显示回调地址。",
+        "no_external_url": "服务端没有设对外地址，服务商的回调进不来。",
+        "per_call": "按键地址随每通电话发给 Twilio，不用另配。",
+        "hints": {
+          "twilio_sms": "在 Twilio 号码的 Messaging 设置里，把 A message comes in 设为 Webhook、HTTP POST，填这个地址。",
+          "aws_sms": "在接收回复的 SNS 主题下加一个 HTTPS 订阅，端点填这个地址，订阅会自动确认。",
+          "aliyun_sms": "在阿里云短信服务的上行短信设置里选 HTTP 推送，填这个地址。",
+          "aliyun_voice": "在阿里云语音服务的回执设置里选 HTTP 推送，填这个地址，按键结果推到这里。",
+          "tencent_sms": "在腾讯云短信控制台的回调设置里，把回复短信回调的地址填成这个。",
+          "tencent_voice": "在腾讯云语音消息控制台的事件回调设置里，把按键回调的地址填成这个。",
+          "huawei_sms": "创建短信应用时把上行短信接收地址填成这个；地址的最后一段是回调 Token。",
+          "huawei_voice": "在应用管理里把呼叫状态接收地址填成这个；地址的最后一段是回调 Token。",
+          "http_sms": "让网关把收到的回复以 JSON POST 到这个地址，带 phone 和 text 两个字段。",
+          "wecom_app": "在应用的「接收消息」里设置 API 接收：URL 填这个地址，Token 和 EncodingAESKey 与上面两栏一致。地址的域名要是企业主体备案过的。"
+        }
       }
     },
     "delete_title": "删除连接器？",
@@ -127,7 +361,7 @@
   },
   "endpoints": {
     "title": "通知身份",
-    "description": "每个身份绑定一个企业连接器。",
+    "description": "每个身份绑定一个连接器。",
     "add": "绑定通知方式",
     "empty": "尚未绑定通知身份。",
     "identity": "外部身份",
@@ -139,7 +373,8 @@
     "edit_title": "编辑通知方式",
     "save": "保存端点",
     "delete_title": "删除端点？",
-    "delete_description": "请先从所有投递偏好中移除此端点。"
+    "delete_description": "请先从所有投递偏好中移除此端点。",
+    "phone_hint": "手机号，以 + 和国家码开头，如 +8613800138000；阿里云、腾讯云、华为云和通用 HTTP 短信连接器也认 11 位内地手机号。"
   },
   "preferences": {
     "title": "投递偏好",
@@ -155,12 +390,19 @@
     "move_up": "上移端点",
     "move_down": "下移端点",
     "no_endpoints": "请先绑定端点，再配置此类别。",
-    "critical_bypass": "严重告警可绕过免打扰",
     "quiet_enabled": "启用免打扰",
     "timezone": "时区",
     "start": "开始（HH:MM）",
     "end": "结束（HH:MM）",
-    "save": "保存{{category}}"
+    "save": "保存{{category}}",
+    "wait_label": "第 {{step}} 步的等待分钟数",
+    "wait_unit": "分钟后",
+    "wait_hint": "第一步立即发送。后面每一步填几分钟：从第一次通知算起，到时仍没人确认告警就用这一步再发；与上一步相同则只在上一步发送失败时使用。发送失败时都会立即换下一步。",
+    "high_urgency_steps": "高紧急度告警的接收顺序",
+    "low_urgency_steps": "低紧急度告警的接收顺序",
+    "low_urgency_hint": "不设时只用上面的第一种方式。",
+    "high_urgency_bypass": "免打扰时仍接收高紧急度告警",
+    "quiet_low_urgency": "免打扰时段里不发低紧急度告警。"
   },
   "event_types": {
     "alert": {
@@ -179,7 +421,16 @@
       },
       "coverage": {
         "missing": "值班无人覆盖"
+      },
+      "swap": {
+        "updated": "换班申请有变化"
+      },
+      "member": {
+        "unreachable": "接班人收不到告警"
       }
+    },
+    "incident": {
+      "status_update": "重大事件进展"
     }
   },
   "resolver_types": {
@@ -223,13 +474,22 @@
       "resolver": "接收人解析器",
       "resolver_config": "解析配置（JSON）",
       "delivery_mode": "投递模式",
-      "template": "消息模板",
-      "template_hint": "策略投递时会使用事件属性渲染模板。",
+      "template": "通用模板",
+      "template_hint": "没有另选模板的渠道都用它，按事件属性填好占位符。",
       "default_template": "使用事件默认消息",
+      "channel_templates": "按渠道另选模板",
+      "use_general_template": "用通用模板",
       "connectors": "指定连接器",
       "user_fallbacks": "使用用户备用端点",
       "team_defaults": "使用团队兜底路由",
       "organization_defaults": "使用组织兜底路由",
+      "merge_window": "合并通知",
+      "merge_window_hint": "发给同一个人、同一个群的告警通知，窗口里的合成一条：第一条照常立刻发，其余等窗口结束一起发。电话至少合并 60 秒；Webhook 不合并。",
+      "merge_off": "不合并",
+      "merge_seconds_one": "{{count}} 秒",
+      "merge_seconds_other": "{{count}} 秒",
+      "merge_minutes_one": "{{count}} 分钟",
+      "merge_minutes_other": "{{count}} 分钟",
       "ack_timeout": "确认超时（秒）",
       "escalation_resolver": "升级接收人解析器",
       "escalation_config": "升级解析配置（JSON）",
@@ -244,7 +504,11 @@
       "not_matched": "策略未匹配",
       "no_recipients": "未解析到接收人。",
       "resolved_by": "解析来源：{{resolver}}",
-      "save": "保存策略"
+      "step_template": "模板：{{name}}",
+      "save": "保存策略",
+      "restore": "恢复默认",
+      "builtin_name_hint": "内置策略的名称不能修改。",
+      "time_hint": "按通知事件发生的时刻判断。不满足时这条策略不发，其他策略照常匹配。"
     },
     "delivery_modes": {
       "prefer_user": "尊重用户偏好",
@@ -252,7 +516,27 @@
       "multi_connector": "多渠道同时发送"
     },
     "delete_title": "删除策略？",
-    "delete_description": "已有投递历史会继续保留。"
+    "delete_description": "已有投递历史会继续保留。",
+    "builtin_label": "内置",
+    "builtin_not_deletable": "内置策略不能删除，不用时停用。",
+    "builtin": {
+      "alert_triggered": "告警触发：通知负责人",
+      "alert_resolved": "告警恢复：通知负责人",
+      "alert_acknowledged": "告警确认：通知负责人",
+      "alert_escalated_to_users": "告警升级：通知这一步的人",
+      "alert_escalated_to_teams": "告警升级：通知这一步的团队",
+      "oncall_shift_starting": "值班交接：通知交接的两个人",
+      "oncall_coverage_missing": "值班空档：通知值班表管理人",
+      "oncall_override_created": "值班替班：通知相关的人",
+      "oncall_swap_updated": "换班：通知相关的人",
+      "incident_status_update": "重大事件进展：通知关注人",
+      "oncall_member_unreachable": "接班人收不到告警：通知本人和排班管理员",
+      "intake_budget_warning": "接入预算快用完：通知预算指定的人",
+      "intake_budget_exceeded": "接入超出预算：通知预算指定的人"
+    },
+    "restore_title": "恢复成默认的设置？",
+    "restore_description": "这条内置策略会恢复成默认的设置，对它的修改都会丢掉。",
+    "restored": "已恢复默认"
   },
   "defaults": {
     "title": "兜底路由",
@@ -298,19 +582,46 @@
     "detail_subtitle": "第 {{attempt}} 次 · {{status}}",
     "target": "脱敏目标",
     "error": "失败原因",
+    "skip_reason": "原因",
     "ack": "确认此事件",
     "retry": "重试失败路由",
     "acknowledged": "事件已确认",
-    "retried": "已开始重试"
+    "retried": "已开始重试",
+    "views_label": "投递记录的列法",
+    "views": {
+      "events": "按告警",
+      "attempts": "按尝试"
+    },
+    "by_event": {
+      "channels": "渠道与尝试",
+      "first_delivered": "首次送达",
+      "not_delivered": "未送达",
+      "failed_tries": "失败",
+      "open_try": "打开第 {{attempt}} 次尝试：{{status}}"
+    }
   },
   "templates": {
+    "conditions": {
+      "title": "条件",
+      "description": "条件成立时才留下中间的内容；也能用 != 比较、加 else 分支，可以嵌套。",
+      "items": {
+        "triggered": "只在触发时",
+        "resolved": "只在恢复时",
+        "severity": "按严重度写不同的话",
+        "runbook": "有处理手册时附上链接"
+      },
+      "problem": "条件写法有误：{{problem}}"
+    },
     "title": "通知模板",
-    "subtitle": "为告警和值班排班定义可复用消息，并按场景使用正式占位符。",
+    "subtitle": "定义可复用的通知内容：通用模板哪个渠道都能用，也可以为短信、电话等渠道各写一份。",
     "new": "新建模板",
     "empty_title": "暂无通知模板",
     "empty_description": "创建可复用的消息正文，并在通知策略中选择。",
+    "channel_filter": "按渠道筛选",
+    "all": "全部",
     "columns": {
       "name": "模板",
+      "channel": "渠道",
       "format": "格式",
       "category": "类别",
       "updated": "更新时间",
@@ -318,21 +629,35 @@
     },
     "new_title": "新建通知模板",
     "edit_title": "编辑 {{name}}",
-    "editor_subtitle": "选择通知类别后，可插入该场景的占位符，或从预置动态生成模板。",
+    "editor_subtitle": "选好通知类别后，可以插入这类通知的变量，或从预置模板开始。",
     "name": "名称",
     "category": "通知类别",
+    "channel": "渠道",
+    "channels": {
+      "general": "通用",
+      "im": "即时通讯",
+      "phone": "电话",
+      "sms": "短信",
+      "email": "邮件",
+      "webhook": "Webhook"
+    },
     "format": "格式",
     "body": "消息正文",
-    "variables_hint": "从右侧点击可用 key，即可插入到当前光标位置。",
+    "variables_hint": "点开右侧的变量，选一个插入到光标处。",
+    "body_hint_sms": "短信发的就是这段正文，不带通知的标题。",
+    "body_hint_phone": "电话里念的就是这段正文，不带通知的标题。",
     "preview_attributes": "预览事件属性（JSON）",
     "preview": "消息预览",
     "preview_empty": "输入消息正文后会显示预览。",
+    "length": "{{chars}} / {{limit}} 字",
+    "length_over_sms": "{{chars}} 字：一条短信最多发 {{limit}} 字，多出的截掉。",
+    "length_over_phone": "{{chars}} 字：一通电话最多念 {{limit}} 字，多出的截掉。",
     "attributes_object": "预览事件属性必须是 JSON 对象。",
     "reference": {
-      "title": "可用占位符",
-      "description": "点击 key 插入到消息正文。",
-      "loading": "正在读取可用 key…",
-      "error": "无法读取占位符目录。",
+      "title": "变量",
+      "description": "点一个变量，插入到光标处。",
+      "loading": "正在读取变量…",
+      "error": "无法读取变量。",
       "dynamic_key": "当前工作区发现的动态 key",
       "tabs": {
         "common": "常用",
@@ -341,7 +666,8 @@
         "metadata": "标签与注解",
         "schedule": "排班",
         "oncall": "交接",
-        "override": "替班"
+        "override": "替班",
+        "escalation": "升级"
       },
       "groups": {
         "event": "事件",
@@ -351,6 +677,7 @@
         "trigger": "触发值",
         "labels": "标签",
         "annotations": "注解",
+        "escalation": "告警升级",
         "schedule": "值班排班",
         "oncall": "值班交接",
         "override": "临时替班"
@@ -359,6 +686,7 @@
         "event_id": "事件唯一标识",
         "event_type": "事件类型",
         "event_occurred_at": "事件发生时间（微秒时间戳）",
+        "event_time": "事件发生时间（UTC）",
         "message_title": "系统生成的消息标题",
         "message_text": "系统生成的默认消息",
         "event_attribute": "任意事件属性，替换 <key>",
@@ -369,12 +697,30 @@
         "incident_fingerprint": "告警指纹",
         "incident_status": "告警状态",
         "incident_summary": "告警摘要",
+        "incident_url": "告警在 MoleSignal 里的地址（需配置对外地址）",
+        "incident_started_time": "告警开始时间（UTC）",
+        "incident_duration": "告警持续时长，如 1h 5m",
+        "incident_acknowledged_time": "确认时间（UTC）",
+        "incident_acknowledged_by": "确认人的用户 ID",
+        "incident_resolved_time": "解决时间（UTC）",
+        "incident_resolved_by": "解决人的用户 ID",
+        "incident_assignees": "处理人的用户 ID，逗号分隔",
+        "service": "服务（取自标签或注解）",
+        "environment": "环境（取自标签或注解）",
+        "affected_services": "受影响的服务，逗号分隔",
         "severity": "告警级别",
         "value": "本次触发值",
         "threshold": "规则阈值",
         "evaluated_at": "规则评估时间（微秒时间戳）",
+        "labels_all": "全部标签，如 service=api, env=production",
         "labels_key": "标签值，替换 <key>",
         "annotations_key": "注解值，替换 <key>",
+        "reply_ack": "回复这个代码确认告警，例如 31；只有开了「回复处理告警」的短信才填上",
+        "reply_resolve": "回复这个代码解决告警，例如 32",
+        "escalation_step": "升级到第几层（从 1 数起）",
+        "escalation_loop": "第几轮升级（从 1 数起）",
+        "escalation_target": "这一层通知谁：user、schedule 或 team",
+        "escalation_reason": "为什么通知：step（照常升级）、manual（立即升级）、reassigned（转派）、responder_added（增派）、snooze_ended（暂缓到点）、ack_timeout（确认后超时未解决）或 severity_raised（调高了严重度）",
         "schedule_id": "排班 ID",
         "schedule_name": "排班名称",
         "schedule_team_id": "排班所属团队 ID",
@@ -382,17 +728,104 @@
         "oncall_current_user": "当前值班用户 ID",
         "oncall_next_user": "下一位值班用户 ID",
         "oncall_transition_at": "交接时间（微秒时间戳）",
+        "oncall_transition_time": "交接时间（UTC）",
         "override_id": "替班记录 ID",
         "override_user": "替班用户 ID",
         "override_original_user": "原值班用户 ID",
         "override_start_at": "替班开始时间（微秒时间戳）",
         "override_end_at": "替班结束时间（微秒时间戳）",
-        "override_reason": "替班原因"
+        "override_start_time": "替班开始时间（UTC）",
+        "override_end_time": "替班结束时间（UTC）",
+        "override_reason": "替班原因",
+        "urgency": "紧急度：档位的键，例如 high（高）、low（低）",
+        "priority": "优先级 P1–P9；没设时为空",
+        "urgency_name": "组织给这档紧急度起的名称；没起名时为空",
+        "priority_name": "组织给这档优先级起的名称；没起名时为空"
+      }
+    },
+    "provider": {
+      "title": "服务商审核的模板",
+      "description_sms": "阿里云、腾讯云、华为云只发审核过的短信模板：它们的短信连接器发这里写的模板，其他短信连接器发上面的正文。",
+      "description_phone": "阿里云、腾讯云、华为云只念审核过的语音模板：它们的电话连接器念这里写的模板，其他电话连接器念上面的正文。",
+      "names": {
+        "aliyun": "阿里云",
+        "tencent": "腾讯云",
+        "huawei": "华为云"
+      },
+      "code": "模板编号",
+      "max_chars": "每个变量最多字数",
+      "max_chars_placeholder": {
+        "aliyun_sms": "35（默认）",
+        "aliyun_phone": "35（默认）",
+        "tencent_sms": "6（默认）",
+        "tencent_phone": "20（默认）",
+        "huawei_sms": "20（默认）",
+        "huawei_phone": "32（默认）"
+      },
+      "params": "变量",
+      "param_name": "变量名",
+      "param_value": "填什么",
+      "add_param": "添加变量",
+      "remove_param": "删除变量",
+      "params_hint": "变量名是模板里 {{variable}} 中的名字；填什么可以用右侧的变量，点一个会插入到光标处。",
+      "params_hint_position": "这家的模板变量按位置填：变量名写 1、2、3，对应模板里的第几个变量；填什么可以用右侧的变量，点一个会插入到光标处。",
+      "preview": "{{provider}}收到 {{code}}",
+      "problem_elsewhere": "{{provider}}的模板还没写好，写好才能保存。",
+      "problems": {
+        "code": "写上服务商给的模板编号，只用字母、数字、下划线和短横线。",
+        "param_name": "变量名只用字母、数字和下划线。",
+        "param_twice": "同一个变量写了两次。",
+        "param_value": "每个变量都要写填什么。",
+        "max_chars": "每个变量最多字数在 1 到 500 之间。"
+      }
+    },
+    "card": {
+      "title": "卡片",
+      "description": "飞书、钉钉、企业微信、Slack、Teams、Google Chat 的 App 和群机器人把通知发成卡片，卡片的正文就是上面的消息正文；关掉时照旧发文本。",
+      "toggle": "发成卡片",
+      "card_title": "卡片标题",
+      "card_title_placeholder": "空着用通知的标题",
+      "color": "标题颜色",
+      "colors": {
+        "severity": "按严重度",
+        "blue": "蓝",
+        "green": "绿",
+        "yellow": "黄",
+        "orange": "橙",
+        "red": "红",
+        "grey": "灰"
+      },
+      "fields": "字段",
+      "field_label": "字段名称",
+      "field_value": "字段的值",
+      "add_field": "添加字段",
+      "remove_field": "删除字段",
+      "links": "链接按钮",
+      "link_label": "按钮文字",
+      "link_url": "链接地址",
+      "add_link": "添加链接",
+      "remove_link": "删除链接",
+      "note": "页脚",
+      "hint": "各处都可以用变量，从右侧点一个会插入到光标处。填不出值的字段和链接不显示。按严重度时：严重是红、错误是橙、警告是黄，其余是蓝，恢复了是绿。",
+      "starting": {
+        "severity": "级别",
+        "status": "状态",
+        "service": "服务",
+        "schedule": "排班",
+        "next": "接班人",
+        "runbook": "处理手册"
+      },
+      "problems": {
+        "too_many": "一张卡片最多 10 个字段、5 个链接。",
+        "field": "每个字段都要有名称和值。",
+        "link": "每个链接都要有按钮文字和地址。",
+        "link_url": "链接地址要以 http:// 或 https:// 开头，或者是填出这种地址的变量。",
+        "too_long": "有一处写得太长：标题和页脚最多 200 字，字段名称 40 字、值 500 字，按钮文字 30 字。"
       }
     },
     "presets": {
-      "title": "动态生成模板",
-      "description": "选择预置后仍可继续编辑。",
+      "title": "预置模板",
+      "description": "套用后仍可继续编辑。",
       "items": {
         "alert_text": "告警纯文本",
         "alert_markdown": "告警 Markdown",
@@ -412,7 +845,20 @@
         "security_html": "安全 HTML",
         "system_text": "系统纯文本",
         "system_markdown": "系统 Markdown",
-        "system_html": "系统 HTML"
+        "system_html": "系统 HTML",
+        "alert_sms": "告警短信",
+        "alert_phone": "告警电话",
+        "escalation_sms": "告警升级短信",
+        "escalation_phone": "告警升级电话",
+        "oncall_sms": "值班交接短信",
+        "alert_resolved_text": "告警恢复纯文本",
+        "alert_resolved_markdown": "告警恢复 Markdown",
+        "alert_acknowledged_markdown": "告警确认 Markdown",
+        "alert_im_markdown": "告警 Markdown（带链接）",
+        "alert_email_html": "告警邮件（表格）",
+        "alert_resolved_sms": "告警恢复短信",
+        "oncall_phone": "值班交接电话",
+        "oncall_coverage_sms": "排班空缺短信"
       }
     },
     "delete_title": "删除通知模板？",
@@ -421,7 +867,11 @@
   "account": {
     "title": "我的通知设置",
     "subtitle": "管理当前工作区中的通知身份、分类偏好与免打扰时段。",
-    "unavailable": "无法获取当前登录用户身份。"
+    "unavailable": "无法获取当前登录用户身份。",
+    "reachability": {
+      "none": "你现在收不到告警：告警和升级通知都没有能用的通知方式，团队和组织也没有发到群里的默认路由。请在下面绑定通知方式，并把它加进通知步骤。",
+      "group_only": "你自己没有能用的通知方式，告警只会发到团队或组织的群里。请在下面绑定通知方式，并把它加进通知步骤。"
+    }
   },
   "target_types": {
     "direct_user": "个人",
@@ -444,6 +894,7 @@
     "success": "成功",
     "failed": "失败",
     "skipped": "已跳过",
-    "acknowledged": "已确认"
+    "acknowledged": "已确认",
+    "queued": "排队合并"
   }
 }

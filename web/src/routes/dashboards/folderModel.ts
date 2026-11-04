@@ -20,10 +20,10 @@ export function childFolderCounts(
 ): Map<string, number> {
   const counts = new Map<string, number>();
   for (const folder of folders) {
-    if (!folder.parent_id) continue;
+    if (!folder.parentId) continue;
     counts.set(
-      folder.parent_id,
-      (counts.get(folder.parent_id) ?? 0) + 1,
+      folder.parentId,
+      (counts.get(folder.parentId) ?? 0) + 1,
     );
   }
   return counts;
@@ -88,7 +88,7 @@ export function folderPayload(
   const trimmedName = name.trim();
   return parentValue === ROOT_PARENT
     ? { name: trimmedName }
-    : { name: trimmedName, parent_id: parentValue };
+    : { name: trimmedName, parentId: parentValue };
 }
 
 export function folderPath(
@@ -161,7 +161,7 @@ export function isDescendant(
   candidateId: string,
 ): boolean {
   const parentById = new Map(
-    folders.map((folder) => [folder.id, folder.parent_id]),
+    folders.map((folder) => [folder.id, folder.parentId]),
   );
   let parentId = parentById.get(candidateId);
   let guard = 0;

@@ -34,6 +34,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateReq {
     pub name: String,
     pub regex: String,
@@ -47,6 +48,7 @@ pub struct CreateReq {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateReq {
     pub name: String,
     pub regex: String,
@@ -59,6 +61,7 @@ pub struct UpdateReq {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Resp {
     pub id: String,
     pub name: String,
@@ -67,8 +70,8 @@ pub struct Resp {
     pub category: String,
     pub priority: i32,
     pub stream_filter: Option<String>,
-    pub created_at_micros: i64,
-    pub updated_at_micros: i64,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
 fn to_resp(p: LogPattern) -> Resp {
@@ -80,12 +83,12 @@ fn to_resp(p: LogPattern) -> Resp {
         category: p.category,
         priority: p.priority,
         stream_filter: p.stream_filter,
-        created_at_micros: p.created_at.0,
-        updated_at_micros: p.updated_at.0,
+        created_at: p.created_at.0,
+        updated_at: p.updated_at.0,
     }
 }
 
-#[permission("streams.read")]
+#[permission("log_patterns.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -102,7 +105,7 @@ async fn list(
     ))
 }
 
-#[permission("streams.read")]
+#[permission("log_patterns.read")]
 async fn get_one(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -112,7 +115,7 @@ async fn get_one(
     Ok(Json(to_resp(p)))
 }
 
-#[permission("streams.configure")]
+#[permission("log_patterns.manage")]
 async fn create(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -153,7 +156,7 @@ async fn create(
     Ok(Json(to_resp(p)))
 }
 
-#[permission("streams.configure")]
+#[permission("log_patterns.manage")]
 async fn update(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -191,7 +194,7 @@ async fn update(
     Ok(Json(to_resp(p)))
 }
 
-#[permission("streams.configure")]
+#[permission("log_patterns.manage")]
 async fn delete(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

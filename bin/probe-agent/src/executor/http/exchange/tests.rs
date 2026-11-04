@@ -15,7 +15,13 @@ use tokio_rustls::TlsAcceptor;
 use url::Url;
 
 use super::{Reply, request, send};
-use crate::executor::{http::proxy::Rules, timing::PhaseClock};
+use crate::executor::{
+    http::{
+        proxy::Rules,
+        route::{HttpVersion, Transport},
+    },
+    timing::PhaseClock,
+};
 
 /// How long a test proxy holds its answer back, so the wait for it can be told from noise.
 const PAUSE: Duration = Duration::from_millis(60);
@@ -109,7 +115,13 @@ async fn get_through(proxy: String, url: &str, phases: &PhaseClock) -> anyhow::R
     let proxies = Rules(everything.build());
     let address = nowhere().await;
 
-    send(request, address, &proxies, false, ALLOWED, phases).await
+    let transport = Transport {
+        verify: false,
+        version: HttpVersion::Auto,
+        identity: None,
+    };
+
+    send(request, address, &proxies, &transport, ALLOWED, phases).await
 }
 
 fn at_least(measured: Option<u64>, floor: Duration) -> bool {
@@ -125,7 +137,7 @@ async fn a_proxy_is_handed_a_plain_request_whole() {
         .await
         .expect("reply");
 
-    let body = reply.read_body(64).await.expect("body");
+    let (body, _) = reply.read_body(64, 64).await.expect("body");
     let handed = handed.await.expect("request");
     let timing = phases.breakdown(Duration::ZERO);
 
@@ -152,7 +164,7 @@ async fn a_secure_request_goes_through_a_tunnel() {
         .await
         .expect("reply");
 
-    let body = reply.read_body(64).await.expect("body");
+    let (body, _) = reply.read_body(64, 64).await.expect("body");
     let timing = phases.breakdown(Duration::ZERO);
 
     assert_eq!(

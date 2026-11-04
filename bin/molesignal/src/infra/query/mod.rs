@@ -6,25 +6,33 @@
 //! - [`promql`]：PromQL 引擎。
 //! - [`language_router`]：按查询语言在 SQL 与 PromQL 引擎间分发。
 //! - [`catalog_source`]：Buffer-first + multi-Dataset FileCatalog 一致性快照。
+//! - [`current_views`]：`rum_views_latest` / `rum_sessions_latest`，只看每个实体的最新版本。
 //! - [`tantivy_pruner`]：基于显式 Tantivy Artifact 的候选裁剪。
 //! - [`skip_pruner`]：基于 Segment 字段 min/max zone map 的候选裁剪。
+//! - [`refutations`]：各剪枝步骤证明不成立的原子条件，按文件累积，条件树不可能成立的文件不读。
 //! - [`remote`]：没有 querier 角色的节点把 SQL / PromQL 查询交给 querier 节点执行。
 //! - [`planner`]：多租户 planner rewrite；当前由 `ensure_stream_in_org` 校验越权。
 //! - [`parser`]：基于 sqlparser AST 的 base table 引用提取（change `sqlparser-join-planner`）。
 //! - [`rewrite`]：query rewrite 框架（org_id 注入等）；当前 passthrough。
 //! - [`scan_limit`]：`[querier].max_scan_rows` 单次读取行数上限。
 //! - [`arrow_json`]：Arrow 查询结果到 JSON 行的类型映射。
+//! - [`json_members`]：`json_text` / `json_keys`，读 JSON 列里的一层键。
 
 pub mod analyzer;
 pub mod arrow_json;
 pub mod catalog_source;
+pub mod cidr;
+pub mod current_views;
 pub mod federated;
 pub mod federation_cancel;
+pub mod grants;
+pub mod json_members;
 pub mod language_router;
 pub mod parquet_table;
 pub use ::query_language as parser;
 pub mod planner;
 pub mod promql;
+pub mod refutations;
 pub mod remote;
 pub mod rewrite;
 pub mod scan_limit;

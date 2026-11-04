@@ -7,11 +7,11 @@ mod access;
 mod automation;
 mod component_group;
 mod custom_domain;
+mod dependency;
 mod model;
 mod postmortem;
 mod query;
 mod repository;
-mod service_link;
 mod subscriber_import;
 mod subscription;
 
@@ -19,6 +19,12 @@ pub use access::*;
 pub use automation::*;
 pub use component_group::{ComponentKind, group_members, settle_component_groups};
 pub use custom_domain::*;
+pub use dependency::{
+    CauseIncident, ComponentDependency, DependencyHealth, DependencyImpact, DependencyKind,
+    DependencyMode, DependencyStatus, Evaluation, HealthCause, HealthSignals, HealthWrite,
+    IncidentSignal, MAX_COMPONENT_DEPENDENCIES, MonitorSignal, StatusPageDependencyRepository,
+    evaluate as evaluate_dependencies, normalize_dependencies,
+};
 pub use model::{
     ComponentLifecycle, ComponentStatus, ComponentVisibility, IncidentImpact, PublicIncidentStatus,
     StatusPage, StatusPageComponent, StatusPageComponentStatusEvent, StatusPageIncident,
@@ -33,7 +39,6 @@ pub use repository::{
     StatusPageIncidentWriteRepository, StatusPagePageRepository,
     StatusPagePlannedMaintenanceRepository, StatusPageRepository,
 };
-pub use service_link::{ComponentServiceLink, ServiceLinkMode, StatusPageServiceLinkRepository};
 pub use subscriber_import::{
     ImportedStatusPageSubscriber, StatusPageSubscriberImport, StatusPageSubscriberImportMode,
     StatusPageSubscriberImportOutcome,

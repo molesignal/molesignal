@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import * as escalationsApi from '@/api/escalations';
 import * as syntheticsApi from '@/api/synthetics';
-import type { MonitorDetail, MonitorKind, ProbeLocation } from '@/api/synthetics';
+import type { MonitorDetail, MonitorKind, ProbeAgent, ProbeLocation } from '@/api/synthetics';
 import { toApiError } from '@/lib/http';
 import {
   FormChecklist,
@@ -21,12 +21,16 @@ import { toast } from '@/shell/ui/sonner';
 
 import {
   AssertionEditor,
+  assertionSourceAllowed,
+  carriesTraceContext,
   CheckToggle,
+  HttpConnectionFields,
   intervalLabel,
   KIND_OPTIONS,
   supportsAssertions,
   TargetFields,
   targetIsValid,
+  tracesRoute,
 } from './editor/fields';
 import {
   applyPreset,
@@ -59,6 +63,12 @@ export function CheckEditor({
   const escalationQuery = useQuery({
     queryKey: ['escalation-policies'],
     queryFn: escalationsApi.list,
+    enabled: open,
+    staleTime: 30_000,
+  });
+  const agentsQuery = useQuery({
+    queryKey: ['synthetics', 'agents'],
+    queryFn: syntheticsApi.listAllAgents,
     enabled: open,
     staleTime: 30_000,
   });
@@ -103,6 +113,10 @@ export function CheckEditor({
     setDraft((current) => ({
       ...current,
       kind,
+      // An assertion reads what its kind of check gets back; one the new kind cannot read goes.
+      assertions: current.assertions.filter((assertion) =>
+        assertionSourceAllowed(kind, assertion.source),
+      ),
       intervalSeconds:
         kind === 'browser' && Number(current.intervalSeconds) < 60
           ? '60'
@@ -170,9 +184,16 @@ export function CheckEditor({
           <TargetFields draft={draft} patch={patch} />
         </FormSection>
 
+        {draft.kind === 'http' && (
+          <FormSection title={t('editor.connection')} description={t('editor.connection_hint')}>
+            <HttpConnectionFields draft={draft} patch={patch} />
+          </FormSection>
+        )}
+
         {supportsAssertions(draft.kind) && (
           <FormSection title={t('editor.assertions')} description={t('editor.assertions_hint')}>
             <AssertionEditor
+              kind={draft.kind}
               assertions={draft.assertions}
               onChange={(assertions) => patch('assertions', assertions)}
             />
@@ -238,7 +259,16 @@ export function CheckEditor({
                 .map((location) => ({
                   value: location.id,
                   label: location.name,
-                  hint: `${location.code} · ${t(`locations.${location.scope}`)}`,
+                  hint: [
+                    location.code,
+                    t(`locations.${location.scope}`),
+                    // A location none of whose Agents runs this kind skips every run of the check.
+                    agentsQuery.data && !runsKind(agentsQuery.data, location.id, draft.kind)
+                      ? t('editor.location_no_agent')
+                      : undefined,
+                  ]
+                    .filter(Boolean)
+                    .join(' · '),
                 }))}
               selected={draft.locationIds}
               onChange={(locationIds) => patch('locationIds', locationIds)}
@@ -247,21 +277,45 @@ export function CheckEditor({
         )}
 
         <FormSection>
+          <FormField label={t('editor.tags')} hint={t('editor.tags_hint')}>
+            <FormInput value={draft.tags} onChange={(event) => patch('tags', event.target.value)} placeholder="production, checkout" />
+          </FormField>
+        </FormSection>
+
+        {(carriesTraceContext(draft.kind) || tracesRoute(draft.kind)) && (
+          <FormSection title={t('editor.diagnostics')} description={t('editor.diagnostics_hint')}>
+            {carriesTraceContext(draft.kind) && (
+              <CheckToggle
+                checked={draft.injectTraceContext}
+                onChange={(checked) => patch('injectTraceContext', checked)}
+                label={t('editor.inject_trace_context')}
+              />
+            )}
+            {tracesRoute(draft.kind) && (
+              <CheckToggle
+                checked={draft.tracerouteOnFailure}
+                onChange={(checked) => patch('tracerouteOnFailure', checked)}
+                label={t('editor.traceroute_on_failure')}
+              />
+            )}
+          </FormSection>
+        )}
+
+        <FormSection title={t('editor.alerting')} description={t('editor.alerting_hint')}>
           <FormField label={t('editor.escalation_policy')}>
             <FormSelect
               value={draft.escalationPolicyId}
               onChange={(value) => patch('escalationPolicyId', value)}
               options={[
                 { value: '', label: t('editor.no_escalation_policy') },
+                // The `default` alias: routing picks the policy when the check fails.
+                { value: 'default', label: t('editor.routed_policy') },
                 ...(escalationQuery.data ?? []).map((policy) => ({
                   value: policy.id,
                   label: policy.name,
                 })),
               ]}
             />
-          </FormField>
-          <FormField label={t('editor.tags')} hint={t('editor.tags_hint')}>
-            <FormInput value={draft.tags} onChange={(event) => patch('tags', event.target.value)} placeholder="production, checkout" />
           </FormField>
           <CheckToggle
             checked={draft.alertOnDegraded}
@@ -273,8 +327,26 @@ export function CheckEditor({
             onChange={(checked) => patch('alertOnFlaky', checked)}
             label={t('editor.alert_on_flaky')}
           />
+          {/* A heartbeat has no locations to miss runs at: a late beat fails it. */}
+          {draft.kind !== 'heartbeat' && (
+            <CheckToggle
+              checked={draft.alertOnNoData}
+              onChange={(checked) => patch('alertOnNoData', checked)}
+              label={t('editor.alert_on_no_data')}
+            />
+          )}
         </FormSection>
       </form>
     </FormDrawer>
+  );
+}
+
+/** Whether an Agent online at `locationId` runs `kind` checks. */
+function runsKind(agents: readonly ProbeAgent[], locationId: string, kind: MonitorKind) {
+  return agents.some(
+    (agent) =>
+      agent.locationId === locationId &&
+      (agent.status === 'online' || agent.status === 'degraded') &&
+      agent.capabilities.includes(kind),
   );
 }

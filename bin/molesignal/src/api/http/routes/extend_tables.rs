@@ -5,7 +5,7 @@
 
 mod schema;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use axum::{
     Extension, Json, Router,
@@ -41,13 +41,14 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct RowResp {
     id: String,
     org_id: String,
     table_name: String,
     key: String,
     value_json: Value,
-    updated_at_micros: i64,
+    updated_at: i64,
 }
 
 fn row_resp(row: ExtendRow) -> RowResp {
@@ -57,16 +58,18 @@ fn row_resp(row: ExtendRow) -> RowResp {
         table_name: row.table_name,
         key: row.key,
         value_json: row.value_json,
-        updated_at_micros: row.updated_at.0,
+        updated_at: row.updated_at.0,
     }
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct UpsertReq {
     value_json: Value,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateTableReq {
     table_name: String,
     #[serde(default)]
@@ -84,13 +87,14 @@ struct TableUsageResp {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct TableResp {
     #[serde(flatten)]
     summary: ExtendTableSummary,
     usage_locations: Vec<TableUsageResp>,
 }
 
-#[permission("functions.read")]
+#[permission("tables.read")]
 async fn list_tables(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -115,7 +119,7 @@ async fn list_tables(
     ))
 }
 
-#[permission("functions.create")]
+#[permission("tables.create")]
 async fn create_table(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -123,15 +127,15 @@ async fn create_table(
 ) -> Result<Json<TableResp>> {
     let table_name = req.table_name.trim().to_string();
     let key_field = req.key_field.trim().to_string();
-    validate_schema_name(&table_name, "table_name")?;
-    validate_schema_name(&key_field, "key_field")?;
+    validate_schema_name(&table_name, "tableName")?;
+    validate_schema_name(&key_field, "keyField")?;
 
     if req.description.len() > 2_000 {
         return Err(Error::invalid("description cannot exceed 2000 characters"));
     }
 
     if req.value_fields.len() > 100 {
-        return Err(Error::invalid("value_fields cannot exceed 100 fields"));
+        return Err(Error::invalid("valueFields cannot exceed 100 fields"));
     }
 
     let mut seen = HashSet::new();
@@ -184,7 +188,7 @@ async fn create_table(
     }))
 }
 
-#[permission("functions.edit")]
+#[permission("tables.edit")]
 async fn update_table_fields(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -241,7 +245,7 @@ async fn update_table_fields(
     }))
 }
 
-#[permission("functions.read")]
+#[permission("tables.read")]
 async fn list_rows(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -263,7 +267,7 @@ async fn list_rows(
     ))
 }
 
-#[permission("functions.delete")]
+#[permission("tables.delete")]
 async fn delete_table(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -277,11 +281,11 @@ async fn delete_table(
         .delete_table(&ctx.org_id, &table)
         .await?;
 
-    state.storage.extend_table.drop_table(&ctx.org_id, &table);
+    state.storage.extend_table.forget(&ctx.org_id, &table);
     Ok(Json(serde_json::json!({ "deleted": true })))
 }
 
-#[permission("functions.edit")]
+#[permission("tables.edit")]
 async fn upsert_row(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -302,11 +306,11 @@ async fn upsert_row(
     };
 
     state.storage.extend_kv.upsert(row).await?;
-    refresh_table(&state, &ctx.org_id, &table).await?;
+    state.storage.extend_table.forget(&ctx.org_id, &table);
     Ok(Json(serde_json::json!({ "updated": true })))
 }
 
-#[permission("functions.edit")]
+#[permission("tables.edit")]
 async fn delete_row(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -321,7 +325,7 @@ async fn delete_row(
         .delete(&ctx.org_id, &table, &key)
         .await?;
 
-    refresh_table(&state, &ctx.org_id, &table).await?;
+    state.storage.extend_table.forget(&ctx.org_id, &table);
     Ok(Json(serde_json::json!({ "deleted": true })))
 }
 
@@ -442,23 +446,6 @@ fn text_references_identifier(text: &str, identifier: &str) -> bool {
 
 fn is_identifier_character(character: char) -> bool {
     character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | '.')
-}
-
-async fn refresh_table(state: &AppState, org_id: &Id, table: &str) -> Result<()> {
-    let rows = state.storage.extend_kv.list_table(org_id, table).await?;
-
-    if rows.is_empty() {
-        state.storage.extend_table.drop_table(org_id, table);
-        return Ok(());
-    }
-
-    let map: HashMap<String, Value> = rows
-        .into_iter()
-        .map(|row| (row.key, row.value_json))
-        .collect();
-
-    state.storage.extend_table.replace_table(org_id, table, map);
-    Ok(())
 }
 
 #[cfg(test)]

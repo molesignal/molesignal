@@ -9,7 +9,6 @@ import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
 import { type ProductStateProps } from '@/product/states';
 import { ChromeButton, IconButton, Pill } from '@/shell/chrome';
-import { CodeEditor } from '@/shell/codeEditor';
 import {
   FormDrawer,
   FormField,
@@ -18,6 +17,7 @@ import {
   FormSelect,
   FormSubmitFooter,
 } from '@/shell/FormDrawer';
+import { JsonEditor } from '@/shell/JsonEditor';
 import { queryStateFor } from '@/shell/query/State';
 import { toast } from '@/shell/ui/sonner';
 
@@ -40,7 +40,7 @@ function matchersSummary(matchers: api.LabelMatcher[]): string {
 export function SemanticGroups() {
   const { t } = useTranslation('semantic-groups');
   const qc = useQueryClient();
-  const manageAccess = useActionAccess({ permission: 'alerts.manage' });
+  const manageAccess = useActionAccess({ permission: 'alerts.semantic_groups.manage' });
   const [editing, setEditing] = React.useState<api.SemanticGroup | 'new' | null>(null);
   const [importing, setImporting] = React.useState(false);
   const [confirmingDelete, setConfirmingDelete] = React.useState<api.SemanticGroup | null>(null);
@@ -133,7 +133,7 @@ export function SemanticGroups() {
               header: t('list.columns.group_by'),
               cell: (g) => (
                 <span className="text-[var(--blue-ink)]">
-                  {g.group_by.length > 0 ? g.group_by.join(', ') : '—'}
+                  {g.groupBy.length > 0 ? g.groupBy.join(', ') : '—'}
                 </span>
               ),
             },
@@ -228,7 +228,7 @@ function GroupDrawer({
   onSaved: () => void;
 }) {
   const { t } = useTranslation('semantic-groups');
-  const manageAccess = useActionAccess({ permission: 'alerts.manage' });
+  const manageAccess = useActionAccess({ permission: 'alerts.semantic_groups.manage' });
   const isEdit = editing !== null;
   const [name, setName] = React.useState('');
   const [enabled, setEnabled] = React.useState(true);
@@ -239,7 +239,7 @@ function GroupDrawer({
     setName(editing?.name ?? '');
     setEnabled(editing?.enabled ?? true);
     setMatchers(editing?.matchers.map((m) => ({ ...m })) ?? []);
-    setGroupBy(editing?.group_by.join(', ') ?? '');
+    setGroupBy(editing?.groupBy.join(', ') ?? '');
   }, [editing, open]);
 
   const save = useMutation({
@@ -250,7 +250,7 @@ function GroupDrawer({
         matchers: matchers
           .map((m) => ({ label: m.label.trim(), op: m.op, value: m.value }))
           .filter((m) => m.label !== ''),
-        group_by: groupBy
+        groupBy: groupBy
           .split(',')
           .map((s) => s.trim())
           .filter(Boolean),
@@ -400,7 +400,7 @@ function ImportDrawer({
   onImported: () => void;
 }) {
   const { t } = useTranslation('semantic-groups');
-  const manageAccess = useActionAccess({ permission: 'alerts.manage' });
+  const manageAccess = useActionAccess({ permission: 'alerts.semantic_groups.manage' });
   const [text, setText] = React.useState('');
   const [parseError, setParseError] = React.useState<string | null>(null);
 
@@ -462,16 +462,17 @@ function ImportDrawer({
       }
     >
       <form id="semantic-group-import-form" onSubmit={submit} className="flex flex-col gap-2">
-        <CodeEditor
+        <JsonEditor
           value={text}
           onChange={setText}
-          language="json"
           label={t('import.editor_label')}
           ariaLabel={t('import.editor_label')}
           placeholder={t('import.placeholder')}
           minHeight={280}
           maxHeight={520}
           readOnly={manageAccess.disabled}
+          showHeader
+          showStatus
         />
         {parseError && <div className="font-sans text-xs text-red-soft">{parseError}</div>}
       </form>

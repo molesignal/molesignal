@@ -55,9 +55,9 @@ export function TopStreamsSection({
     (runtimeOverview?.streams ?? []).map((stream) => [stream.id, stream]),
   );
   const overviewWindowSecs =
-    runtimeOverview?.window_secs ?? overview?.window?.window_secs ?? 1;
+    runtimeOverview?.windowSecs ?? overview?.window?.windowSecs ?? 1;
   const generatedAtMicros =
-    runtimeOverview?.generated_at_micros ?? overview?.generated_at_micros;
+    runtimeOverview?.generatedAt ?? overview?.generatedAt;
   const nowMicros =
     generatedAtMicros != null ? toMicros(generatedAtMicros) : Date.now() * 1000;
   const tableViewportRef = React.useRef<HTMLDivElement>(null);
@@ -123,10 +123,10 @@ export function TopStreamsSection({
   const rows = streams.slice(0, visibleRowCount).map((stream) => {
     const runtime = runtimeById.get(stream.id);
     const lastReceived =
-      runtime?.last_received_at_micros ?? stream.last_received_at_micros;
+      runtime?.lastReceivedAt ?? stream.lastReceivedAt;
     const condition: StreamCondition = classifyStreamCondition({
       status: runtime?.status ?? 'unknown',
-      lastReceivedAtMicros: lastReceived,
+      lastReceivedAt: lastReceived,
       nowMicros,
     });
     return { stream, runtime, lastReceived, condition };
@@ -204,7 +204,7 @@ export function TopStreamsSection({
                   </Link>
                 </Td>
                 <Td>
-                  <StreamTypeTag type={stream.stream_type} />
+                  <StreamTypeTag type={stream.streamType} />
                 </Td>
                 <Td>
                   <ConditionBadge condition={condition} quiet={quiet} />

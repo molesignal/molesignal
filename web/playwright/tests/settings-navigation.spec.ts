@@ -100,7 +100,7 @@ test.describe('settings navigation', () => {
 
     // The block that holds the current page names itself a tier darker.
     expect(await labelIs('Notify', '--tx-0')).toBe(true);
-    expect(await labelIs('Data plane', '--tx-2')).toBe(true);
+    expect(await labelIs('AI & ML', '--tx-2')).toBe(true);
     expect(await labelIs('Data security', '--tx-2')).toBe(true);
 
     // A hairline closes each block but the last.
@@ -156,7 +156,7 @@ test.describe('settings navigation', () => {
     expect(section.width).toBeLessThanOrEqual(872);
 
     // Switches start where the fields do instead of drifting to the far edge.
-    const toggle = (await page.getByRole('switch', { name: 'Allow self-service joining' }).boundingBox())!;
+    const toggle = (await page.getByRole('switch', { name: 'Allow public links' }).boundingBox())!;
     expect(Math.abs(toggle.x - field.x)).toBeLessThanOrEqual(2);
   });
 

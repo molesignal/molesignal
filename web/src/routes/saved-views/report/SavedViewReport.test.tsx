@@ -46,17 +46,17 @@ const DAY_MICROS = 86_400_000_000;
 function view(overrides: Partial<SavedView> = {}): SavedView {
   return {
     id: 'v1',
-    org_id: 'org-1',
-    owner_user_id: 'user-1',
+    orgId: 'org-1',
+    ownerUserId: 'user-1',
     name: 'Errors by service',
     language: 'sql',
     statement: 'SELECT _timestamp, service, errors FROM "app_logs"',
-    time_range_secs: 86_400,
+    timeRangeSecs: 86_400,
     stream: 'app_logs',
     tags: ['errors'],
     pinned: true,
-    created_at: 0,
-    updated_at: 0,
+    createdAt: 0,
+    updatedAt: 0,
     ...overrides,
   };
 }
@@ -68,8 +68,8 @@ function rows(): QueryResult {
       [Date.parse('2026-10-10T08:15:30Z') * 1_000, 'checkout', 42, { code: 502 }],
       [Date.parse('2026-10-10T09:00:00Z') * 1_000, 'payments', 7, null],
     ],
-    scanned_rows: 1_200,
-    took_ms: 12,
+    scannedRows: 1_200,
+    tookMs: 12,
   };
 }
 
@@ -80,7 +80,7 @@ function apiError(status: number, message: string): AxiosError {
   } as AxiosResponse);
 }
 
-function renderReport(url = '/saved-views?view=v1&report_render=1') {
+function renderReport(url = '/saved-views?view=v1&reportRender=1') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
@@ -115,8 +115,7 @@ function cells(): string[][] {
 
 beforeEach(() => {
   useAuthStore.setState({
-    token: 'token',
-    ctx: { user_id: 'user-1', org_id: 'org-1', display_role: 'Owner', roles: [] },
+    ctx: { userId: 'user-1', orgId: 'org-1', displayRole: 'Owner', roles: [] },
   });
   setActiveTimePreference('Asia/Shanghai', 'iso_24h');
   mocks.get.mockResolvedValue(view());
@@ -131,14 +130,14 @@ afterEach(() => {
   mocks.runQuery.mockReset();
   mocks.listStreams.mockReset();
   setActiveTimePreference('', 'iso_24h');
-  useAuthStore.setState({ token: null, ctx: null });
+  useAuthStore.setState({ ctx: null });
 });
 
 describe('SavedViewReport', () => {
   it('prints the rows the view returns over the range the report states', async () => {
     vi.useFakeTimers({ toFake: ['Date'], now: NOW });
     renderReport(
-      '/saved-views?view=v1&report_render=1&time=2026-10-03T16%3A00%3A00Z..2026-10-10T16%3A00%3A00Z',
+      '/saved-views?view=v1&reportRender=1&time=2026-10-03T16%3A00%3A00Z..2026-10-10T16%3A00%3A00Z',
     );
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Errors by service' })).toBeTruthy();
@@ -146,14 +145,14 @@ describe('SavedViewReport', () => {
 
     expect(mocks.get).toHaveBeenCalledExactlyOnceWith('v1');
     expect(mocks.runQuery).toHaveBeenCalledExactlyOnceWith({
-      org_id: 'org-1',
+      orgId: 'org-1',
       language: 'sql',
       statement: 'SELECT _timestamp, service, errors FROM "app_logs"',
-      time_range: {
+      timeRange: {
         start: Date.parse('2026-10-03T16:00:00Z') * 1_000,
         end: Date.parse('2026-10-10T16:00:00Z') * 1_000,
       },
-      stream: { name: 'app_logs', stream_type: 'logs' },
+      stream: { name: 'app_logs', streamType: 'logs' },
       limit: REPORT_ROW_LIMIT + 1,
     });
     expect(facts()).toEqual({
@@ -177,12 +176,12 @@ describe('SavedViewReport', () => {
 
   it("covers the view's own look-back when the report states no range", async () => {
     vi.useFakeTimers({ toFake: ['Date'], now: NOW });
-    mocks.get.mockResolvedValue(view({ time_range_secs: 86_400 }));
+    mocks.get.mockResolvedValue(view({ timeRangeSecs: 86_400 }));
     renderReport();
 
     await screen.findByRole('table');
     expect(mocks.runQuery.mock.calls[0]?.[0]).toMatchObject({
-      time_range: { start: NOW_MICROS - DAY_MICROS, end: NOW_MICROS },
+      timeRange: { start: NOW_MICROS - DAY_MICROS, end: NOW_MICROS },
     });
     expect(facts()['Time range']).toBe('2026-10-10 09:30 – 2026-10-11 09:30');
   });
@@ -198,10 +197,10 @@ describe('SavedViewReport', () => {
     mocks.runQuery.mockResolvedValue({
       columns: ['_timestamp', 'value', 'status'],
       rows: [[Date.parse('2026-10-10T08:00:00Z') * 1_000, 12.5, '500']],
-      scanned_rows: 1,
-      took_ms: 3,
+      scannedRows: 1,
+      tookMs: 3,
     });
-    renderReport('/saved-views?view=v1&report_render=1&time=now-24h..now');
+    renderReport('/saved-views?view=v1&reportRender=1&time=now-24h..now');
 
     await screen.findByRole('table');
     expect(mocks.runQuery.mock.calls[0]?.[0]).toMatchObject({
@@ -253,7 +252,7 @@ describe('SavedViewReport', () => {
   });
 
   it('is ready with an empty result, and says the range has no rows', async () => {
-    mocks.runQuery.mockResolvedValue({ columns: ['service'], rows: [], scanned_rows: 0, took_ms: 1 });
+    mocks.runQuery.mockResolvedValue({ columns: ['service'], rows: [], scannedRows: 0, tookMs: 1 });
     renderReport();
 
     expect(await screen.findByText('No rows in this time range.')).toBeTruthy();
@@ -266,8 +265,8 @@ describe('SavedViewReport', () => {
     mocks.runQuery.mockResolvedValue({
       columns: ['service'],
       rows: Array.from({ length: REPORT_ROW_LIMIT + 1 }, (_, index) => [`svc-${index}`]),
-      scanned_rows: 0,
-      took_ms: 1,
+      scannedRows: 0,
+      tookMs: 1,
     });
     renderReport();
 
@@ -314,14 +313,14 @@ describe('SavedViewReport', () => {
   });
 
   it('fails the report when it names no view or a range that cannot be read', async () => {
-    const unnamed = renderReport('/saved-views?report_render=1');
+    const unnamed = renderReport('/saved-views?reportRender=1');
 
     expect((await screen.findByRole('alert')).textContent).toBe('The report does not name a saved view.');
     expect(root.dataset.reportRenderState).toBe('error');
     expect(mocks.get).not.toHaveBeenCalled();
     unnamed.unmount();
 
-    renderReport('/saved-views?view=v1&report_render=1&time=yesterday..now');
+    renderReport('/saved-views?view=v1&reportRender=1&time=yesterday..now');
 
     expect((await screen.findByRole('alert')).textContent).toBe('invalid time expression: yesterday');
     await waitFor(() => expect(root.dataset.reportRenderState).toBe('error'));

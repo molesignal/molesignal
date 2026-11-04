@@ -56,6 +56,8 @@ pub enum DeliveryStatus {
     Failed,
     Skipped,
     Acknowledged,
+    /// 排在电话线路上：这个号码刚拨过，等窗口结束与其间的通知合并成一通电话。
+    Queued,
 }
 
 impl DeliveryStatus {
@@ -67,6 +69,7 @@ impl DeliveryStatus {
             Self::Failed => "failed",
             Self::Skipped => "skipped",
             Self::Acknowledged => "acknowledged",
+            Self::Queued => "queued",
         }
     }
 
@@ -78,6 +81,7 @@ impl DeliveryStatus {
             "failed" => Ok(Self::Failed),
             "skipped" => Ok(Self::Skipped),
             "acknowledged" => Ok(Self::Acknowledged),
+            "queued" => Ok(Self::Queued),
             other => Err(Error::internal(format!(
                 "unknown notify delivery status: {other}"
             ))),
@@ -86,6 +90,7 @@ impl DeliveryStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NotifyDelivery {
     pub id: Id,
     pub organization_id: Id,
@@ -108,6 +113,14 @@ pub struct NotifyDelivery {
     pub escalated_at: Option<TimestampMicros>,
     pub idempotency_key: String,
     pub created_at: TimestampMicros,
+}
+
+/// 送到一个成员手上的一次告警通知（触发或升级）：同一个通知经几种方式送到只算一次。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PageRecord {
+    pub user_id: Id,
+    pub event_id: String,
+    pub at: TimestampMicros,
 }
 
 #[derive(Debug, Clone)]

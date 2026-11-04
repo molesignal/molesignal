@@ -14,9 +14,9 @@ function chat(id: string, updated: number, parent: string | null = null): Chat {
     provider: 'openai',
     model: 'gpt',
     title: id,
-    parent_chat_id: parent,
-    created_at_micros: updated,
-    updated_at_micros: updated,
+    parentChatId: parent,
+    createdAt: updated,
+    updatedAt: updated,
   } as Chat;
 }
 

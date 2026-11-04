@@ -1,0 +1,226 @@
+/*
+ * Edges.
+ *
+ * An edge is drawn with shadows, not with a line: a ring of 1px and a soft fall-off under it,
+ * each a translucent ink. A translucent edge darkens whatever it stands on, so one edge reads
+ * the same on a white card, the gray canvas, a tinted panel or a floating surface, where a
+ * border of one fixed colour shows lighter or darker than the ground under it.
+ *
+ * A card needs no edge at all: its tone and a soft shadow set it off the canvas
+ * (--shadow-functional-surface, tokens.css). What keeps a ring is what is pressed or typed in,
+ * fields and buttons, and the boxes drawn with a neutral border, keyed on the classes they
+ * already carry, so every call site follows without being touched.
+ */
+:root,
+[data-theme='dark'] {
+  /* A field: a ring and a shade inside it; its fill is a veil of light (tokens.css). */
+  --shadow-field:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-field-hover:
+    0 0 0 1px rgba(255, 255, 255, 0.13),
+    inset 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-field-focus:
+    0 0 0 1px rgba(255, 255, 255, 0.2),
+    inset 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-field-disabled: 0 0 0 1px rgba(255, 255, 255, 0.05);
+
+  /* A button stands on what it sits on: a lighter veil, a ring, a lit top edge and a shadow. */
+  --raised-surface:       rgba(255, 255, 255, 0.06);
+  --raised-surface-hover: rgba(255, 255, 255, 0.1);
+  --shadow-raised:
+    0 0 0 1px rgba(255, 255, 255, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 2px 4px -1px rgba(0, 0, 0, 0.25);
+  --shadow-raised-hover:
+    0 0 0 1px rgba(255, 255, 255, 0.11),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 3px 6px -2px rgba(0, 0, 0, 0.35);
+  --shadow-raised-press:
+    0 0 0 1px rgba(255, 255, 255, 0.09),
+    0 1px 1px rgba(0, 0, 0, 0.3);
+  --shadow-raised-disabled: 0 0 0 1px rgba(255, 255, 255, 0.05);
+
+  /* A filled button (the brand, a destructive action): its colour is its edge, the shadow is under it. */
+  --shadow-filled:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --shadow-filled-hover:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.45),
+    0 3px 6px -2px rgba(0, 0, 0, 0.4);
+
+  /* A box that had a neutral border: a ring and a small fall-off; an inline one (a code, a key) the ring alone. */
+  --shadow-frame:
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 2px -1px rgba(0, 0, 0, 0.5),
+    0 2px 4px -2px rgba(0, 0, 0, 0.35);
+  --shadow-frame-hover:
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 1px 2px -1px rgba(0, 0, 0, 0.5),
+    0 3px 6px -3px rgba(0, 0, 0, 0.45);
+  --shadow-frame-inline: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+[data-theme='light'] {
+  --shadow-field:
+    0 0 0 1px rgba(19, 24, 37, 0.1),
+    0 1px 2px -1px rgba(19, 24, 37, 0.1);
+  --shadow-field-hover:
+    0 0 0 1px rgba(19, 24, 37, 0.17),
+    0 1px 2px -1px rgba(19, 24, 37, 0.12);
+  --shadow-field-focus:
+    0 0 0 1px rgba(19, 24, 37, 0.26),
+    0 1px 2px -1px rgba(19, 24, 37, 0.12);
+  --shadow-field-disabled: 0 0 0 1px rgba(19, 24, 37, 0.06);
+
+  --raised-surface:       #ffffff;
+  --raised-surface-hover: #f7f8fa;
+  --shadow-raised:
+    0 0 0 1px rgba(19, 24, 37, 0.08),
+    0 1px 1px -0.5px rgba(19, 24, 37, 0.08),
+    0 2px 3px -1.5px rgba(19, 24, 37, 0.08),
+    0 4px 6px -3px rgba(19, 24, 37, 0.06);
+  --shadow-raised-hover:
+    0 0 0 1px rgba(19, 24, 37, 0.12),
+    0 1px 1px -0.5px rgba(19, 24, 37, 0.1),
+    0 3px 4px -1.5px rgba(19, 24, 37, 0.1),
+    0 6px 8px -4px rgba(19, 24, 37, 0.08);
+  --shadow-raised-press:
+    0 0 0 1px rgba(19, 24, 37, 0.12),
+    0 1px 1px rgba(19, 24, 37, 0.06);
+  --shadow-raised-disabled: 0 0 0 1px rgba(19, 24, 37, 0.06);
+
+  --shadow-filled:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 1px 1px -0.5px rgba(19, 24, 37, 0.14),
+    0 2px 3px -1.5px rgba(19, 24, 37, 0.12),
+    0 4px 6px -3px rgba(19, 24, 37, 0.1);
+  --shadow-filled-hover:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 1px 1px -0.5px rgba(19, 24, 37, 0.16),
+    0 3px 4px -1.5px rgba(19, 24, 37, 0.14),
+    0 6px 8px -4px rgba(19, 24, 37, 0.12);
+
+  --shadow-frame:
+    0 0 0 1px rgba(19, 24, 37, 0.05),
+    0 1px 2px -1px rgba(19, 24, 37, 0.06),
+    0 2px 4px -2px rgba(19, 24, 37, 0.04);
+  --shadow-frame-hover:
+    0 0 0 1px rgba(19, 24, 37, 0.12),
+    0 1px 2px -1px rgba(19, 24, 37, 0.08),
+    0 3px 6px -3px rgba(19, 24, 37, 0.08);
+  --shadow-frame-inline: 0 0 0 1px rgba(19, 24, 37, 0.1);
+}
+
+/*
+ * Fields. The control-surface fill marks a field: the box a value is typed or chosen in, and
+ * the read-only wells that look like one. Its ring darkens under the pointer and more while it
+ * holds the focus or its list is open; the fill stays, since a white field that turned gray
+ * under the pointer read as another control. The shadow is important because the field rules
+ * in tokens.css clear every shadow a utility might bring to a field. A field that cannot be used
+ * is gray whoever draws it, under the pointer too: a label passes its hover on to the field in it.
+ */
+.bg-\[var\(--control-surface\)\] {
+  box-shadow: var(--shadow-field) !important;
+  transition-property: color, background-color, box-shadow;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--easing-default);
+}
+
+.bg-\[var\(--control-surface\)\]:hover:not([aria-invalid='true'], :disabled) {
+  background-color: var(--control-surface) !important;
+  box-shadow: var(--shadow-field-hover) !important;
+}
+
+.bg-\[var\(--control-surface\)\]:is(:focus, :focus-visible, :focus-within, [data-state='open']):not([aria-invalid='true']) {
+  background-color: var(--control-surface) !important;
+  box-shadow: var(--shadow-field-focus) !important;
+}
+
+.bg-\[var\(--control-surface\)\]:disabled {
+  background-color: var(--bg-3) !important;
+  box-shadow: var(--shadow-field-disabled) !important;
+}
+
+/*
+ * Buttons. A gray button stands up from the surface instead: a raised fill, a ring and a soft
+ * shadow that grows a little under the pointer and settles when pressed. Selected by the gray
+ * the product's quiet buttons rest on, so the primitives and the buttons drawn by hand follow
+ * alike.
+ */
+:is(button, a[href], summary, [role='button']):is(.bg-bg-2, .bg-secondary) {
+  background-color: var(--raised-surface);
+  box-shadow: var(--shadow-raised) !important;
+  transition-property: color, background-color, border-color, box-shadow, filter, transform, opacity;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--easing-default);
+}
+
+:is(button, a[href], summary, [role='button']):is(.bg-bg-2, .bg-secondary):not(:disabled, [aria-disabled='true']):is(:hover, :focus-visible) {
+  background-color: var(--raised-surface-hover);
+  box-shadow: var(--shadow-raised-hover) !important;
+}
+
+:is(button, a[href], summary, [role='button']):is(.bg-bg-2, .bg-secondary):not(:disabled, [aria-disabled='true']):active {
+  box-shadow: var(--shadow-raised-press) !important;
+}
+
+:is(button, a[href], summary, [role='button']):is(.bg-bg-2, .bg-secondary):is(:disabled, [aria-disabled='true']) {
+  box-shadow: var(--shadow-raised-disabled) !important;
+}
+
+/* A filled button keeps its colour as its edge and stands on a shadow of its own. */
+:is(button, a[href], [role='button']):is(.bg-indigo, .bg-primary, .bg-destructive, .auth-primary-button):not(:disabled, [aria-disabled='true']) {
+  box-shadow: var(--shadow-filled);
+}
+
+:is(button, a[href], [role='button']):is(.bg-indigo, .bg-primary, .bg-destructive, .auth-primary-button):not(:disabled, [aria-disabled='true']):is(:hover, :focus-visible) {
+  box-shadow: var(--shadow-filled-hover);
+}
+
+:is(button, a[href], [role='button']):is(.bg-indigo, .bg-primary, .bg-destructive, .auth-primary-button):not(:disabled, [aria-disabled='true']):active {
+  box-shadow: var(--shadow-raised-press);
+}
+
+/*
+ * Boxes drawn with a neutral border (a panel inside a card, a code block, a tile) keep the
+ * border's width, so nothing moves, and show the ring and the fall-off instead. Left as they
+ * are: dashed outlines, a border that is a colour (a state, a tone), a box that brings its own
+ * shadow, one side of a box, table cells and the form controls that have a frame of their own.
+ */
+.border:is(.border-bd-0, .border-bd-1, .border-bd-2, .border-border):not(.border-dashed, .border-dotted, [class*='shadow'], [class*='border-l-'], [class*='border-r-'], [class*='border-t-'], [class*='border-b-'], [class*='border-x-'], [class*='border-y-'], table, tr, td, th, hr, input, textarea, select, [role='checkbox'], [role='radio'], [role='switch']) {
+  border-color: transparent;
+  box-shadow: var(--shadow-frame);
+}
+
+:is(a[href], button, label, summary, [role='button']).border:is(.border-bd-0, .border-bd-1, .border-bd-2, .border-border):not(.border-dashed, .border-dotted, [class*='shadow'], [class*='border-l-'], [class*='border-r-'], [class*='border-t-'], [class*='border-b-'], [class*='border-x-'], [class*='border-y-'], [role='checkbox'], [role='radio'], [role='switch']):hover {
+  box-shadow: var(--shadow-frame-hover);
+}
+
+:is(span, code, kbd, samp, abbr, small, img).border:is(.border-bd-0, .border-bd-1, .border-bd-2, .border-border):not(.border-dashed, .border-dotted, [class*='shadow'], [class*='border-l-'], [class*='border-r-'], [class*='border-t-'], [class*='border-b-'], [class*='border-x-'], [class*='border-y-']) {
+  box-shadow: var(--shadow-frame-inline);
+}
+
+/*
+ * Images keep a hairline of plain ink on their edge, inset so they stay their size, so a photo or
+ * a logo on a white tile holds its outline on any ground: black at 10% on light, white at 10% on
+ * dark, never a tinted grey, which reads as dirt on the edge. An image with a border of its own,
+ * or filling a box that has one or a ring (an avatar), keeps that frame alone. Zero specificity:
+ * `outline-none` on an image takes it off.
+ */
+:where(img:not(.border, .border > img, [class*='shadow'] > img)) {
+  outline: 1px solid rgba(0, 0, 0, 0.1);
+  outline-offset: -1px;
+}
+
+:where([data-theme='dark']) :where(img:not(.border, .border > img, [class*='shadow'] > img)) {
+  outline-color: rgba(255, 255, 255, 0.1);
+}
+
+:where([data-theme='dark'] [data-theme='light']) :where(img:not(.border, .border > img, [class*='shadow'] > img)) {
+  outline-color: rgba(0, 0, 0, 0.1);
+}

@@ -1,16 +1,19 @@
 import type { RouteObject } from 'react-router-dom';
 import { Navigate, useParams } from 'react-router-dom';
 
+import { FirstOpenablePage } from '@/product/moduleAccess';
+
 import { Agents } from './agents/Agents';
 import { CheckDetail } from './checks/detail/index';
 import { Checks } from './checks/index';
+import { SYNTHETICS_PAGES } from './Frame';
 import { Locations } from './locations/index';
 import { SyntheticsOverview } from './overview/index';
 import { Results } from './results/index';
 import { Variables } from './variables/index';
 
 export const SYNTHETICS_ROUTES: RouteObject[] = [
-  { path: 'synthetics', element: <Navigate to="/synthetics/overview" replace /> },
+  { path: 'synthetics', element: <FirstOpenablePage paths={SYNTHETICS_PAGES} /> },
   { path: 'synthetics/overview', element: <SyntheticsOverview /> },
   { path: 'synthetics/checks', element: <Checks /> },
   { path: 'synthetics/checks/new', element: <Checks /> },

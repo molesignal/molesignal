@@ -153,6 +153,7 @@ fn count_request(org: &str) -> QueryRequest {
             stream_type: StreamType::LOGS,
         }),
         limit: None,
+        step: None,
         federation_clusters: Vec::new(),
     }
 }

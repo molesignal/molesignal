@@ -43,14 +43,14 @@ impl RealToolDispatcher {
                 )?;
 
                 Some((score, json!({
-                    "name": tool.name, "display_name": tool.display_name,
+                    "name": tool.name, "displayName": tool.display_name,
                     "description": tool.description,
                     "domain": tool.domain, "category": tool.category, "tags": tool.tags,
-                    "required_permissions": tool.required_permissions,
-                    "permission_mode": tool.permission_mode,
-                    "execution_mode": self.resolution.execution_mode_for_builtin(&tool.name),
-                    "input_schema": args.include_schema.unwrap_or(true).then_some(tool.input_schema),
-                    "output_schema": args.include_schema.unwrap_or(true).then_some(tool.output_schema),
+                    "requiredPermissions": tool.required_permissions,
+                    "permissionMode": tool.permission_mode,
+                    "executionMode": self.resolution.execution_mode_for_builtin(&tool.name),
+                    "inputSchema": args.include_schema.unwrap_or(true).then_some(tool.input_schema),
+                    "outputSchema": args.include_schema.unwrap_or(true).then_some(tool.output_schema),
                 })))
             })
             .collect::<Vec<_>>();
@@ -72,12 +72,12 @@ impl RealToolDispatcher {
                     )?;
 
                     Some((score, json!({
-                        "name": tool.name, "display_name": tool.display_name,
+                        "name": tool.name, "displayName": tool.display_name,
                         "description": tool.description, "tags": tool.tags,
                         "risk": tool.risk, "source": "mcp",
-                        "execution_mode": self.resolution.execution_mode_for_mcp(tool),
-                        "input_schema": args.include_schema.unwrap_or(true).then_some(tool.input_schema.clone()),
-                        "output_schema": args.include_schema.unwrap_or(true).then_some(tool.output_schema.clone()),
+                        "executionMode": self.resolution.execution_mode_for_mcp(tool),
+                        "inputSchema": args.include_schema.unwrap_or(true).then_some(tool.input_schema.clone()),
+                        "outputSchema": args.include_schema.unwrap_or(true).then_some(tool.output_schema.clone()),
                     })))
                 }),
         );
@@ -121,7 +121,7 @@ impl RealToolDispatcher {
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ToolSearchArgs {
     #[serde(default)]
     query: Option<String>,

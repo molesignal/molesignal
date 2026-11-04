@@ -1,52 +1,54 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import * as businessServicesApi from '@/api/businessServices';
-import type { BusinessService } from '@/api/businessServices';
+import * as alertsApi from '@/api/alerts';
+import { apmApi } from '@/api/apm';
 import type { StatusPageComponent } from '@/api/statusPages';
+import * as syntheticsApi from '@/api/synthetics';
 import i18n from '@/i18n';
+import type { AlertRule } from '@/types/alerting';
 
 import { ComponentFormDrawer } from './ComponentFormDrawer';
 
-vi.mock('@/api/businessServices', () => ({
-  list: vi.fn(),
-}));
+vi.mock('@/api/alerts', () => ({ list: vi.fn() }));
+vi.mock('@/api/synthetics', () => ({ listMonitors: vi.fn() }));
+vi.mock('@/api/apm', () => ({ apmApi: { services: vi.fn() } }));
 vi.mock('@/product/actionAccess', () => ({
   useActionAccess: () => ({ allowed: true, disabled: false, reason: undefined }),
 }));
 
-const listServices = vi.mocked(businessServicesApi.list);
-
-const checkout: BusinessService = {
-  id: 'checkout',
-  org_id: 'org',
-  name: 'Checkout',
-  description: '',
-  dependencies: [],
-  health: { status: 'operational', causes: [], changed_at: 1, evaluated_at: 1, history: [] },
-  created_by: null,
-  created_at: 1,
-  updated_at: 1,
-  linked_components: [],
-};
+const listRules = vi.mocked(alertsApi.list);
+const listMonitors = vi.mocked(syntheticsApi.listMonitors);
+const apmServices = vi.mocked(apmApi.services);
 
 const component: StatusPageComponent = {
   id: 'api',
-  org_id: 'org',
-  status_page_id: 'page',
+  orgId: 'org',
+  statusPageId: 'page',
   name: 'API',
   description: '',
   status: 'operational',
   visibility: 'enabled',
   lifecycle: 'active',
   position: 0,
-  archived_at: null,
-  created_at: 1,
-  updated_at: 1,
-  business_service: { business_service_id: 'checkout', mode: 'follow', notify_subscribers: true },
+  archivedAt: null,
+  createdAt: 1,
+  updatedAt: 1,
+  dependencies: [
+    { kind: 'technical_service', target: 'checkout-api', impact: 'outage' },
+    { kind: 'alert_rule', target: 'rule-5xx', impact: 'degraded' },
+  ],
+  dependencyMode: 'follow',
+  dependencyNotify: true,
+  dependencyHealth: {
+    status: 'partial_outage',
+    causes: [{ kind: 'technical_service', target: 'checkout-api', status: 'partial_outage', incidentCount: 2 }],
+    changedAt: 1,
+    evaluatedAt: 2,
+  },
 };
 
 function renderDrawer(onSubmit = vi.fn(), editing: StatusPageComponent | null = component) {
@@ -71,25 +73,48 @@ function renderDrawer(onSubmit = vi.fn(), editing: StatusPageComponent | null = 
 describe('ComponentFormDrawer', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('en-us');
-    listServices.mockResolvedValue([checkout]);
+    listRules.mockResolvedValue([{ id: 'rule-5xx', name: 'API 5xx rate' } as AlertRule]);
+    listMonitors.mockResolvedValue([]);
+    apmServices.mockResolvedValue({ items: [] } as unknown as Awaited<ReturnType<typeof apmApi.services>>);
   });
 
-  afterEach(() => cleanup());
+  afterEach(() => {
+    vi.clearAllMocks();
+    cleanup();
+  });
 
-  it('keeps the business service of a component being edited once the list arrives', async () => {
+  it('shows what a component depends on, how it is doing, and keeps both on save', async () => {
     const user = userEvent.setup();
     const onSubmit = renderDrawer();
 
-    // The select is drawn again once the list is no longer loading, so it is looked up each time.
+    const health = document.querySelector('[data-dependency-health]') as HTMLElement;
+    expect(within(health).getByText('Partial outage')).toBeTruthy();
+    expect(within(health).getByText('2 open alert incidents', { exact: false })).toBeTruthy();
+    expect(screen.getByDisplayValue('checkout-api')).toBeTruthy();
+    // The rule is named once the list arrives, so the select is looked up each time; the
+    // technical service before it is a text field with suggestions, a combobox as well.
     await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: 'Business service' }).textContent).toContain('Checkout'),
+      expect(screen.getAllByRole('combobox', { name: 'Dependency' })[1]!.textContent).toContain('API 5xx rate'),
     );
 
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
-    expect(onSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({ input: expect.objectContaining({ name: 'API' }), link: undefined }),
-    );
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'API',
+      dependencies: component.dependencies,
+      dependencyMode: 'follow',
+      dependencyNotify: true,
+    }));
+  });
+
+  it('sends the other way the health reaches the component', async () => {
+    const user = userEvent.setup();
+    const onSubmit = renderDrawer();
+
+    await user.click(screen.getByText('Through automation rules'));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ dependencyMode: 'automation' }));
   });
 
   it('makes a group with nothing but a name and a description', async () => {
@@ -98,37 +123,18 @@ describe('ComponentFormDrawer', () => {
 
     await user.click(screen.getByText('Group'));
     await user.type(screen.getByRole('textbox', { name: /^Group name/ }), 'AI SRE');
-    // A group has no status, visibility or business service of its own.
-    expect(screen.queryByRole('combobox', { name: 'Business service' })).toBeNull();
+    // A group has no status, visibility or dependencies of its own.
+    expect(screen.queryByText('Dependencies')).toBeNull();
     expect(screen.queryByText('Current status')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Add group' }));
 
-    expect(onSubmit).toHaveBeenCalledWith({
-      input: expect.objectContaining({
-        name: 'AI SRE',
-        kind: 'group',
-        group_id: null,
-        status: 'operational',
-        visibility: 'enabled',
-      }),
-      link: undefined,
-    });
-  });
-
-  it('sends the link again when how the component follows the service changes', async () => {
-    const user = userEvent.setup();
-    const onSubmit = renderDrawer();
-
-    await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: 'Business service' }).textContent).toContain('Checkout'),
-    );
-    await user.click(screen.getByText('Through automation rules'));
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
-
-    expect(onSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        link: { business_service_id: 'checkout', mode: 'automation', notify_subscribers: true },
-      }),
-    );
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'AI SRE',
+      kind: 'group',
+      groupId: null,
+      status: 'operational',
+      visibility: 'enabled',
+    }));
+    expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('dependencies');
   });
 });

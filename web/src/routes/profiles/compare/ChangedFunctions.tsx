@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { uiSectionTitleClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import {
   Table,
@@ -54,7 +55,7 @@ export function ChangedFunctions({
       )}
     >
       <div className="flex min-h-[40px] flex-wrap items-center gap-x-[10px] gap-y-[4px] px-[12px] py-[6px]">
-        <h2 className="text-sm font-strong text-tx-0">{t('compare.changed.title')}</h2>
+        <h2 className={uiSectionTitleClass}>{t('compare.changed.title')}</h2>
         <span className="text-xs tabular-nums text-tx-2">
           {t('compare.changed.count', { count: rows.length })}
         </span>

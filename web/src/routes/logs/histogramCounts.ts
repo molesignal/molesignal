@@ -2,8 +2,8 @@ import * as React from 'react';
 
 import * as webApi from '@/api/web';
 import { answerFromPayload, type HistogramCountsSource } from '@/shell/query/histogram/counts';
-import type { GlobalFilter } from '@/stores/useFiltersStore';
 
+import type { PinnedLogFilter } from './conditions/model';
 import { logMatchRequest } from './cursorQuery';
 
 /** The field query whose matches the histogram counts, as it was run. */
@@ -11,7 +11,8 @@ export interface CountedLogQuery {
   orgId: string;
   stream: string;
   statement: string;
-  globalFilters: GlobalFilter[];
+  /** The pinned filters as they applied to the stream when it ran. */
+  pinned: readonly PinnedLogFilter[];
   /** When the query was run: running it again counts it again. */
   ranAt: number;
 }
@@ -27,17 +28,17 @@ export function useLogHistogramCounts(query: CountedLogQuery | null): HistogramC
   return React.useMemo(() => {
     if (!query) return undefined;
 
-    const { orgId, stream, statement, globalFilters, ranAt } = query;
+    const { orgId, stream, statement, pinned, ranAt } = query;
 
     return {
-      key: ['logs', orgId, stream, statement, JSON.stringify(globalFilters), ranAt],
-      load: async ({ range, binMicros, originMicros }, signal) =>
+      key: ['logs', orgId, stream, statement, JSON.stringify(pinned), ranAt],
+      load: async ({ range, binMicros, originTime: originMicros }, signal) =>
         answerFromPayload(
           await webApi.logsHistogram(
             {
-              ...logMatchRequest(stream, statement, globalFilters, range),
-              bucket_micros: binMicros,
-              origin_micros: originMicros,
+              ...logMatchRequest(stream, statement, pinned, range),
+              bucketTime: binMicros,
+              originTime: originMicros,
             },
             signal,
           ),

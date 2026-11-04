@@ -227,12 +227,12 @@ function TableVisualization({
     <div className="h-full overflow-auto">
       <table className="w-full border-separate border-spacing-0 font-sans text-xs">
         {options.showHeader !== false && (
-          <thead className="sticky top-0 z-10 bg-bg-2 text-left text-tx-2">
+          <thead className="sticky top-0 z-10 bg-[var(--table-head-surface)] text-left text-tx-0">
             <tr>
               {frame.fields.map((field) => (
                 <th
                   key={field.id}
-                  className="border-b border-bd-1 px-2 py-1.5 font-medium"
+                  className="border-b border-bd-1 px-2 py-1.5 font-strong"
                 >
                   {field.config?.displayName ?? field.name}
                 </th>

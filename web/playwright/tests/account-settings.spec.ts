@@ -88,7 +88,7 @@ test.describe('account settings center', () => {
     await page.getByRole('button', { name: 'Save changes' }).click();
     const response = await responsePromise;
     expect(response.request().postDataJSON()).toEqual({
-      display_name: 'Root SRE',
+      displayName: 'Root SRE',
       bio: 'Platform operations lead',
     });
     await expect(

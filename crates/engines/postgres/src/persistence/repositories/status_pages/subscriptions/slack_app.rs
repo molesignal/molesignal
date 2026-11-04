@@ -72,12 +72,12 @@ impl StatusPageSlackAppRepository for PgStatusPageRepository {
     ) -> Result<Option<StatusPageSubscriber>> {
         let sql = format!(
             "SELECT {SUBSCRIBER_COLS} FROM status_page_subscribers
-             WHERE token_hash = $1 AND {WAITING} AND created_at_micros >= $2"
+             WHERE token_hash = $1 AND {WAITING} AND created_at >= $2"
         );
 
         sqlx::query(&sql)
             .bind(state_hash)
-            .bind(begun_after.0)
+            .bind(begun_after)
             .fetch_optional(&self.pool)
             .await
             .map_err(super::super::sqlx_err)?
@@ -98,8 +98,8 @@ impl StatusPageSlackAppRepository for PgStatusPageRepository {
             "UPDATE status_page_subscribers SET
                  target_ciphertext = $4, target_nonce = $5, target_hash = $6,
                  target_label = $7, token_hash = $8, token_ciphertext = $9, token_nonce = $10,
-                 status = 'active', confirmed_at_micros = $11, unsubscribed_at_micros = NULL,
-                 updated_at_micros = $11
+                 status = 'active', confirmed_at = $11, unsubscribed_at = NULL,
+                 updated_at = $11
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3 AND {WAITING}
              RETURNING {SUBSCRIBER_COLS}"
         );
@@ -115,7 +115,7 @@ impl StatusPageSlackAppRepository for PgStatusPageRepository {
             .bind(&completion.token_hash)
             .bind(&token_ciphertext)
             .bind(&token_nonce)
-            .bind(completion.completed_at.0)
+            .bind(completion.completed_at)
             .fetch_optional(&self.pool)
             .await
             .map_err(super::super::sqlx_err)?
@@ -145,12 +145,11 @@ impl StatusPageSlackAppRepository for PgStatusPageRepository {
         &self,
         begun_before: TimestampMicros,
     ) -> Result<u64> {
-        let sql = format!(
-            "DELETE FROM status_page_subscribers WHERE {WAITING} AND created_at_micros < $1"
-        );
+        let sql =
+            format!("DELETE FROM status_page_subscribers WHERE {WAITING} AND created_at < $1");
 
         let purged = sqlx::query(&sql)
-            .bind(begun_before.0)
+            .bind(begun_before)
             .execute(&self.pool)
             .await
             .map_err(super::super::sqlx_err)?;

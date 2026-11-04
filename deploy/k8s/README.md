@@ -1,5 +1,7 @@
 # Kubernetes 部署
 
+也可以用官方 Helm chart 安装，见 [molesignal-helm](https://github.com/molesignal/molesignal-helm)。
+
 这套清单把各角色拆成独立的工作负载。`router` 提供完整的 HTTP API 与 Web UI，把写入转发给
 `intake`、把查询交给 `querier`；其余角色在 5080 端口提供探活、就绪与指标。
 

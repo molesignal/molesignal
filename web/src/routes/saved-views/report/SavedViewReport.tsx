@@ -64,7 +64,7 @@ export function SavedViewReport() {
 function SavedViewRun({ view }: { view: SavedView }) {
   const { t } = useTranslation('saved-views');
   const [search] = useSearchParams();
-  const orgId = useAuthStore((state) => state.ctx?.org_id ?? '');
+  const orgId = useAuthStore((state) => state.ctx?.orgId ?? '');
   const [generatedAt] = React.useState(() => new Date());
   const covered = React.useMemo<{ range: ReportRange | null; error: unknown }>(() => {
     try {
@@ -78,7 +78,7 @@ function SavedViewRun({ view }: { view: SavedView }) {
   }, [generatedAt, search, view]);
   const { range } = covered;
   const result = useQuery({
-    queryKey: ['saved-views', 'report', view.id, view.updated_at, orgId, range?.start, range?.end],
+    queryKey: ['saved-views', 'report', view.id, view.updatedAt, orgId, range?.start, range?.end],
     queryFn: () => runSavedView(view, orgId, range!),
     enabled: range !== null,
     // Printed once: the rows on the page are the rows that were asked for.

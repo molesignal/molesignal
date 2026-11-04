@@ -6,9 +6,24 @@ import { expectExplorerResults, serveExplorerResults } from '../fixtures/mockExp
 /** The halves of a split page, left then right. */
 const halves = (page: Page) => page.locator('[data-query-pane]');
 const half = (page: Page, side: 0 | 1) => page.locator(`[data-query-pane="${side}"]`);
-/** The strips of tabs, one over each half. */
+/** The lists of tabs, one in each half's query box. */
 const strips = (page: Page) => page.locator('[data-query-tab-strip]');
 const splitSwitch = (page: Page) => page.locator('[data-query-split]');
+/** The head over each explorer's results, where the switch leads the signs. */
+const RESULTS_HEADS = {
+  logs: '[data-log-result-summary]',
+  traces: '[data-trace-results-head]',
+  metrics: '[data-metrics-results-header]',
+  rum: '[data-rum-results-head]',
+} as const;
+
+/** Whether the switch is the first sign in the head of the results it stands in. */
+function switchLeadsHead(page: Page, head: string) {
+  return page
+    .locator(head)
+    .filter({ has: splitSwitch(page) })
+    .evaluate((element) => element.querySelector('[data-query-icon-action]')?.hasAttribute('data-query-split') ?? false);
+}
 const timeRange = (pane: Locator) => pane.locator('[data-time-range-trigger="true"]');
 
 const boxOf = async (locator: Locator) => {
@@ -32,7 +47,7 @@ test.describe('Query tabs split in two', () => {
     await serveExplorerResults(page);
   });
 
-  test('the page is split in two equal halves, each with its own tabs over it, and a narrow seam', async ({
+  test('the page is split in two equal halves, each with its own tabs, and a narrow seam', async ({
     page,
   }) => {
     await page.goto('/logs');
@@ -44,6 +59,10 @@ test.describe('Query tabs split in two', () => {
     await splitSwitch(page).click();
     await expect(halves(page)).toHaveCount(2);
     await expect(splitSwitch(page)).toHaveAttribute('aria-pressed', 'true');
+    // One switch, over the results of the half at the right, which has gone over to it with the focus.
+    await expect(splitSwitch(page)).toHaveCount(1);
+    await expect(half(page, 1).locator('[data-log-result-actions] [data-query-split]')).toBeVisible();
+    await expect(splitSwitch(page)).toBeFocused();
 
     // Two halves of the room beside the sidebar, as wide as each other, with nothing between.
     const [left, right] = [await boxOf(half(page, 0)), await boxOf(half(page, 1))];
@@ -51,14 +70,16 @@ test.describe('Query tabs split in two', () => {
     expect(Math.abs(left.x + left.width - right.x)).toBeLessThanOrEqual(1);
     expect(Math.abs(right.x + right.width - 1440)).toBeLessThanOrEqual(1);
 
-    // Each half has its strip over it, listing its own tab; the copy on the right is in front.
+    // Each half lists its own tab in its own query box; the copy on the right is in front.
     await expect(strips(page)).toHaveCount(2);
     for (const side of [0, 1] as const) {
+      await expect(half(page, side).locator('[data-query-tab-strip]')).toHaveCount(1);
       const strip = await boxOf(strips(page).nth(side));
-      const pane = side === 0 ? left : right;
-      expect(strip.x).toBeGreaterThanOrEqual(pane.x - 1);
-      expect(strip.x + strip.width).toBeLessThanOrEqual(pane.x + pane.width + 1);
-      expect(strip.y + strip.height).toBeLessThanOrEqual(pane.y + 1);
+      const bar = await boxOf(half(page, side).locator('[data-query-workbench-appearance="surface"]'));
+      expect(strip.x).toBeGreaterThanOrEqual(bar.x - 1);
+      expect(strip.x + strip.width).toBeLessThanOrEqual(bar.x + bar.width + 1);
+      expect(strip.y).toBeGreaterThanOrEqual(bar.y - 1);
+      expect(strip.y + strip.height).toBeLessThanOrEqual(bar.y + bar.height + 1);
       await expect(strips(page).nth(side).getByRole('tab')).toHaveCount(1);
       await expect(strips(page).nth(side).getByRole('tab')).toHaveAccessibleName('application_logs');
     }
@@ -150,13 +171,24 @@ test.describe('Query tabs split in two', () => {
     expect((await boxOf(halves(page).locator('aside').first())).width).toBeGreaterThan(200);
   });
 
-  test('Traces and Metrics split the same way', async ({ page }) => {
-    for (const explorer of ['traces', 'metrics'] as const) {
-      await page.goto(`/${explorer}`);
+  test('every explorer splits the same way, from the switch that leads the signs over its results', async ({
+    page,
+  }) => {
+    for (const [explorer, path] of [
+      ['logs', '/logs'],
+      ['traces', '/traces'],
+      ['metrics', '/metrics'],
+      ['rum', '/rum/explorer'],
+    ] as const) {
+      await page.goto(path);
       await expect(splitSwitch(page)).toBeVisible();
+      expect(await switchLeadsHead(page, RESULTS_HEADS[explorer])).toBe(true);
       await splitSwitch(page).click();
       await expect(halves(page)).toHaveCount(2);
       await expect(strips(page)).toHaveCount(2);
+      // The switch is over the results of the half at the right, first of the signs there.
+      await expect(half(page, 1).locator(`${RESULTS_HEADS[explorer]} [data-query-split]`)).toBeVisible();
+      expect(await switchLeadsHead(page, RESULTS_HEADS[explorer])).toBe(true);
 
       const [left, right] = [await boxOf(half(page, 0)), await boxOf(half(page, 1))];
       expect(Math.abs(left.width - right.width)).toBeLessThanOrEqual(1);

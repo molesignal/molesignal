@@ -6,11 +6,12 @@ use std::{collections::BTreeMap, sync::Arc};
 use serde_json::{Map, Value};
 
 use crate::{
-    app::notify::{NotifyDispatch, NotifyEngine},
+    app::notify::{NotifyDispatch, NotifyEngine, Reachability},
     domain::{
         alerting::{
             repositories::ScheduleRepository,
             schedule::{Schedule, ScheduleOverride},
+            swap::{SwapRequest, SwapStatus},
         },
         notify::{connector::NotifyMessage, policy::NotifyEvent},
     },
@@ -21,6 +22,8 @@ pub const ONCALL_SHIFT_STARTING_EVENT: &str = "oncall.shift.starting";
 pub const ONCALL_SHIFT_STARTED_EVENT: &str = "oncall.shift.started";
 pub const ONCALL_OVERRIDE_CREATED_EVENT: &str = "oncall.override.created";
 pub const ONCALL_COVERAGE_MISSING_EVENT: &str = "oncall.coverage.missing";
+pub const ONCALL_SWAP_UPDATED_EVENT: &str = "oncall.swap.updated";
+pub const ONCALL_MEMBER_UNREACHABLE_EVENT: &str = "oncall.member.unreachable";
 
 const MINUTE_MICROS: i64 = 60 * 1_000_000;
 const STARTING_WINDOW_MINUTES: i64 = 30;
@@ -44,7 +47,12 @@ impl OncallEventProducer {
             .into_iter()
             .filter(|schedule| schedule.enabled)
         {
-            for dispatch in schedule_dispatches(&schedule, now) {
+            let unreachable = self.unreachable_dispatch(&schedule, now).await;
+
+            for dispatch in schedule_dispatches(&schedule, now)
+                .into_iter()
+                .chain(unreachable)
+            {
                 if let Err(error) = self.engine.enqueue_event(dispatch).await {
                     tracing::warn!(
                         org_id = %organization_id,
@@ -57,6 +65,57 @@ impl OncallEventProducer {
         }
 
         Ok(())
+    }
+}
+
+impl OncallEventProducer {
+    /// 半小时内接班的人收不到告警（没设好通知方式，也没有发到群里的默认路由）：告诉他本人和排班
+    /// 管理员，每次交接只说一次。
+    async fn unreachable_dispatch(
+        &self,
+        schedule: &Schedule,
+        now: TimestampMicros,
+    ) -> Option<NotifyDispatch> {
+        let (transition_at, _, next) = next_transition(schedule, floor_minute(now))?;
+
+        let answers = self
+            .engine
+            .reachability(&schedule.org_id, std::slice::from_ref(&next))
+            .await
+            .ok()?;
+
+        if answers.first().map(|(_, reach)| *reach) != Some(Reachability::None) {
+            return None;
+        }
+
+        let mut user_ids = manager_user_ids(schedule);
+
+        if !user_ids.contains(&next) {
+            user_ids.push(next.clone());
+        }
+
+        let mut attributes = schedule_attributes(schedule, user_ids);
+        attributes.insert("member_id".into(), Value::String(next.to_string()));
+        attributes.insert(
+            "transition_at".into(),
+            Value::Number(transition_at.0.into()),
+        );
+
+        Some(dispatch(
+            schedule,
+            ONCALL_MEMBER_UNREACHABLE_EVENT,
+            format!(
+                "{ONCALL_MEMBER_UNREACHABLE_EVENT}:{}:{}",
+                schedule.id, transition_at.0
+            ),
+            floor_minute(now),
+            attributes,
+            "On-call member cannot be reached",
+            format!(
+                "The person taking over {} has no way to receive alerts.",
+                schedule.name
+            ),
+        ))
     }
 }
 
@@ -91,12 +150,12 @@ pub fn override_created_dispatch(
     );
 
     attributes.insert(
-        "start_at_micros".into(),
+        "start_at".into(),
         Value::Number(schedule_override.start_at.0.into()),
     );
 
     attributes.insert(
-        "end_at_micros".into(),
+        "end_at".into(),
         Value::Number(schedule_override.end_at.0.into()),
     );
 
@@ -224,7 +283,7 @@ fn shift_dispatch(
     attributes.insert("next_user_id".into(), Value::String(current.to_string()));
 
     attributes.insert(
-        "transition_at_micros".into(),
+        "transition_at".into(),
         Value::Number(transition_at.0.into()),
     );
 
@@ -259,6 +318,68 @@ fn shift_dispatch(
         attributes,
         title,
         format!("{} changes on-call coverage.", schedule.name),
+    )
+}
+
+/// 换班申请有了变化，告诉这一步该知道的人（`user_ids`）：请求发给被请的人，等批准发给排班管理员，
+/// 定下来以后发给发起的人（批准、驳回、撤回时也发给被请的人）。
+pub fn swap_dispatch(
+    schedule: &Schedule,
+    request: &SwapRequest,
+    user_ids: Vec<Id>,
+) -> NotifyDispatch {
+    let mut attributes = schedule_attributes(schedule, user_ids);
+
+    attributes.insert("swap_id".into(), Value::String(request.id.to_string()));
+    attributes.insert(
+        "swap_status".into(),
+        Value::String(request.status.as_str().into()),
+    );
+    attributes.insert(
+        "requester_id".into(),
+        Value::String(request.requester_id.to_string()),
+    );
+    attributes.insert(
+        "target_id".into(),
+        Value::String(request.target_id.to_string()),
+    );
+    attributes.insert("start_at".into(), Value::Number(request.start_at.0.into()));
+    attributes.insert("end_at".into(), Value::Number(request.end_at.0.into()));
+    attributes.insert(
+        "swap".into(),
+        serde_json::json!({
+            "id": request.id.to_string(),
+            "status": request.status.as_str(),
+            "requester_id": request.requester_id.to_string(),
+            "target_id": request.target_id.to_string(),
+            "start_at": request.start_at.0,
+            "end_at": request.end_at.0,
+            "note": request.note,
+        }),
+    );
+
+    let title = match request.status {
+        SwapStatus::Pending => "Shift swap requested",
+        SwapStatus::AwaitingApproval => "Shift swap awaits approval",
+        SwapStatus::Accepted => "Shift swap accepted",
+        SwapStatus::Declined => "Shift swap declined",
+        SwapStatus::Rejected => "Shift swap rejected",
+        SwapStatus::Cancelled => "Shift swap cancelled",
+        SwapStatus::Expired => "Shift swap expired",
+    };
+
+    dispatch(
+        schedule,
+        ONCALL_SWAP_UPDATED_EVENT,
+        format!(
+            "{ONCALL_SWAP_UPDATED_EVENT}:{}:{}",
+            request.id,
+            request.status.as_str()
+        ),
+        TimestampMicros::now(),
+        attributes,
+        title,
+        format!("{}: {title}.", schedule.name),
     )
 }
 
@@ -344,6 +465,9 @@ fn dispatch(
             markdown: Some(format!("**{title}**\n\n{text}")),
             html: None,
             metadata,
+            provider_templates: Default::default(),
+            event: None,
+            card: None,
         },
     }
 }
@@ -371,10 +495,13 @@ mod tests {
                 name: "minute".into(),
                 members: vec![Id::from_string("a"), Id::from_string("b")],
                 kind: RotationKind::Custom { period_secs: 60 },
-                active_window: None,
+                active_windows: Vec::new(),
+                calendar: None,
                 start_at: TimestampMicros(0),
+                end_at: None,
             }],
             overrides: Vec::new(),
+            swap_needs_approval: false,
             created_by: Some(Id::from_string("admin")),
             updated_by: None,
             created_at: TimestampMicros(0),

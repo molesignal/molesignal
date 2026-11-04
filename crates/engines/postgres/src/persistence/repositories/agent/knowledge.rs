@@ -60,8 +60,12 @@ fn file_row(row: PgRow) -> Result<KnowledgeFile> {
         content_hash: row.try_get("content_hash").map_err(sqlx_err)?,
         created_by: Id(row.try_get("created_by").map_err(sqlx_err)?),
         updated_by: Id(row.try_get("updated_by").map_err(sqlx_err)?),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -70,13 +74,13 @@ impl KnowledgeStore for PgKnowledgeStore {
     async fn bases(&self, org_id: &Id) -> Result<Vec<KnowledgeBase>> {
         let rows = sqlx::query(
             "SELECT scope, team_id, COUNT(*) AS files, SUM(size_bytes)::BIGINT AS bytes,
-                    MAX(updated_at_micros) AS updated_at,
-                    MAX(updated_at_micros) FILTER (WHERE path = $2) AS entry_updated_at,
+                    MAX(updated_at) AS updated_at,
+                    MAX(updated_at) FILTER (WHERE path = $2) AS entry_updated_at,
                     COUNT(*) FILTER (
-                        WHERE path <> $2 AND updated_at_micros > COALESCE(
-                            (SELECT e.updated_at_micros FROM agent_knowledge_files e
+                        WHERE path <> $2 AND updated_at > COALESCE(
+                            (SELECT e.updated_at FROM agent_knowledge_files e
                              WHERE e.org_id = f.org_id AND e.scope_key = f.scope_key
-                               AND e.path = $2), 0)
+                               AND e.path = $2), TIMESTAMPTZ 'epoch')
                     ) AS changed_since_entry
              FROM agent_knowledge_files f
              WHERE org_id = $1
@@ -90,22 +94,22 @@ impl KnowledgeStore for PgKnowledgeStore {
 
         rows.into_iter()
             .map(|row| {
-                let entry: Option<i64> = row.try_get("entry_updated_at").map_err(sqlx_err)?;
+                let entry: Option<TimestampMicros> =
+                    row.try_get("entry_updated_at").map_err(sqlx_err)?;
 
                 Ok(KnowledgeBase {
                     scope: row_scope(&row)?,
                     files: row.try_get("files").map_err(sqlx_err)?,
                     bytes: row.try_get("bytes").map_err(sqlx_err)?,
-                    entry_updated_at: entry.map(TimestampMicros),
+                    entry_updated_at: entry,
                     changed_since_entry: if entry.is_some() {
                         row.try_get("changed_since_entry").map_err(sqlx_err)?
                     } else {
                         0
                     },
                     updated_at: row
-                        .try_get::<Option<i64>, _>("updated_at")
-                        .map_err(sqlx_err)?
-                        .map(TimestampMicros),
+                        .try_get::<Option<TimestampMicros>, _>("updated_at")
+                        .map_err(sqlx_err)?,
                 })
             })
             .collect()
@@ -115,7 +119,7 @@ impl KnowledgeStore for PgKnowledgeStore {
         knowledge_scope(scope)?;
 
         let rows = sqlx::query(
-            "SELECT path, size_bytes, updated_by, updated_at_micros FROM agent_knowledge_files
+            "SELECT path, size_bytes, updated_by, updated_at FROM agent_knowledge_files
              WHERE org_id = $1 AND scope_key = $2
              ORDER BY path",
         )
@@ -131,9 +135,9 @@ impl KnowledgeStore for PgKnowledgeStore {
                     path: row.try_get("path").map_err(sqlx_err)?,
                     size_bytes: row.try_get("size_bytes").map_err(sqlx_err)?,
                     updated_by: Id(row.try_get("updated_by").map_err(sqlx_err)?),
-                    updated_at: TimestampMicros(
-                        row.try_get("updated_at_micros").map_err(sqlx_err)?,
-                    ),
+                    updated_at: row
+                        .try_get::<TimestampMicros, _>("updated_at")
+                        .map_err(sqlx_err)?,
                 })
             })
             .collect()
@@ -210,12 +214,12 @@ impl KnowledgeStore for PgKnowledgeStore {
             sqlx::query(
                 "INSERT INTO agent_knowledge_files
                     (org_id, scope, team_id, scope_key, path, content, size_bytes, content_hash,
-                     created_by, updated_by, created_at_micros, updated_at_micros)
+                     created_by, updated_by, created_at, updated_at)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, $10, $10)
                  ON CONFLICT (org_id, scope_key, path) DO UPDATE SET
                     content = EXCLUDED.content, size_bytes = EXCLUDED.size_bytes,
                     content_hash = EXCLUDED.content_hash, updated_by = EXCLUDED.updated_by,
-                    updated_at_micros = EXCLUDED.updated_at_micros
+                    updated_at = EXCLUDED.updated_at
                  WHERE agent_knowledge_files.content_hash <> EXCLUDED.content_hash",
             )
             .bind(&org_id.0)
@@ -227,7 +231,7 @@ impl KnowledgeStore for PgKnowledgeStore {
             .bind(content.len() as i64)
             .bind(hash)
             .bind(&actor.0)
-            .bind(now.0)
+            .bind(now)
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
@@ -275,7 +279,7 @@ impl KnowledgeStore for PgKnowledgeStore {
         }
 
         let renamed = sqlx::query(
-            "UPDATE agent_knowledge_files SET path = $4, updated_by = $5, updated_at_micros = $6
+            "UPDATE agent_knowledge_files SET path = $4, updated_by = $5, updated_at = $6
              WHERE org_id = $1 AND scope_key = $2 AND path = $3",
         )
         .bind(&org_id.0)
@@ -283,7 +287,7 @@ impl KnowledgeStore for PgKnowledgeStore {
         .bind(&from)
         .bind(&to)
         .bind(&actor.0)
-        .bind(TimestampMicros::now().0)
+        .bind(TimestampMicros::now())
         .execute(&self.pool)
         .await
         .map_err(|error| match sqlx_err(error) {

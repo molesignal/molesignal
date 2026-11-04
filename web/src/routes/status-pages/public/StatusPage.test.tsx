@@ -28,6 +28,7 @@ vi.mock('@/api/statusPages', () => ({
   updateSubscriptionPreferences: vi.fn(),
   beginSlackSubscription: vi.fn(),
   publicRssUrl: vi.fn(() => '/api/public/status-pages/acme-cloud/feed.rss'),
+  publicAtomUrl: vi.fn(() => '/api/public/status-pages/acme-cloud/feed.atom'),
 }));
 
 const getPublic = vi.mocked(statusPagesApi.getPublic);
@@ -41,15 +42,15 @@ const snapshot: PublicStatusPageSnapshot = {
   page: {
     name: 'Acme Cloud',
     slug: 'acme-cloud',
-    logo_url: null,
-    brand_color: '#4F46E5',
+    logoUrl: null,
+    brandColor: '#4F46E5',
     timezone: 'UTC',
     language: 'en-us',
     languages: ['en-us', 'zh-cn'],
-    history_days: 30,
+    historyDays: 30,
     visibility: 'public',
   },
-  overall_status: 'partial_outage',
+  overallStatus: 'partial_outage',
   components: [
     {
       id: 'gateway',
@@ -64,47 +65,47 @@ const snapshot: PublicStatusPageSnapshot = {
       status: 'partial_outage',
     },
   ],
-  component_status_events: [
+  componentStatusEvents: [
     {
-      component_id: 'gateway',
+      componentId: 'gateway',
       status: 'operational',
-      started_at: Date.UTC(2026, 4, 12, 7, 30) * 1_000,
-      ended_at: null,
+      startedAt: Date.UTC(2026, 4, 12, 7, 30) * 1_000,
+      endedAt: null,
     },
     {
-      component_id: 'notification-service',
+      componentId: 'notification-service',
       status: 'operational',
-      started_at: Date.UTC(2026, 4, 12, 7, 30) * 1_000,
-      ended_at: null,
+      startedAt: Date.UTC(2026, 4, 12, 7, 30) * 1_000,
+      endedAt: null,
     },
   ],
-  active_incidents: [
+  activeIncidents: [
     {
       id: 'notification-outage',
       kind: 'incident',
       title: 'Notification delivery delays',
       impact: 'major',
       status: 'in_progress',
-      component_ids: ['notification-service'],
+      componentIds: ['notification-service'],
       updates: [
         {
           id: 'update-1',
           status: 'investigating',
           message: 'Email delivery may be delayed.',
-          created_at: Date.UTC(2026, 7, 10, 7, 6) * 1_000,
+          createdAt: Date.UTC(2026, 7, 10, 7, 6) * 1_000,
         },
         {
           id: 'update-2',
           status: 'in_progress',
           message: 'A fix is being rolled out.',
-          created_at: Date.UTC(2026, 7, 10, 7, 20) * 1_000,
+          createdAt: Date.UTC(2026, 7, 10, 7, 20) * 1_000,
         },
       ],
-      started_at: Date.UTC(2026, 7, 10, 7, 6) * 1_000,
-      ended_at: null,
+      startedAt: Date.UTC(2026, 7, 10, 7, 6) * 1_000,
+      endedAt: null,
     },
   ],
-  scheduled_maintenance: [],
+  scheduledMaintenance: [],
   history: [
     {
       id: 'database-indexing',
@@ -112,14 +113,14 @@ const snapshot: PublicStatusPageSnapshot = {
       title: 'Database index optimization',
       impact: 'maintenance',
       status: 'resolved',
-      component_ids: ['gateway'],
+      componentIds: ['gateway'],
       updates: [],
-      started_at: Date.UTC(2026, 7, 8, 6, 0) * 1_000,
-      ended_at: Date.UTC(2026, 7, 8, 7, 6) * 1_000,
+      startedAt: Date.UTC(2026, 7, 8, 6, 0) * 1_000,
+      endedAt: Date.UTC(2026, 7, 8, 7, 6) * 1_000,
     },
   ],
-  updated_at: Date.UTC(2026, 7, 10, 7, 12) * 1_000,
-  generated_at: Date.UTC(2026, 7, 10, 7, 30) * 1_000,
+  updatedAt: Date.UTC(2026, 7, 10, 7, 12) * 1_000,
+  generatedAt: Date.UTC(2026, 7, 10, 7, 30) * 1_000,
 };
 
 function renderDomainPage(unmatchedDomain?: ReactNode, initialEntry = '/') {
@@ -214,19 +215,19 @@ describe('PublicStatusPage domain routing', () => {
   it('puts the worst of what is going on first, and words maintenance as maintenance', async () => {
     getPublicByDomain.mockResolvedValue({
       ...snapshot,
-      active_incidents: [
+      activeIncidents: [
         {
           id: 'database-upgrade',
           kind: 'maintenance',
           title: 'Database upgrade',
           impact: 'maintenance',
           status: 'in_progress',
-          component_ids: ['gateway'],
+          componentIds: ['gateway'],
           updates: [],
-          started_at: Date.UTC(2026, 7, 10, 7, 25) * 1_000,
-          ended_at: null,
+          startedAt: Date.UTC(2026, 7, 10, 7, 25) * 1_000,
+          endedAt: null,
         },
-        ...snapshot.active_incidents,
+        ...snapshot.activeIncidents,
       ],
     });
     renderDomainPage();
@@ -249,24 +250,24 @@ describe('PublicStatusPage domain routing', () => {
   it('announces maintenance that has not begun after what is going on', async () => {
     getPublicByDomain.mockResolvedValue({
       ...snapshot,
-      scheduled_maintenance: [
+      scheduledMaintenance: [
         {
           id: 'network-maintenance',
           kind: 'maintenance',
           title: 'Network maintenance',
           impact: 'maintenance',
           status: 'scheduled',
-          component_ids: ['gateway'],
+          componentIds: ['gateway'],
           updates: [
             {
               id: 'announcement',
               status: 'scheduled',
               message: 'Connections may be reset once.',
-              created_at: Date.UTC(2026, 7, 9, 9) * 1_000,
+              createdAt: Date.UTC(2026, 7, 9, 9) * 1_000,
             },
           ],
-          started_at: Date.UTC(2026, 7, 12, 7, 30) * 1_000,
-          ended_at: null,
+          startedAt: Date.UTC(2026, 7, 12, 7, 30) * 1_000,
+          endedAt: null,
         },
       ],
     });
@@ -310,7 +311,7 @@ describe('PublicStatusPage domain routing', () => {
   it('looks back no further than the page keeps', async () => {
     getPublicByDomain.mockResolvedValue({
       ...snapshot,
-      page: { ...snapshot.page, history_days: 1 },
+      page: { ...snapshot.page, historyDays: 1 },
     });
     renderDomainPage();
 
@@ -382,7 +383,7 @@ describe('PublicStatusPage domain routing', () => {
 
   it('submits a double-opt-in request from the header', async () => {
     const user = userEvent.setup();
-    subscribePublic.mockResolvedValue({ accepted: true, confirmation_required: true });
+    subscribePublic.mockResolvedValue({ accepted: true, confirmationRequired: true });
     getPublicByDomain.mockResolvedValue(snapshot);
     renderDomainPage();
 
@@ -391,9 +392,6 @@ describe('PublicStatusPage domain routing', () => {
     // without it the button that sends the form has no fill to be seen by.
     expect(screen.getByRole('dialog').style.getPropertyValue('--status-brand')).toBe('#4F46E5');
     await user.type(screen.getByPlaceholderText('you@example.com'), 'ops@example.com');
-    expect(screen.getByRole('link', { name: 'RSS feed' }).getAttribute('href')).toBe(
-      '/api/public/status-pages/acme-cloud/feed.rss',
-    );
     await user.click(screen.getByRole('button', { name: 'Send confirmation' }));
 
     await waitFor(() => {
@@ -408,24 +406,42 @@ describe('PublicStatusPage domain routing', () => {
     expect(await screen.findByText('Check your destination')).toBeTruthy();
   });
 
+  it('offers the feed in RSS and in Atom, as whole addresses with nothing to send', async () => {
+    getPublicByDomain.mockResolvedValue(snapshot);
+    renderDomainPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Subscribe' }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Delivery channel' }));
+    fireEvent.click(screen.getByRole('option', { name: 'RSS feed' }));
+
+    const rss = screen.getByRole('textbox', { name: 'RSS feed address' }) as HTMLInputElement;
+    const atom = screen.getByRole('textbox', { name: 'Atom feed address' }) as HTMLInputElement;
+    expect(rss.value).toBe(`${window.location.origin}/api/public/status-pages/acme-cloud/feed.rss`);
+    expect(atom.value).toBe(`${window.location.origin}/api/public/status-pages/acme-cloud/feed.atom`);
+    expect(screen.getByRole('button', { name: 'Copy the Atom feed address' })).toBeTruthy();
+    // A feed is read, not confirmed: nothing to choose and nothing to send.
+    expect(screen.queryByRole('button', { name: 'Send confirmation' })).toBeNull();
+    expect(screen.queryByText('Whole page')).toBeNull();
+  });
+
   it('lets a subscriber choose the components they hear about from the manage link', async () => {
     const user = userEvent.setup();
     const preferences = {
       channel: 'email' as const,
-      masked_target: 'o***@example.com',
-      target_label: null,
+      maskedTarget: 'o***@example.com',
+      targetLabel: null,
       status: 'active' as const,
-      component_scope: 'all' as const,
-      component_ids: [],
+      componentScope: 'all' as const,
+      componentIds: [],
     };
     readSubscriptionPreferences.mockResolvedValue(preferences);
     updateSubscriptionPreferences.mockResolvedValue({
       ...preferences,
-      component_scope: 'selected',
-      component_ids: ['gateway'],
+      componentScope: 'selected',
+      componentIds: ['gateway'],
     });
     getPublicByDomain.mockResolvedValue(snapshot);
-    renderDomainPage(undefined, '/#subscription_action=manage&subscription_token=token.manage');
+    renderDomainPage(undefined, '/#subscriptionAction=manage&subscriptionToken=token.manage');
 
     const dialog = await screen.findByRole('dialog', { name: 'Manage subscription' });
     expect(await within(dialog).findByText('Email · o***@example.com')).toBeTruthy();
@@ -444,12 +460,12 @@ describe('PublicStatusPage domain routing', () => {
   it('confirms a subscription token from the emailed page link and removes it from the URL', async () => {
     confirmPublicSubscription.mockResolvedValue({
       accepted: true,
-      confirmation_required: false,
+      confirmationRequired: false,
     });
     getPublicByDomain.mockResolvedValue(snapshot);
     renderDomainPage(
       undefined,
-      '/#subscription_action=confirm&subscription_token=token.12345678901234567890',
+      '/#subscriptionAction=confirm&subscriptionToken=token.12345678901234567890',
     );
 
     expect(await screen.findByText('Notifications are now active.')).toBeTruthy();

@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 鉴权 middleware（auth-hardening 双 token 体系）。
+//! 鉴权 middleware。
 //!
-//! `Authorization: Bearer <X>` 前缀分发：
-//! - `ms_` → API token（`api_tokens` 表 → argon2 verify → IamContext）
-//! - 其它 → JWT（`IamService::verify_token`，多 secret 兼容 rotate window）
+//! - 浏览器：登录会话的 access token 在 HttpOnly Cookie 里，见
+//!   [`crate::api::http::session_cookie`]。
+//! - 程序：`Authorization: Bearer <API token>`（`mspat-` 前缀）。登录会话的 token
+//!   不能放进 Authorization。
 //!
-//! 白名单（`/api/v1/auth/signin` / 密码重置 / `/api/v1/auth/sso/*` /
+//! 白名单（`/api/v1/auth/signin` / 刷新与退出登录 / 密码重置 / `/api/v1/auth/sso/*` /
 //! `/api/v1/healthz` /
 //! `/metrics` / `/s/*` /
 //! `/api/v1/public/share*` /
@@ -19,9 +20,11 @@ use axum::{
     middleware::Next,
     response::Response,
 };
+use http::{HeaderMap, Method};
 
 use crate::{
-    api::AppState,
+    api::{AppState, http::session_cookie},
+    domain::iam::api_token::has_token_marker,
     infra::persistence::repositories::audit_events::AuditEvent,
     shared::{
         Error,
@@ -74,7 +77,9 @@ impl AuthenticatedCredential {
 
 const WHITELIST_PREFIXES: &[&str] = &[
     "/api/v1/auth/signin",
-    "/api/v1/auth/signup", // 自助注册（策略关闭时 handler 自身返 403）
+    "/api/v1/auth/refresh", // 只认 refresh token 的 Cookie
+    "/api/v1/auth/signout", // 会话过期了也要能清掉 Cookie
+    "/api/v1/auth/signup",  // 自助注册（策略关闭时 handler 自身返 403）
     "/api/v1/auth/forgot-password",
     "/api/v1/auth/reset-password",
     "/api/v1/auth/sso/", // 外部 IdP redirect/callback、公开 provider 列表与 LDAP bind
@@ -86,6 +91,12 @@ const WHITELIST_PREFIXES: &[&str] = &[
     "/api/v1/files/stream/",         // 文件下载 token 自带授权
     "/api/v1/public/avatars/",       // 头像公开读：<img src> 不带 Bearer
     "/api/v1/public/status-pages/",  // 客户状态页公开快照
+    "/api/v1/public/automations/",   // 自动化的 API 触发：规则自己的令牌自鉴权
+    "/api/v1/public/im/",            // Teams 的回调：handler 验 Bot Framework 签的令牌
+    "/api/v1/public/notify/",        // 短信回复、电话按键：handler 验服务商签名或回调 Token
+    "/api/v1/public/calendar/",      // 值班日历订阅：地址里的 Token 自鉴权
+    "/api/v1/intake/heartbeats/",    // 心跳规则的打卡：地址里的 Token 自鉴权
+    "/api/v1/public/tickets/",       // Jira 的 Webhook：handler 验 X-Hub-Signature
     "/api/v1/synthetics/artifacts/", // Probe lease token 自鉴权的 Artifact 上传
     // Push 型 connector 接入：外部平台带不了 Bearer，由 handler 用 X-Connector-Token 自鉴权。
     "/api/v1/_kinesis_firehose",
@@ -94,6 +105,8 @@ const WHITELIST_PREFIXES: &[&str] = &[
 ];
 
 const WHITELIST_EXACT_PATHS: &[&str] = &[
+    // 外部告警的接入地址：handler 用告警来源自己的 Token 鉴权（请求头或 `?token=`）。
+    "/api/v1/intake/alerts",
     "/api/v1/mcp",
     "/api/v1/oauth/token",
     "/api/v1/oauth/register",
@@ -123,16 +136,15 @@ pub async fn auth_layer(
         return Ok(next.run(req).await);
     }
 
-    let token = req
-        .headers()
-        .get(http::header::AUTHORIZATION)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|h| h.strip_prefix("Bearer "))
-        .ok_or_else(|| Error::unauthorized("missing Authorization Bearer token"))?;
+    // Organization state is enforced by the inner `organization_status_layer`,
+    // so a disabled tenant can still reach the narrowly-scoped recovery routes.
+    let (mut ctx, credential) = if let Some(token) = bearer_token(req.headers()) {
+        if !has_token_marker(token) {
+            return Err(Error::unauthorized(
+                "the Authorization header takes API tokens; a signed-in browser sends its session cookie",
+            ));
+        }
 
-    // Organization state is enforced by the inner org-blocking layer so a
-    // disabled tenant can still reach the narrowly-scoped recovery routes.
-    let (mut ctx, credential) = if token.starts_with("ms_") || token.starts_with("msrum_") {
         let identity = authenticate_api_token_identity_with_metadata(
             token,
             state.iam.service.as_ref(),
@@ -148,14 +160,27 @@ pub async fn auth_layer(
             },
         )
     } else {
-        let context = state.iam.service.verify_token(token)?;
+        let token = session_cookie::access_token(req.headers()).ok_or_else(|| {
+            Error::unauthorized("sign in, or send an API token in the Authorization header")
+        })?;
 
-        state
+        let (context, session) = state
             .iam
             .service
-            .ensure_user_access(&context.user_id)
+            .verify_with_current_secrets(token, |iam| iam.verify_access_token(token))
             .await?;
 
+        if !is_safe_method(req.method()) {
+            session_cookie::ensure_same_origin(req.headers())?;
+        }
+
+        if let Some(refusal) = session_cookie::refuse_other_session(req.headers(), &session) {
+            return Ok(refusal);
+        }
+
+        state.iam.service.admit_session(&session).await?;
+
+        req.extensions_mut().insert(session);
         (context, AuthenticatedCredential::UserJwt)
     };
 
@@ -165,7 +190,7 @@ pub async fn auth_layer(
         .headers()
         .get(crate::shared::trace_context::TRACE_DEBUG_TOKEN)
         .and_then(|value| value.to_str().ok())
-        .filter(|value| value.starts_with("mstd_") && value.len() <= 160)
+        .filter(|value| has_token_marker(value) && value.len() <= 160)
         .map(str::to_owned);
 
     if let Some(debug_token) = debug_token {
@@ -209,9 +234,9 @@ pub async fn auth_layer(
                     ip: None,
                     user_agent: None,
                     payload: serde_json::json!({
-                        "organization_id": ctx.org_id.0,
+                        "organizationId": ctx.org_id.0,
                         "route": path,
-                        "used_count": grant.used_count,
+                        "usedCount": grant.used_count,
                     }),
                     ts: TimestampMicros::now(),
                 })
@@ -236,6 +261,17 @@ pub async fn auth_layer(
     req.extensions_mut().insert(credential);
     req.extensions_mut().insert(ctx);
     Ok(next.run(req).await)
+}
+
+fn bearer_token(headers: &HeaderMap) -> Option<&str> {
+    headers
+        .get(http::header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+}
+
+fn is_safe_method(method: &Method) -> bool {
+    matches!(*method, Method::GET | Method::HEAD | Method::OPTIONS)
 }
 
 /// Hyper represents HTTP/2 `:authority` on the request URI and does not have
@@ -270,10 +306,12 @@ mod tests {
             IamAssignedRole, IamMembership, IamMembershipRepository, Organization,
             OrganizationRepository, User, UserRepository, UserStatus,
             access::IamPrincipalType,
-            api_token::{ApiToken, ApiTokenKind, ApiTokenRepository, ManagedApiToken},
+            api_token::{
+                ApiToken, ApiTokenKind, ApiTokenRepository, ApiTokenScope, ManagedApiToken,
+            },
         },
         infra::persistence::repositories::api_tokens::{
-            assemble_rum_token, assemble_token, generate_token_parts, hash_rum_secret, hash_secret,
+            assemble_token, generate_token_parts, hash_secret,
         },
         shared::{Error, Result, ids::Id, time::TimestampMicros},
     };
@@ -462,6 +500,10 @@ mod tests {
             Ok(vec![self.token.clone()])
         }
 
+        async fn list_personal(&self, _org_id: &Id, _user_id: &Id) -> Result<Vec<ApiToken>> {
+            Ok(vec![self.token.clone()])
+        }
+
         async fn get(&self, _org_id: &Id, _id: &Id) -> Result<ApiToken> {
             Ok(self.token.clone())
         }
@@ -474,12 +516,7 @@ mod tests {
             Ok(())
         }
 
-        async fn ensure_default(
-            &self,
-            _org_id: &Id,
-            _user_id: &Id,
-            _role_id: &Id,
-        ) -> Result<ManagedApiToken> {
+        async fn ensure_default(&self, _org_id: &Id, _user_id: &Id) -> Result<ManagedApiToken> {
             Err(Error::internal("unused test API token repository"))
         }
 
@@ -487,7 +524,6 @@ mod tests {
             &self,
             _org_id: &Id,
             _user_id: &Id,
-            _role_id: &Id,
             _application_id: &str,
         ) -> Result<ManagedApiToken> {
             Err(Error::internal("unused test API token repository"))
@@ -506,7 +542,11 @@ mod tests {
         assert!(is_whitelisted_path(
             "/api/v1/synthetics/artifacts/task/artifact"
         ));
+        assert!(is_whitelisted_path("/api/v1/public/im/teams/c1/messages"));
         assert!(is_whitelisted_path("/api/v1/healthz"));
+        assert!(is_whitelisted_path("/api/v1/auth/refresh"));
+        assert!(is_whitelisted_path("/api/v1/auth/signout"));
+        assert!(!is_whitelisted_path("/api/v1/auth/session"));
         assert!(is_whitelisted_path("/api/v1/auth/sso/providers"));
         assert!(is_whitelisted_path("/api/v1/auth/sso/ldap/login"));
         assert!(!is_whitelisted_path("/api/v1/sso/providers"));
@@ -552,6 +592,7 @@ mod tests {
                 disabled: false,
                 status: UserStatus::Active,
                 created_at: TimestampMicros::now(),
+                sessions_valid_after: TimestampMicros(0),
             }),
         });
         let organizations = Arc::new(TestOrganizations {
@@ -570,7 +611,7 @@ mod tests {
             Arc::new(UnusedMemberships),
             AuthSettings {
                 deprecated_jwt_secret: None,
-                token_ttl_secs: 3_600,
+                session_ttl_secs: 3_600,
                 root_email: String::new(),
                 root_password: String::new(),
             },
@@ -584,10 +625,10 @@ mod tests {
             token: ApiToken {
                 id: Id::from_string("token-1"),
                 prefix,
-                secret_hash: hash_secret(&secret).expect("hash test API token"),
+                secret_hash: hash_secret(&secret),
                 org_id: org_id.clone(),
                 user_id: user_id.clone(),
-                role_id: Id::from_string("role-1"),
+                scope: ApiTokenScope::Principal,
                 name: "test".into(),
                 expires_at: None,
                 last_used_at: None,
@@ -612,15 +653,17 @@ mod tests {
         );
 
         let (rum_prefix, rum_secret) = generate_token_parts();
-        let rum_token = assemble_rum_token(&rum_prefix, &rum_secret);
+        let rum_token = assemble_token(&rum_prefix, &rum_secret);
         let rum_tokens = Arc::new(TestApiTokens {
             token: ApiToken {
                 id: Id::from_string("rum-token-1"),
                 prefix: rum_prefix,
-                secret_hash: hash_rum_secret(&rum_secret),
+                secret_hash: hash_secret(&rum_secret),
                 org_id: org_id.clone(),
                 user_id: user_id.clone(),
-                role_id: Id::from_string("rum-role-1"),
+                scope: ApiTokenScope::Permissions {
+                    permissions: vec!["rum.write".into()],
+                },
                 name: "rum".into(),
                 expires_at: None,
                 last_used_at: None,
@@ -645,10 +688,10 @@ mod tests {
             token: ApiToken {
                 id: Id::from_string("service-token-1"),
                 prefix: service_prefix,
-                secret_hash: hash_secret(&service_secret).expect("hash service API token"),
+                secret_hash: hash_secret(&service_secret),
                 org_id: org_id.clone(),
                 user_id: user_id.clone(),
-                role_id: Id::from_string("service-role-1"),
+                scope: ApiTokenScope::Principal,
                 name: "collector".into(),
                 expires_at: None,
                 last_used_at: None,

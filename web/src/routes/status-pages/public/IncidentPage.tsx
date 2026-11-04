@@ -98,8 +98,8 @@ function IncidentRecord({
   const updates = latestFirst(incident);
   const isMaintenance = incident.kind === 'maintenance';
   // Maintenance that is only announced has a time it is planned for, not one it started at.
-  const announced = snapshot.scheduled_maintenance.some((candidate) => candidate.id === incident.id);
-  const over = incident.ended_at !== null;
+  const announced = snapshot.scheduledMaintenance.some((candidate) => candidate.id === incident.id);
+  const over = incident.endedAt !== null;
 
   return (
     <article className="mt-5 overflow-hidden rounded-2xl border border-bd-0 bg-white">
@@ -119,38 +119,38 @@ function IncidentRecord({
 
         <dl className="mt-7 flex flex-col gap-x-12 gap-y-5 border-t border-bd-0 pt-6 sm:flex-row sm:flex-wrap">
           <Fact label={announced ? copy('public.scheduled_for') : copy('public.incident_detail.started_at')}>
-            <time dateTime={microsDateTime(incident.started_at)} className="tabular-nums">
-              {formatMicros(incident.started_at, timezone, language)}
+            <time dateTime={microsDateTime(incident.startedAt)} className="tabular-nums">
+              {formatMicros(incident.startedAt, timezone, language)}
             </time>
             {!over && (
               <span className="mt-0.5 block text-sm text-tx-2">
-                {relativeTime(incident.started_at, snapshot.generated_at, language)}
+                {relativeTime(incident.startedAt, snapshot.generatedAt, language)}
               </span>
             )}
           </Fact>
-          {incident.ended_at !== null && (
+          {incident.endedAt !== null && (
             <Fact label={incidentStatusLabel(copy, incident.status, incident.kind)}>
-              <time dateTime={microsDateTime(incident.ended_at)} className="tabular-nums">
-                {formatMicros(incident.ended_at, timezone, language)}
+              <time dateTime={microsDateTime(incident.endedAt)} className="tabular-nums">
+                {formatMicros(incident.endedAt, timezone, language)}
               </time>
             </Fact>
           )}
-          {incident.ended_at !== null && incident.status !== 'cancelled' && (
+          {incident.endedAt !== null && incident.status !== 'cancelled' && (
             <Fact label={copy('public.incident_detail.duration')}>
-              <span className="tabular-nums">{lasted(copy, incident.started_at, incident.ended_at)}</span>
+              <span className="tabular-nums">{lasted(copy, incident.startedAt, incident.endedAt)}</span>
             </Fact>
           )}
           {components.length > 0 && (
             <Fact label={copy('public.incident_detail.affected_components')}>{listNames(components, language)}</Fact>
           )}
           {/* The publisher's word on when they will say more, while there is more to say. */}
-          {!over && incident.next_update_at != null && (
+          {!over && incident.nextUpdateAt != null && (
             <Fact label={copy('public.incident_detail.next_update')}>
-              <time dateTime={microsDateTime(incident.next_update_at)} className="tabular-nums">
-                {formatMicros(incident.next_update_at, timezone, language)}
+              <time dateTime={microsDateTime(incident.nextUpdateAt)} className="tabular-nums">
+                {formatMicros(incident.nextUpdateAt, timezone, language)}
               </time>
               <span className="mt-0.5 block text-sm text-tx-2">
-                {relativeTime(incident.next_update_at, snapshot.generated_at, language)}
+                {relativeTime(incident.nextUpdateAt, snapshot.generatedAt, language)}
               </span>
             </Fact>
           )}
@@ -180,8 +180,8 @@ function IncidentRecord({
                       <h4 className="text-base font-bold leading-6 text-tx-0">
                         {incidentStatusLabel(copy, update.status, incident.kind)}
                       </h4>
-                      <time dateTime={microsDateTime(update.created_at)} className="text-sm tabular-nums text-tx-2">
-                        {formatMicros(update.created_at, timezone, language)}
+                      <time dateTime={microsDateTime(update.createdAt)} className="text-sm tabular-nums text-tx-2">
+                        {formatMicros(update.createdAt, timezone, language)}
                       </time>
                     </div>
                     <p className="mt-1.5 max-w-3xl whitespace-pre-wrap text-pretty text-base leading-6 text-tx-1">

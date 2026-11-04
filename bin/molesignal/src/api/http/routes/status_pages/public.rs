@@ -16,6 +16,7 @@ use crate::{
 };
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct PublicStatusPageSnapshot {
     page: PublicStatusPage,
     overall_status: ComponentStatus,
@@ -29,6 +30,7 @@ pub(super) struct PublicStatusPageSnapshot {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct PublicStatusPage {
     name: String,
     slug: String,
@@ -45,6 +47,7 @@ struct PublicStatusPage {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct PublicStatusPageComponent {
     id: Id,
     name: String,
@@ -56,6 +59,7 @@ struct PublicStatusPageComponent {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct PublicStatusPageComponentStatusEvent {
     component_id: Id,
     status: ComponentStatus,
@@ -64,6 +68,7 @@ struct PublicStatusPageComponentStatusEvent {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct PublicStatusPageIncident {
     id: Id,
     kind: StatusPageIncidentKind,
@@ -81,6 +86,7 @@ struct PublicStatusPageIncident {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct PublicStatusPageIncidentUpdate {
     id: Id,
     status: PublicIncidentStatus,
@@ -90,6 +96,7 @@ struct PublicStatusPageIncidentUpdate {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct PublicPostmortem {
     body: String,
     published_at: Option<TimestampMicros>,
@@ -279,7 +286,10 @@ mod tests {
                 archived_at: None,
                 created_at: TimestampMicros(1),
                 updated_at: TimestampMicros(1),
-                business_service: None,
+                dependencies: Vec::new(),
+                dependency_mode: Default::default(),
+                dependency_notify: true,
+                dependency_health: None,
                 kind: ComponentKind::Component,
                 group_id: None,
             }],
@@ -347,7 +357,7 @@ mod tests {
             Some("acme")
         );
         assert_eq!(page["languages"], serde_json::json!(["en-us", "zh-cn"]));
-        assert_eq!(page["history_days"], 30);
+        assert_eq!(page["historyDays"], 30);
         assert_eq!(page["visibility"], "public");
         for sensitive in ["id", "org_id", "custom_domain", "created_at", "updated_at"] {
             assert!(
@@ -355,7 +365,7 @@ mod tests {
                 "public page leaked {sensitive}"
             );
         }
-        let incident = &value["active_incidents"][0];
+        let incident = &value["activeIncidents"][0];
         for sensitive in [
             "org_id",
             "status_page_id",
@@ -367,9 +377,9 @@ mod tests {
                 "public incident leaked {sensitive}"
             );
         }
-        assert_eq!(incident["next_update_at"], 3);
+        assert_eq!(incident["nextUpdateAt"], 3);
         assert!(
-            incident["updates"][0].get("notify_subscribers").is_none(),
+            incident["updates"][0].get("notifySubscribers").is_none(),
             "whether subscribers were told is not public"
         );
         assert_eq!(
@@ -378,11 +388,12 @@ mod tests {
             "a draft postmortem is not public"
         );
         assert_eq!(value["components"][0]["status"], "major_outage");
-        assert!(value["components"][0].get("business_service").is_none());
-        assert_eq!(page["slack_app"], false);
-        assert_eq!(value["updated_at"], 2);
-        let event = &value["component_status_events"][0];
-        assert_eq!(event["component_id"], "component-public");
+        assert!(value["components"][0].get("dependencies").is_none());
+        assert!(value["components"][0].get("dependencyHealth").is_none());
+        assert_eq!(page["slackApp"], false);
+        assert_eq!(value["updatedAt"], 2);
+        let event = &value["componentStatusEvents"][0];
+        assert_eq!(event["componentId"], "component-public");
         for sensitive in ["id", "org_id", "status_page_id", "created_at"] {
             assert!(
                 event.get(sensitive).is_none(),

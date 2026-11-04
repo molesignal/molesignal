@@ -28,13 +28,13 @@ describe('Metrics Explore URL state', () => {
     expect(result.get('type')).toBe('instant');
     expect(result.get('exemplars')).toBe('0');
     expect(result.get('draw')).toBe('bar');
-    expect(result.get('stack_mode')).toBe('percent');
+    expect(result.get('stackMode')).toBe('percent');
   });
 
   it('hydrates query and chart options from a shared URL', () => {
     const state = metricsStateFromParams(
       new URLSearchParams(
-        'step=1m&legend=%7B%7Binstance%7D%7D&view=table&type=instant&exemplars=0&draw=points&stack_mode=normal',
+        'step=1m&legend=%7B%7Binstance%7D%7D&view=table&type=instant&exemplars=0&draw=points&stackMode=normal',
       ),
     );
 

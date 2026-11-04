@@ -5,9 +5,10 @@
 
 use crate::{
     domain::status_page::{
-        ComponentKind, ComponentLifecycle, ComponentStatus, ComponentVisibility, IncidentImpact,
-        PublicIncidentStatus, ServiceLinkMode, StatusPageAccessRuleKind, StatusPageIncident,
-        StatusPageIncidentKind, StatusPagePublicationState, StatusPageVisibility,
+        ComponentDependency, ComponentKind, ComponentLifecycle, ComponentStatus,
+        ComponentVisibility, DependencyMode, IncidentImpact, PublicIncidentStatus,
+        StatusPageAccessRuleKind, StatusPageIncident, StatusPageIncidentKind,
+        StatusPagePublicationState, StatusPageVisibility,
     },
     shared::{ids::Id, time::TimestampMicros},
 };
@@ -42,6 +43,12 @@ pub struct StatusPageComponentInput {
     pub kind: ComponentKind,
     /// The group the component is in.
     pub group_id: Option<Id>,
+    /// What the component depends on; `None` keeps what it has.
+    pub dependencies: Option<Vec<ComponentDependency>>,
+    /// How the health of its dependencies reaches it; `None` keeps the mode it has.
+    pub dependency_mode: Option<DependencyMode>,
+    /// Whether a status it follows tells subscribers; `None` keeps what it has.
+    pub dependency_notify: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
@@ -99,13 +106,5 @@ pub struct StatusPageIncidentUpdateInput {
     pub next_update_at: Option<TimestampMicros>,
     /// Whether the update tells subscribers. A correction of wording usually
     /// does not.
-    pub notify_subscribers: bool,
-}
-
-/// What a component that stands for a business service follows.
-#[derive(Debug, Clone)]
-pub struct StatusPageServiceLinkInput {
-    pub business_service_id: Id,
-    pub mode: ServiceLinkMode,
     pub notify_subscribers: bool,
 }

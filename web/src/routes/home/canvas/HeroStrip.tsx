@@ -8,10 +8,16 @@ import { HealthHero, type HealthHeroActions } from './HealthHero';
 import { MetricCard, type MetricTone } from './MetricCard';
 import type { FleetSummary } from './streamCondition';
 
-function CompressionDetail({ overview }: { overview: HomeOverview | undefined }) {
+function CompressionDetail({
+  overview,
+  failed,
+}: {
+  overview: HomeOverview | undefined;
+  failed: boolean;
+}) {
   const { t } = useTranslation('onboarding');
-  if (!overview) return <>{t('home.loading')}</>;
-  const ratio = overview.compression_savings_ratio;
+  if (!overview) return <>{t(failed ? 'home.kpis.unavailable' : 'home.loading')}</>;
+  const ratio = overview.compressionSavingsRatio;
   if (ratio == null) return <>{t('home.kpis.compression_pending')}</>;
   if (ratio >= 0) {
     return <>{t('home.kpis.compression_saved', { percent: (ratio * 100).toFixed(1) })}</>;
@@ -44,6 +50,8 @@ export function HeroStrip({
   firing,
   acknowledged,
   incidentsLoading,
+  incidentsFailed = false,
+  overviewFailed = false,
   windowLabel,
   lastReceived,
   actions,
@@ -58,6 +66,9 @@ export function HeroStrip({
   firing: number;
   acknowledged: number;
   incidentsLoading: boolean;
+  /** The list did not answer: how many alerts there are is unknown, not zero. */
+  incidentsFailed?: boolean | undefined;
+  overviewFailed?: boolean | undefined;
   windowLabel: string;
   lastReceived: string;
   actions: HealthHeroActions;
@@ -80,9 +91,13 @@ export function HeroStrip({
       <div className="home-canvas-metrics">
         <MetricCard
           label={t('home.kpis.active_alerts')}
-          value={String(firing + acknowledged)}
-          detail={t('home.kpis.alert_detail', { firing, acknowledged })}
-          tone={alertTone(firing, acknowledged)}
+          value={incidentsFailed ? '—' : String(firing + acknowledged)}
+          detail={
+            incidentsFailed
+              ? t('home.kpis.unavailable')
+              : t('home.kpis.alert_detail', { firing, acknowledged })
+          }
+          tone={incidentsFailed ? undefined : alertTone(firing, acknowledged)}
           loading={incidentsLoading}
           riseIndex={1}
           onClick={onOpenAlerts}
@@ -90,14 +105,14 @@ export function HeroStrip({
         <MetricCard
           label={t('home.kpis.intake_bytes')}
           scope={windowLabel}
-          value={formatBytesCompact(overview?.intake_bytes)}
+          value={formatBytesCompact(overview?.intakeBytes)}
           detail={
             overview
               ? t('home.kpis.intake_detail', {
-                  rate: formatByteRate(overview.intake_bytes, overview.window?.window_secs ?? 1),
+                  rate: formatByteRate(overview.intakeBytes, overview.window?.windowSecs ?? 1),
                   rows: formatCount(overview.rows),
                 })
-              : t('home.loading')
+              : t(overviewFailed ? 'home.kpis.unavailable' : 'home.loading')
           }
           loading={overviewLoading}
           riseIndex={2}
@@ -106,8 +121,8 @@ export function HeroStrip({
         <MetricCard
           label={t('home.kpis.stored_bytes')}
           scope={windowLabel}
-          value={formatBytesCompact(overview?.stored_bytes)}
-          detail={<CompressionDetail overview={overview} />}
+          value={formatBytesCompact(overview?.storedBytes)}
+          detail={<CompressionDetail overview={overview} failed={overviewFailed} />}
           loading={overviewLoading}
           riseIndex={3}
           onClick={onOpenStreams}

@@ -18,6 +18,7 @@ pub struct InboundMcpIdempotencyInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InboundMcpIdempotencyRecord {
     pub org_id: Id,
     pub principal_type: String,

@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 把一轮查询结果判定成 [`Decision`]：阈值（单档 / 多档）与 anomaly 两条路径。
+//! 把一轮查询结果判定成 [`Decision`]：读出值，交给 [`advance`] 推进去抖状态并写回。
 
 use std::collections::BTreeMap;
 
 use super::{
     DAY_MICROS, RuleEvaluator,
-    evaluation::{compare_value, first_cell_f64, first_cell_matches},
+    evaluation::first_cell_f64,
+    round::{Reading, advance, with_no_data_value},
 };
 use crate::{
     domain::{
@@ -23,24 +24,68 @@ use crate::{
 };
 
 /// 一轮评估的结论。
+#[derive(Debug, Clone)]
 pub(super) struct Decision {
     /// 命中，且已连续命中满 `for_periods`。
     pub(super) firing: bool,
     /// 多档规则里已触发的最高档；单档规则与 anomaly 为 `None`。
     pub(super) severity: Option<Severity>,
-    /// 本轮命中（含尚未满 `for_periods` 的 pending），resolve 以它为准。
+    /// 本轮命中（含尚未满 `for_periods` 的 pending）。
     pub(super) matched: bool,
+    /// 本轮在恢复线健康的一侧，且已连续满恢复条件的轮数：开着的事件该解决了。
+    pub(super) recovered: bool,
+    /// 本轮没有值，规则保持原状态（`no_data` 为 `keep` 或 `alert`）。
+    pub(super) no_data: bool,
+    /// 没有值已连续满 `no_data.for_periods` 轮，规则要为此开无数据事件。
+    pub(super) no_data_firing: bool,
+    /// 这一段没有值从哪一轮开始。
+    pub(super) no_data_since: Option<TimestampMicros>,
+    /// 前几轮没有值，这一轮有了：无数据事件该解决了。
+    pub(super) data_returned: bool,
     /// 仅 anomaly：偏离基线的比例。
     pub(super) deviation_ratio: Option<f64>,
     /// 已连续命中的轮数。
     pub(super) consecutive: u32,
+    /// 自己判定的规则写进这时开的事件的说明（预计越线时间、偏离程度、最后一次打卡……）。
+    pub(super) annotations: BTreeMap<String, String>,
 }
 
 impl Decision {
+    /// 什么都没发生的一轮。
+    pub(super) fn quiet() -> Self {
+        Self {
+            firing: false,
+            severity: None,
+            matched: false,
+            recovered: false,
+            no_data: false,
+            no_data_firing: false,
+            no_data_since: None,
+            data_returned: false,
+            deviation_ratio: None,
+            consecutive: 0,
+            annotations: BTreeMap::new(),
+        }
+    }
+
+    /// 按列拆分的规则：把一组的结论并进整条规则的结论（有组在触发就是触发，连续轮数取命中各组里
+    /// 最长的）。
+    pub(super) fn absorb(&mut self, group: &Decision) {
+        self.firing |= group.firing;
+        self.no_data |= group.no_data;
+
+        if group.matched {
+            self.matched = true;
+            self.consecutive = self.consecutive.max(group.consecutive);
+        }
+    }
+
     /// 写到 `alert_rules.last_state` 的规则状态。
     pub(super) fn rule_state(&self) -> RuleState {
         if self.firing {
             RuleState::Firing
+        } else if self.no_data {
+            RuleState::NoData
         } else if self.matched {
             RuleState::Pending(self.consecutive)
         } else {
@@ -50,8 +95,9 @@ impl Decision {
 }
 
 impl RuleEvaluator {
-    /// 判定一轮结果并推进去抖状态。`None` 表示本轮 inconclusive（anomaly 基线不可信），
-    /// 调用方跳过本轮，不动状态，绝不能把"评估不了"当成"恢复正常"。
+    /// 整条规则（不按列拆分）的一轮：读出值，推进状态并写回。`None` 表示本轮 inconclusive
+    /// （anomaly 基线不可信），调用方跳过本轮，不动状态，绝不能把"评估不了"当成"恢复正常"。
+    /// 没有值不算 inconclusive，按规则的 `no_data` 处理。
     pub(super) async fn decide(
         &self,
         rule: &AlertRule,
@@ -60,116 +106,48 @@ impl RuleEvaluator {
         now: TimestampMicros,
         period_us: i64,
     ) -> Result<Option<Decision>> {
-        // 多档与单档 / anomaly 互斥。
-        if !rule.thresholds.is_empty() && rule.kind != AlertRuleKind::Anomaly {
-            return self
-                .eval_thresholds(rule, query_result, now)
-                .await
-                .map(Some);
-        }
+        let value = with_no_data_value(
+            rule,
+            first_cell_f64(query_result).filter(|value| !value.is_nan()),
+        );
 
-        let (matched, deviation_ratio) = match rule.kind {
-            AlertRuleKind::Anomaly => {
+        let reading = match value {
+            None => Reading::Missing,
+            Some(current) if rule.kind == AlertRuleKind::Anomaly => {
                 let Some(decision) = self
-                    .eval_anomaly(rule, stream, query_result, now, period_us)
+                    .eval_anomaly(rule, stream, current, now, period_us)
                     .await
                 else {
                     return Ok(None);
                 };
 
-                (decision.firing, Some(decision.deviation_ratio()))
-            }
-            // 写入路径匹配器不支持的 real_time 规则按 scheduled 周期评估。
-            AlertRuleKind::Scheduled | AlertRuleKind::RealTime => (
-                first_cell_matches(query_result, &rule.trigger.operator, rule.trigger.threshold),
-                None,
-            ),
-        };
-
-        let state = self.eval_state.upsert_match(&rule.id, matched, now).await?;
-
-        Ok(Some(Decision {
-            firing: matched && state.consecutive_matches >= rule.trigger.for_periods,
-            severity: None,
-            matched,
-            deviation_ratio,
-            consecutive: state.consecutive_matches,
-        }))
-    }
-
-    /// 多档阈值评估：逐档比较首格值、每档独立去抖（severity_streaks），取最高命中档。
-    /// 读-改-写要求同一周期只有一个节点评估这条规则：多个 alert 节点按 `rule_id` 分担，
-    /// 交接时的重叠由周期守卫（`claim_cycle`，见 `RuleEvaluator::eval_one`）挡住。
-    async fn eval_thresholds(
-        &self,
-        rule: &AlertRule,
-        query_result: &QueryResult,
-        now: TimestampMicros,
-    ) -> Result<Decision> {
-        let mut state =
-            self.eval_state
-                .get(&rule.id)
-                .await?
-                .unwrap_or_else(|| AlertRuleEvalState {
-                    rule_id: rule.id.clone(),
-                    consecutive_matches: 0,
-                    last_eval_at: now,
-                    last_matched: false,
-                    severity_streaks: BTreeMap::new(),
-                });
-
-        let value = first_cell_f64(query_result).filter(|v| !v.is_nan());
-        let mut matched_any = false;
-        let mut fired: Option<Severity> = None;
-
-        for tier in &rule.thresholds {
-            let key = tier.severity.as_str().to_string();
-
-            let hit = value
-                .map(|v| compare_value(v, &tier.operator, tier.threshold))
-                .unwrap_or(false);
-
-            if hit {
-                matched_any = true;
-                let c = state.severity_streaks.entry(key).or_insert(0);
-                *c += 1;
-
-                if *c >= tier.for_periods {
-                    fired = Some(fired.map_or(tier.severity, |f| f.max(tier.severity)));
+                Reading::Anomaly {
+                    firing: decision.firing,
+                    deviation_ratio: decision.deviation_ratio(),
                 }
-            } else {
-                state.severity_streaks.insert(key, 0);
             }
-        }
-
-        state.last_matched = matched_any;
-        state.last_eval_at = now;
-
-        state.consecutive_matches = if matched_any {
-            state.consecutive_matches.saturating_add(1)
-        } else {
-            0
+            Some(value) => Reading::Value(value),
         };
 
-        let consecutive = state.consecutive_matches;
-        self.eval_state.upsert_state(state).await?;
+        let mut state = self
+            .eval_state
+            .get(&rule.id, "")
+            .await?
+            .unwrap_or_else(|| AlertRuleEvalState::fresh(&rule.id, "", BTreeMap::new(), now));
 
-        Ok(Decision {
-            firing: fired.is_some(),
-            severity: fired,
-            matched: matched_any,
-            deviation_ratio: None,
-            consecutive,
-        })
+        let decision = advance(rule, &mut state, &reading, now);
+        self.eval_state.upsert_state(state).await?;
+        Ok(Some(decision))
     }
 
     /// Anomaly 求值：取 `lookback_days` 个同时刻历史窗口的首格值作基线，
     /// 跑 [`detector_for`] 选出的 detector 判定当前值是否离群。
     ///
     /// 返回 `Some(firing)`（接入与 scheduled 相同的去抖 / incident 生命周期），或
-    /// `None` 表示 **inconclusive**——基线不可信（历史窗口抓取失败、缺 params、当前
-    /// 窗口无数值、或一个有效历史样本都没有）。inconclusive 时 caller 跳过本轮且
-    /// 不动状态，避免把"评估不了"误判成"恢复正常"而 resolve 掉真在 firing 的 incident。
+    /// `None` 表示 **inconclusive**——基线不可信（历史窗口抓取失败、缺 params、或一个
+    /// 有效历史样本都没有）。inconclusive 时 caller 跳过本轮且不动状态，避免把"评估不了"
+    /// 误判成"恢复正常"而 resolve 掉真在 firing 的 incident。当前窗口没有值由调用方按
+    /// `no_data` 处理，不走到这里。
     ///
     /// 代价：每个 tick 会按 `lookback_days` 各跑一次历史窗口查询（route 与此处都按
     /// `MAX_ANOMALY_LOOKBACK_DAYS` 收口；evaluator 再 clamp 一次，不信任持久化越界值），
@@ -178,7 +156,7 @@ impl RuleEvaluator {
         &self,
         rule: &AlertRule,
         stream: &StreamHint,
-        current_result: &QueryResult,
+        current: f64,
         now: TimestampMicros,
         period_us: i64,
     ) -> Option<AnomalyDecision> {
@@ -190,7 +168,6 @@ impl RuleEvaluator {
             return None;
         };
 
-        let current = first_cell_f64(current_result)?;
         // evaluator 不信任持久化里的 lookback_days（route 收口前写入 / 旁路写入都可能越界）。
         let lookback = params.lookback_days.clamp(1, MAX_ANOMALY_LOOKBACK_DAYS) as i64;
         let mut history: Vec<f64> = Vec::with_capacity(lookback as usize);
@@ -257,17 +234,39 @@ mod tests {
     fn decision(firing: bool, matched: bool, consecutive: u32) -> Decision {
         Decision {
             firing,
-            severity: None,
             matched,
-            deviation_ratio: None,
             consecutive,
+            ..Decision::quiet()
         }
     }
 
     #[test]
-    fn rule_state_distinguishes_healthy_pending_and_firing() {
+    fn rule_state_distinguishes_healthy_pending_no_data_and_firing() {
         assert_eq!(decision(false, false, 0).rule_state(), RuleState::Healthy);
         assert_eq!(decision(false, true, 1).rule_state(), RuleState::Pending(1));
         assert_eq!(decision(true, true, 2).rule_state(), RuleState::Firing);
+
+        let kept = Decision {
+            no_data: true,
+            ..decision(false, false, 1)
+        };
+        assert_eq!(kept.rule_state(), RuleState::NoData);
+    }
+
+    #[test]
+    fn a_split_rule_fires_while_any_group_fires_and_counts_its_longest_streak() {
+        let mut rule = Decision::quiet();
+        rule.absorb(&decision(false, true, 2));
+        rule.absorb(&decision(false, true, 4));
+        assert_eq!(rule.rule_state(), RuleState::Pending(4));
+
+        rule.absorb(&Decision {
+            no_data: true,
+            ..Decision::quiet()
+        });
+        assert_eq!(rule.rule_state(), RuleState::NoData);
+
+        rule.absorb(&decision(true, true, 1));
+        assert_eq!(rule.rule_state(), RuleState::Firing);
     }
 }

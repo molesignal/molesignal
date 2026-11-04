@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CalendarClock,
   CalendarDays,
+  CalendarPlus,
   Copy,
   Download,
   Ellipsis,
@@ -23,6 +24,7 @@ import {
 import { ConfirmDialog } from '@/admin';
 import * as auditApi from '@/api/audit';
 import type { AuditEvent } from '@/api/audit';
+import * as incidentsApi from '@/api/incidents';
 import * as schedulesApi from '@/api/schedules';
 import * as teamsApi from '@/api/teams';
 import { toApiError } from '@/lib/http';
@@ -46,6 +48,7 @@ import {
   DropdownMenuTrigger,
 } from '@/shell/ui/dropdown-menu';
 import { toast } from '@/shell/ui/sonner';
+import { useReachability } from '@/shell/useReachability';
 import { useUsers, type UserLite } from '@/shell/useUsers';
 import type {
   Rotation,
@@ -53,6 +56,8 @@ import type {
   ScheduleOverride,
 } from '@/types/alerting';
 
+import { CalendarSubscribeDialog } from './CalendarSubscribe';
+import { CoverageGrid } from './coverage/CoverageGrid';
 import { ScheduleEditorDrawer } from './EditorDrawer';
 import {
   localInputToMicros,
@@ -69,6 +74,7 @@ import {
   scheduleStatus,
   timezoneDisplay,
 } from './model';
+import { ScheduleSwapsCard } from './Swaps';
 import {
   ScheduleCard,
   ScheduleSummaryCard,
@@ -78,6 +84,8 @@ import {
   formatScheduleTime,
   relativeDuration,
 } from './Ui';
+import { UnreachableMembers } from './UnreachableMembers';
+import { OncallLoadTable } from '../insights/OncallLoad';
 
 interface ActivityRow {
   id: string;
@@ -95,7 +103,9 @@ export function AlertsScheduleDetail() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const users = useUsers();
-  const manageAccess = useActionAccess({ permission: 'schedules.manage' });
+  const manageAccess = useActionAccess({ permission: 'schedules.update' });
+  const deleteAccess = useActionAccess({ permission: 'schedules.delete' });
+  const overridesAccess = useActionAccess({ permission: 'schedules.overrides.manage' });
   const [nowMicros, setNowMicros] = React.useState(
     () => Date.now() * 1000,
   );
@@ -110,6 +120,7 @@ export function AlertsScheduleDetail() {
     React.useState(false);
   const [showAllActivity, setShowAllActivity] =
     React.useState(false);
+  const [subscribing, setSubscribing] = React.useState(false);
 
   React.useEffect(() => {
     const timer = window.setInterval(
@@ -124,6 +135,8 @@ export function AlertsScheduleDetail() {
     queryFn: () => schedulesApi.get(id),
     enabled: Boolean(id),
   });
+  // Members who cannot get alerts at all are named above the timeline.
+  const reach = useReachability(scheduleQuery.data ? scheduleMemberIds(scheduleQuery.data) : []);
   const schedulesQuery = useQuery({
     queryKey: ['schedules'],
     queryFn: schedulesApi.list,
@@ -136,8 +149,8 @@ export function AlertsScheduleDetail() {
     queryKey: ['schedule-activity', id],
     queryFn: () =>
       auditApi.query({
-        target_kind: 'schedule',
-        target_id: id,
+        targetKind: 'schedule',
+        targetId: id,
         limit: 50,
       }),
     enabled: Boolean(id),
@@ -209,10 +222,10 @@ export function AlertsScheduleDetail() {
   const endOverride = useMutation({
     mutationFn: (override: ScheduleOverride) =>
       schedulesApi.updateOverride(id, override.id, {
-        user_id: override.user_id,
-        start_at_micros: override.start_at,
-        end_at_micros: Math.max(
-          override.start_at + 1_000_000,
+        userId: override.userId,
+        startAt: override.startAt,
+        endAt: Math.max(
+          override.startAt + 1_000_000,
           Date.now() * 1000,
         ),
         reason: override.reason,
@@ -274,7 +287,7 @@ export function AlertsScheduleDetail() {
   );
   const activeOverrides = upcomingOverrides.filter(
     (override) =>
-      override.start_at <= nowMicros && nowMicros < override.end_at,
+      override.startAt <= nowMicros && nowMicros < override.endAt,
   );
   const primaryRotation = schedule.rotations[0];
   const status = scheduleStatus(schedule, nowMicros);
@@ -288,10 +301,10 @@ export function AlertsScheduleDetail() {
     ? activity
     : activity.slice(0, 5);
   const visibleOverrides = showOverrideHistory
-    ? [...schedule.overrides].sort((a, b) => b.start_at - a.start_at)
+    ? [...schedule.overrides].sort((a, b) => b.startAt - a.startAt)
     : upcomingOverrides;
   const addOverrideRequested =
-    searchParams.get('addOverride') === '1' && manageAccess.allowed;
+    searchParams.get('addOverride') === '1' && overridesAccess.allowed;
 
   return (
     <>
@@ -361,11 +374,15 @@ export function AlertsScheduleDetail() {
                   <Download className="h-4 w-4" />
                   {t('schedules.actions.export_calendar')}
                 </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setSubscribing(true)}>
+                  <CalendarPlus className="h-4 w-4" />
+                  {t('schedules.actions.subscribe_calendar')}
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-red-soft focus:text-red-soft"
-                  disabled={manageAccess.disabled}
-                  disabledReason={manageAccess.reason}
+                  disabled={deleteAccess.disabled}
+                  disabledReason={deleteAccess.reason}
                   onSelect={() => setRemovingSchedule(true)}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -455,12 +472,12 @@ export function AlertsScheduleDetail() {
                 activeOverrides[0]
                   ? t('schedules.detail.coverage_window', {
                       start: formatScheduleTime(
-                        activeOverrides[0].start_at,
+                        activeOverrides[0].startAt,
                         i18n.language,
                         schedule.timezone,
                       ),
                       end: formatScheduleTime(
-                        activeOverrides[0].end_at,
+                        activeOverrides[0].endAt,
                         i18n.language,
                         schedule.timezone,
                       ),
@@ -470,6 +487,13 @@ export function AlertsScheduleDetail() {
               tone="orange"
             />
           </div>
+
+          <UnreachableMembers
+            memberIds={memberIds}
+            reach={reach}
+            nameOf={users.nameOf}
+            nextUserId={nextSwitch ? resolveScheduleAt(schedule, nextSwitch + 1)?.userId ?? null : null}
+          />
 
           <div className="grid grid-cols-4 gap-4">
             <RotationRuleCard
@@ -495,6 +519,16 @@ export function AlertsScheduleDetail() {
               />
             </div>
           </div>
+
+          <CoverageGrid
+            schedule={schedule}
+            users={users.users}
+            nowMicros={nowMicros}
+            locale={i18n.language}
+            onAddOverride={
+              overridesAccess.allowed ? () => setSearchParams({ addOverride: '1' }, { replace: true }) : undefined
+            }
+          />
 
           <div className="grid grid-cols-[minmax(360px,.85fr)_minmax(0,1.45fr)] gap-4">
             <ScheduleCard
@@ -549,6 +583,16 @@ export function AlertsScheduleDetail() {
             </ScheduleCard>
           </div>
 
+          <ScheduleSwapsCard
+            schedule={schedule}
+            users={users.users}
+            nowMicros={nowMicros}
+          />
+
+          <ScheduleCard title={t('schedules.load.title')} bodyClassName="px-4 pb-3">
+            <ScheduleLoad scheduleId={schedule.id} />
+          </ScheduleCard>
+
           <ScheduleCard
             title={t('schedules.activity.title')}
             action={
@@ -577,6 +621,11 @@ export function AlertsScheduleDetail() {
         </div>
       </PageBody>
 
+      <CalendarSubscribeDialog
+        open={subscribing}
+        schedule={schedule}
+        onClose={() => setSubscribing(false)}
+      />
       <ScheduleEditorDrawer
         open={editOpen}
         editing={schedule}
@@ -592,10 +641,10 @@ export function AlertsScheduleDetail() {
         description={schedule.name}
         confirmLabel={tc('actions.delete')}
         busy={removeSchedule.isPending}
-        disabled={manageAccess.disabled}
-        disabledReason={manageAccess.reason}
+        disabled={deleteAccess.disabled}
+        disabledReason={deleteAccess.reason}
         onConfirm={() => {
-          if (manageAccess.allowed) removeSchedule.mutate();
+          if (deleteAccess.allowed) removeSchedule.mutate();
         }}
       />
       <ConfirmDialog
@@ -606,10 +655,10 @@ export function AlertsScheduleDetail() {
         description={removingOverride?.reason ?? ''}
         confirmLabel={tc('actions.delete')}
         busy={removeOverride.isPending}
-        disabled={manageAccess.disabled}
-        disabledReason={manageAccess.reason}
+        disabled={overridesAccess.disabled}
+        disabledReason={overridesAccess.reason}
         onConfirm={() =>
-          manageAccess.allowed
+          overridesAccess.allowed
           && removingOverride
           && removeOverride.mutate(removingOverride.id)
         }
@@ -630,7 +679,7 @@ function RotationRuleCard({
   onView: () => void;
 }) {
   const { t, i18n } = useTranslation('alerts');
-  const manageAccess = useActionAccess({ permission: 'schedules.manage' });
+  const manageAccess = useActionAccess({ permission: 'schedules.update' });
   const byId = React.useMemo(
     () => new Map(users.map((user) => [user.id, user])),
     [users],
@@ -700,7 +749,7 @@ function RotationRuleCard({
                   `schedules.rotation_kinds.${rotationKindKey(rotation)}`,
                 ),
                 time: formatScheduleTime(
-                  rotation.start_at,
+                  rotation.startAt,
                   i18n.language,
                   schedule.timezone,
                 ),
@@ -708,6 +757,20 @@ function RotationRuleCard({
               })}
             </dd>
           </div>
+          {rotation.endAt != null && (
+            <div data-rotation-ends>
+              <dt className="text-xs text-tx-3">
+                {t('schedules.detail.rotation_ends')}
+              </dt>
+              <dd className="mt-1 text-sm font-strong text-tx-0">
+                {formatScheduleTime(
+                  rotation.endAt,
+                  i18n.language,
+                  schedule.timezone,
+                )}
+              </dd>
+            </div>
+          )}
         </dl>
       )}
     </ScheduleCard>
@@ -884,7 +947,7 @@ function OverrideList({
   onDelete: (override: ScheduleOverride) => void;
 }) {
   const { t } = useTranslation('alerts');
-  const manageAccess = useActionAccess({ permission: 'schedules.manage' });
+  const manageAccess = useActionAccess({ permission: 'schedules.overrides.manage' });
   const byId = React.useMemo(
     () => new Map(users.map((user) => [user.id, user])),
     [users],
@@ -900,10 +963,10 @@ function OverrideList({
     <div className="flex flex-col gap-3">
       {overrides.map((override) => {
         const active =
-          override.start_at <= nowMicros
-          && nowMicros < override.end_at;
-        const future = override.start_at > nowMicros;
-        const user = byId.get(override.user_id);
+          override.startAt <= nowMicros
+          && nowMicros < override.endAt;
+        const future = override.startAt > nowMicros;
+        const user = byId.get(override.userId);
         return (
           <div
             key={override.id}
@@ -931,7 +994,7 @@ function OverrideList({
                 </div>
                 <div className="mt-0.5 font-mono text-xs font-strong text-tx-1">
                   {formatScheduleDateTime(
-                    override.start_at,
+                    override.startAt,
                     locale,
                     timeZone,
                   )}
@@ -954,7 +1017,7 @@ function OverrideList({
                 </div>
                 <div className="mt-0.5 font-mono text-xs font-strong text-tx-1">
                   {formatScheduleDateTime(
-                    override.end_at,
+                    override.endAt,
                     locale,
                     timeZone,
                   )}
@@ -1029,7 +1092,7 @@ function AddOverrideForm({
   onSaved: () => void;
 }) {
   const { t, i18n } = useTranslation('alerts');
-  const manageAccess = useActionAccess({ permission: 'schedules.manage' });
+  const manageAccess = useActionAccess({ permission: 'schedules.overrides.manage' });
   const formRef = React.useRef<HTMLFormElement>(null);
   const [userId, setUserId] = React.useState('');
   const [reason, setReason] = React.useState('');
@@ -1045,10 +1108,10 @@ function AddOverrideForm({
 
   React.useEffect(() => {
     if (editing) {
-      setUserId(editing.user_id);
+      setUserId(editing.userId);
       setReason(editing.reason);
-      setStart(microsToLocalInput(editing.start_at));
-      setEnd(microsToLocalInput(editing.end_at));
+      setStart(microsToLocalInput(editing.startAt));
+      setEnd(microsToLocalInput(editing.endAt));
     } else {
       reset();
     }
@@ -1073,8 +1136,8 @@ function AddOverrideForm({
   const overlaps = schedule.overrides.some(
     (override) =>
       override.id !== editing?.id
-      && startMicros < override.end_at
-      && override.start_at < endMicros,
+      && startMicros < override.endAt
+      && override.startAt < endMicros,
   );
   const pastStart =
     Boolean(startMicros) && startMicros < Date.now() * 1000;
@@ -1094,10 +1157,10 @@ function AddOverrideForm({
   const save = useMutation({
     mutationFn: () => {
       const payload: schedulesApi.OverrideInput = {
-        user_id: userId,
+        userId: userId,
         reason: reason.trim(),
-        start_at_micros: startMicros,
-        end_at_micros: endMicros,
+        startAt: startMicros,
+        endAt: endMicros,
       };
       return editing
         ? schedulesApi.updateOverride(schedule.id, editing.id, payload)
@@ -1218,7 +1281,7 @@ function AddOverrideForm({
         {userId && timeValid && (
           <div className="bg-bg-2 px-3 py-2 text-xs leading-relaxed text-tx-2">
             {t('schedules.override_summary', {
-              user: selectedUser?.name ?? userId,
+              user: selectedUser?.name ?? t('schedules.unknown_user'),
               start: formatScheduleDateTime(
                 startMicros,
                 i18n.language,
@@ -1300,7 +1363,7 @@ function ActivityTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[860px] text-left">
-        <thead className="bg-bg-2 text-xs font-strong text-tx-3">
+        <thead className="border-b border-bd-0 bg-[var(--table-head-surface)] text-xs font-strong text-tx-0">
           <tr>
             <th className="px-4 py-2">
               {t('schedules.activity.columns.time')}
@@ -1353,6 +1416,25 @@ function ActivityTable({
   );
 }
 
+/** How the schedule's members were loaded over the last 30 days: shifts, pages, pages at night. */
+function ScheduleLoad({ scheduleId }: { scheduleId: string }) {
+  const { t } = useTranslation('alerts');
+  const load = useQuery({
+    queryKey: ['alerts-oncall-load', LOAD_WINDOW_SECS, scheduleId],
+    queryFn: () => incidentsApi.oncallLoad(LOAD_WINDOW_SECS, scheduleId),
+    staleTime: 30_000,
+    retry: false,
+  });
+
+  if (load.isLoading) return <p className="py-2 font-sans text-sm text-tx-3">{t('insights.load.loading')}</p>;
+  if (load.isError) return <p className="py-2 font-sans text-sm text-tx-3">{t('insights.load.error')}</p>;
+
+  return <OncallLoadTable people={load.data?.people ?? []} t={t} />;
+}
+
+/** The window of a schedule's member load. */
+const LOAD_WINDOW_SECS = 30 * 86_400;
+
 function ScheduleStatusPill({
   status,
 }: {
@@ -1376,9 +1458,9 @@ function buildActivityRows(
   if (events && events.length > 0) {
     return events.map((event) => ({
       id: event.id,
-      at: event.ts_micros,
+      at: event.ts,
       actorId:
-        event.actor_kind === 'user' ? event.actor_id : null,
+        event.actorKind === 'user' ? event.actorId : null,
       action: event.action,
       payload: event.payload,
     }));
@@ -1386,8 +1468,8 @@ function buildActivityRows(
   const synthetic: ActivityRow[] = [
     {
       id: `${schedule.id}-created`,
-      at: schedule.created_at,
-      actorId: schedule.created_by ?? null,
+      at: schedule.createdAt,
+      actorId: schedule.createdBy ?? null,
       action: 'schedule.created',
       payload: { name: schedule.name },
     },
@@ -1395,13 +1477,13 @@ function buildActivityRows(
   for (const override of schedule.overrides) {
     synthetic.push({
       id: `${schedule.id}-${override.id}`,
-      at: override.start_at,
-      actorId: schedule.updated_by ?? null,
+      at: override.startAt,
+      actorId: schedule.updatedBy ?? null,
       action: 'schedule.override_added',
       payload: {
-        user_id: override.user_id,
-        start_at: override.start_at,
-        end_at: override.end_at,
+        userId: override.userId,
+        startAt: override.startAt,
+        endAt: override.endAt,
         reason: override.reason,
       },
     });
@@ -1410,6 +1492,7 @@ function buildActivityRows(
 }
 
 function activityKey(action: string): string {
+  if (action.includes('.swap_')) return 'swap';
   if (action.endsWith('override_added')) return 'override';
   if (action.endsWith('override_updated')) return 'override';
   if (action.endsWith('override_removed')) return 'override';
@@ -1425,7 +1508,7 @@ function activityTone(
 ): 'green' | 'blue' | 'orange' | 'red' | 'dim' {
   const key = activityKey(action);
   if (key === 'create' || key === 'resume') return 'green';
-  if (key === 'override') return 'orange';
+  if (key === 'override' || key === 'swap') return 'orange';
   if (key === 'delete') return 'red';
   if (key === 'pause') return 'dim';
   return 'blue';
@@ -1437,8 +1520,17 @@ function activityDescription(
   usersById: Map<string, UserLite>,
 ): string {
   const key = activityKey(row.action);
+  if (key === 'swap') {
+    const person = (id: unknown) =>
+      usersById.get(String(id ?? ''))?.name ?? t('schedules.unknown_user');
+    return t('schedules.activity.descriptions.swap', {
+      requester: person(row.payload.requesterId),
+      target: person(row.payload.targetId),
+      status: t(`schedules.swaps.status.${String(row.payload.status ?? 'pending')}`),
+    });
+  }
   if (key === 'override') {
-    const userId = String(row.payload.user_id ?? '');
+    const userId = String(row.payload.userId ?? '');
     return t('schedules.activity.descriptions.override', {
       user:
         usersById.get(userId)?.name
@@ -1457,11 +1549,12 @@ function scheduleInput(
   return {
     name: schedule.name,
     description: schedule.description,
-    team_id: schedule.team_id ?? null,
+    teamId: schedule.teamId ?? null,
     timezone: schedule.timezone,
     enabled: schedule.enabled,
     rotations: schedule.rotations,
     overrides: schedule.overrides,
+    swapNeedsApproval: schedule.swapNeedsApproval ?? false,
   };
 }
 

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+mod common;
+
 use std::sync::Arc;
 
 use molesignal::{
@@ -41,13 +43,7 @@ fn skip_unless_enabled() -> bool {
 }
 
 async fn boot() -> MetaStore {
-    use testcontainers::runners::AsyncRunner;
-    use testcontainers_modules::postgres::Postgres as PgImage;
-
-    let pg = PgImage::default().start().await.expect("start postgres");
-    let port = pg.get_host_port_ipv4(5432).await.expect("postgres port");
-    let host = pg.get_host().await.expect("postgres host");
-    let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+    let (dsn, pg) = common::test_database().await;
     let store = MetaStore::connect(&MetaDatabaseSettings {
         dsn,
         min_connections: 1,
@@ -191,7 +187,7 @@ async fn dashboard_draft_repository_scopes_expires_consumes_and_replays_atomical
     repository.create(raced.clone()).await.unwrap();
     sqlx::query(
         "UPDATE agent_capability_contract_bindings
-         SET revision = revision + 1, updated_at_micros = updated_at_micros + 1
+         SET revision = revision + 1, updated_at = updated_at + INTERVAL '1 microsecond'
          WHERE capability_key = $1",
     )
     .bind(DASHBOARD_AUTHORING_CAPABILITY)

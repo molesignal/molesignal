@@ -8,20 +8,20 @@ export const MEMORY_KINDS: readonly MemoryKind[] = ['preference', 'procedure', '
 export interface Memory {
   id: string;
   scope: 'personal' | 'team';
-  team_id?: string | null;
+  teamId?: string | null;
   kind: MemoryKind;
   name: string;
   /** One sentence on when it applies. */
   description: string;
   body: string;
-  source_chat_id?: string | null;
+  sourceChatId?: string | null;
   /** The name of the chat it came from; absent when that chat is gone. */
-  source_chat_title?: string | null;
-  created_by: string;
-  updated_by: string;
-  created_at_micros: number;
-  updated_at_micros: number;
-  forgotten_at_micros?: number | null;
+  sourceChatTitle?: string | null;
+  createdBy: string;
+  updatedBy: string;
+  createdAt: number;
+  updatedAt: number;
+  forgottenAt?: number | null;
 }
 
 export interface MemoryInput {
@@ -56,9 +56,9 @@ export async function restoreMemory(id: string): Promise<Memory> {
 
 export interface MemorySettings {
   /** After a chat goes quiet, the model picks out what is worth remembering from it. */
-  distill_after_chat: boolean;
-  can_edit: boolean;
-  updated_at_micros?: number | null;
+  distillAfterChat: boolean;
+  canEdit: boolean;
+  updatedAt?: number | null;
 }
 
 export async function memorySettings(): Promise<MemorySettings> {
@@ -68,7 +68,7 @@ export async function memorySettings(): Promise<MemorySettings> {
 
 export async function setMemorySettings(distillAfterChat: boolean): Promise<MemorySettings> {
   const { data } = await http.put<MemorySettings>('/agent/memory-settings', {
-    distill_after_chat: distillAfterChat,
+    distillAfterChat: distillAfterChat,
   });
   return data;
 }

@@ -37,7 +37,7 @@ export function QueryRecommendations({
 }) {
   const { i18n, t } = useTranslation('common');
   const profileKey = result
-    ? `${language}|${statement}|${result.scanned_rows}|${result.took_ms}|${result.rows.length}`
+    ? `${language}|${statement}|${result.scannedRows}|${result.tookMs}|${result.rows.length}`
     : '';
   const [dismissedKey, setDismissedKey] = React.useState('');
 
@@ -50,10 +50,10 @@ export function QueryRecommendations({
       queryApi.recommendations({
         language,
         statement,
-        scanned_rows: result!.scanned_rows,
-        returned_rows: result!.rows.length,
-        took_ms: result!.took_ms,
-        ...(timeRangeSecs != null ? { time_range_secs: timeRangeSecs } : {}),
+        scannedRows: result!.scannedRows,
+        returnedRows: result!.rows.length,
+        tookMs: result!.tookMs,
+        ...(timeRangeSecs != null ? { timeRangeSecs: timeRangeSecs } : {}),
       }),
   });
 
@@ -61,8 +61,8 @@ export function QueryRecommendations({
   if (!result || recs.length === 0 || dismissedKey === profileKey) return null;
 
   const translationValues = {
-    took_ms: result.took_ms,
-    scanned_rows: result.scanned_rows,
+    took_ms: result.tookMs,
+    scanned_rows: result.scannedRows,
     returned_rows: result.rows.length,
   };
   const localizedRecommendations = recs.map((recommendation) => {

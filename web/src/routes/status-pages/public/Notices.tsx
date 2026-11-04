@@ -83,11 +83,11 @@ export function ActiveNotice({
             {components.length > 0 && <>{listNames(components, language)}</>}
             <>
               {copy('public.started_at')}{' '}
-              <time dateTime={microsDateTime(incident.started_at)} className="tabular-nums">
-                {formatMicros(incident.started_at, timezone, language)}
+              <time dateTime={microsDateTime(incident.startedAt)} className="tabular-nums">
+                {formatMicros(incident.startedAt, timezone, language)}
               </time>
             </>
-            <>{relativeTime(incident.started_at, snapshot.generated_at, language)}</>
+            <>{relativeTime(incident.startedAt, snapshot.generatedAt, language)}</>
           </MetaLine>
         </div>
         <IncidentStatusChip status={incident.status} kind={incident.kind} copy={copy} />
@@ -97,17 +97,17 @@ export function ActiveNotice({
         <div data-status-latest-update className="mt-4 border-l-2 border-bd-1 pl-4">
           <MetaLine className="text-xs leading-5 text-tx-2">
             <span className="font-strong text-tx-1">{copy('public.notice.latest_update')}</span>
-            <time dateTime={microsDateTime(latest.created_at)} className="tabular-nums">
-              {formatMicros(latest.created_at, timezone, language)}
+            <time dateTime={microsDateTime(latest.createdAt)} className="tabular-nums">
+              {formatMicros(latest.createdAt, timezone, language)}
             </time>
           </MetaLine>
           <p className="mt-1.5 max-w-3xl whitespace-pre-wrap text-pretty text-sm leading-6 text-tx-1">
             {latest.message}
           </p>
-          {incident.next_update_at != null && (
+          {incident.nextUpdateAt != null && (
             <p data-status-next-update className="mt-1.5 text-xs leading-5 text-tx-2">
               {copy('public.notice.next_update', {
-                time: formatMicros(incident.next_update_at, timezone, language),
+                time: formatMicros(incident.nextUpdateAt, timezone, language),
               })}
             </p>
           )}
@@ -158,7 +158,7 @@ export function UpcomingMaintenance({
       <ul className="mt-5 divide-y divide-bd-0 overflow-hidden rounded-xl border border-bd-0 bg-white">
         {items.map((incident) => {
           const components = affectedComponentNames(incident, snapshot.components);
-          const date = new Date(Math.floor(incident.started_at / 1_000));
+          const date = new Date(Math.floor(incident.startedAt / 1_000));
           const announcement = latestFirst(incident)[0]?.message;
 
           return (
@@ -174,7 +174,7 @@ export function UpcomingMaintenance({
                 >
                   <span className="text-xs font-strong uppercase">{month.format(date)}</span>
                   <span className="text-xl font-display-strong leading-6 tabular-nums">
-                    {zonedDayOfMonth(incident.started_at, timezone)}
+                    {zonedDayOfMonth(incident.startedAt, timezone)}
                   </span>
                 </span>
                 <span className="min-w-0 flex-1">
@@ -184,11 +184,11 @@ export function UpcomingMaintenance({
                   <MetaLine className="mt-1 text-sm leading-5 text-tx-2">
                     <>
                       {copy('public.scheduled_for')}{' '}
-                      <time dateTime={microsDateTime(incident.started_at)} className="tabular-nums">
-                        {formatMicros(incident.started_at, timezone, language)}
+                      <time dateTime={microsDateTime(incident.startedAt)} className="tabular-nums">
+                        {formatMicros(incident.startedAt, timezone, language)}
                       </time>
                     </>
-                    <>{relativeTime(incident.started_at, snapshot.generated_at, language)}</>
+                    <>{relativeTime(incident.startedAt, snapshot.generatedAt, language)}</>
                     {components.length > 0 && <>{listNames(components, language)}</>}
                   </MetaLine>
                   {announcement && (

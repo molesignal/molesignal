@@ -1,0 +1,40 @@
+{
+  "type": "long_task",
+  "date": 1760000002200,
+  "source": "browser",
+  "service": "web",
+  "env": "prod",
+  "version": "1.4.0",
+  "session": {
+    "id": "6f1c2b7e-1d5a-4c6b-9a3e-0a1b2c3d4e5f",
+    "type": "user",
+    "start": 1759999998000
+  },
+  "view": {
+    "id": "a91e0d52-7b8c-4f10-8d63-5e2f7c9a1b34",
+    "url": "https://shop.example.com/checkout",
+    "name": "/checkout"
+  },
+  "long_task": {
+    "id": "1b2c3d4e-5f60-4718-8293-a4b5c6d7e8f9",
+    "duration": 180000000,
+    "entry_type": "long-animation-frame",
+    "start_time": 2200000000,
+    "blocking_duration": 130000000,
+    "render_start": 2350000000,
+    "style_and_layout_start": 2370000000,
+    "first_ui_event_timestamp": 2210000000,
+    "scripts": [
+      {
+        "duration": 150000000,
+        "start_time": 2205000000,
+        "execution_start": 2206000000,
+        "source_url": "https://shop.example.com/assets/app.3f9a.js",
+        "source_function_name": "renderCart",
+        "source_char_position": 48213,
+        "invoker": "BUTTON#pay.onclick",
+        "invoker_type": "event-listener"
+      }
+    ]
+  }
+}

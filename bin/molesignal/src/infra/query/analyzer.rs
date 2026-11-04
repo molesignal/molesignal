@@ -68,7 +68,8 @@ impl AnalyzerRule for ResultRowGuard {
 
 /// 构造查询用的 `SessionContext`：始终注册 [`TimestampIntegerLiteral`]（必须排在内建
 /// `TypeCoercion` 之前，否则后者先报类型推断错误）；`max_rows > 0` 时再追加
-/// [`ResultRowGuard`]。engine 与单测共用，确保规则注册路径被真实覆盖。
+/// [`ResultRowGuard`]。另注册不依赖组织数据的函数（`cidr_match`、`json_text`、`json_keys`）。engine 与单测共用，确保
+/// 规则注册路径被真实覆盖。
 pub fn session_context(max_rows: usize) -> SessionContext {
     let mut rules: Vec<Arc<dyn AnalyzerRule + Send + Sync>> =
         vec![Arc::new(TimestampIntegerLiteral)];
@@ -82,7 +83,11 @@ pub fn session_context(max_rows: usize) -> SessionContext {
         builder = builder.with_analyzer_rule(Arc::new(ResultRowGuard::new(max_rows)));
     }
 
-    SessionContext::new_with_state(builder.build())
+    let ctx = SessionContext::new_with_state(builder.build());
+    ctx.register_udf(super::cidr::cidr_match_udf());
+    ctx.register_udf(super::json_members::json_text_udf());
+    ctx.register_udf(super::json_members::json_keys_udf());
+    ctx
 }
 
 #[cfg(test)]

@@ -1,3 +1,4 @@
+import { byPriority } from '@/shell/incident/Importance';
 import type { Incident, Severity } from '@/types/alerting';
 
 /** Severities from the worst down: the order they are counted, listed and drawn in. */
@@ -19,7 +20,7 @@ export function isResolvedIncident(incident: Incident): boolean {
 
 /** The service an incident is about, as the rows and the search name it. */
 export function incidentService(incident: Incident): string | undefined {
-  return incident.affected_services?.[0] ?? incident.labels?.service ?? incident.labels?.svc;
+  return incident.affectedServices?.[0] ?? incident.labels?.service ?? incident.labels?.svc;
 }
 
 /** Every service the incidents touch, each once, in the order they are first met. */
@@ -27,7 +28,7 @@ export function affectedServices(incidents: readonly Incident[]): string[] {
   const services = new Set<string>();
 
   incidents.forEach((incident) => {
-    [...(incident.affected_services ?? []), incident.labels?.service, incident.labels?.svc].forEach((service) => {
+    [...(incident.affectedServices ?? []), incident.labels?.service, incident.labels?.svc].forEach((service) => {
       if (service) services.add(service);
     });
   });
@@ -45,16 +46,23 @@ export function severityCounts(incidents: readonly Incident[]): Record<Severity,
   return counts;
 }
 
-/** What needs a person first: the worst, and among equals the one that has burnt longest. */
+/**
+ * What needs a person first: the worst, among equals the heavier priority, then the one that has
+ * burnt longest.
+ */
 export function byUrgency(left: Incident, right: Incident): number {
-  return SEVERITY_RANK[right.severity] - SEVERITY_RANK[left.severity] || left.created_at - right.created_at;
+  return (
+    SEVERITY_RANK[right.severity] - SEVERITY_RANK[left.severity]
+    || byPriority(left, right)
+    || left.createdAt - right.createdAt
+  );
 }
 
 /** How long an incident has lasted, or lasted until it recovered, in seconds. */
 export function incidentDurationSecs(incident: Incident, nowMicros: number): number {
-  const end = incident.resolved_at ?? nowMicros;
+  const end = incident.resolvedAt ?? nowMicros;
 
-  return Math.max(0, Math.round((end - incident.created_at) / 1_000_000));
+  return Math.max(0, Math.round((end - incident.createdAt) / 1_000_000));
 }
 
 /** Where an incident's runbook is, if its rule or the incident itself names one. */

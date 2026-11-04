@@ -22,6 +22,7 @@ pub const NEXT_ONCALL_RESOLVER: &str = "next_oncall";
 pub const SCHEDULE_MEMBERS_RESOLVER: &str = "schedule_members";
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ScheduleConfig {
     schedule_id: Id,
 }
@@ -188,10 +189,13 @@ mod tests {
                 name: "daily".into(),
                 members: vec![Id::from_string("a"), Id::from_string("b")],
                 kind: RotationKind::Daily,
-                active_window: None,
+                active_windows: Vec::new(),
+                calendar: None,
                 start_at: TimestampMicros(0),
+                end_at: None,
             }],
             overrides: Vec::new(),
+            swap_needs_approval: false,
             created_by: None,
             updated_by: None,
             created_at: TimestampMicros(0),

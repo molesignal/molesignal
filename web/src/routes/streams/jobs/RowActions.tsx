@@ -28,10 +28,10 @@ export function JobRowActions({
 }) {
   const { t } = useTranslation('streams');
   const { t: tc } = useTranslation('common');
-  const id = job.job_id.slice(0, 10);
+  const id = job.jobId.slice(0, 10);
   const action = jobAction(job.state);
   const pendingReason = busy ? tc('access.operation_pending') : undefined;
-  const empty = action === 'download' && job.result_rows === 0;
+  const empty = action === 'download' && job.resultRows === 0;
 
   return (
     <div className="flex items-center justify-end gap-[2px]">

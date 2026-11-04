@@ -10,17 +10,17 @@ const NOW = Date.parse(FROZEN_NOW_ISO) * 1_000;
 const logStream = (name: string) => ({
   id: name,
   name,
-  stream_type: 'logs',
+  streamType: 'logs',
   schema: {
     fields: [
-      { name: '_timestamp', data_type: 'timestamp', nullable: false, indexed: true },
-      { name: 'level', data_type: 'utf8', nullable: true, indexed: false },
+      { name: '_timestamp', dataType: 'timestamp', nullable: false, indexed: true },
+      { name: 'level', dataType: 'utf8', nullable: true, indexed: false },
     ],
   },
   retention: { days: 7 },
-  effective_retention: { days: 7 },
-  created_at_micros: NOW,
-  updated_at_micros: NOW,
+  effectiveRetention: { days: 7 },
+  createdAt: NOW,
+  updatedAt: NOW,
 });
 
 /** Opens Logs on a list of streams with these names and gives the stream field. */

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Mole Agent 调查、自动化、审批、执行与 Agent Profile API。
+//! Mole Agent 调查、审批、执行与 Agent Profile API。自动化在 `automations`。
 
 use axum::{
     Extension, Json, Router,
@@ -15,7 +15,7 @@ use tool_runtime::{ToolSurface, catalog::tools_for_surface};
 use crate::{
     agent::{
         model::{
-            ApprovalRequest, ApprovalStatus, Automation, ConfidenceLevel, Execution, FactStatus,
+            ApprovalRequest, ApprovalStatus, ConfidenceLevel, Execution, FactStatus,
             HypothesisStatus, Investigation, InvestigationEvidence, InvestigationHypothesis,
             InvestigationStatus, InvestigationStep, StepStatus,
         },
@@ -27,7 +27,7 @@ use crate::{
     },
     app::{
         iam::IamContext,
-        tools::dashboard::{CreateApprovalRequest, create_agent_approval, operation_policy},
+        tools::dashboard::{CreateApprovalRequest, create_agent_approval},
     },
     domain::iam::permission,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
@@ -36,7 +36,9 @@ use crate::{
 mod approval_execution;
 mod dashboard_operation;
 mod execution_response;
+mod incident_operation;
 mod profiles;
+pub(crate) mod remediation_operation;
 mod resource_operation;
 
 use approval_execution::OperationOutcome;
@@ -66,15 +68,6 @@ pub fn routes() -> Router<AppState> {
             "/agent/investigations/{id}/hypotheses",
             post(upsert_investigation_hypothesis),
         )
-        .route(
-            "/agent/automations",
-            get(list_automations).post(create_automation),
-        )
-        .route(
-            "/agent/automations/{id}",
-            get(get_automation).put(update_automation),
-        )
-        .route("/agent/automations/{id}/dry-run", post(dry_run_automation))
         .route(
             "/agent/approvals",
             get(list_approvals).post(create_approval),
@@ -107,10 +100,10 @@ async fn overview(
 
     let approvals = state.agent.repository.list_approvals(&ctx.org_id).await?;
     let executions = state.agent.repository.list_executions(&ctx.org_id).await?;
-    let automations = state.agent.repository.list_automations(&ctx.org_id).await?;
+    let automations = state.agent.automations.list(&ctx.org_id).await?;
 
     Ok(Json(json!({
-        "active_investigations": investigations.iter().filter(|item| matches!(
+        "activeInvestigations": investigations.iter().filter(|item| matches!(
             item.status,
             InvestigationStatus::Pending
                 | InvestigationStatus::Running
@@ -118,14 +111,15 @@ async fn overview(
                 | InvestigationStatus::WaitingForApproval
                 | InvestigationStatus::VerifyingRecovery
         )).count(),
-        "pending_approvals": approvals.iter().filter(|item| item.status == ApprovalStatus::Pending).count(),
-        "recent_completed": investigations.iter().filter(|item| item.status == InvestigationStatus::Completed).count(),
-        "automation_runs": executions.iter().filter(|item| item.investigation_id.is_none()).count(),
-        "enabled_automations": automations.iter().filter(|item| item.enabled).count(),
+        "pendingApprovals": approvals.iter().filter(|item| item.status == ApprovalStatus::Pending).count(),
+        "recentCompleted": investigations.iter().filter(|item| item.status == InvestigationStatus::Completed).count(),
+        "automationRuns": executions.iter().filter(|item| item.investigation_id.is_none()).count(),
+        "enabledAutomations": automations.iter().filter(|item| item.enabled).count(),
     })))
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateInvestigationRequest {
     title: String,
     #[serde(default)]
@@ -136,7 +130,7 @@ struct CreateInvestigationRequest {
     steps: Vec<String>,
 }
 
-#[permission("agent.use")]
+#[permission("agent.investigations.read")]
 async fn list_investigations(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -146,7 +140,7 @@ async fn list_investigations(
     })))
 }
 
-#[permission("agent.use")]
+#[permission("agent.investigations.manage")]
 async fn create_investigation(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -217,7 +211,7 @@ async fn create_investigation(
     Ok(Json(saved))
 }
 
-#[permission("agent.use")]
+#[permission("agent.investigations.read")]
 async fn get_investigation(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -236,6 +230,7 @@ async fn get_investigation(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct UpdateInvestigationRequest {
     title: Option<String>,
     status: Option<InvestigationStatus>,
@@ -259,7 +254,7 @@ where
     Option::<T>::deserialize(deserializer).map(Some)
 }
 
-#[permission("agent.use")]
+#[permission("agent.investigations.manage")]
 async fn update_investigation(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -329,6 +324,7 @@ async fn update_investigation(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct AppendStepRequest {
     position: i32,
     title: String,
@@ -340,11 +336,11 @@ struct AppendStepRequest {
     output_summary: Option<String>,
     conclusion_impact: Option<String>,
     error: Option<String>,
-    started_at_micros: Option<i64>,
-    ended_at_micros: Option<i64>,
+    started_at: Option<i64>,
+    ended_at: Option<i64>,
 }
 
-#[permission("agent.use")]
+#[permission("agent.investigations.manage")]
 async fn append_investigation_step(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -379,8 +375,8 @@ async fn append_investigation_step(
         output_summary: request.output_summary,
         conclusion_impact: request.conclusion_impact,
         error: request.error,
-        started_at: request.started_at_micros.map(TimestampMicros),
-        ended_at: request.ended_at_micros.map(TimestampMicros),
+        started_at: request.started_at.map(TimestampMicros),
+        ended_at: request.ended_at.map(TimestampMicros),
         created_at: TimestampMicros::now(),
     };
 
@@ -388,6 +384,7 @@ async fn append_investigation_step(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct AppendEvidenceRequest {
     step_id: Option<Id>,
     kind: String,
@@ -401,7 +398,7 @@ struct AppendEvidenceRequest {
     summary: String,
 }
 
-#[permission("agent.use")]
+#[permission("agent.investigations.manage")]
 async fn append_investigation_evidence(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -435,6 +432,7 @@ async fn append_investigation_evidence(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct UpsertHypothesisRequest {
     id: Option<Id>,
     statement: String,
@@ -444,7 +442,7 @@ struct UpsertHypothesisRequest {
     evidence_ids: Vec<Id>,
 }
 
-#[permission("agent.use")]
+#[permission("agent.investigations.manage")]
 async fn upsert_investigation_hypothesis(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -474,30 +472,6 @@ async fn upsert_investigation_hypothesis(
     };
 
     Ok(Json(state.agent.repository.upsert_hypothesis(item).await?))
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct AutomationRequest {
-    name: String,
-    #[serde(default)]
-    description: String,
-    #[serde(default = "default_true")]
-    enabled: bool,
-    trigger: Value,
-    #[serde(default)]
-    input_context: Value,
-    #[serde(default)]
-    steps: Value,
-    #[serde(default)]
-    allowed_tools: Vec<String>,
-    #[serde(default)]
-    approval_policy: Value,
-    #[serde(default)]
-    output_actions: Value,
-    #[serde(default)]
-    failure_policy: Value,
-    #[serde(default)]
-    notification: Value,
 }
 
 fn default_true() -> bool {
@@ -534,161 +508,7 @@ async fn validate_allowed_tools(
     Ok(())
 }
 
-#[permission("agent.use")]
-async fn list_automations(
-    State(state): State<AppState>,
-    Extension(ctx): Extension<IamContext>,
-) -> Result<Json<Value>> {
-    Ok(Json(json!({
-        "automations": state.agent.repository.list_automations(&ctx.org_id).await?
-    })))
-}
-
-#[permission("agent.manage")]
-async fn create_automation(
-    State(state): State<AppState>,
-    Extension(ctx): Extension<IamContext>,
-    Json(request): Json<AutomationRequest>,
-) -> Result<Json<Automation>> {
-    validate_allowed_tools(
-        &state,
-        &ctx.org_id,
-        &request.allowed_tools,
-        ToolSurface::MoleAgent,
-    )
-    .await?;
-
-    let now = TimestampMicros::now();
-
-    let item = Automation {
-        id: Id::new(),
-        org_id: ctx.org_id.clone(),
-        name: request.name,
-        description: request.description,
-        enabled: request.enabled,
-        trigger: request.trigger,
-        input_context: request.input_context,
-        steps: request.steps,
-        allowed_tools: request.allowed_tools,
-        approval_policy: request.approval_policy,
-        output_actions: request.output_actions,
-        failure_policy: request.failure_policy,
-        notification: request.notification,
-        created_by: ctx.principal_id().clone(),
-        created_at: now,
-        updated_at: now,
-    };
-
-    Ok(Json(state.agent.repository.create_automation(item).await?))
-}
-
-#[permission("agent.use")]
-async fn get_automation(
-    State(state): State<AppState>,
-    Extension(ctx): Extension<IamContext>,
-    Path(id): Path<String>,
-) -> Result<Json<Automation>> {
-    Ok(Json(
-        state
-            .agent
-            .repository
-            .get_automation(&ctx.org_id, &Id(id))
-            .await?,
-    ))
-}
-
-#[permission("agent.manage")]
-async fn update_automation(
-    State(state): State<AppState>,
-    Extension(ctx): Extension<IamContext>,
-    Path(id): Path<String>,
-    Json(request): Json<AutomationRequest>,
-) -> Result<Json<Automation>> {
-    validate_allowed_tools(
-        &state,
-        &ctx.org_id,
-        &request.allowed_tools,
-        ToolSurface::MoleAgent,
-    )
-    .await?;
-
-    let existing = state
-        .agent
-        .repository
-        .get_automation(&ctx.org_id, &Id(id))
-        .await?;
-
-    let item = Automation {
-        name: request.name,
-        description: request.description,
-        enabled: request.enabled,
-        trigger: request.trigger,
-        input_context: request.input_context,
-        steps: request.steps,
-        allowed_tools: request.allowed_tools,
-        approval_policy: request.approval_policy,
-        output_actions: request.output_actions,
-        failure_policy: request.failure_policy,
-        notification: request.notification,
-        updated_at: TimestampMicros::now(),
-        ..existing
-    };
-
-    Ok(Json(state.agent.repository.update_automation(item).await?))
-}
-
-#[permission("agent.use")]
-async fn dry_run_automation(
-    State(state): State<AppState>,
-    Extension(ctx): Extension<IamContext>,
-    Path(id): Path<String>,
-    Json(event): Json<Value>,
-) -> Result<Json<Value>> {
-    let automation = state
-        .agent
-        .repository
-        .get_automation(&ctx.org_id, &Id(id))
-        .await?;
-
-    validate_allowed_tools(
-        &state,
-        &ctx.org_id,
-        &automation.allowed_tools,
-        ToolSurface::MoleAgent,
-    )
-    .await?;
-
-    let actions = automation
-        .output_actions
-        .as_array()
-        .cloned()
-        .unwrap_or_default();
-
-    let approvals = actions
-        .iter()
-        .filter_map(|action| action["action"].as_str())
-        .filter_map(|action| operation_policy(action).ok().map(|policy| (action, policy)))
-        .map(|(action, (risk, _))| {
-            json!({
-                "action": action,
-                "risk": risk,
-                "requires_approval": risk.required_approvals() > 0,
-            })
-        })
-        .collect::<Vec<_>>();
-
-    Ok(Json(json!({
-        "dry_run": true,
-        "matched": automation.enabled,
-        "event": event,
-        "resolved_tools": automation.allowed_tools,
-        "steps": automation.steps,
-        "operations": approvals,
-        "side_effects": false,
-    })))
-}
-
-#[permission("agent.use")]
+#[permission("agent.approvals.read")]
 async fn list_approvals(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -698,7 +518,7 @@ async fn list_approvals(
     })))
 }
 
-#[permission("agent.use")]
+#[permission("agent.approvals.request")]
 async fn create_approval(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -719,7 +539,7 @@ async fn create_approval(
     Ok(Json(saved))
 }
 
-#[permission("agent.use")]
+#[permission("agent.approvals.read")]
 async fn get_approval(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -813,11 +633,12 @@ async fn review_approval(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ExecuteApprovalRequest {
     idempotency_key: String,
 }
 
-#[permission("agent.use")]
+#[permission("agent.approvals.request")]
 async fn execute_approval(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -828,7 +649,7 @@ async fn execute_approval(
     Ok(execution_response::response(result))
 }
 
-#[permission("agent.use")]
+#[permission("agent.investigations.read")]
 async fn list_executions(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -838,7 +659,7 @@ async fn list_executions(
     })))
 }
 
-#[permission("agent.use")]
+#[permission("agent.investigations.read")]
 async fn get_execution(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -857,10 +678,10 @@ async fn get_execution(
 mod tests {
     use serde_json::json;
 
-    use super::{UpdateInvestigationRequest, operation_policy};
+    use super::UpdateInvestigationRequest;
     use crate::{
         agent::{model::RiskLevel, tool_control::ToolExecutionMode},
-        app::tools::dashboard::dashboard_required_approvals,
+        app::tools::dashboard::{dashboard_required_approvals, operation_policy},
     };
 
     #[test]
@@ -894,7 +715,7 @@ mod tests {
         assert!(missing.summary.is_none());
 
         let cleared: UpdateInvestigationRequest =
-            serde_json::from_value(json!({"summary": null, "current_step": null})).unwrap();
+            serde_json::from_value(json!({"summary": null, "currentStep": null})).unwrap();
         assert_eq!(cleared.summary, Some(None));
         assert_eq!(cleared.current_step, Some(None));
 

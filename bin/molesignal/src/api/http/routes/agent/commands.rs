@@ -43,6 +43,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct CommandResp {
     name: String,
     kind: CommandKind,
@@ -182,6 +183,7 @@ fn prompt_command(prompt: &SessionPrompt, texts: &LanguagePack) -> CommandResp {
 }
 
 #[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CommandsQuery {
     #[serde(default)]
     chat_id: Option<String>,
@@ -308,7 +310,7 @@ mod tests {
             org_id: Id::from_string("org-1"),
             display_role: "Member".into(),
             roles: Vec::new(),
-            credential_role_id: None,
+            credential_token_id: None,
             credential_application_id: None,
             credential_service_account_id: None,
             scope: IamScope::Organization,
@@ -408,10 +410,14 @@ mod tests {
         assert!(!without.available);
         assert_eq!(
             without.unavailable_reason.as_deref(),
-            Some("需要 alerts.read 权限")
+            Some("需要 alerts.incidents.read 权限")
         );
 
-        let with = describe(rca, &member(&["agent.use", "alerts.read"]), &texts());
+        let with = describe(
+            rca,
+            &member(&["agent.use", "alerts.incidents.read"]),
+            &texts(),
+        );
         assert!(with.available);
         assert_eq!(with.unavailable_reason, None);
     }

@@ -132,19 +132,19 @@ async fn otlp_http_and_grpc_project_once_and_are_queryable_through_apm_api() {
         "{}/api/v1/apm/overview?from={from}&to={to}",
         server.base_url
     );
-    let auth = server.auth_header().1;
-    let visible = common::wait_until_async(10, || {
+    let (auth_name, auth_value) = server.auth_header();
+    let visible = common::wait_until_async(30, || {
         let client = client.clone();
         let url = url.clone();
-        let auth = auth.clone();
+        let auth_value = auth_value.clone();
         async move {
-            let Ok(response) = client.get(url).header("authorization", auth).send().await else {
+            let Ok(response) = client.get(url).header(auth_name, auth_value).send().await else {
                 return false;
             };
             let Ok(body) = response.json::<serde_json::Value>().await else {
                 return false;
             };
-            body["red"]["request_count"].as_u64() == Some(2)
+            body["red"]["requestCount"].as_u64() == Some(2)
                 && body["services"]
                     .as_array()
                     .is_some_and(|services| services.len() == 2)

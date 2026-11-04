@@ -3,7 +3,7 @@
 
 //! Scheduled-pipeline 执行编排（pipeline-runs-and-backfill）。
 //!
-//! 端到端链路：**读源 stream → 逐步处理 → 写目标 stream（标准 intake）→ connector egress → 死信**。
+//! 端到端链路：**读源 stream → 逐步处理 → 写目标 stream（标准 intake）→ connector egress → 扩展表 → 死信**。
 //! 「读源」一环由调用方（持 [`crate::app::query::QueryService`]，app 层）完成后，把各源读到的行
 //! 交给 [`PipelineOutput::run`]；本模块承担「处理 + 写目标 + egress + 死信」，因此可脱离 HTTP /
 //! 调度时序单测。定时运行（[`BootstrapPipelineExecutor`]）与 backfill worker（[`super::search_jobs`]）
@@ -28,16 +28,16 @@ use serde_json::Value;
 use tokio::task::JoinHandle;
 
 use crate::{
-    app::{intake::IntakeService, query::QueryService},
+    app::{audit_read::AuditReadCheck, intake::IntakeService, query::QueryService},
     domain::{
-        pipeline::{realtime::is_realtime, scheduled::ScheduledConfig},
-        query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
+        pipeline::{alert::is_alert, realtime::is_realtime, scheduled::ScheduledConfig},
+        query::QueryResult,
         stream::StreamType,
     },
     infra::{
         connectors::{ConnectorDispatcher, ConnectorRepository},
         pipeline::{
-            PipelineExecutor, ScheduledPipeline, ScheduledPipelineRunner,
+            ExtendKvRepository, PipelineExecutor, ScheduledPipeline, ScheduledPipelineRunner,
             exec::{
                 parse_signal_type,
                 processing::{FailedEvent, ProcessedEvent, SourceEvent, process_rows},
@@ -49,16 +49,14 @@ use crate::{
         },
         runtime::VrlRuntime,
     },
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
+    shared::{Error, Result, ids::Id},
 };
 
 mod dead_letter;
 mod delivery;
+mod reading;
 mod streams;
+mod tables;
 
 use self::dead_letter::DeadLetter;
 
@@ -151,12 +149,15 @@ pub fn rows_to_objects(result: &QueryResult) -> Vec<Value> {
         .collect()
 }
 
-/// Where a pipeline's events go: streams through the standard intake, connectors through egress.
+/// Where a pipeline's events go: streams through the standard intake, connectors through egress,
+/// rows of extend tables to their store.
 #[derive(Clone)]
 pub struct PipelineOutput {
     pub intake: Arc<IntakeService>,
     pub connectors: Arc<dyn ConnectorRepository>,
     pub dispatcher: Arc<dyn ConnectorDispatcher>,
+    /// Where the rows of extend tables are written; without it a pipeline cannot write them.
+    pub tables: Option<Arc<dyn ExtendKvRepository>>,
     /// The wait before the first redelivery to a connector; it doubles for each one after.
     pub delivery_backoff: Duration,
 }
@@ -171,8 +172,15 @@ impl PipelineOutput {
             intake,
             connectors,
             dispatcher,
+            tables: None,
             delivery_backoff: Duration::from_secs(1),
         }
+    }
+
+    /// Lets pipelines write the rows of extend tables to `store`.
+    pub fn with_tables(mut self, store: Arc<dyn ExtendKvRepository>) -> Self {
+        self.tables = Some(store);
+        self
     }
 
     /// Runs `pipeline` on what was read from its sources and sends the events on.
@@ -191,9 +199,9 @@ impl PipelineOutput {
         pipeline: &PipelineSpec<'_>,
         input: Vec<SourceRows>,
     ) -> Result<PipelineRunOutcome> {
-        if is_realtime(pipeline.function_steps) {
+        if is_realtime(pipeline.function_steps) || is_alert(pipeline.function_steps) {
             return Err(Error::invalid(
-                "realtime pipelines cannot run as scheduled jobs",
+                "realtime and alert pipelines cannot run as scheduled jobs",
             ));
         }
 
@@ -227,12 +235,14 @@ impl PipelineOutput {
 
         let processed = process_rows(
             vrl,
+            pipeline.org_id,
             pipeline.function_steps,
             &config.sinks[0],
             &ledger.names,
             events,
             ledger.dead_letters.is_some(),
-        )?;
+        )
+        .await?;
 
         let mut dropped = processed.dropped;
         let mut failures = processed.failed;
@@ -283,6 +293,7 @@ impl PipelineOutput {
 
         let broken = streams::write(self, pipeline, &rows, &mut ledger).await;
         delivery::deliver(self, pipeline, &rows, &mut ledger).await;
+        tables::write(self, pipeline, &rows, &mut ledger).await;
 
         let letters = ledger.dead_letters.take().unwrap_or_default();
         let dead_lettered = dead_letter::write(self, pipeline, letters, &mut ledger.errors).await;
@@ -377,6 +388,7 @@ fn count(value: usize) -> i64 {
 pub struct BootstrapPipelineExecutor {
     query: Arc<QueryService>,
     output: PipelineOutput,
+    audit_read: Option<Arc<dyn AuditReadCheck>>,
 }
 
 impl BootstrapPipelineExecutor {
@@ -389,34 +401,14 @@ impl BootstrapPipelineExecutor {
         Self {
             query,
             output: PipelineOutput::new(intake, connectors, dispatcher),
+            audit_read: None,
         }
     }
 
-    /// One source's window. A stream that has never been written has nothing to read.
-    async fn read(
-        &self,
-        pipeline: &ScheduledPipeline,
-        window: &Window,
-        stream_type: StreamType,
-    ) -> Result<Vec<Value>> {
-        let req = QueryRequest {
-            org_id: pipeline.org_id.clone(),
-            language: QueryLanguage::Sql,
-            statement: format!("SELECT * FROM {}", window.source),
-            time_range: TimeRange::new(TimestampMicros(window.start), TimestampMicros(window.end)),
-            stream: Some(StreamHint {
-                name: window.source.clone(),
-                stream_type,
-            }),
-            limit: None,
-            federation_clusters: Vec::new(),
-        };
-
-        match self.query.run_raw(req).await {
-            Ok(result) => Ok(rows_to_objects(&result)),
-            Err(Error::NotFound(_)) => Ok(Vec::new()),
-            Err(e) => Err(e),
-        }
+    /// Lets pipelines write the rows of extend tables to `store`.
+    pub fn with_tables(mut self, store: Arc<dyn ExtendKvRepository>) -> Self {
+        self.output = self.output.with_tables(store);
+        self
     }
 }
 
@@ -451,7 +443,7 @@ impl PipelineExecutor for BootstrapPipelineExecutor {
         let mut input = Vec::with_capacity(windows.len());
 
         for window in windows {
-            match self.read(pipeline, window, stream_type).await {
+            match self.read_window(pipeline, window, stream_type).await {
                 Ok(rows) => input.push(SourceRows {
                     source: window.source.clone(),
                     rows,

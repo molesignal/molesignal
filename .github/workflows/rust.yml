@@ -42,7 +42,8 @@ jobs:
   rust-quality:
     name: rust quality
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    # 本地日常只验改动范围，全量靠这里兜底；缓存失效时 clippy + 测试要 30 分钟以上。
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
 

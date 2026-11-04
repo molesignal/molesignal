@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-pptx-page-role="content" font-family="Microsoft YaHei, Arial">
+<rect id="bg" data-pptx-role="background" width="1280" height="720" fill="#F7F9FC" />
+<g id="heading" data-pptx-bounds="56 44 1168 115"><text x="56" y="65" font-size="18" fill="#007E87">06 / 当前进展</text><text x="56" y="126" font-size="44" fill="#102C44" font-weight="bold">已形成产品，尚未完成客户验证</text></g>
+<g id="status" data-pptx-bounds="56 202 505 360"><text x="56" y="282" font-size="76" fill="#102C44" font-weight="bold">发布前打磨</text><text x="56" y="360" font-size="30" fill="#007E87">0 外部用户 · 0 付费客户</text><text x="56" y="418" font-size="24" fill="#53677B">公司尚未注册；Cloud 尚未上线</text></g>
+<g id="evidence" data-pptx-bounds="680 202 544 365"><text x="680" y="240" font-size="30" fill="#102C44" font-weight="bold">已有交付</text><text fill="#173247" font-size="24" x="680" y="292">后端、产品前端、部署与使用文档。</text><text fill="#173247" font-size="24" x="680" y="328">覆盖遥测、响应与 Agent 的代码实现。</text><text x="680" y="412" font-size="30" fill="#102C44" font-weight="bold">下一步验证</text><text fill="#173247" font-size="24" x="680" y="464">外部安装、真实工作负载与故障恢复。</text><text fill="#173247" font-size="24" x="680" y="500">持续使用、付费意愿与支持负担。</text></g>
+<text id="footer" data-pptx-role="footer" x="56" y="682" font-size="16" fill="#53677B">阶段信息由创始人提供，2026-11-02。功能实现不等于客户验证或商业牵引力。</text><text id="page" data-pptx-role="page-number" x="1224" y="682" text-anchor="end" font-size="16" fill="#53677B">11 / 14</text>
+</svg>

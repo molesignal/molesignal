@@ -23,55 +23,55 @@ export type ToolStatus = 'healthy' | 'degraded' | 'unavailable' | 'disabled';
 export interface ToolSource {
   kind: 'builtin' | 'mcp' | 'custom';
   label: string;
-  server_id?: string;
-  server_name?: string;
+  serverId?: string;
+  serverName?: string;
 }
 
 export interface ToolCapabilities {
-  read_only: boolean;
-  supports_dry_run: boolean;
+  readOnly: boolean;
+  supportsDryRun: boolean;
   idempotent: boolean;
   streaming: boolean;
 }
 
 export interface ToolLimits {
-  timeout_ms: number;
-  max_calls_per_run: number;
-  max_response_bytes: number;
+  timeoutMs: number;
+  maxCallsPerRun: number;
+  maxResponseBytes: number;
 }
 
 export interface ToolStatistics {
-  calls_24h: number;
-  success_rate?: number | null;
-  p95_ms?: number | null;
-  last_called_at?: number | null;
-  last_error?: string | null;
+  calls24h: number;
+  successRate?: number | null;
+  p95Ms?: number | null;
+  lastCalledAt?: number | null;
+  lastError?: string | null;
 }
 
 export interface RegisteredTool {
   id: string;
   name: string;
-  remote_name?: string;
-  display_name: string;
+  remoteName?: string;
+  displayName: string;
   description: string;
-  technical_description: string;
+  technicalDescription: string;
   domain: ToolDomain;
   category: string;
   source: ToolSource;
-  input_schema: Record<string, unknown>;
-  output_schema?: Record<string, unknown> | null;
+  inputSchema: Record<string, unknown>;
+  outputSchema?: Record<string, unknown> | null;
   risk: RiskLevel;
-  minimum_risk?: RiskLevel;
-  execution_mode: ToolExecutionMode;
+  minimumRisk?: RiskLevel;
+  executionMode: ToolExecutionMode;
   enabled: boolean;
-  available_to_agent: boolean;
+  availableToAgent: boolean;
   status: ToolStatus;
   capabilities: ToolCapabilities;
   limits: ToolLimits;
-  environment_overrides: Record<string, ToolExecutionMode>;
+  environmentOverrides: Record<string, ToolExecutionMode>;
   tags: string[];
   statistics: ToolStatistics;
-  last_synced_at?: number | null;
+  lastSyncedAt?: number | null;
   version?: string | null;
   access:
     | 'read_only'
@@ -84,11 +84,11 @@ export interface RegisteredTool {
 
 export interface ToolRegistry {
   tools: RegisteredTool[];
-  dynamic_http: boolean;
+  dynamicHttp: boolean;
   shell: boolean;
   browser: boolean;
-  open_mcp: boolean;
-  mcp_servers?: {
+  openMcp: boolean;
+  mcpServers?: {
     total: number;
     healthy: number;
     unhealthy: number;
@@ -98,65 +98,64 @@ export interface ToolRegistry {
 export interface ToolPolicyInput {
   enabled?: boolean;
   risk?: RiskLevel;
-  execution_mode?: ToolExecutionMode;
-  environment_overrides?: Record<string, ToolExecutionMode>;
-  timeout_ms?: number;
-  max_calls_per_run?: number;
-  max_response_bytes?: number;
+  executionMode?: ToolExecutionMode;
+  environmentOverrides?: Record<string, ToolExecutionMode>;
+  timeoutMs?: number;
+  maxCallsPerRun?: number;
+  maxResponseBytes?: number;
 }
 
 export interface ToolDependencies {
-  tool_name: string;
+  toolName: string;
   total: number;
-  agent_profiles: Array<{
+  agentProfiles: Array<{
     id: string;
     name: string;
     enabled: boolean;
-    is_default: boolean;
+    isDefault: boolean;
   }>;
-  automations: Array<{ id: string; name: string; enabled: boolean }>;
-  investigation_templates: Array<{ id: string; name: string }>;
+  investigationTemplates: Array<{ id: string; name: string }>;
 }
 
 export interface ToolCallRecord {
   id: string;
-  tool_name: string;
-  chat_id?: string | null;
-  investigation_id?: string | null;
+  toolName: string;
+  chatId?: string | null;
+  investigationId?: string | null;
   risk: RiskLevel;
   input: Record<string, unknown>;
-  output_summary?: string | null;
+  outputSummary?: string | null;
   status: string;
   error?: string | null;
-  duration_ms: number;
-  called_by: string;
-  call_source: 'chat' | 'investigation' | 'automation' | 'manual_test' | string;
-  profile_id?: string | null;
-  approval_id?: string | null;
-  policy_decision: Record<string, unknown>;
-  audit_id?: string | null;
-  created_at: number;
+  durationMs: number;
+  calledBy: string;
+  callSource: 'chat' | 'investigation' | 'automation' | 'manual_test' | string;
+  profileId?: string | null;
+  approvalId?: string | null;
+  policyDecision: Record<string, unknown>;
+  auditId?: string | null;
+  createdAt: number;
 }
 
 export interface ToolTestResult {
   success: boolean;
   validated: boolean;
-  dry_run: boolean;
+  dryRun: boolean;
   executed: boolean;
-  side_effects: boolean;
-  duration_ms?: number;
+  sideEffects: boolean;
+  durationMs?: number;
   message?: string;
   request?: Record<string, unknown>;
   response?: unknown;
 }
 
 export interface ToolPolicyDefaults {
-  org_id: string;
-  risk_modes: Record<RiskLevel, ToolExecutionMode>;
-  environment_overrides: Record<string, Partial<Record<RiskLevel, ToolExecutionMode>>>;
-  updated_by: string;
-  created_at: number;
-  updated_at: number;
+  orgId: string;
+  riskModes: Record<RiskLevel, ToolExecutionMode>;
+  environmentOverrides: Record<string, Partial<Record<RiskLevel, ToolExecutionMode>>>;
+  updatedBy: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export async function listTools(): Promise<ToolRegistry> {
@@ -223,8 +222,8 @@ export async function testTool(
   id: string,
   input: {
     arguments: Record<string, unknown>;
-    dry_run?: boolean;
-    validate_only?: boolean;
+    dryRun?: boolean;
+    validateOnly?: boolean;
   },
 ): Promise<ToolTestResult> {
   const { data } = await http.post<ToolTestResult>(
@@ -240,8 +239,8 @@ export async function getToolPolicyDefaults(): Promise<ToolPolicyDefaults> {
 }
 
 export async function updateToolPolicyDefaults(input: {
-  risk_modes: Record<RiskLevel, ToolExecutionMode>;
-  environment_overrides: Record<string, Partial<Record<RiskLevel, ToolExecutionMode>>>;
+  riskModes: Record<RiskLevel, ToolExecutionMode>;
+  environmentOverrides: Record<string, Partial<Record<RiskLevel, ToolExecutionMode>>>;
 }): Promise<ToolPolicyDefaults> {
   const { data } = await http.put<ToolPolicyDefaults>('/agent/tools/policies', input);
   return data;

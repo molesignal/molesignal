@@ -25,10 +25,10 @@ function incident(
     title: id,
     impact,
     status: 'resolved',
-    component_ids: ['api'],
+    componentIds: ['api'],
     updates: [],
-    started_at: resolvedAt - 60 * 60 * 1_000_000,
-    ended_at: resolvedAt,
+    startedAt: resolvedAt - 60 * 60 * 1_000_000,
+    endedAt: resolvedAt,
   };
 }
 
@@ -37,22 +37,22 @@ function snapshot(history: PublicStatusPageIncident[]): PublicStatusPageSnapshot
     page: {
       name: 'Acme',
       slug: 'acme',
-      logo_url: null,
-      brand_color: '#4F46E5',
+      logoUrl: null,
+      brandColor: '#4F46E5',
       timezone: 'UTC',
       language: 'en-us',
       languages: ['en-us'],
-      history_days: 90,
+      historyDays: 90,
       visibility: 'public',
     },
-    overall_status: 'operational',
+    overallStatus: 'operational',
     components: [],
-    component_status_events: [],
-    active_incidents: [],
-    scheduled_maintenance: [],
+    componentStatusEvents: [],
+    activeIncidents: [],
+    scheduledMaintenance: [],
     history,
-    updated_at: generatedAt,
-    generated_at: generatedAt,
+    updatedAt: generatedAt,
+    generatedAt: generatedAt,
   };
 }
 

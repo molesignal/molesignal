@@ -1,0 +1,78 @@
+{
+  "schema": "ppt-master.fact-provenance.v1",
+  "topic": "MoleSignal 早期融资 Pitch Deck 竞品能力与商业模式核实",
+  "facts": [
+    {
+      "fact_id": "F001",
+      "claim": "Datadog 将监控、呼叫通知和值班事件管理纳入同一事件响应流程，并提供状态更新和复盘能力。",
+      "source_title": "Datadog Incident Management",
+      "source_url": "https://www.datadoghq.com/product/incident-response/",
+      "classification": "external",
+      "retrieved_at": "2026-11-02"
+    },
+    {
+      "fact_id": "F002",
+      "claim": "Datadog 的 Bits Investigation 提供基于遥测的自动化调查；因此 AI 调查不是 MoleSignal 独有的产品类别。",
+      "source_title": "Bits Investigation | Datadog",
+      "source_url": "https://www.datadoghq.com/product/ai/bits-investigation/",
+      "classification": "external",
+      "retrieved_at": "2026-11-02"
+    },
+    {
+      "fact_id": "F003",
+      "claim": "Datadog 分产品计费：基础设施按主机/月，日志包含摄入量与索引事件量等计费维度；不能将其概括成单一按 GB 价格。",
+      "source_title": "Pricing | Datadog",
+      "source_url": "https://www.datadoghq.com/pricing/",
+      "classification": "external",
+      "retrieved_at": "2026-11-02"
+    },
+    {
+      "fact_id": "F004",
+      "claim": "Grafana 开源产品组合包含可视化平台、日志 Loki、指标 Mimir 和链路 Tempo；它是多个专用项目组成的生态。",
+      "source_title": "Grafana Labs Open Source",
+      "source_url": "https://grafana.com/oss/",
+      "classification": "external",
+      "retrieved_at": "2026-11-02"
+    },
+    {
+      "fact_id": "F005",
+      "claim": "Grafana Cloud IRM 提供值班、告警路由与升级、事件协作和 AI 调查，IRM 按月活跃用户计费。",
+      "source_title": "Incident Response and Management | Grafana Cloud",
+      "source_url": "https://grafana.com/products/cloud/irm/",
+      "classification": "external",
+      "retrieved_at": "2026-11-02"
+    },
+    {
+      "fact_id": "F006",
+      "claim": "OpenObserve 官方平台包括统一日志、指标、链路、RUM，以及 Incidents、Workflows、SLOs、AI SRE 和 AI Assistant。",
+      "source_title": "OpenObserve Platform",
+      "source_url": "https://openobserve.ai/platform/",
+      "classification": "external",
+      "retrieved_at": "2026-11-02"
+    },
+    {
+      "fact_id": "F007",
+      "claim": "OpenObserve 支持单二进制或 Kubernetes 自部署，也提供 Cloud；其技术基础包括 Rust、DataFusion、Parquet 和对象存储。",
+      "source_title": "OpenObserve Platform",
+      "source_url": "https://openobserve.ai/platform/",
+      "classification": "external",
+      "retrieved_at": "2026-11-02"
+    },
+    {
+      "fact_id": "F008",
+      "claim": "OpenObserve 提供免费开源自部署、付费自部署企业版和 Cloud；官方列明开源核心采用 AGPL-3.0。",
+      "source_title": "OpenObserve Pricing",
+      "source_url": "https://openobserve.ai/pricing/",
+      "classification": "external",
+      "retrieved_at": "2026-11-02"
+    },
+    {
+      "fact_id": "F009",
+      "claim": "OpenObserve Cloud 以摄入 GB 为主要计费维度，用户不限量且无按席位收费；保留期延长等可以产生额外费用。",
+      "source_title": "OpenObserve Pricing",
+      "source_url": "https://openobserve.ai/pricing/",
+      "classification": "external",
+      "retrieved_at": "2026-11-02"
+    }
+  ]
+}

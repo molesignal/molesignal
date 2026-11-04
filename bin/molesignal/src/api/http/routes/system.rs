@@ -20,7 +20,7 @@ use crate::{
         iam::{IamPlatformAdministrator, permission},
         trace_policy::TraceDebugToken,
     },
-    infra::persistence::repositories::audit_events::AuditEvent,
+    infra::persistence::repositories::{api_tokens::generate_token, audit_events::AuditEvent},
     shared::{
         Error, Result,
         ids::Id,
@@ -48,13 +48,14 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct PlatformAdministratorView {
     user_id: String,
     active: bool,
     granted_by: Option<String>,
-    granted_at_micros: i64,
+    granted_at: i64,
     revoked_by: Option<String>,
-    revoked_at_micros: Option<i64>,
+    revoked_at: Option<i64>,
 }
 
 impl From<IamPlatformAdministrator> for PlatformAdministratorView {
@@ -63,14 +64,14 @@ impl From<IamPlatformAdministrator> for PlatformAdministratorView {
             user_id: value.user_id.0,
             active: value.active,
             granted_by: value.granted_by.map(|id| id.0),
-            granted_at_micros: value.granted_at.0,
+            granted_at: value.granted_at.0,
             revoked_by: value.revoked_by.map(|id| id.0),
-            revoked_at_micros: value.revoked_at.map(|time| time.0),
+            revoked_at: value.revoked_at.map(|time| time.0),
         }
     }
 }
 
-#[permission("sys.administrators.manage")]
+#[permission("sys.administrators.read")]
 async fn list_platform_administrators(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -89,6 +90,7 @@ async fn list_platform_administrators(
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct TraceTelemetryView {
     deployment_force_disabled: bool,
     runtime_enabled: bool,
@@ -102,6 +104,7 @@ struct TraceTelemetryView {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct TraceHealthView {
     status: &'static str,
     detail: String,
@@ -293,8 +296,8 @@ async fn update_trace_telemetry(
         json!({
             "version": persisted.policy.version,
             "enabled": persisted.policy.enabled,
-            "normal_sample_ratio": persisted.policy.normal_sample_ratio,
-            "rule_count": persisted.policy.rules.len(),
+            "normalSampleRatio": persisted.policy.normal_sample_ratio,
+            "ruleCount": persisted.policy.rules.len(),
         }),
     )
     .await;
@@ -303,11 +306,12 @@ async fn update_trace_telemetry(
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct TracePolicyHistoryView {
     id: String,
     policy: TraceRuntimePolicy,
     created_by: Option<String>,
-    created_at_micros: i64,
+    created_at: i64,
     active: bool,
 }
 
@@ -330,23 +334,24 @@ async fn list_trace_policies(
                 active: persisted.policy.version == active_version,
                 policy: persisted.policy,
                 created_by: persisted.created_by.map(|id| id.0),
-                created_at_micros: persisted.created_at.0,
+                created_at: persisted.created_at.0,
             })
             .collect(),
     ))
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct TraceDebugTokenView {
     id: String,
     organization_id: Option<String>,
     route_pattern: Option<String>,
-    expires_at_micros: i64,
+    expires_at: i64,
     max_uses: u64,
     used_count: u64,
-    revoked_at_micros: Option<i64>,
+    revoked_at: Option<i64>,
     created_by: String,
-    created_at_micros: i64,
+    created_at: i64,
 }
 
 impl From<TraceDebugToken> for TraceDebugTokenView {
@@ -355,12 +360,12 @@ impl From<TraceDebugToken> for TraceDebugTokenView {
             id: token.id.0,
             organization_id: token.organization_id.map(|id| id.0),
             route_pattern: token.route_pattern,
-            expires_at_micros: token.expires_at.0,
+            expires_at: token.expires_at.0,
             max_uses: token.max_uses,
             used_count: token.used_count,
-            revoked_at_micros: token.revoked_at.map(|time| time.0),
+            revoked_at: token.revoked_at.map(|time| time.0),
             created_by: token.created_by.0,
-            created_at_micros: token.created_at.0,
+            created_at: token.created_at.0,
         }
     }
 }
@@ -383,6 +388,7 @@ async fn list_trace_debug_tokens(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct IssueTraceDebugTokenRequest {
     organization_id: Option<String>,
     route_pattern: Option<String>,
@@ -427,16 +433,11 @@ async fn issue_trace_debug_token(
         .is_some_and(|route| route.is_empty() || route.len() > 255 || route.contains('%'))
     {
         return Err(Error::invalid(
-            "route_pattern must be a non-empty exact/underscore LIKE pattern without `%`",
+            "routePattern must be a non-empty exact/underscore LIKE pattern without `%`",
         ));
     }
 
-    let plaintext = format!(
-        "mstd_{}{}",
-        uuid::Uuid::now_v7().simple(),
-        uuid::Uuid::now_v7().simple()
-    );
-
+    let plaintext = generate_token();
     let now = TimestampMicros::now();
 
     let token = TraceDebugToken {
@@ -464,10 +465,10 @@ async fn issue_trace_debug_token(
         "trace_debug_token",
         Some(&created.id),
         json!({
-            "organization_id": created.organization_id.as_ref().map(|id| &id.0),
-            "route_pattern": created.route_pattern,
-            "expires_at_micros": created.expires_at.0,
-            "max_uses": created.max_uses,
+            "organizationId": created.organization_id.as_ref().map(|id| &id.0),
+            "routePattern": created.route_pattern,
+            "expiresAt": created.expires_at.0,
+            "maxUses": created.max_uses,
         }),
     )
     .await;
@@ -555,11 +556,11 @@ mod tests {
             org_id: Id("o".into()),
             display_role: "Tenant Administrator".into(),
             roles: Vec::new(),
-            credential_role_id: None,
+            credential_token_id: None,
             credential_application_id: None,
             credential_service_account_id: None,
             scope: IamScope::Organization,
-            permissions: ["org.settings.manage".to_string()].into_iter().collect(),
+            permissions: ["org.preferences.manage".to_string()].into_iter().collect(),
             policy_version: 1,
         };
         assert!(Permission::require_key(&tenant, "sys.telemetry.read").is_err());

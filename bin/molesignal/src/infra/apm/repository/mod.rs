@@ -3,8 +3,13 @@
 
 mod catalog;
 mod codec;
+mod deployments;
+mod error_rules;
+mod instance;
 mod maintenance;
+mod people;
 mod query;
+mod slo;
 mod write;
 
 use sqlx::PgPool;

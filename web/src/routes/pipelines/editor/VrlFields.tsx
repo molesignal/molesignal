@@ -54,7 +54,7 @@ export function VrlFields({
           <Plus aria-hidden className="h-3.5 w-3.5" />
           {t('graph.new_vrl_function')}
         </ChromeButton>
-        {picked?.is_builtin && picked.description && (
+        {picked?.isBuiltin && picked.description && (
           <p className="m-0 min-w-0 flex-[1_1_100%] font-sans text-xs leading-relaxed text-tx-3">
             {picked.description}
           </p>

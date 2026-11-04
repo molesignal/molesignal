@@ -15,6 +15,7 @@ impl std::fmt::Debug for SecretMaterial {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SyntheticSecret {
     pub id: Id,
     pub organization_id: Id,
@@ -28,6 +29,7 @@ pub struct SyntheticSecret {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SyntheticSecretVersion {
     pub secret_id: Id,
     pub organization_id: Id,

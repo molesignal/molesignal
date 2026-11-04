@@ -12,7 +12,7 @@ use crate::{
     domain::{iam::IamScope, log_inspection::InspectionSchedule},
 };
 
-const MANAGE: [&str; 3] = ["agent.use", "streams.query", "inspections.manage"];
+const MANAGE: [&str; 3] = ["agent.use", "logs.read", "inspections.manage"];
 
 struct Fixture {
     store: Arc<Store>,
@@ -106,7 +106,7 @@ async fn saving_takes_a_signed_in_member_who_could_run_it_themselves() {
         .await
         .unwrap_err();
 
-    assert!(refused.to_string().contains("streams.query"), "{refused}");
+    assert!(refused.to_string().contains("logs.read"), "{refused}");
     assert_eq!(fixture.store.inspection_count(), 0);
 }
 

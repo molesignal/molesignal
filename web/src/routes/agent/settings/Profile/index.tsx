@@ -64,10 +64,10 @@ export function ProfilesPanel({
           <AgentProfileList>
             {pagination.pageItems.map((profile) => {
               const provider = providers.find(
-                (candidate) => candidate.id === profile.model_provider_id,
+                (candidate) => candidate.id === profile.modelProviderId,
               );
               const model = provider
-                ? `${provider.name} · ${profile.model ?? provider.default_model}`
+                ? `${provider.name} · ${profile.model ?? provider.defaultModel}`
                 : profile.model ?? t('settings.profiles.provider_auto');
               const environments = profileScopeValues(
                 profile,
@@ -107,7 +107,7 @@ export function ProfilesPanel({
                             <h3 className="font-sans text-sm font-display-strong text-tx-0">
                               {profile.name}
                             </h3>
-                            {profile.is_default && (
+                            {profile.isDefault && (
                               <Badge variant="accent">
                                 {t('settings.profiles.default')}
                               </Badge>
@@ -143,11 +143,11 @@ export function ProfilesPanel({
                     />
                     <ProfileStat
                       label={t('settings.profiles.summary.tools', {
-                        count: profile.allowed_tools.length,
+                        count: profile.allowedTools.length,
                       })}
                       value={
                         <ProfileValueTags
-                          values={profile.allowed_tools}
+                          values={profile.allowedTools}
                           emptyLabel={t('settings.profiles.no_tools')}
                           limit={4}
                           mono
@@ -156,7 +156,7 @@ export function ProfilesPanel({
                             {
                               count: Math.max(
                                 0,
-                                profile.allowed_tools.length - 4,
+                                profile.allowedTools.length - 4,
                               ),
                             },
                           )}
@@ -181,16 +181,16 @@ export function ProfilesPanel({
                       label={t('settings.profiles.summary.runtime')}
                       value={t('settings.profiles.runtime_summary', {
                         minutes: Math.round(
-                          profile.max_investigation_secs / 60,
+                          profile.maxInvestigationSecs / 60,
                         ),
-                        calls: profile.max_tool_calls,
+                        calls: profile.maxToolCalls,
                       })}
                       mono
                     />
                     <ProfileStat
                       label={t('settings.profiles.summary.network')}
                       value={t(
-                        profile.network_access === 'allowed'
+                        profile.networkAccess === 'allowed'
                           ? 'settings.allowed'
                           : 'settings.blocked',
                       )}

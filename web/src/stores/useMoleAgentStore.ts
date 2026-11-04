@@ -11,8 +11,8 @@ export interface ChatIntent {
   prompt: string;
   /** The team the chat is for; none for a personal chat. */
   teamId?: string | null;
-  /** What the chat investigates: an incident it is started from. */
-  subject?: { kind: 'incident'; id: string } | null;
+  /** What the chat investigates: an incident, a service by its name, a RUM application by its id, or a discovery finding. */
+  subject?: { kind: 'incident' | 'service' | 'rum' | 'finding'; id: string } | null;
   references?: MessageReference[];
 }
 

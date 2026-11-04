@@ -32,6 +32,6 @@ describe('Mole Agent investigation context', () => {
     const window = timeWindowForPreset('6h');
     expect(window).not.toBeNull();
     const range = timeRangeMicros(window!);
-    expect(range.end_micros - range.start_micros).toBe(6 * 3_600 * 1_000_000);
+    expect(range.endTime - range.startTime).toBe(6 * 3_600 * 1_000_000);
   });
 });

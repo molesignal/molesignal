@@ -1,294 +1,263 @@
-<div align="center">
+<p align="center">
+  <img src="https://raw.githubusercontent.com/molesignal/molesignal/main/web/public/favicon.svg" alt="MoleSignal" width="72">
+</p>
 
-# MoleSignal
+<h1 align="center">MoleSignal</h1>
 
-**Go from metric to trace to log without losing context.**
+<p align="center">
+  Open-source, fully self-hostable observability and incident response.<br>
+  Telemetry, alerting, on-call, status pages and AI investigation live in one system. Your data, permissions and models stay in your environment.
+</p>
 
-Self-hosted and OpenTelemetry-native, MoleSignal puts logs, metrics, and traces on one storage layer and one query engine—so a trace, its logs, and the host metrics around it are connected by design, not stitched together by hand.
+<p align="center">
+  <a href="https://github.com/molesignal/molesignal/releases"><img alt="Release" src="https://img.shields.io/github/v/release/molesignal/molesignal"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/molesignal/molesignal"></a>
+</p>
 
-[Why](#why-molesignal) · [Quick start](#quick-start) · [Features](#features) · [Architecture](#architecture) · [Status](#status) · [Chinese](README.zh-CN.md)
-
-</div>
-
----
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="https://docs.molesignal.com/en-US">Docs</a> ·
+  <a href="https://molesignal.com">Website</a> ·
+  <a href="https://discord.gg/JXG98xA6FH">Discord</a> ·
+  <a href="README.zh-CN.md">简体中文</a>
+</p>
 
 ## Why MoleSignal
 
-Today's telemetry tools force a bad trade-off:
+- **Connected signals**: Logs, metrics and traces share one storage layer and one query engine. Drill from a metric to a trace to a log and the time range and filters come with you. One SQL query can JOIN across streams.
+- **Observability and incident response in one product**: Alerts flow straight into on-call and notifications, an incident links to its metrics, traces and logs, and status pages and postmortems carry on from the incident.
+- **AI that works in your environment**: Mole Agent uses the platform's own data and permissions. You choose the model, which can run on your internal network. High-risk operations wait for a person to approve them.
+- **Existing protocols**: Point your OpenTelemetry SDKs, Collector, Prometheus or Fluent Bit at it. No proprietary collector is needed.
+- **Simple to run, easy to scale**: One Rust binary that needs only PostgreSQL and somewhere to keep data (local disk or object storage). Start with one process and split by role when you need to scale.
+- **Governance built in**: Organization isolation, single sign-on, two-factor sign-in, fine-grained permissions, audit logs and field masking are all included.
 
-- **Commercial SaaS** (Datadog, New Relic, Splunk) — three signals are correlated, but the bill grows linearly with traffic. A mid-size team easily pays **US$2k–10k/month** for 100 GB/day, and reducing intake means losing visibility.
-- **Open-source stacks** (Loki + Mimir + Tempo + Grafana, or ELK + Prometheus + Jaeger) — free, but **logs / metrics / traces live in three separate stores with three query languages**. The "trace ↔ log ↔ host metric" jump everyone needs during an incident has to be stitched by hand: copy a trace_id, switch tab, paste, repaste a time range, hope the clocks agree.
+## Who it's for
 
-molesignal takes the third path: **one storage layer (Parquet on object store), one query engine (DataFusion + Arrow), one metadata layer (Postgres)** — so the three signals are correlated at the data plane, not at the dashboard plane. Self-hosted, so your bill is the S3 cost.
+- Your data can't leave your environment, or your SaaS bill has become hard to justify.
+- You have a few SREs or platform engineers, but no dedicated team to run a whole observability stack.
+- You've pieced together Prometheus, Grafana, Loki, Alertmanager and an on-call tool, and want them in one place.
 
-|  | Commercial SaaS<br>(Datadog / New Relic) | OSS stack<br>(Loki + Mimir + Tempo) | **molesignal** |
-|---|---|---|---|
-| 100 GB/day cost | ~US$2k+/mo (grows linearly) | infra only | **infra only** |
-| Three signals — same storage | ✅ (their cloud) | ❌ 3 stores, 3 query langs | **✅ Parquet + DataFusion** |
-| Cross-signal correlation | ✅ (paid) | ⚠️ manual trace_id copy-paste | **✅ native (`/web/correlation/*`)** |
-| Data ownership | their cloud | self-hosted | **self-hosted** |
-| Setup time | 5 min (agents) | 6 hours+ (5 components + Grafana) | **1 cmd `docker compose up`** |
-| OpenTelemetry-native | yes | partial | **yes (9 intake protocols)** |
-| Real-time alerts (<1s) | yes | no (eval interval ≥ scrape interval) | **yes** (`real_time` rules match records on the intake path) |
-| Multi-tenant out-of-box | yes (per-account) | no | **yes (org-scoped queries)** |
-
-> **Status:** early. Released **NOT YET** — currently pre-1.0, looking for first contributors and design partners. See [Status](#status).
-
----
+You don't have to replace your monitoring all at once. Start with alerts only, use on-call and status pages, and move telemetry later.
 
 ## Quick start
 
 ```bash
-git clone https://github.com/molesignal/molesignal
+git clone https://github.com/molesignal/molesignal.git
 cd molesignal
-
-# 1-command sandbox (Postgres + RustFS + molesignal standalone)
-docker compose -f deploy/docker/docker-compose.yaml --profile standalone up
-
-# UI:        http://localhost:5080
-# S3 admin:  http://localhost:9001  (rustfsadmin / rustfsadmin)
+docker compose -f deploy/docker/docker-compose.yaml --profile standalone up -d
 ```
 
-RustFS exposes the S3 API on `9000` and its console on `9001`. The `rustfs-init` service
-uses AWS CLI to create the `molesignal` bucket and enable anonymous downloads before
-the application starts. These credentials and permissions are for the local sandbox.
-Object data is stored in the `rustfsdata` volume; existing deployments must copy their
-objects through the S3 API before switching endpoints. Existing volumes are not migrated automatically.
+Open <http://localhost:5080> and sign in with `admin@example.com` and `admin`.
 
-The Web UI is embedded in the `molesignal` binary and served from the same HTTP port (`5080`),
-so the standard release does not require a separate frontend service.
+> These accounts and keys are sample values for local trials. Before going to production, read the [production checklist](https://docs.molesignal.com/en-US/deployment/production-checklist).
 
-Send your first data:
+Then pick a path.
+
+### Start with your existing alerts
+
+1. In **Alerts → Sources**, create a source, choose the sender type and save the generated token. The page shows how to configure that type.
+2. With the **API** type, you can send one right away:
+
+   ```bash
+   curl -X POST http://localhost:5080/api/v1/intake/alerts \
+     -H 'Authorization: Bearer <source token>' \
+     -H 'Content-Type: application/json' \
+     -d '{"dedup_key": "disk-full/web-1", "summary": "Disk almost full on web-1", "severity": "critical", "labels": {"host.name": "web-1"}}'
+   ```
+
+   For Alertmanager, add a receiver and route alerts to it:
+
+   ```yaml
+   receivers:
+     - name: molesignal
+       webhook_configs:
+         - url: http://<MoleSignal host>:5080/api/v1/intake/alerts
+           send_resolved: true
+           http_config:
+             authorization:
+               credentials: <source token>
+   ```
+
+3. Set up **On-call schedules** and **Escalations**, add a notification connector in **Settings**, then give this source an escalation policy (by default it follows routing). New incidents now reach whoever is on call.
+
+Sender types also include Grafana, Datadog, PagerDuty, Alibaba Cloud CloudMonitor, Tencent Cloud Observability Platform, Amazon CloudWatch, Zabbix and email. See the [alert sources docs](https://docs.molesignal.com/en-US/alerting/sources).
+
+Moving from Opsgenie or PagerDuty? You don't have to rebuild schedules by hand: in **On-call schedules**, import the JSON their APIs return, with a preview before anything is written. See the [schedule migration docs](https://docs.molesignal.com/en-US/alerting/schedule-migration).
+
+### Send telemetry
+
+In **account settings → API tokens**, create a token and write a log:
 
 ```bash
-# OTLP HTTP (works with OpenTelemetry Collector / SDK / Vector / Fluent Bit out of the box)
 curl -X POST http://localhost:5080/api/v1/intake/logs/app \
-  -H 'content-type: application/json' \
-  -H 'authorization: Bearer <jwt>' \
-  -d '[{"_timestamp":1700000000000000,"level":"error","msg":"db pool exhausted","trace_id":"abc123"}]'
-
-# Query — and notice the same trace_id ties logs to traces and to host metrics
-curl -X POST http://localhost:5080/api/v1/query \
-  -H 'authorization: Bearer <jwt>' \
-  -H 'content-type: application/json' \
-  -d '{"org_id":"<from-login>","language":"sql",
-       "statement":"SELECT * FROM app WHERE trace_id = '\''abc123'\''",
-       "time_range":{"start":0,"end":2000000000000000},
-       "stream":{"name":"app","stream_type":"logs"}}'
+  -H 'Authorization: Bearer <API Token>' \
+  -H 'Content-Type: application/json' \
+  -d '[{"level":"error","msg":"db pool exhausted","trace_id":"abc123"}]'
 ```
 
-**No data yet?** Open the UI Home page and click **Load sample data** — it loads a
-built-in cross-signal demo (logs + metrics + traces sharing trace_ids) so you can try a
-`metric → trace → log` drill-down in seconds.
+Query it with SQL:
 
-Full integration examples for Vector / Fluent Bit / OTel Collector / Prometheus remote_write are in [docs/integrations.md](docs/integrations.md).
+```bash
+curl -G http://localhost:5080/api/v1/query \
+  -H 'Authorization: Bearer <API Token>' \
+  --data-urlencode "language=sql" \
+  --data-urlencode "statement=SELECT * FROM app WHERE trace_id = 'abc123'" \
+  --data-urlencode "start=$(( ($(date +%s) - 3600) * 1000000 ))" \
+  --data-urlencode "end=$(( ($(date +%s) + 60) * 1000000 ))" \
+  --data-urlencode "stream=app" \
+  --data-urlencode "stream_type=logs"
+```
 
----
+If you already run the OpenTelemetry Collector, add one exporter to send all three signals:
+
+```yaml
+exporters:
+  otlphttp/molesignal:
+    endpoint: http://<MoleSignal host>:5080/api
+    headers:
+      authorization: "Bearer <API Token>"
+
+service:
+  pipelines:
+    traces:
+      exporters: [otlphttp/molesignal]
+    metrics:
+      exporters: [otlphttp/molesignal]
+    logs:
+      exporters: [otlphttp/molesignal]
+```
+
+The **Datasource** page in the product has setup steps for more than 40 sources.
 
 ## Features
 
-### 🔗 Cross-signal correlation (the killer feature)
+### Observability
 
-A trace, its logs, and the host's metric for the same minute share **the same storage, the same time index, the same tenant scope**. No more "copy this trace_id, switch tab, paste, hope":
+- **[Logs](https://docs.molesignal.com/en-US/logs)**: full-text search, SQL, log patterns, async search jobs, scheduled inspections.
+- **[Metrics](https://docs.molesignal.com/en-US/metrics)**: PromQL, downsampling, cardinality limits.
+- **[Traces](https://docs.molesignal.com/en-US/traces) and [APM](https://docs.molesignal.com/en-US/apm)**: RED metrics and service maps derived from traces, error grouping, SLOs, version comparison.
+- **[Profiles](https://docs.molesignal.com/en-US/profiles)**: continuous profiling, flame graphs, comparison.
+- **[RUM](https://docs.molesignal.com/en-US/rum)**: session replay, error grouping with source maps, Web Vitals, frustration signals, funnels, paths, retention, heatmaps, feature flags.
+- **[Synthetics](https://docs.molesignal.com/en-US/synthetics)**: HTTP (multi-step), TCP, SSH, DNS, ICMP, TLS, gRPC, browser and heartbeat checks, with Probe Agents you can deploy to any network location.
+- **[Dashboards](https://docs.molesignal.com/en-US/dashboards) and [reports](https://docs.molesignal.com/en-US/reports)**: custom dashboards with variables, scheduled reports.
+- **[Cross-signal investigation](https://docs.molesignal.com/en-US/correlation)**: an investigation stack keeps your drill-down path (`⌘[` and `⌘]` move through it), and the `⌘K` command palette jumps to any kind of resource.
 
-- `GET /api/v1/web/correlation/{from_kind}/{to_kind}` — server-side join across signals with prefilled filters
-- Service graph + RED metrics derived from traces, ready to be a topology view
-- Time anchor synchronizes all panels (one click to zoom + propagate)
-- Investigation stack: drill `metric → trace → log → host` and back without losing context
+### Alerting and incident response
 
-### 📡 Intake (9 compatible protocols)
+- **[Alert rules](https://docs.molesignal.com/en-US/alerting/rules)**: scheduled, real-time, anomaly, forecast and composite rules in SQL or PromQL; no-data alerts; Prometheus rule import; automatic discovery of problems in APM, RUM, logs and resource metrics.
+- **[Incidents](https://docs.molesignal.com/en-US/alerting/incidents)**: grouping, routing, silences, inhibition, priority and urgency.
+- **[On-call](https://docs.molesignal.com/en-US/alerting/on-call)**: schedules, escalation policies, shift swaps, holiday calendars, calendar feeds.
+- **[Notifications](https://docs.molesignal.com/en-US/notification-channels)**: phone and SMS (Alibaba Cloud, Tencent Cloud, Huawei Cloud, Twilio, AWS), Lark/Feishu, DingTalk, WeCom, Slack, Microsoft Teams, Google Chat, email and webhooks; templates, policies, quiet hours.
+- **[Major incidents](https://docs.molesignal.com/en-US/alerting/major-incidents)**: roles and tasks, war rooms, status updates; [tickets](https://docs.molesignal.com/en-US/alerting/tickets) (Jira, ServiceNow, Meegle); meetings (Zoom, Google Meet, Tencent Meeting).
+- **[Remediation](https://docs.molesignal.com/en-US/alerting/remediation)**: HTTP and Kubernetes actions that run after approval, then check whether the incident recovered.
+- **[Status pages](https://docs.molesignal.com/en-US/status-pages)**: components, incident updates, planned maintenance, subscriptions, private access, custom domains with automatic certificates; rules can update them as incidents change.
+- **Postmortems**: postmortem documents and action items, which can become tickets.
 
-| Protocol | Endpoint | Compatible clients / services |
+### Mole Agent
+
+[Mole Agent](https://docs.molesignal.com/en-US/agent) is the built-in AI SRE.
+
+- **Investigates incidents**: records hypotheses and evidence and writes a root cause analysis. Severe incidents, Cron schedules or an external API can trigger automations, and the conclusion goes back on the incident.
+- **Your choice of model**: OpenAI, Anthropic and any OpenAI-compatible API. You can set a daily token budget.
+- **Permissions and approvals**: more than 200 built-in tools all check the caller's permissions. Each tool has a default execution mode by risk level (automatic, confirm in chat, single approval, dual approval). An organization can tighten it, and high-risk tools can't be loosened.
+- **Team knowledge**: knowledge, memory and skills are managed per organization, team or person. Skills can be installed from Git repositories, and external MCP servers add more tools.
+- **Available where you work**: open the side panel on any page, or talk to it in [IM such as Lark/Feishu and Slack](https://docs.molesignal.com/en-US/im). Other AI clients connect through [MCP](https://docs.molesignal.com/en-US/inbound-mcp) or the [`@molesignal/cli`](https://github.com/molesignal/molesignal-cli) command-line tool.
+- **Measurable quality**: rules and models score its answers, and prompt changes can be checked by replay first.
+
+### Data and query
+
+- **Storage**: data is stored as Parquet and indexed with Tantivy, and queries prune by file. PostgreSQL holds only metadata and the file catalog.
+- **Query**: [full SQL](https://docs.molesignal.com/en-US/query) (JOINs, CTEs, window functions) and a [PromQL subset](docs/promql_subset.md). Large queries can run as async search jobs. DBeaver, JDBC and ADBC can connect over Arrow Flight SQL (off by default).
+- **Across clusters**: one query can cover several registered clusters. Unreachable clusters are flagged without affecting the other results.
+- **[Pipelines and functions](https://docs.molesignal.com/en-US/pipelines)**: process data at intake or on a schedule with VRL or JavaScript, or call a model. Fan-out, retries, dead letters and backfill are supported, and extend tables provide lookups.
+
+### Security and governance
+
+- **Sign-in**: single sign-on through OIDC, SAML, LDAP, GitHub and Lark/Feishu; two-factor sign-in with TOTP and passkeys; sign-in rate limits.
+- **Access**: organization isolation, teams, roles and fine-grained permissions. Resources can be shared individually, and API Tokens can be limited in scope.
+- **Data**: field masking and field encryption, audit logs, retention per stream. Connector and model secrets are stored encrypted and are never returned after being written.
+
+See the [identity](https://docs.molesignal.com/en-US/identity) and [security](https://docs.molesignal.com/en-US/security) docs.
+
+## Intake
+
+| Protocol or source | Address | Notes |
 |---|---|---|
-| OTLP gRPC | `:4317` | OpenTelemetry SDK / Collector |
-| OTLP HTTP | `POST /api/v1/{logs,metrics,traces}` | OTel HTTP exporter |
-| Prometheus remote_write | `POST /api/v1/prometheus/api/v1/write` | Prometheus / VictoriaMetrics |
-| Elasticsearch `_bulk` | `POST /api/v1/_bulk` | Filebeat, Vector ES sink, Logstash |
-| Loki push (JSON body) | `POST /api/v1/loki/api/v1/push` | Vector Loki sink; not Promtail or Grafana Alloy, which send snappy protobuf |
-| Kinesis Firehose | `POST /api/v1/_kinesis_firehose` | AWS Firehose |
-| Cloudflare Logpush | `POST /api/v1/_cloudflare` | Cloudflare Logpush |
-| Heroku log drain | `POST /api/v1/_heroku` | Heroku |
-| Native HTTP JSON | `POST /api/v1/intake/{type}/:stream` | curl / app SDK |
+| OTLP/HTTP | `/api/v1/logs`, `/api/v1/metrics`, `/api/v1/traces` | OpenTelemetry SDKs and Collector |
+| OTLP gRPC | `:4317` | OpenTelemetry SDKs and Collector |
+| Prometheus remote_write | `/api/v1/prometheus/api/v1/write` | Prometheus, VictoriaMetrics |
+| Elasticsearch Bulk | `/api/v1/_bulk` | Shippers that write to the Bulk API |
+| Loki push | `/api/v1/loki/api/v1/push` | JSON bodies only; the snappy protobuf that Promtail and Grafana Alloy send by default is not supported |
+| Native JSON | `/api/v1/intake/{logs,metrics,traces}/<stream>` | curl or your application |
+| Profiles | `/api/v1/profiles/otlp`, `/api/v1/profiles/intake` | OTLP and pprof |
+| RUM | `/api/v1/rum/events` | [`@molesignal/browser-rum`](https://github.com/molesignal/browser-rum), [`molesignal_flutter`](https://github.com/molesignal/flutter-rum); examples for Android and iOS |
+| Cloud push | `/api/v1/_kinesis_firehose`, `/api/v1/_cloudflare`, `/api/v1/_heroku` | Kinesis Firehose, Cloudflare Logpush, Heroku |
+| Pull | Connector settings | Kafka, S3, CloudWatch Logs |
+| External alerts | `/api/v1/intake/alerts` | See [Start with your existing alerts](#start-with-your-existing-alerts) |
 
-OTLP metric type and aggregation metadata are normalized according to the
-[metric storage contract](docs/otlp-metrics.md).
-
-### 🌐 RUM & APM
-
-- **RUM** — Datadog-compatible receiver for sessions, actions, errors, and replay; sourcemap symbolication for JavaScript and native stacks
-- **APM** — service graph, RED metrics, and dependency views derived from traces; service/endpoint drill-down
-
-### 🗃️ Storage & query — one engine for everything
-
-- **Columnar storage** — Parquet on S3 / GCS / Azure / RustFS; Postgres for metadata
-- **Tantivy inverted index** — file-level pruning at query time (typically ~99% reduction)
-- **DataFusion query engine** — full SQL with joins / CTEs / window functions across logs, metrics, traces
-- **PromQL subset** — `rate`, `increase`, `sum/avg/min/max/count by/without`, `histogram_quantile` ([roadmap](docs/promql_subset.md))
-- **Query forwarding in a role-split cluster** — the router sends each SQL or PromQL query to a querier node, which runs it in full against the shared Parquet files and the catalog
-- **Federated query via Arrow Flight** — a query can include registered remote clusters; their batches merge on the node that receives the request
-- **Unified object cache** — every remote Artifact and Manifest range read shares a checksum-bound fixed-block cache (`[cache.object]`); local filesystems bypass it
-- **Versioned FileCatalog** — immutable partition manifests use sealed base + overlay generations while queries merge manifests, hot Catalog segments, and live buffers from one snapshot
-
-### 📊 Dashboards
-
-- Custom dashboards with chart variables, time-series / stat / table / topology panels
-- Dashboard contracts for version-controlled provisioning and sync
-
-### 🌍 Federated Search
-
-- Cross-cluster resource sync via CloudEvents 1.0
-- Dashboards, alert rules, and regex patterns shared across clusters with Lamport-versioned conflict resolution
-
-### 🚨 Alerting
-
-- **Three rule kinds**: `scheduled` (periodic SQL or PromQL eval), `real_time` (matched on the intake path: counts the records that match a condition in a sliding window and opens an incident as soon as the count meets the trigger), `anomaly` (MAD + EWMA detectors; daily baseline with opt-in weekly seasonality; 0–1 score + human-readable reason)
-- **Escalation policies** — multi-step with ack timeout, on-call rotations, overrides
-- **Channels** — email (SMTP), Slack (app and incoming webhook), Lark/Feishu (app and custom bot), and generic webhooks; template variables
-
-### 🛡️ Platform
-
-- **SSO** — OIDC / SAML / LDAP with field mapping and group-role binding
-- **RBAC** — API tokens (`ms_<prefix>_<secret>`) and JWT; per-token role, expiry, last-used tracking
-- **Multi-tenant** — every query is bound to its organization: file lookup, table registration and stream-ownership checks are all scoped by `org_id`, so a query only ever sees its own organization's data
-- **Audit log** — every mutating operation recorded
-- **Field-level encryption** — AES-256-GCM + cipher root key envelope; VRL `encrypt()` / `decrypt()` builtins
-
-### 🤖 Mole Agent
-
-- Natural-language chat interface over your telemetry data (SSE streaming)
-- MCP server for integrating with AI assistants
-- Configurable model providers, toolsets, and prompts per org
-- Scheduled log inspections — save a Logs query and Mole Agent inspects it on a schedule with read-only tools, keeps every report, and notifies the channels you choose when a report says something is wrong ([docs/log-inspection.md](docs/log-inspection.md))
-- Dashboard draft generation from conversation
-
-### ⌨️ Keyboard-friendly web UI
-
-- ⌘K command palette — every stream, dashboard, alert, saved view is one keystroke away
-- Investigation stack (max 6 frames) — push frames as you drill; `⌘[` / `⌘]` to navigate; pin to keep context
-- Every clickable action is keyboard-reachable
-
-### 🧩 Pipeline functions (VRL + JavaScript + optional LLM)
-
-Functions are reusable transforms attached to a pipeline step. Three kinds are supported on the intake hot path:
-
-- **VRL** — always available. Compiled per `(function_id, updated_at)`, evaluated with the upstream `vrl::compiler` stdlib (`del`, `parse_json`, `to_int`, `match`, `encrypt` / `decrypt`, …).
-- **JavaScript** — built on `deno_core` (V8) and included in the default `molesignal` binary. There is no runtime toggle. Custom minimal builds may exclude the `js-runtime` default feature; those builds reject JavaScript functions.
-- **LLM** — opt-in, passes the event JSON through a configured AI provider (agent) and writes the model output back into a configurable field (default `_llm_eval`). Gated by the runtime config toggle:
-
-  ```toml
-  [functions]
-  llm_eval_enabled = true
-  ```
-
-  When disabled, `language=llm` rows are rejected at the pipeline.
-
-**Surface inside the isolate**
-
-User source runs against a minimal `globalThis.molesignal` object — there is no `fetch`, no `setTimeout`, no `import`, no `npm`, no `crypto.subtle`:
-
-```js
-// Lowercase a `severity` field into a new `level` field.
-molesignal.set("level", molesignal.fields.severity.toLowerCase());
-// Drop a sensitive field.
-molesignal.del("pw");
-// Helpers available: molesignal.now(), .log(level, msg), .parse_json(s),
-// .encode_json(v), .sha256(input) — pure-JS implementations bundled in the prelude.
-```
-
-**Resource limits**
-
-- Wall-clock budget: **50 ms per event** (`IsolateHandle::terminate_execution`); on timeout the isolate is rebuilt for the next event so state cannot poison the batch.
-- Heap budget: **32 MiB per isolate** (`v8::CreateParams::heap_limits` + near-heap-limit callback → terminate).
-- Anything beyond a single synchronous pass is unsupported by design — no `Promise` scheduler is installed, so `await` will not actually wait.
-
-### ☸️ Operations
-
-- **5 roles** — `router` / `intake` (StatefulSet + PVC) / `querier` / `compactor` / `alert`. The router serves the full HTTP API and web UI, forwards writes to intake nodes, and sends queries to querier nodes; every other role listens on an internal health and metrics port. Intake nodes hold the WAL of the latest flush window
-- **Single binary** — same image serves all roles, selected by `MS_NODE_ROLES`
-- **Kubernetes manifests** in [deploy/k8s/](deploy/k8s/), Docker Compose with `standalone` + `multirole` profiles
-- **Prometheus `/metrics`** with rich cache / object_store / intake / compactor metrics
-- **Health probes** — readiness gated by intake WAL replay + object_store round-trip probe
-
----
+See the [intake docs](https://docs.molesignal.com/en-US/intake) for more.
 
 ## Architecture
 
-The source workspace layout and dependency rules are documented in
-[ARCHITECTURE.md](ARCHITECTURE.md).
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/architecture/overview_en_dark.svg">
+  <img src="assets/architecture/overview_en_light.svg" alt="MoleSignal architecture: clients go through the Router to write to Intake and query Querier, data goes to object storage, metadata goes to PostgreSQL, and Alert handles rules, escalation and notifications">
+</picture>
 
-```
-                          ┌──────────┐
-   OTel / Vector / ...  ─►│  router  │─► consistent hash(org, stream) ─► intake(s)
-                          └──────────┘                                      │
-                               │                                            ▼
-                               ▼                                       WAL + Arrow buffer
-                       /api/v1/{intake,query,...}                           │
-                               │                                  flush → Parquet + Tantivy
-                               ▼                                  upload to S3
-                       ┌──────────────┐                                     │
-                       │ web shell    │                                     ▼
-                       │ (⌘K + stack) │             ┌────────────────────────────┐
-                       └──────┬───────┘             │ FileCatalog in Postgres     │
-                              │ /query              │ object_store in S3/GCS/... │
-                              ▼                     └────────────────────────────┘
-                       ┌──────────────┐                          ▲
-                       │  querier(s)  │──── scan Parquet ────────┘
-                       └──────────────┘    (each query runs on one querier)
-```
+Writes go to a WAL and an in-memory buffer, then flush to Parquet and indexes in object storage. Queries merge the flushed files with what is still in the buffer. The web UI is built into the binary, so there is no separate frontend to deploy.
 
-**The crucial point:** logs, metrics, and traces all land in the **same** Parquet files (different streams, same physical storage). A SQL query can join across them natively — no cross-store federation, no manual trace_id reconciliation.
+By default one process runs every role. [Split by role](https://docs.molesignal.com/en-US/deployment/role-based) when you need to. See the [architecture docs](https://docs.molesignal.com/en-US/architecture) and, for the source layout, [ARCHITECTURE.md](ARCHITECTURE.md). The diagram's editable source is [`overview.en.excalidraw`](assets/architecture/overview.en.excalidraw).
 
----
+## Deployment
 
-## Status
-
-Pre-1.0, **early**. Released YYYY-MM-DD.
-
-| Area | State |
+| Method | Details |
 |---|---|
-| Intake path (WAL + buffer + flush) | ✅ working |
-| 9 intake protocols | ✅ working |
-| Role-split cluster (router → intake / querier) | ✅ working |
-| Federated query (Arrow Flight) | ✅ working |
-| 3-level cache + disk cache | ✅ working |
-| Multi-tenant query isolation (per-org scoping) | ✅ working |
-| Scheduled (SQL / PromQL) + anomaly alerts | ✅ working |
-| Real-time (in-intake) alert matching | ✅ working |
-| Cipher keys + audit | ✅ working |
-| Cross-signal correlation API | ✅ working |
-| Web shell (⌘K + investigation stack) | ✅ working |
-| SSO — OIDC / SAML / LDAP | ✅ working |
-| One-click sample data (first-run) | ✅ working |
-| Production hardening | ⏳ needs real workloads |
-
-**If you try it, please [open an issue](https://github.com/molesignal/molesignal/issues) — every report shapes the next release.** Especially valued: install friction, missing protocol fields, cross-signal correlation gaps.
-
----
-
-## Building
+| Docker Compose | See [Quick start](#quick-start); use `--profile multirole` to split by role |
+| Helm | See the commands below, or use `oci://ghcr.io/molesignal/charts/molesignal` |
+| Binary | Download from [Releases](https://github.com/molesignal/molesignal/releases) (Linux x86_64, aarch64), set `[meta_database]` in `conf/config.toml`, and run `bin/molesignal --config conf/config.toml`. A systemd unit is in [`deploy/systemd`](deploy/systemd) |
+| Kubernetes manifests | [`deploy/k8s`](deploy/k8s) |
 
 ```bash
-# Open-source production artifact
-BUILD_ID=local-001 make build-release
-
-# The same binary is promoted by changing runtime deployment metadata only.
-RELEASE_CHANNEL=alpha ./target/release/molesignal --config conf/config.toml
+helm repo add molesignal https://charts.molesignal.com
+helm repo update
+helm install molesignal molesignal/molesignal --namespace molesignal --create-namespace
+kubectl --namespace molesignal port-forward svc/molesignal 5080:5080
 ```
 
-All deliverable artifacts use the single Cargo `release` profile. `BUILD_ID` and the Git SHA identify the artifact; runtime `RELEASE_CHANNEL` (`alpha`, `beta`, `rc`, or `stable`) identifies its deployment maturity. Promote the same binary or immutable image between channels instead of rebuilding it.
+| Port | Purpose |
+|---|---|
+| 5080 | HTTP API and web UI |
+| 4317 | OTLP gRPC (not mapped in the Compose standalone profile; add it if you need it) |
+| 5082 | Internal cluster gRPC |
+| 5083 | Arrow Flight SQL (off by default) |
+| 5084, 5085 | Probe Agent registration and control |
 
----
+Every node exposes Prometheus `/metrics`.
+
+## Building from source
+
+```bash
+make build-release
+./target/release/molesignal --config conf/config.toml
+```
+
+See the [contributing guide](CONTRIBUTING.md) for the development environment.
+
+## Related repositories
+
+| Repository | Contents |
+|---|---|
+| [docs](https://github.com/molesignal/docs) | Documentation site |
+| [molesignal-helm](https://github.com/molesignal/molesignal-helm) | Helm chart |
+| [molesignal-cli](https://github.com/molesignal/molesignal-cli) | Command-line tool |
+| [browser-rum](https://github.com/molesignal/browser-rum) | Browser RUM SDK |
+| [flutter-rum](https://github.com/molesignal/flutter-rum) | Flutter RUM SDK |
 
 ## Contributing
 
-PRs welcome — start with the `tasks.md` files in `openspec/changes/*`. Conventions:
-
-- DDD layering: don't push infra concerns into `domain/`
-- Every public type has a 1-sentence doc explaining *why* it exists
-- Integration tests live in `bin/molesignal/tests/*_it_*.rs`; gate behind `MS_RUN_IT=1` if they need Docker
-- `make fmt-check` + `make lint` before pushing
-
-Issues, RFCs, design discussions: all on GitHub. Questions and chat: [Discord](https://discord.gg/JXG98xA6FH).
+Issues and pull requests are welcome. Please read the [contributing guide](CONTRIBUTING.md) and the [code of conduct](CODE_OF_CONDUCT.md) first, and report security issues through the [security policy](SECURITY.md) rather than a public issue. Questions and chat: [Discord](https://discord.gg/JXG98xA6FH).
 
 ### Contributors
 
@@ -298,20 +267,6 @@ Thanks to everyone who has contributed to MoleSignal:
   <img src="https://contrib.rocks/image?repo=molesignal/molesignal" alt="Contributors" />
 </a>
 
----
-
 ## License
 
-Copyright 2026 MoleSignal Authors
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+Copyright 2026 MoleSignal Authors. Released under the [Apache-2.0](LICENSE) license. Third-party notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

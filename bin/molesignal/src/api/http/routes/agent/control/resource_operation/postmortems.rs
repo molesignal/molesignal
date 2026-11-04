@@ -19,7 +19,7 @@ use crate::{
 };
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct DraftWrite {
     page_id: String,
     body: String,
@@ -50,8 +50,8 @@ pub(super) async fn draft(
         summary: "status page postmortem draft saved".into(),
         verification: json!({
             "verified": true,
-            "page_id": page_id,
-            "event_id": incident.id,
+            "pageId": page_id,
+            "eventId": incident.id,
             "postmortem": incident.postmortem,
         }),
     })
@@ -68,10 +68,10 @@ mod tests {
 
     #[test]
     fn a_draft_needs_its_page_and_body_and_nothing_else() {
-        let draft = parse(&json!({"page_id": "page", "body": "# What happened"})).unwrap();
+        let draft = parse(&json!({"pageId": "page", "body": "# What happened"})).unwrap();
         assert_eq!(draft.page_id, "page");
 
         assert!(parse(&json!({"body": "# What happened"})).is_err());
-        assert!(parse(&json!({"page_id": "page", "body": "x", "publish": true})).is_err());
+        assert!(parse(&json!({"pageId": "page", "body": "x", "publish": true})).is_err());
     }
 }

@@ -9,11 +9,14 @@ use crate::api::AppState;
 
 mod access;
 pub(super) mod directory;
+pub(super) mod grant_limit;
+mod platform_accounts;
 mod service_accounts;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
         .merge(directory::routes())
         .merge(access::routes())
+        .merge(platform_accounts::routes())
         .merge(service_accounts::routes())
 }

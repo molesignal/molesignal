@@ -1,15 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Identity-field and IAM-role mapping validation for SSO providers.
+//! Identity-field, IAM-role mapping, and allowed-group validation for SSO providers.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
-    api::AppState,
+    api::{AppState, http::routes::iam::grant_limit},
+    app::iam::IamContext,
     domain::iam::{SsoFieldMapping, SsoProviderConfig, SsoProviderKind},
+    infra::sso::claims::claim_sources,
     shared::{Error, Result, ids::Id},
 };
+
+/// 允许登录的组最多几项。
+const MAX_ALLOWED_GROUPS: usize = 100;
 
 pub(super) fn normalize_field_mapping(
     mapping: SsoFieldMapping,
@@ -34,9 +39,14 @@ pub(super) fn normalize_field_mapping(
             )));
         }
 
-        if kind == SsoProviderKind::Oidc && source.split('.').any(|segment| segment.is_empty()) {
+        // OIDC 与 OAuth 2.0 读 JSON 声明：可用 `|` 列出几个点分路径。
+        let claim_kind = matches!(kind, SsoProviderKind::Oidc | SsoProviderKind::Oauth2);
+
+        if claim_kind
+            && claim_sources(source).any(|path| path.split('.').any(|segment| segment.is_empty()))
+        {
             return Err(Error::invalid(format!(
-                "field_mapping.{field} must be a valid dotted OIDC claim path"
+                "field_mapping.{field} must list valid dotted claim paths separated by |"
             )));
         }
 
@@ -56,7 +66,7 @@ pub(super) fn normalize_role_mapping(
 ) -> Result<(BTreeMap<String, String>, Option<String>)> {
     if mapping.len() > 100 {
         return Err(Error::invalid(
-            "group_role_mapping must contain at most 100 entries",
+            "groupRoleMapping must contain at most 100 entries",
         ));
     }
 
@@ -68,13 +78,13 @@ pub(super) fn normalize_role_mapping(
 
         if group.is_empty() || group.len() > 512 {
             return Err(Error::invalid(
-                "group_role_mapping group names must be 1..512 characters",
+                "groupRoleMapping group names must be 1..512 characters",
             ));
         }
 
         if role_id.is_empty() || role_id.len() > 128 {
             return Err(Error::invalid(
-                "group_role_mapping role ids must be 1..128 characters",
+                "groupRoleMapping role ids must be 1..128 characters",
             ));
         }
 
@@ -83,7 +93,7 @@ pub(super) fn normalize_role_mapping(
             .is_some()
         {
             return Err(Error::invalid(
-                "group_role_mapping contains duplicate normalized group names",
+                "groupRoleMapping contains duplicate normalized group names",
             ));
         }
     }
@@ -97,11 +107,61 @@ pub(super) fn normalize_role_mapping(
         .is_some_and(|role_id| role_id.len() > 128)
     {
         return Err(Error::invalid(
-            "default_role_id must be at most 128 characters",
+            "defaultRoleId must be at most 128 characters",
         ));
     }
 
     Ok((normalized, default_role_id))
+}
+
+/// 去掉空白和重复；组名规则与角色映射相同。
+pub(super) fn normalize_allowed_groups(groups: Vec<String>) -> Result<Vec<String>> {
+    let mut normalized = Vec::new();
+
+    for group in groups {
+        let group = group.trim();
+
+        if group.is_empty() || normalized.iter().any(|known| known == group) {
+            continue;
+        }
+
+        if group.len() > 512 {
+            return Err(Error::invalid(
+                "allowedGroups entries must be at most 512 characters",
+            ));
+        }
+
+        normalized.push(group.to_owned());
+    }
+
+    if normalized.len() > MAX_ALLOWED_GROUPS {
+        return Err(Error::invalid(format!(
+            "allowed_groups must contain at most {MAX_ALLOWED_GROUPS} entries"
+        )));
+    }
+
+    Ok(normalized)
+}
+
+/// A provider hands its roles to whoever signs in through it, so whoever configures it can name
+/// only roles they could grant themselves. A role it already named may stay.
+pub(super) async fn ensure_roles_grantable(
+    state: &AppState,
+    ctx: &IamContext,
+    config: &SsoProviderConfig,
+    previous: Option<&SsoProviderConfig>,
+) -> Result<()> {
+    let already = previous
+        .map(SsoProviderConfig::referenced_role_ids)
+        .unwrap_or_default();
+
+    let added = config
+        .referenced_role_ids()
+        .difference(&already)
+        .map(|role_id| Id::from_string(*role_id))
+        .collect::<Vec<_>>();
+
+    grant_limit::require_roles_held(state, ctx, &added).await
 }
 
 pub(super) async fn ensure_roles_exist(
@@ -146,7 +206,7 @@ pub(super) async fn ensure_roles_exist(
 mod tests {
     use std::collections::BTreeMap;
 
-    use super::{normalize_field_mapping, normalize_role_mapping};
+    use super::{normalize_allowed_groups, normalize_field_mapping, normalize_role_mapping};
     use crate::domain::iam::{SsoFieldMapping, SsoProviderKind};
 
     #[test]
@@ -163,5 +223,28 @@ mod tests {
         let mut mapping = SsoFieldMapping::oidc();
         mapping.groups = "realm_access..roles".into();
         assert!(normalize_field_mapping(mapping, SsoProviderKind::Oidc).is_err());
+    }
+
+    #[test]
+    fn claim_alternatives_are_checked_one_by_one() {
+        let mut mapping = SsoFieldMapping::oauth2();
+        mapping.email = "data.enterprise_email | data.email".into();
+        assert!(normalize_field_mapping(mapping.clone(), SsoProviderKind::Oauth2).is_ok());
+
+        mapping.email = "email | ".into();
+        assert!(normalize_field_mapping(mapping, SsoProviderKind::Oauth2).is_err());
+    }
+
+    #[test]
+    fn allowed_groups_are_trimmed_and_deduplicated() {
+        let groups = normalize_allowed_groups(vec![
+            " acme ".into(),
+            "acme".into(),
+            String::new(),
+            "acme/sre".into(),
+        ])
+        .expect("groups");
+        assert_eq!(groups, ["acme", "acme/sre"]);
+        assert!(normalize_allowed_groups(vec!["g".repeat(513)]).is_err());
     }
 }

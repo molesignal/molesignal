@@ -10,6 +10,7 @@ import type {
   AlertSeverity,
   AutomationSimulationInput,
   AutomationSourceKind,
+  StatusPageComponent,
 } from '@/api/statusPages';
 import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
@@ -22,12 +23,15 @@ import { SourceResourceField } from './SourceResourceField';
 export function AutomationSimulator({
   pageId,
   rules,
+  components,
 }: {
   pageId: string;
   rules: ActiveAutomationRule[];
+  /** The page's components, the sources of dependency rules. */
+  components: StatusPageComponent[];
 }) {
   const { t } = useTranslation('status-pages');
-  const alertRead = useActionAccess({ permission: 'alerts.read' });
+  const alertRead = useActionAccess({ permission: 'alerts.incidents.read' });
   const incidents = useQuery({
     queryKey: ['status-pages', pageId, 'automation', 'simulator-incidents'],
     queryFn: () => incidentsApi.list({ scope: 'active' }),
@@ -49,7 +53,7 @@ export function AutomationSimulator({
     })),
     onError: (error) => toast.error(toApiError(error).message),
   });
-  const matchedRule = rules.find((rule) => rule.rule.id === simulation.data?.matched_rule_id);
+  const matchedRule = rules.find((rule) => rule.rule.id === simulation.data?.matchedRuleId);
 
   const choosePreset = (value: string) => {
     setPreset(value);
@@ -57,13 +61,13 @@ export function AutomationSimulator({
     const incident = incidents.data?.find((item) => item.id === value);
     if (!incident) return;
     setSourceKind('alert_incident');
-    setSourceId(incident.rule_id);
+    setSourceId(incident.ruleId);
     setSourceInstanceId(incident.id);
     setSeverity(incident.severity as AlertSeverity);
     setLabels(Object.entries({
       ...incident.labels,
       incident_summary: incident.summary,
-      alert_rule_id: incident.rule_id,
+      alert_rule_id: incident.ruleId,
       incident_status: incident.status,
     }).map(([key, item]) => `${key}=${item}`).join(', '));
   };
@@ -106,7 +110,7 @@ export function AutomationSimulator({
               options={[
                 { value: 'alert_incident', label: t('automation.source.alert_incident') },
                 { value: 'synthetic_monitor', label: t('automation.source.synthetic_monitor') },
-                { value: 'business_service', label: t('automation.source.business_service') },
+                { value: 'component_dependencies', label: t('automation.source.component_dependencies') },
               ]}
             />
           </FormField>
@@ -126,6 +130,7 @@ export function AutomationSimulator({
           value={sourceId}
           allowAll={false}
           required
+          components={components}
           onChange={(value) => {
             setPreset('manual');
             setSourceInstanceId('');
@@ -176,9 +181,9 @@ function simulationInput({
   labels: string;
 }): AutomationSimulationInput {
   return {
-    source_kind: sourceKind,
-    source_id: sourceId.trim(),
-    ...(sourceInstanceId.trim() ? { source_instance_id: sourceInstanceId.trim() } : {}),
+    sourceKind: sourceKind,
+    sourceId: sourceId.trim(),
+    ...(sourceInstanceId.trim() ? { sourceInstanceId: sourceInstanceId.trim() } : {}),
     severity,
     labels: Object.fromEntries(labels.split(',').map((item) => item.trim()).filter(Boolean).map((item) => {
       const [key = '', ...value] = item.split('=');

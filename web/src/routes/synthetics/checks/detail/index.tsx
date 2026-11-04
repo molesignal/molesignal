@@ -15,10 +15,11 @@ import { toast } from '@/shell/ui/sonner';
 import { CheckConfiguration } from './Configuration';
 import { CheckRevisions, CheckRuns } from './Lists';
 import { CheckOverview } from './Overview';
-import { SYNTHETICS_REFRESH_MILLIS } from '../../data';
-import { useLoadState } from '../../Frame';
+import { SYNTHETICS_REFRESH_MILLIS, useSyntheticsAvailability } from '../../data';
+import { SyntheticsTimeControl, useLoadState } from '../../Frame';
 import { activeRevision, checkTarget } from '../../model';
 import { ResultDrawer } from '../../results/Drawer';
+import { useSyntheticsTimeWindow } from '../../time';
 
 const TABS = ['overview', 'results', 'configuration', 'revisions'] as const;
 type Tab = (typeof TABS)[number];
@@ -44,7 +45,8 @@ export function CheckDetail() {
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const manageAccess = useActionAccess({ permission: 'synthetics.manage' });
+  const manageAccess = useActionAccess({ permission: 'synthetics.monitors.manage' });
+  const runAccess = useActionAccess({ permission: 'synthetics.monitors.run' });
   const detailQuery = useQuery({
     queryKey: ['synthetics', 'monitor', monitorId],
     queryFn: () => syntheticsApi.getMonitor(monitorId!),
@@ -61,6 +63,8 @@ export function CheckDetail() {
     queryKey: ['synthetics', 'locations'],
     queryFn: syntheticsApi.listLocations,
   });
+  const timeWindow = useSyntheticsTimeWindow();
+  const availabilityQuery = useSyntheticsAvailability(timeWindow, monitorId);
   const detail = detailQuery.data;
   const monitor = detail?.monitor;
   const revision = activeRevision(detail);
@@ -69,12 +73,12 @@ export function CheckDetail() {
   const tab = tabOf(location.pathname);
   const selectedResult = results.find((result) => result.id === resultId);
   const selectedRevision = detail?.revisions.find(
-    (item) => item.id === selectedResult?.monitor_revision_id,
+    (item) => item.id === selectedResult?.monitorRevisionId,
   );
-  const draft = Boolean(monitor?.draft_revision_id && monitor.draft_revision_id === revision?.id);
+  const draft = Boolean(monitor?.draftRevisionId && monitor.draftRevisionId === revision?.id);
   const heartbeat = revision?.spec.kind === 'heartbeat';
   // A draft is published once a test of it has passed; a heartbeat has nothing to test.
-  const publishable = Boolean(revision && (heartbeat || revision.last_test_passed_at));
+  const publishable = Boolean(revision && (heartbeat || revision.lastTestPassedAt));
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['synthetics'] });
   const run = useMutation({
@@ -132,6 +136,8 @@ export function CheckDetail() {
               label={t('detail.views_label')}
               className="relative z-10"
               dataAttributes={{ 'data-testid': 'synthetics-check-tabs' }}
+              // The overview reads the check's runs over a range; the other tabs list them.
+              end={tab === 'overview' ? <SyntheticsTimeControl /> : undefined}
               items={TABS.map((item) => ({
                 key: item,
                 to: item === 'overview' ? base : `${base}/${item}`,
@@ -144,7 +150,7 @@ export function CheckDetail() {
         toolbar={
           monitor && revision ? (
             <>
-              {monitor.active_revision_id && (
+              {monitor.activeRevisionId && (
                 <ChromeButton
                   onClick={() => lifecycle.mutate()}
                   disabled={manageAccess.disabled || lifecycle.isPending}
@@ -171,11 +177,11 @@ export function CheckDetail() {
                   variant={draft ? 'default' : 'primary'}
                   onClick={() => run.mutate()}
                   disabled={
-                    manageAccess.disabled ||
+                    runAccess.disabled ||
                     run.isPending ||
                     (!draft && monitor.lifecycle !== 'active')
                   }
-                  disabledReason={manageAccess.reason}
+                  disabledReason={runAccess.reason}
                 >
                   <Play aria-hidden className="h-3.5 w-3.5" />
                   {t(draft ? 'actions.test_revision' : 'actions.run_now')}
@@ -205,6 +211,8 @@ export function CheckDetail() {
                 monitor={monitor}
                 revision={revision}
                 results={results}
+                availability={availabilityQuery.data}
+                missingRuns={detail.missingRuns}
                 locations={locations}
                 draft={draft}
               />
@@ -222,8 +230,8 @@ export function CheckDetail() {
             {tab === 'revisions' && (
               <CheckRevisions
                 revisions={detail.revisions}
-                activeId={monitor.active_revision_id}
-                draftId={monitor.draft_revision_id}
+                activeId={monitor.activeRevisionId}
+                draftId={monitor.draftRevisionId}
               />
             )}
           </>

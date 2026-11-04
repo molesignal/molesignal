@@ -108,7 +108,7 @@ export function LogInspections() {
   const deniedReason = manageable ? undefined : t('inspections.denied.manage');
   const createBlocked = deniedReason
     ?? (noModel ? t('inspections.no_model.short') : undefined)
-    ?? (full ? t('inspections.capacity.full', { max: limits.max_per_org }) : undefined);
+    ?? (full ? t('inspections.capacity.full', { max: limits.maxPerOrg }) : undefined);
   const create = (
     <ChromeButton
       variant="primary"
@@ -151,7 +151,7 @@ export function LogInspections() {
         state={state}
         lead={
           readable && noModel ? (
-            <NoModelNotice canConfigure={hasPermission('agent.manage', access)} />
+            <NoModelNotice canConfigure={hasPermission('agent.models.manage', access)} />
           ) : undefined
         }
         listHead={
@@ -160,7 +160,7 @@ export function LogInspections() {
               <span data-log-inspection-count className="font-sans text-xs text-tx-2">
                 {t('inspections.capacity.count', {
                   saved: inspections.length,
-                  max: limits.max_per_org,
+                  max: limits.maxPerOrg,
                 })}
               </span>
               {hasActiveRun(inspections) && (

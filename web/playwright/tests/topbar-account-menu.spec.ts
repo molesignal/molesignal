@@ -1,17 +1,22 @@
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 
 test.describe('topbar account menu', () => {
-  test('separates identity, workspace, and personal actions', async ({
+  test('keeps identity and personal actions in the user menu, and the organization in the top bar', async ({
     page,
     mockServer,
   }) => {
-    await mountMockRoutes(page, mockServer.port, {
-      token: 'fake-jwt',
-    });
+    await mountMockRoutes(page, mockServer.port);
     await page.goto('/account/settings/profile');
 
-    await expect(page.getByTestId('org-switcher')).toHaveCount(0);
     await expect(page.getByTestId('command-palette-trigger')).toBeVisible();
+    // The organization stands by the avatar, its light the status of the core API.
+    const org = page.getByTestId('org-status-trigger');
+    await expect(org).toHaveText('acme-prod');
+    await expect(org).toHaveAccessibleName('acme-prod, Core API connected');
+    await expect(org.getByTestId('system-status-indicator')).toHaveAttribute(
+      'data-state',
+      'healthy',
+    );
 
     const userMenuTrigger = page.getByTestId('user-menu-trigger');
     await userMenuTrigger.click();
@@ -27,14 +32,8 @@ test.describe('topbar account menu', () => {
     await expect(
       menu.getByText('dev@molesignal.local', { exact: true }),
     ).toBeVisible();
-    await expect(
-      menu.getByText('Current workspace', { exact: true }),
-    ).toBeVisible();
-    await expect(menu.getByText('acme-prod', { exact: true })).toBeVisible();
-    const roleBadge = menu.getByTestId('current-workspace-role');
-    await expect(roleBadge).toHaveText('Owner');
-    expect(await roleBadge.evaluate((element) => element.tagName)).toBe('SPAN');
-    await expect(menu.getByText('Switch', { exact: true })).toBeVisible();
+    await expect(menu.getByText('Current workspace', { exact: true })).toHaveCount(0);
+    await expect(menu.getByText('acme-prod', { exact: true })).toHaveCount(0);
 
     await expect(
       menu.getByRole('menuitem', { name: 'Account settings' }),
@@ -56,13 +55,11 @@ test.describe('topbar account menu', () => {
     await expect(page).toHaveURL(/\/account\/settings\/preferences/);
   });
 
-  test('does not show a switch action for a single workspace', async ({
+  test('shows a single organization without the arrows that switch', async ({
     page,
     mockServer,
   }) => {
-    await mountMockRoutes(page, mockServer.port, {
-      token: 'fake-jwt',
-    });
+    await mountMockRoutes(page, mockServer.port);
     await page.route('**/api/v1/orgs', async (route) => {
       await route.fulfill({
         json: [
@@ -70,7 +67,7 @@ test.describe('topbar account menu', () => {
             id: 'acme-prod',
             name: 'acme-prod',
             slug: 'acme-prod',
-            display_role: 'Owner',
+            displayRole: 'Owner',
             roles: [
               {
                 id: 'role-owner',
@@ -84,83 +81,72 @@ test.describe('topbar account menu', () => {
       });
     });
     await page.goto('/account/settings/profile');
-    await page.getByRole('button', { name: 'User menu' }).click();
 
-    const menu = page.getByRole('menu');
-    await expect(menu.getByText('acme-prod', { exact: true })).toBeVisible();
-    await expect(menu.getByText('Switch', { exact: true })).toHaveCount(0);
+    const org = page.getByTestId('org-status-trigger');
+    await expect(org).toHaveText('acme-prod');
+    await expect(org.locator('svg.lucide-chevrons-up-down')).toHaveCount(0);
+    await org.click();
+
+    const menu = page.locator("[data-ui='org-status-menu']");
+    await expect(menu.getByText('Current organization', { exact: true })).toBeVisible();
+    await expect(menu.getByRole('menuitemradio')).toHaveCount(1);
+    await expect(menu.getByRole('menuitemradio', { name: /^acme-prod/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
   });
 
-  test('uses the same selected fill for the workspace trigger and current option', async ({
+  test('opens on the organizations with the current one marked, the status left to the light', async ({
+    page,
+    mockServer,
+  }) => {
+    await mountMockRoutes(page, mockServer.port);
+    await page.goto('/account/settings/profile');
+
+    const org = page.getByTestId('org-status-trigger');
+    await expect(org.locator('svg.lucide-chevrons-up-down')).toHaveCount(1);
+    await org.click();
+
+    const menu = page.locator("[data-ui='org-status-menu']");
+    await expect(menu).toBeVisible();
+    // The status is the light and the button's name; the menu does not say it again.
+    await expect(menu.getByText('Core API connected', { exact: true })).toHaveCount(0);
+    await expect(menu.getByText('Switch organization', { exact: true })).toBeVisible();
+    const current = menu.locator("[data-ui='workspace-option'][data-state='checked']");
+    await expect(current).toContainText('acme-prod');
+    await expect(menu.getByTestId('current-org-role')).toHaveText('Owner');
+    // Administering organizations is a platform right: an organization's owner is not offered it.
+    await expect(menu.getByRole('menuitem', { name: 'Manage organizations…' })).toHaveCount(0);
+    // The organization the reader is in takes the selection fill, a step off the menu.
+    await expect
+      .poll(async () => {
+        const [optionFill, menuFill] = await Promise.all([
+          current.evaluate((element) => getComputedStyle(element).backgroundColor),
+          menu.evaluate((element) => getComputedStyle(element).backgroundColor),
+        ]);
+        return optionFill !== menuFill && optionFill !== 'rgba(0, 0, 0, 0)';
+      })
+      .toBe(true);
+  });
+
+  test('offers the way to the organizations to whoever may administer them', async ({
     page,
     mockServer,
   }) => {
     await mountMockRoutes(page, mockServer.port, {
-      token: 'fake-jwt',
+      orgId: 'system-org-id',
+      orgName: '_sys',
+      role: 'Owner',
+      scope: 'system',
+      platformPermissions: ['sys.organizations.read', 'sys.telemetry.read'],
     });
-    await page.goto('/account/settings/profile');
-    await page.getByTestId('user-menu-trigger').click();
+    await page.goto('/home');
 
-    const menu = page.locator("[data-ui='user-menu']");
-    const trigger = page.locator("[data-ui='workspace-switcher-trigger']");
-    await expect(menu).toBeVisible();
-    await expect(menu).toHaveCSS('box-shadow', 'none');
-    await expect(trigger).toBeVisible();
-    await expect(trigger).toHaveAttribute('data-state', 'closed');
-    await expect(trigger).not.toHaveAttribute('data-selected', 'true');
-    await expect(trigger).not.toHaveAttribute('style', /background-color/);
-    await expect
-      .poll(() =>
-        trigger.evaluate(
-          (element) => getComputedStyle(element).backgroundColor,
-        ),
-      )
-      .toBe('rgba(0, 0, 0, 0)');
-    await expect(trigger).toHaveCSS('box-shadow', 'none');
+    await page.getByTestId('org-status-trigger').click();
+    const menu = page.locator("[data-ui='org-status-menu']");
+    await menu.getByRole('menuitem', { name: 'Manage organizations…' }).click();
 
-    await page.getByText('Switch', { exact: true }).click();
-    await expect(trigger).toHaveAttribute('data-state', 'open');
-    await expect(trigger).toHaveAttribute('data-selected', 'true');
-    await expect(trigger).toHaveAttribute(
-      'style',
-      /background-color: var\(--workspace-selection-fill\)/,
-    );
-    const currentOption = page.locator(
-      "[data-ui='workspace-option'][data-state='checked']",
-    );
-    await expect(currentOption).toBeVisible();
-    await page.waitForTimeout(400);
-    await expect(trigger).toHaveAttribute('data-state', 'open');
-    await expect(currentOption).toBeVisible();
-    await expect
-      .poll(async () => {
-        const [triggerFill, optionFill, menuFill] = await Promise.all([
-          trigger.evaluate((element) =>
-            getComputedStyle(element).backgroundColor,
-          ),
-          currentOption.evaluate((element) =>
-            getComputedStyle(element).backgroundColor,
-          ),
-          menu.evaluate((element) =>
-            getComputedStyle(element).backgroundColor,
-          ),
-        ]);
-        return (
-          triggerFill === optionFill &&
-          triggerFill !== menuFill &&
-          triggerFill !== 'rgba(0, 0, 0, 0)'
-        );
-      })
-      .toBe(true);
-    await expect(currentOption).toHaveCSS('box-shadow', 'none');
-    await expect
-      .poll(() =>
-        currentOption.evaluate((element) => {
-          const submenu = element.closest('[role="menu"]');
-          return submenu ? getComputedStyle(submenu).boxShadow : null;
-        }),
-      )
-      .toBe('none');
+    await expect(page).toHaveURL(/\/iam\/organizations(?:[?#]|$)/);
   });
 
   test('can switch from the system workspace back to the only tenant workspace', async ({
@@ -168,7 +154,6 @@ test.describe('topbar account menu', () => {
     mockServer,
   }) => {
     await mountMockRoutes(page, mockServer.port, {
-      token: 'system-token',
       orgId: 'system-org-id',
       orgName: '_sys',
       role: 'Owner',
@@ -184,7 +169,7 @@ test.describe('topbar account menu', () => {
             id: 'default-org-id',
             name: 'default',
             slug: 'default',
-            display_role: 'Owner',
+            displayRole: 'Owner',
             roles: [
               {
                 id: 'role-owner',
@@ -199,13 +184,11 @@ test.describe('topbar account menu', () => {
     });
     await page.goto('/home');
 
-    await expect(page.getByTestId('org-switcher')).toHaveCount(0);
-    await page.getByTestId('user-menu-trigger').click();
-    await expect(page.getByTestId('current-workspace-role')).toHaveText(
-      'Owner',
-    );
-    await page.getByText('Switch', { exact: true }).click();
-    await page.getByRole('menuitemradio', { name: 'default' }).click();
+    const org = page.getByTestId('org-status-trigger');
+    await expect(org).toHaveText('_sys');
+    await org.click();
+    await expect(page.getByTestId('current-org-role')).toHaveText('Owner');
+    await page.getByRole('menuitemradio', { name: /^default/ }).click();
 
     await expect(page).toHaveURL(/\/home(?:[?#]|$)/);
     await expect(page.getByRole('link', { name: 'License' })).toHaveCount(0);
@@ -244,7 +227,6 @@ test.describe('language in the user menu', () => {
     await expect(language).toContainText('Language');
     await expect(language.locator("[data-ui='language-current']")).toHaveText('English');
     await expect(menu.getByRole('menuitem')).toHaveText([
-      /Switch$/,
       /^Account settings$/,
       /^Preferences$/,
       /^Notify$/,

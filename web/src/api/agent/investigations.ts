@@ -22,69 +22,69 @@ export type HypothesisStatus =
   | 'rejected';
 
 export interface AgentOverview {
-  active_investigations: number;
-  pending_approvals: number;
-  recent_completed: number;
-  automation_runs: number;
-  enabled_automations: number;
+  activeInvestigations: number;
+  pendingApprovals: number;
+  recentCompleted: number;
+  automationRuns: number;
+  enabledAutomations: number;
 }
 
 export interface Investigation {
   id: string;
-  org_id: string;
-  created_by: string;
-  chat_id?: string | null;
+  orgId: string;
+  createdBy: string;
+  chatId?: string | null;
   title: string;
   status: InvestigationStatus;
   context: Record<string, unknown>;
   summary?: string | null;
   confidence?: ConfidenceLevel | null;
-  current_step?: string | null;
-  started_at?: number | null;
-  completed_at?: number | null;
-  created_at: number;
-  updated_at: number;
+  currentStep?: string | null;
+  startedAt?: number | null;
+  completedAt?: number | null;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface InvestigationStep {
   id: string;
-  investigation_id: string;
+  investigationId: string;
   position: number;
   title: string;
   status: StepStatus;
-  tool_name?: string | null;
+  toolName?: string | null;
   input: Record<string, unknown>;
-  output_summary?: string | null;
-  conclusion_impact?: string | null;
+  outputSummary?: string | null;
+  conclusionImpact?: string | null;
   error?: string | null;
-  started_at?: number | null;
-  ended_at?: number | null;
-  created_at: number;
+  startedAt?: number | null;
+  endedAt?: number | null;
+  createdAt: number;
 }
 
 export interface InvestigationEvidence {
   id: string;
-  investigation_id: string;
-  step_id?: string | null;
+  investigationId: string;
+  stepId?: string | null;
   kind: string;
   label: string;
-  fact_status: FactStatus;
-  source_ref: Record<string, unknown>;
+  factStatus: FactStatus;
+  sourceRef: Record<string, unknown>;
   query?: string | null;
   parameters: Record<string, unknown>;
   summary: string;
-  created_at: number;
+  createdAt: number;
 }
 
 export interface InvestigationHypothesis {
   id: string;
-  investigation_id: string;
+  investigationId: string;
   statement: string;
   confidence: ConfidenceLevel;
   status: HypothesisStatus;
-  evidence_ids: string[];
-  created_at: number;
-  updated_at: number;
+  evidenceIds: string[];
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface InvestigationDetail {
@@ -107,7 +107,7 @@ export async function listInvestigations(): Promise<Investigation[]> {
 
 export async function createInvestigation(input: {
   title: string;
-  chat_id?: string;
+  chatId?: string;
   context?: Record<string, unknown>;
   steps?: string[];
 }): Promise<Investigation> {
@@ -127,7 +127,7 @@ export async function updateInvestigation(
   input: Partial<
     Pick<
       Investigation,
-      'title' | 'status' | 'summary' | 'confidence' | 'current_step' | 'context'
+      'title' | 'status' | 'summary' | 'confidence' | 'currentStep' | 'context'
     >
   >,
 ): Promise<Investigation> {

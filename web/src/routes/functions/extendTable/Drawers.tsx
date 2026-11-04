@@ -18,6 +18,7 @@ import * as extendTablesApi from '@/api/extendTables';
 import { toApiError } from '@/lib/http';
 import type { ActionAccess } from '@/product/actionAccess';
 import { ChromeButton } from '@/shell/chrome';
+import { CodeEditor } from '@/shell/codeEditor';
 import {
   FormDrawer,
   FormField,
@@ -26,7 +27,9 @@ import {
   FormSelect,
   FormTextarea,
 } from '@/shell/FormDrawer';
+import { JsonEditor } from '@/shell/JsonEditor';
 import { cn } from '@/shell/lib/cn';
+import { IconSwap } from '@/shell/polish/IconSwap';
 import { Checkbox } from '@/shell/ui/checkbox';
 import { toast } from '@/shell/ui/sonner';
 
@@ -40,7 +43,7 @@ import {
 
 const EMPTY_FIELD: extendTablesApi.ExtendValueField = {
   name: '',
-  field_type: 'string',
+  fieldType: 'string',
   required: false,
   description: '',
 };
@@ -97,17 +100,17 @@ export function CreateExtendTableDrawer({
   const create = useMutation({
     mutationFn: async () => {
       const table = await extendTablesApi.createTable({
-        table_name: tableName.trim(),
+        tableName: tableName.trim(),
         description: description.trim(),
-        key_field: keyField.trim(),
-        value_fields: effectiveFields.map((field) => ({
+        keyField: keyField.trim(),
+        valueFields: effectiveFields.map((field) => ({
           ...field,
           name: field.name.trim(),
           description: field.description.trim(),
         })),
       });
       for (const record of parsedImport.records) {
-        await extendTablesApi.upsert(table.table_name, record.key, record.value);
+        await extendTablesApi.upsert(table.tableName, record.key, record.value);
       }
       return {
         ...table,
@@ -241,10 +244,10 @@ export function CreateExtendTableDrawer({
                       placeholder={t('extend_tables.field_name_placeholder')}
                     />
                     <FormSelect
-                      value={field.field_type}
+                      value={field.fieldType}
                       onChange={(fieldType) =>
                         updateField(index, {
-                          field_type: fieldType as extendTablesApi.ExtendFieldType,
+                          fieldType: fieldType as extendTablesApi.ExtendFieldType,
                         })
                       }
                       options={[
@@ -336,11 +339,13 @@ export function CreateExtendTableDrawer({
                 hint={t('extend_tables.import_payload_hint', { key: keyField })}
                 required
               >
-                <FormTextarea
-                  className="min-h-64 font-mono text-xs"
+                <JsonEditor
                   value={importText}
-                  onChange={(event) => setImportText(event.target.value)}
+                  onChange={setImportText}
+                  ariaLabel={t('extend_tables.import_payload')}
                   placeholder={`[\n  { "${keyField}": "customer-1001", "tier": "pro" }\n]`}
+                  minHeight={256}
+                  maxHeight={480}
                 />
               </FormField>
             )}
@@ -389,11 +394,11 @@ export function UpsertExtendRowDrawer({
 
   React.useEffect(() => {
     if (!open) return;
-    const object = valueAsObject(editingRow?.value_json ?? {});
+    const object = valueAsObject(editingRow?.valueJson ?? {});
     setKey(editingRow?.key ?? '');
     setValues(
       Object.fromEntries(
-        table.value_fields.map((field) => [
+        table.valueFields.map((field) => [
           field.name,
           displayValue(object[field.name]) === '—'
             ? ''
@@ -402,9 +407,9 @@ export function UpsertExtendRowDrawer({
       ),
     );
     setJson(JSON.stringify(object, null, 2));
-    setMode(table.value_fields.length > 0 ? 'form' : 'json');
+    setMode(table.valueFields.length > 0 ? 'form' : 'json');
     setValidationError('');
-  }, [editingRow, open, table.value_fields]);
+  }, [editingRow, open, table.valueFields]);
 
   const existing = rows.find((row) => row.key === key.trim());
   const willOverwrite = Boolean(existing && existing.key !== editingRow?.key);
@@ -422,22 +427,22 @@ export function UpsertExtendRowDrawer({
         value = parsed as Record<string, unknown>;
       } else {
         value = {};
-        for (const field of table.value_fields) {
+        for (const field of table.valueFields) {
           const raw = values[field.name] ?? '';
           if (field.required && !raw.trim()) {
             throw new Error(
               t('extend_tables.required_field_missing', { field: field.name }),
             );
           }
-          if (raw.trim()) value[field.name] = parseFieldValue(raw, field.field_type);
+          if (raw.trim()) value[field.name] = parseFieldValue(raw, field.fieldType);
         }
       }
-      return extendTablesApi.upsert(table.table_name, trimmedKey, value);
+      return extendTablesApi.upsert(table.tableName, trimmedKey, value);
     },
     onSuccess: async () => {
       await Promise.all([
         qc.invalidateQueries({
-          queryKey: ['extend-tables', 'rows', table.table_name],
+          queryKey: ['extend-tables', 'rows', table.tableName],
         }),
         qc.invalidateQueries({ queryKey: ['extend-tables', 'list'] }),
       ]);
@@ -490,7 +495,7 @@ export function UpsertExtendRowDrawer({
           ? t('extend_tables.edit_record_title', { key: editingRow.key })
           : t('extend_tables.add_record_title')
       }
-      subtitle={table.table_name}
+      subtitle={table.tableName}
       width={640}
       footer={footer}
     >
@@ -501,7 +506,7 @@ export function UpsertExtendRowDrawer({
       >
       <FormSection>
         <FormField
-          label={t('extend_tables.query_key_label', { key: table.key_field })}
+          label={t('extend_tables.query_key_label', { key: table.keyField })}
           required
         >
           <FormInput
@@ -525,11 +530,11 @@ export function UpsertExtendRowDrawer({
             { value: 'form', label: t('extend_tables.form_mode') },
             { value: 'json', label: t('extend_tables.json_mode') },
           ]}
-          disabledValues={table.value_fields.length === 0 ? ['form'] : []}
+          disabledValues={table.valueFields.length === 0 ? ['form'] : []}
         />
         {mode === 'form' ? (
           <div className="overflow-hidden rounded-lg border border-bd-0">
-            {table.value_fields.map((field) => (
+            {table.valueFields.map((field) => (
               <div
                 key={field.name}
                 className="grid gap-2 border-b border-bd-0 bg-bg-1 p-4 last:border-b-0"
@@ -543,13 +548,13 @@ export function UpsertExtendRowDrawer({
                     {field.required && <span className="ml-1 text-red">*</span>}
                   </label>
                   <span className="rounded bg-bg-3 px-1.5 py-0.5 font-mono text-type-micro uppercase text-tx-2">
-                    {t(`extend_tables.types.${field.field_type}`)}
+                    {t(`extend_tables.types.${field.fieldType}`)}
                   </span>
                 </div>
                 {field.description && (
                   <p className="text-xs text-tx-3">{field.description}</p>
                 )}
-                {field.field_type === 'boolean' ? (
+                {field.fieldType === 'boolean' ? (
                   <FormSelect
                     value={values[field.name] ?? ''}
                     onChange={(value) =>
@@ -562,10 +567,19 @@ export function UpsertExtendRowDrawer({
                       { value: 'false', label: 'false' },
                     ]}
                   />
+                ) : field.fieldType === 'object' ? (
+                  <JsonEditor
+                    value={values[field.name] ?? ''}
+                    onChange={(value) =>
+                      setValues((current) => ({ ...current, [field.name]: value }))
+                    }
+                    ariaLabel={field.name}
+                    placeholder={'{\n  "key": "value"\n}'}
+                    minHeight={76}
+                  />
                 ) : (
                   <FormInput
                     id={`extend-field-${field.name}`}
-                    className={field.field_type === 'object' ? 'font-mono text-xs' : ''}
                     value={values[field.name] ?? ''}
                     onChange={(event) =>
                       setValues((current) => ({
@@ -573,22 +587,19 @@ export function UpsertExtendRowDrawer({
                         [field.name]: event.target.value,
                       }))
                     }
-                    placeholder={
-                      field.field_type === 'object'
-                        ? '{"key":"value"}'
-                        : t('extend_tables.field_value_placeholder')
-                    }
+                    placeholder={t('extend_tables.field_value_placeholder')}
                   />
                 )}
               </div>
             ))}
           </div>
         ) : (
-          <FormTextarea
-            className="min-h-72 font-mono text-xs"
+          <JsonEditor
             value={json}
-            onChange={(event) => setJson(event.target.value)}
-            aria-label={t('extend_tables.json_mode')}
+            onChange={setJson}
+            ariaLabel={t('extend_tables.json_mode')}
+            minHeight={288}
+            maxHeight={520}
           />
         )}
         {willOverwrite && (
@@ -636,11 +647,11 @@ export function ImportExtendRowsDrawer({
   const parsed = React.useMemo(() => {
     if (!text.trim()) return { records: [] as ImportRecord[], error: '' };
     try {
-      return { records: parseImportText(text, table.key_field), error: '' };
+      return { records: parseImportText(text, table.keyField), error: '' };
     } catch {
       return { records: [] as ImportRecord[], error: t('extend_tables.import_invalid') };
     }
-  }, [table.key_field, t, text]);
+  }, [table.keyField, t, text]);
   const existingKeys = React.useMemo(
     () => new Set(rows.map((row) => row.key)),
     [rows],
@@ -652,13 +663,13 @@ export function ImportExtendRowsDrawer({
   const importRows = useMutation({
     mutationFn: async () => {
       for (const record of parsed.records) {
-        await extendTablesApi.upsert(table.table_name, record.key, record.value);
+        await extendTablesApi.upsert(table.tableName, record.key, record.value);
       }
     },
     onSuccess: async () => {
       await Promise.all([
         qc.invalidateQueries({
-          queryKey: ['extend-tables', 'rows', table.table_name],
+          queryKey: ['extend-tables', 'rows', table.tableName],
         }),
         qc.invalidateQueries({ queryKey: ['extend-tables', 'list'] }),
       ]);
@@ -680,7 +691,7 @@ export function ImportExtendRowsDrawer({
       open={open}
       onOpenChange={(next) => !next && onClose()}
       title={t('extend_tables.import_title')}
-      subtitle={t('extend_tables.import_subtitle', { table: table.table_name })}
+      subtitle={t('extend_tables.import_subtitle', { table: table.tableName })}
       width={680}
       footer={
         <>
@@ -714,7 +725,7 @@ export function ImportExtendRowsDrawer({
       <FormSection
         title={t('extend_tables.import_source')}
         description={t('extend_tables.import_source_description', {
-          key: table.key_field,
+          key: table.keyField,
         })}
       >
         <input
@@ -755,11 +766,18 @@ export function ImportExtendRowsDrawer({
           </button>
         </div>
         <FormField label={t('extend_tables.paste_data')}>
-          <FormTextarea
-            className="min-h-72 font-mono text-xs"
+          <CodeEditor
             value={text}
-            onChange={(event) => setText(event.target.value)}
-            placeholder={`${table.key_field},tier,owner\ncustomer-1001,pro,platform`}
+            onChange={setText}
+            // Read as the import reads it: JSON when it opens like JSON, CSV otherwise.
+            language={/^\s*[[{]/.test(text) ? 'json' : 'text'}
+            ariaLabel={t('extend_tables.paste_data')}
+            placeholder={`${table.keyField},tier,owner\ncustomer-1001,pro,platform`}
+            minHeight={288}
+            maxHeight={520}
+            lineNumbers={false}
+            showHeader={false}
+            showStatus={false}
           />
         </FormField>
         {parsed.error && (
@@ -830,7 +848,7 @@ function StepItem({
           !active && !complete && 'border-bd-1 bg-bg-2',
         )}
       >
-        {complete ? <Check className="h-3.5 w-3.5" /> : number}
+        <IconSwap active={complete} inactiveIcon={number} activeIcon={<Check className="h-3.5 w-3.5" />} />
       </span>
       <span className="truncate font-strong">{label}</span>
     </div>
@@ -897,7 +915,7 @@ function SegmentedMode<T extends string>({
           disabled={disabledValues.includes(option.value)}
           onClick={() => onChange(option.value)}
           className={cn(
-            'h-7 rounded px-3 text-xs font-strong transition-colors',
+            'h-7 rounded-[5px] px-3 text-xs font-strong transition-colors',
             option.value === value
               ? 'bg-bg-1 text-tx-0 shadow-sm'
               : 'text-tx-2 hover:text-tx-0',

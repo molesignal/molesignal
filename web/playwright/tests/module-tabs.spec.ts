@@ -142,12 +142,13 @@ test.describe('module tabs', () => {
   // The strip fills its row: it is exactly as wide before its tabs outgrow it
   // as after, and nobody has scrolled it.
   test('fades the end its tabs have grown past where they stand', async ({ page }) => {
-    const languageArrives = await openBeforeItsLanguage(page, '/agent/chat', 600);
+    // Wide enough for the eight tabs in Chinese, not in English.
+    const languageArrives = await openBeforeItsLanguage(page, '/agent/chat', 680);
     // The module's own strip: on the settings a row of sections stands under it, a strip too.
     const scroller = page.getByTestId('agent-module-header').locator('.tabs-scroll').first();
     const hidden = () => scroller.evaluate((el) => el.scrollWidth - el.clientWidth);
-    // In Chinese all six tabs fit.
-    await expect(scroller.getByRole('link')).toHaveCount(6);
+    // In Chinese all eight tabs fit.
+    await expect(scroller.getByRole('link')).toHaveCount(8);
     expect(await hidden()).toBe(0);
     expect(await fades(scroller)).toEqual({ start: '0px', end: '0px' });
 

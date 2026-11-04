@@ -195,6 +195,7 @@ async fn cross_org_isolation_and_forbidden() {
             stream_type: StreamType::LOGS,
         }),
         limit: None,
+        step: None,
         federation_clusters: Vec::new(),
     };
 

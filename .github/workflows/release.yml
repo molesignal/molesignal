@@ -482,6 +482,15 @@ jobs:
           | Probe Agent | \`${FLOAT_TAG}\` | \`${{ env.REGISTRY }}/${{ env.PROBE_IMAGE_NAME }}:${FLOAT_TAG}\` |
           EOF
 
+      # 放在正文最后，紧贴 GitHub 根据 @mention 渲染的 Contributors 区块。
+      - name: append compare link to changelog
+        run: |
+          previous_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' "${GITHUB_SHA}^" 2>/dev/null || true)"
+          if [ -n "${previous_tag}" ]; then
+            printf '\n**Full Changelog**: %s/%s/compare/%s...%s\n' \
+              "${GITHUB_SERVER_URL}" "${GITHUB_REPOSITORY}" "${previous_tag}" "${GITHUB_REF_NAME}" >> CHANGELOG.md
+          fi
+
       - name: download all build artifacts
         uses: actions/download-artifact@v8
         with:

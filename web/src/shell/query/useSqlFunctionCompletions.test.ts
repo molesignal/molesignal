@@ -8,10 +8,11 @@ describe('SQL function completions', () => {
   it('provides uppercase built-ins while capabilities are unavailable', () => {
     const completions = resolveSqlFunctionCompletions(undefined);
 
-    expect(completions.map((item) => item.label)).toEqual(['MATCH', 'MATCH_TEXT']);
+    expect(completions.map((item) => item.label)).toEqual(['MATCH', 'MATCH_TEXT', 'CIDR_MATCH']);
     expect(completions.map((item) => item.insertText)).toEqual([
       "MATCH(${1:field}, '${2:term}')",
       "MATCH_TEXT(${1:field}, '${2:query}')",
+      "CIDR_MATCH(${1:field}, '${2:10.0.0.0/8}')",
     ]);
     expect(completions.every((item) => item.kind === 'function')).toBe(true);
     expect(completions.every((item) => item.insertTextFormat === 'snippet')).toBe(true);
@@ -24,7 +25,7 @@ describe('SQL function completions', () => {
       functions: [
         {
           label: 'match',
-          insert_text: "match(${1:field}, '${2:term}')",
+          insertText: "match(${1:field}, '${2:term}')",
           detail: 'detail',
           documentation: 'documentation',
           kind: 'function',

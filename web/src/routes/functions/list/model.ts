@@ -10,7 +10,7 @@ export const FUNCTION_VIEWS: readonly FunctionView[] = ['all', 'own', 'builtin']
 
 /** How many functions each view holds, before any search. */
 export function viewCounts(functions: readonly FunctionResp[]): Record<FunctionView, number> {
-  const builtin = functions.filter((item) => item.is_builtin).length;
+  const builtin = functions.filter((item) => item.isBuiltin).length;
 
   return { all: functions.length, own: functions.length - builtin, builtin };
 }
@@ -27,8 +27,8 @@ export function visibleFunctions(
   const needle = search.trim().toLowerCase();
 
   return functions.filter((item) => {
-    if (view === 'own' && item.is_builtin) return false;
-    if (view === 'builtin' && !item.is_builtin) return false;
+    if (view === 'own' && item.isBuiltin) return false;
+    if (view === 'builtin' && !item.isBuiltin) return false;
     if (!needle) return true;
 
     return (

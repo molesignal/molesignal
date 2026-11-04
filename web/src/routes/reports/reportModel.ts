@@ -59,14 +59,14 @@ export function parseIntervalSeconds(schedule: string): number | null {
  * unsupported five-field cron expressions use the backend's 24-hour fallback.
  */
 export function nextRunAtMicros(
-  report: Pick<ScheduledReport, 'cron' | 'enabled' | 'last_run_at_micros'>,
+  report: Pick<ScheduledReport, 'cron' | 'enabled' | 'lastRunAt'>,
   nowMicros = Date.now() * 1_000,
 ): number | null {
   if (report.enabled === false) return null;
-  if (!report.last_run_at_micros) return nowMicros;
+  if (!report.lastRunAt) return nowMicros;
 
   const intervalSeconds = parseIntervalSeconds(report.cron ?? '') ?? 86_400;
-  return report.last_run_at_micros + intervalSeconds * 1_000_000;
+  return report.lastRunAt + intervalSeconds * 1_000_000;
 }
 
 export function normalizeMicros(value: unknown): number | null {
@@ -100,10 +100,10 @@ export function parseRecipient(value: string): RecipientParseResult {
 }
 
 export function reportSource(
-  report: Pick<ScheduledReport, 'dashboard_id' | 'saved_view_id'>,
+  report: Pick<ScheduledReport, 'dashboardId' | 'savedViewId'>,
 ): { kind: 'dashboard' | 'saved_view'; id: string } {
-  if (report.saved_view_id) return { kind: 'saved_view', id: report.saved_view_id };
-  return { kind: 'dashboard', id: report.dashboard_id ?? '' };
+  if (report.savedViewId) return { kind: 'saved_view', id: report.savedViewId };
+  return { kind: 'dashboard', id: report.dashboardId ?? '' };
 }
 
 export function sanitizeFilename(value: string): string {

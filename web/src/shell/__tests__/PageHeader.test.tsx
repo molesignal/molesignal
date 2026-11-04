@@ -77,7 +77,7 @@ describe('PageHeader module identity', () => {
 describe('PageHeader navigation hierarchy', () => {
   it('does not repeat same-level RUM navigation above the module tabs', () => {
     render(
-      <MemoryRouter initialEntries={['/rum/overview']}>
+      <MemoryRouter initialEntries={['/rum/explorer']}>
         <PageHeader title="User Experience" />
       </MemoryRouter>,
     );
@@ -94,9 +94,9 @@ describe('PageHeader navigation hierarchy', () => {
     );
 
     const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' });
-    expect(within(breadcrumb).getByRole('link').getAttribute('href')).toBe('/rum/sessions');
+    expect(within(breadcrumb).getByRole('link').getAttribute('href')).toBe('/rum/explorer');
     expect(breadcrumb.querySelector('[aria-current="page"]')).not.toBeNull();
-    expect(breadcrumb.querySelector('a[href="/rum/overview"]')).toBeNull();
+    expect(breadcrumb.querySelector('a[href="/rum"]')).toBeNull();
     expect(screen.queryByRole('link', { name: 'Back' })).toBeNull();
   });
 

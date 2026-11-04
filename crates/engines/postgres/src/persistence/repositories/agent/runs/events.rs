@@ -36,13 +36,13 @@ async fn insert(
         .collect::<Vec<_>>();
 
     sqlx::query(
-        "INSERT INTO agent_run_events (run_id, seq, org_id, kind, payload, created_at_micros)
+        "INSERT INTO agent_run_events (run_id, seq, org_id, kind, payload, created_at)
          SELECT $1, e.seq, $2, e.kind, e.payload, $3
          FROM jsonb_to_recordset($4::JSONB) AS e(seq BIGINT, kind TEXT, payload JSONB)",
     )
     .bind(&run_id.0)
     .bind(&org_id.0)
-    .bind(at.0)
+    .bind(at)
     .bind(Json(Value::Array(rows)))
     .execute(connection)
     .await
@@ -73,13 +73,13 @@ pub(super) async fn append(
     let mut tx = sqlx::begin(&repository.pool).await.map_err(sqlx_err)?;
 
     let last = sqlx::query(&format!(
-        "UPDATE agent_runs SET last_seq = last_seq + $2, updated_at_micros = $3
+        "UPDATE agent_runs SET last_seq = last_seq + $2, updated_at = $3
          WHERE id = $1 AND status NOT IN {TERMINAL}
          RETURNING last_seq"
     ))
     .bind(&run_id.0)
     .bind(count)
-    .bind(now.0)
+    .bind(now)
     .fetch_optional(&mut *tx)
     .await
     .map_err(sqlx_err)?
@@ -147,7 +147,7 @@ async fn finish_where(
     let last = sqlx::query(&format!(
         "UPDATE agent_runs SET status = $2, assistant_message_id = $3, prompt_tokens = $4,
                 completion_tokens = $5, cost = $6, cost_currency = $10, error = $7,
-                finished_at_micros = $8, updated_at_micros = $8, lease_expires_at_micros = NULL,
+                finished_at = $8, updated_at = $8, lease_expires_at = NULL,
                 pending = NULL, response = NULL,
                 cancel_requested = cancel_requested OR $2 = 'cancelled', last_seq = last_seq + $9
          WHERE id = $1 AND status {status_condition}
@@ -165,7 +165,7 @@ async fn finish_where(
     .bind(outcome.completion_tokens)
     .bind(outcome.cost.map(|cost| cost.amount))
     .bind(outcome.error.as_deref())
-    .bind(now.0)
+    .bind(now)
     .bind(count)
     .bind(outcome.cost.map(|cost| cost.currency.as_str().to_string()))
     .fetch_optional(&mut *tx)
@@ -200,7 +200,7 @@ pub(super) async fn after(
     limit: i64,
 ) -> Result<Vec<RunEvent>> {
     let rows = sqlx::query(
-        "SELECT run_id, seq, kind, payload, created_at_micros FROM agent_run_events
+        "SELECT run_id, seq, kind, payload, created_at FROM agent_run_events
          WHERE run_id = $1 AND seq > $2
          ORDER BY seq
          LIMIT $3",
@@ -223,7 +223,9 @@ pub(super) async fn after(
                 kind: RunEventKind::parse(&kind)
                     .ok_or_else(|| Error::internal(format!("unknown agent run event `{kind}`")))?,
                 payload: payload.0,
-                created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
+                created_at: row
+                    .try_get::<TimestampMicros, _>("created_at")
+                    .map_err(sqlx_err)?,
             })
         })
         .collect()
@@ -236,27 +238,27 @@ pub(super) async fn expire_leases(
     let rows = sqlx::query(&format!(
         "WITH expired AS (
              SELECT id FROM agent_runs
-             WHERE status IN {LIVE} AND lease_expires_at_micros < $1
-             ORDER BY lease_expires_at_micros
+             WHERE status IN {LIVE} AND lease_expires_at < $1
+             ORDER BY lease_expires_at
              LIMIT $3
              FOR UPDATE SKIP LOCKED
          ), interrupted AS (
              UPDATE agent_runs r
-             SET status = 'interrupted', error = $2, finished_at_micros = $1,
-                 updated_at_micros = $1, lease_expires_at_micros = NULL, pending = NULL,
+             SET status = 'interrupted', error = $2, finished_at = $1,
+                 updated_at = $1, lease_expires_at = NULL, pending = NULL,
                  response = NULL, last_seq = r.last_seq + 1
              FROM expired
              WHERE r.id = expired.id
              RETURNING r.*
          ), done AS (
-             INSERT INTO agent_run_events (run_id, seq, org_id, kind, payload, created_at_micros)
+             INSERT INTO agent_run_events (run_id, seq, org_id, kind, payload, created_at)
              SELECT id, last_seq, org_id, 'done',
                     jsonb_build_object('status', 'interrupted', 'error', $2::TEXT), $1
              FROM interrupted
          )
          SELECT {RUN_COLS}, pg_notify($4, id) AS signal_notification FROM interrupted"
     ))
-    .bind(now.0)
+    .bind(now)
     .bind(INTERRUPTED)
     .bind(EXPIRE_BATCH)
     .bind(SIGNAL_CHANNEL)
@@ -290,10 +292,10 @@ pub(super) async fn purge(pool: &PgPool, before: TimestampMicros) -> Result<u64>
         let deleted = sqlx::query(
             "DELETE FROM agent_run_events
              WHERE ctid IN (
-                 SELECT ctid FROM agent_run_events WHERE created_at_micros < $1 LIMIT $2
+                 SELECT ctid FROM agent_run_events WHERE created_at < $1 LIMIT $2
              )",
         )
-        .bind(before.0)
+        .bind(before)
         .bind(PURGE_BATCH)
         .execute(pool)
         .await

@@ -71,7 +71,13 @@ pub(super) async fn execute(
                 "occurrence_count",
             )?;
 
-            serde_json::to_value(runtime.observability.apm.errors(&context).await?)
+            serde_json::to_value(
+                runtime
+                    .observability
+                    .apm
+                    .errors(&context, crate::app::apm::ErrorIssueFilter::All)
+                    .await?,
+            )
         }
         BuiltinToolKind::ListApmTransactions => {
             let context = runtime.observability.apm.context(
@@ -130,8 +136,8 @@ pub(super) async fn execute(
             )
         }
         BuiltinToolKind::CompareApmVersions => {
-            let baseline = required(&args.baseline_version, "baseline_version")?;
-            let candidate = required(&args.candidate_version, "candidate_version")?;
+            let baseline = required(&args.baseline_version, "baselineVersion")?;
+            let candidate = required(&args.candidate_version, "candidateVersion")?;
 
             if args.service.as_deref().is_none_or(str::is_empty) {
                 return Err(Error::invalid("service is required"));
@@ -168,6 +174,43 @@ pub(super) async fn execute(
                     .await?,
             )
         }
+        BuiltinToolKind::GetApmInsights => {
+            let context = runtime.observability.apm.context(
+                auth.org_id.clone(),
+                request,
+                &["request_count"],
+                "request_count",
+            )?;
+
+            serde_json::to_value(runtime.observability.apm.insights(&context).await?)
+        }
+        BuiltinToolKind::GetApmBlastRadius => {
+            let service = required(&args.service, "service")?.to_owned();
+            // The whole map of the environment: what reaches the service crosses namespaces.
+            let whole = ApmQueryRequest {
+                service: None,
+                namespace: None,
+                ..request
+            };
+            let context = runtime.observability.apm.context(
+                auth.org_id.clone(),
+                whole,
+                &["request_count"],
+                "request_count",
+            )?;
+
+            serde_json::to_value(
+                runtime
+                    .observability
+                    .apm
+                    .blast_radius(
+                        &context,
+                        runtime.observability.service_graph.as_ref(),
+                        &service,
+                    )
+                    .await?,
+            )
+        }
         _ => unreachable!("APM handler received unrelated tool"),
     }
     .map_err(|error| Error::internal(error.to_string()))?;
@@ -176,7 +219,7 @@ pub(super) async fn execute(
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ApmArgs {
     #[serde(default)]
     time_range: Option<TimeRangeArg>,
@@ -222,7 +265,7 @@ impl ApmArgs {
             });
 
         let sort = self.sort.as_deref().map(|sort| match sort {
-            "p95_micros" => "p95".to_string(),
+            "p95_time" => "p95".to_string(),
             value => value.to_string(),
         });
 

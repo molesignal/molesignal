@@ -61,7 +61,7 @@ fn test_tool_context() -> ToolAuthContext {
         org_id: Id("orgA".into()),
         display_role: String::new(),
         roles: Vec::new(),
-        credential_role_id: None,
+        credential_token_id: None,
         credential_application_id: None,
         credential_service_account_id: None,
         scope: molesignal::domain::iam::IamScope::Organization,

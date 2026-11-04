@@ -25,7 +25,7 @@ import { isConnectorKind, isDestinationKind, specOf, type Direction } from './ki
 export function Connectors() {
   const { t } = useTranslation('pipelines');
   const queryClient = useQueryClient();
-  const access = useActionAccess({ permission: 'pipelines.edit' });
+  const access = useActionAccess({ permission: 'connectors.manage' });
   const [target, setTarget] = React.useState<DrawerTarget | null>(null);
   const [removing, setRemoving] = React.useState<connectorsApi.Connector | null>(null);
 
@@ -51,7 +51,7 @@ export function Connectors() {
       connectorsApi.update(connector.id, {
         name: connector.name,
         kind: connector.kind,
-        config_json: connector.config_json,
+        configJson: connector.configJson,
         enabled,
       }),
     onSuccess: (_saved, { connector, enabled }) => {

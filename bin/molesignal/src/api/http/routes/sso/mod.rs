@@ -3,252 +3,170 @@
 
 //! SSO 登录端点。
 //!
-//! `GET /auth/sso/login`：构造 `state` / `nonce`，存 [`SsoStateStore`] 后 302 到 IdP。
-//! `GET/POST /auth/sso/callback`：取 IdP 回调 `code` + `state` → 校验 state → 取
-//! 对应 provider 配置 → exchange_code → verify_id_token (JWKS + nonce) →
-//! provision_or_get_user → 发本地 JWT。
+//! 浏览器跳转的登录（OIDC / OAuth 2.0 / SAML）：
+//! - `GET /auth/sso/login`、`GET /auth/sso/saml/login`：找到服务，存下 `state` /
+//!   `nonce` / `next` 后跳到身份源。
+//! - `GET /auth/sso/callback`、`POST /auth/sso/saml/callback`：校验身份、开户或登录，
+//!   把结果存成一次性交接凭据，303 回前端 `/signin?sso=<凭据>`。
+//! - `POST /auth/sso/exchange`：前端用凭据换会话、待确认的关联或失败原因。
 //!
-//! Login 阶段没有 session 拿 org_id，按 `?provider_id=` / `?provider=` 解析；
-//! 都不带且只有一个 enabled OIDC provider 时自动选它。
+//! 从发起到回调的每一步出错都回到前端登录页说明原因，不停在接口的 JSON 上。LDAP
+//! 由前端直接提交账号密码（[`ldap`]）。
 //!
-//! SAML 登录由 [`saml`] 子模块处理。
+//! 登录只按外部身份的绑定找账号（[`provision`]）；邮箱已有账号而身份未绑定时，要本人在发起
+//! 登录的页面确认（[`linking`]）。公网账号、允许登录的组和单点登录新建账号能加入哪些组织
+//! 的限制在 [`policy`]；账号页的已关联登录方式在 [`identities`]。管理员上线前走一遍真实登录、
+//! 不留下任何账号变化的测试登录在 [`signin_test`]。
 //!
+//! Login 阶段没有 session 拿 org_id，按 `?provider_id=` / `?provider=` 解析；都不带
+//! 且只有一个启用的同类服务时自动选它。
 
-use axum::{
-    Json, Router,
-    extract::{Query, State},
-    response::{IntoResponse, Redirect, Response},
-    routing::get,
-};
+use axum::Router;
 use serde::Deserialize;
 
 use crate::{
     api::AppState,
-    domain::iam::{SsoOidcConfig, SsoProvider, SsoProviderConfig, SsoProviderKind},
-    infra::sso::{OidcConfig, OidcLoginFlow},
+    domain::iam::{SsoProvider, SsoProviderKind},
     shared::{Error, Result, ids::Id},
 };
 
+mod handoff;
+mod identities;
 mod ldap;
+mod linking;
+mod oauth;
+mod policy;
 mod providers;
-pub(super) mod provision;
+mod provision;
 mod saml;
+mod signin_test;
 
-use provision::{FederatedIdentity, FederatedLoginResponse, complete_login};
+pub(crate) use linking::{PendingLink, complete_link};
+pub(crate) use policy::ensure_membership_allowed;
+pub(crate) use providers::{PublicProviderResponse, redirect_providers_of};
+pub(crate) use signin_test::has_passing_test;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/auth/sso/login", get(login))
-        .route("/auth/sso/callback", get(callback_get).post(callback_post))
+        .merge(oauth::routes())
+        .merge(handoff::routes())
+        .merge(linking::routes())
+        .merge(identities::routes())
         .merge(ldap::routes())
         .merge(saml::routes())
         .merge(providers::routes())
+        .merge(signin_test::routes())
 }
 
 #[derive(Debug, Deserialize)]
-pub struct LoginParams {
+#[serde(rename_all = "camelCase")]
+struct LoginParams {
     /// 直接指定 provider 行 id；用于多 IdP / 多 org 场景。
     #[serde(default)]
-    pub provider_id: Option<String>,
+    provider_id: Option<String>,
     /// 按 provider name 在全表里找 enabled 行；name 在同 org 内唯一，跨 org 时
-    /// 可能命中多个 — 命中多个返 400 要求改用 `provider_id`。
+    /// 可能命中多个 — 命中多个时要求改用 `provider_id`。
     #[serde(default)]
-    pub provider: Option<String>,
-}
-
-async fn login(State(state): State<AppState>, Query(p): Query<LoginParams>) -> Result<Response> {
-    let provider = resolve_provider_for_login(&state, &p).await?;
-
-    if provider.kind != SsoProviderKind::Oidc {
-        return Err(Error::invalid(format!(
-            "provider {} is kind={:?}; /auth/sso/login currently handles OIDC only",
-            provider.id.0, provider.kind
-        )));
-    }
-
-    let oidc_cfg = match &provider.config {
-        SsoProviderConfig::Oidc(c) => c.clone(),
-        _ => unreachable!("kind == Oidc enforced above"),
-    };
-
-    let flow = OidcLoginFlow::new(to_flow_config(&oidc_cfg))?;
-    let state_str = rand_b64(24);
-    let nonce_str = rand_b64(24);
-
-    state
-        .iam
-        .sso_state_store
-        .put(state_str.clone(), provider.id.0.clone(), nonce_str.clone());
-
-    let url = flow.build_authz_url(&state_str, &nonce_str)?;
-    Ok(Redirect::temporary(url.as_str()).into_response())
-}
-
-#[derive(Debug, Deserialize)]
-pub struct CallbackParams {
-    pub code: String,
+    provider: Option<String>,
+    /// 登录后回到的站内页面。
     #[serde(default)]
-    pub state: Option<String>,
-    #[serde(default)]
-    pub error: Option<String>,
-    #[serde(default)]
-    pub error_description: Option<String>,
+    next: Option<String>,
 }
 
-async fn callback_get(
-    State(state): State<AppState>,
-    Query(p): Query<CallbackParams>,
-) -> Result<Json<FederatedLoginResponse>> {
-    do_callback(state, p).await
-}
-
-async fn callback_post(
-    State(state): State<AppState>,
-    Json(p): Json<CallbackParams>,
-) -> Result<Json<FederatedLoginResponse>> {
-    do_callback(state, p).await
-}
-
-async fn do_callback(state: AppState, p: CallbackParams) -> Result<Json<FederatedLoginResponse>> {
-    if let Some(e) = p.error {
-        return Err(Error::Unauthorized(format!(
-            "idp returned error: {e} ({})",
-            p.error_description.unwrap_or_default()
-        )));
-    }
-
-    let state_param = p
-        .state
-        .ok_or_else(|| Error::Unauthorized("callback missing state".into()))?;
-
-    let entry = state
-        .iam
-        .sso_state_store
-        .take(&state_param)
-        .ok_or_else(|| Error::Unauthorized("invalid or expired state".into()))?;
-
-    let provider = state
-        .iam
-        .sso_providers
-        .get(&Id::from_string(entry.provider_id.clone()))
-        .await
-        .map_err(|_| Error::Unauthorized("sso provider not found".into()))?;
-
-    if !provider.enabled {
-        return Err(Error::forbidden(format!(
-            "provider {} is disabled",
-            provider.id.0
-        )));
-    }
-
-    let oidc_cfg = match &provider.config {
-        SsoProviderConfig::Oidc(c) => c.clone(),
-        _ => {
-            return Err(Error::invalid(format!(
-                "provider {} is not OIDC; cannot handle in /auth/sso/callback",
-                provider.id.0
-            )));
-        }
-    };
-
-    let flow = OidcLoginFlow::new(to_flow_config(&oidc_cfg))?;
-    let tokens = flow.exchange_code(&p.code).await?;
-
-    let id_token = tokens
-        .id_token
-        .as_deref()
-        .ok_or_else(|| Error::Unauthorized("idp returned no id_token".into()))?;
-
-    let oidc_user = flow
-        .verify_id_token(id_token, state.iam.sso_jwks_cache.as_ref(), &entry.nonce)
-        .await?;
-
-    if oidc_user.email.is_empty() {
-        return Err(Error::Unauthorized("idp id_token lacks email claim".into()));
-    }
-
-    let response = complete_login(
-        &state,
-        &provider,
-        FederatedIdentity {
-            email: oidc_user.email.clone(),
-            display_name: oidc_user
-                .name
-                .clone()
-                .unwrap_or_else(|| oidc_user.email.clone()),
-            subject: oidc_user.subject,
-            groups: oidc_user.groups,
-        },
-        &oidc_cfg.group_role_mapping,
-        oidc_cfg.default_role_id.as_deref(),
-    )
-    .await?;
-
-    Ok(Json(response))
-}
-
-async fn resolve_provider_for_login(state: &AppState, p: &LoginParams) -> Result<SsoProvider> {
-    if let Some(id) = p.provider_id.as_deref() {
-        let p = state
+/// 找到发起登录的服务，要求它启用且属于 `kinds` 之一。
+async fn resolve_provider_for_login(
+    state: &AppState,
+    params: &LoginParams,
+    kinds: &[SsoProviderKind],
+) -> Result<SsoProvider> {
+    if let Some(id) = params.provider_id.as_deref() {
+        let provider = state
             .iam
             .sso_providers
             .get(&Id::from_string(id.to_string()))
             .await?;
 
-        if !p.enabled {
-            return Err(Error::invalid(format!("provider {} is disabled", p.id.0)));
+        if !provider.enabled {
+            return Err(Error::invalid(format!(
+                "provider {} is disabled",
+                provider.name
+            )));
         }
 
-        return Ok(p);
+        if !kinds.contains(&provider.kind) {
+            return Err(Error::invalid(format!(
+                "provider {} is {}; this sign-in endpoint does not handle it",
+                provider.name,
+                provider.kind.as_str()
+            )));
+        }
+
+        return Ok(provider);
     }
 
-    let mut candidates = state
-        .iam
-        .sso_providers
-        .list_enabled_by_kind(SsoProviderKind::Oidc)
-        .await?;
+    let mut candidates = Vec::new();
 
-    if let Some(name) = p.provider.as_deref() {
-        candidates.retain(|c| c.name == name);
+    for kind in kinds {
+        candidates.extend(state.iam.sso_providers.list_enabled_by_kind(*kind).await?);
     }
 
-    if candidates.is_empty() {
-        return Err(Error::invalid(
-            "no enabled OIDC provider configured; create one via POST /api/v1/sso/providers",
-        ));
+    if let Some(name) = params.provider.as_deref() {
+        candidates.retain(|candidate| candidate.name == name);
     }
 
-    if candidates.len() > 1 {
-        let names: Vec<String> = candidates.iter().map(|c| c.name.clone()).collect();
+    match candidates.len() {
+        0 => Err(Error::invalid(
+            "no enabled SSO provider matches this sign-in request",
+        )),
+        1 => Ok(candidates.remove(0)),
+        _ => {
+            let names = candidates
+                .iter()
+                .map(|candidate| candidate.name.as_str())
+                .collect::<Vec<_>>();
 
-        return Err(Error::invalid(format!(
-            "multiple enabled OIDC providers ({}); add ?provider_id=<id> to choose",
-            names.join(", ")
-        )));
-    }
-
-    Ok(candidates.remove(0))
-}
-
-fn to_flow_config(cfg: &SsoOidcConfig) -> OidcConfig {
-    OidcConfig {
-        issuer: cfg.issuer.clone(),
-        authorize_url: cfg.authorize_url.clone(),
-        token_url: cfg.token_url.clone(),
-        userinfo_url: cfg.userinfo_url.clone(),
-        jwks_uri: cfg.jwks_uri.clone().unwrap_or_default(),
-        client_id: cfg.client_id.clone(),
-        client_secret: cfg.client_secret.clone(),
-        redirect_uri: cfg.redirect_uri.clone(),
-        scopes: cfg.scopes.clone(),
-        field_mapping: cfg.field_mapping.clone(),
+            Err(Error::invalid(format!(
+                "multiple enabled SSO providers ({}); add ?provider_id=<id> to choose",
+                names.join(", ")
+            )))
+        }
     }
 }
 
-fn rand_b64(n: usize) -> String {
+/// 登录后要回到的站内路径；不是站内绝对路径的一律丢弃，防开放重定向。
+fn safe_next(next: Option<&str>) -> Option<String> {
+    let next = next?.trim();
+
+    let local = next.starts_with('/')
+        && !next.starts_with("//")
+        && !next.contains('\\')
+        && !next.chars().any(char::is_control)
+        && next.len() <= 2048;
+
+    local.then(|| next.to_owned())
+}
+
+/// URL 安全的随机串，用作 `state`、`nonce` 和交接凭据。
+fn random_token() -> String {
     use base64::Engine as _;
-    let mut buf = vec![0u8; n];
     use rand::TryRng as _;
+
+    let mut buf = [0u8; 32];
     rand::rngs::SysRng.try_fill_bytes(&mut buf).expect("os rng");
-    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&buf)
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(buf)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::safe_next;
+
+    #[test]
+    fn only_local_paths_are_kept_as_next() {
+        assert_eq!(safe_next(Some("/logs?q=1")).as_deref(), Some("/logs?q=1"));
+        assert_eq!(safe_next(Some("//evil.example/x")), None);
+        assert_eq!(safe_next(Some("/\\evil.example")), None);
+        assert_eq!(safe_next(Some("https://evil.example")), None);
+        assert_eq!(safe_next(Some("logs")), None);
+        assert_eq!(safe_next(None), None);
+    }
 }

@@ -4,30 +4,30 @@ const IAM_USERS = [
   {
     id: 'user-owner',
     email: 'owner@example.com',
-    display_name: 'Owner',
-    is_root: true,
+    displayName: 'Owner',
+    isRoot: true,
     disabled: false,
     status: 'active',
-    display_role: 'Owner',
+    displayRole: 'Owner',
     roles: [{ id: 'role-owner', key: 'owner', name: 'Owner', builtin: true }],
-    team_names: [],
-    login_method: 'password',
-    last_active_at_micros: 1_783_800_000_000_000,
-    created_at_micros: 1_783_700_000_000_000,
+    teamNames: [],
+    loginMethod: 'password',
+    lastActiveAt: 1_783_800_000_000_000,
+    createdAt: 1_783_700_000_000_000,
   },
   {
     id: 'user-viewer',
     email: 'viewer@example.com',
-    display_name: 'Viewer',
-    is_root: false,
+    displayName: 'Viewer',
+    isRoot: false,
     disabled: false,
     status: 'active',
-    display_role: 'Viewer',
+    displayRole: 'Viewer',
     roles: [{ id: 'role-viewer', key: 'viewer', name: 'Viewer', builtin: true }],
-    team_names: ['Support'],
-    login_method: 'password',
-    last_active_at_micros: 1_783_700_000_000_000,
-    created_at_micros: 1_783_600_000_000_000,
+    teamNames: ['Support'],
+    loginMethod: 'password',
+    lastActiveAt: 1_783_700_000_000_000,
+    createdAt: 1_783_600_000_000_000,
   },
 ];
 
@@ -72,7 +72,25 @@ test('uses tonal IAM surfaces and alternating row backgrounds', async ({
       headerCell.evaluate((element) => getComputedStyle(element).backgroundColor),
     ]);
   expect(filterBackground).not.toBe(workspaceBackground);
-  expect(headerBackground).toBe(filterBackground);
+  // The head is the band every table head is, a step off the card, with a rule under it.
+  const cardBackground = await table.evaluate((element) => {
+    for (let node = element.parentElement; node; node = node.parentElement) {
+      const fill = getComputedStyle(node).backgroundColor;
+      if (fill !== 'rgba(0, 0, 0, 0)') return fill;
+    }
+    return '';
+  });
+  const band = await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.style.backgroundColor = 'var(--table-head-surface)';
+    document.body.append(probe);
+    const fill = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return fill;
+  });
+  expect(headerBackground).toBe(band);
+  expect(headerBackground).not.toBe(cardBackground);
+  await expect(headerCell).toHaveCSS('box-shadow', /inset/);
 
   const rowBackgrounds = await rows.evaluateAll((elements) =>
     elements.map((element) => getComputedStyle(element).backgroundColor),

@@ -136,8 +136,8 @@ test.describe('Author a dashboard', () => {
             [base + 60_000_000, 'checkout', 8.1],
             [base + 120_000_000, 'checkout', 8.6],
           ],
-          scanned_rows: 6,
-          took_ms: 2,
+          scannedRows: 6,
+          tookMs: 2,
         },
       });
     });
@@ -226,7 +226,7 @@ test.describe('Author an alert rule', () => {
       labels: { service: 'checkout' },
       query: {
         language: 'promql',
-        stream: { name: 'app_metrics', stream_type: 'metrics' },
+        stream: { name: 'app_metrics', streamType: 'metrics' },
       },
     });
     // Saving returns to the rules, and says what was saved.
@@ -299,7 +299,9 @@ test.describe('IAM capability route guard', () => {
     await mountMockRoutes(page, mockServer.port, { role: 'Viewer' });
 
     await page.goto('/iam/teams');
-    await expect(page).toHaveURL(/\/home(?:[?#]|$)/);
+    // The address stays, and the page says why it shows nothing.
+    await expect(page.getByTestId('access-denied')).toBeVisible();
+    await expect(page).toHaveURL(/\/iam\/teams(?:[?#]|$)/);
     await expect(page.getByRole('heading', { name: 'Teams' })).toHaveCount(0);
   });
 

@@ -8,17 +8,17 @@ describe('budgetRefusal', () => {
       error: BUDGET_EXHAUSTED,
       code: BUDGET_EXHAUSTED,
       message: 'the organization daily budget is used up',
-      used_tokens: 51_200,
-      limit_tokens: 50_000,
-      resets_at_micros: 1_760_659_200_000_000,
+      usedTokens: 51_200,
+      limitTokens: 50_000,
+      resetsAt: 1_760_659_200_000_000,
     });
 
     expect(budgetRefusal(429, body)).toEqual({
       kind: 'budget',
       level: 'exhausted',
-      used_tokens: 51_200,
-      limit_tokens: 50_000,
-      resets_at_micros: 1_760_659_200_000_000,
+      usedTokens: 51_200,
+      limitTokens: 50_000,
+      resetsAt: 1_760_659_200_000_000,
       blocked: true,
     });
   });

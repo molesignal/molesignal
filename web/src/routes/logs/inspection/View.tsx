@@ -61,8 +61,8 @@ export function LogInspectionView({
 }: LogInspectionViewProps) {
   const { t } = useTranslation('logs');
   const access = useProductAccess();
-  const use = useActionAccess({ permission: 'agent.use' });
-  const manage = useActionAccess({ permission: 'agent.manage' });
+  const use = useActionAccess({ permission: 'agent.models.read' });
+  const manage = useActionAccess({ permission: 'agent.models.manage' });
   const providers = useQuery({
     queryKey: ['agent', 'model-providers'],
     queryFn: () => providersApi.list(),
@@ -191,7 +191,7 @@ export function LogInspectionView({
                 <SelectContent>
                   {enabled.map((candidate) => (
                     <SelectItem key={candidate.id} value={candidate.id} className="font-sans text-sm">
-                      {candidate.name} · {candidate.default_model}
+                      {candidate.name} · {candidate.defaultModel}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -232,7 +232,7 @@ export function LogInspectionView({
             <p className="min-w-0 flex-1 basis-full font-sans text-xs text-tx-3 sm:basis-0">
               {empty
                 ? t('explore.inspection.no_logs')
-                : t('explore.inspection.disclosure', { model: provider.default_model })}
+                : t('explore.inspection.disclosure', { model: provider.defaultModel })}
             </p>
           </div>
         </div>

@@ -17,6 +17,7 @@ use crate::{
 
 /// 报表运行身份的显示信息。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RunAsProfile {
     pub id: Id,
     pub display_name: String,
@@ -144,6 +145,7 @@ mod tests {
             disabled: false,
             status: UserStatus::Active,
             created_at: TimestampMicros(0),
+            sessions_valid_after: TimestampMicros(0),
         }
     }
 
@@ -249,7 +251,7 @@ mod tests {
             serde_json::to_value(&profiles[&Id::from_string("u-ada")]).unwrap(),
             serde_json::json!({
                 "id": "u-ada",
-                "display_name": "Ada",
+                "displayName": "Ada",
                 "email": "ada@example.com",
             })
         );

@@ -33,7 +33,7 @@ async fn folder_crud_lifecycle_and_guards() {
     let parent: Value = resp.json().await.unwrap();
     let parent_id = id_of(&parent);
     assert_eq!(parent["name"], "Production");
-    assert!(parent["parent_id"].is_null());
+    assert!(parent["parentId"].is_null());
 
     // empty name → 400
     let bad = s
@@ -85,7 +85,7 @@ async fn folder_crud_lifecycle_and_guards() {
         .client
         .post(format!("{base}/api/v1/folders"))
         .header(hk, &hv)
-        .json(&json!({ "name": "EU", "parent_id": parent_id }))
+        .json(&json!({ "name": "EU", "parentId": parent_id }))
         .send()
         .await
         .unwrap()
@@ -93,14 +93,14 @@ async fn folder_crud_lifecycle_and_guards() {
         .await
         .unwrap();
     let child_id = id_of(&child);
-    assert_eq!(child["parent_id"], parent_id, "child points at parent");
+    assert_eq!(child["parentId"], parent_id, "child points at parent");
 
     // third level is supported
     let grandchild: Value = s
         .client
         .post(format!("{base}/api/v1/folders"))
         .header(hk, &hv)
-        .json(&json!({ "name": "Payments", "parent_id": child_id }))
+        .json(&json!({ "name": "Payments", "parentId": child_id }))
         .send()
         .await
         .unwrap()
@@ -109,7 +109,7 @@ async fn folder_crud_lifecycle_and_guards() {
         .unwrap();
     let grandchild_id = id_of(&grandchild);
     assert_eq!(
-        grandchild["parent_id"], child_id,
+        grandchild["parentId"], child_id,
         "third-level folder points at child"
     );
 
@@ -118,7 +118,7 @@ async fn folder_crud_lifecycle_and_guards() {
         .client
         .post(format!("{base}/api/v1/folders"))
         .header(hk, &hv)
-        .json(&json!({ "name": "Too deep", "parent_id": grandchild_id }))
+        .json(&json!({ "name": "Too deep", "parentId": grandchild_id }))
         .send()
         .await
         .unwrap();
@@ -139,7 +139,7 @@ async fn folder_crud_lifecycle_and_guards() {
         .client
         .put(format!("{base}/api/v1/folders/{parent_id}"))
         .header(hk, &hv)
-        .json(&json!({ "name": "Prod", "parent_id": child_id }))
+        .json(&json!({ "name": "Prod", "parentId": child_id }))
         .send()
         .await
         .unwrap();

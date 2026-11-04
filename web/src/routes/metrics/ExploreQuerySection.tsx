@@ -16,6 +16,7 @@ import { type QueryEditorMode, QueryModeSwitch } from '@/shell/query/ModeSwitch'
 import { QueryShareButton } from '@/shell/query/share/Button';
 import { QuerySyntaxHelp } from '@/shell/query/SyntaxHelp';
 import { QueryWorkbench } from '@/shell/query/Workbench';
+import { useQueryTabStrip } from '@/shell/queryTabs';
 import { WorkbenchTitle } from '@/shell/SurfaceWorkbench';
 
 import type { MetricsQueryOptions } from './queryOptions/model';
@@ -51,7 +52,8 @@ interface ExploreQuerySectionProps {
  * the time range and the run actions, with the query under it.
  *
  * Collapsed, the query is one line and sits in the bar itself, so the chart
- * gets every row below it.
+ * gets every row below it. The query tabs stand where the query's letter would,
+ * folded or open.
  */
 export function ExploreQuerySection({
   promql,
@@ -77,6 +79,7 @@ export function ExploreQuerySection({
   shareSearch,
 }: ExploreQuerySectionProps) {
   const { t } = useTranslation('metrics');
+  const queryTabs = useQueryTabStrip();
   const runIfReady = () => {
     if (canRun) onRun();
   };
@@ -84,7 +87,8 @@ export function ExploreQuerySection({
   return (
     <QueryWorkbench
       appearance="surface"
-      className="mt-[6px] shrink-0"
+      // The first card under the top bar, as far off it as the cards are off each other.
+      className="mt-[12px] shrink-0"
       inlineBody={collapsed}
       // No title row on this page: the bar carries the name and the row goes to the chart.
       title={<WorkbenchTitle title={t('explore.title')} />}
@@ -129,6 +133,7 @@ export function ExploreQuerySection({
         {collapsed ? (
           <QueryEditorFrame
             queryRef="A"
+            tabs={queryTabs}
             value={promql}
             onChange={onPromqlChange}
             language="promql"
@@ -142,9 +147,15 @@ export function ExploreQuerySection({
         ) : (
           <div className="overflow-hidden rounded-md bg-[var(--control-surface)]">
             <div className="flex min-h-11 items-center gap-2 px-2 py-1.5">
-              <span className="grid h-7 min-w-7 shrink-0 place-items-center rounded bg-[var(--functional-surface)] px-1 font-mono text-xs font-bold text-tx-0">
-                A
-              </span>
+              {queryTabs ? (
+                <div data-query-editor-tabs className="flex min-w-0 max-w-[60%] shrink-0 items-center">
+                  {queryTabs}
+                </div>
+              ) : (
+                <span className="grid h-7 min-w-7 shrink-0 place-items-center rounded bg-[var(--functional-surface)] px-1 font-mono text-xs font-bold text-tx-0">
+                  A
+                </span>
+              )}
               {mode === 'code' ? (
                 <button
                   type="button"

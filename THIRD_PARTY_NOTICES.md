@@ -58,3 +58,19 @@ its copyrightable elements are licensed under the
 and it incorporates [GeoNames](https://www.geonames.org) geographical data made
 available under the
 [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/).
+
+## Sign-in platform marks
+
+The SSO sign-in buttons and settings identify each identity platform by its
+mark (`web/src/shell/SsoPlatformMark.tsx`). The marks are trademarks of their
+owners and are shown only to name the platform a user signs in with.
+
+- Google, Microsoft and GitLab: [SVG Logos](https://github.com/gilbarbara/logos)
+  by Gil Barbara, [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- GitHub, Okta, Auth0, Keycloak and authentik:
+  [Simple Icons](https://github.com/simple-icons/simple-icons) `15.22.0`,
+  [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- Feishu / Lark: the `new-lark` icon of
+  [IconPark](https://github.com/bytedance/IconPark), Copyright ByteDance Inc.,
+  Apache License 2.0 (the text is in this repository's root `LICENSE` file);
+  MoleSignal draws it in a single brand colour.

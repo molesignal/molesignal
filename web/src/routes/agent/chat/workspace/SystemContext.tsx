@@ -61,7 +61,7 @@ export function SystemContext({
   variant = 'sidebar',
 }: SystemContextProps) {
   const { t } = useTranslation('agent');
-  const orgId = useAuthStore((state) => state.ctx?.org_id ?? '');
+  const orgId = useAuthStore((state) => state.ctx?.orgId ?? '');
   const users = useUsers();
   const [nowMicros, setNowMicros] = React.useState(() => Date.now() * 1_000);
 
@@ -83,7 +83,7 @@ export function SystemContext({
   const incidents = useQuery({
     queryKey: ['alerts', 'incidents', 'active', 7 * 86_400],
     queryFn: () =>
-      incidentsApi.list({ scope: 'active', window_secs: 7 * 86_400 }),
+      incidentsApi.list({ scope: 'active', windowSecs: 7 * 86_400 }),
     enabled: Boolean(orgId),
     retry: false,
     staleTime: 30_000,
@@ -100,10 +100,10 @@ export function SystemContext({
   const scheduleRows = Array.isArray(schedules.data) ? schedules.data : [];
   const onCall = buildOnCallSnapshot(scheduleRows, nowMicros);
   const onCallName = onCall?.primaryUserId
-    ? users.byId.get(onCall.primaryUserId)?.name ?? onCall.primaryUserId
+    ? users.nameOf(onCall.primaryUserId)
     : t('workspace.unassigned');
   const signalStatus = (type: 'logs' | 'metrics' | 'traces') =>
-    homeOverview.data?.signals?.find((signal) => signal.stream_type === type)
+    homeOverview.data?.signals?.find((signal) => signal.streamType === type)
       ?.status;
   const connections = (['metrics', 'logs', 'traces'] as const).map((key) => ({
     key,

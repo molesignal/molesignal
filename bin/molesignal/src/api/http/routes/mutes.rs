@@ -55,11 +55,27 @@ fn default_true() -> bool {
     true
 }
 
+/// 规则本身，加上现在是否生效（`active`，不看是否启用）和下一次开始或结束的时刻（`next_change_at`）。
+fn rule_view(rule: &MuteRule, now: TimestampMicros) -> Value {
+    let mut body = serde_json::to_value(rule).unwrap_or(Value::Null);
+
+    if let Some(fields) = body.as_object_mut() {
+        fields.insert("active".into(), Value::Bool(rule.window.active(now)));
+        fields.insert(
+            "next_change_at".into(),
+            serde_json::to_value(rule.window.next_change(now)).unwrap_or(Value::Null),
+        );
+    }
+
+    body
+}
+
 const DEFAULT_INCIDENT_SILENCE_SECS: u64 = 60 * 60;
 const MIN_INCIDENT_SILENCE_SECS: u64 = 60;
 const MAX_INCIDENT_SILENCE_SECS: u64 = 30 * 24 * 60 * 60;
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SilenceIncidentReq {
     #[serde(default = "default_incident_silence_secs")]
     duration_secs: u64,
@@ -71,7 +87,7 @@ fn default_incident_silence_secs() -> u64 {
     DEFAULT_INCIDENT_SILENCE_SECS
 }
 
-#[permission("alerts.silence")]
+#[permission("alerts.incidents.silence")]
 async fn silence_incident(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -143,17 +159,20 @@ async fn silence_incident(
     Ok(Json(serde_json::to_value(saved).unwrap()))
 }
 
-#[permission("alerts.read")]
+#[permission("alerts.mutes.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
-    Ok(Json(
-        serde_json::to_value(state.alerting.mute_rules.list(&ctx.org_id).await?).unwrap(),
-    ))
+    let now = TimestampMicros::now();
+    let rules = state.alerting.mute_rules.list(&ctx.org_id).await?;
+
+    Ok(Json(Value::Array(
+        rules.iter().map(|rule| rule_view(rule, now)).collect(),
+    )))
 }
 
-#[permission("alerts.silence")]
+#[permission("alerts.mutes.manage")]
 async fn create(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -161,6 +180,12 @@ async fn create(
 ) -> Result<Json<Value>> {
     if req.name.trim().is_empty() {
         return Err(Error::invalid("name cannot be empty"));
+    }
+
+    req.window.validate()?;
+
+    if let Some(calendar) = req.window.calendar() {
+        calendar.check(&ctx.org_id)?;
     }
 
     let now = TimestampMicros::now();
@@ -190,10 +215,10 @@ async fn create(
     )
     .await;
 
-    Ok(Json(serde_json::to_value(saved).unwrap()))
+    Ok(Json(rule_view(&saved, TimestampMicros::now())))
 }
 
-#[permission("alerts.read")]
+#[permission("alerts.mutes.read")]
 async fn get_one(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -205,10 +230,10 @@ async fn get_one(
         return Err(Error::forbidden("mute rule belongs to another org"));
     }
 
-    Ok(Json(serde_json::to_value(rule).unwrap()))
+    Ok(Json(rule_view(&rule, TimestampMicros::now())))
 }
 
-#[permission("alerts.silence")]
+#[permission("alerts.mutes.manage")]
 async fn update(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -217,6 +242,12 @@ async fn update(
 ) -> Result<Json<Value>> {
     if req.name.trim().is_empty() {
         return Err(Error::invalid("name cannot be empty"));
+    }
+
+    req.window.validate()?;
+
+    if let Some(calendar) = req.window.calendar() {
+        calendar.check(&ctx.org_id)?;
     }
 
     let existing = state.alerting.mute_rules.get(&Id::from_string(id)).await?;
@@ -250,10 +281,10 @@ async fn update(
     )
     .await;
 
-    Ok(Json(serde_json::to_value(saved).unwrap()))
+    Ok(Json(rule_view(&saved, TimestampMicros::now())))
 }
 
-#[permission("alerts.silence")]
+#[permission("alerts.mutes.manage")]
 async fn remove(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

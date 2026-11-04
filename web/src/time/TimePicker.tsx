@@ -2,12 +2,15 @@ import { Check, ChevronDown, Clock3 } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { parseZonedInput, tzOffsetLabel, zonedMoment } from '@/lib/time';
 import { DateTimePicker } from '@/shell/DateTimePicker';
 import { cn } from '@/shell/lib/cn';
 import { Button } from '@/shell/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/shell/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shell/ui/popover';
 import { resolveWindow, type TimeWindow, useTimeStore } from '@/stores/useTimeStore';
+
+import { TimezoneSection, useEffectiveTimezone, zoneText } from './TimezoneSection';
 
 interface TimePickerProps {
   open: boolean;
@@ -48,8 +51,11 @@ export function TimeRangeControl({
 }: TimeRangeControlProps) {
   const { t } = useTranslation('common');
   const window = useTimeStore((s) => s.window);
+  const zone = useEffectiveTimezone();
   const [open, setOpen] = React.useState(false);
-  const displayValue = value ?? formatTimeWindowLabel(window, t);
+  const displayValue = value ?? formatTimeWindowLabel(window, t, zone.timezone);
+  // A zone picked for this page is said beside the range, as Grafana says it.
+  const pickedZone = zone.picked ? tzOffsetLabel(zone.timezone) : null;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -58,9 +64,9 @@ export function TimeRangeControl({
           type="button"
           onClick={onClick}
           data-time-range-trigger="true"
-          aria-label={t('time_picker.button_aria', { value: displayValue })}
+          aria-label={t('time_picker.button_aria', { value: pickedZone ? `${displayValue} · ${pickedZone}` : displayValue })}
           className={cn(
-            'group inline-flex h-8 max-w-[220px] shrink-0 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-[10px] font-sans text-[13px] font-strong text-tx-1 transition-colors duration-fast hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 focus-visible:text-tx-0 data-[state=open]:bg-bg-3 data-[state=open]:text-tx-0',
+            'group inline-flex h-9 max-w-[220px] shrink-0 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-[13px] font-strong text-tx-1 transition-colors duration-fast hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 focus-visible:text-tx-0 data-[state=open]:bg-bg-3 data-[state=open]:text-tx-0',
             fill && 'flex w-full max-w-none',
             className,
           )}
@@ -69,6 +75,7 @@ export function TimeRangeControl({
           <span className={cn('min-w-0 truncate', fill ? 'flex-1 text-left' : 'max-w-[150px]')}>
             {displayValue}
           </span>
+          {pickedZone && <span data-time-range-zone className="shrink-0 font-body text-tx-3">{pickedZone}</span>}
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-tx-3 transition-transform duration-fast group-data-[state=open]:rotate-180" />
         </button>
       </PopoverTrigger>
@@ -82,6 +89,7 @@ export function TimeRangeControl({
       >
         <TimePickerHeader />
         <TimeRangePanel onDone={() => setOpen(false)} />
+        <TimezoneSection />
       </PopoverContent>
     </Popover>
   );
@@ -104,6 +112,7 @@ export function TimePicker({ open, onOpenChange }: TimePickerProps) {
           )}
         />
         <TimeRangePanel onDone={() => onOpenChange(false)} />
+        <TimezoneSection />
       </DialogContent>
     </Dialog>
   );
@@ -132,21 +141,23 @@ export function TimeRangePanel({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation('common');
   const current = useTimeStore((s) => s.window);
   const setWindow = useTimeStore((s) => s.setWindow);
-  const [from, setFrom] = React.useState(() => toLocalInputValue(resolveWindow(current).from));
-  const [to, setTo] = React.useState(() => toLocalInputValue(resolveWindow(current).to));
+  // A start and an end are read and written on the wall clock of the zone the page shows.
+  const { timezone } = useEffectiveTimezone();
+  const [from, setFrom] = React.useState(() => toZonedInputValue(resolveWindow(current).from, timezone));
+  const [to, setTo] = React.useState(() => toZonedInputValue(resolveWindow(current).to, timezone));
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const resolved = resolveWindow(current);
-    setFrom(toLocalInputValue(resolved.from));
-    setTo(toLocalInputValue(resolved.to));
+    setFrom(toZonedInputValue(resolved.from, timezone));
+    setTo(toZonedInputValue(resolved.to, timezone));
     setError(null);
-  }, [current]);
+  }, [current, timezone]);
 
   const submitAbsolute = () => {
-    const fromDate = from ? new Date(from) : null;
-    const toDate = to ? new Date(to) : null;
-    if (!fromDate || !toDate || Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime()) || fromDate >= toDate) {
+    const fromDate = from ? parseZonedInput(from, timezone) : null;
+    const toDate = to ? parseZonedInput(to, timezone) : null;
+    if (!fromDate || !toDate || fromDate >= toDate) {
       setError(t('time_picker.invalid'));
       return;
     }
@@ -190,7 +201,7 @@ export function TimeRangePanel({ onDone }: { onDone: () => void }) {
       <section className="flex min-w-0 flex-col px-1">
         <div>
           <div className="font-sans text-xs font-strong text-tx-1">{t('time_picker.absolute')}</div>
-          <div className="mt-0.5 font-sans text-xs leading-4 text-tx-3">{t('time_picker.local_time')}</div>
+          <div className="mt-0.5 font-sans text-xs leading-4 text-tx-3">{t('time_picker.zone_time', { zone: zoneText(timezone) })}</div>
         </div>
         <label className="mt-2.5 flex flex-col gap-1 font-sans text-xs font-strong text-tx-2">
           {t('time_picker.from')}
@@ -232,13 +243,22 @@ function sameWindow(a: TimeWindow, b: TimeWindow): boolean {
   return a.mode === b.mode && a.from === b.from && a.to === b.to;
 }
 
-export function formatTimeWindowLabel(window: TimeWindow, t: (key: string) => string): string {
+/** How a range reads: a quick range by its name, a start and an end in `timezone` if given, else in UTC. */
+export function formatTimeWindowLabel(window: TimeWindow, t: (key: string) => string, timezone?: string): string {
   const preset = PRESETS.find((item) => sameWindow(window, item.window));
   if (preset) return t(preset.labelKey);
   if (window.mode === 'relative') return `${window.from} - ${window.to}`;
   try {
     const from = new Date(window.from);
     const to = new Date(window.to);
+    if (timezone) {
+      const start = zonedMoment(from.getTime(), timezone);
+      const end = zonedMoment(to.getTime(), timezone);
+      if (!start.isValid() || !end.isValid()) return `${window.from} - ${window.to}`;
+      return start.format('YYYY-MM-DD') === end.format('YYYY-MM-DD')
+        ? `${start.format('HH:mm')} - ${end.format('HH:mm')}`
+        : `${start.format('YYYY-MM-DD')} - ${end.format('YYYY-MM-DD')}`;
+    }
     if (from.toDateString() === to.toDateString()) {
       return `${from.toISOString().slice(11, 16)} - ${to.toISOString().slice(11, 16)} UTC`;
     }
@@ -248,19 +268,8 @@ export function formatTimeWindowLabel(window: TimeWindow, t: (key: string) => st
   }
 }
 
-function toLocalInputValue(date: Date): string {
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return [
-    date.getFullYear(),
-    '-',
-    pad(date.getMonth() + 1),
-    '-',
-    pad(date.getDate()),
-    'T',
-    pad(date.getHours()),
-    ':',
-    pad(date.getMinutes()),
-    ':',
-    pad(date.getSeconds()),
-  ].join('');
+/** A moment as a start or end field shows it: the wall clock of `timezone`, to the second. */
+function toZonedInputValue(date: Date, timezone: string): string {
+  const moment = zonedMoment(date.getTime(), timezone);
+  return moment.isValid() ? moment.format('YYYY-MM-DDTHH:mm:ss') : '';
 }

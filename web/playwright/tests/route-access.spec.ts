@@ -47,7 +47,6 @@ test.describe('dynamic route access', () => {
     mockServer,
   }) => {
     await mountMockRoutes(page, mockServer.port, {
-      token: 'custom-role-reader',
       role: 'Viewer',
       scope: 'organization',
       capabilityPermissions: ['iam.roles.read'],
@@ -65,7 +64,6 @@ test.describe('dynamic route access', () => {
     mockServer,
   }) => {
     await mountMockRoutes(page, mockServer.port, {
-      token: 'custom-role-manager',
       role: 'Viewer',
       scope: 'organization',
       capabilityPermissions: ['iam.roles.read', 'iam.roles.manage'],
@@ -74,7 +72,7 @@ test.describe('dynamic route access', () => {
 
     await page.getByRole('button', { name: 'New role' }).click();
     await page.getByLabel('Name').fill('Incident Commander');
-    await expect(page.getByLabel('Key')).toHaveValue('incident_commander');
+    await expect(page.getByRole('textbox', { name: /^Key/ })).toHaveValue('incident_commander');
     await page.getByText('Edit dashboards', { exact: true }).click();
 
     const requestPromise = page.waitForRequest(

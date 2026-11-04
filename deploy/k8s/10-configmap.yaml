@@ -35,10 +35,10 @@ data:
     region = "us-east-1"
     endpoint = "http://rustfs:9000"
     path_style = true
-    multipart_threshold_mb = 32
-    multipart_part_size_mb = 8
-    range_threshold_mb = 16
-    range_chunk_mb = 8
+    multipart_threshold_size = 32
+    multipart_part_size = 8
+    range_threshold_size = 16
+    range_chunk_size = 8
     max_concurrency = 8
     op_timeout_secs = 30
     health_probe_interval_secs = 30
@@ -51,35 +51,33 @@ data:
 
     [wal]
     dir = "/data/wal"
-    segment_size_mb = 256
+    segment_size = 256
     flush_strategy = "batch"
     sync_level = "data"
     batch_max_pending = 64
     batch_max_delay_ms = 50
 
     [intake]
-    buffer_max_mb = 256
-    max_buffer_memory_mb = 1024
+    buffer_max_size = 256
+    max_buffer_memory_size = 1024
     flush_interval_secs = 30
     flush_parallelism = 4
 
     [intake.rotation]
     adaptive_enabled = true
-    target_file_size_mb = 128
-    min_buffer_mb = 16
+    target_file_size = 128
+    min_buffer_size = 16
     ewma_alpha = 0.2
 
     [intake.prometheus]
     max_labels_per_series = 64
-    max_label_name_bytes = 128
-    max_label_value_bytes = 2048
+    max_label_name_length = 128
+    max_label_value_length = 2048
     max_samples_per_batch = 16384
 
     [intake.prometheus.cardinality]
     enabled = true
     max_active_series_per_process = 1000000
-    max_active_series_per_org = 200000
-    max_active_series_per_metric = 100000
     max_new_series_per_minute = 20000
     idle_ttl_secs = 900
 
@@ -91,9 +89,8 @@ data:
 
     [compactor]
     interval_secs = 300
-    target_mb = 512
+    target_size = 512
     max_concurrent_groups = 4
-    retention_days = 30
 
     [alert]
     eval_interval_secs = 30
@@ -121,15 +118,15 @@ data:
     [cache.object]
     enabled = true
     root = "./data/cache/objects"
-    max_bytes = 10737418240
-    block_size_bytes = 4194304
-    min_free_bytes = 1073741824
+    max_size = 10240
+    block_size = 4
+    min_free_size = 1024
     max_concurrent_fetches = 16
     max_concurrent_fetches_per_object = 4
 
     [storage.catalog]
-    seal_after_hours = 168
-    manifest_cache_bytes = 268435456
+    seal_after_hours = 48
+    manifest_cache_size = 256
     interval_secs = 300
     batch_size = 64
 
@@ -156,7 +153,7 @@ data:
     verify_checksums = true
 
     [auth]
-    token_ttl_secs = 86400
+    session_ttl_secs = 86400
     # jwt secret 默认由 DB 自动 bootstrap；显式锁定时从 Secret 注入 MS_AUTH_JWT_SECRET_OVERRIDE
 
     # OIDC / SAML / LDAP provider 配置存于 sso_providers 表，

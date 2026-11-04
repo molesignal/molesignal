@@ -1,8 +1,8 @@
 /** The query parameter the report renderer puts on a page it is about to print. */
-export const REPORT_RENDER_PARAM = 'report_render';
+export const REPORT_RENDER_PARAM = 'reportRender';
 
 /** The query parameter naming the timezone the report is read in, when it has one of its own. */
-export const REPORT_TIMEZONE_PARAM = 'report_tz';
+export const REPORT_TIMEZONE_PARAM = 'reportTz';
 
 /**
  * Whether this URL is being rendered for a report: a page for paper, with none

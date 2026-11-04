@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import { uiSectionTitleClass } from '@/shell/chrome';
+
 export function SettingsCard({
   title,
   description,
@@ -12,7 +14,7 @@ export function SettingsCard({
   return (
     <section data-status-page-settings-section className="min-w-0 rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
       <header className="py-4">
-        <h2 className="text-base font-display-strong text-tx-0">{title}</h2>
+        <h2 className={uiSectionTitleClass}>{title}</h2>
         <p className="mt-1 text-xs leading-5 text-tx-3">{description}</p>
       </header>
       <div className="space-y-5 py-5">{children}</div>

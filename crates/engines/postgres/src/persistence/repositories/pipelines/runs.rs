@@ -34,6 +34,7 @@ impl PipelineRunState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PipelineRun {
     pub id: Id,
     pub pipeline_id: Id,
@@ -72,6 +73,7 @@ pub struct PipelineRunFinish {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PipelineRunSummary {
     pub pipeline_id: Id,
     pub last_state: PipelineRunState,
@@ -90,7 +92,7 @@ pub trait PipelineRunRepository: Send + Sync {
     async fn record_start(&self, run: PipelineRun) -> Result<()>;
     /// 调度退出时更新终态、各项条数与错误。
     async fn record_finish(&self, id: &Id, finish: PipelineRunFinish) -> Result<()>;
-    /// HTTP list_runs。可选 `before_micros` 游标，按 `started_at_micros DESC` 排序。
+    /// HTTP list_runs。可选 `before_micros` 游标，按 `started_at DESC` 排序。
     async fn list(
         &self,
         org_id: &Id,
@@ -112,7 +114,7 @@ impl PgPipelineRunRepository {
     }
 }
 
-const COLS: &str = "id, pipeline_id, org_id, state, started_at_micros, finished_at_micros,
+const COLS: &str = "id, pipeline_id, org_id, state, started_at, finished_at,
                     scanned_rows, written_rows, dropped_rows, failed_rows, attempt, error, warning";
 
 fn row_to(r: sqlx::postgres::PgRow) -> PipelineRun {
@@ -124,11 +126,12 @@ fn row_to(r: sqlx::postgres::PgRow) -> PipelineRun {
         pipeline_id: Id(r.try_get::<String, _>("pipeline_id").unwrap_or_default()),
         org_id: Id(r.try_get::<String, _>("org_id").unwrap_or_default()),
         state,
-        started_at: TimestampMicros(r.try_get::<i64, _>("started_at_micros").unwrap_or_default()),
+        started_at: r
+            .try_get::<TimestampMicros, _>("started_at")
+            .unwrap_or_default(),
         finished_at: r
-            .try_get::<Option<i64>, _>("finished_at_micros")
-            .unwrap_or_default()
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("finished_at")
+            .unwrap_or_default(),
         scanned_rows: r.try_get::<i64, _>("scanned_rows").unwrap_or_default(),
         written_rows: r.try_get::<i64, _>("written_rows").unwrap_or_default(),
         dropped_rows: r.try_get::<i64, _>("dropped_rows").unwrap_or_default(),
@@ -155,7 +158,7 @@ impl PipelineRunRepository for PgPipelineRunRepository {
     async fn record_start(&self, run: PipelineRun) -> Result<()> {
         sqlx::query(
             "INSERT INTO pipeline_runs
-                (id, pipeline_id, org_id, state, started_at_micros, finished_at_micros,
+                (id, pipeline_id, org_id, state, started_at, finished_at,
                  scanned_rows, written_rows, dropped_rows, failed_rows, attempt, error, warning)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
         )
@@ -163,8 +166,8 @@ impl PipelineRunRepository for PgPipelineRunRepository {
         .bind(&run.pipeline_id.0)
         .bind(&run.org_id.0)
         .bind(run.state.as_str())
-        .bind(run.started_at.0)
-        .bind(run.finished_at.map(|t| t.0))
+        .bind(run.started_at)
+        .bind(run.finished_at)
         .bind(run.scanned_rows)
         .bind(run.written_rows)
         .bind(run.dropped_rows)
@@ -182,13 +185,13 @@ impl PipelineRunRepository for PgPipelineRunRepository {
     async fn record_finish(&self, id: &Id, finish: PipelineRunFinish) -> Result<()> {
         sqlx::query(
             "UPDATE pipeline_runs
-                SET state = $2, finished_at_micros = $3, scanned_rows = $4, written_rows = $5,
+                SET state = $2, finished_at = $3, scanned_rows = $4, written_rows = $5,
                     dropped_rows = $6, failed_rows = $7, attempt = $8, error = $9, warning = $10
              WHERE id = $1",
         )
         .bind(&id.0)
         .bind(finish.state.as_str())
-        .bind(finish.finished_at.0)
+        .bind(finish.finished_at)
         .bind(finish.scanned_rows)
         .bind(finish.written_rows)
         .bind(finish.dropped_rows)
@@ -216,15 +219,15 @@ impl PipelineRunRepository for PgPipelineRunRepository {
             Some(before) => {
                 let sql = format!(
                     "SELECT {COLS} FROM pipeline_runs
-                       WHERE org_id = $1 AND pipeline_id = $2 AND started_at_micros < $3
-                       ORDER BY started_at_micros DESC
+                       WHERE org_id = $1 AND pipeline_id = $2 AND started_at < $3
+                       ORDER BY started_at DESC
                        LIMIT $4"
                 );
 
                 sqlx::query(&sql)
                     .bind(&org_id.0)
                     .bind(&pipeline_id.0)
-                    .bind(before)
+                    .bind(TimestampMicros(before))
                     .bind(limit)
                     .fetch_all(&self.pool)
                     .await
@@ -234,7 +237,7 @@ impl PipelineRunRepository for PgPipelineRunRepository {
                 let sql = format!(
                     "SELECT {COLS} FROM pipeline_runs
                        WHERE org_id = $1 AND pipeline_id = $2
-                       ORDER BY started_at_micros DESC
+                       ORDER BY started_at DESC
                        LIMIT $3"
                 );
 
@@ -255,11 +258,11 @@ impl PipelineRunRepository for PgPipelineRunRepository {
         let rows = sqlx::query(
             "WITH latest AS (
                  SELECT DISTINCT ON (pipeline_id)
-                    pipeline_id, state, started_at_micros, finished_at_micros,
+                    pipeline_id, state, started_at, finished_at,
                     scanned_rows, error
                  FROM pipeline_runs
                  WHERE org_id = $1
-                 ORDER BY pipeline_id, started_at_micros DESC
+                 ORDER BY pipeline_id, started_at DESC
              ),
              recent AS (
                  SELECT pipeline_id,
@@ -267,14 +270,14 @@ impl PipelineRunRepository for PgPipelineRunRepository {
                     COUNT(*) FILTER (WHERE state = 'succeeded')::BIGINT AS succeeded_runs_in_window,
                     COUNT(*) FILTER (WHERE state = 'failed')::BIGINT AS failed_runs_in_window
                  FROM pipeline_runs
-                 WHERE org_id = $1 AND started_at_micros >= $2
+                 WHERE org_id = $1 AND started_at >= $2
                  GROUP BY pipeline_id
              )
              SELECT
                 latest.pipeline_id,
                 latest.state,
-                latest.started_at_micros,
-                latest.finished_at_micros,
+                latest.started_at,
+                latest.finished_at,
                 latest.scanned_rows,
                 latest.error,
                 COALESCE(recent.runs_in_window, 0) AS runs_in_window,
@@ -284,7 +287,7 @@ impl PipelineRunRepository for PgPipelineRunRepository {
              LEFT JOIN recent USING (pipeline_id)",
         )
         .bind(&org_id.0)
-        .bind(since_micros)
+        .bind(TimestampMicros(since_micros))
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -299,14 +302,12 @@ impl PipelineRunRepository for PgPipelineRunRepository {
                 PipelineRunSummary {
                     pipeline_id: Id(row.try_get::<String, _>("pipeline_id").unwrap_or_default()),
                     last_state: state_from_str(&state),
-                    last_started_at: TimestampMicros(
-                        row.try_get::<i64, _>("started_at_micros")
-                            .unwrap_or_default(),
-                    ),
+                    last_started_at: row
+                        .try_get::<TimestampMicros, _>("started_at")
+                        .unwrap_or_default(),
                     last_finished_at: row
-                        .try_get::<Option<i64>, _>("finished_at_micros")
-                        .unwrap_or_default()
-                        .map(TimestampMicros),
+                        .try_get::<Option<TimestampMicros>, _>("finished_at")
+                        .unwrap_or_default(),
                     last_scanned_rows: row.try_get::<i64, _>("scanned_rows").unwrap_or_default(),
                     last_error: row
                         .try_get::<Option<String>, _>("error")

@@ -162,14 +162,14 @@ async fn create_authority(pool: &sqlx::PgPool, cipher: &CipherRootKey) -> Result
 
     sqlx::query(
         "INSERT INTO synthetic_probe_certificate_authorities
-            (id, private_key_nonce, private_key_ciphertext, certificate_pem, created_at_micros)
+            (id, private_key_nonce, private_key_ciphertext, certificate_pem, created_at)
          VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING",
     )
     .bind(AUTHORITY_ID)
     .bind(nonce)
     .bind(ciphertext)
     .bind(certificate.pem())
-    .bind(TimestampMicros::now().0)
+    .bind(TimestampMicros::now())
     .execute(pool)
     .await
     .map_err(sqlx_err)?;

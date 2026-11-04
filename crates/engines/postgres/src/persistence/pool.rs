@@ -27,7 +27,7 @@ use crate::{
 static META_POOL: OnceLock<RwLock<Option<PgPool>>> = OnceLock::new();
 static META_POOL_COLLECTOR_REGISTERED: OnceLock<()> = OnceLock::new();
 
-const MIGRATION_TABLE_NAME: &str = "_molesignal_schema_meta";
+const MIGRATION_TABLE_NAME: &str = "_molesignal_schema";
 
 /// 元数据库连接池 + 启动期迁移。
 #[derive(Clone)]
@@ -310,11 +310,11 @@ mod tests {
         assert!(component.contains("AND component.visibility = 'enabled'"));
 
         let incident = effective_function("enqueue_status_page_incident_notification");
-        assert!(incident.contains("'started_at', incident.started_at_micros"));
-        assert!(incident.contains("'ended_at', incident.ended_at_micros"));
+        assert!(incident.contains("'startedAt', epoch_micros(incident.started_at)"));
+        assert!(incident.contains("'endedAt', epoch_micros(incident.ended_at)"));
 
         // Every path that names components to subscribers goes through one function.
-        let named_through = "'component_names', status_page_event_component_names(";
+        let named_through = "'componentNames', status_page_event_component_names(";
         assert!(incident.contains(named_through));
         assert!(!incident.contains("status_page_components"));
 
@@ -337,7 +337,7 @@ mod tests {
     fn planned_maintenance_options_default_to_off_in_the_schema() {
         assert!(INITIAL_SQL.contains("ADD COLUMN auto_start BOOLEAN NOT NULL DEFAULT FALSE"));
         assert!(INITIAL_SQL.contains("ADD COLUMN reminder_minutes INTEGER NOT NULL DEFAULT 0"));
-        assert!(INITIAL_SQL.contains("ADD COLUMN reminded_start_micros BIGINT"));
+        assert!(INITIAL_SQL.contains("ADD COLUMN reminded_start TIMESTAMPTZ"));
         assert!(INITIAL_SQL.contains("chk_status_page_incident_planned_kind"));
         assert!(INITIAL_SQL.contains("idx_status_page_incidents_planned"));
     }
@@ -389,7 +389,7 @@ mod tests {
         let incident = effective_function("enqueue_status_page_incident_notification");
         assert!(incident.contains(hears));
         assert!(incident.contains("IF NOT NEW.notify_subscribers THEN"));
-        assert!(incident.contains("'next_update_at', NEW.next_update_at_micros"));
+        assert!(incident.contains("'nextUpdateAt', epoch_micros(NEW.next_update_at)"));
 
         for source in [
             include_str!("repositories/status_pages/planned_maintenance.rs"),
@@ -412,14 +412,13 @@ mod tests {
     }
 
     #[test]
-    fn initial_schema_and_route_catalog_own_business_services() {
-        assert!(INITIAL_SQL.contains("CREATE TABLE business_services"));
-        assert!(INITIAL_SQL.contains("health_history"));
-        assert!(INITIAL_SQL.contains("'business_services.read'"));
-        assert!(INITIAL_SQL.contains("fk_status_page_components_business_service"));
-        assert!(INITIAL_SQL.contains("'synthetic_monitor', 'business_service'"));
-        assert!(IAM_ROUTE_CATALOG_SQL.contains("'business.services', '/business-services'"));
-        assert!(IAM_ROUTE_CATALOG_SQL.contains("'reliability', 25"));
+    fn components_keep_their_dependencies_and_the_health_worked_out_from_them() {
+        assert!(INITIAL_SQL.contains("ADD COLUMN dependencies JSONB NOT NULL DEFAULT '[]'::JSONB"));
+        assert!(INITIAL_SQL.contains("ADD COLUMN dependency_status VARCHAR(32)"));
+        assert!(INITIAL_SQL.contains("chk_status_page_components_group_dependencies"));
+        assert!(INITIAL_SQL.contains("'synthetic_monitor', 'component_dependencies'"));
+        assert!(!INITIAL_SQL.contains("business_service"));
+        assert!(!IAM_ROUTE_CATALOG_SQL.contains("business"));
     }
 
     #[test]
@@ -430,8 +429,6 @@ mod tests {
 
         for merged in [
             "iam_role_permissions",
-            "iam_builtin_role_permissions",
-            "iam_builtin_role_purposes",
             "iam_permission_bundle_items",
             "iam_policy_versions",
             "iam_permission_catalog_versions",
@@ -447,6 +444,25 @@ mod tests {
         assert!(consolidation.contains("FUNCTION check_iam_permission_keys()"));
         assert!(consolidation.contains("FUNCTION release_iam_permission()"));
         assert!(!IAM_ROUTE_CATALOG_SQL.contains("iam_route_catalog_versions"));
+    }
+
+    #[test]
+    fn builtin_roles_are_rows_of_iam_roles() {
+        assert!(!INITIAL_SQL.contains("iam_builtin_role"));
+
+        assert!(INITIAL_SQL.contains("ALTER COLUMN org_id DROP NOT NULL"));
+        assert!(INITIAL_SQL.contains("CONSTRAINT chk_iam_roles_builtin_row"));
+        assert!(INITIAL_SQL.contains("uq_iam_roles_builtin_key"));
+        assert!(INITIAL_SQL.contains("uq_iam_roles_builtin_purpose"));
+
+        // A permission leaving the catalog leaves the built-in rows; an organization's role
+        // still holding it keeps it in.
+        let (_, release) = INITIAL_SQL
+            .rsplit_once("CREATE FUNCTION release_iam_permission()")
+            .expect("release function");
+        let release = &release[..release.find("$$;").expect("end of the function")];
+        assert!(release.contains("WHERE org_id IS NOT NULL"));
+        assert!(release.contains("WHERE org_id IS NULL"));
     }
 
     /// The last definition of a trigger function in the baseline is the one that runs.
@@ -483,8 +499,8 @@ mod tests {
                 "missing synthetics table {table}"
             );
         }
-        assert!(INITIAL_SQL.contains("'synthetics.read'"));
-        assert!(INITIAL_SQL.contains("'status_pages.publish'"));
+        assert!(INITIAL_SQL.contains("'synthetics.monitors.read'"));
+        assert!(INITIAL_SQL.contains("'status_pages.events.publish'"));
         assert!(IAM_ROUTE_CATALOG_SQL.contains("'synthetics', '/synthetics/*'"));
         assert!(IAM_ROUTE_CATALOG_SQL.contains("'reliability', 20"));
         assert!(INITIAL_SQL.contains("fk_synthetic_results_monitor"));
@@ -494,7 +510,7 @@ mod tests {
         assert!(INITIAL_SQL.contains("chk_synthetic_probe_agent_tokens_prefix"));
         assert!(INITIAL_SQL.contains("PRIMARY KEY (organization_id, agent_id)"));
         assert!(INITIAL_SQL.contains("organization_id"));
-        assert!(INITIAL_SQL.contains("finished_at_micros DESC, id DESC"));
+        assert!(INITIAL_SQL.contains("finished_at DESC, id DESC"));
         assert!(!INITIAL_SQL.contains("CREATE TABLE synthetic_monitor_revision_locations"));
         assert!(INITIAL_SQL.contains("trg_synthetic_probe_locations_listed"));
     }

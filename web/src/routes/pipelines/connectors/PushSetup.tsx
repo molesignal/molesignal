@@ -11,7 +11,7 @@ import { specOf, type ConnectorKind } from './kinds';
 /** Where a push connector of this kind listens, as the other service has to be given it. */
 export function usePushEndpoint(kind: ConnectorKind): string {
   const instance = useQuery({ queryKey: ['instance'], queryFn: instanceApi.get, staleTime: 300_000 });
-  const base = resolvePublicBaseUrl(instance.data?.external_url, window.location.origin);
+  const base = resolvePublicBaseUrl(instance.data?.externalUrl, window.location.origin);
 
   return `${base}${specOf(kind).pushPath ?? ''}`;
 }

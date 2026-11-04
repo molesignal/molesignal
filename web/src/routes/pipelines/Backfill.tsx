@@ -7,7 +7,7 @@ import * as pipelinesApi from '@/api/pipelines';
 import * as pipelineRunsApi from '@/api/pipelines/runs';
 import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
-import { ChromeButton } from '@/shell/chrome';
+import { ChromeButton, uiSectionTitleClass } from '@/shell/chrome';
 import { FormField, FormInput } from '@/shell/FormDrawer';
 import { PageBody, PageHeader } from '@/shell/PageHeader';
 import { surfacePanelClass } from '@/shell/SurfaceWorkbench';
@@ -62,7 +62,7 @@ export function PipelineBackfill() {
       toast.error(t('flows.backfill.toast_to_before_from'));
       return;
     }
-    submit.mutate({ start_micros: start, end_micros: end });
+    submit.mutate({ startTime: start, endTime: end });
   };
 
   return (
@@ -94,7 +94,7 @@ export function PipelineBackfill() {
           aria-label={t('flows.backfill.window_title')}
           className={`px-[16px] pb-[16px] pt-[12px] ${surfacePanelClass}`}
         >
-          <h2 className="m-0 font-sans text-md font-strong text-tx-0">{t('flows.backfill.window_title')}</h2>
+          <h2 className={`m-0 ${uiSectionTitleClass}`}>{t('flows.backfill.window_title')}</h2>
           <p className="m-0 mt-[2px] font-sans text-xs leading-relaxed text-tx-3">{t('flows.backfill.window_hint')}</p>
           <div className="mt-[12px] grid max-w-[760px] gap-x-[16px] gap-y-[12px] sm:grid-cols-2">
             <FormField label={t('flows.backfill.from_label')} hint={t('flows.backfill.from_hint')}>
@@ -119,11 +119,11 @@ export function PipelineBackfill() {
           {jobs.length > 0 && (
             <ul data-backfill-jobs className="m-0 mt-[14px] list-none space-y-[4px] p-0">
               {jobs.map((job) => (
-                <li key={job.job_id} className="font-sans text-xs text-tx-2">
+                <li key={job.jobId} className="font-sans text-xs text-tx-2">
                   <a href={job.monitor} className="text-[var(--blue-ink)] hover:underline">
                     {t('flows.backfill.monitor_link', {
                       source: job.source,
-                      jobIdShort: job.job_id.slice(0, 10),
+                      jobIdShort: job.jobId.slice(0, 10),
                     })}
                   </a>
                 </li>

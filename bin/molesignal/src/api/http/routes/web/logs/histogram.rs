@@ -6,20 +6,21 @@
 //!
 //! The list returns a page. This counts everything the same query matches in
 //! its time range, selecting with the conditions the list itself selects by.
+//! Bars counted before are kept (see [`bars`]); only the rest are counted.
 
 use axum::{Extension, Json, extract::State};
 use serde::Deserialize;
 
 use super::{
-    LogFilter, TIMESTAMP_MICROS, clean_required, match_clauses, normalize_filters,
-    normalize_free_text, validate_filter_fields,
+    LogCondition, LogFilter, TIMESTAMP_MICROS, clean_required, match_clauses,
+    validate_filter_fields,
 };
 use crate::{
     api::{
         AppState,
         http::routes::web::histogram::{
             BUCKET_COLUMN, BucketPlan, Counts, ERRORS_COLUMN, HistogramResponse, TOTAL_COLUMN,
-            Unavailable, read_counts, within_budget,
+            Unavailable, bars, read_counts, within_budget,
         },
     },
     app::iam::IamContext,
@@ -40,19 +41,29 @@ use crate::{
 const LEVEL_FIELDS: [&str; 2] = ["level", "body_level"];
 
 #[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct LogHistogramRequest {
     stream: Option<String>,
     from: Option<i64>,
     to: Option<i64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "super::address::json_list")]
     filters: Vec<LogFilter>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "super::address::json_list")]
     free_text: Vec<String>,
-    bucket_micros: Option<i64>,
-    origin_micros: Option<i64>,
+    #[serde(
+        default,
+        rename = "where",
+        deserialize_with = "super::address::json_value"
+    )]
+    condition: Option<serde_json::Value>,
+    /// The field query as text; it stands for `filters`, `free_text` and `where`.
+    #[serde(default)]
+    expression: Option<String>,
+    bucket_time: Option<i64>,
+    origin_time: Option<i64>,
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("logs.read", "sys.telemetry.read"))]
 pub(super) async fn histogram(
     State(state): State<AppState>,
     Extension(iam): Extension<IamContext>,
@@ -61,13 +72,17 @@ pub(super) async fn histogram(
     let plan = BucketPlan::new(
         request.from,
         request.to,
-        request.bucket_micros,
-        request.origin_micros,
+        request.bucket_time,
+        request.origin_time,
     )?;
 
     let stream_name = clean_required(request.stream, "log stream is required", 128)?;
-    let filters = normalize_filters(request.filters)?;
-    let free_text = normalize_free_text(request.free_text)?;
+    let (filters, free_text, condition) = super::expression::read_match(
+        request.expression,
+        request.filters,
+        request.free_text,
+        request.condition,
+    )?;
 
     let stream = match state
         .telemetry
@@ -82,48 +97,129 @@ pub(super) async fn histogram(
     };
 
     let fields = &stream.schema.fields;
-    validate_filter_fields(&filters, &free_text, fields)?;
+    validate_filter_fields(&filters, &free_text, condition.as_ref(), fields)?;
 
     let level = level_sql(fields);
-    let statement = histogram_sql(
-        &plan,
-        &stream_name,
-        &filters,
-        &free_text,
-        fields,
-        level.as_deref(),
-    )?;
 
-    // The same path as a query a user writes: admitted by role, listed among
-    // the running queries, masked, and cached once its time range is in the past.
-    let count = state.query.run_tracked(
-        QueryRequest {
-            org_id: iam.org_id.clone(),
-            language: QueryLanguage::Sql,
-            statement,
-            time_range: TimeRange::new(TimestampMicros(plan.from), TimestampMicros(plan.to)),
-            stream: Some(StreamHint {
-                name: stream_name,
-                stream_type: StreamType::LOGS,
-            }),
-            limit: None,
-            federation_clusters: Vec::new(),
-        },
-        iam.user_id.clone(),
-        iam.organization_role_key(),
-    );
+    let layout = bars::Layout::of(&plan);
+    let (width, origin) = (layout.width, layout.origin);
 
-    let output = match within_budget(count).await {
-        Ok(Some(output)) => output,
+    // The statement for one bar from the first bar boundary at or after the epoch names every
+    // bar of this statement, wherever its range begins.
+    let aligned = origin.rem_euclid(width);
+
+    let one_bar = aligned
+        .checked_add(width)
+        .and_then(|end| BucketPlan::new(Some(aligned), Some(end), Some(width), Some(aligned)).ok());
+
+    // Callers who read the audit trail and callers who do not never share cached bars.
+    let role = crate::infra::query::grants::current().cache_role(iam.organization_role_key());
+
+    let key = match one_bar {
+        Some(one_bar) => Some(bars::key(
+            iam.org_id.as_str(),
+            &role,
+            &histogram_sql(
+                &one_bar,
+                &stream_name,
+                (&filters, &free_text, condition.as_ref()),
+                fields,
+                level.as_deref(),
+            )?,
+        )),
+        None => None,
+    };
+
+    let known = match (bars::cache(), &key) {
+        (Some(cache), Some(key)) => cache.get(key).await,
+        _ => None,
+    };
+
+    let gaps = bars::gaps(&layout, known.as_deref());
+
+    // Each gap goes the path of a query a user writes: admitted by role, listed among the
+    // running queries, and masked.
+    let counting = async {
+        let mut counted = Vec::with_capacity(gaps.len());
+
+        for gap in &gaps {
+            let gap_plan = layout.plan(gap)?;
+
+            let statement = histogram_sql(
+                &gap_plan,
+                &stream_name,
+                (&filters, &free_text, condition.as_ref()),
+                fields,
+                level.as_deref(),
+            )?;
+
+            let output = state
+                .query
+                .run_tracked(
+                    QueryRequest {
+                        org_id: iam.org_id.clone(),
+                        language: QueryLanguage::Sql,
+                        statement,
+                        time_range: TimeRange::new(
+                            TimestampMicros(gap.from),
+                            TimestampMicros(gap.to),
+                        ),
+                        stream: Some(StreamHint {
+                            name: stream_name.clone(),
+                            stream_type: StreamType::LOGS,
+                        }),
+                        limit: None,
+                        step: None,
+                        federation_clusters: Vec::new(),
+                    },
+                    iam.user_id.clone(),
+                    iam.organization_role_key(),
+                )
+                .await?;
+
+            match read_counts(&output.columns, &output.rows)? {
+                Counts::Bars { bars: found, split } => {
+                    counted.push((*gap, bars::by_start(&layout, &found, &[]), split));
+                }
+                Counts::TimeMasked => return Ok(None),
+            }
+        }
+
+        Ok(Some(counted))
+    };
+
+    let counted = match within_budget(counting).await {
+        Ok(Some(Some(counted))) => counted,
+        Ok(Some(None)) => return Ok(Json(plan.unavailable(Unavailable::TimestampMasked))),
         Ok(None) => return Ok(Json(plan.unavailable(Unavailable::TimeBudget))),
         Err(Error::ResourceExhausted(_)) => return Ok(Json(plan.unavailable(Unavailable::Busy))),
         Err(error) => return Err(error),
     };
 
-    Ok(Json(match read_counts(&output.columns, &output.rows)? {
-        Counts::Bars { bars, split } => plan.counted(bars, split && level.is_some()),
-        Counts::TimeMasked => plan.unavailable(Unavailable::TimestampMasked),
-    }))
+    // The level is masked for this reader when a fresh count says so, and kept errors then go
+    // too. Kept totals hold either way.
+    let fresh_split = level.is_some() && counted.iter().all(|(_, _, split)| *split);
+    let split = fresh_split && known.as_deref().is_none_or(|known| known.split);
+
+    let counted = counted
+        .into_iter()
+        .map(|(gap, bars, _)| (gap, bars))
+        .collect::<Vec<_>>();
+
+    let assembled = bars::assemble(
+        &layout,
+        &counted,
+        known.as_deref(),
+        TimestampMicros::now().0,
+    );
+
+    let response = plan.counted(assembled.bars.clone(), split);
+
+    if let Some(key) = key {
+        bars::store(key, known.as_deref(), fresh_split, assembled).await;
+    }
+
+    Ok(Json(response))
 }
 
 /// SQL for the level of a row as text, read as the explorer reads it: the
@@ -152,12 +248,11 @@ fn level_sql(fields: &[FieldDef]) -> Option<String> {
 fn histogram_sql(
     plan: &BucketPlan,
     stream: &str,
-    filters: &[LogFilter],
-    free_text: &[String],
+    (filters, free_text, condition): (&[LogFilter], &[String], Option<&LogCondition>),
     fields: &[FieldDef],
     level: Option<&str>,
 ) -> Result<String> {
-    let clauses = match_clauses((plan.from, plan.to), filters, free_text, fields)?;
+    let clauses = match_clauses((plan.from, plan.to), filters, free_text, condition, fields)?;
 
     let errors = level
         .map(|level| {
@@ -311,14 +406,13 @@ mod tests {
         let statement = histogram_sql(
             &plan(),
             "app\"logs",
-            &filters,
-            &free_text,
+            (&filters, &free_text, None),
             &fields,
             level.as_deref(),
         )
         .expect("sql");
         let clauses =
-            match_clauses((10_500, 13_000), &filters, &free_text, &fields).expect("clauses");
+            match_clauses((10_500, 13_000), &filters, &free_text, None, &fields).expect("clauses");
 
         assert!(statement.contains(&format!("WHERE {} GROUP BY 1", clauses.join(" AND "))));
         assert!(statement.contains("CAST(_timestamp AS BIGINT) >= 10500"));
@@ -336,8 +430,14 @@ mod tests {
     async fn rows_are_counted_into_their_bars_with_errors_apart() {
         let fields = [field("level"), field("body_level"), field("service")];
         let level = level_sql(&fields);
-        let statement =
-            histogram_sql(&plan(), "app_logs", &[], &[], &fields, level.as_deref()).expect("sql");
+        let statement = histogram_sql(
+            &plan(),
+            "app_logs",
+            (&[], &[], None),
+            &fields,
+            level.as_deref(),
+        )
+        .expect("sql");
 
         // The row before the range and the row at its end are not counted. A
         // level is compared whatever its case, and a row without a level is
@@ -361,8 +461,7 @@ mod tests {
         let statement = histogram_sql(
             &plan(),
             "app_logs",
-            &filters,
-            &[],
+            (&filters, &[], None),
             &fields,
             level.as_deref(),
         )
@@ -377,7 +476,8 @@ mod tests {
     #[tokio::test]
     async fn a_stream_without_a_level_is_counted_whole() {
         let fields = [field("service")];
-        let statement = histogram_sql(&plan(), "app_logs", &[], &[], &fields, None).expect("sql");
+        let statement =
+            histogram_sql(&plan(), "app_logs", (&[], &[], None), &fields, None).expect("sql");
         assert!(!statement.contains(ERRORS_COLUMN));
 
         let session = session_context(0);
@@ -403,5 +503,46 @@ mod tests {
 
         assert!(!split);
         assert_eq!(bars, vec![bar(0, 2, 0), bar(1, 1, 0), bar(2, 2, 0)]);
+    }
+
+    /// An index counts the bars of a histogram only by conditions every row
+    /// meets: a value, a word. One part of an OR is not that.
+    #[test]
+    fn an_index_counts_no_bars_of_an_or() {
+        let fields = [field("service"), field("level"), field("message")];
+        let filters = [LogFilter {
+            field: "service".into(),
+            op: "=".into(),
+            value: "api".into(),
+            quoted: true,
+        }];
+        let free_text = ["upstream".to_string()];
+
+        let either = super::super::condition::read(
+            Some(serde_json::json!({"or": [
+                {"field": "level", "op": "=", "value": "error", "quoted": true},
+                {"text": "timeout"}
+            ]})),
+            8,
+            8,
+        )
+        .expect("a condition");
+
+        let counted = |condition: Option<&LogCondition>| {
+            let statement = histogram_sql(
+                &plan(),
+                "app_logs",
+                (&filters, &free_text, condition),
+                &fields,
+                None,
+            )
+            .expect("sql");
+            let rewritten = crate::infra::query::tantivy_pruner::rewrite_match_calls(&statement);
+
+            query_language::bar_counts(&rewritten, "app_logs")
+        };
+
+        assert!(counted(None).is_some());
+        assert!(counted(either.as_ref()).is_none());
     }
 }

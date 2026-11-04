@@ -39,7 +39,7 @@ pub(super) fn wait_until_printable(tab: &Tab, url: &str) -> Result<(), RenderErr
     ensure_page_renderable(tab)
 }
 
-/// 地址是否是报表页：查询参数里有 `report_render=1`。定时投递、即时导出和分享快照用的地址
+/// 地址是否是报表页：查询参数里有 `reportRender=1`。定时投递、即时导出和分享快照用的地址
 /// 都带着它，无论报表引用的是仪表盘还是已保存视图。
 fn is_report_page_url(url: &str) -> bool {
     let Some((_, rest)) = url.split_once('?') else {
@@ -48,7 +48,7 @@ fn is_report_page_url(url: &str) -> bool {
 
     let query = rest.split_once('#').map_or(rest, |(query, _)| query);
 
-    query.split('&').any(|pair| pair == "report_render=1")
+    query.split('&').any(|pair| pair == "reportRender=1")
 }
 
 fn wait_for_report_ready(tab: &Tab) -> Result<(), RenderError> {
@@ -181,13 +181,13 @@ mod tests {
     fn every_report_page_speaks_the_ready_protocol() {
         // 仪表盘和已保存视图的报表页都要等就绪信号。
         assert!(is_report_page_url(
-            "http://127.0.0.1:5173/dashboards/d1?report_render=1"
+            "http://127.0.0.1:5173/dashboards/d1?reportRender=1"
         ));
         assert!(is_report_page_url(
-            "http://127.0.0.1:5173/saved-views?view=v1&report_render=1&time=now-24h..now"
+            "http://127.0.0.1:5173/saved-views?view=v1&reportRender=1&time=now-24h..now"
         ));
         assert!(is_report_page_url(
-            "http://127.0.0.1:5173/dashboards/d1?time=now-7d..now&report_render=1#panel-3"
+            "http://127.0.0.1:5173/dashboards/d1?time=now-7d..now&reportRender=1#panel-3"
         ));
     }
 
@@ -197,21 +197,21 @@ mod tests {
         assert!(!is_report_page_url(
             "http://127.0.0.1:5173/saved-views?view=v1"
         ));
-        // 参数要完整等于 report_render=1：别的取值、别的参数里出现这段文字、片段里出现都不算。
+        // 参数要完整等于 reportRender=1：别的取值、别的参数里出现这段文字、片段里出现都不算。
         assert!(!is_report_page_url(
-            "http://127.0.0.1:5173/dashboards/d1?report_render=10"
+            "http://127.0.0.1:5173/dashboards/d1?reportRender=10"
         ));
         assert!(!is_report_page_url(
-            "http://127.0.0.1:5173/dashboards/d1?report_render=0"
+            "http://127.0.0.1:5173/dashboards/d1?reportRender=0"
         ));
         assert!(!is_report_page_url(
-            "http://127.0.0.1:5173/dashboards/d1?not_report_render=1"
+            "http://127.0.0.1:5173/dashboards/d1?notReportRender=1"
         ));
         assert!(!is_report_page_url(
-            "http://127.0.0.1:5173/dashboards/d1#report_render=1"
+            "http://127.0.0.1:5173/dashboards/d1#reportRender=1"
         ));
         assert!(!is_report_page_url(
-            "http://127.0.0.1:5173/dashboards/d1?next=a#x?report_render=1"
+            "http://127.0.0.1:5173/dashboards/d1?next=a#x?reportRender=1"
         ));
     }
 

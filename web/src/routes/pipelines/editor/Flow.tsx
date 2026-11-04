@@ -1,30 +1,43 @@
-import { Database, Plug, Plus, Send, Waypoints, type LucideIcon } from 'lucide-react';
+import type { TFunction } from 'i18next';
+import {
+  BellRing,
+  Database,
+  Plug,
+  Plus,
+  Send,
+  Siren,
+  TableProperties,
+  Undo2,
+  Trash2,
+  Waypoints,
+  type LucideIcon,
+} from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ChromeButton } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/shell/ui/dropdown-menu';
 
+import { AddDestinationMenu, AddStepMenu } from './FlowMenus';
+import { canRemoveNode } from './nodes';
 import { STEP_ICONS } from './steps';
+import { countingKinds } from '../counting/model';
+import { countingSummary } from '../counting/summary';
 import {
+  changesInPlace,
   connectorOf,
   firstStreamIndex,
   isRouted,
+  isStreamSink,
   MAX_STREAMS,
   stepType,
+  tableOf,
+  type AlertConditions,
   type PipelineGraphModel,
   type StepType,
 } from '../PipelineGraph/model';
 import type { GraphIssue } from '../PipelineGraph/validation';
-import { PROCESSOR_GROUPS, processorSummary } from '../processors/catalog';
+import { processorSummary } from '../processors/catalog';
 
 interface FlowNode {
   id: string;
@@ -36,12 +49,13 @@ interface FlowNode {
   ordinal?: number;
 }
 
-/** What a new destination is: another stream to write, or a connector to deliver to. */
-export type DestinationKind = 'stream' | 'connector';
+/** What a new destination is: another stream to write, a connector to deliver to, or an extend table. */
+export type DestinationKind = 'stream' | 'connector' | 'table';
 
 export interface FlowEditing {
   selectedId: string;
   onSelect: (id: string) => void;
+  onRemove: (id: string) => void;
   onAddStep: (type: StepType) => void;
   onAddSource: () => void;
   onAddDestination: (kind: DestinationKind) => void;
@@ -75,20 +89,38 @@ export function PipelineFlow({
   const { t } = useTranslation('pipelines');
   const routed = isRouted(model);
   const single = model.mode === 'realtime';
+  const alert = model.mode === 'alert';
+  const inPlace = changesInPlace(model);
   const first = firstStreamIndex(model.sinks);
-  const streamCount = model.sinks.filter((sink) => connectorOf(sink) === null).length;
+  const streamCount = model.sinks.filter(isStreamSink).length;
 
-  const sources: FlowNode[] = model.sources.map((source, index) => ({
-    id: `source-${index}`,
-    icon: Database,
-    title: source.trim() || t('flow.choose_stream'),
-    placeholder: !source.trim(),
-    detail: t('graph.node_subtitles.stream_input'),
-  }));
+  // An alert pipeline takes alert events and gives them back to the incident they open.
+  const sources: FlowNode[] = alert
+    ? [
+        {
+          id: 'source-0',
+          icon: Siren,
+          title: t('alert_mode.source_title'),
+          detail: alertConditionsSummary(model.alert, t),
+        },
+      ]
+    : model.sources.map((source, index) => ({
+        id: `source-${index}`,
+        icon: Database,
+        title: source.trim() || t('flow.choose_stream'),
+        placeholder: !source.trim(),
+        detail: t('graph.node_subtitles.stream_input'),
+      }));
 
   const steps: FlowNode[] = model.transforms.map((step, index) => {
     const type = stepType(step);
-    const fields = step.processor ? processorSummary(step.processor) : '';
+    const fields = step.processor
+      ? processorSummary(step.processor)
+      : step.kind === 'http_enrich'
+        ? (connectorNames[step.connectorId ?? ''] ?? '')
+        : step.kind === 'query_enrich'
+          ? (step.query?.stream.trim() ?? '')
+          : countingSummary(step, t);
     // Whether a filter keeps or drops what it matches is the half of it that matters most.
     const summary =
       step.processor?.op === 'filter' && fields
@@ -105,9 +137,20 @@ export function PipelineFlow({
     };
   });
 
-  const sinks: FlowNode[] = model.sinks.map((sink, index) => {
+  function destinationNode(sink: string, index: number): FlowNode {
     const id = `sink-${index}`;
     const connector = connectorOf(sink);
+    const table = tableOf(sink);
+
+    if (table !== null) {
+      return {
+        id,
+        icon: TableProperties,
+        title: table || t('table_sink.choose_short'),
+        placeholder: !table,
+        detail: t('table_sink.detail'),
+      };
+    }
 
     if (connector !== null) {
       return {
@@ -130,11 +173,37 @@ export function PipelineFlow({
       // Beside a routed output, a stream takes every event whatever the route picks.
       detail: t(routed ? 'flow.copy_detail' : 'graph.node_subtitles.stream_output'),
     };
-  });
+  }
+
+  const source = model.sources[0]?.trim() ?? '';
+
+  // Metrics and spans changed as they arrive go back into the stream they came from.
+  const sinks: FlowNode[] = alert
+    ? [
+        model.alert.stage === 'notify'
+          ? {
+              id: 'sink-0',
+              icon: BellRing,
+              title: t('alert_mode.write_back_notify'),
+              detail: t('alert_mode.write_back_notify_detail'),
+            }
+          : { id: 'sink-0', icon: Undo2, title: t('alert_mode.write_back'), detail: t('alert_mode.write_back_detail') },
+      ]
+    : inPlace
+      ? [
+          {
+            id: 'sink-0',
+            icon: Undo2,
+            title: source || t('flow.choose_stream'),
+            placeholder: !source,
+            detail: t('realtime.in_place_detail'),
+          },
+        ]
+      : model.sinks.map((sink, index) => destinationNode(sink, index));
 
   const lane = useScrollEdges(steps.length);
   const node = (item: FlowNode, className?: string) => (
-    <FlowNodeCard key={item.id} node={item} editing={editing} className={className} />
+    <FlowNodeCard key={item.id} node={item} editing={editing} removable={canRemoveNode(model, item.id)} className={className} />
   );
   const add = (label: string, onClick: () => void, full = false) =>
     editing && (
@@ -176,8 +245,8 @@ export function PipelineFlow({
         data-flow-lane
         role="group"
         aria-label={t('flow.processing')}
-        // A long chain scrolls sideways; the edge with more steps beyond it fades to say so.
-        className="col-start-3 row-start-2 flex min-w-0 items-center self-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        // Leave room for card edges inside the scroll clip; long chains fade at either end.
+        className="col-start-3 row-start-2 flex min-w-0 items-center self-center overflow-x-auto p-[2px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         style={lane.style}
       >
         {steps.map((item, index) => (
@@ -188,7 +257,7 @@ export function PipelineFlow({
         ))}
         {steps.length === 0 && (
           <span data-flow-no-steps className="shrink-0 font-sans text-xs text-tx-3">
-            {t('flow.no_steps')}
+            {t(alert ? 'alert_mode.no_steps' : 'flow.no_steps')}
           </span>
         )}
         {/* The line runs on from the last step to the arrow into the destinations. */}
@@ -206,16 +275,25 @@ export function PipelineFlow({
       {editing && (
         <>
           <div className="col-start-1 row-start-3 grid">
-            {/* A realtime pipeline listens on one stream. */}
+            {/* A realtime pipeline listens on one stream; an alert pipeline on alert events. */}
             {!single &&
+              !alert &&
               add(t('flow.add_source'), editing.onAddSource, model.sources.length >= MAX_STREAMS)}
           </div>
           <div className="col-start-3 row-start-3 grid">
-            <AddStepMenu editing={editing} />
+            <AddStepMenu
+              editing={editing}
+              mode={model.mode}
+              stage={model.alert.stage}
+              routes={!inPlace}
+              counting={countingKinds(model.mode, model.signalType, model.sources[0] ?? '')}
+            />
           </div>
           <div className="col-start-5 row-start-3 grid">
-            {/* A realtime pipeline writes to its stream and nowhere else. */}
-            {!single && <AddDestinationMenu editing={editing} streamsFull={streamCount >= MAX_STREAMS} />}
+            {/* A realtime pipeline writes to its stream and nowhere else; an alert pipeline back into the event. */}
+            {!single && !alert && (
+              <AddDestinationMenu editing={editing} streamsFull={streamCount >= MAX_STREAMS} />
+            )}
           </div>
         </>
       )}
@@ -297,10 +375,12 @@ function FlowLink({ className }: { className?: string }) {
 
 function FlowNodeCard({
   node,
+  removable,
   editing,
   className,
 }: {
   node: FlowNode;
+  removable: boolean;
   editing?: FlowEditing | undefined;
   className?: string | undefined;
 }) {
@@ -379,106 +459,57 @@ function FlowNodeCard({
   }
 
   return (
-    <button
-      ref={ref}
-      type="button"
-      data-pipeline-node={node.id}
-      aria-pressed={selected}
-      aria-invalid={broken || undefined}
-      aria-label={
-        issues.length > 0
-          ? t('flow.node_with_issues', { name: node.title, count: issues.length })
-          : undefined
-      }
-      onClick={() => editing.onSelect(node.id)}
-      className={cn(
-        shape,
-        'outline-none transition-colors duration-fast',
-        selected
-          ? 'bg-indigo-dim'
-          : 'bg-[var(--control-surface)] hover:bg-bg-3 focus-visible:bg-bg-3',
-      )}
-    >
-      {body}
-    </button>
+    <div className={cn('relative min-w-0', className)}>
+      <button
+        ref={ref}
+        type="button"
+        data-pipeline-node={node.id}
+        aria-pressed={selected}
+        aria-invalid={broken || undefined}
+        aria-label={
+          issues.length > 0
+            ? t('flow.node_with_issues', { name: node.title, count: issues.length })
+            : undefined
+        }
+        onClick={() => editing.onSelect(node.id)}
+        className={cn(
+          shape,
+          'w-full pr-9',
+          'outline-none transition-colors duration-fast',
+          selected
+            ? 'bg-indigo-dim'
+            : 'bg-[var(--control-surface)] hover:bg-bg-3 focus-visible:bg-bg-3',
+        )}
+      >
+        {body}
+      </button>
+      <button
+        type="button"
+        aria-label={t('flow.remove_node', { name: node.title })}
+        title={editing.disabledReason || (!removable ? t('flow.required_node') : t('flow.remove_node', { name: node.title }))}
+        disabled={editing.disabled || !removable}
+        onClick={() => editing.onRemove(node.id)}
+        className="absolute right-1 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded text-tx-2 enabled:hover:bg-red-dim enabled:hover:text-red-soft focus-visible:bg-red-dim focus-visible:text-red-soft disabled:text-tx-3 disabled:opacity-40"
+      >
+        <Trash2 aria-hidden className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
 }
 
-/** What a new destination can be: another stream that takes every event, or a connector. */
-function AddDestinationMenu({ editing, streamsFull }: { editing: FlowEditing; streamsFull: boolean }) {
-  const { t } = useTranslation('pipelines');
+/** What an alert pipeline's conditions take, in a line: every event, or what it has to match. */
+function alertConditionsSummary(conditions: AlertConditions, t: TFunction<'pipelines'>): string {
+  const parts = [
+    conditions.stage === 'notify' && conditions.policies.length > 0
+      ? t('alert_mode.policies_count', { count: conditions.policies.length })
+      : '',
+    conditions.sources.map((source) => t(`alert_mode.source.${source}`)).join(' / '),
+    conditions.severities.map((severity) => t(`alert_mode.severity.${severity}`)).join(' / '),
+    conditions.labels
+      .filter((label) => label.key.trim())
+      .map((label) => `${label.key.trim()}=${label.value}`)
+      .join(', '),
+  ].filter(Boolean);
 
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <ChromeButton
-          size="sm"
-          variant="ghost"
-          className="justify-self-start text-tx-2"
-          disabled={editing.disabled}
-          disabledReason={editing.disabledReason}
-        >
-          <Plus aria-hidden className="h-3.5 w-3.5" />
-          {t('flow.add_destination')}
-        </ChromeButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-[208px]">
-        <DropdownMenuItem
-          disabled={streamsFull}
-          disabledReason={streamsFull ? t('flow.at_most', { max: MAX_STREAMS }) : undefined}
-          onSelect={() => editing.onAddDestination('stream')}
-        >
-          <Send aria-hidden className="h-3.5 w-3.5 text-tx-2" />
-          {t('flow.destination_stream')}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => editing.onAddDestination('connector')}>
-          <Plug aria-hidden className="h-3.5 w-3.5 text-tx-2" />
-          {t('flow.destination_connector')}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-/** What a new step can be: a ready-made processor, a route, or VRL written by hand. */
-function AddStepMenu({ editing }: { editing: FlowEditing }) {
-  const { t } = useTranslation('pipelines');
-  const item = (type: StepType) => {
-    const Icon = STEP_ICONS[type];
-
-    return (
-      <DropdownMenuItem key={type} onSelect={() => editing.onAddStep(type)}>
-        <Icon aria-hidden className="h-3.5 w-3.5 text-tx-2" />
-        {t(`steps.types.${type}`)}
-      </DropdownMenuItem>
-    );
-  };
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <ChromeButton
-          size="sm"
-          variant="ghost"
-          className="justify-self-start text-tx-2"
-          disabled={editing.disabled}
-          disabledReason={editing.disabledReason}
-        >
-          <Plus aria-hidden className="h-3.5 w-3.5" />
-          {t('flow.add_step')}
-        </ChromeButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-[208px]">
-        {PROCESSOR_GROUPS.map(({ group, ops }) => (
-          <React.Fragment key={group}>
-            <DropdownMenuLabel>{t(`steps.groups.${group}`)}</DropdownMenuLabel>
-            {ops.map(item)}
-          </React.Fragment>
-        ))}
-        <DropdownMenuSeparator />
-        {item('route')}
-        {item('vrl')}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+  return parts.length > 0 ? parts.join(' · ') : t('alert_mode.all_events');
 }

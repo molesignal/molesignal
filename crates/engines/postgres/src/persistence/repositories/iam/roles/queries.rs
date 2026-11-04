@@ -1,24 +1,36 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Organization-scoped IAM role read models.
+//! IAM role read models.
 //!
-//! A custom role is read as organization scope only, whatever rows it has. A built-in role is
-//! read as the catalog defines it, so the owner shows the platform permissions it holds.
+//! A role is read as its own scope only, whatever rows it has: a platform role holds platform
+//! permissions, and every other role organization permissions. `permissions` are the role's own;
+//! `effective_permissions` add those of the policies it attaches.
 
 const ROLE_FIELDS: &str = "role.id, role.org_id, role.role_key, role.name, role.description,
-                           role.builtin, role.role_type, role.scope,
-                           role.created_at_micros, role.updated_at_micros";
+                           role.builtin, role.role_type, role.scope, role.policy_ids,
+                           role.created_at, role.updated_at,
+                           ARRAY(
+                               SELECT granted.permission_key
+                                 FROM unnest(iam_role_grants(role.permissions, role.policy_ids))
+                                      AS granted(permission_key)
+                                 JOIN iam_permissions granted_permission
+                                   ON granted_permission.permission_key = granted.permission_key
+                                  AND granted_permission.scope =
+                                      CASE role.scope WHEN 'platform' THEN 'platform' ELSE 'organization' END
+                             ORDER BY granted.permission_key
+                           ) AS effective_permissions";
 
 const ROLE_GROUP_BY: &str = "role.id, role.org_id, role.role_key, role.name, role.description,
-                            role.builtin, role.role_type, role.scope,
-                            role.created_at_micros, role.updated_at_micros";
+                            role.builtin, role.role_type, role.scope, role.policy_ids,
+                            role.permissions, role.created_at, role.updated_at";
 
 const ROLE_ORDER_BY: &str = "CASE WHEN role.builtin THEN 0 ELSE 1 END,
                              COALESCE(
                                  (SELECT display_priority
-                                    FROM iam_builtin_roles catalog
-                                   WHERE catalog.role_key = role.role_key),
+                                    FROM iam_roles catalog
+                                   WHERE catalog.org_id IS NULL
+                                     AND catalog.role_key = role.role_key),
                                  1000
                              ),
                              role.name ASC";
@@ -35,7 +47,7 @@ pub(super) fn list_sql() -> String {
       LEFT JOIN LATERAL unnest(role.permissions) AS role_permission(permission_key) ON TRUE
       LEFT JOIN iam_permissions permission
              ON permission.permission_key = role_permission.permission_key
-            AND (permission.scope = 'organization' OR role.builtin)
+            AND permission.scope = CASE role.scope WHEN 'platform' THEN 'platform' ELSE 'organization' END
           WHERE role.org_id = $1
        GROUP BY {ROLE_GROUP_BY}
        ORDER BY {ROLE_ORDER_BY}"
@@ -53,15 +65,10 @@ pub(super) fn list_with_usage_sql() -> String {
                 AND resource_type IS NULL
                 AND resource_id IS NULL
            GROUP BY organization_id, role_id
-         ), token_usage AS (
-             SELECT org_id, role_id, COUNT(*) AS api_tokens
-               FROM api_tokens
-              WHERE org_id = $1 AND revoked = FALSE
-           GROUP BY org_id, role_id
          ), service_account_usage AS (
              SELECT org_id, role_id, COUNT(*) AS service_accounts
                FROM service_accounts
-              WHERE org_id = $1 AND deleted_at_micros IS NULL
+              WHERE org_id = $1 AND deleted_at IS NULL
            GROUP BY org_id, role_id
          ), invitation_usage AS (
              SELECT org_id, role_id, COUNT(*) AS invitations
@@ -81,7 +88,6 @@ pub(super) fn list_with_usage_sql() -> String {
                     ARRAY[]::TEXT[]
                 ) AS permissions,
                 COALESCE(MAX(membership_usage.memberships), 0) AS memberships,
-                COALESCE(MAX(token_usage.api_tokens), 0) AS api_tokens,
                 COALESCE(MAX(service_account_usage.service_accounts), 0) AS service_accounts,
                 COALESCE(MAX(invitation_usage.invitations), 0) AS invitations,
                 COALESCE(MAX(binding_usage.bindings), 0) AS bindings
@@ -89,13 +95,10 @@ pub(super) fn list_with_usage_sql() -> String {
       LEFT JOIN LATERAL unnest(role.permissions) AS role_permission(permission_key) ON TRUE
       LEFT JOIN iam_permissions permission
              ON permission.permission_key = role_permission.permission_key
-            AND (permission.scope = 'organization' OR role.builtin)
+            AND permission.scope = CASE role.scope WHEN 'platform' THEN 'platform' ELSE 'organization' END
       LEFT JOIN membership_usage
              ON membership_usage.org_id = role.org_id
             AND membership_usage.role_id = role.id
-      LEFT JOIN token_usage
-             ON token_usage.org_id = role.org_id
-            AND token_usage.role_id = role.id
       LEFT JOIN service_account_usage
              ON service_account_usage.org_id = role.org_id
             AND service_account_usage.role_id = role.id
@@ -123,7 +126,7 @@ pub(super) fn get_sql() -> String {
       LEFT JOIN LATERAL unnest(role.permissions) AS role_permission(permission_key) ON TRUE
       LEFT JOIN iam_permissions permission
              ON permission.permission_key = role_permission.permission_key
-            AND (permission.scope = 'organization' OR role.builtin)
+            AND permission.scope = CASE role.scope WHEN 'platform' THEN 'platform' ELSE 'organization' END
           WHERE role.org_id = $1 AND role.id = $2
        GROUP BY {ROLE_GROUP_BY}"
     )

@@ -52,7 +52,7 @@ pub fn routes() -> Router<AppState> {
         .route("/agent/tools/{id}/calls", get(tool_calls))
 }
 
-#[permission("agent.use")]
+#[permission("agent.tools.read")]
 async fn list_tools(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -71,11 +71,11 @@ async fn list_tools(
 
     Ok(Json(json!({
         "tools": tools,
-        "dynamic_http": false,
+        "dynamicHttp": false,
         "shell": false,
         "browser": false,
-        "open_mcp": servers.iter().any(|server| server.enabled),
-        "mcp_servers": {
+        "openMcp": servers.iter().any(|server| server.enabled),
+        "mcpServers": {
             "total": servers.len(),
             "healthy": servers.iter().filter(|server| server.status == "healthy").count(),
             "unhealthy": servers
@@ -86,7 +86,7 @@ async fn list_tools(
     })))
 }
 
-#[permission("agent.use")]
+#[permission("agent.tools.read")]
 async fn get_tool(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -150,30 +150,30 @@ async fn managed_tools(state: &AppState, ctx: &IamContext) -> Result<Vec<Value>>
         result.push(json!({
             "id": tool.name,
             "name": tool.name,
-            "display_name": tool.display_name,
+            "displayName": tool.display_name,
             "description": tool.description,
-            "technical_description": tool.description,
+            "technicalDescription": tool.description,
             "domain": tool.domain,
             "category": tool.category,
             "source": {"kind": "builtin", "label": "builtin"},
             "risk": tool.risk,
-            "execution_mode": execution_mode,
+            "executionMode": execution_mode,
             "enabled": enabled,
-            "available_to_agent": available_to_agent,
+            "availableToAgent": available_to_agent,
             "status": if enabled { "healthy" } else { "disabled" },
-            "input_schema": tool.input_schema,
-            "output_schema": tool.output_schema,
+            "inputSchema": tool.input_schema,
+            "outputSchema": tool.output_schema,
             "capabilities": tool.annotations.capabilities(),
             "limits": {
-                "timeout_ms": policy.map(|value| value.timeout_ms).unwrap_or(DEFAULT_TIMEOUT_MS),
-                "max_calls_per_run": policy.map(|value| value.max_calls_per_run).unwrap_or(DEFAULT_MAX_CALLS),
-                "max_response_bytes": policy.map(|value| value.max_response_bytes).unwrap_or(DEFAULT_MAX_RESPONSE_BYTES)
+                "timeoutMs": policy.map(|value| value.timeout_ms).unwrap_or(DEFAULT_TIMEOUT_MS),
+                "maxCallsPerRun": policy.map(|value| value.max_calls_per_run).unwrap_or(DEFAULT_MAX_CALLS),
+                "maxResponseBytes": policy.map(|value| value.max_response_bytes).unwrap_or(DEFAULT_MAX_RESPONSE_BYTES)
             },
-            "environment_overrides": policy.map(|value| value.environment_overrides.clone()).unwrap_or_else(|| json!({})),
+            "environmentOverrides": policy.map(|value| value.environment_overrides.clone()).unwrap_or_else(|| json!({})),
             "tags": tool.tags,
             "exposure": tool.exposure,
-            "required_permissions": tool.required_permissions,
-            "permission_mode": tool.permission_mode,
+            "requiredPermissions": tool.required_permissions,
+            "permissionMode": tool.permission_mode,
             "access": tool.access,
             "statistics": stats
         }));
@@ -229,7 +229,7 @@ fn mcp_tool_value(
     available_to_agent: bool,
     statistics: Value,
 ) -> Value {
-    let read_only = tool.capabilities["read_only"].as_bool().unwrap_or(false);
+    let read_only = tool.capabilities["readOnly"].as_bool().unwrap_or(false);
 
     let configured_enabled = tool.enabled
         && policy.is_none_or(|policy| policy.enabled)
@@ -240,37 +240,37 @@ fn mcp_tool_value(
     json!({
         "id": tool.id,
         "name": tool.name,
-        "remote_name": tool.remote_name,
-        "display_name": tool.display_name,
+        "remoteName": tool.remote_name,
+        "displayName": tool.display_name,
         "description": tool.description,
-        "technical_description": tool.description,
+        "technicalDescription": tool.description,
         "domain": domain_for_mcp_tool(tool),
         "category": tool.tags.first().cloned().unwrap_or_else(|| "MCP".into()),
         "source": {
             "kind": "mcp",
             "label": server.map(|value| value.name.as_str()).unwrap_or("MCP"),
-            "server_id": tool.server_id,
-            "server_name": server.map(|value| value.name.as_str()),
-            "server_scope": server.map(|value| value.scope.kind())
+            "serverId": tool.server_id,
+            "serverName": server.map(|value| value.name.as_str()),
+            "serverScope": server.map(|value| value.scope.kind())
         },
         "risk": tool.risk,
-        "minimum_risk": tool.minimum_risk,
-        "execution_mode": execution_mode,
+        "minimumRisk": tool.minimum_risk,
+        "executionMode": execution_mode,
         "enabled": configured_enabled,
-        "available_to_agent": available_to_agent,
+        "availableToAgent": available_to_agent,
         "status": if !configured_enabled { "disabled" } else if server_healthy { "healthy" } else { "unavailable" },
-        "input_schema": tool.input_schema,
-        "output_schema": tool.output_schema,
+        "inputSchema": tool.input_schema,
+        "outputSchema": tool.output_schema,
         "capabilities": tool.capabilities,
         "limits": {
-            "timeout_ms": policy.map(|value| value.timeout_ms).unwrap_or_else(|| server.map(|value| value.timeout_ms).unwrap_or(DEFAULT_TIMEOUT_MS)),
-            "max_calls_per_run": policy.map(|value| value.max_calls_per_run).unwrap_or(DEFAULT_MAX_CALLS),
-            "max_response_bytes": policy.map(|value| value.max_response_bytes).unwrap_or_else(|| server.map(|value| value.max_response_bytes).unwrap_or(DEFAULT_MAX_RESPONSE_BYTES))
+            "timeoutMs": policy.map(|value| value.timeout_ms).unwrap_or_else(|| server.map(|value| value.timeout_ms).unwrap_or(DEFAULT_TIMEOUT_MS)),
+            "maxCallsPerRun": policy.map(|value| value.max_calls_per_run).unwrap_or(DEFAULT_MAX_CALLS),
+            "maxResponseBytes": policy.map(|value| value.max_response_bytes).unwrap_or_else(|| server.map(|value| value.max_response_bytes).unwrap_or(DEFAULT_MAX_RESPONSE_BYTES))
         },
-        "environment_overrides": policy.map(|value| value.environment_overrides.clone()).unwrap_or_else(|| json!({})),
+        "environmentOverrides": policy.map(|value| value.environment_overrides.clone()).unwrap_or_else(|| json!({})),
         "tags": tool.tags,
         "access": if read_only { "read_only" } else { "creates_approval_request" },
-        "last_synced_at": tool.last_synced_at,
+        "lastSyncedAt": tool.last_synced_at,
         "version": tool.version,
         "statistics": statistics
     })
@@ -343,11 +343,11 @@ fn call_stats(calls: &[ToolCallRecord], tool_name: &str) -> Value {
         .and_then(|call| call.error.as_deref());
 
     json!({
-        "calls_24h": total,
-        "success_rate": success_rate,
-        "p95_ms": p95_ms,
-        "last_called_at": last_called_at,
-        "last_error": last_error
+        "calls24h": total,
+        "successRate": success_rate,
+        "p95Ms": p95_ms,
+        "lastCalledAt": last_called_at,
+        "lastError": last_error
     })
 }
 
@@ -374,6 +374,7 @@ fn parse_execution_mode(value: &str) -> Option<ToolExecutionMode> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ToolPolicyRequest {
     enabled: Option<bool>,
     execution_mode: Option<ToolExecutionMode>,
@@ -385,7 +386,7 @@ struct ToolPolicyRequest {
     max_response_bytes: Option<i64>,
 }
 
-#[permission("agent.manage")]
+#[permission("agent.tools.manage")]
 async fn update_tool_policy(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -403,7 +404,7 @@ async fn update_tool_policy(
         json!({
             "enabled": updated["enabled"],
             "risk": updated["risk"],
-            "execution_mode": updated["execution_mode"]
+            "executionMode": updated["executionMode"]
         }),
     )
     .await;
@@ -516,12 +517,12 @@ async fn apply_tool_policy(
             "name": id,
             "risk": definition.risk,
             "enabled": saved.enabled,
-            "execution_mode": saved.execution_mode,
-            "environment_overrides": saved.environment_overrides,
+            "executionMode": saved.execution_mode,
+            "environmentOverrides": saved.environment_overrides,
             "limits": {
-                "timeout_ms": saved.timeout_ms,
-                "max_calls_per_run": saved.max_calls_per_run,
-                "max_response_bytes": saved.max_response_bytes
+                "timeoutMs": saved.timeout_ms,
+                "maxCallsPerRun": saved.max_calls_per_run,
+                "maxResponseBytes": saved.max_response_bytes
             }
         }));
     }
@@ -658,14 +659,14 @@ async fn apply_tool_policy(
         "id": saved.id,
         "name": saved.name,
         "risk": saved.risk,
-        "minimum_risk": saved.minimum_risk,
+        "minimumRisk": saved.minimum_risk,
         "enabled": saved.enabled,
-        "execution_mode": saved.execution_mode,
-        "environment_overrides": saved_policy.environment_overrides,
+        "executionMode": saved.execution_mode,
+        "environmentOverrides": saved_policy.environment_overrides,
         "limits": {
-            "timeout_ms": saved_policy.timeout_ms,
-            "max_calls_per_run": saved_policy.max_calls_per_run,
-            "max_response_bytes": saved_policy.max_response_bytes
+            "timeoutMs": saved_policy.timeout_ms,
+            "maxCallsPerRun": saved_policy.max_calls_per_run,
+            "maxResponseBytes": saved_policy.max_response_bytes
         }
     }))
 }
@@ -696,7 +697,7 @@ struct DisableRequest {
     force: bool,
 }
 
-#[permission("agent.manage")]
+#[permission("agent.tools.manage")]
 async fn enable_tool(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -731,7 +732,7 @@ async fn enable_tool(
     Ok(Json(updated))
 }
 
-#[permission("agent.manage")]
+#[permission("agent.tools.manage")]
 async fn disable_tool(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -770,7 +771,7 @@ async fn disable_tool(
         "agent.tool.disabled",
         "agent_tool",
         &id,
-        json!({"forced": request.force, "dependency_count": count}),
+        json!({"forced": request.force, "dependencyCount": count}),
     )
     .await;
 
@@ -793,7 +794,7 @@ async fn resolve_tool_name(state: &AppState, org_id: &Id, id: &str) -> Result<St
         .ok_or_else(|| Error::not_found(format!("tool `{id}` not found")))
 }
 
-#[permission("agent.use")]
+#[permission("agent.tools.read")]
 async fn tool_dependencies(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -820,40 +821,17 @@ pub(crate) async fn dependency_value(
                 "id": profile.id,
                 "name": profile.name,
                 "enabled": profile.enabled,
-                "is_default": profile.is_default
+                "isDefault": profile.is_default
             })
         })
         .collect::<Vec<_>>();
 
-    let automations = state
-        .agent
-        .repository
-        .list_automations(org_id)
-        .await?
-        .into_iter()
-        .filter(|automation| {
-            automation
-                .allowed_tools
-                .iter()
-                .any(|tool| tool == tool_name)
-        })
-        .map(|automation| {
-            json!({
-                "id": automation.id,
-                "name": automation.name,
-                "enabled": automation.enabled
-            })
-        })
-        .collect::<Vec<_>>();
-
-    let total = profiles.len() + automations.len();
-
+    // 自动化按任务提示运行，不再各自挑工具，所以不依赖某个工具。
     Ok(json!({
-        "tool_name": tool_name,
-        "total": total,
-        "agent_profiles": profiles,
-        "automations": automations,
-        "investigation_templates": []
+        "toolName": tool_name,
+        "total": profiles.len(),
+        "agentProfiles": profiles,
+        "investigationTemplates": []
     }))
 }
 
@@ -867,7 +845,7 @@ const fn default_call_limit() -> usize {
     100
 }
 
-#[permission("agent.use")]
+#[permission("agent.tools.read")]
 async fn tool_calls(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -892,6 +870,7 @@ async fn tool_calls(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ToolTestRequest {
     #[serde(default)]
     arguments: Value,
@@ -905,7 +884,7 @@ const fn default_true() -> bool {
     true
 }
 
-#[permission("agent.manage")]
+#[permission("agent.tools.manage")]
 async fn test_tool(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -921,8 +900,8 @@ async fn test_tool(
         })
         .ok_or_else(|| Error::not_found(format!("tool `{id}` not found")))?;
 
-    crate::app::mcp::validate_schema(&tool["input_schema"], &request.arguments)?;
-    let read_only = tool["capabilities"]["read_only"].as_bool().unwrap_or(false);
+    crate::app::mcp::validate_schema(&tool["inputSchema"], &request.arguments)?;
+    let read_only = tool["capabilities"]["readOnly"].as_bool().unwrap_or(false);
 
     if request.validate_only || !read_only {
         if !read_only && !request.dry_run {
@@ -934,9 +913,9 @@ async fn test_tool(
         return Ok(Json(json!({
             "success": true,
             "validated": true,
-            "dry_run": true,
+            "dryRun": true,
             "executed": false,
-            "side_effects": false,
+            "sideEffects": false,
             "message": if read_only {
                 "参数校验通过。"
             } else {
@@ -946,13 +925,13 @@ async fn test_tool(
         })));
     }
 
-    if tool["execution_mode"] != "automatic" {
+    if tool["executionMode"] != "automatic" {
         return Ok(Json(json!({
             "success": true,
             "validated": true,
-            "dry_run": request.dry_run,
+            "dryRun": request.dry_run,
             "executed": false,
-            "side_effects": false,
+            "sideEffects": false,
             "message": "工具策略要求确认或审批；测试仅完成参数校验。"
         })));
     }
@@ -982,8 +961,8 @@ async fn test_tool(
         &id,
         json!({
             "success": !result.is_error,
-            "duration_ms": duration_ms,
-            "dry_run": request.dry_run
+            "durationMs": duration_ms,
+            "dryRun": request.dry_run
         }),
     )
     .await;
@@ -991,16 +970,16 @@ async fn test_tool(
     Ok(Json(json!({
         "success": !result.is_error,
         "validated": true,
-        "dry_run": request.dry_run,
+        "dryRun": request.dry_run,
         "executed": true,
-        "side_effects": false,
-        "duration_ms": duration_ms,
+        "sideEffects": false,
+        "durationMs": duration_ms,
         "request": redact_sensitive_value(&request.arguments),
         "response": result
     })))
 }
 
-#[permission("agent.use")]
+#[permission("agent.tools.read")]
 async fn get_policy_defaults(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -1018,13 +997,14 @@ async fn get_policy_defaults(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct PolicyDefaultsRequest {
     risk_modes: Value,
     #[serde(default)]
     environment_overrides: Value,
 }
 
-#[permission("agent.manage")]
+#[permission("agent.tools.manage")]
 async fn update_policy_defaults(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -1064,8 +1044,8 @@ async fn update_policy_defaults(
         "agent_tool_policy",
         &ctx.org_id.0,
         json!({
-            "risk_modes": saved.risk_modes,
-            "environment_overrides": saved.environment_overrides
+            "riskModes": saved.risk_modes,
+            "environmentOverrides": saved.environment_overrides
         }),
     )
     .await;
@@ -1076,7 +1056,7 @@ async fn update_policy_defaults(
 fn validate_default_modes(value: &Value) -> Result<()> {
     let object = value
         .as_object()
-        .ok_or_else(|| Error::invalid("risk_modes must be an object"))?;
+        .ok_or_else(|| Error::invalid("riskModes must be an object"))?;
 
     for risk in [
         RiskLevel::L0,
@@ -1106,7 +1086,7 @@ fn validate_default_modes(value: &Value) -> Result<()> {
 fn validate_environment_overrides(value: &Value) -> Result<()> {
     let environments = value
         .as_object()
-        .ok_or_else(|| Error::invalid("environment_overrides must be an object"))?;
+        .ok_or_else(|| Error::invalid("environmentOverrides must be an object"))?;
 
     for (environment, modes) in environments {
         if !matches!(

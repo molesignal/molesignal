@@ -13,12 +13,13 @@ use datafusion::{
     common::TableReference, execution::object_store::ObjectStoreUrl, prelude::SessionContext,
 };
 
-use super::{TraceListContext, TraceListRow, TraceListSort, filter::TraceFilter};
+use self::order::{cursor_predicate, order_by};
+use super::{TraceListContext, TraceListRow, filter::TraceFilter};
 use crate::{
-    api::{AppState, http::pagination::cursor::CursorDirection},
+    api::{AppState, http::routes::web::trace::HTTP_STATUS_FIELDS},
     domain::{
         storage::{DatasetTypeId, primary_dataset_type, type_id::builtin},
-        stream::{FieldType, StreamDefinition},
+        stream::{FieldType, Schema, StreamDefinition},
     },
     infra::{
         query::{escape_sql_ident, parquet_table::PrunedParquetTable},
@@ -26,7 +27,6 @@ use crate::{
     },
     shared::{
         Error, Result,
-        cursor::{CursorSortDirection, CursorValue, lexicographic_seek},
         time::{TimeRange, TimestampMicros},
         trace::summary::{
             TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
@@ -36,6 +36,8 @@ use crate::{
 };
 
 pub(super) mod count;
+mod order;
+mod plan;
 
 const RAW_TABLE: &str = "__molesignal_trace_spans";
 const SUMMARY_TABLE: &str = "__molesignal_trace_summaries";
@@ -63,7 +65,7 @@ pub(super) async fn run(
         return Ok(Vec::new());
     };
 
-    let sql = build_sql(context, fetch_limit)?;
+    let sql = build_sql(context, &definition.schema, fetch_limit)?;
 
     let batches = tables
         .session
@@ -172,7 +174,7 @@ async fn register_tables(
     }))
 }
 
-fn build_sql(context: &TraceListContext, fetch_limit: usize) -> Result<String> {
+fn build_sql(context: &TraceListContext, schema: &Schema, fetch_limit: usize) -> Result<String> {
     let from_ns = context
         .from
         .checked_mul(1_000)
@@ -183,20 +185,28 @@ fn build_sql(context: &TraceListContext, fetch_limit: usize) -> Result<String> {
         .checked_mul(1_000)
         .ok_or_else(|| Error::invalid("trace time_to is out of range"))?;
 
-    let matching_trace_ids = matching_trace_ids_sql(context)?;
+    let plan = plan::plan(context)?;
     let start = qualified("s", TRACE_SUMMARY_START_NS_FIELD);
     let duration = qualified("s", TRACE_SUMMARY_DURATION_NS_FIELD);
     let span_count = qualified("s", TRACE_SUMMARY_SPAN_COUNT_FIELD);
     let error_count = qualified("s", TRACE_SUMMARY_ERROR_COUNT_FIELD);
     let trace_id = qualified("s", "trace_id");
     let mut predicates = vec![format!("{} = 1", qualified("s", SUMMARY_RANK_FIELD))];
-    predicates.extend(summary_predicates(context)?);
+    predicates.extend(plan.predicates);
 
     if let Some(boundary) = context.boundary.as_ref() {
         predicates.push(cursor_predicate(context, boundary.direction));
     }
 
     let order = order_by(context);
+
+    // The HTTP status of the root, where the stream keeps one, as the summary copied it.
+    let http_status = HTTP_STATUS_FIELDS
+        .iter()
+        .enumerate()
+        .filter(|(_, name)| schema.fields.iter().any(|field| field.name == **name))
+        .map(|(index, name)| format!(",\n{} AS http_status_{index}", qualified("s", name)))
+        .collect::<String>();
 
     Ok(format!(
         "WITH ranked_summaries AS (\n\
@@ -210,23 +220,28 @@ fn build_sql(context: &TraceListContext, fetch_limit: usize) -> Result<String> {
              AND \"{start_field}\" < {to_ns}\n\
          ),\n\
          matching_trace_ids AS (\n\
-           {matching_trace_ids}\n\
+           {}\n\
          )\n\
          SELECT {trace_id} AS trace_id,\n\
+                {} AS root_span_id,\n\
                 {} AS service,\n\
                 {} AS operation,\n\
+                {} AS status,\n\
                 {start} AS start_ns,\n\
                 {duration} AS duration_ns,\n\
                 {span_count} AS span_count,\n\
-                {error_count} AS error_count\n\
+                {error_count} AS error_count{http_status}\n\
          FROM ranked_summaries AS s\n\
          INNER JOIN matching_trace_ids AS m\n\
            ON {trace_id} = {}\n\
          WHERE {}\n\
          ORDER BY {order}\n\
          LIMIT {fetch_limit}",
+        plan.matching,
+        qualified("s", "span_id"),
         qualified("s", "service.name"),
         qualified("s", "name"),
+        qualified("s", "status_code"),
         qualified("m", "trace_id"),
         predicates.join(" AND "),
         start_field = TRACE_SUMMARY_START_NS_FIELD,
@@ -235,79 +250,8 @@ fn build_sql(context: &TraceListContext, fetch_limit: usize) -> Result<String> {
     ))
 }
 
-/// The traces that have, for each Span filter, a Span that passes it: the body
-/// of the `matching_trace_ids` table a statement joins the summaries to.
-fn matching_trace_ids_sql(context: &TraceListContext) -> Result<String> {
-    let raw_filters = context
-        .filters
-        .iter()
-        .filter(|filter| filter.is_span_filter())
-        .collect::<Vec<_>>();
-
-    if raw_filters.is_empty() {
-        return Err(Error::internal(
-            "trace Span-filter query requires at least one Span filter",
-        ));
-    }
-
-    let having = raw_filters
-        .into_iter()
-        .map(|filter| {
-            Ok(format!(
-                "MAX(CASE WHEN {} THEN 1 ELSE 0 END) = 1",
-                filter_predicate("r", filter, &filter.field)?
-            ))
-        })
-        .collect::<Result<Vec<_>>>()?;
-
-    Ok(format!(
-        "SELECT \"trace_id\"\n\
-         FROM \"{RAW_TABLE}\" AS r\n\
-         WHERE \"trace_id\" IS NOT NULL\n\
-         GROUP BY \"trace_id\"\n\
-         HAVING {}",
-        having.join(" AND "),
-    ))
-}
-
-/// What the summary `s` of a trace has to pass: each summary filter, and the
-/// free text.
-fn summary_predicates(context: &TraceListContext) -> Result<Vec<String>> {
-    let mut predicates = Vec::new();
-
-    for filter in context
-        .filters
-        .iter()
-        .filter(|filter| !filter.is_span_filter())
-    {
-        let column = filter
-            .summary_column()
-            .ok_or_else(|| Error::internal("invalid trace summary filter"))?;
-
-        predicates.push(filter_predicate("s", filter, column)?);
-    }
-
-    if let Some(query) = context.q.as_deref() {
-        let value = sql_literal(&format!("%{}%", query.to_ascii_lowercase()));
-        let fields = ["trace_id", "span_id", "service.name", "name", "status_code"];
-
-        predicates.push(format!(
-            "({})",
-            fields
-                .into_iter()
-                .map(|field| format!(
-                    "LOWER(COALESCE(CAST({} AS VARCHAR), '')) LIKE {value}",
-                    qualified("s", field)
-                ))
-                .collect::<Vec<_>>()
-                .join(" OR ")
-        ));
-    }
-
-    Ok(predicates)
-}
-
-fn filter_predicate(alias: &str, filter: &TraceFilter, field: &str) -> Result<String> {
+/// `filter`'s value compared by `op` with `field` of the row `alias`.
+fn filter_predicate(alias: &str, filter: &TraceFilter, field: &str, op: &str) -> Result<String> {
     let column = qualified(alias, field);
 
     let expression = match filter.data_type {
@@ -315,152 +259,39 @@ fn filter_predicate(alias: &str, filter: &TraceFilter, field: &str) -> Result<St
         _ => column,
     };
 
-    if filter.op == "contains" {
+    if op == "contains" {
         return Ok(format!(
             "CAST({expression} AS VARCHAR) LIKE {}",
             sql_literal(&format!("%{}%", filter.value))
         ));
     }
 
-    let value = match filter.data_type {
-        FieldType::Utf8 => sql_literal(&filter.value),
-        FieldType::Int64 | FieldType::Float64 | FieldType::Timestamp => filter.value.clone(),
-        FieldType::Bool => filter.value.to_ascii_uppercase(),
-        FieldType::Json => {
-            return Err(Error::invalid(format!(
-                "trace field `{field}` requires a JSON path query in SQL mode"
-            )));
-        }
-    };
+    if op == "in" {
+        let listed = filter
+            .values
+            .iter()
+            .map(|value| typed_literal(filter, field, value))
+            .collect::<Result<Vec<_>>>()?;
 
-    Ok(format!("{expression} {} {value}", filter.op))
+        return Ok(format!("{expression} IN ({})", listed.join(", ")));
+    }
+
+    Ok(format!(
+        "{expression} {op} {}",
+        typed_literal(filter, field, &filter.value)?
+    ))
 }
 
-fn cursor_predicate(context: &TraceListContext, direction: CursorDirection) -> String {
-    let position = &context
-        .boundary
-        .as_ref()
-        .expect("boundary checked")
-        .position;
-
-    let fields = match context.sort {
-        TraceListSort::Latest => vec![
-            (
-                qualified("s", TRACE_SUMMARY_START_NS_FIELD),
-                CursorValue::Integer(position.start_ns),
-                CursorSortDirection::Desc,
-            ),
-            (
-                qualified("s", "trace_id"),
-                CursorValue::Text(position.trace_id.clone()),
-                CursorSortDirection::Desc,
-            ),
-        ],
-        TraceListSort::Earliest => vec![
-            (
-                qualified("s", TRACE_SUMMARY_START_NS_FIELD),
-                CursorValue::Integer(position.start_ns),
-                CursorSortDirection::Asc,
-            ),
-            (
-                qualified("s", "trace_id"),
-                CursorValue::Text(position.trace_id.clone()),
-                CursorSortDirection::Asc,
-            ),
-        ],
-        sort => {
-            let primary = match sort {
-                TraceListSort::DurationDesc | TraceListSort::DurationAsc => {
-                    TRACE_SUMMARY_DURATION_NS_FIELD
-                }
-                TraceListSort::SpanCountDesc => TRACE_SUMMARY_SPAN_COUNT_FIELD,
-                TraceListSort::ErrorsDesc => TRACE_SUMMARY_ERROR_COUNT_FIELD,
-                TraceListSort::Latest | TraceListSort::Earliest => unreachable!(),
-            };
-
-            let primary_direction = if sort == TraceListSort::DurationAsc {
-                CursorSortDirection::Asc
-            } else {
-                CursorSortDirection::Desc
-            };
-
-            vec![
-                (
-                    qualified("s", primary),
-                    CursorValue::Integer(position.primary),
-                    primary_direction,
-                ),
-                (
-                    qualified("s", TRACE_SUMMARY_START_NS_FIELD),
-                    CursorValue::Integer(position.start_ns),
-                    CursorSortDirection::Desc,
-                ),
-                (
-                    qualified("s", "trace_id"),
-                    CursorValue::Text(position.trace_id.clone()),
-                    CursorSortDirection::Desc,
-                ),
-            ]
-        }
-    };
-
-    let borrowed = fields
-        .iter()
-        .map(|(name, value, order)| (name.as_str(), value.clone(), *order))
-        .collect::<Vec<_>>();
-
-    lexicographic_seek(&borrowed, direction, sql_literal)
-}
-
-fn order_by(context: &TraceListContext) -> String {
-    let fields = match context.sort {
-        TraceListSort::Latest => vec![
-            (TRACE_SUMMARY_START_NS_FIELD, CursorSortDirection::Desc),
-            ("trace_id", CursorSortDirection::Desc),
-        ],
-        TraceListSort::Earliest => vec![
-            (TRACE_SUMMARY_START_NS_FIELD, CursorSortDirection::Asc),
-            ("trace_id", CursorSortDirection::Asc),
-        ],
-        TraceListSort::DurationDesc => vec![
-            (TRACE_SUMMARY_DURATION_NS_FIELD, CursorSortDirection::Desc),
-            (TRACE_SUMMARY_START_NS_FIELD, CursorSortDirection::Desc),
-            ("trace_id", CursorSortDirection::Desc),
-        ],
-        TraceListSort::DurationAsc => vec![
-            (TRACE_SUMMARY_DURATION_NS_FIELD, CursorSortDirection::Asc),
-            (TRACE_SUMMARY_START_NS_FIELD, CursorSortDirection::Desc),
-            ("trace_id", CursorSortDirection::Desc),
-        ],
-        TraceListSort::SpanCountDesc => vec![
-            (TRACE_SUMMARY_SPAN_COUNT_FIELD, CursorSortDirection::Desc),
-            (TRACE_SUMMARY_START_NS_FIELD, CursorSortDirection::Desc),
-            ("trace_id", CursorSortDirection::Desc),
-        ],
-        TraceListSort::ErrorsDesc => vec![
-            (TRACE_SUMMARY_ERROR_COUNT_FIELD, CursorSortDirection::Desc),
-            (TRACE_SUMMARY_START_NS_FIELD, CursorSortDirection::Desc),
-            ("trace_id", CursorSortDirection::Desc),
-        ],
-    };
-
-    let reverse = context
-        .boundary
-        .as_ref()
-        .is_some_and(|boundary| boundary.direction == CursorDirection::Before);
-
-    fields
-        .into_iter()
-        .map(|(field, direction)| {
-            let direction = match (direction, reverse) {
-                (CursorSortDirection::Asc, false) | (CursorSortDirection::Desc, true) => "ASC",
-                (CursorSortDirection::Desc, false) | (CursorSortDirection::Asc, true) => "DESC",
-            };
-
-            format!("{} {direction}", qualified("s", field))
-        })
-        .collect::<Vec<_>>()
-        .join(", ")
+/// A value of `filter`'s field, already checked against its type, as SQL.
+fn typed_literal(filter: &TraceFilter, field: &str, value: &str) -> Result<String> {
+    match filter.data_type {
+        FieldType::Utf8 => Ok(sql_literal(value)),
+        FieldType::Int64 | FieldType::Float64 | FieldType::Timestamp => Ok(value.to_string()),
+        FieldType::Bool => Ok(value.to_ascii_uppercase()),
+        FieldType::Json => Err(Error::invalid(format!(
+            "trace field `{field}` requires a JSON path query in SQL mode"
+        ))),
+    }
 }
 
 fn rows_from_batches(batches: &[RecordBatch]) -> Vec<TraceListRow> {
@@ -476,21 +307,25 @@ fn rows_from_batches(batches: &[RecordBatch]) -> Vec<TraceListRow> {
                 .unwrap_or_default()
                 .max(0);
 
+            let text = |name| string_at(batch, name, row).unwrap_or_default().to_string();
+
             rows.push(TraceListRow {
                 item: super::TraceListItem {
                     trace_id: trace_id.to_string(),
-                    service: string_at(batch, "service", row)
-                        .unwrap_or_default()
-                        .to_string(),
-                    operation: string_at(batch, "operation", row)
-                        .unwrap_or_default()
-                        .to_string(),
+                    service: text("service"),
+                    operation: text("operation"),
                     start_ns: integer_at(batch, "start_ns", row).unwrap_or_default(),
                     duration_ms: duration_ns as f64 / 1_000_000.0,
                     span_count: integer_at(batch, "span_count", row).unwrap_or_default(),
                     error_count: integer_at(batch, "error_count", row).unwrap_or_default(),
+                    status: text("status"),
+                    http_status_code: (0..HTTP_STATUS_FIELDS.len())
+                        .find_map(|index| integer_at(batch, &format!("http_status_{index}"), row))
+                        .filter(|status| (100..600).contains(status)),
+                    ..Default::default()
                 },
                 duration_ns,
+                root_span_id: text("root_span_id"),
             });
         }
     }
@@ -540,12 +375,17 @@ mod tests {
         datatypes::{DataType, Field, Schema as ArrowSchema},
     };
     use datafusion::{datasource::MemTable, prelude::SessionContext};
+    use serde_json::{Value, json};
 
     use super::*;
-    use crate::{domain::stream::FieldDef, shared::trace::normalization::canonical_trace_schema};
+    use crate::{
+        api::http::routes::web::trace::list::TraceListSort, domain::stream::FieldDef,
+        shared::trace::normalization::canonical_trace_schema,
+    };
 
-    fn context() -> TraceListContext {
+    fn schema() -> Schema {
         let mut schema = canonical_trace_schema();
+
         schema.fields.push(FieldDef {
             name: "http.status_code".into(),
             data_type: FieldType::Int64,
@@ -555,18 +395,14 @@ mod tests {
             encrypted: false,
             exact: false,
         });
-        let filters = super::super::filter::parse(
-            Some(
-                &serde_json::json!([
-                    {"field": "http.status_code", "op": ">=", "value": "500"},
-                    {"field": "span_count", "op": ">=", "value": "2"}
-                ])
-                .to_string(),
-            ),
-            &schema,
-            32,
-        )
-        .unwrap();
+
+        schema
+    }
+
+    fn context(filters: Value) -> TraceListContext {
+        let filters =
+            super::super::filter::parse(Some(&filters.to_string()), &schema(), 32).unwrap();
+
         TraceListContext {
             from: 0,
             to: 1_000,
@@ -574,30 +410,58 @@ mod tests {
             page_size: 20,
             q: None,
             filters,
+            condition: None,
             boundary: None,
         }
     }
 
-    #[tokio::test]
-    async fn any_span_match_returns_values_from_the_summary_row() {
-        let ctx = SessionContext::new();
+    fn failing_and_long() -> Value {
+        json!([
+            {"field": "http.status_code", "op": ">=", "value": "500"},
+            {"field": "span_count", "op": ">=", "value": "2"}
+        ])
+    }
+
+    /// Three traces, the latest first. The one Span of `trace-c` keeps neither
+    /// a service nor a status code; in `trace-b`, `checkout` answers 200 and
+    /// `payments` 503; `trace-a` is one Span of `web` that answers 200.
+    fn session() -> SessionContext {
+        let session = SessionContext::new();
+
         let raw_schema = Arc::new(ArrowSchema::new(vec![
             Field::new("trace_id", DataType::Utf8, false),
+            Field::new("service.name", DataType::Utf8, true),
             Field::new("http.status_code", DataType::Int64, true),
         ]));
+
         let raw = RecordBatch::try_new(
             raw_schema.clone(),
             vec![
-                Arc::new(StringArray::from(vec!["trace-a", "trace-b", "trace-b"])),
-                Arc::new(Int64Array::from(vec![200, 200, 503])),
+                Arc::new(StringArray::from(vec![
+                    "trace-a", "trace-b", "trace-b", "trace-c",
+                ])),
+                Arc::new(StringArray::from(vec![
+                    Some("web"),
+                    Some("checkout"),
+                    Some("payments"),
+                    None,
+                ])),
+                Arc::new(Int64Array::from(vec![
+                    Some(200),
+                    Some(200),
+                    Some(503),
+                    None,
+                ])),
             ],
         )
         .unwrap();
-        ctx.register_table(
-            RAW_TABLE,
-            Arc::new(MemTable::try_new(raw_schema, vec![vec![raw]]).unwrap()),
-        )
-        .unwrap();
+
+        session
+            .register_table(
+                RAW_TABLE,
+                Arc::new(MemTable::try_new(raw_schema, vec![vec![raw]]).unwrap()),
+            )
+            .unwrap();
 
         let summary_schema = Arc::new(ArrowSchema::new(vec![
             Field::new("trace_id", DataType::Utf8, false),
@@ -606,52 +470,243 @@ mod tests {
             Field::new("service.name", DataType::Utf8, true),
             Field::new("name", DataType::Utf8, true),
             Field::new("status_code", DataType::Utf8, true),
+            Field::new("http.status_code", DataType::Int64, true),
             Field::new(TRACE_SUMMARY_START_NS_FIELD, DataType::Int64, false),
             Field::new(TRACE_SUMMARY_DURATION_NS_FIELD, DataType::Int64, false),
             Field::new(TRACE_SUMMARY_SPAN_COUNT_FIELD, DataType::Int64, false),
             Field::new(TRACE_SUMMARY_ERROR_COUNT_FIELD, DataType::Int64, false),
         ]));
+
         let summary = RecordBatch::try_new(
             summary_schema.clone(),
             vec![
-                Arc::new(StringArray::from(vec!["trace-a", "trace-b"])),
-                Arc::new(StringArray::from(vec!["a-root", "b-root"])),
-                Arc::new(StringArray::from(vec![None::<&str>, None])),
-                Arc::new(StringArray::from(vec!["web", "checkout"])),
-                Arc::new(StringArray::from(vec!["GET /", "POST /checkout"])),
-                Arc::new(StringArray::from(vec!["OK", "ERROR"])),
-                Arc::new(Int64Array::from(vec![100, 200])),
-                Arc::new(Int64Array::from(vec![10, 20])),
-                Arc::new(Int64Array::from(vec![1, 2])),
-                Arc::new(Int64Array::from(vec![0, 1])),
+                Arc::new(StringArray::from(vec!["trace-a", "trace-b", "trace-c"])),
+                Arc::new(StringArray::from(vec!["a-root", "b-root", "c-root"])),
+                Arc::new(StringArray::from(vec![None::<&str>, None, None])),
+                Arc::new(StringArray::from(vec![Some("web"), Some("checkout"), None])),
+                Arc::new(StringArray::from(vec!["GET /", "POST /checkout", "job"])),
+                Arc::new(StringArray::from(vec!["OK", "ERROR", "OK"])),
+                Arc::new(Int64Array::from(vec![Some(200), Some(200), None])),
+                Arc::new(Int64Array::from(vec![100, 200, 300])),
+                Arc::new(Int64Array::from(vec![10, 20, 30])),
+                Arc::new(Int64Array::from(vec![1, 2, 1])),
+                Arc::new(Int64Array::from(vec![0, 1, 0])),
             ],
         )
         .unwrap();
-        ctx.register_table(
-            SUMMARY_TABLE,
-            Arc::new(MemTable::try_new(summary_schema, vec![vec![summary]]).unwrap()),
-        )
-        .unwrap();
 
-        let batches = ctx
-            .sql(&build_sql(&context(), 21).unwrap())
+        session
+            .register_table(
+                SUMMARY_TABLE,
+                Arc::new(MemTable::try_new(summary_schema, vec![vec![summary]]).unwrap()),
+            )
+            .unwrap();
+
+        session
+    }
+
+    async fn matched(filters: Value) -> Vec<TraceListRow> {
+        let batches = session()
+            .sql(&build_sql(&context(filters), &schema(), 21).unwrap())
             .await
             .unwrap()
             .collect()
             .await
             .unwrap();
-        let rows = rows_from_batches(&batches);
+
+        rows_from_batches(&batches)
+    }
+
+    async fn matched_ids(filters: Value) -> Vec<String> {
+        matched(filters)
+            .await
+            .into_iter()
+            .map(|row| row.item.trace_id)
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn any_span_match_returns_values_from_the_summary_row() {
+        let rows = matched(failing_and_long()).await;
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].item.trace_id, "trace-b");
         assert_eq!(rows[0].item.service, "checkout");
         assert_eq!(rows[0].item.span_count, 2);
+        assert_eq!(rows[0].item.status, "ERROR");
+        assert_eq!(rows[0].item.http_status_code, Some(200));
+        assert_eq!(rows[0].root_span_id, "b-root");
+    }
+
+    #[tokio::test]
+    async fn in_keeps_the_traces_with_a_span_of_any_of_its_values() {
+        let services =
+            json!([{"field": "service.name", "op": "in", "values": ["payments", "web"]}]);
+        assert_eq!(matched_ids(services).await, ["trace-b", "trace-a"]);
+
+        let counts = json!([{"field": "span_count", "op": "in", "values": ["2", "9"]}]);
+        assert_eq!(
+            matched_ids(json!([
+                {"field": "service.name", "op": "in", "values": ["checkout"]},
+                counts[0]
+            ]))
+            .await,
+            ["trace-b"]
+        );
+    }
+
+    #[tokio::test]
+    async fn leaving_a_value_out_keeps_the_traces_none_of_whose_spans_has_it() {
+        let payments = |op: &str| json!([{"field": "service.name", "op": op, "value": "payments"}]);
+
+        // A Span without a service is not one of `payments`: `trace-c` stays.
+        assert_eq!(matched_ids(payments("!=")).await, ["trace-c", "trace-a"]);
+        assert_eq!(matched_ids(payments("=")).await, ["trace-b"]);
+
+        // `trace-b` has a Span that answered otherwise, and one that answered 200.
+        let ok = json!([{"field": "http.status_code", "op": "!=", "value": "200"}]);
+        assert_eq!(matched_ids(ok).await, ["trace-c"]);
     }
 
     #[test]
     fn generated_sql_uses_having_for_any_span_and_summary_predicates_for_counts() {
-        let sql = build_sql(&context(), 21).unwrap();
+        let sql = build_sql(&context(failing_and_long()), &schema(), 21).unwrap();
         assert!(sql.contains("MAX(CASE WHEN r.\"http.status_code\" >= 500 THEN 1 ELSE 0 END) = 1"));
         assert!(sql.contains("s.\"molesignal.trace.span_count\" >= 2"));
         assert!(sql.contains("LIMIT 21"));
+    }
+
+    #[test]
+    fn leaving_a_value_out_asks_that_no_span_has_it() {
+        let excluded = json!([{"field": "service.name", "op": "ne", "value": "payments"}]);
+        let sql = build_sql(&context(excluded), &schema(), 21).unwrap();
+
+        assert!(
+            sql.contains("MAX(CASE WHEN r.\"service.name\" = 'payments' THEN 1 ELSE 0 END) = 0")
+        );
+    }
+
+    fn service(op: &str, value: &str) -> Value {
+        json!({"field": "service.name", "op": op, "value": value})
+    }
+
+    fn context_where(filters: Value, condition: Value) -> TraceListContext {
+        let mut context = context(filters);
+
+        context.condition =
+            super::super::filter::condition::parse(Some(&condition.to_string()), &schema(), 32)
+                .unwrap();
+
+        context
+    }
+
+    async fn matched_where(filters: Value, condition: Value) -> Vec<String> {
+        let batches = session()
+            .sql(&build_sql(&context_where(filters, condition), &schema(), 21).unwrap())
+            .await
+            .unwrap()
+            .collect()
+            .await
+            .unwrap();
+
+        rows_from_batches(&batches)
+            .into_iter()
+            .map(|row| row.item.trace_id)
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn either_span_condition_keeps_a_trace() {
+        let either = json!({"or": [service("=", "payments"), service("=", "web")]});
+        assert_eq!(
+            matched_where(json!([]), either).await,
+            ["trace-b", "trace-a"]
+        );
+
+        // A Span without the fields answers neither: `trace-c` has no such Span.
+        let checkout_or_ok = json!({"or": [
+            service("=", "checkout"),
+            {"field": "http.status_code", "op": "=", "value": "200"}
+        ]});
+        assert_eq!(
+            matched_where(json!([]), checkout_or_ok).await,
+            ["trace-b", "trace-a"]
+        );
+
+        // No Span of `trace-c` has `payments`, nor does any of `trace-a`; `trace-b` failed with a 503.
+        let left_out_or_failed = json!({"or": [
+            service("!=", "payments"),
+            {"field": "http.status_code", "op": ">=", "value": "500"}
+        ]});
+        assert_eq!(
+            matched_where(json!([]), left_out_or_failed).await,
+            ["trace-c", "trace-b", "trace-a"]
+        );
+    }
+
+    #[tokio::test]
+    async fn a_span_and_a_trace_condition_are_read_together_for_each_trace() {
+        let web_or_long = json!({"or": [
+            service("=", "web"),
+            {"field": "span_count", "op": ">=", "value": "2"}
+        ]});
+        assert_eq!(
+            matched_where(json!([]), web_or_long).await,
+            ["trace-b", "trace-a"]
+        );
+
+        // Free text is looked for in the summary: `job` names the root of `trace-c`.
+        let job_or_web = json!({"or": [{"text": "JOB"}, service("=", "web")]});
+        assert_eq!(
+            matched_where(json!([]), job_or_web).await,
+            ["trace-c", "trace-a"]
+        );
+
+        // The list's filters hold beside the tree.
+        let failed = json!([{"field": "error_count", "op": ">=", "value": "1"}]);
+        let any_service = json!({"or": [service("=", "web"), service("=", "payments")]});
+        assert_eq!(matched_where(failed, any_service).await, ["trace-b"]);
+    }
+
+    #[tokio::test]
+    async fn the_tree_says_how_conditions_group() {
+        // `web OR checkout AND span_count >= 5`: AND first.
+        let and_first = json!({"or": [
+            service("=", "web"),
+            {"and": [service("=", "checkout"), {"field": "span_count", "op": ">=", "value": "5"}]}
+        ]});
+        assert_eq!(matched_where(json!([]), and_first).await, ["trace-a"]);
+
+        // `(web OR checkout) AND span_count >= 2`.
+        let bracketed = json!({"and": [
+            {"or": [service("=", "web"), service("=", "checkout")]},
+            {"field": "span_count", "op": ">=", "value": "2"}
+        ]});
+        assert_eq!(matched_where(json!([]), bracketed).await, ["trace-b"]);
+    }
+
+    #[test]
+    fn a_part_of_span_conditions_alone_stays_in_having() {
+        let either = json!({"or": [service("=", "payments"), service("=", "web")]});
+        let sql = build_sql(&context_where(json!([]), either), &schema(), 21).unwrap();
+
+        assert!(sql.contains(
+            "HAVING (MAX(CASE WHEN r.\"service.name\" = 'payments' THEN 1 ELSE 0 END) = 1 OR \
+             MAX(CASE WHEN r.\"service.name\" = 'web' THEN 1 ELSE 0 END) = 1)"
+        ));
+        assert!(!sql.contains("__molesignal_span_"));
+
+        let mixed =
+            json!({"or": [service("!=", "web"), {"field": "span_count", "op": ">", "value": "1"}]});
+        let sql = build_sql(&context_where(json!([]), mixed), &schema(), 21).unwrap();
+
+        assert!(sql.contains(
+            "MAX(CASE WHEN r.\"service.name\" = 'web' THEN 1 ELSE 0 END) AS \"__molesignal_span_0\""
+        ));
+        assert!(
+            sql.contains(
+                "(m.\"__molesignal_span_0\" = 0 OR s.\"molesignal.trace.span_count\" > 1)"
+            )
+        );
+        assert!(!sql.contains("HAVING"));
     }
 }

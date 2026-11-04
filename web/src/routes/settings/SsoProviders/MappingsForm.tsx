@@ -17,9 +17,12 @@ import {
 } from '@/shell/ui/tooltip';
 
 import type { ProviderDraft } from './model';
+import type { SsoPreset } from './presets';
 
 interface MappingsFormProps {
   draft: ProviderDraft;
+  /** The platform's preset: whether it sends groups, and whether its fields are fixed. */
+  preset: SsoPreset | null;
   roles: ssoApi.SsoAssignableRole[];
   rolesLoading: boolean;
   rolesError: string | null;
@@ -31,12 +34,13 @@ interface MappingsFormProps {
 const PLATFORM_FIELDS = [
   'subject',
   'email',
-  'display_name',
+  'displayName',
   'groups',
 ] as const satisfies ReadonlyArray<keyof ssoApi.SsoFieldMapping>;
 
 export function MappingsForm({
   draft,
+  preset,
   roles,
   rolesLoading,
   rolesError,
@@ -45,13 +49,13 @@ export function MappingsForm({
   onChange,
 }: MappingsFormProps) {
   const { t } = useTranslation('settings-admin');
-  const selectedConfig =
-    draft.kind === 'oidc'
-      ? draft.oidc
-      : draft.kind === 'saml'
-        ? draft.saml
-        : draft.ldap;
-  const mapping = selectedConfig.field_mapping;
+  const selectedConfig = draft[draft.kind];
+  const mapping = selectedConfig.fieldMapping;
+  const groupsAvailable = preset?.groups ?? true;
+  const fixedMapping = preset?.kind === 'oauth2' && preset.fixedMapping === true;
+  const shownFields = PLATFORM_FIELDS.filter(
+    (field) => field !== 'groups' || groupsAvailable,
+  );
   const selectedRoleIds = new Set([
     draft.defaultRoleId,
     ...draft.roleMappings.map(({ roleId }) => roleId),
@@ -78,48 +82,54 @@ export function MappingsForm({
     value: string,
   ) => {
     const field_mapping = { ...mapping, [field]: value };
-    if (draft.kind === 'oidc') {
-      onChange({
-        ...draft,
-        oidc: { ...draft.oidc, field_mapping },
-      });
-    } else if (draft.kind === 'saml') {
-      onChange({
-        ...draft,
-        saml: { ...draft.saml, field_mapping },
-      });
-    } else {
-      onChange({
-        ...draft,
-        ldap: { ...draft.ldap, field_mapping },
-      });
+    switch (draft.kind) {
+      case 'oidc':
+        onChange({ ...draft, oidc: { ...draft.oidc, fieldMapping: field_mapping } });
+        break;
+      case 'oauth2':
+        onChange({ ...draft, oauth2: { ...draft.oauth2, fieldMapping: field_mapping } });
+        break;
+      case 'saml':
+        onChange({ ...draft, saml: { ...draft.saml, fieldMapping: field_mapping } });
+        break;
+      case 'ldap':
+        onChange({ ...draft, ldap: { ...draft.ldap, fieldMapping: field_mapping } });
+        break;
     }
   };
 
   return (
     <>
       <FormSection title={t('sso_providers.drawer.sections.field_mapping')}>
-        <div className="mb-3 text-xs leading-relaxed text-tx-2">
-          {t(`sso_providers.drawer.mapping.${draft.kind}_hint`)}
-        </div>
-        <div className="grid grid-cols-[minmax(0,0.8fr)_20px_minmax(0,1.2fr)] items-center gap-x-2 gap-y-2">
-          <div className="font-sans text-xs font-semibold tracking-normal text-tx-3">
-            {t('sso_providers.drawer.mapping.platform_field')}
+        {fixedMapping ? (
+          <div className="text-xs leading-relaxed text-tx-2" data-testid="sso-fixed-mapping">
+            {t('sso_providers.drawer.mapping.github_fixed')}
           </div>
-          <span aria-hidden />
-          <div className="font-sans text-xs font-semibold tracking-normal text-tx-3">
-            {t('sso_providers.drawer.mapping.provider_field')}
-          </div>
-          {PLATFORM_FIELDS.map((field) => (
-            <MappingRow
-              key={field}
-              label={t(`sso_providers.drawer.mapping.fields.${field}`)}
-              value={mapping[field]}
-              disabled={disabled}
-              onChange={(value) => updateField(field, value)}
-            />
-          ))}
-        </div>
+        ) : (
+          <>
+            <div className="mb-3 text-xs leading-relaxed text-tx-2">
+              {t(`sso_providers.drawer.mapping.${draft.kind}_hint`)}
+            </div>
+            <div className="grid grid-cols-[minmax(0,0.8fr)_20px_minmax(0,1.2fr)] items-center gap-x-2 gap-y-2">
+              <div className="font-sans text-xs font-semibold tracking-normal text-tx-3">
+                {t('sso_providers.drawer.mapping.platform_field')}
+              </div>
+              <span aria-hidden />
+              <div className="font-sans text-xs font-semibold tracking-normal text-tx-3">
+                {t('sso_providers.drawer.mapping.provider_field')}
+              </div>
+              {shownFields.map((field) => (
+                <MappingRow
+                  key={field}
+                  label={t(`sso_providers.drawer.mapping.fields.${field}`)}
+                  value={mapping[field]}
+                  disabled={disabled}
+                  onChange={(value) => updateField(field, value)}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </FormSection>
 
       <FormSection title={t('sso_providers.drawer.sections.role_mapping')}>
@@ -163,125 +173,159 @@ export function MappingsForm({
           />
         </FormField>
 
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <div>
-            <div className="font-sans text-xs font-semibold text-tx-0">
-              {t('sso_providers.drawer.mapping.group_roles')}
-            </div>
-            <div className="mt-0.5 text-xs text-tx-2">
-              {t('sso_providers.drawer.mapping.group_roles_hint')}
-            </div>
-          </div>
-          <ChromeButton
-            type="button"
-            size="sm"
-            disabled={disabled || rolesUnavailable}
-            disabledReason={
-              rolesUnavailable
-                ? t('sso_providers.drawer.mapping.roles_unavailable')
-                : undefined
-            }
-            onClick={() =>
-              onChange({
-                ...draft,
-                roleMappings: [
-                  ...draft.roleMappings,
-                  { group: '', roleId: '' },
-                ],
-              })
-            }
-          >
-            <Plus size={13} aria-hidden />
-            {t('sso_providers.drawer.mapping.add_group_role')}
-          </ChromeButton>
-        </div>
-
-        {draft.roleMappings.length === 0 ? (
-          <div className="mt-3 rounded-md bg-bg-2 px-3 py-2.5 text-xs text-tx-3">
-            {t('sso_providers.drawer.mapping.no_group_roles')}
-          </div>
+        {groupsAvailable ? (
+          <GroupRoleMappings
+            draft={draft}
+            roleOptions={roleOptions}
+            rolesUnavailable={rolesUnavailable}
+            disabled={disabled}
+            onChange={onChange}
+          />
         ) : (
-          <div className="mt-3 flex flex-col gap-2">
-            {draft.roleMappings.map((row, index) => (
-              <div
-                key={index}
-                className="grid grid-cols-[minmax(0,1fr)_20px_minmax(0,1fr)_32px] items-center gap-2"
-              >
-                <FormInput
-                  value={row.group}
-                  onChange={(event) => {
-                    const roleMappings = [...draft.roleMappings];
-                    roleMappings[index] = {
-                      ...row,
-                      group: event.target.value,
-                    };
-                    onChange({ ...draft, roleMappings });
-                  }}
-                  placeholder={t(
-                    'sso_providers.drawer.mapping.group_value_placeholder',
-                  )}
-                  aria-label={t(
-                    'sso_providers.drawer.mapping.group_value',
-                  )}
-                />
-                <ArrowRight
-                  size={13}
-                  className="text-tx-3"
-                  aria-hidden
-                />
-                <FormSelect
-                  value={row.roleId}
-                  onChange={(roleId) => {
-                    const roleMappings = [...draft.roleMappings];
-                    roleMappings[index] = { ...row, roleId };
-                    onChange({ ...draft, roleMappings });
-                  }}
-                  options={roleOptions.slice(1)}
-                  placeholder={t(
-                    'sso_providers.drawer.mapping.select_role',
-                  )}
-                  ariaLabel={t(
-                    'sso_providers.drawer.mapping.selected_role',
-                  )}
-                  disabled={disabled || rolesUnavailable}
-                  disabledReason={
-                    rolesUnavailable
-                      ? t('sso_providers.drawer.mapping.roles_unavailable')
-                      : undefined
-                  }
-                />
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <ChromeButton
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 px-0 text-tx-2 hover:text-red-soft"
-                      disabled={disabled}
-                      aria-label={t(
-                        'sso_providers.drawer.mapping.remove_group_role',
-                      )}
-                      onClick={() =>
-                        onChange({
-                          ...draft,
-                          roleMappings: draft.roleMappings.filter(
-                            (_, rowIndex) => rowIndex !== index,
-                          ),
-                        })
-                      }
-                    >
-                      <Trash2 size={13} aria-hidden />
-                    </ChromeButton>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {t('sso_providers.drawer.mapping.remove_group_role')}
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            ))}
+          <div className="mt-3 text-xs leading-relaxed text-tx-2" data-testid="sso-no-groups">
+            {t('sso_providers.drawer.mapping.no_groups')}
           </div>
         )}
       </FormSection>
+    </>
+  );
+}
+
+/** External groups and the role each grants, synchronized at sign-in. */
+function GroupRoleMappings({
+  draft,
+  roleOptions,
+  rolesUnavailable,
+  disabled,
+  onChange,
+}: {
+  draft: ProviderDraft;
+  roleOptions: Array<{ value: string; label: string }>;
+  rolesUnavailable: boolean;
+  disabled: boolean;
+  onChange: (draft: ProviderDraft) => void;
+}) {
+  const { t } = useTranslation('settings-admin');
+  return (
+    <>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <div>
+          <div className="font-sans text-xs font-semibold text-tx-0">
+            {t('sso_providers.drawer.mapping.group_roles')}
+          </div>
+          <div className="mt-0.5 text-xs text-tx-2">
+            {t('sso_providers.drawer.mapping.group_roles_hint')}
+          </div>
+        </div>
+        <ChromeButton
+          type="button"
+          size="sm"
+          disabled={disabled || rolesUnavailable}
+          disabledReason={
+            rolesUnavailable
+              ? t('sso_providers.drawer.mapping.roles_unavailable')
+              : undefined
+          }
+          onClick={() =>
+            onChange({
+              ...draft,
+              roleMappings: [
+                ...draft.roleMappings,
+                { group: '', roleId: '' },
+              ],
+            })
+          }
+        >
+          <Plus size={13} aria-hidden />
+          {t('sso_providers.drawer.mapping.add_group_role')}
+        </ChromeButton>
+      </div>
+
+      {draft.roleMappings.length === 0 ? (
+        <div className="mt-3 rounded-md bg-bg-2 px-3 py-2.5 text-xs text-tx-3">
+          {t('sso_providers.drawer.mapping.no_group_roles')}
+        </div>
+      ) : (
+        <div className="mt-3 flex flex-col gap-2">
+          {draft.roleMappings.map((row, index) => (
+            <div
+              key={index}
+              className="grid grid-cols-[minmax(0,1fr)_20px_minmax(0,1fr)_32px] items-center gap-2"
+            >
+              <FormInput
+                value={row.group}
+                onChange={(event) => {
+                  const roleMappings = [...draft.roleMappings];
+                  roleMappings[index] = {
+                    ...row,
+                    group: event.target.value,
+                  };
+                  onChange({ ...draft, roleMappings });
+                }}
+                placeholder={t(
+                  'sso_providers.drawer.mapping.group_value_placeholder',
+                )}
+                aria-label={t(
+                  'sso_providers.drawer.mapping.group_value',
+                )}
+              />
+              <ArrowRight
+                size={13}
+                className="text-tx-3"
+                aria-hidden
+              />
+              <FormSelect
+                value={row.roleId}
+                onChange={(roleId) => {
+                  const roleMappings = [...draft.roleMappings];
+                  roleMappings[index] = { ...row, roleId };
+                  onChange({ ...draft, roleMappings });
+                }}
+                options={roleOptions.slice(1)}
+                placeholder={t(
+                  'sso_providers.drawer.mapping.select_role',
+                )}
+                ariaLabel={t(
+                  'sso_providers.drawer.mapping.selected_role',
+                )}
+                disabled={disabled || rolesUnavailable}
+                disabledReason={
+                  rolesUnavailable
+                    ? t('sso_providers.drawer.mapping.roles_unavailable')
+                    : undefined
+                }
+              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ChromeButton
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 px-0 text-tx-2 hover:text-red-soft"
+                    disabled={disabled}
+                    aria-label={t(
+                      'sso_providers.drawer.mapping.remove_group_role',
+                    )}
+                    onClick={() =>
+                      onChange({
+                        ...draft,
+                        roleMappings: draft.roleMappings.filter(
+                          (_, rowIndex) => rowIndex !== index,
+                        ),
+                      })
+                    }
+                  >
+                    <Trash2 size={13} aria-hidden />
+                  </ChromeButton>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {t('sso_providers.drawer.mapping.remove_group_role')}
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }

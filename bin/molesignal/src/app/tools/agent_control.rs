@@ -14,6 +14,7 @@ use crate::{
 };
 
 #[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct AgentArgs {
     investigation_id: Option<String>,
     approval_id: Option<String>,
@@ -44,7 +45,7 @@ pub(super) async fn execute(
                 .investigation_id
                 .filter(|value| !value.trim().is_empty())
                 .map(Id)
-                .ok_or_else(|| Error::invalid("investigation_id is required"))?;
+                .ok_or_else(|| Error::invalid("investigationId is required"))?;
 
             json_result(
                 &runtime
@@ -64,7 +65,7 @@ pub(super) async fn execute(
             500,
         )),
         BuiltinToolKind::GetAgentApproval => {
-            let id = required_id(args.approval_id, "approval_id")?;
+            let id = required_id(args.approval_id, "approvalId")?;
 
             json_result(
                 &runtime
@@ -84,7 +85,7 @@ pub(super) async fn execute(
             500,
         )),
         BuiltinToolKind::GetAgentExecution => {
-            let id = required_id(args.execution_id, "execution_id")?;
+            let id = required_id(args.execution_id, "executionId")?;
 
             let execution = runtime
                 .agent
@@ -94,15 +95,32 @@ pub(super) async fn execute(
 
             json_result(&execution)
         }
-        BuiltinToolKind::ListAgentAutomations => json_result(&bounded(
-            runtime
+        BuiltinToolKind::ListAgentAutomations => {
+            // 只列调用的人看得到的：组织的、他所在团队的、他自己的。
+            let teams = runtime
+                .administration
+                .teams
+                .list_for_member(&auth.org_id, &auth.user_id)
+                .await?
+                .into_iter()
+                .map(|team| team.id)
+                .collect::<std::collections::HashSet<_>>();
+
+            let visible = runtime
                 .agent
-                .repository
-                .list_automations(&auth.org_id)
-                .await?,
-            args.limit,
-            500,
-        )),
+                .automations
+                .list(&auth.org_id)
+                .await?
+                .into_iter()
+                .filter(|automation| match &automation.scope {
+                    crate::agent::scope::Scope::Org => true,
+                    crate::agent::scope::Scope::Team { team_id } => teams.contains(team_id),
+                    crate::agent::scope::Scope::Personal { owner_id } => *owner_id == auth.user_id,
+                })
+                .collect::<Vec<_>>();
+
+            json_result(&bounded(visible, args.limit, 500))
+        }
         BuiltinToolKind::ExecuteAgentApproval => {
             unreachable!("approved execution is handled by the entry operation coordinator")
         }

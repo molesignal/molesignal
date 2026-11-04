@@ -57,10 +57,10 @@ describe('the stretch of time the loaded traces cover', () => {
 });
 
 describe('the answers', () => {
-  const top = { columns: ['value', 'traces', 'spans'], rows: [['web', 19, 40], ['router', 1, 2], [null, 1, 1]], scanned_rows: 0, took_ms: 0 };
+  const top = { columns: ['value', 'traces', 'spans'], rows: [['web', 19, 40], ['router', 1, 2], [null, 1, 1]], scannedRows: 0, tookMs: 0 };
 
   it('become the values with what they add up to', () => {
-    const summary = { columns: ['distinct_values', 'traces', 'samples'], rows: [[2, 20, 43]], scanned_rows: 0, took_ms: 0 };
+    const summary = { columns: ['distinct_values', 'traces', 'samples'], rows: [[2, 20, 43]], scannedRows: 0, tookMs: 0 };
 
     expect(traceFieldValuesFrom(top, summary)).toEqual({
       traces: 20,
@@ -74,8 +74,8 @@ describe('the answers', () => {
     const summary = {
       columns: ['distinct_values', 'traces', 'samples', 'min_value', 'max_value', 'avg_value'],
       rows: [[55, 20, 55, '1791701310072074000', '1791701335959397000', '1791701320000000000']],
-      scanned_rows: 0,
-      took_ms: 0,
+      scannedRows: 0,
+      tookMs: 0,
     };
 
     expect(traceFieldValuesFrom(top, summary).range).toEqual({
@@ -89,8 +89,8 @@ describe('the answers', () => {
     const summary = {
       columns: ['distinct_values', 'traces', 'samples', 'min_value', 'max_value', 'avg_value'],
       rows: [[0, 0, 0, null, null, null]],
-      scanned_rows: 0,
-      took_ms: 0,
+      scannedRows: 0,
+      tookMs: 0,
     };
     const none = { ...top, rows: [] };
 

@@ -29,11 +29,9 @@ export interface MetricsExploreResultsProps {
   };
   chart: {
     xDomain: [number, number];
-    timezone: string;
     drawStyle: MetricsDrawStyle;
     stackMode: MetricsStackMode;
     zoomed: boolean;
-    onTimezoneChange: (timezone: string) => void;
     onDrawStyleChange: (style: MetricsDrawStyle) => void;
     onStackModeChange: (mode: MetricsStackMode) => void;
     onRangeSelect: (range: { from: number; to: number }) => void;

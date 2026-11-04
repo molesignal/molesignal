@@ -1,22 +1,15 @@
 import * as React from 'react';
 
+import { adoptCurrentSession, currentSession } from '@/lib/http';
 import { useOrgStore } from '@/stores/useOrgStore';
 
-import { useAuthStore } from './index';
-import { type SharedSession, tabSessionSharing } from './tabSession';
+import { sessionKey, useAuthStore } from './index';
+import { tabSessionSharing } from './tabSession';
 
-// Only the first authenticated screen of a page load may borrow a session. A
-// tab that signs out later must not ask again: a tab that is slow to hear about
-// the sign-out could hand the old session straight back.
+// Only the first authenticated screen of a page load asks the server for the
+// session. A tab that signs out later goes to the sign-in page without asking.
 let firstGateSeen = false;
-let borrowing: Promise<void> | null = null;
-
-function adopt(session: SharedSession | null): void {
-  if (!session) return;
-  const { token, setSession } = useAuthStore.getState();
-  if (token) return;
-  setSession(session.token, session.ctx);
-}
+let asking: Promise<void> | null = null;
 
 /** Another tab signed out on purpose: leave nothing of the session behind here. */
 function signOutHere(): void {
@@ -29,24 +22,27 @@ function signOutHere(): void {
 }
 
 /**
- * Shares the tab's session with the other open tabs (see `tabSession.ts`).
- * Returns `true` while a tab that was just opened without a session is still
- * asking the others for theirs, so the caller can hold off on the sign-in page.
+ * Keeps the tab's session in step with the browser's (see `tabSession.ts`).
+ * A tab opened by hand has no session of its own yet, though the browser's
+ * session cookie may hold one: it asks the server, and this returns `true`
+ * while that question is open so the caller can hold off on the sign-in page.
  */
 export function useTabSession(signedIn: boolean): boolean {
   const [startedSignedIn] = React.useState(signedIn);
-  const [asking, setAsking] = React.useState(() => !signedIn && !firstGateSeen);
+  const [checking, setChecking] = React.useState(() => !signedIn && !firstGateSeen);
 
   React.useEffect(() => {
     if (!startedSignedIn && !firstGateSeen) {
-      borrowing = tabSessionSharing.borrowSession().then(adopt);
+      asking = currentSession().then((session) => {
+        if (session && !useAuthStore.getState().ctx) useAuthStore.getState().setSession(session);
+      });
     }
     firstGateSeen = true;
-    if (!borrowing) return;
+    if (!asking) return;
 
     let mounted = true;
-    void borrowing.then(() => {
-      if (mounted) setAsking(false);
+    void asking.then(() => {
+      if (mounted) setChecking(false);
     });
     return () => {
       mounted = false;
@@ -55,14 +51,14 @@ export function useTabSession(signedIn: boolean): boolean {
 
   React.useEffect(() => {
     if (!signedIn) return;
-    return tabSessionSharing.lendSession({
-      getSession: () => {
-        const { token, ctx } = useAuthStore.getState();
-        return token && ctx ? { token, ctx } : null;
-      },
+    return tabSessionSharing.listen({
       onSignOut: signOutHere,
+      onSession: (session) => {
+        const ctx = useAuthStore.getState().ctx;
+        if (ctx && sessionKey(ctx) !== session) void adoptCurrentSession();
+      },
     });
   }, [signedIn]);
 
-  return asking;
+  return checking;
 }

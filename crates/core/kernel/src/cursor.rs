@@ -31,6 +31,7 @@ pub enum CursorValue {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CursorPage<T> {
     pub items: Vec<T>,
     pub next_cursor: Option<String>,

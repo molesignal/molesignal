@@ -13,6 +13,7 @@ const VERSION: u8 = 1;
 const PURPOSE: &str = "metrics.catalog.v1";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct MetricCatalogCursor {
     version: u8,
     pub(super) query: Option<String>,

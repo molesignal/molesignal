@@ -20,7 +20,7 @@ pub fn routes() -> Router<AppState> {
     Router::new().route("/agent/network-policy", get(get_policy).put(put_policy))
 }
 
-#[permission("agent.manage")]
+#[permission("agent.network_policy.read")]
 async fn get_policy(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -29,6 +29,7 @@ async fn get_policy(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct PolicyRequest {
     #[serde(default)]
     private_hosts: Vec<String>,
@@ -36,7 +37,7 @@ struct PolicyRequest {
     private_cidrs: Vec<String>,
 }
 
-#[permission("agent.manage")]
+#[permission("agent.network_policy.manage")]
 async fn put_policy(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -59,8 +60,8 @@ async fn put_policy(
         "agent_network_policy",
         &ctx.org_id.0,
         json!({
-            "private_hosts": saved.private_hosts,
-            "private_cidrs": saved.private_cidrs,
+            "privateHosts": saved.private_hosts,
+            "privateCidrs": saved.private_cidrs,
         }),
     )
     .await;

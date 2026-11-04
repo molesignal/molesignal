@@ -28,8 +28,8 @@ impl PgIncidentGroupRepository {
 }
 
 const COLS: &str = "id, org_id, alert_rule_id, fingerprint, state, incident_count,
-                    first_at_micros, last_at_micros, acked_by, acked_at_micros,
-                    resolved_at_micros";
+                    first_at, last_at, acked_by, acked_at,
+                    resolved_at";
 
 fn row_to(r: sqlx::postgres::PgRow) -> IncidentGroup {
     IncidentGroup {
@@ -39,20 +39,22 @@ fn row_to(r: sqlx::postgres::PgRow) -> IncidentGroup {
         fingerprint: r.try_get::<String, _>("fingerprint").unwrap_or_default(),
         state: IncidentGroupState::parse(&r.try_get::<String, _>("state").unwrap_or_default()),
         incident_count: r.try_get::<i32, _>("incident_count").unwrap_or(1),
-        first_at: TimestampMicros(r.try_get::<i64, _>("first_at_micros").unwrap_or_default()),
-        last_at: TimestampMicros(r.try_get::<i64, _>("last_at_micros").unwrap_or_default()),
+        first_at: r
+            .try_get::<TimestampMicros, _>("first_at")
+            .unwrap_or_default(),
+        last_at: r
+            .try_get::<TimestampMicros, _>("last_at")
+            .unwrap_or_default(),
         acked_by: r
             .try_get::<Option<String>, _>("acked_by")
             .unwrap_or_default()
             .map(Id),
         acked_at: r
-            .try_get::<Option<i64>, _>("acked_at_micros")
-            .unwrap_or_default()
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("acked_at")
+            .unwrap_or_default(),
         resolved_at: r
-            .try_get::<Option<i64>, _>("resolved_at_micros")
-            .unwrap_or_default()
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("resolved_at")
+            .unwrap_or_default(),
     }
 }
 
@@ -72,15 +74,15 @@ impl IncidentGroupRepository for PgIncidentGroupRepository {
         let existing_sql = format!(
             "SELECT {COLS} FROM incident_groups
              WHERE org_id = $1 AND alert_rule_id = $2 AND fingerprint = $3
-                   AND last_at_micros >= $4 AND state != 'resolved'
-             ORDER BY last_at_micros DESC LIMIT 1"
+                   AND last_at >= $4 AND state != 'resolved'
+             ORDER BY last_at DESC LIMIT 1"
         );
 
         let existing = sqlx::query(&existing_sql)
             .bind(&org_id.0)
             .bind(&alert_rule_id.0)
             .bind(fingerprint)
-            .bind(cutoff)
+            .bind(TimestampMicros(cutoff))
             .fetch_optional(&self.pool)
             .await
             .map_err(sqlx_err)?;
@@ -90,11 +92,11 @@ impl IncidentGroupRepository for PgIncidentGroupRepository {
 
             sqlx::query(
                 "UPDATE incident_groups
-                 SET last_at_micros = $2, incident_count = incident_count + 1
+                 SET last_at = $2, incident_count = incident_count + 1
                  WHERE id = $1",
             )
             .bind(&group.id.0)
-            .bind(at.0)
+            .bind(at)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
@@ -124,14 +126,14 @@ impl IncidentGroupRepository for PgIncidentGroupRepository {
         sqlx::query(
             "INSERT INTO incident_groups
                 (id, org_id, alert_rule_id, fingerprint, state, incident_count,
-                 first_at_micros, last_at_micros)
+                 first_at, last_at)
              VALUES ($1, $2, $3, $4, 'open', 1, $5, $5)",
         )
         .bind(&g.id.0)
         .bind(&g.org_id.0)
         .bind(&g.alert_rule_id.0)
         .bind(&g.fingerprint)
-        .bind(g.first_at.0)
+        .bind(g.first_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -161,7 +163,7 @@ impl IncidentGroupRepository for PgIncidentGroupRepository {
         let sql = format!(
             "SELECT {COLS} FROM incident_groups
              WHERE org_id = $1 AND ($2::TEXT IS NULL OR state = $2)
-             ORDER BY last_at_micros DESC LIMIT $3"
+             ORDER BY last_at DESC LIMIT $3"
         );
 
         let rows = sqlx::query(&sql)
@@ -178,13 +180,13 @@ impl IncidentGroupRepository for PgIncidentGroupRepository {
     async fn ack(&self, org_id: &Id, id: &Id, acked_by: &Id, at: TimestampMicros) -> Result<()> {
         sqlx::query(
             "UPDATE incident_groups
-             SET state = 'acked', acked_by = $3, acked_at_micros = $4
+             SET state = 'acked', acked_by = $3, acked_at = $4
              WHERE org_id = $1 AND id = $2 AND state = 'open'",
         )
         .bind(&org_id.0)
         .bind(&id.0)
         .bind(&acked_by.0)
-        .bind(at.0)
+        .bind(at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -195,12 +197,12 @@ impl IncidentGroupRepository for PgIncidentGroupRepository {
     async fn resolve(&self, org_id: &Id, id: &Id, at: TimestampMicros) -> Result<()> {
         sqlx::query(
             "UPDATE incident_groups
-             SET state = 'resolved', resolved_at_micros = $3
+             SET state = 'resolved', resolved_at = $3
              WHERE org_id = $1 AND id = $2 AND state != 'resolved'",
         )
         .bind(&org_id.0)
         .bind(&id.0)
-        .bind(at.0)
+        .bind(at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{DatasetTypeId, ObjectChecksum, ObjectKey, StoredObject};
 use crate::{
-    domain::stream::StreamType,
+    domain::stream::{FieldPartitions, StreamType},
     shared::{Result, ids::Id, time::TimeRange},
 };
 
@@ -36,6 +36,53 @@ pub struct QueryFile {
     pub size_bytes: u64,
     pub min_values: serde_json::Map<String, serde_json::Value>,
     pub max_values: serde_json::Map<String, serde_json::Value>,
+    /// 见 [`super::ColumnStats::value_sets`]。
+    #[serde(default)]
+    pub value_sets: serde_json::Map<String, serde_json::Value>,
+    /// 见 [`super::ColumnStats::address_ranges`]。
+    #[serde(default)]
+    pub address_ranges: serde_json::Map<String, serde_json::Value>,
+    /// 见 [`super::ColumnStats::null_counts`]。
+    #[serde(default)]
+    pub null_counts: serde_json::Map<String, serde_json::Value>,
+    /// 见 [`super::ColumnStats::indexed_at_micros`]。
+    #[serde(default)]
+    pub indexed_at_micros: Option<i64>,
+    /// 文件按字段分片写入时，它的分片方式与分片。
+    #[serde(default)]
+    pub shard: Option<FileShard>,
+}
+
+/// 按字段分片写入的文件：文件里每一行都落在 `shard` 这个分片里。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FileShard {
+    pub partitions: FieldPartitions,
+    pub shard: u16,
+}
+
+impl FileShard {
+    /// 文件里可能有 `field` 取 `values` 之一的行；`field` 不是分片字段时都可能。
+    pub fn may_hold_any(&self, field: &str, values: &[String]) -> bool {
+        self.partitions
+            .component(self.shard, field)
+            .is_none_or(|(partition, shard)| {
+                values
+                    .iter()
+                    .any(|value| partition.shard_of(Some(value)) == shard)
+            })
+    }
+
+    /// 文件里可能有 `field` 以 `prefix` 开头的行，`case_insensitive` 时不计大小写；`field` 不是
+    /// 分片字段时都可能。
+    pub fn may_hold_prefix(&self, field: &str, prefix: &str, case_insensitive: bool) -> bool {
+        self.partitions
+            .component(self.shard, field)
+            .is_none_or(|(partition, shard)| {
+                partition
+                    .shards_of_prefix(prefix, case_insensitive)
+                    .is_none_or(|shards| shards.contains(&shard))
+            })
+    }
 }
 
 impl QueryFile {

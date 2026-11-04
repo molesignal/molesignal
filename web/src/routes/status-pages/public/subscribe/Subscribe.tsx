@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { BellPlus, Rss, Slack } from 'lucide-react';
+import { BellPlus, Slack } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -34,7 +34,14 @@ import {
 import { PUBLIC_CONTROL_HEIGHT } from '../control';
 import { chosenComponentIds, subscriptionAction } from './actions';
 import { ComponentChoice } from './ComponentChoice';
+import { SUBSCRIPTION_DIALOG_BODY, SUBSCRIPTION_DIALOG_HEAD } from './dialogFrame';
+import { FeedAddresses } from './FeedAddresses';
 import { ManageSubscription } from './ManageSubscription';
+
+/** A way to hear about the page: a channel that subscribes, or the page's feed. */
+type SubscriptionWay = StatusPageSubscriberChannel | 'rss';
+
+const WAYS: SubscriptionWay[] = ['email', 'webhook', 'slack', 'rss'];
 
 type ActionStatus =
   | 'confirming'
@@ -71,7 +78,9 @@ export function PublicStatusSubscribe({
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = React.useState(false);
-  const [channel, setChannel] = React.useState<StatusPageSubscriberChannel>('email');
+  const [way, setWay] = React.useState<SubscriptionWay>('email');
+  const channel: StatusPageSubscriberChannel = way === 'rss' ? 'email' : way;
+  const feed = !privatePage && way === 'rss';
   const [target, setTarget] = React.useState('');
   const [scope, setScope] = React.useState<'all' | 'selected'>('all');
   const [chosen, setChosen] = React.useState<string[]>([]);
@@ -98,7 +107,7 @@ export function PublicStatusSubscribe({
   const addToSlack = useMutation({
     mutationFn: () => statusPagesApi.beginSlackSubscription(slug, componentIds),
     // Slack asks which channel, then sends the reader back to this page.
-    onSuccess: ({ authorize_url }) => window.location.assign(authorize_url),
+    onSuccess: ({ authorizeUrl: authorize_url }) => window.location.assign(authorize_url),
   });
 
   React.useEffect(() => {
@@ -158,9 +167,9 @@ export function PublicStatusSubscribe({
         <DialogContent
           data-theme="light"
           style={{ '--status-brand': brandColor } as React.CSSProperties}
-          className="max-h-[calc(100vh-24px)] w-[min(520px,calc(100vw-24px))] gap-0 overflow-y-auto border-bd-1 bg-white p-0 text-tx-1"
+          className="max-h-[calc(100vh-24px)] w-[min(520px,calc(100vw-24px))] max-w-none gap-0 overflow-y-auto border-bd-1 bg-white p-0 text-tx-1"
         >
-          <DialogHeader className="border-b border-bd-0 px-5 pb-5 pt-6 sm:px-6">
+          <DialogHeader className={SUBSCRIPTION_DIALOG_HEAD}>
             <DialogTitle className="text-xl font-display-strong text-tx-0">
               {copy('public.subscription.title')}
             </DialogTitle>
@@ -170,7 +179,7 @@ export function PublicStatusSubscribe({
           </DialogHeader>
 
           {accepted ? (
-            <div className="px-5 py-8 sm:px-6">
+            <div className={cn(SUBSCRIPTION_DIALOG_BODY, 'pb-8')}>
               <p role="status" className="text-base font-strong text-tx-0">
                 {copy('public.subscription.accepted_title')}
               </p>
@@ -180,19 +189,19 @@ export function PublicStatusSubscribe({
             </div>
           ) : (
             <form
-              className="space-y-5 px-5 py-6 sm:px-6"
+              className={SUBSCRIPTION_DIALOG_BODY}
               onSubmit={(event) => {
                 event.preventDefault();
-                if (!scopeInvalid && (privatePage || target.trim())) subscribe.mutate();
+                if (!feed && !scopeInvalid && (privatePage || target.trim())) subscribe.mutate();
               }}
             >
               {!privatePage && (
                 <label className="block text-sm font-strong text-tx-1">
                   <span>{copy('public.subscription.channel')}</span>
                   <Select
-                    value={channel}
+                    value={way}
                     onValueChange={(value) => {
-                      setChannel(value as StatusPageSubscriberChannel);
+                      setWay(value as SubscriptionWay);
                       setTarget('');
                       subscribe.reset();
                     }}
@@ -201,7 +210,7 @@ export function PublicStatusSubscribe({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent data-theme="light">
-                      {(['email', 'webhook', 'slack'] as const).map((option) => (
+                      {WAYS.map((option) => (
                         <SelectItem key={option} value={option} className="min-h-10">
                           {copy(`public.subscription.${option}`)}
                         </SelectItem>
@@ -211,7 +220,7 @@ export function PublicStatusSubscribe({
                 </label>
               )}
 
-              {!privatePage && channel === 'slack' && slackApp && (
+              {!privatePage && way === 'slack' && slackApp && (
                 <div className="space-y-2">
                   <Button
                     type="button"
@@ -227,7 +236,9 @@ export function PublicStatusSubscribe({
                 </div>
               )}
 
-              {!privatePage ? (
+              {feed ? (
+                <FeedAddresses slug={slug} copy={copy} />
+              ) : !privatePage ? (
                 <label className="block text-sm font-strong text-tx-1">
                   <span>{copy(`public.subscription.${channel}_target`)}</span>
                   <Input
@@ -250,14 +261,16 @@ export function PublicStatusSubscribe({
                 </p>
               )}
 
-              <ComponentChoice
-                components={components}
-                scope={scope}
-                chosen={chosen}
-                onScopeChange={setScope}
-                onChosenChange={setChosen}
-                copy={copy}
-              />
+              {!feed && (
+                <ComponentChoice
+                  components={components}
+                  scope={scope}
+                  chosen={chosen}
+                  onScopeChange={setScope}
+                  onChosenChange={setChosen}
+                  copy={copy}
+                />
+              )}
 
               {error && (
                 <p role="alert" className="rounded-md bg-red-dim px-3 py-2 text-sm text-red">
@@ -265,26 +278,20 @@ export function PublicStatusSubscribe({
                 </p>
               )}
 
-              <DialogFooter className="items-center justify-between gap-3 space-x-0 pt-1">
-                {!privatePage && (
-                  <Button asChild type="button" variant="outline" className={cn(PUBLIC_CONTROL_HEIGHT, 'px-3.5')}>
-                    <a href={statusPagesApi.publicRssUrl(slug)} target="_blank" rel="noreferrer">
-                      <Rss aria-hidden className="h-4 w-4" />
-                      {copy('public.subscription.rss')}
-                    </a>
+              {!feed && (
+                <DialogFooter className="items-center justify-end gap-3 space-x-0 pt-1">
+                  <Button
+                    type="submit"
+                    size="lg"
+                    disabled={(!privatePage && !target.trim()) || scopeInvalid || subscribe.isPending}
+                    className={cn(PUBLIC_CONTROL_HEIGHT, 'bg-[var(--status-brand)] text-white hover:brightness-95')}
+                  >
+                    {subscribe.isPending
+                      ? copy('public.subscription.submitting')
+                      : copy('public.subscription.submit')}
                   </Button>
-                )}
-                <Button
-                  type="submit"
-                  size="lg"
-                  disabled={(!privatePage && !target.trim()) || scopeInvalid || subscribe.isPending}
-                  className={cn(PUBLIC_CONTROL_HEIGHT, 'bg-[var(--status-brand)] text-white hover:brightness-95')}
-                >
-                  {subscribe.isPending
-                    ? copy('public.subscription.submitting')
-                    : copy('public.subscription.submit')}
-                </Button>
-              </DialogFooter>
+                </DialogFooter>
+              )}
             </form>
           )}
         </DialogContent>

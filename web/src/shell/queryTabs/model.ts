@@ -6,7 +6,7 @@ import {
 } from '@/stores/useTimeStore';
 
 /** The explorers that keep several queries open side by side. */
-export type QueryTabsKind = 'logs' | 'metrics' | 'traces';
+export type QueryTabsKind = 'logs' | 'metrics' | 'rum' | 'traces';
 
 /** Enough for a real investigation, few enough that every tab keeps a readable name. */
 export const MAX_QUERY_TABS = 10;

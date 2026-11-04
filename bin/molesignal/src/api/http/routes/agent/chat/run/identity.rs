@@ -5,27 +5,33 @@
 //! 同一套：账号与组织还能用，再解析成员关系与权限。排队这段时间里被收回的权限不会被用上。
 
 use crate::{
-    agent::runs::Run,
+    agent::runs::{Run, RunPrincipal},
     api::AppState,
     app::iam::IamContext,
-    shared::{Error, Result},
+    shared::{Error, Result, ids::Id},
 };
 
 pub(super) async fn resolve(state: &AppState, run: &Run) -> Result<IamContext> {
-    let user_id = run.initiator();
+    resolve_principal(state, &run.org_id, &run.principal).await
+}
+
+/// 一个身份此刻在组织里的权限；用不了 Mole Agent 时返回 [`Error::Forbidden`]。自动化开始一次
+/// 运行前也用它核对执行身份。
+pub(crate) async fn resolve_principal(
+    state: &AppState,
+    org_id: &Id,
+    principal: &RunPrincipal,
+) -> Result<IamContext> {
+    let user_id = &principal.user_id;
 
     let admitted = async {
         state.iam.service.ensure_user_access(user_id).await?;
-        state
-            .iam
-            .service
-            .ensure_organization_access(&run.org_id)
-            .await
+        state.iam.service.ensure_organization_access(org_id).await
     };
 
     admitted.await.map_err(unusable)?;
 
-    let mut context = run.principal.unresolved_context(&run.org_id);
+    let mut context = principal.unresolved_context(org_id);
     state
         .iam
         .access

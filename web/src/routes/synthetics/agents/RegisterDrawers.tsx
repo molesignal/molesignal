@@ -121,7 +121,7 @@ export function RegisterInstructionsDrawer({
         <CopyIconButton
           label={t('actions.copy_command')}
           copied={copied}
-          className="absolute right-2 top-2"
+          wrapperClassName="absolute right-2 top-2"
           onClick={() => {
             if (!instructions) return;
             void writeClipboardText(instructions.command)

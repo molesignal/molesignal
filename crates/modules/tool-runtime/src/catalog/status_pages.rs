@@ -3,7 +3,7 @@
 
 use serde_json::json;
 
-use super::{BuiltinToolKind, object_schema, open_output};
+use super::{BuiltinToolKind, object_schema, open_output, timestamp_schema};
 use crate::{RiskLevel, ToolSpec};
 
 pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
@@ -19,14 +19,14 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::GetStatusPage => (
             "Get a status-page snapshot including components and current events.",
             "pages",
-            id_input("page_id"),
+            id_input("pageId"),
             vec!["Status Page", "Snapshot"],
         ),
         BuiltinToolKind::ListStatusPageIncidents => (
             "List status-page incidents or maintenance events.",
             "incidents",
-            json!({"type": "object", "required": ["page_id"], "properties": {
-                "page_id": {"type": "string"}, "kind": {"type": "string", "enum": ["incident", "maintenance"], "default": "incident"},
+            json!({"type": "object", "required": ["pageId"], "properties": {
+                "pageId": {"type": "string"}, "kind": {"type": "string", "enum": ["incident", "maintenance"], "default": "incident"},
                 "view": {"type": "string", "enum": ["current", "draft", "resolved", "upcoming", "in_progress", "completed"], "default": "current"}
             }, "additionalProperties": false}),
             vec!["Status Page", "Incidents"],
@@ -34,8 +34,8 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::GetStatusPageIncident => (
             "Get one status-page event and its updates.",
             "incidents",
-            json!({"type": "object", "required": ["page_id", "event_id"], "properties": {
-                "page_id": {"type": "string"}, "event_id": {"type": "string"}
+            json!({"type": "object", "required": ["pageId", "eventId"], "properties": {
+                "pageId": {"type": "string"}, "eventId": {"type": "string"}
             }, "additionalProperties": false}),
             vec!["Status Page", "Incidents"],
         ),
@@ -54,21 +54,21 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::ListStatusPageAutomationRules => (
             "List active status-page automation rules.",
             "automation",
-            id_input("page_id"),
+            id_input("pageId"),
             vec!["Status Page", "Automation"],
         ),
         BuiltinToolKind::ListStatusPageAutomationCandidates => (
             "List bounded status-page automation candidates.",
             "automation",
-            json!({"type": "object", "required": ["page_id"], "properties": {
-                "page_id": {"type": "string"}, "state": {"type": "string"}, "limit": limit(100, 50)
+            json!({"type": "object", "required": ["pageId"], "properties": {
+                "pageId": {"type": "string"}, "state": {"type": "string"}, "limit": limit(100, 50)
             }, "additionalProperties": false}),
             vec!["Status Page", "Automation"],
         ),
         BuiltinToolKind::GetStatusPageAutomationSettings => (
             "Get automation settings for one status page.",
             "automation",
-            id_input("page_id"),
+            id_input("pageId"),
             vec!["Status Page", "Automation"],
         ),
         BuiltinToolKind::ArchiveStatusPage => operation(
@@ -91,14 +91,14 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "Write or replace the draft postmortem of one published status-page incident, in Markdown. The draft is not published: people publish it from the status page once the incident is resolved. A postmortem that is already published is revised there, not here.",
             "incidents",
             json!({
-                "type": "object", "required": ["page_id", "event_id", "body", "reason", "impact"],
+                "type": "object", "required": ["pageId", "eventId", "body", "reason", "impact"],
                 "properties": {
-                    "page_id": {"type": "string", "minLength": 1},
-                    "event_id": {"type": "string", "minLength": 1, "description": "The incident's id, as list_status_page_incidents gives it"},
+                    "pageId": {"type": "string", "minLength": 1},
+                    "eventId": {"type": "string", "minLength": 1, "description": "The incident's id, as list_status_page_incidents gives it"},
                     "body": {"type": "string", "minLength": 1, "maxLength": 20000},
                     "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
                     "impact": {"type": "string", "minLength": 1, "maxLength": 2000},
-                    "expires_at_micros": {"type": "integer"}
+                    "expiresAt": timestamp_schema()
                 }, "additionalProperties": false
             }),
             vec!["Status Page", "Incidents", "Postmortems"],
@@ -114,7 +114,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             | BuiltinToolKind::ResumeStatusPageAutomation
             | BuiltinToolKind::DraftStatusPagePostmortem
     ) {
-        &["status_pages.manage"][..]
+        &["status_pages.update"][..]
     } else {
         &["status_pages.read"][..]
     };
@@ -157,7 +157,7 @@ fn operation(
     (
         description,
         "pages",
-        proposal_input("page_id"),
+        proposal_input("pageId"),
         tags.to_vec(),
     )
 }
@@ -169,7 +169,7 @@ fn proposal_input(field: &str) -> serde_json::Value {
             (field): {"type": "string", "minLength": 1},
             "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
             "impact": {"type": "string", "minLength": 1, "maxLength": 2000},
-            "expires_at_micros": {"type": "integer"}
+            "expiresAt": timestamp_schema()
         }, "additionalProperties": false
     })
 }
@@ -179,8 +179,8 @@ fn id_input(field: &str) -> serde_json::Value {
 }
 
 fn page_input() -> serde_json::Value {
-    json!({"type": "object", "required": ["page_id"], "properties": {
-        "page_id": {"type": "string"}, "page": {"type": "integer", "minimum": 1, "maximum": 10000, "default": 1}
+    json!({"type": "object", "required": ["pageId"], "properties": {
+        "pageId": {"type": "string"}, "page": {"type": "integer", "minimum": 1, "maximum": 10000, "default": 1}
     }, "additionalProperties": false})
 }
 

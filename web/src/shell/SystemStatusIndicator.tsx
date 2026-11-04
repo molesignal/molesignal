@@ -1,13 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
 
 import * as healthApi from '@/api/health';
 import { cn } from '@/shell/lib/cn';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/shell/ui/tooltip';
 
 export type SystemStatus = 'healthy' | 'degraded' | 'disconnected';
 
@@ -49,14 +43,8 @@ const STATUS_TONE: Record<SystemStatus, string> = {
   disconnected: 'bg-red',
 };
 
-export function SystemStatusIndicator({
-  compact = false,
-  className,
-}: {
-  compact?: boolean;
-  className?: string;
-}) {
-  const { t } = useTranslation('shell');
+/** The health of the core API, checked on the schedule above for as long as the shell is open. */
+export function useSystemStatus(): SystemStatus {
   const healthQuery = useQuery({
     queryKey: ['system', 'health'],
     queryFn: healthApi.get,
@@ -68,36 +56,17 @@ export function SystemStatusIndicator({
     retry: false,
     staleTime: 25_000,
   });
-  const status = resolveSystemStatus(healthQuery.data, healthQuery.error);
-  const label = t(`system_status.${status}`);
+  return resolveSystemStatus(healthQuery.data, healthQuery.error);
+}
 
+/** The status light: green, yellow or red. Only a healthy system breathes; a degraded or lost one stays still. */
+export function SystemStatusDot({ status, className }: { status: SystemStatus; className?: string }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span
-          role="status"
-          aria-label={label}
-          data-state={status}
-          data-testid="system-status-indicator"
-          className={cn(
-            compact
-              ? 'flex h-8 w-4 items-center justify-center'
-              : 'flex h-8 w-8 items-center justify-center rounded-md hover:bg-bg-3',
-            className,
-          )}
-        >
-          <span
-            aria-hidden
-            // Only a healthy system breathes; a degraded or lost one stays still.
-            className={cn(
-              'h-2 w-2 rounded-full',
-              STATUS_TONE[status],
-              status === 'healthy' && 'ms-live',
-            )}
-          />
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">{label}</TooltipContent>
-    </Tooltip>
+    <span
+      aria-hidden
+      data-testid="system-status-indicator"
+      data-state={status}
+      className={cn('h-2 w-2 shrink-0 rounded-full', STATUS_TONE[status], status === 'healthy' && 'ms-live', className)}
+    />
   );
 }

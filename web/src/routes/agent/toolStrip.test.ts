@@ -60,8 +60,8 @@ describe('Mole Agent tool strip helpers', () => {
             type: 'json',
             json: {
               streams: [
-                { name: 'logs1', stream_type: 'logs' },
-                { name: 'metrics1', stream_type: 'metrics' },
+                { name: 'logs1', streamType: 'logs' },
+                { name: 'metrics1', streamType: 'metrics' },
               ],
             },
           },

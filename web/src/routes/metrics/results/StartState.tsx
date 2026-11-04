@@ -120,7 +120,7 @@ function StarterMetric({
         <span className="mt-0.5 block truncate pl-[38px] font-sans text-xs text-tx-3">
           {t('explore.catalog.metric_meta', {
             labels: metric.labels.length,
-            fields: metric.field_count,
+            fields: metric.fieldCount,
           })}
         </span>
       </span>

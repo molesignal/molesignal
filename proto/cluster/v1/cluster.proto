@@ -92,6 +92,53 @@ service EventService {
   // gossip 节点发现：与已知 peer 交换"已知集群"拓扑（仅 id/name/addr，不含 token/org_map）。
   // 收到未知集群 → 入库为 discovered=true、enabled=false（不自动信任，待 admin 启用）。
   rpc GossipClusters(EventServiceGossipClustersRequest) returns (EventServiceGossipClustersResponse);
+  // 外部告警：一个告警来源的事件只在它的接收集群上开。别的集群收到这个来源的告警，原样转给接收
+  // 集群，再把接收集群的答复回给发送方。接收端按 org 映射 + per-org token 鉴权。
+  rpc ForwardAlerts(ForwardAlertsRequest) returns (ForwardAlertsResponse);
+  // 实时规则跨集群汇总：规则设了汇总集群时，汇总集群上负责这条规则的节点每秒向联邦里映射了这个
+  // 组织的集群拉规则的窗口计数（那个集群各节点之和），加上本集群的再判断。接收端按 org 映射 +
+  // per-org token 鉴权，只答映射到的组织的规则。
+  rpc RealtimeCounts(RealtimeCountsRequest) returns (RealtimeCountsResponse);
+}
+
+message RealtimeCountsRequest {
+  // 汇总集群 id（接收端据此查 org 映射）。
+  string source_cluster_id = 1;
+  // 规则在汇总集群里的组织 id。
+  string org_id = 2;
+  // 规则 id（随联邦同步，各集群相同）。
+  repeated string rule_ids = 3;
+}
+
+message RealtimeCountsResponse {
+  // 本集群有计数的规则；没在这里的规则按 0 算。
+  repeated RealtimeRuleCount counts = 1;
+}
+
+message RealtimeRuleCount {
+  string rule_id = 1;
+  // 窗口内的命中数，本集群各节点之和。
+  uint64 count = 2;
+}
+
+message ForwardAlertsRequest {
+  // 转发的集群 id（接收端据此查 org 映射）。
+  string source_cluster_id = 1;
+  // 告警来源在转发集群里的组织 id。
+  string org_id = 2;
+  // 告警来源的 id（各集群相同）。
+  string source_id = 3;
+  // 发送方请求的 Content-Type；没有时为空。
+  string content_type = 4;
+  // 发送方的请求体，原样。
+  bytes body = 5;
+}
+
+message ForwardAlertsResponse {
+  // 回给发送方的 HTTP 状态码。
+  uint32 status = 1;
+  // 回给发送方的 JSON 响应体。
+  bytes body = 2;
 }
 
 // 集群引用（gossip 仅传播这三项；token / org 映射绝不出网）。

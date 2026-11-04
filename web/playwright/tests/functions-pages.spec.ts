@@ -10,11 +10,11 @@ interface FunctionRow {
   name: string;
   language: 'vrl' | 'js';
   source: string;
-  params_schema: Record<string, unknown>;
-  is_builtin: boolean;
+  paramsSchema: Record<string, unknown>;
+  isBuiltin: boolean;
   description: string;
-  created_at_micros: number;
-  updated_at_micros: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
 const REDACT: FunctionRow = {
@@ -22,11 +22,11 @@ const REDACT: FunctionRow = {
   name: 'redact-email',
   language: 'vrl',
   source: '.message = replace(to_string(.message) ?? "", r\'[a-z]+@[a-z.]+\', "[redacted-email]")',
-  params_schema: {},
-  is_builtin: true,
+  paramsSchema: {},
+  isBuiltin: true,
   description: 'Replaces email addresses in message with a placeholder for redaction.',
-  created_at_micros: 0,
-  updated_at_micros: 0,
+  createdAt: 0,
+  updatedAt: 0,
 };
 
 const NORMALIZE: FunctionRow = {
@@ -34,11 +34,11 @@ const NORMALIZE: FunctionRow = {
   name: 'normalize-logs',
   language: 'vrl',
   source: '. = parse_json!(.message)',
-  params_schema: {},
-  is_builtin: true,
+  paramsSchema: {},
+  isBuiltin: true,
   description: 'Parses the JSON message and normalizes level to lowercase.',
-  created_at_micros: 0,
-  updated_at_micros: 0,
+  createdAt: 0,
+  updatedAt: 0,
 };
 
 const OWN: FunctionRow = {
@@ -46,11 +46,11 @@ const OWN: FunctionRow = {
   name: 'mask-cards',
   language: 'js',
   source: "molesignal.set('card', '****');",
-  params_schema: {},
-  is_builtin: false,
+  paramsSchema: {},
+  isBuiltin: false,
   description: '',
-  created_at_micros: 1_760_000_000_000_000,
-  updated_at_micros: 1_760_000_000_000_000,
+  createdAt: 1_760_000_000_000_000,
+  updatedAt: 1_760_000_000_000_000,
 };
 
 interface Served {

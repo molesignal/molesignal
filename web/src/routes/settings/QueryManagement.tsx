@@ -18,7 +18,7 @@ export function QueryManagement() {
   const { t: tc } = useTranslation('common');
   const qc = useQueryClient();
   const cancelAccess = useActionAccess({
-    permission: 'org.settings.manage',
+    permission: 'org.running_queries.cancel',
   });
 
   const q = useQuery({
@@ -63,13 +63,13 @@ export function QueryManagement() {
               {
                 key: 'user',
                 header: t('query_management.columns.user'),
-                cell: (r) => r.user_id ?? '—',
+                cell: (r) => r.userId ?? '—',
                 width: 200,
               },
               {
                 key: 'started',
                 header: t('query_management.columns.started'),
-                cell: (r) => formatMicros(r.started_at_micros),
+                cell: (r) => formatMicros(r.startedAt),
                 width: 200,
               },
               {

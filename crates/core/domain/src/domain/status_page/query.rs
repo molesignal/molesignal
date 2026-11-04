@@ -9,6 +9,7 @@ use super::{PublicIncidentStatus, StatusPageIncident, StatusPageIncidentKind};
 use crate::shared::{ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusPageHistoryQuery {
     pub kind: Option<StatusPageIncidentKind>,
     pub status: Option<PublicIncidentStatus>,
@@ -36,6 +37,7 @@ impl Default for StatusPageHistoryQuery {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusPageHistoryPage {
     pub items: Vec<StatusPageIncident>,
     pub page: u32,

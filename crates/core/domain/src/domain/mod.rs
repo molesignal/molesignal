@@ -18,7 +18,6 @@
 
 pub mod alerting;
 pub mod apm;
-pub mod business_service;
 
 pub mod cluster;
 pub mod dashboard;

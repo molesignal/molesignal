@@ -9,9 +9,9 @@ import { MetricCatalogPanel } from './MetricCatalogPanel';
 
 const METRICS: MetricCatalogEntry[] = Array.from({ length: 45 }, (_, index) => ({
   name: `metric_${String(index).padStart(2, '0')}`,
-  metric_type: 'gauge',
+  metricType: 'gauge',
   labels: ['service.name'],
-  field_count: 3,
+  fieldCount: 3,
 }));
 
 beforeEach(async () => {

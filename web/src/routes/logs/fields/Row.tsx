@@ -4,12 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/shell/lib/cn';
 import { FieldAnalysisTrigger } from '@/shell/query/fieldAnalysis/Trigger';
-import {
-  FIELD_CARD_CLASS,
-  FIELD_CARD_HEAD_CLASS,
-  FIELD_NEST_CLASS,
-  FIELD_NESTED_ROW_CLASS,
-} from '@/shell/query/fields/Group';
+import { FIELD_FLAT_HEAD_CLASS, FIELD_FLAT_LINE_CLASS, FIELD_FLAT_NEST_CLASS, FIELD_FLAT_ROW_CLASS } from '@/shell/query/fields/Group';
 import { FieldTypeChip, type FieldTypeTone } from '@/shell/query/fields/TypeChip';
 import { FieldValueList, type FieldValueItem } from '@/shell/query/FieldValues';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/shell/ui/tooltip';
@@ -130,22 +125,19 @@ export function LogFieldRow({
     <div
       data-log-field-row={field.name}
       data-field-row
-      // A field of the list is a card; a field under a group is a row on a ground of its own inside the group's card.
-      className={nested ? FIELD_NESTED_ROW_CLASS : FIELD_CARD_CLASS}
+      // A field is a row of the flat list, as the trace explorer's are; one under a group is set in under the group's row.
+      className={FIELD_FLAT_ROW_CLASS}
     >
       {/* The head carries its own state, from edge to edge; the button inside has no fill of its
           own, which would light only the part of the row it covers. */}
       <div
-        className={cn(
-          'group flex items-center gap-1 pr-1 font-sans text-xs',
-          nested ? 'min-h-8 rounded-[5px] pl-1.5 hover:bg-bg-3 has-[:focus-visible]:bg-bg-4' : cn('min-h-9 pl-2', FIELD_CARD_HEAD_CLASS),
-        )}
+        className={cn('group flex items-center gap-1 pr-1', FIELD_FLAT_HEAD_CLASS, nested ? 'pl-8' : 'pl-3')}
       >
         <button
           type="button"
           onClick={() => onExpandedChange(!expanded)}
           aria-expanded={expanded}
-          className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-left focus-visible:bg-transparent"
+          className={cn('flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:bg-transparent', FIELD_FLAT_LINE_CLASS)}
         >
           <FieldTypeChip glyph={LOG_FIELD_TYPE_GLYPH[field.type]} tone={LOG_FIELD_TYPE_TONE[field.type]} nested={nested} />
           <span className="min-w-0 truncate font-body text-tx-0" title={field.name}>
@@ -163,7 +155,7 @@ export function LogFieldRow({
           {/* A count is said where it tells something: a field that every loaded record carries
               would only repeat the number of records down the whole list. */}
           {Number(field.count) < records.length && (
-            <span data-log-field-count className="type-micro shrink-0 font-mono tabular-nums text-tx-2">
+            <span data-log-field-count className="shrink-0 font-sans tabular-nums text-tx-3">
               {field.count}
             </span>
           )}
@@ -214,11 +206,8 @@ export function LogFieldRow({
       {expanded && (
         <div
           data-log-field-values={field.name}
-          // What a field opens on is inside it, set in, on a ground of its own; a field under a
-          // group stands on that ground already and takes the surface of the card instead.
-          className={
-            nested ? 'mx-[3px] mb-[3px] rounded-[4px] bg-[var(--functional-surface)] p-[4px]' : FIELD_NEST_CLASS
-          }
+          // What a field opens on is under its row, on a ground a step off the list.
+          className={cn(FIELD_FLAT_NEST_CLASS, nested && 'pl-8')}
         >
           {items.length === 0 ? (
             <div className="px-[6px] py-[6px] font-sans text-xs text-tx-2">

@@ -21,6 +21,10 @@ pub(super) struct LoadedDataset {
     pub files: Vec<QueryFile>,
     /// Explicit Primary Artifact key → ready Tantivy Artifact key relationships.
     pub tantivy_indexes: HashMap<String, String>,
+    /// Segment id of a sealed partition → object key of that partition's Bloom filters.
+    pub bloom_keys: HashMap<String, String>,
+    /// Segment id → object key of the segment's own filter artifact.
+    pub filter_keys: HashMap<String, String>,
     pub buffered_batches: Vec<RecordBatch>,
 }
 
@@ -49,6 +53,8 @@ impl LoadedDataset {
         Self {
             files,
             tantivy_indexes: snapshot.tantivy_indexes(),
+            bloom_keys: snapshot.bloom_keys(),
+            filter_keys: snapshot.filter_keys(),
             buffered_batches: snapshot.buffered_batches(),
         }
     }
@@ -127,6 +133,8 @@ pub(super) async fn load(
     Ok(LoadedDataset {
         files,
         tantivy_indexes: explicit_tantivy_indexes.clone(),
+        bloom_keys: HashMap::new(),
+        filter_keys: HashMap::new(),
         buffered_batches,
     })
 }

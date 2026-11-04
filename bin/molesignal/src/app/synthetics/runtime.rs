@@ -4,17 +4,20 @@
 use async_trait::async_trait;
 use serde::Serialize;
 
-use super::{SyntheticService, aggregate_locations, next_due_at};
+use super::{
+    NoDataChange, SyntheticService, aggregate_locations, next_due_at, no_data::missing_threshold,
+};
 use crate::{
     domain::synthetics::{
         MonitorLifecycle, MonitorRevision, MonitorState, ProbeOutcome, ProbeTask, ProbeTaskState,
-        StateObservation, SyntheticResult, SyntheticResultListQuery, SyntheticResultPage,
-        SyntheticStateTransition,
+        StateObservation, SyntheticMonitor, SyntheticResult, SyntheticResultListQuery,
+        SyntheticResultPage, SyntheticStateTransition,
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProcessResultOutcome {
     pub result: SyntheticResult,
     pub historical_only: bool,
@@ -30,6 +33,16 @@ pub trait SyntheticTransitionSink: Send + Sync {
         alert_on_degraded: bool,
         alert_on_flaky: bool,
     ) -> Result<()>;
+
+    /// The check was paused, archived or made active again.
+    async fn on_lifecycle(&self, _monitor: &SyntheticMonitor) -> Result<()> {
+        Ok(())
+    }
+
+    /// The check may have stopped getting results, or started again.
+    async fn on_no_data(&self, _change: &NoDataChange) -> Result<()> {
+        Ok(())
+    }
 }
 
 /// Hands every transition to several sinks; each sees it whatever the others
@@ -59,6 +72,30 @@ impl SyntheticTransitionSink for SyntheticTransitionSinks {
                 .on_transition(transition, alert_on_degraded, alert_on_flaky)
                 .await
             {
+                first_error.get_or_insert(error);
+            }
+        }
+
+        first_error.map_or(Ok(()), Err)
+    }
+
+    async fn on_lifecycle(&self, monitor: &SyntheticMonitor) -> Result<()> {
+        let mut first_error = None;
+
+        for sink in &self.sinks {
+            if let Err(error) = sink.on_lifecycle(monitor).await {
+                first_error.get_or_insert(error);
+            }
+        }
+
+        first_error.map_or(Ok(()), Err)
+    }
+
+    async fn on_no_data(&self, change: &NoDataChange) -> Result<()> {
+        let mut first_error = None;
+
+        for sink in &self.sinks {
+            if let Err(error) = sink.on_no_data(change).await {
                 first_error.get_or_insert(error);
             }
         }
@@ -138,6 +175,8 @@ impl SyntheticService {
                         deadline_at,
                         timeout_millis: revision.timeout_millis,
                         max_attempts: revision.max_retries.saturating_add(1),
+                        inject_trace_context: revision.inject_trace_context,
+                        traceroute_on_failure: revision.traceroute_on_failure,
                         lease_agent_id: None,
                         lease_token_hash: None,
                         leased_until: None,
@@ -192,6 +231,8 @@ impl SyntheticService {
                             deadline_at,
                             timeout_millis: active.revision.timeout_millis,
                             max_attempts: active.revision.max_retries.saturating_add(1),
+                            inject_trace_context: active.revision.inject_trace_context,
+                            traceroute_on_failure: active.revision.traceroute_on_failure,
                             lease_agent_id: None,
                             lease_token_hash: None,
                             leased_until: None,
@@ -245,6 +286,11 @@ impl SyntheticService {
             return Ok(historical(result));
         }
 
+        // A scheduled run is a row of the result stream, whichever revision it ran.
+        if let Some(stream) = &self.result_stream {
+            stream.push(result.clone());
+        }
+
         let Some(active) = self
             .repository
             .get_active_revision(&result.organization_id, &result.monitor_id)
@@ -253,12 +299,29 @@ impl SyntheticService {
             return Ok(historical(result));
         };
 
+        // A paused or archived check stands as it was left: a run still due when it stopped says
+        // nothing more, and opens no incident its stopping resolved.
+        if active.monitor.lifecycle != MonitorLifecycle::Active {
+            return Ok(historical(result));
+        }
+
         let stale_after = result
             .scheduled_at
             .0
             .saturating_add(i64::from(active.revision.freshness_seconds) * 1_000_000);
 
-        if active.revision.id != result.monitor_revision_id || result.received_at.0 > stale_after {
+        // A skipped run is recorded once its deadline has passed, never in time.
+        let skipped = result.outcome == ProbeOutcome::Skipped;
+
+        if active.revision.id != result.monitor_revision_id
+            || (!skipped && result.received_at.0 > stale_after)
+        {
+            return Ok(historical(result));
+        }
+
+        // A run that did not happen leaves the location's state as its last run made it.
+        if skipped {
+            self.count_missed_run(&active, &result).await?;
             return Ok(historical(result));
         }
 
@@ -287,7 +350,7 @@ impl SyntheticService {
             .await?;
 
         let aggregate = aggregate_locations(
-            states.into_iter().map(|state| state.current_state),
+            states.iter().map(|state| state.current_state),
             active.revision.location_ids.len(),
             &active.revision.location_policy,
         );
@@ -333,6 +396,15 @@ impl SyntheticService {
         } else {
             None
         };
+
+        // The location ran again after missing as many runs as fail it, or ran for the first time
+        // under this revision: the check may have data again.
+        if location_update
+            .previous_missing
+            .is_none_or(|missed| missed >= missing_threshold(&active.revision))
+        {
+            self.settle_no_data(&active, &states, None).await;
+        }
 
         Ok(ProcessResultOutcome {
             result,

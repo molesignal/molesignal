@@ -127,7 +127,10 @@ pub async fn run(options: RunOptions) -> Result<()> {
 
         match run_session(&options, identity, spool.clone(), sequence.clone()).await {
             Ok(()) => tracing::warn!("Probe control stream closed"),
-            Err(error) => tracing::warn!(%error, "Probe control stream failed"),
+            Err(error) => tracing::warn!(
+                error = %format_args!("{error:#}"),
+                "Probe control stream failed"
+            ),
         }
 
         tokio::time::sleep(delay).await;
@@ -150,18 +153,12 @@ async fn run_session(
 
     let mut client = ProbeServiceClient::new(channel);
     let (outbound, receiver) = mpsc::channel::<AgentFrame>(64);
-
-    let response = client
-        .control_stream(ReceiverStream::new(receiver))
-        .await
-        .context("open Probe control stream")?;
-
-    let mut inbound = response.into_inner();
     let active_tasks = Arc::new(AtomicU32::new(0));
     let semaphore = Arc::new(Semaphore::new(options.max_concurrent.clamp(1, 32) as usize));
     let browser_semaphore = Arc::new(Semaphore::new(max_browser_concurrent(options) as usize));
     let pending_rotation = Arc::new(Mutex::new(None::<PendingKey>));
 
+    // The server reads Hello before it answers the call, so Hello has to be queued first.
     outbound
         .send(frame(agent_frame::Payload::Hello(AgentHello {
             agent_id: identity.metadata.agent_id.clone(),
@@ -172,6 +169,13 @@ async fn run_session(
             last_acked_result_sequence: sequence.load(Ordering::Relaxed),
         })))
         .await?;
+
+    let response = client
+        .control_stream(ReceiverStream::new(receiver))
+        .await
+        .context("open Probe control stream")?;
+
+    let mut inbound = response.into_inner();
 
     let first = inbound
         .message()
@@ -202,6 +206,7 @@ async fn run_session(
                     active_tasks: active_tasks.load(Ordering::Relaxed),
                     result_spool_bytes: spool.size_bytes(),
                     draining: false,
+                    feature_level: executor::FEATURE_LEVEL,
                 }))).await?;
             }
             message = inbound.message() => {
@@ -483,7 +488,10 @@ fn try_acquire_task(
     })
 }
 
+/// The kinds of check this Agent offers. ICMP is offered only where the process may send pings.
 fn capabilities() -> Vec<i32> {
+    let icmp = executor::icmp_available();
+
     [
         Capability::Http,
         Capability::Tcp,
@@ -495,6 +503,7 @@ fn capabilities() -> Vec<i32> {
         Capability::Browser,
     ]
     .into_iter()
+    .filter(|capability| icmp || *capability != Capability::Icmp)
     .map(|value| value as i32)
     .collect()
 }
@@ -522,6 +531,9 @@ fn now_micros() -> i64 {
         .as_micros()
         .min(i64::MAX as u128) as i64
 }
+
+#[cfg(test)]
+mod control_stream_tests;
 
 #[cfg(test)]
 mod tests {

@@ -40,7 +40,7 @@ pub(super) async fn execute(
                 &runtime
                     .alerting
                     .notify
-                    .get_connector(&auth.org_id, &Id(args.required("connector_id")?))
+                    .get_connector(&auth.org_id, &Id(args.required("connectorId")?))
                     .await?,
             )
         }
@@ -62,7 +62,7 @@ pub(super) async fn execute(
                 &runtime
                     .alerting
                     .notify_engine
-                    .get_policy(&auth.org_id, &Id(args.required("policy_id")?))
+                    .get_policy(&auth.org_id, &Id(args.required("policyId")?))
                     .await?,
             )
         }
@@ -78,7 +78,7 @@ pub(super) async fn execute(
                 &runtime
                     .alerting
                     .notify_templates
-                    .get(&auth.org_id, &Id(args.required("template_id")?))
+                    .get(&auth.org_id, &Id(args.required("templateId")?))
                     .await?,
             )
         }
@@ -114,7 +114,7 @@ pub(super) async fn execute(
                 &runtime
                     .alerting
                     .notify
-                    .get_delivery(&auth.org_id, &Id(args.required("delivery_id")?))
+                    .get_delivery(&auth.org_id, &Id(args.required("deliveryId")?))
                     .await?,
             )
         }
@@ -130,7 +130,7 @@ struct ListArgs {
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct DeliveryArgs {
     #[serde(default)]
     status: Option<String>,
@@ -141,7 +141,7 @@ struct DeliveryArgs {
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct IdArg {
     connector_id: Option<String>,
     policy_id: Option<String>,
@@ -152,10 +152,10 @@ struct IdArg {
 impl IdArg {
     fn required(&self, field: &str) -> Result<String> {
         let value = match field {
-            "connector_id" => &self.connector_id,
-            "policy_id" => &self.policy_id,
-            "template_id" => &self.template_id,
-            "delivery_id" => &self.delivery_id,
+            "connectorId" => &self.connector_id,
+            "policyId" => &self.policy_id,
+            "templateId" => &self.template_id,
+            "deliveryId" => &self.delivery_id,
             _ => unreachable!(),
         };
 
@@ -175,6 +175,7 @@ fn parse_delivery_status(value: &str) -> Result<DeliveryStatus> {
         "failed" => Ok(DeliveryStatus::Failed),
         "skipped" => Ok(DeliveryStatus::Skipped),
         "acknowledged" => Ok(DeliveryStatus::Acknowledged),
+        "queued" => Ok(DeliveryStatus::Queued),
         _ => Err(Error::invalid("invalid notification delivery status")),
     }
 }

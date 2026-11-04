@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     escalation::EscalationPolicy,
+    forecast::ForecastSeries,
     incident::{Incident, IncidentRca, IncidentStatus},
     rule::{AlertRule, RuleState},
     schedule::Schedule,
@@ -16,14 +17,57 @@ use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 /// 评估状态行：alert_rule_eval_state 表的领域模型。
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AlertRuleEvalState {
     pub rule_id: Id,
+    /// 按列拆分的规则里是哪一组（各列取值的摘要）；整条规则一个状态时为空。
+    #[serde(default)]
+    pub group_key: String,
+    /// 这一组各列的取值：结果里没有这一组时，靠它认出是哪一组。
+    #[serde(default)]
+    pub group_labels: BTreeMap<String, String>,
     pub consecutive_matches: u32,
+    /// 连续多少轮在恢复线健康的一侧。
+    #[serde(default)]
+    pub consecutive_clears: u32,
+    /// 连续多少轮没有值。
+    #[serde(default)]
+    pub consecutive_no_data: u32,
+    /// 这一段没有值从哪一轮开始；有值时为空。
+    #[serde(default)]
+    pub no_data_since: Option<TimestampMicros>,
     pub last_eval_at: TimestampMicros,
     pub last_matched: bool,
     /// 每档（severity 字符串 → 连续命中次数）去抖计数；多档评估用，空 = 单档历史行为。
     #[serde(default)]
     pub severity_streaks: BTreeMap<String, u32>,
+    /// 预测规则记着的序列；别的规则为空。
+    #[serde(default)]
+    pub series: ForecastSeries,
+}
+
+impl AlertRuleEvalState {
+    /// 还没评估过的一组（或整条规则）。
+    pub fn fresh(
+        rule_id: &Id,
+        group_key: &str,
+        group_labels: BTreeMap<String, String>,
+        now: TimestampMicros,
+    ) -> Self {
+        Self {
+            rule_id: rule_id.clone(),
+            group_key: group_key.to_string(),
+            group_labels,
+            consecutive_matches: 0,
+            consecutive_clears: 0,
+            consecutive_no_data: 0,
+            no_data_since: None,
+            last_eval_at: now,
+            last_matched: false,
+            severity_streaks: BTreeMap::new(),
+            series: ForecastSeries::default(),
+        }
+    }
 }
 
 #[async_trait]
@@ -39,18 +83,16 @@ pub trait AlertRuleEvalStateRepository: Send + Sync {
         eval_at: TimestampMicros,
         min_gap_micros: i64,
     ) -> Result<bool>;
-    /// 一次评估完后 upsert：matched=true 时累加 consecutive_matches，否则清零。
-    async fn upsert_match(
-        &self,
-        rule_id: &Id,
-        matched: bool,
-        eval_at: TimestampMicros,
-    ) -> Result<AlertRuleEvalState>;
-    /// 多档评估：整行写回（含 severity_streaks 的逐档计数）。单档路径仍用 upsert_match。
+    /// 一轮评估完整行写回（计数在评估器里算好）。`last_eval_at` 只会前进。
     async fn upsert_state(&self, state: AlertRuleEvalState) -> Result<AlertRuleEvalState>;
-    async fn get(&self, rule_id: &Id) -> Result<Option<AlertRuleEvalState>>;
+    /// `group_key` 是按列拆分的规则里的一组，整条规则时为空。
+    async fn get(&self, rule_id: &Id, group_key: &str) -> Result<Option<AlertRuleEvalState>>;
+    /// 按列拆分的规则记着的各组，不含规则本身那一行。
+    async fn list_groups(&self, rule_id: &Id) -> Result<Vec<AlertRuleEvalState>>;
     /// 显式清零（incident resolve 或 rule threshold update 时调用）。
-    async fn reset(&self, rule_id: &Id) -> Result<()>;
+    async fn reset(&self, rule_id: &Id, group_key: &str) -> Result<()>;
+    /// 忘掉这些组：删掉它们的状态，下次出现时从头算。规则本身那一行不会被删。
+    async fn forget_groups(&self, rule_id: &Id, group_keys: &[String]) -> Result<()>;
 }
 
 #[async_trait]
@@ -59,6 +101,20 @@ pub trait AlertRuleRepository: Send + Sync {
     /// 写回规则定义。`last_eval_at` 与 `last_state` 由评估器经
     /// [`record_evaluation`](Self::record_evaluation) 维护，这里不写，避免用户编辑覆盖掉评估结果。
     async fn update(&self, rule: AlertRule) -> Result<AlertRule>;
+
+    /// 一次写入一批（导入）。能全部写进或都不写的实现覆盖它；这里逐条写。
+    async fn save_all(&self, creates: Vec<AlertRule>, updates: Vec<AlertRule>) -> Result<()> {
+        for rule in creates {
+            self.create(rule).await?;
+        }
+
+        for rule in updates {
+            self.update(rule).await?;
+        }
+
+        Ok(())
+    }
+
     async fn get(&self, id: &Id) -> Result<AlertRule>;
     async fn list(&self, org_id: &Id) -> Result<Vec<AlertRule>>;
     async fn delete(&self, id: &Id) -> Result<()>;
@@ -77,9 +133,10 @@ pub trait AlertRuleRepository: Send + Sync {
 pub trait IncidentRepository: Send + Sync {
     async fn create(&self, incident: Incident) -> Result<Incident>;
     async fn update(&self, incident: Incident) -> Result<Incident>;
-    /// 仅当库中事件的当前状态属于 `expected` 时写入，返回写入后的事件；状态已被并发操作
-    /// （用户确认 / 解决、评估器自动解决）改变时不写入并返回 `None`。状态迁移都应走它，
-    /// 否则读到旧状态的一方会把对方的结果覆盖回去。
+    /// 仅当库中事件的状态属于 `expected`、且 `revision` 仍是读出时的值才写入，返回写入后的事件
+    /// （`revision` 加一）。读出之后被别人改过（用户确认、转派，调度器升级，评估器解决）时不写入，
+    /// 返回 `None`：调用方重读再改，或者放到下一轮。改事件都应走它，否则拿着旧副本的一方会把
+    /// 对方的结果覆盖回去。
     async fn update_if_status(
         &self,
         incident: Incident,
@@ -87,6 +144,10 @@ pub trait IncidentRepository: Send + Sync {
     ) -> Result<Option<Incident>>;
     async fn get(&self, id: &Id) -> Result<Incident>;
     async fn list_active(&self, org_id: &Id) -> Result<Vec<Incident>>;
+    /// 并入 `target_id` 的事件，不论状态。
+    async fn list_merged_into(&self, org_id: &Id, target_id: &Id) -> Result<Vec<Incident>>;
+    /// 一条规则的活跃事件（open / acknowledged）。
+    async fn list_active_for_rule(&self, org_id: &Id, rule_id: &Id) -> Result<Vec<Incident>>;
     async fn find_by_fingerprint(&self, org_id: &Id, fingerprint: &str)
     -> Result<Option<Incident>>;
     async fn list_by_status(&self, org_id: &Id, status: IncidentStatus) -> Result<Vec<Incident>>;

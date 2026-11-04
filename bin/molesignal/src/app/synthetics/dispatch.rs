@@ -7,13 +7,34 @@ use base64::Engine as _;
 use rand::TryRng as _;
 use sha2::{Digest, Sha256};
 
-use super::{ResolvedProbeSecret, SyntheticService, probe::collect_secret_references};
+use super::{
+    CLIENT_KEY_REFERENCE, ResolvedProbeSecret, SyntheticService, probe::collect_secret_references,
+};
 use crate::{
-    domain::synthetics::{ProbeAgent, ProbeLocation, ProbeTask},
+    domain::synthetics::{
+        ClientKey, MonitorSpec, ProbeAgent, ProbeLocation, ProbeTask, SecretMaterial,
+    },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
+/// An Agent beats every 15 s; one silent for four beats is taken to be gone.
+pub(super) const AGENT_SILENCE_MICROS: i64 = 60 * 1_000_000;
+
 impl SyntheticService {
+    /// The Embedded Runner's heartbeat. It never crosses the Probe control stream, so it beats
+    /// here, and its Location reads as online for as long as the process runs.
+    pub async fn record_embedded_heartbeat(&self, agent: &ProbeAgent) -> Result<()> {
+        self.repository
+            .touch_agent(&agent.id, TimestampMicros::now())
+            .await
+    }
+
+    /// Agents that stopped beating go offline, and Locations say how many of theirs are left.
+    pub async fn refresh_probe_liveness(&self, now: TimestampMicros) -> Result<u64> {
+        let stale_before = TimestampMicros(now.0.saturating_sub(AGENT_SILENCE_MICROS));
+        self.repository.refresh_liveness(now, stale_before).await
+    }
+
     pub async fn lease_next_probe_task(
         &self,
         agent: &ProbeAgent,
@@ -88,6 +109,31 @@ impl SyntheticService {
                 reference,
                 secret_id,
                 version: version.version,
+                material,
+            });
+        }
+
+        // The private key of a client certificate is sealed into the revision that holds it.
+        if let MonitorSpec::Http(spec) = &task.spec
+            && let Some(certificate) = &spec.client_certificate
+        {
+            let (revision_id, material) = match &certificate.private_key {
+                ClientKey::Kept { revision_id } => (
+                    revision_id.clone(),
+                    self.repository
+                        .open_client_key(&task.organization_id, revision_id)
+                        .await?,
+                ),
+                ClientKey::New { pem } => (
+                    task.monitor_revision_id.clone(),
+                    SecretMaterial(pem.clone().into_bytes()),
+                ),
+            };
+
+            resolved.push(ResolvedProbeSecret {
+                reference: CLIENT_KEY_REFERENCE.to_string(),
+                secret_id: revision_id,
+                version: 0,
                 material,
             });
         }

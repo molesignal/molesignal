@@ -5,8 +5,7 @@ export type { PermissionKey } from '@/product/permissions';
 
 export interface RoleUsage {
   memberships: number;
-  api_tokens: number;
-  service_accounts: number;
+  serviceAccounts: number;
   invitations: number;
   bindings: number;
   total: number;
@@ -18,12 +17,17 @@ export interface IamRole {
   name: string;
   description: string;
   builtin: boolean;
-  role_type: 'organization' | 'resource' | 'platform';
+  roleType: 'organization' | 'resource' | 'platform';
   scope: 'organization' | 'resource' | 'platform';
+  /** The role's own permissions. */
   permissions: PermissionKey[];
+  /** The permission policies it attaches. */
+  policyIds: string[];
+  /** Its own permissions and those of its policies: what it grants. */
+  effectivePermissions: PermissionKey[];
   usage: RoleUsage;
-  created_at_micros: number;
-  updated_at_micros: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface CreateRolePayload {
@@ -31,12 +35,14 @@ export interface CreateRolePayload {
   name: string;
   description?: string;
   permissions: PermissionKey[];
+  policyIds: string[];
 }
 
 export interface UpdateRolePayload {
   name: string;
   description?: string;
   permissions: PermissionKey[];
+  policyIds: string[];
 }
 
 export async function list(): Promise<IamRole[]> {

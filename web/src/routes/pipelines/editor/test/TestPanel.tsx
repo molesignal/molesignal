@@ -14,17 +14,24 @@ import { useTranslation } from 'react-i18next';
 import * as functionsApi from '@/api/functions';
 import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
-import { ChromeButton, uiLabelClass } from '@/shell/chrome';
-import { CodeEditor } from '@/shell/codeEditor';
+import { ChromeButton, uiLabelClass, uiSectionTitleClass } from '@/shell/chrome';
 import { FormSelect } from '@/shell/FormDrawer';
+import { JsonEditor, JsonView } from '@/shell/JsonEditor';
 import { cn } from '@/shell/lib/cn';
 import { surfacePanelClass } from '@/shell/SurfaceWorkbench';
 import { useCurrentOrgSelection } from '@/stores/useOrgStore';
 
+import { RecentAlertPicker } from './RecentAlertPicker';
 import { recentEvent } from './recentEvent';
 import { runPipelineTest, type StepOutcome, type TestOutcome } from './run';
-import { sampleEvent } from './sample';
-import { connectorOf, type PipelineGraphModel } from '../../PipelineGraph/model';
+import { ALERT_SAMPLE_METADATA, alertSampleMetadata, sampleEvent } from './sample';
+import { CountingNote } from '../../counting/CountingNote';
+import {
+  connectorOf,
+  tableOf,
+  type PipelineGraphModel,
+  type PipelineSignalType,
+} from '../../PipelineGraph/model';
 
 type RunState =
   | { kind: 'idle' }
@@ -34,6 +41,11 @@ type RunState =
 /** What the steps of a pipeline are, as far as a test run is concerned. */
 function stepsKey(model: PipelineGraphModel): string {
   return JSON.stringify(model.transforms);
+}
+
+/** What kind of event the pipeline takes: an alert event, or one of its signal. */
+function sampleKind(model: PipelineGraphModel): PipelineSignalType | 'alert' {
+  return model.mode === 'alert' ? 'alert' : model.signalType;
 }
 
 /**
@@ -55,26 +67,29 @@ export function TestPanel({
   const { t } = useTranslation('pipelines');
   const runAccess = useActionAccess({ permission: 'functions.run' });
   const { currentOrgId } = useCurrentOrgSelection();
-  const [sample, setSample] = React.useState(() => sampleEvent(model.signalType));
+  const kind = sampleKind(model);
+  const [sample, setSample] = React.useState(() => sampleEvent(kind));
   const [state, setState] = React.useState<RunState>({ kind: 'idle' });
   const runs = React.useRef(0);
   const [loading, setLoading] = React.useState(false);
   const [sampleNote, setSampleNote] = React.useState<string | null>(null);
+  // What the steps read about where a picked incident came from; the made-up sample's otherwise.
+  const [alertMetadata, setAlertMetadata] = React.useState<Record<string, string>>(ALERT_SAMPLE_METADATA);
   const sources = [...new Set(model.sources.map((item) => item.trim()).filter(Boolean))];
   const [chosenSource, setChosenSource] = React.useState('');
   // The source picked for the sample while it is still one; the first one otherwise.
   const source = sources.includes(chosenSource) ? chosenSource : (sources[0] ?? '');
 
-  // Another signal is another shape of event; a sample nobody edited follows it.
-  const signalRef = React.useRef(model.signalType);
+  // Another signal or mode is another shape of event; a sample nobody edited follows it.
+  const kindRef = React.useRef(kind);
   React.useEffect(() => {
-    if (signalRef.current === model.signalType) return;
+    const previous = kindRef.current;
+    if (previous === kind) return;
 
-    setSample((current) =>
-      current === sampleEvent(signalRef.current) ? sampleEvent(model.signalType) : current,
-    );
-    signalRef.current = model.signalType;
-  }, [model.signalType]);
+    // React may run this later, when the ref already holds the new kind.
+    setSample((current) => (current === sampleEvent(previous) ? sampleEvent(kind) : current));
+    kindRef.current = kind;
+  }, [kind]);
 
   const input = React.useMemo(() => {
     try {
@@ -98,7 +113,9 @@ export function TestPanel({
           language: 'vrl',
           source: script,
           input: event,
-          metadata: { source_stream: from },
+          // An alert pipeline's steps read where the event came from, not a stream.
+          metadata:
+            kind === 'alert' ? alertSampleMetadata(alertMetadata, model.alert.stage) : { source_stream: from },
         });
         return { output: response.output, dropped: response.dropped === true };
       },
@@ -133,7 +150,7 @@ export function TestPanel({
       className={cn('flex min-w-0 flex-col px-[16px] pb-[16px] pt-[12px]', surfacePanelClass, className)}
     >
       <header className="flex min-h-[36px] items-center gap-[10px]">
-        <h2 className="m-0 font-sans text-md font-strong text-tx-0">{t('test.title')}</h2>
+        <h2 className={cn('m-0', uiSectionTitleClass)}>{t('test.title')}</h2>
         <span className="min-w-0 flex-1 truncate font-sans text-xs text-tx-3">{t('test.subtitle')}</span>
         <ChromeButton
           size="sm"
@@ -162,6 +179,16 @@ export function TestPanel({
             />
           </div>
         )}
+        {kind === 'alert' && (
+          <RecentAlertPicker
+            onPick={(event, metadata) => {
+              setSample(JSON.stringify(event, null, 2));
+              setAlertMetadata(metadata);
+              setSampleNote(t('test.recent_alert_note'));
+            }}
+            onFailure={setSampleNote}
+          />
+        )}
         {source && (
           <SampleAction disabled={loading} onClick={() => void loadRecent()}>
             {loading ? (
@@ -172,10 +199,11 @@ export function TestPanel({
             <span className="truncate">{t('test.use_recent', { stream: source })}</span>
           </SampleAction>
         )}
-        {sample !== sampleEvent(model.signalType) && (
+        {sample !== sampleEvent(kind) && (
           <SampleAction
             onClick={() => {
-              setSample(sampleEvent(model.signalType));
+              setSample(sampleEvent(kind));
+              setAlertMetadata(ALERT_SAMPLE_METADATA);
               setSampleNote(null);
             }}
           >
@@ -184,17 +212,13 @@ export function TestPanel({
           </SampleAction>
         )}
       </div>
-      <CodeEditor
+      <JsonEditor
         className="mt-[6px]"
         value={sample}
         onChange={setSample}
-        language="json"
         ariaLabel={t('test.sample')}
         minHeight={150}
         maxHeight={300}
-        showHeader={false}
-        showStatus={false}
-        lineNumbers={false}
         resizable
         onModEnter={() => void run()}
       />
@@ -216,6 +240,7 @@ export function TestPanel({
           outcome={state.outcome}
           stale={stale}
           connectorNames={connectorNames}
+          alert={kind === 'alert'}
         />
       ) : (
         <p className="m-0 mt-[14px] font-sans text-xs leading-relaxed text-tx-3">{t('test.hint')}</p>
@@ -250,10 +275,13 @@ function TestResult({
   outcome,
   stale,
   connectorNames,
+  alert = false,
 }: {
   outcome: TestOutcome;
   stale: boolean;
   connectorNames: Readonly<Record<string, string>>;
+  /** An alert pipeline gives the event back to its incident instead of writing it anywhere. */
+  alert?: boolean;
 }) {
   const { t } = useTranslation('pipelines');
   const failed = outcome.steps.some((step) => step.status === 'failed');
@@ -263,16 +291,25 @@ function TestResult({
   const last = dropper ?? passed.at(-1);
   // The event is shown as the last step left it, or as any earlier one did when that one is picked.
   const [picked, setPicked] = React.useState<number | null>(null);
-  const captionId = React.useId();
   const shown = passed.find((step) => step.index === picked) ?? last;
   // With no steps there is no step to have left it: the event is what was put in.
   const untouched = outcome.steps.length === 0;
   const final = !failed && !dropper && shown === last;
   const event = untouched ? { output: outcome.output } : shown;
-  const destinations = outcome.destinations.map((destination) => {
-    const connector = connectorOf(destination);
-    return connector === null ? destination : (connectorNames[connector] ?? connector);
-  });
+  const caption =
+    final || !shown
+      ? t('test.output')
+      : shown === dropper
+        ? t('test.dropped_at', { number: shown.index + 1 })
+        : t('test.after_step', { number: shown.index + 1 });
+  const destinations = alert
+    ? [t('alert_mode.write_back')]
+    : outcome.destinations.map((destination) => {
+        const connector = connectorOf(destination);
+        const table = tableOf(destination);
+        if (table !== null) return t('table_sink.named', { name: table });
+        return connector === null ? destination : (connectorNames[connector] ?? connector);
+      });
 
   return (
     <div
@@ -284,7 +321,9 @@ function TestResult({
         <p className="m-0 mb-[8px] font-sans text-xs text-yellow">{t('test.stale')}</p>
       )}
       {untouched && (
-        <p className="m-0 font-sans text-xs leading-relaxed text-tx-3">{t('test.no_steps')}</p>
+        <p className="m-0 font-sans text-xs leading-relaxed text-tx-3">
+          {t(alert ? 'alert_mode.test_no_steps' : 'test.no_steps')}
+        </p>
       )}
       <ol className="m-0 list-none space-y-[2px] p-0">
         {outcome.steps.map((step) => (
@@ -300,13 +339,7 @@ function TestResult({
       {event && (
         <>
           <div className="mt-[12px] flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-            <span id={captionId} className={uiLabelClass}>
-              {final || !shown
-                ? t('test.output')
-                : shown === dropper
-                  ? t('test.dropped_at', { number: shown.index + 1 })
-                  : t('test.after_step', { number: shown.index + 1 })}
-            </span>
+            <span className={uiLabelClass}>{caption}</span>
             {final && destinations.length > 0 && (
               <span className="min-w-0 truncate font-sans text-xs text-tx-3">
                 {t('test.written_to')}{' '}
@@ -314,15 +347,9 @@ function TestResult({
               </span>
             )}
           </div>
-          <pre
-            data-pipeline-test-output
-            // A long event scrolls; the keyboard reaches it like any other region.
-            tabIndex={0}
-            aria-labelledby={captionId}
-            className="m-0 mt-[6px] max-h-[320px] overflow-auto rounded-md bg-bg-0 px-4 py-3 font-code text-xs leading-[1.7] text-tx-1 transition-colors duration-fast focus-visible:bg-bg-2"
-          >
-            {JSON.stringify(event.output, null, 2)}
-          </pre>
+          <div data-pipeline-test-output className="mt-[6px]">
+            <JsonView value={event.output} ariaLabel={caption} maxHeight={320} />
+          </div>
         </>
       )}
       {failed && (
@@ -380,13 +407,17 @@ function StepResult({
         )}
         {step.status === 'skipped' && <span className="text-tx-3"> · {t('test.skipped')}</span>}
         {step.status === 'dropped' && <span className="text-tx-2"> · {t('test.dropped')}</span>}
+        {step.outside && <span className="text-tx-3"> · {t('test.not_called')}</span>}
+        {step.counting && <CountingNote outcome={step.counting} />}
         {step.failure && (
           <span className="mt-[2px] block leading-relaxed text-red-soft">
             {step.failure.kind === 'runtime'
               ? t('test.failure_runtime')
               : step.failure.kind === 'compile'
                 ? t('test.failure_compile', { message: step.failure.message })
-                : step.failure.message}
+                : step.failure.kind === 'protected'
+                  ? t('test.failure_protected', { field: step.failure.message })
+                  : step.failure.message}
           </span>
         )}
       </span>

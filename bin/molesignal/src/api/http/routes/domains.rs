@@ -36,14 +36,15 @@ pub struct CreateReq {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Resp {
     pub id: String,
     pub hostname: String,
     pub state: String,
-    pub cert_not_after_micros: Option<i64>,
+    pub cert_not_after: Option<i64>,
     pub last_error: Option<String>,
-    pub created_at_micros: i64,
-    pub updated_at_micros: i64,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
 fn to_resp(d: DomainRow) -> Resp {
@@ -51,14 +52,14 @@ fn to_resp(d: DomainRow) -> Resp {
         id: d.id.0,
         hostname: d.hostname,
         state: d.state,
-        cert_not_after_micros: d.cert_not_after.map(|t| t.0),
+        cert_not_after: d.cert_not_after.map(|t| t.0),
         last_error: d.last_error,
-        created_at_micros: d.created_at.0,
-        updated_at_micros: d.updated_at.0,
+        created_at: d.created_at.0,
+        updated_at: d.updated_at.0,
     }
 }
 
-#[permission("org.settings.read")]
+#[permission("org.domains.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -75,7 +76,7 @@ async fn list(
     ))
 }
 
-#[permission("org.settings.read")]
+#[permission("org.domains.read")]
 async fn get_one(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -86,7 +87,7 @@ async fn get_one(
     )))
 }
 
-#[permission("org.settings.manage")]
+#[permission("org.domains.manage")]
 async fn create(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -111,7 +112,7 @@ async fn create(
     Ok(Json(to_resp(state.platform.domains.create(d).await?)))
 }
 
-#[permission("org.settings.manage")]
+#[permission("org.domains.manage")]
 async fn delete(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -121,20 +122,24 @@ async fn delete(
     Ok(Json(serde_json::json!({"deleted": true})))
 }
 
-#[permission("org.settings.manage")]
+#[permission("org.domains.manage")]
 async fn renew(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
+    // 只能续本组织的域名。
+    let id = Id(id);
+    state.platform.domains.get(&ctx.org_id, &id).await?;
+
     // 真实 ACME 续期由 background runner 处理；这里仅标 "provisioning" 触发下一轮拉取。
     state
         .platform
         .domains
-        .update_state(&Id(id), "provisioning", None, None, None)
+        .update_state(&id, "provisioning", None, None, None)
         .await?;
 
-    Ok(Json(serde_json::json!({"renew_queued": true})))
+    Ok(Json(serde_json::json!({"renewQueued": true})))
 }
 
 /// 顶层路由：`/.well-known/acme-challenge/{token}`。

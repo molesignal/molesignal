@@ -6,6 +6,7 @@
 use std::path::PathBuf;
 
 const PROTO_FILES: &[&str] = &[
+    "alerting/v1/realtime.proto",
     "cluster/v1/cluster.proto",
     "intake/v1/intake.proto",
     "pprof/v1/profile.proto",

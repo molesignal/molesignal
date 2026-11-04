@@ -11,14 +11,14 @@ const ROW_HEIGHT = 50;
 function event(index: number): AuditEvent {
   return {
     id: `event-${index}`,
-    org_id: 'org-1',
-    actor_kind: 'user',
-    actor_id: 'user-1',
+    orgId: 'org-1',
+    actorKind: 'user',
+    actorId: 'user-1',
     action: 'dashboard.updated',
-    target_kind: 'dashboard',
-    target_id: `dashboard-${index}`,
+    targetKind: 'dashboard',
+    targetId: `dashboard-${index}`,
     payload: {},
-    ts_micros: 1_800_000_000_000_000 - index * 60_000_000,
+    ts: 1_800_000_000_000_000 - index * 60_000_000,
   };
 }
 

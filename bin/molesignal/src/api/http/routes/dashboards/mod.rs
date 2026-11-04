@@ -59,12 +59,14 @@ impl ProtectedResource for Dashboard {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateReq {
     pub model: Value,
     pub folder_id: Option<String>,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct UpdateReq {
     pub model: Value,
     pub folder_id: Option<String>,

@@ -9,7 +9,10 @@ import {
   type BuilderDialect,
   type BuilderField,
   type BuilderOperator,
+  type BuilderPart,
   operatorsForKind,
+  readBuilderStatement,
+  writeBuilderStatement,
 } from './model';
 
 const FIELDS: BuilderField[] = [
@@ -19,42 +22,33 @@ const FIELDS: BuilderField[] = [
 
 const CLAUSE = /^(\w+)\s*(>=|<=|!=|=|>|<|contains)\s*(.+)$/;
 
-/** A small field-query dialect: `a = 'x' AND b >= 2 AND free text`, `??` marks a part it rejects. */
-const DIALECT: BuilderDialect = {
-  parse(statement) {
-    const clauses = [];
-    const text: string[] = [];
-    const unsupported: string[] = [];
-    for (const part of statement.split(/\s+AND\s+/).map((item) => item.trim()).filter(Boolean)) {
-      const match = CLAUSE.exec(part);
-      if (part.startsWith('??')) unsupported.push(part);
-      else if (match) {
-        const raw = match[3]!;
-        const quoted = raw.startsWith("'");
-        clauses.push({
-          field: match[1]!,
-          op: match[2] as BuilderOperator,
-          value: quoted ? raw.slice(1, -1) : raw,
-          quoted,
-        });
-      } else text.push(part);
-    }
-    return { clauses, text: text.join(' AND '), unsupported };
-  },
-  serialize({ clauses, text, unsupported }) {
-    return [
-      ...clauses.map(
-        (clause) =>
-          `${clause.field} ${clause.op} ${clause.quoted === false ? clause.value : `'${clause.value}'`}`,
+function readPart(part: string): BuilderPart {
+  const match = CLAUSE.exec(part);
+  if (part.startsWith('??')) return { kind: 'unsupported', text: part };
+  if (!match) return { kind: 'text', text: part };
+  const raw = match[3]!;
+  const quoted = raw.startsWith("'");
+  return {
+    kind: 'clause',
+    clause: { field: match[1]!, op: match[2] as BuilderOperator, value: quoted ? raw.slice(1, -1) : raw, quoted },
+  };
+}
+
+/** A small field-query dialect: `a = 'x' AND b >= 2 AND free text OR c = 'y'`, `??` marks a part it rejects. */
+function dialect(alternatives: boolean): BuilderDialect {
+  return {
+    alternatives,
+    parse: (statement) => readBuilderStatement(statement, readPart, { alternatives, joinText: ' AND ' }),
+    serialize: (statement) =>
+      writeBuilderStatement(
+        statement,
+        (clause) => `${clause.field} ${clause.op} ${clause.quoted === false ? clause.value : `'${clause.value}'`}`,
       ),
-      ...unsupported,
-      text.trim(),
-    ]
-      .filter(Boolean)
-      .join(' AND ');
-  },
-  operators: (field) => operatorsForKind(field?.kind ?? 'text'),
-};
+    operators: (field) => operatorsForKind(field?.kind ?? 'text'),
+  };
+}
+
+const DIALECT = dialect(true);
 
 /** The builder with the statement held the way a page holds it. */
 function Harness({
@@ -62,11 +56,13 @@ function Harness({
   onRun,
   pendingField,
   notice,
+  builderDialect = DIALECT,
 }: {
   initial?: string;
   onRun?: (statement: string) => void;
   pendingField?: string | null;
   notice?: string;
+  builderDialect?: BuilderDialect;
 }) {
   const [statement, setStatement] = React.useState(initial);
   const [pending, setPending] = React.useState(pendingField ?? null);
@@ -76,7 +72,7 @@ function Harness({
       <FilterBuilder
         statement={statement}
         onStatementChange={setStatement}
-        dialect={DIALECT}
+        dialect={builderDialect}
         fields={FIELDS}
         suggestValues={(field) => (field === 'status' ? ['200', '500'] : [])}
         pendingField={pending}
@@ -244,5 +240,80 @@ describe('FilterBuilder', () => {
     render(<Harness notice="The statement in Code is SQL." />);
 
     expect(screen.getByText('The statement in Code is SQL.')).not.toBeNull();
+  });
+});
+
+function rows() {
+  return Array.from(document.querySelectorAll('[data-query-builder-group]')).map((row) =>
+    Array.from(row.querySelectorAll('[data-query-filter], [data-query-filter-unsupported]')).map((chip) =>
+      chip.textContent?.replace(/\s+/g, ' ').trim(),
+    ),
+  );
+}
+
+describe('FilterBuilder alternatives', () => {
+  it('shows each alternative as a row of filters, "OR" before the rows after the first', () => {
+    render(<Harness initial="service = 'checkout' AND status >= 500 OR service = 'payments'" />);
+
+    expect(rows()).toEqual([['service=checkout', 'status>=500'], ['service=payments']]);
+    expect(Array.from(document.querySelectorAll('[data-query-builder-or]')).map((word) => word.textContent)).toEqual([
+      'OR',
+    ]);
+    expect(screen.getByRole('group', { name: 'Group 2' })).not.toBeNull();
+  });
+
+  it('adds an alternative from its own button', () => {
+    render(<Harness initial="service = 'checkout'" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add an OR group' }));
+    fireEvent.click(screen.getByRole('option', { name: /status/ }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Value' }), { target: { value: '500' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+
+    expect(statement()).toBe("service = 'checkout' OR status = 500");
+    expect(rows()).toEqual([['service=checkout'], ['status=500']]);
+  });
+
+  it('adds a filter to the row it is asked in', () => {
+    render(<Harness initial="service = 'checkout' OR service = 'payments'" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add a filter to group 2' }));
+    fireEvent.click(screen.getByRole('option', { name: /status/ }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Value' }), { target: { value: '503' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+
+    expect(statement()).toBe("service = 'checkout' OR service = 'payments' AND status = 503");
+  });
+
+  it('keeps text typed into a row in that row', () => {
+    render(<Harness initial="service = 'checkout' OR service = 'payments'" />);
+    const text = screen.getByRole('textbox', { name: 'Search text of group 2' });
+
+    fireEvent.change(text, { target: { value: 'timeout' } });
+    fireEvent.blur(text);
+
+    expect(statement()).toBe("service = 'checkout' OR service = 'payments' AND timeout");
+  });
+
+  it('takes the row away with its last filter', () => {
+    render(<Harness initial="service = 'checkout' OR status >= 500" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove filter status >= 500' }));
+
+    expect(statement()).toBe("service = 'checkout'");
+    expect(rows()).toEqual([['service=checkout']]);
+  });
+
+  it('keeps alternatives inside a row as written, to be changed in Code', () => {
+    render(<Harness initial="service = 'checkout' AND (status >= 500 OR status = 429)" />);
+
+    expect(rows()).toEqual([['service=checkout', '(status >= 500 OR status = 429)']]);
+  });
+
+  it('offers no alternative where the dialect takes none', () => {
+    render(<Harness initial="service = 'checkout' OR status >= 500" builderDialect={dialect(false)} />);
+
+    expect(screen.queryByRole('button', { name: 'Add an OR group' })).toBeNull();
+    expect(rows()).toEqual([["service = 'checkout' OR status >= 500"]]);
   });
 });

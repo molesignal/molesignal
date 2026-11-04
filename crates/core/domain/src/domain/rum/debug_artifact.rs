@@ -41,6 +41,7 @@ impl DebugArtifactKind {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DebugArtifactMeta {
     pub id: Id,
     pub org_id: Id,

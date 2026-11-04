@@ -5,11 +5,13 @@
 
 mod agent_tokens;
 mod agents;
+mod client_key;
 mod codec;
 mod locations;
 mod monitors;
 mod register;
 mod results;
+mod retention;
 mod secrets;
 mod states;
 mod tasks;

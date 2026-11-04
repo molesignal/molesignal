@@ -67,13 +67,13 @@ describe('InboundMcpOAuthAuthorize', () => {
     await i18n.changeLanguage('en-us');
     inspectAuthorization.mockResolvedValue(inspection());
     vi.mocked(meApi.profile).mockResolvedValue({
-      user_id: 'user-1',
+      userId: 'user-1',
       email: 'ada@example.com',
-      display_name: 'Ada Lovelace',
-      org_id: 'org-internal-id',
-      org_name: 'Acme Production',
-      org_slug: 'acme',
-      display_role: 'Owner',
+      displayName: 'Ada Lovelace',
+      orgId: 'org-internal-id',
+      orgName: 'Acme Production',
+      orgSlug: 'acme',
+      displayRole: 'Owner',
     });
   });
 

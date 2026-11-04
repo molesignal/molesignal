@@ -33,7 +33,12 @@ use crate::{
             service_account::ServiceAccountRepository,
         },
         masking::{FieldMaskingProvider, FieldMaskingRuleRepository},
+        metrics::MetricDirectory,
         query::SlowQueryRepository,
+        rum::{
+            RumApplicationRepository, RumIssueRepository, RumReplayCommentRepository,
+            RumSessionSummaryRepository,
+        },
         saved_view::SavedViewRepository,
         storage::QueryFileSource,
         stream::StreamRepository,
@@ -70,6 +75,8 @@ pub struct ToolRuntimeDependencies {
 pub struct ObservabilityToolDependencies {
     pub query: Arc<QueryService>,
     pub streams: Arc<dyn StreamRepository>,
+    /// Which metrics each metrics stream holds.
+    pub metric_directory: Arc<dyn MetricDirectory>,
     pub apm: Arc<ApmQueryService>,
     pub apm_runtime: Option<Arc<ApmRuntime>>,
     pub service_graph: Arc<dyn ServiceGraphRepository>,
@@ -77,18 +84,31 @@ pub struct ObservabilityToolDependencies {
     pub catalog_query: Arc<CatalogQuerySource>,
     pub object_store: Arc<dyn ObjectStore>,
     pub slow_queries: Arc<dyn SlowQueryRepository>,
+    pub rum_applications: Arc<dyn RumApplicationRepository>,
+    pub rum_issues: Arc<dyn RumIssueRepository>,
+    pub rum_comments: Arc<dyn RumReplayCommentRepository>,
+    pub rum_summaries: Arc<dyn RumSessionSummaryRepository>,
 }
 
 #[derive(Clone)]
 pub struct AlertingToolDependencies {
     pub service: Arc<AlertingService>,
+    /// 人对事件的处理：转派、升级、暂缓、合并、备注与时间线。
+    pub actions: Arc<crate::app::alerting::IncidentActions>,
     pub evaluator: Arc<RuleEvaluator>,
     pub incident_rca: Arc<dyn IncidentRcaRepository>,
     pub incident_groups: Arc<dyn IncidentGroupRepository>,
     pub mute_rules: Arc<dyn MuteRuleRepository>,
+    pub inhibitions: Arc<crate::app::alerting::Inhibitions>,
     pub notify: Arc<NotifyService>,
     pub notify_engine: Arc<NotifyEngine>,
     pub notify_templates: Arc<dyn NotifyTemplateManagementRepository>,
+    /// 事件的工单。
+    pub tickets: Arc<crate::app::alerting::TicketService>,
+    /// 事件能用的修复动作。
+    pub remediation: Arc<crate::app::alerting::RemediationService>,
+    /// 自动发现找到的问题。
+    pub discovery: Arc<dyn crate::domain::alerting::discovery::DiscoveryRepository>,
 }
 
 #[derive(Clone)]
@@ -132,4 +152,5 @@ pub struct AdministrationToolDependencies {
 #[derive(Clone)]
 pub struct AgentToolDependencies {
     pub repository: Arc<dyn AgentRepository>,
+    pub automations: Arc<dyn crate::agent::automations::AutomationRepository>,
 }

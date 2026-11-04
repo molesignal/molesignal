@@ -11,16 +11,17 @@
 //! 「已封存」= 窗口右端早于水位（`min(now - safe_lookback, intake 水位)`）。封存桶值不再
 //! 变化，可跨刷新复用；近段（活跃）桶每次重算、不入缓存，以天然规避多数晚到数据。
 //!
-//! 容量上限按「指纹条目数」计（moka `max_capacity`）；单条目内再以 `max_series_per_query`
-//! 限制 series 数、`max_buckets_per_series` 滑窗 prune 老桶，双重约束封顶内存。
+//! 容量上限按估算的内存计（moka 按条目大小计重，单位 KiB）；单条目内再以
+//! `max_series_per_query` 限制 series 数、`max_buckets_per_series` 滑窗 prune 老桶。条目自第一次
+//! 插入起 `ttl_secs` 后过期，之后封存新桶、重新计重都不延长它。
 
 use std::{
     collections::{BTreeMap, HashMap},
     sync::{Arc, RwLock},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
-use moka::future::Cache;
+use moka::{Expiry, future::Cache};
 
 use super::metrics::CacheMetrics;
 use crate::config::StreamAggCacheSettings;
@@ -31,6 +32,13 @@ pub type CachedLabels = BTreeMap<String, String>;
 /// 单条 series 滑窗保留的桶数上限：超出按 grid 从老端 prune。
 /// 取 range 路径每 series 输出点数上限（1000）的数倍，给滑动窗口留足复用余量。
 const MAX_BUCKETS_PER_SERIES: usize = 4_096;
+
+/// 估算内存时一个桶（`BTreeMap` 里的时刻与值，连同节点开销）占的字节数。
+const BUCKET_BYTES: usize = 32;
+/// 一条 series 除 label 内容与桶以外的开销：哈希表的项、两个 `BTreeMap` 的表头。
+const SERIES_BYTES: usize = 64;
+/// 一个 label 除名字与值的字节以外的开销：两个 `String` 与 `BTreeMap` 的节点。
+const LABEL_BYTES: usize = 64;
 
 /// 某查询指纹下「已连续封存」的窗口桶集合。
 ///
@@ -67,6 +75,21 @@ impl SealedSeries {
     /// 已封存区间上界（grid ts，含）；空时为 `i64::MIN`。
     pub fn stable_through(&self) -> i64 {
         self.stable_through
+    }
+
+    /// 大约占用的内存字节数：每条 series 的 label 与桶，加上容器的开销。
+    pub fn size_bytes(&self) -> usize {
+        self.series
+            .iter()
+            .map(|(labels, buckets)| {
+                let labels = labels
+                    .iter()
+                    .map(|(name, value)| LABEL_BYTES + name.len() + value.len())
+                    .sum::<usize>();
+
+                SERIES_BYTES + labels + buckets.len() * BUCKET_BYTES
+            })
+            .sum()
     }
 
     /// 把一批新算出的封存桶并入。`new_buckets` 的每项是 `(labels, [(bucket_ts, value)])`，
@@ -156,13 +179,22 @@ impl StreamingAggCache {
         let evict = metrics.evictions();
 
         let inner = Cache::builder()
-            .max_capacity(settings.capacity)
-            .time_to_live(Duration::from_secs(settings.ttl_secs))
-            .async_eviction_listener(move |_k, _v, _cause| {
+            .max_capacity(settings.max_size.saturating_mul(1024))
+            .weigher(|_fingerprint: &String, entry: &Arc<RwLock<SealedSeries>>| {
+                let bytes = entry.read().map_or(0, |series| series.size_bytes());
+                u32::try_from(bytes / 1024 + 1).unwrap_or(u32::MAX)
+            })
+            .expire_after(FromInsertion {
+                ttl: Duration::from_secs(settings.ttl_secs),
+            })
+            .async_eviction_listener(move |_k, _v, cause| {
                 let evict = evict.clone();
 
                 Box::pin(async move {
-                    evict.inc();
+                    // 为重新计重而放回同一条目也会通知（`Replaced`），不算挤出。
+                    if cause.was_evicted() {
+                        evict.inc();
+                    }
                 })
             })
             .build();
@@ -180,6 +212,14 @@ impl StreamingAggCache {
 
     pub async fn insert(&self, fingerprint: String, entry: Arc<RwLock<SealedSeries>>) {
         self.inner.insert(fingerprint, entry).await;
+    }
+
+    /// 条目封存了新桶之后放回一次，让缓存按新的大小计重。已经过期或被挤出的条目不放回：
+    /// 放回会让它的过期时间从头算起。
+    pub async fn reweigh(&self, fingerprint: String, entry: Arc<RwLock<SealedSeries>>) {
+        if self.inner.contains_key(&fingerprint) {
+            self.inner.insert(fingerprint, entry).await;
+        }
     }
 
     pub fn max_series_per_query(&self) -> usize {
@@ -213,6 +253,22 @@ impl StreamingAggCache {
     /// 累计 `(hits, misses)`，测试断言用。
     pub fn stats(&self) -> (u64, u64) {
         self.metrics.snapshot()
+    }
+}
+
+/// 条目自第一次插入起过期：之后放回同一条目（[`StreamingAggCache::reweigh`]）不延长它。
+struct FromInsertion {
+    ttl: Duration,
+}
+
+impl Expiry<String, Arc<RwLock<SealedSeries>>> for FromInsertion {
+    fn expire_after_create(
+        &self,
+        _fingerprint: &String,
+        _entry: &Arc<RwLock<SealedSeries>>,
+        _created_at: Instant,
+    ) -> Option<Duration> {
+        Some(self.ttl)
     }
 }
 
@@ -396,5 +452,75 @@ mod tests {
         );
         assert!(s.is_empty());
         assert_eq!(s.stable_through(), i64::MIN);
+    }
+
+    #[test]
+    fn size_counts_series_labels_and_buckets() {
+        let mut s = SealedSeries::default();
+        assert_eq!(s.size_bytes(), 0);
+
+        s.seal(
+            vec![(
+                labels(&[("method", "GET")]),
+                (0..10).map(|t| (t * 100, 1.0)).collect(),
+            )],
+            0,
+            900,
+            100,
+            0,
+            0,
+        );
+
+        let one = s.size_bytes();
+
+        assert_eq!(
+            one,
+            SERIES_BYTES + LABEL_BYTES + "method".len() + "GET".len() + 10 * BUCKET_BYTES
+        );
+
+        s.seal(
+            vec![(labels(&[("method", "POST")]), vec![(1_000, 2.0)])],
+            1_000,
+            1_000,
+            100,
+            0,
+            0,
+        );
+
+        assert!(s.size_bytes() > one);
+    }
+
+    /// Entries are weighed by what they hold: a cache of 1 MiB keeps about 1 MiB of buckets.
+    #[tokio::test]
+    async fn the_cache_keeps_to_its_size() {
+        let cache = StreamingAggCache::new(&StreamAggCacheSettings {
+            max_size: 1,
+            ..StreamAggCacheSettings::default()
+        });
+
+        for n in 0..8 {
+            let mut s = SealedSeries::default();
+
+            s.seal(
+                vec![(
+                    labels(&[("n", &n.to_string())]),
+                    (0..10_000).map(|t| (t, 1.0)).collect(),
+                )],
+                0,
+                9_999,
+                1,
+                0,
+                0,
+            );
+
+            cache
+                .insert(format!("fp{n}"), Arc::new(RwLock::new(s)))
+                .await;
+        }
+
+        cache.inner.run_pending_tasks().await;
+
+        assert!(cache.inner.weighted_size() <= 1024);
+        assert!(cache.inner.entry_count() < 8);
     }
 }

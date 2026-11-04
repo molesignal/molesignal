@@ -1,11 +1,14 @@
+import { useMutation } from '@tanstack/react-query';
 import { MonitorSmartphone } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
+import * as mfaApi from '@/api/mfa';
+import { toApiError } from '@/lib/http';
 import { AccountSection } from '@/routes/account/AccountSection';
 import { ChromeButton, Pill } from '@/shell/chrome';
-import { useAuthStore } from '@/stores/auth';
-import { useOrgStore } from '@/stores/useOrgStore';
+import { toast } from '@/shell/ui/sonner';
+import { signOut } from '@/stores/auth/signOut';
 
 function browserSummary(): string {
   const agent = navigator.userAgent;
@@ -35,12 +38,17 @@ function browserSummary(): string {
 export function AccountSessions() {
   const { t } = useTranslation('account');
   const navigate = useNavigate();
-  const logout = useAuthStore((state) => state.logout);
-  const signOut = () => {
-    logout({ allTabs: true });
-    useOrgStore.getState().reset();
-    navigate('/signin');
+  const signOutHere = () => {
+    void signOut().then(() => navigate('/signin'));
   };
+  const signOutOthers = useMutation({
+    mutationFn: () => mfaApi.revokeOtherSessions(),
+    onSuccess: () => toast.success(t('sessions.signed_out_others')),
+    onError: (error) =>
+      toast.error(t('sessions.sign_out_others_failed'), {
+        description: toApiError(error).message,
+      }),
+  });
 
   return (
     <AccountSection
@@ -63,9 +71,20 @@ export function AccountSessions() {
       </div>
       <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
         <p className="max-w-xl font-sans text-xs leading-relaxed text-tx-3">
-          {t('sessions.current_only')}
+          {t('sessions.others_description')}
         </p>
-        <ChromeButton onClick={signOut}>{t('sessions.sign_out')}</ChromeButton>
+        <div className="flex flex-wrap gap-2">
+          <ChromeButton
+            disabled={signOutOthers.isPending}
+            onClick={() => signOutOthers.mutate()}
+            data-testid="sign-out-others"
+          >
+            {signOutOthers.isPending
+              ? t('sessions.signing_out_others')
+              : t('sessions.sign_out_others')}
+          </ChromeButton>
+          <ChromeButton onClick={signOutHere}>{t('sessions.sign_out')}</ChromeButton>
+        </div>
       </div>
     </AccountSection>
   );

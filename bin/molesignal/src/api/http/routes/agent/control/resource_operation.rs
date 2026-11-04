@@ -19,6 +19,7 @@ mod dashboard_panels;
 mod dashboards;
 mod folders;
 mod functions;
+mod incidents;
 mod log_inspections;
 mod postmortems;
 mod saved_views;
@@ -43,6 +44,7 @@ pub(super) fn supports(action: &str) -> bool {
             | "enable_scheduled_pipeline"
             | "disable_scheduled_pipeline"
             | "delete_scheduled_pipeline"
+            | "create_incident"
             | "trigger_alert_rule"
             | "create_alert_rule"
             | "update_alert_rule"
@@ -122,6 +124,7 @@ pub(super) async fn execute(
         "trigger_alert_rule" | "create_alert_rule" | "update_alert_rule" | "delete_alert_rule" => {
             alert_rules::execute(state, ctx, approval).await
         }
+        "create_incident" => incidents::create(state, ctx, approval).await,
         "create_dashboard_model" | "update_dashboard" | "delete_dashboard" => {
             dashboards::execute(state, ctx, approval).await
         }
@@ -178,8 +181,8 @@ async fn run_synthetic(
         summary: format!("queued {} synthetic probe tasks", tasks.len()),
         verification: json!({
             "verified": true,
-            "monitor_id": monitor_id,
-            "task_count": tasks.len(),
+            "monitorId": monitor_id,
+            "taskCount": tasks.len(),
             "tasks": tasks,
         }),
     })
@@ -248,7 +251,7 @@ async fn status_page_lifecycle(
         } else {
             "status page is active".into()
         },
-        verification: json!({"verified": true, "status_page": page}),
+        verification: json!({"verified": true, "statusPage": page}),
     })
 }
 
@@ -362,7 +365,7 @@ async fn delete_scheduled_pipeline(
         summary: "scheduled pipeline deleted".into(),
         verification: json!({
             "verified": true,
-            "pipeline_id": pipeline_id,
+            "pipelineId": pipeline_id,
             "deleted": true,
         }),
     })

@@ -1,13 +1,15 @@
 import '@/i18n';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type * as orgsApi from '@/api/orgs';
 import type { Org } from '@/api/orgs';
 import i18n from '@/i18n';
 import { TooltipProvider } from '@/shell/ui/tooltip';
+import { useAuthStore } from '@/stores/auth';
 import { useOrgStore } from '@/stores/useOrgStore';
 
 import { DangerZone } from './DangerZone';
@@ -22,6 +24,14 @@ vi.mock('@/product/access', () => ({
     access?.status === 'ready' && access.permissions.has(permission),
 }));
 vi.mock('@/shell/ui/sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+const mocks = vi.hoisted(() => ({ removeOrg: vi.fn(), signOut: vi.fn(async () => undefined) }));
+
+vi.mock('@/api/orgs', async (original) => ({
+  ...(await original<typeof orgsApi>()),
+  removeOrg: mocks.removeOrg,
+}));
+vi.mock('@/stores/auth/signOut', () => ({ signOut: mocks.signOut }));
 
 const org = (overrides: Partial<Org>): Org => ({ id: 'acme', name: 'acme', roles: [], disabled: false, ...overrides });
 const PLATFORM = org({ id: 'sys', name: '_sys', system: true });
@@ -46,7 +56,7 @@ const open = () => screen.getByRole('button', { name: 'Open organization managem
 
 beforeEach(async () => {
   await i18n.changeLanguage('en-us');
-  session.access = { status: 'ready', scope: 'organization', permissions: new Set(['org.settings.manage']) };
+  session.access = { status: 'ready', scope: 'organization', permissions: new Set(['org.preferences.manage']) };
   useOrgStore.setState({ orgs: [TENANT], loaded: true, loading: false });
 });
 
@@ -56,23 +66,27 @@ afterEach(() => {
 });
 
 describe('organization lifecycle', () => {
-  it('takes an owner there even though the permission is theirs in the organization too', async () => {
-    const switchOrg = vi.fn(async (_id: string) => PLATFORM);
-    // An owner holds the whole catalog. Organizations are still managed in the platform one.
+  it('deletes this organization from inside it for whoever holds org.delete', async () => {
     session.access = {
       status: 'ready',
       scope: 'organization',
-      permissions: new Set(['org.settings.manage', 'sys.organizations.manage']),
+      permissions: new Set(['org.preferences.manage', 'org.delete']),
     };
-    useOrgStore.setState({ orgs: [PLATFORM, TENANT], switchOrg });
+    mocks.removeOrg.mockResolvedValue(undefined);
+    useAuthStore.setState({ ctx: { orgId: 'acme', orgName: 'acme' } as never });
     renderZone();
 
-    expect(screen.getByText('Takes you to the platform organization, where organizations are managed.')).not.toBeNull();
-    fireEvent.click(open());
+    fireEvent.click(screen.getByRole('button', { name: 'Delete organization' }));
 
-    await waitFor(() => expect(screen.getByTestId('management')).not.toBeNull());
-    expect(switchOrg).toHaveBeenCalledTimes(1);
-    expect(switchOrg.mock.calls[0]?.[0]).toBe('sys');
+    const asked = await screen.findByRole('dialog');
+    const confirm = () => within(asked).getByRole('button', { name: 'Delete' });
+
+    expect(confirm()).toHaveProperty('disabled', true);
+    fireEvent.change(within(asked).getByTestId('confirm-type-name'), { target: { value: 'acme' } });
+    fireEvent.click(confirm());
+
+    await waitFor(() => expect(mocks.removeOrg).toHaveBeenCalledWith('acme'));
+    await waitFor(() => expect(mocks.signOut).toHaveBeenCalled());
   });
 
   it('takes whoever administers the platform there, from any organization', async () => {
@@ -94,7 +108,7 @@ describe('organization lifecycle', () => {
 
   it('opens it straight away from the platform organization', () => {
     const switchOrg = vi.fn();
-    session.access = { status: 'ready', scope: 'system', permissions: new Set(['sys.organizations.manage']) };
+    session.access = { status: 'ready', scope: 'system', permissions: new Set(['sys.organizations.delete']) };
     useOrgStore.setState({ orgs: [PLATFORM, TENANT], switchOrg });
     renderZone();
 
@@ -109,7 +123,9 @@ describe('organization lifecycle', () => {
     renderZone();
 
     expect(screen.queryByRole('button')).toBeNull();
-    expect(screen.getByText('Only an owner or a platform administrator can delete an organization.')).not.toBeNull();
+    expect(
+      screen.getByText('Deleting an organization takes the Delete organization permission, which you do not have.'),
+    ).not.toBeNull();
     expect(screen.queryByText(/sys\.organizations\.manage/)).toBeNull();
   });
 
@@ -125,7 +141,9 @@ describe('organization lifecycle', () => {
     renderZone();
 
     expect(open()).toBeDisabled();
-    expect(screen.queryByText('Only an owner or a platform administrator can delete an organization.')).toBeNull();
+    expect(
+      screen.queryByText('Deleting an organization takes the Delete organization permission, which you do not have.'),
+    ).toBeNull();
     expect(useOrgStore.getState().loadOrgs).toHaveBeenCalledTimes(1);
   });
 

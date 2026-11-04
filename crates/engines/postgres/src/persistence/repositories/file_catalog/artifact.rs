@@ -102,7 +102,7 @@ pub(super) async fn update_artifact(
 
             sqlx::query(
                 "UPDATE catalog_artifacts SET state = 'ready', object_key = $3, size_bytes = $4, \
-                 checksum = $5, etag = $6, failure_reason = NULL, updated_at_micros = $7 \
+                 checksum = $5, etag = $6, failure_reason = NULL, updated_at = $7 \
                  WHERE org_id = $1 AND id = $2",
             )
             .bind(scope.organization_id.as_str())
@@ -111,7 +111,7 @@ pub(super) async fn update_artifact(
             .bind(to_i64(object.size_bytes, "size_bytes")?)
             .bind(object.checksum.as_str())
             .bind(object.etag.as_deref())
-            .bind(now)
+            .bind(TimestampMicros(now))
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
@@ -121,12 +121,12 @@ pub(super) async fn update_artifact(
 
             sqlx::query(
                 "UPDATE catalog_artifacts SET state = 'failed', failure_reason = $3, \
-                 updated_at_micros = $4 WHERE org_id = $1 AND id = $2",
+                 updated_at = $4 WHERE org_id = $1 AND id = $2",
             )
             .bind(scope.organization_id.as_str())
             .bind(command.artifact_id.as_str())
             .bind(reason.as_str())
-            .bind(now)
+            .bind(TimestampMicros(now))
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
@@ -136,11 +136,11 @@ pub(super) async fn update_artifact(
 
             sqlx::query(
                 "UPDATE catalog_artifacts SET state = 'pending', failure_reason = NULL, \
-                 updated_at_micros = $3 WHERE org_id = $1 AND id = $2",
+                 updated_at = $3 WHERE org_id = $1 AND id = $2",
             )
             .bind(scope.organization_id.as_str())
             .bind(command.artifact_id.as_str())
-            .bind(now)
+            .bind(TimestampMicros(now))
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
@@ -180,12 +180,12 @@ pub(super) async fn update_artifact(
             }
 
             sqlx::query(
-                "UPDATE catalog_artifacts SET state = 'tombstoned', updated_at_micros = $3 \
+                "UPDATE catalog_artifacts SET state = 'tombstoned', updated_at = $3 \
                  WHERE org_id = $1 AND id = $2",
             )
             .bind(scope.organization_id.as_str())
             .bind(command.artifact_id.as_str())
-            .bind(now)
+            .bind(TimestampMicros(now))
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;

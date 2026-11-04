@@ -32,6 +32,12 @@ interface QueryEditorFrameProps extends CodeEditorProps {
    * language (the explorers, where it follows what is typed) turns it off.
    */
   languageBadge?: boolean;
+  /**
+   * The explorer's query tabs, which stand where the query's letter and name
+   * would: at the start of the header, and of the folded frame, beside the
+   * button that opens it. Each tab is a query; the one in front is this one.
+   */
+  tabs?: React.ReactNode;
 }
 
 export function QueryEditorFrame({
@@ -47,6 +53,7 @@ export function QueryEditorFrame({
   summary,
   body,
   languageBadge = true,
+  tabs,
   fontSize = CODE_EDITOR_FONT_SIZE,
   fontWeight = CODE_EDITOR_FONT_WEIGHT,
   lineHeight = CODE_EDITOR_LINE_HEIGHT,
@@ -74,23 +81,38 @@ export function QueryEditorFrame({
         data-query-editor-state="collapsed"
         className={cn(
           'code-editor-shell overflow-hidden rounded-lg border border-bd-1 bg-bg-1 shadow-sm',
+          tabs ? 'flex min-w-0 items-center' : null,
           frameClassName,
         )}
       >
+        {/* The tabs are controls of their own; the rest of the frame is the button that opens it. */}
+        {tabs ? (
+          <div data-query-editor-tabs className="flex min-w-0 max-w-[60%] shrink-0 items-center pl-2">
+            {tabs}
+          </div>
+        ) : null}
         <button
           type="button"
+          data-query-fold
           aria-expanded={false}
           aria-label={expandLabel}
           onClick={() => onCollapsedChange(false)}
-          className="flex h-11 w-full min-w-0 items-center gap-2 px-3 text-left transition-colors hover:bg-bg-2 focus-visible:outline-none"
+          className={cn(
+            'flex h-11 min-w-0 items-center gap-2 px-3 text-left transition-colors hover:bg-bg-2 focus-visible:outline-none',
+            tabs ? 'flex-1' : 'w-full',
+          )}
         >
-          <span className="type-micro grid h-5 min-w-5 shrink-0 place-items-center rounded border border-bd-1 bg-bg-2 px-1 font-mono font-bold text-tx-1">
-            {queryRef}
-          </span>
-          <span className="shrink-0 font-sans text-xs font-semibold text-tx-0">{displayLabel}</span>
+          {tabs ? null : (
+            <>
+              <span className="type-micro grid h-5 min-w-5 shrink-0 place-items-center rounded border border-bd-1 bg-bg-2 px-1 font-mono font-bold text-tx-1">
+                {queryRef}
+              </span>
+              <span className="shrink-0 font-sans text-xs font-semibold text-tx-0">{displayLabel}</span>
+            </>
+          )}
           <code className="min-w-0 flex-1 truncate font-mono text-xs text-tx-2">{compactSummary}</code>
           <span className="ml-2 hidden shrink-0 items-center gap-1 font-sans text-xs font-semibold text-indigo-soft sm:inline-flex">
-            {expandLabel}
+            <span data-query-fold-word>{expandLabel}</span>
             <ChevronDown className="h-3.5 w-3.5" />
           </span>
         </button>
@@ -108,12 +130,18 @@ export function QueryEditorFrame({
     >
       {showHeader ? (
         <div className="flex h-9 min-w-0 items-center border-b border-bd-0 bg-bg-1">
-          <div className="flex h-full min-w-0 items-center gap-2 border-b-2 border-indigo px-3">
-            <span className="type-micro grid h-5 min-w-5 shrink-0 place-items-center rounded border border-bd-1 bg-bg-2 px-1 font-mono font-bold text-tx-1">
-              {queryRef}
-            </span>
-            <span className="truncate font-sans text-xs font-semibold text-tx-0">{displayLabel}</span>
-          </div>
+          {tabs ? (
+            <div data-query-editor-tabs className="flex h-full min-w-0 items-center px-1">
+              {tabs}
+            </div>
+          ) : (
+            <div className="flex h-full min-w-0 items-center gap-2 border-b-2 border-indigo px-3">
+              <span className="type-micro grid h-5 min-w-5 shrink-0 place-items-center rounded border border-bd-1 bg-bg-2 px-1 font-mono font-bold text-tx-1">
+                {queryRef}
+              </span>
+              <span className="truncate font-sans text-xs font-semibold text-tx-0">{displayLabel}</span>
+            </div>
+          )}
           {showLanguage ? (
             <span className="type-micro ml-2 hidden shrink-0 rounded border border-bd-0 bg-bg-2 px-1.5 py-0.5 font-mono font-semibold uppercase tracking-[0.08em] text-tx-3 sm:inline">
               {languageLabel}
@@ -129,7 +157,7 @@ export function QueryEditorFrame({
                   aria-label={clearLabel}
                   disabled={clearDisabled}
                   onClick={onClear}
-                  className="h-7 gap-1 rounded px-2 font-sans text-xs font-semibold text-tx-2 hover:bg-bg-2 hover:text-tx-0 disabled:text-tx-4 disabled:opacity-100 [&_svg]:size-3.5"
+                  className="h-7 gap-1 rounded px-2 font-sans text-xs font-semibold text-tx-2 hover:bg-bg-2 hover:text-tx-0 disabled:text-[var(--tx-disabled)] disabled:opacity-100 [&_svg]:size-3.5"
                 >
                   <Eraser aria-hidden="true" />
                   {clearLabel}

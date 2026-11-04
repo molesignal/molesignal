@@ -13,56 +13,56 @@ const DAY = 86_400_000_000;
 
 function homeStream(
   id: string,
-  type: HomeStreamOverview['stream_type'],
+  type: HomeStreamOverview['streamType'],
 ): HomeStreamOverview {
   return {
     id,
     name: id,
-    stream_type: type,
+    streamType: type,
     status: 'degraded',
     rows: 0,
-    stored_bytes: 0,
-    first_received_at_micros: null,
-    last_received_at_micros: null,
+    storedBytes: 0,
+    firstReceivedAt: null,
+    lastReceivedAt: null,
   };
 }
 
 function runtime(
   id: string,
-  type: StreamRuntime['stream_type'],
+  type: StreamRuntime['streamType'],
   status: StreamRuntime['status'],
   agoMicros: number,
 ): StreamRuntime {
   return {
     id,
     name: id,
-    stream_type: type,
+    streamType: type,
     status,
     rows: 0,
-    stored_bytes: 0,
-    current_stored_bytes: 0,
-    first_received_at_micros: null,
-    last_received_at_micros: NOW - agoMicros,
-    stats_available: true,
+    storedBytes: 0,
+    currentStoredBytes: 0,
+    firstReceivedAt: null,
+    lastReceivedAt: NOW - agoMicros,
+    statsAvailable: true,
     buckets: [],
   };
 }
 
 function overviewOf(streams: HomeStreamOverview[]): HomeOverview {
   return {
-    generated_at_micros: NOW,
-    window: { start_micros: NOW - DAY, end_micros: NOW, window_secs: 86_400 },
-    intake_status: 'degraded',
-    probe_reason: null,
-    intake_bytes: 0,
-    stored_bytes: 0,
+    generatedAt: NOW,
+    window: { startTime: NOW - DAY, endTime: NOW, windowSecs: 86_400 },
+    intakeStatus: 'degraded',
+    probeReason: null,
+    intakeBytes: 0,
+    storedBytes: 0,
     rows: 0,
-    compression_savings_ratio: null,
-    active_streams: 0,
-    total_streams: streams.length,
-    attention_streams: streams.length,
-    last_received_at_micros: null,
-    stats_probe: { succeeded: 1, total: 1 },
+    compressionSavingsRatio: null,
+    activeStreams: 0,
+    totalStreams: streams.length,
+    attentionStreams: streams.length,
+    lastReceivedAt: null,
+    statsProbe: { succeeded: 1, total: 1 },
     buckets: [],
     signals: [],
     streams,
@@ -71,10 +71,10 @@ function overviewOf(streams: HomeStreamOverview[]): HomeOverview {
 
 function runtimeOf(streams: StreamRuntime[]): StreamRuntimeOverview {
   return {
-    generated_at_micros: NOW,
-    window_start_micros: NOW - DAY,
-    window_end_micros: NOW,
-    window_secs: 86_400,
+    generatedAt: NOW,
+    windowStart: NOW - DAY,
+    windowEnd: NOW,
+    windowSecs: 86_400,
     streams,
   };
 }
@@ -126,7 +126,7 @@ describe('TopStreamsSection', () => {
     );
     expect(
       screen.getByRole('link', { name: 'http_requests' }).getAttribute('href'),
-    ).toBe('/metrics?metric=http_requests');
+    ).toBe('/metrics');
   });
 
   it('labels signal types with the product names, as neutral tags', () => {

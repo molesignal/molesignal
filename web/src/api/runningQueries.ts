@@ -2,11 +2,11 @@ import { http } from '@/lib/http';
 
 export interface RunningQuery {
   id: string;
-  org_id?: string;
-  user_id?: string;
-  started_at_micros: number;
+  orgId?: string;
+  userId?: string;
+  startedAt: number;
   statement: string;
-  scanned_rows?: number;
+  scannedRows?: number;
   cancelled?: boolean;
 }
 

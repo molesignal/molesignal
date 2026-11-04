@@ -31,8 +31,6 @@ pub struct ApmSettings {
     #[serde(default)]
     pub histogram: ApmHistogramSettings,
     #[serde(default)]
-    pub cardinality: ApmCardinalitySettings,
-    #[serde(default)]
     pub version_comparison: ApmVersionComparisonSettings,
 }
 
@@ -50,7 +48,6 @@ impl Default for ApmSettings {
             max_exemplars_per_bucket: default_max_exemplars_per_bucket(),
             max_error_samples_per_group: default_max_error_samples_per_group(),
             histogram: ApmHistogramSettings::default(),
-            cardinality: ApmCardinalitySettings::default(),
             version_comparison: ApmVersionComparisonSettings::default(),
         }
     }
@@ -97,87 +94,42 @@ impl ApmSettings {
         }
 
         self.histogram.validate()?;
-        self.cardinality.validate()?;
         self.version_comparison.validate()
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ApmHistogramSettings {
+    /// Version of the bucket layout; raised whenever `buckets_per_octave`
+    /// changes. Version 1 is the fixed power-of-two buckets of old rows.
     #[serde(default = "default_histogram_schema_version")]
     pub schema_version: u16,
-    /// Finite millisecond upper bounds. The projector always appends +Inf.
-    #[serde(default = "default_histogram_boundaries_ms")]
-    pub boundaries_ms: Vec<u64>,
+    /// Buckets to each doubling of latency, from 125 µs to about 131 s; the
+    /// projector appends +Inf.
+    #[serde(default = "default_histogram_buckets_per_octave")]
+    pub buckets_per_octave: u16,
 }
 
 impl Default for ApmHistogramSettings {
     fn default() -> Self {
         Self {
             schema_version: default_histogram_schema_version(),
-            boundaries_ms: default_histogram_boundaries_ms(),
+            buckets_per_octave: default_histogram_buckets_per_octave(),
         }
     }
 }
 
 impl ApmHistogramSettings {
     fn validate(&self) -> anyhow::Result<()> {
-        if self.schema_version == 0 || !(2..=64).contains(&self.boundaries_ms.len()) {
-            anyhow::bail!("apm.histogram schema_version/bucket count is invalid");
+        if self.schema_version < 2 {
+            anyhow::bail!(
+                "apm.histogram.schema_version must be at least 2; 1 is the fixed buckets of old rows"
+            );
         }
 
-        if self.boundaries_ms.contains(&0)
-            || self.boundaries_ms.windows(2).any(|pair| pair[0] >= pair[1])
-        {
-            anyhow::bail!("apm.histogram.boundaries_ms must be strictly increasing");
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ApmCardinalitySettings {
-    #[serde(default = "default_service_limit")]
-    pub services_per_org_hour: usize,
-    #[serde(default = "default_transaction_limit")]
-    pub transactions_per_service_hour: usize,
-    #[serde(default = "default_dependency_limit")]
-    pub dependencies_per_service_hour: usize,
-    #[serde(default = "default_error_group_limit")]
-    pub error_groups_per_service_hour: usize,
-    #[serde(default = "default_version_limit")]
-    pub versions_per_service_hour: usize,
-    #[serde(default = "default_instance_limit")]
-    pub instances_per_service_hour: usize,
-}
-
-impl Default for ApmCardinalitySettings {
-    fn default() -> Self {
-        Self {
-            services_per_org_hour: default_service_limit(),
-            transactions_per_service_hour: default_transaction_limit(),
-            dependencies_per_service_hour: default_dependency_limit(),
-            error_groups_per_service_hour: default_error_group_limit(),
-            versions_per_service_hour: default_version_limit(),
-            instances_per_service_hour: default_instance_limit(),
-        }
-    }
-}
-
-impl ApmCardinalitySettings {
-    fn validate(&self) -> anyhow::Result<()> {
-        let values = [
-            self.services_per_org_hour,
-            self.transactions_per_service_hour,
-            self.dependencies_per_service_hour,
-            self.error_groups_per_service_hour,
-            self.versions_per_service_hour,
-            self.instances_per_service_hour,
-        ];
-
-        if values.contains(&0) || values.iter().any(|value| *value > 100_000) {
-            anyhow::bail!("apm.cardinality limits must be between 1 and 100000");
+        if !(1..=16).contains(&self.buckets_per_octave) {
+            anyhow::bail!("apm.histogram.buckets_per_octave must be between 1 and 16");
         }
 
         Ok(())
@@ -251,37 +203,11 @@ fn default_max_error_samples_per_group() -> usize {
 }
 
 fn default_histogram_schema_version() -> u16 {
-    1
+    2
 }
 
-fn default_histogram_boundaries_ms() -> Vec<u64> {
-    vec![
-        1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1_000, 2_000, 4_000, 8_000, 16_000, 30_000, 60_000,
-    ]
-}
-
-fn default_service_limit() -> usize {
-    200
-}
-
-fn default_transaction_limit() -> usize {
-    32
-}
-
-fn default_dependency_limit() -> usize {
-    16
-}
-
-fn default_error_group_limit() -> usize {
-    16
-}
-
-fn default_version_limit() -> usize {
-    16
-}
-
-fn default_instance_limit() -> usize {
-    256
+fn default_histogram_buckets_per_octave() -> u16 {
+    8
 }
 
 fn default_min_requests_per_version() -> u64 {

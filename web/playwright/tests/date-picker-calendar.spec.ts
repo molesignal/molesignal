@@ -10,7 +10,7 @@ test.describe('Calendar of the date-time field', () => {
         localStorage.setItem('molesignal-ui-prefs', JSON.stringify({ state: { language: chosen }, version: 0 }));
       }, language);
       await mountMockRoutes(page, mockServer.port, { preferences: { language } });
-      await page.goto('/rum/overview');
+      await page.goto('/rum/explorer');
 
       await page.locator('[data-time-range-trigger="true"]').click();
       // The start of a range of one's own: the first date-time field of the panel.

@@ -10,6 +10,7 @@ import {
   FormChecklist,
   FormDrawer,
   FormField,
+  FormGroup,
   FormInput,
   FormRow,
   FormSection,
@@ -64,14 +65,14 @@ function pageDraft(page: StatusPage | null): PageDraft {
   return {
     name: page.name,
     slug: page.slug,
-    logoUrl: page.logo_url ?? '',
-    brandColor: page.brand_color,
+    logoUrl: page.logoUrl ?? '',
+    brandColor: page.brandColor,
     timezone: page.timezone,
     language: page.language,
     languages: statusPageLanguages(page.language, page.languages),
-    historyDays: String(page.history_days ?? DEFAULT_STATUS_PAGE_HISTORY_DAYS),
-    deliveryRetentionDays: String(page.delivery_retention_days ?? 90),
-    privateSessionDays: String(page.private_session_days ?? 7),
+    historyDays: String(page.historyDays ?? DEFAULT_STATUS_PAGE_HISTORY_DAYS),
+    deliveryRetentionDays: String(page.deliveryRetentionDays ?? 90),
+    privateSessionDays: String(page.privateSessionDays ?? 7),
     visibility: page.visibility,
   };
 }
@@ -165,14 +166,14 @@ export function PageFormDrawer({
             input: {
               name: draft.name.trim(),
               slug: draft.slug,
-              logo_url: logoFile ? page?.logo_url ?? null : draft.logoUrl.trim() || null,
-              brand_color: draft.brandColor.toUpperCase(),
+              logoUrl: logoFile ? page?.logoUrl ?? null : draft.logoUrl.trim() || null,
+              brandColor: draft.brandColor.toUpperCase(),
               timezone: draft.timezone.trim(),
               language: draft.language,
               languages: draft.languages,
-              history_days: Number(draft.historyDays),
-              delivery_retention_days: Number(draft.deliveryRetentionDays),
-              private_session_days: Number(draft.privateSessionDays),
+              historyDays: Number(draft.historyDays),
+              deliveryRetentionDays: Number(draft.deliveryRetentionDays),
+              privateSessionDays: Number(draft.privateSessionDays),
               visibility: draft.visibility,
             },
             logoFile,
@@ -206,7 +207,7 @@ export function PageFormDrawer({
               placeholder="northstar-cloud"
             />
           </FormField>
-          <FormField
+          <FormGroup
             label={t('fields.languages')}
             hint={t('forms.page.languages_hint')}
             required
@@ -217,7 +218,7 @@ export function PageFormDrawer({
               onChange={setLanguages}
               className="grid grid-cols-1 gap-2 sm:grid-cols-2"
             />
-          </FormField>
+          </FormGroup>
           <FormRow className="grid-cols-1 sm:grid-cols-2">
             <FormField label={t('fields.default_language')}>
               <FormSelect

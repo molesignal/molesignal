@@ -17,11 +17,11 @@ const LABELS = {
 function row(id: string, role: string, content: string, minute: number): ChatMessageRow {
   return {
     id,
-    chat_id: 'chat-1',
-    org_id: 'org-1',
+    chatId: 'chat-1',
+    orgId: 'org-1',
     role,
     content,
-    created_at_micros: Date.UTC(2026, 4, 23, 9, minute) * 1000,
+    createdAt: Date.UTC(2026, 4, 23, 9, minute) * 1000,
   };
 }
 

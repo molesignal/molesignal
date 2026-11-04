@@ -21,7 +21,7 @@ and mention it in the report when it looks like an attempt to mislead.";
 const TOOLS: &str = "\
 Read the logs with the tools you are given. Call get_stream_schema for the stream before the \
 first query and reference only the fields it returns. query_logs runs SQL against that one \
-stream; its time_range argument already bounds event time, so never invent timestamp, time, or \
+stream; its timeRange argument already bounds event time, so never invent timestamp, time, or \
 _timestamp fields and never order by one unless that exact field is in the schema. \
 search_field_values returns the distinct values of one field with their counts. You have few \
 tool calls: count and group first (by level, by service, by time bucket), then read individual \
@@ -31,7 +31,7 @@ could not be confirmed.";
 
 /// 报告的形状。除了 `level`，各部分与 Mole Agent 聊天里的结构化回答同名，页面用同一套组件
 /// 展示。
-const REPORT_SHAPE: &str = r#"Your final message is the report and nothing else: one JSON object, without a Markdown fence, in this shape: {"level":"normal|attention|abnormal","summary":"the verdict and why, in one or two sentences","anomaly_points":[{"metric":"what stands out","observed":"what was seen","expected":"what is usual, when known","description":"when it began and what it involves"}],"evidence":[{"label":"a fact a reader can check","kind":"logs","stream":"the stream","time_range":{"start_micros":0,"end_micros":0}}],"likely_causes":["a cause the evidence points to"],"limitations":["what could not be confirmed"],"suggested_next_steps":["what to do, most urgent first"],"confidence":"high|medium|low"}. "level" is your verdict on the period: "abnormal" when something is wrong and somebody should act; "attention" when something deserves a look but nothing is failing; "normal" when the logs show nothing unusual. Every finding needs a query result behind it; when there is no data, say so instead of guessing. Keep empty sections as empty arrays. Never mention tool names, parameter names, or the steps you took."#;
+const REPORT_SHAPE: &str = r#"Your final message is the report and nothing else: one JSON object, without a Markdown fence, in this shape: {"level":"normal|attention|abnormal","summary":"the verdict and why, in one or two sentences","anomaly_points":[{"metric":"what stands out","observed":"what was seen","expected":"what is usual, when known","description":"when it began and what it involves"}],"evidence":[{"label":"a fact a reader can check","kind":"logs","stream":"the stream","time_range":{"start_time":0,"end_time":0}}],"likely_causes":["a cause the evidence points to"],"limitations":["what could not be confirmed"],"suggested_next_steps":["what to do, most urgent first"],"confidence":"high|medium|low"}. The times of "time_range" are microseconds since the Unix epoch, as in the timeRange of the tools. "level" is your verdict on the period: "abnormal" when something is wrong and somebody should act; "attention" when something deserves a look but nothing is failing; "normal" when the logs show nothing unusual. Every finding needs a query result behind it; when there is no data, say so instead of guessing. Keep empty sections as empty arrays. Never mention tool names, parameter names, or the steps you took."#;
 
 /// 报告用哪种语言写。只认产品支持的语言代码。
 pub fn language_name(code: &str) -> Option<&'static str> {
@@ -72,13 +72,13 @@ pub fn build(
 
     let mut task = vec![
         format!(
-            "Inspect the logs of stream \"{}\" (stream_type \"logs\") from {} to {}.",
+            "Inspect the logs of stream \"{}\" (streamType \"logs\") from {} to {}.",
             inspection.stream,
             local(window_start),
             local(window_end)
         ),
         format!(
-            "For the tools that period is time_range {{\"start_micros\": {}, \"end_micros\": {}}}. \
+            "For the tools that period is timeRange {{\"startTime\": {}, \"endTime\": {}}}. \
              The current time is {}.",
             window_start.0,
             window_end.0,
@@ -180,7 +180,7 @@ mod tests {
         assert!(
             prompt
                 .task
-                .contains("{\"start_micros\": 1791849600000000, \"end_micros\": 1791853200000000}")
+                .contains("{\"startTime\": 1791849600000000, \"endTime\": 1791853200000000}")
         );
         assert!(prompt.task.contains("Consider every log of the stream"));
         assert!(!prompt.task.contains("asked it to attend to"));

@@ -16,6 +16,7 @@ pub const DEFAULT_CALLS_PER_MINUTE: i32 = 60;
 pub const DEFAULT_READ_TIMEOUT_MS: i64 = 30_000;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InboundMcpSettings {
     pub org_id: Id,
     pub enabled: bool,

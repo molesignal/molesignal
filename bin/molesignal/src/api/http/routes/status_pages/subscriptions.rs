@@ -49,21 +49,22 @@ pub(super) fn public_routes() -> Router<AppState> {
 
 pub(super) fn management_routes() -> Router<AppState> {
     Router::new()
-        .route("/status-pages/{page_id}/subscribers", get(list_subscribers))
+        .route("/status-pages/{pageId}/subscribers", get(list_subscribers))
         .route(
-            "/status-pages/{page_id}/subscribers/{subscriber_id}",
+            "/status-pages/{pageId}/subscribers/{subscriberId}",
             delete(revoke_subscriber),
         )
         .route(
-            "/status-pages/{page_id}/subscribers/{subscriber_id}/resend",
+            "/status-pages/{pageId}/subscribers/{subscriberId}/resend",
             post(resend_confirmation),
         )
-        .route("/status-pages/{page_id}/deliveries", get(list_deliveries))
+        .route("/status-pages/{pageId}/deliveries", get(list_deliveries))
         .merge(import::routes())
         .merge(slack::management_routes())
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SubscribeRequest {
     channel: StatusPageSubscriberChannel,
     #[serde(default)]
@@ -85,6 +86,7 @@ struct PageQuery {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct SubscriberResponse {
     id: Id,
     channel: StatusPageSubscriberChannel,
@@ -122,6 +124,7 @@ impl From<StatusPageSubscriber> for SubscriberResponse {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct SubscriberPageResponse {
     items: Vec<SubscriberResponse>,
     page: u32,
@@ -145,6 +148,7 @@ impl From<StatusPageSubscriberPage> for SubscriberPageResponse {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct DeliveryResponse {
     id: Id,
     subscriber_id: Id,
@@ -180,6 +184,7 @@ impl From<StatusPageNotificationDelivery> for DeliveryResponse {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct DeliveryPageResponse {
     items: Vec<DeliveryResponse>,
     page: u32,
@@ -272,7 +277,7 @@ async fn unsubscribe(
     ))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.subscribers.manage")]
 async fn list_subscribers(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -288,7 +293,7 @@ async fn list_subscribers(
     ))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.subscribers.manage")]
 async fn revoke_subscriber(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -305,7 +310,7 @@ async fn revoke_subscriber(
     Ok(Json(subscriber.into()))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.subscribers.manage")]
 async fn resend_confirmation(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -322,7 +327,7 @@ async fn resend_confirmation(
     Ok(Json(subscriber.into()))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.subscribers.manage")]
 async fn list_deliveries(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -351,7 +356,7 @@ async fn record_subscriber_audit(
         &format!("status_page.subscriber.{verb}"),
         "status_page_subscriber",
         subscriber_id,
-        serde_json::json!({"status_page_id": page_id}),
+        serde_json::json!({"statusPageId": page_id}),
     )
     .await;
 }

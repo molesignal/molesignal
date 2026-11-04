@@ -23,9 +23,9 @@ pub(crate) fn exhausted_response(status: &BudgetStatus) -> Response {
             "error": BUDGET_EXHAUSTED,
             "code": BUDGET_EXHAUSTED,
             "message": "the organization's daily Mole Agent token budget is used up",
-            "used_tokens": status.used_tokens,
-            "limit_tokens": status.limit_tokens,
-            "resets_at_micros": status.resets_at.0,
+            "usedTokens": status.used_tokens,
+            "limitTokens": status.limit_tokens,
+            "resetsAt": status.resets_at.0,
         })),
     )
         .into_response()
@@ -37,9 +37,9 @@ pub(crate) fn notice(status: &BudgetStatus) -> Option<Value> {
         json!({
             "kind": "budget",
             "level": status.level,
-            "used_tokens": status.used_tokens,
-            "limit_tokens": status.limit_tokens,
-            "resets_at_micros": status.resets_at.0,
+            "usedTokens": status.used_tokens,
+            "limitTokens": status.limit_tokens,
+            "resetsAt": status.resets_at.0,
         })
     })
 }
@@ -58,8 +58,8 @@ mod tests {
 
         let warning = notice(&status(85)).unwrap();
         assert_eq!(warning["level"], "warning");
-        assert_eq!(warning["used_tokens"], 85);
-        assert_eq!(warning["resets_at_micros"], UsageDay(11).start().0);
+        assert_eq!(warning["usedTokens"], 85);
+        assert_eq!(warning["resetsAt"], UsageDay(11).start().0);
 
         assert_eq!(notice(&status(120)).unwrap()["level"], "exhausted");
     }

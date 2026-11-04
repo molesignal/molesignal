@@ -128,6 +128,7 @@ fn request(statement: &str, language: QueryLanguage) -> QueryRequest {
             stream_type: StreamType::LOGS,
         }),
         limit: Some(5),
+        step: None,
         federation_clusters: Vec::new(),
     }
 }
@@ -229,6 +230,31 @@ async fn an_unreachable_querier_is_skipped() {
         .unwrap();
 
     assert_eq!(engine.seen.lock().len(), 1);
+}
+
+/// Queries of one stream all run on the same querier, whichever order the registry lists them in.
+#[tokio::test]
+async fn queries_of_one_stream_stay_on_one_querier() {
+    let first = Arc::new(Fake::default());
+    let second = Arc::new(Fake::default());
+    let first_addr = serve(first.clone()).await;
+    let second_addr = serve(second.clone()).await;
+
+    for peers in [
+        vec![peer("a", &first_addr), peer("b", &second_addr)],
+        vec![peer("b", &second_addr), peer("a", &first_addr)],
+    ] {
+        let sql = RemoteSqlEngine::new(client(peers));
+
+        for _ in 0..3 {
+            sql.execute(request("SELECT 1 FROM app", QueryLanguage::Sql))
+                .await
+                .unwrap();
+        }
+    }
+
+    let served = [first.seen.lock().len(), second.seen.lock().len()];
+    assert!(served == [6, 0] || served == [0, 6], "{served:?}");
 }
 
 #[tokio::test]

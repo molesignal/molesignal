@@ -42,6 +42,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SubmitReq {
     #[serde(flatten)]
     pub request: QueryRequest,
@@ -50,6 +51,7 @@ pub struct SubmitReq {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct JobResp {
     pub job_id: String,
     pub state: String,
@@ -64,16 +66,17 @@ pub struct JobResp {
     pub submitted_by: Option<SubmitterResp>,
     /// 任务要跑的查询。任务行上的请求解不出来时为 `null`，调度器会把这样的任务记为失败。
     pub request: Option<JobRequestResp>,
-    pub submitted_at_micros: i64,
-    pub started_at_micros: Option<i64>,
-    pub finished_at_micros: Option<i64>,
+    pub submitted_at: i64,
+    pub started_at: Option<i64>,
+    pub finished_at: Option<i64>,
     pub result_object_key: Option<String>,
     pub result_rows: Option<i64>,
     pub error: Option<String>,
-    pub expires_at_micros: i64,
+    pub expires_at: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SubmitterResp {
     pub display_name: String,
     pub email: String,
@@ -81,6 +84,7 @@ pub struct SubmitterResp {
 
 /// 提交的查询里给人看的那一部分，字段名与提交时的请求体相同。
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct JobRequestResp {
     pub language: QueryLanguage,
     pub statement: String,
@@ -111,13 +115,13 @@ fn to_resp(j: SearchJob, submitters: &HashMap<Id, SubmitterResp>) -> JobResp {
         state: j.state.as_str().to_string(),
         attempt: j.attempt,
         user_id: j.user_id.0,
-        submitted_at_micros: j.submitted_at.0,
-        started_at_micros: j.started_at.map(|t| t.0),
-        finished_at_micros: j.finished_at.map(|t| t.0),
+        submitted_at: j.submitted_at.0,
+        started_at: j.started_at.map(|t| t.0),
+        finished_at: j.finished_at.map(|t| t.0),
         result_object_key: j.result_object_key,
         result_rows: j.result_rows,
         error: j.error,
-        expires_at_micros: j.expires_at.0,
+        expires_at: j.expires_at.0,
     }
 }
 
@@ -160,12 +164,20 @@ async fn job_resp(state: &AppState, job: SearchJob) -> JobResp {
     to_resp(job, &submitters)
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("query.jobs.run", "sys.telemetry.read"))]
 async fn submit(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
     Json(req): Json<SubmitReq>,
 ) -> Result<Json<JobResp>> {
+    // A job runs in the background, without the caller's grant to read the audit trail: say so
+    // now rather than fail later.
+    if crate::infra::query::grants::names_audit(&req.request) {
+        return Err(Error::invalid(
+            "a search job cannot read `_audit`; query it in the explorer instead",
+        ));
+    }
+
     let job = state
         .search_jobs
         .submit(
@@ -216,7 +228,7 @@ fn parse_states(raw: Option<&str>) -> Result<Vec<SearchJobState>> {
     Ok(states)
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("query.jobs.read", "sys.telemetry.read"))]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -264,7 +276,7 @@ impl From<SearchJobCounts> for SummaryResp {
 
 /// `GET /query/jobs/summary` — 调用方看得到的任务在各状态的数目（管理员是整个组织的，其他人
 /// 是自己提交的），不受列表的状态筛选与翻页影响。
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("query.jobs.read", "sys.telemetry.read"))]
 async fn summary(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -277,7 +289,7 @@ async fn summary(
     Ok(Json(counts.into()))
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("query.jobs.read", "sys.telemetry.read"))]
 async fn get_one(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -292,6 +304,7 @@ async fn get_one(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResultParams {
     #[serde(default = "default_page")]
     pub page: i64,
@@ -308,6 +321,7 @@ fn default_page_size() -> i64 {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResultResp {
     pub state: String,
     pub result_rows: Option<i64>,
@@ -318,7 +332,7 @@ pub struct ResultResp {
     pub error: Option<String>,
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("query.jobs.read", "sys.telemetry.read"))]
 async fn results(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -347,7 +361,7 @@ async fn results(
     }))
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("query.jobs.run", "sys.telemetry.read"))]
 async fn cancel(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -361,7 +375,7 @@ async fn cancel(
     Ok(Json(job_resp(&state, job).await))
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("query.jobs.run", "sys.telemetry.read"))]
 async fn retry(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -375,7 +389,7 @@ async fn retry(
     Ok(Json(job_resp(&state, job).await))
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("query.jobs.run", "sys.telemetry.read"))]
 async fn delete(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -416,13 +430,13 @@ mod tests {
 
     fn request_json() -> Value {
         serde_json::json!({
-            "org_id": "org-1",
+            "orgId": "org-1",
             "language": "sql",
             "statement": "SELECT * FROM app",
-            "time_range": {"start": 1_000, "end": 2_000},
-            "stream": {"name": "app", "stream_type": "logs"},
+            "timeRange": {"start": 1_000, "end": 2_000},
+            "stream": {"name": "app", "streamType": "logs"},
             "limit": 500,
-            "federation_clusters": [],
+            "federationClusters": [],
         })
     }
 
@@ -456,23 +470,23 @@ mod tests {
 
         let body = serde_json::to_value(to_resp(job(request_json()), &submitters)).unwrap();
 
-        assert_eq!(body["job_id"], "job-1");
+        assert_eq!(body["jobId"], "job-1");
         assert_eq!(body["state"], "running");
         assert_eq!(body["kind"], "query");
-        assert_eq!(body["pipeline_id"], Value::Null);
+        assert_eq!(body["pipelineId"], Value::Null);
         assert_eq!(body["attempt"], 2);
-        assert_eq!(body["user_id"], "u-ada");
+        assert_eq!(body["userId"], "u-ada");
         assert_eq!(
-            body["submitted_by"],
-            serde_json::json!({"display_name": "Ada", "email": "ada@example.com"})
+            body["submittedBy"],
+            serde_json::json!({"displayName": "Ada", "email": "ada@example.com"})
         );
         assert_eq!(
             body["request"],
             serde_json::json!({
                 "language": "sql",
                 "statement": "SELECT * FROM app",
-                "time_range": {"start": 1_000, "end": 2_000},
-                "stream": {"name": "app", "stream_type": "logs"},
+                "timeRange": {"start": 1_000, "end": 2_000},
+                "stream": {"name": "app", "streamType": "logs"},
                 "limit": 500,
             })
         );
@@ -481,13 +495,13 @@ mod tests {
     #[test]
     fn a_backfill_job_names_its_pipeline() {
         let mut request = request_json();
-        request["pipeline_id"] = "pipe-7".into();
-        request["backfill_window_micros"] = 1_000.into();
+        request["pipelineId"] = "pipe-7".into();
+        request["backfillWindow"] = 1_000.into();
 
         let body = serde_json::to_value(to_resp(job(request), &HashMap::new())).unwrap();
 
         assert_eq!(body["kind"], "backfill");
-        assert_eq!(body["pipeline_id"], "pipe-7");
+        assert_eq!(body["pipelineId"], "pipe-7");
         assert_eq!(body["request"]["statement"], "SELECT * FROM app");
     }
 
@@ -495,8 +509,8 @@ mod tests {
     fn a_job_keeps_its_user_id_when_the_user_record_is_gone() {
         let body = serde_json::to_value(to_resp(job(request_json()), &HashMap::new())).unwrap();
 
-        assert_eq!(body["user_id"], "u-ada");
-        assert_eq!(body["submitted_by"], Value::Null);
+        assert_eq!(body["userId"], "u-ada");
+        assert_eq!(body["submittedBy"], Value::Null);
     }
 
     #[test]

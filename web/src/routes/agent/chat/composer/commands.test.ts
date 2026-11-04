@@ -20,12 +20,12 @@ function command(name: string, description: string, argument = false): AgentComm
     kind: 'control',
     source: 'builtin',
     description,
-    argument_hint: argument ? '<x>' : null,
-    argument_required: argument,
+    argumentHint: argument ? '<x>' : null,
+    argumentRequired: argument,
     choices: [],
     suggest: null,
     available: true,
-    unavailable_reason: null,
+    unavailableReason: null,
   };
 }
 

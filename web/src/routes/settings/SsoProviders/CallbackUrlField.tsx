@@ -4,7 +4,7 @@ import { CopyableValue } from '../_atoms';
 
 interface CallbackUrlFieldProps {
   label: string;
-  hint: string;
+  hint?: string;
   value: string;
   copyLabel: string;
   copiedLabel: string;
@@ -26,9 +26,11 @@ export function CallbackUrlField({
         copyLabel={copyLabel}
         copiedLabel={copiedLabel}
       />
-      <span className="font-sans text-xs leading-relaxed text-tx-3">
-        {hint}
-      </span>
+      {hint && (
+        <span className="font-sans text-xs leading-relaxed text-tx-3">
+          {hint}
+        </span>
+      )}
     </div>
   );
 }

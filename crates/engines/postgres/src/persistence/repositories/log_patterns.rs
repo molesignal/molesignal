@@ -15,6 +15,7 @@ use super::sqlx_err;
 use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LogPattern {
     pub id: Id,
     pub org_id: Id,
@@ -48,7 +49,7 @@ impl PgLogPatternRepository {
 }
 
 const COLS: &str = "id, org_id, name, regex, capture_groups, category, priority,
-                    stream_filter, created_at_micros, updated_at_micros";
+                    stream_filter, created_at, updated_at";
 
 fn row_to(r: sqlx::postgres::PgRow) -> LogPattern {
     let groups: Json<Vec<String>> = r.try_get("capture_groups").unwrap_or(Json(Vec::new()));
@@ -64,8 +65,12 @@ fn row_to(r: sqlx::postgres::PgRow) -> LogPattern {
         stream_filter: r
             .try_get::<Option<String>, _>("stream_filter")
             .unwrap_or_default(),
-        created_at: TimestampMicros(r.try_get::<i64, _>("created_at_micros").unwrap_or_default()),
-        updated_at: TimestampMicros(r.try_get::<i64, _>("updated_at_micros").unwrap_or_default()),
+        created_at: r
+            .try_get::<TimestampMicros, _>("created_at")
+            .unwrap_or_default(),
+        updated_at: r
+            .try_get::<TimestampMicros, _>("updated_at")
+            .unwrap_or_default(),
     }
 }
 
@@ -75,7 +80,7 @@ impl LogPatternRepository for PgLogPatternRepository {
         sqlx::query(
             "INSERT INTO log_patterns
                 (id, org_id, name, regex, capture_groups, category, priority,
-                 stream_filter, created_at_micros, updated_at_micros)
+                 stream_filter, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
         )
         .bind(&p.id.0)
@@ -86,8 +91,8 @@ impl LogPatternRepository for PgLogPatternRepository {
         .bind(&p.category)
         .bind(p.priority)
         .bind(&p.stream_filter)
-        .bind(p.created_at.0)
-        .bind(p.updated_at.0)
+        .bind(p.created_at)
+        .bind(p.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -99,7 +104,7 @@ impl LogPatternRepository for PgLogPatternRepository {
         sqlx::query(
             "UPDATE log_patterns SET
                 name = $3, regex = $4, capture_groups = $5, category = $6,
-                priority = $7, stream_filter = $8, updated_at_micros = $9
+                priority = $7, stream_filter = $8, updated_at = $9
              WHERE id = $1 AND org_id = $2",
         )
         .bind(&p.id.0)
@@ -110,7 +115,7 @@ impl LogPatternRepository for PgLogPatternRepository {
         .bind(&p.category)
         .bind(p.priority)
         .bind(&p.stream_filter)
-        .bind(p.updated_at.0)
+        .bind(p.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;

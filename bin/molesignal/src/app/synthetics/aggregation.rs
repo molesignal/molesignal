@@ -31,14 +31,7 @@ pub fn aggregate_locations(
 
     unknown += expected_locations.saturating_sub(healthy + flaky + degraded + failing + unknown);
 
-    let threshold = match policy {
-        MultiLocationPolicy::Any => 1,
-        MultiLocationPolicy::Quorum { required } => {
-            (*required as usize).clamp(1, expected_locations)
-        }
-        MultiLocationPolicy::Majority => expected_locations / 2 + 1,
-        MultiLocationPolicy::All => expected_locations,
-    };
+    let threshold = locations_needed(policy, expected_locations);
 
     if failing >= threshold {
         return MonitorState::Failing;
@@ -64,6 +57,18 @@ pub fn aggregate_locations(
         MonitorState::Healthy
     } else {
         MonitorState::Unknown
+    }
+}
+
+/// How many of a check's locations have to agree on a state for the check to take it.
+pub fn locations_needed(policy: &MultiLocationPolicy, expected_locations: usize) -> usize {
+    match policy {
+        MultiLocationPolicy::Any => 1,
+        MultiLocationPolicy::Quorum { required } => {
+            (*required as usize).clamp(1, expected_locations.max(1))
+        }
+        MultiLocationPolicy::Majority => expected_locations / 2 + 1,
+        MultiLocationPolicy::All => expected_locations,
     }
 }
 

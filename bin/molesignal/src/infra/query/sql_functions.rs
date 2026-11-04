@@ -5,7 +5,8 @@
 //!
 //! 与 `promql::capabilities` 同模式：函数实现与补全元数据放在同一处，UI 从
 //! `/query/sql/capabilities` 拉取，绝不宣传引擎不支持的函数。当前清单：
-//! [`MATCH`](crate::infra::query::tantivy_pruner)、[`MATCH_TEXT`]。
+//! [`MATCH`](crate::infra::query::tantivy_pruner)、[`MATCH_TEXT`]、
+//! [`CIDR_MATCH`](crate::infra::query::cidr)。
 
 use serde::Serialize;
 
@@ -16,6 +17,7 @@ pub enum SqlFunctionCompletionKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SqlFunctionCompletion {
     pub label: &'static str,
     /// Monaco snippet 插入文本；`${1:...}` 为 Tab 跳转占位。
@@ -32,7 +34,7 @@ pub struct SqlQueryCapabilities {
     pub functions: Vec<SqlFunctionCompletion>,
 }
 
-/// SQL 检索函数能力：与 `extract_match_predicates`（`tantivy_pruner`）支持的调用
+/// SQL 检索函数能力：与 `rewrite_match_calls`（`tantivy_pruner`）支持的调用
 /// 一一对应，前端据此生成补全（全大写规范形式，解析大小写不敏感）。
 pub fn sql_query_capabilities() -> SqlQueryCapabilities {
     SqlQueryCapabilities {
@@ -53,6 +55,14 @@ pub fn sql_query_capabilities() -> SqlQueryCapabilities {
                 documentation: "仅限 index_type 为 full_text 的 string 字段，未配置时报错。",
                 kind: SqlFunctionCompletionKind::Function,
             },
+            SqlFunctionCompletion {
+                label: "CIDR_MATCH",
+                insert_text: "CIDR_MATCH(${1:field}, '${2:10.0.0.0/8}')",
+                detail: "IP 地址落在网段里（IPv4 / IPv6）",
+                documentation: "值不是地址时为 false。index_type 为 ip 的字段上按文件的地址范围\
+                                跳过不可能命中的文件。",
+                kind: SqlFunctionCompletionKind::Function,
+            },
         ],
     }
 }
@@ -62,11 +72,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn sql_query_capabilities_has_the_two_text_search_functions() {
+    fn sql_query_capabilities_lists_the_engine_functions() {
         let caps = sql_query_capabilities();
         assert_eq!(caps.engine, "molesignal-sql");
         let labels: Vec<&str> = caps.functions.iter().map(|f| f.label).collect();
-        assert_eq!(labels, vec!["MATCH", "MATCH_TEXT"]);
+        assert_eq!(labels, vec!["MATCH", "MATCH_TEXT", "CIDR_MATCH"]);
         // 插入文本是 snippet，带 Tab 占位。
         assert!(caps.functions.iter().all(|f| f.insert_text.contains("${")));
     }

@@ -1,212 +1,155 @@
-import type * as React from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
-import type { ExperienceGrade } from '@/api/rum';
-import type { ExperienceBucket, OverviewMetrics } from '@/api/rum/overview';
 import { cn } from '@/shell/lib/cn';
-import { Readout, type ReadoutTone } from '@/shell/readout/Readout';
+import { surfacePanelClass } from '@/shell/SurfaceWorkbench';
 
-import { formatDurationMs, formatShare } from '../_helpers';
-import { type VitalKey, VITAL_THRESHOLDS, vitalGrade, vitalScale } from './vitals';
+import { formatShare } from '../_helpers';
+import { formatCount } from './format';
+import {
+  crashFreeSessions,
+  crashFreeUsers,
+  errorFreeSessions,
+  formatVital,
+  type Grade,
+  markerOf,
+  type OverviewScope,
+  performancePath,
+  type Pulse,
+  scaleOf,
+  type VitalReading,
+} from './model';
 
-const GRADE_TEXT: Record<ExperienceGrade, string> = {
-  good: 'text-green',
-  needs_improvement: 'text-yellow',
-  poor: 'text-red',
-  unknown: 'text-tx-3',
+const GRADE_TEXT: Record<Grade, string> = {
+  good: 'text-[var(--green-ink)]',
+  needs_improvement: 'text-[var(--yellow-ink)]',
+  poor: 'text-[var(--red-ink)]',
 };
 
-const GRADE_MARK: Record<ExperienceGrade, string> = {
-  good: 'bg-green',
-  needs_improvement: 'bg-yellow',
-  poor: 'bg-red',
-  unknown: 'bg-tx-3',
-};
+const FIGURE = <span className="font-display text-tx-0" />;
 
-const CELL = 'bg-[var(--functional-surface)] px-[20px] py-[16px]';
-
-const VITALS: readonly VitalKey[] = ['lcp', 'inp', 'cls'];
-
-function formatVital(key: VitalKey, value: number): string {
-  if (!(value > 0)) return '—';
-  return key === 'cls' ? value.toFixed(3) : formatDurationMs(value);
-}
-
-function formatThreshold(key: VitalKey, value: number): string {
-  return key === 'cls' ? String(value) : formatDurationMs(value);
-}
-
-function errorFreeTone(rate: number): ReadoutTone {
-  if (rate >= 0.99) return 'good';
-  if (rate >= 0.95) return 'warn';
-  return 'danger';
+/** A count with its noun: "1 session", "9 sessions", the figure set in the strong step. */
+function Counted({ unit, value, language }: { unit: 'sessions' | 'people'; value: number; language: string }) {
+  return (
+    <Trans
+      i18nKey={`overview.pulse.${unit}`}
+      ns="rum"
+      count={value}
+      values={{ formatted: formatCount(value, language) }}
+      components={{ n: FIGURE }}
+    />
+  );
 }
 
 /**
- * The opening statement of the RUM overview: how many people, how many of
- * their sessions went without an error, and how the three Core Web Vitals
- * stand against their thresholds.
- *
- * One surface instead of six number cards. Each vital is drawn on its own
- * scale, so "2.3 s" is read as "inside good, close to the line" without the
- * reader knowing the thresholds by heart.
+ * The opening statement of the overview: how many sessions, of how many people, and how many met
+ * no error (or, for an app, no crash); under it the Core Web Vitals of the application, each on the
+ * scale it is graded by, the mark where the 75th percentile of the views stands.
  */
-export function RumPulse({
-  metrics,
-  trend,
-  comparison,
+export function OverviewPulse({
+  pulse,
+  vitals,
+  scope,
+  language,
 }: {
-  metrics: OverviewMetrics;
-  /** Sessions per bucket over the window; absent until the insights arrive. */
-  trend?: readonly ExperienceBucket[] | undefined;
-  /** How each figure compares with the period before, when that is asked for. */
-  comparison?: Partial<Record<keyof OverviewMetrics, string>> | undefined;
+  pulse: Pulse;
+  /** Every vital of a browser application; none for an app, which sends no web vitals. */
+  vitals: readonly VitalReading[] | null;
+  /** What the vitals are of: each one opens the performance page on it. */
+  scope: OverviewScope;
+  language: string;
 }) {
   const { t } = useTranslation('rum');
 
+  const share = (value: number | null) => (value === null ? '—' : formatShare(value));
+  // The two counts the sentence opens with: each agrees with its own number.
+  const counts = {
+    sessions: <Counted unit="sessions" value={pulse.sessions} language={language} />,
+    people: <Counted unit="people" value={pulse.users} language={language} />,
+  };
+
   return (
     <section
-      aria-label={t('overview.pulse_aria')}
-      data-rum-pulse
-      className="ms-rise grid gap-px overflow-hidden rounded-md bg-bd-0 [box-shadow:var(--shadow-functional-surface)] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]"
+      aria-label={t('overview.pulse.aria')}
+      data-rum-overview-pulse=""
+      className={cn(surfacePanelClass, 'space-y-4 px-5 py-4')}
     >
-      <div className="grid min-w-0 gap-px sm:grid-cols-3">
-        <Readout
-          className={CELL}
-          label={t('overview.kpi.active_users')}
-          value={metrics.users.toLocaleString('en-US')}
-          detail={
-            comparison?.users ??
-            (metrics.users > 0
-              ? t('overview.sessions_per_user', {
-                  value: (metrics.sessions / metrics.users).toFixed(1),
-                })
-              : undefined)
-          }
-        />
-        <Readout
-          className={CELL}
-          riseIndex={1}
-          label={t('overview.kpi.sessions')}
-          value={metrics.sessions.toLocaleString('en-US')}
-          trend={
-            trend
-              ? {
-                  values: trend.map((bucket) => bucket.good + bucket.needs + bucket.poor),
-                  variant: 'bars',
-                }
-              : undefined
-          }
-          detail={comparison?.sessions}
-        />
-        <Readout
-          className={CELL}
-          riseIndex={2}
-          label={t('overview.kpi.error_free_sessions')}
-          value={formatShare(metrics.errorFreeRate)}
-          tone={errorFreeTone(metrics.errorFreeRate)}
-          detail={
-            comparison?.errorFreeRate ??
-            t('overview.sessions_with_errors', {
-              count: Math.round(metrics.sessions * (1 - metrics.errorFreeRate)).toLocaleString('en-US'),
-            })
-          }
-        />
-      </div>
-      <div className="grid min-w-0 gap-px sm:grid-cols-3">
-        {VITALS.map((key, index) => (
-          <VitalReadout
-            key={key}
-            vital={key}
-            value={metrics[`${key}P75`]}
-            detail={comparison?.[`${key}P75`]}
-            riseIndex={index + 3}
+      <p data-rum-pulse-statement="" className="m-0 type-page-title font-sans font-strong text-tx-1">
+        {vitals ? (
+          <Trans
+            i18nKey="overview.pulse.browser"
+            ns="rum"
+            values={{ share: share(errorFreeSessions(pulse)) }}
+            components={{ n: FIGURE, ...counts }}
           />
-        ))}
-      </div>
+        ) : (
+          <Trans
+            i18nKey="overview.pulse.app"
+            ns="rum"
+            values={{
+              sessionShare: share(crashFreeSessions(pulse)),
+              userShare: share(crashFreeUsers(pulse)),
+            }}
+            components={{ n: FIGURE, ...counts }}
+          />
+        )}
+      </p>
+      {vitals && (
+        <div className="grid gap-x-8 gap-y-4 sm:grid-cols-3">
+          {vitals.map((reading) => (
+            <VitalScale key={reading.vital.key} reading={reading} to={performancePath(scope, reading.vital.key)} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
 
-function VitalReadout({
-  vital,
-  value,
-  detail,
-  riseIndex,
-}: {
-  vital: VitalKey;
-  value: number;
-  detail?: string | undefined;
-  riseIndex: number;
-}) {
+function VitalScale({ reading, to }: { reading: VitalReading; to: string }) {
   const { t } = useTranslation('rum');
-  const grade = vitalGrade(vital, value);
-  const scale = vitalScale(vital, value);
-  const thresholds = VITAL_THRESHOLDS[vital];
+  const { vital, value, grade } = reading;
+  const name = t(`overview.vitals.names.${vital.key}`);
+  const [good, middle, poor] = scaleOf(vital);
 
   return (
-    <div
-      data-rum-vital={vital}
-      data-grade={grade}
-      style={{ '--rise-index': riseIndex } as React.CSSProperties}
-      className={cn('ms-rise flex min-w-0 flex-col', CELL)}
-    >
-      <div className="flex min-w-0 items-baseline justify-between gap-2">
-        <span className="type-label truncate font-medium text-tx-2">
-          {t(`overview.kpi.${vital}`)}
-        </span>
-        <span className={cn('type-caption shrink-0 font-strong', GRADE_TEXT[grade])}>
-          {t(`experience.${grade}`)}
-        </span>
+    <div data-rum-vital={vital.key} data-rum-grade={grade ?? 'none'} className="relative min-w-0">
+      <div className="flex items-baseline justify-between gap-2">
+        <Link
+          to={to}
+          title={t('overview.vitals.open', { name })}
+          className="type-caption font-strong text-tx-2 outline-none after:absolute after:inset-0 after:content-[''] hover:text-tx-0 focus-visible:text-tx-0"
+        >
+          {t('overview.vitals.label', { name })}
+        </Link>
+        {grade && <span className={cn('type-caption font-strong', GRADE_TEXT[grade])}>{t(`overview.vitals.grade.${grade}`)}</span>}
       </div>
-      <div className="type-kpi mt-1.5 truncate font-sans font-display tracking-[-0.02em] tabular-nums text-tx-0">
-        {formatVital(vital, value)}
+      <div className="mt-1 type-page-title font-sans font-display tabular-nums text-tx-0">
+        {value === null ? <span className="text-tx-4">—</span> : formatVital(vital, value)}
       </div>
-
-      {/* The value on its own scale: good, needs improvement, poor. */}
       <div
         role="img"
-        aria-label={t('overview.vital_scale_aria', {
-          vital: t(`overview.vitals.${vital}`),
-          grade: t(`experience.${grade}`),
-        })}
-        className="relative mt-[14px] h-[6px]"
+        aria-label={
+          value === null || !grade
+            ? t('overview.vitals.none_aria', { name })
+            : t('overview.vitals.aria', { name, value: formatVital(vital, value), grade: t(`overview.vitals.grade.${grade}`) })
+        }
+        className="relative mt-2 flex h-[6px] gap-[2px]"
       >
-        <div className="flex h-full w-full gap-[2px] overflow-hidden rounded-full">
+        <span className="rounded-l-[3px] bg-[var(--green)] opacity-80" style={{ flex: good }} />
+        <span className="bg-[var(--yellow)] opacity-80" style={{ flex: middle }} />
+        <span className="rounded-r-[3px] bg-[var(--red)] opacity-80" style={{ flex: poor }} />
+        {value !== null && (
           <span
-            className={cn('rounded-full bg-green', grade === 'good' ? 'opacity-90' : 'opacity-25')}
-            style={{ width: `${scale.bands.good}%` }}
-          />
-          <span
-            className={cn(
-              'rounded-full bg-yellow',
-              grade === 'needs_improvement' ? 'opacity-90' : 'opacity-25',
-            )}
-            style={{ width: `${scale.bands.needsImprovement}%` }}
-          />
-          <span
-            className={cn('rounded-full bg-red', grade === 'poor' ? 'opacity-90' : 'opacity-25')}
-            style={{ width: `${scale.bands.poor}%` }}
-          />
-        </div>
-        {scale.position !== null && (
-          <span
-            data-rum-vital-mark
-            className={cn(
-              'ms-wipe-dot absolute top-1/2 h-[14px] w-[4px] -translate-x-1/2 -translate-y-1/2 rounded-full [box-shadow:0_0_0_2px_var(--functional-surface)]',
-              GRADE_MARK[grade],
-            )}
-            style={{ left: `${scale.position}%` }}
+            aria-hidden
+            data-rum-vital-marker=""
+            className="absolute -top-[3px] h-[12px] w-[2px] rounded-[1px] bg-tx-0"
+            style={{ left: `${markerOf(vital, value) * 100}%` }}
           />
         )}
       </div>
-
-      <div className="type-caption mt-[10px] truncate text-tx-2">
-        {detail ??
-          t('overview.vital_thresholds', {
-            good: formatThreshold(vital, thresholds.good),
-            poor: formatThreshold(vital, thresholds.poor),
-          })}
+      <div className="mt-1 flex items-baseline justify-between type-caption text-tx-3">
+        <span>{t('overview.vitals.good_at', { value: formatVital(vital, vital.good) })}</span>
+        <span>{t('overview.vitals.poor_at', { value: formatVital(vital, vital.poor) })}</span>
       </div>
     </div>
   );

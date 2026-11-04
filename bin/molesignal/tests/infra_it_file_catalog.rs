@@ -9,6 +9,8 @@
 //! MS_RUN_IT=1 cargo test -p molesignal --test infra_it_file_catalog -- --nocapture
 //! ```
 
+mod common;
+
 use molesignal::{
     config::MetaDatabaseSettings,
     domain::{
@@ -39,7 +41,6 @@ use molesignal::{
         time::{TimeRange, TimestampMicros},
     },
 };
-use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PgImage;
 
 fn skip_unless_enabled() -> bool {
@@ -55,14 +56,11 @@ struct Harness {
     stream_id: Id,
     dataset_id: PhysicalDatasetId,
     // 容器随 Harness 一起存活。
-    _pg: testcontainers::ContainerAsync<PgImage>,
+    _pg: Option<testcontainers::ContainerAsync<PgImage>>,
 }
 
 async fn harness() -> Harness {
-    let pg = PgImage::default().start().await.expect("start pg");
-    let port = pg.get_host_port_ipv4(5432).await.expect("pg port");
-    let host = pg.get_host().await.expect("pg host");
-    let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+    let (dsn, pg) = common::test_database().await;
     let store = MetaStore::connect(&MetaDatabaseSettings {
         dsn,
         min_connections: 1,
@@ -609,6 +607,7 @@ async fn manifest_generation_switches_atomically_and_can_retire_partition() {
                 new_manifest: Some(pointer.clone()),
                 seal_segment_ids: vec![segment.id.clone()],
                 tombstone_segment_ids: Vec::new(),
+                replace_artifacts: Vec::new(),
                 gc_not_before_micros: TimestampMicros::now().0 + HOUR_MICROS,
             },
         )
@@ -642,6 +641,7 @@ async fn manifest_generation_switches_atomically_and_can_retire_partition() {
                 new_manifest: None,
                 seal_segment_ids: Vec::new(),
                 tombstone_segment_ids: vec![segment.id],
+                replace_artifacts: Vec::new(),
                 gc_not_before_micros: TimestampMicros::now().0 + HOUR_MICROS,
             },
         )
@@ -727,6 +727,7 @@ async fn cross_dataset_transform_retires_sealed_base_and_publishes_output_atomic
                 new_manifest: Some(pointer.clone()),
                 seal_segment_ids: vec![input.id.clone()],
                 tombstone_segment_ids: Vec::new(),
+                replace_artifacts: Vec::new(),
                 gc_not_before_micros: TimestampMicros::now().0 + HOUR_MICROS,
             },
         )

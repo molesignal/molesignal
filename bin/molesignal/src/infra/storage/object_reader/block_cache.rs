@@ -27,6 +27,7 @@ use crate::{
 
 mod codec;
 mod disk;
+mod forget;
 
 use codec::{decode_block, encode_block, verify_object_checksum};
 use disk::available_bytes;
@@ -97,6 +98,9 @@ pub(super) struct RangeBlockCache {
     min_free_bytes: u64,
     block_size: u64,
     index: Mutex<Index>,
+    /// Decoded, verified blocks by block key. A block's bytes never change, so a block evicted
+    /// from disk may still be served from here.
+    memory: Option<Cache<String, Bytes>>,
     flights: Cache<String, Arc<tokio::sync::Mutex<()>>>,
     object_limits: Cache<String, Arc<Semaphore>>,
     global_limit: Arc<Semaphore>,
@@ -115,10 +119,18 @@ impl RangeBlockCache {
 
         let cache = Self {
             root: settings.root.clone(),
-            max_bytes: settings.max_bytes,
-            min_free_bytes: settings.min_free_bytes,
-            block_size: settings.block_size_bytes,
+            max_bytes: settings.max_bytes(),
+            min_free_bytes: settings.min_free_bytes(),
+            block_size: settings.block_bytes(),
             index: Mutex::new(index),
+            memory: (settings.memory_bytes() > 0).then(|| {
+                Cache::builder()
+                    .max_capacity(settings.memory_bytes())
+                    .weigher(|_key: &String, block: &Bytes| {
+                        u32::try_from(block.len()).unwrap_or(u32::MAX)
+                    })
+                    .build()
+            }),
             flights: Cache::builder().max_capacity(100_000).build(),
             object_limits: Cache::builder().max_capacity(10_000).build(),
             global_limit: Arc::new(Semaphore::new(settings.max_concurrent_fetches)),
@@ -206,6 +218,18 @@ impl RangeBlockCache {
         }
 
         drop(guards);
+
+        if let [index] = indexes.as_slice() {
+            let block = blocks
+                .remove(index)
+                .ok_or_else(|| cache_error("missing fetched block"))?;
+
+            let block_start = index * self.block_size;
+            let start = cache_usize(range.start - block_start, "block copy start")?;
+            let end = cache_usize(range.end - block_start, "block copy end")?.min(block.len());
+
+            return Ok(block.slice(start.min(end)..end));
+        }
 
         let mut output = BytesMut::with_capacity(cache_usize(
             range.end - range.start,
@@ -309,6 +333,10 @@ impl RangeBlockCache {
                 );
             }
 
+            if let Some(memory) = &self.memory {
+                memory.insert(block_key(registered, index), block.clone());
+            }
+
             result.push((index, block));
         }
 
@@ -317,6 +345,12 @@ impl RangeBlockCache {
 
     async fn read_block(&self, registered: &RegisteredObject, index: u64) -> Option<Bytes> {
         let key = block_key(registered, index);
+
+        if let Some(bytes) = self.memory.as_ref().and_then(|memory| memory.get(&key)) {
+            self.index.lock().touch(&key);
+            return Some(bytes);
+        }
+
         let path = self.path_for(&key);
 
         let raw = match tokio::fs::read(&path).await {
@@ -342,6 +376,11 @@ impl RangeBlockCache {
         match decode_block(&raw, expected) {
             Ok(bytes) => {
                 self.index.lock().touch(&key);
+
+                if let Some(memory) = &self.memory {
+                    memory.insert(key, bytes.clone());
+                }
+
                 Some(bytes)
             }
             Err(error) => {
@@ -579,12 +618,14 @@ mod tests {
         }
     }
 
+    /// Disk only, so reads exercise the block files.
     fn settings(root: PathBuf) -> ObjectCacheSettings {
         ObjectCacheSettings {
             root,
-            max_bytes: 1024 * 1024,
-            block_size_bytes: 1024 * 1024,
-            min_free_bytes: 0,
+            max_size: 1,
+            block_size: 1,
+            memory_size: 0,
+            min_free_size: 0,
             ..ObjectCacheSettings::default()
         }
     }
@@ -645,5 +686,66 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(actual, bytes);
+    }
+
+    #[tokio::test]
+    async fn memory_tier_serves_a_read_block_without_disk_or_origin() {
+        let temp = tempfile::tempdir().unwrap();
+        let bytes = Bytes::from_static(b"catalog-backed object");
+        let origin: Arc<dyn ObjectStore> = Arc::new(InMemory::new());
+        let object = registered(&bytes);
+        let location = ObjectPath::from(object.object.key.as_str());
+        origin.put(&location, bytes.clone().into()).await.unwrap();
+
+        let cache = RangeBlockCache::new(&ObjectCacheSettings {
+            memory_size: 1,
+            ..settings(temp.path().into())
+        })
+        .unwrap();
+
+        cache
+            .read_range(&origin, &object, 0..bytes.len() as u64)
+            .await
+            .unwrap();
+
+        tokio::fs::remove_file(cache.path_for(&block_key(&object, 0)))
+            .await
+            .unwrap();
+        origin.delete(&location).await.unwrap();
+
+        let actual = cache.read_range(&origin, &object, 3..9).await.unwrap();
+        assert_eq!(actual, bytes.slice(3..9));
+    }
+
+    #[tokio::test]
+    async fn forget_drops_the_blocks_of_a_deleted_object() {
+        let temp = tempfile::tempdir().unwrap();
+        let bytes = Bytes::from(vec![3_u8; 2 * 1024 * 1024 + 5]);
+        let origin: Arc<dyn ObjectStore> = Arc::new(InMemory::new());
+        let object = registered(&bytes);
+        let location = ObjectPath::from(object.object.key.as_str());
+        origin.put(&location, bytes.clone().into()).await.unwrap();
+
+        let cache = RangeBlockCache::new(&ObjectCacheSettings {
+            max_size: 16,
+            memory_size: 16,
+            ..settings(temp.path().into())
+        })
+        .unwrap();
+
+        cache
+            .read_range(&origin, &object, 0..bytes.len() as u64)
+            .await
+            .unwrap();
+
+        origin.delete(&location).await.unwrap();
+        assert_eq!(cache.forget(&object).await, 3);
+        assert_eq!(cache.index.lock().total_bytes, 0);
+
+        for index in 0..3 {
+            assert!(!cache.path_for(&block_key(&object, index)).exists());
+        }
+
+        assert!(cache.read_range(&origin, &object, 3..9).await.is_err());
     }
 }

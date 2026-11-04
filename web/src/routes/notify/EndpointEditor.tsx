@@ -15,6 +15,8 @@ import {
 import { toast } from '@/shell/ui/sonner';
 import { Switch } from '@/shell/ui/switch';
 
+import { PHONE_CONNECTOR_TYPES } from './connector/fields';
+
 export function EndpointEditor({
   open,
   userId,
@@ -35,7 +37,7 @@ export function EndpointEditor({
   const options = React.useMemo(
     () =>
       connectors.filter(
-        (connector) => connector.enabled && connector.capabilities.direct_user,
+        (connector) => connector.enabled && connector.capabilities.directUser,
       ),
     [connectors],
   );
@@ -44,12 +46,16 @@ export function EndpointEditor({
   const [displayName, setDisplayName] = React.useState('');
   const [enabled, setEnabled] = React.useState(true);
   const [verified, setVerified] = React.useState(false);
+  // A phone connector calls or texts the identity, which is then a phone number.
+  const phone = PHONE_CONNECTOR_TYPES.has(
+    options.find((connector) => connector.id === connectorId)?.connectorType ?? '',
+  );
 
   React.useEffect(() => {
     if (!open) return;
-    setConnectorId(endpoint?.connector_id ?? options[0]?.id ?? '');
-    setIdentity(endpoint?.external_identity ?? '');
-    setDisplayName(endpoint?.display_name ?? '');
+    setConnectorId(endpoint?.connectorId ?? options[0]?.id ?? '');
+    setIdentity(endpoint?.externalIdentity ?? '');
+    setDisplayName(endpoint?.displayName ?? '');
     setEnabled(endpoint?.enabled ?? true);
     setVerified(endpoint?.verified ?? false);
   }, [endpoint, open, options]);
@@ -57,9 +63,9 @@ export function EndpointEditor({
   const save = useMutation({
     mutationFn: () => {
       const input: notifyApi.UserNotifyEndpointInput = {
-        connector_id: connectorId,
-        external_identity: identity,
-        display_name: displayName.trim() || null,
+        connectorId: connectorId,
+        externalIdentity: identity,
+        displayName: displayName.trim() || null,
         metadata: endpoint?.metadata ?? {},
         enabled,
         ...(canVerify ? { verified } : {}),
@@ -107,14 +113,18 @@ export function EndpointEditor({
             onChange={setConnectorId}
             options={options.map((connector) => ({
               value: connector.id,
-              label: `${connector.name} · ${t(`connector_types.${connector.connector_type}`, {
-                defaultValue: connector.connector_type,
+              label: `${connector.name} · ${t(`connector_types.${connector.connectorType}`, {
+                defaultValue: connector.connectorType,
               })}`,
             }))}
             className="h-11 md:h-9"
           />
         </FormField>
-        <FormField label={t('endpoints.identity')} required>
+        <FormField
+          label={t('endpoints.identity')}
+          required
+          {...(phone ? { hint: t('endpoints.phone_hint') } : {})}
+        >
           <FormInput
             className="h-11 text-base md:h-9 md:text-sm"
             value={identity}

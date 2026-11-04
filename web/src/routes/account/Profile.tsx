@@ -7,8 +7,9 @@ import { toApiError } from '@/lib/http';
 import { ProductState, productStateFor } from '@/product/states';
 import { AccountSection } from '@/routes/account/AccountSection';
 import { SettingsRow } from '@/routes/settings/_atoms';
-import { ChromeButton } from '@/shell/chrome';
+import { ChromeButton, uiUserAvatarClass } from '@/shell/chrome';
 import { FormInput, FormTextarea } from '@/shell/FormDrawer';
+import { cn } from '@/shell/lib/cn';
 import { toast } from '@/shell/ui/sonner';
 import { useAuthStore } from '@/stores/auth';
 
@@ -17,7 +18,6 @@ const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 export function AccountProfile() {
   const { t } = useTranslation(['account', 'common', 'settings-admin']);
   const queryClient = useQueryClient();
-  const token = useAuthStore((state) => state.token);
   const context = useAuthStore((state) => state.ctx);
   const setSession = useAuthStore((state) => state.setSession);
   const [displayName, setDisplayName] = React.useState('');
@@ -31,28 +31,28 @@ export function AccountProfile() {
 
   React.useEffect(() => {
     if (!profile) return;
-    setDisplayName(profile.display_name);
+    setDisplayName(profile.displayName);
     setBio(profile.bio ?? '');
   }, [profile]);
 
   const applyProfile = React.useCallback(
     (next: meApi.MeProfile) => {
       queryClient.setQueryData(['me', 'profile'], next);
-      if (token && context) {
-        setSession(token, {
+      if (context) {
+        setSession({
           ...context,
           email: next.email,
-          display_name: next.display_name,
+          displayName: next.displayName,
         });
       }
     },
-    [context, queryClient, setSession, token],
+    [context, queryClient, setSession],
   );
 
   const save = useMutation({
     mutationFn: () =>
       meApi.updateProfile({
-        display_name: displayName.trim(),
+        displayName: displayName.trim(),
         bio: bio.trim(),
       }),
     onSuccess: (next) => {
@@ -70,7 +70,7 @@ export function AccountProfile() {
     onError: (error) => toast.error(toApiError(error).message),
   });
   const removeAvatar = useMutation({
-    mutationFn: () => meApi.updateProfile({ avatar_url: '' }),
+    mutationFn: () => meApi.updateProfile({ avatarUrl: '' }),
     onSuccess: (next) => {
       applyProfile(next);
       toast.success(t('common:status.saved'));
@@ -83,15 +83,15 @@ export function AccountProfile() {
   );
   const dirty = Boolean(
     profile &&
-      (displayName.trim() !== profile.display_name ||
+      (displayName.trim() !== profile.displayName ||
         bio.trim() !== (profile.bio ?? '')),
   );
   const invalid = displayName.trim().length === 0;
   const avatarPending = uploadAvatar.isPending || removeAvatar.isPending;
-  const initial = (displayName || profile?.display_name || 'M')[0]?.toUpperCase() ?? 'M';
+  const initial = (displayName || profile?.displayName || 'M')[0]?.toUpperCase() ?? 'M';
   const reset = () => {
     if (!profile) return;
-    setDisplayName(profile.display_name);
+    setDisplayName(profile.displayName);
     setBio(profile.bio ?? '');
   };
 
@@ -122,11 +122,11 @@ export function AccountProfile() {
           }}
         >
           <div className="flex flex-col gap-4 pb-2 sm:flex-row sm:items-center">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-2 font-sans text-2xl font-bold text-indigo-soft">
-              {profile?.avatar_url ? (
+            <div className={cn(uiUserAvatarClass, 'h-20 w-20 text-2xl')}>
+              {profile?.avatarUrl ? (
                 <img
-                  src={profile.avatar_url}
-                  alt={profile.display_name}
+                  src={profile.avatarUrl}
+                  alt={profile.displayName}
                   className="h-full w-full object-cover"
                 />
               ) : (
@@ -155,7 +155,7 @@ export function AccountProfile() {
                 >
                   {t('account:profile.change_avatar')}
                 </ChromeButton>
-                {profile?.avatar_url && (
+                {profile?.avatarUrl && (
                   <ChromeButton
                     type="button"
                     disabled={avatarPending}

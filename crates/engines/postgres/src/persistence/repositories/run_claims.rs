@@ -36,19 +36,19 @@ impl RunClaimRepository for PgRunClaimRepository {
         until: TimestampMicros,
     ) -> Result<bool> {
         let claimed = sqlx::query(
-            "INSERT INTO run_claims (kind, claim_key, holder, claimed_until_micros)
+            "INSERT INTO run_claims (kind, claim_key, holder, claimed_until)
              VALUES ($1, $2, $3, $4)
              ON CONFLICT (kind, claim_key) DO UPDATE
              SET holder = EXCLUDED.holder,
-                 claimed_until_micros = EXCLUDED.claimed_until_micros
-             WHERE run_claims.claimed_until_micros <= $5
+                 claimed_until = EXCLUDED.claimed_until
+             WHERE run_claims.claimed_until <= $5
                 OR run_claims.holder = EXCLUDED.holder",
         )
         .bind(kind)
         .bind(key)
         .bind(holder)
-        .bind(until.0)
-        .bind(now.0)
+        .bind(until)
+        .bind(now)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?

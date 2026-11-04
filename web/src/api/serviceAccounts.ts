@@ -1,41 +1,36 @@
 import { http } from '@/lib/http';
 
-import type { CreatedApiToken } from './apiTokens';
+import type { IssuedApiToken } from './apiTokens';
 
 export interface ServiceAccount {
   id: string;
   name: string;
   description: string;
-  role_id: string;
-  role_key: string;
-  role_name: string;
+  roleId: string;
+  roleKey: string;
+  roleName: string;
   disabled: boolean;
-  created_by: string;
-  created_at_micros: number;
-  updated_at_micros: number;
+  createdBy: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface CreateServiceAccountPayload {
   name: string;
   description?: string;
-  role_id: string;
-}
-
-export interface InitialServiceAccountApiToken extends CreatedApiToken {
-  name: string;
-  service_account_id: string;
-  expires_at_micros: number;
+  roleId: string;
 }
 
 export interface ProvisionedServiceAccount {
-  service_account: ServiceAccount;
-  api_token: InitialServiceAccountApiToken;
+  serviceAccount: ServiceAccount;
+  /** The account's first token, which may do whatever the account may. */
+  apiToken: IssuedApiToken;
 }
 
 export interface UpdateServiceAccountPayload {
   name?: string;
   description?: string;
-  role_id?: string;
+  roleId?: string;
 }
 
 const accountPath = (id: string) =>

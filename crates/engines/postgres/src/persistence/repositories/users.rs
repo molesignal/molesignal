@@ -40,18 +40,23 @@ fn row_to_user(row: sqlx::postgres::PgRow) -> Result<User> {
             "rejected" => UserStatus::Rejected,
             _ => UserStatus::Active,
         },
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        sessions_valid_after: row
+            .try_get::<TimestampMicros, _>("sessions_valid_after")
+            .map_err(sqlx_err)?,
     })
 }
 
-const COLS: &str =
-    "id, email, display_name, avatar_url, bio, password_hash, disabled, status, created_at_micros";
+const COLS: &str = "id, email, display_name, avatar_url, bio, password_hash, disabled, status, \
+                    created_at, sessions_valid_after";
 
 #[async_trait]
 impl UserRepository for PgUserRepository {
     async fn create(&self, user: User) -> Result<User> {
         sqlx::query(
-            "INSERT INTO users (id, email, display_name, avatar_url, bio, password_hash, disabled, status, created_at_micros)
+            "INSERT INTO users (id, email, display_name, avatar_url, bio, password_hash, disabled, status, created_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         )
         .bind(&user.id.0)
@@ -66,7 +71,7 @@ impl UserRepository for PgUserRepository {
             UserStatus::Pending => "pending",
             UserStatus::Rejected => "rejected",
         })
-        .bind(user.created_at.0)
+        .bind(user.created_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -157,12 +162,10 @@ impl UserRepository for PgUserRepository {
     }
 
     async fn list(&self) -> Result<Vec<User>> {
-        let rows = sqlx::query(&format!(
-            "SELECT {COLS} FROM users ORDER BY created_at_micros"
-        ))
-        .fetch_all(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
+        let rows = sqlx::query(&format!("SELECT {COLS} FROM users ORDER BY created_at"))
+            .fetch_all(&self.pool)
+            .await
+            .map_err(sqlx_err)?;
 
         rows.into_iter().map(row_to_user).collect()
     }

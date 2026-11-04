@@ -39,6 +39,14 @@ pub fn policy_matches(policy: &NotifyPolicy, event: &NotifyEvent) -> Result<bool
         return Ok(false);
     }
 
+    if policy
+        .time
+        .as_ref()
+        .is_some_and(|time| !time.holds(event.occurred_at))
+    {
+        return Ok(false);
+    }
+
     validate_matchers(&policy.matchers)?;
 
     Ok(policy.matchers.as_object().is_some_and(|matchers| {
@@ -81,17 +89,21 @@ mod tests {
             id: Id::new(),
             organization_id: Id::new(),
             name: "critical production".into(),
+            builtin_key: None,
             event_type: "alert.triggered".into(),
             category: NotifyCategory::Alert,
             matchers,
             recipient_resolver: "fixed_users".into(),
-            resolver_config: serde_json::json!({"user_ids": ["user-a"]}),
+            resolver_config: serde_json::json!({"userIds": ["user-a"]}),
             delivery_mode: NotifyDeliveryMode::PreferUser,
             delivery_config: NotifyDeliveryConfig::default(),
             template_id: None,
+            channel_templates: Default::default(),
             fallback_config: NotifyFallbackConfig::default(),
             ack_timeout_seconds: None,
             escalation_config: None,
+            merge_window_secs: None,
+            time: None,
             enabled: true,
             priority: 100,
             created_at: TimestampMicros(1),

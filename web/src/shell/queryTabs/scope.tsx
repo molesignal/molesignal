@@ -40,6 +40,46 @@ export interface QueryPane {
 
 export const QueryPaneContext = React.createContext<QueryPane>({ split: false, narrow: false });
 
+/** The tabs a page lists in its query box; nothing while the page is behind. */
+export const QueryTabStripContext = React.createContext<React.ReactNode>(null);
+
+function QueryTabStripSlot() {
+  return <>{React.useContext(QueryTabStripContext)}</>;
+}
+
+const QUERY_TAB_STRIP_SLOT = <QueryTabStripSlot />;
+
+/**
+ * The query tabs, for the page to list in its query box, where the query's
+ * name would stand. `null` outside any tab.
+ *
+ * What is returned never changes: the tabs come and go inside it, so a page
+ * is not drawn again whenever a tab is opened, renamed or starts running.
+ */
+export function useQueryTabStrip(): React.ReactNode {
+  return React.useContext(QueryTabScopeContext) ? QUERY_TAB_STRIP_SLOT : null;
+}
+
+/**
+ * What the switch that splits the page works with. Only the page shown at the
+ * right is given it, so a split page has one switch, at its far side.
+ */
+export interface QuerySplitControl {
+  /** The page is split in two halves now. */
+  split: boolean;
+  /** The window has room for two halves. */
+  room: boolean;
+  /**
+   * Asked once, when the switch is put on the page: whether it takes the
+   * focus. Splitting the page moves the switch to the half that is new, and
+   * the switch it takes the place of may have had it.
+   */
+  claimFocus: () => boolean;
+  onChange: (split: boolean) => void;
+}
+
+export const QuerySplitContext = React.createContext<QuerySplitControl | null>(null);
+
 /**
  * The share of the page a query tab has. A page that puts a list of fields or
  * a detail beside its results folds them while its share is narrow, as it does

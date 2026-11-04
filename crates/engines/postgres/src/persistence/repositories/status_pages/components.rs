@@ -2,6 +2,7 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use sqlx::types::Json;
 
 use super::{
     PgStatusPageRepository,
@@ -30,9 +31,9 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
         sqlx::query(
             "INSERT INTO status_page_components
                 (id, org_id, status_page_id, name, description, status, visibility,
-                 lifecycle, position, archived_at_micros, created_at_micros, updated_at_micros,
-                 kind, group_id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
+                 lifecycle, position, archived_at, created_at, updated_at,
+                 kind, group_id, dependencies, dependency_mode, dependency_notify)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)",
         )
         .bind(&component.id.0)
         .bind(&component.org_id.0)
@@ -43,11 +44,14 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
         .bind(component.visibility.as_str())
         .bind(component.lifecycle.as_str())
         .bind(component.position)
-        .bind(component.archived_at.map(|at| at.0))
-        .bind(component.created_at.0)
-        .bind(component.updated_at.0)
+        .bind(component.archived_at)
+        .bind(component.created_at)
+        .bind(component.updated_at)
         .bind(component.kind.as_str())
         .bind(component.group_id.as_ref().map(Id::as_str))
+        .bind(Json(&component.dependencies))
+        .bind(component.dependency_mode.as_str())
+        .bind(component.dependency_notify)
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -78,10 +82,20 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
 
         let updated = sqlx::query(
+            // The health worked out from other dependencies is dropped with
+            // them; the next evaluation works it out again.
             "UPDATE status_page_components SET
                  name = $4, description = $5, status = $6, visibility = $7,
-                 lifecycle = $8, position = $9, archived_at_micros = $10,
-                 updated_at_micros = $11, group_id = $13
+                 lifecycle = $8, position = $9, archived_at = $10,
+                 updated_at = $11, group_id = $13,
+                 dependency_status = CASE WHEN dependencies = $14 THEN dependency_status END,
+                 dependency_causes = CASE WHEN dependencies = $14
+                     THEN dependency_causes ELSE '[]'::JSONB END,
+                 dependency_changed_at = CASE WHEN dependencies = $14
+                     THEN dependency_changed_at END,
+                 dependency_evaluated_at = CASE WHEN dependencies = $14
+                     THEN dependency_evaluated_at END,
+                 dependencies = $14, dependency_mode = $15, dependency_notify = $16
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3 AND status = $12
              RETURNING id",
         )
@@ -94,10 +108,13 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
         .bind(component.visibility.as_str())
         .bind(component.lifecycle.as_str())
         .bind(component.position)
-        .bind(component.archived_at.map(|at| at.0))
-        .bind(component.updated_at.0)
+        .bind(component.archived_at)
+        .bind(component.updated_at)
         .bind(expected_status.as_str())
         .bind(component.group_id.as_ref().map(Id::as_str))
+        .bind(Json(&component.dependencies))
+        .bind(component.dependency_mode.as_str())
+        .bind(component.dependency_notify)
         .fetch_optional(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -111,14 +128,14 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
         if let Some(status_event) = status_event {
             let result = sqlx::query(
                 "UPDATE status_page_component_status_events
-                 SET ended_at_micros = $4
+                 SET ended_at = $4
                  WHERE org_id = $1 AND status_page_id = $2 AND component_id = $3
-                   AND ended_at_micros IS NULL",
+                   AND ended_at IS NULL",
             )
             .bind(&component.org_id.0)
             .bind(&component.status_page_id.0)
             .bind(&component.id.0)
-            .bind(status_event.started_at.0)
+            .bind(status_event.started_at)
             .execute(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
@@ -261,16 +278,16 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
             "SELECT {COMPONENT_STATUS_EVENT_COLS}
              FROM status_page_component_status_events
              WHERE org_id = $1 AND status_page_id = $2
-               AND started_at_micros < $4
-               AND (ended_at_micros IS NULL OR ended_at_micros > $3)
-             ORDER BY started_at_micros DESC, id DESC LIMIT 50000"
+               AND started_at < $4
+               AND (ended_at IS NULL OR ended_at > $3)
+             ORDER BY started_at DESC, id DESC LIMIT 50000"
         );
 
         sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
-            .bind(since.0)
-            .bind(until.0)
+            .bind(since)
+            .bind(until)
             .fetch_all(&self.pool)
             .await
             .map_err(super::sqlx_err)?
@@ -286,8 +303,8 @@ async fn insert_component_status_event(
 ) -> std::result::Result<sqlx::postgres::PgQueryResult, sqlx::Error> {
     sqlx::query(
         "INSERT INTO status_page_component_status_events
-            (id, org_id, status_page_id, component_id, status, started_at_micros,
-             ended_at_micros, created_at_micros, notify_subscribers)
+            (id, org_id, status_page_id, component_id, status, started_at,
+             ended_at, created_at, notify_subscribers)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
     )
     .bind(&event.id.0)
@@ -295,9 +312,9 @@ async fn insert_component_status_event(
     .bind(&event.status_page_id.0)
     .bind(&event.component_id.0)
     .bind(event.status.as_str())
-    .bind(event.started_at.0)
-    .bind(event.ended_at.map(|at| at.0))
-    .bind(event.created_at.0)
+    .bind(event.started_at)
+    .bind(event.ended_at)
+    .bind(event.created_at)
     .bind(event.notify_subscribers)
     .execute(transaction)
     .await

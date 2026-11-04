@@ -3,15 +3,14 @@ import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
 import * as alertsApi from '@/api/alerts';
-import * as businessServicesApi from '@/api/businessServices';
-import type { AutomationSourceKind, ComponentStatus } from '@/api/statusPages';
+import type { AutomationSourceKind, ComponentStatus, StatusPageComponent } from '@/api/statusPages';
 import * as syntheticsApi from '@/api/synthetics';
 import { FormField, FormSelect, type FormSelectOption } from '@/shell/FormDrawer';
 
 import {
   alertRuleResources,
   type AutomationSourceResource,
-  businessServiceResources,
+  componentDependencyResources,
   syntheticMonitorResources,
 } from './sourceResources';
 import { componentStatusLabel } from '../../../model';
@@ -23,6 +22,7 @@ export function SourceResourceField({
   allowAll = true,
   required = false,
   enabled = true,
+  components = [],
 }: {
   sourceKind: AutomationSourceKind;
   value: string;
@@ -30,13 +30,15 @@ export function SourceResourceField({
   allowAll?: boolean;
   required?: boolean;
   enabled?: boolean;
+  /** The page's components, the sources of dependency rules. */
+  components?: StatusPageComponent[];
 }) {
   const { t } = useTranslation('status-pages');
-  const source = useSourceResources(sourceKind, enabled);
+  const source = useSourceResources(sourceKind, enabled, components);
   const resourceNoun = sourceKind === 'alert_incident'
     ? 'alert_rule'
-    : sourceKind === 'business_service'
-      ? 'business_service'
+    : sourceKind === 'component_dependencies'
+      ? 'component'
       : 'synthetic_monitor';
   const options: FormSelectOption[] = [];
 
@@ -97,20 +99,18 @@ export function SourceResourceField({
   );
 }
 
-function useSourceResources(sourceKind: AutomationSourceKind, enabled: boolean) {
+function useSourceResources(
+  sourceKind: AutomationSourceKind,
+  enabled: boolean,
+  components: StatusPageComponent[],
+) {
   const isAlert = sourceKind === 'alert_incident';
-  const isService = sourceKind === 'business_service';
+  const isComponent = sourceKind === 'component_dependencies';
   const isMonitor = sourceKind === 'synthetic_monitor';
   const alertRules = useQuery({
     queryKey: ['alerts', 'rules'],
     queryFn: alertsApi.list,
     enabled: enabled && isAlert,
-    staleTime: 30_000,
-  });
-  const services = useQuery({
-    queryKey: ['business-services'],
-    queryFn: businessServicesApi.list,
-    enabled: enabled && isService,
     staleTime: 30_000,
   });
   const monitors = useQuery({
@@ -120,7 +120,7 @@ function useSourceResources(sourceKind: AutomationSourceKind, enabled: boolean) 
     staleTime: 30_000,
   });
   const selectableMonitors = (monitors.data ?? []).filter((monitor) =>
-    Boolean(monitor.active_revision_id)
+    Boolean(monitor.activeRevisionId)
     && (monitor.lifecycle === 'active' || monitor.lifecycle === 'paused'));
   const monitorDetails = useQueries({
     queries: !isMonitor ? [] : selectableMonitors.map((monitor) => ({
@@ -138,12 +138,8 @@ function useSourceResources(sourceKind: AutomationSourceKind, enabled: boolean) 
       error: alertRules.error,
     };
   }
-  if (isService) {
-    return {
-      resources: businessServiceResources(services.data ?? []),
-      pending: enabled && services.isPending,
-      error: services.error,
-    };
+  if (isComponent) {
+    return { resources: componentDependencyResources(components), pending: false, error: null };
   }
   return {
     resources: syntheticMonitorResources(
@@ -162,9 +158,11 @@ function resourceLabel(
   sourceKind: AutomationSourceKind,
   t: TFunction<'status-pages'>,
 ): string {
-  // A business service is told apart by how it is doing, not by a lifecycle.
-  if (sourceKind === 'business_service') {
-    return [resource.name, componentStatusLabel(t, resource.target as ComponentStatus)].join(' · ');
+  // A component is told apart by how its dependencies are doing, not by a lifecycle.
+  if (sourceKind === 'component_dependencies') {
+    return resource.target
+      ? [resource.name, componentStatusLabel(t, resource.target as ComponentStatus)].join(' · ')
+      : resource.name;
   }
   const state = sourceKind === 'alert_incident'
     ? t(`automation.source_picker.${resource.state}`)

@@ -3,7 +3,7 @@ import type { PipelineRun } from '@/api/pipelines/runs';
 
 import { executionMode } from './PipelineGraph/model';
 
-export type PipelineHealth = 'healthy' | 'running' | 'error' | 'paused' | 'unknown' | 'never' | 'ready';
+export type PipelineHealth = 'healthy' | 'running' | 'error' | 'paused' | 'unknown' | 'never' | 'ready' | 'listening';
 export type PipelineDetailTab = 'overview' | 'topology' | 'runs' | 'configuration';
 
 export function parsePipelineDetailTab(value: string | null): PipelineDetailTab {
@@ -15,17 +15,19 @@ export function parsePipelineDetailTab(value: string | null): PipelineDetailTab 
 export function pipelineHealth(pipeline: ScheduledPipeline): PipelineHealth {
   if (pipeline.enabled === false) return 'paused';
   if (executionMode(pipeline) === 'realtime') return 'ready';
-  if (pipeline.last_run_state === 'failed') return 'error';
-  if (pipeline.last_run_state === 'running') return 'running';
-  if (pipeline.last_run_state === 'succeeded') return 'healthy';
-  if (pipeline.last_run_started_at_micros || pipeline.last_run_at_micros) return 'unknown';
+  // An alert pipeline has no runs: it waits for alert events, and its counts say how they went.
+  if (executionMode(pipeline) === 'alert') return 'listening';
+  if (pipeline.lastRunState === 'failed') return 'error';
+  if (pipeline.lastRunState === 'running') return 'running';
+  if (pipeline.lastRunState === 'succeeded') return 'healthy';
+  if (pipeline.lastRunStartedAt || pipeline.lastRunAt) return 'unknown';
   return 'never';
 }
 
 export function pipelineSuccessRate(pipeline: ScheduledPipeline): number | null {
-  const total = pipeline.runs_24h ?? 0;
+  const total = pipeline.runs24h ?? 0;
   if (total <= 0) return null;
-  return ((pipeline.succeeded_runs_24h ?? 0) / total) * 100;
+  return ((pipeline.succeededRuns24h ?? 0) / total) * 100;
 }
 
 export function formatSchedule(cron: string | null | undefined, locale: string): string {
@@ -94,18 +96,18 @@ export function summarizePipelineRuns(
   nowMicros = Date.now() * 1000,
 ) {
   const since24h = nowMicros - 24 * 3600 * 1_000_000;
-  const runs24h = runs.filter((run) => run.started_at_micros >= since24h);
+  const runs24h = runs.filter((run) => run.startedAt >= since24h);
   const succeeded24h = runs24h.filter((run) => run.state === 'succeeded').length;
   const completedDurations = runs24h
-    .filter((run) => run.finished_at_micros != null)
-    .map((run) => (run.finished_at_micros! - run.started_at_micros) / 1000);
+    .filter((run) => run.finishedAt != null)
+    .map((run) => (run.finishedAt! - run.startedAt) / 1000);
 
   return {
     lastRun: runs[0] ?? null,
     runs24h,
     successRate:
       runs24h.length > 0 ? (succeeded24h / runs24h.length) * 100 : null,
-    processedRows: runs24h.reduce((total, run) => total + run.scanned_rows, 0),
+    processedRows: runs24h.reduce((total, run) => total + run.scannedRows, 0),
     averageDuration:
       completedDurations.length > 0
         ? completedDurations.reduce((total, duration) => total + duration, 0) /

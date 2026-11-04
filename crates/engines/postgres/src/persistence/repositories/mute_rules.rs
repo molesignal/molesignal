@@ -26,7 +26,7 @@ impl PgMuteRuleRepository {
 }
 
 const COLS: &str = "id, org_id, name, enabled, matchers, time_window, comment,
-     created_by, created_at_micros, updated_at_micros";
+     created_by, created_at, updated_at";
 
 fn row_to(row: sqlx::postgres::PgRow) -> Result<MuteRule> {
     let matchers: Json<Vec<LabelMatcher>> = row.try_get("matchers").map_err(sqlx_err)?;
@@ -44,8 +44,12 @@ fn row_to(row: sqlx::postgres::PgRow) -> Result<MuteRule> {
             .try_get::<Option<String>, _>("created_by")
             .map_err(sqlx_err)?
             .map(Id::from_string),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -55,7 +59,7 @@ impl MuteRuleRepository for PgMuteRuleRepository {
         sqlx::query(
             "INSERT INTO mute_rules
                 (id, org_id, name, enabled, matchers, time_window, comment,
-                 created_by, created_at_micros, updated_at_micros)
+                 created_by, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
         )
         .bind(&r.id.0)
@@ -66,8 +70,8 @@ impl MuteRuleRepository for PgMuteRuleRepository {
         .bind(Json(&r.window))
         .bind(&r.comment)
         .bind(r.created_by.as_ref().map(|i| i.0.clone()))
-        .bind(r.created_at.0)
-        .bind(r.updated_at.0)
+        .bind(r.created_at)
+        .bind(r.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -79,7 +83,7 @@ impl MuteRuleRepository for PgMuteRuleRepository {
         sqlx::query(
             "UPDATE mute_rules SET
                name = $2, enabled = $3, matchers = $4, time_window = $5,
-               comment = $6, updated_at_micros = $7
+               comment = $6, updated_at = $7
              WHERE id = $1",
         )
         .bind(&r.id.0)
@@ -88,7 +92,7 @@ impl MuteRuleRepository for PgMuteRuleRepository {
         .bind(Json(&r.matchers))
         .bind(Json(&r.window))
         .bind(&r.comment)
-        .bind(r.updated_at.0)
+        .bind(r.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -108,7 +112,7 @@ impl MuteRuleRepository for PgMuteRuleRepository {
 
     async fn list(&self, org_id: &Id) -> Result<Vec<MuteRule>> {
         let rows = sqlx::query(&format!(
-            "SELECT {COLS} FROM mute_rules WHERE org_id = $1 ORDER BY created_at_micros, id"
+            "SELECT {COLS} FROM mute_rules WHERE org_id = $1 ORDER BY created_at, id"
         ))
         .bind(&org_id.0)
         .fetch_all(&self.pool)

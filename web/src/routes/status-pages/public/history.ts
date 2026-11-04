@@ -98,10 +98,10 @@ export function incidentHistoryMonths(
 
   snapshot.history
     .filter((incident) =>
-      isIncidentWithinHistory(incident, snapshot.generated_at, historyDays),
+      isIncidentWithinHistory(incident, snapshot.generatedAt, historyDays),
     )
     .forEach((incident) => {
-      const shownAt = incident.ended_at ?? incident.started_at;
+      const shownAt = incident.endedAt ?? incident.startedAt;
       const parts = zonedDateParts(shownAt, timezone);
       const key = `${parts.year}-${twoDigits(parts.month)}`;
       const month = months.get(key) ?? {
@@ -183,7 +183,7 @@ export function uptimeHistoryMonths(
 }
 
 function incidentShownAt(incident: PublicStatusPageIncident): number {
-  return incident.ended_at ?? incident.started_at;
+  return incident.endedAt ?? incident.startedAt;
 }
 
 function formatMonth(

@@ -26,20 +26,20 @@ pub(super) async fn fork(pool: &PgPool, fork: Chat, upto: Option<&ChatMessage>) 
             (id, chat_id, org_id, role, content, user_id, tool_calls_json, tool_result_for,
              prompt_tokens, completion_tokens, cost, cost_currency, prompt_template_id,
              prompt_builtin_key, prompt_version, prompt_hash, evidence_json, command_json,
-             created_at_micros, run_id, tool_transcript, references_json)
+             created_at, run_id, tool_transcript, references_json)
          SELECT gen_random_uuid()::TEXT, $1, org_id, role, content, user_id, tool_calls_json,
                 tool_result_for, prompt_tokens, completion_tokens, cost, cost_currency,
                 prompt_template_id, prompt_builtin_key, prompt_version, prompt_hash,
-                evidence_json, command_json, created_at_micros, NULL, tool_transcript,
+                evidence_json, command_json, created_at, NULL, tool_transcript,
                 references_json
          FROM agent_messages
          WHERE chat_id = $2 AND org_id = $3
-           AND ($4::BIGINT IS NULL OR (created_at_micros, id) <= ($4, $5))",
+           AND ($4::TIMESTAMPTZ IS NULL OR (created_at, id) <= ($4, $5))",
     )
     .bind(&fork.id.0)
     .bind(&source)
     .bind(&fork.org_id.0)
-    .bind(upto.map(|message| message.created_at.0))
+    .bind(upto.map(|message| message.created_at))
     .bind(upto.map(|message| message.id.0.clone()).unwrap_or_default())
     .execute(&mut *tx)
     .await

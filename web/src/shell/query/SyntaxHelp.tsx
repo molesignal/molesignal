@@ -33,6 +33,8 @@ interface SyntaxExample {
 interface SyntaxExampleLabels {
   equals: string;
   contains: string;
+  exclude: string;
+  either: string;
   substring: string;
   fullText: string;
   basic: string;
@@ -53,12 +55,19 @@ function defaultExamples(
       { label: labels.contains, expression: "message contains 'timeout'" },
       { label: labels.substring, expression: "MATCH(message, 'timeout')" },
       { label: labels.fullText, expression: "MATCH_TEXT(message, 'timeout disk')" },
+      // AND binds first; brackets group, and text can be one of the alternatives.
+      { label: labels.either, expression: "level = 'error' AND (service = 'checkout' OR \"connection reset\")" },
     ],
     traces: [
       { label: labels.equals, expression: "trace_id = '4bf92f3577b34da6a3ce929d0e0e4736'" },
-      { label: labels.contains, expression: "service_name contains 'checkout'" },
+      { label: labels.contains, expression: "service.name contains 'checkout'" },
+      // No span of the trace has the value.
+      { label: labels.exclude, expression: "service.name != 'checkout'" },
       { label: labels.filter, expression: "status_code = 'ERROR'" },
-      { label: labels.filter, expression: "duration_ms > 500" },
+      // A trace that took longer than 500 ms: its duration is kept in nanoseconds.
+      { label: labels.filter, expression: "duration_ns > 500000000" },
+      // Either span condition holds for a trace, or one on the trace itself.
+      { label: labels.either, expression: "service.name = 'checkout' OR span_count > 50" },
     ],
   };
   const sqlExamples: Record<FieldSqlScope, SyntaxExample[]> = {
@@ -68,11 +77,13 @@ function defaultExamples(
       { label: labels.substring, expression: `WHERE MATCH(message, 'timeout')` },
       { label: labels.fullText, expression: `WHERE MATCH_TEXT(message, 'timeout disk')` },
     ],
+    // A statement reads the stream by its name and its fields by theirs. `duration_ns` is a column of
+    // a span and of the template's rows alike.
     traces: [
-      { label: labels.basic, expression: `SELECT * FROM traces LIMIT 200` },
-      { label: labels.filter, expression: `WHERE "service_name" = 'checkout'` },
+      { label: labels.basic, expression: `SELECT * FROM "default" LIMIT 200` },
+      { label: labels.filter, expression: `WHERE "service.name" = 'checkout'` },
       { label: labels.aggregate, expression: `GROUP BY trace_id` },
-      { label: labels.sort, expression: `ORDER BY duration_ms DESC LIMIT 50` },
+      { label: labels.sort, expression: `ORDER BY duration_ns DESC LIMIT 50` },
     ],
   };
   return mode === 'sql' ? sqlExamples[scope] : fieldExamples[scope];
@@ -96,6 +107,8 @@ export function QuerySyntaxHelp({
   const labels: SyntaxExampleLabels = {
     equals: t('query_syntax_help.labels.equals'),
     contains: t('query_syntax_help.labels.contains'),
+    exclude: t('query_syntax_help.labels.exclude'),
+    either: t('query_syntax_help.labels.either'),
     substring: t('query_syntax_help.labels.substring'),
     fullText: t('query_syntax_help.labels.full_text'),
     basic: t('query_syntax_help.labels.basic'),

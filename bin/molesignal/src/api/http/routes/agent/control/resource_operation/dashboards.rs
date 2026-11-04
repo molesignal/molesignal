@@ -33,7 +33,7 @@ pub(super) async fn execute(
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct DashboardWrite {
     model: Value,
     #[serde(default)]
@@ -146,7 +146,7 @@ async fn delete(
 
     Ok(OperationOutcome {
         summary: "dashboard deleted".into(),
-        verification: json!({"verified": true, "dashboard_id": dashboard.id, "deleted": true}),
+        verification: json!({"verified": true, "dashboardId": dashboard.id, "deleted": true}),
     })
 }
 

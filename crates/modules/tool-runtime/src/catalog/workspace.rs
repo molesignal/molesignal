@@ -150,7 +150,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
                     "summary": {"type": "string", "maxLength": 4000, "description": "What the step found, what the evidence shows, or the conclusion."},
                     "status": {"type": "string", "description": "Step: succeeded, failed or skipped. Hypothesis: proposed, testing, supported, insufficient_evidence or rejected."},
                     "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
-                    "fact_status": {"type": "string", "enum": ["verified", "inference", "suggestion", "unverified"]},
+                    "factStatus": {"type": "string", "enum": ["verified", "inference", "suggestion", "unverified"]},
                     "tool": {"type": "string", "description": "The tool a step or evidence came from."},
                     "query": {"type": "string", "maxLength": 4000}
                 },
@@ -161,6 +161,23 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             &["Investigation"],
         )
         .chat_record(RiskLevel::L0, false)
+        .mole_agent_only(),
+        BuiltinToolKind::GetAgentInsights => ToolSpec::read(
+            kind.name(),
+            "Sum up how Mole Agent was used in this chat's scope over the last days: questions asked, how the answers ended, helpful and unhelpful ratings with their reasons, the tools called most and how often they failed, the skills used, and how the automations ran. A team chat covers its team; a personal chat covers the person and their teams. Read only.",
+            "platform",
+            "insights",
+            json!({
+                "type": "object",
+                "properties": {
+                    "days": {"type": "integer", "minimum": 1, "maximum": 90, "description": "How many days to look back. Defaults to 30."}
+                },
+                "additionalProperties": false
+            }),
+            open_output(),
+            &[],
+            &["Insights"],
+        )
         .mole_agent_only(),
         _ => unreachable!("workspace catalog received a kind of another catalog"),
     }

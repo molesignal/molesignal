@@ -27,34 +27,31 @@ import {
   useProductAccess,
 } from '@/product/access';
 import { AboutDialog } from '@/shell/AboutDialog';
-import { chromeIconButtonSizeClass } from '@/shell/chrome';
+import { chromeIconButtonSizeClass, uiUserAvatarClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { LogoMark } from '@/shell/LogoMark';
-import { NotificationCenter } from '@/shell/NotificationCenter';
+import { NotificationCenter } from '@/shell/notifications/NotificationCenter';
+import { OrgStatusSwitcher } from '@/shell/OrgStatusSwitcher';
 import {
   USER_PREFERENCES_QUERY_KEY,
   useApplyUserPreferences,
 } from '@/shell/PreferenceRuntime';
-import { SystemStatusIndicator } from '@/shell/SystemStatusIndicator';
 import { animateThemeChange, useTheme } from '@/shell/ThemeBootstrap';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/shell/ui/dropdown-menu';
 import { Kbd } from '@/shell/ui/kbd';
 import { toast } from '@/shell/ui/sonner';
 import { UserMenuLanguage } from '@/shell/UserMenuLanguage';
 import { normalizeRole, useAuthStore } from '@/stores/auth';
+import { signOut } from '@/stores/auth/signOut';
 import { useMoleAgentStore } from '@/stores/useMoleAgentStore';
+import { isOrgEntryDeclined } from '@/stores/useOrgEntry';
 import { useCurrentOrgSelection, useOrgStore } from '@/stores/useOrgStore';
 
 interface TopbarProps {
@@ -78,7 +75,6 @@ export function Topbar({
     'account',
   ]);
   const ctx = useAuthStore((s) => s.ctx);
-  const logout = useAuthStore((s) => s.logout);
   const nav = useNavigate();
   const queryClient = useQueryClient();
   const { theme, themePreference, setTheme } = useTheme();
@@ -87,30 +83,29 @@ export function Topbar({
   const switchOrg = useOrgStore((s) => s.switchOrg);
   const toggleMoleAgent = useMoleAgentStore((s) => s.toggle);
   const [aboutOpen, setAboutOpen] = React.useState(false);
-  const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = React.useState(false);
   const profileQuery = useQuery({
     queryKey: ['me', 'profile'],
     queryFn: () => meApi.profile(),
     enabled: !!ctx,
   });
   const profile = profileQuery.data;
-  const displayName = profile?.display_name ?? ctx?.display_name ?? ctx?.user_id ?? 'unknown';
+  const displayName = profile?.displayName ?? ctx?.displayName ?? ctx?.userId ?? 'unknown';
   const email = profile?.email ?? ctx?.email ?? '';
-  const currentOrgName = profile?.org_name ?? ctx?.org_name ?? orgLabel;
-  const role = normalizeRole(profile?.display_role ?? ctx?.display_role);
+  const currentOrgName = profile?.orgName ?? ctx?.orgName ?? orgLabel;
+  const role = normalizeRole(profile?.displayRole ?? ctx?.displayRole);
   const access = useProductAccess();
   const canUseMoleAgent = canAccessProductPath('/agent', access);
-  const avatarUrl = profile?.avatar_url?.trim() ?? '';
+  const avatarUrl = profile?.avatarUrl?.trim() ?? '';
 
   const initial = displayName[0]?.toUpperCase() ?? 'M';
-  const preferredHome = (orgId = ctx?.org_id ?? '') => {
+  const preferredHome = (orgId = ctx?.orgId ?? '') => {
     const preferences =
       queryClient.getQueryData<meApi.UserPreferences>(
         USER_PREFERENCES_QUERY_KEY,
       ) ?? meApi.DEFAULT_USER_PREFERENCES;
     return resolveDefaultHomeRoute(
-      preferences.default_home_route,
-      ctx?.user_id ?? '',
+      preferences.defaultHomeRoute,
+      ctx?.userId ?? '',
       orgId,
     );
   };
@@ -165,6 +160,7 @@ export function Topbar({
       toast.success(t('errors:switch_org_success', { name: next.name }));
       nav(destination);
     } catch (err) {
+      if (isOrgEntryDeclined(err)) return;
       const e = toApiError(err);
       toast.error(t('errors:switch_org_failure', { message: e.message }));
     }
@@ -199,14 +195,14 @@ export function Topbar({
         title={t('shell:topbar.toggle_sidebar')}
         testid="sidebar-toggle"
       >
-        <PanelLeft className="h-3.5 w-3.5" />
+        <PanelLeft className="h-4 w-4" />
       </IconBtn>
 
       {/* Global search — the product's "launch anything" control surface. */}
       <button
         type="button"
         onClick={onPaletteOpen}
-        className="flex h-9 w-9 shrink-0 items-center justify-center gap-2.5 rounded-md border-0 bg-bg-2 px-0 sm:px-3 text-left text-tx-2 transition-colors duration-fast ease-default hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none sm:w-auto sm:max-w-[720px] sm:flex-1 sm:justify-start [@media(pointer:coarse)]:h-[44px] [@media(pointer:coarse)]:min-w-[44px]"
+        className="flex h-9 w-9 shrink-0 items-center justify-center gap-2.5 rounded-md border-0 bg-[var(--control-surface)] px-0 sm:px-3 text-left text-tx-3 transition-colors duration-fast ease-default focus-visible:text-tx-3 focus-visible:outline-none sm:w-auto sm:max-w-[720px] sm:flex-1 sm:justify-start [@media(pointer:coarse)]:h-[44px] [@media(pointer:coarse)]:min-w-[44px]"
         aria-label={t('shell:chrome.command_palette')}
         data-ui="search-control"
         data-testid="command-palette-trigger"
@@ -215,30 +211,30 @@ export function Topbar({
         <span className="hidden flex-1 truncate text-sm sm:block">
           {t('shell:topbar.search_placeholder')}
         </span>
-        <Kbd className="hidden font-sans text-xs sm:inline-flex">⌘ K</Kbd>
+        <Kbd variant="plain" className="hidden sm:inline-flex">⌘ K</Kbd>
       </button>
 
       {/* right cluster */}
       <div className="ml-auto flex shrink-0 items-center gap-1">
         {/* Mole Agent — shell-level slide-out, available from any route (⌘J). */}
         {canUseMoleAgent && (
-          <button
-            type="button"
+          <IconBtn
             onClick={toggleMoleAgent}
-            className="hidden h-9 items-center gap-2 rounded-md bg-transparent px-2.5 font-sans text-sm font-strong text-tx-2 transition-colors duration-fast hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none lg:flex"
             title={t('shell:topbar.mole_agent')}
-            data-testid="mole-agent-trigger"
+            testid="mole-agent-trigger"
+            className="hidden lg:flex"
           >
             <Bot className="h-4 w-4 text-indigo-soft" />
-            <span className="hidden xl:inline">{t('shell:topbar.agent')}</span>
-          </button>
+          </IconBtn>
         )}
         <IconBtn
           onClick={onNocOpen}
           title={t('shell:topbar.open_noc')}
           className="hidden lg:flex"
         >
-          <Monitor className="h-4 w-4" />
+          {/* A screen fills its box where the bell, the help ring and the moon are round or open:
+              drawn at 14px it reads as large as they do at 16. */}
+          <Monitor className="h-[14px] w-[14px]" />
         </IconBtn>
         <NotificationCenter />
         <HelpMenu
@@ -267,17 +263,20 @@ export function Topbar({
           className="hidden md:flex"
         >
           {theme === 'dark' ? (
-            <Sun key="sun" className="h-3.5 w-3.5 animate-pop-in" />
+            <Sun key="sun" className="h-4 w-4 animate-pop-in" />
           ) : (
-            <Moon key="moon" className="h-3.5 w-3.5 animate-pop-in" />
+            <Moon key="moon" className="h-4 w-4 animate-pop-in" />
           )}
         </IconBtn>
-        <SystemStatusIndicator compact className="ml-1 mr-3" />
-        <DropdownMenu
-          onOpenChange={(open) => {
-            if (!open) setWorkspaceSwitcherOpen(false);
-          }}
-        >
+        <OrgStatusSwitcher
+          orgName={currentOrgName}
+          role={role}
+          currentOrgId={currentOrgId}
+          orgOptions={orgOptions}
+          onSwitch={(id) => void handleSwitchOrg(id)}
+          className="ml-1 mr-2"
+        />
+        <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
@@ -293,7 +292,10 @@ export function Topbar({
                   becoming harder to hit. */}
               <span
                 data-testid="user-avatar"
-                className="flex h-[28px] w-[28px] items-center justify-center overflow-hidden rounded-full bg-indigo font-sans text-xs font-bold text-white transition-[filter] duration-fast group-hover:brightness-95 group-focus-visible:brightness-90"
+                className={cn(
+                  uiUserAvatarClass,
+                  'h-[28px] w-[28px] text-md transition-[filter] duration-fast group-hover:brightness-95 group-focus-visible:brightness-90',
+                )}
               >
                 {avatarUrl ? (
                   <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
@@ -310,7 +312,7 @@ export function Topbar({
           >
             <DropdownMenuLabel className="px-3 py-3">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-indigo font-sans text-sm font-bold text-white">
+                <span className={cn(uiUserAvatarClass, 'h-10 w-10 text-lg')}>
                   {avatarUrl ? (
                     <img
                       src={avatarUrl}
@@ -336,103 +338,6 @@ export function Topbar({
                 </span>
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-
-            <DropdownMenuLabel className="type-micro px-3 pb-1 pt-2 font-sans font-medium tracking-normal text-tx-3">
-              {t('shell:user_menu.current_workspace')}
-            </DropdownMenuLabel>
-            {orgOptions.length > 1 ? (
-              <DropdownMenuSub
-                open={workspaceSwitcherOpen}
-                onOpenChange={setWorkspaceSwitcherOpen}
-              >
-                <DropdownMenuSubTrigger
-                  data-ui="workspace-switcher-trigger"
-                  data-selected={workspaceSwitcherOpen ? 'true' : undefined}
-                  className="mx-1 min-h-10 rounded-md bg-transparent px-2 py-2 shadow-none transition-none hover:bg-[var(--floating-item-hover)]"
-                  onClick={() => setWorkspaceSwitcherOpen(true)}
-                  style={{
-                    backgroundColor: workspaceSwitcherOpen
-                      ? 'var(--workspace-selection-fill)'
-                      : undefined,
-                    boxShadow: 'none',
-                  }}
-                >
-                  <span className="flex min-w-0 flex-1 items-center gap-2">
-                    <span className="truncate font-sans text-sm font-strong text-tx-0">
-                      {currentOrgName}
-                    </span>
-                    <span
-                      data-testid="current-workspace-role"
-                      className="type-micro shrink-0 rounded-full bg-bg-4 px-2 py-0.5 font-sans font-strong text-tx-1"
-                    >
-                      {role}
-                    </span>
-                  </span>
-                  <span className="shrink-0 font-sans text-xs font-strong text-tx-3">
-                    {t('shell:user_menu.switch_workspace')}
-                  </span>
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent
-                  data-ui="workspace-switcher-menu"
-                  className="w-60 shadow-none"
-                  sideOffset={12}
-                >
-                  <DropdownMenuLabel>
-                    {t('shell:user_menu.current_workspace')}
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuRadioGroup
-                    value={currentOrgId ?? ''}
-                    onValueChange={(id) => void handleSwitchOrg(id)}
-                  >
-                    {orgOptions.map((org) => {
-                      const isCurrent = org.id === currentOrgId;
-                      const orgRole = org.display_role ?? (isCurrent ? role : null);
-                      return (
-                        <DropdownMenuRadioItem
-                          key={org.id}
-                          value={org.id}
-                          data-ui="workspace-option"
-                          className="min-h-10 rounded-md"
-                          disabled={org.disabled}
-                        >
-                          <span className="min-w-0 flex-1 truncate font-sans text-sm font-strong">
-                            {org.name}
-                          </span>
-                          {orgRole && (
-                            <span className="type-micro rounded-full bg-bg-4 px-1.5 py-0.5 font-sans text-tx-1">
-                              {orgRole}
-                            </span>
-                          )}
-                          {org.disabled && (
-                            <span className="type-micro text-tx-3">
-                              {t('common:status.disabled')}
-                            </span>
-                          )}
-                        </DropdownMenuRadioItem>
-                      );
-                    })}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            ) : (
-              <div
-                className="mx-1 flex min-h-10 items-center gap-2 rounded-md px-2 py-2"
-                aria-label={t('shell:user_menu.current_workspace')}
-              >
-                <span className="min-w-0 flex-1 truncate font-sans text-sm font-strong text-tx-0">
-                  {currentOrgName}
-                </span>
-                <span
-                  data-testid="current-workspace-role"
-                  className="type-micro shrink-0 rounded-full border border-bd-0 bg-bg-3 px-2 py-0.5 font-sans font-strong text-tx-2"
-                >
-                  {role}
-                </span>
-              </div>
-            )}
-
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="min-h-10 rounded-md px-3"
@@ -460,9 +365,7 @@ export function Topbar({
             <DropdownMenuItem
               className="min-h-10 rounded-md px-3 text-tx-1 focus:bg-red-dim focus:text-red-soft"
               onSelect={() => {
-                logout({ allTabs: true });
-                useOrgStore.getState().reset();
-                nav('/signin');
+                void signOut().then(() => nav('/signin'));
               }}
             >
               <LogOut className="h-4 w-4" />
@@ -508,12 +411,10 @@ function HelpMenu({
             'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
           )}
         >
-          <HelpCircle className="h-3.5 w-3.5" />
+          <HelpCircle className="h-4 w-4" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>{title}</DropdownMenuLabel>
-        <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={onDocs}>
           <BookOpen className="h-4 w-4" />
           <span>{docsLabel}</span>

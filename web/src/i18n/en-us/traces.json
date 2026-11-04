@@ -22,13 +22,8 @@
     "span_match": "match",
     "close_span": "Close span details",
     "span_id": "Span ID",
-    "span_start_offset": "start {{offset}}",
-    "span_into_trace": "{{percent}}% into trace",
-    "span_duration": "Duration",
-    "span_start": "Start",
-    "span_offset": "Offset",
+    "span_start_offset": "starts at {{offset}} ({{percent}}%)",
     "span_events": "Events",
-    "span_events_empty": "No span events.",
     "span_count_one": "{{count}} span",
     "span_count_other": "{{count}} spans",
     "service_count_one": "{{count}} service",
@@ -51,7 +46,6 @@
   },
   "session": {
     "title": "Session traces",
-    "back": "Traces",
     "session_id": "session_id",
     "empty_title": "No traces in this session",
     "empty_description": "This session id has no matching traces in the last seven days.",
@@ -73,8 +67,8 @@
     "tabs": {
       "spans": "Spans",
       "traces": "Traces",
-      "service_graph": "Service Graph",
-      "service_catalog": "Service Catalog"
+      "red": "RED drilldown",
+      "service_graph": "Service Graph"
     },
     "service_graph": {
       "title": "Service Graph",
@@ -101,22 +95,7 @@
       "show_types": "Type icons",
       "hide_types": "Hide type icons",
       "no_match": "No services match “{{query}}”.",
-      "compact_map_title": "Compact map",
-      "empty": "No service-graph data in the last hour.",
-      "latency_distribution": "Latency distribution · service-edge p95 buckets",
-      "kpis": {
-        "total_rps": "total rps",
-        "max_p95": "max p95",
-        "err_rate": "err rate"
-      },
-      "latency_buckets": {
-        "under_50ms": "<50ms",
-        "over_500ms": "500ms+"
-      },
-      "bucket_aria": "{{label}}: {{count}} service edges",
-      "edge_count": "{{count}} service edges",
-      "no_latency": "No latency data for the selected range.",
-      "slowest_edges": "Slowest edges"
+      "empty": "No service-graph data in the last hour."
     },
     "query": {
       "editor_label": "Query editor",
@@ -137,26 +116,17 @@
       "ok": "Non-error",
       "errors": "Errors",
       "hide": "Hide histogram",
-      "show": "Show histogram"
+      "show": "Show histogram",
+      "latency_label": "How long the traces took",
+      "span_label": "Spans over time",
+      "span_ok": "Spans",
+      "span_errors": "Failed spans"
     },
     "results": {
       "no_match": "No traces match the selected query.",
-      "no_traces": "No traces in the selected time range.",
       "loaded_count_one": "{{count}} trace loaded",
       "loaded_count_other": "{{count}} traces loaded",
-      "select_prompt": "Select a trace to inspect summary.",
-      "select_description": "Inspect service calls, span duration, errors, and attributes without leaving the result list.",
-      "select_trace_aria": "Inspect trace {{operation}}",
-      "span_count_one": "{{count}} span",
-      "span_count_other": "{{count}} spans",
-      "error_count_one": "{{count}} error",
-      "error_count_other": "{{count}} errors",
-      "open_detail": "Trace details >>",
-      "inspect_hint": "click to inspect summary",
-      "view_spans": "View spans",
-      "visible_labels": "Visible fields",
-      "close_summary": "Close trace details",
-      "summary_drawer_aria": "Trace details drawer"
+      "close_detail": "Close trace details"
     },
     "recovery": {
       "query_failed": "Trace query failed",
@@ -165,15 +135,6 @@
       "expand_time": "Expand time range 4×",
       "clear_filters": "Clear query and retry",
       "query_docs": "Trace query documentation"
-    },
-    "sort": {
-      "aria": "Sort traces",
-      "latest": "Newest first",
-      "earliest": "Oldest first",
-      "duration_desc": "Longest duration",
-      "duration_asc": "Shortest duration",
-      "span_count_desc": "Most spans",
-      "errors_desc": "Errors first"
     },
     "pagination": {
       "aria": "Trace results pagination",
@@ -187,13 +148,35 @@
       "last_aria": "Last trace page"
     },
     "table": {
-      "trace": "Trace",
-      "service": "Service",
-      "operation": "Operation",
-      "spans": "Spans",
-      "errors": "Errors",
-      "duration": "Duration",
-      "start": "Start"
+      "columns": {
+        "status": "Status",
+        "http": "HTTP",
+        "start": "Started",
+        "service": "Service",
+        "operation": "Operation",
+        "duration": "Duration",
+        "spans": "Spans",
+        "errors": "Errors",
+        "trace": "Trace ID",
+        "kind": "Kind"
+      },
+      "sort_by": "Sort by {{column}}",
+      "sorted_descending": "Sorted by {{column}}, largest or latest first; click to reverse",
+      "sorted_ascending": "Sorted by {{column}}, smallest or earliest first; click to reverse",
+      "open_aria": "Open trace {{operation}}, {{service}}, {{duration}}",
+      "open_span_aria": "Open span {{operation}}, {{service}}, {{duration}}",
+      "status_ok": "OK",
+      "status_error": "Error"
+    },
+    "columns": {
+      "title": "Columns",
+      "visible": "Visible columns",
+      "reorder_hint": "Drag to reorder",
+      "drag_aria": "Reorder {{name}}. Drag it, or press Alt+Up or Alt+Down.",
+      "reset": "Reset to default",
+      "available": "Available columns",
+      "root_fields": "Fields of the root span",
+      "full": "At most {{count}} columns are shown: remove one first."
     },
     "labels": {
       "title": "Fields",
@@ -202,12 +185,13 @@
       "resize": "Drag to resize fields; double-click to reset",
       "filter_placeholder": "Search fields",
       "filter_aria": "Filter trace fields",
+      "common_fields": "Common fields",
       "displayed_fields": "Displayed fields",
       "indexed_fields": "Indexed fields",
       "no_indexed_fields": "This stream keeps no field in an index.",
       "other_fields": "Other fields",
-      "show_field_aria": "Show {{name}}",
-      "hide_field_aria": "Hide {{name}}",
+      "show_field_aria": "Show {{name}} of each trace's root span as a column",
+      "hide_field_aria": "Remove the {{name}} column",
       "add_field_aria": "Add {{name}} to query",
       "json_query_required": "{{name}} requires a JSON path query in SQL mode",
       "direct_query_unavailable": "{{name}} cannot be queried directly",
@@ -244,30 +228,113 @@
       "range_earliest": "Earliest",
       "range_latest": "Latest"
     },
-    "field_hints": {
-      "service": "service name",
-      "operation": "span operation",
-      "trace_id": "trace identifier",
-      "span_id": "span identifier",
-      "parent_span": "parent span",
-      "duration_ms": "trace duration",
-      "span_count": "span count",
-      "error_count": "error span count"
+    "red": {
+      "select_range": "Drag across the chart to narrow the time range",
+      "lead_hint": "Sort the breakdown below by this figure",
+      "ok": "Succeeded",
+      "rate": {
+        "title": "Rate",
+        "aria": "Request rate over time",
+        "detail": "Total {{requests}}"
+      },
+      "errors": {
+        "title": "Errors",
+        "rate": "Error rate",
+        "aria": "Error rate over time",
+        "detail": "{{errors}} failed",
+        "untold": "The stream keeps no status to tell failures by",
+        "only": "Only failed requests"
+      },
+      "duration": {
+        "title": "Duration",
+        "aria": "Duration percentiles over time",
+        "view_label": "Duration view",
+        "trend": "Trend",
+        "distribution": "Distribution",
+        "distribution_name": "Duration distribution",
+        "distribution_aria": "{{name}}: the tallest bar holds {{max}} requests. Arrow keys move between bars, Enter keeps the requests that took that long, dragging picks several bars.",
+        "bar_readout": "{{range}}: {{total}} requests, {{errors}} failed",
+        "percentiles_aria": "p95 {{p95}}, p99 {{p99}}"
+      },
+      "scope": {
+        "label": "Requests counted",
+        "entry": "Entry spans",
+        "all": "All spans",
+        "hint": "Entry spans are where a service takes a request in: server and consumer spans, and the root span of each trace unless it is itself a client or producer call. Each counts as one request."
+      },
+      "path": {
+        "label": "Drill path",
+        "root": "All",
+        "back_to": "Back to {{step}}",
+        "remove": "Remove {{step}}"
+      },
+      "breakdown": {
+        "by": "Break down by <field></field>",
+        "dimension": "Field to break down by",
+        "no_dimension": "Choose a field",
+        "search": "Search fields",
+        "no_match": "No field matches",
+        "common": "Common",
+        "other": "Other fields",
+        "values": "{{count}} values",
+        "values_more": "Top {{count}} values",
+        "value": "Value",
+        "requests": "Requests",
+        "error_rate": "Error rate",
+        "p95": "p95",
+        "trend": "Trend",
+        "actions": "Actions",
+        "no_value": "(no value)",
+        "drill": "Drill into {{clause}}",
+        "open_spans": "Show these requests' traces",
+        "loading": "Breaking down…",
+        "empty": "No values to break down by",
+        "failed": "The breakdown could not be loaded"
+      },
+      "states": {
+        "sql_title": "A SQL statement has no RED figures",
+        "sql_description": "RED counts the requests a field query matches. Clear the statement or write it as a field query.",
+        "sql_action": "Clear the statement",
+        "empty_entry_title": "No entry span matches",
+        "empty_entry_description": "The conditions may only match internal or downstream spans. Count all spans instead.",
+        "empty_entry_action": "Count all spans",
+        "empty_title": "No span matches",
+        "empty_description": "Nothing in this time range matches the conditions. Widen the time range.",
+        "empty_action": "Widen the time range",
+        "failed_title": "RED figures could not be loaded",
+        "unavailable_title": "RED figures are not available",
+        "retry": "Retry",
+        "unavailable": {
+          "time_budget": "Counting took too long. Narrow the time range or add conditions, then try again.",
+          "busy": "Too many queries are running. Try again in a moment.",
+          "scan_limit": "The range holds more spans than one query may read. Narrow the time range or add conditions.",
+          "timestamp_masked": "Time is masked for you, so nothing can be laid out over it.",
+          "field_protected": "This field is masked for you, so it cannot break requests down."
+        }
+      }
     },
-    "service_catalog": {
-      "title": "Service catalog",
-      "empty": "No service catalog entries in the selected range.",
-      "slowest_operations": "Slowest operations"
+    "spans": {
+      "loaded_count_one": "{{count}} span loaded",
+      "loaded_count_other": "{{count}} spans loaded"
+    },
+    "compare": {
+      "start": "Pick two traces to compare",
+      "stop": "Stop picking traces",
+      "bar": "Traces picked to compare",
+      "hint": "Pick two traces to compare.",
+      "ready": "Compare B against A:",
+      "unpick": "Unpick {{operation}}",
+      "compare": "Compare",
+      "cancel": "Cancel",
+      "pick_aria": "Pick trace {{operation}}, {{service}}, {{duration}} to compare"
     }
   },
   "attributes": {
-    "title": "Tags",
     "view": "Attribute view",
     "list": "Table",
     "json": "Raw JSON",
     "search": "Search tags",
     "copy_failed": "Could not copy to clipboard",
-    "empty": "No tags.",
     "no_matches": "No matching tags.",
     "copy_value_for": "Copy value for {{key}}",
     "copied": "Copied",
@@ -278,16 +345,309 @@
     "include": "Add to query",
     "exclude": "Exclude this value",
     "fields_only": "Switch to Fields mode to add this filter.",
-    "scalar_only": "Filtering requires a non-empty scalar value and a supported field name.",
-    "show_all": "Show all {{count}}",
-    "show_less": "Show less",
+    "scalar_only": "Filtering requires a non-empty scalar value and a supported field name."
+  },
+  "view": {
+    "views": {
+      "label": "Trace views",
+      "waterfall": "Waterfall",
+      "flame": "Flame graph",
+      "spans": "Span list",
+      "map": "Service map"
+    },
+    "summary": {
+      "duration": "Duration",
+      "start": "Started",
+      "size": "Size",
+      "trace_id": "Trace ID",
+      "errors_one": "{{count}} error",
+      "errors_other": "{{count}} errors",
+      "spans_one": "{{count}} span",
+      "spans_other": "{{count}} spans",
+      "services_one": "{{count}} service",
+      "services_other": "{{count}} services",
+      "depth": "depth {{depth}}",
+      "orphans_one": "{{count}} span without its parent",
+      "orphans_other": "{{count}} spans without their parent",
+      "orphans_hint": "Their parent span was not received; they are shown as roots of their own.",
+      "links_one": "{{count}} link to other spans",
+      "links_other": "{{count}} links to other spans",
+      "jumps": "Related signals",
+      "jump": {
+        "logs": "Related logs",
+        "metrics": "Service metrics",
+        "profiles": "Profiles",
+        "session": "User session"
+      }
+    },
+    "toolbar": {
+      "search": "Search spans",
+      "search_placeholder": "Search spans, service:api, duration>100ms",
+      "no_match": "None",
+      "previous_match": "Previous match (Shift+Enter)",
+      "next_match": "Next match (Enter)",
+      "errors_only_one": "Failed spans only ({{count}})",
+      "errors_only_other": "Failed spans only ({{count}})",
+      "expand_all": "Expand all",
+      "collapse_all": "Collapse all",
+      "focused": "Focused on {{operation}}",
+      "unfocus": "Show the whole trace",
+      "zoomed": "Zoomed to {{from}} – {{to}}",
+      "unzoom": "Show the whole time axis",
+      "open_panel": "Show span detail",
+      "critical_path": "Critical path"
+    },
+    "legend": {
+      "aria": "Services of the trace",
+      "item": "{{service}}: {{percent}}% of the trace's own time",
+      "more_one": "+{{count}} more",
+      "more_other": "+{{count}} more",
+      "critical": "Critical path {{duration}}",
+      "critical_aria": "Services on the critical path",
+      "critical_item": "{{service}}: {{percent}}% of the critical path, {{duration}}"
+    },
+    "overview": {
+      "aria": "The whole trace",
+      "hint": "Drag across to zoom the time axis; double-click to show it all"
+    },
+    "waterfall": {
+      "column": "Span",
+      "resize_names": "Resize the span names column"
+    },
+    "row": {
+      "select_aria": "Select span {{operation}}, {{service}}, {{duration}}",
+      "expand": "Show the spans it called",
+      "collapse": "Hide the spans it called",
+      "descendants_one": "{{count}} span under it",
+      "descendants_other": "{{count}} spans under it",
+      "failed": "Failed",
+      "links_one": "{{count}} link to another span",
+      "links_other": "{{count}} links to other spans",
+      "critical": "On the critical path",
+      "profiled": "Profile samples kept this span"
+    },
     "groups": {
-      "database": "Database",
-      "service": "Service",
-      "deployment": "Deployment",
-      "telemetry": "Telemetry",
+      "name": "Service / operation",
+      "spans": "Spans",
+      "errors": "Errors",
+      "average": "Average",
+      "total": "Total",
+      "self": "Self time",
+      "share": "Share of own time",
+      "fold": "Hide the operations of {{service}}",
+      "unfold": "Show the operations of {{service}}"
+    },
+    "map": {
+      "entry": "Entry",
+      "calls_one": "{{count}} call",
+      "calls_other": "{{count}} calls",
+      "errors_one": "{{count}} failed",
+      "errors_other": "{{count}} failed",
+      "spans_one": "{{count}} span",
+      "spans_other": "{{count}} spans",
+      "share": "{{percent}}% own time"
+    },
+    "panel": {
+      "aria": "Span detail",
+      "tabs": "Span detail sections",
+      "focus": "Show only this span and what it called",
+      "close": "Hide span detail",
+      "resize": "Resize the span detail",
+      "duration": "Duration",
+      "self": "Self time",
+      "offset": "Started at",
+      "share": "{{percent}}% of the trace",
+      "span_id": "Span ID",
+      "parent": "Parent"
+    },
+    "kind": {
+      "unspecified": "Unspecified",
+      "internal": "Internal",
+      "server": "Server",
+      "client": "Client",
+      "producer": "Producer",
+      "consumer": "Consumer"
+    },
+    "status": {
+      "ok": "OK",
+      "error": "Error",
+      "unset": "Unset"
+    },
+    "tabs": {
+      "attributes": "Attributes",
       "resource": "Resource",
-      "other": "Other"
+      "events": "Events",
+      "links": "Links",
+      "logs": "Logs",
+      "metrics": "Metrics",
+      "profile": "Profile"
+    },
+    "tags": {
+      "empty": "This span has no attributes of its own.",
+      "empty_resource": "The resource of this span has no attributes.",
+      "groups": {
+        "http": "HTTP",
+        "database": "Database",
+        "rpc": "RPC",
+        "messaging": "Messaging",
+        "error": "Error",
+        "code": "Code",
+        "service": "Service",
+        "deployment": "Deployment",
+        "host": "Host",
+        "process": "Process",
+        "container": "Container & cloud",
+        "telemetry": "Telemetry SDK",
+        "other": "Other"
+      }
+    },
+    "metadata": {
+      "title": "Recording",
+      "scope": "Instrumentation",
+      "trace_state": "Trace state",
+      "trace_flags": "Trace flags",
+      "sampling": "Kept because",
+      "dropped_attributes": "Dropped attributes",
+      "dropped_events": "Dropped events",
+      "dropped_links": "Dropped links",
+      "notes": "Notes",
+      "flags": {
+        "partial": "partial",
+        "late": "arrived late",
+        "duplicate": "received twice",
+        "conflict": "conflicting copies"
+      }
+    },
+    "events": {
+      "empty": "This span recorded no events."
+    },
+    "links": {
+      "outgoing": "Links from this span",
+      "incoming": "Spans linking here",
+      "none_outgoing": "This span keeps no links.",
+      "none_incoming": "No span of another trace links to this span within an hour of the trace.",
+      "searching": "Looking for spans that link here…",
+      "failed": "The spans linking here could not be read.",
+      "more": "More spans link here than are listed.",
+      "trace": "Trace",
+      "this_trace": "This trace",
+      "span": "Span",
+      "unavailable": {
+        "time_budget": "Looking took too long. Open the trace again later.",
+        "busy": "Too many queries are running. Try again shortly.",
+        "scan_limit": "The hour around the trace holds more spans than one query may read."
+      }
+    },
+    "logs": {
+      "scope": "Logs of",
+      "span": "This span",
+      "trace": "Whole trace",
+      "open": "Open in Logs",
+      "loading": "Reading logs…",
+      "no_stream": "No log stream keeps a trace id.",
+      "failed": "The logs could not be read.",
+      "none_span": "No log line names this span.",
+      "none_trace": "No log line names this trace."
+    },
+    "metrics": {
+      "window": "15 minutes either side of the span, minute by minute.",
+      "service": "Service",
+      "operation": "Operation",
+      "requests": "Requests",
+      "errors": "Errors",
+      "p95": "p95 duration",
+      "open_red": "Open in RED",
+      "loading": "Reading…",
+      "failed": "The figures could not be read."
+    },
+    "drawer": {
+      "back": "Back to the trace before",
+      "previous": "Previous in the list (K)",
+      "next": "Next in the list (J)",
+      "open_page": "Open the trace's own page",
+      "resize": "Resize the trace drawer"
+    },
+    "export": {
+      "label": "Download trace",
+      "json": "JSON",
+      "json_hint": "The spans as the trace API returns them",
+      "otlp": "OTLP JSON",
+      "otlp_hint": "resourceSpans, as a collector takes them in"
+    },
+    "profile": {
+      "loading": "Looking for profiles…",
+      "none": "No profile samples are linked to this span.",
+      "none_hint": "A profiler links its samples to the span they were taken in when it records them with the trace's context, as OTLP profiles do.",
+      "around": "Profiles around this span",
+      "linked_one": "{{count}} profile kept this span.",
+      "linked_other": "{{count}} profiles kept this span.",
+      "samples_one": "{{samples}} sample",
+      "samples_other": "{{samples}} samples",
+      "types": "Profile types",
+      "top": "Top functions",
+      "top_of": "Most {{type}}, by self",
+      "failed": "The flame graph could not be read.",
+      "empty": "The samples hold no frames.",
+      "open_flame": "Open flame graph",
+      "open_page": "Open in Profiles",
+      "dialog_title": "Profile of {{operation}}",
+      "dialog_description_one": "{{service}} · {{type}} · {{count}} profile merged",
+      "dialog_description_other": "{{service}} · {{type}} · {{count}} profiles merged"
+    }
+  },
+  "compare": {
+    "page_title": "Trace comparison",
+    "side": "Trace {{side}}",
+    "open": "Open",
+    "loading": "Loading…",
+    "swap": "Swap A and B",
+    "stop": "Stop comparing",
+    "duration": {
+      "same": "Both took {{duration}}.",
+      "longer": "B took longer than A:",
+      "shorter": "B took less time than A:"
+    },
+    "change": {
+      "none": "Same",
+      "new": "new",
+      "gone": "Not in B"
+    },
+    "tabs": {
+      "label": "Comparison",
+      "services": "By service",
+      "operations": "By operation",
+      "calls": "In one trace only"
+    },
+    "columns": {
+      "service": "Service",
+      "operation": "Service / operation",
+      "spans_a": "Spans A",
+      "spans_b": "Spans B",
+      "time_a": "Time A",
+      "time_b": "Time B",
+      "time_hint": "Self time: the time the spans spent on their own work, not waiting on the spans they called",
+      "change": "B against A"
+    },
+    "more_one": "{{count}} more line not shown",
+    "more_other": "{{count}} more lines not shown",
+    "calls": {
+      "only_a": "Only in A",
+      "only_b": "Only in B",
+      "spans_one": "{{count}} span",
+      "spans_other": "{{count}} spans",
+      "none": "Every call of this trace is in the other one too.",
+      "same": "Both traces made the same calls, as often.",
+      "under_one": "and {{count}} span it called",
+      "under_other": "and {{count}} spans it called"
+    },
+    "unavailable_title": "The two traces cannot be compared",
+    "unavailable_description": "One of them was not found. A trace older than a day is found from a link that says when it ran, such as a row of the trace list.",
+    "with": {
+      "label": "Compare with another trace",
+      "field": "Trace ID to compare with",
+      "placeholder": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "same": "That is this trace.",
+      "submit": "Compare"
     }
   }
 }

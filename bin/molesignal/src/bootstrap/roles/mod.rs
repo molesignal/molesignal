@@ -100,6 +100,20 @@ pub async fn run(state: AppState, settings: &Settings) -> anyhow::Result<()> {
         crate::bootstrap::workers::agent_runs::AgentRunWorker::new(state.clone(), settings).spawn()
     });
 
+    // 自动化的触发循环也在这些节点上：开始一次运行要用到完整的 AppState。节点之间靠数据库协调。
+    let _agent_automations = (plan.http == HttpKind::Full).then(|| {
+        crate::bootstrap::workers::agent_automations::AutomationWorker::new(state.clone()).spawn()
+    });
+
+    // 质量打分与 Prompt 晋级检查也在这些节点上：评审与重新回答要用到完整的 AppState。
+    let _agent_scoring = (plan.http == HttpKind::Full).then(|| {
+        crate::bootstrap::workers::agent_scoring::ScoringWorker::new(state.clone()).spawn()
+    });
+
+    // IM 里的长连接也在这些节点上：收到的消息要排一轮回答。每个机器人由一个节点连着（租约）。
+    let _agent_im = (plan.http == HttpKind::Full)
+        .then(|| crate::bootstrap::workers::agent_im::ImWorker::new(state.clone()).spawn());
+
     {
         let (state, settings) = (state.clone(), settings.clone());
 
@@ -149,20 +163,18 @@ pub async fn run(state: AppState, settings: &Settings) -> anyhow::Result<()> {
         let heartbeat = heartbeat.clone();
         let drain = state.cluster.drain.clone();
         let timeout = Duration::from_secs(settings.node.drain_timeout_secs.max(1) as u64);
-        let self_telemetry = state.telemetry.self_telemetry_runtime.clone();
-        let trace_candidates = state.telemetry.trace_candidates.clone();
-        let trace_pipeline = state.telemetry.trace_pipeline.clone();
-        let apm_runtime = state.telemetry.apm_runtime.clone();
 
-        set.spawn(run_shutdown(
-            heartbeat,
-            drain,
-            self_telemetry,
-            trace_candidates,
-            trace_pipeline,
-            apm_runtime,
-            timeout,
-        ));
+        let work = ShutdownWork {
+            self_telemetry: state.telemetry.self_telemetry_runtime.clone(),
+            trace_candidates: state.telemetry.trace_candidates.clone(),
+            trace_pipeline: state.telemetry.trace_pipeline.clone(),
+            apm_runtime: state.telemetry.apm_runtime.clone(),
+            intake_meter: state.platform.intake_meter.clone(),
+            pipeline_steps: state.platform.pipeline_steps.clone(),
+            intake: state.intake.clone(),
+        };
+
+        set.spawn(run_shutdown(heartbeat, drain, work, timeout));
     }
 
     // 任一 server future 先返回（正常退出 / 错误 / 收到关停信号）→ 整体结束（fail-loud）。
@@ -177,16 +189,49 @@ pub async fn run(state: AppState, settings: &Settings) -> anyhow::Result<()> {
     outcome
 }
 
+/// 节点退出前要收尾的后台工作。
+struct ShutdownWork {
+    self_telemetry: Option<Arc<crate::app::self_telemetry::SelfTelemetryRuntime>>,
+    trace_candidates: Arc<crate::app::trace::candidate_router::TraceCandidateRouter>,
+    trace_pipeline: Arc<crate::app::trace::TracePipeline>,
+    apm_runtime: Option<Arc<crate::app::apm::ApmRuntime>>,
+    intake_meter: Arc<crate::app::intake::usage::IntakeUsageMeter>,
+    pipeline_steps: Arc<crate::app::intake::realtime::StepState>,
+    intake: Arc<crate::app::intake::IntakeService>,
+}
+
+impl ShutdownWork {
+    /// 按顺序收尾，并触发 drain。接入用量在 drain 开始、不再接受写入之后写最后一次。流水线生成的
+    /// 指标在链路写完之后、drain 之前写：drain 开始后本节点不再接受写入。
+    async fn finish(self, drain: &DrainController) {
+        if let Some(runtime) = self.self_telemetry {
+            runtime.stop_and_flush().await;
+        }
+
+        self.trace_candidates.shutdown().await;
+        self.trace_pipeline.shutdown().await;
+
+        if let Some(runtime) = self.apm_runtime {
+            runtime.shutdown().await;
+        }
+
+        self.pipeline_steps.finish(&self.intake).await;
+
+        drain.begin_drain();
+
+        if let Err(error) = self.intake_meter.flush().await {
+            tracing::warn!(%error, "intake usage could not be written before exit");
+        }
+    }
+}
+
 /// 关停看守：等首个 SIGTERM/SIGINT → 注销集群成员 → 触发 drain → 等节点 drained（仅 intake
 /// 节点有待 flush 数据）后返回；超时或二次信号强制返回。返回即让 [`run`] 收尾退出进程。
 #[cfg(unix)]
 async fn run_shutdown(
     heartbeat: Arc<heartbeat::Heartbeat>,
     drain: Arc<DrainController>,
-    self_telemetry: Option<Arc<crate::app::self_telemetry::SelfTelemetryRuntime>>,
-    trace_candidates: Arc<crate::app::trace::candidate_router::TraceCandidateRouter>,
-    trace_pipeline: Arc<crate::app::trace::TracePipeline>,
-    apm_runtime: Option<Arc<crate::app::apm::ApmRuntime>>,
+    work: ShutdownWork,
     timeout: Duration,
 ) -> anyhow::Result<()> {
     use tokio::signal::unix::{SignalKind, signal};
@@ -204,18 +249,8 @@ async fn run_shutdown(
     // 本节点随后把手上的数据处理完再退出。
     heartbeat.leave().await;
 
-    if let Some(runtime) = self_telemetry {
-        runtime.stop_and_flush().await;
-    }
+    work.finish(&drain).await;
 
-    trace_candidates.shutdown().await;
-    trace_pipeline.shutdown().await;
-
-    if let Some(runtime) = apm_runtime {
-        runtime.shutdown().await;
-    }
-
-    drain.begin_drain();
     let deadline = tokio::time::sleep(timeout);
     tokio::pin!(deadline);
 
@@ -242,28 +277,15 @@ async fn run_shutdown(
 async fn run_shutdown(
     heartbeat: Arc<heartbeat::Heartbeat>,
     drain: Arc<DrainController>,
-    self_telemetry: Option<Arc<crate::app::self_telemetry::SelfTelemetryRuntime>>,
-    trace_candidates: Arc<crate::app::trace::candidate_router::TraceCandidateRouter>,
-    trace_pipeline: Arc<crate::app::trace::TracePipeline>,
-    apm_runtime: Option<Arc<crate::app::apm::ApmRuntime>>,
+    work: ShutdownWork,
     timeout: Duration,
 ) -> anyhow::Result<()> {
     tokio::signal::ctrl_c().await.ok();
     tracing::info!("ctrl-c received; draining before exit");
     heartbeat.leave().await;
 
-    if let Some(runtime) = self_telemetry {
-        runtime.stop_and_flush().await;
-    }
+    work.finish(&drain).await;
 
-    trace_candidates.shutdown().await;
-    trace_pipeline.shutdown().await;
-
-    if let Some(runtime) = apm_runtime {
-        runtime.shutdown().await;
-    }
-
-    drain.begin_drain();
     let deadline = tokio::time::sleep(timeout);
     tokio::pin!(deadline);
 

@@ -29,7 +29,7 @@ export function FieldValueTrendChart({ trend, label, ariaLabel }: FieldValueTren
   const series = React.useMemo(() => {
     const stretches = Math.max(0, ...trend.series.map((item) => item.counts.length));
     // A point stands at the start of the stretch it counts.
-    const timestamps = Array.from({ length: stretches }, (_, index) => trend.originMicros + index * trend.bucketMicros);
+    const timestamps = Array.from({ length: stretches }, (_, index) => trend.originTime + index * trend.bucketTime);
 
     return trend.series.map((item, index) => ({
       id: item.value,
@@ -46,7 +46,7 @@ export function FieldValueTrendChart({ trend, label, ariaLabel }: FieldValueTren
       <TimeSeriesChart
         series={series}
         height={150}
-        xDomain={[trend.originMicros, trend.originMicros + stretches * trend.bucketMicros]}
+        xDomain={[trend.originTime, trend.originTime + stretches * trend.bucketTime]}
         timezone={tz}
         showLegend={false}
         // Not tied to the other charts of the page: it has a time range of its own.

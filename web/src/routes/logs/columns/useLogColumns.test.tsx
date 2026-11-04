@@ -128,10 +128,10 @@ describe('useLogColumns', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    api.getUiPreference.mockReset().mockResolvedValue({ value: null, updated_at_micros: null });
-    api.putUiPreference.mockReset().mockResolvedValue({ value: null, updated_at_micros: 1 });
+    api.getUiPreference.mockReset().mockResolvedValue({ value: null, updatedAt: null });
+    api.putUiPreference.mockReset().mockResolvedValue({ value: null, updatedAt: 1 });
     api.deleteUiPreference.mockReset().mockResolvedValue(undefined);
-    useAuthStore.setState({ ctx: { user_id: 'user-1', org_id: 'org-1' } as never });
+    useAuthStore.setState({ ctx: { userId: 'user-1', orgId: 'org-1' } as never });
   });
 
   afterEach(() => {
@@ -163,7 +163,7 @@ describe('useLogColumns', () => {
   });
 
   it('opens on what the server keeps for the stream', async () => {
-    api.getUiPreference.mockResolvedValue({ value: { fields: ['message', 'env'] }, updated_at_micros: 9 });
+    api.getUiPreference.mockResolvedValue({ value: { fields: ['message', 'env'] }, updatedAt: 9 });
 
     const { result } = renderHook(() => useLogColumns('app_logs', STREAM_FIELDS), { wrapper });
 

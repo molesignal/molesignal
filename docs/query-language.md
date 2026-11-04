@@ -16,14 +16,26 @@
 | 类型 | 写入结构 | 查询用途 |
 | --- | --- | --- |
 | `none` | 不创建字段索引 | 完整交给 Parquet/DataFusion 执行 |
-| `exact` | 文本字段使用未分词 Tantivy `STRING`；同时启用 Parquet Bloom | 文本等值谓词可做文件级 Tantivy 裁剪，Parquet 读取时继续使用 Bloom |
-| `full_text` | 分词 Tantivy `TEXT` | `MATCH` / `MATCH_TEXT` 的安全文件级候选裁剪 |
-| `bloom` | 仅 Parquet Bloom | DataFusion 下推等值谓词时做概率过滤，不进入 Tantivy |
-| `skip` | Parquet 文件元数据中的 min/max zone map | 对顶层 `AND` 中的 `= / != / < / <= / > / >=` 比较做文件级裁剪 |
+| `exact` | 文本字段使用未分词 Tantivy `STRING`；Parquet Bloom；Catalog 里的 min/max；封存分区的整值过滤器 | `=` / `IN` 先用分区过滤器、再用 Tantivy 计数裁剪文件，命中少时只读命中行所在的页 |
+| `full_text` | 分词 Tantivy（`molesignal_text` 分词器：字母数字连续段 + 中日韩二元组，只记文档） | `MATCH` / `MATCH_TEXT` / `LIKE` / `ILIKE` 字面量的安全文件级候选裁剪 |
+| `bloom` | Parquet Bloom；文本字段另有段级整值过滤器 Artifact（封存时并进分区过滤器）；min/max | `=` / `IN` 在打开文件前跳过一定不含这些值的文件 |
+| `skip` | Catalog 里的 min/max；段内不同值不超过 32 个时记下值集合 | 顶层合取里的比较、`IN` / `NOT IN`、`BETWEEN`、前缀 `LIKE` 的文件级裁剪 |
+| `ngram` | 段级三元组过滤器 Artifact（字节三元组，逐字符小写化） | `LIKE` / `ILIKE` / `MATCH` 字面量有三元组不在文件里时跳过 |
+| `ip` | Catalog 里段内地址的范围（IPv4 映射进 IPv6） | `CIDR_MATCH(field, 'net')` 与对地址的 `=` / `IN` 的文件级裁剪 |
 
-`skip` 对 `OR`、复杂表达式、类型不匹配、缺失/无效边界以及加密字段一律保守保留文件。
+文件统计（min/max、值集合、地址范围）的裁剪见 `src/infra/query/skip_pruner/`：只用顶层合取
+链上的条件，同一列上用 `OR` 连起来的条件整体算一个；跨列的 `OR`、`NOT`、复杂表达式、类型不
+匹配、缺失边界与加密字段一律保守保留文件。全文字段不记 min/max（两条整行日志只会压在
+Catalog 上），过长的字符串边界截成 64 字节以内仍保持是上下界。
+
+数据流设置里的 `partitions`（按字段分片，见 `domain::stream::FieldPartitions`）把日志与链路
+的新数据按一两个文本字段的值分进分片：每个字段按哈希（2–64 片）或首字符（37 片）分，两个字段
+的分片号按各自的分片数进位拼成一个，乘积不超过 256。段在列统计里记下写入时的分片字段；查询对
+分片字段的 `=` / `IN`，以及首字符分片字段上以文字开头的 `LIKE` / `ILIKE`，只读可能命中的分片
+的文件，合并只合分片字段相同的段。
+
 索引只影响候选裁剪，最终结果仍由 DataFusion 的行级表达式决定。修改字段配置只影响随后
-写出的 Parquet 文件，不会自动重建历史数据索引。
+写出的 Parquet 文件；Tantivy 归档的格式变了（当前格式 4）时由后台按新格式重建。
 
 ### 默认索引
 
@@ -112,8 +124,12 @@ SELECT * FROM app_logs WHERE MATCH_TEXT(message, 'panic -debug');
 
 ### 执行与裁剪模型
 
-`MATCH_TEXT` 由 DataFusion 以 **ILIKE 表达式树**执行（结果正确性的来源）。tantivy
-仅做文件级裁剪，且仅限「顶层合取项中、纯 AND 树、无通配符单 token」的叶子——这类
-term 小写化后与 TEXT 索引的 token 形态一致，`count_term` 可证明其不命中。OR / NOT /
-短语 / 通配符分支一律只执行不裁剪；任何裁剪不确定的情形都退化为全量执行，**不会
-丢数据**。
+`MATCH` 与 `MATCH_TEXT` 先改写成 **ILIKE 表达式树**，由 DataFusion 执行（结果正确性的
+来源）。裁剪从改写后的语句里读：顶层合取链上的 `LIKE` / `ILIKE`（改写出的，与语句本来就有
+的，如日志筛选器的「包含」）每段字面量是一个子串谓词，同一列上 `OR` 连起来的几个模式合成一个
+谓词的几个候选；`NOT` 分支只执行不裁剪。
+
+Tantivy 判断子串时把字面量拆成索引答得了的段：ASCII 字母数字段必须落在某个词里（词典扫描与
+长词三元组），中日韩文字段的二元组必须都在词典里；标点与其它文字不查。有一段一定没有，文件
+就一定没有这个子串。格式 4 之前的归档按默认分词建，中日韩段不查。任何裁剪不确定的情形都
+退化为全量执行，**不会丢数据**。

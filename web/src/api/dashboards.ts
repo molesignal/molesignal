@@ -24,23 +24,23 @@ function normalizeDashboard(raw: unknown): Dashboard {
   const modelRecord = isRecord(record.model) ? record.model : {};
   const title = stringValue(record.title) ?? 'Untitled dashboard';
   const id = stringValue(record.id) ?? '';
-  const folderId = stringValue(record.folder_id);
+  const folderId = stringValue(record.folderId);
   const normalized: Dashboard = {
     id,
-    org_id: stringValue(record.org_id) ?? '',
+    orgId: stringValue(record.orgId) ?? '',
     uid: stringValue(record.uid) ?? '',
     title,
     tags: stringArray(record.tags),
     model: modelRecord,
     version: numberValue(record.version) ?? 1,
-    created_at: numberValue(record.created_at) ?? 0,
-    updated_at: numberValue(record.updated_at) ?? 0,
+    createdAt: numberValue(record.createdAt) ?? 0,
+    updatedAt: numberValue(record.updatedAt) ?? 0,
   };
-  if (folderId) normalized.folder_id = folderId;
-  const createdBy = stringValue(record.created_by);
-  const updatedBy = stringValue(record.updated_by);
-  if (createdBy) normalized.created_by = createdBy;
-  if (updatedBy) normalized.updated_by = updatedBy;
+  if (folderId) normalized.folderId = folderId;
+  const createdBy = stringValue(record.createdBy);
+  const updatedBy = stringValue(record.updatedBy);
+  if (createdBy) normalized.createdBy = createdBy;
+  if (updatedBy) normalized.updatedBy = updatedBy;
   return normalized;
 }
 
@@ -62,7 +62,7 @@ export async function update(
 ): Promise<Dashboard> {
   const { data } = await http.put<Dashboard>(`/dashboards/${id}`, {
     model,
-    folder_id: folderId,
+    folderId: folderId,
   });
   return normalizeDashboard(data);
 }
@@ -77,7 +77,7 @@ export async function create(
 ): Promise<Dashboard> {
   const { data } = await http.post<Dashboard>('/dashboards', {
     model,
-    folder_id: folderId,
+    folderId: folderId,
   });
   return normalizeDashboard(data);
 }
@@ -90,12 +90,12 @@ export interface VariableQuery {
   /** Defaults to `query`. `sql` requires `stream` to be set. */
   kind?: 'query' | 'sql';
   /** Stream hint — required when `kind === 'sql'`, optional otherwise. */
-  stream?: { name: string; stream_type?: string };
+  stream?: { name: string; streamType?: string };
 }
 
 export interface VariableResolveRequest {
   variable: VariableQuery;
-  time_range: { start: number; end: number };
+  timeRange: { start: number; end: number };
   limit?: number;
 }
 

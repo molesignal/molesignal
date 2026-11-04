@@ -13,7 +13,8 @@ import { PageTitleRow } from '@/shell/PageTitleRow';
 
 interface PageHeaderProps {
   title: React.ReactNode;
-  subtitle?: string | undefined;
+  /** A line of copy after the title, or facts laid out by the page. */
+  subtitle?: React.ReactNode;
   toolbar?: React.ReactNode | undefined;
   /**
    * Kept for backwards compatibility. Every PageHeader now uses the same

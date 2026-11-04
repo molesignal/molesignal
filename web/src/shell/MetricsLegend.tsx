@@ -2,6 +2,7 @@ import * as React from 'react';
 
 import { seriesStats, type MetricSeries } from '@/lib/metricsSeries';
 import { cn } from '@/shell/lib/cn';
+import { isNestedControlClick } from '@/shell/lib/nestedControl';
 import { detectSignalTypeForLabel, SignalReference } from '@/shell/SignalReference';
 import { formatTimeSeriesValue } from '@/viz/timeseries/formatters';
 
@@ -129,8 +130,21 @@ export function MetricsLegend({
               hidden ? 'opacity-40' : 'opacity-100',
               onToggleIndex ? 'cursor-pointer hover:bg-bg-2' : '',
             )}
-            onClick={onToggleIndex ? () => onToggleIndex(i) : undefined}
-            onDoubleClick={onSoloIndex ? () => onSoloIndex(i) : undefined}
+            // A click on one of the series' references is the reference's, not the row's.
+            onClick={
+              onToggleIndex
+                ? (event) => {
+                    if (!isNestedControlClick(event)) onToggleIndex(i);
+                  }
+                : undefined
+            }
+            onDoubleClick={
+              onSoloIndex
+                ? (event) => {
+                    if (!isNestedControlClick(event)) onSoloIndex(i);
+                  }
+                : undefined
+            }
             onMouseEnter={onHoverIndex ? () => onHoverIndex(i) : undefined}
             onMouseLeave={onHoverIndex ? () => onHoverIndex(null) : undefined}
             title={title}

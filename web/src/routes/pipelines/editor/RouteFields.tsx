@@ -38,7 +38,7 @@ export function RouteFields({
           <FormInput
             value={step.target ?? ''}
             onChange={(event) => onChange({ target: event.target.value })}
-            className="font-mono text-xs"
+            className="font-mono"
             autoComplete="off"
           />
         </FormField>
@@ -49,7 +49,7 @@ export function RouteFields({
               value={routing.field}
               onChange={(event) => update({ field: event.target.value })}
               placeholder="appname"
-              className="font-mono text-xs"
+              className="font-mono"
               autoComplete="off"
             />
           </FormField>
@@ -58,7 +58,7 @@ export function RouteFields({
               value={routing.prefix}
               onChange={(event) => update({ prefix: event.target.value })}
               placeholder="app_"
-              className="font-mono text-xs"
+              className="font-mono"
               autoComplete="off"
             />
           </FormField>
@@ -70,7 +70,7 @@ export function RouteFields({
               value={routing.fallback}
               onChange={(event) => update({ fallback: event.target.value })}
               placeholder="default"
-              className="font-mono text-xs"
+              className="font-mono"
               autoComplete="off"
             />
           </FormField>

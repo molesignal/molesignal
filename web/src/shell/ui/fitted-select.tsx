@@ -101,10 +101,10 @@ export function FittedSelect({
         onPointerEnter={tellWhenCut}
         {...trigger}
         // A row of the list is its label with 48px around it (the list's edge, the tick before the
-        // label, the row's end). The field has the same around its longest label and 1px to spare,
-        // its arrow and the gap before it included, so no row is cut while the field is not.
+        // label, the row's end). The field has the same around its longest label and 1px to spare:
+        // 8px a side, 19px of gap and the 14px arrow, so no row is cut while the field is not.
         className={cn(
-          'h-8 w-auto shrink-0 gap-[calc(35px-1.25rem)] px-2.5 font-sans text-xs',
+          'h-8 w-auto shrink-0 gap-[19px] px-2.5 font-sans text-xs',
           className,
         )}
         style={{ maxWidth }}

@@ -1,5 +1,6 @@
 import * as profilesApi from '@/api/profiles';
 import * as queryApi from '@/api/query';
+import { PROMQL_RANGE_ROWS, promqlStepMicros } from '@/lib/promqlRange';
 import type { QueryRequest } from '@/types/query';
 
 import { queryResultToDataFrames, rowsToDataFrame } from './dataframe';
@@ -95,18 +96,24 @@ async function executeQueryApi(
     stringValue(config.stream) ||
     (language === 'sql' ? extractSqlStreamName(statement) : '');
   const streamType = resolveStreamType(query.dataSourceType, config);
+  // A PromQL panel draws series over the range: it asks for a step, and its
+  // limit only caps the rows.
+  const promql = language === 'promql';
   const request: QueryRequest = {
-    org_id: context.orgId,
+    orgId: context.orgId,
     language,
     statement,
-    time_range: {
+    timeRange: {
       start: context.timeRange.from,
       end: context.timeRange.to,
     },
-    limit: positiveInteger(config.limit, 1000),
+    limit: positiveInteger(config.limit, promql ? PROMQL_RANGE_ROWS : 1000),
   };
+  if (promql) {
+    request.step = promqlStepMicros(context.timeRange.from, context.timeRange.to);
+  }
   if (streamName && streamType) {
-    request.stream = { name: streamName, stream_type: streamType };
+    request.stream = { name: streamName, streamType: streamType };
   }
   const result = await queryApi.runQuery(request);
   return queryResultToDataFrames(
@@ -114,6 +121,7 @@ async function executeQueryApi(
     query.refId,
     query.dataSourceType,
     query.legend,
+    query.format,
   );
 }
 
@@ -131,7 +139,7 @@ async function executeProfiles(
     from: context.timeRange.from,
     to: context.timeRange.to,
     label: optionalString(config.label),
-    trace_id: optionalString(config.traceId ?? config.trace_id),
+    traceId: optionalString(config.traceId ?? config.trace_id),
     limit: positiveInteger(config.limit, 500),
   });
   return [
@@ -150,12 +158,12 @@ async function executeProfiles(
       profiles.map((profile) => [
         profile.timestamp,
         profile.service,
-        profile.profile_type,
-        profile.total_value,
-        profile.sample_count,
-        profile.duration_nanos,
-        profile.trace_id ?? null,
-        profile.span_id ?? null,
+        profile.profileType,
+        profile.totalValue,
+        profile.sampleCount,
+        profile.durationNanos,
+        profile.traceId ?? null,
+        profile.spanId ?? null,
         profile.id,
       ]),
       {
@@ -179,7 +187,7 @@ function resolveLanguage(
 function resolveStreamType(
   sourceType: PanelDataSourceType,
   config: Record<string, unknown>,
-): NonNullable<QueryRequest['stream']>['stream_type'] | undefined {
+): NonNullable<QueryRequest['stream']>['streamType'] | undefined {
   const configured = stringValue(
     config.streamType ?? config.stream_type,
   ).toLowerCase();

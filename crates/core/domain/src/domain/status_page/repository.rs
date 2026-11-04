@@ -249,7 +249,7 @@ pub trait StatusPageRepository:
     StatusPageConfigRepository
     + StatusPageIncidentRepository
     + super::StatusPagePostmortemRepository
-    + super::StatusPageServiceLinkRepository
+    + super::StatusPageDependencyRepository
     + super::StatusPageSubscriptionRepository
     + super::StatusPageAccessRepository
     + super::StatusPageAutomationRepository
@@ -260,7 +260,7 @@ impl<T> StatusPageRepository for T where
     T: StatusPageConfigRepository
         + StatusPageIncidentRepository
         + super::StatusPagePostmortemRepository
-        + super::StatusPageServiceLinkRepository
+        + super::StatusPageDependencyRepository
         + super::StatusPageSubscriptionRepository
         + super::StatusPageAccessRepository
         + super::StatusPageAutomationRepository

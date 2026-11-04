@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use super::{
     NotifyEngine,
     model::{NotifyDispatch, NotifyEventOutcome, NotifyPolicyOutcome, NotifyRecipientOutcome},
+    silences::Verdict,
 };
 use crate::{
     app::notify::config::truncate_error,
@@ -52,7 +53,7 @@ impl NotifyEngine {
         self.process_claimed(claim.record).await
     }
 
-    /// 持久化后立即处理；用于显式调用和测试。事件源通常只调用 `enqueue_event`，
+    /// 持久化后立即处理，不看静默；用于显式调用和测试。事件源通常只调用 `enqueue_event`，
     /// 再由 alert 周期批量消费。
     pub async fn handle_event(&self, dispatch: NotifyDispatch) -> Result<NotifyEventOutcome> {
         self.enqueue_record(dispatch.clone()).await?;
@@ -153,6 +154,7 @@ impl NotifyEngine {
                     })
                     .collect(),
                 error: None,
+                dropped_by_pipeline: false,
             })
             .collect();
 
@@ -180,9 +182,16 @@ impl NotifyEngine {
             .await?;
 
         let count = u32::try_from(records.len()).unwrap_or(u32::MAX);
+        let mut silences = self.org_silences(organization_id);
 
         for record in records {
-            if let Err(error) = self.process_claimed(record).await {
+            // 命中静默的告警通知先压着，或者不再发。
+            let result = match self.silence_verdict(&mut silences, &record, now).await {
+                Verdict::Send => self.process_claimed(record).await.map(|_| ()),
+                verdict => self.settle_silenced(&record.event, verdict, now).await,
+            };
+
+            if let Err(error) = result {
                 tracing::warn!(
                     org_id = %organization_id,
                     error = %error,
@@ -194,8 +203,9 @@ impl NotifyEngine {
         Ok(count)
     }
 
-    async fn enqueue_record(&self, dispatch: NotifyDispatch) -> Result<NotifyEventRecord> {
+    async fn enqueue_record(&self, mut dispatch: NotifyDispatch) -> Result<NotifyEventRecord> {
         super::execution::validate_event(&dispatch.event)?;
+        self.complete_alert_event(&mut dispatch.event).await;
         let now = TimestampMicros::now();
 
         self.events

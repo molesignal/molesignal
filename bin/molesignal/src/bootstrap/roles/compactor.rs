@@ -3,7 +3,8 @@
 
 //! compactor 角色：周期合并小 parquet + retention 扫描。
 //!
-//! - 每 `interval_secs` 一次 tick：遍历所有 org / stream，逐个 `sweep_one + retention_sweep`。
+//! - 每 `interval_secs` 一次 tick：遍历所有 org / stream，逐个 `sweep_one + retention_sweep`；
+//!   指标流随后让指标目录忘掉保留期之前的部分。
 //! - 多个 compactor 节点按数据流分担：每个数据流只由它的 owner 节点处理（见
 //!   [`WorkOwnership`]），合并、降采样、retention 因此始终在同一个节点上依次执行。
 //! - 并发上限 `max_concurrent_groups` 用 `tokio::sync::Semaphore` 控制（同一 tick 内
@@ -16,7 +17,11 @@ use tokio::{sync::Semaphore, task::JoinHandle};
 
 use crate::{
     app::cluster::WorkOwnership,
-    domain::{iam::OrganizationRepository, stream::StreamRepository},
+    domain::{
+        iam::{InstanceSettingsRepository, OrganizationRepository},
+        metrics::MetricDirectory,
+        stream::{Downsample, StreamRepository, StreamType},
+    },
     infra::{
         persistence::repositories::investigation_blobs::InvestigationBlobRepository,
         storage::compactor::Compactor,
@@ -36,10 +41,13 @@ const WORK: &str = "compaction";
 /// 启动后台 compactor tick 任务。
 ///
 /// 返回 `JoinHandle` 由调用方持有（standalone 模式下 bootstrap 阶段 spawn 即可）。
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_compactor_loop(
     compactor: Arc<Compactor>,
     orgs: Arc<dyn OrganizationRepository>,
     streams: Arc<dyn StreamRepository>,
+    metric_directory: Arc<dyn MetricDirectory>,
+    instance_settings: Arc<dyn InstanceSettingsRepository>,
     ownership: Arc<WorkOwnership>,
     investigation_blobs: Arc<dyn InvestigationBlobRepository>,
     object_store: Arc<dyn ObjectStore>,
@@ -65,12 +73,24 @@ pub fn spawn_compactor_loop(
                 break;
             }
 
+            // 数据流没有设置保留天数时用平台设置里的天数。读不出时这一轮不做：按猜的天数删数据
+            // 收不回来。
+            let default_retention_days = match instance_settings.get().await {
+                Ok(settings) => settings.default_retention_days,
+                Err(error) => {
+                    tracing::warn!(%error, "instance settings unreadable; compactor tick skipped");
+                    continue;
+                }
+            };
+
             match run_once(
                 &compactor,
                 orgs.as_ref(),
                 streams.as_ref(),
+                &metric_directory,
                 &ownership,
                 &sem,
+                default_retention_days,
             )
             .await
             {
@@ -104,13 +124,16 @@ pub fn spawn_compactor_loop(
     })
 }
 
-/// 处理本节点拥有的全部数据流，返回其数量。
+/// 处理本节点拥有的全部数据流，返回其数量。`default_retention_days` 是数据流没有设置保留天数
+/// 时保留的天数。
 async fn run_once(
     compactor: &Arc<Compactor>,
     orgs: &dyn OrganizationRepository,
     streams: &dyn StreamRepository,
+    metric_directory: &Arc<dyn MetricDirectory>,
     ownership: &WorkOwnership,
     sem: &Arc<Semaphore>,
+    default_retention_days: u32,
 ) -> anyhow::Result<usize> {
     let org_list = orgs.list().await?;
     let now = TimestampMicros::now();
@@ -127,13 +150,22 @@ async fn run_once(
                 continue;
             }
 
+            // 按天合并与降采样是数据流自己的设置；读不出时这一轮都不做。
+            let (daily_merge, downsample) = match streams.get_settings(&stream.id).await {
+                Ok(settings) => (settings.daily_merge, settings.downsample),
+                Err(error) => {
+                    tracing::warn!(stream = %stream.name, %error, "stream settings unreadable");
+                    (false, Downsample::default())
+                }
+            };
+
             let compactor = compactor.clone();
+            let metric_directory = metric_directory.clone();
             let stream = stream.clone();
 
             let h = tokio::spawn(async move {
                 let _permit = permit;
-                let retention_days =
-                    stream.effective_retention_days(compactor.settings().retention_days);
+                let retention_days = stream.effective_retention_days(default_retention_days);
 
                 let lookback =
                     TimestampMicros(now.0.saturating_sub(
@@ -141,21 +173,35 @@ async fn run_once(
                     ));
 
                 if let Err(e) = compactor
-                    .sweep_one(&stream, TimeRange::new(lookback, now))
+                    .sweep_one(&stream, TimeRange::new(lookback, now), daily_merge)
                     .await
                 {
                     tracing::warn!(stream = %stream.name, error = %e, "sweep_one failed");
                 }
 
                 // 降采样：把早于阈值的 metrics 预聚合成时间桶（关闭时 no-op）。
-                if let Err(e) = compactor.downsample_sweep(&stream).await {
+                if let Err(e) = compactor.downsample_sweep(&stream, downsample).await {
                     tracing::warn!(stream = %stream.name, error = %e, "downsample_sweep failed");
                 }
 
                 // Retention runs after derivation so an aggressive cutoff cannot remove raw
                 // inputs before an enabled raw-to-rollup transform has a chance to publish.
-                if let Err(e) = compactor.retention_sweep(&stream).await {
+                if let Err(e) = compactor
+                    .retention_sweep(&stream, default_retention_days)
+                    .await
+                {
                     tracing::warn!(stream = %stream.name, error = %e, "retention_sweep failed");
+                }
+
+                // 指标目录跟着保留期走：截止时间之前就再没出现的指标不再列出。
+                if stream.stream_type == StreamType::METRICS
+                    && let Err(e) = metric_directory.forget_before(&stream, lookback).await
+                {
+                    tracing::warn!(
+                        stream = %stream.name,
+                        error = %e,
+                        "metric directory retention failed"
+                    );
                 }
             });
 
@@ -181,6 +227,7 @@ mod tests {
         app::cluster::{PeerRole, ownership::test_support::Nodes},
         bootstrap::test_support::tenants,
         config::{CompactorSettings, ObjectCacheSettings},
+        domain::metrics::MemoryMetricDirectory,
         infra::{
             intake::dataset_resolver::test_support::StubFileCatalog,
             storage::{
@@ -213,8 +260,10 @@ mod tests {
             &compactor(),
             &orgs,
             &streams,
+            &(Arc::new(MemoryMetricDirectory::default()) as Arc<dyn MetricDirectory>),
             &ownership,
             &Arc::new(Semaphore::new(4)),
+            30,
         )
         .await
         .unwrap()

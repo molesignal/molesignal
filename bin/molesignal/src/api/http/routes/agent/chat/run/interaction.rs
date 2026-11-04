@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 和发起这一轮的人说话：把任务清单、问题与确认卡写进对话，等回答。
+//! 和发起这一轮的人说话：把任务清单、问题、确认卡与「授权以继续」卡写进对话，等回答。
 //!
 //! 等的时候 Run 的状态是 `waiting_input` / `waiting_approval`，让出执行名额；回答到了（同一节点
 //! 直接提醒，别的节点经 NOTIFY 转来，没有提醒时隔几秒自己查）再拿回名额接着执行。最多等
@@ -22,6 +22,7 @@ use crate::{
         model::RiskLevel,
         runs::{NewRunEvent, Pending, QuestionKind, RunEventKind, RunResponse},
     },
+    app::mcp::CredentialNeed,
     shared::ids::Id,
 };
 
@@ -112,7 +113,7 @@ impl Interaction {
                 .emit_all(vec![
                     agent_event(
                         RunEventKind::Notice,
-                        &json!({ "kind": "no_response", "call_id": pending.call_id() }),
+                        &json!({ "kind": "no_response", "callId": pending.call_id() }),
                     ),
                     agent_event(RunEventKind::Status, &json!({ "status": "running" })),
                 ])
@@ -147,7 +148,7 @@ impl RunInteraction for Interaction {
             Waited::Answered(RunResponse::Answer { choices, text, .. }) => {
                 Reply::Answered { choices, text }
             }
-            Waited::Answered(RunResponse::Decision { .. }) | Waited::TimedOut => Reply::TimedOut,
+            Waited::Answered(_) | Waited::TimedOut => Reply::TimedOut,
             Waited::Stopped => Reply::Stopped,
         }
     }
@@ -169,7 +170,31 @@ impl RunInteraction for Interaction {
             Waited::Answered(RunResponse::Decision {
                 approved: false, ..
             }) => Reply::Declined,
-            Waited::Answered(RunResponse::Answer { .. }) | Waited::TimedOut => Reply::TimedOut,
+            Waited::Answered(_) | Waited::TimedOut => Reply::TimedOut,
+            Waited::Stopped => Reply::Stopped,
+        }
+    }
+
+    async fn authorize(&self, tool: &str, need: &CredentialNeed) -> Reply {
+        let pending = Pending::Authorization {
+            call_id: Id::new().0,
+            tool: tool.to_string(),
+            server_id: need.server_id.0.clone(),
+            server: need.server.clone(),
+            header: need.header.clone(),
+            bearer: need.bearer,
+            instructions: need.instructions.clone(),
+            rejected: need.rejected,
+        };
+
+        match self.wait(pending, RunEventKind::Authorization).await {
+            Waited::Answered(RunResponse::Authorization {
+                authorized: true, ..
+            }) => Reply::Approved,
+            Waited::Answered(RunResponse::Authorization {
+                authorized: false, ..
+            }) => Reply::Declined,
+            Waited::Answered(_) | Waited::TimedOut => Reply::TimedOut,
             Waited::Stopped => Reply::Stopped,
         }
     }

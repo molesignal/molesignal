@@ -12,14 +12,17 @@ const mocks = vi.hoisted(() => ({
   getDefault: vi.fn(),
   getRumClient: vi.fn(),
   instance: vi.fn(),
+  listApplications: vi.fn(),
 }));
 
 vi.mock('@/api/home', () => ({ overview: mocks.overview }));
 vi.mock('@/api/apiTokens', () => ({
   getDefault: mocks.getDefault,
   getRumClient: mocks.getRumClient,
+  scopes: async () => ({ policies: [], permissions: [] }),
 }));
 vi.mock('@/api/instance', () => ({ get: mocks.instance }));
+vi.mock('@/api/rum', () => ({ listApplications: mocks.listApplications }));
 // Colouring is not the subject: the blocks keep the text they were given.
 vi.mock('./codeBlock/highlighter', () => ({
   highlightCode: vi.fn(() => new Promise(() => {})),
@@ -74,14 +77,22 @@ beforeEach(async () => {
   for (const mock of Object.values(mocks)) mock.mockReset();
   mocks.overview.mockResolvedValue({ signals: [], streams: [] });
   mocks.getDefault.mockResolvedValue({
-    token: 'ms_test_0123456789_secret',
-    role_name: 'Intake token',
-    token_kind: 'default_intake',
-    expires_at_micros: null,
+    token: 'mspat-test0123456789secret',
+    policyId: 'builtin:data_intake',
+    tokenKind: 'default_intake',
   });
-  mocks.instance.mockResolvedValue({ external_url: 'https://obs.example.com' });
+  mocks.instance.mockResolvedValue({ externalUrl: 'https://obs.example.com' });
+  mocks.listApplications.mockResolvedValue([
+    { id: 'checkout-web', name: 'Checkout web', platform: 'browser' },
+    { id: 'checkout-app', name: 'Checkout app', platform: 'flutter' },
+  ]);
+  mocks.getRumClient.mockResolvedValue({
+    token: 'mspat-rum0123456789secret',
+    permissions: ['rum.write'],
+    tokenKind: 'rum_client',
+  });
   useAuthStore.setState({
-    ctx: { user_id: 'u1', org_id: 'acme', org_name: 'Acme', display_role: 'admin', roles: [] },
+    ctx: { userId: 'u1', orgId: 'acme', orgName: 'Acme', displayRole: 'admin', roles: [] },
   });
   // jsdom lays nothing out; the selected row asks to be scrolled into view.
   Element.prototype.scrollIntoView = vi.fn();
@@ -142,7 +153,7 @@ describe('Datasource page', () => {
     );
     expect(endpoints()).toEqual([
       'Endpoint: https://obs.example.com/api/v1/intake/logs/default',
-      'Intake token: ms_test_••••••••••••••secret',
+      'Intake token: mspat-te••••••••••••••secret',
     ]);
   });
 
@@ -208,14 +219,19 @@ describe('Datasource page', () => {
 
   it('keeps what was typed in a guide when the signal in view changes', async () => {
     renderAt('/datasource/recommended/rum');
-    const application = await screen.findByLabelText<HTMLInputElement>('RUM application ID');
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'RUM application' })).toBeEnabled(),
+    );
 
-    fireEvent.change(application, { target: { value: 'checkout-web' } });
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'RUM application' }), { key: 'Enter' });
+    fireEvent.click(screen.getByRole('option', { name: 'Checkout app · checkout-app' }));
+    await waitFor(() => expect(mocks.getRumClient).toHaveBeenCalledWith('checkout-app'));
+
     fireEvent.click(signal('Logs'));
 
     await waitFor(() => expect(address()).toBe('/datasource/recommended/rum?signal=logs'));
-    expect(screen.getByLabelText<HTMLInputElement>('RUM application ID').value).toBe(
-      'checkout-web',
+    expect(screen.getByRole('combobox', { name: 'RUM application' }).textContent).toContain(
+      'Checkout app · checkout-app',
     );
   });
 

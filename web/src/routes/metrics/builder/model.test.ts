@@ -46,6 +46,27 @@ describe('PromQL builder model', () => {
     });
   });
 
+  it('quotes OTLP names with dots and reads them back', () => {
+    const query: BuilderQuery = {
+      metric: 'http.server.duration',
+      transform: 'none',
+      aggregation: 'sum',
+      range: '5m',
+      matchers: [
+        { id: 'matcher-0', name: 'service.name', operator: '=', value: 'checkout' },
+      ],
+    };
+
+    const promql = composeBuilderPromql(query);
+    expect(promql).toBe('sum({"http.server.duration","service.name"="checkout"})');
+
+    expect(parseBuilderPromql(promql)).toMatchObject({
+      metric: 'http.server.duration',
+      aggregation: 'sum',
+      matchers: [{ name: 'service.name', operator: '=', value: 'checkout' }],
+    });
+  });
+
   it('rejects expressions that cannot be represented safely', () => {
     expect(parseBuilderPromql('sum by (service) (rate(foo_total[5m]))')).toBeNull();
   });
@@ -54,21 +75,21 @@ describe('PromQL builder model', () => {
     const functions = builderFunctionOptions([
       {
         label: 'avg_over_time',
-        insert_text: 'avg_over_time(${1:metric}[${2:5m}])',
+        insertText: 'avg_over_time(${1:metric}[${2:5m}])',
         detail: 'avg_over_time(range-vector)',
         documentation: 'Average over a range.',
         kind: 'function',
       },
       {
         label: 'abs',
-        insert_text: 'abs(${1:vector})',
+        insertText: 'abs(${1:vector})',
         detail: 'abs(vector)',
         documentation: 'Absolute value.',
         kind: 'function',
       },
       {
         label: 'histogram_quantile',
-        insert_text: 'histogram_quantile(${1:0.95}, ${2:vector})',
+        insertText: 'histogram_quantile(${1:0.95}, ${2:vector})',
         detail: 'histogram_quantile(q, vector)',
         documentation: 'Needs an additional scalar argument.',
         kind: 'function',

@@ -48,6 +48,10 @@ fn mk_incident(
         acknowledged_by: None,
         resolved_at: resolved_micros.map(TimestampMicros),
         resolved_by: None,
+        team_id: None,
+        routing: None,
+        handling: Default::default(),
+        revision: 0,
     }
 }
 
@@ -105,7 +109,7 @@ async fn insights_aggregate_seeded_incidents() {
     let resp = s
         .client
         .get(format!(
-            "{}/api/v1/alerts/insights?window_secs=86400",
+            "{}/api/v1/alerts/insights?windowSecs=86400",
             s.base_url
         ))
         .header(hk, &hv)
@@ -124,24 +128,24 @@ async fn insights_aggregate_seeded_incidents() {
     assert_eq!(v["closed"], 2, "two resolved incidents");
     // 1 of 2 resolved was noisy (< 60s)
     assert!(
-        (v["noise_rate"].as_f64().unwrap() - 0.5).abs() < 1e-9,
-        "noise_rate should be 0.5; got {}",
-        v["noise_rate"]
+        (v["noiseRate"].as_f64().unwrap() - 0.5).abs() < 1e-9,
+        "noiseRate should be 0.5; got {}",
+        v["noiseRate"]
     );
-    // by_hour is always 24 buckets
-    assert_eq!(v["by_hour"].as_array().unwrap().len(), 24);
+    // byHour is always 24 buckets
+    assert_eq!(v["byHour"].as_array().unwrap().len(), 24);
     // top service is web with 2
-    let top = &v["top_services"].as_array().unwrap()[0];
+    let top = &v["topServices"].as_array().unwrap()[0];
     assert_eq!(top["key"], "web");
     assert_eq!(top["count"], 2);
     // severity tally
-    assert_eq!(v["by_severity"]["critical"], 1);
-    assert_eq!(v["by_severity"]["warning"], 1);
-    assert_eq!(v["by_severity"]["error"], 1);
+    assert_eq!(v["bySeverity"]["critical"], 1);
+    assert_eq!(v["bySeverity"]["warning"], 1);
+    assert_eq!(v["bySeverity"]["error"], 1);
     // mttr is the mean of 30s and 3600s = 1815s
     assert!(
-        (v["mttr_secs"].as_f64().unwrap() - 1815.0).abs() < 1.0,
-        "mttr_secs ~ 1815; got {}",
-        v["mttr_secs"]
+        (v["mttrSecs"].as_f64().unwrap() - 1815.0).abs() < 1.0,
+        "mttrSecs ~ 1815; got {}",
+        v["mttrSecs"]
     );
 }

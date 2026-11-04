@@ -1,36 +1,53 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use std::{collections::BTreeSet, sync::Arc};
+use std::sync::{Arc, LazyLock};
 
 use argon2::{
     Argon2,
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
 };
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
+use tokio::sync::Semaphore;
 
 use crate::{
     config::AuthSettings,
     domain::iam::{
-        IamMembershipRepository, IamScope, OrganizationRepository, User, UserRepository, UserStatus,
+        IamMembershipRepository, OrganizationRepository, User, UserRepository, UserStatus,
+        sessions_always_valid,
     },
     shared::{Error, Result, ids::Id},
 };
 
 const JWT_ISSUER: &str = "molesignal";
+/// 同时算几个 Argon2：每个约 19 MiB 内存、几十毫秒 CPU。
+const MAX_CONCURRENT_PASSWORD_HASHES: usize = 8;
+
+static PASSWORD_HASH_PERMITS: Semaphore = Semaphore::const_new(MAX_CONCURRENT_PASSWORD_HASHES);
+
+/// 账号不存在或没有密码时拿来核对的哈希：参数和真的一样，耗时也就一样。
+static DECOY_PASSWORD_HASH: LazyLock<String> = LazyLock::new(|| {
+    hash_password("decoy password").expect("operating-system random source for the salt")
+});
 
 pub mod access;
+mod jwt_secrets;
+pub mod member;
+pub mod mfa;
 mod navigation;
 mod scoped_token;
+mod session;
+pub mod signin_limit;
+pub mod signin_policy;
 #[cfg(test)]
 pub(crate) mod test_support;
 pub use access::{
     IamAccessRequest, IamAccessService, IamAttributes, IamCapabilitySnapshot, IamContextEnricher,
     IamDecision, IamDecisionReason, IamSubject, IamTarget, validate_iam_conditions,
 };
+pub use jwt_secrets::JwtSecretSource;
 pub use navigation::resolve_route_access;
+pub use session::{SessionTokens, SignInMethod, SignInSession, sessions_end_now};
 
 pub use crate::domain::iam::IamContext;
 
@@ -41,21 +58,10 @@ pub struct IamService {
     auth: AuthSettings,
     /// JWT 签名 secret 集合（auth-hardening）：
     /// `[0]` 是 primary（用来签新 token）；其余是 24h grace 内的 retired secret
-    /// （仅参与 verify）。由 `bootstrap::build_state` 通过 `bootstrap_or_load_jwt_secret` 注入。
+    /// （仅参与 verify）。启动时由 `bootstrap_or_load_jwt_secret` 注入，之后从数据库重读，
+    /// 见 [`jwt_secrets`]。
     jwt_secrets: Arc<RwLock<Vec<Vec<u8>>>>,
-}
-
-/// JWT 载荷。
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Claims {
-    pub sub: String,    // user_id
-    pub org_id: String, // 当前激活的 org
-    #[serde(default)]
-    pub scope: IamScope,
-    #[serde(default)]
-    pub iat: usize,
-    pub exp: usize,
-    pub iss: String,
+    jwt_secret_reads: Option<jwt_secrets::JwtSecretReads>,
 }
 
 impl IamService {
@@ -77,130 +83,30 @@ impl IamService {
             iam_memberships,
             auth,
             jwt_secrets: Arc::new(RwLock::new(jwt_secrets)),
+            jwt_secret_reads: None,
         }
     }
 
-    /// rotate 路径调用：刷新内存里的 active secrets。`new_primary` 放第 0 位。
-    pub fn replace_jwt_secrets(&self, new_active: Vec<Vec<u8>>) {
-        assert!(!new_active.is_empty());
-        *self.jwt_secrets.write() = new_active;
-    }
-
-    /// 用户登录：邮箱 + 密码 → User（成功）/ Error::unauthorized（任一失败）。
-    /// 邮箱不存在与密码错都返同样错误，避免 user-enumeration。
+    /// 用户登录：邮箱 + 密码 → User。不知道密码的人查不出账号在不在、停没停用：账号不存在时也算一遍
+    /// Argon2，先验密码，对了才说账号的状态。
     pub async fn authenticate(&self, email: &str, password: &str) -> Result<User> {
         let user = match self.users.get_by_email(email).await {
-            Ok(u) => u,
-            Err(_) => return Err(Error::unauthorized("invalid credentials")),
+            Ok(user) => user,
+            Err(Error::NotFound(_)) => {
+                check_password(password, "").await?;
+
+                return Err(Error::unauthorized("invalid credentials"));
+            }
+            Err(error) => return Err(error),
         };
+
+        check_password(password, &user.password_hash).await?;
 
         if let Some(reason) = user_access_denial(&user) {
             return Err(Error::forbidden(reason));
         }
 
-        verify_password(password, &user.password_hash)?;
         Ok(user)
-    }
-
-    /// 签发 JWT；用当前 primary secret。
-    pub fn issue_token(&self, user_id: &Id, org_id: &Id) -> Result<String> {
-        self.issue_token_for(user_id, org_id, self.auth.token_ttl_secs)
-    }
-
-    /// 签发只在 `ttl_secs` 内有效的 JWT，给不需要长会话的用途（例如交给无头浏览器渲染一份
-    /// 报表）。有效期不会超过配置的 `token_ttl_secs`。
-    pub fn issue_short_lived_token(
-        &self,
-        user_id: &Id,
-        org_id: &Id,
-        ttl_secs: u64,
-    ) -> Result<String> {
-        self.issue_token_for(user_id, org_id, ttl_secs.min(self.auth.token_ttl_secs))
-    }
-
-    fn issue_token_for(&self, user_id: &Id, org_id: &Id, ttl_secs: u64) -> Result<String> {
-        let now = chrono::Utc::now().timestamp() as usize;
-
-        let claims = Claims {
-            sub: user_id.0.clone(),
-            org_id: org_id.0.clone(),
-            scope: IamScope::Organization,
-            iat: now,
-            exp: now + ttl_secs as usize,
-            iss: JWT_ISSUER.to_owned(),
-        };
-
-        let secrets = self.jwt_secrets.read();
-        let primary = secrets.first().expect("primary jwt secret");
-
-        encode(
-            &Header::default(),
-            &claims,
-            &EncodingKey::from_secret(primary),
-        )
-        .map_err(|e| Error::internal(format!("jwt encode: {e}")))
-    }
-
-    /// 进入 `_sys` 后签发的短期 token。调用方必须先确认用户可以进入平台组织：
-    /// 持久化的 platform-administrator assignment，或以组织 Owner 身份持有平台权限
-    /// （`IamAccessService::holds_platform_permissions`）；本函数不接受 API token。
-    pub fn issue_system_token(&self, user_id: &Id, system_org_id: &Id) -> Result<String> {
-        let now = chrono::Utc::now().timestamp() as usize;
-
-        let claims = Claims {
-            sub: user_id.0.clone(),
-            org_id: system_org_id.0.clone(),
-            scope: IamScope::System,
-            iat: now,
-            exp: now + (self.auth.token_ttl_secs as usize).min(3_600),
-            iss: JWT_ISSUER.to_owned(),
-        };
-
-        let secrets = self.jwt_secrets.read();
-        let primary = secrets.first().expect("primary jwt secret");
-
-        encode(
-            &Header::default(),
-            &claims,
-            &EncodingKey::from_secret(primary),
-        )
-        .map_err(|error| Error::internal(format!("jwt encode: {error}")))
-    }
-
-    /// 校验 JWT，返回 [`IamContext`]。多 secret 试验，命中 primary 或 retire window 内任意一个即通过。
-    pub fn verify_token(&self, token: &str) -> Result<IamContext> {
-        let mut validation = Validation::default();
-        validation.set_issuer(&[JWT_ISSUER]);
-        let secrets = self.jwt_secrets.read();
-        let mut last_err: Option<String> = None;
-
-        for s in secrets.iter() {
-            match decode::<Claims>(token, &DecodingKey::from_secret(s), &validation) {
-                Ok(data) => {
-                    return Ok(IamContext {
-                        user_id: Id::from_string(data.claims.sub),
-                        org_id: Id::from_string(data.claims.org_id),
-                        display_role: String::new(),
-                        roles: Vec::new(),
-                        credential_role_id: None,
-                        credential_application_id: None,
-                        credential_service_account_id: None,
-                        scope: data.claims.scope,
-                        permissions: BTreeSet::new(),
-                        policy_version: 0,
-                    });
-                }
-                Err(e) => {
-                    last_err = Some(e.to_string());
-                }
-            }
-        }
-
-        Err(Error::unauthorized(format!(
-            "jwt verify failed against all {} active secret(s): {}",
-            secrets.len(),
-            last_err.unwrap_or_else(|| "no secrets configured".into())
-        )))
     }
 
     /// Re-check the persisted user state after validating an already-issued
@@ -250,17 +156,33 @@ impl IamService {
         password_plain: &str,
     ) -> Result<User> {
         let hash = hash_password(password_plain)?;
+        self.create_user_with_hash(email, display_name, hash).await
+    }
 
+    /// 单点登录新建的账号：没有密码（`password_hash` 为空），密码登录一律失败；本人用找回
+    /// 密码设置之后才有。
+    pub async fn create_external_user(&self, email: String, display_name: String) -> Result<User> {
+        self.create_user_with_hash(email, display_name, String::new())
+            .await
+    }
+
+    async fn create_user_with_hash(
+        &self,
+        email: String,
+        display_name: String,
+        password_hash: String,
+    ) -> Result<User> {
         let user = User {
             id: Id::new(),
             email,
             display_name,
             avatar_url: None,
             bio: String::new(),
-            password_hash: hash,
+            password_hash,
             disabled: false,
             status: UserStatus::Active,
             created_at: crate::shared::time::TimestampMicros::now(),
+            sessions_valid_after: sessions_always_valid(),
         };
 
         self.users.create(user).await
@@ -331,7 +253,7 @@ impl IamService {
         &self,
         email: String,
         display_name: String,
-        password_plain: &str,
+        password_hash: String,
         status: UserStatus,
     ) -> Result<User> {
         use crate::{domain::iam::IamMembership, shared::time::TimestampMicros};
@@ -346,7 +268,7 @@ impl IamService {
             let org = self.enabled_tenant_organization().await?;
             let mut user = existing;
             user.display_name = display_name;
-            user.password_hash = hash_password(password_plain)?;
+            user.password_hash = password_hash;
             user.status = status;
             let user = self.users.update(user).await?;
             self.users.set_status(&user.id, status).await?;
@@ -372,7 +294,6 @@ impl IamService {
         }
 
         let org = self.enabled_tenant_organization().await?;
-        let hash = hash_password(password_plain)?;
 
         let user = User {
             id: Id::new(),
@@ -380,10 +301,11 @@ impl IamService {
             display_name,
             avatar_url: None,
             bio: String::new(),
-            password_hash: hash,
+            password_hash,
             disabled: false,
             status,
             created_at: TimestampMicros::now(),
+            sessions_valid_after: sessions_always_valid(),
         };
 
         let user = self.users.create(user).await?;
@@ -408,7 +330,7 @@ impl IamService {
         Ok(user)
     }
 
-    async fn enabled_tenant_organization(&self) -> Result<crate::domain::iam::Organization> {
+    pub async fn enabled_tenant_organization(&self) -> Result<crate::domain::iam::Organization> {
         self.orgs
             .list()
             .await?
@@ -445,7 +367,48 @@ pub fn hash_password(plain: &str) -> Result<String> {
     Ok(hash)
 }
 
+/// 算一次 Argon2，不占 tokio 工作线程：登录洪水不该卡住同节点的写入和查询。
+async fn on_password_thread<T: Send + 'static>(
+    work: impl FnOnce() -> T + Send + 'static,
+) -> Result<T> {
+    let _permit = PASSWORD_HASH_PERMITS
+        .acquire()
+        .await
+        .map_err(|error| Error::internal(format!("password hash permit: {error}")))?;
+
+    tokio::task::spawn_blocking(work)
+        .await
+        .map_err(|error| Error::internal(format!("password hash task: {error}")))
+}
+
+/// 核对密码。账号没有密码时也算一遍，回答不会因此变快。
+pub async fn check_password(plain: &str, hash: &str) -> Result<()> {
+    let plain = plain.to_owned();
+    let hash = hash.to_owned();
+
+    on_password_thread(move || {
+        if hash.is_empty() {
+            let _ = verify_password(&plain, &DECOY_PASSWORD_HASH);
+        }
+
+        verify_password(&plain, &hash)
+    })
+    .await?
+}
+
+/// 算密码的哈希，见 [`on_password_thread`]。
+pub async fn hash_password_off_thread(plain: &str) -> Result<String> {
+    let plain = plain.to_owned();
+
+    on_password_thread(move || hash_password(&plain)).await?
+}
+
 pub fn verify_password(plain: &str, hash: &str) -> Result<()> {
+    // 单点登录新建的账号没有密码。
+    if hash.is_empty() {
+        return Err(Error::unauthorized("invalid credentials"));
+    }
+
     let parsed =
         PasswordHash::new(hash).map_err(|e| Error::internal(format!("argon2 parse hash: {e}")))?;
 
@@ -457,7 +420,7 @@ pub fn verify_password(plain: &str, hash: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::iam::IamAssignedRole;
+    use crate::domain::iam::{IamAssignedRole, IamScope};
 
     #[test]
     fn hash_verify_roundtrip() {
@@ -465,6 +428,126 @@ mod tests {
         assert!(h.starts_with("$argon2"));
         assert!(verify_password("hunter2", &h).is_ok());
         assert!(verify_password("nope", &h).is_err());
+    }
+
+    #[tokio::test]
+    async fn an_account_with_no_password_never_matches() {
+        assert!(matches!(
+            check_password("anything", "").await,
+            Err(Error::Unauthorized(_))
+        ));
+
+        // 假哈希本身也不会被猜中：它的明文不是空的。
+        assert!(check_password("", "").await.is_err());
+        assert!(check_password("decoy password", "").await.is_err());
+    }
+
+    #[tokio::test]
+    async fn the_decoy_costs_the_same_as_a_real_password() {
+        let real = hash_password_off_thread("hunter2").await.unwrap();
+        let params = |hash: &str| hash.rsplitn(3, '$').nth(2).unwrap().to_owned();
+
+        assert_eq!(params(&DECOY_PASSWORD_HASH), params(&real));
+        assert!(check_password("hunter2", &real).await.is_ok());
+        assert!(check_password("nope", &real).await.is_err());
+    }
+
+    mod authenticate {
+        use super::*;
+        use crate::app::iam::test_support::{Accounts, iam_service_with};
+
+        fn user(password_hash: String, disabled: bool, status: UserStatus) -> User {
+            User {
+                id: Id::from_string("user-1"),
+                email: "alice@example.com".into(),
+                display_name: "Alice".into(),
+                avatar_url: None,
+                bio: String::new(),
+                password_hash,
+                disabled,
+                status,
+                created_at: crate::shared::time::TimestampMicros(0),
+                sessions_valid_after: crate::shared::time::TimestampMicros(0),
+            }
+        }
+
+        fn service_with(user: User) -> IamService {
+            iam_service_with(Arc::new(Accounts(vec![user])))
+        }
+
+        #[tokio::test]
+        async fn an_unknown_account_and_a_wrong_password_answer_the_same() {
+            let hash = hash_password("hunter2").unwrap();
+            let service = service_with(user(hash, false, UserStatus::Active));
+
+            let unknown = service.authenticate("bob@example.com", "nope").await;
+            let wrong = service.authenticate("alice@example.com", "nope").await;
+
+            let Err(Error::Unauthorized(unknown)) = unknown else {
+                panic!("an unknown account is unauthorized");
+            };
+
+            let Err(Error::Unauthorized(wrong)) = wrong else {
+                panic!("a wrong password is unauthorized");
+            };
+
+            assert_eq!(unknown, wrong);
+        }
+
+        #[tokio::test]
+        async fn an_account_with_no_password_answers_like_a_wrong_password() {
+            let service = service_with(user(String::new(), false, UserStatus::Active));
+
+            assert!(matches!(
+                service.authenticate("alice@example.com", "nope").await,
+                Err(Error::Unauthorized(_))
+            ));
+        }
+
+        #[tokio::test]
+        async fn a_disabled_account_says_so_only_to_who_knows_the_password() {
+            let hash = hash_password("hunter2").unwrap();
+            let service = service_with(user(hash, true, UserStatus::Active));
+
+            assert!(matches!(
+                service.authenticate("alice@example.com", "nope").await,
+                Err(Error::Unauthorized(_))
+            ));
+
+            assert!(matches!(
+                service.authenticate("alice@example.com", "hunter2").await,
+                Err(Error::Forbidden(_))
+            ));
+        }
+
+        #[tokio::test]
+        async fn a_pending_account_says_so_only_to_who_knows_the_password() {
+            let hash = hash_password("hunter2").unwrap();
+            let service = service_with(user(hash, false, UserStatus::Pending));
+
+            assert!(matches!(
+                service.authenticate("alice@example.com", "nope").await,
+                Err(Error::Unauthorized(_))
+            ));
+
+            assert!(matches!(
+                service.authenticate("alice@example.com", "hunter2").await,
+                Err(Error::Forbidden(_))
+            ));
+        }
+
+        #[tokio::test]
+        async fn the_right_password_signs_in() {
+            let hash = hash_password("hunter2").unwrap();
+            let service = service_with(user(hash, false, UserStatus::Active));
+
+            let signed_in = service
+                .authenticate("alice@example.com", "hunter2")
+                .await
+                .unwrap();
+
+            assert_eq!(signed_in.email, "alice@example.com");
+        }
     }
 
     #[test]
@@ -479,7 +562,7 @@ mod tests {
                 name: "Platform Steward".into(),
                 builtin: false,
             }],
-            credential_role_id: None,
+            credential_token_id: None,
             credential_application_id: None,
             credential_service_account_id: None,
             scope: IamScope::System,
@@ -490,6 +573,6 @@ mod tests {
         assert!(context.has_permission("sys.telemetry.read"));
         assert!(!context.has_permission("streams.query"));
         assert_eq!(context.organization_role_key(), "");
-        assert!(!context.has_permission("org.settings.manage"));
+        assert!(!context.has_permission("org.preferences.manage"));
     }
 }

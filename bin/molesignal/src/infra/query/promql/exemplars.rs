@@ -58,55 +58,71 @@ impl PromQLEngine {
         let mut seen = BTreeSet::new();
         let mut truncated = false;
 
-        'metrics: for (metric, matcher_groups) in selectors {
-            let source = self.resolve_metric_source(&req.org_id, &metric).await?;
+        let reader = ParquetReader::new(Arc::clone(&store));
 
-            let storage = self
-                .metric_files(&req.org_id, &source.stream, req.time_range)
+        'metrics: for (metric, matcher_groups) in selectors {
+            let filter = MetricFilter::Name(metric.clone());
+            let sources = self
+                .metric_sources(&req.org_id, &filter, req.time_range)
                 .await?;
 
-            if storage.files.is_empty() && storage.buffered_batches.is_empty() {
-                continue;
-            }
-
-            let reader = ParquetReader::new(Arc::clone(&store));
-
-            let projection = source.sample_columns.as_ref().map(|columns| {
-                let mut columns = columns.clone();
-
-                columns.extend([
-                    PROMETHEUS_EXEMPLAR_MARKER_FIELD.to_string(),
-                    PROMETHEUS_EXEMPLAR_VALUE_FIELD.to_string(),
-                    PROMETHEUS_EXEMPLAR_LABELS_FIELD.to_string(),
-                ]);
-
-                columns.sort();
-                columns.dedup();
-                columns
-            });
-
-            let projection_refs = projection
-                .as_ref()
-                .map(|columns| columns.iter().map(String::as_str).collect::<Vec<_>>());
-
-            for query_file in storage.files {
-                let mut options = ReadOptions::new()
-                    .with_time_range(req.time_range.start.0, req.time_range.end.0)
-                    .with_known_size(query_file.size_bytes);
-
-                if let Some(columns) = projection_refs.as_deref() {
-                    options = options.with_columns(columns);
-                }
-
-                let batches = reader
-                    .read_from_store(store.clone(), &query_file.object_key, options)
+            for source in sources {
+                let storage = self
+                    .metric_files(&req.org_id, &source.stream, req.time_range)
                     .await?;
 
-                for batch in batches {
+                let projection = source.sample_columns.as_ref().map(|columns| {
+                    let mut columns = columns.clone();
+
+                    columns.extend([
+                        PROMETHEUS_EXEMPLAR_MARKER_FIELD.to_string(),
+                        PROMETHEUS_EXEMPLAR_VALUE_FIELD.to_string(),
+                        PROMETHEUS_EXEMPLAR_LABELS_FIELD.to_string(),
+                    ]);
+
+                    columns.sort();
+                    columns.dedup();
+                    columns
+                });
+
+                let projection_refs = projection
+                    .as_ref()
+                    .map(|columns| columns.iter().map(String::as_str).collect::<Vec<_>>());
+
+                for query_file in storage.files {
+                    let mut options = ReadOptions::new()
+                        .with_time_range(req.time_range.start.0, req.time_range.end.0)
+                        .with_equals(METRIC_NAME_FIELD, &metric)
+                        .with_known_size(query_file.size_bytes);
+
+                    if let Some(columns) = projection_refs.as_deref() {
+                        options = options.with_columns(columns);
+                    }
+
+                    let batches = reader
+                        .read_from_store(store.clone(), &query_file.object_key, options)
+                        .await?;
+
+                    for batch in batches {
+                        if append_batch_exemplars(
+                            &batch,
+                            &metric,
+                            &matcher_groups,
+                            req.time_range,
+                            limit,
+                            &mut grouped,
+                            &mut seen,
+                        ) {
+                            truncated = true;
+                            break 'metrics;
+                        }
+                    }
+                }
+
+                for batch in storage.buffered_batches {
                     if append_batch_exemplars(
                         &batch,
                         &metric,
-                        source.logical_metric.as_deref(),
                         &matcher_groups,
                         req.time_range,
                         limit,
@@ -116,22 +132,6 @@ impl PromQLEngine {
                         truncated = true;
                         break 'metrics;
                     }
-                }
-            }
-
-            for batch in storage.buffered_batches {
-                if append_batch_exemplars(
-                    &batch,
-                    &metric,
-                    source.logical_metric.as_deref(),
-                    &matcher_groups,
-                    req.time_range,
-                    limit,
-                    &mut grouped,
-                    &mut seen,
-                ) {
-                    truncated = true;
-                    break 'metrics;
                 }
             }
         }
@@ -190,12 +190,13 @@ fn collect_vector_selector<'a>(
     selector: &'a VectorSelector,
     out: &mut SelectorMatchers<'a>,
 ) -> Result<()> {
-    let metric = selector
-        .name
-        .as_ref()
+    let filter = MetricFilter::of(selector);
+
+    let metric = filter
+        .name()
         .ok_or_else(|| Error::invalid("exemplar queries require an explicit metric name"))?;
 
-    out.entry(metric.clone())
+    out.entry(metric.to_string())
         .or_default()
         .push(&selector.matchers);
 
@@ -206,7 +207,6 @@ fn collect_vector_selector<'a>(
 fn append_batch_exemplars(
     batch: &RecordBatch,
     metric: &str,
-    logical_metric: Option<&str>,
     matcher_groups: &[&Matchers],
     time_range: TimeRange,
     limit: usize,
@@ -265,7 +265,7 @@ fn append_batch_exemplars(
 
             if name == "_timestamp"
                 || name == "value"
-                || (logical_metric.is_some() && is_metric_identity_storage_field(name))
+                || is_metric_identity_storage_field(name)
                 || is_prometheus_exemplar_storage_field(name)
                 || !matches!(field.data_type(), DataType::Utf8)
             {
@@ -280,12 +280,13 @@ fn append_batch_exemplars(
         })
         .collect::<Vec<_>>();
 
-    let metric_names = logical_metric.and_then(|_| {
-        schema
-            .index_of(METRIC_NAME_FIELD)
-            .ok()
-            .and_then(|index| batch.column(index).as_any().downcast_ref::<StringArray>())
-    });
+    let Some(metric_names) = schema
+        .index_of(METRIC_NAME_FIELD)
+        .ok()
+        .and_then(|index| batch.column(index).as_any().downcast_ref::<StringArray>())
+    else {
+        return false;
+    };
 
     for row in 0..batch.num_rows() {
         if markers.is_null(row)
@@ -297,9 +298,7 @@ fn append_batch_exemplars(
             continue;
         }
 
-        if let Some(expected) = logical_metric
-            && metric_names.is_none_or(|names| names.is_null(row) || names.value(row) != expected)
-        {
+        if metric_names.is_null(row) || metric_names.value(row) != metric {
             continue;
         }
 
@@ -412,6 +411,7 @@ mod tests {
             Field::new(PROMETHEUS_EXEMPLAR_VALUE_FIELD, DataType::Float64, true),
             Field::new(PROMETHEUS_EXEMPLAR_LABELS_FIELD, DataType::Utf8, true),
             Field::new("service", DataType::Utf8, true),
+            Field::new(METRIC_NAME_FIELD, DataType::Utf8, true),
         ]));
         RecordBatch::try_new(
             schema,
@@ -429,6 +429,7 @@ mod tests {
                     r#"{"trace_id":"trace-b","span_id":"span-b"}"#,
                 ])),
                 Arc::new(StringArray::from(vec!["checkout", "payment", "payment"])),
+                Arc::new(StringArray::from(vec!["http_request_duration_seconds"; 3])),
             ],
         )
         .unwrap()
@@ -446,6 +447,7 @@ mod tests {
             Field::new(PROMETHEUS_EXEMPLAR_VALUE_FIELD, DataType::Float64, true),
             Field::new(PROMETHEUS_EXEMPLAR_LABELS_FIELD, DataType::Utf8, true),
             Field::new("service", DataType::Utf8, true),
+            Field::new(METRIC_NAME_FIELD, DataType::Utf8, true),
         ]));
         RecordBatch::try_new(
             schema,
@@ -462,6 +464,7 @@ mod tests {
                     Some(r#"{"trace_id":"trace-a"}"#),
                 ])),
                 Arc::new(StringArray::from(vec!["checkout", "checkout"])),
+                Arc::new(StringArray::from(vec!["latency"; 2])),
             ],
         )
         .unwrap()
@@ -484,7 +487,6 @@ mod tests {
         let truncated = append_batch_exemplars(
             &exemplar_batch(),
             "http_request_duration_seconds",
-            None,
             &matcher_groups,
             TimeRange::new(TimestampMicros(0), TimestampMicros(30_000_000)),
             10,
@@ -528,7 +530,7 @@ mod tests {
         let series = batches_to_series(
             &[mixed_sample_and_exemplar_batch()],
             &Matchers::empty(),
-            None,
+            &MetricFilter::Name("latency".into()),
             0,
             20_000_000,
             10,

@@ -95,7 +95,7 @@ export function InspectionTable({
             <div>
               <div className="truncate text-tx-1">{scheduleLabel(t, inspection.schedule)}</div>
               <div className="mt-0.5 truncate text-xs text-tx-2">
-                {t('inspections.cells.window', { duration: durationLabel(t, inspection.window_secs) })}
+                {t('inspections.cells.window', { duration: durationLabel(t, inspection.windowSecs) })}
               </div>
             </div>
           ),
@@ -106,7 +106,7 @@ export function InspectionTable({
           width: 148,
           headerClassName: HEADER,
           cell: (inspection) => {
-            const at = inspection.active_run?.created_at_micros ?? inspection.last_run?.at_micros;
+            const at = inspection.activeRun?.createdAt ?? inspection.lastRun?.atTime;
 
             return (
               <div>
@@ -126,11 +126,11 @@ export function InspectionTable({
           width: 124,
           headerClassName: HEADER,
           cell: (inspection) =>
-            inspection.enabled && inspection.next_run_at_micros ? (
-              <span className="text-tx-1" title={formatMicrosActive(inspection.next_run_at_micros)}>
-                {inspection.next_run_at_micros <= nowMicros
+            inspection.enabled && inspection.nextRunAt ? (
+              <span className="text-tx-1" title={formatMicrosActive(inspection.nextRunAt)}>
+                {inspection.nextRunAt <= nowMicros
                   ? t('inspections.cells.due')
-                  : formatRelativeSpan(inspection.next_run_at_micros, nowMicros, locale)}
+                  : formatRelativeSpan(inspection.nextRunAt, nowMicros, locale)}
               </span>
             ) : (
               <span className="text-tx-3">{t('inspections.cells.paused')}</span>
@@ -142,15 +142,15 @@ export function InspectionTable({
           width: 148,
           headerClassName: HEADER,
           cell: (inspection) =>
-            inspection.notify_routes.length === 0 ? (
+            inspection.notifyRoutes.length === 0 ? (
               <span className="text-tx-3">{t('inspections.cells.no_channel')}</span>
             ) : (
               <div>
                 <div className="truncate text-tx-1">
-                  {t(`inspections.notify_when.${inspection.notify_when}`)}
+                  {t(`inspections.notify_when.${inspection.notifyWhen}`)}
                 </div>
                 <div className="mt-0.5 text-xs text-tx-2">
-                  {t('inspections.cells.channels', { count: inspection.notify_routes.length })}
+                  {t('inspections.cells.channels', { count: inspection.notifyRoutes.length })}
                 </div>
               </div>
             ),

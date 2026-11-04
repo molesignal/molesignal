@@ -49,7 +49,7 @@ function access(permissions: string[], pipelines = true): ProductAccess {
     permissions: new Set(permissions) as ProductAccess['permissions'],
     version: 1,
     routeCatalogVersion: 1,
-    routes: [{ id: 'pipeline.detail', path_pattern: '/pipelines/:id', allowed: pipelines }],
+    routes: [{ id: 'pipeline.detail', pathPattern: '/pipelines/:id', allowed: pipelines }],
     status: 'ready',
   };
 }
@@ -58,27 +58,27 @@ function job(id: string, state: SearchJobState, overrides: Partial<SearchJob> = 
   const finished = state === 'done' || state === 'failed' || state === 'cancelled';
 
   return {
-    job_id: id,
+    jobId: id,
     state,
     kind: 'query',
-    pipeline_id: null,
+    pipelineId: null,
     attempt: 0,
-    user_id: 'u1',
-    submitted_by: { display_name: 'Dana Reyes', email: 'sre@example.com' },
+    userId: 'u1',
+    submittedBy: { displayName: 'Dana Reyes', email: 'sre@example.com' },
     request: {
       language: 'sql',
       statement: `SELECT *\nFROM "${id}"`,
-      time_range: { start: NOW - 3_600 * SECOND, end: NOW },
-      stream: { name: `stream-${id}`, stream_type: 'logs' },
+      timeRange: { start: NOW - 3_600 * SECOND, end: NOW },
+      stream: { name: `stream-${id}`, streamType: 'logs' },
       limit: null,
     },
-    submitted_at_micros: NOW - 120 * SECOND,
-    started_at_micros: state === 'pending' ? null : NOW - 110 * SECOND,
-    finished_at_micros: finished ? NOW - 68 * SECOND : null,
-    result_object_key: null,
-    result_rows: state === 'done' ? 12_480 : null,
+    submittedAt: NOW - 120 * SECOND,
+    startedAt: state === 'pending' ? null : NOW - 110 * SECOND,
+    finishedAt: finished ? NOW - 68 * SECOND : null,
+    resultObjectKey: null,
+    resultRows: state === 'done' ? 12_480 : null,
     error: state === 'failed' ? 'resource exhausted: the query needs 2.4 GiB of memory' : null,
-    expires_at_micros: NOW + 86_400 * SECOND,
+    expiresAt: NOW + 86_400 * SECOND,
     ...overrides,
   };
 }
@@ -86,13 +86,13 @@ function job(id: string, state: SearchJobState, overrides: Partial<SearchJob> = 
 const RUNNING = job('job-running', 'running');
 const BACKFILL = job('job-backfill', 'pending', {
   kind: 'backfill',
-  pipeline_id: 'checkout-logs',
-  submitted_by: { display_name: 'Kenji Watanabe', email: 'kenji@example.com' },
+  pipelineId: 'checkout-logs',
+  submittedBy: { displayName: 'Kenji Watanabe', email: 'kenji@example.com' },
 });
 const DONE = job('job-done', 'done');
-const EMPTY = job('job-empty', 'done', { result_rows: 0 });
+const EMPTY = job('job-empty', 'done', { resultRows: 0 });
 const FAILED = job('job-failed', 'failed', { attempt: 1 });
-const CANCELLED = job('job-cancelled', 'cancelled', { submitted_by: null, user_id: 'u-former' });
+const CANCELLED = job('job-cancelled', 'cancelled', { submittedBy: null, userId: 'u-former' });
 
 /** A backend holding `jobs`: the list and the counts are answered from them, as it stands now. */
 function serve(jobs: SearchJob[]) {
@@ -115,7 +115,7 @@ function serve(jobs: SearchJob[]) {
       .slice(offset, offset + limit),
   );
   const change = (id: string, next: Partial<SearchJob>) => {
-    const index = held.findIndex((item) => item.job_id === id);
+    const index = held.findIndex((item) => item.jobId === id);
     held[index] = { ...held[index]!, ...next };
     return held[index]!;
   };
@@ -123,7 +123,7 @@ function serve(jobs: SearchJob[]) {
   api.retry.mockImplementation(async (id) => change(id, { state: 'pending', error: null }));
   api.remove.mockImplementation(async (id) => {
     held.splice(
-      held.findIndex((item) => item.job_id === id),
+      held.findIndex((item) => item.jobId === id),
       1,
     );
   });
@@ -168,7 +168,7 @@ beforeEach(async () => {
   vi.spyOn(Date, 'now').mockReturnValue(NOW / 1000);
   setActiveTimePreference('UTC', 'iso_24h');
   // An administrator, who is shown the jobs of everybody in the organization.
-  session.access = access(['streams.query', 'pipelines.read', 'org.settings.manage']);
+  session.access = access(['query.jobs.read', 'query.jobs.run', 'pipelines.read', 'org.running_queries.cancel']);
   download.mockResolvedValue(12_480);
 });
 
@@ -234,7 +234,7 @@ describe('search jobs', () => {
   });
 
   it('tells a member that the list is their own jobs, and does not repeat their name on each', async () => {
-    session.access = access(['streams.query']);
+    session.access = access(['query.jobs.read', 'query.jobs.run']);
     serve([RUNNING, DONE]);
     renderPage();
     await listed('job-running');
@@ -256,7 +256,7 @@ describe('search jobs', () => {
   });
 
   it('does not take reading the organization\'s settings for managing its jobs', async () => {
-    session.access = access(['streams.query', 'org.settings.read', 'pipelines.run']);
+    session.access = access(['query.jobs.read', 'query.jobs.run', 'org.running_queries.read', 'pipelines.run']);
     serve([RUNNING]);
     renderPage();
     await listed('job-running');
@@ -265,7 +265,7 @@ describe('search jobs', () => {
   });
 
   it('does not lead to a pipeline the reader may not open', async () => {
-    session.access = access(['streams.query'], false);
+    session.access = access(['query.jobs.read', 'query.jobs.run'], false);
     serve([BACKFILL]);
     renderPage();
     await listed('job-backfill');
@@ -403,7 +403,7 @@ describe('search jobs', () => {
     );
 
     await waitFor(() => expect(download).toHaveBeenCalledTimes(1));
-    expect(download.mock.calls[0]![0]).toMatchObject({ job_id: 'job-done' });
+    expect(download.mock.calls[0]![0]).toMatchObject({ jobId: 'job-done' });
     expect(
       row('job-empty').getByRole('button', { name: 'Download the results of job job-empty' }),
     ).toBeDisabled();
@@ -443,7 +443,7 @@ describe('search jobs', () => {
   });
 
   it('tells a member with no job that they have submitted none', async () => {
-    session.access = access(['streams.query']);
+    session.access = access(['query.jobs.read', 'query.jobs.run']);
     serve([]);
     renderPage();
 
@@ -489,7 +489,7 @@ describe('search jobs refresh', () => {
 
     expect(screen.getByText('Jobs are under way, refreshing every 3 s')).toBeInTheDocument();
     const before = listCalls();
-    backend.change('job-running', { state: 'done', result_rows: 7, finished_at_micros: NOW });
+    backend.change('job-running', { state: 'done', resultRows: 7, finishedAt: NOW });
 
     await vi.advanceTimersByTimeAsync(ACTIVE_REFRESH_MS);
 

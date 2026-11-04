@@ -31,7 +31,10 @@
     "publish": "发布修订",
     "test_revision": "测试修订",
     "add_assertion": "添加断言",
-    "add_header": "添加 Header"
+    "add_header": "添加 Header",
+    "add_host_binding": "添加绑定",
+    "upload_certificate": "上传证书",
+    "upload_key": "上传私钥"
   },
   "states": {
     "loading": "正在加载拨测数据…",
@@ -94,6 +97,7 @@
       "actions": "操作",
       "check": "检查",
       "runs": "最近运行",
+      "availability": "可用率",
       "schedule": "计划"
     },
     "confirm_delete": "确定删除 {{name}}？历史结果仍会保留用于审计。",
@@ -130,6 +134,27 @@
     "description_placeholder": "该检查验证什么，由谁负责",
     "type": "检查类型",
     "request": "请求 / 目标",
+    "connection": "连接",
+    "connection_hint": "HTTP 版本、域名的解析方式和客户端证书，不填按默认处理。",
+    "http_version": "HTTP 版本",
+    "http_versions": {
+      "auto": "自动协商",
+      "http1": "仅 HTTP/1.1",
+      "http2": "仅 HTTP/2"
+    },
+    "dns_server": "DNS 服务器",
+    "dns_server_hint": "用这台服务器解析域名；不填时用 Agent 的系统设置。",
+    "host_bindings": "Host 绑定",
+    "host_bindings_hint": "把域名指向指定的 IP，请求里的 Host 和证书校验仍用原域名。",
+    "host_binding_name": "域名",
+    "host_binding_addresses": "IP 地址，逗号分隔",
+    "client_certificate": "客户端证书",
+    "client_certificate_hint": "服务器要求双向 TLS 时出示。上传或粘贴 PEM，同一个文件里的证书和私钥会分别填好；私钥加密保存，之后不再显示。",
+    "client_key": "私钥",
+    "client_key_saved": "已保存。上传或粘贴新私钥即可替换",
+    "no_certificate_in_file": "文件里没有 PEM 格式的证书。",
+    "no_key_in_file": "文件里没有 PEM 格式的私钥。",
+    "pem_file_too_large": "文件超过 64 KiB。",
     "method": "Method",
     "url": "URL",
     "url_placeholder": "https://api.example.com/health",
@@ -176,7 +201,40 @@
     "assertions": "断言",
     "assertions_hint": "Critical 失败会改变检查状态，Warning 会将其标记为降级。",
     "assertion_source": "来源",
+    "assertion_sources": {
+      "status": "状态码",
+      "serving_status": "服务状态",
+      "body": "响应体",
+      "header": "响应头",
+      "duration_ms": "耗时（毫秒）",
+      "response": "响应内容",
+      "answers": "解析结果",
+      "answer_count": "记录数",
+      "rcode": "返回码",
+      "json": "JSONPath",
+      "size_bytes": "响应大小（字节）",
+      "timing": {
+        "dns_ms": "DNS 耗时（毫秒）",
+        "connect_ms": "连接耗时（毫秒）",
+        "tls_ms": "TLS 耗时（毫秒）",
+        "first_byte_ms": "首字节耗时（毫秒）"
+      }
+    },
+    "assertion_header": "响应头名称",
+    "assertion_json_path": "JSONPath",
+    "assertion_schema": "JSON Schema",
     "assertion_operator": "运算符",
+    "operators": {
+      "equals": "等于",
+      "not_equals": "不等于",
+      "contains": "包含",
+      "not_contains": "不包含",
+      "matches": "匹配正则",
+      "less_than": "小于",
+      "greater_than": "大于",
+      "exists": "存在",
+      "json_schema": "符合 JSON Schema"
+    },
     "assertion_expected": "期望值",
     "assertion_severity": "级别",
     "schedule": "调度",
@@ -190,12 +248,21 @@
     "recovery_threshold": "连续恢复阈值",
     "locations": "地域",
     "locations_hint": "从一个或多个公有或私有探测地域运行。",
+    "location_no_agent": "此地域没有在线 Agent 支持这种检查",
     "escalation_policy": "升级策略",
+    "diagnostics": "诊断",
+    "diagnostics_hint": "把每次运行和被测服务的链路连起来；连不上目标时，找出断在哪一跳。",
+    "inject_trace_context": "请求带上 traceparent，关联被测服务的链路",
+    "traceroute_on_failure": "连不上目标时 traceroute 一次，记下每一跳",
+    "alerting": "告警",
+    "alerting_hint": "监控项失败时开告警事件，打开下面的开关后降级、不稳定也开；按升级策略升级、按通知策略通知，恢复健康后自动解决。足够多的地域连续没有结果时，另开一个警告事件，有结果后自动解决。暂停、归档时这些事件一并解决。",
     "no_escalation_policy": "不关联升级策略",
+    "routed_policy": "按路由分派",
     "tags": "标签",
     "tags_hint": "使用逗号分隔",
     "alert_on_degraded": "降级时告警",
     "alert_on_flaky": "不稳定时告警",
+    "alert_on_no_data": "没有结果时告警",
     "validation_name": "请输入检查名称。",
     "validation_target": "请输入有效目标。",
     "validation_location": "请至少选择一个地域。"
@@ -231,6 +298,10 @@
     "no_failures_one": "最近 {{count}} 次运行没有失败",
     "no_failures_other": "最近 {{count}} 次运行没有失败",
     "never_ran": "尚未运行",
+    "no_data_detail_one": "{{locations}} 上一次没有运行",
+    "no_data_detail_other": "{{locations}} 连续 {{count}} 次没有运行",
+    "location_missed_one": "上一次没有运行",
+    "location_missed_other": "连续 {{count}} 次没有运行",
     "paused_detail": "恢复后继续运行",
     "response_time": "响应时间",
     "p95": "p95 {{value}}",
@@ -257,7 +328,11 @@
     "severity": {
       "warning": "警告",
       "critical": "严重"
-    }
+    },
+    "trace_context": "关联链路",
+    "traceroute_on_failure": "失败时 traceroute",
+    "location_availability": "可用 {{value}}",
+    "open_rum_session": "打开这次拨测的 RUM 会话"
   },
   "results": {
     "title": "结果",
@@ -283,7 +358,25 @@
       "last": "最后一页"
     },
     "all_outcomes": "全部结果",
-    "all_locations": "全部位置"
+    "all_locations": "全部位置",
+    "skip_reasons": {
+      "no_agent_online": "这次没有运行：这个地域当时没有在线的 Agent。",
+      "no_capable_agent": "这次没有运行：这个地域的 Agent 都不支持这种检查。",
+      "agent_too_old": "这次没有运行：这个地域的 Agent 版本太旧，跑不了这个检查的设置，请升级 probe-agent。",
+      "agents_busy": "这次没有运行：这个地域的 Agent 都在忙，截止前没能领到这次运行。"
+    },
+    "view_trace": "查看链路",
+    "trace_hint": "「查看链路」打开被测服务为这次请求记下的链路；服务没有接入链路追踪时查不到。",
+    "traceroute": {
+      "title": "到 {{target}} 的路由",
+      "hop": "跳",
+      "address": "地址",
+      "loss": "丢包",
+      "best": "最快 ms",
+      "average": "平均 ms",
+      "worst": "最慢 ms",
+      "not_reached": "目标没有回应 traceroute，最后有回应的一跳之后就断了。"
+    }
   },
   "locations": {
     "name": "地域",
@@ -340,6 +433,7 @@
     "identity": "身份与心跳",
     "agent_id": "Agent ID",
     "protocol": "协议版本",
+    "feature_level": "功能级别",
     "last_result_sequence": "最后结果序号",
     "certificate_serial": "证书序列号",
     "certificate_none": "无客户端证书",
@@ -469,6 +563,7 @@
     "degraded": "降级",
     "failing": "失败",
     "unknown": "暂无数据",
+    "no_data": "没有结果",
     "paused": "已暂停",
     "draft": "草稿"
   },
@@ -496,8 +591,8 @@
     "paused_other": "{{count}} 个已暂停",
     "states": "检查状态",
     "availability": "可用率",
-    "of_runs_one": "最近 {{count}} 次运行",
-    "of_runs_other": "最近 {{count}} 次运行",
+    "of_runs_one": "范围内 {{count}} 次运行",
+    "of_runs_other": "范围内 {{count}} 次运行",
     "no_runs": "尚无运行",
     "locations": "在线位置",
     "locations_all": "所有位置均可达",
@@ -516,7 +611,7 @@
   },
   "by_location": {
     "title": "各位置可用率",
-    "description": "最近的运行在各个执行位置的结果。"
+    "description": "所选时间范围内，各个执行位置的运行结果。"
   },
   "first_run": {
     "title": "从外部检查你的服务",

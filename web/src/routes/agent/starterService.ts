@@ -244,7 +244,7 @@ async function loadLogErrorObservations(
   ]);
   const runtimeRows = new Map(
     (runtime?.streams ?? []).map((stream) => [
-      runtimeKey(stream.stream_type, stream.name),
+      runtimeKey(stream.streamType, stream.name),
       stream.rows,
     ]),
   );
@@ -265,11 +265,11 @@ async function loadLogErrorObservations(
       const statement = buildLogServiceErrorQuery(stream);
       if (!statement) return [];
       const result = await queryApi.runQuery({
-        org_id: orgId,
+        orgId: orgId,
         language: 'sql',
         statement,
-        time_range: { start: startMicros, end: endMicros },
-        stream: { name: stream.name, stream_type: 'logs' },
+        timeRange: { start: startMicros, end: endMicros },
+        stream: { name: stream.name, streamType: 'logs' },
         limit: MAX_SERVICES_PER_STREAM,
       });
       return logObservationsFromResult(result);
@@ -302,8 +302,8 @@ export async function discoverStarterService({
         topology.nodes.map((node) => ({
           service: node.name,
           source: 'traces' as const,
-          errorRate: node.error_rate,
-          sampleCount: node.span_count,
+          errorRate: node.errorRate,
+          sampleCount: node.spanCount,
         })),
       )
       .catch(() => []),

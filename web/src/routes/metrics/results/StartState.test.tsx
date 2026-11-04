@@ -7,8 +7,8 @@ import i18n from '@/i18n';
 
 import { MetricsStartState } from './StartState';
 
-function metric(name: string, metric_type: MetricCatalogEntry['metric_type'] = 'gauge'): MetricCatalogEntry {
-  return { name, metric_type, labels: ['service'], field_count: 3 } as MetricCatalogEntry;
+function metric(name: string, metric_type: MetricCatalogEntry['metricType'] = 'gauge'): MetricCatalogEntry {
+  return { name, metricType: metric_type, labels: ['service'], fieldCount: 3 } as MetricCatalogEntry;
 }
 
 function renderStart(metrics: MetricCatalogEntry[], pending = false) {

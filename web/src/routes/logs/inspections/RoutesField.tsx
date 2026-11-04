@@ -41,20 +41,20 @@ export function RoutesField({ routes, connectors, onChange }: RoutesFieldProps) 
       removeLabel={t('inspections.editor.remove_channel')}
       emptyHint={t('inspections.editor.no_channel')}
       newItem={() => ({
-        connector_id: first.id,
-        target_type: targetTypeFor(first),
+        connectorId: first.id,
+        targetType: targetTypeFor(first),
         target: '',
       })}
       renderItem={(route, index, setItem) => (
         <div data-inspection-route={index} className="grid grid-cols-[minmax(0,1fr)_132px_minmax(0,1fr)] gap-2">
           <FormSelect
             ariaLabel={t('inspections.editor.channel_connector', { number: index + 1 })}
-            value={route.connector_id}
+            value={route.connectorId}
             onChange={(id) =>
               setItem({
                 ...route,
-                connector_id: id,
-                target_type: targetTypeFor(connectors.find((connector) => connector.id === id)),
+                connectorId: id,
+                targetType: targetTypeFor(connectors.find((connector) => connector.id === id)),
               })
             }
             options={connectors.map((connector) => ({
@@ -68,8 +68,8 @@ export function RoutesField({ routes, connectors, onChange }: RoutesFieldProps) 
           />
           <FormSelect
             ariaLabel={t('inspections.editor.channel_kind', { number: index + 1 })}
-            value={route.target_type}
-            onChange={(type) => setItem({ ...route, target_type: type as NotifyTargetType })}
+            value={route.targetType}
+            onChange={(type) => setItem({ ...route, targetType: type as NotifyTargetType })}
             options={(['fixed_group', 'fixed_address'] as const).map((type) => ({
               value: type,
               label: tn(`target_types.${type}`),
@@ -77,7 +77,7 @@ export function RoutesField({ routes, connectors, onChange }: RoutesFieldProps) 
           />
           <FormInput
             aria-label={t('inspections.editor.channel_target', { number: index + 1 })}
-            placeholder={t(`inspections.editor.target_placeholder.${route.target_type === 'fixed_address' ? 'address' : 'group'}`)}
+            placeholder={t(`inspections.editor.target_placeholder.${route.targetType === 'fixed_address' ? 'address' : 'group'}`)}
             value={route.target}
             onChange={(event) => setItem({ ...route, target: event.target.value })}
           />

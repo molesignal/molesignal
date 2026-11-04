@@ -44,9 +44,9 @@ const LIVE: &str = "('running', 'waiting_input', 'waiting_approval')";
 const TERMINAL: &str = "('succeeded', 'failed', 'cancelled', 'interrupted')";
 
 const RUN_COLS: &str = "id, org_id, chat_id, source, status, principal, request, \
-    user_message_id, assistant_message_id, node, lease_expires_at_micros, cancel_requested, \
+    user_message_id, assistant_message_id, node, lease_expires_at, cancel_requested, \
     pending, response, prompt_tokens, completion_tokens, cost, cost_currency, error, last_seq, \
-    created_at_micros, started_at_micros, finished_at_micros, updated_at_micros";
+    created_at, started_at, finished_at, updated_at";
 
 pub struct PgRunRepository {
     pool: PgPool,
@@ -137,10 +137,7 @@ fn run_row(row: PgRow) -> Result<Run> {
         row.try_get::<Option<String>, _>(column)
             .map(|id| id.map(Id))
     };
-    let micros = |column: &str| {
-        row.try_get::<Option<i64>, _>(column)
-            .map(|at| at.map(TimestampMicros))
-    };
+    let micros = |column: &str| row.try_get::<Option<TimestampMicros>, _>(column);
 
     Ok(Run {
         id: Id(row.try_get("id").map_err(sqlx_err)?),
@@ -155,7 +152,7 @@ fn run_row(row: PgRow) -> Result<Run> {
         user_message_id: id("user_message_id").map_err(sqlx_err)?,
         assistant_message_id: id("assistant_message_id").map_err(sqlx_err)?,
         node: row.try_get("node").map_err(sqlx_err)?,
-        lease_expires_at: micros("lease_expires_at_micros").map_err(sqlx_err)?,
+        lease_expires_at: micros("lease_expires_at").map_err(sqlx_err)?,
         cancel_requested: row.try_get("cancel_requested").map_err(sqlx_err)?,
         pending: pending.map(|pending| pending.0),
         response: response.map(|response| response.0),
@@ -169,10 +166,14 @@ fn run_row(row: PgRow) -> Result<Run> {
         )?,
         error: row.try_get("error").map_err(sqlx_err)?,
         last_seq: row.try_get("last_seq").map_err(sqlx_err)?,
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        started_at: micros("started_at_micros").map_err(sqlx_err)?,
-        finished_at: micros("finished_at_micros").map_err(sqlx_err)?,
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        started_at: micros("started_at").map_err(sqlx_err)?,
+        finished_at: micros("finished_at").map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -183,7 +184,7 @@ impl RunRepository for PgRunRepository {
             "WITH inserted AS (
                  INSERT INTO agent_runs
                     (id, org_id, chat_id, source, status, principal, request, user_message_id,
-                     created_at_micros, updated_at_micros)
+                     created_at, updated_at)
                  VALUES ($1, $2, $3, $4, 'queued', $5, $6, $7, $8, $8)
                  RETURNING 1
              )
@@ -196,7 +197,7 @@ impl RunRepository for PgRunRepository {
         .bind(Json(&run.principal))
         .bind(Json(&run.request))
         .bind(run.user_message_id.as_ref().map(|id| id.0.as_str()))
-        .bind(run.created_at.0)
+        .bind(run.created_at)
         .bind(PENDING_CHANNEL)
         .fetch_one(&self.pool)
         .await
@@ -224,7 +225,7 @@ impl RunRepository for PgRunRepository {
         let rows = sqlx::query(&format!(
             "SELECT {RUN_COLS} FROM agent_runs
              WHERE org_id = $1 AND chat_id = $2
-             ORDER BY created_at_micros DESC, id DESC
+             ORDER BY created_at DESC, id DESC
              LIMIT $3"
         ))
         .bind(&org_id.0)
@@ -241,8 +242,8 @@ impl RunRepository for PgRunRepository {
         // 会话里还有更早的 Run 没结束（排队中或执行中）时跳过它；领取与这个判断在同一条语句里，
         // 两个节点同时领也不会让同一会话的两个 Run 同时执行。
         let row = sqlx::query(&format!(
-            "UPDATE agent_runs SET status = 'running', node = $1, lease_expires_at_micros = $2,
-                    started_at_micros = $3, updated_at_micros = $3
+            "UPDATE agent_runs SET status = 'running', node = $1, lease_expires_at = $2,
+                    started_at = $3, updated_at = $3
              WHERE id = (
                  SELECT r.id FROM agent_runs r
                  WHERE r.status = 'queued'
@@ -252,18 +253,18 @@ impl RunRepository for PgRunRepository {
                          AND earlier.id <> r.id
                          AND (earlier.status IN {LIVE}
                               OR (earlier.status = 'queued'
-                                  AND (earlier.created_at_micros, earlier.id)
-                                      < (r.created_at_micros, r.id)))
+                                  AND (earlier.created_at, earlier.id)
+                                      < (r.created_at, r.id)))
                    )
-                 ORDER BY r.created_at_micros, r.id
+                 ORDER BY r.created_at, r.id
                  LIMIT 1
                  FOR UPDATE SKIP LOCKED
              )
              RETURNING {RUN_COLS}"
         ))
         .bind(node)
-        .bind(lease_until.0)
-        .bind(TimestampMicros::now().0)
+        .bind(lease_until)
+        .bind(TimestampMicros::now())
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -284,13 +285,13 @@ impl RunRepository for PgRunRepository {
 
     async fn renew(&self, id: &Id, node: &str, lease_until: TimestampMicros) -> Result<bool> {
         let result = sqlx::query(&format!(
-            "UPDATE agent_runs SET lease_expires_at_micros = $3, updated_at_micros = $4
+            "UPDATE agent_runs SET lease_expires_at = $3, updated_at = $4
              WHERE id = $1 AND node = $2 AND status IN {LIVE}"
         ))
         .bind(&id.0)
         .bind(node)
-        .bind(lease_until.0)
-        .bind(TimestampMicros::now().0)
+        .bind(lease_until)
+        .bind(TimestampMicros::now())
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -301,13 +302,13 @@ impl RunRepository for PgRunRepository {
     async fn wait_for(&self, id: &Id, pending: &Pending) -> Result<()> {
         let result = sqlx::query(&format!(
             "UPDATE agent_runs SET pending = $2, response = NULL, status = $3,
-                    updated_at_micros = $4
+                    updated_at = $4
              WHERE id = $1 AND status IN {LIVE}"
         ))
         .bind(&id.0)
         .bind(Json(pending))
         .bind(pending.status().as_str())
-        .bind(TimestampMicros::now().0)
+        .bind(TimestampMicros::now())
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -334,9 +335,9 @@ impl RunRepository for PgRunRepository {
         }
 
         let row = sqlx::query(&format!(
-            "UPDATE agent_runs SET response = $3, updated_at_micros = $5
+            "UPDATE agent_runs SET response = $3, updated_at = $5
              WHERE org_id = $1 AND id = $2 AND response IS NULL
-               AND pending->>'call_id' = $4
+               AND pending->>'callId' = $4
                AND status IN ('waiting_input', 'waiting_approval')
              RETURNING {RUN_COLS}"
         ))
@@ -344,7 +345,7 @@ impl RunRepository for PgRunRepository {
         .bind(&id.0)
         .bind(Json(response))
         .bind(response.call_id())
-        .bind(TimestampMicros::now().0)
+        .bind(TimestampMicros::now())
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?
@@ -359,7 +360,7 @@ impl RunRepository for PgRunRepository {
     async fn take_response(&self, id: &Id) -> Result<Option<RunResponse>> {
         let row = sqlx::query(
             "UPDATE agent_runs r
-             SET response = NULL, pending = NULL, status = 'running', updated_at_micros = $2
+             SET response = NULL, pending = NULL, status = 'running', updated_at = $2
              FROM (
                  SELECT id, response FROM agent_runs
                  WHERE id = $1 AND response IS NOT NULL
@@ -369,7 +370,7 @@ impl RunRepository for PgRunRepository {
              RETURNING answered.response",
         )
         .bind(&id.0)
-        .bind(TimestampMicros::now().0)
+        .bind(TimestampMicros::now())
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -385,11 +386,11 @@ impl RunRepository for PgRunRepository {
     async fn stop_waiting(&self, id: &Id) -> Result<()> {
         sqlx::query(
             "UPDATE agent_runs
-             SET pending = NULL, response = NULL, status = 'running', updated_at_micros = $2
+             SET pending = NULL, response = NULL, status = 'running', updated_at = $2
              WHERE id = $1 AND status IN ('waiting_input', 'waiting_approval')",
         )
         .bind(&id.0)
-        .bind(TimestampMicros::now().0)
+        .bind(TimestampMicros::now())
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -423,12 +424,12 @@ impl RunRepository for PgRunRepository {
         }
 
         sqlx::query(&format!(
-            "UPDATE agent_runs SET cancel_requested = TRUE, updated_at_micros = $3
+            "UPDATE agent_runs SET cancel_requested = TRUE, updated_at = $3
              WHERE org_id = $1 AND id = $2 AND status NOT IN {TERMINAL}"
         ))
         .bind(&org_id.0)
         .bind(&id.0)
-        .bind(TimestampMicros::now().0)
+        .bind(TimestampMicros::now())
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;

@@ -17,19 +17,107 @@
 //! ```
 //!
 //! 需要全量的调用方可物化为 `Vec<RecordBatch>`；Top-K / Cursor 路径
-//! 使用 [`ParquetReader::stream_from_store`] 逐 batch 消费并可提前停止。
+//! 使用 [`ParquetReader::stream_from_store`] 逐 batch 消费并可提前停止。合并文件这类要同时
+//! 读许多文件的调用方用 [`ParquetReader::stream_windows_from_store`]，每个文件只占一个窗口的
+//! 内存。
 
-use std::sync::Arc;
+use std::{ops::Range, sync::Arc};
 
 use arrow::{array::RecordBatch, datatypes::SchemaRef};
-use futures::{StreamExt, stream::BoxStream};
+use bytes::Bytes;
+use futures::{
+    FutureExt, StreamExt, TryStreamExt,
+    future::BoxFuture,
+    stream::{self, BoxStream},
+};
 use object_store::{Error as OsError, ObjectStore, ObjectStoreExt, path::Path};
 use parquet::{
-    arrow::{ParquetRecordBatchStreamBuilder, ProjectionMask, async_reader::ParquetObjectReader},
-    file::statistics::Statistics,
+    arrow::{
+        ParquetRecordBatchStreamBuilder, ProjectionMask,
+        arrow_reader::{ArrowReaderMetadata, ArrowReaderOptions, RowSelection, RowSelector},
+        async_reader::AsyncFileReader,
+    },
+    errors::ParquetError,
+    file::metadata::{PageIndexPolicy, ParquetMetaData, ParquetMetaDataReader},
 };
 
 use crate::shared::{Error, Result};
+
+mod pages;
+
+use pages::RowTest;
+
+/// Footer bytes fetched with the first request: the Thrift footer and the page index before it
+/// usually fit, so the metadata loads in one request.
+const FOOTER_READ_BYTES: usize = 512 * 1024;
+
+/// [`AsyncFileReader`] over one immutable object whose size is known.
+#[derive(Clone)]
+struct ObjectFileReader {
+    store: Arc<dyn ObjectStore>,
+    path: Path,
+    size: u64,
+}
+
+impl ObjectFileReader {
+    fn new(store: Arc<dyn ObjectStore>, path: Path, size: u64) -> Self {
+        Self { store, path, size }
+    }
+}
+
+fn parquet_error(error: OsError) -> ParquetError {
+    ParquetError::External(Box::new(error))
+}
+
+impl AsyncFileReader for ObjectFileReader {
+    fn get_bytes(&mut self, range: Range<u64>) -> BoxFuture<'_, parquet::errors::Result<Bytes>> {
+        async move {
+            self.store
+                .get_range(&self.path, range)
+                .await
+                .map_err(parquet_error)
+        }
+        .boxed()
+    }
+
+    fn get_byte_ranges(
+        &mut self,
+        ranges: Vec<Range<u64>>,
+    ) -> BoxFuture<'_, parquet::errors::Result<Vec<Bytes>>> {
+        async move {
+            self.store
+                .get_ranges(&self.path, &ranges)
+                .await
+                .map_err(parquet_error)
+        }
+        .boxed()
+    }
+
+    fn get_metadata<'a>(
+        &'a mut self,
+        options: Option<&'a ArrowReaderOptions>,
+    ) -> BoxFuture<'a, parquet::errors::Result<Arc<ParquetMetaData>>> {
+        async move {
+            let mut reader = ParquetMetaDataReader::new()
+                .with_metadata_options(options.map(|options| options.metadata_options().clone()))
+                .with_prefetch_hint(Some(FOOTER_READ_BYTES));
+
+            // Page indexes load only when the reader options ask for them.
+            if let Some(options) = options
+                && (options.column_index_policy() != PageIndexPolicy::Skip
+                    || options.offset_index_policy() != PageIndexPolicy::Skip)
+            {
+                reader = reader
+                    .with_column_index_policy(options.column_index_policy())
+                    .with_offset_index_policy(options.offset_index_policy());
+            }
+
+            let size = self.size;
+            Ok(Arc::new(reader.load_and_finish(self, size).await?))
+        }
+        .boxed()
+    }
+}
 
 fn head_err(object_key: &str, e: OsError) -> Error {
     match e {
@@ -48,6 +136,8 @@ pub struct ReadOptions<'a> {
     time_range: Option<(i64, i64)>,
     /// 只解码这些列。
     columns: Option<&'a [&'a str]>,
+    /// 只读可能含这个值的 row group 与页：`(列, 值)`。读到的行里仍可能有别的值，调用方自己过滤。
+    equals: Option<(&'a str, &'a str)>,
     /// 已知的对象字节数，用于省掉一次 `head()` 往返。
     ///
     /// **必须与对象实际大小一致**：parquet 的 footer 靠文件尾定位，size 不对会直接读失败。
@@ -68,6 +158,13 @@ impl<'a> ReadOptions<'a> {
 
     pub fn with_columns(mut self, columns: &'a [&'a str]) -> Self {
         self.columns = Some(columns);
+        self
+    }
+
+    /// 按 row group 统计与页索引跳过不可能含 `value` 的部分；文件按 `column` 排过序时，读到的
+    /// 基本只有这个值的行。时间窗同样按页裁剪。
+    pub fn with_equals(mut self, column: &'a str, value: &'a str) -> Self {
+        self.equals = Some((column, value));
         self
     }
 
@@ -146,8 +243,7 @@ impl ParquetReader {
         object_key: &str,
         size_bytes: u64,
     ) -> Result<SchemaRef> {
-        let location = Path::from(object_key);
-        let reader = ParquetObjectReader::new(store, location).with_file_size(size_bytes);
+        let reader = ObjectFileReader::new(store, Path::from(object_key), size_bytes);
 
         let builder = ParquetRecordBatchStreamBuilder::new(reader)
             .await
@@ -196,43 +292,51 @@ impl ParquetReader {
             }
         };
 
-        let reader = ParquetObjectReader::new(store.clone(), location).with_file_size(size);
+        let reader = ObjectFileReader::new(store.clone(), location, size);
 
-        let mut builder = ParquetRecordBatchStreamBuilder::new(reader)
+        // 页索引说明哪些页可能含要找的值；它通常和 footer 在同一次读里。
+        let options = if opts.equals.is_some() {
+            ArrowReaderOptions::new().with_page_index_policy(PageIndexPolicy::Optional)
+        } else {
+            ArrowReaderOptions::new()
+        };
+
+        let mut builder = ParquetRecordBatchStreamBuilder::new_with_options(reader, options)
             .await
             .map_err(|e| Error::internal(format!("parquet builder: {e}")))?;
 
-        if let Some((start_us, end_us)) = opts.time_range {
-            // arrow field 下标 == parquet leaf 下标仅对平铺 schema 成立（molesignal
-            // 的流 schema 均为平铺）；不成立时跳过裁剪。
-            let flat = builder.parquet_schema().num_columns() == builder.schema().fields().len();
+        // arrow field 下标 == parquet leaf 下标仅对平铺 schema 成立（molesignal 的流 schema 均为
+        // 平铺）；不成立时不裁剪。
+        let flat = builder.parquet_schema().num_columns() == builder.schema().fields().len();
+        let mut tests = Vec::new();
 
-            if let (true, Ok(ts_col)) = (flat, builder.schema().index_of("_timestamp")) {
-                let keep: Vec<usize> = builder
-                    .metadata()
-                    .row_groups()
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(i, rg)| {
-                        let overlaps = match rg.column(ts_col).statistics() {
-                            Some(Statistics::Int64(s)) => match (s.min_opt(), s.max_opt()) {
-                                (Some(&min), Some(&max)) => max >= start_us && min < end_us,
-                                _ => true,
-                            },
-                            _ => true,
-                        };
+        if flat
+            && let Some((start_us, end_us)) = opts.time_range
+            && let Ok(column) = builder.schema().index_of("_timestamp")
+        {
+            tests.push((column, RowTest::Within(start_us, end_us)));
+        }
 
-                        overlaps.then_some(i)
-                    })
-                    .collect();
+        if flat
+            && let Some((name, value)) = opts.equals
+            && let Ok(column) = builder.schema().index_of(name)
+        {
+            tests.push((column, RowTest::Equals(value.as_bytes())));
+        }
 
-                if keep.is_empty() {
-                    return Ok(futures::stream::empty().boxed());
-                }
+        if !tests.is_empty() {
+            let (row_groups, selection) = pages::select(builder.metadata(), &tests);
 
-                if keep.len() < builder.metadata().num_row_groups() {
-                    builder = builder.with_row_groups(keep);
-                }
+            if row_groups.is_empty() {
+                return Ok(futures::stream::empty().boxed());
+            }
+
+            if row_groups.len() < builder.metadata().num_row_groups() {
+                builder = builder.with_row_groups(row_groups);
+            }
+
+            if let Some(selection) = selection {
+                builder = builder.with_row_selection(selection);
             }
         }
 
@@ -255,6 +359,102 @@ impl ParquetReader {
             .map(|batch| batch.map_err(|e| Error::internal(format!("parquet read: {e}"))))
             .boxed())
     }
+
+    /// 按行窗口逐段读整个对象：全部列、全部行，保持文件里的行序。每段只取窗口覆盖的数据页
+    /// （借助 offset index），一个对象同一时刻读进内存的压缩字节约为 `window_bytes`，与它的
+    /// row group 多大无关；没有 offset index 的 row group 整个读。对象不存在时返回
+    /// `Error::NotFound`。
+    pub async fn stream_windows_from_store(
+        &self,
+        store: Arc<dyn ObjectStore>,
+        object_key: &str,
+        window_bytes: u64,
+    ) -> Result<BoxStream<'static, Result<RecordBatch>>> {
+        let path = Path::from(object_key);
+
+        let meta = store
+            .head(&path)
+            .await
+            .map_err(|e| head_err(object_key, e))?;
+
+        let mut reader = ObjectFileReader::new(store, meta.location, meta.size);
+        let options = ArrowReaderOptions::new().with_offset_index_policy(PageIndexPolicy::Optional);
+
+        let metadata = ArrowReaderMetadata::load_async(&mut reader, options)
+            .await
+            .map_err(|e| Error::internal(format!("parquet metadata: {e}")))?;
+
+        let windows = row_windows(metadata.metadata(), window_bytes);
+
+        let batches = stream::iter(windows)
+            .map(move |(row_group, selection)| {
+                let mut builder = ParquetRecordBatchStreamBuilder::new_with_metadata(
+                    reader.clone(),
+                    metadata.clone(),
+                )
+                .with_row_groups(vec![row_group]);
+
+                if let Some(selection) = selection {
+                    builder = builder.with_row_selection(selection);
+                }
+
+                builder
+                    .build()
+                    .map_err(|e| Error::internal(format!("parquet stream: {e}")))
+            })
+            .map_ok(|window| window.map_err(|e| Error::internal(format!("parquet read: {e}"))))
+            .try_flatten();
+
+        Ok(batches.boxed())
+    }
+}
+
+/// 把每个 row group 切成行窗口。压缩后不超过 `window_bytes`、或没有 offset index 的 row group
+/// 整个读（`None`）；其余切成行数相等的几段，每段的压缩字节大致是 `window_bytes`。
+fn row_windows(
+    metadata: &ParquetMetaData,
+    window_bytes: u64,
+) -> Vec<(usize, Option<RowSelection>)> {
+    let mut windows = Vec::new();
+
+    for (index, row_group) in metadata.row_groups().iter().enumerate() {
+        let rows = usize::try_from(row_group.num_rows()).unwrap_or_default();
+        let bytes = u64::try_from(row_group.compressed_size()).unwrap_or_default();
+        let parts = bytes.div_ceil(window_bytes.max(1));
+
+        let paged = metadata
+            .offset_index()
+            .and_then(|indexes| indexes.get(index))
+            .is_some_and(|columns| !columns.is_empty());
+
+        if !paged || parts <= 1 || rows == 0 {
+            windows.push((index, None));
+            continue;
+        }
+
+        let step = rows.div_ceil(usize::try_from(parts).unwrap_or(usize::MAX));
+        let mut start = 0;
+
+        while start < rows {
+            let end = rows.min(start + step);
+
+            let selectors = [
+                RowSelector::skip(start),
+                RowSelector::select(end - start),
+                RowSelector::skip(rows - end),
+            ];
+
+            let selection = selectors
+                .into_iter()
+                .filter(|selector| selector.row_count > 0)
+                .collect::<Vec<_>>();
+
+            windows.push((index, Some(RowSelection::from(selection))));
+            start = end;
+        }
+    }
+
+    windows
 }
 
 #[cfg(test)]
@@ -350,5 +550,179 @@ mod tests {
         // [0, 5_000)：min=10_000 不小于 end → 裁掉
         let before = reader.read_time_range(object_key, 0, 5_000).await.unwrap();
         assert!(before.is_empty());
+    }
+
+    /// 按名字排过序、页很小的文件：只读名字可能相等的页，时间窗也按页裁剪。
+    #[tokio::test]
+    async fn equals_reads_only_the_pages_that_may_hold_the_value() {
+        use arrow::datatypes::{DataType, Field, Schema as ArrowSchema, TimeUnit};
+        use parquet::{arrow::ArrowWriter, file::properties::WriterProperties};
+
+        let schema = Arc::new(ArrowSchema::new(vec![
+            Field::new(
+                "_timestamp",
+                DataType::Timestamp(TimeUnit::Microsecond, Some("UTC".into())),
+                false,
+            ),
+            Field::new("metric_name", DataType::Utf8, false),
+        ]));
+
+        let names = ["c", "b", "a"]
+            .iter()
+            .flat_map(|name| std::iter::repeat_n(*name, 300))
+            .collect::<Vec<_>>();
+
+        let times = (0..900).map(|row| (row % 300) * 10).collect::<Vec<i64>>();
+
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(TimestampMicrosecondArray::from(times).with_timezone("UTC")),
+                Arc::new(StringArray::from(names)),
+            ],
+        )
+        .unwrap();
+
+        let properties = WriterProperties::builder()
+            .set_data_page_row_count_limit(100)
+            .set_write_batch_size(100)
+            .build();
+
+        let mut bytes = Vec::new();
+        let mut writer = ArrowWriter::try_new(&mut bytes, schema, Some(properties)).unwrap();
+        writer.write(&batch).unwrap();
+        writer.close().unwrap();
+
+        let store: Arc<dyn ObjectStore> = Arc::new(object_store::memory::InMemory::new());
+
+        store
+            .put(&Path::from("tests/equals"), PutPayload::from(bytes))
+            .await
+            .unwrap();
+
+        let reader = ParquetReader::new(store.clone());
+
+        let read = |options: ReadOptions<'static>| {
+            let reader = &reader;
+            let store = store.clone();
+
+            async move {
+                reader
+                    .read_from_store(store, "tests/equals", options)
+                    .await
+                    .unwrap()
+                    .iter()
+                    .flat_map(|batch| {
+                        let names = batch
+                            .column(1)
+                            .as_any()
+                            .downcast_ref::<StringArray>()
+                            .unwrap();
+
+                        (0..batch.num_rows())
+                            .map(|row| names.value(row).to_string())
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>()
+            }
+        };
+
+        let b = read(ReadOptions::new().with_equals("metric_name", "b")).await;
+        assert_eq!(b.len(), 300);
+        assert!(b.iter().all(|name| name == "b"));
+
+        let missing = read(ReadOptions::new().with_equals("metric_name", "bb")).await;
+        assert!(missing.is_empty());
+
+        let early = read(
+            ReadOptions::new()
+                .with_equals("metric_name", "b")
+                .with_time_range(0, 1_000),
+        )
+        .await;
+
+        assert_eq!(early.len(), 100);
+    }
+
+    /// 每个 row group 切成几个窗口读：每行正好读到一次，行序与文件里一致。
+    #[tokio::test]
+    async fn windows_read_every_row_once_in_file_order() {
+        use arrow::datatypes::{DataType, Field, Schema as ArrowSchema};
+        use parquet::{
+            arrow::{ArrowWriter, arrow_reader::ParquetRecordBatchReaderBuilder},
+            file::properties::WriterProperties,
+        };
+
+        let schema = Arc::new(ArrowSchema::new(vec![Field::new(
+            "value",
+            DataType::Int64,
+            false,
+        )]));
+
+        let values: Vec<i64> = (0..3_000).rev().collect();
+
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(Int64Array::from(values.clone()))],
+        )
+        .unwrap();
+
+        // Three row groups of a thousand rows, in pages of a hundred.
+        let properties = WriterProperties::builder()
+            .set_max_row_group_row_count(Some(1_000))
+            .set_data_page_row_count_limit(100)
+            .set_write_batch_size(100)
+            .set_dictionary_enabled(false)
+            .build();
+
+        let mut bytes = Vec::new();
+        let mut writer = ArrowWriter::try_new(&mut bytes, schema, Some(properties)).unwrap();
+        writer.write(&batch).unwrap();
+        writer.close().unwrap();
+
+        let bytes = Bytes::from(bytes);
+
+        let metadata = ParquetRecordBatchReaderBuilder::try_new_with_options(
+            bytes.clone(),
+            ArrowReaderOptions::new().with_offset_index_policy(PageIndexPolicy::Optional),
+        )
+        .unwrap()
+        .metadata()
+        .clone();
+
+        let window_bytes = u64::try_from(metadata.row_group(0).compressed_size()).unwrap() / 4;
+        let windows = row_windows(&metadata, window_bytes);
+
+        assert_eq!(metadata.num_row_groups(), 3);
+        assert!(windows.len() >= 12, "{} windows", windows.len());
+        assert!(windows.iter().all(|(_, selection)| selection.is_some()));
+
+        let store: Arc<dyn ObjectStore> = Arc::new(object_store::memory::InMemory::new());
+
+        store
+            .put(&Path::from("tests/windows"), PutPayload::from(bytes))
+            .await
+            .unwrap();
+
+        let read = ParquetReader::new(store.clone())
+            .stream_windows_from_store(store, "tests/windows", window_bytes)
+            .await
+            .unwrap()
+            .collect::<Vec<_>>()
+            .await;
+
+        let mut seen = Vec::new();
+
+        for batch in read {
+            let batch = batch.unwrap();
+            let column = batch
+                .column(0)
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .unwrap();
+            seen.extend(column.values().iter().copied());
+        }
+
+        assert_eq!(seen, values);
     }
 }

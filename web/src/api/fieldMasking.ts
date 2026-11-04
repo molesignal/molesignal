@@ -5,30 +5,30 @@ import type { StreamType } from './streams';
 export type FieldMaskingAlgorithm =
   | { kind: 'full'; replacement: string }
   | { kind: 'range'; start: number; end: number; replacement: string }
-  | { kind: 'inner'; prefix_chars: number; suffix_chars: number; replacement: string }
+  | { kind: 'inner'; prefixChars: number; suffixChars: number; replacement: string }
   | { kind: 'outer'; start: number; end: number; replacement: string }
   | { kind: 'hash' };
 
 export interface FieldMaskingRule {
   id: string;
-  org_id: string;
+  orgId: string;
   name: string;
   priority: number;
   enabled: boolean;
-  field_pattern: string;
-  stream_pattern: string | null;
-  stream_type: StreamType | null;
+  fieldPattern: string;
+  streamPattern: string | null;
+  streamType: StreamType | null;
   algorithm: FieldMaskingAlgorithm;
-  created_at: number;
-  updated_at: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface FieldMaskingRuleInput {
   name: string;
   enabled: boolean;
-  field_pattern: string;
-  stream_pattern?: string | null;
-  stream_type?: StreamType | null;
+  fieldPattern: string;
+  streamPattern?: string | null;
+  streamType?: StreamType | null;
   algorithm: FieldMaskingAlgorithm;
 }
 
@@ -37,15 +37,15 @@ export interface EffectiveFieldMaskingEntry {
   masked: boolean;
   source: 'none' | 'global' | 'stream';
   algorithm?: FieldMaskingAlgorithm;
-  rule_id?: string;
-  rule_name?: string;
-  inherited_algorithm?: FieldMaskingAlgorithm;
-  inherited_rule_id?: string;
-  inherited_rule_name?: string;
+  ruleId?: string;
+  ruleName?: string;
+  inheritedAlgorithm?: FieldMaskingAlgorithm;
+  inheritedRuleId?: string;
+  inheritedRuleName?: string;
 }
 
 export interface EffectiveFieldMasking {
-  stream_id: string;
+  streamId: string;
   fields: EffectiveFieldMaskingEntry[];
 }
 

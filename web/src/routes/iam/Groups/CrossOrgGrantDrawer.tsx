@@ -97,15 +97,15 @@ export function CrossOrgGrantDrawer({
   const save = useMutation({
     mutationFn: () =>
       grantsApi.createCrossOrgGrant({
-        target_organization_id: targetOrgId,
-        grantee_type: 'organization',
-        grantee_id: targetOrgId,
-        resource_type: resourceType,
-        resource_selector: { ids: [resourceId] },
+        targetOrganizationId: targetOrgId,
+        granteeType: 'organization',
+        granteeId: targetOrgId,
+        resourceType: resourceType,
+        resourceSelector: { ids: [resourceId] },
         permissions,
         conditions: {},
         ...(expiresAt
-          ? { expires_at_micros: new Date(expiresAt).getTime() * 1_000 }
+          ? { expiresAt: new Date(expiresAt).getTime() * 1_000 }
           : {}),
       }),
     onSuccess: async () => {
@@ -218,9 +218,9 @@ export function CrossOrgGrantDrawer({
               const definition = permissionDefinition(catalog, permission);
               return {
                 value: permission,
-                label: definition ? t(definition.label_key) : permission,
+                label: definition ? t(definition.labelKey) : permission,
                 ...(definition
-                  ? { hint: t(definition.description_key) }
+                  ? { hint: t(definition.descriptionKey) }
                   : {}),
               };
             })}

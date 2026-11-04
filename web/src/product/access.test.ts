@@ -7,24 +7,27 @@ import {
   accessFromSnapshot,
   canAccessProductPath,
   deniedProductRouteFallback,
+  hasPermission,
   isKnownProductPath,
+  reachesOrganization,
   routePatternMatches,
   type ProductAccess,
 } from './access';
+import type { PermissionKey } from './permissions';
 
 function decision(
   id: string,
   path_pattern: string,
   allowed: boolean,
-  navigation_group?: IamRouteAccess['navigation_group'],
+  navigation_group?: IamRouteAccess['navigationGroup'],
   navigation_position?: number,
 ): IamRouteAccess {
   return {
     id,
-    path_pattern,
+    pathPattern: path_pattern,
     allowed,
-    ...(navigation_group ? { navigation_group } : {}),
-    ...(navigation_position === undefined ? {} : { navigation_position }),
+    ...(navigation_group ? { navigationGroup: navigation_group } : {}),
+    ...(navigation_position === undefined ? {} : { navigationPosition: navigation_position }),
   };
 }
 
@@ -100,6 +103,22 @@ describe('database-backed product route access', () => {
     ).toEqual(['dashboards', 'metrics']);
   });
 
+  it('reaches an organization across the platform or by name, and no other', () => {
+    const named: ProductAccess = {
+      ...access([]),
+      permissions: new Set<PermissionKey>(['sys.organizations.read']),
+      organizationPermissions: { 'sys.organizations.update': ['acme'] },
+    };
+
+    expect(reachesOrganization('sys.organizations.read', 'beta', named)).toBe(true);
+    expect(reachesOrganization('sys.organizations.update', 'acme', named)).toBe(true);
+    expect(reachesOrganization('sys.organizations.update', 'beta', named)).toBe(false);
+    expect(hasPermission('sys.organizations.update', named)).toBe(false);
+    expect(
+      reachesOrganization('sys.organizations.update', 'acme', { ...named, status: 'loading' }),
+    ).toBe(false);
+  });
+
   it('fails closed when a registered route is missing from the DB catalog', () => {
     const snapshot = access([]);
     expect(isKnownProductPath('/dashboards', snapshot)).toBe(true);
@@ -138,9 +157,9 @@ describe('database-backed product route access', () => {
 
   it('fails closed without crashing on a legacy snapshot missing routes', () => {
     const snapshot: IamCapabilitySnapshot = {
-      organization_id: 'org-a',
+      organizationId: 'org-a',
       scope: 'organization',
-      display_role: 'Viewer',
+      displayRole: 'Viewer',
       roles: [],
       permissions: ['streams.query'],
       version: 3,

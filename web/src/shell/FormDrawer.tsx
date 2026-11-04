@@ -10,7 +10,9 @@ import { RadioGroup, RadioGroupItem } from '@/shell/ui/radio-group';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/shell/ui/select';
@@ -19,10 +21,20 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/shell/ui/tooltip';
+import {
+  DraftChangeContext,
+  useDrawerDraft,
+  useMarkDraftChanged,
+} from '@/shell/unsaved/useDrawerDraft';
 
 /**
  * 720px right-side form drawer with three regions: header / body / footer.
  * Shared by every "new / edit X" flow in the app.
+ *
+ * A drawer with a footer holds a draft: once something in it changed, closing it
+ * with Escape, the cross or a click outside asks first. The footer's own Cancel
+ * is the person's answer already, so the caller's handler runs as it is. Pass
+ * `dirty` where the form knows better than "something was touched".
  */
 export function FormDrawer({
   open,
@@ -34,6 +46,7 @@ export function FormDrawer({
   headerDivider = true,
   children,
   footer,
+  dirty,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -44,16 +57,24 @@ export function FormDrawer({
   headerDivider?: boolean | undefined;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  dirty?: boolean | undefined;
 }) {
   const { t } = useTranslation('common');
+  const draft = useDrawerDraft({
+    open,
+    holdsDraft: footer !== undefined && footer !== null,
+    dirty,
+    onOpenChange,
+  });
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root open={open} onOpenChange={draft.requestOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-overlay data-[state=open]:animate-fade-in" />
         <Dialog.Content
           className="fixed inset-y-0 right-0 z-50 flex flex-col border-l border-bd-1 bg-[var(--functional-surface)] shadow-drawer data-[state=open]:animate-slide-in-right"
           style={{ width, maxWidth: 'calc(100vw - 16px)' }}
+          {...draft.contentEvents}
         >
           {/* header */}
           <div
@@ -82,7 +103,9 @@ export function FormDrawer({
           </div>
 
           {/* body */}
-          <div className={cn('flex-1 overflow-auto px-6 py-5', bodyClassName)}>{children}</div>
+          <div className={cn('flex-1 overflow-auto px-6 py-5', bodyClassName)}>
+            <DraftChangeContext.Provider value={draft.markChanged}>{children}</DraftChangeContext.Provider>
+          </div>
 
           {/* footer */}
           {footer && (
@@ -90,6 +113,7 @@ export function FormDrawer({
               {footer}
             </div>
           )}
+          {draft.prompt}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -156,6 +180,37 @@ export function FormField({
   );
 }
 
+/** A titled group of controls, like `FormField` but not a `<label>`: a label around a checklist
+ * sends every click on it, its title included, to the first box. */
+export function FormGroup({
+  label,
+  hint,
+  required,
+  children,
+  className,
+}: {
+  label: string;
+  hint?: string;
+  required?: boolean;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div role="group" aria-label={label} className={cn('flex min-w-0 flex-col gap-1.5', className)}>
+      <span className={cn('flex items-center gap-1', uiLabelClass)}>
+        {label}
+        {required && (
+          <span className="text-red" aria-hidden>
+            *
+          </span>
+        )}
+      </span>
+      {children}
+      {hint && <span className="text-xs leading-relaxed text-tx-3">{hint}</span>}
+    </div>
+  );
+}
+
 export function FormRow({ children, className }: { children: React.ReactNode; className?: string }) {
   return <div className={cn('grid grid-cols-2 gap-3', className)}>{children}</div>;
 }
@@ -178,7 +233,7 @@ export const FormInput = React.forwardRef<
         aria-disabled={disabled || undefined}
         data-ui="input-control"
         className={cn(
-          'h-9 min-w-0 w-full rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-sm text-tx-0 transition-colors placeholder:text-tx-3 hover:bg-bg-3 focus:bg-bg-3 focus:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-3 disabled:text-tx-3 disabled:opacity-100 read-only:cursor-default read-only:bg-bg-3 read-only:text-tx-2',
+          'h-9 min-w-0 w-full rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-sm text-tx-0 transition-colors placeholder:text-tx-3 hover:bg-bg-3 focus:bg-bg-3 focus:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-3 disabled:text-[var(--tx-disabled)] disabled:opacity-100 read-only:cursor-default read-only:bg-bg-3 read-only:text-tx-2',
           className,
         )}
       />
@@ -212,7 +267,7 @@ export const FormTextarea = React.forwardRef<
       aria-disabled={disabled || undefined}
       data-ui="textarea-control"
       className={cn(
-        'min-h-24 rounded-md border-0 bg-[var(--control-surface)] px-3 py-2.5 font-sans text-sm leading-relaxed text-tx-0 transition-colors placeholder:text-tx-3 hover:bg-bg-3 focus:bg-bg-3 focus:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-3 disabled:text-tx-3 disabled:opacity-100 read-only:cursor-default read-only:bg-bg-3 read-only:text-tx-2',
+        'min-h-24 w-full rounded-md border-0 bg-[var(--control-surface)] px-3 py-2.5 font-sans text-sm leading-relaxed text-tx-0 transition-colors placeholder:text-tx-3 hover:bg-bg-3 focus:bg-bg-3 focus:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-3 disabled:text-[var(--tx-disabled)] disabled:opacity-100 read-only:cursor-default read-only:bg-bg-3 read-only:text-tx-2',
         className,
       )}
     />
@@ -233,6 +288,20 @@ export interface FormSelectOption {
   label: string;
   disabled?: boolean;
   disabledReason?: React.ReactNode;
+  /** The heading the option is listed under; neighbouring options with the same heading form one group. */
+  group?: string;
+}
+
+/** The options in runs of neighbours that share a group; an option without one stands in a run without a heading. */
+function optionRuns(options: Array<FormSelectOption | string>) {
+  const runs: Array<{ group: string | undefined; options: Array<FormSelectOption | string> }> = [];
+  for (const option of options) {
+    const group = typeof option === 'string' ? undefined : option.group;
+    const last = runs.at(-1);
+    if (last && last.group === group) last.options.push(option);
+    else runs.push({ group, options: [option] });
+  }
+  return runs;
 }
 
 export function FormSelect({
@@ -258,10 +327,50 @@ export function FormSelect({
   const hasEmptyOption = options.some((opt) => (typeof opt === 'string' ? opt : opt.value) === '');
   const radixValue = value === '' && hasEmptyOption ? emptyItemValue : value;
 
+  const renderOption = (opt: FormSelectOption | string) => {
+    const v = typeof opt === 'string' ? opt : opt.value;
+    const l = typeof opt === 'string' ? opt : opt.label;
+    const optionDisabled = typeof opt === 'string' ? false : Boolean(opt.disabled);
+    const optionDisabledReason =
+      typeof opt === 'string' ? undefined : opt.disabledReason;
+    // Radix reserves an empty value for clearing the selection. Keep
+    // callers' empty-string domain value, but never pass it to an item.
+    const itemValue = v === '' ? emptyItemValue : v;
+    const item = (
+      <SelectItem key={itemValue} value={itemValue} className="font-sans text-xs">
+        {l}
+      </SelectItem>
+    );
+    if (!optionDisabled) return item;
+    return (
+      <Tooltip key={itemValue}>
+        <TooltipTrigger asChild>
+          <SelectItem
+            value={itemValue}
+            disabled
+            aria-disabled="true"
+            className="font-sans text-xs"
+          >
+            {l}
+          </SelectItem>
+        </TooltipTrigger>
+        {optionDisabledReason && (
+          <TooltipContent side="right" className="max-w-xs leading-relaxed">
+            {optionDisabledReason}
+          </TooltipContent>
+        )}
+      </Tooltip>
+    );
+  };
+
   return (
     <Select
       value={radixValue}
-      onValueChange={(next) => onChange(next === emptyItemValue ? '' : next)}
+      onValueChange={(next) => {
+        // In a form Radix reports '' when a value arrives before its option is in the DOM: a saved
+        // choice whose list is still loading. Nobody can pick that, an empty choice has its own value.
+        if (next !== '') onChange(next === emptyItemValue ? '' : next);
+      }}
       {...(disabled !== undefined ? { disabled } : {})}
     >
       <DisabledControl
@@ -273,7 +382,7 @@ export function FormSelect({
           aria-label={ariaLabel}
           aria-disabled={disabled || undefined}
           className={cn(
-            'h-9 rounded-md border-bd-1 bg-[var(--control-surface)] px-3 font-sans text-sm text-tx-0 focus:outline-none disabled:border-bd-0 disabled:bg-bg-3 disabled:text-tx-3 disabled:opacity-100',
+            'h-9 rounded-md border-bd-1 bg-[var(--control-surface)] px-3 font-sans text-sm text-tx-0 focus:outline-none disabled:border-bd-0 disabled:bg-bg-3 disabled:text-[var(--tx-disabled)] disabled:opacity-100',
             className,
           )}
         >
@@ -283,39 +392,14 @@ export function FormSelect({
         </SelectTrigger>
       </DisabledControl>
       <SelectContent>
-        {options.map((opt) => {
-          const v = typeof opt === 'string' ? opt : opt.value;
-          const l = typeof opt === 'string' ? opt : opt.label;
-          const optionDisabled = typeof opt === 'string' ? false : Boolean(opt.disabled);
-          const optionDisabledReason =
-            typeof opt === 'string' ? undefined : opt.disabledReason;
-          // Radix reserves an empty value for clearing the selection. Keep
-          // callers' empty-string domain value, but never pass it to an item.
-          const itemValue = v === '' ? emptyItemValue : v;
-          const item = (
-            <SelectItem key={itemValue} value={itemValue} className="font-sans text-xs">
-              {l}
-            </SelectItem>
-          );
-          if (!optionDisabled) return item;
+        {optionRuns(options).map((run, index) => {
+          const items = run.options.map(renderOption);
+          if (run.group === undefined) return items;
           return (
-            <Tooltip key={itemValue}>
-              <TooltipTrigger asChild>
-                <SelectItem
-                  value={itemValue}
-                  disabled
-                  aria-disabled="true"
-                  className="font-sans text-xs"
-                >
-                  {l}
-                </SelectItem>
-              </TooltipTrigger>
-              {optionDisabledReason && (
-                <TooltipContent side="right" className="max-w-xs leading-relaxed">
-                  {optionDisabledReason}
-                </TooltipContent>
-              )}
-            </Tooltip>
+            <SelectGroup key={`${index}:${run.group}`}>
+              <SelectLabel>{run.group}</SelectLabel>
+              {items}
+            </SelectGroup>
           );
         })}
       </SelectContent>
@@ -338,6 +422,7 @@ export function FormChecklist<T extends string>({
   disabledReason?: React.ReactNode;
   className?: string;
 }) {
+  const markDraftChanged = useMarkDraftChanged();
   const content = (
     <div
       className={cn('flex flex-col gap-1.5', className)}
@@ -347,6 +432,7 @@ export function FormChecklist<T extends string>({
         const checked = selected.includes(opt.value);
         const toggle = () => {
           if (disabled) return;
+          markDraftChanged();
           onChange(
             checked
               ? selected.filter((v) => v !== opt.value)
@@ -416,6 +502,7 @@ export function FormRadio<T extends string>({
   className?: string;
 }) {
   const baseId = React.useId();
+  const markDraftChanged = useMarkDraftChanged();
   return (
     <RadioGroup value={value} onValueChange={(next) => onChange(next as T)} className={cn('flex flex-col gap-1.5', className)}>
       {options.map((opt) => {
@@ -425,7 +512,10 @@ export function FormRadio<T extends string>({
           <label
             key={opt.value}
             htmlFor={id}
-            onClick={() => onChange(opt.value)}
+            onClick={() => {
+              markDraftChanged();
+              onChange(opt.value);
+            }}
             className={cn(
               'flex min-h-11 cursor-pointer items-start gap-3 rounded-md border px-3 py-2.5 font-sans text-sm transition-colors',
               checked
@@ -470,6 +560,7 @@ export function FieldArray<T>({
   removeLabel = 'Remove',
   reorderLabel = { up: 'Move up', down: 'Move down' },
   minItems = 0,
+  maxItems,
   reorderable = false,
   emptyHint,
   rowClassName,
@@ -483,16 +574,23 @@ export function FieldArray<T>({
   reorderLabel?: { up: string; down: string };
   /** Keep at least this many rows — the remove control hides at the floor. */
   minItems?: number;
+  /** Allow at most this many rows — the add control hides at the ceiling. */
+  maxItems?: number;
   reorderable?: boolean;
   emptyHint?: React.ReactNode;
   rowClassName?: string;
 }) {
+  const markDraftChanged = useMarkDraftChanged();
   const setItem = (i: number, next: T) =>
     onChange(items.map((item, idx) => (idx === i ? next : item)));
-  const remove = (i: number) => onChange(items.filter((_, idx) => idx !== i));
+  const remove = (i: number) => {
+    markDraftChanged();
+    onChange(items.filter((_, idx) => idx !== i));
+  };
   const move = (i: number, delta: number) => {
     const j = i + delta;
     if (j < 0 || j >= items.length) return;
+    markDraftChanged();
     const next = items.slice();
     const [moved] = next.splice(i, 1);
     next.splice(j, 0, moved as T);
@@ -545,11 +643,19 @@ export function FieldArray<T>({
           )}
         </div>
       ))}
-      <div>
-        <ChromeButton type="button" onClick={() => onChange([...items, newItem()])}>
-          <Plus className="h-3 w-3" /> {addLabel}
-        </ChromeButton>
-      </div>
+      {(maxItems === undefined || items.length < maxItems) && (
+        <div>
+          <ChromeButton
+            type="button"
+            onClick={() => {
+              markDraftChanged();
+              onChange([...items, newItem()]);
+            }}
+          >
+            <Plus className="h-3 w-3" /> {addLabel}
+          </ChromeButton>
+        </div>
+      )}
     </div>
   );
 }

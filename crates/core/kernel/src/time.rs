@@ -4,8 +4,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// 微秒级时间戳。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+/// 微秒级时间戳。默认值是纪元起点。
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
 #[serde(transparent)]
 pub struct TimestampMicros(pub i64);
 
@@ -60,6 +62,111 @@ impl TimeRange {
     /// 闭区间相交（共享至少一个点即为 true）。
     pub fn overlaps(&self, other: TimeRange) -> bool {
         self.start.0 <= other.end.0 && other.start.0 <= self.end.0
+    }
+}
+
+/// 时间点按 `TIMESTAMPTZ` 存取，精度同为微秒。`i64::MAX` 与 `i64::MIN` 表示不设上限、下限，
+/// 存成 `infinity` 与 `-infinity`：它们落在 `DateTime<Utc>` 的范围之外，却是查询区间常用的端点。
+#[cfg(feature = "postgres")]
+mod postgres {
+    use chrono::{DateTime, Utc};
+    use sqlx::{
+        Decode, Encode, Postgres, Type,
+        encode::IsNull,
+        error::BoxDynError,
+        postgres::{PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueFormat, PgValueRef},
+    };
+
+    use super::TimestampMicros;
+
+    /// Postgres 的纪元 2000-01-01T00:00:00Z，自 Unix 纪元起的微秒数。二进制格式存的是距它的微秒数，
+    /// `i64::MAX` 与 `i64::MIN` 是 `infinity` 与 `-infinity`。
+    const POSTGRES_EPOCH: i64 = 946_684_800_000_000;
+
+    impl Type<Postgres> for TimestampMicros {
+        fn type_info() -> PgTypeInfo {
+            <DateTime<Utc> as Type<Postgres>>::type_info()
+        }
+    }
+
+    impl PgHasArrayType for TimestampMicros {
+        fn array_type_info() -> PgTypeInfo {
+            <DateTime<Utc> as PgHasArrayType>::array_type_info()
+        }
+    }
+
+    impl Encode<'_, Postgres> for TimestampMicros {
+        fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> Result<IsNull, BoxDynError> {
+            Encode::<Postgres>::encode(to_postgres(self.0), buf)
+        }
+
+        fn size_hint(&self) -> usize {
+            std::mem::size_of::<i64>()
+        }
+    }
+
+    impl<'r> Decode<'r, Postgres> for TimestampMicros {
+        fn decode(value: PgValueRef<'r>) -> Result<Self, BoxDynError> {
+            if value.format() == PgValueFormat::Binary {
+                let micros = <i64 as Decode<'r, Postgres>>::decode(value)?;
+                return Ok(Self(from_postgres(micros)));
+            }
+
+            match value.as_str()? {
+                "infinity" => Ok(Self(i64::MAX)),
+                "-infinity" => Ok(Self(i64::MIN)),
+                _ => {
+                    let value = <DateTime<Utc> as Decode<'r, Postgres>>::decode(value)?;
+                    Ok(Self(value.timestamp_micros()))
+                }
+            }
+        }
+    }
+
+    /// 紧挨 `i64::MIN` 的值减去纪元会溢出，饱和成 `-infinity`。
+    fn to_postgres(micros: i64) -> i64 {
+        match micros {
+            i64::MAX => i64::MAX,
+            micros => micros.saturating_sub(POSTGRES_EPOCH),
+        }
+    }
+
+    /// `infinity` 和 Postgres 范围最末约 30 年加上纪元会超出 `i64`，饱和成 `i64::MAX`。
+    fn from_postgres(micros: i64) -> i64 {
+        match micros {
+            i64::MIN => i64::MIN,
+            micros => micros.saturating_add(POSTGRES_EPOCH),
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        fn encoded(micros: i64) -> i64 {
+            let mut buf = PgArgumentBuffer::default();
+            let _ = TimestampMicros(micros).encode_by_ref(&mut buf).unwrap();
+            i64::from_be_bytes(buf.as_slice().try_into().unwrap())
+        }
+
+        #[test]
+        fn open_ends_are_infinity() {
+            assert_eq!(encoded(i64::MAX), i64::MAX);
+            assert_eq!(encoded(i64::MIN), i64::MIN);
+            assert_eq!(from_postgres(i64::MAX), i64::MAX);
+            assert_eq!(from_postgres(i64::MIN), i64::MIN);
+        }
+
+        #[test]
+        fn instants_count_from_the_postgres_epoch() {
+            assert_eq!(encoded(POSTGRES_EPOCH), 0);
+            assert_eq!(encoded(0), -POSTGRES_EPOCH);
+            assert_eq!(
+                from_postgres(encoded(1_793_719_205_807_318)),
+                1_793_719_205_807_318
+            );
+            assert_eq!(from_postgres(encoded(-1)), -1);
+        }
     }
 }
 

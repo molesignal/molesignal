@@ -94,9 +94,9 @@ describe('datasourceModel', () => {
   });
 
   it('masks the middle of tokens while keeping them recognizable', () => {
-    const token = 'ms_abcd_1234567890_secret';
+    const token = 'mspat-abcd1234567890secret';
     const masked = maskToken(token);
-    expect(masked).toMatch(/^ms_abcd_/);
+    expect(masked).toMatch(/^mspat-ab/);
     expect(masked).toMatch(/secret$/);
     expect(masked).not.toContain('1234567890');
   });
@@ -105,34 +105,34 @@ describe('datasourceModel', () => {
     const overview = {
       signals: [
         {
-          stream_type: 'logs',
+          streamType: 'logs',
           status: 'healthy',
-          total_streams: 1,
-          active_streams: 1,
+          totalStreams: 1,
+          activeStreams: 1,
           rows: 120,
-          stored_bytes: 2048,
-          last_received_at_micros: 200,
+          storedBytes: 2048,
+          lastReceivedAt: 200,
         },
         {
-          stream_type: 'metrics',
+          streamType: 'metrics',
           status: 'no_data',
-          total_streams: 1,
-          active_streams: 0,
+          totalStreams: 1,
+          activeStreams: 0,
           rows: 0,
-          stored_bytes: 0,
-          last_received_at_micros: null,
+          storedBytes: 0,
+          lastReceivedAt: null,
         },
       ],
       streams: [
         {
           id: 'logs/default',
           name: 'default',
-          stream_type: 'logs',
+          streamType: 'logs',
           status: 'healthy',
           rows: 120,
-          stored_bytes: 2048,
-          first_received_at_micros: 100,
-          last_received_at_micros: 200,
+          storedBytes: 2048,
+          firstReceivedAt: 100,
+          lastReceivedAt: 200,
         },
       ],
     } as HomeOverview;
@@ -142,7 +142,7 @@ describe('datasourceModel', () => {
       status: 'healthy',
       rows: 120,
       storedBytes: 2048,
-      lastReceivedAtMicros: 200,
+      lastReceivedAt: 200,
       activeSignals: 1,
       expectedSignals: 2,
       streamNames: ['default'],
@@ -156,7 +156,7 @@ describe('datasourceModel', () => {
       status: 'unknown',
       rows: 0,
       storedBytes: 0,
-      lastReceivedAtMicros: null,
+      lastReceivedAt: null,
       activeSignals: 0,
       expectedSignals: 1,
       streamNames: [],

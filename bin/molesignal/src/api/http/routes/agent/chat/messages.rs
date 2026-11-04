@@ -36,6 +36,7 @@ use crate::{
 };
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateChatReq {
     pub provider: String,
     pub model: String,
@@ -60,6 +61,7 @@ pub struct CreateChatReq {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChatResp {
     pub id: String,
     pub provider: String,
@@ -68,10 +70,10 @@ pub struct ChatResp {
     pub provider_id: Option<String>,
     pub analysis_mode: Option<String>,
     pub capability: Option<String>,
-    pub time_range_start_micros: Option<i64>,
-    pub time_range_end_micros: Option<i64>,
+    pub time_range_start: Option<i64>,
+    pub time_range_end: Option<i64>,
     pub archive_object_key: Option<String>,
-    /// `personal` 或 `team`。
+    /// `personal`、`team` 或 `org`（组织作用域的自动化）。
     pub scope: String,
     pub team_id: Option<String>,
     pub mounted_team_ids: Vec<String>,
@@ -85,8 +87,10 @@ pub struct ChatResp {
     pub investigation_id: Option<String>,
     /// 从哪个会话分叉出来的。
     pub parent_chat_id: Option<String>,
-    pub created_at_micros: i64,
-    pub updated_at_micros: i64,
+    /// 自动化的一次运行：会话只读，页面说明出自哪条规则。
+    pub automation_id: Option<String>,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
 /// 用户消息是命令时的命令：界面据此画命令胶囊。交给模型的展开问题不返回。
@@ -98,6 +102,7 @@ pub struct MessageCommandResp {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChatMessageResp {
     pub id: String,
     pub chat_id: String,
@@ -122,10 +127,10 @@ pub struct ChatMessageResp {
     /// 用户消息的发送人与其显示名：团队会话里问题可能来自不同的人。
     pub sender_id: Option<String>,
     pub sender_name: Option<String>,
-    pub created_at_micros: i64,
+    pub created_at: i64,
 }
 
-fn to_chat_resp(s: Chat, viewer: &Viewer) -> ChatResp {
+pub(super) fn to_chat_resp(s: Chat, viewer: &Viewer) -> ChatResp {
     let capability = (s.analysis_mode.as_deref() == Some("dashboard"))
         .then(|| "dashboard_authoring".to_string());
 
@@ -139,8 +144,8 @@ fn to_chat_resp(s: Chat, viewer: &Viewer) -> ChatResp {
         provider_id: s.provider_id,
         analysis_mode: s.analysis_mode,
         capability,
-        time_range_start_micros: s.time_range_start_micros,
-        time_range_end_micros: s.time_range_end_micros,
+        time_range_start: s.time_range_start,
+        time_range_end: s.time_range_end,
         archive_object_key: s.archive_object_key,
         scope: s.scope,
         team_id: s.team_id,
@@ -151,82 +156,10 @@ fn to_chat_resp(s: Chat, viewer: &Viewer) -> ChatResp {
         subject_id: s.subject_id,
         investigation_id: s.investigation_id,
         parent_chat_id: s.parent_chat_id,
-        created_at_micros: s.created_at.0,
-        updated_at_micros: s.updated_at.0,
+        automation_id: s.automation_id,
+        created_at: s.created_at.0,
+        updated_at: s.updated_at.0,
     }
-}
-
-#[derive(Debug, Default, Deserialize)]
-pub struct ForkReq {
-    /// 从这条消息分叉：新会话的消息到它为止。不填时复制全部。
-    #[serde(default)]
-    pub message_id: Option<String>,
-}
-
-/// `POST /api/v1/agent/chat/{id}/fork`：从一条回答把会话分叉成一个新会话，归分叉的人。复制到那
-/// 条为止的消息，标题、范围与团队、挂进来的团队、模型、时间范围与回答语言照旧；调查的对象不带
-/// 过去，新会话是另一条线。只在复制全部时带上压缩摘要（它可能概括了那条之后的消息）。团队会话的
-/// 分叉仍在团队里，要能在团队里发起会话。
-#[permission("agent.use")]
-pub(super) async fn fork_chat(
-    State(state): State<AppState>,
-    Extension(ctx): Extension<IamContext>,
-    Path(id): Path<String>,
-    body: Option<Json<ForkReq>>,
-) -> Result<Json<ChatResp>> {
-    let request = body.map(|Json(request)| request).unwrap_or_default();
-    let (source, viewer) = readable_chat(&state, &ctx, &Id(id)).await?;
-
-    let upto = match request.message_id.as_deref() {
-        Some(message_id) => Some(
-            state
-                .agent
-                .chats
-                .list_messages(&source.id)
-                .await?
-                .into_iter()
-                .find(|message| message.id.0 == message_id)
-                .ok_or_else(|| Error::not_found("the message to fork from is not in this chat"))?,
-        ),
-        None => None,
-    };
-
-    if let Some(team_id) = &source.team_id
-        && !viewer.can_edit(&Scope::Team {
-            team_id: Id(team_id.clone()),
-        })
-    {
-        return Err(Error::forbidden(
-            "only the team's members can fork the team's chats",
-        ));
-    }
-
-    let mut fork = Chat::minimal(
-        Id::new(),
-        ctx.org_id.clone(),
-        ctx.user_id.clone(),
-        source.provider.clone(),
-        source.model.clone(),
-        source.title.clone(),
-        TimestampMicros::now(),
-    );
-    fork.provider_id = source.provider_id;
-    fork.analysis_mode = source.analysis_mode;
-    fork.time_range_start_micros = source.time_range_start_micros;
-    fork.time_range_end_micros = source.time_range_end_micros;
-    fork.scope = source.scope;
-    fork.team_id = source.team_id;
-    fork.mounted_team_ids = source.mounted_team_ids;
-    fork.reply_language = source.reply_language;
-    if upto.is_none() {
-        fork.context_summary = source.context_summary;
-        fork.context_summary_upto_micros = source.context_summary_upto_micros;
-    }
-    fork.parent_chat_id = Some(source.id.0);
-    fork.title_provisional = source.title_provisional;
-
-    let saved = state.agent.chats.fork_chat(fork, upto.as_ref()).await?;
-    Ok(Json(to_chat_resp(saved, &viewer)))
 }
 
 /// 消息上记下的命令；读不出时当作没有。
@@ -274,7 +207,7 @@ fn to_message_resp_named(message: ChatMessage, names: &HashMap<String, String>) 
         run_id: message.run_id.map(|id| id.0),
         sender_id,
         sender_name,
-        created_at_micros: message.created_at.0,
+        created_at: message.created_at.0,
     }
 }
 
@@ -314,6 +247,17 @@ pub(super) async fn list_chats(
             .map(|chat| to_chat_resp(chat, &viewer))
             .collect(),
     ))
+}
+
+/// 一个能读的会话。不在对话列表里的（自动化的运行）也从这里读。
+#[permission("agent.use")]
+pub(super) async fn get_chat(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<IamContext>,
+    Path(id): Path<String>,
+) -> Result<Json<ChatResp>> {
+    let (chat, viewer) = readable_chat(&state, &ctx, &Id(id)).await?;
+    Ok(Json(to_chat_resp(chat, &viewer)))
 }
 
 #[permission("agent.use")]
@@ -539,8 +483,8 @@ mod tests {
     fn message_response_uses_frontend_timestamp_contract() {
         let value = serde_json::to_value(to_message_resp(message("回答"))).unwrap();
 
-        assert_eq!(value["created_at_micros"], 42);
-        assert!(value.get("created_at").is_none());
+        assert_eq!(value["createdAt"], 42);
+        assert!(value.get("createdAtMicros").is_none());
         assert!(value["command"].is_null());
     }
 
@@ -551,7 +495,7 @@ mod tests {
             "name": "query",
             "args": "errors by service",
             "source": "builtin",
-            "model_text": "errors by service",
+            "modelText": "errors by service",
         }));
 
         let value = serde_json::to_value(to_message_resp(command)).unwrap();

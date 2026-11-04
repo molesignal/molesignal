@@ -18,7 +18,6 @@ import {
 
 import { ALERT_PRODUCT_ROUTES } from './ia/alerts';
 import { APM_PRODUCT_ROUTES } from './ia/apm';
-import { BUSINESS_SERVICE_PRODUCT_ROUTES } from './ia/businessServices';
 import { DATA_COLLABORATION_PRODUCT_ROUTES } from './ia/dataCollaboration';
 import { RUM_PRODUCT_ROUTES } from './ia/rum';
 import { SYNTHETICS_PRODUCT_ROUTES } from './ia/synthetics';
@@ -54,7 +53,6 @@ export type ProductOwnerModule =
   | 'dashboards'
   | 'alerts'
   | 'synthetics'
-  | 'business_services'
   | 'streams'
   | 'pipelines'
   | 'functions'
@@ -322,7 +320,6 @@ export const PRODUCT_ROUTES = [
   }),
   ...ALERT_PRODUCT_ROUTES,
   ...SYNTHETICS_PRODUCT_ROUTES,
-  ...BUSINESS_SERVICE_PRODUCT_ROUTES,
   route({
     id: 'agent',
     path: '/agent',
@@ -343,6 +340,19 @@ export const PRODUCT_ROUTES = [
     emptyStateStrategy: 'create-first',
   }),
   ...DATA_COLLABORATION_PRODUCT_ROUTES,
+  // The sidebar entries of the admin areas: each opens the first of its pages within reach, so
+  // that whoever holds any permission of an area can get there.
+  route({
+    id: 'iam',
+    path: '/iam',
+    labelKey: 'iam',
+    group: 'admin',
+    icon: ShieldCheck,
+    owner: 'iam',
+    emptyStateStrategy: 'none',
+    nav: true,
+    activePrefix: '/iam',
+  }),
   route({
     id: 'iam.users',
     path: '/iam/users',
@@ -351,7 +361,6 @@ export const PRODUCT_ROUTES = [
     icon: ShieldCheck,
     owner: 'iam',
     emptyStateStrategy: 'create-first',
-    nav: true,
     activePrefix: '/iam',
   }),
   route({
@@ -362,8 +371,18 @@ export const PRODUCT_ROUTES = [
     icon: ShieldCheck,
     owner: 'iam',
     emptyStateStrategy: 'create-first',
-    nav: true,
     activePrefix: '/iam',
+  }),
+  route({
+    id: 'settings',
+    path: '/settings',
+    labelKey: 'settings',
+    group: 'admin',
+    icon: Settings,
+    owner: 'settings',
+    emptyStateStrategy: 'none',
+    nav: true,
+    activePrefix: '/settings',
   }),
   route({
     id: 'settings.general',
@@ -373,7 +392,6 @@ export const PRODUCT_ROUTES = [
     icon: Settings,
     owner: 'settings',
     emptyStateStrategy: 'none',
-    nav: true,
     activePrefix: '/settings',
   }),
   route({
@@ -384,13 +402,84 @@ export const PRODUCT_ROUTES = [
     icon: Settings,
     owner: 'settings',
     emptyStateStrategy: 'none',
-    nav: true,
     activePrefix: '/settings',
   }),
   route({
     id: 'settings.client_ip',
     path: '/settings/client_ip',
     labelKey: 'client_ip',
+    group: 'admin',
+    icon: ShieldCheck,
+    owner: 'settings',
+    emptyStateStrategy: 'none',
+  }),
+  route({
+    id: 'settings.nodes',
+    path: '/settings/nodes',
+    labelKey: 'nodes',
+    group: 'admin',
+    icon: ShieldCheck,
+    owner: 'settings',
+    emptyStateStrategy: 'none',
+  }),
+  route({
+    id: 'settings.signin_requirements',
+    path: '/settings/signin_requirements',
+    labelKey: 'signin_requirements',
+    group: 'admin',
+    icon: ShieldCheck,
+    owner: 'settings',
+    emptyStateStrategy: 'none',
+  }),
+  route({
+    id: 'settings.signin_limits',
+    path: '/settings/signin_limits',
+    labelKey: 'signin_limits',
+    group: 'admin',
+    icon: ShieldCheck,
+    owner: 'settings',
+    emptyStateStrategy: 'none',
+  }),
+  route({
+    id: 'settings.audit_retention',
+    path: '/settings/audit_retention',
+    labelKey: 'audit_retention',
+    group: 'admin',
+    icon: ShieldCheck,
+    owner: 'settings',
+    emptyStateStrategy: 'none',
+  }),
+  route({
+    id: 'settings.stream_retention',
+    path: '/settings/stream_retention',
+    labelKey: 'stream_retention',
+    group: 'admin',
+    icon: ShieldCheck,
+    owner: 'settings',
+    emptyStateStrategy: 'none',
+  }),
+  route({
+    id: 'settings.series_limits',
+    path: '/settings/series_limits',
+    labelKey: 'series_limits',
+    group: 'admin',
+    icon: ShieldCheck,
+    owner: 'settings',
+    emptyStateStrategy: 'none',
+  }),
+  route({
+    id: 'settings.intake_usage',
+    path: '/settings/intake_usage',
+    labelKey: 'intake_usage',
+    group: 'admin',
+    icon: ShieldCheck,
+    owner: 'settings',
+    emptyStateStrategy: 'none',
+  }),
+  route({
+    id: 'settings.alert_evaluation',
+    path: '/settings/alert_evaluation',
+    labelKey: 'alert_evaluation',
     group: 'admin',
     icon: ShieldCheck,
     owner: 'settings',

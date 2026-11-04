@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 /**
- * Which optional parts of the Logs and Traces explorers the user keeps open.
+ * Which optional parts of the Logs, Traces and RUM explorers the user keeps open.
  *
  * The histogram above the results can be closed to give the rows more room, and
  * the choice is remembered per explorer, so the page opens the way it was left.
@@ -13,8 +13,10 @@ import { persist } from 'zustand/middleware';
 interface ExplorerLayoutState {
   logsHistogramVisible: boolean;
   tracesHistogramVisible: boolean;
+  rumHistogramVisible: boolean;
   setLogsHistogramVisible: (visible: boolean) => void;
   setTracesHistogramVisible: (visible: boolean) => void;
+  setRumHistogramVisible: (visible: boolean) => void;
 }
 
 export const EXPLORER_LAYOUT_STORAGE_KEY = 'molesignal.explorer.layout.v1';
@@ -24,8 +26,10 @@ export const useExplorerLayoutStore = create<ExplorerLayoutState>()(
     (set) => ({
       logsHistogramVisible: true,
       tracesHistogramVisible: true,
+      rumHistogramVisible: true,
       setLogsHistogramVisible: (logsHistogramVisible) => set({ logsHistogramVisible }),
       setTracesHistogramVisible: (tracesHistogramVisible) => set({ tracesHistogramVisible }),
+      setRumHistogramVisible: (rumHistogramVisible) => set({ rumHistogramVisible }),
     }),
     {
       name: EXPLORER_LAYOUT_STORAGE_KEY,
@@ -33,6 +37,7 @@ export const useExplorerLayoutStore = create<ExplorerLayoutState>()(
       partialize: (state) => ({
         logsHistogramVisible: state.logsHistogramVisible,
         tracesHistogramVisible: state.tracesHistogramVisible,
+        rumHistogramVisible: state.rumHistogramVisible,
       }),
     },
   ),

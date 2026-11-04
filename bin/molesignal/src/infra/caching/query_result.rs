@@ -74,10 +74,10 @@ impl QueryResultCache {
     }
 
     /// 缓存键必须覆盖每一个会改变结果的输入。除 org / 语言 / 语句 / 时间窗 / 角色过滤外
-    /// 还包含三项，少任何一项都会串结果：
+    /// 还包含四项，少任何一项都会串结果：
     ///
-    /// - `limit`：不只是截断行数。PromQL 侧 `limit <= 1` 走 instant vector、`> 1` 走 range
-    ///   matrix，`range_step_us` 也用它算步长 —— 同一条语句不同 limit 的结果形态不同。
+    /// - `limit`：截断行数；PromQL range 结果在上限内为每条 series 均匀取点。
+    /// - `step`：PromQL 有 step 走 range matrix、没有走 instant vector，步长决定步点。
     /// - `stream`：同名语句可以指向不同的 stream hint。
     /// - `federation_clusters`：联邦查询与纯本地查询的结果集不同，共享键会让联邦结果
     ///   命中本地缓存。
@@ -98,7 +98,7 @@ impl QueryResultCache {
         clusters.sort_unstable();
 
         let payload = format!(
-            "{}|{}|{}|{}|{}|{}|{}|{}|{}",
+            "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
             req.org_id,
             lang,
             req.statement,
@@ -106,6 +106,7 @@ impl QueryResultCache {
             req.time_range.end.0,
             role_filter,
             req.limit.map_or_else(|| "-".to_string(), |l| l.to_string()),
+            req.step.map_or_else(|| "-".to_string(), |s| s.to_string()),
             stream,
             clusters.join(","),
         );
@@ -184,7 +185,7 @@ mod tests {
 
     /// 键必须区分每一个会改变结果的输入。少任何一项 = 两条本应不同的查询共享一份结果。
     #[test]
-    fn key_covers_limit_stream_and_federation() {
+    fn key_covers_limit_step_stream_and_federation() {
         use crate::domain::{query::StreamHint, stream::StreamType};
 
         let base = QueryRequest {
@@ -194,11 +195,12 @@ mod tests {
             time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(1)),
             stream: None,
             limit: None,
+            step: None,
             federation_clusters: Vec::new(),
         };
         let k0 = QueryResultCache::key_for(&base, "role-x");
 
-        // limit：PromQL 侧 <=1 走 instant vector、>1 走 range matrix，结果形态不同。
+        // limit：截断的行数不同，结果不同。
         let with_limit = QueryRequest {
             limit: Some(1),
             ..base.clone()
@@ -211,7 +213,22 @@ mod tests {
         assert_ne!(
             QueryResultCache::key_for(&with_limit, "role-x"),
             QueryResultCache::key_for(&with_bigger_limit, "role-x"),
-            "limit=1 与 limit=100 的结果形态不同，不能共享缓存"
+            "limit=1 与 limit=100 截断的行数不同，不能共享缓存"
+        );
+
+        // step：PromQL 有 step 走 range、没有走 instant，不同步长的步点也不同。
+        let with_step = QueryRequest {
+            step: Some(15_000_000),
+            ..base.clone()
+        };
+        let with_other_step = QueryRequest {
+            step: Some(60_000_000),
+            ..base.clone()
+        };
+        assert_ne!(k0, QueryResultCache::key_for(&with_step, "role-x"));
+        assert_ne!(
+            QueryResultCache::key_for(&with_step, "role-x"),
+            QueryResultCache::key_for(&with_other_step, "role-x"),
         );
 
         // stream hint
@@ -268,6 +285,7 @@ mod tests {
             ),
             stream: None,
             limit: None,
+            step: None,
             federation_clusters: Vec::new(),
         };
         let call_count = Arc::new(AtomicUsize::new(0));
@@ -313,6 +331,7 @@ mod tests {
             ),
             stream: None,
             limit: None,
+            step: None,
             federation_clusters: Vec::new(),
         };
         let call_count = Arc::new(AtomicUsize::new(0));

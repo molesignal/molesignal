@@ -29,7 +29,7 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
   const { t } = useTranslation('status-pages');
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { pageId, snapshot, manageAccess } = useStatusPageWorkspace();
+  const { pageId, snapshot, subscribersAccess } = useStatusPageWorkspace();
   const [revoking, setRevoking] = React.useState<StatusPageSubscriber | null>(null);
   const [importing, setImporting] = React.useState(false);
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
@@ -65,8 +65,8 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
 
   const result = view === 'list' ? subscribersQuery.data : deliveriesQuery.data;
   const loading = view === 'list' ? subscribersQuery.isLoading : deliveriesQuery.isLoading;
-  const pageCount = Math.max(1, Math.ceil((result?.total ?? 0) / (result?.per_page ?? 25)));
-  const canImport = manageAccess.allowed && snapshot.page.lifecycle === 'active';
+  const pageCount = Math.max(1, Math.ceil((result?.total ?? 0) / (result?.perPage ?? 25)));
+  const canImport = subscribersAccess.allowed && snapshot.page.lifecycle === 'active';
 
   return (
     <PageBody className="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2">
@@ -85,7 +85,7 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
               {/* How long the records below are kept is a fact about the deliveries, not the subscribers. */}
               {view === 'deliveries' && (
                 <p className="ml-auto text-xs text-tx-2">
-                  {t('subscribers.retention_hint', { count: snapshot.page.delivery_retention_days })}
+                  {t('subscribers.retention_hint', { count: snapshot.page.deliveryRetentionDays })}
                 </p>
               )}
             </>
@@ -95,7 +95,7 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
                 action: (
                   <ChromeButton
                     disabled={!canImport}
-                    disabledReason={manageAccess.reason}
+                    disabledReason={subscribersAccess.reason}
                     onClick={() => setImporting(true)}
                   >
                     <Upload className="h-3.5 w-3.5" />
@@ -118,10 +118,10 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
                 cell: (subscriber) => (
                   <div className="flex min-w-0 items-center gap-2">
                     {/* A Slack channel added with Add to Slack is known by its name, not its address. */}
-                    {subscriber.target_label ? (
-                      <span className="truncate text-xs text-tx-1">{subscriber.target_label}</span>
+                    {subscriber.targetLabel ? (
+                      <span className="truncate text-xs text-tx-1">{subscriber.targetLabel}</span>
                     ) : (
-                      <span className="truncate font-mono text-xs text-tx-1">{subscriber.masked_target}</span>
+                      <span className="truncate font-mono text-xs text-tx-1">{subscriber.maskedTarget}</span>
                     )}
                     {subscriber.origin && subscriber.origin !== 'page' && (
                       <Pill tone="dim">{t(`subscriber_origin.${subscriber.origin}`)}</Pill>
@@ -165,7 +165,7 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
                 header: t('columns.created'),
                 width: 180,
                 cell: (subscriber) => (
-                  <span className="tabular-nums text-tx-3">{formatMicrosActive(subscriber.created_at)}</span>
+                  <span className="tabular-nums text-tx-3">{formatMicrosActive(subscriber.createdAt)}</span>
                 ),
               },
               {
@@ -179,11 +179,11 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
                         aria-label={t('actions.resend_confirmation')}
                         title={t('actions.resend_confirmation')}
                         disabled={
-                          !manageAccess.allowed
+                          !subscribersAccess.allowed
                           || snapshot.page.lifecycle !== 'active'
                           || resendMutation.isPending
                         }
-                        disabledReason={manageAccess.reason}
+                        disabledReason={subscribersAccess.reason}
                         onClick={() => resendMutation.mutate(subscriber.id)}
                       >
                         <RefreshCw className="h-3.5 w-3.5" />
@@ -193,8 +193,8 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
                       <IconButton
                         aria-label={t('actions.revoke')}
                         title={t('actions.revoke')}
-                        disabled={!manageAccess.allowed}
-                        disabledReason={manageAccess.reason}
+                        disabled={!subscribersAccess.allowed}
+                        disabledReason={subscribersAccess.reason}
                         onClick={() => setRevoking(subscriber)}
                       >
                         <UserMinus className="h-3.5 w-3.5" />
@@ -215,12 +215,12 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
               {
                 key: 'event',
                 header: t('columns.event'),
-                cell: (delivery) => <span className="font-mono text-xs text-tx-1">{delivery.event_key}</span>,
+                cell: (delivery) => <span className="font-mono text-xs text-tx-1">{delivery.eventKey}</span>,
               },
               {
                 key: 'target',
                 header: t('columns.subscriber'),
-                cell: (delivery) => <span className="font-mono text-xs text-tx-2">{delivery.masked_target}</span>,
+                cell: (delivery) => <span className="font-mono text-xs text-tx-2">{delivery.maskedTarget}</span>,
               },
               {
                 key: 'status',
@@ -243,7 +243,7 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
                 header: t('columns.created'),
                 width: 180,
                 cell: (delivery) => (
-                  <span className="tabular-nums text-tx-3">{formatMicrosActive(delivery.created_at)}</span>
+                  <span className="tabular-nums text-tx-3">{formatMicrosActive(delivery.createdAt)}</span>
                 ),
               },
             ]}
@@ -253,7 +253,7 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
             <ResultPagination
               page={page}
               pageCount={pageCount}
-              pageSize={result.per_page}
+              pageSize={result.perPage}
               pageSizeOptions={[25]}
               pageLabel={t('pagination.page', { page, pages: pageCount })}
               ariaLabel={t('pagination.label')}
@@ -273,7 +273,7 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
         open={Boolean(revoking)}
         onOpenChange={(open) => !open && setRevoking(null)}
         title={t('confirm.revoke_subscriber_title')}
-        description={t('confirm.revoke_subscriber_description', { target: revoking?.masked_target })}
+        description={t('confirm.revoke_subscriber_description', { target: revoking?.maskedTarget })}
         confirmLabel={t('actions.revoke')}
         destructive
         busy={revokeMutation.isPending}

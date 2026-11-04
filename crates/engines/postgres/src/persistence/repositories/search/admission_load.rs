@@ -52,16 +52,16 @@ impl SearchAdmissionLoadRepository for PgSearchAdmissionLoadRepository {
     ) -> Result<()> {
         for (group, in_flight) in loads {
             sqlx::query(
-                "INSERT INTO search_admission_load (node_id, work_group, in_flight, updated_at_micros)
+                "INSERT INTO search_admission_load (node_id, work_group, in_flight, updated_at)
                  VALUES ($1, $2, $3, $4)
                  ON CONFLICT (node_id, work_group) DO UPDATE SET
                     in_flight = EXCLUDED.in_flight,
-                    updated_at_micros = EXCLUDED.updated_at_micros",
+                    updated_at = EXCLUDED.updated_at",
             )
             .bind(node_id)
             .bind(group)
             .bind(*in_flight)
-            .bind(now.0)
+            .bind(now)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
@@ -78,11 +78,11 @@ impl SearchAdmissionLoadRepository for PgSearchAdmissionLoadRepository {
         let rows = sqlx::query(
             "SELECT work_group, SUM(in_flight) AS total
              FROM search_admission_load
-             WHERE node_id <> $1 AND updated_at_micros >= $2
+             WHERE node_id <> $1 AND updated_at >= $2
              GROUP BY work_group",
         )
         .bind(node_id)
-        .bind(since.0)
+        .bind(since)
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;

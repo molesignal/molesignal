@@ -3,23 +3,28 @@ import type { PermissionCatalog, PermissionKey } from '@/product/permissions';
 import type { AssignedRole, AuthScope } from '@/stores/auth';
 
 export interface IamCapabilitySnapshot {
-  organization_id: string;
+  organizationId: string;
   scope: AuthScope;
-  display_role: string;
+  displayRole: string;
   roles: AssignedRole[];
   permissions: PermissionKey[];
+  /**
+   * Platform permissions held on named organizations only: permission to organization ids.
+   * `permissions` is what is held without any such limit.
+   */
+  organizationPermissions?: Record<string, string[]>;
   version: number;
   /** Absent only on a rolling upgrade from a pre-route-catalog backend. */
-  route_catalog_version?: number;
+  routeCatalogVersion?: number;
   /** Missing legacy snapshots fail closed until the backend is upgraded. */
   routes?: IamRouteAccess[];
 }
 
 export interface IamRouteAccess {
   id: string;
-  path_pattern: string;
+  pathPattern: string;
   allowed: boolean;
-  navigation_group?:
+  navigationGroup?:
     | 'home'
     | 'observe'
     | 'reliability'
@@ -27,7 +32,7 @@ export interface IamRouteAccess {
     | 'data'
     | 'collaboration'
     | 'admin';
-  navigation_position?: number;
+  navigationPosition?: number;
 }
 
 export type PrincipalType =
@@ -40,52 +45,52 @@ export type CrossOrgGrantStatus = 'pending' | 'active' | 'revoked';
 
 export interface RoleBinding {
   id: string;
-  organization_id: string;
-  role_id: string;
-  principal_type: PrincipalType;
-  principal_id: string;
-  resource_type?: string;
-  resource_id?: string;
+  organizationId: string;
+  roleId: string;
+  principalType: PrincipalType;
+  principalId: string;
+  resourceType?: string;
+  resourceId?: string;
   conditions: Record<string, unknown>;
-  starts_at?: number;
-  expires_at?: number;
-  created_by: string;
-  created_at: number;
+  startsAt?: number;
+  expiresAt?: number;
+  createdBy: string;
+  createdAt: number;
 }
 
 export interface ResourceRelationship {
   id: string;
-  organization_id: string;
-  resource_type: string;
-  resource_id: string;
-  role_id: string;
-  subject_type: PrincipalType;
-  subject_id: string;
-  container_type?: string;
-  container_id?: string;
-  created_by: string;
-  created_at: number;
+  organizationId: string;
+  resourceType: string;
+  resourceId: string;
+  roleId: string;
+  subjectType: PrincipalType;
+  subjectId: string;
+  containerType?: string;
+  containerId?: string;
+  createdBy: string;
+  createdAt: number;
 }
 
 export interface CrossOrgGrant {
   id: string;
-  source_organization_id: string;
-  target_organization_id: string;
-  grantee_type: PrincipalType;
-  grantee_id: string;
-  resource_type: string;
-  resource_selector: { ids?: string[]; all?: boolean };
+  sourceOrganizationId: string;
+  targetOrganizationId: string;
+  granteeType: PrincipalType;
+  granteeId: string;
+  resourceType: string;
+  resourceSelector: { ids?: string[]; all?: boolean };
   permissions: PermissionKey[];
   conditions: Record<string, unknown>;
-  starts_at?: number;
-  expires_at?: number;
+  startsAt?: number;
+  expiresAt?: number;
   status: CrossOrgGrantStatus;
-  approved_by?: string;
-  approved_at?: number;
-  revoked_by?: string;
-  revoked_at?: number;
-  created_by: string;
-  created_at: number;
+  approvedBy?: string;
+  approvedAt?: number;
+  revokedBy?: string;
+  revokedAt?: number;
+  createdBy: string;
+  createdAt: number;
 }
 
 export interface MutationResponse<T> {
@@ -99,22 +104,22 @@ export interface IamShareTarget {
 }
 
 export interface CreateRoleBindingPayload {
-  role_id: string;
-  principal_type: PrincipalType;
-  principal_id: string;
-  resource_type?: string;
-  resource_id?: string;
+  roleId: string;
+  principalType: PrincipalType;
+  principalId: string;
+  resourceType?: string;
+  resourceId?: string;
   conditions?: Record<string, unknown>;
-  starts_at_micros?: number;
-  expires_at_micros?: number;
+  startsAt?: number;
+  expiresAt?: number;
 }
 
 export interface IamTarget {
-  organization_id?: string;
-  resource_type: string;
-  resource_id: string;
-  container_type?: string;
-  container_id?: string;
+  organizationId?: string;
+  resourceType: string;
+  resourceId: string;
+  containerType?: string;
+  containerId?: string;
 }
 
 export interface IamAccessRequest {
@@ -129,10 +134,32 @@ export interface IamAccessRequest {
 export interface IamDecision {
   allowed: boolean;
   reason: string;
-  policy_version: number;
-  matched_binding_ids?: string[];
-  matched_relationship_ids?: string[];
-  matched_grant_ids?: string[];
+  policyVersion: number;
+  matchedBindingIds?: string[];
+  matchedRelationshipIds?: string[];
+  matchedGrantIds?: string[];
+}
+
+/** An account as a platform grant names it. */
+export interface PlatformAccount {
+  id: string;
+  email: string;
+  displayName: string;
+  disabled: boolean;
+}
+
+/** Accounts whose email or name holds the text (`sys.administrators.read`). */
+export async function searchPlatformAccounts(q: string): Promise<PlatformAccount[]> {
+  const { data } = await http.get<PlatformAccount[]>('/iam/platform/accounts', { params: { q } });
+  return data;
+}
+
+/** The accounts a list of platform grants names (`sys.administrators.read`). */
+export async function platformAccountsByIds(ids: readonly string[]): Promise<PlatformAccount[]> {
+  const { data } = await http.get<PlatformAccount[]>('/iam/platform/accounts', {
+    params: { ids: ids.join(',') },
+  });
+  return data;
 }
 
 export async function capabilities(): Promise<IamCapabilitySnapshot> {
@@ -177,7 +204,7 @@ export async function listRelationships(): Promise<ResourceRelationship[]> {
 export async function createRelationship(
   payload: Omit<
     ResourceRelationship,
-    'id' | 'organization_id' | 'created_by' | 'created_at'
+    'id' | 'organizationId' | 'createdBy' | 'createdAt'
   >,
 ): Promise<MutationResponse<ResourceRelationship>> {
   const { data } = await http.post<MutationResponse<ResourceRelationship>>(
@@ -199,16 +226,16 @@ export async function listCrossOrgGrants(): Promise<CrossOrgGrant[]> {
 export async function createCrossOrgGrant(
   payload: Pick<
     CrossOrgGrant,
-    | 'target_organization_id'
-    | 'grantee_type'
-    | 'grantee_id'
-    | 'resource_type'
-    | 'resource_selector'
+    | 'targetOrganizationId'
+    | 'granteeType'
+    | 'granteeId'
+    | 'resourceType'
+    | 'resourceSelector'
     | 'permissions'
     | 'conditions'
   > & {
-    starts_at_micros?: number;
-    expires_at_micros?: number;
+    startsAt?: number;
+    expiresAt?: number;
   },
 ): Promise<MutationResponse<CrossOrgGrant>> {
   const { data } = await http.post<MutationResponse<CrossOrgGrant>>(

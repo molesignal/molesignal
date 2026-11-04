@@ -21,28 +21,28 @@ describe('escalation steps', () => {
   });
 
   it('reads and sets what a target points at, whichever kind it is', () => {
-    expect(targetRefId({ kind: 'user', user_id: 'u1' })).toBe('u1');
-    expect(targetRefId({ kind: 'schedule', schedule_id: 's1' })).toBe('s1');
-    expect(targetRefId({ kind: 'team', team_id: 't1' })).toBe('t1');
-    expect(withRefId({ kind: 'schedule', schedule_id: 's1' }, 's2')).toEqual({ kind: 'schedule', schedule_id: 's2' });
-    expect(emptyTarget('team')).toEqual({ kind: 'team', team_id: '' });
+    expect(targetRefId({ kind: 'user', userId: 'u1' })).toBe('u1');
+    expect(targetRefId({ kind: 'schedule', scheduleId: 's1' })).toBe('s1');
+    expect(targetRefId({ kind: 'team', teamId: 't1' })).toBe('t1');
+    expect(withRefId({ kind: 'schedule', scheduleId: 's1' }, 's2')).toEqual({ kind: 'schedule', scheduleId: 's2' });
+    expect(emptyTarget('team')).toEqual({ kind: 'team', teamId: '' });
     expect(emptyStep()).toEqual({
-      targets: [{ kind: 'user', user_id: '' }],
-      ack_timeout_secs: 300,
-      min_severity: null,
+      targets: [{ kind: 'user', userId: '' }],
+      ackTimeoutSecs: 300,
+      minSeverity: null,
     });
   });
 
   it('names who a step tells, each by the kind of thing it is', () => {
     const step: EscalationStep = {
       targets: [
-        { kind: 'schedule', schedule_id: 'sch-platform' },
-        { kind: 'user', user_id: 'u1' },
-        { kind: 'team', team_id: 'team-unknown' },
+        { kind: 'schedule', scheduleId: 'sch-platform' },
+        { kind: 'user', userId: 'u1' },
+        { kind: 'team', teamId: 'team-unknown' },
         // A target nobody has picked yet tells nobody.
-        { kind: 'user', user_id: '' },
+        { kind: 'user', userId: '' },
       ],
-      ack_timeout_secs: 300,
+      ackTimeoutSecs: 300,
     };
 
     expect(

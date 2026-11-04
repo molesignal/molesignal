@@ -38,11 +38,10 @@ describe('useOrgStore', () => {
   beforeEach(() => {
     useOrgStore.getState().reset();
     useAuthStore.setState({
-      token: 'tok-a',
       ctx: {
-        user_id: 'u1',
-        org_id: 'org-a',
-        display_role: 'Owner',
+        userId: 'u1',
+        orgId: 'org-a',
+        displayRole: 'Owner',
         roles: [ownerRole],
       },
     });
@@ -68,7 +67,7 @@ describe('useOrgStore', () => {
   });
 
   it('loadOrgs no-ops when unauthenticated', async () => {
-    useAuthStore.setState({ token: null, ctx: null });
+    useAuthStore.setState({ ctx: null });
     await useOrgStore.getState().loadOrgs();
     expect(listOrgs).not.toHaveBeenCalled();
     expect(useOrgStore.getState().orgs).toEqual([]);
@@ -82,10 +81,9 @@ describe('useOrgStore', () => {
     await useOrgStore.getState().loadOrgs();
 
     vi.mocked(selectOrg).mockResolvedValue({
-      token: 'tok-b',
-      user_id: 'u1',
-      org_id: 'org-b',
-      display_role: 'Operator',
+      userId: 'u1',
+      orgId: 'org-b',
+      displayRole: 'Operator',
       roles: [operatorRole],
       system: false,
     });
@@ -103,10 +101,10 @@ describe('useOrgStore', () => {
     expect(selectOrg).toHaveBeenCalledWith('org-b');
     expect(clearSpy).toHaveBeenCalledTimes(1);
     expect(resetSpy).toHaveBeenCalledTimes(1);
-    expect(useAuthStore.getState().token).toBe('tok-b');
-    expect(useAuthStore.getState().ctx?.org_id).toBe('org-b');
-    expect(useAuthStore.getState().ctx?.org_name).toBe('B');
-    expect(useAuthStore.getState().ctx?.display_role).toBe('Operator');
+    expect(useAuthStore.getState().ctx?.orgId).toBe('org-b');
+    expect(useAuthStore.getState().ctx?.scope).toBe('organization');
+    expect(useAuthStore.getState().ctx?.orgName).toBe('B');
+    expect(useAuthStore.getState().ctx?.displayRole).toBe('Operator');
     expect(useAuthStore.getState().ctx?.roles).toEqual([operatorRole]);
     expect(useOrgStore.getState().currentOrgId).toBe('org-b');
     expect(useOrgStore.getState().orgs.map((org) => org.id)).toEqual(['org-b']);
@@ -115,12 +113,11 @@ describe('useOrgStore', () => {
 
   it('keeps the current system org named and selectable alongside tenant orgs', () => {
     useAuthStore.setState({
-      token: 'system-token',
       ctx: {
-        user_id: 'u1',
-        org_id: 'system-org-id',
-        org_name: '_sys',
-        display_role: 'Owner',
+        userId: 'u1',
+        orgId: 'system-org-id',
+        orgName: '_sys',
+        displayRole: 'Owner',
         roles: [platformOwnerRole],
         scope: 'system',
       },
@@ -130,7 +127,7 @@ describe('useOrgStore', () => {
         {
           id: 'default-org-id',
           name: 'default',
-          display_role: 'Owner',
+          displayRole: 'Owner',
           roles: [ownerRole],
           disabled: false,
         },
@@ -155,12 +152,11 @@ describe('useOrgStore', () => {
     // An owner in the platform organization sees every organization, to manage it. The one
     // they do not belong to cannot be entered, so the switcher does not offer it.
     useAuthStore.setState({
-      token: 'system-token',
       ctx: {
-        user_id: 'u1',
-        org_id: 'system-org-id',
-        org_name: '_sys',
-        display_role: 'Owner',
+        userId: 'u1',
+        orgId: 'system-org-id',
+        orgName: '_sys',
+        displayRole: 'Owner',
         roles: [platformOwnerRole],
         scope: 'system',
       },
@@ -196,7 +192,7 @@ describe('useOrgStore', () => {
     await expect(
       useOrgStore.getState().switchOrg('org-b', { queryClient }),
     ).rejects.toThrow('boom');
-    expect(useAuthStore.getState().token).toBe('tok-a');
+    expect(useAuthStore.getState().ctx?.orgId).toBe('org-a');
     expect(useOrgStore.getState().currentOrgId).toBe('org-a');
   });
 

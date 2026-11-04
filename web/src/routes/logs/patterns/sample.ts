@@ -1,9 +1,9 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import * as React from 'react';
 
-import type { GlobalFilter } from '@/stores/useFiltersStore';
 import type { QueryResult } from '@/types/query';
 
+import type { PinnedLogFilter } from '../conditions/model';
 import { recordsToQueryResult, runLogCursorQuery } from '../cursorQuery';
 
 /** How many logs are read at a time, at the least: enough for the kinds of message to show, few enough to wait for. */
@@ -14,7 +14,7 @@ export interface PatternSampleQuery {
   orgId: string;
   stream: string;
   statement: string;
-  globalFilters: GlobalFilter[];
+  pinned: readonly PinnedLogFilter[];
   timeRange: { start: number; end: number };
   /** When the query was run: running it again reads again. */
   ranAt: number;
@@ -58,7 +58,7 @@ export function useLogPatternSample(query: PatternSampleQuery | null): PatternSa
         query.orgId,
         query.stream,
         query.statement,
-        query.globalFilters,
+        query.pinned,
         query.timeRange.start,
         query.timeRange.end,
         query.ranAt,
@@ -81,13 +81,13 @@ export function useLogPatternSample(query: PatternSampleQuery | null): PatternSa
       return runLogCursorQuery({
         stream: query.stream,
         statement: query.statement,
-        globalFilters: query.globalFilters,
+        pinned: query.pinned,
         timeRange: query.timeRange,
         pageSize: query.step,
         cursor: pageParam ?? undefined,
       });
     },
-    getNextPageParam: (last) => last.page.next_cursor ?? null,
+    getNextPageParam: (last) => last.page.nextCursor ?? null,
     // What was read stays read: the logs of a query that has run do not change under the reader.
     staleTime: Infinity,
     retry: false,

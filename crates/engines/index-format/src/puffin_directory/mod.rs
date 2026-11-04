@@ -7,18 +7,19 @@
 //! `to_puffin_bytes()` 把每个产出的 tantivy 文件作为一个 Puffin blob 拼接。
 //!
 //! 读路径：[`PuffinDirReader`] 持有 `PuffinBytesReader`（即 `ObjectStore` + `Path` + `size`），
-//! tantivy 每次 `get_file_handle` → `PuffinSliceHandle::read_bytes_async` →
-//! sub-range `get_range`。所有写方法 panic（read-only）。
+//! tantivy 的每次读先查 [`HotCache`]，未命中才对单个 blob 发 sub-range `get_range`。
+//! 所有写方法 panic（read-only）。
 
 pub mod empty_directory;
+pub mod hot_cache;
 pub mod reader;
 pub mod writer;
 
 use std::{path::PathBuf, sync::Arc};
 
 use bytes::Bytes;
-pub use empty_directory::build_footer_cache_for_test_only;
 use hashbrown::HashMap;
+pub use hot_cache::HotCache;
 pub use reader::PuffinDirReader;
 use tantivy::schema::Schema;
 pub use writer::PuffinDirWriter;
@@ -46,14 +47,14 @@ pub const META_JSON: &str = "meta.json";
 /// `tantivy::ManagedDirectory` 的固定元数据文件名。
 pub const MANAGED_JSON: &str = ".managed.json";
 
-/// MoleSignal 写入 puffin 的 segment-meta cache blob 的 `blob_tag`（不是真实 tantivy 文件）。
-/// reader 端识别后从 footer cache 复用而非作为虚拟文件返。
+/// MoleSignal 写入 puffin 的 segment-open [`HotCache`] blob 的 `blob_tag`（不是真实 tantivy
+/// 文件）。reader 端解码后放进 [`TantivyFooter::hot_cache`]，不作为虚拟文件返。
 pub const FOOTER_CACHE_BLOB_TAG: &str = "__molesignal_footer_cache__";
 
 /// Tantivy 归档的 cache value：包含解析后的 [`PuffinMeta`] + 原始 footer payload bytes
 /// + 解析后的 tantivy schema + sync atomic_read 目标文件预物化字节（`meta.json`
-///   与 `.managed.json`，~几 KB）。**不包含** archive 整体 bytes —— 这是与旧 footer
-///   cache 的核心区别。`size_bytes` 用作 cache eviction 估算。
+///   与 `.managed.json`，~几 KB）+ 打开 segment 要读的 [`HotCache`]。**不包含** archive
+///   整体 bytes。`size_bytes` 用作 cache eviction 估算。
 ///
 /// `atomic_files` 设计：tantivy 的 `Index::open(Directory)` 走 sync
 /// `Directory::atomic_read` 读 `meta.json` 与 `.managed.json`；reader 是 read-only
@@ -70,6 +71,8 @@ pub struct TantivyFooter {
     /// 归档对象的总字节数。footer cache 命中重开 `IndexHandle` 时复用，省掉
     /// 一次 `object_store.head` —— 这正是 footer cache 短路 object_store 的关键。
     pub object_size: u64,
+    /// 打开 segment 与各字段词典时读的小范围；旧归档没有，为空。
+    pub hot_cache: Arc<HotCache>,
 }
 
 /// 已知 tantivy sync `atomic_read` 触碰的 puffin blob_tag。构造 reader 时按这个
@@ -83,6 +86,10 @@ impl TantivyFooter {
             .unwrap_or(0);
 
         let atomic_size: usize = self.atomic_files.values().map(|b| b.len()).sum();
-        meta_size + self.footer_payload_bytes.len() + atomic_size + 1024
+        meta_size
+            + self.footer_payload_bytes.len()
+            + atomic_size
+            + self.hot_cache.size_bytes()
+            + 1024
     }
 }

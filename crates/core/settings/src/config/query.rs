@@ -55,7 +55,6 @@ pub struct SearchSettings {
     #[serde(default)]
     pub max_result_rows: usize,
     /// range PromQL 的按窗口分桶增量缓存（实时仪表盘刷新只重算活跃窗口）。
-    /// 默认 disabled → 零行为变化。
     #[serde(default)]
     pub stream_agg_cache: StreamAggCacheSettings,
 }
@@ -64,14 +63,12 @@ pub struct SearchSettings {
 ///
 /// 对 `rate(metric[range])` / `*_over_time` 等 range 查询，把按 step 网格归一后的
 /// 已封存窗口桶（窗口右端 < 水位）缓存起来；仪表盘刷新（时间窗前移）时稳定桶直接
-/// 命中缓存、仅活跃区扫描重算。`enabled = false`（默认）时整条路径短路，行为与
-/// 未接缓存完全一致。
+/// 命中缓存、仅活跃区扫描重算。`max_size = 0` 时整条路径短路，行为与未接缓存完全一致。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamAggCacheSettings {
-    /// moka 条目上限：按「不同查询指纹（org+函数+选择器+step+window）」计数。
-    /// **0 = 关闭**（不实例化缓存、range 路径保持现状）；默认 0（OSS 默认关）。
-    #[serde(default = "default_streaming_agg_capacity")]
-    pub capacity: u64,
+    /// 缓存的内存上限，单位 MiB，按各条目缓存的 series 与桶估算；0 = 关闭。
+    #[serde(default = "default_streaming_agg_max_size")]
+    pub max_size: u64,
     /// 条目 TTL（秒）：兜底超出 `safe_lookback` 的乱序晚到导致的陈旧值。
     #[serde(default = "default_streaming_agg_ttl_secs")]
     pub ttl_secs: u64,
@@ -84,8 +81,8 @@ pub struct StreamAggCacheSettings {
     pub max_series_per_query: usize,
 }
 
-fn default_streaming_agg_capacity() -> u64 {
-    0
+fn default_streaming_agg_max_size() -> u64 {
+    256
 }
 
 fn default_streaming_agg_ttl_secs() -> u64 {
@@ -103,7 +100,7 @@ fn default_streaming_agg_max_series() -> usize {
 impl Default for StreamAggCacheSettings {
     fn default() -> Self {
         Self {
-            capacity: default_streaming_agg_capacity(),
+            max_size: default_streaming_agg_max_size(),
             ttl_secs: default_streaming_agg_ttl_secs(),
             safe_lookback_secs: default_streaming_agg_safe_lookback_secs(),
             max_series_per_query: default_streaming_agg_max_series(),

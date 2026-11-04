@@ -171,13 +171,15 @@ impl AgentRunWorker {
         };
 
         for (chat, since_micros) in due {
-            let request =
-                serde_json::to_value(RunRequest::Distill { since_micros }).unwrap_or_default();
+            let request = serde_json::to_value(RunRequest::Distill {
+                since_time: since_micros,
+            })
+            .unwrap_or_default();
 
             let principal = RunPrincipal {
                 user_id: chat.user_id.clone(),
                 scope: IamScope::Organization,
-                credential_role_id: None,
+                credential_token_id: None,
                 credential_application_id: None,
                 credential_service_account_id: None,
             };

@@ -13,6 +13,12 @@ export interface TraceFieldRecord {
   durationMs: number;
   spans: number;
   errors: number;
+  /** How the root span ended, where the list says: `OK`, `ERROR` or `UNSET`. */
+  status?: string | undefined;
+  /** The HTTP status the root answered with, where it kept one. */
+  httpStatus?: number | undefined;
+  /** Fields of the root span asked for as columns, by name. */
+  root?: Record<string, unknown> | undefined;
 }
 
 export const TRACE_TYPE_GLYPH: Record<FieldType, string> = {
@@ -32,38 +38,6 @@ export const TRACE_TYPE_TONE: Record<FieldType, FieldTypeTone> = {
   timestamp: 'green',
   json: 'purple',
 };
-
-/**
- * The field's value for one trace, as its row in the list has it; empty when
- * the row has none. A trace's row says nothing of what its spans hold, so
- * only these few fields can be shown beside a trace that is picked.
- */
-export function traceFieldValue(trace: TraceFieldRecord, field: TraceFieldName): string {
-  switch (field) {
-    case 'trace_id':
-      return trace.id;
-    case 'service.name':
-      return trace.service;
-    case 'name':
-      return trace.op;
-    case 'duration_ns':
-    case 'duration_ms':
-      return formatTraceDurationMs(trace.durationMs);
-    case 'span_count':
-      return String(trace.spans);
-    case 'error_count':
-      return String(trace.errors);
-    default:
-      return '';
-  }
-}
-
-const LIST_FIELDS = new Set(['trace_id', 'service.name', 'name', 'duration_ns', 'duration_ms', 'span_count', 'error_count']);
-
-/** Whether a trace's own row in the list has a value for the field. */
-export function isTraceListField(name: TraceFieldName): boolean {
-  return LIST_FIELDS.has(name);
-}
 
 /**
  * Whether a field's values can be listed. A JSON column holds a document per

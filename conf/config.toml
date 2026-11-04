@@ -19,7 +19,7 @@ drain_timeout_secs = 30
 bind = "0.0.0.0"
 # 未启用 `[http.tls]` 时的 HTTP 服务端口。
 port = 5080
-# 反向代理后建议关闭
+# 是否用 gzip 压缩内置网页（API 响应不压缩）。反向代理后建议关闭。
 gzip = true
 # 对外访问 URL；留空 = 前端按当前访问来源（window.location.origin）推导。
 # 反代 / 公网部署填真实对外地址，如 https://molesignal.example.com
@@ -53,7 +53,7 @@ bind = "0.0.0.0"
 # 集群内部 gRPC 服务端口，同时用于节点间通信。
 port = 5082
 # gRPC 单条收发消息允许的最大大小，单位 MiB。
-max_message_size_mb = 32
+max_message_size = 32
 
 # Probe Agent register/control plane starts automatically on standalone and alert nodes.
 # Register uses server-authenticated TLS; the control stream uses short-lived mTLS identities.
@@ -66,7 +66,8 @@ register_endpoint = "https://localhost:5084"
 control_endpoint = "https://localhost:5085"
 server_names = ["localhost", "127.0.0.1"]
 certificate_days = 30
-max_message_size_mb = 32
+# 单条收发消息允许的最大大小，单位 MiB。
+max_message_size = 32
 
 # 对外 Arrow Flight SQL 端口（DBeaver / JDBC / ADBC 直连查询）。
 # 与 [grpc]（集群内可信网络）分端口；每个 RPC 强制 API token 鉴权。
@@ -80,7 +81,7 @@ port = 5083
 # SQL 未携带时间裁剪条件时默认回看的小时数。
 default_lookback_hours = 24
 # Flight SQL 单条收发消息允许的最大大小，单位 MiB。
-max_message_size_mb = 32
+max_message_size = 32
 
 [telemetry]
 # 进程日志过滤规则，采用 EnvFilter 语法；全局为 info，tantivy crate 为 warn。
@@ -96,18 +97,11 @@ log_output = "console"
 # 文件日志最多保留的轮转文件数。
 # log_max_files = 7
 
-# Metrics、Traces 和 Profiles 由 Self Telemetry 总开关管理。
+# Metrics、Traces 和 Profiles 由 Self Telemetry 总开关管理。自遥测数据流第一次创建时保留 7 天，
+# 之后在平台组织的数据流设置里修改。
 [telemetry.self_collect]
-# 服务自身遥测总开关；Trace 还要求 telemetry.trace.enabled 有效。
+# 服务自身遥测总开关，不影响租户发来的链路；Trace 还要求 telemetry.trace.enabled 有效。
 enabled = true
-# 自遥测数据的通用保留天数，范围 1..3650。
-retention_days = 7
-# 自回灌指标的保留天数，范围 1..3650。
-metrics_retention_days = 7
-# 自回灌 Trace 的保留天数，范围 1..3650。
-traces_retention_days = 7
-# 自回灌 Profile 的保留天数，范围 1..3650。
-profiles_retention_days = 7
 # 是否回灌本进程指标；仅在 enabled = true 时生效。
 metrics_enabled = true
 # 自遥测指标采集周期，单位秒。
@@ -151,8 +145,8 @@ root_grace_millis = 1000
 decision_cache_secs = 300
 # 尾部采样器允许同时保留的未决 Trace 数量上限。
 tail_max_traces = 10000
-# 尾部采样器保存未决 Trace 的内存上限，单位字节。
-tail_memory_bytes = 268435456
+# 尾部采样器保存未决 Trace 的内存上限，单位 MiB。
+tail_memory_size = 256
 # 单个 Trace 最多保留的 Span 数量。
 max_spans_per_trace = 1000
 # 单个 Span 最多保留的属性数量。
@@ -161,8 +155,8 @@ max_attributes_per_span = 128
 max_events_per_span = 128
 # 单个 Span 最多保留的链接数量。
 max_links_per_span = 128
-# 单个属性、事件或链接字符串允许的最大 UTF-8 字节数。
-max_string_bytes = 4096
+# 单个属性、事件或链接字符串允许的最大长度，单位 UTF-8 字节。
+max_string_length = 4096
 # 进程退出时等待 Trace pipeline 和候选路由器停止的超时时间，单位秒。
 shutdown_timeout_secs = 10
 
@@ -231,24 +225,11 @@ max_exemplars_per_bucket = 3
 max_error_samples_per_group = 8
 
 [apm.histogram]
-# 延迟直方图分桶定义的版本号；修改 boundaries_ms 时应同步递增，必须大于 0。
-schema_version = 1
-# 延迟直方图的有限上界，单位毫秒；需严格递增、元素数量为 2..64，系统自动追加 +Inf。
-boundaries_ms = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1000, 2000, 4000, 8000, 16000, 30000, 60000]
-
-[apm.cardinality]
-# 每个组织每小时允许记录的不同服务数量，范围 1..100000。
-services_per_org_hour = 200
-# 每个服务每小时允许记录的不同事务数量，范围 1..100000。
-transactions_per_service_hour = 32
-# 每个服务每小时允许记录的不同下游依赖数量，范围 1..100000。
-dependencies_per_service_hour = 16
-# 每个服务每小时允许记录的不同错误分组数量，范围 1..100000。
-error_groups_per_service_hour = 16
-# 每个服务每小时允许记录的不同版本数量，范围 1..100000。
-versions_per_service_hour = 16
-# 每个服务每小时允许记录的不同实例数量，范围 1..100000。
-instances_per_service_hour = 256
+# 延迟直方图分桶方式的版本号；修改 buckets_per_octave 时应同步递增，至少为 2（1 是旧数据的固定分桶）。
+schema_version = 2
+# 延迟每翻一倍分几个桶，范围 1..16，覆盖 125 微秒到约 131 秒，系统自动追加 +Inf。
+# 8 时相邻上界相差约 9%，读出的分位数误差约 ±4%。
+buckets_per_octave = 8
 
 [apm.version_comparison]
 # 一个版本进入版本对比分析所需的最少请求数，范围 1..10000000。
@@ -306,13 +287,13 @@ root = "./data/objects"
 # multipart / range / 并发 / 超时
 # 写入对象达到该大小时改用 multipart 上传，单位 MiB，最小 1。create-if-absent 的写入先确认对象不存在再上传；
 # manifest 与带版本条件的写入始终是单次请求。
-multipart_threshold_mb = 32
+multipart_threshold_size = 32
 # multipart 上传的单分片大小，单位 MiB，范围 5..1024；对象很大时按后端 10 000 分片的上限放大。
-multipart_part_size_mb = 8
+multipart_part_size = 8
 # 范围读取达到该大小时拆成多个块并发读取，单位 MiB，最小 1。
-range_threshold_mb = 16
+range_threshold_size = 16
 # 分段读取的单块大小，单位 MiB，范围 1..1024。
-range_chunk_mb = 8
+range_chunk_size = 8
 # 对象存储后端操作的进程内并发上限；0 按 1 处理。
 max_concurrency = 8
 # 等待并发许可及单次后端操作的超时时间，单位秒；0 按 1 秒处理。
@@ -334,8 +315,8 @@ jitter_ratio = 0.2
 [wal]
 # WAL segment 文件的存放目录。
 dir = "./data/wal"
-# 单段大小（MB），到达后切换
-segment_size_mb = 256
+# 单段大小，单位 MiB，到达后切换
+segment_size = 256
 # fsync 触发模式：none / every_write / batch（默认 batch）
 # - none        永不 sync_*，仅 page cache 持久化（旧版默认；不推荐生产开启）
 # - every_write 每条记录 sync_data/all 后才返回（最强 durability，单条延迟最高）
@@ -349,15 +330,15 @@ sync_level = "data"
 batch_max_pending = 64
 # Batch 模式两次 sync_* 之间允许的最大间隔，单位毫秒。
 batch_max_delay_ms = 50
-# 启动恢复重放的内存上限（MB）：重放累计超过该值即强制 flush 一次腾空 buffer。
-max_replay_mb = 512
+# 启动恢复重放的内存上限，单位 MiB：重放累计超过该值即强制 flush 一次腾空 buffer。
+max_replay_size = 512
 # 回归旧版"永不 fsync"行为：flush_strategy = "none" 且 sync_level = "none"
 
 [intake]
-# 每个 stream 原始内存 buffer 硬上限（自适应阈值不会超过它）
-buffer_max_mb = 256
-# 当前进程 active + detached flush generation 的总 reservation 上限
-max_buffer_memory_mb = 1024
+# 每个 stream 原始内存 buffer 硬上限，单位 MiB（自适应阈值不会超过它）
+buffer_max_size = 256
+# 当前进程 active + detached flush generation 的总 reservation 上限，单位 MiB
+max_buffer_memory_size = 1024
 # 触发 flush 的最大时间间隔
 flush_interval_secs = 30
 # 同时刷盘并发
@@ -366,32 +347,28 @@ flush_parallelism = 4
 [intake.rotation]
 # 根据成功 Parquet 的 encoded/raw 比率调整每个 stream 的下次原始阈值
 adaptive_enabled = true
-# 希望生成的 Parquet encoded 大小
-target_file_size_mb = 128
-# 自适应原始阈值下限
-min_buffer_mb = 16
+# 希望生成的 Parquet encoded 大小，单位 MiB
+target_file_size = 128
+# 自适应原始阈值下限，单位 MiB
+min_buffer_size = 16
 # encoded/raw 比率的 EWMA 平滑系数，范围 (0, 1]
 ewma_alpha = 0.2
 
 [intake.prometheus]
 # 单个 series 除 __name__ 外最多允许的 label 数
 max_labels_per_series = 64
-# label name / value 的最大 UTF-8 字节数
-max_label_name_bytes = 128
-# 单个 label value 允许的最大 UTF-8 字节数。
-max_label_value_bytes = 2048
+# 单个 label name 允许的最大长度，单位 UTF-8 字节。
+max_label_name_length = 128
+# 单个 label value 允许的最大长度，单位 UTF-8 字节。
+max_label_value_length = 2048
 # 单个内部 IntakeBatch / WAL seq 最多承载的 sample 数
 max_samples_per_batch = 16384
 
 [intake.prometheus.cardinality]
 # 当前一致性路由 intake 上的 active-series / new-series 准入
 enabled = true
-# 当前进程允许同时保持活跃的 Prometheus series 总数；必须不小于组织级上限。
+# 当前进程允许同时保持活跃的 Prometheus series 总数。组织与指标的上限在平台设置的「指标基数」页修改。
 max_active_series_per_process = 1000000
-# 单个组织允许同时保持活跃的 Prometheus series 数；必须不小于指标级上限。
-max_active_series_per_org = 200000
-# 单个组织内单个指标允许同时保持活跃的 Prometheus series 数。
-max_active_series_per_metric = 100000
 # 当前进程每分钟允许接纳的新 Prometheus series 数。
 max_new_series_per_minute = 20000
 # 超过该空闲时长的 series 释放 active capacity
@@ -411,16 +388,12 @@ estimate_throughput_per_sec = 1000
 [compactor]
 # 每隔多久跑一轮合并（秒）
 interval_secs = 300
-# 单次合并目标 parquet 大小（MiB）
-target_mb = 512
+# 一次合并的输入文件总大小上限，单位 MiB，取值 1–65536。合并边读边写、分片上传，
+# 内存不随它增长；一次最多合并 64 个文件，其余的在下一轮与合并结果再合并
+target_size = 512
 # 单 tick 内并发的合并 group 上限（tokio::sync::Semaphore）
 max_concurrent_groups = 4
-# stream 未配置 retention 时的全局保留天数
-retention_days = 30
-# 把早于该天数的 metrics 降采样成时间桶（0 = 关闭，默认）
-downsample_after_days = 0
-# 降采样时间桶宽度（秒）
-downsample_interval_secs = 3600
+# 数据流没设保留天数时保留多久在平台设置的「数据保留」页修改，指标降采样在各数据流的设置里。
 
 [alert]
 # 告警评估间隔（秒）
@@ -450,8 +423,9 @@ tls = "starttls"
 timeout_secs = 10
 
 [auth]
-# token 默认过期时间（秒）；用于 JWT exp 与 ms_<prefix>_<secret> 一致
-token_ttl_secs = 86400
+# 一次登录持续的秒数（refresh token 的有效期）；其间 access token 每 15 分钟自动换新。
+# 两个 token 都在 HttpOnly Cookie 里，服务端不保存。
+session_ttl_secs = 86400
 # 初始 root 账号（仅首次启动时创建）
 root_email = "admin@example.com"
 # 初始 root 账号密码，仅首次引导创建时使用；生产部署必须替换示例值。
@@ -504,8 +478,8 @@ capacity = 1000000
 ttl_secs = 600
 
 # Tantivy 归档 footer cache
-# index_object_key → Arc<TantivyFooter>（PuffinMeta + footer payload + schema）。
-# IndexHandle TTL 过期重新打开时短路掉 footer parse 的 2 次 range get。capacity = 0 整层关闭。
+# index_object_key → Arc<TantivyFooter>（PuffinMeta + footer payload + schema + 打开 segment 要读的小范围）。
+# IndexHandle TTL 过期重新打开时不再发任何 range get。capacity = 0 整层关闭。
 # footer 形态是轻量元数据（~几 KB / entry），默认 capacity 可缓更多 sidecar。
 [cache.tantivy_footer]
 # Tantivy 归档 footer 缓存的最大条目数；0 表示关闭。
@@ -513,14 +487,23 @@ capacity = 100000
 # Tantivy 归档 footer 缓存条目的存活时间，单位秒。
 ttl_secs = 3600
 
+# 解析后的 Parquet footer（含 page index）；查询打开文件时命中则不再读 footer。
+[cache.parquet_metadata]
+# 缓存的最大大小，单位 MiB；0 表示关闭。
+max_size = 256
+
 # 远端 ObjectStore 共享 range-block cache；LocalFileSystem 自动旁路。
 [cache.object]
 enabled = true
 root = "./data/cache/objects"
-max_bytes = 10737418240
-# 可配范围 1–16 MiB，默认 4 MiB。
-block_size_bytes = 4194304
-min_free_bytes = 1073741824
+# 磁盘缓存的大小上限，单位 MiB。
+max_size = 10240
+# block 大小，单位 MiB，范围 1–16。
+block_size = 4
+# 解码并校验过的 block 在内存里保留的大小，单位 MiB；0 表示只用磁盘。
+memory_size = 256
+# 需要保留的磁盘剩余空间，单位 MiB。
+min_free_size = 1024
 max_concurrent_fetches = 16
 max_concurrent_fetches_per_object = 4
 
@@ -549,8 +532,8 @@ cleanup_interval_secs = 3600
 # 已封存（窗口右端早于水位）的窗口桶缓存起来。时间窗前移刷新时稳定桶直接命中、仅活跃区
 # 重扫重算。默认关闭 → range 路径行为与现状完全一致。
 [search.stream_agg_cache]
-# moka 条目上限（按不同查询指纹计数：org+函数+选择器+step+window）；0 = 关闭（默认关）
-capacity = 0
+# 缓存的内存上限，单位 MiB，按各查询缓存的 series 与窗口桶估算；0 = 关闭
+max_size = 256
 # 条目 TTL（秒）：兜底超出 safe_lookback 的乱序晚到造成的陈旧值
 ttl_secs = 300
 # 安全回看窗口（秒）：仅缓存窗口右端早于 now - safe_lookback 的桶，近段全划活跃（不缓存）
@@ -616,9 +599,11 @@ max_context_tokens = 128000
 
 # === FileCatalog 生命周期与后台维护 ===
 [storage.catalog]
-# 分区结束超过该小时数后写入 immutable manifest；0 表示不封存。
-seal_after_hours = 168
-manifest_cache_bytes = 268435456
+# 分区结束超过该小时数后封存：写入 immutable manifest 与精确字段的 Bloom 过滤器，此后不再合并；
+# 0 表示不封存。留两天让各小时先合并成整天。
+seal_after_hours = 48
+# 清单缓存的内存大小，单位 MiB。
+manifest_cache_size = 256
 interval_secs = 300
 batch_size = 64
 

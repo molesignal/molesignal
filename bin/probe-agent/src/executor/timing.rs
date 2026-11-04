@@ -56,6 +56,11 @@ impl PhaseClock {
         work.await
     }
 
+    /// What each phase has taken so far, to take one step's share of the attempt from.
+    pub fn so_far(&self) -> Readings {
+        *self.readings()
+    }
+
     /// The breakdown to report for an attempt that took `total`.
     pub fn breakdown(&self, total: Duration) -> TimingBreakdown {
         let readings = *self.readings();
@@ -80,6 +85,18 @@ impl PhaseClock {
         // The lock only guards plain assignments, so a poisoned one still holds sound readings.
         self.readings.lock().unwrap_or_else(PoisonError::into_inner)
     }
+}
+
+/// What each phase had taken at one moment of an attempt.
+pub(super) type Readings = [Option<Duration>; PHASES];
+
+/// What `phase` took between two readings of one clock, or nothing when it did not run between
+/// them.
+pub(super) fn spent(before: &Readings, after: &Readings, phase: Phase) -> Option<Duration> {
+    let after = after[phase as usize]?;
+    let before = before[phase as usize].unwrap_or_default();
+
+    (after > before).then(|| after - before)
 }
 
 /// A phase in progress. Dropping it counts the time since it started.

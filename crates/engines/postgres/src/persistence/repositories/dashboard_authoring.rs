@@ -33,7 +33,7 @@ const DRAFT_COLS: &str = "id, org_id, created_by, authoring_version,
     model_schema_version, compiler_version, contract_binding_revision,
     authoring_schema_hash, model_schema_hash, visualization_schema_hash,
     authoring_spec, compiled_model, model_hash, folder_id, status, dashboard_id, warnings, preflight,
-    created_at_micros, expires_at_micros, consumed_at_micros";
+    created_at, expires_at, consumed_at";
 
 fn row_to_draft(row: sqlx::postgres::PgRow) -> Result<DashboardDraft> {
     let status: String = row.try_get("status").map_err(sqlx_err)?;
@@ -73,12 +73,15 @@ fn row_to_draft(row: sqlx::postgres::PgRow) -> Result<DashboardDraft> {
             .map(Id::from_string),
         warnings: warnings.0,
         preflight: preflight.0,
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        expires_at: TimestampMicros(row.try_get("expires_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        expires_at: row
+            .try_get::<TimestampMicros, _>("expires_at")
+            .map_err(sqlx_err)?,
         consumed_at: row
-            .try_get::<Option<i64>, _>("consumed_at_micros")
-            .map_err(sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("consumed_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -91,7 +94,7 @@ impl DashboardDraftRepository for PgDashboardDraftRepository {
               compiler_version, contract_binding_revision, authoring_schema_hash,
               model_schema_hash, visualization_schema_hash, authoring_spec, compiled_model,
               model_hash, folder_id, status, dashboard_id, warnings, preflight,
-              created_at_micros, expires_at_micros, consumed_at_micros)
+              created_at, expires_at, consumed_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
                      $13, $14, $15, $16, $17, $18, $19, $20, $21)",
         )
@@ -113,9 +116,9 @@ impl DashboardDraftRepository for PgDashboardDraftRepository {
         .bind(draft.dashboard_id.as_ref().map(|value| &value.0))
         .bind(Json(&draft.warnings))
         .bind(Json(&draft.preflight))
-        .bind(draft.created_at.0)
-        .bind(draft.expires_at.0)
-        .bind(draft.consumed_at.map(|value| value.0))
+        .bind(draft.created_at)
+        .bind(draft.expires_at)
+        .bind(draft.consumed_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -133,11 +136,11 @@ impl DashboardDraftRepository for PgDashboardDraftRepository {
             "UPDATE agent_dashboard_drafts
              SET status = 'expired'
              WHERE id = $1 AND org_id = $2 AND status = 'ready'
-               AND expires_at_micros <= $3",
+               AND expires_at <= $3",
         )
         .bind(&draft_id.0)
         .bind(&org_id.0)
-        .bind(now.0)
+        .bind(now)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -234,13 +237,13 @@ impl DashboardDraftRepository for PgDashboardDraftRepository {
 
         sqlx::query(
             "UPDATE agent_dashboard_drafts
-             SET status = 'consumed', dashboard_id = $3, consumed_at_micros = $4
+             SET status = 'consumed', dashboard_id = $3, consumed_at = $4
              WHERE id = $1 AND org_id = $2 AND status = 'ready'",
         )
         .bind(&request.draft_id.0)
         .bind(&request.org_id.0)
         .bind(&request.dashboard.id.0)
-        .bind(request.now.0)
+        .bind(request.now)
         .execute(&mut *transaction)
         .await
         .map_err(sqlx_err)?;
@@ -308,7 +311,7 @@ async fn insert_dashboard(
     sqlx::query(
         "INSERT INTO dashboards
          (id, org_id, folder_id, uid, title, tags, model, version,
-          created_at_micros, updated_at_micros, created_by, updated_by)
+          created_at, updated_at, created_by, updated_by)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
     )
     .bind(&dashboard.id.0)
@@ -319,8 +322,8 @@ async fn insert_dashboard(
     .bind(Json(&dashboard.tags))
     .bind(Json(&dashboard.model))
     .bind(dashboard.version as i32)
-    .bind(dashboard.created_at.0)
-    .bind(dashboard.updated_at.0)
+    .bind(dashboard.created_at)
+    .bind(dashboard.updated_at)
     .bind(&dashboard.created_by.0)
     .bind(&dashboard.updated_by.0)
     .execute(&mut *transaction)

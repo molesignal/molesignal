@@ -2,45 +2,50 @@
  * Default MoleSignal palette
  *
  * Philosophy: Datadog × Linear × Apple Pro Software, Confident quiet.
- * Brand color: Indigo #4F60E0 (dark) / #3742C7 (light).
+ * Brand color: blue, #0064C8 on light and #216DC9 on dark. The brand tokens
+ * keep the name indigo, the colour they had before.
  *
  * Layer 1 (--bg-*, --bd-*, --tx-*, --indigo / --orange / etc.) holds
  * physical OKLCH-calibrated hex values. Layer 2 (semantic aliases) and
  * Layer 3 (shadcn aliases) live in tokens.css.
  *
- * Ramp design: hue ≈ 265deg (cool indigo bias), tiny chroma (0.012-0.018)
+ * Ramp design: hue ≈ 265deg (cool indigo bias), tiny chroma (0.010-0.017)
  * in neutrals so surfaces read cool-neutral, not pure grey (cheap) or
- * warm grey (casual).
+ * warm grey (casual). The dark ramp once had two to three times that chroma
+ * (0.020-0.039) and read as deep navy, which made every page heavy; the
+ * comments beside the values are measured from the hex, keep them so.
  */
 
 :root,
 :root[data-palette='default'],
 [data-palette='default'] [data-theme='dark'],
 [data-palette='default'][data-theme='dark'] {
-  /* layer 1 — background ramp (cool indigo-tinted dark) */
-  --bg-0: #0d101a;        /* oklch(0.17 0.012 265) — page root, deepest */
-  --bg-1: #131725;        /* oklch(0.20 0.013 265) — card / topbar / sidebar */
-  --bg-2: #1a1f30;        /* oklch(0.23 0.014 265) — input / button rest */
-  --bg-3: #232839;        /* oklch(0.27 0.015 265) — hover */
-  --bg-4: #2c3247;        /* oklch(0.31 0.016 265) — selected / active strong */
-  --bg-hover: #1d2335;    /* oklch(0.25 0.014 265) — neutral hover */
+  /* layer 1 — background ramp (cool-neutral dark). Each step is 2.6 to 3.3 points of
+     lightness over the one under it: layers part by tone, not by lines. */
+  --bg-0: #0e1115;        /* oklch(0.176 0.010 256) — page root, deepest */
+  --bg-1: #14171c;        /* oklch(0.204 0.011 261) — card / topbar / sidebar */
+  --bg-2: #1a1d23;        /* oklch(0.230 0.012 264) — input / button rest */
+  --bg-3: #21252c;        /* oklch(0.263 0.014 262) — hover */
+  --bg-4: #292d34;        /* oklch(0.296 0.014 262) — selected / active strong */
+  --bg-hover: #1e2127;    /* oklch(0.247 0.012 264) — neutral hover */
 
-  /* layer 1 — borders */
-  --bd-0: #1b2031;        /* quiet dividers: only one step above the surface */
-  --bd-1: #252b40;        /* controls: subtle structural separation */
-  --bd-2: #323a55;        /* emphatic interaction boundary */
+  /* layer 1 — borders. The quiet divider is a veil of light, a few points over whatever it
+     crosses, as on light it is a veil of ink. */
+  --bd-0: rgba(255, 255, 255, 0.055);
+  --bd-1: #292c33;        /* oklch(0.29 0.013 267) — controls: subtle structural separation */
+  --bd-2: #373b44;        /* oklch(0.35 0.017 266) — emphatic interaction boundary */
 
   /* layer 1 — text */
-  --tx-0: #ecedf3;        /* oklch(0.94 0.006 265) — primary text (not pure white) */
-  --tx-1: #b9bdcb;        /* oklch(0.78 0.012 265) — secondary text */
-  --tx-2: #8b90a4;        /* muted / auxiliary; AA on bg-3 keyboard hints */
-  --tx-3: #8b90a4;        /* placeholder / dim; AA on bg-0..bg-3 */
-  --tx-4: #383d52;        /* oklch(0.32 0.012 265) — weakest, rarely used */
+  --tx-0: #ecedf3;        /* oklch(0.95 0.008 279) — primary text (not pure white) */
+  --tx-1: #babec4;        /* oklch(0.80 0.009 258) — secondary text */
+  --tx-2: #8d919a;        /* oklch(0.66 0.014 267) — muted / auxiliary; AA on bg-3 keyboard hints */
+  --tx-3: #8d919a;        /* placeholder / dim; AA on bg-0..bg-3 */
+  --tx-4: #3b3e45;        /* oklch(0.36 0.013 267) — weakest, rarely used */
 
-  /* layer 1 — Indigo: new primary brand (was --blue in legacy) */
-  --indigo:      #4f60e0;  /* oklch(0.58 0.18 265) — primary brand */
-  --indigo-soft: #7885ef;  /* readable brand foreground on indigo-dim */
-  --indigo-dim:  rgba(79, 96, 224, 0.16);
+  /* layer 1 — the brand: light's #0064C8 at the dark ramp's lightness, white on it 5.1:1 */
+  --indigo:      #216dc9;  /* oklch(0.54 0.160 256) — primary brand */
+  --indigo-soft: #68a0eb;  /* oklch(0.70 0.126 256) — readable brand foreground on indigo-dim */
+  --indigo-dim:  rgba(33, 109, 201, 0.16);
 
   /* layer 1 — status palette (re-tuned, names conserved) */
 
@@ -83,6 +88,9 @@
   --red-ink:     var(--red-soft);
   --purple-ink:  var(--purple-soft);
   --yellow-ink:  var(--yellow-soft);
+  /* The brand's ink is a step lighter than its soft tone and holds 5.1:1 or more on the
+   * indigo tint over every fill a row takes. */
+  --indigo-ink:  #71a7ef;
 
   /* tint — the fill a word in ink stands on: a chip, a notice, a reference that holds the
    * keyboard. On dark it is the dim tone, a veil over the surface under it. */
@@ -97,22 +105,25 @@
   --green-wash:  color-mix(in srgb, var(--green) 5%, transparent);
   --yellow-wash: color-mix(in srgb, var(--yellow) 5%, transparent);
 
-  /* data viz series (8-color cycle, OKLCH-equalized for CVD safety) */
-  --chart-1: #5d6dd9;  /* indigo (brand) — primary series */
-  --chart-2: #1faab0;  /* teal — secondary */
-  --chart-3: #d9961c;  /* amber — warning series */
-  --chart-4: #2bb35b;  /* green — health series */
-  --chart-5: #db4d8c;  /* pink-magenta — distinct */
-  --chart-6: #a445c1;  /* purple — high-dim */
-  --chart-7: #4f9ad6;  /* sky blue */
-  --chart-8: #db7635;  /* orange */
+  /* fill — a status tone over an area (a bar, a band, a stripe down a row): the tone at a
+   * chroma of 0.11 at most, so a page of bars reads calm; words and dots keep the full tone. */
+  --red-fill:    #d9807d;  /* oklch(0.69 0.111 22) */
+  --orange-fill: #c57d4d;  /* oklch(0.66 0.110 53) */
+  --yellow-fill: #c39547;  /* oklch(0.70 0.110 78) */
+  --green-fill:  #5ea974;  /* oklch(0.67 0.109 152) */
+  --blue-fill:   #4d88c3;  /* oklch(0.61 0.109 250) */
+  --purple-fill: #9575bc;  /* oklch(0.62 0.110 304) */
 
-  /* share scale — how much of a whole a part took, cool to warm (the bars of a trace).
-   * Red is not a step of it: a part drawn in red has failed. */
-  --share-1: var(--blue);     /* under a quarter */
-  --share-2: var(--chart-2);  /* a quarter to a half */
-  --share-3: var(--yellow);   /* a half to three quarters */
-  --share-4: var(--orange);   /* three quarters and more */
+  /* data viz series (8-color cycle, OKLCH-equalized for CVD safety). A chart is an area of
+   * colour: chroma 0.12 at most, the hues and lightness as before. */
+  --chart-1: #6473c0;  /* oklch(0.58 0.120 274) indigo — primary series */
+  --chart-2: #1faab0;  /* oklch(0.67 0.109 200) teal — secondary */
+  --chart-3: #d09a45;  /* oklch(0.72 0.120 76) amber — warning series */
+  --chart-4: #5bac6f;  /* oklch(0.68 0.120 150) green — health series */
+  --chart-5: #c2688b;  /* oklch(0.63 0.121 356) pink-magenta — distinct */
+  --chart-6: #935ea5;  /* oklch(0.57 0.121 317) purple — high-dim */
+  --chart-7: #4f9ad6;  /* oklch(0.66 0.117 245) sky blue */
+  --chart-8: #cf7e4d;  /* oklch(0.67 0.120 51) orange */
 }
 
 [data-theme='light'],
@@ -126,21 +137,28 @@
   --bg-hover: #ebeef4;    /* oklch(0.93 0.008 265) — neutral hover */
 
   /* borders */
-  --bd-0: #e0e4ed;        /* oklch(0.89 0.010 265) */
+  /* The quiet divider is a veil, not a grey: whatever it crosses it darkens by a few points
+     (4 under white), the micro contrast the surfaces themselves step by. */
+  --bd-0: rgba(19, 24, 37, 0.06);
   --bd-1: #cdd2df;        /* oklch(0.83 0.013 265) */
   --bd-2: #b5bcce;        /* oklch(0.76 0.016 265) */
 
-  /* text */
-  --tx-0: #131825;        /* oklch(0.20 0.013 265) — primary (not pure black) */
-  --tx-1: #404763;        /* oklch(0.36 0.018 265) — secondary */
-  --tx-2: #5a617e;        /* muted; 6.1:1 on white, 5.6:1 on the page canvas, AA on every surface up to bg-3 */
-  --tx-3: #5f6682;        /* placeholder / dim; AA on bg-0..bg-3 */
-  --tx-4: #b5b9c9;        /* oklch(0.76 0.010 265) — weakest */
+  /* text — titles, running text, menus, table cells and buttons in black (the user's word,
+   * 2026-10-22); what is said beside them a grey a step under, as on dark: a page's or a
+   * section's description, a tab or an option not chosen, a group's name, a figure's label
+   * and unit, times, counts and hints. The grey holds AA on every fill a row takes (4.6:1 on
+   * bg-3). What is disabled keeps a pale tone (tx-4), and placeholders their own
+   * (--placeholder in tokens.css). */
+  --tx-0: #000000;        /* body text; 21:1 on white */
+  --tx-1: #000000;        /* menus, table cells, quiet buttons */
+  --tx-2: #666666;        /* labels, auxiliary; 5.7:1 on white */
+  --tx-3: #666666;        /* dim */
+  --tx-4: #aaaaaa;        /* oklch(0.74 0 0) — disabled */
 
-  /* Indigo (brand) — darker for light theme */
-  --indigo:      #3742c7;  /* oklch(0.48 0.20 265) — primary brand on light */
-  --indigo-soft: #3742c7;  /* readable brand foreground on indigo-dim */
-  --indigo-dim:  rgba(55, 66, 199, 0.12);
+  /* The brand on light: 5.7:1 on white and 4.6:1 on bg-3 */
+  --indigo:      #0064c8;  /* oklch(0.51 0.174 256) — primary brand on light */
+  --indigo-soft: #0064c8;  /* readable brand foreground on indigo-dim */
+  --indigo-dim:  rgba(0, 100, 200, 0.10);
 
   /* status colors — on light a status color is text-grade: as small text blue, green, orange
    * and yellow hold AA (4.5:1) on every fill a row takes, bg-0 to bg-3 (5.7:1 on white,
@@ -179,38 +197,41 @@
   --red-ink:     var(--red-soft);
   --purple-ink:  var(--purple);
   --yellow-ink:  var(--yellow);
+  --indigo-ink:  var(--indigo);
 
   /* tint — on light a veil darkens with what is under it (a hovered row, a field, a gray
    * panel) and ink on it falls to 4.0:1, so a tint is opaque: what the dim tone paints over
    * white. A chip on a card keeps its pixels, and ink holds 4.9:1 on it wherever it sits.
-   * Indigo, under a reference that holds the keyboard, is a step bluer than its dim tone so
-   * it still shows on a hovered row; ink holds 4.6:1 on it. */
+   * Indigo, under a reference that holds the keyboard, is a step deeper than its dim tone so
+   * it still shows on a hovered row; ink holds 4.8:1 on it. */
   --blue-tint:   #e8f0f8;
   --green-tint:  #e7f2eb;
   --orange-tint: #f9ede7;
   --purple-tint: #f3ebf8;
   --yellow-tint: #f5efe5;
-  --indigo-tint: #e3e6fd;
+  --indigo-tint: #e0ecf9;
 
   /* wash — none on light, where it barely shows on a card and, over a hovered row of a table
    * (bg-3), takes the ink of the badge to 4.3:1. The outline carries the badge. */
   --green-wash:  transparent;
   --yellow-wash: transparent;
 
-  /* chart series — darker on light theme for series legibility */
-  --chart-1: #3742c7;
-  --chart-2: #007a83;
-  --chart-3: #b8741a;
-  --chart-4: #1f8d4d;
-  --chart-5: #ba3071;
-  --chart-6: #8033a4;
-  --chart-7: #2f7bc4;
-  --chart-8: #b85820;
+  /* fill — on light the tones are text-grade and dark; over an area they are lifted and held
+   * to a chroma of 0.12. */
+  --red-fill:    #bb5f59;  /* oklch(0.59 0.120 25) */
+  --orange-fill: #d27b57;  /* oklch(0.67 0.120 43) */
+  --yellow-fill: #ba863c;  /* oklch(0.66 0.110 73) */
+  --green-fill:  #4ea065;  /* oklch(0.64 0.120 151) */
+  --blue-fill:   #5a93d8;  /* oklch(0.65 0.120 254) */
+  --purple-fill: #a679c6;  /* oklch(0.65 0.121 310) */
 
-  /* share scale — fills, not text: one lightness (oklch 0.62–0.65), brighter than the status
-   * colors, and 3:1 or more on bg-1 and on a hovered row (bg-2). */
-  --share-1: var(--blue-soft);
-  --share-2: #1b98a0;  /* oklch(0.62 0.10 202) — teal */
-  --share-3: #b97f10;  /* oklch(0.64 0.13 76) — gold */
-  --share-4: #dc6a30;  /* oklch(0.65 0.16 45) — orange */
+  /* chart series — darker on light theme for series legibility, chroma 0.11 at most */
+  --chart-1: #4e5ea2;  /* oklch(0.50 0.110 272) */
+  --chart-2: #1d868f;  /* oklch(0.57 0.090 204) */
+  --chart-3: #be8341;  /* oklch(0.66 0.110 67) */
+  --chart-4: #499562;  /* oklch(0.61 0.109 153) */
+  --chart-5: #ad5d7c;  /* oklch(0.58 0.110 356) */
+  --chart-6: #7f5596;  /* oklch(0.52 0.109 313) */
+  --chart-7: #4e88c3;  /* oklch(0.61 0.109 250) */
+  --chart-8: #b96d47;  /* oklch(0.61 0.110 47) */
 }

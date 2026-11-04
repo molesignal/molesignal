@@ -48,6 +48,7 @@ impl StatusPageDomainState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusPageDomainConfig {
     pub org_id: Id,
     pub status_page_id: Id,

@@ -9,7 +9,7 @@ rust-version.workspace = true
 async-trait.workspace = true
 dashmap.workspace = true
 domain = { path = "../../core/domain" }
-kernel = { path = "../../core/kernel" }
+kernel = { path = "../../core/kernel", features = ["postgres"] }
 parking_lot.workspace = true
 postgres = { path = "../postgres" }
 serde.workspace = true

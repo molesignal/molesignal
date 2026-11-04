@@ -16,8 +16,8 @@ function chat(id: string, title: string, updatedAt: string): Chat {
     provider: 'openai',
     model: 'gpt-5',
     title,
-    created_at_micros: micros,
-    updated_at_micros: micros,
+    createdAt: micros,
+    updatedAt: micros,
   };
 }
 

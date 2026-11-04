@@ -5,8 +5,9 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    BucketDimension, BucketKind, BucketMeasurements, ErrorGroupRecord, ErrorSample, OwnerSnapshot,
-    ProjectionGap, ProjectionState, QueryResolution, ServiceObservation, VersionObservation,
+    BucketDimension, BucketKind, BucketMeasurements, ErrorGroupRecord, ErrorSample,
+    InstanceObservation, OwnerSnapshot, ProjectionGap, ProjectionState, QueryResolution,
+    ServiceObservation, VersionObservation,
 };
 use crate::shared::{
     Result,
@@ -116,6 +117,11 @@ pub trait ApmWriteRepository: Send + Sync {
 
     async fn record_projection_gaps(&self, gaps: &[ProjectionGap]) -> Result<()>;
 
+    /// Records looks at instances; written after the catalog their services are in.
+    async fn upsert_instances(&self, _instances: &[InstanceObservation]) -> Result<()> {
+        Ok(())
+    }
+
     async fn ensure_projection_started(
         &self,
         org_id: &Id,
@@ -134,6 +140,11 @@ pub trait ApmQueryRepository: Send + Sync {
     async fn query_buckets(&self, query: &BucketQuery) -> Result<Vec<MergedBucket>>;
     async fn list_services(&self, query: &CatalogQuery) -> Result<Vec<ServiceObservation>>;
     async fn list_versions(&self, query: &CatalogQuery) -> Result<Vec<VersionObservation>>;
+
+    /// The instances seen within the query's range, with the filters it names.
+    async fn list_instances(&self, _query: &CatalogQuery) -> Result<Vec<InstanceObservation>> {
+        Ok(Vec::new())
+    }
     async fn list_error_groups(&self, query: &ErrorGroupQuery) -> Result<Vec<ErrorGroupRecord>>;
     async fn list_error_samples(&self, org_id: &Id, fingerprint: &str) -> Result<Vec<ErrorSample>>;
     async fn projection_state(&self, org_id: &Id) -> Result<Option<ProjectionState>>;

@@ -9,24 +9,24 @@ import { PageFormDrawer } from './ConfigurationDrawers';
 
 const page: StatusPage = {
   id: 'page-one',
-  org_id: 'org-one',
+  orgId: 'org-one',
   name: 'Acme',
   slug: 'acme',
-  logo_url: null,
-  brand_color: '#4F46E5',
-  custom_domain: null,
+  logoUrl: null,
+  brandColor: '#4F46E5',
+  customDomain: null,
   timezone: 'UTC',
   language: 'en-us',
   languages: ['en-us'],
-  history_days: 90,
-  delivery_retention_days: 90,
-  private_session_days: 7,
+  historyDays: 90,
+  deliveryRetentionDays: 90,
+  privateSessionDays: 7,
   visibility: 'public',
   lifecycle: 'active',
-  archived_at: null,
-  purge_after: null,
-  created_at: 1,
-  updated_at: 1,
+  archivedAt: null,
+  purgeAfter: null,
+  createdAt: 1,
+  updatedAt: 1,
 };
 
 describe('PageFormDrawer', () => {
@@ -58,7 +58,7 @@ describe('PageFormDrawer', () => {
 
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
-        input: expect.objectContaining({ history_days: 45 }),
+        input: expect.objectContaining({ historyDays: 45 }),
       }),
     );
   });

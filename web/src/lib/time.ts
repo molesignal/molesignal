@@ -4,6 +4,7 @@ import timezonePlugin from 'dayjs/plugin/timezone';
 import utcPlugin from 'dayjs/plugin/utc';
 
 import * as meApi from '@/api/me';
+import { useTimeStore } from '@/stores/useTimeStore';
 
 dayjs.extend(utcPlugin);
 dayjs.extend(timezonePlugin);
@@ -68,6 +69,15 @@ export function zonedMoment(ms: number, tz: string): dayjs.Dayjs {
   if (!Number.isFinite(ms)) return dayjs(Number.NaN);
 
   return dayjs.utc(ms + zoneOffsetMinutes(ms, tz) * 60_000);
+}
+
+/**
+ * A wall-clock time typed for a zone (`2026-10-18T09:30:00`), as the moment it
+ * is there; `null` when it is no time.
+ */
+export function parseZonedInput(value: string, tz: string): Date | null {
+  const moment = dayjs.tz(value, tz);
+  return moment.isValid() ? moment.toDate() : null;
 }
 
 /** 把 epoch 微秒按给定时区 + 格式渲染。空/0 → `—`。 */
@@ -224,10 +234,12 @@ export function useTimeFormatter(override?: TimeFormatterOverride): TimeFormatte
     queryFn: () => meApi.preferences(),
     staleTime: 5 * 60_000,
   });
+  // The zone picked in the time picker for the time in scope stands before the user's default.
+  const scoped = useTimeStore((state) => state.timezone);
   const prefs = data ?? meApi.DEFAULT_USER_PREFERENCES;
-  const tz = resolveTimezone(override?.timezone ?? prefs.timezone);
-  const format = override?.format ?? prefs.time_format;
-  const dateFormat = prefs.date_format;
+  const tz = resolveTimezone(override?.timezone ?? (scoped || prefs.timezone));
+  const format = override?.format ?? prefs.timeFormat;
+  const dateFormat = prefs.dateFormat;
 
   return {
     tz,

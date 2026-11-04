@@ -22,6 +22,7 @@ pub struct McpPromptArgument {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct McpPrompt {
     pub org_id: Id,
     pub server_id: Id,

@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use axum::{Router, extract::State, http::StatusCode, middleware::from_fn, routing::get};
 use base64::Engine as _;
-use common::{TestServer, skip_unless_enabled, wait_until_async};
+use common::{Credential, TestServer, session_cookie, skip_unless_enabled, wait_until_async};
 use molesignal::{
     infra::persistence::repositories::audit_events::AuditEvent, shared::time::TimestampMicros,
 };
@@ -75,20 +75,23 @@ async fn query_system_stream(
     stream_type: &str,
     statement: &str,
 ) -> Option<Value> {
+    let now = TimestampMicros::now().0;
+
     let response = client
         .post(format!("{base_url}/api/v1/query"))
-        .bearer_auth(system_token)
+        .credential(system_token)
         .json(&json!({
-            "org_id": system_org_id,
+            "orgId": system_org_id,
             "language": "sql",
             "statement": statement,
-            "time_range": {
-                "start": 0,
-                "end": TimestampMicros::now().0 + 60_000_000
+            // A much wider window is answered with a job instead of rows.
+            "timeRange": {
+                "start": now - 3_600_000_000,
+                "end": now + 60_000_000
             },
             "stream": {
                 "name": "_molesignal",
-                "stream_type": stream_type
+                "streamType": stream_type
             }
         }))
         .send()
@@ -119,9 +122,9 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
     let server = TestServer::start_with_trace_capture().await;
     let api_token_response: Value = server
         .client
-        .post(format!("{}/api/v1/auth/tokens", server.base_url))
-        .bearer_auth(&server.root_token)
-        .json(&json!({"name": "trace-system-boundary", "role": "owner"}))
+        .post(format!("{}/api/v1/me/api-tokens", server.base_url))
+        .credential(&server.root_token)
+        .json(&json!({"name": "trace-system-boundary"}))
         .send()
         .await
         .expect("create tenant API token")
@@ -138,20 +141,20 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
         let response = server
             .client
             .get(format!("{}{path}", server.base_url))
-            .bearer_auth(&server.root_token)
+            .credential(&server.root_token)
             .send()
             .await
             .expect("tenant-scoped system API request");
         assert_eq!(
             response.status(),
-            StatusCode::NOT_FOUND,
-            "tenant scope must not discover {path}"
+            StatusCode::FORBIDDEN,
+            "tenant scope must not read {path}"
         );
     }
     let tenant_orgs: Value = server
         .client
         .get(format!("{}/api/v1/orgs", server.base_url))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .send()
         .await
         .expect("list tenant-visible organizations")
@@ -175,7 +178,7 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
     let response = server
         .client
         .post(&select_url)
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .send()
         .await
         .expect("unauthorized system selection");
@@ -191,7 +194,7 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
     let visible_orgs: Value = server
         .client
         .get(format!("{}/api/v1/orgs", server.base_url))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .send()
         .await
         .expect("list platform-visible organizations")
@@ -212,13 +215,13 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
         let response = server
             .client
             .get(format!("{}{path}", server.base_url))
-            .bearer_auth(&server.root_token)
+            .credential(&server.root_token)
             .send()
             .await
             .expect("tenant-scoped platform-administrator request");
         assert_eq!(
             response.status(),
-            StatusCode::NOT_FOUND,
+            StatusCode::FORBIDDEN,
             "a platform administrator must select `_sys` before accessing {path}"
         );
     }
@@ -226,54 +229,52 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
         let response = server
             .client
             .get(format!("{}{path}", server.base_url))
-            .bearer_auth(&tenant_api_token)
+            .credential(&tenant_api_token)
             .send()
             .await
             .expect("tenant API-token system request");
         assert_eq!(
             response.status(),
-            StatusCode::NOT_FOUND,
-            "ms_* API tokens must never access {path}"
+            StatusCode::FORBIDDEN,
+            "API tokens must never access {path}"
         );
     }
     let api_token_select = server
         .client
         .post(&select_url)
-        .bearer_auth(&tenant_api_token)
+        .credential(&tenant_api_token)
         .send()
         .await
         .expect("API-token system selection");
     assert_eq!(api_token_select.status(), StatusCode::NOT_FOUND);
-    let selection: Value = server
+    let selection = server
         .client
         .post(&select_url)
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .send()
         .await
         .expect("select system organization")
         .error_for_status()
-        .expect("platform administrator can select `_sys`")
-        .json()
-        .await
-        .expect("system selection JSON");
+        .expect("platform administrator can select `_sys`");
+    let system_token = session_cookie(&selection);
+    let selection: Value = selection.json().await.expect("system selection JSON");
     assert_eq!(
-        selection["org_id"].as_str(),
+        selection["orgId"].as_str(),
         Some(server.state.iam.system_org_id.as_str())
     );
     assert_eq!(selection["system"].as_bool(), Some(true));
-    assert_eq!(selection["display_role"].as_str(), Some("Owner"));
+    assert_eq!(
+        selection["displayRole"].as_str(),
+        Some("Super administrator")
+    );
     assert_eq!(
         selection["roles"][0]["key"].as_str(),
-        Some("platform_owner")
+        Some("super_administrator")
     );
     assert!(
         selection.get("role").is_none(),
         "system selection must not expose the removed compatibility role field"
     );
-    let system_token = selection["token"]
-        .as_str()
-        .expect("system-scope JWT")
-        .to_owned();
     let claims: Value = serde_json::from_slice(
         &base64::engine::general_purpose::URL_SAFE_NO_PAD
             .decode(
@@ -317,7 +318,7 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
     let system_scoped_orgs: Value = server
         .client
         .get(format!("{}/api/v1/orgs", server.base_url))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .send()
         .await
         .expect("list organizations from system scope")
@@ -346,7 +347,7 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
             server.base_url,
             server.root_org_id.as_str()
         ))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .send()
         .await
         .expect("switch from system scope back to tenant")
@@ -356,16 +357,16 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
         .await
         .expect("tenant selection JSON");
     assert_eq!(
-        tenant_selection["org_id"].as_str(),
+        tenant_selection["orgId"].as_str(),
         Some(server.root_org_id.as_str())
     );
-    assert_eq!(tenant_selection["org_name"].as_str(), Some("default"));
+    assert_eq!(tenant_selection["orgName"].as_str(), Some("Acme"));
     assert_eq!(tenant_selection["system"].as_bool(), Some(false));
     for path in ["/api/v1/system/telemetry", "/api/v1/system/platform-admins"] {
         let response = server
             .client
             .get(format!("{}{path}", server.base_url))
-            .bearer_auth(&system_token)
+            .credential(&system_token)
             .send()
             .await
             .expect("system-scoped API request");
@@ -378,10 +379,10 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
     let forbidden_stream_create = server
         .client
         .post(format!("{}/api/v1/streams", server.base_url))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .json(&json!({
             "name": "system-owner-must-not-write",
-            "stream_type": "logs",
+            "streamType": "logs",
             "fields": [],
         }))
         .send()
@@ -394,8 +395,8 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
     );
     let hidden_api_token_create = server
         .client
-        .post(format!("{}/api/v1/auth/tokens", server.base_url))
-        .bearer_auth(&system_token)
+        .post(format!("{}/api/v1/me/api-tokens", server.base_url))
+        .credential(&system_token)
         .json(&json!({"name": "system-owner-must-not-create-token"}))
         .send()
         .await
@@ -408,7 +409,7 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
     let telemetry: Value = server
         .client
         .get(format!("{}/api/v1/system/telemetry", server.base_url))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .send()
         .await
         .expect("read Trace policy before privacy update")
@@ -425,7 +426,7 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
     server
         .client
         .put(format!("{}/api/v1/system/telemetry", server.base_url))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .json(&policy)
         .send()
         .await
@@ -439,7 +440,7 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
             server.base_url,
             server.root_user_id.as_str()
         ))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .send()
         .await
         .expect("request removed platform-administrator mutation endpoint");
@@ -494,12 +495,12 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
     );
     assert!(
         sqlx::query(
-            "INSERT INTO iam_memberships (user_id, org_id, joined_at_micros)
+            "INSERT INTO iam_memberships (user_id, org_id, joined_at)
              VALUES ($1, $2, $3)",
         )
         .bind(server.root_user_id.as_str())
         .bind(server.state.iam.system_org_id.as_str())
-        .bind(TimestampMicros::now().0)
+        .bind(TimestampMicros::now())
         .execute(&pool)
         .await
         .is_err(),
@@ -517,11 +518,11 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
     .expect("protected system Trace stream");
     sqlx::query(
         "UPDATE logical_streams
-         SET retention = '{\"days\": 8}'::jsonb, updated_at_micros = $2
+         SET retention = '{\"days\": 8}'::jsonb, updated_at = $2
          WHERE id = $1",
     )
     .bind(&trace_stream_id)
-    .bind(TimestampMicros::now().0)
+    .bind(TimestampMicros::now())
     .execute(&pool)
     .await
     .expect("retention is an approved system-stream capacity mutation");
@@ -605,10 +606,12 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
         "SELECT name FROM _molesignal WHERE trace_id = '{trace_id}' \
          ORDER BY start_time_unix_nano"
     );
+    // A span that declares `otel.name` is stored under it: the HTTP server span as its method
+    // and route, the query as its operation and collection (a bare `SELECT 1` reads no table).
     let expected_names = [
-        "http.server",
+        "GET /trace-e2e",
         "business.trace_e2e",
-        "db.query",
+        "SELECT unknown",
         "object_store.operation",
     ];
     let trace_ready = wait_until_async(30, {
@@ -641,9 +644,19 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
         }
     })
     .await;
+    let answer = query_system_stream(
+        &server.client,
+        &server.base_url,
+        &system_token,
+        server.state.iam.system_org_id.as_str(),
+        "traces",
+        &trace_statement,
+    )
+    .await;
     assert!(
         trace_ready,
-        "HTTP/SQL/object-store/business spans were not queryable from `_sys/traces/_molesignal`"
+        "HTTP/SQL/object-store/business spans were not queryable from `_sys/traces/_molesignal`: \
+         {answer:?}"
     );
 
     let result = query_system_stream(

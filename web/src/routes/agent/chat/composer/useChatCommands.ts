@@ -134,7 +134,7 @@ export function useChatCommands(targets: ChatCommandTargets) {
           { value: AUTO, label: t('model_auto') },
           ...targets.providers.map((provider) => ({
             value: provider.name,
-            label: provider.default_model,
+            label: provider.defaultModel,
           })),
         ];
       case 'profiles':
@@ -209,14 +209,14 @@ export function useChatCommands(targets: ChatCommandTargets) {
       return stop({
         code: 'unavailable',
         command: command.name,
-        detail: command.unavailable_reason ?? '',
+        detail: command.unavailableReason ?? '',
       });
     }
-    if (command.argument_required && !parsed.args) {
+    if (command.argumentRequired && !parsed.args) {
       return stop({
         code: 'argument_missing',
         command: command.name,
-        detail: command.argument_hint ?? '',
+        detail: command.argumentHint ?? '',
       });
     }
     if (command.kind === 'task') return 'send';
@@ -256,7 +256,7 @@ export function useChatCommands(targets: ChatCommandTargets) {
         return pick(
           command,
           targets.providers,
-          (provider) => [provider.name, provider.default_model],
+          (provider) => [provider.name, provider.defaultModel],
           args,
           targets.setProviderId,
           t('model_auto'),
@@ -327,9 +327,9 @@ export function useChatCommands(targets: ChatCommandTargets) {
     const detail = (() => {
       switch (code) {
         case 'argument_missing':
-          return refusal.options.join(', ') || (command?.argument_hint ?? '');
+          return refusal.options.join(', ') || (command?.argumentHint ?? '');
         case 'unavailable':
-          return command?.unavailable_reason ?? '';
+          return command?.unavailableReason ?? '';
         case 'ambiguous':
           return refusal.options.map((option) => `/${option}`).join(', ');
         case 'needs_credential':

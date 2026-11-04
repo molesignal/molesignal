@@ -30,19 +30,19 @@ export const DEFAULT_STATUS_PAGE_HISTORY_DAYS = 90;
 export const MAX_STATUS_PAGE_HISTORY_DAYS = 365;
 const DAY_MICROS = 24 * 60 * 60 * 1_000_000;
 
-export function statusPageHistoryDays(page: { history_days?: number }): number {
-  const days = page.history_days ?? DEFAULT_STATUS_PAGE_HISTORY_DAYS;
+export function statusPageHistoryDays(page: { historyDays?: number }): number {
+  const days = page.historyDays ?? DEFAULT_STATUS_PAGE_HISTORY_DAYS;
   return Number.isInteger(days) && days >= 1 && days <= MAX_STATUS_PAGE_HISTORY_DAYS
     ? days
     : DEFAULT_STATUS_PAGE_HISTORY_DAYS;
 }
 
 export function isIncidentWithinHistory(
-  incident: { started_at: number; ended_at: number | null },
+  incident: { startedAt: number; endedAt: number | null },
   generatedAt: number,
   historyDays: number,
 ): boolean {
-  const shownAt = incident.ended_at ?? incident.started_at;
+  const shownAt = incident.endedAt ?? incident.startedAt;
   return shownAt >= generatedAt - historyDays * DAY_MICROS;
 }
 
@@ -190,7 +190,7 @@ export function formatDurationMicros(t: TFunction, startedAt: number, endedAt: n
 interface GroupedComponent {
   id: string;
   kind?: ComponentKind;
-  group_id?: string | null;
+  groupId?: string | null;
 }
 
 export function isComponentGroup(component: Pick<GroupedComponent, 'kind'>): boolean {
@@ -217,11 +217,11 @@ export function componentTree<T extends GroupedComponent>(components: readonly T
   const groups = new Set(components.filter(isComponentGroup).map((component) => component.id));
 
   return components
-    .filter((component) => isComponentGroup(component) || !component.group_id || !groups.has(component.group_id))
+    .filter((component) => isComponentGroup(component) || !component.groupId || !groups.has(component.groupId))
     .map((item) => ({
       item,
       members: isComponentGroup(item)
-        ? components.filter((component) => !isComponentGroup(component) && component.group_id === item.id)
+        ? components.filter((component) => !isComponentGroup(component) && component.groupId === item.id)
         : [],
     }));
 }
@@ -243,11 +243,11 @@ const COMPONENT_STATUS_RANK: Record<ComponentStatus, number> = {
 };
 
 export function affectedComponentNames(
-  incident: Pick<StatusPageIncident, 'component_ids'>,
+  incident: Pick<StatusPageIncident, 'componentIds'>,
   components: Array<{ id: string; name: string }>,
 ): string[] {
   const names = new Map(components.map((component) => [component.id, component.name]));
-  return incident.component_ids.map((id) => names.get(id)).filter((name): name is string => !!name);
+  return incident.componentIds.map((id) => names.get(id)).filter((name): name is string => !!name);
 }
 
 export function allowedNextStatuses(status: PublicIncidentStatus): PublicIncidentStatus[] {

@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
+import type { TFunction } from 'i18next';
 import {
   AlertTriangle,
   Download,
@@ -10,6 +11,7 @@ import {
 } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 
 import * as resourceSharesApi from '@/api/resourceShares';
 import {
@@ -19,16 +21,22 @@ import {
 import { queryResultToDataFrames } from '@/dashboard-engine/dataframe';
 import { dashboardDefinitionFromStoredModel } from '@/dashboard-engine/model';
 import type { DashboardDefinition } from '@/dashboard-engine/schema';
-import { toApiError } from '@/lib/http';
+import { toApiError, type ApiError } from '@/lib/http';
+import { promqlStepMicros } from '@/lib/promqlRange';
 import { ChromeButton, Pill } from '@/shell/chrome';
+import { signinLimitWait } from '@/shell/signin/signinLimit';
 import { Input } from '@/shell/ui/input';
 import { useTimeStore } from '@/stores/useTimeStore';
 
 export function PublicShare() {
   const { t } = useTranslation('common');
+  const [searchParams] = useSearchParams();
   const metadataQuery = useQuery({
     queryKey: ['public-resource-share'],
     queryFn: resourceSharesApi.publicMetadata,
+    // A share link that cannot open lands here with this mark: there is no session to ask about,
+    // and one left over from another link must not show that link instead.
+    enabled: !searchParams.has('unavailable'),
     retry: false,
     refetchOnWindowFocus: false,
   });
@@ -43,13 +51,13 @@ export function PublicShare() {
         title={t('sharing.public.unavailable_title')}
         description={
           metadataQuery.error
-            ? toApiError(metadataQuery.error).message
+            ? unavailableReason(toApiError(metadataQuery.error), t)
             : t('sharing.public.unavailable_hint')
         }
       />
     );
   }
-  if (metadataQuery.data.requires_password) {
+  if (metadataQuery.data.requiresPassword) {
     return (
       <PasswordGate
         onUnlocked={() => void metadataQuery.refetch()}
@@ -63,6 +71,18 @@ export function PublicShare() {
   );
 }
 
+/**
+ * Why a share did not open, in the reader's language: the backend's words are in English.
+ * A visit lasts 30 minutes, so the usual 401 is a page left open, and the link still works.
+ */
+function unavailableReason(error: ApiError, t: TFunction): string {
+  if (error.status === 401) return t('sharing.public.visit_ended');
+
+  return error.status >= 400 && error.status < 500
+    ? t('sharing.public.unavailable_hint')
+    : t('sharing.public.open_failed');
+}
+
 function PublicDashboard({
   metadata,
 }: {
@@ -71,12 +91,12 @@ function PublicDashboard({
   const { t } = useTranslation('common');
   const constraints = metadata.constraints ?? {};
   const maxTimeRangeSecs = positiveNumber(
-    constraints.max_time_range_secs,
+    constraints.maxTimeRangeSecs,
     3600,
   );
-  const allowTimeChanges = constraints.allow_time_range_changes === true;
+  const allowTimeChanges = constraints.allowTimeRangeChanges === true;
   const allowVariableChanges =
-    constraints.allow_variable_changes === true;
+    constraints.allowVariableChanges === true;
   const setWindow = useTimeStore((state) => state.setWindow);
   const [rangeSecs, setRangeSecs] = React.useState(
     Math.min(3600, maxTimeRangeSecs),
@@ -86,7 +106,7 @@ function PublicDashboard({
       return dashboardDefinitionFromStoredModel(
         metadata.definition,
         metadata.title ?? t('sharing.public.dashboard'),
-        `public-${metadata.watermark?.share_id ?? 'share'}`,
+        `public-${metadata.watermark?.shareId ?? 'share'}`,
       );
     } catch {
       return null;
@@ -94,7 +114,7 @@ function PublicDashboard({
   }, [
     metadata.definition,
     metadata.title,
-    metadata.watermark?.share_id,
+    metadata.watermark?.shareId,
     t,
   ]);
   React.useEffect(() => {
@@ -108,10 +128,12 @@ function PublicDashboard({
   const executeQuery = React.useCallback<DashboardPanelQueryExecutor>(
     async (panelId, query, context) => {
       const result = await resourceSharesApi.runPublicPanelQuery({
-        panel_id: panelId,
-        ref_id: query.refId,
-        from_micros: context.timeRange.from,
-        to_micros: context.timeRange.to,
+        panelId: panelId,
+        refId: query.refId,
+        fromTime: context.timeRange.from,
+        toTime: context.timeRange.to,
+        // The step a dashboard draws PromQL with; the server ignores it for SQL.
+        step: promqlStepMicros(context.timeRange.from, context.timeRange.to),
         variables: context.variables,
       });
       return queryResultToDataFrames(
@@ -119,6 +141,7 @@ function PublicDashboard({
         query.refId,
         query.dataSourceType,
         query.legend,
+        query.format,
       );
     },
     [],
@@ -138,7 +161,7 @@ function PublicDashboard({
     <div className="min-h-screen bg-bg-0 text-tx-1">
       <PublicHeader
         title={metadata.title ?? dashboard.title}
-        expiresAt={metadata.expires_at_micros}
+        expiresAt={metadata.expiresAt}
         badge={t('sharing.public.read_only')}
       >
         {allowTimeChanges && (
@@ -187,15 +210,15 @@ function PublicReport({
 }) {
   const { t } = useTranslation('common');
   const fileUrl = resourceSharesApi.publicFileUrl();
-  const isImage = metadata.content_type?.startsWith('image/');
+  const isImage = metadata.contentType?.startsWith('image/');
   return (
     <div className="flex min-h-screen flex-col bg-bg-0 text-tx-1">
       <PublicHeader
         title={metadata.title ?? t('sharing.public.report')}
-        expiresAt={metadata.expires_at_micros}
+        expiresAt={metadata.expiresAt}
         badge={t('sharing.public.snapshot')}
       >
-        {metadata.allow_download && (
+        {metadata.allowDownload && (
           <ChromeButton
             variant="primary"
             onClick={() =>
@@ -265,13 +288,13 @@ function PasswordGate({ onUnlocked }: { onUnlocked: () => void }) {
         </label>
         {unlockMutation.isError && (
           <p role="alert" className="text-left text-xs text-danger">
-            {t('sharing.public.password_invalid')}
+            {unlockFailure(toApiError(unlockMutation.error), t)}
           </p>
         )}
         <ChromeButton
           type="submit"
           variant="primary"
-          disabled={!password || unlockMutation.isPending}
+          disabled={!password.trim() || unlockMutation.isPending}
           className="h-10 justify-center"
         >
           {unlockMutation.isPending && (
@@ -282,6 +305,23 @@ function PasswordGate({ onUnlocked }: { onUnlocked: () => void }) {
       </form>
     </PublicState>
   );
+}
+
+/**
+ * Why the password gate did not open. Only the backend's own code blames the password: a visit
+ * that ended answers 401 too, and it needs the link opened again, not another password.
+ */
+function unlockFailure(error: ApiError, t: TFunction): string {
+  const wait = signinLimitWait(error, t);
+
+  if (wait) return wait;
+  if (error.code === 'share_password_invalid') {
+    return t('sharing.public.password_invalid');
+  }
+
+  return error.status === 401
+    ? t('sharing.public.visit_ended')
+    : t('sharing.public.password_unchecked');
 }
 
 function PublicHeader({
@@ -337,7 +377,7 @@ function PublicWatermark({
     <div className="pointer-events-none fixed bottom-2 right-3 z-30 rounded border border-bd-0 bg-bg-1/80 px-2 py-1 font-mono text-type-micro text-tx-3 backdrop-blur">
       {t('sharing.public.watermark', {
         value: new Date(
-          metadata.watermark.accessed_at_micros / 1000,
+          metadata.watermark.accessedAt / 1000,
         ).toLocaleString(),
       })}
     </div>
@@ -362,7 +402,7 @@ function PublicState({
         <div className="mx-auto grid h-11 w-11 place-items-center rounded-lg border border-indigo/20 bg-indigo-dim text-indigo-soft">
           {icon}
         </div>
-        <h1 className="mt-4 text-base font-semibold text-tx-0">
+        <h1 className="mt-4 text-base font-display text-tx-0">
           {title ?? t('sharing.public.loading_title')}
         </h1>
         <p className="mt-2 text-sm leading-6 text-tx-3">

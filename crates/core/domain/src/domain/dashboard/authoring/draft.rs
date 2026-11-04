@@ -39,6 +39,7 @@ impl DashboardDraftStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DashboardDraft {
     pub id: Id,
     pub org_id: Id,
@@ -79,6 +80,7 @@ pub struct PreflightWarningRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DashboardAuthoringCapabilities {
     pub authoring_versions: Vec<u32>,
     pub dashboard_model_version: u32,
@@ -92,6 +94,7 @@ pub struct DashboardAuthoringCapabilities {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PreparedDashboardDraft {
     pub draft_id: Id,
     pub model_hash: String,

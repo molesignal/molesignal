@@ -6,6 +6,7 @@ import { toApiError } from '@/lib/http';
 import { hasPermission, useProductAccess } from '@/product/access';
 import type { PermissionKey } from '@/product/permissions';
 import { toast } from '@/shell/ui/sonner';
+import { isOrgEntryDeclined } from '@/stores/useOrgEntry';
 import { useOrgStore } from '@/stores/useOrgStore';
 
 /**
@@ -20,11 +21,8 @@ export type PlatformReach = 'here' | 'platform' | 'none' | 'loading';
 /**
  * Access to an action behind a platform (`sys.*`) permission.
  *
- * The platform's administrator and the owner of an organization both hold
- * the platform permissions. What they administer with them, the organizations
- * and the platform's own telemetry, lives in the platform organization and is
- * only served there, so holding the permission in another organization is not
- * yet being where the action is. Whoever can enter the platform organization
+ * Platform permissions are granted in the platform organization and only count there, so holding
+ * one elsewhere is not yet being where the action is. Whoever can enter the platform organization
  * is offered the action, and running it enters that organization first.
  */
 export function usePlatformAction(permission: PermissionKey): {
@@ -73,6 +71,7 @@ export function usePlatformAction(permission: PermissionKey): {
       toast.success(t('switch_org_success', { name: entered.name }));
       action();
     } catch (error) {
+      if (isOrgEntryDeclined(error)) return;
       toast.error(t('switch_org_failure', { message: toApiError(error).message }));
     } finally {
       setEntering(false);

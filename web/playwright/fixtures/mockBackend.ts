@@ -21,7 +21,7 @@ import type { Server } from 'node:http';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { test as base, type Page } from '@playwright/test';
+import { test as base, type BrowserContext, type Page } from '@playwright/test';
 import express, { type Express, type Request, type Response } from 'express';
 
 import type { UserPreferences } from '../../src/api/me';
@@ -32,68 +32,221 @@ import { registerAgentResourceRoutes } from './mockAgentResources';
 import { registerAgentRunRoutes } from './mockAgentRuns';
 import { registerAgentUsageRoutes } from './mockAgentUsage';
 import { mockIncidentExists, registerAlertRoutes } from './mockAlerts';
-import { registerBusinessServiceRoutes } from './mockBusinessServices';
+import { registerAutomationRoutes } from './mockAutomations';
+import { registerImRoutes } from './mockIm';
+import { registerQualityRoutes } from './mockQuality';
+import { registerRumRoutes } from './mockRum';
 import { registerLogInspectionRoutes } from './mockLogInspections';
+import { registerMfaRoutes } from './mockMfa';
 import { registerReliabilityRoutes } from './mockReliability';
+import { registerIntakeUsageRoutes } from './mockIntakeUsage';
 import { registerSearchJobRoutes } from './mockSearchJobs';
+import { registerSsoTestRoutes } from './mockSsoTests';
 
 export const FROZEN_NOW_ISO = '2026-05-23T10:00:00.000Z';
 
-const MOCK_IAM_PLATFORM_PERMISSIONS = [
-  'sys.organizations.manage',
-  'sys.settings.manage',
+export const MOCK_IAM_PLATFORM_PERMISSIONS = [
+  'sys.organizations.read',
+  'sys.organizations.create',
+  'sys.organizations.update',
+  'sys.organizations.disable',
+  'sys.organizations.delete',
+  'sys.settings.retention.read',
+  'sys.settings.retention.manage',
+  'sys.settings.limits.read',
+  'sys.settings.limits.manage',
+  'sys.settings.signin.read',
+  'sys.settings.signin.manage',
+  'sys.settings.alerting.read',
+  'sys.settings.alerting.manage',
+  'sys.settings.topology.read',
+  'sys.settings.topology.manage',
+  'sys.signing_keys.read',
+  'sys.signing_keys.rotate',
+  'sys.clusters.read',
+  'sys.clusters.manage',
+  'sys.nodes.read',
+  'sys.nodes.drain',
+  'sys.query.admission.read',
+  'sys.query.admission.manage',
+  'sys.administrators.read',
+  'sys.administrators.manage',
   'sys.dashboards.read',
   'sys.telemetry.read',
   'sys.telemetry.manage',
-  'sys.administrators.manage',
   'sys.trace_debug.manage',
 ] as const;
 
 const MOCK_IAM_ORGANIZATION_PERMISSIONS = [
-  'org.settings.read',
-  'org.settings.manage',
+  'org.preferences.read',
+  'org.sharing.read',
+  'org.email_domains.read',
+  'org.sso.read',
+  'org.signin.read',
+  'org.cipher_keys.read',
+  'org.field_masking.read',
+  'org.regex_patterns.read',
+  'org.domains.read',
+  'org.running_queries.read',
+  'org.preferences.manage',
+  'org.sharing.manage',
+  'org.email_domains.manage',
+  'org.sso.manage',
+  'org.signin.manage',
+  'org.cipher_keys.manage',
+  'org.cipher_keys.rotate',
+  'org.field_masking.manage',
+  'org.regex_patterns.manage',
+  'org.domains.manage',
+  'org.running_queries.cancel',
   'org.members.read',
-  'org.members.manage',
+  'org.members.invite',
+  'org.members.update',
+  'org.members.remove',
+  'org.members.approve',
+  'org.members.mfa_reset',
   'iam.roles.read',
-  'iam.roles.manage',
   'iam.policies.read',
+  'iam.roles.manage',
+  'iam.roles.delete',
   'iam.policies.manage',
+  'iam.policies.delete',
+  'iam.grants.read',
+  'iam.cross_org.read',
+  'org.teams.manage',
+  'iam.grants.manage',
+  'iam.cross_org.manage',
   'api_tokens.read',
-  'api_tokens.manage',
+  'api_tokens.issue',
+  'api_tokens.revoke',
+  'rum.applications.manage',
+  'personal_tokens.manage',
   'service_accounts.read',
   'service_accounts.manage',
+  'service_accounts.delete',
   'streams.read',
+  'log_patterns.read',
+  'debug_artifacts.read',
   'streams.query',
-  'streams.write',
+  'logs.read',
+  'traces.read',
+  'metrics.read',
+  'profiles.read',
+  'query.jobs.read',
+  'query.jobs.run',
+  'query.slow.read',
+  'apm.services.read',
+  'apm.errors.read',
+  'apm.error_rules.read',
+  'apm.definitions.read',
+  'apm.deployments.read',
+  'apm.slos.read',
+  'apm.settings.read',
+  'rum.events.read',
+  'rum.analytics.read',
+  'rum.sessions.read',
+  'rum.replay.read',
+  'rum.applications.read',
+  'rum.issues.read',
+  'rum.playlists.read',
+  'logs.write',
+  'traces.write',
+  'metrics.write',
+  'profiles.write',
+  'rum.write',
   'streams.create',
   'streams.configure',
+  'log_patterns.manage',
+  'debug_artifacts.manage',
   'streams.delete',
   'dashboards.read',
+  'dashboards.folders.read',
+  'dashboards.annotations.read',
   'dashboards.edit',
+  'dashboards.folders.manage',
+  'dashboards.annotations.manage',
   'dashboards.create',
   'dashboards.delete',
+  'dashboards.folders.delete',
   'dashboards.share',
-  'alerts.read',
-  'alerts.manage',
-  'alerts.acknowledge',
-  'alerts.silence',
+  'alerts.rules.read',
+  'alerts.routing.read',
+  'alerts.escalations.read',
+  'alerts.calendars.read',
+  'alerts.importance.read',
+  'alerts.incidents.read',
+  'alerts.mutes.read',
+  'alerts.inhibitions.read',
+  'alerts.remediation.read',
+  'alerts.response.read',
+  'alerts.semantic_groups.read',
+  'alerts.sources.read',
+  'alerts.tickets.read',
+  'alerts.discovery.read',
+  'notify.connectors.read',
+  'notify.policies.read',
+  'notify.templates.read',
+  'notify.defaults.read',
+  'notify.deliveries.read',
+  'alerts.rules.manage',
+  'alerts.rules.delete',
+  'alerts.routing.manage',
+  'alerts.escalations.manage',
+  'alerts.escalations.delete',
+  'alerts.calendars.manage',
+  'alerts.importance.manage',
+  'alerts.incidents.rca',
+  'alerts.remediation.manage',
+  'alerts.response.manage',
+  'alerts.semantic_groups.manage',
+  'alerts.sources.manage',
+  'alerts.tickets.manage',
+  'notify.connectors.manage',
+  'notify.connectors.delete',
+  'notify.policies.manage',
+  'notify.policies.delete',
+  'notify.templates.manage',
+  'notify.defaults.manage',
+  'notify.deliveries.retry',
+  'alerts.incidents.create',
+  'alerts.incidents.acknowledge',
+  'alerts.incidents.update',
+  'alerts.incidents.escalate',
+  'alerts.incidents.remediate',
+  'alerts.incidents.tickets',
+  'notify.deliveries.acknowledge',
+  'alerts.incidents.silence',
+  'alerts.mutes.manage',
+  'alerts.inhibitions.manage',
   'schedules.read',
-  'schedules.manage',
+  'schedules.swaps.request',
+  'schedules.calendar_feeds.manage',
+  'schedules.create',
+  'schedules.update',
+  'schedules.delete',
+  'schedules.overrides.manage',
+  'schedules.swaps.approve',
   'saved_views.read',
   'saved_views.create',
   'saved_views.edit',
   'saved_views.delete',
   'pipelines.read',
+  'connectors.read',
   'pipelines.create',
   'pipelines.edit',
+  'connectors.manage',
   'pipelines.run',
   'pipelines.pause',
   'pipelines.delete',
   'functions.read',
+  'tables.read',
   'functions.create',
+  'tables.create',
   'functions.edit',
+  'tables.edit',
   'functions.run',
   'functions.delete',
+  'tables.delete',
   'reports.read',
   'reports.create',
   'reports.edit',
@@ -102,16 +255,87 @@ const MOCK_IAM_ORGANIZATION_PERMISSIONS = [
   'reports.delete',
   'audit.read',
   'agent.use',
+  'inspections.read',
+  'agent.approvals.read',
+  'agent.approvals.request',
+  'agent.automations.read',
+  'agent.investigations.read',
+  'agent.investigations.manage',
+  'agent.knowledge.read',
+  'agent.knowledge.manage',
+  'agent.memories.read',
+  'agent.memories.manage',
+  'agent.mcp_servers.read',
+  'agent.mcp_servers.manage',
+  'agent.skills.read',
+  'agent.skills.manage',
+  'agent.skill_repositories.read',
+  'agent.skill_repositories.manage',
+  'agent.tools.read',
+  'agent.models.read',
+  'agent.profiles.read',
+  'agent.prompts.read',
+  'agent.toolsets.read',
+  'agent.usage.read',
   'agent.manage',
+  'agent.memories.settings',
+  'agent.skills.rescan',
+  'agent.tools.manage',
+  'agent.models.manage',
+  'agent.models.rotate',
+  'agent.profiles.manage',
+  'agent.prompts.manage',
+  'agent.toolsets.manage',
+  'agent.usage.manage',
+  'agent.quality.read',
+  'agent.quality.manage',
+  'agent.network_policy.read',
+  'agent.network_policy.manage',
+  'agent.inbound_mcp.read',
+  'agent.inbound_mcp.manage',
+  'agent.im.read',
+  'agent.im.manage',
   'agent.approve',
   'inspections.manage',
+  'inspections.run',
+  'agent.automations.manage',
+  'agent.automations.run',
+  'agent.automations.tokens',
   'status_pages.read',
-  'status_pages.manage',
-  'status_pages.publish',
-  'business_services.read',
-  'business_services.manage',
-  'synthetics.read',
-  'synthetics.manage',
+  'status_pages.automation.read',
+  'status_pages.create',
+  'status_pages.update',
+  'status_pages.archive',
+  'status_pages.delete',
+  'status_pages.access.manage',
+  'status_pages.domain.manage',
+  'status_pages.slack.manage',
+  'status_pages.subscribers.manage',
+  'status_pages.automation.manage',
+  'status_pages.events.manage',
+  'apm.errors.manage',
+  'apm.error_rules.manage',
+  'apm.definitions.manage',
+  'apm.slos.manage',
+  'apm.slos.delete',
+  'apm.settings.manage',
+  'apm.deploy',
+  'intake_usage.read',
+  'intake_budgets.manage',
+  'rum.issues.manage',
+  'rum.playlists.manage',
+  'rum.replay.comments.write',
+  'rum.replay.comments.manage',
+  'rum.replay.summaries.generate',
+  'status_pages.automation.approve',
+  'status_pages.events.publish',
+  'synthetics.monitors.read',
+  'synthetics.results.read',
+  'synthetics.locations.read',
+  'synthetics.secrets.read',
+  'synthetics.monitors.manage',
+  'synthetics.monitors.run',
+  'synthetics.monitors.archive',
   'synthetics.locations.manage',
   'synthetics.secrets.manage',
   'service_levels.read',
@@ -119,6 +343,94 @@ const MOCK_IAM_ORGANIZATION_PERMISSIONS = [
   'postmortems.read',
   'postmortems.manage',
 ] as const;
+
+/** The permission each platform page asks for, as the backend's route catalog has it. */
+const MOCK_SYSTEM_ROUTE_PERMISSIONS: Record<string, readonly string[]> = {
+  'iam.organizations': ['sys.organizations.read'],
+  'settings.organization.management': ['sys.organizations.read'],
+  'settings.client_ip': ['sys.settings.signin.read'],
+  'settings.nodes': ['sys.clusters.read', 'sys.settings.topology.read'],
+  'settings.signin_requirements': ['sys.settings.signin.read'],
+  'settings.signin_limits': ['sys.settings.signin.read'],
+  'settings.audit_retention': ['sys.settings.retention.read'],
+  'settings.stream_retention': ['sys.settings.retention.read'],
+  'settings.series_limits': ['sys.settings.limits.read'],
+  'settings.intake_usage': ['sys.settings.limits.read'],
+  'settings.alert_evaluation': ['sys.settings.alerting.read'],
+};
+
+const MOCK_PLATFORM_READS = [
+  'sys.organizations.read',
+  'sys.administrators.read',
+  'sys.settings.retention.read',
+  'sys.settings.limits.read',
+  'sys.settings.signin.read',
+  'sys.settings.alerting.read',
+  'sys.settings.topology.read',
+  'sys.clusters.read',
+  'sys.nodes.read',
+  'sys.query.admission.read',
+] as const;
+
+/** The pages of a module with permissions of their own, as the backend's route catalog has them. */
+const MOCK_MODULE_PAGES: ReadonlyArray<readonly [string, string, readonly string[]]> = [
+  ['alerts', '/alerts', [
+    'alerts.incidents.read',
+    'alerts.rules.read',
+    'alerts.discovery.read',
+    'alerts.sources.read',
+    'postmortems.read',
+    'alerts.mutes.read',
+    'alerts.inhibitions.read',
+    'alerts.routing.read',
+    'alerts.escalations.read',
+    'schedules.read',
+    'alerts.remediation.read',
+    'alerts.tickets.read',
+    'alerts.semantic_groups.manage',
+  ]],
+  ['alert.incidents', '/alerts/incidents', ['alerts.incidents.read']],
+  ['alert.rules', '/alerts/rules', ['alerts.rules.read']],
+  ['alert.insights', '/alerts/insights', ['alerts.incidents.read']],
+  ['alert.history', '/alerts/history', ['alerts.incidents.read']],
+  ['alert.discovery', '/alerts/discovery', ['alerts.discovery.read']],
+  ['alert.sources', '/alerts/sources', ['alerts.sources.read']],
+  ['alerts.postmortems', '/alerts/postmortems', ['postmortems.read']],
+  ['alert.silences', '/alerts/silences', ['alerts.mutes.read']],
+  ['alert.inhibitions', '/alerts/inhibitions', ['alerts.inhibitions.read']],
+  ['alert.routing', '/alerts/routing', ['alerts.routing.read']],
+  ['alert.escalations', '/alerts/escalations', ['alerts.escalations.read']],
+  ['alert.schedules', '/alerts/schedules', ['schedules.read']],
+  ['alert.remediation', '/alerts/remediation', ['alerts.remediation.read']],
+  ['alert.tickets', '/alerts/tickets', ['alerts.tickets.read']],
+  ['semantic.groups', '/alerts/semantic-groups', ['alerts.semantic_groups.manage']],
+  ['apm', '/apm', ['apm.services.read', 'apm.errors.read', 'apm.slos.read', 'apm.settings.read', 'sys.telemetry.read']],
+  ['apm.overview', '/apm/overview', ['apm.services.read', 'sys.telemetry.read']],
+  ['apm.services', '/apm/services', ['apm.services.read', 'sys.telemetry.read']],
+  ['apm.map', '/apm/map', ['apm.services.read', 'sys.telemetry.read']],
+  ['apm.errors', '/apm/errors', ['apm.errors.read', 'sys.telemetry.read']],
+  ['apm.slos', '/apm/slos', ['apm.slos.read', 'sys.telemetry.read']],
+  ['apm.settings', '/apm/settings', ['apm.settings.read', 'sys.telemetry.read']],
+  ['rum', '/rum', ['rum.events.read', 'rum.playlists.read', 'rum.issues.read', 'rum.analytics.read', 'rum.applications.read']],
+  ['rum.overview', '/rum/overview', ['rum.events.read']],
+  ['rum.explorer', '/rum/explorer', ['rum.events.read']],
+  ['rum.playlists', '/rum/playlists', ['rum.playlists.read']],
+  ['rum.errors', '/rum/errors', ['rum.issues.read']],
+  ['rum.performance', '/rum/performance', ['rum.events.read']],
+  ['rum.frustration', '/rum/frustration', ['rum.events.read']],
+  ['rum.analytics', '/rum/analytics', ['rum.analytics.read']],
+  ['rum.feature.flags', '/rum/feature-flags', ['rum.events.read']],
+  ['rum.applications', '/rum/applications', ['rum.applications.read']],
+  ['rum.settings', '/rum/settings/:section', ['rum.applications.read']],
+  ['rum.source.maps', '/rum/settings/source-maps', ['debug_artifacts.read']],
+  ['synthetics', '/synthetics', ['synthetics.monitors.read', 'synthetics.results.read', 'synthetics.locations.read', 'synthetics.secrets.read']],
+  ['synthetics.overview', '/synthetics/overview', ['synthetics.monitors.read']],
+  ['synthetics.checks', '/synthetics/checks', ['synthetics.monitors.read']],
+  ['synthetics.results', '/synthetics/results', ['synthetics.results.read']],
+  ['synthetics.locations', '/synthetics/locations', ['synthetics.locations.read']],
+  ['synthetics.agents', '/synthetics/agents', ['synthetics.locations.read']],
+  ['synthetics.variables', '/synthetics/variables', ['synthetics.secrets.read']],
+];
 
 function mockCapabilityRoutes(
   scope: 'organization' | 'system' | 'api_token',
@@ -129,6 +441,14 @@ function mockCapabilityRoutes(
     'iam.organizations',
     'settings.organization.management',
     'settings.client_ip',
+    'settings.nodes',
+    'settings.signin_requirements',
+    'settings.signin_limits',
+    'settings.audit_retention',
+    'settings.stream_retention',
+    'settings.series_limits',
+    'settings.intake_usage',
+    'settings.alert_evaluation',
   ]);
   const systemTelemetryOwners = new Set([
     'home',
@@ -149,19 +469,17 @@ function mockCapabilityRoutes(
           permissionSet.has('sys.telemetry.read')) ||
         (route.owner === 'dashboards' &&
           permissionSet.has('sys.dashboards.read')) ||
-        (route.id === 'iam.organizations' &&
-          permissionSet.has('sys.organizations.manage')) ||
-        (route.id === 'settings.organization.management' &&
-          permissionSet.has('sys.organizations.manage')) ||
-        (route.id === 'settings.client_ip' &&
-          permissionSet.has('sys.settings.manage'));
+        (route.id in MOCK_SYSTEM_ROUTE_PERMISSIONS &&
+          (MOCK_SYSTEM_ROUTE_PERMISSIONS[route.id] ?? []).some((permission) =>
+            permissionSet.has(permission),
+          ));
     }
     return {
       id: route.id,
-      path_pattern: route.path,
+      pathPattern: route.path,
       allowed,
-      navigation_group: navigable ? route.group : undefined,
-      navigation_position: navigable ? index : undefined,
+      navigationGroup: navigable ? route.group : undefined,
+      navigationPosition: navigable ? index : undefined,
     };
   });
   // The permission each route asks for, as the backend's route catalog has it
@@ -169,28 +487,72 @@ function mockCapabilityRoutes(
   const explicit = [
     ['root', '/', true],
     ['account.settings', '/account/settings/*', true],
+    ['settings', '/settings', scope === 'system'
+      ? MOCK_PLATFORM_READS.some((permission) => permissionSet.has(permission))
+      : [
+          'org.preferences.read',
+          'org.sharing.read',
+          'org.cipher_keys.read',
+          'org.regex_patterns.read',
+          'org.field_masking.read',
+          'org.domains.read',
+          'org.running_queries.read',
+          'org.signin.read',
+          'audit.read',
+          'notify.connectors.read',
+          'notify.policies.read',
+          'notify.templates.read',
+          'notify.defaults.read',
+          'notify.deliveries.read',
+          'alerts.calendars.read',
+          'alerts.importance.read',
+        ].some((permission) => permissionSet.has(permission))],
     ['iam', '/iam', scope === 'system'
-      ? permissionSet.has('sys.organizations.manage')
+      ? permissionSet.has('sys.organizations.read') || permissionSet.has('sys.administrators.read')
       : permissionSet.has('org.members.read') ||
         permissionSet.has('iam.roles.read') ||
         permissionSet.has('iam.policies.read') ||
+        permissionSet.has('iam.grants.read') ||
         permissionSet.has('api_tokens.read') ||
         permissionSet.has('service_accounts.read') ||
-        permissionSet.has('org.settings.read')],
+        permissionSet.has('org.sso.read') ||
+        permissionSet.has('org.email_domains.read')],
+    ['stream.usage', '/streams/usage', permissionSet.has('intake_usage.read') || permissionSet.has('sys.telemetry.read')],
     ['iam.users', '/iam/users', scope !== 'system' && permissionSet.has('org.members.read')],
     ['iam.invitations', '/iam/invitations', scope !== 'system' && permissionSet.has('org.members.read')],
     ['iam.approvals', '/iam/approvals', scope !== 'system' && permissionSet.has('org.members.read')],
     ['iam.teams', '/iam/teams', scope !== 'system' && permissionSet.has('org.members.read')],
-    ['iam.roles', '/iam/roles', scope !== 'system' && permissionSet.has('iam.roles.read')],
-    ['iam.groups', '/iam/groups', scope !== 'system' && permissionSet.has('iam.policies.read')],
+    ['iam.roles', '/iam/roles', permissionSet.has(scope === 'system' ? 'sys.administrators.read' : 'iam.roles.read')],
+    ['iam.permission.policies', '/iam/policies', permissionSet.has(scope === 'system' ? 'sys.administrators.read' : 'iam.policies.read')],
+    ['iam.groups', '/iam/groups', permissionSet.has(scope === 'system' ? 'sys.administrators.read' : 'iam.grants.read')],
     ['iam.api.tokens', '/iam/api-tokens', scope !== 'system' && permissionSet.has('api_tokens.read')],
     ['iam.service.accounts', '/iam/service-accounts', scope !== 'system' && permissionSet.has('service_accounts.read')],
-    ['iam.sso', '/iam/sso', scope !== 'system' && permissionSet.has('org.settings.read')],
-    ['iam.email.domains', '/iam/email-domains', scope !== 'system' && permissionSet.has('org.settings.read')],
-    ['settings.notify', '/settings/notify/*', scope !== 'system' && permissionSet.has('alerts.read')],
-    ['logs.inspections', '/logs/inspections', scope !== 'system' && permissionSet.has('agent.use') && permissionSet.has('streams.query')],
-    ['logs.inspection.detail', '/logs/inspections/:id', scope !== 'system' && permissionSet.has('agent.use') && permissionSet.has('streams.query')],
-    ['settings.tenant.tools', '/settings/:section', scope !== 'system' && permissionSet.has('org.settings.read')],
+    ['iam.sso', '/iam/sso', scope !== 'system' && permissionSet.has('org.sso.read')],
+    ['iam.sso.test', '/iam/sso/tests/:id', scope !== 'system' && permissionSet.has('org.sso.manage')],
+    ['iam.email.domains', '/iam/email-domains', scope !== 'system' && permissionSet.has('org.email_domains.read')],
+    ['settings.general', '/settings/general', scope !== 'system' && (permissionSet.has('org.preferences.read') || permissionSet.has('org.sharing.read'))],
+    ['settings.notify', '/settings/notify/*', scope !== 'system' && [
+      'notify.connectors.read',
+      'notify.policies.read',
+      'notify.templates.read',
+      'notify.defaults.read',
+      'notify.deliveries.read',
+      'org.members.read',
+    ].some((permission) => permissionSet.has(permission))],
+    ['logs.inspections', '/logs/inspections', scope !== 'system' && permissionSet.has('inspections.read') && permissionSet.has('logs.read')],
+    ['logs.inspection.detail', '/logs/inspections/:id', scope !== 'system' && permissionSet.has('inspections.read') && permissionSet.has('logs.read')],
+    ['settings.tenant.tools', '/settings/:section', scope !== 'system' && [
+      'org.cipher_keys.read',
+      'org.regex_patterns.read',
+      'org.field_masking.read',
+      'org.domains.read',
+      'org.running_queries.read',
+    ].some((permission) => permissionSet.has(permission))],
+    ...MOCK_MODULE_PAGES.map(([id, path, any]) => [
+      id,
+      path,
+      any.some((permission) => permissionSet.has(permission)),
+    ] as const),
   ] as const;
   // A route listed here is decided here. The app takes the first decision it
   // finds for a route, so the row derived from the product catalog above must
@@ -206,9 +568,9 @@ function mockCapabilityRoutes(
     })),
     ...explicit
       .filter(([id]) => !catalogIds.has(id))
-      .map(([id, path_pattern, allowed]) => ({
+      .map(([id, pathPattern, allowed]) => ({
         id,
-        path_pattern,
+        pathPattern: pathPattern,
         allowed,
       })),
   ];
@@ -216,15 +578,85 @@ function mockCapabilityRoutes(
 
 const MOCK_IAM_VIEWER_PERMISSIONS = [
   'streams.read',
+  'log_patterns.read',
+  'debug_artifacts.read',
   'streams.query',
+  'logs.read',
+  'traces.read',
+  'metrics.read',
+  'profiles.read',
+  'query.jobs.read',
+  'query.jobs.run',
+  'query.slow.read',
+  'apm.services.read',
+  'apm.errors.read',
+  'apm.error_rules.read',
+  'apm.definitions.read',
+  'apm.deployments.read',
+  'apm.slos.read',
+  'apm.settings.read',
+  'rum.events.read',
+  'rum.analytics.read',
+  'rum.sessions.read',
+  'rum.replay.read',
+  'rum.applications.read',
+  'rum.issues.read',
+  'rum.playlists.read',
   'dashboards.read',
-  'alerts.read',
+  'dashboards.folders.read',
+  'dashboards.annotations.read',
+  'alerts.rules.read',
+  'alerts.routing.read',
+  'alerts.escalations.read',
+  'alerts.calendars.read',
+  'alerts.importance.read',
+  'alerts.incidents.read',
+  'alerts.mutes.read',
+  'alerts.inhibitions.read',
+  'alerts.remediation.read',
+  'alerts.response.read',
+  'alerts.semantic_groups.read',
+  'alerts.sources.read',
+  'alerts.tickets.read',
+  'alerts.discovery.read',
+  'notify.connectors.read',
+  'notify.policies.read',
+  'notify.templates.read',
+  'notify.defaults.read',
+  'notify.deliveries.read',
   'schedules.read',
+  'schedules.swaps.request',
+  'schedules.calendar_feeds.manage',
   'saved_views.read',
   'pipelines.read',
+  'connectors.read',
   'functions.read',
+  'tables.read',
   'reports.read',
   'agent.use',
+  'inspections.read',
+  'agent.approvals.read',
+  'agent.approvals.request',
+  'agent.automations.read',
+  'agent.investigations.read',
+  'agent.investigations.manage',
+  'agent.knowledge.read',
+  'agent.knowledge.manage',
+  'agent.memories.read',
+  'agent.memories.manage',
+  'agent.mcp_servers.read',
+  'agent.mcp_servers.manage',
+  'agent.skills.read',
+  'agent.skills.manage',
+  'agent.skill_repositories.read',
+  'agent.skill_repositories.manage',
+  'agent.tools.read',
+  'agent.models.read',
+  'agent.profiles.read',
+  'agent.prompts.read',
+  'agent.toolsets.read',
+  'agent.usage.read',
+  'personal_tokens.manage',
 ] as const;
 
 const MOCK_IAM_EDITOR_DENY_PREFIXES = [
@@ -234,12 +666,24 @@ const MOCK_IAM_EDITOR_DENY_PREFIXES = [
   'audit.',
   'agent.manage',
   'agent.approve',
+  'agent.memories.settings',
+  'agent.skills.rescan',
+  'agent.tools.manage',
+  'agent.models.',
+  'agent.profiles.manage',
+  'agent.prompts.manage',
+  'agent.toolsets.manage',
+  'agent.usage.manage',
+  'agent.quality.',
+  'agent.network_policy.',
+  'agent.inbound_mcp.',
+  'agent.im.',
 ] as const;
 
 const MOCK_IAM_ROLE_PERMISSIONS: Record<string, readonly string[]> = {
-  platform_owner: MOCK_IAM_PLATFORM_PERMISSIONS,
-  // An owner holds the whole catalog, platform scope included, as the backend keeps it.
-  owner: [...MOCK_IAM_PLATFORM_PERMISSIONS, ...MOCK_IAM_ORGANIZATION_PERMISSIONS],
+  platform_admin: MOCK_IAM_PLATFORM_PERMISSIONS,
+  // An owner holds the organization's whole catalog and nothing of the platform's.
+  owner: [...MOCK_IAM_ORGANIZATION_PERMISSIONS, 'org.delete'],
   admin: MOCK_IAM_ORGANIZATION_PERMISSIONS,
   editor: MOCK_IAM_ORGANIZATION_PERMISSIONS.filter(
     (permission) =>
@@ -257,14 +701,22 @@ const mockIamDomain = (permission: string): string => {
   if (
     resource === 'iam' ||
     resource === 'api_tokens' ||
+    resource === 'personal_tokens' ||
     resource === 'service_accounts' ||
     resource === 'audit'
   ) {
     return 'iam';
   }
   if (resource === 'dashboards') return 'dashboards';
-  if (resource === 'alerts' || resource === 'schedules') return 'alerts';
-  if (resource === 'pipelines' || resource === 'functions') return 'pipelines';
+  if (resource === 'alerts' || resource === 'schedules' || resource === 'notify') return 'alerts';
+  if (
+    resource === 'pipelines' ||
+    resource === 'functions' ||
+    resource === 'connectors' ||
+    resource === 'tables'
+  ) {
+    return 'pipelines';
+  }
   if (resource === 'reports') return 'reports';
   if (resource === 'agent' || resource === 'inspections') return 'agent';
   if (
@@ -289,9 +741,9 @@ const MOCK_IAM_PERMISSION_CATALOG = {
       key: permission,
       scope: permission.startsWith('sys.') ? 'platform' : 'organization',
       domain: mockIamDomain(permission),
-      label_key: `permissions.${translationKey}`,
-      description_key: `permissions_hint.${translationKey}`,
-      builtin_roles: Object.entries(MOCK_IAM_ROLE_PERMISSIONS)
+      labelKey: `permissions.${translationKey}`,
+      descriptionKey: `permissions_hint.${translationKey}`,
+      builtinRoles: Object.entries(MOCK_IAM_ROLE_PERMISSIONS)
         .filter(([, permissions]) => permissions.includes(permission))
         .map(([role]) => role),
       ...(permission.startsWith('agent.')
@@ -299,15 +751,61 @@ const MOCK_IAM_PERMISSION_CATALOG = {
         : {}),
     };
   }),
-  bundles: [
-    {
-      key: 'readonly_observer',
-      label_key: 'roles.bundles.readonly_observer',
-      description_key: 'roles.bundles_hint.readonly_observer',
-      permissions: MOCK_IAM_VIEWER_PERMISSIONS,
-    },
-  ],
 };
+
+/** Whether a policy action names `permission`, by name or by a pattern with `*`. */
+const mockActionMatches = (action: string, permission: string): boolean => {
+  const parts = action.split('*');
+  if (parts.length === 1) return action === permission;
+  const first = parts[0] ?? '';
+  const last = parts[parts.length - 1] ?? '';
+  if (!permission.startsWith(first)) return false;
+  let rest = permission.slice(first.length);
+  for (const part of parts.slice(1, -1)) {
+    const at = rest.indexOf(part);
+    if (at < 0) return false;
+    rest = rest.slice(at + part.length);
+  }
+  return rest.length >= last.length && rest.endsWith(last);
+};
+
+/** The organization permissions a policy document allows, or why it allows none. */
+const mockResolvePolicy = (document: unknown): { permissions: string[] } | { error: string } => {
+  const statements = (document as { Statement?: unknown } | null)?.Statement;
+  if ((document as { Version?: unknown } | null)?.Version !== '1') return { error: 'Version must be "1"' };
+  if (!Array.isArray(statements)) return { error: 'invalid policy document: Statement is not a list' };
+  const allowed = new Set<string>();
+  for (const [index, statement] of statements.entries()) {
+    const { Effect, Action } = statement as { Effect?: unknown; Action?: unknown };
+    if (Effect !== 'Allow') return { error: `Statement[${index}].Effect must be "Allow"` };
+    const actions = typeof Action === 'string' ? [Action] : Array.isArray(Action) ? Action : [];
+    for (const [position, raw] of actions.entries()) {
+      const action = String(raw).trim().toLowerCase();
+      const matched = MOCK_IAM_ORGANIZATION_PERMISSIONS.filter((permission) =>
+        mockActionMatches(action, permission),
+      );
+      if (matched.length === 0) {
+        return { error: `Statement[${index}].Action[${position}]: no permission is called \`${action}\`` };
+      }
+      matched.forEach((permission) => allowed.add(permission));
+    }
+  }
+  if (allowed.size === 0) return { error: 'a policy must allow at least one permission' };
+  return { permissions: [...allowed].sort() };
+};
+
+const mockBuiltinPolicy = (key: string, name: string, permissions: readonly string[]) => ({
+  id: `builtin:${key}`,
+  key,
+  name,
+  description: '',
+  builtin: true,
+  document: { Version: '1', Statement: [{ Effect: 'Allow', Action: [...permissions] }] },
+  permissions: [...permissions].sort(),
+  createdBy: null as string | null,
+  createdAt: Date.parse('2026-01-01T00:00:00Z') * 1000,
+  updatedAt: Date.parse('2026-01-01T00:00:00Z') * 1000,
+});
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DATA = join(HERE, 'data');
@@ -319,7 +817,7 @@ const readText = (name: string): string => readFileSync(join(DATA, name), 'utf8'
 // Eagerly load fixtures at module init so request handlers stay synchronous.
 const SEARCH = readJson('search.json');
 const TOPOLOGY = readJson('topology.json');
-const TRACE = readJson<{ trace_id: string; root_span_id: string; spans: unknown[]; truncated: boolean }>('trace.json');
+const TRACE = readJson<{ traceId: string; rootSpanId: string; spans: unknown[]; truncated: boolean }>('trace.json');
 const STREAMS = readJson('streams.json');
 const DASHBOARDS = readJson('dashboards.json');
 const LOG_NDJSON = readText('log-stream.ndjson');
@@ -336,20 +834,19 @@ const MOCK_USER_PREFERENCES: UserPreferences = {
   theme: 'system',
   density: 'normal',
   language: 'en-us',
-  default_home_route: '/home',
-  time_format: 'iso_24h',
-  date_format: 'yyyy_mm_dd_dash',
+  defaultHomeRoute: '/home',
+  timeFormat: 'iso_24h',
+  dateFormat: 'yyyy_mm_dd_dash',
   timezone: '',
-  keyboard_shortcuts_enabled: true,
+  keyboardShortcutsEnabled: true,
 };
 const MOCK_AUTH = {
   state: {
-    token: 'mock-e2e-token',
     ctx: {
-      user_id: 'dev',
-      org_id: 'acme-prod',
-      org_name: 'acme-prod',
-      display_role: 'Owner',
+      userId: 'dev',
+      orgId: 'acme-prod',
+      orgName: 'acme-prod',
+      displayRole: 'Owner',
       roles: [
         {
           id: 'role-owner',
@@ -359,16 +856,33 @@ const MOCK_AUTH = {
         },
       ],
       scope: 'organization',
-      display_name: 'Dev User',
+      displayName: 'Dev User',
       email: 'dev@molesignal.local',
     },
   },
-  version: 0,
+  version: 1,
 };
+
+/** The identity the page keeps, as `/auth/session` answers it. */
+function sessionView(ctx: typeof MOCK_AUTH.state.ctx) {
+  return {
+    userId: ctx.userId,
+    email: ctx.email,
+    displayName: ctx.displayName,
+    orgId: ctx.orgId,
+    orgName: ctx.orgName,
+    displayRole: ctx.displayRole,
+    roles: ctx.roles,
+    scope: ctx.scope,
+  };
+}
 
 interface Fixtures {
   mockServer: { port: number };
 }
+
+/** What the session cookies of each browser context hold. */
+const BROWSER_COOKIES = new WeakMap<BrowserContext, { session: object | null }>();
 
 export function registerRoutes(app: Express): void {
   const agentUsage = registerAgentUsageRoutes(app, FROZEN_NOW_ISO);
@@ -376,36 +890,37 @@ export function registerRoutes(app: Express): void {
   registerAlertRoutes(app, FROZEN_NOW_ISO, () => agentUsage.refusal());
   registerAgentKnowledgeRoutes(app, FROZEN_NOW_ISO);
   registerReliabilityRoutes(app, FROZEN_NOW_ISO);
-  registerBusinessServiceRoutes(app, FROZEN_NOW_ISO);
   registerSearchJobRoutes(app, FROZEN_NOW_ISO);
+  registerIntakeUsageRoutes(app, FROZEN_NOW_ISO);
+  registerRumRoutes(app, FROZEN_NOW_ISO);
   registerLogInspectionRoutes(app, FROZEN_NOW_ISO);
   const dashboards = (DASHBOARDS as { items: Array<Record<string, unknown>> }).items.map((item) => ({ ...item }));
-  const folders: Array<{ id: string; org_id: string; name: string; parent_id?: string }> = [];
+  const folders: Array<{ id: string; orgId: string; name: string; parentId?: string }> = [];
   const resourceShares: Array<Record<string, unknown> & { token: string }> = [];
   const unlockedShareSessions = new Set<string>();
   let resourceSharePolicy = {
-    organization_id: 'acme-prod',
-    allow_public_links: true,
-    allow_public_dashboards: true,
-    max_public_expiry_secs: 7 * 24 * 60 * 60,
-    require_public_report_password: false,
-    deny_production_public_shares: false,
-    allow_public_csv_download: false,
-    updated_by: 'dev',
-    updated_at: Date.parse(FROZEN_NOW_ISO) * 1_000,
+    organizationId: 'acme-prod',
+    allowPublicLinks: true,
+    allowPublicDashboards: true,
+    maxPublicExpirySecs: 7 * 24 * 60 * 60,
+    requirePublicReportPassword: false,
+    denyProductionPublicShares: false,
+    allowPublicCsvDownload: false,
+    updatedBy: 'dev',
+    updatedAt: Date.parse(FROZEN_NOW_ISO) * 1_000,
   };
   const scheduledReports: Array<Record<string, unknown>> = [
     {
       id: 'r1',
-      org_id: 'acme-prod',
+      orgId: 'acme-prod',
       name: 'Weekly SLO',
       description: 'Core service availability and latency review.',
-      dashboard_id: 'd1',
-      saved_view_id: null,
+      dashboardId: 'd1',
+      savedViewId: null,
       cron: 'every:7d',
       recipients: [{ kind: 'email', target: 'sre@example.com' }],
       format: 'pdf',
-      time_range_json: {
+      timeRangeJson: {
         preset: 'previous-7-days',
         timezone: 'UTC',
         description: 'Core service availability and latency review.',
@@ -413,11 +928,11 @@ export function registerRoutes(app: Express): void {
       enabled: true,
       // Last saved by Dana Reyes (`/api/v1/users`), not by the signed-in mock user. As the
       // backend does, the report names her itself: reading it does not take the member list.
-      run_as_user_id: 'u1',
-      run_as_user: { id: 'u1', display_name: 'Dana Reyes', email: 'sre@example.com' },
-      last_run_at_micros: Date.parse(FROZEN_NOW_ISO) * 1_000 - 86_400_000_000,
-      created_at_micros: Date.parse(FROZEN_NOW_ISO) * 1_000 - 604_800_000_000,
-      updated_at_micros: Date.parse(FROZEN_NOW_ISO) * 1_000,
+      runAsUserId: 'u1',
+      runAsUser: { id: 'u1', displayName: 'Dana Reyes', email: 'sre@example.com' },
+      lastRunAt: Date.parse(FROZEN_NOW_ISO) * 1_000 - 86_400_000_000,
+      createdAt: Date.parse(FROZEN_NOW_ISO) * 1_000 - 604_800_000_000,
+      updatedAt: Date.parse(FROZEN_NOW_ISO) * 1_000,
     },
   ];
   const chatMessages = new Map<string, Array<Record<string, unknown>>>();
@@ -426,45 +941,49 @@ export function registerRoutes(app: Express): void {
   let hasPersonalPreferences = false;
   let workspacePreferenceDefaults = { ...MOCK_USER_PREFERENCES };
   let meProfile = {
-    user_id: 'dev',
+    userId: 'dev',
     email: 'dev@molesignal.local',
     username: 'Dev User',
-    display_name: 'Dev User',
-    avatar_url: null as string | null,
+    displayName: 'Dev User',
+    avatarUrl: null as string | null,
     bio: '',
-    org_id: 'acme-prod',
-    org_name: 'acme-prod',
-    org_slug: 'acme-prod',
-    display_role: 'Owner',
-    created_at_micros: 1_753_584_000_000_000,
+    orgId: 'acme-prod',
+    orgName: 'acme-prod',
+    orgSlug: 'acme-prod',
+    displayRole: 'Owner',
+    createdAt: 1_753_584_000_000_000,
   };
 
-  app.post('/api/v1/auth/signin', (_req, res) =>
-    res.json({
-      token: 'mock-dev-token',
-      user_id: 'dev',
-      email: 'dev@molesignal.local',
-      display_name: 'Dev User',
-      org_id: 'acme-prod',
-      org_name: 'acme-prod',
-      display_role: 'Owner',
-      roles: [
-        {
-          id: 'role-owner',
-          key: 'owner',
-          name: 'Owner',
-          builtin: true,
-        },
-      ],
-    }),
+  const signinResponse = {
+    userId: 'dev',
+    email: 'dev@molesignal.local',
+    displayName: 'Dev User',
+    orgId: 'acme-prod',
+    orgName: 'acme-prod',
+    displayRole: 'Owner',
+    roles: [
+      {
+        id: 'role-owner',
+        key: 'owner',
+        name: 'Owner',
+        builtin: true,
+      },
+    ],
+    scope: 'organization',
+  };
+
+  registerMfaRoutes(app, signinResponse);
+  app.post('/api/v1/auth/signup/complete', (_req, res) =>
+    res.json({ status: 'active', ...signinResponse }),
   );
+  const ssoTests = registerSsoTestRoutes(app);
   app.post('/api/v1/auth/forgot-password', (_req, res) =>
     res.status(202).json({ accepted: true }),
   );
   app.get('/api/v1/me/profile', (_req, res) => res.json(meProfile));
   app.put('/api/v1/me/profile', (req, res) => {
     meProfile = { ...meProfile, ...req.body };
-    if (req.body.avatar_url === '') meProfile.avatar_url = null;
+    if (req.body.avatarUrl === '') meProfile.avatarUrl = null;
     res.json(meProfile);
   });
   app.get('/api/v1/me/preferences', (_req, res) =>
@@ -479,13 +998,13 @@ export function registerRoutes(app: Express): void {
   });
   // How the mock user prefers a page to look, by purpose and key. Kept for as long as the
   // server lives, so a reload finds what the page before it saved.
-  const uiPreference = new Map<string, { value: unknown; updated_at_micros: number }>();
+  const uiPreference = new Map<string, { value: unknown; updatedAt: number }>();
   const uiPreferenceId = (req: { params: Record<string, string> }) => `${req.params.scope}/${req.params.key}`;
   app.get('/api/v1/me/ui-preference/:scope/:key', (req, res) =>
-    res.json(uiPreference.get(uiPreferenceId(req)) ?? { value: null, updated_at_micros: null }),
+    res.json(uiPreference.get(uiPreferenceId(req)) ?? { value: null, updatedAt: null }),
   );
   app.put('/api/v1/me/ui-preference/:scope/:key', (req, res) => {
-    const entry = { value: req.body?.value ?? null, updated_at_micros: Date.now() * 1_000 };
+    const entry = { value: req.body?.value ?? null, updatedAt: Date.now() * 1_000 };
     uiPreference.set(uiPreferenceId(req), entry);
     res.json(entry);
   });
@@ -505,18 +1024,36 @@ export function registerRoutes(app: Express): void {
   });
   app.get('/api/v1/instance', (_req, res) =>
     res.json({
-      external_url: '',
-      signup_enabled: false,
+      externalUrl: '',
+      signupEnabled: false,
+      signupVerifiesEmail: false,
+      passkeySignin: false,
       version: '26.0.0.0',
     }),
   );
+  let signinLimits = {
+    accountSourceFailures: 5,
+    sourceFailures: 30,
+    accountFailures: 20,
+    accountIntervalSecs: 60,
+    lockMinutes: 15,
+  };
+  const signinLimitsView = () => ({
+    ...signinLimits,
+    source: { address: '8.8.8.8', counted: true, behindUnconfiguredProxy: false },
+  });
+  app.get('/api/v1/settings/signin_limits', (_req, res) => res.json(signinLimitsView()));
+  app.put('/api/v1/settings/signin_limits', (req, res) => {
+    signinLimits = { ...signinLimits, ...req.body };
+    res.json(signinLimitsView());
+  });
   let clientIpSettings = {
     mode: 'peer',
-    header_name: '',
-    trusted_proxy_cidrs: [] as string[],
-    fallback_to_peer: true,
-    allow_private_client_ips: false,
-    max_chain_length: 16,
+    headerName: '',
+    trustedProxyCidrs: [] as string[],
+    fallbackToPeer: true,
+    allowPrivateClientIps: false,
+    maxChainLength: 16,
   };
   app.get('/api/v1/settings/client_ip', (_req, res) =>
     res.json(clientIpSettings),
@@ -525,14 +1062,81 @@ export function registerRoutes(app: Express): void {
     clientIpSettings = { ...clientIpSettings, ...req.body };
     res.json(clientIpSettings);
   });
+  // Retention, with what a shorter one would delete: figures per day of data, so the days cut
+  // decide the amount. A day or two stays small; 30 days to 7 is past what asks for the days typed.
+  const retention = { stream: 30, synthetic: 30, audit: 90 };
+  const DAY_MICROS = 86_400_000_000;
+  const RETENTION_STREAMS = [
+    { orgId: 'acme-prod', orgName: 'Acme Production', id: 's-app', name: 'app-logs', streamType: 'logs', rows: 40_000, storedBytes: 60 * 1024 ** 2 },
+    { orgId: 'acme-prod', orgName: 'Acme Production', id: 's-api', name: 'api-traces', streamType: 'traces', rows: 9_000, storedBytes: 12 * 1024 ** 2 },
+    { orgId: 'acme-prod', orgName: 'Acme Production', id: 's-host', name: 'host-metrics', streamType: 'metrics', rows: 1_500, storedBytes: 2 * 1024 ** 2 },
+  ];
+  const AUDIT_ROWS_PER_DAY = 40;
+  app.get('/api/v1/settings/stream_retention', (_req, res) =>
+    res.json({ retentionDays: retention.stream }),
+  );
+  app.put('/api/v1/settings/stream_retention', (req, res) => {
+    retention.stream = Number(req.body.retentionDays);
+    res.json({ retentionDays: retention.stream });
+  });
+  app.get('/api/v1/settings/stream_retention/preview', (req, res) => {
+    const days = Number(req.query.retentionDays);
+    const cut = Math.max(0, retention.stream - days);
+    const now = Date.now() * 1000;
+    const earliest = cut > 0 ? now - retention.stream * DAY_MICROS : null;
+    const streams = cut === 0 ? [] : RETENTION_STREAMS.map((stream) => ({
+      ...stream,
+      rows: stream.rows * cut,
+      storedBytes: stream.storedBytes * cut,
+      earliestAt: earliest,
+    }));
+    res.json({
+      retentionDays: days,
+      previousRetentionDays: retention.stream,
+      estimated: true,
+      generatedAt: now,
+      rows: streams.reduce((total, stream) => total + stream.rows, 0),
+      storedBytes: streams.reduce((total, stream) => total + stream.storedBytes, 0),
+      earliestAt: earliest,
+      streamCount: streams.length,
+      streams,
+      unavailableStreams: 0,
+    });
+  });
+  app.get('/api/v1/settings/synthetic_retention', (_req, res) =>
+    res.json({ retentionDays: retention.synthetic }),
+  );
+  app.put('/api/v1/settings/synthetic_retention', (req, res) => {
+    retention.synthetic = Number(req.body.retentionDays);
+    res.json({ retentionDays: retention.synthetic });
+  });
+  app.get('/api/v1/settings/audit_retention', (_req, res) =>
+    res.json({ retentionDays: retention.audit }),
+  );
+  app.put('/api/v1/settings/audit_retention', (req, res) => {
+    retention.audit = Number(req.body.retentionDays);
+    res.json({ retentionDays: retention.audit });
+  });
+  app.get('/api/v1/settings/audit_retention/preview', (req, res) => {
+    const days = Number(req.query.retentionDays);
+    // 0 keeps for good: moving to it deletes nothing, and from it, everything older than the days.
+    const kept = retention.audit === 0 ? 365 : retention.audit;
+    const cut = days === 0 ? 0 : Math.max(0, kept - days);
+    res.json({
+      retentionDays: days,
+      previousRetentionDays: retention.audit,
+      rows: cut * AUDIT_ROWS_PER_DAY,
+      earliestAt: cut > 0 ? Date.now() * 1000 - kept * DAY_MICROS : null,
+    });
+  });
   app.get('/api/v1/version', (_req, res) =>
     res.json({
       version: '26.0.0.0',
       commit: 'd86fa2d15d68',
       branch: 'main',
-      build_epoch_secs: 1_785_087_406,
-      build_id: 'gha-12345-1',
-      release_channel: 'stable',
+      buildEpochSecs: 1_785_087_406,
+      buildId: 'gha-12345-1',
+      releaseChannel: 'stable',
       edition: 'enterprise',
     }),
   );
@@ -540,10 +1144,10 @@ export function registerRoutes(app: Express): void {
   // ── web/* (search, topology, trace, correlation, investigation blob) ──
   app.get('/api/v1/web/search', (_req, res) => res.json(SEARCH));
   app.get('/api/v1/web/topology', (_req, res) => res.json(TOPOLOGY));
-  app.get('/api/v1/web/trace/:id', (req, res) => res.json({ ...TRACE, trace_id: req.params.id }));
+  app.get('/api/v1/web/trace/:id', (req, res) => res.json({ ...TRACE, traceId: req.params.id }));
   app.get('/api/v1/web/correlation/:from/:to', (_req, res) =>
     res.json({
-      time_range: { from: FROZEN_NOW_ISO, to: FROZEN_NOW_ISO },
+      timeRange: { from: FROZEN_NOW_ISO, to: FROZEN_NOW_ISO },
       filters: [],
       prefill: {},
     }),
@@ -552,7 +1156,7 @@ export function registerRoutes(app: Express): void {
   app.post('/api/v1/web/investigation/blob', (req: Request, res: Response) => {
     const id = `blob-${investigationBlobs.size + 1}`;
     investigationBlobs.set(id, req.body);
-    res.json({ blob_id: id });
+    res.json({ blobId: id });
   });
   app.get('/api/v1/web/investigation/blob/:id', (req, res) => {
     const blob = investigationBlobs.get(req.params.id);
@@ -564,7 +1168,7 @@ export function registerRoutes(app: Express): void {
   app.get('/api/v1/streams', (_req, res) => res.json(STREAMS));
   // No masking rule exists, so no field of any stream is masked.
   app.get('/api/v1/field_masking/effective/:streamId', (req, res) =>
-    res.json({ stream_id: req.params.streamId, fields: [] }),
+    res.json({ streamId: req.params.streamId, fields: [] }),
   );
   // `dashboardsApi.list()` expects a bare `Dashboard[]` (matches the real
   // backend), not the `{ items }` envelope the fixture file uses for the
@@ -590,15 +1194,15 @@ export function registerRoutes(app: Express): void {
     Object.assign(model, { id, uid, version: 1 });
     const dashboard = {
       id,
-      org_id: 'acme-prod',
-      folder_id: typeof req.body?.folder_id === 'string' ? req.body.folder_id : undefined,
+      orgId: 'acme-prod',
+      folderId: typeof req.body?.folderId === 'string' ? req.body.folderId : undefined,
       uid,
       title: typeof model.title === 'string' && model.title ? model.title : 'Untitled dashboard',
       tags: Array.isArray(model.tags) ? model.tags : [],
       model,
       version: 1,
-      created_at: nowMicros,
-      updated_at: nowMicros,
+      createdAt: nowMicros,
+      updatedAt: nowMicros,
     };
     dashboards.push(dashboard);
     res.json(dashboard);
@@ -633,10 +1237,10 @@ export function registerRoutes(app: Express): void {
       typeof model.title === 'string' ? model.title : dashboard.title;
     dashboard.tags = Array.isArray(model.tags) ? model.tags : [];
     dashboard.version = nextVersion;
-    dashboard.updated_at = Date.parse(FROZEN_NOW_ISO) * 1000;
-    dashboard.folder_id =
-      typeof req.body?.folder_id === 'string'
-        ? req.body.folder_id
+    dashboard.updatedAt = Date.parse(FROZEN_NOW_ISO) * 1000;
+    dashboard.folderId =
+      typeof req.body?.folderId === 'string'
+        ? req.body.folderId
         : undefined;
     return res.json(dashboard);
   });
@@ -650,17 +1254,17 @@ export function registerRoutes(app: Express): void {
   app.post('/api/v1/folders', (req: Request, res: Response) => {
     const name = String(req.body?.name ?? '').trim();
     if (!name) return res.status(400).json({ error: 'folder name must not be empty' });
-    const parentId = typeof req.body?.parent_id === 'string' && req.body.parent_id.trim()
-      ? req.body.parent_id.trim()
+    const parentId = typeof req.body?.parentId === 'string' && req.body.parentId.trim()
+      ? req.body.parentId.trim()
       : undefined;
     if (parentId && !folders.some((folder) => folder.id === parentId)) {
       return res.status(404).json({ error: `parent folder ${parentId} not found` });
     }
     const folder = {
       id: `folder-${folders.length + 1}`,
-      org_id: 'acme-prod',
+      orgId: 'acme-prod',
       name,
-      ...(parentId ? { parent_id: parentId } : {}),
+      ...(parentId ? { parentId: parentId } : {}),
     };
     folders.push(folder);
     return res.json(folder);
@@ -670,23 +1274,23 @@ export function registerRoutes(app: Express): void {
     if (!folder) return res.status(404).json({ error: 'not found' });
     const name = String(req.body?.name ?? '').trim();
     if (!name) return res.status(400).json({ error: 'folder name must not be empty' });
-    const parentId = typeof req.body?.parent_id === 'string' && req.body.parent_id.trim()
-      ? req.body.parent_id.trim()
+    const parentId = typeof req.body?.parentId === 'string' && req.body.parentId.trim()
+      ? req.body.parentId.trim()
       : undefined;
     if (parentId === folder.id) return res.status(400).json({ error: 'folder cannot be its own parent' });
     if (parentId && !folders.some((item) => item.id === parentId)) {
       return res.status(404).json({ error: `parent folder ${parentId} not found` });
     }
     folder.name = name;
-    if (parentId) folder.parent_id = parentId;
-    else delete folder.parent_id;
+    if (parentId) folder.parentId = parentId;
+    else delete folder.parentId;
     return res.json(folder);
   });
   app.delete('/api/v1/folders/:id', (req, res) => {
     const index = folders.findIndex((folder) => folder.id === req.params.id);
     if (index < 0) return res.status(404).json({ error: 'not found' });
-    const hasChild = folders.some((folder) => folder.parent_id === req.params.id);
-    const hasDashboard = dashboards.some((dashboard) => dashboard.folder_id === req.params.id);
+    const hasChild = folders.some((folder) => folder.parentId === req.params.id);
+    const hasDashboard = dashboards.some((dashboard) => dashboard.folderId === req.params.id);
     if (hasChild || hasDashboard) {
       return res.status(409).json({ error: 'folder is not empty: move or delete its dashboards and sub-folders first' });
     }
@@ -698,17 +1302,17 @@ export function registerRoutes(app: Express): void {
   const savedViews = [
     {
       id: 'sv1',
-      org_id: 'acme-prod',
-      owner_user_id: 'test-user',
+      orgId: 'acme-prod',
+      ownerUserId: 'test-user',
       name: 'Yesterday errors',
       language: 'sql',
       statement: "SELECT * FROM \"app_logs\" WHERE level = 'ERROR'",
-      time_range_secs: 86_400,
+      timeRangeSecs: 86_400,
       stream: 'app_logs',
       tags: ['errors'],
       pinned: true,
-      created_at: Date.parse(FROZEN_NOW_ISO) * 1000 - 7 * 86_400_000_000,
-      updated_at: Date.parse(FROZEN_NOW_ISO) * 1000 - 86_400_000_000,
+      createdAt: Date.parse(FROZEN_NOW_ISO) * 1000 - 7 * 86_400_000_000,
+      updatedAt: Date.parse(FROZEN_NOW_ISO) * 1000 - 86_400_000_000,
     },
   ];
   app.get('/api/v1/saved-views', (_req, res) => res.json({ items: savedViews }));
@@ -723,61 +1327,66 @@ export function registerRoutes(app: Express): void {
   // ── pipelines: one saved pipeline, its runs, and what its editor reads ──
   // Without these the catch-all answers `{}` where the pages expect lists and
   // they fall to the router's error screen, which is then what gets scanned.
+  app.get('/api/v1/scheduled_pipelines', (_req, res) => res.json([]));
   app.get('/api/v1/scheduled_pipelines/:id/runs', (req, res) => {
     const finished = Date.parse(FROZEN_NOW_ISO) * 1000 - 120_000_000;
     res.json([
       {
         id: 'run-2',
-        pipeline_id: req.params.id,
+        pipelineId: req.params.id,
         state: 'succeeded',
-        started_at_micros: finished - 4_000_000,
-        finished_at_micros: finished,
-        scanned_rows: 18_420,
-        written_rows: 18_200,
-        dropped_rows: 214,
-        failed_rows: 6,
+        startedAt: finished - 4_000_000,
+        finishedAt: finished,
+        scannedRows: 18_420,
+        writtenRows: 18_200,
+        droppedRows: 214,
+        failedRows: 6,
         attempt: 1,
         error: null,
         warning: '6 event(s) failed: step `normalize-level` run: function call error',
       },
       {
         id: 'run-1',
-        pipeline_id: req.params.id,
+        pipelineId: req.params.id,
         state: 'failed',
-        started_at_micros: finished - 304_000_000,
-        finished_at_micros: finished - 300_000_000,
-        scanned_rows: 0,
-        written_rows: 0,
-        dropped_rows: 0,
-        failed_rows: 0,
+        startedAt: finished - 304_000_000,
+        finishedAt: finished - 300_000_000,
+        scannedRows: 0,
+        writtenRows: 0,
+        droppedRows: 0,
+        failedRows: 0,
         attempt: 2,
         error: '`logs`: read: unavailable: storage unavailable',
         warning: null,
       },
     ]);
   });
+  // What a realtime pipeline's quotas and throttles counted today: nothing yet, unless a spec says.
+  app.get('/api/v1/scheduled_pipelines/:id/limits', (_req, res) =>
+    res.json({ dayStart: Date.parse(FROZEN_NOW_ISO.slice(0, 10)) * 1000, buckets: [] }),
+  );
   app.get('/api/v1/scheduled_pipelines/:id', (req, res) =>
     res.json({
       id: req.params.id,
       name: 'checkout-logs',
-      source_stream: 'logs',
-      target_stream: 'access_logs',
+      sourceStream: 'logs',
+      targetStream: 'access_logs',
       cron: 'every:5m',
-      lookback_secs: 300,
+      lookbackSecs: 300,
       enabled: true,
-      read_until_micros: { logs: Date.parse(FROZEN_NOW_ISO) * 1000 - 60_000_000 },
+      readUntil: { logs: Date.parse(FROZEN_NOW_ISO) * 1000 - 60_000_000 },
       retry: null,
-      function_steps: {
+      functionSteps: {
         mode: 'scheduled',
-        signal_type: 'logs',
+        signalType: 'logs',
         sources: ['logs'],
         sinks: ['access_logs'],
-        sink_connectors: [],
-        delay_secs: 60,
-        retry: { run_retries: 3, delivery_retries: 3 },
+        sinkConnectors: [],
+        delaySecs: 60,
+        retry: { runRetries: 3, deliveryRetries: 3 },
         steps: [
           {
-            transform_name: 'normalize-level',
+            transformName: 'normalize-level',
             kind: 'vrl',
             script: 'if is_string(.level) {\n  .level = downcase(string!(.level))\n}',
           },
@@ -816,23 +1425,23 @@ export function registerRoutes(app: Express): void {
       model: req.body?.model ?? 'gpt-4o',
       title: req.body?.title ?? 'Mole Agent 对话',
       // The first question for now: the first answer names the chat (see mockAgentRuns).
-      title_provisional: Boolean(req.body?.title_provisional),
-      provider_id: req.body?.provider_id ?? null,
-      analysis_mode: req.body?.analysis_mode ?? null,
-      time_range_start_micros: null,
-      time_range_end_micros: null,
-      archive_object_key: null,
-      scope: req.body?.team_id ? 'team' : 'personal',
-      team_id: req.body?.team_id ?? null,
-      mounted_team_ids: [],
-      owner_id: 'dev',
+      titleProvisional: Boolean(req.body?.titleProvisional),
+      providerId: req.body?.providerId ?? null,
+      analysisMode: req.body?.analysisMode ?? null,
+      timeRangeStart: null,
+      timeRangeEnd: null,
+      archiveObjectKey: null,
+      scope: req.body?.teamId ? 'team' : 'personal',
+      teamId: req.body?.teamId ?? null,
+      mountedTeamIds: [],
+      ownerId: 'dev',
       readable: true,
       // Started from an incident: the chat records an investigation of it.
-      subject_kind: req.body?.subject?.kind ?? null,
-      subject_id: req.body?.subject?.id ?? null,
-      investigation_id: req.body?.subject ? `mock-investigation-${now}` : null,
-      created_at_micros: now,
-      updated_at_micros: now,
+      subjectKind: req.body?.subject?.kind ?? null,
+      subjectId: req.body?.subject?.id ?? null,
+      investigationId: req.body?.subject ? `mock-investigation-${now}` : null,
+      createdAt: now,
+      updatedAt: now,
     };
     agentChats.unshift(chat);
     res.json(chat);
@@ -843,7 +1452,7 @@ export function registerRoutes(app: Express): void {
     const title = String(req.body?.title ?? '').trim();
     if (!chat) return res.status(404).json({ error: 'not_found', message: 'chat not found' });
     if (!title) return res.status(400).json({ error: 'invalid_argument', message: 'a name is needed' });
-    Object.assign(chat, { title, title_provisional: false });
+    Object.assign(chat, { title, titleProvisional: false });
     return res.json(chat);
   });
   // A fork: a new chat with every message of its source, under it in the list.
@@ -860,20 +1469,20 @@ export function registerRoutes(app: Express): void {
       (chatMessages.get(req.params.id) ?? []).map((message, index) => ({
         ...message,
         id: `${id}-m${index}`,
-        chat_id: id,
-        run_id: null,
+        chatId: id,
+        runId: null,
       })),
     );
     const fork = {
       ...source,
       id,
-      parent_chat_id: source.id,
-      subject_kind: null,
-      subject_id: null,
-      investigation_id: null,
-      owner_id: 'dev',
-      created_at_micros: now,
-      updated_at_micros: now,
+      parentChatId: source.id,
+      subjectKind: null,
+      subjectId: null,
+      investigationId: null,
+      ownerId: 'dev',
+      createdAt: now,
+      updatedAt: now,
     };
     agentChats.unshift(fork);
     res.json(fork);
@@ -893,7 +1502,7 @@ export function registerRoutes(app: Express): void {
   app.post('/api/v1/agent/chat/:id/archive', (req, res) =>
     res.json({
       status: 'ok',
-      object_key: `agent/chat/default/${req.params.id}/transcript.json`,
+      objectKey: `agent/chat/default/${req.params.id}/transcript.json`,
     }),
   );
   app.delete('/api/v1/agent/chat/:id', (req, res) => {
@@ -908,26 +1517,26 @@ export function registerRoutes(app: Express): void {
       ? [
           {
             id: 'audit-chat-user-1',
-            chat_id: 'audit-chat-seeded',
-            org_id: 'default',
+            chatId: 'audit-chat-seeded',
+            orgId: 'default',
             role: 'user',
             content: '过去一小时发生了什么变化？',
-            created_at_micros: now - 2_000_000,
+            createdAt: now - 2_000_000,
           },
           {
             id: 'audit-chat-assistant-1',
-            chat_id: 'audit-chat-seeded',
-            org_id: 'default',
+            chatId: 'audit-chat-seeded',
+            orgId: 'default',
             role: 'assistant',
             content: '**摘要**\n\n- `checkout` 错误率上升\n- p95 延迟升高\n\n建议先查看最近部署。',
-            prompt_builtin_key: 'analysis.anomaly',
-            prompt_version: 1,
-            prompt_hash: 'mock-hash',
-            evidence_json: [{ tool: 'query_logs', status: 'success', row_count: 12 }],
-            prompt_tokens: 128,
-            completion_tokens: 64,
+            promptBuiltinKey: 'analysis.anomaly',
+            promptVersion: 1,
+            promptHash: 'mock-hash',
+            evidenceJson: [{ tool: 'query_logs', status: 'success', rowCount: 12 }],
+            promptTokens: 128,
+            completionTokens: 64,
             cost: { amount: 0.0012, currency: 'USD' },
-            created_at_micros: now - 1_000_000,
+            createdAt: now - 1_000_000,
           },
         ]
       : (chatMessages.get(req.params.id) ?? []);
@@ -937,14 +1546,14 @@ export function registerRoutes(app: Express): void {
         provider: 'openai',
         model: 'gpt-4o',
         title: 'Audit chat transcript',
-        provider_id: 'openai-gpt-4o',
-        analysis_mode: 'anomaly_analysis',
-        time_range_start_micros: now - 3_600_000_000,
-        time_range_end_micros: now,
-        archive_object_key: `agent/chat/default/${req.params.id}/transcript.json`,
-        deleted_at_micros: null,
-        created_at_micros: now - 3_000_000,
-        updated_at_micros: now - 500_000,
+        providerId: 'openai-gpt-4o',
+        analysisMode: 'anomaly_analysis',
+        timeRangeStart: now - 3_600_000_000,
+        timeRangeEnd: now,
+        archiveObjectKey: `agent/chat/default/${req.params.id}/transcript.json`,
+        deletedAt: null,
+        createdAt: now - 3_000_000,
+        updatedAt: now - 500_000,
       },
       messages,
     });
@@ -954,23 +1563,23 @@ export function registerRoutes(app: Express): void {
       items: [
         {
           id: 'audit-agent-chat-1',
-          org_id: 'default',
-          actor_kind: 'user',
-          actor_id: 'dev',
+          orgId: 'default',
+          actorKind: 'user',
+          actorId: 'dev',
           action: 'agent.chat.archived',
-          target_kind: 'agent_chat',
-          target_id: 'audit-chat-seeded',
+          targetKind: 'agent_chat',
+          targetId: 'audit-chat-seeded',
           ip: '127.0.0.1',
-          user_agent: 'mock',
+          userAgent: 'mock',
           payload: {
             status: 'ok',
-            object_key: 'agent/chat/default/audit-chat-seeded/transcript.json',
-            chat_id: 'audit-chat-seeded',
+            objectKey: 'agent/chat/default/audit-chat-seeded/transcript.json',
+            chatId: 'audit-chat-seeded',
           },
-          ts_micros: Date.now() * 1000,
+          ts: Date.now() * 1000,
         },
       ],
-      next_cursor: null,
+      nextCursor: null,
     }),
   );
   const modelProviders: Array<Record<string, unknown>> = [
@@ -978,34 +1587,34 @@ export function registerRoutes(app: Express): void {
       id: 'openai-gpt-4o',
       provider: 'openai',
       name: 'OpenAI Production',
-      base_url: null,
-      default_model: 'gpt-4o',
+      baseUrl: null,
+      defaultModel: 'gpt-4o',
       enabled: true,
-      timeout_ms: 30_000,
-      max_tokens: 4096,
-      price_currency: 'USD',
-      input_price_per_mtok: 2.5,
-      cached_input_price_per_mtok: 1.25,
-      output_price_per_mtok: 10,
-      key_last4: '1234',
-      key_set: true,
-      created_at_micros: Date.now() * 1000,
-      updated_at_micros: Date.now() * 1000,
+      timeoutMs: 30_000,
+      maxTokens: 4096,
+      priceCurrency: 'USD',
+      inputPricePerMtok: 2.5,
+      cachedInputPricePerMtok: 1.25,
+      outputPricePerMtok: 10,
+      keyLast4: '1234',
+      keySet: true,
+      createdAt: Date.now() * 1000,
+      updatedAt: Date.now() * 1000,
     },
     {
       id: 'compatible-qwen',
       provider: 'openai_compatible',
       name: 'Internal Qwen',
-      base_url: 'https://llm.internal.example/v1',
-      default_model: 'qwen2.5-72b-instruct',
+      baseUrl: 'https://llm.internal.example/v1',
+      defaultModel: 'qwen2.5-72b-instruct',
       enabled: true,
-      timeout_ms: 30_000,
-      max_tokens: 8192,
-      price_currency: 'CNY',
-      key_last4: '5678',
-      key_set: true,
-      created_at_micros: Date.now() * 1000,
-      updated_at_micros: Date.now() * 1000,
+      timeoutMs: 30_000,
+      maxTokens: 8192,
+      priceCurrency: 'CNY',
+      keyLast4: '5678',
+      keySet: true,
+      createdAt: Date.now() * 1000,
+      updatedAt: Date.now() * 1000,
     },
   ];
   app.get('/api/v1/agent/settings/model-providers', (_req, res) =>
@@ -1017,10 +1626,10 @@ export function registerRoutes(app: Express): void {
   ].map((code) => ({ code, name: null, symbol: null }));
   const currencyView = (currency: (typeof currencies)[number]) => ({
     ...currency,
-    used_by: modelProviders
-      .filter((provider) => (provider.price_currency ?? 'USD') === currency.code)
+    usedBy: modelProviders
+      .filter((provider) => (provider.priceCurrency ?? 'USD') === currency.code)
       .map((provider) => String(provider.name)),
-    updated_at_micros: Date.now() * 1000,
+    updatedAt: Date.now() * 1000,
   });
   app.get('/api/v1/agent/settings/currencies', (_req, res) =>
     res.json({ currencies: currencies.map(currencyView) }),
@@ -1044,23 +1653,23 @@ export function registerRoutes(app: Express): void {
   });
   app.post('/api/v1/agent/settings/model-providers', (req, res) => {
     const provider = {
-      price_currency: 'USD',
+      priceCurrency: 'USD',
       ...req.body,
       id: `model-provider-${modelProviders.length + 1}`,
-      key_last4:
-        typeof req.body?.api_key === 'string' ? req.body.api_key.slice(-4) : null,
-      key_set: Boolean(req.body?.api_key),
-      created_at_micros: Date.now() * 1000,
-      updated_at_micros: Date.now() * 1000,
+      keyLast4:
+        typeof req.body?.apiKey === 'string' ? req.body.apiKey.slice(-4) : null,
+      keySet: Boolean(req.body?.apiKey),
+      createdAt: Date.now() * 1000,
+      updatedAt: Date.now() * 1000,
     };
-    delete provider.api_key;
+    delete provider.apiKey;
     modelProviders.push(provider);
     res.json(provider);
   });
   app.put('/api/v1/agent/settings/model-providers/:id', (req, res) => {
     const provider = modelProviders.find((item) => item.id === req.params.id);
     if (!provider) return res.status(404).json({ error: 'not found' });
-    Object.assign(provider, req.body, { updated_at_micros: Date.now() * 1000 });
+    Object.assign(provider, req.body, { updatedAt: Date.now() * 1000 });
     return res.json(provider);
   });
   app.post(
@@ -1069,10 +1678,10 @@ export function registerRoutes(app: Express): void {
       const provider = modelProviders.find((item) => item.id === req.params.id);
       if (!provider) return res.status(404).json({ error: 'not found' });
       Object.assign(provider, {
-        key_last4:
-          typeof req.body?.api_key === 'string' ? req.body.api_key.slice(-4) : null,
-        key_set: Boolean(req.body?.api_key),
-        updated_at_micros: Date.now() * 1000,
+        keyLast4:
+          typeof req.body?.apiKey === 'string' ? req.body.apiKey.slice(-4) : null,
+        keySet: Boolean(req.body?.apiKey),
+        updatedAt: Date.now() * 1000,
       });
       return res.json(provider);
     },
@@ -1080,51 +1689,51 @@ export function registerRoutes(app: Express): void {
   const promptTemplates: Array<Record<string, unknown>> = [
     {
       id: 'prompt-system-default',
-      org_id: null,
-      user_id: null,
+      orgId: null,
+      userId: null,
       scope: 'builtin',
-      builtin_key: 'system.default',
+      builtinKey: 'system.default',
       purpose: 'system',
       name: 'Mole Agent system instruction',
       body:
         'You are Mole Agent for {{ org_name }}. Use authorized evidence and respect approval boundaries. Current time: {{ current_time }}.',
-      variables_schema: {
+      variablesSchema: {
         type: 'object',
         properties: {
           org_name: { type: 'string' },
           current_time: { type: 'string' },
         },
       },
-      is_default: true,
+      isDefault: true,
       enabled: true,
       version: 1,
-      parent_id: null,
-      created_at_micros: Date.now() * 1000,
-      updated_at_micros: Date.now() * 1000,
+      parentId: null,
+      createdAt: Date.now() * 1000,
+      updatedAt: Date.now() * 1000,
     },
     {
       id: 'prompt-root-cause-default',
-      org_id: null,
-      user_id: null,
+      orgId: null,
+      userId: null,
       scope: 'builtin',
-      builtin_key: 'root_cause.default',
+      builtinKey: 'root_cause.default',
       purpose: 'root_cause',
       name: 'Root-cause investigation',
       body:
         'Investigate the selected streams {{ streams }} over {{ time_range }} and report evidence.',
-      variables_schema: {
+      variablesSchema: {
         type: 'object',
         properties: {
           streams: { type: 'string' },
-          time_range: { type: 'string' },
+          timeRange: { type: 'string' },
         },
       },
-      is_default: true,
+      isDefault: true,
       enabled: true,
       version: 1,
-      parent_id: null,
-      created_at_micros: Date.now() * 1000,
-      updated_at_micros: Date.now() * 1000,
+      parentId: null,
+      createdAt: Date.now() * 1000,
+      updatedAt: Date.now() * 1000,
     },
   ];
   app.get('/api/v1/agent/settings/prompts', (_req, res) =>
@@ -1135,13 +1744,13 @@ export function registerRoutes(app: Express): void {
     const prompt = {
       ...req.body,
       id: `prompt-${promptTemplates.length + 1}`,
-      org_id: 'acme-prod',
-      user_id: req.body?.scope === 'user' ? 'root' : null,
-      is_default: false,
+      orgId: 'acme-prod',
+      userId: req.body?.scope === 'user' ? 'root' : null,
+      isDefault: false,
       enabled: req.body?.enabled ?? true,
       version: 1,
-      created_at_micros: now,
-      updated_at_micros: now,
+      createdAt: now,
+      updatedAt: now,
     };
     promptTemplates.push(prompt);
     return res.json(prompt);
@@ -1154,7 +1763,7 @@ export function registerRoutes(app: Express): void {
     }
     Object.assign(prompt, req.body, {
       version: Number(prompt.version ?? 1) + 1,
-      updated_at_micros: Date.now() * 1000,
+      updatedAt: Date.now() * 1000,
     });
     return res.json(prompt);
   });
@@ -1168,12 +1777,12 @@ export function registerRoutes(app: Express): void {
           candidate.scope === prompt.scope &&
           candidate.purpose === prompt.purpose
         ) {
-          candidate.is_default = false;
+          candidate.isDefault = false;
         }
       }
-      prompt.is_default = true;
+      prompt.isDefault = true;
       prompt.enabled = true;
-      prompt.updated_at_micros = Date.now() * 1000;
+      prompt.updatedAt = Date.now() * 1000;
       return res.json(prompt);
     },
   );
@@ -1183,14 +1792,14 @@ export function registerRoutes(app: Express): void {
     const builtin = promptTemplates.find(
       (item) =>
         item.scope === 'builtin' &&
-        item.builtin_key === prompt.builtin_key,
+        item.builtinKey === prompt.builtinKey,
     );
     if (!builtin) return res.status(400).json({ error: 'no builtin parent' });
     Object.assign(prompt, {
       body: builtin.body,
-      variables_schema: builtin.variables_schema,
+      variablesSchema: builtin.variablesSchema,
       version: Number(prompt.version ?? 1) + 1,
-      updated_at_micros: Date.now() * 1000,
+      updatedAt: Date.now() * 1000,
     });
     return res.json(prompt);
   });
@@ -1204,31 +1813,31 @@ export function registerRoutes(app: Express): void {
   // ── Mole Agent control plane ──
   const nowMicros = Date.parse(FROZEN_NOW_ISO) * 1000;
   let inboundMcpSettings = {
-    org_id: 'acme-prod',
+    orgId: 'acme-prod',
     enabled: true,
-    allowed_origins: [] as string[],
-    max_request_size: 1,
-    max_response_size: 1,
-    max_concurrent_calls: 8,
-    calls_per_minute: 60,
-    read_timeout_ms: 30_000,
-    updated_by: 'dev',
-    created_at: nowMicros,
-    updated_at: nowMicros,
+    allowedOrigins: [] as string[],
+    maxRequestSize: 1,
+    maxResponseSize: 1,
+    maxConcurrentCalls: 8,
+    callsPerMinute: 60,
+    readTimeoutMs: 30_000,
+    updatedBy: 'dev',
+    createdAt: nowMicros,
+    updatedAt: nowMicros,
   };
   const inboundMcpSettingsResponse = () => ({
     settings: inboundMcpSettings,
     endpoint: 'https://molesignal.example/api/v1/mcp',
-    protocol_versions: ['2026-07-28', '2025-11-25', '2025-06-18', '2025-03-26'],
+    protocolVersions: ['2026-07-28', '2025-11-25', '2025-06-18', '2025-03-26'],
     transports: ['streamable_http'],
-    hard_max_size: 8,
+    hardMaxSize: 8,
     oauth: {
-      protected_resource_metadata: 'https://molesignal.example/.well-known/oauth-protected-resource/api/v1/mcp',
-      authorization_server_metadata: 'https://molesignal.example/.well-known/oauth-authorization-server',
-      authorization_endpoint: 'https://molesignal.example/oauth/authorize',
-      token_endpoint: 'https://molesignal.example/api/v1/oauth/token',
-      registration_endpoint: 'https://molesignal.example/api/v1/oauth/register',
-      revocation_endpoint: 'https://molesignal.example/api/v1/oauth/revoke',
+      protectedResourceMetadata: 'https://molesignal.example/.well-known/oauth-protected-resource/api/v1/mcp',
+      authorizationServerMetadata: 'https://molesignal.example/.well-known/oauth-authorization-server',
+      authorizationEndpoint: 'https://molesignal.example/oauth/authorize',
+      tokenEndpoint: 'https://molesignal.example/api/v1/oauth/token',
+      registrationEndpoint: 'https://molesignal.example/api/v1/oauth/register',
+      revocationEndpoint: 'https://molesignal.example/api/v1/oauth/revoke',
     },
   });
   app.get('/api/v1/agent/settings/inbound-mcp', (_req, res) =>
@@ -1238,8 +1847,8 @@ export function registerRoutes(app: Express): void {
     inboundMcpSettings = {
       ...inboundMcpSettings,
       ...req.body,
-      updated_by: 'dev',
-      updated_at: nowMicros,
+      updatedBy: 'dev',
+      updatedAt: nowMicros,
     };
     res.json(inboundMcpSettingsResponse());
   });
@@ -1273,44 +1882,19 @@ export function registerRoutes(app: Express): void {
   const investigations: Array<Record<string, unknown>> = [
     {
       id: 'investigation-checkout',
-      org_id: 'acme-prod',
-      created_by: 'dev',
-      chat_id: null,
+      orgId: 'acme-prod',
+      createdBy: 'dev',
+      chatId: null,
       title: 'checkout-api 错误率升高调查',
       status: 'running',
       context: { service: 'checkout-api', environment: 'production' },
       summary: '错误率在最近一次发布后升高。',
       confidence: 'medium',
-      current_step: '关联异常链路',
-      started_at: nowMicros - 1_800_000_000,
-      completed_at: null,
-      created_at: nowMicros - 2_400_000_000,
-      updated_at: nowMicros - 300_000_000,
-    },
-  ];
-  const automations: Array<Record<string, unknown>> = [
-    {
-      id: 'automation-critical-alert',
-      name: '生产环境严重告警调查',
-      description: '严重告警触发的只读可观测性调查工作流',
-      enabled: true,
-      trigger: { type: 'alert', severity: 'critical' },
-      input_context: { environment: 'production' },
-      steps: ['查询关键指标', '查询异常日志', '关联异常链路', '输出根因假设'],
-      allowed_tools: [
-        'query_logs',
-        'query_metrics',
-        'get_trace',
-        'list_recent_alerts',
-        'get_current_on_call',
-      ],
-      approval_policy: { write_operations: 'required' },
-      output_actions: [],
-      failure_policy: { strategy: 'stop' },
-      notification: {},
-      created_by: 'dev',
-      created_at: nowMicros - 3_600_000_000,
-      updated_at: nowMicros - 600_000_000,
+      currentStep: '关联异常链路',
+      startedAt: nowMicros - 1_800_000_000,
+      completedAt: null,
+      createdAt: nowMicros - 2_400_000_000,
+      updatedAt: nowMicros - 300_000_000,
     },
   ];
   const agentProfiles: Array<Record<string, unknown>> = [
@@ -1318,9 +1902,9 @@ export function registerRoutes(app: Express): void {
       id: 'profile-production',
       name: '生产环境受限 Agent',
       description: '生产环境只读分析与审批后处置配置',
-      model_provider_id: 'compatible-qwen',
+      modelProviderId: 'compatible-qwen',
       model: null,
-      allowed_tools: [
+      allowedTools: [
         'query_logs',
         'query_metrics',
         'list_streams',
@@ -1336,36 +1920,36 @@ export function registerRoutes(app: Express): void {
         'list_scheduled_reports',
         'propose_operation',
       ],
-      data_scope: {
+      dataScope: {
         environments: ['production'],
         services: [],
         streams: [],
         cross_organization: false,
       },
-      risk_policy: {
+      riskPolicy: {
         l0: 'automatic',
         l1: 'automatic',
         l2: 'approval',
         l3: 'two_person_approval',
       },
-      network_access: 'blocked',
-      max_context_tokens: 32_000,
-      max_investigation_secs: 1_800,
-      max_tool_calls: 32,
-      is_default: true,
+      networkAccess: 'blocked',
+      maxContextTokens: 32_000,
+      maxInvestigationSecs: 1_800,
+      maxToolCalls: 32,
+      isDefault: true,
       enabled: true,
-      created_by: 'dev',
-      created_at: nowMicros - 7_200_000_000,
-      updated_at: nowMicros - 900_000_000,
+      createdBy: 'dev',
+      createdAt: nowMicros - 7_200_000_000,
+      updatedAt: nowMicros - 900_000_000,
     },
   ];
   app.get('/api/v1/agent/overview', (_req, res) =>
     res.json({
-      active_investigations: 0,
-      pending_approvals: 0,
-      recent_completed: 0,
-      automation_runs: 0,
-      enabled_automations: 0,
+      activeInvestigations: 0,
+      pendingApprovals: 0,
+      recentCompleted: 0,
+      automationRuns: 0,
+      enabledAutomations: 0,
     }),
   );
   app.get('/api/v1/agent/investigations', (_req, res) =>
@@ -1374,17 +1958,17 @@ export function registerRoutes(app: Express): void {
   app.post('/api/v1/agent/investigations', (req, res) => {
     const investigation = {
       id: `investigation-${investigations.length + 1}`,
-      org_id: 'acme-prod',
-      created_by: 'dev',
-      chat_id: null,
+      orgId: 'acme-prod',
+      createdBy: 'dev',
+      chatId: null,
       status: 'draft',
       summary: null,
       confidence: null,
-      current_step: null,
-      started_at: null,
-      completed_at: null,
-      created_at: nowMicros,
-      updated_at: nowMicros,
+      currentStep: null,
+      startedAt: null,
+      completedAt: null,
+      createdAt: nowMicros,
+      updatedAt: nowMicros,
       ...req.body,
     };
     investigations.push(investigation);
@@ -1403,52 +1987,32 @@ export function registerRoutes(app: Express): void {
   app.put('/api/v1/agent/investigations/:id', (req, res) => {
     const investigation = investigations.find((item) => item.id === req.params.id);
     if (!investigation) return res.status(404).json({ error: 'not found' });
-    Object.assign(investigation, req.body, { updated_at: nowMicros });
+    Object.assign(investigation, req.body, { updatedAt: nowMicros });
     return res.json(investigation);
   });
-  app.get('/api/v1/agent/automations', (_req, res) =>
-    res.json({ automations }),
-  );
-  app.post('/api/v1/agent/automations', (req, res) => {
-    const automation = {
-      id: `automation-${automations.length + 1}`,
-      created_by: 'dev',
-      created_at: nowMicros,
-      updated_at: nowMicros,
-      ...req.body,
-    };
-    automations.push(automation);
-    res.json(automation);
-  });
-  app.put('/api/v1/agent/automations/:id', (req, res) => {
-    const automation = automations.find((item) => item.id === req.params.id);
-    if (!automation) return res.status(404).json({ error: 'not found' });
-    Object.assign(automation, req.body, { updated_at: nowMicros });
-    return res.json(automation);
-  });
-  app.post('/api/v1/agent/automations/:id/dry-run', (_req, res) =>
-    res.json({ status: 'completed', writes: 0 }),
-  );
+  registerAutomationRoutes(app, nowMicros);
+  registerImRoutes(app, nowMicros);
+  registerQualityRoutes(app, nowMicros, (id) => promptTemplates.find((item) => item.id === id));
   app.get('/api/v1/agent/approvals', (_req, res) =>
     res.json({
       approvals: [
         {
           id: 'approval-checkout-alert',
-          investigation_id: null,
+          investigationId: null,
           action: '确认告警事件',
           target: 'production / checkout-api / high-error-rate',
-          parameters: { incident_id: 'incident-checkout-500' },
+          parameters: { incidentId: 'incident-checkout-500' },
           reason: 'checkout-api 错误率持续高于阈值，值班工程师已完成初步确认。',
           impact: '仅更新告警确认状态，不会修改服务配置或工作负载。',
           risk: 'l2',
           status: 'pending',
-          requested_by: 'dev',
-          required_approvals: 1,
+          requestedBy: 'dev',
+          requiredApprovals: 1,
           reviews: [],
-          expires_at: 1_769_164_800_000_000,
-          decided_at: null,
-          created_at: 1_769_161_200_000_000,
-          updated_at: 1_769_161_200_000_000,
+          expiresAt: 1_769_164_800_000_000,
+          decidedAt: null,
+          createdAt: 1_769_161_200_000_000,
+          updatedAt: 1_769_161_200_000_000,
         },
       ],
     }),
@@ -1462,9 +2026,9 @@ export function registerRoutes(app: Express): void {
   app.post('/api/v1/agent/settings/agent-profiles', (req, res) => {
     const profile = {
       id: `profile-${agentProfiles.length + 1}`,
-      created_by: 'dev',
-      created_at: nowMicros,
-      updated_at: nowMicros,
+      createdBy: 'dev',
+      createdAt: nowMicros,
+      updatedAt: nowMicros,
       ...req.body,
     };
     agentProfiles.push(profile);
@@ -1473,7 +2037,7 @@ export function registerRoutes(app: Express): void {
   app.put('/api/v1/agent/settings/agent-profiles/:id', (req, res) => {
     const profile = agentProfiles.find((item) => item.id === req.params.id);
     if (!profile) return res.status(404).json({ error: 'not found' });
-    Object.assign(profile, req.body, { updated_at: nowMicros });
+    Object.assign(profile, req.body, { updatedAt: nowMicros });
     return res.json(profile);
   });
   const makeTool = (
@@ -1491,39 +2055,39 @@ export function registerRoutes(app: Express): void {
   ): Record<string, unknown> => ({
     id: name,
     name,
-    display_name: name,
+    displayName: name,
     description,
-    technical_description: description,
+    technicalDescription: description,
     domain,
     category,
     source: { kind: 'builtin', label: 'MoleSignal' },
-    input_schema: inputSchema,
-    output_schema: { type: 'object' },
+    inputSchema: inputSchema,
+    outputSchema: { type: 'object' },
     risk,
-    minimum_risk: risk,
-    execution_mode: risk === 'l0' ? 'automatic' : 'single_approval',
+    minimumRisk: risk,
+    executionMode: risk === 'l0' ? 'automatic' : 'single_approval',
     enabled: true,
-    available_to_agent: true,
+    availableToAgent: true,
     status: 'healthy',
     capabilities: {
-      read_only: access === 'read_only',
-      supports_dry_run: true,
+      readOnly: access === 'read_only',
+      supportsDryRun: true,
       idempotent: access === 'read_only',
       streaming: false,
     },
     limits: {
-      timeout_ms: 30_000,
-      max_calls_per_run: 32,
-      max_response_bytes: 1_048_576,
+      timeoutMs: 30_000,
+      maxCallsPerRun: 32,
+      maxResponseBytes: 1_048_576,
     },
-    environment_overrides: {},
+    environmentOverrides: {},
     tags: [category],
     statistics: {
-      calls_24h: name === 'query_logs' ? 184 : 0,
-      success_rate: name === 'query_logs' ? 99.4 : null,
-      p95_ms: name === 'query_logs' ? 412 : null,
-      last_called_at: name === 'query_logs' ? nowMicros - 120_000_000 : null,
-      last_error: null,
+      calls24h: name === 'query_logs' ? 184 : 0,
+      successRate: name === 'query_logs' ? 99.4 : null,
+      p95Ms: name === 'query_logs' ? 412 : null,
+      lastCalledAt: name === 'query_logs' ? nowMicros - 120_000_000 : null,
+      lastError: null,
     },
     access,
   });
@@ -1602,15 +2166,15 @@ export function registerRoutes(app: Express): void {
     ),
   ];
   const toolPolicyDefaults: Record<string, unknown> = {
-    org_id: 'acme-prod',
-    risk_modes: {
+    orgId: 'acme-prod',
+    riskModes: {
       l0: 'automatic',
       l1: 'confirmation',
       l2: 'single_approval',
       l3: 'dual_approval',
       l4: 'dual_approval',
     },
-    environment_overrides: {
+    environmentOverrides: {
       production: {
         l0: 'automatic',
         l1: 'confirmation',
@@ -1619,22 +2183,19 @@ export function registerRoutes(app: Express): void {
         l4: 'dual_approval',
       },
     },
-    updated_by: 'dev',
-    created_at: nowMicros,
-    updated_at: nowMicros,
+    updatedBy: 'dev',
+    createdAt: nowMicros,
+    updatedAt: nowMicros,
   };
   const toolDependencies = (name: string) => {
     const dependent = name === 'query_logs';
     return {
-      tool_name: name,
-      total: dependent ? 2 : 0,
-      agent_profiles: dependent
-        ? [{ id: 'profile-production', name: '生产环境受限 Agent', enabled: true, is_default: true }]
+      toolName: name,
+      total: dependent ? 1 : 0,
+      agentProfiles: dependent
+        ? [{ id: 'profile-production', name: '生产环境受限 Agent', enabled: true, isDefault: true }]
         : [],
-      automations: dependent
-        ? [{ id: 'automation-critical-alert', name: '生产环境严重告警调查', enabled: true }]
-        : [],
-      investigation_templates: [],
+      investigationTemplates: [],
     };
   };
   const findTool = (name: string) =>
@@ -1642,12 +2203,12 @@ export function registerRoutes(app: Express): void {
   const mcpServers: Array<Record<string, unknown>> = [
     {
       id: 'mcp-observability',
-      org_id: 'acme-prod',
+      orgId: 'acme-prod',
       scope: { scope: 'org' },
       handle: 'internal_observability',
       name: 'internal-observability',
       transport: 'streamable_http',
-      member_credential: null,
+      memberCredential: null,
       headers: [
         { name: 'x-tenant', secret: false, value: 'acme', set: true },
         { name: 'x-api-key', secret: true, last4: '9c1d', set: true },
@@ -1655,71 +2216,71 @@ export function registerRoutes(app: Express): void {
       env: [],
       editable: true,
       moderatable: true,
-      prompt_count: 0,
-      my_credential: null,
-      endpoint_url: 'https://mcp.internal.example/v1',
-      command_template: null,
-      auth_type: 'bearer_token',
-      auth_header: null,
-      credential_last4: '7f2a',
-      credential_set: true,
-      private_only: true,
-      allowed_domains: ['mcp.internal.example'],
-      allowed_cidrs: ['10.0.0.0/8'],
-      follow_redirects: false,
-      tls_verify: true,
-      timeout_ms: 10_000,
-      max_response_bytes: 1_048_576,
+      promptCount: 0,
+      myCredential: null,
+      endpointUrl: 'https://mcp.internal.example/v1',
+      commandTemplate: null,
+      authType: 'bearer_token',
+      authHeader: null,
+      credentialLast4: '7f2a',
+      credentialSet: true,
+      privateOnly: true,
+      allowedDomains: ['mcp.internal.example'],
+      allowedCidrs: ['10.0.0.0/8'],
+      followRedirects: false,
+      tlsVerify: true,
+      timeoutMs: 10_000,
+      maxResponseBytes: 1_048_576,
       enabled: true,
       status: 'healthy',
-      last_error: null,
-      last_tested_at: nowMicros - 300_000_000,
-      last_synced_at: nowMicros - 600_000_000,
-      created_by: 'dev',
-      created_at: nowMicros - 86_400_000_000,
-      updated_at: nowMicros - 600_000_000,
-      tool_count: 0,
+      lastError: null,
+      lastTestedAt: nowMicros - 300_000_000,
+      lastSyncedAt: nowMicros - 600_000_000,
+      createdBy: 'dev',
+      createdAt: nowMicros - 86_400_000_000,
+      updatedAt: nowMicros - 600_000_000,
+      toolCount: 0,
     },
     {
       id: 'mcp-linear',
-      org_id: 'acme-prod',
-      scope: { scope: 'team', team_id: 'team-platform' },
+      orgId: 'acme-prod',
+      scope: { scope: 'team', teamId: 'team-platform' },
       handle: 'linear',
       name: 'Linear',
       transport: 'sse',
-      endpoint_url: 'https://mcp.linear.app/sse',
-      command_template: null,
-      auth_type: 'member_secret',
-      auth_header: null,
-      credential_last4: null,
-      credential_set: false,
-      member_credential: {
+      endpointUrl: 'https://mcp.linear.app/sse',
+      commandTemplate: null,
+      authType: 'member_secret',
+      authHeader: null,
+      credentialLast4: null,
+      credentialSet: false,
+      memberCredential: {
         header: 'authorization',
         bearer: true,
         instructions: 'Create a personal API key under Linear → Settings → API.',
       },
       headers: [],
       env: [],
-      private_only: false,
-      allowed_domains: [],
-      allowed_cidrs: [],
-      follow_redirects: false,
-      tls_verify: true,
-      timeout_ms: 10_000,
-      max_response_bytes: 1_048_576,
+      privateOnly: false,
+      allowedDomains: [],
+      allowedCidrs: [],
+      followRedirects: false,
+      tlsVerify: true,
+      timeoutMs: 10_000,
+      maxResponseBytes: 1_048_576,
       enabled: true,
       status: 'healthy',
-      last_error: null,
-      last_tested_at: nowMicros - 300_000_000,
-      last_synced_at: nowMicros - 600_000_000,
-      created_by: 'dev',
-      created_at: nowMicros - 86_400_000_000,
-      updated_at: nowMicros - 600_000_000,
-      tool_count: 0,
-      prompt_count: 1,
+      lastError: null,
+      lastTestedAt: nowMicros - 300_000_000,
+      lastSyncedAt: nowMicros - 600_000_000,
+      createdBy: 'dev',
+      createdAt: nowMicros - 86_400_000_000,
+      updatedAt: nowMicros - 600_000_000,
+      toolCount: 0,
+      promptCount: 1,
       editable: true,
       moderatable: true,
-      my_credential: null,
+      myCredential: null,
     },
   ];
   registerAgentResourceRoutes(app, FROZEN_NOW_ISO, mcpServers);
@@ -1727,11 +2288,11 @@ export function registerRoutes(app: Express): void {
   app.get('/api/v1/agent/tools', (_req, res) =>
     res.json({
       tools: agentTools,
-      dynamic_http: false,
+      dynamicHttp: false,
       shell: false,
       browser: false,
-      open_mcp: true,
-      mcp_servers: { total: mcpServers.length, healthy: 1, unhealthy: 0 },
+      openMcp: true,
+      mcpServers: { total: mcpServers.length, healthy: 1, unhealthy: 0 },
     }),
   );
   app.get('/api/v1/agent/tools/policies', (_req, res) =>
@@ -1739,8 +2300,8 @@ export function registerRoutes(app: Express): void {
   );
   app.put('/api/v1/agent/tools/policies', (req, res) => {
     Object.assign(toolPolicyDefaults, req.body, {
-      updated_by: 'dev',
-      updated_at: nowMicros,
+      updatedBy: 'dev',
+      updatedAt: nowMicros,
     });
     res.json(toolPolicyDefaults);
   });
@@ -1754,22 +2315,22 @@ export function registerRoutes(app: Express): void {
           ? [
               {
                 id: 'tool-call-query-logs',
-                tool_name: 'query_logs',
-                chat_id: 'chat-checkout',
-                investigation_id: null,
+                toolName: 'query_logs',
+                chatId: 'chat-checkout',
+                investigationId: null,
                 risk: 'l0',
                 input: { query: 'service = checkout-api', authorization: '<redacted>' },
-                output_summary: '128 rows',
+                outputSummary: '128 rows',
                 status: 'success',
                 error: null,
-                duration_ms: 284,
-                called_by: 'dev',
-                call_source: 'chat',
-                profile_id: 'profile-production',
-                approval_id: null,
-                policy_decision: { allowed: true, execution_mode: 'automatic' },
-                audit_id: 'audit-tool-call-1',
-                created_at: nowMicros - 120_000_000,
+                durationMs: 284,
+                calledBy: 'dev',
+                callSource: 'chat',
+                profileId: 'profile-production',
+                approvalId: null,
+                policyDecision: { allowed: true, executionMode: 'automatic' },
+                auditId: 'audit-tool-call-1',
+                createdAt: nowMicros - 120_000_000,
               },
             ]
           : [],
@@ -1779,10 +2340,10 @@ export function registerRoutes(app: Express): void {
     res.json({
       success: true,
       validated: true,
-      dry_run: req.body?.dry_run !== false,
+      dryRun: req.body?.dryRun !== false,
       executed: false,
-      side_effects: false,
-      duration_ms: 18,
+      sideEffects: false,
+      durationMs: 18,
       message: '参数校验与 dry-run 已完成。',
       request: req.body?.arguments ?? {},
       response: { rows: 0, preview: [] },
@@ -1797,7 +2358,7 @@ export function registerRoutes(app: Express): void {
   app.post('/api/v1/agent/tools/:id/enable', (req, res) => {
     const tool = findTool(req.params.id);
     if (!tool) return res.status(404).json({ error: 'not found' });
-    Object.assign(tool, { enabled: true, available_to_agent: true, status: 'healthy' });
+    Object.assign(tool, { enabled: true, availableToAgent: true, status: 'healthy' });
     return res.json(tool);
   });
   app.post('/api/v1/agent/tools/:id/disable', (req, res) => {
@@ -1807,7 +2368,7 @@ export function registerRoutes(app: Express): void {
     if (dependencies.total > 0 && !req.body?.force) {
       return res.status(409).json({ error: 'tool has active dependencies', dependencies });
     }
-    Object.assign(tool, { enabled: false, available_to_agent: false, status: 'disabled' });
+    Object.assign(tool, { enabled: false, availableToAgent: false, status: 'disabled' });
     return res.json({ tool, dependencies });
   });
   app.get('/api/v1/agent/tools/:id', (req, res) => {
@@ -1828,34 +2389,34 @@ export function registerRoutes(app: Express): void {
     }>;
     const server = {
       id: `mcp-${mcpServers.length + 1}`,
-      org_id: 'acme-prod',
+      orgId: 'acme-prod',
       handle: String(req.body?.name ?? 'mcp').toLowerCase().replace(/[^a-z0-9]+/g, '_'),
-      command_template: null,
-      member_credential: null,
+      commandTemplate: null,
+      memberCredential: null,
       env: [],
       editable: true,
       moderatable: true,
-      prompt_count: 0,
-      my_credential: null,
-      credential_last4:
+      promptCount: 0,
+      myCredential: null,
+      credentialLast4:
         typeof req.body?.credential === 'string'
           ? req.body.credential.slice(-4)
           : null,
-      credential_set: Boolean(req.body?.credential),
+      credentialSet: Boolean(req.body?.credential),
       status: req.body?.enabled ? 'unavailable' : 'disabled',
-      last_error: null,
-      last_tested_at: null,
-      last_synced_at: null,
-      created_by: 'dev',
-      created_at: nowMicros,
-      updated_at: nowMicros,
-      tool_count: 0,
+      lastError: null,
+      lastTestedAt: null,
+      lastSyncedAt: null,
+      createdBy: 'dev',
+      createdAt: nowMicros,
+      updatedAt: nowMicros,
+      toolCount: 0,
       ...req.body,
       scope:
         req.body?.scope === 'team'
-          ? { scope: 'team', team_id: String(req.body.team_id) }
+          ? { scope: 'team', teamId: String(req.body.teamId) }
           : req.body?.scope === 'personal'
-            ? { scope: 'personal', owner_id: 'dev' }
+            ? { scope: 'personal', ownerId: 'dev' }
             : { scope: 'org' },
       headers: headers.map((header) =>
         header.secret
@@ -1864,7 +2425,7 @@ export function registerRoutes(app: Express): void {
       ),
     };
     delete server.credential;
-    delete server.team_id;
+    delete server.teamId;
     mcpServers.push(server);
     res.json(server);
   });
@@ -1873,22 +2434,22 @@ export function registerRoutes(app: Express): void {
     const tools = agentTools.filter(
       (tool) => {
         const source = tool.source as
-          | { kind?: string; server_id?: string }
+          | { kind?: string; serverId?: string }
           | undefined;
-        return source?.kind === 'mcp' && source.server_id === req.params.id;
+        return source?.kind === 'mcp' && source.serverId === req.params.id;
       },
     );
     const prompts =
       req.params.id === 'mcp-linear'
         ? [
             {
-              org_id: 'acme-prod',
-              server_id: 'mcp-linear',
+              orgId: 'acme-prod',
+              serverId: 'mcp-linear',
               name: 'triage',
               title: 'Triage an issue',
               description: 'Triage a Linear issue',
               arguments: [{ name: 'issue', description: 'The issue key', required: true }],
-              synced_at: nowMicros,
+              syncedAt: nowMicros,
             },
           ]
         : [];
@@ -1905,9 +2466,9 @@ export function registerRoutes(app: Express): void {
     delete next.credential;
     Object.assign(server, next, {
       ...(credential
-        ? { credential_set: true, credential_last4: credential.slice(-4) }
+        ? { credentialSet: true, credentialLast4: credential.slice(-4) }
         : {}),
-      updated_at: nowMicros,
+      updatedAt: nowMicros,
     });
     return res.json(server);
   });
@@ -1919,11 +2480,11 @@ export function registerRoutes(app: Express): void {
   app.post('/api/v1/agent/mcp-servers/:id/test', (req, res) => {
     const server = mcpServers.find((item) => item.id === req.params.id);
     if (!server) return res.status(404).json({ error: 'not found' });
-    Object.assign(server, { status: 'healthy', last_error: null, last_tested_at: nowMicros });
+    Object.assign(server, { status: 'healthy', lastError: null, lastTestedAt: nowMicros });
     return res.json({
       success: true,
       server,
-      discovered_tools: [
+      discoveredTools: [
         {
           name: 'search_knowledge',
           title: 'Search knowledge',
@@ -1952,8 +2513,8 @@ export function registerRoutes(app: Express): void {
   app.post('/api/v1/agent/mcp-servers/:id/sync', (req, res) => {
     const server = mcpServers.find((item) => item.id === req.params.id);
     if (!server) return res.status(404).json({ error: 'not found' });
-    const selectedTools = Array.isArray(req.body?.selected_tools)
-      ? req.body.selected_tools.map(String)
+    const selectedTools = Array.isArray(req.body?.selectedTools)
+      ? req.body.selectedTools.map(String)
       : [];
     const imported = selectedTools.map((remoteName: string) => {
       const name = `mcp_internal_observability_${remoteName}`;
@@ -1970,29 +2531,29 @@ export function registerRoutes(app: Express): void {
         destructive ? 'l4' : 'l0',
       );
       Object.assign(tool, {
-        remote_name: remoteName,
-        display_name:
+        remoteName: remoteName,
+        displayName:
           remoteName === 'restart_workload'
             ? 'Restart workload'
             : 'Search knowledge',
         source: {
           kind: 'mcp',
           label: 'internal-observability',
-          server_id: server.id,
-          server_name: server.name,
+          serverId: server.id,
+          serverName: server.name,
         },
-        execution_mode: destructive ? 'dual_approval' : 'automatic',
+        executionMode: destructive ? 'dual_approval' : 'automatic',
         enabled: false,
-        available_to_agent: false,
+        availableToAgent: false,
         status: 'disabled',
-        last_synced_at: nowMicros,
+        lastSyncedAt: nowMicros,
       });
       agentTools.push(tool);
       return tool;
     });
     Object.assign(server, {
-      last_synced_at: nowMicros,
-      tool_count: selectedTools.length,
+      lastSyncedAt: nowMicros,
+      toolCount: selectedTools.length,
     });
     return res.json({ server, tools: imported });
   });
@@ -2008,42 +2569,42 @@ export function registerRoutes(app: Express): void {
       functions: [
         {
           label: 'rate',
-          insert_text: 'rate(${1:metric}[${2:5m}])',
+          insertText: 'rate(${1:metric}[${2:5m}])',
           detail: 'rate(range-vector)',
           documentation: 'Per-second average rate over a range vector.',
           kind: 'function',
         },
         {
           label: 'irate',
-          insert_text: 'irate(${1:metric}[${2:5m}])',
+          insertText: 'irate(${1:metric}[${2:5m}])',
           detail: 'irate(range-vector)',
           documentation: 'Instantaneous per-second rate.',
           kind: 'function',
         },
         {
           label: 'increase',
-          insert_text: 'increase(${1:metric}[${2:5m}])',
+          insertText: 'increase(${1:metric}[${2:5m}])',
           detail: 'increase(range-vector)',
           documentation: 'Total increase over a range vector.',
           kind: 'function',
         },
         {
           label: 'avg_over_time',
-          insert_text: 'avg_over_time(${1:metric}[${2:5m}])',
+          insertText: 'avg_over_time(${1:metric}[${2:5m}])',
           detail: 'avg_over_time(range-vector)',
           documentation: 'Average over a range vector.',
           kind: 'function',
         },
         {
           label: 'abs',
-          insert_text: 'abs(${1:vector})',
+          insertText: 'abs(${1:vector})',
           detail: 'abs(vector)',
           documentation: 'Absolute value.',
           kind: 'function',
         },
         {
           label: 'histogram_quantile',
-          insert_text: 'histogram_quantile(${1:0.95}, ${2:vector})',
+          insertText: 'histogram_quantile(${1:0.95}, ${2:vector})',
           detail: 'histogram_quantile(q, vector)',
           documentation: 'Calculates a histogram quantile.',
           kind: 'function',
@@ -2074,156 +2635,58 @@ export function registerRoutes(app: Express): void {
       previous_cursor: null,
     }),
   );
-  const rumStartedAt = Date.parse(FROZEN_NOW_ISO) * 1_000 - 120_000_000;
-  const rumSession = (sessionId: string) => ({
-    session_id: sessionId,
-    user_id: 'user-7',
-    application: 'storefront',
-    environment: 'prod',
-    version: '2.0.0',
-    browser: 'Chrome',
-    country: 'CN',
-    device: 'desktop',
-    duration_ms: 12_000,
-    started_at_micros: rumStartedAt,
-    error_count: 1,
-    journey: ['/products', '/checkout'],
-    rage_click_count: 0,
-    dead_click_count: 0,
-    slow_resource_count: 0,
-    failed_request_count: 1,
-    crash_count: 0,
-    experience: 'poor',
-    replay_available: false,
-  });
-  const emptyCursorPage = {
-    items: [],
-    has_more: false,
-    next_cursor: null,
-    previous_cursor: null,
-  };
   // ── APM: a workspace that has not received a trace yet. A spec that needs
   // services, transactions or errors routes its own `/api/v1/apm/**`. ──
+  const emptyApmPage = (sort: string) => {
+    const to = Date.parse(FROZEN_NOW_ISO) * 1_000;
+    return {
+      meta: {
+        range: { from: to - 3_600_000_000, to },
+        resolution: 'minute',
+        dataQuality: { partial: false, gaps: [], overflowDimensions: [] },
+        activationBoundary: false,
+      },
+      items: [],
+      nextCursor: null,
+      previousCursor: null,
+      hasMore: false,
+      sort,
+    };
+  };
+  app.get('/api/v1/apm/services', (_req, res) => res.json(emptyApmPage('request_count')));
+  app.get('/api/v1/apm/errors', (_req, res) => res.json(emptyApmPage('last_seen')));
+  app.get('/api/v1/apm/service-definitions', (_req, res) => res.json([]));
   app.get('/api/v1/apm/overview', (_req, res) => {
     const to = Date.parse(FROZEN_NOW_ISO) * 1_000;
     res.json({
       meta: {
         range: { from: to - 3_600_000_000, to },
         resolution: 'minute',
-        data_quality: { partial: false, gaps: [], overflow_dimensions: [] },
-        activation_boundary: false,
+        dataQuality: { partial: false, gaps: [], overflowDimensions: [] },
+        activationBoundary: false,
       },
       red: {
-        request_count: 0,
-        error_count: 0,
-        error_rate: 0,
-        duration_sum_micros: 0,
-        latency_partial: false,
+        requestCount: 0,
+        errorCount: 0,
+        errorRate: 0,
+        durationSum: 0,
+        latencyPartial: false,
         exemplars: [],
       },
       trend: [],
-      service_health: { healthy: 0, warning: 0, critical: 0, no_traffic: 0 },
+      serviceHealth: { healthy: 0, warning: 0, critical: 0, no_traffic: 0 },
       services: [],
-      top_transactions: [],
-      top_dependencies: [],
-      top_errors: [],
-      recent_versions: [],
+      topTransactions: [],
+      topDependencies: [],
+      topErrors: [],
+      recentVersions: [],
     });
   });
-  app.get('/api/v1/rum/applications/summary', (_req, res) =>
-    res.json({
-      items: [
-        {
-          application: 'storefront',
-          environments: ['prod'],
-          versions: ['2.0.0'],
-          users: 1,
-          sessions: 1,
-          errorFreeRate: 0,
-          lcpP75: 2_800,
-        },
-      ],
-    }),
-  );
-  app.get('/api/v1/rum/overview', (_req, res) =>
-    res.json({
-      metrics: {
-        users: 1,
-        sessions: 1,
-        errorFreeRate: 0,
-        lcpP75: 2_800,
-        inpP75: 180,
-        clsP75: 0.08,
-      },
-      browserDevices: [{ label: 'Chrome · desktop', count: 1, share: 1 }],
-      regions: [{ label: 'CN', count: 1, share: 1 }],
-      facets: {
-        applications: ['storefront'],
-        environments: ['prod'],
-        versions: ['2.0.0'],
-        countries: ['CN'],
-        devices: ['desktop'],
-      },
-    }),
-  );
-  app.get('/api/v1/rum/overview/insights', (_req, res) =>
-    res.json({
-      trend: [],
-      satisfaction: { good: 0, needsImprovement: 0, poor: 1, total: 1 },
-      slowPages: [],
-      frequentErrors: [],
-    }),
-  );
-  app.get('/api/v1/rum/sessions', (_req, res) =>
-    res.json({ ...emptyCursorPage, items: [rumSession('sample-session')] }),
-  );
-  app.get('/api/v1/rum/sessions/:sessionId', (req, res) =>
-    res.json({
-      session: rumSession(req.params.sessionId),
-      events: [
-        {
-          ts_micros: rumStartedAt + 1_000_000,
-          type: 'network_error',
-          name: 'POST /api/orders',
-          url: '/checkout',
-          duration_ms: 420,
-          status: 500,
-          payload: {},
-          service: 'checkout',
-          trace_id: '0123456789abcdef0123456789abcdef',
-          parent_span_id: '0123456789abcdef',
-        },
-      ],
-    }),
-  );
-  app.get('/api/v1/rum/sessions/:sessionId/related-traces', (req, res) =>
-    res.json({ session_id: req.params.sessionId, primary_service: null, traces: [] }),
-  );
-  app.get('/api/v1/rum/errors', (_req, res) => res.json(emptyCursorPage));
-  app.get('/api/v1/rum/errors/:fingerprint', (req, res) =>
-    res.json({
-      fingerprint: req.params.fingerprint,
-      message: 'Checkout request failed',
-      stack: [],
-      recent_sessions: ['sample-session'],
-      count: 1,
-      users: 1,
-      first_seen_micros: rumStartedAt,
-      last_seen_micros: rumStartedAt,
-      pages: ['/checkout'],
-      versions: ['2.0.0'],
-    }),
-  );
-  app.get('/api/v1/rum/performance/vitals', (_req, res) => res.json([]));
-  app.get('/api/v1/rum/performance/apis', (_req, res) => res.json([]));
-  app.get('/api/v1/rum/performance/errors', (_req, res) => res.json([]));
-  app.get('/api/v1/rum/replay/:sessionId', (req, res) =>
-    res.json({ session_id: req.params.sessionId, segment_count: 0, events: [] }),
-  );
-  app.post('/api/v1/query', (req: Request, res: Response) => {
-    if (req.body?.language === 'promql') {
-      const start = Number(req.body?.time_range?.start ?? Date.parse(FROZEN_NOW_ISO) * 1000 - 3_600_000_000);
-      const end = Number(req.body?.time_range?.end ?? Date.parse(FROZEN_NOW_ISO) * 1000);
+  type AskedQuery = { language?: string; timeRange?: { start?: number | undefined; end?: number | undefined } } | undefined;
+  const answerQuery = (body: AskedQuery, res: Response) => {
+    if (body?.language === 'promql') {
+      const start = Number(body?.timeRange?.start ?? Date.parse(FROZEN_NOW_ISO) * 1000 - 3_600_000_000);
+      const end = Number(body?.timeRange?.end ?? Date.parse(FROZEN_NOW_ISO) * 1000);
       const pointCount = 61;
       const statuses = [
         { label: '500', base: 23, amplitude: 7, trend: 8, phase: 0.2 },
@@ -2247,16 +2710,22 @@ export function registerRoutes(app: Express): void {
       return res.json({
         columns: ['_timestamp', 'value', 'status'],
         rows,
-        scanned_rows: 8421,
-        took_ms: 14,
+        scannedRows: 8421,
+        tookMs: 14,
       });
     }
     return res.json({
       columns: ['_timestamp', 'value'],
       rows: [[Date.parse(FROZEN_NOW_ISO) * 1_000, 1]],
-      scanned_rows: 1,
-      took_ms: 2,
+      scannedRows: 1,
+      tookMs: 2,
     });
+  };
+  app.post('/api/v1/query', (req: Request, res: Response) => answerQuery(req.body, res));
+  // The explorers ask with GET, the query in the address.
+  app.get('/api/v1/query', (req: Request, res: Response) => {
+    const at = (name: string) => (req.query[name] === undefined ? undefined : Number(req.query[name]));
+    answerQuery({ language: String(req.query.language ?? ''), timeRange: { start: at('start'), end: at('end') } }, res);
   });
   app.get('/api/v1/metrics', (_req, res) => res.json({ series: [] }));
   // /query/stream streams an initial batch, then after 3s streams a second
@@ -2284,11 +2753,109 @@ export function registerRoutes(app: Express): void {
 
   // ── admin: sso / orgs / users / domains / scheduled-reports / schedules ──
   app.get('/api/v1/auth/sso/providers', (_req, res) =>
-    res.json([{ id: 'okta', name: 'Okta', kind: 'oidc' }]),
+    res.json([{ id: 'okta', name: 'Okta', kind: 'oidc', platform: 'okta' }]),
   );
   app.get('/api/v1/sso/providers', (_req, res) =>
-    res.json([{ id: 'okta', name: 'Okta', kind: 'oidc', enabled: true }]),
+    res.json([
+      {
+        id: 'okta',
+        orgId: 'acme-prod',
+        name: 'Okta',
+        kind: 'oidc',
+        platform: 'okta',
+        enabled: true,
+        oidc: {
+          issuer: 'https://dev-123456.okta.com/oauth2/default',
+          authorizeUrl: 'https://dev-123456.okta.com/oauth2/default/v1/authorize',
+          tokenUrl: 'https://dev-123456.okta.com/oauth2/default/v1/token',
+          userinfoUrl: 'https://dev-123456.okta.com/oauth2/default/v1/userinfo',
+          jwksUri: 'https://dev-123456.okta.com/oauth2/default/v1/keys',
+          clientId: '0oa1molesignal',
+          hasClientSecret: true,
+          redirectUri: 'http://localhost:5173/api/v1/auth/sso/callback',
+          scopes: ['openid', 'profile', 'email'],
+          fieldMapping: { subject: 'sub', email: 'email', displayName: 'name', groups: 'groups' },
+          groupRoleMapping: {},
+          allowedGroups: [],
+        },
+        test: ssoTests.standing('okta'),
+      },
+    ]),
   );
+  // Reads the issuer's discovery document on the real server.
+  app.post('/api/v1/sso/providers/discover', (req, res) => {
+    const issuer = String((req.body as { issuer?: string })?.issuer ?? '').replace(/\/+$/, '');
+    res.json({
+      issuer,
+      authorizeUrl: `${issuer}/authorize`,
+      tokenUrl: `${issuer}/token`,
+      userinfoUrl: `${issuer}/userinfo`,
+      jwksUri: `${issuer}/jwks`,
+      scopesSupported: ['openid', 'profile', 'email'],
+    });
+  });
+  app.post('/api/v1/sso/providers/saml-metadata', (_req, res) =>
+    res.json({
+      idpEntityId: 'https://sts.windows.net/00000000-0000-0000-0000-000000000000/',
+      idpSsoUrl: 'https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/saml2',
+      idpX509Cert: '-----BEGIN CERTIFICATE-----\nMIIC8DCCAdigAwIBAgIQ\n-----END CERTIFICATE-----',
+    }),
+  );
+  // The handoff code of a redirect sign-in. `link-demo` comes back as a first sign-in into
+  // an existing account, waiting for its owner to confirm; any other code has expired.
+  app.post('/api/v1/auth/sso/exchange', (req, res) => {
+    if ((req.body as { code?: string })?.code === 'link-demo') {
+      res.json({
+        link: {
+          code: 'pending-link',
+          providerName: 'Okta',
+          organizationName: 'acme-prod',
+          emailHint: 'd***@molesignal.local',
+          emailAvailable: true,
+          passwordAllowed: true,
+        },
+      });
+      return;
+    }
+    res.status(401).json({
+      error: 'unauthorized',
+      message: 'unauthorized: this sign-in link has expired; sign in again',
+    });
+  });
+  app.post('/api/v1/auth/sso/link/email', (_req, res) => res.json({ sent: true }));
+  // `123456` from the email, or any password except `wrong`, confirms the link.
+  app.post('/api/v1/auth/sso/link/confirm', (req, res) => {
+    const body = req.body as { emailCode?: string; password?: string };
+    const confirmed =
+      body?.emailCode === '123456' || (Boolean(body?.password) && body?.password !== 'wrong');
+    if (!confirmed) {
+      res.status(401).json({
+        error: 'unauthorized',
+        message: 'unauthorized: the code or password is not correct',
+      });
+      return;
+    }
+    res.json({ login: signinResponse });
+  });
+  let linkedIdentities = [
+    {
+      id: 'sso-okta',
+      providerId: 'okta',
+      providerName: 'Okta',
+      kind: 'oidc',
+      platform: 'okta',
+      orgId: 'acme-prod',
+      orgName: 'acme-prod',
+      linkedAt: 1_760_000_000_000_000,
+      lastLoginAt: 1_761_400_000_000_000,
+      canUnlink: true,
+    },
+  ];
+  app.get('/api/v1/me/sso-identities', (_req, res) => res.json(linkedIdentities));
+  app.delete('/api/v1/me/sso-identities/:id', (req, res) => {
+    linkedIdentities = linkedIdentities.filter((identity) => identity.id !== req.params.id);
+    res.status(204).end();
+  });
   app.get('/api/v1/sso/providers/roles', (_req, res) =>
     res.json([
       { id: 'role-owner', name: 'Owner' },
@@ -2306,23 +2873,23 @@ export function registerRoutes(app: Express): void {
         id: 'acme-prod',
         name: 'acme-prod',
         slug: 'acme-prod',
-        display_role: 'Owner',
+        displayRole: 'Owner',
         roles: [{ id: 'role-owner', key: 'owner', name: 'Owner', builtin: true }],
       },
       {
         id: 'acme-staging',
         name: 'acme-staging',
         slug: 'acme-staging',
-        display_role: 'Admin',
+        displayRole: 'Admin',
         roles: [{ id: 'role-admin', key: 'admin', name: 'Admin', builtin: true }],
       },
-      // Listed for an owner, who holds the platform permissions and uses them there.
+      // Listed for whoever was granted platform permissions, to use them there.
       {
         id: 'system-org',
         name: '_sys',
         slug: '_sys',
-        display_role: 'Owner',
-        roles: [{ id: 'role-platform-owner', key: 'platform_owner', name: 'Owner', builtin: true }],
+        displayRole: 'Platform administrator',
+        roles: [{ id: 'role-platform-admin', key: 'platform_admin', name: 'Platform administrator', builtin: true }],
         system: true,
         disabled: false,
         accessible: true,
@@ -2331,11 +2898,10 @@ export function registerRoutes(app: Express): void {
   );
   app.post('/api/v1/orgs/:id/select', (req, res) =>
     res.json({
-      token: `fake-jwt-after-switch:${req.params.id}`,
-      user_id: 'u1',
-      org_id: req.params.id,
-      org_name: req.params.id,
-      display_role: 'Owner',
+      userId: 'u1',
+      orgId: req.params.id,
+      orgName: req.params.id,
+      displayRole: 'Owner',
       roles: [{ id: 'role-owner', key: 'owner', name: 'Owner', builtin: true }],
       system: false,
     }),
@@ -2346,75 +2912,221 @@ export function registerRoutes(app: Express): void {
         {
           id: 'u1',
           email: 'sre@example.com',
-          display_name: 'Dana Reyes',
-          display_role: 'Admin',
+          displayName: 'Dana Reyes',
+          displayRole: 'Admin',
           roles: [{ id: 'role-admin', key: 'admin', name: 'Admin', builtin: true }],
         },
         {
           id: 'u2',
           email: 'kenji@example.com',
-          display_name: 'Kenji Watanabe',
-          display_role: 'Editor',
+          displayName: 'Kenji Watanabe',
+          displayRole: 'Editor',
           roles: [{ id: 'role-editor', key: 'editor', name: 'Editor', builtin: true }],
+          mfaEnabled: true,
         },
         {
           id: 'u3',
           email: 'amara@example.com',
-          display_name: 'Amara Okafor',
-          display_role: 'Editor',
+          displayName: 'Amara Okafor',
+          displayRole: 'Editor',
           roles: [{ id: 'role-editor', key: 'editor', name: 'Editor', builtin: true }],
         },
       ].map((user) => ({
-        is_root: false,
+        isRoot: false,
         disabled: false,
         status: 'active',
-        team_names: [],
-        login_method: 'password',
-        created_at_micros: Date.parse(FROZEN_NOW_ISO) * 1_000 - 90 * 86_400_000_000,
+        teamNames: [],
+        loginMethod: 'password',
+        createdAt: Date.parse(FROZEN_NOW_ISO) * 1_000 - 90 * 86_400_000_000,
         ...user,
       })),
     }),
   );
   app.get('/api/v1/teams', (_req, res) =>
     res.json([
-      { id: 'team-platform', org_id: 'acme-prod', name: 'Platform', member_ids: ['u1', 'u2'] },
-      { id: 'team-payments', org_id: 'acme-prod', name: 'Payments', member_ids: ['u3'] },
+      { id: 'team-platform', orgId: 'acme-prod', name: 'Platform', memberIds: ['u1', 'u2'] },
+      { id: 'team-payments', orgId: 'acme-prod', name: 'Payments', memberIds: ['u3'] },
     ]),
   );
   app.get('/api/v1/auth/tokens', (_req, res) => res.json([]));
+  // The signed-in user's own tokens, kept for the test like the backend keeps them.
+  const personalTokens: Array<Record<string, unknown>> = [];
+  app.get('/api/v1/me/api-tokens', (_req, res) => res.json(personalTokens));
+  app.post('/api/v1/me/api-tokens', (req, res) => {
+    const body = req.body as {
+      name: string;
+      policyId?: string;
+      permissions?: string[];
+      expiresInDays?: number;
+    };
+    const issuedAt = Date.parse(FROZEN_NOW_ISO) * 1000;
+    const token = {
+      id: `tok-personal-${personalTokens.length + 1}`,
+      name: body.name,
+      prefix: '0123456789',
+      tokenKind: 'personal',
+      userId: 'u1',
+      policyId: body.policyId ?? null,
+      permissions: body.permissions ?? null,
+      applicationId: null,
+      serviceAccountId: null,
+      expiresAt: body.expiresInDays
+        ? issuedAt + body.expiresInDays * 86_400_000_000
+        : null,
+      lastUsedAt: null,
+      revoked: false,
+      createdAt: issuedAt,
+    };
+    personalTokens.unshift(token);
+    res.json({ ...token, token: 'mspat-0123456789abcdefghjkmnpqrstvwxyz0123' });
+  });
   app.get('/api/v1/service-accounts', (_req, res) => res.json([]));
-  app.get('/api/v1/roles', (_req, res) =>
-    res.json([
-      {
-        id: 'role-owner',
-        key: 'owner',
-        name: 'Owner',
-        description: 'Full administrative access.',
-        builtin: true,
-        role_type: 'organization',
-        scope: 'organization',
-        permissions: MOCK_IAM_ROLE_PERMISSIONS.owner,
-        usage: {
-          memberships: 1,
-          api_tokens: 0,
-          service_accounts: 0,
-          invitations: 0,
-          bindings: 1,
-          total: 2,
-        },
-        created_at_micros: Date.parse(FROZEN_NOW_ISO) * 1000,
-        updated_at_micros: Date.parse(FROZEN_NOW_ISO) * 1000,
-      },
+
+  // Permission policies: the built-in ones and the organization's own, as the backend keeps them.
+  const policies: Array<ReturnType<typeof mockBuiltinPolicy>> = [
+    mockBuiltinPolicy('readonly_observer', 'Read-only observer', MOCK_IAM_VIEWER_PERMISSIONS),
+    mockBuiltinPolicy('data_intake', 'Data intake', [
+      'logs.write',
+      'metrics.write',
+      'traces.write',
+      'profiles.write',
+      'apm.deploy',
     ]),
+  ];
+  const roles: Array<Record<string, unknown> & { id: string; permissions: readonly string[]; policyIds: string[] }> = [
+    {
+      id: 'role-owner',
+      key: 'owner',
+      name: 'Owner',
+      description: 'Full administrative access.',
+      builtin: true,
+      roleType: 'organization',
+      scope: 'organization',
+      permissions: MOCK_IAM_ROLE_PERMISSIONS.owner ?? [],
+      policyIds: [],
+      usage: { memberships: 1, serviceAccounts: 0, invitations: 0, bindings: 1, total: 2 },
+      createdAt: Date.parse(FROZEN_NOW_ISO) * 1000,
+      updatedAt: Date.parse(FROZEN_NOW_ISO) * 1000,
+    },
+  ];
+  const roleOut = (role: (typeof roles)[number]) => ({
+    ...role,
+    effectivePermissions: [
+      ...new Set([
+        ...role.permissions,
+        ...policies
+          .filter((policy) => role.policyIds.includes(policy.id))
+          .flatMap((policy) => policy.permissions),
+      ]),
+    ].sort(),
+  });
+  const policyOut = (policy: (typeof policies)[number]) => {
+    const usedBy = roles.filter((role) => role.policyIds.includes(policy.id)).length;
+    const followedBy = personalTokens.filter(
+      (token) => token.policyId === policy.id && !token.revoked,
+    ).length;
+    return { ...policy, usage: { roles: usedBy, tokens: followedBy, total: usedBy + followedBy } };
+  };
+
+  app.get('/api/v1/iam/policies', (_req, res) => res.json(policies.map(policyOut)));
+  app.post('/api/v1/iam/policies', (req, res) => {
+    const body = req.body as { key: string; name: string; description?: string; document: unknown };
+    const resolved = mockResolvePolicy(body.document);
+    if ('error' in resolved) return res.status(400).json({ error: resolved.error });
+    if (policies.some((policy) => policy.key === body.key)) {
+      return res.status(409).json({ error: `a permission policy with key ${body.key} already exists` });
+    }
+    const now = Date.parse(FROZEN_NOW_ISO) * 1000;
+    const policy = {
+      id: `policy-${body.key}`,
+      key: body.key,
+      name: body.name,
+      description: body.description ?? '',
+      builtin: false,
+      document: body.document as ReturnType<typeof mockBuiltinPolicy>['document'],
+      permissions: resolved.permissions,
+      createdBy: 'u1',
+      createdAt: now,
+      updatedAt: now,
+    };
+    policies.push(policy);
+    return res.json(policyOut(policy));
+  });
+  app.patch('/api/v1/iam/policies/:id', (req, res) => {
+    const policy = policies.find((candidate) => candidate.id === req.params.id);
+    if (!policy) return res.status(404).json({ error: 'permission policy not found' });
+    if (policy.builtin) return res.status(403).json({ error: 'built-in permission policies cannot be edited' });
+    const body = req.body as { name: string; description?: string; document: unknown };
+    const resolved = mockResolvePolicy(body.document);
+    if ('error' in resolved) return res.status(400).json({ error: resolved.error });
+    Object.assign(policy, {
+      name: body.name,
+      description: body.description ?? '',
+      document: body.document,
+      permissions: resolved.permissions,
+    });
+    return res.json(policyOut(policy));
+  });
+  app.delete('/api/v1/iam/policies/:id', (req, res) => {
+    const index = policies.findIndex((candidate) => candidate.id === req.params.id);
+    const policy = policies[index];
+    if (!policy) return res.status(404).json({ error: 'permission policy not found' });
+    if (policy.builtin) return res.status(403).json({ error: 'built-in permission policies cannot be deleted' });
+    if (policyOut(policy).usage.total > 0) return res.status(409).json({ error: 'permission policy is in use' });
+    policies.splice(index, 1);
+    return res.json({ deleted: true });
+  });
+  app.get('/api/v1/me/api-tokens/scopes', (_req, res) =>
+    res.json({
+      policies: policies.map(({ id, key, name, description, builtin, permissions }) => ({
+        id,
+        key,
+        name,
+        description,
+        builtin,
+        permissions,
+      })),
+      permissions: MOCK_IAM_PERMISSION_CATALOG.permissions.filter(
+        (permission) => permission.scope === 'organization',
+      ),
+    }),
   );
+
+  app.get('/api/v1/roles', (_req, res) => res.json(roles.map(roleOut)));
+  app.post('/api/v1/roles', (req, res) => {
+    const body = req.body as {
+      key: string;
+      name: string;
+      description?: string;
+      permissions: string[];
+      policyIds: string[];
+    };
+    const now = Date.parse(FROZEN_NOW_ISO) * 1000;
+    const role = {
+      id: `role-${body.key}`,
+      key: body.key,
+      name: body.name,
+      description: body.description ?? '',
+      builtin: false,
+      roleType: 'organization',
+      scope: 'organization',
+      permissions: [...body.permissions].sort(),
+      policyIds: body.policyIds,
+      usage: { memberships: 0, serviceAccounts: 0, invitations: 0, bindings: 0, total: 0 },
+      createdAt: now,
+      updatedAt: now,
+    };
+    roles.push(role);
+    res.json(roleOut(role));
+  });
   app.get('/api/v1/iam/permissions', (_req, res) =>
     res.json(MOCK_IAM_PERMISSION_CATALOG),
   );
   app.get('/api/v1/iam/capabilities', (_req, res) =>
     res.json({
-      organization_id: 'acme-prod',
+      organizationId: 'acme-prod',
       scope: 'organization',
-      display_role: 'Owner',
+      displayRole: 'Owner',
       roles: [
         {
           id: 'role-owner',
@@ -2425,7 +3137,7 @@ export function registerRoutes(app: Express): void {
       ],
       permissions: MOCK_IAM_ROLE_PERMISSIONS.owner,
       version: 1,
-      route_catalog_version: 1,
+      routeCatalogVersion: 1,
       routes: mockCapabilityRoutes(
         'organization',
         MOCK_IAM_ROLE_PERMISSIONS.owner ?? [],
@@ -2449,10 +3161,10 @@ export function registerRoutes(app: Express): void {
   // As the backend does: every save, a new report or an existing one, makes the signed-in
   // user the one the report runs as, and the response names that user.
   const savedByMockUser = () => ({
-    run_as_user_id: meProfile.user_id,
-    run_as_user: {
-      id: meProfile.user_id,
-      display_name: meProfile.display_name,
+    runAsUserId: meProfile.userId,
+    runAsUser: {
+      id: meProfile.userId,
+      displayName: meProfile.displayName,
       email: meProfile.email,
     },
   });
@@ -2461,11 +3173,11 @@ export function registerRoutes(app: Express): void {
     const report = {
       ...req.body,
       id: `r${scheduledReports.length + 1}`,
-      org_id: MOCK_AUTH.state.ctx.org_id,
+      orgId: MOCK_AUTH.state.ctx.orgId,
       ...savedByMockUser(),
-      last_run_at_micros: null,
-      created_at_micros: now,
-      updated_at_micros: now,
+      lastRunAt: null,
+      createdAt: now,
+      updatedAt: now,
     };
     scheduledReports.push(report);
     res.json(report);
@@ -2480,7 +3192,7 @@ export function registerRoutes(app: Express): void {
       ...scheduledReports[index],
       ...req.body,
       ...savedByMockUser(),
-      updated_at_micros: Date.parse(FROZEN_NOW_ISO) * 1_000,
+      updatedAt: Date.parse(FROZEN_NOW_ISO) * 1_000,
     };
     res.json(scheduledReports[index]);
   });
@@ -2492,8 +3204,8 @@ export function registerRoutes(app: Express): void {
       .type('application/json')
       .send(
         JSON.stringify({
-          report_id: req.params.id,
-          generated_at: FROZEN_NOW_ISO,
+          reportId: req.params.id,
+          generatedAt: FROZEN_NOW_ISO,
         }),
       ),
   );
@@ -2504,30 +3216,30 @@ export function registerRoutes(app: Express): void {
     resourceSharePolicy = {
       ...resourceSharePolicy,
       ...req.body,
-      updated_at: Date.parse(FROZEN_NOW_ISO) * 1_000,
+      updatedAt: Date.parse(FROZEN_NOW_ISO) * 1_000,
     };
     res.json(resourceSharePolicy);
   });
   app.get('/api/v1/resource_shares', (req, res) => {
     const resourceType =
-      typeof req.query.resource_type === 'string'
-        ? req.query.resource_type
+      typeof req.query.resourceType === 'string'
+        ? req.query.resourceType
         : null;
     const resourceId =
-      typeof req.query.resource_id === 'string'
-        ? req.query.resource_id
+      typeof req.query.resourceId === 'string'
+        ? req.query.resourceId
         : null;
     res.json(
       resourceShares
         .filter(
           (share) =>
-            (!resourceType || share.resource_type === resourceType) &&
-            (!resourceId || share.resource_id === resourceId),
+            (!resourceType || share.resourceType === resourceType) &&
+            (!resourceId || share.resourceId === resourceId),
         )
         .map(({ token, password: _password, ...share }) => ({
           ...share,
           url:
-            share.enabled && !share.revoked_at
+            share.enabled && !share.revokedAt
               ? `/s/${token}`
               : null,
         })),
@@ -2540,8 +3252,8 @@ export function registerRoutes(app: Express): void {
         ? req.body.password.trim()
         : null;
     if (
-      req.body?.share_mode === 'public_link' &&
-      req.body?.resource_type === 'dashboard' &&
+      req.body?.shareMode === 'public_link' &&
+      req.body?.resourceType === 'dashboard' &&
       password === null
     ) {
       return res.status(400).json({
@@ -2552,8 +3264,8 @@ export function registerRoutes(app: Express): void {
     }
     const createdAt = Date.parse(FROZEN_NOW_ISO) * 1_000;
     const expiresInSecs =
-      typeof req.body?.expires_in_secs === 'number'
-        ? req.body.expires_in_secs
+      typeof req.body?.expiresInSecs === 'number'
+        ? req.body.expiresInSecs
         : null;
     const token = `ms${String(resourceShares.length + 1).padStart(10, '0')}`;
     const expiresAt =
@@ -2562,30 +3274,30 @@ export function registerRoutes(app: Express): void {
         : createdAt + expiresInSecs * 1_000_000;
     const share = {
       id: `share-${resourceShares.length + 1}`,
-      organization_id: 'acme-prod',
-      resource_type: req.body.resource_type,
-      resource_id: req.body.resource_id,
-      resource_version_id: null,
-      share_mode: req.body.share_mode,
+      organizationId: 'acme-prod',
+      resourceType: req.body.resourceType,
+      resourceId: req.body.resourceId,
+      resourceVersionId: null,
+      shareMode: req.body.shareMode,
       permissions:
-        req.body.resource_type === 'dashboard'
+        req.body.resourceType === 'dashboard'
           ? ['dashboards.view', 'dashboard_panels.execute']
           : ['reports.view'],
       constraints: req.body.constraints ?? {},
-      expires_at: expiresAt,
-      max_views: req.body.max_views ?? null,
-      view_count: 0,
-      allow_download: req.body.allow_download ?? false,
+      expiresAt: expiresAt,
+      maxViews: req.body.maxViews ?? null,
+      viewCount: 0,
+      allowDownload: req.body.allowDownload ?? false,
       enabled: true,
-      cross_org_grant_id: null,
-      snapshot_content_type:
-        req.body.resource_type === 'report' ? 'application/pdf' : null,
-      snapshot_filename:
-        req.body.resource_type === 'report' ? 'weekly-slo.pdf' : null,
-      created_by: 'dev',
-      created_at: createdAt,
-      last_accessed_at: null,
-      revoked_at: null,
+      crossOrgGrantId: null,
+      snapshotContentType:
+        req.body.resourceType === 'report' ? 'application/pdf' : null,
+      snapshotFilename:
+        req.body.resourceType === 'report' ? 'weekly-slo.pdf' : null,
+      createdBy: 'dev',
+      createdAt: createdAt,
+      lastAccessedAt: null,
+      revokedAt: null,
       password,
       token,
     };
@@ -2604,7 +3316,7 @@ export function registerRoutes(app: Express): void {
     const share = resourceShares.find((item) => item.id === req.params.id);
     if (!share) return res.status(404).json({ error: 'share not found' });
     share.enabled = false;
-    share.revoked_at = Date.parse(FROZEN_NOW_ISO) * 1_000;
+    share.revokedAt = Date.parse(FROZEN_NOW_ISO) * 1_000;
     const {
       token: _token,
       password: _password,
@@ -2626,8 +3338,8 @@ export function registerRoutes(app: Express): void {
     const share = resourceShares.find(
       (item) => item.token === req.params.token && item.enabled,
     );
-    if (!share) return res.status(404).send('resource share not found');
-    if (share.share_mode === 'public_link') {
+    if (!share) return res.redirect(302, '/shared?unavailable=1');
+    if (share.shareMode === 'public_link') {
       res.cookie('molesignal_share_session', `session-${share.id}`, {
         httpOnly: true,
         sameSite: 'lax',
@@ -2636,9 +3348,9 @@ export function registerRoutes(app: Express): void {
     }
     return res.redirect(
       302,
-      share.resource_type === 'dashboard'
-        ? `/dashboards/${share.resource_id}`
-        : `/reports?report=${share.resource_id}`,
+      share.resourceType === 'dashboard'
+        ? `/dashboards/${share.resourceId}`
+        : `/reports?report=${share.resourceId}`,
     );
   });
   app.get('/api/v1/public/share', (req, res) => {
@@ -2650,7 +3362,7 @@ export function registerRoutes(app: Express): void {
     const share = resourceShares.find(
       (item) => sessionId === `session-${item.id}` && item.enabled,
     );
-    if (!share || share.share_mode !== 'public_link') {
+    if (!share || share.shareMode !== 'public_link') {
       return res.status(401).json({ error: 'missing share session' });
     }
     const requiresPassword =
@@ -2658,14 +3370,14 @@ export function registerRoutes(app: Express): void {
       !unlockedShareSessions.has(String(sessionId));
     if (requiresPassword) {
       return res.json({
-        kind: share.resource_type,
-        requires_password: true,
-        expires_at_micros: share.expires_at,
+        kind: share.resourceType,
+        requiresPassword: true,
+        expiresAt: share.expiresAt,
       });
     }
-    if (share.resource_type === 'dashboard') {
+    if (share.resourceType === 'dashboard') {
       const dashboard = dashboards.find(
-        (item) => item.id === share.resource_id,
+        (item) => item.id === share.resourceId,
       );
       const definition = globalThis.structuredClone(
         dashboard?.model ?? {},
@@ -2701,13 +3413,13 @@ export function registerRoutes(app: Express): void {
       return res.json({
         kind: 'dashboard',
         title: dashboard?.title ?? 'Shared dashboard',
-        requires_password: false,
-        expires_at_micros: share.expires_at,
+        requiresPassword: false,
+        expiresAt: share.expiresAt,
         constraints: share.constraints,
         definition,
         watermark: {
-          share_id: share.id,
-          accessed_at_micros: Date.parse(FROZEN_NOW_ISO) * 1_000,
+          shareId: share.id,
+          accessedAt: Date.parse(FROZEN_NOW_ISO) * 1_000,
         },
       });
     }
@@ -2715,13 +3427,13 @@ export function registerRoutes(app: Express): void {
       kind: 'report',
       title: 'Weekly SLO',
       format: 'pdf',
-      requires_password: false,
-      allow_download: share.allow_download,
-      expires_at_micros: share.expires_at,
-      content_type: 'application/pdf',
+      requiresPassword: false,
+      allowDownload: share.allowDownload,
+      expiresAt: share.expiresAt,
+      contentType: 'application/pdf',
       watermark: {
-        share_id: share.id,
-        accessed_at_micros: Date.parse(FROZEN_NOW_ISO) * 1_000,
+        shareId: share.id,
+        accessedAt: Date.parse(FROZEN_NOW_ISO) * 1_000,
       },
     });
   });
@@ -2729,8 +3441,8 @@ export function registerRoutes(app: Express): void {
     res.json({
       columns: ['timestamp', 'value'],
       rows: [[Date.parse(FROZEN_NOW_ISO) * 1_000, 1]],
-      scanned_rows: 1,
-      took_ms: 1,
+      scannedRows: 1,
+      tookMs: 1,
     }),
   );
   app.post('/api/v1/public/share/unlock', (req, res) => {
@@ -2742,14 +3454,18 @@ export function registerRoutes(app: Express): void {
     const share = resourceShares.find(
       (item) => sessionId === `session-${item.id}` && item.enabled,
     );
-    if (!share || share.share_mode !== 'public_link') {
+    if (!share || share.shareMode !== 'public_link') {
       return res.status(401).json({ error: 'missing share session' });
     }
     if (
       typeof share.password === 'string' &&
       req.body?.password !== share.password
     ) {
-      return res.status(401).json({ error: 'invalid share password' });
+      return res.status(401).json({
+        error: 'unauthorized',
+        code: 'share_password_invalid',
+        message: 'invalid share password',
+      });
     }
     unlockedShareSessions.add(String(sessionId));
     return res.json({ unlocked: true });
@@ -2760,7 +3476,7 @@ export function registerRoutes(app: Express): void {
     name: string;
     enabled: boolean;
     schema: unknown;
-    updated_at_micros: number;
+    updatedAt: number;
   }> = [];
   app.get('/api/v1/agent/settings/toolsets', (_req, res) =>
     res.json(agentToolsets),
@@ -2771,7 +3487,7 @@ export function registerRoutes(app: Express): void {
       name: String(req.body?.name ?? ''),
       enabled: Boolean(req.body?.enabled ?? true),
       schema: req.body?.schema ?? {},
-      updated_at_micros: Date.now() * 1000,
+      updatedAt: Date.now() * 1000,
     };
     agentToolsets.push(row);
     res.json(row);
@@ -2819,12 +3535,13 @@ export async function mountMockRoutes(
     /** Boot without a session, for a page that is shown before sign-in. */
     signedOut?: boolean;
     role?: string;
-    token?: string;
     orgId?: string;
     orgName?: string;
     scope?: 'organization' | 'system' | 'api_token';
     platformPermissions?: string[];
     capabilityPermissions?: string[];
+    /** Platform permissions held on named organizations only: permission to organization ids. */
+    organizationPermissions?: Record<string, string[]>;
   } = {},
 ): Promise<void> {
   // The shell applies the saved preferences over what the browser remembered
@@ -2839,32 +3556,31 @@ export async function mountMockRoutes(
     ...MOCK_AUTH,
     state: {
       ...MOCK_AUTH.state,
-      token: opts.token ?? MOCK_AUTH.state.token,
       ctx: {
         ...MOCK_AUTH.state.ctx,
-        org_id: opts.orgId ?? MOCK_AUTH.state.ctx.org_id,
-        org_name: opts.orgName ?? MOCK_AUTH.state.ctx.org_name,
-        display_role: opts.role ?? MOCK_AUTH.state.ctx.display_role,
+        orgId: opts.orgId ?? MOCK_AUTH.state.ctx.orgId,
+        orgName: opts.orgName ?? MOCK_AUTH.state.ctx.orgName,
+        displayRole: opts.role ?? MOCK_AUTH.state.ctx.displayRole,
         roles:
           (opts.scope ?? MOCK_AUTH.state.ctx.scope) === 'system'
             ? [
                 {
-                  id: 'role-platform-owner',
-                  key: 'platform_owner',
-                  name: opts.role ?? MOCK_AUTH.state.ctx.display_role,
+                  id: 'role-platform-admin',
+                  key: 'platform_admin',
+                  name: opts.role ?? MOCK_AUTH.state.ctx.displayRole,
                   builtin: true,
                 },
               ]
             : [
                 {
-                  id: `role-${(opts.role ?? MOCK_AUTH.state.ctx.display_role).toLowerCase().replaceAll(' ', '-')}`,
-                  key: (opts.role ?? MOCK_AUTH.state.ctx.display_role)
+                  id: `role-${(opts.role ?? MOCK_AUTH.state.ctx.displayRole).toLowerCase().replaceAll(' ', '-')}`,
+                  key: (opts.role ?? MOCK_AUTH.state.ctx.displayRole)
                     .toLowerCase()
                     .replaceAll(' ', '_'),
-                  name: opts.role ?? MOCK_AUTH.state.ctx.display_role,
+                  name: opts.role ?? MOCK_AUTH.state.ctx.displayRole,
                   builtin: Object.hasOwn(
                     MOCK_IAM_ROLE_PERMISSIONS,
-                    (opts.role ?? MOCK_AUTH.state.ctx.display_role).toLowerCase(),
+                    (opts.role ?? MOCK_AUTH.state.ctx.displayRole).toLowerCase(),
                   ),
                 },
               ],
@@ -2899,8 +3615,8 @@ export async function mountMockRoutes(
       if (localStorage.getItem(densityKey) === null) {
         localStorage.setItem(densityKey, density);
       }
-      // Seed the zustand-persisted auth slice with a normal mock Bearer token
-      // so RequireAuth exercises the authenticated application path.
+      // Seed the zustand-persisted identity the page shows, so RequireAuth
+      // exercises the authenticated application path.
       if (auth) localStorage.setItem(authKey, JSON.stringify(auth));
     },
     {
@@ -2925,8 +3641,46 @@ export async function mountMockRoutes(
   // `route.fulfill({ response })` preserves the upstream body (including
   // chunked NDJSON streams from /query/stream) without buffering through an
   // arrayBuffer round-trip.
+  // The browser's session cookies, shared by its tabs: the first tab mounted in
+  // a browser context decides whether it starts signed in.
+  let cookies = BROWSER_COOKIES.get(page.context());
+  if (!cookies) {
+    cookies = { session: opts.signedOut ? null : sessionView(auth.state.ctx) };
+    BROWSER_COOKIES.set(page.context(), cookies);
+  }
+  const jar = cookies;
   await page.route('**/api/v1/**', async (route) => {
     const reqUrl = new URL(route.request().url());
+    if (reqUrl.pathname === '/api/v1/auth/session' || reqUrl.pathname === '/api/v1/auth/refresh') {
+      if (!jar.session) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'unauthorized', message: 'unauthorized: not signed in' }),
+        });
+      } else if (reqUrl.pathname === '/api/v1/auth/refresh') {
+        await route.fulfill({ status: 204 });
+      } else {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(jar.session),
+        });
+      }
+      return;
+    }
+    if (reqUrl.pathname === '/api/v1/auth/signout') {
+      jar.session = null;
+      await route.fulfill({ status: 204 });
+      return;
+    }
+    // Signing in sets the cookies (the second step's answer too, when one is asked for).
+    if (
+      reqUrl.pathname.startsWith('/api/v1/auth/signin') ||
+      reqUrl.pathname === '/api/v1/auth/signup/complete'
+    ) {
+      jar.session = sessionView(auth.state.ctx);
+    }
     if (reqUrl.pathname === '/api/v1/iam/permissions') {
       await route.fulfill({
         status: 200,
@@ -2936,11 +3690,11 @@ export async function mountMockRoutes(
       return;
     }
     if (reqUrl.pathname === '/api/v1/iam/capabilities') {
-      const role = opts.role ?? MOCK_AUTH.state.ctx.display_role;
-      const authorization = route.request().headers().authorization ?? '';
-      const switchedOrg = authorization.includes('fake-jwt-after-switch:')
-        ? authorization.split('fake-jwt-after-switch:')[1]
-        : undefined;
+      const role = opts.role ?? MOCK_AUTH.state.ctx.displayRole;
+      // The page names the session it shows; after a switch that is another organization.
+      const shownOrg = (route.request().headers()['x-molesignal-session'] ?? '').split(':')[1];
+      const signedInOrg = opts.orgId ?? MOCK_AUTH.state.ctx.orgId;
+      const switchedOrg = shownOrg && shownOrg !== signedInOrg ? shownOrg : undefined;
       const scope: 'organization' | 'system' | 'api_token' = switchedOrg
         ? 'organization'
         : (opts.scope ?? 'organization');
@@ -2961,16 +3715,16 @@ export async function mountMockRoutes(
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          organization_id:
-            switchedOrg ?? opts.orgId ?? MOCK_AUTH.state.ctx.org_id,
+          organizationId: switchedOrg ?? signedInOrg,
           scope,
-          display_role: role,
+          displayRole: role,
+          organizationPermissions: opts.organizationPermissions ?? {},
           roles:
             scope === 'system'
               ? [
                   {
-                    id: 'role-platform-owner',
-                    key: 'platform_owner',
+                    id: 'role-platform-admin',
+                    key: 'platform_admin',
                     name: role,
                     builtin: true,
                   },
@@ -2988,8 +3742,11 @@ export async function mountMockRoutes(
                 ],
           permissions,
           version: 1,
-          route_catalog_version: 1,
-          routes: mockCapabilityRoutes(scope, permissions),
+          routeCatalogVersion: 1,
+          routes: mockCapabilityRoutes(scope, [
+            ...permissions,
+            ...Object.keys(opts.organizationPermissions ?? {}),
+          ]),
         }),
       });
       return;

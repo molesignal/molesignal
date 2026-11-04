@@ -52,7 +52,7 @@ export function MessageBubble({
   user,
   senderName,
   streaming,
-  createdAtMicros,
+  createdAt: createdAtMicros,
   evidence,
   liveTools = [],
   investigationStartedAtMicros,
@@ -83,7 +83,7 @@ export function MessageBubble({
   /** Who asked, when it was not the one reading. */
   senderName?: string;
   streaming?: boolean;
-  createdAtMicros?: number;
+  createdAt?: number;
   evidence?: unknown;
   liveTools?: LiveTool[];
   investigationStartedAtMicros?: number;
@@ -144,10 +144,10 @@ export function MessageBubble({
             liveTools={liveTools}
             running={Boolean(streaming)}
             {...(investigationStartedAtMicros !== undefined
-              ? { startedAtMicros: investigationStartedAtMicros }
+              ? { startedAt: investigationStartedAtMicros }
               : {})}
             {...(!streaming && createdAtMicros !== undefined
-              ? { finishedAtMicros: createdAtMicros }
+              ? { finishedAt: createdAtMicros }
               : {})}
           />
           {streaming && !displayContent.trim() ? (

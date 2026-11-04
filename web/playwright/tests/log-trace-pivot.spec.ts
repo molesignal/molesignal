@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 
+import { explorerRead } from '../fixtures/explorerReads';
 import { installMockShellSession } from '../fixtures/mockSession';
 
 const TRACE_ID = 'trace-1';
@@ -17,22 +18,22 @@ test.beforeEach(async ({ page }) => {
       json: [{
         id: 'application-logs',
         name: 'application_logs',
-        stream_type: 'logs',
+        streamType: 'logs',
         schema: {
           fields: [
-            { name: '_timestamp', data_type: 'timestamp', nullable: false, indexed: true },
-            { name: 'level', data_type: 'utf8', nullable: true, indexed: true },
-            { name: 'service', data_type: 'utf8', nullable: true, indexed: true },
-            { name: 'message', data_type: 'utf8', nullable: true, indexed: false },
-            { name: 'body', data_type: 'utf8', nullable: true, indexed: false },
-            { name: 'trace_id', data_type: 'utf8', nullable: true, indexed: true },
+            { name: '_timestamp', dataType: 'timestamp', nullable: false, indexed: true },
+            { name: 'level', dataType: 'utf8', nullable: true, indexed: true },
+            { name: 'service', dataType: 'utf8', nullable: true, indexed: true },
+            { name: 'message', dataType: 'utf8', nullable: true, indexed: false },
+            { name: 'body', dataType: 'utf8', nullable: true, indexed: false },
+            { name: 'trace_id', dataType: 'utf8', nullable: true, indexed: true },
           ],
         },
         settings: { queryable: true },
       }],
     }),
   );
-  await page.route('**/api/v1/web/logs', (route) =>
+  await page.route(explorerRead('web/logs'), (route) =>
     route.fulfill({
       json: {
         items: [
@@ -50,9 +51,9 @@ test.beforeEach(async ({ page }) => {
             body: LONG_BODY,
           },
         ],
-        next_cursor: null,
-        previous_cursor: null,
-        has_more: false,
+        nextCursor: null,
+        previousCursor: null,
+        hasMore: false,
       },
     }),
   );
@@ -62,8 +63,8 @@ test.beforeEach(async ({ page }) => {
   await page.route(`**/api/v1/web/trace/${TRACE_ID}`, (route) =>
     route.fulfill({
       json: {
-        trace_id: TRACE_ID,
-        root_span_id: 'span-root',
+        traceId: TRACE_ID,
+        rootSpanId: 'span-root',
         spans: [],
         truncated: false,
       },
@@ -81,8 +82,8 @@ test('Logs overview pivots to the exact trace with investigation time', async ({
   const drawer = page.getByRole('complementary', {
     name: 'Log detail drawer',
   });
-  // The trace the log belongs to is a reference in the record's own field list.
-  await expect(drawer.locator('[data-log-detail-field="trace_id"]')).toBeVisible();
+  // The trace the log belongs to is a reference among the attributes at the head of the log.
+  await expect(drawer.locator('[data-log-detail-attribute="trace_id"]')).toBeVisible();
 
   await drawer.locator(`[data-signal-type="trace_id"]`).first().click();
   const exactTrace = page.getByRole('link', { name: /Open current trace/ });
@@ -91,7 +92,7 @@ test('Logs overview pivots to the exact trace with investigation time', async ({
 
   await expect(page).toHaveURL(new RegExp(`/traces/${TRACE_ID}\\?`));
   const target = new URL(page.url());
-  expect(target.searchParams.get('trace_id')).toBe(TRACE_ID);
+  expect(target.searchParams.get('traceId')).toBe(TRACE_ID);
   expect(target.searchParams.get('from')).toBeTruthy();
   expect(target.searchParams.get('to')).toBeTruthy();
   expect(target.searchParams.get('time')).toContain('..');

@@ -93,7 +93,7 @@
       },
       "4": {
         "title": "验证错误事件",
-        "description": "触发一条测试错误，然后在 RUM 错误列表确认应用、版本和源码位置。"
+        "description": "触发一条测试错误，然后在 RUM 探索的「错误」页确认应用、版本和源码位置。"
       }
     }
   },
@@ -113,8 +113,7 @@
       },
       "4": {
         "title": "上传并验证 symbols",
-        "description": "在「RUM 设置 → Source Maps 与 Symbols」选择 Flutter Symbols，填写相同应用 ID、service、release、平台和架构，逐个上传 .symbols。",
-        "note": "当前 SDK 的生产堆栈仍需按下方 Flutter SDK 修复清单补齐相对地址和构建标识，才能稳定命中 AOT symbols。"
+        "description": "在「RUM 设置 → Source Maps 与 Symbols」选择 Flutter Symbols，填写相同应用 ID、service、release、平台、架构和构建时使用的 Debug ID，逐个上传 .symbols。"
       },
       "5": {
         "title": "验证会话与错误",
@@ -124,11 +123,11 @@
   },
   "rum-android": {
     "name": "Android 原生 RUM",
-    "description": "Android 原生应用通过 RUM HTTP 协议上报会话与错误，并支持 R8/NDK 堆栈还原。",
+    "description": "Android 原生应用按 RUM 事件格式通过 HTTP 上报错误，并支持 R8/NDK 堆栈还原。",
     "steps": {
       "1": {
-        "title": "接入 RUM HTTP 协议",
-        "description": "Android 原生 SDK 发布前，可先用现有网络层接入。以下演示 errors；sessions、actions、replay 分别发送到 /api/v1/rum/sessions、/api/v1/rum/actions、/api/v1/rum/replay，且必须使用同一 application ID。"
+        "title": "通过 HTTP 发送 RUM 事件",
+        "description": "Android 原生 SDK 发布前，可先用现有网络层接入。以下演示一条错误事件；视图、操作、请求等其他事件格式相同，发送到 POST /api/v1/rum/events；会话回放发送到 /api/v1/rum/replay。事件归属于 Client Token 绑定的应用。"
       },
       "2": {
         "title": "保留 R8 mapping.txt",
@@ -154,11 +153,11 @@
   },
   "rum-ios": {
     "name": "iOS 原生 RUM",
-    "description": "iOS 原生应用通过 RUM HTTP 协议上报错误地址，并使用 dSYM 恢复函数与源码位置。",
+    "description": "iOS 原生应用按 RUM 事件格式通过 HTTP 上报错误地址，并使用 dSYM 恢复函数与源码位置。",
     "steps": {
       "1": {
-        "title": "接入 RUM HTTP 协议",
-        "description": "iOS 原生 SDK 发布前，可先通过 URLSession 接入。以下演示 errors；sessions、actions、replay 分别发送到 /api/v1/rum/sessions、/api/v1/rum/actions、/api/v1/rum/replay，且必须使用同一 application ID。"
+        "title": "通过 HTTP 发送 RUM 事件",
+        "description": "iOS 原生 SDK 发布前，可先通过 URLSession 接入。以下演示一条错误事件；视图、操作、请求等其他事件格式相同，发送到 POST /api/v1/rum/events；会话回放发送到 /api/v1/rum/replay。事件归属于 Client Token 绑定的应用。"
       },
       "2": {
         "title": "归档并保留 dSYM",
@@ -362,10 +361,29 @@
   },
   "github-actions": {
     "name": "GitHub Actions",
-    "description": "workflow_run / deployment_status events。",
+    "description": "从工作流把每次发布上报到 APM 发布时间线。",
     "steps": {
       "1": {
-        "title": "工作流 webhook"
+        "title": "把 Token 存为仓库 Secret",
+        "description": "Token 的角色需要有 apm.deploy 权限，接入 Token 默认就有。"
+      },
+      "2": {
+        "title": "在部署步骤之后上报",
+        "description": "把这一步加到负责部署的 job 里。version 要和服务 Span 里的 service.version 一致。"
+      }
+    }
+  },
+  "gitlab-ci": {
+    "name": "GitLab CI/CD",
+    "description": "从流水线把每次发布上报到 APM 发布时间线。",
+    "steps": {
+      "1": {
+        "title": "把 Token 加为 CI/CD 变量",
+        "description": "设置 → CI/CD → 变量：MOLESIGNAL_TOKEN，勾选隐藏，填入角色有 apm.deploy 权限的 Token。"
+      },
+      "2": {
+        "title": "在部署 job 里上报",
+        "description": "after_script 不论部署成败都会执行，失败的发布也会上报。"
       }
     }
   },
@@ -381,11 +399,15 @@
   },
   "jenkins": {
     "name": "Jenkins",
-    "description": "build_started / build_finished events。",
+    "description": "从流水线把每次发布上报到 APM 发布时间线。",
     "steps": {
       "1": {
-        "title": "使用 Logstash plugin 或 HTTP Request plugin",
-        "description": "POST build events 到 MoleSignal HTTP endpoint。"
+        "title": "把 Token 加为凭据",
+        "description": "类型选 Secret text，ID 填 molesignal-token，内容是角色有 apm.deploy 权限的 Token。"
+      },
+      "2": {
+        "title": "在 post 里上报",
+        "description": "post { always } 在构建失败时也会上报。GIT_URL 里带的密码在保存时会被遮盖。"
       }
     }
   },

@@ -31,7 +31,7 @@ pub(super) async fn execute(
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct FolderWrite {
     name: String,
     #[serde(default)]
@@ -118,7 +118,7 @@ async fn delete(
 
     Ok(OperationOutcome {
         summary: "folder deleted".into(),
-        verification: json!({"verified": true, "folder_id": folder.id, "deleted": true}),
+        verification: json!({"verified": true, "folderId": folder.id, "deleted": true}),
     })
 }
 

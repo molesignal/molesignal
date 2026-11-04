@@ -67,6 +67,8 @@ export interface CodeEditorProps {
   onCursorChange?: (cursor: { line: number; col: number }) => void;
   completionItems?: CodeCompletionItem[];
   markers?: CodeEditorMarker[];
+  /** Whether problems are underlined in the text: the language's own, a JSON syntax error, and `markers`. */
+  showProblems?: boolean;
   resizable?: boolean;
   compact?: boolean;
   showHeader?: boolean;

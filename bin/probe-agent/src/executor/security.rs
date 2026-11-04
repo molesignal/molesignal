@@ -9,7 +9,10 @@ use std::{
 use anyhow::{Result, bail};
 use ipnet::IpNet;
 
-use super::timing::{Phase, PhaseClock};
+use super::{
+    failure,
+    timing::{Phase, PhaseClock},
+};
 use crate::protocol::v1::EgressPolicy;
 
 #[derive(Clone)]
@@ -42,13 +45,59 @@ impl EgressGuard {
     ) -> Result<Vec<SocketAddr>> {
         self.validate_domain(host)?;
         self.validate_port(port)?;
+        self.lookup(host, port, phases).await
+    }
+
+    /// Resolves `host` for a check that dials no port, such as a ping.
+    pub async fn resolve_ips(&self, host: &str, phases: &PhaseClock) -> Result<Vec<IpAddr>> {
+        self.validate_domain(host)?;
+
+        let addresses = self.lookup(host, 0, phases).await?;
+        let mut ips = addresses.iter().map(SocketAddr::ip).collect::<Vec<_>>();
+
+        ips.dedup();
+        Ok(ips)
+    }
+
+    /// Refuses a host name the policy keeps checks away from, for a check that only names it.
+    pub fn allows_name(&self, host: &str) -> Result<()> {
+        self.validate_domain(host)
+    }
+
+    /// The addresses among `addresses` the policy lets a check reach `host` at on `port`, for a
+    /// host the check found addresses for itself: bound to them, or looked up on its own DNS
+    /// server.
+    pub fn approve(&self, host: &str, port: u16, addresses: &[IpAddr]) -> Result<Vec<SocketAddr>> {
+        self.validate_domain(host)?;
+        self.validate_port(port)?;
+
+        let mut approved = addresses
+            .iter()
+            .filter(|ip| self.ip_allowed(**ip))
+            .map(|ip| SocketAddr::new(*ip, port))
+            .collect::<Vec<_>>();
+
+        approved.sort_unstable();
+        approved.dedup();
+
+        if approved.is_empty() {
+            bail!("egress policy rejected every address for {host}");
+        }
+
+        Ok(approved)
+    }
+
+    async fn lookup(&self, host: &str, port: u16, phases: &PhaseClock) -> Result<Vec<SocketAddr>> {
         let lookup = tokio::net::lookup_host((host, port));
 
-        // An address literal is parsed, not looked up, so it has no DNS phase to time.
+        // An address literal is parsed, not looked up, so it has no DNS phase to time. A name that
+        // does not resolve fails the check: the target cannot be found.
         let resolved = if host.parse::<IpAddr>().is_ok() {
             lookup.await?
         } else {
-            phases.during(Phase::Dns, lookup).await?
+            phases.during(Phase::Dns, lookup).await.map_err(|error| {
+                failure::target("dns_failed", format!("cannot resolve {host}: {error}"))
+            })?
         };
 
         let mut approved = Vec::new();

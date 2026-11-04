@@ -27,6 +27,9 @@ use crate::{
     },
 };
 
+/// Steps a PromQL panel is tried at: enough to tell whether its range has data.
+const PREFLIGHT_PROMQL_STEPS: i64 = 60;
+
 pub struct RuntimeDashboardQueryPreflight {
     query: Arc<QueryService>,
     streams: Arc<dyn StreamRepository>,
@@ -88,8 +91,8 @@ impl DashboardQueryPreflight for RuntimeDashboardQueryPreflight {
                             } else {
                                 PreflightStatus::Passed
                             },
-                            tested_from_micros: time_range.start.0,
-                            tested_to_micros: time_range.end.0,
+                            tested_from: time_range.start.0,
+                            tested_to: time_range.end.0,
                             returned_rows: result.rows.len(),
                             scanned_rows: result.scanned_rows,
                             took_ms: result.took_ms,
@@ -257,6 +260,13 @@ fn build_query_request(
         }
     };
 
+    // A PromQL panel draws a series over the range, so it is tried as one: a
+    // figure at the end alone would call a sparse metric empty.
+    let step = (language == QueryLanguage::Promql).then(|| {
+        (time_range.end.0.saturating_sub(time_range.start.0) / PREFLIGHT_PROMQL_STEPS)
+            .max(1_000_000)
+    });
+
     Ok(QueryRequest {
         org_id: org_id.clone(),
         language,
@@ -264,6 +274,7 @@ fn build_query_request(
         time_range,
         stream,
         limit: Some(limits.preflight_max_rows),
+        step,
         federation_clusters: Vec::new(),
     })
 }

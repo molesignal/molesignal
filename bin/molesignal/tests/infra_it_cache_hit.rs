@@ -33,6 +33,7 @@ fn req(now: i64, lookback_us: i64, end_off_us: i64, stmt: &str) -> QueryRequest 
         ),
         stream: None,
         limit: None,
+        step: None,
         federation_clusters: Vec::new(),
     }
 }

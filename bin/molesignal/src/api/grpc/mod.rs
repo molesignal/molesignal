@@ -12,6 +12,7 @@
 //! 另有独立端口的对外 Flight SQL server（spec flight-sql）：[`serve_flight_sql`]，
 //! 与上述可信网络端口隔离，默认关闭。
 
+mod alert_sources;
 pub mod cluster_server;
 pub mod event_server;
 pub mod flight;
@@ -19,6 +20,8 @@ pub mod intake_server;
 pub mod otlp_server;
 pub mod probe;
 pub mod query_server;
+mod realtime_federation;
+pub mod realtime_server;
 pub mod trace;
 
 use std::{net::SocketAddr, sync::Arc};
@@ -35,6 +38,7 @@ use crate::{
             intake_server::IntakeGrpc,
             query_server::QueryExecutionGrpc,
         },
+        http::client_ip::ClientIpResolverHandle,
     },
     config::{FlightSqlSettings, GrpcSettings, OtlpGrpcSettings, ProbeGrpcSettings},
     infra::persistence::repositories::cluster::nodes::ClusterNodesRepository,
@@ -52,7 +56,7 @@ pub async fn serve_probe_grpc(state: AppState, settings: &ProbeGrpcSettings) -> 
         format!("{}:{}", settings.bind, settings.register_port).parse()?;
     let control_addr: SocketAddr =
         format!("{}:{}", settings.bind, settings.control_port).parse()?;
-    let max_recv = (settings.max_message_size_mb as usize).saturating_mul(1024 * 1024);
+    let max_recv = (settings.max_message_size as usize).saturating_mul(1024 * 1024);
 
     let register_service = probe::ProbeGrpc::new(
         control.clone(),
@@ -119,7 +123,7 @@ pub async fn serve_grpc(
 ) -> anyhow::Result<()> {
     let _ = std::marker::PhantomData::<Arc<dyn ClusterNodesRepository>>;
     let addr: SocketAddr = format!("{}:{}", grpc.bind, grpc.port).parse()?;
-    let max_recv = (grpc.max_message_size_mb as usize).saturating_mul(1024 * 1024);
+    let max_recv = (grpc.max_message_size as usize).saturating_mul(1024 * 1024);
 
     let intake = IntakeGrpc::new(state.intake.clone())
         .with_self_telemetry_token(state.telemetry.self_telemetry_cluster_token.clone())
@@ -154,6 +158,13 @@ pub async fn serve_grpc(
     .into_server()
     .max_decoding_message_size(max_recv);
 
+    // 负责汇总实时规则的 alert 节点来拉本节点的窗口计数：内部 origin 标记加集群 bearer。
+    let realtime_counts = realtime_server::RealtimeCountsGrpc::new(
+        state.alerting.realtime.clone(),
+        state.telemetry.self_telemetry_cluster_token.clone(),
+    )
+    .into_server();
+
     // 跨集群事件总线接收端：远端推 CloudEvent 进来，handler 自做 per-org token 鉴权
     // （与联邦 Flight `do_get` 同模型——可信网络端口上对联邦/跨集群调用自校验 bearer）。
     let events = EventServiceGrpc::new(state.clone())
@@ -169,6 +180,7 @@ pub async fn serve_grpc(
         .add_service(query_execution)
         .add_service(cluster)
         .add_service(trace_candidates)
+        .add_service(realtime_counts)
         .add_service(events)
         .serve(addr)
         .await
@@ -191,7 +203,7 @@ pub async fn serve_otlp_grpc(state: AppState, settings: &OtlpGrpcSettings) -> an
     use crate::api::grpc::otlp_server::OtlpGrpc;
 
     let addr: SocketAddr = format!("{}:{}", settings.bind, settings.port).parse()?;
-    let max_recv = (settings.max_message_size_mb as usize).saturating_mul(1024 * 1024);
+    let max_recv = (settings.max_message_size as usize).saturating_mul(1024 * 1024);
     let svc = OtlpGrpc::new(state);
 
     tracing::info!(addr = %addr, "otlp grpc server listening");
@@ -214,7 +226,10 @@ pub async fn serve_otlp_grpc(state: AppState, settings: &OtlpGrpcSettings) -> an
 /// 用户网络。caller（bootstrap）按 `flight_sql.enabled` 决定是否调用。
 pub async fn serve_flight_sql(state: AppState, settings: &FlightSqlSettings) -> anyhow::Result<()> {
     let addr: SocketAddr = format!("{}:{}", settings.bind, settings.port).parse()?;
-    let max_recv = (settings.max_message_size_mb as usize).saturating_mul(1024 * 1024);
+    let max_recv = (settings.max_message_size as usize).saturating_mul(1024 * 1024);
+
+    // 这个节点可能没有 HTTP API，密码握手的来源要自己认。
+    let client_ip = ClientIpResolverHandle::load(&state).await;
 
     let flight_sql = FlightSqlGrpc::new(
         state.query.clone(),
@@ -224,15 +239,23 @@ pub async fn serve_flight_sql(state: AppState, settings: &FlightSqlSettings) -> 
         state.iam.access.clone(),
         settings.clone(),
     )
+    .with_second_factors(state.iam.mfa_factors.clone())
+    .with_signin_policies(state.iam.signin_policies.clone())
+    .with_signin_limiter(state.iam.signin_limiter.clone(), client_ip.clone())
     .into_server()
     .max_decoding_message_size(max_recv);
 
     tracing::info!(addr = %addr, "flight sql server listening");
 
-    Server::builder()
-        .layer(trace::layer::GrpcTraceLayer)
-        .add_service(flight_sql)
-        .serve(addr)
-        .await
-        .map_err(|e| anyhow::anyhow!("flight sql serve: {e}"))
+    let serve = async {
+        Server::builder()
+            .layer(trace::layer::GrpcTraceLayer)
+            .add_service(flight_sql)
+            .serve(addr)
+            .await
+            .map_err(|e| anyhow::anyhow!("flight sql serve: {e}"))
+    };
+
+    tokio::try_join!(serve, client_ip.refresh_from_settings(state))?;
+    Ok(())
 }

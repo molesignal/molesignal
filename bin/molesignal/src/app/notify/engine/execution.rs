@@ -5,10 +5,15 @@ use std::time::Instant;
 
 use super::{
     NotifyEngine,
+    calls::merge_window,
+    follow_ups::{is_user_step, step_delays},
     model::{
         NotifyDeliveryPlanStep, NotifyDispatch, NotifyEventOutcome, NotifyPolicyOutcome,
         NotifyPolicyPreview, NotifyRecipientOutcome, NotifyRecipientPlan, ResolvedRoute,
     },
+    pipelines::PolicyCopy,
+    template::{PolicyMessages, policy_template_id},
+    webhook::webhook_event,
 };
 use crate::{
     app::notify::{
@@ -16,7 +21,7 @@ use crate::{
         policy_matches,
     },
     domain::notify::{
-        connector::NotifyTargetType,
+        connector::{NotifyChannel, NotifyTargetType},
         delivery::{DeliveryCompletion, DeliveryStatus, NotifyDelivery},
         policy::{NotifyEvent, NotifyPolicy},
         recipient::NotifyRecipient,
@@ -51,6 +56,7 @@ impl NotifyEngine {
                     policy_id: policy.id,
                     recipients: Vec::new(),
                     error: Some(truncate_error(&error.to_string())),
+                    dropped_by_pipeline: false,
                 }),
             }
         }
@@ -68,13 +74,35 @@ impl NotifyEngine {
         message: &crate::domain::notify::connector::NotifyMessage,
         stage_override: Option<crate::domain::notify::delivery::DeliveryStage>,
     ) -> NotifyPolicyOutcome {
-        let message = match self.message_for_policy(policy, event, message).await {
-            Ok(message) => message,
+        // 模板和收件人都从流水线留下的副本出发。
+        let copy = match self.policy_copy(policy, event, message).await {
+            PolicyCopy::AsIs => None,
+            PolicyCopy::Changed(copy) => Some(copy),
+            PolicyCopy::Dropped(reason) => {
+                self.record_dropped(policy, event, stage_override, &reason)
+                    .await;
+
+                return NotifyPolicyOutcome {
+                    policy_id: policy.id.clone(),
+                    recipients: Vec::new(),
+                    error: None,
+                    dropped_by_pipeline: true,
+                };
+            }
+        };
+
+        let (event, message) = copy
+            .as_deref()
+            .map_or((event, message), |(event, message)| (event, message));
+
+        let messages = match self.policy_messages(policy, event, message).await {
+            Ok(messages) => messages,
             Err(error) => {
                 return NotifyPolicyOutcome {
                     policy_id: policy.id.clone(),
                     recipients: Vec::new(),
                     error: Some(truncate_error(&error.to_string())),
+                    dropped_by_pipeline: false,
                 };
             }
         };
@@ -86,6 +114,7 @@ impl NotifyEngine {
                     policy_id: policy.id.clone(),
                     recipients: Vec::new(),
                     error: Some(truncate_error(&error.to_string())),
+                    dropped_by_pipeline: false,
                 };
             }
         };
@@ -94,7 +123,7 @@ impl NotifyEngine {
 
         for recipient in recipients {
             outcomes.push(
-                self.deliver_recipient(policy, event, recipient, &message, stage_override)
+                self.deliver_recipient(policy, event, recipient, &messages, stage_override)
                     .await,
             );
         }
@@ -103,6 +132,7 @@ impl NotifyEngine {
             policy_id: policy.id.clone(),
             recipients: outcomes,
             error: None,
+            dropped_by_pipeline: false,
         }
     }
 
@@ -150,13 +180,23 @@ impl NotifyEngine {
                 resolved_by: policy.recipient_resolver.clone(),
                 delivery_plan: routes
                     .into_iter()
-                    .map(|route| NotifyDeliveryPlanStep {
-                        stage: route.stage,
-                        connector_id: route.connector.id,
-                        connector_name: route.connector.name,
-                        endpoint_id: route.endpoint_id,
-                        target_type: route.target.target_type,
-                        target_value_masked: mask_target(&route.target.value),
+                    .map(|route| {
+                        let template_id = self
+                            .connector_registry
+                            .get(&route.connector.connector_type)
+                            .ok()
+                            .and_then(|adapter| policy_template_id(&policy, adapter.channel()))
+                            .cloned();
+
+                        NotifyDeliveryPlanStep {
+                            stage: route.stage,
+                            connector_id: route.connector.id,
+                            connector_name: route.connector.name,
+                            endpoint_id: route.endpoint_id,
+                            target_type: route.target.target_type,
+                            target_value_masked: mask_target(&route.target.value),
+                            template_id,
+                        }
                     })
                     .collect(),
             });
@@ -185,7 +225,7 @@ impl NotifyEngine {
         policy: &NotifyPolicy,
         event: &NotifyEvent,
         recipient: NotifyRecipient,
-        message: &crate::domain::notify::connector::NotifyMessage,
+        messages: &PolicyMessages,
         stage_override: Option<crate::domain::notify::delivery::DeliveryStage>,
     ) -> NotifyRecipientOutcome {
         let routes = match self.resolve_routes(policy, event, &recipient).await {
@@ -205,10 +245,14 @@ impl NotifyEngine {
         let multi_connector = policy.delivery_mode
             == crate::domain::notify::policy::NotifyDeliveryMode::MultiConnector;
         let mut user_route_succeeded = false;
+        let delays = step_delays(policy, event, stage_override.is_some(), &routes);
+        let started_at = TimestampMicros::now();
 
         for mut route in routes {
             let primary_route =
                 route.stage == crate::domain::notify::delivery::DeliveryStage::UserPrimary;
+            let user_step = is_user_step(&route);
+            let delay_secs = route.delay_secs;
 
             if multi_connector && user_route_succeeded && !primary_route {
                 break;
@@ -219,7 +263,7 @@ impl NotifyEngine {
             }
 
             match self
-                .attempt_route(policy, event, &recipient, route, message)
+                .attempt_route(policy, event, &recipient, route, messages)
                 .await
             {
                 Ok((delivered, delivery)) => {
@@ -229,6 +273,14 @@ impl NotifyEngine {
                         if multi_connector && primary_route {
                             user_route_succeeded = true;
                             continue;
+                        }
+
+                        // 送到了这个人：接收顺序里还有等得更久的步骤时，排好下一步。
+                        if user_step {
+                            self.schedule_follow_up(
+                                policy, event, &recipient, &delays, delay_secs, started_at,
+                            )
+                            .await;
                         }
 
                         return NotifyRecipientOutcome {
@@ -261,13 +313,13 @@ impl NotifyEngine {
         }
     }
 
-    async fn attempt_route(
+    pub(super) async fn attempt_route(
         &self,
         policy: &NotifyPolicy,
         event: &NotifyEvent,
         recipient: &NotifyRecipient,
         route: ResolvedRoute,
-        message: &crate::domain::notify::connector::NotifyMessage,
+        messages: &PolicyMessages,
     ) -> Result<(bool, NotifyDelivery)> {
         let sent_at = TimestampMicros::now();
         let idempotency_key = idempotency_key(policy, event, recipient, &route);
@@ -302,7 +354,10 @@ impl NotifyEngine {
         if !claim.acquired {
             let delivered = matches!(
                 claim.delivery.status,
-                DeliveryStatus::Sending | DeliveryStatus::Success | DeliveryStatus::Acknowledged
+                DeliveryStatus::Sending
+                    | DeliveryStatus::Success
+                    | DeliveryStatus::Acknowledged
+                    | DeliveryStatus::Queued
             );
 
             return Ok((delivered, claim.delivery));
@@ -314,15 +369,69 @@ impl NotifyEngine {
 
         let started = Instant::now();
 
-        let result = adapter
+        // 按连接器的渠道套用策略为它选的模板。
+        let message = adapter
             .validate_config(&route.connector.config)
-            .and_then(|_| adapter.validate_target(&route.target));
+            .and_then(|_| adapter.validate_target(&route.target))
+            .and_then(|_| messages.for_channel(adapter.channel(), event));
 
-        let result = match result {
-            Ok(()) => {
-                adapter
-                    .send(&route.connector.config, &route.target, message)
-                    .await
+        // 这条线路（号码、一个人的飞书、一个群）在合并窗口里发过：排在线路上，窗口结束时合成一条。
+        if let Ok(message) = &message
+            && let Some(window_secs) = merge_window(adapter.as_ref(), policy, event)
+            && let Some(queued) = self
+                .queue_if_line_busy(
+                    &route.connector,
+                    &route.target,
+                    window_secs,
+                    message,
+                    &claim.delivery,
+                )
+                .await
+        {
+            return Ok((true, queued));
+        }
+
+        let result = match message {
+            Ok(message) => {
+                let message = self
+                    .with_alert_buttons(policy, event, recipient, &route, &message)
+                    .await;
+
+                // Webhook 的请求体带上写给机器读的事件，请求头带上这次投递的 ID。
+                if adapter.channel() == NotifyChannel::Webhook {
+                    let mut message = message.into_owned();
+                    message.event = Some(webhook_event(event));
+
+                    message
+                        .metadata
+                        .insert("delivery_id".into(), claim.delivery.id.to_string());
+
+                    adapter
+                        .send_as(&route.connector, &route.target, &message)
+                        .await
+                } else if matches!(adapter.channel(), NotifyChannel::Sms | NotifyChannel::Phone) {
+                    // 收得到回复的短信、电话：记一条回复引用，带上代码与提示。
+                    let direct = route.target.target_type == NotifyTargetType::DirectUser;
+
+                    let message = self
+                        .with_reply(
+                            &route.connector,
+                            adapter.as_ref(),
+                            &route.target,
+                            direct.then_some(&recipient.user_id),
+                            replyable_alerts(event),
+                            message.into_owned(),
+                        )
+                        .await;
+
+                    adapter
+                        .send_as(&route.connector, &route.target, &message)
+                        .await
+                } else {
+                    adapter
+                        .send_as(&route.connector, &route.target, &message)
+                        .await
+                }
             }
             Err(error) => Err(error),
         };
@@ -432,6 +541,22 @@ fn to_i32_millis(value: u64) -> i32 {
     i32::try_from(value).unwrap_or(i32::MAX)
 }
 
+/// 回复能处理的告警：还要人接手的通知（触发、升级）里的那一个。
+fn replyable_alerts(event: &NotifyEvent) -> Vec<Id> {
+    let wanted = matches!(
+        event.event_type.as_str(),
+        "alert.triggered" | "alert.escalated"
+    );
+
+    event
+        .attributes
+        .get("alert_id")
+        .and_then(serde_json::Value::as_str)
+        .filter(|id| wanted && !id.is_empty())
+        .map(|id| vec![Id::from_string(id)])
+        .unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -451,6 +576,7 @@ mod tests {
             id: Id::from_string("policy-a"),
             organization_id: org.clone(),
             name: "policy".into(),
+            builtin_key: None,
             event_type: "alert.triggered".into(),
             category: NotifyCategory::Alert,
             matchers: serde_json::json!({}),
@@ -459,9 +585,12 @@ mod tests {
             delivery_mode: NotifyDeliveryMode::PreferUser,
             delivery_config: NotifyDeliveryConfig::default(),
             template_id: None,
+            channel_templates: Default::default(),
             fallback_config: NotifyFallbackConfig::default(),
             ack_timeout_seconds: None,
             escalation_config: None,
+            merge_window_secs: None,
+            time: None,
             enabled: true,
             priority: 100,
             created_at: TimestampMicros(1),
@@ -502,6 +631,7 @@ mod tests {
                 value: value.into(),
                 metadata: Default::default(),
             },
+            delay_secs: 0,
         };
         assert_ne!(
             idempotency_key(&policy, &event, &recipient, &route("a@example.com")),
@@ -525,6 +655,7 @@ mod tests {
                 value: format!("{user_id}@example.com"),
                 metadata: Default::default(),
             },
+            delay_secs: 0,
         };
         assert_ne!(
             idempotency_key(&policy, &event, &recipient, &direct_route("user-a")),

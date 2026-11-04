@@ -4,8 +4,9 @@
 //! 调用 MCP 工具与 prompt。
 //!
 //! 参数先按同步时记下的 schema 校验（schema 的 hash 对不上就不调），再去掉模型填的租户、用户
-//! 与审批身份字段。服务器要成员凭据而发起人还没存、或远端拒绝了他的凭据时，工具返回
-//! `authorization_required`，告诉模型请用户去 Mole Agent 设置里填写。
+//! 与审批身份字段。服务器要成员凭据而发起人还没存、或远端拒绝了他的凭据时，调用回
+//! [`McpToolCall::NeedsCredential`]：对话里请他存下凭据再调一次（「授权以继续」），没法问人时
+//! 交给模型的结果是 `authorization_required`，告诉模型请用户去 Mole Agent 设置里填写。
 
 use std::future::Future;
 
@@ -23,6 +24,85 @@ use crate::{
 /// 工具结果与命令拒绝里用的错误码。
 pub const AUTHORIZATION_REQUIRED: &str = "authorization_required";
 
+/// 一次工具调用：远端的结果，或者要发起人先存下自己的凭据。
+#[derive(Debug)]
+pub enum McpToolCall {
+    Done(ToolResult),
+    NeedsCredential(CredentialNeed),
+}
+
+impl McpToolCall {
+    /// 没法问人时交给模型的结果。
+    pub fn into_result(self) -> ToolResult {
+        match self {
+            Self::Done(result) => result,
+            Self::NeedsCredential(need) => need.into_result(),
+        }
+    }
+}
+
+/// 一台要成员凭据的服务器缺发起人的凭据，或拒绝了他存的那个：「授权以继续」卡片上说的东西。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CredentialNeed {
+    pub server_id: Id,
+    pub server: String,
+    /// 凭据放进的请求头，小写。
+    pub header: String,
+    /// 值前面加 `Bearer `。
+    pub bearer: bool,
+    /// 管理员写的：去哪里拿凭据、要哪些权限。
+    pub instructions: String,
+    /// 存过的凭据被远端拒绝了。
+    pub rejected: bool,
+}
+
+impl CredentialNeed {
+    fn of(server: &McpServer, rejected: bool) -> Self {
+        let spec = server.member_credential.as_ref();
+
+        Self {
+            server_id: server.id.clone(),
+            server: server.name.clone(),
+            header: spec.map_or_else(|| "authorization".into(), |spec| spec.header.clone()),
+            bearer: spec.is_some_and(|spec| spec.bearer),
+            instructions: spec
+                .map(|spec| spec.instructions.clone())
+                .unwrap_or_default(),
+            rejected,
+        }
+    }
+
+    /// 告诉模型：这台服务器要用户自己的凭据，请他去设置里填写。
+    pub fn into_result(self) -> ToolResult {
+        let message = if self.rejected {
+            format!(
+                "The MCP server `{}` rejected the user's own credential. Ask the user to update it in Mole Agent settings → Tools → MCP servers → {} → My credential, then try again.",
+                self.server, self.server
+            )
+        } else {
+            format!(
+                "The MCP server `{}` needs the user's own credential. Ask the user to add it in Mole Agent settings → Tools → MCP servers → {} → My credential, then try again.",
+                self.server, self.server
+            )
+        };
+
+        ToolResult {
+            content: vec![ToolContent::Json {
+                json: json!({
+                    "error": AUTHORIZATION_REQUIRED,
+                    "serverId": self.server_id.0,
+                    "server": self.server,
+                    "header": self.header,
+                    "instructions": self.instructions,
+                    "rejected": self.rejected,
+                    "message": message,
+                }),
+            }],
+            is_error: true,
+        }
+    }
+}
+
 impl McpService {
     pub async fn execute_tool(
         &self,
@@ -30,15 +110,15 @@ impl McpService {
         tool: &McpTool,
         member: &Id,
         arguments: Value,
-    ) -> Result<ToolResult> {
+    ) -> Result<McpToolCall> {
         if !server.enabled || server.status != "healthy" {
-            return Ok(tool_error("MCP Server is not available"));
+            return Ok(McpToolCall::Done(tool_error("MCP Server is not available")));
         }
 
         if tool.status != ManagedToolStatus::Healthy || tool.unavailable_diagnostic.is_some() {
-            return Ok(tool_error(
+            return Ok(McpToolCall::Done(tool_error(
                 "MCP tool schema is unavailable; synchronize the server before execution",
-            ));
+            )));
         }
 
         let mut runtime = self
@@ -47,7 +127,10 @@ impl McpService {
             .await?;
 
         if runtime.server.auth_type == "member_secret" && runtime.member_credential.is_none() {
-            return Ok(authorization_required(&runtime.server, false));
+            return Ok(McpToolCall::NeedsCredential(CredentialNeed::of(
+                &runtime.server,
+                false,
+            )));
         }
 
         // 调用方可能按工具策略收紧了时限与应答上限。
@@ -75,12 +158,27 @@ impl McpService {
         .await;
 
         match outcome {
-            Err(Error::Unauthorized(_)) if server.auth_type == "member_secret" => {
-                Ok(authorization_required(server, true))
-            }
-            Err(Error::Unauthorized(message)) => Ok(tool_error(message)),
-            other => other,
+            Err(Error::Unauthorized(_)) if server.auth_type == "member_secret" => Ok(
+                McpToolCall::NeedsCredential(CredentialNeed::of(server, true)),
+            ),
+            Err(Error::Unauthorized(message)) => Ok(McpToolCall::Done(tool_error(message))),
+            other => other.map(McpToolCall::Done),
         }
+    }
+
+    /// 发起人给这台服务器存过自己的凭据。
+    pub async fn has_my_credential(
+        &self,
+        org_id: &Id,
+        member: &Id,
+        server_id: &Id,
+    ) -> Result<bool> {
+        Ok(self
+            .repo
+            .list_member_credentials(org_id, member)
+            .await?
+            .iter()
+            .any(|credential| credential.server_id == *server_id))
     }
 
     /// `prompts/get`：用发起人自己的凭据取一个 prompt 的消息。
@@ -109,38 +207,6 @@ impl McpService {
                 json!({"name": name, "arguments": Value::Object(strip_untrusted_identity_fields_map(arguments))}),
             )
             .await
-    }
-}
-
-/// 告诉模型：这台服务器要用户自己的凭据。
-fn authorization_required(server: &McpServer, rejected: bool) -> ToolResult {
-    let spec = server.member_credential.as_ref();
-
-    let message = if rejected {
-        format!(
-            "The MCP server `{}` rejected the user's own credential. Ask the user to update it in Mole Agent settings → Tools → MCP servers → {} → My credential, then try again.",
-            server.name, server.name
-        )
-    } else {
-        format!(
-            "The MCP server `{}` needs the user's own credential. Ask the user to add it in Mole Agent settings → Tools → MCP servers → {} → My credential, then try again.",
-            server.name, server.name
-        )
-    };
-
-    ToolResult {
-        content: vec![ToolContent::Json {
-            json: json!({
-                "error": AUTHORIZATION_REQUIRED,
-                "server_id": server.id.0,
-                "server": server.name,
-                "header": spec.map(|spec| spec.header.clone()),
-                "instructions": spec.map(|spec| spec.instructions.clone()),
-                "rejected": rejected,
-                "message": message,
-            }),
-        }],
-        is_error: true,
     }
 }
 
@@ -309,7 +375,11 @@ mod tests {
             updated_at: crate::shared::time::TimestampMicros(1),
         };
 
-        let result = authorization_required(&server, false);
+        let need = CredentialNeed::of(&server, false);
+        assert_eq!(need.header, "authorization");
+        assert!(need.bearer);
+
+        let result = need.into_result();
         assert!(result.is_error);
 
         let ToolContent::Json { json } = &result.content[0] else {

@@ -27,22 +27,22 @@ const now = Date.UTC(2026, 7, 10, 12) * 1_000;
 function event(id: string, overrides: Partial<StatusPageIncident> = {}): StatusPageIncident {
   return {
     id,
-    org_id: 'org',
-    status_page_id: 'page',
-    source_incident_id: null,
+    orgId: 'org',
+    statusPageId: 'page',
+    sourceIncidentId: null,
     kind: 'incident',
     title: id,
     impact: 'major',
     status: 'investigating',
-    publication_state: 'published',
-    draft_message: null,
-    component_ids: [],
+    publicationState: 'published',
+    draftMessage: null,
+    componentIds: [],
     updates: [],
-    started_at: now,
-    ended_at: null,
-    published_at: now,
-    created_at: now,
-    updated_at: now,
+    startedAt: now,
+    endedAt: null,
+    publishedAt: now,
+    createdAt: now,
+    updatedAt: now,
     ...overrides,
   };
 }
@@ -57,6 +57,9 @@ function renderEvents(entry: string) {
     pageId: 'page',
     snapshot: { page: { lifecycle: 'active' }, components: [] },
     manageAccess: { allowed: true, disabled: false, reason: undefined },
+    eventsAccess: { allowed: true, disabled: false, reason: undefined },
+    subscribersAccess: { allowed: true, disabled: false, reason: undefined },
+    automationAccess: { allowed: true, disabled: false, reason: undefined },
   } as unknown as ReturnType<typeof useStatusPageWorkspace>);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 

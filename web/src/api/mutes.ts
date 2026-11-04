@@ -1,7 +1,7 @@
 import { http } from '@/lib/http';
 import type { LabelMatcher, MuteRule, MuteWindow } from '@/types/alerting';
 
-/** Create/update payload — the backend sets `id`/`org_id`/`created_by`. */
+/** Create/update payload — the backend sets `id`/`orgId`/`createdBy`. */
 export interface MuteRuleInput {
   name: string;
   enabled: boolean;
@@ -32,7 +32,7 @@ export async function remove(id: string): Promise<void> {
 
 export async function silenceIncident(
   incidentId: string,
-  input: { duration_secs: number; comment: string },
+  input: { durationSecs: number; comment: string },
 ): Promise<MuteRule> {
   const { data } = await http.post<MuteRule>(
     `/alerts/incidents/${encodeURIComponent(incidentId)}/silence`,

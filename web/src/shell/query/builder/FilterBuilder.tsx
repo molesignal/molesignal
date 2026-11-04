@@ -1,17 +1,19 @@
-import { Plus, Search, X } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/shell/lib/cn';
-import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/shell/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/shell/ui/popover';
 
 import { FilterEditor } from './FilterEditor';
+import { FilterGroup, type GroupEditing } from './FilterGroup';
 import {
   type BuilderClause,
   type BuilderDialect,
   type BuilderField,
   type BuilderStatement,
-  clauseLabel,
+  EMPTY_GROUP,
+  withAlternative,
   withClause,
   withoutClause,
   withoutUnsupported,
@@ -35,11 +37,11 @@ interface FilterBuilderProps {
   className?: string | undefined;
 }
 
-/** Which filter the editor is open on: one that exists, or a new one. */
-type Editing = number | 'new' | null;
+/** Where the editor is open: on a filter of a group, a new filter of one, or a new alternative. */
+type Editing = { group: number; at: Exclude<GroupEditing, null> } | 'alternative' | null;
 
 /**
- * A field query as a row of filters.
+ * A field query as rows of filters, one row for each alternative.
  *
  * It is not a second query: the filters are parsed from the statement the Code
  * editor holds and every change is written back to it, so the two modes can be
@@ -60,26 +62,32 @@ export function FilterBuilder({
 }: FilterBuilderProps) {
   const { t } = useTranslation('common');
   const parsed = React.useMemo(() => dialect.parse(statement), [dialect, statement]);
+  // An empty statement is one empty row, to start writing in.
+  const groups = parsed.groups.length > 0 ? parsed.groups : [EMPTY_GROUP];
+  const parsedTexts = groups.map((group) => group.text);
+  const parsedKey = parsedTexts.join('\u0000');
   const [editing, setEditing] = React.useState<Editing>(null);
   const [startField, setStartField] = React.useState<string | undefined>();
-  // The text box is typed into freely and joins the statement when it is
+  // A text box is typed into freely and joins the statement when it is
   // committed: writing it back on every key would turn `status = 5` into a
   // filter halfway through the value.
-  const [text, setText] = React.useState(parsed.text);
+  const [texts, setTexts] = React.useState<string[]>(parsedTexts);
 
-  // Whenever the statement changes, the box shows the search text it now has:
-  // text committed as `status >= 500` has become a filter and leaves the box.
+  // Whenever the statement changes, each box shows the search text its group
+  // now has: text committed as `status >= 500` has become a filter and leaves it.
   React.useEffect(() => {
-    setText((current) => (current.trim() === parsed.text ? current : parsed.text));
-  }, [parsed.text, statement]);
+    const now = parsedKey.split('\u0000');
+    setTexts((current) => now.map((text, index) => (current[index]?.trim() === text ? current[index]! : text)));
+  }, [parsedKey, statement]);
 
-  // A field picked in the field list opens the editor on it.
+  // A field picked in the field list opens the editor of the last row on it.
+  const lastGroup = groups.length - 1;
   React.useEffect(() => {
     if (!pendingField) return;
     setStartField(pendingField);
-    setEditing('new');
+    setEditing({ group: lastGroup, at: 'new' });
     onPendingFieldHandled?.();
-  }, [onPendingFieldHandled, pendingField]);
+  }, [lastGroup, onPendingFieldHandled, pendingField]);
 
   // Enter runs the query, but only once the statement it just changed has
   // reached the page: `onRun` then closes over the new statement.
@@ -90,8 +98,13 @@ export function FilterBuilder({
     onRun?.();
   });
 
+  // The statement with what the boxes hold: an edit writes the typed text along.
+  const current: BuilderStatement = {
+    groups: groups.map((group, index) => ({ ...group, text: texts[index] ?? group.text })),
+  };
+
   const write = (next: BuilderStatement, run = false) => {
-    const written = dialect.serialize({ ...next, text });
+    const written = dialect.serialize(next);
     if (written === statement) {
       if (run) onRun?.();
       return;
@@ -105,7 +118,7 @@ export function FilterBuilder({
     setStartField(undefined);
   };
 
-  const editor = (initial: BuilderClause | undefined, index: number | null) => (
+  const editor = (initial: BuilderClause | undefined, submit: (clause: BuilderClause) => void) => (
     <FilterEditor
       fields={fields}
       dialect={dialect}
@@ -113,12 +126,34 @@ export function FilterBuilder({
       initialField={initial ? undefined : startField}
       suggestValues={suggestValues}
       onSubmit={(clause) => {
-        write(withClause(parsed, index, clause));
+        submit(clause);
         closeEditor();
       }}
       onCancel={closeEditor}
     />
   );
+
+  const alternative = dialect.alternatives ? (
+    <Popover
+      open={editing === 'alternative'}
+      onOpenChange={(open) => (open ? setEditing('alternative') : closeEditor())}
+    >
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          data-testid="query-builder-add-alternative"
+          aria-label={t('query_builder.add_alternative_aria')}
+          className="inline-flex h-[28px] shrink-0 items-center gap-1 rounded-md bg-[var(--functional-surface)] pl-2 pr-2.5 font-sans text-xs font-strong text-tx-1 hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0 data-[state=open]:bg-bg-2"
+        >
+          <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+          {t('query_builder.add_alternative')}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto p-0">
+        {editor(undefined, (clause) => write(withAlternative(current, clause)))}
+      </PopoverContent>
+    </Popover>
+  ) : null;
 
   return (
     <div data-query-builder className={cn('px-3 py-2.5', className)}>
@@ -126,114 +161,32 @@ export function FilterBuilder({
         <p className="mb-2 font-sans text-xs leading-relaxed text-tx-2">{notice}</p>
       ) : null}
       <div
-        role="group"
-        aria-label={t('query_builder.filters')}
-        className="flex flex-wrap items-center gap-[6px]"
+        {...(groups.length > 1 ? { role: 'group', 'aria-label': t('query_builder.filters') } : {})}
+        className="flex flex-col gap-[6px]"
       >
-        {parsed.clauses.map((clause, index) => {
-          const label = clauseLabel(clause);
-          return (
-            <Popover
-              key={`${index}:${label}`}
-              open={editing === index}
-              onOpenChange={(open) => (open ? setEditing(index) : closeEditor())}
-            >
-              <PopoverAnchor asChild>
-                <span
-                  data-query-filter
-                  className="inline-flex h-[28px] max-w-full items-center rounded-md bg-[var(--functional-surface)] font-mono text-xs"
-                >
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label={t('query_builder.edit', { filter: label })}
-                      title={label}
-                      className="flex h-full min-w-0 items-center gap-1.5 rounded-l-md pl-2.5 pr-1.5 hover:bg-bg-2 focus-visible:bg-bg-2"
-                    >
-                      <span className="truncate text-tx-2">{clause.field}</span>
-                      <span className="shrink-0 font-semibold text-indigo-soft">{clause.op}</span>
-                      <span className="max-w-[260px] truncate font-semibold text-tx-0">
-                        {clause.value}
-                      </span>
-                    </button>
-                  </PopoverTrigger>
-                  <button
-                    type="button"
-                    aria-label={t('query_builder.remove', { filter: label })}
-                    onClick={() => write(withoutClause(parsed, index))}
-                    className="grid h-full w-[24px] shrink-0 place-items-center rounded-r-md text-tx-3 hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0"
-                  >
-                    <X className="h-3 w-3" aria-hidden="true" />
-                  </button>
-                </span>
-              </PopoverAnchor>
-              <PopoverContent align="start" className="w-auto p-0">
-                {editor(clause, index)}
-              </PopoverContent>
-            </Popover>
-          );
-        })}
-
-        {parsed.unsupported.map((part, index) => (
-          <span
-            key={`${index}:${part}`}
-            data-query-filter-unsupported
-            title={t('query_builder.unsupported')}
-            className="inline-flex h-[28px] max-w-full items-center rounded-md bg-[var(--yellow-tint)] pl-2.5 font-mono text-xs text-[var(--yellow-ink)]"
-          >
-            <span className="max-w-[320px] truncate">{part}</span>
-            <button
-              type="button"
-              aria-label={t('query_builder.remove_unsupported', { part })}
-              onClick={() => write(withoutUnsupported(parsed, index))}
-              className="grid h-full w-[24px] shrink-0 place-items-center rounded-r-md hover:bg-yellow/20 focus-visible:bg-yellow/20"
-            >
-              <X className="h-3 w-3" aria-hidden="true" />
-            </button>
-          </span>
-        ))}
-
-        <Popover
-          open={editing === 'new'}
-          onOpenChange={(open) => (open ? setEditing('new') : closeEditor())}
-        >
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              data-testid="query-builder-add"
-              aria-label={t('query_builder.add_aria')}
-              className="inline-flex h-[28px] shrink-0 items-center gap-1 rounded-md bg-[var(--functional-surface)] pl-2 pr-2.5 font-sans text-xs font-strong text-tx-1 hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0 data-[state=open]:bg-bg-2"
-            >
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-              {t('query_builder.add')}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-auto p-0">
-            {editor(undefined, null)}
-          </PopoverContent>
-        </Popover>
-
-        <label className="flex h-[28px] min-w-[200px] flex-1 items-center gap-2 rounded-md bg-[var(--functional-surface)] px-2.5 focus-within:bg-bg-2 hover:bg-bg-2">
-          <Search className="h-3.5 w-3.5 shrink-0 text-tx-3" aria-hidden="true" />
-          <input
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            onBlur={() => write(parsed)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                write(parsed, true);
-              }
-              // Backspace in an empty box takes back the last filter.
-              if (event.key === 'Backspace' && text === '' && parsed.clauses.length > 0) {
-                write(withoutClause(parsed, parsed.clauses.length - 1));
-              }
-            }}
-            aria-label={t('query_builder.text')}
-            placeholder={t('query_builder.text_placeholder')}
-            className="min-w-0 flex-1 bg-transparent font-mono text-xs text-tx-0 outline-none placeholder:font-sans placeholder:text-tx-3"
+        {groups.map((group, index) => (
+          <FilterGroup
+            key={index}
+            group={group}
+            position={index}
+            count={groups.length}
+            text={texts[index] ?? group.text}
+            onTextChange={(text) =>
+              setTexts((now) =>
+                groups.map((other, position) => (position === index ? text : (now[position] ?? other.text))),
+              )
+            }
+            onTextCommit={(run) => write(current, run)}
+            editing={editing !== null && editing !== 'alternative' && editing.group === index ? editing.at : null}
+            onEditingChange={(at) => (at === null ? closeEditor() : setEditing({ group: index, at }))}
+            editor={(initial, at) =>
+              editor(initial, (clause) => write(withClause(current, index, at, clause)))
+            }
+            onRemoveClause={(at) => write(withoutClause(current, index, at))}
+            onRemoveUnsupported={(at) => write(withoutUnsupported(current, index, at))}
+            trailing={index === lastGroup ? alternative : null}
           />
-        </label>
+        ))}
       </div>
     </div>
   );

@@ -1,7 +1,10 @@
+import type { MfaMethod } from '@/api/auth';
 import {
   DEFAULT_USER_PREFERENCES,
   type UserPreferences,
 } from '@/api/me';
+import type { Proof } from '@/api/mfa';
+import type { PublicSsoProvider } from '@/api/sso';
 import { http } from '@/lib/http';
 import type { AssignedRole } from '@/stores/auth';
 
@@ -9,7 +12,7 @@ export interface Org {
   id: string;
   name: string;
   slug?: string;
-  display_role?: string | null;
+  displayRole?: string | null;
   roles: AssignedRole[];
   system?: boolean;
   disabled: boolean;
@@ -22,15 +25,25 @@ export interface Org {
   accessible?: boolean;
 }
 
-interface SelectOrgResponse {
-  token: string;
-  user_id: string;
-  org_id: string;
-  org_name?: string;
-  display_role: string;
+/** The organization entered; the session cookies are rewritten for it. */
+export interface SelectOrgResponse {
+  userId: string;
+  orgId: string;
+  orgName?: string;
+  displayRole: string;
   roles: AssignedRole[];
   system: boolean;
 }
+
+/**
+ * What the organization's sign-in requirements still ask of this sign-in: a second
+ * factor on the spot (sent back with the request), setting one up first, or signing
+ * in through the organization's own single sign-on.
+ */
+export type OrgEntryWaiting =
+  | { mfa: { organizationName: string; methods: MfaMethod[] } }
+  | { mfaSetup: { organizationName: string } }
+  | { sso: { organizationName: string; providers: PublicSsoProvider[] } };
 
 export async function listOrgs(): Promise<Org[]> {
   const { data } = await http.get<Org[] | { items: Org[] }>('/orgs');
@@ -47,9 +60,13 @@ export async function createOrg(input: CreateOrgInput): Promise<Org> {
   return data;
 }
 
-export async function selectOrg(id: string): Promise<SelectOrgResponse> {
-  const { data } = await http.post<SelectOrgResponse>(
+export async function selectOrg(
+  id: string,
+  proof?: Proof,
+): Promise<SelectOrgResponse | OrgEntryWaiting> {
+  const { data } = await http.post<SelectOrgResponse | OrgEntryWaiting>(
     `/orgs/${encodeURIComponent(id)}/select`,
+    proof ? { proof } : undefined,
   );
   return data;
 }

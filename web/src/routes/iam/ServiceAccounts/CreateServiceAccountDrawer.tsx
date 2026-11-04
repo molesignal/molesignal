@@ -43,10 +43,7 @@ export function CreateServiceAccountDrawer({
     enabled: open,
   });
   const roleOptions = (roles.data ?? []).filter(
-    (role) =>
-      role.role_type === 'organization' &&
-      role.scope === 'organization' &&
-      role.key !== 'rum_client',
+    (role) => role.roleType === 'organization' && role.scope === 'organization',
   );
 
   React.useEffect(() => {
@@ -62,7 +59,7 @@ export function CreateServiceAccountDrawer({
       serviceAccountsApi.create({
         name: name.trim(),
         description: description.trim(),
-        role_id: roleId,
+        roleId: roleId,
       }),
     onSuccess: async (result) => {
       setCreated(result);
@@ -82,7 +79,7 @@ export function CreateServiceAccountDrawer({
   const copyToken = async () => {
     if (!created) return;
     try {
-      await writeClipboardText(created.api_token.token);
+      await writeClipboardText(created.apiToken.token);
       toast.success(t('service_accounts.toast_token_copied'));
     } catch (error) {
       toast.error(toApiError(error).message);
@@ -122,7 +119,7 @@ export function CreateServiceAccountDrawer({
         >
           <div className="flex min-w-0 items-center gap-2 rounded-md border border-bd-0 bg-bg-2 p-2">
             <code className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs text-tx-0">
-              {created.api_token.token}
+              {created.apiToken.token}
             </code>
             <CopyIconButton
               type="button"

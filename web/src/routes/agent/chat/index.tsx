@@ -44,6 +44,7 @@ import {
   type PendingUserMessage,
   visibleChatMessages,
 } from '../messageRenderState';
+import { AutomationRunNotice, useAutomationChat } from './AutomationRunNotice';
 import { ChatBudgetNotice } from './BudgetNotice';
 import { ChatComposer } from './composer/ChatComposer';
 import { ChatCommandNotice } from './composer/CommandNotice';
@@ -145,7 +146,7 @@ function applyScrollFade(el: HTMLDivElement): void {
 export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation('agent');
   const { t: tc } = useTranslation('common');
-  const manageAccess = useActionAccess({ permission: 'agent.manage' });
+  const manageAccess = useActionAccess({ permission: 'agent.models.manage' });
   const authCtx = useAuthStore((s) => s.ctx);
   const globalTimeWindow = useTimeStore((state) => state.window);
   const setGlobalTimeWindow = useTimeStore((state) => state.setWindow);
@@ -188,6 +189,8 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
   const chatTeam = useChatTeam((chatsQ.data ?? []).find((chat) => chat.id === chatId));
   const chatTeamRef = React.useRef(chatTeam);
   chatTeamRef.current = chatTeam;
+  // A run of an automation is read here, never continued.
+  const automationChat = useAutomationChat(chatId, chatsQ.data);
   const messagesQ = useQuery({
     queryKey: ['chat-messages', chatId],
     queryFn: () => chatApi.listMessages(chatId as string),
@@ -532,7 +535,7 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
   const selectedAgentProfile =
     agentProfileId !== AUTO
       ? agentProfiles.find((profile) => profile.id === agentProfileId)
-      : agentProfiles.find((profile) => profile.is_default);
+      : agentProfiles.find((profile) => profile.isDefault);
   const agentProfileOptions = [
     { value: AUTO, label: t('advanced.profile_auto') },
     ...agentProfiles.map((profile) => ({
@@ -546,22 +549,22 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
   ];
   const profile = profileQ.data;
   const displayName =
-    profile?.display_name ||
-    authCtx?.display_name ||
+    profile?.displayName ||
+    authCtx?.displayName ||
     profile?.email?.split('@')[0] ||
     authCtx?.email?.split('@')[0] ||
-    authCtx?.user_id ||
+    authCtx?.userId ||
     '';
   const chatUser: ChatUserIdentity = {
-    id: authCtx?.user_id ?? '',
+    id: authCtx?.userId ?? '',
     displayName,
-    avatarUrl: profile?.avatar_url?.trim() ?? '',
+    avatarUrl: profile?.avatarUrl?.trim() ?? '',
   };
 
   const selectChat = (chat: chatApi.Chat) => {
     shouldStickToBottomRef.current = true;
     setChatId(chat.id);
-    setMode(chatModeForAnalysisMode(chat.analysis_mode));
+    setMode(chatModeForAnalysisMode(chat.analysisMode));
     setPromptId(AUTO);
     setCapability(chat.capability ?? null);
     setRegeneratingFromMessageId(null);
@@ -647,13 +650,13 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
         const provider = providers.find((p) => p.id === providerId);
         const created = await chatApi.createChat({
           provider: provider?.provider ?? 'openai',
-          model: provider?.default_model ?? '',
+          model: provider?.defaultModel ?? '',
           title: titleForNewChat(titleSource(content), chats),
-          title_provisional: true,
-          provider_id: providerId !== AUTO ? providerId : undefined,
-          analysis_mode: analysisModeForChatMode(mode),
+          titleProvisional: true,
+          providerId: providerId !== AUTO ? providerId : undefined,
+          analysisMode: analysisModeForChatMode(mode),
           capability: capability ?? undefined,
-          team_id: chatTeam.teamId ?? undefined,
+          teamId: chatTeam.teamId ?? undefined,
           subject,
         });
         chatIdValue = created.id;
@@ -669,16 +672,16 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
     const attached = isRegeneration ? [] : references;
     const body: chatApi.PostMessageBody = {
       content,
-      regenerate_from_message_id: regenerateFromMessageId,
-      time_range: timeRangeMicros(globalTimeWindow),
-      analysis_mode: analysisModeForChatMode(mode),
+      regenerateFromMessageId: regenerateFromMessageId,
+      timeRange: timeRangeMicros(globalTimeWindow),
+      analysisMode: analysisModeForChatMode(mode),
       capability: capability ?? undefined,
-      execution_policy: executionPolicy,
-      stream_hints: contextStreamHints(context, globalFilters),
-      agent_profile_id: agentProfileId !== AUTO ? agentProfileId : undefined,
-      provider_id: providerId !== AUTO ? providerId : undefined,
-      model: selectedProvider?.default_model,
-      prompt_template_id: promptId !== AUTO ? promptId : undefined,
+      executionPolicy: executionPolicy,
+      streamHints: contextStreamHints(context, globalFilters),
+      agentProfileId: agentProfileId !== AUTO ? agentProfileId : undefined,
+      providerId: providerId !== AUTO ? providerId : undefined,
+      model: selectedProvider?.defaultModel,
+      promptTemplateId: promptId !== AUTO ? promptId : undefined,
       references: attached.length > 0 ? attached : undefined,
     };
     if (!isRegeneration) {
@@ -687,7 +690,7 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
       setPendingUser({
         chatId: chatIdValue,
         content,
-        sentAtMicros: Date.now() * 1000,
+        sentAt: Date.now() * 1000,
       });
     } else {
       setPendingUser(null);
@@ -734,7 +737,7 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
   const showPostError = Boolean(streamError && chatId);
   const showStreamErrorBanner = Boolean(streamError && !chatId);
   const currentChat = chats.find((chat) => chat.id === chatId);
-  const incidentChat = currentChat?.subject_kind === 'incident';
+  const incidentChat = currentChat?.subjectKind === 'incident';
   const showEmptyWorkspace = !chatId && !pendingUser;
 
   return (
@@ -871,8 +874,8 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
                     content={item.message.content}
                     t={t}
                     user={chatUser}
-                    createdAtMicros={item.message.created_at_micros}
-                    evidence={item.message.evidence_json}
+                    createdAt={item.message.createdAt}
+                    evidence={item.message.evidenceJson}
                   />
                 ),
               )}
@@ -890,12 +893,12 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
                 (message) =>
                   message.role === 'assistant' &&
                   Boolean(chatRun.view?.runId) &&
-                  message.run_id === chatRun.view?.runId,
+                  message.runId === chatRun.view?.runId,
               ) && (
                 <LiveRun
                   chatRun={chatRun}
                   user={chatUser}
-                  viewerId={authCtx?.user_id ?? ''}
+                  viewerId={authCtx?.userId ?? ''}
                   initiatorName={(id) => users.nameOf(id)}
                 />
               )}
@@ -939,62 +942,66 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
             )}
             <ChatBudgetNotice notice={budgetNotice} />
             <ChatCommandNotice notice={chatCommands.notice} t={t} />
-            <ChatComposer
-              t={t}
-              input={input}
-              onInputChange={(value) => {
-                setInput(value);
-                chatCommands.setNotice(null);
-              }}
-              onSubmit={(content) => void send(content === undefined ? {} : { content })}
-              commands={chatCommands.commands}
-              argumentOptions={chatCommands.argumentOptions}
-              streaming={streaming}
-              onStop={stop}
-              // On the page the list starts a new chat; the side panel has no list.
-              {...(embedded && !showEmptyWorkspace ? { onNewChat: newChat } : {})}
-              context={context}
-              onContextChange={setContext}
-              rangePreset={rangePreset}
-              rangeLabel={rangeLabel}
-              onRangeChange={setRangePreset}
-              mode={mode}
-              onModeChange={(value) => {
-                setMode(value);
-                setPromptId(AUTO);
-              }}
-              executionPolicy={executionPolicy}
-              onExecutionPolicyChange={execution.choose}
-              bypassAllowed={execution.bypassAllowed}
-              agentProfileId={agentProfileId}
-              onAgentProfileChange={setAgentProfileId}
-              agentProfileOptions={agentProfileOptions}
-              selectedAgentProfile={selectedAgentProfile}
-              providerId={providerId}
-              onProviderChange={setProviderId}
-              modelOptions={modelOptions}
-              promptId={promptId}
-              onPromptChange={setPromptId}
-              promptOptions={promptOptions}
-              composerRef={composerRef}
-              references={references}
-              onReferencesChange={setReferences}
-              {...((chatTeam.locked ? chatTeam.team : chatTeam.teams.length > 0)
-                ? {
-                    team: {
-                      value: chatTeam.teamId ?? PERSONAL,
-                      onChange: (value: string) =>
-                        chatTeam.setTeamId(value === PERSONAL ? null : value),
-                      options: [
-                        { value: PERSONAL, label: t('team.personal') },
-                        ...chatTeam.teams.map((team) => ({ value: team.id, label: team.name })),
-                      ],
-                      locked: chatTeam.locked,
-                      label: chatTeam.team?.name ?? t('team.personal'),
-                    },
-                  }
-                : {})}
-            />
+            {automationChat ? (
+              <AutomationRunNotice chat={automationChat} />
+            ) : (
+              <ChatComposer
+                t={t}
+                input={input}
+                onInputChange={(value) => {
+                  setInput(value);
+                  chatCommands.setNotice(null);
+                }}
+                onSubmit={(content) => void send(content === undefined ? {} : { content })}
+                commands={chatCommands.commands}
+                argumentOptions={chatCommands.argumentOptions}
+                streaming={streaming}
+                onStop={stop}
+                // On the page the list starts a new chat; the side panel has no list.
+                {...(embedded && !showEmptyWorkspace ? { onNewChat: newChat } : {})}
+                context={context}
+                onContextChange={setContext}
+                rangePreset={rangePreset}
+                rangeLabel={rangeLabel}
+                onRangeChange={setRangePreset}
+                mode={mode}
+                onModeChange={(value) => {
+                  setMode(value);
+                  setPromptId(AUTO);
+                }}
+                executionPolicy={executionPolicy}
+                onExecutionPolicyChange={execution.choose}
+                bypassAllowed={execution.bypassAllowed}
+                agentProfileId={agentProfileId}
+                onAgentProfileChange={setAgentProfileId}
+                agentProfileOptions={agentProfileOptions}
+                selectedAgentProfile={selectedAgentProfile}
+                providerId={providerId}
+                onProviderChange={setProviderId}
+                modelOptions={modelOptions}
+                promptId={promptId}
+                onPromptChange={setPromptId}
+                promptOptions={promptOptions}
+                composerRef={composerRef}
+                references={references}
+                onReferencesChange={setReferences}
+                {...((chatTeam.locked ? chatTeam.team : chatTeam.teams.length > 0)
+                  ? {
+                      team: {
+                        value: chatTeam.teamId ?? PERSONAL,
+                        onChange: (value: string) =>
+                          chatTeam.setTeamId(value === PERSONAL ? null : value),
+                        options: [
+                          { value: PERSONAL, label: t('team.personal') },
+                          ...chatTeam.teams.map((team) => ({ value: team.id, label: team.name })),
+                        ],
+                        locked: chatTeam.locked,
+                        label: chatTeam.team?.name ?? t('team.personal'),
+                      },
+                    }
+                  : {})}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -1067,7 +1074,7 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
 }
 
 function modelOptionLabel(provider: providersApi.ModelProvider): string {
-  return provider.default_model;
+  return provider.defaultModel;
 }
 
 export default AgentChat;

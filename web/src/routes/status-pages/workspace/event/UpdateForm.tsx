@@ -43,7 +43,7 @@ export function UpdateForm({
       statusPagesApi.appendIncidentUpdate(pageId, event.id, {
         status,
         message: message.trim(),
-        next_update_at: nextUpdateAt(event.kind, status, nextUpdateMinutes),
+        nextUpdateAt: nextUpdateAt(event.kind, status, nextUpdateMinutes),
         notify,
       }),
     onSuccess: async () => {

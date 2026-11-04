@@ -1,185 +1,237 @@
 {
   "title": "应用性能监控",
+  "subtitle": "基于采样前的 Trace，查看服务、依赖与错误。",
   "nav": {
     "overview": "概览",
     "services": "服务",
-    "transactions": "事务",
-    "traces": "调用链",
-    "dependencies": "依赖",
+    "map": "服务地图",
     "errors": "错误",
-    "deployments": "部署",
-    "versions": "版本对比",
-    "user_experience": "用户体验"
+    "slos": "SLO",
+    "settings": "设置"
   },
-  "overview": {
-    "title": "应用性能",
-    "subtitle": "从服务、事务和调用链维度分析后端应用性能。",
-    "high_impact_services": "高影响服务",
-    "high_impact_services_description": "按所选时间范围内的流量、错误和延迟排序。",
-    "focused_service": "当前分析服务",
-    "high_impact_transactions": "高影响事务",
-    "high_impact_transactions_description": "按总耗时、流量、错误和延迟定位该服务的异常入口。",
-    "dependencies": "高影响依赖",
-    "dependencies_description": "对应用影响最大的慢调用或高错误率下游调用。",
-    "top_errors": "主要后端错误",
-    "top_errors_description": "按发生次数排序的脱敏错误分组。",
-    "slowest_traces": "最慢调用链",
-    "slowest_traces_description": "从当前聚合窗口保留的代表性慢请求。",
-    "recent_versions": "最近版本"
+  "landing": {
+    "pulse_aria": "所有服务在当前时间范围内的整体表现",
+    "kpi": {
+      "services": "活跃服务",
+      "services_detail_one": "共 {{count}} 个服务，{{idle}} 个无流量",
+      "services_detail_other": "共 {{count}} 个服务，{{idle}} 个无流量",
+      "throughput": "吞吐",
+      "requests_one": "{{formatted}} 个请求",
+      "requests_other": "{{formatted}} 个请求",
+      "error_rate": "错误率",
+      "errors_one": "{{formatted}} 个错误",
+      "errors_other": "{{formatted}} 个错误",
+      "p95": "P95 延迟",
+      "average": "平均 {{value}}",
+      "apdex": "Apdex",
+      "apdex_detail": "T = {{threshold}}"
+    },
+    "health": "服务健康",
+    "health_description": "各状态服务数随时间的变化",
+    "rankings": "服务排行",
+    "ranking": {
+      "slowest": "最慢（P95）",
+      "most_errors": "错误率最高",
+      "busiest": "流量最大",
+      "empty": "该时间范围内请求太少，无法排行。"
+    },
+    "alerts": "进行中的告警",
+    "alerts_loading": "正在读取告警…",
+    "alerts_denied": "没有查看告警的权限。",
+    "alerts_unavailable": "告警暂时读取不到。",
+    "no_alerts": "没有和服务相关的进行中告警。",
+    "deployments": "最近部署",
+    "deployments_description": "该时间范围内首次出现的版本",
+    "no_deployments": "该时间范围内没有新版本。",
+    "environments": "环境分布",
+    "no_environments": "该时间范围内没有服务。",
+    "environment_services_one": "{{count}} 个服务",
+    "environment_services_other": "{{count}} 个服务",
+    "instrumentation": "采集质量",
+    "no_sdks": "服务还没有上报 SDK 信息。",
+    "unknown": "未知",
+    "gap_one": "{{formatted}} 个服务",
+    "gap_other": "{{formatted}} 个服务",
+    "gap_attribute": "没有上报",
+    "gap_action": "查看 OpenTelemetry 接入指南"
   },
-  "services": {
-    "title": "服务",
-    "subtitle": "发现已插桩及独立上报的后端服务。",
-    "catalog": "服务目录",
-    "result_count": "{{count}} 个服务",
-    "detail_subtitle": "服务性能工作台",
-    "first_seen": "首次发现",
-    "instances": "近期实例",
-    "transactions_description": "该服务影响最大的入口事务。",
-    "dependencies_description": "该服务发起的下游调用。",
-    "errors_description": "影响该服务的脱敏后端错误分组。",
-    "navigation": "服务分析",
-    "nav": {
-      "overview": "概览",
-      "transactions": "事务",
-      "traces": "调用链",
-      "dependencies": "依赖",
-      "errors": "错误",
-      "runtime": "运行时",
-      "deployments": "部署"
+  "alerts": {
+    "active_one": "{{count}} 个告警",
+    "active_other": "{{count}} 个告警",
+    "new": "新建告警",
+    "related": "相关告警",
+    "kind": {
+      "threshold": "阈值告警",
+      "threshold_hint": "指标越过设定的阈值时告警",
+      "anomaly": "异常检测告警",
+      "anomaly_hint": "指标明显偏离过去几天同一时刻时告警"
     }
   },
-  "runtime": {
-    "title": "运行时与插桩",
-    "subtitle": "查看服务的运行时、OpenTelemetry SDK 和活跃实例。",
-    "description": "基于所选时间、环境和版本范围内最近观测到的服务资源属性。",
-    "language": "运行时语言",
-    "sdk": "Telemetry SDK",
-    "instances": "活跃实例"
-  },
-  "deployments": {
-    "title": "部署",
-    "subtitle": "通过部署版本标记和上下文对比分析性能变化。"
-  },
-  "transactions": {
-    "title": "事务",
-    "subtitle": "按流量、错误、延迟和总耗时分析服务入口。",
-    "detail_subtitle": "事务表示接口、任务和消息处理等可被独立分析的应用操作。",
-    "ranking": "事务排名",
-    "ranking_description": "百分位数由固定边界直方图合并计算。",
-    "result_count": "{{count}} 个事务",
-    "errors": "主要错误",
-    "errors_description": "当前事务关联的脱敏后端错误分组。",
-    "deployments": "关联部署",
-    "deployments_description": "查看该服务的已观测版本，并对比部署前后的性能变化。"
-  },
-  "dependencies": {
-    "title": "依赖",
-    "subtitle": "分析服务、数据库、缓存、消息、HTTP 和 RPC 下游调用聚合。",
-    "ranking": "依赖排名",
-    "topology": "依赖拓扑",
-    "safe_topology_description": "仅展示有界聚合标识；不会暴露原始目标地址或请求值。",
-    "result_count": "{{count}} 个依赖",
-    "caller": "调用方服务",
-    "views": {
-      "table": "表格",
-      "topology": "拓扑"
+  "slo": {
+    "title": "SLO",
+    "table": "服务等级目标",
+    "summary_one": "{{count}} 个 SLO",
+    "summary_other": "{{count}} 个 SLO",
+    "search": "搜索 SLO 或服务",
+    "all_states": "全部状态",
+    "new": "新建 SLO",
+    "empty": "还没有 SLO",
+    "empty_description": "为服务或端点设一个可用性或延迟目标，这里会显示达成率、剩余错误预算和消耗速度。",
+    "filtered_empty": "没有符合条件的 SLO。",
+    "removed": "已删除 SLO",
+    "edit": "编辑 SLO",
+    "remove": "删除 SLO",
+    "remove_title": "删除 SLO「{{name}}」？",
+    "remove_description": "只删除这个目标，APM 数据不受影响。",
+    "remove_with_alerts_one": "它的 {{count}} 条燃烧率告警会一起删除，APM 数据不受影响。",
+    "remove_with_alerts_other": "它的 {{count}} 条燃烧率告警会一起删除，APM 数据不受影响。",
+    "removing": "正在删除…",
+    "remove_watched": "仍有告警规则在监控这个 SLO，请先在「告警 → 告警规则」中删除。",
+    "service_title": "服务等级目标",
+    "service_empty": "这个服务还没有 SLO。",
+    "budget_left": "剩余预算 {{value}}",
+    "window_one": "{{count}} 天",
+    "window_other": "{{count}} 天",
+    "state": {
+      "healthy": "健康",
+      "at_risk": "有风险",
+      "breached": "已违约",
+      "no_data": "无数据"
+    },
+    "kind": {
+      "availability": "请求成功",
+      "latency": "成功且不超过阈值"
+    },
+    "target": {
+      "availability": "请求成功",
+      "latency": "成功且不超过 {{threshold}}"
+    },
+    "columns": {
+      "name": "SLO",
+      "target": "达标条件",
+      "objective": "目标",
+      "sli": "达成率",
+      "budget": "剩余预算",
+      "burn_1h": "1 小时燃烧",
+      "burn_6h": "6 小时燃烧",
+      "state": "状态"
+    },
+    "facts": {
+      "sli": "达成率",
+      "budget": "剩余错误预算",
+      "requests": "{{good}} / {{total}} 个请求达标"
+    },
+    "burn": {
+      "title": "错误预算消耗速度",
+      "description": "相对目标允许速度的倍数；1 小时超过 14.4 倍或 6 小时超过 6 倍即为有风险",
+      "one_hour": "1 小时",
+      "six_hours": "6 小时",
+      "one_day": "24 小时"
+    },
+    "history": {
+      "title": "每日达成情况",
+      "summary": "有请求的 {{count}} 天中 {{met}} 天达标",
+      "day": {
+        "met": "{{date}}：{{sli}}，达标",
+        "missed": "{{date}}：{{sli}}，未达标",
+        "no_data": "{{date}}：无请求"
+      }
+    },
+    "alerts": {
+      "create": "创建燃烧率告警",
+      "created_one": "已创建 {{count}} 条燃烧率告警",
+      "created_other": "已创建 {{count}} 条燃烧率告警",
+      "fast_name": "{{name}} 快速燃烧",
+      "slow_name": "{{name}} 慢速燃烧",
+      "description": "SLO「{{name}}」的错误预算消耗过快",
+      "title": "燃烧率告警",
+      "card_description": "监控这个 SLO 错误预算消耗速度的告警规则",
+      "none": "还没有告警监控这个 SLO。",
+      "rule": "{{window}}内超过 {{threshold}} 倍",
+      "off": "已停用",
+      "window_hours_one": "{{count}} 小时",
+      "window_hours_other": "{{count}} 小时",
+      "window_minutes_one": "{{count}} 分钟",
+      "window_minutes_other": "{{count}} 分钟"
+    },
+    "form": {
+      "new_title": "新建 SLO",
+      "edit_title": "编辑 SLO",
+      "description": "服务在一段滚动窗口内承诺的达标请求比例。",
+      "name": "名称",
+      "service": "服务",
+      "environment": "环境",
+      "endpoint": "端点",
+      "endpoint_hint": "不选则按整个服务计算",
+      "whole_service": "整个服务",
+      "kind": "达标条件",
+      "threshold": "延迟阈值（毫秒）",
+      "objective": "目标（%）",
+      "objective_hint": "例如 99.9",
+      "window": "窗口",
+      "notes": "说明",
+      "choose": "请选择",
+      "saved": "已保存 SLO"
     }
   },
-  "errors": {
-    "title": "后端错误",
-    "subtitle": "调查脱敏后的后端异常分组及其服务影响。",
-    "groups": "错误分组",
-    "groups_description": "消息与堆栈在持久化前已进行长度限制和脱敏。",
-    "result_count": "{{count}} 个错误分组",
-    "detail_title": "后端错误",
-    "detail_subtitle": "脱敏错误分组详情",
-    "first_seen": "首次发生",
-    "representative_stack": "代表性堆栈",
-    "sanitized_stack_description": "应用帧已规范化，敏感值已移除。",
-    "affected_transactions": "受影响事务",
-    "samples": "有限样本",
-    "no_samples": "该时间范围内没有保留样本。",
-    "no_stack": "未保留脱敏堆栈。"
+  "time": {
+    "compare": "对比",
+    "compare_off": "不对比",
+    "compare_day": "环比前一天",
+    "compare_week": "同比上周",
+    "compare_env": "对比 {{environment}} 环境",
+    "resolution": "分辨率",
+    "resolution_auto": "自动分辨率",
+    "resolution_minute": "按分钟",
+    "resolution_hour": "按小时"
   },
-  "versions": {
-    "title": "版本对比",
-    "subtitle": "通过 RED 指标的绝对值和相对值变化对比两个服务版本。",
-    "selection": "对比范围",
-    "selection_description": "选择一个服务、基准版本和不同的候选版本。",
-    "baseline": "基准版本",
-    "candidate": "候选版本",
-    "choose_version": "选择版本",
-    "configure_title": "选择要对比的版本",
-    "configure_description": "先输入服务筛选，再选择两个不同的已观测版本。",
-    "type_service_hint": "请在上方输入服务以加载已观测版本。",
-    "compare": "对比版本",
-    "observations": "次观测",
-    "sample_count": "{{count}} 个样本",
-    "deltas": "候选版本变化",
-    "data_confidence": "数据置信度",
-    "sufficient": "充足",
-    "insufficient": "不足",
-    "regressed_transactions": "回退事务",
-    "regressed_errors": "回退错误",
-    "no_transaction_regressions": "未发现事务回退。",
-    "no_error_regressions": "未发现错误回退。",
-    "status_sufficient": "两个版本均达到最小样本阈值。",
-    "status_insufficient": "在两个版本均达到样本阈值前，对比结果保持中性。",
-    "status": {
-      "insufficient_data": "数据不足",
-      "regressed": "候选版本出现回退",
-      "improved": "候选版本有所改善",
-      "neutral": "无显著变化"
+  "quality": {
+    "activation": "数据从此范围内开始",
+    "activation_title": "APM 数据从当前范围内开始",
+    "activation_description": "投影于 {{time}} 启动，更早的数据不可用。",
+    "stale": "数据延迟",
+    "stale_title": "APM 聚合存在延迟",
+    "stale_description": "最新完整时间桶截至 {{time}}。投影追赶期间仍展示已有数据。",
+    "partial": "数据不完整",
+    "partial_title": "APM 数据不完整",
+    "partial_description_one": "{{count}} 个投影缺口影响当前范围。数值仍可参考，但可能低于实际流量。",
+    "partial_description_other": "{{count}} 个投影缺口影响当前范围。数值仍可参考，但可能低于实际流量。",
+    "overflow": "部分名称计入「其他」",
+    "overflow_title": "名称超出基数上限",
+    "overflow_description": "超出上限的名称会合并计入名为「其他」的一行，总量仍然完整。",
+    "overflow_dimensions": "计入「其他」的维度",
+    "complete_through": "完整数据截至 {{time}}",
+    "dimension": {
+      "service": "服务",
+      "transaction": "端点",
+      "dependency": "依赖",
+      "error": "错误"
     }
-  },
-  "metrics": {
-    "requests": "请求数",
-    "throughput": "请求吞吐量",
-    "total_requests": "共 {{count}} 次请求",
-    "errors": "错误数",
-    "error_rate": "错误率",
-    "p50": "P50 延迟",
-    "p95": "P95 延迟",
-    "p99": "P99 延迟",
-    "average": "平均延迟",
-    "duration": "请求耗时",
-    "in_window": "所选时间范围",
-    "merged_histogram": "合并直方图"
-  },
-  "trend": {
-    "title": "应用趋势",
-    "throughput": "吞吐量",
-    "latency": "延迟",
-    "error_rate": "错误率",
-    "metric_selector": "趋势指标",
-    "throughput_subtitle": "按聚合桶归一化后的每秒请求数。",
-    "latency_subtitle": "P50、P95 与 P99 延迟分位数。",
-    "error_rate_subtitle": "每个聚合桶内的请求错误率。",
-    "buckets": "个时间桶",
-    "throughput_aria": "请求吞吐量趋势",
-    "latency_aria": "请求延迟趋势",
-    "error_rate_aria": "请求错误率趋势"
   },
   "health": {
-    "title": "服务健康状态",
-    "healthy": "健康",
-    "warning": "警告",
     "critical": "严重",
-    "no_traffic": "无流量"
+    "warning": "警告",
+    "healthy": "健康",
+    "no_traffic": "无流量",
+    "with_reasons": "{{health}}：{{reasons}}",
+    "reason_separator": "；",
+    "reason": {
+      "error_rate": "错误率 {{value}}，达到 {{threshold}}",
+      "p95": "P95 {{value}}，达到 {{threshold}}"
+    }
   },
-  "pulse": {
-    "eyebrow": "服务健康",
-    "verdict": {
-      "critical_one": "{{count}} 个服务处于严重状态",
-      "critical_other": "{{count}} 个服务处于严重状态",
-      "warning_one": "{{count}} 个服务需要关注",
-      "warning_other": "{{count}} 个服务需要关注",
-      "healthy": "所有服务运行正常",
-      "idle": "当前时间范围内没有流量"
-    },
-    "detail": "{{total}} 个服务中 {{healthy}} 个健康",
-    "distribution": "服务健康分布"
+  "actions": {
+    "cancel": "取消",
+    "save": "保存",
+    "retry": "重试",
+    "see_all": "查看全部",
+    "previous": "上一页",
+    "next": "下一页"
+  },
+  "states": {
+    "empty": "该时间范围内没有数据",
+    "activation_empty": "尚无 APM 数据",
+    "activation_empty_description": "发送后端 Trace 后即可开始生成采样前的应用聚合。"
   },
   "first_run": {
     "eyebrow": "应用性能",
@@ -200,135 +252,976 @@
       }
     }
   },
-  "quality": {
-    "activation_title": "APM 数据从当前窗口内开始",
-    "activation_description": "投影于 {{time}} 启动，更早的数据不可用。",
-    "partial_title": "APM 数据不完整",
-    "partial_description": "{{count}} 个投影缺口影响当前窗口。聚合仍可用，但可能低于实际流量。",
-    "partial_unknown_description": "当前窗口内部分 APM 聚合不完整。现有数值仍可参考，但可能低于实际流量。",
-    "overflow_title": "APM 基数已截断",
-    "overflow_description": "当前窗口有 {{count}} 组高基数维度达到上限；总量数据仍然可用。",
-    "stale_title": "APM 聚合存在延迟",
-    "stale_description": "最新完整时间桶截至 {{time}}。投影追赶期间仍会展示现有数据。",
-    "overflow": "基数溢出",
-    "complete_through": "完整数据截至 {{time}}",
-    "view_details": "查看缺失数据",
-    "check_collection": "检查采集配置",
-    "dismiss": "暂时忽略",
-    "impact_description": "吞吐量、错误率、延迟趋势及影响排名可能低于实际值；已有聚合仍可用于定位方向。",
-    "unavailable_range": "投影启动前缺失",
-    "delayed_range": "尚未完成聚合",
-    "dropped_facts": "丢失 {{count}} 条 Span 事实",
-    "reasons": {
-      "queue_full": "投影队列已满",
-      "repository_unavailable": "聚合存储不可用",
-      "flush_failed": "聚合写入失败",
-      "late_dropped": "迟到数据超过宽限期",
-      "cardinality_rejected": "维度基数超限",
-      "shutdown_timeout": "关闭时投影超时"
-    }
-  },
-  "filters": {
-    "search": "搜索",
-    "namespace": "命名空间",
-    "service": "服务",
-    "environment": "环境",
-    "version": "版本",
-    "category": "类别",
-    "all_categories": "全部类别",
-    "resolution": "分辨率",
-    "resolution_auto": "自动分辨率",
-    "resolution_minute": "分钟",
-    "resolution_hour": "小时",
-    "sort": "排序",
-    "direction": "方向",
-    "clear": "清除筛选"
-  },
-  "sort": {
-    "name": "名称",
-    "total_time": "总耗时",
-    "requests": "请求数",
-    "error_rate": "错误率",
-    "p95": "P95 延迟",
-    "descending": "降序",
-    "ascending": "升序"
+  "drawer": {
+    "close": "关闭",
+    "resize": "调整抽屉宽度",
+    "trail": "打开自",
+    "back_to": "回到 {{name}}"
   },
   "columns": {
-    "service": "服务",
-    "caller": "调用方",
-    "transaction": "事务",
-    "kind": "类型",
-    "target": "目标",
-    "category": "类别",
-    "operation": "操作",
-    "instrumentation": "插桩信息",
-    "versions": "版本",
+    "title": "列设置",
+    "visible": "显示的列",
+    "reorder_hint": "拖动或 Alt + ↑↓",
+    "drag_aria": "{{name}}：拖动，或按 Alt 加方向键移动",
+    "reset": "恢复默认列",
+    "available": "添加列"
+  },
+  "catalog": {
+    "table": "服务",
+    "search": "搜索服务",
+    "environment": "环境",
+    "all_environments": "全部环境",
+    "team": "团队",
+    "all_teams": "全部团队",
+    "declare": "登记服务",
+    "more": "加载更多服务",
+    "not_reporting": "未上报",
+    "filtered_empty": "没有匹配的服务",
+    "filtered_empty_description": "请修改搜索或筛选条件。",
+    "summary": {
+      "services_one": "{{count}} 个服务",
+      "services_other": "{{count}} 个服务",
+      "throughput": "吞吐",
+      "error_rate": "错误率"
+    },
+    "columns": {
+      "service": "服务",
+      "environment": "环境",
+      "type": "服务类型",
+      "team": "团队",
+      "owner": "负责人",
+      "on_call": "值班",
+      "tier": "等级",
+      "alerts": "告警",
+      "lifecycle": "生命周期",
+      "language": "语言 / 框架",
+      "throughput": "吞吐",
+      "error_rate": "错误率",
+      "p50": "P50",
+      "p90": "P90",
+      "p95": "P95",
+      "p99": "P99",
+      "average": "平均耗时",
+      "apdex": "Apdex",
+      "instances": "实例",
+      "region": "区域",
+      "version": "版本",
+      "last_deploy": "最近部署",
+      "tags": "标签",
+      "last_seen": "最后活跃",
+      "favorite": "收藏"
+    },
+    "favorite": "收藏 {{name}}",
+    "unfavorite": "取消收藏 {{name}}",
+    "favorites_one": "收藏 {{count}}",
+    "favorites_other": "收藏 {{count}}",
+    "archived": "已归档",
+    "inactive": "未活跃",
+    "namespace": "命名空间",
+    "all_namespaces": "全部命名空间",
+    "tag": "标签",
+    "all_tags": "全部标签",
+    "show_archived_one": "已归档 {{count}}",
+    "show_archived_other": "已归档 {{count}}",
+    "group": {
+      "label": "分组",
+      "off": "不分组",
+      "by": {
+        "team": "团队",
+        "namespace": "命名空间",
+        "tier": "等级"
+      },
+      "by_tag": "标签 {{tag}}",
+      "none": {
+        "team": "未设团队",
+        "namespace": "无命名空间",
+        "tier": "未设等级",
+        "tag": "没有标签 {{tag}}"
+      }
+    },
+    "missing": "缺少{{fields}}",
+    "missing_and": "、",
+    "missing_fields": {
+      "team": "团队",
+      "owner": "负责人",
+      "repository": "代码仓库"
+    },
+    "missing_hint": "APM 设置里的服务目录要求，对这个等级要求填写"
+  },
+  "definition": {
+    "title": "描述 {{name}}",
+    "declare_title": "登记服务",
+    "description": "服务归谁负责、有多重要。负责人取自本组织的团队和成员。",
+    "fields": {
+      "name": "服务名",
+      "namespace": "命名空间",
+      "namespace_hint": "即 service.namespace；留空时与服务名相同。",
+      "team": "负责团队",
+      "owner": "负责人",
+      "owner_hint": "对这个服务负责的人。",
+      "tier": "等级",
+      "lifecycle": "生命周期",
+      "repository": "代码仓库",
+      "repository_hint": "https 地址或 git 地址，例如 git@github.com:acme/checkout.git；地址中的密码保存为 ****。服务没有上报 vcs.repository.url.full 时使用",
+      "description": "职责",
+      "tags": "标签",
+      "tags_hint": "key=value，或只写 key；用逗号分隔。key 只用小写字母、数字和 _ . - /",
+      "apdex": "Apdex 阈值 T（毫秒）",
+      "apdex_hint": "不超过 T 的请求算满意，不超过 4T 算可容忍；留空使用默认的 500 毫秒"
+    },
+    "none": "无",
+    "docs_hint": "文档和 Runbook 放在 Mole Agent 知识库的 {{path}} 下，Mole Agent 排查时也会读到。",
+    "remove": "删除描述",
+    "saved": "服务描述已保存",
+    "removed": "服务描述已删除",
+    "edit": "编辑负责人",
+    "declare_owner": "设置负责人",
+    "on_call": "值班",
+    "tier": {
+      "p0": "P0",
+      "p1": "P1",
+      "p2": "P2",
+      "p3": "P3",
+      "p4": "P4",
+      "p5": "P5"
+    },
+    "lifecycle": {
+      "production": "生产",
+      "staging": "预发",
+      "experimental": "试验",
+      "deprecated": "已弃用"
+    },
+    "tags_problem": {
+      "key": "标签 key「{{tag}}」只能用小写字母、数字和 _ . - /，最长 64 个字符",
+      "value": "标签 {{tag}} 的值最长 128 个字符",
+      "too_many": "一个服务最多 32 个标签",
+      "twice": "标签 {{tag}} 写了两次"
+    },
+    "apdex_problem": "请填写大于 0、不超过 60000 的毫秒数",
+    "archive": "归档",
+    "unarchive": "取消归档",
+    "archive_hint": "归档后，服务目录默认不显示这个服务；数据照常采集",
+    "unarchive_hint": "让这个服务回到服务目录",
+    "archived": "已归档",
+    "unarchived": "已取消归档",
+    "repository_problem": "请填写 http、https、ssh 或 git 地址，或 git@主机:路径 形式的地址，不含空格"
+  },
+  "docs": {
+    "title": "文档",
+    "where": "知识库 {{folder}}",
+    "none": "这个服务还没有文档。",
+    "team": "团队",
+    "start_runbook": "新建 Runbook",
+    "runbook_template": "# {{name}} 运维手册\n\n## 服务职责\n\n## 负责人与升级路径\n\n## 常见告警与处置\n\n## 仪表盘与链接\n"
+  },
+  "service": {
+    "navigation": "服务分区",
+    "environment": "环境",
     "version": "版本",
-    "requests": "请求数",
-    "error": "错误",
-    "message": "消息",
-    "occurrences": "发生次数",
+    "all_versions": "全部版本",
+    "sections": {
+      "overview": "概览",
+      "endpoints": "端点",
+      "traces": "调用链",
+      "dependencies": "依赖",
+      "errors": "错误",
+      "deployments": "部署",
+      "runtime": "运行时",
+      "settings": "设置"
+    },
+    "related": {
+      "logs": "日志",
+      "metrics": "指标",
+      "profiles": "Profiles",
+      "rum": "RUM"
+    },
+    "facts": {
+      "no_data": "该时间范围内无数据",
+      "last_seen": "最后上报于{{when}}",
+      "system": "所属系统",
+      "environment": "环境",
+      "type": "服务类型",
+      "kinds": {
+        "http": "HTTP",
+        "rpc": "RPC",
+        "messaging": "消息消费",
+        "span": "后台任务"
+      },
+      "stack": "语言 / 框架",
+      "version": "版本",
+      "commit": "提交 {{commit}}",
+      "team": "负责团队",
+      "instances_one": "{{count}} 个实例",
+      "instances_other": "{{count}} 个实例",
+      "deployed_label": "最近部署",
+      "deployed": "{{when}}部署",
+      "region": "部署区域",
+      "repository": "代码仓库"
+    },
+    "coverage": {
+      "missing": {
+        "logs": "最近一天没有收到该服务的日志，点击查看接入方式",
+        "metrics": "最近一小时没有该服务的指标，点击查看接入方式",
+        "profiles": "最近一天没有该服务的 Profile，点击查看接入方式"
+      },
+      "reported": {
+        "logs": "日志所在的流：{{found}}",
+        "metrics": "最近一小时有 {{found}} 条该服务的指标序列",
+        "profiles": "已上报的 Profile 类型：{{found}}",
+        "rum": "该服务的调用链里有来自浏览器会话的请求，点击查看其中一个会话"
+      }
+    },
+    "favorite": "收藏",
+    "favorited": "已收藏"
+  },
+  "charts": {
+    "requests": "请求",
     "error_rate": "错误率",
-    "p95": "P95",
-    "total_time": "总耗时",
-    "last_seen": "最近发生"
+    "latency": "延迟",
+    "ok": "成功",
+    "errors": "失败",
+    "previous": "对比期",
+    "compared_env": "{{environment}} 环境",
+    "distribution": "延迟分布",
+    "distribution_row": "{{range}}：{{count}} 个请求，占 {{share}}；累计 {{below}}",
+    "distribution_previous": "虚线：对比期的分布",
+    "distribution_compared": "虚线：{{what}}",
+    "no_distribution": "该时间范围内没有请求。",
+    "apdex_threshold": "（T = {{threshold}}）"
   },
-  "actions": {
-    "view_all": "查看全部",
-    "explore": "分析",
-    "open_service_workbench": "打开服务工作台",
-    "retry": "重试",
-    "pagination": "APM 列表分页",
-    "page_size": "每页条数",
-    "previous_page": "上一页",
-    "next_page": "下一页",
-    "open_trace": "打开 Trace",
-    "filtered_traces": "筛选后的 Trace",
-    "related_logs": "相关日志"
+  "overview": {
+    "downstream": "下游耗时",
+    "downstream_description": "服务等待各依赖的时间占比",
+    "no_downstream": "该时间范围内没有下游调用。",
+    "top_endpoints": "耗时最多的端点",
+    "no_endpoints": "该时间范围内没有端点。",
+    "top_errors": "最常见的错误",
+    "no_errors": "该时间范围内没有后端错误。"
   },
-  "states": {
-    "activation_empty": "尚无 APM 数据",
-    "activation_empty_description": "发送后端 Trace 后即可开始生成采样前应用聚合。",
-    "filtered_empty": "没有符合当前筛选条件的结果",
-    "filtered_empty_description": "请修改或清除服务、环境、版本或搜索筛选。",
-    "refreshing": "正在刷新",
-    "no_trend": "没有趋势数据",
-    "no_services": "没有服务",
-    "no_transactions": "没有事务",
-    "no_dependencies": "没有依赖",
-    "no_errors": "没有后端错误",
-    "no_versions": "没有已观测版本",
-    "no_traces": "当前窗口没有保留代表性调用链。"
+  "overflow": {
+    "other": "其他",
+    "other_hint": "超出基数上限的名称，合并计入这一行。"
   },
-  "signals": {
-    "traces": "链路",
-    "logs": "日志",
-    "metrics": "指标",
-    "profiles": "Profiles"
+  "endpoints": {
+    "search": "搜索端点",
+    "kind_filter": "类型",
+    "kinds": {
+      "all": "全部类型",
+      "http": "HTTP",
+      "rpc": "RPC",
+      "messaging": "消息",
+      "span": "后台任务"
+    },
+    "kind": {
+      "http": "HTTP",
+      "rpc": "RPC",
+      "messaging": "MQ",
+      "span": "后台任务",
+      "other": "其他"
+    },
+    "count_one": "{{count}} 个端点",
+    "count_other": "{{count}} 个端点",
+    "empty": "没有匹配的端点。",
+    "table": "端点",
+    "columns": {
+      "kind": "类型",
+      "endpoint": "端点",
+      "requests": "请求数",
+      "throughput": "吞吐",
+      "error_rate": "错误率",
+      "p50": "P50",
+      "p90": "P90",
+      "p95": "P95",
+      "p99": "P99",
+      "average": "平均耗时",
+      "apdex": "Apdex",
+      "total_time": "耗时占比"
+    },
+    "key": "关键事务",
+    "key_only_one": "关键事务 {{count}}",
+    "key_only_other": "关键事务 {{count}}",
+    "long_tasks_one": "长任务 {{count}}",
+    "long_tasks_other": "长任务 {{count}}",
+    "long_tasks_hint": "P99 达到 {{threshold}} 及以上的端点",
+    "mark_key": "将 {{name}} 设为关键事务",
+    "unmark_key": "取消关键事务 {{name}}"
   },
-  "dependency_categories": {
-    "service": "服务",
-    "database": "数据库",
-    "cache": "缓存",
-    "messaging": "消息",
-    "external_http": "外部 HTTP",
-    "external_rpc": "外部 RPC",
-    "other": "其他"
+  "endpoint": {
+    "errors": "错误",
+    "no_errors": "这个端点没有错误。",
+    "versions": "版本",
+    "no_versions": "没有观测到版本。",
+    "summary": "{{requests}} 个请求 · 失败 {{rate}} · P95 {{p95}}",
+    "slow_requests": "最慢的请求",
+    "slow_requests_description": "取自 Trace 存储，点击打开调用链",
+    "in_traces": "在 Traces 中查看",
+    "other_has_no_requests": "「其他」合并了多个端点，请打开其中一个端点查看请求。",
+    "no_requests": "该时间范围内没有保留这个端点的请求。",
+    "status": {
+      "title": "状态码",
+      "description": "按状态码统计的响应，含 HTTP 和 gRPC",
+      "none": "该时间范围内没有统计到状态码。",
+      "row": "{{status}}：{{count}} 个响应，占 {{share}}",
+      "other": "其他 {{protocol}}",
+      "trend": "状态码趋势",
+      "classes": {
+        "1xx": "1xx",
+        "2xx": "2xx",
+        "3xx": "3xx",
+        "4xx": "4xx",
+        "5xx": "5xx",
+        "grpc_ok": "gRPC 成功",
+        "grpc_error": "gRPC 错误",
+        "other": "其他"
+      }
+    },
+    "time_spent": {
+      "title": "耗时拆解",
+      "description_one": "取自 Trace 存储中最近的一个请求",
+      "description_other": "取自 Trace 存储中最近的 {{count}} 个请求",
+      "about": "取自 Trace 存储中最近的请求，最多 200 个",
+      "none": "该时间范围内没有保留这个端点的请求。",
+      "unavailable": "Trace 存储未能及时返回，请缩短时间范围后重试。",
+      "row": "{{part}}：占 {{share}}，每个请求 {{each}}",
+      "each": "每请求 {{time}}",
+      "parts": {
+        "own": "自身耗时",
+        "database": "数据库",
+        "cache": "缓存",
+        "http": "HTTP 调用",
+        "rpc": "RPC 调用",
+        "messaging": "消息",
+        "internal": "内部处理",
+        "other": "其他"
+      }
+    }
   },
-  "transaction_kinds": {
-    "http": "HTTP 接口",
-    "rpc": "RPC 方法",
-    "messaging": "消息处理",
-    "span": "后台任务",
-    "other": "其他"
+  "traces": {
+    "title": "调用链",
+    "description": "这个服务参与的 Trace",
+    "open_explorer": "在 Traces 中打开",
+    "empty": "该时间范围内没有这个服务的 Trace。"
   },
-  "exemplars": {
-    "title": "Trace 样本",
-    "description": "Trace 流水线保留的代表性慢请求。",
-    "unavailable": "Trace 未保留"
+  "dependencies": {
+    "map": "上下游",
+    "map_description": "调用这个服务的服务，以及它调用的服务",
+    "map_empty": "该时间范围内没有服务之间的调用。",
+    "upstream": "上游调用方",
+    "upstream_description": "调用的错误率和 P95",
+    "no_upstream": "该时间范围内没有服务调用它。",
+    "downstream": "下游调用",
+    "downstream_description": "按目标分组，操作列在目标下",
+    "no_downstream": "该时间范围内没有下游调用。",
+    "columns": {
+      "target": "目标",
+      "category": "类型",
+      "requests": "请求数",
+      "error_rate": "错误率",
+      "p95": "P95",
+      "health": "健康",
+      "change": "对比"
+    },
+    "operations_one": "{{count}} 个操作",
+    "operations_other": "{{count}} 个操作",
+    "no_operation": "无操作名",
+    "category": {
+      "service": "服务",
+      "database": "数据库",
+      "cache": "缓存",
+      "messaging": "消息",
+      "external_http": "HTTP",
+      "external_rpc": "RPC",
+      "other": "其他"
+    },
+    "timeouts_one": "超时 {{count}}",
+    "timeouts_other": "超时 {{count}}",
+    "retries_one": "重试 {{count}}",
+    "retries_other": "重试 {{count}}",
+    "slowest_operation": "最慢操作的 P95",
+    "score": {
+      "errors": "调用失败扣 {{points}} 分",
+      "timeouts": "调用超时扣 {{points}} 分",
+      "latency": "P95 变慢扣 {{points}} 分",
+      "none": "没有扣分"
+    },
+    "slow_sql": "慢 SQL",
+    "slow_sql_description": "按 P95 排列的数据库语句模板，字面量已替换为 ?",
+    "new_target": "新出现"
   },
-  "values": {
-    "unknown": "未知",
-    "no_message": "无代表性消息"
+  "deployments": {
+    "timeline": "发布时间线",
+    "report": "上报发布",
+    "none": "该时间范围内没有发布，也没有观测到版本。",
+    "current": "当前",
+    "columns": {
+      "time": "时间",
+      "version": "版本",
+      "event": "事件",
+      "change": "变更",
+      "requests": "请求数",
+      "error_rate": "错误率",
+      "p95": "P95",
+      "verdict": "对比上一版本"
+    },
+    "kind": {
+      "deployed": "发布",
+      "failed": "发布失败",
+      "rolled_back": "回滚",
+      "returned": "退回",
+      "first_seen": "首次出现",
+      "configuration": "配置变更",
+      "feature_flag": "功能开关"
+    },
+    "from": "自 {{version}}",
+    "pull_request": "PR",
+    "ci_run": "CI 运行",
+    "compare": "对比两个版本",
+    "baseline": "从",
+    "candidate": "到",
+    "regressed_endpoints": "变慢的端点",
+    "regressed_errors": "增多的错误",
+    "none_regressed": "没有",
+    "status": {
+      "insufficient_data": "请求不足",
+      "regressed": "变差",
+      "improved": "变好",
+      "neutral": "无明显变化"
+    },
+    "verdict_title": "对比 {{previous}}：错误率 {{rate}}，P95 {{p95}}",
+    "worse": {
+      "error_rate": "错误率 {{delta}}",
+      "latency": "P95 {{delta}}"
+    },
+    "delta": {
+      "requests": "请求数",
+      "error_rate": "错误率",
+      "p95": "P95"
+    },
+    "insufficient": "其中一个版本的请求太少，无法判断。",
+    "canary": {
+      "title": "{{candidate}} 与 {{baseline}} 同时在跑",
+      "since": "自{{since}}起",
+      "share": "新版本承接 {{share}} 的流量",
+      "figures": "两个版本并排对比",
+      "rows": {
+        "requests": "请求数",
+        "error_rate": "错误率",
+        "p50": "P50",
+        "p95": "P95",
+        "p99": "P99"
+      }
+    }
+  },
+  "errors": {
+    "title": "错误分组",
+    "table": "错误分组",
+    "search": "搜索错误",
+    "status": "状态",
+    "status_filter": "显示",
+    "assignee": "处理人",
+    "unassigned": "未指派",
+    "team": "团队",
+    "no_team": "未指派团队",
+    "saved": "错误分组已更新",
+    "count_one": "{{count}} 个分组",
+    "count_other": "{{count}} 个分组",
+    "none": "该时间范围内没有错误分组",
+    "none_open": "该时间范围内没有待处理的错误分组",
+    "none_description": "后端 Span 的错误会按类型和抛出位置分组显示在这里。",
+    "filter": {
+      "all": "全部分组",
+      "unresolved": "待处理",
+      "investigating": "调查中",
+      "resolved": "已解决",
+      "ignored": "已忽略"
+    },
+    "set": {
+      "open": "待处理",
+      "investigating": "调查中",
+      "resolved": "已解决",
+      "ignored": "忽略"
+    },
+    "state": {
+      "open": "待处理",
+      "investigating": "调查中",
+      "regressed": "回归",
+      "resolved": "已解决",
+      "ignored": "已忽略"
+    },
+    "columns": {
+      "error": "错误",
+      "service": "服务",
+      "state": "状态",
+      "assignee": "处理人",
+      "occurrences": "次数",
+      "last_seen": "最近出现",
+      "first_seen": "首次出现"
+    },
+    "facts": {
+      "occurrences": "次数",
+      "first_seen": "首次出现",
+      "last_seen": "最近出现",
+      "versions": "版本"
+    },
+    "trend": "出现次数",
+    "stack": "抛出位置",
+    "endpoints": "端点",
+    "no_endpoints": "没有记录端点。",
+    "samples": "样本",
+    "samples_description": "点击打开调用链（如果保留了）",
+    "no_samples": "没有保留样本。",
+    "logs": "相关日志",
+    "sample_logs": "日志",
+    "breakdown": {
+      "title": "分布",
+      "listed": "所列分组的出现次数",
+      "versions": "版本",
+      "environments": "环境",
+      "languages": "语言",
+      "unknown": "未上报",
+      "none": "没有",
+      "row": "{{value}}：{{count}} 次，占 {{share}}"
+    },
+    "rules": {
+      "open": "聚合规则",
+      "title": "错误聚合规则",
+      "new": "新建规则",
+      "new_title": "新建聚合规则",
+      "edit_title": "编辑聚合规则",
+      "description": "规则按顺序匹配之后出现的错误，第一条匹配的生效：合并为每个服务一组，或不再成组（请求仍计为失败）。保存后半分钟内在所有节点生效。",
+      "none": "还没有聚合规则。",
+      "action": {
+        "merge": "合并",
+        "ignore": "忽略"
+      },
+      "action_long": {
+        "merge": "合并为一组",
+        "ignore": "不再成组"
+      },
+      "disabled": "已停用",
+      "every_service": "全部服务",
+      "fields": {
+        "name": "名称",
+        "name_hint": "合并后的分组以此命名。",
+        "action": "动作",
+        "service": "服务",
+        "error_type": "错误类型",
+        "message": "错误消息",
+        "frame": "抛出位置",
+        "endpoint": "端点",
+        "enabled": "启用"
+      },
+      "placeholder": {
+        "error_type": "*TimeoutException",
+        "message": "*connection reset*",
+        "frame": "com.shop.client.*",
+        "endpoint": "GET /orders/*"
+      },
+      "patterns_hint": "每项匹配整段文字，不区分大小写，* 代表任意文字；留空表示不限。至少填写一项。",
+      "preview_one": "所列分组中有 {{count}} 个符合这条规则。已有分组不变，规则只对之后出现的错误生效。",
+      "preview_other": "所列分组中有 {{count}} 个符合这条规则。已有分组不变，规则只对之后出现的错误生效。",
+      "pattern": {
+        "error_type": "类型 {{pattern}}",
+        "message": "消息 {{pattern}}",
+        "frame": "位置 {{pattern}}",
+        "endpoint": "端点 {{pattern}}"
+      },
+      "move_up": "上移 {{name}}",
+      "move_down": "下移 {{name}}",
+      "edit": "编辑 {{name}}",
+      "remove": "删除 {{name}}",
+      "remove_title": "删除规则「{{name}}」？",
+      "remove_description": "之后出现的错误不再按这条规则分组，它已合并出的分组保留。",
+      "remove_confirm": "删除",
+      "removing": "正在删除…",
+      "saved": "规则已保存",
+      "removed": "规则已删除",
+      "from_error": "按此错误建规则"
+    }
+  },
+  "runtime": {
+    "language": "语言",
+    "sdk": "SDK",
+    "instances": "近期实例",
+    "none_title": "这个服务还没有运行时指标",
+    "none_description": "服务带上 service.name 上报运行时指标后，这里会按语言显示图表：进程，以及 JVM、Go、Node.js、.NET、Python、Ruby、PHP、Rust（Tokio）、Erlang / Elixir 的运行时。支持 OpenTelemetry 语义约定和各语言常用的 Prometheus 客户端。",
+    "none_action": "用 OpenTelemetry 上报指标",
+    "chart_empty": "该时间范围内没有数值。",
+    "charts": {
+      "cpu": "CPU 使用率",
+      "memory": "内存",
+      "threads": "线程",
+      "file_descriptors": "打开的文件句柄",
+      "heap": "堆内存",
+      "non_heap": "非堆内存",
+      "gc_time": "GC 耗时（每秒）",
+      "gc_count": "GC 次数（每秒）",
+      "classes": "已加载的类",
+      "goroutines": "Goroutine",
+      "scheduler": "调度延迟",
+      "event_loop_delay": "事件循环延迟 P99",
+      "event_loop_utilization": "事件循环利用率",
+      "thread_pool_queue": "线程池队列",
+      "exceptions": "异常（每秒）",
+      "heap_slots": "堆存活槽位",
+      "allocations": "对象分配（每秒）",
+      "workers": "工作进程 / 线程",
+      "queue": "等待队列",
+      "slow_requests": "慢请求（每秒）",
+      "opcache": "OPcache 内存",
+      "tasks": "活跃任务 / 句柄",
+      "busy": "繁忙时间（每秒）",
+      "processes": "Erlang 进程",
+      "run_queue": "运行队列",
+      "reductions": "Reductions（每秒）"
+    },
+    "instance": "实例",
+    "all_instances": "全部实例",
+    "each_instance": "每条线是一个实例",
+    "one_instance": "只显示所选实例",
+    "families": {
+      "process": "进程",
+      "jvm": "JVM",
+      "go": "Go",
+      "nodejs": "Node.js",
+      "dotnet": ".NET",
+      "python": "Python",
+      "ruby": "Ruby",
+      "php": "PHP",
+      "rust": "Rust / Tokio",
+      "beam": "Erlang / Elixir（BEAM）"
+    },
+    "profile": {
+      "title": "Profiling",
+      "description": "该时间范围内服务的 Profile 合并成的火焰图，一次看一种类型",
+      "open": "在 Profiles 中打开",
+      "none": "该时间范围内这个服务没有 Profile",
+      "none_description": "接入持续剖析后，这里会显示 CPU、墙钟、内存分配、堆、锁等火焰图。",
+      "types": "Profile 类型",
+      "empty": "这种类型在该时间范围内没有样本"
+    }
+  },
+  "map": {
+    "not_in_apm": "{{name}} 不在 APM 当前时间范围内看到的服务中。",
+    "namespace": "命名空间",
+    "all_namespaces": "全部命名空间",
+    "search": "查找节点",
+    "clear_search": "清除",
+    "fold": "按命名空间折叠",
+    "unfold": "展开命名空间",
+    "critical": "关键链路",
+    "change": {
+      "new": "新增",
+      "gone": "已消失"
+    },
+    "group_figures_one": "{{count}} 个服务",
+    "group_figures_other": "{{count}} 个服务",
+    "none": "该时间范围内没有调用",
+    "none_description": "服务的 span 到达 MoleSignal 后会出现在这里；当一个 span 的父 span 属于另一个服务时，会画出它们之间的调用。",
+    "truncated": "只画出了最繁忙的节点。",
+    "reach": "上游 {{callers}} 个 · 下游 {{callees}} 个",
+    "open_service": "打开服务",
+    "close_chosen": "关闭",
+    "kind": {
+      "service": "服务",
+      "external": "被调用方",
+      "topic": "Topic",
+      "group": "命名空间"
+    },
+    "category": {
+      "service": "未上报数据的服务",
+      "database": "数据库",
+      "cache": "缓存",
+      "messaging": "消息系统",
+      "external_http": "外部 HTTP",
+      "external_rpc": "外部 RPC",
+      "other": "其他"
+    },
+    "call": {
+      "title": "调用",
+      "requests": "请求数",
+      "error_rate": "错误率",
+      "kinds": {
+        "call": "调用",
+        "publish": "发布到 Topic",
+        "consume": "从 Topic 消费"
+      },
+      "operations": "沿这条调用的操作",
+      "endpoints": "被调服务的端点",
+      "every_caller": "包含所有调用方的请求",
+      "no_operations": "没有记录到操作。",
+      "unnamed": "未命名",
+      "errors": "{{service}} 的错误",
+      "wait": {
+        "title": "在 Topic 中的等待时间",
+        "about": "取自 Trace 存储中最近的消费，最多 200 次",
+        "description": "最近 {{count}} 次消费中有 {{matched}} 次找到了对应的发布",
+        "p50": "P50",
+        "p95": "P95",
+        "max": "最长",
+        "none": "没有消费能对应到发布：需要 span 带 links 或父 span。",
+        "unavailable": "Trace 存储未能及时返回，请缩短时间范围后重试。"
+      }
+    },
+    "calls": "调用",
+    "calls_out": "调用",
+    "calls_in": "被调用",
+    "gone_figures": "上一时段之后没有调用"
+  },
+  "pagination": {
+    "aria": "列表分页",
+    "page_summary": "{{page}} / {{pages}}",
+    "page_size_aria": "每页行数",
+    "first_aria": "第一页",
+    "previous_aria": "上一页",
+    "next_aria": "下一页",
+    "last_aria": "最后一页"
+  },
+  "settings": {
+    "catalog": "服务目录",
+    "catalog_description": "由人维护；遥测没有上报时使用",
+    "reported": {
+      "title": "服务上报的信息",
+      "description": "当前时间范围和版本下，实例上报的内容",
+      "instances": "实例数",
+      "hosts": "主机数",
+      "language": "语言",
+      "runtime": "运行时",
+      "framework": "框架",
+      "sdk": "SDK",
+      "cluster": "集群",
+      "k8s_namespace": "K8s 命名空间",
+      "workload": "工作负载",
+      "commit": "提交",
+      "none": "未上报"
+    },
+    "key_transactions": {
+      "title": "关键事务",
+      "description": "最重要的端点，在端点列表或端点详情里标星",
+      "empty": "还没有关键事务。在端点列表里点星标即可添加。",
+      "no_traffic": "当前时间范围内没有请求"
+    }
+  },
+  "org_settings": {
+    "save": "保存",
+    "reset": "撤销修改",
+    "remove": "删除",
+    "saved": "设置已保存",
+    "thresholds": {
+      "title": "健康判定与阈值",
+      "hint": "健康状态、Apdex 和长任务按这些线判定",
+      "error_rate": "错误率",
+      "warning": "警告",
+      "critical": "严重",
+      "apdex": "默认 Apdex",
+      "apdex_hint": "服务定义里没有设置 T 时使用",
+      "long_task": "长任务",
+      "issues": {
+        "error_rates": "警告错误率要大于 0、小于严重错误率，严重错误率最多 100%。",
+        "p95": "警告 P95 要大于 0、小于严重 P95，严重 P95 最多 10 分钟。",
+        "apdex": "Apdex T 要大于 0，最多 1 分钟。",
+        "long_task": "长任务阈值在 1 毫秒到 10 分钟之间。",
+        "numbers": "每一项都要填数字。"
+      }
+    },
+    "naming": {
+      "title": "服务命名",
+      "hint": "读到 Span 时按顺序尝试，第一条匹配的规则给服务改名",
+      "add": "添加规则",
+      "empty": "没有命名规则：服务按上报的名字读取。",
+      "pattern": "匹配",
+      "pattern_placeholder": "正则表达式，例如 ^(checkout)-[a-z0-9]{5}$",
+      "replacement": "改为",
+      "replacement_placeholder": "例如 $1",
+      "try": "试一个服务名",
+      "read_as": "读作",
+      "unchanged": "名字不变",
+      "traces_keep": "调用链里保留 Span 上报的原名",
+      "unread": "有规则在这里无法解析；服务端按 Rust 正则表达式解析，保存时也会指出无法解析的规则。"
+    },
+    "environments": {
+      "title": "环境映射",
+      "hint": "读到 Span 时把某个环境名读作另一个，不区分大小写",
+      "add": "添加映射",
+      "empty": "没有映射：环境按上报的名字读取。",
+      "from": "原名",
+      "to": "读作",
+      "twice": "有环境被映射了两次。"
+    },
+    "aliases": {
+      "title": "服务别名",
+      "hint": "别名上报的数据在所有 APM 页面按正式服务读取，已写入的数据也一样；删掉别名即恢复分开",
+      "add": "添加别名",
+      "empty": "没有别名。",
+      "alias_namespace": "别名 Namespace",
+      "alias": "别名",
+      "namespace": "Namespace",
+      "service": "正式服务",
+      "issues": {
+        "incomplete": "别名和正式服务都要填。",
+        "itself": "服务不能是自己的别名。",
+        "twice": "同一个名字被设成了两次别名。",
+        "chained": "别名指向的服务本身也是别名。"
+      }
+    },
+    "catalog_rules": {
+      "title": "服务目录要求",
+      "hint": "按服务等级要求目录里必须填写的信息，缺少的服务会被标出",
+      "never": "不要求",
+      "from_tier": "{{tier}} 及以上",
+      "team_from_tier": "团队",
+      "owner_from_tier": "负责人",
+      "repository_from_tier": "代码仓库"
+    },
+    "limits": {
+      "title": "基数上限",
+      "hint": "对整个平台生效：每小时超过上限的部分计入「其他」",
+      "issue": "每个上限都是 1 到 100000 之间的整数。",
+      "servicesPerOrgHour": "每个组织的服务",
+      "transactionsPerServiceHour": "每个服务的端点",
+      "dependenciesPerServiceHour": "每个服务的依赖",
+      "operationsPerDependencyHour": "每个依赖的操作",
+      "errorGroupsPerServiceHour": "每个服务的错误组",
+      "versionsPerServiceHour": "每个服务的版本",
+      "instancesPerServiceHour": "每个服务的实例"
+    },
+    "sampling": {
+      "title": "调用链采样",
+      "version": "对整个平台生效，第 {{version}} 版",
+      "ratio": "普通调用链保留",
+      "ratio_hint": "错误、慢调用链和下面的规则另行保留；APM 在采样之前统计全部调用链",
+      "off": "调用链存储已关闭",
+      "add": "添加规则",
+      "empty": "没有规则：按普通保留比例决定。",
+      "name": "名称",
+      "service": "服务",
+      "route": "路由",
+      "operation": "操作",
+      "minimum": "耗时下限 ms",
+      "errors_only": "仅错误",
+      "action": "动作",
+      "rule_ratio": "保留比例 %",
+      "actions": {
+        "keep": "保留",
+        "drop": "丢弃",
+        "ratio": "按比例保留"
+      },
+      "issue": "规则需要名称，耗时下限是整毫秒数，保留比例在 0 到 100% 之间。",
+      "published": "已发布第 {{version}} 版采样策略"
+    },
+    "quality": {
+      "title": "采集质量",
+      "hint": "过去一天",
+      "clean": "过去一天没有需要处理的问题。",
+      "tone": {
+        "warning": "需处理",
+        "suggestion": "建议"
+      },
+      "overflow": "超过基数上限，以下维度多出的部分已计入「其他」：{{kinds}}。",
+      "kinds": {
+        "service": "服务",
+        "transaction": "端点",
+        "dependency": "依赖",
+        "error": "错误组",
+        "instance": "实例",
+        "version": "版本"
+      },
+      "and": "、",
+      "raise_limits": "调整基数上限",
+      "limits_by_platform": "由平台管理员设置",
+      "gaps_one": "APM 漏读了 {{count}} 段 Span。",
+      "gaps_other": "APM 漏读了 {{count}} 段 Span。",
+      "stale": "APM 数据滞后：最近一个完整的分钟是 {{at}}。",
+      "missing_one": "{{formatted}} 个服务没有上报",
+      "missing_other": "{{formatted}} 个服务没有上报",
+      "instrument": "去配置",
+      "environments": "{{names}} 只有大小写不同。",
+      "map_to": "全部读作 {{name}}",
+      "generated": "{{name}} 看起来是 {{base}} 加上自动生成的后缀。",
+      "add_rule": "添加命名规则"
+    }
+  },
+  "instances": {
+    "title": "实例",
+    "description": "当前时间范围和版本下运行这个服务的进程",
+    "empty": "该时间范围内没有实例上报",
+    "columns": {
+      "instance": "实例",
+      "version": "版本",
+      "where": "工作负载 / 主机",
+      "runtime": "运行时",
+      "last_seen": "最后上报",
+      "throughput": "吞吐",
+      "error_rate": "错误率",
+      "p95": "P95",
+      "signals": "日志 / 指标"
+    },
+    "other": "其他实例",
+    "other_hint": "超过实例上限的实例合在这一行",
+    "only_charts": "点击后运行时图表只显示这个实例",
+    "all_charts": "点击后运行时图表显示全部实例"
+  },
+  "apdex": {
+    "threshold_title": "Apdex 阈值 T = {{threshold}}"
+  },
+  "insights": {
+    "title": "洞察",
+    "none": "这段时间没有值得注意的地方。",
+    "separator": "；",
+    "and": "，",
+    "before": "上一时段 {{value}}",
+    "week_before": "上周同时段 {{value}}",
+    "since": "{{at}}起",
+    "changes_near": "附近的变更：",
+    "severity": {
+      "critical": "严重",
+      "warning": "警告",
+      "info": "建议"
+    },
+    "kind": {
+      "anomaly": "突变",
+      "regression": "版本变差",
+      "slow_dependency": "瓶颈",
+      "repeated_call": "N+1",
+      "slow_query": "慢 SQL",
+      "hot_endpoint": "热点端点"
+    },
+    "metric": {
+      "error_rate": "错误率",
+      "p95": "P95",
+      "throughput": "吞吐"
+    },
+    "sentence": {
+      "anomaly_up": "{{metric}}升到 {{value}}（{{before}}）",
+      "anomaly_down": "{{metric}}降到 {{value}}（{{before}}）",
+      "regression": "{{version}} 比 {{previous}} 变差：{{metric}} {{value}}，之前 {{before}}",
+      "slow_dependency": "请求 {{share}} 的时间花在 {{target}} 上",
+      "repeated_call": "每个请求平均调用 {{operation}} {{each}} 次（共 {{calls}} 次），疑似 N+1，可合并为一次调用",
+      "slow_query": "{{operation}}：P95 {{p95}}，共 {{calls}} 次",
+      "hot_endpoint": "{{endpoint}} 占服务 {{share}} 的耗时（P95 {{p95}}）"
+    },
+    "change": {
+      "deployment": "发布",
+      "configuration": "配置变更",
+      "feature_flag": "功能开关",
+      "observed": "（从 Span 观测到）"
+    },
+    "baseline": {
+      "previous": "与上一时段相比：",
+      "last_week": "与上周同时段相比：",
+      "throughput": "吞吐",
+      "error_rate": "错误率",
+      "points": "{{value}} 个百分点"
+    }
+  },
+  "agent": {
+    "investigate": "调查",
+    "investigate_title": "让 Mole Agent 调查",
+    "prompt": {
+      "service": "调查 {{service}}（{{environment}}）在 {{from}} 至 {{to}} 的表现：哪些指标变了、为什么，以及附近的变更。",
+      "endpoint": "调查 {{service}}（{{environment}}）的端点 {{endpoint}} 在 {{from}} 至 {{to}} 变慢或出错的原因：时间花在哪里，附近有哪些变更。",
+      "error": "调查 {{service}}（{{environment}}）的错误 {{error}}（指纹 {{fingerprint}}）：从什么时候开始、影响多少请求、最可能的原因。",
+      "finding": "调查 {{service}}（{{environment}}）在 {{from}} 至 {{to}} 的这条发现：{{finding}}"
+    }
   }
 }

@@ -5,6 +5,8 @@
 //!
 //! Share tokens keep a BLAKE3 digest for lookup and an AES-GCM envelope for
 //! authorized repeat display. Session tokens remain hash-only.
+//!
+//! Each organization's sharing policy is in [`policy`].
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -16,6 +18,10 @@ use crate::{
     infra::cipher::CipherRootKey,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
+
+mod policy;
+
+pub use policy::ResourceSharePolicy;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -47,6 +53,7 @@ impl ResourceShareMode {
 }
 
 #[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResourceShare {
     pub id: Id,
     pub organization_id: Id,
@@ -90,35 +97,6 @@ pub struct ResourceShareSession {
     pub last_seen_at: TimestampMicros,
     pub ip: Option<String>,
     pub user_agent: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResourceSharePolicy {
-    pub organization_id: Id,
-    pub allow_public_links: bool,
-    pub allow_public_dashboards: bool,
-    pub max_public_expiry_secs: i64,
-    pub require_public_report_password: bool,
-    pub deny_production_public_shares: bool,
-    pub allow_public_csv_download: bool,
-    pub updated_by: Id,
-    pub updated_at: TimestampMicros,
-}
-
-impl ResourceSharePolicy {
-    pub fn secure_default(organization_id: Id) -> Self {
-        Self {
-            organization_id,
-            allow_public_links: false,
-            allow_public_dashboards: false,
-            max_public_expiry_secs: 7 * 24 * 60 * 60,
-            require_public_report_password: true,
-            deny_production_public_shares: true,
-            allow_public_csv_download: false,
-            updated_by: Id::from_string(String::new()),
-            updated_at: TimestampMicros(0),
-        }
-    }
 }
 
 #[async_trait]
@@ -175,10 +153,10 @@ impl PgResourceShareRepository {
 
 const SHARE_COLS: &str = "id, organization_id, resource_type, resource_id,
     resource_version_id, share_mode, token_hash, token_ciphertext, token_nonce,
-    permissions_json, constraints_json, expires_at_micros, password_hash, max_views,
+    permissions_json, constraints_json, expires_at, password_hash, max_views,
     view_count, allow_download, enabled, cross_org_grant_id, snapshot_object_key,
-    snapshot_content_type, snapshot_filename, created_by, created_at_micros,
-    last_accessed_at_micros, revoked_at_micros";
+    snapshot_content_type, snapshot_filename, created_by, created_at,
+    last_accessed_at, revoked_at";
 
 fn row_to_share(row: sqlx::postgres::PgRow, cipher: &CipherRootKey) -> Result<ResourceShare> {
     let mode: String = row.try_get("share_mode").map_err(sqlx_err)?;
@@ -221,9 +199,8 @@ fn row_to_share(row: sqlx::postgres::PgRow, cipher: &CipherRootKey) -> Result<Re
         permissions: permissions.0,
         constraints: constraints.0,
         expires_at: row
-            .try_get::<Option<i64>, _>("expires_at_micros")
-            .map_err(sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("expires_at")
+            .map_err(sqlx_err)?,
         password_hash: row.try_get("password_hash").map_err(sqlx_err)?,
         max_views: row.try_get("max_views").map_err(sqlx_err)?,
         view_count: row.try_get("view_count").map_err(sqlx_err)?,
@@ -237,15 +214,15 @@ fn row_to_share(row: sqlx::postgres::PgRow, cipher: &CipherRootKey) -> Result<Re
         snapshot_content_type: row.try_get("snapshot_content_type").map_err(sqlx_err)?,
         snapshot_filename: row.try_get("snapshot_filename").map_err(sqlx_err)?,
         created_by: Id::from_string(row.try_get::<String, _>("created_by").map_err(sqlx_err)?),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
         last_accessed_at: row
-            .try_get::<Option<i64>, _>("last_accessed_at_micros")
-            .map_err(sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("last_accessed_at")
+            .map_err(sqlx_err)?,
         revoked_at: row
-            .try_get::<Option<i64>, _>("revoked_at_micros")
-            .map_err(sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("revoked_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -255,32 +232,17 @@ fn row_to_session(row: sqlx::postgres::PgRow) -> Result<ResourceShareSession> {
         share_id: Id::from_string(row.try_get::<String, _>("share_id").map_err(sqlx_err)?),
         session_token_hash: row.try_get("session_token_hash").map_err(sqlx_err)?,
         password_verified: row.try_get("password_verified").map_err(sqlx_err)?,
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        expires_at: TimestampMicros(row.try_get("expires_at_micros").map_err(sqlx_err)?),
-        last_seen_at: TimestampMicros(row.try_get("last_seen_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        expires_at: row
+            .try_get::<TimestampMicros, _>("expires_at")
+            .map_err(sqlx_err)?,
+        last_seen_at: row
+            .try_get::<TimestampMicros, _>("last_seen_at")
+            .map_err(sqlx_err)?,
         ip: row.try_get("ip").map_err(sqlx_err)?,
         user_agent: row.try_get("user_agent").map_err(sqlx_err)?,
-    })
-}
-
-fn row_to_policy(row: sqlx::postgres::PgRow) -> Result<ResourceSharePolicy> {
-    Ok(ResourceSharePolicy {
-        organization_id: Id::from_string(
-            row.try_get::<String, _>("organization_id")
-                .map_err(sqlx_err)?,
-        ),
-        allow_public_links: row.try_get("allow_public_links").map_err(sqlx_err)?,
-        allow_public_dashboards: row.try_get("allow_public_dashboards").map_err(sqlx_err)?,
-        max_public_expiry_secs: row.try_get("max_public_expiry_secs").map_err(sqlx_err)?,
-        require_public_report_password: row
-            .try_get("require_public_report_password")
-            .map_err(sqlx_err)?,
-        deny_production_public_shares: row
-            .try_get("deny_production_public_shares")
-            .map_err(sqlx_err)?,
-        allow_public_csv_download: row.try_get("allow_public_csv_download").map_err(sqlx_err)?,
-        updated_by: Id::from_string(row.try_get::<String, _>("updated_by").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
     })
 }
 
@@ -301,10 +263,10 @@ impl ResourceShareRepository for PgResourceShareRepository {
             "INSERT INTO resource_shares (
                 id, organization_id, resource_type, resource_id, resource_version_id,
                 share_mode, token_hash, token_ciphertext, token_nonce, permissions_json,
-                constraints_json, expires_at_micros, password_hash, max_views, view_count,
+                constraints_json, expires_at, password_hash, max_views, view_count,
                 allow_download, enabled, cross_org_grant_id, snapshot_object_key,
-                snapshot_content_type, snapshot_filename, created_by, created_at_micros,
-                last_accessed_at_micros, revoked_at_micros
+                snapshot_content_type, snapshot_filename, created_by, created_at,
+                last_accessed_at, revoked_at
              ) VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
                 $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25
@@ -321,7 +283,7 @@ impl ResourceShareRepository for PgResourceShareRepository {
         .bind(&token_nonce)
         .bind(Json(&share.permissions))
         .bind(Json(&share.constraints))
-        .bind(share.expires_at.map(|value| value.0))
+        .bind(share.expires_at)
         .bind(&share.password_hash)
         .bind(share.max_views)
         .bind(share.view_count)
@@ -332,9 +294,9 @@ impl ResourceShareRepository for PgResourceShareRepository {
         .bind(&share.snapshot_content_type)
         .bind(&share.snapshot_filename)
         .bind(&share.created_by.0)
-        .bind(share.created_at.0)
-        .bind(share.last_accessed_at.map(|value| value.0))
-        .bind(share.revoked_at.map(|value| value.0))
+        .bind(share.created_at)
+        .bind(share.last_accessed_at)
+        .bind(share.revoked_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -395,7 +357,7 @@ impl ResourceShareRepository for PgResourceShareRepository {
              WHERE organization_id = $1
                AND ($2::text IS NULL OR resource_type = $2)
                AND ($3::text IS NULL OR resource_id = $3)
-             ORDER BY created_at_micros DESC
+             ORDER BY created_at DESC
              LIMIT 500"
         );
 
@@ -428,7 +390,7 @@ impl ResourceShareRepository for PgResourceShareRepository {
         let sql = format!(
             "UPDATE resource_shares
              SET token_hash = $3, token_ciphertext = $4, token_nonce = $5,
-                 enabled = TRUE, revoked_at_micros = NULL
+                 enabled = TRUE, revoked_at = NULL
              WHERE organization_id = $1 AND id = $2
              RETURNING {SHARE_COLS}"
         );
@@ -466,7 +428,7 @@ impl ResourceShareRepository for PgResourceShareRepository {
 
         let sql = format!(
             "UPDATE resource_shares
-             SET enabled = FALSE, revoked_at_micros = $3
+             SET enabled = FALSE, revoked_at = $3
              WHERE organization_id = $1 AND id = $2
              RETURNING {SHARE_COLS}"
         );
@@ -474,7 +436,7 @@ impl ResourceShareRepository for PgResourceShareRepository {
         let share = sqlx::query(&sql)
             .bind(&organization_id.0)
             .bind(&id.0)
-            .bind(now.0)
+            .bind(now)
             .fetch_optional(&mut *tx)
             .await
             .map_err(sqlx_err)?
@@ -501,18 +463,18 @@ impl ResourceShareRepository for PgResourceShareRepository {
 
         let sql = format!(
             "UPDATE resource_shares
-             SET view_count = view_count + 1, last_accessed_at_micros = $2
+             SET view_count = view_count + 1, last_accessed_at = $2
              WHERE id = $1
                AND enabled
-               AND revoked_at_micros IS NULL
-               AND (expires_at_micros IS NULL OR expires_at_micros > $2)
+               AND revoked_at IS NULL
+               AND (expires_at IS NULL OR expires_at > $2)
                AND (max_views IS NULL OR view_count < max_views)
              RETURNING {SHARE_COLS}"
         );
 
         let share = sqlx::query(&sql)
             .bind(&session.share_id.0)
-            .bind(now.0)
+            .bind(now)
             .fetch_optional(&mut *tx)
             .await
             .map_err(sqlx_err)?
@@ -523,16 +485,16 @@ impl ResourceShareRepository for PgResourceShareRepository {
         sqlx::query(
             "INSERT INTO resource_share_sessions (
                 id, share_id, session_token_hash, password_verified,
-                created_at_micros, expires_at_micros, last_seen_at_micros, ip, user_agent
+                created_at, expires_at, last_seen_at, ip, user_agent
              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         )
         .bind(&session.id.0)
         .bind(&session.share_id.0)
         .bind(&session.session_token_hash)
         .bind(session.password_verified)
-        .bind(session.created_at.0)
-        .bind(session.expires_at.0)
-        .bind(session.last_seen_at.0)
+        .bind(session.created_at)
+        .bind(session.expires_at)
+        .bind(session.last_seen_at)
         .bind(&session.ip)
         .bind(&session.user_agent)
         .execute(&mut *tx)
@@ -550,12 +512,12 @@ impl ResourceShareRepository for PgResourceShareRepository {
     ) -> Result<Option<ResourceShareSession>> {
         sqlx::query(
             "SELECT id, share_id, session_token_hash, password_verified,
-                    created_at_micros, expires_at_micros, last_seen_at_micros, ip, user_agent
+                    created_at, expires_at, last_seen_at, ip, user_agent
              FROM resource_share_sessions
-             WHERE session_token_hash = $1 AND expires_at_micros > $2",
+             WHERE session_token_hash = $1 AND expires_at > $2",
         )
         .bind(session_token_hash)
-        .bind(now.0)
+        .bind(now)
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?
@@ -574,9 +536,9 @@ impl ResourceShareRepository for PgResourceShareRepository {
     }
 
     async fn touch_session(&self, session_id: &Id, now: TimestampMicros) -> Result<()> {
-        sqlx::query("UPDATE resource_share_sessions SET last_seen_at_micros = $2 WHERE id = $1")
+        sqlx::query("UPDATE resource_share_sessions SET last_seen_at = $2 WHERE id = $1")
             .bind(&session_id.0)
-            .bind(now.0)
+            .bind(now)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
@@ -585,75 +547,10 @@ impl ResourceShareRepository for PgResourceShareRepository {
     }
 
     async fn get_policy(&self, organization_id: &Id) -> Result<ResourceSharePolicy> {
-        let row = sqlx::query(
-            "SELECT organization_id, allow_public_links, allow_public_dashboards,
-                    max_public_expiry_secs, require_public_report_password,
-                    deny_production_public_shares, allow_public_csv_download,
-                    updated_by, updated_at_micros
-             FROM resource_share_policies
-             WHERE organization_id = $1",
-        )
-        .bind(&organization_id.0)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
-
-        match row {
-            Some(row) => row_to_policy(row),
-            None => Ok(ResourceSharePolicy::secure_default(organization_id.clone())),
-        }
+        policy::get(&self.pool, organization_id).await
     }
 
     async fn upsert_policy(&self, policy: ResourceSharePolicy) -> Result<ResourceSharePolicy> {
-        let row = sqlx::query(
-            "INSERT INTO resource_share_policies (
-                organization_id, allow_public_links, allow_public_dashboards,
-                max_public_expiry_secs, require_public_report_password,
-                deny_production_public_shares, allow_public_csv_download,
-                updated_by, updated_at_micros
-             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-             ON CONFLICT (organization_id) DO UPDATE SET
-                allow_public_links = EXCLUDED.allow_public_links,
-                allow_public_dashboards = EXCLUDED.allow_public_dashboards,
-                max_public_expiry_secs = EXCLUDED.max_public_expiry_secs,
-                require_public_report_password = EXCLUDED.require_public_report_password,
-                deny_production_public_shares = EXCLUDED.deny_production_public_shares,
-                allow_public_csv_download = EXCLUDED.allow_public_csv_download,
-                updated_by = EXCLUDED.updated_by,
-                updated_at_micros = EXCLUDED.updated_at_micros
-             RETURNING organization_id, allow_public_links, allow_public_dashboards,
-                max_public_expiry_secs, require_public_report_password,
-                deny_production_public_shares, allow_public_csv_download,
-                updated_by, updated_at_micros",
-        )
-        .bind(&policy.organization_id.0)
-        .bind(policy.allow_public_links)
-        .bind(policy.allow_public_dashboards)
-        .bind(policy.max_public_expiry_secs)
-        .bind(policy.require_public_report_password)
-        .bind(policy.deny_production_public_shares)
-        .bind(policy.allow_public_csv_download)
-        .bind(&policy.updated_by.0)
-        .bind(policy.updated_at.0)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
-
-        row_to_policy(row)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn policy_defaults_are_closed() {
-        let policy = ResourceSharePolicy::secure_default(Id::from_string("org"));
-        assert!(!policy.allow_public_links);
-        assert!(!policy.allow_public_dashboards);
-        assert!(policy.require_public_report_password);
-        assert!(policy.deny_production_public_shares);
-        assert_eq!(policy.max_public_expiry_secs, 604_800);
+        policy::put(&self.pool, policy).await
     }
 }

@@ -83,16 +83,16 @@ fn jobs_result(jobs: Vec<SearchJob>) -> Result<ToolResult> {
         .map(|job| {
             json!({
                 "id": job.id,
-                "user_id": job.user_id,
+                "userId": job.user_id,
                 "request": redact_credentials(&job.request_json),
                 "state": job.state,
                 "attempt": job.attempt,
-                "result_rows": job.result_rows,
+                "resultRows": job.result_rows,
                 "error": job.error,
-                "submitted_at": job.submitted_at,
-                "started_at": job.started_at,
-                "finished_at": job.finished_at,
-                "expires_at": job.expires_at,
+                "submittedAt": job.submitted_at,
+                "startedAt": job.started_at,
+                "finishedAt": job.finished_at,
+                "expiresAt": job.expires_at,
             })
         })
         .collect::<Vec<_>>();
@@ -108,7 +108,7 @@ struct ListArgs {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct JobArgs {
     job_id: String,
     #[serde(default)]
@@ -121,7 +121,7 @@ fn required_job_id(value: &str) -> Result<String> {
     let value = value.trim();
 
     if value.is_empty() {
-        Err(Error::invalid("job_id is required"))
+        Err(Error::invalid("jobId is required"))
     } else {
         Ok(value.to_string())
     }

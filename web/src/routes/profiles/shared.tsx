@@ -33,20 +33,20 @@ export const PROFILE_TYPE_KEYS: ProfileTypeName[] = [
  *  raw expr strings (useful as react-query key segments). */
 export function useWindowMicros(): {
   window: TimeWindow;
-  fromMicros: number;
-  toMicros: number;
+  fromTime: number;
+  toTime: number;
 } {
   const window = useTimeStore((s) => s.window);
   const { from, to } = resolveWindow(window);
-  return { window, fromMicros: from.getTime() * 1000, toMicros: to.getTime() * 1000 };
+  return { window, fromTime: from.getTime() * 1000, toTime: to.getTime() * 1000 };
 }
 
 /**
  * The types a list of profiles has, in the order the types are offered in:
  * the first of them is the one a page opens on.
  */
-export function profileTypesIn(rows: readonly { profile_type: string }[]): string[] {
-  const present = new Set(rows.map((row) => row.profile_type));
+export function profileTypesIn(rows: readonly { profileType: string }[]): string[] {
+  const present = new Set(rows.map((row) => row.profileType));
   const known = (PROFILE_TYPE_KEYS as string[]).filter((key) => present.has(key));
 
   return [...known, ...[...present].filter((type) => !known.includes(type)).sort()];

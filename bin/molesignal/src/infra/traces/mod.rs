@@ -12,6 +12,6 @@ pub use ::service_graph;
 pub mod summary_reader;
 
 pub use ::service_graph::{
-    EdgeKey, EdgeSnapshot, PgServiceGraphRepository, ServiceGraphAggregator,
+    ENVIRONMENT_FIELDS, EdgeKey, EdgeSnapshot, PgServiceGraphRepository, ServiceGraphAggregator,
     ServiceGraphObserverImpl, ServiceGraphRepository,
 };

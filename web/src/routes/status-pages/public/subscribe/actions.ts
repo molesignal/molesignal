@@ -10,8 +10,8 @@ export type SubscriptionAction =
 
 export function subscriptionAction(hash: string): SubscriptionAction {
   const params = new URLSearchParams(hash.replace(/^#/, ''));
-  const action = params.get('subscription_action');
-  const token = params.get('subscription_token');
+  const action = params.get('subscriptionAction');
+  const token = params.get('subscriptionToken');
 
   if ((action === 'confirm' || action === 'unsubscribe' || action === 'manage') && token) {
     return { kind: action, token };

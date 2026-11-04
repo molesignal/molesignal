@@ -2,10 +2,10 @@ import { hasPermission, type ProductAccess } from '@/product/access';
 
 /**
  * Whether the reader may open the search jobs page at all: the permission the
- * jobs API itself asks for, which is the one that lets a person run a query.
+ * jobs API itself asks for.
  */
 export function canUseSearchJobs(access: ProductAccess | null): boolean {
-  return hasPermission('streams.query', access) || hasPermission('sys.telemetry.read', access);
+  return hasPermission('query.jobs.read', access) || hasPermission('sys.telemetry.read', access);
 }
 
 /**
@@ -15,6 +15,6 @@ export function canUseSearchJobs(access: ProductAccess | null): boolean {
  */
 export function seesEverySearchJob(access: ProductAccess | null): boolean {
   return (
-    hasPermission('org.settings.manage', access) || hasPermission('sys.telemetry.manage', access)
+    hasPermission('org.running_queries.cancel', access) || hasPermission('sys.telemetry.manage', access)
   );
 }

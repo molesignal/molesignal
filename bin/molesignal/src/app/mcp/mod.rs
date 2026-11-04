@@ -24,7 +24,7 @@ use std::{
     sync::Arc,
 };
 
-pub use execution::AUTHORIZATION_REQUIRED;
+pub use execution::{AUTHORIZATION_REQUIRED, CredentialNeed, McpToolCall};
 pub(crate) use schema::validate_schema;
 use serde::Serialize;
 pub use servers::{ImportReport, ServerDraft};
@@ -50,6 +50,7 @@ pub struct McpService {
 
 /// 列表与详情里的一台服务器，加上看的人能做什么、他自己存的凭据。
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ServerView {
     #[serde(flatten)]
     pub server: McpServer,

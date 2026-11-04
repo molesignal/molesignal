@@ -133,12 +133,12 @@ export function useTraceFieldValues(
     queryFn: async (): Promise<TraceFieldValues> => {
       const statements = traceFieldValueStatements(source.stream, field, ids);
       const run = (statement: string, limit: number) =>
-        queryApi.runQuery({
-          org_id: source.orgId,
+        queryApi.readQuery({
+          orgId: source.orgId,
           language: 'sql',
           statement,
-          time_range: loadedTraceWindow(traces) ?? source.range,
-          stream: { name: source.stream, stream_type: 'traces' },
+          timeRange: loadedTraceWindow(traces) ?? source.range,
+          stream: { name: source.stream, streamType: 'traces' },
           limit,
         });
       const [top, summary] = await Promise.all([run(statements.top, TRACE_FIELD_VALUE_LIMIT), run(statements.summary, 1)]);

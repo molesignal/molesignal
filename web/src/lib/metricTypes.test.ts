@@ -4,12 +4,12 @@ import type { MetricCatalogEntry } from '@/api/metricsCatalog';
 
 import { metricTypeAbbreviation, resolveMetricType } from './metricTypes';
 
-function metric(name: string, metricType?: MetricCatalogEntry['metric_type']): MetricCatalogEntry {
+function metric(name: string, metricType?: MetricCatalogEntry['metricType']): MetricCatalogEntry {
   return {
     name,
     labels: [],
-    field_count: 1,
-    ...(metricType ? { metric_type: metricType } : {}),
+    fieldCount: 1,
+    ...(metricType ? { metricType: metricType } : {}),
   };
 }
 

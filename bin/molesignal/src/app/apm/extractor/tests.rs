@@ -91,7 +91,37 @@ fn self_telemetry_projects_environment_and_instrumentation() {
 }
 
 #[test]
-fn classifies_database_dependency_without_sql_or_raw_namespace() {
+fn a_role_of_molesignal_is_the_service_its_traces_name() {
+    let resource = ResourceIdentity::new("molesignal", "0.1.0", "production", "router", "node-1");
+    let mut fields = serde_json::Map::new();
+    resource.enrich(&mut fields);
+    fields.insert("molesignal.execution.role".into(), json!("router"));
+
+    let event = finished_span_to_event(
+        fields,
+        FinishedSpan {
+            name: "http.server".into(),
+            trace_id: Some("0123456789abcdef0123456789abcdef".into()),
+            span_id: Some("0123456789abcdef".into()),
+            parent_span_id: None,
+            kind: 2,
+            start_time_unix_nano: 1_000,
+            end_time_unix_nano: 2_000,
+            status_code: "OK".into(),
+            status_message: None,
+        },
+    );
+
+    let span = CanonicalSpan::try_from_raw_event(&event).expect("canonical self span");
+    let fact = extract_apm_fact("org-1", &span).expect("self telemetry APM fact");
+
+    // As the trace store and the service graph name it, so a service's traces are found by its name.
+    assert_eq!(fact.service.name, "molesignal-router");
+    assert_eq!(fact.service.namespace, "molesignal");
+}
+
+#[test]
+fn classifies_database_dependency_by_template_without_values_or_raw_namespace() {
     let mut span = span(3);
     span.attributes
         .insert("db.system.name".into(), json!("postgresql"));
@@ -101,7 +131,7 @@ fn classifies_database_dependency_without_sql_or_raw_namespace() {
         .insert("db.operation.name".into(), json!("SELECT"));
     span.attributes.insert(
         "db.query.text".into(),
-        json!("SELECT email FROM users WHERE id = 42"),
+        json!("SELECT email FROM users WHERE id = 42 AND name = 'Ada Lovelace'"),
     );
 
     let fact = extract_apm_fact("org-1", &span).expect("fact");
@@ -109,10 +139,35 @@ fn classifies_database_dependency_without_sql_or_raw_namespace() {
     assert_eq!(dependency.category, DependencyCategory::Database);
     assert!(dependency.target.starts_with("postgresql"));
     assert!(!dependency.target.contains("customer-private"));
-    assert_eq!(dependency.operation.as_deref(), Some("SELECT"));
+    assert_eq!(
+        dependency.operation.as_deref(),
+        Some("SELECT email FROM users WHERE id = ? AND name = ?")
+    );
     let serialized = serde_json::to_string(&fact).expect("serialize");
-    assert!(!serialized.contains("SELECT email"));
-    assert!(!serialized.contains("users WHERE"));
+    assert!(!serialized.contains("42"));
+    assert!(!serialized.contains("Ada"));
+
+    // Without a statement the operation is the call's name; a cache keeps its command.
+    span.attributes.remove("db.query.text");
+    let unnamed = extract_apm_fact("org-1", &span).expect("fact");
+    assert_eq!(
+        unnamed
+            .dependency
+            .and_then(|value| value.operation)
+            .as_deref(),
+        Some("SELECT")
+    );
+
+    span.attributes
+        .insert("db.system.name".into(), json!("redis"));
+    span.attributes
+        .insert("db.operation.name".into(), json!("GET"));
+    span.attributes
+        .insert("db.query.text".into(), json!("GET session:9f2c"));
+    let cached = extract_apm_fact("org-1", &span).expect("fact");
+    let cache = cached.dependency.expect("dependency");
+    assert_eq!(cache.category, DependencyCategory::Cache);
+    assert_eq!(cache.operation.as_deref(), Some("GET"));
 }
 
 #[test]

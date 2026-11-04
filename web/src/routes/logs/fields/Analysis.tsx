@@ -58,14 +58,14 @@ export function LogFieldAnalysis({ field, counted, range, records, moments, mask
   const source = React.useMemo<FieldAnalysisSource | undefined>(() => {
     if (!counted || !range || masked) return undefined;
 
-    const { orgId, stream, statement, globalFilters, ranAt } = counted;
+    const { orgId, stream, statement, pinned, ranAt } = counted;
 
     return {
-      key: ['logs', orgId, stream, statement, JSON.stringify(globalFilters), ranAt, range.start, range.end, field.name],
+      key: ['logs', orgId, stream, statement, JSON.stringify(pinned), ranAt, range.start, range.end, field.name],
       load: async (signal) =>
         answerFromPayload(
           await webApi.logsFieldStats(
-            { ...logMatchRequest(stream, statement, globalFilters, range), field: field.name },
+            { ...logMatchRequest(stream, statement, pinned, range), field: field.name },
             signal,
           ),
         ),

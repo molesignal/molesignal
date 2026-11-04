@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import * as alertsApi from '@/api/alerts';
 import { toApiError } from '@/lib/http';
@@ -19,6 +19,18 @@ import { PageBody, PageHeader } from '@/shell/PageHeader';
 import { QueryState, queryStateFor } from '@/shell/query/State';
 import { toast } from '@/shell/ui/sonner';
 import type { AlertRule, Severity, StreamType } from '@/types/alerting';
+
+import { emptyRumDraft } from './rule-workbench/rumSource';
+import { SourceFields } from './rule-workbench/SourceFields';
+import {
+  sourceFromSearch,
+  sourceIsNamed,
+  sourceLabels,
+  sourceOfRule,
+  sourceRuleQuery,
+  sourceWindow,
+  type TypedSource,
+} from './rule-workbench/typedSource';
 
 const SEVERITY_OPTIONS: Severity[] = ['critical', 'error', 'warning', 'info'];
 
@@ -72,16 +84,16 @@ function formFromRule(rule: AlertRule): AnomalyForm {
     severity: (rule.labels?.severity as Severity) ?? 'warning',
     service: rule.labels?.service ?? '',
     streamName: rule.query?.stream?.name ?? '',
-    streamType: rule.query?.stream?.stream_type ?? 'metrics',
+    streamType: rule.query?.stream?.streamType ?? 'metrics',
     language: rule.query?.language ?? 'sql',
-    periodSecs: String(rule.query?.period_secs ?? 300),
+    periodSecs: String(rule.query?.periodSecs ?? 300),
     statement: rule.query?.statement ?? '',
-    algorithm: rule.anomaly_params?.algorithm ?? 'mad',
-    lookbackDays: String(rule.anomaly_params?.lookback_days ?? 7),
-    k: String(rule.anomaly_params?.k ?? 3),
-    alpha: String(rule.anomaly_params?.alpha ?? 0.3),
-    weeklySeasonality: rule.anomaly_params?.weekly_seasonality ?? false,
-    forPeriods: String(rule.trigger?.for_periods ?? 1),
+    algorithm: rule.anomalyParams?.algorithm ?? 'mad',
+    lookbackDays: String(rule.anomalyParams?.lookbackDays ?? 7),
+    k: String(rule.anomalyParams?.k ?? 3),
+    alpha: String(rule.anomalyParams?.alpha ?? 0.3),
+    weeklySeasonality: rule.anomalyParams?.weeklySeasonality ?? false,
+    forPeriods: String(rule.trigger?.forPeriods ?? 1),
   };
 }
 
@@ -91,8 +103,11 @@ export function AlertsAnomaly() {
   const { id } = useParams<{ id: string }>();
   const isEdit = Boolean(id);
   const nav = useNavigate();
+  const location = useLocation();
   const qc = useQueryClient();
-  const manageAccess = useActionAccess({ permission: 'alerts.manage' });
+  const manageAccess = useActionAccess({ permission: 'alerts.rules.manage' });
+  // A figure of APM or RUM watched in place of a query: asked for by a page of the product, or the edited rule's.
+  const [source, setSource] = React.useState<TypedSource | null>(() => (isEdit ? null : sourceFromSearch(location.search, true)));
 
   const ruleQuery = useQuery({
     queryKey: ['alerts', 'rules', id],
@@ -100,13 +115,17 @@ export function AlertsAnomaly() {
     enabled: isEdit,
   });
 
-  const [form, setForm] = React.useState<AnomalyForm>(EMPTY_FORM);
+  const [form, setForm] = React.useState<AnomalyForm>(() =>
+    source?.kind === 'rum' ? { ...EMPTY_FORM, periodSecs: String(sourceWindow(source)) } : EMPTY_FORM,
+  );
   // Hydrate the form once the edited rule arrives. The ref guards against
   // clobbering user edits if the query refetches in the background.
   const hydratedFor = React.useRef<string | null>(null);
   React.useEffect(() => {
     if (isEdit && ruleQuery.data && hydratedFor.current !== id) {
       setForm(formFromRule(ruleQuery.data));
+      const saved = ruleQuery.data.query;
+      setSource(saved ? sourceOfRule({ query: saved }) : null);
       hydratedFor.current = id ?? null;
     }
   }, [isEdit, ruleQuery.data, id]);
@@ -126,9 +145,11 @@ export function AlertsAnomaly() {
       const forPeriods = clampInt(form.forPeriods, 1, 1, 100);
       const labels: Record<string, string> = {
         ...(ruleQuery.data?.labels ?? {}),
+        ...(source ? sourceLabels(source) : {}),
         severity: form.severity,
       };
-      if (form.service.trim()) labels.service = form.service.trim();
+      if (source) delete labels.service;
+      else if (form.service.trim()) labels.service = form.service.trim();
       else delete labels.service;
 
       const payload: alertsApi.AlertRuleInput = {
@@ -136,30 +157,32 @@ export function AlertsAnomaly() {
         description: ruleQuery.data?.description ?? '',
         enabled: ruleQuery.data?.enabled ?? true,
         kind: 'anomaly',
-        query: {
-          language: form.language,
-          statement: form.statement,
-          period_secs: periodSecs,
-          stream: { name: form.streamName.trim(), stream_type: form.streamType },
-        },
+        query: source
+          ? sourceRuleQuery(source, periodSecs)
+          : {
+              language: form.language,
+              statement: form.statement,
+              periodSecs: periodSecs,
+              stream: { name: form.streamName.trim(), streamType: form.streamType },
+            },
         trigger: {
           operator: 'gt',
           threshold: 0,
-          for_periods: forPeriods,
-          silence_secs: ruleQuery.data?.trigger?.silence_secs ?? 300,
+          forPeriods: forPeriods,
+          silenceSecs: ruleQuery.data?.trigger?.silenceSecs ?? 300,
         },
-        anomaly_params: {
+        anomalyParams: {
           algorithm: form.algorithm,
-          lookback_days: lookbackDays,
+          lookbackDays: lookbackDays,
           k,
-          weekly_seasonality: form.weeklySeasonality,
+          weeklySeasonality: form.weeklySeasonality,
           ...(form.algorithm === 'ewma' ? { alpha } : {}),
         },
         labels,
         annotations: ruleQuery.data?.annotations ?? {},
       };
-      if (ruleQuery.data?.escalation_policy_id) {
-        payload.escalation_policy_id = ruleQuery.data.escalation_policy_id;
+      if (ruleQuery.data?.escalationPolicyId) {
+        payload.escalationPolicyId = ruleQuery.data.escalationPolicyId;
       }
       return isEdit ? alertsApi.update(id!, payload) : alertsApi.create(payload);
     },
@@ -178,8 +201,16 @@ export function AlertsAnomaly() {
       toast.error(t('anomaly.errors.name_required'));
       return;
     }
-    if (!form.streamName.trim()) {
-      toast.error(t('anomaly.errors.stream_required'));
+    if (source ? !sourceIsNamed(source) : !form.streamName.trim()) {
+      toast.error(
+        t(
+          source
+            ? source.kind === 'apm'
+              ? 'workbench.errors.apm_service_required'
+              : 'workbench.errors.rum_application_required'
+            : 'anomaly.errors.stream_required',
+        ),
+      );
       return;
     }
     save.mutate();
@@ -245,57 +276,94 @@ export function AlertsAnomaly() {
               title={t('anomaly.sections.detection')}
               description={t('anomaly.detection_description')}
             >
-              <FormRow>
-                <FormField label={t('anomaly.fields.stream_name')} required hint={t('anomaly.hints.stream_name')}>
-                  <FormInput
-                    value={form.streamName}
-                    onChange={(e) => set('streamName', e.target.value)}
-                    placeholder={t('anomaly.placeholders.stream_name')}
-                    required
-                  />
-                </FormField>
-                <FormField label={t('anomaly.fields.stream_type')} required>
-                  <FormSelect
-                    value={form.streamType}
-                    onChange={(v) => set('streamType', v as StreamType)}
-                    options={STREAM_TYPES}
-                  />
-                </FormField>
-              </FormRow>
-              <FormRow>
-                <FormField label={t('anomaly.fields.language')} required>
-                  <FormSelect
-                    value={form.language}
-                    onChange={(v) => set('language', v as 'sql' | 'promql')}
-                    options={[
-                      { value: 'sql', label: 'SQL' },
-                      { value: 'promql', label: 'PromQL' },
-                    ]}
-                  />
-                </FormField>
-                <FormField label={t('anomaly.fields.window')} required hint={t('anomaly.hints.window')}>
-                  <FormSelect
-                    value={form.periodSecs}
-                    onChange={(v) => set('periodSecs', v)}
-                    options={WINDOW_OPTIONS}
-                  />
-                </FormField>
-              </FormRow>
-              <FormField label={t('anomaly.fields.query')} required hint={t('anomaly.hints.query')}>
-                <CodeEditor
-                  value={form.statement}
-                  onChange={(v) => set('statement', v)}
-                  language={form.language === 'promql' ? 'promql' : 'sql'}
-                  label={form.language === 'promql' ? 'PromQL' : 'SQL'}
-                  ariaLabel={t('anomaly.fields.query')}
-                  minHeight={160}
-                  maxHeight={320}
-                  compact
-                  resizable
-                  showHeader={false}
-                  readOnly={manageAccess.disabled}
+              <FormField label={t('anomaly.fields.source')} hint={t('anomaly.hints.source')}>
+                <FormSelect
+                  value={source?.kind ?? 'query'}
+                  onChange={(value) => {
+                    if (value === 'apm') setSource({ kind: 'apm', query: { service: '', metric: 'error_rate' } });
+                    else if (value === 'rum') {
+                      const next: TypedSource = { kind: 'rum', query: emptyRumDraft() };
+                      setSource(next);
+                      set('periodSecs', String(sourceWindow(next)));
+                    } else setSource(null);
+                  }}
+                  options={[
+                    { value: 'query', label: t('anomaly.source.query') },
+                    { value: 'apm', label: t('anomaly.source.apm') },
+                    { value: 'rum', label: t('anomaly.source.rum') },
+                  ]}
                 />
               </FormField>
+              {source ? (
+                <>
+                  <SourceFields
+                    source={source}
+                    onChange={setSource}
+                    periodSecs={Number(form.periodSecs)}
+                    onPeriodChange={(secs) => set('periodSecs', String(secs))}
+                    anomaly
+                  />
+                  {source.kind === 'apm' && (
+                    <FormField label={t('anomaly.fields.window')} required hint={t('anomaly.hints.window')}>
+                      <FormSelect value={form.periodSecs} onChange={(v) => set('periodSecs', v)} options={WINDOW_OPTIONS} />
+                    </FormField>
+                  )}
+                </>
+              ) : (
+                <>
+                  <FormRow>
+                    <FormField label={t('anomaly.fields.stream_name')} required hint={t('anomaly.hints.stream_name')}>
+                      <FormInput
+                        value={form.streamName}
+                        onChange={(e) => set('streamName', e.target.value)}
+                        placeholder={t('anomaly.placeholders.stream_name')}
+                        required
+                      />
+                    </FormField>
+                    <FormField label={t('anomaly.fields.stream_type')} required>
+                      <FormSelect
+                        value={form.streamType}
+                        onChange={(v) => set('streamType', v as StreamType)}
+                        options={STREAM_TYPES}
+                      />
+                    </FormField>
+                  </FormRow>
+                  <FormRow>
+                    <FormField label={t('anomaly.fields.language')} required>
+                      <FormSelect
+                        value={form.language}
+                        onChange={(v) => set('language', v as 'sql' | 'promql')}
+                        options={[
+                          { value: 'sql', label: 'SQL' },
+                          { value: 'promql', label: 'PromQL' },
+                        ]}
+                      />
+                    </FormField>
+                    <FormField label={t('anomaly.fields.window')} required hint={t('anomaly.hints.window')}>
+                      <FormSelect
+                        value={form.periodSecs}
+                        onChange={(v) => set('periodSecs', v)}
+                        options={WINDOW_OPTIONS}
+                      />
+                    </FormField>
+                  </FormRow>
+                  <FormField label={t('anomaly.fields.query')} required hint={t('anomaly.hints.query')}>
+                    <CodeEditor
+                      value={form.statement}
+                      onChange={(v) => set('statement', v)}
+                      language={form.language === 'promql' ? 'promql' : 'sql'}
+                      label={form.language === 'promql' ? 'PromQL' : 'SQL'}
+                      ariaLabel={t('anomaly.fields.query')}
+                      minHeight={160}
+                      maxHeight={320}
+                      compact
+                      resizable
+                      showHeader={false}
+                      readOnly={manageAccess.disabled}
+                    />
+                  </FormField>
+                </>
+              )}
             </FormSection>
 
             <FormSection

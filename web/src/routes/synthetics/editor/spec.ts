@@ -1,5 +1,6 @@
 import type {
   AssertionOperator,
+  ClientKey,
   HeaderValue,
   MonitorAssertion,
   MonitorSpec,
@@ -19,9 +20,9 @@ export function buildSpec(draft: CheckDraft, secrets: SyntheticSecret[]): Monito
       configuration: {
         steps: parseBrowserSteps(draft.browserSteps, secrets),
         viewport: { width: 1440, height: 900 },
-        capture_screenshot_on_failure: true,
-        capture_har_on_failure: true,
-        capture_trace_on_failure: true,
+        captureScreenshotOnFailure: true,
+        captureHarOnFailure: true,
+        captureTraceOnFailure: true,
       },
     };
   }
@@ -31,7 +32,7 @@ export function buildSpec(draft: CheckDraft, secrets: SyntheticSecret[]): Monito
       configuration: {
         host: valueSource(draft.host, secrets),
         port: Number(draft.port) || 443,
-        use_tls: draft.useTls,
+        useTls: draft.useTls,
         assertions,
       },
     };
@@ -47,7 +48,7 @@ export function buildSpec(draft: CheckDraft, secrets: SyntheticSecret[]): Monito
         ? {
             kind: 'public_key' as const,
             username: valueSource(draft.sshUsername, secrets),
-            private_key: valueSource(draft.sshPrivateKey, secrets),
+            privateKey: valueSource(draft.sshPrivateKey, secrets),
             ...(draft.sshPassphrase.trim()
               ? { passphrase: valueSource(draft.sshPassphrase, secrets) }
               : {}),
@@ -59,18 +60,18 @@ export function buildSpec(draft: CheckDraft, secrets: SyntheticSecret[]): Monito
         host: valueSource(draft.host, secrets),
         port: Number(draft.port) || 22,
         ...(draft.sshIdentificationRegex.trim()
-          ? { expected_identification_regex: draft.sshIdentificationRegex.trim() }
+          ? { expectedIdentificationRegex: draft.sshIdentificationRegex.trim() }
           : {}),
         ...(authentication ? { authentication } : {}),
         ...(authentication && draft.sshHostKeySha256.trim()
-          ? { expected_host_key_sha256: draft.sshHostKeySha256.trim() }
+          ? { expectedHostKeySha256: draft.sshHostKeySha256.trim() }
           : {}),
         ...(authentication && draft.sshCommand.trim()
           ? {
               command: valueSource(draft.sshCommand, secrets),
-              expected_exit_status: Number(draft.sshExitStatus) || 0,
+              expectedExitStatus: Number(draft.sshExitStatus) || 0,
               ...(draft.sshOutputRegex.trim()
-                ? { expected_output_regex: draft.sshOutputRegex.trim() }
+                ? { expectedOutputRegex: draft.sshOutputRegex.trim() }
                 : {}),
             }
           : {}),
@@ -82,10 +83,10 @@ export function buildSpec(draft: CheckDraft, secrets: SyntheticSecret[]): Monito
       kind: 'dns',
       configuration: {
         name: draft.host.trim(),
-        record_type: draft.recordType,
+        recordType: draft.recordType,
         ...(draft.resolver.trim() ? { resolver: draft.resolver.trim() } : {}),
-        require_dnssec: draft.dnssec,
-        expected_values: splitComma(draft.expectedValues),
+        requireDnssec: draft.dnssec,
+        expectedValues: splitComma(draft.expectedValues),
         assertions,
       },
     };
@@ -96,13 +97,13 @@ export function buildSpec(draft: CheckDraft, secrets: SyntheticSecret[]): Monito
       configuration: {
         host: draft.host.trim(),
         count: Math.max(1, Math.min(10, Number(draft.pingCount) || 4)),
-        interval_millis: 250,
-        max_packet_loss_ratio: Math.max(
+        intervalMillis: 250,
+        maxPacketLossRatio: Math.max(
           0,
           Math.min(1, (Number(draft.packetLoss) || 0) / 100),
         ),
         ...(draft.latencyLimit
-          ? { max_mean_rtt_millis: Number(draft.latencyLimit) }
+          ? { maxMeanRttMillis: Number(draft.latencyLimit) }
           : {}),
       },
     };
@@ -113,9 +114,9 @@ export function buildSpec(draft: CheckDraft, secrets: SyntheticSecret[]): Monito
       configuration: {
         host: draft.host.trim(),
         port: Number(draft.port) || 443,
-        minimum_days_remaining: Math.max(1, Number(draft.certificateDays) || 30),
-        expected_sans: [],
-        minimum_protocol: 'TLS1.2',
+        minimumDaysRemaining: Math.max(1, Number(draft.certificateDays) || 30),
+        expectedSans: [],
+        minimumProtocol: 'TLS1.2',
       },
     };
   }
@@ -124,7 +125,7 @@ export function buildSpec(draft: CheckDraft, secrets: SyntheticSecret[]): Monito
       kind: 'grpc',
       configuration: {
         endpoint: draft.host.trim(),
-        use_tls: draft.useTls,
+        useTls: draft.useTls,
         metadata: [],
         call: { kind: 'health', service: draft.grpcService.trim() },
         assertions,
@@ -161,11 +162,42 @@ function httpSpec(
           assertions,
         },
       ],
-      follow_redirects: true,
-      max_redirects: 5,
-      verify_tls: draft.useTls,
+      followRedirects: true,
+      maxRedirects: 5,
+      verifyTls: draft.useTls,
+      httpVersion: draft.httpVersion,
+      ...clientCertificate(draft),
+      ...(draft.dnsServer.trim() ? { dnsServer: draft.dnsServer.trim() } : {}),
+      hosts: draft.hostBindings
+        .filter((binding) => binding.name.trim())
+        .map((binding) => ({
+          name: binding.name.trim(),
+          addresses: binding.addresses
+            .split(/[\s,]+/)
+            .map((address) => address.trim())
+            .filter(Boolean),
+        })),
     },
   };
+}
+
+/**
+ * The client certificate as typed or uploaded, with a new private key or the one the check's
+ * revision already holds. Without a certificate, or a key for it, the check shows none.
+ */
+function clientCertificate(draft: CheckDraft) {
+  const certificate = draft.clientCertificate.trim();
+  const pem = draft.clientKey.trim();
+
+  const privateKey: ClientKey | null = pem
+    ? { state: 'new', pem }
+    : draft.clientKeyRevision
+      ? { state: 'kept', revisionId: draft.clientKeyRevision }
+      : null;
+
+  return certificate && privateKey
+    ? { clientCertificate: { certificate, privateKey } }
+    : {};
 }
 
 function buildAssertion(draft: AssertionDraft): MonitorAssertion {
@@ -209,7 +241,7 @@ function parseBrowserSteps(source: string, secrets: SyntheticSecret[]) {
         action = {
           action: 'navigate',
           url: valueSource(first, secrets),
-          wait_until: 'networkidle',
+          waitUntil: 'networkidle',
         };
       } else if (verb === 'click') {
         action = { action: 'click', selector: [first, ...rest].join(' ') };
@@ -223,12 +255,12 @@ function parseBrowserSteps(source: string, secrets: SyntheticSecret[]) {
         action = {
           action: 'screenshot',
           name: [first, ...rest].join(' ') || `step-${index + 1}`,
-          full_page: true,
+          fullPage: true,
         };
       } else if (verb === 'wait' && /^\d+$/.test(first)) {
         action = {
           action: 'wait_duration',
-          duration_millis: Math.min(30_000, Number(first)),
+          durationMillis: Math.min(30_000, Number(first)),
         };
       } else {
         action = { action: 'wait_selector', selector: [first, ...rest].join(' ') };
@@ -243,7 +275,7 @@ function valueSource(value: string, secrets: SyntheticSecret[]): ValueSource {
   if (!reference) return { source: 'literal', value: normalized };
   const secret = secrets.find((item) => item.name === reference);
   return secret
-    ? { source: 'secret', reference, secret_id: secret.id }
+    ? { source: 'secret', reference, secretId: secret.id }
     : { source: 'variable', name: reference };
 }
 

@@ -8,47 +8,70 @@
 //! 1. 在 `[now - period, now]` 上执行规则查询（SQL 与 PromQL 各走自己的引擎），
 //!    包 `tokio::time::timeout(eval_timeout_secs)`。
 //! 2. 把结果首行首列与阈值比较（单档 / 多档 / anomaly）得到一轮结论 `Decision`，并推进
-//!    `eval_state` 的连续命中计数。
+//!    `eval_state` 的连续命中、恢复与没有值的计数（见 `round`）。按列拆分的规则每组各比各的、
+//!    各记各的（见 `groups`）。
 //! 3. 落到事件生命周期（见 `incident_flow`）：
 //!    - 连续命中 >= `for_periods` 且同指纹没有活跃事件、也不在 `silence_secs` 静默期 → 创建；
-//!    - 不再命中且存在 open 事件 → 标记 Resolved 并 `eval_state.reset`。
+//!    - 满足恢复条件且存在 open 事件 → 标记 Resolved 并 `eval_state.reset`；
+//!    - `no_data = alert` 的规则连续没有值 → 另开无数据事件，有值后解决（见 `no_data`）。
 //! 4. 把本轮的 `last_eval_at` / `last_state` 写回规则。
 //!
 //! 成员变化的短暂窗口里两个节点可能同时拥有一条规则。接上周期守卫
 //! （[`with_cycle_guard`](RuleEvaluator::with_cycle_guard)）后，评估前先认领本轮：同一个周期只有
 //! 一个节点能评估，命中不会被重复计数，`for_periods` 的去抖也不会被提前耗尽。
 
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use super::realtime::is_matched_at_intake;
 use crate::{
     app::{
-        alerting::AlertIncidentLifecycleSink,
+        alerting::{
+            AlertIncidentLifecycleSink, ApmAlertSlot, IncidentMerger, IncidentRouter,
+            apm_source::apm_stream_hint, discovery::discovery_stream_hint,
+            event_pipelines::AlertPipelines, rum_source::rum_stream_hint,
+        },
         cluster::{PeerRole, WorkOwnership, record_overlap_skipped},
         notify::NotifyEngine,
     },
     domain::{
         alerting::{
+            discovery::DiscoveryRepository,
+            heartbeat::HeartbeatRepository,
+            incident::Incident,
             incident_group::IncidentGroupRepository,
             repositories::{AlertRuleEvalStateRepository, AlertRuleRepository, IncidentRepository},
-            rule::AlertRule,
+            rule::{AlertRule, AlertRuleKind, RuleState},
             semantic_group::SemanticGroupRepository,
+            timeline::IncidentTimelineRepository,
         },
         query::QueryEngine,
+        rum::RumAlertSource,
     },
-    shared::{Result, time::TimestampMicros},
+    shared::{Result, ids::Id, time::TimestampMicros},
 };
 
 mod decision;
+mod delay;
 mod evaluation;
 mod events;
+mod external;
+mod groups;
 mod incident_context;
 mod incident_flow;
+mod kinds;
 mod manual;
+mod no_data;
+mod pipelines;
 mod realtime;
+mod round;
+mod synthetic;
+mod synthetic_incident;
 mod window;
-use evaluation::compute_fingerprint;
-pub use manual::{AlertRuleAnomalyTest, AlertRuleTestResult};
+pub use delay::DelaySettings;
+pub use external::{ExternalSettlement, external_fingerprint};
+use groups::Subject;
+pub use manual::{AlertRuleAnomalyTest, AlertRuleGroupTest, AlertRuleTestResult};
+pub use synthetic::{SyntheticIncidentSink, synthetic_fingerprint};
 
 /// 一天的微秒数；anomaly 历史窗口按整天回看。
 const DAY_MICROS: i64 = 86_400_000_000;
@@ -75,6 +98,28 @@ pub struct RuleEvaluator {
     ownership: Arc<WorkOwnership>,
     /// 同一规则两次评估至少相隔多久才算新的一个周期；`None` 不去重。
     cycle_gap_micros: Option<i64>,
+    /// Where rules that watch an APM figure read it; empty until APM runs.
+    apm: Arc<ApmAlertSlot>,
+    /// Where rules that watch a RUM figure read it; without one such a rule has no value.
+    rum: Option<Arc<dyn RumAlertSource>>,
+    /// 数据来源是自动发现的规则从这里读进行中的发现；没接时这类规则没有值。
+    discovery: Option<Arc<dyn DiscoveryRepository>>,
+    /// 新事件写库前定团队和升级策略；没接时事件照来源给的策略开。
+    router: Option<Arc<IncidentRouter>>,
+    /// 可能被压的新事件先等一会儿再通知；没接时不等。
+    inhibitions: Option<Arc<crate::app::alerting::Inhibitions>>,
+    /// 开事件前处理事件的告警流水线。
+    alert_pipelines: Option<Arc<AlertPipelines>>,
+    /// 这一轮要开的事件被告警流水线丢掉的规则；写回规则状态时取走（[`RuleState::Dropped`]）。
+    dropped: parking_lot::Mutex<HashSet<Id>>,
+    /// 流水线对事件做了什么记在这里；没接时不记。
+    timeline: Option<Arc<dyn IncidentTimelineRepository>>,
+    /// 心跳规则的打卡；没接时心跳规则不判定。
+    heartbeats: Option<Arc<dyn HeartbeatRepository>>,
+    /// 组合规则把子规则的事件并进来；没接时不并。
+    merger: Option<Arc<dyn IncidentMerger>>,
+    /// 查询窗口往回挪多少；没接时规则不设就不挪。
+    delay: Arc<DelaySettings>,
 }
 
 impl RuleEvaluator {
@@ -97,7 +142,48 @@ impl RuleEvaluator {
             lifecycle_sink: None,
             ownership: WorkOwnership::solo(PeerRole::Alert),
             cycle_gap_micros: None,
+            apm: Arc::new(ApmAlertSlot::default()),
+            rum: None,
+            discovery: None,
+            router: None,
+            inhibitions: None,
+            alert_pipelines: None,
+            dropped: Default::default(),
+            timeline: None,
+            heartbeats: None,
+            merger: None,
+            delay: DelaySettings::new(true),
         }
+    }
+
+    /// 心跳规则读打卡记录；打卡也经过这里。
+    pub fn with_heartbeats(mut self, heartbeats: Arc<dyn HeartbeatRepository>) -> Self {
+        self.heartbeats = Some(heartbeats);
+        self
+    }
+
+    /// 组合规则开了事件后，用 `merger` 把子规则的事件并进来。
+    pub fn with_merger(mut self, merger: Arc<dyn IncidentMerger>) -> Self {
+        self.merger = Some(merger);
+        self
+    }
+
+    /// Reads the figures of APM rules from `slot`, filled once APM's query service exists.
+    pub fn with_apm(mut self, slot: Arc<ApmAlertSlot>) -> Self {
+        self.apm = slot;
+        self
+    }
+
+    /// Reads the figures of RUM rules from `source`.
+    pub fn with_rum(mut self, source: Arc<dyn RumAlertSource>) -> Self {
+        self.rum = Some(source);
+        self
+    }
+
+    /// 自动发现规则读进行中的发现。
+    pub fn with_discovery(mut self, findings: Arc<dyn DiscoveryRepository>) -> Self {
+        self.discovery = Some(findings);
+        self
     }
 
     /// 与其余 alert 节点按 `rule_id` 分担评估：`tick` 只评估本节点拥有的规则。
@@ -133,6 +219,46 @@ impl RuleEvaluator {
     pub fn with_lifecycle_sink(mut self, sink: Arc<dyn AlertIncidentLifecycleSink>) -> Self {
         self.lifecycle_sink = Some(sink);
         self
+    }
+
+    /// 按路由给新事件定团队和升级策略（规则、手动触发、无数据、外部告警、拨测都经过这里）。
+    pub fn with_inhibitions(mut self, inhibitions: Arc<crate::app::alerting::Inhibitions>) -> Self {
+        self.inhibitions = Some(inhibitions);
+        self
+    }
+
+    pub fn with_router(mut self, router: Arc<IncidentRouter>) -> Self {
+        self.router = Some(router);
+        self
+    }
+
+    pub fn with_alert_pipelines(mut self, pipelines: Arc<AlertPipelines>) -> Self {
+        self.alert_pipelines = Some(pipelines);
+        self
+    }
+
+    /// 告警流水线对事件做了什么，记进这里的时间线。
+    pub fn with_timeline(mut self, timeline: Arc<dyn IncidentTimelineRepository>) -> Self {
+        self.timeline = Some(timeline);
+        self
+    }
+
+    pub fn with_delay(mut self, delay: Arc<DelaySettings>) -> Self {
+        self.delay = delay;
+        self
+    }
+
+    /// 写库前的最后一步：有路由器就分派，没有就原样返回。
+    async fn routed(&self, incident: Incident) -> Incident {
+        let incident = match &self.router {
+            Some(router) => router.route(incident).await,
+            None => incident,
+        };
+
+        match &self.inhibitions {
+            Some(inhibitions) => inhibitions.hold_new(incident).await,
+            None => incident,
+        }
     }
 
     #[tracing::instrument(
@@ -173,7 +299,20 @@ impl RuleEvaluator {
         fields(otel.kind = "internal", molesignal.alert.kind = %rule.kind.as_str())
     )]
     async fn eval_one(&self, rule: &AlertRule, now: TimestampMicros) -> Result<()> {
-        let Some(stream) = rule.query.stream.clone() else {
+        // 组合与心跳规则不跑查询。
+        if rule.kind.without_query() {
+            return self.eval_without_query(rule, now).await;
+        }
+
+        // An APM or a RUM rule reads aggregates and names no stream.
+        let Some(stream) = rule
+            .query
+            .stream
+            .clone()
+            .or_else(|| rule.query.apm.is_some().then(apm_stream_hint))
+            .or_else(|| rule.query.rum.is_some().then(rum_stream_hint))
+            .or_else(|| rule.query.discovery.is_some().then(discovery_stream_hint))
+        else {
             // 缺 stream 字段：底层 query engine 一定会拒（必须显式指定 table）。
             // 直接 short-circuit 并 warn，避免每个 tick 都让 engine 报一遍错。
             tracing::warn!(
@@ -203,6 +342,29 @@ impl RuleEvaluator {
             return Ok(());
         };
 
+        // 按列拆分的规则：每组各开各的事件。离群规则的组不够相互比较时这一轮不下结论。
+        if !rule.query.group_by.is_empty() {
+            if let Some(decision) = self.eval_grouped(rule, &query_result, now).await? {
+                self.record_evaluation(rule, &decision, now).await;
+            }
+
+            return Ok(());
+        }
+
+        // 预测规则：序列还不够推时这一轮不下结论。
+        if rule.kind == AlertRuleKind::Forecast {
+            if let Some(decision) = self
+                .decide_forecast(rule, &stream, &query_result, now, period_us)
+                .await?
+            {
+                self.settle(rule, &decision, &query_result, &Subject::rule(rule), now)
+                    .await?;
+                self.record_evaluation(rule, &decision, now).await;
+            }
+
+            return Ok(());
+        }
+
         // 基线不可信（anomaly inconclusive）：跳过本轮，绝不误 resolve。
         let Some(decision) = self
             .decide(rule, &stream, &query_result, now, period_us)
@@ -211,37 +373,29 @@ impl RuleEvaluator {
             return Ok(());
         };
 
-        let fingerprint = compute_fingerprint(rule);
-
-        let existing = self
-            .incidents
-            .find_by_fingerprint(&rule.org_id, &fingerprint)
+        self.settle(rule, &decision, &query_result, &Subject::rule(rule), now)
             .await?;
-
-        if decision.firing {
-            self.on_firing(rule, &decision, existing, &query_result, &fingerprint, now)
-                .await?;
-        } else if !decision.matched {
-            // 所有档都不命中 → resolve open incident（命中但未到 for_periods 的 pending 不动）。
-            self.on_cleared(rule, existing, now).await?;
-        }
 
         self.record_evaluation(rule, &decision, now).await;
         Ok(())
     }
 
-    /// 把本轮评估结果写回规则；失败只 warn，不影响告警主流程。
+    /// 把本轮评估结果写回规则；失败只 warn，不影响告警主流程。触发了、要开的事件却被告警流水线
+    /// 丢掉的规则写成 [`RuleState::Dropped`]，免得它看起来像没有触发。
     async fn record_evaluation(
         &self,
         rule: &AlertRule,
         decision: &decision::Decision,
         now: TimestampMicros,
     ) {
-        if let Err(error) = self
-            .rules
-            .record_evaluation(&rule.id, now, decision.rule_state())
-            .await
-        {
+        let dropped = self.dropped.lock().remove(&rule.id);
+
+        let state = match decision.rule_state() {
+            RuleState::Firing if dropped => RuleState::Dropped,
+            state => state,
+        };
+
+        if let Err(error) = self.rules.record_evaluation(&rule.id, now, state).await {
             tracing::warn!(rule_id = %rule.id, error = %error, "record rule evaluation failed");
         }
     }

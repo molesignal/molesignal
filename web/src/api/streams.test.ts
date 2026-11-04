@@ -7,13 +7,13 @@ import { list } from './streams';
 const stream = {
   id: 'stream-1',
   name: 'app_logs',
-  stream_type: 'logs',
+  streamType: 'logs',
   schema: { fields: [] },
   retention: { days: 7 },
-  effective_retention: { days: 7 },
+  effectiveRetention: { days: 7 },
   settings: {},
-  created_at_micros: 1,
-  updated_at_micros: 2,
+  createdAt: 1,
+  updatedAt: 2,
 } as const;
 
 describe('streams API list response', () => {

@@ -45,8 +45,8 @@ export function DraftStatusPanel({
   const range = preflightRange(draft);
   const effectiveExpiry = effectiveDraftExpiry(draft);
   const expired = draft.status === 'expired' || effectiveExpiry <= nowMicros;
-  const approved = draft.operation?.approved_reviews ?? 0;
-  const required = draft.operation?.required_approvals ?? 0;
+  const approved = draft.operation?.approvedReviews ?? 0;
+  const required = draft.operation?.requiredApprovals ?? 0;
 
   return (
     <aside className="space-y-3" aria-label={t('dashboard_authoring.review_title')}>
@@ -72,11 +72,11 @@ export function DraftStatusPanel({
             />
             <MetaRow
               label={t('dashboard_authoring.created_at')}
-              value={formatMicrosActive(draft.created_at)}
+              value={formatMicrosActive(draft.createdAt)}
             />
             <MetaRow
               label={t('dashboard_authoring.model_hash')}
-              value={draft.model_hash.slice(0, 12)}
+              value={draft.modelHash.slice(0, 12)}
               mono
             />
             {range ? (
@@ -136,7 +136,7 @@ export function DraftStatusPanel({
                 <div className="mt-0.5 text-type-micro text-tx-3">
                   {t(`dashboard_authoring.preflight_status.${panel.status}`)} ·{' '}
                   {t('dashboard_authoring.preflight_rows', {
-                    count: panel.returned_rows,
+                    count: panel.returnedRows,
                   })}
                 </div>
               </div>
@@ -209,7 +209,7 @@ function DraftAction({
   if (action === 'open') {
     return (
       <Button asChild size="lg" className="w-full">
-        <Link to={draft.dashboard_route ?? '/dashboards'}>
+        <Link to={draft.dashboardRoute ?? '/dashboards'}>
           {t('dashboard_authoring.open_dashboard')}
           <ExternalLink />
         </Link>

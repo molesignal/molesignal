@@ -95,7 +95,7 @@ export function SearchJobs() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: JOBS_KEY });
   const onError = (error: unknown) => toast.error(toApiError(error).message);
   const cancel = useMutation({
-    mutationFn: (job: SearchJob) => searchJobsApi.cancel(job.job_id),
+    mutationFn: (job: SearchJob) => searchJobsApi.cancel(job.jobId),
     onSuccess: () => {
       toast.success(t('jobs.toast.cancelled'));
       setCancelling(null);
@@ -104,7 +104,7 @@ export function SearchJobs() {
     onError,
   });
   const retry = useMutation({
-    mutationFn: (job: SearchJob) => searchJobsApi.retry(job.job_id),
+    mutationFn: (job: SearchJob) => searchJobsApi.retry(job.jobId),
     onSuccess: () => {
       toast.success(t('jobs.toast.retried'));
       return refresh();
@@ -112,7 +112,7 @@ export function SearchJobs() {
     onError,
   });
   const remove = useMutation({
-    mutationFn: (job: SearchJob) => searchJobsApi.remove(job.job_id),
+    mutationFn: (job: SearchJob) => searchJobsApi.remove(job.jobId),
     onSuccess: () => {
       toast.success(t('jobs.toast.deleted'));
       setDeleting(null);
@@ -126,7 +126,7 @@ export function SearchJobs() {
     onError,
   });
   const busyId =
-    [cancel, retry, remove, download].find((mutation) => mutation.isPending)?.variables?.job_id ??
+    [cancel, retry, remove, download].find((mutation) => mutation.isPending)?.variables?.jobId ??
     null;
 
   const changeFilter = (next: JobFilter) => {

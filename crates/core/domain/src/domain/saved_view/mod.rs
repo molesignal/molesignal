@@ -12,6 +12,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SavedView {
     pub id: Id,
     pub org_id: Id,

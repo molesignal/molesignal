@@ -12,8 +12,8 @@ use super::super::EmailSender;
 use crate::{
     config::{SmtpSettings, SmtpTls},
     domain::notify::connector::{
-        ConnectorAdapter, ConnectorCapabilities, ConnectorDeliveryResult, NotifyMessage,
-        NotifyTarget, NotifyTargetType,
+        ConnectorAdapter, ConnectorCapabilities, ConnectorDeliveryResult, NotifyChannel,
+        NotifyMessage, NotifyTarget, NotifyTargetType,
     },
     shared::{Error, Result},
 };
@@ -21,6 +21,7 @@ use crate::{
 pub const EMAIL_SMTP_CONNECTOR_TYPE: &str = "email_smtp";
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct EmailSmtpConfig {
     host: String,
     #[serde(default)]
@@ -107,6 +108,10 @@ impl ConnectorAdapter for EmailSmtpConnectorAdapter {
         }
     }
 
+    fn channel(&self) -> NotifyChannel {
+        NotifyChannel::Email
+    }
+
     fn validate_config(&self, config: &Value) -> Result<()> {
         EmailSmtpConfig::parse(config)?.validate()
     }
@@ -191,7 +196,7 @@ mod tests {
                 "password": "secret",
                 "from": "alerts@example.com",
                 "tls": "starttls",
-                "timeout_secs": 10
+                "timeoutSecs": 10
             }))
             .unwrap();
         adapter
@@ -220,7 +225,7 @@ mod tests {
                 .validate_config(&serde_json::json!({
                     "host": "smtp.example.com",
                     "from": "alerts@example.com",
-                    "timeout_secs": 0
+                    "timeoutSecs": 0
                 }))
                 .is_err()
         );

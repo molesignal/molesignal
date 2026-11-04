@@ -151,7 +151,7 @@ function ActionButton({
     'ms-press inline-flex h-8 items-center justify-center rounded-md px-3 font-sans text-xs font-strong',
     'focus-visible:outline-none',
     variant === 'primary'
-      ? 'bg-indigo text-white shadow-primary hover:brightness-90 focus-visible:brightness-90 focus-visible:text-white'
+      ? 'bg-indigo text-white hover:brightness-90 focus-visible:brightness-90 focus-visible:text-white'
       : 'bg-bg-2 text-tx-1 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo',
     action.disabled &&
       'pointer-events-none cursor-not-allowed bg-bg-2 text-tx-3 hover:bg-bg-2 hover:text-tx-3',

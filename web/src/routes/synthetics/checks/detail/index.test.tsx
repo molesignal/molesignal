@@ -14,6 +14,7 @@ import { CheckDetail } from './index';
 
 const mocks = vi.hoisted(() => ({
   getMonitor: vi.fn(),
+  getAvailability: vi.fn(),
   listResults: vi.fn(),
   listLocations: vi.fn(),
   runMonitor: vi.fn(),
@@ -27,6 +28,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/api/synthetics', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   getMonitor: mocks.getMonitor,
+  getAvailability: mocks.getAvailability,
   listResults: mocks.listResults,
   listLocations: mocks.listLocations,
   runMonitor: mocks.runMonitor,
@@ -60,8 +62,8 @@ function detail(overrides: {
 
 /** A check whose only revision is a draft: nothing of it is on schedule yet. */
 function draftDetail(revisionOverrides: Parameters<typeof revision>[0] = {}): MonitorDetail {
-  const unpublished = monitor({ draft_revision_id: 'revision-1' });
-  delete unpublished.active_revision_id;
+  const unpublished = monitor({ draftRevisionId: 'revision-1' });
+  delete unpublished.activeRevisionId;
 
   return { monitor: unpublished, revisions: [revision(revisionOverrides)] };
 }
@@ -98,8 +100,8 @@ beforeEach(() => {
   }
   mocks.getMonitor.mockResolvedValue(detail());
   mocks.listResults.mockResolvedValue([
-    ...runs(['healthy', 'healthy', 'failing'], { location_id: 'loc-us' }),
-    ...runs(['healthy'], { location_id: 'loc-eu' }),
+    ...runs(['healthy', 'healthy', 'failing'], { locationId: 'loc-us' }),
+    ...runs(['healthy'], { locationId: 'loc-eu' }),
   ]);
   mocks.listLocations.mockResolvedValue([
     location(),
@@ -107,7 +109,36 @@ beforeEach(() => {
   ]);
   mocks.runMonitor.mockResolvedValue(undefined);
   mocks.testRevision.mockResolvedValue(undefined);
+  // How the check's runs went over the range: 3 of the 4 judged were available.
+  mocks.getAvailability.mockResolvedValue({
+    from: 0,
+    to: NOW,
+    step: 30 * MINUTE,
+    total: { runs: 4, available: 3, failing: 1, undecided: 0, availability: 0.75, p50Ms: 120, p95Ms: 180, maxMs: 200 },
+    checks: [],
+    locations: [],
+    buckets: [],
+    // The range step by step from each place: three steps in N. Virginia, one in Frankfurt.
+    locationBuckets: [
+      ...[0, 1, 2].map((index) => ({ ...step(index), locationId: 'loc-us' })),
+      { ...step(0), locationId: 'loc-eu' },
+    ],
+  });
 });
+
+function step(index: number) {
+  return {
+    start: NOW - (3 - index) * 30 * MINUTE,
+    runs: 2,
+    available: 2,
+    failing: 0,
+    undecided: 0,
+    availability: 1,
+    p50Ms: 120 + index,
+    p95Ms: 150,
+    maxMs: 160,
+  };
+}
 
 afterEach(() => {
   cleanup();
@@ -147,7 +178,7 @@ describe('Synthetics check detail', () => {
     expect(within(standing).getByRole('heading').textContent).toBe('Passing');
     expect(standing.textContent).toContain('Last failed 3 minutes ago');
     expect(standing.textContent).toContain('75.0%');
-    expect(standing.textContent).toContain('of the last 4 runs');
+    expect(standing.textContent).toContain('of 4 runs in range');
     expect(standing.textContent).toContain('from 2 locations · alerts after 2 failed in a row');
 
     // The same runs drawn and named, per place the check runs from.
@@ -166,11 +197,11 @@ describe('Synthetics check detail', () => {
         attempts: [
           {
             number: 1,
-            started_at: 0,
-            finished_at: 1,
+            startedAt: 0,
+            finishedAt: 1,
             outcome: 'failing',
             timing: {},
-            error_message: 'connect ECONNREFUSED',
+            errorMessage: 'connect ECONNREFUSED',
             metadata: {},
           },
         ],
@@ -209,7 +240,7 @@ describe('Synthetics check detail', () => {
     expect(screen.queryByRole('button', { name: 'Pause' })).toBeNull();
 
     cleanup();
-    mocks.getMonitor.mockResolvedValue(draftDetail({ last_test_passed_at: NOW - MINUTE }));
+    mocks.getMonitor.mockResolvedValue(draftDetail({ lastTestPassedAt: NOW - MINUTE }));
     renderDetail();
     expect(
       (await screen.findByRole('button', { name: 'Publish revision' })).hasAttribute('disabled'),
@@ -217,7 +248,7 @@ describe('Synthetics check detail', () => {
   });
 
   it('lists the runs under Results and opens one from its address', async () => {
-    const opened = result({ id: 'run-7', started_at: NOW - 5 * MINUTE });
+    const opened = result({ id: 'run-7', startedAt: NOW - 5 * MINUTE });
     mocks.listResults.mockResolvedValue([opened, ...runs(['healthy'])]);
     renderDetail('/synthetics/checks/check-1/results/run-7');
 

@@ -9,31 +9,36 @@ use std::{
 use anyhow::{Context as _, Result, anyhow, bail};
 use hyper::{
     Method, StatusCode,
-    header::{HeaderMap, HeaderName, HeaderValue, LOCATION},
+    header::{HeaderName, HeaderValue, LOCATION},
 };
-use regex::Regex;
 use url::{Host, Url};
 
 use super::{
-    AttemptOutcome, ExecutionContext, now_micros, security::EgressGuard, timing::PhaseClock,
+    AttemptOutcome, ExecutionContext, assertions, failure, now_micros,
+    timing::PhaseClock,
+    trace_context::{self, TRACEPARENT, TraceContext},
 };
 use crate::protocol::v1::{
-    self as wire, AssertionResult, AssertionSeverity, HttpJourneySpec, ProbeOutcome, StepEvidence,
+    self as wire, AssertionResult, HttpJourneySpec, ProbeOutcome, StepEvidence,
 };
 
 mod connection;
 mod exchange;
 mod proxy;
+mod reading;
+mod route;
 mod tls;
+
+use reading::HttpObservation;
+use route::Route;
 
 const MAX_BODY_BYTES: usize = 64 * 1024;
 
-struct HttpObservation {
-    status: StatusCode,
-    headers: HeaderMap,
-    body: Vec<u8>,
-    elapsed: Duration,
-}
+/// How much of a body is kept for JSONPath and JSON Schema, when a step reads it as JSON.
+const MAX_JSON_BYTES: usize = 4 * 1024 * 1024;
+
+/// How much of a body is read to tell its size, when a step asserts on it.
+const MAX_COUNTED_BYTES: usize = 16 * 1024 * 1024;
 
 pub(super) async fn execute(
     task: &wire::ProbeTask,
@@ -41,45 +46,77 @@ pub(super) async fn execute(
     context: &mut ExecutionContext,
     phases: &PhaseClock,
 ) -> Result<AttemptOutcome> {
-    let guard = EgressGuard::new(task.egress_policy.clone())?;
-    let proxies = proxy::Rules::from_environment();
+    let route = Route::new(task, spec, context, phases).await?;
     let mut assertions = Vec::new();
     let mut last_body = Vec::new();
     let mut metadata = HashMap::new();
     let mut evidence = Vec::with_capacity(spec.steps.len());
 
+    // The requests of an attempt are spans of one trace, so that the steps of a journey read as
+    // one trace in the services they reach.
+    let trace = task.inject_trace_context.then(TraceContext::new);
+
+    if let Some(trace) = &trace {
+        metadata.insert("trace_id".to_string(), trace.trace_id());
+    }
+
     for step in &spec.steps {
         let step_started = now_micros();
-        let executed = execute_step(task, spec, step, context, &guard, &proxies, phases).await;
+        let traced = trace.as_ref();
+        let executed = execute_step(task, spec, step, context, &route, traced, phases).await;
 
         let observation = match executed {
             Ok(observation) => observation,
             Err(error) => {
-                return Ok(step_failure(
+                let mut failed = step_failure(
                     step,
                     step_started,
-                    context.redact(&error.to_string()),
+                    classify(&error, context),
                     assertions,
-                    context
-                        .redact(&String::from_utf8_lossy(&last_body))
-                        .into_bytes(),
+                    excerpt(&last_body, context),
                     metadata,
                     evidence,
-                ));
+                );
+
+                // A request that went out names its trace, whatever became of it.
+                if let Some(trace) = trace.filter(|_| !sends_own_traceparent(step))
+                    && let Some(evidence) = failed.evidence.last_mut()
+                {
+                    evidence
+                        .metadata
+                        .insert("trace_id".into(), trace.trace_id());
+                }
+
+                return Ok(failed);
             }
         };
 
-        let step_metadata = HashMap::from([
+        let mut step_metadata = HashMap::from([
             ("status".into(), observation.status.as_u16().to_string()),
             (
                 "duration_micros".into(),
                 observation.elapsed.as_micros().to_string(),
             ),
+            ("remote_address".into(), observation.remote.to_string()),
+            ("http_version".into(), observation.version_text().into()),
         ]);
+
+        if let Some((trace_id, span_id)) = &observation.trace {
+            step_metadata.insert("trace_id".into(), trace_id.clone());
+
+            if !span_id.is_empty() {
+                step_metadata.insert("span_id".into(), span_id.clone());
+            }
+        }
 
         metadata.insert(
             format!("step.{}.status", step.id),
             observation.status.as_u16().to_string(),
+        );
+
+        metadata.insert(
+            format!("step.{}.remote_address", step.id),
+            observation.remote.to_string(),
         );
 
         metadata.insert(
@@ -89,7 +126,7 @@ pub(super) async fn execute(
 
         let processed = (|| -> Result<Vec<AssertionResult>> {
             for extraction in &step.extractions {
-                let extracted = extract(extraction, &observation)?;
+                let extracted = reading::extract(extraction, &observation)?;
 
                 if let Some(value) = extracted {
                     context.insert_variable(extraction.variable.clone(), value);
@@ -101,10 +138,11 @@ pub(super) async fn execute(
                 }
             }
 
-            step.assertions
-                .iter()
-                .map(|assertion| evaluate(assertion, &observation, context))
-                .collect()
+            assertions::evaluate_all(
+                &step.assertions,
+                |source| reading::source_value(source, &observation),
+                context,
+            )
         })();
 
         let step_assertions = match processed {
@@ -113,18 +151,16 @@ pub(super) async fn execute(
                 return Ok(step_failure(
                     step,
                     step_started,
-                    context.redact(&error.to_string()),
+                    classify(&error, context),
                     assertions,
-                    context
-                        .redact(&String::from_utf8_lossy(&observation.body))
-                        .into_bytes(),
+                    excerpt(&observation.body, context),
                     metadata,
                     evidence,
                 ));
             }
         };
 
-        let step_outcome = assertion_outcome(&step_assertions);
+        let step_outcome = assertions::outcome(&step_assertions);
 
         evidence.push(StepEvidence {
             step_id: step.id.clone(),
@@ -142,12 +178,10 @@ pub(super) async fn execute(
         last_body = observation.body;
     }
 
-    let outcome = assertion_outcome(&assertions);
+    let outcome = assertions::outcome(&assertions);
 
-    let excerpt = if matches!(outcome, ProbeOutcome::Failing | ProbeOutcome::Degraded) {
-        context
-            .redact(&String::from_utf8_lossy(&last_body))
-            .into_bytes()
+    let response_excerpt = if matches!(outcome, ProbeOutcome::Failing | ProbeOutcome::Degraded) {
+        excerpt(&last_body, context)
     } else {
         Vec::new()
     };
@@ -155,7 +189,7 @@ pub(super) async fn execute(
     Ok(AttemptOutcome {
         outcome,
         assertions,
-        response_excerpt: excerpt,
+        response_excerpt,
         error_category: String::new(),
         error_message: String::new(),
         metadata,
@@ -164,11 +198,56 @@ pub(super) async fn execute(
     })
 }
 
-#[allow(clippy::too_many_arguments)]
+/// The start of `body` kept as evidence, with the check's secrets taken out first so that none
+/// is cut in two and left half visible.
+fn excerpt(body: &[u8], context: &ExecutionContext) -> Vec<u8> {
+    let mut text = context.redact(&String::from_utf8_lossy(body));
+    let mut end = text.len().min(MAX_BODY_BYTES);
+
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+
+    text.truncate(end);
+    text.into_bytes()
+}
+
+/// Whether a step sends a `traceparent` of its own, which then names its trace.
+fn sends_own_traceparent(step: &wire::HttpStep) -> bool {
+    step.headers
+        .iter()
+        .any(|header| header.name.trim().eq_ignore_ascii_case(TRACEPARENT))
+}
+
+/// How a step that went wrong ends the attempt: failed when the target let it down, unknown when
+/// the step could not run.
+struct StepFailure {
+    outcome: ProbeOutcome,
+    category: &'static str,
+    message: String,
+}
+
+fn classify(error: &anyhow::Error, context: &ExecutionContext) -> StepFailure {
+    let message = context.redact(&error.to_string());
+
+    match failure::target_failure(error) {
+        Some(failure) => StepFailure {
+            outcome: ProbeOutcome::Failing,
+            category: failure.category,
+            message,
+        },
+        None => StepFailure {
+            outcome: ProbeOutcome::Unknown,
+            category: "http_step_failed",
+            message,
+        },
+    }
+}
+
 fn step_failure(
     step: &wire::HttpStep,
     started_at: i64,
-    message: String,
+    failed: StepFailure,
     assertions: Vec<AssertionResult>,
     response_body: Vec<u8>,
     metadata: HashMap<String, String>,
@@ -180,39 +259,21 @@ fn step_failure(
         action: "http".into(),
         started_at_micros: started_at,
         finished_at_micros: now_micros(),
-        outcome: ProbeOutcome::Unknown as i32,
-        error_category: "http_step_failed".into(),
-        error_message: message.clone(),
+        outcome: failed.outcome as i32,
+        error_category: failed.category.into(),
+        error_message: failed.message.clone(),
         metadata: HashMap::new(),
     });
 
     AttemptOutcome {
-        outcome: ProbeOutcome::Unknown,
+        outcome: failed.outcome,
         assertions,
         response_excerpt: response_body,
-        error_category: "http_step_failed".into(),
-        error_message: message,
+        error_category: failed.category.into(),
+        error_message: failed.message,
         metadata,
         evidence,
         artifacts: Vec::new(),
-    }
-}
-
-fn assertion_outcome(assertions: &[AssertionResult]) -> ProbeOutcome {
-    let critical_failed = assertions
-        .iter()
-        .any(|result| !result.passed && result.severity == AssertionSeverity::Critical as i32);
-
-    let warning_failed = assertions
-        .iter()
-        .any(|result| !result.passed && result.severity == AssertionSeverity::Warning as i32);
-
-    if critical_failed {
-        ProbeOutcome::Failing
-    } else if warning_failed {
-        ProbeOutcome::Degraded
-    } else {
-        ProbeOutcome::Healthy
     }
 }
 
@@ -221,10 +282,14 @@ async fn execute_step(
     spec: &HttpJourneySpec,
     step: &wire::HttpStep,
     context: &ExecutionContext,
-    guard: &EgressGuard,
-    proxies: &proxy::Rules,
+    route: &Route,
+    trace: Option<&TraceContext>,
     phases: &PhaseClock,
 ) -> Result<HttpObservation> {
+    let before = phases.so_far();
+    let own_traceparent = sends_own_traceparent(step);
+    let mut traced = None;
+
     let mut url = Url::parse(
         &context.resolve(
             step.url
@@ -265,7 +330,8 @@ async fn execute_step(
             .port_or_known_default()
             .ok_or_else(|| anyhow!("HTTP URL has no port"))?;
 
-        let address = guard.resolve(&host, port, phases).await?.remove(0);
+        let address = route.resolve(&host, port, phases).await?.remove(0);
+        context.dialling(address.ip());
         let mut request = exchange::request(method.clone(), &url)?;
 
         if redirects == 0 {
@@ -289,10 +355,31 @@ async fn execute_step(
             }
         }
 
+        // Every request, redirects too, is a span of the attempt's trace. A step that sends its
+        // own traceparent names its trace itself.
+        if own_traceparent {
+            let own = request.headers().get(TRACEPARENT);
+
+            if let Some(trace_id) = own
+                .and_then(|value| value.to_str().ok())
+                .and_then(trace_context::trace_id_of)
+            {
+                traced = Some((trace_id, String::new()));
+            }
+        } else if let Some(trace) = trace {
+            let (span_id, traceparent) = trace.span();
+
+            request
+                .headers_mut()
+                .insert(TRACEPARENT, HeaderValue::from_str(&traceparent)?);
+
+            traced = Some((trace.trace_id(), span_id));
+        }
+
         // Every request has the whole of the timeout to itself. It goes to the address the
         // egress policy approved, unless the probe's environment puts a proxy in between.
-        let verify_tls = spec.verify_tls;
-        let sent = exchange::send(request, address, proxies, verify_tls, timeout, phases);
+        let (proxies, transport) = (&route.proxies, &route.transport);
+        let sent = exchange::send(request, address, proxies, transport, timeout, phases);
         let mut reply = sent.await?;
 
         if reply.status.is_redirection() && spec.follow_redirects {
@@ -320,82 +407,34 @@ async fn execute_step(
             continue;
         }
 
-        let body = reply.read_body(MAX_BODY_BYTES).await?;
+        let keep = if reading::reads_json(step) {
+            MAX_JSON_BYTES
+        } else {
+            MAX_BODY_BYTES
+        };
+
+        let count_up_to = if reading::asks_for_size(step) {
+            MAX_COUNTED_BYTES
+        } else {
+            keep
+        };
+
+        let (body, size) = reply.read_body(keep, count_up_to).await?;
 
         return Ok(HttpObservation {
             status: reply.status,
+            version: reply.version,
             headers: reply.headers,
             body,
+            size,
             elapsed: started.elapsed(),
+            remote: address,
+            trace: traced,
+            before,
+            after: phases.so_far(),
         });
     }
 }
 
-fn evaluate(
-    assertion: &wire::Assertion,
-    observation: &HttpObservation,
-    context: &ExecutionContext,
-) -> Result<AssertionResult> {
-    let actual = source_value(&assertion.source, observation)?;
-
-    let expected = assertion
-        .expected
-        .as_ref()
-        .map(|value| context.resolve(value))
-        .transpose()?
-        .unwrap_or_default();
-
-    let passed = match assertion.operator.as_str() {
-        "equals" => actual == expected,
-        "not_equals" => actual != expected,
-        "contains" => actual.contains(&expected),
-        "not_contains" => !actual.contains(&expected),
-        "matches" => Regex::new(&expected)?.is_match(&actual),
-        "greater_than" => actual.parse::<f64>()? > expected.parse::<f64>()?,
-        "less_than" => actual.parse::<f64>()? < expected.parse::<f64>()?,
-        "exists" => !actual.is_empty(),
-        "json_schema" => {
-            serde_json::from_str::<serde_json::Value>(&actual).is_ok()
-                && serde_json::from_str::<serde_json::Value>(&expected).is_ok()
-        }
-        operator => bail!("unsupported HTTP Assertion operator `{operator}`"),
-    };
-
-    Ok(AssertionResult {
-        assertion_id: assertion.id.clone(),
-        severity: assertion.severity,
-        passed,
-        actual: context.redact(&actual),
-        message: if passed {
-            String::new()
-        } else {
-            format!("{} assertion failed", assertion.name)
-        },
-    })
-}
-
-fn source_value(source: &str, observation: &HttpObservation) -> Result<String> {
-    match source {
-        "status" | "status_code" => Ok(observation.status.as_u16().to_string()),
-        "body" => Ok(String::from_utf8_lossy(&observation.body).into_owned()),
-        "duration_ms" => Ok(observation.elapsed.as_millis().to_string()),
-        source if source.starts_with("header:") => Ok(observation
-            .headers
-            .get(&source[7..])
-            .map(|value| value.to_str().unwrap_or_default().to_string())
-            .unwrap_or_default()),
-        _ => bail!("unsupported HTTP Assertion source `{source}`"),
-    }
-}
-
-fn extract(extraction: &wire::Extraction, observation: &HttpObservation) -> Result<Option<String>> {
-    let source = source_value(&extraction.source, observation)?;
-    let regex = Regex::new(&extraction.expression)?;
-
-    Ok(regex.captures(&source).and_then(|captures| {
-        captures
-            .get(1)
-            .or_else(|| captures.get(0))
-            .map(|value| value.as_str().to_string())
-    }))
-}
+#[cfg(test)]
+mod tests;

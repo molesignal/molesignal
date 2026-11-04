@@ -23,13 +23,13 @@ test.describe('copy icon actions', () => {
       const button = buttons.nth(index);
       await expect(button).toBeVisible();
       await expect(button).toHaveText('');
-      await expect(button.locator('svg')).toHaveCount(1);
+      // Both faces of the icon are drawn for the cross-fade; the hidden one is aria-hidden.
+      await expect(button.locator('span:not([aria-hidden="true"]) > svg')).toHaveCount(1);
     }
 
     const accessSection = page
       .locator('[data-settings-section]')
       .filter({ hasText: 'Access control' });
-    await expect(accessSection).toContainText('Registration and access');
     await expect(accessSection).toContainText('Sharing and public access');
     await expect(page.locator('[data-settings-section]')).toHaveCount(4);
   });

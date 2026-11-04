@@ -19,6 +19,7 @@ pub struct AutomationRuleInput {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AutomationSimulation {
     pub matched_rule_id: Option<crate::shared::ids::Id>,
     pub matched_revision_id: Option<crate::shared::ids::Id>,
@@ -31,11 +32,13 @@ pub struct AutomationLifecycleInput {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AutomationRuleOrderInput {
     pub rule_ids: Vec<Id>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AutomationApprovalInput {
     pub title: String,
     pub impact: IncidentImpact,

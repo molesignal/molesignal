@@ -159,13 +159,29 @@ async fn authorize_administrator(state: &AppState, headers: &HeaderMap) -> Resul
 
     state.iam.access.enrich_context(&mut context).await?;
 
-    if !context.has_permission("org.settings.manage") {
-        return Err(Error::forbidden(
-            "remote profiling requires org.settings.manage",
-        ));
-    }
+    // A profile covers the whole process, every organization's work in it. A token holds no
+    // platform permission of its own, so what counts is what its user was granted.
+    let granted = state
+        .iam
+        .access
+        .platform_grant(&context.user_id)
+        .await?
+        .permissions
+        .contains("sys.telemetry.manage");
 
-    Ok(())
+    if granted
+        || state
+            .iam
+            .platform_administrators
+            .is_active(&context.user_id)
+            .await?
+    {
+        Ok(())
+    } else {
+        Err(Error::forbidden(
+            "remote profiling requires sys.telemetry.manage",
+        ))
+    }
 }
 
 fn capture_response(state: &AppState, kind: &'static str, captured: CapturedProfile) -> Response {

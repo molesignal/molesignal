@@ -13,9 +13,9 @@ export interface IntakeContext {
   endpointScheme: string;
   endpointTls: string;
   token: string;
-  tokenRole: string;
+  /** What the token may do; intake tokens never expire. */
+  tokenScope: apiTokensApi.ManagedApiToken | null;
   tokenKind: apiTokensApi.ApiTokenKind | null;
-  tokenExpiresAtMicros: number | null;
   tokenLoading: boolean;
   tokenError: string | null;
   orgId: string;
@@ -74,7 +74,7 @@ export function useIntakeContext(options: IntakeContextOptions): IntakeContext {
     gcTime: 0,
   });
   const endpoint = resolvePublicBaseUrl(
-    instanceQuery.data?.external_url,
+    instanceQuery.data?.externalUrl,
     window.location.origin,
   );
   const { host, port, scheme } = parseEndpoint(endpoint);
@@ -85,9 +85,8 @@ export function useIntakeContext(options: IntakeContextOptions): IntakeContext {
     endpointScheme: scheme,
     endpointTls: scheme === 'https' ? 'On' : 'Off',
     token: tokenQuery.data?.token ?? '',
-    tokenRole: tokenQuery.data?.role_name ?? '—',
-    tokenKind: tokenQuery.data?.token_kind ?? null,
-    tokenExpiresAtMicros: tokenQuery.data?.expires_at_micros ?? null,
+    tokenScope: tokenQuery.data ?? null,
+    tokenKind: tokenQuery.data?.tokenKind ?? null,
     tokenLoading: tokenQuery.isLoading || tokenQuery.isFetching,
     tokenError: tokenQuery.error ? toApiError(tokenQuery.error).message : null,
     orgId: currentOrgId ?? '',

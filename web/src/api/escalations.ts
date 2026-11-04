@@ -1,10 +1,10 @@
 import { http } from '@/lib/http';
 import type { EscalationPolicy } from '@/types/alerting';
 
-/** Write payload — the backend derives `id`/`org_id` from the path/context. */
+/** Write payload — the backend derives `id`/`orgId` from the path/context. */
 export type EscalationPolicyInput = Pick<
   EscalationPolicy,
-  'name' | 'steps' | 'repeat' | 'max_loops'
+  'name' | 'steps' | 'repeat' | 'maxLoops' | 'ackRetriggerSecs' | 'urgencyRule' | 'escalateLowUrgency'
 >;
 
 export async function list(): Promise<EscalationPolicy[]> {

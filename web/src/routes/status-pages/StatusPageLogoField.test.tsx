@@ -16,24 +16,24 @@ const getLogoBlob = vi.mocked(statusPagesApi.getLogoBlob);
 
 const page: StatusPage = {
   id: 'page-one',
-  org_id: 'org-one',
+  orgId: 'org-one',
   name: 'Acme',
   slug: 'acme',
-  logo_url: '/api/v1/public/status-pages/acme/logo/image.png',
-  brand_color: '#4F46E5',
-  custom_domain: null,
+  logoUrl: '/api/v1/public/status-pages/acme/logo/image.png',
+  brandColor: '#4F46E5',
+  customDomain: null,
   timezone: 'UTC',
   language: 'en-us',
   languages: ['en-us'],
-  history_days: 90,
-  delivery_retention_days: 90,
-  private_session_days: 7,
+  historyDays: 90,
+  deliveryRetentionDays: 90,
+  privateSessionDays: 7,
   visibility: 'private',
   lifecycle: 'active',
-  archived_at: null,
-  purge_after: null,
-  created_at: 1,
-  updated_at: 1,
+  archivedAt: null,
+  purgeAfter: null,
+  createdAt: 1,
+  updatedAt: 1,
 };
 
 describe.sequential('StatusPageLogoField', () => {
@@ -107,7 +107,7 @@ describe.sequential('StatusPageLogoField', () => {
       <StatusPageLogoField
         active
         page={page}
-        logoUrl={page.logo_url ?? ''}
+        logoUrl={page.logoUrl ?? ''}
         logoFile={null}
         busy={false}
         onLogoUrlChange={onLogoUrlChange}

@@ -217,8 +217,8 @@ export function StatusPageHistory() {
                   <span className="tabular-nums text-tx-3">
                     {formatDurationMicros(
                       t,
-                      event.started_at,
-                      event.ended_at ?? event.updated_at,
+                      event.startedAt,
+                      event.endedAt ?? event.updatedAt,
                     )}
                   </span>
                 ),
@@ -229,7 +229,7 @@ export function StatusPageHistory() {
                 width: 190,
                 cell: (event) => (
                   <span className="tabular-nums text-tx-3">
-                    {formatMicrosActive(event.ended_at ?? event.updated_at)}
+                    {formatMicrosActive(event.endedAt ?? event.updatedAt)}
                   </span>
                 ),
               },
@@ -238,12 +238,12 @@ export function StatusPageHistory() {
           {shouldShowStatusPagePagination(query.data) && (
             <ResultPagination
               page={page}
-              pageCount={Math.max(1, Math.ceil(query.data.total / query.data.per_page))}
-              pageSize={query.data.per_page}
+              pageCount={Math.max(1, Math.ceil(query.data.total / query.data.perPage))}
+              pageSize={query.data.perPage}
               pageSizeOptions={[25]}
               pageLabel={t('pagination.page', {
                 page,
-                pages: Math.max(1, Math.ceil(query.data.total / query.data.per_page)),
+                pages: Math.max(1, Math.ceil(query.data.total / query.data.perPage)),
               })}
               ariaLabel={t('pagination.label')}
               pageSizeAriaLabel={t('pagination.page_size')}

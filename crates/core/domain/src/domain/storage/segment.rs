@@ -12,7 +12,10 @@ use super::{
     artifact::{Artifact, ArtifactRole},
     ids::{FlushId, PhysicalDatasetId, SchemaFingerprint, SegmentId, SequenceRange},
 };
-use crate::shared::{ids::Id, time::TimeRange};
+use crate::{
+    domain::stream::FieldPartitions,
+    shared::{ids::Id, time::TimeRange},
+};
 
 /// Segment 可见性状态。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -56,7 +59,8 @@ impl std::str::FromStr for SegmentState {
 }
 
 /// 时间分区槽位：`[start, end)` 的 UTC 桶 + 水平分片号。
-/// 粒度由 dataset 的 PartitionPolicy 决定（当前为小时桶，shard 恒为 0）。
+/// 粒度由 dataset 的 PartitionPolicy 决定；按字段分片的数据写进各自的分片（见
+/// [`ColumnStats::partitions`]），其余的分片号是 0。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Partition {
     pub start_micros: i64,
@@ -64,19 +68,47 @@ pub struct Partition {
     pub shard: u16,
 }
 
-/// 列级 min/max 统计（按字段名 → JSON 标量），供查询侧保守跳段。
+/// 列级统计（按字段名），供查询侧保守跳段。
 /// 语义：缺失字段不参与裁剪；统计必须覆盖该 Segment 全部行。
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ColumnStats {
+    /// 字段 → 最小值（JSON 标量）。过长的字符串截成前缀，仍不大于真正的最小值。
     #[serde(default)]
     pub min_values: serde_json::Map<String, serde_json::Value>,
+    /// 字段 → 最大值（JSON 标量）。过长的字符串截短后进位，仍不小于真正的最大值。
     #[serde(default)]
     pub max_values: serde_json::Map<String, serde_json::Value>,
+    /// 值不多的 `skip` 字段 → 段里出现过的每个值（JSON 标量数组，从小到大）。
+    #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub value_sets: serde_json::Map<String, serde_json::Value>,
+    /// `ip` 字段 → 段里能解析的地址里最小与最大的一个，`[低, 高]`，各写成
+    /// [`crate::domain::stream::address_key`]。
+    #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub address_ranges: serde_json::Map<String, serde_json::Value>,
+    /// 建了索引的字段 → 段里这个字段为空（NULL）的行数。等于行数时这个字段在段里全是空的；没有
+    /// 记录的字段不说明什么。
+    #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub null_counts: serde_json::Map<String, serde_json::Value>,
+    /// 段的索引产物与这些统计按数据流当时的索引设置建成的时刻（微秒）。早于
+    /// [`crate::domain::stream::StreamSettings::index_changed_at`] 的段由后台按新设置
+    /// 重建；没有记录的段（有这个字段之前写的）也算早。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub indexed_at_micros: Option<i64>,
+    /// 写入时的分片字段：段里每一行都落在 [`Partition::shard`] 这个分片里。没有时分片号不说明
+    /// 什么。
+    #[serde(default, skip_serializing_if = "FieldPartitions::is_empty")]
+    pub partitions: FieldPartitions,
 }
 
 impl ColumnStats {
     pub fn is_empty(&self) -> bool {
-        self.min_values.is_empty() && self.max_values.is_empty()
+        self.min_values.is_empty()
+            && self.max_values.is_empty()
+            && self.value_sets.is_empty()
+            && self.address_ranges.is_empty()
+            && self.null_counts.is_empty()
+            && self.indexed_at_micros.is_none()
+            && self.partitions.is_empty()
     }
 }
 

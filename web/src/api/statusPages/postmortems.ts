@@ -5,20 +5,20 @@ import type { StatusPageIncident, StatusPagePublicationState } from './types';
 /** What a resolved incident's customers are told about it afterwards, in Markdown. */
 export interface StatusPagePostmortem {
   body: string;
-  publication_state: StatusPagePublicationState;
+  publicationState: StatusPagePublicationState;
   /** When it was published; cleared when it goes back to a draft. */
-  published_at: number | null;
+  publishedAt: number | null;
   /** When the published text last changed. */
-  revised_at: number | null;
-  updated_by: string | null;
-  updated_at: number;
+  revisedAt: number | null;
+  updatedBy: string | null;
+  updatedAt: number;
 }
 
 /** The published postmortem as the public page shows it. */
 export interface PublicStatusPagePostmortem {
   body: string;
-  published_at: number | null;
-  revised_at: number | null;
+  publishedAt: number | null;
+  revisedAt: number | null;
 }
 
 /** The longest postmortem the server keeps, in characters. */

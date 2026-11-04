@@ -12,6 +12,7 @@ use super::sqlx_err;
 use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Annotation {
     pub id: Id,
     pub org_id: Id,
@@ -54,8 +55,8 @@ impl PgAnnotationRepository {
     }
 }
 
-const COLS: &str = "id, org_id, title, description, tags, time_start_micros,
-                    time_end_micros, dashboard_id, stream_name, created_by, created_at_micros";
+const COLS: &str = "id, org_id, title, description, tags, time_start,
+                    time_end, dashboard_id, stream_name, created_by, created_at";
 
 fn row_to(r: sqlx::postgres::PgRow) -> Annotation {
     let tags: Json<Vec<String>> = r.try_get("tags").unwrap_or(Json(Vec::new()));
@@ -68,8 +69,12 @@ fn row_to(r: sqlx::postgres::PgRow) -> Annotation {
             .try_get::<Option<String>, _>("description")
             .unwrap_or_default(),
         tags: tags.0,
-        time_start: TimestampMicros(r.try_get::<i64, _>("time_start_micros").unwrap_or_default()),
-        time_end: TimestampMicros(r.try_get::<i64, _>("time_end_micros").unwrap_or_default()),
+        time_start: r
+            .try_get::<TimestampMicros, _>("time_start")
+            .unwrap_or_default(),
+        time_end: r
+            .try_get::<TimestampMicros, _>("time_end")
+            .unwrap_or_default(),
         dashboard_id: r
             .try_get::<Option<String>, _>("dashboard_id")
             .unwrap_or_default()
@@ -78,7 +83,9 @@ fn row_to(r: sqlx::postgres::PgRow) -> Annotation {
             .try_get::<Option<String>, _>("stream_name")
             .unwrap_or_default(),
         created_by: Id(r.try_get::<String, _>("created_by").unwrap_or_default()),
-        created_at: TimestampMicros(r.try_get::<i64, _>("created_at_micros").unwrap_or_default()),
+        created_at: r
+            .try_get::<TimestampMicros, _>("created_at")
+            .unwrap_or_default(),
     }
 }
 
@@ -87,8 +94,8 @@ impl AnnotationRepository for PgAnnotationRepository {
     async fn create(&self, a: Annotation) -> Result<Annotation> {
         sqlx::query(
             "INSERT INTO annotations
-                (id, org_id, title, description, tags, time_start_micros, time_end_micros,
-                 dashboard_id, stream_name, created_by, created_at_micros)
+                (id, org_id, title, description, tags, time_start, time_end,
+                 dashboard_id, stream_name, created_by, created_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
         )
         .bind(&a.id.0)
@@ -96,12 +103,12 @@ impl AnnotationRepository for PgAnnotationRepository {
         .bind(&a.title)
         .bind(&a.description)
         .bind(Json(&a.tags))
-        .bind(a.time_start.0)
-        .bind(a.time_end.0)
+        .bind(a.time_start)
+        .bind(a.time_end)
         .bind(a.dashboard_id.as_ref().map(|i| &i.0))
         .bind(&a.stream_name)
         .bind(&a.created_by.0)
-        .bind(a.created_at.0)
+        .bind(a.created_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -129,9 +136,9 @@ impl AnnotationRepository for PgAnnotationRepository {
              WHERE org_id = $1
                AND ($2::TEXT IS NULL OR dashboard_id = $2)
                AND ($3::TEXT IS NULL OR stream_name = $3)
-               AND ($4::BIGINT IS NULL OR time_start_micros >= $4)
-               AND ($5::BIGINT IS NULL OR time_end_micros <= $5)
-             ORDER BY time_start_micros DESC
+               AND ($4::TIMESTAMPTZ IS NULL OR time_start >= $4)
+               AND ($5::TIMESTAMPTZ IS NULL OR time_end <= $5)
+             ORDER BY time_start DESC
              LIMIT 1000"
         );
 
@@ -139,8 +146,8 @@ impl AnnotationRepository for PgAnnotationRepository {
             .bind(&org_id.0)
             .bind(f.dashboard_id)
             .bind(f.stream_name)
-            .bind(f.from_micros)
-            .bind(f.to_micros)
+            .bind(f.from_micros.map(TimestampMicros))
+            .bind(f.to_micros.map(TimestampMicros))
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
@@ -170,7 +177,7 @@ impl AnnotationRepository for PgAnnotationRepository {
         let sql = format!(
             "UPDATE annotations
              SET title = $3, description = $4, tags = $5,
-                 time_start_micros = $6, time_end_micros = $7,
+                 time_start = $6, time_end = $7,
                  dashboard_id = $8, stream_name = $9
              WHERE org_id = $1 AND id = $2
              RETURNING {COLS}"
@@ -182,8 +189,8 @@ impl AnnotationRepository for PgAnnotationRepository {
             .bind(&a.title)
             .bind(&a.description)
             .bind(Json(&a.tags))
-            .bind(a.time_start.0)
-            .bind(a.time_end.0)
+            .bind(a.time_start)
+            .bind(a.time_end)
             .bind(a.dashboard_id.as_ref().map(|id| &id.0))
             .bind(&a.stream_name)
             .fetch_one(&self.pool)

@@ -11,8 +11,6 @@ use crate::{
     config::{Role, Settings},
 };
 
-const CLIENT_IP_SETTINGS_REFRESH_SECS: u64 = 30;
-
 /// 启动完整的 HTTP API 与 Web UI（axum）。standalone 与 router 角色走这条路径；
 /// gRPC、OTLP gRPC 等监听由 [`super::run`] 按角色集单独起。
 ///
@@ -20,7 +18,7 @@ const CLIENT_IP_SETTINGS_REFRESH_SECS: u64 = 30;
 /// 切到双绑：80 端口纯 plain（健康检查 + ACME challenge + 301 redirect），443 端口
 /// 跑完整 rustls 服务器配 SNI cert resolver（change `domain-acme-tls`）。
 pub async fn serve(state: AppState, cfg: Settings) -> anyhow::Result<()> {
-    let client_ip = load_client_ip_resolver(&state).await;
+    let client_ip = ClientIpResolverHandle::load(&state).await;
     let rate_limits = router_rate_limits(&cfg);
 
     if cfg.http.tls.enabled {
@@ -41,7 +39,7 @@ pub async fn serve(state: AppState, cfg: Settings) -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("http serve: {e}"))
     };
 
-    let client_ip_refresh_fut = refresh_client_ip_resolver(state, client_ip);
+    let client_ip_refresh_fut = client_ip.refresh_from_settings(state);
 
     tokio::try_join!(http_fut, client_ip_refresh_fut)?;
     Ok(())
@@ -169,52 +167,10 @@ async fn serve_tls(
             .map_err(|e| anyhow::anyhow!("rustls serve: {e}"))
     };
 
-    let client_ip_refresh_fut = refresh_client_ip_resolver(state, client_ip);
+    let client_ip_refresh_fut = client_ip.refresh_from_settings(state);
 
     tokio::try_join!(plain_fut, https_fut, client_ip_refresh_fut)?;
     Ok(())
-}
-
-async fn load_client_ip_resolver(state: &AppState) -> ClientIpResolverHandle {
-    match state.iam.instance_settings.get().await {
-        Ok(settings) => match ClientIpResolverHandle::new(&settings.rum_client_ip_resolver) {
-            Ok(resolver) => resolver,
-            Err(error) => {
-                tracing::warn!(%error, "invalid RUM client IP resolver in database; using peer mode");
-                ClientIpResolverHandle::peer()
-            }
-        },
-        Err(error) => {
-            tracing::warn!(%error, "cannot load RUM client IP resolver; using peer mode");
-            ClientIpResolverHandle::peer()
-        }
-    }
-}
-
-async fn refresh_client_ip_resolver(
-    state: AppState,
-    resolver: ClientIpResolverHandle,
-) -> anyhow::Result<()> {
-    let mut interval = tokio::time::interval(std::time::Duration::from_secs(
-        CLIENT_IP_SETTINGS_REFRESH_SECS,
-    ));
-
-    interval.tick().await;
-
-    loop {
-        interval.tick().await;
-
-        match state.iam.instance_settings.get().await {
-            Ok(settings) => {
-                if let Err(error) = resolver.replace(&settings.rum_client_ip_resolver) {
-                    tracing::warn!(%error, "invalid RUM client IP resolver refresh ignored");
-                }
-            }
-            Err(error) => {
-                tracing::warn!(%error, "RUM client IP resolver refresh failed");
-            }
-        }
-    }
 }
 
 use axum::response::IntoResponse as _;

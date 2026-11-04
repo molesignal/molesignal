@@ -45,20 +45,3 @@ export function formatSigned(
   }
   return `${sign}${formatCount(value)}`;
 }
-
-export function formatTimestamp(micros?: number): string {
-  if (micros === undefined) return '—';
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(micros / 1_000));
-}
-
-export function statusTone(
-  status: 'healthy' | 'warning' | 'critical' | 'no_traffic',
-): string {
-  if (status === 'healthy') return 'text-green';
-  if (status === 'warning') return 'text-yellow';
-  if (status === 'critical') return 'text-red';
-  return 'text-tx-3';
-}

@@ -1,10 +1,21 @@
 import type { Span } from '@/api/web';
 import type { SignalReferenceTime } from '@/shell/SignalReference';
 
-import type { LaidOutTrace, SpanNode } from '../types';
-interface TraceRow { node: SpanNode; children: SpanNode[]; }
-
 const TRACE_CONTEXT_PADDING_MS = 5 * 60 * 1000;
+
+/**
+ * A reference that reads as the name it is until the pointer or the keyboard is on it: a column of
+ * spans, each with an underline, reads as a wall of links.
+ */
+export const QUIET_REFERENCE = 'no-underline hover:underline focus-visible:underline';
+
+/**
+ * About how wide a duration is written after its bar: its characters at the
+ * size of the axis's figures, a little over, and the room either side of it.
+ */
+export function durationLabelWidth(characters: number): number {
+  return Math.ceil(characters * 7) + 12;
+}
 
 export function traceContextWindow(traceStartNs: number, totalNs: number): SignalReferenceTime | undefined {
   const startMs = traceStartNs / 1_000_000;
@@ -30,7 +41,7 @@ export function signalLabelsForTrace(traceId: string, span: Span): Record<string
 export function signalLabelsForSpan(traceId: string, span: Span): Record<string, string> {
   return {
     ...signalLabelsForTrace(traceId, span),
-    span_id: span.span_id,
+    span_id: span.spanId,
   };
 }
 
@@ -54,81 +65,4 @@ function stringSignalAttributes(
     }
   }
   return labels;
-}
-
-export function flattenTrace(layout: LaidOutTrace, collapsed: Set<string>): TraceRow[] {
-  const byId = new Map(layout.nodes.map((node) => [node.span.span_id, node]));
-  const children = new Map<string, SpanNode[]>();
-  const roots: SpanNode[] = [];
-
-  for (const node of layout.nodes) {
-    const parentId = node.span.parent_span_id;
-    if (parentId && byId.has(parentId)) {
-      const list = children.get(parentId) ?? [];
-      list.push(node);
-      children.set(parentId, list);
-    } else {
-      roots.push(node);
-    }
-  }
-  for (const list of children.values()) {
-    list.sort((a, b) => a.startOffsetNs - b.startOffsetNs || a.span.operation.localeCompare(b.span.operation));
-  }
-  roots.sort((a, b) => a.startOffsetNs - b.startOffsetNs);
-
-  const rows: TraceRow[] = [];
-  const walk = (node: SpanNode) => {
-    const childRows = children.get(node.span.span_id) ?? [];
-    rows.push({ node, children: childRows });
-    if (collapsed.has(node.span.span_id)) return;
-    for (const child of childRows) walk(child);
-  };
-  for (const root of roots) walk(root);
-  return rows;
-}
-
-export function pct(value: number, total: number): number {
-  if (!Number.isFinite(value) || !Number.isFinite(total) || total <= 0) return 0;
-  return Math.max(0, Math.min(100, (value / total) * 100));
-}
-
-/** How much of the trace a span took, as the step its bar is coloured by. */
-export type SpanShare = 'minor' | 'notable' | 'major' | 'dominant';
-
-/** The steps from the least to the most, each with the percent of the trace it begins at. */
-export const SPAN_SHARE_STEPS: readonly { share: SpanShare; from: number }[] = [
-  { share: 'minor', from: 0 },
-  { share: 'notable', from: 25 },
-  { share: 'major', from: 50 },
-  { share: 'dominant', from: 75 },
-];
-
-/** The scale runs cool to warm. Red is not a step of it: a bar in red is a span that failed. */
-export const SPAN_SHARE_FILL: Record<SpanShare, string> = {
-  minor: 'bg-[var(--share-1)]',
-  notable: 'bg-[var(--share-2)]',
-  major: 'bg-[var(--share-3)]',
-  dominant: 'bg-[var(--share-4)]',
-};
-
-export function spanShare(durationNs: number, totalNs: number): SpanShare {
-  const percent = pct(durationNs, totalNs);
-  let share: SpanShare = 'minor';
-
-  for (const step of SPAN_SHARE_STEPS) {
-    if (percent >= step.from) share = step.share;
-  }
-
-  return share;
-}
-
-export function formatJson(value: unknown): string {
-  if (typeof value === 'string') {
-    try {
-      return JSON.stringify(JSON.parse(value), null, 2);
-    } catch {
-      return value;
-    }
-  }
-  return JSON.stringify(value ?? {}, null, 2);
 }

@@ -1,6 +1,9 @@
+import * as React from 'react';
+
 import type { AuditChatTranscript as Transcript } from '@/api/audit';
 import type { ApiError } from '@/lib/http';
 import { MarkdownMessage } from '@/routes/agent/markdown';
+import { JsonView } from '@/shell/JsonEditor';
 import { cn } from '@/shell/lib/cn';
 
 import { formatMicros } from '../../rum/_helpers';
@@ -26,7 +29,7 @@ export function AuditChatTranscript({ transcript, loading, error, t }: Props) {
             </div>
           )}
         </div>
-        {transcript?.chat.deleted_at_micros && (
+        {transcript?.chat.deletedAt && (
           <span className="rounded border border-bd-0 bg-bg-2 px-2 py-0.5 font-sans text-xs text-tx-3">
             {t('audit.chat.deleted')}
           </span>
@@ -45,12 +48,12 @@ export function AuditChatTranscript({ transcript, loading, error, t }: Props) {
             <dt className="text-tx-3">{t('audit.chat.chat')}</dt>
             <dd className="truncate text-tx-0">{transcript.chat.id}</dd>
             <dt className="text-tx-3">{t('audit.chat.updated')}</dt>
-            <dd className="text-tx-0">{formatMicros(transcript.chat.updated_at_micros)}</dd>
+            <dd className="text-tx-0">{formatMicros(transcript.chat.updatedAt)}</dd>
             <dt className="text-tx-3">{t('audit.chat.mode')}</dt>
-            <dd className="text-tx-0">{transcript.chat.analysis_mode ?? '—'}</dd>
+            <dd className="text-tx-0">{transcript.chat.analysisMode ?? '—'}</dd>
             <dt className="text-tx-3">{t('audit.chat.archive')}</dt>
             <dd className="truncate text-tx-0">
-              {transcript.chat.archive_object_key ?? '—'}
+              {transcript.chat.archiveObjectKey ?? '—'}
             </dd>
           </dl>
 
@@ -78,16 +81,17 @@ function TranscriptMessage({
   message: Transcript['messages'][number];
   t: (key: string) => string;
 }) {
+  const [metadataOpen, setMetadataOpen] = React.useState(false);
   const isUser = message.role === 'user';
   const role = roleLabel(message.role, t);
-  const evidence = message.evidence_json;
+  const evidence = message.evidenceJson;
   const hasMetadata =
     evidence ||
-    message.prompt_template_id ||
-    message.prompt_builtin_key ||
-    message.prompt_hash ||
-    message.prompt_tokens ||
-    message.completion_tokens ||
+    message.promptTemplateId ||
+    message.promptBuiltinKey ||
+    message.promptHash ||
+    message.promptTokens ||
+    message.completionTokens ||
     message.cost;
 
   return (
@@ -99,36 +103,41 @@ function TranscriptMessage({
     >
       <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
         <span className="font-display-strong text-tx-0">{role}</span>
-        <span className="text-tx-3">{formatMicros(message.created_at_micros)}</span>
-        {(message.prompt_tokens || message.completion_tokens) && (
+        <span className="text-tx-3">{formatMicros(message.createdAt)}</span>
+        {(message.promptTokens || message.completionTokens) && (
           <span className="ml-auto text-tx-3">
-            {t('audit.chat.tokens')}: {message.prompt_tokens ?? 0}/
-            {message.completion_tokens ?? 0}
+            {t('audit.chat.tokens')}: {message.promptTokens ?? 0}/
+            {message.completionTokens ?? 0}
           </span>
         )}
       </div>
       <MarkdownMessage content={message.content || '—'} />
       {hasMetadata && (
-        <details className="mt-2 rounded border border-bd-0 bg-bg-2 px-2 py-1">
+        <details
+          className="mt-2 rounded border border-bd-0 bg-bg-2 px-2 py-1"
+          onToggle={(event) => setMetadataOpen(event.currentTarget.open)}
+        >
           <summary className="cursor-pointer font-sans text-xs text-tx-3">
             {t('audit.chat.metadata')}
           </summary>
-          <pre className="mt-2 max-h-40 overflow-auto font-mono text-xs text-tx-2">
-            {JSON.stringify(
-              {
-                prompt_template_id: message.prompt_template_id,
-                prompt_builtin_key: message.prompt_builtin_key,
-                prompt_version: message.prompt_version,
-                prompt_hash: message.prompt_hash,
-                evidence_json: evidence,
-                prompt_tokens: message.prompt_tokens,
-                completion_tokens: message.completion_tokens,
+          {/* Made when opened: a closed one of every message would be an editor each. */}
+          {metadataOpen && (
+            <JsonView
+              className="mb-1 mt-2"
+              value={{
+                promptTemplateId: message.promptTemplateId,
+                promptBuiltinKey: message.promptBuiltinKey,
+                promptVersion: message.promptVersion,
+                promptHash: message.promptHash,
+                evidenceJson: evidence,
+                promptTokens: message.promptTokens,
+                completionTokens: message.completionTokens,
                 cost: message.cost,
-              },
-              null,
-              2,
-            )}
-          </pre>
+              }}
+              ariaLabel={t('audit.chat.metadata')}
+              maxHeight={240}
+            />
+          )}
         </details>
       )}
     </article>

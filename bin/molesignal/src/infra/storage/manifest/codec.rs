@@ -10,12 +10,12 @@ use arrow::{
 use bytes::Bytes;
 use parquet::{
     arrow::{ArrowWriter, arrow_reader::ParquetRecordBatchReaderBuilder},
-    basic::Compression,
     file::properties::WriterProperties,
 };
 
 use crate::{
     domain::storage::PartitionManifest,
+    infra::storage::parquet::writer::compression,
     shared::{Error, Result},
 };
 
@@ -42,7 +42,7 @@ pub(crate) fn encode(manifest: &PartitionManifest) -> Result<Bytes> {
     .map_err(|error| Error::internal(format!("build partition manifest batch: {error}")))?;
 
     let properties = WriterProperties::builder()
-        .set_compression(Compression::SNAPPY)
+        .set_compression(compression())
         .build();
 
     let mut output = Vec::with_capacity(64 * 1024);

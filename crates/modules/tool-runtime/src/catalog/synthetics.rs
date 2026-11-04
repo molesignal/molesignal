@@ -3,7 +3,7 @@
 
 use serde_json::json;
 
-use super::{BuiltinToolKind, object_schema, open_output, time_range_schema};
+use super::{BuiltinToolKind, object_schema, open_output, time_range_schema, timestamp_schema};
 use crate::{RiskLevel, ToolSpec};
 
 pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
@@ -12,54 +12,54 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "List synthetic monitors and current lifecycle state.",
             "monitors",
             object_schema(json!({"lifecycle": {"type": "string"}, "limit": limit(500, 100)})),
-            vec!["synthetics.read"],
+            vec!["synthetics.monitors.read"],
             vec!["Synthetics", "Monitors"],
         ),
         BuiltinToolKind::GetSyntheticMonitor => (
             "Get one synthetic monitor and its active revision.",
             "monitors",
-            id_input("monitor_id"),
-            vec!["synthetics.read"],
+            id_input("monitorId"),
+            vec!["synthetics.monitors.read"],
             vec!["Synthetics", "Monitors"],
         ),
         BuiltinToolKind::ListSyntheticRevisions => (
             "List bounded revisions for one synthetic monitor.",
             "monitors",
-            json!({"type": "object", "required": ["monitor_id"], "properties": {
-                "monitor_id": {"type": "string"}, "limit": limit(200, 50)
+            json!({"type": "object", "required": ["monitorId"], "properties": {
+                "monitorId": {"type": "string"}, "limit": limit(200, 50)
             }, "additionalProperties": false}),
-            vec!["synthetics.read"],
+            vec!["synthetics.monitors.read"],
             vec!["Synthetics", "Revisions"],
         ),
         BuiltinToolKind::ListSyntheticResults => (
             "List bounded synthetic execution results.",
             "results",
             object_schema(json!({
-                "monitor_id": {"type": "string"}, "location_id": {"type": "string"},
-                "time_range": time_range_schema(), "limit": limit(500, 100)
+                "monitorId": {"type": "string"}, "locationId": {"type": "string"},
+                "timeRange": time_range_schema(), "limit": limit(500, 100)
             })),
-            vec!["synthetics.read"],
+            vec!["synthetics.monitors.read"],
             vec!["Synthetics", "Results"],
         ),
         BuiltinToolKind::ListSyntheticLocations => (
             "List synthetic probe locations.",
             "locations",
             object_schema(json!({"limit": limit(500, 100)})),
-            vec!["synthetics.read"],
+            vec!["synthetics.monitors.read"],
             vec!["Synthetics", "Locations"],
         ),
         BuiltinToolKind::ListSyntheticAgents => (
             "List probe agents, optionally for one location.",
             "agents",
-            object_schema(json!({"location_id": {"type": "string"}, "limit": limit(500, 100)})),
-            vec!["synthetics.read"],
+            object_schema(json!({"locationId": {"type": "string"}, "limit": limit(500, 100)})),
+            vec!["synthetics.monitors.read"],
             vec!["Synthetics", "Agents"],
         ),
         BuiltinToolKind::ListSyntheticSecrets => (
             "List synthetic-secret metadata; secret values are never returned.",
             "secrets",
             object_schema(json!({"limit": limit(500, 100)})),
-            vec!["synthetics.read"],
+            vec!["synthetics.monitors.read"],
             vec!["Synthetics", "Secrets"],
         ),
         BuiltinToolKind::RunSyntheticMonitor => operation(
@@ -118,8 +118,8 @@ fn operation(
     (
         description,
         "monitors",
-        proposal_input("monitor_id"),
-        vec!["synthetics.manage"],
+        proposal_input("monitorId"),
+        vec!["synthetics.monitors.manage"],
         tags.to_vec(),
     )
 }
@@ -131,7 +131,7 @@ fn proposal_input(field: &str) -> serde_json::Value {
             (field): {"type": "string", "minLength": 1},
             "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
             "impact": {"type": "string", "minLength": 1, "maxLength": 2000},
-            "expires_at_micros": {"type": "integer"}
+            "expiresAt": timestamp_schema()
         }, "additionalProperties": false
     })
 }

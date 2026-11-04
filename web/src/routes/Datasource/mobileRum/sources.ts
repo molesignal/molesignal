@@ -15,9 +15,9 @@ export const MOBILE_RUM_SOURCES: Source[] = [
       {
         code: {
           lang: 'ts',
-          content: `import { initRum } from '@molesignal/browser-rum';
+          content: `import { init } from '@molesignal/browser-rum';
 
-initRum({
+init({
   applicationId: '${APPLICATION_ID}',
   clientToken: '${TOKEN}',
   site: '${ENDPOINT}',
@@ -53,7 +53,9 @@ initRum({
       site: '${ENDPOINT}',
       service: 'checkout-app',
       env: 'production',
-      version: '1.4.0+42',
+      version: String.fromEnvironment('MOLESIGNAL_VERSION'),
+      architecture: String.fromEnvironment('MOLESIGNAL_ARCHITECTURE'),
+      debugId: String.fromEnvironment('MOLESIGNAL_DEBUG_ID'),
       sessionSampleRate: 100,
       sessionReplaySampleRate: 20,
       trackUserInteractions: true,
@@ -74,10 +76,16 @@ initRum({
         code: {
           lang: 'bash',
           content: `flutter build appbundle --release --obfuscate \\
-  --split-debug-info=build/molesignal-symbols
+  --split-debug-info=build/molesignal-symbols \\
+  --dart-define=MOLESIGNAL_VERSION=1.4.0+42 \\
+  --dart-define=MOLESIGNAL_ARCHITECTURE=arm64 \\
+  --dart-define=MOLESIGNAL_DEBUG_ID="$BUILD_ID"
 
 flutter build ipa --release --obfuscate \\
-  --split-debug-info=build/molesignal-symbols`,
+  --split-debug-info=build/molesignal-symbols \\
+  --dart-define=MOLESIGNAL_VERSION=1.4.0+42 \\
+  --dart-define=MOLESIGNAL_ARCHITECTURE=arm64 \\
+  --dart-define=MOLESIGNAL_DEBUG_ID="$BUILD_ID"`,
         },
       },
       {},
@@ -94,27 +102,44 @@ flutter build ipa --release --obfuscate \\
       {
         code: {
           lang: 'kotlin',
-          content: `val event = JSONArray().put(JSONObject().apply {
-  put("application", "${APPLICATION_ID}")
+          content: `// sessionId, sessionStart, viewId and screenName are yours: a UUID and the start time
+// (milliseconds) kept for the session, and a UUID and the name of the screen that is showing.
+val event = JSONObject().apply {
+  put("type", "error")
+  put("date", System.currentTimeMillis())
+  put("source", "android")
   put("service", "android-app")
-  put("version", BuildConfig.VERSION_NAME + "+" + BuildConfig.VERSION_CODE)
-  put("platform", "android")
-  put("architecture", Build.SUPPORTED_ABIS.firstOrNull())
-  put("timestamp", System.currentTimeMillis() * 1000)
-  put("message", throwable.message ?: throwable.javaClass.name)
-  put("error", JSONObject().put("stack", JSONArray(
-    throwable.stackTrace.map { frame -> JSONObject().apply {
-      put("class_name", frame.className)
-      put("function", frame.methodName)
-      put("line", frame.lineNumber)
-    }}
-  )))
-})
+  put("env", "production")
+  put("version", BuildConfig.VERSION_NAME)
+  put("build_version", BuildConfig.VERSION_CODE.toString())
+  put("application", JSONObject().put("id", "${APPLICATION_ID}"))
+  put("session", JSONObject().put("id", sessionId).put("type", "user").put("start", sessionStart))
+  put("view", JSONObject().put("id", viewId).put("url", screenName).put("name", screenName))
+  put("os", JSONObject().put("name", "android").put("version", Build.VERSION.RELEASE))
+  put("device", JSONObject().put("architecture", Build.SUPPORTED_ABIS.firstOrNull()))
+  put("error", JSONObject().apply {
+    put("id", UUID.randomUUID().toString())
+    put("message", throwable.message ?: throwable.javaClass.name)
+    put("type", throwable.javaClass.name)
+    put("source", "source")
+    put("handling", "unhandled")
+    put("is_crash", true)
+    put("source_type", "android")
+    put("stack", Log.getStackTraceString(throwable))
+    put("frames", JSONArray(throwable.stackTrace.map { frame ->
+      JSONObject().apply {
+        put("class", frame.className)
+        put("function", frame.methodName)
+        put("line", frame.lineNumber)
+      }
+    }))
+  })
+}
 
 val request = Request.Builder()
-  .url("${ENDPOINT}/api/v1/rum/errors")
+  .url("${ENDPOINT}/api/v1/rum/events")
   .header("Authorization", "Bearer ${TOKEN}")
-  .post(event.toString().toRequestBody("application/json".toMediaType()))
+  .post(JSONArray().put(event).toString().toRequestBody("application/json".toMediaType()))
   .build()`,
         },
       },
@@ -194,21 +219,35 @@ let frames = Thread.callStackReturnAddresses.compactMap { address -> [String: An
       UInt64(UInt(bitPattern: Int(bitPattern: imageBase)))
     )
   ]
-  if let uuid = imageUUID(at: imageBase) { frame["uuid"] = uuid }
+  if let uuid = imageUUID(at: imageBase) { frame["debug_id"] = uuid }
   return frame
 }
+// sessionId, sessionStart and viewId are yours: a UUID and the start time (milliseconds) kept
+// for the session, and a UUID for the screen that is showing.
 let event: [[String: Any]] = [[
-  "application": "${APPLICATION_ID}",
+  "type": "error",
+  "date": Int(Date().timeIntervalSince1970 * 1000),
+  "source": "ios",
   "service": "ios-app",
-  "version": version + "+" + build,
-  "platform": "ios",
-  "architecture": "arm64",
-  "timestamp": Int(Date().timeIntervalSince1970 * 1_000_000),
-  "message": error.localizedDescription,
-  "error": ["stack": frames]
+  "env": "production",
+  "version": version,
+  "build_version": build,
+  "application": ["id": "${APPLICATION_ID}"],
+  "session": ["id": sessionId, "type": "user", "start": sessionStart],
+  "view": ["id": viewId, "url": "CheckoutViewController", "name": "Checkout"],
+  "os": ["name": "ios"],
+  "device": ["architecture": "arm64"],
+  "error": [
+    "id": UUID().uuidString,
+    "message": error.localizedDescription,
+    "source": "source",
+    "handling": "handled",
+    "source_type": "ios",
+    "frames": frames
+  ]
 ]]
 
-var request = URLRequest(url: URL(string: "${ENDPOINT}/api/v1/rum/errors")!)
+var request = URLRequest(url: URL(string: "${ENDPOINT}/api/v1/rum/events")!)
 request.httpMethod = "POST"
 request.setValue("Bearer ${TOKEN}", forHTTPHeaderField: "Authorization")
 request.setValue("application/json", forHTTPHeaderField: "Content-Type")

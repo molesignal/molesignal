@@ -3,7 +3,7 @@ name: incident-triage
 description: Triage an open incident - confirm what is broken, how badly, since when, who is affected, who owns it, and what to do first.
 argument-hint: <incident id or service>
 version: "1"
-allowed-tools: list_incidents, get_incident, get_incident_insights, get_incident_rca, list_recent_alerts, correlate_signals, get_service_topology, apm_overview, compare_apm_versions, get_current_on_call
+allowed-tools: list_incidents, get_incident, get_incident_insights, get_incident_rca, list_recent_alerts, correlate_signals, get_service_topology, apm_overview, get_apm_insights, get_apm_blast_radius, compare_apm_versions, get_current_on_call
 tags: [incidents, triage, on-call]
 examples:
   - Triage the open incident on checkout
@@ -27,8 +27,8 @@ Goal: within a few tool calls, give the on-call person a decision-ready picture.
 
 ## 3. Find where it starts
 
-- Use `get_service_topology` to see callers and dependencies of the affected services. An error that starts in a dependency and spreads upstream points to the dependency.
-- Look for a change near the start: `compare_apm_versions` for a deploy, and `list_recent_alerts` for related alerts that fired first.
+- Use `get_apm_blast_radius` for the affected service: the services that call it are what its trouble reaches, and what it calls, the unhealthy first, is where the trouble may come from. An error that starts in a dependency and spreads upstream points to the dependency. Without APM data, `get_service_topology` gives the callers and dependencies.
+- Look for a change near the start: `get_apm_insights` for the service names the moves against the stretch before and the same stretch a week before, when each began, and the deployments, configuration changes and feature flags near then; `compare_apm_versions` compares two versions, and `list_recent_alerts` finds related alerts that fired first.
 
 ## 4. Who owns it
 

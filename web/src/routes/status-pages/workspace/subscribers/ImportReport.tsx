@@ -9,11 +9,11 @@ export function ImportReport({ report }: { report: StatusPageSubscriberImportRep
   const { t } = useTranslation('status-pages');
   const facts = [
     { key: 'rows', value: report.rows },
-    { key: report.dry_run ? 'would_import' : 'imported', value: report.imported },
-    { key: 'already_subscribed', value: report.already_subscribed },
-    { key: 'skipped_unsubscribed', value: report.skipped_unsubscribed },
-    ...(report.dry_run ? [] : [{ key: 'confirmations_queued', value: report.confirmations_queued }]),
-    { key: 'problems', value: report.problem_count },
+    { key: report.dryRun ? 'would_import' : 'imported', value: report.imported },
+    { key: 'already_subscribed', value: report.alreadySubscribed },
+    { key: 'skipped_unsubscribed', value: report.skippedUnsubscribed },
+    ...(report.dryRun ? [] : [{ key: 'confirmations_queued', value: report.confirmationsQueued }]),
+    { key: 'problems', value: report.problemCount },
   ];
 
   return (
@@ -29,12 +29,12 @@ export function ImportReport({ report }: { report: StatusPageSubscriberImportRep
       {report.problems.length > 0 && (
         <div>
           <p className="text-xs text-tx-2">
-            {report.problem_count > report.problems.length
+            {report.problemCount > report.problems.length
               ? t('subscribers.import.problems_first', {
                   shown: report.problems.length,
-                  count: report.problem_count,
+                  count: report.problemCount,
                 })
-              : t('subscribers.import.problems_all', { count: report.problem_count })}
+              : t('subscribers.import.problems_all', { count: report.problemCount })}
           </p>
           <ul className="mt-2 max-h-56 divide-y divide-bd-0 overflow-y-auto rounded-md bg-bg-1">
             {report.problems.map((problem) => (

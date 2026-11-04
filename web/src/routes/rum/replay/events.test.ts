@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ReplayEvent, SessionEvent } from '@/api/rum';
+import type { ReplayEvent, TimelineItem } from '@/api/rum';
 
 import { normalizePlayerEvents } from './events';
 
@@ -21,9 +21,9 @@ describe('normalizePlayerEvents', () => {
     const replay: ReplayEvent[] = [
       { type: 'click', ts: 2_000, name: 'Buy' },
     ];
-    const actions: SessionEvent[] = [
-      { type: 'click', ts_micros: 2_000_000, name: 'Buy', payload: {} },
-      { type: 'error', ts_micros: 2_500_000, name: 'Payment failed', payload: {} },
+    const actions: TimelineItem[] = [
+      { type: 'action', timestamp: 2_000_000, 'action.type': 'click', 'action.target.name': 'Buy' },
+      { type: 'error', timestamp: 2_500_000, 'error.message': 'Payment failed' },
     ];
 
     expect(normalizePlayerEvents(replay, actions).map((event) => event.label)).toEqual([

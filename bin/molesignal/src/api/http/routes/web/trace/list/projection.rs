@@ -5,37 +5,15 @@
 
 use crate::{
     api::AppState,
-    app::iam::IamContext,
+    app::{iam::IamContext, trace::summary::carries_summaries},
     domain::stream::StreamType,
-    shared::trace::summary::{
-        TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
-        TRACE_SUMMARY_MARKER_FIELD, TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
-    },
 };
 
 pub(super) async fn available(state: &AppState, ctx: &IamContext, stream: &str) -> bool {
-    let Ok(definition) = state
+    state
         .telemetry
         .streams
         .get(&ctx.org_id, stream, StreamType::TRACES)
         .await
-    else {
-        return false;
-    };
-
-    [
-        TRACE_SUMMARY_MARKER_FIELD,
-        TRACE_SUMMARY_START_NS_FIELD,
-        TRACE_SUMMARY_DURATION_NS_FIELD,
-        TRACE_SUMMARY_SPAN_COUNT_FIELD,
-        TRACE_SUMMARY_ERROR_COUNT_FIELD,
-    ]
-    .iter()
-    .all(|required| {
-        definition
-            .schema
-            .fields
-            .iter()
-            .any(|field| field.name == *required)
-    })
+        .is_ok_and(|definition| carries_summaries(&definition.schema))
 }

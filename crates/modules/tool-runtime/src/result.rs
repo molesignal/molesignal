@@ -11,6 +11,7 @@ pub struct ToolCall {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolResult {
     pub content: Vec<ToolContent>,
     #[serde(default)]

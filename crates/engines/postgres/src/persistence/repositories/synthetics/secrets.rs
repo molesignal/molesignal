@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use sqlx::Row;
 
 use super::{
-    PgSyntheticRepository,
+    PgSyntheticRepository, client_key,
     codec::{SECRET_COLS, row_to_secret},
 };
 use crate::{
@@ -50,7 +50,7 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
         let sql = format!(
             "INSERT INTO synthetic_secrets
                 (id, organization_id, name, description, current_version, created_by,
-                 created_at_micros, updated_at_micros, archived_at_micros)
+                 created_at, updated_at, archived_at)
              VALUES ($1, $2, $3, $4, 1, $5, $6, $7, NULL)
              RETURNING {SECRET_COLS}"
         );
@@ -61,8 +61,8 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
             .bind(&secret.name)
             .bind(&secret.description)
             .bind(&secret.created_by.0)
-            .bind(secret.created_at.0)
-            .bind(secret.updated_at.0)
+            .bind(secret.created_at)
+            .bind(secret.updated_at)
             .fetch_one(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
@@ -70,7 +70,7 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
         sqlx::query(
             "INSERT INTO synthetic_secret_versions
                 (secret_id, organization_id, version, nonce, ciphertext, created_by,
-                 created_at_micros)
+                 created_at)
              VALUES ($1, $2, 1, $3, $4, $5, $6)",
         )
         .bind(&secret.id.0)
@@ -78,7 +78,7 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
         .bind(nonce)
         .bind(ciphertext)
         .bind(&secret.created_by.0)
-        .bind(secret.created_at.0)
+        .bind(secret.created_at)
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -98,7 +98,7 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
 
         let current: i32 = sqlx::query_scalar(
             "SELECT current_version FROM synthetic_secrets
-             WHERE organization_id = $1 AND id = $2 AND archived_at_micros IS NULL
+             WHERE organization_id = $1 AND id = $2 AND archived_at IS NULL
              FOR UPDATE",
         )
         .bind(&version.organization_id.0)
@@ -118,7 +118,7 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
         sqlx::query(
             "INSERT INTO synthetic_secret_versions
                 (secret_id, organization_id, version, nonce, ciphertext, created_by,
-                 created_at_micros)
+                 created_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7)",
         )
         .bind(&version.secret_id.0)
@@ -127,14 +127,14 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
         .bind(nonce)
         .bind(ciphertext)
         .bind(&version.created_by.0)
-        .bind(version.created_at.0)
+        .bind(version.created_at)
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
 
         let sql = format!(
             "UPDATE synthetic_secrets
-             SET current_version = $3, updated_at_micros = $4
+             SET current_version = $3, updated_at = $4
              WHERE organization_id = $1 AND id = $2
              RETURNING {SECRET_COLS}"
         );
@@ -143,7 +143,7 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
             .bind(&version.organization_id.0)
             .bind(&version.secret_id.0)
             .bind(version.version as i32)
-            .bind(version.created_at.0)
+            .bind(version.created_at)
             .fetch_one(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
@@ -161,14 +161,14 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
     ) -> Result<(SyntheticSecretVersion, SecretMaterial)> {
         let row = sqlx::query(
             "SELECT version.version, version.nonce, version.ciphertext,
-                    version.created_by, version.created_at_micros
+                    version.created_by, version.created_at
              FROM synthetic_secrets secret
              JOIN synthetic_secret_versions version
                ON version.organization_id = secret.organization_id
               AND version.secret_id = secret.id
               AND version.version = COALESCE($3, secret.current_version)
              WHERE secret.organization_id = $1 AND secret.id = $2
-               AND secret.archived_at_micros IS NULL",
+               AND secret.archived_at IS NULL",
         )
         .bind(&org_id.0)
         .bind(&secret_id.0)
@@ -191,9 +191,9 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
                 organization_id: org_id.clone(),
                 version: row.try_get::<i32, _>("version").map_err(super::sqlx_err)? as u32,
                 created_by: Id(row.try_get("created_by").map_err(super::sqlx_err)?),
-                created_at: TimestampMicros(
-                    row.try_get("created_at_micros").map_err(super::sqlx_err)?,
-                ),
+                created_at: row
+                    .try_get::<TimestampMicros, _>("created_at")
+                    .map_err(super::sqlx_err)?,
             },
             SecretMaterial(plaintext),
         ))
@@ -219,7 +219,7 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
         let sql = format!(
             "SELECT {SECRET_COLS} FROM synthetic_secrets
              WHERE organization_id = $1
-             ORDER BY archived_at_micros NULLS FIRST, name, id"
+             ORDER BY archived_at NULLS FIRST, name, id"
         );
 
         sqlx::query(&sql)
@@ -230,5 +230,9 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
             .into_iter()
             .map(row_to_secret)
             .collect()
+    }
+
+    async fn open_client_key(&self, org_id: &Id, revision_id: &Id) -> Result<SecretMaterial> {
+        client_key::open(self, org_id, revision_id).await
     }
 }

@@ -188,11 +188,17 @@ impl Settings {
         self.profiling.validate()?;
         self.scheduled_reports.renderer.validate()?;
         self.intake.validate()?;
+        self.compactor.validate()?;
         self.probe.validate()?;
         self.cache.object.validate()?;
         self.object_store.validate()?;
         Ok(())
     }
+}
+
+/// 全局配置；`load` 之前（例如单元测试里）为 `None`。
+pub fn try_get() -> Option<&'static Settings> {
+    SETTINGS.get()
 }
 
 /// 获取全局配置；必须在 `load` 之后调用。

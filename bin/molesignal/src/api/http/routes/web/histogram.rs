@@ -17,6 +17,8 @@ use serde_json::Value;
 
 use crate::shared::{Error, Result};
 
+pub(super) mod bars;
+
 /// A count gives up before the web client's own request limit of 30 s, so the
 /// chart can fall back to the results that are loaded instead of failing.
 const TIME_BUDGET: Duration = Duration::from_secs(20);
@@ -31,8 +33,8 @@ pub(super) const BUCKET_COLUMN: &str = "__histogram_bucket";
 pub(super) const TOTAL_COLUMN: &str = "__histogram_total";
 pub(super) const ERRORS_COLUMN: &str = "__histogram_errors";
 
-/// The bars a client asks for: each `bucket_micros` long, the first beginning
-/// at `origin_micros`, holding what happened in `[from, to)`.
+/// The bars a client asks for: each `bucket_time` long, the first beginning
+/// at `origin_time`, holding what happened in `[from, to)`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct BucketPlan {
     pub(super) from: i64,
@@ -76,16 +78,35 @@ pub(super) enum Unavailable {
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct HistogramBucket {
-    start_micros: i64,
+    start_time: i64,
     total: u64,
     errors: u64,
+    /// How long the bar's results took at the median and the 95th and 99th
+    /// percentile, in nanoseconds, where the results have a duration.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    p50_ns: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    p95_ns: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    p99_ns: Option<i64>,
+}
+
+/// How long the results of one bar took. `index` counts bars from the first.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct BarLatency {
+    pub(super) index: i64,
+    pub(super) p50_ns: i64,
+    pub(super) p95_ns: i64,
+    pub(super) p99_ns: i64,
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct HistogramResponse {
-    bucket_micros: i64,
-    origin_micros: i64,
+    bucket_time: i64,
+    origin_time: i64,
     /// The bars that hold at least one result, oldest first.
     buckets: Vec<HistogramBucket>,
     /// Whether errors are counted apart from the rest.
@@ -160,30 +181,57 @@ impl BucketPlan {
             .then(|| (micros - self.origin_micros) / self.bucket_micros)
     }
 
-    pub(super) fn counted(&self, mut bars: Vec<BarCount>, split: bool) -> HistogramResponse {
+    pub(super) fn bucket_micros(&self) -> i64 {
+        self.bucket_micros
+    }
+
+    pub(super) fn origin_micros(&self) -> i64 {
+        self.origin_micros
+    }
+
+    /// Where bar `index` begins. `None` for a bar outside the range: it is not
+    /// one that was asked for.
+    pub(super) fn start_of(&self, index: i64) -> Option<i64> {
+        let start = index
+            .checked_mul(self.bucket_micros)?
+            .checked_add(self.origin_micros)?;
+
+        (index >= 0 && start < self.to).then_some(start)
+    }
+
+    pub(super) fn counted(&self, bars: Vec<BarCount>, split: bool) -> HistogramResponse {
+        self.counted_with_latency(bars, split, &[])
+    }
+
+    /// The bars counted, each with how long its results took where `latency` says.
+    pub(super) fn counted_with_latency(
+        &self,
+        mut bars: Vec<BarCount>,
+        split: bool,
+        latency: &[BarLatency],
+    ) -> HistogramResponse {
         bars.sort_by_key(|bar| bar.index);
 
         let buckets = bars
             .into_iter()
             .filter(|bar| bar.total > 0)
             .filter_map(|bar| {
-                let start_micros = bar
-                    .index
-                    .checked_mul(self.bucket_micros)?
-                    .checked_add(self.origin_micros)?;
+                let took = latency.iter().find(|took| took.index == bar.index);
 
-                // A bar outside the range is not one that was asked for.
-                (start_micros < self.to && bar.index >= 0).then_some(HistogramBucket {
-                    start_micros,
+                Some(HistogramBucket {
+                    start_time: self.start_of(bar.index)?,
                     total: bar.total,
                     errors: if split { bar.errors.min(bar.total) } else { 0 },
+                    p50_ns: took.map(|took| took.p50_ns),
+                    p95_ns: took.map(|took| took.p95_ns),
+                    p99_ns: took.map(|took| took.p99_ns),
                 })
             })
             .collect();
 
         HistogramResponse {
-            bucket_micros: self.bucket_micros,
-            origin_micros: self.origin_micros,
+            bucket_time: self.bucket_micros,
+            origin_time: self.origin_micros,
             buckets,
             split,
             unavailable: None,
@@ -192,8 +240,8 @@ impl BucketPlan {
 
     pub(super) fn unavailable(&self, reason: Unavailable) -> HistogramResponse {
         HistogramResponse {
-            bucket_micros: self.bucket_micros,
-            origin_micros: self.origin_micros,
+            bucket_time: self.bucket_micros,
+            origin_time: self.origin_micros,
             buckets: Vec::new(),
             split: false,
             unavailable: Some(reason),
@@ -352,12 +400,12 @@ mod tests {
         assert_eq!(
             serde_json::to_value(&answer).unwrap(),
             json!({
-                "bucket_micros": 5 * MINUTE,
-                "origin_micros": 10 * MINUTE,
+                "bucketTime": 5 * MINUTE,
+                "originTime": 10 * MINUTE,
                 // The empty bar is left out, and so is the one past the range.
                 "buckets": [
-                    { "start_micros": 10 * MINUTE, "total": 7, "errors": 0 },
-                    { "start_micros": 20 * MINUTE, "total": 4, "errors": 1 },
+                    { "startTime": 10 * MINUTE, "total": 7, "errors": 0 },
+                    { "startTime": 20 * MINUTE, "total": 4, "errors": 1 },
                 ],
                 "split": true,
             })
@@ -377,7 +425,7 @@ mod tests {
 
         assert_eq!(
             serde_json::to_value(&answer).unwrap()["buckets"],
-            json!([{ "start_micros": 10 * MINUTE, "total": 3, "errors": 0 }])
+            json!([{ "startTime": 10 * MINUTE, "total": 3, "errors": 0 }])
         );
     }
 
@@ -386,8 +434,8 @@ mod tests {
         assert_eq!(
             serde_json::to_value(plan().unavailable(Unavailable::TimeBudget)).unwrap(),
             json!({
-                "bucket_micros": 5 * MINUTE,
-                "origin_micros": 10 * MINUTE,
+                "bucketTime": 5 * MINUTE,
+                "originTime": 10 * MINUTE,
                 "buckets": [],
                 "split": false,
                 "unavailable": "time_budget",

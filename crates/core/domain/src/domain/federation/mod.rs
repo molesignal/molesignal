@@ -28,6 +28,9 @@ pub enum ResourceKind {
     SemanticGroup,
     MuteRule,
     NotifyTemplate,
+    AlertSource,
+    HolidayCalendar,
+    InhibitRule,
 }
 
 impl ResourceKind {
@@ -42,6 +45,9 @@ impl ResourceKind {
             ResourceKind::SemanticGroup => "semantic_group",
             ResourceKind::MuteRule => "mute_rule",
             ResourceKind::NotifyTemplate => "notify_template",
+            ResourceKind::AlertSource => "alert_source",
+            ResourceKind::HolidayCalendar => "holiday_calendar",
+            ResourceKind::InhibitRule => "inhibit_rule",
         }
     }
 
@@ -58,6 +64,9 @@ impl ResourceKind {
             "semantic_group" => ResourceKind::SemanticGroup,
             "mute_rule" => ResourceKind::MuteRule,
             "notify_template" => ResourceKind::NotifyTemplate,
+            "alert_source" => ResourceKind::AlertSource,
+            "holiday_calendar" => ResourceKind::HolidayCalendar,
+            "inhibit_rule" => ResourceKind::InhibitRule,
             _ => return None,
         })
     }
@@ -183,6 +192,7 @@ mod tests {
             ResourceKind::AlertRule,
             ResourceKind::Dashboard,
             ResourceKind::SemanticGroup,
+            ResourceKind::AlertSource,
         ] {
             for action in [CudAction::Created, CudAction::Updated, CudAction::Deleted] {
                 let s = event_type(kind, action);

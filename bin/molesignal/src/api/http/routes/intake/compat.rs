@@ -23,10 +23,13 @@ use serde_json::{Map, Value};
 
 use crate::{
     api::AppState,
-    app::iam::IamContext,
+    app::{
+        iam::IamContext,
+        intake::usage::{IntakeReceipt, split_by_events},
+    },
     domain::{
         iam::permission,
-        intake::{IntakeBatch, RawEvent},
+        intake::{IntakeBatch, RawEvent, usage::source::IntakeCredential},
         stream::StreamType,
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
@@ -72,32 +75,40 @@ fn stream_name(headers: &HeaderMap, default: &str) -> String {
 
 async fn intake_into(
     state: &AppState,
-    org_id: &Id,
+    ctx: &IamContext,
     stream: String,
     events: Vec<RawEvent>,
-    body_len: usize,
+    bytes: u64,
 ) -> Result<usize> {
     if events.is_empty() {
         return Ok(0);
     }
 
-    crate::api::http::intake_usage::record_intake_usage(
-        state,
-        org_id,
-        body_len as u64,
-        TimestampMicros::now().0,
+    let receipt = IntakeReceipt::of_events(
+        IntakeCredential::of(ctx),
+        StreamType::LOGS,
+        &stream,
+        bytes,
+        &events,
     );
 
     let batch = IntakeBatch {
         batch_id: Id::new(),
-        org_id: org_id.clone(),
+        org_id: ctx.org_id.clone(),
         stream,
         stream_type: StreamType::LOGS,
         events,
         received_at: TimestampMicros::now(),
     };
 
-    Ok(state.intake.intake(batch).await?.accepted)
+    let accepted = state.intake.intake(batch).await?.accepted;
+
+    state
+        .platform
+        .intake_meter
+        .record(&ctx.org_id, receipt, accepted as u64);
+
+    Ok(accepted)
 }
 
 // ===== Elasticsearch _bulk =====
@@ -167,7 +178,7 @@ fn parse_es_bulk(text: &str, default_stream: &str) -> Result<BTreeMap<String, Ve
     Ok(by_stream)
 }
 
-#[permission("streams.write")]
+#[permission("logs.write")]
 async fn es_bulk(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -181,8 +192,16 @@ async fn es_bulk(
 
     let accepted: usize = by_stream.values().map(Vec::len).sum();
 
-    for (stream, events) in by_stream {
-        intake_into(&state, &ctx.org_id, stream, events, body.len()).await?;
+    // One body fills several streams: each counts for its share of it, not for the whole.
+    let counts = by_stream
+        .values()
+        .map(|events| events.len() as u64)
+        .collect::<Vec<_>>();
+
+    let shares = split_by_events(raw.len() as u64, &counts);
+
+    for ((stream, events), bytes) in by_stream.into_iter().zip(shares) {
+        intake_into(&state, &ctx, stream, events, bytes).await?;
     }
 
     // ES 客户端（Filebeat 等）按 `errors` + `items[].status` 判定成功。
@@ -245,7 +264,7 @@ fn parse_loki(payload: &Value) -> Result<Vec<RawEvent>> {
     Ok(events)
 }
 
-#[permission("streams.write")]
+#[permission("logs.write")]
 async fn loki_push(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -257,7 +276,7 @@ async fn loki_push(
         serde_json::from_slice(&raw).map_err(|e| Error::invalid(format!("loki body: {e}")))?;
     let events = parse_loki(&payload)?;
     let stream = stream_name(&headers, "default");
-    intake_into(&state, &ctx.org_id, stream, events, body.len()).await?;
+    intake_into(&state, &ctx, stream, events, raw.len() as u64).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

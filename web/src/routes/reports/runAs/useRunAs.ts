@@ -11,11 +11,11 @@ export function useRunAs(
   report: DisplayReport | null,
   format: ReportFormat,
 ): RunAs | null {
-  const currentUserId = useAuthStore((state) => state.ctx?.user_id ?? '');
+  const currentUserId = useAuthStore((state) => state.ctx?.userId ?? '');
 
   return resolveRunAs({
     saved: report
-      ? { format: report.raw.format, userId: report.raw.run_as_user_id }
+      ? { format: report.raw.format, userId: report.raw.runAsUserId }
       : null,
     format,
     currentUserId,

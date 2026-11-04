@@ -45,7 +45,7 @@ export function DashboardReport() {
 
 function DashboardReportDocument({ definition }: { definition: DashboardDefinition }) {
   const { t } = useTranslation('dashboards');
-  const orgId = useAuthStore((state) => state.ctx?.org_id ?? '');
+  const orgId = useAuthStore((state) => state.ctx?.orgId ?? '');
   const timeWindow = useTimeStore((state) => state.window);
   const [rendered, setRendered] = React.useState<'loading' | 'ready'>('loading');
   const [generatedAt] = React.useState(() => new Date());

@@ -99,6 +99,7 @@ async fn run_sql(
             stream_type: StreamType::LOGS,
         }),
         limit: None,
+        step: None,
         federation_clusters: Vec::new(),
     };
 
@@ -106,7 +107,7 @@ async fn run_sql(
     Ok(serde_json::to_value(out).unwrap_or(Value::Null))
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("agent.usage.read", "sys.telemetry.read"))]
 async fn stats(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -118,7 +119,7 @@ async fn stats(
     Ok(Json(v))
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("agent.usage.read", "sys.telemetry.read"))]
 async fn top_models(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -139,7 +140,7 @@ async fn top_models(
     Ok(Json(v))
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("agent.usage.read", "sys.telemetry.read"))]
 async fn top_users(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 
 import { QueryIconAction } from '@/shell/query/IconAction';
 import { ModuleToggle } from '@/shell/query/ModuleToggle';
+import { QuerySplitToggle } from '@/shell/queryTabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,9 +52,10 @@ interface LogResultSummaryProps {
 /**
  * The row above the log rows: which view of the results is shown and what the
  * query returned on the left, how the result is shown on the right. What
- * stands there is said by signs alone, as in the bar above: the columns, the
- * switch that opens and closes the histogram over the rows, the download. The
- * field list beside the rows folds from its own head.
+ * stands there is said by signs alone, as in the bar above: the switch that
+ * splits the page, the columns, the switch that opens and closes the histogram
+ * over the rows, the download. The field list beside the rows folds from its
+ * own head.
  */
 export function LogResultSummary({
   eventCount,
@@ -97,6 +99,7 @@ export function LogResultSummary({
         </>
       )}
       <div data-log-result-actions className="ml-auto flex items-center gap-1">
+        <QuerySplitToggle />
         {listControls && (
           <LogColumnMenu
             fields={fields}

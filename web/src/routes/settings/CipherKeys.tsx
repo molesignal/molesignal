@@ -30,7 +30,10 @@ export function CipherKeys() {
   const { t: tc } = useTranslation('common');
   const qc = useQueryClient();
   const manageAccess = useActionAccess({
-    permission: 'org.settings.manage',
+    permission: 'org.cipher_keys.manage',
+  });
+  const rotateAccess = useActionAccess({
+    permission: 'org.cipher_keys.rotate',
   });
   const [creating, setCreating] = React.useState(false);
   const [rotating, setRotating] = React.useState<cipherApi.CipherKey | null>(null);
@@ -87,6 +90,7 @@ export function CipherKeys() {
         destructive
         title={t('cipher_keys.delete_confirm_title')}
         description={t('cipher_keys.delete_confirm_description')}
+        typeToConfirm={removing?.name}
         confirmLabel={tc('actions.delete')}
         busy={remove.isPending}
         disabled={manageAccess.disabled}
@@ -116,7 +120,7 @@ export function CipherKeys() {
               {
                 key: 'rotated',
                 header: t('cipher_keys.columns.rotated'),
-                cell: (r) => formatMicros(r.rotated_at_micros),
+                cell: (r) => formatMicros(r.rotatedAt),
                 width: 200,
               },
               {
@@ -131,8 +135,8 @@ export function CipherKeys() {
                     <ChromeButton
                       variant="ghost"
                       size="sm"
-                      disabled={manageAccess.disabled}
-                      disabledReason={manageAccess.reason}
+                      disabled={rotateAccess.disabled}
+                      disabledReason={rotateAccess.reason}
                       onClick={(e) => {
                         e.stopPropagation();
                         setRotating(r);
@@ -187,7 +191,7 @@ function CreateDrawer({
   }, [open]);
 
   const create = useMutation({
-    mutationFn: () => cipherApi.create({ name, key_material_b64: keyB64 }),
+    mutationFn: () => cipherApi.create({ name, keyMaterialB64: keyB64 }),
     onSuccess: () => {
       toast.success(t('cipher_keys.toast_created'));
       void qc.invalidateQueries({ queryKey: ['cipher-keys'] });
@@ -278,7 +282,7 @@ function RotateDrawer({
   const rotate = useMutation({
     mutationFn: () => {
       if (!keyMeta) throw new Error('no key');
-      return cipherApi.rotate(keyMeta.name, { key_material_b64: keyB64 });
+      return cipherApi.rotate(keyMeta.name, { keyMaterialB64: keyB64 });
     },
     onSuccess: () => {
       toast.success(t('cipher_keys.toast_rotated'));

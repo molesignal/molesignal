@@ -26,7 +26,9 @@ fn row_to_membership(row: sqlx::postgres::PgRow) -> Result<IamMembership> {
     Ok(IamMembership {
         user_id: Id::from_string(row.try_get::<String, _>("user_id").map_err(sqlx_err)?),
         org_id: Id::from_string(row.try_get::<String, _>("org_id").map_err(sqlx_err)?),
-        joined_at: TimestampMicros(row.try_get("joined_at_micros").map_err(sqlx_err)?),
+        joined_at: row
+            .try_get::<TimestampMicros, _>("joined_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -38,7 +40,7 @@ async fn ensure_builtin_roles(
     sqlx::query(
         "INSERT INTO iam_roles (
              id, org_id, role_key, name, description, builtin,
-             role_type, scope, created_at_micros, updated_at_micros
+             role_type, scope, created_at, updated_at
          )
          SELECT
              gen_random_uuid()::TEXT,
@@ -51,18 +53,19 @@ async fn ensure_builtin_roles(
              catalog.scope,
              $2,
              $2
-           FROM iam_builtin_roles catalog
-          WHERE catalog.role_type = 'organization'
+           FROM iam_roles catalog
+          WHERE catalog.org_id IS NULL
+            AND catalog.role_type = 'organization'
             AND catalog.scope = 'organization'
          ON CONFLICT (org_id, role_key) DO NOTHING",
     )
     .bind(&org_id.0)
-    .bind(now.0)
+    .bind(now)
     .execute(&mut *tx)
     .await
     .map_err(sqlx_err)?;
 
-    // A built-in role gains the permissions its catalog entry gained since; it
+    // A built-in role gains the permissions its built-in row gained since; it
     // keeps any it already has.
     sqlx::query(
         "UPDATE iam_roles role
@@ -71,9 +74,10 @@ async fn ensure_builtin_roles(
                       FROM unnest(role.permissions || catalog.permissions) AS listed(permission_key)
                   ORDER BY permission_key
                 )
-           FROM iam_builtin_roles catalog
+           FROM iam_roles catalog
           WHERE role.org_id = $1
             AND role.builtin
+            AND catalog.org_id IS NULL
             AND catalog.role_key = role.role_key
             AND NOT role.permissions @> catalog.permissions",
     )
@@ -140,17 +144,17 @@ impl IamMembershipRepository for PgIamMembershipRepository {
         }
 
         sqlx::query(
-            "INSERT INTO iam_memberships (user_id, org_id, joined_at_micros)
+            "INSERT INTO iam_memberships (user_id, org_id, joined_at)
              VALUES ($1, $2, $3)
              ON CONFLICT (user_id, org_id) DO UPDATE
-             SET joined_at_micros = LEAST(
-                 iam_memberships.joined_at_micros,
-                 EXCLUDED.joined_at_micros
+             SET joined_at = LEAST(
+                 iam_memberships.joined_at,
+                 EXCLUDED.joined_at
              )",
         )
         .bind(&membership.user_id.0)
         .bind(&membership.org_id.0)
-        .bind(membership.joined_at.0)
+        .bind(membership.joined_at)
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
@@ -173,7 +177,7 @@ impl IamMembershipRepository for PgIamMembershipRepository {
             sqlx::query(
                 "INSERT INTO iam_role_bindings (
                      id, organization_id, role_id, principal_type, principal_id,
-                     conditions, created_by, created_at_micros
+                     conditions, created_by, created_at
                  ) VALUES (
                      'binding_' || substr(md5($1 || ':' || $2 || ':' || $3), 1, 32),
                      $1, $3, 'user', $2, '{}'::JSONB, $4, $5
@@ -183,7 +187,7 @@ impl IamMembershipRepository for PgIamMembershipRepository {
             .bind(&membership.user_id.0)
             .bind(role_id)
             .bind(&actor_id.0)
-            .bind(TimestampMicros::now().0)
+            .bind(TimestampMicros::now())
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
@@ -201,10 +205,10 @@ impl IamMembershipRepository for PgIamMembershipRepository {
 
     async fn list_for_user(&self, user_id: &Id) -> Result<Vec<IamMembership>> {
         let rows = sqlx::query(
-            "SELECT user_id, org_id, joined_at_micros
+            "SELECT user_id, org_id, joined_at
                FROM iam_memberships
               WHERE user_id = $1
-           ORDER BY joined_at_micros, org_id",
+           ORDER BY joined_at, org_id",
         )
         .bind(&user_id.0)
         .fetch_all(&self.pool)
@@ -216,10 +220,10 @@ impl IamMembershipRepository for PgIamMembershipRepository {
 
     async fn list_for_org(&self, org_id: &Id) -> Result<Vec<IamMembership>> {
         let rows = sqlx::query(
-            "SELECT user_id, org_id, joined_at_micros
+            "SELECT user_id, org_id, joined_at
                FROM iam_memberships
               WHERE org_id = $1
-           ORDER BY joined_at_micros, user_id",
+           ORDER BY joined_at, user_id",
         )
         .bind(&org_id.0)
         .fetch_all(&self.pool)
@@ -239,20 +243,21 @@ impl IamMembershipRepository for PgIamMembershipRepository {
                JOIN iam_roles role
                  ON role.id = binding.role_id
                 AND role.org_id = binding.organization_id
-          LEFT JOIN iam_builtin_roles catalog
-                 ON catalog.role_key = role.role_key
+          LEFT JOIN iam_roles catalog
+                 ON catalog.org_id IS NULL
+                AND catalog.role_key = role.role_key
               WHERE binding.organization_id = $1
                 AND binding.principal_type = 'user'
                 AND binding.principal_id = $2
                 AND binding.resource_type IS NULL
                 AND binding.resource_id IS NULL
-                AND (binding.starts_at_micros IS NULL OR binding.starts_at_micros <= $3)
-                AND (binding.expires_at_micros IS NULL OR binding.expires_at_micros > $3)
+                AND (binding.starts_at IS NULL OR binding.starts_at <= $3)
+                AND (binding.expires_at IS NULL OR binding.expires_at > $3)
            ORDER BY display_priority, role.name, role.id",
         )
         .bind(&org_id.0)
         .bind(&user_id.0)
-        .bind(now.0)
+        .bind(now)
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -293,19 +298,20 @@ impl IamMembershipRepository for PgIamMembershipRepository {
                FROM iam_role_bindings binding
                JOIN iam_roles role
                  ON role.id=binding.role_id AND role.org_id=binding.organization_id
-          LEFT JOIN iam_builtin_roles catalog ON catalog.role_key=role.role_key
+          LEFT JOIN iam_roles catalog
+                 ON catalog.org_id IS NULL AND catalog.role_key=role.role_key
               WHERE binding.organization_id=$1
                 AND binding.principal_type='user'
                 AND binding.principal_id=ANY($2::TEXT[])
                 AND binding.resource_type IS NULL
                 AND binding.resource_id IS NULL
-                AND (binding.starts_at_micros IS NULL OR binding.starts_at_micros<=$3)
-                AND (binding.expires_at_micros IS NULL OR binding.expires_at_micros>$3)
+                AND (binding.starts_at IS NULL OR binding.starts_at<=$3)
+                AND (binding.expires_at IS NULL OR binding.expires_at>$3)
            ORDER BY binding.principal_id,display_priority,role.name,role.id",
         )
         .bind(&org_id.0)
         .bind(&user_ids)
-        .bind(now.0)
+        .bind(now)
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -338,11 +344,12 @@ impl IamMembershipRepository for PgIamMembershipRepository {
 
         let role_id = sqlx::query_scalar::<String>(
             "SELECT role.id
-               FROM iam_builtin_roles catalog
+               FROM iam_roles catalog
                JOIN iam_roles role
                  ON role.org_id = $1
                 AND role.role_key = catalog.role_key
-              WHERE catalog.purpose = $2",
+              WHERE catalog.org_id IS NULL
+                AND catalog.purpose = $2",
         )
         .bind(&org_id.0)
         .bind(purpose)

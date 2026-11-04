@@ -36,7 +36,7 @@ export function MemoryView() {
   const { t } = useTranslation('agent');
   const { t: tc } = useTranslation('common');
   const queryClient = useQueryClient();
-  const userId = useAuthStore((state) => state.ctx?.user_id ?? '');
+  const userId = useAuthStore((state) => state.ctx?.userId ?? '');
   const [owner, setOwner] = React.useState(PERSONAL);
   const [editing, setEditing] = React.useState<Memory | null>(null);
   const [deleting, setDeleting] = React.useState<Memory | null>(null);
@@ -66,7 +66,7 @@ export function MemoryView() {
     onError: fail,
   });
 
-  const myTeams = (teams.data ?? []).filter((team) => team.member_ids.includes(userId));
+  const myTeams = (teams.data ?? []).filter((team) => team.memberIds.includes(userId));
   const options = [
     { value: PERSONAL, label: t('memory.personal') },
     ...myTeams.map((team) => ({ value: team.id, label: team.name })),
@@ -87,8 +87,8 @@ export function MemoryView() {
         {settings.data && (
           <label className="flex items-center gap-2 text-xs text-tx-1" title={t('memory.distill_hint')}>
             <Switch
-              checked={settings.data.distill_after_chat}
-              disabled={!settings.data.can_edit || distill.isPending}
+              checked={settings.data.distillAfterChat}
+              disabled={!settings.data.canEdit || distill.isPending}
               onCheckedChange={(checked) => distill.mutate(checked)}
               aria-label={t('memory.distill')}
             />
@@ -130,16 +130,16 @@ export function MemoryView() {
                           </summary>
                           <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-tx-1">{memory.body}</p>
                           <p className="mt-1 flex flex-wrap items-center gap-2 type-micro leading-5 text-tx-3">
-                            {t('memory.updated', { time: formatMicrosActive(memory.updated_at_micros) })}
-                            {memory.source_chat_id && memory.source_chat_title != null && (
+                            {t('memory.updated', { time: formatMicrosActive(memory.updatedAt) })}
+                            {memory.sourceChatId && memory.sourceChatTitle != null && (
                               <Link
                                 data-agent-memory-source
-                                to={`/agent/chat?chat=${encodeURIComponent(memory.source_chat_id)}`}
+                                to={`/agent/chat?chat=${encodeURIComponent(memory.sourceChatId)}`}
                                 title={t('memory.from_chat')}
                                 className="inline-flex min-w-0 max-w-full items-center gap-1 text-indigo hover:underline"
                               >
                                 <LinkIcon aria-hidden="true" className="h-3 w-3 shrink-0" />
-                                <span className="truncate">{memory.source_chat_title || t('untitled')}</span>
+                                <span className="truncate">{memory.sourceChatTitle || t('untitled')}</span>
                               </Link>
                             )}
                           </p>

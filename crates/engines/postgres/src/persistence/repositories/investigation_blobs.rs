@@ -28,7 +28,7 @@ pub trait InvestigationBlobRepository: Send + Sync {
     async fn create(&self, id: &Id, org_id: &Id, object_key: &str) -> Result<()>;
     /// 取存储位置（object_key 新行 / legacy_payload 旧行），由调用方决定从哪读。
     async fn fetch(&self, org_id: &Id, id: &Id) -> Result<StoredBlob>;
-    /// 删除 `created_at_micros < cutoff_micros` 的行，返回这些行的 object_key（非空者），
+    /// 删除 `created_at < cutoff_micros` 的行，返回这些行的 object_key（非空者），
     /// 供调用方顺带清理对象存储里的孤儿对象。
     async fn delete_older_than(&self, cutoff_micros: i64) -> Result<Vec<String>>;
 }
@@ -49,13 +49,13 @@ impl InvestigationBlobRepository for PgInvestigationBlobRepository {
         let now = TimestampMicros::now();
 
         sqlx::query(
-            "INSERT INTO investigation_blobs (id, org_id, object_key, created_at_micros)
+            "INSERT INTO investigation_blobs (id, org_id, object_key, created_at)
              VALUES ($1, $2, $3, $4)",
         )
         .bind(&id.0)
         .bind(&org_id.0)
         .bind(object_key)
-        .bind(now.0)
+        .bind(now)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -90,9 +90,9 @@ impl InvestigationBlobRepository for PgInvestigationBlobRepository {
     async fn delete_older_than(&self, cutoff_micros: i64) -> Result<Vec<String>> {
         // 用 RETURNING 一次拿回被删行的 object_key（非空者），供调用方清对象存储。
         let rows = sqlx::query(
-            "DELETE FROM investigation_blobs WHERE created_at_micros < $1 RETURNING object_key",
+            "DELETE FROM investigation_blobs WHERE created_at < $1 RETURNING object_key",
         )
-        .bind(cutoff_micros)
+        .bind(TimestampMicros(cutoff_micros))
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;

@@ -6,10 +6,10 @@
 use super::{HealthStatus, OverviewBucket, SignalOverview, StreamOverview};
 use crate::{
     domain::{
+        intake::usage::source::{HOUR_MICROS, IntakeUsageBucket},
         storage::QueryFile,
         stream::{StreamDefinition, StreamType},
     },
-    infra::persistence::repositories::usage::{HOUR_MICROS, IntakeUsageBucket},
     shared::time::TimeRange,
 };
 
@@ -72,8 +72,8 @@ pub(super) fn summarize_stream(
             status,
             rows,
             stored_bytes,
-            first_received_at_micros,
-            last_received_at_micros,
+            first_received_at: first_received_at_micros,
+            last_received_at: last_received_at_micros,
         },
         buckets,
         stats_ok: true,
@@ -89,8 +89,8 @@ pub(super) fn unavailable_stream(definition: StreamDefinition, bucket_count: usi
             status: HealthStatus::Unknown,
             rows: 0,
             stored_bytes: 0,
-            first_received_at_micros: None,
-            last_received_at_micros: None,
+            first_received_at: None,
+            last_received_at: None,
         },
         buckets: vec![BucketTotals::default(); bucket_count],
         stats_ok: false,
@@ -208,9 +208,9 @@ pub(super) fn signal_overviews(streams: &[StreamOverview]) -> Vec<SignalOverview
             stored_bytes: matching
                 .iter()
                 .fold(0_u64, |sum, stream| sum.saturating_add(stream.stored_bytes)),
-            last_received_at_micros: matching
+            last_received_at: matching
                 .iter()
-                .filter_map(|stream| stream.last_received_at_micros)
+                .filter_map(|stream| stream.last_received_at)
                 .max(),
         }
     })
@@ -227,7 +227,7 @@ pub(super) fn bucket_raw_usage(
     for item in usage {
         let midpoint = item.bucket_start_micros.saturating_add(HOUR_MICROS / 2);
         let index = bucket_index(window, bucket_count, midpoint);
-        output[index] = output[index].saturating_add(item.intake_bytes.max(0) as u64);
+        output[index] = output[index].saturating_add(item.intake_bytes);
     }
 
     output
@@ -257,8 +257,8 @@ pub(super) fn build_buckets(
             };
 
             OverviewBucket {
-                start_micros: start,
-                end_micros: end,
+                start_time: start,
+                end_time: end,
                 intake_bytes: raw.and_then(|values| values.get(index).copied()),
                 stored_bytes: totals[index].stored_bytes,
                 rows: totals[index].rows,

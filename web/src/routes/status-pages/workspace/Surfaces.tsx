@@ -1,6 +1,7 @@
 /** Status Pages workspace surface primitives. */
 import type * as React from 'react';
 
+import { uiSectionTitleClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 
 export const statusPageFlatTableClassName = 'rounded-none border-0 bg-transparent';
@@ -81,7 +82,7 @@ export function StatusPageSection({
     <section data-status-page-section className={cn(SURFACE, className)}>
       <div className="flex min-h-12 items-center justify-between gap-4 px-4 py-2.5">
         <div className="min-w-0">
-          <h2 className="text-sm font-display-strong text-tx-0">{title}</h2>
+          <h2 className={uiSectionTitleClass}>{title}</h2>
           {description && <p className="mt-0.5 text-xs text-tx-2">{description}</p>}
         </div>
         {action}

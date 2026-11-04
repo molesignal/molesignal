@@ -61,12 +61,10 @@ MoleSignal 后端使用 virtual Cargo workspace。仓库根 `Cargo.toml` 只管�
 `bin/molesignal` 是总 composition root，可以依赖 workspace 内各类 crate。其余 crate
 不能反向依赖 `molesignal`：
 
-```text
-bin/molesignal ──► modules / engines / transport / support / core
-modules        ──► core / support
-engines        ──► core / support
-transport      ──► protocol/runtime dependencies
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/architecture/crate-dependencies_dark.svg">
+  <img src="assets/architecture/crate-dependencies_light.svg" alt="依赖方向：bin/molesignal 依赖 modules、engines、transport、support 和 core；modules 与 engines 依赖 core 和 support；transport 依赖协议与运行时库">
+</picture>
 
 `crates/core/domain` 只持有业务模型与 port，不引入 PostgreSQL、HTTP、gRPC 或对象存储
 adapter。PostgreSQL 实现位于 `crates/engines/postgres`。应用 use case、外部 API 和进程

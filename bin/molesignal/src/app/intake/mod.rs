@@ -7,25 +7,27 @@
 //! 输出：`IntakeResult { accepted, rejected, errors }`。
 //!
 //! 职责（spec 顺序）：
-//! 1. 校验目标 stream 存在；
-//! 2. **Pipeline 变换**：可选 `PipelineEngine::apply`（VRL function 链）；
+//! 1. 校验目标 stream 存在；日志流、指标流挂着实时流水线时整批交给它（见 [`realtime`]；链路在
+//!    写 span 的地方处理）；
+//! 2. 写入即脱敏；
 //! 3. 类型校验 + 新字段 schema 演化；
 //! 4. 把整批喂给 `IntakeSink`（infra 实现 WAL + buffer + parquet flush）。
 //!
-//! 类型冲突 / pipeline 单步错误的事件单条剔除并填到 `IntakeResult.errors`。
+//! 类型冲突的事件单条剔除并填到 `IntakeResult.errors`。
 
-mod derived;
 mod forward;
-pub mod pipeline;
+mod metrics;
 pub mod realtime;
 mod schema;
+pub mod usage;
 
 use std::sync::Arc;
 
 pub use forward::IntakeForwarder;
-pub use pipeline::{FunctionExecutor, NoopFunctionExecutor, PipelineEngine};
-pub use schema::{check_event_types, infer_schema_extension};
+pub use metrics::MetricRecorder;
+pub use schema::{apply_index_rules, check_event_types, infer_schema_extension};
 
+pub use crate::domain::function::FunctionExecutor;
 use crate::{
     app::alerting::realtime::RealtimeAlerts,
     domain::{
@@ -34,16 +36,18 @@ use crate::{
             ServiceGraphObserver,
         },
         masking::{Masker, MaskingProvider},
+        metrics::MetricDirectory,
+        rum::{RumEventWriter, RumIssueTracker, RumSessionMerger, event::RumStream},
         storage::DatasetTypeId,
         stream::{
             Schema, StreamDefinition, StreamRepository, StreamType, is_reserved_system_stream,
-            validate_stream_name,
+            refuse_platform_stream, validate_stream_name,
         },
     },
     shared::{Error, Result, drain::DrainController, ids::Id, time::TimestampMicros},
 };
 
-type InternalUsageRecorder = Arc<dyn Fn(Id, TimestampMicros, u64) + Send + Sync + 'static>;
+type InternalUsageRecorder = Arc<dyn Fn(&Id, usage::IntakeReceipt, u64) + Send + Sync + 'static>;
 
 pub struct IntakeService {
     sink: Arc<dyn IntakeSink>,
@@ -54,10 +58,8 @@ pub struct IntakeService {
     /// 可信内部遥测的原始字节计量回调。外部协议入口已按 wire payload 计量；
     /// 这里只补齐不经过协议门禁的内部写入。
     internal_usage_recorder: Option<InternalUsageRecorder>,
-    /// 可选 pipeline 引擎；为 None 时直接走 schema 校验 + sink。
-    pipeline_engine: Option<Arc<PipelineEngine>>,
     realtime: Option<realtime::RealtimeEngine>,
-    /// 可选脱敏规则源；非空时 pipeline 之后、落盘之前对事件字符串值就地脱敏。
+    /// 可选脱敏规则源；非空时落盘之前对事件字符串值就地脱敏。
     masking: Option<Arc<dyn MaskingProvider>>,
     /// 可选节点 drain 状态；退役中拒绝新写入（503），让 intake 把 pending flush 干净后下线。
     drain: Option<Arc<DrainController>>,
@@ -67,6 +69,12 @@ pub struct IntakeService {
     realtime_alerts: Option<Arc<RealtimeAlerts>>,
     /// 没有 intake 角色的节点：公共入口收到的批次转发给 intake 节点处理。
     forwarder: Option<Arc<dyn IntakeForwarder>>,
+    /// 可选指标目录登记器；非空时指标批写入成功后登记流里出现的指标。
+    metric_recorder: Option<MetricRecorder>,
+    /// 把写入 `rum_sessions` 的 view 补丁合并成会话行。没有它的节点把补丁原样当作会话行。
+    rum_sessions: Option<Arc<dyn RumSessionMerger>>,
+    /// 把写入 `rum_errors` 的错误归到 issue：开新 issue、记录再现、判回归。没有它的节点照原样写。
+    rum_issues: Option<Arc<dyn RumIssueTracker>>,
 }
 
 impl IntakeService {
@@ -76,24 +84,39 @@ impl IntakeService {
             streams,
             system_org_id: None,
             internal_usage_recorder: None,
-            pipeline_engine: None,
             realtime: None,
             masking: None,
             drain: None,
             service_graph: None,
             realtime_alerts: None,
             forwarder: None,
+            metric_recorder: None,
+            rum_sessions: None,
+            rum_issues: None,
         }
+    }
+
+    /// 注入 RUM 会话合并器：`rum_sessions` 流收到的 view 补丁经它变成会话行。
+    pub fn with_rum_sessions(mut self, merger: Arc<dyn RumSessionMerger>) -> Self {
+        self.rum_sessions = Some(merger);
+        self
+    }
+
+    /// 注入 RUM issue 追踪器：`rum_errors` 流收到的错误行经它归到 issue。
+    pub fn with_rum_issues(mut self, tracker: Arc<dyn RumIssueTracker>) -> Self {
+        self.rum_issues = Some(tracker);
+        self
+    }
+
+    /// 注入指标目录；指标批写入成功后登记流里出现的指标。
+    pub fn with_metric_directory(mut self, directory: Arc<dyn MetricDirectory>) -> Self {
+        self.metric_recorder = Some(MetricRecorder::new(directory));
+        self
     }
 
     /// 注入转发器：公共入口收到的批次交给 intake 节点，本节点不再处理。
     pub fn with_forwarder(mut self, forwarder: Arc<dyn IntakeForwarder>) -> Self {
         self.forwarder = Some(forwarder);
-        self
-    }
-
-    pub fn with_pipeline(mut self, engine: Arc<PipelineEngine>) -> Self {
-        self.pipeline_engine = Some(engine);
         self
     }
 
@@ -142,6 +165,8 @@ impl IntakeService {
             ));
         }
 
+        refuse_platform_stream(&batch.stream)?;
+
         validate_stream_name(&batch.stream)?;
 
         if self
@@ -158,11 +183,15 @@ impl IntakeService {
             return forwarder.forward(batch).await;
         }
 
-        if batch.stream_type == StreamType::LOGS
+        // Spans are changed where they are written, after tail sampling (`realtime::spans`), so that
+        // a trace's summary follows its changed spans; a batch forwarded here is never changed twice.
+        if (batch.stream_type == StreamType::LOGS
+            || batch.stream_type == StreamType::METRICS
+            || batch.stream_type == StreamType::PROFILES)
             && let Some(engine) = &self.realtime
             && let Some(pipeline) = engine
                 .repository
-                .for_source(&batch.org_id, &batch.stream)
+                .for_source(&batch.org_id, batch.stream_type, &batch.stream)
                 .await?
         {
             return self.route_realtime(batch, pipeline, engine).await;
@@ -185,6 +214,8 @@ impl IntakeService {
                 "`_molesignal` is a protected system stream",
             ));
         }
+
+        refuse_platform_stream(&batch.stream)?;
 
         let dataset_type = self.sink.primary_dataset_type(batch.stream_type)?;
         self.intake_prepared(batch, IntakeOrigin::RoutedExternal, dataset_type, None)
@@ -316,8 +347,7 @@ impl IntakeService {
             serde_json::to_vec(&batch.events).ok().map(|payload| {
                 (
                     batch.org_id.clone(),
-                    batch.received_at,
-                    payload.len() as u64,
+                    usage::IntakeReceipt::internal(&batch, payload.len() as u64),
                 )
             })
         })
@@ -336,7 +366,22 @@ impl IntakeService {
             Err(e) => return Err(e),
         };
 
-        let mut event_sizes = match sizes {
+        // `rum_sessions` 收到的是 view 补丁：先合并成会话行，之后的 pipeline、脱敏、类型校验
+        // 与落盘都只见到会话行。会话行是服务端派生的，不重复计量。
+        let derives_sessions = batch.stream_type == StreamType::LOGS
+            && batch.stream == RumStream::Sessions.name()
+            && self.rum_sessions.is_some();
+
+        let sizes = if derives_sessions && let Some(merger) = &self.rum_sessions {
+            let patches = std::mem::take(&mut batch.events);
+
+            batch.events = merger.merge(&batch.org_id, patches).await?;
+            None
+        } else {
+            sizes
+        };
+
+        let event_sizes = match sizes {
             Some(sizes) => sizes,
             None => batch
                 .events
@@ -346,23 +391,21 @@ impl IntakeService {
         };
 
         let mut errors: Vec<IntakeError> = Vec::new();
-        // 被 stream 上的 pipeline 有意丢弃的事件：不写入，也不算拒收，按已接收应答。
-        let mut dropped = 0;
 
-        // 1) Pipeline 变换
-        if origin == IntakeOrigin::External
-            && let Some(engine) = &self.pipeline_engine
-        {
-            let applied = engine.apply(&mut batch).await?;
-            applied.remove_from(&mut batch, &mut event_sizes);
-            dropped = applied.dropped.len();
-            errors.extend(applied.errors);
-        }
-
-        // 1.5) 写入即脱敏（pattern 驱动）：pipeline 产出的字段也会被脱敏。无规则 → no-op。
+        // 1) 写入即脱敏（pattern 驱动）：实时流水线产出的字段也会被脱敏。无规则 → no-op。
         if let Some(masking) = &self.masking {
             let masker = masking.intake_masker(&batch.org_id).await?;
             mask_events(&masker, &mut batch.events);
+        }
+
+        // `rum_errors` 的行已带着自己的 issue id；这里是它所属组织的错误都经过的地方，由追踪器
+        // 开新 issue、记录再现、判回归，并把超出应用每小时上限的错误归入「其余」issue。放在脱敏之后：
+        // issue 里留下的消息与落盘的是同一份文字。
+        if batch.stream_type == StreamType::LOGS
+            && batch.stream == RumStream::Errors.name()
+            && let Some(tracker) = &self.rum_issues
+        {
+            tracker.track(&batch.org_id, &mut batch.events).await;
         }
 
         // Log-like datasets are queried while new rows continue to arrive.
@@ -370,6 +413,11 @@ impl IntakeService {
         // before schema evolution and persistence. RUM streams use Logs too.
         if batch.stream_type == StreamType::LOGS {
             assign_log_event_ids(&batch.batch_id, &mut batch.events);
+        }
+
+        // 指标流装一个来源的全部指标：每个样本都要带上自己的 `metric_name`。
+        if batch.stream_type == StreamType::METRICS {
+            metrics::name_samples(&batch.stream, &mut batch.events);
         }
 
         // 2) 类型冲突先在内存里剔除
@@ -389,10 +437,21 @@ impl IntakeService {
         let total_kept = kept.len();
         batch.events = kept;
 
-        // 3) schema 演化
-        if let Some(new_schema) =
+        // 3) schema 演化：新字段按数据流的索引规则定索引。
+        if let Some(mut new_schema) =
             infer_schema_extension(&def.schema, &batch.events, batch.stream_type)
         {
+            match self.streams.get_settings(&def.id).await {
+                Ok(settings) => {
+                    apply_index_rules(&mut new_schema, def.schema.fields.len(), &settings);
+                }
+                Err(error) => tracing::warn!(
+                    stream = %def.name,
+                    %error,
+                    "stream settings unreadable; new fields keep the default indexes"
+                ),
+            }
+
             if matches!(
                 origin,
                 IntakeOrigin::External | IntakeOrigin::RoutedExternal
@@ -440,13 +499,11 @@ impl IntakeService {
             None
         };
 
-        // 原始批次完成全部用户可见变换后再投影内部读模型，保证摘要与权威数据使用
-        // 同一份脱敏、类型校验结果。测试/内存 sink 不声明能力时保持原有单批语义。
-        let derived = if is_primary_dataset && self.sink.supports_derived_datasets() {
-            derived::project(&batch)
-        } else {
-            Vec::new()
-        };
+        let pending_metrics = self
+            .metric_recorder
+            .as_ref()
+            .filter(|_| is_primary_dataset && batch.stream_type == StreamType::METRICS)
+            .and_then(|recorder| recorder.pending(&def, &batch.events));
 
         // 4) 写入
         let mut result = if total_kept == 0 {
@@ -460,7 +517,7 @@ impl IntakeService {
                 .write_metered_dataset(
                     dataset_type,
                     batch,
-                    is_primary_dataset.then_some(collected_bytes),
+                    (is_primary_dataset && !derives_sessions).then_some(collected_bytes),
                 )
                 .await?
         };
@@ -471,31 +528,22 @@ impl IntakeService {
             alerts.record(hits, &result.errors, TimestampMicros::now());
         }
 
-        if result.accepted > 0 {
-            for (dataset_type, batch) in derived {
-                let derived_result = self.sink.write_dataset(dataset_type.clone(), batch).await?;
-
-                if derived_result.rejected != 0 {
-                    return Err(Error::internal(format!(
-                        "physical dataset `{dataset_type}` rejected {} derived rows",
-                        derived_result.rejected
-                    )));
-                }
-            }
+        if result.accepted > 0
+            && let Some(pending) = pending_metrics
+        {
+            pending.record().await;
         }
 
         result.rejected += errors.len();
         result.errors.extend(errors);
 
         if result.accepted > 0
-            && let Some((org_id, received_at, bytes)) = internal_usage
-            && bytes > 0
+            && let Some((org_id, receipt)) = internal_usage
             && let Some(recorder) = &self.internal_usage_recorder
         {
-            recorder(org_id, received_at, bytes);
+            recorder(&org_id, receipt, result.accepted as u64);
         }
 
-        result.accepted += dropped;
         Ok(result)
     }
 
@@ -533,6 +581,15 @@ impl IntakeService {
             }
             Err(error) => Err(error),
         }
+    }
+}
+
+/// RUM 入口把按流分好的行批交给公共写入路径：与其它协议适配器一样走转发、pipeline、脱敏、
+/// schema 校验与落盘。
+#[async_trait::async_trait]
+impl RumEventWriter for IntakeService {
+    async fn write(&self, batch: IntakeBatch) -> Result<IntakeResult> {
+        self.intake(batch).await
     }
 }
 
@@ -1095,11 +1152,12 @@ mod tests {
         let captured_usage = usage.clone();
         let svc = IntakeService::new(sink, streams)
             .with_system_org_id(org_id.clone())
-            .with_internal_usage_recorder(Arc::new(move |org_id, received_at, bytes| {
-                captured_usage
-                    .lock()
-                    .expect("usage lock")
-                    .push((org_id, received_at, bytes));
+            .with_internal_usage_recorder(Arc::new(move |org_id, receipt, accepted| {
+                captured_usage.lock().expect("usage lock").push((
+                    org_id.clone(),
+                    receipt,
+                    accepted,
+                ));
             }));
         let result = svc
             .intake_self_telemetry(IntakeBatch {
@@ -1117,8 +1175,16 @@ mod tests {
         let recorded = usage.lock().expect("usage lock");
         assert_eq!(recorded.len(), 1);
         assert_eq!(recorded[0].0, org_id);
-        assert_eq!(recorded[0].1, now);
-        assert!(recorded[0].2 > 0);
+        assert_eq!(
+            recorded[0].1.credential.kind,
+            crate::domain::intake::usage::source::CredentialKind::Internal
+        );
+        assert_eq!(
+            recorded[0].1.stream,
+            crate::domain::stream::MOLESIGNAL_SYSTEM_STREAM
+        );
+        assert!(recorded[0].1.bytes > 0);
+        assert_eq!(recorded[0].2, 1);
     }
 
     #[tokio::test]

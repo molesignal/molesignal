@@ -28,7 +28,7 @@ use crate::{
             AuthenticatedCredential, authenticate_api_token_identity_with_metadata,
         },
     },
-    domain::iam::api_token::ApiTokenKind,
+    domain::iam::api_token::{ApiTokenKind, has_token_marker},
     shared::{Error, trace_context::update_current_trace_context},
 };
 
@@ -92,31 +92,37 @@ async fn prepare_request(
 
     let token = bearer_token(request.headers())?;
 
-    let (mut iam, credential) = if token.starts_with("ms_") || token.starts_with("msrum_") {
-        let identity = authenticate_api_token_identity_with_metadata(
-            token,
-            state.iam.service.as_ref(),
-            state.iam.api_tokens.clone(),
-        )
-        .await
-        .map_err(McpHttpRejection::from_error)?;
-
-        let credential = AuthenticatedCredential::ApiToken {
-            token_id: identity.token_id,
-            token_kind: identity.token_kind,
-        };
-
-        (identity.context, credential)
-    } else if token.starts_with("msoauth_") {
-        crate::api::http::middleware::auth::oauth::authenticate_access_token(
-            state, token, &resource,
-        )
-        .await
-        .map_err(McpHttpRejection::from_error)?
-    } else {
+    if !has_token_marker(token) {
         return Err(McpHttpRejection::unauthorized(
             "Inbound MCP accepts personal, service-account, or OAuth access tokens",
         ));
+    }
+
+    // An OAuth access token and an API token look the same: the OAuth store tells them apart.
+    let oauth = crate::api::http::middleware::auth::oauth::authenticate_access_token(
+        state, token, &resource,
+    )
+    .await
+    .map_err(McpHttpRejection::from_error)?;
+
+    let (mut iam, credential) = match oauth {
+        Some(authenticated) => authenticated,
+        None => {
+            let identity = authenticate_api_token_identity_with_metadata(
+                token,
+                state.iam.service.as_ref(),
+                state.iam.api_tokens.clone(),
+            )
+            .await
+            .map_err(McpHttpRejection::from_error)?;
+
+            let credential = AuthenticatedCredential::ApiToken {
+                token_id: identity.token_id,
+                token_kind: identity.token_kind,
+            };
+
+            (identity.context, credential)
+        }
     };
 
     if !credential.is_inbound_mcp_credential() {

@@ -3,13 +3,15 @@ import { Plus, Trash2 } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ConfirmDialog, DataTable } from '@/admin';
+import { ConfirmDialog, DataTable, TableBulkBar, useBulkRun, useTableSelection } from '@/admin';
 import * as mutesApi from '@/api/mutes';
 import { toApiError } from '@/lib/http';
+import { formatMicrosActive } from '@/lib/time';
 import { useActionAccess } from '@/product/actionAccess';
 import type { ProductStateProps } from '@/product/states';
-import { ChromeButton, Dot, IconButton, Pill, type PillTone } from '@/shell/chrome';
+import { ChromeButton, IconButton } from '@/shell/chrome';
 import { MatcherChips } from '@/shell/MatcherChips';
+import { StatusWord, type StatusTone } from '@/shell/StatusWord';
 import { toast } from '@/shell/ui/sonner';
 import type { MuteRule } from '@/types/alerting';
 
@@ -18,13 +20,16 @@ import { alertFlatTableClassName } from '../Surfaces';
 import { SilenceDrawer } from './Drawer';
 import { type SilenceStanding, silenceStanding, windowSummary } from './window';
 
-const STANDING_TONE: Record<SilenceStanding, PillTone> = {
+const STANDING_TONE: Record<SilenceStanding, StatusTone> = {
   active: 'indigo',
   upcoming: 'blue',
   waiting: 'neutral',
   ended: 'dim',
   off: 'dim',
 };
+
+/** What is silencing now comes first; what is over or off, last. */
+const STANDING_ORDER: Record<SilenceStanding, number> = { active: 0, upcoming: 1, waiting: 2, ended: 3, off: 4 };
 
 /**
  * The silence policies: what each one catches, when it applies, and whether it
@@ -39,24 +44,29 @@ export function AlertsSilences() {
   const { t, i18n } = useTranslation('alerts');
   const { t: tc } = useTranslation('common');
   const queryClient = useQueryClient();
-  const manageAccess = useActionAccess({ permission: 'alerts.silence' });
+  const manageAccess = useActionAccess({ permission: 'alerts.mutes.manage' });
   const [creating, setCreating] = React.useState(false);
   const [editing, setEditing] = React.useState<MuteRule | null>(null);
   const [removing, setRemoving] = React.useState<MuteRule | null>(null);
 
   const query = useQuery({ queryKey: ['alert-mutes'], queryFn: () => mutesApi.list() });
   const nowMicros = Date.now() * 1000;
-  // What is silencing now comes first; what is over or off, last.
-  const rows = React.useMemo(() => {
-    const order: Record<SilenceStanding, number> = { active: 0, upcoming: 1, waiting: 2, ended: 3, off: 4 };
-
-    return [...(query.data ?? [])].sort(
-      (left, right) =>
-        order[silenceStanding(left, nowMicros)] - order[silenceStanding(right, nowMicros)]
-        || left.name.localeCompare(right.name),
-    );
-  }, [nowMicros, query.data]);
-
+  const rows = React.useMemo(
+    () =>
+      [...(query.data ?? [])].sort(
+        (left, right) =>
+          STANDING_ORDER[silenceStanding(left, nowMicros)] - STANDING_ORDER[silenceStanding(right, nowMicros)]
+          || left.name.localeCompare(right.name),
+      ),
+    [nowMicros, query.data],
+  );
+  const { selection, selectedRows, clear: clearSelection } = useTableSelection(rows, (rule) => rule.id);
+  const [removingSelected, setRemovingSelected] = React.useState(false);
+  const removeSelected = useBulkRun({
+    rows: selectedRows,
+    onAllDone: clearSelection,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['alert-mutes'] }),
+  });
   const remove = useMutation({
     mutationFn: (id: string) => mutesApi.remove(id),
     onSuccess: () => {
@@ -99,10 +109,19 @@ export function AlertsSilences() {
     <>
       {/* An empty list carries the action itself; the header does not offer it a second time. */}
       <AlertsPage action={state?.variant === 'empty' ? undefined : newSilence} state={state}>
+        {selectedRows.length > 0 && (
+          <TableBulkBar count={selectedRows.length} onClear={clearSelection} data-testid="silence-bulk">
+            <ChromeButton size="sm" disabled={removeSelected.isPending} onClick={() => setRemovingSelected(true)}>
+              <Trash2 className="h-3 w-3" />
+              {tc('actions.delete')}
+            </ChromeButton>
+          </TableBulkBar>
+        )}
         <DataTable
           className={alertFlatTableClassName}
           rows={rows}
           rowKey={(rule) => rule.id}
+          {...(manageAccess.allowed ? { selection } : {})}
           onRowClick={(rule) => setEditing(rule)}
           isRowClickDisabled={() => manageAccess.disabled}
           rowClickDisabledReason={() => manageAccess.reason}
@@ -111,8 +130,10 @@ export function AlertsSilences() {
               key: 'name',
               header: t('silences.columns.name'),
               width: 300,
+              sortable: true,
+              value: (rule) => rule.name,
               cell: (rule) => (
-                <div className="min-w-0 py-1">
+                <div className="min-w-0">
                   <div className="truncate font-strong text-tx-0">{rule.name}</div>
                   {rule.comment && <div className="mt-0.5 truncate text-xs text-tx-2">{rule.comment}</div>}
                 </div>
@@ -128,21 +149,31 @@ export function AlertsSilences() {
               header: t('silences.columns.window'),
               width: 300,
               cell: (rule) => (
-                <span className="tabular-nums text-tx-1">{windowSummary(rule.window, i18n.language)}</span>
+                <span className="flex flex-col">
+                  <span className="tabular-nums text-tx-1">{windowSummary(rule.window, t, i18n.language)}</span>
+                  {rule.window.type !== 'fixed' && rule.enabled && rule.nextChangeAt ? (
+                    <span data-silence-next className="text-xs tabular-nums text-tx-3">
+                      {t(rule.active ? 'silences.next_end' : 'silences.next_start', {
+                        time: formatMicrosActive(rule.nextChangeAt, false),
+                      })}
+                    </span>
+                  ) : null}
+                </span>
               ),
             },
             {
               key: 'state',
               header: t('silences.columns.status'),
               width: 150,
+              sortable: true,
+              sortValue: (rule) => STANDING_ORDER[silenceStanding(rule, nowMicros)],
               cell: (rule) => {
                 const standing = silenceStanding(rule, nowMicros);
 
                 return (
-                  <Pill tone={STANDING_TONE[standing]}>
-                    {standing === 'active' && <Dot tone="indigo" />}
+                  <StatusWord tone={STANDING_TONE[standing]} strong={standing === 'active'}>
                     {t(`silences.standing.${standing}`)}
-                  </Pill>
+                  </StatusWord>
                 );
               },
             },
@@ -185,6 +216,12 @@ export function AlertsSilences() {
         destructive
         title={t('silences.delete_title')}
         description={removing?.name ?? ''}
+        consequences={
+          // A silence holding notifications back right now stops holding them the moment it goes.
+          removing && silenceStanding(removing, nowMicros) === 'active'
+            ? [{ label: t('silences.delete_effect_label'), value: t('silences.delete_active_effect') }]
+            : undefined
+        }
         confirmLabel={tc('actions.delete')}
         busy={remove.isPending}
         disabled={manageAccess.disabled}
@@ -192,6 +229,24 @@ export function AlertsSilences() {
         onConfirm={() => {
           if (removing && manageAccess.allowed) remove.mutate(removing.id);
         }}
+      />
+      <ConfirmDialog
+        open={removingSelected}
+        onOpenChange={setRemovingSelected}
+        destructive
+        title={t('silences.bulk_delete_title', { count: selectedRows.length })}
+        consequences={
+          selectedRows.some((rule) => silenceStanding(rule, nowMicros) === 'active')
+            ? [{ label: t('silences.delete_effect_label'), value: t('silences.delete_active_effect') }]
+            : undefined
+        }
+        confirmLabel={tc('actions.delete')}
+        busy={removeSelected.isPending}
+        onConfirm={() =>
+          removeSelected.mutate((rule) => mutesApi.remove(rule.id), {
+            onSettled: () => setRemovingSelected(false),
+          })
+        }
       />
     </>
   );

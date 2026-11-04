@@ -60,6 +60,7 @@ struct LoadedStream {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct LoadResult {
     loaded: bool,
     total_rows: usize,
@@ -82,7 +83,7 @@ async fn sample_data_status(
     Ok(Json(SampleDataStatus { loaded }))
 }
 
-#[permission("streams.write")]
+#[permission("logs.write")]
 async fn load_sample_data(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

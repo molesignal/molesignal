@@ -1,4 +1,64 @@
+import type { Page } from '@playwright/test';
+
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
+
+const SHARE = '**/api/v1/public/share';
+const UNLOCK = '**/api/v1/public/share/unlock';
+const UNAVAILABLE_HINT =
+  'This link is no longer valid, or the shared content has been deleted. Ask the owner to create a new link.';
+
+function refuseFor(seconds: number) {
+  return {
+    status: 429,
+    headers: { 'retry-after': String(seconds) },
+    json: {
+      error: 'resource_exhausted',
+      code: 'signin_limited',
+      message: `too many failed password attempts; try again in ${seconds} seconds`,
+    },
+  };
+}
+
+/** A new public dashboard link with a password. */
+async function createPublicLink(page: Page) {
+  await page.goto('/dashboards/d1');
+
+  return page.evaluate(async () => {
+    const response = await fetch('/api/v1/resource_shares', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        resourceType: 'dashboard',
+        resourceId: 'd1',
+        shareMode: 'public_link',
+        password: 'dashboard-secret',
+      }),
+    });
+    const created = (await response.json()) as {
+      share: { id: string };
+      url: string;
+    };
+
+    return { id: created.share.id, url: created.url };
+  });
+}
+
+/** Lands on the password gate of a new public dashboard link. */
+async function openPasswordGate(page: Page) {
+  const { url } = await createPublicLink(page);
+
+  await page.goto(url);
+  await expect(page).toHaveURL(/\/shared$/);
+}
+
+/** Where a share link that cannot open lands. */
+async function expectUnavailablePage(page: Page) {
+  await expect(page).toHaveURL(/\/shared\?unavailable=1$/);
+  await expect(
+    page.getByRole('heading', { name: 'Link unavailable' }),
+  ).toBeVisible();
+  await expect(page.getByText(UNAVAILABLE_HINT)).toBeVisible();
+}
 
 test.describe('dashboard and report resource sharing', () => {
   test.beforeEach(async ({ page, context, mockServer }) => {
@@ -67,20 +127,20 @@ test.describe('dashboard and report resource sharing', () => {
 
     const rows = await page.evaluate(async () => {
       const response = await fetch(
-        '/api/v1/resource_shares?resource_type=dashboard&resource_id=d1',
+        '/api/v1/resource_shares?resourceType=dashboard&resourceId=d1',
       );
       return response.json() as Promise<
         Array<{
-          resource_type: string;
-          resource_id: string;
-          share_mode: string;
+          resourceType: string;
+          resourceId: string;
+          shareMode: string;
         }>
       >;
     });
     expect(rows[0]).toMatchObject({
-      resource_type: 'dashboard',
-      resource_id: 'd1',
-      share_mode: 'authenticated',
+      resourceType: 'dashboard',
+      resourceId: 'd1',
+      shareMode: 'authenticated',
     });
 
     await page.goto(copied);
@@ -104,7 +164,7 @@ test.describe('dashboard and report resource sharing', () => {
     ).toHaveCount(0);
     const disabledShare = await page.evaluate(async () => {
       const response = await fetch(
-        '/api/v1/resource_shares?resource_type=dashboard&resource_id=d1',
+        '/api/v1/resource_shares?resourceType=dashboard&resourceId=d1',
       );
       return (await response.json()) as Array<{ url: string | null }>;
     });
@@ -148,7 +208,7 @@ test.describe('dashboard and report resource sharing', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...policy,
-          require_public_report_password: true,
+          requirePublicReportPassword: true,
         }),
       });
     });
@@ -226,6 +286,211 @@ test.describe('dashboard and report resource sharing', () => {
     expect(publicMetadataAuthorization).toBeUndefined();
   });
 
+  test('too many wrong share passwords say how long to wait', async ({
+    page,
+  }) => {
+    await openPasswordGate(page);
+
+    const password = page.getByPlaceholder('Access password');
+    const proceed = page.getByRole('button', { name: 'Continue' });
+
+    await password.fill('wrong-password');
+    await proceed.click();
+    await expect(page.getByRole('alert')).toHaveText(
+      'Incorrect password. Try again.',
+    );
+
+    await page.route(UNLOCK, (route) => route.fulfill(refuseFor(840)));
+    await password.fill('dashboard-secret');
+    await proceed.click();
+    await expect(page.getByRole('alert')).toHaveText(
+      'Too many failed attempts. Try again in 14 minutes.',
+    );
+
+    // The password stays, so nobody has to type it again after the wait.
+    await expect(password).toHaveValue('dashboard-secret');
+
+    await page.unroute(UNLOCK);
+    await proceed.click();
+    await expect(
+      page.getByRole('heading', { name: 'Web overview' }),
+    ).toBeVisible();
+  });
+
+  test('a short wait for a share password is said in seconds', async ({
+    page,
+  }) => {
+    await openPasswordGate(page);
+    await page.route(UNLOCK, (route) => route.fulfill(refuseFor(42)));
+
+    await page.getByPlaceholder('Access password').fill('dashboard-secret');
+    await page.getByRole('button', { name: 'Continue' }).click();
+
+    await expect(page.getByRole('alert')).toHaveText(
+      'Too many failed attempts. Try again in 42 seconds.',
+    );
+  });
+
+  test('the wait for a share password is said in the language of the page', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'molesignal-ui-prefs',
+        JSON.stringify({ state: { language: 'zh-cn' }, version: 0 }),
+      );
+    });
+    await openPasswordGate(page);
+    await page.route(UNLOCK, (route) => route.fulfill(refuseFor(900)));
+
+    await page.getByPlaceholder('访问密码').fill('dashboard-secret');
+    await page.getByRole('button', { name: '继续访问' }).click();
+
+    await expect(page.getByRole('alert')).toHaveText(
+      '尝试次数太多，请 15 分钟后再试。',
+    );
+  });
+
+  test('a visit that ended is not blamed on the password', async ({ page }) => {
+    await openPasswordGate(page);
+    await page.route(UNLOCK, (route) =>
+      route.fulfill({
+        status: 401,
+        json: { error: 'unauthorized', message: 'share session expired' },
+      }),
+    );
+
+    await page.getByPlaceholder('Access password').fill('dashboard-secret');
+    await page.getByRole('button', { name: 'Continue' }).click();
+
+    await expect(page.getByRole('alert')).toHaveText(
+      'This visit has ended. Open the share link again.',
+    );
+  });
+
+  test('a password that could not be checked is not called wrong', async ({
+    page,
+  }) => {
+    await openPasswordGate(page);
+    await page.route(UNLOCK, (route) =>
+      route.fulfill({
+        status: 500,
+        json: { error: 'internal', message: 'internal error' },
+      }),
+    );
+
+    await page.getByPlaceholder('Access password').fill('dashboard-secret');
+    await page.getByRole('button', { name: 'Continue' }).click();
+
+    await expect(page.getByRole('alert')).toHaveText(
+      'The password could not be checked. Try again later.',
+    );
+  });
+
+  test('a blank share password cannot be sent', async ({ page }) => {
+    await openPasswordGate(page);
+
+    const proceed = page.getByRole('button', { name: 'Continue' });
+
+    await expect(proceed).toBeDisabled();
+    await page.getByPlaceholder('Access password').fill('   ');
+    await expect(proceed).toBeDisabled();
+  });
+
+  for (const { status, backendSays, pageSays } of [
+    {
+      status: 401,
+      backendSays: 'share session expired',
+      pageSays: 'This visit has ended. Open the share link again.',
+    },
+    {
+      status: 404,
+      backendSays: 'dashboard not found',
+      pageSays: UNAVAILABLE_HINT,
+    },
+    {
+      status: 500,
+      backendSays: 'internal error',
+      pageSays: 'This share could not be opened. Try again later.',
+    },
+  ]) {
+    test(`a share answering ${status} is explained, not quoted`, async ({
+      page,
+    }) => {
+      await page.route(SHARE, (route) =>
+        route.fulfill({
+          status,
+          json: { error: 'share_failed', message: backendSays },
+        }),
+      );
+
+      await page.goto('/shared');
+
+      await expect(
+        page.getByRole('heading', { name: 'Link unavailable' }),
+      ).toBeVisible();
+      await expect(page.getByText(pageSays)).toBeVisible();
+      await expect(page.getByText(backendSays)).toHaveCount(0);
+    });
+  }
+
+  test('a share link that does not exist lands on the unavailable page', async ({
+    page,
+  }) => {
+    await page.goto('/s/no-such-link');
+
+    await expectUnavailablePage(page);
+  });
+
+  test('a revoked share link lands on the unavailable page', async ({
+    page,
+  }) => {
+    const { id, url } = await createPublicLink(page);
+
+    await page.evaluate(async (shareId) => {
+      await fetch(`/api/v1/resource_shares/${shareId}`, { method: 'DELETE' });
+    }, id);
+    await page.goto(url);
+
+    await expectUnavailablePage(page);
+  });
+
+  test('a session left from another link does not stand in for a dead one', async ({
+    page,
+  }) => {
+    await openPasswordGate(page);
+
+    await page.goto('/s/no-such-link');
+
+    await expectUnavailablePage(page);
+    await expect(page.getByPlaceholder('Access password')).toHaveCount(0);
+  });
+
+  test('a share that ended is explained in the language of the page', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'molesignal-ui-prefs',
+        JSON.stringify({ state: { language: 'zh-cn' }, version: 0 }),
+      );
+    });
+    await page.route(SHARE, (route) =>
+      route.fulfill({
+        status: 401,
+        json: { error: 'unauthorized', message: 'share session expired' },
+      }),
+    );
+
+    await page.goto('/shared');
+
+    await expect(page.getByRole('heading', { name: '链接不可用' })).toBeVisible();
+    await expect(
+      page.getByText('这次访问已结束，请重新打开分享链接。'),
+    ).toBeVisible();
+    await expect(page.getByText('share session expired')).toHaveCount(0);
+  });
+
   test('production dashboard policy blocks only public sharing before submit', async ({
     page,
   }) => {
@@ -254,7 +519,7 @@ test.describe('dashboard and report resource sharing', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ...policy,
-            deny_production_public_shares: true,
+            denyProductionPublicShares: true,
           }),
         }),
       ]);

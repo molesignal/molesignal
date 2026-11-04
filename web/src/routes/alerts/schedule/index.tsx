@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  ArrowLeftRight,
   CalendarDays,
+  CalendarPlus,
   Copy,
   Ellipsis,
   Eye,
@@ -20,7 +22,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
-import { ConfirmDialog, DataTable } from '@/admin';
+import { ConfirmDialog, DataTable, TableNoMatch } from '@/admin';
 import * as schedulesApi from '@/api/schedules';
 import * as teamsApi from '@/api/teams';
 import type { Team } from '@/api/teams';
@@ -30,6 +32,9 @@ import { productStateFor } from '@/product/states';
 import { ChromeButton, Pill } from '@/shell/chrome';
 import { queryStateFor } from '@/shell/query/State';
 import { ResultPagination } from '@/shell/ResultPagination';
+import { StatusWord } from '@/shell/StatusWord';
+import { SCHEDULES } from '@/shell/transfer/kinds';
+import { TransferMenu } from '@/shell/transfer/TransferMenu';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -47,6 +52,7 @@ import type {
   Schedule,
 } from '@/types/alerting';
 
+import { CalendarSubscribeDialog } from './CalendarSubscribe';
 import { ScheduleEditorDrawer } from './EditorDrawer';
 export {
   localInputToMicros,
@@ -65,6 +71,7 @@ import {
   type ScheduleStatus,
   timezoneDisplay,
 } from './model';
+import { MySwapsDialog, useMySwaps } from './Swaps';
 import {
   ScheduleSummaryCard,
   UserAvatar,
@@ -93,14 +100,17 @@ export function AlertsSchedules() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const users = useUsers();
-  const manageAccess = useActionAccess({ permission: 'schedules.manage' });
+  const manageAccess = useActionAccess({ permission: 'schedules.create' });
   const currentUserId = useAuthStore(
-    (state) => state.ctx?.user_id ?? '',
+    (state) => state.ctx?.userId ?? '',
   );
   const [nowMicros, setNowMicros] = React.useState(
     () => Date.now() * 1000,
   );
   const [creating, setCreating] = React.useState(false);
+  const [swapsOpen, setSwapsOpen] = React.useState(false);
+  const [subscribing, setSubscribing] = React.useState(false);
+  const mySwaps = useMySwaps();
   const [editing, setEditing] = React.useState<Schedule | null>(null);
   const [removing, setRemoving] = React.useState<Schedule | null>(null);
   const [query, setQuery] = React.useState('');
@@ -150,8 +160,8 @@ export function AlertsSchedules() {
         const current = resolveScheduleAt(schedule, nowMicros);
         return {
           schedule,
-          team: schedule.team_id
-            ? teamsById.get(schedule.team_id) ?? null
+          team: schedule.teamId
+            ? teamsById.get(schedule.teamId) ?? null
             : null,
           currentUser: current?.userId
             ? users.byId.get(current.userId) ?? null
@@ -163,8 +173,8 @@ export function AlertsSchedules() {
             schedule,
             nowMicros,
           ).length,
-          updatedBy: schedule.updated_by
-            ? users.byId.get(schedule.updated_by) ?? null
+          updatedBy: schedule.updatedBy
+            ? users.byId.get(schedule.updatedBy) ?? null
             : null,
         };
       }),
@@ -187,7 +197,7 @@ export function AlertsSchedules() {
       return (
         (!normalized || searchable.includes(normalized))
         && (teamFilter === 'all'
-          || row.schedule.team_id === teamFilter)
+          || row.schedule.teamId === teamFilter)
         && (timezoneFilter === 'all'
           || row.schedule.timezone === timezoneFilter)
         && (statusFilter === 'all'
@@ -299,12 +309,12 @@ export function AlertsSchedules() {
     const overrideUsers = new Set(
       schedules.flatMap((schedule) =>
         liveOrFutureOverrides(schedule, nowMicros).map(
-          (override) => override.user_id,
+          (override) => override.userId,
         ),
       ),
     );
     const teamCount = new Set(
-      schedules.map((schedule) => schedule.team_id).filter(Boolean),
+      schedules.map((schedule) => schedule.teamId).filter(Boolean),
     ).size;
     const weekEnd = nowMicros + 7 * MICROS_PER_DAY;
     let weeklyRotations = 0;
@@ -349,15 +359,31 @@ export function AlertsSchedules() {
     <>
       <AlertsPage
         action={
-          <ChromeButton
-            variant="primary"
-            disabled={manageAccess.disabled}
-            disabledReason={manageAccess.reason}
-            onClick={() => setCreating(true)}
-          >
-            <Plus className="h-4 w-4" />
-            {t('schedules.new_schedule')}
-          </ChromeButton>
+          <>
+            <TransferMenu kind={SCHEDULES} />
+            <ChromeButton onClick={() => setSubscribing(true)}>
+              <CalendarPlus className="h-4 w-4" />
+              {t('schedules.calendar.mine_button')}
+            </ChromeButton>
+            <ChromeButton data-my-swaps-button onClick={() => setSwapsOpen(true)}>
+              <ArrowLeftRight className="h-4 w-4" />
+              {t('schedules.swaps.mine_button')}
+              {mySwaps.waiting > 0 && (
+                <span className="tabular-nums text-orange" aria-label={t('schedules.swaps.mine_waiting', { count: mySwaps.waiting })}>
+                  {mySwaps.waiting}
+                </span>
+              )}
+            </ChromeButton>
+            <ChromeButton
+              variant="primary"
+              disabled={manageAccess.disabled}
+              disabledReason={manageAccess.reason}
+              onClick={() => setCreating(true)}
+            >
+              <Plus className="h-4 w-4" />
+              {t('schedules.new_schedule')}
+            </ChromeButton>
+          </>
         }
         state={pageState}
       >
@@ -565,7 +591,19 @@ export function AlertsSchedules() {
                 onRowClick={(row) =>
                   navigate(`/alerts/schedules/${row.schedule.id}`)
                 }
-                emptyLabel={t('schedules.filters.no_results')}
+                emptyLabel={
+                  <TableNoMatch
+                    label={t('schedules.filters.no_results')}
+                    onClear={() => {
+                      setQuery('');
+                      setTeamFilter('all');
+                      setTimezoneFilter('all');
+                      setStatusFilter('all');
+                      setMineOnly(false);
+                      setOverrideOnly(false);
+                    }}
+                  />
+                }
                 columns={[
                   {
                     key: 'name',
@@ -679,7 +717,7 @@ export function AlertsSchedules() {
                                 </div>
                                 <div className="mt-0.5 font-mono text-type-micro text-tx-3">
                                   {formatScheduleDateTime(
-                                    row.schedule.updated_at,
+                                    row.schedule.updatedAt,
                                     i18n.language,
                                   )}
                                 </div>
@@ -694,7 +732,7 @@ export function AlertsSchedules() {
                     header: t('schedules.columns.status'),
                     width: 100,
                     cell: (row) => (
-                      <StatusPill status={row.status} />
+                      <StatusLabel status={row.status} />
                     ),
                   },
                   {
@@ -768,6 +806,16 @@ export function AlertsSchedules() {
         )}
       </AlertsPage>
 
+      <MySwapsDialog
+        open={swapsOpen}
+        schedules={schedules}
+        users={users.users}
+        onClose={() => setSwapsOpen(false)}
+      />
+      <CalendarSubscribeDialog
+        open={subscribing}
+        onClose={() => setSubscribing(false)}
+      />
       <ScheduleEditorDrawer
         open={creating || editing !== null}
         editing={editing}
@@ -808,7 +856,7 @@ function ScheduleNameCell({
   return (
     <div className="flex min-w-0 items-center gap-3">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-indigo-dim text-indigo-soft">
-        <CalendarDays className="h-4.5 w-4.5" />
+        <CalendarDays className="h-4 w-4" />
       </span>
       <span className="min-w-0">
         <span className="flex min-w-0 items-center gap-2">
@@ -937,7 +985,7 @@ function NextSwitchCell({
   );
 }
 
-function StatusPill({ status }: { status: ScheduleStatus }) {
+function StatusLabel({ status }: { status: ScheduleStatus }) {
   const { t } = useTranslation('alerts');
   const tone = {
     active: 'green',
@@ -946,7 +994,11 @@ function StatusPill({ status }: { status: ScheduleStatus }) {
     paused: 'dim',
     gap: 'red',
   }[status] as 'green' | 'orange' | 'dim' | 'red';
-  return <Pill tone={tone}>{t(`schedules.status.${status}`)}</Pill>;
+  return (
+    <StatusWord tone={tone} strong={status === 'gap'}>
+      {t(`schedules.status.${status}`)}
+    </StatusWord>
+  );
 }
 
 function ScheduleActions({
@@ -1049,10 +1101,11 @@ function scheduleInput(
   return {
     name: schedule.name,
     description: schedule.description,
-    team_id: schedule.team_id ?? null,
+    teamId: schedule.teamId ?? null,
     timezone: schedule.timezone,
     enabled: schedule.enabled,
     rotations: schedule.rotations,
     overrides: schedule.overrides,
+    swapNeedsApproval: schedule.swapNeedsApproval ?? false,
   };
 }

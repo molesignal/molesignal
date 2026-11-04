@@ -13,7 +13,7 @@ export const RED_RING_EXIT = 0.045;
 
 interface TopologyFlagsState {
   redRing: Record<string, boolean>;
-  applyHysteresis: (nodes: Array<{ id: string; error_rate: number }>) => void;
+  applyHysteresis: (nodes: Array<{ id: string; errorRate: number }>) => void;
   reset: () => void;
 }
 
@@ -24,7 +24,7 @@ export const useTopologyFlags = create<TopologyFlagsState>((set, get) => ({
     const next: Record<string, boolean> = {};
     let changed = false;
     for (const n of nodes) {
-      next[n.id] = computeRedRing(prev[n.id] ?? false, n.error_rate);
+      next[n.id] = computeRedRing(prev[n.id] ?? false, n.errorRate);
       if (next[n.id] !== (prev[n.id] ?? false)) changed = true;
     }
     // Drop ids no longer present.

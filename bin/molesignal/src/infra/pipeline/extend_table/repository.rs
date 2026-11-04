@@ -13,6 +13,7 @@ use sqlx::{PgPool, Row, types::Json};
 use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExtendRow {
     pub id: Id,
     pub org_id: Id,
@@ -23,6 +24,7 @@ pub struct ExtendRow {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExtendValueField {
     pub name: String,
     pub field_type: String,
@@ -31,6 +33,7 @@ pub struct ExtendValueField {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExtendTableDefinition {
     pub org_id: Id,
     pub table_name: String,
@@ -42,6 +45,7 @@ pub struct ExtendTableDefinition {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExtendTableSummary {
     pub table_name: String,
     pub description: String,
@@ -64,6 +68,17 @@ pub trait ExtendKvRepository: Send + Sync {
     ) -> Result<bool>;
     async fn delete_table(&self, org: &Id, table: &str) -> Result<()>;
     async fn upsert(&self, row: ExtendRow) -> Result<()>;
+
+    /// Writes `rows`, replacing the rows already there under the same keys. A key given more than
+    /// once keeps its last row.
+    async fn upsert_rows(&self, rows: Vec<ExtendRow>) -> Result<()> {
+        for row in latest_per_key(rows) {
+            self.upsert(row).await?;
+        }
+
+        Ok(())
+    }
+
     async fn delete(&self, org: &Id, table: &str, key: &str) -> Result<()>;
     async fn list_table(&self, org: &Id, table: &str) -> Result<Vec<ExtendRow>>;
     async fn list_tables(&self, org: &Id) -> Result<Vec<ExtendTableSummary>>;
@@ -79,7 +94,40 @@ impl PgExtendKvRepository {
     }
 }
 
-const COLS: &str = "id, org_id, table_name, key, value_json, updated_at_micros";
+const COLS: &str = "id, org_id, table_name, key, value_json, updated_at";
+
+/// At most this many rows go into one statement of [`ExtendKvRepository::upsert_rows`].
+const UPSERT_CHUNK: usize = 500;
+
+/// The last row of every key, in the order of those last rows: one statement cannot write a key
+/// twice.
+fn latest_per_key(rows: Vec<ExtendRow>) -> Vec<ExtendRow> {
+    let mut last: std::collections::HashMap<(String, String, String), usize> =
+        std::collections::HashMap::new();
+
+    for (index, row) in rows.iter().enumerate() {
+        last.insert(
+            (
+                row.org_id.0.clone(),
+                row.table_name.clone(),
+                row.key.clone(),
+            ),
+            index,
+        );
+    }
+
+    rows.into_iter()
+        .enumerate()
+        .filter(|(index, row)| {
+            last.get(&(
+                row.org_id.0.clone(),
+                row.table_name.clone(),
+                row.key.clone(),
+            )) == Some(index)
+        })
+        .map(|(_, row)| row)
+        .collect()
+}
 
 fn row_to(r: sqlx::postgres::PgRow) -> ExtendRow {
     let v: Json<Value> = r.try_get("value_json").unwrap_or(Json(Value::Null));
@@ -90,7 +138,9 @@ fn row_to(r: sqlx::postgres::PgRow) -> ExtendRow {
         table_name: r.try_get::<String, _>("table_name").unwrap_or_default(),
         key: r.try_get::<String, _>("key").unwrap_or_default(),
         value_json: v.0,
-        updated_at: TimestampMicros(r.try_get::<i64, _>("updated_at_micros").unwrap_or_default()),
+        updated_at: r
+            .try_get::<TimestampMicros, _>("updated_at")
+            .unwrap_or_default(),
     }
 }
 
@@ -100,7 +150,7 @@ impl ExtendKvRepository for PgExtendKvRepository {
         sqlx::query(
             "INSERT INTO extend_table_definitions
                 (org_id, table_name, description, key_field, value_fields_json,
-                 created_at_micros, updated_at_micros)
+                 created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7)",
         )
         .bind(&table.org_id.0)
@@ -108,8 +158,8 @@ impl ExtendKvRepository for PgExtendKvRepository {
         .bind(&table.description)
         .bind(&table.key_field)
         .bind(Json(&table.value_fields))
-        .bind(table.created_at.0)
-        .bind(table.updated_at.0)
+        .bind(table.created_at)
+        .bind(table.updated_at)
         .execute(&self.pool)
         .await
         .map_err(super::super::super::persistence::sqlx_err)?;
@@ -128,7 +178,7 @@ impl ExtendKvRepository for PgExtendKvRepository {
         let result = sqlx::query(
             "UPDATE extend_table_definitions AS definitions
                 SET value_fields_json = $3,
-                    updated_at_micros = $4
+                    updated_at = $4
               WHERE definitions.org_id = $1
                 AND definitions.table_name = $2
                 AND (
@@ -144,7 +194,7 @@ impl ExtendKvRepository for PgExtendKvRepository {
         .bind(&org.0)
         .bind(table)
         .bind(Json(value_fields))
-        .bind(updated_at.0)
+        .bind(updated_at)
         .bind(require_empty)
         .execute(&self.pool)
         .await
@@ -187,21 +237,54 @@ impl ExtendKvRepository for PgExtendKvRepository {
     async fn upsert(&self, row: ExtendRow) -> Result<()> {
         sqlx::query(
             "INSERT INTO extend_kv
-                (id, org_id, table_name, key, value_json, updated_at_micros)
+                (id, org_id, table_name, key, value_json, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6)
              ON CONFLICT (org_id, table_name, key) DO UPDATE
              SET value_json = EXCLUDED.value_json,
-                 updated_at_micros = EXCLUDED.updated_at_micros",
+                 updated_at = EXCLUDED.updated_at",
         )
         .bind(&row.id.0)
         .bind(&row.org_id.0)
         .bind(&row.table_name)
         .bind(&row.key)
         .bind(Json(&row.value_json))
-        .bind(row.updated_at.0)
+        .bind(row.updated_at)
         .execute(&self.pool)
         .await
         .map_err(super::super::super::persistence::sqlx_err)?;
+
+        Ok(())
+    }
+
+    async fn upsert_rows(&self, rows: Vec<ExtendRow>) -> Result<()> {
+        for chunk in latest_per_key(rows).chunks(UPSERT_CHUNK) {
+            let ids: Vec<&str> = chunk.iter().map(|row| row.id.0.as_str()).collect();
+            let orgs: Vec<&str> = chunk.iter().map(|row| row.org_id.0.as_str()).collect();
+            let tables: Vec<&str> = chunk.iter().map(|row| row.table_name.as_str()).collect();
+            let keys: Vec<&str> = chunk.iter().map(|row| row.key.as_str()).collect();
+            let values: Vec<String> = chunk.iter().map(|row| row.value_json.to_string()).collect();
+            let times: Vec<TimestampMicros> = chunk.iter().map(|row| row.updated_at).collect();
+
+            sqlx::query(
+                "INSERT INTO extend_kv
+                    (id, org_id, table_name, key, value_json, updated_at)
+                 SELECT id, org_id, table_name, key, value_json::jsonb, updated_at
+                   FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::timestamptz[])
+                        AS rows (id, org_id, table_name, key, value_json, updated_at)
+                 ON CONFLICT (org_id, table_name, key) DO UPDATE
+                 SET value_json = EXCLUDED.value_json,
+                     updated_at = EXCLUDED.updated_at",
+            )
+            .bind(&ids)
+            .bind(&orgs)
+            .bind(&tables)
+            .bind(&keys)
+            .bind(&values)
+            .bind(&times)
+            .execute(&self.pool)
+            .await
+            .map_err(super::super::super::persistence::sqlx_err)?;
+        }
 
         Ok(())
     }
@@ -236,7 +319,7 @@ impl ExtendKvRepository for PgExtendKvRepository {
     async fn list_tables(&self, org: &Id) -> Result<Vec<ExtendTableSummary>> {
         let definitions = sqlx::query(
             "SELECT table_name, description, key_field, value_fields_json,
-                    created_at_micros, updated_at_micros
+                    created_at, updated_at
                FROM extend_table_definitions
               WHERE org_id = $1
               ORDER BY table_name",
@@ -249,7 +332,7 @@ impl ExtendKvRepository for PgExtendKvRepository {
         let stats = sqlx::query(
             "SELECT rows.table_name,
                     COUNT(DISTINCT rows.key)::BIGINT AS row_count,
-                    MAX(rows.updated_at_micros) AS updated_at_micros,
+                    MAX(rows.updated_at) AS updated_at,
                     COALESCE(
                         ARRAY_AGG(DISTINCT fields.field_name)
                             FILTER (WHERE fields.field_name IS NOT NULL),
@@ -291,10 +374,9 @@ impl ExtendKvRepository for PgExtendKvRepository {
                         .unwrap_or_else(|_| "key".to_string()),
                     value_fields: fields,
                     row_count: 0,
-                    updated_at: TimestampMicros(
-                        row.try_get::<i64, _>("updated_at_micros")
-                            .unwrap_or_default(),
-                    ),
+                    updated_at: row
+                        .try_get::<TimestampMicros, _>("updated_at")
+                        .unwrap_or_default(),
                 },
             );
         }
@@ -303,10 +385,9 @@ impl ExtendKvRepository for PgExtendKvRepository {
             let table_name = row.try_get::<String, _>("table_name").unwrap_or_default();
             let row_count = row.try_get::<i64, _>("row_count").unwrap_or_default();
 
-            let updated_at = TimestampMicros(
-                row.try_get::<i64, _>("updated_at_micros")
-                    .unwrap_or_default(),
-            );
+            let updated_at = row
+                .try_get::<TimestampMicros, _>("updated_at")
+                .unwrap_or_default();
 
             let inferred_fields = row
                 .try_get::<Vec<String>, _>("inferred_fields")
@@ -341,5 +422,47 @@ impl ExtendKvRepository for PgExtendKvRepository {
         }
 
         Ok(summaries.into_values().collect())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn row(table: &str, key: &str, value: i64) -> ExtendRow {
+        ExtendRow {
+            id: Id(format!("{table}-{key}-{value}")),
+            org_id: Id("o1".into()),
+            table_name: table.into(),
+            key: key.into(),
+            value_json: json!(value),
+            updated_at: TimestampMicros(value),
+        }
+    }
+
+    #[test]
+    fn a_key_written_twice_keeps_its_last_row() {
+        let rows = latest_per_key(vec![
+            row("hosts", "a", 1),
+            row("hosts", "b", 2),
+            row("hosts", "a", 3),
+            row("owners", "a", 4),
+        ]);
+
+        let kept: Vec<(&str, &str, &Value)> = rows
+            .iter()
+            .map(|row| (row.table_name.as_str(), row.key.as_str(), &row.value_json))
+            .collect();
+
+        assert_eq!(
+            kept,
+            vec![
+                ("hosts", "b", &json!(2)),
+                ("hosts", "a", &json!(3)),
+                ("owners", "a", &json!(4)),
+            ]
+        );
     }
 }

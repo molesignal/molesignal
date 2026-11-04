@@ -17,6 +17,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 
+import { ClearFiltersButton } from '@/admin';
 import * as dashboardsApi from '@/api/dashboards';
 import * as reportsApi from '@/api/reports';
 import * as reportTemplatesApi from '@/api/reports/templates';
@@ -186,8 +187,8 @@ export function Reports() {
     });
     return rows.sort(
       (left, right) =>
-        (normalizeMicros(right.delivery.attempted_at) ?? 0) -
-        (normalizeMicros(left.delivery.attempted_at) ?? 0),
+        (normalizeMicros(right.delivery.attemptedAt) ?? 0) -
+        (normalizeMicros(left.delivery.attemptedAt) ?? 0),
     );
   }, [deliveryQueries, reports]);
 
@@ -202,17 +203,17 @@ export function Reports() {
   const templates = React.useMemo(() => {
     const builtIns = builtInTemplates(t);
     const remote: TemplatePreset[] = (templatesQuery.data ?? [])
-      .filter((template) => !template.is_builtin)
+      .filter((template) => !template.isBuiltin)
       .map((template) => ({
         id: `remote:${template.id}`,
         serverId: template.id,
         isBuiltin: false,
         name: template.name,
         description: template.description,
-        sourceKind: template.target_type === 'saved_view' ? 'saved_view' : 'dashboard',
+        sourceKind: template.targetType === 'saved_view' ? 'saved_view' : 'dashboard',
         format: normalizeFormat(template.format),
-        rangePreset: template.time_range_preset,
-        icon: template.target_type === 'saved_view' ? 'query' : 'platform',
+        rangePreset: template.timeRangePreset,
+        icon: template.targetType === 'saved_view' ? 'query' : 'platform',
       }));
     return [...builtIns, ...remote];
   }, [t, templatesQuery.data]);
@@ -243,7 +244,7 @@ export function Reports() {
   const filteredHistory = React.useMemo(() => {
     const query = historySearch.trim().toLocaleLowerCase();
     return deliveryRows.filter((row) => {
-      const recipient = row.delivery.recipient_target ?? '';
+      const recipient = row.delivery.recipientTarget ?? '';
       const matchesQuery =
         !query ||
         row.report.title.toLocaleLowerCase().includes(query) ||
@@ -272,7 +273,7 @@ export function Reports() {
   }).length;
   const thirtyDaysAgo = nowMicros - 30 * 24 * 60 * 60 * 1_000_000;
   const completedLastThirtyDays = deliveryRows.filter((row) => {
-    const attemptedAt = normalizeMicros(row.delivery.attempted_at) ?? 0;
+    const attemptedAt = normalizeMicros(row.delivery.attemptedAt) ?? 0;
     return (
       attemptedAt >= thirtyDaysAgo &&
       (row.delivery.status === 'sent' || row.delivery.status === 'failed')
@@ -434,12 +435,12 @@ export function Reports() {
           {
             id: 'schedules',
             label: t('tabs.schedules'),
-            count: reports.length,
+            count: listQuery.isSuccess ? reports.length : undefined,
           },
           {
             id: 'history',
             label: t('tabs.history'),
-            count: deliveryRows.length,
+            count: listQuery.isSuccess && !anyHistoryLoading && !anyHistoryError ? deliveryRows.length : undefined,
           },
           { id: 'templates', label: t('tabs.templates') },
         ]}
@@ -475,6 +476,15 @@ export function Reports() {
               variant="empty"
               title={t('empty.no_results_title')}
               description={t('empty.no_results_description')}
+              action={
+                <ClearFiltersButton
+                  onClear={() => {
+                    setScheduleSearch('');
+                    setScheduleStatus('all');
+                    setScheduleSource('all');
+                  }}
+                />
+              }
               className="rounded-none border-x-0 border-t-0 border-solid bg-transparent"
             />
           ) : (
@@ -522,6 +532,14 @@ export function Reports() {
                   variant="empty"
                   title={t('empty.no_results_title')}
                   description={t('empty.no_results_description')}
+                  action={
+                    <ClearFiltersButton
+                      onClear={() => {
+                        setHistorySearch('');
+                        setHistoryResult('all');
+                      }}
+                    />
+                  }
                   className="rounded-none border-x-0 border-t-0 border-solid bg-transparent"
                 />
               ) : (
@@ -696,9 +714,9 @@ function TemplateEditorDialog({
       const input: reportTemplatesApi.ReportTemplateInput = {
         name: draft.name.trim(),
         description: draft.description.trim(),
-        target_type: draft.sourceKind,
+        targetType: draft.sourceKind,
         format: draft.format,
-        time_range_preset: draft.rangePreset,
+        timeRangePreset: draft.rangePreset,
       };
       return template?.serverId
         ? reportTemplatesApi.update(template.serverId, input)
@@ -1656,13 +1674,13 @@ function QuickExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(520px,calc(100vw-24px))]">
+      <DialogContent className="w-[min(520px,calc(100vw-24px))] max-w-none">
         <DialogHeader>
           <DialogTitle>{t('export_dialog.title')}</DialogTitle>
           <DialogDescription>{t('export_dialog.description')}</DialogDescription>
         </DialogHeader>
         {selected ? (
-          <div className="space-y-4 py-2">
+          <div className="min-w-0 space-y-4 py-2">
             <FormField label={t('export_dialog.report')}>
               <FormSelect
                 value={selected.id}
@@ -1721,28 +1739,28 @@ function DeliveryErrorDialog({
   onClose: () => void;
 }) {
   const { t } = useTranslation('reports');
-  const attemptedAt = normalizeMicros(row?.delivery.attempted_at);
+  const attemptedAt = normalizeMicros(row?.delivery.attemptedAt);
   return (
     <Dialog open={row !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="w-[min(560px,calc(100vw-24px))]">
+      <DialogContent className="w-[min(560px,calc(100vw-24px))] max-w-none">
         <DialogHeader>
           <DialogTitle>{t('history.error_title')}</DialogTitle>
           <DialogDescription>{t('history.error_description')}</DialogDescription>
         </DialogHeader>
         {row && (
-          <dl className="grid grid-cols-[130px_minmax(0,1fr)] gap-x-4 gap-y-3 py-2 text-sm">
+          <dl className="grid min-w-0 grid-cols-[130px_minmax(0,1fr)] gap-x-4 gap-y-3 py-2 text-sm">
             <dt className="text-tx-3">{t('history.error_report')}</dt>
             <dd className="m-0 font-strong text-tx-0">{row.report.title}</dd>
             <dt className="text-tx-3">{t('history.error_recipient')}</dt>
             <dd className="m-0 break-all text-tx-1">
-              {row.delivery.recipient_target ?? '—'}
+              {row.delivery.recipientTarget ?? '—'}
             </dd>
             <dt className="text-tx-3">{t('history.error_time')}</dt>
             <dd className="m-0 tabular-nums text-tx-1">
               {attemptedAt ? formatMicrosActive(attemptedAt) : '—'}
             </dd>
             <dt className="text-tx-3">{t('history.error_message')}</dt>
-            <dd className="m-0 rounded-md border border-red/20 bg-red-dim p-3 font-mono text-xs leading-relaxed text-red-soft">
+            <dd className="m-0 rounded-md border border-red/20 bg-red-dim p-3 font-mono text-xs leading-relaxed text-red-soft [overflow-wrap:anywhere]">
               {row.delivery.error || t('history.no_error_message')}
             </dd>
           </dl>

@@ -210,6 +210,7 @@ fn req(sql: &str, org: &Id) -> QueryRequest {
             stream_type: StreamType::LOGS,
         }),
         limit: None,
+        step: None,
         federation_clusters: Vec::new(),
     }
 }

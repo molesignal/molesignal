@@ -50,6 +50,7 @@ struct GroupState {
 
 /// 单个工作组的准入快照（observability / `GET /query/admission`）。
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AdmissionStats {
     pub group: String,
     pub limit: usize,

@@ -1,5 +1,7 @@
 import { createContext } from 'react';
 
+import { andFieldClause } from '@/shell/query/fieldExpression';
+
 export type AttributeFilter = (key: string, value: string | number | boolean, operator: '=' | '!=') => void;
 // null means SQL mode; undefined lets standalone detail views open the trace explorer.
 export const AttributeFilterContext = createContext<AttributeFilter | null | undefined>(undefined);
@@ -24,7 +26,7 @@ export function attributeGroup(key: string): string {
 export function attributeClause(key: string, value: string | number | boolean, operator: '=' | '!='): string {
   return `${key} ${operator} ${JSON.stringify(value)}`;
 }
+/** The query narrowed by `clause`: one that joins alternatives with OR is put in brackets first. */
 export function appendAttributeClause(query: string, clause: string): string {
-  const base = query.trim();
-  return base ? `${base}${/\bAND\s*$/i.test(base) ? ' ' : ' AND '}${clause}` : clause;
+  return andFieldClause(query, clause);
 }

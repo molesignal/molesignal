@@ -29,22 +29,22 @@ use crate::{
 pub(super) fn routes() -> Router<AppState> {
     Router::new()
         .route(
-            "/status-pages/{page_id}/incidents",
+            "/status-pages/{pageId}/incidents",
             get(list_events).post(create_event),
         )
         .route(
-            "/status-pages/{page_id}/incidents/{event_id}",
+            "/status-pages/{pageId}/incidents/{eventId}",
             get(get_event).put(update_event),
         )
         .route(
-            "/status-pages/{page_id}/incidents/{event_id}/publish",
+            "/status-pages/{pageId}/incidents/{eventId}/publish",
             post(publish_draft),
         )
         .route(
-            "/status-pages/{page_id}/incidents/{event_id}/updates",
+            "/status-pages/{pageId}/incidents/{eventId}/updates",
             post(append_update),
         )
-        .route("/status-pages/{page_id}/history", get(history))
+        .route("/status-pages/{pageId}/history", get(history))
 }
 
 #[derive(Debug, Deserialize)]
@@ -55,6 +55,7 @@ struct EventListQuery {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct EventWriteRequest {
     #[serde(default)]
     source_incident_id: Option<Id>,
@@ -114,6 +115,7 @@ impl EventWriteRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct EventUpdateRequest {
     status: PublicIncidentStatus,
     message: String,
@@ -126,6 +128,7 @@ struct EventUpdateRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct HistoryQuery {
     #[serde(alias = "type")]
     kind: Option<StatusPageIncidentKind>,
@@ -174,7 +177,7 @@ async fn get_event(
     ))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.events.manage")]
 async fn create_event(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -192,7 +195,7 @@ async fn create_event(
     Ok((StatusCode::CREATED, Json(event)))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.events.manage")]
 async fn update_event(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -234,7 +237,7 @@ async fn update_event(
     Ok(Json(event))
 }
 
-#[permission("status_pages.publish")]
+#[permission("status_pages.events.publish")]
 async fn publish_draft(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -270,7 +273,7 @@ async fn publish_draft(
     Ok(Json(event))
 }
 
-#[permission("status_pages.publish")]
+#[permission("status_pages.events.publish")]
 async fn append_update(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -337,13 +340,13 @@ async fn record_event_audit(
         "status_page_event",
         event.id.as_str(),
         serde_json::json!({
-            "status_page_id": event.status_page_id,
+            "statusPageId": event.status_page_id,
             "kind": event.kind,
             "status": event.status,
-            "publication_state": event.publication_state,
-            "affected_component_count": event.component_ids.len(),
-            "has_source_incident": event.source_incident_id.is_some(),
-            "notified_subscribers": event
+            "publicationState": event.publication_state,
+            "affectedComponentCount": event.component_ids.len(),
+            "hasSourceIncident": event.source_incident_id.is_some(),
+            "notifiedSubscribers": event
                 .updates
                 .iter()
                 .max_by_key(|update| update.created_at)

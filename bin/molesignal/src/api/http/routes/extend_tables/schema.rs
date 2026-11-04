@@ -14,6 +14,7 @@ use crate::{
 };
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct UpdateTableFieldsReq {
     #[serde(default)]
     pub(super) value_fields: Vec<ExtendValueField>,
@@ -30,7 +31,7 @@ pub(super) fn validate_field_update(
     fields: Vec<ExtendValueField>,
 ) -> Result<ValidatedFieldUpdate> {
     if fields.len() > 100 {
-        return Err(Error::invalid("value_fields cannot exceed 100 fields"));
+        return Err(Error::invalid("valueFields cannot exceed 100 fields"));
     }
 
     let mut seen = HashSet::new();

@@ -9,7 +9,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
-import { DataTable } from '@/admin';
+import { ClearFiltersButton, DataTable, type DataTableColumn, TableExportButton, useTableSort } from '@/admin';
 import * as streamsApi from '@/api/streams';
 import {
   matchesStreamHealthFilter,
@@ -24,7 +24,7 @@ import {
 } from '@/product/actionAccess';
 import { type ProductStateProps } from '@/product/states';
 import { ListPage } from '@/product/templates';
-import { ChromeButton, Dot, Pill, QueryInput, type PillTone } from '@/shell/chrome';
+import { ChromeButton, Pill, QueryInput } from '@/shell/chrome';
 import {
   FormDrawer,
   FormField,
@@ -37,6 +37,7 @@ import {
   FormTextarea,
 } from '@/shell/FormDrawer';
 import { queryStateFor } from '@/shell/query/State';
+import { StatusWord, type StatusTone } from '@/shell/StatusWord';
 import { StreamTypeTag } from '@/shell/StreamTypeTag';
 import { ViewTabs } from '@/shell/tabs/ViewTabs';
 import {
@@ -66,24 +67,23 @@ import {
 } from './model';
 import { streamStorageColumns } from './storageColumns';
 import { StreamPagination, useStreamPagination } from './StreamPagination';
+import { IntakeUsageEntry } from './usage/Entry';
 
 type StreamType = streamsApi.StreamType;
 type StreamTab = 'all' | 'logs' | 'metrics' | 'traces' | 'profiles';
 type StatusFilter = StreamHealthFilter;
 
-const STATUS_TONE: Record<streamsApi.StreamRuntimeStatus, PillTone> = {
-  healthy: 'green',
-  idle: 'dim',
-  delayed: 'yellow',
-  interrupted: 'red',
-  unused: 'dim',
-  unknown: 'orange',
+/** Sorted by status, what wants attention comes first. */
+const STATUS_ORDER: Record<streamsApi.StreamRuntimeStatus, number> = {
+  interrupted: 0,
+  delayed: 1,
+  unknown: 2,
+  healthy: 3,
+  idle: 4,
+  unused: 5,
 };
 
-const STATUS_DOT: Record<
-  streamsApi.StreamRuntimeStatus,
-  NonNullable<React.ComponentProps<typeof Dot>['tone']>
-> = {
+const STATUS_TONE: Record<streamsApi.StreamRuntimeStatus, StatusTone> = {
   healthy: 'green',
   idle: 'dim',
   delayed: 'yellow',
@@ -112,7 +112,7 @@ const STATUS_FILTERS = [
 ] as const satisfies readonly StatusFilter[];
 
 const QUERY_ACTION_CLASS =
-  'inline-flex h-8 shrink-0 items-center gap-1.5 px-1.5 font-sans text-xs font-strong text-tx-1 transition-colors duration-fast hover:text-indigo-soft focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none disabled:cursor-not-allowed disabled:text-tx-4';
+  'inline-flex h-8 shrink-0 items-center gap-1.5 px-1.5 font-sans text-xs font-strong text-tx-1 transition-colors duration-fast hover:text-indigo-soft focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none disabled:cursor-not-allowed disabled:text-[var(--tx-disabled)]';
 
 function streamExplorePath(streamName: string, variant: DisplayStreamVariant): string {
   const encoded = encodeURIComponent(streamName);
@@ -120,7 +120,8 @@ function streamExplorePath(streamName: string, variant: DisplayStreamVariant): s
   // 用户可在那里查看/切换 queryable。
   if (!variant.queryable) return `/streams/${encodeURIComponent(variant.id)}`;
   if (variant.type === 'logs') return `/logs?stream=${encoded}`;
-  if (variant.type === 'metrics') return `/metrics?metric=${encoded}`;
+  // 指标流装一个来源的全部指标，没有单个指标可预选。
+  if (variant.type === 'metrics') return '/metrics';
   if (variant.type === 'traces') return `/traces?stream=${encoded}`;
   return `/streams/${encodeURIComponent(variant.id)}`;
 }
@@ -167,11 +168,10 @@ function StreamStatus({
 }) {
   return (
     <span className="flex items-center gap-1.5">
-      <SeverityRail severity={status} className="h-[22px] w-[3px] rounded-full" />
-      <Pill tone={STATUS_TONE[status]}>
-        <Dot tone={STATUS_DOT[status]} />
+      <SeverityRail severity={status} className="h-[22px] w-[2px] rounded-full" />
+      <StatusWord tone={STATUS_TONE[status]} strong={status === 'interrupted' || status === 'delayed'}>
         {t(`list.status.${status}`)}
-      </Pill>
+      </StatusWord>
     </span>
   );
 }
@@ -230,8 +230,153 @@ export function Streams() {
         )) &&
       `${s.name} ${s.description}`.toLowerCase().includes(filter.toLowerCase()),
   );
+  const columns: DataTableColumn<DisplayStream>[] = [
+    {
+      key: 'stream',
+      header: t('list.columns.stream'),
+      sortable: true,
+      value: (s) => s.name,
+      cell: (s) => (
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="truncate font-semibold text-tx-0">{s.name}</span>
+            {!s.queryable && <Pill tone="dim">{t('list.not_queryable')}</Pill>}
+          </div>
+          {s.description && (
+            <div className="mt-0.5 max-w-[260px] truncate text-xs text-tx-3">
+              {s.description}
+            </div>
+          )}
+        </div>
+      ),
+      width: 280,
+    },
+    {
+      key: 'type',
+      header: t('list.columns.type'),
+      value: (s) => s.types.map((type) => streamTypeLabel(t, type)).join(', '),
+      cell: (s) => (
+        <div className="flex flex-wrap items-center gap-1">
+          {s.types.map((type) => (
+            <StreamTypeTag key={type} type={type} label={streamTypeLabel(t, type)} />
+          ))}
+        </div>
+      ),
+      width: 180,
+    },
+    {
+      key: 'status',
+      header: t('list.columns.status'),
+      sortable: true,
+      value: (s) => t(`list.status.${s.runtime?.status ?? 'unknown'}`),
+      sortValue: (s) => STATUS_ORDER[s.runtime?.status ?? 'unknown'],
+      cell: (s) => <StreamStatus status={s.runtime?.status ?? 'unknown'} t={t} />,
+      width: 128,
+    },
+    {
+      key: 'rate',
+      header: t('list.columns.rate'),
+      sortable: true,
+      value: (s) => formatRowRate(s, runtimeWindowSecs),
+      sortValue: (s) => s.runtime?.rows ?? null,
+      cell: (s) => (
+        <span className="font-mono text-xs tabular-nums text-tx-1">
+          {formatRowRate(s, runtimeWindowSecs)}
+        </span>
+      ),
+      width: 156,
+    },
+    {
+      key: 'last_received',
+      header: t('list.columns.last_received'),
+      sortable: true,
+      value: (s) =>
+        s.runtime?.last_received_at_micros ? formatMicrosActive(s.runtime.last_received_at_micros) : '',
+      sortValue: (s) => s.runtime?.last_received_at_micros ?? null,
+      cell: (s) => (
+        <span
+          className="text-tx-2"
+          title={
+            s.runtime?.last_received_at_micros
+              ? formatMicrosActive(s.runtime.last_received_at_micros)
+              : undefined
+          }
+        >
+          {formatRelativeMicros(
+            s.runtime?.last_received_at_micros,
+            locale,
+          )}
+        </span>
+      ),
+      width: 120,
+    },
+    ...streamStorageColumns(t),
+    {
+      key: 'retention',
+      header: t('list.columns.retention'),
+      sortable: true,
+      value: (s) => (s.retentionDays.length > 0 ? formatRetentionDays(s.retentionDays) : ''),
+      sortValue: (s) => (s.retentionDays.length > 0 ? Math.max(...s.retentionDays) : null),
+      cell: (s) =>
+        s.retentionDays.length > 0
+          ? t('list.retention_days', { days: formatRetentionDays(s.retentionDays) })
+          : '—',
+      width: 112,
+    },
+    {
+      key: 'actions',
+      header: t('list.columns.actions'),
+      cell: (s) => {
+        const queryableVariants = s.variants.filter((variant) => variant.queryable);
+        return (
+          <div className="flex items-center justify-center">
+            {queryableVariants.length <= 1 ? (
+              <button
+                type="button"
+                className={QUERY_ACTION_CLASS}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  exploreStream(s, queryableVariants[0]);
+                }}
+                disabled={queryableVariants.length === 0}
+              >
+                {t('list.query')} <ArrowRight className="h-3 w-3" />
+              </button>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className={QUERY_ACTION_CLASS}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    {t('list.query')} <ChevronDown className="h-3 w-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {queryableVariants.map((variant) => (
+                    <DropdownMenuItem
+                      key={variant.id}
+                      onSelect={() => exploreStream(s, variant)}
+                    >
+                      <ArrowRight className="h-3.5 w-3.5" />
+                      {streamTypeLabel(t, variant.type)}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        );
+      },
+      width: 96,
+      className: 'text-center',
+      headerClassName: 'text-center',
+    },
+  ];
+  const { sort, setSort, sortedRows } = useTableSort(filtered, columns);
   const pagination = useStreamPagination(
-    filtered,
+    sortedRows,
     `${tab}:${statusFilter}:${filter}`,
   );
   const activeType = tab === 'all' ? undefined : tab;
@@ -267,6 +412,21 @@ export function Streams() {
       ? { variant: 'loading' }
       : state === 'error'
         ? { variant: 'error', error: listQuery.error }
+        : state === 'empty' && streams.length > 0
+          ? {
+              variant: 'empty',
+              title: t('list.no_match_title'),
+              description: t('list.no_match_description'),
+              action: (
+                <ClearFiltersButton
+                  onClear={() => {
+                    setFilter('');
+                    setTab('all');
+                    changeStatusFilter('all');
+                  }}
+                />
+              ),
+            }
         : state === 'empty'
           ? {
               variant: 'empty',
@@ -285,8 +445,8 @@ export function Streams() {
             }
           : null;
 
-  const runtimeWindowSecs = runtimeQuery.data?.window_secs ?? requestedRuntimeWindowSecs;
-  const generatedAt = runtimeQuery.data?.generated_at_micros;
+  const runtimeWindowSecs = runtimeQuery.data?.windowSecs ?? requestedRuntimeWindowSecs;
+  const generatedAt = runtimeQuery.data?.generatedAt;
 
   const changeStatusFilter = React.useCallback(
     (nextFilter: StatusFilter) => {
@@ -294,7 +454,7 @@ export function Streams() {
         const next = new URLSearchParams(current);
         if (nextFilter === 'all') next.delete('status');
         else next.set('status', nextFilter);
-        next.set('window_secs', String(runtimeWindowSecs));
+        next.set('windowSecs', String(runtimeWindowSecs));
         return next;
       }, { replace: true });
     },
@@ -309,7 +469,9 @@ export function Streams() {
         subtitle={t('subtitle') as string}
         toolbar={
           <>
+            <IntakeUsageEntry />
             <SearchJobsEntry />
+            <TableExportButton name="molesignal-streams" columns={columns} rows={sortedRows} size="md" />
             <ChromeButton onClick={refresh} disabled={listQuery.isFetching || runtimeQuery.isFetching}>
               <RefreshCw className="h-3 w-3" /> {t('list.refresh')}
             </ChromeButton>
@@ -349,14 +511,14 @@ export function Streams() {
               onValueChange={(value) => changeStatusFilter(value as StatusFilter)}
             >
               <SelectTrigger
-                className="h-8 w-[132px] bg-[var(--control-surface)] px-2.5 font-sans text-xs font-semibold text-tx-1"
+                className="h-8 w-[132px] bg-[var(--control-surface)] px-3 font-sans text-tx-1 sm:h-8"
                 aria-label={t('list.status_filter')}
               >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent align="start">
                 {STATUS_FILTERS.map((status) => (
-                  <SelectItem key={status} value={status} className="h-8 text-xs">
+                  <SelectItem key={status} value={status} className="h-8">
                     {t(`list.status.${status}`)}
                   </SelectItem>
                 ))}
@@ -367,8 +529,12 @@ export function Streams() {
               data-stream-list-status
               className="ml-auto flex items-baseline gap-x-2 whitespace-nowrap font-sans text-xs text-tx-2"
             >
-              <span>{t('list.result_count', { count: filtered.length })}</span>
-              <span aria-hidden="true" className="text-tx-3">·</span>
+              {listQuery.isSuccess && (
+                <>
+                  <span>{t('list.result_count', { count: filtered.length })}</span>
+                  <span aria-hidden="true" className="text-tx-3">·</span>
+                </>
+              )}
               <span className="text-tx-3">
                 {runtimeQuery.isError
                   ? t('list.stats_unavailable')
@@ -388,134 +554,9 @@ export function Streams() {
           rows={pagination.pageItems}
           rowKey={(s) => s.key}
           onRowClick={openStreamDetail}
-          columns={[
-            {
-              key: 'stream',
-              header: t('list.columns.stream'),
-              cell: (s) => (
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate font-semibold text-tx-0">{s.name}</span>
-                    {!s.queryable && <Pill tone="dim">{t('list.not_queryable')}</Pill>}
-                  </div>
-                  {s.description && (
-                    <div className="mt-0.5 max-w-[260px] truncate text-xs text-tx-3">
-                      {s.description}
-                    </div>
-                  )}
-                </div>
-              ),
-              width: 280,
-            },
-            {
-              key: 'type',
-              header: t('list.columns.type'),
-              cell: (s) => (
-                <div className="flex flex-wrap items-center gap-1">
-                  {s.types.map((type) => (
-                    <StreamTypeTag key={type} type={type} label={streamTypeLabel(t, type)} />
-                  ))}
-                </div>
-              ),
-              width: 180,
-            },
-            {
-              key: 'status',
-              header: t('list.columns.status'),
-              cell: (s) => <StreamStatus status={s.runtime?.status ?? 'unknown'} t={t} />,
-              width: 128,
-            },
-            {
-              key: 'rate',
-              header: t('list.columns.rate'),
-              cell: (s) => (
-                <span className="font-mono text-xs tabular-nums text-tx-1">
-                  {formatRowRate(s, runtimeWindowSecs)}
-                </span>
-              ),
-              width: 156,
-            },
-            {
-              key: 'last_received',
-              header: t('list.columns.last_received'),
-              cell: (s) => (
-                <span
-                  className="text-tx-2"
-                  title={
-                    s.runtime?.last_received_at_micros
-                      ? formatMicrosActive(s.runtime.last_received_at_micros)
-                      : undefined
-                  }
-                >
-                  {formatRelativeMicros(
-                    s.runtime?.last_received_at_micros,
-                    locale,
-                  )}
-                </span>
-              ),
-              width: 120,
-            },
-            ...streamStorageColumns(t),
-            {
-              key: 'retention',
-              header: t('list.columns.retention'),
-              cell: (s) =>
-                s.retentionDays.length > 0
-                  ? t('list.retention_days', { days: formatRetentionDays(s.retentionDays) })
-                  : '—',
-              width: 112,
-            },
-            {
-              key: 'actions',
-              header: t('list.columns.actions'),
-              cell: (s) => {
-                const queryableVariants = s.variants.filter((variant) => variant.queryable);
-                return (
-                  <div className="flex items-center justify-center">
-                    {queryableVariants.length <= 1 ? (
-                      <button
-                        type="button"
-                        className={QUERY_ACTION_CLASS}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          exploreStream(s, queryableVariants[0]);
-                        }}
-                        disabled={queryableVariants.length === 0}
-                      >
-                        {t('list.query')} <ArrowRight className="h-3 w-3" />
-                      </button>
-                    ) : (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            className={QUERY_ACTION_CLASS}
-                            onClick={(event) => event.stopPropagation()}
-                          >
-                            {t('list.query')} <ChevronDown className="h-3 w-3" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {queryableVariants.map((variant) => (
-                            <DropdownMenuItem
-                              key={variant.id}
-                              onSelect={() => exploreStream(s, variant)}
-                            >
-                              <ArrowRight className="h-3.5 w-3.5" />
-                              {streamTypeLabel(t, variant.type)}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
-                );
-              },
-              width: 96,
-              className: 'text-center',
-              headerClassName: 'text-center',
-            },
-          ]}
+          columns={columns}
+          sort={sort}
+          onSortChange={setSort}
         />
         <StreamPagination {...pagination} />
       </ListPage>
@@ -590,12 +631,12 @@ function StreamDrawer({
       .filter(Boolean);
     createMutation.mutate({
       name: name.trim(),
-      stream_type: type,
-      retention_days: Number(retention),
+      streamType: type,
+      retentionDays: Number(retention),
       // 加密字段以密文（Utf8）落盘；显式声明 FieldDef(encrypted=true)，其余字段仍由 intake 推断。
       fields: encrypted.map((field) => ({
         name: field,
-        data_type: 'utf8' as const,
+        dataType: 'utf8' as const,
         nullable: true,
         indexed: false,
         encrypted: true,
@@ -603,12 +644,10 @@ function StreamDrawer({
       settings: {
         description: description.trim() || null,
         queryable,
-        index_rules: indexed.map((field) => ({
+        indexRules: indexed.map((field) => ({
           field,
           enabled: true,
-          index_type: 'full_text',
-          condition: null,
-          sdr_patterns: [],
+          indexType: 'full_text',
         })),
       },
     });

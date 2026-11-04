@@ -26,22 +26,22 @@ function skill(
     version: null,
     source: 'upload',
     scope: 'org',
-    team_id: null,
-    owner_id: null,
+    teamId: null,
+    ownerId: null,
     enabled: true,
     editable: true,
     moderatable: true,
     hash: `${id}0123456789abcdef`,
-    file_count: 1,
-    argument_hint: null,
-    allowed_tools: [],
+    fileCount: 1,
+    argumentHint: null,
+    allowedTools: [],
     tags: [],
     examples: [],
-    requires_runner: false,
-    repository_id: null,
-    package_name: `${name}.zip`,
+    requiresRunner: false,
+    repositoryId: null,
+    packageName: `${name}.zip`,
     dir: null,
-    updated_at_micros: null,
+    updatedAt: null,
     ...extra,
   };
 }
@@ -63,59 +63,59 @@ export function registerAgentResourceRoutes(
       scope: 'instance',
       editable: false,
       examples: ['What is broken in checkout right now?'],
-      package_name: null,
+      packageName: null,
     }),
     skill('path:k8s-debug', 'k8s-debug', 'Look into a failing Kubernetes workload', {
       source: 'path',
       scope: 'instance',
       editable: false,
-      requires_runner: true,
+      requiresRunner: true,
       dir: '/etc/molesignal/skills/k8s-debug',
-      package_name: null,
+      packageName: null,
     }),
     skill('skill-postmortem', 'postmortem', 'Write a postmortem from an incident', {
       version: '1.2.0',
-      allowed_tools: ['get_incident', 'query_logs'],
-      updated_at_micros: now - 86_400_000_000,
+      allowedTools: ['get_incident', 'query_logs'],
+      updatedAt: now - 86_400_000_000,
     }),
     skill('skill-runbook', 'runbook', 'Follow the platform team runbook', {
       source: 'repository',
       scope: 'team',
-      team_id: 'team-platform',
-      repository_id: 'repo-platform',
+      teamId: 'team-platform',
+      repositoryId: 'repo-platform',
       dir: 'skills/runbook',
-      package_name: null,
+      packageName: null,
     }),
   ];
 
   const repositories: Array<SkillRepository> = [
     {
       id: 'repo-platform',
-      org_id: 'acme-prod',
-      scope: { scope: 'team', team_id: 'team-platform' },
+      orgId: 'acme-prod',
+      scope: { scope: 'team', teamId: 'team-platform' },
       url: 'https://github.com/acme/platform-skills',
       host: 'github',
-      archive_url: null,
-      git_ref: 'main',
+      archiveUrl: null,
+      gitRef: 'main',
       dir: 'skills',
-      auto_sync: true,
-      token_set: false,
-      token_last4: null,
+      autoSync: true,
+      tokenSet: false,
+      tokenLast4: null,
       status: 'partial',
-      last_error: 'skills/broken: SKILL.md needs a `description`',
-      last_commit: '9f2c1e4b7a00',
-      last_synced_at: now - 3_600_000_000,
-      created_by: 'dev',
-      updated_by: 'dev',
+      lastError: 'skills/broken: SKILL.md needs a `description`',
+      lastCommit: '9f2c1e4b7a00',
+      lastSyncedAt: now - 3_600_000_000,
+      createdBy: 'dev',
+      updatedBy: 'dev',
       editable: true,
     },
   ];
 
   let networkPolicy = {
-    private_hosts: ['git.corp.example'],
-    private_cidrs: ['10.20.0.0/16'],
-    updated_by: 'dev',
-    updated_at: now - 7 * 86_400_000_000,
+    privateHosts: ['git.corp.example'],
+    privateCidrs: ['10.20.0.0/16'],
+    updatedBy: 'dev',
+    updatedAt: now - 7 * 86_400_000_000,
   };
 
   const detail = (item: Skill): SkillDetail => ({
@@ -133,7 +133,7 @@ export function registerAgentResourceRoutes(
       paths: {
         roots: ['/etc/molesignal/skills'],
         problems: [{ dir: '/etc/molesignal/skills/broken', message: 'SKILL.md needs a `name`' }],
-        scanned_at_micros: now - 60_000_000,
+        scannedAt: now - 60_000_000,
       },
     }),
   );
@@ -158,16 +158,16 @@ export function registerAgentResourceRoutes(
       }
       if (existing) {
         existing.version = '2.0.0';
-        existing.updated_at_micros = now;
+        existing.updatedAt = now;
       } else {
-        skills.push(skill(`skill-${name}`, name, `Uploaded from ${fileName}`, { scope: 'personal', owner_id: 'dev' }));
+        skills.push(skill(`skill-${name}`, name, `Uploaded from ${fileName}`, { scope: 'personal', ownerId: 'dev' }));
       }
       return res.json({ ok: true });
     },
   );
 
   app.post('/api/v1/agent/skills/rescan', (_req, res) =>
-    res.json({ roots: ['/etc/molesignal/skills'], problems: [], scanned_at_micros: now }),
+    res.json({ roots: ['/etc/molesignal/skills'], problems: [], scannedAt: now }),
   );
 
   app.get('/api/v1/agent/skills/:id', (req, res) => {
@@ -188,8 +188,8 @@ export function registerAgentResourceRoutes(
     if (typeof req.body?.enabled === 'boolean') found.enabled = req.body.enabled;
     if (typeof req.body?.scope === 'string') {
       found.scope = req.body.scope;
-      found.team_id = req.body.scope === 'team' ? (req.body.team_id ?? null) : null;
-      found.owner_id = req.body.scope === 'personal' ? 'dev' : null;
+      found.teamId = req.body.scope === 'team' ? (req.body.teamId ?? null) : null;
+      found.ownerId = req.body.scope === 'personal' ? 'dev' : null;
     }
     return res.json(detail(found));
   });
@@ -205,27 +205,27 @@ export function registerAgentResourceRoutes(
   app.post('/api/v1/agent/skill-repositories', (req, res) => {
     const repository: SkillRepository = {
       id: `repo-${repositories.length + 1}`,
-      org_id: 'acme-prod',
+      orgId: 'acme-prod',
       scope:
         req.body?.scope === 'team'
-          ? { scope: 'team', team_id: String(req.body.team_id) }
+          ? { scope: 'team', teamId: String(req.body.teamId) }
           : req.body?.scope === 'org'
             ? { scope: 'org' }
-            : { scope: 'personal', owner_id: 'dev' },
+            : { scope: 'personal', ownerId: 'dev' },
       url: String(req.body?.url ?? ''),
       host: req.body?.host && req.body.host !== 'auto' ? req.body.host : 'github',
-      archive_url: req.body?.archive_url ?? null,
-      git_ref: String(req.body?.git_ref ?? ''),
+      archiveUrl: req.body?.archiveUrl ?? null,
+      gitRef: String(req.body?.gitRef ?? ''),
       dir: String(req.body?.dir ?? ''),
-      auto_sync: Boolean(req.body?.auto_sync),
-      token_set: Boolean(req.body?.token),
-      token_last4: req.body?.token ? String(req.body.token).slice(-4) : null,
+      autoSync: Boolean(req.body?.autoSync),
+      tokenSet: Boolean(req.body?.token),
+      tokenLast4: req.body?.token ? String(req.body.token).slice(-4) : null,
       status: 'ok',
-      last_error: null,
-      last_commit: report.commit,
-      last_synced_at: now,
-      created_by: 'dev',
-      updated_by: 'dev',
+      lastError: null,
+      lastCommit: report.commit,
+      lastSyncedAt: now,
+      createdBy: 'dev',
+      updatedBy: 'dev',
       editable: true,
     };
     repositories.push(repository);
@@ -236,9 +236,9 @@ export function registerAgentResourceRoutes(
     if (!found) return res.status(404).json({ error: 'not found' });
     Object.assign(found, {
       url: req.body?.url ?? found.url,
-      git_ref: req.body?.git_ref ?? found.git_ref,
+      gitRef: req.body?.gitRef ?? found.gitRef,
       dir: req.body?.dir ?? found.dir,
-      auto_sync: Boolean(req.body?.auto_sync),
+      autoSync: Boolean(req.body?.autoSync),
     });
     return res.json({ repository: found, sync: report });
   });
@@ -254,10 +254,10 @@ export function registerAgentResourceRoutes(
   app.get('/api/v1/agent/network-policy', (_req, res) => res.json(networkPolicy));
   app.put('/api/v1/agent/network-policy', (req, res) => {
     networkPolicy = {
-      private_hosts: Array.isArray(req.body?.private_hosts) ? req.body.private_hosts : [],
-      private_cidrs: Array.isArray(req.body?.private_cidrs) ? req.body.private_cidrs : [],
-      updated_by: 'dev',
-      updated_at: now,
+      privateHosts: Array.isArray(req.body?.privateHosts) ? req.body.privateHosts : [],
+      privateCidrs: Array.isArray(req.body?.privateCidrs) ? req.body.privateCidrs : [],
+      updatedBy: 'dev',
+      updatedAt: now,
     };
     res.json(networkPolicy);
   });
@@ -278,38 +278,38 @@ export function registerAgentResourceRoutes(
       const missing = headers.filter(([, value]) => value.includes('${')).map(([key]) => key);
       const made = {
         id: `mcp-import-${index + 1}`,
-        org_id: 'acme-prod',
-        scope: { scope: 'personal', owner_id: 'dev' },
+        orgId: 'acme-prod',
+        scope: { scope: 'personal', ownerId: 'dev' },
         handle: name.toLowerCase(),
         name,
         transport: config.command ? 'stdio' : 'streamable_http',
-        endpoint_url: (config.url as string | undefined) ?? null,
-        command_template: config.command ? `${String(config.command)} ${((config.args as string[]) ?? []).join(' ')}` : null,
-        auth_type: 'none',
-        auth_header: null,
-        credential_last4: null,
-        credential_set: false,
-        member_credential: null,
+        endpointUrl: (config.url as string | undefined) ?? null,
+        commandTemplate: config.command ? `${String(config.command)} ${((config.args as string[]) ?? []).join(' ')}` : null,
+        authType: 'none',
+        authHeader: null,
+        credentialLast4: null,
+        credentialSet: false,
+        memberCredential: null,
         headers: headers.map(([key]) => ({ name: key.toLowerCase(), secret: true, set: !missing.includes(key) })),
         env: [],
-        private_only: false,
-        allowed_domains: [],
-        allowed_cidrs: [],
-        follow_redirects: false,
-        tls_verify: true,
-        timeout_ms: 10_000,
-        max_response_bytes: 1_048_576,
+        privateOnly: false,
+        allowedDomains: [],
+        allowedCidrs: [],
+        followRedirects: false,
+        tlsVerify: true,
+        timeoutMs: 10_000,
+        maxResponseBytes: 1_048_576,
         enabled: true,
         status: 'unavailable',
-        last_error: null,
-        created_by: 'dev',
-        created_at: now,
-        updated_at: now,
-        tool_count: 0,
-        prompt_count: 0,
+        lastError: null,
+        createdBy: 'dev',
+        createdAt: now,
+        updatedAt: now,
+        toolCount: 0,
+        promptCount: 0,
         editable: true,
         moderatable: true,
-        my_credential: null,
+        myCredential: null,
       };
       mcpServers.push(made);
       return { ...made, missing };
@@ -335,18 +335,18 @@ export function registerAgentResourceRoutes(
     const found = server(req.params.id);
     if (!found) return res.status(404).json({ error: 'not found' });
     const credential = {
-      server_id: found.id,
-      user_id: 'dev',
+      serverId: found.id,
+      userId: 'dev',
       last4: String(req.body?.value ?? '').slice(-4),
-      updated_at: now,
+      updatedAt: now,
     };
-    found.my_credential = credential;
+    found.myCredential = credential;
     return res.json({ credential });
   });
   app.delete('/api/v1/agent/mcp-servers/:id/my-credential', (req, res) => {
     const found = server(req.params.id);
     if (!found) return res.status(404).json({ error: 'not found' });
-    found.my_credential = null;
+    found.myCredential = null;
     return res.json({ deleted: true });
   });
 }

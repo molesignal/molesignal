@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { DataTable, type DataTableColumn } from '@/admin';
 import type { Connector } from '@/api/connectors';
 import type { ActionAccess } from '@/product/actionAccess';
-import { ChromeButton, IconButton } from '@/shell/chrome';
+import { ChromeButton, IconButton, uiSectionTitleClass } from '@/shell/chrome';
 import { DisabledControl } from '@/shell/DisabledControl';
 import { cn } from '@/shell/lib/cn';
 import { surfacePanelClass } from '@/shell/SurfaceWorkbench';
@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/shell/ui/tooltip';
 
 import { KIND_ICONS } from './kindIcons';
 import {
-  AUTH_FIELDS,
+  authFieldsOf,
   authModeOf,
   hasStoredSecret,
   isConnectorKind,
@@ -23,6 +23,7 @@ import {
   targetStreamOf,
   type Direction,
 } from './kinds';
+import { ReadStateMark } from './ReadState';
 import { formatRelativeMicros } from '../presentation';
 import { pipelineFlatTableClassName } from '../Surfaces';
 
@@ -112,10 +113,13 @@ export function ConnectorSection({
             header: t('connectors.columns.last_received'),
             width: 150,
             cell: (row) => (
-              <span className={cn(plain, !row.last_run_at_micros && 'text-tx-3')}>
-                {row.last_run_at_micros
-                  ? formatRelativeMicros(row.last_run_at_micros, i18n.language)
-                  : t('connectors.never')}
+              <span className={cn('flex min-w-0 items-center gap-[6px]', plain, !row.lastRunAt && 'text-tx-3')}>
+                <span className="truncate">
+                  {row.lastRunAt
+                    ? formatRelativeMicros(row.lastRunAt, i18n.language)
+                    : t('connectors.never')}
+                </span>
+                <ReadStateMark connector={row} />
               </span>
             ),
           },
@@ -151,7 +155,7 @@ export function ConnectorSection({
       className={cn('min-w-0 px-[16px] pb-[10px] pt-[12px]', surfacePanelClass)}
     >
       <header className="mb-[6px] flex min-h-[28px] items-center gap-[12px]">
-        <h2 id={headingId} className="m-0 shrink-0 font-sans text-md font-strong text-tx-0">
+        <h2 id={headingId} className={cn('m-0 shrink-0', uiSectionTitleClass)}>
           {t(`connectors.${direction}s.title`)}
         </h2>
         <span className="min-w-0 flex-1 truncate font-sans text-xs text-tx-3">
@@ -211,7 +215,9 @@ function switchable(connector: Connector): boolean {
   if (keepsSecrets(connector)) return true;
   if (!isConnectorKind(connector.kind)) return false;
 
-  return !AUTH_FIELDS[authModeOf(connector)].some((field) => field.secret && hasStoredSecret(connector, field.key));
+  const secrets = [...specOf(connector.kind).fields, ...authFieldsOf(connector)].filter((field) => field.secret);
+
+  return !secrets.some((field) => hasStoredSecret(connector, field.key));
 }
 
 function StatusSwitch({

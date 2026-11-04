@@ -51,7 +51,7 @@ beforeEach(async () => {
 afterEach(cleanup);
 
 describe('SearchJobsEntry', () => {
-  it.each([['streams.query'], ['sys.telemetry.read']])(
+  it.each([['query.jobs.read'], ['sys.telemetry.read']])(
     'leads to the jobs for a reader who holds %s',
     (permission) => {
       session.access = access([permission]);
@@ -71,7 +71,7 @@ describe('SearchJobsEntry', () => {
   });
 
   it('is not there before the permissions are known, or without a session', () => {
-    session.access = access(['streams.query'], 'loading');
+    session.access = access(['query.jobs.read'], 'loading');
     renderEntry();
     expect(screen.queryByRole('button')).toBeNull();
     cleanup();

@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 
 import type { DiffFlamebearer, Flamebearer } from '@/api/profiles';
 import { cn } from '@/shell/lib/cn';
+import { IconSwap } from '@/shell/polish/IconSwap';
 import { Button } from '@/shell/ui/button';
 import { Input } from '@/shell/ui/input';
 import { useThemePalette } from '@/viz/timeseries/themeAdapter';
@@ -396,7 +397,11 @@ export function Flamegraph({
             aria-label={fullscreen ? t('flamegraph.exit_fullscreen') : t('flamegraph.fullscreen')}
             title={fullscreen ? t('flamegraph.exit_fullscreen') : t('flamegraph.fullscreen')}
           >
-            {fullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            <IconSwap
+              active={fullscreen}
+              inactiveIcon={<Maximize2 className="h-3.5 w-3.5" />}
+              activeIcon={<Minimize2 className="h-3.5 w-3.5" />}
+            />
           </Button>
         </div>
       </div>
@@ -536,7 +541,7 @@ function ViewSwitcher({
             type="button"
             onClick={() => onChange(item.id)}
             className={cn(
-              'inline-flex h-7 items-center gap-1 rounded px-2 font-sans text-xs transition-colors',
+              'inline-flex h-7 items-center gap-1 rounded-[5px] px-2 font-sans text-xs transition-colors',
               view === item.id
                 ? 'bg-bg-0 font-semibold text-tx-0 shadow-sm'
                 : 'text-tx-2 hover:text-tx-0',
@@ -587,8 +592,8 @@ function TopFunctionsTable({
   return (
     <div>
       <table className="w-full border-collapse font-sans text-xs">
-        <thead className="sticky top-0 z-10 bg-bg-1">
-          <tr className="border-b border-bd-0 text-left font-strong text-tx-3 [&_th]:px-3 [&_th]:py-2 [&_th]:text-xs">
+        <thead className="sticky top-0 z-10 bg-[var(--table-head-surface)]">
+          <tr className="border-b border-bd-0 text-left font-strong text-tx-0 [&_th]:px-3 [&_th]:py-2 [&_th]:text-xs">
             <th className="w-8">#</th>
             <th>{t('flamegraph.top.function')}</th>
             {/* The two measures are sorted by from their own heads: one control, where the order is read. */}
@@ -791,7 +796,7 @@ function CallTreeView({
 
   return (
     <div>
-      <div className="sticky top-0 z-10 flex min-h-10 items-center gap-2 border-b border-bd-0 bg-bg-1 px-2 font-sans text-xs font-strong text-tx-3">
+      <div className="sticky top-0 z-10 flex min-h-10 items-center gap-2 border-b border-bd-0 bg-[var(--table-head-surface)] px-2 font-sans text-xs font-strong text-tx-0">
         <span className="h-4 w-[18px] shrink-0" />
         <span className="min-w-0 flex-1">{t('flamegraph.top.function')}</span>
         <span className="w-20 shrink-0 text-right" title={t('flamegraph.self_help')}>

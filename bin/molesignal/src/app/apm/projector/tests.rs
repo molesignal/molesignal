@@ -96,7 +96,7 @@ fn config() -> ApmProjectorConfig {
         max_exemplars_per_bucket: 2,
         max_error_samples_per_group: 2,
         histogram: HistogramSchema::v1(),
-        cardinality: crate::config::ApmCardinalitySettings::default(),
+        limits: Default::default(),
     }
 }
 
@@ -112,13 +112,17 @@ fn fact(span_id: &str) -> ApmSpanFact {
         span_id: span_id.into(),
         parent_span_id: None,
         event_time: TimestampMicros::now(),
-        duration_micros: 10,
+        duration: 10,
         span_kind: ApmSpanKind::Server,
         outcome: ApmOutcome::Success,
         transaction: None,
         dependency: None,
         error: None,
         exception: None,
+        response_status: None,
+        timed_out: false,
+        retried: false,
+        instance: None,
     }
 }
 

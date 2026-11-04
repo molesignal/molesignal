@@ -63,7 +63,9 @@ impl StorageLayout {
         ))
     }
 
-    /// 封存分区 Manifest 对象 key；generation 单调递增，指针切换后旧代延迟 GC。
+    /// 封存分区 Manifest 对象 key；generation 单调递增，指针切换后旧代延迟 GC。同一时刻开始的
+    /// 分区可以长短不同（小数据流按天合并后，一天落在从零点开始的一个分区里），key 里带上分区
+    /// 的秒数。
     pub fn manifest_key(
         organization_id: &Id,
         stream_type: StreamTypeId,
@@ -71,8 +73,13 @@ impl StorageLayout {
         partition: &Partition,
         generation: u64,
     ) -> ObjectKey {
+        let seconds = partition
+            .end_micros
+            .saturating_sub(partition.start_micros)
+            .div_euclid(1_000_000);
+
         ObjectKey::from_string(format!(
-            "{}{}/{}/{}/{}/{generation}.parquet",
+            "{}{}/{}/{}/{}-{seconds}s/{generation}.parquet",
             Self::MANIFEST_PREFIX,
             organization_id.as_str(),
             stream_type.external_name(),
@@ -206,7 +213,32 @@ mod tests {
         );
         assert_eq!(
             key.as_str(),
-            "manifests/v1/org1/logs/ds1/p-1755302400-00/7.parquet"
+            "manifests/v1/org1/logs/ds1/p-1755302400-00-3600s/7.parquet"
+        );
+    }
+
+    #[test]
+    fn partitions_starting_together_have_their_own_manifest_keys() {
+        let key = |end_micros| {
+            StorageLayout::manifest_key(
+                &Id::from_string("org1"),
+                crate::domain::storage::StreamTypeId::LOGS,
+                &PhysicalDatasetId::from_string("ds1"),
+                &Partition {
+                    end_micros,
+                    ..partition()
+                },
+                1,
+            )
+        };
+
+        let day = partition().start_micros + 24 * 3_600_000_000;
+
+        assert_ne!(key(partition().end_micros), key(day));
+        assert!(
+            key(day)
+                .as_str()
+                .ends_with("/p-1755302400-00-86400s/1.parquet")
         );
     }
 
@@ -223,7 +255,7 @@ mod tests {
             },
             1,
         );
-        assert!(key.as_str().contains("/p--3600-03/"));
+        assert!(key.as_str().contains("/p--3600-03-3600s/"));
     }
 
     #[test]

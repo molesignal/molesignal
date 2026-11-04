@@ -15,6 +15,7 @@
 //   MS_SEED_API           API base URL                (default: http://127.0.0.1:5080/api/v1)
 //   MS_SEED_EMAIL         Login email                 (default: admin@example.com)
 //   MS_SEED_PASSWORD      Login password              (default: admin)
+//   MS_SEED_TOKEN         API token, instead of signing in (needed for an account with MFA)
 //   MS_SEED_DB            Postgres database           (default: molesignal)
 //   MS_SEED_PGUSER        Postgres user               (default: molesignal)
 //   MS_SEED_PGPASSWORD    Postgres password           (default: molesignal)
@@ -23,26 +24,35 @@
 //   MS_SEED_SKIP_VERIFY   Set to "1" to skip verify
 
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import process from 'node:process';
 
-import { buildRrwebReplay } from './rum_replay_fixture.mjs';
+import {
+  CLIENTS,
+  hexId,
+  registerRumApplication,
+  sendRumSession,
+} from './rum_seed_events.mjs';
 
 // ---------- Config ----------
 
 const ARGS = new Set(process.argv.slice(2));
-if (ARGS.has('-h') || ARGS.has('--help')) {
-  printHelp();
-  process.exit(0);
-}
 
-const API_BASE = (process.env.MS_SEED_API ?? 'http://127.0.0.1:5080/api/v1').replace(/\/$/, '');
+const API_BASE =(process.env.MS_SEED_API ?? 'http://127.0.0.1:5080/api/v1').replace(/\/$/, '');
 const PG_DATABASE = process.env.MS_SEED_DB ?? 'molesignal';
 const PG_USER = process.env.MS_SEED_PGUSER ?? 'molesignal';
 const PG_PASSWORD = process.env.MS_SEED_PGPASSWORD ?? 'molesignal';
 const LOGIN_EMAIL = process.env.MS_SEED_EMAIL ?? 'admin@example.com';
 const LOGIN_PASSWORD = process.env.MS_SEED_PASSWORD ?? 'admin';
+const API_TOKEN = process.env.MS_SEED_TOKEN;
 const API_ONLY = process.env.MS_SEED_API_ONLY === '1';
 const SKIP_VERIFY = ARGS.has('--skip-verify') || process.env.MS_SEED_SKIP_VERIFY === '1';
+
+if (ARGS.has('-h') || ARGS.has('--help')) {
+  printHelp();
+  process.exit(0);
+}
+
 const PG_CONTAINER = process.env.MS_SEED_PG_CONTAINER ?? detectPostgresContainer();
 
 const NOW_MS = Date.now();
@@ -64,13 +74,15 @@ function printHelp() {
 Seeds streams, logs, metrics, traces, RUM data, service graph edges, and
 representative control-plane objects. Use --telemetry-only to append a fresh
 logs/metrics/traces window without duplicating control-plane resources. Use
---rum-only to append sessions, actions, errors, Web Vitals, and replay payloads
-plus their linked traces, without creating unrelated control-plane resources.
+--rum-only to append RUM sessions (views, actions, resources, errors, long tasks,
+vitals) and replay payloads plus their linked traces, without creating unrelated
+control-plane resources.
 
 Environment:
   MS_SEED_API            API base URL. Default: ${API_BASE}
   MS_SEED_EMAIL          Login email. Default: ${LOGIN_EMAIL}
   MS_SEED_PASSWORD       Login password. Default: ${LOGIN_PASSWORD}
+  MS_SEED_TOKEN          API token, instead of signing in. Needed for an account with MFA.
   MS_SEED_DB             Postgres database. Default: ${PG_DATABASE}
   MS_SEED_PGUSER         Postgres user. Default: ${PG_USER}
   MS_SEED_PGPASSWORD     Postgres password. Default: ${PG_PASSWORD}
@@ -106,9 +118,11 @@ function detectPostgresContainer() {
 
 const sqlString = (v) => `'${String(v).replaceAll("'", "''")}'`;
 const jsonSql = (v) => `${sqlString(JSON.stringify(v))}::jsonb`;
+// Microseconds since the epoch as a TIMESTAMPTZ, exact to the microsecond.
+const timestampSql = (micros) => `(TIMESTAMPTZ 'epoch' + ${micros} * INTERVAL '1 microsecond')`;
 const field = (name, dataType, indexed = false) => ({
   name,
-  data_type: dataType,
+  dataType,
   nullable: true,
   indexed,
 });
@@ -127,19 +141,23 @@ class ApiClient {
   constructor(baseUrl) {
     this.base = baseUrl;
     this.token = null;
+    this.sessionCookie = null;
     this.userId = null;
     this.orgId = null;
   }
 
-  async request(method, path, body, { auth = true } = {}) {
-    const headers = { accept: 'application/json', connection: 'close' };
+  async request(method, path, body, { auth = true, headers: extra = {} } = {}) {
+    const headers = { accept: 'application/json', connection: 'close', ...extra };
     if (body !== undefined) headers['content-type'] = 'application/json';
     if (auth && this.token) headers.authorization = `Bearer ${this.token}`;
+    if (auth && this.sessionCookie) headers.cookie = this.sessionCookie;
     const resp = await fetch(`${this.base}${path}`, {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
+    const accessCookie = resp.headers.getSetCookie().find((c) => c.startsWith('accessToken='));
+    if (accessCookie) this.sessionCookie = accessCookie.split(';')[0];
     const text = await resp.text();
     let data = null;
     if (text) {
@@ -170,17 +188,37 @@ class ApiClient {
   }
 
   async login(email, password) {
-    const data = await this.post('/auth/signin', { email, password }, { auth: false });
-    this.#absorb(data);
+    const { login, mfa } = await this.post('/auth/signin', { email, password }, { auth: false });
+    if (mfa) {
+      throw new Error(
+        `${email} has multi-factor authentication on, so this script cannot sign in with a ` +
+          'password. Create a token in the organization to seed (Account settings → API ' +
+          'tokens) and pass it in MS_SEED_TOKEN.',
+      );
+    }
+    this.#absorb(login);
+  }
+  async useToken(token) {
+    this.token = token;
+    this.#absorb(await this.get('/auth/session'));
   }
   async selectOrg(orgId) {
     const data = await this.post(`/orgs/${orgId}/select`, {});
     this.#absorb(data);
   }
+  // Only the session can switch organization or issue a token, and a token stays in the
+  // organization it was issued in, so this comes after selectOrg.
+  async issueToken() {
+    const { token } = await this.post('/me/api-tokens', {
+      name: `seed-backend-data-${STAMP}`,
+      expiresInDays: 1,
+    });
+    this.token = token;
+    this.sessionCookie = null;
+  }
   #absorb(data) {
-    this.token = data.token ?? this.token;
-    this.userId = data.user_id ?? this.userId;
-    this.orgId = data.org_id ?? this.orgId;
+    this.userId = data.userId ?? this.userId;
+    this.orgId = data.orgId ?? this.orgId;
   }
 }
 
@@ -285,70 +323,6 @@ const STREAM_SCHEMAS = {
       field('http.status_code', 'int64'),
     ],
   },
-  rum_sessions: {
-    fields: [
-      field('session_id', 'utf8', true),
-      field('user_id', 'utf8'),
-      field('ip_address', 'utf8'),
-      field('country', 'utf8'),
-      field('browser', 'utf8'),
-      field('application', 'utf8'),
-      field('environment', 'utf8'),
-      field('version', 'utf8'),
-      field('device', 'utf8'),
-      field('os', 'utf8'),
-      field('last_page', 'utf8'),
-      field('duration_ms', 'float64'),
-      field('error_count', 'int64'),
-      field('started_at_micros', 'int64'),
-      field('timestamp', 'int64'),
-    ],
-  },
-  rum_actions: {
-    fields: [
-      field('session_id', 'utf8', true),
-      field('ts_micros', 'int64'),
-      field('type', 'utf8', true),
-      field('name', 'utf8'),
-      field('page', 'utf8'),
-      field('application', 'utf8'),
-      field('environment', 'utf8'),
-      field('version', 'utf8'),
-      field('country', 'utf8'),
-      field('browser', 'utf8'),
-      field('device', 'utf8'),
-      field('os', 'utf8'),
-      field('url', 'utf8'),
-      field('duration_ms', 'float64'),
-      field('status', 'int64'),
-      field('lcp_ms', 'float64'),
-      field('fid_ms', 'float64'),
-      field('cls', 'float64'),
-      field('ttfb_ms', 'float64'),
-      field('payload', 'json'),
-      field('timestamp', 'int64'),
-      // RUM ↔ backend trace 跨信号 handle。
-      // RUM SDK fetch/XHR interceptor 解 W3C traceparent 后写入这 3 列。
-      field('service', 'utf8', true),
-      field('trace_id', 'utf8', true),
-      field('parent_span_id', 'utf8'),
-    ],
-  },
-  rum_errors: {
-    fields: [
-      field('session_id', 'utf8', true),
-      field('user_id', 'utf8'),
-      field('fingerprint', 'utf8', true),
-      field('message', 'utf8', true),
-      field('application', 'utf8'),
-      field('environment', 'utf8'),
-      field('version', 'utf8'),
-      field('page', 'utf8'),
-      field('error_type', 'utf8'),
-      field('error', 'json'),
-      field('timestamp', 'int64'),
-    ],
-  },
   app_logs_enriched: {
     fields: [
       field('level', 'utf8'),
@@ -383,9 +357,6 @@ const STREAM_DEFS = [
   ['traces', 'traces'],
   ['topology_traces', 'traces'],
   ['traces_enriched', 'traces'],
-  ['rum_sessions', 'logs'],
-  ['rum_actions', 'logs'],
-  ['rum_errors', 'logs'],
   ['app_logs_enriched', 'logs'],
 ];
 
@@ -406,12 +377,12 @@ function seedStreams(orgId) {
       ${sqlString(name)}, ${sqlString(orgId)},
       ${sqlString(name)}, ${sqlString(st)},
       ${jsonSql(schema)}, ${jsonSql({ days: 30 })},
-      ${NOW_US}, ${NOW_US}
+      ${timestampSql(NOW_US)}, ${timestampSql(NOW_US)}
     )`;
   });
   psql(`
     INSERT INTO logical_streams
-      (id, org_id, name, stream_type, schema, retention, created_at_micros, updated_at_micros)
+      (id, org_id, name, stream_type, schema, retention, created_at, updated_at)
     VALUES ${rows.join(',\n')}
     ON CONFLICT (id) DO UPDATE
       SET schema = EXCLUDED.schema,
@@ -419,14 +390,16 @@ function seedStreams(orgId) {
           org_id = EXCLUDED.org_id,
           name = EXCLUDED.name,
           stream_type = EXCLUDED.stream_type,
-          updated_at_micros = EXCLUDED.updated_at_micros;
+          updated_at = EXCLUDED.updated_at;
   `);
   return `streams: upserted ${rows.length} (${STREAM_DEFS.map(([n]) => n).join(', ')})`;
 }
 
 // ---------- Data generators ----------
 
-const traceId = (idx) => `trace_seed_${STAMP}_${idx}`;
+// Lower-case hex, the shape of a W3C trace id, so that a RUM resource can name the trace it joined.
+const traceId = (idx) =>
+  createHash('sha256').update(`trace_seed_${STAMP}_${idx}`).digest('hex').slice(0, 32);
 
 function makeLogs() {
   const services = ['gateway', 'checkout', 'payments', 'inventory'];
@@ -728,7 +701,16 @@ async function seedProfiles(api) {
 
 // ---------- Seed: RUM ----------
 
+const RUM_APPLICATION = { id: 'checkout-web', name: 'Checkout web' };
+
 async function seedRum(api) {
+  const transport = {
+    get: (path) => api.get(path),
+    post: (path, body, headers) => api.request('POST', path, body, { headers }),
+  };
+  await registerRumApplication(transport, RUM_APPLICATION);
+
+  const origin = 'https://checkout.example.com';
   const journeys = [
     ['/', '/products', '/checkout'],
     ['/', '/search', '/product/sku-104'],
@@ -737,217 +719,85 @@ async function seedRum(api) {
     ['/', '/products', '/product/sku-316', '/checkout'],
     ['/search', '/product/sku-104'],
   ];
-  const browsers = ['Chrome', 'Safari', 'Chrome', 'Edge'];
-  const countries = ['US', 'DE', 'BR', 'JP'];
-  const ipAddresses = [
-    '203.0.113.42',
-    '198.51.100.18',
-    '192.0.2.73',
-    '203.0.113.91',
-  ];
+  const desktop = [CLIENTS[0], CLIENTS[5], CLIENTS[1], CLIENTS[3]];
+  const mobile = CLIENTS[2];
+  const ipAddresses = ['203.0.113.42', '198.51.100.18', '192.0.2.73', '203.0.113.91'];
   const versions = ['v2.4.1', 'v2.4.1', 'v2.4.0', 'v2.3.9'];
-  const sessions = Array.from({ length: 12 }, (_, i) => {
-    const started = NOW_US - (i + 1) * 210_000_000;
-    const journey = journeys[i % journeys.length];
-    const errorCount = i === 2 || i === 6 || i === 10 ? (i === 2 ? 2 : 1) : 0;
-    return {
-      timestamp: started,
-      session_id: `rum_seed_${STAMP}_${i}`,
-      user_id: `user-${200 + i}`,
-      ip_address: ipAddresses[i % ipAddresses.length],
-      country: countries[i % countries.length],
-      browser: browsers[i % browsers.length],
-      application: 'checkout-web',
-      environment: i === 11 ? 'staging' : 'production',
-      version: versions[i % versions.length],
-      device: i % 5 === 0 ? 'mobile' : 'desktop',
-      os: i % 5 === 0 ? 'iOS' : i % 2 === 0 ? 'macOS' : 'Windows',
-      last_page: journey[journey.length - 1],
-      duration_ms: 92_000 + i * 14_000,
-      error_count: errorCount,
-      started_at_micros: started,
-    };
+  const paymentTimeout = (type) => ({
+    type,
+    message: 'Payment provider timeout',
+    fingerprint: `rum-error-${STAMP}-payment-timeout`,
+    frames: [
+      { file: 'checkout.js', function: 'submitPayment', line: 42, column: 17 },
+      { file: 'api.js', function: 'post', line: 12, column: 3 },
+    ],
   });
-  const actions = sessions.flatMap((session, i) => {
-    const journey = journeys[i % journeys.length];
-    const common = {
-      application: session.application,
-      environment: session.environment,
-      version: session.version,
-      country: session.country,
-      browser: session.browser,
-      device: session.device,
-      os: session.os,
-    };
-    const views = journey.map((page, pageIndex) => {
-      const checkoutPenalty = page === '/checkout' ? 1_100 : 0;
-      const safariPenalty = session.browser === 'Safari' ? 650 : 0;
-      const badReleasePenalty = session.version === 'v2.4.1' && i % 3 === 2 ? 1_800 : 0;
-      return {
-        ...common,
-        timestamp: session.started_at_micros + (pageIndex * 12 + 1) * 1_000_000,
-        session_id: session.session_id,
-        ts_micros: session.started_at_micros + (pageIndex * 12 + 1) * 1_000_000,
-        type: 'view',
-        name: `View ${page}`,
-        page,
-        lcp_ms: 1_350 + i * 80 + checkoutPenalty + safariPenalty + badReleasePenalty,
-        fid_ms: 28 + i * 3 + (session.device === 'mobile' ? 68 : 0),
-        cls: Number((0.018 + i * 0.006 + (page === '/checkout' ? 0.025 : 0)).toFixed(3)),
-        ttfb_ms: 110 + i * 22 + (session.country === 'BR' ? 480 : 0),
-        payload: {
-          path: page,
-          application: session.application,
-          environment: session.environment,
-          version: session.version,
-          browser: session.browser,
-          country: session.country,
-          device: session.device,
-        },
-        service: 'gateway',
-      };
-    });
-    const finalPage = journey[journey.length - 1];
-    const interactionType =
-      i === 1 || i === 5 ? 'rage_click' : i === 7 ? 'dead_click' : i === 10 ? 'crash' : 'click';
-    const interaction = {
-      ...common,
-      timestamp: session.started_at_micros + 48_000_000,
-      session_id: session.session_id,
-      ts_micros: session.started_at_micros + 48_000_000,
-      type: interactionType,
-      name:
-        interactionType === 'rage_click'
-          ? 'Repeated payment button click'
-          : interactionType === 'dead_click'
-            ? 'Unresponsive coupon control'
-            : interactionType === 'crash'
-              ? 'Checkout page crashed'
-              : 'Continue checkout',
-      page: finalPage,
-      payload: {
-        path: finalPage,
-        selector:
-          interactionType === 'dead_click' ? '#coupon-toggle' : '#checkout-primary-action',
-      },
-      service: 'gateway',
-    };
-    const failed = i === 2 || i === 6 || i === 10;
-    const resource = {
-      ...common,
-      timestamp: session.started_at_micros + 52_000_000,
-      session_id: session.session_id,
-      ts_micros: session.started_at_micros + 52_000_000,
-      type: 'resource',
-      name: 'POST /api/checkout',
-      page: finalPage,
-      url: '/api/checkout',
-      duration_ms: i === 4 || i === 8 ? 1_450 + i * 90 : 180 + i * 35,
-      status: failed ? (i === 6 ? 504 : 500) : 200,
-      payload: { method: 'POST', path: finalPage },
-      // 关联到 makeTraces 生成的 6 条 trace（trace_seed_<stamp>_0..5）。
-      service: 'gateway',
-      trace_id: traceId(i % 6),
-      parent_span_id: `span_${i % 6}_0`,
-    };
-    return [...views, interaction, resource];
-  });
-  const errors = [
-    {
-      timestamp: NOW_US - 300_000_000,
-      session_id: sessions[2].session_id,
-      user_id: sessions[2].user_id,
-      application: sessions[2].application,
-      environment: sessions[2].environment,
-      version: sessions[2].version,
-      page: '/checkout',
-      error_type: 'NetworkError',
-      fingerprint: `rum-error-${STAMP}-payment-timeout`,
-      message: 'Payment provider timeout',
-      error: {
-        stack: [
-          { file: 'checkout.js', function: 'submitPayment', line: 42, column: 17 },
-          { file: 'api.js', function: 'post', line: 12, column: 3 },
-        ],
-      },
-    },
-    {
-      timestamp: NOW_US - 720_000_000,
-      session_id: sessions[6].session_id,
-      user_id: sessions[6].user_id,
-      application: sessions[6].application,
-      environment: sessions[6].environment,
-      version: sessions[6].version,
-      page: '/checkout',
-      error_type: 'GatewayTimeout',
-      fingerprint: `rum-error-${STAMP}-payment-timeout`,
-      message: 'Payment provider timeout',
-      error: {
-        stack: [
-          { file: 'checkout.js', function: 'submitPayment', line: 42, column: 17 },
-          { file: 'api.js', function: 'post', line: 12, column: 3 },
-        ],
-      },
-    },
-    {
-      timestamp: NOW_US - 1_020_000_000,
-      session_id: sessions[10].session_id,
-      user_id: sessions[10].user_id,
-      application: sessions[10].application,
-      environment: sessions[10].environment,
-      version: sessions[10].version,
-      page: sessions[10].last_page,
-      error_type: 'TypeError',
-      fingerprint: `rum-error-${STAMP}-undefined-total`,
+  // The sessions that fail, by what failed.
+  const failures = {
+    2: paymentTimeout('NetworkError'),
+    6: paymentTimeout('GatewayTimeout'),
+    10: {
+      type: 'TypeError',
       message: 'TypeError: cannot read total of undefined',
-      error: {
-        stack: [
-          { file: 'cart.js', function: 'calculateTotal', line: 86, column: 9 },
-          { file: 'checkout.js', function: 'renderSummary', line: 28, column: 4 },
-        ],
-      },
+      fingerprint: `rum-error-${STAMP}-undefined-total`,
+      frames: [
+        { file: 'cart.js', function: 'calculateTotal', line: 86, column: 9 },
+        { file: 'checkout.js', function: 'renderSummary', line: 28, column: 4 },
+      ],
     },
-  ];
+  };
 
-  await api.post('/rum/sessions', sessions);
-  await api.post('/rum/actions', actions);
-  await api.post('/rum/errors', errors);
-  for (const [i, session] of sessions.entries()) {
+  let events = 0;
+  let errors = 0;
+
+  for (let i = 0; i < 12; i += 1) {
     const journey = journeys[i % journeys.length];
-    const replayStart = Math.floor(session.started_at_micros / 1_000);
-    const interaction =
-      i === 1 || i === 5
-        ? 'rage_click'
-        : i === 7
-          ? 'dead_click'
-          : i === 10
-            ? 'crash'
-            : 'click';
-    const events = buildRrwebReplay({
-      startMs: replayStart,
-      origin: 'https://checkout.example.com',
+    const client = i % 5 === 0 ? mobile : desktop[i % desktop.length];
+    const version = versions[i % versions.length];
+    const failure = failures[i];
+    // One of the six traces makeTraces writes, the one this request joined.
+    const trace = traceId(i % 6);
+    const sent = await sendRumSession(transport, {
+      application: RUM_APPLICATION.id,
+      service: RUM_APPLICATION.id,
+      env: i === 11 ? 'staging' : 'production',
+      version,
+      origin,
+      sessionId: `rum_seed_${STAMP}_${i}`,
+      userId: `user-${200 + i}`,
+      startedMs: NOW_MS - (i + 1) * 210_000,
+      client,
+      ip: ipAddresses[i % ipAddresses.length],
       journey,
-      interaction,
-      errorLabel:
-        session.error_count > 0
-          ? i === 6
-            ? 'POST /api/checkout · 504'
-            : 'POST /api/checkout · 500'
-          : undefined,
-      viewport:
-        session.device === 'mobile'
-          ? { width: 390, height: 844 }
-          : { width: 1440, height: 900 },
+      metrics: (page) => {
+        const checkout = page === '/checkout';
+        const safari = client.name.startsWith('Safari') ? 650 : 0;
+        const badRelease = version === 'v2.4.1' && i % 3 === 2 ? 1_800 : 0;
+
+        return {
+          lcp: 1_350 + i * 80 + (checkout ? 1_100 : 0) + safari + badRelease,
+          inp: 28 + i * 3 + (client === mobile ? 68 : 0),
+          cls: Number((0.018 + i * 0.006 + (checkout ? 0.025 : 0)).toFixed(3)),
+          ttfb: 110 + i * 22,
+        };
+      },
+      interaction: i === 1 || i === 5 ? 'rage_click' : i === 7 ? 'dead_click' : 'click',
+      request: {
+        method: 'POST',
+        path: '/api/checkout',
+        status: failure ? (i === 6 ? 504 : 500) : 200,
+        durationMs: i === 4 || i === 8 ? 1_450 + i * 90 : 180 + i * 35,
+        trace: { traceId: trace, spanId: hexId(`${trace}-browser-fetch`) },
+      },
+      errors: failure ? [failure] : [],
+      replay: true,
     });
-    await api.post('/rum/replay', {
-      application: session.application,
-      session_id: session.session_id,
-      seq: 1,
-      events,
-    });
+
+    events += sent.length;
+    errors += sent.filter((event) => event.type === 'error').length;
   }
 
-  return [`rum: ${sessions.length} sessions, ${actions.length} actions, ${errors.length} errors, ${sessions.length} replay payloads`];
+  return [`rum: 12 sessions, ${events} events (${errors} errors), 12 replay payloads`];
 }
 
 // ---------- Seed: service graph ----------
@@ -963,11 +813,11 @@ function seedServiceGraph(orgId) {
   const values = edges.map(([client, server, count, errs, p50, p95, p99], i) => `(
     ${sqlString(`seed-sg-${STAMP}-${i}`)}, ${sqlString(orgId)},
     ${sqlString(client)}, ${sqlString(server)},
-    ${bucket - i * 60_000_000}, ${count}, ${errs}, ${p50}, ${p95}, ${p99}
+    ${timestampSql(bucket - i * 60_000_000)}, ${count}, ${errs}, ${p50}, ${p95}, ${p99}
   )`);
   psql(`
     INSERT INTO service_graph_edges
-      (id, org_id, client_service, server_service, bucket_at_micros,
+      (id, org_id, client_service, server_service, bucket_at,
        request_count, error_count, p50_us, p95_us, p99_us)
     VALUES ${values.join(',\n')}
     ON CONFLICT (id) DO NOTHING;
@@ -982,12 +832,12 @@ async function seedControlPlane(api, { directDb = true } = {}) {
     name: `seed-escalation-${STAMP}`,
     steps: [
       {
-        targets: [{ kind: 'user', user_id: api.userId }],
-        ack_timeout_secs: 180,
+        targets: [{ kind: 'user', userId: api.userId }],
+        ackTimeoutSecs: 180,
       },
     ],
     repeat: true,
-    max_loops: 2,
+    maxLoops: 2,
   });
   await api.post('/alerts/rules', {
     name: `seed checkout error rate ${STAMP}`,
@@ -996,11 +846,11 @@ async function seedControlPlane(api, { directDb = true } = {}) {
     query: {
       language: 'sql',
       statement: "SELECT COUNT(*) FROM http_requests_total WHERE status = '500'",
-      period_secs: 300,
-      stream: { name: 'http_requests_total', stream_type: 'metrics' },
+      periodSecs: 300,
+      stream: { name: 'http_requests_total', streamType: 'metrics' },
     },
-    trigger: { operator: 'gt', threshold: 1, for_periods: 1, silence_secs: 300 },
-    escalation_policy_id: escalation.id,
+    trigger: { operator: 'gt', threshold: 1, forPeriods: 1, silenceSecs: 300 },
+    escalationPolicyId: escalation.id,
     labels: { severity: 'warning', service: 'checkout' },
     annotations: { runbook: 'https://example.com/runbooks/checkout-errors' },
   });
@@ -1016,25 +866,25 @@ async function seedControlPlane(api, { directDb = true } = {}) {
         name: 'primary',
         members: [api.userId],
         kind: 'daily',
-        start_at: NOW_US - 86_400_000_000,
+        startAt: NOW_US - 86_400_000_000,
       },
     ],
     overrides: [],
   });
   await api.post(`/schedules/${schedule.id}/overrides`, {
-    user_id: api.userId,
-    start_at_micros: NOW_US - 600_000_000,
-    end_at_micros: NOW_US + 600_000_000,
+    userId: api.userId,
+    startAt: NOW_US - 600_000_000,
+    endAt: NOW_US + 600_000_000,
     reason: 'Seeded QA override',
   });
 
   const notifyTeam = await api.post('/teams', {
     name: `seed notify responders ${STAMP}`,
-    member_ids: [api.userId],
+    memberIds: [api.userId],
   });
   const notifyConnector = await api.post('/notify/connectors', {
     name: `seed notify SMTP ${STAMP}`,
-    connector_type: 'email_smtp',
+    connectorType: 'email_smtp',
     config: {
       host: '127.0.0.1',
       port: 2525,
@@ -1042,30 +892,30 @@ async function seedControlPlane(api, { directDb = true } = {}) {
       password: `seed-notify-secret-${STAMP}`,
       from: 'molesignal@example.com',
       tls: 'none',
-      timeout_secs: 1,
+      timeoutSecs: 1,
     },
     enabled: true,
   });
   const notifyEndpoint = await api.post(`/users/${api.userId}/notify-endpoints`, {
-    connector_id: notifyConnector.id,
-    external_identity: `seed-owner-${STAMP}@example.com`,
-    display_name: 'Seed owner email',
+    connectorId: notifyConnector.id,
+    externalIdentity: `seed-owner-${STAMP}@example.com`,
+    displayName: 'Seed owner email',
     metadata: { source: 'seed_backend_data' },
     verified: true,
     enabled: true,
   });
   await api.put(`/users/${api.userId}/notify-preferences/alert`, {
     enabled: true,
-    endpoint_ids: [notifyEndpoint.id],
-    quiet_hours: null,
-    allow_critical_bypass: true,
+    endpointIds: [notifyEndpoint.id],
+    quietHours: null,
+    allowHighUrgencyBypass: true,
   });
   await api.put(`/notify/team-defaults/${notifyTeam.id}/alert`, {
     enabled: true,
     routes: [
       {
-        connector_id: notifyConnector.id,
-        target_type: 'fixed_address',
+        connectorId: notifyConnector.id,
+        targetType: 'fixed_address',
         target: `seed-team-${STAMP}@example.com`,
         order: 1,
       },
@@ -1075,8 +925,8 @@ async function seedControlPlane(api, { directDb = true } = {}) {
     enabled: true,
     routes: [
       {
-        connector_id: notifyConnector.id,
-        target_type: 'fixed_address',
+        connectorId: notifyConnector.id,
+        targetType: 'fixed_address',
         target: `seed-org-${STAMP}@example.com`,
         order: 1,
       },
@@ -1090,32 +940,32 @@ async function seedControlPlane(api, { directDb = true } = {}) {
   });
   await api.post('/notify/policies', {
     name: `seed alert routing ${STAMP}`,
-    event_type: 'alert.triggered',
+    eventType: 'alert.triggered',
     category: 'alert',
     matchers: { severity: 'warning' },
-    recipient_resolver: 'fixed_users',
-    resolver_config: {
-      user_ids: [api.userId],
-      team_id: notifyTeam.id,
+    recipientResolver: 'fixed_users',
+    resolverConfig: {
+      userIds: [api.userId],
+      teamId: notifyTeam.id,
     },
-    delivery_mode: 'prefer_user',
-    delivery_config: { connector_ids: [] },
-    template_id: notifyTemplate.id,
-    fallback_config: {
-      use_user_fallbacks: true,
-      use_team_defaults: true,
-      use_organization_defaults: true,
+    deliveryMode: 'prefer_user',
+    deliveryConfig: { connectorIds: [] },
+    templateId: notifyTemplate.id,
+    fallbackConfig: {
+      useUserFallbacks: true,
+      useTeamDefaults: true,
+      useOrganizationDefaults: true,
     },
-    ack_timeout_seconds: 300,
-    escalation_config: {
-      recipient_resolver: 'current_oncall',
-      resolver_config: { schedule_id: schedule.id },
-      delivery_mode: 'prefer_user',
-      delivery_config: { connector_ids: [] },
-      fallback_config: {
-        use_user_fallbacks: true,
-        use_team_defaults: true,
-        use_organization_defaults: true,
+    ackTimeoutSeconds: 300,
+    escalationConfig: {
+      recipientResolver: 'current_oncall',
+      resolverConfig: { scheduleId: schedule.id },
+      deliveryMode: 'prefer_user',
+      deliveryConfig: { connectorIds: [] },
+      fallbackConfig: {
+        useUserFallbacks: true,
+        useTeamDefaults: true,
+        useOrganizationDefaults: true,
       },
     },
     enabled: true,
@@ -1126,21 +976,21 @@ async function seedControlPlane(api, { directDb = true } = {}) {
     name: `seed-normalize-level-${STAMP}`,
     language: 'vrl',
     source: '.level = upcase!(.level)\n.customer_tier = "pro"',
-    params_schema: {},
+    paramsSchema: {},
   });
   const extendTableName = `seed_customers_${STAMP}`;
   await api.post('/extend_tables', {
-    table_name: extendTableName,
+    tableName: extendTableName,
     description: 'Customer tier, region, and ownership enrichment',
-    key_field: 'customer_id',
-    value_fields: [
-      { name: 'tier', field_type: 'string', required: true, description: 'Customer plan tier' },
-      { name: 'region', field_type: 'string', required: true, description: 'Customer home region' },
-      { name: 'owner', field_type: 'string', required: true, description: 'Owning team' },
+    keyField: 'customer_id',
+    valueFields: [
+      { name: 'tier', fieldType: 'string', required: true, description: 'Customer plan tier' },
+      { name: 'region', fieldType: 'string', required: true, description: 'Customer home region' },
+      { name: 'owner', fieldType: 'string', required: true, description: 'Owning team' },
     ],
   });
   await api.put(`/extend_tables/${extendTableName}/rows/customer-1001`, {
-    value_json: { tier: 'pro', region: 'us-east-1', owner: 'platform' },
+    valueJson: { tier: 'pro', region: 'us-east-1', owner: 'platform' },
   });
   await api.post('/invitations', {
     email: `seed-invite-${STAMP}@example.com`,
@@ -1150,83 +1000,86 @@ async function seedControlPlane(api, { directDb = true } = {}) {
     name: `seed cloudwatch logs ${STAMP}`,
     kind: 'aws_cloudwatch_logs',
     enabled: false,
-    config_json: {
-      target_stream: 'app_logs',
-      log_group: '/aws/molesignal/seed',
+    configJson: {
+      targetStream: 'app_logs',
+      logGroup: '/aws/molesignal/seed',
       region: 'us-east-1',
-      access_key: 'seed-access-key',
-      secret_key: 'seed-secret-key',
+      accessKey: 'seed-access-key',
+      secretKey: 'seed-secret-key',
     },
   });
 
   const pipelines = [];
   const enrichPipeline = await api.post('/scheduled_pipelines', {
     name: `seed enrich app logs ${STAMP}`,
-    source_stream: 'app_logs',
-    target_stream: 'app_logs_enriched',
-    function_steps: [{ function_name: `seed-normalize-level-${STAMP}` }],
+    sourceStream: 'app_logs',
+    targetStream: 'app_logs_enriched',
+    functionSteps: [{ transformName: `seed-normalize-level-${STAMP}` }],
     cron: 'every:5m',
-    lookback_secs: 900,
+    lookbackSecs: 900,
     enabled: true,
   });
   pipelines.push(enrichPipeline);
   pipelines.push(
     await api.post('/scheduled_pipelines', {
       name: `seed metrics rollup ${STAMP}`,
-      source_stream: 'http_requests_total',
-      target_stream: 'http_requests_total_5m',
-      function_steps: {
+      sourceStream: 'http_requests_total',
+      targetStream: 'http_requests_total_5m',
+      functionSteps: {
         language: 'vrl',
-        signal_type: 'metrics',
+        signalType: 'metrics',
         sources: ['http_requests_total'],
         sinks: ['http_requests_total_5m'],
         script: '.window = "5m"\n.rollup = "rate"',
-        retry_policy: 'exponential',
       },
       cron: 'every:1m',
-      lookback_secs: 300,
+      lookbackSecs: 300,
       enabled: true,
     }),
   );
   pipelines.push(
     await api.post('/scheduled_pipelines', {
       name: `seed trace normalize ${STAMP}`,
-      source_stream: 'traces',
-      target_stream: 'traces_enriched',
-      function_steps: {
+      sourceStream: 'traces',
+      targetStream: 'traces_enriched',
+      functionSteps: {
         language: 'vrl',
-        signal_type: 'traces',
+        signalType: 'traces',
         sources: ['traces'],
         sinks: ['traces_enriched'],
         script: '.attributes.seeded = true\n.attributes.owner = "platform"',
-        retry_policy: 'fixed',
       },
       cron: 'every:10m',
-      lookback_secs: 1800,
+      lookbackSecs: 1800,
       enabled: true,
     }),
   );
   await api.post(`/scheduled_pipelines/${enrichPipeline.id}/backfill`, {
-    start_micros: NOW_US - 900_000_000,
-    end_micros: NOW_US,
+    startTime: NOW_US - 900_000_000,
+    endTime: NOW_US,
   });
   if (directDb) {
     seedPipelineRuns(api.orgId, pipelines);
   }
 
+  const roles = await api.get('/roles');
+  const provisioned = await api.post('/service-accounts', {
+    name: `seed readonly ${STAMP}`,
+    roleId: roles.find((role) => role.key === 'viewer').id,
+  });
   await api.post('/auth/tokens', {
     name: `seed readonly token ${STAMP}`,
-    role: 'viewer',
-    expires_in_days: 30,
+    serviceAccountId: provisioned.serviceAccount.id,
+    expiresInDays: 30,
   });
   await api.post('/users', {
     email: `seed-user-${STAMP}@example.com`,
-    display_name: `Seed User ${STAMP}`,
+    displayName: `Seed User ${STAMP}`,
     password: `Seed-${STAMP}-password`,
   });
 
   await api.post('/dashboards', {
-    folder_id: null,
+    folderId: null,
     model: {
       engine: 'molesignal-dashboard',
       id: '',
@@ -1327,7 +1180,7 @@ async function seedControlPlane(api, { directDb = true } = {}) {
   return [
     'control-plane: alert escalation/rule, schedule + override, function, ' +
       'extend table row, invitation, connector, 3 scheduled pipelines + backfill, ' +
-      'pipeline runs, api token, user, dashboard, notify connector/endpoint/preference, ' +
+      'pipeline runs, service account + api token, user, dashboard, notify connector/endpoint/preference, ' +
       'team + organization fallback, template, and policy',
   ];
 }
@@ -1340,7 +1193,7 @@ function seedPipelineRuns(orgId, pipelines) {
       const started = NOW_US - (pIdx * 30 + i * 7 + 3) * 60_000_000;
       const running = states[i] === 'running';
       const failed = states[i] === 'failed';
-      const finished = running ? 'NULL' : String(started + (18 + i * 3) * 1_000_000);
+      const finished = running ? 'NULL' : timestampSql(started + (18 + i * 3) * 1_000_000);
       const scanned = failed ? 0 : 1200 + pIdx * 430 + i * 125;
       const err = failed ? sqlString('seeded transform error: missing customer_tier') : 'NULL';
       rows.push(`(
@@ -1348,7 +1201,7 @@ function seedPipelineRuns(orgId, pipelines) {
         ${sqlString(pipeline.id)},
         ${sqlString(orgId)},
         ${sqlString(states[i])},
-        ${started},
+        ${timestampSql(started)},
         ${finished},
         ${scanned},
         ${err}
@@ -1358,13 +1211,13 @@ function seedPipelineRuns(orgId, pipelines) {
   const idsIn = pipelines.map((p) => sqlString(p.id)).join(', ');
   psql(`
     INSERT INTO pipeline_runs
-      (id, pipeline_id, org_id, state, started_at_micros, finished_at_micros, scanned_rows, error)
+      (id, pipeline_id, org_id, state, started_at, finished_at, scanned_rows, error)
     VALUES ${rows.join(',\n')}
     ON CONFLICT (id) DO NOTHING;
 
     UPDATE scheduled_pipelines
-       SET last_run_at_micros = ${NOW_US - 60_000_000},
-           updated_at_micros = ${NOW_US}
+       SET last_run_at = ${timestampSql(NOW_US - 60_000_000)},
+           updated_at = ${timestampSql(NOW_US)}
      WHERE org_id = ${sqlString(orgId)}
        AND id IN (${idsIn});
   `);
@@ -1377,20 +1230,20 @@ async function verify(api, { directDb = true } = {}) {
   const checks = [];
 
   const logQuery = await api.post('/query', {
-    org_id: api.orgId,
+    orgId: api.orgId,
     language: 'sql',
     statement: 'SELECT level, service, message, trace_id FROM app_logs ORDER BY _timestamp DESC LIMIT 5',
-    time_range: timeRange,
-    stream: { name: 'app_logs', stream_type: 'logs' },
+    timeRange,
+    stream: { name: 'app_logs', streamType: 'logs' },
     limit: 5,
   });
   checks.push(['app_logs query rows', logQuery.rows?.length ?? 0]);
 
   const metricQuery = await api.post('/query', {
-    org_id: api.orgId,
+    orgId: api.orgId,
     language: 'promql',
     statement: 'rate(http_requests_total[5m])',
-    time_range: timeRange,
+    timeRange,
     limit: 20,
   });
   checks.push(['promql rows', metricQuery.rows?.length ?? 0]);
@@ -1432,12 +1285,18 @@ async function verify(api, { directDb = true } = {}) {
 
 async function main() {
   const api = new ApiClient(API_BASE);
-  await api.login(LOGIN_EMAIL, LOGIN_PASSWORD);
-  const orgs = await api.get('/orgs');
-  const defaultOrg =
-    orgs.find((o) => o.slug === 'default' || o.name === 'default') ?? orgs[0];
-  if (defaultOrg && defaultOrg.id !== api.orgId) {
-    await api.selectOrg(defaultOrg.id);
+  if (API_TOKEN) {
+    await api.useToken(API_TOKEN);
+  } else {
+    await api.login(LOGIN_EMAIL, LOGIN_PASSWORD);
+    const orgs = await api.get('/orgs');
+    const defaultOrg =
+      orgs.find((o) => o.slug === 'default' || o.name === 'default') ??
+      orgs.find((o) => !o.system);
+    if (defaultOrg && defaultOrg.id !== api.orgId) {
+      await api.selectOrg(defaultOrg.id);
+    }
+    await api.issueToken();
   }
 
   if (ARGS.has('--topology-only')) {
@@ -1463,7 +1322,7 @@ async function main() {
     const linkedTraces = makeTraces();
     await api.post('/intake/traces/traces', linkedTraces);
     const created = [
-      `traces: ${linkedTraces.length} spans linked from RUM actions`,
+      `traces: ${linkedTraces.length} spans linked from RUM resources`,
       ...(await seedRum(api)),
     ];
     console.log(
@@ -1474,7 +1333,7 @@ async function main() {
           org_id: api.orgId,
           created,
           note:
-            'Fresh RUM sessions, actions, errors, Web Vitals, replay payloads, and their linked traces only.',
+            'Fresh RUM sessions, their views, actions, resources and errors, replay payloads, and their linked traces only.',
         },
         null,
         2,

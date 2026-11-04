@@ -1,0 +1,1 @@
+这张图是仓库中真实日志页面的前端截图，显示字段筛选、时间分布、级别、服务以及trace_id等调查入口。界面保留原始英文，数据来自Playwright测试fixture，不能当作客户流量、生产性能或收入证明。核心设计是保留查询和时间上下文，以便继续调查。截图来源：web/playwright/tests/05-visual.spec.ts-snapshots/logs-light-comfortable-chromium-darwin.png；测试用例明确使用mock backend。

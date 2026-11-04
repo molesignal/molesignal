@@ -1,5 +1,3 @@
-@import './fonts.css';
-
 /*
  * The cool-indigo default palette is the shipped palette. The [data-palette]
  * selector leaves room for future expansion.
@@ -39,26 +37,46 @@
 
   /* Workbench depth: canvas gutters separate functional surfaces. */
   --app-header-surface:       var(--bg-1);
-  --sidebar-surface:          #0b0e17;
+  --sidebar-surface:          #0c0e13;
   --page-canvas:              var(--bg-0);
   --functional-surface:       var(--bg-1);
-  --control-surface:          var(--control-surface-default);
-  --control-surface-default:  var(--bg-2);
-  /* On a raised panel (bg-2/3 or a floating surface) a field is the same step as
-     the panel, so it sinks to the card color instead: an inset well. */
-  --control-surface-on-muted: var(--bg-1);
-  --control-surface-on-floating: var(--bg-1);
+  /* A field's fill is a veil of light over whatever it stands on, so it reads alike on a
+     card, a gray panel and a floating surface; its edge is a ring of shadow (polish/edges.css). */
+  --control-surface:          rgba(255, 255, 255, 0.035);
   --floating-surface:         var(--bg-2);
   --floating-item-hover:      var(--bg-3);
   --floating-item-emphasis:   var(--bg-3);
-  --workspace-selection-fill: #282d3f;
-  --floating-item-selected:   rgba(120, 133, 239, 0.12);
-  /* A hairline edge plus a soft, long shadow: a card reads as a surface lifted
-     off the canvas, not a block that merely has a different fill. */
+  --workspace-selection-fill: #2a2e35;
+  --floating-item-selected:   rgba(104, 160, 235, 0.12);
+  /* The current entry of a menu (the sidebar, the settings menus): a fill and the brand's
+     words; a row under the pointer takes a lighter fill than the current one. */
+  --nav-current-surface:      var(--indigo-dim);
+  --nav-current-ink:          var(--indigo-soft);
+  --nav-hover-surface:        var(--bg-3);
+  --nav-ink:                  var(--tx-1);
+  --nav-hover-ink:            var(--tx-0);
+  /* A title's words (see the rule over the product face). */
+  --title-ink:                var(--tx-0);
+  /* The head of a table: a band a step off the panel, its words dark at the title weight. */
+  --table-head-surface:       var(--bg-2);
+  /* A hint in an empty field, a step under the labels and still 3:1 on a hovered field;
+     the words of a control that is disabled. */
+  --placeholder:              #757982;
+  /* A shortcut shown inside a control that already says what it does: the faintest words that
+     still read at AA, 4.6:1 on a field over the top bar. */
+  --shortcut-hint:            #83878f;
+  --tx-disabled:              #55595f;
+  /* The rule between the rows of a list, fainter than the one under its head:
+     on dark the quiet divider already is. */
+  --row-rule:                 var(--bd-0);
+  /* A card has no edge drawn around it: it stands off the canvas by its tone, a step of a few
+     points in lightness, and a soft shadow under it. On dark a shadow hardly shows, so a faint
+     light on its top edge does the work a ring did. Kept faint: one heavy drop shadow under
+     every card stacked the page into blocks. */
   --shadow-functional-surface:
-    0 0 0 1px rgba(255, 255, 255, 0.045),
-    0 1px 2px rgba(0, 0, 0, 0.32),
-    0 8px 22px -12px rgba(0, 0, 0, 0.55);
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 6px 16px -8px rgba(0, 0, 0, 0.5);
 
   /* primary = brand indigo */
   --primary:         var(--indigo);
@@ -74,11 +92,11 @@
 
   --red-bg:          var(--red-dim);
   --red-muted:       var(--red-soft);
-  --red-fg:          #0d101a;
+  --red-fg:          #0e1115;
 
   --green-bg:        var(--green-dim);
   --green-muted:     var(--green-soft);
-  --green-fg:        #ffffff;
+  --green-fg:        #0e1115;
 
   --yellow-bg:       var(--yellow-dim);
   --yellow-muted:    var(--yellow-soft);
@@ -120,29 +138,41 @@
   --orange-fg:   #ffffff;
 
   --app-header-surface:       #ffffff;
-  --sidebar-surface:          #f1f3f7;
+  /* White, as the console's: the current entry's pale fill (#eff3f8) has to show on it. */
+  --sidebar-surface:          #ffffff;
   --page-canvas:              #f5f6f8;
   --functional-surface:       #ffffff;
-  /* Fields have no border, so the fill is their only edge. It has to read on the
-     page canvas (#f5f6f8, 1.09:1) as well as on white cards (1.17:1) — the old
-     #f6f7f9 was 1.01:1 on the canvas, i.e. invisible once forms left their
-     cards — while hover/focus (--bg-3) stays a distinct step darker. */
-  --control-surface:          var(--control-surface-default);
-  --control-surface-default:  #eaedf3;
-  /* A field on a gray panel (bg-bg-2 / bg-bg-3) is the same gray as the panel,
-     so it takes the next step up: a white well. Floating surfaces are already
-     white, so their fields keep the default. */
-  --control-surface-on-muted: #ffffff;
-  --control-surface-on-floating: var(--control-surface-default);
+  /* A field is white wherever it stands: its edge is a ring of shadow (polish/edges.css),
+     which reads on white cards, the canvas and gray panels alike. */
+  --control-surface:          #ffffff;
   --floating-surface:         #ffffff;
   --floating-item-hover:      #f5f6f8;
   --floating-item-emphasis:   var(--bg-3);
   --workspace-selection-fill: #dde0ea;
-  --floating-item-selected:   rgba(55, 66, 199, 0.06);
+  --floating-item-selected:   rgba(0, 100, 200, 0.06);
+  /* Menus and titles in black, as all text on light; the current menu entry in the brand's
+     blue, its icon too, whether the sidebar is folded or open. It and the entry under the
+     pointer stand on Ant Design Pro's faint fills (4% and 3% black, flattened on the white
+     they sit on). */
+  --nav-current-surface:      #f5f5f5;
+  --nav-current-ink:          var(--indigo);
+  --nav-hover-surface:        #f7f7f7;
+  --nav-ink:                  #000000;
+  --nav-hover-ink:            #000000;
+  --title-ink:                #000000;
+  /* A table's head is a band 1.5 points under the white it heads, not a stripe of its own. */
+  --table-head-surface:       #f7f8fa;
+  /* A hint a step under the labels: 3.8:1 on white, 3.1:1 on a hovered field. */
+  --placeholder:              #828282;
+  /* The faintest words that still read at AA: 4.5:1 on a white field. */
+  --shortcut-hint:            #767676;
+  --tx-disabled:              var(--tx-4);
+  --row-rule:                 rgba(19, 24, 37, 0.045);
+  /* White on the #f5f6f8 canvas is 2.7 points of lightness: that step and a soft shadow
+     under it are the card's whole edge. */
   --shadow-functional-surface:
-    0 0 0 1px rgba(19, 24, 37, 0.05),
-    0 1px 2px rgba(19, 24, 37, 0.05),
-    0 6px 18px -10px rgba(19, 24, 37, 0.1);
+    0 1px 2px rgba(19, 24, 37, 0.04),
+    0 6px 16px -8px rgba(19, 24, 37, 0.08);
 
   --overlay:         rgba(19, 24, 37, 0.50);
   --overlay-soft:    rgba(19, 24, 37, 0.20);
@@ -156,17 +186,15 @@
   --shadow-login:    0 20px 60px rgba(19, 24, 37, 0.12);
 }
 
-/* Both workspace selectors share a dedicated, visibly distinct selection fill.
- * Keep it outside Tailwind so portal state cannot lose it through generated
- * class precedence. */
+/* The organization the reader is in takes a dedicated, visibly distinct fill in
+ * the switcher's list. Keep it outside Tailwind so portal state cannot lose it
+ * through generated class precedence. */
 [data-ui='workspace-option'][data-state='checked'] {
   background-color: var(--workspace-selection-fill) !important;
   box-shadow: none !important;
 }
 
-[data-ui='user-menu'],
-[data-ui='workspace-switcher-menu'],
-[data-ui='workspace-switcher-trigger'] {
+[data-ui='user-menu'] {
   box-shadow: none !important;
 }
 
@@ -189,8 +217,85 @@
 
 .auth-primary-button:disabled {
   background: var(--bg-3);
-  color: var(--tx-3);
+  color: var(--tx-disabled);
   filter: none;
+}
+
+/* The product face, by weight. Text, data and menus (400) are Alibaba Sans Regular for
+ * Latin, Greek and Cyrillic (W1G), their Chinese PuHuiTi 3.0 Regular from the next family
+ * in --font-sans. Buttons, labels and table heads (500) are PuHuiTi 3.0 Regular, Latin
+ * included. Titles (600) are set as Ant Design Pro sets them, Latin in Alibaba Sans Bold,
+ * with their Chinese in PuHuiTi 3.0 SemiBold from the next family. The two share their
+ * metrics (x-height 540, cap height 694 per 1000) and tabular figures by default. The
+ * PuHuiTi files are subsets (fonts/README.md); a character outside them falls through to
+ * the platform's Chinese face. */
+@font-face {
+  font-family: 'MoleSignal Sans';
+  src: url('./fonts/alibaba-sans-regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'MoleSignal Sans';
+  src: url('./fonts/alibaba-puhuiti-3-regular.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'MoleSignal Sans';
+  src: url('./fonts/alibaba-sans-bold.woff2') format('woff2');
+  font-weight: 600 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Alibaba PuHuiTi 3.0';
+  src: url('./fonts/alibaba-puhuiti-3-regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Alibaba PuHuiTi 3.0';
+  src: url('./fonts/alibaba-puhuiti-3-semibold.woff2') format('woff2');
+  font-weight: 600 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* A title in the body's colour takes the title ink (Ant Design Pro's 88% black on
+ * light). A title in a tone of its own keeps it. */
+.font-display.text-tx-0,
+.font-display-strong.text-tx-0 {
+  color: var(--title-ink);
+}
+
+/* The data face: Latin in one variable file (100–800); other scripts fall through the
+ * stack in --font-mono. Its metrics are Menlo's (x-height 0.55, advance 0.6 em), so a
+ * column is as wide whichever of the two draws it. */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('./fonts/jetbrains-mono-latin-wght-normal.woff2') format('woff2');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Data in the monospace face reads as it was written: the face's code ligatures would draw
+ * `!=` as one sign and `->` as an arrow. The code editors set their own. */
+.font-mono,
+code,
+kbd,
+samp,
+pre {
+  font-variant-ligatures: none;
 }
 
 /* layout sizing — chrome heights / sidebar widths / radii / motion */
@@ -215,29 +320,37 @@
   --panel-header-h:   44px;
   --page-pad:         24px;
 
-  /* type weight scale — body is Medium (500): PuHuiTi Regular is too thin at
-     12-13.5px on ordinary-density screens. Emphasis still has room above it:
-     600 for names and titles, 700 for display. */
-  --fw-body:           500;
-  --fw-strong:         600;
+  /* type weight scale — text, data and menus are 400; buttons, labels and
+     table heads 500, which the product face sets in PuHuiTi 3.0 Regular;
+     titles 600, Alibaba Sans Bold and PuHuiTi 3.0 SemiBold. Tailwind's weight
+     utilities resolve to these (tailwind.config.ts). Dark sets them a step
+     lighter (below). */
+  --fw-body:           400;
+  --fw-strong:         500;
   --fw-display:        600;
-  --fw-display-strong: 700;
+  --fw-display-strong: 600;
 
-  /* semantic type scale — stable across density modes */
-  --font-page-title:    22px;
+  /* semantic type scale — stable across density modes. Running text is 14px,
+     dense data (tables, logs, trace lists, field lists) 13px, supporting text
+     12px; each step's line height is in the role classes below and in
+     tailwind.config.ts. */
+  --font-page-title:    20px;
   --font-heading:       18px;   /* the title of a sub-page inside a card (Settings, Access, Account) */
-  --font-section-title: 16px;
+  --font-section-title: 16px;   /* the title of a card or a panel */
   --font-data:          13px;
-  --font-label:         12.5px;
+  --font-label:         13px;
   --font-caption:       12px;
   --font-micro:         11px;
-  --font-kpi:           32px;
-  --font-display:       28px;   /* a page verdict: a statement in a compact strip, not a banner */
+  --font-kpi:           30px;
+  --font-display:       24px;   /* a page verdict: a statement in a compact strip, not a banner */
 
-  --font-alibaba-puhuiti: 'Alibaba PuHuiTi 3.0', 'PingFang SC', 'Microsoft YaHei', ui-sans-serif, system-ui, sans-serif;
-  --font-sans: var(--font-alibaba-puhuiti);
-  --font-sidebar: var(--font-alibaba-puhuiti);
-  --font-mono: var(--font-alibaba-puhuiti);
+  /* Alibaba Sans for Latin and Alibaba PuHuiTi 3.0 for Chinese, by weight
+     (the faces above, served with the app), then the platform's faces. Code is JetBrains Mono, the code
+     editor's face (fonts/, SIL OFL): Chrome cannot reach SF Mono and fell to
+     Menlo. */
+  --font-sans: 'MoleSignal Sans', 'Alibaba PuHuiTi 3.0', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Helvetica Neue', Arial, sans-serif;
+  --font-sidebar: var(--font-sans);
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', 'Alibaba PuHuiTi 3.0', 'PingFang SC', 'Microsoft YaHei', monospace;
   --font-code: 'JetBrains Mono', 'SFMono-Regular', 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
 
   /* motion tokens — no bounce (Confident quiet) */
@@ -250,6 +363,27 @@
   --easing-default:    cubic-bezier(0.4, 0, 0.2, 1);
   --easing-in:         cubic-bezier(0.4, 0, 1, 1);
   --easing-out:        cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* Light words on a dark ground read a step heavier than the same weight on white, and the
+   platform's subpixel smoothing thickens them again. On dark, titles take 500 and buttons,
+   labels and table heads 400 (running text stays 400), smoothed in grey. Light keeps the
+   platform's smoothing: antialiased text read faint there. */
+[data-theme='dark'] {
+  --fw-strong:         400;
+  --fw-display:        500;
+  --fw-display-strong: 500;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* A light scope inside a dark page (the public status page) takes the light steps back. */
+[data-theme='dark'] [data-theme='light'] {
+  --fw-strong:         500;
+  --fw-display:        600;
+  --fw-display-strong: 600;
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
 }
 
 /* Home's On-call card is width-constrained by its grid column at 1280px. */
@@ -269,7 +403,7 @@
   --row-height: 36px;
   --row-pad-y:  8px;
   --row-pad-x:  12px;
-  --font-body:  13.5px;
+  --font-body:  14px;
   --topbar-h:   52px;
   --sidebar-item-h: 30px;
 }
@@ -278,7 +412,7 @@
   --row-height: 30px;
   --row-pad-y:  5px;
   --row-pad-x:  10px;
-  --font-body:  13.5px;
+  --font-body:  14px;
   --topbar-h:   52px;
   --sidebar-item-h: 30px;
 }
@@ -287,7 +421,7 @@
   --row-height: 42px;
   --row-pad-y:  10px;
   --row-pad-x:  14px;
-  --font-body:  13.5px;
+  --font-body:  14px;
   --topbar-h:   52px;
   --sidebar-item-h: 30px;
 }
@@ -303,11 +437,13 @@ body,
   font-family: var(--font-sans);
   font-size: var(--font-body);
   font-weight: var(--fw-body);
-  /* Keep numeric columns aligned where the selected face supports tnum. */
-  font-feature-settings: 'tnum' on, 'ss01' on;
-  line-height: 1.45;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* Keep numeric columns aligned: the faces' tabular forms touch the figures
+     alone (and are their default). */
+  font-feature-settings: 'tnum' on;
+  /* 22px at 14px, as an exact ratio: 1.5714 laid a line out 21.98px tall, off the pixel grid. */
+  line-height: calc(22 / 14);
+  /* The platform's own smoothing: on macOS it darkens strokes a little, which
+     `-webkit-font-smoothing: antialiased` turned off and the text read faint. */
   text-rendering: optimizeLegibility;
 }
 
@@ -339,48 +475,48 @@ html[data-report-document] [data-sonner-toaster] {
  * never mistakes a custom font-size utility for a text color utility. */
 .type-page-title {
   font-size: var(--font-page-title);
-  line-height: 1.2;
+  line-height: 1.4; /* 20 / 28 */
 }
 
 .type-heading {
   font-size: var(--font-heading);
-  line-height: 1.3;
+  line-height: calc(26 / 18);
 }
 
 .type-section-title {
   font-size: var(--font-section-title);
-  line-height: 1.45;
+  line-height: 1.5; /* 16 / 24 */
 }
 
 .type-data {
   font-size: var(--font-data);
-  line-height: 1.45;
+  line-height: 1.5385; /* 13 / 20 */
 }
 
 .type-label {
   font-size: var(--font-label);
-  line-height: 1.45;
+  line-height: 1.5385; /* 13 / 20 */
 }
 
 .type-caption {
   font-size: var(--font-caption);
-  line-height: 1.45;
+  line-height: 1.5; /* 12 / 18 */
 }
 
 .type-micro {
   font-size: var(--font-micro);
-  line-height: 1.4;
+  line-height: calc(16 / 11);
 }
 
 /* Display steps: one verdict (`display`) and the figures beside it (`kpi`). */
 .type-display {
   font-size: var(--font-display);
-  line-height: 1.2;
+  line-height: calc(32 / 24);
 }
 
 .type-kpi {
   font-size: var(--font-kpi);
-  line-height: 1.05;
+  line-height: 1.2667; /* 30 / 38 */
 }
 
 .font-sidebar-face {
@@ -407,12 +543,12 @@ input::placeholder,
 textarea::placeholder,
 .placeholder\:text-tx-3::placeholder,
 .placeholder\:text-muted-foreground::placeholder {
-  color: var(--tx-2) !important;
+  color: var(--placeholder) !important;
   opacity: 1 !important;
 }
 
 [data-placeholder] {
-  color: var(--tx-2) !important;
+  color: var(--placeholder) !important;
 }
 
 /* Monaco editor — fixed code metrics and quiet IDE chrome. */
@@ -429,7 +565,7 @@ textarea::placeholder,
   font-feature-settings: 'liga' 1, 'calt' 1 !important;
   font-kerning: normal;
   font-variant-ligatures: common-ligatures contextual !important;
-  font-weight: var(--code-editor-font-weight, 600) !important;
+  font-weight: var(--code-editor-font-weight, 500) !important;
   letter-spacing: 0 !important;
 }
 
@@ -479,6 +615,21 @@ textarea::placeholder,
 }
 
 /*
+ * The folded query frame: a summary of the query and the word that opens it. Beside an
+ * explorer's query tabs it can be left little room, and then the word gives its room to the
+ * summary: the arrow says what pressing does, and the button keeps the word as its name.
+ */
+[data-query-fold] {
+  container: query-fold / inline-size;
+}
+
+@container query-fold (max-width: 200px) {
+  [data-query-fold-word] {
+    display: none;
+  }
+}
+
+/*
  * Project-wide focus policy: no browser outline, Tailwind ring, focus shadow,
  * or high-contrast focus frame. Selection remains visible through the
  * component's background, text, or icon state.
@@ -519,31 +670,44 @@ textarea::placeholder,
 }
 
 /*
- * Fields have no border, so their fill is the only edge and has to differ from
- * the surface underneath. Gray panels get the lighter "well"; the lighter
- * surfaces that can sit inside one restore the default, so the right fill is
- * chosen by the nearest panel rather than by every form that happens to be
- * drawn on a gray background.
+ * A table's head is a band of its own (--table-head-surface). The head of a
+ * list that is no table (a group of a history, a toolbar over a tree) stands
+ * on the panel it heads; sticky, it still needs a fill so rows pass under it
+ * unseen, and that fill is the nearest panel's, picked the same way.
  */
-.bg-bg-2,
-.bg-bg-3 {
-  --control-surface: var(--control-surface-on-muted);
+:root {
+  --panel-surface: var(--functional-surface);
 }
 
-.bg-bg-0,
+.bg-bg-0 {
+  --panel-surface: var(--bg-0);
+}
+
 .bg-bg-1,
+.bg-surface {
+  --panel-surface: var(--bg-1);
+}
+
+.bg-bg-2 {
+  --panel-surface: var(--bg-2);
+}
+
+.bg-bg-3 {
+  --panel-surface: var(--bg-3);
+}
+
 .bg-\[var\(--functional-surface\)\] {
-  --control-surface: var(--control-surface-default);
+  --panel-surface: var(--functional-surface);
 }
 
 .bg-\[var\(--floating-surface\)\] {
-  --control-surface: var(--control-surface-on-floating);
+  --panel-surface: var(--floating-surface);
 }
 
 /*
  * Global form-control focus treatment. This normalizes native browser focus
- * outlines and Tailwind ring utilities. The Control Surface fill communicates
- * interaction state.
+ * outlines and Tailwind ring utilities. The field's ring (polish/edges.css)
+ * communicates interaction state.
  */
 :where(
   input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
@@ -560,7 +724,9 @@ textarea::placeholder,
   --tw-ring-shadow: 0 0 #0000 !important;
 }
 
-/* Selectors use Control Surface styling in all interaction and validation states. */
+/* Selectors use Control Surface styling in all interaction and validation states.
+ * No border and no stray shadow: the edge is the ring polish/edges.css draws on the
+ * element that carries the fill. */
 :where(select, [data-ui='select-trigger']) {
   border-width: 0 !important;
   border-color: transparent !important;

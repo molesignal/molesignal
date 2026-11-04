@@ -33,12 +33,12 @@ export function TableView({
   return (
     <div className="overflow-auto" data-testid="metrics-result-table">
       <table className="w-full min-w-[720px] border-collapse font-mono text-xs">
-        <thead className="sticky top-0 z-[1] bg-bg-2">
+        <thead className="sticky top-0 z-[1] bg-[var(--table-head-surface)]">
           <tr>
             {result.columns.map((column) => (
               <th
                 key={column}
-                className="border-b border-r border-bd-0 px-3 py-2.5 text-left font-semibold text-tx-2 last:border-r-0"
+                className="border-b border-r border-bd-0 px-3 py-2.5 text-left font-strong text-tx-0 last:border-r-0"
               >
                 {column}
               </th>

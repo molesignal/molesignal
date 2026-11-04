@@ -1,9 +1,11 @@
 import type { Page } from '@playwright/test';
 
+import { explorerRead, explorerReadBody } from './explorerReads';
+
 /**
  * Answers for the two endpoints an explorer histogram asks for the count of
- * everything a query matches: `POST /api/v1/web/logs/histogram` and
- * `GET /api/v1/web/traces/histogram`.
+ * everything a query matches: `GET /api/v1/web/logs/histogram` (a POST when
+ * the query is too long for an address) and `GET /api/v1/web/traces/histogram`.
  *
  * Neither is answered by default. A spec that lists rows of its own and does
  * not serve their count gets `{}` from the catch-all, which the page reads as
@@ -31,28 +33,28 @@ export interface CountedEvent {
  */
 export type Counts = PerBar | { events: CountedEvent[] } | { unavailable: string };
 
-/** The bars a chart asks for: each `bucket_micros` long, the first beginning at `origin_micros`. */
+/** The bars a chart asks for: each `bucket_time` long, the first beginning at `origin_time`. */
 export interface AskedBars {
   from: number;
   to: number;
-  bucket_micros: number;
-  origin_micros: number;
+  bucketTime: number;
+  originTime: number;
 }
 
 /** What a histogram endpoint answers to the bars it was asked for. */
 export function countsAnswer(asked: AskedBars, counts: Counts) {
-  const answer = { bucket_micros: asked.bucket_micros, origin_micros: asked.origin_micros };
+  const answer = { bucketTime: asked.bucketTime, originTime: asked.originTime };
   if (typeof counts !== 'function' && 'unavailable' in counts) {
     return { ...answer, buckets: [], split: false, ...counts };
   }
 
-  const bars = Math.ceil((asked.to - asked.origin_micros) / asked.bucket_micros);
+  const bars = Math.ceil((asked.to - asked.originTime) / asked.bucketTime);
   const held = typeof counts === 'function' ? counts : eventsPerBar(asked, counts.events);
   const buckets = Array.from({ length: bars }, (_, index) => {
     const bar = held(index, bars);
 
     return bar && bar.total > 0
-      ? [{ start_micros: asked.origin_micros + index * asked.bucket_micros, ...bar }]
+      ? [{ startTime: asked.originTime + index * asked.bucketTime, ...bar }]
       : [];
   }).flat();
 
@@ -66,7 +68,7 @@ function eventsPerBar(asked: AskedBars, events: CountedEvent[]): PerBar {
   for (const event of events) {
     if (event.micros < asked.from || event.micros >= asked.to) continue;
 
-    const index = Math.floor((event.micros - asked.origin_micros) / asked.bucket_micros);
+    const index = Math.floor((event.micros - asked.originTime) / asked.bucketTime);
     const bar = held.get(index) ?? { total: 0, errors: 0 };
     held.set(index, { total: bar.total + 1, errors: bar.errors + (event.error ? 1 : 0) });
   }
@@ -75,7 +77,7 @@ function eventsPerBar(asked: AskedBars, events: CountedEvent[]): PerBar {
 }
 
 /** What a Logs histogram asks: the query the list sent, and the bars to count it into. */
-export type AskedLogCounts = AskedBars & { stream: string; filters: unknown[]; free_text: string[] };
+export type AskedLogCounts = AskedBars & { stream: string; filters: unknown[]; freeText: string[] };
 
 /**
  * Answers the count of every log row the query matches. Register it after the
@@ -83,8 +85,8 @@ export type AskedLogCounts = AskedBars & { stream: string; filters: unknown[]; f
  */
 export async function serveLogCounts(page: Page, counts: Counts): Promise<AskedLogCounts[]> {
   const asked: AskedLogCounts[] = [];
-  await page.route('**/api/v1/web/logs/histogram', async (route) => {
-    const body = route.request().postDataJSON();
+  await page.route(explorerRead('web/logs/histogram'), async (route) => {
+    const body = explorerReadBody<AskedLogCounts>(route.request());
     asked.push(body);
     await route.fulfill({ json: countsAnswer(body, counts) });
   });
@@ -103,8 +105,8 @@ export async function serveTraceCounts(page: Page, counts: Counts): Promise<URLS
         {
           from: Number(params.get('from')),
           to: Number(params.get('to')),
-          bucket_micros: Number(params.get('bucket_micros')),
-          origin_micros: Number(params.get('origin_micros')),
+          bucketTime: Number(params.get('bucketTime')),
+          originTime: Number(params.get('originTime')),
         },
         counts,
       ),

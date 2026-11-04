@@ -22,7 +22,7 @@ import { EmptyTab, ModulePage, StateBadge } from './Pages';
 
 /** The incident an investigation was started from, when it was. */
 function incidentOf(investigation: agentApi.Investigation): string | null {
-  const id = investigation.context?.incident_id;
+  const id = investigation.context?.incidentId;
   return typeof id === 'string' && id ? id : null;
 }
 
@@ -102,15 +102,15 @@ export function InvestigationsPage() {
                       )}
                     </TableCell>
                     <TableCell><StateBadge value={item.status} /></TableCell>
-                    <TableCell className="max-w-xs truncate text-tx-2">{item.current_step ?? '—'}</TableCell>
+                    <TableCell className="max-w-xs truncate text-tx-2">{item.currentStep ?? '—'}</TableCell>
                     <TableCell className="whitespace-nowrap text-xs text-tx-3">
-                      {formatMicrosActive(item.updated_at)}
+                      {formatMicrosActive(item.updatedAt)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end">
-                        {item.chat_id && (
+                        {item.chatId && (
                           <Button variant="ghost" size="icon" asChild aria-label={t('investigations.open_chat')}>
-                            <Link to={`/agent/chat?chat=${encodeURIComponent(item.chat_id)}`}>
+                            <Link to={`/agent/chat?chat=${encodeURIComponent(item.chatId)}`}>
                               <MessageSquareText />
                             </Link>
                           </Button>

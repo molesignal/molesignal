@@ -21,15 +21,15 @@ const snapshot: PublicStatusPageSnapshot = {
   page: {
     name: 'Acme Cloud',
     slug: 'acme-cloud',
-    logo_url: null,
-    brand_color: '#4F46E5',
+    logoUrl: null,
+    brandColor: '#4F46E5',
     timezone: 'UTC',
     language: 'en-us',
     languages: ['en-us', 'zh-cn'],
-    history_days: 90,
+    historyDays: 90,
     visibility: 'public',
   },
-  overall_status: 'partial_outage',
+  overallStatus: 'partial_outage',
   components: [
     {
       id: 'notification-service',
@@ -38,50 +38,50 @@ const snapshot: PublicStatusPageSnapshot = {
       status: 'partial_outage',
     },
   ],
-  component_status_events: [],
-  active_incidents: [
+  componentStatusEvents: [],
+  activeIncidents: [
     {
       id: 'notification-outage',
       kind: 'incident',
       title: 'Notification Service partial outage',
       impact: 'major',
       status: 'in_progress',
-      component_ids: ['notification-service'],
+      componentIds: ['notification-service'],
       updates: [
         {
           id: 'update-2',
           status: 'identified',
           message: 'We identified a queue processing issue.',
-          created_at: Date.UTC(2026, 7, 10, 7, 20) * 1_000,
+          createdAt: Date.UTC(2026, 7, 10, 7, 20) * 1_000,
         },
         {
           id: 'update-1',
           status: 'investigating',
           message: 'Email notifications may be delayed.',
-          created_at: Date.UTC(2026, 7, 10, 7, 6) * 1_000,
+          createdAt: Date.UTC(2026, 7, 10, 7, 6) * 1_000,
         },
         {
           id: 'update-3',
           status: 'in_progress',
           message: 'A fix is being deployed and traffic is recovering.',
-          created_at: Date.UTC(2026, 7, 10, 7, 45) * 1_000,
+          createdAt: Date.UTC(2026, 7, 10, 7, 45) * 1_000,
         },
       ],
-      started_at: Date.UTC(2026, 7, 10, 7, 6) * 1_000,
-      ended_at: null,
+      startedAt: Date.UTC(2026, 7, 10, 7, 6) * 1_000,
+      endedAt: null,
     },
   ],
-  scheduled_maintenance: [
+  scheduledMaintenance: [
     {
       id: 'queue-migration',
       kind: 'maintenance',
       title: 'Queue migration',
       impact: 'maintenance',
       status: 'scheduled',
-      component_ids: ['notification-service'],
+      componentIds: ['notification-service'],
       updates: [],
-      started_at: Date.UTC(2026, 7, 12, 7, 50) * 1_000,
-      ended_at: null,
+      startedAt: Date.UTC(2026, 7, 12, 7, 50) * 1_000,
+      endedAt: null,
     },
   ],
   history: [
@@ -91,21 +91,21 @@ const snapshot: PublicStatusPageSnapshot = {
       title: 'Webhook deliveries failing',
       impact: 'critical',
       status: 'resolved',
-      component_ids: ['notification-service'],
+      componentIds: ['notification-service'],
       updates: [
         {
           id: 'resolved',
           status: 'resolved',
           message: 'Deliveries are succeeding again.',
-          created_at: Date.UTC(2026, 7, 3, 9, 30) * 1_000,
+          createdAt: Date.UTC(2026, 7, 3, 9, 30) * 1_000,
         },
       ],
-      started_at: Date.UTC(2026, 7, 3, 8) * 1_000,
-      ended_at: Date.UTC(2026, 7, 3, 9, 30) * 1_000,
+      startedAt: Date.UTC(2026, 7, 3, 8) * 1_000,
+      endedAt: Date.UTC(2026, 7, 3, 9, 30) * 1_000,
     },
   ],
-  updated_at: Date.UTC(2026, 7, 10, 7, 48) * 1_000,
-  generated_at: Date.UTC(2026, 7, 10, 7, 50) * 1_000,
+  updatedAt: Date.UTC(2026, 7, 10, 7, 48) * 1_000,
+  generatedAt: Date.UTC(2026, 7, 10, 7, 50) * 1_000,
 };
 
 function renderIncident(incidentId = 'notification-outage') {
@@ -197,7 +197,7 @@ describe('PublicStatusIncidentPage', () => {
     const promised = Date.UTC(2026, 7, 10, 8, 20) * 1_000;
     getPublic.mockResolvedValue({
       ...snapshot,
-      active_incidents: snapshot.active_incidents.map((incident) => ({ ...incident, next_update_at: promised })),
+      activeIncidents: snapshot.activeIncidents.map((incident) => ({ ...incident, nextUpdateAt: promised })),
     });
     renderIncident();
 
@@ -213,8 +213,8 @@ describe('PublicStatusIncidentPage', () => {
         ...incident,
         postmortem: {
           body: '## Why\n\nA certificate expired on the delivery workers.',
-          published_at: Date.UTC(2026, 7, 4, 10) * 1_000,
-          revised_at: Date.UTC(2026, 7, 4, 10) * 1_000,
+          publishedAt: Date.UTC(2026, 7, 4, 10) * 1_000,
+          revisedAt: Date.UTC(2026, 7, 4, 10) * 1_000,
         },
       })),
     });

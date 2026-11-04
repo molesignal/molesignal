@@ -19,7 +19,7 @@ export function valueAsObject(value: unknown): Record<string, unknown> {
 export function inferValueFields(rows: ExtendRow[]): ExtendValueField[] {
   const values = new Map<string, unknown[]>();
   for (const row of rows) {
-    for (const [name, value] of Object.entries(valueAsObject(row.value_json))) {
+    for (const [name, value] of Object.entries(valueAsObject(row.valueJson))) {
       const entries = values.get(name) ?? [];
       entries.push(value);
       values.set(name, entries);
@@ -29,7 +29,7 @@ export function inferValueFields(rows: ExtendRow[]): ExtendValueField[] {
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([name, samples]) => ({
       name,
-      field_type: inferFieldType(samples),
+      fieldType: inferFieldType(samples),
       required: rows.length > 0 && samples.length === rows.length,
       description: '',
     }));

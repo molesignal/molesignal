@@ -46,7 +46,7 @@ fn default_enabled() -> bool {
     true
 }
 
-#[permission("agent.use")]
+#[permission("agent.toolsets.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -55,7 +55,7 @@ async fn list(
     Ok(Json(rows))
 }
 
-#[permission("agent.manage")]
+#[permission("agent.toolsets.manage")]
 async fn create(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -82,7 +82,7 @@ async fn create(
     Ok(Json(saved))
 }
 
-#[permission("agent.manage")]
+#[permission("agent.toolsets.manage")]
 async fn delete(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

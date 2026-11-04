@@ -1,4 +1,4 @@
-import type { EscalationStep, EscalationTarget } from '@/types/alerting';
+import type { EscalationStep, EscalationTarget, Schedule } from '@/types/alerting';
 
 export const ACK_TIMEOUTS = [60, 300, 600, 900, 1800, 3600] as const;
 
@@ -14,11 +14,11 @@ export function secsLabel(secs: number): string {
 export function targetRefId(target: EscalationTarget): string {
   switch (target.kind) {
     case 'user':
-      return target.user_id;
+      return target.userId;
     case 'schedule':
-      return target.schedule_id;
+      return target.scheduleId;
     case 'team':
-      return target.team_id;
+      return target.teamId;
   }
 }
 
@@ -26,27 +26,27 @@ export function targetRefId(target: EscalationTarget): string {
 export function withRefId(target: EscalationTarget, id: string): EscalationTarget {
   switch (target.kind) {
     case 'user':
-      return { ...target, user_id: id };
+      return { ...target, userId: id };
     case 'schedule':
-      return { ...target, schedule_id: id };
+      return { ...target, scheduleId: id };
     case 'team':
-      return { ...target, team_id: id };
+      return { ...target, teamId: id };
   }
 }
 
 export function emptyTarget(kind: EscalationTarget['kind']): EscalationTarget {
   switch (kind) {
     case 'user':
-      return { kind: 'user', user_id: '' };
+      return { kind: 'user', userId: '' };
     case 'schedule':
-      return { kind: 'schedule', schedule_id: '' };
+      return { kind: 'schedule', scheduleId: '' };
     case 'team':
-      return { kind: 'team', team_id: '' };
+      return { kind: 'team', teamId: '' };
   }
 }
 
 export function emptyStep(): EscalationStep {
-  return { targets: [emptyTarget('user')], ack_timeout_secs: 300, min_severity: null };
+  return { targets: [emptyTarget('user')], ackTimeoutSecs: 300, minSeverity: null };
 }
 
 /** The names a policy's targets are shown by: people, schedules and teams, each by id. */
@@ -56,7 +56,7 @@ export interface TargetNames {
   team: (id: string) => string;
 }
 
-/** Who a step tells, by name. A target whose name is not known yet is shown by its id. */
+/** Who a step tells, by what `names` calls each target. */
 export function stepTargetNames(step: EscalationStep, names: TargetNames): string[] {
   return step.targets
     .map((target) => {
@@ -65,4 +65,21 @@ export function stepTargetNames(step: EscalationStep, names: TargetNames): strin
       return id ? names[target.kind](id) : '';
     })
     .filter(Boolean);
+}
+
+/**
+ * The people a step can page: the people it names and everyone who takes turns in its schedules.
+ * A team is left out: its group route may reach it even when its members have nothing set up.
+ */
+export function stepPeople(step: EscalationStep, schedules: ReadonlyMap<string, Schedule>): string[] {
+  const people = new Set<string>();
+  for (const target of step.targets) {
+    if (target.kind === 'user' && target.userId) people.add(target.userId);
+    if (target.kind === 'schedule') {
+      for (const rotation of schedules.get(target.scheduleId)?.rotations ?? []) {
+        for (const member of rotation.members) people.add(member);
+      }
+    }
+  }
+  return [...people];
 }

@@ -1,10 +1,8 @@
-import { RefreshCw, Search } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { CollapsibleSidePanel, SidePanelSection } from '@/shell/CollapsibleSidePanel';
-import { cn } from '@/shell/lib/cn';
-import { FIELD_LIST_GROUND_CLASS } from '@/shell/query/fields/Group';
+import { CollapsibleSidePanel, SidePanelSearch, SidePanelSection } from '@/shell/CollapsibleSidePanel';
 import type { HistogramRange } from '@/shell/query/histogram/model';
 import { QueryState } from '@/shell/query/State';
 import { TooltipProvider } from '@/shell/ui/tooltip';
@@ -114,12 +112,23 @@ export function LogFieldPanel({
       collapsed={collapsed}
       onCollapsedChange={onCollapsedChange}
       variant="utility"
-      widthClassName="w-[240px]"
+      widthClassName="w-[260px]"
       resizable
-      defaultWidth={240}
+      defaultWidth={260}
       resizeLabel={t('explore.left_panel.resize')}
       bodyClassName="flex flex-col"
-      className="rounded-md border-r-0 bg-[var(--functional-surface)]"
+      // The head row lines up with the head of the results beside the list, as the trace explorer's.
+      headerClassName="h-11"
+      // The search stands in the head row, beside the button that folds the list: its words say what the list is.
+      header={
+        <SidePanelSearch
+          value={fieldFilter}
+          onChange={setFieldFilter}
+          placeholder={t('explore.left_panel.field_search_placeholder')}
+          label={t('explore.left_panel.filter_fields_aria')}
+        />
+      }
+      className="bg-[var(--functional-surface)]"
       collapseLabel={t('explore.left_panel.collapse')}
       expandLabel={t('explore.left_panel.expand')}
       flyout={
@@ -138,7 +147,7 @@ export function LogFieldPanel({
         )
       }
       footer={
-        <div className="flex h-11 items-center justify-between px-2 font-sans text-xs font-strong text-tx-2">
+        <div className="flex h-11 items-center justify-between pl-3 pr-1 font-sans text-xs text-tx-3">
           <span className="min-w-0 truncate">
             {t('explore.left_panel.fields_summary', {
               shown: filteredFields.length.toLocaleString(),
@@ -157,19 +166,8 @@ export function LogFieldPanel({
         </div>
       }
     >
-      <div className="px-2 pb-2">
-        <div className="flex h-8 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-2.5 font-sans text-xs">
-          <Search className="h-3.5 w-3.5 text-tx-3" />
-          <input
-            value={fieldFilter}
-            onChange={(event) => setFieldFilter(event.target.value)}
-            placeholder={t('explore.left_panel.field_search_placeholder')}
-            aria-label={t('explore.left_panel.filter_fields_aria')}
-            className="flex-1 bg-transparent text-tx-0 placeholder:text-tx-3 focus:outline-none"
-          />
-        </div>
-      </div>
-      <div className={cn('mx-2 mb-1 flex-1 overflow-auto', FIELD_LIST_GROUND_CLASS)}>
+      {/* A flat list from edge to edge, as the table beside it: parts under bands like the table's head, a field a row. */}
+      <div className="min-h-0 flex-1 overflow-auto">
         {listState ? (
           <QueryState
             state={listState}
@@ -198,9 +196,10 @@ export function LogFieldPanel({
                     key={section.key}
                     title={t(`explore.left_panel.${section.key}`)}
                     count={section.fields.length}
+                    variant="band"
                   >
                     {section.fields.length === 0 && (
-                      <p data-field-list-empty className="px-1.5 pb-1 font-sans text-xs text-tx-2">
+                      <p data-field-list-empty className="border-b border-bd-0 px-3 py-2 font-sans text-xs text-tx-2">
                         {t('explore.left_panel.no_indexed_fields')}
                       </p>
                     )}

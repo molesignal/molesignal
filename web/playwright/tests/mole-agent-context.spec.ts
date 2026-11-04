@@ -37,14 +37,14 @@ test('Mole Agent sends the investigation context shown in the shell', async ({
   await panel.getByRole('button', { name: 'Send' }).click();
 
   const body = (await outbound).postDataJSON() as {
-    time_range: { start_micros: number; end_micros: number };
-    stream_hints: string[];
+    timeRange: { startTime: number; endTime: number };
+    streamHints: string[];
   };
-  expect(body.time_range).toEqual({
-    start_micros: Date.parse('2026-08-14T05:00:00.000Z') * 1_000,
-    end_micros: Date.parse('2026-08-14T06:00:00.000Z') * 1_000,
+  expect(body.timeRange).toEqual({
+    startTime: Date.parse('2026-08-14T05:00:00.000Z') * 1_000,
+    endTime: Date.parse('2026-08-14T06:00:00.000Z') * 1_000,
   });
-  expect(body.stream_hints).toContain('service:checkout');
+  expect(body.streamHints).toContain('service:checkout');
 
   await panel.getByRole('button', { name: 'Close' }).click();
   await expect(panel).toHaveAttribute('inert', '');

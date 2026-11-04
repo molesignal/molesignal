@@ -3,25 +3,33 @@
 
 //! The connection one request of an HTTP check travels on.
 
-use std::{future::Future, net::SocketAddr};
+use std::{future::Future, net::SocketAddr, pin::Pin};
 
-use anyhow::{Result, anyhow};
+use anyhow::{Result, bail};
 use bytes::Bytes;
 use http_body_util::Full;
 use hyper::{
-    Method, Request, Response, Uri,
+    Method, Request, Response, Uri, Version,
     body::Incoming,
-    client::conn::http1::{self, SendRequest},
+    client::conn::{http1, http2},
     header::{HOST, HeaderValue},
+    http::uri::Authority,
 };
-use hyper_util::rt::TokioIo;
+use hyper_util::rt::{TokioExecutor, TokioIo};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     net::TcpStream,
 };
 
-use super::{proxy::Proxy, tls};
-use crate::executor::timing::{Phase, PhaseClock};
+use super::{
+    proxy::Proxy,
+    route::{HttpVersion, Transport},
+    tls,
+};
+use crate::executor::{
+    failure,
+    timing::{Phase, PhaseClock},
+};
 
 /// Bytes to and from the other end, over whatever carries them.
 pub(super) type Stream = Box<dyn Io>;
@@ -29,11 +37,20 @@ pub(super) type Stream = Box<dyn Io>;
 pub(super) trait Io: AsyncRead + AsyncWrite + Send + Unpin {}
 impl<T: AsyncRead + AsyncWrite + Send + Unpin> Io for T {}
 
+/// The wait for the head of the response to a request sent on a connection.
+type Waiting = Pin<Box<dyn Future<Output = hyper::Result<Response<Incoming>>> + Send>>;
+
 /// A connection ready to carry a request.
 pub(super) struct Connection {
-    requests: SendRequest<Full<Bytes>>,
+    requests: Requests,
     /// Whether the other end is a proxy that passes the request on.
     forwarded: bool,
+}
+
+/// How a request goes out: on its own over HTTP/1.1, or as a stream of HTTP/2.
+enum Requests {
+    Http1(http1::SendRequest<Full<Bytes>>),
+    Http2(http2::SendRequest<Full<Bytes>>),
 }
 
 impl Connection {
@@ -46,26 +63,32 @@ impl Connection {
         uri: &Uri,
         address: SocketAddr,
         proxy: Option<&Proxy>,
-        verify_tls: bool,
+        transport: &Transport,
         phases: &PhaseClock,
     ) -> Result<Self> {
         // What TLS needs is put together first, so that no local work falls between the phases.
         let secure = if uri.scheme_str() == Some("https") {
-            Some((tls::connector(verify_tls)?, tls::server_name(uri)?))
+            Some((tls::target_connector(transport)?, tls::server_name(uri)?))
         } else {
             None
         };
 
         // A proxy is told all of where a request goes, unless the request is out of its sight
-        // in a tunnel.
+        // in a tunnel. A proxy that passes plain requests on does so in HTTP/1.1.
         let forwarded = proxy.is_some() && secure.is_none();
 
+        if forwarded && transport.version == HttpVersion::Http2 {
+            bail!("HTTP/2 cannot go through a proxy that passes plain HTTP requests on");
+        }
+
         let stream = match proxy {
-            Some(proxy) => proxy.open(uri, verify_tls, phases).await?,
+            Some(proxy) => proxy.open(uri, transport.verify, phases).await?,
             None => reach(address, phases).await?,
         };
 
-        let stream: Stream = match secure {
+        // Over TLS the server picks the protocol among those offered. Over plain HTTP, HTTP/2 is
+        // spoken only when the check asks for it.
+        let (stream, http2): (Stream, bool) = match secure {
             Some((connector, server_name)) => {
                 // The connector starts the handshake as soon as it is called, so the call is
                 // timed with it.
@@ -74,16 +97,35 @@ impl Connection {
                 let tls = phases
                     .during(Phase::Tls, handshake)
                     .await
-                    .map_err(|error| anyhow!("TLS handshake failed: {error}"))?;
+                    .map_err(|error| handshake_failed(&error, transport.version))?;
 
-                Box::new(tls)
+                let http2 = tls.get_ref().1.alpn_protocol() == Some(b"h2".as_slice());
+
+                if transport.version == HttpVersion::Http2 && !http2 {
+                    return Err(http2_refused());
+                }
+
+                (Box::new(tls), http2)
             }
-            None => stream,
+            None => (stream, transport.version == HttpVersion::Http2),
         };
 
         // From here the connection runs on its own, until the request lets go of it.
-        let (requests, connection) = http1::handshake(TokioIo::new(stream)).await?;
-        tokio::spawn(connection.with_upgrades());
+        let requests = if http2 {
+            let (requests, connection) =
+                http2::handshake(TokioExecutor::new(), TokioIo::new(stream))
+                    .await
+                    .map_err(|error| {
+                        failure::target("http_failed", format!("HTTP/2 handshake failed: {error}"))
+                    })?;
+
+            tokio::spawn(connection);
+            Requests::Http2(requests)
+        } else {
+            let (requests, connection) = http1::handshake(TokioIo::new(stream)).await?;
+            tokio::spawn(connection.with_upgrades());
+            Requests::Http1(requests)
+        };
 
         Ok(Self {
             requests,
@@ -92,13 +134,38 @@ impl Connection {
     }
 
     /// Sends `request`, addressed the way the other end expects.
-    pub fn send(
-        &mut self,
-        request: Request<Full<Bytes>>,
-    ) -> impl Future<Output = hyper::Result<Response<Incoming>>> + use<> {
-        self.requests
-            .send_request(addressed(request, self.forwarded))
+    pub fn send(&mut self, request: Request<Full<Bytes>>) -> Waiting {
+        match &mut self.requests {
+            Requests::Http1(requests) => {
+                Box::pin(requests.send_request(addressed(request, self.forwarded)))
+            }
+            Requests::Http2(requests) => Box::pin(requests.send_request(for_http2(request))),
+        }
     }
+}
+
+/// What a TLS handshake that went wrong says about the server. Asked for HTTP/2 alone, a server
+/// that speaks only HTTP/1.1 turns the handshake down, the way it does any protocol it lacks.
+fn handshake_failed(error: &std::io::Error, version: HttpVersion) -> anyhow::Error {
+    let no_protocol = error
+        .get_ref()
+        .and_then(|cause| cause.downcast_ref::<rustls::Error>())
+        .is_some_and(|cause| {
+            matches!(
+                cause,
+                rustls::Error::AlertReceived(rustls::AlertDescription::NoApplicationProtocol)
+            )
+        });
+
+    if no_protocol && version == HttpVersion::Http2 {
+        return http2_refused();
+    }
+
+    failure::target("tls_failed", format!("TLS handshake failed: {error}"))
+}
+
+fn http2_refused() -> anyhow::Error {
+    failure::target("http2_refused", "the server did not agree to speak HTTP/2")
 }
 
 /// Connects straight to `address`.
@@ -106,7 +173,12 @@ async fn reach(address: SocketAddr, phases: &PhaseClock) -> Result<Stream> {
     let tcp = phases
         .during(Phase::Connect, TcpStream::connect(address))
         .await
-        .map_err(|error| anyhow!("cannot connect to {address}: {error}"))?;
+        .map_err(|error| {
+            failure::target(
+                "connect_failed",
+                format!("cannot connect to {address}: {error}"),
+            )
+        })?;
 
     // A request leaves when it is written, not when the kernel has gathered enough to send.
     tcp.set_nodelay(true)?;
@@ -135,6 +207,28 @@ fn addressed(mut request: Request<Full<Bytes>>, forwarded: bool) -> Request<Full
     };
 
     *request.uri_mut() = target.unwrap_or_default();
+    request
+}
+
+/// Puts `request` in the form HTTP/2 expects: the whole URL, whose authority goes out as the
+/// request's `:authority`. A Host header the check set names that authority instead, and does
+/// not go out itself.
+fn for_http2(mut request: Request<Full<Bytes>>) -> Request<Full<Bytes>> {
+    if let Some(host) = request.headers_mut().remove(HOST)
+        && let Some(authority) = host
+            .to_str()
+            .ok()
+            .and_then(|host| host.parse::<Authority>().ok())
+    {
+        let mut parts = request.uri().clone().into_parts();
+        parts.authority = Some(authority);
+
+        if let Ok(uri) = Uri::from_parts(parts) {
+            *request.uri_mut() = uri;
+        }
+    }
+
+    *request.version_mut() = Version::HTTP_2;
     request
 }
 

@@ -55,6 +55,7 @@ const SOURCE_ICONS: Record<string, LucideIcon> = {
   osquery: Terminal,
   crowdstrike: Shield,
   'github-actions': Workflow,
+  'gitlab-ci': Workflow,
   argocd: Workflow,
   jenkins: Workflow,
   envoy: Network,

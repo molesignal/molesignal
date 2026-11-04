@@ -9,7 +9,7 @@ import {
 } from './history';
 
 const STEP =
-  'grid h-[44px] w-[44px] shrink-0 place-items-center rounded-md bg-bg-2 text-tx-1 transition-colors enabled:hover:text-tx-0 enabled:focus-visible:text-tx-0 disabled:cursor-not-allowed disabled:text-tx-4 sm:h-9 sm:w-9';
+  'grid h-[44px] w-[44px] shrink-0 place-items-center rounded-md bg-bg-2 text-tx-1 transition-colors enabled:hover:text-tx-0 enabled:focus-visible:text-tx-0 disabled:cursor-not-allowed disabled:text-[var(--tx-disabled)] sm:h-9 sm:w-9';
 
 /** The months of the past being looked at, and the steps to the ones before and after. */
 export function ArchiveMonthNavigator({

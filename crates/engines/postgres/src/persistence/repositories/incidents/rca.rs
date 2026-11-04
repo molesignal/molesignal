@@ -24,7 +24,7 @@ impl PgIncidentRcaRepository {
 
 const COLS: &str = "incident_id, org_id, summary, provider, model, prompt_builtin_key, \
     prompt_hash, prompt_tokens, completion_tokens, finish_reason, \
-    created_at_micros, updated_at_micros";
+    created_at, updated_at";
 
 fn row_to(r: sqlx::postgres::PgRow) -> IncidentRca {
     IncidentRca {
@@ -38,8 +38,12 @@ fn row_to(r: sqlx::postgres::PgRow) -> IncidentRca {
         prompt_tokens: r.try_get::<i32, _>("prompt_tokens").unwrap_or_default(),
         completion_tokens: r.try_get::<i32, _>("completion_tokens").unwrap_or_default(),
         finish_reason: r.try_get("finish_reason").ok(),
-        created_at: TimestampMicros(r.try_get::<i64, _>("created_at_micros").unwrap_or_default()),
-        updated_at: TimestampMicros(r.try_get::<i64, _>("updated_at_micros").unwrap_or_default()),
+        created_at: r
+            .try_get::<TimestampMicros, _>("created_at")
+            .unwrap_or_default(),
+        updated_at: r
+            .try_get::<TimestampMicros, _>("updated_at")
+            .unwrap_or_default(),
     }
 }
 
@@ -62,7 +66,7 @@ impl IncidentRcaRepository for PgIncidentRcaRepository {
             "INSERT INTO incident_rca
                 (incident_id, org_id, summary, provider, model, prompt_builtin_key,
                  prompt_hash, prompt_tokens, completion_tokens, finish_reason,
-                 created_at_micros, updated_at_micros)
+                 created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
              ON CONFLICT (incident_id) DO UPDATE SET
                 summary = EXCLUDED.summary,
@@ -73,7 +77,7 @@ impl IncidentRcaRepository for PgIncidentRcaRepository {
                 prompt_tokens = EXCLUDED.prompt_tokens,
                 completion_tokens = EXCLUDED.completion_tokens,
                 finish_reason = EXCLUDED.finish_reason,
-                updated_at_micros = EXCLUDED.updated_at_micros",
+                updated_at = EXCLUDED.updated_at",
         )
         .bind(&rca.incident_id.0)
         .bind(&rca.org_id.0)
@@ -85,8 +89,8 @@ impl IncidentRcaRepository for PgIncidentRcaRepository {
         .bind(rca.prompt_tokens)
         .bind(rca.completion_tokens)
         .bind(&rca.finish_reason)
-        .bind(rca.created_at.0)
-        .bind(rca.updated_at.0)
+        .bind(rca.created_at)
+        .bind(rca.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;

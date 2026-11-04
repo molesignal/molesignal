@@ -62,6 +62,7 @@
     "chat": "Chat",
     "investigations": "Investigations",
     "automations": "Automations",
+    "quality": "Quality",
     "approvals": "Approvals",
     "executions": "Executions",
     "settings": "Settings",
@@ -227,47 +228,440 @@
   },
   "automations": {
     "title": "Automations",
-    "description": "Save reusable Mole Agent workflows; dry runs never perform real writes.",
-    "create": "Create automation",
-    "created": "Automation created",
-    "edit": "Edit automation",
-    "updated": "Automation updated",
-    "create_description": "Start with a read-only, manually triggered investigation template.",
-    "editor_description": "Configure triggers, workflow, tools, approvals, and failure handling.",
-    "name_placeholder": "For example: Critical production alert investigation",
+    "description": "Let Mole Agent do a job with nobody in the chat: on a schedule, for new incidents, when a CI/CD job calls, or by hand. Every run is kept as a chat you can open.",
+    "create": "New automation",
     "empty_title": "No automations yet",
-    "empty_description": "Save common investigation steps as reusable workflows.",
-    "default_description": "Read-only observability investigation workflow",
-    "manual": "Manual",
-    "dry_run": "Dry run",
-    "dry_run_success": "Dry run completed with no real writes",
-    "json_hint": "Advanced workflow fields use JSON and are validated before saving.",
-    "tools_fallback_hint": "If the tool registry is unavailable, separate tool names with commas or new lines.",
-    "sections": {
-      "basic": "Basic information",
-      "tools": "Available tools",
-      "tools_description": "This automation can call only registered tools in this allowlist.",
-      "workflow": "Trigger and workflow",
-      "governance": "Approval, output, and failure handling"
-    },
-    "fields": {
+    "empty_hint": "Start from a template, such as incident analysis or the daily health check.",
+    "denied": "Only people who manage automations in this scope can do this",
+    "list_separator": ", ",
+    "clone_name": "{{name}} (copy)",
+    "columns": {
       "name": "Name",
-      "description": "Description",
-      "enabled": "Enable automation",
-      "trigger": "Trigger",
-      "input_context": "Input context",
-      "steps": "Workflow steps",
-      "allowed_tools": "Allowed tools",
-      "approval_policy": "Approval policy",
-      "output_actions": "Output actions",
-      "failure_policy": "Failure policy",
-      "notification": "Notification"
+      "trigger": "Starts",
+      "last_run": "Last run",
+      "enabled": "On",
+      "actions": "Actions"
     },
-    "default_steps": {
-      "metrics": "Query key metrics",
-      "logs": "Query anomalous logs",
-      "traces": "Correlate anomalous traces",
-      "hypothesis": "Produce root-cause hypotheses"
+    "cells": {
+      "next": "Next {{when}}",
+      "paused": "Paused",
+      "token": "Token {{prefix}}…",
+      "no_token": "No token yet",
+      "never": "Not run yet",
+      "writes_rca": "Writes the incident's RCA",
+      "channels_one": "Notifies {{count}} channel",
+      "channels_other": "Notifies {{count}} channels",
+      "no_output": "Kept as runs only"
+    },
+    "actions": {
+      "run": "Run now",
+      "run_named": "Run {{name}} now",
+      "runs": "Runs",
+      "runs_named": "Runs of {{name}}",
+      "edit": "Edit",
+      "edit_named": "Edit {{name}}",
+      "more_named": "More for {{name}}",
+      "clone": "Clone",
+      "token": "API token",
+      "delete": "Delete",
+      "toggle_named": "Turn {{name}} on or off"
+    },
+    "trigger_kind": {
+      "schedule": "On a schedule",
+      "incident": "New incidents",
+      "api": "API call",
+      "manual": "By hand",
+      "finding": "New discovery findings"
+    },
+    "trigger_hint": {
+      "schedule": "Runs at the times of a cron expression, at most once every 15 minutes.",
+      "incident": "Runs for each new incident that matches. An incident, or another of the same group within 30 minutes, is analyzed once.",
+      "api": "Runs when an outside system calls it with its token; the text it sends is the context of the run. Make the token from its row after saving.",
+      "manual": "Runs only when someone runs it.",
+      "finding": "Runs for each new finding of automatic discovery that matches. A finding is looked into once."
+    },
+    "trigger_summary": {
+      "incident": "Every new incident",
+      "incident_severities": "New {{severities}} incidents",
+      "api": "API call",
+      "manual": "By hand",
+      "finding": "Every new finding",
+      "finding_severity": "New findings at {{severity}} and above"
+    },
+    "cron": {
+      "weekdays_morning": "Weekdays 09:00",
+      "daily_morning": "Every day 09:00",
+      "monday_morning": "Mondays 10:00",
+      "hourly": "Every hour"
+    },
+    "severity": {
+      "critical": "critical",
+      "error": "error",
+      "warning": "warning",
+      "info": "info"
+    },
+    "run_status": {
+      "running": "Running",
+      "succeeded": "Succeeded",
+      "partial": "Partly done",
+      "failed": "Failed",
+      "skipped": "Skipped",
+      "blocked": "Needs someone",
+      "abandoned": "Stopped"
+    },
+    "reasons": {
+      "budget_exhausted": "Today's Mole Agent token budget was used up.",
+      "still_running": "The previous run had not finished.",
+      "already_analyzed": "This incident, or one of the same group, was analyzed a moment before.",
+      "run_as_unavailable": "The person it runs as can no longer use Mole Agent here. Save it again to run it as you.",
+      "no_model": "No AI model is on in this organization.",
+      "timeout": "It took longer than its time limit.",
+      "error": "The model or a tool failed.",
+      "question": "Mole Agent had a question nobody could answer, and went on with its own judgment.",
+      "confirmation": "A tool needed someone to confirm it, so it was not run.",
+      "credential": "An MCP server needs the credential of the person it runs as, and none is saved.",
+      "delivery": "A notice could not be sent.",
+      "rca": "The incident's RCA could not be written.",
+      "stopped": "Someone stopped it.",
+      "interrupted": "The server running it stopped."
+    },
+    "editor": {
+      "new_title": "New automation",
+      "edit_title": "Edit automation",
+      "subtitle": "What Mole Agent is asked, when, and where the result goes.",
+      "what": "Task",
+      "name": "Name",
+      "name_placeholder": "Daily health check",
+      "prompt": "What to do",
+      "prompt_hint": "Asked of Mole Agent each time, as in a new chat. It can use the tools, skills and knowledge of the scope.",
+      "prompt_placeholder": "Check the error rate and latency of the checkout services over the last 24 hours and say what needs attention.",
+      "description": "Description",
+      "description_placeholder": "One line on what it is for",
+      "scope": "Whose",
+      "scope_hint": "Its runs load the knowledge, skills and MCP servers of this scope, and who can see it follows from it. It stays in this scope; clone it to use another.",
+      "when": "When",
+      "trigger": "Starts",
+      "presets": "Common schedules",
+      "cron": "Cron",
+      "cron_hint": "Minute, hour, day of month, month, day of week",
+      "cron_invalid": "Five fields: minute, hour, day of month, month and day of week",
+      "timezone": "Time zone",
+      "severities": "Severities",
+      "severities_hint": "None chosen takes every severity.",
+      "rules": "Alert rules",
+      "rules_hint": "None chosen takes every rule.",
+      "services": "Services",
+      "services_hint": "Comma separated; an incident that touches one of them matches. Empty takes every service.",
+      "labels": "Labels",
+      "labels_hint": "One key=value per line; an incident must have every one.",
+      "timeout": "Time limit",
+      "timeout_hint": "A run that takes longer is stopped and counted as failed.",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "enabled": "On",
+      "outputs": "Result",
+      "channels": "Notify channels",
+      "channels_hint": "A run that finishes, needs someone or fails sends its conclusion with a link to the run.",
+      "channels_none": "No notify connector is set up yet.",
+      "channels_unavailable": "Notify connectors cannot be listed here: choosing channels needs notify.connectors.read.",
+      "write_rca": "Write the conclusion as the incident's RCA",
+      "run_as": "Saving makes it run as you: with your permissions and your own MCP credentials.",
+      "save": "Save",
+      "create": "Create",
+      "finding_kinds": "Kinds",
+      "finding_kinds_hint": "None ticked: every kind.",
+      "min_severity": "At least",
+      "any_severity": "Any severity",
+      "finding_subjects": "Services, hosts or containers",
+      "finding_subjects_hint": "Separated by commas; empty: all of them."
+    },
+    "runs": {
+      "subtitle": "Newest first. Each run is kept as a chat.",
+      "none": "It has not run yet.",
+      "input": "Started with: {{text}}",
+      "undelivered": "Not delivered to {{targets}}",
+      "open_chat": "Open the run",
+      "rca": "Wrote the incident's RCA"
+    },
+    "templates": {
+      "title": "New automation",
+      "subtitle": "Start from nothing, or from a template that fills in the task and when it runs.",
+      "blank": "Blank automation",
+      "blank_description": "Write the task and choose when it runs."
+    },
+    "token": {
+      "title": "API token of {{name}}",
+      "description": "An outside system, such as a CI/CD job, starts this automation by sending its token.",
+      "shown_once": "Copy the token now: it is not shown again. Making a new one replaces it.",
+      "copy": "Copy the token",
+      "example": "Start it like this:",
+      "current": "A token is set ({{prefix}}…). Making a new one replaces it at once.",
+      "none": "No token yet.",
+      "create": "Make a token",
+      "rotate": "Make a new token",
+      "revoke": "Take the token away",
+      "revoked": "The token was taken away"
+    },
+    "toast": {
+      "created": "Automation created",
+      "saved": "Automation saved",
+      "deleted": "Automation deleted",
+      "started": "{{name}} is running",
+      "not_started": "{{name}} did not start: {{reason}}"
+    },
+    "delete_confirm": {
+      "title": "Delete {{name}}?",
+      "description": "Its run history goes with it. The chats of its runs stay.",
+      "confirm": "Delete",
+      "busy": "Deleting…"
+    }
+  },
+  "automation_run": {
+    "notice": "A run of the automation “{{name}}”, kept to be read. To ask again, run the automation.",
+    "open": "Automations"
+  },
+  "quality": {
+    "title": "Quality",
+    "description": "How good Mole Agent's answers are. Every answer is scored by rules, evaluators score a sample of them with a model, and low scores and unhelpful ratings wait for review.",
+    "views": {
+      "overview": "Overview",
+      "answers": "Answers",
+      "reviews": "Reviews",
+      "evaluators": "Evaluators"
+    },
+    "empty_title": "No answer has been scored yet",
+    "empty_hint": "An answer is scored once it is written. Add an evaluator under Evaluators to score a sample of them with a model as well.",
+    "no_score": "—",
+    "rules": "Rules",
+    "evaluator_deleted": "Deleted evaluator",
+    "list_separator": ", ",
+    "filters": {
+      "days": "Period",
+      "last_days_one": "Last {{count}} day",
+      "last_days_other": "Last {{count}} days",
+      "source": "Source"
+    },
+    "sources": {
+      "all": "All sources",
+      "personal_chat": "Personal chats",
+      "team_chat": "Team chats",
+      "automation": "Automations",
+      "incident_rca": "Incident RCAs"
+    },
+    "totals": {
+      "label": "Totals",
+      "answers": "Answers scored",
+      "rules_mean": "Rules",
+      "rules_hint": "The mean rules score, from 0 to 100",
+      "evaluated": "Evaluated",
+      "evaluator_mean": "Evaluators",
+      "evaluator_hint": "The mean of the evaluators' scores, from 0 to 100",
+      "thumbs_up": "Helpful",
+      "thumbs_down": "Not helpful",
+      "pending_reviews": "Waiting for review"
+    },
+    "trend": {
+      "title": "Score by day",
+      "rules": "Rules",
+      "evaluators": "Evaluators"
+    },
+    "dimensions": {
+      "title": "Rules",
+      "column": "Rule",
+      "tool_success": {
+        "title": "Tool calls",
+        "hint": "Calls that did not fail"
+      },
+      "evidence": {
+        "title": "Evidence",
+        "hint": "Cited evidence a tool call backs"
+      },
+      "query_validity": {
+        "title": "Queries",
+        "hint": "SQL and PromQL that parse"
+      },
+      "answer_format": {
+        "title": "Format",
+        "hint": "In the shape answers are asked for"
+      },
+      "completion": {
+        "title": "Completion",
+        "hint": "The turn was finished"
+      },
+      "feedback": {
+        "title": "Rating",
+        "hint": "Helpful or not, from whoever asked"
+      }
+    },
+    "groups": {
+      "sources": "By source",
+      "prompts": "By prompt version",
+      "skills": "By Skill",
+      "models": "By model",
+      "prompt_version": "{{name}} v{{version}}",
+      "none": "None in this period"
+    },
+    "columns": {
+      "answer": "Answer",
+      "source": "Source",
+      "score": "Score",
+      "scored_by": "Scored by",
+      "when": "Answered",
+      "name": "Name",
+      "answers": "Answers",
+      "rules": "Rules",
+      "evaluated": "Evaluated",
+      "evaluators": "Evaluators",
+      "cause": "Why",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "notes": {
+      "tools_ok_one": "The tool call succeeded",
+      "tools_ok_other": "All {{count}} tool calls succeeded",
+      "tools_failed": "{{failed}} of {{total}} tool calls failed",
+      "evidence_none": "Cites no evidence",
+      "evidence_one": "Cites {{count}} piece of evidence",
+      "evidence_other": "Cites {{count}} pieces of evidence",
+      "evidence_unbacked_one": "Cites {{count}} piece of evidence, but no tool call succeeded",
+      "evidence_unbacked_other": "Cites {{count}} pieces of evidence, but no tool call succeeded",
+      "queries_ok_one": "The query parses",
+      "queries_ok_other": "All {{count}} queries parse",
+      "queries_invalid": "{{invalid}} of {{total}} queries do not parse",
+      "format_ok": "In the requested shape",
+      "format_plain": "Not in the requested shape",
+      "completion": {
+        "succeeded": "Finished",
+        "blocked": "Finished, but it needed someone and nobody could be asked",
+        "empty": "Finished without an answer",
+        "failed": "Failed",
+        "cancelled": "Stopped",
+        "interrupted": "Interrupted"
+      },
+      "feedback_up": "Rated helpful",
+      "feedback_down": "Rated not helpful",
+      "feedback_down_reasons": "Rated not helpful: {{reasons}}"
+    },
+    "answers": {
+      "description": "Scored answers, newest first. Personal chats only count in the totals.",
+      "low_only": "Low scores only",
+      "none_low": "No answer scored below the review threshold",
+      "empty_hint": "Answers are scored once they are written; try another period or source.",
+      "more": "Show more",
+      "no_question": "No question"
+    },
+    "answer": {
+      "title": "Scored answer",
+      "open_chat": "Open the chat",
+      "open_incident": "Open the incident",
+      "evaluators": "Evaluators",
+      "not_evaluated": "No evaluator scored it.",
+      "samples_one": "scored {{count}} time",
+      "samples_other": "the mean of {{count}} scorings",
+      "rules": "Rules",
+      "question": "Question",
+      "answer": "Answer",
+      "tools_one": "{{count}} tool call, {{failed}} failed",
+      "tools_other": "{{count}} tool calls, {{failed}} failed",
+      "gone": "The chat or the RCA is no longer there."
+    },
+    "reviews": {
+      "description": "Answers for someone to look at: scored below the threshold, rated not helpful, or drawn at random. Accept the ones that are wrong: they make up the regression set a prompt check answers again.",
+      "status_label": "Status",
+      "filter": {
+        "pending": "Waiting",
+        "accepted": "Accepted",
+        "rejected": "Rejected",
+        "all": "All"
+      },
+      "status": {
+        "pending": "Waiting",
+        "accepted": "Accepted",
+        "rejected": "Rejected"
+      },
+      "causes": {
+        "low_score": "Low score",
+        "thumbs_down": "Rated not helpful",
+        "sampled": "Drawn at random"
+      },
+      "none_pending": "Nothing waits for review",
+      "none": "No reviews",
+      "empty_hint": "An answer comes here when it scores below the review threshold, when whoever asked rates it not helpful, or when it is drawn for review.",
+      "note": "Note",
+      "note_placeholder": "What is wrong with it, and what a good answer gets right",
+      "accept": "Accept",
+      "reject": "Reject",
+      "accept_hint": "Accept: the answer is wrong and joins the regression set. Reject: it is fine.",
+      "decided": {
+        "accepted": "Accepted: it joins the regression set",
+        "rejected": "Rejected"
+      }
+    },
+    "evaluators": {
+      "description": "An evaluator scores answers with a model by a rubric you write, from 1 to 5, and says why in a sentence or two.",
+      "new": "New evaluator",
+      "none": "No evaluators yet",
+      "none_hint": "Without an evaluator every answer is still scored by rules. Add one to score a sample of them with a model.",
+      "new_title": "New evaluator",
+      "edit_title": "Edit evaluator",
+      "subtitle": "The evaluator writes its reasons in the interface language of whoever saved it last.",
+      "what": "What it looks for",
+      "name": "Name",
+      "rubric": "Rubric",
+      "rubric_hint": "What a good answer does and what counts against it. The evaluator gives 1 to 5.",
+      "which": "What it scores",
+      "targets": "Answers",
+      "targets_hint": "Personal chats are scored by rules only: nobody else can read them.",
+      "sample": "Sample",
+      "sample_hint": "The percentage of new answers it scores. Answers rated not helpful are always scored, and a low score is scored again.",
+      "sample_short": "Sample",
+      "model_section": "Model",
+      "provider": "Model provider",
+      "provider_default": "The organization's first available one",
+      "model": "Model",
+      "model_default": "Its default model",
+      "temperature": "Temperature",
+      "temperature_hint": "0 keeps the scores steady.",
+      "enabled": "On",
+      "enabled_short": "On",
+      "toggle": "Switch {{name}} on or off",
+      "edit": "Edit",
+      "edit_named": "Edit {{name}}",
+      "more_named": "More for {{name}}",
+      "delete": "Delete",
+      "delete_confirm": {
+        "title": "Delete {{name}}?",
+        "description": "The scores it gave stay; the scorings waiting for it are dropped.",
+        "busy": "Deleting…"
+      },
+      "deleted": "Evaluator deleted",
+      "created": "{{name}} added",
+      "saved": "{{name}} saved",
+      "create": "Add",
+      "save": "Save",
+      "default_name": "Answer accuracy",
+      "default_rubric": "Score how well the answer finds and explains what is wrong.\n5: the conclusion is right, and every claim is backed by what the tools found.\n4: right, with a small gap or a detail the findings do not back.\n3: partly right, or right but vague about the evidence.\n2: mostly unsupported, or it misses the question.\n1: wrong or made up."
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "How answers come to review, and how a new default prompt is checked.",
+      "threshold": "Review threshold",
+      "threshold_hint": "Answers scoring below it (0 to 100) wait for review.",
+      "sample": "Random review",
+      "sample_hint": "The percentage of the other answers drawn for review, to keep the evaluators honest.",
+      "gate": "Before a prompt becomes the default",
+      "gates": {
+        "warn": "Check, and ask again when worse",
+        "block": "Check, and refuse when worse",
+        "off": "Do not check"
+      },
+      "gate_hint": {
+        "warn": "Setting an organization prompt for chats or RCAs as the default asks for a check; without one, or when the new version scores worse, it asks once more.",
+        "block": "Only a prompt a check found no worse becomes the default.",
+        "off": "Prompts become the default without a check."
+      },
+      "save": "Save",
+      "saved": "Settings saved"
     }
   },
   "approvals": {
@@ -311,6 +705,7 @@
       "prompts": "Prompt management",
       "tools": "Tools & capabilities",
       "inbound_mcp": "Inbound MCP",
+      "im": "IM",
       "data": "Data access",
       "network": "Network policy",
       "approvals": "Approval policy",
@@ -327,8 +722,8 @@
       "invalid_limits": "Every runtime limit must be a positive integer.",
       "allowed_origins": "Allowed browser origins",
       "origins_hint": "One exact HTTP or HTTPS origin per line. Requests without Origin and same-origin requests remain allowed.",
-      "copy": "Copy MCP endpoint",
-      "copied": "MCP endpoint copied",
+      "copy": "Copy address",
+      "copied": "Address copied",
       "save": "Save settings",
       "security": {
         "title": "Tenant and policy enforcement",
@@ -376,6 +771,61 @@
         "text_stdio": "Add MoleSignal as an MCP server and connect to it:\n- Name: molesignal\n- Transport: stdio\n- Command: npx -y @molesignal/cli mcp\nBefore adding it, run npx -y @molesignal/cli login --url {{address}} in a terminal: it opens a browser to sign in to MoleSignal and approve access; no API key is needed.\nIf no browser can open, set MOLESIGNAL_URL={{address}} and MOLESIGNAL_TOKEN=<MoleSignal API token> in this MCP server's environment instead; I will create the token in MoleSignal and give it to you.\nOnce it is set up, list the tools molesignal offers to confirm the connection.",
         "text_http": "Add MoleSignal as an MCP server and connect to it:\n- Name: molesignal\n- URL: {{endpoint}}\n- Transport: Streamable HTTP\n- Authentication: OAuth 2.1. Connecting opens a browser to sign in to MoleSignal and approve access; no API key is needed.\nIf you do not support OAuth, send the header Authorization: Bearer <MoleSignal API token> instead; I will create the token in MoleSignal and give it to you.\nOnce it is set up, list the tools molesignal offers to confirm the connection."
       }
+    },
+    "im": {
+      "description": "Mole Agent answers in Feishu, Slack, DingTalk, WeCom, Google Chat and Microsoft Teams through these connectors: mention it in a group or message it directly. Teams posts messages to a public callback address of MoleSignal; for the others one server receives them over a long connection or a Pub/Sub subscription, so no public address is needed. Once it is on, alert notifications sent through Feishu or Slack carry Acknowledge and Resolve buttons.",
+      "guide": "Setup guide",
+      "no_external_url": "No external URL is configured (http.external_url): people cannot link their IM accounts themselves, answers carry no link to their chat, and Microsoft Teams cannot deliver messages. An administrator can still add and verify their IM accounts in their notification methods.",
+      "none": "No connector that can answer in IM yet",
+      "none_hint": "Add an app connector in the notification settings, then turn it on here.",
+      "add_connector": "Add a connector",
+      "columns": {
+        "connector": "Connector",
+        "state": "Status",
+        "team": "New group threads",
+        "enabled": "On"
+      },
+      "state": {
+        "missing": "Needs {{fields}}",
+        "connector_off": "The connector is switched off",
+        "off": "Off",
+        "idle": "Waiting for a server",
+        "connecting": "Connecting",
+        "connected": "Connected",
+        "error": "Cannot connect"
+      },
+      "fields": {
+        "appToken": "an app-level token",
+        "botToken": "a bot token",
+        "appId": "an App ID",
+        "appSecret": "an App secret",
+        "clientId": "a Client ID",
+        "clientSecret": "a Client secret",
+        "botId": "a Bot ID",
+        "botSecret": "a long connection secret",
+        "credentials": "a service account key",
+        "subscription": "a Pub/Sub subscription",
+        "tenantId": "a tenant ID"
+      },
+      "list_separator": ", ",
+      "platforms": {
+        "feishu": "Feishu (Lark)",
+        "slack": "Slack",
+        "dingtalk": "DingTalk",
+        "wecom": "WeCom",
+        "google_chat": "Google Chat",
+        "teams": "Microsoft Teams"
+      },
+      "last_message": "last message {{at}}",
+      "callback": "Callback",
+      "copy_callback": "Copy the callback address",
+      "copied": "Copied",
+      "callback_needs_https": "Teams delivers messages only to an https external URL",
+      "team_personal": "The asker's personal chat",
+      "team_label": "Where new group threads of {{name}} go",
+      "toggle": "Answer in IM with {{name}}",
+      "turned_on": "{{name}} answers in IM",
+      "saved": "{{name}} saved"
     },
     "profiles": {
       "title": "Agent profiles",
@@ -604,6 +1054,10 @@
         "query_generation": {
           "title": "Query generation",
           "description": "Generates SQL, PromQL, or trace filters without performing write operations."
+        },
+        "evaluation": {
+          "title": "Answer evaluator",
+          "description": "How the evaluators on the Quality tab score answers. Each evaluator's rubric is filled into it."
         }
       },
       "fields": {
@@ -641,6 +1095,47 @@
         "set_default": "Default prompt updated",
         "restore": "Built-in prompt content restored",
         "delete": "Prompt deleted"
+      },
+      "promotion": {
+        "title": "Set {{name}} as the default",
+        "description": "Before an organization prompt becomes the default it is checked: up to 8 recent answers are answered again with this version and with the present default, without running tools again, and one evaluator scores both.",
+        "reasons": {
+          "prompt_check_required": "This version has not been checked against the present default yet. {{mode}}",
+          "prompt_check_running": "The check is running.",
+          "prompt_check_worse": "The check found this version worse than the present default. {{mode}}",
+          "prompt_check_unavailable": "No evaluator scores these answers, so there is nothing to check with. Add one under Mole Agent → Quality → Evaluators. {{mode}}"
+        },
+        "modes": {
+          "warn": "You can still set it after confirming.",
+          "block": "The organization only sets a prompt a check found no worse.",
+          "off": "The organization does not check prompts."
+        },
+        "check": "Run the check",
+        "check_again": "Check again",
+        "picking": "Choosing the answers to compare…",
+        "progress": "Answered again and scored {{done}} of {{total}}…",
+        "failed": "The check failed: {{error}}",
+        "verdicts": {
+          "better_one": "Better: on the same {{count}} answer, this version scored {{candidate}} and the present default {{baseline}}.",
+          "better_other": "Better: on the same {{count}} answers, this version scored {{candidate}} and the present default {{baseline}}.",
+          "same_one": "No worse: on the same {{count}} answer, this version scored {{candidate}} and the present default {{baseline}}.",
+          "same_other": "No worse: on the same {{count}} answers, this version scored {{candidate}} and the present default {{baseline}}.",
+          "worse_one": "Worse: on the same {{count}} answer, this version scored {{candidate}} and the present default {{baseline}}.",
+          "worse_other": "Worse: on the same {{count}} answers, this version scored {{candidate}} and the present default {{baseline}}.",
+          "inconclusive_one": "Too few answers to tell: {{count}} could be compared. It does not hold the prompt back.",
+          "inconclusive_other": "Too few answers to tell: {{count}} could be compared. It does not hold the prompt back."
+        },
+        "columns": {
+          "sample": "Answer",
+          "baseline": "Present default",
+          "candidate": "This version"
+        },
+        "kinds": {
+          "chat_answer": "Chat answer",
+          "incident_rca": "Incident RCA"
+        },
+        "regression": "From the regression set",
+        "set_anyway": "Set it anyway"
       }
     },
     "tools": {
@@ -858,7 +1353,6 @@
         "none": "No current dependencies",
         "warning": "{{count}} objects currently depend on this tool.",
         "agent_profiles": "Agent Profiles",
-        "automations": "Automations",
         "investigation_templates": "Investigation templates",
         "empty": "None"
       },
@@ -1136,7 +1630,10 @@
         "chat": "Chat",
         "rca": "Root cause analysis",
         "inspection": "Log inspections",
-        "llm_eval": "LLM functions"
+        "llm_eval": "LLM functions",
+        "automation": "Automations",
+        "evaluation": "Quality scoring",
+        "replay_summary": "Replay summaries"
       },
       "calls_hint": "{{calls}} calls",
       "tokens_value": "{{value}} tokens",
@@ -1269,6 +1766,26 @@
         "download": "Download",
         "try": "Try in a chat"
       }
+    }
+  },
+  "im_link": {
+    "title": "Link an IM account",
+    "question": "Link the {{platform}} account {{account}} to your MoleSignal account?",
+    "explain": "Mole Agent then answers your questions in {{platform}} ({{connector}}) as you, with your permissions. The link works once, until {{until}}.",
+    "confirm": "Link",
+    "linking": "Linking…",
+    "linked": "Linked",
+    "linked_hint": "Go back to {{platform}} and ask again.",
+    "expired": "This link was used or has expired",
+    "expired_hint": "Ask Mole Agent in IM again, and it sends you a new link.",
+    "platform_fallback": "IM",
+    "platforms": {
+      "feishu": "Feishu",
+      "slack": "Slack",
+      "dingtalk": "DingTalk",
+      "wecom": "WeCom",
+      "google_chat": "Google Chat",
+      "teams": "Teams"
     }
   },
   "starter_title": "What should we investigate tonight?",
@@ -1540,7 +2057,7 @@
     },
     "list_metric_names": {
       "title": "List metric names",
-      "description": "List metric stream names, optionally filtered by a substring."
+      "description": "List metric names, optionally filtered by a substring."
     },
     "list_metric_label_values": {
       "title": "List metric label values",
@@ -1548,7 +2065,7 @@
     },
     "list_metric_labels": {
       "title": "List metric labels",
-      "description": "List real label fields for one metric stream."
+      "description": "List real label fields for one metric."
     },
     "list_metric_series": {
       "title": "List metric series",
@@ -1630,6 +2147,42 @@
       "title": "Resolve incident",
       "description": "Resolve one open or acknowledged incident."
     },
+    "reassign_incident": {
+      "title": "Reassign incident",
+      "description": "Reassign one active incident to people, a team (its on-call policy) or an escalation policy."
+    },
+    "add_incident_responders": {
+      "title": "Add responders",
+      "description": "Add people to the assignees of one active incident and notify them."
+    },
+    "escalate_incident": {
+      "title": "Escalate incident now",
+      "description": "Escalate one active incident now to a step of its escalation policy, the next one by default."
+    },
+    "snooze_incident": {
+      "title": "Snooze incident",
+      "description": "Snooze one active incident: it is acknowledged and comes back unacknowledged when the time is up."
+    },
+    "lift_incident_inhibition": {
+      "title": "Lift incident inhibition",
+      "description": "Let an inhibited incident notify as usual: its held notifications go out and it is not inhibited again."
+    },
+    "set_incident_severity": {
+      "title": "Set incident severity",
+      "description": "Set the severity of one active incident; the rule no longer changes it afterwards."
+    },
+    "merge_incidents": {
+      "title": "Merge incidents",
+      "description": "Merge other active incidents into one: they stop notifying and are resolved with it."
+    },
+    "add_incident_note": {
+      "title": "Write incident note",
+      "description": "Write a note on an incident timeline: what was found, what was done."
+    },
+    "get_incident_timeline": {
+      "title": "Get incident timeline",
+      "description": "Get an incident timeline: who was notified, what people did, notes, and the incidents merged into it."
+    },
     "list_alert_rules": {
       "title": "List alert rules",
       "description": "List alert rules with state, query, thresholds, and routing metadata."
@@ -1673,6 +2226,14 @@
     "get_mute_rule": {
       "title": "Get mute rule",
       "description": "Get one alert mute rule by id."
+    },
+    "list_inhibit_rules": {
+      "title": "List inhibit rules",
+      "description": "List alert inhibit rules: which incidents hold back the notifications of which others, and how many are held back now."
+    },
+    "get_inhibit_rule": {
+      "title": "Get inhibit rule",
+      "description": "Get one alert inhibit rule by id."
     },
     "list_escalation_policies": {
       "title": "List escalation policies",
@@ -1774,6 +2335,14 @@
       "title": "Get APM health",
       "description": "Return APM projection freshness, coverage, and data-quality health."
     },
+    "get_apm_insights": {
+      "title": "Get APM insights",
+      "description": "Return what APM finds worth a look: moves against the stretch before and the week before with nearby changes, regressed versions, and where time could be won back."
+    },
+    "get_apm_blast_radius": {
+      "title": "Get a service's blast radius",
+      "description": "Return the services that call a service and what it calls along the service map, the unhealthy first."
+    },
     "correlate_signals": {
       "title": "Correlate signals",
       "description": "Return bounded links between incidents, traces, logs, RUM, and profiles for a service or trace."
@@ -1805,6 +2374,42 @@
     "get_rum_vitals": {
       "title": "Summarize Web Vitals",
       "description": "Summarize the Core Web Vitals real users had, page by page: the 75th percentile of LCP, INP, CLS and TTFB with page views, and the good and poor thresholds."
+    },
+    "list_rum_issues": {
+      "title": "List RUM issues",
+      "description": "List the error issues of a RUM application: status, first and last seen, and over the range the sessions, users and occurrences each touched, with a trend."
+    },
+    "get_rum_issue": {
+      "title": "Get RUM issue",
+      "description": "Get one RUM issue with its history, what it came to in the range, the latest sessions it happened in and its stack."
+    },
+    "get_rum_overview": {
+      "title": "Summarize a RUM application",
+      "description": "Summarize how a RUM application did: sessions, the share without errors or crashes, Core Web Vitals, the most viewed pages and the main issues."
+    },
+    "get_rum_frustration": {
+      "title": "Summarize RUM frustration",
+      "description": "Say what frustrates users: rage, dead and error clicks and the elements, pages and versions they concentrate in."
+    },
+    "get_rum_view_waterfall": {
+      "title": "Get RUM view waterfall",
+      "description": "Get the loading of one page view: its moments, what the largest paint waited for, the resources it requested and the long tasks that blocked it."
+    },
+    "aggregate_rum": {
+      "title": "Aggregate RUM data",
+      "description": "Count, average and take percentiles over the rows of a RUM stream, grouped by fields and optionally over time."
+    },
+    "get_rum_funnel": {
+      "title": "Get RUM funnel",
+      "description": "Count how many sessions got through a series of pages and actions in order, how long they took, and optionally by browser, version or country."
+    },
+    "get_rum_paths": {
+      "title": "Get RUM paths",
+      "description": "Follow the pages sessions opened after a page, or before it: the most visited pages at each step and where sessions went."
+    },
+    "get_rum_retention": {
+      "title": "Get RUM retention",
+      "description": "Say how many of the people first seen in a day or a week were seen again in each of the periods after."
     },
     "list_continuous_profiles": {
       "title": "List continuous profiles",
@@ -2341,6 +2946,78 @@
     "update_investigation": {
       "title": "Record investigation",
       "description": "Record the steps, evidence, hypotheses and conclusion of the investigation this chat belongs to."
+    },
+    "get_agent_insights": {
+      "title": "Get Mole Agent insights",
+      "description": "Sum up how Mole Agent was used in this chat's scope over recent days: questions, how answers and automations went, helpful and unhelpful ratings with reasons, the tools and skills used."
+    },
+    "get_incident_tickets": {
+      "title": "Get incident tickets",
+      "description": "List the tickets made for one incident in Jira, ServiceNow or Meegle, with their status."
+    },
+    "create_ticket": {
+      "title": "Create ticket",
+      "description": "Make a ticket for one incident with a Jira, ServiceNow or Meegle connector (one per connector)."
+    },
+    "list_remediation_actions": {
+      "title": "List remediation actions",
+      "description": "List the remediation actions one incident can run, with the parameters each asks for."
+    },
+    "run_remediation_action": {
+      "title": "Run remediation action",
+      "description": "Propose running a remediation action on one incident; it always waits for people to approve it."
+    },
+    "declare_major_incident": {
+      "title": "Declare major incident",
+      "description": "Declare one incident a major incident: roles, a war room, the checklist and stakeholder updates."
+    },
+    "assign_incident_role": {
+      "title": "Assign incident role",
+      "description": "Assign the commander, communications lead or scribe of a major incident, or clear the role."
+    },
+    "post_incident_update": {
+      "title": "Post incident update",
+      "description": "Post a status update on a major incident (impact, where things are, next steps) to its war room and stakeholders."
+    },
+    "add_incident_task": {
+      "title": "Add incident task",
+      "description": "Add a task to a major incident's task list."
+    },
+    "draft_incident_postmortem": {
+      "title": "Draft postmortem",
+      "description": "Save a Markdown draft of an incident's internal postmortem; a published one is left as it is."
+    },
+    "set_incident_priority": {
+      "title": "Set incident priority",
+      "description": "Set the priority (P1 to P5, or none) of one active incident; it changes no notification."
+    },
+    "set_incident_urgency": {
+      "title": "Set incident urgency",
+      "description": "Set the urgency of one active incident; raised to high, an unacknowledged one is paged again from the first level."
+    },
+    "create_incident": {
+      "title": "Create incident",
+      "description": "Open an incident by hand for a problem no rule caught, such as a customer report; it pages and escalates like any other, routed unless a team, a policy or people are named."
+    },
+    "list_discovery_findings": {
+      "title": "List discovery findings",
+      "description": "List what automatic discovery found without a rule: APM services that moved, worse new versions, new and returning front-end errors, log errors that surged or are new, and hosts or containers running out of room, with a CPU jump or restarting. Open ones by default."
+    },
+    "get_discovery_finding": {
+      "title": "Read a discovery finding",
+      "description": "Read one finding of automatic discovery: what moved, its value and baseline, when it started, and its detail."
+    },
+    "get_rum_feature_flags": {
+      "title": "Get RUM feature flags",
+      "description": "List the feature flags sessions evaluated; for one flag, compare the sessions, errors, frustration and Web Vitals of each value."
+    },
+    "get_rum_heatmap": {
+      "title": "Get a RUM heatmap",
+      "description": "Say which elements of a page people click and how far down they go."
+    },
+    "get_rum_session_notes": {
+      "title": "Get the notes of a replay",
+      "description": "Read what people said about a recorded session, and the summary and chapters a model wrote of it."
     }
   },
   "dashboard_authoring": {
@@ -2499,6 +3176,19 @@
       "decline": "Don't run it",
       "waiting": "Waiting for {{name}} to confirm: the tool runs as the person who asked"
     },
+    "authorization": {
+      "title": "Authorize to continue",
+      "needed": "{{tool}} needs your own credential for {{server}}. Save it and the answer goes on.",
+      "rejected": "{{server}} turned down the credential you saved. Enter a new one and {{tool}} runs again.",
+      "value": "Your credential for {{server}}",
+      "placeholder": "Paste the credential",
+      "hint": "Encrypted and used only for your own calls. Sent in the {{header}} header.",
+      "hint_bearer": "Encrypted and used only for your own calls. Sent as Bearer <credential> in the {{header}} header.",
+      "continue": "Save and continue",
+      "skip": "Skip",
+      "saved": "Credential saved; the answer goes on",
+      "waiting": "Waiting for {{name}} to authorize: the credential is theirs"
+    },
     "todo": {
       "progress": "Step {{current}} of {{total}}"
     },
@@ -2530,11 +3220,12 @@
       "incident": "Incident",
       "alert_rule": "Alert rule",
       "service": "Service",
+      "rum_application": "RUM application",
       "dashboard": "Dashboard",
       "stream": "Stream"
     },
-    "what": "Attach an incident, alert rule, service, dashboard or stream: type its name",
-    "none": "There are no incidents, alert rules, services, dashboards or streams to attach yet",
+    "what": "Attach an incident, alert rule, service, RUM application, dashboard or stream: type its name",
+    "none": "There are no incidents, alert rules, services, RUM applications, dashboards or streams to attach yet",
     "no_match": "Nothing found named “{{query}}”",
     "failed": "Search failed: {{reason}}"
   },

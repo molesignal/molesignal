@@ -14,21 +14,30 @@ use crate::{
     api::AppState,
     app::{
         iam::IamContext,
-        notify::{CreateNotifyConnector, UpdateNotifyConnector, mask_connector_config},
+        notify::{
+            ConnectorRegionsQuery, CreateNotifyConnector, UpdateNotifyConnector,
+            mask_connector_config,
+        },
     },
     domain::{
         iam::permission,
         notify::connector::{
-            ConnectorCapabilities, ConnectorStatus, ConnectorTestStatus, NotifyConnector,
-            NotifyMessage, NotifyTarget, NotifyTargetType,
+            ConnectorAddress, ConnectorCapabilities, ConnectorRegion, ConnectorStatus,
+            ConnectorTestStatus, NotifyConnector, NotifyMessage, NotifyTarget, NotifyTargetType,
         },
     },
+    infra::connectors::aws,
     shared::{Result, ids::Id, time::TimestampMicros},
 };
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new()
         .route("/notify/connector-types", get(list_types))
+        .route("/notify/aws-external-id", get(aws_external_id))
+        .route(
+            "/notify/connector-regions",
+            axum::routing::post(connector_regions),
+        )
         .route("/notify/connectors", get(list).post(create))
         .route(
             "/notify/connectors/{id}",
@@ -38,6 +47,7 @@ pub(super) fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateConnectorRequest {
     name: String,
     #[serde(alias = "type")]
@@ -56,12 +66,34 @@ struct UpdateConnectorRequest {
     enabled: bool,
 }
 
+/// 列区域：连接器类型与还在填的配置；编辑已有连接器时带它的 ID。
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ConnectorRegionsRequest {
+    connector_type: String,
+    #[serde(default)]
+    config: Option<Value>,
+    #[serde(default)]
+    connector_id: Option<String>,
+    #[serde(default)]
+    language: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct ConnectorRegionsResponse {
+    regions: Vec<ConnectorRegion>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct TestConnectorRequest {
     target_type: NotifyTargetType,
     target: String,
     #[serde(default)]
     message: Option<TestMessageRequest>,
+    /// 套用这个通知模板发，占位符填示例值。
+    #[serde(default)]
+    template_id: Option<Id>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -77,6 +109,7 @@ struct TestMessageRequest {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ConnectorResponse {
     id: Id,
     organization_id: Id,
@@ -93,16 +126,20 @@ struct ConnectorResponse {
     updated_at: TimestampMicros,
 }
 
+/// 一种连接器：能力，以及配置里服务商地址的目录，连接器里照它显示、选择地址。
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ConnectorTypeResponse {
     connector_type: &'static str,
     capabilities: ConnectorCapabilities,
+    addresses: Vec<ConnectorAddress>,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ConnectorTestResponse {
     sent: bool,
-    tested_at_micros: i64,
+    tested_at: i64,
     elapsed_ms: u64,
     provider_message_id: Option<String>,
     error: Option<String>,
@@ -152,10 +189,29 @@ fn test_message(request: Option<TestMessageRequest>) -> NotifyMessage {
         markdown: request.markdown,
         html: request.html,
         metadata: Default::default(),
+        provider_templates: Default::default(),
+        event: None,
+        card: None,
     }
 }
 
-#[permission("alerts.read")]
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AwsExternalIdResponse {
+    external_id: String,
+}
+
+/// 本组织的 AWS 连接器扮演角色时带的外部 ID，供写进角色的信任策略。
+#[permission("notify.connectors.read")]
+async fn aws_external_id(
+    Extension(ctx): Extension<IamContext>,
+) -> Result<Json<AwsExternalIdResponse>> {
+    Ok(Json(AwsExternalIdResponse {
+        external_id: aws::external_id(&ctx.org_id),
+    }))
+}
+
+#[permission("notify.connectors.read")]
 async fn list_types(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -166,15 +222,41 @@ async fn list_types(
             .notify
             .supported_connector_types()
             .into_iter()
-            .map(|(connector_type, capabilities)| ConnectorTypeResponse {
-                connector_type,
-                capabilities,
+            .map(|supported| ConnectorTypeResponse {
+                connector_type: supported.connector_type,
+                capabilities: supported.capabilities,
+                addresses: supported.addresses,
             })
             .collect(),
     ))
 }
 
-#[permission("alerts.read")]
+/// 分区域的连接器（阿里云、AWS）能用的区域，向厂商查。要凭证的用请求里的配置，所以与新建、修改
+/// 连接器要一样的权限。
+#[permission("notify.connectors.manage")]
+async fn connector_regions(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<IamContext>,
+    Json(request): Json<ConnectorRegionsRequest>,
+) -> Result<Json<ConnectorRegionsResponse>> {
+    let regions = state
+        .alerting
+        .notify
+        .connector_regions(
+            &ctx.org_id,
+            ConnectorRegionsQuery {
+                connector_type: request.connector_type,
+                config: request.config,
+                connector_id: request.connector_id.map(Id::from_string),
+                language: request.language.unwrap_or_else(|| "en-us".into()),
+            },
+        )
+        .await?;
+
+    Ok(Json(ConnectorRegionsResponse { regions }))
+}
+
+#[permission("notify.connectors.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -191,7 +273,7 @@ async fn list(
     ))
 }
 
-#[permission("alerts.read")]
+#[permission("notify.connectors.read")]
 async fn get_one(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -206,7 +288,7 @@ async fn get_one(
     )))
 }
 
-#[permission("alerts.manage")]
+#[permission("notify.connectors.manage")]
 async fn create(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -229,7 +311,7 @@ async fn create(
     Ok((StatusCode::CREATED, Json(to_response(connector))))
 }
 
-#[permission("alerts.manage")]
+#[permission("notify.connectors.manage")]
 async fn update(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -253,7 +335,7 @@ async fn update(
     Ok(Json(to_response(connector)))
 }
 
-#[permission("alerts.manage")]
+#[permission("notify.connectors.delete")]
 async fn delete(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -268,7 +350,7 @@ async fn delete(
     Ok(StatusCode::NO_CONTENT)
 }
 
-#[permission("alerts.manage")]
+#[permission("notify.connectors.manage")]
 async fn test(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -287,12 +369,13 @@ async fn test(
                 metadata: Default::default(),
             },
             test_message(request.message),
+            request.template_id.as_ref(),
         )
         .await?;
 
     Ok(Json(ConnectorTestResponse {
         sent: outcome.sent,
-        tested_at_micros: outcome.tested_at.0,
+        tested_at: outcome.tested_at.0,
         elapsed_ms: outcome.elapsed_ms,
         provider_message_id: outcome.provider_message_id,
         error: outcome.error,

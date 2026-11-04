@@ -8,11 +8,15 @@
     "meta": {
       "status": "Status",
       "fired": "Fired",
-      "rule": "Rule"
+      "rule": "Rule",
+      "synthetic": "Synthetic check",
+      "source": "Source",
+      "created_by": "Opened by"
     },
     "firing_for": "Firing for {{duration}}",
     "recovered_after": "Recovered after {{duration}}",
-    "no_owner": "Nobody has it yet"
+    "no_owner": "Nobody has it yet",
+    "someone": "Someone"
   },
   "actions": {
     "new_rule": "New rule",
@@ -61,13 +65,20 @@
     "label": "Alerts views",
     "incidents": "Incidents",
     "rules": "Rules",
+    "sources": "Sources",
     "status_pages": "Status pages",
     "history": "History",
     "insights": "Insights",
     "groups": "Groups",
     "escalations": "Escalations",
     "schedules": "On-call schedules",
-    "silences": "Silence policies"
+    "inhibitions": "Inhibition",
+    "silences": "Silence policies",
+    "routing": "Routing",
+    "remediation": "Remediation",
+    "tickets": "Tickets",
+    "postmortems": "Postmortems",
+    "discovery": "Discovery"
   },
   "history": {
     "error_title": "Cannot load alert history",
@@ -94,7 +105,8 @@
       "current_status": "Current status",
       "created": "Fired",
       "resolved": "Recovered",
-      "duration": "Duration"
+      "duration": "Duration",
+      "priority": "Priority"
     },
     "severity": {
       "info": "Info",
@@ -125,7 +137,9 @@
       },
       "tabs": {
         "active": "Firing",
-        "unacknowledged": "Waiting"
+        "unacknowledged": "Waiting",
+        "my_teams": "My teams",
+        "inhibited": "Inhibited"
       },
       "columns": {
         "severity": "Severity",
@@ -133,7 +147,8 @@
         "status": "Status",
         "duration": "Duration",
         "owner": "Owner",
-        "actions": "Actions"
+        "actions": "Actions",
+        "priority": "Priority"
       },
       "status": {
         "open": "Waiting",
@@ -172,6 +187,14 @@
         "unacknowledged": {
           "title": "Nothing is waiting for acknowledgement",
           "description": "Every active incident already has an owner."
+        },
+        "my_teams": {
+          "title": "Nothing firing for your teams",
+          "description": "Incidents routed to a team you are in are listed here."
+        },
+        "priority": {
+          "title": "No incidents with this priority",
+          "description": "Pick another priority, or All priorities."
         }
       },
       "tabs_label": "Incident status",
@@ -212,13 +235,20 @@
         "not_evaluated": "Not evaluated",
         "healthy": "Healthy",
         "pending": "Waiting duration",
+        "no_data": "No data",
         "firing": "Firing",
+        "inhibited": "Firing (inhibited)",
+        "dropped": "Dropped by pipeline",
         "disabled": "Disabled"
       },
       "kinds": {
         "scheduled": "Threshold rule",
         "real_time": "Real-time rule",
-        "anomaly": "Anomaly detection"
+        "anomaly": "Anomaly detection",
+        "composite": "Composite",
+        "forecast": "Forecast",
+        "outlier": "Outlier",
+        "heartbeat": "Heartbeat"
       },
       "never_evaluated": "Never evaluated",
       "no_match": {
@@ -226,7 +256,10 @@
         "description": "Try another keyword or status filter."
       },
       "tabs_label": "Rule status",
-      "evaluated_ago": "{{age}} ago"
+      "evaluated_ago": "{{age}} ago",
+      "bulk_delete_title_one": "Delete {{count}} rule?",
+      "bulk_delete_title_other": "Delete {{count}} rules?",
+      "bulk_delete_description": "They stop being evaluated, and they cannot be restored."
     }
   },
   "workbench": {
@@ -261,24 +294,37 @@
       "interval": "Evaluation interval",
       "query": "Query",
       "query_language": "Query language",
+      "group_by": "Split by",
       "thresholds": "Trigger conditions",
-      "runbook": "Response guide / Runbook URL"
+      "runbook": "Response guide / Runbook URL",
+      "delay": "Evaluation delay",
+      "priority": "Priority",
+      "urgency": "Urgency",
+      "home_cluster": "Decided in"
     },
     "placeholders": {
       "name": "e.g. api_high_error_rate",
       "service": "e.g. api-gateway",
       "description": "Describe the user path or system capability this protects",
-      "stream": "e.g. app_metrics"
+      "stream": "e.g. app_metrics",
+      "group_by": "e.g. host, service"
     },
     "hints": {
       "query": "Test rule runs this query against real data from the last six hours.",
       "thresholds": "The highest matching severity wins; duration is converted to evaluation periods.",
-      "runbook": "Optional. Responders can open it directly from the incident list."
+      "runbook": "Optional. Responders can open it directly from the incident list.",
+      "group_by": "Columns of the query result, such as host or service, separated by commas; at most 8. Each group of values is compared with the thresholds on its own and opens its own incident, valued by the first other numeric column. Leave empty for one incident per rule.",
+      "delay": "How far back each round looks, waiting for data that arrives late or is not written out yet. Auto: none on a single process, the platform setting in a cluster.",
+      "priority": "Incidents open with this priority; left unset, an alert pipeline may still give one.",
+      "urgency": "Left unset, the escalation policy the incident goes to decides.",
+      "home_cluster": "In a federation, every cluster counts the records written to it. Choose one cluster to add up the counts of all clusters mapped to this organization and open the incidents there; the others only count."
     },
     "signals": {
       "metrics": "Metric alert",
       "logs": "Log alert",
-      "traces": "Trace alert"
+      "traces": "Trace alert",
+      "apm": "APM alert",
+      "rum": "RUM alert"
     },
     "quick_start": "Quick start",
     "presets": {
@@ -323,6 +369,22 @@
       "duration": "And for",
       "minutes": "minutes"
     },
+    "conditions": {
+      "recovery": "Recovery",
+      "recovery_hint": "When the value hovers around the threshold, a recovery threshold or duration keeps it from firing and recovering over and over.",
+      "recovery_threshold": "Recovery threshold",
+      "recovery_threshold_placeholder": "Same as the threshold",
+      "no_data": "When there is no data",
+      "no_data_hint": "No value, or a group missing from the result of a split rule, counts as no data.",
+      "no_data_action": "Count it as",
+      "no_data_actions": {
+        "resolve": "Recovered",
+        "keep": "Keep the state",
+        "alert": "Open a no-data incident",
+        "zero": "Zero"
+      },
+      "no_data_duration": "Without data for"
+    },
     "operators": {
       "gt": "> (gt)",
       "gte": "≥ (gte)",
@@ -340,6 +402,9 @@
     "preview": {
       "title": "Query preview",
       "window": "Real data · last 6 hours",
+      "window_hours_one": "Real data · last hour",
+      "window_hours_other": "Real data · last {{count}} hours",
+      "window_open": "Real data",
       "not_run": "Test has not run",
       "not_run_description": "Run it to see the query curve, threshold line, and estimated historical triggers.",
       "stale": "Query changed after the last test",
@@ -351,8 +416,16 @@
       "query_value": "Query result",
       "threshold": "Threshold",
       "current": "Current value",
-      "estimated": "Estimated triggers",
-      "cost": "Scanned rows · latency"
+      "cost": "Scanned rows · latency",
+      "groups_one": "{{count}} group by {{columns}}",
+      "groups_other": "{{count}} groups by {{columns}}",
+      "backtest_fires_one": "With these conditions it would have fired {{count}} time ({{times}}).",
+      "backtest_fires_other": "With these conditions it would have fired {{count}} times ({{times}}).",
+      "backtest_quiet": "With these conditions it would not have fired.",
+      "backtest_near_one": "It crossed the line {{count}} more time but did not hold for {{periods}} rounds.",
+      "backtest_near_other": "It crossed the line {{count}} more times but did not hold for {{periods}} rounds.",
+      "span_pending": "Over the line, not held yet",
+      "span_firing": "Would have fired"
     },
     "validation": {
       "title": "Pre-create checks",
@@ -367,22 +440,264 @@
         "preview_running": "Wait for the query test to finish before enabling.",
         "preview_required": "Run Test rule successfully against the current query before enabling.",
         "thresholds": "Resolve the threshold validation issues before enabling.",
-        "runbook": "Enter a valid Runbook URL before enabling."
-      }
+        "runbook": "Enter a valid Runbook URL before enabling.",
+        "composite": "Write the expression and choose its rules before enabling the rule.",
+        "heartbeat": "The check-in period is at least one minute."
+      },
+      "composite": "The expression and its rules are chosen",
+      "heartbeat": "The check-in period is valid"
     },
     "errors": {
       "load_rule": "Cannot load alert rule",
       "org_required": "The current organization is unavailable.",
       "name_required": "Rule name is required.",
       "stream_required": "Target stream is required.",
+      "stream_audit": "An alert rule cannot read _audit: rules are evaluated in the background, where nobody's audit.read applies.",
       "query_required": "Query is required.",
       "threshold_required": "At least one valid threshold is required.",
       "threshold_conflict": "A higher severity cannot be easier to trigger than a lower severity.",
-      "runbook_invalid": "Enter a valid http or https URL."
+      "runbook_invalid": "Enter a valid http or https URL.",
+      "apm_service_required": "Choose the service to alert on",
+      "rum_application_required": "Choose the application to alert on",
+      "group_by_missing": "The query result has no column to split by: {{columns}}",
+      "group_by_too_many": "Split by at most {{count}} columns.",
+      "recovery_side": "The recovery threshold has to be on the healthy side: no higher than a threshold the value fires above, no lower than one it fires below, with every band firing the same way."
     },
     "toast": {
       "saved": "Rule “{{name}}” saved and enabled",
       "draft_saved": "Rule draft “{{name}}” saved"
+    },
+    "apm": {
+      "service": "Service",
+      "service_placeholder": "Choose a service",
+      "environment": "Environment",
+      "every_environment": "Every environment",
+      "endpoint": "Endpoint",
+      "whole_service": "Whole service",
+      "metric": "Figure",
+      "unit": {
+        "percent": "In percent",
+        "milliseconds": "In milliseconds",
+        "per_second": "In requests a second",
+        "count": "A count",
+        "score": "From 0 to 1",
+        "burn_rate": "How many times faster than allowed the error budget is spent"
+      },
+      "metrics": {
+        "error_rate": "Error rate",
+        "p50": "P50 latency",
+        "p90": "P90 latency",
+        "p95": "P95 latency",
+        "p99": "P99 latency",
+        "average": "Average duration",
+        "throughput": "Throughput",
+        "request_count": "Requests",
+        "error_count": "Errors",
+        "new_error_groups": "New error groups",
+        "apdex": "Apdex",
+        "slo_burn_rate": "SLO burn rate"
+      }
+    },
+    "rum": {
+      "application": "Application",
+      "application_placeholder": "Choose an application",
+      "environment": "Environment",
+      "every_environment": "Every environment",
+      "page": "Page",
+      "every_page": "Every page",
+      "screen": "Screen",
+      "every_screen": "Every screen",
+      "version": "Version",
+      "every_version": "Every version",
+      "metric": "Figure",
+      "window": "Window",
+      "windows": {
+        "300": "5 minutes",
+        "900": "15 minutes",
+        "3600": "1 hour"
+      },
+      "min_samples": "Rows needed",
+      "min_samples_hint": "With fewer {{kind}} than this the figure has no value, so nothing fires. Default {{rows}}.",
+      "sample_kinds": {
+        "views": "views",
+        "sessions": "sessions",
+        "requests": "requests",
+        "views_with_value": "views that have a value",
+        "rows": "matching rows"
+      },
+      "unit": {
+        "percent": "In percent",
+        "milliseconds": "In milliseconds",
+        "count": "A count",
+        "score": "A score; 0.1 is good",
+        "bytes": "In bytes",
+        "none": "No unit"
+      },
+      "not_for": {
+        "page_sessions": "A session is not on one page.",
+        "page_issues": "An issue turns up on many pages.",
+        "version_issues": "An issue turns up in many versions.",
+        "page_query": "Name the page in the query.",
+        "version_query": "Name the version in the query."
+      },
+      "unavailable": {
+        "time_budget": "The preview took too long: choose a shorter window.",
+        "busy": "Too many queries are running: try again in a moment.",
+        "timestamp_masked": "Time is masked in this stream, so no preview can be drawn."
+      },
+      "metrics": {
+        "session_count": "Sessions",
+        "view_count": "Page views",
+        "error_count": "Errors",
+        "error_rate": "Error rate (views with an error)",
+        "crash_free_sessions": "Crash-free sessions",
+        "frustration_rate": "Sessions with frustration",
+        "failed_request_rate": "Failed requests",
+        "lcp_p75": "LCP (p75)",
+        "inp_p75": "INP (p75)",
+        "cls_p75": "CLS (p75)",
+        "ttfb_p75": "Time to first byte (p75)",
+        "new_issues": "New issues",
+        "regressed_issues": "Regressed issues",
+        "issue_impact": "Sessions hit by the worst issue",
+        "custom_vital": "Custom duration (vital)",
+        "custom_timing": "Custom timing",
+        "query": "Explorer query"
+      },
+      "custom": {
+        "name_vital": "Name of the vital",
+        "name_timing": "Name of the timing",
+        "placeholder": "Choose or type a name",
+        "statistic": "Statistic",
+        "statistics": {
+          "p50": "P50",
+          "p75": "P75",
+          "p90": "P90",
+          "p95": "P95",
+          "p99": "P99",
+          "avg": "Average",
+          "count": "Count"
+        }
+      },
+      "query": {
+        "type": "Type of rows",
+        "statement": "Query",
+        "statement_hint": "Written as in the Code mode of the RUM Explorer; empty is every row of the type.",
+        "ignored": "Left out, the type cannot answer it: {{parts}}",
+        "measure": "Measure",
+        "field": "Field",
+        "field_placeholder": "Choose a field",
+        "open_explorer": "Open in Explorer",
+        "functions": {
+          "count": "Rows",
+          "count_distinct": "Distinct values",
+          "sum": "Sum",
+          "avg": "Average",
+          "min": "Minimum",
+          "max": "Maximum",
+          "p50": "p50",
+          "p75": "p75",
+          "p90": "p90",
+          "p95": "p95",
+          "p99": "p99"
+        }
+      }
+    },
+    "kind": {
+      "label": "How it fires",
+      "options": {
+        "scheduled": "Threshold",
+        "forecast": "Forecast",
+        "outlier": "Outlier",
+        "composite": "Composite",
+        "heartbeat": "Heartbeat"
+      },
+      "hints": {
+        "scheduled": "Fires when the query result crosses a threshold.",
+        "forecast": "Carries the trend forward and fires when it is expected to cross the threshold within the lead time.",
+        "outlier": "Splits the query by columns, compares the groups, and opens an incident for each group that stands apart.",
+        "composite": "Combines rules with and, or and not; a rule counts while it has an open incident.",
+        "heartbeat": "Waits for check-ins from a scheduled job or backup script; fires when one is late past the grace or reports a failure."
+      }
+    },
+    "composite": {
+      "expression": "Expression",
+      "expression_hint": "Name the rules below by letter and combine them with && (and), || (or), ! (not) and brackets.",
+      "rules": "Rules",
+      "rule_named": "Rule {{letter}}",
+      "pick_rule": "Choose a rule",
+      "missing_rule": "Rule no longer exists",
+      "add_rule": "Add rule {{letter}}",
+      "remove_rule": "Remove rule {{letter}}",
+      "merge_children": "Merge these rules' incidents under the composite incident",
+      "merge_children_hint": "Once the composite rule opens an incident, the open incidents of the combined rules stop notifying on their own and sit under it.",
+      "problems": {
+        "empty": "Write an expression, such as A && B.",
+        "characters": "Use only single letters, &&, ||, ! and brackets.",
+        "letters": "Choose a rule for {{letters}} in the expression.",
+        "unused": "{{letters}} is not used in the expression."
+      }
+    },
+    "forecast": {
+      "line": "Expected to be",
+      "lead": "Lead time",
+      "lookback": "Looking back",
+      "model": "Model",
+      "models": {
+        "linear": "Linear trend",
+        "daily": "Daily pattern",
+        "weekly": "Weekly pattern"
+      },
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "hint": "Each round adds the current value to the series; a new rule first fills in some history. With too few points it does not judge."
+    },
+    "outlier": {
+      "tolerance": "Tolerance",
+      "tolerance_hint": "How many scaled deviations away counts as an outlier; smaller is more sensitive (default 3).",
+      "direction": "Which side",
+      "directions": {
+        "both": "Higher or lower",
+        "above": "Higher only",
+        "below": "Lower only"
+      },
+      "needs_split": "An outlier rule splits by columns and compares at least 3 groups with a value."
+    },
+    "heartbeat": {
+      "period": "Check-in period",
+      "grace": "Grace",
+      "address_after_save": "The check-in address is shown once, after saving.",
+      "last_checkin": "Last check-in: {{value}}",
+      "never": "No check-in yet",
+      "status": {
+        "ok": "OK",
+        "fail": "Reported a failure"
+      },
+      "due": "Next check-in due by {{value}}",
+      "reset": "Reset check-in address",
+      "dialog_title": "Check-in address",
+      "dialog_description": "Have the job request this address (GET or POST) each time it runs; add ?status=fail on failure to fire at once.",
+      "shown_once": "The address is shown only now; resetting it stops the old one at once.",
+      "no_external_url": "No external address is set for this instance, so the address you are using now is shown; the job must be able to reach it.",
+      "example": "Example",
+      "copy": "Copy address"
+    },
+    "delay": {
+      "auto": "Auto",
+      "none": "No delay",
+      "seconds_one": "{{count}} s",
+      "seconds_other": "{{count}} s",
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "hours_one": "{{count}} h",
+      "hours_other": "{{count}} h"
+    },
+    "urgency_by_policy": "By escalation policy",
+    "home_cluster": {
+      "each": "Each cluster by itself",
+      "local": "{{name}} (this cluster)"
     }
   },
   "drawer": {
@@ -406,7 +721,15 @@
       "signals": "Cross-signal handles",
       "metadata": "Metadata",
       "triggering_query": "Triggering query",
-      "assignees": "Assignees"
+      "assignees": "Assignees",
+      "blast_radius": "Blast radius",
+      "rum_sessions": "Sample sessions",
+      "similar": "Similar incidents",
+      "changes": "Recent changes",
+      "remediation": "Remediation",
+      "tickets": "Tickets",
+      "major": "Major incident",
+      "postmortem": "Postmortem"
     },
     "investigation": {
       "open_trigger": "Open triggering query",
@@ -414,7 +737,9 @@
       "related_logs": "Related logs",
       "related_logs_description": "Inspect logs from the affected context.",
       "related_metrics": "Related metrics",
-      "related_metrics_description": "Compare service health in the same window."
+      "related_metrics_description": "Compare service health in the same window.",
+      "open_rum": "Open in RUM",
+      "open_rum_description": "See the same figure on its page, over the time of the incident."
     },
     "rca": {
       "generate": "Generate",
@@ -448,7 +773,65 @@
       "sample_count_one": "1 sample row",
       "show_samples": "Show sample values"
     },
-    "assignees_none": "No one assigned yet."
+    "assignees_none": "No one assigned yet.",
+    "routing": {
+      "team": "Team",
+      "reason": "Because",
+      "no_team": "No team"
+    },
+    "rum": {
+      "why": {
+        "lcp_p75": "Sessions of the views with the slowest largest contentful paint",
+        "inp_p75": "Sessions of the views with the slowest interaction",
+        "cls_p75": "Sessions of the views with the largest layout shift",
+        "ttfb_p75": "Sessions of the views with the slowest first byte",
+        "error_rate": "Sessions of the newest errors",
+        "error_count": "Sessions of the newest errors",
+        "new_issues": "Sessions of the newest errors of these issues",
+        "regressed_issues": "Sessions of the newest errors of these issues",
+        "issue_impact": "Sessions of the newest errors of the worst issue",
+        "crash_free_sessions": "Sessions that crashed",
+        "frustration_rate": "Sessions with a sign of frustration",
+        "failed_request_rate": "Sessions with a failed request"
+      },
+      "cause": {
+        "lcp": "LCP {{value}}",
+        "inp": "INP {{value}}",
+        "cls": "CLS {{value}}",
+        "ttfb": "First byte {{value}}",
+        "request": "{{request}} → {{status}}"
+      },
+      "replay": "Replay",
+      "replay_at": "Replay {{time}}",
+      "session": "Session",
+      "anonymous": "Anonymous {{id}}",
+      "element": "element {{element}}",
+      "crashes_one": "{{count}} crash",
+      "crashes_other": "{{count}} crashes",
+      "signs_one": "{{count}} sign of frustration",
+      "signs_other": "{{count}} signs of frustration",
+      "no_answer": "no answer",
+      "sessions_failed": "The sessions could not be read; the rows are what the incident kept."
+    },
+    "blast": {
+      "off_map": "{{service}} is not on the service map in this time.",
+      "upstream": "Calls it: what its trouble reaches",
+      "downstream": "It calls: where the trouble may come from",
+      "no_upstream": "Nothing calls it.",
+      "no_downstream": "It calls nothing.",
+      "open_map": "Open on the service map",
+      "direct": "direct",
+      "hops_one": "{{count}} hop away",
+      "hops_other": "{{count}} hops away",
+      "calls_one": "{{formatted}} call, {{rate}} failed",
+      "calls_other": "{{formatted}} calls, {{rate}} failed",
+      "health": {
+        "critical": "Critical",
+        "warning": "Warning",
+        "healthy": "Healthy",
+        "no_traffic": "Idle"
+      }
+    }
   },
   "insights": {
     "error_title": "Cannot compute insights",
@@ -495,7 +878,8 @@
       "description": "Ranked by incidents created in the selected period.",
       "empty_title": "No rule attribution",
       "empty_description": "These incidents have no identifiable rule source.",
-      "unknown_rule": "Deleted or unavailable rule"
+      "unknown_rule": "Deleted or unavailable rule",
+      "manual_secondary": "Incidents someone opened by hand"
     },
     "rankings": {
       "count_and_share_one": "{{count}} incident · {{percent}}",
@@ -507,6 +891,78 @@
       "minutes_seconds": "{{minutes}}m {{seconds}}s",
       "hours": "{{count}}h",
       "hours_minutes": "{{hours}}h {{minutes}}m"
+    },
+    "response": {
+      "title": "Response",
+      "description": "How soon someone took an incident, how soon it recovered and how much escalated, compared with the window before.",
+      "mtta": "Mean time to acknowledge",
+      "percentiles": "P50 {{p50}} · P90 {{p90}}",
+      "none_responded": "Nobody has taken an incident in this window",
+      "mttr": "Median time to recover",
+      "p90": "P90 {{p90}}",
+      "escalation_rate": "Escalation rate",
+      "responded": "Taken by someone",
+      "responded_detail": "{{responded}} of {{incidents}} incidents; the rest recovered by themselves or still wait",
+      "faster": "{{change}} faster than before",
+      "slower": "{{change}} slower than before",
+      "lower": "{{change}} lower than before",
+      "higher": "{{change}} higher than before",
+      "same": "About the same as before",
+      "no_previous": "Nothing to compare with before",
+      "steps_title": "Acknowledged per step",
+      "steps_description": "Of the incidents that reached a step, the share acknowledged during it.",
+      "step": "Step {{n}}",
+      "step_rate": "{{acknowledged}} of {{reached}} · {{percent}}",
+      "steps_empty": "No escalation was recorded in this window.",
+      "via_title": "Taken through",
+      "via_description": "Where the first acknowledgement or resolution was made.",
+      "via": {
+        "web": "Web",
+        "api": "API",
+        "im": "Chat card",
+        "sms": "SMS reply",
+        "phone": "Phone keypress",
+        "agent": "Mole Agent"
+      },
+      "via_empty": "Nobody has taken an incident in this window.",
+      "breakdown_title": "By team, service and person",
+      "breakdown_description": "A person is whoever took the incident first; an incident of several services counts once for each; incidents without a priority are left out of priority.",
+      "breakdown_label": "Break down by",
+      "dimensions": {
+        "teams": "Teams",
+        "services": "Services",
+        "people": "People",
+        "priorities": "Priority"
+      },
+      "columns": {
+        "teams": "Team",
+        "services": "Service",
+        "people": "Member",
+        "incidents": "Incidents",
+        "mtta": "Mean to acknowledge",
+        "mttr": "Mean to recover",
+        "escalation": "Escalation rate",
+        "priorities": "Priority"
+      },
+      "breakdown_empty": "Nothing to break down."
+    },
+    "load": {
+      "title": "On-call load",
+      "description": "How long each person was on call and how often paged; night is {{start}}:00 to {{end}}:00 in the timezone of their schedule.",
+      "loading": "Counting…",
+      "error": "The on-call load could not be read.",
+      "empty": "Nobody was on call and no alert was paged in this window.",
+      "columns": {
+        "person": "Member",
+        "oncall": "On call",
+        "pages": "Pages",
+        "night": "At night",
+        "weekend": "At weekends",
+        "nights": "Nights woken",
+        "mtta": "Taken first",
+        "timezone": "Timezone"
+      },
+      "mtta_of": "{{count}} · mean {{mtta}}"
     }
   },
   "anomaly": {
@@ -534,7 +990,8 @@
       "k": "Sensitivity (k·σ)",
       "alpha": "Smoothing (α)",
       "for_periods": "Trigger after (intervals)",
-      "weekly_seasonality": "Weekly seasonality"
+      "weekly_seasonality": "Weekly seasonality",
+      "source": "Data source"
     },
     "hints": {
       "name": "Shown on incidents this rule opens.",
@@ -547,7 +1004,8 @@
       "k": "Higher = less sensitive. Fires when |value - baseline| > k·σ.",
       "alpha": "EWMA only: higher = weights recent samples more (0-1).",
       "for_periods": "Consecutive anomalous intervals before an incident opens.",
-      "weekly_seasonality": "Compare only the same weekday's history — cuts weekday/weekend false positives. Needs lookback >= 7 (28+ recommended)."
+      "weekly_seasonality": "Compare only the same weekday's history — cuts weekday/weekend false positives. Needs lookback >= 7 (28+ recommended).",
+      "source": "Watch the result of a query, or an APM figure of a service"
     },
     "placeholders": {
       "name": "checkout_latency_anomaly",
@@ -567,6 +1025,11 @@
     "weekly": {
       "off": "Off (daily)",
       "on": "On (same weekday)"
+    },
+    "source": {
+      "query": "Query",
+      "apm": "APM figure",
+      "rum": "RUM figure"
     }
   },
   "severity": {
@@ -574,6 +1037,405 @@
     "warning": "Warning",
     "error": "Error",
     "critical": "Critical"
+  },
+  "conditions": {
+    "no_data": "No data"
+  },
+  "sources": {
+    "synthetic": "Synthetic",
+    "manual": "Opened by hand"
+  },
+  "alert_sources": {
+    "new_source": "New alert source",
+    "empty_title": "No alert sources yet",
+    "empty_description": "Let Alertmanager, Grafana, Datadog, PagerDuty, Zabbix, cloud monitors, email or your own systems send alerts in, open them as incidents, and escalate and notify them.",
+    "kinds": {
+      "api": "API",
+      "alertmanager": "Alertmanager",
+      "grafana": "Grafana",
+      "datadog": "Datadog",
+      "pagerduty": "PagerDuty",
+      "aliyun_cms": "Alibaba Cloud CloudMonitor",
+      "tencent_monitor": "Tencent Cloud Observability Platform",
+      "aws_cloudwatch": "Amazon CloudWatch",
+      "zabbix": "Zabbix",
+      "email": "Email"
+    },
+    "kind_hints": {
+      "api": "Trigger, acknowledge and resolve through the MoleSignal API, from scripts, CI and in-house systems.",
+      "alertmanager": "A webhook_configs receiver. One notification group opens one incident.",
+      "grafana": "A webhook contact point. One notification group opens one incident.",
+      "datadog": "The Webhooks integration, mentioned in monitors as @webhook. Uses the payload given in the docs.",
+      "pagerduty": "A V3 webhook subscription. Follows PagerDuty incidents as they trigger, are acknowledged and resolve.",
+      "aliyun_cms": "Threshold alarm callbacks and event subscription pushes. The token goes in the address.",
+      "tencent_monitor": "API callbacks of a notification template, for metric and event alarms. The token goes in the address.",
+      "aws_cloudwatch": "Alarms go to an SNS topic that subscribes this address. SNS signatures are checked and the subscription confirmed for you.",
+      "zabbix": "Import a webhook media type; one incident per problem, following recoveries and acknowledgements.",
+      "email": "Reads an IMAP mailbox and needs no public address; also takes raw mail from a mail system you already run."
+    },
+    "columns": {
+      "name": "Name",
+      "kind": "Kind",
+      "policy": "Escalation policy",
+      "last_intake": "Last received",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "never_received": "Nothing yet",
+    "status": {
+      "on": "On",
+      "off": "Turned off"
+    },
+    "policy_default": "Routed (default)",
+    "policy_none": "No escalation, notify policies only",
+    "delete_title": "Delete alert source",
+    "delete_description": "The token of {{name}} stops working at once, and its open incidents are resolved.",
+    "delete_named": "Delete {{name}}",
+    "drawer_title": "New alert source",
+    "edit_title": "Edit alert source",
+    "drawer_subtitle": "Alerts the outside system sends open incidents as set here.",
+    "create": "Create",
+    "save": "Save",
+    "toast_created": "Alert source created",
+    "toast_updated": "Alert source updated",
+    "toast_deleted": "Alert source deleted",
+    "sections": {
+      "email": "How mail is read",
+      "kind": "Kind",
+      "identity": "Identity",
+      "incidents": "Incidents",
+      "labels": "Extra labels"
+    },
+    "fields": {
+      "name": "Name",
+      "name_placeholder": "Production Prometheus",
+      "enabled": "On",
+      "policy": "Escalation policy",
+      "severity": "Default severity",
+      "severity_hint": "Used when an alert carries no severity of its own.",
+      "cluster": "Receiving cluster",
+      "cluster_hint": "Incidents open only on this cluster. Alerts sent to another cluster are passed on to it.",
+      "cluster_local": "{{name}} (this cluster)",
+      "labels_hint": "Added to every incident this source opens. A label the alert carries itself wins.",
+      "add_label": "Add label",
+      "remove_label": "Remove label",
+      "label_key": "Label key",
+      "label_value": "Label value"
+    },
+    "errors": {
+      "name_required": "Name is required."
+    },
+    "token": {
+      "title": "Token of {{name}}",
+      "shown_once": "The token is shown only this once. After you close this, it cannot be seen again; rotate it if it is lost.",
+      "copy": "Copy token",
+      "close": "Done",
+      "rotate": "Rotate token",
+      "rotate_title": "Rotate token",
+      "rotate_description": "The old token stops working at once. Senders still using it need the new one.",
+      "rotated": "Token rotated"
+    },
+    "detail": {
+      "loading": "Alert source",
+      "intake": "Intake",
+      "intake_email": "Or post the raw mail",
+      "setup_docs": "Setup guide",
+      "address": "Intake address",
+      "copy_address": "Copy intake address",
+      "token": "Token",
+      "token_hint": "Only the prefix is shown. The whole token appears once, when the source is created or the token is rotated.",
+      "setup": "Setup",
+      "setup_hint": "Replace <TOKEN> with the token of this source.",
+      "copy_setup": "Copy setup",
+      "not_found_title": "Alert source not found",
+      "not_found_description": "It may have been deleted, or it belongs to another organization.",
+      "requests": "Recently received",
+      "requests_description": "The last 500 requests of each source are kept, for up to 7 days.",
+      "home_elsewhere": "Incidents of this source open on {{cluster}}; its recent requests are recorded there.",
+      "meta": {
+        "policy": "Escalation policy",
+        "severity": "Default severity",
+        "labels": "Extra labels",
+        "cluster": "Receiving cluster"
+      }
+    },
+    "email": {
+      "description": "How a mail becomes an alert. Status words, severities, times and percentages in the subject stay out of the dedup key, so the problem and recovery mails of one alert land on one incident.",
+      "senders": "Accept mail from",
+      "senders_hint": "Comma separated: addresses, or @example.com for a whole domain; * accepts everyone. Required with a mailbox, or anyone who knows the address could open incidents.",
+      "resolve": "Subjects that recover",
+      "resolve_hint": "A regular expression. Empty takes the built-in one: resolved, recovered, recovery, cleared, 恢复, 已解决, and OK at the start.",
+      "dedup": "Dedup key from the subject",
+      "dedup_hint": "A regular expression; its first group is taken. Empty or no match uses the tidied subject.",
+      "ignore": "Subjects that are no alerts",
+      "ignore_hint": "A regular expression. Mail that matches is skipped; empty skips nothing."
+    },
+    "mailbox": {
+      "title": "Read a mailbox",
+      "description": "Read only: nothing is marked as read or deleted. It starts from the moment it first connects; mail already there does not count.",
+      "elsewhere": "The mailbox is read by this source's receiving cluster, {{cluster}}. Set it up there: the password stays in that cluster.",
+      "host": "IMAP server",
+      "port": "Port",
+      "security": "Encryption",
+      "security_tls": "TLS",
+      "security_starttls": "STARTTLS",
+      "security_none": "None",
+      "plaintext_warning": "Without encryption the password crosses the network in the clear. Use it only on a network you trust.",
+      "auth_password": "Password",
+      "auth_password_hint": "The mailbox password, or an app password from the provider.",
+      "auth_oauth2": "OAuth 2.0",
+      "auth_oauth2_hint": "A token from client credentials: Microsoft 365 no longer takes passwords.",
+      "username": "User name",
+      "password": "Password",
+      "client_secret": "Client secret",
+      "secret_kept": "Leave empty to keep it",
+      "token_url": "Token address",
+      "client_id": "Client ID",
+      "scope": "Scope",
+      "folder": "Folder",
+      "poll_secs": "Read every (seconds)",
+      "poll_hint": "15 to 3600. Some mail servers limit frequent sign-ins.",
+      "save": "Save mailbox",
+      "test": "Test connection",
+      "remove": "Stop reading this mailbox",
+      "saved": "Mailbox saved; it is read from the next round",
+      "removed": "No longer reading this mailbox",
+      "test_ok_one": "Connected; this folder has {{count}} mail",
+      "test_ok_other": "Connected; this folder has {{count}} mails",
+      "test_failed": "Could not connect: {{error}}",
+      "last_error": "The last read failed: {{error}}",
+      "last_success": "Read at {{time}}",
+      "not_read_yet": "Not read yet; it starts in the next round."
+    },
+    "standing": {
+      "label": "Source standing",
+      "off": "Turned off",
+      "waiting": "Waiting for the first request",
+      "quiet": "No requests in 7 days",
+      "refused": "Last request refused",
+      "receiving": "Receiving",
+      "off_detail": "Requests sent while it is off are refused.",
+      "waiting_detail": "Set up the sender as shown below. This updates when the first request arrives.",
+      "last_received": "Last request {{when}}",
+      "refused_detail": "{{when}}: {{reason}}",
+      "requests": "Requests, last 24 hours",
+      "refused_count_one": "{{count}} refused",
+      "refused_count_other": "{{count}} refused",
+      "none_refused": "None refused",
+      "no_requests": "None yet",
+      "alerts": "Alerts",
+      "alert_outcomes": "{{opened}} opened · {{resolved}} resolved",
+      "open_incidents": "Open incidents",
+      "oldest_open": "Oldest opened {{when}}",
+      "none_open": "None open"
+    },
+    "steps": {
+      "address": "Copy the intake address",
+      "address_description": "Every alert source shares this address. The token tells which source an alert belongs to.",
+      "token": "Add the token",
+      "token_header": "The sender puts it in the Authorization header: Bearer and the token.",
+      "token_query": "This sender cannot set headers, so the token goes in the address, as the token parameter.",
+      "configure": "Set up the sender"
+    },
+    "setup_guide": {
+      "api": "Send alerts with the request below. A trigger, acknowledgement and recovery with the same dedup_key land on one incident.",
+      "alertmanager": "Add the receiver below to alertmanager.yml and route alerts to it. Keep send_resolved true.",
+      "grafana": "Add a webhook contact point under Alerting → Contact points as below, then use it in a notification policy.",
+      "datadog": "Create a webhook under Integrations → Webhooks as below, then mention @webhook-<name> in a monitor's message.",
+      "pagerduty": "Create a webhook under Integrations → Generic Webhooks (v3) as below.",
+      "aliyun_cms": "Enter the intake address as the alarm callback of an alarm rule, or as the webhook address of an event subscription push channel for system events.",
+      "tencent_monitor": "Enter the intake address as the API callback of a notification template under Alarm Management, then bind the template to an alarm policy.",
+      "aws_cloudwatch": "Have the alarm's state changes go to an SNS topic, and add an HTTPS subscription to the topic with the intake address (the AWS CLI form is below). The subscription confirms itself; leave Raw message delivery off. Send the OK state to the topic too, or incidents will not resolve on their own.",
+      "zabbix": "Save this as YAML and import it under Alerts → Media types. Give a user this media (Send to can be anything), then add a trigger action whose operations, recovery operations and update operations go to that user.",
+      "email": "For when a mailbox cannot be read: a mail system you already run (Postfix, SES, Mailgun) posts the raw message like this, and it is read the same way."
+    },
+    "setup_docs_anchor": {
+      "api": "api",
+      "alertmanager": "alertmanager",
+      "grafana": "grafana",
+      "datadog": "datadog",
+      "pagerduty": "pagerduty",
+      "aliyun_cms": "alibaba-cloud-cloudmonitor",
+      "tencent_monitor": "tencent-cloud-observability-platform",
+      "aws_cloudwatch": "amazon-cloudwatch",
+      "zabbix": "zabbix",
+      "email": "email"
+    },
+    "requests": {
+      "columns": {
+        "time": "Time",
+        "result": "Result",
+        "alerts": "Alerts",
+        "message": "Note"
+      },
+      "status": {
+        "accepted": "Handled",
+        "rejected": "Refused",
+        "forwarded": "Forwarded"
+      },
+      "via": "Passed on by {{cluster}}",
+      "alert_count_one": "{{count}} alert",
+      "alert_count_other": "{{count}} alerts",
+      "outcomes": {
+        "opened": "Opened",
+        "updated": "Updated",
+        "unchanged": "Unchanged",
+        "acknowledged": "Acknowledged",
+        "resolved": "Resolved",
+        "ignored": "Ignored"
+      },
+      "actions": {
+        "trigger": "Trigger",
+        "acknowledge": "Acknowledge",
+        "resolve": "Resolve"
+      },
+      "body": "Start of the body",
+      "open_incident": "Open incident",
+      "no_alerts": "The request held no alert."
+    },
+    "incident": {
+      "title": "External alert",
+      "source": "Source",
+      "deleted": "Source deleted",
+      "dedup_key": "Dedup key",
+      "last_intake": "Last received",
+      "members_one": "{{count}} alert in the group",
+      "members_other": "{{count}} alerts in the group",
+      "member_firing": "Firing",
+      "member_resolved": "Resolved",
+      "since": "since {{time}}",
+      "open_sender": "Open in sender"
+    }
+  },
+  "routing": {
+    "new_rule": "New rule",
+    "rules_title": "Routing rules",
+    "rules_description": "Tried from the top; the first rule that matches decides. When none does, the service's owning team, the team label and the default policy are tried in turn.",
+    "rules_empty": "No routing rules yet.",
+    "every_incident": "Every incident",
+    "min_severity": "{{severity}} or worse",
+    "only_origins": "{{origins}} only",
+    "list_separator": ", ",
+    "origins": {
+      "rule": "Alert rules",
+      "external": "External alerts",
+      "synthetic": "Synthetic checks",
+      "manual": "Hand-made incidents"
+    },
+    "reorder": "Reorder “{{name}}”",
+    "reorder_hint": "Drag, or press ↑ ↓ to move",
+    "target_policy": "Policy",
+    "target_team": "Team",
+    "target_missing": "Target deleted",
+    "target_missing_hint": "The policy or team this rule sends to was deleted, so the rule is skipped.",
+    "enable": "Enable “{{name}}”",
+    "delete_named": "Delete “{{name}}”",
+    "delete_title": "Delete routing rule",
+    "delete_description": "Incidents that matched “{{name}}” will be routed by the rules after it.",
+    "toast_created": "Rule created",
+    "toast_updated": "Rule saved",
+    "toast_deleted": "Rule deleted",
+    "toast_team_policy": "On-call policy saved",
+    "teams_title": "Team on-call policies",
+    "teams_description": "An incident routed to a team escalates by the team's on-call policy, or by the default policy when the team has none.",
+    "teams_empty": "No teams yet.",
+    "teams_create": "Create one in Identity & Access",
+    "columns": {
+      "team": "Team",
+      "services": "Owned services",
+      "policy": "On-call policy",
+      "policy_of": "On-call policy of {{team}}"
+    },
+    "members_one": "{{count}} member",
+    "members_other": "{{count}} members",
+    "services_one": "{{count}} service",
+    "services_other": "{{count}} services",
+    "services_rest": ", …",
+    "services_none": "None in the service catalog",
+    "no_policy": "None, default policy",
+    "default_policy": "Default policy",
+    "no_team": "No team",
+    "try_title": "Try it",
+    "try_description": "Enter a set of labels to see which team and escalation policy such an incident would get.",
+    "try_labels": "Labels",
+    "try_labels_hint": "One per line, as key=value.",
+    "try_origin": "Origin",
+    "try_severity": "Severity",
+    "try_run": "Try",
+    "try_idle": "The result shows here: the team, the escalation policy, and what each step saw.",
+    "outcome_team": "Team",
+    "outcome_policy": "Escalation policy",
+    "outcome_reason": "Because",
+    "steps": {
+      "rule": "Routing rules",
+      "rule_matched": "Matched “{{name}}”",
+      "rule_none": "No match",
+      "rule_empty": "No enabled rules",
+      "service": "Service owner",
+      "service_none": "No service in the labels",
+      "service_owned": "{{service}} belongs to {{team}}",
+      "service_unowned": "{{service}} has no owning team",
+      "label": "Team label",
+      "label_team": "Points to {{team}}",
+      "label_none": "No team or team_id label naming a team",
+      "default": "Default policy",
+      "default_used": "Default policy used",
+      "default_for_team": "{{team}} has no on-call policy, so the default policy is used",
+      "default_unused": "Not needed"
+    },
+    "reasons": {
+      "rule": "Matched rule “{{name}}”",
+      "service_owner": "Owner of service {{service}}",
+      "team_label": "The incident's team label",
+      "default": "Nothing matched; default policy",
+      "source": "Policy chosen by the source",
+      "manual": "Chosen when it was opened"
+    },
+    "drawer": {
+      "new_title": "New routing rule",
+      "edit_title": "Edit routing rule",
+      "subtitle": "An incident that meets every condition of this rule goes where it says.",
+      "create": "Create",
+      "save": "Save",
+      "identity": "Basics",
+      "name": "Name",
+      "name_placeholder": "e.g. Payments in production",
+      "enabled": "Enabled",
+      "conditions": "Conditions",
+      "conditions_hint": "Compared with the incident's labels; all must hold. A rule without conditions matches every incident.",
+      "add_condition": "Add condition",
+      "remove_condition": "Remove condition",
+      "key": "Label",
+      "operator": "Comparison",
+      "operators": {
+        "equals": "equals",
+        "not_equals": "does not equal",
+        "in": "is one of",
+        "matches": "matches regex"
+      },
+      "value": "Value",
+      "value_in_placeholder": "Separate values with commas",
+      "scope": "Scope",
+      "min_severity": "Minimum severity",
+      "any_severity": "Any",
+      "origins": "Origins",
+      "origins_hint": "With none selected, incidents from every origin are compared.",
+      "target": "Send to",
+      "target_team": "Team",
+      "target_team_hint": "Escalates by the team's on-call policy",
+      "target_policy": "Escalation policy",
+      "target_policy_hint": "Uses this policy; the team still comes from the service owner or label",
+      "target_placeholder": "Select",
+      "priorities": "Priority",
+      "priorities_hint": "Leave all unticked to ignore priority; once any is ticked, incidents without a priority do not match.",
+      "time_hint": "Judged at the moment the incident opens."
+    },
+    "only_priorities": "priority {{priorities}}",
+    "time_inside": "only {{ranges}} ({{timezone}})",
+    "time_outside": "outside {{ranges}} ({{timezone}})",
+    "try_priority": "Priority",
+    "try_at": "Opens at",
+    "try_at_now": "Now"
   },
   "matchers": {
     "title": "Label matchers",
@@ -604,7 +1466,8 @@
     "toast_created": "Policy created",
     "errors": {
       "name_required": "Name is required.",
-      "target_required": "Add at least one target."
+      "target_required": "Add at least one target.",
+      "support_hours": "Support hours need at least one range, each with its days and valid times."
     },
     "sections": {
       "identity": "Identity",
@@ -615,13 +1478,21 @@
       "name": "Policy name",
       "repeat": "Repeat the whole policy until acknowledged",
       "max_loops": "Max loops",
+      "ack_retrigger": "Acknowledged but unresolved",
       "min_severity": "Applies from severity",
       "ack_timeout": "Ack timeout",
       "targets": "Targets",
       "notify_routing": "Connector selection and fallback routing are configured in Settings → Notify → Policies."
     },
     "hints": {
-      "max_loops": "How many times to repeat before giving up."
+      "max_loops": "How many times to repeat before giving up.",
+      "ack_retrigger": "When an acknowledged incident stays unresolved this long, it comes back unacknowledged and its assignees are notified again; if nobody acknowledges it, escalation goes on."
+    },
+    "ack_retrigger": {
+      "off": "Do not notify again",
+      "minutes": "{{count}} min",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours"
     },
     "add_step": "Add step",
     "remove_step": "Remove step",
@@ -630,6 +1501,7 @@
     "remove_target": "Remove target",
     "any_severity": "Any severity",
     "pick_ref": "— select —",
+    "missing_target": "No longer exists",
     "target_kinds": {
       "user": "User",
       "schedule": "Schedule",
@@ -638,7 +1510,32 @@
     "no_target": "Nobody yet",
     "from_severity": "from {{severity}}",
     "repeats_one": "repeats {{count}} time",
-    "repeats_other": "repeats {{count}} times"
+    "repeats_other": "repeats {{count}} times",
+    "unreachable_one": "{{count}} can't be reached",
+    "unreachable_other": "{{count}} can't be reached",
+    "urgency": {
+      "title": "Urgency",
+      "description": "How an incident gets its urgency when nothing set one. The organization's urgency levels say what each one does: whether it climbs the steps, what quiet hours do, which personal steps it uses.",
+      "modes": {
+        "by_severity": "By severity",
+        "support_hours": "By support hours",
+        "always": "Always one level"
+      },
+      "mode_hints": {
+        "by_severity": "Each severity goes to the level the organization put it in (critical and error high, warning and info low unless changed).",
+        "support_hours": "One level inside the support hours, another outside.",
+        "always": "Every incident gets the level chosen below."
+      },
+      "raise_at_start": "When support hours begin, raise incidents nobody acknowledged that are less urgent than the inside level, and page again from the first step",
+      "escalate_low": "Incidents of a level that stops at the first step climb the steps here too",
+      "chain": {
+        "support_hours": "Urgency by support hours",
+        "always": "Always {{urgency}}"
+      },
+      "always_level": "Urgency",
+      "inside": "Inside the hours",
+      "outside": "Outside the hours"
+    }
   },
   "schedules": {
     "title": "On-call schedules",
@@ -694,14 +1591,16 @@
       "cadence": "Rotation cadence",
       "period_hours": "Period (hours)",
       "start_at": "Start date and time",
+      "ends": "Ends at a set time",
+      "end_at": "End date and time",
       "handoff_time": "Handoff time",
       "members": "Members (rotate in order)",
       "restrict_window": "Restrict to specific days / hours",
-      "hour_start": "Hour start (0–24)",
-      "hour_end": "Hour end (0–24)"
+      "swap_needs_approval": "Swaps need approval"
     },
     "hints": {
-      "timezone": "e.g. UTC, America/New_York, Asia/Shanghai"
+      "timezone": "e.g. UTC, America/New_York, Asia/Shanghai",
+      "swap_needs_approval": "After the person asked accepts a swap, someone who manages this schedule approves it before it takes effect."
     },
     "add_rotation": "Add rotation",
     "remove_rotation": "Remove rotation",
@@ -812,7 +1711,8 @@
       "copy": "Copy schedule",
       "export_calendar": "Export calendar",
       "delete": "Delete schedule",
-      "more": "More actions"
+      "more": "More actions",
+      "subscribe_calendar": "Subscribe to calendar"
     },
     "pagination": {
       "label": "On-call schedule pagination",
@@ -829,7 +1729,8 @@
       "empty": "Select rotation members to see a preview",
       "member_count": "People covered",
       "timezone": "Schedule timezone",
-      "then": "Then"
+      "then": "Then",
+      "unreadable": "Fix the time ranges to see the preview."
     },
     "detail": {
       "current": "On call now",
@@ -847,7 +1748,8 @@
       "rotation_name": "Rotation name",
       "rotation_members": "Rotation members",
       "handoff_time": "Handoff time",
-      "handoff_value": "{{cadence}} at {{time}} ({{timezone}})"
+      "handoff_value": "{{cadence}} at {{time}} ({{timezone}})",
+      "rotation_ends": "Ends"
     },
     "timeline": {
       "title": "Next 7 days",
@@ -873,7 +1775,8 @@
         "override": "Coverage",
         "pause": "Paused",
         "resume": "Resumed",
-        "delete": "Deleted"
+        "delete": "Deleted",
+        "swap": "Swap"
       },
       "descriptions": {
         "create": "Created schedule {{name}}",
@@ -881,8 +1784,196 @@
         "override": "Temporary coverage for {{user}} changed. Reason: {{reason}}",
         "pause": "Paused schedule {{name}}",
         "resume": "Resumed schedule {{name}}",
-        "delete": "Deleted schedule {{name}}"
+        "delete": "Deleted schedule {{name}}",
+        "swap": "{{requester}} asked {{target}} to take a shift: {{status}}"
       }
+    },
+    "load": {
+      "title": "Member load (last 30 days)"
+    },
+    "swaps": {
+      "title": "Shift swaps",
+      "request": "Ask for a swap",
+      "request_title": "Ask for a swap",
+      "request_description": "Pick a stretch only you are on call for and the member who takes it. It takes effect when they accept.",
+      "request_description_approval": "Pick a stretch only you are on call for and the member who takes it. After they accept, someone who manages the schedule approves it.",
+      "not_on_call": "You have no shift in this schedule in the next 30 days",
+      "fields": {
+        "shift": "My shift",
+        "start": "Starts",
+        "end": "Ends",
+        "target": "Taken by",
+        "note": "Note"
+      },
+      "pick_shift": "Pick a shift, or set the times below",
+      "pick_target": "Choose a member",
+      "placeholders": {
+        "note": "For example: travelling on Friday"
+      },
+      "submit": "Send request",
+      "sent": "Swap request sent",
+      "errors": {
+        "window": "The end must be after the start",
+        "target": "Choose who takes the shift"
+      },
+      "empty": "No swap requests yet.",
+      "show_settled": "Show settled",
+      "hide_settled": "Open only",
+      "asks": "{{requester}} asks {{target}} to take over",
+      "decided_by": "by {{name}}",
+      "status": {
+        "pending": "Waiting for an answer",
+        "awaiting_approval": "Waiting for approval",
+        "accepted": "In effect",
+        "declined": "Declined",
+        "rejected": "Rejected",
+        "cancelled": "Withdrawn",
+        "expired": "Expired"
+      },
+      "answer": {
+        "accept": "Accept",
+        "decline": "Decline",
+        "cancel": "Withdraw",
+        "approve": "Approve",
+        "reject": "Reject"
+      },
+      "done": {
+        "accept": "Accepted; the override is in effect",
+        "accept_waiting": "Accepted; waiting for approval",
+        "decline": "Swap declined",
+        "cancel": "Swap request withdrawn",
+        "approve": "Approved; the override is in effect",
+        "reject": "Swap rejected"
+      },
+      "mine_title": "My shift swaps",
+      "mine_description": "Swaps you asked for and those asking you. Approvals are on the schedule's page.",
+      "mine_button": "Shift swaps",
+      "mine_waiting": "{{count}} waiting for you",
+      "mine_empty": "No swap asked by you or of you.",
+      "open_schedule": "Open schedule"
+    },
+    "calendar": {
+      "title_schedule": "Subscribe to {{name}}",
+      "title_mine": "Subscribe to my shifts",
+      "description_schedule": "Add every shift of this schedule to a calendar app (Google Calendar, Outlook, Apple Calendar…). Calendar apps refresh about every hour; the feed covers the past 30 days to 90 days ahead, overrides and swaps included.",
+      "description_mine": "Add your shifts in every schedule to a calendar app (Google Calendar, Outlook, Apple Calendar…). Calendar apps refresh about every hour; the feed covers the past 30 days to 90 days ahead, overrides and swaps included.",
+      "create": "Create address",
+      "reset": "Reset address",
+      "revoke": "Stop subscription",
+      "address": "Subscription address",
+      "copy": "Copy address",
+      "open_app": "Open in calendar app",
+      "shown_once": "The address is shown only now. Anyone with it can see these shifts; stop the subscription when it is no longer needed.",
+      "no_external_url": "No external address is set for this instance, so the address you are using now is shown; your calendar app must be able to reach it.",
+      "subscribed": "Subscribed: created {{created}}",
+      "last_used": "Last read by a calendar: {{value}}",
+      "never_used": "Not read by a calendar yet",
+      "reset_hint": "Resetting stops the old address at once; replace it in your calendar app.",
+      "revoked": "Subscription stopped",
+      "mine_button": "Subscribe to my shifts",
+      "loading": "Reading subscriptions…"
+    },
+    "unreachable": {
+      "next": "{{name}}, who takes over next, can't get alerts: no method that works and no group route.",
+      "members_one": "{{count}} member can't get alerts: {{names}}.",
+      "members_other": "{{count}} members can't get alerts: {{names}}.",
+      "fix": "Set up notification methods"
+    },
+    "coverage": {
+      "title": "Coverage, next 14 days",
+      "gaps_one": "{{count}} gap in the next {{days}} days: nobody is on call for {{hours}} hours.",
+      "gaps_other": "{{count}} gaps in the next {{days}} days: nobody is on call for {{hours}} hours.",
+      "no_gaps": "Someone is on call for all of the next {{days}} days.",
+      "nobody": "Nobody on call",
+      "hours": "{{hours}} h",
+      "legend": {
+        "rotation": "Rotation",
+        "override": "Override",
+        "gap": "Nobody on call"
+      }
+    }
+  },
+  "inhibitions": {
+    "new_rule": "New inhibit rule",
+    "empty_title": "No inhibit rules",
+    "empty_description": "While a worse or upstream incident is active, hold back the notifications of the lesser ones, so people hear about the one that matters.",
+    "held": "Inhibited",
+    "any_incident": "Any incident",
+    "only_worse": "Only lesser ones",
+    "at_least": "At least {{severity}}",
+    "at_most": "At most {{severity}}",
+    "columns": {
+      "name": "Name",
+      "source": "While these are active",
+      "target": "Hold back these",
+      "equal": "Shared labels",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "standing": {
+      "holding_one": "Holding back {{count}} incident",
+      "holding_other": "Holding back {{count}} incidents",
+      "on": "Holding nothing back",
+      "off": "Off"
+    },
+    "drawer_title": "New inhibit rule",
+    "edit_title": "Edit inhibit rule",
+    "drawer_subtitle": "While a source incident is active, target incidents still open and show on the pages, but their notifications wait and they do not escalate. Those still open when the source recovers are notified.",
+    "create": "Create rule",
+    "save": "Save",
+    "toast_created": "Inhibit rule created",
+    "toast_updated": "Inhibit rule saved",
+    "delete_named": "Delete inhibit rule {{name}}",
+    "delete_title": "Delete this inhibit rule?",
+    "delete_effect_label": "After deleting",
+    "delete_effect_one": "The {{count}} incident it holds back notifies at once",
+    "delete_effect_other": "The {{count}} incidents it holds back notify at once",
+    "sections": {
+      "identity": "Basics",
+      "source": "Source: what holds others back",
+      "source_hint": "A silenced incident does not count: nobody hears about it, so holding others back would leave nobody told. An acknowledged one counts: someone is on it.",
+      "target": "Target: what is held back",
+      "target_hint": "Empty means every incident. An incident a person opened is never held back.",
+      "relation": "How they relate",
+      "timing": "Timing",
+      "comment": "Comment",
+      "preview": "What it would hold back now",
+      "preview_hint": "Runs this rule, saved or not, over the incidents active right now."
+    },
+    "fields": {
+      "name": "Name",
+      "name_placeholder": "On one service, the worse holds back the lesser",
+      "enabled": "Enabled",
+      "min_severity": "Severity at least",
+      "max_severity": "Severity at most",
+      "any_severity": "Any",
+      "equal": "These labels must match",
+      "equal_hint": "Comma separated. Both sides must carry the label with the same value; a missing label does not match. Leave empty to ignore labels, and then name the source.",
+      "more_severe_only": "The source must be worse than the target",
+      "wait_secs": "Target waits (seconds)",
+      "wait_hint": "Symptoms often report before their cause: wait this long to see whether a source comes. At least 15, at most 600.",
+      "linger_secs": "Holds on after recovery (seconds)",
+      "linger_hint": "When the cause recovers its symptoms soon follow; nobody needs paging for them. At most 3600.",
+      "comment": "Comment"
+    },
+    "preview": {
+      "run": "Run it",
+      "none": "It would hold back nothing right now.",
+      "held_by": "held back by"
+    },
+    "note": {
+      "held_by": "Notifications are held back because of",
+      "rule": "(rule {{rule}}).",
+      "ending": "It recovered; they are released at {{time}}.",
+      "waiting": "A worse incident may hold this one back: notifications wait until {{time}}.",
+      "lift": "Notify as usual",
+      "lifted": "Released; the held notifications go out now"
+    },
+    "errors": {
+      "name": "Name the rule.",
+      "no_scope": "Name the source, or the labels both sides share: otherwise any incident would hold back every other.",
+      "wait": "A target waits 600 seconds at most.",
+      "linger": "A recovered source holds on 3600 seconds at most."
     }
   },
   "silences": {
@@ -907,7 +1998,10 @@
     "errors": {
       "name_required": "Name is required.",
       "matcher_required": "Add at least one matcher.",
-      "window_range": "End must be after start."
+      "window_range": "End must be after start.",
+      "window_ranges": "Check the ranges: each needs a day and HH:MM times.",
+      "monthly": "Write the start as HH:MM and keep the length between 1 and 10080 minutes.",
+      "calendar": "Pick a holiday calendar."
     },
     "sections": {
       "identity": "Identity",
@@ -922,14 +2016,20 @@
       "start": "Start",
       "end": "End",
       "timezone": "Timezone",
-      "hour_start": "Hour start (0–24)",
-      "hour_end": "Hour end (0–24)",
       "comment": "Reason",
-      "weekdays": "Days of the week"
+      "month_day_kind": "By",
+      "month_date": "Day of the month",
+      "ordinal": "Which",
+      "weekday": "Weekday",
+      "start_time": "Starts at (HH:MM)",
+      "duration_minutes": "Lasts (minutes)",
+      "calendar": "Holiday calendar"
     },
     "window_kinds": {
       "fixed": "Fixed range",
-      "recurring": "Recurring"
+      "weekly": "Every week",
+      "monthly": "Every month",
+      "holidays": "Holidays"
     },
     "comment_placeholder": "Why is this muted?",
     "standing": {
@@ -940,6 +2040,975 @@
       "off": "Off"
     },
     "matches_everything": "Every incident",
-    "delete_named": "Delete {{name}}"
+    "delete_named": "Delete {{name}}",
+    "month_day_kinds": {
+      "date": "Date",
+      "weekday": "Weekday"
+    },
+    "hints": {
+      "month_date": "Months without that day use their last day.",
+      "duration_minutes": "Up to 7 days (10080 minutes)."
+    },
+    "ordinals": {
+      "1": "First",
+      "2": "Second",
+      "3": "Third",
+      "4": "Fourth",
+      "5": "Fifth",
+      "last": "Last"
+    },
+    "month_day": {
+      "date": "Day {{day}} of each month",
+      "weekday": "{{ordinal}} {{weekday}} of each month"
+    },
+    "summary": {
+      "monthly": "{{day}} at {{start}} for {{duration}} ({{timezone}})",
+      "holidays": "Holidays, {{timezone}}",
+      "calendar_exclude": "holidays left out",
+      "calendar_only": "holidays only"
+    },
+    "duration": {
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "hours_one": "{{count}} h",
+      "hours_other": "{{count}} h",
+      "hours_minutes": "{{hours}} h {{minutes}} min"
+    },
+    "next_start": "Next starts {{time}}",
+    "next_end": "Ends {{time}}",
+    "no_calendars": "Add a holiday calendar in Settings → Alerting → Holiday calendars first.",
+    "delete_effect_label": "Effect",
+    "delete_active_effect": "It is silencing alerts now: notifications resume at once.",
+    "bulk_delete_title_one": "Delete {{count}} silence?",
+    "bulk_delete_title_other": "Delete {{count}} silences?"
+  },
+  "incident_actions": {
+    "more": "More actions",
+    "reassign": "Reassign",
+    "add_responders": "Add responders",
+    "escalate": "Escalate now",
+    "snooze": "Snooze",
+    "snooze_hours_one": "{{count}} hour",
+    "snooze_hours_other": "{{count}} hours",
+    "snooze_custom": "Custom…",
+    "snooze_cancel": "Cancel snooze",
+    "severity": "Severity",
+    "merge": "Merge",
+    "toasts": {
+      "snoozed": "Snoozed",
+      "snooze_cancelled": "Snooze cancelled",
+      "severity_changed": "Severity changed",
+      "responders_added": "Responders added",
+      "reassigned": "Reassigned",
+      "escalated": "Escalated",
+      "merged_one": "Merged {{count}} incident",
+      "merged_other": "Merged {{count}} incidents",
+      "bulk_done_one": "Done for {{count}} incident",
+      "bulk_done_other": "Done for {{count}} incidents",
+      "bulk_failed": "{{count}} of {{total}} incidents failed: {{reason}}",
+      "priority_changed": "Priority changed",
+      "urgency_changed": "Urgency changed",
+      "urgency_raised": "Raised to high urgency; level 1 is notified again"
+    },
+    "people_search": "Search by name or email",
+    "reassign_title": "Reassign",
+    "reassign_description": "Given to people, the incident goes back to unacknowledged and they are notified; given to a team or an escalation policy, it starts again from the first step.",
+    "add_responders_title": "Add responders",
+    "add_responders_description": "The people chosen join the assignees and are notified; the status stays as it is.",
+    "reassign_to": "Reassign to",
+    "kinds": {
+      "users": "People",
+      "team": "Team",
+      "policy": "Escalation policy"
+    },
+    "people": "People (at most {{max}})",
+    "team_hint": "Starts again from the first step of the team's on-call policy, or of the default policy when the team has none.",
+    "policy_hint": "Starts again from the first step of this policy; the team stays.",
+    "choose": "Choose…",
+    "note_optional": "Note (optional)",
+    "note_placeholder": "For whoever takes over; it goes on the timeline",
+    "cancel": "Cancel",
+    "escalate_title": "Escalate now",
+    "escalate_description": "Pick a step whose targets are notified now; an acknowledged incident goes back to unacknowledged.",
+    "loading": "Loading…",
+    "no_policy": "This incident has no escalation policy.",
+    "step_n": "Step {{n}}",
+    "current_step": "current",
+    "schedule_target": "On-call of a schedule",
+    "escalate_submit": "Escalate",
+    "snooze_title": "Snooze",
+    "snooze_description": "No notifications while snoozed; when it ends, the incident goes back to unacknowledged and its assignees are notified again. An unacknowledged incident is acknowledged first.",
+    "snooze_for": "Snooze for",
+    "snooze_unit": "Unit",
+    "units": {
+      "minutes": "minutes",
+      "hours": "hours"
+    },
+    "merge_title": "Merge incidents",
+    "merge_description": "Merged incidents no longer notify or escalate on their own and are resolved with the main one; a merge cannot be undone.",
+    "merge_target": "Merge into",
+    "merge_sources": "Merge into this incident",
+    "merge_nothing": "No other incident is active.",
+    "merge_submit_one": "Merge {{count}}",
+    "merge_submit_other": "Merge {{count}}",
+    "bulk_label": "Bulk actions",
+    "select_all": "Select all",
+    "select": "Select {{name}}",
+    "snoozed_until": "Snoozed until {{time}}",
+    "priority": "Priority",
+    "urgency": "Urgency",
+    "adjust": "Adjust"
+  },
+  "incident_timeline": {
+    "notice": {
+      "triggered": "Notified",
+      "escalated": "Escalation notified",
+      "acknowledged": "Acknowledgement sent to",
+      "resolved": "Recovery sent to"
+    },
+    "recipient": "{{who}} ({{through}})",
+    "recipient_failed": "{{who}} (not delivered)",
+    "policy_skipped": "a policy did not send: {{reason}}",
+    "pipeline_processed": "Went through pipeline {{pipeline}}:",
+    "pipeline_more_one": "and {{count}} more change",
+    "pipeline_more_other": "and {{count}} more changes",
+    "pipeline_fields": {
+      "summary": "title",
+      "severity": "severity",
+      "priority": "priority",
+      "urgency": "urgency",
+      "labels": "labels",
+      "annotations": "annotations",
+      "affected_services": "services"
+    },
+    "someone": "someone",
+    "system": "System",
+    "via": {
+      "api": " (through the API)",
+      "im": " (in chat)",
+      "sms": " (by SMS reply)",
+      "phone": " (by phone keypress)",
+      "agent": " (via Mole Agent)"
+    },
+    "acknowledged": "{{actor}} acknowledged{{via}}",
+    "resolved": "{{actor}} resolved{{via}}",
+    "escalated": "Escalated to step {{n}}",
+    "escalated_manual": "{{actor}} escalated to step {{n}}",
+    "reassigned": "{{actor}} reassigned to {{target}}",
+    "responders_added": "{{actor}} added {{people}}",
+    "snoozed": "{{actor}} snoozed until {{until}}",
+    "snooze_cancelled": "{{actor}} cancelled the snooze",
+    "retriggered_snooze": "Snooze ended; back to unacknowledged and notified again",
+    "retriggered_ack_timeout": "Acknowledged but unresolved too long; back to unacknowledged and notified again",
+    "severity_changed": "{{actor}} changed the severity from {{from}} to {{to}}",
+    "merged": "{{actor}} merged it into",
+    "merged_target": "another incident",
+    "merged_in_one": "{{actor}} merged {{count}} incident into this one",
+    "merged_in_other": "{{actor}} merged {{count}} incidents into this one",
+    "merged_recovered": "Merged “{{summary}}” recovered",
+    "noted": "{{actor}} added a note",
+    "recovered": "Recovered",
+    "merged_list": "Merged into this one ({{count}})",
+    "note_placeholder": "Add a note: what you found, what you did",
+    "note_label": "Note",
+    "note_too_long": "At most {{max}} characters",
+    "add_note": "Add note",
+    "handling": {
+      "snoozed": "Snoozed until {{until}} by {{actor}}",
+      "merged": "Merged into",
+      "severity_set": "Severity set by {{actor}}; the rule no longer changes it",
+      "inhibition_lifted": "{{actor}} said to notify as usual; it is no longer inhibited"
+    },
+    "remediation_requested": "{{actor}} started the remediation action “{{action}}”, awaiting approval",
+    "remediation_executed": "Remediation action “{{action}}” ran (approved by {{actor}})",
+    "remediation_failed": "Remediation action “{{action}}” failed (approved by {{actor}})",
+    "remediation_verified": "Remediation action “{{action}}” passed its check",
+    "remediation_unverified": "Remediation action “{{action}}” did not pass its check",
+    "ticket_created": "{{actor}} created a {{system}} ticket",
+    "ticket_updated": "Ticket {{key}} is now “{{status}}”",
+    "declared_major": "{{actor}} declared it a major incident",
+    "declared_major_auto": "Declared a major incident by the organization's rule",
+    "role_assigned": "{{actor}} made {{person}} {{role}}",
+    "role_cleared": "{{actor}} cleared the {{role}}",
+    "war_room_created": "War room opened",
+    "join": "Join",
+    "task_added": "{{actor}} added the task “{{title}}”",
+    "task_done": "{{actor}} finished the task “{{title}}”",
+    "status_update": "{{actor}} posted an update",
+    "step_unreachable": "Nobody at level {{n}} could receive the alert, so it went to the next level",
+    "inhibited": "Inhibited by rule {{rule}}, notifications held back, because of",
+    "inhibition_source_recovered": "The source recovered; the inhibition ended and the held notifications went out",
+    "inhibition_rule_changed": "The inhibit rule changed or went; the held notifications went out",
+    "inhibition_lifted": "{{actor}} let it notify as usual; the held notifications went out",
+    "priority_changed": "{{actor}} changed the priority from {{from}} to {{to}}",
+    "no_priority": "none",
+    "urgency_changed": "{{actor}} changed the urgency from {{from}} to {{to}}",
+    "urgency_raised_support_hours": "Support hours began: urgency raised to {{to}} and level 1 notified again",
+    "phases": {
+      "fired": "Fired",
+      "acknowledged": "Acknowledged after",
+      "resolved": "Resolved after",
+      "not_yet": "Not yet"
+    },
+    "filter_label": "Kinds of event",
+    "filter": {
+      "all": "All",
+      "alert": "Alert",
+      "notice": "Notifications",
+      "people": "People",
+      "notes": "Notes"
+    }
+  },
+  "related": {
+    "loading": "Loading…",
+    "similar_none": "No similar incident in the last 90 days.",
+    "lasted": "lasted {{duration}}",
+    "resolved_by": "resolved by {{name}}",
+    "notes_one": "{{count}} note",
+    "notes_other": "{{count}} notes",
+    "reasons": {
+      "fingerprint": "same alert",
+      "rule": "same rule",
+      "services": "same services",
+      "labels": "similar labels",
+      "title": "similar title",
+      "team": "same team"
+    },
+    "changes_none": "Nothing was reported for these services from 30 minutes before the trigger to 10 minutes after, and the rule was not edited the day before.",
+    "at_trigger": "At trigger",
+    "before_trigger": "{{duration}} before",
+    "after_trigger": "{{duration}} after",
+    "kinds": {
+      "deployment": "Deployment",
+      "configuration": "Configuration",
+      "feature_flag": "Feature flag",
+      "rule": "Rule edited"
+    },
+    "downstream": "downstream",
+    "status": {
+      "failed": "failed",
+      "rolled_back": "rolled back"
+    },
+    "open_link": "Open pipeline"
+  },
+  "remediation": {
+    "new_action": "New remediation action",
+    "actions_title": "Remediation actions",
+    "empty": "No remediation actions yet. Once set up, they are started on an incident in one click and run when approved.",
+    "all_incidents": "All incidents",
+    "disabled": "Turned off",
+    "delete_named": "Delete {{name}}",
+    "delete_title": "Delete the remediation action?",
+    "saved": "Saved “{{name}}”",
+    "risks": {
+      "l2": "L2 · one approver",
+      "l3": "L3 · two approvers"
+    },
+    "kinds": {
+      "http": "HTTP request",
+      "http_hint": "Calls Jenkins, GitHub Actions, Argo, Rundeck or a similar system.",
+      "kubernetes": "Kubernetes",
+      "kubernetes_hint": "Restarts or scales a workload on a registered cluster, or rolls a Deployment back one revision."
+    },
+    "operations": {
+      "restart": "Restart",
+      "scale": "Scale",
+      "rollback": "Roll back one revision"
+    },
+    "parameter_kinds": {
+      "text": "Text",
+      "number": "Number",
+      "select": "Choice"
+    },
+    "verify_by": {
+      "incident_resolved": "The incident recovered",
+      "rule_healthy": "The rule is healthy again"
+    },
+    "drawer": {
+      "new_title": "New remediation action",
+      "edit_title": "Edit remediation action",
+      "subtitle": "Starting it on an incident always goes through approval; it runs once approved and is recorded on the timeline.",
+      "save": "Save",
+      "identity": "Basics",
+      "name": "Name",
+      "description": "Description",
+      "target": "How it runs",
+      "method": "Method",
+      "url": "Address",
+      "headers": "Headers",
+      "headers_hint": "Values are kept encrypted and not shown again; leave one empty to keep it.",
+      "add_header": "Add a header",
+      "remove_header": "Remove the header",
+      "header_name": "Header name",
+      "header_value": "Header value",
+      "secret_kept": "Set; leave empty to keep",
+      "body": "Body",
+      "body_hint": "JSON. Use {{incident.id}}, {{incident.summary}}, {{incident.service}}, {{incident.url}} and {{params.name}}; in quotes a value is a string, and without quotes it can stand for a number.",
+      "signing_secret": "Signing secret",
+      "signing_secret_hint": "When set, requests carry X-MoleSignal-Timestamp and X-MoleSignal-Sign, signed as webhooks are.",
+      "cluster": "Cluster",
+      "pick_cluster": "Choose a cluster",
+      "operation": "Operation",
+      "workload_kind": "Workload kind",
+      "namespace": "Namespace",
+      "workload_name": "Workload name",
+      "replicas": "Replicas",
+      "parameters": "Asked when started",
+      "parameters_hint": "Templates read them as {{params.name}}.",
+      "add_parameter": "Add a parameter",
+      "remove_parameter": "Remove the parameter",
+      "parameter_key": "Name",
+      "parameter_label": "Label",
+      "parameter_kind": "Kind",
+      "parameter_options": "Choices (comma separated)",
+      "parameter_default": "Default",
+      "parameter_required": "Required",
+      "scope": "Scope and approval",
+      "services": "Services",
+      "services_hint": "Comma separated; empty means every incident.",
+      "risk": "Risk",
+      "verify_after": "Check after",
+      "verify_after_hint": "Minutes after running; 0 checks nothing.",
+      "verify_by": "It worked when",
+      "enabled": "Turned on"
+    },
+    "clusters": {
+      "title": "Kubernetes clusters",
+      "add": "Add a cluster",
+      "empty": "No clusters yet. Kubernetes actions need one registered first.",
+      "test": "Test connection",
+      "reached": "Reached Kubernetes {{version}}",
+      "saved": "Cluster saved",
+      "edit_title": "Edit cluster",
+      "description": "Connects to the API server with a ServiceAccount token, kept encrypted and not shown again. It needs get and patch on the workloads, and list on ReplicaSets to roll back.",
+      "name": "Name",
+      "api_server": "API server address",
+      "ca": "CA certificate",
+      "ca_hint": "PEM; empty trusts the system's root certificates.",
+      "token": "ServiceAccount token"
+    },
+    "run": {
+      "none": "No remediation action applies to this incident.",
+      "set_up": "Set one up",
+      "start": "Run",
+      "closed": "The incident is resolved",
+      "by": "started by {{name}}",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "requested_one": "Sent for approval; {{count}} approver needed",
+      "requested_other": "Sent for approval; {{count}} approvers needed",
+      "title": "Run “{{name}}”",
+      "needs_one": "One person who can approve has to approve it; it runs right after.",
+      "needs_two": "Two people who can approve have to approve it; it runs right after.",
+      "reason": "Reason",
+      "reason_placeholder": "For example: checkout ran out of connections, restart first",
+      "submit": "Send for approval",
+      "status": {
+        "awaiting_approval": "Awaiting approval",
+        "running": "Running",
+        "succeeded": "Ran",
+        "failed": "Failed",
+        "declined": "Not run",
+        "verifying": "Awaiting check",
+        "verified": "Passed check",
+        "verification_failed": "Failed check"
+      }
+    }
+  },
+  "tickets": {
+    "new_connector": "New ticket connector",
+    "empty": "No ticket connectors yet. Once Jira, ServiceNow or Meegle is connected, tickets are made on an incident or by rule.",
+    "auto_on": "Automatic tickets",
+    "auto_off": "Manual tickets",
+    "test": "Test connection",
+    "reached": "Connected",
+    "reached_as": "Connected as {{name}}",
+    "delete_named": "Delete {{name}}",
+    "delete_title": "Delete the ticket connector?",
+    "saved": "Saved “{{name}}”",
+    "webhook_address": "Jira webhook address (add it under Webhooks in Jira's system settings, with the connector's webhook secret)",
+    "copy_webhook": "Copy address",
+    "copy_address": "Copy address",
+    "address_copied": "Copied",
+    "sites": {
+      "feishu": "Feishu",
+      "lark": "Lark"
+    },
+    "systems": {
+      "jira": "Jira",
+      "meegle": "Meegle",
+      "servicenow": "ServiceNow"
+    },
+    "drawer": {
+      "new_title": "New ticket connector",
+      "edit_title": "Edit ticket connector",
+      "subtitle": "Credentials are kept encrypted and not shown again; leave one empty to keep it.",
+      "save": "Save",
+      "identity": "Basics",
+      "name": "Name",
+      "meegle_hint": "Meegle, Feishu Project in China.",
+      "jira": "Jira",
+      "site_url": "Site address",
+      "cloud": "Jira Cloud",
+      "data_center": "Jira Data Center / Server",
+      "email": "Account email",
+      "api_token": "API token",
+      "pat": "Personal access token",
+      "project_key": "Project key",
+      "issue_type": "Issue type",
+      "priorities": "Ticket priority by incident priority",
+      "priorities_hint": "Jira priority names. The incident's priority is looked up first, its severity when it has none or it is not filled in; empty sets none.",
+      "labels": "Labels",
+      "resolve_transition": "Transition when resolved",
+      "resolve_transition_hint": "A transition's name or ID; empty takes the first one to a done status.",
+      "webhook_secret": "Webhook secret",
+      "webhook_secret_hint": "Jira's webhook is taken only with a secret (X-Hub-Signature is checked); without one, statuses are synced every 5 minutes.",
+      "meegle": "Meegle",
+      "platform": "Platform",
+      "base_url": "Site address",
+      "plugin_id": "Plugin ID",
+      "plugin_secret": "Plugin secret",
+      "user_key": "Acting as (user_key)",
+      "user_key_hint": "Tickets are made and comments written as this person.",
+      "project_key_meegle": "Space (project_key)",
+      "work_item_type": "Work item type (work_item_type_key)",
+      "priority_field": "Priority field key",
+      "priorities_hint_meegle": "Values of the priority options. The incident's priority is looked up first, its severity when it has none or it is not filled in; empty sets none.",
+      "resolve_transition_id": "Transition ID when resolved",
+      "resolve_transition_id_hint": "For state flows.",
+      "resolve_node_id": "Node finished when resolved",
+      "resolve_node_id_hint": "For node flows.",
+      "done_states": "States that count as done",
+      "done_states_hint": "State keys, comma separated.",
+      "follow": "Following the incident",
+      "comments": {
+        "acknowledged": "Comment when the incident is acknowledged",
+        "resolved": "Comment when the incident is resolved",
+        "notes": "Write the incident's notes as comments"
+      },
+      "transition_on_resolve": "Move the ticket to done when the incident is resolved",
+      "resolve_when_done": "Resolve the incident when the ticket is done",
+      "on_major": "Make a ticket when a major incident is declared",
+      "auto": "Automatic tickets",
+      "auto_hint": "A new incident that matches gets a ticket on its own.",
+      "auto_enabled": "Make tickets automatically",
+      "auto_severity": "Severity at least",
+      "auto_services": "Services",
+      "auto_services_hint": "Comma separated; empty means any.",
+      "servicenow": "ServiceNow",
+      "instance_url": "Instance address",
+      "table": "Table",
+      "table_hint": "incident by default; it must extend task.",
+      "auth_basic": "User name and password",
+      "auth_oauth": "OAuth client credentials",
+      "auth_oauth_hint": "The instance must allow the client credentials grant.",
+      "auth_api_key": "API key",
+      "auth_api_key_hint": "From the Washington DC release.",
+      "username": "User name",
+      "password": "Password",
+      "client_id": "Client ID",
+      "client_secret": "Client secret",
+      "api_key": "API key",
+      "assignment_group": "Assignment group",
+      "caller_id": "Caller",
+      "sys_id_hint": "A sys_id; empty sets none.",
+      "category": "Category",
+      "priorities_hint_servicenow": "Write impact/urgency (like 2/1), from which ServiceNow works out the priority; one number means both. The incident's priority above is looked up first, its severity below after.",
+      "resolve_state": "State value on resolve",
+      "resolve_state_hint": "The value of the state field; 6 (Resolved) by default.",
+      "close_code": "Resolution code",
+      "close_code_hint": "The choices of close_code differ per instance; empty writes none.",
+      "done_states_hint_servicenow": "Values of the state field, comma separated; 6, 7 and 8 (Resolved, Closed, Canceled) by default."
+    },
+    "incident": {
+      "none": "No tickets yet.",
+      "created": "Created {{key}}",
+      "synced": "synced {{value}}",
+      "connector": "Ticket connector",
+      "create": "Create ticket",
+      "create_in": "Create in {{name}}"
+    }
+  },
+  "major": {
+    "hint": "Declare it when the impact is wide and several people work on it: roles, a war room and meeting, a checklist and one stream of updates.",
+    "declare": "Declare major incident",
+    "declared": "Declared a major incident",
+    "declared_by": "Declared major by {{name}}",
+    "declared_by_rule": "Declared major by the organization's rule",
+    "roles": {
+      "commander": "Commander",
+      "communications": "Communications lead",
+      "scribe": "Scribe"
+    },
+    "unassigned": "Not assigned",
+    "war_room": "Join the war room ({{platform}})",
+    "war_room_made": "War room made ({{platform}})",
+    "platforms": {
+      "lark_app": "Feishu",
+      "slack_app": "Slack",
+      "dingtalk_app": "DingTalk",
+      "wecom_app": "WeCom"
+    },
+    "meeting": "Join the meeting",
+    "tasks": "Tasks",
+    "no_tasks": "No tasks yet.",
+    "remove_task": "Delete the task “{{title}}”",
+    "task_placeholder": "Add a task",
+    "add_task": "Add",
+    "post_update": "Post an update",
+    "update_hint": "Goes to the war room and to the stakeholders, roles and assignees.",
+    "update": {
+      "impact": "Impact",
+      "current": "Where things are",
+      "next": "Next steps"
+    },
+    "send_update": "Send",
+    "update_sent": "Update sent",
+    "settings": {
+      "open": "Major incident settings",
+      "title": "Major incident settings",
+      "subtitle": "How a declared major incident gets its war room, meeting and tasks, who hears its updates, and which incidents are major from the start.",
+      "saved": "Major incident settings saved",
+      "war_room": "War room and meeting",
+      "war_room_hint": "A notify connector that can make group chats (Feishu App, Slack App, DingTalk, WeCom) makes the chat and adds the assignees, roles and stakeholders, by the identities each linked to it.",
+      "connector": "Connector for war rooms",
+      "no_war_room": "No war room",
+      "meeting": "Meeting",
+      "meetings": {
+        "none": "No meeting",
+        "feishu_vc": "Book a Feishu meeting",
+        "fixed_url": "A fixed meeting link",
+        "tencent_meeting": "Book a Tencent Meeting",
+        "zoom": "Start a Zoom meeting",
+        "google_meet": "Create a Google Meet"
+      },
+      "meeting_url": "Meeting link",
+      "checklist": "Checklist",
+      "checklist_hint": "Tasks added when it is declared, one per line.",
+      "stakeholders": "Stakeholders",
+      "stakeholders_hint": "People not working on it who need to know how it goes, such as managers, customer success or PR. Updates notify them (besides the assignees and roles), and war rooms add them.",
+      "auto": "Declaring on its own",
+      "auto_hint": "A new incident that matches is major from the start.",
+      "auto_enabled": "Declare automatically",
+      "room_notes": {
+        "dingtalk_app": "In DingTalk, the app's robot has to be added to the group before updates can be posted to it; group names are at most 20 characters.",
+        "wecom_app": "The WeCom app has to be visible to the root department; a group has at least two people and no join link, and members find it in WeCom."
+      },
+      "meeting_connector": "Feishu App for meetings",
+      "same_as_war_room": "The war room connector",
+      "meeting_hints": {
+        "feishu_vc": "The Feishu App books a 6-hour Feishu meeting owned by the commander. The app needs permission to reserve video meetings.",
+        "tencent_meeting": "Create a self-built app in the Tencent Meeting enterprise console for its AppId, SdkId, SecretId and SecretKey; a 6-hour meeting is booked under the member below.",
+        "zoom": "Create a Server-to-Server OAuth app in the Zoom App Marketplace with permission to create meetings (meeting:write:meeting:admin); an instant meeting is started with the user below as host.",
+        "google_meet": "A service account creates meetings for the organizer: in the Google Workspace admin console, give it domain-wide delegation for https://www.googleapis.com/auth/meetings.space.created."
+      },
+      "secret_kept": "Set; leave empty to keep it",
+      "tencent": {
+        "sdk_id_hint": "Only if the app has one",
+        "userid": "Creator (userid)",
+        "userid_hint": "The company member the meeting belongs to"
+      },
+      "zoom": {
+        "host": "Host",
+        "host_hint": "The email or user ID of a user in the Zoom account"
+      },
+      "google": {
+        "organizer": "Organizer email",
+        "organizer_hint": "Meetings are created on this person's behalf",
+        "credentials": "Service account key (JSON)"
+      },
+      "auto_priority": "Priority",
+      "auto_priority_hint": "Once set, incidents without a priority are never declared automatically.",
+      "any_priority": "Any priority",
+      "at_least_priority": "{{priority}} or higher"
+    }
+  },
+  "postmortems": {
+    "empty": "No postmortems yet. Start one with “Write postmortem” on an incident.",
+    "loading": "Reading the postmortem…",
+    "none": "No postmortem yet.",
+    "start": "Write postmortem",
+    "open": "Open postmortem",
+    "summary_line_one": "{{status}} · {{count}} action item open",
+    "summary_line_other": "{{status}} · {{count}} action items open",
+    "saved": "Postmortem saved",
+    "drawer_title": "Postmortem",
+    "title": "Title",
+    "status_label": "Status",
+    "status": {
+      "draft": "Draft",
+      "in_review": "In review",
+      "published": "Published"
+    },
+    "body": "Text (Markdown)",
+    "draft_with_agent": "Draft with Mole Agent",
+    "agent_prompt": "Draft an internal postmortem of this incident from its timeline, notes, root cause analysis and triggering query (summary, impact, timeline, root cause, what went well and badly, action items), and save it as the draft of this incident's postmortem.",
+    "copy_summary": "Copy summary",
+    "summary_copied": "Summary copied; paste it into the status page's public postmortem",
+    "actions_title": "Action items",
+    "action_placeholder": "Add an action item",
+    "add_action": "Add",
+    "remove_action": "Delete the action item “{{title}}”",
+    "make_ticket": "Create ticket",
+    "ticket_created": "Created {{key}}",
+    "open_actions_one": "{{count}} action item open",
+    "open_actions_other": "{{count}} action items open",
+    "overdue_one": "{{count}} overdue",
+    "overdue_other": "{{count}} overdue",
+    "template": {
+      "summary": "Summary",
+      "impact": "Impact",
+      "duration": "Duration: {{value}}",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "ongoing": "still going",
+      "services": "Services affected: {{value}}",
+      "severity": "Severity: {{value}}",
+      "timeline": "Timeline",
+      "triggered": "Triggered",
+      "resolved": "Resolved",
+      "root_cause": "Root cause",
+      "went_well": "What went well",
+      "went_badly": "What went badly",
+      "actions": "Action items",
+      "kinds": {
+        "acknowledged": "Acknowledged",
+        "resolved": "Resolved",
+        "escalated": "Escalated",
+        "reassigned": "Reassigned",
+        "responders_added": "Responders added",
+        "snoozed": "Snoozed",
+        "severity_changed": "Severity changed",
+        "merged_in": "Incidents merged in",
+        "note": "Note",
+        "remediation_executed": "Remediation run",
+        "ticket_created": "Ticket created",
+        "declared_major": "Declared major",
+        "role_assigned": "Role assigned",
+        "war_room_created": "War room opened",
+        "task_done": "Task done",
+        "status_update": "Status update",
+        "step_unreachable": "Nobody reachable, escalated",
+        "priority_changed": "Priority changed",
+        "urgency_changed": "Urgency changed"
+      }
+    }
+  },
+  "urgency": {
+    "high": "high",
+    "low": "low"
+  },
+  "importance": {
+    "no_priority": "No priority",
+    "without_priority": "None",
+    "all_priorities": "All priorities",
+    "filter_label": "Filter by priority",
+    "low_urgency": "Low urgency",
+    "urgency": {
+      "high": "High urgency",
+      "low": "Low urgency"
+    },
+    "behaviour": {
+      "escalates": "Climbs the policy",
+      "first_step": "First step only",
+      "quiet_switch": "quiet hours follow the person's switch",
+      "quiet_block": "never during quiet hours",
+      "steps_high": "high-urgency steps",
+      "steps_low": "low-urgency steps"
+    }
+  },
+  "create_incident": {
+    "open": "New incident",
+    "title": "New incident",
+    "subtitle": "For what no rule caught, such as a customer's report or something someone saw. It pages and escalates like any other incident.",
+    "submit": "Create incident",
+    "created": "Incident created",
+    "sections": {
+      "what": "What happened",
+      "who": "Who takes it"
+    },
+    "fields": {
+      "title": "Title",
+      "description": "Description",
+      "severity": "Severity",
+      "priority": "Priority",
+      "urgency": "Urgency",
+      "services": "Affected services",
+      "labels": "Labels",
+      "team": "Team",
+      "policy": "Escalation policy",
+      "people": "People"
+    },
+    "hints": {
+      "description": "Markdown works.",
+      "services": "Separated by commas, as the service catalog names them.",
+      "labels": "One key=value per line; routing rules and silences match on them.",
+      "people_one": "Up to {{count}} person; only they are notified, with no escalation policy.",
+      "people_other": "Up to {{count}} people; only they are notified, with no escalation policy."
+    },
+    "placeholders": {
+      "title": "For example: customers in the north region cannot open the payment page",
+      "choose": "Choose…"
+    },
+    "assign": {
+      "auto": "Route it",
+      "team": "A team",
+      "policy": "An escalation policy",
+      "users": "Named people"
+    },
+    "assign_hints": {
+      "auto": "Like an incident a rule opened: by routing rules, the service's owning team, the team label.",
+      "team": "The team's on-call policy, or the default one.",
+      "policy": "Notified from the policy's first level.",
+      "users": "These people are notified directly, with no escalation."
+    },
+    "declare_major": "Declare it a major incident"
+  },
+  "discovery": {
+    "load_error": "Discovery findings could not be loaded",
+    "tabs_label": "Findings",
+    "tabs": {
+      "open": "Open",
+      "ended": "Ended"
+    },
+    "filter_kind": "Filter by kind",
+    "all_kinds": "All kinds",
+    "kinds": {
+      "apm_anomaly": "Service move",
+      "apm_regression": "Worse new version",
+      "rum_new_issue": "New front-end error",
+      "rum_regressed_issue": "Front-end error back",
+      "log_error_surge": "Error log surge",
+      "log_new_error": "New error log",
+      "metric_saturation": "Running out of room",
+      "metric_shift": "CPU jump",
+      "metric_restarts": "Container restarts"
+    },
+    "metrics": {
+      "error_rate": "error rate",
+      "p95": "P95 latency",
+      "throughput": "traffic",
+      "requests": "requests"
+    },
+    "summary": {
+      "apm_anomaly": "The {{metric}} of {{service}} is {{value}} (was {{baseline}})",
+      "apm_regression": "{{service}} {{version}} does worse than the version before",
+      "rum_new_issue": "New error in {{application}}: {{message}}",
+      "rum_regressed_issue": "A resolved error is back in {{application}}: {{message}}",
+      "log_error_surge": "Error logs of {{service}} in {{stream}}: {{value}} in 15 minutes (usually {{baseline}})",
+      "log_new_error": "New error in {{service}}: {{template}}",
+      "metric_saturation": "{{subject}} is {{value}} full",
+      "metric_shift": "CPU of {{subject}} at {{value}} (an hour ago {{baseline}})",
+      "metric_restarts": "{{subject}} restarted {{value}} times in 15 minutes"
+    },
+    "empty": {
+      "open": {
+        "title": "Nothing found right now",
+        "description": "Every 5 minutes, APM services are checked for sudden moves and worse new versions, and front ends for new and returning errors."
+      },
+      "ended": {
+        "title": "No findings ended lately",
+        "description": "A finding not seen for three rounds in a row ends; ended ones are kept for 30 days."
+      }
+    },
+    "columns": {
+      "finding": "Finding",
+      "started": "Started",
+      "last_seen": "Last seen",
+      "ended": "Ended"
+    },
+    "new_rule": "New discovery rule",
+    "rule_for_kind": "Alert on findings like this",
+    "downstream": "downstream",
+    "version_after": "{{version}} (after {{previous}})",
+    "sections": {
+      "what": "What was found",
+      "changes": "Changes nearby"
+    },
+    "fields": {
+      "kind": "Kind",
+      "now": "Now",
+      "before": "Before",
+      "last_week": "Last week",
+      "version": "Version",
+      "location": "Location",
+      "started": "Started",
+      "last_seen": "Last seen",
+      "ended": "Ended"
+    },
+    "rule": {
+      "new_title": "New discovery rule",
+      "edit_title": "Edit discovery rule",
+      "subtitle": "Each finding it takes opens its own incident, as severe as the finding; when the finding ends, the incident recovers.",
+      "create": "Create rule",
+      "save": "Save rule",
+      "created": "Rule created",
+      "updated": "Rule saved",
+      "name_from": "Discovery: {{subject}}",
+      "source": "Discovery",
+      "condition": "An incident per finding",
+      "urgency_low_default": "Low (default)",
+      "sections": {
+        "which": "Which findings",
+        "who": "Who is told"
+      },
+      "fields": {
+        "name": "Name",
+        "kinds": "Kinds",
+        "subjects": "Services or applications",
+        "environments": "Environments",
+        "min_severity": "Minimum severity",
+        "policy": "Escalation policy",
+        "urgency": "Urgency"
+      },
+      "hints": {
+        "kinds": "None ticked takes every kind.",
+        "subjects": "APM service names or RUM application ids, separated by commas; empty takes all.",
+        "environments": "Separated by commas; empty takes all.",
+        "urgency": "Discovery is inferred, so its incidents are low urgency by default: the first level only, never in quiet hours."
+      }
+    },
+    "open": {
+      "apm": "Open in APM",
+      "rum": "Open in RUM",
+      "logs": "Open the logs",
+      "metrics": "Open in Metrics"
+    },
+    "investigate": "Ask Mole Agent to look into it",
+    "investigate_prompt": "Look into this finding of automatic discovery: {{summary}}. Find out why it happened, using the logs, metrics, traces and changes around when it started, and say what to do next."
+  },
+  "rule_transfer": {
+    "menu": "Import/export",
+    "export_all": "Export all rules",
+    "export_one": "Export this {{count}} rule",
+    "export_other": "Export these {{count}} rules",
+    "exported_one": "{{count}} rule exported",
+    "exported_other": "{{count}} rules exported",
+    "import": "Import rules…",
+    "import_title": "Import rules",
+    "import_subtitle": "Paste or choose a rule bundle exported from MoleSignal, or a Prometheus alerting rule file (PrometheusRule too). Try it first to see what each rule would do, then write it all at once.",
+    "content": "Content",
+    "content_hint": "JSON or YAML. Rules are matched by name: a new name is created, a known one updated.",
+    "choose_file": "Choose a file",
+    "create_only": "Only create; leave those with a name that exists as they are",
+    "try": "Try",
+    "apply_one": "Import {{count}}",
+    "apply_other": "Import {{count}}",
+    "cancel": "Cancel",
+    "imported_one": "{{count}} rule imported",
+    "imported_other": "{{count}} rules imported",
+    "result": "What the import would do",
+    "has_errors": "fix the rules with errors, then import",
+    "changes": "Changes: {{fields}}",
+    "formats": {
+      "molesignal": "MoleSignal rule bundle",
+      "prometheus": "Prometheus alerting rules",
+      "pagerduty": "PagerDuty schedules",
+      "opsgenie": "Opsgenie schedules"
+    },
+    "actions": {
+      "create": "Create",
+      "update": "Update",
+      "unchanged": "Same",
+      "skip": "Skip",
+      "error": "Error"
+    }
+  },
+  "transfer": {
+    "unknown_members": "These emails have no member in this workspace:",
+    "findings": {
+      "schedules_only": "Only schedules come over. Escalation policies, routing rules and overrides are left out.",
+      "shift_based_not_listed": "The file does not list PagerDuty's shift-based schedules, which the V2 API does not return, so they may be missing here. The migration script lists them.",
+      "shift_based_not_fetched": "The file only names this shift-based schedule and has none of its content, so it is left out. Run the migration script again, or fetch it with GET /v3/schedules/{id}.",
+      "schedule_unreadable": "The schedule cannot be read: {{detail}}",
+      "timezone_unknown": "The timezone \"{{timezone}}\" is not an IANA name.",
+      "layers_missing": "The file has no layers for this schedule. Fetch it with GET /schedules/{id}.",
+      "rotations_missing": "The file has no rotations for this schedule. Fetch it with GET /v2/schedules/{id}.",
+      "events_missing": "The file has no rotations and events for this schedule. Fetch it with GET /v3/schedules/{id}.",
+      "time_invalid": "{{rotation}}: \"{{value}}\" is not a time.",
+      "user_without_email": "{{rotation}}: the file has no email for {{user}}.",
+      "participant_team": "{{rotation}}: team {{name}} takes a turn, and a rotation here only takes people.",
+      "participant_escalation": "{{rotation}}: escalation {{name}} takes a turn, and a rotation here only takes people.",
+      "participant_none": "{{rotation}}: a turn belongs to no one, which a rotation here cannot leave open.",
+      "participant_unknown": "{{rotation}}: a participant of unknown type {{value}}.",
+      "rotations_overlap": "{{rotation}} and {{other}} overlap, first at {{at}}. Both people would be on call in the source, and a schedule here has one at a time; move them to separate schedules.",
+      "every_member_on_call": "{{rotation}}: all its members are on call at once, and a schedule here has one at a time; move them to separate schedules.",
+      "recurrence_unsupported": "{{rotation}}: the recurrence {{value}} cannot be written as a rotation.",
+      "shifts_per_member_unsupported": "{{rotation}}: each member takes {{value}} shifts in a row and a week has {{per_week}}, so handoffs do not fall on a fixed period, which a rotation here needs.",
+      "event_timezones_differ": "{{rotation}} uses {{timezone}} and {{other}} uses {{other_timezone}}. A schedule here has one timezone; move them to separate schedules.",
+      "timezone_from_events": "The schedule's timezone is {{schedule_timezone}} and its events use {{timezone}}. It uses {{timezone}} here, so handoffs stay at the same time.",
+      "custom_shifts_one": "{{count}} custom shift from now on: {{at}} to {{until}}, {{user}}. A rotation here cannot express a one-off shift. Import after it has passed, or remove it from final_schedule in the file and add an override after importing.",
+      "custom_shifts_other": "{{count}} custom shifts from now on, the first {{at}} to {{until}}, {{user}}. A rotation here cannot express one-off shifts. Import after they have passed, or remove them from final_schedule in the file and add overrides after importing.",
+      "rendered_several_on_call": "From {{at}} to {{until}} the source has {{first}} and {{second}} on call at once, and a schedule here has one at a time.",
+      "rotation_type_unsupported": "{{rotation}}: the rotation type {{value}} is not known.",
+      "rotation_length_invalid": "{{rotation}}: the rotation length {{value}} cannot be used.",
+      "restriction_unsupported": "{{rotation}}: the time restriction {{value}} cannot be written as weekly ranges.",
+      "rendered_in_other_zone": "{{rotation}}: the response was rendered in another timezone ({{value}}), so its restrictions cannot be read in the schedule's. Fetch it with GET /schedules/{id} and no time_zone.",
+      "starts_before_handoff": "{{rotation}}: the layer starts before its rotation does, and who is on call until then is not known.",
+      "rendered_mismatch": "Differs from the source from {{at}} to {{until}}: the source has {{expected}}, this import would have {{actual}}.",
+      "rendered_mismatch_more_one": "And {{count}} more stretch.",
+      "rendered_mismatch_more_other": "And {{count}} more stretches.",
+      "rotation_ended": "{{rotation}} ended at {{at}}: left out, it no longer decides who is on call.",
+      "too_many_rotations": "One schedule has more than {{limit}} rotations.",
+      "schedule_paused": "Disabled in the source: it comes over paused and was not compared.",
+      "rotation_empty": "{{rotation}} has nobody on it or never applies: left out.",
+      "team_not_carried": "Team {{name}} is not carried over: none has that name here, or the schedule already has one. Who is on call does not change.",
+      "rendered_matched": "Compared with the source from {{from}} to {{to}}: the same people on call.",
+      "rendered_missing": "Not compared: the file has no schedule rendered by the source. Check who is on call after importing.",
+      "rendered_stale": "Not compared: the schedule rendered by the source is all in the past. Fetch it again.",
+      "clock_change_not_compared": "The comparison does not reach a clock change in {{timezone}}: handoffs after the next one were not compared.",
+      "overrides_left_out_one": "{{count}} override in the compared stretch is not imported.",
+      "overrides_left_out_other": "{{count}} overrides in the compared stretch are not imported."
+    },
+    "policies": {
+      "menu": "Import/export",
+      "export_all": "Export all escalation policies",
+      "export_one": "Export {{count}} escalation policy",
+      "export_other": "Export {{count}} escalation policies",
+      "import": "Import escalation policies…",
+      "import_title": "Import escalation policies",
+      "import_subtitle": "A `molesignal.escalation-policies/v1` bundle. Matched by name: a new name is created, a known one updated; try it first, then import.",
+      "exported_one": "Exported {{count}} escalation policy",
+      "exported_other": "Exported {{count}} escalation policies",
+      "imported_one": "Imported {{count}} escalation policy",
+      "imported_other": "Imported {{count}} escalation policies",
+      "content_hint": "JSON or YAML. Users are named by email; schedules, teams and holiday calendars by name."
+    },
+    "schedules": {
+      "menu": "Import/export",
+      "export_all": "Export all schedules",
+      "export_one": "Export {{count}} schedule",
+      "export_other": "Export {{count}} schedules",
+      "import": "Import schedules…",
+      "import_title": "Import schedules",
+      "import_subtitle": "A `molesignal.schedules/v1` bundle, or the schedules of Opsgenie or PagerDuty as their APIs return them. Matched by name: a new name is created, a known one updated; try it first, then import.",
+      "exported_one": "Exported {{count}} schedule",
+      "exported_other": "Exported {{count}} schedules",
+      "imported_one": "Imported {{count}} schedule",
+      "imported_other": "Imported {{count}} schedules",
+      "content_hint": "JSON or YAML. Members are named by email, teams and holiday calendars by name. Overrides and swaps are not in the file; an update keeps them.",
+      "has_errors": "fix the schedules with errors, then import",
+      "migration_title": "Moving from Opsgenie or PagerDuty",
+      "migration_intro": "Run this script wherever curl and jq are available, then choose the file it writes. The API key stays there: MoleSignal does not keep it and never calls the other tool.",
+      "migration_key": "Set {{name}} first; a key that can read is enough.",
+      "migration_copy": "Copy script",
+      "migration_docs": "What comes over and what does not"
+    },
+    "routing": {
+      "menu": "Import/export",
+      "export_all": "Export all routing rules",
+      "export_one": "Export {{count}} routing rule",
+      "export_other": "Export {{count}} routing rules",
+      "import": "Import routing rules…",
+      "import_title": "Import routing rules",
+      "import_subtitle": "A `molesignal.routing-rules/v1` bundle. Matched by name: a new name is created, a known one updated; try it first, then import.",
+      "exported_one": "Exported {{count}} routing rule",
+      "exported_other": "Exported {{count}} routing rules",
+      "imported_one": "Imported {{count}} routing rule",
+      "imported_other": "Imported {{count}} routing rules",
+      "content_hint": "JSON or YAML. Escalation policies, teams and holiday calendars are named by name. The rules of the file go first, in its order; the others keep theirs after them."
+    }
   }
 }

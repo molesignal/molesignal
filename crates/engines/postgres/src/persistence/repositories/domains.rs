@@ -11,6 +11,7 @@ use super::sqlx_err;
 use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DomainRow {
     pub id: Id,
     pub org_id: Id,
@@ -24,6 +25,7 @@ pub struct DomainRow {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AcmeChallenge {
     pub token: String,
     pub domain_id: Id,
@@ -64,8 +66,8 @@ impl PgDomainRepository {
     }
 }
 
-const COLS: &str = "id, org_id, hostname, state, cert_pem, cert_not_after_micros,
-                    last_error, created_at_micros, updated_at_micros";
+const COLS: &str = "id, org_id, hostname, state, cert_pem, cert_not_after,
+                    last_error, created_at, updated_at";
 
 fn row_to(r: sqlx::postgres::PgRow) -> DomainRow {
     DomainRow {
@@ -77,14 +79,17 @@ fn row_to(r: sqlx::postgres::PgRow) -> DomainRow {
             .try_get::<Option<String>, _>("cert_pem")
             .unwrap_or_default(),
         cert_not_after: r
-            .try_get::<Option<i64>, _>("cert_not_after_micros")
-            .unwrap_or_default()
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("cert_not_after")
+            .unwrap_or_default(),
         last_error: r
             .try_get::<Option<String>, _>("last_error")
             .unwrap_or_default(),
-        created_at: TimestampMicros(r.try_get::<i64, _>("created_at_micros").unwrap_or_default()),
-        updated_at: TimestampMicros(r.try_get::<i64, _>("updated_at_micros").unwrap_or_default()),
+        created_at: r
+            .try_get::<TimestampMicros, _>("created_at")
+            .unwrap_or_default(),
+        updated_at: r
+            .try_get::<TimestampMicros, _>("updated_at")
+            .unwrap_or_default(),
     }
 }
 
@@ -95,7 +100,9 @@ fn ch_row(r: sqlx::postgres::PgRow) -> AcmeChallenge {
         key_authorization: r
             .try_get::<String, _>("key_authorization")
             .unwrap_or_default(),
-        expires_at: TimestampMicros(r.try_get::<i64, _>("expires_at_micros").unwrap_or_default()),
+        expires_at: r
+            .try_get::<TimestampMicros, _>("expires_at")
+            .unwrap_or_default(),
     }
 }
 
@@ -128,8 +135,8 @@ impl DomainRepository for PgDomainRepository {
 
         sqlx::query(
             "INSERT INTO domains
-                (id, org_id, hostname, state, cert_pem, cert_not_after_micros, last_error,
-                 created_at_micros, updated_at_micros)
+                (id, org_id, hostname, state, cert_pem, cert_not_after, last_error,
+                 created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         )
         .bind(&d.id.0)
@@ -137,10 +144,10 @@ impl DomainRepository for PgDomainRepository {
         .bind(&d.hostname)
         .bind(&d.state)
         .bind(&d.cert_pem)
-        .bind(d.cert_not_after.map(|t| t.0))
+        .bind(d.cert_not_after)
         .bind(&d.last_error)
-        .bind(d.created_at.0)
-        .bind(d.updated_at.0)
+        .bind(d.created_at)
+        .bind(d.updated_at)
         .execute(&mut *transaction)
         .await
         .map_err(sqlx_err)?;
@@ -207,16 +214,16 @@ impl DomainRepository for PgDomainRepository {
         last_error: Option<&str>,
     ) -> Result<()> {
         sqlx::query(
-            "UPDATE domains SET state = $2, cert_pem = $3, cert_not_after_micros = $4,
-                                last_error = $5, updated_at_micros = $6
+            "UPDATE domains SET state = $2, cert_pem = $3, cert_not_after = $4,
+                                last_error = $5, updated_at = $6
              WHERE id = $1",
         )
         .bind(&id.0)
         .bind(state)
         .bind(cert_pem)
-        .bind(cert_not_after.map(|t| t.0))
+        .bind(cert_not_after)
         .bind(last_error)
-        .bind(TimestampMicros::now().0)
+        .bind(TimestampMicros::now())
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -237,16 +244,16 @@ impl DomainRepository for PgDomainRepository {
 
     async fn put_challenge(&self, c: AcmeChallenge) -> Result<()> {
         sqlx::query(
-            "INSERT INTO acme_challenges (token, domain_id, key_authorization, expires_at_micros)
+            "INSERT INTO acme_challenges (token, domain_id, key_authorization, expires_at)
              VALUES ($1, $2, $3, $4)
              ON CONFLICT (token) DO UPDATE
              SET key_authorization = EXCLUDED.key_authorization,
-                 expires_at_micros = EXCLUDED.expires_at_micros",
+                 expires_at = EXCLUDED.expires_at",
         )
         .bind(&c.token)
         .bind(&c.domain_id.0)
         .bind(&c.key_authorization)
-        .bind(c.expires_at.0)
+        .bind(c.expires_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -256,7 +263,7 @@ impl DomainRepository for PgDomainRepository {
 
     async fn get_challenge(&self, token: &str) -> Result<Option<AcmeChallenge>> {
         let row = sqlx::query(
-            "SELECT token, domain_id, key_authorization, expires_at_micros
+            "SELECT token, domain_id, key_authorization, expires_at
              FROM acme_challenges WHERE token = $1",
         )
         .bind(token)
@@ -268,8 +275,8 @@ impl DomainRepository for PgDomainRepository {
     }
 
     async fn delete_expired_challenges(&self, now: TimestampMicros) -> Result<u64> {
-        let res = sqlx::query("DELETE FROM acme_challenges WHERE expires_at_micros < $1")
-            .bind(now.0)
+        let res = sqlx::query("DELETE FROM acme_challenges WHERE expires_at < $1")
+            .bind(now)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;

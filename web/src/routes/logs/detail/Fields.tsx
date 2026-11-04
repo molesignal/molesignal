@@ -3,6 +3,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { writeClipboardText } from '@/lib/clipboard';
+import { cn } from '@/shell/lib/cn';
 import type { SignalReferenceTime } from '@/shell/SignalReference';
 import { toast } from '@/shell/ui/sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shell/ui/tooltip';
@@ -80,35 +81,15 @@ export function LogDetailFields({
                 <dt className="min-w-0 break-all pl-[6px] font-mono text-tx-2">{path}</dt>
                 <dd className="min-w-0 pr-[6px] text-tx-0">
                   <LogFieldValue field={path} value={value} record={record} time={time} onJump={onJump} />
-                  <span className="absolute right-[2px] top-[2px] flex rounded-md bg-bg-2 opacity-0 group-hover:opacity-100 group-has-[:focus-visible]:opacity-100">
-                    <FieldAction
-                      label={t('explore.detail.include_filter')}
-                      icon={Plus}
-                      disabled={!isFilterableValue(value)}
-                      onClick={() => onInclude(path, value)}
-                    />
-                    <FieldAction
-                      label={t('explore.detail.exclude_filter')}
-                      icon={Minus}
-                      disabled={!isFilterableValue(value)}
-                      onClick={() => onExclude(path, value)}
-                    />
-                    <FieldAction
-                      label={t('explore.detail.copy_value')}
-                      icon={Clipboard}
-                      onClick={() => {
-                        void writeClipboardText(fieldValueText(value)).then(() => {
-                          toast.success(t('explore.detail.copied_value'));
-                        });
-                      }}
-                    />
-                    <FieldAction
-                      label={column ? t('explore.detail.hide_column') : t('explore.detail.show_column')}
-                      icon={column ? EyeOff : Eye}
-                      pressed={column}
-                      onClick={() => onToggleVisibility(path)}
-                    />
-                  </span>
+                  <LogFieldActions
+                    path={path}
+                    value={value}
+                    column={column}
+                    onInclude={onInclude}
+                    onExclude={onExclude}
+                    onToggleVisibility={onToggleVisibility}
+                    className="absolute right-[2px] top-[2px]"
+                  />
                 </dd>
               </div>
             );
@@ -116,6 +97,56 @@ export function LogDetailFields({
         </dl>
       )}
     </TooltipProvider>
+  );
+}
+
+/**
+ * What can be asked of a field of the record: keep the logs with its value,
+ * leave them out, copy it, or show it as a column. It comes with the pointer
+ * or the keyboard on whatever holds it (a `group`).
+ */
+export function LogFieldActions({
+  path,
+  value,
+  column,
+  onInclude,
+  onExclude,
+  onToggleVisibility,
+  className,
+}: {
+  path: string;
+  value: unknown;
+  column: boolean;
+  onInclude: (field: string, value: unknown) => void;
+  onExclude: (field: string, value: unknown) => void;
+  onToggleVisibility: (field: string) => void;
+  className?: string;
+}) {
+  const { t } = useTranslation('logs');
+
+  return (
+    <span
+      data-log-field-actions={path}
+      className={cn('z-10 flex rounded-md bg-bg-2 opacity-0 group-hover:opacity-100 group-has-[:focus-visible]:opacity-100', className)}
+    >
+      <FieldAction label={t('explore.detail.include_filter')} icon={Plus} disabled={!isFilterableValue(value)} onClick={() => onInclude(path, value)} />
+      <FieldAction label={t('explore.detail.exclude_filter')} icon={Minus} disabled={!isFilterableValue(value)} onClick={() => onExclude(path, value)} />
+      <FieldAction
+        label={t('explore.detail.copy_value')}
+        icon={Clipboard}
+        onClick={() => {
+          void writeClipboardText(fieldValueText(value)).then(() => {
+            toast.success(t('explore.detail.copied_value'));
+          });
+        }}
+      />
+      <FieldAction
+        label={column ? t('explore.detail.hide_column') : t('explore.detail.show_column')}
+        icon={column ? EyeOff : Eye}
+        pressed={column}
+        onClick={() => onToggleVisibility(path)}
+      />
+    </span>
   );
 }
 

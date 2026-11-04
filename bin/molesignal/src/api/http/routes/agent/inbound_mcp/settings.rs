@@ -30,13 +30,13 @@ pub(super) fn routes() -> Router<AppState> {
             get(list_oauth_connections),
         )
         .route(
-            "/agent/settings/inbound-mcp/oauth-connections/{family_id}/revoke",
+            "/agent/settings/inbound-mcp/oauth-connections/{familyId}/revoke",
             post(revoke_oauth_connection),
         )
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct UpdateSettingsRequest {
     enabled: bool,
     #[serde(default)]
@@ -50,8 +50,8 @@ struct UpdateSettingsRequest {
     read_timeout_ms: i64,
 }
 
-fn require_management(ctx: &IamContext) -> Result<()> {
-    crate::api::http::middleware::Permission::require_key(ctx, "agent.manage")
+fn require_management(ctx: &IamContext, permission: &str) -> Result<()> {
+    crate::api::http::middleware::Permission::require_key(ctx, permission)
 }
 
 fn endpoint(state: &AppState) -> String {
@@ -71,26 +71,26 @@ fn settings_response(state: &AppState, settings: InboundMcpSettings) -> Value {
     json!({
         "settings": settings,
         "endpoint": endpoint,
-        "protocol_versions": ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"],
+        "protocolVersions": ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"],
         "transports": ["streamable_http"],
         "oauth": {
-            "protected_resource_metadata": format!("{base}/.well-known/oauth-protected-resource/api/v1/mcp"),
-            "authorization_server_metadata": format!("{base}/.well-known/oauth-authorization-server"),
-            "authorization_endpoint": format!("{base}/oauth/authorize"),
-            "token_endpoint": format!("{base}/api/v1/oauth/token"),
-            "registration_endpoint": format!("{base}/api/v1/oauth/register"),
-            "revocation_endpoint": format!("{base}/api/v1/oauth/revoke"),
+            "protectedResourceMetadata": format!("{base}/.well-known/oauth-protected-resource/api/v1/mcp"),
+            "authorizationServerMetadata": format!("{base}/.well-known/oauth-authorization-server"),
+            "authorizationEndpoint": format!("{base}/oauth/authorize"),
+            "tokenEndpoint": format!("{base}/api/v1/oauth/token"),
+            "registrationEndpoint": format!("{base}/api/v1/oauth/register"),
+            "revocationEndpoint": format!("{base}/api/v1/oauth/revoke"),
         },
-        "hard_max_size": HARD_MAX_SIZE,
+        "hardMaxSize": HARD_MAX_SIZE,
     })
 }
 
-#[permission("agent.manage")]
+#[permission("agent.inbound_mcp.read")]
 async fn get_settings(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
-    require_management(&ctx)?;
+    require_management(&ctx, "agent.inbound_mcp.read")?;
 
     let settings = state
         .agent
@@ -102,14 +102,14 @@ async fn get_settings(
     Ok(Json(settings_response(&state, settings)))
 }
 
-#[permission("agent.manage")]
+#[permission("agent.inbound_mcp.manage")]
 async fn update_settings(
     State(state): State<AppState>,
     Extension(runtime): Extension<std::sync::Arc<InboundMcpAdapterRuntime>>,
     Extension(ctx): Extension<IamContext>,
     Json(request): Json<UpdateSettingsRequest>,
 ) -> Result<Json<Value>> {
-    require_management(&ctx)?;
+    require_management(&ctx, "agent.inbound_mcp.manage")?;
     validate_limits(&request)?;
     let origins = normalize_origins(request.allowed_origins)?;
     let now = TimestampMicros::now();
@@ -158,19 +158,17 @@ fn validate_limits(request: &UpdateSettingsRequest) -> Result<()> {
 
     if !(1..=128).contains(&request.max_concurrent_calls) {
         return Err(Error::invalid(
-            "max_concurrent_calls must be between 1 and 128",
+            "maxConcurrentCalls must be between 1 and 128",
         ));
     }
 
     if !(1..=10_000).contains(&request.calls_per_minute) {
-        return Err(Error::invalid(
-            "calls_per_minute must be between 1 and 10000",
-        ));
+        return Err(Error::invalid("callsPerMinute must be between 1 and 10000"));
     }
 
     if !(100..=300_000).contains(&request.read_timeout_ms) {
         return Err(Error::invalid(
-            "read_timeout_ms must be between 100 and 300000",
+            "readTimeoutMs must be between 100 and 300000",
         ));
     }
 
@@ -219,12 +217,12 @@ fn normalize_origins(origins: Vec<String>) -> Result<Vec<String>> {
     Ok(normalized)
 }
 
-#[permission("agent.manage")]
+#[permission("agent.inbound_mcp.read")]
 async fn list_oauth_connections(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
-    require_management(&ctx)?;
+    require_management(&ctx, "agent.inbound_mcp.read")?;
     let now = TimestampMicros::now();
 
     let connections = state
@@ -236,13 +234,13 @@ async fn list_oauth_connections(
     Ok(Json(json!({ "connections": connections })))
 }
 
-#[permission("agent.manage")]
+#[permission("agent.inbound_mcp.manage")]
 async fn revoke_oauth_connection(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
     Path(family_id): Path<String>,
 ) -> Result<Json<Value>> {
-    require_management(&ctx)?;
+    require_management(&ctx, "agent.inbound_mcp.manage")?;
 
     if family_id.is_empty() || family_id.len() > 128 {
         return Err(Error::invalid("invalid OAuth connection family id"));

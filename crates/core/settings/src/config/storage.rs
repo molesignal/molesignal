@@ -19,11 +19,14 @@ pub struct StorageSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CatalogSettings {
-    /// Seal partitions whose end is older than this many hours. Zero disables sealing.
+    /// Seal partitions whose end is older than this many hours. Zero disables sealing. A sealed
+    /// partition gets its manifest and the Bloom filters of its exact fields, and is no longer
+    /// compacted: two days leave time for the hours to be merged into their day.
     #[serde(default = "default_seal_after_hours")]
     pub seal_after_hours: u32,
-    #[serde(default = "default_manifest_cache_bytes")]
-    pub manifest_cache_bytes: u64,
+    /// 清单缓存的内存大小，单位 MiB。
+    #[serde(default = "default_manifest_cache_size")]
+    pub manifest_cache_size: u64,
     #[serde(default = "default_catalog_interval_secs")]
     pub interval_secs: u32,
     #[serde(default = "default_catalog_batch_size")]
@@ -31,11 +34,11 @@ pub struct CatalogSettings {
 }
 
 fn default_seal_after_hours() -> u32 {
-    24 * 7
+    48
 }
 
-fn default_manifest_cache_bytes() -> u64 {
-    256 * 1024 * 1024
+fn default_manifest_cache_size() -> u64 {
+    256
 }
 
 fn default_catalog_interval_secs() -> u32 {
@@ -50,10 +53,16 @@ impl Default for CatalogSettings {
     fn default() -> Self {
         Self {
             seal_after_hours: default_seal_after_hours(),
-            manifest_cache_bytes: default_manifest_cache_bytes(),
+            manifest_cache_size: default_manifest_cache_size(),
             interval_secs: default_catalog_interval_secs(),
             batch_size: default_catalog_batch_size(),
         }
+    }
+}
+
+impl CatalogSettings {
+    pub fn manifest_cache_bytes(&self) -> u64 {
+        self.manifest_cache_size.saturating_mul(1024 * 1024)
     }
 }
 

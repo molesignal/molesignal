@@ -49,8 +49,8 @@ export function InspectorView({
   const stats = [
     [t('explore.query_stats.series'), metricSeriesCount.toLocaleString()],
     [t('explore.query_stats.points'), quality.dataPoints.toLocaleString()],
-    [t('explore.query_stats.scanned'), result.scanned_rows.toLocaleString()],
-    [t('explore.query_stats.duration'), `${result.took_ms} ms`],
+    [t('explore.query_stats.scanned'), result.scannedRows.toLocaleString()],
+    [t('explore.query_stats.duration'), `${result.tookMs} ms`],
     [
       t('explore.query_stats.range'),
       formatMetricDuration(timeRangeSeconds, language),

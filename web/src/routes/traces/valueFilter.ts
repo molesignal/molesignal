@@ -1,6 +1,7 @@
 import type { FieldType } from '@/api/streams';
 import type { TraceFilter } from '@/api/web';
 import { isBareValue, type BuilderFieldKind } from '@/shell/query/builder/model';
+import { joinFieldConjuncts } from '@/shell/query/fieldExpression';
 
 import {
   escapeTraceSqlIdentifier,
@@ -16,6 +17,7 @@ import {
   type TraceFieldDef,
   type TraceQueryMode,
 } from './fieldQueryModel';
+import { MAX_TRACE_IN_VALUES, writeTraceInClause } from './inClause';
 import { quoteTraceValue } from './urlState';
 
 /** What a value picked in the field list can be asked of: it, not it, at least it, at most it. */
@@ -43,10 +45,9 @@ function isValueOfType(dataType: FieldType, value: string): boolean {
  * Whether a filter on this value can be written in the language in use, and
  * mean what the button says.
  *
- * A field query matches a trace when any of its spans matches. "Not this
- * value" would then keep every trace that has some other span, which is not
- * leaving the value out: it is only offered for the fields a trace has one
- * value for. SQL can ask for traces with no such span, so it takes both.
+ * A field query keeps a trace when one of its spans has the value, or with
+ * `!=` when none of them has it; SQL asks the same of a statement with a row
+ * per trace. Both mean what their buttons say on every field.
  */
 export function canFilterTraceValue(
   field: TraceFieldDef,
@@ -61,12 +62,10 @@ export function canFilterTraceValue(
 
   // The trace list trims a value and caps its length, so one that starts or ends
   // with a space, or runs long, would never match itself.
-  const sendable = value !== ''
+  return value !== ''
     && value === value.trim()
     && !value.includes('\0')
     && new TextEncoder().encode(value).length <= MAX_FILTER_VALUE_BYTES;
-
-  return sendable && (op !== '!=' || isTraceLevelField(field.name));
 }
 
 function fieldQueryLiteral(field: TraceFieldDef, value: string): string {
@@ -94,25 +93,48 @@ function gaveWay(existing: TraceFilter, field: TraceFieldDef, op: TraceValueOper
   return boundOf(op) !== null && boundOf(op) === boundOf(existing.op);
 }
 
-/** The parts of a field query, and whether one of them is this comparison, however it is written. */
+/**
+ * The parts of a field query, and whether one of them is this comparison,
+ * however it is written: a value asked for is also one a list of the field
+ * holds.
+ */
 function fieldQueryParts(statement: string, field: TraceFieldDef, value: string, op: TraceValueOperator) {
   const parts = splitTraceStatement(statement.trim().replace(/\s+AND\s*$/i, ''))
     .map((part) => part.trim())
     .filter(Boolean);
   const same = (part: string) => {
     const existing = traceClauseOf(part);
-    return existing?.field === field.name && existing.op === op && existing.value === value;
+    if (existing?.field !== field.name) return false;
+    if (op === '=' && existing.op === 'in') return existing.values?.includes(value) ?? false;
+    return existing.op === op && existing.value === value;
   };
 
   return { parts, same };
 }
 
+/** The values a part asks the field for, when it asks for one or a list of them: what another value joins. */
+function askedValues(part: string, field: TraceFieldDef): string[] | null {
+  const existing = traceClauseOf(part);
+  if (existing?.field !== field.name) return null;
+  if (existing.op === 'in') return existing.values ?? [];
+  return existing.op === '=' && existing.value !== '' ? [existing.value] : null;
+}
+
+/** A field asked for these values: one is a comparison, more are a list. */
+function askingFor(field: TraceFieldDef, values: readonly string[]): string {
+  return values.length === 1
+    ? `${field.name} = ${fieldQueryLiteral(field, values[0]!)}`
+    : writeTraceInClause(field.name, values.map((value) => fieldQueryLiteral(field, value)));
+}
+
 /**
  * Adds a comparison on a value to a field query.
  *
- * The statement is kept as it was written. Only a comparison the new one
- * answers gives way to it: the empty one the field's "+" left, the same value
- * asked the other way round, an earlier bound on the same side.
+ * The statement is kept as it was written. A value asked for where the field
+ * is asked for others already joins them in a list. Otherwise only a
+ * comparison the new one answers gives way to it: the empty one the field's
+ * "+" left, the same value asked the other way round, an earlier bound on the
+ * same side.
  */
 export function insertTraceValueClause(
   current: string,
@@ -124,12 +146,35 @@ export function insertTraceValueClause(
   const { parts, same } = fieldQueryParts(current, field, value, op);
   if (parts.some(same)) return current;
 
+  // A second value asked for joins the first: the field is asked for any of them, as boxes ticked in a list.
+  const listAt = op === '=' ? parts.findIndex((part) => askedValues(part, field) !== null) : -1;
+  if (listAt >= 0) {
+    const values = askedValues(parts[listAt]!, field)!;
+    if (values.length >= MAX_TRACE_IN_VALUES) return current;
+
+    const asked = parts
+      .map((part, index) => (index === listAt ? askingFor(field, [...values, value]) : part))
+      .filter((part, index) => {
+        const existing = traceClauseOf(part);
+        return index === listAt || existing === null || existing.op === 'in' || !gaveWay(existing, field, op, value);
+      });
+
+    return joinFieldConjuncts(asked);
+  }
+
   // The new comparison takes the place of the first one it answers; the rest of those go.
   const next: string[] = [];
   let placed = false;
 
   for (const part of parts) {
     const existing = traceClauseOf(part);
+    // A list of the field stays; a value in it asked the other way round leaves it.
+    if (existing?.op === 'in' && existing.field === field.name) {
+      const rest = (existing.values ?? []).filter((asked) => !(op === '!=' && asked === value));
+      if (rest.length === existing.values?.length) next.push(part);
+      else if (rest.length > 0) next.push(askingFor(field, rest));
+      continue;
+    }
     if (existing === null || !gaveWay(existing, field, op, value)) {
       next.push(part);
     } else if (!placed) {
@@ -138,7 +183,8 @@ export function insertTraceValueClause(
     }
   }
 
-  return (placed ? next : [...next, clause]).join(' AND ');
+  // A statement of alternatives is narrowed as a whole: it goes in brackets beside the clause.
+  return joinFieldConjuncts(placed ? next : [...next, clause]);
 }
 
 function sqlLiteral(field: TraceFieldDef, value: string): string {
@@ -186,8 +232,13 @@ function sqlCondition(
       : { keyword: 'HAVING', clause: `MAX(CASE WHEN ${column} ${op} ${literal} THEN 1 ELSE 0 END) = 1` };
   }
 
-  // A span without the field is not one that has the value: it stays.
-  return { keyword: 'WHERE', clause: op === '!=' ? `${column} IS DISTINCT FROM ${literal}` : `${column} ${op} ${literal}` };
+  // A span without the field is not one that has the value: it stays. The comparison goes in
+  // brackets: the engine reads all that follows `IS DISTINCT FROM` as its operand, an AND added
+  // after it included.
+  return {
+    keyword: 'WHERE',
+    clause: op === '!=' ? `(${column} IS DISTINCT FROM ${literal})` : `${column} ${op} ${literal}`,
+  };
 }
 
 // The condition as it stands in a statement: whole, not the start of a longer number or name.
@@ -236,7 +287,14 @@ export function removeTraceValueFilter(
 ): string {
   if (mode === 'fields') {
     const { parts, same } = fieldQueryParts(statement, field, value, op);
-    return parts.filter((part) => !same(part)).join(' AND ');
+    // A value taken out of a list leaves the others asked for.
+    return joinFieldConjuncts(
+      parts.flatMap((part) => {
+        if (!same(part)) return [part];
+        const rest = (askedValues(part, field) ?? []).filter((asked) => asked !== value);
+        return op === '=' && rest.length > 0 ? [askingFor(field, rest)] : [];
+      }),
+    );
   }
 
   const clause = sqlClausePattern(sqlCondition(statement.trim(), field, value, op, streamName).clause);

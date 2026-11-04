@@ -31,7 +31,7 @@ export function Teams() {
   const { t } = useTranslation('iam');
   const qc = useQueryClient();
   const manageAccess = useActionAccess({
-    permission: 'iam.policies.manage',
+    permission: 'org.teams.manage',
   });
   const [editing, setEditing] = React.useState<Team | 'new' | null>(null);
   const [removing, setRemoving] = React.useState<Team | null>(null);
@@ -43,7 +43,7 @@ export function Teams() {
   // user id → display label, for rendering member chips.
   const userLabel = React.useMemo(() => {
     const map = new Map<string, string>();
-    for (const u of usersQuery.data ?? []) map.set(u.id, u.display_name || u.email);
+    for (const u of usersQuery.data ?? []) map.set(u.id, u.displayName || u.email);
     return (id: string) => map.get(id) ?? id;
   }, [usersQuery.data]);
 
@@ -123,17 +123,17 @@ export function Teams() {
               key: 'members',
               header: t('teams.columns.members', { defaultValue: 'Members' }),
               cell: (r) =>
-                r.member_ids.length === 0 ? (
+                r.memberIds.length === 0 ? (
                   <span className="text-tx-3">—</span>
                 ) : (
                   <span className="flex flex-wrap gap-1">
-                    {r.member_ids.slice(0, 4).map((id) => (
+                    {r.memberIds.slice(0, 4).map((id) => (
                       <Pill key={id} tone="indigo">
                         {userLabel(id)}
                       </Pill>
                     ))}
-                    {r.member_ids.length > 4 && (
-                      <Pill tone="dim">+{r.member_ids.length - 4}</Pill>
+                    {r.memberIds.length > 4 && (
+                      <Pill tone="dim">+{r.memberIds.length - 4}</Pill>
                     )}
                   </span>
                 ),
@@ -218,12 +218,12 @@ function TeamDrawer({
 
   React.useEffect(() => {
     setName(editing?.name ?? '');
-    setMemberIds(editing?.member_ids ?? []);
+    setMemberIds(editing?.memberIds ?? []);
   }, [editing]);
 
   const save = useMutation({
     mutationFn: () => {
-      const payload: teamsApi.TeamInput = { name: name.trim(), member_ids: memberIds };
+      const payload: teamsApi.TeamInput = { name: name.trim(), memberIds: memberIds };
       return editing ? teamsApi.update(editing.id, payload) : teamsApi.create(payload);
     },
     onSuccess: () => {
@@ -233,7 +233,7 @@ function TeamDrawer({
     },
     onError: (err) => toast.error(toApiError(err).message),
   });
-  const initialMemberIds = editing?.member_ids ?? [];
+  const initialMemberIds = editing?.memberIds ?? [];
   const dirty =
     name.trim() !== (editing?.name ?? '') ||
     JSON.stringify([...memberIds].sort()) !==
@@ -289,7 +289,7 @@ function TeamDrawer({
             </p>
           ) : (
             <FormChecklist
-              options={users.map((u) => ({ value: u.id, label: u.display_name || u.email }))}
+              options={users.map((u) => ({ value: u.id, label: u.displayName || u.email }))}
               selected={memberIds}
               disabled={controlsDisabled}
               disabledReason={access.reason}

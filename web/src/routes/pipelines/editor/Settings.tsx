@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
+import { ReadOnlyValue } from '@/routes/settings/_atoms';
 import { uiLabelClass } from '@/shell/chrome';
 import { DisabledControl } from '@/shell/DisabledControl';
 import { FormField, FormInput, FormSelect } from '@/shell/FormDrawer';
@@ -13,9 +14,14 @@ import type { PipelineResources } from './resources';
 import type { Interval } from './schedule';
 import { Segmented } from './Segmented';
 import { StreamField } from './StreamField';
-import { MAX_RETRIES, type PipelineSignalType, type RetrySettings } from '../PipelineGraph/model';
-
-export type PipelineMode = 'scheduled' | 'realtime';
+import {
+  MAX_RETRIES,
+  type PipelineMode,
+  type AlertStage,
+  type PipelineSignalType,
+  type RetrySettings,
+} from '../PipelineGraph/model';
+import { isWritableStream } from '../PipelineGraph/streamName';
 
 export interface PipelineSettingsValue {
   name: string;
@@ -28,6 +34,10 @@ export interface PipelineSettingsValue {
   retry: RetrySettings;
   deadLetterStream: string;
   dedupeField: string;
+  /** When an alert pipeline runs. */
+  stage: AlertStage;
+  /** An alert pipeline's place among the organization's alert pipelines: lowest first. */
+  order: number;
 }
 
 /** The waits for late events offered, in seconds. */
@@ -35,9 +45,10 @@ const DELAYS = [0, 30, 60, 120, 300, 600, 1_800, 3_600];
 
 /**
  * What a pipeline is and when it runs: its name, the signal it carries,
- * whether it works on events as they arrive or on a schedule, and for a
- * schedule how often it runs, how far back its first run reads, how long it
- * leaves the latest events to arrive, and what it does when something fails.
+ * whether it works on events as they arrive, on a schedule or on alert events
+ * before their incidents open, and for a schedule how often it runs, how far
+ * back its first run reads, how long it leaves the latest events to arrive,
+ * and what it does when something fails.
  */
 export function PipelineSettings({
   value,
@@ -63,6 +74,8 @@ export function PipelineSettings({
 }) {
   const { t } = useTranslation('pipelines');
   const realtime = value.mode === 'realtime';
+  const alert = value.mode === 'alert';
+  const scheduled = !realtime && !alert;
   const switchDisabled = disabled || enabledDisabled;
 
   return (
@@ -84,17 +97,23 @@ export function PipelineSettings({
           />
         </FormField>
         <FormField label={t('drawer.fields.signal_type')}>
-          <FormSelect
-            value={value.signalType}
-            onChange={(next) => onSignalChange(next as PipelineSignalType)}
-            options={[
-              { value: 'logs', label: t('filters.logs') },
-              { value: 'metrics', label: t('filters.metrics') },
-              { value: 'traces', label: t('filters.traces') },
-            ]}
-            disabled={disabled || realtime}
-            disabledReason={disabled ? disabledReason : t('realtime.logs_only')}
-          />
+          {alert ? (
+            <ReadOnlyValue value={t('alert_mode.signal')} />
+          ) : (
+            <FormSelect
+              value={value.signalType}
+              onChange={(next) => onSignalChange(next as PipelineSignalType)}
+              options={[
+                { value: 'logs', label: t('filters.logs') },
+                { value: 'metrics', label: t('filters.metrics') },
+                { value: 'traces', label: t('filters.traces') },
+                // Profiles are changed as they arrive; a scheduled pipeline does not read them.
+                ...(realtime ? [{ value: 'profiles', label: t('filters.profiles') }] : []),
+              ]}
+              disabled={disabled}
+              disabledReason={disabledReason}
+            />
+          )}
         </FormField>
         <div className="flex min-w-0 flex-col gap-1.5">
           <span className={uiLabelClass}>{t('realtime.mode')}</span>
@@ -106,15 +125,43 @@ export function PipelineSettings({
             options={[
               { value: 'realtime', label: t('realtime.title') },
               { value: 'scheduled', label: t('realtime.scheduled') },
+              { value: 'alert', label: t('alert_mode.title') },
             ]}
           />
         </div>
       </div>
 
       <div className="mt-[12px] flex flex-wrap items-end gap-x-[16px] gap-y-[12px]">
-        {realtime ? (
+        {alert ? (
+          <>
+            <FormField label={t('alert_mode.order')} className="w-[148px]">
+              <FormInput
+                type="number"
+                inputMode="numeric"
+                value={String(value.order)}
+                onChange={(event) => {
+                  const order = Number.parseInt(event.target.value, 10);
+                  onChange({ order: Number.isFinite(order) ? order : 0 });
+                }}
+                disabled={disabled}
+                disabledReason={disabledReason}
+              />
+            </FormField>
+            <p className="m-0 flex min-h-9 min-w-0 flex-1 items-center self-end font-sans text-sm leading-relaxed text-tx-2">
+              {t(value.stage === 'notify' ? 'alert_mode.note_notify' : 'alert_mode.note')}
+            </p>
+          </>
+        ) : realtime ? (
           <p className="m-0 flex min-h-9 min-w-0 flex-1 items-center font-sans text-sm leading-relaxed text-tx-2">
-            {t('settings.realtime_note')}
+            {t(
+              value.signalType === 'metrics'
+                ? 'settings.realtime_note_metrics'
+                : value.signalType === 'traces'
+                  ? 'settings.realtime_note_traces'
+                  : value.signalType === 'profiles'
+                    ? 'settings.realtime_note_profiles'
+                    : 'settings.realtime_note',
+            )}
           </p>
         ) : (
           <>
@@ -169,12 +216,12 @@ export function PipelineSettings({
               disabled={switchDisabled}
               onCheckedChange={(enabled) => onChange({ enabled })}
             />
-            {t(realtime ? 'realtime.enabled' : 'flows.form.run_on_schedule')}
+            {t(scheduled ? 'flows.form.run_on_schedule' : alert ? 'alert_mode.enabled' : 'realtime.enabled')}
           </label>
         </DisabledControl>
       </div>
 
-      {!realtime && (
+      {scheduled && (
         <div
           data-pipeline-reliability
           className="mt-[12px] grid gap-x-[16px] gap-y-[12px] sm:grid-cols-2 xl:grid-cols-[148px_148px_minmax(0,1fr)_minmax(0,1fr)]"
@@ -207,6 +254,7 @@ export function PipelineSettings({
             clearable
             placeholder={t('settings.dead_letter_none')}
             disabled={disabled}
+            offers={isWritableStream}
             onChange={(deadLetterStream) => onChange({ deadLetterStream })}
           />
           <FormField label={t('settings.dedupe')}>
@@ -214,7 +262,7 @@ export function PipelineSettings({
               value={value.dedupeField}
               onChange={(event) => onChange({ dedupeField: event.target.value })}
               placeholder={t('settings.dedupe_none')}
-              className="font-mono text-xs"
+              className="font-mono"
               autoComplete="off"
               spellCheck={false}
               disabled={disabled}

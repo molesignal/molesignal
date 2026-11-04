@@ -38,6 +38,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct GroupWriteReq {
     name: String,
     #[serde(default = "default_true")]
@@ -79,7 +80,7 @@ fn validate(req: &GroupWriteReq) -> Result<()> {
     }
 
     if req.group_by.iter().any(|k| k.trim().is_empty()) {
-        return Err(Error::invalid("group_by keys cannot be empty"));
+        return Err(Error::invalid("groupBy keys cannot be empty"));
     }
 
     Ok(())
@@ -98,7 +99,7 @@ fn build(req: GroupWriteReq, id: Id, org_id: Id, now: TimestampMicros) -> Semant
     }
 }
 
-#[permission("alerts.read")]
+#[permission("alerts.semantic_groups.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -108,7 +109,7 @@ async fn list(
     ))
 }
 
-#[permission("alerts.manage")]
+#[permission("alerts.semantic_groups.manage")]
 async fn create(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -132,7 +133,7 @@ async fn create(
     Ok(Json(saved))
 }
 
-#[permission("alerts.read")]
+#[permission("alerts.semantic_groups.read")]
 async fn get_one(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -151,7 +152,7 @@ async fn get_one(
     Ok(Json(g))
 }
 
-#[permission("alerts.manage")]
+#[permission("alerts.semantic_groups.manage")]
 async fn update(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -190,7 +191,7 @@ async fn update(
     Ok(Json(saved))
 }
 
-#[permission("alerts.manage")]
+#[permission("alerts.semantic_groups.manage")]
 async fn delete_one(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -223,7 +224,7 @@ async fn delete_one(
 
 /// 批量导入（append 语义，不删现有）：先整体校验（任一条非法 → 400，不写任何一条），
 /// 再经 `create_many` 在单事务内创建（中途 DB 失败整体回滚，不留半截导入）。
-#[permission("alerts.manage")]
+#[permission("alerts.semantic_groups.manage")]
 async fn import(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

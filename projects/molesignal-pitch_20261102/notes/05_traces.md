@@ -1,0 +1,1 @@
+链路页面围绕请求显示服务、状态、耗时、错误和trace标识，并提供Span、RED及服务图入口。它与日志调查共同服务于跨信号问题定位。图中所有数量、延迟及服务名称均为测试演示数据；尚未测量或验证客户排障时间改善。截图来源：web/playwright/tests/05-visual.spec.ts-snapshots/traces-light-comfortable-chromium-darwin.png；测试文件05-visual.spec.ts明确使用mock backend。

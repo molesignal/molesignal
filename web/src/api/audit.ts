@@ -4,37 +4,39 @@ import type { ChatMessageRow, Chat } from './agent/chat';
 
 export interface AuditEvent {
   id: string;
-  org_id: string;
-  actor_kind: string;
-  actor_id: string;
+  orgId: string;
+  actorKind: string;
+  actorId: string;
   action: string;
-  target_kind?: string | null;
-  target_id?: string | null;
+  targetKind?: string | null;
+  targetId?: string | null;
   ip?: string | null;
-  user_agent?: string | null;
+  userAgent?: string | null;
   payload: Record<string, unknown>;
-  ts_micros: number;
+  ts: number;
 }
 
 export interface AuditQueryParams {
   from?: string | undefined;
   to?: string | undefined;
-  actor_kind?: string | undefined;
+  actorKind?: string | undefined;
   actor?: string | undefined;
   action?: string | undefined;
-  target_kind?: string | undefined;
-  target_id?: string | undefined;
+  targetKind?: string | undefined;
+  targetId?: string | undefined;
   limit?: number | undefined;
   cursor?: string | undefined;
 }
 
 export interface AuditPage {
   items: AuditEvent[];
-  next_cursor: string | null;
+  nextCursor: string | null;
+  /** 审计记录保留天数（部署级设置）；0 表示永久保留。 */
+  retentionDays: number;
 }
 
 export interface AuditChat extends Chat {
-  deleted_at_micros?: number | null;
+  deletedAt?: number | null;
 }
 
 export interface AuditChatTranscript {

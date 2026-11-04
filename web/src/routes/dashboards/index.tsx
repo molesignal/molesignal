@@ -21,9 +21,10 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
-import { ConfirmDialog, DataTable } from '@/admin';
+import { ClearFiltersButton, ConfirmDialog, DataTable } from '@/admin';
 import * as dashboardsApi from '@/api/dashboards';
 import * as foldersApi from '@/api/folders';
+import { copiedModel } from '@/dashboard-engine/copiedModel';
 import { dashboardDefinitionFromApi } from '@/dashboard-engine/model';
 import { dashboardPanelCount } from '@/dashboard-engine/summary';
 import { toApiError } from '@/lib/http';
@@ -35,6 +36,7 @@ import { type ProductStateProps } from '@/product/states';
 import { ListPage } from '@/product/templates';
 import { ResourceShareDialog } from '@/sharing/ResourceShareDialog';
 import { ChromeButton, Pill } from '@/shell/chrome';
+import { springPop } from '@/shell/polish/springPop';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -86,7 +88,7 @@ function adaptDashboard(
   },
 ): DisplayDashboard {
   const panels = dashboardPanelCount(d);
-  const folderId = d.folder_id;
+  const folderId = d.folderId;
   return {
     id: d.id,
     name: d.title,
@@ -94,10 +96,10 @@ function adaptDashboard(
     folder: folderId ? (opts.folderNameById.get(folderId) ?? folderId) : opts.defaultFolder,
     tags: d.tags ?? [],
     panels,
-    edited: opts.formatRelative(d.updated_at ?? d.created_at),
-    updatedAt: d.updated_at ?? d.created_at,
-    createdBy: d.created_by ?? d.org_id,
-    updatedBy: d.updated_by ?? d.created_by ?? d.org_id,
+    edited: opts.formatRelative(d.updatedAt ?? d.createdAt),
+    updatedAt: d.updatedAt ?? d.createdAt,
+    createdBy: d.createdBy ?? d.orgId,
+    updatedBy: d.updatedBy ?? d.createdBy ?? d.orgId,
     source: d,
   };
 }
@@ -150,8 +152,8 @@ export function Dashboards() {
   const deleteAccess = useActionAccess({ permission: 'dashboards.delete' });
   const shareAccess = useActionAccess({ permission: 'dashboards.share' });
   const auth = useAuthStore((state) => state.ctx);
-  const orgId = auth?.org_id ?? '';
-  const userId = auth?.user_id ?? '';
+  const orgId = auth?.orgId ?? '';
+  const userId = auth?.userId ?? '';
   const [favoriteIds, setFavoriteIds] = React.useState<Set<string>>(() => readFavoriteIds(orgId));
 
   React.useEffect(() => {
@@ -203,7 +205,7 @@ export function Dashboards() {
       summaries.set(apiFolder.id, {
         id: apiFolder.id,
         name: apiFolder.name,
-        parentId: apiFolder.parent_id,
+        parentId: apiFolder.parentId,
         dashboards: 0,
         panels: 0,
         managed: true,
@@ -356,6 +358,16 @@ export function Dashboards() {
                 variant: 'empty',
                 title: t('list.no_results_title'),
                 description: t('list.no_results_description'),
+                action: (
+                  <ClearFiltersButton
+                    onClear={() => {
+                      setSearch('');
+                      setFolder(ALL_FOLDERS);
+                      setScope('all');
+                      setSelectedTag('');
+                    }}
+                  />
+                ),
               }
           : null;
 
@@ -399,11 +411,7 @@ export function Dashboards() {
   const duplicateMutation = useMutation({
     mutationFn: (dashboard: DisplayDashboard) =>
       dashboardsApi.create(
-        {
-          ...dashboard.source.model,
-          uid: '',
-          title: t('list.copy_name', { title: dashboard.name }),
-        },
+        copiedModel(dashboard.source.model, t('list.copy_name', { title: dashboard.name })),
         dashboard.folderId,
       ),
     onSuccess: async (dashboard) => {
@@ -470,7 +478,7 @@ export function Dashboards() {
       <ListPage
         appearance="surface"
         title={t('title')}
-        subtitle={summary}
+        subtitle={listQuery.isSuccess ? summary : undefined}
         toolbar={
           <>
             <ChromeButton
@@ -516,7 +524,7 @@ export function Dashboards() {
                     setScope(candidate);
                     setSelectedTag('');
                   }}
-                  className={`rounded px-2.5 py-1 font-sans text-xs font-strong ${
+                  className={`rounded-sm px-2.5 py-1 font-sans text-xs font-strong ${
                     scope === candidate ? 'bg-bg-4 text-tx-0' : 'text-tx-2 hover:text-tx-0'
                   }`}
                 >
@@ -527,7 +535,7 @@ export function Dashboards() {
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className={`rounded px-2.5 py-1 font-sans text-xs font-strong ${
+                    className={`rounded-sm px-2.5 py-1 font-sans text-xs font-strong ${
                       scope === 'tag' ? 'bg-bg-4 text-tx-0' : 'text-tx-2 hover:text-tx-0'
                     }`}
                   >
@@ -744,13 +752,14 @@ function DashboardActions({
         title={dashboard.starred ? t('list.actions.unfavorite') : t('list.actions.favorite')}
         onClick={(event) => {
           event.stopPropagation();
+          if (!dashboard.starred) springPop(event.currentTarget);
           onFavorite(dashboard);
         }}
         className={`grid h-8 w-8 place-items-center rounded-md hover:bg-bg-3 ${
           dashboard.starred ? 'text-yellow' : 'text-tx-3 hover:text-tx-0'
         }`}
       >
-        <Star className="h-3.5 w-3.5" fill={dashboard.starred ? 'currentColor' : 'none'} />
+        <Star className="h-4 w-4" fill={dashboard.starred ? 'currentColor' : 'none'} />
       </button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

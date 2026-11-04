@@ -54,7 +54,7 @@ function ageOf(createdAtMicros: number | undefined): string {
 export function Noc() {
   const { t } = useTranslation('shell');
   const nav = useNavigate();
-  const orgId = useAuthStore((s) => s.ctx?.org_id ?? '');
+  const orgId = useAuthStore((s) => s.ctx?.orgId ?? '');
   const viewportWidth = useViewportWidth();
   const [now, setNow] = React.useState(new Date());
   const [fullscreenDashboard, setFullscreenDashboardState] = React.useState(() => getFullscreenDashboard(orgId));
@@ -123,12 +123,12 @@ export function Noc() {
   const totalRps = edgeRps > 0 ? edgeRps : serviceRps;
   const totalErrors =
     edgeRps > 0
-      ? allEdges.reduce((a, e) => a + e.rps * e.err_rate, 0)
-      : (topology?.nodes ?? []).reduce((a, node) => a + node.rps * node.error_rate, 0);
+      ? allEdges.reduce((a, e) => a + e.rps * e.errRate, 0)
+      : (topology?.nodes ?? []).reduce((a, node) => a + node.rps * node.errorRate, 0);
   const errRate = totalRps > 0 ? totalErrors / totalRps : 0;
   const maxP95 = Math.max(
-    allEdges.reduce((a, e) => Math.max(a, e.p95_ms), 0),
-    (topology?.nodes ?? []).reduce((a, node) => Math.max(a, node.p95_ms), 0),
+    allEdges.reduce((a, e) => Math.max(a, e.p95Ms), 0),
+    (topology?.nodes ?? []).reduce((a, node) => Math.max(a, node.p95Ms), 0),
   );
   const trafficServices = React.useMemo(
     () =>
@@ -148,7 +148,7 @@ export function Noc() {
       qps: Math.round(n.rps),
       x: 110 + (i % 4) * 190,
       y: 80 + Math.floor(i / 4) * 90,
-      status: statusOf(n.error_rate),
+      status: statusOf(n.errorRate),
     }));
   }, [topology]);
 
@@ -327,12 +327,12 @@ export function Noc() {
                 >
                   <SeverityRail severity={inc.severity} className="h-9" />
                   <div>
-                    <div className="type-data font-sans text-tx-0">{inc.summary || inc.rule_id}</div>
+                    <div className="type-data font-sans text-tx-0">{inc.summary || inc.ruleId}</div>
                     <div className="font-sans text-xs font-semibold tracking-normal text-tx-2">
                       {inc.severity} · {inc.status}
                     </div>
                   </div>
-                  <div className="font-sans text-base text-tx-1">{ageOf(inc.created_at)}</div>
+                  <div className="font-sans text-base text-tx-1">{ageOf(inc.createdAt)}</div>
                   <Pill tone={inc.severity === 'critical' ? 'red' : inc.severity === 'warning' ? 'yellow' : 'dim'}>
                     {inc.status}
                   </Pill>
@@ -375,7 +375,7 @@ export function Noc() {
                 <div className="text-right">{t('pages.noc.table.err_pct')}</div>
               </div>
               {(topology?.nodes ?? []).slice(0, 12).map((s) => {
-                const st = statusOf(s.error_rate);
+                const st = statusOf(s.errorRate);
                 return (
                   <div
                     key={s.id}
@@ -387,9 +387,9 @@ export function Noc() {
                     />
                     <div className="text-tx-0">{s.name}</div>
                     <div className="text-right text-tx-1">{Math.round(s.rps).toLocaleString()}</div>
-                    <div className="text-right text-tx-1">{Math.round(s.p95_ms)}ms</div>
-                    <div className={`text-right ${s.error_rate > 0.01 ? 'text-red-soft' : s.error_rate > 0.001 ? 'text-[var(--yellow-ink)]' : 'text-tx-1'}`}>
-                      {(s.error_rate * 100).toFixed(2)}
+                    <div className="text-right text-tx-1">{Math.round(s.p95Ms)}ms</div>
+                    <div className={`text-right ${s.errorRate > 0.01 ? 'text-red-soft' : s.errorRate > 0.001 ? 'text-[var(--yellow-ink)]' : 'text-tx-1'}`}>
+                      {(s.errorRate * 100).toFixed(2)}
                     </div>
                   </div>
                 );

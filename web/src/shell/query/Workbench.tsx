@@ -4,9 +4,11 @@ import { cn } from '@/shell/lib/cn';
 
 type QueryToolbarTone = 'indigo' | 'orange';
 
+// The chosen one is a tint with its word in the tone's ink. A solid fill beside the run button
+// read as a second primary action and was the heaviest thing in the bar.
 const activeToneClass: Record<QueryToolbarTone, string> = {
-  indigo: 'bg-indigo text-white shadow-sm',
-  orange: 'bg-orange text-[var(--orange-fg)] shadow-sm',
+  indigo: 'bg-[var(--indigo-tint)] text-[var(--indigo-ink)]',
+  orange: 'bg-[var(--orange-tint)] text-[var(--orange-ink)]',
 };
 
 interface QueryWorkbenchProps {
@@ -24,6 +26,8 @@ interface QueryWorkbenchProps {
   inlineBody?: boolean;
   className?: string;
   bodyClassName?: string;
+  /** A line under the query that says what about it the page could not do as asked. */
+  notice?: React.ReactNode;
   footer?: React.ReactNode;
   appearance?: 'default' | 'surface';
 }
@@ -106,6 +110,7 @@ export function QueryWorkbench({
   inlineBody = false,
   className,
   bodyClassName,
+  notice,
   footer,
   appearance = 'default',
 }: QueryWorkbenchProps) {
@@ -147,10 +152,11 @@ export function QueryWorkbench({
         </div>
         {inline && (
           // The collapsed editor as a field in the row: the same height and
-          // corner as the controls beside it.
+          // corner as the controls beside it, and its tabs as far in from its
+          // start as from its top.
           <div
             data-query-inline-body
-            className="min-w-0 flex-1 [&_[data-query-editor-state=collapsed]>button]:h-9 [&_[data-query-editor-state=collapsed]]:rounded-md"
+            className="min-w-0 flex-1 [&_[data-query-editor-state=collapsed]>button]:h-9 [&_[data-query-editor-state=collapsed]]:rounded-md [&_[data-query-editor-tabs]]:pl-1"
           >
             {children}
           </div>
@@ -167,6 +173,11 @@ export function QueryWorkbench({
       {!inline && (
         <div className={cn(surface ? 'mt-[8px]' : 'mt-3', bodyClassName)}>{children}</div>
       )}
+      {notice ? (
+        <div data-query-notice className={surface ? 'mt-[8px]' : 'mt-3'}>
+          {notice}
+        </div>
+      ) : null}
       {footer ? (
         <div
           className={cn(
@@ -220,7 +231,7 @@ export const QueryToolbarButton = React.forwardRef<
       ref={ref}
       type={type}
       className={cn(
-        'inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded px-3 font-sans text-xs font-strong text-tx-2 transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+        'inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[5px] px-3 font-sans text-xs font-strong text-tx-2 transition-colors disabled:cursor-not-allowed disabled:opacity-50',
         // The chosen one keeps its fill under the pointer: right after the click that chose it
         // the pointer is still there, and a grey hover would read as nothing having happened.
         active ? activeToneClass[tone] : 'hover:bg-bg-3 hover:text-tx-0',

@@ -26,8 +26,8 @@ pub(super) fn admit_exemplar(values: &mut Vec<TraceExemplar>, value: TraceExempl
 
     values.sort_by(|left, right| {
         right
-            .duration_micros
-            .cmp(&left.duration_micros)
+            .duration
+            .cmp(&left.duration)
             .then_with(|| left.trace_id.cmp(&right.trace_id))
     });
 

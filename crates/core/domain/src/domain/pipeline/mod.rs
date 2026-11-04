@@ -1,52 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Pipeline bounded context：intake-time 多步 function 链。
+//! Pipeline bounded context：写入时执行的实时流水线（[`realtime`]）、定时读取已存数据的流水线
+//! （[`scheduled`]）、两者共用的步骤（[`processing`]），以及开事件前处理告警事件的流水线
+//! （[`alert`]）。实时流水线不许改的字段见 [`protected`]。只在实时流水线里跑、跨事件计数的
+//! 步骤：生成指标（[`metric`]）、配额与限流（[`limit`]），它们挑事件的条件见 [`condition`]。
 
-pub mod realtime;
-
-use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-
-use crate::{
-    domain::stream::StreamType,
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PipelineStep {
-    pub function_id: Id,
-    pub params: serde_json::Value,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Pipeline {
-    pub id: Id,
-    pub org_id: Id,
-    pub name: String,
-    /// 绑定的目标 stream（org_id + stream_name + stream_type 的 hash，作为 enabled 唯一约束）
-    pub stream_name: String,
-    pub stream_type: StreamType,
-    pub steps: Vec<PipelineStep>,
-    pub enabled: bool,
-    pub created_at: TimestampMicros,
-    pub updated_at: TimestampMicros,
-}
-
-#[async_trait]
-pub trait PipelineRepository: Send + Sync {
-    async fn create(&self, p: Pipeline) -> Result<Pipeline>;
-    async fn update(&self, p: Pipeline) -> Result<Pipeline>;
-    async fn get(&self, org_id: &Id, id: &Id) -> Result<Pipeline>;
-    async fn list(&self, org_id: &Id) -> Result<Vec<Pipeline>>;
-    async fn list_for_stream(
-        &self,
-        org_id: &Id,
-        stream: &str,
-        stream_type: StreamType,
-    ) -> Result<Vec<Pipeline>>;
-    async fn delete(&self, org_id: &Id, id: &Id) -> Result<()>;
-}
-
+pub mod alert;
+pub mod condition;
+pub mod limit;
+pub mod metric;
 pub mod processing;
+pub mod protected;
+pub mod realtime;
 pub mod scheduled;

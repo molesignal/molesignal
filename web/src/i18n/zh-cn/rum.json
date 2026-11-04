@@ -1,220 +1,1121 @@
 {
   "title": "用户体验",
-  "subtitle": "从真实用户会话中分析页面性能、错误和使用体验。",
+  "subtitle": "查看真实用户的会话、视图、操作、错误与请求。",
   "refresh": "刷新",
   "geo_credit": "IP 地理位置数据由 DB-IP 提供",
-  "pagination": {
-    "aria_label": "RUM 列表分页",
-    "page_size": "每页条数",
-    "previous": "上一页",
-    "next": "下一页"
+  "map": {
+    "zoom_in": "放大",
+    "zoom_out": "缩小",
+    "zoom_reset": "显示完整地图",
+    "zoom_level": "缩放 {{level}}×",
+    "no_data": "没有数据",
+    "keys": "按 + 和 − 缩放，按 0 显示完整地图，放大后用方向键移动。也可以拖动地图，用滚轮缩放。",
+    "wheel_hint": "按住 Ctrl（Mac 上为 ⌘）并滚动滚轮缩放地图"
+  },
+  "onboarding": {
+    "eyebrow": "RUM 数据接入",
+    "title": "开始采集真实用户体验数据",
+    "description": "先创建应用，再把它的 Client Token 交给 MoleSignal RUM SDK。第一批事件到达后，会话、页面性能和前端错误就会出现在这里。",
+    "create": "创建应用",
+    "view_docs": "查看接入文档",
+    "steps": {
+      "1": "创建应用",
+      "2": "用 Token 安装 SDK",
+      "3": "发送测试事件",
+      "4": "开始分析"
+    }
   },
   "nav": {
     "overview": "概览",
-    "applications": "应用",
-    "sessions": "会话",
-    "pages": "页面",
+    "explorer": "探索",
+    "playlists": "播放列表",
     "errors": "错误",
     "performance": "性能",
-    "session_replay": "会话回放",
+    "applications": "应用",
     "source_maps": "Source Maps 与 Symbols",
-    "upload_source_maps": "上传调试产物"
-  },
-  "scope": {
-    "application": "应用",
-    "environment": "环境",
-    "version": "版本",
-    "region": "地区",
-    "device": "设备",
-    "all_apps": "所有应用",
-    "all_environments": "所有环境",
-    "all_versions": "所有版本",
-    "all_regions": "所有地区",
-    "all_devices": "所有设备",
-    "unknown_app": "未知应用"
-  },
-  "experience": {
-    "good": "良好",
-    "needs_improvement": "待改善",
-    "poor": "较差",
-    "unknown": "未知"
+    "upload_source_maps": "上传调试产物",
+    "frustration": "受挫",
+    "analytics": "分析",
+    "feature_flags": "功能开关"
   },
   "overview": {
-    "page_title": "用户体验 · {{app}}",
-    "page_subtitle": "{{environment}} · {{version}} · {{range}}",
-    "compare_previous": "与上一周期对比",
-    "current_period": "当前周期",
-    "load_error": "无法加载用户体验概览",
-    "scope_empty_title": "没有符合筛选条件的会话",
-    "scope_empty_description": "所选时间范围内有会话，但没有同时满足当前应用、环境、版本、地区和设备条件的会话。",
-    "scope_clear": "清除筛选",
-    "no_rated_sessions": "暂无可评分会话",
-    "no_previous_data": "上一周期无数据",
-    "unchanged": "与上一周期持平",
-    "delta_better": "改善 {{value}}",
-    "delta_worse": "变差 {{value}}",
-    "kpi": {
-      "active_users": "活跃用户",
-      "experience_score": "用户体验评分",
-      "sessions": "会话数",
-      "error_free_sessions": "无错误会话率",
-      "lcp": "LCP P75",
-      "inp": "INP P75",
-      "cls": "CLS P75",
-      "error_session_rate": "错误会话率",
-      "slow_session_rate": "慢会话率"
+    "retry": "重试",
+    "open_dashboard": "在大盘中打开",
+    "scope": {
+      "application": "应用",
+      "environment": "环境",
+      "all_environments": "全部环境"
     },
-    "experience_trend": "用户体验趋势",
-    "experience_trend_description": "按时间展示良好、待改善和较差会话的真实分布。",
-    "core_web_vitals": "Core Web Vitals",
-    "core_web_vitals_description": "按真实用户样本展示 LCP、INP 和 CLS 的 P75。",
+    "empty": {
+      "title": "这段时间没有会话",
+      "description": "所看的时间范围内，这个应用没有任何记录。放宽时间范围，或检查它的 SDK 是否在发送。",
+      "widen": "放宽时间范围"
+    },
+    "unavailable": {
+      "time_budget": "统计耗时超过了时间预算。缩小时间范围再试。",
+      "busy": "系统正忙于其他读取者的统计，请稍后重试。",
+      "timestamp_masked": "你的角色看不到时间字段，无法按时间统计。"
+    },
+    "pulse": {
+      "aria": "会话与 Core Web Vitals",
+      "sessions_one": "<n>{{formatted}}</n> 次会话",
+      "sessions_other": "<n>{{formatted}}</n> 次会话",
+      "people_one": "<n>{{formatted}}</n> 位用户",
+      "people_other": "<n>{{formatted}}</n> 位用户",
+      "browser": "<sessions/>，<people/>，其中 <n>{{share}}</n> 的会话没有错误。",
+      "app": "<sessions/>，<people/>；<n>{{sessionShare}}</n> 的会话和 <n>{{userShare}}</n> 的用户没有崩溃。"
+    },
     "vitals": {
+      "label": "{{name}} · p75",
+      "names": {
+        "lcp": "LCP",
+        "inp": "INP",
+        "cls": "CLS"
+      },
+      "grade": {
+        "good": "良好",
+        "needs_improvement": "待改进",
+        "poor": "差"
+      },
+      "good_at": "≤ {{value}} 良好",
+      "poor_at": "> {{value}} 差",
+      "aria": "{{name}}，第 75 百分位 {{value}}：{{grade}}",
+      "open": "在性能页看 {{name}}",
+      "none_aria": "{{name}}：没有视图测到它"
+    },
+    "pages": {
+      "title": "页面",
+      "screens": "屏幕",
+      "description": "浏览最多的，附每项指标的第 75 百分位",
+      "description_screens": "浏览最多的",
+      "table": "浏览最多的页面",
+      "columns": {
+        "page": "页面",
+        "screen": "屏幕",
+        "views": "浏览量",
+        "errors": "有错误"
+      },
+      "open": "在探索中打开 {{page}} 的视图",
+      "empty": "这段时间没有视图"
+    },
+    "origins": {
+      "title": "访客在哪里",
+      "description": "按会话数统计各国",
+      "map": "会话来源的世界地图",
+      "value_one": "{{formatted}} 次会话",
+      "value_other": "{{formatted}} 次会话",
+      "legend": "会话数"
+    },
+    "shares": {
+      "browsers": "浏览器",
+      "systems": "操作系统",
+      "devices": "设备",
+      "other": "其他",
+      "empty": "没有带这个字段的会话",
+      "device_types": {
+        "desktop": "桌面",
+        "mobile": "手机",
+        "tablet": "平板",
+        "bot": "爬虫",
+        "other": "其他"
+      }
+    },
+    "frustration": {
+      "title": "令人受挫的元素",
+      "description_click": "遇到狂点、死点或错误点击的操作",
+      "description_tap": "遇到连续点按或点按出错的操作",
+      "empty": "这段时间没有受挫的操作",
+      "unnamed": "没有名字的元素",
+      "kinds": {
+        "rage": "狂点",
+        "dead": "死点",
+        "error": "错误点击",
+        "rage_tap": "连续点按",
+        "dead_tap": "无响应点按",
+        "error_tap": "点按出错"
+      }
+    },
+    "issues": {
+      "title": "最新 issue",
+      "description": "新出现和回归的，按影响会话排",
+      "all": "全部",
+      "empty": "该时间范围内没有新出现或回归的 issue",
+      "sessions_one": "{{formatted}} 会话",
+      "sessions_other": "{{formatted}} 会话",
+      "first_seen": "{{ago}}首次出现 · {{version}}",
+      "first_seen_plain": "{{ago}}首次出现",
+      "regressed": "已在 {{resolved}} 解决，{{ago}}在 {{version}} 再现",
+      "regressed_plain": "已解决，{{ago}}再现"
+    },
+    "test_traffic": {
+      "title": "这些数字是真实用户的，拨测和 CI 跑出来的会话不算在内。点开看这些会话。",
+      "note_one": "未计入 {{value}} 个拨测会话",
+      "note_other": "未计入 {{value}} 个拨测会话"
+    }
+  },
+  "performance": {
+    "empty": {
+      "title": "这段时间没有页面浏览"
+    },
+    "not_browser": {
+      "title": "Web Vitals 在浏览器里测量",
+      "description": "这个应用不是从浏览器发来的，没有页面加载可以评级。它的屏幕和崩溃在概览和错误页里。"
+    },
+    "metrics": {
       "lcp": "LCP",
       "inp": "INP",
-      "cls": "CLS"
+      "cls": "CLS",
+      "fcp": "FCP",
+      "ttfb": "首字节"
     },
-    "pulse_aria": "用户规模与 Core Web Vitals",
-    "vital_scale_aria": "{{vital}} 的 P75：{{grade}}",
-    "vital_thresholds": "≤ {{good}} 良好 · > {{poor}} 较差",
-    "sessions_per_user": "人均 {{value}} 次会话",
-    "sessions_with_errors": "{{count}} 次会话出错",
-    "satisfaction": "用户满意度",
-    "satisfaction_description": "良好、待改善和较差会话的占比。",
-    "each_bar_time_bucket": "每根柱代表一个时间分桶",
-    "needs_attention": "需要关注",
-    "needs_attention_description": "当前时间范围内最值得优先调查的问题。",
-    "no_attention": "当前没有需要立即处理的问题",
-    "attention_error_impact": "{{sessions}} 个会话 · {{users}} 个用户",
-    "attention_slow_page": "LCP P75 {{duration}} · {{sessions}} 个会话",
-    "attention_rage_clicks": "{{count}} 个会话出现愤怒点击",
-    "attention_crashes": "{{count}} 个会话发生崩溃",
-    "attention_crashes_description": "打开回放检查崩溃前的最后一次用户操作",
-    "slowest_pages": "最慢页面",
-    "slowest_pages_description": "按 LCP P75 排序，基于真实用户样本。",
-    "view_web_vitals": "查看 Web Vitals",
-    "view_pages": "查看页面",
-    "error_rate": "错误率",
-    "frequent_errors": "高频前端错误",
-    "frequent_errors_description": "按受影响用户数与发生次数排序。",
-    "view_errors": "查看错误",
-    "users_unit": "个用户",
-    "browser_device": "浏览器与设备",
-    "browser_device_description": "识别浏览器与设备组合的会话占比。",
-    "regions": "地区分布",
-    "regions_description": "按真实用户会话查看地区占比。",
-    "sessions_unit": "个会话",
-    "abnormal_sessions": "最近异常会话",
-    "abnormal_sessions_description": "直接进入用户行为回放定位问题。",
-    "view_all_sessions": "查看全部会话",
-    "no_abnormal_sessions": "当前没有异常会话"
+    "dimensions": {
+      "page": "页面",
+      "browser": "浏览器",
+      "os": "操作系统",
+      "device": "设备",
+      "country": "国家或地区",
+      "version": "版本"
+    },
+    "statement": {
+      "aria": "页面浏览与 Web Vitals",
+      "sentence": "<views/>，LCP 的 p75 是 <lcp/>，INP 是 <inp/>，CLS 是 <cls/>。",
+      "views_one": "<n>{{formatted}}</n> 次页面浏览",
+      "views_other": "<n>{{formatted}}</n> 次页面浏览",
+      "reading": "<figure>{{value}}</figure>（<grade>{{grade}}</grade>）",
+      "not_measured": "没有数据"
+    },
+    "picker": {
+      "aria": "下面显示的指标"
+    },
+    "trend": {
+      "title": "{{name}} 走势",
+      "description": "每一段时间的第 75 百分位；虚线是从良好转为待改进、再转为差的位置",
+      "good": "良好",
+      "poor": "差",
+      "empty": "这段时间没有视图测到它",
+      "aria": "{{name}} 的第 75 百分位随时间变化"
+    },
+    "grades": {
+      "title": "各等级的浏览",
+      "description": "每项指标下，良好、待改进、差各占多少",
+      "empty": "这段时间没有可评级的浏览",
+      "aria": "{{name}}：{{good}} 的浏览是良好的",
+      "range": {
+        "good": "≤ {{good}}",
+        "needs_improvement": "{{good}} 到 {{poor}}",
+        "poor": "> {{poor}}"
+      },
+      "note": "测到 {{name}} 的浏览：{{formatted}}"
+    },
+    "table": {
+      "by": "按",
+      "search": "搜索表里的值",
+      "search_label": "搜索表里的值",
+      "count_one": "{{count}} 个值",
+      "count_other": "{{count}} 个值",
+      "most_viewed_one": "浏览最多的值",
+      "most_viewed_other": "浏览最多的 {{count}} 个",
+      "few_note": "不足 {{views}} 次浏览的行是灰色的",
+      "views": "浏览量",
+      "good": "{{name}} 良好",
+      "none": "（无）",
+      "empty": "这段时间没有视图",
+      "no_match": "没有匹配的值",
+      "aria": "按{{dimension}}列出的各项指标",
+      "open": "打开 {{value}} 的浏览由什么构成",
+      "few": "不足 {{views}} 次浏览，样本太少，不参与排名"
+    },
+    "drawer": {
+      "title": "这些浏览慢在哪里",
+      "tabs": "Web Vitals 指标",
+      "explore": "在探索中查看",
+      "alert": "为它建告警",
+      "close": "关闭",
+      "views_one": "{{formatted}} 次浏览",
+      "views_other": "{{formatted}} 次浏览",
+      "none": "这个值的浏览里没有 {{name}} 的数据。",
+      "level": "{{name}} 的 p75 是 <reading/>，共 <n>{{formatted}}</n> 次浏览。",
+      "longest": "最长的一段是 <n>{{part}}</n>：{{value}}，占整体的 {{share}}。"
+    },
+    "makeup": {
+      "title": "{{name}} 由什么构成",
+      "description": {
+        "lcp": "先等首字节，再等图片开始加载，加载本身，然后等它被画出来",
+        "inp": "处理函数开始前的等待、函数运行的时间，以及等下一帧画出的时间"
+      },
+      "empty": "这段时间没有浏览上报 {{name}} 的各段。",
+      "aria": "{{name}} 的各段，共 {{total}}",
+      "cohort": "取落在 p75 上下 10% 内的浏览（{{formatted}} 次），各段取平均。"
+    },
+    "parts": {
+      "first_byte": "首字节",
+      "load_delay": "加载延迟",
+      "load_time": "加载耗时",
+      "render_delay": "渲染延迟",
+      "input_delay": "输入延迟",
+      "processing_duration": "处理",
+      "presentation_delay": "呈现延迟"
+    },
+    "elements": {
+      "title": {
+        "lcp": "最后画出的元素",
+        "inp": "被操作的元素",
+        "cls": "挪动的元素"
+      },
+      "description": "按出现在多少次浏览里排序",
+      "empty": "这段时间没有浏览记下元素",
+      "columns": {
+        "element": "元素",
+        "resource": "文件"
+      },
+      "open": "在探索中打开含 {{selector}} 的视图",
+      "no_resource": "文字"
+    },
+    "worst": {
+      "title": "最差的浏览",
+      "description": "{{name}} 最高的几次浏览",
+      "empty": "没有可排名的浏览",
+      "explore": "在探索中打开",
+      "session": "会话",
+      "load": "加载瀑布"
+    },
+    "views": {
+      "aria": "性能的视图",
+      "vitals": "Web Vitals",
+      "resources": "资源",
+      "long_tasks": "长任务"
+    },
+    "long_tasks": {
+      "invokers": {
+        "user-callback": "回调",
+        "event-listener": "事件监听",
+        "resolve-promise": "Promise 完成",
+        "reject-promise": "Promise 拒绝",
+        "classic-script": "经典脚本",
+        "module-script": "模块脚本"
+      },
+      "statement": {
+        "aria": "页面的长任务",
+        "tasks_one": "<n>{{formatted}}</n> 个长任务",
+        "tasks_other": "<n>{{formatted}}</n> 个长任务",
+        "sentence": "主线程共运行了 <tasks/>，<share>{{share}}</share> 的页面浏览至少遇到一个；p75 时长 <n>{{duration}}</n>，p75 阻塞 <n>{{blocking}}</n>。",
+        "sentence_alone": "主线程共运行了 <tasks/>；p75 时长 <n>{{duration}}</n>，p75 阻塞 <n>{{blocking}}</n>。",
+        "sentence_share": "主线程共运行了 <tasks/>，<share>{{share}}</share> 的页面浏览至少遇到一个。",
+        "sentence_count": "主线程共运行了 <tasks/>。"
+      },
+      "empty": {
+        "title": "这段时间没有长任务",
+        "description": "主线程从未连续阻塞 50 ms 以上的页面，不会有长任务。"
+      },
+      "groups": {
+        "script": "脚本 · 函数",
+        "page": "页面",
+        "version": "版本",
+        "invoker": "触发方式"
+      },
+      "heads": {
+        "script": "脚本",
+        "function": "函数",
+        "page": "页面",
+        "version": "版本",
+        "invoker": "触发方式"
+      },
+      "table": {
+        "by": "按",
+        "search": "搜索脚本",
+        "search_label": "搜索表中的脚本",
+        "count_one": "{{count}} 组",
+        "count_other": "{{count}} 组",
+        "most_tasks_one": "长任务最多的一组",
+        "most_tasks_other": "长任务最多的 {{count}} 组",
+        "few_note": "不足 {{tasks}} 个长任务：灰色",
+        "empty": "这段时间没有长任务",
+        "no_match": "没有符合的组",
+        "aria": "按{{group}}看长任务",
+        "open": "查看 {{value}} 的长任务由什么构成",
+        "few": "长任务不足 {{tasks}} 个：不足以排名",
+        "none": "（无）",
+        "unattributed": "未归因",
+        "tasks": "长任务",
+        "views": "浏览",
+        "time": "p75 时长",
+        "blocking": "p75 阻塞"
+      },
+      "panel": {
+        "aria": "这组长任务",
+        "close": "关闭",
+        "tasks_one": "{{formatted}} 个长任务",
+        "tasks_other": "{{formatted}} 个长任务",
+        "unattributed_note": "Safari 和 Firefox 只报告长任务本身，不带脚本；MoleSignal 派生脚本之前收到的长任务也没有脚本信息。它们照常计入，没有漏掉。",
+        "sentence": "p75 时长 <n>{{duration}}</n>，其中 <b>{{blocking}}</b> 是阻塞。",
+        "sentence_time": "p75 时长 <n>{{duration}}</n>。",
+        "page": "大多发生在 <code>{{page}}</code>。",
+        "invokers": "触发方式",
+        "invokers_empty": "这组长任务没有触发方式",
+        "unknown": "未说明",
+        "pages": "出现在哪些页面",
+        "pages_empty": "没有可说的页面",
+        "samples": "最长的几个 · 点开看它所在视图的加载",
+        "samples_empty": "没有长任务有时长",
+        "open_load": "查看 {{page}} 这次浏览的加载"
+      }
+    },
+    "section": {
+      "failed": "这部分数字读取失败。"
+    },
+    "resources": {
+      "statement": {
+        "aria": "页面的请求",
+        "requests_other": "<n>{{formatted}}</n> 次请求",
+        "sentence": "页面共发出 <requests/>，p75 耗时 <n>{{duration}}</n>，<rate>{{rate}}</rate> 失败（状态码 400 以上或没有响应）。",
+        "sentence_time": "页面共发出 <requests/>，p75 耗时 <n>{{duration}}</n>。",
+        "sentence_count": "页面共发出 <requests/>。",
+        "per_view": "每次页面浏览平均 <n>{{resources}}</n> 个资源、<n>{{size}}</n>。",
+        "requests_one": "<n>{{formatted}}</n> 次请求"
+      },
+      "empty": {
+        "title": "这段时间没有请求"
+      },
+      "groups": {
+        "host_type": "主机 · 类型",
+        "path": "主机 · 路径",
+        "type": "类型",
+        "protocol": "协议",
+        "delivery": "交付方式",
+        "blocking": "渲染阻塞"
+      },
+      "heads": {
+        "host": "主机",
+        "type": "类型",
+        "path": "路径",
+        "protocol": "协议",
+        "delivery": "交付",
+        "blocking": "渲染阻塞"
+      },
+      "statuses": {
+        "4xx": "客户端错误（4xx）",
+        "5xx": "服务端错误（5xx）",
+        "none": "没有响应"
+      },
+      "table": {
+        "by": "按",
+        "type": "类型",
+        "status": "状态",
+        "all": "全部",
+        "search": "搜索主机或路径",
+        "search_label": "搜索表中请求的主机或路径",
+        "count_other": "{{count}} 组",
+        "most_requested_other": "请求最多的 {{count}} 组",
+        "few_note": "不足 {{requests}} 次请求：灰色",
+        "empty": "这段时间没有请求",
+        "no_match": "没有符合的组",
+        "aria": "按{{group}}看请求",
+        "open": "查看 {{value}} 的请求由什么构成",
+        "few": "请求不足 {{requests}} 次：不足以排名",
+        "none": "（无）",
+        "requests": "请求",
+        "time": "p75 耗时",
+        "failed": "失败率",
+        "size": "p75 大小",
+        "cache": "缓存命中",
+        "count_one": "{{count}} 组",
+        "most_requested_one": "请求最多的一组"
+      },
+      "panel": {
+        "aria": "这组请求",
+        "close": "关闭",
+        "requests_other": "{{formatted}} 次请求",
+        "sentence": "p75 耗时 <n>{{duration}}</n>，<rate>{{rate}}</rate> 失败。",
+        "sentence_time": "p75 耗时 <n>{{duration}}</n>。",
+        "longest": "最长的一段是 <n>{{part}}</n>：{{value}}。",
+        "trend": "耗时走势",
+        "trend_series": "p75 耗时",
+        "trend_empty": "这段时间这组没有请求",
+        "trend_aria": "这组请求耗时的第 75 百分位走势",
+        "parts": "p75 附近请求的各段耗时",
+        "parts_empty": "这组请求没有给出各阶段耗时",
+        "statuses": "状态码",
+        "statuses_empty": "这组请求没有状态码",
+        "slowest": "最慢的请求 · 点开看它所在视图的加载",
+        "slowest_empty": "没有请求有耗时",
+        "open_load": "查看发出 {{path}} 的视图的加载",
+        "traced": "{{share}}% 的请求带 trace id",
+        "explore": "在探索里看这些请求",
+        "requests_one": "{{formatted}} 次请求"
+      }
+    }
+  },
+  "frustration": {
+    "empty": {
+      "title": "这段时间没有受挫信号",
+      "description_click": "没有人在这段时间里狂点、点了没有反应或点出了错误。放宽时间范围，或看看别的应用。",
+      "description_tap": "没有人在这段时间里连续点按、点按无响应或点按出错。放宽时间范围，或看看别的应用。"
+    },
+    "statement": {
+      "aria": "受挫信号概况",
+      "sentence": "<share>{{share}}</share> 的会话出现了受挫信号：<kinds/>。",
+      "sentence_count_one": "<n>{{sessions}}</n> 个会话出现了受挫信号：<kinds/>。",
+      "sentence_count_other": "<n>{{sessions}}</n> 个会话出现了受挫信号：<kinds/>。",
+      "join": "，",
+      "sessions_one": "<n>{{formatted}}</n> 个会话",
+      "sessions_other": "<n>{{formatted}}</n> 个会话",
+      "kinds": {
+        "rage_one": "<k>狂点</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "rage_other": "<k>狂点</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "dead_one": "<k>死点</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "dead_other": "<k>死点</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "error_one": "<k>错误点击</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "error_other": "<k>错误点击</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "rage_tap_one": "<k>连续点按</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "rage_tap_other": "<k>连续点按</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "dead_tap_one": "<k>无响应点按</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "dead_tap_other": "<k>无响应点按</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "error_tap_one": "<k>点按出错</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "error_tap_other": "<k>点按出错</k> <n>{{formatted}}</n> 次（<sessions/>）"
+      }
+    },
+    "groups": {
+      "element": "元素",
+      "page": "页面",
+      "screen": "屏幕",
+      "version": "版本",
+      "browser": "浏览器",
+      "system": "系统"
+    },
+    "table": {
+      "by": "按",
+      "kind": "信号",
+      "kinds_all": "全部",
+      "search": "搜索元素或页面",
+      "search_label": "搜索表中的元素或页面",
+      "count_one": "{{count}} 组",
+      "count_other": "{{count}} 组",
+      "most_one": "触及会话最多的一组",
+      "most_other": "触及会话最多的 {{count}} 组",
+      "empty": "这段时间没有受挫信号",
+      "no_match": "没有符合的组",
+      "aria": "按{{group}}看受挫信号",
+      "open": "查看 {{value}} 的受挫信号由什么构成",
+      "none": "（无）",
+      "unnamed": "（无名称）",
+      "selector": "选择器",
+      "sessions": "会话"
+    },
+    "panel": {
+      "aria": "这组受挫信号",
+      "close": "关闭",
+      "sentence_one": "<n>{{formatted}}</n> 个会话在这个{{noun}}上遇到过受挫信号。",
+      "sentence_other": "<n>{{formatted}}</n> 个会话在这个{{noun}}上遇到过受挫信号。",
+      "page": "大多发生在 <code>{{page}}</code>。",
+      "trend": "受影响的会话",
+      "trend_series": "受影响的会话",
+      "trend_aria": "各时间段里受挫信号触及的会话数",
+      "trend_empty": "这个时间范围里没有受影响的会话",
+      "kinds": "信号",
+      "kinds_empty": "没有信号可说",
+      "versions": "版本",
+      "versions_empty": "没有版本可说",
+      "pages": "页面",
+      "screens": "屏幕",
+      "pages_empty": "没有页面可说",
+      "unknown": "未说明",
+      "samples": "最近的会话 · 回放从信号前 5 秒开始",
+      "samples_empty": "没有可看的会话",
+      "anonymous": "匿名 {{id}}",
+      "with_error": "带错误",
+      "replay": "回放",
+      "replay_at": "回放 {{time}}",
+      "session": "会话",
+      "replay_aria": "回放 {{time}} 的会话",
+      "session_aria": "查看 {{time}} 的会话",
+      "nouns": {
+        "element": "元素",
+        "page": "页面",
+        "screen": "屏幕",
+        "version": "版本",
+        "browser": "浏览器",
+        "system": "系统"
+      }
+    }
+  },
+  "analytics": {
+    "views": {
+      "aria": "分析的视图",
+      "funnel": "漏斗",
+      "paths": "路径",
+      "retention": "留存",
+      "heatmap": "热力图"
+    },
+    "kinds": {
+      "views": "页面",
+      "views_app": "屏幕",
+      "actions": "操作"
+    },
+    "fields": {
+      "view_url_path_group": "页面分组",
+      "view_url_path": "完整路径",
+      "view_name": "视图名称",
+      "action_target_name": "目标名称",
+      "action_target_selector": "目标选择器",
+      "action_type": "操作类型"
+    },
+    "ops": {
+      "eq": "是",
+      "contains": "包含"
+    },
+    "breakdowns": {
+      "version": "版本",
+      "browser_name": "浏览器",
+      "os_name": "系统",
+      "device_type": "设备类型",
+      "geo_country_iso_code": "国家"
+    },
+    "value": {
+      "search": "搜索或输入一个值",
+      "use": "使用“{{value}}”"
+    },
+    "funnel": {
+      "title": "漏斗",
+      "steps_description": "按先后顺序的步骤。一个步骤是打开了某个页面，或做了某件事。",
+      "step_kind": "第 {{number}} 步看什么",
+      "step_field": "第 {{number}} 步的字段",
+      "step_op": "第 {{number}} 步的比较方式",
+      "step_value": "第 {{number}} 步的值",
+      "step_placeholder": "选择或输入一个值",
+      "remove_step": "移除第 {{number}} 步",
+      "add_step": "添加步骤",
+      "window": "时间限制",
+      "window_none": "不限时间",
+      "window_within": "{{time}}内",
+      "minutes_one": "{{count}} 分钟",
+      "minutes_other": "{{count}} 分钟",
+      "hours_one": "{{count}} 小时",
+      "hours_other": "{{count}} 小时",
+      "days_one": "{{count}} 天",
+      "days_other": "{{count}} 天",
+      "breakdown": "会话按此分组",
+      "breakdown_none": "不分组",
+      "breakdown_by": "按{{field}}",
+      "choose": {
+        "title": "给每一步指定要找什么",
+        "description": "漏斗数出按顺序做完这些步骤的会话。每一步选一个页面或一个操作。"
+      },
+      "result": "走完的会话",
+      "result_description": "每一步数出在上一步之后做了它的会话。",
+      "nobody": "这段时间没有会话到达第一步",
+      "by_title": "漏斗，按{{field}}",
+      "no_value": "未设置",
+      "columns": {
+        "step": "步骤",
+        "sessions": "会话",
+        "conversion": "占第一步",
+        "from_previous": "流失",
+        "median": "耗时中位数",
+        "overall": "首尾转化"
+      }
+    },
+    "paths": {
+      "title": "路径",
+      "description_after": "会话接下来打开的页面，按访问最多的页面分列。",
+      "description_before": "会话是从哪些页面来的，按访问最多的页面分列。",
+      "direction": "方向",
+      "after": "该页面之后",
+      "before": "该页面之前",
+      "anchor": "路径围绕的页面",
+      "anchor_first": "从会话的第一个页面开始",
+      "anchor_last": "到会话的最后一个页面为止",
+      "clear": "清除",
+      "depth": "看几页",
+      "depth_pages_one": "{{count}} 页",
+      "depth_pages_other": "{{count}} 页",
+      "told_by": "页面按此区分",
+      "by": {
+        "view_url_path_group": "页面分组",
+        "view_url_path": "完整路径",
+        "view_name": "视图名称"
+      },
+      "nobody": "这段时间没有路径",
+      "other": "其他页面",
+      "pick": "从 {{page}} 开始看路径",
+      "ends_one": "{{count}} 个会话到此结束",
+      "ends_other": "{{count}} 个会话到此结束",
+      "begins_one": "{{count}} 个会话从此开始",
+      "begins_other": "{{count}} 个会话从此开始",
+      "chart_aria": "{{sessions}} 个会话的路径"
+    },
+    "retention": {
+      "title": "留存",
+      "description": "某个周期内首次出现的用户，在之后各个周期里再次出现的比例。天和周按 UTC 计。",
+      "period": "队列按",
+      "periods": "跟踪多少个周期",
+      "by_day": "天",
+      "by_week": "周",
+      "days_after_one": "{{count}} 天后",
+      "days_after_other": "{{count}} 天后",
+      "weeks_after_one": "{{count}} 周后",
+      "weeks_after_other": "{{count}} 周后",
+      "cohort_day": "首次出现的日期",
+      "cohort_week": "首次出现的那一周",
+      "people": "用户数",
+      "average": "平均",
+      "nobody": "这段时间没有用户",
+      "too_short": "这段时间里，第一个周期之后没有已经结束的周期，还看不出谁回来了。请放宽时间范围。",
+      "cell_one": "{{total}} 位中的 {{count}} 位回来过",
+      "cell_other": "{{total}} 位中的 {{count}} 位回来过"
+    },
+    "heatmap": {
+      "title": "热力图",
+      "description_clicks": "人们点这个页面的哪里：画在一次录下来的页面上",
+      "description_scroll": "人们在这个页面往下看到多远：越暗的部分看到的人越少",
+      "page": "页面",
+      "page_placeholder": "选择页面",
+      "kind": "地图",
+      "kinds": {
+        "clicks": "点击",
+        "scroll": "滚动"
+      },
+      "device": "窗口",
+      "devices": {
+        "desktop": "桌面",
+        "tablet": "平板",
+        "mobile": "手机",
+        "all": "全部"
+      },
+      "recording": "录制",
+      "recording_number": "第 {{number}} 次",
+      "open_session": "打开这次会话",
+      "elements": "被点击的元素",
+      "depths": "看到多远",
+      "clicks_total_one": "共 {{count}} 次点击",
+      "clicks_total_other": "共 {{count}} 次点击",
+      "views_total_one": "共 {{count}} 次访问",
+      "views_total_other": "共 {{count}} 次访问",
+      "sessions_one": "{{count}} 个会话",
+      "sessions_other": "{{count}} 个会话",
+      "frustrated_one": "{{count}} 次受挫",
+      "frustrated_other": "{{count}} 次受挫",
+      "off_snapshot": "不在这次录制的页面上",
+      "median_depth": "一半访问看到",
+      "page_height": "页面长度",
+      "scroll_line": "{{share}}% 的访问看到这里",
+      "no_clicks": "这个页面这段时间没有点击",
+      "no_scroll": "这个页面这段时间没有滚动数据",
+      "reading_recording": "正在读取录制的页面…",
+      "no_recording": "这个页面在这段时间、这种窗口下没有录到回放，地图画不出来；数字仍然有效。",
+      "recording_denied": "你没有查看回放的权限，地图画不出来；数字仍然有效。",
+      "stage_failed": "录制的页面打不开：{{reason}}",
+      "not_browser": {
+        "title": "热力图只有浏览器应用有",
+        "description": "应用的回放是屏幕截图，没有可以定位元素的页面。"
+      },
+      "no_pages": {
+        "title": "这段时间没有页面",
+        "description": "放宽时间范围，或者确认 SDK 已经在上报。"
+      }
+    },
+    "segment": {
+      "label": "分群",
+      "everyone": "所有人"
+    }
+  },
+  "playlists": {
+    "title": "播放列表",
+    "create": "新建播放列表",
+    "result_count_one": "{{count}} 个播放列表",
+    "result_count_other": "{{count}} 个播放列表",
+    "application_filter": "应用",
+    "all_applications": "全部应用",
+    "columns": {
+      "name": "名称",
+      "application": "应用",
+      "sessions": "会话",
+      "updated": "更新",
+      "created_by": "创建者"
+    },
+    "empty_title": "还没有播放列表",
+    "empty_description": "把值得看的会话放在一起，然后一个接一个地看完。在这里新建播放列表，也可以在会话页里新建。",
+    "empty_no_application": "播放列表属于某个应用。先创建一个应用。",
+    "not_found": "没有找到这个播放列表",
+    "play": "从第一个开始播放",
+    "rename": "重命名",
+    "delete": "删除播放列表",
+    "cancel": "取消",
+    "all": "全部播放列表",
+    "delete_confirm_title": "删除 {{name}}？",
+    "delete_confirm_description": "播放列表会被删除，里面的会话不受影响。",
+    "form": {
+      "create_title": "新建播放列表",
+      "edit_title": "重命名播放列表",
+      "subtitle": "一串会话，一个接一个地看。",
+      "name": "名称",
+      "name_placeholder": "结账失败",
+      "description": "说明",
+      "description_hint": "这些会话有什么共同点。",
+      "application": "应用",
+      "application_fixed": "播放列表一直属于它的应用。",
+      "create": "创建",
+      "save": "保存"
+    },
+    "sessions": {
+      "title": "会话",
+      "count_one": "{{count}} 个会话",
+      "count_other": "{{count}} 个会话",
+      "empty": "这个播放列表里还没有会话。在会话页里把会话放进来。",
+      "session": "会话",
+      "person": "用户",
+      "started": "开始于",
+      "duration": "时长",
+      "signs": "发生了什么",
+      "opens_at": "从此刻打开",
+      "remove": "把 {{id}} 移出播放列表",
+      "remove_column": "移出",
+      "gone": "数据里找不到",
+      "errors_one": "{{count}} 个错误",
+      "errors_other": "{{count}} 个错误",
+      "frustrations_one": "{{count}} 个受挫信号",
+      "frustrations_other": "{{count}} 个受挫信号"
+    },
+    "link": {
+      "moment": "复制此刻的链接",
+      "session": "复制链接",
+      "copied": "链接已复制"
+    },
+    "menu": {
+      "button": "加入播放列表",
+      "title": "这个应用的播放列表",
+      "description": "把这个会话放进播放列表，或者移出来。",
+      "none": "这个应用还没有播放列表。",
+      "at_moment": "从回放当前的这一刻打开",
+      "new_placeholder": "新的播放列表",
+      "new_name": "新播放列表的名称",
+      "new": "创建并加入"
+    },
+    "bar": {
+      "place": "第 {{index}} 个，共 {{total}} 个",
+      "not_in": "这个会话不在这个播放列表里",
+      "previous": "上一个",
+      "next": "下一个"
+    }
+  },
+  "errors": {
+    "state": {
+      "open": "待处理",
+      "investigating": "调查中",
+      "regressed": "回归",
+      "resolved": "已解决",
+      "ignored": "已忽略"
+    },
+    "filter": {
+      "unresolved": "待处理",
+      "regressed": "回归",
+      "investigating": "调查中",
+      "resolved": "已解决",
+      "ignored": "已忽略",
+      "all": "全部 issue"
+    },
+    "filters": {
+      "status": "状态",
+      "holder": "指派",
+      "source": "来源"
+    },
+    "holder": {
+      "anyone": "全部",
+      "nobody": "未指派"
+    },
+    "search": {
+      "label": "搜索 issue",
+      "placeholder": "搜索 issue：消息、类型、文件"
+    },
+    "count_one": "{{count}} 个 issue",
+    "count_other": "{{count}} 个 issue",
+    "picked": {
+      "clear": "清除{{dimension}} {{value}}"
+    },
+    "saved": "Issue 已更新",
+    "table": {
+      "label": "Issue 列表",
+      "issue": "问题",
+      "status": "状态",
+      "holder": "指派",
+      "sessions": "会话",
+      "users": "用户",
+      "trend": "趋势",
+      "versions": "版本",
+      "last_seen": "最近出现"
+    },
+    "overflow": {
+      "title": "其余错误",
+      "description": "应用每小时新开的 issue 超出上限后，其余错误并入这里"
+    },
+    "spread": {
+      "title": "出现在哪里",
+      "description": "列表里 issue 影响的会话，按版本、页面、浏览器拆开",
+      "version": "版本",
+      "page": "页面",
+      "browser": "浏览器",
+      "empty": "没有会话"
+    },
+    "empty": {
+      "unresolved": "该时间范围内没有待处理的 issue",
+      "none": "该时间范围内没有 issue",
+      "description": "应用上报的错误会按类型、消息和抛出位置归并到这里。",
+      "show_all": "显示全部 issue"
+    },
+    "controls": {
+      "status": "状态",
+      "team": "团队",
+      "no_team": "未指派团队",
+      "holder": "处理人"
+    },
+    "drawer": {
+      "title": "Issue",
+      "untyped": "错误",
+      "explore": "在探索中查看",
+      "close": "关闭",
+      "source": "来源",
+      "handling": "处理方式",
+      "issue_id": "Issue ID",
+      "anonymous": "匿名 {{id}}",
+      "unknown": "未知",
+      "facts": {
+        "state": "状态",
+        "sessions": "影响会话",
+        "users": "影响用户",
+        "first_seen": "首次出现",
+        "last_seen": "最近出现",
+        "versions": "版本"
+      },
+      "where": {
+        "title": "出现在哪里",
+        "description": "只算这个 issue 的错误",
+        "browser": "浏览器",
+        "system": "操作系统",
+        "country": "国家"
+      },
+      "samples": {
+        "title": "样本会话",
+        "description": "最近的错误，各在它发生的会话里",
+        "empty": "没有最近的错误",
+        "replay": "回放",
+        "timeline": "时间线",
+        "not_kept": "会话未保留"
+      },
+      "people": {
+        "title": "受影响用户",
+        "description": "按出现次数",
+        "empty": "没有用户",
+        "times_one": "{{count}} 次",
+        "times_other": "{{count}} 次"
+      }
+    },
+    "trend": {
+      "title": "出现趋势",
+      "description": "最近 {{days}} 天，按天，按版本堆叠，单位：会话",
+      "empty": "这几天没有会话",
+      "aria": "最近 {{days}} 天各版本影响的会话，共 {{count}} 个",
+      "others": "其他版本",
+      "no_version": "无版本",
+      "resolved": "标为已解决",
+      "resolved_in": "标为已解决 · {{version}}"
+    },
+    "stack": {
+      "title": "抛出位置",
+      "view": "帧的显示方式",
+      "restored": "还原后",
+      "raw": "原始",
+      "restored_tag": "已还原",
+      "library": "依赖库",
+      "anonymous": "（匿名）",
+      "empty": "这个错误没有带堆栈",
+      "symbolication": {
+        "completed": "已用 source map、mapping 或符号文件还原",
+        "partial": "部分帧已还原",
+        "missing": "未还原：没有与此版本匹配的调试文件",
+        "none": "帧按 SDK 上报的原样显示"
+      }
+    },
+    "banner": {
+      "resolved": "{{when}} 标为已解决。",
+      "resolved_by": "{{when}} 由 {{who}} 标为已解决。",
+      "resolved_in": "{{when}} 在 {{version}} 标为已解决。",
+      "resolved_by_in": "{{when}} 由 {{who}} 在 {{version}} 标为已解决。",
+      "back": "{{when}} 再现。",
+      "back_in": "{{version}} 从 {{when}} 起再现。",
+      "older": "{{version}} 及更早版本上的出现不会重开它。"
+    }
   },
   "applications": {
     "title": "应用",
-    "subtitle": "按应用、环境和版本比较真实用户体验。",
     "list_title": "RUM 应用",
-    "result_count": "{{count}} 个应用",
-    "empty_title": "尚无应用数据",
-    "empty_description": "接入 RUM SDK 并发送首个会话后，应用会自动出现在这里。",
-    "no_filter_results": "没有符合当前筛选条件的应用",
+    "result_count_one": "{{count}} 个应用",
+    "result_count_other": "{{count}} 个应用",
+    "create_button": "创建应用",
+    "empty_title": "还没有应用",
+    "empty_description": "先创建应用，再把它的 Client Token 交给 SDK。为不存在的应用发送的事件会被拒绝。",
     "columns": {
       "application": "应用",
-      "versions": "版本",
-      "users": "活跃用户",
-      "sessions": "会话数",
-      "error_free": "无错误会话率",
-      "lcp": "LCP P75"
-    }
-  },
-  "pages": {
-    "title": "页面",
-    "subtitle": "按页面比较访问量、Core Web Vitals 和用户体验。",
-    "list_title": "页面性能",
-    "result_count": "{{count}} 个页面",
-    "empty_title": "尚无页面性能数据",
-    "empty_description": "RUM SDK 上报页面浏览和 Web Vitals 后，页面会自动出现在这里。",
-    "no_filter_results": "没有符合当前筛选条件的页面",
-    "columns": {
-      "page": "页面",
-      "experience": "体验",
-      "sessions": "会话数",
-      "lcp": "LCP P75",
-      "inp": "INP P75",
-      "cls": "CLS P75",
-      "samples": "样本数"
-    }
-  },
-  "sessions": {
-    "title": "会话",
-    "subtitle": "按用户、页面、设备和问题浏览真实用户会话。",
-    "search_placeholder": "搜索用户、页面、浏览器、版本或会话…",
-    "result_count": "{{count}} 个会话",
-    "abnormal_count": "其中 {{count}} 个体验较差",
-    "no_filter_results": "没有符合当前筛选条件的会话",
-    "open_replay": "打开会话 {{session}} 的回放",
-    "anonymous_user": "匿名用户",
-    "unknown_page": "未知页面",
-    "unknown_browser": "未知浏览器",
-    "last_page": "最终页面",
-    "issues": "个问题",
-    "no_issues": "无异常",
-    "has_replay": "已录制回放",
-    "filters": {
-      "search": "搜索",
-      "experience": "体验等级",
-      "problem": "问题",
-      "country": "国家",
+      "platform": "平台",
+      "collection": "采集",
+      "created": "创建时间"
+    },
+    "collection": {
+      "ip": "IP",
+      "geo": "位置"
+    },
+    "platforms": {
       "browser": "浏览器",
-      "all_experiences": "全部体验",
-      "all_problems": "全部问题",
-      "all_countries": "全部国家",
-      "all_browsers": "全部浏览器",
-      "clear": "清除筛选"
+      "android": "Android",
+      "ios": "iOS",
+      "flutter": "Flutter",
+      "react-native": "React Native",
+      "other": "其他"
     },
-    "issue": {
-      "error": "错误",
-      "rage_click": "愤怒点击",
-      "dead_click": "无效点击",
-      "slow": "慢资源",
-      "crash": "崩溃"
+    "create": {
+      "title": "创建应用",
+      "subtitle": "SDK 通过标识符和 Client Token 向应用发送事件。",
+      "submit": "创建",
+      "name": "名称",
+      "name_placeholder": "结账网页",
+      "id": "标识符",
+      "id_hint": "留空则使用 {{id}}。创建后不能修改。",
+      "id_invalid": "只能使用字母、数字和 . _ : -，最多 64 个字符。",
+      "platform": "平台"
     },
-    "behavior": {
-      "error": "操作失败 · {{page}}",
-      "rage_click": "愤怒点击 · {{page}}",
-      "dead_click": "无效点击 · {{page}}"
-    },
-    "kpi": {
-      "active_sessions": "活跃会话",
-      "avg_duration": "平均时长",
-      "error_rate": "错误率",
-      "p95_lcp": "P95 LCP"
-    },
-    "columns": {
-      "session_id": "会话",
-      "experience": "会话体验",
-      "user": "用户",
-      "user_device": "用户与设备",
-      "country": "国家",
-      "browser": "浏览器",
-      "duration": "时长",
-      "journey": "行为摘要",
-      "problems": "问题",
-      "errors": "错误数",
-      "started": "时间",
-      "service": "服务"
-    },
-    "empty_title": "尚无会话数据",
-    "empty_description": "接入 MoleSignal RUM SDK 后，用户会话和行为事件会在数秒内出现。",
-    "view_session": "查看回放"
-  },
-  "session_replay": {
-    "title": "会话回放",
-    "subtitle": "重现用户操作、页面跳转、网络请求与错误发生前后的完整过程。"
+    "drawer": {
+      "close": "关闭",
+      "save": "保存",
+      "saving": "正在保存",
+      "cancel": "取消",
+      "token_title": "Client Token",
+      "token_description": "把它交给 SDK。它只能向该应用写入事件。",
+      "show_token": "显示 Token",
+      "hide_token": "隐藏 Token",
+      "copy_token": "复制 Token",
+      "collection_title": "采集",
+      "collection_description": "随每个事件保存的内容。不保存 IP 时，仍会用它查询客户端的位置。",
+      "collect_ip": "保存 IP 地址",
+      "collect_ip_hint": "服务端解析出的请求来源地址。",
+      "collect_geo": "保存位置",
+      "collect_geo_hint": "按地址查到的国家、地区和城市。",
+      "privacy": "默认隐私级别",
+      "privacy_hint": "接入示例里为会话回放建议的级别。",
+      "privacy_mask": "遮盖文本和输入",
+      "privacy_allow": "录制显示的全部内容",
+      "setup_title": "接入 SDK",
+      "setup_description": "接入向导会填好端点、Token 和标识符。",
+      "open_guide": "打开接入向导",
+      "no_guide": "该平台需自行向接收端点发送事件，详见文档。",
+      "delete_title": "删除",
+      "delete_description": "它的 Client Token 会失效。已发送的数据保留到数据流的保留期结束。",
+      "delete": "删除应用",
+      "delete_confirm_title": "删除 {{name}}？",
+      "delete_confirm_description": "使用它的 Token 配置的 SDK 此后会被拒绝。",
+      "scrub_title": "敏感数据",
+      "scrub_description": "事件写入前，从它的地址、错误文本、名称和请求详情里去掉。SDK 录制回放时自己做的遮盖不受影响。",
+      "scrub": {
+        "secrets": "令牌、密钥和密码",
+        "secrets_hint": "Bearer 和 JWT 令牌、API 密钥、password= 后面的值，以及携带凭据的请求头的值。",
+        "emails": "邮箱地址",
+        "emails_hint": "每个都替换成 [email]。",
+        "phones": "电话号码",
+        "phones_hint": "国际号码，以及中国和北美号码的常见写法。",
+        "cards": "银行卡号",
+        "cards_hint": "开头几位和校验位符合银行卡的数字。",
+        "national_ids": "证件号码",
+        "national_ids_hint": "中国居民身份证号和美国社会安全号。",
+        "url_params": "敏感的 URL 参数",
+        "url_params_hint": "token、code、password、session、email 这类参数的值，以及主机前的用户名和密码。"
+      },
+      "sampling_title": "保留的会话",
+      "sampling_description": "在 SDK 自己的采样之外，再保留一部分会话。一个会话整个保留或整个丢弃，回放也一样。第一个描述了这个会话的过滤器决定它的比例；其余会话按下面的比例保留。",
+      "sample_rate": "保留的会话比例（%）",
+      "sample_rate_hint": "100 保留全部会话。其余会话的事件不写入，接入端的应答会说明丢弃了多少。",
+      "retention": {
+        "new_name": "过滤器 {{number}}",
+        "add_filter": "添加过滤器",
+        "remove_filter": "删除这个过滤器",
+        "filter_up": "上移这个过滤器",
+        "filter_down": "下移这个过滤器",
+        "no_filters": "没有过滤器：所有会话都按下面的比例保留。过滤器给它描述的会话一个单独的比例，比如所有生产环境的会话。",
+        "filter_name": "过滤器名称",
+        "filter_rate": "其会话的保留比例（%）",
+        "add_condition": "添加条件",
+        "remove_condition": "删除这个条件",
+        "condition_field": "条件看什么",
+        "condition_op": "怎么比较",
+        "condition_values": "值",
+        "values_placeholder": "prod, production（* 代表任意文字）",
+        "ops": {
+          "is": "是",
+          "is_not": "不是"
+        },
+        "fields": {
+          "env": "环境",
+          "service": "服务",
+          "version": "版本",
+          "source": "平台",
+          "session_type": "会话类型",
+          "geo_country_iso_code": "国家代码",
+          "browser_name": "浏览器",
+          "os_name": "系统",
+          "device_type": "设备类型"
+        },
+        "rest_rate": "其余会话的保留比例（%）",
+        "rest_rate_hint": "没有过滤器描述的会话。100 保留全部这样的会话。接入端的应答会说明丢弃了多少事件。",
+        "keep_errors": "保留所有错误",
+        "keep_errors_hint": "没被保留的会话，它的错误照样保存，并按实际发生的次数计数。不开启时，罕见的错误会随它的会话一起丢掉。"
+      },
+      "issues_title": "Issue",
+      "issues_description": "这个应用的错误怎样归并成 issue。",
+      "issues_per_hour": "每小时新开 issue 数",
+      "issues_per_hour_hint": "超出后，新的错误并入一个叫「其余错误」的 issue。",
+      "privacy_mask_user_input": "遮盖用户输入",
+      "sdk": {
+        "title": "SDK 远程配置",
+        "description": "用 remoteConfiguration: true 初始化的 SDK 启动时读这里，不用重新发布页面就能改。留空的项按页面里的配置。",
+        "not_said": "按页面的配置",
+        "session_sample_rate": "会话采样率（%）",
+        "session_sample_rate_hint": "SDK 上报多少比例的会话，发生在保留比例之前。",
+        "session_replay_sample_rate": "回放采样率（%）",
+        "session_replay_sample_rate_hint": "上报的会话里录制回放的比例。",
+        "privacy": "隐私级别",
+        "clicks": "采集点击",
+        "on": "采集",
+        "off": "不采集",
+        "console": "转发控制台",
+        "console_hint": "哪些 console 方法同时写进日志流。",
+        "console_none": "不转发",
+        "console_from": "{{level}} 及以上"
+      },
+      "segments": {
+        "title": "分群",
+        "description": "分析页可以收窄到的一组会话，按谁运行、在哪里运行来划分。",
+        "new_name": "分群 {{number}}",
+        "add": "添加分群",
+        "remove": "移除分群",
+        "none": "还没有分群。",
+        "name": "分群名称",
+        "property_key": "属性名，例如 plan",
+        "fields": {
+          "geo_country_iso_code": "国家（ISO 代码）",
+          "geo_continent_code": "大洲",
+          "geo_city": "城市",
+          "browser_name": "浏览器",
+          "os_name": "系统",
+          "device_type": "设备类型",
+          "usr_id": "用户 ID",
+          "usr_email": "用户邮箱",
+          "account_id": "账户 ID",
+          "service": "服务",
+          "version": "版本",
+          "source": "平台",
+          "property": "用户属性"
+        }
+      }
+    }
   },
   "session_detail": {
-    "title": "会话回放",
-    "title_error": "结账失败",
-    "title_rage_click": "用户重复点击",
-    "back": "返回会话列表",
+    "title_error": "出现错误的会话",
     "no_events": "该会话没有可回放的事件。",
     "replay_player": "回放播放器",
     "replay_recorded": "已录制回放",
@@ -226,168 +1127,133 @@
     "replay_unavailable_description": "仍可在下方事件时间线查看页面跳转与应用事件，但该会话未被 DOM 录制采样命中。",
     "events_unit": "个事件",
     "restart": "从头开始",
-    "previous_event": "上一个事件",
     "play": "播放",
     "pause": "暂停",
-    "next_event": "下一个事件",
-    "jump_to_end": "跳到结尾",
     "seek": "定位会话回放",
     "user_context": "用户信息",
     "device": "设备",
     "ip_address": "IP 地址",
-    "current_page": "当前页面",
     "detected_issues": "发现的问题",
     "no_detected_issues": "未检测到明显问题",
     "event_timeline": "事件时间线",
     "event_timeline_description": "页面跳转、点击、错误、网络请求和性能事件按发生顺序排列。",
-    "events_column": "事件",
-    "time_column": "时间",
-    "type_column": "类型",
-    "service_column": "服务",
-    "trace_column": "Trace",
-    "details_column": "详情",
     "related_traces_title": "关联链路",
     "related_traces_subtitle": "与该用户会话直接关联或按时间匹配的后端链路。",
     "related_empty": "该会话没有相关的后端链路。",
-    "related_columns": {
-      "trace_id": "Trace",
-      "service": "服务",
-      "spans": "Span",
-      "duration": "时长",
-      "started": "开始时间",
-      "relation": "匹配方式"
-    },
     "relation_direct": "直接关联",
     "relation_time_correlated": "时间相关",
-    "primary_service_label": "主服务"
-  },
-  "errors": {
-    "title": "错误问题",
-    "subtitle": "按问题聚合前端错误，并关联受影响用户、页面、版本和会话回放。",
-    "search_placeholder": "搜索错误、页面、版本或类型…",
-    "unknown_page": "未知页面",
-    "view_related_replays": "查看 {{count}} 个相关回放",
-    "impact_summary": "{{sessions}} 个会话 · {{users}} 个用户",
-    "occurrence_count": "发生 {{count}} 次",
-    "first_seen": "首次",
-    "trend_flat": "持平",
-    "open_issue": "打开问题 {{issue}}",
-    "no_filter_results": "没有符合当前筛选条件的问题",
-    "filters": {
-      "search": "搜索问题",
-      "status": "状态",
-      "all_statuses": "全部状态"
+    "primary_service_label": "主服务",
+    "title": "会话",
+    "related_columns": {
+      "spans": "Span"
     },
-    "status": {
-      "new": "新问题",
-      "ongoing": "持续发生"
+    "not_found": "最近 30 天内没有找到该会话。",
+    "title_frustration": "出现受挫点击的会话",
+    "user": "用户",
+    "anonymous_user": "匿名",
+    "location": "位置",
+    "application": "应用",
+    "environment": "环境",
+    "version": "版本",
+    "duration": "时长",
+    "journey": "页面",
+    "issue": {
+      "error": "错误",
+      "crash": "崩溃",
+      "frustration": "受挫信号",
+      "long_task": "长任务"
     },
-    "kpi": {
-      "total_errors": "错误总数",
-      "unique_users": "受影响用户",
-      "affected_sessions": "受影响会话",
-      "new_issues": "新问题",
-      "release": "高频版本"
+    "timeline_truncated": "{{types}}只列出了最前面的部分。",
+    "location_unknown": "未知",
+    "tools": {
+      "aria": "开发者工具",
+      "tabs_aria": "开发者工具的标签",
+      "tabs": {
+        "errors": "错误",
+        "network": "网络",
+        "performance": "性能",
+        "logs": "日志",
+        "comments": "评论"
+      },
+      "view": "视图",
+      "follow": "跟随回放",
+      "all_views": "全部视图",
+      "display": {
+        "label": "显示方式",
+        "list": "列表",
+        "waterfall": "瀑布"
+      },
+      "seek": "跳到 {{time}}",
+      "network": {
+        "aria": "这次会话的网络请求",
+        "time": "时间",
+        "method": "方法",
+        "name": "名称",
+        "status": "状态",
+        "type": "类型",
+        "duration": "耗时",
+        "size": "大小",
+        "empty": "这个视图没有请求",
+        "empty_all": "这次会话没有请求",
+        "no_match": "没有符合的请求"
+      },
+      "errors": {
+        "aria": "这次会话的错误",
+        "time": "时间",
+        "type": "类型",
+        "message": "信息",
+        "issue": "Issue",
+        "issue_id": "issue {{id}}",
+        "open_issue": "打开 issue {{id}}",
+        "crash": "崩溃",
+        "empty": "这次会话没有错误"
+      },
+      "performance": {
+        "aria": "这次会话各视图的性能",
+        "view": "视图",
+        "resources": "资源",
+        "long_tasks": "长任务",
+        "open": "查看 {{view}} 的加载瀑布",
+        "empty": "这次会话没有视图"
+      },
+      "logs": {
+        "aria": "这次会话的日志",
+        "time": "时间",
+        "level": "级别",
+        "message": "内容",
+        "logger": "来源",
+        "empty": "这次会话没有日志。在 SDK 里用 logger 写日志，或打开 forwardConsoleLogs 转发控制台。"
+      },
+      "comments": {
+        "aria": "这次回放的评论",
+        "time": "时间",
+        "body": "评论",
+        "author": "作者",
+        "nobody": "（已离开）",
+        "write": "写评论",
+        "placeholder": "在 {{time}} 处写评论",
+        "add": "评论",
+        "edit": "修改评论",
+        "save": "保存",
+        "cancel": "取消",
+        "delete": "删除评论",
+        "empty": "还没有评论"
+      }
     },
-    "columns": {
-      "fingerprint": "指纹",
-      "message": "消息",
-      "issue": "问题",
-      "impact": "影响",
-      "trend": "趋势",
-      "count": "次数",
-      "users": "用户数",
-      "last_seen": "最近发生",
-      "status": "状态"
+    "session_type": "会话类型",
+    "session_types": {
+      "synthetics": "拨测",
+      "ci_test": "CI 测试",
+      "user": "真实用户"
     },
-    "empty_title": "暂无错误记录",
-    "empty_description": "RUM SDK 上报前端错误后，会按问题聚合并关联会话回放。"
-  },
-  "error_detail": {
-    "title": "错误详情",
-    "stack": "调用栈",
-    "stack_description": "优先显示 Source Map 还原后的源码位置。",
-    "sessions": "相关会话回放",
-    "sessions_description": "查看错误发生前后的真实用户行为。",
-    "no_stack": "该问题未捕获调用栈。",
-    "back": "返回错误列表",
-    "occurrences": "发生次数",
-    "users": "受影响用户",
-    "first_seen": "首次发生",
-    "last_seen": "最近发生",
-    "source_restored": "已还原源码",
-    "minified": "压缩代码",
-    "affected_context": "影响范围",
-    "pages": "页面",
-    "versions": "版本",
-    "open_replay": "打开会话回放"
-  },
-  "performance": {
-    "overview": "总览",
-    "web_vitals": "Web Vitals",
-    "web_vitals_subtitle": "查看真实用户分布、最差页面和受影响维度。",
-    "errors": "错误",
-    "apis": "API",
-    "lcp": "最大内容绘制",
-    "fid": "首次输入延迟",
-    "cls": "累计布局偏移",
-    "ttfb": "首字节时间",
-    "threshold_good": "良好",
-    "threshold_needs_improvement": "待改善",
-    "threshold_poor": "较差",
-    "no_data": "所选时间范围内无性能样本。",
-    "no_page_data": "暂无带页面信息的性能样本",
-    "no_dimension_data": "暂无浏览器、版本或地区维度数据",
-    "chart_title": "Web Vitals 趋势",
-    "p75": "P75",
-    "latest": "最新",
-    "good_target": "良好阈值",
-    "samples": "样本数",
-    "sample_count": "{{count}} 个样本",
-    "current_p75": "当前 P75",
-    "distribution_title": "{{metric}} 用户分布",
-    "distribution_description": "按 Core Web Vitals 阈值展示真实用户样本比例。",
-    "trend_title": "{{metric}} 趋势",
-    "worst_pages": "最差页面",
-    "worst_pages_description": "按 {{metric}} P75 从高到低排序。",
-    "impact_dimensions": "影响维度",
-    "impact_dimensions_description": "识别浏览器、版本和地区差异。",
-    "dimension": {
-      "page": "页面",
-      "browser": "浏览器",
-      "version": "版本",
-      "country": "地区"
-    },
-    "series_lcp": "LCP (ms)",
-    "series_fid": "FID (ms)",
-    "series_ttfb": "TTFB (ms)",
-    "columns": {
-      "url": "URL",
-      "count": "次数",
-      "p50": "P50",
-      "p95": "P95",
-      "errors": "错误"
-    }
-  },
-  "onboarding": {
-    "eyebrow": "RUM 数据接入",
-    "title": "开始采集真实用户体验数据",
-    "description": "接入 MoleSignal RUM SDK，分析页面性能、前端错误和用户会话。",
-    "platforms": {
-      "web": "Web 应用",
-      "flutter": "Flutter",
-      "android": "Android",
-      "ios": "iOS"
-    },
-    "already_installed": "已完成 SDK 接入？",
-    "send_test": "发送测试事件",
-    "view_docs": "查看接入文档",
-    "progress_title": "接入流程",
-    "steps": {
-      "1": "安装 SDK",
-      "2": "配置应用",
-      "3": "发送测试事件",
-      "4": "开始分析"
+    "summary": {
+      "title": "AI 摘要",
+      "generate": "生成摘要",
+      "regenerate": "重新生成",
+      "generating": "生成中…",
+      "none": "还没有摘要。生成时用 Mole Agent 的模型配置，并计入它的每日预算。",
+      "chapters": "章节",
+      "by": "{{model}} · {{tokens}} token"
     }
   },
   "settings": {
@@ -411,7 +1277,7 @@
         "steps": {
           "1": "安装对应平台的 MoleSignal RUM SDK。",
           "2": "配置应用、环境、版本和数据接收地址。",
-          "3": "发送测试会话并在概览中验证数据。"
+          "3": "发送测试会话并在探索页中找到它。"
         }
       },
       "sampling": {
@@ -496,6 +1362,7 @@
     "release_label": "版本",
     "kind_label": "产物类型",
     "platform_label": "平台",
+    "platform_hint": "可选项随产物类型变化。",
     "architecture_label": "架构（可选）",
     "architecture_hint": "原生产物建议填写，例如 arm64、armeabi-v7a 或 x86_64。",
     "debug_id_label": "Debug ID / UUID（可选）",
@@ -508,5 +1375,534 @@
     "file_required": "需要选择文件",
     "success": "调试产物已上传",
     "back": "返回调试产物"
+  },
+  "explorer": {
+    "title": "探索",
+    "types": {
+      "sessions": "会话",
+      "views": "视图",
+      "actions": "操作",
+      "errors": "错误",
+      "resources": "资源",
+      "long_tasks": "长任务",
+      "vitals": "指标",
+      "logs": "日志"
+    },
+    "toolbar": {
+      "refresh": "刷新"
+    },
+    "query": {
+      "run": "运行查询",
+      "running": "正在运行查询",
+      "clear_query": "清空查询",
+      "collapse_editor": "收起查询编辑器",
+      "expand_editor": "展开查询编辑器",
+      "empty_summary": "全部{{type}}",
+      "free_text_label": "文本：",
+      "ignored_label": "已忽略：",
+      "help_title": "RUM 字段查询",
+      "help_description": "用字段比较筛选当前类型的行；不是比较的词会在文本列里查找。",
+      "example_equals": "某个用户",
+      "example_contains": "某个页面",
+      "example_exclude": "排除某种浏览器",
+      "example_number": "慢于一秒（纳秒）"
+    },
+    "histogram": {
+      "show": "显示直方图",
+      "hide": "隐藏直方图",
+      "label": "{{type}}随时间的分布",
+      "ok": "行数",
+      "troubled": {
+        "sessions": "有错误的会话",
+        "views": "有错误的视图",
+        "actions": "有受挫信号的操作",
+        "errors": "错误",
+        "resources": "失败的请求",
+        "long_tasks": "长任务",
+        "logs": "错误级别的日志"
+      }
+    },
+    "columns": {
+      "time": "时间",
+      "user": "用户",
+      "landing_page": "落地页",
+      "duration": "时长",
+      "views": "视图",
+      "actions": "操作",
+      "errors": "错误",
+      "session_id": "会话",
+      "browser": "浏览器",
+      "country": "国家/地区",
+      "page": "页面",
+      "loading_time": "加载时间",
+      "lcp": "LCP",
+      "inp": "INP",
+      "cls": "CLS",
+      "view_id": "视图",
+      "type": "类型",
+      "target": "目标",
+      "frustration": "受挫信号",
+      "action_id": "操作",
+      "message": "消息",
+      "error_type": "错误类型",
+      "source": "来源",
+      "handling": "处理",
+      "version": "版本",
+      "error_id": "错误",
+      "method": "方法",
+      "url": "URL",
+      "status": "状态",
+      "size": "大小",
+      "resource_type": "类型",
+      "resource_id": "请求",
+      "entry_type": "种类",
+      "blocking": "阻塞",
+      "long_task_id": "任务"
+    },
+    "fields": {
+      "title": "字段",
+      "resize": "调整字段列表宽度",
+      "collapse": "收起字段列表",
+      "expand": "展开字段列表",
+      "summary": "{{shown}} / {{total}} 个字段",
+      "filter_placeholder": "查找字段",
+      "filter_aria": "查找字段",
+      "displayed_fields": "显示字段",
+      "indexed_fields": "索引字段",
+      "other_fields": "其他字段",
+      "no_match": "没有匹配的字段",
+      "hide_field_aria": "从表格中移除 {{name}}",
+      "show_field_aria": "在表格中显示 {{name}}",
+      "add_field_aria": "按 {{name}} 筛选",
+      "json_query_required": "{{name}} 是文档，不能做比较",
+      "values_loading": "正在加载 {{name}} 的取值",
+      "values_failed": "无法加载取值。",
+      "no_values": "这些行里没有取值。",
+      "values_top": "最常见的 {{shown}} 个取值",
+      "filter_for": "只看此值",
+      "filter_out": "排除此值",
+      "filter_remove": "移除该筛选",
+      "filter_for_aria": "只看 {{name}} 为 {{value}} 的行",
+      "filter_out_aria": "排除 {{name}} 为 {{value}} 的行",
+      "unavailable": {
+        "time_budget": "统计耗时过长。",
+        "busy": "正在运行的查询过多。"
+      }
+    },
+    "results": {
+      "loaded_count_one": "已加载 {{count}} 行",
+      "loaded_count_other": "已加载 {{count}} 行",
+      "reset_columns": "恢复默认列",
+      "export": "下载为 CSV（最多 5,000 行）",
+      "export_more": "文件里是最新的 {{count}} 行，还有更多匹配查询的行。"
+    },
+    "viz": {
+      "label": "可视化为",
+      "names": {
+        "list": "列表",
+        "timeseries": "时序",
+        "toplist": "Top 列表",
+        "table": "表格",
+        "map": "地图",
+        "distribution": "分布"
+      },
+      "map_unavailable": "这一类行没有国家，无法画在地图上。",
+      "map_group": "地图按国家给行分组",
+      "map_empty": "这个范围内没有带国家的行：应用没有采集位置，或没有安装 GeoIP 库。",
+      "aggregate": "统计什么",
+      "measure": "度量",
+      "measure_edit": "修改度量 {{measure}}",
+      "measure_add": "添加度量",
+      "measure_remove": "移除度量 {{measure}}",
+      "function": "函数",
+      "group": "分组",
+      "group_then": "再分一层",
+      "group_edit": "修改分组 {{field}}",
+      "group_add": "添加分组",
+      "group_remove": "移除分组 {{field}}",
+      "bucket": "时间桶",
+      "bucket_auto_of": "自动 · {{bucket}}",
+      "top": "取前",
+      "search_fields": "查找字段",
+      "no_fields": "没有匹配的字段。",
+      "no_value": "（无）",
+      "count_of": "{{type}}数",
+      "title_by": "{{measure}}，按 {{groups}}",
+      "vital_good": "良好",
+      "vital_poor": "较差",
+      "status": {
+        "unavailable": "暂不可用",
+        "per_point": "每点 {{bucket}}",
+        "groups_one": "{{count}} 组",
+        "groups_other": "{{count}} 组",
+        "top_groups_one": "前 {{count}} 组",
+        "top_groups_other": "前 {{count}} 组",
+        "countries_one": "{{count}} 个国家",
+        "countries_other": "{{count}} 个国家",
+        "rows_one": "{{count}} 行",
+        "rows_other": "{{count}} 行"
+      },
+      "field": "字段",
+      "field_edit": "更换字段 {{field}}",
+      "distribution": {
+        "title": "{{field}} 的分布",
+        "aria": "{{title}}，共 {{rows}} 行",
+        "bar": "{{from}} 到 {{to}}：{{rows}} 行",
+        "rows": "行数",
+        "p50": "P50",
+        "p75": "P75",
+        "p95": "P95",
+        "p99": "P99",
+        "max": "最大值"
+      }
+    },
+    "pagination": {
+      "aria": "RUM 结果分页",
+      "page_size_aria": "每页行数",
+      "previous": "上一页",
+      "next": "下一页"
+    },
+    "drawer": {
+      "title": "行详情",
+      "resize": "调整详情宽度",
+      "previous": "上一行",
+      "next": "下一行",
+      "open_session": "打开会话",
+      "close": "关闭详情",
+      "loading": "正在加载该行",
+      "stack": "堆栈",
+      "general": "通用",
+      "sections": {
+        "aria": "视图的分区",
+        "waterfall": "加载瀑布",
+        "fields": "属性"
+      },
+      "failed": "这一行读取失败。"
+    },
+    "recovery": {
+      "query_failed": "查询失败",
+      "no_data_title": "该时间范围内没有数据",
+      "no_data_description": "这段时间没有任何上报，或没有符合查询的行。",
+      "clear_filters": "清空查询",
+      "expand_time": "放宽时间范围",
+      "query_docs": "了解探索"
+    },
+    "saved_views": {
+      "label": "保存的视图",
+      "none": "你保存的视图会列在这里。",
+      "delete": "删除视图 {{name}}",
+      "name": "这个视图的名称",
+      "save": "保存"
+    },
+    "export": {
+      "dashboard": {
+        "action": "加到仪表盘",
+        "title": "加到仪表盘",
+        "description": "面板用 SQL 读同样的行：同样的筛选、度量和分组，时间范围跟着仪表盘走。和这里一样，拨测和 CI 跑出来的会话不算在内，除非查询问到了它们。",
+        "shapes": {
+          "timeseries": "画成时序图：计数和求和按组堆成柱，其他度量是线。",
+          "toplist": "画成横向条形图，按第一个度量排名。",
+          "table": "画成表格，每个度量一列，单位和这里一样。",
+          "distribution": "画成柱状图：从最小值到 p99 分成 40 段，跟着仪表盘的时间范围重新划分。"
+        },
+        "list_as_count": "列表画成匹配行数的时序，和列表上方的直方图一样。",
+        "map_as_top": "仪表盘没有地图，画成排在最前的 {{count}} 个国家的横向条形图。",
+        "interval": "时间按仪表盘的「间隔」变量切分，开始是 {{interval}}。",
+        "interval_added": "这个仪表盘还没有「间隔」变量，会一起加上。",
+        "interval_label": "间隔",
+        "intervals": {
+          "1m": "1 分钟",
+          "5m": "5 分钟",
+          "15m": "15 分钟",
+          "1h": "1 小时",
+          "1d": "1 天"
+        },
+        "target": "放到哪个仪表盘",
+        "targets": {
+          "new": "新建仪表盘",
+          "existing": "已有仪表盘"
+        },
+        "name": "仪表盘名称",
+        "dashboard": "仪表盘",
+        "choose": "选择仪表盘",
+        "none": "还没有可以加面板的仪表盘。",
+        "panel": "面板标题",
+        "create": "创建",
+        "add": "添加",
+        "saving": "正在保存…",
+        "created": "已创建仪表盘「{{name}}」",
+        "added": "已加到仪表盘「{{name}}」",
+        "open": "打开",
+        "distribution_title": "分布：{{field}}"
+      },
+      "alert": {
+        "action": "新建告警",
+        "watches": "规则看：{{measure}}。",
+        "watches_distribution": "规则看：p75（{{field}}）。",
+        "left": "不带过去：{{parts}}。",
+        "left_viz": "画法（{{viz}}）",
+        "left_groups": "分组（{{groups}}）",
+        "left_measures": "其余度量（{{measures}}）",
+        "separator": "、",
+        "application": "规则针对一个应用，在编辑器里选择。",
+        "kinds": {
+          "threshold": "阈值告警",
+          "threshold_hint": "数值越过一条线时告警",
+          "anomaly": "异常告警",
+          "anomaly_hint": "和前几天同一时段相比偏离太多时告警"
+        }
+      }
+    }
+  },
+  "alerts": {
+    "button": "告警",
+    "button_aria_one": "告警，{{count}} 个正在发生",
+    "button_aria_other": "告警，{{count}} 个正在发生",
+    "drawer": {
+      "title": "告警",
+      "subtitle": "应用和环境跟着页面走",
+      "close": "关闭"
+    },
+    "going_on": {
+      "title": "正在发生",
+      "empty": "这个应用现在没有进行中的告警。",
+      "open": "打开"
+    },
+    "rules": {
+      "title": "这个应用的规则",
+      "new": "新建规则",
+      "empty": "还没有规则盯着这个应用，下面的模板可以建一条。",
+      "edit": "编辑",
+      "status": {
+        "firing": "触发中",
+        "dropped": "被流水线丢弃",
+        "no_data": "无数据",
+        "pending": "待定",
+        "healthy": "正常",
+        "off": "已停用"
+      }
+    },
+    "templates": {
+      "title": "模板",
+      "hint_browser": "浏览器应用 · 点「创建」就是一条启用的规则",
+      "hint_app": "App · 点「创建」就是一条启用的规则",
+      "recommended": "建议",
+      "optional": "可选",
+      "create": "创建",
+      "creating": "创建中…",
+      "created": "已创建，启用中",
+      "created_off": "已创建，已停用",
+      "created_toast": "已创建规则「{{name}}」，启用中",
+      "view": "查看规则",
+      "now": "当前",
+      "no_value": "当前没有值：{{window}}内的{{kind}}不足 {{rows}} 个",
+      "unreadable": "读不到当前的值",
+      "would_trip": "创建后会立刻进入{{severity}}",
+      "sessions_per_one": "{{count}} 个会话 / {{window}}",
+      "sessions_per_other": "{{count}} 个会话 / {{window}}",
+      "list_separator": "，",
+      "line": "{{bands}} · {{window}}",
+      "at_least": "至少 {{rows}} 个{{kind}}",
+      "any_environment": "所有环境",
+      "name": "{{application}} · {{title}}",
+      "name_environment": "{{application}} · {{environment}} · {{title}}",
+      "items": {
+        "lcp": {
+          "title": "页面加载变慢"
+        },
+        "inp": {
+          "title": "交互变慢"
+        },
+        "cls": {
+          "title": "布局抖动"
+        },
+        "error_rate": {
+          "title": "页面报错率",
+          "title_app": "屏幕报错率"
+        },
+        "failed_requests": {
+          "title": "请求失败率"
+        },
+        "frustration": {
+          "title": "受挫会话"
+        },
+        "crash_free": {
+          "title": "崩溃变多"
+        },
+        "new_issues": {
+          "title": "出现新问题",
+          "rule": "窗口内在{{where}}第一次出现的问题数大于 0 → {{severity}} · {{window}}"
+        },
+        "regressions": {
+          "title": "问题回归",
+          "rule": "已解决的问题在{{where}}重新出现 → {{severity}} · {{window}}"
+        },
+        "high_impact": {
+          "title": "高影响问题"
+        },
+        "traffic": {
+          "title": "流量停了",
+          "rule": "窗口内会话数小于 1 → {{severity}} · {{window}}（夜里没有流量的应用别开）"
+        }
+      }
+    }
+  },
+  "waterfall": {
+    "failed": "这条浏览的请求读取失败。",
+    "none": "这条浏览没有上报资源",
+    "no_match": "没有符合的资源",
+    "more": "还有 {{count}} 个资源，多数在 {{duration}} 内完成",
+    "expand": "展开",
+    "collapse": "收起",
+    "late": "另有 {{count}} 个资源在页面加载之后才发起",
+    "sentence": {
+      "join": "，",
+      "end": "。",
+      "loaded": "这次浏览 <n>{{value}}</n> 加载完",
+      "first_byte": "首字节 <n>{{value}}</n>",
+      "lcp": "LCP <n>{{value}}</n>（<grade>{{grade}}</grade>）",
+      "lcp_element": "LCP <n>{{value}}</n>（<grade>{{grade}}</grade>，<code>{{element}}</code>）",
+      "resources_other": "<n>{{count}}</n> 个资源",
+      "long_tasks_other": "<n>{{count}}</n> 个长任务",
+      "during": "期间请求了 <resources/>，遇到 <tasks/>。",
+      "resources_one": "<n>{{count}}</n> 个资源",
+      "long_tasks_one": "<n>{{count}}</n> 个长任务"
+    },
+    "filters": {
+      "type": "类型",
+      "all": "全部",
+      "show": "显示",
+      "shows": {
+        "all": "全部",
+        "blocking": "阻塞渲染",
+        "slow": "慢（500 ms 以上）",
+        "failed": "失败"
+      }
+    },
+    "legend": {
+      "wait": "等待",
+      "download": "下载",
+      "long_task": "长任务"
+    },
+    "marks": {
+      "first_byte": "首字节",
+      "fcp": "FCP",
+      "dcl": "DCL",
+      "lcp": "LCP",
+      "load": "load"
+    },
+    "lane": {
+      "title": "主线程",
+      "count_other": "{{count}} 个长任务",
+      "task": "{{duration}} 的长任务",
+      "count_one": "{{count}} 个长任务"
+    },
+    "row": {
+      "blocking": "阻塞",
+      "lcp": "LCP"
+    },
+    "phases": {
+      "title": "阶段",
+      "aria": "请求的各个阶段，共 {{total}}",
+      "redirect": "重定向",
+      "dns": "DNS",
+      "connect": "连接",
+      "tls": "TLS",
+      "first_byte": "首字节",
+      "download": "下载"
+    },
+    "detail": {
+      "aria": "请求详情",
+      "close": "关闭",
+      "lcp_file": "LCP 等待的文件",
+      "trace": "链路",
+      "yes": "是",
+      "no": "否",
+      "size": "{{size}}（传输 {{transfer}}）",
+      "sentence": {
+        "lcp": "晚了 <n>{{delay}}</n> 才开始请求，下载用了 <n>{{load}}</n>，到画出来又等了 <n>{{render}}</n>。",
+        "unanswered": "<n>{{duration}}</n> 内没有得到应答。",
+        "failed": "<n>{{duration}}</n> 后以 <n>{{status}}</n> 失败。",
+        "phases": "等首字节用了 <n>{{wait}}</n>，下载用了 <n>{{download}}</n>。",
+        "total": "共用了 <n>{{duration}}</n>。"
+      },
+      "fields": {
+        "address": "地址",
+        "status": "状态",
+        "size": "大小",
+        "delivery": "交付",
+        "blocking": "渲染阻塞",
+        "start": "开始"
+      },
+      "delivery": {
+        "cache": "缓存",
+        "network": "网络",
+        "other": "网络",
+        "navigational-prefetch": "预取"
+      },
+      "after_load": "它在视图开始 <n>{{start}}</n> 之后才发起，那时页面已经加载完，所以不在时间轴上。"
+    },
+    "task": {
+      "unattributed": "长任务",
+      "subtitle": "长任务 · {{duration}}",
+      "none": "浏览器没有给出脚本",
+      "sentence": "运行了 <n>{{duration}}</n>。",
+      "sentence_blocking": "运行了 <n>{{duration}}</n>，其中 <n>{{blocking}}</n> 阻塞了页面的输入。",
+      "fields": {
+        "script": "脚本",
+        "function": "函数",
+        "invoker": "触发方式"
+      }
+    },
+    "truncated": "这个视图的请求多于这里画出的 {{count}} 个，画的是最新的那些。"
+  },
+  "agent": {
+    "investigate": "用 Mole Agent 调查",
+    "investigate_short": "调查",
+    "investigate_title": "让 Mole Agent 调查这里。问题先写在输入框里，由你读过再发送。",
+    "investigate_element": "调查这个元素",
+    "investigate_session": "调查这个会话",
+    "investigate_row": "用 Mole Agent 调查 {{value}}",
+    "all_environments": "全部环境",
+    "prompt": {
+      "overview": "调查 {{application}}（{{environment}}）在 {{from}} 至 {{to}} 的表现：先看概览和最新的问题，指出哪些指标不寻常，找出最可能的原因，并给出下一步。",
+      "errors": "调查 {{application}}（{{environment}}）在 {{from}} 至 {{to}} 的错误：哪些问题影响的会话最多，哪些是新出现或回归的、从哪个版本起，最可能的原因，以及先做什么。",
+      "performance": "调查 {{application}}（{{environment}}）的页面在 {{from}} 至 {{to}} 有多快：Core Web Vitals 及其评级，哪些页面、版本和浏览器拖了后腿，最慢的几个视图在等什么，以及先修什么。",
+      "vital": "调查 {{application}}（{{environment}}）在 {{from}} 至 {{to}} 的 {{vital}}：评级如何，哪些页面、版本和浏览器拖了后腿，最慢的几个视图在等什么，以及先修什么。",
+      "frustration": "调查 {{application}}（{{environment}}）的用户在 {{from}} 至 {{to}} 为什么受挫：哪些元素、页面和版本有狂点、无响应点击或点击出错，点击之后发生了什么，最可能的原因。",
+      "issue": "调查 {{application}}（{{environment}}）的问题「{{error}}」（id {{issue}}），范围 {{from}} 至 {{to}}：影响多少会话和多少人，从什么时候、哪个版本起，是否回归，根据堆栈和会话判断最可能的原因，以及下一步。",
+      "slice": "调查 {{application}}（{{environment}}）里{{dimension}}为 {{value}} 的视图在 {{from}} 至 {{to}} 的表现：它们怎么样，什么地方慢或出错，最可能的原因和下一步。",
+      "slice_figure": "调查 {{application}}（{{environment}}）里{{dimension}}为 {{value}} 的视图在 {{from}} 至 {{to}} 的表现，它们的 {{vital}} P75 是 {{figure}}。是什么拖慢了它，哪些版本和浏览器占了大头，最慢的几个视图在等什么，以及先修什么。",
+      "element": "调查 {{application}}（{{environment}}）的元素「{{element}}」在 {{from}} 至 {{to}} 的情况：用户在它上面狂点、无响应点击或点击出错。点击之后发生了什么，出现在哪些页面和版本，最可能的原因。",
+      "element_selector": "调查 {{application}}（{{environment}}）的元素「{{element}}」（{{selector}}）在 {{from}} 至 {{to}} 的情况：用户在它上面狂点、无响应点击或点击出错。点击之后发生了什么，出现在哪些页面和版本，最可能的原因。",
+      "session": "调查 {{application}}（{{environment}}）的会话 {{session}}（{{from}} 至 {{to}}）：这个人依次做了什么，哪里出了问题，最可能的原因。",
+      "incident": "调查 {{application}}（{{environment}}）在 {{from}} 至 {{to}} 的告警「{{summary}}」：是什么让这项指标变了，哪些页面、版本和浏览器占了大头，最可能的原因和下一步。先列调查计划，再逐条给出证据；不执行生产变更。",
+      "incident_sessions": "调查 {{application}}（{{environment}}）在 {{from}} 至 {{to}} 的告警「{{summary}}」：是什么让这项指标变了，哪些页面、版本和浏览器占了大头，最可能的原因和下一步。告警是由这些会话说明的：{{sessions}}。先列调查计划，再逐条给出证据；不执行生产变更。"
+    }
+  },
+  "estimate": {
+    "note": "估算值 · 保留了 {{share}} 的会话",
+    "hint": "这个范围内只保留了 {{share}} 的会话。这里的数量按每个会话被保留的比例放大；看到的人数、最小值和最大值不放大。探索器列出的是被保留的会话。"
+  },
+  "flags": {
+    "list_title": "功能开关",
+    "list_description": "这段时间里会话算过的开关，会话最多的在前",
+    "sessions_one": "{{value}} 个会话",
+    "sessions_other": "{{value}} 个会话",
+    "compare_description": "这个开关的每个取值下，会话过得怎么样",
+    "compare_aria": "{{flag}} 各取值的对比",
+    "no_values": "这段时间没有视图带这个开关",
+    "not_evaluated": "（未算过）",
+    "open": "看这些视图",
+    "columns": {
+      "value": "取值",
+      "sessions": "会话",
+      "errors": "有错误的视图",
+      "frustration": "有受挫的视图"
+    },
+    "empty": {
+      "title": "这段时间没有功能开关",
+      "description": "在 SDK 里调用 addFeatureFlagEvaluation 之后，算过的开关会出现在这里。"
+    }
   }
 }

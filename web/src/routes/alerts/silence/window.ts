@@ -1,59 +1,98 @@
+import type { TFunction } from 'i18next';
+
 import { formatMicrosActive } from '@/lib/time';
-import type { MuteRule, MuteWindow } from '@/types/alerting';
+import { rangesLabel, weekdayLabel } from '@/shell/weekly-ranges/model';
+import type { MonthDay, MuteRule, MuteWindow } from '@/types/alerting';
 
 export const DEFAULT_SILENCE_TIMEZONE = 'UTC';
 
-/** The days of a recurring window, Sunday first: bit 0 of the mask is Sunday, as the server reads it. */
-const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const;
+/** The longest a monthly window lasts, in minutes: seven days, as the server allows. */
+export const MAX_MONTHLY_MINUTES = 7 * 24 * 60;
 
-/** The short name of a weekday, by its bit in a window's mask. */
-export function weekdayLabel(day: number, locale?: string): string {
-  // 1 January 2023 was a Sunday.
-  return new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }).format(
-    new Date(Date.UTC(2023, 0, 1 + day)),
-  );
-}
+/** The ordinals a monthly window can name: the first to the fifth, and the last. */
+export const MONTH_ORDINALS = [1, 2, 3, 4, 5, -1] as const;
 
 /** A new silence starts as the hour that begins now. */
 export function defaultSilenceWindow(nowMillis = Date.now()): MuteWindow {
   return { type: 'fixed', start: nowMillis * 1000, end: (nowMillis + 60 * 60 * 1000) * 1000 };
 }
 
-export function clampHour(value: string): number {
-  const hour = Math.floor(Number(value));
+/** What the window select shows: a window kind, or holidays (every day, whole days, holidays only). */
+export type SilenceKind = MuteWindow['type'] | 'holidays';
 
-  if (!Number.isFinite(hour)) return 0;
+const WHOLE_DAYS = { weekdayMask: 0b111_1111, start: '00:00', end: '24:00' };
 
-  return Math.min(24, Math.max(0, hour));
+/** A weekly window over whole days that counts holidays only reads as the holidays of a calendar. */
+export function kindOfWindow(window: MuteWindow): SilenceKind {
+  const wholeDays =
+    window.type === 'weekly'
+    && window.ranges.length === 1
+    && window.ranges[0]?.weekdayMask === WHOLE_DAYS.weekdayMask
+    && window.ranges[0].start === WHOLE_DAYS.start
+    && window.ranges[0].end === WHOLE_DAYS.end;
+
+  return window.type === 'weekly' && wholeDays && window.calendar?.holidays === 'only' ? 'holidays' : window.type;
+}
+
+/** The window a silence gets when its kind is switched, in the zone it already had. */
+export function windowOfKind(
+  kind: SilenceKind,
+  timezone = DEFAULT_SILENCE_TIMEZONE,
+  calendarId = '',
+): MuteWindow {
+  if (kind === 'holidays') {
+    return { type: 'weekly', timezone, ranges: [WHOLE_DAYS], calendar: { calendarId: calendarId, holidays: 'only' } };
+  }
+  if (kind === 'weekly') {
+    return { type: 'weekly', timezone, ranges: [WHOLE_DAYS] };
+  }
+  if (kind === 'monthly') {
+    return {
+      type: 'monthly',
+      timezone,
+      day: { kind: 'weekday', ordinal: 1, weekday: 0 },
+      start: '02:00',
+      durationMinutes: 240,
+    };
+  }
+  return defaultSilenceWindow();
+}
+
+/** "4 h", "90 min", "1 h 30 min" in the reader's language. */
+export function durationLabel(minutes: number, t: TFunction<'alerts'>): string {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) return t('silences.duration.minutes', { count: rest });
+  if (rest === 0) return t('silences.duration.hours', { count: hours });
+  return t('silences.duration.hours_minutes', { hours, minutes: rest });
+}
+
+function monthDayLabel(day: MonthDay, t: TFunction<'alerts'>, locale?: string): string {
+  if (day.kind === 'date') return t('silences.month_day.date', { day: day.day });
+  return t('silences.month_day.weekday', {
+    ordinal: t(`silences.ordinals.${day.ordinal === -1 ? 'last' : String(day.ordinal)}`),
+    weekday: weekdayLabel(day.weekday, locale),
+  });
 }
 
 /** When a silence applies, in the time format the rest of the app uses. */
-export function windowSummary(window: MuteWindow, locale?: string): string {
+export function windowSummary(window: MuteWindow, t: TFunction<'alerts'>, locale?: string): string {
   if (window.type === 'fixed') {
     return `${formatMicrosActive(window.start, false)} → ${formatMicrosActive(window.end, false)}`;
   }
-
-  const days = WEEKDAYS.filter((day) => (window.weekday_mask & (1 << day)) !== 0);
-  const hours = `${pad(window.hour_start)}:00–${pad(window.hour_end)}:00`;
-
-  return `${daysLabel(days, locale)} · ${hours} ${window.timezone}`;
-}
-
-function pad(hour: number): string {
-  return String(hour).padStart(2, '0');
-}
-
-/** "Mon–Fri" for a run of days, "Mon, Wed, Fri" otherwise, and a word for none at all. */
-function daysLabel(days: readonly number[], locale?: string): string {
-  if (days.length === 0) return '—';
-
-  const first = days[0] ?? 0;
-  const last = days[days.length - 1] ?? first;
-  const consecutive = days.length > 2 && last - first === days.length - 1;
-
-  return consecutive
-    ? `${weekdayLabel(first, locale)}–${weekdayLabel(last, locale)}`
-    : days.map((day) => weekdayLabel(day, locale)).join(', ');
+  if (kindOfWindow(window) === 'holidays') {
+    return t('silences.summary.holidays', { timezone: window.type === 'weekly' ? window.timezone : '' });
+  }
+  if (window.type === 'weekly') {
+    const holidays = window.calendar ? ` · ${t(`silences.summary.calendar_${window.calendar.holidays}`)}` : '';
+    return `${rangesLabel(window.ranges, locale)} ${window.timezone}${holidays}`;
+  }
+  return t('silences.summary.monthly', {
+    day: monthDayLabel(window.day, t, locale),
+    start: window.start,
+    duration: durationLabel(window.durationMinutes, t),
+    timezone: window.timezone,
+  });
 }
 
 /**
@@ -62,11 +101,16 @@ function daysLabel(days: readonly number[], locale?: string): string {
  * - `active`: it is pausing delivery now;
  * - `upcoming`: a fixed window that has not begun;
  * - `ended`: a fixed window that is over;
- * - `waiting`: a recurring window between two of its hours.
+ * - `waiting`: a repeating window between two of its times.
+ *
+ * A repeating window is placed by the server (`active`), in its zone and to the minute.
  */
 export type SilenceStanding = 'off' | 'active' | 'upcoming' | 'ended' | 'waiting';
 
-export function silenceStanding(rule: Pick<MuteRule, 'enabled' | 'window'>, nowMicros: number): SilenceStanding {
+export function silenceStanding(
+  rule: Pick<MuteRule, 'enabled' | 'window' | 'active'>,
+  nowMicros: number,
+): SilenceStanding {
   if (!rule.enabled) return 'off';
 
   const { window } = rule;
@@ -77,37 +121,5 @@ export function silenceStanding(rule: Pick<MuteRule, 'enabled' | 'window'>, nowM
     return nowMicros < window.end ? 'active' : 'ended';
   }
 
-  return recurringWindowActive(window, nowMicros) ? 'active' : 'waiting';
-}
-
-/** The server's own rule: the local day must be in the mask, and the local hour inside the hours. */
-function recurringWindowActive(window: Extract<MuteWindow, { type: 'recurring' }>, nowMicros: number): boolean {
-  const local = localDayAndHour(nowMicros, window.timezone);
-
-  if (!local || (window.weekday_mask & (1 << local.day)) === 0) return false;
-
-  return window.hour_start <= window.hour_end
-    ? window.hour_start <= local.hour && local.hour < window.hour_end
-    // A window over midnight, such as 22 to 6.
-    : local.hour >= window.hour_start || local.hour < window.hour_end;
-}
-
-const DAY_INDEX: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-
-function localDayAndHour(nowMicros: number, timezone: string): { day: number; hour: number } | null {
-  try {
-    const parts = new Intl.DateTimeFormat('en-US', {
-      weekday: 'short',
-      hour: 'numeric',
-      hourCycle: 'h23',
-      timeZone: timezone || DEFAULT_SILENCE_TIMEZONE,
-    }).formatToParts(new Date(Math.floor(nowMicros / 1000)));
-    const day = DAY_INDEX[parts.find((part) => part.type === 'weekday')?.value ?? ''];
-    const hour = Number(parts.find((part) => part.type === 'hour')?.value);
-
-    return day === undefined || !Number.isFinite(hour) ? null : { day, hour };
-  } catch {
-    // A zone the browser does not know: the window cannot be placed, so it is not claimed to be active.
-    return null;
-  }
+  return rule.active ? 'active' : 'waiting';
 }

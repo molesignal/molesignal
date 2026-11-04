@@ -6,41 +6,41 @@ export interface AgentProfile {
   id: string;
   name: string;
   description: string;
-  model_provider_id?: string | null;
+  modelProviderId?: string | null;
   model?: string | null;
-  allowed_tools: string[];
-  data_scope: Record<string, unknown>;
-  risk_policy: Record<string, unknown>;
-  network_access: NetworkAccess;
-  max_context_tokens: number;
-  max_investigation_secs: number;
-  max_tool_calls: number;
+  allowedTools: string[];
+  dataScope: Record<string, unknown>;
+  riskPolicy: Record<string, unknown>;
+  networkAccess: NetworkAccess;
+  maxContextTokens: number;
+  maxInvestigationSecs: number;
+  maxToolCalls: number;
   /** Sampling temperature; unset uses Mole Agent's default (0.2). */
   temperature?: number | null;
   /** Chats using it may pick Bypass permissions: nothing is asked in the chat, approvals stay. */
-  allow_bypass_permissions?: boolean;
-  is_default: boolean;
+  allowBypassPermissions?: boolean;
+  isDefault: boolean;
   enabled: boolean;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
+  createdBy: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface AgentProfileInput {
   name: string;
   description: string;
-  model_provider_id?: string | null;
+  modelProviderId?: string | null;
   model?: string | null;
-  allowed_tools: string[];
-  data_scope: Record<string, unknown>;
-  risk_policy: Record<string, unknown>;
-  network_access: NetworkAccess;
-  max_context_tokens: number;
-  max_investigation_secs: number;
-  max_tool_calls: number;
+  allowedTools: string[];
+  dataScope: Record<string, unknown>;
+  riskPolicy: Record<string, unknown>;
+  networkAccess: NetworkAccess;
+  maxContextTokens: number;
+  maxInvestigationSecs: number;
+  maxToolCalls: number;
   temperature?: number | null;
-  allow_bypass_permissions?: boolean;
-  is_default: boolean;
+  allowBypassPermissions?: boolean;
+  isDefault: boolean;
   enabled: boolean;
 }
 

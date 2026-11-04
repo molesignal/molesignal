@@ -24,7 +24,7 @@ impl PgSavedViewRepository {
 }
 
 const COLS: &str = "id, org_id, owner_user_id, name, language, statement, time_range_secs,
-     stream, tags, pinned, created_at_micros, updated_at_micros";
+     stream, tags, pinned, created_at, updated_at";
 
 /// `language` is stored as the snake_case discriminant (matches the
 /// `#[serde(rename_all = "snake_case")]` wire form of `QueryLanguage`).
@@ -61,8 +61,12 @@ fn row_to_view(row: sqlx::postgres::PgRow) -> Result<SavedView> {
         stream: row.try_get("stream").map_err(sqlx_err)?,
         tags: tags.0,
         pinned: row.try_get("pinned").map_err(sqlx_err)?,
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -72,7 +76,7 @@ impl SavedViewRepository for PgSavedViewRepository {
         sqlx::query(
             "INSERT INTO saved_views
              (id, org_id, owner_user_id, name, language, statement, time_range_secs,
-              stream, tags, pinned, created_at_micros, updated_at_micros)
+              stream, tags, pinned, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
         )
         .bind(&v.id.0)
@@ -85,8 +89,8 @@ impl SavedViewRepository for PgSavedViewRepository {
         .bind(&v.stream)
         .bind(Json(&v.tags))
         .bind(v.pinned)
-        .bind(v.created_at.0)
-        .bind(v.updated_at.0)
+        .bind(v.created_at)
+        .bind(v.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -99,7 +103,7 @@ impl SavedViewRepository for PgSavedViewRepository {
         sqlx::query(
             "UPDATE saved_views SET
                name = $3, language = $4, statement = $5, time_range_secs = $6,
-               stream = $7, tags = $8, pinned = $9, updated_at_micros = $10
+               stream = $7, tags = $8, pinned = $9, updated_at = $10
              WHERE id = $1 AND org_id = $2",
         )
         .bind(&v.id.0)
@@ -111,7 +115,7 @@ impl SavedViewRepository for PgSavedViewRepository {
         .bind(&v.stream)
         .bind(Json(&v.tags))
         .bind(v.pinned)
-        .bind(v.updated_at.0)
+        .bind(v.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -147,13 +151,13 @@ impl SavedViewRepository for PgSavedViewRepository {
             format!(
                 "SELECT {COLS} FROM saved_views
                  WHERE org_id = $1 AND pinned = TRUE
-                 ORDER BY updated_at_micros DESC"
+                 ORDER BY updated_at DESC"
             )
         } else {
             format!(
                 "SELECT {COLS} FROM saved_views
                  WHERE org_id = $1
-                 ORDER BY pinned DESC, updated_at_micros DESC"
+                 ORDER BY pinned DESC, updated_at DESC"
             )
         };
 

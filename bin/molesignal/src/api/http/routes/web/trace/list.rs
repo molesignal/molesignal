@@ -3,18 +3,21 @@
 
 //! Cursor-paginated trace summaries for the investigation workbench.
 
+use std::collections::BTreeMap;
+
 use axum::{
     Extension,
     extract::{Query, State},
     response::Json,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
-use self::{
-    cursor::{TraceCursorBoundary, TraceCursorPayload},
-    filter::TraceFilter,
+use self::cursor::{TraceCursorBoundary, TraceCursorPayload};
+use super::{
+    filter::{self, TraceCondition, TraceFilter},
+    resolve_traces_stream_definition,
 };
-use super::resolve_traces_stream_definition;
 use crate::{
     api::{
         AppState,
@@ -26,9 +29,9 @@ use crate::{
 };
 
 mod cursor;
-mod filter;
 pub(super) mod histogram;
 mod projection;
+mod roots;
 mod scan;
 mod span_filter;
 
@@ -37,7 +40,7 @@ const DEFAULT_TRACE_PAGE_SIZE: usize = 20;
 /// The most traces one answer holds. The Traces explorer offers pages up to this size
 /// (`EXPLORER_PAGE_SIZE_OPTIONS` in the web app), so the two change together.
 pub(super) const MAX_TRACE_PAGE_SIZE: usize = 5_000;
-const MAX_TRACE_FILTERS: usize = 32;
+pub(super) const MAX_TRACE_FILTERS: usize = 32;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ListTracesQuery {
@@ -45,10 +48,20 @@ pub(super) struct ListTracesQuery {
     to: Option<i64>,
     q: Option<String>,
     filters: Option<String>,
+    /// The condition tree, as JSON text: alternatives the list of filters
+    /// cannot say. It holds together with the filters and the free text.
+    #[serde(rename = "where")]
+    condition: Option<String>,
+    /// The field query as text, read as the Traces page reads it; it stands
+    /// for `q`, `filters` and `where`.
+    expression: Option<String>,
     sort: Option<TraceListSort>,
     #[serde(default = "default_trace_page_size")]
     limit: usize,
     cursor: Option<String>,
+    /// Fields of the root Span to answer with, comma separated. They are read
+    /// for the page alone, so they are no part of the query a cursor keeps.
+    fields: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
@@ -71,10 +84,19 @@ pub(super) struct TraceListContext {
     page_size: usize,
     q: Option<String>,
     filters: Vec<TraceFilter>,
+    condition: Option<TraceCondition>,
     boundary: Option<TraceCursorBoundary>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+impl TraceListContext {
+    /// The whole query: the filters, the free text and the condition tree.
+    pub(super) fn query(&self) -> TraceCondition {
+        TraceCondition::of(&self.filters, self.q.as_deref(), self.condition.as_ref())
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TraceListItem {
     pub trace_id: String,
     pub service: String,
@@ -83,28 +105,47 @@ pub struct TraceListItem {
     pub duration_ms: f64,
     pub span_count: i64,
     pub error_count: i64,
+    /// The status of the trace's root Span: `OK`, `ERROR` or `UNSET`.
+    pub status: String,
+    /// The HTTP status the root Span answered with, where it kept one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub http_status_code: Option<i64>,
+    /// The fields of the root Span that were asked for, by their names.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub fields: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug)]
 pub(super) struct TraceListRow {
     item: TraceListItem,
     duration_ns: i64,
+    /// The Span the trace's summary was written from: its root.
+    root_span_id: String,
 }
 
 fn default_trace_page_size() -> usize {
     DEFAULT_TRACE_PAGE_SIZE
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("traces.read", "sys.telemetry.read"))]
 pub(super) async fn list_traces(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
     Query(query): Query<ListTracesQuery>,
 ) -> Result<Json<CursorPage<TraceListItem>>, Error> {
+    let mut query = query;
+    super::expression::expand(
+        &mut query.expression,
+        &mut query.q,
+        &mut query.filters,
+        &mut query.condition,
+    )?;
+
     let Some(definition) = resolve_traces_stream_definition(&state, &ctx.org_id).await else {
         return Ok(Json(CursorPage::empty()));
     };
 
+    let requested = roots::requested_fields(query.fields.as_deref(), &definition.schema)?;
     let context = resolve_context(&state, &ctx, query, &definition.schema)?;
     let stream = definition.name.clone();
 
@@ -117,14 +158,16 @@ pub(super) async fn list_traces(
 
     let fetch_limit = context.page_size.saturating_add(1);
 
-    let rows = if context.filters.iter().any(TraceFilter::is_span_filter) {
+    let rows = if context.query().has_span_filter() {
         span_filter::run(&state, &definition, &context, fetch_limit).await?
     } else {
         scan::run(&state, &ctx.org_id, &stream, &context, fetch_limit).await?
     };
 
     let direction = context.boundary.as_ref().map(|boundary| boundary.direction);
-    let page = trim_cursor_page(rows, context.page_size, direction);
+    let mut page = trim_cursor_page(rows, context.page_size, direction);
+
+    roots::attach(&state, &ctx, &definition, &requested, &mut page.items).await?;
 
     let previous_cursor = if page.has_previous {
         page.items
@@ -181,6 +224,10 @@ fn resolve_context(
         validate_cursor_request(&query, requested_page_size, &payload, schema)?;
         filter::validate(&payload.filters, schema)?;
 
+        if let Some(condition) = &payload.condition {
+            filter::condition::validate(condition, schema)?;
+        }
+
         return Ok(TraceListContext {
             from: payload.from,
             to: payload.to,
@@ -188,6 +235,7 @@ fn resolve_context(
             page_size: payload.page_size,
             q: payload.q,
             filters: payload.filters,
+            condition: payload.condition,
             boundary: Some(TraceCursorBoundary {
                 direction: payload.direction,
                 position: payload.position,
@@ -203,13 +251,22 @@ fn resolve_context(
         return Err(Error::invalid("to must be greater than from"));
     }
 
+    let filters = filter::parse(query.filters.as_deref(), schema, MAX_TRACE_FILTERS)?;
+
+    let condition = filter::condition::parse(
+        query.condition.as_deref(),
+        schema,
+        MAX_TRACE_FILTERS - filters.len(),
+    )?;
+
     Ok(TraceListContext {
         from,
         to,
         sort: query.sort.unwrap_or_default(),
         page_size: requested_page_size,
         q: query.q.as_deref().and_then(clean_input),
-        filters: filter::parse(query.filters.as_deref(), schema, MAX_TRACE_FILTERS)?,
+        filters,
+        condition,
         boundary: None,
     })
 }
@@ -232,6 +289,11 @@ fn validate_cursor_request(
             filter::parse(Some(filters), schema, MAX_TRACE_FILTERS)
                 .map(|parsed| parsed != payload.filters)
                 .unwrap_or(true)
+        })
+        || query.condition.as_deref().is_some_and(|condition| {
+            filter::condition::parse(Some(condition), schema, MAX_TRACE_FILTERS)
+                .map(|parsed| parsed != payload.condition)
+                .unwrap_or(true)
         });
 
     if mismatched {
@@ -243,7 +305,7 @@ fn validate_cursor_request(
     Ok(())
 }
 
-fn clean_input(value: &str) -> Option<String> {
+pub(super) fn clean_input(value: &str) -> Option<String> {
     let trimmed = value.trim();
 
     if trimmed.is_empty() {
@@ -275,7 +337,7 @@ mod tests {
     fn trace_filters_reject_unknown_operator_before_scan() {
         let schema = crate::shared::trace::normalization::canonical_trace_schema();
         let filters = serde_json::json!([{
-            "field": "service_name",
+            "field": "service.name",
             "op": "regex",
             "value": "api.*"
         }])
@@ -286,6 +348,38 @@ mod tests {
             error
                 .to_string()
                 .contains("unsupported trace filter operator")
+        );
+    }
+
+    /// The Grafana plugin and other clients read a listed trace by these names.
+    #[test]
+    fn a_listed_trace_keeps_the_names_clients_read() {
+        let item = TraceListItem {
+            trace_id: "t1".into(),
+            service: "api".into(),
+            operation: "GET /".into(),
+            start_ns: 1,
+            duration_ms: 2.5,
+            span_count: 3,
+            error_count: 0,
+            status: "OK".into(),
+            http_status_code: Some(200),
+            fields: BTreeMap::new(),
+        };
+
+        assert_eq!(
+            serde_json::to_value(item).unwrap(),
+            serde_json::json!({
+                "traceId": "t1",
+                "service": "api",
+                "operation": "GET /",
+                "startNs": 1,
+                "durationMs": 2.5,
+                "spanCount": 3,
+                "errorCount": 0,
+                "status": "OK",
+                "httpStatusCode": 200
+            })
         );
     }
 }

@@ -12,7 +12,8 @@ use serde::{Deserialize, Serialize};
 use super::IamContext;
 use crate::{
     domain::iam::{
-        IamAssignedRole, IamPlatformAdministratorRepository, IamScope, access::IamRepository,
+        IamAssignedRole, IamPlatformAdministratorRepository, IamScope,
+        access::{IamPlatformGrant, IamRepository},
         navigation::IamRouteAccess,
     },
     shared::{Result, ids::Id, time::TimestampMicros},
@@ -29,7 +30,7 @@ pub use evaluation::validate_iam_conditions;
 pub struct IamSubject {
     pub user_id: Id,
     pub organization_id: Id,
-    pub credential_role_id: Option<Id>,
+    pub credential_token_id: Option<Id>,
     pub credential_application_id: Option<String>,
     pub credential_service_account_id: Option<Id>,
     pub scope: IamScope,
@@ -40,7 +41,7 @@ impl From<&IamContext> for IamSubject {
         Self {
             user_id: context.user_id.clone(),
             organization_id: context.org_id.clone(),
-            credential_role_id: context.credential_role_id.clone(),
+            credential_token_id: context.credential_token_id.clone(),
             credential_application_id: context.credential_application_id.clone(),
             credential_service_account_id: context.credential_service_account_id.clone(),
             scope: context.scope,
@@ -49,12 +50,18 @@ impl From<&IamContext> for IamSubject {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IamCapabilitySnapshot {
     pub organization_id: String,
     pub scope: IamScope,
     pub display_role: String,
     pub roles: Vec<IamAssignedRole>,
     pub permissions: Vec<String>,
+    /// Platform permissions held on named organizations only: permission to organization ids. They
+    /// open pages, and a handler decides them against its target; `permissions` is what is held
+    /// without any such limit.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub organization_permissions: BTreeMap<String, Vec<String>>,
     pub version: u64,
     pub route_catalog_version: u64,
     pub routes: Vec<IamRouteAccess>,
@@ -77,6 +84,7 @@ pub struct IamAttributes {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IamTarget {
     #[serde(default)]
     pub organization_id: Option<String>,
@@ -106,6 +114,8 @@ pub enum IamDecisionReason {
     ResourceRelationship,
     CrossOrganizationGrant,
     ScopeBoundary,
+    /// The API token's scope leaves the permission out, whatever its principal holds.
+    CredentialScope,
     TenantIsolation,
     MissingMembership,
     ConditionMismatch,
@@ -113,6 +123,7 @@ pub enum IamDecisionReason {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IamDecision {
     pub allowed: bool,
     pub reason: IamDecisionReason,
@@ -154,7 +165,7 @@ struct SnapshotCacheKey {
     organization_id: String,
     user_id: String,
     scope: &'static str,
-    credential_role_id: Option<String>,
+    credential_token_id: Option<String>,
     credential_application_id: Option<String>,
     credential_service_account_id: Option<String>,
     version: u64,
@@ -165,6 +176,9 @@ struct SnapshotCacheKey {
     /// They are read from the database on every request, so a snapshot is only served again
     /// while the grant it was resolved from still stands.
     platform_grant: Option<String>,
+    /// What an API token was found to allow, read again on every request like the platform
+    /// grant: its ceiling and the role of its service account.
+    token_grant: Option<String>,
 }
 
 pub struct IamAccessService {
@@ -203,14 +217,17 @@ impl IamAccessService {
         &self.repository
     }
 
-    /// Whether the user holds platform permissions without being the configured root: as the
-    /// owner of an enabled organization. Such a user may enter the platform organization.
+    /// What the user was granted in the platform organization, as of now.
+    pub async fn platform_grant(&self, user_id: &Id) -> Result<IamPlatformGrant> {
+        self.repository
+            .platform_grant(user_id, TimestampMicros::now())
+            .await
+    }
+
+    /// Whether the user holds platform permissions without being the configured root: granted in
+    /// the platform organization, which such a user may enter.
     pub async fn holds_platform_permissions(&self, user_id: &Id) -> Result<bool> {
-        Ok(!self
-            .repository
-            .platform_permissions(user_id, TimestampMicros::now())
-            .await?
-            .is_empty())
+        Ok(!self.platform_grant(user_id).await?.is_empty())
     }
 
     /// Resolve and attach the current server-side snapshot to a request context.

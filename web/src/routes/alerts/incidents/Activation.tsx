@@ -11,7 +11,7 @@ import { FirstRun } from '@/shell/firstRun/FirstRun';
 export function AlertsActivation() {
   const { t } = useTranslation('alerts');
   const navigate = useNavigate();
-  const createAccess = useActionAccess({ permission: 'alerts.manage' });
+  const createAccess = useActionAccess({ permission: 'alerts.rules.manage' });
 
   return (
     <FirstRun

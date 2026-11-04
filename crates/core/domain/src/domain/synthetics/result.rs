@@ -51,15 +51,17 @@ impl ProbeOutcome {
 /// to at most `total_micros`. A phase the probe did not time is `None`.
 /// `TimingBreakdown` in `proto/probe/v1/probe.proto` is the full definition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct TimingBreakdown {
-    pub dns_micros: Option<u64>,
-    pub connect_micros: Option<u64>,
-    pub tls_micros: Option<u64>,
-    pub first_byte_micros: Option<u64>,
-    pub total_micros: Option<u64>,
+    pub dns_time: Option<u64>,
+    pub connect_time: Option<u64>,
+    pub tls_time: Option<u64>,
+    pub first_byte_time: Option<u64>,
+    pub total_time: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProbeAttempt {
     pub number: u32,
     pub started_at: TimestampMicros,
@@ -75,6 +77,7 @@ pub struct ProbeAttempt {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProbeStepEvidence {
     pub step_id: Id,
     pub name: String,
@@ -88,6 +91,7 @@ pub struct ProbeStepEvidence {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AssertionObservation {
     pub assertion_id: Id,
     pub severity: AssertionSeverity,
@@ -97,6 +101,7 @@ pub struct AssertionObservation {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SyntheticResultArtifact {
     pub id: Id,
     pub name: String,
@@ -111,6 +116,7 @@ pub struct SyntheticResultArtifact {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SyntheticResult {
     pub id: Id,
     pub organization_id: Id,
@@ -140,8 +146,20 @@ pub struct SyntheticResultListQuery {
     pub check_query: Option<String>,
     pub outcome: Option<ProbeOutcome>,
     pub location_id: Option<Id>,
+    /// Runs that finished at or after this.
+    pub from: Option<TimestampMicros>,
+    /// Runs that finished before this.
+    pub to: Option<TimestampMicros>,
     pub offset: u64,
     pub limit: u32,
+}
+
+/// What a purge of old runs took away.
+#[derive(Debug, Clone, Default)]
+pub struct PurgedResults {
+    pub deleted: u64,
+    /// The objects the runs' artifacts and details were stored under, which are left to delete.
+    pub object_keys: Vec<String>,
 }
 
 #[derive(Debug, Clone)]

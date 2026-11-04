@@ -42,7 +42,8 @@ use crate::{
 pub mod candidate_router;
 pub mod export;
 mod owner;
-mod summary;
+mod processing;
+pub(crate) mod summary;
 
 #[derive(Debug, Clone, Copy)]
 pub struct TraceSinkWorkerConfig {
@@ -122,6 +123,12 @@ impl TracePipelineConfig {
 #[async_trait]
 pub trait TraceSink: Send + Sync {
     fn name(&self) -> &'static str;
+
+    /// Whether the sink wants a trace. One it does not want reaches neither its queue nor its counts.
+    fn takes(&self, _trace: &DecidedTrace) -> bool {
+        true
+    }
+
     async fn export(&self, traces: &[DecidedTrace]) -> Result<(), String>;
 }
 
@@ -140,6 +147,7 @@ pub struct TraceSinkHealth {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TraceSinkHealthSnapshot {
     pub queue_depth: usize,
     pub queue_capacity: usize,
@@ -178,6 +186,7 @@ impl TraceSinkHealth {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TracePipelineHealthSnapshot {
     pub accepting: bool,
     pub candidate_queue_depth: usize,
@@ -188,6 +197,7 @@ pub struct TracePipelineHealthSnapshot {
 }
 
 pub(super) struct SinkEndpoint {
+    sink: Arc<dyn TraceSink>,
     sender: mpsc::Sender<DecidedTrace>,
     health: Arc<TraceSinkHealth>,
     name: &'static str,
@@ -426,7 +436,7 @@ fn make_sink_worker(
     let health = Arc::new(TraceSinkHealth::with_capacity(config.queue_capacity));
 
     let join = tokio::spawn(run_sink_worker(
-        sink,
+        sink.clone(),
         receiver,
         config,
         limits,
@@ -435,6 +445,7 @@ fn make_sink_worker(
 
     (
         Some(SinkEndpoint {
+            sink,
             sender,
             health: health.clone(),
             name,
@@ -470,6 +481,10 @@ fn enqueue_sink(endpoint: Option<&SinkEndpoint>, trace: DecidedTrace) {
     let Some(endpoint) = endpoint else {
         return;
     };
+
+    if !endpoint.sink.takes(&trace) {
+        return;
+    }
 
     let spans = trace.spans.len() as u64;
     endpoint.health.queue_depth.fetch_add(1, Ordering::Relaxed);
@@ -700,16 +715,20 @@ fn span_count(traces: &[DecidedTrace]) -> usize {
     traces.iter().map(|trace| trace.spans.len()).sum()
 }
 
+/// Writes the traces that were kept into this deployment's own storage: tenants' always, the
+/// process's own only with self telemetry on.
 pub struct SelfIntakeTraceSink {
     intake: Arc<IntakeService>,
     system_org_id: Id,
+    stores_own_traces: bool,
 }
 
 impl SelfIntakeTraceSink {
-    pub fn new(intake: Arc<IntakeService>, system_org_id: Id) -> Self {
+    pub fn new(intake: Arc<IntakeService>, system_org_id: Id, stores_own_traces: bool) -> Self {
         Self {
             intake,
             system_org_id,
+            stores_own_traces,
         }
     }
 }
@@ -718,6 +737,10 @@ impl SelfIntakeTraceSink {
 impl TraceSink for SelfIntakeTraceSink {
     fn name(&self) -> &'static str {
         "self_intake"
+    }
+
+    fn takes(&self, trace: &DecidedTrace) -> bool {
+        self.stores_own_traces || trace.stream.is_some()
     }
 
     async fn export(&self, traces: &[DecidedTrace]) -> Result<(), String> {
@@ -733,9 +756,21 @@ impl TraceSink for SelfIntakeTraceSink {
                 ),
             };
 
+            let spans = summary::span_events(trace);
+
+            let spans = if internal {
+                spans
+            } else {
+                processing::written_spans(&self.intake, &org_id, &stream, spans).await?
+            };
+
             let group = groups.entry((org_id, stream, internal)).or_default();
-            group.0.extend(summary::span_events(trace));
-            group.1.extend(summary::summary_event(trace));
+
+            if summary::summarized(trace) {
+                group.1.extend(summary::summary_event(&spans));
+            }
+
+            group.0.extend(spans);
         }
 
         for ((org_id, stream, internal), (spans, summaries)) in groups {
@@ -949,6 +984,64 @@ mod tests {
         assert_eq!(left.len(), 1);
         assert_eq!(left[0].trace_id, right[0].trace_id);
         assert_eq!(left[0].reason, right[0].reason);
+    }
+
+    #[derive(Default)]
+    struct TenantTracesSink(MemoryTraceSink);
+
+    #[async_trait]
+    impl TraceSink for TenantTracesSink {
+        fn name(&self) -> &'static str {
+            "self_intake"
+        }
+
+        fn takes(&self, trace: &DecidedTrace) -> bool {
+            trace.stream.is_some()
+        }
+
+        async fn export(&self, traces: &[DecidedTrace]) -> Result<(), String> {
+            self.0.export(traces).await
+        }
+    }
+
+    #[tokio::test]
+    async fn a_sink_neither_queues_nor_counts_a_trace_it_does_not_take() {
+        let sink = Arc::new(TenantTracesSink::default());
+
+        let pipeline = TracePipeline::start(
+            test_sampler(),
+            Some(sink.clone()),
+            None,
+            fast_config(),
+            TraceLimits::default(),
+        )
+        .unwrap();
+
+        let tenant_span = trace_fixtures::canonical_http_trace().remove(0);
+        let mut own_span = tenant_span.clone();
+
+        own_span.trace_id = own_span.trace_id.chars().rev().collect();
+
+        for (stream, span) in [(Some("default".to_string()), tenant_span), (None, own_span)] {
+            pipeline
+                .try_submit(TraceCandidate {
+                    org_id: "org".into(),
+                    stream,
+                    span,
+                    force_keep: ForceKeep::None,
+                })
+                .unwrap();
+        }
+
+        pipeline.shutdown().await;
+
+        let health = pipeline.health().self_intake.unwrap();
+        let stored = sink.0.traces("org").await;
+
+        assert_eq!(stored.len(), 1);
+        assert_eq!(stored[0].stream.as_deref(), Some("default"));
+        assert_eq!(health.exported_spans, 1);
+        assert_eq!(health.dropped_spans, 0);
     }
 
     #[tokio::test]

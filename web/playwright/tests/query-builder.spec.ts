@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 
+import { explorerRead, explorerReadBody, isExplorerRead } from '../fixtures/explorerReads';
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 
 const LOG_STREAM = {
@@ -7,53 +8,53 @@ const LOG_STREAM = {
   name: 'application_logs',
   label: 'application_logs',
   type: 'logs',
-  stream_type: 'logs',
+  streamType: 'logs',
   schema: {
     fields: [
-      { name: '_timestamp', data_type: 'timestamp', nullable: false, indexed: true },
-      { name: 'level', data_type: 'utf8', nullable: true, indexed: true },
-      { name: 'status', data_type: 'int64', nullable: true, indexed: false },
-      { name: 'message', data_type: 'utf8', nullable: true, indexed: false },
+      { name: '_timestamp', dataType: 'timestamp', nullable: false, indexed: true },
+      { name: 'level', dataType: 'utf8', nullable: true, indexed: true },
+      { name: 'status', dataType: 'int64', nullable: true, indexed: false },
+      { name: 'message', dataType: 'utf8', nullable: true, indexed: false },
     ],
   },
   retention: { days: 7 },
-  effective_retention: { days: 7 },
+  effectiveRetention: { days: 7 },
   settings: {
     description: null,
-    index_rules: [],
-    retention_filter: null,
-    keep_conditions: [],
-    max_query_range_hours: null,
-    flatten_level: null,
-    use_stream_stats_for_partitioning: false,
-    store_original_data: false,
-    enable_distinct_values: true,
+    indexRules: [],
+    retentionFilter: null,
+    keepConditions: [],
+    maxQueryRangeHours: null,
+    flattenLevel: null,
+    useStreamStatsForPartitioning: false,
+    storeOriginalData: false,
+    enableDistinctValues: true,
     queryable: true,
   },
-  created_at_micros: 1,
-  updated_at_micros: 1,
+  createdAt: 1,
+  updatedAt: 1,
 };
 
 interface LogListRequest {
   filters?: Array<{ field: string; op: string; value: string }>;
-  free_text?: string[];
+  freeText?: string[];
 }
 
 /** Serves one log stream and records what each list request asked for. */
 async function serveLogs(page: Page): Promise<LogListRequest[]> {
   const requests: LogListRequest[] = [];
   await page.route('**/api/v1/streams**', (route) => route.fulfill({ json: [LOG_STREAM] }));
-  await page.route('**/api/v1/web/logs', (route) => {
-    requests.push(route.request().postDataJSON() as LogListRequest);
+  await page.route(explorerRead('web/logs'), (route) => {
+    requests.push(explorerReadBody<LogListRequest>(route.request()));
     return route.fulfill({
       json: {
         items: [
           { _timestamp: 1_785_628_332_000_000, level: 'ERROR', status: 500, message: 'upstream timeout' },
           { _timestamp: 1_785_628_333_000_000, level: 'INFO', status: 200, message: 'order accepted' },
         ],
-        next_cursor: null,
-        previous_cursor: null,
-        has_more: false,
+        nextCursor: null,
+        previousCursor: null,
+        hasMore: false,
       },
     });
   });
@@ -126,8 +127,8 @@ test.describe('Code and Builder', () => {
     await serveLogs(page);
     const statements: string[] = [];
     page.on('request', (request) => {
-      if (request.method() !== 'POST' || new URL(request.url()).pathname !== '/api/v1/query') return;
-      const body = request.postDataJSON() as { language?: string; statement?: string };
+      if (!isExplorerRead(request, 'query')) return;
+      const body = explorerReadBody<{ language?: string; statement?: string }>(request);
       if (body.statement) statements.push(body.statement);
     });
     await page.goto('/logs');
@@ -170,7 +171,7 @@ test.describe('Code and Builder', () => {
       { field: 'level', op: '=', value: 'ERROR' },
       { field: 'status', op: '>=', value: '500' },
     ]);
-    expect(requests.at(-1)?.free_text).toEqual(['timeout']);
+    expect(requests.at(-1)?.freeText).toEqual(['timeout']);
 
     // Code holds the statement the filters wrote.
     await modes(page).getByRole('button', { name: 'Code', exact: true }).click();
@@ -191,11 +192,10 @@ test.describe('Code and Builder', () => {
   });
 
   test('Traces builds its filters the same way', async ({ page }) => {
-    await page.goto(`/traces?q=${encodeURIComponent("service_name = 'checkout'")}`);
+    await page.goto(`/traces?q=${encodeURIComponent("service.name = 'checkout'")}`);
     await modes(page).getByRole('button', { name: 'Builder', exact: true }).click();
 
     const builder = front(page).locator('[data-query-builder]');
-    // The alias in the link is shown as the field the stream has.
     await expect(builder.locator('[data-query-filter]')).toHaveText(['service.name=checkout']);
     await expect(builder.getByRole('button', { name: 'Add a filter' })).toBeVisible();
     await expect(builder.getByRole('textbox', { name: 'Search text' })).toBeVisible();

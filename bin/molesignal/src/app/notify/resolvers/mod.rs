@@ -80,6 +80,7 @@ impl RecipientResolverRegistry {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct FixedUsersConfig {
     user_ids: Vec<Id>,
     #[serde(default)]
@@ -109,7 +110,7 @@ fn parse_fixed_users_config(config: &Value) -> Result<FixedUsersConfig> {
         .collect::<HashSet<_>>();
 
     if unique.len() != config.user_ids.len() {
-        return Err(Error::invalid("fixed_users user_ids must be unique"));
+        return Err(Error::invalid("fixed_users userIds must be unique"));
     }
 
     Ok(config)
@@ -168,6 +169,7 @@ impl RecipientResolver for FixedUsersResolver {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CurrentOncallConfig {
     schedule_id: Id,
 }
@@ -264,7 +266,7 @@ mod tests {
     fn fixed_users_config_rejects_duplicates() {
         assert!(
             parse_fixed_users_config(&serde_json::json!({
-                "user_ids": ["user-a", "user-a"]
+                "userIds": ["user-a", "user-a"]
             }))
             .is_err()
         );
@@ -295,6 +297,7 @@ mod tests {
                 end_at: TimestampMicros(300),
                 reason: "temporary cover".into(),
             }],
+            swap_needs_approval: false,
             created_by: None,
             updated_by: None,
             created_at: TimestampMicros(1),
@@ -310,7 +313,7 @@ mod tests {
                     occurred_at: TimestampMicros(200),
                     attributes: serde_json::json!({}),
                 },
-                &serde_json::json!({"schedule_id": "schedule-a"}),
+                &serde_json::json!({"scheduleId": "schedule-a"}),
             )
             .await
             .unwrap();

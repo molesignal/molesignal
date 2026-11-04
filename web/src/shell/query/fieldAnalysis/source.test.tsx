@@ -22,9 +22,9 @@ const WHOLE = answerFromPayload({
   total: 900,
   present: 880,
   distinct: 3,
-  distinct_exact: true,
+  distinctExact: true,
   top: [{ value: 'a', count: 600 }],
-  top_skipped: false,
+  topSkipped: false,
 });
 
 describe('answerFromPayload', () => {
@@ -35,13 +35,13 @@ describe('answerFromPayload', () => {
         total: 10,
         present: 8,
         distinct: 5,
-        distinct_exact: false,
+        distinctExact: false,
         range: { min: '200', max: '504' },
-        spread: { avg: 301.5, q1: 200, median: 204, q3: 404, stddev_samp: 120, stddev_pop: 112, skewness: null, kurtosis: 0.4 },
+        spread: { avg: 301.5, q1: 200, median: 204, q3: 404, stddevSamp: 120, stddevPop: 112, skewness: null, kurtosis: 0.4 },
         bars: { origin: 200, width: 20, counts: [4, 0, 4] },
         top: [{ value: '200', count: 4 }],
-        top_skipped: false,
-        trend: { origin_micros: 60_000_000, bucket_micros: 60_000_000, series: [{ value: '200', counts: [3, 1] }] },
+        topSkipped: false,
+        trend: { originTime: 60_000_000, bucketTime: 60_000_000, series: [{ value: '200', counts: [3, 1] }] },
       }),
     ).toEqual({
       analysis: {
@@ -55,13 +55,13 @@ describe('answerFromPayload', () => {
         bars: { origin: 200, width: 20, counts: [4, 0, 4] },
         top: [{ value: '200', count: 4 }],
         topSkipped: false,
-        trend: { originMicros: 60_000_000, bucketMicros: 60_000_000, series: [{ value: '200', counts: [3, 1] }] },
+        trend: { originTime: 60_000_000, bucketTime: 60_000_000, series: [{ value: '200', counts: [3, 1] }] },
       },
     });
   });
 
   it('has no trend where the endpoint sent none', () => {
-    const answer = answerFromPayload({ kind: 'text', total: 3, present: 3, distinct: 3, top: [], top_skipped: true });
+    const answer = answerFromPayload({ kind: 'text', total: 3, present: 3, distinct: 3, top: [], topSkipped: true });
 
     expect('analysis' in answer && answer.analysis.trend).toBeNull();
   });

@@ -19,7 +19,7 @@ import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
 import { ProductState } from '@/product/states';
 import { ChromeButton } from '@/shell/chrome';
-import { CodeEditor } from '@/shell/codeEditor';
+import { JsonView } from '@/shell/JsonEditor';
 import { PageBody, PageHeader } from '@/shell/PageHeader';
 import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 import {
@@ -33,6 +33,10 @@ import { toast } from '@/shell/ui/sonner';
 import { Tabs, TabsContent } from '@/shell/ui/tabs';
 
 import { NotFound } from '../NotFound';
+import { todaysAlertRecord } from './alertRecord';
+import { auditReaderName } from './auditReader';
+import { PipelineLimits } from './counting/LimitUsage';
+import { pipelineKpis } from './detailKpis';
 import { PipelineFlow } from './editor/Flow';
 import { useConnectorNames } from './editor/resources';
 import {
@@ -44,13 +48,13 @@ import {
   pipelineGraphStats,
   signalTypeFromPipeline,
   stepType,
+  tableOf,
 } from './PipelineGraph';
 import {
   getPipelineRunsTableLabels,
   PipelineRunsTable,
 } from './PipelineRunsTable';
 import {
-  formatMillisDuration,
   formatLookback,
   formatRelativeMicros,
   formatSchedule,
@@ -113,11 +117,11 @@ export function PipelineDetail() {
       if (!pipeline) throw new Error('pipeline not loaded');
       return pipelinesApi.update(id, {
         name: pipeline.name,
-        source_stream: pipeline.source_stream ?? '',
-        target_stream: pipeline.target_stream ?? '',
-        function_steps: pipeline.function_steps ?? {},
+        sourceStream: pipeline.sourceStream ?? '',
+        targetStream: pipeline.targetStream ?? '',
+        functionSteps: pipeline.functionSteps ?? {},
         cron: pipeline.cron ?? 'every:5m',
-        lookback_secs: pipeline.lookback_secs ?? 300,
+        lookbackSecs: pipeline.lookbackSecs ?? 300,
         enabled,
       });
     },
@@ -151,17 +155,25 @@ export function PipelineDetail() {
   const type = signalTypeFromPipeline(pipeline);
   const health = pipelineHealth({
     ...pipeline,
-    ...(runs[0]?.state ? { last_run_state: runs[0].state } : {}),
+    ...(runs[0]?.state ? { lastRunState: runs[0].state } : {}),
   });
   const graph = pipelineGraphFromPipeline(pipeline, type);
+  const mode = executionMode(pipeline);
+  const alertRecord = todaysAlertRecord(pipeline);
   const routed = isRouted(graph);
   const first = firstStreamIndex(graph.sinks);
-  // What the events reach: every stream (the first one as a routing step picks it), then every connector.
-  const destinations = graph.sinks.map((sink, index) => {
-    const connector = connectorOf(sink);
-    if (connector !== null) return connectorNames[connector] ?? connector;
-    return routed && index === first ? t('flow.routed_detail') : sink;
-  });
+  // What the events reach: every stream (the first one as a routing step picks it), every connector,
+  // every extend table; an alert pipeline's events go back to the incident they open.
+  const destinations =
+    mode === 'alert'
+      ? [t(graph.alert.stage === 'notify' ? 'alert_mode.write_back_notify' : 'alert_mode.write_back')]
+      : graph.sinks.map((sink, index) => {
+          const connector = connectorOf(sink);
+          const table = tableOf(sink);
+          if (connector !== null) return connectorNames[connector] ?? connector;
+          if (table !== null) return t('table_sink.named', { name: table });
+          return routed && index === first ? t('flow.routed_detail') : sink;
+        });
   const {
     lastRun,
     runs24h,
@@ -170,6 +182,8 @@ export function PipelineDetail() {
     averageDuration,
     completedRuns,
   } = summarizePipelineRuns(runs);
+
+  const auditReader = auditReaderName(pipeline);
 
   const setActiveTab = (value: string) => {
     const next = value as PipelineDetailTab;
@@ -224,8 +238,15 @@ export function PipelineDetail() {
                   {t('flows.edit.history')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  disabled={runAccess.disabled || executionMode(pipeline) === 'realtime'}
-                  disabledReason={executionMode(pipeline) === 'realtime' ? t('realtime.no_backfill') : runAccess.reason}
+                  // Realtime and alert pipelines run on what arrives: there is no window to read again.
+                  disabled={runAccess.disabled || mode !== 'scheduled'}
+                  disabledReason={
+                    mode === 'realtime'
+                      ? t('realtime.no_backfill')
+                      : mode === 'alert'
+                        ? t('alert_mode.no_backfill')
+                        : runAccess.reason
+                  }
                   onSelect={() =>
                     runAccess.allowed &&
                     navigate(`/pipelines/${encodeURIComponent(id)}/backfill`)
@@ -258,21 +279,27 @@ export function PipelineDetail() {
         <PipelineDetailMetadata
           health={health}
           healthLabel={t(`overview.health.${health}`)}
-          typeTone={PIPELINE_TYPE_TONE[type]}
-          typeLabel={t(`filters.${type}`)}
+          typeTone={mode === 'alert' ? 'red' : PIPELINE_TYPE_TONE[type]}
+          typeLabel={mode === 'alert' ? t('alert_mode.signal') : t(`filters.${type}`)}
           items={[
             {
               label: t('detail.metadata.schedule'),
-              value: executionMode(pipeline) === 'realtime' ? t('realtime.title') : formatSchedule(pipeline.cron, i18n.language),
+              value:
+                mode === 'alert'
+                  ? t(graph.alert.stage === 'notify' ? 'alert_mode.schedule_notify' : 'alert_mode.schedule')
+                  : mode === 'realtime'
+                    ? t('realtime.title')
+                    : formatSchedule(pipeline.cron, i18n.language),
             },
             {
               label: t('detail.metadata.lookback'),
-              value: executionMode(pipeline) === 'realtime' ? '—' : formatLookback(pipeline.lookback_secs, i18n.language),
+              value: mode === 'scheduled' ? formatLookback(pipeline.lookbackSecs, i18n.language) : '—',
             },
             {
               label: t('detail.metadata.last_run'),
-              value: formatRelativeMicros(lastRun?.started_at_micros, i18n.language),
+              value: formatRelativeMicros(lastRun?.startedAt, i18n.language),
             },
+            ...(auditReader ? [{ label: t('detail.metadata.audit_reader'), value: auditReader }] : []),
           ]}
           runState={lastRun
             ? {
@@ -304,42 +331,12 @@ export function PipelineDetail() {
           <TabsContent value="overview" aria-labelledby="pipeline-tab-overview" className="m-0 min-h-0 flex-1 overflow-auto py-[12px]">
             <div className="mx-auto flex w-full max-w-[2200px] flex-col gap-[12px]">
               <PipelineKpiBand
-                items={[
-                  {
-                    label: t('detail.overview.last_run'),
-                    value: formatRelativeMicros(
-                      lastRun?.started_at_micros,
-                      i18n.language,
-                    ),
-                    note: lastRun
-                      ? t(`overview.run_states.${lastRun.state}`, { defaultValue: lastRun.state })
-                      : '—',
-                  },
-                  {
-                    label: t('detail.overview.success_rate'),
-                    value:
-                      successRate == null
-                        ? '—'
-                        : `${successRate.toFixed(successRate === 100 ? 0 : 1)}%`,
-                    note: t('detail.overview.window_24h', { count: runs24h.length }),
-                    tone: successRate != null && successRate >= 99 ? 'good' : 'neutral',
-                  },
-                  {
-                    label: t('detail.overview.processed_rows'),
-                    value: new Intl.NumberFormat(i18n.language, {
-                      notation: 'compact',
-                    }).format(processedRows),
-                    note: t('detail.overview.window_24h', { count: runs24h.length }),
-                  },
-                  {
-                    label: t('detail.overview.average_duration'),
-                    value:
-                      averageDuration == null
-                        ? '—'
-                        : formatMillisDuration(averageDuration),
-                    note: t('detail.overview.completed_runs', { count: completedRuns }),
-                  },
-                ]}
+                items={pipelineKpis(
+                  alertRecord,
+                  { lastRun, runs24h, successRate, processedRows, averageDuration, completedRuns },
+                  t,
+                  i18n.language,
+                )}
               />
 
               <PipelineSection
@@ -353,6 +350,8 @@ export function PipelineDetail() {
               >
                 <PipelineFlow model={graph} connectorNames={connectorNames} />
               </PipelineSection>
+
+              <PipelineLimits pipelineId={pipeline.id} graph={graph} />
 
               <PipelineSection
                 title={t('detail.recent_runs')}
@@ -433,7 +432,7 @@ export function PipelineDetail() {
                         key={view}
                         type="button"
                         onClick={() => setConfigView(view)}
-                        className={`rounded px-3 py-1.5 font-sans text-xs font-strong ${
+                        className={`rounded-sm px-3 py-1.5 font-sans text-xs font-strong ${
                           configView === view ? 'bg-bg-4 text-tx-0' : 'text-tx-2 hover:text-tx-0'
                         }`}
                       >
@@ -446,7 +445,9 @@ export function PipelineDetail() {
                 {configView === 'structured' ? (
                   <div className="grid gap-x-10 gap-y-4 md:grid-cols-2">
                     <PipelineConfigSection title={t('flow.source')}>
-                      <PipelineConfigValue>{graph.sources[0]}</PipelineConfigValue>
+                      <PipelineConfigValue>
+                        {mode === 'alert' ? t('alert_mode.source_title') : graph.sources[0]}
+                      </PipelineConfigValue>
                     </PipelineConfigSection>
                     <PipelineConfigSection title={t('flow.destinations')}>
                       {destinations.map((destination) => (
@@ -455,7 +456,9 @@ export function PipelineDetail() {
                     </PipelineConfigSection>
                     <PipelineConfigSection title={t('flow.processing')}>
                       {graph.transforms.length === 0 && (
-                        <PipelineConfigValue>{t('flow.no_steps')}</PipelineConfigValue>
+                        <PipelineConfigValue>
+                          {t(mode === 'alert' ? 'alert_mode.no_steps' : 'flow.no_steps')}
+                        </PipelineConfigValue>
                       )}
                       {graph.transforms.map((transform, index) => (
                         <PipelineConfigValue key={`${transform.name}-${index}`}>
@@ -465,14 +468,14 @@ export function PipelineDetail() {
                     </PipelineConfigSection>
                   </div>
                 ) : (
-                  <CodeEditor
-                    value={JSON.stringify(pipeline, null, 2)}
-                    language="json"
+                  <JsonView
+                    value={pipeline}
                     label="JSON"
                     ariaLabel={t('detail.configuration')}
-                    readOnly
                     minHeight={520}
                     maxHeight={720}
+                    showHeader
+                    showStatus
                   />
                 )}
               </PipelineSection>

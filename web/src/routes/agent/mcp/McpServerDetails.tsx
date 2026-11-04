@@ -52,8 +52,8 @@ export function McpServerDetails({
   const readOnlyOff = tools.filter(
     (tool) =>
       !tool.enabled &&
-      tool.capabilities.read_only === true &&
-      tool.minimum_risk === 'l0' &&
+      tool.capabilities.readOnly === true &&
+      tool.minimumRisk === 'l0' &&
       tool.status !== 'unavailable',
   ).length;
 
@@ -87,7 +87,7 @@ export function McpServerDetails({
                     <span className="rounded bg-bg-3 px-1 text-type-micro text-tx-2">
                       {tool.risk.toUpperCase()}
                     </span>
-                    {tool.capabilities.read_only === true && (
+                    {tool.capabilities.readOnly === true && (
                       <span className="rounded bg-bg-3 px-1 text-type-micro text-tx-2">
                         {t('settings.tools.mcp.details.read_only')}
                       </span>
@@ -96,9 +96,9 @@ export function McpServerDetails({
                   {tool.description && (
                     <span className="mt-0.5 block text-xs text-tx-3">{tool.description}</span>
                   )}
-                  {tool.unavailable_diagnostic && (
+                  {tool.unavailableDiagnostic && (
                     <span className="mt-0.5 block text-xs text-[var(--yellow-ink)]">
-                      {tool.unavailable_diagnostic}
+                      {tool.unavailableDiagnostic}
                     </span>
                   )}
                 </span>

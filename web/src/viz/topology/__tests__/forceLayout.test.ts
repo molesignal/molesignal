@@ -10,10 +10,10 @@ import {
 describe('topology layout cache', () => {
   it('hashGraph is stable under id permutation', () => {
     const nodes = [
-      { id: 'b', name: 'b', error_rate: 0, p95_ms: 0, rps: 0, span_count: 0 },
-      { id: 'a', name: 'a', error_rate: 0, p95_ms: 0, rps: 0, span_count: 0 },
+      { id: 'b', name: 'b', errorRate: 0, p95Ms: 0, rps: 0, spanCount: 0 },
+      { id: 'a', name: 'a', errorRate: 0, p95Ms: 0, rps: 0, spanCount: 0 },
     ];
-    const edges = [{ source: 'b', target: 'a', rps: 0, err_rate: 0, p95_ms: 0 }];
+    const edges = [{ source: 'b', target: 'a', rps: 0, errRate: 0, p95Ms: 0 }];
     const h1 = hashGraph(nodes, edges, 1000);
     const h2 = hashGraph([...nodes].reverse(), edges, 1000);
     expect(h1).toBe(h2);
@@ -21,7 +21,7 @@ describe('topology layout cache', () => {
 
   it('keeps layouts for short and tall viewports separate', () => {
     const nodes = [
-      { id: 'api', name: 'api', error_rate: 0, p95_ms: 0, rps: 0, span_count: 0 },
+      { id: 'api', name: 'api', errorRate: 0, p95Ms: 0, rps: 0, spanCount: 0 },
     ];
     expect(hashGraph(nodes, [], 1000, 360)).not.toBe(hashGraph(nodes, [], 1000, 720));
   });
@@ -30,10 +30,10 @@ describe('topology layout cache', () => {
     const nodes = ['gateway', 'checkout', 'payment', 'inventory', 'auth', 'bank'].map((id) => ({
       id,
       name: id,
-      error_rate: 0,
-      p95_ms: 0,
+      errorRate: 0,
+      p95Ms: 0,
       rps: 0,
-      span_count: 0,
+      spanCount: 0,
     }));
     const edges = [
       ['gateway', 'checkout'],
@@ -45,8 +45,8 @@ describe('topology layout cache', () => {
       source: source!,
       target: target!,
       rps: 1,
-      err_rate: 0,
-      p95_ms: 1,
+      errRate: 0,
+      p95Ms: 1,
     }));
 
     const positions = computeForceLayout(nodes, edges, 1200, 380);
@@ -65,14 +65,14 @@ describe('topology layout cache', () => {
     const nodes = ['web', 'api', 'db'].map((id) => ({
       id,
       name: id,
-      error_rate: 0,
-      p95_ms: 0,
+      errorRate: 0,
+      p95Ms: 0,
       rps: 0,
-      span_count: 0,
+      spanCount: 0,
     }));
     const edges = [
-      { source: 'web', target: 'api', rps: 1, err_rate: 0, p95_ms: 1 },
-      { source: 'api', target: 'db', rps: 1, err_rate: 0, p95_ms: 1 },
+      { source: 'web', target: 'api', rps: 1, errRate: 0, p95Ms: 1 },
+      { source: 'api', target: 'db', rps: 1, errRate: 0, p95Ms: 1 },
     ];
 
     const positions = computeLayeredLayout(nodes, edges, 1200, 600, 'horizontal');
@@ -85,14 +85,14 @@ describe('topology layout cache', () => {
     const nodes = ['web', 'api', 'db'].map((id) => ({
       id,
       name: id,
-      error_rate: 0,
-      p95_ms: 0,
+      errorRate: 0,
+      p95Ms: 0,
       rps: 0,
-      span_count: 0,
+      spanCount: 0,
     }));
     const edges = [
-      { source: 'web', target: 'api', rps: 1, err_rate: 0, p95_ms: 1 },
-      { source: 'api', target: 'db', rps: 1, err_rate: 0, p95_ms: 1 },
+      { source: 'web', target: 'api', rps: 1, errRate: 0, p95Ms: 1 },
+      { source: 'api', target: 'db', rps: 1, errRate: 0, p95Ms: 1 },
     ];
 
     const positions = computeLayeredLayout(nodes, edges, 1200, 600, 'vertical');
@@ -105,14 +105,14 @@ describe('topology layout cache', () => {
     const nodes = ['a', 'b', 'standalone'].map((id) => ({
       id,
       name: id,
-      error_rate: 0,
-      p95_ms: 0,
+      errorRate: 0,
+      p95Ms: 0,
       rps: 0,
-      span_count: 0,
+      spanCount: 0,
     }));
     const edges = [
-      { source: 'a', target: 'b', rps: 1, err_rate: 0, p95_ms: 1 },
-      { source: 'b', target: 'a', rps: 1, err_rate: 0, p95_ms: 1 },
+      { source: 'a', target: 'b', rps: 1, errRate: 0, p95Ms: 1 },
+      { source: 'b', target: 'a', rps: 1, errRate: 0, p95Ms: 1 },
     ];
 
     const positions = computeLayeredLayout(nodes, edges, 800, 480);

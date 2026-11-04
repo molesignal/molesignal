@@ -2,11 +2,11 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 //! 只在一轮回答里有意义的工具：任务清单（`todo_write`）与向提问人提问（`ask_user`），以及
-//! 「确认」执行模式的工具执行前的确认。
+//! 「确认」执行模式的工具执行前的确认、MCP 服务器缺提问人凭据时的「授权以继续」。
 //!
-//! 它们要能和提问人说话（[`RunInteraction`]）：后台执行的 Run 提供，它把清单、问题与确认卡写进
-//! 对话并等回答。没有时清单只回一句已记下，问题让模型自己判断并说明假设，「确认」模式的工具
-//! 照旧不能直接执行。
+//! 它们要能和提问人说话（[`RunInteraction`]）：后台执行的 Run 提供，它把清单、问题、确认与
+//! 授权卡写进对话并等回答。没有时清单只回一句已记下，问题让模型自己判断并说明假设，「确认」
+//! 模式的工具照旧不能直接执行，缺的凭据请用户去设置里填写。
 
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -18,6 +18,7 @@ use crate::{
         runs::QuestionKind,
         tools::{BuiltinToolKind, ToolResult},
     },
+    app::mcp::CredentialNeed,
     shared::{Error, Result},
 };
 
@@ -37,6 +38,8 @@ pub(crate) enum Reply {
     Declined,
     /// 等太久，没有回答。
     TimedOut,
+    /// 没有人可问：自动化与事件触发的一轮。
+    Unattended,
     /// 这一轮被停下了。
     Stopped,
 }
@@ -50,6 +53,8 @@ pub(crate) trait RunInteraction: Send + Sync {
     async fn ask(&self, question: String, kind: QuestionKind, options: Vec<String>) -> Reply;
     /// 请确认执行一个工具，等到决定。
     async fn confirm(&self, tool: &str, arguments: &Value, risk: RiskLevel) -> Reply;
+    /// 请存下在一台 MCP 服务器上的凭据，等到存好（`Approved`）或跳过（`Declined`）。
+    async fn authorize(&self, tool: &str, need: &CredentialNeed) -> Reply;
     /// 在对话里留一条提醒，例如把一个团队挂进了会话。
     async fn notice(&self, payload: Value);
 }
@@ -155,6 +160,9 @@ pub(super) async fn execute(
                 Reply::Stopped => {
                     ToolResult::error("the run was stopped before the question was answered")
                 }
+                Reply::Unattended => {
+                    ToolResult::json(json!({ "answered": false, "note": NO_ONE_TO_ASK }))
+                }
                 _ => ToolResult::json(json!({ "answered": false, "note": NO_ANSWER })),
             })
         }
@@ -181,10 +189,49 @@ pub(super) async fn confirmation(
             "the person who asked declined to run `{tool}`; do not run it again unless they ask"
         ))),
         Reply::Stopped => Err(ToolResult::error("the run was stopped")),
+        Reply::Unattended => Err(ToolResult::error(format!(
+            "`{tool}` needs someone to confirm it and nobody can in this automated run, so it was not run"
+        ))),
         _ => Err(ToolResult::error(format!(
             "no one confirmed `{tool}` in time, so it was not run"
         ))),
     }
+}
+
+/// 提问人对「授权以继续」怎么回的。
+#[derive(Debug)]
+pub(super) enum Authorization {
+    /// 存好了凭据：这次调用再执行一次。
+    Saved,
+    /// 这一轮里不用这台服务器。
+    Skipped,
+    /// 交给模型的结果：没有人可问、等不到，或这一轮被停下。
+    Result(ToolResult),
+}
+
+/// 「授权以继续」：请提问人存下他在这台服务器上的凭据。
+pub(super) async fn authorization(
+    interaction: Option<&dyn RunInteraction>,
+    tool: &str,
+    need: CredentialNeed,
+) -> Authorization {
+    let Some(interaction) = interaction else {
+        return Authorization::Result(need.into_result());
+    };
+
+    match interaction.authorize(tool, &need).await {
+        Reply::Approved => Authorization::Saved,
+        Reply::Declined => Authorization::Skipped,
+        Reply::Stopped => Authorization::Result(ToolResult::error("the run was stopped")),
+        _ => Authorization::Result(need.into_result()),
+    }
+}
+
+/// 提问人在这一轮里跳过了这台服务器。
+pub(super) fn skipped(server: &str) -> ToolResult {
+    ToolResult::error(format!(
+        "The person who asked chose not to connect the MCP server `{server}` now. Continue without its tools and do not call them again in this answer."
+    ))
 }
 
 #[cfg(test)]
@@ -211,6 +258,10 @@ mod tests {
         }
 
         async fn confirm(&self, _: &str, _: &Value, _: RiskLevel) -> Reply {
+            self.reply.clone().unwrap_or(Reply::TimedOut)
+        }
+
+        async fn authorize(&self, _: &str, _: &CredentialNeed) -> Reply {
             self.reply.clone().unwrap_or(Reply::TimedOut)
         }
 
@@ -301,5 +352,53 @@ mod tests {
                 .await
                 .is_err()
         );
+    }
+
+    fn need() -> CredentialNeed {
+        CredentialNeed {
+            server_id: crate::shared::ids::Id::from_string("server-1"),
+            server: "Linear".into(),
+            header: "authorization".into(),
+            bearer: true,
+            instructions: String::new(),
+            rejected: false,
+        }
+    }
+
+    #[tokio::test]
+    async fn a_saved_credential_runs_the_call_again_and_a_skip_is_kept() {
+        let saved = Recorder {
+            reply: Some(Reply::Approved),
+            ..Recorder::default()
+        };
+        assert!(matches!(
+            authorization(Some(&saved), "linear_search", need()).await,
+            Authorization::Saved
+        ));
+
+        let skip = Recorder {
+            reply: Some(Reply::Declined),
+            ..Recorder::default()
+        };
+        assert!(matches!(
+            authorization(Some(&skip), "linear_search", need()).await,
+            Authorization::Skipped
+        ));
+        assert!(
+            skipped("Linear")
+                .first_text()
+                .unwrap()
+                .contains("do not call them again")
+        );
+
+        // 没有人可问、或等不到时，请用户去设置里填。
+        for interaction in [None, Some(&Recorder::default() as &dyn RunInteraction)] {
+            let Authorization::Result(result) =
+                authorization(interaction, "linear_search", need()).await
+            else {
+                panic!("expected a result for the model");
+            };
+            assert!(result.first_text().unwrap().contains("My credential"));
+        }
     }
 }

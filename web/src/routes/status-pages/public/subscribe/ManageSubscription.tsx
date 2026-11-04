@@ -20,6 +20,7 @@ import { namedComponents } from '../../model';
 import { PUBLIC_CONTROL_HEIGHT } from '../control';
 import { chosenComponentIds } from './actions';
 import { ComponentChoice } from './ComponentChoice';
+import { SUBSCRIPTION_DIALOG_BODY, SUBSCRIPTION_DIALOG_HEAD } from './dialogFrame';
 
 /**
  * A subscriber's own subscription, opened from the manage link every message
@@ -51,8 +52,8 @@ export function ManageSubscription({
 
   React.useEffect(() => {
     if (!preferences.data) return;
-    setScope(preferences.data.component_scope);
-    setChosen(preferences.data.component_ids);
+    setScope(preferences.data.componentScope);
+    setChosen(preferences.data.componentIds);
   }, [preferences.data]);
 
   const save = useMutation({
@@ -74,23 +75,23 @@ export function ManageSubscription({
       <DialogContent
         data-theme="light"
         style={{ '--status-brand': brandColor } as React.CSSProperties}
-        className="w-[min(520px,calc(100vw-24px))] gap-0 border-bd-1 bg-white p-0 text-tx-1"
+        className="w-[min(520px,calc(100vw-24px))] max-w-none gap-0 border-bd-1 bg-white p-0 text-tx-1"
       >
-        <DialogHeader className="border-b border-bd-0 px-5 pb-5 pt-6 sm:px-6">
+        <DialogHeader className={SUBSCRIPTION_DIALOG_HEAD}>
           <DialogTitle className="text-xl font-display-strong text-tx-0">
             {copy('public.subscription.manage_title')}
           </DialogTitle>
           <DialogDescription className="mt-2 text-sm leading-6 text-tx-2">
             {subscription
               ? copy('public.subscription.manage_description', {
-                  target: subscription.target_label ?? subscription.masked_target,
+                  target: subscription.targetLabel ?? subscription.maskedTarget,
                   channel: copy(`public.subscription.${subscription.channel}`),
                 })
               : copy('public.subscription.manage_loading')}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5 px-5 py-6 sm:px-6">
+        <div className={SUBSCRIPTION_DIALOG_BODY}>
           {preferences.isError ? (
             <p role="alert" className="text-sm leading-6 text-tx-2">{copy('public.subscription.action_failed')}</p>
           ) : stopped ? (

@@ -21,7 +21,7 @@ use crate::{
         OrganizationScope, Partition, PartitionManifestPointer, PhysicalDatasetId, StoredObject,
         WalCheckpointView, WalSequence, WriterEpoch, WriterNodeId,
     },
-    shared::{Error, Result},
+    shared::{Error, Result, time::TimestampMicros},
 };
 
 pub(super) async fn snapshot(
@@ -110,20 +110,20 @@ pub(super) async fn snapshot(
     let mut segment_sql = format!(
         "SELECT {SEGMENT_COLS} FROM catalog_segments \
          WHERE org_id = $1 AND dataset_id = ANY($2) AND state = 'active' \
-           AND min_event_micros <= $3 AND max_event_micros >= $4"
+           AND min_event <= $3 AND max_event >= $4"
     );
 
     if selection.partition_shard.is_some() {
         segment_sql.push_str(" AND partition_shard = $5");
     }
 
-    segment_sql.push_str(" ORDER BY partition_start_micros, id");
+    segment_sql.push_str(" ORDER BY partition_start, id");
 
     let mut segment_query = sqlx::query(&segment_sql)
         .bind(scope.organization_id.as_str())
         .bind(&dataset_ids)
-        .bind(selection.time_range.end.0)
-        .bind(selection.time_range.start.0);
+        .bind(selection.time_range.end)
+        .bind(selection.time_range.start);
 
     if let Some(shard) = selection.partition_shard {
         segment_query = segment_query.bind(shard as i16);
@@ -131,24 +131,24 @@ pub(super) async fn snapshot(
 
     let segment_rows = segment_query.fetch_all(&mut *tx).await.map_err(sqlx_err)?;
 
-    let mut manifest_sql = "SELECT org_id, dataset_id, partition_start_micros, \
-         partition_end_micros, partition_shard, generation, object_key, size_bytes, checksum, \
-         etag, segment_count, created_at_micros FROM partition_manifests \
+    let mut manifest_sql = "SELECT org_id, dataset_id, partition_start, \
+         partition_end, partition_shard, generation, object_key, size_bytes, checksum, \
+         etag, segment_count, created_at FROM partition_manifests \
          WHERE org_id = $1 AND dataset_id = ANY($2) AND state = 'active' \
-           AND partition_start_micros <= $3 AND partition_end_micros >= $4"
+           AND partition_start <= $3 AND partition_end >= $4"
         .to_owned();
 
     if selection.partition_shard.is_some() {
         manifest_sql.push_str(" AND partition_shard = $5");
     }
 
-    manifest_sql.push_str(" ORDER BY partition_start_micros, generation");
+    manifest_sql.push_str(" ORDER BY partition_start, generation");
 
     let mut manifest_query = sqlx::query(&manifest_sql)
         .bind(scope.organization_id.as_str())
         .bind(&dataset_ids)
-        .bind(selection.time_range.end.0)
-        .bind(selection.time_range.start.0);
+        .bind(selection.time_range.end)
+        .bind(selection.time_range.start);
 
     if let Some(shard) = selection.partition_shard {
         manifest_query = manifest_query.bind(shard as i16);
@@ -211,8 +211,14 @@ pub(super) async fn snapshot(
                 organization_id: scope.organization_id.clone(),
                 dataset_id: PhysicalDatasetId::from_string(dataset_id),
                 partition: Partition {
-                    start_micros: row.try_get("partition_start_micros").map_err(sqlx_err)?,
-                    end_micros: row.try_get("partition_end_micros").map_err(sqlx_err)?,
+                    start_micros: row
+                        .try_get::<TimestampMicros, _>("partition_start")
+                        .map_err(sqlx_err)?
+                        .0,
+                    end_micros: row
+                        .try_get::<TimestampMicros, _>("partition_end")
+                        .map_err(sqlx_err)?
+                        .0,
                     shard: row.try_get::<i16, _>("partition_shard").map_err(sqlx_err)? as u16,
                 },
                 generation: to_u64(
@@ -233,7 +239,10 @@ pub(super) async fn snapshot(
                     etag: row.try_get("etag").map_err(sqlx_err)?,
                 },
                 segment_count: row.try_get::<i32, _>("segment_count").map_err(sqlx_err)? as u32,
-                created_at_micros: row.try_get("created_at_micros").map_err(sqlx_err)?,
+                created_at_micros: row
+                    .try_get::<TimestampMicros, _>("created_at")
+                    .map_err(sqlx_err)?
+                    .0,
             });
     }
 

@@ -13,7 +13,7 @@ async fn root_user_cannot_be_removed_by_iam_apis() {
     }
 
     let server = TestServer::start().await;
-    let authorization = format!("Bearer {}", server.root_token);
+    let session = format!("accessToken={}", server.root_token);
 
     let membership_response = server
         .client
@@ -21,7 +21,7 @@ async fn root_user_cannot_be_removed_by_iam_apis() {
             "{}/api/v1/orgs/{}/members/{}",
             server.base_url, server.root_org_id.0, server.root_user_id.0
         ))
-        .header("authorization", &authorization)
+        .header("cookie", &session)
         .send()
         .await
         .expect("remove root membership");
@@ -33,11 +33,11 @@ async fn root_user_cannot_be_removed_by_iam_apis() {
             "{}/api/v1/users/{}",
             server.base_url, server.root_user_id.0
         ))
-        .header("authorization", &authorization)
+        .header("cookie", &session)
         .send()
         .await
         .expect("delete root user");
-    assert_eq!(user_response.status(), StatusCode::FORBIDDEN);
+    assert_eq!(user_response.status(), StatusCode::BAD_REQUEST);
 
     server
         .state

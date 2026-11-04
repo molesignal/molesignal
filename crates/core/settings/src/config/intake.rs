@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntakeSettings {
     #[serde(default = "default_buffer_max")]
-    pub buffer_max_mb: u32,
+    pub buffer_max_size: u32,
     #[serde(default = "default_max_buffer_memory")]
-    pub max_buffer_memory_mb: u32,
+    pub max_buffer_memory_size: u32,
     #[serde(default = "default_flush_interval")]
     pub flush_interval_secs: u32,
     #[serde(default = "default_flush_parallel")]
@@ -40,8 +40,8 @@ fn default_flush_parallel() -> u32 {
 impl Default for IntakeSettings {
     fn default() -> Self {
         Self {
-            buffer_max_mb: default_buffer_max(),
-            max_buffer_memory_mb: default_max_buffer_memory(),
+            buffer_max_size: default_buffer_max(),
+            max_buffer_memory_size: default_max_buffer_memory(),
             flush_interval_secs: default_flush_interval(),
             flush_parallelism: default_flush_parallel(),
             rotation: ParquetRotationSettings::default(),
@@ -53,8 +53,8 @@ impl Default for IntakeSettings {
 impl IntakeSettings {
     pub fn validate(&self) -> anyhow::Result<()> {
         for (name, value) in [
-            ("buffer_max_mb", self.buffer_max_mb),
-            ("max_buffer_memory_mb", self.max_buffer_memory_mb),
+            ("buffer_max_size", self.buffer_max_size),
+            ("max_buffer_memory_size", self.max_buffer_memory_size),
             ("flush_interval_secs", self.flush_interval_secs),
             ("flush_parallelism", self.flush_parallelism),
         ] {
@@ -63,7 +63,7 @@ impl IntakeSettings {
             }
         }
 
-        self.rotation.validate(self.buffer_max_mb)?;
+        self.rotation.validate(self.buffer_max_size)?;
         self.prometheus.validate()
     }
 }
@@ -74,9 +74,9 @@ pub struct ParquetRotationSettings {
     #[serde(default = "default_true")]
     pub adaptive_enabled: bool,
     #[serde(default = "default_target_file_size")]
-    pub target_file_size_mb: u32,
+    pub target_file_size: u32,
     #[serde(default = "default_min_buffer")]
-    pub min_buffer_mb: u32,
+    pub min_buffer_size: u32,
     #[serde(default = "default_rotation_alpha")]
     pub ewma_alpha: f64,
 }
@@ -101,21 +101,21 @@ impl Default for ParquetRotationSettings {
     fn default() -> Self {
         Self {
             adaptive_enabled: default_true(),
-            target_file_size_mb: default_target_file_size(),
-            min_buffer_mb: default_min_buffer(),
+            target_file_size: default_target_file_size(),
+            min_buffer_size: default_min_buffer(),
             ewma_alpha: default_rotation_alpha(),
         }
     }
 }
 
 impl ParquetRotationSettings {
-    fn validate(&self, max_buffer_mb: u32) -> anyhow::Result<()> {
-        if self.target_file_size_mb == 0 {
-            anyhow::bail!("intake.rotation.target_file_size_mb must be greater than zero");
+    fn validate(&self, max_buffer_size: u32) -> anyhow::Result<()> {
+        if self.target_file_size == 0 {
+            anyhow::bail!("intake.rotation.target_file_size must be greater than zero");
         }
 
-        if self.min_buffer_mb == 0 || self.min_buffer_mb > max_buffer_mb {
-            anyhow::bail!("intake.rotation.min_buffer_mb must be in 1..=intake.buffer_max_mb");
+        if self.min_buffer_size == 0 || self.min_buffer_size > max_buffer_size {
+            anyhow::bail!("intake.rotation.min_buffer_size must be in 1..=intake.buffer_max_size");
         }
 
         if !self.ewma_alpha.is_finite() || self.ewma_alpha <= 0.0 || self.ewma_alpha > 1.0 {
@@ -133,11 +133,11 @@ pub struct PrometheusIntakeSettings {
     #[serde(default = "default_prometheus_max_labels")]
     pub max_labels_per_series: usize,
     /// label name 的最大 UTF-8 字节数。
-    #[serde(default = "default_prometheus_max_label_name_bytes")]
-    pub max_label_name_bytes: usize,
+    #[serde(default = "default_prometheus_max_label_name_length")]
+    pub max_label_name_length: usize,
     /// label value 的最大 UTF-8 字节数。
-    #[serde(default = "default_prometheus_max_label_value_bytes")]
-    pub max_label_value_bytes: usize,
+    #[serde(default = "default_prometheus_max_label_value_length")]
+    pub max_label_value_length: usize,
     /// 一个内部 IntakeBatch / WAL seq 最多承载的 sample 数。
     #[serde(default = "default_prometheus_max_samples_per_batch")]
     pub max_samples_per_batch: usize,
@@ -149,11 +149,11 @@ fn default_prometheus_max_labels() -> usize {
     64
 }
 
-fn default_prometheus_max_label_name_bytes() -> usize {
+fn default_prometheus_max_label_name_length() -> usize {
     128
 }
 
-fn default_prometheus_max_label_value_bytes() -> usize {
+fn default_prometheus_max_label_value_length() -> usize {
     2048
 }
 
@@ -165,8 +165,8 @@ impl Default for PrometheusIntakeSettings {
     fn default() -> Self {
         Self {
             max_labels_per_series: default_prometheus_max_labels(),
-            max_label_name_bytes: default_prometheus_max_label_name_bytes(),
-            max_label_value_bytes: default_prometheus_max_label_value_bytes(),
+            max_label_name_length: default_prometheus_max_label_name_length(),
+            max_label_value_length: default_prometheus_max_label_value_length(),
             max_samples_per_batch: default_prometheus_max_samples_per_batch(),
             cardinality: PrometheusCardinalitySettings::default(),
         }
@@ -177,8 +177,8 @@ impl PrometheusIntakeSettings {
     fn validate(&self) -> anyhow::Result<()> {
         for (name, value) in [
             ("max_labels_per_series", self.max_labels_per_series),
-            ("max_label_name_bytes", self.max_label_name_bytes),
-            ("max_label_value_bytes", self.max_label_value_bytes),
+            ("max_label_name_length", self.max_label_name_length),
+            ("max_label_value_length", self.max_label_value_length),
             ("max_samples_per_batch", self.max_samples_per_batch),
         ] {
             if value == 0 {
@@ -190,17 +190,14 @@ impl PrometheusIntakeSettings {
     }
 }
 
-/// 当前 intake owner 上的 Prometheus active-series 准入。
+/// 当前 intake owner 上的 Prometheus active-series 准入。这里是进程的上限；组织与指标的上限是
+/// 平台设置，运行中修改。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrometheusCardinalitySettings {
     #[serde(default = "default_true")]
     pub enabled: bool,
     #[serde(default = "default_max_active_series_process")]
     pub max_active_series_per_process: usize,
-    #[serde(default = "default_max_active_series_org")]
-    pub max_active_series_per_org: usize,
-    #[serde(default = "default_max_active_series_metric")]
-    pub max_active_series_per_metric: usize,
     #[serde(default = "default_max_new_series_minute")]
     pub max_new_series_per_minute: usize,
     #[serde(default = "default_series_idle_ttl")]
@@ -209,14 +206,6 @@ pub struct PrometheusCardinalitySettings {
 
 fn default_max_active_series_process() -> usize {
     1_000_000
-}
-
-fn default_max_active_series_org() -> usize {
-    200_000
-}
-
-fn default_max_active_series_metric() -> usize {
-    100_000
 }
 
 fn default_max_new_series_minute() -> usize {
@@ -234,8 +223,6 @@ impl Default for PrometheusCardinalitySettings {
         Self {
             enabled: default_true(),
             max_active_series_per_process: default_max_active_series_process(),
-            max_active_series_per_org: default_max_active_series_org(),
-            max_active_series_per_metric: default_max_active_series_metric(),
             max_new_series_per_minute: default_max_new_series_minute(),
             idle_ttl_secs: default_series_idle_ttl(),
         }
@@ -253,11 +240,6 @@ impl PrometheusCardinalitySettings {
                 "max_active_series_per_process",
                 self.max_active_series_per_process,
             ),
-            ("max_active_series_per_org", self.max_active_series_per_org),
-            (
-                "max_active_series_per_metric",
-                self.max_active_series_per_metric,
-            ),
             ("max_new_series_per_minute", self.max_new_series_per_minute),
         ] {
             if value == 0 {
@@ -271,18 +253,6 @@ impl PrometheusCardinalitySettings {
             );
         }
 
-        if self.max_active_series_per_process < self.max_active_series_per_org {
-            anyhow::bail!(
-                "intake.prometheus.cardinality.max_active_series_per_process must be >= max_active_series_per_org"
-            );
-        }
-
-        if self.max_active_series_per_org < self.max_active_series_per_metric {
-            anyhow::bail!(
-                "intake.prometheus.cardinality.max_active_series_per_org must be >= max_active_series_per_metric"
-            );
-        }
-
         Ok(())
     }
 }
@@ -291,20 +261,11 @@ impl PrometheusCardinalitySettings {
 pub struct CompactorSettings {
     #[serde(default = "default_compact_interval")]
     pub interval_secs: u32,
-    #[serde(default = "default_compact_size", alias = "target_file_size_mb")]
-    pub target_mb: u32,
+    /// 一次合并的输入文件总大小上限，单位 MiB。
+    #[serde(default = "default_compact_size")]
+    pub target_size: u32,
     #[serde(default = "default_compact_concurrency")]
     pub max_concurrent_groups: u32,
-    /// Global retention fallback used when a stream has no explicit retention.
-    #[serde(default = "default_stream_retention_days")]
-    pub retention_days: u32,
-    /// Downsample metrics older than this many days into coarser time buckets.
-    /// 0 disables downsampling (default) — no behavior change.
-    #[serde(default)]
-    pub downsample_after_days: u32,
-    /// Time-bucket width (seconds) used when downsampling. 0 disables.
-    #[serde(default = "default_downsample_interval")]
-    pub downsample_interval_secs: u32,
 }
 
 fn default_compact_interval() -> u32 {
@@ -319,23 +280,31 @@ fn default_compact_concurrency() -> u32 {
     4
 }
 
-fn default_stream_retention_days() -> u32 {
-    30
-}
-
-fn default_downsample_interval() -> u32 {
-    3600
-}
-
 impl Default for CompactorSettings {
     fn default() -> Self {
         Self {
             interval_secs: default_compact_interval(),
-            target_mb: default_compact_size(),
+            target_size: default_compact_size(),
             max_concurrent_groups: default_compact_concurrency(),
-            retention_days: default_stream_retention_days(),
-            downsample_after_days: 0,
-            downsample_interval_secs: default_downsample_interval(),
         }
+    }
+}
+
+/// Largest `[compactor].target_size`, in MiB. A merge streams its inputs and its output, so the
+/// limit is not memory: it keeps one merged file within 4096 parts of a multipart upload and a
+/// merge within minutes.
+const MAX_COMPACT_TARGET_SIZE: u32 = 64 * 1024;
+
+impl CompactorSettings {
+    pub fn target_bytes(&self) -> u64 {
+        u64::from(self.target_size).saturating_mul(1024 * 1024)
+    }
+
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if !(1..=MAX_COMPACT_TARGET_SIZE).contains(&self.target_size) {
+            anyhow::bail!("compactor.target_size must be in 1..={MAX_COMPACT_TARGET_SIZE} (MiB)");
+        }
+
+        Ok(())
     }
 }

@@ -12,6 +12,7 @@ use super::super::sqlx_err;
 use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentToolset {
     pub id: Id,
     pub org_id: Id,
@@ -40,7 +41,7 @@ impl PgAgentToolsetRepository {
     }
 }
 
-const COLS: &str = "id, org_id, name, schema, enabled, created_at_micros, updated_at_micros";
+const COLS: &str = "id, org_id, name, schema, enabled, created_at, updated_at";
 
 fn row_to(r: sqlx::postgres::PgRow) -> AgentToolset {
     let schema: Json<Value> = r
@@ -53,8 +54,12 @@ fn row_to(r: sqlx::postgres::PgRow) -> AgentToolset {
         name: r.try_get::<String, _>("name").unwrap_or_default(),
         schema: schema.0,
         enabled: r.try_get::<bool, _>("enabled").unwrap_or(true),
-        created_at: TimestampMicros(r.try_get::<i64, _>("created_at_micros").unwrap_or_default()),
-        updated_at: TimestampMicros(r.try_get::<i64, _>("updated_at_micros").unwrap_or_default()),
+        created_at: r
+            .try_get::<TimestampMicros, _>("created_at")
+            .unwrap_or_default(),
+        updated_at: r
+            .try_get::<TimestampMicros, _>("updated_at")
+            .unwrap_or_default(),
     }
 }
 
@@ -62,7 +67,7 @@ fn row_to(r: sqlx::postgres::PgRow) -> AgentToolset {
 impl AgentToolsetRepository for PgAgentToolsetRepository {
     async fn list(&self, org_id: &Id) -> Result<Vec<AgentToolset>> {
         let sql = format!(
-            "SELECT {COLS} FROM agent_toolsets WHERE org_id = $1 ORDER BY updated_at_micros DESC, name ASC"
+            "SELECT {COLS} FROM agent_toolsets WHERE org_id = $1 ORDER BY updated_at DESC, name ASC"
         );
 
         let rows = sqlx::query(&sql)
@@ -77,7 +82,7 @@ impl AgentToolsetRepository for PgAgentToolsetRepository {
     async fn create(&self, t: AgentToolset) -> Result<AgentToolset> {
         sqlx::query(
             "INSERT INTO agent_toolsets
-                (id, org_id, name, schema, enabled, created_at_micros, updated_at_micros)
+                (id, org_id, name, schema, enabled, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7)",
         )
         .bind(&t.id.0)
@@ -85,8 +90,8 @@ impl AgentToolsetRepository for PgAgentToolsetRepository {
         .bind(&t.name)
         .bind(Json(&t.schema))
         .bind(t.enabled)
-        .bind(t.created_at.0)
-        .bind(t.updated_at.0)
+        .bind(t.created_at)
+        .bind(t.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;

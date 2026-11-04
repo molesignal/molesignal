@@ -29,6 +29,7 @@ impl InboundMcpTaskStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InboundMcpTask {
     pub id: Id,
     pub org_id: Id,

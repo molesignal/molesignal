@@ -29,7 +29,7 @@ export function InspectionRowActions({
   const { t } = useTranslation('logs');
   const { t: tc } = useTranslation('common');
   const { name } = inspection;
-  const running = Boolean(inspection.active_run);
+  const running = Boolean(inspection.activeRun);
   const waiting = deniedReason ?? (busy ? tc('access.operation_pending') : undefined);
   const blocked = Boolean(deniedReason) || busy;
 

@@ -82,7 +82,7 @@ fn ctx() -> ToolAuthContext {
         org_id: Id("orgA".into()),
         display_role: String::new(),
         roles: Vec::new(),
-        credential_role_id: None,
+        credential_token_id: None,
         credential_application_id: None,
         credential_service_account_id: None,
         scope: domain::iam::IamScope::Organization,
@@ -421,8 +421,8 @@ impl ProviderAdapter for DashboardAuthoringProvider {
                     "propose",
                     "propose_dashboard_creation",
                     serde_json::json!({
-                        "draft_id": "draft-1",
-                        "expected_hash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                        "draftId": "draft-1",
+                        "expectedHash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
                         "reason": "Create the reviewed Dashboard",
                         "impact": "Adds one Dashboard"
                     }),
@@ -477,9 +477,9 @@ impl ToolDispatcher for DashboardAuthoringDispatcher {
                 Ok(ToolResult {
                     content: vec![ToolContent::Json {
                         json: serde_json::json!({
-                            "draft_id": "draft-1",
-                            "model_hash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-                            "preview_route": "/ai/dashboard-drafts/draft-1"
+                            "draftId": "draft-1",
+                            "modelHash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                            "previewRoute": "/ai/dashboard-drafts/draft-1"
                         }),
                     }],
                     is_error: false,

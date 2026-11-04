@@ -11,7 +11,7 @@ import {
   type PermissionCatalog,
   type PermissionKey,
 } from '@/product/permissions';
-import { Pill } from '@/shell/chrome';
+import { Pill, uiSectionTitleClass } from '@/shell/chrome';
 
 export const RESOURCE_TYPES = ['dashboard', 'stream'] as const;
 export type ResourceType = (typeof RESOURCE_TYPES)[number];
@@ -31,7 +31,7 @@ export function PermissionPills({
         const definition = permissionDefinition(catalog, permission);
         return (
           <Pill key={permission} tone="neutral">
-            {definition ? t(definition.label_key) : permission}
+            {definition ? t(definition.labelKey) : permission}
           </Pill>
         );
       })}
@@ -45,14 +45,14 @@ export function principalLabel(
   teams: Map<string, teamsApi.Team>,
   t: TFunction<'iam'>,
 ) {
-  if (binding.principal_type === 'user') {
-    const user = users.get(binding.principal_id);
-    return user?.display_name || user?.email || t('groups.unknown_principal');
+  if (binding.principalType === 'user') {
+    const user = users.get(binding.principalId);
+    return user?.displayName || user?.email || t('groups.unknown_principal');
   }
-  if (binding.principal_type === 'team') {
-    return teams.get(binding.principal_id)?.name ?? t('groups.unknown_principal');
+  if (binding.principalType === 'team') {
+    return teams.get(binding.principalId)?.name ?? t('groups.unknown_principal');
   }
-  return t(`groups.principal.${binding.principal_type}`);
+  return t(`groups.principal.${binding.principalType}`);
 }
 
 export function SectionTitle({
@@ -64,7 +64,7 @@ export function SectionTitle({
 }) {
   return (
     <div className="mb-3">
-      <h3 className="font-sans text-sm font-semibold text-tx-0">{title}</h3>
+      <h3 className={uiSectionTitleClass}>{title}</h3>
       <p className="mt-0.5 font-sans text-xs text-tx-3">{description}</p>
     </div>
   );

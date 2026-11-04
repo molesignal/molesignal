@@ -25,6 +25,7 @@ pub const MAX_SYMBOL_CHARS: usize = 8;
 
 /// 组织备下的一种币种。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PriceCurrency {
     pub code: Currency,
     /// 自己起的名称；为空时用标准名称。

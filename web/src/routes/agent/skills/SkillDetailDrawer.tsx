@@ -79,7 +79,7 @@ export function SkillDetailDrawer({
             {t('settings.skills.detail.download')}
           </Button>
           <Button
-            disabled={!skill.enabled || skill.requires_runner}
+            disabled={!skill.enabled || skill.requiresRunner}
             onClick={() => {
               openAgent(`/${skill.name} `);
               onClose();
@@ -101,7 +101,7 @@ export function SkillDetailDrawer({
             <dt className="text-tx-3">{t('settings.skills.detail.invoke')}</dt>
             <dd className="font-mono text-tx-0">
               /{data.name}
-              {data.argument_hint ? ` ${data.argument_hint}` : ''}
+              {data.argumentHint ? ` ${data.argumentHint}` : ''}
             </dd>
             {data.version && (
               <>
@@ -111,10 +111,10 @@ export function SkillDetailDrawer({
             )}
             <dt className="text-tx-3">{t('settings.skills.detail.hash')}</dt>
             <dd className="font-mono text-tx-2">{data.hash.slice(0, 12)}</dd>
-            {data.allowed_tools.length > 0 && (
+            {data.allowedTools.length > 0 && (
               <>
                 <dt className="text-tx-3">{t('settings.skills.detail.allowed_tools')}</dt>
-                <dd className="font-mono text-tx-1">{data.allowed_tools.join(', ')}</dd>
+                <dd className="font-mono text-tx-1">{data.allowedTools.join(', ')}</dd>
               </>
             )}
             {data.dir && (
@@ -124,7 +124,7 @@ export function SkillDetailDrawer({
               </>
             )}
           </dl>
-          {data.requires_runner && (
+          {data.requiresRunner && (
             <p className="mt-3 rounded-md bg-[var(--yellow-tint)] p-3 text-xs leading-5 text-[var(--yellow-ink)]">
               {t('settings.skills.detail.needs_runner')}
             </p>

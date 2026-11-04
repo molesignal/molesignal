@@ -10,6 +10,8 @@
 //! MS_RUN_IT=1 cargo test -p molesignal --test infra_it_alert_rules -- --nocapture
 //! ```
 
+mod common;
+
 use std::collections::BTreeMap;
 
 use molesignal::{
@@ -26,18 +28,13 @@ use molesignal::{
     infra::persistence::{MetaStore, repositories::alert_rules::PgAlertRuleRepository},
     shared::{ids::Id, time::TimestampMicros},
 };
-use testcontainers::runners::AsyncRunner;
-use testcontainers_modules::postgres::Postgres as PgImage;
 
 fn skip_unless_enabled() -> bool {
     std::env::var("MS_RUN_IT").ok().as_deref() != Some("1")
 }
 
 async fn boot() -> MetaStore {
-    let pg = PgImage::default().start().await.expect("start pg");
-    let port = pg.get_host_port_ipv4(5432).await.expect("pg port");
-    let host = pg.get_host().await.expect("pg host");
-    let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+    let (dsn, pg) = common::test_database().await;
     let store = MetaStore::connect(&MetaDatabaseSettings {
         dsn,
         min_connections: 1,
@@ -66,6 +63,16 @@ fn base_rule(id: &str, org: &str, kind: AlertRuleKind, params: Option<AnomalyPar
                 name: "logs".into(),
                 stream_type: StreamType::LOGS,
             }),
+            apm: None,
+            rum: None,
+            group_by: Vec::new(),
+            composite: None,
+            forecast: None,
+            outlier: None,
+            heartbeat: None,
+            delay_secs: None,
+            discovery: None,
+            home_cluster: None,
         },
         anomaly_params: params,
         thresholds: vec![],
@@ -75,6 +82,10 @@ fn base_rule(id: &str, org: &str, kind: AlertRuleKind, params: Option<AnomalyPar
             threshold: 0.0,
             for_periods: 1,
             silence_secs: 0,
+            no_data: None,
+            recovery: None,
+            priority: None,
+            urgency: None,
         },
         escalation_policy_id: Id::from_string("default"),
         labels: BTreeMap::new(),

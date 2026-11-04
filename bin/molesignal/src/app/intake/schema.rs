@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, HashSet};
 use crate::{
     domain::{
         intake::{EVENT_ID_FIELD, RawEvent},
-        stream::{FieldDef, FieldType, Schema, StreamIndexType, StreamType},
+        stream::{FieldDef, FieldType, Schema, StreamIndexType, StreamSettings, StreamType},
     },
     shared::trace::summary::TRACE_SUMMARY_MARKER_FIELD,
 };
@@ -55,11 +55,14 @@ fn auto_index_type(stream_type: StreamType, field_name: &str) -> StreamIndexType
             }
         }
         // Cursor identities and common RUM dimensions are exact indexed so that Bloom/Tantivy can
-        // eliminate unrelated hourly objects before Parquet planning.
+        // eliminate unrelated hourly objects before Parquet planning. `level` is too: the
+        // explorer histogram counts errors by it, and an exact index answers that count without
+        // reading the files.
         StreamType::LOGS => {
             let exact = matches!(
                 field_name,
                 EVENT_ID_FIELD
+                    | "level"
                     | "session_id"
                     | "fingerprint"
                     | "country"
@@ -89,6 +92,16 @@ fn auto_index_type(stream_type: StreamType, field_name: &str) -> StreamIndexType
         }
         StreamType::PROFILES | StreamType::EXTEND => StreamIndexType::None,
         _ => StreamIndexType::None,
+    }
+}
+
+/// 新出现的字段（`schema` 里排在前 `known` 个之后的）按数据流的规则定索引，见
+/// [`StreamSettings::new_field_index`]；没有规则的保留默认的索引。
+pub fn apply_index_rules(schema: &mut Schema, known: usize, settings: &StreamSettings) {
+    for field in schema.fields.iter_mut().skip(known) {
+        if let Some(index_type) = settings.new_field_index(&field.name, field.data_type) {
+            field.configure_index(index_type != StreamIndexType::None, index_type);
+        }
     }
 }
 
@@ -190,6 +203,14 @@ mod tests {
             auto_index_type(StreamType::LOGS, EVENT_ID_FIELD),
             StreamIndexType::Exact
         );
+        assert_eq!(
+            auto_index_type(StreamType::LOGS, "level"),
+            StreamIndexType::Exact
+        );
+        assert_eq!(
+            auto_index_type(StreamType::LOGS, "body_level"),
+            StreamIndexType::None
+        );
     }
 
     #[test]
@@ -206,5 +227,65 @@ mod tests {
             auto_index_type(StreamType::TRACES, "name"),
             StreamIndexType::None
         );
+    }
+
+    /// 新字段按数据流的规则定索引；已有的字段与没有规则的新字段保留原样。
+    #[test]
+    fn new_fields_take_the_stream_rules() {
+        use crate::domain::stream::IndexPattern;
+
+        let known = Schema {
+            fields: vec![FieldDef {
+                name: "user_id".into(),
+                data_type: FieldType::Utf8,
+                nullable: true,
+                index_type: Some(StreamIndexType::None),
+                indexed: false,
+                encrypted: false,
+                exact: false,
+            }],
+        };
+
+        let events = vec![RawEvent {
+            timestamp: crate::shared::time::TimestampMicros(1),
+            fields: serde_json::json!({
+                "user_id": "u", "order_id": "o", "client_ip": "10.0.0.1", "note": "n"
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        }];
+
+        let mut schema = infer_schema_extension(&known, &events, StreamType::LOGS).unwrap();
+
+        let settings = StreamSettings {
+            index_patterns: vec![
+                IndexPattern {
+                    pattern: "*_id".into(),
+                    index_type: StreamIndexType::Exact,
+                },
+                IndexPattern {
+                    pattern: "*_ip".into(),
+                    index_type: StreamIndexType::Ip,
+                },
+            ],
+            ..StreamSettings::default()
+        };
+
+        apply_index_rules(&mut schema, known.fields.len(), &settings);
+
+        let index_of = |name: &str| {
+            schema
+                .fields
+                .iter()
+                .find(|field| field.name == name)
+                .unwrap()
+                .effective_index_type()
+        };
+
+        assert_eq!(index_of("user_id"), StreamIndexType::None);
+        assert_eq!(index_of("order_id"), StreamIndexType::Exact);
+        assert_eq!(index_of("client_ip"), StreamIndexType::Ip);
+        assert_eq!(index_of("note"), StreamIndexType::None);
     }
 }

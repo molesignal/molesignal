@@ -3,10 +3,11 @@
 
 //! 经内部 gRPC（`intake.v1.IntakeService/Push`）把写入转发给 intake 节点。
 //!
-//! 目标节点按 `(org, stream)` 一致性哈希选出，同一条数据流的写入尽量落在同一个节点上。
-//! 目标节点不可达时依次尝试其余 intake 节点。
+//! 目标节点按 `(org, stream)` 的 rendezvous 哈希选出：看到同一组 intake 节点的各个节点把同一条
+//! 数据流的写入发给同一个节点，节点增减只迁移该节点名下的数据流。目标节点不可达时按权重依次
+//! 尝试其余 intake 节点，各个节点的改投顺序也相同。
 
-use std::{collections::HashMap, sync::Arc};
+use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 use parking_lot::Mutex;
@@ -19,6 +20,7 @@ use crate::{
         intake::IntakeForwarder,
     },
     domain::{
+        cluster::intake_routing_key,
         intake::{IntakeBatch, IntakeError, IntakeResult},
         stream::StreamType,
     },
@@ -26,7 +28,7 @@ use crate::{
         PushRequest, PushResponse, StreamType as ProtoStreamType,
         intake_service_client::IntakeServiceClient,
     },
-    shared::{Error, Result, ids::Id},
+    shared::{Error, Result, ids::Id, rendezvous},
 };
 
 /// 一次转发最多尝试的 intake 节点数。
@@ -45,16 +47,12 @@ impl GrpcIntakeForwarder {
         }
     }
 
-    /// 按尝试顺序排好的 intake 节点：哈希选出的节点在前，其余节点随后。
+    /// 按尝试顺序排好的 intake 节点：`(org, stream)` 的 rendezvous 权重从大到小，与节点列表的
+    /// 顺序无关。排第一的就是 [`ClusterRegistry::pick_intake`] 选出的节点。
     async fn candidates(&self, org_id: &Id, stream: &str) -> Vec<PeerInfo> {
+        let key = intake_routing_key(org_id, stream);
         let mut peers = self.registry.list_role(PeerRole::Intake).await;
-
-        if let Some(first) = self.registry.pick_intake(org_id, stream).await
-            && let Some(position) = peers.iter().position(|peer| peer.node_id == first.node_id)
-        {
-            peers.swap(0, position);
-        }
-
+        peers.sort_by_cached_key(|peer| Reverse(rendezvous::weight(&key, &peer.node_id)));
         peers
     }
 

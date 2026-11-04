@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/shell/lib/cn';
 import { QueryRecommendations } from '@/shell/query/Recommendations';
+import { QuerySplitToggle } from '@/shell/queryTabs';
 import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 
 import { ChartControls } from './ChartControls';
@@ -95,10 +96,12 @@ export function MetricsExploreResults({
                   })}
                 </span>
                 <span className="tabular-nums">
-                  {t('explore.results.query_time', { ms: query.result.took_ms })}
+                  {t('explore.results.query_time', { ms: query.result.tookMs })}
                 </span>
               </span>
             ) : null}
+            {/* The switch that splits the page leads the controls, in every view of the results. */}
+            <QuerySplitToggle size="sm" />
             {graph && (
               <ChartControls chart={chart} canStack={series.chartSeries.length > 1} />
             )}

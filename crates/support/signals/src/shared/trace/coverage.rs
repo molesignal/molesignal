@@ -48,11 +48,23 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
         policy: WorkerTracePolicy::RootPerRun,
     },
     WorkerCoverage {
+        source: "src/bootstrap/workers/agent_automations.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
+        source: "src/bootstrap/workers/agent_im.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
         source: "src/bootstrap/workers/agent_mcp.rs",
         policy: WorkerTracePolicy::RootPerRun,
     },
     WorkerCoverage {
         source: "src/bootstrap/workers/agent_runs.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
+        source: "src/bootstrap/workers/agent_scoring.rs",
         policy: WorkerTracePolicy::RootPerRun,
     },
     WorkerCoverage {
@@ -64,7 +76,11 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
         policy: WorkerTracePolicy::RootPerRun,
     },
     WorkerCoverage {
-        source: "src/bootstrap/workers/business_service_health.rs",
+        source: "src/bootstrap/workers/audit_retention.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
+        source: "src/bootstrap/workers/audit_stream.rs",
         policy: WorkerTracePolicy::RootPerRun,
     },
     WorkerCoverage {
@@ -76,6 +92,14 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
         policy: WorkerTracePolicy::TransportBoundary,
     },
     WorkerCoverage {
+        source: "src/bootstrap/workers/intake_usage.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
+        source: "src/bootstrap/workers/jwt_secrets.rs",
+        policy: WorkerTracePolicy::TransportBoundary,
+    },
+    WorkerCoverage {
         source: "src/bootstrap/workers/log_inspection/mod.rs",
         policy: WorkerTracePolicy::RootPerRun,
     },
@@ -84,7 +108,15 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
         policy: WorkerTracePolicy::RootPerRun,
     },
     WorkerCoverage {
+        source: "src/bootstrap/workers/pipeline_steps.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
         source: "src/bootstrap/workers/rca_sweeper.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
+        source: "src/bootstrap/workers/rum_dashboards.rs",
         policy: WorkerTracePolicy::RootPerRun,
     },
     WorkerCoverage {
@@ -100,6 +132,10 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
         policy: WorkerTracePolicy::RootPerRun,
     },
     WorkerCoverage {
+        source: "src/bootstrap/workers/series_limits.rs",
+        policy: WorkerTracePolicy::TransportBoundary,
+    },
+    WorkerCoverage {
         source: "src/bootstrap/workers/service_graph/flush.rs",
         policy: WorkerTracePolicy::RootPerRun,
     },
@@ -109,6 +145,10 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
     },
     WorkerCoverage {
         source: "src/bootstrap/workers/slow_query_analyzer.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
+        source: "src/bootstrap/workers/status_page_dependencies.rs",
         policy: WorkerTracePolicy::RootPerRun,
     },
     WorkerCoverage {
@@ -128,6 +168,14 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
         policy: WorkerTracePolicy::RootPerRun,
     },
     WorkerCoverage {
+        source: "src/bootstrap/workers/synthetic_results.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
+        source: "src/bootstrap/workers/synthetic_retention.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
         source: "src/bootstrap/workers/synthetics.rs",
         policy: WorkerTracePolicy::RootPerRun,
     },
@@ -143,14 +191,27 @@ pub const HTTP_CLIENT_COVERAGE: &[&str] = &[
     "src/app/skills/fetch.rs",
     "src/app/trace/export.rs",
     "src/bootstrap/workers/scheduled_reports.rs",
+    "src/infra/connectors/aws/sts.rs",
     "src/infra/connectors/cloudwatch_logs.rs",
+    "src/infra/connectors/dispatcher/http.rs",
+    "src/infra/im/dingtalk.rs",
+    "src/infra/im/feishu.rs",
+    "src/infra/im/google_chat.rs",
+    "src/infra/im/slack.rs",
+    "src/infra/im/teams/auth.rs",
+    "src/infra/notify/adapters/dingtalk.rs",
+    "src/infra/notify/adapters/google_chat.rs",
+    "src/infra/notify/adapters/google_chat/app.rs",
     "src/infra/notify/adapters/lark.rs",
     "src/infra/notify/adapters/slack.rs",
+    "src/infra/notify/adapters/teams.rs",
+    "src/infra/notify/adapters/teams/app.rs",
     "src/infra/notify/adapters/webhook.rs",
+    "src/infra/notify/adapters/wecom.rs",
     "src/infra/notify/status_page.rs",
-    "src/infra/sso/jwks.rs",
+    "src/infra/sso/oauth2/mod.rs",
+    "src/infra/sso/oidc/jwks.rs",
     "src/infra/status_page/slack_app.rs",
-    "src/infra/sso/oidc.rs",
     "crates/modules/agent/src/chat/providers/anthropic.rs",
     "crates/modules/agent/src/chat/providers/openai.rs",
 ];

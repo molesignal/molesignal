@@ -142,7 +142,7 @@ export function MetricCatalogPanel({
                         <div className="truncate pl-[38px] text-xs text-tx-3">
                           {t('explore.catalog.metric_meta', {
                             labels: metric.labels.length,
-                            fields: metric.field_count,
+                            fields: metric.fieldCount,
                           })}
                         </div>
                       </div>

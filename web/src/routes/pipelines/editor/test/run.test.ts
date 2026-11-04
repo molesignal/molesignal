@@ -20,12 +20,51 @@ const route = (routing: Partial<Routing>, target = 'default') => ({
   operation: 'route' as const,
   script: '',
   target,
-  routing: { kind: 'fixed' as const, field: '', prefix: '', fallback: 'default', retain_source: false, ...routing },
+  routing: { kind: 'fixed' as const, field: '', prefix: '', fallback: 'default', retainSource: false, ...routing },
 });
 
 function graph(overrides: Partial<PipelineGraphModel>): PipelineGraphModel {
   return { ...defaultPipelineGraph('logs'), ...overrides };
 }
+
+describe('steps that go outside, in a test', () => {
+  it('call nothing: an API call leaves the event, a query leaves a placeholder in its annotation', async () => {
+    const runScript = vi.fn();
+    const event = { summary: 'x', annotations: {} };
+
+    const outcome = await runPipelineTest(
+      graph({
+        mode: 'alert',
+        transforms: [
+          { name: 'call', kind: 'http_enrich', script: '', connectorId: 'c-1' },
+          {
+            name: 'find',
+            kind: 'query_enrich',
+            script: '',
+            query: {
+              language: 'sql',
+              stream: 's',
+              streamType: 'logs',
+              statement: 'x',
+              windowSecs: 60,
+              maxRows: 1,
+              annotation: 'found',
+            },
+          },
+        ],
+      }),
+      event,
+      runScript,
+    );
+
+    expect(runScript).not.toHaveBeenCalled();
+    expect(outcome.steps.map((step) => [step.name, step.status, step.outside])).toEqual([
+      ['call', 'passed', true],
+      ['find', 'passed', true],
+    ]);
+    expect(outcome.output).toEqual({ summary: 'x', annotations: { found: '…' } });
+  });
+});
 
 describe('runPipelineTest', () => {
   const passed = (output: unknown) => ({ output, dropped: false });
@@ -197,7 +236,7 @@ describe('routeDestination', () => {
     field: 'service.name',
     prefix: '',
     fallback: 'default',
-    retain_source: false,
+    retainSource: false,
   };
 
   it('sends everything to the fixed stream', () => {
@@ -228,6 +267,26 @@ describe('routeDestination', () => {
     expect(routeDestination({ ...byField, prefix: 'logs_' }, 'unused', { 'service.name': 'orders' })).toBe(
       'logs_orders',
     );
+  });
+});
+
+describe('an alert event, in a test', () => {
+  it('comes out with the labels MoleSignal set itself, whatever the steps did to them', async () => {
+    const runScript = vi.fn(async () => ({
+      output: { summary: 'x', labels: { team: 'payments', 'external.kind': 'forged' } },
+      dropped: false,
+    }));
+
+    const outcome = await runPipelineTest(
+      graph({ mode: 'alert', transforms: [{ name: 'keep', kind: 'vrl', script: '.labels = {}' }] }),
+      { summary: 'x', labels: { 'alert.source': 'external', 'external.kind': 'alertmanager', noise: 'y' } },
+      runScript,
+    );
+
+    expect(outcome.output).toEqual({
+      summary: 'x',
+      labels: { team: 'payments', 'alert.source': 'external', 'external.kind': 'alertmanager' },
+    });
   });
 });
 

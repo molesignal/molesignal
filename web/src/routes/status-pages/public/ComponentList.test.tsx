@@ -14,28 +14,28 @@ function snapshot(components: PublicStatusPageComponent[]): PublicStatusPageSnap
     page: {
       name: 'Acme',
       slug: 'acme',
-      logo_url: null,
-      brand_color: '#4F46E5',
+      logoUrl: null,
+      brandColor: '#4F46E5',
       timezone: 'UTC',
       language: 'en-us',
       languages: ['en-us'],
-      history_days: 90,
+      historyDays: 90,
       visibility: 'public',
     },
-    overall_status: 'operational',
+    overallStatus: 'operational',
     components,
-    component_status_events: components
+    componentStatusEvents: components
       .filter((component) => component.kind !== 'group')
       .map((component) => ({
-        component_id: component.id,
+        componentId: component.id,
         status: component.status,
-        started_at: NOW - 30 * 24 * 60 * 60 * 1_000_000,
-        ended_at: null,
+        startedAt: NOW - 30 * 24 * 60 * 60 * 1_000_000,
+        endedAt: null,
       })),
-    active_incidents: [],
-    scheduled_maintenance: [],
+    activeIncidents: [],
+    scheduledMaintenance: [],
     history: [],
-    generated_at: NOW,
+    generatedAt: NOW,
   };
 }
 
@@ -43,7 +43,7 @@ function component(
   id: string,
   overrides: Partial<PublicStatusPageComponent> = {},
 ): PublicStatusPageComponent {
-  return { id, name: id, description: '', status: 'operational', kind: 'component', group_id: null, ...overrides };
+  return { id, name: id, description: '', status: 'operational', kind: 'component', groupId: null, ...overrides };
 }
 
 function renderList(components: PublicStatusPageComponent[]) {
@@ -62,8 +62,8 @@ describe('PublicComponentList', () => {
     const user = userEvent.setup();
     renderList([
       component('ai', { kind: 'group', name: 'AI SRE', description: 'Agents that work incidents.' }),
-      component('chat', { name: 'Web Chat', group_id: 'ai' }),
-      component('im', { name: 'IM Chat', group_id: 'ai' }),
+      component('chat', { name: 'Web Chat', groupId: 'ai' }),
+      component('im', { name: 'IM Chat', groupId: 'ai' }),
       component('api', { name: 'Public API' }),
     ]);
 
@@ -83,8 +83,8 @@ describe('PublicComponentList', () => {
   it('opens a group unfolded when one of its components is not operational, and shows the worst', () => {
     renderList([
       component('ai', { kind: 'group', name: 'AI SRE' }),
-      component('chat', { name: 'Web Chat', group_id: 'ai' }),
-      component('sandbox', { name: 'Sandbox', group_id: 'ai', status: 'partial_outage' }),
+      component('chat', { name: 'Web Chat', groupId: 'ai' }),
+      component('sandbox', { name: 'Sandbox', groupId: 'ai', status: 'partial_outage' }),
     ]);
 
     expect(screen.getByRole('button', { name: /2 components/ }).getAttribute('aria-expanded')).toBe('true');

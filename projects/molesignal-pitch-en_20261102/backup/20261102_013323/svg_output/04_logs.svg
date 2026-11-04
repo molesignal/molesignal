@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-pptx-page-role="content" font-family="Arial">
+<rect id="bg" data-pptx-role="background" width="1280" height="720" fill="#F7F9FC"/>
+<g id="heading" data-pptx-bounds="56 35 1168 105"><text x="56" y="60" font-size="18" fill="#007E87">02 / PRODUCT VIEW · LOGS</text><text x="56" y="120" font-size="44" fill="#102C44" font-weight="bold">Find the events behind a time-window spike</text></g>
+<g id="product" data-pptx-bounds="56 152 900 506.25"><image href="../images/logs.png" x="56" y="152" width="900" height="506.25" preserveAspectRatio="xMidYMid meet"/></g>
+<g id="features" data-pptx-bounds="992 180 232 430"><text x="992" y="216" font-size="30" fill="#102C44" font-weight="bold">Log explorer</text><text x="992" y="270" font-size="24" fill="#173247"><tspan x="992">SQL and filters</tspan><tspan x="992" dy="52">Time and severity</tspan><tspan x="992" dy="52">Service / trace_id</tspan></text><text x="992" y="494" font-size="20" fill="#007E87"><tspan x="992">Keep query context</tspan><tspan x="992" dy="32">inside the investigation</tspan></text></g>
+<text id="footer" data-pptx-role="footer" x="56" y="690" font-size="16" fill="#53677B">Actual product frontend · Test-fixture demo data, not customer data</text><text id="page" data-pptx-role="page-number" x="1224" y="690" text-anchor="end" font-size="16" fill="#53677B">04 / 14</text>
+</svg>

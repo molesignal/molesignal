@@ -426,7 +426,7 @@ pub(crate) fn member(user_id: &str, permissions: &[&str]) -> IamContext {
         org_id: Id::from_string("org-1"),
         display_role: String::new(),
         roles: Vec::new(),
-        credential_role_id: None,
+        credential_token_id: None,
         credential_application_id: None,
         credential_service_account_id: None,
         scope: IamScope::Organization,

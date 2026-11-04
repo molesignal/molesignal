@@ -119,7 +119,7 @@ function ActivityList({
               <div className="mt-0.5 flex min-w-0 items-center gap-2 font-sans text-xs text-tx-2">
                 <span className="min-w-0 flex-1 truncate">{auditTarget(event)}</span>
                 <span className="shrink-0 text-tx-3">
-                  {formatRelativeMicros(event.ts_micros, locale)}
+                  {formatRelativeMicros(event.ts, locale)}
                 </span>
               </div>
             </div>

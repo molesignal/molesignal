@@ -25,8 +25,8 @@ use crate::{
 pub(super) const SUBSCRIBER_COLS: &str = "id, org_id, status_page_id, channel,
     target_ciphertext, target_nonce, target_label, status, token_hash,
     token_ciphertext, token_nonce, component_scope, component_ids, origin,
-    confirmation_sent_at_micros, confirmed_at_micros,
-    unsubscribed_at_micros, created_at_micros, updated_at_micros";
+    confirmation_sent_at, confirmed_at,
+    unsubscribed_at, created_at, updated_at";
 
 const MAX_SUBSCRIBERS_PER_PAGE: i64 = 10_000;
 
@@ -76,8 +76,8 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
     ) -> Result<StatusPageSubscriber> {
         let sql = format!(
             "UPDATE status_page_subscribers SET status = 'active',
-                 confirmed_at_micros = $4, unsubscribed_at_micros = NULL,
-                 updated_at_micros = $4
+                 confirmed_at = $4, unsubscribed_at = NULL,
+                 updated_at = $4
              WHERE org_id = $1 AND status_page_id = $2 AND token_hash = $3
                AND status IN ('pending', 'active') AND {NOT_WAITING_FOR_SLACK}
              RETURNING {SUBSCRIBER_COLS}"
@@ -87,7 +87,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
             .bind(&org_id.0)
             .bind(&page_id.0)
             .bind(token_hash)
-            .bind(confirmed_at.0)
+            .bind(confirmed_at)
             .fetch_one(&self.pool)
             .await
             .map_err(|error| token_lookup_error(error, "subscription confirmation is invalid"))?;
@@ -97,7 +97,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
 
     async fn reset_pending_confirmation(&self, subscriber_id: &Id, token_hash: &str) -> Result<()> {
         sqlx::query(
-            "UPDATE status_page_subscribers SET confirmation_sent_at_micros = NULL
+            "UPDATE status_page_subscribers SET confirmation_sent_at = NULL
              WHERE id = $1 AND token_hash = $2 AND status IN ('pending', 'active')",
         )
         .bind(&subscriber_id.0)
@@ -152,7 +152,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
         let sql = format!(
             "SELECT {SUBSCRIBER_COLS} FROM status_page_subscribers
              WHERE org_id = $1 AND status_page_id = $2 AND {NOT_WAITING_FOR_SLACK}
-             ORDER BY updated_at_micros DESC, id DESC LIMIT $3 OFFSET $4"
+             ORDER BY updated_at DESC, id DESC LIMIT $3 OFFSET $4"
         );
 
         let items = sqlx::query(&sql)
@@ -229,7 +229,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
         let sql = format!(
             "UPDATE status_page_subscribers SET token_hash = $4,
                  token_ciphertext = $5, token_nonce = $6,
-                 confirmation_sent_at_micros = $7, updated_at_micros = $7
+                 confirmation_sent_at = $7, updated_at = $7
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3 AND status = 'pending'
                AND {NOT_WAITING_FOR_SLACK}
              RETURNING {SUBSCRIBER_COLS}"
@@ -242,7 +242,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
             .bind(token_hash)
             .bind(&token_ciphertext)
             .bind(&token_nonce)
-            .bind(sent_at.0)
+            .bind(sent_at)
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
@@ -283,7 +283,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
     ) -> Result<StatusPageSubscriber> {
         let sql = format!(
             "UPDATE status_page_subscribers SET component_scope = $4,
-                 component_ids = $5, updated_at_micros = $6
+                 component_ids = $5, updated_at = $6
              WHERE org_id = $1 AND status_page_id = $2 AND token_hash = $3
                AND status IN ('pending', 'active') AND {NOT_WAITING_FOR_SLACK}
              RETURNING {SUBSCRIBER_COLS}"
@@ -295,7 +295,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
             .bind(token_hash)
             .bind(components.scope.as_str())
             .bind(component_id_strings(components))
-            .bind(updated_at.0)
+            .bind(updated_at)
             .fetch_one(&self.pool)
             .await
             .map_err(|error| token_lookup_error(error, "subscription link is invalid"))?;
@@ -343,11 +343,15 @@ impl PgStatusPageRepository {
             components: row_to_components(&row)?,
             origin: StatusPageSubscriberOrigin::parse(&origin)
                 .ok_or_else(|| Error::internal(format!("unknown subscriber origin: {origin}")))?,
-            confirmation_sent_at: optional_timestamp(&row, "confirmation_sent_at_micros")?,
-            confirmed_at: optional_timestamp(&row, "confirmed_at_micros")?,
-            unsubscribed_at: optional_timestamp(&row, "unsubscribed_at_micros")?,
-            created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
-            updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(super::sqlx_err)?),
+            confirmation_sent_at: optional_timestamp(&row, "confirmation_sent_at")?,
+            confirmed_at: optional_timestamp(&row, "confirmed_at")?,
+            unsubscribed_at: optional_timestamp(&row, "unsubscribed_at")?,
+            created_at: row
+                .try_get::<TimestampMicros, _>("created_at")
+                .map_err(super::sqlx_err)?,
+            updated_at: row
+                .try_get::<TimestampMicros, _>("updated_at")
+                .map_err(super::sqlx_err)?,
         })
     }
 }
@@ -390,7 +394,7 @@ async fn update_subscriber_to_unsubscribed(
 
     let sql = format!(
         "UPDATE status_page_subscribers SET status = 'unsubscribed',
-             unsubscribed_at_micros = $4, updated_at_micros = $4
+             unsubscribed_at = $4, updated_at = $4
          WHERE org_id = $1 AND status_page_id = $2 AND {key} = $3
            AND status IN ('pending', 'active', 'unsubscribed') AND {NOT_WAITING_FOR_SLACK}
          RETURNING {SUBSCRIBER_COLS}"
@@ -400,7 +404,7 @@ async fn update_subscriber_to_unsubscribed(
         .bind(&org_id.0)
         .bind(&page_id.0)
         .bind(value)
-        .bind(unsubscribed_at.0)
+        .bind(unsubscribed_at)
         .fetch_one(&mut *transaction)
         .await
         .map_err(|error| token_lookup_error(error, "subscription not found"))?;
@@ -409,15 +413,15 @@ async fn update_subscriber_to_unsubscribed(
 
     sqlx::query(
         "UPDATE status_page_notification_deliveries SET status = 'failed',
-             claimed_at_micros = NULL, last_error = 'subscriber unsubscribed',
-             updated_at_micros = $4
+             claimed_at = NULL, last_error = 'subscriber unsubscribed',
+             updated_at = $4
          WHERE org_id = $1 AND status_page_id = $2 AND subscriber_id = $3
            AND status IN ('pending', 'processing')",
     )
     .bind(&subscriber.org_id.0)
     .bind(&subscriber.status_page_id.0)
     .bind(&subscriber.id.0)
-    .bind(unsubscribed_at.0)
+    .bind(unsubscribed_at)
     .execute(&mut *transaction)
     .await
     .map_err(super::sqlx_err)?;
@@ -463,9 +467,7 @@ pub(super) fn optional_timestamp(
     row: &sqlx::postgres::PgRow,
     column: &str,
 ) -> Result<Option<TimestampMicros>> {
-    row.try_get::<Option<i64>, _>(column)
-        .map(|value| value.map(TimestampMicros))
-        .map_err(super::sqlx_err)
+    row.try_get(column).map_err(super::sqlx_err)
 }
 
 fn token_lookup_error(error: sqlx::Error, message: &'static str) -> Error {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { makeClause, withClause } from '@/shell/query/builder/model';
 
-import { logBuilderDialect, logBuilderFields } from './builderDialect';
+import { logBuilderDialect, logBuilderFields, logFilterListDialect } from './builderDialect';
 import { buildLogFieldQuerySql, type LogFieldDef } from './fieldQueryModel';
 
 function field(name: string, dataType: LogFieldDef['dataType']): LogFieldDef {
@@ -15,16 +15,17 @@ describe('logBuilderDialect', () => {
       "service = 'checkout' AND status >= 500 AND MATCH(message, 'timeout') AND disk full AND level = '' AND code >= ''",
     );
 
-    expect(parsed.clauses).toEqual([
+    expect(parsed.groups).toHaveLength(1);
+    expect(parsed.groups[0]!.clauses).toEqual([
       { field: 'service', op: '=', value: 'checkout', quoted: true },
       { field: 'status', op: '>=', value: '500', quoted: false },
       { field: 'message', op: 'match', value: 'timeout', quoted: true },
       // Compared with nothing, a field is asked whether it has a value at all.
       { field: 'level', op: '=', value: '', quoted: true },
     ]);
-    expect(parsed.text).toBe('disk full');
+    expect(parsed.groups[0]!.text).toBe('disk full');
     // A comparison with nothing to compare to is kept as written, not dropped.
-    expect(parsed.unsupported).toEqual(["code >= ''"]);
+    expect(parsed.groups[0]!.unsupported).toEqual(["code >= ''"]);
   });
 
   it('writes a filter on a field having no value back as it was typed', () => {
@@ -42,12 +43,10 @@ describe('logBuilderDialect', () => {
   it('keeps a value with quotes and line breaks intact through a round trip', () => {
     const awkward = "it's\na \\ path";
     const written = logBuilderDialect.serialize({
-      clauses: [makeClause({ name: 'message', kind: 'text' }, '=', awkward)],
-      text: '',
-      unsupported: [],
+      groups: [{ clauses: [makeClause({ name: 'message', kind: 'text' }, '=', awkward)], text: '', unsupported: [] }],
     });
 
-    expect(logBuilderDialect.parse(written).clauses[0]?.value).toBe(awkward);
+    expect(logBuilderDialect.parse(written).groups[0]?.clauses[0]?.value).toBe(awkward);
   });
 
   it('a filter added in the builder runs as the same SQL as the typed one', () => {
@@ -55,6 +54,7 @@ describe('logBuilderDialect', () => {
     const built = logBuilderDialect.serialize(
       withClause(
         logBuilderDialect.parse("service = 'checkout'"),
+        0,
         null,
         makeClause({ name: 'status', kind: 'number' }, '>=', '500'),
       ),
@@ -65,11 +65,11 @@ describe('logBuilderDialect', () => {
 
   it('turns text typed as a comparison into a filter when it is committed', () => {
     const parsed = logBuilderDialect.parse(
-      logBuilderDialect.serialize({ clauses: [], text: 'level = error', unsupported: [] }),
+      logBuilderDialect.serialize({ groups: [{ clauses: [], text: 'level = error', unsupported: [] }] }),
     );
 
-    expect(parsed.clauses).toEqual([{ field: 'level', op: '=', value: 'error', quoted: false }]);
-    expect(parsed.text).toBe('');
+    expect(parsed.groups[0]!.clauses).toEqual([{ field: 'level', op: '=', value: 'error', quoted: false }]);
+    expect(parsed.groups[0]!.text).toBe('');
   });
 
   it('offers comparisons by the kind of field and leaves JSON columns out', () => {
@@ -85,5 +85,36 @@ describe('logBuilderDialect', () => {
     expect(logBuilderDialect.operators(fields[1])).toEqual(['=', '!=', '>', '>=', '<', '<=']);
     expect(logBuilderDialect.operators(fields[2])).toEqual(['=', '!=']);
     expect(logBuilderDialect.operators(undefined)).toContain('>=');
+  });
+
+  it('shows alternatives as rows and writes them back', () => {
+    const statement = "level = 'error' AND service = 'checkout' OR \"connection reset\" OR status >= 500";
+    const parsed = logBuilderDialect.parse(statement);
+
+    expect(logBuilderDialect.alternatives).toBe(true);
+    expect(parsed.groups.map((group) => group.clauses.map((clause) => clause.field))).toEqual([
+      ['level', 'service'],
+      [],
+      ['status'],
+    ]);
+    // A quoted phrase is shown as it was written, so it reads back the same.
+    expect(parsed.groups[1]!.text).toBe('"connection reset"');
+    expect(logBuilderDialect.serialize(parsed)).toBe(statement);
+  });
+
+  it('keeps alternatives in brackets as written inside a row', () => {
+    const statement = "level = 'error' AND (service = 'checkout' OR service = 'payments')";
+    const parsed = logBuilderDialect.parse(statement);
+
+    expect(parsed.groups).toHaveLength(1);
+    expect(parsed.groups[0]!.unsupported).toEqual(["(service = 'checkout' OR service = 'payments')"]);
+    expect(logBuilderDialect.serialize(parsed)).toBe(statement);
+  });
+
+  it('reads one row only where alternatives cannot be sent', () => {
+    const parsed = logFilterListDialect.parse("level = 'error' OR status >= 500");
+
+    expect(logFilterListDialect.alternatives).toBe(false);
+    expect(parsed.groups).toEqual([{ clauses: [], text: '', unsupported: ["level = 'error' OR status >= 500"] }]);
   });
 });

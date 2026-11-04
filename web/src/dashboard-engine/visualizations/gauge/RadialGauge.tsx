@@ -113,7 +113,7 @@ export function RadialGauge({
             textAnchor="middle"
             dominantBaseline="middle"
             fontSize={compact ? 25 : 29}
-            fontWeight={600}
+            fontWeight="var(--fw-strong)"
             className="fill-tx-0 font-mono tabular-nums"
             style={color ? { fill: color } : undefined}
           >

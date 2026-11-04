@@ -116,7 +116,7 @@ pub(super) async fn execute(
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct AddPanel {
     panel: Value,
     #[serde(default)]
@@ -128,7 +128,7 @@ struct AddPanel {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct UpdatePanel {
     panel_id: String,
     panel: Value,
@@ -137,7 +137,7 @@ struct UpdatePanel {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct MovePanel {
     panel_id: String,
     #[serde(default)]
@@ -148,7 +148,7 @@ struct MovePanel {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct DeletePanel {
     panel_id: String,
     #[serde(default)]
@@ -165,7 +165,7 @@ fn outcome(approval: &ApprovalRequest, dashboard: Dashboard) -> OperationOutcome
         summary: format!("{} completed", approval.action),
         verification: json!({
             "verified": true,
-            "dashboard_id": dashboard.id,
+            "dashboardId": dashboard.id,
             "version": dashboard.version,
             "dashboard": dashboard,
         }),

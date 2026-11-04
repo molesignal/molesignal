@@ -33,14 +33,14 @@ function dashboard({
 
   return {
     id,
-    org_id: 'org-1',
+    orgId: 'org-1',
     uid: id,
     title,
     tags: [],
     model: dashboardDefinitionToModel(definition),
     version: 1,
-    created_at: updatedAt,
-    updated_at: updatedAt,
+    createdAt: updatedAt,
+    updatedAt: updatedAt,
   };
 }
 

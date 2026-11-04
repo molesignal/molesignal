@@ -94,8 +94,8 @@ export function ProfilesCompare() {
         type: type as ProfileTypeName,
         from: periods.comparison.from,
         to: periods.comparison.to,
-        baseline_from: periods.baseline.from,
-        baseline_to: periods.baseline.to,
+        baselineFrom: periods.baseline.from,
+        baselineTo: periods.baseline.to,
       });
 
       return { ...result, periods };
@@ -114,11 +114,11 @@ export function ProfilesCompare() {
   const loading = diffQuery.isLoading || (chosenType === '' && scopeQuery.isLoading);
   const missing: 'none' | 'baseline' | 'comparison' | null = !data
     ? null
-    : data.baseline_count === 0 && data.comparison_count === 0
+    : data.baselineCount === 0 && data.comparisonCount === 0
       ? 'none'
-      : data.baseline_count === 0
+      : data.baselineCount === 0
         ? 'baseline'
-        : data.comparison_count === 0
+        : data.comparisonCount === 0
           ? 'comparison'
           : null;
 
@@ -180,7 +180,7 @@ export function ProfilesCompare() {
               onChange={setChosenBaseline}
             />
           }
-          counts={data ? { comparison: data.comparison_count, baseline: data.baseline_count } : undefined}
+          counts={data ? { comparison: data.comparisonCount, baseline: data.baselineCount } : undefined}
           totals={totals}
           units={fb?.units}
         />

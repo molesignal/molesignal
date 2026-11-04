@@ -21,16 +21,16 @@ const NOW_MICROS = Date.UTC(2026, 4, 29, 9, 42, 0) * 1000;
 
 const INCIDENT = {
   id: 'inc-flow-1',
-  org_id: 'org-default',
-  rule_id: 'rule-web-p95',
+  orgId: 'org-default',
+  ruleId: 'rule-web-p95',
   status: 'open' as const,
   severity: 'critical' as const,
   summary: 'web service p95 > 500ms for 5m',
   fingerprint: 'abc123',
-  current_step: 1,
-  current_step_started_at: NOW_MICROS,
+  currentStep: 1,
+  currentStepStartedAt: NOW_MICROS,
   assignees: ['oncall@acme'],
-  created_at: NOW_MICROS,
+  createdAt: NOW_MICROS,
   labels: {
     severity: 'critical',
     service: 'web',
@@ -39,13 +39,13 @@ const INCIDENT = {
   annotations: {
     runbook: 'https://runbooks.acme/web-latency',
   },
-  trace_ids: ['trace-abc123def456789', 'trace-deadbeefcafe'],
-  host_ids: ['node-3.us-east-1'],
-  affected_services: ['web', 'api-gateway'],
-  triggering_query: {
+  traceIds: ['trace-abc123def456789', 'trace-deadbeefcafe'],
+  hostIds: ['node-3.us-east-1'],
+  affectedServices: ['web', 'api-gateway'],
+  triggeringQuery: {
     language: 'sql' as const,
     statement: 'SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms) FROM traces WHERE service_name = \'web\'',
-    sample_values: [
+    sampleValues: [
       { ts: NOW_MICROS - 60_000_000, value: 612.4, labels: { service: 'web' } },
       { ts: NOW_MICROS - 30_000_000, value: 718.9, labels: { service: 'web' } },
       { ts: NOW_MICROS, value: 802.1, labels: { service: 'web' } },
@@ -54,23 +54,23 @@ const INCIDENT = {
 };
 
 const RULE = {
-  id: INCIDENT.rule_id,
-  org_id: INCIDENT.org_id,
+  id: INCIDENT.ruleId,
+  orgId: INCIDENT.orgId,
   name: 'web p95 SLO',
   description: 'High p95 latency on web service',
   enabled: true,
   query: {
     language: 'sql',
-    statement: INCIDENT.triggering_query.statement,
-    period_secs: 60,
+    statement: INCIDENT.triggeringQuery.statement,
+    periodSecs: 60,
   },
   trigger: {
     operator: 'gt',
     threshold: 500,
-    for_periods: 5,
-    silence_secs: 300,
+    forPeriods: 5,
+    silenceSecs: 300,
   },
-  escalation_policy_id: 'ep-1',
+  escalationPolicyId: 'ep-1',
   labels: INCIDENT.labels,
   annotations: INCIDENT.annotations,
 };
@@ -78,8 +78,7 @@ const RULE = {
 test.describe('SRE pager to trace', () => {
   test.beforeEach(async ({ page }) => {
     await installMockShellSession(page, {
-      token: 'mock-alert-flow-token',
-      orgId: INCIDENT.org_id,
+      orgId: INCIDENT.orgId,
       role: 'Admin',
       displayName: 'tester',
     });
@@ -91,10 +90,10 @@ test.describe('SRE pager to trace', () => {
     // The list endpoint returns compact cross-signal handle lists.
     const listIncident = {
       ...INCIDENT,
-      trace_ids: [INCIDENT.trace_ids[0]!],
-      host_ids: [INCIDENT.host_ids[0]!],
-      affected_services: [INCIDENT.affected_services[0]!],
-      triggering_query: null,
+      traceIds: [INCIDENT.traceIds[0]!],
+      hostIds: [INCIDENT.hostIds[0]!],
+      affectedServices: [INCIDENT.affectedServices[0]!],
+      triggeringQuery: null,
     };
 
     await page.route((url) => url.pathname === '/api/v1/alerts/rules', async (route) => {
@@ -113,8 +112,8 @@ test.describe('SRE pager to trace', () => {
       route.fulfill({
         json: {
           id: 'u1',
-          display_name: 'tester',
-          display_role: 'Admin',
+          displayName: 'tester',
+          displayRole: 'Admin',
           roles: [
             {
               id: 'role-admin',
@@ -123,7 +122,7 @@ test.describe('SRE pager to trace', () => {
               builtin: true,
             },
           ],
-          org_id: INCIDENT.org_id,
+          orgId: INCIDENT.orgId,
         },
       }),
     );
@@ -160,7 +159,7 @@ test.describe('SRE pager to trace', () => {
 
     // Jump to the trace. The link names it in the path and carries the time window.
     await openInTraces.click();
-    await expect(page).toHaveURL(new RegExp(`/traces/${INCIDENT.trace_ids[0]}\\?`));
+    await expect(page).toHaveURL(new RegExp(`/traces/${INCIDENT.traceIds[0]}\\?`));
     const url = new URL(page.url());
     // The propagated time window bounds the trace view to the incident window.
     expect(url.searchParams.get('from')).toBeTruthy();

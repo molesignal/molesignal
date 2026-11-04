@@ -226,6 +226,11 @@ impl FlightGrpc {
                         size_bytes: file.size_bytes,
                         min_values: serde_json::Map::new(),
                         max_values: serde_json::Map::new(),
+                        value_sets: serde_json::Map::new(),
+                        address_ranges: serde_json::Map::new(),
+                        null_counts: serde_json::Map::new(),
+                        indexed_at_micros: None,
+                        shard: None,
                     })
                 })
                 .collect::<Result<Vec<_>, _>>()?;
@@ -398,6 +403,15 @@ impl FlightService for FlightGrpc {
             if ctx.org_id.0 != shard.org_id {
                 return Err(Status::permission_denied(
                     "token org does not match query org",
+                ));
+            }
+
+            // A shard reads its stream's files directly: the audit trail needs the grant here.
+            if shard.stream == crate::domain::stream::AUDIT_STREAM
+                && !ctx.has_permission(crate::infra::query::grants::AUDIT_READ)
+            {
+                return Err(Status::permission_denied(
+                    "reading `_audit` needs the audit.read permission",
                 ));
             }
         }

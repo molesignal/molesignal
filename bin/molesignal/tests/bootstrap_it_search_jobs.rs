@@ -21,10 +21,10 @@ async fn async_query_returns_202_with_job_id() {
         .header(hk, &hv)
         .header("prefer", "respond-async")
         .json(&serde_json::json!({
-            "org_id": s.root_org_id.0,
+            "orgId": s.root_org_id.0,
             "language": "sql",
             "statement": "SELECT 1",
-            "time_range": { "start": 0_i64, "end": 1_000_000_i64 }
+            "timeRange": { "start": 0_i64, "end": 1_000_000_i64 }
         }))
         .send()
         .await
@@ -38,10 +38,10 @@ async fn async_query_returns_202_with_job_id() {
     if code == 202 {
         let v: Value = resp.json().await.unwrap();
         let job_id = v
-            .get("job_id")
+            .get("jobId")
             .and_then(Value::as_str)
             .or_else(|| v.get("id").and_then(Value::as_str));
-        assert!(job_id.is_some(), "async response should include job_id");
+        assert!(job_id.is_some(), "async response should include jobId");
 
         // 容忍 worker 在 TestServer fixture 内未启动：只验证 jobs/{id} GET 可达 + 返一个合法 state。
         // worker pickup → done 的全链路由 staging / CI 长跑覆盖。

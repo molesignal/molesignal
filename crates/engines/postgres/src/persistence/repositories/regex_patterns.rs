@@ -13,6 +13,7 @@ use super::sqlx_err;
 use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RegexPattern {
     pub id: Id,
     pub org_id: Id,
@@ -51,7 +52,8 @@ impl PgRegexPatternRepository {
     }
 }
 
-const COLS: &str = "id, org_id, name, pattern, description, replacement, apply_on_intake, created_at_micros, updated_at_micros";
+const COLS: &str =
+    "id, org_id, name, pattern, description, replacement, apply_on_intake, created_at, updated_at";
 
 fn row_to(r: sqlx::postgres::PgRow) -> RegexPattern {
     RegexPattern {
@@ -64,8 +66,12 @@ fn row_to(r: sqlx::postgres::PgRow) -> RegexPattern {
             .try_get::<String, _>("replacement")
             .unwrap_or_else(|_| default_replacement()),
         apply_on_intake: r.try_get::<bool, _>("apply_on_intake").unwrap_or(false),
-        created_at: TimestampMicros(r.try_get::<i64, _>("created_at_micros").unwrap_or_default()),
-        updated_at: TimestampMicros(r.try_get::<i64, _>("updated_at_micros").unwrap_or_default()),
+        created_at: r
+            .try_get::<TimestampMicros, _>("created_at")
+            .unwrap_or_default(),
+        updated_at: r
+            .try_get::<TimestampMicros, _>("updated_at")
+            .unwrap_or_default(),
     }
 }
 
@@ -87,7 +93,7 @@ impl RegexPatternRepository for PgRegexPatternRepository {
         sqlx::query(
             "INSERT INTO regex_patterns
                 (id, org_id, name, pattern, description, replacement, apply_on_intake,
-                 created_at_micros, updated_at_micros)
+                 created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         )
         .bind(&p.id.0)
@@ -97,8 +103,8 @@ impl RegexPatternRepository for PgRegexPatternRepository {
         .bind(&p.description)
         .bind(&p.replacement)
         .bind(p.apply_on_intake)
-        .bind(p.created_at.0)
-        .bind(p.updated_at.0)
+        .bind(p.created_at)
+        .bind(p.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -110,7 +116,7 @@ impl RegexPatternRepository for PgRegexPatternRepository {
         let res = sqlx::query(
             "UPDATE regex_patterns
                 SET name = $3, pattern = $4, description = $5,
-                    replacement = $6, apply_on_intake = $7, updated_at_micros = $8
+                    replacement = $6, apply_on_intake = $7, updated_at = $8
              WHERE org_id = $1 AND id = $2",
         )
         .bind(&p.org_id.0)
@@ -120,7 +126,7 @@ impl RegexPatternRepository for PgRegexPatternRepository {
         .bind(&p.description)
         .bind(&p.replacement)
         .bind(p.apply_on_intake)
-        .bind(p.updated_at.0)
+        .bind(p.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;

@@ -10,6 +10,7 @@ import { formatMicrosActive } from '@/lib/time';
 import { ChromeButton, IconButton, Pill } from '@/shell/chrome';
 import { FormField, FormInput } from '@/shell/FormDrawer';
 import { cn } from '@/shell/lib/cn';
+import { IconSwap } from '@/shell/polish/IconSwap';
 import { toast } from '@/shell/ui/sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/shell/ui/tooltip';
 
@@ -102,29 +103,29 @@ account_email = "ops@example.com"`}</span>
                 <ShieldCheck
                   className={cn(
                     'h-4 w-4',
-                    config.cert_not_after ? 'text-[var(--green-ink)]' : 'text-tx-3',
+                    config.certNotAfter ? 'text-[var(--green-ink)]' : 'text-tx-3',
                   )}
                 />
-                {config.cert_not_after
-                  ? t('settings.domain.valid_until', { date: formatMicrosActive(config.cert_not_after) })
+                {config.certNotAfter
+                  ? t('settings.domain.valid_until', { date: formatMicrosActive(config.certNotAfter) })
                   : t('settings.domain.pending_certificate')}
               </span>
             </DomainMetric>
             <DomainMetric label={t('fields.last_checked')}>
               <span className="text-sm tabular-nums text-tx-2">
-                {config.last_checked_at ? formatMicrosActive(config.last_checked_at) : t('values.never')}
+                {config.lastCheckedAt ? formatMicrosActive(config.lastCheckedAt) : t('values.never')}
               </span>
             </DomainMetric>
           </div>
 
           <div className="space-y-2">
-            <DnsRecord label={t('settings.domain.txt_name')} value={domain.txt_name} />
-            <DnsRecord label={t('settings.domain.txt_value')} value={domain.txt_value} />
-            <DnsRecord label={t('settings.domain.routing_target')} value={domain.routing_target} />
+            <DnsRecord label={t('settings.domain.txt_name')} value={domain.txtName} />
+            <DnsRecord label={t('settings.domain.txt_value')} value={domain.txtValue} />
+            <DnsRecord label={t('settings.domain.routing_target')} value={domain.routingTarget} />
           </div>
-          {config.last_error && (
+          {config.lastError && (
             <p role="alert" className="rounded-md bg-red-dim px-3 py-2 text-xs leading-5 text-red-soft">
-              {config.last_error}
+              {config.lastError}
             </p>
           )}
           <div className="flex flex-wrap justify-end gap-2 border-t border-bd-0 pt-4">
@@ -185,7 +186,11 @@ function DnsRecord({ label, value }: { label: string; value: string }) {
               });
             }}
           >
-            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            <IconSwap
+              active={copied}
+              inactiveIcon={<Copy className="h-3.5 w-3.5" />}
+              activeIcon={<Check className="h-3.5 w-3.5" />}
+            />
           </IconButton>
         </TooltipTrigger>
         <TooltipContent>{copied ? t('actions.copied') : t('actions.copy')}</TooltipContent>

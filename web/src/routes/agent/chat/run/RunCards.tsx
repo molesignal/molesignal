@@ -60,7 +60,7 @@ export function QuestionCard({
 
   return (
     <div
-      data-agent-question={pending.call_id}
+      data-agent-question={pending.callId}
       className="ml-10 rounded-lg bg-[var(--blue-tint)] px-3 py-3"
     >
       <div className="flex items-start gap-2">
@@ -96,7 +96,7 @@ export function QuestionCard({
             onSubmit={(event) => {
               event.preventDefault();
               if (!ready || busy) return;
-              void send({ call_id: pending.call_id, choices: picked, text: text.trim() });
+              void send({ callId: pending.callId, choices: picked, text: text.trim() });
             }}
           >
             <textarea
@@ -158,7 +158,7 @@ export function ConfirmationCard({
 
   return (
     <div
-      data-agent-confirmation={pending.call_id}
+      data-agent-confirmation={pending.callId}
       className="ml-10 rounded-lg bg-[var(--yellow-tint)] px-3 py-3"
     >
       <div className="flex items-start gap-2">
@@ -187,14 +187,14 @@ export function ConfirmationCard({
                 size="sm"
                 variant="primary"
                 disabled={busy}
-                onClick={() => void send({ call_id: pending.call_id, approved: true })}
+                onClick={() => void send({ callId: pending.callId, approved: true })}
               >
                 {t('run.confirmation.approve')}
               </ChromeButton>
               <ChromeButton
                 size="sm"
                 disabled={busy}
-                onClick={() => void send({ call_id: pending.call_id, approved: false })}
+                onClick={() => void send({ callId: pending.callId, approved: false })}
               >
                 {t('run.confirmation.decline')}
               </ChromeButton>

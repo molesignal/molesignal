@@ -55,7 +55,7 @@ export function PublicStatusLayout({
   onLanguageChange: (language: StatusPageLanguage) => void;
   children: ReactNode;
 }) {
-  const style = { '--status-brand': page.brand_color } as CSSProperties;
+  const style = { '--status-brand': page.brandColor } as CSSProperties;
   const places = [
     { view: 'status', href: paths.current, label: copy('public.archive.current_status') },
     { view: 'history', href: paths.history, label: copy('public.archive.incident_history') },
@@ -80,9 +80,9 @@ export function PublicStatusLayout({
             to={paths.current}
             className="flex min-w-0 items-center gap-3 rounded-md transition-colors focus-visible:bg-bg-2"
           >
-            {page.logo_url ? (
+            {page.logoUrl ? (
               <img
-                src={page.logo_url}
+                src={page.logoUrl}
                 alt=""
                 className="h-11 w-11 shrink-0 rounded-lg border border-bd-0 bg-white object-contain p-1 sm:h-12 sm:w-12"
               />
@@ -90,7 +90,7 @@ export function PublicStatusLayout({
               <span
                 aria-hidden
                 className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-lg font-bold text-white sm:h-12 sm:w-12"
-                style={{ backgroundColor: page.brand_color }}
+                style={{ backgroundColor: page.brandColor }}
               >
                 {page.name.slice(0, 1).toUpperCase()}
               </span>
@@ -110,9 +110,9 @@ export function PublicStatusLayout({
             <PublicStatusSubscribe
               slug={page.slug}
               language={language}
-              brandColor={page.brand_color}
+              brandColor={page.brandColor}
               components={components}
-              slackApp={page.slack_app === true}
+              slackApp={page.slackApp === true}
               privatePage={page.visibility === 'private'}
             />
             {languages.length > 1 && (

@@ -9,13 +9,13 @@ mod automation;
 mod codec;
 mod components;
 mod deliveries;
+mod dependencies;
 mod domains;
 mod event_queries;
 mod incidents;
 mod pages;
 mod planned_maintenance;
 mod postmortems;
-mod service_links;
 mod subscriptions;
 
 use sqlx::PgPool;
@@ -45,12 +45,12 @@ async fn touch_page(
 ) -> Result<()> {
     let result = sqlx::query(
         "UPDATE status_pages
-         SET updated_at_micros = GREATEST(updated_at_micros, $3)
+         SET updated_at = GREATEST(updated_at, $3)
          WHERE org_id = $1 AND id = $2",
     )
     .bind(&org_id.0)
     .bind(&page_id.0)
-    .bind(updated_at.0)
+    .bind(updated_at)
     .execute(transaction)
     .await
     .map_err(sqlx_err)?;

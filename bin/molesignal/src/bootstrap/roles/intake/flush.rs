@@ -11,10 +11,13 @@ use std::{
 use futures::{StreamExt, stream};
 use tokio::task::JoinHandle;
 
-use super::{IntakeWorker, PendingWalCleanup};
+use super::{IntakeWorker, PendingWalCleanup, SHARDING_TTL};
 use crate::{
-    domain::storage::{
-        CommitFlush, FlushId, OrganizationScope, PhysicalDatasetId, is_stale_writer_epoch,
+    domain::{
+        storage::{
+            CommitFlush, FlushId, OrganizationScope, PhysicalDatasetId, is_stale_writer_epoch,
+        },
+        stream::{FieldPartitions, StreamDefinition, StreamType},
     },
     infra::intake::{
         BufferKey, DatasetBuffer, FlushInflightGuard, RotationReason, inc_flush_error, inc_rotation,
@@ -35,6 +38,47 @@ impl IntakeWorker {
     )]
     pub async fn flush_one(&self, key: &BufferKey) -> Result<()> {
         self.flush_one_inner(key, None).await
+    }
+
+    /// The partition fields of `stream`, read from its settings at most once per [`SHARDING_TTL`]:
+    /// flushes every few seconds do not read the settings each time. Only logs and traces are
+    /// partitioned. A failed read keeps the last answer.
+    async fn sharding(&self, stream: &StreamDefinition) -> Option<FieldPartitions> {
+        if !matches!(stream.stream_type, StreamType::LOGS | StreamType::TRACES) {
+            return None;
+        }
+
+        let cached = self
+            .sharding
+            .get(&stream.id)
+            .map(|entry| entry.value().clone());
+
+        if let Some((read_at, partition)) = &cached
+            && read_at.elapsed() < SHARDING_TTL
+        {
+            return partition.clone();
+        }
+
+        let partition = match self.streams.get_settings(&stream.id).await {
+            // Saved settings were validated; ones edited around that are not followed, since
+            // the shard numbers of their files could not be read back.
+            Ok(settings) => Some(settings.partitions)
+                .filter(|partitions| !partitions.is_empty() && partitions.validate().is_ok()),
+            Err(error) => {
+                tracing::warn!(
+                    stream_id = %stream.id,
+                    %error,
+                    "stream settings unreadable; flushing with the last known partition"
+                );
+
+                return cached.and_then(|(_, partition)| partition);
+            }
+        };
+
+        self.sharding
+            .insert(stream.id.clone(), (Instant::now(), partition.clone()));
+
+        partition
     }
 
     async fn flush_one_if_due(&self, key: &BufferKey) -> Result<()> {
@@ -113,6 +157,8 @@ impl IntakeWorker {
             &buffer.dataset.dataset.dataset_type,
         );
 
+        let sharding = self.sharding(&stream_definition).await;
+
         let segments = match self
             .parquet_writer
             .flush_catalog(
@@ -120,6 +166,7 @@ impl IntakeWorker {
                 &buffer.dataset.dataset,
                 &provenance,
                 generation.batch.clone(),
+                sharding.as_ref(),
             )
             .await
         {

@@ -97,13 +97,13 @@ export function McpServersDrawer({
     mutationFn: agentApi.testMcpServer,
     onSuccess: async (result) => {
       if (result.success) {
-        setDiscoveries((current) => ({ ...current, [result.server.id]: result.discovered_tools }));
+        setDiscoveries((current) => ({ ...current, [result.server.id]: result.discoveredTools }));
         setSelected((current) => ({
           ...current,
-          [result.server.id]: result.discovered_tools.map((tool) => tool.name),
+          [result.server.id]: result.discoveredTools.map((tool) => tool.name),
         }));
         toast.success(
-          t('settings.tools.mcp.feedback.test_success', { count: result.discovered_tools.length }),
+          t('settings.tools.mcp.feedback.test_success', { count: result.discoveredTools.length }),
         );
       } else {
         toast.error(result.error ?? t('settings.tools.mcp.feedback.test_failed'));
@@ -188,7 +188,7 @@ export function McpServersDrawer({
               const discovered = discoveries[server.id] ?? [];
               const selectedNames = selected[server.id] ?? [];
               const open = expanded === server.id;
-              const memberCredential = server.auth_type === 'member_secret';
+              const memberCredential = server.authType === 'member_secret';
               return (
                 <section
                   key={server.id}
@@ -209,9 +209,9 @@ export function McpServersDrawer({
                         >
                           {scopes.label({
                             scope: server.scope.scope,
-                            team_id: server.scope.scope === 'team' ? server.scope.team_id : null,
-                            owner_id:
-                              server.scope.scope === 'personal' ? server.scope.owner_id : null,
+                            teamId: server.scope.scope === 'team' ? server.scope.teamId : null,
+                            ownerId:
+                              server.scope.scope === 'personal' ? server.scope.ownerId : null,
                           })}
                         </span>
                         {!server.enabled && (
@@ -223,19 +223,19 @@ export function McpServersDrawer({
                       <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-tx-3">
                         <span>{t(`settings.tools.mcp.transport.${server.transport}`)}</span>
                         <span>
-                          {t('settings.tools.mcp.tool_count', { count: server.tool_count ?? 0 })}
+                          {t('settings.tools.mcp.tool_count', { count: server.toolCount ?? 0 })}
                         </span>
-                        {(server.prompt_count ?? 0) > 0 && (
+                        {(server.promptCount ?? 0) > 0 && (
                           <span>
                             {t('settings.tools.mcp.prompt_count', {
-                              count: server.prompt_count ?? 0,
+                              count: server.promptCount ?? 0,
                             })}
                           </span>
                         )}
                         {server.transport === 'stdio' &&
                           (server.scope.scope !== 'org' ||
                             !stdioCommands.includes(
-                              agentApi.stdioProgram(server.command_template ?? ''),
+                              agentApi.stdioProgram(server.commandTemplate ?? ''),
                             )) && (
                             <span
                               data-agent-mcp-stdio-blocked
@@ -244,8 +244,8 @@ export function McpServersDrawer({
                               {t('settings.tools.mcp.stdio_not_allowed')}
                             </span>
                           )}
-                        {server.last_error && (
-                          <span className="text-[var(--red-ink)]">{server.last_error}</span>
+                        {server.lastError && (
+                          <span className="text-[var(--red-ink)]">{server.lastError}</span>
                         )}
                       </div>
                     </div>
@@ -253,13 +253,13 @@ export function McpServersDrawer({
                       <Button
                         size="sm"
                         variant="outline"
-                        data-agent-mcp-my-credential={server.my_credential ? 'saved' : 'missing'}
+                        data-agent-mcp-my-credential={server.myCredential ? 'saved' : 'missing'}
                         onClick={() => setCredentialFor(server)}
                       >
                         <KeyRound className="h-3.5 w-3.5" />
-                        {server.my_credential
+                        {server.myCredential
                           ? t('settings.tools.mcp.my_credential.button_saved', {
-                              last4: server.my_credential.last4,
+                              last4: server.myCredential.last4,
                             })
                           : t('settings.tools.mcp.my_credential.button_missing')}
                       </Button>
@@ -366,7 +366,7 @@ export function McpServersDrawer({
                       </div>
                     </div>
                   )}
-                  {((server.tool_count ?? 0) > 0 || (server.prompt_count ?? 0) > 0) && (
+                  {((server.toolCount ?? 0) > 0 || (server.promptCount ?? 0) > 0) && (
                     <>
                       <button
                         type="button"

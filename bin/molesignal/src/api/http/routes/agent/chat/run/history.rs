@@ -169,7 +169,7 @@ pub(super) async fn for_answer(
 
     // 摘要只在这一轮的问题晚于它覆盖的消息时用：重新生成更早的问题时，摘要里有之后的事。
     let upto = chat
-        .context_summary_upto_micros
+        .context_summary_upto
         .filter(|upto| asked_at.is_none_or(|asked| asked.0 > *upto));
 
     let (mut summary, mut rows) = match (upto, chat.context_summary.clone()) {
@@ -301,10 +301,7 @@ pub(super) async fn compact_now(control: &RunControl, ctx: &IamContext, chat: Ch
         Err(error) => return Ending::failed(error.to_string()),
     };
 
-    let (summary, rows) = match (
-        chat.context_summary.clone(),
-        chat.context_summary_upto_micros,
-    ) {
+    let (summary, rows) = match (chat.context_summary.clone(), chat.context_summary_upto) {
         (Some(summary), Some(upto)) => (
             Some(summary),
             rows.into_iter()
@@ -432,8 +429,8 @@ mod tests {
             "name": "rca",
             "args": "inc-1",
             "source": "builtin",
-            "model_text": "Find the root cause of the incident \"API 502s\".",
-            "incident_id": "inc-1",
+            "modelText": "Find the root cause of the incident \"API 502s\".",
+            "incidentId": "inc-1",
         }));
 
         let history = to_model(&[command, row("user-2", "user", "\\/etc/hosts is wrong", 2)]);

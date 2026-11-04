@@ -41,21 +41,21 @@ struct Chunk {
 
 impl ProductionObjectStore {
     fn multipart_threshold(&self) -> u64 {
-        u64::from(self.settings.multipart_threshold_mb.max(1)) * MIB
+        u64::from(self.settings.multipart_threshold_size.max(1)) * MIB
     }
 
     /// 分片大小；对象很大时放大，使分片数不超过后端上限。
     fn part_size(&self, total: u64) -> usize {
-        let configured = u64::from(self.settings.multipart_part_size_mb.max(1)) * MIB;
+        let configured = u64::from(self.settings.multipart_part_size.max(1)) * MIB;
         usize::try_from(configured.max(total.div_ceil(MAX_PARTS))).unwrap_or(usize::MAX)
     }
 
     fn range_threshold(&self) -> u64 {
-        u64::from(self.settings.range_threshold_mb.max(1)) * MIB
+        u64::from(self.settings.range_threshold_size.max(1)) * MIB
     }
 
     fn range_chunk(&self) -> u64 {
-        u64::from(self.settings.range_chunk_mb.max(1)) * MIB
+        u64::from(self.settings.range_chunk_size.max(1)) * MIB
     }
 
     fn transfer_parallelism(&self) -> usize {

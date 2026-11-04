@@ -18,16 +18,16 @@ use crate::{
 
 const DELIVERY_COLS: &str = "delivery.id, delivery.org_id, delivery.status_page_id,
     delivery.subscriber_id, delivery.event_key, delivery.payload, delivery.status,
-    delivery.attempts, delivery.next_attempt_at_micros, delivery.last_error,
-    delivery.delivered_at_micros, delivery.created_at_micros, delivery.updated_at_micros,
+    delivery.attempts, delivery.next_attempt_at, delivery.last_error,
+    delivery.delivered_at, delivery.created_at, delivery.updated_at,
     subscriber.channel, subscriber.target_ciphertext, subscriber.target_nonce,
     subscriber.token_ciphertext, subscriber.token_nonce,
     subscriber.component_scope, subscriber.component_ids";
 
 const CLAIMED_DELIVERY_COLS: &str = "claimed.id, claimed.org_id, claimed.status_page_id,
     claimed.subscriber_id, claimed.event_key, claimed.payload, claimed.status,
-    claimed.attempts, claimed.next_attempt_at_micros, claimed.last_error,
-    claimed.delivered_at_micros, claimed.created_at_micros, claimed.updated_at_micros,
+    claimed.attempts, claimed.next_attempt_at, claimed.last_error,
+    claimed.delivered_at, claimed.created_at, claimed.updated_at,
     subscriber.channel, subscriber.target_ciphertext, subscriber.target_nonce,
     subscriber.token_ciphertext, subscriber.token_nonce,
     subscriber.component_scope, subscriber.component_ids";
@@ -62,7 +62,7 @@ impl StatusPageDeliveryRepository for PgStatusPageRepository {
               AND subscriber.status_page_id = delivery.status_page_id
               AND subscriber.id = delivery.subscriber_id
              WHERE delivery.org_id = $1 AND delivery.status_page_id = $2
-             ORDER BY delivery.created_at_micros DESC, delivery.id DESC
+             ORDER BY delivery.created_at DESC, delivery.id DESC
              LIMIT $3 OFFSET $4"
         );
 
@@ -107,14 +107,14 @@ impl StatusPageDeliveryRepository for PgStatusPageRepository {
                        OR (subscriber.status = 'pending'
                            AND delivery.event_key LIKE 'subscription_confirmation:%'))
                   AND page.lifecycle = 'active'
-                  AND ((delivery.status = 'pending' AND delivery.next_attempt_at_micros <= $1)
-                       OR (delivery.status = 'processing' AND delivery.claimed_at_micros < $2))
-                ORDER BY delivery.next_attempt_at_micros, delivery.created_at_micros
+                  AND ((delivery.status = 'pending' AND delivery.next_attempt_at <= $1)
+                       OR (delivery.status = 'processing' AND delivery.claimed_at < $2))
+                ORDER BY delivery.next_attempt_at, delivery.created_at
                 LIMIT $3 FOR UPDATE OF delivery SKIP LOCKED
              ), claimed AS (
                 UPDATE status_page_notification_deliveries delivery
                 SET status = 'processing', attempts = delivery.attempts + 1,
-                    claimed_at_micros = $1, updated_at_micros = $1
+                    claimed_at = $1, updated_at = $1
                 FROM candidates WHERE delivery.id = candidates.id
                 RETURNING delivery.*
              )
@@ -124,12 +124,12 @@ impl StatusPageDeliveryRepository for PgStatusPageRepository {
                ON subscriber.org_id = claimed.org_id
               AND subscriber.status_page_id = claimed.status_page_id
               AND subscriber.id = claimed.subscriber_id
-             ORDER BY claimed.created_at_micros"
+             ORDER BY claimed.created_at"
         );
 
         sqlx::query(&sql)
-            .bind(now.0)
-            .bind(stale_before)
+            .bind(now)
+            .bind(TimestampMicros(stale_before))
             .bind(i64::from(limit.min(500)))
             .fetch_all(&self.pool)
             .await
@@ -155,17 +155,17 @@ impl StatusPageDeliveryRepository for PgStatusPageRepository {
 
         let result = sqlx::query(
             "UPDATE status_page_notification_deliveries SET
-                status = $2, next_attempt_at_micros = $3, claimed_at_micros = NULL,
-                delivered_at_micros = CASE WHEN $2 = 'delivered' THEN $5
-                                           ELSE delivered_at_micros END,
-                last_error = $4, updated_at_micros = $5
+                status = $2, next_attempt_at = $3, claimed_at = NULL,
+                delivered_at = CASE WHEN $2 = 'delivered' THEN $5
+                                           ELSE delivered_at END,
+                last_error = $4, updated_at = $5
              WHERE id = $1 AND status = 'processing'",
         )
         .bind(&delivery_id.0)
         .bind(status.as_str())
-        .bind(next_attempt_at.0)
+        .bind(next_attempt_at)
         .bind(last_error)
-        .bind(updated_at.0)
+        .bind(updated_at)
         .execute(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
@@ -191,15 +191,15 @@ impl StatusPageDeliveryRepository for PgStatusPageRepository {
                 JOIN status_pages page
                   ON page.org_id = delivery.org_id AND page.id = delivery.status_page_id
                 WHERE delivery.status IN ('delivered', 'failed')
-                  AND delivery.updated_at_micros <=
-                      $1 - page.delivery_retention_days::BIGINT * 86400000000
-                ORDER BY delivery.updated_at_micros, delivery.id
+                  AND delivery.updated_at <=
+                      $1 - make_interval(days => page.delivery_retention_days)
+                ORDER BY delivery.updated_at, delivery.id
                 LIMIT $2 FOR UPDATE OF delivery SKIP LOCKED
              )
              DELETE FROM status_page_notification_deliveries delivery
              USING expired WHERE delivery.id = expired.id",
         )
-        .bind(now.0)
+        .bind(now)
         .bind(i64::from(limit.min(1000)))
         .execute(&self.pool)
         .await
@@ -238,14 +238,17 @@ impl PgStatusPageRepository {
             status: StatusPageDeliveryStatus::parse(&status)
                 .ok_or_else(|| Error::internal(format!("unknown delivery status: {status}")))?,
             attempts: row.try_get("attempts").map_err(super::sqlx_err)?,
-            next_attempt_at: TimestampMicros(
-                row.try_get("next_attempt_at_micros")
-                    .map_err(super::sqlx_err)?,
-            ),
+            next_attempt_at: row
+                .try_get::<TimestampMicros, _>("next_attempt_at")
+                .map_err(super::sqlx_err)?,
             last_error: row.try_get("last_error").map_err(super::sqlx_err)?,
-            delivered_at: optional_timestamp(&row, "delivered_at_micros")?,
-            created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
-            updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(super::sqlx_err)?),
+            delivered_at: optional_timestamp(&row, "delivered_at")?,
+            created_at: row
+                .try_get::<TimestampMicros, _>("created_at")
+                .map_err(super::sqlx_err)?,
+            updated_at: row
+                .try_get::<TimestampMicros, _>("updated_at")
+                .map_err(super::sqlx_err)?,
         })
     }
 }

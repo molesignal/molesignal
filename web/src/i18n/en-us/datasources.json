@@ -93,7 +93,7 @@
       },
       "4": {
         "title": "Verify an error event",
-        "description": "Trigger a test error, then confirm the application, version and source location in the RUM error list."
+        "description": "Trigger a test error, then confirm the application, version and source location in the Errors tab of the RUM explorer."
       }
     }
   },
@@ -113,8 +113,7 @@
       },
       "4": {
         "title": "Upload and check the symbols",
-        "description": "Under RUM settings → Source Maps & Symbols choose Flutter Symbols, enter the same application ID, service, release, platform and architecture, and upload each .symbols file.",
-        "note": "Production stacks from the current SDK still need the relative addresses and build identifiers from the Flutter SDK fix list below before they resolve AOT symbols reliably."
+        "description": "Under RUM settings → Source Maps & Symbols choose Flutter Symbols, enter the same application ID, service, release, platform, architecture and debug ID the build was made with, and upload each .symbols file."
       },
       "5": {
         "title": "Verify sessions and errors",
@@ -124,11 +123,11 @@
   },
   "rum-android": {
     "name": "Android RUM",
-    "description": "Native Android apps report sessions and errors over the RUM HTTP protocol, with R8 and NDK stack restoration.",
+    "description": "Native Android apps report errors in the RUM event format over HTTP, with R8 and NDK stack restoration.",
     "steps": {
       "1": {
-        "title": "Integrate the RUM HTTP protocol",
-        "description": "Until the native Android SDK ships, integrate through your existing network layer. Errors are shown below; sessions, actions and replay go to /api/v1/rum/sessions, /api/v1/rum/actions and /api/v1/rum/replay, and must use the same application ID."
+        "title": "Send RUM events over HTTP",
+        "description": "Until the native Android SDK ships, integrate through your existing network layer. An error event is shown below; views, actions, requests and the other events have the same format and go to POST /api/v1/rum/events, and session replay goes to /api/v1/rum/replay. They belong to the application the client token is bound to."
       },
       "2": {
         "title": "Keep the R8 mapping.txt",
@@ -154,11 +153,11 @@
   },
   "rum-ios": {
     "name": "iOS RUM",
-    "description": "Native iOS apps report error addresses over the RUM HTTP protocol and restore functions and source locations with dSYM.",
+    "description": "Native iOS apps report error addresses in the RUM event format over HTTP and restore functions and source locations with dSYM.",
     "steps": {
       "1": {
-        "title": "Integrate the RUM HTTP protocol",
-        "description": "Until the native iOS SDK ships, integrate through URLSession. Errors are shown below; sessions, actions and replay go to /api/v1/rum/sessions, /api/v1/rum/actions and /api/v1/rum/replay, and must use the same application ID."
+        "title": "Send RUM events over HTTP",
+        "description": "Until the native iOS SDK ships, integrate through URLSession. An error event is shown below; views, actions, requests and the other events have the same format and go to POST /api/v1/rum/events, and session replay goes to /api/v1/rum/replay. They belong to the application the client token is bound to."
       },
       "2": {
         "title": "Archive and keep the dSYM",
@@ -362,10 +361,29 @@
   },
   "github-actions": {
     "name": "GitHub Actions",
-    "description": "workflow_run and deployment_status events.",
+    "description": "Report each deployment from a workflow to the APM deployment timeline.",
     "steps": {
       "1": {
-        "title": "Workflow webhook"
+        "title": "Keep the token as a repository secret",
+        "description": "The token's role needs apm.deploy; an intake token has it."
+      },
+      "2": {
+        "title": "Report after the deploy step",
+        "description": "Add this step to the job that deploys. The version is the one the service's spans carry as service.version."
+      }
+    }
+  },
+  "gitlab-ci": {
+    "name": "GitLab CI/CD",
+    "description": "Report each deployment from a pipeline to the APM deployment timeline.",
+    "steps": {
+      "1": {
+        "title": "Add the token as a CI/CD variable",
+        "description": "Settings → CI/CD → Variables: MOLESIGNAL_TOKEN, masked, holding a token whose role has apm.deploy."
+      },
+      "2": {
+        "title": "Report from the deploy job",
+        "description": "after_script runs whether the deploy worked or not, so a failed deployment is reported too."
       }
     }
   },
@@ -381,11 +399,15 @@
   },
   "jenkins": {
     "name": "Jenkins",
-    "description": "build_started and build_finished events.",
+    "description": "Report each deployment from a pipeline to the APM deployment timeline.",
     "steps": {
       "1": {
-        "title": "Use the Logstash plugin or the HTTP Request plugin",
-        "description": "POST build events to the MoleSignal HTTP endpoint."
+        "title": "Add the token as a credential",
+        "description": "A Secret text credential with the ID molesignal-token, holding a token whose role has apm.deploy."
+      },
+      "2": {
+        "title": "Report in post",
+        "description": "post { always } reports a failed build too. A password in GIT_URL is masked when the deployment is kept."
       }
     }
   },

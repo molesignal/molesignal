@@ -76,7 +76,7 @@ describe('runs', () => {
   it('counts only scheduled runs that came to a conclusion', () => {
     const results = [
       ...runs(['healthy', 'failing', 'unknown', 'skipped']),
-      result({ outcome: 'failing', is_test: true, started_at: NOW }),
+      result({ outcome: 'failing', isTest: true, startedAt: NOW }),
     ];
 
     expect(decidedRuns(results).map((run) => run.outcome)).toEqual(['healthy', 'failing']);
@@ -97,34 +97,34 @@ describe('runs', () => {
 
   it('takes the reason from the latest run that did not pass', () => {
     const results = [
-      result({ outcome: 'healthy', started_at: NOW - MINUTE }),
+      result({ outcome: 'healthy', startedAt: NOW - MINUTE }),
       result({
         outcome: 'failing',
-        started_at: NOW - 2 * MINUTE,
+        startedAt: NOW - 2 * MINUTE,
         attempts: [
           {
             number: 1,
-            started_at: 0,
-            finished_at: 1,
+            startedAt: 0,
+            finishedAt: 1,
             outcome: 'failing',
             timing: {},
-            error_category: 'timeout',
-            error_message: 'connect timed out',
+            errorCategory: 'timeout',
+            errorMessage: 'connect timed out',
             metadata: {},
           },
         ],
       }),
       result({
         outcome: 'failing',
-        started_at: NOW - 3 * MINUTE,
+        startedAt: NOW - 3 * MINUTE,
         attempts: [
           {
             number: 1,
-            started_at: 0,
-            finished_at: 1,
+            startedAt: 0,
+            finishedAt: 1,
             outcome: 'failing',
             timing: {},
-            error_message: 'older reason',
+            errorMessage: 'older reason',
             metadata: {},
           },
         ],
@@ -141,7 +141,7 @@ describe('runs', () => {
         result({
           outcome: 'degraded',
           assertions: [
-            { assertion_id: 'a1', severity: 'warning', passed: false, message: 'duration 912 ms > 500 ms' },
+            { assertionId: 'a1', severity: 'warning', passed: false, message: 'duration 912 ms > 500 ms' },
           ],
         }),
       ]),
@@ -151,7 +151,7 @@ describe('runs', () => {
         result({
           outcome: 'failing',
           attempts: [
-            { number: 1, started_at: 0, finished_at: 1, outcome: 'failing', timing: {}, error_category: 'dns', metadata: {} },
+            { number: 1, startedAt: 0, finishedAt: 1, outcome: 'failing', timing: {}, errorCategory: 'dns', metadata: {} },
           ],
         }),
       ]),
@@ -160,10 +160,10 @@ describe('runs', () => {
 
   it('names the locations whose latest run did not pass', () => {
     const results = [
-      result({ location_id: 'loc-us', outcome: 'healthy', started_at: NOW - MINUTE }),
-      result({ location_id: 'loc-us', outcome: 'failing', started_at: NOW - 2 * MINUTE }),
-      result({ location_id: 'loc-eu', outcome: 'failing', started_at: NOW - MINUTE }),
-      result({ location_id: 'loc-ap', outcome: 'flaky', started_at: NOW - 3 * MINUTE }),
+      result({ locationId: 'loc-us', outcome: 'healthy', startedAt: NOW - MINUTE }),
+      result({ locationId: 'loc-us', outcome: 'failing', startedAt: NOW - 2 * MINUTE }),
+      result({ locationId: 'loc-eu', outcome: 'failing', startedAt: NOW - MINUTE }),
+      result({ locationId: 'loc-ap', outcome: 'flaky', startedAt: NOW - 3 * MINUTE }),
     ];
 
     expect(troubledLocationIds(results).sort()).toEqual(['loc-ap', 'loc-eu']);
@@ -179,11 +179,11 @@ describe('runs', () => {
 describe('availability trend', () => {
   it('steps from the oldest run to the latest and leaves a gap where nothing ran', () => {
     const results = [
-      result({ outcome: 'healthy', started_at: NOW }),
-      result({ outcome: 'failing', started_at: NOW - MINUTE }),
+      result({ outcome: 'healthy', startedAt: NOW }),
+      result({ outcome: 'failing', startedAt: NOW - MINUTE }),
       // Nothing between these two and the oldest pair.
-      result({ outcome: 'healthy', started_at: NOW - 9 * MINUTE }),
-      result({ outcome: 'healthy', started_at: NOW - 10 * MINUTE }),
+      result({ outcome: 'healthy', startedAt: NOW - 9 * MINUTE }),
+      result({ outcome: 'healthy', startedAt: NOW - 10 * MINUTE }),
     ];
 
     expect(availabilityTrend(results, 5)).toEqual([1, null, null, null, 0.5]);
@@ -205,7 +205,7 @@ describe('checks needing attention', () => {
       checkRow({ monitor: { id: 'healthy', state: 'healthy' }, results: runs(['healthy']) }),
       checkRow({
         monitor: { id: 'degraded', state: 'degraded' },
-        results: runs(['degraded', 'healthy'], { location_id: 'loc-eu' }),
+        results: runs(['degraded', 'healthy'], { locationId: 'loc-eu' }),
       }),
       checkRow({
         monitor: { id: 'failing-new', state: 'failing' },

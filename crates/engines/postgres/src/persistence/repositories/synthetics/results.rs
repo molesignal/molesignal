@@ -9,11 +9,12 @@ use sqlx::{PgConnection, Row};
 use super::{
     PgSyntheticRepository,
     codec::{RESULT_COLS, row_to_result},
+    retention,
 };
 use crate::{
     domain::synthetics::{
-        SyntheticResult, SyntheticResultArtifact, SyntheticResultListQuery, SyntheticResultPage,
-        SyntheticResultRepository,
+        PurgedResults, SyntheticResult, SyntheticResultArtifact, SyntheticResultListQuery,
+        SyntheticResultPage, SyntheticResultRepository,
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
@@ -27,14 +28,16 @@ const RESULT_PAGE_FILTERS: &str = "organization_id = $1
                OR POSITION(LOWER($2::TEXT) IN LOWER(monitor.id)) > 0)
     ))
     AND ($3::TEXT IS NULL OR outcome = $3)
-    AND ($4::TEXT IS NULL OR location_id = $4)";
+    AND ($4::TEXT IS NULL OR location_id = $4)
+    AND ($5::TIMESTAMPTZ IS NULL OR finished_at >= $5)
+    AND ($6::TIMESTAMPTZ IS NULL OR finished_at < $6)";
 
 fn insert_result_sql() -> String {
     format!(
         "INSERT INTO synthetic_results
             (id, organization_id, monitor_id, monitor_revision_id, location_id, agent_id,
-             task_id, is_test, result_sequence, scheduled_at_micros, started_at_micros,
-             finished_at_micros, received_at_micros, outcome, attempts, assertions,
+             task_id, is_test, result_sequence, scheduled_at, started_at,
+             finished_at, received_at, outcome, attempts, assertions,
              secret_versions, protocol_version, metadata)
          SELECT $1, $2, $3, $4, $5, $6, $7, task.is_test, $8, $9, $10, $11, $12,
                 $13, $14, $15, $16, $17, $18
@@ -42,7 +45,9 @@ fn insert_result_sql() -> String {
          WHERE task.id = $7 AND task.organization_id = $2 AND task.monitor_id = $3
            AND task.monitor_revision_id = $4 AND task.location_id = $5
            AND task.lease_agent_id IS NOT DISTINCT FROM $6
-           AND task.state IN ('leased', 'running', 'completed')
+           AND (task.state IN ('leased', 'running', 'completed')
+                -- The server's own record of a run no Agent took before its deadline.
+                OR (task.state = 'expired' AND $6::VARCHAR IS NULL AND $13 = 'skipped'))
          ON CONFLICT (task_id) DO UPDATE SET id = synthetic_results.id
          RETURNING {RESULT_COLS}, (xmax = 0) AS inserted"
     )
@@ -50,7 +55,7 @@ fn insert_result_sql() -> String {
 
 const UPDATE_AGENT_RESULT_SEQUENCE_SQL: &str = "UPDATE synthetic_probe_agents agent
      SET last_result_sequence = GREATEST(agent.last_result_sequence, $3),
-         updated_at_micros = GREATEST(agent.updated_at_micros, $4)
+         updated_at = GREATEST(agent.updated_at, $4)
      FROM synthetic_probe_locations location
      WHERE agent.id = $2 AND agent.location_id = location.id
        AND (location.organization_id = $1 OR location.organization_id IS NULL)";
@@ -70,10 +75,10 @@ impl SyntheticResultRepository for PgSyntheticRepository {
             .bind(result.agent_id.as_ref().map(Id::as_str))
             .bind(&result.task_id.0)
             .bind(result.result_sequence.map(|value| value as i64))
-            .bind(result.scheduled_at.0)
-            .bind(result.started_at.0)
-            .bind(result.finished_at.0)
-            .bind(result.received_at.0)
+            .bind(result.scheduled_at)
+            .bind(result.started_at)
+            .bind(result.finished_at)
+            .bind(result.received_at)
             .bind(result.outcome.as_str())
             .bind(sqlx::types::Json(&result.attempts))
             .bind(sqlx::types::Json(&result.assertions))
@@ -90,14 +95,15 @@ impl SyntheticResultRepository for PgSyntheticRepository {
             ));
         };
 
+        // A skipped run stays an expired task: no Agent completed it.
         sqlx::query(
             "UPDATE synthetic_probe_tasks
-             SET state = 'completed', updated_at_micros = $3
-             WHERE organization_id = $1 AND id = $2",
+             SET state = 'completed', updated_at = $3
+             WHERE organization_id = $1 AND id = $2 AND state <> 'expired'",
         )
         .bind(&result.organization_id.0)
         .bind(&result.task_id.0)
-        .bind(result.received_at.0)
+        .bind(result.received_at)
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -107,7 +113,7 @@ impl SyntheticResultRepository for PgSyntheticRepository {
                 .bind(result.organization_id.as_str())
                 .bind(&agent_id.0)
                 .bind(sequence as i64)
-                .bind(result.received_at.0)
+                .bind(result.received_at)
                 .execute(&mut *transaction)
                 .await
                 .map_err(super::sqlx_err)?;
@@ -139,14 +145,14 @@ impl SyntheticResultRepository for PgSyntheticRepository {
         let sql = format!(
             "SELECT {RESULT_COLS} FROM synthetic_results
              WHERE organization_id = $1 AND monitor_id = $2
-               AND ($3::BIGINT IS NULL OR finished_at_micros < $3)
-             ORDER BY finished_at_micros DESC, id DESC LIMIT $4"
+               AND ($3::TIMESTAMPTZ IS NULL OR finished_at < $3)
+             ORDER BY finished_at DESC, id DESC LIMIT $4"
         );
 
         let mut results = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&monitor_id.0)
-            .bind(before.map(|value| value.0))
+            .bind(before)
             .bind(i64::from(limit.clamp(1, 500)))
             .fetch_all(&self.pool)
             .await
@@ -172,6 +178,8 @@ impl SyntheticResultRepository for PgSyntheticRepository {
             .bind(query.check_query.as_deref())
             .bind(query.outcome.map(|outcome| outcome.as_str()))
             .bind(query.location_id.as_ref().map(Id::as_str))
+            .bind(query.from)
+            .bind(query.to)
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?
@@ -181,7 +189,7 @@ impl SyntheticResultRepository for PgSyntheticRepository {
         let page_sql = format!(
             "SELECT {RESULT_COLS} FROM synthetic_results
              WHERE {RESULT_PAGE_FILTERS}
-             ORDER BY finished_at_micros DESC, id DESC LIMIT $5 OFFSET $6"
+             ORDER BY finished_at DESC, id DESC LIMIT $7 OFFSET $8"
         );
 
         let limit = i64::from(query.limit.clamp(1, 500));
@@ -192,6 +200,8 @@ impl SyntheticResultRepository for PgSyntheticRepository {
             .bind(query.check_query.as_deref())
             .bind(query.outcome.map(|outcome| outcome.as_str()))
             .bind(query.location_id.as_ref().map(Id::as_str))
+            .bind(query.from)
+            .bind(query.to)
             .bind(limit)
             .bind(offset)
             .fetch_all(&self.pool)
@@ -227,6 +237,22 @@ impl SyntheticResultRepository for PgSyntheticRepository {
         attach_artifacts(&self.pool, org_id, std::slice::from_mut(&mut result)).await?;
         Ok(result)
     }
+
+    async fn purge_results(&self, before: TimestampMicros, limit: u32) -> Result<PurgedResults> {
+        retention::purge_results(self, before, limit).await
+    }
+
+    async fn purge_expired_artifacts(
+        &self,
+        now: TimestampMicros,
+        limit: u32,
+    ) -> Result<Vec<String>> {
+        retention::purge_expired_artifacts(self, now, limit).await
+    }
+
+    async fn purge_finished_tasks(&self, before: TimestampMicros, limit: u32) -> Result<u64> {
+        retention::purge_finished_tasks(self, before, limit).await
+    }
 }
 
 async fn insert_artifacts(connection: &mut PgConnection, result: &SyntheticResult) -> Result<()> {
@@ -239,7 +265,7 @@ async fn insert_artifacts(connection: &mut PgConnection, result: &SyntheticResul
         let inserted = sqlx::query(
             "INSERT INTO synthetic_result_artifacts
                 (id, organization_id, result_id, kind, name, object_key, content_type,
-                 content_length, sha256, expires_at_micros, created_at_micros)
+                 content_length, sha256, expires_at, created_at)
              SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
              FROM synthetic_results result
              WHERE result.id = $3 AND result.organization_id = $2",
@@ -253,8 +279,8 @@ async fn insert_artifacts(connection: &mut PgConnection, result: &SyntheticResul
         .bind(&artifact.content_type)
         .bind(content_length)
         .bind(sha256)
-        .bind(artifact.expires_at.0)
-        .bind(artifact.created_at.0)
+        .bind(artifact.expires_at)
+        .bind(artifact.created_at)
         .execute(&mut *connection)
         .await
         .map_err(super::sqlx_err)?
@@ -277,10 +303,10 @@ async fn load_artifacts_in_transaction(
 ) -> Result<Vec<SyntheticResultArtifact>> {
     sqlx::query(
         "SELECT id, result_id, kind, name, object_key, content_type, content_length, sha256,
-                expires_at_micros, created_at_micros
+                expires_at, created_at
          FROM synthetic_result_artifacts
          WHERE organization_id = $1 AND result_id = $2
-         ORDER BY created_at_micros, id",
+         ORDER BY created_at, id",
     )
     .bind(org_id.as_str())
     .bind(result_id.as_str())
@@ -308,10 +334,10 @@ async fn attach_artifacts(
 
     let rows = sqlx::query(
         "SELECT id, result_id, kind, name, object_key, content_type, content_length, sha256,
-                expires_at_micros, created_at_micros
+                expires_at, created_at
          FROM synthetic_result_artifacts
          WHERE organization_id = $1 AND result_id = ANY($2::TEXT[])
-         ORDER BY created_at_micros, id",
+         ORDER BY created_at, id",
     )
     .bind(org_id.as_str())
     .bind(&result_ids)
@@ -354,8 +380,12 @@ fn row_to_artifact(row: sqlx::postgres::PgRow) -> Result<SyntheticResultArtifact
         content_type: row.try_get("content_type").map_err(super::sqlx_err)?,
         content_length,
         sha256: hex::encode(sha256),
-        expires_at: TimestampMicros(row.try_get("expires_at_micros").map_err(super::sqlx_err)?),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
+        expires_at: row
+            .try_get::<TimestampMicros, _>("expires_at")
+            .map_err(super::sqlx_err)?,
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(super::sqlx_err)?,
     })
 }
 
@@ -376,8 +406,8 @@ mod tests {
 
     #[test]
     fn agent_result_update_qualifies_columns_shared_with_the_location() {
-        assert!(UPDATE_AGENT_RESULT_SEQUENCE_SQL.contains("GREATEST(agent.updated_at_micros, $4)"));
-        assert!(!UPDATE_AGENT_RESULT_SEQUENCE_SQL.contains("GREATEST(updated_at_micros, $4)"));
+        assert!(UPDATE_AGENT_RESULT_SEQUENCE_SQL.contains("GREATEST(agent.updated_at, $4)"));
+        assert!(!UPDATE_AGENT_RESULT_SEQUENCE_SQL.contains("GREATEST(updated_at, $4)"));
     }
 
     #[test]

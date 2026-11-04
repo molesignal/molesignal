@@ -5,11 +5,17 @@ use std::{num::NonZeroU16, str::FromStr};
 
 use crate::{
     domain::synthetics::{
-        BrowserAction, MonitorRevision, MonitorSchedule, MonitorSpec, MultiLocationPolicy,
-        SshAuthentication, ValueSource,
+        BrowserAction, MonitorKind, MonitorRevision, MonitorSchedule, MonitorSpec,
+        MultiLocationPolicy, SshAuthentication, ValueSource,
     },
     shared::{Error, Result},
 };
+
+mod assertions;
+mod http;
+mod network;
+
+use assertions::{validate_assertions, validate_extractions};
 
 pub fn validate_revision(revision: &MonitorRevision) -> Result<()> {
     if revision.timeout_millis < 100 || revision.timeout_millis > 300_000 {
@@ -58,8 +64,16 @@ pub fn validate_revision(revision: &MonitorRevision) -> Result<()> {
                 if let Some(body) = &step.body {
                     validate_value(body)?;
                 }
+
+                validate_assertions(MonitorKind::Http, &step.assertions)?;
+                validate_extractions(&step.extractions)?;
             }
+
+            http::validate_http_settings(spec)?;
         }
+        MonitorSpec::Tcp(spec) => validate_assertions(MonitorKind::Tcp, &spec.assertions)?,
+        MonitorSpec::Dns(spec) => network::validate_dns(spec)?,
+        MonitorSpec::Icmp(spec) => network::validate_icmp(spec, revision.timeout_millis)?,
         MonitorSpec::Browser(spec) => {
             if spec.steps.is_empty() || spec.steps.len() > 100 {
                 return Err(Error::invalid("Browser journeys require 1 to 100 steps"));
@@ -229,7 +243,10 @@ pub fn validate_revision(revision: &MonitorRevision) -> Result<()> {
                 ));
             }
         }
-        MonitorSpec::Grpc(spec) => validate_grpc_endpoint(&spec.endpoint, spec.use_tls)?,
+        MonitorSpec::Grpc(spec) => {
+            validate_grpc_endpoint(&spec.endpoint, spec.use_tls)?;
+            validate_assertions(MonitorKind::Grpc, &spec.assertions)?;
+        }
         MonitorSpec::Heartbeat if !revision.location_ids.is_empty() => {
             return Err(Error::invalid("Heartbeat Monitors are Location-free"));
         }
@@ -359,6 +376,11 @@ fn validate_value(value: &ValueSource) -> Result<()> {
         } if name.is_empty() || name.len() > 128 => Err(Error::invalid(
             "invalid Monitor variable or Secret reference",
         )),
+        ValueSource::Secret { reference, .. } if reference == super::CLIENT_KEY_REFERENCE => {
+            Err(Error::invalid(format!(
+                "`{reference}` names the private key of the client certificate, not a Secret"
+            )))
+        }
         _ => Ok(()),
     }
 }
@@ -399,14 +421,14 @@ mod tests {
                 "kind": "grpc",
                 "configuration": {
                     "endpoint": endpoint,
-                    "use_tls": use_tls,
+                    "useTls": use_tls,
                     "metadata": [],
                     "call": { "kind": "health", "service": "" },
                     "assertions": [],
                 },
             },
-            "schedule": { "kind": "interval", "every_seconds": 60 },
-            "timeout_millis": 10_000,
+            "schedule": { "kind": "interval", "everySeconds": 60 },
+            "timeoutMillis": 10_000,
         }))
         .expect("the input of the check editor");
 

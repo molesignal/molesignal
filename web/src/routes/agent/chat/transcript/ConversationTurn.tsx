@@ -7,6 +7,7 @@ import type { AgentFeedback } from '@/api/agent/feedback';
 import type { RunStatus } from '@/api/agent/runs';
 import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
+import { springPop } from '@/shell/polish/springPop';
 import { toast } from '@/shell/ui/sonner';
 
 import { CopyMessage, MessageAction, QuestionActions } from './MessageActions';
@@ -61,7 +62,7 @@ export function ConversationTurnView({
   /** Goes on from an answer in a new chat holding everything up to it. */
   onFork: (messageId: string) => void;
 }) {
-  const rcaAccess = useActionAccess({ permission: 'alerts.manage' });
+  const rcaAccess = useActionAccess({ permission: 'alerts.incidents.rca' });
   const [writingRca, setWritingRca] = React.useState(false);
   const [answerIndex, setAnswerIndex] = React.useState(
     Math.max(0, turn.answers.length - 1),
@@ -73,8 +74,8 @@ export function ConversationTurnView({
   const hasVersions = turn.answers.length > 1;
   // In a team chat a question can come from someone else: it carries their name.
   const asker =
-    turn.user.sender_id && user.id && turn.user.sender_id !== user.id
-      ? (turn.user.sender_name ?? null)
+    turn.user.senderId && user.id && turn.user.senderId !== user.id
+      ? (turn.user.senderName ?? null)
       : null;
   // A persisted answer can be rated; a failure to answer cannot.
   const canRate = Boolean(answer && chatId && !isStreamErrorContent(answer.content));
@@ -87,7 +88,7 @@ export function ConversationTurnView({
         t={t}
         user={asker ? { displayName: asker, avatarUrl: '' } : user}
         {...(asker ? { senderName: asker } : {})}
-        createdAtMicros={turn.user.created_at_micros}
+        createdAt={turn.user.createdAt}
         references={turn.user.references ?? []}
         queued={queued}
         actions={
@@ -112,9 +113,9 @@ export function ConversationTurnView({
           content={answer.content}
           t={t}
           user={user}
-          createdAtMicros={answer.created_at_micros}
-          evidence={answer.evidence_json}
-          investigationStartedAtMicros={turn.user.created_at_micros}
+          createdAt={answer.createdAt}
+          evidence={answer.evidenceJson}
+          investigationStartedAtMicros={turn.user.createdAt}
           messageId={answer.id}
           rating={
             canRate &&
@@ -177,7 +178,10 @@ export function ConversationTurnView({
                           ? t('message_actions.unpin')
                           : t('message_actions.pin')
                       }
-                      onClick={() => onTogglePin(answer.id)}
+                      onClick={(event) => {
+                        if (!pinnedIds.includes(answer.id)) springPop(event.currentTarget);
+                        onTogglePin(answer.id);
+                      }}
                     >
                       {pinnedIds.includes(answer.id) ? (
                         <PinOff aria-hidden="true" />
@@ -205,7 +209,7 @@ export function ConversationTurnView({
                   </button>
                 )}
                 <MessageTime
-                  micros={answer.created_at_micros}
+                  micros={answer.createdAt}
                   className="type-micro ml-1.5 text-tx-3"
                 />
               </>

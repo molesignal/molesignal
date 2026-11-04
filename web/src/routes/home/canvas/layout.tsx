@@ -76,8 +76,8 @@ export function CanvasSection({
       data-home-surface="section"
       data-testid={testId}
     >
-      <div className="home-canvas-section-header type-section-title flex min-h-[48px] shrink-0 items-center gap-3 px-[20px] py-2 font-sans font-strong text-tx-0">
-        <h2 className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-ellipsis whitespace-nowrap">
+      <div className="home-canvas-section-header type-section-title flex min-h-[48px] shrink-0 items-center gap-3 px-[20px] py-2 font-sans text-tx-0">
+        <h2 className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-ellipsis whitespace-nowrap font-display">
           {icon}
           {title}
         </h2>

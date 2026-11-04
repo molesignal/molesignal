@@ -22,6 +22,7 @@ pub struct RawEdgeSample<'a> {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TopologyNode {
     pub id: String,
     pub name: String,
@@ -32,6 +33,7 @@ pub struct TopologyNode {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TopologyEdge {
     pub source: String,
     pub target: String,

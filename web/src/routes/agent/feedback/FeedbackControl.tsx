@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import * as feedbackApi from '@/api/agent/feedback';
 import { toApiError } from '@/lib/http';
 import { cn } from '@/shell/lib/cn';
+import { springPop } from '@/shell/polish/springPop';
 import { Button } from '@/shell/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shell/ui/popover';
 import { toast } from '@/shell/ui/sonner';
@@ -52,12 +53,12 @@ export function FeedbackControl({
   const refresh = () => queryClient.invalidateQueries({ queryKey: feedbackKindKey(kind) });
 
   const save = useMutation({
-    mutationFn: (input: Omit<feedbackApi.FeedbackInput, 'target_kind' | 'target_id' | 'chat_id'>) =>
+    mutationFn: (input: Omit<feedbackApi.FeedbackInput, 'targetKind' | 'targetId' | 'chatId'>) =>
       feedbackApi.putFeedback({
         ...input,
-        target_kind: kind,
-        target_id: targetId,
-        chat_id: chatId,
+        targetKind: kind,
+        targetId: targetId,
+        chatId: chatId,
       }),
     onSuccess: async (saved) => {
       await refresh();
@@ -68,7 +69,7 @@ export function FeedbackControl({
   });
 
   const withdraw = useMutation({
-    mutationFn: () => feedbackApi.deleteFeedback(kind, targetId),
+    mutationFn: () => feedbackApi.deleteFeedback(kind, targetId, chatId),
     onSuccess: async () => {
       await refresh();
       setOpen(false);
@@ -189,7 +190,7 @@ const Thumb = React.forwardRef<
     pressed: boolean;
     tone: 'up' | 'down';
     disabled?: boolean;
-    onClick?: (() => void) | undefined;
+    onClick?: React.MouseEventHandler<HTMLButtonElement> | undefined;
     children: React.ReactNode;
   } & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'>
 >(({ label, pressed, tone, disabled, onClick, children, className, ...rest }, ref) => (
@@ -201,7 +202,10 @@ const Thumb = React.forwardRef<
         aria-label={label}
         aria-pressed={pressed}
         disabled={disabled}
-        onClick={onClick}
+        onClick={(event) => {
+          if (!pressed) springPop(event.currentTarget);
+          onClick?.(event);
+        }}
         className={cn(
           'grid h-7 w-7 place-items-center rounded-md transition-colors disabled:opacity-50 [&_svg]:h-3.5 [&_svg]:w-3.5',
           pressed && tone === 'up' && 'bg-[var(--green-tint)] text-[var(--green-ink)]',

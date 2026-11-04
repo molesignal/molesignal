@@ -121,10 +121,10 @@ pub(crate) mod test_support {
         domain::storage::{
             ArtifactState, CatalogSnapshot, CommitFlush, DataSegment, DatasetSelection,
             DatasetSnapshot, DatasetState, DatasetTransformResult, FileCatalog, FlushCommitResult,
-            OrganizationScope, PhysicalDataset, PhysicalDatasetId, PhysicalDatasetSpec,
-            PublishDatasetTransform, ReplaceSegments, SegmentState, TombstoneSegments,
-            UpdateArtifact, WalCheckpointView, WalSequence, WriterEpoch, WriterNodeId,
-            builtin_registry, stale_writer_epoch,
+            OrganizationScope, PartitionManifestPointer, PhysicalDataset, PhysicalDatasetId,
+            PhysicalDatasetSpec, PublishDatasetTransform, ReplaceSegments, SegmentState,
+            TombstoneSegments, UpdateArtifact, WalCheckpointView, WalSequence, WriterEpoch,
+            WriterNodeId, builtin_registry, stale_writer_epoch,
         },
         shared::{Error, Result, ids::Id, time::TimestampMicros},
     };
@@ -134,6 +134,7 @@ pub(crate) mod test_support {
     pub(crate) struct StubFileCatalog {
         datasets: DashMap<(String, String, String), PhysicalDataset>,
         segments: DashMap<(String, String), Vec<DataSegment>>,
+        manifests: DashMap<(String, String), Vec<PartitionManifestPointer>>,
         checkpoints: DashMap<(String, String, String, u64), WalSequence>,
         commits: DashMap<(String, String, String), u64>,
         fail_next_commit: AtomicBool,
@@ -181,6 +182,28 @@ pub(crate) mod test_support {
 
         pub(crate) fn snapshot_calls(&self) -> usize {
             self.snapshot_calls.load(Ordering::SeqCst)
+        }
+
+        /// 直接放进一个 Segment，不经过 flush：测试只关心目录里有什么。
+        pub(crate) fn seed_segment(&self, segment: DataSegment) {
+            self.segments
+                .entry((
+                    segment.organization_id.as_str().to_owned(),
+                    segment.dataset_id.as_str().to_owned(),
+                ))
+                .or_default()
+                .push(segment);
+        }
+
+        /// 放进一个封存分区的 Manifest 指针；它指向的对象由测试自己写。
+        pub(crate) fn seed_manifest(&self, pointer: PartitionManifestPointer) {
+            self.manifests
+                .entry((
+                    pointer.organization_id.as_str().to_owned(),
+                    pointer.dataset_id.as_str().to_owned(),
+                ))
+                .or_default()
+                .push(pointer);
         }
     }
 
@@ -279,6 +302,23 @@ pub(crate) mod test_support {
                             .collect()
                     })
                     .unwrap_or_default();
+                let manifests = self
+                    .manifests
+                    .get(&(
+                        scope.organization_id.as_str().to_owned(),
+                        dataset_id.as_str().to_owned(),
+                    ))
+                    .map(|pointers| {
+                        pointers
+                            .iter()
+                            .filter(|pointer| {
+                                pointer.partition.start_micros <= selection.time_range.end.0
+                                    && pointer.partition.end_micros >= selection.time_range.start.0
+                            })
+                            .cloned()
+                            .collect()
+                    })
+                    .unwrap_or_default();
                 let wal_checkpoints = self
                     .checkpoints
                     .iter()
@@ -297,7 +337,7 @@ pub(crate) mod test_support {
                     catalog_version: dataset.catalog_version,
                     wal_checkpoints,
                     segments,
-                    manifests: Vec::new(),
+                    manifests,
                 });
             }
             Ok(CatalogSnapshot {

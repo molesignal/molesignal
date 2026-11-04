@@ -23,6 +23,24 @@ impl SlidingCounter {
         self.total += count;
     }
 
+    /// 现有的桶：存快照用。
+    pub(super) fn buckets(&self) -> Vec<(i64, u64)> {
+        self.buckets.iter().copied().collect()
+    }
+
+    /// 并进快照里的桶（节点重启时读回自己的那份），按秒排好。
+    pub(super) fn add_buckets(&mut self, buckets: &[(i64, u64)]) {
+        let mut merged: std::collections::BTreeMap<i64, u64> =
+            self.buckets.iter().copied().collect();
+
+        for (second, count) in buckets {
+            *merged.entry(*second).or_default() += count;
+        }
+
+        self.total = merged.values().sum();
+        self.buckets = merged.into_iter().collect();
+    }
+
     /// 丢弃 `(second - window_secs, second]` 之外的桶，返回窗口内的命中总数。
     pub(super) fn count(&mut self, second: i64, window_secs: u32) -> u64 {
         let oldest_excluded = second - i64::from(window_secs);
@@ -69,6 +87,16 @@ mod tests {
         assert_eq!(counter.buckets.len(), 1);
         assert_eq!(counter.count(7, 1), 1000);
         assert_eq!(counter.count(8, 1), 0);
+    }
+
+    #[test]
+    fn saved_buckets_come_back_in_order() {
+        let mut counter = SlidingCounter::default();
+        counter.add(105, 1);
+        counter.add_buckets(&[(100, 3), (105, 2)]);
+
+        assert_eq!(counter.buckets(), vec![(100, 3), (105, 3)]);
+        assert_eq!(counter.count(105, 10), 6);
     }
 
     #[test]

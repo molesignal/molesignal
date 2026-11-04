@@ -6,7 +6,8 @@ import { DataTable } from '@/admin';
 import type { SearchJob, SearchJobState } from '@/api/searchJobs';
 import type { StreamType } from '@/api/streams';
 import { formatMicrosActive } from '@/lib/time';
-import { Dot, Pill, type PillTone } from '@/shell/chrome';
+import { Pill } from '@/shell/chrome';
+import { StatusWord, type StatusTone } from '@/shell/StatusWord';
 import { StreamTypeTag } from '@/shell/StreamTypeTag';
 import { formatRelativeMicros, formatRelativeSpan } from '@/time/relative';
 
@@ -19,15 +20,13 @@ import {
 } from './model';
 import { JobRowActions } from './RowActions';
 
-type DotTone = NonNullable<React.ComponentProps<typeof Dot>['tone']>;
-
 // The tones a pipeline run and a stream's health already use for the same words.
-const STATE_TONE: Record<SearchJobState, { pill: PillTone; dot: DotTone }> = {
-  pending: { pill: 'yellow', dot: 'yellow' },
-  running: { pill: 'blue', dot: 'blue' },
-  done: { pill: 'green', dot: 'green' },
-  failed: { pill: 'red', dot: 'red' },
-  cancelled: { pill: 'dim', dot: 'dim' },
+const STATE_TONE: Record<SearchJobState, StatusTone> = {
+  pending: 'yellow',
+  running: 'blue',
+  done: 'green',
+  failed: 'red',
+  cancelled: 'dim',
 };
 
 // A column says its name on one line: the widths are set for the cells, not for a wrapped head.
@@ -35,13 +34,11 @@ const HEADER = 'whitespace-nowrap';
 
 export function JobStateMark({ state }: { state: SearchJobState }) {
   const { t } = useTranslation('streams');
-  const tone = STATE_TONE[state];
 
   return (
-    <Pill tone={tone.pill}>
-      <Dot tone={tone.dot} />
+    <StatusWord tone={STATE_TONE[state]} strong={state === 'failed'}>
       {t(`jobs.states.${state}`)}
-    </Pill>
+    </StatusWord>
   );
 }
 
@@ -88,7 +85,7 @@ export function JobTable({
   return (
     <DataTable
       rows={jobs}
-      rowKey={(job) => job.job_id}
+      rowKey={(job) => job.jobId}
       emptyLabel={emptyLabel}
       className="min-w-[1160px] rounded-none border-0 bg-transparent"
       columns={[
@@ -123,9 +120,9 @@ export function JobTable({
           cell: (job) =>
             job.request ? (
               <div className="tabular-nums text-tx-1">
-                <div>{formatMicrosActive(job.request.time_range.start, false)}</div>
+                <div>{formatMicrosActive(job.request.timeRange.start, false)}</div>
                 <div className="mt-0.5 text-tx-2">
-                  {formatMicrosActive(job.request.time_range.end, false)}
+                  {formatMicrosActive(job.request.timeRange.end, false)}
                 </div>
               </div>
             ) : (
@@ -143,16 +140,16 @@ export function JobTable({
               {showSubmitter && (
                 <div
                   className="mb-0.5 truncate text-tx-1"
-                  title={job.submitted_by?.email || job.user_id}
+                  title={job.submittedBy?.email || job.userId}
                 >
                   {submitterName(job)}
                 </div>
               )}
               <div
                 className={showSubmitter ? 'truncate text-tx-2' : 'truncate text-tx-1'}
-                title={formatMicrosActive(job.submitted_at_micros)}
+                title={formatMicrosActive(job.submittedAt)}
               >
-                {formatRelativeMicros(job.submitted_at_micros, locale, nowMicros)}
+                {formatRelativeMicros(job.submittedAt, locale, nowMicros)}
               </div>
             </div>
           ),
@@ -170,14 +167,14 @@ export function JobTable({
               <div
                 className="mt-0.5 text-tx-2"
                 title={
-                  job.finished_at_micros
-                    ? formatMicrosActive(job.finished_at_micros)
+                  job.finishedAt
+                    ? formatMicrosActive(job.finishedAt)
                     : undefined
                 }
               >
-                {job.finished_at_micros
+                {job.finishedAt
                   ? t('jobs.cells.finished_at', {
-                      time: formatRelativeMicros(job.finished_at_micros, locale, nowMicros),
+                      time: formatRelativeMicros(job.finishedAt, locale, nowMicros),
                     })
                   : t('jobs.cells.not_finished')}
               </div>
@@ -192,7 +189,7 @@ export function JobTable({
           headerClassName: `${HEADER} text-right`,
           cell: (job) => (
             <span className="tabular-nums text-tx-1">
-              {job.result_rows == null ? '—' : count.format(job.result_rows)}
+              {job.resultRows == null ? '—' : count.format(job.resultRows)}
             </span>
           ),
         },
@@ -217,13 +214,13 @@ export function JobTable({
           width: 84,
           headerClassName: HEADER,
           cell: (job) =>
-            job.expires_at_micros <= nowMicros ? (
+            job.expiresAt <= nowMicros ? (
               <span className="text-tx-2" title={t('jobs.cells.expired_title')}>
                 {t('jobs.cells.expired')}
               </span>
             ) : (
-              <span className="text-tx-2" title={formatMicrosActive(job.expires_at_micros)}>
-                {formatRelativeSpan(job.expires_at_micros, nowMicros, locale)}
+              <span className="text-tx-2" title={formatMicrosActive(job.expiresAt)}>
+                {formatRelativeSpan(job.expiresAt, nowMicros, locale)}
               </span>
             ),
         },
@@ -235,7 +232,7 @@ export function JobTable({
           cell: (job) => (
             <JobRowActions
               job={job}
-              busy={busyId === job.job_id}
+              busy={busyId === job.jobId}
               onCancel={() => onCancel(job)}
               onRetry={() => onRetry(job)}
               onDownload={() => onDownload(job)}
@@ -254,7 +251,7 @@ function JobSummary({ job, pipelinesVisible }: { job: SearchJob; pipelinesVisibl
   const stream = job.request?.stream;
 
   return (
-    <div data-search-job={job.job_id} data-search-job-state={job.state} className="min-w-0 py-1">
+    <div data-search-job={job.jobId} data-search-job-state={job.state} className="min-w-0 py-1">
       <div className="flex min-w-0 items-center gap-[8px]">
         {/* The stream's name is what the row is read by: short of room, the id gives way and
             the name is cut only once it would take most of the line. */}
@@ -263,13 +260,13 @@ function JobSummary({ job, pipelinesVisible }: { job: SearchJob; pipelinesVisibl
             {stream.name}
           </span>
         )}
-        {stream && <StreamTypeTag type={stream.stream_type as StreamType} className="shrink-0" />}
-        <span className="min-w-0 truncate font-mono text-xs text-tx-3" title={job.job_id}>
-          {job.job_id.slice(0, 10)}
+        {stream && <StreamTypeTag type={stream.streamType as StreamType} className="shrink-0" />}
+        <span className="min-w-0 truncate font-mono text-xs text-tx-3" title={job.jobId}>
+          {job.jobId.slice(0, 10)}
         </span>
-        {job.pipeline_id && pipelinesVisible && (
+        {job.pipelineId && pipelinesVisible && (
           <Link
-            to={`/pipelines/${encodeURIComponent(job.pipeline_id)}`}
+            to={`/pipelines/${encodeURIComponent(job.pipelineId)}`}
             className="shrink-0 rounded-sm text-xs font-strong text-indigo-soft hover:text-indigo focus-visible:bg-indigo-dim focus-visible:outline-none"
           >
             {t('jobs.cells.pipeline')}

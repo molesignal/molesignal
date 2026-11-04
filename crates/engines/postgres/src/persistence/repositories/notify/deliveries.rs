@@ -4,12 +4,12 @@
 use async_trait::async_trait;
 use sqlx::{PgPool, Row};
 
-use super::super::sqlx_err;
+use super::{super::sqlx_err, like_prefix};
 use crate::{
     domain::notify::{
         delivery::{
             DeliveryClaim, DeliveryCompletion, DeliveryFilter, DeliveryStage, DeliveryStatus,
-            NotifyDelivery,
+            NotifyDelivery, PageRecord,
         },
         repositories::NotifyDeliveryRepository,
     },
@@ -28,17 +28,17 @@ impl PgNotifyDeliveryRepository {
 
 const COLS: &str = "id, organization_id, event_id, policy_id, recipient_user_id,
     connector_id, endpoint_id, target_type, target_value_masked, stage, attempt,
-    status, error_code, error_message, latency_ms, sent_at_micros,
-    delivered_at_micros, acknowledged_at_micros, escalated_at_micros, idempotency_key,
-    created_at_micros";
+    status, error_code, error_message, latency_ms, sent_at,
+    delivered_at, acknowledged_at, escalated_at, idempotency_key,
+    created_at";
 
 const QUALIFIED_COLS: &str = "delivery.id, delivery.organization_id, delivery.event_id,
     delivery.policy_id, delivery.recipient_user_id, delivery.connector_id,
     delivery.endpoint_id, delivery.target_type, delivery.target_value_masked,
     delivery.stage, delivery.attempt, delivery.status, delivery.error_code,
-    delivery.error_message, delivery.latency_ms, delivery.sent_at_micros,
-    delivery.delivered_at_micros, delivery.acknowledged_at_micros,
-    delivery.escalated_at_micros, delivery.idempotency_key, delivery.created_at_micros";
+    delivery.error_message, delivery.latency_ms, delivery.sent_at,
+    delivery.delivered_at, delivery.acknowledged_at,
+    delivery.escalated_at, delivery.idempotency_key, delivery.created_at";
 
 fn optional_id(row: &sqlx::postgres::PgRow, column: &str) -> Result<Option<Id>> {
     Ok(row
@@ -51,10 +51,7 @@ fn optional_timestamp(
     row: &sqlx::postgres::PgRow,
     column: &str,
 ) -> Result<Option<TimestampMicros>> {
-    Ok(row
-        .try_get::<Option<i64>, _>(column)
-        .map_err(sqlx_err)?
-        .map(TimestampMicros))
+    row.try_get(column).map_err(sqlx_err)
 }
 
 fn row_to_delivery(row: sqlx::postgres::PgRow) -> Result<NotifyDelivery> {
@@ -80,14 +77,19 @@ fn row_to_delivery(row: sqlx::postgres::PgRow) -> Result<NotifyDelivery> {
         error_code: row.try_get("error_code").map_err(sqlx_err)?,
         error_message: row.try_get("error_message").map_err(sqlx_err)?,
         latency_ms: row.try_get("latency_ms").map_err(sqlx_err)?,
-        sent_at: optional_timestamp(&row, "sent_at_micros")?,
-        delivered_at: optional_timestamp(&row, "delivered_at_micros")?,
-        acknowledged_at: optional_timestamp(&row, "acknowledged_at_micros")?,
-        escalated_at: optional_timestamp(&row, "escalated_at_micros")?,
+        sent_at: optional_timestamp(&row, "sent_at")?,
+        delivered_at: optional_timestamp(&row, "delivered_at")?,
+        acknowledged_at: optional_timestamp(&row, "acknowledged_at")?,
+        escalated_at: optional_timestamp(&row, "escalated_at")?,
         idempotency_key: row.try_get("idempotency_key").map_err(sqlx_err)?,
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
     })
 }
+
+/// 值班负担一次最多读多少条送到成员手上的告警通知。
+const MAX_PAGE_RECORDS: i64 = 100_000;
 
 #[async_trait]
 impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
@@ -97,8 +99,8 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
                  id, organization_id, event_id, policy_id, recipient_user_id,
                  connector_id, endpoint_id, target_type, target_value_masked,
                  stage, attempt, status, error_code, error_message, latency_ms,
-                 sent_at_micros, delivered_at_micros, acknowledged_at_micros,
-                 idempotency_key, created_at_micros
+                 sent_at, delivered_at, acknowledged_at,
+                 idempotency_key, created_at
              ) VALUES (
                  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
                  $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
@@ -125,11 +127,11 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
         .bind(&delivery.error_code)
         .bind(&delivery.error_message)
         .bind(delivery.latency_ms)
-        .bind(delivery.sent_at.map(|value| value.0))
-        .bind(delivery.delivered_at.map(|value| value.0))
-        .bind(delivery.acknowledged_at.map(|value| value.0))
+        .bind(delivery.sent_at)
+        .bind(delivery.delivered_at)
+        .bind(delivery.acknowledged_at)
         .bind(&delivery.idempotency_key)
-        .bind(delivery.created_at.0)
+        .bind(delivery.created_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -145,8 +147,8 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
                  id, organization_id, event_id, policy_id, recipient_user_id,
                  connector_id, endpoint_id, target_type, target_value_masked,
                  stage, attempt, status, error_code, error_message, latency_ms,
-                 sent_at_micros, delivered_at_micros, acknowledged_at_micros,
-                 idempotency_key, created_at_micros
+                 sent_at, delivered_at, acknowledged_at,
+                 idempotency_key, created_at
              ) VALUES (
                  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
                  $11, 'sending', NULL, NULL, NULL, $12, NULL, NULL, $13, $14
@@ -157,9 +159,9 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
                  error_code = NULL,
                  error_message = NULL,
                  latency_ms = NULL,
-                 sent_at_micros = EXCLUDED.sent_at_micros,
-                 delivered_at_micros = NULL,
-                 acknowledged_at_micros = NULL
+                 sent_at = EXCLUDED.sent_at,
+                 delivered_at = NULL,
+                 acknowledged_at = NULL
              WHERE notify_deliveries.organization_id = EXCLUDED.organization_id
                AND notify_deliveries.status IN ('pending', 'failed', 'skipped')
              RETURNING {COLS}"
@@ -180,9 +182,9 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
         .bind(&delivery.target_value_masked)
         .bind(delivery.stage.as_str())
         .bind(delivery.attempt.max(1))
-        .bind(delivery.sent_at.map(|value| value.0))
+        .bind(delivery.sent_at)
         .bind(&delivery.idempotency_key)
-        .bind(delivery.created_at.0)
+        .bind(delivery.created_at)
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -213,12 +215,17 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
     ) -> Result<NotifyDelivery> {
         if !matches!(
             completion.status,
-            DeliveryStatus::Success | DeliveryStatus::Failed | DeliveryStatus::Skipped
+            DeliveryStatus::Success
+                | DeliveryStatus::Failed
+                | DeliveryStatus::Skipped
+                | DeliveryStatus::Queued
         ) {
             return Err(Error::invalid(
-                "notify delivery completion must be success, failed, or skipped",
+                "notify delivery completion must be success, failed, skipped, or queued",
             ));
         }
+
+        // 排在电话线路上的投递，在合并的那一通电话拨出后完成。
 
         let updated = sqlx::query(
             "UPDATE notify_deliveries
@@ -226,10 +233,10 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
                     error_code = $4,
                     error_message = $5,
                     latency_ms = $6,
-                    delivered_at_micros = $7
+                    delivered_at = $7
               WHERE organization_id = $1
                 AND id = $2
-                AND status = 'sending'",
+                AND status IN ('sending', 'queued')",
         )
         .bind(&organization_id.0)
         .bind(&id.0)
@@ -237,7 +244,7 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
         .bind(completion.error_code)
         .bind(completion.error_message)
         .bind(completion.latency_ms)
-        .bind(completion.delivered_at.map(|value| value.0))
+        .bind(completion.delivered_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -315,9 +322,9 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
                 AND ($5::TEXT IS NULL OR connector_id = $5)
                 AND ($6::TEXT IS NULL OR status = $6)
                 AND ($7::TEXT IS NULL OR stage = $7)
-                AND ($8::BIGINT IS NULL OR created_at_micros >= $8)
-                AND ($9::BIGINT IS NULL OR created_at_micros <= $9)
-           ORDER BY created_at_micros DESC, id
+                AND ($8::TIMESTAMPTZ IS NULL OR created_at >= $8)
+                AND ($9::TIMESTAMPTZ IS NULL OR created_at <= $9)
+           ORDER BY created_at DESC, id
               LIMIT $10"
         ))
         .bind(&organization_id.0)
@@ -327,8 +334,8 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
         .bind(connector_id)
         .bind(status)
         .bind(stage)
-        .bind(filter.from.map(|value| value.0))
-        .bind(filter.to.map(|value| value.0))
+        .bind(filter.from)
+        .bind(filter.to)
         .bind(limit)
         .fetch_all(&self.pool)
         .await
@@ -346,19 +353,108 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
         let updated = sqlx::query(
             "UPDATE notify_deliveries
                 SET status = 'acknowledged',
-                    acknowledged_at_micros = $3
+                    acknowledged_at = $3
               WHERE organization_id = $1
                 AND event_id = $2
-                AND status IN ('success', 'acknowledged')",
+                AND status IN ('success', 'acknowledged', 'queued')",
         )
         .bind(&organization_id.0)
         .bind(event_id)
-        .bind(acknowledged_at.0)
+        .bind(acknowledged_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
 
         Ok(updated.rows_affected())
+    }
+
+    async fn acknowledge_event_prefix(
+        &self,
+        organization_id: &Id,
+        event_id_prefix: &str,
+        acknowledged_at: TimestampMicros,
+    ) -> Result<u64> {
+        let updated = sqlx::query(
+            "UPDATE notify_deliveries
+                SET status = 'acknowledged',
+                    acknowledged_at = $3
+              WHERE organization_id = $1
+                AND event_id LIKE $2 ESCAPE '\\'
+                AND status IN ('success', 'acknowledged', 'queued')",
+        )
+        .bind(&organization_id.0)
+        .bind(like_prefix(event_id_prefix))
+        .bind(acknowledged_at)
+        .execute(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
+
+        Ok(updated.rows_affected())
+    }
+
+    async fn list_for_alert(
+        &self,
+        organization_id: &Id,
+        incident_id: &Id,
+        limit: u32,
+    ) -> Result<Vec<NotifyDelivery>> {
+        let rows = sqlx::query(&format!(
+            "SELECT {COLS} FROM notify_deliveries
+              WHERE organization_id = $1
+                AND (event_id = ANY($2) OR event_id LIKE $3 ESCAPE '\\')
+           ORDER BY created_at, id
+              LIMIT $4"
+        ))
+        .bind(&organization_id.0)
+        .bind(vec![
+            format!("alert.triggered:{incident_id}"),
+            format!("alert.acknowledged:{incident_id}"),
+            format!("alert.resolved:{incident_id}"),
+        ])
+        .bind(like_prefix(&format!("alert.escalated:{incident_id}:")))
+        .bind(i64::from(limit.clamp(1, 1000)))
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
+
+        rows.into_iter().map(row_to_delivery).collect()
+    }
+
+    async fn pages_between(
+        &self,
+        organization_id: &Id,
+        from: TimestampMicros,
+        to: TimestampMicros,
+    ) -> Result<Vec<PageRecord>> {
+        let rows = sqlx::query(
+            "SELECT recipient_user_id, event_id, MIN(created_at) AS at
+               FROM notify_deliveries
+              WHERE organization_id = $1
+                AND recipient_user_id IS NOT NULL
+                AND created_at >= $2 AND created_at < $3
+                AND status IN ('success', 'acknowledged')
+                AND (event_id LIKE 'alert.triggered:%' OR event_id LIKE 'alert.escalated:%')
+           GROUP BY recipient_user_id, event_id
+           ORDER BY at
+              LIMIT $4",
+        )
+        .bind(&organization_id.0)
+        .bind(from)
+        .bind(to)
+        .bind(MAX_PAGE_RECORDS)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(PageRecord {
+                    user_id: Id(row.try_get("recipient_user_id").map_err(sqlx_err)?),
+                    event_id: row.try_get("event_id").map_err(sqlx_err)?,
+                    at: row.try_get::<TimestampMicros, _>("at").map_err(sqlx_err)?,
+                })
+            })
+            .collect()
     }
 
     async fn list_due_ack(
@@ -375,18 +471,18 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
                 AND policy.id = delivery.policy_id
               WHERE delivery.organization_id = $1
                 AND delivery.status = 'success'
-                AND delivery.acknowledged_at_micros IS NULL
-                AND delivery.escalated_at_micros IS NULL
-                AND delivery.delivered_at_micros IS NOT NULL
+                AND delivery.acknowledged_at IS NULL
+                AND delivery.escalated_at IS NULL
+                AND delivery.delivered_at IS NOT NULL
                 AND policy.ack_timeout_seconds IS NOT NULL
                 AND policy.escalation_config IS NOT NULL
-                AND delivery.delivered_at_micros
-                    + policy.ack_timeout_seconds::BIGINT * 1000000 <= $2
-           ORDER BY delivery.delivered_at_micros, delivery.id
+                AND delivery.delivered_at
+                    + make_interval(secs => policy.ack_timeout_seconds) <= $2
+           ORDER BY delivery.delivered_at, delivery.id
               LIMIT $3"
         ))
         .bind(&organization_id.0)
-        .bind(now.0)
+        .bind(now)
         .bind(i64::from(limit.clamp(1, 500)))
         .fetch_all(&self.pool)
         .await
@@ -403,14 +499,14 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
     ) -> Result<NotifyDelivery> {
         let updated = sqlx::query(
             "UPDATE notify_deliveries
-                SET escalated_at_micros = $3
+                SET escalated_at = $3
               WHERE organization_id = $1
                 AND id = $2
-                AND escalated_at_micros IS NULL",
+                AND escalated_at IS NULL",
         )
         .bind(&organization_id.0)
         .bind(&id.0)
-        .bind(escalated_at.0)
+        .bind(escalated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;

@@ -36,7 +36,7 @@ for (const theme of ['dark', 'light'] as Theme[]) {
         signedOut: true,
       });
       await page.goto('/signin');
-      await expect(page.getByTestId('signin-card')).toBeVisible();
+      await expect(page.getByTestId('signin-channels')).toBeVisible();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       await expect(page).toHaveScreenshot(`login-mobile-${theme}.png`, {
         fullPage: true,

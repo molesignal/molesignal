@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use std::collections::BTreeMap;
+
 use crate::domain::{
     alerting::rule::{AlertRule, ComparisonOp},
     query::QueryResult,
@@ -27,18 +29,12 @@ pub(super) fn compare_value(value: f64, operator: &ComparisonOp, threshold: f64)
     }
 }
 
-pub(super) fn first_cell_matches(
-    result: &QueryResult,
-    operator: &ComparisonOp,
-    threshold: f64,
-) -> bool {
-    match first_cell_f64(result) {
-        Some(value) if !value.is_nan() => compare_value(value, operator, threshold),
-        _ => false,
-    }
+pub(super) fn compute_fingerprint(rule: &AlertRule) -> String {
+    group_fingerprint(rule, &BTreeMap::new())
 }
 
-pub(super) fn compute_fingerprint(rule: &AlertRule) -> String {
+/// 按列拆分的规则里一组的指纹：规则的指纹再加上这一组的取值；组为空时就是规则的指纹。
+pub(super) fn group_fingerprint(rule: &AlertRule, group: &BTreeMap<String, String>) -> String {
     let mut buffer = format!("{}|", rule.id.0);
 
     for (key, value) in &rule.labels {
@@ -48,5 +44,26 @@ pub(super) fn compute_fingerprint(rule: &AlertRule) -> String {
         buffer.push(';');
     }
 
+    if !group.is_empty() {
+        buffer.push('|');
+        buffer.push_str(&group_text(group));
+    }
+
     blake3::hash(buffer.as_bytes()).to_hex().to_string()
+}
+
+/// 一组的去抖状态存在哪一行：整条规则为空，按列拆分的一组是它取值的摘要。
+pub(super) fn group_state_key(group: &BTreeMap<String, String>) -> String {
+    if group.is_empty() {
+        return String::new();
+    }
+
+    blake3::hash(group_text(group).as_bytes())
+        .to_hex()
+        .to_string()
+}
+
+/// 取值里可能有 `=`、`;`，按 JSON 写出来，不同的组不会写成同一段文字。
+fn group_text(group: &BTreeMap<String, String>) -> String {
+    serde_json::to_string(group).unwrap_or_default()
 }

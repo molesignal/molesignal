@@ -1,29 +1,30 @@
 import type { Locator, Page } from '@playwright/test';
 
+import { explorerRead, explorerReadBody } from '../fixtures/explorerReads';
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 
-const field = (name: string, dataType = 'utf8') => ({ name, data_type: dataType, nullable: true, indexed: false });
+const field = (name: string, dataType = 'utf8') => ({ name, dataType: dataType, nullable: true, indexed: false });
 const stream = (name: string, type: 'logs' | 'traces', fields: ReturnType<typeof field>[]) => ({
   id: `${type}-stream`,
   name,
-  stream_type: type,
+  streamType: type,
   schema: { fields },
   retention: { days: 7 },
-  effective_retention: { days: 7 },
+  effectiveRetention: { days: 7 },
   settings: {
     description: null,
-    index_rules: [],
-    retention_filter: null,
-    keep_conditions: [],
-    max_query_range_hours: null,
-    flatten_level: null,
-    use_stream_stats_for_partitioning: false,
-    store_original_data: false,
-    enable_distinct_values: true,
+    indexRules: [],
+    retentionFilter: null,
+    keepConditions: [],
+    maxQueryRangeHours: null,
+    flattenLevel: null,
+    useStreamStatsForPartitioning: false,
+    storeOriginalData: false,
+    enableDistinctValues: true,
     queryable: true,
   },
-  created_at_micros: 1,
-  updated_at_micros: 1,
+  createdAt: 1,
+  updatedAt: 1,
 });
 
 /** Opens the share panel of the explorer on the page. */
@@ -57,22 +58,22 @@ test.describe('Sharing an explorer query', () => {
       route.fulfill({
         json: [
           stream('application_logs', 'logs', [
-            { name: '_timestamp', data_type: 'timestamp', nullable: false, indexed: true },
+            { name: '_timestamp', dataType: 'timestamp', nullable: false, indexed: true },
             field('level'),
             field('message'),
           ]),
         ],
       }),
     );
-    await page.route('**/api/v1/web/logs', (route) => {
-      asked.push(route.request().postDataJSON());
+    await page.route(explorerRead('web/logs'), (route) => {
+      asked.push(explorerReadBody(route.request()));
 
       return route.fulfill({
         json: {
           items: [{ _timestamp: (now - 30_000) * 1_000, level: 'ERROR', message: 'failed to reserve stock' }],
-          next_cursor: null,
-          previous_cursor: null,
-          has_more: false,
+          nextCursor: null,
+          previousCursor: null,
+          hasMore: false,
         },
       });
     });
@@ -132,30 +133,30 @@ test.describe('Sharing an explorer query', () => {
         json: {
           items: [
             {
-              trace_id: '7c1f0e03a94b4d2e8f3a5b6c7d8e9f03',
+              traceId: '7c1f0e03a94b4d2e8f3a5b6c7d8e9f03',
               operation: 'POST /api/v1/checkout',
               service: 'gateway',
-              start_ns: (now - 30_000) * 1_000_000,
-              duration_ms: 184,
-              span_count: 7,
-              error_count: 0,
+              startNs: (now - 30_000) * 1_000_000,
+              durationMs: 184,
+              spanCount: 7,
+              errorCount: 0,
             },
           ],
-          next_cursor: null,
-          previous_cursor: null,
-          has_more: false,
+          nextCursor: null,
+          previousCursor: null,
+          hasMore: false,
         },
       }),
     );
 
-    await page.goto(`/traces?tab=traces&sort=duration_desc&q=${encodeURIComponent("service_name = 'gateway'")}`);
-    await expect(page.locator('[data-workspace-pane="trace-results"] button[aria-pressed]')).toHaveCount(1);
+    await page.goto(`/traces?tab=traces&sort=duration_desc&q=${encodeURIComponent("service.name = 'gateway'")}`);
+    await expect(page.locator('[data-workspace-pane="trace-results"] [data-trace-row]')).toHaveCount(1);
 
     const link = await linkOf(await openShare(page));
     expect(link.pathname).toBe('/traces');
     expect(link.searchParams.get('tab')).toBe('traces');
     expect(link.searchParams.get('sort')).toBe('duration_desc');
-    expect(link.searchParams.get('q')).toBe("service_name = 'gateway'");
+    expect(link.searchParams.get('q')).toBe("service.name = 'gateway'");
     // The moments are those of the range the page is on, whatever it is: a difference that is a time.
     const [from, to] = momentsOf(link);
     expect(to! - from!).toBeGreaterThan(0);

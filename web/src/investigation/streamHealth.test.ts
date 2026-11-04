@@ -29,7 +29,7 @@ describe('unified stream health', () => {
     const url = new URL(streamAttentionHref(24 * 60 * 60), 'https://molesignal.local');
     expect(url.pathname).toBe('/streams');
     expect(url.searchParams.get('status')).toBe('attention');
-    expect(url.searchParams.get('window_secs')).toBe('86400');
+    expect(url.searchParams.get('windowSecs')).toBe('86400');
     expect(url.searchParams.get('time')).toBe('now-1d..now');
   });
 });

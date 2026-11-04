@@ -7,7 +7,7 @@ import { buildOnCallSnapshot } from './model';
 function schedule(id: string, name: string, userId: string): Schedule {
   return {
     id,
-    org_id: 'org-1',
+    orgId: 'org-1',
     name,
     description: '',
     timezone: 'UTC',
@@ -18,12 +18,27 @@ function schedule(id: string, name: string, userId: string): Schedule {
         name,
         members: [userId],
         kind: 'daily',
-        start_at: 1_000_000,
+        activeWindows: [],
+        startAt: 1_000_000,
       },
     ],
     overrides: [],
-    created_at: 1,
-    updated_at: 1,
+    createdAt: 1,
+    updatedAt: 1,
+    coverage: {
+      from: 0,
+      to: 100_000_000,
+      segments: [
+        { startAt: 0, endAt: 1_000_000, source: 'gap' },
+        {
+          startAt: 1_000_000,
+          endAt: 100_000_000,
+          source: 'rotation',
+          userId: userId,
+          rotationId: `${id}-rotation`,
+        },
+      ],
+    },
   };
 }
 

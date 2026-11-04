@@ -18,7 +18,7 @@ use crate::{
         http::{
             federation::{delete_payload, emit_cud},
             middleware::ProtectedResource,
-            routes::activity_audit,
+            routes::{activity_audit, schedule_coverage::schedule_view},
         },
     },
     app::iam::IamContext,
@@ -30,9 +30,9 @@ use crate::{
     shared::{Result, ids::Id, time::TimestampMicros},
 };
 
-/// 把保存后的 schedule 既序列化返回、又发一条 Updated 事件（override 增删也走这条）。
+/// 把保存后的 schedule 既序列化返回（带覆盖时段）、又发一条 Updated 事件（override 增删也走这条）。
 async fn saved_schedule_response(state: &AppState, org: &Id, s: Schedule) -> Json<Value> {
-    let body = serde_json::to_value(&s).unwrap_or(Value::Null);
+    let body = schedule_view(&s, TimestampMicros::now());
 
     emit_cud(
         state,
@@ -53,7 +53,7 @@ pub fn routes() -> Router<AppState> {
         .route("/schedules/{id}", get(get_one).put(update).delete(delete))
         .route("/schedules/{id}/overrides", post(add_override))
         .route(
-            "/schedules/{id}/overrides/{override_id}",
+            "/schedules/{id}/overrides/{overrideId}",
             axum::routing::put(update_override).delete(remove_override),
         )
         .route("/schedules/{id}/on-call", get(who_is_on_call))
@@ -87,6 +87,7 @@ struct OnCallQuery {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ScheduleWriteReq {
     pub name: String,
     #[serde(default)]
@@ -100,6 +101,8 @@ struct ScheduleWriteReq {
     pub rotations: Vec<Rotation>,
     #[serde(default)]
     pub overrides: Vec<ScheduleOverride>,
+    /// 换班在对方接受后还要排班管理员批准。不传时保持原样（新建为否）。
+    pub swap_needs_approval: Option<bool>,
 }
 
 fn default_timezone() -> String {
@@ -107,10 +110,11 @@ fn default_timezone() -> String {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct OverrideReq {
     pub user_id: Id,
-    pub start_at_micros: i64,
-    pub end_at_micros: i64,
+    pub start_at: i64,
+    pub end_at: i64,
     #[serde(default)]
     pub reason: String,
 }
@@ -121,13 +125,17 @@ async fn list(
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
     let items = state.alerting.service.list_schedules(&ctx.org_id).await?;
+    let now = TimestampMicros::now();
 
-    Ok(Json(
-        serde_json::to_value(items).unwrap_or(Value::Array(vec![])),
-    ))
+    Ok(Json(Value::Array(
+        items
+            .iter()
+            .map(|schedule| schedule_view(schedule, now))
+            .collect(),
+    )))
 }
 
-#[permission("schedules.manage")]
+#[permission("schedules.create")]
 async fn create(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -149,11 +157,15 @@ async fn create(
         enabled: req.enabled.unwrap_or(true),
         rotations: req.rotations,
         overrides: req.overrides,
+        swap_needs_approval: req.swap_needs_approval.unwrap_or(false),
         created_by: Some(ctx.user_id.clone()),
         updated_by: Some(ctx.user_id.clone()),
         created_at: now,
         updated_at: now,
     };
+
+    schedule.validate()?;
+    schedule.check_calendars()?;
 
     let saved = state.alerting.service.create_schedule(schedule).await?;
 
@@ -175,15 +187,15 @@ async fn create(
         &saved.id.0,
         json!({
             "name": saved.name,
-            "team_id": saved.team_id,
+            "teamId": saved.team_id,
             "timezone": saved.timezone,
-            "rotation_count": saved.rotations.len(),
-            "member_count": member_count(&saved),
+            "rotationCount": saved.rotations.len(),
+            "memberCount": member_count(&saved),
         }),
     )
     .await;
 
-    Ok(Json(serde_json::to_value(saved).unwrap_or(Value::Null)))
+    Ok(Json(schedule_view(&saved, now)))
 }
 
 #[resource_permission(
@@ -197,11 +209,11 @@ async fn get_one(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
-    Ok(Json(serde_json::to_value(schedule).unwrap_or(Value::Null)))
+    Ok(Json(schedule_view(&schedule, TimestampMicros::now())))
 }
 
 #[resource_permission(
-    action = "schedules.manage",
+    action = "schedules.update",
     resource = Schedule,
     id = Id::from_string(id),
     bind = existing
@@ -234,11 +246,17 @@ async fn update(
         enabled,
         rotations: req.rotations,
         overrides: req.overrides,
+        swap_needs_approval: req
+            .swap_needs_approval
+            .unwrap_or(existing.swap_needs_approval),
         created_by: existing.created_by,
         updated_by: Some(ctx.user_id.clone()),
         created_at: existing.created_at,
         updated_at: TimestampMicros::now(),
     };
+
+    schedule.validate()?;
+    schedule.check_calendars()?;
 
     let saved = state.alerting.service.update_schedule(schedule).await?;
 
@@ -251,10 +269,10 @@ async fn update(
         json!({
             "name": saved.name,
             "enabled": saved.enabled,
-            "team_id": saved.team_id,
+            "teamId": saved.team_id,
             "timezone": saved.timezone,
-            "rotation_count": saved.rotations.len(),
-            "member_count": member_count(&saved),
+            "rotationCount": saved.rotations.len(),
+            "memberCount": member_count(&saved),
         }),
     )
     .await;
@@ -264,7 +282,7 @@ async fn update(
 }
 
 #[resource_permission(
-    action = "schedules.manage",
+    action = "schedules.delete",
     resource = Schedule,
     id = Id::from_string(id),
     bind = existing
@@ -301,7 +319,7 @@ async fn delete(
 }
 
 #[resource_permission(
-    action = "schedules.manage",
+    action = "schedules.overrides.manage",
     resource = Schedule,
     id = Id::from_string(id),
     bind = schedule
@@ -312,20 +330,20 @@ async fn add_override(
     Path(id): Path<String>,
     Json(req): Json<OverrideReq>,
 ) -> Result<Json<Value>> {
-    if req.end_at_micros <= req.start_at_micros {
+    if req.end_at <= req.start_at {
         return Err(crate::shared::Error::invalid(
-            "end_at_micros must be greater than start_at_micros",
+            "endAt must be greater than startAt",
         ));
     }
 
     let mut schedule = schedule;
-    validate_override_window(&schedule, None, req.start_at_micros, req.end_at_micros)?;
+    validate_override_window(&schedule, None, req.start_at, req.end_at)?;
 
     let schedule_override = ScheduleOverride {
         id: Id::new(),
         user_id: req.user_id,
-        start_at: TimestampMicros(req.start_at_micros),
-        end_at: TimestampMicros(req.end_at_micros),
+        start_at: TimestampMicros(req.start_at),
+        end_at: TimestampMicros(req.end_at),
         reason: req.reason,
     };
 
@@ -358,10 +376,10 @@ async fn add_override(
         "schedule",
         &saved.id.0,
         json!({
-            "override_id": schedule_override.id,
-            "user_id": schedule_override.user_id,
-            "start_at": schedule_override.start_at,
-            "end_at": schedule_override.end_at,
+            "overrideId": schedule_override.id,
+            "userId": schedule_override.user_id,
+            "startAt": schedule_override.start_at,
+            "endAt": schedule_override.end_at,
             "reason": schedule_override.reason,
         }),
     )
@@ -372,7 +390,7 @@ async fn add_override(
 }
 
 #[resource_permission(
-    action = "schedules.manage",
+    action = "schedules.overrides.manage",
     resource = Schedule,
     id = Id::from_string(id),
     bind = schedule
@@ -383,20 +401,15 @@ async fn update_override(
     Path((id, override_id)): Path<(String, String)>,
     Json(req): Json<OverrideReq>,
 ) -> Result<Json<Value>> {
-    if req.end_at_micros <= req.start_at_micros {
+    if req.end_at <= req.start_at {
         return Err(crate::shared::Error::invalid(
-            "end_at_micros must be greater than start_at_micros",
+            "endAt must be greater than startAt",
         ));
     }
 
     let mut schedule = schedule;
 
-    validate_override_window(
-        &schedule,
-        Some(&override_id),
-        req.start_at_micros,
-        req.end_at_micros,
-    )?;
+    validate_override_window(&schedule, Some(&override_id), req.start_at, req.end_at)?;
 
     let schedule_override = schedule
         .overrides
@@ -405,8 +418,8 @@ async fn update_override(
         .ok_or_else(|| crate::shared::Error::not_found("schedule override not found"))?;
 
     schedule_override.user_id = req.user_id;
-    schedule_override.start_at = TimestampMicros(req.start_at_micros);
-    schedule_override.end_at = TimestampMicros(req.end_at_micros);
+    schedule_override.start_at = TimestampMicros(req.start_at);
+    schedule_override.end_at = TimestampMicros(req.end_at);
     schedule_override.reason = req.reason;
     let changed = schedule_override.clone();
     schedule.updated_by = Some(ctx.user_id.clone());
@@ -420,10 +433,10 @@ async fn update_override(
         "schedule",
         &saved.id.0,
         json!({
-            "override_id": changed.id,
-            "user_id": changed.user_id,
-            "start_at": changed.start_at,
-            "end_at": changed.end_at,
+            "overrideId": changed.id,
+            "userId": changed.user_id,
+            "startAt": changed.start_at,
+            "endAt": changed.end_at,
             "reason": changed.reason,
         }),
     )
@@ -434,7 +447,7 @@ async fn update_override(
 }
 
 #[resource_permission(
-    action = "schedules.manage",
+    action = "schedules.overrides.manage",
     resource = Schedule,
     id = Id::from_string(id),
     bind = schedule
@@ -465,10 +478,10 @@ async fn remove_override(
         "schedule",
         &saved.id.0,
         json!({
-            "override_id": removed.id,
-            "user_id": removed.user_id,
-            "start_at": removed.start_at,
-            "end_at": removed.end_at,
+            "overrideId": removed.id,
+            "userId": removed.user_id,
+            "startAt": removed.start_at,
+            "endAt": removed.end_at,
             "reason": removed.reason,
         }),
     )
@@ -495,7 +508,7 @@ async fn who_is_on_call(
             .unwrap_or_else(TimestampMicros::now);
 
     let user = schedule.who_is_on_call(at);
-    Ok(Json(json!({ "user_id": user.map(|u| u.0) })))
+    Ok(Json(json!({ "userId": user.map(|u| u.0) })))
 }
 
 fn validate_override_window(
@@ -553,6 +566,7 @@ mod tests {
                 end_at: TimestampMicros(200),
                 reason: "coverage".into(),
             }],
+            swap_needs_approval: false,
             created_by: None,
             updated_by: None,
             created_at: now,

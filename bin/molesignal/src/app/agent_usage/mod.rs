@@ -90,6 +90,7 @@ impl BudgetGate {
 
 /// 组织的预算设置连同实例默认值，给设置页展示。
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BudgetSettings {
     /// 组织自己设的每日上限；空表示跟随实例默认值，0 表示不限。
     pub org_limit: Option<i64>,
@@ -253,7 +254,7 @@ impl AgentUsage {
         updated_by: &Id,
     ) -> Result<BudgetSettings> {
         if daily_token_limit.is_some_and(|limit| limit < 0) {
-            return Err(Error::invalid("daily_token_limit must be zero or more"));
+            return Err(Error::invalid("dailyTokenLimit must be zero or more"));
         }
 
         let saved = self

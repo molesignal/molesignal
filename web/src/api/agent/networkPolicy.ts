@@ -6,10 +6,10 @@ import { http } from '@/lib/http';
  * add can only reach the internet. Administrators read and change it.
  */
 export interface MemberNetworkPolicy {
-  private_hosts: string[];
-  private_cidrs: string[];
-  updated_by?: string | null;
-  updated_at?: number | null;
+  privateHosts: string[];
+  privateCidrs: string[];
+  updatedBy?: string | null;
+  updatedAt?: number | null;
 }
 
 export async function getNetworkPolicy(): Promise<MemberNetworkPolicy> {
@@ -18,8 +18,8 @@ export async function getNetworkPolicy(): Promise<MemberNetworkPolicy> {
 }
 
 export async function putNetworkPolicy(input: {
-  private_hosts: string[];
-  private_cidrs: string[];
+  privateHosts: string[];
+  privateCidrs: string[];
 }): Promise<MemberNetworkPolicy> {
   const { data } = await http.put<MemberNetworkPolicy>('/agent/network-policy', input);
   return data;

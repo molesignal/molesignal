@@ -72,16 +72,16 @@ export function summarizeSignalHealth(
   streamType: Exclude<StreamType, 'extend'>,
 ): StreamHealthSummary & {
   rows: number;
-  lastReceivedAtMicros: number | null;
+  lastReceivedAt: number | null;
 } {
-  const matching = streams.filter((stream) => stream.stream_type === streamType);
+  const matching = streams.filter((stream) => stream.streamType === streamType);
   const summary = summarizeStreamHealth(matching);
   return {
     ...summary,
     rows: matching.reduce((total, stream) => total + stream.rows, 0),
-    lastReceivedAtMicros:
+    lastReceivedAt:
       matching.reduce<number | null>((latest, stream) => {
-        const received = stream.last_received_at_micros;
+        const received = stream.lastReceivedAt;
         if (received == null) return latest;
         return latest == null ? received : Math.max(latest, received);
       }, null),
@@ -99,7 +99,7 @@ export function streamHealthWindowFromParams(
   params: URLSearchParams,
   fallback = 24 * 60 * 60,
 ): number {
-  const value = Number(params.get('window_secs'));
+  const value = Number(params.get('windowSecs'));
   return Number.isFinite(value) && value >= 15 * 60 && value <= 7 * 24 * 60 * 60
     ? Math.round(value)
     : fallback;
@@ -108,7 +108,7 @@ export function streamHealthWindowFromParams(
 export function streamAttentionHref(windowSecs: number): string {
   const params = new URLSearchParams({
     status: 'attention',
-    window_secs: String(windowSecs),
+    windowSecs: String(windowSecs),
   });
   const from = relativeWindowExpression(windowSecs);
   params.set('time', `${from}..now`);

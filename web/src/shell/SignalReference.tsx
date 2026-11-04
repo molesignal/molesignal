@@ -49,6 +49,13 @@ interface SignalReferenceProps extends SignalReferenceOptions {
   children?: React.ReactNode | undefined;
   className?: string | undefined;
   showIcon?: boolean | undefined;
+  /**
+   * What a click does in place of opening the menu, for a page that shows the
+   * signal itself (a trace in a drawer). The menu stays on the context menu.
+   */
+  onActivate?: ((trigger: HTMLButtonElement) => void) | undefined;
+  /** Where the reference stands in the tab order, for a list that moves its focus with the arrow keys. */
+  tabIndex?: number | undefined;
 }
 
 const TYPE_META: Record<SignalReferenceType, { icon: LucideIcon; labelKey: string }> = {
@@ -76,6 +83,8 @@ export function SignalReference({
   children,
   className,
   showIcon = true,
+  onActivate,
+  tabIndex,
 }: SignalReferenceProps) {
   const { t } = useTranslation('shell');
   const meta = TYPE_META[type];
@@ -159,7 +168,16 @@ export function SignalReference({
         <button
           type="button"
           data-signal-type={type}
-          onClick={(event) => event.stopPropagation()}
+          tabIndex={tabIndex}
+          // The click goes on up to the page: an open menu closes on a press whose click reaches it,
+          // and stays open beside this one on a click stopped short. A row that acts on a click
+          // leaves one on a reference be (`isNestedControlClick`).
+          onClick={(event) => {
+            if (!onActivate) return;
+            // The popover leaves a prevented click alone.
+            event.preventDefault();
+            onActivate(event.currentTarget);
+          }}
           onKeyDown={(event) => event.stopPropagation()}
           onContextMenu={(event) => {
             event.preventDefault();
@@ -169,7 +187,7 @@ export function SignalReference({
           className={cn(
             'inline-flex items-center gap-1 rounded font-sans tabular-nums',
             'text-indigo-soft underline decoration-dotted decoration-1 underline-offset-2',
-            'transition-all duration-fast ease-default hover:text-indigo hover:decoration-solid active:scale-[0.97]',
+            'transition-[color,background-color,text-decoration-color,transform] duration-fast ease-default hover:text-indigo hover:decoration-solid active:scale-[0.96]',
             // An opaque tint, not the dim veil: what a reference shows may be set in ink (an HTTP
             // method), and ink on a veil over a hovered or selected row falls under AA.
             'focus-visible:bg-[var(--indigo-tint)] focus-visible:text-indigo focus-visible:outline-none',
@@ -298,7 +316,7 @@ function MenuButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex h-8 w-full items-center gap-2 px-3 text-left font-sans text-xs text-tx-1 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 focus-visible:text-tx-0 focus-visible:outline-none disabled:cursor-default disabled:text-tx-3 disabled:hover:bg-transparent"
+      className="flex h-8 w-full items-center gap-2 px-3 text-left font-sans text-xs text-tx-1 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 focus-visible:text-tx-0 focus-visible:outline-none disabled:cursor-default disabled:text-[var(--tx-disabled)] disabled:hover:bg-transparent"
       {...(testId ? { 'data-testid': testId } : {})}
     >
       <Icon className="h-3.5 w-3.5 text-tx-2" />

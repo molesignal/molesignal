@@ -20,8 +20,8 @@ pub(super) async fn execute(
             let custom = runtime.content.report_templates.list(&auth.org_id).await?;
 
             Ok(ToolResult::json(json!({
-                "builtin_templates": builtin_templates(),
-                "custom_templates": custom,
+                "builtinTemplates": builtin_templates(),
+                "customTemplates": custom,
             })))
         }
         BuiltinToolKind::ListScheduledReports => {
@@ -36,7 +36,7 @@ pub(super) async fn execute(
                 .filter(|report| !args.enabled_only || report.enabled)
                 .collect::<Vec<_>>();
 
-            Ok(ToolResult::json(json!({"scheduled_reports": reports})))
+            Ok(ToolResult::json(json!({"scheduledReports": reports})))
         }
         BuiltinToolKind::GetReportTemplate => {
             let args: IdArgs = parse_args(arguments)?;
@@ -48,7 +48,7 @@ pub(super) async fn execute(
                     .get(
                         &auth.org_id,
                         &crate::shared::ids::Id(args.template_id.ok_or_else(|| {
-                            crate::shared::Error::invalid("template_id is required")
+                            crate::shared::Error::invalid("templateId is required")
                         })?),
                     )
                     .await?;
@@ -58,17 +58,17 @@ pub(super) async fn execute(
         BuiltinToolKind::GetScheduledReport => {
             let args: IdArgs = parse_args(arguments)?;
 
-            let report =
-                runtime
-                    .content
-                    .scheduled_reports
-                    .get(
-                        &auth.org_id,
-                        &crate::shared::ids::Id(args.report_id.ok_or_else(|| {
-                            crate::shared::Error::invalid("report_id is required")
-                        })?),
-                    )
-                    .await?;
+            let report = runtime
+                .content
+                .scheduled_reports
+                .get(
+                    &auth.org_id,
+                    &crate::shared::ids::Id(
+                        args.report_id
+                            .ok_or_else(|| crate::shared::Error::invalid("reportId is required"))?,
+                    ),
+                )
+                .await?;
 
             super::common::json_result(&report)
         }
@@ -77,7 +77,7 @@ pub(super) async fn execute(
 
             let report_id = crate::shared::ids::Id(
                 args.report_id
-                    .ok_or_else(|| crate::shared::Error::invalid("report_id is required"))?,
+                    .ok_or_else(|| crate::shared::Error::invalid("reportId is required"))?,
             );
 
             runtime
@@ -103,14 +103,14 @@ pub(super) async fn execute(
 struct EmptyArgs {}
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ScheduledArgs {
     #[serde(default)]
     enabled_only: bool,
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct IdArgs {
     template_id: Option<String>,
     report_id: Option<String>,
@@ -166,8 +166,8 @@ fn template(
 ) -> Value {
     json!({
         "id": id, "name": name, "description": description,
-        "target_type": target_type, "format": format,
-        "time_range_preset": time_range_preset, "is_builtin": true,
-        "created_at_micros": null, "updated_at_micros": null,
+        "targetType": target_type, "format": format,
+        "timeRangePreset": time_range_preset, "isBuiltin": true,
+        "createdAt": null, "updatedAt": null,
     })
 }

@@ -42,6 +42,7 @@ const OBJECT_ROOT: &str = "agent_skills/v1";
 
 /// 设置页里的一个 Skill。
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SkillView {
     /// 实例级 Skill 是 `builtin:<名称>` / `path:<名称>`，其余是数据库 ID。
     pub id: String,
@@ -71,7 +72,7 @@ pub struct SkillView {
     pub package_name: Option<String>,
     /// 实例目录来源的服务器目录。
     pub dir: Option<String>,
-    pub updated_at_micros: Option<i64>,
+    pub updated_at: Option<i64>,
 }
 
 /// 检视抽屉的内容。
@@ -117,7 +118,7 @@ fn stored_view(skill: &StoredSkill, viewer: &Viewer) -> SkillView {
         repository_id: skill.repository_id.as_ref().map(|id| id.0.clone()),
         package_name: skill.package_name.clone(),
         dir: skill.repository_dir.clone(),
-        updated_at_micros: Some(skill.updated_at.0),
+        updated_at: Some(skill.updated_at.0),
     }
 }
 
@@ -147,7 +148,7 @@ fn instance_view(skill: &instance::InstanceSkill, enabled: bool, viewer: &Viewer
         repository_id: None,
         package_name: None,
         dir: skill.dir.clone(),
-        updated_at_micros: None,
+        updated_at: None,
     }
 }
 

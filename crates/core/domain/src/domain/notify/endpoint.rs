@@ -8,6 +8,7 @@ use crate::shared::{ids::Id, time::TimestampMicros};
 
 /// 用户在某个企业连接器中的可投递身份。
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UserNotifyEndpoint {
     pub id: Id,
     pub organization_id: Id,

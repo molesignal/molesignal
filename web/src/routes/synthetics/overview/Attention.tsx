@@ -59,7 +59,7 @@ export function ChecksNeedingAttention({
                   </span>
                   <RunStrip results={row.results} className="hidden shrink-0 sm:inline-flex" />
                   <span className="w-[84px] shrink-0">
-                    <CheckStateMark state={row.monitor.state} />
+                    <CheckStateMark state={row.monitor.state} noData={row.detail?.missingRuns?.noData} />
                   </span>
                 </div>
                 <p className="mt-[4px] truncate pl-[18px] font-sans text-xs text-tx-2">

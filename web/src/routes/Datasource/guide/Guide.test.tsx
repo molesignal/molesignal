@@ -12,17 +12,20 @@ const mocks = vi.hoisted(() => ({
   getDefault: vi.fn(),
   getRumClient: vi.fn(),
   instance: vi.fn(),
-  recentErrorSummary: vi.fn(),
+  listApplications: vi.fn(),
+  recentReceipt: vi.fn(),
 }));
 
 vi.mock('@/api/apiTokens', () => ({
   getDefault: mocks.getDefault,
   getRumClient: mocks.getRumClient,
+  scopes: async () => ({ policies: [], permissions: [] }),
 }));
 vi.mock('@/api/instance', () => ({ get: mocks.instance }));
+vi.mock('@/api/rum', () => ({ listApplications: mocks.listApplications }));
 vi.mock('@/api/rumIntake', () => ({
-  recentErrorSummary: mocks.recentErrorSummary,
-  sendTestError: vi.fn(),
+  recentReceipt: mocks.recentReceipt,
+  sendTestEvents: vi.fn(),
 }));
 vi.mock('../codeBlock/highlighter', () => ({
   highlightCode: vi.fn(() => new Promise(() => {})),
@@ -37,13 +40,13 @@ function overview(logs: { rows: number; status?: 'healthy' | 'delayed' }): HomeO
   return {
     signals: [
       {
-        stream_type: 'logs',
+        streamType: 'logs',
         status: logs.rows > 0 ? (logs.status ?? 'healthy') : 'no_data',
-        total_streams: 1,
-        active_streams: logs.rows > 0 ? 1 : 0,
+        totalStreams: 1,
+        activeStreams: logs.rows > 0 ? 1 : 0,
         rows: logs.rows,
-        stored_bytes: logs.rows * 40,
-        last_received_at_micros: logs.rows > 0 ? NOW - 12_000_000 : null,
+        storedBytes: logs.rows * 40,
+        lastReceivedAt: logs.rows > 0 ? NOW - 12_000_000 : null,
       },
     ],
     streams:
@@ -52,12 +55,12 @@ function overview(logs: { rows: number; status?: 'healthy' | 'delayed' }): HomeO
             {
               id: 'logs/default',
               name: 'default',
-              stream_type: 'logs',
+              streamType: 'logs',
               status: 'healthy',
               rows: logs.rows,
-              stored_bytes: logs.rows * 40,
-              first_received_at_micros: NOW - 86_400_000_000,
-              last_received_at_micros: NOW - 12_000_000,
+              storedBytes: logs.rows * 40,
+              firstReceivedAt: NOW - 86_400_000_000,
+              lastReceivedAt: NOW - 12_000_000,
             },
           ]
         : [],
@@ -72,10 +75,13 @@ function renderGuide({
   id = 'kubernetes',
   passive,
   refreshed = overview({ rows: 0 }),
+  search = '',
 }: {
   id?: string;
   passive?: HomeOverview;
   refreshed?: HomeOverview | Error;
+  /** The query string the guide is opened with. */
+  search?: string;
 } = {}) {
   const refreshOverview = vi.fn(() =>
     refreshed instanceof Error ? Promise.reject(refreshed) : Promise.resolve(refreshed),
@@ -85,7 +91,7 @@ function renderGuide({
   render(
     <QueryClientProvider client={client}>
       <TooltipProvider delayDuration={0}>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={[`/${search}`]}>
           <Guide
             source={source(id)}
             signal={undefined}
@@ -115,20 +121,18 @@ beforeEach(async () => {
   await i18n.changeLanguage('en-us');
   for (const mock of Object.values(mocks)) mock.mockReset();
   mocks.getDefault.mockResolvedValue({
-    token: 'ms_test_0123456789_secret',
-    role_name: 'Intake token',
-    token_kind: 'default_intake',
-    expires_at_micros: null,
+    token: 'mspat-test0123456789secret',
+    policyId: 'builtin:data_intake',
+    tokenKind: 'default_intake',
   });
   mocks.getRumClient.mockResolvedValue({
-    token: 'ms_rum_0123456789_secret',
-    role_name: 'RUM client',
-    token_kind: 'rum_client',
-    expires_at_micros: null,
+    token: 'mspat-rum0123456789secret',
+    permissions: ['rum.write'],
+    tokenKind: 'rum_client',
   });
-  mocks.instance.mockResolvedValue({ external_url: 'https://obs.example.com' });
+  mocks.instance.mockResolvedValue({ externalUrl: 'https://obs.example.com' });
   useAuthStore.setState({
-    ctx: { user_id: 'u1', org_id: 'acme', org_name: 'Acme', display_role: 'admin', roles: [] },
+    ctx: { userId: 'u1', orgId: 'acme', orgName: 'Acme', displayRole: 'admin', roles: [] },
   });
   vi.stubGlobal(
     'fetch',
@@ -232,36 +236,92 @@ describe('Datasource guide', () => {
     expect(screen.getByText('overview unavailable')).not.toBeNull();
   });
 
-  it('asks a RUM source for its application before it issues a token or verifies', async () => {
-    mocks.recentErrorSummary.mockResolvedValue({ rows: 3, lastReceivedAtMicros: NOW - 5_000_000 });
-    renderGuide({ id: 'rum' });
-
-    expect(states()).toEqual(['current', 'upcoming', 'upcoming']);
-    expect(
-      screen.getByText('Enter a valid RUM application ID before an app-bound token can be issued.'),
-    ).not.toBeNull();
-    expect(verify()).toBeDisabled();
-    expect(mocks.getRumClient).not.toHaveBeenCalled();
-
-    fireEvent.change(screen.getByLabelText('RUM application ID'), {
-      target: { value: 'checkout-web' },
+  describe('of a RUM source', () => {
+    const application = (id: string, name: string) => ({
+      id,
+      name,
+      platform: 'browser',
+      settings: { collectIp: true, collectGeo: true, defaultPrivacy: 'mask', issuesPerHour: 100, scrub: ['secrets', 'emails', 'phones', 'cards', 'national_ids', 'url_params'], sessionSampleRate: 100 },
+      createdBy: null,
+      createdAt: NOW,
+      updatedAt: NOW,
     });
-    // Typing alone asks for nothing; the application is confirmed first.
-    expect(mocks.getRumClient).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Use this application' }));
+    const web = application('checkout-web', 'Checkout web');
+    const app = application('checkout-app', 'Checkout app');
+    // The choice is drawn once the applications are known: until then it is a disabled stand-in.
+    const choice = async () => {
+      await waitFor(() => expect(screen.getByRole('combobox', { name: 'RUM application' })).toBeEnabled());
+      return screen.getByRole('combobox', { name: 'RUM application' });
+    };
 
-    await waitFor(() => expect(states()[0]).toBe('done'));
-    expect(mocks.getRumClient).toHaveBeenCalledWith('checkout-web');
-    expect(document.querySelector('[data-datasource-guide]')?.textContent).toContain(
-      "applicationId: 'checkout-web'",
-    );
+    it('asks for the application before it shows a token or verifies, and verifies what it sent', async () => {
+      mocks.listApplications.mockResolvedValue([web, app]);
+      mocks.recentReceipt.mockResolvedValue({
+        rows: 3,
+        lastReceivedAt: NOW - 5_000_000,
+        streams: ['rum_views'],
+      });
+      renderGuide({ id: 'rum' });
 
-    fireEvent.click(verify());
+      // Two to choose from: none is taken for the reader.
+      const select = await choice();
+      expect(states()).toEqual(['current', 'upcoming', 'upcoming']);
+      expect(
+        screen.getByText('Choose a RUM application first: its client token is shown once it is chosen.'),
+      ).not.toBeNull();
+      expect(verify()).toBeDisabled();
+      expect(mocks.getRumClient).not.toHaveBeenCalled();
 
-    await waitFor(() => expect(outcome()).toBe('success'));
-    expect(mocks.recentErrorSummary).toHaveBeenCalledWith({
-      orgId: 'acme',
-      applicationId: 'checkout-web',
+      fireEvent.keyDown(select, { key: 'Enter' });
+      fireEvent.click(screen.getByRole('option', { name: 'Checkout app · checkout-app' }));
+
+      await waitFor(() => expect(states()[0]).toBe('done'));
+      expect(mocks.getRumClient).toHaveBeenCalledWith('checkout-app');
+      expect(document.querySelector('[data-datasource-guide]')?.textContent).toContain(
+        "applicationId: 'checkout-app'",
+      );
+      // The events of an SDK go to the one entry, whatever their kind.
+      expect(screen.getByText('https://obs.example.com/api/v1/rum/events')).not.toBeNull();
+
+      fireEvent.click(verify());
+
+      await waitFor(() => expect(outcome()).toBe('success'));
+      expect(mocks.recentReceipt).toHaveBeenCalledWith({ applicationId: 'checkout-app' });
+    });
+
+    it('takes the only application there is', async () => {
+      mocks.listApplications.mockResolvedValue([web]);
+      renderGuide({ id: 'rum' });
+
+      await waitFor(() => expect(states()[0]).toBe('done'));
+      expect(mocks.getRumClient).toHaveBeenCalledWith('checkout-web');
+    });
+
+    it('opens on the application a link names, and drops one that is gone', async () => {
+      mocks.listApplications.mockResolvedValue([web, app]);
+      renderGuide({ id: 'rum', search: '?app=checkout-app' });
+
+      await waitFor(() => expect(states()[0]).toBe('done'));
+      expect(mocks.getRumClient).toHaveBeenCalledWith('checkout-app');
+      cleanup();
+
+      mocks.getRumClient.mockClear();
+      renderGuide({ id: 'rum', search: '?app=deleted-long-ago' });
+
+      await choice();
+      expect(states()[0]).toBe('current');
+      expect(mocks.getRumClient).not.toHaveBeenCalled();
+    });
+
+    it('sends the reader to make an application when the organization has none', async () => {
+      mocks.listApplications.mockResolvedValue([]);
+      renderGuide({ id: 'rum' });
+
+      const create = await screen.findByRole('link', { name: 'Create an application' });
+      expect(create.getAttribute('href')).toBe('/rum/applications?create=1');
+      expect(screen.getByText(/There is no RUM application yet\./)).not.toBeNull();
+      expect(mocks.getRumClient).not.toHaveBeenCalled();
+      expect(verify()).toBeDisabled();
     });
   });
 

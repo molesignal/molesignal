@@ -125,7 +125,10 @@ mod tests {
             archived_at: None,
             created_at: TimestampMicros(1),
             updated_at: TimestampMicros(1),
-            business_service: None,
+            dependencies: Vec::new(),
+            dependency_mode: Default::default(),
+            dependency_notify: true,
+            dependency_health: None,
             kind,
             group_id: group.map(|group| Id(group.into())),
         }

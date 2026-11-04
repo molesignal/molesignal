@@ -89,6 +89,7 @@ fn reject_builtin_write(function: &Function) -> Result<()> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateReq {
     pub name: String,
     pub language: FunctionLanguage,
@@ -98,6 +99,7 @@ pub struct CreateReq {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateReq {
     pub name: String,
     pub language: FunctionLanguage,
@@ -125,6 +127,7 @@ pub struct RunResp {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Resp {
     pub id: String,
     pub name: String,
@@ -136,8 +139,8 @@ pub struct Resp {
     /// 人类可读说明。内置预设按读者的界面语言取自 `i18n_language` 表，取不到时用
     /// params_schema.description；自建函数只有后者，通常为空。
     pub description: String,
-    pub created_at_micros: i64,
-    pub updated_at_micros: i64,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
 fn to_resp(f: Function) -> Resp {
@@ -168,8 +171,8 @@ fn described(f: Function, descriptions: &LanguagePack) -> Resp {
         params_schema: f.params_schema,
         is_builtin,
         description,
-        created_at_micros: f.created_at.0,
-        updated_at_micros: f.updated_at.0,
+        created_at: f.created_at.0,
+        updated_at: f.updated_at.0,
     }
 }
 

@@ -35,6 +35,101 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    SignInIdentity:
+      type: object
+      description: Who signed in. The session itself is in the cookies.
+      properties:
+        userId: { type: string }
+        email: { type: string }
+        displayName: { type: string }
+        orgId: { type: string }
+        orgName: { type: string }
+        displayRole: { type: string }
+        scope: { type: string }
+        roles:
+          type: array
+          items:
+            type: object
+            required: [id, key, name, builtin]
+            properties:
+              id: { type: string }
+              key: { type: string }
+              name: { type: string }
+              builtin: { type: boolean }
+    MfaRequired:
+      type: object
+      description: The second step a sign-in waits for.
+      required: [challenge, methods, expiresAt]
+      properties:
+        challenge: { type: string }
+        methods:
+          type: array
+          items: { type: string, enum: [totp, passkey, recovery_code] }
+        expiresAt: { type: integer, format: int64 }
+    MfaEnrollRequired:
+      type: object
+      description: A second factor to set up before the sign-in gets a session.
+      required: [challenge, methods, organizationName, expiresAt]
+      properties:
+        challenge: { type: string }
+        methods:
+          type: array
+          items: { type: string, enum: [passkey, totp] }
+        organizationName: { type: string, description: The organization that requires it }
+        expiresAt: { type: integer, format: int64 }
+    EnrolledSignIn:
+      type: object
+      properties:
+        login: { $ref: '#/components/schemas/SignInIdentity' }
+        recoveryCodes:
+          type: array
+          items: { type: string }
+          description: Shown this once
+    SigninPolicy:
+      type: object
+      required: [requireMfa, ssoOnly]
+      properties:
+        requireMfa: { type: boolean, description: Sessions entering need multi-factor authentication }
+        ssoOnly: { type: boolean, description: Only the organization's own single sign-on enters; root is the exception }
+    FactorProof:
+      description: A second factor, named by `method`.
+      oneOf:
+        - type: object
+          required: [method, code]
+          properties:
+            method: { type: string, enum: [totp, recovery_code] }
+            code: { type: string }
+        - type: object
+          required: [method, ceremony, credential]
+          properties:
+            method: { type: string, enum: [passkey] }
+            ceremony: { type: string, description: From a passkey check; works once }
+            credential: { type: object, description: 'The browser''s answer, binary fields in base64url' }
+    AddingProof:
+      description: What confirms adding a second factor; see `addingRequires` of `/api/v1/me/mfa`.
+      oneOf:
+        - { $ref: '#/components/schemas/FactorProof' }
+        - type: object
+          required: [method, password]
+          properties:
+            method: { type: string, enum: [password] }
+            password: { type: string, format: password }
+    PasskeyCeremony:
+      type: object
+      description: One passkey operation. `ceremony` comes back with the browser's answer and works once.
+      required: [ceremony, options]
+      properties:
+        ceremony: { type: string }
+        options: { type: object, description: 'For the browser''s WebAuthn call, binary fields in base64url' }
+    Passkey:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id: { type: string }
+        name: { type: string, description: Empty when it has no name of its own }
+        aaguid: { type: string, nullable: true, description: 'The authenticator''s model in hex, when the browser reports it' }
+        createdAt: { type: integer, format: int64 }
+        lastUsedAt: { type: integer, format: int64, nullable: true }
     Error:
       type: object
       properties:
@@ -51,25 +146,29 @@ components:
             properties:
               index: { type: integer }
               reason: { type: string }
+    RumType:
+      type: string
+      enum: [sessions, views, actions, errors, resources, long_tasks, vitals, logs]
+      description: The kind of row a RUM endpoint works on. Each type is the stream of the same name with the `rum_` prefix.
     SearchJob:
       type: object
-      required: [job_id, state, kind, attempt, user_id, submitted_at_micros, expires_at_micros]
+      required: [jobId, state, kind, attempt, userId, submittedAt, expiresAt]
       properties:
-        job_id: { type: string }
+        jobId: { type: string }
         state: { type: string, enum: [pending, running, done, failed, cancelled] }
         kind:
           type: string
           enum: [query, backfill]
-          description: '`backfill` is a job a data pipeline submitted to backfill a time range; `pipeline_id` names that pipeline'
-        pipeline_id: { type: string, nullable: true }
+          description: '`backfill` is a job a data pipeline submitted to backfill a time range; `pipelineId` names that pipeline'
+        pipelineId: { type: string, nullable: true }
         attempt: { type: integer, description: Execution generation, one higher after every retry }
-        user_id: { type: string, description: The user who submitted the job }
-        submitted_by:
+        userId: { type: string, description: The user who submitted the job }
+        submittedBy:
           type: object
           nullable: true
           description: Display name and email of that user; null once the user record is gone
           properties:
-            display_name: { type: string }
+            displayName: { type: string }
             email: { type: string }
         request:
           type: object
@@ -78,7 +177,7 @@ components:
           properties:
             language: { type: string, enum: [sql, promql] }
             statement: { type: string }
-            time_range:
+            timeRange:
               type: object
               properties:
                 start: { type: integer, format: int64, description: epoch micros }
@@ -88,24 +187,24 @@ components:
               nullable: true
               properties:
                 name: { type: string }
-                stream_type: { type: string }
+                streamType: { type: string }
             limit: { type: integer, nullable: true }
-        submitted_at_micros: { type: integer, format: int64 }
-        started_at_micros: { type: integer, format: int64, nullable: true }
-        finished_at_micros: { type: integer, format: int64, nullable: true }
-        result_object_key:
+        submittedAt: { type: integer, format: int64 }
+        startedAt: { type: integer, format: int64, nullable: true }
+        finishedAt: { type: integer, format: int64, nullable: true }
+        resultObjectKey:
           type: string
           nullable: true
           description: 'Object key of the NDJSON result of a `done` job: `search_jobs/v1/{org}/{job_id}-{attempt}.ndjson`'
-        result_rows: { type: integer, format: int64, nullable: true }
+        resultRows: { type: integer, format: int64, nullable: true }
         error: { type: string, nullable: true, description: Why a `failed` job failed }
-        expires_at_micros:
+        expiresAt:
           type: integer
           format: int64
           description: After this time the job and its result object are removed
     LogInspectionInput:
       type: object
-      required: [name, stream, window_secs, schedule, timezone, provider_id, language]
+      required: [name, stream, windowSecs, schedule, timezone, providerId, language]
       properties:
         name: { type: string, maxLength: 120, description: Unique within the organization }
         stream: { type: string, description: A logs stream of the organization; a run reads no other stream }
@@ -113,7 +212,7 @@ components:
           type: string
           maxLength: 8000
           description: The condition the inspected logs match, as the Logs page writes a query; empty inspects the whole stream
-        window_secs:
+        windowSecs:
           type: integer
           format: int64
           minimum: 300
@@ -122,14 +221,14 @@ components:
         requirements: { type: string, maxLength: 2000, description: What the model is asked to attend to }
         schedule: { $ref: '#/components/schemas/LogInspectionSchedule' }
         timezone: { type: string, description: 'IANA time zone the time of day of a `daily` or `weekly` schedule is read in, e.g. `Asia/Shanghai`' }
-        provider_id: { type: string, description: 'An AI model provider of the organization that is enabled and has a key' }
+        providerId: { type: string, description: 'An AI model provider of the organization that is enabled and has a key' }
         model: { type: string, nullable: true, description: A model of that provider to use in place of its default }
-        notify_when:
+        notifyWhen:
           type: string
           enum: [abnormal, attention, always]
           default: abnormal
           description: '`abnormal` tells of reports at level `abnormal` or `unknown`, `attention` also of `attention`, `always` of every report'
-        notify_routes:
+        notifyRoutes:
           type: array
           maxItems: 10
           description: Where a notification is sent; none repeats. Without any, nothing is sent and the reports are still kept
@@ -137,13 +236,13 @@ components:
         language: { type: string, enum: [en-us, zh-cn], description: The language of the reports and of the notifications }
         enabled: { type: boolean, default: true, description: Whether it runs on its schedule; a disabled inspection can still be run by hand }
     LogInspectionSchedule:
-      description: How often an inspection runs. No schedule may run more often than the instance allows (`min_interval_secs` of the limits).
+      description: How often an inspection runs. No schedule may run more often than the instance allows (`minIntervalSecs` of the limits).
       oneOf:
         - type: object
-          required: [type, every_minutes]
+          required: [type, everyMinutes]
           properties:
             type: { type: string, enum: [interval] }
-            every_minutes: { type: integer, minimum: 1 }
+            everyMinutes: { type: integer, minimum: 1 }
         - type: object
           required: [type, hour, minute]
           properties:
@@ -159,38 +258,38 @@ components:
             minute: { type: integer, minimum: 0, maximum: 59 }
     LogInspectionNotifyRoute:
       type: object
-      required: [connector_id, target_type, target]
+      required: [connectorId, targetType, target]
       properties:
-        connector_id: { type: string, description: A Notify connector of the organization }
-        target_type: { type: string, enum: [fixed_group, fixed_address] }
+        connectorId: { type: string, description: A Notify connector of the organization }
+        targetType: { type: string, enum: [fixed_group, fixed_address] }
         target: { type: string, maxLength: 512, description: The group or address on that connector, as the connector takes it }
     LogInspection:
       description: A saved inspection. It carries every field of `LogInspectionInput` as saved, and what the server keeps beside them.
       allOf:
         - $ref: '#/components/schemas/LogInspectionInput'
         - type: object
-          required: [id, run_as_user_id, created_by, created_at_micros, updated_at_micros]
+          required: [id, runAsUserId, createdBy, createdAt, updatedAt]
           properties:
             id: { type: string }
-            run_as_user_id: { type: string, description: The user every run reads the logs as; whoever saved the inspection last }
-            run_as_user:
+            runAsUserId: { type: string, description: The user every run reads the logs as; whoever saved the inspection last }
+            runAsUser:
               type: object
               nullable: true
               description: Name and email of that user; null once the user record is gone
               properties:
                 id: { type: string }
-                display_name: { type: string }
+                displayName: { type: string }
                 email: { type: string }
-            next_run_at_micros: { type: integer, format: int64, nullable: true, description: Null while the inspection is disabled }
-            last_run:
+            nextRunAt: { type: integer, format: int64, nullable: true, description: Null while the inspection is disabled }
+            lastRun:
               type: object
               nullable: true
               description: How the run that ended last went; null before the first has ended
               properties:
-                at_micros: { type: integer, format: int64 }
+                atTime: { type: integer, format: int64 }
                 status: { type: string, enum: [succeeded, failed, timed_out] }
                 level: { type: string, enum: [normal, attention, abnormal, unknown], nullable: true }
-            active_run:
+            activeRun:
               type: object
               nullable: true
               description: The run that waits or is under way; an inspection has at most one
@@ -198,17 +297,17 @@ components:
                 id: { type: string }
                 status: { type: string, enum: [queued, running] }
                 trigger: { type: string, enum: [schedule, manual] }
-                created_at_micros: { type: integer, format: int64 }
-                started_at_micros: { type: integer, format: int64, nullable: true }
-            created_by: { type: string }
-            created_at_micros: { type: integer, format: int64 }
-            updated_at_micros: { type: integer, format: int64 }
+                createdAt: { type: integer, format: int64 }
+                startedAt: { type: integer, format: int64, nullable: true }
+            createdBy: { type: string }
+            createdAt: { type: integer, format: int64 }
+            updatedAt: { type: integer, format: int64 }
     LogInspectionRun:
       type: object
-      required: [id, inspection_id, trigger, status, window_start_micros, window_end_micros, created_at_micros]
+      required: [id, inspectionId, trigger, status, windowStart, windowEnd, createdAt]
       properties:
         id: { type: string }
-        inspection_id: { type: string }
+        inspectionId: { type: string }
         trigger: { type: string, enum: [schedule, manual] }
         status: { type: string, enum: [queued, running, succeeded, failed, timed_out] }
         level:
@@ -216,8 +315,8 @@ components:
           enum: [normal, attention, abnormal, unknown]
           nullable: true
           description: 'The verdict of the report of a `succeeded` run; `unknown` when the model stated none'
-        window_start_micros: { type: integer, format: int64 }
-        window_end_micros: { type: integer, format: int64 }
+        windowStart: { type: integer, format: int64 }
+        windowEnd: { type: integer, format: int64 }
         summary: { type: string, nullable: true, description: The summary of the report, as notifications quote it }
         report: { type: string, nullable: true, description: What the model wrote; always null in a list of runs }
         failure:
@@ -229,18 +328,18 @@ components:
             picked it up, the user it runs as can no longer be used, the model is missing, disabled or
             without a key, the call to the model failed, or an internal cause
         error: { type: string, nullable: true, description: Technical detail of the failure }
-        provider_id: { type: string, nullable: true }
+        providerId: { type: string, nullable: true }
         model: { type: string, nullable: true, description: The model that was called }
-        run_as_user_id: { type: string, nullable: true }
-        requested_by: { type: string, nullable: true, description: 'The user who asked for a `manual` run' }
-        requested_by_user:
+        runAsUserId: { type: string, nullable: true }
+        requestedBy: { type: string, nullable: true, description: 'The user who asked for a `manual` run' }
+        requestedByUser:
           type: object
           nullable: true
           properties:
             id: { type: string }
-            display_name: { type: string }
+            displayName: { type: string }
             email: { type: string }
-        tool_calls:
+        toolCalls:
           type: array
           description: The tools the model called, in order
           items:
@@ -248,25 +347,25 @@ components:
             properties:
               name: { type: string }
               ok: { type: boolean }
-        prompt_tokens: { type: integer, format: int64 }
-        completion_tokens: { type: integer, format: int64 }
+        promptTokens: { type: integer, format: int64 }
+        completionTokens: { type: integer, format: int64 }
         notifications:
           type: array
           description: Whom the run told, one entry per channel
           items:
             type: object
             properties:
-              connector_id: { type: string }
-              target_type: { type: string, enum: [fixed_group, fixed_address] }
-              target_masked: { type: string }
+              connectorId: { type: string }
+              targetType: { type: string, enum: [fixed_group, fixed_address] }
+              targetMasked: { type: string }
               delivered: { type: boolean }
               error: { type: string, nullable: true }
-        created_at_micros: { type: integer, format: int64 }
-        started_at_micros: { type: integer, format: int64, nullable: true }
-        finished_at_micros: { type: integer, format: int64, nullable: true }
+        createdAt: { type: integer, format: int64 }
+        startedAt: { type: integer, format: int64, nullable: true }
+        finishedAt: { type: integer, format: int64, nullable: true }
     ApmResponseMeta:
       type: object
-      required: [range, resolution, data_quality, activation_boundary]
+      required: [range, resolution, dataQuality, activationBoundary]
       properties:
         range:
           type: object
@@ -274,16 +373,16 @@ components:
             from: { type: integer, format: int64, description: epoch micros }
             to: { type: integer, format: int64, description: epoch micros }
         resolution: { type: string, enum: [minute, hour] }
-        projection_started_at: { type: integer, format: int64, nullable: true }
-        last_complete_bucket_at: { type: integer, format: int64, nullable: true }
-        activation_boundary: { type: boolean }
-        data_quality:
+        projectionStartedAt: { type: integer, format: int64, nullable: true }
+        lastCompleteBucketAt: { type: integer, format: int64, nullable: true }
+        activationBoundary: { type: boolean }
+        dataQuality:
           type: object
-          required: [partial, gaps, overflow_dimensions]
+          required: [partial, gaps, overflowDimensions]
           properties:
             partial: { type: boolean }
             gaps: { type: array, items: { type: object } }
-            overflow_dimensions: { type: array, items: { type: string } }
+            overflowDimensions: { type: array, items: { type: string } }
 
 security:
   - bearerAuth: []
@@ -423,12 +522,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [ttl_seconds]
+              required: [ttlSeconds]
               properties:
-                organization_id: { type: string, nullable: true }
-                route_pattern: { type: string, nullable: true }
-                ttl_seconds: { type: integer, minimum: 1, maximum: 3600 }
-                max_uses: { type: integer, minimum: 1, maximum: 10000, default: 100 }
+                organizationId: { type: string, nullable: true }
+                routePattern: { type: string, nullable: true }
+                ttlSeconds: { type: integer, minimum: 1, maximum: 3600 }
+                maxUses: { type: integer, minimum: 1, maximum: 10000, default: 100 }
       responses:
         '201': { description: Metadata plus the plaintext token exactly once }
         '404': { description: Hidden from tenant scope }
@@ -448,6 +547,11 @@ paths:
   /api/v1/auth/signin:
     post:
       summary: Email + password login
+      description: |
+        Sets the session cookies and answers `{"login": …}`. An account with multi-factor
+        authentication gets no cookies yet: the answer is `{"mfa": …}`, finished with
+        `/api/v1/auth/signin/verify`. Where the organization requires it and the account has no
+        second factor, the answer is `{"enroll": …}`, set up under `/api/v1/auth/signin/enroll`.
       security: []
       requestBody:
         required: true
@@ -459,74 +563,58 @@ paths:
               properties:
                 email: { type: string }
                 password: { type: string }
+                remember: { type: boolean, description: Keep the session after the browser closes }
       responses:
         '200':
-          description: JWT issued
+          description: The session, or the second step it waits for
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  token: { type: string }
-                  user_id: { type: string }
-                  org_id: { type: string }
-                  display_role: { type: string }
-                  roles:
-                    type: array
-                    items:
-                      type: object
-                      required: [id, key, name, builtin]
-                      properties:
-                        id: { type: string }
-                        key: { type: string }
-                        name: { type: string }
-                        builtin: { type: boolean }
+                  login: { $ref: '#/components/schemas/SignInIdentity' }
+                  mfa: { $ref: '#/components/schemas/MfaRequired' }
+                  enroll: { $ref: '#/components/schemas/MfaEnrollRequired' }
         '401': { $ref: '#/components/schemas/Error' }
+        '403': { description: The only organizations of this account only allow single sign-on }
+        '429': { description: The account's second step is locked after too many wrong codes }
 
-  /api/v1/auth/sso/login:
-    get:
-      summary: SSO OIDC login redirect
+  /api/v1/auth/signin/verify:
+    post:
+      summary: Finish a sign-in with its second step
       security: []
-      responses:
-        '302': { description: redirect to IdP /authorize }
-
-  /api/v1/auth/sso/callback:
-    get:
-      summary: SSO OIDC callback
-      security: []
-      parameters:
-        - { in: query, name: code, required: true, schema: { type: string } }
-        - { in: query, name: state, schema: { type: string } }
-      responses:
-        '200': { description: JWT issued }
-        '401': { description: IdP error / id_token invalid }
-
-  /api/v1/auth/sso/providers:
-    get:
-      summary: List enabled external login providers without secret configuration
-      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  required: [challenge]
+                  properties:
+                    challenge: { type: string, description: From the `mfa` answer }
+                - { $ref: '#/components/schemas/FactorProof' }
       responses:
         '200':
-          description: Empty in community mode; otherwise enabled OIDC, SAML, and LDAP providers
+          description: Session cookies are set
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
-                  required: [id, name, kind]
-                  properties:
-                    id: { type: string }
-                    name: { type: string }
-                    kind: { type: string, enum: [oidc, saml, ldap] }
+                type: object
+                properties:
+                  login: { $ref: '#/components/schemas/SignInIdentity' }
+                  recoveryCodesLeft:
+                    type: integer
+                    nullable: true
+                    description: How many are left, after signing in with a recovery code
+        '400': { description: The passkey check expired; ask for a new one }
+        '401': { description: 'Wrong code or passkey, or the sign-in expired' }
+        '429': { description: Locked after too many wrong codes }
 
-  /api/v1/auth/sso/ldap/login:
+  /api/v1/auth/signin/verify/passkey:
     post:
-      summary: LDAP search and user simple-bind login
-      description: |
-        Resolves exactly one user DN with the configured escaped search filter, binds as that
-        user over LDAPS or StartTLS, applies the configured identity-field and group-to-role
-        mappings, provisions the local membership, and issues a local JWT.
+      summary: A passkey check for the second step of a sign-in
+      description: Only the account's own credentials are allowed.
       security: []
       requestBody:
         required: true
@@ -534,9 +622,687 @@ paths:
           application/json:
             schema:
               type: object
-              required: [provider_id, username, password]
+              required: [challenge]
               properties:
-                provider_id: { type: string }
+                challenge: { type: string }
+      responses:
+        '200':
+          description: Options for `navigator.credentials.get()`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PasskeyCeremony' }
+        '400': { description: 'Passkeys are not available on this instance, or the account has none' }
+        '401': { description: The sign-in expired }
+
+  /api/v1/auth/signin/passkey/options:
+    post:
+      summary: Start signing in with a passkey, without a password
+      security: []
+      responses:
+        '200':
+          description: Options for `navigator.credentials.get()`, with no allowed credentials
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PasskeyCeremony' }
+        '400': { description: '`http.external_url` cannot be a passkey''s relying party' }
+
+  /api/v1/auth/signin/passkey:
+    post:
+      summary: Finish signing in with a passkey
+      description: The passkey requires user verification, so this counts as multi-factor authentication.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ceremony, credential]
+              properties:
+                ceremony: { type: string }
+                credential: { type: object, description: 'The browser''s answer, binary fields in base64url' }
+                remember: { type: boolean }
+      responses:
+        '200':
+          description: Session cookies are set
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  login: { $ref: '#/components/schemas/SignInIdentity' }
+        '400': { description: The passkey request expired; start again }
+        '401': { description: 'The passkey is not registered here, or could not be verified' }
+
+  /api/v1/auth/signin/enroll/totp:
+    post:
+      summary: Start setting up an authenticator during a sign-in that asks for a second factor
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challenge]
+              properties:
+                challenge: { type: string, description: From the `enroll` answer }
+      responses:
+        '200':
+          description: The new key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  setup: { type: string, description: Sent back with the first code }
+                  secret: { type: string }
+                  otpauthUrl: { type: string }
+                  qrSvg: { type: string }
+                  expiresAt: { type: integer, format: int64 }
+        '401': { description: 'The sign-in expired, or the account has a second factor by now' }
+
+  /api/v1/auth/signin/enroll/totp/confirm:
+    post:
+      summary: Turn the authenticator on with its first code and finish the sign-in
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challenge, setup, code]
+              properties:
+                challenge: { type: string }
+                setup: { type: string }
+                code: { type: string }
+      responses:
+        '200':
+          description: Session cookies are set
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EnrolledSignIn' }
+        '400': { description: 'Wrong code, or the setup expired' }
+        '401': { description: 'The sign-in expired, or the account has a second factor by now' }
+
+  /api/v1/auth/signin/enroll/passkey/options:
+    post:
+      summary: The options for creating a passkey during a sign-in that asks for a second factor
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challenge]
+              properties:
+                challenge: { type: string }
+      responses:
+        '200':
+          description: Options for `navigator.credentials.create()`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PasskeyCeremony' }
+        '400': { description: '`http.external_url` cannot be a passkey''s relying party' }
+        '401': { description: 'The sign-in expired, or the account has a second factor by now' }
+
+  /api/v1/auth/signin/enroll/passkey:
+    post:
+      summary: Keep the passkey the browser created and finish the sign-in
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challenge, ceremony, credential]
+              properties:
+                challenge: { type: string }
+                ceremony: { type: string }
+                credential: { type: object, description: 'The browser''s answer, binary fields in base64url' }
+                name: { type: string, maxLength: 64 }
+      responses:
+        '200':
+          description: Session cookies are set
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EnrolledSignIn' }
+        '400': { description: 'The request expired, or the passkey could not be verified' }
+        '401': { description: 'The sign-in expired, or the account has a second factor by now' }
+
+  /api/v1/auth/sso/login:
+    get:
+      summary: Start an OIDC or OAuth 2.0 sign-in
+      description: |
+        Stores the state, nonce, and optional `next` page, then redirects the browser to the
+        identity provider. When the provider cannot be resolved the browser is sent to
+        `/signin?sso=<handoff code>` instead, where the reason can be exchanged.
+      security: []
+      parameters:
+        - { in: query, name: providerId, schema: { type: string } }
+        - { in: query, name: provider, schema: { type: string }, description: Provider name when only one enabled provider has it }
+        - { in: query, name: next, schema: { type: string }, description: Local path to open after sign-in; other values are ignored }
+      responses:
+        '303': { description: Redirect to the identity provider, or to /signin with a handoff code }
+
+  /api/v1/auth/sso/callback:
+    get:
+      summary: OIDC and OAuth 2.0 callback
+      description: |
+        Checks the state, exchanges the code, verifies the ID token (OIDC: RSA, EC, and EdDSA keys
+        from the JWKS, or HMAC with the client secret), reads the user endpoint, provisions the
+        local membership, and redirects to `/signin?sso=<handoff code>`. Failures redirect the
+        same way and are reported by the exchange endpoint.
+      security: []
+      parameters:
+        - { in: query, name: code, schema: { type: string } }
+        - { in: query, name: state, schema: { type: string } }
+        - { in: query, name: error, schema: { type: string } }
+        - { in: query, name: error_description, schema: { type: string } }
+      responses:
+        '303': { description: 'Redirect to /signin with a single-use handoff code, or, for a test sign-in, to its result page' }
+
+  /api/v1/auth/sso/saml/login:
+    get:
+      summary: Start a SAML sign-in (HTTP-Redirect binding)
+      security: []
+      parameters:
+        - { in: query, name: providerId, schema: { type: string } }
+        - { in: query, name: next, schema: { type: string } }
+      responses:
+        '303': { description: Redirect to the IdP, or to /signin with a handoff code }
+
+  /api/v1/auth/sso/saml/callback:
+    post:
+      summary: SAML assertion consumer service
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                SAMLResponse: { type: string }
+                RelayState: { type: string }
+      responses:
+        '303': { description: Redirect to /signin with a single-use handoff code }
+
+  /api/v1/auth/sso/exchange:
+    post:
+      summary: Exchange a sign-in handoff code for its outcome
+      description: |
+        Each code is single-use and expires two minutes after the callback. The body is
+        `{"login": …}` with the local JWT and organization context, or `{"link": …}` when the
+        identity is not bound yet and its email already belongs to an account: the account's owner
+        must confirm with `/api/v1/auth/sso/link/confirm`. Either carries the `next` page requested
+        at sign-in.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string }
+      responses:
+        '200':
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  login: { type: object, description: Same body as /api/v1/auth/signin }
+                  link:
+                    type: object
+                    description: Confirmation the account's owner must give before the identity is bound
+                    properties:
+                      code: { type: string, description: Proves the confirmation comes from the browser that signed in }
+                      providerName: { type: string }
+                      organizationName: { type: string }
+                      emailHint: { type: string }
+                      emailAvailable: { type: boolean, description: A verification code can be emailed }
+                      passwordAllowed: { type: boolean, description: The account has a password }
+                  next: { type: string }
+        '401': { description: Code expired or unknown, or the sign-in failed (message says why) }
+        '403': { description: The account is outside the provider's allowed groups or email domains }
+
+  /api/v1/auth/sso/providers:
+    get:
+      summary: List enabled external login providers without secret configuration
+      security: []
+      responses:
+        '200':
+          description: Empty in community mode; otherwise enabled OIDC, OAuth 2.0, SAML, and LDAP providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, name, kind, platform]
+                  properties:
+                    id: { type: string }
+                    name: { type: string }
+                    kind: { type: string, enum: [oidc, oauth2, saml, ldap] }
+                    platform:
+                      type: string
+                      description: Preset platform used for the sign-in button icon
+                      enum: [custom, google, microsoft, github, gitlab, okta, auth0, keycloak, authentik, feishu, adfs, jumpcloud, active_directory, openldap, freeipa]
+
+  /api/v1/auth/sso/link/email:
+    post:
+      summary: Email a verification code for a pending identity link
+      description: Needs SMTP. One code per account per minute; the code works only with the browser's `code`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string }
+                locale: { type: string, description: Language of the email (zh-* or English) }
+      responses:
+        '200': { description: Code sent }
+        '401': { description: The pending link expired }
+        '429': { description: A code was sent less than a minute ago }
+
+  /api/v1/auth/sso/link/confirm:
+    post:
+      summary: Confirm a pending identity link with the emailed code or the account password
+      description: |
+        Binds the identity to the account and signs in. An emailed code also proves the mailbox,
+        so identities created by single sign-on without a proven email are unbound. Five wrong
+        attempts end the pending link.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string }
+                emailCode: { type: string }
+                password: { type: string, format: password }
+      responses:
+        '200': { description: '`{"login": …}`, as from the exchange' }
+        '401': { description: Wrong code or password, or the pending link expired }
+
+  /api/v1/me/sso-identities:
+    get:
+      summary: List the external identities bound to the signed-in account
+      description: Most recently used first.
+      responses:
+        '200':
+          description: Bound identities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, providerId, providerName, kind, platform, orgId, orgName, linkedAt, lastLoginAt, canUnlink]
+                  properties:
+                    id: { type: string }
+                    providerId: { type: string }
+                    providerName: { type: string }
+                    kind: { type: string, enum: [oidc, oauth2, saml, ldap] }
+                    platform: { type: string }
+                    orgId: { type: string }
+                    orgName: { type: string }
+                    linkedAt: { type: integer, format: int64 }
+                    lastLoginAt: { type: integer, format: int64 }
+                    canUnlink:
+                      type: boolean
+                      description: False for the last identity of an account without a password
+
+  /api/v1/me/sso-identities/{id}:
+    delete:
+      summary: Unbind one external identity from the signed-in account
+      description: Refused for the last identity of an account without a password, and for API tokens.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: Unbound }
+        '400': { description: The account would be left without a way to sign in }
+        '404': { description: No such identity on this account }
+
+  /api/v1/me/mfa:
+    get:
+      summary: The signed-in account's multi-factor authentication
+      responses:
+        '200':
+          description: Its second factors, and what adding another one asks for
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [totpEnabled, recoveryCodesLeft, passkeys, addingRequires, requiredBy]
+                properties:
+                  totpEnabled: { type: boolean }
+                  totpEnabledAt: { type: integer, format: int64, nullable: true }
+                  recoveryCodesLeft: { type: integer }
+                  passkeys:
+                    type: array
+                    items: { $ref: '#/components/schemas/Passkey' }
+                  passkeysUnavailable:
+                    type: string
+                    nullable: true
+                    enum: [not_configured, ip_address, not_https]
+                    description: Why `http.external_url` cannot be a passkey's relying party
+                  addingRequires:
+                    type: string
+                    enum: [factor, password, nothing, sign_in_again]
+                    description: |
+                      An existing second factor; the account password; nothing (no password, and
+                      signed in within 10 minutes); or a fresh sign-in (no password, signed in earlier).
+                  requiredBy:
+                    type: array
+                    items: { type: string }
+                    description: The account's organizations that require it; the last second factor has to stay
+
+  /api/v1/me/mfa/totp/setup:
+    post:
+      summary: Start setting up an authenticator app
+      description: Browser sessions only. The first code from it is sent to `/api/v1/me/mfa/totp/confirm`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                proof: { $ref: '#/components/schemas/AddingProof' }
+      responses:
+        '200':
+          description: The new key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  setup: { type: string, description: Sent back with the first code }
+                  secret: { type: string, description: 'For typing in by hand, in groups of four' }
+                  otpauthUrl: { type: string }
+                  qrSvg: { type: string }
+                  expiresAt: { type: integer, format: int64 }
+        '400': { description: The proof is missing or wrong }
+        '429': { description: Locked after too many wrong codes }
+
+  /api/v1/me/mfa/totp/confirm:
+    post:
+      summary: Turn the authenticator on with its first code
+      description: |
+        Ends the account's other sign-ins when this turns multi-factor authentication on or replaces
+        an authenticator; this browser gets a reconfirmed session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [setup, code]
+              properties:
+                setup: { type: string }
+                code: { type: string }
+      responses:
+        '200':
+          description: Turned on
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recoveryCodes:
+                    type: array
+                    nullable: true
+                    items: { type: string }
+                    description: When this turned multi-factor authentication on; shown this once
+        '400': { description: 'Wrong code, or the setup expired' }
+
+  /api/v1/me/mfa/totp/disable:
+    post:
+      summary: Remove the authenticator
+      description: Ends the account's other sign-ins. Multi-factor authentication stays on while a passkey is left.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FactorProof' }
+      responses:
+        '204': { description: Removed }
+        '400': { description: 'Not turned on, or the proof is wrong' }
+        '429': { description: Locked after too many wrong codes }
+
+  /api/v1/me/mfa/recovery-codes:
+    post:
+      summary: Replace the recovery codes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FactorProof' }
+      responses:
+        '200':
+          description: The new codes, shown this once
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recoveryCodes:
+                    type: array
+                    items: { type: string }
+        '400': { description: 'Multi-factor authentication is off, or the proof is wrong' }
+        '429': { description: Locked after too many wrong codes }
+
+  /api/v1/me/mfa/passkey-proof:
+    post:
+      summary: A passkey check that confirms a change to the account's second factors
+      responses:
+        '200':
+          description: Options for `navigator.credentials.get()`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PasskeyCeremony' }
+        '400': { description: 'Passkeys are not available on this instance, or the account has none' }
+
+  /api/v1/me/passkeys/options:
+    post:
+      summary: Start adding a passkey
+      description: Browser sessions only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                proof: { $ref: '#/components/schemas/AddingProof' }
+      responses:
+        '200':
+          description: |
+            Options for `navigator.credentials.create()`: a discoverable credential with user
+            verification, any kind of authenticator, no attestation.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PasskeyCeremony' }
+        '400': { description: 'Passkeys are not available on this instance, or the proof is missing or wrong' }
+        '429': { description: Locked after too many wrong codes }
+
+  /api/v1/me/passkeys:
+    post:
+      summary: Keep the passkey the browser created
+      description: |
+        The account's first second factor turns multi-factor authentication on and ends its other
+        sign-ins; this browser gets a reconfirmed session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ceremony, credential]
+              properties:
+                ceremony: { type: string }
+                credential: { type: object, description: 'The browser''s answer, binary fields in base64url' }
+                name: { type: string, maxLength: 64 }
+      responses:
+        '200':
+          description: Added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  passkey: { $ref: '#/components/schemas/Passkey' }
+                  recoveryCodes:
+                    type: array
+                    nullable: true
+                    items: { type: string }
+                    description: When this turned multi-factor authentication on; shown this once
+        '400': { description: 'The request expired, or the passkey could not be verified' }
+        '409': { description: This passkey is already added }
+
+  /api/v1/me/passkeys/{id}:
+    patch:
+      summary: Rename a passkey
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 64 }
+      responses:
+        '204': { description: Renamed }
+        '404': { description: No such passkey on this account }
+
+  /api/v1/me/passkeys/{id}/remove:
+    post:
+      summary: Remove a passkey
+      description: |
+        Ends the account's other sign-ins. Removing the last second factor turns multi-factor
+        authentication off, and the recovery codes stop working.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FactorProof' }
+      responses:
+        '204': { description: Removed }
+        '400': { description: The proof is wrong }
+        '404': { description: No such passkey on this account }
+        '429': { description: Locked after too many wrong codes }
+
+  /api/v1/me/sessions/revoke-others:
+    post:
+      summary: Sign out every other device
+      description: This browser gets a reconfirmed session.
+      responses:
+        '204': { description: Signed out }
+
+  /api/v1/users/{id}/mfa/reset:
+    post:
+      summary: Turn off a member's multi-factor authentication
+      description: |
+        Requires `org.members.manage`. An organization administrator reaches members of that
+        organization alone; the platform administrator reaches anyone but the root user.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: Reset; the member's sign-ins have ended }
+        '403': { description: 'The member also belongs to other organizations, or is the root user' }
+        '404': { description: Not a member of this organization }
+
+  /api/v1/settings/signin-policy:
+    get:
+      summary: What entering the current organization asks of a sign-in
+      description: Requires `org.settings.read`; in the platform organization, `sys.settings.manage`.
+      responses:
+        '200':
+          description: The requirements
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SigninPolicy' }
+    put:
+      summary: Change what entering the current organization asks of a sign-in
+      description: |
+        Requires `org.settings.manage`; in the platform organization, `sys.settings.manage`. Reaches
+        every session within 15 minutes: a session that does not meet it ends at its next renewal.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SigninPolicy' }
+      responses:
+        '200':
+          description: The saved requirements
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SigninPolicy' }
+        '400': { description: '`ssoOnly` needs an enabled OIDC, OAuth 2.0 or SAML provider' }
+
+  /api/v1/orgs/{id}/select:
+    post:
+      summary: Switch the browser session to another organization
+      description: |
+        Rewrites the session cookies for that organization, or, when its sign-in requirements ask for
+        more than this sign-in has, answers what is missing and writes no cookies: `{"mfa": …}`, to
+        send the request again with a proof; `{"mfaSetup": …}`, to set up a second factor first; or
+        `{"sso": …}`, with the providers to sign in through.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                proof: { $ref: '#/components/schemas/FactorProof' }
+      responses:
+        '200':
+          description: The organization entered, or what entering it still asks for
+        '400': { description: The proof is wrong }
+        '403': { description: Not a member of this organization }
+        '429': { description: Locked after too many wrong codes }
+
+  /api/v1/auth/sso/ldap/login:
+    post:
+      summary: LDAP search and user simple-bind login
+      description: |
+        Resolves exactly one user DN with the configured escaped search filter, binds as that
+        user over LDAPS or StartTLS, applies the configured identity-field and group-to-role
+        mappings, provisions the local membership, and issues a local JWT. Answers `{"login": …}`,
+        or `{"link": …}` when the directory identity is not bound and its email already belongs
+        to an account (see the exchange endpoint).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [providerId, username, password]
+              properties:
+                providerId: { type: string }
                 username: { type: string, maxLength: 320 }
                 password: { type: string, format: password, maxLength: 1024 }
       responses:
@@ -547,13 +1313,53 @@ paths:
   /api/v1/sso/providers:
     get:
       summary: List organization SSO providers (secrets redacted)
-    post:
-      summary: Create an OIDC, SAML, or LDAP provider
       description: |
-        Each provider config accepts `field_mapping` with `subject`, `email`, `display_name`,
-        and `groups`. It also accepts `group_role_mapping` (external group value to organization
-        role id) and an optional `default_role_id`. Every referenced role must belong to the
-        provider organization.
+        `test` says how each provider's current settings stand with a test sign-in: `untested`,
+        `passed`, `failed`, or `stale` (a result on earlier settings), with its `testId`.
+    post:
+      summary: Create an OIDC, OAuth 2.0, SAML, or LDAP provider
+      description: |
+        `kind` selects the config block (`oidc`, `oauth2`, `saml`, `ldap`); `platform` names the
+        preset (default `custom`) and must support that kind. GitHub and Feishu sign in with
+        `oauth2`. Each config accepts `fieldMapping` with `subject`, `email`, `displayName`,
+        and `groups` (OIDC and OAuth 2.0 values are claim paths; `a | b` takes the first with a
+        value), `groupRoleMapping` (external group value to organization role id), an optional
+        `defaultRoleId`, and `allowedGroups` (when set, only members of one of these groups
+        can sign in). Every referenced role must belong to the provider organization. A provider
+        open to public accounts (Google, github.com, gitlab.com, Microsoft multi-tenant) can only
+        be enabled when the organization has email domains or the provider has allowed groups.
+
+  /api/v1/sso/providers/discover:
+    post:
+      summary: Read an issuer's OpenID Connect discovery document
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [issuer]
+              properties:
+                issuer: { type: string }
+      responses:
+        '200': { description: Issuer as published, authorize, token, userinfo, and JWKS URLs, supported scopes }
+        '400': { description: Unreachable, not a discovery document, or published for another issuer }
+
+  /api/v1/sso/providers/saml-metadata:
+    post:
+      summary: Read SAML IdP metadata from a URL or pasted XML
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url: { type: string }
+                xml: { type: string }
+      responses:
+        '200': { description: IdP entity ID, HTTP-Redirect SSO URL, and signing certificate (PEM) }
+        '400': { description: Unreachable, larger than 2 MiB, or no IDPSSODescriptor with an HTTP-Redirect service }
 
   /api/v1/sso/providers/roles:
     get:
@@ -566,6 +1372,66 @@ paths:
       summary: Update one provider; omitted secrets retain their saved values
       description: Identity-field and role mappings replace the previously saved mappings.
     delete: { summary: Delete one provider }
+
+  /api/v1/sso/providers/{id}/tests:
+    post:
+      summary: Start a test sign-in of an OIDC, OAuth 2.0, or SAML provider
+      description: |
+        Goes through a real sign-in with the saved settings and leaves nothing behind: no session,
+        no account, no link, no role change. The browser goes to `authorizationUrl` and comes back
+        through the provider's usual callback on `/iam/sso/tests/{test id}`. A disabled provider can
+        be tested. Needs `org.settings.manage` and a signed-in session, not an API token.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The test and where the browser goes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  authorizationUrl: { type: string }
+        '400': { description: The provider is LDAP, or its settings can't make a sign-in URL }
+        '429': { description: More than 10 tests of this provider in a minute }
+
+  /api/v1/sso/providers/{id}/tests/ldap:
+    post:
+      summary: Test an account against an LDAP provider
+      description: |
+        A real bind, so a wrong password counts toward the directory's lockout policy and the
+        instance's sign-in limits. The password is not stored or logged. Answers with the finished
+        test; a refused account is a failed test. Needs `org.settings.manage` and a signed-in session,
+        not an API token.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+      responses:
+        '200': { description: 'The finished test, as `GET /api/v1/sso/tests/{id}` answers' }
+        '400': { description: The provider is not LDAP, or the account or password is empty }
+        '429': { description: 'More than 10 tests of this provider in a minute, or too many wrong passwords for this account (`signin_limited`, with `Retry-After`)' }
+
+  /api/v1/sso/tests/{id}:
+    get:
+      summary: Read one test sign-in
+      description: |
+        `status` is `pending`, `passed`, `failed`, or `expired` (no answer from the identity provider
+        in 10 minutes). `current` is false once the provider's settings have changed since: the result
+        no longer counts. `identity` is what the provider returned, `mapping` what a real sign-in would
+        do (account, roles), `failure` the class and the message with sensitive values removed, and
+        `notes` what a passing test still wants looked at. Needs `org.settings.manage`.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
 
   /api/v1/intake/logs/{stream}:
     post:
@@ -710,12 +1576,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [org_id, language, statement, time_range]
+              required: [orgId, language, statement, timeRange]
               properties:
-                org_id: { type: string }
+                orgId: { type: string }
                 language: { type: string, enum: [sql, promql] }
                 statement: { type: string }
-                time_range:
+                timeRange:
                   type: object
                   properties:
                     start: { type: integer }
@@ -724,11 +1590,11 @@ paths:
                   type: object
                   properties:
                     name: { type: string }
-                    stream_type: { type: string, enum: [logs, metrics, traces, enrichment] }
+                    streamType: { type: string, enum: [logs, metrics, traces, enrichment] }
                 limit: { type: integer }
       responses:
         '200':
-          description: query result (rows + columns + scanned_rows + took_ms + cache_hit)
+          description: query result (rows + columns + scannedRows + tookMs)
 
   /api/v1/query/search_around:
     post:
@@ -739,12 +1605,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [event_timestamp_us, stream, stream_type]
+              required: [eventTimestampUs, stream, streamType]
               properties:
-                event_timestamp_us: { type: integer }
-                event_fingerprint: { type: string }
+                eventTimestampUs: { type: integer }
+                eventFingerprint: { type: string }
                 stream: { type: string }
-                stream_type: { type: string }
+                streamType: { type: string }
                 before: { type: integer, default: 50 }
                 after: { type: integer, default: 50 }
       responses:
@@ -754,7 +1620,7 @@ paths:
     post:
       summary: Submit an asynchronous search job (streams.query or sys.telemetry.read)
       description: >-
-        Takes the body of `/api/v1/query` and, optionally, `ttl_secs`: how long the job and its
+        Takes the body of `/api/v1/query` and, optionally, `ttlSecs`: how long the job and its
         result are kept, 60 seconds to 30 days, 7 days when left out. The job is queued; a querier
         node runs it and writes the rows as NDJSON to object storage. `POST /api/v1/query` with
         `Prefer: respond-async` and a pipeline backfill queue the same kind of job.
@@ -833,12 +1699,12 @@ paths:
       summary: Read one page of the rows of a `done` search job
       parameters:
         - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
-        - { in: query, name: page_size, schema: { type: integer, minimum: 1, maximum: 10000, default: 1000 } }
+        - { in: query, name: pageSize, schema: { type: integer, minimum: 1, maximum: 10000, default: 1000 } }
       responses:
         '200':
           description: >-
-            state, result_rows, page, page_size, rows (one object per row; empty until the job is
-            `done`), has_more and error
+            state, resultRows, page, pageSize, rows (one object per row; empty until the job is
+            `done`), hasMore and error
   /api/v1/query/jobs/{id}/cancel:
     post:
       summary: Cancel a `pending` or `running` search job
@@ -904,7 +1770,7 @@ paths:
 
   /api/v1/alerts/rules:
     get: { summary: List }
-    post: { summary: 'Create alert rule (kind: scheduled | realtime | anomaly)' }
+    post: { summary: 'Create alert rule (kind: scheduled | realtime | anomaly; query.group_by splits a scheduled rule into one incident per group of result columns; trigger.recovery and trigger.no_data set when an incident recovers and what an evaluation without a value counts as)' }
   /api/v1/alerts/rules/{id}:
     put: { summary: Update (rule threshold change resets consecutive counter) }
     delete: { summary: Delete }
@@ -915,6 +1781,8 @@ paths:
 
   /api/v1/notify/connector-types:
     get: { summary: List registered notify connector adapters and capabilities }
+  /api/v1/notify/aws-external-id:
+    get: { summary: The external ID AWS connectors of this organization assume roles with }
   /api/v1/notify/connectors:
     get: { summary: List encrypted enterprise notify connectors }
     post: { summary: Create an enterprise notify connector (alerts.manage) }
@@ -935,16 +1803,16 @@ paths:
     delete: { summary: Delete an unreferenced Notify template }
   /api/v1/notify/users:
     get: { summary: List organization users with notify endpoints and preferences }
-  /api/v1/users/{user_id}/notify-endpoints:
+  /api/v1/users/{userId}/notify-endpoints:
     get: { summary: List a user's notify identities }
     post: { summary: Bind a notify identity to an enterprise connector }
-  /api/v1/users/{user_id}/notify-endpoints/{id}:
+  /api/v1/users/{userId}/notify-endpoints/{id}:
     get: { summary: Read a user notify identity }
     put: { summary: Update, enable, or disable a user notify identity }
     delete: { summary: Delete a user notify identity }
-  /api/v1/users/{user_id}/notify-endpoints/{id}/test:
+  /api/v1/users/{userId}/notify-endpoints/{id}/test:
     post: { summary: Send and log a test to a user notify identity }
-  /api/v1/users/{user_id}/notify-endpoints/{id}/verify:
+  /api/v1/users/{userId}/notify-endpoints/{id}/verify:
     post: { summary: Administratively attest a notify identity (org.members.manage) }
   /api/v1/me/ui-preference/{scope}/{key}:
     get:
@@ -956,7 +1824,7 @@ paths:
         object with `fields`, the names of the fields beside the time in their order (at most 64,
         none twice). Any other scope is refused. No permission is asked, since the preference is the
         caller's own and nobody else can read it.
-      responses: { '200': { description: "value (null where nothing is kept) and updated_at_micros (null with it)" } }
+      responses: { '200': { description: "value (null where nothing is kept) and updatedAt (null with it)" } }
     put:
       summary: Keep an interface preference for the signed-in user
       description: >-
@@ -964,14 +1832,14 @@ paths:
         kept before. A value of another shape, or larger than 16 KiB written out, is refused. A
         user keeps at most 200 keys per scope in an organization; past that the least recently
         written are dropped.
-      responses: { '200': { description: "value as kept and updated_at_micros" } }
+      responses: { '200': { description: "value as kept and updatedAt" } }
     delete:
       summary: Forget an interface preference, so the page shows its default again
       responses: { '204': { description: "Nothing is kept under the key any more" } }
-  /api/v1/users/{user_id}/notify-preferences:
+  /api/v1/users/{userId}/notify-preferences:
     get: { summary: List category-specific user notify preferences }
-  /api/v1/users/{user_id}/notify-preferences/{category}:
-    put: { summary: Replace the ordered endpoint preference for a notify category }
+  /api/v1/users/{userId}/notify-preferences/{category}:
+    put: { summary: Replace the ordered endpoints of a notify category and how long each later alert step waits }
   /api/v1/notify/recipient-resolver-types:
     get: { summary: List registered notify recipient resolvers }
   /api/v1/notify/policies:
@@ -986,9 +1854,9 @@ paths:
     delete: { summary: Delete a notify policy }
   /api/v1/notify/policies/{id}/test:
     post: { summary: Preview matching recipients and fallback routes without sending }
-  /api/v1/notify/team-defaults/{team_id}:
+  /api/v1/notify/team-defaults/{teamId}:
     get: { summary: List a team's category-specific fallback routes }
-  /api/v1/notify/team-defaults/{team_id}/{category}:
+  /api/v1/notify/team-defaults/{teamId}/{category}:
     get: { summary: Read a team fallback route }
     put: { summary: Replace a team fallback route }
     delete: { summary: Delete a team fallback route }
@@ -1022,27 +1890,32 @@ paths:
       summary: 'Create scheduled pipeline (cron: `every:Ns/m/h`, DataPlaneAdmin)'
 
   /api/v1/auth/tokens:
-    post: { summary: 'Issue a personal API token (`ms_<prefix>_<secret>`)' }
-    get: { summary: List }
-  /api/v1/auth/tokens/default:
-    get:
-      summary: Get or create the workspace default intake token
-      description: 'Requires `api_tokens.manage`; returns a sealed-at-rest `ms_` token with the write-only intake role and `Cache-Control: private, no-store`.'
+    post: { summary: 'Issue a token for a service account (`mspat-<36>`); requires `api_tokens.manage`. The body names `serviceAccountId` and may narrow the token with `template` or `permissions`.' }
+    get: { summary: 'List every token of the organization; requires `api_tokens.read`' }
   /api/v1/auth/tokens/rum:
     get:
       summary: Get or create an application-bound RUM client token
-      description: 'Requires `api_tokens.manage`; returns a sealed-at-rest `msrum_` token that only grants `rum.write` for the requested application, with `Cache-Control: private, no-store`.'
+      description: 'Requires `api_tokens.manage`; returns a sealed-at-rest `mspat-` token that only grants `rum.write` for the requested application, with `Cache-Control: private, no-store`. The application has to exist (see `/api/v1/rum/applications`); one that does not answers 404.'
       parameters:
-        - { in: query, name: application_id, required: true, schema: { type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' } }
+        - { in: query, name: applicationId, required: true, schema: { type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' } }
   /api/v1/auth/tokens/{id}:
-    delete: { summary: Revoke }
+    delete: { summary: 'Revoke any token; requires `api_tokens.manage`' }
+  /api/v1/me/api-tokens:
+    post: { summary: 'Issue a personal token from a signed-in session; requires `personal_tokens.manage`. Without `template` or `permissions` the token may do whatever its owner may; it never does more.' }
+    get: { summary: "List the signed-in user's own tokens" }
+  /api/v1/me/api-tokens/default:
+    get:
+      summary: Get or create the signed-in user's default intake token
+      description: 'Requires `personal_tokens.manage` and the permissions of the `data_intake` template; returns a sealed-at-rest `mspat-` token that only writes data, with `Cache-Control: private, no-store`.'
+  /api/v1/me/api-tokens/{id}:
+    delete: { summary: 'Revoke one of your own tokens' }
 
   /api/v1/debug-artifacts:
     get:
       summary: List tenant-scoped RUM debug artifacts
       description: Requires `streams.read`.
       parameters:
-        - { in: query, name: application_id, schema: { type: string } }
+        - { in: query, name: applicationId, schema: { type: string } }
         - { in: query, name: service, schema: { type: string } }
         - { in: query, name: kind, schema: { type: string, enum: [javascript_sourcemap, flutter_symbols, android_mapping, android_native_symbols, apple_dsym] } }
         - { in: query, name: platform, schema: { type: string, enum: [web, flutter, android, ios] } }
@@ -1055,15 +1928,15 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [application_id, service, release, kind, platform, file]
+              required: [applicationId, service, release, kind, platform, file]
               properties:
-                application_id: { type: string, maxLength: 128 }
+                applicationId: { type: string, maxLength: 128 }
                 service: { type: string, maxLength: 255 }
                 release: { type: string, maxLength: 64 }
                 kind: { type: string, enum: [javascript_sourcemap, flutter_symbols, android_mapping, android_native_symbols, apple_dsym] }
                 platform: { type: string, enum: [web, flutter, android, ios] }
                 architecture: { type: string, maxLength: 32, description: 'Common ABI aliases such as arm64-v8a and aarch64 are canonicalized.' }
-                debug_id: { type: string, maxLength: 128, description: 'UUID or ELF build ID; hex identifiers are compared case-insensitively without punctuation.' }
+                debugId: { type: string, maxLength: 128, description: 'UUID or ELF build ID; hex identifiers are compared case-insensitively without punctuation.' }
                 file: { type: string, format: binary, description: 'Raw artifact or gzip-compressed artifact.' }
   /api/v1/debug-artifacts/{id}:
     delete:
@@ -1114,7 +1987,7 @@ paths:
     get:
       summary: Paginated APM service catalog
       parameters: *apmQueryParameters
-      responses: { '200': { description: "Service catalog page with items, previous_cursor, next_cursor, and has_more; no exact total is calculated" } }
+      responses: { '200': { description: "Service catalog page with items, previousCursor, nextCursor, and hasMore; no exact total is calculated" } }
   /api/v1/apm/services/{service}:
     get:
       summary: Consistently filtered APM service workbench
@@ -1189,48 +2062,452 @@ paths:
       responses:
         '200': { description: Non-readiness APM runtime health, projection start, completion and gaps }
 
-  /api/v1/rum/sessions:
-    post: { summary: RUM session intake (`rum.write`; app-bound tokens enforce application identity) }
+  /api/v1/rum/events:
+    post:
+      summary: Send RUM events (`rum.write`)
+      description: 'The body is a JSON array of events, one event, or NDJSON, optionally gzip-compressed (`Content-Encoding: gzip`), with at most 5000 events and 5 MiB decoded. An event follows `contracts/rum/events/v1.schema.json` and is accepted or refused on its own. An application-bound client token writes to its own application; any other credential names the application in `application.id`. The application has to exist.'
+      responses:
+        '200': { description: 'accepted, rejected (the index and the reason of each event that was refused) and, when the application keeps a share of its sessions, sampled: the events of sessions it does not keep, which were left out on purpose' }
+        '413': { description: 'The decoded body is above the limit' }
+
+  /api/v1/rum/applications:
     get:
-      summary: Cursor-paginated RUM sessions
-      description: The signed cursor freezes the absolute time window and active filters.
+      summary: List the RUM applications of the organization
+      responses: { '200': { description: 'Applications with id, name, platform and settings' } }
+    post:
+      summary: Create a RUM application (`api_tokens.manage`)
+      description: 'An event for an application that does not exist is refused, so an application is created before an SDK sends to it. `id` is made from the name when left out and cannot change. An identifier or a name that exists answers 409. `settings` holds collectIp, collectGeo, defaultPrivacy (mask or allow), issuesPerHour (1 to 10000), scrub (the kinds of sensitive text taken out of an event before it is stored: secrets, emails, phones, cards, national_ids and url_params, all by default) sessionSampleRate (the percentage of the sessions that no retention filter describes that is kept, 0 to 100, 100 by default; a session is kept or dropped as a whole, replay included), retentionFilters (up to 10 filters { id?, name, rate, conditions: [{ field, op, values }] } that give a share of their own to the sessions they describe; the first one that describes a session decides its share; a field is env, service, version, source, session.type, geo.country_iso_code, browser.name, os.name or device.type, an op is is or is_not, a condition lists 1 to 20 values and a filter has at most 5 conditions; names are used once whatever their case; an id is made from the name when left out) and keepErrors (keep the errors of sessions that are not kept, true by default); one left out takes its default.'
+      responses: { '200': { description: 'The new application' } }
+
+  /api/v1/rum/applications/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+    get:
+      summary: Read one RUM application
+      responses: { '200': { description: 'The application' } }
+    patch:
+      summary: Change the name, platform or settings of a RUM application (`api_tokens.manage`)
+      description: 'A setting left out keeps its value; retentionFilters, when given, replaces the whole list. A sessionSampleRate above 100, or a list of filters that is not right, answers 400.'
+      responses: { '200': { description: 'The application' } }
+    delete:
+      summary: Delete a RUM application and revoke its client token (`api_tokens.manage`)
+      description: The events it already sent stay in the streams until their retention ends them.
+      responses: { '200': { description: 'deleted' } }
+
+  /api/v1/rum/schema/{type}:
+    get:
+      summary: Columns of a RUM type, with data types, units and what can be filtered
+      parameters:
+        - { in: path, name: type, required: true, schema: { $ref: '#/components/schemas/RumType' } }
+      responses: { '200': { description: 'idField, versioned, defaultColumns and fields' } }
+
+  /api/v1/rum/search:
+    get:
+      summary: A page of the rows of a RUM type, newest first
+      description: '`filters`, `freeText` and `columns` are JSON-encoded lists in the address. `POST` takes the same names in a JSON body, for queries too long for an address. Views and sessions appear once, in their latest version.'
+      parameters:
+        - { in: query, name: type, required: true, schema: { $ref: '#/components/schemas/RumType' } }
+        - { in: query, name: from, schema: { type: integer, format: int64 }, description: 'Microseconds since the Unix epoch; 24 hours before `to` by default' }
+        - { in: query, name: to, schema: { type: integer, format: int64 }, description: 'Microseconds since the Unix epoch; now by default' }
+        - { in: query, name: filters, schema: { type: string }, description: 'JSON list of { field, op, value }; op is one of =, !=, in, not_in, contains, >, >=, <, <=, exists, missing' }
+        - { in: query, name: freeText, schema: { type: string }, description: 'JSON list of up to 8 words, each found in a text column' }
+        - { in: query, name: columns, schema: { type: string }, description: 'JSON list of columns; the defaults of the type when left out' }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 5000, default: 100 } }
+        - { in: query, name: cursor, schema: { type: string }, description: 'The nextCursor or previousCursor of an earlier answer' }
+      responses: { '200': { description: "items, previousCursor, nextCursor, and hasMore" } }
+    post:
+      summary: A page of the rows of a RUM type, with the selection in the body
+      responses: { '200': { description: "items, previousCursor, nextCursor, and hasMore" } }
+
+  /api/v1/rum/facets:
+    get:
+      summary: The commonest values of a field across the rows a RUM query matches
+      description: 'Takes the selection of `search` (type, from, to, filters, freeText) and counts every matching row. A count that takes too long or finds the system busy answers an empty list with `unavailable`. `POST` takes the same names in a JSON body.'
+      parameters:
+        - { in: query, name: type, required: true, schema: { $ref: '#/components/schemas/RumType' } }
+        - { in: query, name: field, required: true, schema: { type: string } }
+        - { in: query, name: from, schema: { type: integer, format: int64 } }
+        - { in: query, name: to, schema: { type: integer, format: int64 } }
+        - { in: query, name: filters, schema: { type: string } }
+        - { in: query, name: freeText, schema: { type: string } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 10 } }
+      responses: { '200': { description: "field and values: the commonest first, each with value and count" } }
+    post:
+      summary: The commonest values of a field, with the selection in the body
+      responses: { '200': { description: "field and values" } }
+
+  /api/v1/rum/keys:
+    get:
+      summary: The keys found in a JSON column across the rows a RUM query matches
+      description: 'Takes the selection of `search` and names the feature flags evaluated, the custom timings marked, the keys of the context or of the properties of a person, each with how many sessions had it, the one most sessions had first. A key is then named like a column, as `feature_flags.<key>`. `POST` takes the same names in a JSON body.'
+      parameters:
+        - { in: query, name: type, schema: { $ref: '#/components/schemas/RumType' }, description: '`views` when left out' }
+        - { in: query, name: column, required: true, schema: { type: string, enum: [feature_flags, context, view.custom_timings, usr.extra] } }
+        - { in: query, name: from, schema: { type: integer, format: int64 } }
+        - { in: query, name: to, schema: { type: integer, format: int64 } }
+        - { in: query, name: filters, schema: { type: string } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+      responses: { '200': { description: "column and keys, each with key and sessions, and unavailable when there are no numbers" } }
+    post:
+      summary: The keys of a JSON column, with the selection in the body
+      responses: { '200': { description: 'column and keys' } }
+
+  /api/v1/rum/distribution:
+    get:
+      summary: How the values of a number fall across the rows a RUM query matches
+      description: 'Takes the selection of `search`. Counts the rows that are stored in bars of one width from the smallest value to the 99th percentile; the last bar counts what lies past it. Values that are all the same are one bar. `POST` takes the same names in a JSON body.'
+      parameters:
+        - { in: query, name: type, required: true, schema: { $ref: '#/components/schemas/RumType' } }
+        - { in: query, name: field, required: true, schema: { type: string }, description: 'A number, or a key of a JSON column that holds one' }
+        - { in: query, name: from, schema: { type: integer, format: int64 } }
+        - { in: query, name: to, schema: { type: integer, format: int64 } }
+        - { in: query, name: filters, schema: { type: string } }
+        - { in: query, name: freeText, schema: { type: string } }
+        - { in: query, name: bars, schema: { type: integer, minimum: 1, maximum: 100, default: 40 } }
+      responses:
+        '200': { description: "field, unit, rows, min, max, p50, p75, p95, p99, bars (from, to, rows) and unavailable when there are no numbers" }
+        '400': { description: 'A field that is not a number of the type' }
+    post:
+      summary: How the values of a number fall, with the selection in the body
+      responses: { '200': { description: 'field, unit, rows, bars' } }
+
+  /api/v1/rum/heatmaps/clicks:
+    get:
+      summary: The elements of a page people click, and where in them (`rum.analytics.read`)
+      description: 'Takes from, to and filters, usually the application, the page and the width of the window. Counts the rows that are stored. Each element has clicks, sessions, frustrated, name, selector, pageX and pageY (the average place of its clicks on the page) and cells, each [column, row, clicks] of 10 by 10 cells of the element. `POST` takes the same names in a JSON body.'
       parameters:
         - { in: query, name: from, schema: { type: integer, format: int64 } }
         - { in: query, name: to, schema: { type: integer, format: int64 } }
-        - { in: query, name: q, schema: { type: string } }
-        - { in: query, name: country, schema: { type: string } }
-        - { in: query, name: browser, schema: { type: string } }
-        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
-        - { in: query, name: cursor, schema: { type: string } }
-      responses: { '200': { description: "items, previous_cursor, next_cursor, and has_more" } }
+        - { in: query, name: filters, schema: { type: string } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 300, default: 100 } }
+      responses: { '200': { description: "clicks, elements, from, to and unavailable when there are no numbers" } }
+    post:
+      summary: The clicks of a page, with the request in the body
+      responses: { '200': { description: 'clicks, elements' } }
 
-  /api/v1/rum/actions:
-    post: { summary: RUM action intake }
-
-  /api/v1/rum/errors:
-    post: { summary: RUM error intake with best-effort Source Map / native symbol translation }
+  /api/v1/rum/heatmaps/scroll:
     get:
-      summary: Cursor-paginated RUM error groups
-      description: Sorting and aggregation happen on the server before page trimming.
+      summary: How far down a page people go (`rum.analytics.read`)
+      description: 'Takes from, to and filters. A band is 100 CSS pixels, and `reached` is the share of the views that saw that depth. `POST` takes the same names in a JSON body.'
       parameters:
         - { in: query, name: from, schema: { type: integer, format: int64 } }
         - { in: query, name: to, schema: { type: integer, format: int64 } }
-        - { in: query, name: q, schema: { type: string } }
-        - { in: query, name: status, schema: { type: string, enum: [new, ongoing] } }
-        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
-        - { in: query, name: cursor, schema: { type: string } }
-      responses: { '200': { description: "items, previous_cursor, next_cursor, and has_more" } }
+        - { in: query, name: filters, schema: { type: string } }
+      responses: { '200': { description: "views, pageHeight, medianDepth, bands (depth, reached), from, to and unavailable when there are no numbers" } }
+    post:
+      summary: The depths of a page, with the request in the body
+      responses: { '200': { description: 'views, bands' } }
+
+  /api/v1/rum/heatmaps/snapshot:
+    get:
+      summary: A recording of a page to draw a map over (`rum.replay.read`)
+      description: 'Takes from, to, filters and viewId, one of the candidates. Answers candidates, up to 20 views of the page with a replay, the newest first, and snapshot, the rrweb events that build the page at the moment it had loaded, or null when no session that opened the page was recorded. `POST` takes the same names in a JSON body.'
+      parameters:
+        - { in: query, name: from, schema: { type: integer, format: int64 } }
+        - { in: query, name: to, schema: { type: integer, format: int64 } }
+        - { in: query, name: filters, schema: { type: string } }
+        - { in: query, name: viewId, schema: { type: string } }
+      responses: { '200': { description: "candidates and snapshot" } }
+    post:
+      summary: A recording of a page, with the request in the body
+      responses: { '200': { description: 'candidates and snapshot' } }
+
+  /api/v1/rum/sessions/{id}/comments:
+    get:
+      summary: The comments on the replay of a session (`rum.replay.read`)
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses: { '200': { description: "comments, the earliest moment first, each with id, application, sessionId, atTime, body, authorId, authorName, createdAt, updatedAt and editable" } }
+    post:
+      summary: Comment on a moment of a replay (`rum.replay.comments.write`)
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        '200': { description: 'The comment' }
+        '400': { description: 'A body that is not 1 to 2,000 characters, a moment before the epoch, or a session that holds 500 comments' }
+
+  /api/v1/rum/sessions/{id}/comments/{commentId}:
+    patch:
+      summary: Change a comment (`rum.replay.comments.write` for your own, `rum.replay.comments.manage` for another's)
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: path, name: commentId, required: true, schema: { type: string } }
+      responses: { '200': { description: 'The comment' }, '403': { description: "The comment is someone else's" } }
+    delete:
+      summary: Delete a comment (`rum.replay.comments.write` for your own, `rum.replay.comments.manage` for another's)
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: path, name: commentId, required: true, schema: { type: string } }
+      responses: { '200': { description: '{ deleted: true }' }, '403': { description: "The comment is someone else's" } }
+
+  /api/v1/rum/sessions/{id}/summary:
+    get:
+      summary: The AI summary of a session in the language of the reader (`rum.replay.read`)
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses: { '200': { description: "summary, or null: sessionId, language, summary, chapters (atTime, title, summary), model, promptTokens, completionTokens, generatedAt" } }
+    post:
+      summary: Write the AI summary of a session with a model (`rum.replay.summaries.generate`)
+      description: 'A summary that is kept is answered without calling the model. `{ "regenerate": true }` calls it again unless the session has not changed. The call counts against the daily budget of Mole Agent with the origin `replay_summary`.'
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        '200': { description: 'summary' }
+        '400': { description: 'No enabled model provider with a key, or nothing happened in the session' }
+        '429': { description: 'The daily budget is used up' }
+
+  /api/v1/rum/config:
+    get:
+      summary: What the settings of the application say to its SDK (client token)
+      description: 'What an SDK started with `remoteConfiguration` goes by: any of sessionSampleRate, sessionReplaySampleRate, defaultPrivacyLevel, trackUserInteractions and forwardConsoleLogs. What is left out goes by what the page gave.'
+      responses:
+        '200': { description: 'The settings' }
+        '400': { description: 'The credential is not a client token' }
+
+  /api/v1/rum/histogram:
+    get:
+      summary: The rows a RUM query matches over time, bar by bar
+      description: 'Takes the selection of `search` and counts every matching row. A range holds at most 512 bars. `POST` takes the same names in a JSON body.'
+      parameters:
+        - { in: query, name: type, required: true, schema: { $ref: '#/components/schemas/RumType' } }
+        - { in: query, name: from, schema: { type: integer, format: int64 } }
+        - { in: query, name: to, schema: { type: integer, format: int64 } }
+        - { in: query, name: filters, schema: { type: string } }
+        - { in: query, name: freeText, schema: { type: string } }
+        - { in: query, name: bucketTime, schema: { type: integer, format: int64, minimum: 1000 } }
+        - { in: query, name: originTime, schema: { type: integer, format: int64 }, description: 'The start of the first bar; `from` when left out, and not after it' }
+      responses: { '200': { description: "buckets, each with startTime, total and errors" } }
+    post:
+      summary: The rows a RUM query matches over time, with the selection in the body
+      responses: { '200': { description: 'buckets' } }
+
+  /api/v1/rum/aggregate:
+    get:
+      summary: Numbers over the rows a RUM query matches, per group and per bar of time
+      description: 'Takes the selection of `search` and measures across every matching row: counts, distinct counts, sums, averages, extremes and percentiles, for each group of up to two fields and, with `bucketTime`, for each bar of time. A measure is { fn, field?, fallback?, where?, name? }: `fn` is count, stored, count_distinct, sum, avg, min, max, p50, p75, p90, p95 or p99; `count` without a field counts rows, with one the rows that have it, and `stored` counts the rows that are stored whatever share they were kept with; with `estimate` (the default) counts, sums and averages are those of every session, each row counting for as many as the share it was kept with says (`retention.rate`), and percentiles are weighed by the same shares, while the sessions told by `count_distinct` of session.id are scaled by the mean share of their rows and other distinct values are counted as seen; `fallback` goes with count_distinct and names the field to take where `field` has no value; `where` is a list of filters and limits the measure to the rows that meet them. Views and sessions are counted once, in their latest version. Groups are ranked by the first measure unless `orderBy` names a measure, a group field or `time`; `limit` is the number of groups, at most 250 and, with bars, 20 (every one of them is followed through all the bars). A group with no value is `null`. A value the reader may not see comes back as the text it is masked to. A count that takes too long or finds the system busy answers no rows with `unavailable`. `POST` takes the same names in a JSON body.'
+      parameters:
+        - { in: query, name: type, required: true, schema: { $ref: '#/components/schemas/RumType' } }
+        - { in: query, name: measures, required: true, schema: { type: string }, description: 'JSON list of up to 16 measures; every one has a different name, `fn(field)` or `fn` when none is given' }
+        - { in: query, name: groupBy, schema: { type: string }, description: 'JSON list of up to 2 fields; a JSON column cannot be grouped by, but a key of it can, as `feature_flags.<key>`' }
+        - { in: query, name: from, schema: { type: integer, format: int64 } }
+        - { in: query, name: to, schema: { type: integer, format: int64 } }
+        - { in: query, name: filters, schema: { type: string } }
+        - { in: query, name: freeText, schema: { type: string } }
+        - { in: query, name: bucketTime, schema: { type: integer, format: int64, minimum: 1000 }, description: 'Adds time: one row per group per bar; a range holds at most 512 bars' }
+        - { in: query, name: originTime, schema: { type: integer, format: int64 }, description: 'The start of the first bar; `from` when left out, and not after it' }
+        - { in: query, name: orderBy, schema: { type: string }, description: 'A measure name, a group field, or `time` (bars, without groups)' }
+        - { in: query, name: order, schema: { type: string, enum: [asc, desc] }, description: 'descending for a measure, ascending for a group or time, when left out' }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 250, default: 10 } }
+        - { in: query, name: estimate, schema: { type: boolean, default: true }, description: 'Count what the rows that were kept stand for (the default), or `false` for the rows that are stored' }
+      responses: { '200': { description: "groupBy, measures (name, fn, field, unit: count or the unit of the field), rows (group, values and, over time, startTime), bucketTime and originTime over time, and unavailable when there are no numbers" } }
+    post:
+      summary: Numbers over the rows a RUM query matches, with the request in the body
+      responses: { '200': { description: 'groupBy, measures, rows' } }
+
+  /api/v1/rum/playlists:
+    get:
+      summary: List the playlists of RUM sessions (`streams.query`)
+      description: 'A playlist is a named list of the sessions of one application, each with the moment worth opening it at. Answers the playlists without their sessions (id, application, name, description, createdBy, createdAt, updatedAt, sessionCount), the one changed last first.'
+      parameters:
+        - { in: query, name: application, schema: { type: string }, description: 'Only the playlists of this application' }
+      responses: { '200': { description: 'The playlists' } }
+    post:
+      summary: Make a playlist (`rum.manage`)
+      description: 'The body is { application, name, description?, sessions? } with a session being { sessionId, atTime? }. The application has to exist (404); the name is 1 to 128 characters and no other playlist of the application has it, whatever the case (409); a playlist holds at most 500 sessions. Answers the playlist with its sessions.'
+      responses:
+        '200': { description: 'The playlist with its sessions' }
+        '404': { description: 'The application does not exist' }
+        '409': { description: 'The application has a playlist of this name' }
+
+  /api/v1/rum/playlists/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+    get:
+      summary: Read a playlist with its sessions, in the order they were added (`streams.query`)
+      responses: { '200': { description: 'The playlist with its sessions: sessionId, atTime, addedBy and addedAt each' } }
+    patch:
+      summary: Change the name or the description of a playlist (`rum.manage`)
+      responses: { '200': { description: 'The playlist with its sessions' } }
+    delete:
+      summary: Delete a playlist (`rum.manage`)
+      description: The sessions in it are not touched.
+      responses: { '200': { description: 'deleted' } }
+
+  /api/v1/rum/playlists/{id}/sessions:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+    post:
+      summary: Put sessions in a playlist (`rum.manage`)
+      description: 'The body is { sessions: [{ sessionId, atTime? }] }. A session that is in the playlist takes the moment it is given and keeps its place. A playlist holds at most 500 sessions.'
+      responses: { '200': { description: 'The playlist with its sessions' } }
+
+  /api/v1/rum/playlists/{id}/sessions/{sessionId}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+      - { in: path, name: sessionId, required: true, schema: { type: string } }
+    delete:
+      summary: Take a session out of a playlist (`rum.manage`)
+      description: A session that is not in the playlist is not an error.
+      responses: { '200': { description: 'The playlist with its sessions' } }
+
+  /api/v1/rum/sessions/{id}/playlists:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+    get:
+      summary: The playlists a session is in (`streams.query`)
+      responses: { '200': { description: 'The playlists, without their sessions' } }
+
+  /api/v1/rum/analytics/funnel:
+    get:
+      summary: The sessions that got through a series of steps in order (`streams.query`)
+      description: 'A step is { type: views or actions, name?, filters }: a page or screen that was opened, or something a person did, narrowed by filters as in `search`. A session counts for the first step by its first row that meets it, and for each step after by its first row that meets it later than the row of the step before, in the same session. Answers { groups: [{ value, steps: [{ name, sessions, conversion, fromPrevious, medianMs }] }], from, to }; a group is the funnel of the sessions with one value of `breakdown` (the 10 with the most sessions), `value` being null for all of them together. A count that takes too long or finds the system busy answers no figures with `unavailable`. `POST` takes the same names in a JSON body.'
+      parameters:
+        - { in: query, name: steps, required: true, schema: { type: string }, description: 'JSON list of 2 to 8 steps' }
+        - { in: query, name: filters, schema: { type: string }, description: 'JSON list of what every step has to meet, usually the application and the environment' }
+        - { in: query, name: from, schema: { type: integer, format: int64 }, description: 'Microseconds; the last 7 days when left out' }
+        - { in: query, name: to, schema: { type: integer, format: int64 } }
+        - { in: query, name: windowSecs, schema: { type: integer, minimum: 1 }, description: 'The longest from the first step to a later one' }
+        - { in: query, name: breakdown, schema: { type: string }, description: 'A text field of the rows of the first step' }
+      responses:
+        '200': { description: "groups (value, steps), from, to and unavailable when there are no numbers" }
+        '400': { description: 'Fewer than 2 or more than 8 steps, a window that is not positive, a field that is not text or that the type does not have' }
+    post:
+      summary: The funnel of a series of steps, with the request in the body
+      responses: { '200': { description: 'groups, from, to' } }
+
+  /api/v1/rum/analytics/paths:
+    get:
+      summary: The pages sessions opened after a page, or before it (`streams.query`)
+      description: 'Pages are taken in the order a session opened them, a page opened again at once counting once, and told by `by`. Without `anchor` the paths start at the first page of each session (end at the last, with `backward`). Answers { columns (depth + 1, the page the paths are of being column 0, the last going back), sessions, backward, nodes: [{ column, page, sessions, ends }], links: [{ column, source, target, sessions }], from, to }; a column names the 8 pages with the most sessions and puts the rest together as `__other__`. A count that takes too long or finds the system busy answers no figures with `unavailable`. `POST` takes the same names in a JSON body.'
+      parameters:
+        - { in: query, name: anchor, schema: { type: string }, description: 'The page the paths start from, or end at going back' }
+        - { in: query, name: backward, schema: { type: boolean, default: false } }
+        - { in: query, name: depth, schema: { type: integer, minimum: 1, maximum: 6, default: 3 }, description: 'How many pages after (before) the anchor' }
+        - { in: query, name: by, schema: { type: string, enum: [view.url_path_group, view.url_path, view.name], default: view.url_path_group } }
+        - { in: query, name: filters, schema: { type: string } }
+        - { in: query, name: from, schema: { type: integer, format: int64 }, description: 'Microseconds; the last 7 days when left out' }
+        - { in: query, name: to, schema: { type: integer, format: int64 } }
+      responses:
+        '200': { description: "columns, sessions, backward, nodes, links, from, to and unavailable when there are no numbers" }
+        '400': { description: 'A depth outside 1 to 6, or a field that does not tell a page' }
+    post:
+      summary: The paths from a page, with the request in the body
+      responses: { '200': { description: 'columns, nodes, links' } }
+
+  /api/v1/rum/analytics/retention:
+    get:
+      summary: How many of the people first seen in a period were seen again in the periods after (`streams.query`)
+      description: 'A person is the `usr.id` of a session, or where it has none its `usr.anonymous_id`; a period is a day of UTC, or a week of UTC that begins on Monday. A person is first seen in the range asked for. Answers { period, periods, cohorts: [{ startTime, users, returned: [count or null] }], from, to }: `returned` has, for each period after the first, how many of the cohort were seen then, and null for a period that has not ended by `to`. Without a range the history is twice `periods` periods back from now, and at least 14 days (8 weeks by week). A count that takes too long or finds the system busy answers no cohorts with `unavailable`. `POST` takes the same names in a JSON body.'
+      parameters:
+        - { in: query, name: period, schema: { type: string, enum: [day, week], default: day } }
+        - { in: query, name: periods, schema: { type: integer, minimum: 1, maximum: 30, default: 7 } }
+        - { in: query, name: filters, schema: { type: string } }
+        - { in: query, name: from, schema: { type: integer, format: int64 } }
+        - { in: query, name: to, schema: { type: integer, format: int64 } }
+      responses:
+        '200': { description: "period, periods, cohorts, from, to and unavailable when there are no numbers" }
+        '400': { description: 'Periods outside 1 to 30' }
+    post:
+      summary: The retention of the people of a period, with the request in the body
+      responses: { '200': { description: 'period, periods, cohorts' } }
+
+  /api/v1/rum/alerts/preview:
+    post:
+      summary: What an alert rule on a RUM figure would have seen over the last stretch of time (`streams.query`)
+      description: 'Reads the figure of `query` window by window, by the code that evaluates the rule. The body is { query: { applicationId, metric, environment?, page?, version?, minSamples? }, periodSecs, from?, to? }: `metric` is session_count, view_count, error_count, error_rate, crash_free_sessions, frustration_rate, failed_request_rate, lcp_p75, inp_p75, cls_p75, ttfb_p75, new_issues or regressed_issues; `page` is refused for the figures of sessions and issues, `version` for the figures of issues, and `minSamples` for a count; `periodSecs` is the window, from 60 to 21600, and a point is one window. The range is in microseconds, read in whole windows ending at `to` (now when left out); `from` defaults to six hours before `to`, held between 12 and 72 windows and within a day, and a range holds at most 360 windows. A window that holds fewer rows than `minSamples` has no value. A read that takes too long or finds the system busy answers no points with `unavailable`.'
+      responses:
+        '200': { description: "metric, unit (count, percent, milliseconds or score), minSamples, periodSecs, from, to, points (at, value, samples), current (the last point), and unavailable (time_budget or busy)" }
+        '400': { description: 'A rule that does not fit its figure, a window outside 60 to 21600 seconds, or a range of more than 360 windows' }
+        '404': { description: 'The application does not exist' }
+
+  /api/v1/rum/issues:
+    get:
+      summary: The issues the errors of a RUM application are grouped into, with the numbers of a range
+      description: 'An issue is what the errors that are alike are one thing of; its id is in `error.issue_id`. The list is of the issues with errors in the range: the numbers (`sessions`, `users`, `occurrences`, and a `trend` of up to 12 equal parts of the range) are counted from the errors, the state and the history are kept apart. The 250 issues with the most sessions (or users, or occurrences, by `sort`) are read and narrowed by `status`, `assignee`, `team`, `search` and `fresh`; at most `limit` are answered, and `total` is how many the filters leave. A count that takes too long or finds the system busy answers no issues with `unavailable`.'
+      parameters:
+        - { in: query, name: application, required: true, schema: { type: string } }
+        - { in: query, name: env, schema: { type: string }, description: 'Only the errors of this environment' }
+        - { in: query, name: source, schema: { type: string }, description: 'Only the errors sent by this source: browser, flutter, ...' }
+        - { in: query, name: filters, schema: { type: string }, description: 'JSON list of more conditions on the errors counted, as in /rum/search' }
+        - { in: query, name: from, schema: { type: integer, format: int64 } }
+        - { in: query, name: to, schema: { type: integer, format: int64 } }
+        - { in: query, name: status, schema: { type: string, default: unresolved }, description: 'unresolved (open, investigating and regressed), all, or one of open, investigating, regressed, resolved, ignored' }
+        - { in: query, name: assignee, schema: { type: string }, description: 'A user id, or `none`' }
+        - { in: query, name: team, schema: { type: string }, description: 'A team id, or `none`' }
+        - { in: query, name: search, schema: { type: string }, description: 'Words found, ignoring case, in the type, the message or the place' }
+        - { in: query, name: fresh, schema: { type: boolean }, description: 'Only the issues first seen in the range, or regressed in it' }
+        - { in: query, name: sort, schema: { type: string, enum: [sessions, users, occurrences, last_seen, first_seen, status], default: sessions } }
+        - { in: query, name: order, schema: { type: string, enum: [asc, desc] }, description: 'descending, but for `status`, when left out' }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses: { '200': { description: "issues (id, applicationId, status, assigneeId, teamId, overflow, source, errorType, message, location, firstSeenAt, lastSeenAt, firstVersion, lastVersion, resolvedAt, resolvedVersion, resolvedBy, regressedAt, regressedVersion, regressedEnvironment, updatedBy, updatedAt, sessions, users, occurrences, trend), total, and unavailable" } }
+
+  /api/v1/rum/issues/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+    get:
+      summary: One RUM issue, with its numbers in a range, its latest sessions and its stack
+      description: 'The issue as the list has it, without a trend, with `sessions`, `users` and `occurrences` counted over `from` and `to`; `samples`, the last three sessions that met it (timestamp, sessionId, userId, anonymousId, page, browser, system, version, hasReplay, retained: false for an error of a session that was not kept, which has no session to open); and `stack`, of the latest error that has frames: message, text, frames (raw, restored, inApp), symbolication (completed, partial, missing), handling, isCrash and category.'
+      parameters:
+        - { in: query, name: from, schema: { type: integer, format: int64 } }
+        - { in: query, name: to, schema: { type: integer, format: int64 } }
+      responses:
+        '200': { description: 'The issue' }
+        '404': { description: 'No issue has this id' }
+    patch:
+      summary: Set the state, the team or the person of a RUM issue (`rum.manage`)
+      description: 'A body of any of `status` (open, investigating, resolved or ignored; regressed is set by the rules and answers 400), `assigneeId` and `teamId` (a member of the organization or one of its teams; `null` or an empty text takes it off). What is left out stays. Resolving records the time, the person and the newest version of the application, and a new state ends the record of an earlier resolving or regression. The change is audited as `rum.issue.update`.'
+      responses:
+        '200': { description: 'The issue after the change' }
+        '400': { description: 'Nothing to change, a state a person cannot set, or a person or a team of another organization' }
+        '404': { description: 'No issue has this id' }
+
+  /api/v1/rum/{type}/{id}:
+    get:
+      summary: One row of a RUM type with all its columns
+      description: '`id` is the value of the `idField` of the type. `from` and `to` narrow where to look; without them the lookup covers the last 30 days.'
+      parameters:
+        - { in: path, name: type, required: true, schema: { $ref: '#/components/schemas/RumType' } }
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - { in: query, name: from, schema: { type: integer, format: int64 } }
+        - { in: query, name: to, schema: { type: integer, format: int64 } }
+      responses:
+        '200': { description: 'The row' }
+        '404': { description: 'No row has this id in the range' }
+
+  /api/v1/rum/sessions/{id}/timeline:
+    get:
+      summary: Everything a session did, in order
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses: { '200': { description: "session, items (view, action, error, resource, long_task and vital rows, oldest first) and truncated" } }
+
+  /api/v1/rum/sessions/{id}/related-traces:
+    get:
+      summary: Backend traces of a session
+      description: 'The traces whose ID a request of the session carried (`direct`); when there are none, the traces that ran while the session did (`time-correlated`).'
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses: { '200': { description: "primaryService and traces, each with traceId, service, spanCount, durationMs, startedAt and relation" } }
+
+  /api/v1/rum/traces/{traceId}/session:
+    get:
+      summary: The session whose request carried a backend trace ID
+      parameters:
+        - { in: path, name: traceId, required: true, schema: { type: string } }
+      responses: { '200': { description: 'The session, or null' } }
 
   /api/v1/rum/replay:
     post:
-      summary: RUM replay event upload → object_store + rum_replay_events row
+      summary: Send a replay segment (`rum.write`)
+      description: 'The body is { application?, sessionId, seq, events, env?, service?, version? } and accepts no other field; env, service and version tell the retention filters of the application what the session is like, so that a segment of a session that is not kept is not stored. `events` are rrweb events. A client token writes to its own application; an application that does not exist answers 404.'
+      responses: { '200': { description: 'The stored segment: id, seq, eventCount and hasFullSnapshot' } }
 
-  /api/v1/rum/replay/{session_id}:
+  /api/v1/rum/replay/{sessionId}:
     get:
       summary: Read ordered replay segments for a RUM session
       parameters:
-        - { in: path, name: session_id, required: true, schema: { type: string } }
-      responses: { '200': { description: Ordered replay segments for the session } }
+        - { in: path, name: sessionId, required: true, schema: { type: string } }
+      responses: { '200': { description: 'sessionId, segmentCount and the events of all segments in order' } }
 
   /api/v1/metrics/catalog:
     get:
@@ -1239,7 +2516,7 @@ paths:
         - { in: query, name: q, schema: { type: string } }
         - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
         - { in: query, name: cursor, schema: { type: string } }
-      responses: { '200': { description: "items, previous_cursor, next_cursor, and has_more" } }
+      responses: { '200': { description: "items, previousCursor, nextCursor, and hasMore" } }
 
   /api/v1/web/traces:
     get:
@@ -1251,7 +2528,7 @@ paths:
         - { in: query, name: sort, schema: { type: string, enum: [latest, earliest, duration_desc, duration_asc, span_count_desc, errors_desc] } }
         - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
         - { in: query, name: cursor, schema: { type: string } }
-      responses: { '200': { description: "items, previous_cursor, next_cursor, and has_more" } }
+      responses: { '200': { description: "items, previousCursor, nextCursor, and hasMore" } }
 
   /api/v1/web/traces/histogram:
     get:
@@ -1262,33 +2539,33 @@ paths:
         - { in: query, name: to, required: true, schema: { type: integer, format: int64 } }
         - { in: query, name: q, schema: { type: string } }
         - { in: query, name: filters, schema: { type: string } }
-        - { in: query, name: bucket_micros, required: true, schema: { type: integer, format: int64, minimum: 1000 } }
-        - { in: query, name: origin_micros, required: true, schema: { type: integer, format: int64 } }
-      responses: { '200': { description: "bucket_micros, origin_micros, buckets (start_micros, total, errors), split, and unavailable when there are no counts" } }
+        - { in: query, name: bucketTime, required: true, schema: { type: integer, format: int64, minimum: 1000 } }
+        - { in: query, name: originTime, required: true, schema: { type: integer, format: int64 } }
+      responses: { '200': { description: "bucketTime, originTime, buckets (startTime, total, errors), split, and unavailable when there are no counts" } }
 
   /api/v1/web/logs:
     post:
       summary: Cursor-paginated structured log search
       description: The first request supplies a stream, absolute time range, and filters; continuations use the signed cursor.
-      responses: { '200': { description: "items, previous_cursor, next_cursor, and has_more" } }
+      responses: { '200': { description: "items, previousCursor, nextCursor, and hasMore" } }
 
   /api/v1/web/logs/histogram:
     post:
       summary: Count of the log rows a structured search matches, per time bucket
-      description: Takes the stream, absolute time range, filters, and free text of the first list request, plus `bucket_micros` and `origin_micros`, and counts the rows the list pages through. Rows at level `ERROR` are counted apart unless the level field is masked. Runs as a tracked query. Answers `unavailable` (`time_budget`, `busy`, or `timestamp_masked`) with no buckets when the count cannot be had.
-      responses: { '200': { description: "bucket_micros, origin_micros, buckets (start_micros, total, errors), split, and unavailable when there are no counts" } }
+      description: Takes the stream, absolute time range, filters, and free text of the first list request, plus `bucketTime` and `originTime`, and counts the rows the list pages through. Rows at level `ERROR` are counted apart unless the level field is masked. Runs as a tracked query. Answers `unavailable` (`time_budget`, `busy`, or `timestamp_masked`) with no buckets when the count cannot be had.
+      responses: { '200': { description: "bucketTime, originTime, buckets (startTime, total, errors), split, and unavailable when there are no counts" } }
 
   /api/v1/web/logs/field-stats:
     post:
       summary: What one field holds across the log rows a structured search matches
-      description: Takes the stream, absolute time range, filters, and free text of the first list request, plus `field`, and reads that field in every row the list pages through. Answers how many rows match, how many have a value, how many different values there are (`distinct_exact` says whether that was counted or estimated), the ten commonest values, and how the five commonest are spread over time (`trend`, absent when no value repeats or time is masked); for a number also its range, average, quartiles (estimated), standard deviations, skewness, excess kurtosis, and the values counted into bars of a round width; for a timestamp its earliest and latest. An empty string counts as no value. Runs as up to four tracked queries. Answers `unavailable` (`time_budget`, `busy`, or `field_protected` for a masked or encrypted field) when the field cannot be read. A JSON field is refused.
-      responses: { '200': { description: "kind (number, time, text, bool), total, present, distinct, distinct_exact, range (min, max as text), spread (avg, q1, median, q3, stddev_samp, stddev_pop, skewness, kurtosis), bars (origin, width, counts), top (value, count), top_skipped, trend (origin_micros, bucket_micros, series of value and counts), and unavailable when there is no analysis" } }
+      description: Takes the stream, absolute time range, filters, and free text of the first list request, plus `field`, and reads that field in every row the list pages through. Answers how many rows match, how many have a value, how many different values there are (`distinctExact` says whether that was counted or estimated), the ten commonest values, and how the five commonest are spread over time (`trend`, absent when no value repeats or time is masked); for a number also its range, average, quartiles (estimated), standard deviations, skewness, excess kurtosis, and the values counted into bars of a round width; for a timestamp its earliest and latest. An empty string counts as no value. Runs as up to four tracked queries. Answers `unavailable` (`time_budget`, `busy`, or `field_protected` for a masked or encrypted field) when the field cannot be read. A JSON field is refused.
+      responses: { '200': { description: "kind (number, time, text, bool), total, present, distinct, distinctExact, range (min, max as text), spread (avg, q1, median, q3, stddevSamp, stddevPop, skewness, kurtosis), bars (origin, width, counts), top (value, count), topSkipped, trend (originTime, bucketTime, series of value and counts), and unavailable when there is no analysis" } }
 
   /api/v1/web/traces/field-stats:
     post:
       summary: What one Span field holds across the Spans of listed Traces
-      description: Takes `trace_ids` (at most one page of the Trace list), the time range they lie in, `field`, and optionally the `stream` they were listed from, and reads the field in every Span of those Traces. The answer has the shape of `/api/v1/web/logs/field-stats`, with `total` counting Spans.
-      responses: { '200': { description: "kind, total, present, distinct, distinct_exact, range, spread, bars, top, top_skipped, trend, and unavailable when there is no analysis" } }
+      description: Takes `traceIds` (at most one page of the Trace list), the time range they lie in, `field`, and optionally the `stream` they were listed from, and reads the field in every Span of those Traces. The answer has the shape of `/api/v1/web/logs/field-stats`, with `total` counting Spans.
+      responses: { '200': { description: "kind, total, present, distinct, distinctExact, range, spread, bars, top, topSkipped, trend, and unavailable when there is no analysis" } }
 
   /api/v1/logs/inspections:
     get:
@@ -1324,7 +2601,7 @@ paths:
   /api/v1/logs/inspections/limits:
     get:
       summary: What the instance allows of scheduled log inspections
-      responses: { '200': { description: "min_interval_secs, max_per_org, run_timeout_secs, and report_retention_days" } }
+      responses: { '200': { description: "minIntervalSecs, maxPerOrg, runTimeoutSecs, and reportRetentionDays" } }
   /api/v1/logs/inspections/{id}:
     get:
       summary: Read a scheduled log inspection
@@ -1371,7 +2648,7 @@ paths:
       summary: Run a scheduled log inspection once, now
       description: >-
         Queues a `manual` run that a node running inspections picks up within seconds; it reads the
-        logs as the user the inspection runs as, and `requested_by` keeps who asked. 409 while a
+        logs as the user the inspection runs as, and `requestedBy` keeps who asked. 409 while a
         run of the inspection waits or is under way.
       responses:
         '200':
@@ -1391,7 +2668,7 @@ paths:
           content:
             application/json:
               schema: { type: array, items: { $ref: '#/components/schemas/LogInspectionRun' } }
-  /api/v1/logs/inspections/{id}/runs/{run_id}:
+  /api/v1/logs/inspections/{id}/runs/{runId}:
     get:
       summary: One run of a scheduled log inspection, with its report
       responses:
@@ -1415,28 +2692,30 @@ paths:
   /api/v1/agent/usage/budget:
     put:
       summary: "Set the organization's daily token limit and what chats and on-demand analyses do once it is used up"
-      description: "Requires `agent.manage`. `daily_token_limit` null follows the instance default (`[agent] daily_token_budget`), 0 is unlimited. `interactive_mode` is `block` or `warn`; background calls always stop at the limit."
+      description: "Requires `agent.manage`. `dailyTokenLimit` null follows the instance default (`[agent] daily_token_budget`), 0 is unlimited. `interactiveMode` is `block` or `warn`; background calls always stop at the limit."
   /api/v1/agent/feedback:
     get:
       summary: "The current user's ratings of the given chat answers or incident root cause analyses"
       parameters:
-        - { name: target_kind, in: query, required: true, schema: { type: string, enum: [chat_message, incident_rca] } }
-        - { name: target_ids, in: query, required: false, description: "Comma-separated, at most 200", schema: { type: string } }
+        - { name: targetKind, in: query, required: true, schema: { type: string, enum: [chat_message, incident_rca] } }
+        - { name: targetIds, in: query, required: false, description: "Comma-separated, at most 200", schema: { type: string } }
     put:
       summary: Rate a chat answer or an incident root cause analysis, one rating per person and object
-      description: "`rating` is `up` or `down`; `reasons` (only kept for `down`) from `wrong_conclusion`, `missed_cause`, `unusable_advice`, `off_topic`, `other`; `comment` up to 2000 characters. A chat answer needs `chat_id` and can only be rated by the person who asked."
-  /api/v1/agent/feedback/{target_kind}/{target_id}:
+      description: "`rating` is `up` or `down`; `reasons` (only kept for `down`) from `wrong_conclusion`, `missed_cause`, `unusable_advice`, `off_topic`, `other`; `comment` up to 2000 characters. A chat answer needs `chatId` and can only be rated by the person who asked."
+  /api/v1/agent/feedback/{targetKind}/{targetId}:
     delete:
       summary: "Withdraw the current user's rating"
       parameters:
-        - { name: target_kind, in: path, required: true, schema: { type: string, enum: [chat_message, incident_rca] } }
-        - { name: target_id, in: path, required: true, schema: { type: string } }
+        - { name: targetKind, in: path, required: true, schema: { type: string, enum: [chat_message, incident_rca] } }
+        - { name: targetId, in: path, required: true, schema: { type: string } }
+        - { name: chatId, in: query, required: false, description: "The chat of a chat answer, so it is scored again without the rating", schema: { type: string } }
   /api/v1/agent/chat:
-    get: { summary: "The current user's personal chats and the team chats of the teams they are in, newest first; each says `scope` (`personal` or `team`), `team_id` and whether it is `readable`" }
+    get: { summary: "The current user's personal chats and the team chats of the teams they are in, newest first; each says `scope` (`personal` or `team`), `teamId` and whether it is `readable`" }
     post:
       summary: Create a Mole Agent chat
-      description: "`team_id` makes it a team chat: the team's members and `agent.manage` holders read and continue it, and it loads the organization's and that team's skills and MCP servers. Without it the chat is personal and only its owner reads it. The scope cannot change once the chat exists."
+      description: "`teamId` makes it a team chat: the team's members and `agent.manage` holders read and continue it, and it loads the organization's and that team's skills and MCP servers. Without it the chat is personal and only its owner reads it. The scope cannot change once the chat exists."
   /api/v1/agent/chat/{id}:
+    get: { summary: "Get one chat the reader can read, including the chat of an automation run, which is not listed (`automationId`)" }
     delete: { summary: Archive and soft-delete a chat }
   /api/v1/agent/chat/{id}/messages:
     get: { summary: "List chat messages; a user message that was a slash command carries `command` (name, args, source) beside the text as typed" }
@@ -1447,8 +2726,8 @@ paths:
     get:
       summary: "The slash commands of the chat for the current user: name, kind (control or task), source (`builtin`, `skill`, `mcp`), description and argument hint in the reader's language, choices, where argument suggestions come from, the `team` of a team skill or the `server` of an MCP prompt, and whether the command is available"
       parameters:
-        - { name: chat_id, in: query, required: false, description: "Commands of this chat: its skills and MCP prompts follow its scope", schema: { type: string } }
-        - { name: team_id, in: query, required: false, description: "For a chat not started yet that will be for this team; neither means a personal chat", schema: { type: string } }
+        - { name: chatId, in: query, required: false, description: "Commands of this chat: its skills and MCP prompts follow its scope", schema: { type: string } }
+        - { name: teamId, in: query, required: false, description: "For a chat not started yet that will be for this team; neither means a personal chat", schema: { type: string } }
   /api/v1/agent/chat/{id}/archive:
     post: { summary: Archive the chat transcript to object storage }
   /api/v1/agent/dashboard-authoring/capabilities:
@@ -1474,9 +2753,9 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [expected_hash, reason, impact]
+              required: [expectedHash, reason, impact]
               properties:
-                expected_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+                expectedHash: { type: string, pattern: '^[a-f0-9]{64}$' }
                 reason: { type: string, minLength: 1, maxLength: 2000 }
                 impact: { type: string, minLength: 1, maxLength: 2000 }
   /api/v1/agent/overview:
@@ -1494,13 +2773,73 @@ paths:
   /api/v1/agent/investigations/{id}/hypotheses:
     post: { summary: Create or update a root-cause hypothesis }
   /api/v1/agent/automations:
-    get: { summary: List constrained Mole Agent automations }
-    post: { summary: Create an automation from registered tools }
+    get: { summary: "List the automations the reader can see, each with its last run, and whether the reader can create one" }
+    post: { summary: "Create an automation: name, task (`prompt`), scope (`org`, `team` with `teamId`, `personal`), trigger (`schedule` with a five-field `cron` and `timezone`, `incident` with filters, `api`, `manual`), outputs (notify channels, `writeRca`) and time limit; needs agent.automations.manage, and it runs as the person who saves it" }
   /api/v1/agent/automations/{id}:
     get: { summary: Get an automation }
-    put: { summary: Update an automation }
-  /api/v1/agent/automations/{id}/dry-run:
-    post: { summary: Resolve a no-side-effect automation dry run }
+    put: { summary: "Update an automation; its scope stays, and the person who saves it becomes the one it runs as" }
+    delete: { summary: Delete an automation and its run history }
+  /api/v1/agent/automations/{id}/enabled:
+    post: { summary: "Switch an automation on or off (`enabled`)" }
+  /api/v1/agent/automations/{id}/run:
+    post: { summary: "Run an automation now, at most once a minute; answers 202 with the run (`skipped` or `failed` with `reason` when it could not start)" }
+  /api/v1/agent/automations/{id}/token:
+    post: { summary: "Make or replace the API token of an automation started by API calls; the token is returned once" }
+    delete: { summary: Take the API token away }
+  /api/v1/agent/automations/{id}/runs:
+    get: { summary: "The last runs of an automation, newest first: status (`running`, `succeeded`, `partial`, `failed`, `skipped`, `blocked`, `abandoned`), reason codes, the chat of the run, and the notices and RCA it wrote" }
+  /api/v1/agent/automation-templates:
+    get: { summary: "The built-in automation templates in the reader's language; scheduled ones in `timezone`" }
+  /api/v1/public/automations/{id}/trigger:
+    post:
+      summary: "Start an automation from an outside system such as a CI/CD job"
+      description: "Authenticated with the automation's own token (`Authorization: Bearer mspat-…`), not a user token. The optional body `{\"text\": \"…\"}` (at most 8000 characters) is the context of the run, read as data. Answers 202 with `runId`, `status` and `chatUrl`; 401 for a wrong token or an unknown automation, 409 when it is off or not started by API calls, 429 within 10 seconds of the previous start."
+  /api/v1/agent/quality/overview:
+    get:
+      summary: "The quality of Mole Agent's answers over a period: answers scored, the mean rules and evaluator scores, ratings, reviews waiting, the score by UTC day, each rule dimension, and groups by source, prompt version, Skill and model; prompt names and evaluators to read them by; `agent.manage`"
+      parameters:
+        - { name: days, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 90, default: 30 } }
+        - { name: source, in: query, required: false, schema: { type: string, enum: [personal_chat, team_chat, automation, incident_rca] } }
+  /api/v1/agent/quality/answers:
+    get:
+      summary: "Scored answers, newest first, each with its source, the start of its question and answer, what it came from, and every score (`rules` with its dimensions, and each evaluator's with its reason); personal chats are left out; `agent.manage`"
+      parameters:
+        - { name: days, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 90, default: 30 } }
+        - { name: source, in: query, required: false, schema: { type: string, enum: [team_chat, automation, incident_rca] } }
+        - { name: below, in: query, required: false, description: "Only answers whose score (the evaluators' mean, else the rules score) is below it, 0 to 1", schema: { type: number } }
+        - { name: beforeAt, in: query, required: false, description: "With `beforeId`, the `next` cursor of the previous page", schema: { type: integer } }
+        - { name: beforeId, in: query, required: false, schema: { type: string } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+  /api/v1/agent/quality/answers/{kind}/{id}:
+    get: { summary: "One scored answer (`chat_answer` with the message ID, `incident_rca` with the incident ID): its scores, its review, and the whole question and answer with the tools its run called; `agent.manage`" }
+  /api/v1/agent/quality/reviews:
+    get:
+      summary: "Answers waiting for review, accepted or rejected, newest first: cause (`low_score`, `thumbs_down`, `sampled`), the score when it came, the reviewer's note, and the answer it is about; `agent.manage`"
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string, enum: [pending, accepted, rejected, all], default: pending } }
+  /api/v1/agent/quality/reviews/{id}/decision:
+    post: { summary: "Accept (the answer is wrong; it joins the regression set prompt checks answer again) or reject a review, with a note of up to 2000 characters: `{\"status\": \"accepted\" | \"rejected\", \"note\": \"…\"}`; `agent.manage`" }
+  /api/v1/agent/quality/evaluators:
+    get: { summary: "The organization's evaluators; `agent.manage`" }
+    post: { summary: "Add an evaluator: `name`, `rubric` (up to 4000 characters), `targets` (`team_chat`, `automation`, `incident_rca`), `samplePercent`, optional `providerId` and `model`, `temperature` (0 to 1), `enabled`; at most 10 per organization, and it writes its reasons in the saver's interface language; `agent.manage`" }
+  /api/v1/agent/quality/evaluators/{id}:
+    put: { summary: "Change an evaluator; `agent.manage`" }
+    delete: { summary: "Delete an evaluator; its scores stay and its queued scorings are dropped; `agent.manage`" }
+  /api/v1/agent/quality/settings:
+    get: { summary: "The organization's scoring settings: `reviewThreshold` (0 to 1, default 0.6), `reviewSamplePercent`, and `gate` (`off`, `warn`, `block`) for setting organization prompts as the default; `agent.manage`" }
+    put: { summary: "Change the scoring settings; `agent.manage`" }
+  /api/v1/agent/im/bots:
+    get: { summary: "The connectors that can answer in IM, Feishu (`lark_app`), Slack (`slack_app`), DingTalk (`dingtalk_app`), WeCom smart bot (`wecom_bot`), Google Chat (`google_chat_app`), and Microsoft Teams (`teams_app`): whether each is `enabled`, the `defaultTeamId` new group threads go to, the `missing` settings it still needs, the `status` of its connection (`idle`, `connecting`, `connected`, `error`) with `statusDetail`, and for Teams the `callbackUrl` to enter as the Azure Bot's messaging endpoint (null while `http.external_url` is not https); `externalUrl` says whether people can link their accounts themselves; `agent.manage`" }
+  /api/v1/agent/im/bots/{connectorId}:
+    put: { summary: "Turn answering in IM on or off for a connector and choose the team new group threads go to: `{\"enabled\": true, \"defaultTeamId\": \"…\" | null}`; a connector missing a setting it needs (such as a Slack app-level token or a Google Chat Pub/Sub subscription) cannot be turned on, nor a Teams connector while `http.external_url` is not https; `agent.manage`" }
+    delete: { summary: "Stop answering in IM with the connector and drop its threads and messages; `agent.manage`" }
+  /api/v1/public/im/teams/{connector_id}/messages:
+    post:
+      summary: "Where Bot Framework posts the activities of a Microsoft Teams bot that answers as Mole Agent"
+      description: "Not a MoleSignal sign-in: every request must carry a JWT Bot Framework signed (`Authorization: Bearer …`), checked against the OpenID metadata of `login.botframework.com` for its signature, `iss` (`https://api.botframework.com`), `aud` (the bot's App ID), `exp` and `nbf` (five minutes of skew), a signing key that endorses the activity's `channelId`, and a `serviceUrl` equal to the activity's. Answers 200 at once and handles Teams (`msteams`) messages in the background; 401 for a missing or invalid token, 403 for an unendorsed channel, a `serviceUrl` mismatch, or a service URL outside Bot Framework, 404 when the connector is not a Teams connector answering in IM, 413 for a body over 256 KiB."
+  /api/v1/agent/im/links/{token}:
+    get: { summary: "The IM account a one-time link sent in IM would link: `platform`, `connectorName`, `externalIdentity`, `displayName`, and `expiresAt`; 404 once it is used or expired" }
+    post: { summary: "Link the IM account to the caller as a verified notification method of the connector; works once, within 15 minutes; 409 when the account is already linked to another user" }
   /api/v1/agent/approvals:
     get: { summary: List Mole Agent operation approvals }
     post: { summary: Propose a registered operation for approval }
@@ -1527,7 +2866,13 @@ paths:
     put: { summary: Update and version a non-built-in Prompt }
     delete: { summary: Delete a non-built-in Prompt }
   /api/v1/agent/settings/prompts/{id}/set-default:
-    post: { summary: Set the effective default Prompt for its scope and purpose }
+    post:
+      summary: Set the effective default Prompt for its scope and purpose
+      description: "An organization Prompt for `system` or `root_cause` goes through the organization's gate (`/agent/quality/settings`, `gate`): without a current check, while one runs, or when it found the version worse, the call answers 409 with the reason code (`prompt_check_required`, `prompt_check_running`, `prompt_check_worse`, `prompt_check_unavailable`) as the message. With the gate `warn`, the optional body `{\"confirm\": true}` sets it anyway."
+  /api/v1/agent/settings/prompts/{id}/gate:
+    get: { summary: "What setting an organization Prompt as the default does now: `decision` (`allow`, `confirm`, `refuse`) with the `reason`, the gate `mode`, whether its purpose is `checked`, and its last check with `current` (the check is of this version against the present default); `agent.manage`" }
+  /api/v1/agent/settings/prompts/{id}/checks:
+    post: { summary: "Check an organization Prompt for `system` or `root_cause` against the present default: up to 8 answers from the regression set and the first matching evaluator's recent scores are answered again with both versions, without tools, and scored by that evaluator; returns the queued check, or the one already running; `agent.manage`" }
   /api/v1/agent/settings/prompts/{id}/restore:
     post: { summary: Restore an override body and variable schema from its built-in parent }
   /api/v1/agent/tools:
@@ -1535,13 +2880,13 @@ paths:
   /api/v1/agent/skills:
     get: { summary: "The skills the current user can see: built-in and instance-folder skills (read-only, `scope` `instance`), and the organization's, their teams' and their own uploaded and repository skills, each with `editable` and `moderatable`; `paths` lists the instance skill folders, with read problems for `agent.manage` holders" }
     post:
-      summary: "Upload a skill package (multipart: `file`, `scope`, `team_id`, `replace`)"
+      summary: "Upload a skill package (multipart: `file`, `scope`, `teamId`, `replace`)"
       description: "A `.zip` or `.tar.gz` of up to 20 MiB holding one folder with `SKILL.md`. A skill of the same name in the scope answers 409 with `code` `skill_exists` unless `replace` is `true`. Organization skills need `agent.manage`; team skills a member of the team or `agent.manage`; personal skills belong to the uploader."
   /api/v1/agent/skills/rescan:
     post: { summary: "Read the instance skill folders (`[agent] skill_paths`) again; `agent.manage`" }
   /api/v1/agent/skills/{id}:
     get: { summary: "A skill with the body of its `SKILL.md` and its files" }
-    patch: { summary: "Turn a skill on or off (`enabled`) or move an uploaded skill to another scope (`scope`, `team_id`)" }
+    patch: { summary: "Turn a skill on or off (`enabled`) or move an uploaded skill to another scope (`scope`, `teamId`)" }
     delete: { summary: Delete an uploaded skill }
   /api/v1/agent/skills/{id}/file:
     get:
@@ -1551,25 +2896,25 @@ paths:
   /api/v1/agent/skills/{id}/package:
     get: { summary: "Download a skill: the uploaded package, or a `.zip` of its files" }
   /api/v1/agent/skill-repositories:
-    get: { summary: "The skill repositories the current user can see, with their last synchronization; the access token is never returned, only `token_set` and `token_last4`" }
+    get: { summary: "The skill repositories the current user can see, with their last synchronization; the access token is never returned, only `tokenSet` and `tokenLast4`" }
     post:
       summary: Add a skill repository and synchronize it once
-      description: "`url`, `host` (`github`, `gitlab`, `gitea`, `bitbucket`, `archive`; read from the address when left out), `archive_url` with `{ref}` for `archive`, `git_ref`, `dir`, `auto_sync` (daily), write-only `token`, `scope`, `team_id`. Team and personal repositories reach only public addresses and those in the network policy. The answer carries `sync`: `status` (`ok`, `partial`, `failed`), counts and `problems`."
+      description: "`url`, `host` (`github`, `gitlab`, `gitea`, `bitbucket`, `archive`; read from the address when left out), `archiveUrl` with `{ref}` for `archive`, `gitRef`, `dir`, `autoSync` (daily), write-only `token`, `scope`, `teamId`. Team and personal repositories reach only public addresses and those in the network policy. The answer carries `sync`: `status` (`ok`, `partial`, `failed`), counts and `problems`."
   /api/v1/agent/skill-repositories/{id}:
-    put: { summary: "Change a skill repository and synchronize it; an empty `token` keeps the saved one, `clear_token` removes it" }
+    put: { summary: "Change a skill repository and synchronize it; an empty `token` keeps the saved one, `clearToken` removes it" }
     delete: { summary: Delete a skill repository with its skills }
   /api/v1/agent/skill-repositories/{id}/sync:
     post: { summary: Synchronize a skill repository now }
   /api/v1/agent/network-policy:
     get: { summary: "The internal hosts and CIDR ranges that team and personal skill repositories and MCP servers may reach; `agent.manage`" }
-    put: { summary: "Set them (`private_hosts`, `private_cidrs`); `agent.manage`" }
+    put: { summary: "Set them (`privateHosts`, `privateCidrs`); `agent.manage`" }
   /api/v1/agent/mcp-servers:
-    get: { summary: "The MCP servers the current user can see, with their `scope`, `handle`, headers (secret values only as `last4`), tool and prompt counts, `editable`, `moderatable` and the user's own saved credential (`my_credential`); `stdio_commands` lists the programs this instance lets an organization's stdio server start" }
+    get: { summary: "The MCP servers the current user can see, with their `scope`, `handle`, headers (secret values only as `last4`), tool and prompt counts, `editable`, `moderatable` and the user's own saved credential (`myCredential`); `stdioCommands` lists the programs this instance lets an organization's stdio server start" }
     post:
       summary: Add an MCP server
-      description: "`scope` (`org` by default, `team` with `team_id`, `personal`), `transport` (`streamable_http`, `sse`, or `stdio` for organization servers only: MoleSignal starts `command_template` without a shell when its program is in `[agent].mcp_stdio_commands`, and the server takes its credentials in `env`, with `auth_type` `none` and no `headers`), `endpoint_url` or `command_template`, `auth_type` (`none`, `bearer_token`, `api_key`, `member_secret` with `member_credential` {`header`, `bearer`, `instructions`}, ...), write-only `credential`, `headers` and `env` as `{name, secret, value}` (names with key, token, secret, password, credential, auth or cookie are always secret; a secret without a value keeps the saved one). Organization servers need `agent.manage` and may set `private_only`, `allowed_domains`, `allowed_cidrs` and `tls_verify`; team and personal servers reach only public addresses and those in the network policy, and always verify TLS."
+      description: "`scope` (`org` by default, `team` with `teamId`, `personal`), `transport` (`streamable_http`, `sse`, or `stdio` for organization servers only: MoleSignal starts `commandTemplate` without a shell when its program is in `[agent].mcp_stdio_commands`, and the server takes its credentials in `env`, with `authType` `none` and no `headers`), `endpointUrl` or `commandTemplate`, `authType` (`none`, `bearer_token`, `api_key`, `member_secret` with `memberCredential` {`header`, `bearer`, `instructions`}, ...), write-only `credential`, `headers` and `env` as `{name, secret, value}` (names with key, token, secret, password, credential, auth or cookie are always secret; a secret without a value keeps the saved one). Organization servers need `agent.manage` and may set `privateOnly`, `allowedDomains`, `allowedCidrs` and `tlsVerify`; team and personal servers reach only public addresses and those in the network policy, and always verify TLS."
   /api/v1/agent/mcp-servers/import:
-    post: { summary: "Add servers from a pasted `mcpServers` / `servers` configuration of Claude Desktop, Claude Code, Cursor or VS Code (`config` as text or JSON, `scope`, `team_id`); values that refer to variables come back in `missing`, servers of the same name in the scope in `skipped`; a server with a `command` is a stdio server, imported only into the organization and only with a command the instance allows" }
+    post: { summary: "Add servers from a pasted `mcpServers` / `servers` configuration of Claude Desktop, Claude Code, Cursor or VS Code (`config` as text or JSON, `scope`, `teamId`); values that refer to variables come back in `missing`, servers of the same name in the scope in `skipped`; a server with a `command` is a stdio server, imported only into the organization and only with a command the instance allows" }
   /api/v1/agent/mcp-servers/{id}:
     get: { summary: "A server with its tools and prompts" }
     put: { summary: "Change a server or move it to another scope the user manages" }
@@ -1578,15 +2923,15 @@ paths:
   /api/v1/agent/mcp-servers/{id}/test:
     post: { summary: "Connect and list the tools; a server with member credentials uses the caller's own" }
   /api/v1/agent/mcp-servers/{id}/sync:
-    post: { summary: "Import the selected tools (`selected_tools`, all when empty; new tools stay off) and the server's prompts; tools the server no longer lists become unavailable" }
+    post: { summary: "Import the selected tools (`selectedTools`, all when empty; new tools stay off) and the server's prompts; tools the server no longer lists become unavailable" }
   /api/v1/agent/mcp-servers/{id}/tools:
     get: { summary: Tools of a server }
-  /api/v1/agent/mcp-servers/{id}/tools/{tool_id}:
+  /api/v1/agent/mcp-servers/{id}/tools/{toolId}:
     patch: { summary: "Turn one tool on or off (`enabled`); tool policies still apply" }
   /api/v1/agent/mcp-servers/{id}/enable-read-only:
     post: { summary: "Turn on every read-only tool (readOnlyHint, risk floor L0) of the server that is still off" }
   /api/v1/agent/mcp-servers/{id}/my-credential:
-    put: { summary: "Save the caller's own credential (`value`) for a server with `auth_type` `member_secret`; only the caller's calls use it" }
+    put: { summary: "Save the caller's own credential (`value`) for a server with `authType` `member_secret`; only the caller's calls use it" }
     delete: { summary: "Remove the caller's own credential" }
   /api/v1/agent/audit/chat/{id}:
     get: { summary: Read an audited chat transcript (Admin or Owner) }
@@ -1599,7 +2944,7 @@ paths:
     delete: { summary: Delete }
 
   /api/v1/cipher_keys:
-    get: { summary: List cipher keys (Owner-only; raw_key never returned) }
+    get: { summary: List cipher keys (Owner-only; rawKey never returned) }
     post: { summary: Create (32-byte base64 raw key) }
   /api/v1/cipher_keys/{name}:
     get: { summary: Get latest version }
@@ -1608,10 +2953,15 @@ paths:
     post: { summary: Rotate (inserts new version, keeps prior) }
 
   /api/v1/connectors:
-    get: { summary: List connectors (sensitive fields masked) }
-    post: { summary: Create (kind ∈ aws_cloudwatch_logs / aws_kinesis_firehose / cloudflare_logpush / heroku_drain) }
+    get: { summary: List connectors (secrets masked as "***"; secretKeys names the ones stored) }
+    post: { summary: Create (kind ∈ aws_cloudwatch_logs / aws_kinesis_firehose / cloudflare_logpush / heroku_drain / s3 / kafka / http; secrets sealed with MS_CIPHER_KEY) }
+  /api/v1/connectors/test:
+    post: { summary: 'Try a connector''s settings before saving them (pipelines.edit; with id, "***" stands for that connector''s stored secret); returns ok, code, detail, elapsedMs' }
+  /api/v1/connectors/aws-external-id:
+    get: { summary: The external ID this organization assumes AWS roles with (molesignal-<org id>) }
   /api/v1/connectors/{id}:
-    put: { summary: Update }
+    get: { summary: Get one (secrets masked) }
+    put: { summary: Update ("***" keeps the stored secret) }
     delete: { summary: Delete }
 
   # ---- web-investigation-shell (frontend ⌘K / 调查栈 / 跨信号联动) ----
@@ -1632,25 +2982,25 @@ paths:
       parameters:
         - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
         - { name: to,   in: query, required: true, schema: { type: string, format: date-time } }
-  /api/v1/web/trace/{trace_id}:
+  /api/v1/web/trace/{traceId}:
     get:
-      summary: Full span tree for a trace_id (≤ 100k spans, 32 MiB hard cap → truncated=true)
+      summary: Full span tree for a traceId (≤ 100k spans, 32 MiB hard cap → truncated=true)
       parameters:
-        - { name: trace_id, in: path, required: true, schema: { type: string } }
-  /api/v1/web/correlation/{from_kind}/{to_kind}:
+        - { name: traceId, in: path, required: true, schema: { type: string } }
+  /api/v1/web/correlation/{fromKind}/{toKind}:
     get:
       summary: Server-side prefill of filters/time/prefill for metric ↔ trace ↔ log ↔ host jumps
       parameters:
-        - { name: from_kind, in: path, required: true, schema: { type: string, enum: [trace, metric, log, host] } }
-        - { name: to_kind,   in: path, required: true, schema: { type: string, enum: [trace, metric, log, host] } }
+        - { name: fromKind, in: path, required: true, schema: { type: string, enum: [trace, metric, log, host] } }
+        - { name: toKind,   in: path, required: true, schema: { type: string, enum: [trace, metric, log, host] } }
         - { name: ctx,       in: query, required: true, schema: { type: string },
             description: "base64-url JSON blob of source signal context" }
   /api/v1/web/investigation/blob:
     post:
-      summary: Store ephemeral investigation-stack payload (returns blob_id, 7d retention)
+      summary: Store ephemeral investigation-stack payload (returns blobId, 7d retention)
   /api/v1/web/investigation/blob/{id}:
     get:
-      summary: Fetch ephemeral payload by blob_id
+      summary: Fetch ephemeral payload by blobId
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
 
@@ -1660,7 +3010,7 @@ paths:
       parameters:
         - { name: sql,         in: query, required: true,  schema: { type: string } }
         - { name: stream,      in: query, required: true,  schema: { type: string } }
-        - { name: stream_type, in: query, required: false, schema: { type: string, enum: [logs, metrics, traces] } }
+        - { name: streamType, in: query, required: false, schema: { type: string, enum: [logs, metrics, traces] } }
         - { name: from,        in: query, required: true,  schema: { type: integer, format: int64, description: "epoch micros" } }
         - { name: to,          in: query, required: true,  schema: { type: integer, format: int64 } }
         - { name: limit,       in: query, required: false, schema: { type: integer } }

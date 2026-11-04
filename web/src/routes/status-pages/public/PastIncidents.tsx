@@ -103,7 +103,7 @@ function groupByDay(
   const groups = new Map<string, DayOfIncidents>();
 
   incidents.forEach((incident) => {
-    const day = zonedDay(incident.ended_at ?? incident.started_at, timezone, language);
+    const day = zonedDay(incident.endedAt ?? incident.startedAt, timezone, language);
     const group = groups.get(day.key) ?? { ...day, incidents: [] };
 
     group.incidents.push(incident);

@@ -47,7 +47,7 @@ pub(super) async fn execute(
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ListTracesArgs {
     #[serde(default)]
     time_range: Option<TimeRangeArg>,
@@ -74,7 +74,7 @@ async fn list_traces(
 
     let Some(stream) = resolve_traces_stream(runtime, &auth.org_id).await? else {
         return Ok(ToolResult::json(
-            json!({"traces": [], "stream_available": false}),
+            json!({"traces": [], "streamAvailable": false}),
         ));
     };
 
@@ -104,7 +104,7 @@ async fn list_traces(
 
     if effective_ids.as_ref().is_some_and(HashSet::is_empty) {
         return Ok(ToolResult::json(
-            json!({"traces": [], "stream_available": true}),
+            json!({"traces": [], "streamAvailable": true}),
         ));
     }
 
@@ -148,18 +148,18 @@ async fn list_traces(
         .take(limit)
         .map(|row| {
             json!({
-                "trace_id": row.trace_id,
+                "traceId": row.trace_id,
                 "service": row.service,
-                "started_at_micros": row.start_ns / 1_000,
-                "duration_ms": row.duration_ns as f64 / 1_000_000.0,
-                "span_count": row.span_count,
-                "has_error": args.error_only.then_some(true),
+                "startedAt": row.start_ns / 1_000,
+                "durationMs": row.duration_ns as f64 / 1_000_000.0,
+                "spanCount": row.span_count,
+                "hasError": args.error_only.then_some(true),
             })
         })
         .collect::<Vec<_>>();
 
     Ok(ToolResult::json(json!({
-        "traces": traces, "stream": stream.name, "stream_available": true,
+        "traces": traces, "stream": stream.name, "streamAvailable": true,
     })))
 }
 
@@ -204,7 +204,7 @@ async fn error_trace_ids(
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct GetTraceArgs {
     trace_id: String,
     #[serde(default)]
@@ -334,8 +334,8 @@ async fn get_trace_dag(
         .filter_map(|span| {
             span.parent_span_id.as_ref().map(|parent| {
                 json!({
-                    "parent_span_id": parent, "span_id": span.span_id,
-                    "parent_service": span_service.get(parent), "service": span.service,
+                    "parentSpanId": parent, "spanId": span.span_id,
+                    "parentService": span_service.get(parent), "service": span.service,
                 })
             })
         })
@@ -355,9 +355,9 @@ async fn get_trace_dag(
         .collect::<Vec<_>>();
 
     Ok(ToolResult::json(json!({
-        "trace_id": args.trace_id,
-        "root_span_ids": spans.iter().filter(|span| span.parent_span_id.as_deref().is_none_or(str::is_empty)).map(|span| span.span_id.as_str()).collect::<Vec<_>>(),
-        "services": services, "service_edges": service_edges, "span_edges": span_edges,
-        "span_count": spans.len(), "truncated": truncated || parser_truncated,
+        "traceId": args.trace_id,
+        "rootSpanIds": spans.iter().filter(|span| span.parent_span_id.as_deref().is_none_or(str::is_empty)).map(|span| span.span_id.as_str()).collect::<Vec<_>>(),
+        "services": services, "serviceEdges": service_edges, "spanEdges": span_edges,
+        "spanCount": spans.len(), "truncated": truncated || parser_truncated,
     })))
 }

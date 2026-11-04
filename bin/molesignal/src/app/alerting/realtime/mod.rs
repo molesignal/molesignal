@@ -1,21 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 实时规则：写入路径上的匹配器。
+//! 实时规则：写入路径上的计数器。
 //!
 //! `kind = real_time` 的规则在记录写入时逐条求值，而不是按周期查询。语句形态与窗口语义见
-//! [`spec`]：统计最近 `period_secs` 秒内写入某个数据流且满足条件的记录数，窗口内的命中数
-//! 满足触发条件时立即开事件，不再满足时自动解决。
+//! [`spec`]：统计最近 `period_secs` 秒内写入某个数据流且满足条件的记录数。
 //!
 //! 数据流程：
 //! 1. [`RealtimeAlerts::observe`]：写入前对留存的记录求值，得到每条规则命中的记录下标；
-//! 2. [`RealtimeAlerts::record`]：写入成功后把命中数计入规则的滑动窗口，窗口计数首次满足
-//!    触发条件（或满足更高一档）时向 [`RealtimeAlertWorker`] 发出开事件命令；
-//! 3. 后台任务周期性检查已触发的规则，窗口计数不再满足时发出解决命令，并重新加载规则。
+//! 2. [`RealtimeAlerts::record`]：写入成功后把命中数计入规则在本节点的滑动窗口；
+//! 3. [`RealtimeCoordinator`]：负责这条规则的 alert 节点每秒向各个接收写入的节点拉窗口计数
+//!    （[`RealtimeAlerts::counts`]）并求和，满足触发条件就开事件，不再满足就解决。
 //!
-//! 开事件与解决复用周期评估器的事件流程（指纹去重、静默期、升级策略与通知）。计数在节点
-//! 内存里，按写入该节点的记录统计。
+//! 开事件与解决复用周期评估器的事件流程（指纹去重、静默期、升级策略与通知）。计数在各节点
+//! 内存里，按写入该节点的记录统计，每 5 秒存一份快照（[`worker`]）：节点重启时读回，节点不在了
+//! 由负责汇总的节点用它的快照顶上。规则设了汇总集群（`query.home_cluster`）时，只有那个集群开事件，
+//! 它把联邦里各集群的计数加起来（[`FederatedCounts`]）。
 
+mod coordinator;
 mod predicate;
 mod spec;
 mod window;
@@ -26,17 +28,18 @@ use std::{
     sync::Arc,
 };
 
+pub use coordinator::{FederatedCounts, RealtimeCoordinator, RealtimeCounts};
 use parking_lot::{Mutex, RwLock};
 use spec::RealtimeSpec;
 pub use spec::{MAX_WINDOW_SECS, is_matched_at_intake, validate};
-use tokio::sync::{Notify, mpsc};
+use tokio::sync::Notify;
 use window::SlidingCounter;
 pub use worker::RealtimeAlertWorker;
 
 use crate::{
     domain::{
         alerting::{
-            incident::Severity,
+            realtime_snapshot::CountSnapshot,
             rule::{AlertRule, AlertRuleKind},
         },
         intake::{IntakeError, RawEvent},
@@ -45,24 +48,17 @@ use crate::{
     shared::{ids::Id, time::TimestampMicros},
 };
 
-/// 待执行命令的队列容量；队列满时丢弃命令并回退本地状态，下一批命中会重新触发。
-const COMMAND_QUEUE: usize = 1024;
+/// 集群内部调用的来源标记头；拉计数时取 [`REALTIME_COUNTS_ORIGIN`]。
+pub const INTERNAL_ORIGIN_HEADER: &str = "x-molesignal-internal-origin";
+pub const REALTIME_COUNTS_ORIGIN: &str = "realtime-counts";
 
 type Key = (Id, StreamType, String);
 
-/// 规则的运行时：编译结果与窗口状态。规则重新加载时，语句与触发条件没有变化的规则沿用原有
+/// 规则的运行时：编译结果与窗口计数。规则重新加载时，语句与触发条件没有变化的规则沿用原有
 /// 运行时，窗口计数不会因重新加载而清零。
 struct Runtime {
     spec: RealtimeSpec,
-    state: Mutex<State>,
-}
-
-#[derive(Default)]
-struct State {
-    window: SlidingCounter,
-    firing: bool,
-    /// 已触发的最高一档；单档规则为 `None`。
-    severity: Option<Severity>,
+    window: Mutex<SlidingCounter>,
 }
 
 #[derive(Clone)]
@@ -71,46 +67,17 @@ struct Entry {
     runtime: Arc<Runtime>,
 }
 
-/// 发给后台任务的命令。
-pub(super) enum Command {
-    Fire {
-        rule: Arc<AlertRule>,
-        count: u64,
-        severity: Option<Severity>,
-        at: TimestampMicros,
-    },
-    Clear {
-        rule: Arc<AlertRule>,
-        at: TimestampMicros,
-    },
-}
-
 /// 一批记录命中的规则及命中的记录下标。
 pub struct PendingHits {
     hits: Vec<(Entry, Vec<usize>)>,
 }
 
+#[derive(Default)]
 pub struct RealtimeAlerts {
     entries: RwLock<Arc<HashMap<Key, Vec<Entry>>>>,
-    commands: mpsc::Sender<Command>,
-    inbox: Mutex<Option<mpsc::Receiver<Command>>>,
     changed: Notify,
     /// 上一次加载时无法编译的规则；同一条规则只在第一次出现时告警。
     invalid: Mutex<HashSet<Id>>,
-}
-
-impl Default for RealtimeAlerts {
-    fn default() -> Self {
-        let (commands, inbox) = mpsc::channel(COMMAND_QUEUE);
-
-        Self {
-            entries: RwLock::new(Arc::new(HashMap::new())),
-            commands,
-            inbox: Mutex::new(Some(inbox)),
-            changed: Notify::new(),
-            invalid: Mutex::new(HashSet::new()),
-        }
-    }
 }
 
 impl RealtimeAlerts {
@@ -162,70 +129,76 @@ impl RealtimeAlerts {
                 .filter(|index| !rejected.contains(index))
                 .count() as u64;
 
-            if accepted == 0 {
-                continue;
-            }
-
-            let mut state = entry.runtime.state.lock();
-            state.window.add(second, accepted);
-            let count = state.window.count(second, entry.runtime.spec.window_secs);
-
-            let Some(level) = entry.runtime.spec.level(count) else {
-                continue;
-            };
-
-            if state.firing && level <= state.severity {
-                continue;
-            }
-
-            let sent = self.commands.try_send(Command::Fire {
-                rule: entry.rule.clone(),
-                count,
-                severity: level,
-                at: now,
-            });
-
-            match sent {
-                Ok(()) => {
-                    state.firing = true;
-                    state.severity = level;
-                }
-                Err(_) => tracing::warn!(
-                    rule_id = %entry.rule.id,
-                    "real-time alert queue is full; the trigger is retried on the next match"
-                ),
+            if accepted > 0 {
+                entry.runtime.window.lock().add(second, accepted);
             }
         }
     }
 
-    /// 已触发的规则：窗口计数不再满足触发条件时发出解决命令。
-    pub(super) fn sweep(&self, now: TimestampMicros) {
+    /// 本节点上这几条规则窗口内的命中数，到 `now` 这一秒为止；本节点没加载的规则不返回。
+    pub fn counts(&self, rule_ids: &[Id], now: TimestampMicros) -> Vec<(Id, u64)> {
+        let wanted: HashSet<&Id> = rule_ids.iter().collect();
         let second = now.0.div_euclid(1_000_000);
         let entries = self.entries.read().clone();
 
+        entries
+            .values()
+            .flatten()
+            .filter(|entry| wanted.contains(&entry.rule.id))
+            .map(|entry| {
+                let count = entry
+                    .runtime
+                    .window
+                    .lock()
+                    .count(second, entry.runtime.spec.window_secs);
+
+                (entry.rule.id.clone(), count)
+            })
+            .collect()
+    }
+
+    /// 本节点窗口里还有计数的规则的快照。
+    pub fn snapshots(&self, node_id: &str, now: TimestampMicros) -> Vec<CountSnapshot> {
+        let second = now.0.div_euclid(1_000_000);
+        let entries = self.entries.read().clone();
+
+        entries
+            .values()
+            .flatten()
+            .filter_map(|entry| {
+                let mut window = entry.runtime.window.lock();
+
+                if window.count(second, entry.runtime.spec.window_secs) == 0 {
+                    return None;
+                }
+
+                Some(CountSnapshot {
+                    node_id: node_id.to_string(),
+                    rule_id: entry.rule.id.clone(),
+                    window_secs: entry.runtime.spec.window_secs,
+                    buckets: window.buckets(),
+                    saved_at: now,
+                })
+            })
+            .collect()
+    }
+
+    /// 读回重启前存的快照：还加载着的规则把格子并进窗口。返回并进了几条规则。
+    pub fn restore(&self, snapshots: &[CountSnapshot]) -> usize {
+        let entries = self.entries.read().clone();
+        let mut restored = 0;
+
         for entry in entries.values().flatten() {
-            let mut state = entry.runtime.state.lock();
-
-            if !state.firing {
-                continue;
-            }
-
-            let count = state.window.count(second, entry.runtime.spec.window_secs);
-
-            if entry.runtime.spec.level(count).is_some() {
-                continue;
-            }
-
-            let sent = self.commands.try_send(Command::Clear {
-                rule: entry.rule.clone(),
-                at: now,
-            });
-
-            if sent.is_ok() {
-                state.firing = false;
-                state.severity = None;
+            for snapshot in snapshots
+                .iter()
+                .filter(|snapshot| snapshot.rule_id == entry.rule.id)
+            {
+                entry.runtime.window.lock().add_buckets(&snapshot.buckets);
+                restored += 1;
             }
         }
+
+        restored
     }
 
     /// 用最新的规则集合替换匹配表。
@@ -269,7 +242,7 @@ impl RealtimeAlerts {
                 .unwrap_or_else(|| {
                     Arc::new(Runtime {
                         spec,
-                        state: Mutex::new(State::default()),
+                        window: Mutex::new(SlidingCounter::default()),
                     })
                 });
 
@@ -282,10 +255,6 @@ impl RealtimeAlerts {
         *warned = invalid;
         drop(warned);
         *self.entries.write() = Arc::new(next);
-    }
-
-    pub(super) fn take_inbox(&self) -> Option<mpsc::Receiver<Command>> {
-        self.inbox.lock().take()
     }
 
     pub(super) async fn wait_for_change(&self) {

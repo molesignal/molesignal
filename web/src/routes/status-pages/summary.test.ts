@@ -23,17 +23,17 @@ const HOUR = 60 * 60 * 1_000_000;
 function component(id: string, overrides: Partial<StatusPageComponent> = {}): StatusPageComponent {
   return {
     id,
-    org_id: 'org',
-    status_page_id: 'page',
+    orgId: 'org',
+    statusPageId: 'page',
     name: id,
     description: '',
     status: 'operational',
     visibility: 'enabled',
     lifecycle: 'active',
     position: 0,
-    archived_at: null,
-    created_at: now,
-    updated_at: now,
+    archivedAt: null,
+    createdAt: now,
+    updatedAt: now,
     ...overrides,
   };
 }
@@ -41,22 +41,22 @@ function component(id: string, overrides: Partial<StatusPageComponent> = {}): St
 function event(id: string, overrides: Partial<StatusPageIncident> = {}): StatusPageIncident {
   return {
     id,
-    org_id: 'org',
-    status_page_id: 'page',
-    source_incident_id: null,
+    orgId: 'org',
+    statusPageId: 'page',
+    sourceIncidentId: null,
     kind: 'incident',
     title: id,
     impact: 'minor',
     status: 'investigating',
-    publication_state: 'published',
-    draft_message: null,
-    component_ids: [],
+    publicationState: 'published',
+    draftMessage: null,
+    componentIds: [],
     updates: [],
-    started_at: now - HOUR,
-    ended_at: null,
-    published_at: now - HOUR,
-    created_at: now - HOUR,
-    updated_at: now - HOUR,
+    startedAt: now - HOUR,
+    endedAt: null,
+    publishedAt: now - HOUR,
+    createdAt: now - HOUR,
+    updatedAt: now - HOUR,
     ...overrides,
   };
 }
@@ -64,14 +64,14 @@ function event(id: string, overrides: Partial<StatusPageIncident> = {}): StatusP
 function snapshot(overrides: Partial<StatusPageSnapshot> = {}): StatusPageSnapshot {
   return {
     page: {} as StatusPageSnapshot['page'],
-    overall_status: 'operational',
+    overallStatus: 'operational',
     components: [],
-    component_status_events: [],
-    active_incidents: [],
-    scheduled_maintenance: [],
+    componentStatusEvents: [],
+    activeIncidents: [],
+    scheduledMaintenance: [],
     history: [],
-    updated_at: now,
-    generated_at: now,
+    updatedAt: now,
+    generatedAt: now,
     ...overrides,
   };
 }
@@ -93,9 +93,9 @@ describe('status page summary', () => {
           component('billing', { position: 2, status: 'degraded_performance' }),
           component('search', { position: 3 }),
         ],
-        active_incidents: [
-          event('api-errors', { impact: 'major', component_ids: ['api', 'billing'] }),
-          event('api-upgrade', { kind: 'maintenance', impact: 'maintenance', component_ids: ['api'] }),
+        activeIncidents: [
+          event('api-errors', { impact: 'major', componentIds: ['api', 'billing'] }),
+          event('api-upgrade', { kind: 'maintenance', impact: 'maintenance', componentIds: ['api'] }),
         ],
       }),
     );
@@ -141,31 +141,31 @@ describe('status page summary', () => {
 
   it('puts the worst of what is under way first, and announced maintenance soonest first', () => {
     const page = snapshot({
-      active_incidents: [
+      activeIncidents: [
         event('maintenance', { kind: 'maintenance', impact: 'maintenance' }),
         event('minor', { impact: 'minor' }),
-        event('critical', { impact: 'critical', started_at: now - 5 * HOUR }),
+        event('critical', { impact: 'critical', startedAt: now - 5 * HOUR }),
       ],
-      scheduled_maintenance: [
-        event('later', { kind: 'maintenance', started_at: now + 48 * HOUR }),
-        event('sooner', { kind: 'maintenance', started_at: now + HOUR }),
+      scheduledMaintenance: [
+        event('later', { kind: 'maintenance', startedAt: now + 48 * HOUR }),
+        event('sooner', { kind: 'maintenance', startedAt: now + HOUR }),
       ],
     });
 
     expect(eventsUnderWay(page).map(({ id }) => id)).toEqual(['critical', 'minor', 'maintenance']);
     expect(maintenanceAhead(page).map(({ id }) => id)).toEqual(['sooner', 'later']);
-    expect(page.active_incidents[0]?.id).toBe('maintenance');
+    expect(page.activeIncidents[0]?.id).toBe('maintenance');
   });
 
   it('finds the latest thing said about an event', () => {
     const update = (id: string, at: number) => ({
       id,
-      org_id: 'org',
-      status_page_id: 'page',
-      incident_id: 'one',
+      orgId: 'org',
+      statusPageId: 'page',
+      incidentId: 'one',
       status: 'investigating' as const,
       message: id,
-      created_at: at,
+      createdAt: at,
     });
 
     expect(latestUpdate(event('quiet'))).toBeUndefined();

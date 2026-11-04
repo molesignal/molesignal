@@ -38,8 +38,7 @@ web/src/
 │   ├── ThemeBootstrap.tsx   dark/light + compact/comfortable + prefers-color-scheme
 │   ├── UrlHydration.ts      URL → store 同步反序列化
 │   ├── tokens.css           9-color semantic palette（唯一色彩来源）
-│   ├── fonts.css            Alibaba PuHuiTi 3.0 self-host
-│   ├── polish/              收尾层：动效曲线 / 控件按压与主按钮质感 / 排版 / 信号母题 / 卡片聚光（main.tsx 在 tokens.css 之后导入）
+│   ├── polish/              收尾层：动效曲线 / 控件按压 / 排版 / 信号母题 / 卡片聚光（main.tsx 在 tokens.css 之后导入）
 │   ├── PulseLine.tsx        产品 logo 的脉冲线：空状态、加载态与画布母题共用
 │   ├── NavIndicator.tsx     导航“当前项”的滑动指示条：主侧栏与 Settings / Access / Account 子导航共用
 │   ├── ManagementNav.tsx    管理中心子导航：分组成块（分隔线 + 组名，当前组名加深）、当前项滑动指示

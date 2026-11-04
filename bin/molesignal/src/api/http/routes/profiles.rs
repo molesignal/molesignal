@@ -42,9 +42,13 @@ use crate::{
         AppState,
         http::routes::intake::otlp::{any_value_to_json, decode_otlp, detect_encoding, hex},
     },
-    app::iam::IamContext,
+    app::{
+        iam::IamContext,
+        intake::usage::{IntakeReceipt, ServiceTally, split_by_events},
+    },
     domain::{
         iam::{IamScope, permission},
+        intake::usage::source::IntakeCredential,
         query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
         stream::{DEFAULT_PROFILE_STREAM, MOLESIGNAL_SYSTEM_STREAM, Schema, StreamType},
     },
@@ -138,7 +142,8 @@ fn time_range(from: Option<i64>, to: Option<i64>) -> TimeRange {
     TimeRange::new(TimestampMicros(start), TimestampMicros(end))
 }
 
-fn profiles_stream(scope: IamScope) -> &'static str {
+/// The stream an organization's profiles are kept in: the platform's own in the system scope.
+pub(crate) fn profiles_stream(scope: IamScope) -> &'static str {
     if scope == IamScope::System {
         MOLESIGNAL_SYSTEM_STREAM
     } else {
@@ -185,6 +190,7 @@ async fn run_query(
                 stream_type: StreamType::PROFILES,
             }),
             limit,
+            step: None,
             federation_clusters: Vec::new(),
         })
         .await
@@ -210,23 +216,30 @@ fn empty_query_result() -> QueryResult {
 /// `pub(crate)`：OTLP profiles 的 gRPC 入口（`grpc::otlp_server`）也走这条落盘管道。
 pub(crate) async fn store_profile(
     state: &AppState,
-    org_id: &Id,
+    ctx: &IamContext,
     normalized: &NormalizedProfile,
     raw_pprof: &[u8],
-    request_bytes: usize,
+    request_bytes: u64,
 ) -> Result<()> {
-    crate::api::http::intake_usage::record_intake_usage(
-        state,
-        org_id,
-        request_bytes as u64,
-        TimestampMicros::now().0,
-    );
-
     state
         .telemetry
         .profile_storage
-        .store_public(org_id, normalized, raw_pprof)
-        .await
+        .store_public(&ctx.org_id, normalized, raw_pprof)
+        .await?;
+
+    state.platform.intake_meter.record(
+        &ctx.org_id,
+        IntakeReceipt {
+            credential: IntakeCredential::of(ctx),
+            stream_type: StreamType::PROFILES,
+            stream: DEFAULT_PROFILE_STREAM.to_string(),
+            bytes: request_bytes,
+            services: ServiceTally::single(&normalized.service, 1),
+        },
+        1,
+    );
+
+    Ok(())
 }
 
 // ===== 摄取 handler =====
@@ -241,7 +254,7 @@ struct UploadParams {
 }
 
 /// `POST /profiles/upload`：pprof 直传（task 2.2）。
-#[permission("streams.write")]
+#[permission("profiles.write")]
 async fn upload(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -284,7 +297,7 @@ async fn upload(
         normalized.profile_type = ProfileType::from_name(t);
     }
 
-    store_profile(&state, &ctx.org_id, &normalized, &raw, body.len()).await?;
+    store_profile(&state, &ctx, &normalized, &raw, raw.len() as u64).await?;
     Ok((StatusCode::ACCEPTED, Json(IntakeAck { accepted: 1 })).into_response())
 }
 
@@ -297,7 +310,7 @@ struct PyroscopeParams {
 }
 
 /// `POST /profiles/intake`：Pyroscope 兼容摄取（task 2.3）。
-#[permission("streams.write")]
+#[permission("profiles.write")]
 async fn pyroscope_intake(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -358,7 +371,7 @@ async fn pyroscope_intake(
         }
     }
 
-    store_profile(&state, &ctx.org_id, &normalized, &raw, body.len()).await?;
+    store_profile(&state, &ctx, &normalized, &raw, raw.len() as u64).await?;
     Ok((StatusCode::OK, Json(IntakeAck { accepted: 1 })).into_response())
 }
 
@@ -367,7 +380,7 @@ async fn pyroscope_intake(
 /// 解码 `ExportProfilesServiceRequest`（请求级共享 dictionary + 多 profile）→ 归一化
 /// 为多个 [`NormalizedProfile`]，逐个编码规范 pprof 后走统一双路落盘。gRPC 入口
 /// （`grpc::otlp_server`）复用同一个 [`normalize_otlp_profiles`]。
-#[permission("streams.write")]
+#[permission("profiles.write")]
 async fn otlp_profiles(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -379,9 +392,11 @@ async fn otlp_profiles(
     let normalized = normalize_otlp_profiles(&req);
     let mut accepted = 0usize;
 
-    for profile in &normalized {
+    let shares = split_by_events(body.len() as u64, &vec![1; normalized.len()]);
+
+    for (profile, share) in normalized.iter().zip(shares) {
         let raw = profiles::encode_pprof_raw(profile)?;
-        store_profile(&state, &ctx.org_id, profile, &raw, body.len()).await?;
+        store_profile(&state, &ctx, profile, &raw, share).await?;
         accepted += 1;
     }
 
@@ -657,6 +672,7 @@ fn any_value_to_label(av: &AnyValue) -> String {
 // ===== 查询 / 聚合 handler =====
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ListParams {
     service: Option<String>,
     #[serde(alias = "profile_type")]
@@ -669,6 +685,7 @@ struct ListParams {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ProfileEntry {
     id: String,
     service: String,
@@ -688,7 +705,7 @@ struct ListResponse {
 }
 
 /// `GET /profiles`：元数据列表 / 筛选（task 4.1）。
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("profiles.read", "sys.telemetry.read"))]
 async fn list_profiles(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -810,6 +827,7 @@ fn row_matches_label(labels: Option<&Value>, want: &Option<(String, String)>) ->
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct FlamegraphParams {
     service: Option<String>,
     #[serde(alias = "profile_type")]
@@ -823,6 +841,7 @@ struct FlamegraphParams {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct FlamegraphResponse {
     flamebearer: Flamebearer,
     truncated: bool,
@@ -830,13 +849,14 @@ struct FlamegraphResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct FlamegraphSelectionRequest {
     profile_ids: Vec<String>,
     max_merge: Option<usize>,
 }
 
 /// `GET /profiles/flamegraph`：窗口内合并火焰图（task 4.3 / 4.2 / 4.6）。
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("profiles.read", "sys.telemetry.read"))]
 async fn flamegraph(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -881,7 +901,7 @@ async fn flamegraph(
 ///
 /// 使用 JSON body 而非把最多 1,000 个 ID 放进 query string，避免代理层 URL
 /// 长度上限，并确保“参与分析的 Profiles”选择真正决定分析结果。
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("profiles.read", "sys.telemetry.read"))]
 async fn flamegraph_selection(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -935,6 +955,7 @@ async fn flamegraph_selection(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct DiffParams {
     service: Option<String>,
     #[serde(alias = "profile_type")]
@@ -950,6 +971,7 @@ struct DiffParams {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct DiffResponse {
     flamebearer: DiffFlamebearer,
     truncated: bool,
@@ -958,7 +980,7 @@ struct DiffResponse {
 }
 
 /// `GET /profiles/diff`：baseline vs comparison 差分（task 4.4）。
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("profiles.read", "sys.telemetry.read"))]
 async fn diff(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -1032,7 +1054,7 @@ async fn diff(
 }
 
 /// `GET /profiles/{id}`：原始 pprof 下载（task 4.5）。
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("profiles.read", "sys.telemetry.read"))]
 async fn download(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

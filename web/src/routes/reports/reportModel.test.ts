@@ -21,14 +21,14 @@ describe('reportModel', () => {
       nextRunAtMicros({
         cron: 'every:1h',
         enabled: true,
-        last_run_at_micros: 1_000_000,
+        lastRunAt: 1_000_000,
       }),
     ).toBe(3_601_000_000);
     expect(
       nextRunAtMicros({
         cron: 'every:1h',
         enabled: false,
-        last_run_at_micros: 1_000_000,
+        lastRunAt: 1_000_000,
       }),
     ).toBeNull();
   });

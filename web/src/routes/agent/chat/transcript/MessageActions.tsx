@@ -4,6 +4,7 @@ import * as React from 'react';
 
 import { writeClipboardText } from '@/lib/clipboard';
 import { cn } from '@/shell/lib/cn';
+import { IconSwap } from '@/shell/polish/IconSwap';
 import { toast } from '@/shell/ui/sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/shell/ui/tooltip';
 
@@ -16,7 +17,7 @@ export function MessageAction({
 }: {
   label: string;
   disabled?: boolean;
-  onClick: () => void;
+  onClick: React.MouseEventHandler<HTMLButtonElement>;
   children: React.ReactNode;
 }) {
   return (
@@ -60,7 +61,11 @@ export function CopyMessage({ text, t }: { text: string; t: TFunction<'agent'> }
       label={copied ? t('message_actions.copied') : t('message_actions.copy')}
       onClick={() => void copy()}
     >
-      {copied ? <Check aria-hidden="true" className="text-[var(--green-ink)]" /> : <Copy aria-hidden="true" />}
+      <IconSwap
+        active={copied}
+        inactiveIcon={<Copy aria-hidden="true" />}
+        activeIcon={<Check aria-hidden="true" className="text-[var(--green-ink)]" />}
+      />
     </MessageAction>
   );
 }

@@ -1,9 +1,4 @@
-import {
-  CheckCircle2,
-  Circle,
-  ExternalLink,
-  ServerCrash,
-} from 'lucide-react';
+import { CheckCircle2, Circle, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import type { ActivationState } from '@/product/activation';
@@ -106,12 +101,7 @@ export function QuickStartDrawer({
                 className="group flex min-h-[92px] w-full items-start gap-3 px-6 py-4 text-left transition-colors duration-fast enabled:hover:bg-bg-2 focus-visible:bg-bg-2 focus-visible:text-tx-0 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span className="relative mt-0.5 grid h-7 w-7 shrink-0 place-items-center">
-                  {step.backendPending && !step.completed ? (
-                    <ServerCrash
-                      aria-hidden="true"
-                      className="h-5 w-5 text-[var(--yellow-ink)]"
-                    />
-                  ) : step.completed ? (
+                  {step.completed ? (
                     <CheckCircle2
                       aria-hidden="true"
                       className="h-5 w-5 text-[var(--green-ink)]"

@@ -14,21 +14,21 @@ import {
 import { RunAsNote } from './RunAsNote';
 
 const TAKEOVER = 'After you save, it runs with your access.';
-const DANA = { id: 'u-dana', display_name: 'Dana Reyes', email: 'dana@example.com' };
+const DANA = { id: 'u-dana', displayName: 'Dana Reyes', email: 'dana@example.com' };
 
 /** A report as the backend lists it, last saved by Dana. */
 function stored(overrides: Partial<ScheduledReport> = {}): ScheduledReport {
   return {
     id: 'r1',
     name: 'Weekly SLO',
-    dashboard_id: 'd1',
-    saved_view_id: null,
+    dashboardId: 'd1',
+    savedViewId: null,
     cron: 'every:7d',
     recipients: [{ kind: 'email', target: 'sre@example.com' }],
     format: 'pdf',
     enabled: true,
-    run_as_user_id: DANA.id,
-    run_as_user: DANA,
+    runAsUserId: DANA.id,
+    runAsUser: DANA,
     ...overrides,
   };
 }
@@ -40,7 +40,7 @@ function saved(overrides: Partial<ScheduledReport> = {}): DisplayReport {
 
 /** A report that no signed-in user saved. */
 function unowned(format: string): DisplayReport {
-  return saved({ format, run_as_user_id: null, run_as_user: null });
+  return saved({ format, runAsUserId: null, runAsUser: null });
 }
 
 function renderNote(
@@ -58,13 +58,12 @@ function renderNote(
 
 beforeEach(() => {
   useAuthStore.setState({
-    token: 'token',
     ctx: {
-      user_id: 'u-me',
-      org_id: 'org-1',
-      display_role: 'Editor',
+      userId: 'u-me',
+      orgId: 'org-1',
+      displayRole: 'Editor',
       roles: [],
-      display_name: 'Mei Lin',
+      displayName: 'Mei Lin',
       email: 'mei@example.com',
     },
   });
@@ -72,7 +71,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
-  useAuthStore.setState({ token: null, ctx: null });
+  useAuthStore.setState({ ctx: null });
 });
 
 describe('RunAsNote', () => {
@@ -86,7 +85,7 @@ describe('RunAsNote', () => {
 
   it('uses the email of a user without a display name', () => {
     renderNote(
-      saved({ run_as_user: { ...DANA, display_name: '' } }),
+      saved({ runAsUser: { ...DANA, displayName: '' } }),
     );
 
     expect(screen.getByText('dana@example.com')).not.toHaveAttribute('title');
@@ -95,15 +94,15 @@ describe('RunAsNote', () => {
 
   it('shows the id of a user who no longer exists', () => {
     const { container } = renderNote(
-      saved({ run_as_user_id: 'u-gone', run_as_user: null }),
+      saved({ runAsUserId: 'u-gone', runAsUser: null }),
     );
 
     expect(container.textContent).toBe(`Runs as u-gone · ${TAKEOVER}`);
   });
 
   it('shows the id when the backend does not name the user', () => {
-    const report = stored({ run_as_user_id: 'u-dana' });
-    delete report.run_as_user;
+    const report = stored({ runAsUserId: 'u-dana' });
+    delete report.runAsUser;
 
     const { container } = renderNote(adaptReport(report));
 
@@ -113,9 +112,9 @@ describe('RunAsNote', () => {
   it('names the reader without a change of hands when the report already runs as them', () => {
     const { container } = renderNote(
       saved({
-        run_as_user_id: 'u-me',
+        runAsUserId: 'u-me',
         // The name the backend holds now, not the one the session started with.
-        run_as_user: { id: 'u-me', display_name: 'Mei L.', email: 'mei@example.com' },
+        runAsUser: { id: 'u-me', displayName: 'Mei L.', email: 'mei@example.com' },
       }),
     );
 

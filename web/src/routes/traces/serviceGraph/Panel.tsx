@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import type { TopologyResponse } from '@/api/web';
 import { cn } from '@/shell/lib/cn';
 import { QueryState, queryStateFor } from '@/shell/query/State';
+import { QuerySplitToggle } from '@/shell/queryTabs';
 import type { TopologyDirection } from '@/viz/topology/forceLayout';
 import {
   ServiceTopology,
@@ -103,28 +104,32 @@ export function ServiceGraphPanel({
         <div className="hidden h-6 w-px bg-bd-0 xl:block" aria-hidden="true" />
         <HealthLegend />
 
-        <div className="ml-auto flex h-9 shrink-0 items-center gap-2 border-l border-bd-0 pl-3 font-sans text-xs text-tx-2">
-          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-            <Boxes className="h-3.5 w-3.5" aria-hidden="true" />
-            {normalizedSearch
-              ? t('explore.service_graph.match_count', { visible: matchCount, total: services.length })
-              : t('explore.service_graph.entity_count', { count: services.length })}
-          </span>
-          <button
-            type="button"
-            aria-pressed={showTypes}
-            aria-label={showTypes
-              ? t('explore.service_graph.hide_types')
-              : t('explore.service_graph.show_types')}
-            onClick={() => setShowTypes((current) => !current)}
-            className={cn(
-              'inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 font-sans text-xs font-semibold transition-colors hover:bg-bg-3 hover:text-tx-0',
-              showTypes ? 'bg-indigo-dim text-indigo-soft' : 'text-tx-2',
-            )}
-          >
-            <Tags className="h-3.5 w-3.5" aria-hidden="true" />
-            <span className="hidden 2xl:inline">{t('explore.service_graph.show_types')}</span>
-          </button>
+        {/* The switch that splits the page stands first at the far end, before what the graph counts. */}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <QuerySplitToggle size="sm" />
+          <div className="flex h-9 shrink-0 items-center gap-2 border-l border-bd-0 pl-3 font-sans text-xs text-tx-2">
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+              <Boxes className="h-3.5 w-3.5" aria-hidden="true" />
+              {normalizedSearch
+                ? t('explore.service_graph.match_count', { visible: matchCount, total: services.length })
+                : t('explore.service_graph.entity_count', { count: services.length })}
+            </span>
+            <button
+              type="button"
+              aria-pressed={showTypes}
+              aria-label={showTypes
+                ? t('explore.service_graph.hide_types')
+                : t('explore.service_graph.show_types')}
+              onClick={() => setShowTypes((current) => !current)}
+              className={cn(
+                'inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 font-sans text-xs font-semibold transition-colors hover:bg-bg-3 hover:text-tx-0',
+                showTypes ? 'bg-indigo-dim text-indigo-soft' : 'text-tx-2',
+              )}
+            >
+              <Tags className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="hidden 2xl:inline">{t('explore.service_graph.show_types')}</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -226,7 +231,7 @@ function SegmentedControl<T extends string>({
             aria-pressed={active}
             onClick={() => onChange(option.value)}
             className={cn(
-              'inline-flex h-8 items-center gap-1.5 rounded px-2.5 font-sans text-xs font-semibold transition-colors hover:bg-bg-3 hover:text-tx-0',
+              'inline-flex h-8 items-center gap-1.5 rounded-[5px] px-2.5 font-sans text-xs font-semibold transition-colors hover:bg-bg-3 hover:text-tx-0',
               active ? 'bg-indigo-dim text-indigo-soft' : 'text-tx-2',
             )}
           >

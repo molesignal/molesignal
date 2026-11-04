@@ -14,26 +14,26 @@ use crate::{
 pub(super) const ACTIVE_RULE_COLS: &str = "
     rule.id AS rule_id, rule.organization_id, rule.status_page_id, rule.name,
     rule.position, rule.lifecycle, rule.active_revision_id, rule.draft_revision_id,
-    rule.created_by AS rule_created_by, rule.created_at_micros AS rule_created_at_micros,
-    rule.updated_at_micros,
+    rule.created_by AS rule_created_by, rule.created_at AS rule_created_at_micros,
+    rule.updated_at,
     revision.id AS revision_id, revision.number, revision.matchers, revision.action,
     revision.content_hash, revision.created_by AS revision_created_by,
-    revision.created_at_micros AS revision_created_at_micros";
+    revision.created_at AS revision_created_at_micros";
 
 pub(super) const CANDIDATE_COLS: &str = "id, organization_id, status_page_id,
     rule_revision_id, correlation_key, state, title, message, resolved_message, impact,
-    component_ids, automatic, status_incident_id, due_at_micros, created_at_micros,
-    updated_at_micros, last_error";
+    component_ids, automatic, status_incident_id, due_at, created_at,
+    updated_at, last_error";
 
 pub(super) const CANDIDATE_SELECT_COLS: &str = "candidate.id, candidate.organization_id,
     candidate.status_page_id, candidate.rule_revision_id, candidate.correlation_key,
     candidate.state, candidate.title, candidate.message, candidate.resolved_message,
     candidate.impact, candidate.component_ids, candidate.automatic,
-    candidate.status_incident_id, candidate.due_at_micros, candidate.created_at_micros,
-    candidate.updated_at_micros, candidate.last_error";
+    candidate.status_incident_id, candidate.due_at, candidate.created_at,
+    candidate.updated_at, candidate.last_error";
 
 pub(super) const OUTBOX_COLS: &str = "id, organization_id, candidate_id, kind,
-    idempotency_key, payload, attempts, available_at_micros, created_at_micros";
+    idempotency_key, payload, attempts, available_at, created_at";
 
 pub(super) fn row_to_active(row: sqlx::postgres::PgRow) -> Result<ActiveAutomationRule> {
     let lifecycle: String = row.try_get("lifecycle").map_err(super::super::sqlx_err)?;
@@ -66,13 +66,12 @@ pub(super) fn row_to_active(row: sqlx::postgres::PgRow) -> Result<ActiveAutomati
                 .try_get("rule_created_by")
                 .map_err(super::super::sqlx_err)?),
             created_at: TimestampMicros(
-                row.try_get("rule_created_at_micros")
+                row.try_get("rule_created_at")
                     .map_err(super::super::sqlx_err)?,
             ),
-            updated_at: TimestampMicros(
-                row.try_get("updated_at_micros")
-                    .map_err(super::super::sqlx_err)?,
-            ),
+            updated_at: row
+                .try_get::<TimestampMicros, _>("updated_at")
+                .map_err(super::super::sqlx_err)?,
         },
         revision: StatusAutomationRevision {
             id: Id(row.try_get("revision_id").map_err(super::super::sqlx_err)?),
@@ -101,7 +100,7 @@ pub(super) fn row_to_active(row: sqlx::postgres::PgRow) -> Result<ActiveAutomati
                 .try_get("revision_created_by")
                 .map_err(super::super::sqlx_err)?),
             created_at: TimestampMicros(
-                row.try_get("revision_created_at_micros")
+                row.try_get("revision_created_at")
                     .map_err(super::super::sqlx_err)?,
             ),
         },
@@ -147,18 +146,15 @@ pub(super) fn row_to_candidate(row: sqlx::postgres::PgRow) -> Result<AutomationC
             .try_get::<Option<String>, _>("status_incident_id")
             .map_err(super::super::sqlx_err)?
             .map(Id),
-        due_at: TimestampMicros(
-            row.try_get("due_at_micros")
-                .map_err(super::super::sqlx_err)?,
-        ),
-        created_at: TimestampMicros(
-            row.try_get("created_at_micros")
-                .map_err(super::super::sqlx_err)?,
-        ),
-        updated_at: TimestampMicros(
-            row.try_get("updated_at_micros")
-                .map_err(super::super::sqlx_err)?,
-        ),
+        due_at: row
+            .try_get::<TimestampMicros, _>("due_at")
+            .map_err(super::super::sqlx_err)?,
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(super::super::sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(super::super::sqlx_err)?,
         last_error: row.try_get("last_error").map_err(super::super::sqlx_err)?,
     })
 }
@@ -183,13 +179,11 @@ pub(super) fn row_to_outbox(row: sqlx::postgres::PgRow) -> Result<AutomationOutb
         attempts: row
             .try_get::<i32, _>("attempts")
             .map_err(super::super::sqlx_err)? as u32,
-        available_at: TimestampMicros(
-            row.try_get("available_at_micros")
-                .map_err(super::super::sqlx_err)?,
-        ),
-        created_at: TimestampMicros(
-            row.try_get("created_at_micros")
-                .map_err(super::super::sqlx_err)?,
-        ),
+        available_at: row
+            .try_get::<TimestampMicros, _>("available_at")
+            .map_err(super::super::sqlx_err)?,
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(super::super::sqlx_err)?,
     })
 }

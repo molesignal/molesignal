@@ -3,11 +3,13 @@
 
 //! IAM directory HTTP CRUD：users / orgs / memberships 基础端点。
 //!
-//! - `GET    /users`              list（`org.members.read`）
+//! - `GET    /users`              list（`org.members.read`；其他登录成员只拿名字，见 [`member_names`]）
 //! - `POST   /users`              create
-//! - `GET    /users/:id`          get（自己或 Admin+）
-//! - `PATCH  /users/:id`          update profile（自己或 Admin+）
-//! - `DELETE /users/:id`          delete（`org.members.manage`）
+//! - `GET    /users/:id`          get（自己，或本组织成员的 Admin+）
+//! - `PATCH  /users/:id`          update profile（自己，或只属于本组织的成员的 Admin+）
+//! - `DELETE /users/:id`          delete（`org.members.remove`，同上）
+//!
+//! 管理员能处理哪些账号见 [`member_scope`]。
 //! - `GET    /orgs`               list（all）
 //! - `POST   /orgs`               create
 //!
@@ -29,34 +31,41 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
+use super::grant_limit;
 use crate::{
     api::AppState,
     app::iam::IamContext,
-    domain::iam::{IamAssignedRole, IamMembership, IamScope, User, UserStatus},
+    domain::iam::{IamAssignedRole, IamMembership, User, UserStatus},
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
+mod accounts;
 mod approval_emails;
+mod member_names;
+mod member_scope;
 mod organizations;
 
 pub(crate) use approval_emails::notify_admins_pending_user;
-use approval_emails::notify_user_decision;
+pub(crate) use member_scope::{account_of_current_org, member_of_current_org};
 
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/users", get(list_users).post(create_user))
-        .route("/users/{id}/approve", post(approve_user))
-        .route("/users/{id}/reject", post(reject_user))
+        .route("/users/{id}/approve", post(accounts::approve_user))
+        .route("/users/{id}/reject", post(accounts::reject_user))
         .route(
             "/users/{id}",
-            get(get_user).patch(update_user).delete(delete_user),
+            get(accounts::get_user)
+                .patch(accounts::update_user)
+                .delete(accounts::delete_user),
         )
         .route("/orgs/{id}/members", post(upsert_membership))
-        .route("/orgs/{id}/members/{user_id}", delete(remove_membership))
+        .route("/orgs/{id}/members/{userId}", delete(remove_membership))
         .merge(organizations::routes())
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct UserView {
     id: String,
     email: String,
@@ -73,9 +82,11 @@ struct UserView {
     team_names: Vec<String>,
     /// password | oidc | saml
     login_method: String,
-    last_active_at_micros: Option<i64>,
-    joined_at_micros: Option<i64>,
-    created_at_micros: i64,
+    last_active_at: Option<i64>,
+    joined_at: Option<i64>,
+    created_at: i64,
+    /// 开了多因素认证。只在成员列表和单个成员里填。
+    mfa_enabled: bool,
 }
 
 impl UserView {
@@ -100,9 +111,10 @@ impl UserView {
             roles: Vec::new(),
             team_names: Vec::new(),
             login_method: "password".into(),
-            last_active_at_micros: None,
-            joined_at_micros: None,
-            created_at_micros: u.created_at.0,
+            last_active_at: None,
+            joined_at: None,
+            created_at: u.created_at.0,
+            mfa_enabled: false,
         }
     }
 
@@ -127,8 +139,8 @@ impl UserView {
         view.roles = roles;
         view.team_names = team_names;
         view.login_method = login_method.unwrap_or_else(|| "password".into());
-        view.last_active_at_micros = last_active_at_micros;
-        view.joined_at_micros = Some(membership.joined_at.0);
+        view.last_active_at = last_active_at_micros;
+        view.joined_at = Some(membership.joined_at.0);
         view
     }
 }
@@ -153,16 +165,41 @@ fn teams_by_user(teams: Vec<crate::domain::iam::Team>) -> HashMap<String, Vec<St
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateUserReq {
     email: String,
     display_name: String,
     password: String,
 }
 
+/// `GET /users` 的回答：完整的成员，或者只有名字（见 [`member_names`]）。
+#[derive(Serialize)]
+#[serde(untagged)]
+enum MemberList {
+    Full(Vec<UserView>),
+    Names(Vec<member_names::MemberName>),
+}
+
 async fn list_users(
     State(state): State<AppState>,
     axum::Extension(ctx): axum::Extension<IamContext>,
-) -> Result<Json<Vec<UserView>>> {
+) -> Result<Json<MemberList>> {
+    if member_names::sees_names_only(&ctx) {
+        let member_ids = state
+            .iam
+            .service
+            .iam_memberships
+            .list_for_org(&ctx.org_id)
+            .await?
+            .into_iter()
+            .map(|membership| membership.user_id)
+            .collect::<Vec<_>>();
+
+        let users = state.iam.service.users.get_many(&member_ids).await?;
+
+        return Ok(Json(MemberList::Names(member_names::member_names(users))));
+    }
+
     require_key(&ctx, "org.members.read")?;
 
     let memberships = state
@@ -178,13 +215,13 @@ async fn list_users(
     for membership in memberships {
         let user = state.iam.service.users.get(&membership.user_id).await?;
 
-        let sessions = state
+        let identities = state
             .iam
-            .sso_sessions
+            .sso_identities
             .list_for_user(&membership.user_id)
             .await?;
 
-        let latest_session = sessions.first();
+        let latest_identity = identities.first();
         let member_team_names = team_names.remove(&membership.user_id.0).unwrap_or_default();
 
         let roles = state
@@ -199,10 +236,21 @@ async fn list_users(
             membership,
             roles,
             member_team_names,
-            latest_session.map(|session| session.provider.clone()),
-            latest_session.map(|session| session.last_login_at.0),
+            latest_identity.map(|identity| identity.kind.as_str().to_owned()),
+            latest_identity.map(|identity| identity.last_login_at.0),
             &state.iam.service.auth_settings().root_email,
         ));
+    }
+
+    let ids = users
+        .iter()
+        .map(|user| Id::from_string(user.id.clone()))
+        .collect::<Vec<_>>();
+
+    let with_mfa = state.iam.mfa_factors.enabled_among(&ids).await?;
+
+    for (user, id) in users.iter_mut().zip(&ids) {
+        user.mfa_enabled = with_mfa.contains(id);
     }
 
     users.sort_by(|a, b| {
@@ -212,7 +260,7 @@ async fn list_users(
             .then_with(|| a.email.cmp(&b.email))
     });
 
-    Ok(Json(users))
+    Ok(Json(MemberList::Full(users)))
 }
 
 async fn create_user(
@@ -220,7 +268,7 @@ async fn create_user(
     axum::Extension(ctx): axum::Extension<IamContext>,
     Json(req): Json<CreateUserReq>,
 ) -> Result<(StatusCode, Json<UserView>)> {
-    require_key(&ctx, "org.members.manage")?;
+    require_key(&ctx, "org.members.invite")?;
 
     let user = state
         .iam
@@ -237,165 +285,8 @@ async fn create_user(
     ))
 }
 
-/// 审批自助注册的 pending 用户 → active（Owner/Admin）。
-async fn approve_user(
-    State(state): State<AppState>,
-    axum::Extension(ctx): axum::Extension<IamContext>,
-    Path(id): Path<String>,
-) -> Result<Json<UserView>> {
-    require_key(&ctx, "org.members.manage")?;
-    let target = Id::from_string(id);
-
-    state
-        .iam
-        .service
-        .users
-        .set_status(&target, UserStatus::Active)
-        .await?;
-
-    let user = state.iam.service.users.get(&target).await?;
-    notify_user_decision(&state, &ctx.org_id, &user.email, true).await;
-
-    Ok(Json(UserView::from_user(
-        user,
-        &state.iam.service.auth_settings().root_email,
-    )))
-}
-
-/// 拒绝 pending 用户 → rejected（保留记录、不可登录）+ 邮件通知本人（Owner/Admin）。
-async fn reject_user(
-    State(state): State<AppState>,
-    axum::Extension(ctx): axum::Extension<IamContext>,
-    Path(id): Path<String>,
-) -> Result<Json<UserView>> {
-    require_key(&ctx, "org.members.manage")?;
-    let target = Id::from_string(id);
-
-    state
-        .iam
-        .service
-        .users
-        .set_status(&target, UserStatus::Rejected)
-        .await?;
-
-    let user = state.iam.service.users.get(&target).await?;
-    notify_user_decision(&state, &ctx.org_id, &user.email, false).await;
-
-    Ok(Json(UserView::from_user(
-        user,
-        &state.iam.service.auth_settings().root_email,
-    )))
-}
-
-async fn get_user(
-    State(state): State<AppState>,
-    axum::Extension(ctx): axum::Extension<IamContext>,
-    Path(id): Path<String>,
-) -> Result<Json<UserView>> {
-    let target = Id::from_string(id);
-
-    // 自己或拥有成员读取权限的管理员。
-    if target != ctx.user_id && !ctx.has_permission("org.members.read") {
-        return Err(Error::forbidden("not allowed"));
-    }
-
-    let user = state.iam.service.users.get(&target).await?;
-
-    Ok(Json(UserView::from_user(
-        user,
-        &state.iam.service.auth_settings().root_email,
-    )))
-}
-
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct UpdateUserReq {
-    /// Kept only to return an explicit immutable-field error to legacy or
-    /// hand-written clients. A user's sign-in identity is never profile data.
-    email: Option<String>,
-    display_name: Option<String>,
-    avatar_url: Option<String>,
-    disabled: Option<bool>,
-}
-
-async fn update_user(
-    State(state): State<AppState>,
-    axum::Extension(ctx): axum::Extension<IamContext>,
-    Path(id): Path<String>,
-    Json(req): Json<UpdateUserReq>,
-) -> Result<Json<UserView>> {
-    let target = Id::from_string(id);
-
-    if target != ctx.user_id && !ctx.has_permission("org.members.manage") {
-        return Err(Error::forbidden("not allowed"));
-    }
-
-    let mut user = state.iam.service.users.get(&target).await?;
-
-    if req.email.is_some() {
-        return Err(Error::invalid("user email is immutable"));
-    }
-
-    if let Some(display_name) = req.display_name {
-        let display_name = display_name.trim().to_string();
-
-        if display_name.is_empty() {
-            return Err(Error::invalid("display_name must not be empty"));
-        }
-
-        user.display_name = display_name;
-    }
-
-    if let Some(avatar_url) = req.avatar_url {
-        user.avatar_url = normalize_avatar_url(avatar_url)?;
-    }
-
-    if let Some(disabled) = req.disabled {
-        require_key(&ctx, "org.members.manage")?;
-
-        if target == ctx.user_id && disabled {
-            return Err(Error::invalid("cannot disable your own account"));
-        }
-
-        if is_root_user(&user, &state.iam.service.auth_settings().root_email) {
-            return Err(Error::forbidden("root user cannot be disabled"));
-        }
-
-        if disabled {
-            ensure_platform_admin_remains(&state, &target).await?;
-        }
-
-        user.disabled = disabled;
-    }
-
-    let user = state.iam.service.users.update(user).await?;
-
-    Ok(Json(UserView::from_user(
-        user,
-        &state.iam.service.auth_settings().root_email,
-    )))
-}
-
-async fn delete_user(
-    State(state): State<AppState>,
-    axum::Extension(ctx): axum::Extension<IamContext>,
-    Path(id): Path<String>,
-) -> Result<StatusCode> {
-    require_key(&ctx, "org.members.manage")?;
-    let target = Id::from_string(id);
-
-    if target == ctx.user_id {
-        return Err(Error::invalid("cannot delete your own account"));
-    }
-
-    let user = state.iam.service.users.get(&target).await?;
-    ensure_user_removable(&user, &state.iam.service.auth_settings().root_email)?;
-    ensure_platform_admin_remains(&state, &target).await?;
-    state.iam.service.users.delete(&target).await?;
-    Ok(StatusCode::NO_CONTENT)
-}
-
-#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct MembershipReq {
     user_id: String,
     #[serde(default)]
@@ -416,7 +307,7 @@ async fn upsert_membership(
         ));
     }
 
-    if ctx.org_id != target_org || !ctx.has_permission("org.members.manage") {
+    if ctx.org_id != target_org || !ctx.has_permission("org.members.update") {
         return Err(Error::forbidden("not allowed"));
     }
 
@@ -433,12 +324,16 @@ async fn upsert_membership(
 
     let user_id = Id::from_string(req.user_id);
     state.iam.service.users.get(&user_id).await?;
+    crate::api::http::routes::sso::ensure_membership_allowed(&state, &user_id, &target_org).await?;
 
     let role_ids = req
         .role_ids
         .into_iter()
         .map(Id::from_string)
         .collect::<Vec<_>>();
+
+    grant_limit::require_roles_held(&state, &ctx, &role_ids).await?;
+    grant_limit::require_member_within_reach(&state, &ctx, &user_id).await?;
 
     state
         .iam
@@ -471,7 +366,7 @@ async fn remove_membership(
         ));
     }
 
-    if ctx.org_id != target_org || !ctx.has_permission("org.members.manage") {
+    if ctx.org_id != target_org || !ctx.has_permission("org.members.remove") {
         return Err(Error::forbidden("not allowed"));
     }
 
@@ -484,6 +379,8 @@ async fn remove_membership(
             "cannot remove your own membership from the active organization",
         ));
     }
+
+    grant_limit::require_member_within_reach(&state, &ctx, &target_user).await?;
 
     state
         .iam
@@ -503,29 +400,6 @@ fn require_key(ctx: &IamContext, permission: &str) -> Result<()> {
             "scope {:?} lacks permission {permission}",
             ctx.scope
         )))
-    }
-}
-
-fn require_system_organization_management(system_org_id: &Id, ctx: &IamContext) -> Result<()> {
-    if ctx.scope == IamScope::System
-        && ctx.org_id == *system_org_id
-        && ctx.has_permission("sys.organizations.manage")
-    {
-        Ok(())
-    } else {
-        Err(Error::forbidden(
-            "organization management requires _sys scope and sys.organizations.manage",
-        ))
-    }
-}
-
-async fn ensure_platform_admin_remains(state: &AppState, user_id: &Id) -> Result<()> {
-    if state.iam.platform_administrators.is_active(user_id).await? {
-        Err(Error::conflict(
-            "configured root user cannot be made unusable",
-        ))
-    } else {
-        Ok(())
     }
 }
 
@@ -549,80 +423,10 @@ fn ensure_user_removable(user: &User, configured_root_email: &str) -> Result<()>
     }
 }
 
-fn normalize_avatar_url(value: String) -> Result<Option<String>> {
-    let value = value.trim().to_string();
-
-    if value.is_empty() {
-        return Ok(None);
-    }
-
-    if value.len() > 2048 {
-        return Err(Error::invalid("avatar_url must be at most 2048 characters"));
-    }
-
-    if !(value.starts_with("https://") || value.starts_with("http://")) {
-        return Err(Error::invalid("avatar_url must be an http(s) URL"));
-    }
-
-    Ok(Some(value))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::domain::iam::Team;
-
-    fn organization_management_context(
-        scope: IamScope,
-        org_id: &str,
-        permissions: &[&str],
-    ) -> IamContext {
-        IamContext {
-            user_id: Id::from_string("user-1"),
-            org_id: Id::from_string(org_id),
-            display_role: "Platform Owner".into(),
-            roles: Vec::new(),
-            credential_role_id: None,
-            credential_application_id: None,
-            credential_service_account_id: None,
-            scope,
-            permissions: permissions
-                .iter()
-                .map(|value| (*value).to_string())
-                .collect(),
-            policy_version: 1,
-        }
-    }
-
-    #[test]
-    fn organization_management_requires_system_scope_permission() {
-        let system_org_id = Id::from_string("_sys-id");
-        let authorized = organization_management_context(
-            IamScope::System,
-            "_sys-id",
-            &["sys.organizations.manage"],
-        );
-        assert!(require_system_organization_management(&system_org_id, &authorized).is_ok());
-
-        for denied in [
-            organization_management_context(
-                IamScope::Organization,
-                "tenant-a",
-                &["sys.organizations.manage", "org.settings.manage"],
-            ),
-            organization_management_context(
-                IamScope::System,
-                "tenant-a",
-                &["sys.organizations.manage"],
-            ),
-            organization_management_context(IamScope::System, "_sys-id", &[]),
-        ] {
-            let error =
-                require_system_organization_management(&system_org_id, &denied).unwrap_err();
-            assert!(matches!(&error, Error::Forbidden(_)));
-            assert_eq!(error.http_status_code(), 403);
-        }
-    }
 
     #[test]
     fn groups_and_sorts_team_names_by_user() {
@@ -665,6 +469,7 @@ mod tests {
             disabled: false,
             status: UserStatus::Active,
             created_at: TimestampMicros(10),
+            sessions_valid_after: TimestampMicros(0),
         };
         let membership = IamMembership {
             user_id: Id::from_string("user-1"),
@@ -693,9 +498,9 @@ mod tests {
         assert_eq!(view.roles[0].key, "sre_lead");
         assert_eq!(view.team_names, vec!["Platform"]);
         assert_eq!(view.login_method, "oidc");
-        assert_eq!(view.last_active_at_micros, Some(30));
-        assert_eq!(view.joined_at_micros, Some(20));
-        assert_eq!(view.created_at_micros, 10);
+        assert_eq!(view.last_active_at, Some(30));
+        assert_eq!(view.joined_at, Some(20));
+        assert_eq!(view.created_at, 10);
     }
 
     #[test]
@@ -710,6 +515,7 @@ mod tests {
             disabled: false,
             status: UserStatus::Active,
             created_at: TimestampMicros(10),
+            sessions_valid_after: TimestampMicros(0),
         };
 
         assert!(is_root_user(&user, "root@example.com"));
@@ -730,6 +536,7 @@ mod tests {
             disabled: false,
             status: UserStatus::Active,
             created_at: TimestampMicros(10),
+            sessions_valid_after: TimestampMicros(0),
         };
 
         assert!(is_root_user(&user, ""));

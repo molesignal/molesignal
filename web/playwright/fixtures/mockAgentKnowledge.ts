@@ -22,9 +22,9 @@ export function registerAgentKnowledgeRoutes(app: Express, nowIso: string) {
   const file = (path: string, content: string, ago: number): KnowledgeFile => ({
     path,
     content,
-    size_bytes: Buffer.byteLength(content),
-    updated_by: 'dev',
-    updated_at_micros: now - ago,
+    sizeBytes: Buffer.byteLength(content),
+    updatedBy: 'dev',
+    updatedAt: now - ago,
   });
   const bases = new Map<string, KnowledgeFile[]>([
     [
@@ -48,36 +48,36 @@ export function registerAgentKnowledgeRoutes(app: Express, nowIso: string) {
       const entry = files.find((item) => item.path === 'MOLE.md');
       return {
         scope: key === 'org' ? 'org' : 'team',
-        team_id: key === 'org' ? null : key.slice('team:'.length),
-        team_name: key === 'org' ? null : teams[key.slice('team:'.length)],
+        teamId: key === 'org' ? null : key.slice('team:'.length),
+        teamName: key === 'org' ? null : teams[key.slice('team:'.length)],
         files: files.length,
-        bytes: files.reduce((total, item) => total + item.size_bytes, 0),
+        bytes: files.reduce((total, item) => total + item.sizeBytes, 0),
         entry: Boolean(entry),
-        entry_updated_at_micros: entry?.updated_at_micros ?? null,
-        changed_since_entry: entry
-          ? files.filter((item) => item.path !== 'MOLE.md' && item.updated_at_micros > entry.updated_at_micros).length
+        entryUpdatedAt: entry?.updatedAt ?? null,
+        changedSinceEntry: entry
+          ? files.filter((item) => item.path !== 'MOLE.md' && item.updatedAt > entry.updatedAt).length
           : 0,
-        updated_at_micros: files.length ? Math.max(...files.map((item) => item.updated_at_micros)) : null,
-        can_edit: true,
+        updatedAt: files.length ? Math.max(...files.map((item) => item.updatedAt)) : null,
+        canEdit: true,
       };
     };
     res.json({
       bases: ['org', 'team:team-payments', 'team:team-platform'].map(summary),
-      entry_file: 'MOLE.md',
-      limits: { max_file_bytes: 1_048_576, max_total_bytes: 5_242_880, max_files: 200 },
+      entryFile: 'MOLE.md',
+      limits: { maxFileBytes: 1_048_576, maxTotalBytes: 5_242_880, maxFiles: 200 },
     });
   });
 
   app.get('/api/v1/agent/knowledge/files', (req, res) => {
-    const files = bases.get(keyOf(req.query.scope, req.query.team_id)) ?? [];
+    const files = bases.get(keyOf(req.query.scope, req.query.teamId)) ?? [];
     res.json({
       files: files.map(({ content: _content, ...meta }) => meta),
-      can_edit: true,
+      canEdit: true,
     });
   });
 
   app.get('/api/v1/agent/knowledge/file', (req, res) => {
-    const files = bases.get(keyOf(req.query.scope, req.query.team_id)) ?? [];
+    const files = bases.get(keyOf(req.query.scope, req.query.teamId)) ?? [];
     const found = files.find((item) => item.path === req.query.path);
     if (!found) {
       res.status(404).json({ error: 'not_found', message: 'knowledge file not found' });
@@ -87,7 +87,7 @@ export function registerAgentKnowledgeRoutes(app: Express, nowIso: string) {
   });
 
   app.put('/api/v1/agent/knowledge/file', (req, res) => {
-    const key = keyOf(req.body?.scope, req.body?.team_id);
+    const key = keyOf(req.body?.scope, req.body?.teamId);
     const files = bases.get(key) ?? [];
     const path = String(req.body?.path ?? '').replace(/^\/+/, '');
     if (!path || path.split('/').some((part) => part.startsWith('.') || !part)) {
@@ -100,7 +100,7 @@ export function registerAgentKnowledgeRoutes(app: Express, nowIso: string) {
   });
 
   app.delete('/api/v1/agent/knowledge/file', (req, res) => {
-    const key = keyOf(req.query.scope, req.query.team_id);
+    const key = keyOf(req.query.scope, req.query.teamId);
     const path = String(req.query.path ?? '');
     const files = bases.get(key) ?? [];
     const kept = files.filter((item) => item.path !== path && !item.path.startsWith(`${path}/`));
@@ -109,7 +109,7 @@ export function registerAgentKnowledgeRoutes(app: Express, nowIso: string) {
   });
 
   app.post('/api/v1/agent/knowledge/move', (req, res) => {
-    const key = keyOf(req.body?.scope, req.body?.team_id);
+    const key = keyOf(req.body?.scope, req.body?.teamId);
     const files = bases.get(key) ?? [];
     const found = files.find((item) => item.path === req.body?.from);
     if (!found) {
@@ -117,7 +117,7 @@ export function registerAgentKnowledgeRoutes(app: Express, nowIso: string) {
       return;
     }
     found.path = String(req.body?.to ?? found.path);
-    found.updated_at_micros = now;
+    found.updatedAt = now;
     res.json({ moved: true });
   });
 
@@ -128,7 +128,7 @@ export function registerAgentKnowledgeRoutes(app: Express, nowIso: string) {
     (req, res) => {
       const text = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : '';
       const field = (name: string) => new RegExp(`name="${name}"\\r\\n\\r\\n([^\\r]*)`).exec(text)?.[1];
-      const key = keyOf(field('scope'), field('team_id'));
+      const key = keyOf(field('scope'), field('teamId'));
       const names = [...text.matchAll(/name="file"; filename="([^"]+)"/g)].map((match) => match[1] ?? '');
       const files = bases.get(key) ?? [];
       const written = names.filter((name) => !name.split('/').some((part) => part.startsWith('.')));
@@ -155,18 +155,18 @@ export function registerAgentKnowledgeRoutes(app: Express, nowIso: string) {
   ): Memory => ({
     id,
     scope: 'personal',
-    team_id: null,
+    teamId: null,
     kind,
     name,
     description,
     body,
-    source_chat_id: source?.id ?? null,
-    source_chat_title: source?.title ?? null,
-    created_by: 'dev',
-    updated_by: 'dev',
-    created_at_micros: now - ago,
-    updated_at_micros: now - ago,
-    forgotten_at_micros: null,
+    sourceChatId: source?.id ?? null,
+    sourceChatTitle: source?.title ?? null,
+    createdBy: 'dev',
+    updatedBy: 'dev',
+    createdAt: now - ago,
+    updatedAt: now - ago,
+    forgottenAt: null,
   });
   const memories: Memory[] = [
     memory('memory-time-zone', 'preference', 'Time zone', 'When writing times in answers', 'Write times in UTC+8.', 20 * MINUTE),
@@ -183,10 +183,10 @@ export function registerAgentKnowledgeRoutes(app: Express, nowIso: string) {
   let distill = false;
 
   app.get('/api/v1/agent/memories', (req, res) => {
-    const team = req.query.scope === 'team' ? String(req.query.team_id ?? '') : null;
+    const team = req.query.scope === 'team' ? String(req.query.teamId ?? '') : null;
     res.json({
       memories: memories.filter(
-        (item) => !item.forgotten_at_micros && (team ? item.team_id === team : item.scope === 'personal'),
+        (item) => !item.forgottenAt && (team ? item.teamId === team : item.scope === 'personal'),
       ),
     });
   });
@@ -201,7 +201,7 @@ export function registerAgentKnowledgeRoutes(app: Express, nowIso: string) {
       name: req.body?.name ?? found.name,
       description: req.body?.description ?? found.description,
       body: req.body?.body ?? found.body,
-      updated_at_micros: now,
+      updatedAt: now,
     });
     res.json(found);
   });
@@ -216,15 +216,15 @@ export function registerAgentKnowledgeRoutes(app: Express, nowIso: string) {
       res.status(404).json({ error: 'not_found', message: 'memory not found' });
       return;
     }
-    found.forgotten_at_micros = null;
+    found.forgottenAt = null;
     res.json(found);
   });
   app.get('/api/v1/agent/memory-settings', (_req, res) =>
-    res.json({ distill_after_chat: distill, can_edit: true, updated_at_micros: null }),
+    res.json({ distillAfterChat: distill, canEdit: true, updatedAt: null }),
   );
   app.put('/api/v1/agent/memory-settings', (req, res) => {
-    distill = Boolean(req.body?.distill_after_chat);
-    res.json({ distill_after_chat: distill, can_edit: true, updated_at_micros: now });
+    distill = Boolean(req.body?.distillAfterChat);
+    res.json({ distillAfterChat: distill, canEdit: true, updatedAt: now });
   });
 
   // ── @ references ──
@@ -256,12 +256,12 @@ export function registerAgentKnowledgeRoutes(app: Express, nowIso: string) {
         summary: found?.label ?? 'Incident',
         severity: 'critical',
         status: 'acknowledged',
-        created_at_micros: now - 38 * MINUTE,
+        createdAt: now - 38 * MINUTE,
       },
       team: { id: 'team-platform', name: 'Platform' },
     });
   });
   app.post('/api/v1/agent/chat/:id/rca', (req, res) =>
-    res.json({ incident_id: 'inc-2291', updated_at_micros: now, message_id: req.body?.message_id }),
+    res.json({ incidentId: 'inc-2291', updatedAt: now, messageId: req.body?.messageId }),
   );
 }

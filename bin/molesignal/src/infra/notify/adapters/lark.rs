@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+mod card;
+
 use std::{
     collections::BTreeMap,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -13,10 +15,15 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use url::Url;
 
+use self::card::webhook_body;
+pub(crate) use self::card::{LARK_ALERT_VALUE_KEY, lark_card};
 use crate::{
-    domain::notify::connector::{
-        ConnectorAdapter, ConnectorCapabilities, ConnectorDeliveryResult, NotifyMessage,
-        NotifyTarget, NotifyTargetType,
+    domain::notify::{
+        buttons::AlertButtons,
+        connector::{
+            ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
+            NotifyChannel, NotifyMessage, NotifyTarget, NotifyTargetType,
+        },
     },
     shared::{
         Error, Result,
@@ -28,6 +35,7 @@ pub const LARK_APP_CONNECTOR_TYPE: &str = "lark_app";
 pub const LARK_WEBHOOK_CONNECTOR_TYPE: &str = "lark_webhook";
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct LarkAppConfig {
     app_id: String,
     app_secret: String,
@@ -39,8 +47,14 @@ struct LarkAppConfig {
     timeout_secs: u64,
 }
 
+/// 飞书与 Lark：同一个开放平台的两个地址，第一个是默认的。
+pub const LARK_SITES: [(&str, &str); 2] = [
+    ("feishu", "https://open.feishu.cn/open-apis"),
+    ("lark", "https://open.larksuite.com/open-apis"),
+];
+
 fn default_api_base_url() -> String {
-    "https://open.feishu.cn/open-apis".into()
+    LARK_SITES[0].1.into()
 }
 
 fn default_receive_id_type() -> String {
@@ -60,11 +74,11 @@ impl LarkAppConfig {
     fn validate(&self) -> Result<()> {
         if self.app_id.trim().is_empty() || self.app_secret.trim().is_empty() {
             return Err(Error::invalid(
-                "lark_app app_id and app_secret cannot be empty",
+                "lark_app appId and app_secret cannot be empty",
             ));
         }
 
-        validate_http_url(&self.api_base_url, "lark_app api_base_url")?;
+        validate_http_url(&self.api_base_url, "lark_app apiBaseUrl")?;
 
         if !matches!(
             self.receive_id_type.as_str(),
@@ -125,6 +139,14 @@ impl ConnectorAdapter for LarkAppConnectorAdapter {
             acknowledgement: false,
             attachments: false,
         }
+    }
+
+    fn channel(&self) -> NotifyChannel {
+        NotifyChannel::Im
+    }
+
+    fn addresses(&self) -> Vec<ConnectorAddress> {
+        vec![ConnectorAddress::picked("apiBaseUrl", "site", &LARK_SITES)]
     }
 
     fn validate_config(&self, config: &Value) -> Result<()> {
@@ -203,15 +225,28 @@ impl ConnectorAdapter for LarkAppConnectorAdapter {
             NotifyTargetType::Webhook => unreachable!("target was validated above"),
         };
 
-        let content = json!({
-            "zh_cn": {
-                "title": message.title,
-                "content": [[{
-                    "tag": "text",
-                    "text": message.markdown.as_deref().unwrap_or(&message.text)
-                }]]
-            }
-        });
+        // 带着告警按钮或模板卡片的发成卡片，其余发富文本。
+        let buttons = AlertButtons::read(message);
+
+        let (msg_type, content) = if buttons.is_some() || message.card.is_some() {
+            (
+                "interactive",
+                lark_card(message, &buttons.unwrap_or_default(), None),
+            )
+        } else {
+            (
+                "post",
+                json!({
+                    "zh_cn": {
+                        "title": message.title,
+                        "content": [[{
+                            "tag": "text",
+                            "text": message.markdown.as_deref().unwrap_or(&message.text)
+                        }]]
+                    }
+                }),
+            )
+        };
 
         let started = Instant::now();
 
@@ -224,7 +259,7 @@ impl ConnectorAdapter for LarkAppConnectorAdapter {
                 .bearer_auth(token.tenant_access_token)
                 .json(&json!({
                     "receive_id": target.value.trim(),
-                    "msg_type": "post",
+                    "msg_type": msg_type,
                     "content": content.to_string(),
                 })),
             HttpTarget::ThirdParty,
@@ -261,6 +296,7 @@ impl ConnectorAdapter for LarkAppConnectorAdapter {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct LarkWebhookConfig {
     webhook_url: String,
     #[serde(default)]
@@ -276,7 +312,7 @@ impl LarkWebhookConfig {
     }
 
     fn validate(&self) -> Result<()> {
-        validate_http_url(&self.webhook_url, "lark_webhook webhook_url")?;
+        validate_http_url(&self.webhook_url, "lark_webhook webhookUrl")?;
         validate_timeout(self.timeout_secs, "lark_webhook")
     }
 }
@@ -315,6 +351,10 @@ impl ConnectorAdapter for LarkWebhookConnectorAdapter {
             acknowledgement: false,
             attachments: false,
         }
+    }
+
+    fn channel(&self) -> NotifyChannel {
+        NotifyChannel::Im
     }
 
     fn validate_config(&self, config: &Value) -> Result<()> {
@@ -356,16 +396,7 @@ impl ConnectorAdapter for LarkWebhookConnectorAdapter {
             config.webhook_url.trim()
         };
 
-        let text = format!("{}\n{}", message.title, message.text)
-            .trim()
-            .to_string();
-
-        let mut body = json!({
-            "msg_type": "text",
-            "content": {
-                "text": text
-            }
-        });
+        let mut body = webhook_body(message);
 
         if !config.secret.is_empty() {
             let timestamp = unix_seconds()?;
@@ -469,17 +500,17 @@ mod tests {
     #[test]
     fn validates_lark_app_and_webhook_configs() {
         LarkAppConnectorAdapter::new()
-            .validate_config(&json!({"app_id": "cli_a", "app_secret": "secret"}))
+            .validate_config(&json!({"appId": "cli_a", "appSecret": "secret"}))
             .unwrap();
         LarkWebhookConnectorAdapter::new()
             .validate_config(&json!({
-                "webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/id",
+                "webhookUrl": "https://open.feishu.cn/open-apis/bot/v2/hook/id",
                 "secret": "secret"
             }))
             .unwrap();
         assert!(
             LarkAppConnectorAdapter::new()
-                .validate_config(&json!({"app_id": "cli_a", "app_secret": ""}))
+                .validate_config(&json!({"appId": "cli_a", "appSecret": ""}))
                 .is_err()
         );
     }

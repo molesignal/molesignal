@@ -14,6 +14,7 @@ use crate::{
 /// role. Provisioning atomically creates the first bound Token; the Token never owns Service
 /// Account lifecycle or permissions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ServiceAccount {
     pub id: Id,
     pub org_id: Id,

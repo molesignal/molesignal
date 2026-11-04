@@ -22,8 +22,7 @@ impl PgSemanticGroupRepository {
     }
 }
 
-const COLS: &str =
-    "id, org_id, name, enabled, matchers, group_by, created_at_micros, updated_at_micros";
+const COLS: &str = "id, org_id, name, enabled, matchers, group_by, created_at, updated_at";
 
 fn row_to(row: sqlx::postgres::PgRow) -> Result<SemanticGroup> {
     let matchers: Json<Vec<LabelMatcher>> = row.try_get("matchers").map_err(sqlx_err)?;
@@ -36,8 +35,12 @@ fn row_to(row: sqlx::postgres::PgRow) -> Result<SemanticGroup> {
         enabled: row.try_get("enabled").map_err(sqlx_err)?,
         matchers: matchers.0,
         group_by: group_by.0,
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -47,7 +50,7 @@ impl SemanticGroupRepository for PgSemanticGroupRepository {
         sqlx::query(
             "INSERT INTO semantic_groups
                 (id, org_id, name, enabled, matchers, group_by,
-                 created_at_micros, updated_at_micros)
+                 created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
         )
         .bind(&g.id.0)
@@ -56,8 +59,8 @@ impl SemanticGroupRepository for PgSemanticGroupRepository {
         .bind(g.enabled)
         .bind(Json(&g.matchers))
         .bind(Json(&g.group_by))
-        .bind(g.created_at.0)
-        .bind(g.updated_at.0)
+        .bind(g.created_at)
+        .bind(g.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -68,7 +71,7 @@ impl SemanticGroupRepository for PgSemanticGroupRepository {
     async fn update(&self, g: SemanticGroup) -> Result<SemanticGroup> {
         sqlx::query(
             "UPDATE semantic_groups SET
-               name = $2, enabled = $3, matchers = $4, group_by = $5, updated_at_micros = $6
+               name = $2, enabled = $3, matchers = $4, group_by = $5, updated_at = $6
              WHERE id = $1",
         )
         .bind(&g.id.0)
@@ -76,7 +79,7 @@ impl SemanticGroupRepository for PgSemanticGroupRepository {
         .bind(g.enabled)
         .bind(Json(&g.matchers))
         .bind(Json(&g.group_by))
-        .bind(g.updated_at.0)
+        .bind(g.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -98,7 +101,7 @@ impl SemanticGroupRepository for PgSemanticGroupRepository {
         // created_at 升序 = 定义顺序，与 list_enabled 的 precedence 契约一致。
         let rows = sqlx::query(&format!(
             "SELECT {COLS} FROM semantic_groups WHERE org_id = $1
-             ORDER BY created_at_micros, id"
+             ORDER BY created_at, id"
         ))
         .bind(&org_id.0)
         .fetch_all(&self.pool)
@@ -122,7 +125,7 @@ impl SemanticGroupRepository for PgSemanticGroupRepository {
         // 定义顺序（created_at 升序）：evaluator 取第一条命中，precedence = 创建顺序。
         let rows = sqlx::query(&format!(
             "SELECT {COLS} FROM semantic_groups
-             WHERE org_id = $1 AND enabled = TRUE ORDER BY created_at_micros, id"
+             WHERE org_id = $1 AND enabled = TRUE ORDER BY created_at, id"
         ))
         .bind(&org_id.0)
         .fetch_all(&self.pool)
@@ -146,7 +149,7 @@ impl SemanticGroupRepository for PgSemanticGroupRepository {
             sqlx::query(
                 "INSERT INTO semantic_groups
                     (id, org_id, name, enabled, matchers, group_by,
-                     created_at_micros, updated_at_micros)
+                     created_at, updated_at)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
             )
             .bind(&g.id.0)
@@ -155,8 +158,8 @@ impl SemanticGroupRepository for PgSemanticGroupRepository {
             .bind(g.enabled)
             .bind(Json(&g.matchers))
             .bind(Json(&g.group_by))
-            .bind(g.created_at.0)
-            .bind(g.updated_at.0)
+            .bind(g.created_at)
+            .bind(g.updated_at)
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;

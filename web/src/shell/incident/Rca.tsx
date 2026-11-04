@@ -86,7 +86,7 @@ export function IncidentRcaSection({ incidentId, surface = false }: { incidentId
           </div>
           <div className="flex items-center gap-2 font-sans text-xs text-tx-2">
             {rca.model && <span className="truncate">{rca.model}</span>}
-            <span className="ml-auto tabular-nums">{formatMicrosActive(rca.created_at)}</span>
+            <span className="ml-auto tabular-nums">{formatMicrosActive(rca.createdAt)}</span>
             <FeedbackControl
               kind="incident_rca"
               targetId={incidentId}

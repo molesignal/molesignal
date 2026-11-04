@@ -22,9 +22,9 @@ use crate::{
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new()
-        .route("/notify/team-defaults/{team_id}", get(list_team))
+        .route("/notify/team-defaults/{teamId}", get(list_team))
         .route(
-            "/notify/team-defaults/{team_id}/{category}",
+            "/notify/team-defaults/{teamId}/{category}",
             get(get_team).put(upsert_team).delete(delete_team),
         )
         .route("/notify/organization-defaults", get(list_organization))
@@ -56,7 +56,7 @@ impl From<DefaultRequest> for NotifyDefaultInput {
     }
 }
 
-#[permission("alerts.read")]
+#[permission("notify.defaults.read")]
 async fn list_team(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -71,7 +71,7 @@ async fn list_team(
     ))
 }
 
-#[permission("alerts.read")]
+#[permission("notify.defaults.read")]
 async fn get_team(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -91,7 +91,7 @@ async fn get_team(
     ))
 }
 
-#[permission("alerts.manage")]
+#[permission("notify.defaults.manage")]
 async fn upsert_team(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -112,7 +112,7 @@ async fn upsert_team(
     ))
 }
 
-#[permission("alerts.manage")]
+#[permission("notify.defaults.manage")]
 async fn delete_team(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -131,7 +131,7 @@ async fn delete_team(
     Ok(StatusCode::NO_CONTENT)
 }
 
-#[permission("alerts.read")]
+#[permission("notify.defaults.read")]
 async fn list_organization(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -145,7 +145,7 @@ async fn list_organization(
     ))
 }
 
-#[permission("alerts.read")]
+#[permission("notify.defaults.read")]
 async fn get_organization(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -161,7 +161,7 @@ async fn get_organization(
     ))
 }
 
-#[permission("alerts.manage")]
+#[permission("notify.defaults.manage")]
 async fn upsert_organization(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -177,7 +177,7 @@ async fn upsert_organization(
     ))
 }
 
-#[permission("alerts.manage")]
+#[permission("notify.defaults.manage")]
 async fn delete_organization(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

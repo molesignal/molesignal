@@ -102,10 +102,10 @@ function summarizeGenericPayload(payloads: unknown[]): string[] {
 
 function summarizeField(key: string, value: unknown): string[] {
   if (value === null || value === undefined || value === '') return [];
-  if (key === 'time_range' && isRecord(value)) {
-    const start = formatMicros(value.start_micros);
-    const end = formatMicros(value.end_micros);
-    if (start || end) return [`time_range: ${start || '?'} - ${end || '?'}`];
+  if (key === 'timeRange' && isRecord(value)) {
+    const start = formatMicros(value.startTime);
+    const end = formatMicros(value.endTime);
+    if (start || end) return [`timeRange: ${start || '?'} - ${end || '?'}`];
   }
   if (Array.isArray(value)) {
     if (value.length === 0) return [`${key}: 0`];
@@ -142,8 +142,8 @@ function collectStreamNamesFromValue(value: unknown): string[] {
     ? [value.name]
     : typeof value.stream === 'string'
       ? [value.stream]
-      : typeof value.stream_name === 'string'
-        ? [value.stream_name]
+      : typeof value.streamName === 'string'
+        ? [value.streamName]
         : [];
   const nested = ['streams', 'items', 'data', 'results']
     .flatMap((key) => collectStreamNamesFromValue(value[key]));

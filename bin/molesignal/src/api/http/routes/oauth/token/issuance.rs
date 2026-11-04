@@ -3,12 +3,13 @@
 
 use std::collections::BTreeSet;
 
-use super::{OAuthError, OAuthResult, TokenResponse, random_secret};
+use super::{OAuthError, OAuthResult, TokenResponse};
 use crate::{
     agent::inbound_mcp::{InboundMcpOAuthToken, InboundMcpOAuthTokenKind, InboundMcpSettings},
     api::AppState,
     app::iam::IamContext,
     domain::iam::IamScope,
+    infra::persistence::repositories::api_tokens::generate_token,
     shared::{ids::Id, time::TimestampMicros},
 };
 
@@ -32,7 +33,7 @@ pub(super) async fn issue_tokens(
     rotation: Option<TokenRotation>,
     now: TimestampMicros,
 ) -> OAuthResult<TokenResponse> {
-    let access_plaintext = format!("msoauth_{}", random_secret(32));
+    let access_plaintext = generate_token();
 
     let access = InboundMcpOAuthToken {
         id: Id::new(),
@@ -53,7 +54,7 @@ pub(super) async fn issue_tokens(
     let refresh_plaintext = scope
         .split_ascii_whitespace()
         .any(|value| value == "offline_access")
-        .then(|| format!("msrefresh_{}", random_secret(32)));
+        .then(generate_token);
 
     let refresh = refresh_plaintext
         .as_ref()
@@ -137,7 +138,7 @@ pub(super) async fn ensure_grant_available(
         org_id: org_id.clone(),
         display_role: String::new(),
         roles: Vec::new(),
-        credential_role_id: None,
+        credential_token_id: None,
         credential_application_id: None,
         credential_service_account_id: None,
         scope: IamScope::Organization,

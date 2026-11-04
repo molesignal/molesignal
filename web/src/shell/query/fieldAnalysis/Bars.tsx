@@ -72,7 +72,7 @@ export function FieldValueBarsChart({ bars, format, name }: FieldValueBarsChartP
   return (
     <div data-field-analysis-bars>
       {/* A line of its own, always there: the plot does not move when a bar is pointed at. */}
-      <p className="type-micro mb-[6px] flex h-[14px] items-center justify-between gap-2 font-mono leading-none tabular-nums text-tx-2">
+      <p className="type-micro mb-[6px] flex h-[14px] items-center justify-between gap-2 leading-none tabular-nums text-tx-2">
         {cursor && pointed !== undefined ? (
           <>
             <span data-field-analysis-bar-range className="truncate">
@@ -95,7 +95,7 @@ export function FieldValueBarsChart({ bars, format, name }: FieldValueBarsChartP
           {ticks.map((tick, index) => (
             <span
               key={tick}
-              className="type-micro absolute right-0 translate-y-1/2 font-mono leading-none tabular-nums text-tx-3"
+              className="type-micro absolute right-0 translate-y-1/2 leading-none tabular-nums text-tx-3"
               style={{ bottom: `${(tick / top) * 100}%` }}
             >
               {tickLabels[index]}
@@ -169,7 +169,7 @@ export function FieldValueBarsChart({ bars, format, name }: FieldValueBarsChartP
                 <span className="absolute top-0 h-[4px] w-px bg-tx-0/25" style={{ left: `${at}%` }} />
                 <span
                   className={cn(
-                    'type-micro absolute top-[7px] whitespace-nowrap font-mono leading-none tabular-nums text-tx-3',
+                    'type-micro absolute top-[7px] whitespace-nowrap leading-none tabular-nums text-tx-3',
                     // A label at an end of the axis stays inside it.
                     at < 4 ? 'translate-x-0' : at > 96 ? '-translate-x-full' : '-translate-x-1/2',
                   )}

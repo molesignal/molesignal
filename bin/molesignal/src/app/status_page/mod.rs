@@ -9,6 +9,7 @@ use std::{collections::HashSet, sync::Arc};
 mod automation;
 mod components;
 mod custom_domain;
+mod dependencies;
 mod history;
 mod incidents;
 mod input;
@@ -17,7 +18,6 @@ mod pages;
 mod planned_maintenance;
 mod postmortems;
 mod private_access;
-mod service_links;
 mod subscription;
 mod updates;
 mod validation;
@@ -28,10 +28,12 @@ pub use automation::{
     StatusPageAlertIncidentSink, StatusPageSyntheticTransitionSink,
 };
 pub use custom_domain::{StatusPageDomainCapability, StatusPageDomainInstructions};
+pub use dependencies::{
+    DependencyAlertSink, DependencySignalQueue, DependencySources, DependencySyntheticSink,
+};
 pub use input::{
     StatusPageAccessRuleInput, StatusPageComponentInput, StatusPageDomainInput,
     StatusPageIncidentInput, StatusPageIncidentUpdateInput, StatusPageInput,
-    StatusPageServiceLinkInput,
 };
 pub use planned_maintenance::PlannedMaintenanceSweep;
 pub use private_access::{
@@ -46,14 +48,13 @@ pub use subscription::{
 use crate::{
     domain::{
         alerting::repositories::IncidentRepository,
-        business_service::BusinessServiceRepository,
         i18n_language::I18nLanguageRepository,
         status_page::{
             StatusPageDomainHealthNotifier, StatusPageDomainVerifier, StatusPageNotificationSender,
             StatusPageRepository, StatusPageSlackApps,
         },
     },
-    shared::{Error, Result, ids::Id},
+    shared::ids::Id,
 };
 
 const MICROS_PER_DAY: i64 = 24 * 60 * 60 * 1_000_000;
@@ -73,7 +74,7 @@ pub struct StatusPageService {
     pub(super) managed_domain_tls_configured: bool,
     pub(super) domain_health_notifier: Option<Arc<dyn StatusPageDomainHealthNotifier>>,
     pub(super) external_url: String,
-    pub(super) business_services: Option<Arc<dyn BusinessServiceRepository>>,
+    pub(super) dependency_sources: Option<DependencySources>,
     pub(super) slack_apps: Option<Arc<dyn StatusPageSlackApps>>,
 }
 
@@ -91,7 +92,7 @@ impl StatusPageService {
             managed_domain_tls_configured: false,
             domain_health_notifier: None,
             external_url: String::new(),
-            business_services: None,
+            dependency_sources: None,
             slack_apps: None,
         }
     }
@@ -127,12 +128,10 @@ impl StatusPageService {
         self
     }
 
-    /// The business services components can stand for.
-    pub fn with_business_services(
-        mut self,
-        repository: Arc<dyn BusinessServiceRepository>,
-    ) -> Self {
-        self.business_services = Some(repository);
+    /// What component dependencies are read from, and the queue that asks for
+    /// them to be worked out again.
+    pub fn with_dependency_sources(mut self, sources: DependencySources) -> Self {
+        self.dependency_sources = Some(sources);
         self
     }
 
@@ -141,12 +140,6 @@ impl StatusPageService {
     pub fn with_slack_apps(mut self, slack_apps: Arc<dyn StatusPageSlackApps>) -> Self {
         self.slack_apps = Some(slack_apps);
         self
-    }
-
-    fn business_services(&self) -> Result<&Arc<dyn BusinessServiceRepository>> {
-        self.business_services
-            .as_ref()
-            .ok_or_else(|| Error::unavailable("business services are not configured"))
     }
 }
 

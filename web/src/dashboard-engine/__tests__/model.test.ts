@@ -45,13 +45,13 @@ describe('dashboard model', () => {
   it('upgrades a persisted Grafana-style dashboard without weakening JSON imports', () => {
     const definition = dashboardDefinitionFromApi({
       id: 'dashboard-legacy',
-      org_id: 'org-1',
+      orgId: 'org-1',
       uid: 'legacy-overview',
       title: 'Legacy overview',
       tags: ['legacy'],
       version: 7,
-      created_at: 1_785_062_832_000_000,
-      updated_at: 1_785_062_833_000_000,
+      createdAt: 1_785_062_832_000_000,
+      updatedAt: 1_785_062_833_000_000,
       model: {
         schemaVersion: 39,
         time: { from: 'now-1h', to: 'now' },
@@ -126,13 +126,13 @@ describe('dashboard model', () => {
   it('repairs a persisted partial v2 envelope with safe defaults', () => {
     const definition = dashboardDefinitionFromApi({
       id: 'dashboard-partial',
-      org_id: 'org-1',
+      orgId: 'org-1',
       uid: 'partial',
       title: 'Partial dashboard',
       tags: [],
       version: 1,
-      created_at: 0,
-      updated_at: 0,
+      createdAt: 0,
+      updatedAt: 0,
       model: {
         title: 'Partial dashboard',
         elements: [],
@@ -170,7 +170,7 @@ describe('dashboard model', () => {
                 refId: 'A',
                 expr: '__molesignal_public_query__',
                 language: 'promql',
-                stream_type: 'metrics',
+                streamType: 'metrics',
               },
             ],
           },

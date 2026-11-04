@@ -50,10 +50,10 @@ beforeEach(async () => {
   mocks.listResultPage.mockReset();
   mocks.refetchWorkspace.mockReset();
   mocks.listResultPage.mockResolvedValue({
-    items: [result(), result({ id: 'result-2', outcome: 'failing', is_test: true })],
+    items: [result(), result({ id: 'result-2', outcome: 'failing', isTest: true })],
     total: 42,
     page: 1,
-    per_page: 20,
+    perPage: 20,
   });
 });
 
@@ -101,7 +101,7 @@ describe('Synthetics results', () => {
 
     await waitFor(() => {
       expect(mocks.listResultPage).toHaveBeenLastCalledWith(
-        expect.objectContaining({ query: 'checkout', page: 1, per_page: 20 }),
+        expect.objectContaining({ query: 'checkout', page: 1, perPage: 20 }),
       );
     });
   });
@@ -110,21 +110,21 @@ describe('Synthetics results', () => {
 function result(overrides: Partial<SyntheticResult> = {}): SyntheticResult {
   return {
     id: 'result-1',
-    organization_id: 'org-1',
-    monitor_id: 'check-1',
-    monitor_revision_id: 'revision-1',
-    location_id: 'sin',
-    task_id: 'task-1',
-    is_test: false,
-    scheduled_at: 1,
-    started_at: 2,
-    finished_at: 3,
-    received_at: 4,
+    organizationId: 'org-1',
+    monitorId: 'check-1',
+    monitorRevisionId: 'revision-1',
+    locationId: 'sin',
+    taskId: 'task-1',
+    isTest: false,
+    scheduledAt: 1,
+    startedAt: 2,
+    finishedAt: 3,
+    receivedAt: 4,
     outcome: 'healthy',
     attempts: [],
     assertions: [],
-    secret_versions: {},
-    protocol_version: 1,
+    secretVersions: {},
+    protocolVersion: 1,
     metadata: {},
     ...overrides,
   };

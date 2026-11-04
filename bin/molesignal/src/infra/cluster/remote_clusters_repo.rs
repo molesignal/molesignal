@@ -14,6 +14,7 @@ use sqlx::{PgPool, Row};
 use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RemoteCluster {
     pub id: Id,
     pub name: String,
@@ -54,7 +55,7 @@ impl PgRemoteClustersRepository {
 }
 
 const COLS: &str = "id, name, advertise_addr, token_secret_ref, tls_verify, enabled, discovered,
-                    created_at_micros, updated_at_micros";
+                    created_at, updated_at";
 
 fn row_to(c: sqlx::postgres::PgRow) -> RemoteCluster {
     RemoteCluster {
@@ -67,8 +68,12 @@ fn row_to(c: sqlx::postgres::PgRow) -> RemoteCluster {
         tls_verify: c.try_get::<bool, _>("tls_verify").unwrap_or(true),
         enabled: c.try_get::<bool, _>("enabled").unwrap_or(true),
         discovered: c.try_get::<bool, _>("discovered").unwrap_or(false),
-        created_at: TimestampMicros(c.try_get::<i64, _>("created_at_micros").unwrap_or_default()),
-        updated_at: TimestampMicros(c.try_get::<i64, _>("updated_at_micros").unwrap_or_default()),
+        created_at: c
+            .try_get::<TimestampMicros, _>("created_at")
+            .unwrap_or_default(),
+        updated_at: c
+            .try_get::<TimestampMicros, _>("updated_at")
+            .unwrap_or_default(),
     }
 }
 
@@ -78,7 +83,7 @@ impl RemoteClustersRepository for PgRemoteClustersRepository {
         sqlx::query(
             "INSERT INTO remote_clusters
                 (id, name, advertise_addr, token_secret_ref, tls_verify, enabled, discovered,
-                 created_at_micros, updated_at_micros)
+                 created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         )
         .bind(&c.id.0)
@@ -88,8 +93,8 @@ impl RemoteClustersRepository for PgRemoteClustersRepository {
         .bind(c.tls_verify)
         .bind(c.enabled)
         .bind(c.discovered)
-        .bind(c.created_at.0)
-        .bind(c.updated_at.0)
+        .bind(c.created_at)
+        .bind(c.updated_at)
         .execute(&self.pool)
         .await
         .map_err(super::super::persistence::sqlx_err)?;
@@ -107,7 +112,7 @@ impl RemoteClustersRepository for PgRemoteClustersRepository {
                 tls_verify = $5,
                 enabled = $6,
                 discovered = $7,
-                updated_at_micros = $8
+                updated_at = $8
              WHERE id = $1",
         )
         .bind(&c.id.0)
@@ -117,7 +122,7 @@ impl RemoteClustersRepository for PgRemoteClustersRepository {
         .bind(c.tls_verify)
         .bind(c.enabled)
         .bind(c.discovered)
-        .bind(c.updated_at.0)
+        .bind(c.updated_at)
         .execute(&self.pool)
         .await
         .map_err(super::super::persistence::sqlx_err)?;
@@ -131,14 +136,14 @@ impl RemoteClustersRepository for PgRemoteClustersRepository {
         let res = sqlx::query(
             "INSERT INTO remote_clusters
                 (id, name, advertise_addr, token_secret_ref, tls_verify, enabled, discovered,
-                 created_at_micros, updated_at_micros)
+                 created_at, updated_at)
              VALUES ($1, $2, $3, '', TRUE, FALSE, TRUE, $4, $4)
              ON CONFLICT (id) DO NOTHING",
         )
         .bind(id)
         .bind(name)
         .bind(advertise_addr)
-        .bind(now)
+        .bind(TimestampMicros(now))
         .execute(&self.pool)
         .await
         .map_err(super::super::persistence::sqlx_err)?;

@@ -4,8 +4,8 @@
 //! VRL runtime。
 //!
 //! 设计：
-//! - 编译期 `compile(source)` 返回 `CompiledProgram`（缓存在 PipelineEngine 里，按
-//!   `function_id+source_hash` 做 key）；
+//! - 编译期 `compile(source)` 返回 `CompiledProgram`（缓存在 `VrlFunctionExecutor` 里，按
+//!   `function_id+updated_at` 做 key）；
 //! - 执行期 `run(&program, event)` 拿到 `serde_json::Value`、转 `vrl::value::Value`
 //!   做 target，跑解释器，再转回 `serde_json::Value`；
 //! - VRL `del()`/`.field = ...` 直接突变 target；返回值是程序末尾表达式的值（这里忽略）。
@@ -24,20 +24,31 @@ use vrl::{
     value::{Secrets, Value as VrlValue},
 };
 
+use super::lookups::{self, VrlLookups};
 use crate::{
     domain::function::FunctionOutcome,
-    shared::{Error, Result},
+    shared::{Error, Result, ids::Id},
 };
 
 /// 编译好的 VRL 程序（克隆便宜：内部 `Program` 是 Arc 化的 AST 表示）。
 #[derive(Clone)]
 pub struct CompiledProgram {
     program: Arc<Program>,
+    /// 程序里 `lookup` 读的扩展表，执行前由 [`VrlRuntime::prepare`] 读进来。
+    tables: Arc<[String]>,
+}
+
+impl CompiledProgram {
+    /// 程序能不能丢掉事件：写了 `abort` 就能。
+    pub fn can_abort(&self) -> bool {
+        self.program.info().abortable
+    }
 }
 
 pub struct VrlRuntime {
-    /// VRL stdlib 函数集合（all 包含 `parse_json`/`del`/`match`/`to_int` 等）。
-    fns: Vec<Box<dyn vrl::compiler::Function>>,
+    /// `lookup` 与 `geoip_lookup` 读的数据；没给时用启动时 [`lookups::install`] 接上的那份（用到时
+    /// 才取，运行时可以先于它建好）。
+    lookups: Option<Arc<dyn VrlLookups>>,
     /// `Runtime` 复用：`vrl::compiler::runtime::Runtime` 是 cheap；我们仍按 thread-local 兜底。
     _phantom: std::marker::PhantomData<()>,
     /// 多线程共享缓存的占位 mutex（暂不缓存，简化）
@@ -53,20 +64,61 @@ impl Default for VrlRuntime {
 impl VrlRuntime {
     pub fn new() -> Self {
         Self {
-            fns: vrl::stdlib::all(),
+            lookups: None,
             _phantom: std::marker::PhantomData,
             _lock: Mutex::new(()),
         }
     }
 
-    /// 编译 source；失败 → Error::invalid（HTTP CRUD 校验路径可直接 400）。
+    /// 用这份数据代替启动时接上的那份（测试用）。
+    pub fn with_lookups(mut self, lookups: Arc<dyn VrlLookups>) -> Self {
+        self.lookups = Some(lookups);
+        self
+    }
+
+    /// 只为检查而编译 source；失败 → Error::invalid（HTTP CRUD 校验路径可直接 400）。没有组织：
+    /// 这样编译出的程序里 `lookup` 返回 `null`，要执行的程序用 [`Self::compile_for`]。
     pub fn compile(&self, source: &str) -> Result<CompiledProgram> {
-        let result = vrl::compiler::compile(source, &self.fns)
+        self.compile_with(None, source)
+    }
+
+    /// 为组织 `org` 编译要执行的 source：`lookup` 查的是这个组织的扩展表。
+    pub fn compile_for(&self, org: &Id, source: &str) -> Result<CompiledProgram> {
+        self.compile_with(Some(org), source)
+    }
+
+    fn compile_with(&self, org: Option<&Id>, source: &str) -> Result<CompiledProgram> {
+        let tables = Arc::new(Mutex::new(Vec::new()));
+
+        // stdlib（`parse_json`/`del`/`match`/`to_int` 等），再加上查表与地理位置。
+        let mut fns = vrl::stdlib::all();
+        fns.extend(lookups::functions(org, self.lookups(), tables.clone()));
+
+        let result = vrl::compiler::compile(source, &fns)
             .map_err(|diags| Error::invalid(format!("vrl compile: {diags:?}")))?;
+
+        let mut tables = std::mem::take(&mut *tables.lock());
+        tables.sort();
+        tables.dedup();
 
         Ok(CompiledProgram {
             program: Arc::new(result.program),
+            tables: tables.into(),
         })
+    }
+
+    /// 把 program 里 `lookup` 读的扩展表读进来，执行之前调用；不读表的程序什么也不做。
+    pub async fn prepare(&self, org: &Id, program: &CompiledProgram) -> Result<()> {
+        match self.lookups() {
+            Some(lookups) if !program.tables.is_empty() => {
+                lookups.prepare(org, &program.tables).await
+            }
+            _ => Ok(()),
+        }
+    }
+
+    fn lookups(&self) -> Option<Arc<dyn VrlLookups>> {
+        self.lookups.clone().or_else(lookups::installed)
     }
 
     /// 在 `event` 上执行 program；event 被原地突变（VRL `.field = ...` 语义）。程序末尾表达式的值
@@ -287,6 +339,68 @@ mod tests {
 
         let share = outcomes.iter().filter(|o| **o == kept).count();
         assert!((20..=90).contains(&share), "{share} of 200 kept");
+    }
+
+    /// The programs the editor's "rename with a regex" and "keep only" steps generate
+    /// (`web/src/routes/pipelines/processors/catalog.ts`), as they come out of it.
+    #[test]
+    fn the_editors_bulk_rename_and_keep_programs_do_what_they_say() {
+        let rt = VrlRuntime::new();
+        let run = |source: &str, event: serde_json::Value| {
+            let prog = rt
+                .compile(source)
+                .unwrap_or_else(|e| panic!("{source}\n{e}"));
+            let mut event = event;
+            assert_eq!(rt.run(&prog, &mut event).unwrap(), FunctionOutcome::Kept);
+            event
+        };
+
+        let rename_labels = "if is_object(.labels) {\n  .labels = map_keys(object!(.labels)) -> |key| { replace(key, r'^kubernetes_(.+)$', \"$1\") }\n}";
+        assert_eq!(
+            run(
+                rename_labels,
+                json!({ "labels": { "kubernetes_pod": "web-1", "env": "prod" }, "summary": "s" })
+            ),
+            json!({ "labels": { "pod": "web-1", "env": "prod" }, "summary": "s" })
+        );
+        // A field that is missing or holds something else is left as it was.
+        assert_eq!(run(rename_labels, json!({})), json!({}));
+        assert_eq!(
+            run(rename_labels, json!({ "labels": "x" })),
+            json!({ "labels": "x" })
+        );
+
+        let rename_event = ". = map_keys(.) -> |key| { replace(key, r'^attr_', \"\") }";
+        assert_eq!(
+            run(rename_event, json!({ "attr_a": 1, "b": 2 })),
+            json!({ "a": 1, "b": 2 })
+        );
+
+        let rename_dotted = "if is_object(.\"a.b\") {\n  .\"a.b\" = map_keys(object!(.\"a.b\")) -> |key| { replace(key, r'x', \"y\") }\n} else if is_object(.a.b) {\n  .a.b = map_keys(object!(.a.b)) -> |key| { replace(key, r'x', \"y\") }\n}";
+        assert_eq!(
+            run(rename_dotted, json!({ "a": { "b": { "x": 1 } } })),
+            json!({ "a": { "b": { "y": 1 } } })
+        );
+
+        let keep_labels = "if is_object(.labels) {\n  .labels = filter(object!(.labels)) -> |key, _value| { includes([\"service\", \"env\"], key) }\n}";
+        assert_eq!(
+            run(
+                keep_labels,
+                json!({ "labels": { "service": "a", "env": "b", "pod": "c" }, "summary": "s" })
+            ),
+            json!({ "labels": { "service": "a", "env": "b" }, "summary": "s" })
+        );
+        assert_eq!(run(keep_labels, json!({})), json!({}));
+
+        let keep_event =
+            ". = filter(.) -> |key, _value| { includes([\"message\", \"_timestamp\"], key) }";
+        assert_eq!(
+            run(
+                keep_event,
+                json!({ "message": "m", "_timestamp": 1, "pod": "c" })
+            ),
+            json!({ "message": "m", "_timestamp": 1 })
+        );
     }
 
     #[test]

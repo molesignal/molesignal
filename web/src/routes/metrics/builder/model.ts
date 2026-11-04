@@ -30,21 +30,21 @@ export interface BuilderQuery {
 const FALLBACK_FUNCTIONS: PromqlCapabilityItem[] = [
   {
     label: 'rate',
-    insert_text: 'rate(${1:metric}[${2:5m}])',
+    insertText: 'rate(${1:metric}[${2:5m}])',
     detail: 'rate(range-vector)',
     documentation: 'Per-second average rate over a range vector.',
     kind: 'function',
   },
   {
     label: 'irate',
-    insert_text: 'irate(${1:metric}[${2:5m}])',
+    insertText: 'irate(${1:metric}[${2:5m}])',
     detail: 'irate(range-vector)',
     documentation: 'Instantaneous per-second rate from the last two samples.',
     kind: 'function',
   },
   {
     label: 'increase',
-    insert_text: 'increase(${1:metric}[${2:5m}])',
+    insertText: 'increase(${1:metric}[${2:5m}])',
     detail: 'increase(range-vector)',
     documentation: 'Total increase over a range vector.',
     kind: 'function',
@@ -126,15 +126,11 @@ export function composeBuilderPromql(
   const completeMatchers = query.matchers.filter(
     (matcher) => matcher.name && matcher.value,
   );
-  const matcherExpression = completeMatchers
-    .map(
-      (matcher) =>
-        `${matcher.name}${matcher.operator}"${escapeMatcherValue(matcher.value)}"`,
-    )
-    .join(',');
-  const selector = matcherExpression
-    ? `${query.metric}{${matcherExpression}}`
-    : query.metric;
+  const matcherExpressions = completeMatchers.map(
+    (matcher) =>
+      `${promqlLabelName(matcher.name)}${matcher.operator}"${escapeMatcherValue(matcher.value)}"`,
+  );
+  const selector = promqlSelector(query.metric, matcherExpressions);
   const selectedFunction = functions.find(
     (option) => option.name === query.transform,
   );
@@ -182,13 +178,22 @@ export function parseBuilderPromql(
   const selectorMatch = inner.match(
     /^([a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{(.*)\})?$/s,
   );
-  if (!selectorMatch) return null;
+  // A metric whose name PromQL cannot take bare is written `{"http.server.duration", ...}`.
+  const quotedMatch = selectorMatch
+    ? null
+    : inner.match(/^\{\s*"((?:\\.|[^"\\])*)"\s*(?:,(.*))?\}$/s);
+  if (!selectorMatch && !quotedMatch) return null;
 
-  const matchers = parseMatchers(selectorMatch[2] ?? '');
+  const metric = selectorMatch
+    ? selectorMatch[1]!
+    : unescapeMatcherValue(quotedMatch![1]!);
+  const matchers = parseMatchers(
+    (selectorMatch ? selectorMatch[2] : quotedMatch![2]) ?? '',
+  );
   if (matchers === null) return null;
 
   return {
-    metric: selectorMatch[1]!,
+    metric,
     transform,
     aggregation,
     range,
@@ -200,16 +205,17 @@ function parseMatchers(source: string): BuilderMatcher[] | null {
   if (!source.trim()) return [];
 
   const matchers: BuilderMatcher[] = [];
-  const pattern = /\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*(=~|!~|!=|=)\s*"((?:\\.|[^"\\])*)"\s*(?:,|$)/gy;
+  const pattern = /\s*([a-zA-Z_][a-zA-Z0-9_]*|"(?:\\.|[^"\\])*")\s*(=~|!~|!=|=)\s*"((?:\\.|[^"\\])*)"\s*(?:,|$)/gy;
   let offset = 0;
 
   while (offset < source.length) {
     pattern.lastIndex = offset;
     const match = pattern.exec(source);
     if (!match || match.index !== offset) return null;
+    const name = match[1]!;
     matchers.push({
       id: `matcher-${matchers.length}`,
-      name: match[1]!,
+      name: name.startsWith('"') ? unescapeMatcherValue(name.slice(1, -1)) : name,
       operator: match[2] as BuilderMatcherOperator,
       value: unescapeMatcherValue(match[3]!),
     });
@@ -217,6 +223,26 @@ function parseMatchers(source: string): BuilderMatcher[] | null {
   }
 
   return matchers;
+}
+
+const METRIC_IDENTIFIER = /^[a-zA-Z_:][a-zA-Z0-9_:]*$/;
+const LABEL_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+/**
+ * A selector of `metric` with `matchers`. A name PromQL cannot take bare, such as an OTLP name
+ * with dots, is quoted inside the braces: `{"http.server.duration", method="GET"}`.
+ */
+export function promqlSelector(metric: string, matchers: string[] = []): string {
+  if (METRIC_IDENTIFIER.test(metric)) {
+    return matchers.length > 0 ? `${metric}{${matchers.join(',')}}` : metric;
+  }
+
+  return `{${[`"${escapeMatcherValue(metric)}"`, ...matchers].join(',')}}`;
+}
+
+/** A label name as a matcher writes it, quoted when it is not an identifier. */
+function promqlLabelName(name: string): string {
+  return LABEL_IDENTIFIER.test(name) ? name : `"${escapeMatcherValue(name)}"`;
 }
 
 function escapeMatcherValue(value: string): string {

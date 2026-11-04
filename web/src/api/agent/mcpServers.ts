@@ -16,8 +16,8 @@ export type McpAuthType =
 /** Whose an MCP server is: the organization's, a team's, or one person's. */
 export type McpScope =
   | { scope: 'org' }
-  | { scope: 'team'; team_id: string }
-  | { scope: 'personal'; owner_id: string };
+  | { scope: 'team'; teamId: string }
+  | { scope: 'personal'; ownerId: string };
 
 /**
  * A header or an environment variable of a server. A secret one never comes
@@ -50,74 +50,74 @@ export interface McpMemberCredentialSpec {
 
 /** A credential a member saved for a server: only the last four characters. */
 export interface McpMemberCredential {
-  server_id: string;
-  user_id: string;
+  serverId: string;
+  userId: string;
   last4: string;
-  updated_at: number;
+  updatedAt: number;
 }
 
 export interface McpServer {
   id: string;
-  org_id: string;
+  orgId: string;
   scope: McpScope;
   /** The prefix of its tools and prompt commands, unique in the organization. */
   handle: string;
   name: string;
   transport: McpTransport;
-  endpoint_url?: string | null;
-  command_template?: string | null;
-  auth_type: McpAuthType;
-  auth_header?: string | null;
-  credential_last4?: string | null;
-  credential_set: boolean;
-  member_credential?: McpMemberCredentialSpec | null;
+  endpointUrl?: string | null;
+  commandTemplate?: string | null;
+  authType: McpAuthType;
+  authHeader?: string | null;
+  credentialLast4?: string | null;
+  credentialSet: boolean;
+  memberCredential?: McpMemberCredentialSpec | null;
   headers: McpNamedValue[];
   env: McpNamedValue[];
-  private_only: boolean;
-  allowed_domains: string[];
-  allowed_cidrs: string[];
-  follow_redirects: boolean;
-  tls_verify: boolean;
-  timeout_ms: number;
-  max_response_bytes: number;
+  privateOnly: boolean;
+  allowedDomains: string[];
+  allowedCidrs: string[];
+  followRedirects: boolean;
+  tlsVerify: boolean;
+  timeoutMs: number;
+  maxResponseBytes: number;
   enabled: boolean;
   status: 'healthy' | 'connecting' | 'error' | 'disabled' | 'unauthorized' | 'unavailable';
-  last_error?: string | null;
-  last_tested_at?: number | null;
-  last_synced_at?: number | null;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-  tool_count?: number;
-  prompt_count?: number;
+  lastError?: string | null;
+  lastTestedAt?: number | null;
+  lastSyncedAt?: number | null;
+  createdBy: string;
+  createdAt: number;
+  updatedAt: number;
+  toolCount?: number;
+  promptCount?: number;
   /** The one who reads can change it. */
   editable?: boolean;
   /** The one who reads can disable or remove it. */
   moderatable?: boolean;
   /** The credential the one who reads saved for it. */
-  my_credential?: McpMemberCredential | null;
+  myCredential?: McpMemberCredential | null;
 }
 
 export interface McpServerInput {
   scope: 'org' | 'team' | 'personal';
-  team_id?: string;
+  teamId?: string;
   name: string;
   transport: McpTransport;
-  endpoint_url?: string;
-  command_template?: string;
-  auth_type: McpAuthType;
-  auth_header?: string;
+  endpointUrl?: string;
+  commandTemplate?: string;
+  authType: McpAuthType;
+  authHeader?: string;
   credential?: string;
-  member_credential?: McpMemberCredentialSpec;
+  memberCredential?: McpMemberCredentialSpec;
   headers: McpNamedValueInput[];
   env: McpNamedValueInput[];
-  private_only: boolean;
-  allowed_domains: string[];
-  allowed_cidrs: string[];
-  follow_redirects: boolean;
-  tls_verify: boolean;
-  timeout_ms: number;
-  max_response_bytes: number;
+  privateOnly: boolean;
+  allowedDomains: string[];
+  allowedCidrs: string[];
+  followRedirects: boolean;
+  tlsVerify: boolean;
+  timeoutMs: number;
+  maxResponseBytes: number;
   enabled: boolean;
 }
 
@@ -133,23 +133,23 @@ export interface DiscoveredMcpTool {
 /** A tool of a server as it is registered: off until someone turns it on. */
 export interface McpToolRow {
   id: string;
-  org_id: string;
-  server_id: string;
+  orgId: string;
+  serverId: string;
   /** The name on the server. */
-  remote_name: string;
+  remoteName: string;
   /** The name in Mole Agent: `mcp__<handle>__<tool>`. */
   name: string;
-  display_name: string;
+  displayName: string;
   description: string;
-  minimum_risk: RiskLevel;
+  minimumRisk: RiskLevel;
   risk: RiskLevel;
-  execution_mode: ToolExecutionMode;
-  capabilities: { read_only?: boolean; idempotent?: boolean } & Record<string, unknown>;
+  executionMode: ToolExecutionMode;
+  capabilities: { readOnly?: boolean; idempotent?: boolean } & Record<string, unknown>;
   enabled: boolean;
   status: 'healthy' | 'degraded' | 'unavailable' | 'disabled';
   /** Why the tool cannot be used, for example its schema changed on the server. */
-  unavailable_diagnostic?: string | null;
-  last_synced_at: number;
+  unavailableDiagnostic?: string | null;
+  lastSyncedAt: number;
 }
 
 export interface McpPromptArgument {
@@ -160,19 +160,19 @@ export interface McpPromptArgument {
 
 /** A prompt a server offers; the chat runs it as `/<handle>:<prompt>`. */
 export interface McpPrompt {
-  org_id: string;
-  server_id: string;
+  orgId: string;
+  serverId: string;
   name: string;
   title?: string | null;
   description: string;
   arguments: McpPromptArgument[];
-  synced_at: number;
+  syncedAt: number;
 }
 
 export interface McpTestResult {
   success: boolean;
   server: McpServer;
-  discovered_tools: DiscoveredMcpTool[];
+  discoveredTools: DiscoveredMcpTool[];
   error?: string;
 }
 
@@ -194,8 +194,8 @@ export async function listMcpServers(): Promise<McpServer[]> {
  * start (`[agent] mcp_stdio_commands`); none means stdio servers do not run.
  */
 export async function mcpStdioCommands(): Promise<string[]> {
-  const { data } = await http.get<{ stdio_commands?: string[] }>('/agent/mcp-servers');
-  return data.stdio_commands ?? [];
+  const { data } = await http.get<{ stdioCommands?: string[] }>('/agent/mcp-servers');
+  return data.stdioCommands ?? [];
 }
 
 /** The program a stdio command line starts: its first word, quotes taken off. */
@@ -248,13 +248,13 @@ export async function testMcpServer(id: string): Promise<McpTestResult> {
 export async function syncMcpServer(
   id: string,
   selectedTools: string[],
-): Promise<{ server: McpServer; tools: McpToolRow[]; prompt_count?: number }> {
+): Promise<{ server: McpServer; tools: McpToolRow[]; promptCount?: number }> {
   const { data } = await http.post<{
     server: McpServer;
     tools: McpToolRow[];
-    prompt_count?: number;
+    promptCount?: number;
   }>(`${path(id)}/sync`, {
-    selected_tools: selectedTools,
+    selectedTools: selectedTools,
   });
   return data;
 }
@@ -302,7 +302,7 @@ export async function deleteMyMcpCredential(id: string): Promise<boolean> {
 /** Makes servers out of the `mcpServers` configuration of another client, pasted as text. */
 export async function importMcpServers(input: {
   scope: 'org' | 'team' | 'personal';
-  team_id?: string;
+  teamId?: string;
   config: string;
 }): Promise<McpImportReport> {
   const { data } = await http.post<McpImportReport>('/agent/mcp-servers/import', input);

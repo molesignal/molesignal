@@ -5,16 +5,17 @@ use axum::{
     Extension, Json, Router,
     body::Bytes,
     extract::{Path, State},
+    http::HeaderMap,
     routing::post,
 };
 use serde_json::Value;
 
 use crate::{
     api::AppState,
-    app::iam::IamContext,
+    app::{iam::IamContext, intake::usage::IntakeReceipt},
     domain::{
         iam::permission,
-        intake::{IntakeBatch, IntakeResult, RawEvent},
+        intake::{IntakeBatch, IntakeResult, RawEvent, usage::source::IntakeCredential},
         stream::StreamType,
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
@@ -24,6 +25,21 @@ mod compat;
 mod connectors;
 pub(crate) mod otlp;
 mod prometheus;
+
+/// 没有 `stream-name` 头时 OTLP 与 Prometheus remote_write 写入的流：与前端 explore /
+/// send-test-event 相同的 `default` 流，不存在时 intake 自动建流。
+const DEFAULT_STREAM: &str = "default";
+
+/// 请求头 `stream-name` 指定的目标流，缺省为 `default`。
+fn stream_name(headers: &HeaderMap, default: &str) -> String {
+    headers
+        .get("stream-name")
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(default)
+        .to_string()
+}
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -36,7 +52,7 @@ pub fn routes() -> Router<AppState> {
         .merge(compat::routes())
 }
 
-#[permission("streams.write")]
+#[permission("logs.write")]
 async fn intake_logs(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -46,7 +62,7 @@ async fn intake_logs(
     intake(state, ctx, stream, StreamType::LOGS, body).await
 }
 
-#[permission("streams.write")]
+#[permission("metrics.write")]
 async fn intake_metrics(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -56,7 +72,7 @@ async fn intake_metrics(
     intake(state, ctx, stream, StreamType::METRICS, body).await
 }
 
-#[permission("streams.write")]
+#[permission("traces.write")]
 async fn intake_traces(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -73,16 +89,17 @@ async fn intake(
     stream_type: StreamType,
     body: Bytes,
 ) -> Result<Json<IntakeResult>> {
-    crate::api::http::intake_usage::record_intake_usage(
-        &state,
-        &ctx.org_id,
-        body.len() as u64,
-        TimestampMicros::now().0,
-    );
-
     let value: Value =
         serde_json::from_slice(&body).map_err(|e| Error::invalid(format!("intake body: {e}")))?;
     let events = events_from_body(value)?;
+
+    let receipt = IntakeReceipt::of_events(
+        IntakeCredential::of(&ctx),
+        stream_type,
+        &stream,
+        body.len() as u64,
+        &events,
+    );
 
     let batch = IntakeBatch {
         batch_id: Id::new(),
@@ -93,7 +110,18 @@ async fn intake(
         received_at: TimestampMicros::now(),
     };
 
-    let result = state.intake.intake(batch).await?;
+    // Spans meet their stream's realtime pipeline here, before they are handed on.
+    let result = if stream_type == StreamType::TRACES {
+        state.intake.intake_spans(batch).await?
+    } else {
+        state.intake.intake(batch).await?
+    };
+
+    state
+        .platform
+        .intake_meter
+        .record(&ctx.org_id, receipt, result.accepted as u64);
+
     Ok(Json(result))
 }
 

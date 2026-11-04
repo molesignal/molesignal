@@ -26,7 +26,7 @@ async fn avatar_upload_serves_publicly_and_email_is_immutable() {
         .unwrap();
     assert_eq!(resp.status(), 200, "avatar upload should succeed");
     let body: serde_json::Value = resp.json().await.unwrap();
-    let avatar_url = body["avatar_url"]
+    let avatar_url = body["avatarUrl"]
         .as_str()
         .expect("avatar_url set")
         .to_string();
@@ -83,7 +83,7 @@ async fn avatar_upload_serves_publicly_and_email_is_immutable() {
         .put(format!("{}/api/v1/me/profile", s.base_url))
         .header(hk, &hv)
         .json(&serde_json::json!({
-            "display_name": "Renamed User",
+            "displayName": "Renamed User",
             "email": "evil@attacker.test"
         }))
         .send()
@@ -94,7 +94,7 @@ async fn avatar_upload_serves_publicly_and_email_is_immutable() {
         .unwrap();
     assert_eq!(put["email"], original_email, "email must stay immutable");
     assert_eq!(
-        put["display_name"], "Renamed User",
+        put["displayName"], "Renamed User",
         "display_name still updates"
     );
 

@@ -53,8 +53,8 @@ const LABEL_PIXELS_PER_CHARACTER = 6.5;
 const LABEL_AIR_PIXELS = 44;
 /** Shorter than this, a press is a click and selects nothing. */
 const MIN_DRAG_PIXELS = 4;
-const OK_FILL = 'bg-blue-soft';
-const ERROR_FILL = 'bg-orange-soft';
+const OK_FILL = 'bg-[var(--blue-fill)]';
+const ERROR_FILL = 'bg-[var(--orange-fill)]';
 
 interface Cursor {
   index: number;
@@ -120,7 +120,7 @@ export function HistogramPlot({
   const widthLabel = t(`histogram.unit_${width.unit}`, { value: width.value });
   const spansDays = days.length > 1;
   const rangeOf = (from: number, to: number) =>
-    `${momentLabel(buckets[from]!.startMicros, binMicros, clock, spansDays)} – ${momentLabel(buckets[to]!.endMicros, binMicros, clock, spansDays)}`;
+    `${momentLabel(buckets[from]!.startTime, binMicros, clock, spansDays)} – ${momentLabel(buckets[to]!.endTime, binMicros, clock, spansDays)}`;
   const share = (count: number) => `${(count / buckets.length) * 100}%`;
 
   const cursorAt = (index: number, spoken: boolean): Cursor | null => {
@@ -148,7 +148,7 @@ export function HistogramPlot({
     const last = buckets[Math.max(from, to)];
 
     // The results may have been replaced while a stretch was being marked.
-    if (first && last) onRangeSelect({ from: first.startMicros, to: last.endMicros });
+    if (first && last) onRangeSelect({ from: first.startTime, to: last.endTime });
   };
   const release = () => {
     press.current = null;
@@ -227,7 +227,7 @@ export function HistogramPlot({
           {counts.map((count, index) => (
             <span
               key={count}
-              className="type-micro absolute right-0 translate-y-1/2 font-mono leading-none tabular-nums text-tx-3"
+              className="type-micro absolute right-0 translate-y-1/2 leading-none tabular-nums text-tx-3"
               style={{ bottom: `${(count / top) * 100}%` }}
             >
               {countLabels[index]}
@@ -297,7 +297,7 @@ export function HistogramPlot({
 
             return (
               <span
-                key={bucket.startMicros}
+                key={bucket.startTime}
                 aria-hidden="true"
                 data-histogram-bar={total}
                 className={cn(
@@ -341,7 +341,7 @@ export function HistogramPlot({
                 <span className="absolute top-0 h-[4px] w-px bg-tx-0/25" style={{ left: `${at}%` }} />
                 <span
                   className={cn(
-                    'type-micro absolute top-[7px] whitespace-nowrap font-mono leading-none tabular-nums',
+                    'type-micro absolute top-[7px] whitespace-nowrap leading-none tabular-nums',
                     tick.day ? 'font-semibold text-tx-1' : 'text-tx-3',
                     // A label at an end of the axis stays inside it.
                     at < 2 ? 'translate-x-0' : at > 98 ? '-translate-x-full' : '-translate-x-1/2',
@@ -361,7 +361,7 @@ export function HistogramPlot({
           data-frame-start={frame.start}
           data-frame-end={frame.end}
           data-bar-micros={binMicros}
-          className="type-micro flex flex-wrap justify-between gap-x-3 gap-y-[4px] font-mono leading-none tabular-nums text-tx-3"
+          className="type-micro flex flex-wrap justify-between gap-x-3 gap-y-[4px] leading-none tabular-nums text-tx-3"
         >
           <span className="truncate">
             {days.map((day, index) => (
@@ -396,8 +396,8 @@ export function HistogramPlot({
       <span className="sr-only" aria-live="polite">
         {pointed && cursor?.spoken
           ? t(split ? 'histogram.bar_readout' : 'histogram.bar_readout_whole', {
-              from: momentLabel(pointed.startMicros, binMicros, clock, spansDays),
-              to: momentLabel(pointed.endMicros, binMicros, clock, spansDays),
+              from: momentLabel(pointed.startTime, binMicros, clock, spansDays),
+              to: momentLabel(pointed.endTime, binMicros, clock, spansDays),
               total: pointed.ok + pointed.err,
               errors: pointed.err,
             })

@@ -14,24 +14,24 @@ const NOW = Date.UTC(2026, 9, 11, 12) * 1_000;
 function incident(overrides: Partial<Incident> = {}): Incident {
   return {
     id: 'incident-1',
-    org_id: 'org-1',
-    rule_id: 'rule-1',
-    escalation_policy_id: 'policy-1',
+    orgId: 'org-1',
+    ruleId: 'rule-1',
+    escalationPolicyId: 'policy-1',
     status: 'open',
     severity: 'warning',
     summary: 'Checkout latency is high',
     fingerprint: 'fp',
-    current_step: 0,
-    current_loop: 0,
-    current_step_started_at: 0,
+    currentStep: 0,
+    currentLoop: 0,
+    currentStepStartedAt: 0,
     assignees: [],
-    created_at: NOW - 600 * SECOND,
+    createdAt: NOW - 600 * SECOND,
     labels: {},
     annotations: {},
-    trace_ids: [],
-    host_ids: [],
-    affected_services: [],
-    triggering_query: null,
+    traceIds: [],
+    hostIds: [],
+    affectedServices: [],
+    triggeringQuery: null,
     ...overrides,
   };
 }
@@ -56,7 +56,7 @@ function standing() {
 describe('IncidentStanding', () => {
   it('takes the colour of the worst incident that is firing and says how many are', () => {
     const active = [
-      incident({ id: 'a', severity: 'critical', affected_services: ['checkout'] }),
+      incident({ id: 'a', severity: 'critical', affectedServices: ['checkout'] }),
       incident({ id: 'b', severity: 'warning', status: 'acknowledged', labels: { service: 'cart' } }),
     ];
     render(
@@ -85,7 +85,7 @@ describe('IncidentStanding', () => {
       <IncidentStanding
         active={[]}
         waiting={[]}
-        recovered={[incident({ status: 'resolved', resolved_at: NOW - 3_600 * SECOND })]}
+        recovered={[incident({ status: 'resolved', resolvedAt: NOW - 3_600 * SECOND })]}
         ruleCount={12}
         nowMicros={NOW}
       />,

@@ -65,6 +65,7 @@ impl SubscriberComponentScope {
 /// What a subscriber hears about. A subscriber of the whole page hears about
 /// components added later too.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SubscriberComponents {
     #[serde(rename = "component_scope")]
     pub scope: SubscriberComponentScope,
@@ -157,6 +158,7 @@ impl StatusPageSubscriberStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusPageSubscriber {
     pub id: Id,
     pub org_id: Id,
@@ -449,6 +451,7 @@ pub trait StatusPageSlackApps: Send + Sync {
 
 /// A Slack App connector, as the settings of a page offer it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SlackAppConnectorChoice {
     pub id: Id,
     pub name: String,

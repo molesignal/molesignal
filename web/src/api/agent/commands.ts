@@ -17,14 +17,14 @@ export interface AgentCommand {
   /** In the reader's language. */
   description: string;
   /** How the argument is written: the words it can be, joined by `|`, or a hint. */
-  argument_hint: string | null;
-  argument_required: boolean;
+  argumentHint: string | null;
+  argumentRequired: boolean;
   /** The words the argument can be; empty when it is free text. */
   choices: string[];
   suggest: CommandSuggest | null;
   available: boolean;
   /** Why the command cannot be used, in the reader's language. */
-  unavailable_reason: string | null;
+  unavailableReason: string | null;
   /** The team of a team skill, as written after `@`; the menu groups by it. */
   team?: string | null;
   /** The MCP server a prompt comes from; the menu groups by it. */
@@ -47,8 +47,8 @@ export async function listCommands(
   scope: { chatId?: string | null; teamId?: string | null } = {},
 ): Promise<AgentCommand[]> {
   const params: Record<string, string> = {};
-  if (scope.chatId) params.chat_id = scope.chatId;
-  else if (scope.teamId) params.team_id = scope.teamId;
+  if (scope.chatId) params.chatId = scope.chatId;
+  else if (scope.teamId) params.teamId = scope.teamId;
   const { data } = await http.get<{ commands: AgentCommand[] }>('/agent/commands', { params });
   return data.commands ?? [];
 }

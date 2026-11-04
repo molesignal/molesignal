@@ -127,6 +127,8 @@ mod tests {
             deadline_at: TimestampMicros(2),
             timeout_millis: 1_000,
             max_attempts: 1,
+            inject_trace_context: true,
+            traceroute_on_failure: true,
             lease_agent_id: None,
             lease_token_hash: None,
             leased_until: None,

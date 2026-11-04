@@ -3,7 +3,7 @@
 
 use serde_json::{Value, json};
 
-use super::{BuiltinToolKind, object_schema, open_output, time_range_schema};
+use super::{BuiltinToolKind, object_schema, open_output, time_range_schema, timestamp_schema};
 use crate::{RiskLevel, ToolSpec};
 
 mod mutations;
@@ -26,7 +26,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "List dashboards, optionally within one folder.",
             "dashboards",
             object_schema(json!({
-                "folder_id": {"type": "string"}, "limit": limit()
+                "folderId": {"type": "string"}, "limit": limit()
             })),
             &["dashboards.read", "sys.dashboards.read"],
             &["Dashboard"],
@@ -34,7 +34,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::GetDashboard => id_entry(
             "Get a Dashboard and its complete model by id.",
             "dashboards",
-            "dashboard_id",
+            "dashboardId",
             &["dashboards.read", "sys.dashboards.read"],
             &["Dashboard"],
         ),
@@ -48,7 +48,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::GetFolder => id_entry(
             "Get one Dashboard folder by id.",
             "folders",
-            "folder_id",
+            "folderId",
             &["dashboards.read", "sys.dashboards.read"],
             &["Dashboard", "Folders"],
         ),
@@ -56,7 +56,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "List bounded time annotations for a range and optional Dashboard or panel.",
             "annotations",
             object_schema(json!({
-                "time_range": time_range_schema(), "dashboard_id": {"type": "string"},
+                "timeRange": time_range_schema(), "dashboardId": {"type": "string"},
                 "limit": limit()
             })),
             &["dashboards.read"],
@@ -65,7 +65,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::GetAnnotation => id_entry(
             "Get one time annotation by id.",
             "annotations",
-            "annotation_id",
+            "annotationId",
             &["dashboards.read"],
             &["Dashboard", "Annotations"],
         ),
@@ -86,7 +86,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::DeleteAnnotation => entry(
             "Delete one time annotation through the configured execution policy.",
             "annotations",
-            proposal_id_input("annotation_id"),
+            proposal_id_input("annotationId"),
             &["dashboards.edit"],
             &["Dashboard", "Annotations", "Delete"],
         ),
@@ -201,7 +201,7 @@ fn proposal_schema(required: Vec<&str>, properties: Value) -> Value {
         json!({
             "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
             "impact": {"type": "string", "minLength": 1, "maxLength": 2000},
-            "expires_at_micros": {"type": "integer"}
+            "expiresAt": timestamp_schema()
         })
         .as_object()
         .cloned()
@@ -225,69 +225,69 @@ fn proposal_id_input(field: &str) -> Value {
 
 fn annotation_create_input() -> Value {
     proposal_schema(
-        vec!["title", "time_start_micros", "time_end_micros"],
+        vec!["title", "timeStart", "timeEnd"],
         json!({
             "title": {"type": "string", "minLength": 1, "maxLength": 500},
             "description": {"type": ["string", "null"]},
             "tags": {"type": "array", "maxItems": 64, "items": {"type": "string", "maxLength": 128}},
-            "time_start_micros": {"type": "integer"}, "time_end_micros": {"type": "integer"},
-            "dashboard_id": {"type": ["string", "null"]}, "stream_name": {"type": ["string", "null"]}
+            "timeStart": timestamp_schema(), "timeEnd": timestamp_schema(),
+            "dashboardId": {"type": ["string", "null"]}, "streamName": {"type": ["string", "null"]}
         }),
     )
 }
 
 fn annotation_update_input() -> Value {
     proposal_schema(
-        vec!["annotation_id"],
+        vec!["annotationId"],
         json!({
-            "annotation_id": {"type": "string", "minLength": 1},
+            "annotationId": {"type": "string", "minLength": 1},
             "title": {"type": "string", "minLength": 1, "maxLength": 500},
             "description": {"type": ["string", "null"]},
             "tags": {"type": "array", "maxItems": 64, "items": {"type": "string", "maxLength": 128}},
-            "time_start_micros": {"type": "integer"}, "time_end_micros": {"type": "integer"},
-            "dashboard_id": {"type": ["string", "null"]}, "stream_name": {"type": ["string", "null"]}
+            "timeStart": timestamp_schema(), "timeEnd": timestamp_schema(),
+            "dashboardId": {"type": ["string", "null"]}, "streamName": {"type": ["string", "null"]}
         }),
     )
 }
 
 fn panel_add_input() -> Value {
     proposal_schema(
-        vec!["dashboard_id", "panel"],
+        vec!["dashboardId", "panel"],
         json!({
-            "dashboard_id": {"type": "string", "minLength": 1}, "panel": {"type": "object"},
-            "container_id": {"type": ["string", "null"]}, "position": {"type": "integer", "minimum": 0},
-            "expected_version": {"type": "integer", "minimum": 0}
+            "dashboardId": {"type": "string", "minLength": 1}, "panel": {"type": "object"},
+            "containerId": {"type": ["string", "null"]}, "position": {"type": "integer", "minimum": 0},
+            "expectedVersion": {"type": "integer", "minimum": 0}
         }),
     )
 }
 
 fn panel_update_input() -> Value {
     proposal_schema(
-        vec!["dashboard_id", "panel_id", "panel"],
+        vec!["dashboardId", "panelId", "panel"],
         json!({
-            "dashboard_id": {"type": "string", "minLength": 1}, "panel_id": {"type": "string", "minLength": 1},
-            "panel": {"type": "object"}, "expected_version": {"type": "integer", "minimum": 0}
+            "dashboardId": {"type": "string", "minLength": 1}, "panelId": {"type": "string", "minLength": 1},
+            "panel": {"type": "object"}, "expectedVersion": {"type": "integer", "minimum": 0}
         }),
     )
 }
 
 fn panel_move_input() -> Value {
     proposal_schema(
-        vec!["dashboard_id", "panel_id", "position"],
+        vec!["dashboardId", "panelId", "position"],
         json!({
-            "dashboard_id": {"type": "string", "minLength": 1}, "panel_id": {"type": "string", "minLength": 1},
-            "container_id": {"type": ["string", "null"]}, "position": {"type": "integer", "minimum": 0},
-            "expected_version": {"type": "integer", "minimum": 0}
+            "dashboardId": {"type": "string", "minLength": 1}, "panelId": {"type": "string", "minLength": 1},
+            "containerId": {"type": ["string", "null"]}, "position": {"type": "integer", "minimum": 0},
+            "expectedVersion": {"type": "integer", "minimum": 0}
         }),
     )
 }
 
 fn panel_delete_input() -> Value {
     proposal_schema(
-        vec!["dashboard_id", "panel_id"],
+        vec!["dashboardId", "panelId"],
         json!({
-            "dashboard_id": {"type": "string", "minLength": 1}, "panel_id": {"type": "string", "minLength": 1},
-            "expected_version": {"type": "integer", "minimum": 0}
+            "dashboardId": {"type": "string", "minLength": 1}, "panelId": {"type": "string", "minLength": 1},
+            "expectedVersion": {"type": "integer", "minimum": 0}
         }),
     )
 }

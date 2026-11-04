@@ -45,7 +45,7 @@ pub(super) async fn run_worker(
         }
     };
 
-    let mut limiter = ApmCardinalityLimiter::new(config.cardinality.clone());
+    let mut limiter = ApmCardinalityLimiter::new(config.limits.clone());
     let mut tick = tokio::time::interval(config.flush_interval);
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
@@ -278,6 +278,12 @@ async fn flush_batch(
 
     repository
         .upsert_catalog(&batch.services, &batch.versions)
+        .await
+        .map_err(|_| ())?;
+
+    // After the catalog: an instance row hangs off its service's row.
+    repository
+        .upsert_instances(&batch.instances)
         .await
         .map_err(|_| ())?;
 

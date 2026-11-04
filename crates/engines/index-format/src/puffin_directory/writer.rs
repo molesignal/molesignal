@@ -17,10 +17,7 @@ use tantivy::{
     directory::{Directory, MmapDirectory, WatchCallback, WatchHandle, error::OpenReadError},
 };
 
-use super::{
-    ALLOWED_FILE_EXT, FOOTER_CACHE_BLOB_TAG, META_JSON,
-    empty_directory::build_footer_cache_for_test_only,
-};
+use super::{ALLOWED_FILE_EXT, FOOTER_CACHE_BLOB_TAG, META_JSON};
 use crate::puffin::{BlobTypes, writer::PuffinBytesWriter};
 
 #[derive(Debug)]
@@ -55,13 +52,25 @@ impl PuffinDirWriter {
     }
 
     /// 序列化 puffin 文件 bytes。
-    /// 写入顺序：每个白名单文件作为 [`BlobTypes::TantivySegmentV1`] blob，最后一个
-    /// [`BlobTypes::TantivyFooterV1`] blob 放 segment-meta cache 占位。
+    /// 写入顺序：先是 tantivy 段文件，再是 `.managed.json` 与 `meta.json`，最后是
+    /// [`BlobTypes::TantivyFooterV1`] 的 segment-open [`hot_cache`](super::hot_cache)。读端打开
+    /// 归档时需要的小 blob 都紧挨 footer，一次末尾 range read 就能连同 footer 一起拿到。
     pub fn to_puffin_bytes(&self) -> Result<Vec<u8>> {
         let mut out: Vec<u8> = Vec::new();
+        self.write_puffin(&mut out)?;
+        Ok(out)
+    }
+
+    /// 同 [`Self::to_puffin_bytes`]，但写进 `out`（例如本地文件），返回写出的字节数。
+    pub fn write_puffin<W: io::Write>(&self, out: W) -> Result<u64> {
+        let hot_cache = super::hot_cache::build(self.mmap.clone())?.encode();
+        let mut counted = CountingWriter {
+            inner: out,
+            written: 0,
+        };
 
         {
-            let mut writer = PuffinBytesWriter::new(&mut out);
+            let mut writer = PuffinBytesWriter::new(&mut counted);
 
             for (k, v) in self.properties.read().expect("poisoned").iter() {
                 writer.set_property(k.clone(), v.clone());
@@ -69,14 +78,14 @@ impl PuffinDirWriter {
 
             let paths = self.file_paths.read().expect("poisoned");
             // sort for deterministic output (tests + diffability)
-            let mut sorted: Vec<PathBuf> = paths.iter().cloned().collect();
-            sorted.sort();
+            let mut sorted: Vec<PathBuf> = paths
+                .iter()
+                .filter(|path| is_allowed(path))
+                .cloned()
+                .collect();
+            sorted.sort_by_key(|path| (is_metadata(path), path.clone()));
 
             for path in sorted {
-                if !is_allowed(&path) {
-                    continue;
-                }
-
                 let file_data = self
                     .mmap
                     .open_read(&path)
@@ -90,10 +99,8 @@ impl PuffinDirWriter {
                 writer.add_blob(&bytes, BlobTypes::TantivySegmentV1, tag)?;
             }
 
-            let footer_cache = build_footer_cache_for_test_only();
-
             writer.add_blob(
-                &footer_cache,
+                &hot_cache,
                 BlobTypes::TantivyFooterV1,
                 FOOTER_CACHE_BLOB_TAG.to_string(),
             )?;
@@ -101,7 +108,26 @@ impl PuffinDirWriter {
             writer.finish()?;
         }
 
-        Ok(out)
+        io::Write::flush(&mut counted.inner).map_err(|e| anyhow!("puffin flush: {e}"))?;
+
+        Ok(counted.written)
+    }
+}
+
+struct CountingWriter<W> {
+    inner: W,
+    written: u64,
+}
+
+impl<W: io::Write> io::Write for CountingWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let written = self.inner.write(buf)?;
+        self.written += written as u64;
+        Ok(written)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.inner.flush()
     }
 }
 
@@ -118,6 +144,11 @@ fn is_allowed(path: &Path) -> bool {
             .and_then(|n| n.to_str())
             .map(|n| n == META_JSON)
             .unwrap_or(false)
+}
+
+/// `.managed.json` 与 `meta.json`：读端打开归档就要的小文件，排在段文件之后。
+fn is_metadata(path: &Path) -> bool {
+    path.extension().and_then(|e| e.to_str()) == Some("json")
 }
 
 impl Clone for PuffinDirWriter {

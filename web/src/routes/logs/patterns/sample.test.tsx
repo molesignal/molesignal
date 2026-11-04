@@ -17,7 +17,7 @@ const QUERY: PatternSampleQuery = {
   orgId: 'org-1',
   stream: 'app_logs',
   statement: "level = 'ERROR'",
-  globalFilters: [],
+  pinned: [],
   timeRange: { start: 100, end: 200 },
   ranAt: 1,
   step: PATTERN_SAMPLE_STEP,
@@ -27,9 +27,9 @@ const QUERY: PatternSampleQuery = {
 function answer(index: number, size: number, next: boolean) {
   return {
     items: Array.from({ length: size }, (_, item) => ({ _timestamp: 1_000_000 - index * 10_000 - item, message: 'ok' })),
-    next_cursor: next ? `cursor-${index + 1}` : null,
-    previous_cursor: null,
-    has_more: next,
+    nextCursor: next ? `cursor-${index + 1}` : null,
+    previousCursor: null,
+    hasMore: next,
   };
 }
 
@@ -78,7 +78,7 @@ describe('useLogPatternSample', () => {
       from: 100,
       to: 200,
       filters: [{ field: 'level', op: '=', value: 'ERROR', quoted: true }],
-      free_text: [],
+      freeText: [],
       limit: PATTERN_SAMPLE_STEP,
     });
   });

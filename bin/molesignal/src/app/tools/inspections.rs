@@ -27,6 +27,7 @@ const DEFAULT_RUNS: i64 = 10;
 const MAX_RUNS: i64 = 50;
 
 #[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct InspectionArgs {
     inspection_id: Option<String>,
     run_id: Option<String>,
@@ -67,7 +68,7 @@ pub(super) async fn execute(
             json_result(&rows)
         }
         BuiltinToolKind::ListLogInspectionRuns => {
-            let id = required_id(args.inspection_id, "inspection_id")?;
+            let id = required_id(args.inspection_id, "inspectionId")?;
             let limit = args.limit.unwrap_or(DEFAULT_RUNS).clamp(1, MAX_RUNS);
 
             let runs = service.list_runs(&auth.org_id, &id, None, limit).await?;
@@ -75,8 +76,8 @@ pub(super) async fn execute(
             json_result(&runs.iter().map(run_summary).collect::<Vec<_>>())
         }
         BuiltinToolKind::GetLogInspectionRun => {
-            let id = required_id(args.inspection_id, "inspection_id")?;
-            let run_id = required_id(args.run_id, "run_id")?;
+            let id = required_id(args.inspection_id, "inspectionId")?;
+            let run_id = required_id(args.run_id, "runId")?;
 
             let run = service.get_run(&auth.org_id, &id, &run_id).await?;
 
@@ -114,27 +115,27 @@ fn inspection_row(
         "name": inspection.name,
         "stream": inspection.stream,
         "statement": inspection.statement,
-        "window_secs": inspection.window_secs,
+        "windowSecs": inspection.window_secs,
         "requirements": inspection.requirements,
         "schedule": inspection.schedule,
         "timezone": inspection.timezone,
         "model": inspection.model,
-        "notify_when": inspection.notify_when,
-        "notify_routes": inspection.notify_routes,
+        "notifyWhen": inspection.notify_when,
+        "notifyRoutes": inspection.notify_routes,
         "language": inspection.language,
         "enabled": inspection.enabled,
-        "run_as_user": run_as,
-        "next_run_at_micros": inspection.next_run_at.map(|at| at.0),
-        "last_run": inspection.last_run.map(|run| json!({
-            "at_micros": run.at.0,
+        "runAsUser": run_as,
+        "nextRunAt": inspection.next_run_at.map(|at| at.0),
+        "lastRun": inspection.last_run.map(|run| json!({
+            "atTime": run.at.0,
             "status": run.status,
             "level": run.level,
         })),
-        "active_run": running.map(|run| json!({
+        "activeRun": running.map(|run| json!({
             "id": run.id,
             "status": run.status,
             "trigger": run.trigger,
-            "created_at_micros": run.created_at.0,
+            "createdAt": run.created_at.0,
         })),
     })
 }
@@ -148,10 +149,10 @@ fn run_summary(run: &LogInspectionRun) -> Value {
         "level": run.level,
         "summary": run.summary,
         "failure": run.failure,
-        "window_start_micros": run.window_start.0,
-        "window_end_micros": run.window_end.0,
-        "created_at_micros": run.created_at.0,
-        "finished_at_micros": run.finished_at.map(|at| at.0),
+        "windowStart": run.window_start.0,
+        "windowEnd": run.window_end.0,
+        "createdAt": run.created_at.0,
+        "finishedAt": run.finished_at.map(|at| at.0),
     })
 }
 
@@ -161,11 +162,11 @@ fn run_detail(run: &LogInspectionRun) -> Value {
     detail["report"] = json!(run.report);
     detail["error"] = json!(run.error);
     detail["model"] = json!(run.model);
-    detail["requested_by"] = json!(run.requested_by);
-    detail["started_at_micros"] = json!(run.started_at.map(|at| at.0));
-    detail["tool_calls"] = json!(run.tool_calls);
-    detail["prompt_tokens"] = json!(run.prompt_tokens);
-    detail["completion_tokens"] = json!(run.completion_tokens);
+    detail["requestedBy"] = json!(run.requested_by);
+    detail["startedAt"] = json!(run.started_at.map(|at| at.0));
+    detail["toolCalls"] = json!(run.tool_calls);
+    detail["promptTokens"] = json!(run.prompt_tokens);
+    detail["completionTokens"] = json!(run.completion_tokens);
     detail["notifications"] = json!(run.notifications);
 
     detail

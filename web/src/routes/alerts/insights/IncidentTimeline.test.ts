@@ -7,7 +7,7 @@ describe('buildIncidentTimeline', () => {
     const now = new Date(2026, 7, 15, 10, 30).getTime();
     const createdAt = new Date(2026, 7, 14, 12, 15).getTime();
     const buckets = buildIncidentTimeline(
-      [{ created_at: createdAt * 1_000 }],
+      [{ createdAt: createdAt * 1_000 }],
       86_400,
       now,
       'zh-CN',
@@ -24,7 +24,7 @@ describe('buildIncidentTimeline', () => {
     const now = new Date(2026, 7, 15, 10, 30).getTime();
     const createdAt = new Date(2026, 7, 13, 23, 45).getTime();
     const buckets = buildIncidentTimeline(
-      [{ created_at: createdAt * 1_000 }],
+      [{ createdAt: createdAt * 1_000 }],
       604_800,
       now,
       'zh-CN',
@@ -41,7 +41,7 @@ describe('buildIncidentTimeline', () => {
     const now = new Date(2026, 7, 15, 10, 30).getTime();
     const oldIncident = new Date(2026, 6, 1).getTime();
     const buckets = buildIncidentTimeline(
-      [{ created_at: oldIncident * 1_000 }],
+      [{ createdAt: oldIncident * 1_000 }],
       604_800,
       now,
       'zh-CN',

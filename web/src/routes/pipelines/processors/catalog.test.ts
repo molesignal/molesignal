@@ -3,13 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   compileProcessor,
   defaultProcessor,
-  parseProcessor,
   PROCESSOR_OPS,
   processorProblem,
   processorStepName,
   processorSummary,
   type ProcessorConfig,
 } from './catalog';
+import { parseProcessor } from './parse';
 
 /**
  * Every script here was run on the product's VRL runtime with an event that
@@ -77,6 +77,35 @@ describe('compileProcessor', () => {
       'if exists(.msg) {',
       '  .message = del(.msg)',
       '}',
+    ]);
+  });
+
+  it('renames the keys of an object by a pattern, or of the event itself', () => {
+    expect(vrl({ op: 'rename_regex', within: 'labels', pattern: '^kubernetes_(.+)$', replacement: '$1' })).toEqual([
+      'if is_object(.labels) {',
+      "  .labels = map_keys(object!(.labels)) -> |key| { replace(key, r'^kubernetes_(.+)$', \"$1\") }",
+      '}',
+    ]);
+    expect(vrl({ op: 'rename_regex', within: '', pattern: '^attr_', replacement: '' })).toEqual([
+      ". = map_keys(.) -> |key| { replace(key, r'^attr_', \"\") }",
+    ]);
+    expect(vrl({ op: 'rename_regex', within: 'a.b', pattern: 'x', replacement: 'y' })).toEqual([
+      'if is_object(."a.b") {',
+      "  .\"a.b\" = map_keys(object!(.\"a.b\")) -> |key| { replace(key, r'x', \"y\") }",
+      '} else if is_object(.a.b) {',
+      "  .a.b = map_keys(object!(.a.b)) -> |key| { replace(key, r'x', \"y\") }",
+      '}',
+    ]);
+  });
+
+  it('keeps only the named keys, and the time of an event kept whole', () => {
+    expect(vrl({ op: 'keep', within: 'labels', fields: ['service', '', ' env '] })).toEqual([
+      'if is_object(.labels) {',
+      '  .labels = filter(object!(.labels)) -> |key, _value| { includes(["service", "env"], key) }',
+      '}',
+    ]);
+    expect(vrl({ op: 'keep', within: '', fields: ['message'] })).toEqual([
+      '. = filter(.) -> |key, _value| { includes(["message", "_timestamp"], key) }',
     ]);
   });
 
@@ -194,6 +223,34 @@ describe('compileProcessor', () => {
     );
   });
 
+  it('copies values of an extend table row into the event, as the backend runs it', () => {
+    // The same program is pinned in `bin/molesignal/src/infra/pipeline/lookups.rs`.
+    expect(
+      compileProcessor({
+        op: 'lookup',
+        table: 'owners',
+        key: 'labels.host',
+        fields: [
+          { column: 'owner', field: 'labels.owner' },
+          { column: '', field: 'labels.ignored' },
+        ],
+      }),
+    ).toBe(
+      [
+        'value = null',
+        'if exists(."labels.host") {',
+        '  value = ."labels.host"',
+        '} else if exists(.labels.host) {',
+        '  value = .labels.host',
+        '}',
+        'row = lookup("owners", value)',
+        'if is_object(row) {',
+        '  .labels.owner = row.owner',
+        '}',
+      ].join('\n'),
+    );
+  });
+
   it('samples at random, or by a field so that one value is kept or dropped whole', () => {
     expect(vrl({ op: 'sample', percent: '10', by: '' })).toEqual([
       'if !(random_float(0.0, 100.0) < 10.0) {',
@@ -229,11 +286,14 @@ describe('processors', () => {
       parse_key_value: null,
       parse_regex: 'processor_pattern_missing',
       rename: 'processor_field_missing',
+      rename_regex: 'processor_pattern_missing',
       remove: 'processor_field_missing',
+      keep: 'processor_field_missing',
       set: 'processor_field_missing',
       mask: 'processor_field_missing',
       case: 'processor_field_missing',
       convert: 'processor_field_missing',
+      lookup: 'processor_field_missing',
       filter: 'processor_field_missing',
       // A tenth of the events, picked at random.
       sample: null,
@@ -244,7 +304,10 @@ describe('processors', () => {
     const complete: ProcessorConfig[] = [
       { op: 'parse_regex', source: 'message', pattern: '(?P<a>x)' },
       { op: 'rename', from: 'a', to: 'b' },
+      // Replacing what matched with nothing takes it out of the name.
+      { op: 'rename_regex', within: '', pattern: '^a_', replacement: '' },
       { op: 'remove', fields: ['a'] },
+      { op: 'keep', within: 'labels', fields: ['a'] },
       { op: 'set', field: 'a', valueType: 'string', value: '' },
       { op: 'set', field: 'a', valueType: 'number', value: '12.5' },
       { op: 'set', field: 'a', valueType: 'field', value: 'b' },
@@ -300,6 +363,10 @@ describe('processors', () => {
     expect(processorSummary({ op: 'rename', from: 'msg', to: 'message' })).toBe('msg → message');
     expect(processorSummary({ op: 'rename', from: '', to: '' })).toBe('');
     expect(processorSummary({ op: 'remove', fields: ['a', '', 'b'] })).toBe('a, b');
+    expect(processorSummary({ op: 'rename_regex', within: 'labels', pattern: '^k_', replacement: '' })).toBe('^k_ → ');
+    expect(processorSummary({ op: 'rename_regex', within: '', pattern: '', replacement: '' })).toBe('');
+    expect(processorSummary({ op: 'keep', within: 'labels', fields: ['a', 'b'] })).toBe('labels: a, b');
+    expect(processorSummary({ op: 'keep', within: '', fields: ['a'] })).toBe('a');
     expect(processorSummary({ op: 'parse_json', source: 'message', target: '', removeSource: true })).toBe(
       'message',
     );
@@ -326,6 +393,8 @@ describe('processors', () => {
     expect(parseProcessor({ op: 'rename', from: 'a' })).toBeNull();
     expect(parseProcessor({ op: 'mask', field: 'a', mode: 'blur' })).toBeNull();
     expect(parseProcessor({ op: 'remove', fields: ['a', 1] })).toBeNull();
+    expect(parseProcessor({ op: 'keep', fields: ['a'] })).toBeNull();
+    expect(parseProcessor({ op: 'rename_regex', within: '', pattern: 'a' })).toBeNull();
     expect(parseProcessor({ op: 'filter', action: 'skip', field: 'a', test: 'equals', value: 'b' })).toBeNull();
     expect(parseProcessor({ op: 'filter', action: 'keep', field: 'a', test: 'like', value: 'b' })).toBeNull();
     expect(parseProcessor({ op: 'sample', percent: 10, by: '' })).toBeNull();

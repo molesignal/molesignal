@@ -8,9 +8,10 @@ use std::{path::PathBuf, sync::Arc};
 use super::{core::Core, iam::IamRuntime};
 use crate::{
     agent::{
-        currencies::CurrencyRepository, feedback::AgentFeedbackRepository,
-        inbound_mcp::InboundMcpRepository, knowledge::KnowledgeStore, memory::MemoryStore,
-        model::AgentRepository, network::NetworkPolicyStore, runs::RunRepository,
+        automations::AutomationRepository, currencies::CurrencyRepository,
+        feedback::AgentFeedbackRepository, im::ImRepository, inbound_mcp::InboundMcpRepository,
+        knowledge::KnowledgeStore, memory::MemoryStore, model::AgentRepository,
+        network::NetworkPolicyStore, runs::RunRepository, scoring::ScoringRepository,
         tool_control::ToolControlRepository,
     },
     app::{
@@ -27,10 +28,12 @@ use crate::{
     infra::persistence::repositories::{
         agent::{
             PgAgentRepository,
+            automations::PgAutomationRepository,
             chat_archives::{ChatArchiveRepository, PgChatArchiveRepository},
             chats::{ChatRepository, PgChatRepository},
             currencies::PgCurrencyRepository,
             feedback::PgAgentFeedbackRepository,
+            im::PgImRepository,
             inbound_mcp::PgInboundMcpRepository,
             knowledge::PgKnowledgeStore,
             memory::PgMemoryStore,
@@ -38,6 +41,7 @@ use crate::{
             network::PgNetworkPolicyStore,
             prompts::{AgentPromptRepository, PgAgentPromptRepository},
             runs::PgRunRepository,
+            scoring::PgScoringRepository,
             skills::PgSkillStore,
             tool_control::PgToolControlRepository,
             toolsets::{AgentToolsetRepository, PgAgentToolsetRepository},
@@ -93,6 +97,9 @@ pub(super) struct AgentRuntime {
     pub(super) knowledge: Arc<dyn KnowledgeStore>,
     pub(super) memory: Arc<dyn MemoryStore>,
     pub(super) currencies: Arc<dyn CurrencyRepository>,
+    pub(super) automations: Arc<dyn AutomationRepository>,
+    pub(super) scoring: Arc<dyn ScoringRepository>,
+    pub(super) im: Arc<dyn ImRepository>,
 }
 
 impl AgentRuntime {
@@ -189,13 +196,23 @@ impl AgentRuntime {
             .clone()
             .spawn_notification_listener(settings.meta_database.dsn.clone());
 
-        let rca_generator = Arc::new(crate::api::rca::RcaGenerator::new(
-            model_providers,
-            prompts.clone(),
-            incident_rca.clone(),
-            usage,
-            crate::api::rca::RcaGenConfig::default(),
-        ));
+        let scoring: Arc<dyn ScoringRepository> =
+            Arc::new(PgScoringRepository::new(core.pool.clone()));
+
+        // 生成的 RCA 排进打分。
+        let rca_generator = Arc::new(
+            crate::api::rca::RcaGenerator::new(
+                model_providers,
+                prompts.clone(),
+                incident_rca.clone(),
+                usage,
+                crate::api::rca::RcaGenConfig::default(),
+            )
+            .with_scoring(scoring.clone()),
+        );
+
+        let automations: Arc<dyn AutomationRepository> =
+            Arc::new(PgAutomationRepository::new(core.pool.clone()));
 
         let _rca_sweeper = core.roles.run_alert.then(|| {
             crate::bootstrap::workers::rca_sweeper::RcaSweeper::new(
@@ -207,6 +224,7 @@ impl AgentRuntime {
                 crate::bootstrap::workers::rca_sweeper::RcaSweeperConfig::default(),
             )
             .with_ownership(core.alert_ownership.clone())
+            .with_automations(automations.clone())
             .spawn()
         });
 
@@ -229,6 +247,9 @@ impl AgentRuntime {
             knowledge: Arc::new(PgKnowledgeStore::new(core.pool.clone())),
             memory: Arc::new(PgMemoryStore::new(core.pool.clone())),
             currencies: Arc::new(PgCurrencyRepository::new(core.pool.clone())),
+            automations,
+            scoring,
+            im: Arc::new(PgImRepository::new(core.pool.clone())),
         }
     }
 }

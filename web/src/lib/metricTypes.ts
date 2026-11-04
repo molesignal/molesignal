@@ -5,7 +5,7 @@ import type { MetricCatalogEntry, MetricType } from '@/api/metricsCatalog';
  * compatible with older servers that did not expose `metric_type`.
  */
 export function resolveMetricType(metric: MetricCatalogEntry): MetricType {
-  if (metric.metric_type) return metric.metric_type;
+  if (metric.metricType) return metric.metricType;
 
   const name = metric.name.toLowerCase();
   if (

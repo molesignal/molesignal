@@ -31,11 +31,12 @@ use crate::{
     },
 };
 
+mod address;
 mod prometheus;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/query", post(execute_query))
+        .route("/query", get(address::execute).post(execute_query))
         .route("/query/stream", get(stream_query_get))
         .route("/query/stream", post(stream_query_post))
         .route("/query/search_around", post(search_around))
@@ -63,7 +64,7 @@ async fn promql_capabilities() -> Json<crate::infra::query::promql::capabilities
 }
 
 /// Returns the static SQL text-search functions (`MATCH` / `MATCH_TEXT`) the
-/// engine rewrites in `extract_match_predicates`. Same contract as the PromQL
+/// engine rewrites in `rewrite_match_calls`. Same contract as the PromQL
 /// capabilities endpoint: it contains no organization data and therefore does
 /// not require an additional product permission beyond the API auth boundary.
 async fn sql_capabilities() -> Json<crate::infra::query::sql_functions::SqlQueryCapabilities> {
@@ -119,16 +120,16 @@ async fn inspect_query(
         "executed": false,
         "language": req.language,
         "statement": req.statement,
-        "time_range": {
+        "timeRange": {
             "start": req.time_range.start.0,
             "end": req.time_range.end.0,
-            "window_secs": window_secs,
+            "windowSecs": window_secs,
         },
         "stream": stream_name,
         "tables": referenced_tables,
-        "logical_plan": logical_plan,
-        "physical_plan": "<not yet implemented>",
-        "estimated_cost": null,
+        "logicalPlan": logical_plan,
+        "physicalPlan": "<not yet implemented>",
+        "estimatedCost": null,
         "meta": {
             "profile": {
                 "stages": [
@@ -138,7 +139,7 @@ async fn inspect_query(
                     { "name": "object_store_get", "ms": null, "estimated": true },
                     { "name": "datafusion_execute", "ms": null, "estimated": true }
                 ],
-                "elapsed_ms": parse_ms,
+                "elapsedMs": parse_ms,
             }
         },
     })))
@@ -214,9 +215,13 @@ async fn execute_query(
     let prefer_str = headers.get("prefer").and_then(|v| v.to_str().ok());
     let prefer_async_explicit = prefer_str.is_some_and(|s| s.contains("respond-async"));
     let prefer_sync_explicit = prefer_str.is_some_and(|s| s.contains("respond-sync"));
-    let auto_async =
-        !prefer_sync_explicit && should_auto_async(&req, &state) && !prefer_async_explicit;
-    let prefer_async = prefer_async_explicit || auto_async;
+    // A query of the audit trail stays in this request, where the caller's grant to read it is.
+    let audit = crate::infra::query::grants::names_audit(&req);
+    let auto_async = !prefer_sync_explicit
+        && !audit
+        && should_auto_async(&req, &state)
+        && !prefer_async_explicit;
+    let prefer_async = (prefer_async_explicit && !audit) || auto_async;
 
     if prefer_async {
         let job = state
@@ -231,7 +236,7 @@ async fn execute_query(
             .await?;
 
         let body = serde_json::json!({
-            "job_id": job.id.0,
+            "jobId": job.id.0,
             "monitor": format!("/api/v1/query/jobs/{}", job.id.0),
             "state": "pending",
         });
@@ -330,7 +335,7 @@ fn maybe_record_slow_query(
 }
 
 /// Search admission 各工作组的并发槽位快照（in-flight / limit / 累计申请/拒绝）。
-#[permission("org.settings.read")]
+#[permission("sys.query.admission.read")]
 async fn admission_stats(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -340,6 +345,7 @@ async fn admission_stats(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct AdmissionUpdateReq {
     #[serde(default)]
     default_max_concurrent: usize,
@@ -354,8 +360,8 @@ struct AdmissionUpdateReq {
 }
 
 /// 热更新 admission 配置（无需重启；仅本节点、不持久化——重启回落配置文件）。
-/// 需要 `org.settings.manage`。
-#[permission("org.settings.manage")]
+/// 准入配额是整个节点的，所以是平台权限。
+#[permission("sys.query.admission.manage")]
 async fn update_admission(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -377,7 +383,7 @@ async fn update_admission(
 }
 
 /// 最近慢查询 + 各自的优化建议（按需在读路径用启发式引擎计算）。
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("query.slow.read", "sys.telemetry.read"))]
 async fn list_slow_queries(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -395,7 +401,7 @@ async fn list_slow_queries(
                 &crate::app::recommendations::QueryProfile::from(sq),
             );
 
-            serde_json::json!({ "slow_query": sq, "recommendations": recommendations })
+            serde_json::json!({ "slowQuery": sq, "recommendations": recommendations })
         })
         .collect();
 
@@ -425,7 +431,7 @@ fn ndjson_response(out: QueryResult) -> Response {
 
     let trailer = {
         let mut s = serde_json::to_string(&serde_json::json!({
-            "__meta__": { "scanned_rows": scanned_rows, "took_ms": took_ms }
+            "__meta__": { "scannedRows": scanned_rows, "tookMs": took_ms }
         }))
         .unwrap_or_default();
 
@@ -449,6 +455,7 @@ fn ndjson_response(out: QueryResult) -> Response {
 /// `GET /api/v1/query/stream?sql=&stream=&stream_type=&from=&to=` ——
 /// 浏览器 EventSource / fetch 可直接消费的 NDJSON 端点。
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StreamQuery {
     pub sql: String,
     pub stream: String,
@@ -485,6 +492,7 @@ async fn stream_query_get(
             stream_type: q.stream_type,
         }),
         limit: q.limit,
+        step: None,
         federation_clusters: Vec::new(),
     };
 
@@ -516,7 +524,7 @@ async fn stream_query_post(
 
 /// `GET /api/v1/query/running`：列出活动查询。
 /// 仅列出当前 IAM 组织上下文中的活动查询。
-#[permission("org.settings.read")]
+#[permission("org.running_queries.read")]
 async fn list_running(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -528,7 +536,7 @@ async fn list_running(
 
 /// `POST /api/v1/query/{id}/cancel`：翻 cancel 标志。
 /// 调用方必须位于该 query 所在的 IAM 组织上下文。
-#[permission("org.settings.manage")]
+#[permission("org.running_queries.cancel")]
 async fn cancel_query(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -626,6 +634,7 @@ async fn fan_out_cancel(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SearchAroundReq {
     /// 命中事件的指针：`(_timestamp_us, fingerprint)`；后端用它拉前后 N 条。
     pub event_timestamp_us: i64,
@@ -692,6 +701,7 @@ async fn search_around(
             stream_type: req.stream_type,
         }),
         limit: None,
+        step: None,
         federation_clusters: Vec::new(),
     };
 

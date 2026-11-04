@@ -81,25 +81,25 @@ export function McpServerEditor({
   const [enabled, setEnabled] = React.useState(true);
 
   React.useEffect(() => {
-    setScope(existing ? scopeChoice({ scope: existing.scope.scope, team_id: teamOf(existing) }) : 'personal');
+    setScope(existing ? scopeChoice({ scope: existing.scope.scope, teamId: teamOf(existing) }) : 'personal');
     setName(existing?.name ?? '');
     setTransport(existing?.transport ?? 'streamable_http');
-    setEndpointUrl(existing?.endpoint_url ?? '');
-    setCommand(existing?.command_template ?? '');
-    setAuthType(existing?.auth_type ?? 'none');
-    setAuthHeader(existing?.auth_header ?? '');
+    setEndpointUrl(existing?.endpointUrl ?? '');
+    setCommand(existing?.commandTemplate ?? '');
+    setAuthType(existing?.authType ?? 'none');
+    setAuthHeader(existing?.authHeader ?? '');
     setCredential('');
-    setMemberHeader(existing?.member_credential?.header ?? 'authorization');
-    setMemberBearer(existing?.member_credential?.bearer ?? true);
-    setMemberInstructions(existing?.member_credential?.instructions ?? '');
+    setMemberHeader(existing?.memberCredential?.header ?? 'authorization');
+    setMemberBearer(existing?.memberCredential?.bearer ?? true);
+    setMemberInstructions(existing?.memberCredential?.instructions ?? '');
     setHeaders(rowsFrom(existing?.headers));
     setEnv(rowsFrom(existing?.env));
-    setPrivateOnly(existing?.private_only ?? true);
-    setAllowedDomains((existing?.allowed_domains ?? []).join('\n'));
-    setAllowedCidrs((existing?.allowed_cidrs ?? []).join('\n'));
-    setTlsVerify(existing?.tls_verify ?? true);
-    setTimeoutMs(String(existing?.timeout_ms ?? 10000));
-    setMaxResponseBytes(String(existing?.max_response_bytes ?? 1048576));
+    setPrivateOnly(existing?.privateOnly ?? true);
+    setAllowedDomains((existing?.allowedDomains ?? []).join('\n'));
+    setAllowedCidrs((existing?.allowedCidrs ?? []).join('\n'));
+    setTlsVerify(existing?.tlsVerify ?? true);
+    setTimeoutMs(String(existing?.timeoutMs ?? 10000));
+    setMaxResponseBytes(String(existing?.maxResponseBytes ?? 1048576));
     setEnabled(existing?.enabled ?? true);
   }, [existing, target]);
 
@@ -138,8 +138,8 @@ export function McpServerEditor({
             value: scope,
             label: scopes.label({
               scope: existing.scope.scope,
-              team_id: teamOf(existing) ?? null,
-              owner_id: ownerOf(existing) ?? null,
+              teamId: teamOf(existing) ?? null,
+              ownerId: ownerOf(existing) ?? null,
             }),
           },
         ]
@@ -154,26 +154,26 @@ export function McpServerEditor({
         name,
         transport,
         // A stdio server is not reached over HTTP: its credentials are its environment.
-        auth_type: remote ? authType : 'none',
+        authType: remote ? authType : 'none',
         headers: remote ? inputsFrom(headers) : [],
         env: remote ? [] : inputsFrom(env),
-        private_only: remote && organization && privateOnly,
-        allowed_domains: remote && organization ? splitLines(allowedDomains) : [],
-        allowed_cidrs: remote && organization ? splitLines(allowedCidrs) : [],
-        follow_redirects: false,
-        tls_verify: !remote || !organization || tlsVerify,
-        timeout_ms: Number(timeoutMs),
-        max_response_bytes: Number(maxResponseBytes),
+        privateOnly: remote && organization && privateOnly,
+        allowedDomains: remote && organization ? splitLines(allowedDomains) : [],
+        allowedCidrs: remote && organization ? splitLines(allowedCidrs) : [],
+        followRedirects: false,
+        tlsVerify: !remote || !organization || tlsVerify,
+        timeoutMs: Number(timeoutMs),
+        maxResponseBytes: Number(maxResponseBytes),
         enabled,
-        ...(remote && endpointUrl ? { endpoint_url: endpointUrl } : {}),
-        ...(!remote && command ? { command_template: command } : {}),
+        ...(remote && endpointUrl ? { endpointUrl: endpointUrl } : {}),
+        ...(!remote && command ? { commandTemplate: command } : {}),
         ...(remote && authHeader && ['api_key', 'internal_service_identity'].includes(authType)
-          ? { auth_header: authHeader }
+          ? { authHeader: authHeader }
           : {}),
         ...(remote && credential && sharedCredential ? { credential } : {}),
         ...(remote && authType === 'member_secret'
           ? {
-              member_credential: {
+              memberCredential: {
                 header: memberHeader,
                 bearer: memberBearer,
                 instructions: memberInstructions,
@@ -302,9 +302,9 @@ export function McpServerEditor({
             title={t('settings.tools.mcp.editor.authentication')}
             {...(sharedCredential
               ? {
-                  description: existing?.credential_set
+                  description: existing?.credentialSet
                     ? t('settings.tools.mcp.editor.credential_set', {
-                        last4: existing.credential_last4 ?? '',
+                        last4: existing.credentialLast4 ?? '',
                       })
                     : t('settings.tools.mcp.editor.credential_not_set'),
                 }
@@ -334,7 +334,7 @@ export function McpServerEditor({
               <FormField
                 label={t('settings.tools.mcp.fields.credential')}
                 hint={t('settings.tools.mcp.fields.credential_hint')}
-                required={!existing?.credential_set}
+                required={!existing?.credentialSet}
               >
                 <FormInput
                   type="password"
@@ -479,9 +479,9 @@ export function McpServerEditor({
 }
 
 function teamOf(server: agentApi.McpServer): string | undefined {
-  return server.scope.scope === 'team' ? server.scope.team_id : undefined;
+  return server.scope.scope === 'team' ? server.scope.teamId : undefined;
 }
 
 function ownerOf(server: agentApi.McpServer): string | undefined {
-  return server.scope.scope === 'personal' ? server.scope.owner_id : undefined;
+  return server.scope.scope === 'personal' ? server.scope.ownerId : undefined;
 }

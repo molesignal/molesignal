@@ -24,7 +24,7 @@ async fn saved_views_crud_and_pinned_filter() {
             "name": "error logs last 1h",
             "language": "sql",
             "statement": "SELECT * FROM logs WHERE level = 'error'",
-            "time_range_secs": 3600,
+            "timeRangeSecs": 3600,
             "stream": "logs",
             "tags": ["errors", "triage"],
             "pinned": false,
@@ -44,12 +44,7 @@ async fn saved_views_crud_and_pinned_filter() {
         .expect("created id")
         .to_string();
     assert_eq!(created.get("language").and_then(Value::as_str), Some("sql"));
-    assert!(
-        created
-            .get("owner_user_id")
-            .and_then(Value::as_str)
-            .is_some()
-    );
+    assert!(created.get("ownerUserId").and_then(Value::as_str).is_some());
 
     // get
     let got = s
@@ -75,7 +70,7 @@ async fn saved_views_crud_and_pinned_filter() {
             "name": "error logs (pinned)",
             "language": "sql",
             "statement": "SELECT * FROM logs WHERE level = 'error'",
-            "time_range_secs": 7200,
+            "timeRangeSecs": 7200,
             "stream": "logs",
             "tags": ["errors"],
             "pinned": true,
@@ -87,7 +82,7 @@ async fn saved_views_crud_and_pinned_filter() {
     let upd_v: Value = upd.json().await.unwrap();
     assert_eq!(upd_v.get("pinned").and_then(Value::as_bool), Some(true));
     assert_eq!(
-        upd_v.get("time_range_secs").and_then(Value::as_u64),
+        upd_v.get("timeRangeSecs").and_then(Value::as_u64),
         Some(7200)
     );
 
@@ -175,14 +170,14 @@ async fn saved_view_validation_rejects_bad_input() {
 
     // blank name
     let blank = post(serde_json::json!({
-        "name": "   ", "language": "sql", "statement": "SELECT 1", "time_range_secs": 900,
+        "name": "   ", "language": "sql", "statement": "SELECT 1", "timeRangeSecs": 900,
     }))
     .await;
     assert_eq!(blank.status().as_u16(), 400, "blank name should be 400");
 
     // over-length name (> 255 chars) → 400, not a Postgres-truncation 500
     let long = post(serde_json::json!({
-        "name": "x".repeat(300), "language": "sql", "statement": "SELECT 1", "time_range_secs": 900,
+        "name": "x".repeat(300), "language": "sql", "statement": "SELECT 1", "timeRangeSecs": 900,
     }))
     .await;
     assert_eq!(
@@ -193,7 +188,7 @@ async fn saved_view_validation_rejects_bad_input() {
 
     // zero look-back window → 400 (would otherwise yield an empty window on open)
     let zero = post(serde_json::json!({
-        "name": "z", "language": "sql", "statement": "SELECT 1", "time_range_secs": 0,
+        "name": "z", "language": "sql", "statement": "SELECT 1", "timeRangeSecs": 0,
     }))
     .await;
     assert_eq!(

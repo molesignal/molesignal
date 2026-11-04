@@ -21,26 +21,26 @@ export function TableMetadata({ table }: { table: ExtendTableSummary }) {
     {
       icon: KeyRound,
       label: t('extend_tables.key_field'),
-      value: table.key_field,
+      value: table.keyField,
       mono: true,
     },
     {
       icon: Braces,
       label: t('extend_tables.value_fields'),
       value:
-        table.value_fields.length > 0
-          ? t('extend_tables.field_count', { count: table.value_fields.length })
+        table.valueFields.length > 0
+          ? t('extend_tables.field_count', { count: table.valueFields.length })
           : t('extend_tables.flexible_fields'),
     },
     {
       icon: Rows3,
       label: t('extend_tables.record_count'),
-      value: table.row_count.toLocaleString(i18n.language),
+      value: table.rowCount.toLocaleString(i18n.language),
     },
     {
       icon: Clock3,
       label: t('extend_tables.columns.updated'),
-      value: formatRelativeMicros(table.updated_at, i18n.language),
+      value: formatRelativeMicros(table.updatedAt, i18n.language),
     },
   ];
 
@@ -99,7 +99,7 @@ export function DetailTabs({
           key: 'records',
           icon: Rows3,
           label: t('extend_tables.tabs.records'),
-          count: table.row_count,
+          count: table.rowCount,
         },
         {
           key: 'schema',
@@ -111,7 +111,7 @@ export function DetailTabs({
           key: 'usage',
           icon: Workflow,
           label: t('extend_tables.tabs.usage'),
-          count: table.usage_locations.length,
+          count: table.usageLocations.length,
         },
         { key: 'settings', icon: Settings2, label: t('extend_tables.tabs.settings') },
       ]}

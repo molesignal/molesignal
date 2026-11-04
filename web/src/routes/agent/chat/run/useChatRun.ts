@@ -40,7 +40,7 @@ export function nextRun(runs: readonly Run[]): Run | null {
   return (
     [...runs]
       .filter((run) => ANSWERING_KINDS.has(run.kind) && !isOver(run.status))
-      .sort((a, b) => a.created_at_micros - b.created_at_micros)[0] ?? null
+      .sort((a, b) => a.createdAt - b.createdAt)[0] ?? null
   );
 }
 
@@ -103,7 +103,7 @@ export function useChatRun(
             if (event.kind === 'notice' && event.payload.kind === 'title') {
               const { title } = event.payload;
               queryClient.setQueryData<Chat[]>(['agent', 'chats'], (chats) =>
-                chats?.map((chat) => (chat.id === run.chat_id ? { ...chat, title } : chat)),
+                chats?.map((chat) => (chat.id === run.chatId ? { ...chat, title } : chat)),
               );
             }
             if (event.kind === 'notice') noticed.current?.(event.payload);
@@ -118,7 +118,7 @@ export function useChatRun(
         // first answer of a new chat is followed from before the chat had an id on screen,
         // so its runs are read again by the run's chat.
         await finished.current();
-        await queryClient.invalidateQueries({ queryKey: runsKeyOf(run.chat_id) });
+        await queryClient.invalidateQueries({ queryKey: runsKeyOf(run.chatId) });
         if (followed.current?.id === run.id) {
           followed.current = null;
           setView(null);
@@ -139,7 +139,7 @@ export function useChatRun(
   const follow = React.useCallback(
     (run: Run) => {
       if (!followed.current) start(run);
-      void queryClient.invalidateQueries({ queryKey: runsKeyOf(run.chat_id) });
+      void queryClient.invalidateQueries({ queryKey: runsKeyOf(run.chatId) });
     },
     [queryClient, start],
   );
@@ -163,9 +163,9 @@ export function useChatRun(
           run.kind === 'answer' &&
           run.status === 'queued' &&
           run.id !== view?.runId &&
-          run.user_message_id,
+          run.userMessageId,
       )
-      .map((run) => run.user_message_id as string),
+      .map((run) => run.userMessageId as string),
   );
 
   const unansweredMessageIds = new Map(
@@ -174,10 +174,10 @@ export function useChatRun(
         (run) =>
           run.kind === 'answer' &&
           (run.status === 'interrupted' || run.status === 'cancelled') &&
-          !run.assistant_message_id &&
-          run.user_message_id,
+          !run.assistantMessageId &&
+          run.userMessageId,
       )
-      .map((run) => [run.user_message_id as string, run.status] as const),
+      .map((run) => [run.userMessageId as string, run.status] as const),
   );
 
   const busy = Boolean(view && !view.done) || Boolean(next);

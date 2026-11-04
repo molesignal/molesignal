@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use super::{HeaderValue, MonitorAssertion, ValueSource};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TcpSpec {
     pub host: ValueSource,
     pub port: u16,
@@ -18,6 +19,7 @@ pub struct TcpSpec {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SshSpec {
     pub host: ValueSource,
     pub port: u16,
@@ -30,7 +32,11 @@ pub struct SshSpec {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub enum SshAuthentication {
     Password {
         username: ValueSource,
@@ -44,6 +50,7 @@ pub enum SshAuthentication {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DnsSpec {
     pub name: String,
     pub record_type: String,
@@ -57,6 +64,7 @@ pub struct DnsSpec {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IcmpSpec {
     pub host: String,
     pub count: u8,
@@ -66,6 +74,7 @@ pub struct IcmpSpec {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TlsSpec {
     pub host: String,
     pub port: u16,
@@ -78,7 +87,11 @@ pub struct TlsSpec {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub enum GrpcCall {
     Health {
         service: String,
@@ -93,6 +106,7 @@ pub enum GrpcCall {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GrpcSpec {
     pub endpoint: String,
     pub use_tls: bool,

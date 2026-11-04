@@ -1,5 +1,16 @@
 import type { StreamField, FieldType, StreamSummary } from '@/api/streams';
-import type { TraceFilter } from '@/api/web';
+import type { TraceCondition, TraceFilter } from '@/api/web';
+import {
+  andFieldClause,
+  type FieldExpression,
+  fieldConjuncts,
+  hasTopLevelOr,
+  parseFieldExpression,
+  quotedText,
+} from '@/shell/query/fieldExpression';
+import { addSqlCondition } from '@/shell/query/sqlCondition';
+
+import { MAX_TRACE_IN_VALUES, traceInClauseOf, unquoteTraceValue } from './inClause';
 
 export type TraceFieldName = string;
 export type TraceQueryMode = 'fields' | 'sql';
@@ -24,12 +35,21 @@ export type TraceAttributeGroup = 'resource' | 'scope' | 'span';
 export interface ParsedTraceStatement {
   q?: string;
   filters: TraceFilter[];
+  /** What the statement asks beyond the parts that all hold: its alternatives, as the trace reads take them. */
+  where?: TraceCondition;
   rejected: string[];
 }
+
+/** What one part of a field query says: a comparison, text to find, or nothing the trace list can read. */
+export type TracePart =
+  | { kind: 'filter'; filter: TraceFilter }
+  | { kind: 'text'; value: string }
+  | { kind: 'rejected' };
 
 export const TRACE_RESULT_LIMIT = 200;
 
 const INTERNAL_TRACE_SUMMARY_PREFIX = 'molesignal.trace.';
+const TRACE_SUMMARY_MARKER_FIELD = `${INTERNAL_TRACE_SUMMARY_PREFIX}summary`;
 const SYNTHETIC_TRACE_FIELDS: TraceFieldDef[] = [
   { name: 'span_count', dataType: 'int64', physical: false, scope: 'trace_aggregate' },
   { name: 'error_count', dataType: 'int64', physical: false, scope: 'trace_aggregate' },
@@ -106,13 +126,6 @@ const SCOPE_ATTRIBUTE_PREFIXES = [
   'otel.library.',
   'scope.',
 ];
-const TRACE_FIELD_ALIASES: Record<string, string> = {
-  service: 'service.name',
-  service_name: 'service.name',
-  operation: 'name',
-  operation_name: 'name',
-  status: 'status_code',
-};
 const REQUIRED_TRACE_FIELDS = new Set([
   'trace_id',
   'span_id',
@@ -123,22 +136,15 @@ const REQUIRED_TRACE_FIELDS = new Set([
   'status_code',
 ]);
 
-export const DEFAULT_VISIBLE_TRACE_FIELDS: TraceFieldName[] = [
-  'service.name',
-  'duration_ns',
-  'span_count',
-  'error_count',
-];
-
 // A field query names its fields bare, so it only reaches the ones whose name reads as one word.
 const FIELD_QUERY_NAME = /^[a-zA-Z_][\w.]*$/;
 const TRACE_LEVEL_FIELDS = new Set(['trace_id', 'duration_ns', 'span_count', 'error_count']);
 
 /**
  * Whether a trace has one value for the field. The backend compares these four
- * on the trace itself. Every other field is of a span, and a filter on it
- * matches a trace when any of its spans does: a field query can ask for a
- * value that way, but it cannot ask for traces without it.
+ * on the trace itself. Every other field is of a span: a filter on it keeps a
+ * trace when one of its spans has the value, and `!=` keeps a trace when none
+ * of its spans has it.
  */
 export function isTraceLevelField(name: TraceFieldName): boolean {
   return TRACE_LEVEL_FIELDS.has(name);
@@ -156,9 +162,9 @@ export function selectTraceStream(
   const rank = (stream: StreamSummary) => {
     const names = new Set(stream.schema.fields.map((field) => field.name));
     const canonical = [...REQUIRED_TRACE_FIELDS].every((field) => names.has(field));
-    if (canonical && stream.name === 'default') return 3;
-    if (canonical) return 2;
-    return stream.name === 'default' ? 1 : 0;
+    // The same order as the backend's choice, which the trace list reads: the standard columns,
+    // then summaries, then the name `default`.
+    return (canonical ? 4 : 0) + (names.has(TRACE_SUMMARY_MARKER_FIELD) ? 2 : 0) + (stream.name === 'default' ? 1 : 0);
   };
   return [...streams].sort((left, right) => (
     rank(right) - rank(left) || left.name.localeCompare(right.name)
@@ -174,7 +180,7 @@ export function deriveTraceFields(schemaFields: StreamField[]): TraceFieldDef[] 
     }
     fields.set(field.name, {
       name: field.name,
-      dataType: field.data_type,
+      dataType: field.dataType,
       physical: true,
       scope: field.name === 'duration_ns' ? 'trace_aggregate' : 'span',
       ...(field.indexed ? { indexed: true } : {}),
@@ -237,49 +243,120 @@ export function isTraceFieldQueryable(field: TraceFieldDef, mode: TraceQueryMode
   return field.dataType !== 'json' && FIELD_QUERY_NAME.test(field.name);
 }
 
-/** One comparison of a field query, read from a part of the statement; `null` for anything else. */
+/**
+ * One comparison of a field query, read from a part of the statement: a field
+ * and a value, or a field and a list of values; `null` for anything else. A
+ * field is named as the stream names it: no other name stands for it.
+ */
 export function traceClauseOf(part: string): TraceFilter | null {
+  // Alternatives are no one comparison, though the first of them reads like one.
+  if (hasTopLevelOr(part)) return null;
+
+  const list = traceInClauseOf(part);
+  if (list) return list;
+
   const match = part.trim().match(
     /^([a-zA-Z_][\w.]*)\s*(>=|<=|!=|=|>|<|eq\b|ne\b|contains\b|like\b)\s*([\s\S]*)$/i,
   );
   if (!match) return null;
 
   return {
-    field: TRACE_FIELD_ALIASES[match[1]!] ?? match[1]!,
+    field: match[1]!,
     op: normalizeOperator(match[2]!),
     value: unquoteTraceValue(match[3]!),
   };
 }
 
+/**
+ * Reads one part of a field query: a comparison on a field the stream has, in
+ * a way its type takes, or text to find, a quoted phrase as the words it
+ * holds. A part that opens a bracket it does not close as a group, or that the
+ * stream cannot answer, is rejected.
+ */
+export function readTracePart(part: string, fields: TraceFieldDef[]): TracePart {
+  if (part.startsWith('(')) return { kind: 'rejected' };
+
+  const clause = traceClauseOf(part);
+  if (!clause) {
+    const phrase = quotedText(part);
+    if (phrase === null) return { kind: 'text', value: part };
+    return phrase.trim() ? { kind: 'text', value: phrase } : { kind: 'rejected' };
+  }
+
+  const field = fields.find((candidate) => candidate.name === clause.field);
+  const listed = clause.values?.length ?? 0;
+  const empty = clause.op === 'in' ? listed === 0 || listed > MAX_TRACE_IN_VALUES : !clause.value;
+  if (!field || empty || !operatorSupported(field.dataType, clause.op) || field.dataType === 'json') {
+    return { kind: 'rejected' };
+  }
+
+  return { kind: 'filter', filter: clause };
+}
+
+/**
+ * A group of the statement as the trace reads take it; `null` when a part of
+ * it is one the list cannot read. The text of one group is one phrase, as the
+ * list's free text is.
+ */
+function traceConditionOf(expression: FieldExpression, fields: TraceFieldDef[]): TraceCondition | null {
+  if (expression.kind === 'part') {
+    const read = readTracePart(expression.text, fields);
+    if (read.kind === 'rejected') return null;
+    return read.kind === 'filter' ? read.filter : { text: read.value };
+  }
+
+  const items: TraceCondition[] = [];
+  const texts: string[] = [];
+
+  for (const item of expression.items) {
+    const read = traceConditionOf(item, fields);
+    if (read === null) return null;
+    if (expression.kind === 'and' && 'text' in read) texts.push(read.text);
+    else items.push(read);
+  }
+
+  if (texts.length > 0) items.push({ text: texts.join(' ') });
+  if (items.length === 1) return items[0]!;
+  return expression.kind === 'and' ? { and: items } : { or: items };
+}
+
+/**
+ * A field query as the trace reads take it. What all holds is the list of
+ * filters and the free text, one phrase; alternatives are a condition tree.
+ * A part the list cannot read is left out and said, with the whole of the
+ * alternatives it stands in.
+ */
 export function parseTraceStatement(
   input: string,
   fields: TraceFieldDef[],
 ): ParsedTraceStatement {
-  const trimmed = input.trim();
-  if (!trimmed) return { filters: [], rejected: [] };
-
+  const read = parseFieldExpression(input);
+  const parts = read === null ? [] : read.kind === 'and' ? read.items : [read];
   const filters: TraceFilter[] = [];
-  const rejected: string[] = [];
   const freeText: string[] = [];
-  for (const rawPart of splitTraceStatement(trimmed)) {
-    const part = rawPart.trim();
-    if (!part) continue;
-    const clause = traceClauseOf(part);
-    if (!clause) {
-      freeText.push(part);
+  const alternatives: TraceCondition[] = [];
+  const rejected: string[] = [];
+
+  for (const part of parts) {
+    if (part.kind !== 'part') {
+      const condition = traceConditionOf(part, fields);
+      if (condition) alternatives.push(condition);
+      else rejected.push(part.text);
       continue;
     }
-    const field = fields.find((candidate) => candidate.name === clause.field);
-    if (!field || !clause.value || !operatorSupported(field.dataType, clause.op) || field.dataType === 'json') {
-      rejected.push(part);
-      continue;
-    }
-    filters.push(clause);
+
+    const leaf = readTracePart(part.text, fields);
+    if (leaf.kind === 'filter') filters.push(leaf.filter);
+    else if (leaf.kind === 'text') freeText.push(leaf.value);
+    else rejected.push(part.text);
   }
+
+  const where = alternatives.length > 1 ? { and: alternatives } : alternatives[0];
 
   return {
     ...(freeText.length > 0 ? { q: freeText.join(' ') } : {}),
     filters,
+    ...(where ? { where } : {}),
     rejected,
   };
 }
@@ -287,10 +364,7 @@ export function parseTraceStatement(
 export function insertTraceClause(current: string, field: TraceFieldDef): string {
   const trimmed = current.trim();
   if (hasTraceClause(trimmed, field.name)) return current;
-  const clause = `${field.name} ${placeholderPredicate(field.dataType)}`;
-  if (!trimmed) return clause;
-  if (/\bAND\s*$/i.test(trimmed)) return `${trimmed} ${clause}`;
-  return `${trimmed} AND ${clause}`;
+  return andFieldClause(trimmed, `${field.name} ${placeholderPredicate(field.dataType)}`);
 }
 
 export function traceSqlTemplate(streamName: string): string {
@@ -393,15 +467,12 @@ function placeholderPredicate(dataType: FieldType, sql = false): string {
   }
 }
 
+/**
+ * The statement with one more condition in its WHERE or HAVING. A condition
+ * there that joins alternatives with OR is put in brackets first.
+ */
 export function insertTraceSqlClause(base: string, keyword: 'WHERE' | 'HAVING', clause: string): string {
-  const boundaryPattern = keyword === 'WHERE'
-    ? /\s+(GROUP\s+BY|HAVING|ORDER\s+BY|LIMIT)\b/i
-    : /\s+(ORDER\s+BY|LIMIT)\b/i;
-  const boundary = base.search(boundaryPattern);
-  const before = boundary >= 0 ? base.slice(0, boundary).trimEnd() : base;
-  const after = boundary >= 0 ? base.slice(boundary) : '';
-  const hasClause = keyword === 'WHERE' ? /\bWHERE\b/i.test(before) : /\bHAVING\b/i.test(before);
-  return `${before}${hasClause ? `\n  AND ${clause}` : `\n${keyword} ${clause}`}${after}`;
+  return addSqlCondition(base, keyword, clause);
 }
 
 function hasTraceSqlFieldFilter(statement: string, field: string): boolean {
@@ -420,7 +491,7 @@ function hasTraceSqlFieldFilter(statement: string, field: string): boolean {
 
 function hasTraceClause(current: string, field: string): boolean {
   const pattern = new RegExp(
-    `(?:^|\\bAND\\s+)${escapeRegExp(field)}\\s*(?:>=|<=|!=|=|>|<|eq\\b|ne\\b|contains\\b|like\\b)`,
+    `(?:^|\\bAND\\s+)${escapeRegExp(field)}\\s*(?:>=|<=|!=|=|>|<|eq\\b|ne\\b|contains\\b|like\\b|in\\s*\\()`,
     'i',
   );
   return pattern.test(current.trim());
@@ -435,58 +506,19 @@ function normalizeOperator(raw: string): TraceFilter['op'] {
 }
 
 function operatorSupported(dataType: FieldType, op: TraceFilter['op']): boolean {
-  if (dataType === 'utf8') return ['=', '!=', 'contains'].includes(op);
-  if (dataType === 'bool') return op === '=' || op === '!=';
+  if (dataType === 'utf8') return ['=', '!=', 'contains', 'in'].includes(op);
+  if (dataType === 'bool') return op === '=' || op === '!=' || op === 'in';
   if (dataType === 'json') return false;
-  return ['=', '!=', '>', '>=', '<', '<='].includes(op);
+  return ['=', '!=', '>', '>=', '<', '<=', 'in'].includes(op);
 }
 
-/** The parts of a field query that `AND` joins; an `AND` inside quotes is part of a value. */
+/**
+ * The parts of a field query that all have to hold, as written: what an `AND`
+ * outside quotes and brackets joins. A statement with an `OR` outside
+ * brackets is one part.
+ */
 export function splitTraceStatement(input: string): string[] {
-  const parts: string[] = [];
-  let start = 0;
-  let quote: "'" | '"' | null = null;
-  let escaped = false;
-  for (let index = 0; index < input.length; index += 1) {
-    const character = input[index]!;
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
-    if (character === '\\') {
-      escaped = true;
-      continue;
-    }
-    if (quote) {
-      if (character === quote) quote = null;
-      continue;
-    }
-    if (character === "'" || character === '"') {
-      quote = character;
-      continue;
-    }
-    const conjunction = input.slice(index).match(/^\s+AND\s+/i);
-    if (!conjunction) continue;
-    parts.push(input.slice(start, index));
-    index += conjunction[0].length - 1;
-    start = index + 1;
-  }
-  parts.push(input.slice(start));
-  return parts;
-}
-
-function unquoteTraceValue(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed.length >= 2) {
-    const first = trimmed[0];
-    const last = trimmed[trimmed.length - 1];
-    if (first === '"' && last === '"') {
-      try { return JSON.parse(trimmed) as string; } catch { return trimmed.slice(1, -1); }
-    }
-    // The writer escapes a quote and a backslash inside single quotes; reading undoes exactly that.
-    if (first === "'" && last === "'") return trimmed.slice(1, -1).replace(/\\(['\\])/g, '$1');
-  }
-  return trimmed;
+  return fieldConjuncts(input);
 }
 
 export function escapeTraceSqlIdentifier(identifier: string): string {

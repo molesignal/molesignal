@@ -15,52 +15,54 @@ use crate::{
     shared::{Error, Result},
 };
 
+pub(super) mod condition;
+
 pub(super) fn normalize(filters: Vec<LogFilter>, maximum: usize) -> Result<Vec<LogFilter>> {
     if filters.len() > maximum {
         return Err(Error::invalid("too many log filters"));
     }
 
-    filters
-        .into_iter()
-        .map(|filter| {
-            let field = clean_required(Some(filter.field), "empty log filter field", 128)?;
-            let op = clean_required(Some(filter.op), "empty log filter operator", 16)?
-                .to_ascii_lowercase();
+    filters.into_iter().map(normalize_filter).collect()
+}
 
-            let op = match op.as_str() {
-                "=" | "eq" => "=",
-                "!=" | "ne" => "!=",
-                "contains" | "like" => "contains",
-                "match" => "match",
-                "match_text" => "match_text",
-                ">" | ">=" | "<" | "<=" => op.as_str(),
-                _ => return Err(Error::invalid("unsupported log filter operator")),
-            }
-            .to_string();
+/// One filter as the query runs it: its operator in one spelling, its value
+/// trimmed and checked for length.
+fn normalize_filter(filter: LogFilter) -> Result<LogFilter> {
+    let field = clean_required(Some(filter.field), "empty log filter field", 128)?;
+    let op = clean_required(Some(filter.op), "empty log filter operator", 16)?.to_ascii_lowercase();
 
-            let value = if matches!(op.as_str(), "match" | "match_text") {
-                let value = filter.value;
+    let op = match op.as_str() {
+        "=" | "eq" => "=",
+        "!=" | "ne" => "!=",
+        "contains" | "like" => "contains",
+        "match" => "match",
+        "match_text" => "match_text",
+        ">" | ">=" | "<" | "<=" => op.as_str(),
+        _ => return Err(Error::invalid("unsupported log filter operator")),
+    }
+    .to_string();
 
-                if value.len() > 512 || value.contains('\0') {
-                    return Err(Error::invalid("invalid log search value"));
-                }
+    let value = if matches!(op.as_str(), "match" | "match_text") {
+        let value = filter.value;
 
-                value
-            } else if matches!(op.as_str(), "=" | "!=") && filter.value.trim().is_empty() {
-                // Compared with nothing, a field is asked whether it has a value at all.
-                String::new()
-            } else {
-                clean_required(Some(filter.value), "empty log filter value", 512)?
-            };
+        if value.len() > 512 || value.contains('\0') {
+            return Err(Error::invalid("invalid log search value"));
+        }
 
-            Ok(LogFilter {
-                field,
-                op,
-                value,
-                quoted: filter.quoted,
-            })
-        })
-        .collect()
+        value
+    } else if matches!(op.as_str(), "=" | "!=") && filter.value.trim().is_empty() {
+        // Compared with nothing, a field is asked whether it has a value at all.
+        String::new()
+    } else {
+        clean_required(Some(filter.value), "empty log filter value", 512)?
+    };
+
+    Ok(LogFilter {
+        field,
+        op,
+        value,
+        quoted: filter.quoted,
+    })
 }
 
 pub(super) fn validate(filters: &[LogFilter], fields: &[FieldDef]) -> Result<()> {

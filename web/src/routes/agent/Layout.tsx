@@ -4,6 +4,7 @@ import {
   BookOpen,
   Bot,
   ClipboardCheck,
+  Gauge,
   ListTodo,
   MessageSquareText,
   Settings2,
@@ -13,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
 import * as agentApi from '@/api/agent';
+import { hasPermission, useProductAccess } from '@/product/access';
 import { cn } from '@/shell/lib/cn';
 import {
   surfacePageRootClass,
@@ -22,6 +24,7 @@ import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 import { ViewTabs } from '@/shell/tabs/ViewTabs';
 
 import { KNOWLEDGE_VIEWS, knowledgeViewOf } from './knowledge/KnowledgePage';
+import { QUALITY_VIEWS, qualityViewOf } from './quality/model';
 import {
   AGENT_SETTINGS_SECTIONS,
   agentSettingsPath,
@@ -33,6 +36,7 @@ const MODULE_NAV = [
   { to: '/agent/investigations', key: 'nav.investigations', icon: ListTodo },
   { to: '/agent/knowledge', key: 'nav.knowledge', icon: BookOpen },
   { to: '/agent/automations', key: 'nav.automations', icon: Workflow },
+  { to: '/agent/quality', key: 'nav.quality', icon: Gauge },
   { to: '/agent/approvals', key: 'nav.approvals', icon: ClipboardCheck },
   { to: '/agent/executions', key: 'nav.executions', icon: Activity },
   { to: '/agent/settings', key: 'nav.settings', icon: Settings2 },
@@ -43,6 +47,12 @@ export function AgentLayout() {
   const { pathname } = useLocation();
   const settingsSection = agentSettingsSectionOf(pathname);
   const knowledgeView = knowledgeViewOf(pathname);
+  const qualityView = qualityViewOf(pathname);
+  // The Quality tab reads team chats: it is there for those who may read them all.
+  const access = useProductAccess();
+  const nav = MODULE_NAV.filter(
+    (item) => item.to !== '/agent/quality' || hasPermission('agent.quality.read', access),
+  );
   const overview = useQuery({
     queryKey: ['agent', 'overview'],
     queryFn: agentApi.overview,
@@ -74,15 +84,15 @@ export function AgentLayout() {
               <div className="flex shrink-0 flex-nowrap items-center gap-2" aria-label={t('overview.label')}>
                 <StatusTag
                   label={t('overview.active')}
-                  value={overview.data?.active_investigations ?? loadingValue}
+                  value={overview.data?.activeInvestigations ?? loadingValue}
                   to="/agent/investigations?status=running"
-                  active={Boolean(overview.data?.active_investigations)}
+                  active={Boolean(overview.data?.activeInvestigations)}
                 />
                 <StatusTag
                   label={t('overview.pending_approvals')}
-                  value={overview.data?.pending_approvals ?? loadingValue}
+                  value={overview.data?.pendingApprovals ?? loadingValue}
                   to="/agent/approvals?status=pending"
-                  attention={Boolean(overview.data?.pending_approvals)}
+                  attention={Boolean(overview.data?.pendingApprovals)}
                 />
               </div>
             }
@@ -91,7 +101,7 @@ export function AgentLayout() {
 
         <ModuleTabs
           label={t('nav.label')}
-          items={MODULE_NAV.map((item) => ({
+          items={nav.map((item) => ({
             key: item.to,
             to: item.to,
             icon: item.icon,
@@ -113,6 +123,24 @@ export function AgentLayout() {
                     to: agentSettingsPath(section.value),
                     label: t(section.key),
                     active: section.value === settingsSection,
+                  }))}
+                />
+              </div>
+            </div>
+          )}
+          {qualityView && (
+            <div className="border-t border-bd-0">
+              <div
+                data-agent-subnavigation="quality"
+                className="flex h-[40px] items-center px-[10px] [@media(pointer:coarse)]:h-[44px]"
+              >
+                <ViewTabs
+                  label={t('nav.quality')}
+                  items={QUALITY_VIEWS.map((view) => ({
+                    key: view.value,
+                    to: view.path,
+                    label: t(view.key),
+                    active: view.value === qualityView,
                   }))}
                 />
               </div>

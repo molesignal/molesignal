@@ -6,7 +6,7 @@ import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 // more than a window shows.
 const FOLDERS = Array.from({ length: 40 }, (_, index) => ({
   id: `folder-${index + 1}`,
-  org_id: 'default',
+  orgId: 'default',
   name: `Folder ${String(index + 1).padStart(2, '0')}`,
 }));
 
@@ -142,6 +142,6 @@ test('a submenu longer than the window scrolls inside it', async ({ page }) => {
     (request) => request.method() === 'PUT' && request.url().includes('/api/v1/dashboards/'),
   );
   await last.click();
-  expect((await saved).postDataJSON()).toMatchObject({ folder_id: 'folder-40' });
+  expect((await saved).postDataJSON()).toMatchObject({ folderId: 'folder-40' });
   await expect(page.getByText('Dashboard moved: API latency')).toBeVisible();
 });

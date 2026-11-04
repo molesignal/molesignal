@@ -14,20 +14,20 @@ use crate::{
 };
 
 const RULE_COLS: &str = "id, org_id, status_page_id, kind, value_ciphertext,
-    value_nonce, created_at_micros, updated_at_micros";
+    value_nonce, created_at, updated_at";
 
 const SESSION_COLS: &str = "id, org_id, status_page_id, access_rule_id,
     email_ciphertext, email_nonce, session_token_hash, origin_host,
-    expires_at_micros, revoked_at_micros, last_seen_at_micros, created_at_micros";
+    expires_at, revoked_at, last_seen_at, created_at";
 
 const SESSION_UPDATE_COLS: &str = "session.id AS id, session.org_id AS org_id,
     session.status_page_id AS status_page_id, session.access_rule_id AS access_rule_id,
     session.email_ciphertext AS email_ciphertext, session.email_nonce AS email_nonce,
     session.session_token_hash AS session_token_hash, session.origin_host AS origin_host,
-    session.expires_at_micros AS expires_at_micros,
-    session.revoked_at_micros AS revoked_at_micros,
-    session.last_seen_at_micros AS last_seen_at_micros,
-    session.created_at_micros AS created_at_micros";
+    session.expires_at AS expires_at,
+    session.revoked_at AS revoked_at,
+    session.last_seen_at AS last_seen_at,
+    session.created_at AS created_at";
 
 impl PgStatusPageRepository {
     fn access_hash(&self, org_id: &Id, value: &str) -> String {
@@ -61,7 +61,7 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         let sql = format!(
             "INSERT INTO status_page_access_rules
                 (id, org_id, status_page_id, kind, value_ciphertext, value_nonce,
-                 value_hash, created_at_micros, updated_at_micros)
+                 value_hash, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              RETURNING {RULE_COLS}"
         );
@@ -74,8 +74,8 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
             .bind(ciphertext)
             .bind(nonce)
             .bind(hash)
-            .bind(rule.created_at.0)
-            .bind(rule.updated_at.0)
+            .bind(rule.created_at)
+            .bind(rule.updated_at)
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
@@ -91,7 +91,7 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         let sql = format!(
             "SELECT {RULE_COLS} FROM status_page_access_rules
              WHERE org_id = $1 AND status_page_id = $2
-             ORDER BY kind, created_at_micros, id LIMIT 1000"
+             ORDER BY kind, created_at, id LIMIT 1000"
         );
 
         sqlx::query(&sql)
@@ -175,18 +175,22 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
                 EXISTS (
                     SELECT 1 FROM status_page_magic_links
                     WHERE org_id = $1 AND status_page_id = $2 AND email_hash = $3
-                      AND created_at_micros > $4
+                      AND created_at > $4
                 )
                 OR (
                     SELECT count(*) FROM status_page_magic_links
-                    WHERE org_id = $1 AND status_page_id = $2 AND created_at_micros > $5
+                    WHERE org_id = $1 AND status_page_id = $2 AND created_at > $5
                 ) >= 100",
         )
         .bind(&link.org_id.0)
         .bind(&link.status_page_id.0)
         .bind(&email_hash)
-        .bind(link.created_at.0.saturating_sub(60 * 1_000_000))
-        .bind(link.created_at.0.saturating_sub(10 * 60 * 1_000_000))
+        .bind(TimestampMicros(
+            link.created_at.0.saturating_sub(60 * 1_000_000),
+        ))
+        .bind(TimestampMicros(
+            link.created_at.0.saturating_sub(10 * 60 * 1_000_000),
+        ))
         .fetch_one(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -199,8 +203,8 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         sqlx::query(
             "INSERT INTO status_page_magic_links
                 (id, org_id, status_page_id, access_rule_id, email_ciphertext,
-                 email_nonce, email_hash, token_hash, origin_host, expires_at_micros,
-                 consumed_at_micros, created_at_micros)
+                 email_nonce, email_hash, token_hash, origin_host, expires_at,
+                 consumed_at, created_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
         )
         .bind(&link.id.0)
@@ -212,9 +216,9 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         .bind(email_hash)
         .bind(&link.token_hash)
         .bind(&link.origin_host)
-        .bind(link.expires_at.0)
-        .bind(link.consumed_at.map(|at| at.0))
-        .bind(link.created_at.0)
+        .bind(link.expires_at)
+        .bind(link.consumed_at)
+        .bind(link.created_at)
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -242,8 +246,8 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         let row = sqlx::query(
             "SELECT link.id, link.org_id, link.status_page_id, link.access_rule_id,
                     link.email_ciphertext, link.email_nonce, link.token_hash,
-                    link.origin_host, link.expires_at_micros,
-                    link.consumed_at_micros, link.created_at_micros
+                    link.origin_host, link.expires_at,
+                    link.consumed_at, link.created_at
              FROM status_page_magic_links link
              JOIN status_pages page
                ON page.org_id = link.org_id AND page.id = link.status_page_id
@@ -251,15 +255,15 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
                ON rule.org_id = link.org_id AND rule.status_page_id = link.status_page_id
               AND rule.id = link.access_rule_id
              WHERE link.status_page_id = $1 AND link.token_hash = $2
-               AND link.origin_host = $3 AND link.consumed_at_micros IS NULL
-               AND link.expires_at_micros > $4
+               AND link.origin_host = $3 AND link.consumed_at IS NULL
+               AND link.expires_at > $4
                AND page.lifecycle = 'active' AND page.visibility = 'private'
              FOR UPDATE OF link",
         )
         .bind(&page_id.0)
         .bind(&token_hash)
         .bind(&origin_host)
-        .bind(now.0)
+        .bind(now)
         .fetch_one(&mut *transaction)
         .await
         .map_err(|error| access_token_error(error, "magic link is invalid or expired"))?;
@@ -267,11 +271,11 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         let link = self.row_to_magic_link(&row)?;
 
         sqlx::query(
-            "UPDATE status_page_magic_links SET consumed_at_micros = $2
-             WHERE id = $1 AND consumed_at_micros IS NULL",
+            "UPDATE status_page_magic_links SET consumed_at = $2
+             WHERE id = $1 AND consumed_at IS NULL",
         )
         .bind(&link.id.0)
-        .bind(now.0)
+        .bind(now)
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -284,8 +288,8 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
             "INSERT INTO status_page_access_sessions
                 (id, org_id, status_page_id, access_rule_id, email_ciphertext,
                  email_nonce, email_hash, session_token_hash, origin_host,
-                 expires_at_micros, revoked_at_micros, last_seen_at_micros,
-                 created_at_micros)
+                 expires_at, revoked_at, last_seen_at,
+                 created_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULL, $11, $11)
              RETURNING {SESSION_COLS}"
         );
@@ -300,8 +304,8 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
             .bind(email_hash)
             .bind(&session_token_hash)
             .bind(&origin_host)
-            .bind(session_expires_at.0)
-            .bind(now.0)
+            .bind(session_expires_at)
+            .bind(now)
             .fetch_one(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
@@ -319,11 +323,11 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         now: TimestampMicros,
     ) -> Result<Option<StatusPageAccessSession>> {
         let sql = format!(
-            "UPDATE status_page_access_sessions session SET last_seen_at_micros = $4
+            "UPDATE status_page_access_sessions session SET last_seen_at = $4
              FROM status_pages page, status_page_access_rules rule
              WHERE session.status_page_id = $1 AND session.session_token_hash = $2
-               AND session.origin_host = $3 AND session.revoked_at_micros IS NULL
-               AND session.expires_at_micros > $4
+               AND session.origin_host = $3 AND session.revoked_at IS NULL
+               AND session.expires_at > $4
                AND page.org_id = session.org_id AND page.id = session.status_page_id
                AND page.lifecycle = 'active' AND page.visibility = 'private'
                AND rule.org_id = session.org_id AND rule.status_page_id = session.status_page_id
@@ -335,7 +339,7 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
             .bind(&page_id.0)
             .bind(token_hash)
             .bind(origin_host)
-            .bind(now.0)
+            .bind(now)
             .fetch_optional(&self.pool)
             .await
             .map_err(super::sqlx_err)?
@@ -352,14 +356,14 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         let sql = format!(
             "SELECT {SESSION_COLS} FROM status_page_access_sessions
              WHERE org_id = $1 AND status_page_id = $2
-               AND revoked_at_micros IS NULL AND expires_at_micros > $3
-             ORDER BY last_seen_at_micros DESC, id DESC LIMIT 1000"
+               AND revoked_at IS NULL AND expires_at > $3
+             ORDER BY last_seen_at DESC, id DESC LIMIT 1000"
         );
 
         sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
-            .bind(now.0)
+            .bind(now)
             .fetch_all(&self.pool)
             .await
             .map_err(super::sqlx_err)?
@@ -376,14 +380,14 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         revoked_at: TimestampMicros,
     ) -> Result<()> {
         let result = sqlx::query(
-            "UPDATE status_page_access_sessions SET revoked_at_micros = $4
+            "UPDATE status_page_access_sessions SET revoked_at = $4
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3
-               AND revoked_at_micros IS NULL",
+               AND revoked_at IS NULL",
         )
         .bind(&org_id.0)
         .bind(&page_id.0)
         .bind(&session_id.0)
-        .bind(revoked_at.0)
+        .bind(revoked_at)
         .execute(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
@@ -404,12 +408,12 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         revoked_at: TimestampMicros,
     ) -> Result<u64> {
         sqlx::query(
-            "UPDATE status_page_access_sessions SET revoked_at_micros = $3
-             WHERE org_id = $1 AND status_page_id = $2 AND revoked_at_micros IS NULL",
+            "UPDATE status_page_access_sessions SET revoked_at = $3
+             WHERE org_id = $1 AND status_page_id = $2 AND revoked_at IS NULL",
         )
         .bind(&org_id.0)
         .bind(&page_id.0)
-        .bind(revoked_at.0)
+        .bind(revoked_at)
         .execute(&self.pool)
         .await
         .map(|result| result.rows_affected())
@@ -427,13 +431,13 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         let sessions = sqlx::query(
             "WITH expired AS (
                 SELECT id FROM status_page_access_sessions
-                WHERE expires_at_micros <= $1 OR revoked_at_micros IS NOT NULL
-                ORDER BY expires_at_micros, id LIMIT $2 FOR UPDATE SKIP LOCKED
+                WHERE expires_at <= $1 OR revoked_at IS NOT NULL
+                ORDER BY expires_at, id LIMIT $2 FOR UPDATE SKIP LOCKED
              )
              DELETE FROM status_page_access_sessions session
              USING expired WHERE session.id = expired.id",
         )
-        .bind(now.0)
+        .bind(now)
         .bind(limit)
         .execute(&mut *transaction)
         .await
@@ -443,13 +447,13 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         let links = sqlx::query(
             "WITH expired AS (
                 SELECT id FROM status_page_magic_links
-                WHERE expires_at_micros <= $1 OR consumed_at_micros IS NOT NULL
-                ORDER BY expires_at_micros, id LIMIT $2 FOR UPDATE SKIP LOCKED
+                WHERE expires_at <= $1 OR consumed_at IS NOT NULL
+                ORDER BY expires_at, id LIMIT $2 FOR UPDATE SKIP LOCKED
              )
              DELETE FROM status_page_magic_links link
              USING expired WHERE link.id = expired.id",
         )
-        .bind(now.0)
+        .bind(now)
         .bind(limit)
         .execute(&mut *transaction)
         .await

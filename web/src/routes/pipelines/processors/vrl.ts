@@ -62,11 +62,12 @@ export function vrlRegex(pattern: string): string {
 
 /**
  * Runs `body` on the field wherever it is found: under the first of its read
- * paths that passes `guard` (`exists`, or `is_string` for what needs text).
+ * paths that passes `guard` (`exists`, `is_string` for what needs text,
+ * `is_object` for what goes through keys).
  */
 export function onField(
   field: string,
-  guard: 'exists' | 'is_string',
+  guard: 'exists' | 'is_string' | 'is_object',
   body: (path: string) => string[],
 ): string[] {
   const lines: string[] = [];

@@ -134,7 +134,7 @@ describe('disabled action foundations', () => {
       <FormTextarea
         aria-label="Policy"
         disabled
-        disabledReason="Requires org.settings.manage"
+        disabledReason="Requires org.preferences.manage"
         value="read-only policy"
         onChange={onChange}
       />,

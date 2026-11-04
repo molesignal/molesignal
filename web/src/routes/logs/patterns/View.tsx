@@ -96,7 +96,7 @@ export function LogPatternsView({ rows, selectedIndex, sample, onOpenLog, onFilt
     <TooltipProvider delayDuration={250}>
       <div data-log-patterns className="flex h-full min-h-0 flex-col [container-type:inline-size]">
         <div className="min-h-0 flex-1 overflow-auto">
-          <div className={cn('sticky top-0 z-10 border-l-transparent bg-bg-1 py-2', ROW, uiTableHeaderClass)}>
+          <div className={cn('sticky top-0 z-10 border-l-transparent bg-[var(--table-head-surface)] py-2', ROW, uiTableHeaderClass)}>
             <span className={CELL.count}>{t('explore.patterns.events')}</span>
             <span className={CELL.share}>{t('explore.patterns.share')}</span>
             <span className={CELL.pattern}>{t('explore.patterns.pattern', { count: patterns.length })}</span>
@@ -179,7 +179,7 @@ function PatternRow({
           aria-label={t('explore.patterns.open_aria', { pattern: pattern.key, count: pattern.count })}
           className="absolute inset-0 focus-visible:bg-bg-3"
         />
-        <span className={cn('relative font-mono text-md font-strong tabular-nums text-tx-0', CELL.count)}>
+        <span className={cn('relative text-md tabular-nums text-tx-0', CELL.count)}>
           {pattern.count}
         </span>
         {/* The count again as a length, of all the logs read: the number itself is said once. */}
@@ -251,7 +251,7 @@ function PatternRow({
               >
                 <span
                   className={cn(
-                    'type-micro shrink-0 whitespace-nowrap font-mono tabular-nums text-tx-2',
+                    'type-micro shrink-0 whitespace-nowrap tabular-nums text-tx-2',
                     scope === 'time' ? 'w-[92px]' : 'w-[132px]',
                   )}
                 >
@@ -259,7 +259,7 @@ function PatternRow({
                 </span>
                 {mixedLevels && (
                   <span className="w-[52px] shrink-0 truncate">
-                    <LevelWord level={logLevelLabel(log.raw, log.level)} />
+                    <LevelWord level={logLevelLabel(log.raw, log.level)} mono={false} />
                   </span>
                 )}
                 <span className="min-w-0 flex-1 truncate text-tx-0">{logStatement(log.raw)?.value.split('\n', 1)[0]}</span>
@@ -307,12 +307,12 @@ function PatternLevels({ levels, className }: { levels: LogPattern['levels']; cl
     >
       {sorted.slice(0, LEVELS_NAMED).map(({ level, count }) => (
         <span key={level} className="inline-flex h-[16px] shrink-0 items-baseline gap-1 whitespace-nowrap leading-[16px]">
-          <LevelWord level={level} />
-          {mixed && <span className="type-micro font-mono tabular-nums text-tx-3">{count}</span>}
+          <LevelWord level={level} mono={false} />
+          {mixed && <span className="type-micro tabular-nums text-tx-3">{count}</span>}
         </span>
       ))}
       {rest > 0 && (
-        <span className="type-micro h-[16px] shrink-0 font-mono tabular-nums leading-[16px] text-tx-3">+{rest}</span>
+        <span className="type-micro h-[16px] shrink-0 tabular-nums leading-[16px] text-tx-3">+{rest}</span>
       )}
     </span>
   );

@@ -41,6 +41,7 @@ pub fn stream_routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DownloadReq {
     pub object_keys: Vec<String>,
     #[serde(default = "default_ttl")]
@@ -52,10 +53,11 @@ fn default_ttl() -> i64 {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DownloadResp {
     pub download_url: String,
     pub token: String,
-    pub expires_at_micros: i64,
+    pub expires_at: i64,
 }
 
 #[permission(any("streams.query", "sys.telemetry.read"))]
@@ -65,7 +67,7 @@ async fn create_download(
     Json(req): Json<DownloadReq>,
 ) -> Result<Json<DownloadResp>> {
     if req.object_keys.is_empty() {
-        return Err(Error::invalid("object_keys cannot be empty"));
+        return Err(Error::invalid("objectKeys cannot be empty"));
     }
 
     if req.object_keys.len() > 100 {
@@ -91,7 +93,7 @@ async fn create_download(
     Ok(Json(DownloadResp {
         download_url: format!("/api/v1/files/stream/{token}"),
         token,
-        expires_at_micros: expires.0,
+        expires_at: expires.0,
     }))
 }
 

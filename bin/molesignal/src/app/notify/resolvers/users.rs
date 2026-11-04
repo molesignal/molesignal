@@ -22,6 +22,7 @@ pub const EVENT_USERS_RESOLVER: &str = "event_users";
 pub const ALERT_OWNER_RESOLVER: &str = "alert_owner";
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct EventUsersConfig {
     #[serde(default = "default_user_attribute")]
     attribute: String,
@@ -32,6 +33,7 @@ struct EventUsersConfig {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct AlertOwnerConfig {
     #[serde(default = "default_owner_attribute")]
     attribute: String,

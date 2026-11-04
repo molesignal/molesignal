@@ -9,8 +9,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::shared::time::TimestampMicros;
 
-/// Container-style metric streams (OTLP and self telemetry) persist the
-/// logical Prometheus metric identity alongside each sample.
+mod directory;
+
+pub use directory::{
+    MemoryMetricDirectory, MetricDirectory, MetricDirectoryEntry, MetricObservation,
+};
+
+/// The metric a sample belongs to. A metrics stream holds the metrics of one source, and this
+/// field tells them apart; it is what PromQL calls `__name__`.
 pub const METRIC_NAME_FIELD: &str = "metric_name";
 
 /// Persisted metric metadata used by catalogs; it is not a Prometheus label.
@@ -44,6 +50,15 @@ pub fn is_metric_identity_storage_field(name: &str) -> bool {
             | METRIC_MONOTONIC_FIELD
             | METRIC_START_TIME_UNIX_NANO_FIELD
     )
+}
+
+/// Whether a field of a metric sample is one of its labels: everything but the value, the
+/// timestamp, the metric metadata and the exemplar columns.
+pub fn is_metric_label_name(name: &str) -> bool {
+    name != "value"
+        && name != "_timestamp"
+        && !is_metric_identity_storage_field(name)
+        && !is_prometheus_exemplar_storage_field(name)
 }
 
 /// Per-sample storage metadata required to evaluate OTLP aggregation semantics.

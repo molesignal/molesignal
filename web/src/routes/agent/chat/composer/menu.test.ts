@@ -11,21 +11,21 @@ function command(name: string, extra: Partial<AgentCommand> = {}): AgentCommand 
     kind: 'control',
     source: 'builtin',
     description: name,
-    argument_hint: null,
-    argument_required: false,
+    argumentHint: null,
+    argumentRequired: false,
     choices: [],
     suggest: null,
     available: true,
-    unavailable_reason: null,
+    unavailableReason: null,
     ...extra,
   };
 }
 
 const COMMANDS = [
   command('help'),
-  command('mode', { argument_required: true, choices: ['auto', 'quick', 'deep', 'query'] }),
-  command('query', { kind: 'task', argument_required: true, argument_hint: '<question>' }),
-  command('rca', { kind: 'task', argument_required: true, suggest: 'incidents' }),
+  command('mode', { argumentRequired: true, choices: ['auto', 'quick', 'deep', 'query'] }),
+  command('query', { kind: 'task', argumentRequired: true, argumentHint: '<question>' }),
+  command('rca', { kind: 'task', argumentRequired: true, suggest: 'incidents' }),
 ];
 
 const optionsFor = (item: AgentCommand) =>

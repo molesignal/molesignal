@@ -68,8 +68,8 @@ export function CommandMenu({
       >
         <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 font-sans text-xs">
           <span className="font-strong text-tx-0">/{menu.command.name}</span>
-          {menu.command.argument_hint && (
-            <span className="text-tx-2">{menu.command.argument_hint}</span>
+          {menu.command.argumentHint && (
+            <span className="text-tx-2">{menu.command.argumentHint}</span>
           )}
           <span className="min-w-0 text-tx-3">{menu.command.description}</span>
         </p>
@@ -122,9 +122,9 @@ export function CommandMenu({
                   !command.available,
                   <>
                     <span className="shrink-0 font-strong text-tx-0">/{command.name}</span>
-                    {command.argument_hint && (
+                    {command.argumentHint && (
                       <span className="hidden shrink-0 text-tx-3 sm:inline">
-                        {command.argument_hint}
+                        {command.argumentHint}
                       </span>
                     )}
                     {/* Whose skill or which server: a team's skill not in the chat yet says it in its name. */}
@@ -139,7 +139,7 @@ export function CommandMenu({
                     <span className="ml-auto min-w-0 truncate pl-2 text-right text-tx-2">
                       {command.available
                         ? command.description
-                        : (command.unavailable_reason ?? command.description)}
+                        : (command.unavailableReason ?? command.description)}
                     </span>
                   </>,
                 );

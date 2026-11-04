@@ -36,7 +36,7 @@ export function EmptyState({
           Awaiting backend
         </span>
       )}
-      <div className="type-section-title font-sans font-semibold text-tx-0">{title}</div>
+      <div className="type-section-title font-sans font-display text-tx-0">{title}</div>
       {description && (
         <div className="max-w-md font-sans text-sm leading-relaxed text-tx-2">
           {description}

@@ -57,8 +57,8 @@ const IMPACT_COLOR: Record<StatusPageIncident['impact'], string> = {
 export function StatusPageOverview() {
   const { t, i18n } = useTranslation('status-pages');
   const navigate = useNavigate();
-  const { pageId, snapshot, manageAccess } = useStatusPageWorkspace();
-  const canMutate = manageAccess.allowed && snapshot.page.lifecycle === 'active';
+  const { pageId, snapshot, eventsAccess } = useStatusPageWorkspace();
+  const canMutate = eventsAccess.allowed && snapshot.page.lifecycle === 'active';
   const components = seenComponents(snapshot);
   const underWay = eventsUnderWay(snapshot);
   const ahead = maintenanceAhead(snapshot);
@@ -70,7 +70,7 @@ export function StatusPageOverview() {
   const hasUnwell = unwell.length > 0 || hidden > 0;
   // The last few things that ended: the page's recent record, without leaving the overview.
   const lately = [...snapshot.history]
-    .sort((left, right) => (right.ended_at ?? right.updated_at) - (left.ended_at ?? left.updated_at))
+    .sort((left, right) => (right.endedAt ?? right.updatedAt) - (left.endedAt ?? left.updatedAt))
     .slice(0, LATELY_COUNT);
   // An event names the components it is about, so the first thing a page needs is a component.
   const needsComponents = !namedComponents(snapshot.components).some((component) => component.lifecycle === 'active');
@@ -79,7 +79,7 @@ export function StatusPageOverview() {
     <PageBody className="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2">
       <StatusPageCanvas>
         <section
-          data-status-page-standing={snapshot.overall_status}
+          data-status-page-standing={snapshot.overallStatus}
           className="ms-rise grid gap-x-[48px] gap-y-[24px] rounded-md bg-[var(--functional-surface)] px-[20px] py-[20px] [box-shadow:var(--shadow-functional-surface)] lg:grid-cols-[minmax(0,1fr)_minmax(0,460px)] lg:items-center lg:px-[24px] lg:py-[24px]"
         >
           <div className="min-w-0">
@@ -87,22 +87,22 @@ export function StatusPageOverview() {
             <h2
               className={cn(
                 'mt-[6px] flex items-center gap-[10px] font-sans text-2xl font-display tracking-[-0.02em]',
-                STATUS_TEXT[snapshot.overall_status],
+                STATUS_TEXT[snapshot.overallStatus],
               )}
             >
               <span
                 aria-hidden="true"
                 className="h-[10px] w-[10px] shrink-0 rounded-full"
-                style={{ background: STATUS_COLOR[snapshot.overall_status] }}
+                style={{ background: STATUS_COLOR[snapshot.overallStatus] }}
               />
-              {componentStatusLabel(t, snapshot.overall_status)}
+              {componentStatusLabel(t, snapshot.overallStatus)}
             </h2>
             <p className="mt-[6px] text-pretty text-sm text-tx-2">
               {standingLine(t, underWay.length, ahead.length)}
               <span className="text-tx-3">
                 {' · '}
                 {t('overview.last_change', {
-                  time: formatRelativeSpan(snapshot.updated_at, snapshot.generated_at, i18n.language),
+                  time: formatRelativeSpan(snapshot.updatedAt, snapshot.generatedAt, i18n.language),
                 })}
               </span>
             </p>
@@ -111,7 +111,7 @@ export function StatusPageOverview() {
                 <ChromeButton
                   variant="primary"
                   disabled={!canMutate}
-                  disabledReason={manageAccess.reason}
+                  disabledReason={eventsAccess.reason}
                   onClick={() => navigate(`/status-pages/${pageId}/components/new`)}
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -122,7 +122,7 @@ export function StatusPageOverview() {
                   <ChromeButton
                     variant="primary"
                     disabled={!canMutate}
-                    disabledReason={manageAccess.reason}
+                    disabledReason={eventsAccess.reason}
                     onClick={() => navigate(`/status-pages/${pageId}/incidents/new`)}
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -130,7 +130,7 @@ export function StatusPageOverview() {
                   </ChromeButton>
                   <ChromeButton
                     disabled={!canMutate}
-                    disabledReason={manageAccess.reason}
+                    disabledReason={eventsAccess.reason}
                     onClick={() => navigate(`/status-pages/${pageId}/maintenance/new`)}
                   >
                     <CalendarClock className="h-3.5 w-3.5" />
@@ -247,19 +247,19 @@ function EventRow({
   const { t, i18n } = useTranslation('status-pages');
   const components = affectedComponentNames(event, snapshot.components);
   const latest = latestUpdate(event);
-  const endedAt = event.ended_at ?? event.updated_at;
-  const distance = (moment: number) => formatRelativeSpan(moment, snapshot.generated_at, i18n.language);
+  const endedAt = event.endedAt ?? event.updatedAt;
+  const distance = (moment: number) => formatRelativeSpan(moment, snapshot.generatedAt, i18n.language);
   const moment =
     when === 'planned'
       ? t('overview.planned_for', {
-          date: formatMicrosActive(event.started_at, false),
-          when: distance(event.started_at),
+          date: formatMicrosActive(event.startedAt, false),
+          when: distance(event.startedAt),
         })
       : when === 'ended'
         ? `${t('overview.ended', { when: distance(endedAt) })} · ${t('overview.lasted', {
-            duration: formatDurationMicros(t, event.started_at, endedAt),
+            duration: formatDurationMicros(t, event.startedAt, endedAt),
           })}`
-        : t('overview.started', { when: distance(event.started_at) });
+        : t('overview.started', { when: distance(event.startedAt) });
 
   return (
     <li>

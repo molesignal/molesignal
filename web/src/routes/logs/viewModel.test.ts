@@ -194,7 +194,7 @@ describe('logStatement', () => {
 
   it('does not pass off another field as a message', () => {
     // A record of a model call: its first field is not what it says.
-    expect(logStatement({ model: 'gpt', provider: 'openai', completion_tokens: 12 })).toBeNull();
+    expect(logStatement({ model: 'gpt', provider: 'openai', completionTokens: 12 })).toBeNull();
     expect(logStatement({ message: '   ' })).toBeNull();
     expect(logStatement({ message: { nested: true } })).toBeNull();
   });

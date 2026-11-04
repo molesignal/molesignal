@@ -34,6 +34,8 @@ pub enum RunEventKind {
     Question,
     /// 请提问人确认执行一个工具。
     Confirmation,
+    /// 请提问人存下他在一台 MCP 服务器上的凭据（「授权以继续」）。
+    Authorization,
     /// 提问人的回答或决定。
     Response,
     /// 提醒：预算、上下文压缩……
@@ -52,6 +54,7 @@ impl RunEventKind {
             Self::Todo => "todo",
             Self::Question => "question",
             Self::Confirmation => "confirmation",
+            Self::Authorization => "authorization",
             Self::Response => "response",
             Self::Notice => "notice",
             Self::Done => "done",
@@ -67,6 +70,7 @@ impl RunEventKind {
             Self::Todo,
             Self::Question,
             Self::Confirmation,
+            Self::Authorization,
             Self::Response,
             Self::Notice,
             Self::Done,
@@ -77,6 +81,7 @@ impl RunEventKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RunEvent {
     pub run_id: Id,
     pub seq: i64,
@@ -150,6 +155,7 @@ mod tests {
             RunEventKind::Todo,
             RunEventKind::Question,
             RunEventKind::Confirmation,
+            RunEventKind::Authorization,
             RunEventKind::Response,
             RunEventKind::Notice,
             RunEventKind::Done,

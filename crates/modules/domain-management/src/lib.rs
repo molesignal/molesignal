@@ -46,6 +46,7 @@ impl DomainState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Domain {
     pub id: Id,
     pub org_id: Id,
@@ -83,10 +84,11 @@ pub trait AcmeClient: Send + Sync {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IssuedCertificate {
     pub cert_pem: String,
     pub private_key_pem: String,
-    pub not_after_micros: i64,
+    pub not_after: i64,
 }
 
 /// 续期调度：返 30 天内即将过期的 cutoff 时间戳。

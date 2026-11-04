@@ -38,9 +38,10 @@ pub use ids::{
     SegmentId, SequenceRange, WalSequence, WriterEpoch, WriterNodeId,
 };
 pub use manifest::{
-    CatalogObject, PartitionManifest, PartitionManifestPointer, PublishPartitionManifest,
+    ArtifactReplacement, CatalogObject, PartitionManifest, PartitionManifestPointer,
+    PublishPartitionManifest,
 };
-pub use query_file::{QueryFile, QueryFileSource};
+pub use query_file::{FileShard, QueryFile, QueryFileSource};
 pub use registry::{
     DatasetTypeDescriptor, StreamTypeDescriptor, StreamTypeRegistry, builtin_registry,
     logical_query_dataset_types, primary_dataset_type,

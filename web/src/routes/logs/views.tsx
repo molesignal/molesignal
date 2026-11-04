@@ -1,5 +1,7 @@
+import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useQueryTabSearchParams } from '@/shell/queryTabs';
 import { ViewTabs } from '@/shell/tabs/ViewTabs';
 
 /**
@@ -9,6 +11,32 @@ import { ViewTabs } from '@/shell/tabs/ViewTabs';
  */
 export const LOG_RESULT_VIEWS = ['raw', 'stats', 'inspection', 'patterns'] as const;
 export type LogResultView = (typeof LOG_RESULT_VIEWS)[number];
+
+/**
+ * The view the address names (`view`), so a copy of the address opens the
+ * results the way they were looked at; the logs themselves when it names none.
+ */
+export function useLogResultView(): [LogResultView, (view: LogResultView) => void] {
+  const [params, setParams] = useQueryTabSearchParams();
+  const named = params.get('view');
+  const view = LOG_RESULT_VIEWS.find((candidate) => candidate === named) ?? 'raw';
+  const setView = React.useCallback(
+    (next: LogResultView) => {
+      setParams(
+        (current) => {
+          const updated = new URLSearchParams(current);
+          if (next === 'raw') updated.delete('view');
+          else updated.set('view', next);
+          return updated;
+        },
+        { replace: true },
+      );
+    },
+    [setParams],
+  );
+
+  return [view, setView];
+}
 
 interface LogResultViewTabsProps {
   value: LogResultView;

@@ -5,12 +5,18 @@ use std::{collections::HashMap, sync::Arc};
 
 use object_store::{ObjectStore, ObjectStoreExt, PutMode, PutOptions, PutPayload, path::Path};
 
-use super::{PartitionManifestReader, encode_manifest};
+use super::{
+    PartitionManifestReader,
+    bloom::{self, bloom_key},
+    encode_manifest,
+};
+
+mod upgrade;
 use crate::{
     config::{CatalogSettings, GarbageCollectionSettings},
     domain::{
         storage::{
-            ArtifactState, DatasetSelection, DatasetState, FileCatalog, ObjectChecksum,
+            ArtifactState, DatasetSelection, DatasetState, FileCatalog, ObjectChecksum, ObjectKey,
             OrganizationScope, Partition, PartitionManifest, PartitionManifestPointer,
             PhysicalDataset, PublishPartitionManifest, SegmentState, StoredObject,
         },
@@ -35,7 +41,6 @@ pub struct PartitionManifestManager {
     object_store: Arc<dyn ObjectStore>,
     settings: CatalogSettings,
     gc_grace_micros: i64,
-    default_retention_days: u32,
 }
 
 impl PartitionManifestManager {
@@ -45,7 +50,6 @@ impl PartitionManifestManager {
         object_store: Arc<dyn ObjectStore>,
         settings: CatalogSettings,
         gc: &GarbageCollectionSettings,
-        default_retention_days: u32,
     ) -> Self {
         Self {
             catalog,
@@ -53,7 +57,6 @@ impl PartitionManifestManager {
             object_store,
             settings,
             gc_grace_micros: i64::from(gc.grace_period_secs) * 1_000_000,
-            default_retention_days: default_retention_days.max(1),
         }
     }
 
@@ -62,7 +65,15 @@ impl PartitionManifestManager {
     }
 
     /// Seal cold partitions, fold late overlays into the next generation, and apply retention.
-    pub async fn maintain_stream(&self, stream: &StreamDefinition) -> Result<usize> {
+    /// `default_retention_days` is how long a stream without a retention of its own is kept.
+    /// Sealed segments indexed before `index_changed_at`, when the stream's indexes last changed,
+    /// are indexed again under its current settings.
+    pub async fn maintain_stream(
+        &self,
+        stream: &StreamDefinition,
+        default_retention_days: u32,
+        index_changed_at: Option<i64>,
+    ) -> Result<usize> {
         let scope = OrganizationScope::new(stream.org_id.clone());
 
         let datasets = self
@@ -76,7 +87,15 @@ impl PartitionManifestManager {
         let mut switched = 0;
 
         for dataset in datasets {
-            switched += self.maintain_dataset(stream, &scope, &dataset).await?;
+            switched += self
+                .maintain_dataset(
+                    stream,
+                    &scope,
+                    &dataset,
+                    default_retention_days,
+                    index_changed_at,
+                )
+                .await?;
         }
 
         Ok(switched)
@@ -87,6 +106,8 @@ impl PartitionManifestManager {
         stream: &StreamDefinition,
         scope: &OrganizationScope,
         dataset: &PhysicalDataset,
+        default_retention_days: u32,
+        index_changed_at: Option<i64>,
     ) -> Result<usize> {
         let snapshot = self
             .catalog
@@ -122,7 +143,7 @@ impl PartitionManifestManager {
         let retention_days = dataset
             .storage_policy
             .retention_days
-            .unwrap_or_else(|| stream.effective_retention_days(self.default_retention_days));
+            .unwrap_or_else(|| stream.effective_retention_days(default_retention_days));
 
         let retention_cutoff =
             now.saturating_sub(i64::from(retention_days).saturating_mul(24 * 60 * 60 * 1_000_000));
@@ -137,13 +158,17 @@ impl PartitionManifestManager {
             )
         });
 
-        for (_, partition) in partitions
-            .iter()
-            .take(self.settings.batch_size.max(1) as usize)
-        {
+        let mut untouched = Vec::new();
+
+        for (index, (_, partition)) in partitions.iter().enumerate() {
+            if index >= self.settings.batch_size.max(1) as usize {
+                untouched.push(partition);
+                continue;
+            }
+
             if self
                 .publish_partition(
-                    stream.stream_type,
+                    stream,
                     scope,
                     dataset,
                     partition,
@@ -153,8 +178,14 @@ impl PartitionManifestManager {
                 .await?
             {
                 switched += 1;
+            } else {
+                untouched.push(partition);
             }
         }
+
+        switched += self
+            .upgrade_indexes(stream, scope, dataset, &untouched, index_changed_at)
+            .await;
 
         Ok(switched)
     }
@@ -194,7 +225,7 @@ impl PartitionManifestManager {
 
     async fn publish_partition(
         &self,
-        stream_type: crate::domain::storage::StreamTypeId,
+        stream: &StreamDefinition,
         scope: &OrganizationScope,
         dataset: &PhysicalDataset,
         work: &PartitionWork,
@@ -270,17 +301,31 @@ impl PartitionManifestManager {
         let new_pointer = if segments.is_empty() {
             None
         } else {
-            Some(
-                self.write_manifest(
-                    stream_type,
+            let sealed = segments.clone();
+
+            let pointer = self
+                .write_manifest(
+                    stream.stream_type,
                     scope,
                     dataset,
                     work_partition(work),
                     generation,
                     segments,
                 )
-                .await?,
+                .await?;
+
+            // Written before the manifest is published, so a query never finds the manifest
+            // without its filters.
+            self.write_blooms(
+                stream,
+                &pointer,
+                &sealed,
+                work.pointer.as_ref(),
+                &HashMap::new(),
             )
+            .await;
+
+            Some(pointer)
         };
 
         let mut tombstones = expired_base;
@@ -293,6 +338,7 @@ impl PartitionManifestManager {
             new_manifest: new_pointer.clone(),
             seal_segment_ids: sealable.into_iter().map(|segment| segment.id).collect(),
             tombstone_segment_ids: tombstones,
+            replace_artifacts: Vec::new(),
             gc_not_before_micros: TimestampMicros::now()
                 .0
                 .saturating_add(self.gc_grace_micros),
@@ -312,16 +358,16 @@ impl PartitionManifestManager {
                         .await
                     {
                         Ok(false) => {
-                            let _ = self
-                                .catalog
-                                .enqueue_orphan(
-                                    scope,
-                                    &pointer.object.key,
-                                    TimestampMicros::now()
-                                        .0
-                                        .saturating_add(self.gc_grace_micros),
-                                )
-                                .await;
+                            let not_before = TimestampMicros::now()
+                                .0
+                                .saturating_add(self.gc_grace_micros);
+
+                            for key in [
+                                pointer.object.key.clone(),
+                                ObjectKey::from_string(bloom_key(&pointer.object.key)),
+                            ] {
+                                let _ = self.catalog.enqueue_orphan(scope, &key, not_before).await;
+                            }
                         }
                         Ok(true) => {}
                         Err(check_error) => tracing::warn!(
@@ -334,6 +380,67 @@ impl PartitionManifestManager {
 
                 Err(error)
             }
+        }
+    }
+
+    /// Writes the Bloom filters of the segments of a new manifest beside it, keeping the filters
+    /// of segments the previous generation already had. A failure is only logged: a partition
+    /// without filters is queried as before.
+    async fn write_blooms(
+        &self,
+        stream: &StreamDefinition,
+        pointer: &PartitionManifestPointer,
+        segments: &[crate::domain::storage::DataSegment],
+        previous: Option<&PartitionManifestPointer>,
+        rebuilt: &HashMap<String, crate::infra::storage::filters::Filters>,
+    ) {
+        let previous = match previous {
+            Some(previous) => self
+                .reader
+                .blooms(&bloom_key(&previous.object.key))
+                .await
+                .ok()
+                .flatten(),
+            None => None,
+        };
+
+        let blooms = bloom::build(
+            self.object_store.clone(),
+            stream,
+            segments,
+            previous.as_deref(),
+            rebuilt,
+        )
+        .await;
+
+        if blooms.is_empty() {
+            return;
+        }
+
+        let key = bloom_key(&pointer.object.key);
+
+        let written = match blooms.encode() {
+            Ok(bytes) => self
+                .object_store
+                .put_opts(
+                    &Path::from(key.as_str()),
+                    PutPayload::from(bytes),
+                    PutOptions {
+                        mode: PutMode::Create,
+                        ..PutOptions::default()
+                    },
+                )
+                .await
+                .map(|_| ())
+                .or_else(|error| match error {
+                    object_store::Error::AlreadyExists { .. } => Ok(()),
+                    other => Err(Error::internal(format!("upload partition blooms: {other}"))),
+                }),
+            Err(error) => Err(error),
+        };
+
+        if let Err(error) = written {
+            tracing::warn!(object_key = key, %error, "partition bloom filters not written");
         }
     }
 

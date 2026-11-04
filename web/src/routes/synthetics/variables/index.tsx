@@ -80,7 +80,7 @@ export function Variables() {
                   key: 'name',
                   header: t('variables.name'),
                   cell: (secret) => (
-                    <div className="min-w-0 py-1">
+                    <div className="min-w-0">
                       <div className="truncate font-code text-xs font-strong text-tx-0">
                         {secret.name}
                       </div>
@@ -101,7 +101,7 @@ export function Variables() {
                   header: t('variables.version'),
                   width: 100,
                   cell: (secret) => (
-                    <span className="tabular-nums text-tx-1">v{secret.current_version}</span>
+                    <span className="tabular-nums text-tx-1">v{secret.currentVersion}</span>
                   ),
                 },
                 {
@@ -110,7 +110,7 @@ export function Variables() {
                   width: 150,
                   cell: (secret) => (
                     <span className="text-tx-2">
-                      {formatRelativeMicros(secret.updated_at, i18n.language, nowMicros)}
+                      {formatRelativeMicros(secret.updatedAt, i18n.language, nowMicros)}
                     </span>
                   ),
                 },

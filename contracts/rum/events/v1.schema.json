@@ -1,0 +1,782 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://molesignal.io/contracts/rum/events/v1.schema.json",
+  "title": "MoleSignal RUM event v1",
+  "description": "One real-user-monitoring event as sent to POST /api/v1/rum/events (the body is a JSON array of these, or a single one). `date` is epoch milliseconds; every duration and every timestamp relative to a view is an integer number of nanoseconds. Unknown fields are accepted and kept in the `extra` column; the server overwrites `geo` and `network`, and fills `browser`, `os` and `device` from the User-Agent when a browser event does not carry them.",
+  "type": "object",
+  "required": ["type", "date", "source", "session", "view"],
+  "properties": {
+    "type": { "enum": ["view", "action", "error", "resource", "long_task", "vital", "log"] },
+    "date": {
+      "$ref": "#/$defs/epochMillis",
+      "description": "When the event began. For a view it is the start of the view and never changes between revisions."
+    },
+    "application": {
+      "type": "object",
+      "description": "Optional. The application is the one the client token is bound to; a different id is rejected.",
+      "properties": { "id": { "$ref": "#/$defs/identifier" } }
+    },
+    "service": { "$ref": "#/$defs/label" },
+    "env": { "$ref": "#/$defs/label" },
+    "version": { "$ref": "#/$defs/label" },
+    "build_version": { "$ref": "#/$defs/label" },
+    "build_id": { "$ref": "#/$defs/label" },
+    "source": {
+      "enum": [
+        "browser",
+        "android",
+        "ios",
+        "flutter",
+        "react-native",
+        "kotlin-multiplatform",
+        "unity",
+        "roku",
+        "electron",
+        "other"
+      ]
+    },
+    "session": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "type": { "enum": ["user", "synthetics", "ci_test"], "default": "user" },
+        "has_replay": { "type": "boolean" },
+        "start": {
+          "$ref": "#/$defs/epochMillis",
+          "description": "When the session began. Lets the server tell a new session from one it has lost track of."
+        }
+      }
+    },
+    "synthetics": {
+      "type": "object",
+      "description": "The synthetic check that ran the session, on a session of type `synthetics`.",
+      "properties": {
+        "test_id": { "$ref": "#/$defs/identifier" },
+        "result_id": { "$ref": "#/$defs/identifier" },
+        "location_id": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "ci_test": {
+      "type": "object",
+      "description": "The test run that drove the session, on a session of type `ci_test`.",
+      "properties": { "test_execution_id": { "$ref": "#/$defs/identifier" } }
+    },
+    "view": { "$ref": "#/$defs/viewRef" },
+    "action": {
+      "$ref": "#/$defs/actionRef",
+      "description": "On an event that is not an action: the action during which it happened."
+    },
+    "usr": {
+      "type": "object",
+      "description": "The signed-in user. Keys beyond the four named ones are kept as `usr.extra`.",
+      "properties": {
+        "id": { "$ref": "#/$defs/text256" },
+        "name": { "$ref": "#/$defs/text256" },
+        "email": { "$ref": "#/$defs/text256" },
+        "anonymous_id": { "$ref": "#/$defs/text256" }
+      }
+    },
+    "account": {
+      "type": "object",
+      "properties": { "id": { "$ref": "#/$defs/text256" }, "name": { "$ref": "#/$defs/text256" } }
+    },
+    "tab": {
+      "type": "object",
+      "properties": { "id": { "$ref": "#/$defs/identifier" } }
+    },
+    "connectivity": {
+      "type": "object",
+      "properties": {
+        "status": { "enum": ["connected", "not_connected", "maybe"] },
+        "interfaces": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "enum": [
+              "bluetooth",
+              "cellular",
+              "ethernet",
+              "wifi",
+              "wimax",
+              "mixed",
+              "other",
+              "unknown",
+              "none"
+            ]
+          }
+        },
+        "effective_type": { "enum": ["slow-2g", "2g", "3g", "4g"] },
+        "cellular": {
+          "type": "object",
+          "properties": {
+            "technology": { "$ref": "#/$defs/text256" },
+            "carrier_name": { "$ref": "#/$defs/text256" }
+          }
+        }
+      }
+    },
+    "display": {
+      "type": "object",
+      "properties": {
+        "viewport": {
+          "type": "object",
+          "properties": {
+            "width": { "type": "number", "minimum": 0 },
+            "height": { "type": "number", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "browser": {
+      "type": "object",
+      "properties": {
+        "name": { "$ref": "#/$defs/text256" },
+        "version": { "$ref": "#/$defs/text256" }
+      }
+    },
+    "os": {
+      "type": "object",
+      "properties": {
+        "name": { "$ref": "#/$defs/text256" },
+        "version": { "$ref": "#/$defs/text256" },
+        "version_major": { "$ref": "#/$defs/text256" },
+        "build": { "$ref": "#/$defs/text256" }
+      }
+    },
+    "device": {
+      "type": "object",
+      "properties": {
+        "type": { "enum": ["mobile", "desktop", "tablet", "tv", "gaming_console", "bot", "other"] },
+        "name": { "$ref": "#/$defs/text256" },
+        "model": { "$ref": "#/$defs/text256" },
+        "brand": { "$ref": "#/$defs/text256" },
+        "architecture": { "$ref": "#/$defs/text256" },
+        "locale": { "$ref": "#/$defs/text256" },
+        "locales": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/text256" } },
+        "time_zone": { "$ref": "#/$defs/text256" },
+        "battery_level": { "type": "number", "minimum": 0, "maximum": 1 },
+        "brightness_level": { "type": "number", "minimum": 0, "maximum": 1 },
+        "power_saving_mode": { "type": "boolean" },
+        "is_low_ram": { "type": "boolean" },
+        "logical_cpu_count": { "type": "integer", "minimum": 0 },
+        "total_ram": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "sdk": {
+      "type": "object",
+      "description": "Who sent the event. The sample rates let the server scale sampled counts back up.",
+      "properties": {
+        "name": { "$ref": "#/$defs/text256" },
+        "version": { "$ref": "#/$defs/text256" },
+        "session_sample_rate": { "type": "number", "minimum": 0, "maximum": 100 },
+        "replay_sample_rate": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "context": {
+      "type": "object",
+      "description": "Custom attributes of the application. Stored as one JSON column."
+    },
+    "feature_flags": {
+      "type": "object",
+      "description": "Feature flag evaluations at the time of the event. Stored as one JSON column."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "view" } }, "required": ["type"] },
+      "then": { "type": "object", "properties": { "view": { "$ref": "#/$defs/viewBody" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "action" } }, "required": ["type"] },
+      "then": {
+        "type": "object",
+        "required": ["action"],
+        "properties": { "action": { "$ref": "#/$defs/actionBody" } }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "error" } }, "required": ["type"] },
+      "then": {
+        "type": "object",
+        "required": ["error"],
+        "properties": { "error": { "$ref": "#/$defs/errorBody" } }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "resource" } }, "required": ["type"] },
+      "then": {
+        "type": "object",
+        "required": ["resource"],
+        "properties": { "resource": { "$ref": "#/$defs/resourceBody" } }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "long_task" } }, "required": ["type"] },
+      "then": {
+        "type": "object",
+        "required": ["long_task"],
+        "properties": { "long_task": { "$ref": "#/$defs/longTaskBody" } }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "vital" } }, "required": ["type"] },
+      "then": {
+        "type": "object",
+        "required": ["vital"],
+        "properties": { "vital": { "$ref": "#/$defs/vitalBody" } }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "log" } }, "required": ["type"] },
+      "then": {
+        "type": "object",
+        "required": ["log", "level", "message"],
+        "properties": {
+          "level": { "enum": ["debug", "info", "warn", "error"] },
+          "message": { "type": "string", "minLength": 1 },
+          "log": { "$ref": "#/$defs/logBody" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "epochMillis": { "type": "integer", "minimum": 0 },
+    "ns": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Nanoseconds. A duration, or a time relative to the start of the view."
+    },
+    "identifier": { "type": "string", "pattern": "^[A-Za-z0-9._:-]{1,128}$" },
+    "label": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "text256": { "type": "string", "maxLength": 256 },
+    "count": {
+      "type": "object",
+      "required": ["count"],
+      "properties": { "count": { "type": "integer", "minimum": 0 } }
+    },
+    "perfMetric": {
+      "type": "object",
+      "properties": {
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "average": { "type": "number" },
+        "metric_max": { "type": "number" }
+      }
+    },
+    "viewRef": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "url": { "type": "string" },
+        "name": { "type": "string" },
+        "referrer": { "type": "string" },
+        "in_foreground": { "type": "boolean" }
+      }
+    },
+    "actionRef": {
+      "type": "object",
+      "properties": { "id": { "$ref": "#/$defs/identifier" } }
+    },
+    "viewBody": {
+      "type": "object",
+      "allOf": [{ "$ref": "#/$defs/viewRef" }],
+      "required": ["url", "revision", "time_spent"],
+      "properties": {
+        "url": { "type": "string" },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Grows by one each time the view is reported again. The server keeps the highest revision of a view."
+        },
+        "is_active": { "type": "boolean" },
+        "loading_type": {
+          "enum": [
+            "initial_load",
+            "route_change",
+            "bf_cache",
+            "activity_display",
+            "activity_redisplay",
+            "fragment_display",
+            "fragment_redisplay",
+            "view_controller_display",
+            "view_controller_redisplay",
+            "session_renewal"
+          ]
+        },
+        "loading_time": { "$ref": "#/$defs/ns" },
+        "time_spent": { "$ref": "#/$defs/ns" },
+        "first_byte": { "$ref": "#/$defs/ns" },
+        "dom_interactive": { "$ref": "#/$defs/ns" },
+        "dom_content_loaded": { "$ref": "#/$defs/ns" },
+        "dom_complete": { "$ref": "#/$defs/ns" },
+        "load_event": { "$ref": "#/$defs/ns" },
+        "network_settled_time": { "$ref": "#/$defs/ns" },
+        "interaction_to_next_view_time": { "$ref": "#/$defs/ns" },
+        "scroll": {
+          "type": "object",
+          "description": "How far down the page the view went. Depths are CSS pixels from the top of the page to the bottom of the window.",
+          "properties": {
+            "max_depth": { "type": "number", "minimum": 0 },
+            "max_depth_scroll_top": { "type": "number", "minimum": 0 },
+            "max_scroll_height": { "type": "number", "minimum": 0 },
+            "max_scroll_height_time": { "$ref": "#/$defs/ns" }
+          }
+        },
+        "performance": {
+          "type": "object",
+          "properties": {
+            "fcp": {
+              "type": "object",
+              "required": ["timestamp"],
+              "properties": { "timestamp": { "$ref": "#/$defs/ns" } }
+            },
+            "lcp": {
+              "type": "object",
+              "required": ["timestamp"],
+              "properties": {
+                "timestamp": { "$ref": "#/$defs/ns" },
+                "target_selector": { "type": "string" },
+                "resource_url": { "type": "string" },
+                "sub_parts": {
+                  "type": "object",
+                  "properties": {
+                    "load_delay": { "$ref": "#/$defs/ns" },
+                    "load_time": { "$ref": "#/$defs/ns" },
+                    "render_delay": { "$ref": "#/$defs/ns" }
+                  }
+                }
+              }
+            },
+            "fid": {
+              "type": "object",
+              "required": ["duration"],
+              "properties": {
+                "duration": { "$ref": "#/$defs/ns" },
+                "timestamp": { "$ref": "#/$defs/ns" },
+                "target_selector": { "type": "string" }
+              }
+            },
+            "inp": {
+              "type": "object",
+              "required": ["duration"],
+              "properties": {
+                "duration": { "$ref": "#/$defs/ns" },
+                "timestamp": { "$ref": "#/$defs/ns" },
+                "target_selector": { "type": "string" },
+                "sub_parts": {
+                  "type": "object",
+                  "properties": {
+                    "input_delay": { "$ref": "#/$defs/ns" },
+                    "processing_duration": { "$ref": "#/$defs/ns" },
+                    "presentation_delay": { "$ref": "#/$defs/ns" }
+                  }
+                }
+              }
+            },
+            "cls": {
+              "type": "object",
+              "required": ["score"],
+              "properties": {
+                "score": { "type": "number", "minimum": 0 },
+                "timestamp": { "$ref": "#/$defs/ns" },
+                "target_selector": { "type": "string" }
+              }
+            },
+            "fbc": {
+              "type": "object",
+              "description": "First build complete (Flutter).",
+              "required": ["timestamp"],
+              "properties": { "timestamp": { "$ref": "#/$defs/ns" } }
+            }
+          }
+        },
+        "custom_timings": {
+          "type": "object",
+          "maxProperties": 50,
+          "propertyNames": { "pattern": "^[A-Za-z0-9_.@$-]{1,128}$" },
+          "additionalProperties": { "$ref": "#/$defs/ns" }
+        },
+        "action": { "$ref": "#/$defs/count" },
+        "error": { "$ref": "#/$defs/count" },
+        "resource": { "$ref": "#/$defs/count" },
+        "long_task": { "$ref": "#/$defs/count" },
+        "frustration": { "$ref": "#/$defs/count" },
+        "crash": { "$ref": "#/$defs/count" },
+        "frozen_frame": { "$ref": "#/$defs/count" },
+        "memory_average": { "type": "number", "minimum": 0 },
+        "memory_max": { "type": "number", "minimum": 0 },
+        "cpu_ticks_count": { "type": "number", "minimum": 0 },
+        "cpu_ticks_per_second": { "type": "number", "minimum": 0 },
+        "refresh_rate_average": { "type": "number", "minimum": 0 },
+        "refresh_rate_min": { "type": "number", "minimum": 0 },
+        "slow_frames_rate": { "type": "number", "minimum": 0 },
+        "freeze_rate": { "type": "number", "minimum": 0 },
+        "flutter_build_time": { "$ref": "#/$defs/perfMetric" },
+        "flutter_raster_time": { "$ref": "#/$defs/perfMetric" }
+      }
+    },
+    "actionBody": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "type": {
+          "enum": ["custom", "click", "tap", "scroll", "swipe", "application_start", "back"]
+        },
+        "loading_time": { "$ref": "#/$defs/ns" },
+        "target": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "selector": { "type": "string" },
+            "path": {
+              "type": "string",
+              "description": "Where the element stands in the page, by tags and places only, from the body down: enough to find it again in a recording of the page, and nothing a person wrote."
+            },
+            "width": { "type": "integer", "minimum": 0 },
+            "height": { "type": "integer", "minimum": 0 },
+            "offset": {
+              "type": "object",
+              "description": "Where in the element the action landed, in CSS pixels from its top left corner.",
+              "properties": { "x": { "type": "integer" }, "y": { "type": "integer" } }
+            }
+          }
+        },
+        "position": {
+          "type": "object",
+          "description": "Where in the window the action landed, in CSS pixels.",
+          "properties": { "x": { "type": "integer" }, "y": { "type": "integer" } }
+        },
+        "page_position": {
+          "type": "object",
+          "description": "Where on the page the action landed, in CSS pixels from its top left corner, wherever it was scrolled to.",
+          "properties": { "x": { "type": "integer" }, "y": { "type": "integer" } }
+        },
+        "name_source": {
+          "enum": [
+            "custom_attribute",
+            "mask_placeholder",
+            "standard_attribute",
+            "text_content",
+            "mask_disallowed",
+            "blank"
+          ]
+        },
+        "frustration": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "array",
+              "maxItems": 5,
+              "items": {
+                "enum": ["rage_click", "dead_click", "error_click", "rage_tap", "error_tap"]
+              }
+            }
+          }
+        },
+        "error": { "$ref": "#/$defs/count" },
+        "crash": { "$ref": "#/$defs/count" },
+        "long_task": { "$ref": "#/$defs/count" },
+        "resource": { "$ref": "#/$defs/count" }
+      }
+    },
+    "frame": {
+      "type": "object",
+      "description": "One stack frame. The server adds `original_*` fields when a source map, mapping or symbol file resolves it.",
+      "properties": {
+        "file": { "type": "string" },
+        "function": { "type": "string" },
+        "class": { "type": "string" },
+        "module": { "type": "string" },
+        "line": { "type": "integer", "minimum": 0 },
+        "column": { "type": "integer", "minimum": 0 },
+        "debug_id": { "type": "string" },
+        "build_id": { "type": "string" },
+        "relative_address": { "anyOf": [{ "type": "string" }, { "type": "integer" }] },
+        "instruction_addr": { "anyOf": [{ "type": "string" }, { "type": "integer" }] },
+        "image_addr": { "anyOf": [{ "type": "string" }, { "type": "integer" }] },
+        "artifact_kind": {
+          "enum": ["javascript_sourcemap", "flutter_symbols", "android_native_symbols", "apple_dsym"]
+        }
+      }
+    },
+    "errorBody": {
+      "type": "object",
+      "required": ["id", "message", "source"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "message": { "type": "string", "minLength": 1 },
+        "source": {
+          "enum": ["network", "source", "console", "logger", "agent", "webview", "custom", "report"]
+        },
+        "type": { "type": "string" },
+        "stack": { "type": "string", "description": "The stack as text, for display and search." },
+        "frames": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": { "$ref": "#/$defs/frame" },
+          "description": "The stack as frames, in the order of the stack text, for symbolication."
+        },
+        "fingerprint": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Only for a developer who wants errors grouped their own way: errors of one application that name the same fingerprint are one issue, whatever their messages and stacks. Left out, the server groups them by type, message and the first frames of the application's own code, and writes the issue's id to `error.issue_id`."
+        },
+        "handling": { "enum": ["handled", "unhandled"] },
+        "handling_stack": { "type": "string" },
+        "causes": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "properties": {
+              "message": { "type": "string" },
+              "type": { "type": "string" },
+              "stack": { "type": "string" },
+              "source": {
+                "enum": [
+                  "network",
+                  "source",
+                  "console",
+                  "logger",
+                  "agent",
+                  "webview",
+                  "custom",
+                  "report"
+                ]
+              }
+            }
+          }
+        },
+        "is_crash": { "type": "boolean" },
+        "category": {
+          "enum": ["ANR", "App Hang", "Exception", "Watchdog Termination", "Memory Warning", "Network"]
+        },
+        "source_type": {
+          "enum": [
+            "android",
+            "browser",
+            "ios",
+            "react-native",
+            "flutter",
+            "roku",
+            "ndk",
+            "windows",
+            "macos",
+            "linux",
+            "maui",
+            "nodejs"
+          ]
+        },
+        "resource": {
+          "type": "object",
+          "description": "The request that failed, on a network error.",
+          "properties": {
+            "method": { "enum": ["POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "TRACE", "OPTIONS", "CONNECT"] },
+            "status_code": { "type": "integer", "minimum": 0 },
+            "url": { "type": "string" }
+          }
+        },
+        "threads": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "crashed": { "type": "boolean" },
+              "stack": { "type": "string" },
+              "state": { "type": "string" }
+            }
+          }
+        },
+        "binary_images": {
+          "type": "array",
+          "maxItems": 512,
+          "items": {
+            "type": "object",
+            "properties": {
+              "uuid": { "type": "string" },
+              "name": { "type": "string" },
+              "is_system": { "type": "boolean" },
+              "load_address": { "type": "string" },
+              "max_address": { "type": "string" },
+              "arch": { "type": "string" }
+            }
+          }
+        },
+        "was_truncated": { "type": "boolean" },
+        "csp": { "type": "object", "properties": { "disposition": { "enum": ["enforce", "report"] } } },
+        "time_since_app_start": { "type": "integer", "minimum": 0 },
+        "meta": { "type": "object" }
+      }
+    },
+    "phase": {
+      "type": "object",
+      "required": ["start", "duration"],
+      "properties": {
+        "start": { "$ref": "#/$defs/ns" },
+        "duration": { "$ref": "#/$defs/ns" }
+      }
+    },
+    "resourceBody": {
+      "type": "object",
+      "required": ["type", "url"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "type": {
+          "enum": [
+            "document",
+            "xhr",
+            "beacon",
+            "fetch",
+            "css",
+            "js",
+            "image",
+            "font",
+            "media",
+            "other",
+            "native"
+          ]
+        },
+        "method": { "enum": ["POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "TRACE", "OPTIONS", "CONNECT"] },
+        "url": { "type": "string", "minLength": 1 },
+        "status_code": { "type": "integer", "minimum": 0 },
+        "duration": { "$ref": "#/$defs/ns" },
+        "size": { "type": "integer", "minimum": 0, "description": "Bytes." },
+        "encoded_body_size": { "type": "integer", "minimum": 0 },
+        "decoded_body_size": { "type": "integer", "minimum": 0 },
+        "transfer_size": { "type": "integer", "minimum": 0 },
+        "render_blocking_status": { "enum": ["blocking", "non-blocking"] },
+        "protocol": { "type": "string" },
+        "delivery_type": { "enum": ["cache", "navigational-prefetch", "other"] },
+        "worker": { "$ref": "#/$defs/phase" },
+        "redirect": { "$ref": "#/$defs/phase" },
+        "dns": { "$ref": "#/$defs/phase" },
+        "connect": { "$ref": "#/$defs/phase" },
+        "ssl": { "$ref": "#/$defs/phase" },
+        "first_byte": { "$ref": "#/$defs/phase" },
+        "download": { "$ref": "#/$defs/phase" },
+        "request": {
+          "type": "object",
+          "properties": { "headers": { "type": "object", "additionalProperties": { "type": "string" } } }
+        },
+        "response": {
+          "type": "object",
+          "properties": { "headers": { "type": "object", "additionalProperties": { "type": "string" } } }
+        },
+        "graphql": {
+          "type": "object",
+          "properties": {
+            "operation_type": { "enum": ["query", "mutation", "subscription"] },
+            "operation_name": { "type": "string" },
+            "payload": { "type": "string" },
+            "variables": { "type": "string" }
+          }
+        },
+        "trace_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16,32}$",
+          "description": "The distributed trace the request joined (W3C trace id, lower-case hex)."
+        },
+        "span_id": { "type": "string", "pattern": "^[0-9a-f]{16}$" }
+      }
+    },
+    "longTaskBody": {
+      "type": "object",
+      "required": ["duration"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "duration": { "$ref": "#/$defs/ns" },
+        "entry_type": { "enum": ["long-task", "long-animation-frame"] },
+        "start_time": { "$ref": "#/$defs/ns" },
+        "blocking_duration": { "$ref": "#/$defs/ns" },
+        "render_start": { "$ref": "#/$defs/ns" },
+        "style_and_layout_start": { "$ref": "#/$defs/ns" },
+        "first_ui_event_timestamp": { "$ref": "#/$defs/ns" },
+        "is_frozen_frame": { "type": "boolean" },
+        "scripts": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "properties": {
+              "duration": { "$ref": "#/$defs/ns" },
+              "pause_duration": { "$ref": "#/$defs/ns" },
+              "forced_style_and_layout_duration": { "$ref": "#/$defs/ns" },
+              "start_time": { "$ref": "#/$defs/ns" },
+              "execution_start": { "$ref": "#/$defs/ns" },
+              "source_url": { "type": "string" },
+              "source_function_name": { "type": "string" },
+              "source_char_position": { "type": "integer", "minimum": 0 },
+              "invoker": { "type": "string" },
+              "invoker_type": {
+                "enum": [
+                  "user-callback",
+                  "event-listener",
+                  "resolve-promise",
+                  "reject-promise",
+                  "classic-script",
+                  "module-script"
+                ]
+              },
+              "window_attribution": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "logBody": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "logger": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "The name of the logger that wrote it."
+        },
+        "origin": {
+          "enum": ["logger", "console", "report", "sdk"],
+          "description": "How it got here: the application wrote it, the console was forwarded, the browser reported it, or the SDK says something of itself."
+        },
+        "error_type": { "type": "string", "maxLength": 256 },
+        "stack": { "type": "string", "description": "The stack of the error the log is about, as text." }
+      }
+    },
+    "vitalBody": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "type": { "enum": ["duration", "app_launch", "operation_step"] },
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "description": { "type": "string" },
+        "duration": { "$ref": "#/$defs/ns" },
+        "app_launch_metric": { "enum": ["ttid", "ttfd"] },
+        "startup_type": { "enum": ["cold_start", "warm_start"] },
+        "is_prewarmed": { "type": "boolean" },
+        "has_saved_instance_state_bundle": { "type": "boolean" },
+        "step_type": { "enum": ["start", "update", "retry", "end"] },
+        "operation_key": { "type": "string" },
+        "failure_reason": { "enum": ["error", "abandoned", "other"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "duration" } }, "required": ["type"] },
+          "then": { "type": "object", "required": ["name", "duration"], "properties": { "name": true, "duration": true } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "app_launch" } }, "required": ["type"] },
+          "then": { "type": "object", "required": ["app_launch_metric", "duration"], "properties": { "app_launch_metric": true, "duration": true } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "operation_step" } }, "required": ["type"] },
+          "then": { "type": "object", "required": ["name", "step_type"], "properties": { "name": true, "step_type": true } }
+        }
+      ]
+    }
+  }
+}

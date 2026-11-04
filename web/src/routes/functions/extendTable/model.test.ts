@@ -8,24 +8,24 @@ describe('extend table model', () => {
       inferValueFields([
         {
           id: '1',
-          org_id: 'o',
-          table_name: 'customers',
+          orgId: 'o',
+          tableName: 'customers',
           key: 'c-1',
-          value_json: { tier: 'pro', active: true },
-          updated_at_micros: 1,
+          valueJson: { tier: 'pro', active: true },
+          updatedAt: 1,
         },
         {
           id: '2',
-          org_id: 'o',
-          table_name: 'customers',
+          orgId: 'o',
+          tableName: 'customers',
           key: 'c-2',
-          value_json: { tier: 'free', active: false },
-          updated_at_micros: 2,
+          valueJson: { tier: 'free', active: false },
+          updatedAt: 2,
         },
       ]),
     ).toEqual([
-      { name: 'active', field_type: 'boolean', required: true, description: '' },
-      { name: 'tier', field_type: 'string', required: true, description: '' },
+      { name: 'active', fieldType: 'boolean', required: true, description: '' },
+      { name: 'tier', fieldType: 'string', required: true, description: '' },
     ]);
   });
 

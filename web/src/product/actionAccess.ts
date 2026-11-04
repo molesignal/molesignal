@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   hasPermission,
   type ProductAccess,
+  reachesOrganization,
   useProductAccess,
 } from '@/product/access';
 import type { PermissionKey } from '@/product/permissions';
@@ -66,6 +67,31 @@ export function resolveActionAccess(
     };
   }
   return { allowed: true, disabled: false };
+}
+
+/**
+ * Access to an action on one organization, for a list of them: a platform permission can be held
+ * across the platform or on named organizations.
+ */
+export function useOrganizationActionAccess(
+  permission: PermissionKey,
+): (organizationId: string) => ActionAccess {
+  const access = useProductAccess();
+  const { t } = useTranslation('common');
+
+  return (organizationId) => {
+    if (access?.status !== 'ready') {
+      return { allowed: false, disabled: true, reason: t('access.loading') };
+    }
+
+    return reachesOrganization(permission, organizationId, access)
+      ? { allowed: true, disabled: false }
+      : {
+          allowed: false,
+          disabled: true,
+          reason: t('access.permission_required', { permission }),
+        };
+  };
 }
 
 /**

@@ -7,33 +7,40 @@
 //! - `Content-Encoding: snappy` + `Content-Type: application/x-protobuf`
 //! - body: `prometheus.WriteRequest`（prompb v1 子集）
 //!
-//! 每个 `TimeSeries` 以 `__name__` 为 metrics stream，其余 labels 落到 fields。
-//! 完整请求先做结构限制 preflight，再按 metric 切成有界 `IntakeBatch`，确保每个 WAL seq
-//! 不承载无界 sample；`Sample` 的 timestamp 从 ms 转 μs，NaN/Inf 落 null 以兼容
-//! Prometheus staleness marker。原生 Exemplar 以同一 metric stream 的旁路行保存，不写
-//! `value`，因此普通 PromQL sample 查询不会把 Exemplar 当作采样点。
+//! 一个请求写进一个指标流：请求头 `stream-name` 指定，缺省 `default`。`__name__` 写进
+//! `metric_name`，其余 labels 落到 fields；与指标保留字段同名的 label 存为 `exported_<name>`。
+//! 完整请求先做结构限制 preflight，再切成有界 `IntakeBatch`，确保每个 WAL seq 不承载无界
+//! sample；`Sample` 的 timestamp 从 ms 转 μs，NaN/Inf 落 null 以兼容 Prometheus staleness
+//! marker。原生 Exemplar 以同一指标流的旁路行保存，不写 `value`，因此普通 PromQL sample 查询
+//! 不会把 Exemplar 当作采样点。
 
-use std::{
-    collections::{HashMap, HashSet},
-    sync::OnceLock,
-    time::Instant,
-};
+use std::{borrow::Cow, collections::HashSet, sync::OnceLock, time::Instant};
 
 use ::prometheus::IntCounterVec;
-use axum::{Extension, Router, body::Bytes, extract::State, http::StatusCode, routing::post};
+use axum::{
+    Extension, Router,
+    body::Bytes,
+    extract::State,
+    http::{HeaderMap, StatusCode},
+    routing::post,
+};
 use prost::Message;
 use serde_json::{Map, Number, Value};
 
 use crate::{
     api::AppState,
-    app::iam::IamContext,
+    app::{
+        iam::IamContext,
+        intake::usage::{IntakeReceipt, ServiceTally},
+    },
     config::PrometheusIntakeSettings,
     domain::{
         iam::permission,
-        intake::{IntakeBatch, RawEvent},
+        intake::{IntakeBatch, RawEvent, usage::source::IntakeCredential},
         metrics::{
-            PROMETHEUS_EXEMPLAR_LABELS_FIELD, PROMETHEUS_EXEMPLAR_MARKER_FIELD,
-            PROMETHEUS_EXEMPLAR_VALUE_FIELD, is_prometheus_exemplar_storage_field,
+            METRIC_NAME_FIELD, PROMETHEUS_EXEMPLAR_LABELS_FIELD, PROMETHEUS_EXEMPLAR_MARKER_FIELD,
+            PROMETHEUS_EXEMPLAR_VALUE_FIELD, is_metric_identity_storage_field,
+            is_prometheus_exemplar_storage_field,
         },
         stream::StreamType,
     },
@@ -99,19 +106,13 @@ struct PromWriteRequest {
 
 // --- handler ---------------------------------------------------------------
 
-#[permission("streams.write")]
+#[permission("metrics.write")]
 async fn remote_write(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
+    headers: HeaderMap,
     body: Bytes,
 ) -> Result<StatusCode> {
-    crate::api::http::intake_usage::record_intake_usage(
-        &state,
-        &ctx.org_id,
-        body.len() as u64,
-        TimestampMicros::now().0,
-    );
-
     let raw = snap::raw::Decoder::new()
         .decompress_vec(&body)
         .map_err(|e| Error::invalid(format!("snappy decode failed: {e}")))?;
@@ -132,18 +133,37 @@ async fn remote_write(
         .admit(&ctx.org_id, identities, Instant::now())
         .map_err(|reason| Error::resource_exhausted(reason.client_message()))?;
 
+    let stream = super::stream_name(&headers, super::DEFAULT_STREAM);
     let received_at = TimestampMicros::now();
-    let mut chunker = MetricChunker::new(settings.max_samples_per_batch);
+    let max_samples = settings.max_samples_per_batch.max(1);
+    let mut events = Vec::with_capacity(max_samples);
+    let mut services = ServiceTally::default();
+    let mut accepted = 0_u64;
 
-    for (stream, event) in MetricEventIter::new(req, received_at) {
-        if let Some(chunk) = chunker.push(stream, event) {
-            intake_chunk(&state, &ctx.org_id, chunk, received_at).await?;
+    for event in MetricEventIter::new(req, received_at) {
+        events.push(event);
+
+        if events.len() >= max_samples {
+            let chunk = std::mem::replace(&mut events, Vec::with_capacity(max_samples));
+            services.add_events(&chunk);
+            accepted += intake_chunk(&state, &ctx.org_id, &stream, chunk, received_at).await?;
         }
     }
 
-    for chunk in chunker.finish() {
-        intake_chunk(&state, &ctx.org_id, chunk, received_at).await?;
-    }
+    services.add_events(&events);
+    accepted += intake_chunk(&state, &ctx.org_id, &stream, events, received_at).await?;
+
+    state.platform.intake_meter.record(
+        &ctx.org_id,
+        IntakeReceipt {
+            credential: IntakeCredential::of(&ctx),
+            stream_type: StreamType::METRICS,
+            stream,
+            bytes: raw.len() as u64,
+            services,
+        },
+        accepted,
+    );
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -151,26 +171,27 @@ async fn remote_write(
 async fn intake_chunk(
     state: &AppState,
     org_id: &Id,
-    chunk: MetricChunk,
+    stream: &str,
+    events: Vec<RawEvent>,
     received_at: TimestampMicros,
-) -> Result<()> {
-    if chunk.events.is_empty() {
-        return Ok(());
+) -> Result<u64> {
+    if events.is_empty() {
+        return Ok(0);
     }
 
-    state
+    let result = state
         .intake
         .intake(IntakeBatch {
             batch_id: Id::new(),
             org_id: org_id.clone(),
-            stream: chunk.stream,
+            stream: stream.to_string(),
             stream_type: StreamType::METRICS,
-            events: chunk.events,
+            events,
             received_at,
         })
         .await?;
 
-    Ok(())
+    Ok(result.accepted as u64)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -214,12 +235,12 @@ impl StructuralViolation {
                 settings.max_labels_per_series
             ),
             Self::LabelNameTooLong => format!(
-                "TimeSeries label name exceeds max_label_name_bytes ({})",
-                settings.max_label_name_bytes
+                "TimeSeries label name exceeds max_label_name_length ({})",
+                settings.max_label_name_length
             ),
             Self::LabelValueTooLong => format!(
-                "TimeSeries label value exceeds max_label_value_bytes ({})",
-                settings.max_label_value_bytes
+                "TimeSeries label value exceeds max_label_value_length ({})",
+                settings.max_label_value_length
             ),
             Self::InvalidExemplarValue => "Exemplar value must be a finite number".to_string(),
         };
@@ -235,7 +256,7 @@ fn preflight(
     let mut identities = Vec::with_capacity(req.timeseries.len());
 
     for series in &req.timeseries {
-        let mut seen: HashSet<&str> = HashSet::with_capacity(series.labels.len());
+        let mut seen: HashSet<Cow<'_, str>> = HashSet::with_capacity(series.labels.len());
         let mut metric_name = None;
         let mut label_count = 0usize;
 
@@ -244,15 +265,15 @@ fn preflight(
                 return Err(StructuralViolation::EmptyLabelName);
             }
 
-            if label.name.len() > settings.max_label_name_bytes {
+            if label.name.len() > settings.max_label_name_length {
                 return Err(StructuralViolation::LabelNameTooLong);
             }
 
-            if label.value.len() > settings.max_label_value_bytes {
+            if label.value.len() > settings.max_label_value_length {
                 return Err(StructuralViolation::LabelValueTooLong);
             }
 
-            if !seen.insert(&label.name) {
+            if !seen.insert(stored_label_name(&label.name)) {
                 return Err(StructuralViolation::DuplicateLabel);
             }
 
@@ -295,11 +316,11 @@ fn preflight(
                     return Err(StructuralViolation::EmptyLabelName);
                 }
 
-                if label.name.len() > settings.max_label_name_bytes {
+                if label.name.len() > settings.max_label_name_length {
                     return Err(StructuralViolation::LabelNameTooLong);
                 }
 
-                if label.value.len() > settings.max_label_value_bytes {
+                if label.value.len() > settings.max_label_value_length {
                     return Err(StructuralViolation::LabelValueTooLong);
                 }
 
@@ -340,8 +361,18 @@ fn inc_structural_rejection(reason: &str) {
         .inc();
 }
 
+/// The column a label is stored in. A label named like one of the metric fields, such as
+/// `metric_name`, is kept as `exported_<name>`, as Prometheus does for a label that clashes with
+/// a target label.
+fn stored_label_name(name: &str) -> Cow<'_, str> {
+    if is_metric_identity_storage_field(name) {
+        Cow::Owned(format!("exported_{name}"))
+    } else {
+        Cow::Borrowed(name)
+    }
+}
+
 struct CurrentSeries {
-    stream: String,
     labels: Map<String, Value>,
     samples: std::vec::IntoIter<PromSample>,
     exemplars: std::vec::IntoIter<PromExemplar>,
@@ -364,7 +395,7 @@ impl MetricEventIter {
 }
 
 impl Iterator for MetricEventIter {
-    type Item = (String, RawEvent);
+    type Item = RawEvent;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -374,7 +405,7 @@ impl Iterator for MetricEventIter {
                 let timestamp = prometheus_timestamp(sample.timestamp, self.received_at);
                 let mut fields = current.labels.clone();
                 fields.insert("value".into(), float_to_json(sample.value));
-                return Some((current.stream.clone(), RawEvent { timestamp, fields }));
+                return Some(RawEvent { timestamp, fields });
             }
 
             if let Some(current) = &mut self.current
@@ -401,23 +432,23 @@ impl Iterator for MetricEventIter {
                     Value::Object(exemplar_labels),
                 );
 
-                return Some((current.stream.clone(), RawEvent { timestamp, fields }));
+                return Some(RawEvent { timestamp, fields });
             }
 
             let series = self.series.next()?;
-            let mut stream = None;
             let mut labels = Map::new();
 
             for label in series.labels {
-                if label.name == "__name__" {
-                    stream = Some(label.value);
+                let name = if label.name == "__name__" {
+                    METRIC_NAME_FIELD.to_string()
                 } else {
-                    labels.insert(label.name, Value::String(label.value));
-                }
+                    stored_label_name(&label.name).into_owned()
+                };
+
+                labels.insert(name, Value::String(label.value));
             }
 
             self.current = Some(CurrentSeries {
-                stream: stream.expect("remote-write request was preflighted"),
                 labels,
                 samples: series.samples.into_iter(),
                 exemplars: series.exemplars.into_iter(),
@@ -431,51 +462,6 @@ fn prometheus_timestamp(timestamp_millis: i64, received_at: TimestampMicros) -> 
         received_at
     } else {
         TimestampMicros::from_millis(timestamp_millis)
-    }
-}
-
-#[derive(Debug)]
-struct MetricChunk {
-    stream: String,
-    events: Vec<RawEvent>,
-}
-
-struct MetricChunker {
-    max_samples: usize,
-    pending: HashMap<String, Vec<RawEvent>>,
-}
-
-impl MetricChunker {
-    fn new(max_samples: usize) -> Self {
-        debug_assert!(max_samples > 0);
-
-        Self {
-            max_samples,
-            pending: HashMap::new(),
-        }
-    }
-
-    fn push(&mut self, stream: String, event: RawEvent) -> Option<MetricChunk> {
-        let bucket = self
-            .pending
-            .entry(stream.clone())
-            .or_insert_with(|| Vec::with_capacity(self.max_samples));
-
-        bucket.push(event);
-
-        (bucket.len() >= self.max_samples).then(|| MetricChunk {
-            stream,
-            events: std::mem::replace(bucket, Vec::with_capacity(self.max_samples)),
-        })
-    }
-
-    fn finish(self) -> Vec<MetricChunk> {
-        self.pending
-            .into_iter()
-            .filter_map(|(stream, events)| {
-                (!events.is_empty()).then_some(MetricChunk { stream, events })
-            })
-            .collect()
     }
 }
 
@@ -552,25 +538,27 @@ mod tests {
         let now = TimestampMicros(9_999_999);
         preflight(&req, &settings()).unwrap();
         let events: Vec<_> = MetricEventIter::new(req, now).collect();
-        let http: Vec<_> = events
-            .iter()
-            .filter(|(stream, _)| stream == "http_requests_total")
-            .collect();
+        let metric = |name: &str| {
+            events
+                .iter()
+                .filter(|event| event.fields[METRIC_NAME_FIELD] == name)
+                .collect::<Vec<_>>()
+        };
+
+        let http = metric("http_requests_total");
         assert_eq!(http.len(), 3);
-        assert_eq!(http[0].1.timestamp, TimestampMicros(1_000_000));
+        assert_eq!(http[0].timestamp, TimestampMicros(1_000_000));
         assert_eq!(
-            http[0].1.fields["value"],
+            http[0].fields["value"],
             Value::Number(Number::from_f64(1.0).unwrap())
         );
-        assert_eq!(http[0].1.fields["path"], Value::String("/a".into()));
+        assert_eq!(http[0].fields["path"], Value::String("/a".into()));
+        assert!(!http[0].fields.contains_key("__name__"));
 
-        let cpu: Vec<_> = events
-            .iter()
-            .filter(|(stream, _)| stream == "cpu_seconds")
-            .collect();
+        let cpu = metric("cpu_seconds");
         assert_eq!(cpu.len(), 1);
         // timestamp == 0 → 落到 received_at
-        assert_eq!(cpu[0].1.timestamp, now);
+        assert_eq!(cpu[0].timestamp, now);
     }
 
     #[test]
@@ -595,12 +583,16 @@ mod tests {
 
         let events = MetricEventIter::new(req, TimestampMicros(9_999_999)).collect::<Vec<_>>();
         assert_eq!(events.len(), 2);
-        let sample = &events[0].1;
+        let sample = &events[0];
         assert_eq!(sample.fields["value"], serde_json::json!(42.0));
         assert!(!sample.fields.contains_key(PROMETHEUS_EXEMPLAR_MARKER_FIELD));
 
-        let exemplar = &events[1].1;
+        let exemplar = &events[1];
         assert_eq!(exemplar.timestamp, TimestampMicros(1_000_000));
+        assert_eq!(
+            exemplar.fields[METRIC_NAME_FIELD],
+            "http_request_duration_seconds_bucket"
+        );
         assert!(
             !exemplar.fields.contains_key("value"),
             "exemplar rows must not become ordinary PromQL samples"
@@ -698,7 +690,7 @@ mod tests {
             Err(StructuralViolation::TooManyLabels)
         );
 
-        tight.max_label_name_bytes = 3;
+        tight.max_label_name_length = 3;
         let long_name = PromWriteRequest {
             timeseries: vec![ts("up", &[("long", "a")], &[(1.0, 1)])],
         };
@@ -707,8 +699,8 @@ mod tests {
             Err(StructuralViolation::LabelNameTooLong)
         );
 
-        tight.max_label_name_bytes = 128;
-        tight.max_label_value_bytes = 3;
+        tight.max_label_name_length = 128;
+        tight.max_label_value_length = 3;
         let long_value = PromWriteRequest {
             timeseries: vec![ts("up", &[("job", "long")], &[(1.0, 1)])],
         };
@@ -755,27 +747,32 @@ mod tests {
     }
 
     #[test]
-    fn metric_chunker_bounds_each_metric_batch() {
-        let mut chunker = MetricChunker::new(3);
-        let mut complete = Vec::new();
-        for i in 0..8 {
-            let event = RawEvent {
-                timestamp: TimestampMicros(i),
-                fields: Map::new(),
-            };
-            if let Some(chunk) = chunker.push("up".into(), event) {
-                complete.push(chunk);
-            }
-        }
-        complete.extend(chunker.finish());
+    fn a_label_named_like_a_metric_field_is_exported() {
+        let req = PromWriteRequest {
+            timeseries: vec![ts(
+                "up",
+                &[("metric_name", "shadow"), ("job", "api")],
+                &[(1.0, 1)],
+            )],
+        };
+
+        preflight(&req, &settings()).unwrap();
+        let events = MetricEventIter::new(req, TimestampMicros(0)).collect::<Vec<_>>();
+        assert_eq!(events[0].fields[METRIC_NAME_FIELD], "up");
+        assert_eq!(events[0].fields["exported_metric_name"], "shadow");
+
+        let clash = PromWriteRequest {
+            timeseries: vec![ts(
+                "up",
+                &[("metric_kind", "a"), ("exported_metric_kind", "b")],
+                &[(1.0, 1)],
+            )],
+        };
+
         assert_eq!(
-            complete
-                .iter()
-                .map(|chunk| chunk.events.len())
-                .collect::<Vec<_>>(),
-            vec![3, 3, 2]
+            preflight(&clash, &settings()),
+            Err(StructuralViolation::DuplicateLabel)
         );
-        assert!(complete.iter().all(|chunk| chunk.stream == "up"));
     }
 
     #[test]
@@ -806,14 +803,16 @@ mod tests {
         };
         let identities = preflight(&req, &settings()).unwrap();
         assert_eq!(identities.len(), 3);
-        let registry = PrometheusSeriesAdmission::new(PrometheusCardinalitySettings {
-            enabled: true,
-            max_active_series_per_process: 10,
-            max_active_series_per_org: 1,
-            max_active_series_per_metric: 1,
-            max_new_series_per_minute: 10,
-            idle_ttl_secs: 60,
-        });
+        let registry = PrometheusSeriesAdmission::new(
+            PrometheusCardinalitySettings {
+                enabled: true,
+                max_active_series_per_process: 10,
+                max_new_series_per_minute: 10,
+                idle_ttl_secs: 60,
+            },
+            1,
+            1,
+        );
         let error = registry
             .admit(&Id::from_string("org-a"), identities, Instant::now())
             .unwrap_err();

@@ -30,17 +30,28 @@ use crate::{
         },
         query::{
             catalog_source::CatalogQuerySource,
+            current_views,
+            parquet_table::ParquetMetadataCache,
             parser::{extract_referenced_tables, parse_sample_hint},
             planner::ensure_stream_in_org,
-            tantivy_pruner::{TantivyPruner, extract_match_predicates},
+            tantivy_pruner::{TantivyPruner, rewrite_match_calls},
             udfs::{build_extract_pattern_udf, build_mask_udf, compile_patterns},
         },
     },
     shared::{Error, Result, ids::Id},
 };
 
+mod blooms;
+mod counts;
+#[cfg(test)]
+mod current_view_tests;
 mod dataset;
 mod execute;
+mod paging;
+mod selection;
+mod shards;
+mod tables;
+mod waves;
 
 pub struct DataFusionEngine {
     files: Arc<dyn QueryFileSource>,
@@ -62,6 +73,8 @@ pub struct DataFusionEngine {
     /// Explicit Artifact relationships for isolated callers that do not own a FileCatalog.
     /// Production bootstrap leaves this empty because Catalog snapshots provide the mapping.
     explicit_tantivy_indexes: HashMap<String, String>,
+    /// Parsed Parquet footers shared by every query of this engine (`[cache.parquet_metadata]`).
+    parquet_metadata: Option<ParquetMetadataCache>,
 }
 
 impl DataFusionEngine {
@@ -78,6 +91,7 @@ impl DataFusionEngine {
             field_keys: None,
             catalog_source: None,
             explicit_tantivy_indexes: HashMap::new(),
+            parquet_metadata: None,
         }
     }
 
@@ -136,6 +150,11 @@ impl DataFusionEngine {
         self
     }
 
+    pub fn with_parquet_metadata_cache(mut self, cache: Option<ParquetMetadataCache>) -> Self {
+        self.parquet_metadata = cache;
+        self
+    }
+
     /// 暴露 DEK 服务给包装层（distributed coordinator 复用本地引擎的服务注册 `decrypt`）。
     pub fn field_keys(&self) -> Option<&Arc<crate::infra::cipher::FieldKeyService>> {
         self.field_keys.as_ref()
@@ -187,8 +206,18 @@ impl QueryEngine for DataFusionEngine {
             Error::invalid("query.stream hint is required; caller must name the target table")
         })?;
 
+        // 提示写成当前版本视图的名字，说的就是视图所属的流。
+        let name = current_views::base_stream(&name).map_or(name, str::to_string);
+
         if let Some(streams) = &self.streams {
-            ensure_stream_in_org(streams.as_ref(), &req.org_id, &name, stream_type).await?;
+            ensure_stream_in_org(
+                streams.as_ref(),
+                &req.org_id,
+                &name,
+                stream_type,
+                req.time_range,
+            )
+            .await?;
         }
 
         let (_sample, statement) = parse_sample_hint(&req.statement);
@@ -202,7 +231,7 @@ impl QueryEngine for DataFusionEngine {
         )
         .await?;
 
-        let (_preds, rewritten_sql) = extract_match_predicates(&statement);
+        let rewritten_sql = rewrite_match_calls(&statement);
 
         let ctx = crate::infra::query::analyzer::session_context(self.max_result_rows);
         ctx.register_udaf(crate::infra::query::udafs::approx_topk_udf());
@@ -239,16 +268,21 @@ impl QueryEngine for DataFusionEngine {
         };
 
         let mut tables: Vec<(String, StreamTypeEnum)> = vec![(name.clone(), stream_type)];
+        let views = current_views::mentioned(&rewritten_sql);
 
         for tref in extract_referenced_tables(&rewritten_sql).unwrap_or_default() {
-            if tref.name == name {
+            // 当前版本视图读它所属的流。
+            let table: &str = current_views::base_stream(&tref.name).unwrap_or(tref.name.as_str());
+
+            if table == name || tables.iter().any(|(known, _)| known == table) {
                 continue;
             }
 
-            if let Some(st) = resolve_stream_type(streams.as_ref(), &req.org_id, &tref.name).await {
+            if let Some(st) = resolve_stream_type(streams.as_ref(), &req.org_id, table).await {
                 // 与 execute 一致：引用到不可查询的 stream 时明确拒绝（plan 阶段也不放行）。
-                ensure_stream_in_org(streams.as_ref(), &req.org_id, &tref.name, st).await?;
-                tables.push((tref.name, st));
+                ensure_stream_in_org(streams.as_ref(), &req.org_id, table, st, req.time_range)
+                    .await?;
+                tables.push((table.to_string(), st));
             }
         }
 
@@ -258,10 +292,16 @@ impl QueryEngine for DataFusionEngine {
             };
 
             let schema = crate::infra::storage::arrow_schema::to_arrow(&def.schema);
-            let mem = MemTable::try_new(schema, vec![vec![]])
-                .map_err(|e| Error::internal(format!("explain memtable: {e}")))?;
-            ctx.register_table(TableReference::bare(tname.clone()), Arc::new(mem))
+            let mem = Arc::new(
+                MemTable::try_new(schema, vec![vec![]])
+                    .map_err(|e| Error::internal(format!("explain memtable: {e}")))?,
+            );
+            ctx.register_table(TableReference::bare(tname.clone()), mem.clone())
                 .map_err(|e| Error::internal(format!("explain register: {e}")))?;
+
+            for view in views.iter().filter(|view| view.base() == tname.as_str()) {
+                view.register(&ctx, mem.clone())?;
+            }
         }
 
         let plan = ctx

@@ -423,9 +423,9 @@ fn draft_summary(spec: &DashboardAuthoringSpec) -> Value {
     json!({
         "title": spec.title,
         "panels": panels,
-        "text_blocks": text_blocks,
+        "textBlocks": text_blocks,
         "queries": queries,
-        "folder_id": spec.folder_id
+        "folderId": spec.folder_id
     })
 }
 

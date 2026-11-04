@@ -11,7 +11,7 @@ import { Pill, type PillTone } from '@/shell/chrome';
 import { intakePathForSignal } from '../../streams/datasourceLink';
 import { sourceIcon } from '../catalogue/sourceIcon';
 import { summarizeSourceSignals } from '../datasourceModel';
-import { isValidRumApplicationId, substitute, useIntakeContext } from '../intakeContext';
+import { substitute, useIntakeContext } from '../intakeContext';
 import { ApplicationField } from '../mobileRum/ApplicationField';
 import type { Signal, Source } from '../sources';
 import { useSourceText } from '../sourceText';
@@ -50,12 +50,14 @@ export function Guide({
   const text = useSourceText();
   const [guideParams] = useSearchParams();
   const isRum = source.rumPlatform != null;
-  const initialApplicationId = isRum ? (guideParams.get('app')?.trim() ?? '') : '';
-  const [applicationId, setApplicationId] = React.useState(initialApplicationId);
-  const [configuredApplicationId, setConfiguredApplicationId] =
-    React.useState(initialApplicationId);
-  const context = useIntakeContext({ isRum, applicationId: configuredApplicationId });
+  const [applicationId, setApplicationId] = React.useState('');
+  const context = useIntakeContext({ isRum, applicationId });
   const [validation, setValidation] = React.useState<ValidationState>({ kind: 'idle' });
+  // Another application has another token, and what was verified for the one before says nothing of it.
+  const chooseApplication = React.useCallback((value: string) => {
+    setApplicationId(value);
+    setValidation({ kind: 'idle' });
+  }, []);
 
   const prepared =
     context.applicationValid && !context.tokenLoading && !!context.token && !context.tokenError;
@@ -79,10 +81,7 @@ export function Guide({
         probeHealth(),
         isRum
           ? rumIntakeApi
-              .recentErrorSummary({
-                orgId: context.orgId,
-                applicationId: context.applicationId,
-              })
+              .recentReceipt({ applicationId: context.applicationId })
               .then(rumSourceSummary)
           : refreshOverview().then((next) => summarizeSourceSignals(source, next)),
       ]);
@@ -95,7 +94,7 @@ export function Guide({
         return;
       }
 
-      const arrived = summary.rows > 0 && summary.lastReceivedAtMicros != null;
+      const arrived = summary.rows > 0 && summary.lastReceivedAt != null;
       setValidation({
         kind: arrived && summary.status === 'healthy' ? 'success' : 'warning',
         health,
@@ -163,18 +162,8 @@ export function Guide({
               isRum ? (
                 <ApplicationField
                   value={applicationId}
-                  valid={isValidRumApplicationId(applicationId)}
-                  confirmed={
-                    isValidRumApplicationId(applicationId) &&
-                    configuredApplicationId !== '' &&
-                    configuredApplicationId === applicationId.trim()
-                  }
-                  onChange={(value) => {
-                    setApplicationId(value);
-                    setConfiguredApplicationId('');
-                    setValidation({ kind: 'idle' });
-                  }}
-                  onConfirm={() => setConfiguredApplicationId(applicationId.trim())}
+                  preferred={guideParams.get('app')?.trim() ?? ''}
+                  onChange={chooseApplication}
                 />
               ) : undefined
             }
@@ -249,7 +238,7 @@ function guideEndpoints(
   streamName: string,
   origin: string,
 ): GuideEndpoint[] {
-  if (source.rumPlatform) return [{ signal: null, url: `${origin}/api/v1/rum/errors` }];
+  if (source.rumPlatform) return [{ signal: null, url: `${origin}/api/v1/rum/events` }];
 
   const shown = signal && source.signals.includes(signal) ? [signal] : source.signals;
 
@@ -260,7 +249,8 @@ function guideEndpoints(
 }
 
 function viewPathForSource(source: Source): string {
-  if (source.rumPlatform) return '/rum/errors';
+  // Asks about the kind of session, so that the test event, which is not of a real user, is listed.
+  if (source.rumPlatform) return `/rum/explorer?${new URLSearchParams({ q: "session.type != ''" })}`;
   if (source.signals.includes('logs')) return '/logs';
   if (source.signals.includes('metrics')) return '/metrics';
   if (source.signals.includes('traces')) return '/traces';

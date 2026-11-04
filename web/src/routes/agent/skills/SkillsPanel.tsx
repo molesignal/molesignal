@@ -17,6 +17,7 @@ import * as skillsApi from '@/api/agent/skills';
 import { toApiError } from '@/lib/http';
 import { formatMicrosActive } from '@/lib/time';
 import { ProductState } from '@/product/states';
+import { uiSectionTitleClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { Button } from '@/shell/ui/button';
 import {
@@ -237,7 +238,7 @@ export function SkillsPanel() {
                   {skill.version && (
                     <span className="text-type-micro text-tx-3">v{skill.version}</span>
                   )}
-                  {skill.requires_runner && (
+                  {skill.requiresRunner && (
                     <span className="rounded bg-[var(--yellow-tint)] px-1.5 text-type-micro text-[var(--yellow-ink)]">
                       {t('settings.skills.needs_runner')}
                     </span>
@@ -295,7 +296,7 @@ export function SkillsPanel() {
 
       <section aria-labelledby="agent-skill-repositories" className="mt-6">
         <div className="flex items-center gap-2">
-          <h3 id="agent-skill-repositories" className="text-sm font-strong text-tx-1">
+          <h3 id="agent-skill-repositories" className={uiSectionTitleClass}>
             {t('settings.skills.repository.title')}
           </h3>
           <Button
@@ -328,9 +329,9 @@ export function SkillsPanel() {
                     <span className="rounded bg-bg-3 px-1.5 text-type-micro text-tx-2">
                       {scopes.label({
                         scope: repository.scope.scope,
-                        team_id: repository.scope.scope === 'team' ? repository.scope.team_id : null,
-                        owner_id:
-                          repository.scope.scope === 'personal' ? repository.scope.owner_id : null,
+                        teamId: repository.scope.scope === 'team' ? repository.scope.teamId : null,
+                        ownerId:
+                          repository.scope.scope === 'personal' ? repository.scope.ownerId : null,
                       })}
                     </span>
                     <span
@@ -347,23 +348,23 @@ export function SkillsPanel() {
                     </span>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-tx-3">
-                    <span>{repository.git_ref || t('settings.skills.repository.default_branch')}</span>
+                    <span>{repository.gitRef || t('settings.skills.repository.default_branch')}</span>
                     {repository.dir && <span className="font-mono">{repository.dir}</span>}
-                    {repository.last_commit && (
-                      <span className="font-mono">{repository.last_commit.slice(0, 10)}</span>
+                    {repository.lastCommit && (
+                      <span className="font-mono">{repository.lastCommit.slice(0, 10)}</span>
                     )}
-                    {repository.last_synced_at && (
+                    {repository.lastSyncedAt && (
                       <span>
                         {t('settings.skills.repository.synced_at', {
-                          time: formatMicrosActive(repository.last_synced_at),
+                          time: formatMicrosActive(repository.lastSyncedAt),
                         })}
                       </span>
                     )}
-                    {repository.auto_sync && <span>{t('settings.skills.repository.daily')}</span>}
+                    {repository.autoSync && <span>{t('settings.skills.repository.daily')}</span>}
                   </div>
-                  {repository.last_error && (
+                  {repository.lastError && (
                     <p className="mt-1 whitespace-pre-line text-xs text-[var(--yellow-ink)]">
-                      {repository.last_error}
+                      {repository.lastError}
                     </p>
                   )}
                 </div>
@@ -407,7 +408,7 @@ export function SkillsPanel() {
       {paths && paths.roots.length > 0 && (
         <section aria-labelledby="agent-skill-paths" className="mt-6" data-agent-skill-paths>
           <div className="flex items-center gap-2">
-            <h3 id="agent-skill-paths" className="text-sm font-strong text-tx-1">
+            <h3 id="agent-skill-paths" className={uiSectionTitleClass}>
               {t('settings.skills.paths.title')}
             </h3>
             {scopes.manager && (
@@ -431,10 +432,10 @@ export function SkillsPanel() {
               </li>
             ))}
           </ul>
-          {paths.scanned_at_micros && (
+          {paths.scannedAt && (
             <p className="mt-1 text-xs text-tx-3">
               {t('settings.skills.paths.scanned_at', {
-                time: formatMicrosActive(paths.scanned_at_micros),
+                time: formatMicrosActive(paths.scannedAt),
               })}
             </p>
           )}

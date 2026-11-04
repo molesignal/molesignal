@@ -6,11 +6,13 @@ use parking_lot::Mutex;
 
 use super::*;
 use crate::{
+    app::alerting::ApmAlertSource,
     domain::apm::{
-        ApmQueryRepository, BucketDimension, BucketMeasurements, BucketQuery, CatalogQuery,
-        ErrorGroupQuery, ErrorGroupRecord, ErrorSample, LatencyHistogram, MergedBucket,
-        ProjectionGap, ProjectionGapReason, ProjectionState, QueryResolution, ServiceIdentity,
-        ServiceObservation, TransactionIdentity, TransactionKind, VersionObservation,
+        ApmAlertMetric, ApmAlertQuery, ApmQueryRepository, BucketDimension, BucketKind,
+        BucketMeasurements, BucketQuery, CatalogQuery, ErrorGroupQuery, ErrorGroupRecord,
+        ErrorIdentity, ErrorSample, LatencyHistogram, MergedBucket, ProjectionGap,
+        ProjectionGapReason, ProjectionState, QueryResolution, ServiceIdentity, ServiceObservation,
+        TransactionIdentity, TransactionKind, VersionObservation,
     },
     shared::{
         Error, Result,
@@ -25,6 +27,7 @@ struct FixtureRepository {
     buckets: Vec<MergedBucket>,
     state: Option<ProjectionState>,
     gaps: Vec<ProjectionGap>,
+    error_groups: Vec<ErrorGroupRecord>,
     seen_bucket_queries: Mutex<Vec<BucketQuery>>,
     seen_catalog_queries: Mutex<Vec<CatalogQuery>>,
 }
@@ -88,8 +91,19 @@ impl ApmQueryRepository for FixtureRepository {
         Ok(Vec::new())
     }
 
-    async fn list_error_groups(&self, _query: &ErrorGroupQuery) -> Result<Vec<ErrorGroupRecord>> {
-        Ok(Vec::new())
+    async fn list_error_groups(&self, query: &ErrorGroupQuery) -> Result<Vec<ErrorGroupRecord>> {
+        Ok(self
+            .error_groups
+            .iter()
+            .filter(|group| group.org_id == query.org_id)
+            .filter(|group| {
+                query
+                    .service_name
+                    .as_deref()
+                    .is_none_or(|value| group.service.name == value)
+            })
+            .cloned()
+            .collect())
     }
 
     async fn list_error_samples(
@@ -138,6 +152,7 @@ fn fixture() -> Arc<FixtureRepository> {
             telemetry_sdk_name: Some("opentelemetry".into()),
             telemetry_sdk_version: Some("1".into()),
             recent_instance_count: 1,
+            entry_kinds: Vec::new(),
         }],
         buckets: vec![
             MergedBucket {
@@ -152,6 +167,9 @@ fn fixture() -> Arc<FixtureRepository> {
                     overflow_count: 0,
                     latency,
                     exemplars: Vec::new(),
+                    status_codes: Default::default(),
+                    timeout_count: 0,
+                    retry_count: 0,
                 },
             },
             MergedBucket {
@@ -168,8 +186,29 @@ fn fixture() -> Arc<FixtureRepository> {
                     request_count: 1,
                     error_count: 0,
                     overflow_count: 0,
+                    latency: transaction_latency.clone(),
+                    exemplars: Vec::new(),
+                    status_codes: Default::default(),
+                    timeout_count: 0,
+                    retry_count: 0,
+                },
+            },
+            MergedBucket {
+                bucket_at: TimestampMicros(500),
+                dimension: BucketDimension::Instance {
+                    service: ServiceIdentity::new(Some("shop"), Some("api"), Some("prod"), None),
+                    version: Some("v1".into()),
+                    instance_id: "api-7d9f".into(),
+                },
+                measurements: BucketMeasurements {
+                    request_count: 1,
+                    error_count: 0,
+                    overflow_count: 0,
                     latency: transaction_latency,
                     exemplars: Vec::new(),
+                    status_codes: Default::default(),
+                    timeout_count: 0,
+                    retry_count: 0,
                 },
             },
         ],
@@ -186,6 +225,7 @@ fn fixture() -> Arc<FixtureRepository> {
             dropped_facts: 1,
             recorded_at: TimestampMicros(451),
         }],
+        error_groups: Vec::new(),
         seen_bucket_queries: Mutex::new(Vec::new()),
         seen_catalog_queries: Mutex::new(Vec::new()),
     })
@@ -318,11 +358,23 @@ async fn service_filters_reach_every_repository_query_and_partial_is_explicit() 
     assert!(response.meta.data_quality.partial);
     assert!(response.meta.activation_boundary);
     assert_eq!(response.meta.data_quality.gaps.len(), 1);
-    assert!(repository.seen_bucket_queries.lock().iter().all(|query| {
-        query.service_name.as_deref() == Some("api")
-            && query.environment.as_deref() == Some("prod")
-            && query.version.as_deref() == Some("v1")
+    let queries = repository.seen_bucket_queries.lock();
+    assert!(queries.iter().all(|query| {
+        query.service_name.as_deref() == Some("api") && query.environment.as_deref() == Some("prod")
     }));
+    // Every query keeps to the version but one: the versions' verdicts read the whole service.
+    let every_version = queries
+        .iter()
+        .filter(|query| query.version.is_none())
+        .collect::<Vec<_>>();
+    assert_eq!(every_version.len(), 1);
+    assert_eq!(every_version[0].kind, BucketKind::Service);
+    assert!(
+        queries
+            .iter()
+            .filter(|query| query.version.is_some())
+            .all(|query| query.version.as_deref() == Some("v1"))
+    );
 }
 
 #[tokio::test]
@@ -361,6 +413,7 @@ async fn stable_cursor_advances_without_repeating_a_service() {
         buckets: repository.buckets.clone(),
         state: repository.state.clone(),
         gaps: Vec::new(),
+        error_groups: Vec::new(),
         seen_bucket_queries: Mutex::new(Vec::new()),
         seen_catalog_queries: Mutex::new(Vec::new()),
     });
@@ -431,4 +484,85 @@ async fn stable_cursor_advances_without_repeating_a_service() {
         first.items[0].service.stable_key(),
         previous.items[0].service.stable_key()
     );
+}
+
+#[tokio::test]
+async fn new_error_groups_count_failures_first_seen_in_the_window() {
+    let group = |fingerprint: &str, first_seen: i64, transaction: &str| ErrorGroupRecord {
+        org_id: Id::from_string("org-a"),
+        error: ErrorIdentity {
+            fingerprint: fingerprint.into(),
+            error_type: "Timeout".into(),
+            application_frame: None,
+            transaction_name: Some(transaction.into()),
+            overflow: false,
+        },
+        service: service("api"),
+        first_seen_at: TimestampMicros(first_seen),
+        last_seen_at: TimestampMicros(900),
+        occurrence_count: 3,
+        representative_message: None,
+        representative_stack: Vec::new(),
+    };
+    let mut repository = Arc::try_unwrap(fixture()).ok().expect("one owner");
+    repository.error_groups = vec![
+        group("old", 100, "POST /orders"),
+        group("new", 600, "POST /orders"),
+        group("elsewhere", 700, "GET /cart"),
+    ];
+
+    let service = query_service(Arc::new(repository));
+    let org_id = Id::from_string("org-a");
+    let range = TimeRange::new(TimestampMicros(500), TimestampMicros(1_000));
+    let mut watched = ApmAlertQuery {
+        namespace: None,
+        service: "api".into(),
+        environment: None,
+        transaction: None,
+        metric: ApmAlertMetric::NewErrorGroups,
+        slo_id: None,
+        short_window_secs: None,
+    };
+
+    let whole = service.read(&org_id, &watched, range).await.unwrap();
+    assert_eq!(whole.map(|reading| reading.value), Some(2.0));
+
+    watched.transaction = Some(TransactionIdentity {
+        name: "POST /orders".into(),
+        kind: TransactionKind::Http,
+    });
+
+    let endpoint = service.read(&org_id, &watched, range).await.unwrap();
+    assert_eq!(endpoint.map(|reading| reading.value), Some(1.0));
+}
+
+#[tokio::test]
+async fn an_instance_says_what_it_served_though_nothing_else_is_kept_about_it() {
+    let service = query_service(fixture());
+    let request = ApmQueryRequest {
+        from: 0,
+        to: 1_000,
+        service: Some("api".into()),
+        environment: Some("prod".into()),
+        resolution: QueryResolution::Minute,
+        ..ApmQueryRequest::default()
+    };
+    let context = service
+        .context(
+            Id::from_string("org-a"),
+            request,
+            &["request_count"],
+            "request_count",
+        )
+        .expect("context");
+
+    let instances = service
+        .service_instances(&context)
+        .await
+        .expect("instances");
+
+    assert_eq!(instances.len(), 1);
+    assert_eq!(instances[0].instance.instance_id, "api-7d9f");
+    assert_eq!(instances[0].instance.version.as_deref(), Some("v1"));
+    assert_eq!(instances[0].red.request_count, 1);
 }

@@ -5,6 +5,7 @@ export const API_BASE = (
 ).replace(/\/$/, '');
 export const EMAIL = process.env.MS_SEED_EMAIL ?? 'admin@example.com';
 export const PASSWORD = process.env.MS_SEED_PASSWORD ?? 'admin';
+export const API_TOKEN = process.env.MS_SEED_TOKEN ?? '';
 export const NOW_MS = Date.now();
 export const RUN_ID = new Date(NOW_MS).toISOString().replace(/\D/g, '').slice(0, 14);
 
@@ -12,6 +13,7 @@ export class Api {
   constructor(base) {
     this.base = base;
     this.token = '';
+    this.sessionCookie = '';
     this.orgId = '';
     this.userId = '';
   }
@@ -23,10 +25,15 @@ export class Api {
         accept: 'application/json',
         ...(body === undefined ? {} : { 'content-type': 'application/json' }),
         ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
+        ...(this.sessionCookie ? { cookie: this.sessionCookie } : {}),
         ...headers,
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
+    const accessCookie = response.headers
+      .getSetCookie()
+      .find((cookie) => cookie.startsWith('accessToken='));
+    if (accessCookie) this.sessionCookie = accessCookie.split(';')[0];
     const text = await response.text();
     const data = text ? JSON.parse(text) : null;
     if (!response.ok) {
@@ -38,23 +45,43 @@ export class Api {
   }
 
   async login() {
-    const session = await this.request('POST', '/auth/signin', {
+    if (API_TOKEN) {
+      this.token = API_TOKEN;
+      const session = await this.request('GET', '/auth/session');
+      this.orgId = session.org_id;
+      this.userId = session.user_id;
+      return;
+    }
+    const { login, mfa } = await this.request('POST', '/auth/signin', {
       email: EMAIL,
       password: PASSWORD,
     });
-    this.token = session.token;
-    this.orgId = session.org_id;
-    this.userId = session.user_id;
+    if (mfa) {
+      throw new Error(
+        `${EMAIL} has multi-factor authentication on, so this script cannot sign in with a ` +
+          'password. Create a token in the organization to seed (Account settings → API ' +
+          'tokens) and pass it in MS_SEED_TOKEN.',
+      );
+    }
+    this.orgId = login.org_id;
+    this.userId = login.user_id;
+    // Only the session can switch organization or issue a token, and a token stays in the
+    // organization it was issued in, so the organization is chosen first.
     const orgs = await this.request('GET', '/orgs');
     const selected =
       orgs.find((org) => org.slug === 'default' || org.name === 'default') ??
-      orgs[0];
+      orgs.find((org) => !org.system);
     if (selected && selected.id !== this.orgId) {
       const next = await this.request('POST', `/orgs/${selected.id}/select`, {});
-      this.token = next.token;
       this.orgId = next.org_id;
       this.userId = next.user_id ?? this.userId;
     }
+    const issued = await this.request('POST', '/me/api-tokens', {
+      name: `seed-website-demo-${RUN_ID}`,
+      expires_in_days: 1,
+    });
+    this.token = issued.token;
+    this.sessionCookie = '';
   }
 
   post(path, body) {

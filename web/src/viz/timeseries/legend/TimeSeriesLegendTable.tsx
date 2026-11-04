@@ -82,7 +82,7 @@ export function TimeSeriesLegendTable({
     <>
       {seriesIdentity ? (
         <div
-          className="sticky top-0 z-20 flex min-h-9 items-center gap-2 border-b border-bd-0 bg-bg-1 px-3 py-1.5 font-sans"
+          className="sticky top-0 z-20 flex min-h-9 items-center gap-2 border-b border-bd-0 bg-[var(--panel-surface)] px-3 py-1.5 font-sans"
           data-testid="time-series-legend-heading"
         >
           <span className="text-sm font-semibold text-tx-0">

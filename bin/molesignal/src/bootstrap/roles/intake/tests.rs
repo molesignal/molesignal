@@ -272,7 +272,7 @@ async fn catalog_failure_keeps_generation_visible_and_retries_before_new_rows() 
 #[tokio::test]
 async fn due_flush_waits_for_age_threshold() {
     let fixture = fixture(IntakeSettings {
-        buffer_max_mb: 1,
+        buffer_max_size: 1,
         flush_interval_secs: 30,
         ..IntakeSettings::default()
     });

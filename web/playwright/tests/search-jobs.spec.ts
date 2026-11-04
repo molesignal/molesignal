@@ -109,10 +109,9 @@ test.describe('search jobs', () => {
     mockServer,
   }) => {
     await mountMockRoutes(page, mockServer.port, {
-      token: 'custom-role-analyst',
       role: 'Viewer',
       scope: 'organization',
-      capabilityPermissions: ['streams.read', 'streams.query'],
+      capabilityPermissions: ['streams.read', 'streams.query', 'query.jobs.read', 'query.jobs.run'],
     });
     // Kenji Watanabe submitted the backfill and the query that found nothing.
     await setMockSearchJobViewer(mockServer.port, 'u2');
@@ -303,8 +302,8 @@ test.describe('search jobs', () => {
 
     await updateMockSearchJob(mockServer.port, MOCK_SEARCH_JOB.running, {
       state: 'done',
-      result_rows: 5,
-      finished_at_micros: NOW_MICROS,
+      resultRows: 5,
+      finishedAt: NOW_MICROS,
     });
 
     // Nothing is clicked: the page reads the list again by itself.
@@ -350,7 +349,6 @@ test.describe('search jobs', () => {
     mockServer,
   }) => {
     await mountMockRoutes(page, mockServer.port, {
-      token: 'custom-role-stream-reader',
       role: 'Viewer',
       scope: 'organization',
       capabilityPermissions: ['streams.read'],

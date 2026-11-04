@@ -15,20 +15,21 @@ import { cn } from '@/shell/lib/cn';
  */
 export type Severity = 'critical' | 'error' | 'warning' | 'info';
 
+// A rail is an area of colour, so it takes the tone's fill: the tone held to a calmer chroma.
 export const SEVERITY_BAR_CLASS: Record<Severity, string> = {
-  critical: 'bg-red',
-  error: 'bg-red',
-  warning: 'bg-yellow',
-  info: 'bg-blue',
+  critical: 'bg-[var(--red-fill)]',
+  error: 'bg-[var(--red-fill)]',
+  warning: 'bg-[var(--yellow-fill)]',
+  info: 'bg-[var(--blue-fill)]',
 };
 
 const CATEGORICAL_BAR_CLASS: Record<string, string> = {
-  fatal: 'bg-red',
-  interrupted: 'bg-red',
-  warn: 'bg-yellow',
-  delayed: 'bg-yellow',
-  unknown: 'bg-orange',
-  healthy: 'bg-green',
+  fatal: 'bg-[var(--red-fill)]',
+  interrupted: 'bg-[var(--red-fill)]',
+  warn: 'bg-[var(--yellow-fill)]',
+  delayed: 'bg-[var(--yellow-fill)]',
+  unknown: 'bg-[var(--orange-fill)]',
+  healthy: 'bg-[var(--green-fill)]',
   debug: 'bg-tx-3',
   trace: 'bg-tx-3',
   idle: 'bg-tx-3',

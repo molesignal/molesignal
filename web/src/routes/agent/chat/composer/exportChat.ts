@@ -75,7 +75,7 @@ export function chatMarkdown(
       message.role === 'user'
         ? displayText(message.content)
         : answerMarkdown(message.content, labels);
-    parts.push(`## ${who} · ${when(message.created_at_micros)}`, body);
+    parts.push(`## ${who} · ${when(message.createdAt)}`, body);
   }
   return `${parts.join('\n\n')}\n`;
 }

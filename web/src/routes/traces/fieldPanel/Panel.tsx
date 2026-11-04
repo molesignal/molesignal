@@ -1,16 +1,15 @@
-import { ChevronDown, Eye, EyeOff, Plus, Search } from 'lucide-react';
+import { ChevronDown, Eye, EyeOff, Plus } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { CollapsibleSidePanel, SidePanelSection } from '@/shell/CollapsibleSidePanel';
+import { CollapsibleSidePanel, SidePanelSearch, SidePanelSection } from '@/shell/CollapsibleSidePanel';
 import { cn } from '@/shell/lib/cn';
 import { FieldAnalysisTrigger } from '@/shell/query/fieldAnalysis/Trigger';
 import {
-  FIELD_CARD_CLASS,
-  FIELD_CARD_HEAD_CLASS,
-  FIELD_LIST_GROUND_CLASS,
-  FIELD_NEST_CLASS,
-  FIELD_NESTED_ROW_CLASS,
+  FIELD_FLAT_HEAD_CLASS,
+  FIELD_FLAT_LINE_CLASS,
+  FIELD_FLAT_NEST_CLASS,
+  FIELD_FLAT_ROW_CLASS,
   FieldGroup,
 } from '@/shell/query/fields/Group';
 import { fieldTree, fieldTreeSize, type FieldTreeLeaf, type FieldTreeNode } from '@/shell/query/fields/tree';
@@ -22,6 +21,7 @@ import {
   TooltipTrigger,
 } from '@/shell/ui/tooltip';
 
+import { isRootColumnCandidate } from '../explorer/table/columns';
 import {
   groupTraceFields,
   isTraceFieldQueryable,
@@ -33,7 +33,6 @@ import type { TraceValueOperator } from '../valueFilter';
 import { TraceFieldAnalysis } from './Analysis';
 import {
   isTraceFieldExpandable,
-  isTraceListField,
   TRACE_TYPE_GLYPH,
   TRACE_TYPE_TONE,
   type TraceFieldRecord,
@@ -92,22 +91,23 @@ export function TraceFieldPanel({
   const sections = React.useMemo(() => {
     const { core, groups } = groupTraceFields(filtered);
     const attributes = groups.flatMap((group) => group.fields);
-    const shown = new Set(onToggleField ? visibleFields ?? [] : []);
+    const common = commonTraceFields(filtered);
+    const pinned = new Set(common.map((field) => field.name));
+    const shown = new Set(onToggleField ? (visibleFields ?? []).filter((name) => !pinned.has(name)) : []);
+    const rest = (field: TraceFieldDef) => !pinned.has(field.name) && !shown.has(field.name);
     const part = (keep: (field: TraceFieldDef) => boolean): FieldTreeNode<TraceFieldDef>[] => [
       ...core.filter(keep).map((field) => ({ kind: 'field' as const, field, label: field.name })),
       ...fieldTree(attributes.filter(keep)),
     ];
+    const flat = (list: TraceFieldDef[]) => list.map((field) => ({ kind: 'field' as const, field, label: field.name }));
 
     return [
+      // What a trace is first narrowed by stands first, out of the other parts: whose, what, how it ended, how long.
+      { key: 'common_fields', nodes: flat(common) },
       // What is on display is a plain list: a field keeps its whole name there.
-      {
-        key: 'displayed_fields',
-        nodes: [...core, ...attributes]
-          .filter((field) => shown.has(field.name))
-          .map((field) => ({ kind: 'field' as const, field, label: field.name })),
-      },
-      { key: 'indexed_fields', nodes: part((field) => !shown.has(field.name) && field.indexed === true) },
-      { key: 'other_fields', nodes: part((field) => !shown.has(field.name) && field.indexed !== true) },
+      { key: 'displayed_fields', nodes: flat([...core, ...attributes].filter((field) => shown.has(field.name))) },
+      { key: 'indexed_fields', nodes: part((field) => rest(field) && field.indexed === true) },
+      { key: 'other_fields', nodes: part((field) => rest(field) && field.indexed !== true) },
     ] as const;
   }, [filtered, onToggleField, visibleFields]);
   const [expandedField, setExpandedField] = React.useState<TraceFieldName | null>(null);
@@ -125,8 +125,8 @@ export function TraceFieldPanel({
 
   const renderRow = ({ field, label }: FieldTreeLeaf<TraceFieldDef>, nested = false) => {
     const expanded = expandedField === field.name;
-    // The eye picks what is shown beside a picked trace, which only has what its row carries.
-    const toggle = onToggleField && isTraceListField(field.name)
+    // The eye puts a field of each trace's root span beside the traces, as a column of the table.
+    const toggle = onToggleField && isRootColumnCandidate(field)
       ? { visible: visibleFields?.includes(field.name) ?? false, onToggle: () => onToggleField(field.name) }
       : undefined;
 
@@ -176,7 +176,18 @@ export function TraceFieldPanel({
       defaultWidth={260}
       resizeLabel={t('explore.labels.resize')}
       bodyClassName="flex flex-col"
-      className={cn('border-r-0', className)}
+      // The head row lines up with the head of the results beside the list.
+      headerClassName="h-11"
+      // The search stands in the head row, beside the button that folds the list: its words say what the list is.
+      header={
+        <SidePanelSearch
+          value={fieldFilter}
+          onChange={onFieldFilterChange}
+          placeholder={t('explore.labels.filter_placeholder')}
+          label={t('explore.labels.filter_aria')}
+        />
+      }
+      {...(className ? { className } : {})}
       collapseLabel={t('explore.labels.collapse')}
       expandLabel={t('explore.labels.expand')}
       flyout={
@@ -201,19 +212,8 @@ export function TraceFieldPanel({
       }
     >
       <TooltipProvider>
-        <div className="px-2 pb-2">
-          <div className="flex h-8 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-2.5 font-sans text-xs">
-            <Search className="h-3.5 w-3.5 text-tx-3" />
-            <input
-              value={fieldFilter}
-              onChange={(event) => onFieldFilterChange(event.target.value)}
-              placeholder={t('explore.labels.filter_placeholder')}
-              aria-label={t('explore.labels.filter_aria')}
-              className="min-w-0 flex-1 bg-transparent text-tx-0 placeholder:text-tx-3 focus:bg-transparent"
-            />
-          </div>
-        </div>
-        <div className={cn('mx-2 mb-1 min-h-0 flex-1 overflow-auto', FIELD_LIST_GROUND_CLASS)}>
+        {/* A flat list from edge to edge, as the table beside it: parts under bands like the table's head, a field a row. */}
+        <div className="min-h-0 flex-1 overflow-auto">
           {sections.map(
             (section) =>
               // A part that holds nothing has no heading, but for the indexed fields: that a stream
@@ -223,9 +223,10 @@ export function TraceFieldPanel({
                   key={section.key}
                   title={t(`explore.labels.${section.key}`)}
                   count={fieldTreeSize(section.nodes)}
+                  variant="band"
                 >
                   {section.nodes.length === 0 && (
-                    <p data-field-list-empty className="px-1.5 pb-1 font-sans text-xs text-tx-2">
+                    <p data-field-list-empty className="border-b border-bd-0 px-3 py-2 font-sans text-xs text-tx-2">
                       {t('explore.labels.no_indexed_fields')}
                     </p>
                   )}
@@ -237,6 +238,7 @@ export function TraceFieldPanel({
                     return (
                       <FieldGroup
                         key={`group:${node.name}`}
+                        variant="flat"
                         name={node.name}
                         count={node.children.length}
                         // A search has cut the list to what matches; a field open on its values keeps its group open.
@@ -269,6 +271,19 @@ export function TraceFieldPanel({
       </TooltipProvider>
     </CollapsibleSidePanel>
   );
+}
+
+/** The fields a trace is first narrowed by, in this order, as far as the stream has them: the HTTP status under the name it is written with. */
+const COMMON_TRACE_FIELDS = ['service.name', 'name', 'status_code', ['http.response.status_code', 'http.status_code'], 'duration_ns'] as const;
+
+function commonTraceFields(fields: readonly TraceFieldDef[]): TraceFieldDef[] {
+  const byName = new Map(fields.map((field) => [field.name, field]));
+
+  return COMMON_TRACE_FIELDS.flatMap((entry) => {
+    const names: readonly string[] = typeof entry === 'string' ? [entry] : entry;
+    const found = names.map((name) => byName.get(name)).find((field) => field !== undefined);
+    return found ? [found] : [];
+  });
 }
 
 interface TraceFieldRowProps {
@@ -329,24 +344,24 @@ function TraceFieldRow({
     <div
       data-trace-field={field.name}
       data-field-row
-      // A field of the list is a card; a field under a group is a row on a ground of its own inside the group's card.
-      className={nested ? FIELD_NESTED_ROW_CLASS : FIELD_CARD_CLASS}
+      // A field is a row of the flat list; one under a group is set in under the group's row.
+      className={FIELD_FLAT_ROW_CLASS}
     >
       {/* The head carries its own state, from edge to edge: under the pointer or the keyboard it is
           lit whole. The button inside has no fill of its own, which would light only the part of
           the row it covers. */}
       <div
         data-trace-field-row
-        className={cn(
-          'group flex items-center gap-1 pr-1 font-sans text-xs',
-          nested ? 'min-h-8 rounded-[5px] pl-1.5 hover:bg-bg-3 has-[:focus-visible]:bg-bg-4' : cn('min-h-9 pl-2', FIELD_CARD_HEAD_CLASS),
-        )}
+        className={cn('group flex items-center gap-1 pr-1', FIELD_FLAT_HEAD_CLASS, nested ? 'pl-8' : 'pl-3')}
       >
         <button
           type="button"
           onClick={() => onExpandedChange(!expanded)}
           disabled={!expandable}
-          className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-left focus-visible:bg-transparent disabled:cursor-default"
+          className={cn(
+            'flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:bg-transparent disabled:cursor-default',
+            FIELD_FLAT_LINE_CLASS,
+          )}
           aria-expanded={expandable ? expanded : undefined}
           aria-controls={expanded ? valuesId : undefined}
         >
@@ -415,11 +430,8 @@ function TraceFieldRow({
         <div
           id={valuesId}
           data-trace-field-values={field.name}
-          // What a field opens on is inside it, set in, on a ground of its own; a field under a
-          // group stands on that ground already and takes the surface of the card instead.
-          className={
-            nested ? 'mx-[3px] mb-[3px] rounded-[4px] bg-[var(--functional-surface)] p-[4px]' : FIELD_NEST_CLASS
-          }
+          // What a field opens on is under its row, on a ground a step off the list.
+          className={cn(FIELD_FLAT_NEST_CLASS, nested && 'pl-8')}
         >
           {children}
         </div>

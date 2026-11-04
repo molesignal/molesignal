@@ -40,7 +40,7 @@ pub(super) async fn execute(
             let dashboard = runtime
                 .content
                 .dashboard
-                .get(&Id(args.required("dashboard_id")?))
+                .get(&Id(args.required("dashboardId")?))
                 .await?;
 
             if dashboard.org_id != auth.org_id {
@@ -69,7 +69,7 @@ pub(super) async fn execute(
                     .content
                     .dashboard
                     .folders()
-                    .get(&auth.org_id, &Id(args.required("folder_id")?))
+                    .get(&auth.org_id, &Id(args.required("folderId")?))
                     .await?,
             )
         }
@@ -100,7 +100,7 @@ pub(super) async fn execute(
                 &runtime
                     .content
                     .annotations
-                    .get(&auth.org_id, &Id(args.required("annotation_id")?))
+                    .get(&auth.org_id, &Id(args.required("annotationId")?))
                     .await?,
             )
         }
@@ -116,7 +116,7 @@ struct ListArgs {
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct DashboardListArgs {
     #[serde(default)]
     folder_id: Option<String>,
@@ -125,7 +125,7 @@ struct DashboardListArgs {
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct AnnotationListArgs {
     #[serde(default)]
     time_range: Option<TimeRangeArg>,
@@ -136,7 +136,7 @@ struct AnnotationListArgs {
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct IdArg {
     dashboard_id: Option<String>,
     folder_id: Option<String>,
@@ -146,9 +146,9 @@ struct IdArg {
 impl IdArg {
     fn required(&self, field: &str) -> Result<String> {
         let value = match field {
-            "dashboard_id" => &self.dashboard_id,
-            "folder_id" => &self.folder_id,
-            "annotation_id" => &self.annotation_id,
+            "dashboardId" => &self.dashboard_id,
+            "folderId" => &self.folder_id,
+            "annotationId" => &self.annotation_id,
             _ => unreachable!(),
         };
 

@@ -7,15 +7,17 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     domain::apm::{
-        APM_PERSISTENCE_SCHEMA_VERSION, ApmOutcome, ApmSpanFact, BucketDimension,
-        BucketMeasurements, ErrorGroupRecord, ErrorSample, HistogramSchema, LatencyHistogram,
+        APM_PERSISTENCE_SCHEMA_VERSION, ApmSpanFact, BucketDimension, BucketMeasurements,
+        ErrorGroupRecord, ErrorSample, HistogramSchema, InstanceObservation, OTHER_DIMENSION,
         OwnerSnapshot, ServiceIdentity, ServiceObservation, TraceExemplar, VersionObservation,
     },
     shared::{Result, ids::Id, time::TimestampMicros},
 };
 
+mod instances;
 mod support;
 
+use instances::{InstanceState, note_entry_kind};
 use support::{admit_error_sample, admit_exemplar, dimension_is_overflow};
 
 const MINUTE_MICROS: i64 = 60_000_000;
@@ -51,10 +53,12 @@ struct ErrorState {
 }
 
 #[derive(Debug, Clone, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ApmFlushBatch {
     pub snapshots: Vec<OwnerSnapshot>,
     pub services: Vec<ServiceObservation>,
     pub versions: Vec<VersionObservation>,
+    pub instances: Vec<InstanceObservation>,
     pub error_groups: Vec<ErrorGroupRecord>,
     pub error_samples: Vec<ErrorSample>,
     pub projection_starts: Vec<(Id, TimestampMicros)>,
@@ -65,6 +69,7 @@ impl ApmFlushBatch {
         self.snapshots.is_empty()
             && self.services.is_empty()
             && self.versions.is_empty()
+            && self.instances.is_empty()
             && self.error_groups.is_empty()
             && self.error_samples.is_empty()
             && self.projection_starts.is_empty()
@@ -95,6 +100,7 @@ pub struct ApmAggregator {
     buckets: HashMap<BucketKey, BucketState>,
     catalog: HashMap<(Id, ServiceIdentity), CatalogState>,
     versions: HashMap<(Id, ServiceIdentity, String), VersionState>,
+    instance_records: HashMap<(Id, ServiceIdentity, String), InstanceState>,
     errors: HashMap<(Id, String), ErrorState>,
     projection_starts: HashMap<Id, TimestampMicros>,
     dirty_projection_starts: HashSet<Id>,
@@ -118,6 +124,7 @@ impl ApmAggregator {
             buckets: HashMap::new(),
             catalog: HashMap::new(),
             versions: HashMap::new(),
+            instance_records: HashMap::new(),
             errors: HashMap::new(),
             projection_starts: HashMap::new(),
             dirty_projection_starts: HashSet::new(),
@@ -126,12 +133,13 @@ impl ApmAggregator {
 
     pub fn observe(&mut self, fact: ApmSpanFact, trace_available: bool) -> Result<()> {
         self.observe_catalog(&fact);
+        self.observe_instance(&fact);
 
         let exemplar = TraceExemplar {
             trace_id: fact.trace_id.clone(),
             span_id: fact.span_id.clone(),
             event_time: fact.event_time,
-            duration_micros: fact.duration_micros,
+            duration: fact.duration,
             trace_available,
         };
 
@@ -152,6 +160,18 @@ impl ApmAggregator {
                         service: fact.service.clone(),
                         version: fact.service_version.clone(),
                         transaction,
+                    },
+                    exemplar.clone(),
+                )?;
+            }
+
+            if let Some(instance_id) = fact.service_instance_id.clone() {
+                self.observe_bucket(
+                    &fact,
+                    BucketDimension::Instance {
+                        service: fact.service.clone(),
+                        version: fact.service_version.clone(),
+                        instance_id,
                     },
                     exemplar.clone(),
                 )?;
@@ -221,6 +241,12 @@ impl ApmAggregator {
                 .filter(|state| state.dirty)
                 .map(|state| state.observation.clone())
                 .collect(),
+            instances: self
+                .instance_records
+                .values()
+                .filter(|state| state.dirty)
+                .map(|state| state.observation.clone())
+                .collect(),
             error_groups: self
                 .errors
                 .values()
@@ -279,6 +305,17 @@ impl ApmAggregator {
             }
         }
 
+        for observation in &batch.instances {
+            if let Some(state) = self.instance_records.get_mut(&(
+                observation.org_id.clone(),
+                observation.service.clone(),
+                observation.instance_id.clone(),
+            )) && state.observation == *observation
+            {
+                state.dirty = false;
+            }
+        }
+
         for record in &batch.error_groups {
             if let Some(state) = self
                 .errors
@@ -303,6 +340,8 @@ impl ApmAggregator {
             .retain(|_, state| state.dirty || state.observation.last_seen_at >= cutoff);
         self.versions
             .retain(|_, state| state.dirty || state.observation.last_seen_at >= cutoff);
+        self.instance_records
+            .retain(|_, state| state.dirty || state.observation.last_seen_at >= cutoff);
         self.errors
             .retain(|_, state| state.dirty || state.record.last_seen_at >= cutoff);
     }
@@ -320,6 +359,12 @@ impl ApmAggregator {
         let bucket_at =
             TimestampMicros(fact.event_time.0.div_euclid(MINUTE_MICROS) * MINUTE_MICROS);
 
+        // An instance row overflows on its own: past the instance limit, not past another one.
+        let overflow = match &dimension {
+            BucketDimension::Instance { instance_id, .. } => instance_id == OTHER_DIMENSION,
+            _ => dimension_is_overflow(fact),
+        };
+
         let key = BucketKey {
             org_id: fact.org_id.clone(),
             bucket_at,
@@ -330,33 +375,19 @@ impl ApmAggregator {
         self.next_snapshot_seq = self.next_snapshot_seq.saturating_add(1);
 
         let state = self.buckets.entry(key).or_insert_with(|| BucketState {
-            measurements: BucketMeasurements {
-                request_count: 0,
-                error_count: 0,
-                overflow_count: 0,
-                latency: LatencyHistogram::empty(&self.histogram),
-                exemplars: Vec::new(),
-            },
+            measurements: BucketMeasurements::empty(&self.histogram),
             snapshot_seq,
             dirty: true,
         });
 
         state.snapshot_seq = snapshot_seq;
         state.dirty = true;
-        state.measurements.request_count = state.measurements.request_count.saturating_add(1);
-
-        if fact.outcome == ApmOutcome::Error {
-            state.measurements.error_count = state.measurements.error_count.saturating_add(1);
-        }
-
-        if dimension_is_overflow(fact) {
-            state.measurements.overflow_count = state.measurements.overflow_count.saturating_add(1);
-        }
+        state.measurements.count(fact, overflow);
 
         state
             .measurements
             .latency
-            .observe(&self.histogram, fact.duration_micros)?;
+            .observe(&self.histogram, fact.duration)?;
 
         admit_exemplar(
             &mut state.measurements.exemplars,
@@ -388,6 +419,7 @@ impl ApmAggregator {
                     telemetry_sdk_name: fact.instrumentation.sdk_name.clone(),
                     telemetry_sdk_version: fact.instrumentation.sdk_version.clone(),
                     recent_instance_count: 0,
+                    entry_kinds: Vec::new(),
                 },
                 instances: HashSet::new(),
                 dirty: true,
@@ -414,12 +446,15 @@ impl ApmAggregator {
             .clone()
             .or(state.observation.telemetry_sdk_version.take());
 
-        if let Some(instance) = &fact.service_instance_id {
+        if let Some(instance) = &fact.service_instance_id
+            && instance != OTHER_DIMENSION
+        {
             state.instances.insert(instance.clone());
         }
 
         state.observation.recent_instance_count =
             u32::try_from(state.instances.len()).unwrap_or(u32::MAX);
+        note_entry_kind(&mut state.observation.entry_kinds, fact);
         state.dirty = true;
 
         if let Some(version) = &fact.service_version {

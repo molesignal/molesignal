@@ -58,7 +58,7 @@ impl ClusterEventOutboxRepository for PgClusterEventOutboxRepository {
     async fn append(&self, org_id: &Id, ev: &CloudEvent) -> Result<()> {
         sqlx::query(
             "INSERT INTO cluster_event_outbox
-                (id, org_id, event_type, subject, payload, created_at_micros)
+                (id, org_id, event_type, subject, payload, created_at)
              VALUES ($1, $2, $3, $4, $5, $6)
              ON CONFLICT (id) DO NOTHING",
         )
@@ -67,7 +67,7 @@ impl ClusterEventOutboxRepository for PgClusterEventOutboxRepository {
         .bind(&ev.event_type)
         .bind(&ev.subject)
         .bind(Json(ev))
-        .bind(TimestampMicros::now().0)
+        .bind(TimestampMicros::now())
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -119,15 +119,15 @@ impl ClusterEventOutboxRepository for PgClusterEventOutboxRepository {
 
     async fn ack(&self, remote_cluster_id: &Id, seq: i64) -> Result<()> {
         sqlx::query(
-            "INSERT INTO cluster_event_delivery (remote_cluster_id, acked_seq, updated_at_micros)
+            "INSERT INTO cluster_event_delivery (remote_cluster_id, acked_seq, updated_at)
              VALUES ($1, $2, $3)
              ON CONFLICT (remote_cluster_id) DO UPDATE
              SET acked_seq = GREATEST(cluster_event_delivery.acked_seq, EXCLUDED.acked_seq),
-                 updated_at_micros = EXCLUDED.updated_at_micros",
+                 updated_at = EXCLUDED.updated_at",
         )
         .bind(&remote_cluster_id.0)
         .bind(seq)
-        .bind(TimestampMicros::now().0)
+        .bind(TimestampMicros::now())
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -346,19 +346,19 @@ impl ClusterResourceVersionRepository for PgClusterResourceVersionRepository {
     ) -> Result<i64> {
         let row = sqlx::query(
             "INSERT INTO cluster_resource_version
-                (resource_kind, org_id, resource_id, version, writer, updated_at_micros)
+                (resource_kind, org_id, resource_id, version, writer, updated_at)
              VALUES ($1, $2, $3, 1, $4, $5)
              ON CONFLICT (resource_kind, org_id, resource_id) DO UPDATE
              SET version = cluster_resource_version.version + 1,
                  writer = EXCLUDED.writer,
-                 updated_at_micros = EXCLUDED.updated_at_micros
+                 updated_at = EXCLUDED.updated_at
              RETURNING version",
         )
         .bind(kind)
         .bind(&org_id.0)
         .bind(resource_id)
         .bind(writer)
-        .bind(TimestampMicros::now().0)
+        .bind(TimestampMicros::now())
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -401,18 +401,18 @@ impl ClusterResourceVersionRepository for PgClusterResourceVersionRepository {
     ) -> Result<()> {
         sqlx::query(
             "INSERT INTO cluster_resource_version
-                (resource_kind, org_id, resource_id, version, writer, updated_at_micros)
+                (resource_kind, org_id, resource_id, version, writer, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6)
              ON CONFLICT (resource_kind, org_id, resource_id) DO UPDATE
              SET version = EXCLUDED.version, writer = EXCLUDED.writer,
-                 updated_at_micros = EXCLUDED.updated_at_micros",
+                 updated_at = EXCLUDED.updated_at",
         )
         .bind(kind)
         .bind(&org_id.0)
         .bind(resource_id)
         .bind(version)
         .bind(writer)
-        .bind(TimestampMicros::now().0)
+        .bind(TimestampMicros::now())
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -447,10 +447,10 @@ impl PgSeenEventsRepository {
 impl SeenEventsRepository for PgSeenEventsRepository {
     async fn insert_if_absent(&self, id: &str) -> Result<bool> {
         let res = sqlx::query(
-            "INSERT INTO seen_events (id, received_at_micros) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
+            "INSERT INTO seen_events (id, received_at) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
         )
         .bind(id)
-        .bind(TimestampMicros::now().0)
+        .bind(TimestampMicros::now())
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -469,8 +469,8 @@ impl SeenEventsRepository for PgSeenEventsRepository {
     }
 
     async fn sweep(&self, older_than: TimestampMicros) -> Result<u64> {
-        let res = sqlx::query("DELETE FROM seen_events WHERE received_at_micros < $1")
-            .bind(older_than.0)
+        let res = sqlx::query("DELETE FROM seen_events WHERE received_at < $1")
+            .bind(older_than)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;

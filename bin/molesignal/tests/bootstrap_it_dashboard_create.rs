@@ -85,7 +85,7 @@ async fn create_then_get_preserves_dashboard_model() {
     let id = created["id"].as_str().expect("created id").to_string();
     assert_eq!(created["uid"], "abcd1234");
     assert_eq!(created["title"], "Latency overview");
-    assert_eq!(created["org_id"], s.root_org_id.0);
+    assert_eq!(created["orgId"], s.root_org_id.0);
 
     let resp = s
         .client

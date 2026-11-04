@@ -94,6 +94,13 @@ fn batch(stream_type: StreamType) -> IntakeBatch {
     }
 }
 
+/// `ids` in the order the forwarder tries them for the batch's stream.
+fn ranked<const N: usize>(mut ids: [&'static str; N]) -> [&'static str; N] {
+    let key = intake_routing_key(&Id::from_string("org-1"), "app");
+    ids.sort_by_key(|id| Reverse(rendezvous::weight(&key, id)));
+    ids
+}
+
 fn accepted(count: u32) -> PushResponse {
     PushResponse {
         accepted: count,
@@ -147,7 +154,8 @@ async fn stream_types_outside_the_proto_enum_travel_by_name() {
 #[tokio::test]
 async fn an_unreachable_node_is_skipped() {
     let (live, received) = serve(Ok(accepted(1))).await;
-    let registry = Peers(vec![peer("down", "127.0.0.1:1"), peer("up", &live)]);
+    let [down, up] = ranked(["a", "b"]);
+    let registry = Peers(vec![peer(up, &live), peer(down, "127.0.0.1:1")]);
     let forwarder = GrpcIntakeForwarder::new(Arc::new(registry));
 
     let result = forwarder.forward(batch(StreamType::LOGS)).await.unwrap();
@@ -160,7 +168,8 @@ async fn an_unreachable_node_is_skipped() {
 async fn nodes_that_answer_with_an_error_are_not_retried_elsewhere() {
     let (first, first_received) = serve(Err(Status::invalid_argument("bad payload"))).await;
     let (second, second_received) = serve(Ok(accepted(1))).await;
-    let registry = Peers(vec![peer("a", &first), peer("b", &second)]);
+    let [owner, next] = ranked(["a", "b"]);
+    let registry = Peers(vec![peer(next, &second), peer(owner, &first)]);
     let forwarder = GrpcIntakeForwarder::new(Arc::new(registry));
 
     let error = forwarder
@@ -171,6 +180,27 @@ async fn nodes_that_answer_with_an_error_are_not_retried_elsewhere() {
     assert_eq!(error.http_status_code(), 400);
     assert_eq!(first_received.lock().len(), 1);
     assert!(second_received.lock().is_empty());
+}
+
+#[tokio::test]
+async fn every_node_sends_a_stream_to_the_same_intake_node_in_the_same_order() {
+    let ids = ["n1", "n2", "n3", "n4"];
+
+    let order = |listed: [&'static str; 4]| async move {
+        let registry = Peers(listed.iter().map(|id| peer(id, "127.0.0.1:1")).collect());
+
+        GrpcIntakeForwarder::new(Arc::new(registry))
+            .candidates(&Id::from_string("org-1"), "app")
+            .await
+            .into_iter()
+            .map(|peer| peer.node_id)
+            .collect::<Vec<_>>()
+    };
+
+    let expected = ranked(ids).map(str::to_string).to_vec();
+
+    assert_eq!(order(ids).await, expected);
+    assert_eq!(order(["n3", "n1", "n4", "n2"]).await, expected);
 }
 
 #[tokio::test]

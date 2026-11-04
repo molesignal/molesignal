@@ -48,14 +48,14 @@ export function ResultTable({
           <col key={index} style={{ width: `${(width / total) * 100}%` }} />
         ))}
       </colgroup>
-      <thead className="bg-bg-2">
+      <thead>
         <tr>
           {columns.map((column, index) => (
             // A statement can select the same name twice.
             <th
               key={`${index}:${column}`}
               scope="col"
-              className="border-b border-r border-bd-0 px-[10px] py-[7px] text-left align-bottom font-semibold text-tx-2 last:border-r-0"
+              className="border-b border-r border-bd-0 px-[10px] py-[7px] text-left align-bottom bg-[var(--table-head-surface)] font-strong text-tx-0 last:border-r-0"
             >
               {column}
             </th>

@@ -142,6 +142,7 @@ mod tests {
             page_size: 2,
             q: None,
             filters: Vec::new(),
+            condition: None,
             boundary: None,
         }
     }
@@ -156,8 +157,10 @@ mod tests {
                 duration_ms: duration_ns as f64 / 1_000_000.0,
                 span_count,
                 error_count: span_count % 3,
+                ..Default::default()
             },
             duration_ns,
+            root_span_id: String::new(),
         }
     }
 

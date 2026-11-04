@@ -20,16 +20,16 @@ pub(super) fn routes() -> Router<AppState> {
     Router::new()
         .route("/synthetics/agents", get(list))
         .route(
-            "/synthetics/agents/{agent_id}/configuration",
+            "/synthetics/agents/{agentId}/configuration",
             axum::routing::put(update_configuration),
         )
         .route(
-            "/synthetics/agents/{agent_id}/revoke",
+            "/synthetics/agents/{agentId}/revoke",
             axum::routing::post(revoke),
         )
 }
 
-#[permission("synthetics.read")]
+#[permission("synthetics.locations.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -59,7 +59,7 @@ async fn update_configuration(
         agent.id.as_str(),
         serde_json::json!({
             "name": agent.name.clone(),
-            "label_count": agent.labels.len(),
+            "labelCount": agent.labels.len(),
         }),
     )
     .await;
@@ -84,7 +84,7 @@ async fn revoke(
         "synthetic.agent.revoke",
         "synthetic_agent",
         agent.id.as_str(),
-        serde_json::json!({"location_id": agent.location_id}),
+        serde_json::json!({"locationId": agent.location_id}),
     )
     .await;
 

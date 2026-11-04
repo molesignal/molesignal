@@ -7,9 +7,9 @@ const stableBuild: VersionInfo = {
   version: '26.0.0.0',
   commit: 'd86fa2d15d68',
   branch: 'main',
-  build_epoch_secs: 1_785_087_406,
-  build_id: 'gha-12345-1',
-  release_channel: 'stable',
+  buildEpochSecs: 1_785_087_406,
+  buildId: 'gha-12345-1',
+  releaseChannel: 'stable',
   edition: 'enterprise',
 };
 

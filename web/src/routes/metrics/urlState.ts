@@ -15,7 +15,7 @@ export interface MetricsUrlState {
 export function metricsStateFromParams(params: URLSearchParams): MetricsUrlState {
   const step = params.get('step')?.trim() ?? '';
   const draw = params.get('draw');
-  const stack = params.get('stack_mode');
+  const stack = params.get('stackMode');
 
   return {
     queryOptions: {
@@ -49,7 +49,7 @@ export function writeExecutedMetricsState(
   writeNonDefault(next, 'type', state.queryOptions.type, 'range');
   writeNonDefault(next, 'exemplars', state.queryOptions.exemplars ? '1' : '0', '1');
   writeNonDefault(next, 'draw', state.drawStyle, 'line');
-  writeNonDefault(next, 'stack_mode', state.stackMode, 'none');
+  writeNonDefault(next, 'stackMode', state.stackMode, 'none');
   return next;
 }
 

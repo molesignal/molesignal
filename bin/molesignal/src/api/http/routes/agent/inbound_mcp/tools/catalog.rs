@@ -47,7 +47,7 @@ pub(super) fn protocol_tool(name: &str) -> Option<Tool> {
                     "query": {"type": "string"},
                     "domain": {"type": "string"},
                     "limit": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10},
-                    "include_schema": {"type": "boolean", "default": true}
+                    "includeSchema": {"type": "boolean", "default": true}
                 },
                 "additionalProperties": false
             }),
@@ -64,7 +64,7 @@ pub(super) fn protocol_tool(name: &str) -> Option<Tool> {
                 "properties": {
                     "name": {"type": "string"},
                     "arguments": {"type": "object"},
-                    "as_task": {"type": "boolean", "default": false}
+                    "asTask": {"type": "boolean", "default": false}
                 },
                 "additionalProperties": false
             }),
@@ -74,14 +74,14 @@ pub(super) fn protocol_tool(name: &str) -> Option<Tool> {
         )),
         "call_managed_tool" => Some(adapter_tool(
             "call_managed_tool",
-            "Call one managed change tool. idempotency_key is required and is reserved before any approval is created.",
+            "Call one managed change tool. idempotencyKey is required and is reserved before any approval is created.",
             json!({
                 "type": "object",
-                "required": ["name", "arguments", "idempotency_key"],
+                "required": ["name", "arguments", "idempotencyKey"],
                 "properties": {
                     "name": {"type": "string"},
                     "arguments": {"type": "object"},
-                    "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 128}
+                    "idempotencyKey": {"type": "string", "minLength": 1, "maxLength": 128}
                 },
                 "additionalProperties": false
             }),
@@ -176,7 +176,7 @@ pub(in crate::api::http::routes::agent::inbound_mcp) async fn resolve(
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct SearchArgs {
     #[serde(default)]
     query: Option<String>,
@@ -255,10 +255,10 @@ pub(super) async fn search(
                 "tags": spec.tags,
                 "risk": spec.risk,
                 "access": spec.access,
-                "execution_mode": mode,
-                "required_permissions": spec.required_permissions,
-                "input_schema": args.include_schema.unwrap_or(true).then_some(spec.input_schema),
-                "output_schema": args.include_schema.unwrap_or(true).then_some(spec.output_schema),
+                "executionMode": mode,
+                "requiredPermissions": spec.required_permissions,
+                "inputSchema": args.include_schema.unwrap_or(true).then_some(spec.input_schema),
+                "outputSchema": args.include_schema.unwrap_or(true).then_some(spec.output_schema),
             }),
         ));
     }
@@ -311,10 +311,10 @@ pub(in crate::api::http::routes::agent::inbound_mcp) async fn resource_catalog(
                 "tags": spec.tags,
                 "risk": spec.risk,
                 "access": spec.access,
-                "execution_mode": mode,
-                "required_permissions": spec.required_permissions,
-                "input_schema": spec.input_schema,
-                "output_schema": spec.output_schema,
+                "executionMode": mode,
+                "requiredPermissions": spec.required_permissions,
+                "inputSchema": spec.input_schema,
+                "outputSchema": spec.output_schema,
             }));
         }
     }
@@ -323,9 +323,9 @@ pub(in crate::api::http::routes::agent::inbound_mcp) async fn resource_catalog(
 
     Ok(json!({
         "tools": entries,
-        "direct_tools": advertised(handler, iam).await?.into_iter().map(|tool| tool.name).collect::<Vec<_>>(),
-        "agent_profile_applied": false,
-        "outbound_mcp_proxied": false,
+        "directTools": advertised(handler, iam).await?.into_iter().map(|tool| tool.name).collect::<Vec<_>>(),
+        "agentProfileApplied": false,
+        "outboundMcpProxied": false,
     }))
 }
 

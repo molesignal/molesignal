@@ -1,220 +1,1121 @@
 {
   "title": "User Experience",
-  "subtitle": "Analyze page performance, errors, and user experience from real user sessions.",
+  "subtitle": "Explore the sessions, views, actions, errors and requests of real users.",
   "refresh": "Refresh",
   "geo_credit": "IP geolocation by DB-IP",
-  "pagination": {
-    "aria_label": "RUM list pagination",
-    "page_size": "Rows per page",
-    "previous": "Previous",
-    "next": "Next"
+  "map": {
+    "zoom_in": "Zoom in",
+    "zoom_out": "Zoom out",
+    "zoom_reset": "Show the whole map",
+    "zoom_level": "Zoom {{level}}×",
+    "no_data": "No data",
+    "keys": "Press + and − to zoom, 0 to show the whole map, and the arrow keys to move a zoomed map. Drag to move it, and use the wheel to zoom.",
+    "wheel_hint": "Hold Ctrl (⌘ on a Mac) and scroll to zoom the map"
+  },
+  "onboarding": {
+    "eyebrow": "RUM data setup",
+    "title": "Start collecting real user experience data",
+    "description": "Create an application, then give its client token to the MoleSignal RUM SDK. Sessions, page performance and frontend errors appear here as soon as the first events arrive.",
+    "create": "Create application",
+    "view_docs": "View setup docs",
+    "steps": {
+      "1": "Create an application",
+      "2": "Install the SDK with its token",
+      "3": "Send a test event",
+      "4": "Start analyzing"
+    }
   },
   "nav": {
     "overview": "Overview",
-    "applications": "Applications",
-    "sessions": "Sessions",
-    "pages": "Pages",
+    "explorer": "Explorer",
+    "playlists": "Playlists",
     "errors": "Errors",
     "performance": "Performance",
-    "session_replay": "Session replay",
+    "applications": "Applications",
     "source_maps": "Source Maps & Symbols",
-    "upload_source_maps": "Upload debug artifact"
-  },
-  "scope": {
-    "application": "Application",
-    "environment": "Environment",
-    "version": "Version",
-    "region": "Region",
-    "device": "Device",
-    "all_apps": "All applications",
-    "all_environments": "All environments",
-    "all_versions": "All versions",
-    "all_regions": "All regions",
-    "all_devices": "All devices",
-    "unknown_app": "Unknown application"
-  },
-  "experience": {
-    "good": "Good",
-    "needs_improvement": "Needs improvement",
-    "poor": "Poor",
-    "unknown": "Unknown"
+    "upload_source_maps": "Upload debug artifact",
+    "frustration": "Frustration",
+    "analytics": "Analytics",
+    "feature_flags": "Feature flags"
   },
   "overview": {
-    "page_title": "User Experience · {{app}}",
-    "page_subtitle": "{{environment}} · {{version}} · {{range}}",
-    "compare_previous": "Compared with previous period",
-    "current_period": "Current period",
-    "load_error": "Unable to load the User Experience overview",
-    "scope_empty_title": "No sessions match these filters",
-    "scope_empty_description": "Sessions were recorded in this time range, but none for this combination of application, environment, version, region and device.",
-    "scope_clear": "Clear filters",
-    "no_rated_sessions": "No rated sessions",
-    "no_previous_data": "No previous-period data",
-    "unchanged": "Unchanged from previous period",
-    "delta_better": "{{value}} better",
-    "delta_worse": "{{value}} worse",
-    "kpi": {
-      "active_users": "Active users",
-      "experience_score": "Experience score",
-      "sessions": "Sessions",
-      "error_free_sessions": "Error-free sessions",
-      "lcp": "LCP P75",
-      "inp": "INP P75",
-      "cls": "CLS P75",
-      "error_session_rate": "Error session rate",
-      "slow_session_rate": "Slow session rate"
+    "retry": "Retry",
+    "open_dashboard": "Open in dashboard",
+    "scope": {
+      "application": "Application",
+      "environment": "Environment",
+      "all_environments": "All environments"
     },
-    "experience_trend": "Experience trend",
-    "experience_trend_description": "Real distribution of good, needs-improvement, and poor sessions over time.",
-    "core_web_vitals": "Core Web Vitals",
-    "core_web_vitals_description": "LCP, INP, and CLS P75 from real-user samples.",
+    "empty": {
+      "title": "No sessions in this range",
+      "description": "Nothing was recorded for this application in the time in view. Widen the range, or check that its SDK is sending.",
+      "widen": "Expand the time range"
+    },
+    "unavailable": {
+      "time_budget": "Counting took longer than the time budget. Narrow the time range.",
+      "busy": "The system is busy counting for other readers. Try again in a moment.",
+      "timestamp_masked": "Time is masked for your role, so there is nothing to count over time."
+    },
+    "pulse": {
+      "aria": "Sessions and Core Web Vitals",
+      "sessions_one": "<n>{{formatted}}</n> session",
+      "sessions_other": "<n>{{formatted}}</n> sessions",
+      "people_one": "<n>{{formatted}}</n> person",
+      "people_other": "<n>{{formatted}}</n> people",
+      "browser": "<sessions/> from <people/>, and <n>{{share}}</n> of the sessions had no errors.",
+      "app": "<sessions/> from <people/>; <n>{{sessionShare}}</n> of the sessions and <n>{{userShare}}</n> of the people had no crash."
+    },
     "vitals": {
+      "label": "{{name}} · p75",
+      "names": {
+        "lcp": "LCP",
+        "inp": "INP",
+        "cls": "CLS"
+      },
+      "grade": {
+        "good": "Good",
+        "needs_improvement": "Needs improvement",
+        "poor": "Poor"
+      },
+      "good_at": "≤ {{value}} good",
+      "poor_at": "> {{value}} poor",
+      "aria": "{{name}}, 75th percentile {{value}}: {{grade}}",
+      "open": "Open {{name}} on the performance page",
+      "none_aria": "{{name}}: no view measured it"
+    },
+    "pages": {
+      "title": "Pages",
+      "screens": "Screens",
+      "description": "The most viewed, with the 75th percentile of each vital",
+      "description_screens": "The most viewed",
+      "table": "Most viewed pages",
+      "columns": {
+        "page": "Page",
+        "screen": "Screen",
+        "views": "Views",
+        "errors": "With errors"
+      },
+      "open": "Open the views of {{page}} in the explorer",
+      "empty": "No views in this range"
+    },
+    "origins": {
+      "title": "Where visitors are",
+      "description": "Sessions by country",
+      "map": "World map of where the sessions came from",
+      "value_one": "{{formatted}} session",
+      "value_other": "{{formatted}} sessions",
+      "legend": "Sessions"
+    },
+    "shares": {
+      "browsers": "Browsers",
+      "systems": "Operating systems",
+      "devices": "Devices",
+      "other": "Other",
+      "empty": "No sessions with a value",
+      "device_types": {
+        "desktop": "Desktop",
+        "mobile": "Mobile",
+        "tablet": "Tablet",
+        "bot": "Bot",
+        "other": "Other"
+      }
+    },
+    "frustration": {
+      "title": "Frustrating elements",
+      "description_click": "Actions that met rage clicks, dead clicks or error clicks",
+      "description_tap": "Actions that met rage taps or error taps",
+      "empty": "No frustrated actions in this range",
+      "unnamed": "An element without a name",
+      "kinds": {
+        "rage": "Rage clicks",
+        "dead": "Dead clicks",
+        "error": "Error clicks",
+        "rage_tap": "Rage taps",
+        "dead_tap": "Dead taps",
+        "error_tap": "Error taps"
+      }
+    },
+    "issues": {
+      "title": "Latest issues",
+      "description": "New and regressed, by sessions affected",
+      "all": "All issues",
+      "empty": "No new or regressed issues in this range",
+      "sessions_one": "{{formatted}} session",
+      "sessions_other": "{{formatted}} sessions",
+      "first_seen": "First seen {{ago}} · {{version}}",
+      "first_seen_plain": "First seen {{ago}}",
+      "regressed": "Resolved in {{resolved}}, back in {{version}} {{ago}}",
+      "regressed_plain": "Resolved, back {{ago}}"
+    },
+    "test_traffic": {
+      "title": "These numbers are of real users: the sessions of synthetic checks and CI tests are not counted. Open them here.",
+      "note_one": "{{value}} test session left out",
+      "note_other": "{{value}} test sessions left out"
+    }
+  },
+  "performance": {
+    "empty": {
+      "title": "No page views in this range"
+    },
+    "not_browser": {
+      "title": "Web Vitals are measured in browsers",
+      "description": "This application does not send from a browser, so there are no page loads to grade. Its screens and crashes are on the overview and the errors page."
+    },
+    "metrics": {
       "lcp": "LCP",
       "inp": "INP",
-      "cls": "CLS"
+      "cls": "CLS",
+      "fcp": "FCP",
+      "ttfb": "TTFB"
     },
-    "pulse_aria": "Audience and Core Web Vitals",
-    "vital_scale_aria": "{{vital}} at the 75th percentile: {{grade}}",
-    "vital_thresholds": "≤ {{good}} good · > {{poor}} poor",
-    "sessions_per_user": "{{value}} sessions per user",
-    "sessions_with_errors": "{{count}} sessions with errors",
-    "satisfaction": "User satisfaction",
-    "satisfaction_description": "Share of good, needs-improvement, and poor sessions.",
-    "each_bar_time_bucket": "Each bar represents one time bucket",
-    "needs_attention": "Needs attention",
-    "needs_attention_description": "The highest-priority findings in the selected time range.",
-    "no_attention": "Nothing needs immediate attention",
-    "attention_error_impact": "{{sessions}} sessions · {{users}} users",
-    "attention_slow_page": "LCP P75 {{duration}} · {{sessions}} sessions",
-    "attention_rage_clicks": "{{count}} sessions with rage clicks",
-    "attention_crashes": "{{count}} crashed sessions",
-    "attention_crashes_description": "Open replay to inspect the final user action before the crash",
-    "slowest_pages": "Slowest pages",
-    "slowest_pages_description": "Ranked by LCP P75 from real-user samples.",
-    "view_web_vitals": "View Web Vitals",
-    "view_pages": "View pages",
-    "error_rate": "error rate",
-    "frequent_errors": "Frequent frontend errors",
-    "frequent_errors_description": "Ranked by affected users and occurrence count.",
-    "view_errors": "View errors",
-    "users_unit": "users",
-    "browser_device": "Browsers and devices",
-    "browser_device_description": "Session share by browser and device combination.",
-    "regions": "Regional distribution",
-    "regions_description": "Regional share of real user sessions.",
-    "sessions_unit": "sessions",
-    "abnormal_sessions": "Recent abnormal sessions",
-    "abnormal_sessions_description": "Open the user replay and investigate directly.",
-    "view_all_sessions": "View all sessions",
-    "no_abnormal_sessions": "No abnormal sessions in this range"
+    "dimensions": {
+      "page": "Page",
+      "browser": "Browser",
+      "os": "Operating system",
+      "device": "Device",
+      "country": "Country or region",
+      "version": "Version"
+    },
+    "statement": {
+      "aria": "Page views and Web Vitals",
+      "sentence": "<views/>. At the 75th percentile LCP is <lcp/>, INP is <inp/> and CLS is <cls/>.",
+      "views_one": "<n>{{formatted}}</n> page view",
+      "views_other": "<n>{{formatted}}</n> page views",
+      "reading": "<figure>{{value}}</figure> (<grade>{{grade}}</grade>)",
+      "not_measured": "not measured"
+    },
+    "picker": {
+      "aria": "The level shown below"
+    },
+    "trend": {
+      "title": "{{name}} over time",
+      "description": "The 75th percentile of each stretch; the dashed lines mark where it turns from good to needs improvement and on to poor",
+      "good": "Good",
+      "poor": "Poor",
+      "empty": "No view in this range had it",
+      "aria": "{{name}} at the 75th percentile over time"
+    },
+    "grades": {
+      "title": "Views by grade",
+      "description": "Good, needs improvement and poor, for each level",
+      "empty": "No view in this range had a level to grade",
+      "aria": "{{name}}: {{good}} of the views were good",
+      "range": {
+        "good": "≤ {{good}}",
+        "needs_improvement": "{{good}} to {{poor}}",
+        "poor": "> {{poor}}"
+      },
+      "note": "Views that had {{name}}: {{formatted}}"
+    },
+    "table": {
+      "by": "By",
+      "search": "Search values",
+      "search_label": "Search the values of the table",
+      "count_one": "{{count}} value",
+      "count_other": "{{count}} values",
+      "most_viewed_one": "The most viewed value",
+      "most_viewed_other": "The {{count}} most viewed",
+      "few_note": "under {{views}} views: grey",
+      "views": "Views",
+      "good": "{{name}} good",
+      "none": "(none)",
+      "empty": "No views in this range",
+      "no_match": "No value matches",
+      "aria": "Levels by {{dimension}}",
+      "open": "Open what the views of {{value}} are made of",
+      "few": "Fewer than {{views}} views: too few to rank"
+    },
+    "drawer": {
+      "title": "What these views are slow on",
+      "tabs": "Web Vital",
+      "explore": "View in explorer",
+      "alert": "Alert on this",
+      "close": "Close",
+      "views_one": "{{formatted}} view",
+      "views_other": "{{formatted}} views",
+      "none": "No view of this value had {{name}}.",
+      "level": "{{name}} is <reading/> at the 75th percentile, over <n>{{formatted}}</n> views.",
+      "longest": "The longest part is <n>{{part}}</n>: {{value}}, {{share}} of the whole."
+    },
+    "makeup": {
+      "title": "What {{name}} is made of",
+      "description": {
+        "lcp": "The wait for the first byte, the delay before the image starts to load, the time to load it, and the delay before it is painted",
+        "inp": "The wait before handlers run, the time they take, and the wait for the next frame to be painted"
+      },
+      "empty": "No view in this range reported the parts of {{name}}.",
+      "aria": "The parts of {{name}}, {{total}} in all",
+      "cohort": "The views within 10% of the 75th percentile ({{formatted}} views), each part averaged."
+    },
+    "parts": {
+      "first_byte": "Time to first byte",
+      "load_delay": "Load delay",
+      "load_time": "Load time",
+      "render_delay": "Render delay",
+      "input_delay": "Input delay",
+      "processing_duration": "Processing",
+      "presentation_delay": "Presentation delay"
+    },
+    "elements": {
+      "title": {
+        "lcp": "The element painted last",
+        "inp": "The element interacted with",
+        "cls": "The elements that moved"
+      },
+      "description": "By how many views each was in",
+      "empty": "No view in this range named an element",
+      "columns": {
+        "element": "Element",
+        "resource": "File"
+      },
+      "open": "Open the views with {{selector}} in the explorer",
+      "no_resource": "text"
+    },
+    "worst": {
+      "title": "The worst views",
+      "description": "The views with the highest {{name}}",
+      "empty": "No view had a value to rank",
+      "explore": "Open in explorer",
+      "session": "Session",
+      "load": "Load waterfall"
+    },
+    "views": {
+      "aria": "Performance views",
+      "vitals": "Web Vitals",
+      "resources": "Resources",
+      "long_tasks": "Long tasks"
+    },
+    "long_tasks": {
+      "invokers": {
+        "user-callback": "Callback",
+        "event-listener": "Event listener",
+        "resolve-promise": "Promise resolved",
+        "reject-promise": "Promise rejected",
+        "classic-script": "Classic script",
+        "module-script": "Module script"
+      },
+      "statement": {
+        "aria": "Long tasks of the pages",
+        "tasks_one": "<n>{{formatted}}</n> long task",
+        "tasks_other": "<n>{{formatted}}</n> long tasks",
+        "sentence": "<tasks/> ran on the main thread, and <share>{{share}}</share> of the page views met at least one. At the 75th percentile a long task ran for <n>{{duration}}</n> and held up input for <n>{{blocking}}</n>.",
+        "sentence_alone": "<tasks/> ran on the main thread. At the 75th percentile a long task ran for <n>{{duration}}</n> and held up input for <n>{{blocking}}</n>.",
+        "sentence_share": "<tasks/> ran on the main thread, and <share>{{share}}</share> of the page views met at least one.",
+        "sentence_count": "<tasks/> ran on the main thread."
+      },
+      "empty": {
+        "title": "No long tasks in this range",
+        "description": "A page that never holds up the main thread for 50 ms or more has none."
+      },
+      "groups": {
+        "script": "Script and function",
+        "page": "Page",
+        "version": "Version",
+        "invoker": "How it was triggered"
+      },
+      "heads": {
+        "script": "Script",
+        "function": "Function",
+        "page": "Page",
+        "version": "Version",
+        "invoker": "Triggered by"
+      },
+      "table": {
+        "by": "By",
+        "search": "Search scripts",
+        "search_label": "Search the scripts of the table",
+        "count_one": "{{count}} group",
+        "count_other": "{{count}} groups",
+        "most_tasks_one": "The group with the most long tasks",
+        "most_tasks_other": "The {{count}} with the most long tasks",
+        "few_note": "under {{tasks}} long tasks: grey",
+        "empty": "No long tasks in this range",
+        "no_match": "No group matches",
+        "aria": "Long tasks by {{group}}",
+        "open": "Open what the long tasks of {{value}} are made of",
+        "few": "Fewer than {{tasks}} long tasks: too few to rank",
+        "none": "(none)",
+        "unattributed": "Unattributed",
+        "tasks": "Long tasks",
+        "views": "Views",
+        "time": "p75 time",
+        "blocking": "p75 blocking"
+      },
+      "panel": {
+        "aria": "The long tasks of the group",
+        "close": "Close",
+        "tasks_one": "{{formatted}} long task",
+        "tasks_other": "{{formatted}} long tasks",
+        "unattributed_note": "Safari and Firefox report a long task without the script behind it, and so do the long tasks received before MoleSignal worked the script out. They are counted here, not left out.",
+        "sentence": "At the 75th percentile they ran for <n>{{duration}}</n>, <b>{{blocking}}</b> of it holding up input.",
+        "sentence_time": "At the 75th percentile they ran for <n>{{duration}}</n>.",
+        "page": "Most happened on <code>{{page}}</code>.",
+        "invokers": "How they were triggered",
+        "invokers_empty": "No long task of this group said how it was triggered",
+        "unknown": "Not said",
+        "pages": "Pages they happened on",
+        "pages_empty": "No page to name",
+        "samples": "The longest · each opens the load of its view",
+        "samples_empty": "No long task had a time",
+        "open_load": "Open the load of the view of {{page}}"
+      }
+    },
+    "section": {
+      "failed": "These numbers could not be read."
+    },
+    "resources": {
+      "statement": {
+        "aria": "Requests of the pages",
+        "requests_one": "<n>{{formatted}}</n> request",
+        "requests_other": "<n>{{formatted}}</n> requests",
+        "sentence": "The pages made <requests/>. At the 75th percentile they took <n>{{duration}}</n>, and <rate>{{rate}}</rate> failed (an error status, or no answer).",
+        "sentence_time": "The pages made <requests/>. At the 75th percentile they took <n>{{duration}}</n>.",
+        "sentence_count": "The pages made <requests/>.",
+        "per_view": "A page view asked for <n>{{resources}}</n> resources, <n>{{size}}</n> in all, on average."
+      },
+      "empty": {
+        "title": "No requests in this range"
+      },
+      "groups": {
+        "host_type": "Host and kind",
+        "path": "Host and path",
+        "type": "Kind",
+        "protocol": "Protocol",
+        "delivery": "Delivery",
+        "blocking": "Render-blocking"
+      },
+      "heads": {
+        "host": "Host",
+        "type": "Kind",
+        "path": "Path",
+        "protocol": "Protocol",
+        "delivery": "Delivery",
+        "blocking": "Render-blocking"
+      },
+      "statuses": {
+        "4xx": "Client errors (4xx)",
+        "5xx": "Server errors (5xx)",
+        "none": "No answer"
+      },
+      "table": {
+        "by": "By",
+        "type": "Kind",
+        "status": "Status",
+        "all": "All",
+        "search": "Search host or path",
+        "search_label": "Search the requests of the table",
+        "count_one": "{{count}} group",
+        "count_other": "{{count}} groups",
+        "most_requested_one": "The most requested group",
+        "most_requested_other": "The {{count}} most requested",
+        "few_note": "under {{requests}} requests: grey",
+        "empty": "No requests in this range",
+        "no_match": "No group matches",
+        "aria": "Requests by {{group}}",
+        "open": "Open what the requests of {{value}} are made of",
+        "few": "Fewer than {{requests}} requests: too few to rank",
+        "none": "(none)",
+        "requests": "Requests",
+        "time": "p75 time",
+        "failed": "Failed",
+        "size": "p75 size",
+        "cache": "From cache"
+      },
+      "panel": {
+        "aria": "The requests of the group",
+        "close": "Close",
+        "requests_one": "{{formatted}} request",
+        "requests_other": "{{formatted}} requests",
+        "sentence": "At the 75th percentile they took <n>{{duration}}</n>, and <rate>{{rate}}</rate> failed.",
+        "sentence_time": "At the 75th percentile they took <n>{{duration}}</n>.",
+        "longest": "The longest part is <n>{{part}}</n>: {{value}}.",
+        "trend": "Time over the range",
+        "trend_series": "75th percentile",
+        "trend_empty": "No request of this group in the range",
+        "trend_aria": "The 75th percentile of the time of the group over time",
+        "parts": "Parts of the requests around the 75th percentile",
+        "parts_empty": "No request of this group said its parts",
+        "statuses": "How they were answered",
+        "statuses_empty": "No request of this group said how it ended",
+        "slowest": "The slowest requests · each opens the load of its view",
+        "slowest_empty": "No request had a time",
+        "open_load": "Open the load of the view that made {{path}}",
+        "traced": "{{share}}% of the requests carry a trace id",
+        "explore": "See them in the explorer"
+      }
+    }
+  },
+  "frustration": {
+    "empty": {
+      "title": "No signs of frustration in this range",
+      "description_click": "Nobody clicked again and again, clicked on nothing or clicked into an error in the time in view. Widen the range, or look at another application.",
+      "description_tap": "Nobody tapped again and again, tapped on nothing or tapped into an error in the time in view. Widen the range, or look at another application."
+    },
+    "statement": {
+      "aria": "Signs of frustration",
+      "sentence": "<share>{{share}}</share> of the sessions showed signs of frustration: <kinds/>.",
+      "sentence_count_one": "<n>{{sessions}}</n> session showed signs of frustration: <kinds/>.",
+      "sentence_count_other": "<n>{{sessions}}</n> sessions showed signs of frustration: <kinds/>.",
+      "join": ", ",
+      "sessions_one": "<n>{{formatted}}</n> session",
+      "sessions_other": "<n>{{formatted}}</n> sessions",
+      "kinds": {
+        "rage_one": "<n>{{formatted}}</n> <k>rage click</k> (<sessions/>)",
+        "rage_other": "<n>{{formatted}}</n> <k>rage clicks</k> (<sessions/>)",
+        "dead_one": "<n>{{formatted}}</n> <k>dead click</k> (<sessions/>)",
+        "dead_other": "<n>{{formatted}}</n> <k>dead clicks</k> (<sessions/>)",
+        "error_one": "<n>{{formatted}}</n> <k>error click</k> (<sessions/>)",
+        "error_other": "<n>{{formatted}}</n> <k>error clicks</k> (<sessions/>)",
+        "rage_tap_one": "<n>{{formatted}}</n> <k>rage tap</k> (<sessions/>)",
+        "rage_tap_other": "<n>{{formatted}}</n> <k>rage taps</k> (<sessions/>)",
+        "dead_tap_one": "<n>{{formatted}}</n> <k>dead tap</k> (<sessions/>)",
+        "dead_tap_other": "<n>{{formatted}}</n> <k>dead taps</k> (<sessions/>)",
+        "error_tap_one": "<n>{{formatted}}</n> <k>error tap</k> (<sessions/>)",
+        "error_tap_other": "<n>{{formatted}}</n> <k>error taps</k> (<sessions/>)"
+      }
+    },
+    "groups": {
+      "element": "Element",
+      "page": "Page",
+      "screen": "Screen",
+      "version": "Version",
+      "browser": "Browser",
+      "system": "System"
+    },
+    "table": {
+      "by": "By",
+      "kind": "Sign",
+      "kinds_all": "All",
+      "search": "Search elements or pages",
+      "search_label": "Search the elements or pages of the table",
+      "count_one": "{{count}} group",
+      "count_other": "{{count}} groups",
+      "most_one": "The group touching the most sessions",
+      "most_other": "The {{count}} touching the most sessions",
+      "empty": "No signs of frustration in this range",
+      "no_match": "No group matches",
+      "aria": "Signs of frustration by {{group}}",
+      "open": "Open what the signs of frustration of {{value}} are made of",
+      "none": "(none)",
+      "unnamed": "(no name)",
+      "selector": "Selector",
+      "sessions": "Sessions"
+    },
+    "panel": {
+      "aria": "The signs of frustration of the group",
+      "close": "Close",
+      "sentence_one": "<n>{{formatted}}</n> session met signs of frustration on this {{noun}}.",
+      "sentence_other": "<n>{{formatted}}</n> sessions met signs of frustration on this {{noun}}.",
+      "page": "Most happened on <code>{{page}}</code>.",
+      "trend": "Sessions touched",
+      "trend_series": "Sessions touched",
+      "trend_aria": "Sessions the signs of frustration touched in each stretch of time",
+      "trend_empty": "No session was touched in this range",
+      "kinds": "Signs",
+      "kinds_empty": "No sign to name",
+      "versions": "Versions",
+      "versions_empty": "No version to name",
+      "pages": "Pages",
+      "screens": "Screens",
+      "pages_empty": "No page to name",
+      "unknown": "Not said",
+      "samples": "The newest sessions · the replay starts 5 seconds before the sign",
+      "samples_empty": "No session to look at",
+      "anonymous": "Anonymous {{id}}",
+      "with_error": "with an error",
+      "replay": "Replay",
+      "replay_at": "Replay {{time}}",
+      "session": "Session",
+      "replay_aria": "Replay the session of {{time}}",
+      "session_aria": "Open the session of {{time}}",
+      "nouns": {
+        "element": "element",
+        "page": "page",
+        "screen": "screen",
+        "version": "version",
+        "browser": "browser",
+        "system": "system"
+      }
+    }
+  },
+  "analytics": {
+    "views": {
+      "aria": "Analytics views",
+      "funnel": "Funnel",
+      "paths": "Paths",
+      "retention": "Retention",
+      "heatmap": "Heatmap"
+    },
+    "kinds": {
+      "views": "Page",
+      "views_app": "Screen",
+      "actions": "Action"
+    },
+    "fields": {
+      "view_url_path_group": "Page group",
+      "view_url_path": "Exact path",
+      "view_name": "View name",
+      "action_target_name": "Target name",
+      "action_target_selector": "Target selector",
+      "action_type": "Type"
+    },
+    "ops": {
+      "eq": "is",
+      "contains": "contains"
+    },
+    "breakdowns": {
+      "version": "version",
+      "browser_name": "browser",
+      "os_name": "system",
+      "device_type": "device type",
+      "geo_country_iso_code": "country"
+    },
+    "value": {
+      "search": "Search or type a value",
+      "use": "Use \"{{value}}\""
+    },
+    "funnel": {
+      "title": "Funnel",
+      "steps_description": "The steps people take, in order. A step is a page opened or something a person did.",
+      "step_kind": "What step {{number}} looks at",
+      "step_field": "Field of step {{number}}",
+      "step_op": "Comparison of step {{number}}",
+      "step_value": "Value of step {{number}}",
+      "step_placeholder": "Choose or type a value",
+      "remove_step": "Remove step {{number}}",
+      "add_step": "Add a step",
+      "window": "Time limit",
+      "window_none": "No time limit",
+      "window_within": "Within {{time}}",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "breakdown": "Count sessions by",
+      "breakdown_none": "All sessions together",
+      "breakdown_by": "By {{field}}",
+      "choose": {
+        "title": "Name what each step looks for",
+        "description": "A funnel counts the sessions that did the steps in order. Choose a page or an action for every step."
+      },
+      "result": "Sessions that got through",
+      "result_description": "Each step counts the sessions that did it after the one before.",
+      "nobody": "No session reached the first step in this range",
+      "by_title": "Funnel by {{field}}",
+      "no_value": "Not set",
+      "columns": {
+        "step": "Step",
+        "sessions": "Sessions",
+        "conversion": "Of the first",
+        "from_previous": "Drop-off",
+        "median": "Median time",
+        "overall": "First to last"
+      }
+    },
+    "paths": {
+      "title": "Paths",
+      "description_after": "The pages sessions opened next, as columns of the most visited pages.",
+      "description_before": "The pages sessions came from, as columns of the most visited pages.",
+      "direction": "Direction",
+      "after": "After the page",
+      "before": "Before the page",
+      "anchor": "The page the paths are of",
+      "anchor_first": "Start from the first page",
+      "anchor_last": "End at the last page",
+      "clear": "Clear",
+      "depth": "How many pages",
+      "depth_pages_one": "{{count}} page",
+      "depth_pages_other": "{{count}} pages",
+      "told_by": "Pages are told by",
+      "by": {
+        "view_url_path_group": "Page group",
+        "view_url_path": "Exact path",
+        "view_name": "View name"
+      },
+      "nobody": "No paths in this range",
+      "other": "Other pages",
+      "pick": "Start the paths from {{page}}",
+      "ends_one": "{{count}} session ended here",
+      "ends_other": "{{count}} sessions ended here",
+      "begins_one": "{{count}} session began here",
+      "begins_other": "{{count}} sessions began here",
+      "chart_aria": "Paths of {{sessions}} sessions"
+    },
+    "retention": {
+      "title": "Retention",
+      "description": "The share of the people first seen in a period who were seen again in the periods after. Days and weeks are of UTC.",
+      "period": "Cohorts by",
+      "periods": "How many periods to follow",
+      "by_day": "Day",
+      "by_week": "Week",
+      "days_after_one": "{{count}} day after",
+      "days_after_other": "{{count}} days after",
+      "weeks_after_one": "{{count}} week after",
+      "weeks_after_other": "{{count}} weeks after",
+      "cohort_day": "First seen on",
+      "cohort_week": "First seen in the week of",
+      "people": "People",
+      "average": "Average",
+      "nobody": "Nobody was seen in this range",
+      "too_short": "No period after the first has ended in this range, so there is nobody to say came back. Expand the time range.",
+      "cell_one": "{{count}} of {{total}} came back",
+      "cell_other": "{{count}} of {{total}} came back"
+    },
+    "heatmap": {
+      "title": "Heatmap",
+      "description_clicks": "Where people click on this page, drawn over a recording of it",
+      "description_scroll": "How far down this page people go: the darker, the fewer got there",
+      "page": "Page",
+      "page_placeholder": "Choose a page",
+      "kind": "Map",
+      "kinds": {
+        "clicks": "Clicks",
+        "scroll": "Scroll"
+      },
+      "device": "Window",
+      "devices": {
+        "desktop": "Desktop",
+        "tablet": "Tablet",
+        "mobile": "Phone",
+        "all": "All"
+      },
+      "recording": "Recording",
+      "recording_number": "No. {{number}}",
+      "open_session": "Open this session",
+      "elements": "Clicked elements",
+      "depths": "How far down",
+      "clicks_total_one": "{{count}} click",
+      "clicks_total_other": "{{count}} clicks",
+      "views_total_one": "{{count}} visit",
+      "views_total_other": "{{count}} visits",
+      "sessions_one": "{{count}} session",
+      "sessions_other": "{{count}} sessions",
+      "frustrated_one": "{{count}} frustrated",
+      "frustrated_other": "{{count}} frustrated",
+      "off_snapshot": "Not on this recording of the page",
+      "median_depth": "Half of the visits saw",
+      "page_height": "Length of the page",
+      "scroll_line": "{{share}}% of the visits saw this",
+      "no_clicks": "No clicks on this page in this range",
+      "no_scroll": "No scroll data for this page in this range",
+      "reading_recording": "Reading the recorded page…",
+      "no_recording": "No session was recorded on this page in this range and window, so there is nothing to draw on; the numbers still stand.",
+      "recording_denied": "You may not watch replays, so there is nothing to draw on; the numbers still stand.",
+      "stage_failed": "The recorded page could not be opened: {{reason}}",
+      "not_browser": {
+        "title": "Heatmaps are for browser applications",
+        "description": "The replay of an app is made of screenshots, with no page to find an element in."
+      },
+      "no_pages": {
+        "title": "No pages in this range",
+        "description": "Widen the range, or check that the SDK is sending."
+      }
+    },
+    "segment": {
+      "label": "Segment",
+      "everyone": "Everyone"
+    }
+  },
+  "playlists": {
+    "title": "Playlists",
+    "create": "New playlist",
+    "result_count_one": "{{count}} playlist",
+    "result_count_other": "{{count}} playlists",
+    "application_filter": "Application",
+    "all_applications": "All applications",
+    "columns": {
+      "name": "Name",
+      "application": "Application",
+      "sessions": "Sessions",
+      "updated": "Updated",
+      "created_by": "Created by"
+    },
+    "empty_title": "No playlists yet",
+    "empty_description": "Keep the sessions worth watching together, then go through them one after the other. Make a playlist here, or from the page of a session.",
+    "empty_no_application": "A playlist is of an application. Create an application first.",
+    "not_found": "This playlist was not found",
+    "play": "Play from the first",
+    "rename": "Rename",
+    "delete": "Delete playlist",
+    "cancel": "Cancel",
+    "all": "All playlists",
+    "delete_confirm_title": "Delete {{name}}?",
+    "delete_confirm_description": "The playlist goes. The sessions in it are not touched.",
+    "form": {
+      "create_title": "New playlist",
+      "edit_title": "Rename playlist",
+      "subtitle": "A list of sessions to go through one after the other.",
+      "name": "Name",
+      "name_placeholder": "Checkout failures",
+      "description": "Description",
+      "description_hint": "What the sessions have in common.",
+      "application": "Application",
+      "application_fixed": "A playlist stays with its application.",
+      "create": "Create",
+      "save": "Save"
+    },
+    "sessions": {
+      "title": "Sessions",
+      "count_one": "{{count}} session",
+      "count_other": "{{count}} sessions",
+      "empty": "No session in this playlist. Put one in from its page.",
+      "session": "Session",
+      "person": "Person",
+      "started": "Started",
+      "duration": "Duration",
+      "signs": "What happened",
+      "opens_at": "Opens at",
+      "remove": "Remove {{id}} from the playlist",
+      "remove_column": "Remove",
+      "gone": "Not found in the data",
+      "errors_one": "{{count}} error",
+      "errors_other": "{{count}} errors",
+      "frustrations_one": "{{count}} sign of frustration",
+      "frustrations_other": "{{count}} signs of frustration"
+    },
+    "link": {
+      "moment": "Copy link to this moment",
+      "session": "Copy link",
+      "copied": "Link copied"
+    },
+    "menu": {
+      "button": "Add to playlist",
+      "title": "Playlists of this application",
+      "description": "Put this session in a playlist, or take it out.",
+      "none": "This application has no playlist yet.",
+      "at_moment": "Open it at this moment of the replay",
+      "new_placeholder": "A new playlist",
+      "new_name": "Name of the new playlist",
+      "new": "Create and add"
+    },
+    "bar": {
+      "place": "{{index}} of {{total}}",
+      "not_in": "This session is not in the playlist",
+      "previous": "Previous",
+      "next": "Next"
+    }
+  },
+  "errors": {
+    "state": {
+      "open": "Open",
+      "investigating": "Investigating",
+      "regressed": "Regressed",
+      "resolved": "Resolved",
+      "ignored": "Ignored"
+    },
+    "filter": {
+      "unresolved": "Unresolved",
+      "regressed": "Regressed",
+      "investigating": "Investigating",
+      "resolved": "Resolved",
+      "ignored": "Ignored",
+      "all": "All issues"
+    },
+    "filters": {
+      "status": "State",
+      "holder": "Assignee",
+      "source": "Source"
+    },
+    "holder": {
+      "anyone": "All",
+      "nobody": "Unassigned"
+    },
+    "search": {
+      "label": "Search issues",
+      "placeholder": "Search issues: message, type, file"
+    },
+    "count_one": "{{count}} issue",
+    "count_other": "{{count}} issues",
+    "picked": {
+      "clear": "Clear {{dimension}} {{value}}"
+    },
+    "saved": "Issue updated",
+    "table": {
+      "label": "Issues",
+      "issue": "Issue",
+      "status": "State",
+      "holder": "Assignee",
+      "sessions": "Sessions",
+      "users": "Users",
+      "trend": "Trend",
+      "versions": "Versions",
+      "last_seen": "Last seen"
+    },
+    "overflow": {
+      "title": "Other errors",
+      "description": "Errors that came after the application opened all the issues it may open in an hour"
+    },
+    "spread": {
+      "title": "Where it happens",
+      "description": "The sessions the listed issues met, by version, page and browser",
+      "version": "Version",
+      "page": "Page",
+      "browser": "Browser",
+      "empty": "No sessions"
+    },
+    "empty": {
+      "unresolved": "No unresolved issues in this range",
+      "none": "No issues in this range",
+      "description": "The errors your application sends are grouped here by type, message and where they were thrown.",
+      "show_all": "Show all issues"
+    },
+    "controls": {
+      "status": "State",
+      "team": "Team",
+      "no_team": "No team",
+      "holder": "Assignee"
+    },
+    "drawer": {
+      "title": "Issue",
+      "untyped": "Error",
+      "explore": "View in Explorer",
+      "close": "Close",
+      "source": "Source",
+      "handling": "Handling",
+      "issue_id": "Issue ID",
+      "anonymous": "Anonymous {{id}}",
+      "unknown": "Unknown",
+      "facts": {
+        "state": "State",
+        "sessions": "Sessions",
+        "users": "People",
+        "first_seen": "First seen",
+        "last_seen": "Last seen",
+        "versions": "Versions"
+      },
+      "where": {
+        "title": "Where it happens",
+        "description": "Only the errors of this issue",
+        "browser": "Browser",
+        "system": "System",
+        "country": "Country"
+      },
+      "samples": {
+        "title": "Latest sessions",
+        "description": "The last errors, each in the session it happened in",
+        "empty": "No recent errors",
+        "replay": "Replay",
+        "timeline": "Timeline",
+        "not_kept": "Session not kept"
+      },
+      "people": {
+        "title": "People affected",
+        "description": "By how often",
+        "empty": "Nobody",
+        "times_one": "{{count}} time",
+        "times_other": "{{count}} times"
+      }
+    },
+    "trend": {
+      "title": "Over time",
+      "description": "The last {{days}} days, by day, stacked by version; sessions",
+      "empty": "No sessions in these days",
+      "aria": "{{count}} sessions over the last {{days}} days, by version",
+      "others": "Other versions",
+      "no_version": "No version",
+      "resolved": "Resolved",
+      "resolved_in": "Resolved · {{version}}"
+    },
+    "stack": {
+      "title": "Where it was thrown",
+      "view": "Frames shown",
+      "restored": "Restored",
+      "raw": "Original",
+      "restored_tag": "restored",
+      "library": "library",
+      "anonymous": "(anonymous)",
+      "empty": "No stack was sent with this error",
+      "symbolication": {
+        "completed": "Resolved with a source map, a mapping or a symbol file",
+        "partial": "Some frames were resolved",
+        "missing": "Not resolved: no debug file matches this release",
+        "none": "Frames are shown as the SDK sent them"
+      }
+    },
+    "banner": {
+      "resolved": "Resolved on {{when}}.",
+      "resolved_by": "Resolved by {{who}} on {{when}}.",
+      "resolved_in": "Resolved on {{when}}, in {{version}}.",
+      "resolved_by_in": "Resolved by {{who}} on {{when}}, in {{version}}.",
+      "back": "It came back on {{when}}.",
+      "back_in": "It came back in {{version}} on {{when}}.",
+      "older": "Errors in {{version}} or older versions do not reopen it."
+    }
   },
   "applications": {
     "title": "Applications",
-    "subtitle": "Compare real user experience across applications, environments, and versions.",
     "list_title": "RUM applications",
-    "result_count": "{{count}} applications",
-    "empty_title": "No application data yet",
-    "empty_description": "Applications appear automatically after the RUM SDK sends its first session.",
-    "no_filter_results": "No applications match the current filters",
+    "result_count_one": "{{count}} application",
+    "result_count_other": "{{count}} applications",
+    "create_button": "Create application",
+    "empty_title": "No application yet",
+    "empty_description": "Create an application first, then give its client token to the SDK. Events sent for an application that does not exist are refused.",
     "columns": {
       "application": "Application",
-      "versions": "Versions",
-      "users": "Active users",
-      "sessions": "Sessions",
-      "error_free": "Error-free sessions",
-      "lcp": "LCP P75"
-    }
-  },
-  "pages": {
-    "title": "Pages",
-    "subtitle": "Compare traffic, Core Web Vitals, and user experience by page.",
-    "list_title": "Page performance",
-    "result_count": "{{count}} pages",
-    "empty_title": "No page performance data yet",
-    "empty_description": "Pages appear automatically after the RUM SDK reports page views and Web Vitals.",
-    "no_filter_results": "No pages match the current filters",
-    "columns": {
-      "page": "Page",
-      "experience": "Experience",
-      "sessions": "Sessions",
-      "lcp": "LCP P75",
-      "inp": "INP P75",
-      "cls": "CLS P75",
-      "samples": "Samples"
-    }
-  },
-  "sessions": {
-    "title": "Sessions",
-    "subtitle": "Browse real user sessions by user, page, device, and issue.",
-    "search_placeholder": "Search users, pages, browsers, versions, or sessions…",
-    "result_count": "{{count}} sessions",
-    "abnormal_count": "{{count}} have poor experience",
-    "no_filter_results": "No sessions match the current filters",
-    "open_replay": "Open replay for session {{session}}",
-    "anonymous_user": "Anonymous user",
-    "unknown_page": "Unknown page",
-    "unknown_browser": "Unknown browser",
-    "last_page": "Last page",
-    "issues": "issues",
-    "no_issues": "No issues",
-    "has_replay": "Replay recorded",
-    "filters": {
-      "search": "Search",
-      "experience": "Experience",
-      "problem": "Problem",
-      "country": "Country",
+      "platform": "Platform",
+      "collection": "Collects",
+      "created": "Created"
+    },
+    "collection": {
+      "ip": "IP",
+      "geo": "Location"
+    },
+    "platforms": {
       "browser": "Browser",
-      "all_experiences": "All experiences",
-      "all_problems": "All problems",
-      "all_countries": "All countries",
-      "all_browsers": "All browsers",
-      "clear": "Clear filters"
+      "android": "Android",
+      "ios": "iOS",
+      "flutter": "Flutter",
+      "react-native": "React Native",
+      "other": "Other"
     },
-    "issue": {
-      "error": "Errors",
-      "rage_click": "Rage click",
-      "dead_click": "Dead click",
-      "slow": "Slow resource",
-      "crash": "Crash"
+    "create": {
+      "title": "Create application",
+      "subtitle": "SDKs send to an application by its identifier, with the client token it is given.",
+      "submit": "Create",
+      "name": "Name",
+      "name_placeholder": "Checkout web",
+      "id": "Identifier",
+      "id_hint": "Leave blank to use {{id}}. It cannot be changed later.",
+      "id_invalid": "Use letters, digits and . _ : - only, up to 64 characters.",
+      "platform": "Platform"
     },
-    "behavior": {
-      "error": "Action failed · {{page}}",
-      "rage_click": "Rage click · {{page}}",
-      "dead_click": "Dead click · {{page}}"
-    },
-    "kpi": {
-      "active_sessions": "Active sessions",
-      "avg_duration": "Avg. duration",
-      "error_rate": "Error rate",
-      "p95_lcp": "P95 LCP"
-    },
-    "columns": {
-      "session_id": "Session",
-      "experience": "Session experience",
-      "user": "User",
-      "user_device": "User and device",
-      "country": "Country",
-      "browser": "Browser",
-      "duration": "Duration",
-      "journey": "Journey summary",
-      "problems": "Problems",
-      "errors": "Errors",
-      "started": "Time",
-      "service": "Service"
-    },
-    "empty_title": "No sessions received yet",
-    "empty_description": "Connect the MoleSignal RUM SDK and user sessions and actions will appear in seconds.",
-    "view_session": "View replay"
-  },
-  "session_replay": {
-    "title": "Session replay",
-    "subtitle": "Replay user actions, navigation, network requests, and the context around errors."
+    "drawer": {
+      "close": "Close",
+      "save": "Save",
+      "saving": "Saving",
+      "cancel": "Cancel",
+      "token_title": "Client token",
+      "token_description": "Give this token to the SDK. It can only write events to this application.",
+      "show_token": "Show the token",
+      "hide_token": "Hide the token",
+      "copy_token": "Copy the token",
+      "collection_title": "Collection",
+      "collection_description": "What is kept with each event. The place of a client is still looked up when its address is not kept.",
+      "collect_ip": "Keep the IP address",
+      "collect_ip_hint": "The address the request came from, as the server resolved it.",
+      "collect_geo": "Keep the location",
+      "collect_geo_hint": "Country, region and city looked up from the address.",
+      "privacy": "Default privacy",
+      "privacy_hint": "The level the setup snippet suggests for session replay.",
+      "privacy_mask": "Mask text and inputs",
+      "privacy_allow": "Record everything shown",
+      "setup_title": "Set up an SDK",
+      "setup_description": "The setup guide fills in the endpoint, the token and the identifier.",
+      "open_guide": "Open the setup guide",
+      "no_guide": "This platform sends events to the intake endpoint by itself; see the documentation.",
+      "delete_title": "Delete",
+      "delete_description": "Its client token stops working. What it already sent stays until the retention of the streams ends it.",
+      "delete": "Delete application",
+      "delete_confirm_title": "Delete {{name}}?",
+      "delete_confirm_description": "SDKs configured with its token will be refused from now on.",
+      "scrub_title": "Sensitive data",
+      "scrub_description": "Taken out of the addresses, the error text, the names, and the request details of an event before it is stored. What an SDK masks while it records a replay is not touched.",
+      "scrub": {
+        "secrets": "Tokens, keys, and passwords",
+        "secrets_hint": "Bearer and JWT tokens, API keys, the value after password=, and the values of credential headers.",
+        "emails": "Email addresses",
+        "emails_hint": "Each is replaced with [email].",
+        "phones": "Phone numbers",
+        "phones_hint": "International numbers, and the usual forms of Chinese and North American ones.",
+        "cards": "Payment card numbers",
+        "cards_hint": "Numbers whose first digits and check digit are those of a card.",
+        "national_ids": "Identity numbers",
+        "national_ids_hint": "Chinese resident ID numbers and US social security numbers.",
+        "url_params": "Sensitive URL parameters",
+        "url_params_hint": "The values of parameters such as token, code, password, session, and email, and a user and password before the host."
+      },
+      "sampling_title": "Sessions kept",
+      "sampling_description": "A share of the sessions kept, on top of what the SDK samples. A session is kept or dropped as a whole, its replay included. The first filter that describes a session decides its share; the other sessions are kept by the share below.",
+      "sample_rate": "Share of sessions kept (%)",
+      "sample_rate_hint": "100 keeps every session. The events of the others are not stored, and the answer of the intake says how many it left out.",
+      "retention": {
+        "new_name": "Filter {{number}}",
+        "add_filter": "Add a filter",
+        "remove_filter": "Remove this filter",
+        "filter_up": "Move this filter up",
+        "filter_down": "Move this filter down",
+        "no_filters": "No filters: every session is kept by the share below. A filter gives a share of its own to the sessions it describes, such as every production session.",
+        "filter_name": "Filter name",
+        "filter_rate": "Share of its sessions kept (%)",
+        "add_condition": "Add a condition",
+        "remove_condition": "Remove this condition",
+        "condition_field": "What the condition looks at",
+        "condition_op": "How it compares",
+        "condition_values": "Values",
+        "values_placeholder": "prod, production (* is any text)",
+        "ops": {
+          "is": "is",
+          "is_not": "is not"
+        },
+        "fields": {
+          "env": "Environment",
+          "service": "Service",
+          "version": "Version",
+          "source": "Platform",
+          "session_type": "Kind of session",
+          "geo_country_iso_code": "Country code",
+          "browser_name": "Browser",
+          "os_name": "System",
+          "device_type": "Kind of device"
+        },
+        "rest_rate": "Share of the other sessions kept (%)",
+        "rest_rate_hint": "What no filter describes. 100 keeps every such session. The answer of the intake says how many events were left out.",
+        "keep_errors": "Keep every error",
+        "keep_errors_hint": "The errors of sessions that are not kept are stored all the same, and counted as they happened. Without it a rare error is lost with its session."
+      },
+      "issues_title": "Issues",
+      "issues_description": "How the errors of this application are grouped into issues.",
+      "issues_per_hour": "New issues an hour",
+      "issues_per_hour_hint": "Past this, new errors are counted together as one issue called Other errors.",
+      "privacy_mask_user_input": "Mask what users type",
+      "sdk": {
+        "title": "SDK remote configuration",
+        "description": "An SDK started with remoteConfiguration: true reads this at start, so it changes without a new release of the page. What is left empty goes by what the page gave.",
+        "not_said": "As the page says",
+        "session_sample_rate": "Session sample rate (%)",
+        "session_sample_rate_hint": "The share of sessions the SDK sends, before what the application keeps.",
+        "session_replay_sample_rate": "Replay sample rate (%)",
+        "session_replay_sample_rate_hint": "The share of the sessions sent that record a replay.",
+        "privacy": "Privacy level",
+        "clicks": "Collect clicks",
+        "on": "Collect",
+        "off": "Do not collect",
+        "console": "Forward the console",
+        "console_hint": "Which console methods also write to the logs stream.",
+        "console_none": "Do not forward",
+        "console_from": "{{level}} and above"
+      },
+      "segments": {
+        "title": "Segments",
+        "description": "Groups of sessions the analytics pages can be narrowed to, told by who ran them and where.",
+        "new_name": "Segment {{number}}",
+        "add": "Add a segment",
+        "remove": "Remove the segment",
+        "none": "No segments yet.",
+        "name": "Name of the segment",
+        "property_key": "Name of the property, such as plan",
+        "fields": {
+          "geo_country_iso_code": "Country (ISO code)",
+          "geo_continent_code": "Continent",
+          "geo_city": "City",
+          "browser_name": "Browser",
+          "os_name": "System",
+          "device_type": "Kind of device",
+          "usr_id": "User ID",
+          "usr_email": "User e-mail",
+          "account_id": "Account ID",
+          "service": "Service",
+          "version": "Version",
+          "source": "Platform",
+          "property": "Property of the person"
+        }
+      }
+    }
   },
   "session_detail": {
-    "title": "Session replay",
-    "title_error": "Checkout failed",
-    "title_rage_click": "Repeated user clicks",
-    "back": "Back to sessions",
+    "title_error": "Session with errors",
     "no_events": "This session has no replayable events.",
     "replay_player": "Replay player",
     "replay_recorded": "Recorded replay",
@@ -226,168 +1127,133 @@
     "replay_unavailable_description": "Navigation and application events remain available in the event timeline below, but this session was not sampled by the DOM recorder.",
     "events_unit": "events",
     "restart": "Restart",
-    "previous_event": "Previous event",
     "play": "Play",
     "pause": "Pause",
-    "next_event": "Next event",
-    "jump_to_end": "Jump to end",
     "seek": "Seek session replay",
     "user_context": "User context",
     "device": "Device",
     "ip_address": "IP address",
-    "current_page": "Current page",
     "detected_issues": "Detected issues",
     "no_detected_issues": "No obvious problems detected",
     "event_timeline": "Event timeline",
     "event_timeline_description": "Navigation, clicks, errors, network requests, and performance events in order.",
-    "events_column": "Event",
-    "time_column": "Time",
-    "type_column": "Type",
-    "service_column": "Service",
-    "trace_column": "Trace",
-    "details_column": "Details",
     "related_traces_title": "Related traces",
     "related_traces_subtitle": "Backend traces directly linked or time-correlated with this user session.",
     "related_empty": "No backend traces are related to this session.",
-    "related_columns": {
-      "trace_id": "Trace",
-      "service": "Service",
-      "spans": "spans",
-      "duration": "Duration",
-      "started": "Started",
-      "relation": "Match"
-    },
     "relation_direct": "Direct",
     "relation_time_correlated": "Time-correlated",
-    "primary_service_label": "Primary service"
-  },
-  "errors": {
-    "title": "Error issues",
-    "subtitle": "Group frontend problems and connect affected users, pages, versions, and session replays.",
-    "search_placeholder": "Search errors, pages, versions, or types…",
-    "unknown_page": "Unknown page",
-    "view_related_replays": "View {{count}} related replays",
-    "impact_summary": "{{sessions}} sessions · {{users}} users",
-    "occurrence_count": "{{count}} occurrences",
-    "first_seen": "First",
-    "trend_flat": "Flat",
-    "open_issue": "Open issue {{issue}}",
-    "no_filter_results": "No issues match the current filters",
-    "filters": {
-      "search": "Search issues",
-      "status": "Status",
-      "all_statuses": "All statuses"
+    "primary_service_label": "Primary service",
+    "title": "Session",
+    "related_columns": {
+      "spans": "spans"
     },
-    "status": {
-      "new": "New issue",
-      "ongoing": "Ongoing"
+    "not_found": "This session was not found in the last 30 days.",
+    "title_frustration": "Session with frustrated clicks",
+    "user": "User",
+    "anonymous_user": "Anonymous",
+    "location": "Location",
+    "application": "Application",
+    "environment": "Environment",
+    "version": "Version",
+    "duration": "Duration",
+    "journey": "Pages",
+    "issue": {
+      "error": "Errors",
+      "crash": "Crashes",
+      "frustration": "Frustration signals",
+      "long_task": "Long tasks"
     },
-    "kpi": {
-      "total_errors": "Total errors",
-      "unique_users": "Affected users",
-      "affected_sessions": "Affected sessions",
-      "new_issues": "New issues",
-      "release": "Top release"
+    "timeline_truncated": "Only the first rows of {{types}} are listed.",
+    "location_unknown": "Unknown",
+    "tools": {
+      "aria": "Developer tools",
+      "tabs_aria": "Tabs of the developer tools",
+      "tabs": {
+        "errors": "Errors",
+        "network": "Network",
+        "performance": "Performance",
+        "logs": "Logs",
+        "comments": "Comments"
+      },
+      "view": "View",
+      "follow": "Follow the replay",
+      "all_views": "All views",
+      "display": {
+        "label": "Display",
+        "list": "List",
+        "waterfall": "Waterfall"
+      },
+      "seek": "Jump to {{time}}",
+      "network": {
+        "aria": "The requests of this session",
+        "time": "Time",
+        "method": "Method",
+        "name": "Name",
+        "status": "Status",
+        "type": "Type",
+        "duration": "Time taken",
+        "size": "Size",
+        "empty": "This view made no requests",
+        "empty_all": "This session made no requests",
+        "no_match": "No request matches"
+      },
+      "errors": {
+        "aria": "The errors of this session",
+        "time": "Time",
+        "type": "Type",
+        "message": "Message",
+        "issue": "Issue",
+        "issue_id": "issue {{id}}",
+        "open_issue": "Open issue {{id}}",
+        "crash": "Crash",
+        "empty": "This session ran into no errors"
+      },
+      "performance": {
+        "aria": "How each view of this session did",
+        "view": "View",
+        "resources": "Requests",
+        "long_tasks": "Long tasks",
+        "open": "Open the load of {{view}}",
+        "empty": "This session has no views"
+      },
+      "logs": {
+        "aria": "The logs of this session",
+        "time": "Time",
+        "level": "Level",
+        "message": "Message",
+        "logger": "Logger",
+        "empty": "This session has no logs. Write them with the logger of the SDK, or turn on forwardConsoleLogs to forward the console."
+      },
+      "comments": {
+        "aria": "The comments on this replay",
+        "time": "Time",
+        "body": "Comment",
+        "author": "Author",
+        "nobody": "(left)",
+        "write": "Write a comment",
+        "placeholder": "Comment at {{time}}",
+        "add": "Comment",
+        "edit": "Change the comment",
+        "save": "Save",
+        "cancel": "Cancel",
+        "delete": "Delete the comment",
+        "empty": "No comments yet"
+      }
     },
-    "columns": {
-      "fingerprint": "Fingerprint",
-      "message": "Message",
-      "issue": "Issue",
-      "impact": "Impact",
-      "trend": "Trend",
-      "count": "Count",
-      "users": "Users",
-      "last_seen": "Last seen",
-      "status": "Status"
+    "session_type": "Kind of session",
+    "session_types": {
+      "synthetics": "Synthetic check",
+      "ci_test": "CI test",
+      "user": "Real user"
     },
-    "empty_title": "No errors recorded",
-    "empty_description": "Frontend errors reported by the RUM SDK are grouped into issues and connected to session replays."
-  },
-  "error_detail": {
-    "title": "Error detail",
-    "stack": "Stack trace",
-    "stack_description": "Source-mapped locations are shown when available.",
-    "sessions": "Related session replays",
-    "sessions_description": "Inspect real user actions before and after the error.",
-    "no_stack": "No stack trace was captured for this issue.",
-    "back": "Back to errors",
-    "occurrences": "Occurrences",
-    "users": "Affected users",
-    "first_seen": "First seen",
-    "last_seen": "Last seen",
-    "source_restored": "Source restored",
-    "minified": "Minified",
-    "affected_context": "Affected context",
-    "pages": "Pages",
-    "versions": "Versions",
-    "open_replay": "Open session replay"
-  },
-  "performance": {
-    "overview": "Overview",
-    "web_vitals": "Web Vitals",
-    "web_vitals_subtitle": "Inspect real-user distributions, worst pages, and affected dimensions.",
-    "errors": "Errors",
-    "apis": "APIs",
-    "lcp": "Largest Contentful Paint",
-    "fid": "First Input Delay",
-    "cls": "Cumulative Layout Shift",
-    "ttfb": "Time to First Byte",
-    "threshold_good": "Good",
-    "threshold_needs_improvement": "Needs improvement",
-    "threshold_poor": "Poor",
-    "no_data": "No performance samples in the selected time range.",
-    "no_page_data": "No performance samples contain page information",
-    "no_dimension_data": "No browser, version, or country dimensions are available",
-    "chart_title": "Web Vitals trend",
-    "p75": "P75",
-    "latest": "Latest",
-    "good_target": "Good target",
-    "samples": "Samples",
-    "sample_count": "{{count}} samples",
-    "current_p75": "Current P75",
-    "distribution_title": "{{metric}} user distribution",
-    "distribution_description": "Real-user sample share grouped by Core Web Vitals thresholds.",
-    "trend_title": "{{metric}} trend",
-    "worst_pages": "Worst pages",
-    "worst_pages_description": "Ranked by {{metric}} P75 from highest to lowest.",
-    "impact_dimensions": "Impact dimensions",
-    "impact_dimensions_description": "Identify browser, version, and country differences.",
-    "dimension": {
-      "page": "Page",
-      "browser": "Browser",
-      "version": "Version",
-      "country": "Country"
-    },
-    "series_lcp": "LCP (ms)",
-    "series_fid": "FID (ms)",
-    "series_ttfb": "TTFB (ms)",
-    "columns": {
-      "url": "URL",
-      "count": "Count",
-      "p50": "P50",
-      "p95": "P95",
-      "errors": "Errors"
-    }
-  },
-  "onboarding": {
-    "eyebrow": "RUM data setup",
-    "title": "Start collecting real user experience data",
-    "description": "Install the MoleSignal RUM SDK to analyze page performance, frontend errors, and user sessions.",
-    "platforms": {
-      "web": "Web application",
-      "flutter": "Flutter",
-      "android": "Android",
-      "ios": "iOS"
-    },
-    "already_installed": "Already installed the SDK?",
-    "send_test": "Send test event",
-    "view_docs": "View setup docs",
-    "progress_title": "Setup progress",
-    "steps": {
-      "1": "Install SDK",
-      "2": "Configure application",
-      "3": "Send test event",
-      "4": "Start analyzing"
+    "summary": {
+      "title": "AI summary",
+      "generate": "Summarize",
+      "regenerate": "Summarize again",
+      "generating": "Summarizing…",
+      "none": "No summary yet. It uses the model of Mole Agent and counts against its daily budget.",
+      "chapters": "Chapters",
+      "by": "{{model}} · {{tokens}} tokens"
     }
   },
   "settings": {
@@ -411,7 +1277,7 @@
         "steps": {
           "1": "Install the MoleSignal RUM SDK for your platform.",
           "2": "Configure application, environment, version, and intake endpoint.",
-          "3": "Send a test session and verify it on the overview."
+          "3": "Send a test session and find it in the explorer."
         }
       },
       "sampling": {
@@ -496,6 +1362,7 @@
     "release_label": "Version",
     "kind_label": "Artifact type",
     "platform_label": "Platform",
+    "platform_hint": "The options change with the artifact type.",
     "architecture_label": "Architecture (optional)",
     "architecture_hint": "Recommended for native artifacts, for example arm64, armeabi-v7a, or x86_64.",
     "debug_id_label": "Debug ID / UUID (optional)",
@@ -508,5 +1375,534 @@
     "file_required": "Select a file",
     "success": "Debug artifact uploaded",
     "back": "Back to debug artifacts"
+  },
+  "explorer": {
+    "title": "Explorer",
+    "types": {
+      "sessions": "Sessions",
+      "views": "Views",
+      "actions": "Actions",
+      "errors": "Errors",
+      "resources": "Resources",
+      "long_tasks": "Long tasks",
+      "vitals": "Vitals",
+      "logs": "Logs"
+    },
+    "toolbar": {
+      "refresh": "Refresh"
+    },
+    "query": {
+      "run": "Run query",
+      "running": "Running query",
+      "clear_query": "Clear query",
+      "collapse_editor": "Collapse query editor",
+      "expand_editor": "Expand query editor",
+      "empty_summary": "All {{type}}",
+      "free_text_label": "Text:",
+      "ignored_label": "Ignored:",
+      "help_title": "RUM field query",
+      "help_description": "Compare the fields of the rows you are looking at; words that are not a comparison are looked for in the text columns.",
+      "example_equals": "A user",
+      "example_contains": "A page",
+      "example_exclude": "Leave out a browser",
+      "example_number": "Slower than a second (nanoseconds)"
+    },
+    "histogram": {
+      "show": "Show histogram",
+      "hide": "Hide histogram",
+      "label": "{{type}} over time",
+      "ok": "Rows",
+      "troubled": {
+        "sessions": "Sessions with errors",
+        "views": "Views with errors",
+        "actions": "Actions with frustration",
+        "errors": "Errors",
+        "resources": "Failed requests",
+        "long_tasks": "Long tasks",
+        "logs": "Error logs"
+      }
+    },
+    "columns": {
+      "time": "Time",
+      "user": "User",
+      "landing_page": "Landing page",
+      "duration": "Duration",
+      "views": "Views",
+      "actions": "Actions",
+      "errors": "Errors",
+      "session_id": "Session",
+      "browser": "Browser",
+      "country": "Country",
+      "page": "Page",
+      "loading_time": "Loading",
+      "lcp": "LCP",
+      "inp": "INP",
+      "cls": "CLS",
+      "view_id": "View",
+      "type": "Type",
+      "target": "Target",
+      "frustration": "Frustration",
+      "action_id": "Action",
+      "message": "Message",
+      "error_type": "Error type",
+      "source": "Source",
+      "handling": "Handling",
+      "version": "Version",
+      "error_id": "Error",
+      "method": "Method",
+      "url": "URL",
+      "status": "Status",
+      "size": "Size",
+      "resource_type": "Type",
+      "resource_id": "Request",
+      "entry_type": "Kind",
+      "blocking": "Blocking",
+      "long_task_id": "Task"
+    },
+    "fields": {
+      "title": "Fields",
+      "resize": "Resize the field list",
+      "collapse": "Fold the field list",
+      "expand": "Open the field list",
+      "summary": "{{shown}} of {{total}} fields",
+      "filter_placeholder": "Find a field",
+      "filter_aria": "Find a field",
+      "displayed_fields": "Displayed fields",
+      "indexed_fields": "Indexed fields",
+      "other_fields": "Other fields",
+      "no_match": "No field matches",
+      "hide_field_aria": "Take {{name}} out of the table",
+      "show_field_aria": "Show {{name}} in the table",
+      "add_field_aria": "Filter by {{name}}",
+      "json_query_required": "{{name}} holds a document and cannot be compared",
+      "values_loading": "Loading the values of {{name}}",
+      "values_failed": "The values could not be loaded.",
+      "no_values": "No values in these rows.",
+      "values_top": "Top {{shown}} values",
+      "filter_for": "Filter for this value",
+      "filter_out": "Filter out this value",
+      "filter_remove": "Remove the filter",
+      "filter_for_aria": "Show only rows with {{name}} {{value}}",
+      "filter_out_aria": "Leave out rows with {{name}} {{value}}",
+      "unavailable": {
+        "time_budget": "Counting took too long.",
+        "busy": "Too many queries are running."
+      }
+    },
+    "results": {
+      "loaded_count_one": "{{count}} row loaded",
+      "loaded_count_other": "{{count}} rows loaded",
+      "reset_columns": "Back to the default columns",
+      "export": "Download as CSV (up to 5,000 rows)",
+      "export_more": "The file has the newest {{count}} rows; more match the query."
+    },
+    "viz": {
+      "label": "Visualize as",
+      "names": {
+        "list": "List",
+        "timeseries": "Timeseries",
+        "toplist": "Top list",
+        "table": "Table",
+        "map": "Map",
+        "distribution": "Distribution"
+      },
+      "map_unavailable": "Rows of this type carry no country, so there is nothing to put on a map.",
+      "map_group": "The map groups the rows by country",
+      "map_empty": "No row in this range has a country: the application keeps no place, or no GeoIP database is installed.",
+      "aggregate": "What is counted",
+      "measure": "Measure",
+      "measure_edit": "Change the measure {{measure}}",
+      "measure_add": "Add a measure",
+      "measure_remove": "Remove the measure {{measure}}",
+      "function": "Function",
+      "group": "Group by",
+      "group_then": "Then by",
+      "group_edit": "Change the group {{field}}",
+      "group_add": "Add a group",
+      "group_remove": "Remove the group {{field}}",
+      "bucket": "Bucket",
+      "bucket_auto_of": "Auto · {{bucket}}",
+      "top": "Top",
+      "search_fields": "Search fields",
+      "no_fields": "No field matches.",
+      "no_value": "(none)",
+      "count_of": "Count of {{type}}",
+      "title_by": "{{measure}} by {{groups}}",
+      "vital_good": "Good",
+      "vital_poor": "Poor",
+      "status": {
+        "unavailable": "Not available",
+        "per_point": "{{bucket}} per point",
+        "groups_one": "{{count}} group",
+        "groups_other": "{{count}} groups",
+        "top_groups_one": "top {{count}} group",
+        "top_groups_other": "top {{count}} groups",
+        "countries_one": "{{count}} country",
+        "countries_other": "{{count}} countries",
+        "rows_one": "{{count}} row",
+        "rows_other": "{{count}} rows"
+      },
+      "field": "Field",
+      "field_edit": "Change the field {{field}}",
+      "distribution": {
+        "title": "Distribution of {{field}}",
+        "aria": "{{title}}, over {{rows}} rows",
+        "bar": "{{from}} to {{to}}: {{rows}} rows",
+        "rows": "Rows",
+        "p50": "P50",
+        "p75": "P75",
+        "p95": "P95",
+        "p99": "P99",
+        "max": "Max"
+      }
+    },
+    "pagination": {
+      "aria": "RUM results pagination",
+      "page_size_aria": "Rows per page",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "drawer": {
+      "title": "Row details",
+      "resize": "Resize the details",
+      "previous": "Previous row",
+      "next": "Next row",
+      "open_session": "Open the session",
+      "close": "Close the details",
+      "loading": "Loading the row",
+      "stack": "Stack",
+      "general": "General",
+      "sections": {
+        "aria": "Sections of the view",
+        "waterfall": "Load waterfall",
+        "fields": "Fields"
+      },
+      "failed": "This row could not be read."
+    },
+    "recovery": {
+      "query_failed": "The query failed",
+      "no_data_title": "No rows in this range",
+      "no_data_description": "Nothing was sent in this time range, or nothing matches the query.",
+      "clear_filters": "Clear the query",
+      "expand_time": "Widen the time range",
+      "query_docs": "Read about the explorer"
+    },
+    "saved_views": {
+      "label": "Saved views",
+      "none": "The views you save are listed here.",
+      "delete": "Delete the view {{name}}",
+      "name": "Name of this view",
+      "save": "Save"
+    },
+    "export": {
+      "dashboard": {
+        "action": "Add to dashboard",
+        "title": "Add to dashboard",
+        "description": "The panel reads the same rows with SQL: the same filters, measures and groups, over the time range of the dashboard. As here, sessions run by synthetic tests and CI are left out unless the query asks for them.",
+        "shapes": {
+          "timeseries": "Drawn as a time series: counts and sums are bars stacked by group, other measures are lines.",
+          "toplist": "Drawn as horizontal bars, ranked by the first measure.",
+          "table": "Drawn as a table, a column for each measure, in the same units as here.",
+          "distribution": "Drawn as bars: 40 stretches from the lowest value to p99, cut again for the time range of the dashboard."
+        },
+        "list_as_count": "The list is drawn as the count of matching rows over time, like the histogram above it.",
+        "map_as_top": "Dashboards have no map: drawn as horizontal bars of the {{count}} countries that rank first.",
+        "interval": "Time is cut by the dashboard’s Interval variable, starting at {{interval}}.",
+        "interval_added": "This dashboard has no Interval variable yet: one is added with the panel.",
+        "interval_label": "Interval",
+        "intervals": {
+          "1m": "1 minute",
+          "5m": "5 minutes",
+          "15m": "15 minutes",
+          "1h": "1 hour",
+          "1d": "1 day"
+        },
+        "target": "Which dashboard",
+        "targets": {
+          "new": "New dashboard",
+          "existing": "Existing dashboard"
+        },
+        "name": "Dashboard name",
+        "dashboard": "Dashboard",
+        "choose": "Choose a dashboard",
+        "none": "There is no dashboard a panel can be added to yet.",
+        "panel": "Panel title",
+        "create": "Create",
+        "add": "Add",
+        "saving": "Saving…",
+        "created": "Created dashboard “{{name}}”",
+        "added": "Added to dashboard “{{name}}”",
+        "open": "Open",
+        "distribution_title": "Distribution of {{field}}"
+      },
+      "alert": {
+        "action": "New alert",
+        "watches": "The rule watches: {{measure}}.",
+        "watches_distribution": "The rule watches: p75 of {{field}}.",
+        "left": "Not carried over: {{parts}}.",
+        "left_viz": "the way it is drawn ({{viz}})",
+        "left_groups": "the groups ({{groups}})",
+        "left_measures": "the other measures ({{measures}})",
+        "separator": ", ",
+        "application": "A rule is about one application: choose it in the editor.",
+        "kinds": {
+          "threshold": "Threshold alert",
+          "threshold_hint": "Alert when the value crosses a line",
+          "anomaly": "Anomaly alert",
+          "anomaly_hint": "Alert when it strays far from the same time on the days before"
+        }
+      }
+    }
+  },
+  "alerts": {
+    "button": "Alerts",
+    "button_aria_one": "Alerts, {{count}} going on",
+    "button_aria_other": "Alerts, {{count}} going on",
+    "drawer": {
+      "title": "Alerts",
+      "subtitle": "follows the application and the environment of the page",
+      "close": "Close"
+    },
+    "going_on": {
+      "title": "Going on",
+      "empty": "Nothing is going on for this application.",
+      "open": "Open"
+    },
+    "rules": {
+      "title": "Rules of this application",
+      "new": "New rule",
+      "empty": "No rule watches this application yet. A template below makes one.",
+      "edit": "Edit",
+      "status": {
+        "firing": "Firing",
+        "dropped": "Dropped by pipeline",
+        "no_data": "No data",
+        "pending": "Pending",
+        "healthy": "Healthy",
+        "off": "Off"
+      }
+    },
+    "templates": {
+      "title": "Templates",
+      "hint_browser": "Browser application · Create makes an enabled rule",
+      "hint_app": "App · Create makes an enabled rule",
+      "recommended": "Recommended",
+      "optional": "Optional",
+      "create": "Create",
+      "creating": "Creating…",
+      "created": "Created and enabled",
+      "created_off": "Created, disabled",
+      "created_toast": "Rule “{{name}}” created and enabled",
+      "view": "View rule",
+      "now": "Now",
+      "no_value": "No value yet: fewer than {{rows}} {{kind}} in {{window}}",
+      "unreadable": "The value now could not be read",
+      "would_trip": "It would be in {{severity}} as soon as it is created",
+      "sessions_per_one": "{{count}} session in {{window}}",
+      "sessions_per_other": "{{count}} sessions in {{window}}",
+      "list_separator": ", ",
+      "line": "{{bands}} · {{window}}",
+      "at_least": "at least {{rows}} {{kind}}",
+      "any_environment": "every environment",
+      "name": "{{application}} · {{title}}",
+      "name_environment": "{{application}} · {{environment}} · {{title}}",
+      "items": {
+        "lcp": {
+          "title": "Slow page loads"
+        },
+        "inp": {
+          "title": "Slow interactions"
+        },
+        "cls": {
+          "title": "Layout shifts"
+        },
+        "error_rate": {
+          "title": "Page errors",
+          "title_app": "Screen errors"
+        },
+        "failed_requests": {
+          "title": "Failed requests"
+        },
+        "frustration": {
+          "title": "Frustrated sessions"
+        },
+        "crash_free": {
+          "title": "More crashes"
+        },
+        "new_issues": {
+          "title": "New issues",
+          "rule": "More than 0 issues first seen in {{where}} in the window → {{severity}} · {{window}}"
+        },
+        "regressions": {
+          "title": "Regressed issues",
+          "rule": "A resolved issue comes back in {{where}} → {{severity}} · {{window}}"
+        },
+        "high_impact": {
+          "title": "Worst issue"
+        },
+        "traffic": {
+          "title": "Traffic stopped",
+          "rule": "Fewer than 1 session in the window → {{severity}} · {{window}} (not for applications that are quiet at night)"
+        }
+      }
+    }
+  },
+  "waterfall": {
+    "failed": "The requests of this view could not be read.",
+    "none": "No resource was reported for this view",
+    "no_match": "No resource matches",
+    "more": "{{count}} more resources, most of them done within {{duration}}",
+    "expand": "Show them",
+    "collapse": "Show fewer",
+    "late": "{{count}} more began after the page had loaded",
+    "sentence": {
+      "join": ", ",
+      "end": ". ",
+      "loaded": "This view loaded in <n>{{value}}</n>",
+      "first_byte": "the first byte came after <n>{{value}}</n>",
+      "lcp": "LCP was <n>{{value}}</n> (<grade>{{grade}}</grade>)",
+      "lcp_element": "LCP was <n>{{value}}</n> (<grade>{{grade}}</grade>, <code>{{element}}</code>)",
+      "resources_one": "<n>{{count}}</n> resource",
+      "resources_other": "<n>{{count}}</n> resources",
+      "long_tasks_one": "<n>{{count}}</n> long task",
+      "long_tasks_other": "<n>{{count}}</n> long tasks",
+      "during": "Meanwhile it asked for <resources/> and ran into <tasks/>."
+    },
+    "filters": {
+      "type": "Type",
+      "all": "All",
+      "show": "Show",
+      "shows": {
+        "all": "All",
+        "blocking": "Render-blocking",
+        "slow": "Slow (500 ms or more)",
+        "failed": "Failed"
+      }
+    },
+    "legend": {
+      "wait": "Waiting",
+      "download": "Downloading",
+      "long_task": "Long task"
+    },
+    "marks": {
+      "first_byte": "First byte",
+      "fcp": "FCP",
+      "dcl": "DCL",
+      "lcp": "LCP",
+      "load": "Load"
+    },
+    "lane": {
+      "title": "Main thread",
+      "count_one": "{{count}} long task",
+      "count_other": "{{count}} long tasks",
+      "task": "Long task of {{duration}}"
+    },
+    "row": {
+      "blocking": "blocking",
+      "lcp": "LCP"
+    },
+    "phases": {
+      "title": "Phases",
+      "aria": "The parts of the request, {{total}} in all",
+      "redirect": "Redirect",
+      "dns": "DNS",
+      "connect": "Connection",
+      "tls": "TLS",
+      "first_byte": "First byte",
+      "download": "Download"
+    },
+    "detail": {
+      "aria": "The request",
+      "close": "Close",
+      "lcp_file": "the file LCP waited for",
+      "trace": "Trace",
+      "yes": "Yes",
+      "no": "No",
+      "size": "{{size}} ({{transfer}} transferred)",
+      "sentence": {
+        "lcp": "It began <n>{{delay}}</n> after the first byte, took <n>{{load}}</n> to load, and was <n>{{render}}</n> more on its way to the screen.",
+        "unanswered": "It got no answer in <n>{{duration}}</n>.",
+        "failed": "It failed with <n>{{status}}</n> after <n>{{duration}}</n>.",
+        "phases": "It waited <n>{{wait}}</n> for the first byte and took <n>{{download}}</n> to download.",
+        "total": "It took <n>{{duration}}</n>."
+      },
+      "fields": {
+        "address": "Address",
+        "status": "Status",
+        "size": "Size",
+        "delivery": "Delivery",
+        "blocking": "Render-blocking",
+        "start": "Began"
+      },
+      "delivery": {
+        "cache": "Cache",
+        "network": "Network",
+        "other": "Network",
+        "navigational-prefetch": "Prefetch"
+      },
+      "after_load": "It began <n>{{start}}</n> into the view, after the page had loaded, so it is not on the axis."
+    },
+    "task": {
+      "unattributed": "Long task",
+      "subtitle": "Long task · {{duration}}",
+      "none": "Not named by the browser",
+      "sentence": "It ran for <n>{{duration}}</n>.",
+      "sentence_blocking": "It ran for <n>{{duration}}</n>, of which <n>{{blocking}}</n> held up the page's input.",
+      "fields": {
+        "script": "Script",
+        "function": "Function",
+        "invoker": "Called by"
+      }
+    },
+    "truncated": "The view made more requests than the {{count}} that are drawn here, the newest of them."
+  },
+  "agent": {
+    "investigate": "Investigate with Mole Agent",
+    "investigate_short": "Investigate",
+    "investigate_title": "Start a Mole Agent chat about this. The question is drafted for you to read and send.",
+    "investigate_element": "Investigate this element",
+    "investigate_session": "Investigate this session",
+    "investigate_row": "Investigate {{value}} with Mole Agent",
+    "all_environments": "all environments",
+    "prompt": {
+      "overview": "Look into how {{application}} ({{environment}}) did from {{from}} to {{to}}: start with the overview and the newest issues, say what is out of the ordinary, find the likely cause and give the next step.",
+      "errors": "Look into the errors of {{application}} ({{environment}}) from {{from}} to {{to}}: which issues touch the most sessions, which are new or came back and since which version, the likely causes and what to do first.",
+      "performance": "Look into how fast the pages of {{application}} ({{environment}}) were from {{from}} to {{to}}: the Core Web Vitals and how they are rated, which pages, versions and browsers hold them back, what the slowest views waited for, and what to fix first.",
+      "vital": "Look into the {{vital}} of {{application}} ({{environment}}) from {{from}} to {{to}}: how it is rated, which pages, versions and browsers hold it back, what the slowest views waited for, and what to fix first.",
+      "frustration": "Look into what frustrates the users of {{application}} ({{environment}}) from {{from}} to {{to}}: which elements, pages and versions show rage, dead or error clicks, what happens when they click, and the likely cause.",
+      "issue": "Investigate the issue “{{error}}” (id {{issue}}) of {{application}} ({{environment}}) from {{from}} to {{to}}: how many sessions and people it touches, since when and since which version, whether it came back, the likely cause from its stack and sessions, and what to do next.",
+      "slice": "Look into the views of {{application}} ({{environment}}) whose {{dimension}} is {{value}} from {{from}} to {{to}}: how they do, what is slow or failing, the likely cause and the next step.",
+      "slice_figure": "Look into the views of {{application}} ({{environment}}) whose {{dimension}} is {{value}} from {{from}} to {{to}}; their {{vital}} 75th percentile is {{figure}}. What holds it back, which versions and browsers carry it, what the slowest views waited for, and what to fix first.",
+      "element": "Look into the element “{{element}}” of {{application}} ({{environment}}) from {{from}} to {{to}}: users show rage, dead or error clicks on it. What happens when they click, on which pages and versions, and the likely cause.",
+      "element_selector": "Look into the element “{{element}}” ({{selector}}) of {{application}} ({{environment}}) from {{from}} to {{to}}: users show rage, dead or error clicks on it. What happens when they click, on which pages and versions, and the likely cause.",
+      "session": "Look into the session {{session}} of {{application}} ({{environment}}), which ran from {{from}} to {{to}}: what the person did in order, what went wrong, and the likely cause.",
+      "incident": "Investigate the alert “{{summary}}” of {{application}} ({{environment}}) from {{from}} to {{to}}: what made the figure move, which pages, versions and browsers carry it, the likely cause and the next step. List the plan first, then give the evidence point by point; make no production changes.",
+      "incident_sessions": "Investigate the alert “{{summary}}” of {{application}} ({{environment}}) from {{from}} to {{to}}: what made the figure move, which pages, versions and browsers carry it, the likely cause and the next step. The alert was told by these sessions: {{sessions}}. List the plan first, then give the evidence point by point; make no production changes."
+    }
+  },
+  "estimate": {
+    "note": "Estimated · {{share}} of sessions kept",
+    "hint": "Only {{share}} of the sessions in this range were kept. Counts here are scaled up by the share each was kept with; the people seen, and the smallest and largest values, are not. The explorer lists the sessions that were kept."
+  },
+  "flags": {
+    "list_title": "Feature flags",
+    "list_description": "The flags sessions evaluated in this range, most sessions first",
+    "sessions_one": "{{value}} session",
+    "sessions_other": "{{value}} sessions",
+    "compare_description": "How the sessions of each value of this flag did",
+    "compare_aria": "The values of {{flag}} side by side",
+    "no_values": "No view carried this flag in this range",
+    "not_evaluated": "(not evaluated)",
+    "open": "See these views",
+    "columns": {
+      "value": "Value",
+      "sessions": "Sessions",
+      "errors": "Views with errors",
+      "frustration": "Views with frustration"
+    },
+    "empty": {
+      "title": "No feature flags in this range",
+      "description": "Flags appear here once the SDK calls addFeatureFlagEvaluation."
+    }
   }
 }

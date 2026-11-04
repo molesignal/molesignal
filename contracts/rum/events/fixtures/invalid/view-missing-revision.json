@@ -1,0 +1,20 @@
+{
+  "type": "view",
+  "date": 1760000000000,
+  "source": "browser",
+  "service": "web",
+  "env": "prod",
+  "version": "1.4.0",
+  "session": {
+    "id": "6f1c2b7e-1d5a-4c6b-9a3e-0a1b2c3d4e5f",
+    "type": "user",
+    "start": 1759999998000
+  },
+  "view": {
+    "id": "a91e0d52-7b8c-4f10-8d63-5e2f7c9a1b34",
+    "url": "https://shop.example.com/checkout",
+    "name": "/checkout",
+    "time_spent": 0,
+    "is_active": true
+  }
+}

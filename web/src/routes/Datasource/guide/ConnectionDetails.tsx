@@ -49,9 +49,7 @@ export function ConnectionDetails({
         </DetailRow>
       ))}
       {application && (
-        <DetailRow label={t('datasource_page.rum_application_id')} htmlFor="rum-application-id">
-          {application}
-        </DetailRow>
+        <DetailRow label={t('datasource_page.rum_application_id')}>{application}</DetailRow>
       )}
       <DetailRow
         label={context.isRum ? t('datasource.rum_client_token') : t('datasource.intake_token')}

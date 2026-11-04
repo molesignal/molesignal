@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next';
 
+import { uiSectionTitleClass } from '@/shell/chrome';
 import type { Incident } from '@/types/alerting';
 import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
@@ -14,7 +15,7 @@ interface TimelineBucket {
 }
 
 export function buildIncidentTimeline(
-  incidents: readonly Pick<Incident, 'created_at'>[],
+  incidents: readonly Pick<Incident, 'createdAt'>[],
   windowSecs: number,
   nowMs = Date.now(),
   locale = 'zh-CN',
@@ -28,7 +29,7 @@ export function buildIncidentTimeline(
   const counts = new Map<number, number>();
 
   for (const incident of incidents) {
-    const createdAtMs = incident.created_at / 1_000;
+    const createdAtMs = incident.createdAt / 1_000;
     if (!Number.isFinite(createdAtMs) || createdAtMs < rangeStartMs || createdAtMs > nowMs) continue;
     const key = bucketStart(createdAtMs);
     counts.set(key, (counts.get(key) ?? 0) + 1);
@@ -80,7 +81,7 @@ export function IncidentTimeline({
     <section aria-labelledby="insights-hourly">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
         <div>
-          <h3 id="insights-hourly" className="font-sans text-base font-display-strong text-tx-0">
+          <h3 id="insights-hourly" className={uiSectionTitleClass}>
             {t('insights.hourly.title')}
           </h3>
           <p className="mt-0.5 font-sans text-xs text-tx-3">

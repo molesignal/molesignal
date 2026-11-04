@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! `agent_model_providers` + `agent_model_provider_secrets` 表 Pg 实装。
+//! `agent_model_providers` 表 Pg 实装。
 //!
 //! Provider 元数据 org-scoped；API key 明文经 [`CipherRootKey`] AES-256-GCM `seal`
-//! 后存到 `agent_model_provider_secrets`（密文 + nonce），元数据表只留 masked
+//! 后存到 `sealed_secrets`（`owner_kind = 'model_provider'`，密文 + nonce），元数据表只留 masked
 //! `key_last4` + `key_set`。明文 key **绝不**进任何序列化响应 / 日志 / 审计 / 归档。
 //!
 //! `ModelProvider` 结构不含密钥字段，可安全 `Serialize` 直接回前端。
@@ -22,6 +22,7 @@ use crate::{
 
 /// Provider 元数据行。**不含**任何 key 明文/密文字段——可安全序列化回前端。
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ModelProvider {
     pub id: Id,
     pub org_id: Id,
@@ -111,7 +112,7 @@ impl PgModelProviderRepository {
 
 const COLS: &str = "id, org_id, provider, name, base_url, default_model, enabled, timeout_ms, \
     max_tokens, price_currency, input_price_per_mtok, cached_input_price_per_mtok, \
-    output_price_per_mtok, key_last4, key_set, created_at_micros, updated_at_micros";
+    output_price_per_mtok, key_last4, key_set, created_at, updated_at";
 
 /// 取 key 后 4 位作 masked 显示；短 key 退化为全部。
 fn last4(api_key: &str) -> String {
@@ -140,8 +141,12 @@ fn row_to(r: sqlx::postgres::PgRow) -> Result<ModelProvider> {
         output_price_per_mtok: r.try_get("output_price_per_mtok").map_err(sqlx_err)?,
         key_last4: r.try_get("key_last4").map_err(sqlx_err)?,
         key_set: r.try_get("key_set").map_err(sqlx_err)?,
-        created_at: TimestampMicros(r.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(r.try_get("updated_at_micros").map_err(sqlx_err)?),
+        created_at: r
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: r
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -156,19 +161,19 @@ impl PgModelProviderRepository {
         let now = TimestampMicros::now();
 
         sqlx::query(
-            "INSERT INTO agent_model_provider_secrets
-                (provider_id, org_id, ciphertext, nonce, created_at_micros, updated_at_micros)
-             VALUES ($1, $2, $3, $4, $5, $5)
-             ON CONFLICT (provider_id) DO UPDATE SET
+            "INSERT INTO sealed_secrets
+                (owner_id, org_id, owner_kind, ciphertext, nonce, created_at, updated_at)
+             VALUES ($1, $2, 'model_provider', $3, $4, $5, $5)
+             ON CONFLICT (org_id, owner_kind, owner_id, slot) DO UPDATE SET
                 ciphertext = EXCLUDED.ciphertext,
                 nonce = EXCLUDED.nonce,
-                updated_at_micros = EXCLUDED.updated_at_micros",
+                updated_at = EXCLUDED.updated_at",
         )
         .bind(&provider_id.0)
         .bind(&org_id.0)
         .bind(&ct)
         .bind(&nonce)
-        .bind(now.0)
+        .bind(now)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -182,7 +187,7 @@ impl ModelProviderRepository for PgModelProviderRepository {
     async fn list(&self, org_id: &Id) -> Result<Vec<ModelProvider>> {
         let rows = sqlx::query(&format!(
             "SELECT {COLS} FROM agent_model_providers
-             WHERE org_id = $1 ORDER BY updated_at_micros DESC"
+             WHERE org_id = $1 ORDER BY updated_at DESC"
         ))
         .bind(&org_id.0)
         .fetch_all(&self.pool)
@@ -219,7 +224,7 @@ impl ModelProviderRepository for PgModelProviderRepository {
             "INSERT INTO agent_model_providers
                 (id, org_id, provider, name, base_url, default_model, enabled, timeout_ms,
                  max_tokens, price_currency, input_price_per_mtok, cached_input_price_per_mtok,
-                 output_price_per_mtok, key_last4, key_set, created_at_micros, updated_at_micros)
+                 output_price_per_mtok, key_last4, key_set, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $16)",
         )
         .bind(&input.id.0)
@@ -237,7 +242,7 @@ impl ModelProviderRepository for PgModelProviderRepository {
         .bind(input.output_price_per_mtok)
         .bind(&key_last4)
         .bind(key_set)
-        .bind(now.0)
+        .bind(now)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -257,7 +262,7 @@ impl ModelProviderRepository for PgModelProviderRepository {
                 provider = $3, name = $4, base_url = $5, default_model = $6,
                 enabled = $7, timeout_ms = $8, max_tokens = $9, price_currency = $10,
                 input_price_per_mtok = $11, cached_input_price_per_mtok = $12,
-                output_price_per_mtok = $13, updated_at_micros = $14
+                output_price_per_mtok = $13, updated_at = $14
              WHERE org_id = $1 AND id = $2",
         )
         .bind(&input.org_id.0)
@@ -273,7 +278,7 @@ impl ModelProviderRepository for PgModelProviderRepository {
         .bind(input.input_price_per_mtok)
         .bind(input.cached_input_price_per_mtok)
         .bind(input.output_price_per_mtok)
-        .bind(now.0)
+        .bind(now)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -295,13 +300,13 @@ impl ModelProviderRepository for PgModelProviderRepository {
         let now = TimestampMicros::now();
 
         sqlx::query(
-            "UPDATE agent_model_providers SET key_last4 = $3, key_set = TRUE, updated_at_micros = $4
+            "UPDATE agent_model_providers SET key_last4 = $3, key_set = TRUE, updated_at = $4
              WHERE org_id = $1 AND id = $2",
         )
         .bind(&org_id.0)
         .bind(&id.0)
         .bind(last4(api_key))
-        .bind(now.0)
+        .bind(now)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -311,7 +316,8 @@ impl ModelProviderRepository for PgModelProviderRepository {
 
     async fn delete(&self, org_id: &Id, id: &Id) -> Result<()> {
         sqlx::query(
-            "DELETE FROM agent_model_provider_secrets WHERE provider_id = $1 AND org_id = $2",
+            "DELETE FROM sealed_secrets
+             WHERE owner_id = $1 AND org_id = $2 AND owner_kind = 'model_provider'",
         )
         .bind(&id.0)
         .bind(&org_id.0)
@@ -331,8 +337,8 @@ impl ModelProviderRepository for PgModelProviderRepository {
 
     async fn get_plaintext_key(&self, org_id: &Id, id: &Id) -> Result<Option<String>> {
         let row = sqlx::query(
-            "SELECT ciphertext, nonce FROM agent_model_provider_secrets
-             WHERE provider_id = $1 AND org_id = $2",
+            "SELECT ciphertext, nonce FROM sealed_secrets
+             WHERE owner_id = $1 AND org_id = $2 AND owner_kind = 'model_provider'",
         )
         .bind(&id.0)
         .bind(&org_id.0)

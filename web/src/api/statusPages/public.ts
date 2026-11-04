@@ -58,7 +58,7 @@ export async function subscribePublic(
 ): Promise<StatusPageSubscriptionOutcome> {
   const { data } = await http.post<StatusPageSubscriptionOutcome>(
     `/public/status-pages/${encodeURIComponent(slug)}/subscriptions`,
-    { channel, target, component_ids: componentIds },
+    { channel, target, componentIds: componentIds },
   );
   return data;
 }
@@ -87,4 +87,8 @@ export async function unsubscribePublic(
 
 export function publicRssUrl(slug: string): string {
   return `/api/v1/public/status-pages/${encodeURIComponent(slug)}/feed.rss`;
+}
+
+export function publicAtomUrl(slug: string): string {
+  return `/api/v1/public/status-pages/${encodeURIComponent(slug)}/feed.atom`;
 }

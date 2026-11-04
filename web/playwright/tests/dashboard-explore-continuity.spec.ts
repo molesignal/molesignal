@@ -87,7 +87,7 @@ test.describe('dashboard → Explore continuity', () => {
     const url = new URL(page.url());
     expect(url.searchParams.get('promql')).toBe(expression);
     expect(url.searchParams.get('time')).not.toBeNull();
-    expect(url.searchParams.get('data_source')).toBe('source-1');
+    expect(url.searchParams.get('dataSource')).toBe('source-1');
     await expect(page.locator('.monaco-editor .view-lines')).toContainText(expression);
   });
 

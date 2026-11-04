@@ -2,53 +2,37 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 //! Core Web Vitals page by page: the 75th percentile real users had on each page, graded with the
-//! thresholds web.dev gives.
-
-use std::collections::HashMap;
+//! thresholds web.dev gives. The engine computes them, over every view in the range, with the same
+//! aggregate the RUM overview reads.
 
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::ToolResult;
 
-use super::rum_range;
+use super::{equal_to, rum_range};
 use crate::{
     app::{
         iam::IamContext,
+        rum::vitals::{VITALS, measures, summary},
         tools::{
             ToolRuntime,
-            common::{TimeRangeArg, parse_args},
+            common::{TimeRangeArg, parse_args, run_optional_stream_query},
         },
     },
-    infra::rum::read_model::RumReadModelReader,
-    shared::{Error, Result},
+    domain::{rum::event::RumStream, stream::StreamType},
+    infra::rum::query::{Aggregate, AggregateSpec, Filter, Plan, Scope, conditions},
+    shared::{Result, time::TimeRange},
 };
 
-/// The Core Web Vitals and TTFB with the thresholds web.dev gives: a 75th percentile at or under
-/// `good` is good, over `poor` is poor. The RUM performance page grades LCP, CLS and TTFB with the
-/// same numbers.
-const VITALS: [(&str, f64, f64); 4] = [
-    ("lcp_ms", 2_500.0, 4_000.0),
-    ("inp_ms", 200.0, 500.0),
-    ("cls", 0.1, 0.25),
-    ("ttfb_ms", 800.0, 1_800.0),
-];
+const PAGE_GROUP: &str = "view.url_path_group";
+const PAGE_PATH: &str = "view.url_path";
 
-const VITAL_COLUMNS: &[&str] = &[
-    "_timestamp",
-    "ts_micros",
-    "type",
-    "page",
-    "url",
-    "application",
-    "environment",
-    "lcp_ms",
-    "inp_ms",
-    "cls",
-    "ttfb_ms",
-];
+/// Most pages one summary reads: the aggregate's own limit. A range with more is summarized by
+/// its most viewed pages.
+const MAX_PAGES: usize = 250;
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct VitalsArgs {
     #[serde(default)]
     time_range: Option<TimeRangeArg>,
@@ -62,41 +46,6 @@ struct VitalsArgs {
     limit: Option<usize>,
 }
 
-/// One page's views and the values each vital had on them.
-#[derive(Default)]
-struct PageVitals {
-    views: u64,
-    values: [Vec<f64>; VITALS.len()],
-}
-
-impl PageVitals {
-    fn add(&mut self, values: [Option<f64>; VITALS.len()]) {
-        self.views += 1;
-
-        for (samples, value) in self.values.iter_mut().zip(values) {
-            if let Some(value) = value.filter(|value| value.is_finite() && *value >= 0.0) {
-                samples.push(value);
-            }
-        }
-    }
-
-    fn summary(mut self) -> Value {
-        let mut summary = json!({ "views": self.views });
-
-        for ((name, good, poor), samples) in VITALS.iter().zip(self.values.iter_mut()) {
-            summary[*name] = p75(samples).map_or(Value::Null, |value| {
-                json!({
-                    "p75": value,
-                    "samples": samples.len(),
-                    "rating": rating(value, *good, *poor),
-                })
-            });
-        }
-
-        summary
-    }
-}
-
 pub(super) async fn summarize(
     runtime: &ToolRuntime,
     auth: &IamContext,
@@ -106,111 +55,158 @@ pub(super) async fn summarize(
     let range = rum_range(args.time_range)?;
     let limit = args.limit.unwrap_or(50).clamp(1, 200);
 
-    let reader = RumReadModelReader::new(
-        runtime.observability.catalog_files.clone(),
-        runtime.observability.object_store.clone(),
-    )
-    .with_catalog_source(runtime.observability.catalog_query.clone());
+    let mut selected = Vec::new();
 
-    let keeps = |value: Option<&str>, wanted: Option<&str>| {
-        wanted.is_none_or(|expected| value == Some(expected))
-    };
-    let mut overall = PageVitals::default();
-    let mut pages = HashMap::<String, PageVitals>::new();
+    selected.extend(equal_to("application.id", args.application.as_deref()));
+    selected.extend(equal_to("env", args.environment.as_deref()));
 
-    let visited = reader
-        .visit_actions(&auth.org_id, range, VITAL_COLUMNS, |record| {
-            let Some(page) = record.page_key() else {
-                return;
-            };
+    if let Some(page) = args
+        .page
+        .as_deref()
+        .map(str::trim)
+        .filter(|page| !page.is_empty())
+    {
+        selected.extend(conditions(
+            RumStream::Views,
+            &[Filter {
+                field: PAGE_PATH.into(),
+                op: "contains".into(),
+                value: page.into(),
+                quoted: false,
+            }],
+        )?);
+    }
 
-            if record.event_type != "view"
-                || !keeps(record.application.as_deref(), args.application.as_deref())
-                || !keeps(record.environment.as_deref(), args.environment.as_deref())
-                || args
-                    .page
-                    .as_deref()
-                    .is_some_and(|wanted| !page.contains(wanted))
-            {
-                return;
-            }
+    let measures = measures();
+    let by_page = [PAGE_GROUP.to_string()];
 
-            let values = [record.lcp_ms, record.inp_ms, record.cls, record.ttfb_ms];
-
-            overall.add(values);
-            pages.entry(page.to_string()).or_default().add(values);
-        })
-        .await;
-
-    let stats = match visited {
-        Ok(stats) => stats,
-        Err(Error::NotFound(_)) => {
-            return Ok(ToolResult::json(json!({
-                "pages": [], "stream_available": false,
-                "message": "rum_actions has not received data yet",
-            })));
-        }
-        Err(error) => return Err(error),
+    let plan = |group_by: &[String]| {
+        Plan::new(
+            RumStream::Views,
+            &AggregateSpec {
+                measures: &measures,
+                group_by,
+                bars: None,
+                order_by: Some("views"),
+                descending: Some(true),
+                limit: Some(MAX_PAGES),
+            },
+        )
     };
 
-    let page_count = pages.len();
+    let (overall, pages) = (plan(&[])?, plan(&by_page)?);
+
+    let scope = Scope {
+        stream: RumStream::Views,
+        from: range.start.0,
+        to: range.end.0,
+        conditions: &selected,
+    };
+
+    let read = Read {
+        runtime,
+        auth,
+        range,
+        scope: &scope,
+    };
+
+    let (Some((overall, overall_scanned)), Some((pages, pages_scanned))) =
+        (read.answer(&overall).await?, read.answer(&pages).await?)
+    else {
+        return Ok(ToolResult::json(json!({
+            "pages": [], "streamAvailable": false,
+            "message": "rum_views has not received data yet",
+        })));
+    };
+
     let mut rows = pages
-        .into_iter()
-        .map(|(page, vitals)| {
-            let mut row = vitals.summary();
-            row["page"] = json!(page);
-            row
+        .rows
+        .iter()
+        .filter_map(|row| {
+            let page = row
+                .group
+                .first()?
+                .as_deref()
+                .filter(|page| !page.is_empty())?;
+            let mut summary = summary(&row.values);
+
+            summary["page"] = json!(page);
+
+            Some(summary)
         })
         .collect::<Vec<_>>();
 
-    // Slowest LCP first; pages without an LCP come last, the most viewed of them first.
+    let page_count = rows.len();
+    let reached_the_limit = pages.rows.len() >= MAX_PAGES;
+
+    sort_slowest_first(&mut rows);
+    rows.truncate(limit);
+
+    let thresholds = VITALS
+        .iter()
+        .map(|vital| {
+            (
+                vital.name.to_string(),
+                json!({ "good": vital.good, "poor": vital.poor }),
+            )
+        })
+        .collect::<serde_json::Map<_, _>>();
+
+    Ok(ToolResult::json(json!({
+        "overall": overall.rows.first().map_or_else(|| summary(&[]), |row| summary(&row.values)),
+        "pages": rows,
+        "pageCount": page_count,
+        "truncated": page_count > limit || reached_the_limit,
+        "thresholds": thresholds,
+        "streamAvailable": true,
+        "scannedRows": overall_scanned + pages_scanned,
+        "unavailable": overall.unavailable.or(pages.unavailable),
+    })))
+}
+
+/// Where the aggregates of one summary are read.
+struct Read<'a> {
+    runtime: &'a ToolRuntime,
+    auth: &'a IamContext,
+    range: TimeRange,
+    scope: &'a Scope<'a>,
+}
+
+impl Read<'_> {
+    /// What `plan` comes to, and how many rows the engine read to say so; `None` when nothing was
+    /// ever written to the stream.
+    async fn answer(&self, plan: &Plan) -> Result<Option<(Aggregate, u64)>> {
+        let Some(result) = run_optional_stream_query(
+            self.runtime,
+            &self.auth.org_id,
+            plan.first_sql(self.scope),
+            self.range,
+            RumStream::Views.name(),
+            StreamType::LOGS,
+            MAX_PAGES,
+        )
+        .await?
+        else {
+            return Ok(None);
+        };
+
+        let answer = plan.answer(&result.columns, &result.rows)?;
+
+        Ok(Some((answer, result.scanned_rows)))
+    }
+}
+
+/// Slowest LCP first; pages without an LCP come last, the most viewed of them first.
+fn sort_slowest_first(rows: &mut [Value]) {
     let lcp = |row: &Value| row["lcp_ms"]["p75"].as_f64();
     let views = |row: &Value| row["views"].as_u64().unwrap_or_default();
+
     rows.sort_by(|left, right| {
         lcp(right)
             .partial_cmp(&lcp(left))
             .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| views(right).cmp(&views(left)))
     });
-    rows.truncate(limit);
-
-    let thresholds = VITALS
-        .iter()
-        .map(|(name, good, poor)| ((*name).to_string(), json!({ "good": good, "poor": poor })))
-        .collect::<serde_json::Map<_, _>>();
-
-    Ok(ToolResult::json(json!({
-        "overall": overall.summary(),
-        "pages": rows,
-        "page_count": page_count,
-        "truncated": page_count > limit,
-        "thresholds": thresholds,
-        "stream_available": true,
-        "scanned_rows": stats.rows,
-    })))
-}
-
-/// The 75th percentile by nearest rank, as the RUM pages compute it.
-fn p75(samples: &mut [f64]) -> Option<f64> {
-    if samples.is_empty() {
-        return None;
-    }
-
-    samples.sort_by(f64::total_cmp);
-
-    let rank = (samples.len() * 3).div_ceil(4).max(1);
-
-    Some(samples[rank.min(samples.len()) - 1])
-}
-
-fn rating(value: f64, good: f64, poor: f64) -> &'static str {
-    if value <= good {
-        "good"
-    } else if value <= poor {
-        "needs_improvement"
-    } else {
-        "poor"
-    }
 }
 
 #[cfg(test)]
@@ -218,36 +214,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn p75_takes_the_nearest_rank_like_the_rum_pages() {
-        assert_eq!(p75(&mut []), None);
-        assert_eq!(p75(&mut [7.0]), Some(7.0));
-        assert_eq!(p75(&mut [4.0, 1.0, 3.0, 2.0]), Some(3.0));
-        assert_eq!(p75(&mut [5.0, 1.0, 4.0, 2.0, 3.0]), Some(4.0));
-    }
+    fn the_slowest_pages_come_first_and_those_without_an_lcp_last() {
+        let mut rows = vec![
+            json!({ "page": "/a", "views": 9, "lcp_ms": Value::Null }),
+            json!({ "page": "/b", "views": 5, "lcp_ms": { "p75": 1_000.0 } }),
+            json!({ "page": "/c", "views": 1, "lcp_ms": { "p75": 5_000.0 } }),
+            json!({ "page": "/d", "views": 20, "lcp_ms": Value::Null }),
+        ];
 
-    #[test]
-    fn ratings_include_the_good_and_poor_thresholds_themselves() {
-        assert_eq!(rating(2_500.0, 2_500.0, 4_000.0), "good");
-        assert_eq!(rating(2_500.1, 2_500.0, 4_000.0), "needs_improvement");
-        assert_eq!(rating(4_000.0, 2_500.0, 4_000.0), "needs_improvement");
-        assert_eq!(rating(4_000.1, 2_500.0, 4_000.0), "poor");
-    }
+        sort_slowest_first(&mut rows);
 
-    #[test]
-    fn a_page_counts_every_view_and_only_the_values_it_has() {
-        let mut page = PageVitals::default();
-
-        page.add([Some(3_000.0), None, Some(0.3), Some(f64::NAN)]);
-        page.add([Some(1_000.0), Some(150.0), None, Some(-1.0)]);
-
-        let summary = page.summary();
-
-        assert_eq!(summary["views"], 2);
-        assert_eq!(summary["lcp_ms"]["p75"], 3_000.0);
-        assert_eq!(summary["lcp_ms"]["samples"], 2);
-        assert_eq!(summary["lcp_ms"]["rating"], "needs_improvement");
-        assert_eq!(summary["inp_ms"]["rating"], "good");
-        assert_eq!(summary["cls"]["rating"], "poor");
-        assert_eq!(summary["ttfb_ms"], Value::Null);
+        assert_eq!(
+            rows.iter()
+                .map(|row| row["page"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            ["/c", "/b", "/d", "/a"]
+        );
     }
 }

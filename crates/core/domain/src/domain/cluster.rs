@@ -26,6 +26,12 @@ pub struct PeerInfo {
     pub roles: Vec<PeerRole>,
 }
 
+/// The rendezvous key a stream's writes are routed by. Every node that sees the same intake nodes
+/// sends a stream's writes to the same one, and a node joining or leaving moves only its share.
+pub fn intake_routing_key(org_id: &Id, stream: &str) -> String {
+    format!("{}\0{}", org_id.0, stream)
+}
+
 #[async_trait]
 pub trait ClusterRegistry: Send + Sync {
     async fn list_role(&self, role: PeerRole) -> Vec<PeerInfo>;

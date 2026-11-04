@@ -133,6 +133,9 @@ pub fn message(
         markdown: None,
         html: None,
         metadata,
+        provider_templates: Default::default(),
+        event: None,
+        card: None,
     })
 }
 

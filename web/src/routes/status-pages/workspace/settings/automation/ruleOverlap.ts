@@ -25,8 +25,8 @@ export function findAutomationRuleOverlaps(
 }
 
 function matchersCanOverlap(left: AutomationMatchers, right: AutomationMatchers): boolean {
-  if (left.source_kind !== right.source_kind) return false;
-  if (left.source_id && right.source_id && left.source_id !== right.source_id) return false;
+  if (left.sourceKind !== right.sourceKind) return false;
+  if (left.sourceId && right.sourceId && left.sourceId !== right.sourceId) return false;
 
   for (const [key, value] of Object.entries(left.labels)) {
     const other = right.labels[key];

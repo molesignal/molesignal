@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! `cluster_secrets` Postgres 往返 + `cipher_keys:<id>` secret_ref 解析端到端冒烟。
+//! 联邦令牌（`sealed_secrets` 里 `owner_kind = 'cluster'`）Postgres 往返 + `cipher_keys:<id>` secret_ref 解析端到端冒烟。
 //!
 //! 覆盖 REMAINING_WORK B1-P4：
 //! - PgClusterSecretRepository put/get_plaintext 往返（root key envelope 加密）
@@ -15,6 +15,8 @@
 //! MS_RUN_IT=1 cargo test -p molesignal --test infra_it_cluster_secrets -- --nocapture
 //! ```
 
+mod common;
+
 use molesignal::{
     config::MetaDatabaseSettings,
     infra::{
@@ -26,8 +28,6 @@ use molesignal::{
     shared::ids::Id,
 };
 use sqlx::Row;
-use testcontainers::runners::AsyncRunner;
-use testcontainers_modules::postgres::Postgres as PgImage;
 
 fn skip_unless_enabled() -> bool {
     std::env::var("MS_RUN_IT").ok().as_deref() != Some("1")
@@ -37,10 +37,7 @@ fn skip_unless_enabled() -> bool {
 const ZERO_B64: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 
 async fn boot() -> MetaStore {
-    let pg = PgImage::default().start().await.expect("start pg");
-    let port = pg.get_host_port_ipv4(5432).await.expect("pg port");
-    let host = pg.get_host().await.expect("pg host");
-    let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+    let (dsn, pg) = common::test_database().await;
     let store = MetaStore::connect(&MetaDatabaseSettings {
         dsn,
         min_connections: 1,
@@ -74,13 +71,15 @@ async fn cluster_secret_roundtrip_and_resolve() {
     );
 
     // 2. 密文落库 != 明文（确实加密了）。
-    let row =
-        sqlx::query("SELECT ciphertext FROM cluster_secrets WHERE org_id = $1 AND ref_id = $2")
-            .bind(&org.0)
-            .bind("sf-token")
-            .fetch_one(&store.pool)
-            .await
-            .expect("row");
+    let row = sqlx::query(
+        "SELECT ciphertext FROM sealed_secrets
+         WHERE org_id = $1 AND owner_kind = 'cluster' AND owner_id = $2",
+    )
+    .bind(&org.0)
+    .bind("sf-token")
+    .fetch_one(&store.pool)
+    .await
+    .expect("row");
     let ct: Vec<u8> = row.try_get("ciphertext").expect("ct");
     assert_ne!(
         ct,

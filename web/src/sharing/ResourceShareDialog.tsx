@@ -72,8 +72,8 @@ export function ResourceShareDialog({
   const { t } = useTranslation('common');
   const queryClient = useQueryClient();
   const access = useProductAccess();
-  const canManageGrants = hasPermission('iam.policies.manage', access);
-  const canManageSettings = hasPermission('org.settings.manage', access);
+  const canManageGrants = hasPermission('iam.cross_org.manage', access);
+  const canManageSettings = hasPermission('org.sharing.manage', access);
   const [mode, setMode] = React.useState<ShareMode>('authenticated');
   const [targetOrganizationId, setTargetOrganizationId] =
     React.useState('');
@@ -111,8 +111,8 @@ export function ResourceShareDialog({
     queryKey: ['resource-shares', resourceType, resourceId],
     queryFn: () =>
       resourceSharesApi.list({
-        resource_type: resourceType,
-        resource_id: resourceId,
+        resourceType: resourceType,
+        resourceId: resourceId,
       }),
     enabled: open,
   });
@@ -123,20 +123,20 @@ export function ResourceShareDialog({
       ['prod', 'production'].includes(tag.trim().toLowerCase()),
     );
   const productionPublicDenied =
-    Boolean(policy?.deny_production_public_shares) &&
+    Boolean(policy?.denyProductionPublicShares) &&
     isProductionDashboard;
   const publicAllowedByResourceType =
-    Boolean(policy?.allow_public_links) &&
+    Boolean(policy?.allowPublicLinks) &&
     (resourceType !== 'dashboard' ||
-      Boolean(policy?.allow_public_dashboards));
+      Boolean(policy?.allowPublicDashboards));
   const publicAllowed =
     publicAllowedByResourceType && !productionPublicDenied;
   const publicDisabledDescription = productionPublicDenied
     ? t('sharing.modes.production_disabled')
-    : !policy?.allow_public_links
+    : !policy?.allowPublicLinks
       ? t('sharing.modes.public_links_disabled')
       : resourceType === 'dashboard' &&
-          !policy?.allow_public_dashboards
+          !policy?.allowPublicDashboards
         ? t('sharing.modes.public_dashboards_disabled')
         : t('sharing.modes.public_disabled');
 
@@ -160,7 +160,7 @@ export function ResourceShareDialog({
   React.useEffect(() => {
     if (!open || !policy) return;
     setExpiresInSecs((current) =>
-      Math.min(current, policy.max_public_expiry_secs),
+      Math.min(current, policy.maxPublicExpirySecs),
     );
   }, [open, policy]);
 
@@ -173,36 +173,36 @@ export function ResourceShareDialog({
   const createMutation = useMutation({
     mutationFn: () =>
       resourceSharesApi.create({
-        resource_type: resourceType,
-        resource_id: resourceId,
-        share_mode: mode,
+        resourceType: resourceType,
+        resourceId: resourceId,
+        shareMode: mode,
         ...(mode === 'public_link' || expiresInSecs > 0
-          ? { expires_in_secs: expiresInSecs }
+          ? { expiresInSecs: expiresInSecs }
           : {}),
         ...(mode === 'cross_org'
           ? {
-              target_organization_id: targetOrganizationId,
-              grantee_type: 'organization' as const,
-              grantee_id: targetOrganizationId,
+              targetOrganizationId: targetOrganizationId,
+              granteeType: 'organization' as const,
+              granteeId: targetOrganizationId,
             }
           : {}),
         ...(mode === 'public_link' && password.trim()
           ? { password: password.trim() }
           : {}),
         ...(mode === 'public_link' && Number(maxViews) > 0
-          ? { max_views: Number(maxViews) }
+          ? { maxViews: Number(maxViews) }
           : {}),
         ...(mode === 'public_link' && resourceType === 'report'
-          ? { allow_download: allowDownload }
+          ? { allowDownload: allowDownload }
           : {}),
         ...(mode === 'public_link' && resourceType === 'dashboard'
           ? {
               constraints: {
-                max_time_range_secs: maxRangeSecs,
-                allow_time_range_changes: allowTimeChanges,
-                allowed_variables: allowedVariables,
-                allow_variable_changes: allowVariableChanges,
-                auto_refresh_interval_secs: 0,
+                maxTimeRangeSecs: maxRangeSecs,
+                allowTimeRangeChanges: allowTimeChanges,
+                allowedVariables,
+                allowVariableChanges,
+                autoRefreshIntervalSecs: 0,
                 watermark: true,
               },
             }
@@ -296,7 +296,7 @@ export function ResourceShareDialog({
     mode === 'public_link' &&
     (resourceType === 'dashboard' ||
       (resourceType === 'report' &&
-        Boolean(policy?.require_public_report_password)));
+        Boolean(policy?.requirePublicReportPassword)));
   const targetOrganizationMissing =
     mode === 'cross_org' && !targetOrganizationId;
   const publicPasswordMissing =
@@ -502,7 +502,7 @@ export function ResourceShareDialog({
                         {EXPIRY_OPTIONS.filter(
                           (option) =>
                             option.seconds <=
-                            (policy?.max_public_expiry_secs ??
+                            (policy?.maxPublicExpirySecs ??
                               7 * 24 * 60 * 60),
                         ).map((option) => (
                           <option key={option.seconds} value={option.seconds}>
@@ -595,14 +595,14 @@ export function ResourceShareDialog({
                       label={t('sharing.allow_download')}
                       description={
                         reportFormat === 'csv' &&
-                        !policy?.allow_public_csv_download
+                        !policy?.allowPublicCsvDownload
                           ? t('sharing.csv_download_disabled')
                           : t('sharing.allow_download_hint')
                       }
                       checked={allowDownload}
                       disabled={
                         reportFormat === 'csv' &&
-                        !policy?.allow_public_csv_download
+                        !policy?.allowPublicCsvDownload
                       }
                       onCheckedChange={setAllowDownload}
                     />
@@ -972,8 +972,8 @@ function ExistingShares({
         {shares.map((share) => {
           const active =
             share.enabled &&
-            !share.revoked_at &&
-            (!share.expires_at || share.expires_at > Date.now() * 1000);
+            !share.revokedAt &&
+            (!share.expiresAt || share.expiresAt > Date.now() * 1000);
           const shareUrl = active && share.url
             ? new URL(share.url, window.location.origin).toString()
             : null;
@@ -984,9 +984,9 @@ function ExistingShares({
             >
               <div className="flex min-w-0 flex-1 items-start gap-3">
                 <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-md border border-bd-0 bg-bg-2 text-tx-2">
-                  {share.share_mode === 'public_link' ? (
+                  {share.shareMode === 'public_link' ? (
                     <Globe2 className="h-4 w-4" />
-                  ) : share.share_mode === 'cross_org' ? (
+                  ) : share.shareMode === 'cross_org' ? (
                     <Building2 className="h-4 w-4" />
                   ) : (
                     <LockKeyhole className="h-4 w-4" />
@@ -995,7 +995,7 @@ function ExistingShares({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-semibold text-tx-1">
-                      {t(`sharing.modes.${share.share_mode}`)}
+                      {t(`sharing.modes.${share.shareMode}`)}
                     </span>
                     <Pill tone={active ? 'green' : 'dim'}>
                       {active
@@ -1006,15 +1006,15 @@ function ExistingShares({
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-tx-3">
                     <span className="inline-flex items-center gap-1">
                       <Clock3 className="h-3 w-3" />
-                      {share.expires_at
+                      {share.expiresAt
                         ? new Intl.DateTimeFormat(i18n.language, {
                             dateStyle: 'medium',
                             timeStyle: 'short',
-                          }).format(new Date(share.expires_at / 1000))
+                          }).format(new Date(share.expiresAt / 1000))
                         : t('sharing.no_expiry')}
                     </span>
                     <span>
-                      {t('sharing.views', { count: share.view_count })}
+                      {t('sharing.views', { count: share.viewCount })}
                     </span>
                   </div>
                   {(shareUrl || active) && (
@@ -1091,5 +1091,5 @@ function ExistingShares({
 function publicAllowedFromShares(
   shares: resourceSharesApi.ResourceShare[],
 ): boolean {
-  return shares.some((share) => share.share_mode === 'public_link');
+  return shares.some((share) => share.shareMode === 'public_link');
 }

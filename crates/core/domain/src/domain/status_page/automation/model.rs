@@ -15,8 +15,8 @@ use crate::{
 pub enum AutomationSourceKind {
     AlertIncident,
     SyntheticMonitor,
-    /// The health of a business service, worked out from its dependencies.
-    BusinessService,
+    /// The health of a component, worked out from its dependencies.
+    ComponentDependencies,
 }
 
 impl AutomationSourceKind {
@@ -24,7 +24,7 @@ impl AutomationSourceKind {
         match self {
             Self::AlertIncident => "alert_incident",
             Self::SyntheticMonitor => "synthetic_monitor",
-            Self::BusinessService => "business_service",
+            Self::ComponentDependencies => "component_dependencies",
         }
     }
 
@@ -32,7 +32,7 @@ impl AutomationSourceKind {
         match value {
             "alert_incident" => Some(Self::AlertIncident),
             "synthetic_monitor" => Some(Self::SyntheticMonitor),
-            "business_service" => Some(Self::BusinessService),
+            "component_dependencies" => Some(Self::ComponentDependencies),
             _ => None,
         }
     }
@@ -76,6 +76,7 @@ pub enum AutomationPublicationMode {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AutomationMatchers {
     pub source_kind: AutomationSourceKind,
     pub source_id: Option<Id>,
@@ -99,9 +100,10 @@ pub struct AutomationTemplates {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AutomationAction {
-    /// The components an incident is published on. A business-service rule
-    /// that names none publishes on the components that stand for the service.
+    /// The components an incident is published on. A dependency rule that
+    /// names none publishes on the component whose dependencies changed.
     pub component_ids: Vec<Id>,
     pub publication_mode: AutomationPublicationMode,
     pub sustained_delay_seconds: u32,
@@ -111,6 +113,7 @@ pub struct AutomationAction {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusAutomationRule {
     pub id: Id,
     pub organization_id: Id,
@@ -126,6 +129,7 @@ pub struct StatusAutomationRule {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusAutomationRevision {
     pub id: Id,
     pub organization_id: Id,
@@ -188,6 +192,7 @@ impl AutomationCandidateState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AutomationCandidate {
     pub id: Id,
     pub organization_id: Id,
@@ -209,6 +214,7 @@ pub struct AutomationCandidate {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AutomationSourceObservation {
     pub organization_id: Id,
     pub source_kind: AutomationSourceKind,
@@ -222,6 +228,7 @@ pub struct AutomationSourceObservation {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AutomationCandidateSource {
     pub source_kind: AutomationSourceKind,
     pub source_id: Id,
@@ -235,6 +242,7 @@ pub struct AutomationCandidateSource {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AutomationCandidateAction {
     pub id: Id,
     pub action: String,
@@ -244,6 +252,7 @@ pub struct AutomationCandidateAction {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AutomationWorkItem {
     pub id: Id,
     pub kind: String,
@@ -257,6 +266,7 @@ pub struct AutomationWorkItem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AutomationCandidateDetail {
     pub candidate: AutomationCandidate,
     pub sources: Vec<AutomationCandidateSource>,
@@ -265,6 +275,7 @@ pub struct AutomationCandidateDetail {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AutomationOutboxItem {
     pub id: Id,
     pub organization_id: Id,
@@ -278,6 +289,7 @@ pub struct AutomationOutboxItem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AutomationSettings {
     pub organization_id: Id,
     pub status_page_id: Id,

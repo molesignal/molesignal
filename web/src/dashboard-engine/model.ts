@@ -78,13 +78,13 @@ export function dashboardDefinitionFromApi(
     id: dashboard.id,
     uid: dashboard.uid || definition.uid,
     title: dashboard.title || definition.title,
-    folderId: dashboard.folder_id,
+    folderId: dashboard.folderId,
     tags: dashboard.tags.length > 0 ? dashboard.tags : definition.tags,
     version: dashboard.version,
-    createdAt: timestampToIso(dashboard.created_at),
-    updatedAt: timestampToIso(dashboard.updated_at),
-    createdBy: dashboard.created_by ?? '',
-    updatedBy: dashboard.updated_by ?? '',
+    createdAt: timestampToIso(dashboard.createdAt),
+    updatedAt: timestampToIso(dashboard.updatedAt),
+    createdBy: dashboard.createdBy ?? '',
+    updatedBy: dashboard.updatedBy ?? '',
   };
 }
 

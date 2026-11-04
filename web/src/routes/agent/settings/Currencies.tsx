@@ -81,8 +81,8 @@ export function CurrenciesSection({ canManage }: { canManage: boolean }) {
                 {currency.name || standardName(currency.code, i18n.language)}
               </span>
               <span className="shrink-0 text-xs text-tx-3">
-                {currency.used_by.length > 0
-                  ? t('settings.currencies.used_by', { count: currency.used_by.length })
+                {currency.usedBy.length > 0
+                  ? t('settings.currencies.used_by', { count: currency.usedBy.length })
                   : t('settings.currencies.unused')}
               </span>
               {canManage && (
@@ -99,10 +99,10 @@ export function CurrenciesSection({ canManage }: { canManage: boolean }) {
                     variant="ghost"
                     size="icon"
                     aria-label={t('settings.currencies.delete', { code: currency.code })}
-                    disabled={currency.used_by.length > 0}
+                    disabled={currency.usedBy.length > 0}
                     title={
-                      currency.used_by.length > 0
-                        ? t('settings.currencies.in_use', { names: currency.used_by.join('、') })
+                      currency.usedBy.length > 0
+                        ? t('settings.currencies.in_use', { names: currency.usedBy.join('、') })
                         : undefined
                     }
                     onClick={() => setDeleting(currency)}

@@ -96,7 +96,7 @@ export function QueryShareButton({ search }: QueryShareButtonProps) {
         aria-labelledby={titleId}
         className="w-[380px] max-w-[calc(100vw-24px)] p-4 font-sans"
       >
-        <h2 id={titleId} className="text-sm font-strong text-tx-0">
+        <h2 id={titleId} className="text-sm font-display text-tx-0">
           {t('share_query.title')}
         </h2>
         <p className="mt-1 text-xs leading-relaxed text-tx-2">{t('share_query.description')}</p>

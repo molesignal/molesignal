@@ -192,9 +192,9 @@ async fn update_pending(
              status = CASE WHEN $2 THEN 'active' ELSE 'pending' END,
              token_hash = $3, token_ciphertext = $4, token_nonce = $5,
              component_scope = $6, component_ids = $7, origin = 'import',
-             confirmed_at_micros = CASE WHEN $2 THEN $8 ELSE NULL END,
-             confirmation_sent_at_micros = CASE WHEN $2 THEN confirmation_sent_at_micros ELSE $8 END,
-             unsubscribed_at_micros = NULL, updated_at_micros = $8
+             confirmed_at = CASE WHEN $2 THEN $8 ELSE NULL END,
+             confirmation_sent_at = CASE WHEN $2 THEN confirmation_sent_at ELSE $8 END,
+             unsubscribed_at = NULL, updated_at = $8
          WHERE id = $1 AND status = 'pending'",
     )
     .bind(id)
@@ -204,7 +204,7 @@ async fn update_pending(
     .bind(&token_nonce)
     .bind(plan.subscriber.components.scope.as_str())
     .bind(component_id_strings(&plan.subscriber.components))
-    .bind(import.imported_at.0)
+    .bind(import.imported_at)
     .execute(transaction)
     .await
     .map_err(super::super::sqlx_err)?;
@@ -224,19 +224,19 @@ async fn queue_confirmations(
     sqlx::query(
         "INSERT INTO status_page_notification_deliveries (
              id, org_id, status_page_id, subscriber_id, event_key, payload,
-             next_attempt_at_micros, created_at_micros, updated_at_micros
+             next_attempt_at, created_at, updated_at
          )
          SELECT
-             md5(subscriber.id || ':subscription_confirmation:' || $3::BIGINT),
+             md5(subscriber.id || ':subscription_confirmation:' || epoch_micros($3)),
              subscriber.org_id,
              subscriber.status_page_id,
              subscriber.id,
-             'subscription_confirmation:' || $3::BIGINT,
+             'subscription_confirmation:' || epoch_micros($3),
              jsonb_build_object(
                  'type', 'status_page_subscription_confirmation',
-                 'page_name', page.name,
-                 'page_slug', page.slug,
-                 'occurred_at', $3::BIGINT
+                 'pageName', page.name,
+                 'pageSlug', page.slug,
+                 'occurredAt', epoch_micros($3)
              ),
              $3, $3, $3
          FROM status_page_subscribers subscriber
@@ -248,7 +248,7 @@ async fn queue_confirmations(
     )
     .bind(&org_id.0)
     .bind(&page_id.0)
-    .bind(import.imported_at.0)
+    .bind(import.imported_at)
     .bind(subscriber_ids)
     .execute(transaction)
     .await

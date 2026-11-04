@@ -3,11 +3,11 @@
 
 mod common;
 
-use common::{TestServer, skip_unless_enabled};
+use common::{Credential, TestServer, session_cookie, skip_unless_enabled, system_session_token};
 use molesignal::{
     domain::iam::{
         IamMembership,
-        api_token::{ApiToken, ApiTokenKind},
+        api_token::{ApiToken, ApiTokenKind, ApiTokenScope},
     },
     infra::persistence::repositories::api_tokens::{
         assemble_token, generate_token_parts, hash_secret,
@@ -29,17 +29,17 @@ async fn creating_service_account_atomically_returns_one_time_bound_api_token() 
         .iam
         .service
         .iam_memberships
-        .role_id_for_purpose(&server.root_org_id, "default_api_token")
+        .role_id_for_purpose(&server.root_org_id, "self_service_signup")
         .await
-        .expect("resolve API token role");
+        .expect("resolve viewer role");
     let response = server
         .client
         .post(format!("{}/api/v1/service-accounts", server.base_url))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .json(&json!({
             "name": "integration-collector",
             "description": "non-interactive integration identity",
-            "role_id": role_id,
+            "roleId": role_id,
         }))
         .send()
         .await
@@ -50,15 +50,15 @@ async fn creating_service_account_atomically_returns_one_time_bound_api_token() 
         "private, no-store"
     );
     let payload: Value = response.json().await.expect("decode provision response");
-    let account_id = payload["service_account"]["id"]
+    let account_id = payload["serviceAccount"]["id"]
         .as_str()
         .expect("service account id");
-    let plaintext = payload["api_token"]["token"]
+    let plaintext = payload["apiToken"]["token"]
         .as_str()
         .expect("one-time API token");
-    assert!(plaintext.starts_with("ms_"));
+    assert!(plaintext.starts_with("mspat-"));
     assert_eq!(
-        payload["api_token"]["service_account_id"].as_str(),
+        payload["apiToken"]["serviceAccountId"].as_str(),
         Some(account_id)
     );
 
@@ -85,12 +85,12 @@ async fn creating_service_account_atomically_returns_one_time_bound_api_token() 
         .find(|token| token.service_account_id.as_ref() == Some(&account.id))
         .expect("initial bound API token persisted");
     assert_eq!(token.token_kind, ApiTokenKind::ServiceAccount);
-    assert_eq!(token.role_id, account.role_id);
+    assert_eq!(token.scope, ApiTokenScope::Principal);
 
     server
         .client
         .get(format!("{}/api/v1/iam/capabilities", server.base_url))
-        .bearer_auth(plaintext)
+        .credential(plaintext)
         .send()
         .await
         .expect("authenticate initial service-account token")
@@ -100,7 +100,7 @@ async fn creating_service_account_atomically_returns_one_time_bound_api_token() 
     let listed = server
         .client
         .get(format!("{}/api/v1/auth/tokens", server.base_url))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .send()
         .await
         .expect("list API token metadata")
@@ -161,14 +161,6 @@ async fn disabling_user_immediately_invalidates_existing_jwt_and_api_tokens() {
         .service
         .issue_token(&user.id, &server.root_org_id)
         .expect("issue JWT");
-    let api_role_id = server
-        .state
-        .iam
-        .service
-        .iam_memberships
-        .role_id_for_purpose(&server.root_org_id, "default_api_token")
-        .await
-        .expect("resolve API token role");
     let (prefix, secret) = generate_token_parts();
     let api_token = assemble_token(&prefix, &secret);
     server
@@ -178,10 +170,10 @@ async fn disabling_user_immediately_invalidates_existing_jwt_and_api_tokens() {
         .create(ApiToken {
             id: Id::new(),
             prefix,
-            secret_hash: hash_secret(&secret).expect("hash API token secret"),
+            secret_hash: hash_secret(&secret),
             org_id: server.root_org_id.clone(),
             user_id: user.id.clone(),
-            role_id: api_role_id,
+            scope: ApiTokenScope::Principal,
             name: "disabled-user-token".into(),
             expires_at: None,
             last_used_at: None,
@@ -199,7 +191,7 @@ async fn disabling_user_immediately_invalidates_existing_jwt_and_api_tokens() {
         server
             .client
             .get(format!("{}/api/v1/iam/capabilities", server.base_url))
-            .bearer_auth(credential)
+            .credential(credential)
             .send()
             .await
             .expect("request capabilities before disable")
@@ -210,7 +202,7 @@ async fn disabling_user_immediately_invalidates_existing_jwt_and_api_tokens() {
     server
         .client
         .patch(format!("{}/api/v1/users/{}", server.base_url, user.id))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .json(&json!({"disabled": true}))
         .send()
         .await
@@ -222,7 +214,7 @@ async fn disabling_user_immediately_invalidates_existing_jwt_and_api_tokens() {
         let response = server
             .client
             .get(format!("{}/api/v1/iam/capabilities", server.base_url))
-            .bearer_auth(credential)
+            .credential(credential)
             .send()
             .await
             .expect("request capabilities after disable");
@@ -240,7 +232,7 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
     let tenant_dashboards: Value = server
         .client
         .get(format!("{}/api/v1/dashboards", server.base_url))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .send()
         .await
         .expect("list tenant dashboards")
@@ -264,33 +256,11 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
         .connect(&server.settings.meta_database.dsn)
         .await
         .expect("connect test database");
-    let role_id: String = sqlx::query_scalar(
-        "SELECT role.id
-           FROM iam_builtin_roles catalog
-           JOIN iam_roles role
-             ON role.org_id = $1
-            AND role.role_key = catalog.role_key
-          WHERE catalog.purpose = 'platform_administrator'",
-    )
-    .bind(server.state.iam.system_org_id.as_str())
-    .fetch_one(&pool)
-    .await
-    .expect("resolve materialized system role");
-    sqlx::query("UPDATE iam_roles SET name = 'Platform Steward' WHERE id = $1")
-        .bind(&role_id)
-        .execute(&pool)
-        .await
-        .expect("rename system role");
-    let system_token = server
-        .state
-        .iam
-        .service
-        .issue_system_token(&server.root_user_id, &server.state.iam.system_org_id)
-        .expect("issue system token");
+    let system_token = system_session_token(&server.state, &server.root_user_id);
     let capabilities: Value = server
         .client
         .get(format!("{}/api/v1/iam/capabilities", server.base_url))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .send()
         .await
         .expect("get system capabilities")
@@ -300,8 +270,8 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
         .await
         .expect("system capabilities JSON");
 
-    assert_eq!(capabilities["display_role"], "Platform Steward");
-    assert_eq!(capabilities["roles"][0]["id"], role_id);
+    assert_eq!(capabilities["displayRole"], "Super administrator");
+    assert_eq!(capabilities["roles"][0]["key"], "super_administrator");
     assert!(
         capabilities["permissions"]
             .as_array()
@@ -321,7 +291,7 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
             .as_array()
             .expect("permissions array")
             .iter()
-            .any(|permission| permission == "sys.organizations.manage")
+            .any(|permission| permission == "sys.organizations.read")
     );
     assert!(
         capabilities["permissions"]
@@ -341,7 +311,7 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
     let system_dashboards: Value = server
         .client
         .get(format!("{}/api/v1/dashboards", server.base_url))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .send()
         .await
         .expect("list system dashboards")
@@ -353,15 +323,19 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
     let dashboards = system_dashboards
         .as_array()
         .expect("system dashboards array");
-    assert_eq!(dashboards.len(), 1);
-    assert_eq!(dashboards[0]["uid"], "molesignal-system-overview");
-    assert_eq!(
-        dashboards[0]["org_id"],
-        server.state.iam.system_org_id.as_str()
-    );
-    assert_eq!(dashboards[0]["model"]["editable"], false);
-    assert_eq!(dashboards[0]["model"]["defaultDashboard"], true);
-    let dashboard_id = dashboards[0]["id"].as_str().expect("built-in dashboard id");
+
+    for dashboard in dashboards {
+        assert_eq!(dashboard["orgId"], server.state.iam.system_org_id.as_str());
+        assert_eq!(dashboard["model"]["editable"], false);
+    }
+
+    let overview = dashboards
+        .iter()
+        .find(|dashboard| dashboard["uid"] == "molesignal-system-overview")
+        .expect("the built-in system overview");
+
+    assert_eq!(overview["model"]["defaultDashboard"], true);
+    let dashboard_id = overview["id"].as_str().expect("built-in dashboard id");
 
     let system_dashboard = server
         .client
@@ -369,7 +343,7 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
             "{}/api/v1/dashboards/{dashboard_id}",
             server.base_url
         ))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .send()
         .await
         .expect("read built-in system dashboard");
@@ -381,7 +355,7 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
             "{}/api/v1/dashboards/{dashboard_id}",
             server.base_url
         ))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .send()
         .await
         .expect("attempt tenant read of built-in system dashboard");
@@ -390,7 +364,7 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
     let system_folders = server
         .client
         .get(format!("{}/api/v1/folders", server.base_url))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .send()
         .await
         .expect("list system dashboard folders");
@@ -399,7 +373,7 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
     let denied_system_create = server
         .client
         .post(format!("{}/api/v1/dashboards", server.base_url))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .json(&json!({"model": dashboard_model("system-copy", "System copy")}))
         .send()
         .await
@@ -409,7 +383,7 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
     let read_response = server
         .client
         .get(format!("{}/api/v1/system/telemetry", server.base_url))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .send()
         .await
         .expect("read trace policy with database permission");
@@ -418,7 +392,7 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
     let organizations: Value = server
         .client
         .get(format!("{}/api/v1/orgs", server.base_url))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .send()
         .await
         .expect("list organizations")
@@ -433,13 +407,13 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
         .iter()
         .find(|organization| organization["system"] == true)
         .expect("system organization");
-    assert_eq!(system["display_role"], "Platform Steward");
-    assert_eq!(system["roles"][0]["id"], role_id);
+    assert_eq!(system["displayRole"], "Super administrator");
+    assert_eq!(system["roles"][0]["key"], "super_administrator");
 
     let system_organizations: Value = server
         .client
         .get(format!("{}/api/v1/orgs", server.base_url))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .send()
         .await
         .expect("list organizations from system scope")
@@ -454,13 +428,13 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
         .iter()
         .find(|organization| organization["id"] == server.root_org_id.as_str())
         .expect("root tenant in system organization list");
-    assert_eq!(root_organization["display_role"], "Owner");
-    assert_eq!(root_organization["roles"][0]["key"], "owner");
+    assert_eq!(root_organization["displayRole"], "Super administrator");
+    assert_eq!(root_organization["roles"][0]["key"], "super_administrator");
 
     let created_organization: Value = server
         .client
         .post(format!("{}/api/v1/orgs", server.base_url))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .json(&json!({
             "name": "Root automatic access",
             "slug": "root-automatic-access"
@@ -473,7 +447,7 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
         .json()
         .await
         .expect("created organization JSON");
-    assert_eq!(created_organization["display_role"], "Owner");
+    assert_eq!(created_organization["displayRole"], "Super administrator");
     let created_organization_id = created_organization["id"]
         .as_str()
         .expect("created organization id");
@@ -499,7 +473,7 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
             "{}/api/v1/orgs/{created_organization_id}/select",
             server.base_url
         ))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .send()
         .await
         .expect("select membership-free organization")
@@ -508,11 +482,11 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
         .json()
         .await
         .expect("selected organization JSON");
-    assert_eq!(selected["display_role"], "Owner");
+    assert_eq!(selected["displayRole"], "Super administrator");
 }
 
 #[tokio::test]
-async fn organization_owner_holds_the_whole_catalog_and_reaches_the_platform_organization() {
+async fn organization_owner_holds_the_organization_catalog_and_stays_out_of_the_platform() {
     if skip_unless_enabled() {
         return;
     }
@@ -566,7 +540,7 @@ async fn organization_owner_holds_the_whole_catalog_and_reaches_the_platform_org
         let request = server
             .client
             .get(format!("{}/api/v1{path}", server.base_url))
-            .bearer_auth(token);
+            .credential(token);
         async move {
             request
                 .send()
@@ -594,18 +568,21 @@ async fn organization_owner_holds_the_whole_catalog_and_reaches_the_platform_org
         keys
     };
 
-    // Not one permission of the catalog is missing from the owner, platform scope included.
+    // The owner holds every organization permission of the catalog and none of the platform's, and
+    // so does root in an organization: a platform permission counts in the platform only.
     let catalog = get("/iam/permissions", owner_token.clone()).await;
     let every_key = keys(&catalog["permissions"]);
-    assert!(
-        every_key
-            .iter()
-            .any(|key| key == "sys.organizations.manage")
-    );
+    assert!(every_key.iter().any(|key| key == "sys.organizations.read"));
+    let organization_keys = every_key
+        .iter()
+        .filter(|key| !key.starts_with("sys."))
+        .cloned()
+        .collect::<Vec<_>>();
+    assert!(organization_keys.iter().any(|key| key == "org.delete"));
     let owner_capabilities = get("/iam/capabilities", owner_token.clone()).await;
-    assert_eq!(keys(&owner_capabilities["permissions"]), every_key);
+    assert_eq!(keys(&owner_capabilities["permissions"]), organization_keys);
     let root_capabilities = get("/iam/capabilities", server.root_token.clone()).await;
-    assert_eq!(keys(&root_capabilities["permissions"]), every_key);
+    assert_eq!(keys(&root_capabilities["permissions"]), organization_keys);
 
     let roles = get("/roles", owner_token.clone()).await;
     let owner_role = roles
@@ -614,140 +591,300 @@ async fn organization_owner_holds_the_whole_catalog_and_reaches_the_platform_org
         .iter()
         .find(|role| role["key"] == "owner")
         .expect("owner role");
-    assert_eq!(keys(&owner_role["permissions"]), every_key);
+    assert_eq!(keys(&owner_role["permissions"]), organization_keys);
 
-    // The viewer holds none of it, and cannot see or enter the platform organization.
-    let viewer_capabilities = get("/iam/capabilities", viewer_token.clone()).await;
-    assert!(
-        keys(&viewer_capabilities["permissions"])
-            .iter()
-            .all(|key| !key.starts_with("sys."))
-    );
-    let viewer_organizations = get("/orgs", viewer_token.clone()).await;
-    assert!(
-        viewer_organizations
-            .as_array()
-            .expect("organizations array")
-            .iter()
-            .all(|organization| organization["system"] == false)
-    );
+    // Neither an owner nor a viewer can see or enter the platform organization.
     let system_org_id = server.state.iam.system_org_id.as_str().to_owned();
-    let viewer_select = server
-        .client
-        .post(format!(
-            "{}/api/v1/orgs/{system_org_id}/select",
-            server.base_url
-        ))
-        .bearer_auth(&viewer_token)
-        .send()
-        .await
-        .expect("viewer selects the platform organization");
-    assert_eq!(viewer_select.status(), StatusCode::NOT_FOUND);
+    for token in [&owner_token, &viewer_token] {
+        let organizations = get("/orgs", token.clone()).await;
+        assert!(
+            organizations
+                .as_array()
+                .expect("organizations array")
+                .iter()
+                .all(|organization| organization["system"] == false)
+        );
 
-    // The owner sees the platform organization and enters it with the platform permissions.
-    let owner_organizations = get("/orgs", owner_token.clone()).await;
-    assert!(
-        owner_organizations
-            .as_array()
-            .expect("organizations array")
-            .iter()
-            .any(|organization| organization["system"] == true)
-    );
-    let selected: Value = server
-        .client
-        .post(format!(
-            "{}/api/v1/orgs/{system_org_id}/select",
-            server.base_url
-        ))
-        .bearer_auth(&owner_token)
-        .send()
-        .await
-        .expect("owner selects the platform organization")
-        .error_for_status()
-        .expect("owner enters the platform organization")
-        .json()
-        .await
-        .expect("selection JSON");
-    assert_eq!(selected["system"], true);
-    let platform_token = selected["token"]
-        .as_str()
-        .expect("platform token")
-        .to_owned();
+        let select = server
+            .client
+            .post(format!(
+                "{}/api/v1/orgs/{system_org_id}/select",
+                server.base_url
+            ))
+            .credential(token)
+            .send()
+            .await
+            .expect("select the platform organization");
+        assert_eq!(select.status(), StatusCode::NOT_FOUND);
+    }
 
-    let platform_capabilities = get("/iam/capabilities", platform_token.clone()).await;
-    let platform_keys = keys(&platform_capabilities["permissions"]);
-    assert!(!platform_keys.is_empty());
-    assert!(platform_keys.iter().all(|key| key.starts_with("sys.")));
-    assert!(
-        platform_keys
-            .iter()
-            .any(|key| key == "sys.organizations.manage")
-    );
+    // What covers the whole instance is out of the owner's reach, from its own organization too.
+    for (method, path, body) in [
+        (
+            "PUT",
+            "/settings/stream_retention",
+            json!({"retentionDays": 1}),
+        ),
+        (
+            "PUT",
+            "/settings/audit_retention",
+            json!({"retentionDays": 1}),
+        ),
+        (
+            "PUT",
+            "/settings/signup",
+            json!({"signupEnabled": true, "signupRequireApproval": false}),
+        ),
+        ("POST", "/node/drain", json!({})),
+        ("GET", "/clusters", json!({})),
+    ] {
+        let response = server
+            .client
+            .request(
+                method.parse().expect("HTTP method"),
+                format!("{}/api/v1{path}", server.base_url),
+            )
+            .credential(&owner_token)
+            .json(&body)
+            .send()
+            .await
+            .expect("request an instance-wide endpoint");
+        assert_eq!(response.status(), StatusCode::FORBIDDEN, "{method} {path}");
+    }
 
-    // From there every organization is listed, and one the owner creates is theirs to enter.
-    let administered = get("/orgs", platform_token.clone()).await;
-    assert!(
-        administered
-            .as_array()
-            .expect("organizations array")
-            .iter()
-            .any(|organization| organization["id"] == server.root_org_id.as_str())
-    );
-    let created: Value = server
+    // Another organization, made by root: the owner of the first can neither delete nor disable it.
+    server
+        .state
+        .iam
+        .platform_administrators
+        .bootstrap_root(&server.root_user_id)
+        .await
+        .expect("reconcile root platform administrator");
+    let platform_token = system_session_token(&server.state, &server.root_user_id);
+    let other: Value = server
         .client
         .post(format!("{}/api/v1/orgs", server.base_url))
-        .bearer_auth(&platform_token)
-        .json(&json!({"name": "Owner made", "slug": "owner-made"}))
+        .credential(&platform_token)
+        .json(&json!({"name": "Other tenant", "slug": "other-tenant"}))
         .send()
         .await
-        .expect("create organization")
+        .expect("create another organization")
         .error_for_status()
-        .expect("owner creates an organization")
+        .expect("root creates an organization")
         .json()
         .await
         .expect("created organization JSON");
-    assert_eq!(created["roles"][0]["key"], "owner");
-    let created_id = created["id"].as_str().expect("created organization id");
-    server
+    let other_id = other["id"].as_str().expect("created organization id");
+    let foreign_delete = server
         .client
-        .post(format!(
-            "{}/api/v1/orgs/{created_id}/select",
-            server.base_url
-        ))
-        .bearer_auth(&platform_token)
+        .delete(format!("{}/api/v1/orgs/{other_id}", server.base_url))
+        .credential(&owner_token)
         .send()
         .await
-        .expect("select the created organization")
-        .error_for_status()
-        .expect("its creator can enter it");
-
-    // Taking the owner role away ends the platform session that is already open.
-    let viewer_role_id = memberships
-        .role_id_for_purpose(&server.root_org_id, "self_service_signup")
+        .expect("delete another organization");
+    assert_eq!(foreign_delete.status(), StatusCode::FORBIDDEN);
+    let foreign_status = server
+        .client
+        .patch(format!("{}/api/v1/orgs/{other_id}/status", server.base_url))
+        .credential(&owner_token)
+        .json(&json!({"disabled": true}))
+        .send()
         .await
-        .expect("resolve viewer role");
-    for organization_id in [server.root_org_id.clone(), Id::from_string(created_id)] {
+        .expect("disable another organization");
+    assert_eq!(foreign_status.status(), StatusCode::FORBIDDEN);
+
+    // An owner there deletes that one from inside it; a viewer there cannot.
+    let owner_of_other = Id::from_string(owner_id.0.clone());
+    let owner_role_id = memberships
+        .role_id_for_purpose(&Id::from_string(other_id), "organization_bootstrap")
+        .await
+        .expect("resolve owner role");
+    memberships
+        .upsert(
+            IamMembership {
+                user_id: owner_of_other.clone(),
+                org_id: Id::from_string(other_id),
+                joined_at: TimestampMicros::now(),
+            },
+            &[owner_role_id],
+            &server.root_user_id,
+        )
+        .await
+        .expect("make the owner a member of the other organization");
+    let inside_token = server
+        .state
+        .iam
+        .service
+        .issue_token(&owner_of_other, &Id::from_string(other_id))
+        .expect("issue JWT in the other organization");
+    let viewer_delete = server
+        .client
+        .delete(format!(
+            "{}/api/v1/orgs/{}",
+            server.base_url, server.root_org_id
+        ))
+        .credential(&viewer_token)
+        .send()
+        .await
+        .expect("viewer deletes its organization");
+    assert_eq!(viewer_delete.status(), StatusCode::FORBIDDEN);
+    let own_delete = server
+        .client
+        .delete(format!("{}/api/v1/orgs/{other_id}", server.base_url))
+        .credential(&inside_token)
+        .send()
+        .await
+        .expect("owner deletes its organization");
+    assert_eq!(own_delete.status(), StatusCode::NO_CONTENT);
+}
+
+#[tokio::test]
+async fn nobody_hands_out_or_acts_on_more_than_they_hold() {
+    if skip_unless_enabled() {
+        return;
+    }
+
+    let server = TestServer::start().await;
+    let memberships = &server.state.iam.service.iam_memberships;
+
+    let mut tokens = Vec::new();
+
+    for (email, purpose) in [
+        ("an-admin@test.example", None),
+        ("an-owner@test.example", Some("organization_bootstrap")),
+        ("a-viewer@test.example", Some("self_service_signup")),
+    ] {
+        let user = server
+            .state
+            .iam
+            .service
+            .create_user(email.into(), email.into(), "userpass")
+            .await
+            .expect("create user");
+        let role_id = match purpose {
+            Some(purpose) => memberships
+                .role_id_for_purpose(&server.root_org_id, purpose)
+                .await
+                .expect("resolve role"),
+            None => {
+                let roles: Value = server
+                    .client
+                    .get(format!("{}/api/v1/roles", server.base_url))
+                    .credential(&server.root_token)
+                    .send()
+                    .await
+                    .expect("list roles")
+                    .error_for_status()
+                    .expect("roles succeed")
+                    .json()
+                    .await
+                    .expect("roles JSON");
+                let admin = roles
+                    .as_array()
+                    .expect("roles array")
+                    .iter()
+                    .find(|role| role["key"] == "admin")
+                    .expect("admin role");
+                Id::from_string(admin["id"].as_str().expect("admin role id"))
+            }
+        };
         memberships
             .upsert(
                 IamMembership {
-                    user_id: owner_id.clone(),
-                    org_id: organization_id,
+                    user_id: user.id.clone(),
+                    org_id: server.root_org_id.clone(),
                     joined_at: TimestampMicros::now(),
                 },
-                std::slice::from_ref(&viewer_role_id),
+                std::slice::from_ref(&role_id),
                 &server.root_user_id,
             )
             .await
-            .expect("demote the owner");
+            .expect("create membership");
+        let token = server
+            .state
+            .iam
+            .service
+            .issue_token(&user.id, &server.root_org_id)
+            .expect("issue JWT");
+        tokens.push((user.id, role_id, token));
     }
-    let after_demotion = server
+
+    let (admin_id, admin_role, admin_token) = tokens[0].clone();
+    let (owner_id, owner_role, owner_token) = tokens[1].clone();
+    let (viewer_id, viewer_role, _) = tokens[2].clone();
+    let members_url = format!(
+        "{}/api/v1/orgs/{}/members",
+        server.base_url, server.root_org_id
+    );
+    let set_roles = |token: String, user: &Id, role: &Id| {
+        server
+            .client
+            .post(&members_url)
+            .credential(&token)
+            .json(&json!({"userId": user.0, "roleIds": [role.0]}))
+            .send()
+    };
+
+    // An Admin lacks org.delete, so it can neither promote itself or anyone to Owner...
+    for target in [&admin_id, &viewer_id] {
+        let promoted = set_roles(admin_token.clone(), target, &owner_role)
+            .await
+            .expect("promote to owner");
+        assert_eq!(promoted.status(), StatusCode::FORBIDDEN);
+    }
+
+    // ...nor demote, remove or disable an Owner...
+    let demoted = set_roles(admin_token.clone(), &owner_id, &viewer_role)
+        .await
+        .expect("demote the owner");
+    assert_eq!(demoted.status(), StatusCode::FORBIDDEN);
+    let removed = server
         .client
-        .get(format!("{}/api/v1/iam/capabilities", server.base_url))
-        .bearer_auth(&platform_token)
+        .delete(format!("{members_url}/{}", owner_id.0))
+        .credential(&admin_token)
         .send()
         .await
-        .expect("request capabilities after demotion");
-    assert_eq!(after_demotion.status(), StatusCode::FORBIDDEN);
+        .expect("remove the owner");
+    assert_eq!(removed.status(), StatusCode::FORBIDDEN);
+    let disabled = server
+        .client
+        .patch(format!("{}/api/v1/users/{}", server.base_url, owner_id.0))
+        .credential(&admin_token)
+        .json(&json!({"disabled": true}))
+        .send()
+        .await
+        .expect("disable the owner");
+    assert_eq!(disabled.status(), StatusCode::FORBIDDEN);
+
+    // ...nor write org.delete into a role or a policy, nor invite anyone as Owner.
+    let role = server
+        .client
+        .post(format!("{}/api/v1/roles", server.base_url))
+        .credential(&admin_token)
+        .json(&json!({"key": "escalator", "name": "Escalator", "permissions": ["org.delete"]}))
+        .send()
+        .await
+        .expect("create a role beyond the caller");
+    assert_eq!(role.status(), StatusCode::FORBIDDEN);
+    let invitation = server
+        .client
+        .post(format!("{}/api/v1/invitations", server.base_url))
+        .credential(&admin_token)
+        .json(&json!({"email": "someone@test.example", "roleId": owner_role.0}))
+        .send()
+        .await
+        .expect("invite as owner");
+    assert_eq!(invitation.status(), StatusCode::FORBIDDEN);
+
+    // What the Admin does hold stays its to give, and an Owner can give anything here.
+    let same_level = set_roles(admin_token.clone(), &viewer_id, &admin_role)
+        .await
+        .expect("promote to admin");
+    assert!(same_level.status().is_success());
+    let by_owner = set_roles(owner_token.clone(), &viewer_id, &owner_role)
+        .await
+        .expect("owner promotes to owner");
+    assert!(by_owner.status().is_success());
 }
 
 #[tokio::test]
@@ -760,7 +897,7 @@ async fn organization_identity_and_system_organization_are_immutable() {
     let organizations: Value = server
         .client
         .get(format!("{}/api/v1/orgs", server.base_url))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .send()
         .await
         .expect("list organizations")
@@ -777,9 +914,15 @@ async fn organization_identity_and_system_organization_are_immutable() {
         .expect("root organization");
     let original_slug = root_org["slug"].as_str().expect("root organization slug");
 
-    for immutable_patch in [
-        json!({"slug": "renamed-workspace"}),
-        json!({"id": "replacement-id", "name": "Renamed"}),
+    for (immutable_patch, refused) in [
+        (
+            json!({"slug": "renamed-workspace"}),
+            StatusCode::BAD_REQUEST,
+        ),
+        (
+            json!({"id": "replacement-id", "name": "Renamed"}),
+            StatusCode::UNPROCESSABLE_ENTITY,
+        ),
     ] {
         let response = server
             .client
@@ -787,12 +930,12 @@ async fn organization_identity_and_system_organization_are_immutable() {
                 "{}/api/v1/orgs/{}",
                 server.base_url, server.root_org_id
             ))
-            .bearer_auth(&server.root_token)
+            .credential(&server.root_token)
             .json(&immutable_patch)
             .send()
             .await
             .expect("patch immutable organization field");
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert_eq!(response.status(), refused);
     }
 
     let renamed: Value = server
@@ -801,7 +944,7 @@ async fn organization_identity_and_system_organization_are_immutable() {
             "{}/api/v1/orgs/{}",
             server.base_url, server.root_org_id
         ))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .json(&json!({"name": "Renamed Workspace"}))
         .send()
         .await
@@ -820,7 +963,7 @@ async fn organization_identity_and_system_organization_are_immutable() {
             "{}/api/v1/orgs/{}",
             server.base_url, server.root_org_id
         ))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .send()
         .await
         .expect("delete current organization");
@@ -833,12 +976,7 @@ async fn organization_identity_and_system_organization_are_immutable() {
         .bootstrap_root(&server.root_user_id)
         .await
         .expect("reconcile root platform administrator");
-    let system_token = server
-        .state
-        .iam
-        .service
-        .issue_system_token(&server.root_user_id, &server.state.iam.system_org_id)
-        .expect("issue system token");
+    let system_token = system_session_token(&server.state, &server.root_user_id);
 
     let delete_last = server
         .client
@@ -846,7 +984,7 @@ async fn organization_identity_and_system_organization_are_immutable() {
             "{}/api/v1/orgs/{}",
             server.base_url, server.root_org_id
         ))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .send()
         .await
         .expect("delete last organization");
@@ -858,7 +996,7 @@ async fn organization_identity_and_system_organization_are_immutable() {
             "{}/api/v1/orgs/{}",
             server.base_url, server.state.iam.system_org_id
         ))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .json(&json!({"name": "Mutable System"}))
         .send()
         .await
@@ -871,7 +1009,7 @@ async fn organization_identity_and_system_organization_are_immutable() {
             "{}/api/v1/orgs/{}",
             server.base_url, server.state.iam.system_org_id
         ))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .send()
         .await
         .expect("delete system organization");
@@ -883,10 +1021,10 @@ async fn organization_identity_and_system_organization_are_immutable() {
             "{}/api/v1/orgs/{}/members",
             server.base_url, server.state.iam.system_org_id
         ))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .json(&json!({
-            "user_id": server.root_user_id.as_str(),
-            "role_ids": []
+            "userId": server.root_user_id.as_str(),
+            "roleIds": []
         }))
         .send()
         .await
@@ -908,12 +1046,7 @@ async fn organization_status_blocks_existing_credentials_and_preserves_recovery(
         .bootstrap_root(&server.root_user_id)
         .await
         .expect("reconcile root platform administrator");
-    let system_token = server
-        .state
-        .iam
-        .service
-        .issue_system_token(&server.root_user_id, &server.state.iam.system_org_id)
-        .expect("issue system token");
+    let system_token = system_session_token(&server.state, &server.root_user_id);
 
     let disable_system = server
         .client
@@ -921,7 +1054,7 @@ async fn organization_status_blocks_existing_credentials_and_preserves_recovery(
             "{}/api/v1/orgs/{}/status",
             server.base_url, server.state.iam.system_org_id
         ))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .json(&json!({"disabled": true}))
         .send()
         .await
@@ -934,7 +1067,7 @@ async fn organization_status_blocks_existing_credentials_and_preserves_recovery(
             "{}/api/v1/orgs/{}/status",
             server.base_url, server.root_org_id
         ))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .json(&json!({"disabled": true}))
         .send()
         .await
@@ -944,7 +1077,7 @@ async fn organization_status_blocks_existing_credentials_and_preserves_recovery(
     let created: Value = server
         .client
         .post(format!("{}/api/v1/orgs", server.base_url))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .json(&json!({"name": "Paused tenant", "slug": "paused-tenant"}))
         .send()
         .await
@@ -957,22 +1090,19 @@ async fn organization_status_blocks_existing_credentials_and_preserves_recovery(
     let target_org_id = created["id"].as_str().expect("target organization id");
     assert_eq!(created["disabled"], false);
 
-    let selected: Value = server
+    let selection = server
         .client
         .post(format!(
             "{}/api/v1/orgs/{target_org_id}/select",
             server.base_url
         ))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .send()
         .await
         .expect("select target tenant")
         .error_for_status()
-        .expect("target tenant selection succeeds")
-        .json()
-        .await
-        .expect("selection JSON");
-    let target_token = selected["token"].as_str().expect("target token");
+        .expect("target tenant selection succeeds");
+    let target_token = &session_cookie(&selection);
 
     let disabled: Value = server
         .client
@@ -980,7 +1110,7 @@ async fn organization_status_blocks_existing_credentials_and_preserves_recovery(
             "{}/api/v1/orgs/{target_org_id}/status",
             server.base_url
         ))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .json(&json!({"disabled": true}))
         .send()
         .await
@@ -995,7 +1125,7 @@ async fn organization_status_blocks_existing_credentials_and_preserves_recovery(
     let blocked = server
         .client
         .get(format!("{}/api/v1/dashboards", server.base_url))
-        .bearer_auth(target_token)
+        .credential(target_token)
         .send()
         .await
         .expect("use credential for disabled tenant");
@@ -1004,7 +1134,7 @@ async fn organization_status_blocks_existing_credentials_and_preserves_recovery(
     server
         .client
         .get(format!("{}/api/v1/orgs", server.base_url))
-        .bearer_auth(target_token)
+        .credential(target_token)
         .send()
         .await
         .expect("list organizations from disabled tenant")
@@ -1017,7 +1147,7 @@ async fn organization_status_blocks_existing_credentials_and_preserves_recovery(
             "{}/api/v1/orgs/{target_org_id}/status",
             server.base_url
         ))
-        .bearer_auth(&system_token)
+        .credential(&system_token)
         .json(&json!({"disabled": false}))
         .send()
         .await
@@ -1032,7 +1162,7 @@ async fn organization_status_blocks_existing_credentials_and_preserves_recovery(
     server
         .client
         .get(format!("{}/api/v1/dashboards", server.base_url))
-        .bearer_auth(target_token)
+        .credential(target_token)
         .send()
         .await
         .expect("reuse credential after tenant enable")
@@ -1061,11 +1191,11 @@ async fn settings_read_capability_allows_get_and_denies_write() {
     let role: Value = server
         .client
         .post(format!("{}/api/v1/roles", server.base_url))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .json(&json!({
             "key": "settings_reader",
             "name": "Settings Reader",
-            "permissions": ["org.settings.read"]
+            "permissions": ["org.preferences.read"]
         }))
         .send()
         .await
@@ -1099,32 +1229,32 @@ async fn settings_read_capability_allows_get_and_denies_write() {
         .issue_token(&reader.id, &server.root_org_id)
         .expect("issue settings reader token");
 
-    server
+    // The signup policy covers the whole instance: it is no organization's to read.
+    let signup = server
         .client
         .get(format!("{}/api/v1/settings/signup", server.base_url))
-        .bearer_auth(&reader_token)
+        .credential(&reader_token)
         .send()
         .await
-        .expect("read signup settings")
-        .error_for_status()
-        .expect("org.settings.read permits settings GET");
+        .expect("read signup settings");
+    assert_eq!(signup.status(), StatusCode::FORBIDDEN);
     server
         .client
         .get(format!("{}/api/v1/workspace/preferences", server.base_url))
-        .bearer_auth(&reader_token)
+        .credential(&reader_token)
         .send()
         .await
         .expect("read workspace preference defaults")
         .error_for_status()
-        .expect("org.settings.read permits workspace preferences GET");
+        .expect("org.preferences.read permits workspace preferences GET");
 
     let write = server
         .client
         .put(format!("{}/api/v1/settings/signup", server.base_url))
-        .bearer_auth(&reader_token)
+        .credential(&reader_token)
         .json(&json!({
-            "signup_enabled": true,
-            "signup_require_approval": true
+            "signupEnabled": true,
+            "signupRequireApproval": true
         }))
         .send()
         .await
@@ -1134,16 +1264,16 @@ async fn settings_read_capability_allows_get_and_denies_write() {
     let preferences_write = server
         .client
         .put(format!("{}/api/v1/workspace/preferences", server.base_url))
-        .bearer_auth(&reader_token)
+        .credential(&reader_token)
         .json(&json!({
             "theme": "system",
             "density": "normal",
             "language": "en-us",
-            "default_home_route": "/home",
-            "time_format": "iso_24h",
-            "date_format": "yyyy_mm_dd_dash",
+            "defaultHomeRoute": "/home",
+            "timeFormat": "iso_24h",
+            "dateFormat": "yyyy_mm_dd_dash",
             "timezone": "",
-            "keyboard_shortcuts_enabled": true
+            "keyboardShortcutsEnabled": true
         }))
         .send()
         .await
@@ -1225,7 +1355,7 @@ async fn iam_http_uses_capabilities_for_custom_roles_and_revocation() {
     let initial_capabilities: Value = server
         .client
         .get(format!("{}/api/v1/iam/capabilities", server.base_url))
-        .bearer_auth(&viewer_token)
+        .credential(&viewer_token)
         .send()
         .await
         .expect("get viewer capabilities")
@@ -1234,7 +1364,7 @@ async fn iam_http_uses_capabilities_for_custom_roles_and_revocation() {
         .json()
         .await
         .expect("viewer capabilities JSON");
-    assert_eq!(initial_capabilities["display_role"], "viewer");
+    assert_eq!(initial_capabilities["displayRole"], "Viewer");
     assert!(
         !initial_capabilities["permissions"]
             .as_array()
@@ -1264,7 +1394,7 @@ async fn iam_http_uses_capabilities_for_custom_roles_and_revocation() {
     let catalog_denied = server
         .client
         .get(format!("{}/api/v1/iam/permissions", server.base_url))
-        .bearer_auth(&viewer_token)
+        .credential(&viewer_token)
         .send()
         .await
         .expect("viewer permission catalog request");
@@ -1273,7 +1403,7 @@ async fn iam_http_uses_capabilities_for_custom_roles_and_revocation() {
     let role: Value = server
         .client
         .post(format!("{}/api/v1/roles", server.base_url))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .json(&json!({
             "key": "dashboard_curator",
             "name": "Dashboard Curator",
@@ -1291,13 +1421,13 @@ async fn iam_http_uses_capabilities_for_custom_roles_and_revocation() {
     let binding: Value = server
         .client
         .post(format!("{}/api/v1/iam/role-bindings", server.base_url))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .json(&json!({
-            "role_id": role["id"],
-            "principal_type": "user",
-            "principal_id": viewer.id.as_str(),
-            "resource_type": "dashboard",
-            "resource_id": protected_dashboard.id.as_str(),
+            "roleId": role["id"],
+            "principalType": "user",
+            "principalId": viewer.id.as_str(),
+            "resourceType": "dashboard",
+            "resourceId": protected_dashboard.id.as_str(),
             "conditions": {}
         }))
         .send()
@@ -1324,10 +1454,10 @@ async fn iam_http_uses_capabilities_for_custom_roles_and_revocation() {
             "{}/api/v1/dashboards/{}",
             server.base_url, protected_dashboard.id
         ))
-        .bearer_auth(&viewer_token)
+        .credential(&viewer_token)
         .json(&json!({
             "model": dashboard_model("iam-protected", "Updated through resource macro"),
-            "folder_id": null
+            "folderId": null
         }))
         .send()
         .await
@@ -1340,10 +1470,10 @@ async fn iam_http_uses_capabilities_for_custom_roles_and_revocation() {
             "{}/api/v1/dashboards/{}",
             server.base_url, unbound_dashboard.id
         ))
-        .bearer_auth(&viewer_token)
+        .credential(&viewer_token)
         .json(&json!({
             "model": dashboard_model("iam-unbound", "Must remain denied"),
-            "folder_id": null
+            "folderId": null
         }))
         .send()
         .await
@@ -1356,7 +1486,7 @@ async fn iam_http_uses_capabilities_for_custom_roles_and_revocation() {
             "{}/api/v1/iam/role-bindings/{binding_id}",
             server.base_url
         ))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .send()
         .await
         .expect("delete resource role binding")
@@ -1371,13 +1501,13 @@ async fn iam_http_uses_capabilities_for_custom_roles_and_revocation() {
     let relationship: Value = server
         .client
         .post(format!("{}/api/v1/iam/relationships", server.base_url))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .json(&json!({
-            "resource_type": "dashboard",
-            "resource_id": protected_dashboard.id.as_str(),
-            "role_id": role["id"],
-            "subject_type": "user",
-            "subject_id": viewer.id.as_str()
+            "resourceType": "dashboard",
+            "resourceId": protected_dashboard.id.as_str(),
+            "roleId": role["id"],
+            "subjectType": "user",
+            "subjectId": viewer.id.as_str()
         }))
         .send()
         .await
@@ -1387,7 +1517,7 @@ async fn iam_http_uses_capabilities_for_custom_roles_and_revocation() {
         .json()
         .await
         .expect("role-backed relationship JSON");
-    assert_eq!(relationship["value"]["role_id"], role["id"]);
+    assert_eq!(relationship["value"]["roleId"], role["id"]);
 
     let relationship_allowed =
         evaluate_dashboard_edit(&server, &viewer_token, protected_dashboard.id.as_str()).await;
@@ -1404,7 +1534,7 @@ async fn iam_http_uses_capabilities_for_custom_roles_and_revocation() {
             server.base_url,
             role["id"].as_str().expect("role id")
         ))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .json(&json!({
             "name": "Dashboard Curator",
             "description": "permissions are resolved from the current role",
@@ -1443,10 +1573,17 @@ async fn cross_org_grant_requires_acceptance_and_stops_after_revocation() {
         )
         .await
         .expect("create cross-organization dashboard");
+    server
+        .state
+        .iam
+        .platform_administrators
+        .bootstrap_root(&server.root_user_id)
+        .await
+        .expect("reconcile root platform administrator");
     let target: Value = server
         .client
         .post(format!("{}/api/v1/orgs", server.base_url))
-        .bearer_auth(&server.root_token)
+        .credential(system_session_token(&server.state, &server.root_user_id))
         .json(&json!({"name": "Target", "slug": "target"}))
         .send()
         .await
@@ -1457,36 +1594,30 @@ async fn cross_org_grant_requires_acceptance_and_stops_after_revocation() {
         .await
         .expect("target organization JSON");
     let target_org_id = target["id"].as_str().expect("target org id");
-    let target_selection: Value = server
+    let target_selection = server
         .client
         .post(format!(
             "{}/api/v1/orgs/{target_org_id}/select",
             server.base_url
         ))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .send()
         .await
         .expect("select target organization")
         .error_for_status()
-        .expect("target organization selection succeeds")
-        .json()
-        .await
-        .expect("target organization selection JSON");
-    let target_token = target_selection["token"]
-        .as_str()
-        .expect("target token")
-        .to_owned();
+        .expect("target organization selection succeeds");
+    let target_token = session_cookie(&target_selection);
 
     let grant: Value = server
         .client
         .post(format!("{}/api/v1/iam/cross-org-grants", server.base_url))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .json(&json!({
-            "target_organization_id": target_org_id,
-            "grantee_type": "organization",
-            "grantee_id": target_org_id,
-            "resource_type": "dashboard",
-            "resource_selector": {"ids": [shared_dashboard.id.as_str()]},
+            "targetOrganizationId": target_org_id,
+            "granteeType": "organization",
+            "granteeId": target_org_id,
+            "resourceType": "dashboard",
+            "resourceSelector": {"ids": [shared_dashboard.id.as_str()]},
             "permissions": ["dashboards.read"],
             "conditions": {}
         }))
@@ -1511,7 +1642,7 @@ async fn cross_org_grant_requires_acceptance_and_stops_after_revocation() {
             "{}/api/v1/dashboards/{}",
             server.base_url, shared_dashboard.id
         ))
-        .bearer_auth(&target_token)
+        .credential(&target_token)
         .send()
         .await
         .expect("read pending cross-org dashboard");
@@ -1523,7 +1654,7 @@ async fn cross_org_grant_requires_acceptance_and_stops_after_revocation() {
             "{}/api/v1/iam/cross-org-grants/{grant_id}/accept",
             server.base_url
         ))
-        .bearer_auth(&target_token)
+        .credential(&target_token)
         .send()
         .await
         .expect("accept cross-org grant")
@@ -1540,7 +1671,7 @@ async fn cross_org_grant_requires_acceptance_and_stops_after_revocation() {
             "{}/api/v1/dashboards/{}",
             server.base_url, shared_dashboard.id
         ))
-        .bearer_auth(&target_token)
+        .credential(&target_token)
         .send()
         .await
         .expect("read active cross-org dashboard");
@@ -1552,7 +1683,7 @@ async fn cross_org_grant_requires_acceptance_and_stops_after_revocation() {
             "{}/api/v1/iam/cross-org-grants/{grant_id}/revoke",
             server.base_url
         ))
-        .bearer_auth(&server.root_token)
+        .credential(&server.root_token)
         .send()
         .await
         .expect("revoke cross-org grant")
@@ -1569,7 +1700,7 @@ async fn cross_org_grant_requires_acceptance_and_stops_after_revocation() {
             "{}/api/v1/dashboards/{}",
             server.base_url, shared_dashboard.id
         ))
-        .bearer_auth(&target_token)
+        .credential(&target_token)
         .send()
         .await
         .expect("read revoked cross-org dashboard");
@@ -1580,13 +1711,13 @@ async fn evaluate_dashboard_edit(server: &TestServer, token: &str, resource_id: 
     server
         .client
         .post(format!("{}/api/v1/iam/evaluate-batch", server.base_url))
-        .bearer_auth(token)
+        .credential(token)
         .json(&json!({
             "requests": [{
                 "permission": "dashboards.edit",
                 "target": {
-                    "resource_type": "dashboard",
-                    "resource_id": resource_id
+                    "resourceType": "dashboard",
+                    "resourceId": resource_id
                 }
             }]
         }))
@@ -1637,14 +1768,14 @@ async fn evaluate_cross_org_read(server: &TestServer, token: &str, resource_id: 
     server
         .client
         .post(format!("{}/api/v1/iam/evaluate-batch", server.base_url))
-        .bearer_auth(token)
+        .credential(token)
         .json(&json!({
             "requests": [{
                 "permission": "dashboards.read",
                 "target": {
-                    "organization_id": server.root_org_id.as_str(),
-                    "resource_type": "dashboard",
-                    "resource_id": resource_id
+                    "organizationId": server.root_org_id.as_str(),
+                    "resourceType": "dashboard",
+                    "resourceId": resource_id
                 }
             }]
         }))
@@ -1656,4 +1787,837 @@ async fn evaluate_cross_org_read(server: &TestServer, token: &str, resource_id: 
         .json()
         .await
         .expect("cross-org dashboard read evaluation JSON")
+}
+
+#[tokio::test]
+async fn organization_administrators_reach_only_accounts_of_their_own_organization() {
+    if skip_unless_enabled() {
+        return;
+    }
+
+    let server = TestServer::start().await;
+    server
+        .state
+        .iam
+        .platform_administrators
+        .bootstrap_root(&server.root_user_id)
+        .await
+        .expect("reconcile root platform administrator");
+    let other: Value = server
+        .client
+        .post(format!("{}/api/v1/orgs", server.base_url))
+        .credential(system_session_token(&server.state, &server.root_user_id))
+        .json(&json!({"name": "Other", "slug": "other"}))
+        .send()
+        .await
+        .expect("create other organization")
+        .error_for_status()
+        .expect("other organization creation succeeds")
+        .json()
+        .await
+        .expect("other organization JSON");
+    let other_org_id = Id::from_string(other["id"].as_str().expect("other org id"));
+
+    let admin = member_with_role(
+        &server,
+        "org-admin@test.example",
+        &server.root_org_id,
+        "organization_bootstrap",
+    )
+    .await;
+    let outsider = member_with_role(
+        &server,
+        "outsider@test.example",
+        &other_org_id,
+        "self_service_signup",
+    )
+    .await;
+    let shared = member_with_role(
+        &server,
+        "shared@test.example",
+        &server.root_org_id,
+        "self_service_signup",
+    )
+    .await;
+    join_with_role(&server, &shared, &other_org_id, "self_service_signup").await;
+
+    let admin_token = server
+        .state
+        .iam
+        .service
+        .issue_token(&admin, &server.root_org_id)
+        .expect("issue administrator JWT");
+    let users = format!("{}/api/v1/users", server.base_url);
+    let outsider_url = format!("{users}/{}", outsider.as_str());
+
+    let requests = [
+        server.client.get(&outsider_url),
+        server
+            .client
+            .patch(&outsider_url)
+            .json(&json!({"displayName": "Renamed"})),
+        server
+            .client
+            .patch(&outsider_url)
+            .json(&json!({"disabled": true})),
+        server.client.delete(&outsider_url),
+        server.client.post(format!("{outsider_url}/approve")),
+        server.client.post(format!("{outsider_url}/reject")),
+    ];
+
+    for request in requests {
+        let response = request
+            .credential(&admin_token)
+            .send()
+            .await
+            .expect("reach another organization's account");
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    let untouched = server
+        .state
+        .iam
+        .service
+        .users
+        .get(&outsider)
+        .await
+        .expect("the other organization's account still exists");
+    assert!(!untouched.disabled);
+    assert_eq!(untouched.display_name, "outsider@test.example");
+
+    // A member shared with another organization can be read here, but changing the account would
+    // change it for the other organization too.
+    let shared_url = format!("{users}/{}", shared.as_str());
+    let read = server
+        .client
+        .get(&shared_url)
+        .credential(&admin_token)
+        .send()
+        .await
+        .expect("read shared member");
+    assert_eq!(read.status(), StatusCode::OK);
+
+    let disable = server
+        .client
+        .patch(&shared_url)
+        .credential(&admin_token)
+        .json(&json!({"disabled": true}))
+        .send()
+        .await
+        .expect("disable shared member");
+    assert_eq!(disable.status(), StatusCode::FORBIDDEN);
+
+    let delete = server
+        .client
+        .delete(&shared_url)
+        .credential(&admin_token)
+        .send()
+        .await
+        .expect("delete shared member");
+    assert_eq!(delete.status(), StatusCode::FORBIDDEN);
+
+    // The platform administrator may change a shared account.
+    server
+        .client
+        .patch(&shared_url)
+        .credential(&server.root_token)
+        .json(&json!({"disabled": true}))
+        .send()
+        .await
+        .expect("platform administrator disables shared member")
+        .error_for_status()
+        .expect("platform administrator may disable a shared member");
+}
+
+#[tokio::test]
+async fn members_read_each_others_names_and_the_permission_reads_the_rest() {
+    if skip_unless_enabled() {
+        return;
+    }
+
+    let server = TestServer::start().await;
+    let iam = &server.state.iam.service;
+
+    let viewer = iam
+        .create_user("viewer@test.example".into(), "Vera".into(), "userpass")
+        .await
+        .expect("create viewer")
+        .id;
+
+    join_with_role(&server, &viewer, &server.root_org_id, "self_service_signup").await;
+
+    let stranger = iam
+        .create_user("stranger@test.example".into(), "Sam".into(), "userpass")
+        .await
+        .expect("create stranger")
+        .id;
+
+    let viewer_session = iam
+        .issue_token(&viewer, &server.root_org_id)
+        .expect("issue viewer JWT");
+
+    let users = format!("{}/api/v1/users", server.base_url);
+
+    let names: Value = server
+        .client
+        .get(&users)
+        .credential(&viewer_session)
+        .send()
+        .await
+        .expect("list members as a viewer")
+        .error_for_status()
+        .expect("a viewer reads the names")
+        .json()
+        .await
+        .expect("names JSON");
+
+    let names = names.as_array().expect("a list of names");
+
+    assert!(names.contains(&json!({
+        "id": viewer.as_str(),
+        "displayName": "Vera",
+        "avatarUrl": null,
+    })));
+
+    assert!(names.iter().all(|name| name.get("email").is_none()));
+    assert!(names.iter().all(|name| name["id"] != stranger.as_str()));
+
+    let members: Value = server
+        .client
+        .get(&users)
+        .credential(&server.root_token)
+        .send()
+        .await
+        .expect("list members as the owner")
+        .error_for_status()
+        .expect("the owner reads the members")
+        .json()
+        .await
+        .expect("members JSON");
+
+    let vera = members
+        .as_array()
+        .expect("a list of members")
+        .iter()
+        .find(|member| member["id"] == viewer.as_str())
+        .expect("the viewer is a member");
+
+    assert_eq!(vera["email"], "viewer@test.example");
+
+    // A token acts for a program: without the permission it reads nothing, not even names.
+    let (prefix, secret) = generate_token_parts();
+    let viewer_api_token = assemble_token(&prefix, &secret);
+
+    server
+        .state
+        .iam
+        .api_tokens
+        .create(ApiToken {
+            id: Id::new(),
+            prefix,
+            secret_hash: hash_secret(&secret),
+            org_id: server.root_org_id.clone(),
+            user_id: viewer.clone(),
+            scope: ApiTokenScope::Principal,
+            name: "viewer-token".into(),
+            expires_at: None,
+            last_used_at: None,
+            revoked: false,
+            created_at: TimestampMicros::now(),
+            is_default: false,
+            token_kind: ApiTokenKind::Personal,
+            application_id: None,
+            service_account_id: None,
+        })
+        .await
+        .expect("create API token");
+
+    let refused = server
+        .client
+        .get(&users)
+        .credential(&viewer_api_token)
+        .send()
+        .await
+        .expect("list members with a token");
+
+    assert_eq!(refused.status(), StatusCode::FORBIDDEN);
+}
+
+async fn member_with_role(server: &TestServer, email: &str, org_id: &Id, purpose: &str) -> Id {
+    let user = server
+        .state
+        .iam
+        .service
+        .create_user(email.into(), email.into(), "userpass")
+        .await
+        .expect("create user");
+
+    join_with_role(server, &user.id, org_id, purpose).await;
+    user.id
+}
+
+async fn join_with_role(server: &TestServer, user_id: &Id, org_id: &Id, purpose: &str) {
+    let role_id = server
+        .state
+        .iam
+        .service
+        .iam_memberships
+        .role_id_for_purpose(org_id, purpose)
+        .await
+        .expect("resolve role");
+
+    server
+        .state
+        .iam
+        .service
+        .iam_memberships
+        .upsert(
+            IamMembership {
+                user_id: user_id.clone(),
+                org_id: org_id.clone(),
+                joined_at: TimestampMicros::now(),
+            },
+            &[role_id],
+            &server.root_user_id,
+        )
+        .await
+        .expect("create membership");
+}
+
+/// A session of the platform organization for an account root granted something to, through the
+/// way in a browser takes.
+async fn platform_session_of(server: &TestServer, token: &str) -> String {
+    let selection = server
+        .client
+        .post(format!(
+            "{}/api/v1/orgs/{}/select",
+            server.base_url, server.state.iam.system_org_id
+        ))
+        .credential(token)
+        .send()
+        .await
+        .expect("enter the platform organization")
+        .error_for_status()
+        .expect("the grant lets the account in");
+
+    session_cookie(&selection)
+}
+
+#[tokio::test]
+async fn who_holds_what_on_the_platform_is_configured_by_roles_and_bindings() {
+    if skip_unless_enabled() {
+        return;
+    }
+
+    let server = TestServer::start().await;
+
+    server
+        .state
+        .iam
+        .platform_administrators
+        .bootstrap_root(&server.root_user_id)
+        .await
+        .expect("reconcile root platform administrator");
+
+    let root = system_session_token(&server.state, &server.root_user_id);
+    let url = |path: &str| format!("{}/api/v1{path}", server.base_url);
+
+    // An account that belongs to no organization but the root's, with no role there.
+    let keeper = server
+        .state
+        .iam
+        .service
+        .create_user(
+            "retention-keeper@test.example".into(),
+            "Retention keeper".into(),
+            "userpass",
+        )
+        .await
+        .expect("create account");
+
+    // Signed in somewhere, with no role there.
+    server
+        .state
+        .iam
+        .service
+        .iam_memberships
+        .upsert(
+            IamMembership {
+                user_id: keeper.id.clone(),
+                org_id: server.root_org_id.clone(),
+                joined_at: TimestampMicros::now(),
+            },
+            &[],
+            &server.root_user_id,
+        )
+        .await
+        .expect("join with no role");
+
+    let keeper_token = server
+        .state
+        .iam
+        .service
+        .issue_token(&keeper.id, &server.root_org_id)
+        .expect("issue JWT");
+
+    // A platform role holds platform permissions, and nothing of an organization's.
+    let role: Value = server
+        .client
+        .post(url("/roles"))
+        .credential(&root)
+        .json(&json!({
+            "key": "retention_keeper",
+            "name": "Retention keeper",
+            "permissions": ["sys.settings.retention.read", "sys.settings.retention.manage"],
+        }))
+        .send()
+        .await
+        .expect("create platform role")
+        .error_for_status()
+        .expect("root creates a platform role")
+        .json()
+        .await
+        .expect("role JSON");
+
+    assert_eq!(role["scope"], "platform");
+    assert_eq!(
+        role["effectivePermissions"].as_array().map(Vec::len),
+        Some(2)
+    );
+
+    let across_scopes = server
+        .client
+        .post(url("/roles"))
+        .credential(&root)
+        .json(&json!({"key": "mixed", "name": "Mixed", "permissions": ["dashboards.read"]}))
+        .send()
+        .await
+        .expect("create a role across scopes");
+
+    assert_eq!(across_scopes.status(), StatusCode::FORBIDDEN);
+
+    // The built-in policies are an organization's: they are not offered on the platform.
+    let policies: Value = server
+        .client
+        .get(url("/iam/policies"))
+        .credential(&root)
+        .send()
+        .await
+        .expect("list platform policies")
+        .error_for_status()
+        .expect("root lists platform policies")
+        .json()
+        .await
+        .expect("policies JSON");
+
+    assert_eq!(policies, json!([]));
+
+    // The account is found by its email, without belonging to the platform organization.
+    let found: Value = server
+        .client
+        .get(url("/iam/platform/accounts?q=retention-keeper%40"))
+        .credential(&root)
+        .send()
+        .await
+        .expect("find account")
+        .error_for_status()
+        .expect("root finds accounts")
+        .json()
+        .await
+        .expect("accounts JSON");
+
+    assert_eq!(found[0]["id"], keeper.id.0.as_str());
+
+    // Before the grant it cannot enter, and is not told the organization exists.
+    let refused = server
+        .client
+        .post(url(&format!(
+            "/orgs/{}/select",
+            server.state.iam.system_org_id
+        )))
+        .credential(&keeper_token)
+        .send()
+        .await
+        .expect("enter without a grant");
+
+    assert_eq!(refused.status(), StatusCode::NOT_FOUND);
+
+    let binding: Value = server
+        .client
+        .post(url("/iam/role-bindings"))
+        .credential(&root)
+        .json(&json!({
+            "roleId": role["id"],
+            "principalType": "user",
+            "principalId": keeper.id.0,
+        }))
+        .send()
+        .await
+        .expect("grant the role")
+        .error_for_status()
+        .expect("root grants the role")
+        .json()
+        .await
+        .expect("binding JSON");
+
+    // With it, the account holds exactly what the role does.
+    let session = platform_session_of(&server, &keeper_token).await;
+
+    let capabilities: Value = server
+        .client
+        .get(url("/iam/capabilities"))
+        .credential(&session)
+        .send()
+        .await
+        .expect("get capabilities")
+        .error_for_status()
+        .expect("capabilities succeed")
+        .json()
+        .await
+        .expect("capabilities JSON");
+
+    assert_eq!(
+        capabilities["permissions"],
+        json!([
+            "sys.settings.retention.manage",
+            "sys.settings.retention.read"
+        ])
+    );
+    assert_eq!(capabilities["displayRole"], "Retention keeper");
+
+    for (path, status) in [
+        ("/settings/stream_retention", StatusCode::OK),
+        ("/settings/series_limits", StatusCode::FORBIDDEN),
+        ("/clusters", StatusCode::FORBIDDEN),
+        ("/roles", StatusCode::FORBIDDEN),
+    ] {
+        let response = server
+            .client
+            .get(url(path))
+            .credential(&session)
+            .send()
+            .await
+            .expect("request");
+
+        assert_eq!(response.status(), status, "{path}");
+    }
+
+    // It cannot create an organization, and its list of them does not fail for that.
+    let create = server
+        .client
+        .post(url("/orgs"))
+        .credential(&session)
+        .json(&json!({"name": "Theirs", "slug": "theirs"}))
+        .send()
+        .await
+        .expect("create organization");
+
+    assert_eq!(create.status(), StatusCode::FORBIDDEN);
+
+    let listed: Value = server
+        .client
+        .get(url("/orgs"))
+        .credential(&session)
+        .send()
+        .await
+        .expect("list organizations")
+        .error_for_status()
+        .expect("the list answers whoever is in the platform organization")
+        .json()
+        .await
+        .expect("organizations JSON");
+
+    assert!(
+        listed
+            .as_array()
+            .expect("organizations array")
+            .iter()
+            .any(|organization| organization["system"] == true)
+    );
+
+    // Taking the binding away ends the session that is already open.
+    let id = binding["value"]["id"].as_str().expect("binding id");
+
+    server
+        .client
+        .delete(url(&format!("/iam/role-bindings/{id}")))
+        .credential(&root)
+        .send()
+        .await
+        .expect("remove the grant")
+        .error_for_status()
+        .expect("root removes the grant");
+
+    let after = server
+        .client
+        .get(url("/iam/capabilities"))
+        .credential(&session)
+        .send()
+        .await
+        .expect("get capabilities after");
+
+    assert_eq!(after.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn a_platform_binding_narrowed_to_an_organization_reaches_that_organization_alone() {
+    if skip_unless_enabled() {
+        return;
+    }
+
+    let server = TestServer::start().await;
+
+    server
+        .state
+        .iam
+        .platform_administrators
+        .bootstrap_root(&server.root_user_id)
+        .await
+        .expect("reconcile root platform administrator");
+
+    let root = system_session_token(&server.state, &server.root_user_id);
+    let url = |path: &str| format!("{}/api/v1{path}", server.base_url);
+
+    let mut organizations = Vec::new();
+
+    for slug in ["narrowed-here", "narrowed-elsewhere"] {
+        let organization: Value = server
+            .client
+            .post(url("/orgs"))
+            .credential(&root)
+            .json(&json!({"name": slug, "slug": slug}))
+            .send()
+            .await
+            .expect("create organization")
+            .error_for_status()
+            .expect("root creates organizations")
+            .json()
+            .await
+            .expect("organization JSON");
+
+        organizations.push(organization["id"].as_str().expect("id").to_owned());
+    }
+
+    let (here, elsewhere) = (&organizations[0], &organizations[1]);
+
+    let keeper = server
+        .state
+        .iam
+        .service
+        .create_user(
+            "tenant-keeper@test.example".into(),
+            "Tenant keeper".into(),
+            "userpass",
+        )
+        .await
+        .expect("create account");
+
+    // Signed in somewhere, with no role there.
+    server
+        .state
+        .iam
+        .service
+        .iam_memberships
+        .upsert(
+            IamMembership {
+                user_id: keeper.id.clone(),
+                org_id: server.root_org_id.clone(),
+                joined_at: TimestampMicros::now(),
+            },
+            &[],
+            &server.root_user_id,
+        )
+        .await
+        .expect("join with no role");
+
+    let keeper_token = server
+        .state
+        .iam
+        .service
+        .issue_token(&keeper.id, &server.root_org_id)
+        .expect("issue JWT");
+
+    let role: Value = server
+        .client
+        .post(url("/roles"))
+        .credential(&root)
+        .json(&json!({
+            "key": "tenant_keeper",
+            "name": "Tenant keeper",
+            "permissions": [
+                "sys.organizations.read",
+                "sys.organizations.update",
+                "sys.settings.retention.read",
+            ],
+        }))
+        .send()
+        .await
+        .expect("create role")
+        .error_for_status()
+        .expect("root creates the role")
+        .json()
+        .await
+        .expect("role JSON");
+
+    server
+        .client
+        .post(url("/iam/role-bindings"))
+        .credential(&root)
+        .json(&json!({
+            "roleId": role["id"],
+            "principalType": "user",
+            "principalId": keeper.id.0,
+            "resourceType": "organization",
+            "resourceId": here,
+        }))
+        .send()
+        .await
+        .expect("grant the role on one organization")
+        .error_for_status()
+        .expect("root grants the role");
+
+    // A role with nothing to do with organizations cannot be narrowed to one.
+    let unrelated: Value = server
+        .client
+        .post(url("/roles"))
+        .credential(&root)
+        .json(&json!({
+            "key": "unrelated",
+            "name": "Unrelated",
+            "permissions": ["sys.settings.retention.read"],
+        }))
+        .send()
+        .await
+        .expect("create role")
+        .error_for_status()
+        .expect("root creates the role")
+        .json()
+        .await
+        .expect("role JSON");
+
+    let refused = server
+        .client
+        .post(url("/iam/role-bindings"))
+        .credential(&root)
+        .json(&json!({
+            "roleId": unrelated["id"],
+            "principalType": "user",
+            "principalId": keeper.id.0,
+            "resourceType": "organization",
+            "resourceId": here,
+        }))
+        .send()
+        .await
+        .expect("narrow an unrelated role");
+
+    assert_eq!(refused.status(), StatusCode::BAD_REQUEST);
+
+    let session = platform_session_of(&server, &keeper_token).await;
+
+    let capabilities: Value = server
+        .client
+        .get(url("/iam/capabilities"))
+        .credential(&session)
+        .send()
+        .await
+        .expect("get capabilities")
+        .error_for_status()
+        .expect("capabilities succeed")
+        .json()
+        .await
+        .expect("capabilities JSON");
+
+    // Nothing is held across the platform: an instance-wide permission does not narrow.
+    assert_eq!(capabilities["permissions"], json!([]));
+    assert_eq!(
+        capabilities["organizationPermissions"]["sys.organizations.update"],
+        json!([here])
+    );
+    assert!(
+        capabilities["routes"]
+            .as_array()
+            .expect("route decisions")
+            .iter()
+            .any(|route| route["id"] == "iam.organizations" && route["allowed"] == true)
+    );
+
+    let listed: Value = server
+        .client
+        .get(url("/orgs"))
+        .credential(&session)
+        .send()
+        .await
+        .expect("list organizations")
+        .error_for_status()
+        .expect("list succeeds")
+        .json()
+        .await
+        .expect("organizations JSON");
+
+    let listed = listed.as_array().expect("organizations array");
+    assert!(
+        listed
+            .iter()
+            .any(|organization| organization["id"] == *here)
+    );
+    assert!(
+        !listed
+            .iter()
+            .any(|organization| organization["id"] == *elsewhere)
+    );
+
+    for (organization, status) in [(here, StatusCode::OK), (elsewhere, StatusCode::FORBIDDEN)] {
+        let renamed = server
+            .client
+            .patch(url(&format!("/orgs/{organization}")))
+            .credential(&session)
+            .json(&json!({"name": "Renamed"}))
+            .send()
+            .await
+            .expect("rename organization");
+
+        assert_eq!(renamed.status(), status);
+    }
+
+    // What the role does not hold stays out of reach there, and so does entering it.
+    let deleted = server
+        .client
+        .delete(url(&format!("/orgs/{here}")))
+        .credential(&session)
+        .send()
+        .await
+        .expect("delete organization");
+
+    assert_eq!(deleted.status(), StatusCode::FORBIDDEN);
+
+    let entered = server
+        .client
+        .post(url(&format!("/orgs/{here}/select")))
+        .credential(&session)
+        .send()
+        .await
+        .expect("enter organization");
+
+    assert_eq!(entered.status(), StatusCode::FORBIDDEN);
+
+    // Root deletes the organization and the binding goes with it, so the way in closes.
+    server
+        .client
+        .delete(url(&format!("/orgs/{here}")))
+        .credential(&root)
+        .send()
+        .await
+        .expect("delete organization")
+        .error_for_status()
+        .expect("root deletes the organization");
+
+    let after = server
+        .client
+        .get(url("/iam/capabilities"))
+        .credential(&session)
+        .send()
+        .await
+        .expect("get capabilities after");
+
+    assert_eq!(after.status(), StatusCode::FORBIDDEN);
 }

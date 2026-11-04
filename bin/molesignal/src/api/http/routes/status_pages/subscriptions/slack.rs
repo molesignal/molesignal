@@ -36,12 +36,13 @@ pub(super) fn routes() -> Router<AppState> {
 
 pub(super) fn management_routes() -> Router<AppState> {
     Router::new().route(
-        "/status-pages/{page_id}/slack-app",
+        "/status-pages/{pageId}/slack-app",
         get(get_slack_app).put(set_slack_app),
     )
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SlackAppRequest {
     /// The Slack App connector to add the page with; none stops offering it.
     #[serde(default)]
@@ -49,6 +50,7 @@ struct SlackAppRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct BeginRequest {
     /// The components to hear about; none means the whole page.
     #[serde(default)]
@@ -56,6 +58,7 @@ struct BeginRequest {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct BeginResponse {
     authorize_url: String,
 }
@@ -66,7 +69,7 @@ struct CallbackQuery {
     code: Option<String>,
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.slack.manage")]
 async fn get_slack_app(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -80,7 +83,7 @@ async fn get_slack_app(
     ))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.slack.manage")]
 async fn set_slack_app(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -100,7 +103,7 @@ async fn set_slack_app(
         "status_page.slack_app.update",
         "status_page",
         page_id.as_str(),
-        serde_json::json!({"connector_id": setting.connector_id}),
+        serde_json::json!({"connectorId": setting.connector_id}),
     )
     .await;
 

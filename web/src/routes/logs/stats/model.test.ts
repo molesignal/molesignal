@@ -45,7 +45,7 @@ const config = (change: Partial<LogStatsConfig> = {}): LogStatsConfig => ({
 });
 const MINUTE = 60_000_000;
 const statement = (change: Partial<LogStatsConfig>, conditions: string[] = []) =>
-  buildLogStatsStatement({ stream: 'app_logs', conditions, config: config(change), bucketMicros: 5 * MINUTE });
+  buildLogStatsStatement({ stream: 'app_logs', conditions, config: config(change), bucketTime: 5 * MINUTE });
 
 describe('what a log stream can be measured and grouped by', () => {
   it('takes numbers for a measure of numbers, and anything but a document for a count of different values', () => {
@@ -113,10 +113,9 @@ describe('logStatsConditions', () => {
   it('selects by the field statement and the pinned filters it does not already speak of', () => {
     expect(
       logStatsConditions("level = 'ERROR' AND timeout", [
-        { key: 'level', operator: '=', value: 'WARN' },
-        { key: 'env', operator: '!=', value: "o'brien" },
-        { key: '', operator: '=', value: 'x' },
-      ] as never),
+        { field: 'level', operator: '=', value: 'WARN' },
+        { field: 'env', operator: '!=', value: "o'brien" },
+      ]),
     ).toEqual([`"level" = 'ERROR'`, `"message" LIKE '%timeout%'`, `"env" != 'o''brien'`]);
   });
 
@@ -162,7 +161,7 @@ describe('buildLogStatsStatement', () => {
       stream: 'app"logs',
       conditions: [],
       config: config({ measure: 'max', field: 'a"b', groupBy: 'c"d' }),
-      bucketMicros: MINUTE,
+      bucketTime: MINUTE,
     });
 
     expect(written).toContain('FROM "app""logs"');

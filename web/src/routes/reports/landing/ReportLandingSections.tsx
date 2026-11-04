@@ -170,7 +170,7 @@ export function TemplateLibrary({
               className="group grid gap-4 rounded-md bg-[var(--control-surface)] px-4 py-4 transition-colors hover:bg-bg-3 lg:grid-cols-[40px_minmax(0,1fr)_minmax(190px,auto)_auto] lg:items-center"
             >
               <span className="grid h-10 w-10 place-items-center rounded-md bg-bg-2 text-indigo-soft transition-colors group-hover:bg-indigo-dim">
-                <Icon className="h-4.5 w-4.5" aria-hidden="true" />
+                <Icon className="h-6 w-6" aria-hidden="true" />
               </span>
 
               <div className="min-w-0">

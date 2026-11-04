@@ -21,9 +21,12 @@ use crate::{
             PrometheusExemplarQueryResult,
         },
         query::{QueryLanguage, QueryRequest, QueryResult},
-        stream::{MOLESIGNAL_SYSTEM_STREAM, StreamDefinition, StreamRepository, StreamType},
+        stream::{StreamDefinition, StreamRepository, StreamType},
     },
-    infra::{cipher::CipherRootKey, query::parser::extract_referenced_tables},
+    infra::{
+        cipher::CipherRootKey,
+        query::{current_views, parser::extract_referenced_tables},
+    },
     shared::{Result, contracts::canonical_json_bytes, ids::Id},
 };
 
@@ -69,68 +72,46 @@ impl FieldMaskingService {
     async fn query_definitions(&self, request: &QueryRequest) -> Result<Vec<StreamDefinition>> {
         let mut definitions = Vec::new();
 
-        if let Some(hint) = &request.stream {
+        // A hint that names a current-version view is about the stream the view is made of.
+        let primary_name: Option<&str> = request
+            .stream
+            .as_ref()
+            .map(|hint| current_views::base_stream(&hint.name).unwrap_or(hint.name.as_str()));
+
+        if let (Some(hint), Some(name)) = (&request.stream, primary_name) {
             definitions.push(
                 self.streams
-                    .get(&request.org_id, &hint.name, hint.stream_type)
+                    .get(&request.org_id, name, hint.stream_type)
                     .await?,
             );
         }
 
         if request.language != QueryLanguage::Sql {
-            if request.language == QueryLanguage::Promql {
-                let mut needs_system_fallback = false;
-
-                for name in
-                    crate::infra::query::promql::referenced_metric_names(&request.statement)?
-                {
-                    match self
-                        .streams
-                        .get(&request.org_id, &name, StreamType::METRICS)
-                        .await
-                    {
-                        Ok(definition) => definitions.push(definition),
-                        Err(crate::shared::Error::NotFound(_)) => needs_system_fallback = true,
-                        Err(error) => return Err(error),
-                    }
-                }
-
-                if needs_system_fallback {
-                    match self
-                        .streams
-                        .get(
-                            &request.org_id,
-                            MOLESIGNAL_SYSTEM_STREAM,
-                            StreamType::METRICS,
-                        )
-                        .await
-                    {
-                        Ok(definition) => definitions.push(definition),
-                        Err(crate::shared::Error::NotFound(_)) => {}
-                        Err(error) => return Err(error),
-                    }
-                }
-
-                definitions.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-                definitions.dedup_by(|left, right| left.id == right.id);
-            }
-
             return Ok(definitions);
         }
 
         // The stream hint is an optimizer hint supplied by the client, not a security
         // boundary. Always inspect every SQL base table as well, otherwise a caller
         // could point the hint at an unmasked stream while selecting a protected one.
-        let names = extract_referenced_tables(&request.statement)?
+        //
+        // A current-version view shows the rows of the stream it is made of, so it is masked as
+        // that stream; the statement that only mentions it somewhere the extractor does not look
+        // is masked the same.
+        let mut names = extract_referenced_tables(&request.statement)?
             .into_iter()
-            .map(|table| table.name)
+            .map(|table| current_views::base_stream(&table.name).map_or(table.name, str::to_string))
             .collect::<HashSet<_>>();
+
+        names.extend(
+            current_views::mentioned(&request.statement)
+                .into_iter()
+                .map(|view| view.base().to_string()),
+        );
 
         if names.is_empty() {
             return Ok(definitions);
         }
 
-        let primary_name = request.stream.as_ref().map(|hint| hint.name.as_str());
         let catalog = self.streams.list(&request.org_id).await?;
 
         for name in names {
@@ -752,6 +733,7 @@ mod tests {
             ),
             stream: None,
             limit: None,
+            step: None,
             federation_clusters: Vec::new(),
         };
         let algorithms = HashMap::from([("email".into(), FieldMaskingAlgorithm::default())]);
@@ -772,10 +754,160 @@ mod tests {
             ),
             stream: None,
             limit: None,
+            step: None,
             federation_clusters: Vec::new(),
         };
         let mut algorithms = HashMap::from([("email".into(), FieldMaskingAlgorithm::default())]);
         propagate_derived_algorithms(&request, &mut algorithms).unwrap();
         assert!(sensitive_columns(&["identity".into()], &algorithms).contains_key(&0));
+    }
+
+    struct Streams(Vec<StreamDefinition>);
+
+    #[async_trait]
+    impl StreamRepository for Streams {
+        async fn create(&self, definition: StreamDefinition) -> Result<StreamDefinition> {
+            Ok(definition)
+        }
+
+        async fn update_schema(&self, _: &Id, _: crate::domain::stream::Schema) -> Result<()> {
+            Ok(())
+        }
+
+        async fn get(
+            &self,
+            _: &Id,
+            name: &str,
+            stream_type: StreamType,
+        ) -> Result<StreamDefinition> {
+            self.0
+                .iter()
+                .find(|definition| definition.name == name && definition.stream_type == stream_type)
+                .cloned()
+                .ok_or_else(|| crate::shared::Error::not_found("stream"))
+        }
+
+        async fn list(&self, _: &Id) -> Result<Vec<StreamDefinition>> {
+            Ok(self.0.clone())
+        }
+
+        async fn delete(&self, _: &Id) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    struct Rules(Vec<FieldMaskingRule>);
+
+    #[async_trait]
+    impl FieldMaskingRuleRepository for Rules {
+        async fn list(&self, _: &Id) -> Result<Vec<FieldMaskingRule>> {
+            Ok(self.0.clone())
+        }
+
+        async fn create(&self, rule: FieldMaskingRule) -> Result<FieldMaskingRule> {
+            Ok(rule)
+        }
+
+        async fn update(&self, rule: FieldMaskingRule) -> Result<FieldMaskingRule> {
+            Ok(rule)
+        }
+
+        async fn delete(&self, _: &Id, _: &Id) -> Result<()> {
+            Ok(())
+        }
+
+        async fn reorder(
+            &self,
+            _: &Id,
+            _: &[Id],
+            _: crate::shared::time::TimestampMicros,
+        ) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    /// A service over `rum_views`, whose `email` is masked, and an `app` stream that has no such field.
+    fn service_over_views() -> FieldMaskingService {
+        let mut views = masking_definition();
+        views.id = Id::from_string("views");
+        views.name = "rum_views".into();
+
+        let mut app = masking_definition();
+        app.id = Id::from_string("app");
+        app.name = "app".into();
+        app.schema.fields.retain(|field| field.name != "email");
+
+        FieldMaskingService::new(
+            Arc::new(Rules(vec![masking_rule(
+                "email",
+                "email",
+                "email",
+                FieldMaskingAlgorithm::default(),
+            )])),
+            Arc::new(Streams(vec![views, app])),
+            CipherRootKey::from_base64("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=").unwrap(),
+        )
+    }
+
+    fn request(statement: &str, hint: &str) -> QueryRequest {
+        QueryRequest {
+            org_id: Id::from_string("org"),
+            language: QueryLanguage::Sql,
+            statement: statement.into(),
+            time_range: crate::shared::time::TimeRange::new(
+                crate::shared::time::TimestampMicros(0),
+                crate::shared::time::TimestampMicros(1),
+            ),
+            stream: Some(crate::domain::query::StreamHint {
+                name: hint.into(),
+                stream_type: StreamType::LOGS,
+            }),
+            limit: None,
+            step: None,
+            federation_clusters: Vec::new(),
+        }
+    }
+
+    // The hint is the client's to choose, so a view cannot be read unmasked by pointing the hint at
+    // a stream whose fields are not.
+    #[tokio::test]
+    async fn a_current_version_view_is_masked_as_the_stream_it_is_made_of() {
+        let service = service_over_views();
+
+        for statement in [
+            "SELECT email FROM rum_views_latest",
+            "SELECT email FROM RUM_VIEWS_LATEST v",
+            "SELECT * FROM (SELECT email FROM rum_views_latest) t",
+        ] {
+            let algorithms = service
+                .algorithms_for_request(&request(statement, "app"))
+                .await
+                .unwrap();
+
+            assert!(algorithms.contains_key("email"), "{statement}");
+        }
+
+        // The control: without the view there is nothing to mask in `app`.
+        let unmasked = service
+            .algorithms_for_request(&request("SELECT token FROM app", "app"))
+            .await
+            .unwrap();
+
+        assert!(!unmasked.contains_key("email"));
+    }
+
+    #[tokio::test]
+    async fn a_hint_that_names_a_view_is_masked_as_the_stream_behind_it() {
+        let service = service_over_views();
+
+        let algorithms = service
+            .algorithms_for_request(&request(
+                "SELECT email FROM rum_views_latest",
+                "rum_views_latest",
+            ))
+            .await
+            .unwrap();
+
+        assert!(algorithms.contains_key("email"));
     }
 }

@@ -10,6 +10,7 @@ import { ProductState } from '@/product/states';
 import { AuthStage } from '@/shell/signin/AuthStage';
 import { Button } from '@/shell/ui/button';
 import { toast } from '@/shell/ui/sonner';
+import { isOrgEntryDeclined } from '@/stores/useOrgEntry';
 import { useCurrentOrgSelection, useOrgStore } from '@/stores/useOrgStore';
 
 import {
@@ -51,7 +52,9 @@ export function InboundMcpOAuthAuthorize() {
 
   const switching = useMutation({
     mutationFn: (id: string) => switchOrg(id, { queryClient }),
-    onError: (error) => toast.error(toApiError(error).message),
+    onError: (error) => {
+      if (!isOrgEntryDeclined(error)) toast.error(toApiError(error).message);
+    },
   });
   const decision = useMutation({
     mutationFn: (approve: boolean) => {

@@ -27,7 +27,7 @@ const IDEMPOTENCY_LEASE_MICROS: i64 = 5 * 60 * 1_000_000;
 const CONFIRMATION_TTL_MICROS: i64 = 10 * 60 * 1_000_000;
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ManagedCallArgs {
     name: String,
     #[serde(default)]
@@ -36,13 +36,14 @@ struct ManagedCallArgs {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ExecuteApprovalArgs {
     approval_id: String,
     idempotency_key: String,
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ConfirmationState {
     purpose: String,
     org_id: String,
@@ -50,7 +51,7 @@ struct ConfirmationState {
     principal_id: String,
     approval_id: String,
     idempotency_key: String,
-    issued_at_micros: i64,
+    issued_at: i64,
 }
 
 pub(super) async fn call_managed(
@@ -194,7 +195,7 @@ fn confirmation_required(
         principal_id: data.iam.principal_id().0.clone(),
         approval_id: args.approval_id.clone(),
         idempotency_key: args.idempotency_key.clone(),
-        issued_at_micros: now.0,
+        issued_at: now.0,
     };
 
     let sealed = handler
@@ -270,7 +271,7 @@ fn verify_confirmation(
         && state.principal_id == data.iam.principal_id().0
         && state.approval_id == args.approval_id
         && state.idempotency_key == args.idempotency_key
-        && now.0.saturating_sub(state.issued_at_micros) <= CONFIRMATION_TTL_MICROS;
+        && now.0.saturating_sub(state.issued_at) <= CONFIRMATION_TTL_MICROS;
 
     if !matches {
         return Err(ErrorData::invalid_params(
@@ -380,10 +381,10 @@ fn replay(
 
     rmcp::model::CallToolResult::structured(json!({
         "status": "pending",
-        "idempotency_key": record.idempotency_key,
-        "tool_name": record.tool_name,
-        "approval_id": record.approval_id,
-        "message": "An identical request is already in progress. Retry with the same idempotency_key to retrieve its result."
+        "idempotencyKey": record.idempotency_key,
+        "toolName": record.tool_name,
+        "approvalId": record.approval_id,
+        "message": "An identical request is already in progress. Retry with the same idempotencyKey to retrieve its result."
     }))
     .into()
 }
@@ -391,7 +392,7 @@ fn replay(
 fn validate_key(key: &str) -> Result<(), ErrorData> {
     if key.is_empty() || key.len() > 128 || key.trim() != key || key.chars().any(char::is_control) {
         Err(ErrorData::invalid_params(
-            "idempotency_key must contain 1 to 128 bytes without surrounding whitespace or control characters",
+            "idempotencyKey must contain 1 to 128 bytes without surrounding whitespace or control characters",
             None,
         ))
     } else {

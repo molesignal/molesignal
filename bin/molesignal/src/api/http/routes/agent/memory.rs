@@ -74,21 +74,22 @@ fn memory_json(memory: &Memory) -> Value {
     json!({
         "id": memory.id.0,
         "scope": memory.scope.kind(),
-        "team_id": memory.scope.team_id().map(|id| id.0.clone()),
+        "teamId": memory.scope.team_id().map(|id| id.0.clone()),
         "kind": memory.kind,
         "name": memory.name,
         "description": memory.description,
         "body": memory.body,
-        "source_chat_id": memory.source_chat_id.as_ref().map(|id| id.0.clone()),
-        "created_by": memory.created_by.0,
-        "updated_by": memory.updated_by.0,
-        "created_at_micros": memory.created_at.0,
-        "updated_at_micros": memory.updated_at.0,
-        "forgotten_at_micros": memory.forgotten_at.map(|at| at.0),
+        "sourceChatId": memory.source_chat_id.as_ref().map(|id| id.0.clone()),
+        "createdBy": memory.created_by.0,
+        "updatedBy": memory.updated_by.0,
+        "createdAt": memory.created_at.0,
+        "updatedAt": memory.updated_at.0,
+        "forgottenAt": memory.forgotten_at.map(|at| at.0),
     })
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ListQuery {
     #[serde(default)]
     scope: Option<String>,
@@ -96,7 +97,7 @@ struct ListQuery {
     team_id: Option<String>,
 }
 
-#[permission("agent.use")]
+#[permission("agent.memories.read")]
 async fn list_memories(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -126,7 +127,7 @@ async fn list_memories(
                 .as_ref()
                 .and_then(|id| titles.get(&id.0));
 
-            row["source_chat_title"] = json!(title);
+            row["sourceChatTitle"] = json!(title);
             row
         })
         .collect::<Vec<_>>();
@@ -180,7 +181,7 @@ struct UpdateReq {
     body: String,
 }
 
-#[permission("agent.use")]
+#[permission("agent.memories.manage")]
 async fn update_memory(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -206,7 +207,7 @@ async fn update_memory(
     Ok(Json(memory_json(&memory)))
 }
 
-#[permission("agent.use")]
+#[permission("agent.memories.manage")]
 async fn delete_memory(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -219,7 +220,7 @@ async fn delete_memory(
     Ok(Json(json!({ "deleted": deleted })))
 }
 
-#[permission("agent.use")]
+#[permission("agent.memories.manage")]
 async fn restore_memory(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -249,7 +250,7 @@ async fn audit(state: &AppState, ctx: &IamContext, memory: &Memory, action: &str
     .await;
 }
 
-#[permission("agent.use")]
+#[permission("agent.memories.read")]
 async fn memory_settings(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -257,19 +258,19 @@ async fn memory_settings(
     let settings = state.agent.memory.settings(&ctx.org_id).await?;
 
     Ok(Json(json!({
-        "distill_after_chat": settings.distill_after_chat,
-        "can_edit": ctx.has_permission("agent.manage"),
-        "updated_at_micros": settings.updated_at.map(|at| at.0),
+        "distillAfterChat": settings.distill_after_chat,
+        "canEdit": ctx.has_permission("agent.manage"),
+        "updatedAt": settings.updated_at.map(|at| at.0),
     })))
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SettingsReq {
     distill_after_chat: bool,
 }
 
-#[permission("agent.manage")]
+#[permission("agent.memories.settings")]
 async fn set_memory_settings(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -287,13 +288,13 @@ async fn set_memory_settings(
         "agent.memory.settings_changed",
         "agent_memory_settings",
         &ctx.org_id.0,
-        json!({ "distill_after_chat": settings.distill_after_chat }),
+        json!({ "distillAfterChat": settings.distill_after_chat }),
     )
     .await;
 
     Ok(Json(json!({
-        "distill_after_chat": settings.distill_after_chat,
-        "can_edit": true,
-        "updated_at_micros": settings.updated_at.map(|at| at.0),
+        "distillAfterChat": settings.distill_after_chat,
+        "canEdit": true,
+        "updatedAt": settings.updated_at.map(|at| at.0),
     })))
 }

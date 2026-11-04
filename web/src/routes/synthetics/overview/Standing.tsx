@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 
-import type { ProbeLocation, SyntheticResult } from '@/api/synthetics';
+import type { ProbeLocation, SyntheticAvailability } from '@/api/synthetics';
 import { Readout } from '@/shell/readout/Readout';
 import { SpectrumBar } from '@/shell/readout/SpectrumBar';
 import { STATEMENT_CELL, Statement } from '@/shell/readout/Statement';
@@ -10,11 +10,8 @@ import { formatPercent } from '../model';
 import {
   STATES_WORST_FIRST,
   STATE_COLOR,
-  availability,
   availabilityTone,
-  availabilityTrend,
   checksVerdict,
-  decidedRuns,
   runningChecks,
   stateCounts,
   type ChecksVerdict,
@@ -33,18 +30,18 @@ const VERDICT_TONE: Record<ChecksVerdict, { color: string; text: string }> = {
  *
  * The verdict takes the colour of the worst check that is running, with how the
  * checks divide under it. Beside it are the three things the verdict rests on:
- * how the latest runs went, whether the places they run from are reachable, and
- * whether a failure would reach anyone.
+ * how the runs went over the range chosen, whether the places they run from are
+ * reachable, and whether a failure would reach anyone.
  */
 export function ChecksStanding({
   rows,
-  results,
+  availability,
   locations,
 }: {
   /** Every check that is not archived. */
   rows: readonly CheckRow[];
-  /** The latest runs of those checks. */
-  results: readonly SyntheticResult[];
+  /** How the runs of the checks went over the range chosen. */
+  availability: SyntheticAvailability | undefined;
   locations: readonly ProbeLocation[];
 }) {
   const { t } = useTranslation('synthetics');
@@ -53,12 +50,14 @@ export function ChecksStanding({
   const counts = stateCounts(running);
   const verdict = checksVerdict(counts);
   const tone = VERDICT_TONE[verdict];
-  const runs = decidedRuns(results);
-  const passRate = availability(results);
+  const total = availability?.total;
+  const judged = total ? total.available + total.failing : 0;
+  const passRate = total?.availability ?? undefined;
+  const steps = availability?.buckets ?? [];
   const usable = locations.filter((location) => location.lifecycle !== 'archived');
   const online = usable.filter((location) => location.health === 'online');
   const notOnline = usable.filter((location) => location.health !== 'online');
-  const paging = running.filter((row) => Boolean(row.revision?.escalation_policy_id)).length;
+  const paging = running.filter((row) => Boolean(row.revision?.escalationPolicyId)).length;
 
   const title =
     verdict === 'failing'
@@ -92,11 +91,11 @@ export function ChecksStanding({
             label={t('standing.availability')}
             value={formatPercent(passRate)}
             tone={availabilityTone(passRate)}
-            trend={runs.length > 1 ? { values: availabilityTrend(results) } : undefined}
+            trend={
+              steps.length > 1 ? { values: steps.map((step) => step.availability) } : undefined
+            }
             detail={
-              runs.length > 0
-                ? t('standing.of_runs', { count: runs.length })
-                : t('standing.no_runs')
+              judged > 0 ? t('standing.of_runs', { count: judged }) : t('standing.no_runs')
             }
           />
           <Readout

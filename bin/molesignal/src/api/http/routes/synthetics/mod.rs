@@ -6,6 +6,7 @@
 mod agent_tokens;
 mod agents;
 mod artifacts;
+mod availability;
 mod locations;
 mod monitors;
 mod results;
@@ -22,6 +23,7 @@ pub fn routes() -> Router<AppState> {
         .merge(locations::routes())
         .merge(monitors::routes())
         .merge(results::routes())
+        .merge(availability::routes())
         .merge(artifacts::download_routes())
         .merge(secrets::routes())
 }

@@ -13,8 +13,10 @@ import 'uplot/dist/uPlot.min.css';
 
 import { useScope } from '@/keyboard/controller';
 import { writeClipboardText } from '@/lib/clipboard';
+import { resolveTimezone } from '@/lib/time';
 import { CopyIconButton } from '@/shell/CopyIconButton';
 import { cn } from '@/shell/lib/cn';
+import { useTimeStore } from '@/stores/useTimeStore';
 
 import {
   buildTimeSeriesAxisScale,
@@ -140,7 +142,7 @@ export const TimeSeriesChart = React.memo(function TimeSeriesChart({
   errorLabel = 'Unable to render chart',
   ariaLabel,
   rangeSelectionAriaLabel,
-  timezone,
+  timezone: timezoneProp,
   cursorScopeId = 'main',
   focusedSeriesId = null,
   className,
@@ -152,6 +154,9 @@ export const TimeSeriesChart = React.memo(function TimeSeriesChart({
   onOpenMetrics,
   onOpenTraces,
 }: TimeSeriesChartProps) {
+  // The zone picked in the time picker for the time in scope, unless the chart is told one.
+  const scopedTimezone = useTimeStore((state) => state.timezone);
+  const timezone = timezoneProp ?? (scopedTimezone ? resolveTimezone(scopedTimezone) : undefined);
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const plotHostRef = React.useRef<HTMLDivElement | null>(null);
   const plotRef = React.useRef<uPlot | null>(null);
@@ -172,6 +177,8 @@ export const TimeSeriesChart = React.memo(function TimeSeriesChart({
   interactionHandlersRef.current = { onRangeSelect, onRangeReset, onPan };
   const pinnedRef = React.useRef(false);
   const animationFrameRef = React.useRef<number | null>(null);
+  /** Whether the pointer is over this plot: only that one says its values, the charts it moves in step with only follow its line. */
+  const pointerInsideRef = React.useRef(false);
   const [tooltip, setTooltip] = React.useState<TooltipState | null>(null);
   const [pinned, setPinned] = React.useState(false);
   const [hiddenIds, setHiddenIds] = React.useState<Set<string>>(() => new Set());
@@ -263,9 +270,15 @@ export const TimeSeriesChart = React.memo(function TimeSeriesChart({
   React.useEffect(() => {
     if (typeof document === 'undefined' || !document.fonts) return;
     let cancelled = false;
-    void document.fonts.ready.then(() => {
-      if (!cancelled) setFontsReady(true);
-    });
+    // A canvas draws with what is loaded and does not wait for a web face: ask for the faces the
+    // axes are set in, figures and Chinese, before the first draw.
+    const font = `${canvasBodyWeight()} 12px ${canvasFontFamily()}`;
+    void Promise.all([document.fonts.load(font, '0123456789'), document.fonts.load(font, '时')])
+      .catch(() => undefined)
+      .then(() => document.fonts.ready)
+      .then(() => {
+        if (!cancelled) setFontsReady(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -411,9 +424,13 @@ export const TimeSeriesChart = React.memo(function TimeSeriesChart({
               const idx = instance.cursor.idx;
               const left = instance.cursor.left ?? -1;
               if (idx === null || idx === undefined || left < 0) {
+                // A frame asked for before the pointer left would show the values again after this.
+                cancelTooltipUpdate(animationFrameRef);
                 if (!pinnedRef.current) setTooltip(null);
                 return;
               }
+              // A cursor set from another chart, or kept through a redraw, moves the line only.
+              if (!pointerInsideRef.current) return;
               const timestamp = Number(instance.data[0]?.[idx]);
               if (!Number.isFinite(timestamp)) return;
               if (prepared.hasTime) onCursorMoveRef.current(timestamp);
@@ -457,6 +474,18 @@ export const TimeSeriesChart = React.memo(function TimeSeriesChart({
     host.querySelectorAll('canvas').forEach((canvas) => {
       canvas.setAttribute('aria-hidden', 'true');
     });
+    const onPointerEnter = () => {
+      pointerInsideRef.current = true;
+    };
+    const onPointerLeave = () => {
+      pointerInsideRef.current = false;
+      cancelTooltipUpdate(animationFrameRef);
+      if (!pinnedRef.current) setTooltip(null);
+    };
+    // A plot drawn afresh under a resting pointer hears no enter; its first move counts as one.
+    plot.over.addEventListener('pointerenter', onPointerEnter);
+    plot.over.addEventListener('pointermove', onPointerEnter);
+    plot.over.addEventListener('pointerleave', onPointerLeave);
 
     const teardownBrush = installBrush(plot, {
       ...(interactionHandlersRef.current.onRangeSelect
@@ -500,6 +529,10 @@ export const TimeSeriesChart = React.memo(function TimeSeriesChart({
     return () => {
       observer.disconnect();
       teardownBrush();
+      plot.over.removeEventListener('pointerenter', onPointerEnter);
+      plot.over.removeEventListener('pointermove', onPointerEnter);
+      plot.over.removeEventListener('pointerleave', onPointerLeave);
+      pointerInsideRef.current = false;
       plot.destroy();
       plotRef.current = null;
     };
@@ -866,6 +899,24 @@ function buildSeriesOptions(
   };
 }
 
+const CANVAS_FONT_FALLBACK =
+  '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif';
+
+function rootToken(name: string): string {
+  if (typeof document === 'undefined') return '';
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+/** The body weight of the type scale (`--fw-body`, tokens.css), for text a canvas draws. */
+function canvasBodyWeight(): string {
+  return rootToken('--fw-body') || '400';
+}
+
+/** The product's sans stack (`--font-sans`, tokens.css), for text a canvas draws. */
+function canvasFontFamily(): string {
+  return rootToken('--font-sans') || CANVAS_FONT_FALLBACK;
+}
+
 function buildAxes(
   hasTime: boolean,
   options: TimeSeriesChartOptions,
@@ -873,13 +924,13 @@ function buildAxes(
   hasRightAxis: boolean,
   timezone: string | undefined,
 ): uPlot.Axis[] {
-  // Canvas does not resolve CSS custom properties inside `context.font`.
-  // Keep the family explicit so uPlot does not silently fall back to 10px.
-  const axisFont = `600 ${
-    options.compactAxes ? 11 : 12
-  }px "Alibaba PuHuiTi 3.0", "PingFang SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif`;
-  const axisLabelFont =
-    '600 11px "Alibaba PuHuiTi 3.0", "PingFang SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif';
+  // Canvas does not resolve CSS custom properties inside `context.font`: the
+  // weight and the family are read from the type scale, and spelled out so uPlot
+  // does not silently fall back to 10px. Axis figures are in the body weight.
+  const weight = canvasBodyWeight();
+  const family = canvasFontFamily();
+  const axisFont = `${weight} ${options.compactAxes ? 11 : 12}px ${family}`;
+  const axisLabelFont = `${weight} 11px ${family}`;
   const common: Partial<uPlot.Axis> = {
     stroke: palette.muted,
     font: axisFont,
@@ -1010,6 +1061,12 @@ function buildTooltipState(
     top: plotBounds.top + (plot.cursor.top ?? 0),
     items,
   };
+}
+
+function cancelTooltipUpdate(frameRef: React.MutableRefObject<number | null>): void {
+  if (frameRef.current === null) return;
+  cancelAnimationFrame(frameRef.current);
+  frameRef.current = null;
 }
 
 function scheduleTooltipUpdate(
@@ -1229,6 +1286,10 @@ function drawBands(
   context.restore();
 }
 
+// Bars take 60% of their slot and are drawn a little translucent: at 72% and fully opaque a run
+// of them read as one solid block of colour.
+const BAR_OPACITY = 0.78;
+
 function drawBars(
   plot: uPlot,
   series: ReadonlyArray<ResolvedSeries>,
@@ -1244,7 +1305,7 @@ function drawBars(
     const right = plot.valToPos(xs[index]!, 'x', true);
     minGap = Math.min(minGap, Math.abs(right - left));
   }
-  const groupWidth = Math.max(1 * ratio, Math.min(minGap * 0.72, 48 * ratio));
+  const groupWidth = Math.max(1 * ratio, Math.min(minGap * 0.6, 48 * ratio));
   const visibleCount = Math.max(
     1,
     series.filter((_, index) => plot.series[index + 1]?.show !== false).length,
@@ -1265,7 +1326,7 @@ function drawBars(
     if (plotSeries?.show === false) return;
     const color = resolveCanvasColor(item.color);
     context.fillStyle = color;
-    context.globalAlpha = plotSeries?.alpha ?? 0.82;
+    context.globalAlpha = (plotSeries?.alpha ?? 1) * BAR_OPACITY;
     const values = plot.data[seriesIndex + 1] ?? [];
     for (let index = 0; index < xs.length; index += 1) {
       const value = values[index];
@@ -1314,7 +1375,7 @@ function drawThresholdsAndAnnotations(
   context.beginPath();
   context.rect(plot.bbox.left, plot.bbox.top, plot.bbox.width, plot.bbox.height);
   context.clip();
-  context.font = `${12 * ratio}px "Alibaba PuHuiTi 3.0", "PingFang SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif`;
+  context.font = `${12 * ratio}px ${canvasFontFamily()}`;
   context.textBaseline = 'bottom';
 
   for (const threshold of options.thresholds) {

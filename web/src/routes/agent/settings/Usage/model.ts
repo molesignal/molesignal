@@ -19,14 +19,14 @@ export function formatTokens(value: number): string {
 }
 
 /** How much of the day's limit is used, in percent; null when there is no limit. */
-export function usedPercent(status: Pick<BudgetStatus, 'used_tokens' | 'limit_tokens'>): number | null {
-  if (status.limit_tokens <= 0) return null;
-  return Math.round((status.used_tokens * 100) / status.limit_tokens);
+export function usedPercent(status: Pick<BudgetStatus, 'usedTokens' | 'limitTokens'>): number | null {
+  if (status.limitTokens <= 0) return null;
+  return Math.round((status.usedTokens * 100) / status.limitTokens);
 }
 
 /** The start of the UTC day a status belongs to: one day before it resets. */
-export function statusDayStart(status: Pick<BudgetStatus, 'resets_at'>): number {
-  return status.resets_at - MICROS_PER_DAY;
+export function statusDayStart(status: Pick<BudgetStatus, 'resetsAt'>): number {
+  return status.resetsAt - MICROS_PER_DAY;
 }
 
 export interface OriginUsage {
@@ -50,7 +50,7 @@ function emptyByOrigin(): Record<UsageOrigin, OriginUsage> {
 }
 
 export interface DayUsage extends OriginUsage {
-  dayStartMicros: number;
+  dayStart: number;
   byOrigin: Record<UsageOrigin, OriginUsage>;
 }
 
@@ -58,22 +58,22 @@ export interface DayUsage extends OriginUsage {
 export function usageByDay(rows: readonly DailyUsageRow[]): DayUsage[] {
   const days = new Map<number, DayUsage>();
   for (const row of rows) {
-    const day = days.get(row.day_start_micros) ?? {
+    const day = days.get(row.dayStart) ?? {
       ...emptyOrigin(),
-      dayStartMicros: row.day_start_micros,
+      dayStart: row.dayStart,
       byOrigin: emptyByOrigin(),
     };
     const origin = day.byOrigin[row.origin] ?? emptyOrigin();
     for (const total of [origin, day]) {
       total.calls += row.calls;
-      total.unpricedCalls += row.unpriced_calls;
-      total.tokens += row.prompt_tokens + row.completion_tokens;
+      total.unpricedCalls += row.unpricedCalls;
+      total.tokens += row.promptTokens + row.completionTokens;
       if (row.currency) total.costs[row.currency] = (total.costs[row.currency] ?? 0) + row.cost;
     }
     day.byOrigin[row.origin] = origin;
-    days.set(row.day_start_micros, day);
+    days.set(row.dayStart, day);
   }
-  return [...days.values()].sort((a, b) => b.dayStartMicros - a.dayStartMicros);
+  return [...days.values()].sort((a, b) => b.dayStart - a.dayStart);
 }
 
 /** How the organization's own limit is set. */
@@ -90,9 +90,9 @@ export function budgetInput(
   customLimit: string,
   interactiveMode: InteractiveBudgetMode,
 ): BudgetInput | null {
-  if (choice === 'inherit') return { daily_token_limit: null, interactive_mode: interactiveMode };
-  if (choice === 'unlimited') return { daily_token_limit: 0, interactive_mode: interactiveMode };
+  if (choice === 'inherit') return { dailyTokenLimit: null, interactiveMode: interactiveMode };
+  if (choice === 'unlimited') return { dailyTokenLimit: 0, interactiveMode: interactiveMode };
   const limit = Number(customLimit.trim());
   if (!customLimit.trim() || !Number.isInteger(limit) || limit <= 0) return null;
-  return { daily_token_limit: limit, interactive_mode: interactiveMode };
+  return { dailyTokenLimit: limit, interactiveMode: interactiveMode };
 }

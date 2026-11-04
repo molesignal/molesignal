@@ -24,26 +24,26 @@ const INCIDENT_ID = 'inc-detail';
 
 const INCIDENT = {
   id: INCIDENT_ID,
-  org_id: 'org-default',
-  rule_id: 'rule-web-p95',
+  orgId: 'org-default',
+  ruleId: 'rule-web-p95',
   status: 'open' as const,
   severity: 'critical' as const,
   summary: 'web service p95 > 500ms for 5m',
   fingerprint: 'abc123fingerprint',
-  current_step: 1,
-  current_step_started_at: NOW_MICROS,
+  currentStep: 1,
+  currentStepStartedAt: NOW_MICROS,
   assignees: ['oncall@acme'],
-  created_at: NOW_MICROS,
+  createdAt: NOW_MICROS,
   labels: { severity: 'critical', service: 'web', env: 'production' },
   annotations: { runbook: 'https://runbooks.acme/web-latency' },
-  trace_ids: ['trace-abc123def456789', 'trace-deadbeefcafe'],
-  host_ids: ['node-3.us-east-1'],
-  affected_services: ['web', 'api-gateway'],
-  triggering_query: {
+  traceIds: ['trace-abc123def456789', 'trace-deadbeefcafe'],
+  hostIds: ['node-3.us-east-1'],
+  affectedServices: ['web', 'api-gateway'],
+  triggeringQuery: {
     language: 'sql' as const,
     statement:
       "SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms) FROM traces WHERE service_name = 'web'",
-    sample_values: [
+    sampleValues: [
       { ts: NOW_MICROS - 60_000_000, value: 612.4, labels: { service: 'web' } },
       { ts: NOW_MICROS, value: 802.1, labels: { service: 'web' } },
     ],
@@ -53,8 +53,7 @@ const INCIDENT = {
 test.describe('Incident detail — deep link', () => {
   test.beforeEach(async ({ page }) => {
     await installMockShellSession(page, {
-      token: 'mock-incident-detail-token',
-      orgId: INCIDENT.org_id,
+      orgId: INCIDENT.orgId,
       role: 'Admin',
       displayName: 'tester',
     });

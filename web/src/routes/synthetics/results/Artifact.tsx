@@ -70,7 +70,7 @@ export function ArtifactPreview({
             {artifact.name || artifact.kind}
           </div>
           <div className="mt-[2px] font-sans text-xs text-tx-2">
-            {artifact.kind} · {formatBytes(artifact.content_length)}
+            {artifact.kind} · {formatBytes(artifact.contentLength)}
           </div>
         </div>
         {screenshot && !url && (

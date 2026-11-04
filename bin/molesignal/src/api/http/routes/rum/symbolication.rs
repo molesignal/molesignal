@@ -10,7 +10,10 @@ use crate::{
     api::AppState,
     app::iam::IamContext,
     domain::rum::{DebugArtifactKind, DebugArtifactLookup, DebugArtifactMeta},
-    infra::rum::symbolication::{OriginalFrame, decode_artifact},
+    infra::rum::{
+        intake::Decoded,
+        symbolication::{OriginalFrame, decode_artifact},
+    },
     shared::{Error, Result},
 };
 
@@ -23,26 +26,31 @@ use prepared::PreparedArtifact;
 const MAX_SYMBOLICATED_FRAMES_PER_EVENT: usize = 256;
 const MAX_PREPARED_ARTIFACTS_PER_REQUEST: usize = 16;
 
-pub(super) async fn translate_body(
+/// Where the frames of an error stand in the event.
+const FRAMES: &str = "/error/frames";
+
+/// Resolves the frames of the error events of a request against the debug artifacts uploaded for
+/// their release. An event whose frames cannot be resolved goes on as it came.
+pub(super) async fn translate_events(
     state: &AppState,
     context: &IamContext,
-    mut body: Value,
-) -> Value {
-    let events = match &mut body {
-        Value::Array(events) => events.as_mut_slice(),
-        Value::Object(_) => std::slice::from_mut(&mut body),
-        _ => return body,
-    };
-
+    events: &mut [Decoded],
+) {
     let mut artifacts = HashMap::new();
 
-    for event in events {
+    for decoded in events {
+        let Ok(event) = decoded else {
+            continue;
+        };
+
+        if event.get("type").and_then(Value::as_str) != Some("error") {
+            continue;
+        }
+
         if let Err(error) = translate_event(state, context, event, &mut artifacts).await {
             tracing::debug!(%error, "RUM debug artifact symbolication skipped");
         }
     }
-
-    body
 }
 
 async fn translate_event(
@@ -51,16 +59,16 @@ async fn translate_event(
     event: &mut Value,
     artifacts: &mut HashMap<String, PreparedArtifact>,
 ) -> Result<()> {
-    let metadata = EventMetadata::from_event(event)?;
-
-    let Some(stack_path) = stack_path(event) else {
+    if !event.pointer(FRAMES).is_some_and(Value::is_array) {
         return Ok(());
-    };
+    }
+
+    let metadata = EventMetadata::from_event(event, context.credential_application_id.as_deref())?;
 
     let frames = event
-        .pointer_mut(stack_path)
+        .pointer_mut(FRAMES)
         .and_then(Value::as_array_mut)
-        .expect("stack path selected from an array");
+        .expect("frames path selected from an array");
 
     let truncated = frames.len() > MAX_SYMBOLICATED_FRAMES_PER_EVENT;
     let mut attempted = 0_u64;
@@ -86,7 +94,7 @@ async fn translate_event(
     }
 
     if attempted > 0
-        && let Some(object) = event.as_object_mut()
+        && let Some(error) = event.get_mut("error").and_then(Value::as_object_mut)
     {
         let status = if translated == attempted && !truncated {
             "completed"
@@ -96,12 +104,12 @@ async fn translate_event(
             "missing"
         };
 
-        object.insert(
+        error.insert(
             "symbolication".into(),
             serde_json::json!({
                 "status": status,
-                "translated_frames": translated,
-                "attempted_frames": attempted,
+                "translatedFrames": translated,
+                "attemptedFrames": attempted,
                 "truncated": truncated,
             }),
         );
@@ -286,12 +294,6 @@ fn insert_optional_number(object: &mut Map<String, Value>, key: &str, value: Opt
     if let Some(value) = value {
         object.insert(key.into(), Value::Number(value.into()));
     }
-}
-
-fn stack_path(event: &Value) -> Option<&'static str> {
-    ["/error/stack", "/error/stack_frames", "/stack"]
-        .into_iter()
-        .find(|path| event.pointer(path).is_some_and(Value::is_array))
 }
 
 fn artifact_platform(event: &EventMetadata, kind: DebugArtifactKind) -> &str {

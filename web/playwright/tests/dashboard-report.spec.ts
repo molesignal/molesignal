@@ -74,7 +74,7 @@ test.describe('dashboard report', () => {
   });
 
   test('prints the dashboard alone, on a document as long as the dashboard', async ({ page }) => {
-    await page.goto('/dashboards/d1?report_render=1&time=now-7d..now&report_tz=Asia%2FShanghai');
+    await page.goto('/dashboards/d1?reportRender=1&time=now-7d..now&reportTz=Asia%2FShanghai');
 
     // The renderer waits on this, and prints when it says ready.
     await expect(page.locator('html')).toHaveAttribute('data-report-render-state', 'ready', {
@@ -142,7 +142,7 @@ test.describe('dashboard report', () => {
   });
 
   test('fails the report with the reason instead of printing an error page', async ({ page }) => {
-    await page.goto('/dashboards/does-not-exist?report_render=1');
+    await page.goto('/dashboards/does-not-exist?reportRender=1');
 
     await expect(page.locator('html')).toHaveAttribute('data-report-render-state', 'error', {
       timeout: 15_000,

@@ -12,14 +12,6 @@ use serde::{Deserialize, Serialize};
 pub struct SelfCollectSettings {
     #[serde(default)]
     pub enabled: bool,
-    #[serde(default = "default_retention_days")]
-    pub retention_days: u32,
-    #[serde(default = "default_retention_days")]
-    pub metrics_retention_days: u32,
-    #[serde(default = "default_retention_days")]
-    pub traces_retention_days: u32,
-    #[serde(default = "default_retention_days")]
-    pub profiles_retention_days: u32,
     #[serde(default = "default_true")]
     pub metrics_enabled: bool,
     #[serde(default = "default_metrics_interval_secs")]
@@ -46,10 +38,6 @@ impl Default for SelfCollectSettings {
     fn default() -> Self {
         Self {
             enabled: false,
-            retention_days: default_retention_days(),
-            metrics_retention_days: default_retention_days(),
-            traces_retention_days: default_retention_days(),
-            profiles_retention_days: default_retention_days(),
             metrics_enabled: true,
             metrics_interval_secs: default_metrics_interval_secs(),
             queue_capacity: default_queue_capacity(),
@@ -66,22 +54,6 @@ impl Default for SelfCollectSettings {
 
 impl SelfCollectSettings {
     pub fn validate(&self) -> anyhow::Result<()> {
-        if !(1..=3650).contains(&self.retention_days) {
-            anyhow::bail!("telemetry.self_collect.retention_days must be between 1 and 3650");
-        }
-
-        for (signal, days) in [
-            ("metrics", self.metrics_retention_days),
-            ("traces", self.traces_retention_days),
-            ("profiles", self.profiles_retention_days),
-        ] {
-            if !(1..=3650).contains(&days) {
-                anyhow::bail!(
-                    "telemetry.self_collect.{signal}_retention_days must be between 1 and 3650"
-                );
-            }
-        }
-
         if self.enabled && self.metrics_enabled && self.metrics_interval_secs == 0 {
             anyhow::bail!("telemetry.self_collect.metrics_interval_secs must be greater than zero");
         }
@@ -107,23 +79,6 @@ impl SelfCollectSettings {
         }
 
         Ok(())
-    }
-
-    pub fn retention_days_for(
-        &self,
-        signal: crate::shared::self_telemetry::SelfTelemetrySignal,
-    ) -> u32 {
-        match signal {
-            crate::shared::self_telemetry::SelfTelemetrySignal::Metrics => {
-                self.metrics_retention_days
-            }
-            crate::shared::self_telemetry::SelfTelemetrySignal::Traces => {
-                self.traces_retention_days
-            }
-            crate::shared::self_telemetry::SelfTelemetrySignal::Profiles => {
-                self.profiles_retention_days
-            }
-        }
     }
 
     fn validate_profiles(&self) -> anyhow::Result<()> {
@@ -153,10 +108,6 @@ impl SelfCollectSettings {
 
 const fn default_true() -> bool {
     true
-}
-
-const fn default_retention_days() -> u32 {
-    7
 }
 
 const fn default_metrics_interval_secs() -> u64 {

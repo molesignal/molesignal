@@ -16,9 +16,12 @@ use crate::{
 };
 
 mod metadata;
+mod metrics;
 
 const DEFAULT_LIMIT: usize = 500;
 const MAX_LIMIT: usize = 5_000;
+/// Steps a metric query is read at when the caller names no step.
+const DEFAULT_METRIC_STEPS: i64 = 100;
 const SEARCH_AROUND_WINDOW_MICROS: i64 = 24 * 60 * 60 * 1_000_000;
 
 pub(super) async fn execute(
@@ -32,14 +35,14 @@ pub(super) async fn execute(
         BuiltinToolKind::QueryMetrics => query_metrics(runtime, auth, arguments).await,
         BuiltinToolKind::ListStreams => list_streams(runtime, auth, arguments).await,
         BuiltinToolKind::GetStreamSchema => get_stream_schema(runtime, auth, arguments).await,
-        BuiltinToolKind::GetStreamSettings
-        | BuiltinToolKind::ListMetricLabels
-        | BuiltinToolKind::ListMetricSeries => {
+        BuiltinToolKind::GetStreamSettings => {
             metadata::execute(runtime, auth, kind, arguments).await
         }
-        BuiltinToolKind::ListMetricNames => list_metric_names(runtime, auth, arguments).await,
-        BuiltinToolKind::ListMetricLabelValues => {
-            list_metric_label_values(runtime, auth, arguments).await
+        BuiltinToolKind::ListMetricNames
+        | BuiltinToolKind::ListMetricLabelValues
+        | BuiltinToolKind::ListMetricLabels
+        | BuiltinToolKind::ListMetricSeries => {
+            metrics::execute(runtime, auth, kind, arguments).await
         }
         BuiltinToolKind::SearchAround => search_around(runtime, auth, arguments).await,
         BuiltinToolKind::SearchFieldValues => search_field_values(runtime, auth, arguments).await,
@@ -48,7 +51,7 @@ pub(super) async fn execute(
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct QueryLogsArgs {
     sql: String,
     stream: String,
@@ -80,10 +83,12 @@ async fn query_logs(
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct QueryMetricsArgs {
     promql: String,
     time_range: TimeRangeArg,
+    #[serde(default)]
+    step_seconds: Option<u64>,
     #[serde(default)]
     limit: Option<usize>,
 }
@@ -101,13 +106,20 @@ async fn query_metrics(
         ));
     }
 
-    let result = run_query(
+    let range = time_range(args.time_range)?;
+    let step = match args.step_seconds {
+        Some(seconds) => i64::try_from(seconds)
+            .unwrap_or(i64::MAX)
+            .saturating_mul(1_000_000),
+        None => (range.end.0.saturating_sub(range.start.0) / DEFAULT_METRIC_STEPS).max(1_000_000),
+    };
+
+    let result = run_metric_range(
         runtime,
         &auth.org_id,
-        QueryLanguage::Promql,
         args.promql,
-        time_range(args.time_range)?,
-        None,
+        range,
+        step,
         args.limit.unwrap_or(1_000).clamp(1, MAX_LIMIT),
     )
     .await?;
@@ -116,7 +128,7 @@ async fn query_metrics(
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ListStreamsArgs {
     #[serde(default)]
     stream_type: Option<StreamType>,
@@ -165,8 +177,8 @@ async fn list_streams(
         if settings.queryable {
             rows.push(json!({
                 "name": stream.name,
-                "stream_type": stream.stream_type,
-                "field_count": stream.schema.fields.len(),
+                "streamType": stream.stream_type,
+                "fieldCount": stream.schema.fields.len(),
                 "retention": stream.retention,
                 "description": settings.description,
             }));
@@ -181,7 +193,7 @@ async fn list_streams(
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct StreamArgs {
     stream: String,
     stream_type: StreamType,
@@ -203,123 +215,20 @@ async fn get_stream_schema(
 
     Ok(ToolResult::json(json!({
         "name": stream.name,
-        "stream_type": stream.stream_type,
+        "streamType": stream.stream_type,
         "schema": stream.schema,
         "retention": stream.retention,
         "settings": settings,
-        "created_at": stream.created_at,
-        "updated_at": stream.updated_at,
-    })))
-}
-
-#[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct MetricNamesArgs {
-    #[serde(default)]
-    query: Option<String>,
-    #[serde(default)]
-    limit: Option<usize>,
-}
-
-async fn list_metric_names(
-    runtime: &ToolRuntime,
-    auth: &IamContext,
-    arguments: Value,
-) -> Result<ToolResult> {
-    let args: MetricNamesArgs = parse_args(arguments)?;
-    let query = args.query.as_deref().map(str::to_ascii_lowercase);
-    let limit = args.limit.unwrap_or(200).clamp(1, 1_000);
-
-    let mut metrics = runtime
-        .observability
-        .streams
-        .list(&auth.org_id)
-        .await?
-        .into_iter()
-        .filter(|stream| {
-            stream.stream_type == StreamType::METRICS
-                && !is_internal_stream(&stream.name)
-                && query
-                    .as_ref()
-                    .is_none_or(|query| stream.name.to_ascii_lowercase().contains(query))
-        })
-        .map(|stream| stream.name)
-        .collect::<Vec<_>>();
-
-    metrics.sort();
-    metrics.truncate(limit);
-    Ok(ToolResult::json(json!({"metric_names": metrics})))
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct MetricLabelValuesArgs {
-    metric: String,
-    label: String,
-    time_range: TimeRangeArg,
-    #[serde(default)]
-    query: Option<String>,
-    #[serde(default)]
-    limit: Option<usize>,
-}
-
-async fn list_metric_label_values(
-    runtime: &ToolRuntime,
-    auth: &IamContext,
-    arguments: Value,
-) -> Result<ToolResult> {
-    let args: MetricLabelValuesArgs = parse_args(arguments)?;
-    let stream = require_stream(runtime, &auth.org_id, &args.metric, StreamType::METRICS).await?;
-    let field = require_field(&stream.schema, &args.label)?;
-    let mut filters = vec![format!("{} IS NOT NULL", quote_ident(field))];
-
-    if let Some(query) = args
-        .query
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        filters.push(format!(
-            "CAST({} AS VARCHAR) LIKE '%{}%'",
-            quote_ident(field),
-            sql_literal(query)
-        ));
-    }
-
-    let limit = args.limit.unwrap_or(200).clamp(1, 1_000);
-
-    let statement = format!(
-        "SELECT {field} AS value, COUNT(*) AS count FROM {stream}{where_clause} GROUP BY {field} ORDER BY count DESC LIMIT {limit}",
-        field = quote_ident(field),
-        stream = quote_ident(&args.metric),
-        where_clause = where_clause(&filters),
-    );
-
-    let result = run_query(
-        runtime,
-        &auth.org_id,
-        QueryLanguage::Sql,
-        statement,
-        time_range(args.time_range)?,
-        Some((&args.metric, StreamType::METRICS)),
-        limit,
-    )
-    .await?;
-
-    Ok(ToolResult::json(json!({
-        "metric": args.metric,
-        "label": args.label,
-        "values": rows_as_objects(&result),
-        "scanned_rows": result.scanned_rows,
-        "took_ms": result.took_ms,
+        "createdAt": stream.created_at,
+        "updatedAt": stream.updated_at,
     })))
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SearchAroundArgs {
     stream: String,
-    anchor_micros: i64,
+    anchor_time: i64,
     #[serde(default)]
     before: Option<usize>,
     #[serde(default)]
@@ -342,23 +251,17 @@ async fn search_around(
 
     let before_sql = format!(
         "SELECT * FROM {stream} WHERE _timestamp <= {}{extra} ORDER BY _timestamp DESC LIMIT {before}",
-        args.anchor_micros,
+        args.anchor_time,
     );
 
     let after_sql = format!(
         "SELECT * FROM {stream} WHERE _timestamp > {}{extra} ORDER BY _timestamp ASC LIMIT {after}",
-        args.anchor_micros,
+        args.anchor_time,
     );
 
     let range = TimeRange::new(
-        TimestampMicros(
-            args.anchor_micros
-                .saturating_sub(SEARCH_AROUND_WINDOW_MICROS),
-        ),
-        TimestampMicros(
-            args.anchor_micros
-                .saturating_add(SEARCH_AROUND_WINDOW_MICROS),
-        ),
+        TimestampMicros(args.anchor_time.saturating_sub(SEARCH_AROUND_WINDOW_MICROS)),
+        TimestampMicros(args.anchor_time.saturating_add(SEARCH_AROUND_WINDOW_MICROS)),
     );
 
     let mut preceding = rows_as_objects(
@@ -390,13 +293,13 @@ async fn search_around(
     );
 
     Ok(ToolResult::json(json!({
-        "stream": args.stream, "anchor_micros": args.anchor_micros,
+        "stream": args.stream, "anchorTime": args.anchor_time,
         "before": preceding, "after": following,
     })))
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SearchFieldValuesArgs {
     stream: String,
     field: String,
@@ -459,7 +362,7 @@ async fn search_field_values(
     Ok(ToolResult::json(json!({
         "stream": args.stream, "field": args.field,
         "values": rows_as_objects(&result),
-        "scanned_rows": result.scanned_rows, "took_ms": result.took_ms,
+        "scannedRows": result.scanned_rows, "tookMs": result.took_ms,
     })))
 }
 
@@ -478,7 +381,7 @@ fn validated_filter(value: Option<&str>) -> Result<String> {
         .any(|blocked| normalized.contains(blocked))
     {
         return Err(Error::invalid(
-            "filter_sql must be a single boolean expression",
+            "filterSql must be a single boolean expression",
         ));
     }
 

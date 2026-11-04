@@ -21,7 +21,7 @@ use crate::{
     domain::{
         intake::{IntakeBatch, IntakeResult, IntakeSink},
         storage::{DatasetTypeId, FileCatalog, PhysicalDatasetId},
-        stream::StreamRepository,
+        stream::{FieldPartitions, StreamRepository},
     },
     infra::{
         cipher::FieldKeyService,
@@ -30,7 +30,7 @@ use crate::{
         },
         storage::parquet::writer::ParquetWriter,
     },
-    shared::{Result, drain::DrainController, health::Probe},
+    shared::{Result, drain::DrainController, health::Probe, ids::Id},
 };
 
 #[derive(Debug, Clone)]
@@ -40,6 +40,9 @@ struct PendingWalCleanup {
 }
 
 const DEFAULT_REPLAY_BYTE_CAP: usize = 512 * 1024 * 1024;
+
+/// How long a stream's partition fields read from its settings are used before they are read again.
+const SHARDING_TTL: Duration = Duration::from_secs(30);
 
 pub struct IntakeWorker {
     sink: Arc<DurableIntakeSink>,
@@ -60,6 +63,8 @@ pub struct IntakeWorker {
     field_keys: Option<Arc<FieldKeyService>>,
     drain: Option<Arc<DrainController>>,
     replay_byte_cap: usize,
+    /// Stream id → when its settings were read, and the partition fields they named.
+    sharding: DashMap<Id, (Instant, Option<FieldPartitions>)>,
 }
 
 impl IntakeWorker {
@@ -74,7 +79,7 @@ impl IntakeWorker {
         probe: Arc<Probe>,
         settings: IntakeSettings,
     ) -> Self {
-        let buffer_max_bytes = (settings.buffer_max_mb as usize).saturating_mul(1024 * 1024);
+        let buffer_max_bytes = (settings.buffer_max_size as usize).saturating_mul(1024 * 1024);
         let adaptive_rotation = AdaptiveRotation::new(&settings.rotation, buffer_max_bytes);
 
         let sink = Arc::new(DurableIntakeSink::new(
@@ -101,6 +106,7 @@ impl IntakeWorker {
             field_keys: None,
             drain: None,
             replay_byte_cap: DEFAULT_REPLAY_BYTE_CAP,
+            sharding: DashMap::new(),
         }
     }
 

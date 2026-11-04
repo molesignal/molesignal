@@ -43,15 +43,19 @@ fn profile_row(row: sqlx::postgres::PgRow) -> Result<AgentProfile> {
         is_default: row.try_get("is_default").map_err(sqlx_err)?,
         enabled: row.try_get("enabled").map_err(sqlx_err)?,
         created_by: Id(row.try_get("created_by").map_err(sqlx_err)?),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
 pub(super) async fn list(pool: &PgPool, org_id: &Id) -> Result<Vec<AgentProfile>> {
     let rows = sqlx::query(
         "SELECT * FROM agent_profiles
-         WHERE org_id=$1 ORDER BY is_default DESC, updated_at_micros DESC",
+         WHERE org_id=$1 ORDER BY is_default DESC, updated_at DESC",
     )
     .bind(&org_id.0)
     .fetch_all(pool)
@@ -95,7 +99,7 @@ pub(super) async fn create(pool: &PgPool, item: AgentProfile) -> Result<AgentPro
         "INSERT INTO agent_profiles
          (id,org_id,name,description,model_provider_id,model,allowed_tools,data_scope,
           risk_policy,network_access,max_context_tokens,max_investigation_secs,max_tool_calls,
-          temperature,is_default,enabled,created_by,created_at_micros,updated_at_micros,
+          temperature,is_default,enabled,created_by,created_at,updated_at,
           allow_bypass_permissions)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)",
     )
@@ -116,8 +120,8 @@ pub(super) async fn create(pool: &PgPool, item: AgentProfile) -> Result<AgentPro
     .bind(item.is_default)
     .bind(item.enabled)
     .bind(&item.created_by.0)
-    .bind(item.created_at.0)
-    .bind(item.updated_at.0)
+    .bind(item.created_at)
+    .bind(item.updated_at)
     .bind(item.allow_bypass_permissions)
     .execute(&mut *tx)
     .await
@@ -152,7 +156,7 @@ pub(super) async fn update(pool: &PgPool, item: AgentProfile) -> Result<AgentPro
           name=$3,description=$4,model_provider_id=$5,model=$6,allowed_tools=$7,
           data_scope=$8,risk_policy=$9,network_access=$10,max_context_tokens=$11,
           max_investigation_secs=$12,max_tool_calls=$13,temperature=$14,is_default=$15,
-          enabled=$16,updated_at_micros=$17,allow_bypass_permissions=$18
+          enabled=$16,updated_at=$17,allow_bypass_permissions=$18
          WHERE org_id=$1 AND id=$2",
     )
     .bind(&item.org_id.0)
@@ -171,7 +175,7 @@ pub(super) async fn update(pool: &PgPool, item: AgentProfile) -> Result<AgentPro
     .bind(item.temperature)
     .bind(item.is_default)
     .bind(item.enabled)
-    .bind(item.updated_at.0)
+    .bind(item.updated_at)
     .bind(item.allow_bypass_permissions)
     .execute(&mut *tx)
     .await

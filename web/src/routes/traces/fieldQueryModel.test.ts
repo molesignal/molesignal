@@ -9,18 +9,19 @@ import {
   isTraceLevelField,
   parseTraceStatement,
   selectTraceStream,
+  splitTraceStatement,
   traceSqlTemplate,
   type TraceFieldDef,
 } from './fieldQueryModel';
 
 describe('trace field query model', () => {
   const fields = deriveTraceFields([
-    { name: 'trace_id', data_type: 'utf8', nullable: false, indexed: true },
-    { name: 'service.name', data_type: 'utf8', nullable: true, indexed: true },
-    { name: 'http.status_code', data_type: 'int64', nullable: true, indexed: false },
-    { name: 'conflict', data_type: 'bool', nullable: true, indexed: false },
-    { name: 'attributes', data_type: 'json', nullable: true, indexed: false },
-    { name: 'molesignal.trace.span_count', data_type: 'int64', nullable: true, indexed: false },
+    { name: 'trace_id', dataType: 'utf8', nullable: false, indexed: true },
+    { name: 'service.name', dataType: 'utf8', nullable: true, indexed: true },
+    { name: 'http.status_code', dataType: 'int64', nullable: true, indexed: false },
+    { name: 'conflict', dataType: 'bool', nullable: true, indexed: false },
+    { name: 'attributes', dataType: 'json', nullable: true, indexed: false },
+    { name: 'molesignal.trace.span_count', dataType: 'int64', nullable: true, indexed: false },
   ]);
 
   it('derives scalar physical fields and public aggregate aliases', () => {
@@ -38,18 +39,18 @@ describe('trace field query model', () => {
 
   it('separates OpenTelemetry core fields from resource, scope and Span attributes', () => {
     const grouped = groupTraceFields(deriveTraceFields([
-      { name: 'trace_id', data_type: 'utf8', nullable: false, indexed: true },
-      { name: 'span_id', data_type: 'utf8', nullable: false, indexed: true },
-      { name: 'name', data_type: 'utf8', nullable: false, indexed: true },
-      { name: 'duration_ns', data_type: 'int64', nullable: false, indexed: false },
-      { name: 'status_code', data_type: 'utf8', nullable: true, indexed: true },
-      { name: 'service.name', data_type: 'utf8', nullable: true, indexed: true },
-      { name: 'host.name', data_type: 'utf8', nullable: true, indexed: false },
-      { name: 'telemetry.sdk.name', data_type: 'utf8', nullable: true, indexed: false },
-      { name: 'scope_name', data_type: 'utf8', nullable: true, indexed: false },
-      { name: 'http.request.method', data_type: 'utf8', nullable: true, indexed: false },
-      { name: 'attributes', data_type: 'json', nullable: true, indexed: false },
-      { name: 'conflict', data_type: 'bool', nullable: true, indexed: false },
+      { name: 'trace_id', dataType: 'utf8', nullable: false, indexed: true },
+      { name: 'span_id', dataType: 'utf8', nullable: false, indexed: true },
+      { name: 'name', dataType: 'utf8', nullable: false, indexed: true },
+      { name: 'duration_ns', dataType: 'int64', nullable: false, indexed: false },
+      { name: 'status_code', dataType: 'utf8', nullable: true, indexed: true },
+      { name: 'service.name', dataType: 'utf8', nullable: true, indexed: true },
+      { name: 'host.name', dataType: 'utf8', nullable: true, indexed: false },
+      { name: 'telemetry.sdk.name', dataType: 'utf8', nullable: true, indexed: false },
+      { name: 'scope_name', dataType: 'utf8', nullable: true, indexed: false },
+      { name: 'http.request.method', dataType: 'utf8', nullable: true, indexed: false },
+      { name: 'attributes', dataType: 'json', nullable: true, indexed: false },
+      { name: 'conflict', dataType: 'bool', nullable: true, indexed: false },
     ]));
 
     expect(grouped.core.map((field) => field.name)).toEqual([
@@ -91,6 +92,49 @@ describe('trace field query model', () => {
       { field: 'http.status_code', op: '>', value: '499' },
       { field: 'conflict', op: '=', value: 'true' },
     ]);
+  });
+
+  it('reads a value of a span left out, however the operator is spelt', () => {
+    const parsed = parseTraceStatement(
+      'service.name ne "checkout" AND http.status_code != 500 AND conflict NE true',
+      fields,
+    );
+
+    expect(parsed.rejected).toEqual([]);
+    expect(parsed.filters).toEqual([
+      { field: 'service.name', op: '!=', value: 'checkout' },
+      { field: 'http.status_code', op: '!=', value: '500' },
+      { field: 'conflict', op: '!=', value: 'true' },
+    ]);
+  });
+
+  it('reads a list of values a field is asked for, quotes and commas in them kept', () => {
+    const parsed = parseTraceStatement(
+      "service.name in ('web', \"checkout\") AND http.status_code in (500, 503) AND service.name IN ('a, b', 'it\\'s')",
+      fields,
+    );
+
+    expect(parsed.rejected).toEqual([]);
+    expect(parsed.filters).toEqual([
+      { field: 'service.name', op: 'in', value: '', values: ['web', 'checkout'] },
+      { field: 'http.status_code', op: 'in', value: '', values: ['500', '503'] },
+      { field: 'service.name', op: 'in', value: '', values: ['a, b', "it's"] },
+    ]);
+  });
+
+  it('sets aside a list with nothing in it, too much in it, or on a document', () => {
+    const many = Array.from({ length: 65 }, (_, index) => `'v${index}'`).join(', ');
+
+    expect(parseTraceStatement('service.name in ()', fields).rejected).toEqual(['service.name in ()']);
+    expect(parseTraceStatement(`service.name in (${many})`, fields).filters).toEqual([]);
+    expect(parseTraceStatement("attributes in ('x')", fields).rejected).toEqual(["attributes in ('x')"]);
+  });
+
+  it('reads a field by the name the stream gives it, and no other', () => {
+    const parsed = parseTraceStatement("service_name = 'checkout' AND operation contains 'cart' AND status = 'ERROR'", fields);
+
+    expect(parsed.filters).toEqual([]);
+    expect(parsed.rejected).toEqual(["service_name = 'checkout'", "operation contains 'cart'", "status = 'ERROR'"]);
   });
 
   it('keeps JSON fields out of field mode but available in SQL mode', () => {
@@ -159,32 +203,26 @@ describe('trace field query model', () => {
       id: name,
       label: name,
       name,
-      stream_type: 'traces' as const,
+      streamType: 'traces' as const,
       type: 'traces' as const,
       schema: {
         fields: fieldNames.map((fieldName) => ({
           name: fieldName,
-          data_type: 'utf8' as const,
+          dataType: 'utf8' as const,
           nullable: true,
           indexed: false,
         })),
       },
       retention: null,
-      effective_retention: { days: 30 },
+      effectiveRetention: { days: 30 },
       settings: {
         description: null,
-        index_rules: [],
-        retention_filter: null,
-        keep_conditions: [],
-        max_query_range_hours: null,
-        flatten_level: null,
-        use_stream_stats_for_partitioning: false,
-        store_original_data: false,
-        enable_distinct_values: true,
+        indexRules: [],
+        maxQueryRangeHours: null,
         queryable: true,
       },
-      created_at_micros: 1,
-      updated_at_micros: 1,
+      createdAt: 1,
+      updatedAt: 1,
     });
     const canonicalFields = [
       'trace_id',
@@ -207,8 +245,63 @@ describe('trace field query model', () => {
       ],
       'checkout-traces',
     );
+    const summarized = selectTraceStream([
+      stream('default', canonicalFields),
+      stream('prod', [...canonicalFields, 'molesignal.trace.summary']),
+    ]);
 
     expect(selected?.name).toBe('otel');
     expect(preferred?.name).toBe('checkout-traces');
+    expect(summarized?.name).toBe('prod');
+  });
+
+  it('asks alternatives as a condition tree beside the filters that all hold', () => {
+    const parsed = parseTraceStatement(
+      "http.status_code = 500 AND (service.name = 'checkout' OR service.name = 'payments') AND timeout",
+      fields,
+    );
+
+    expect(parsed.filters).toEqual([{ field: 'http.status_code', op: '=', value: '500' }]);
+    expect(parsed.q).toBe('timeout');
+    expect(parsed.where).toEqual({
+      or: [
+        { field: 'service.name', op: '=', value: 'checkout' },
+        { field: 'service.name', op: '=', value: 'payments' },
+      ],
+    });
+    expect(parsed.rejected).toEqual([]);
+  });
+
+  it('reads AND before OR, text of one group as one phrase', () => {
+    const parsed = parseTraceStatement('timeout OR "connection reset" AND upstream OR span_count > 5', fields);
+
+    expect(parsed.filters).toEqual([]);
+    expect(parsed.where).toEqual({
+      or: [{ text: 'timeout' }, { text: 'connection reset upstream' }, { field: 'span_count', op: '>', value: '5' }],
+    });
+  });
+
+  it('leaves out the whole of alternatives a part of which it cannot read', () => {
+    const parsed = parseTraceStatement("service.name = 'a' OR service_name = 'b'", fields);
+
+    expect(parsed.where).toBeUndefined();
+    expect(parsed.rejected).toEqual(["service.name = 'a' OR service_name = 'b'"]);
+  });
+
+  it('splits at the AND that joins the statement, not inside brackets or an OR', () => {
+    expect(splitTraceStatement("a = 1 AND (b = 2 OR c = 3) AND x in ('p AND q')")).toEqual([
+      'a = 1',
+      '(b = 2 OR c = 3)',
+      "x in ('p AND q')",
+    ]);
+    expect(splitTraceStatement('a = 1 OR b = 2 AND c = 3')).toEqual(['a = 1 OR b = 2 AND c = 3']);
+  });
+
+  it('starts a clause that narrows a statement of alternatives as a whole', () => {
+    const service = fields.find((field) => field.name === 'service.name')!;
+
+    expect(insertTraceClause("status_code = 'ERROR' OR timeout", service)).toBe(
+      "(status_code = 'ERROR' OR timeout) AND service.name = ''",
+    );
   });
 });

@@ -6,7 +6,7 @@ use std::sync::Arc;
 use crate::{
     app::{
         alerting::AlertIncidentLifecycleSink,
-        notify::{ALERT_RESOLVED_EVENT, NotifyEngine, alert_dispatch, triggered_event_id},
+        notify::{ALERT_RESOLVED_EVENT, NotifyEngine, alert_dispatch},
     },
     domain::alerting::incident::Incident,
 };
@@ -22,9 +22,9 @@ pub(super) async fn enqueue_notify_event(
 
     if event_type == ALERT_RESOLVED_EVENT
         && let Err(error) = engine
-            .acknowledge_event(
+            .acknowledge_alert(
                 &incident.org_id,
-                &triggered_event_id(&incident.id),
+                &incident.id,
                 incident.resolved_at.unwrap_or(incident.created_at),
             )
             .await

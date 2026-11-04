@@ -25,7 +25,7 @@ use crate::{
 const DEFAULT_TTL_SECS: i64 = 7 * 86_400;
 
 /// 持有它的人管理整个组织的任务：与取消别人正在运行的查询是同一个权限。
-const ORGANIZATION_ADMINISTRATOR: &str = "org.settings.manage";
+const ORGANIZATION_ADMINISTRATOR: &str = "org.running_queries.cancel";
 
 /// 系统范围里没有组织权限；能管理系统遥测的人管理那里的任务。
 const SYSTEM_ADMINISTRATOR: &str = "sys.telemetry.manage";
@@ -68,6 +68,7 @@ impl SearchJobViewer {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SearchJobResultPage {
     pub state: SearchJobState,
     pub result_rows: Option<i64>,
@@ -146,7 +147,7 @@ impl SearchJobService {
             .ok_or_else(|| Error::internal("search job request must serialize as an object"))?;
 
         object.insert("pipeline_id".into(), Value::String(pipeline_id.0));
-        object.insert("backfill_window_micros".into(), window_micros.into());
+        object.insert("backfill_window".into(), window_micros.into());
         self.submit_json_with_id(Id::new(), org_id, user_id, role_key, request_json, ttl_secs)
             .await
     }
@@ -375,7 +376,7 @@ mod tests {
             org_id: Id::from_string("org-1"),
             display_role: String::new(),
             roles: Vec::new(),
-            credential_role_id: None,
+            credential_token_id: None,
             credential_application_id: None,
             credential_service_account_id: None,
             scope: IamScope::Organization,
@@ -614,7 +615,10 @@ mod tests {
     #[test]
     fn an_organization_administrator_sees_every_job_and_anyone_else_their_own() {
         assert_eq!(
-            SearchJobViewer::of(&context(ADA, &["streams.query", "org.settings.manage"])),
+            SearchJobViewer::of(&context(
+                ADA,
+                &["streams.query", "org.running_queries.cancel"]
+            )),
             SearchJobViewer::Administrator
         );
         // 系统范围里没有组织权限，管理系统遥测的人就是那里的管理员。
@@ -629,7 +633,7 @@ mod tests {
         // 能查询、能读组织设置，都不等于能管别人的任务。
         for permissions in [
             &["streams.query"][..],
-            &["streams.query", "org.settings.read", "pipelines.run"][..],
+            &["streams.query", "org.preferences.read", "pipelines.run"][..],
             &["sys.telemetry.read"][..],
             &[][..],
         ] {

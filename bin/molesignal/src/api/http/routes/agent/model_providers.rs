@@ -50,6 +50,7 @@ const MIN_TIMEOUT_MS: i64 = 1_000;
 const MAX_TIMEOUT_MS: i64 = 600_000;
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProviderResp {
     pub id: String,
     pub provider: String,
@@ -65,8 +66,8 @@ pub struct ProviderResp {
     pub output_price_per_mtok: Option<f64>,
     pub key_last4: Option<String>,
     pub key_set: bool,
-    pub created_at_micros: i64,
-    pub updated_at_micros: i64,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
 fn to_resp(p: ModelProvider) -> ProviderResp {
@@ -85,12 +86,13 @@ fn to_resp(p: ModelProvider) -> ProviderResp {
         output_price_per_mtok: p.output_price_per_mtok,
         key_last4: p.key_last4,
         key_set: p.key_set,
-        created_at_micros: p.created_at.0,
-        updated_at_micros: p.updated_at.0,
+        created_at: p.created_at.0,
+        updated_at: p.updated_at.0,
     }
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateReq {
     pub provider: String,
     pub name: String,
@@ -124,6 +126,7 @@ fn default_true() -> bool {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateReq {
     pub provider: String,
     pub name: String,
@@ -146,6 +149,7 @@ pub struct UpdateReq {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RotateReq {
     pub api_key: String,
 }
@@ -183,9 +187,9 @@ fn pricing(
     cached_input: Option<f64>,
     output: Option<f64>,
 ) -> Result<Pricing> {
-    validate_price(input, "input_price_per_mtok")?;
-    validate_price(cached_input, "cached_input_price_per_mtok")?;
-    validate_price(output, "output_price_per_mtok")?;
+    validate_price(input, "inputPricePerMtok")?;
+    validate_price(cached_input, "cachedInputPricePerMtok")?;
+    validate_price(output, "outputPricePerMtok")?;
 
     Ok(Pricing {
         currency: currency
@@ -211,7 +215,7 @@ async fn known_currency(state: &AppState, ctx: &IamContext, currency: Currency) 
     )))
 }
 
-#[permission("agent.use")]
+#[permission("agent.models.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -220,7 +224,7 @@ async fn list(
     Ok(Json(rows.into_iter().map(to_resp).collect()))
 }
 
-#[permission("agent.manage")]
+#[permission("agent.models.manage")]
 async fn create(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -270,10 +274,10 @@ async fn create(
         json!({
             "provider": saved.provider,
             "name": saved.name,
-            "default_model": saved.default_model,
+            "defaultModel": saved.default_model,
             "enabled": saved.enabled,
-            "key_last4": saved.key_last4,
-            "key_set": saved.key_set,
+            "keyLast4": saved.key_last4,
+            "keySet": saved.key_set,
         }),
     )
     .await;
@@ -281,7 +285,7 @@ async fn create(
     Ok(Json(to_resp(saved)))
 }
 
-#[permission("agent.manage")]
+#[permission("agent.models.manage")]
 async fn update(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -324,7 +328,7 @@ async fn update(
         json!({
             "provider": saved.provider,
             "name": saved.name,
-            "default_model": saved.default_model,
+            "defaultModel": saved.default_model,
             "enabled": saved.enabled,
         }),
     )
@@ -333,7 +337,7 @@ async fn update(
     Ok(Json(to_resp(saved)))
 }
 
-#[permission("agent.manage")]
+#[permission("agent.models.rotate")]
 async fn rotate_key(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -341,7 +345,7 @@ async fn rotate_key(
     Json(req): Json<RotateReq>,
 ) -> Result<Json<ProviderResp>> {
     if req.api_key.trim().is_empty() {
-        return Err(Error::invalid("api_key is required"));
+        return Err(Error::invalid("apiKey is required"));
     }
 
     let saved = state
@@ -356,14 +360,14 @@ async fn rotate_key(
         "agent.model_provider.key_rotated",
         "agent_model_provider",
         &saved.id.0,
-        json!({ "key_last4": saved.key_last4 }),
+        json!({ "keyLast4": saved.key_last4 }),
     )
     .await;
 
     Ok(Json(to_resp(saved)))
 }
 
-#[permission("agent.manage")]
+#[permission("agent.models.manage")]
 async fn delete(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

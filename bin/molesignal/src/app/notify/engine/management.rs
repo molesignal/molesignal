@@ -11,7 +11,7 @@ use crate::{
     app::notify::{config::validate_name, validate_matchers},
     domain::notify::{
         connector::{NotifyTarget, NotifyTargetType},
-        policy::{NotifyDeliveryMode, NotifyEvent, NotifyPolicy},
+        policy::{NotifyDeliveryMode, NotifyEvent, NotifyPolicy, validate_merge_window},
         preference::NotifyCategory,
         routing::{OrganizationNotifyDefault, TeamNotifyDefault},
     },
@@ -76,15 +76,20 @@ impl NotifyEngine {
         let input = self.validate_policy_input(organization_id, input).await?;
         let existing = self.policies.get(organization_id, id).await?;
 
-        self.policies
-            .update(policy_from_input(
-                existing.id,
-                organization_id.clone(),
-                input,
-                existing.created_at,
-                now(),
-            ))
-            .await
+        if existing.builtin_key.is_some() && input.name != existing.name {
+            return Err(Error::invalid("a built-in notify policy keeps its name"));
+        }
+
+        let mut policy = policy_from_input(
+            existing.id,
+            organization_id.clone(),
+            input,
+            existing.created_at,
+            now(),
+        );
+        policy.builtin_key = existing.builtin_key;
+
+        self.policies.update(policy).await
     }
 
     pub async fn get_policy(&self, organization_id: &Id, id: &Id) -> Result<NotifyPolicy> {
@@ -95,8 +100,30 @@ impl NotifyEngine {
         self.policies.list(organization_id).await
     }
 
+    /// A built-in policy is turned off, not deleted: restoring it needs it there.
     pub async fn delete_policy(&self, organization_id: &Id, id: &Id) -> Result<()> {
+        let policy = self.policies.get(organization_id, id).await?;
+
+        if policy.builtin_key.is_some() {
+            return Err(Error::invalid(
+                "a built-in notify policy can be turned off, not deleted",
+            ));
+        }
+
         self.policies.delete(organization_id, id).await
+    }
+
+    /// Put a built-in policy back as its built-in row has it.
+    pub async fn restore_policy(&self, organization_id: &Id, id: &Id) -> Result<NotifyPolicy> {
+        let policy = self.policies.get(organization_id, id).await?;
+
+        if policy.builtin_key.is_none() {
+            return Err(Error::invalid(
+                "only a built-in notify policy can be restored",
+            ));
+        }
+
+        self.policies.restore_builtin(organization_id, id).await
     }
 
     pub async fn get_team_default(
@@ -276,13 +303,38 @@ impl NotifyEngine {
         )
         .await?;
 
-        if let Some(template_id) = &input.template_id {
-            let template = self.templates.get(organization_id, template_id).await?;
-            super::template::validate_template_for_notify(&template)?;
+        if let Some(template_id) = &input.template_id
+            && self
+                .notify_template(organization_id, template_id)
+                .await?
+                .channel
+                .is_some()
+        {
+            return Err(Error::invalid(
+                "the general template of a notify policy must be a template for every channel",
+            ));
+        }
+
+        for (channel, template_id) in &input.channel_templates {
+            let template = self.notify_template(organization_id, template_id).await?;
+
+            if template.channel != Some(*channel) {
+                return Err(Error::invalid(format!(
+                    "the {} template of a notify policy must be a {} template",
+                    channel.as_str(),
+                    channel.as_str()
+                )));
+            }
         }
 
         self.validate_escalation_input(organization_id, &input)
             .await?;
+
+        validate_merge_window(input.category, input.merge_window_secs)?;
+
+        if let Some(time) = &input.time {
+            time.check(organization_id)?;
+        }
 
         if input
             .ack_timeout_seconds
@@ -305,7 +357,7 @@ impl NotifyEngine {
             .is_some_and(|value| !value.is_object())
         {
             return Err(Error::invalid(
-                "notify policy escalation_config must be a JSON object",
+                "notify policy escalationConfig must be a JSON object",
             ));
         }
 
@@ -353,12 +405,9 @@ impl NotifyEngine {
 
         for connector_id in connector_ids {
             let connector = self.connectors.get(organization_id, connector_id).await?;
+            let adapter = self.connector_registry.get(&connector.connector_type)?;
 
-            let capabilities = self
-                .connector_registry
-                .capabilities(&connector.connector_type)?;
-
-            if !capabilities.direct_user {
+            if !adapter.capabilities().direct_user {
                 return Err(Error::invalid(format!(
                     "notify connector {} cannot deliver to user endpoints",
                     connector.id
@@ -458,6 +507,7 @@ fn policy_from_input(
         id,
         organization_id,
         name: input.name,
+        builtin_key: None,
         event_type: input.event_type,
         category: input.category,
         matchers: input.matchers,
@@ -466,9 +516,12 @@ fn policy_from_input(
         delivery_mode: input.delivery_mode,
         delivery_config: input.delivery_config,
         template_id: input.template_id,
+        channel_templates: input.channel_templates,
         fallback_config: input.fallback_config,
         ack_timeout_seconds: input.ack_timeout_seconds,
         escalation_config: input.escalation_config,
+        merge_window_secs: input.merge_window_secs,
+        time: input.time,
         enabled: input.enabled,
         priority: input.priority,
         created_at,

@@ -83,8 +83,9 @@ pub struct TraceSettings {
     pub decision_cache_secs: u64,
     #[serde(default = "default_tail_max_traces")]
     pub tail_max_traces: usize,
-    #[serde(default = "default_tail_memory_bytes")]
-    pub tail_memory_bytes: usize,
+    /// 未决链路的内存上限，单位 MiB。
+    #[serde(default = "default_tail_memory_size")]
+    pub tail_memory_size: usize,
     #[serde(default = "default_trace_max_spans")]
     pub max_spans_per_trace: usize,
     #[serde(default = "default_trace_max_attributes")]
@@ -93,8 +94,9 @@ pub struct TraceSettings {
     pub max_events_per_span: usize,
     #[serde(default = "default_trace_max_links")]
     pub max_links_per_span: usize,
-    #[serde(default = "default_trace_max_string_bytes")]
-    pub max_string_bytes: usize,
+    /// 单个字符串属性的最大长度，单位 UTF-8 字节。
+    #[serde(default = "default_trace_max_string_length")]
+    pub max_string_length: usize,
     #[serde(default = "default_trace_shutdown_timeout_secs")]
     pub shutdown_timeout_secs: u64,
     #[serde(default)]
@@ -116,12 +118,12 @@ impl Default for TraceSettings {
             root_grace_millis: default_root_grace_millis(),
             decision_cache_secs: default_decision_cache_secs(),
             tail_max_traces: default_tail_max_traces(),
-            tail_memory_bytes: default_tail_memory_bytes(),
+            tail_memory_size: default_tail_memory_size(),
             max_spans_per_trace: default_trace_max_spans(),
             max_attributes_per_span: default_trace_max_attributes(),
             max_events_per_span: default_trace_max_events(),
             max_links_per_span: default_trace_max_links(),
-            max_string_bytes: default_trace_max_string_bytes(),
+            max_string_length: default_trace_max_string_length(),
             shutdown_timeout_secs: default_trace_shutdown_timeout_secs(),
             slow_thresholds: TraceSlowThresholds::default(),
             external: ExternalTraceExporterSettings::default(),
@@ -156,7 +158,7 @@ impl TraceSettings {
             root_grace_ms: self.root_grace_millis,
             decision_cache_ms: self.decision_cache_secs.saturating_mul(1_000),
             max_traces: self.tail_max_traces,
-            memory_bytes: self.tail_memory_bytes,
+            memory_bytes: self.tail_memory_size.saturating_mul(1024 * 1024),
             max_spans_per_trace: self.max_spans_per_trace,
             slow_thresholds_ms: SlowThresholds {
                 http: self.slow_thresholds.http_ms,
@@ -197,12 +199,12 @@ impl TraceSettings {
         if self.root_grace_millis == 0
             || self.decision_cache_secs < self.decision_window_secs
             || self.tail_max_traces == 0
-            || self.tail_memory_bytes == 0
+            || self.tail_memory_size == 0
             || self.max_spans_per_trace == 0
             || self.max_attributes_per_span == 0
             || self.max_events_per_span == 0
             || self.max_links_per_span == 0
-            || self.max_string_bytes == 0
+            || self.max_string_length == 0
             || self.shutdown_timeout_secs == 0
         {
             anyhow::bail!("telemetry.trace limits and timeouts must be greater than zero");
@@ -436,8 +438,8 @@ fn default_tail_max_traces() -> usize {
     10_000
 }
 
-fn default_tail_memory_bytes() -> usize {
-    256 * 1024 * 1024
+fn default_tail_memory_size() -> usize {
+    256
 }
 
 fn default_trace_max_spans() -> usize {
@@ -456,7 +458,7 @@ fn default_trace_max_links() -> usize {
     128
 }
 
-fn default_trace_max_string_bytes() -> usize {
+fn default_trace_max_string_length() -> usize {
     4 * 1024
 }
 

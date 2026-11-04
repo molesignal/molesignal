@@ -165,8 +165,8 @@ export function auditTargetName(
   event: AuditEvent,
   names: ReadonlyMap<string, string>,
 ): string {
-  const kind = event.target_kind?.trim();
-  const id = event.target_id?.trim();
+  const kind = event.targetKind?.trim();
+  const id = event.targetId?.trim();
   if (!kind) return '—';
   const resolved = id ? names.get(resourceNameKey(kind, id)) : undefined;
   const name = resolved ?? payloadName(event.payload);
@@ -174,18 +174,18 @@ export function auditTargetName(
 }
 
 export function rawAuditTarget(event: AuditEvent): string {
-  const kind = event.target_kind?.trim();
-  const id = event.target_id?.trim();
+  const kind = event.targetKind?.trim();
+  const id = event.targetId?.trim();
   return kind ? `${kind}${id ? `/${id}` : ''}` : '—';
 }
 
 export function useAuditResourceNames(events: AuditEvent[]): ReadonlyMap<string, string> {
   const targetKinds = React.useMemo(
-    () => new Set(events.map((event) => event.target_kind).filter(Boolean)),
+    () => new Set(events.map((event) => event.targetKind).filter(Boolean)),
     [events],
   );
   const actorKinds = React.useMemo(
-    () => new Set(events.map((event) => event.actor_kind).filter(Boolean)),
+    () => new Set(events.map((event) => event.actorKind).filter(Boolean)),
     [events],
   );
 
@@ -206,8 +206,8 @@ export function useAuditResourceNames(events: AuditEvent[]): ReadonlyMap<string,
   const statusPageIds = React.useMemo(() => {
     const ids = new Set<string>();
     for (const event of events) {
-      if (!event.target_kind?.startsWith('status_page_')) continue;
-      const id = stringValue(recordOf(event.payload).status_page_id);
+      if (!event.targetKind?.startsWith('status_page_')) continue;
+      const id = stringValue(recordOf(event.payload).statusPageId);
       if (id) ids.add(id);
     }
     return [...ids];
@@ -219,8 +219,8 @@ export function useAuditResourceNames(events: AuditEvent[]): ReadonlyMap<string,
       queryFn: async (): Promise<NameEntry[]> => {
         const snapshot = await statusPagesApi.get(pageId);
         const incidents = [
-          ...snapshot.active_incidents,
-          ...snapshot.scheduled_maintenance,
+          ...snapshot.activeIncidents,
+          ...snapshot.scheduledMaintenance,
           ...snapshot.history,
         ];
         return [
@@ -258,10 +258,10 @@ export function useAuditResourceNames(events: AuditEvent[]): ReadonlyMap<string,
     }
   }
   for (const event of events) {
-    const kind = event.target_kind?.trim();
-    const id = event.target_id?.trim();
+    const kind = event.targetKind?.trim();
+    const id = event.targetId?.trim();
     const name = payloadName(event.payload);
-    const statusPageId = stringValue(recordOf(event.payload).status_page_id);
+    const statusPageId = stringValue(recordOf(event.payload).statusPageId);
     const parentPageName = statusPageId
       ? names.get(resourceNameKey('status_page', statusPageId))
       : undefined;
@@ -275,7 +275,7 @@ export function useAuditResourceNames(events: AuditEvent[]): ReadonlyMap<string,
 }
 
 function payloadName(payload: Record<string, unknown>): string | undefined {
-  for (const key of ['name', 'title', 'display_name', 'resource_name', 'target_name']) {
+  for (const key of ['name', 'title', 'displayName', 'resourceName', 'targetName']) {
     const value = stringValue(payload[key]);
     if (value) return value;
   }

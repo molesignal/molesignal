@@ -24,8 +24,8 @@ pub(super) async fn enqueue(
     let sql = format!(
         "INSERT INTO status_page_automation_outbox
             (id,organization_id,candidate_id,kind,idempotency_key,payload,status,attempts,
-             available_at_micros,locked_at_micros,last_error,completed_at_micros,
-             created_at_micros,updated_at_micros)
+             available_at,locked_at,last_error,completed_at,
+             created_at,updated_at)
          VALUES ($1,$2,$3,$4,$5,$6,'pending',0,$7,NULL,NULL,NULL,$8,$8)
          ON CONFLICT (idempotency_key) DO UPDATE
              SET id=status_page_automation_outbox.id
@@ -39,8 +39,8 @@ pub(super) async fn enqueue(
         .bind(&item.kind)
         .bind(&item.idempotency_key)
         .bind(sqlx::types::Json(&item.payload))
-        .bind(item.available_at.0)
-        .bind(item.created_at.0)
+        .bind(item.available_at)
+        .bind(item.created_at)
         .fetch_one(&repository.pool)
         .await
         .map_err(super::super::sqlx_err)?;
@@ -69,23 +69,23 @@ pub(super) async fn claim(
                ON rule.organization_id=revision.organization_id AND rule.id=revision.rule_id
              JOIN status_pages page
                ON page.org_id=candidate.organization_id AND page.id=candidate.status_page_id
-             WHERE ((item.status='pending' AND item.available_at_micros <= $1)
-                 OR (item.status='processing' AND item.locked_at_micros < $2))
+             WHERE ((item.status='pending' AND item.available_at <= $1)
+                 OR (item.status='processing' AND item.locked_at < $2))
                AND (item.kind='resolve'
                     OR (rule.lifecycle='active' AND NOT page.automation_paused))
-             ORDER BY item.available_at_micros,item.created_at_micros,item.id
+             ORDER BY item.available_at,item.created_at,item.id
              LIMIT $3 FOR UPDATE OF item SKIP LOCKED
          )
          UPDATE status_page_automation_outbox item
-         SET status='processing',attempts=item.attempts+1,locked_at_micros=$1,
-             updated_at_micros=$1
+         SET status='processing',attempts=item.attempts+1,locked_at=$1,
+             updated_at=$1
          FROM candidates WHERE item.id=candidates.outbox_id
          RETURNING {OUTBOX_COLS}"
     );
 
     sqlx::query(&sql)
-        .bind(now.0)
-        .bind(stale)
+        .bind(now)
+        .bind(TimestampMicros(stale))
         .bind(i64::from(limit.clamp(1, 500)))
         .fetch_all(&repository.pool)
         .await
@@ -102,12 +102,12 @@ pub(super) async fn complete(
 ) -> Result<()> {
     let rows = sqlx::query(
         "UPDATE status_page_automation_outbox
-         SET status='completed',completed_at_micros=$2,locked_at_micros=NULL,
-             last_error=NULL,updated_at_micros=$2
+         SET status='completed',completed_at=$2,locked_at=NULL,
+             last_error=NULL,updated_at=$2
          WHERE id=$1 AND status='processing'",
     )
     .bind(&item_id.0)
-    .bind(completed_at.0)
+    .bind(completed_at)
     .execute(&repository.pool)
     .await
     .map_err(super::super::sqlx_err)?
@@ -133,14 +133,14 @@ pub(super) async fn fail(
     let item: Option<(String, String, String)> = sqlx::query_as(
         "UPDATE status_page_automation_outbox
          SET status=CASE WHEN attempts >= 10 THEN 'dead_letter' ELSE 'pending' END,
-             available_at_micros=$3,locked_at_micros=NULL,last_error=$2,
-             updated_at_micros=$3
+             available_at=$3,locked_at=NULL,last_error=$2,
+             updated_at=$3
          WHERE id=$1 AND status='processing'
          RETURNING status,organization_id,candidate_id",
     )
     .bind(&item_id.0)
     .bind(truncate(error, 4000))
-    .bind(retry_at.0)
+    .bind(retry_at)
     .fetch_optional(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;
@@ -152,14 +152,14 @@ pub(super) async fn fail(
     if status == "dead_letter" {
         let rows = sqlx::query(
             "UPDATE status_page_automation_candidates
-             SET state='failed',last_error=$3,updated_at_micros=$4
+             SET state='failed',last_error=$3,updated_at=$4
              WHERE organization_id=$1 AND id=$2
                AND state IN ('delayed','pending_approval','approved','published','failed')",
         )
         .bind(&org_id)
         .bind(&candidate_id)
         .bind(truncate(error, 4000))
-        .bind(retry_at.0)
+        .bind(retry_at)
         .execute(&mut *tx)
         .await
         .map_err(super::super::sqlx_err)?
@@ -168,14 +168,14 @@ pub(super) async fn fail(
         if rows > 0 {
             sqlx::query(
                 "INSERT INTO status_page_automation_actions
-                    (id,organization_id,candidate_id,action,actor_id,note,created_at_micros)
+                    (id,organization_id,candidate_id,action,actor_id,note,created_at)
                  VALUES ($1,$2,$3,'failed',NULL,$4,$5)",
             )
             .bind(Id::new().0)
             .bind(&org_id)
             .bind(&candidate_id)
             .bind(truncate(error, 4000))
-            .bind(retry_at.0)
+            .bind(retry_at)
             .execute(&mut *tx)
             .await
             .map_err(super::super::sqlx_err)?;
@@ -219,14 +219,14 @@ pub(super) async fn retry_candidate(
 
     let kinds: Vec<String> = sqlx::query_scalar(
         "UPDATE status_page_automation_outbox
-         SET status='pending',attempts=0,available_at_micros=$3,locked_at_micros=NULL,
-             last_error=NULL,completed_at_micros=NULL,updated_at_micros=$3
+         SET status='pending',attempts=0,available_at=$3,locked_at=NULL,
+             last_error=NULL,completed_at=NULL,updated_at=$3
          WHERE organization_id=$1 AND candidate_id=$2 AND status='dead_letter'
          RETURNING kind",
     )
     .bind(&org_id.0)
     .bind(&candidate_id.0)
-    .bind(retried_at.0)
+    .bind(retried_at)
     .fetch_all(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;
@@ -247,27 +247,27 @@ pub(super) async fn retry_candidate(
 
     sqlx::query(
         "UPDATE status_page_automation_candidates
-         SET state=$3,last_error=NULL,updated_at_micros=$4
+         SET state=$3,last_error=NULL,updated_at=$4
          WHERE organization_id=$1 AND id=$2 AND state='failed'",
     )
     .bind(&org_id.0)
     .bind(&candidate_id.0)
     .bind(resumed_state)
-    .bind(retried_at.0)
+    .bind(retried_at)
     .execute(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;
 
     sqlx::query(
         "INSERT INTO status_page_automation_actions
-            (id,organization_id,candidate_id,action,actor_id,note,created_at_micros)
+            (id,organization_id,candidate_id,action,actor_id,note,created_at)
          VALUES ($1,$2,$3,'retried',$4,'dead-letter work retried',$5)",
     )
     .bind(Id::new().0)
     .bind(&org_id.0)
     .bind(&candidate_id.0)
     .bind(&actor_id.0)
-    .bind(retried_at.0)
+    .bind(retried_at)
     .execute(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;

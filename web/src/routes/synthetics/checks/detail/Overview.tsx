@@ -1,8 +1,10 @@
 import { useTranslation } from 'react-i18next';
 
 import type {
+  MissingRuns,
   MonitorRevision,
   ProbeLocation,
+  SyntheticAvailability,
   SyntheticMonitor,
   SyntheticResult,
 } from '@/api/synthetics';
@@ -11,45 +13,76 @@ import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
 import { CheckStanding } from './Standing';
 import { SyntheticsSection } from '../../Frame';
-import { OutcomeMark, RunStrip } from '../../marks';
-import { formatDuration, operationalResults, resultDurationMicros } from '../../model';
+import { CheckStateMark, OutcomeMark, RunStrip } from '../../marks';
+import { formatDuration, formatPercent, operationalResults, resultDurationMicros } from '../../model';
 import { decidedRuns } from '../../summary';
 
 /**
  * A check at a glance: how it stands, then how its runs have gone from each
- * place it runs. The chart and the list are the same runs, drawn and named:
- * the chart shows when a location slowed or stopped, the list says where it
- * stands now.
+ * place it runs over the range chosen. The chart draws the range step by step,
+ * and shows when a location slowed or stopped; the list says how each place
+ * did over the range and where it stands now.
  */
 export function CheckOverview({
   monitor,
   revision,
   results,
+  availability,
+  missingRuns,
   locations,
   draft,
 }: {
   monitor: SyntheticMonitor;
   revision: MonitorRevision;
   results: readonly SyntheticResult[];
+  /** The check's runs over the range chosen. */
+  availability: SyntheticAvailability | undefined;
+  /** Where the check is missing runs. */
+  missingRuns: MissingRuns | undefined;
   locations: readonly ProbeLocation[];
   /** The revision shown is a draft: it is not on schedule until it is published. */
   draft: boolean;
 }) {
   const { t, i18n } = useTranslation('synthetics');
   const nowMicros = Date.now() * 1000;
+  const locationName = (id: string) =>
+    locations.find((location) => location.id === id)?.name ?? id;
+  const missed = new Map(
+    (draft ? [] : (missingRuns?.locations ?? [])).map((location) => [
+      location.locationId,
+      location.missedRuns,
+    ]),
+  );
   const scheduled = operationalResults([...results]);
-  const places = revision.location_ids.map((id) => ({
+  const places = revision.locationIds.map((id) => ({
     id,
     location: locations.find((candidate) => candidate.id === id),
     runs: scheduled
-      .filter((result) => result.location_id === id)
-      .sort((left, right) => right.started_at - left.started_at),
+      .filter((result) => result.locationId === id)
+      .sort((left, right) => right.startedAt - left.startedAt),
   }));
-  const charted = places.filter((place) => decidedRuns(place.runs).length > 0);
+  const steps = availability?.locationBuckets ?? [];
+  const charted = places
+    .map((place) => ({
+      ...place,
+      steps: steps.filter((step) => step.locationId === place.id && step.p50Ms !== null),
+    }))
+    .filter((place) => place.steps.length > 0);
+  const overRange = new Map(
+    (availability?.locations ?? []).map((location) => [location.locationId, location]),
+  );
 
   return (
     <div className="space-y-[12px]">
-      <CheckStanding monitor={monitor} revision={revision} results={results} nowMicros={nowMicros} />
+      <CheckStanding
+        monitor={monitor}
+        revision={revision}
+        results={results}
+        availability={availability}
+        missingRuns={draft ? undefined : missingRuns}
+        locationName={locationName}
+        nowMicros={nowMicros}
+      />
       {draft && (
         <p role="note" className="rounded-md bg-[var(--functional-surface)] px-4 py-[10px] font-sans text-xs text-tx-1 [box-shadow:var(--shadow-functional-surface)]">
           {t('detail.draft_notice')}
@@ -65,21 +98,14 @@ export function CheckOverview({
                 <TimeSeriesChart
                   height={260}
                   ariaLabel={t('detail.response_by_location')}
-                  series={charted.map((place) => {
-                    // Oldest first: the chart reads left to right.
-                    const runs = decidedRuns(place.runs).reverse();
-
-                    return {
-                      id: `location-${place.id}`,
-                      name: place.location?.name ?? place.id,
-                      timestamps: runs.map((run) => run.started_at),
-                      data: runs.map((run) => {
-                        const duration = resultDurationMicros(run);
-                        return duration === undefined ? null : duration / 1000;
-                      }),
-                      unit: 'ms',
-                    };
-                  })}
+                  // Each step of the range at its median: one slow run does not make a slow place.
+                  series={charted.map((place) => ({
+                    id: `location-${place.id}`,
+                    name: place.location?.name ?? place.id,
+                    timestamps: place.steps.map((step) => step.start),
+                    data: place.steps.map((step) => step.p50Ms),
+                    unit: 'ms',
+                  }))}
                   options={{
                     drawStyle: 'line',
                     showPoints: 'auto',
@@ -103,6 +129,8 @@ export function CheckOverview({
             <ul className="divide-y divide-bd-0 border-t border-bd-0">
               {places.map((place) => {
                 const latest = decidedRuns(place.runs)[0];
+                const range = overRange.get(place.id);
+                const missedRuns = missed.get(place.id);
 
                 return (
                   <li
@@ -115,14 +143,30 @@ export function CheckOverview({
                         {place.location?.name ?? place.id}
                       </div>
                       <div className="mt-[2px] truncate font-sans text-xs text-tx-2">
-                        {latest
-                          ? `${formatDuration(resultDurationMicros(latest))} · ${formatRelativeMicros(latest.started_at, i18n.language, nowMicros)}`
+                        {missedRuns !== undefined
+                          ? t('detail.location_missed', { count: missedRuns })
+                          : latest
+                          ? [
+                              range?.availability !== null && range?.availability !== undefined
+                                ? t('detail.location_availability', {
+                                    value: formatPercent(range.availability),
+                                  })
+                                : undefined,
+                              formatDuration(resultDurationMicros(latest)),
+                              formatRelativeMicros(latest.startedAt, i18n.language, nowMicros),
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')
                           : t('detail.location_never')}
                       </div>
                     </div>
                     <RunStrip results={place.runs} length={16} className="hidden shrink-0 sm:inline-flex" />
                     <span className="w-[84px] shrink-0">
-                      <OutcomeMark outcome={latest?.outcome ?? 'unknown'} />
+                      {missedRuns !== undefined ? (
+                        <CheckStateMark state="unknown" noData />
+                      ) : (
+                        <OutcomeMark outcome={latest?.outcome ?? 'unknown'} />
+                      )}
                     </span>
                   </li>
                 );

@@ -37,8 +37,8 @@ export function Home() {
   const nav = useNavigate();
   const dashboardCreateAccess = useActionAccess({ permission: 'dashboards.create' });
   const dashboardEditAccess = useActionAccess({ permission: 'dashboards.edit' });
-  const alertCreateAccess = useActionAccess({ permission: 'alerts.manage' });
-  const scheduleManageAccess = useActionAccess({ permission: 'schedules.manage' });
+  const alertCreateAccess = useActionAccess({ permission: 'alerts.rules.manage' });
+  const scheduleManageAccess = useActionAccess({ permission: 'schedules.create' });
   const productAccess = useProductAccess();
   const canAskAgent = canAccessProductPath('/agent', productAccess);
   const [windowSecs, setWindowSecs] = React.useState<number>(HOME_WINDOWS[0].seconds);
@@ -49,15 +49,15 @@ export function Home() {
   const windowLabel = t(homeWindowFor(windowSecs).labelKey);
 
   React.useEffect(() => {
-    if (overview && overview.intake_bytes == null && chartMetric === 'intake') {
+    if (overview && overview.intakeBytes == null && chartMetric === 'intake') {
       setChartMetric('stored');
     }
   }, [chartMetric, overview]);
 
   const lastReceived = formatRelativeMicros(
-    data.fleet?.lastReceivedAtMicros ?? overview?.last_received_at_micros,
+    data.fleet?.lastReceivedAt ?? overview?.lastReceivedAt,
     locale,
-    overview?.generated_at_micros,
+    overview?.generatedAt,
   );
   const connect = () => nav('/datasource');
   const investigate = () => nav(streamAttentionHref(windowSecs));
@@ -105,12 +105,14 @@ export function Home() {
             firing={data.firing}
             acknowledged={data.acknowledged}
             incidentsLoading={data.incidentsLoading}
+            incidentsFailed={data.incidentsFailed}
+            overviewFailed={data.overviewState === 'error'}
             windowLabel={windowLabel}
             lastReceived={lastReceived}
             actions={{
               investigate,
               connect,
-              viewStreams: () => nav(`/streams?window_secs=${windowSecs}`),
+              viewStreams: () => nav(`/streams?windowSecs=${windowSecs}`),
               retry: () => void data.refresh(),
               askAgent: canAskAgent
                 ? (prompt) => useMoleAgentStore.getState().open(prompt)
@@ -120,7 +122,7 @@ export function Home() {
               overview ? (
                 <SignalLine
                   values={(overview.buckets ?? []).map(
-                    (bucket) => bucket.intake_bytes ?? bucket.stored_bytes,
+                    (bucket) => bucket.intakeBytes ?? bucket.storedBytes,
                   )}
                   className="pointer-events-none absolute inset-x-0 bottom-0 h-[22px] w-full opacity-60 [mask-image:linear-gradient(to_right,transparent,#000_35%)]"
                 />
@@ -130,11 +132,13 @@ export function Home() {
             onOpenStreams={() => nav('/streams')}
           />
 
-          <ActivationStrip
-            state={data.activation}
-            onOpen={() => setQuickStartOpen(true)}
-            riseIndex={4}
-          />
+          {data.activationKnown && (
+            <ActivationStrip
+              state={data.activation}
+              onOpen={() => setQuickStartOpen(true)}
+              riseIndex={4}
+            />
+          )}
 
           <CanvasSurfaceGrid className="home-canvas-workspace">
             <CanvasColumn>
@@ -168,29 +172,32 @@ export function Home() {
               className="home-canvas-column"
               data-testid="home-primary-operational-context"
             >
-              <OnCallStatusCard
-                surface="canvas"
-                className="home-rise home-canvas-oncall"
-                feature={data.featuredOnCall}
-                teamName={data.featuredTeamName}
-                usersById={data.users.byId}
-                shiftOverview={data.shiftOverview}
-                nowMicros={data.nowMicros}
-                locale={i18n.language}
-                loading={data.schedulesLoading || data.users.isLoading}
-                onViewSchedule={() => nav(scheduleHref)}
-                onViewEscalations={() => nav('/alerts/escalations')}
-                onOpenIncidents={() => nav('/alerts/incidents')}
-                onArrange={() =>
-                  nav(
-                    hasCoverageGap
-                      ? `${scheduleHref}?addOverride=1`
-                      : '/alerts/schedules',
-                  )
-                }
-                arrangeDisabled={scheduleManageAccess.disabled}
-                arrangeDisabledReason={scheduleManageAccess.reason}
-              />
+              {data.canReadSchedules && (
+                <OnCallStatusCard
+                  surface="canvas"
+                  className="home-rise home-canvas-oncall"
+                  feature={data.featuredOnCall}
+                  teamName={data.featuredTeamName}
+                  usersById={data.users.byId}
+                  shiftOverview={data.shiftOverview}
+                  nowMicros={data.nowMicros}
+                  locale={i18n.language}
+                  loading={data.schedulesLoading || data.users.isLoading}
+                  error={data.schedulesError}
+                  onViewSchedule={() => nav(scheduleHref)}
+                  onViewEscalations={() => nav('/alerts/escalations')}
+                  onOpenIncidents={() => nav('/alerts/incidents')}
+                  onArrange={() =>
+                    nav(
+                      hasCoverageGap
+                        ? `${scheduleHref}?addOverride=1`
+                        : '/alerts/schedules',
+                    )
+                  }
+                  arrangeDisabled={scheduleManageAccess.disabled}
+                  arrangeDisabledReason={scheduleManageAccess.reason}
+                />
+              )}
               <RecentActivitySection
                 events={data.activity}
                 state={data.activityState}

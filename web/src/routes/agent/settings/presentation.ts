@@ -20,16 +20,16 @@ export function parseInvestigationEvidence(value: unknown): InvestigationEvidenc
     const status: InvestigationEvidenceItem['status'] =
       rawStatus === 'error' ? 'error' : rawStatus === 'running' ? 'running' : 'success';
     const item: InvestigationEvidenceItem = {
-      toolCallId: stringValue(entry.tool_call_id) || `${tool}-${index}`,
+      toolCallId: stringValue(entry.toolCallId) || `${tool}-${index}`,
       tool,
       status,
       summary: stringValue(entry.summary),
     };
     if ('arguments' in entry) item.arguments = entry.arguments;
-    const rowCount = numberValue(entry.row_count);
-    const scannedRows = numberValue(entry.scanned_rows);
-    const tookMs = numberValue(entry.took_ms);
-    const objectKey = stringValue(entry.object_key);
+    const rowCount = numberValue(entry.rowCount);
+    const scannedRows = numberValue(entry.scannedRows);
+    const tookMs = numberValue(entry.tookMs);
+    const objectKey = stringValue(entry.objectKey);
     if (rowCount !== undefined) item.rowCount = rowCount;
     if (scannedRows !== undefined) item.scannedRows = scannedRows;
     if (tookMs !== undefined) item.tookMs = tookMs;

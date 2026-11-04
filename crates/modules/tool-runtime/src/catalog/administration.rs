@@ -3,20 +3,20 @@
 
 use serde_json::{Value, json};
 
-use super::{BuiltinToolKind, object_schema, open_output};
+use super::{BuiltinToolKind, object_schema, open_output, timestamp_schema};
 use crate::{RiskLevel, ToolSpec};
 
 pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
     let (description, category, input, permissions, tags) = match kind {
         BuiltinToolKind::GetUserProfile => (
-            "Get safe profile fields for an organization user. User principals may omit target_user_id for themselves; service accounts must specify it, and other-user access requires org.members.read.",
+            "Get safe profile fields for an organization user. User principals may omit targetUserId for themselves; service accounts must specify it, and other-user access requires org.members.read.",
             "identity",
             user_target_schema(),
             vec![],
             vec!["IAM", "Profile"],
         ),
         BuiltinToolKind::GetUserPreferences => (
-            "Get workspace preferences for an organization user. User principals may omit target_user_id for themselves; service accounts must specify it, and other-user access requires org.members.read.",
+            "Get workspace preferences for an organization user. User principals may omit targetUserId for themselves; service accounts must specify it, and other-user access requires org.members.read.",
             "identity",
             user_target_schema(),
             vec![],
@@ -47,9 +47,9 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "Query bounded organization audit events with optional filters.",
             "audit",
             object_schema(json!({
-                "from_micros": {"type": "integer"}, "to_micros": {"type": "integer"},
-                "actor_kind": {"type": "string"}, "actor_id": {"type": "string"}, "action": {"type": "string"},
-                "target_kind": {"type": "string"}, "target_id": {"type": "string"},
+                "fromTime": timestamp_schema(), "toTime": timestamp_schema(),
+                "actorKind": {"type": "string"}, "actorId": {"type": "string"}, "action": {"type": "string"},
+                "targetKind": {"type": "string"}, "targetId": {"type": "string"},
                 "limit": limit(200, 50)
             })),
             vec!["audit.read"],
@@ -72,7 +72,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::GetServiceAccount => (
             "Get one non-human organization principal.",
             "service_accounts",
-            id_input("service_account_id"),
+            id_input("serviceAccountId"),
             vec!["service_accounts.read"],
             vec!["IAM", "Service accounts"],
         ),
@@ -80,7 +80,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "List API token metadata in the authenticated organization without exposing token secrets; optionally filter by service account.",
             "api_tokens",
             object_schema(json!({
-                "service_account_id": {
+                "serviceAccountId": {
                     "type": "string",
                     "minLength": 1,
                     "description": "Optional Service Account principal bound to the API Token."
@@ -91,27 +91,32 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             vec!["IAM", "API tokens"],
         ),
         BuiltinToolKind::CreateApiToken => (
-            "Create a personal API token for the requesting user. The plaintext token is returned once after approved execution and is never persisted in execution history.",
+            "Create a personal API token for the requesting user. It never does more than the user may do at the time of a request. Omit both policyId and permissions for a token that may do whatever the user may; give the id of a permission policy whose permissions the user holds (for example builtin:data_intake) or a list of organization permissions the user holds to narrow it. The plaintext token is returned once after approved execution and is never persisted in execution history.",
             "api_tokens",
             proposal_schema(
                 vec!["name"],
                 json!({
                     "name": {"type": "string", "minLength": 1, "maxLength": 255},
-                    "role_id": {"type": "string", "minLength": 1},
-                    "expires_in_days": {"type": "integer", "minimum": 1, "maximum": 1825}
+                    "policyId": {"type": "string", "minLength": 1},
+                    "permissions": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {"type": "string", "minLength": 1}
+                    },
+                    "expiresInDays": {"type": "integer", "minimum": 1, "maximum": 1825}
                 }),
             ),
-            vec!["api_tokens.manage"],
+            vec!["personal_tokens.manage"],
             vec!["IAM", "API tokens", "CRUD", "Create"],
         ),
         BuiltinToolKind::RevokeApiToken => (
             "Revoke one API token.",
             "api_tokens",
             proposal_schema(
-                vec!["token_id"],
-                json!({"token_id": {"type": "string", "minLength": 1}}),
+                vec!["tokenId"],
+                json!({"tokenId": {"type": "string", "minLength": 1}}),
             ),
-            vec!["api_tokens.manage"],
+            vec!["api_tokens.revoke"],
             vec!["IAM", "API tokens", "CRUD", "Revoke"],
         ),
         BuiltinToolKind::CreateServiceAccount => (
@@ -174,7 +179,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
 
 fn user_target_schema() -> serde_json::Value {
     object_schema(json!({
-        "target_user_id": {
+        "targetUserId": {
             "type": "string",
             "minLength": 1,
             "description": "Stable ID of a user in the authenticated organization. User principals may omit it for themselves; Service Account principals must provide it. Reading another user requires org.members.read."
@@ -201,7 +206,7 @@ fn proposal_schema(required: Vec<&str>, properties: Value) -> Value {
         json!({
             "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
             "impact": {"type": "string", "minLength": 1, "maxLength": 2000},
-            "expires_at_micros": {"type": "integer"}
+            "expiresAt": timestamp_schema()
         })
         .as_object()
         .cloned()
@@ -218,23 +223,23 @@ fn proposal_schema(required: Vec<&str>, properties: Value) -> Value {
 
 fn service_account_create_input() -> Value {
     proposal_schema(
-        vec!["name", "role_id"],
+        vec!["name", "roleId"],
         json!({
             "name": {"type": "string", "minLength": 1, "maxLength": 128},
             "description": {"type": "string", "maxLength": 2000},
-            "role_id": {"type": "string", "minLength": 1}
+            "roleId": {"type": "string", "minLength": 1}
         }),
     )
 }
 
 fn service_account_update_input() -> Value {
     proposal_schema(
-        vec!["service_account_id"],
+        vec!["serviceAccountId"],
         json!({
-            "service_account_id": {"type": "string", "minLength": 1},
+            "serviceAccountId": {"type": "string", "minLength": 1},
             "name": {"type": "string", "minLength": 1, "maxLength": 128},
             "description": {"type": "string", "maxLength": 2000},
-            "role_id": {"type": "string", "minLength": 1}
+            "roleId": {"type": "string", "minLength": 1}
         }),
     )
 }
@@ -253,8 +258,8 @@ fn service_account_operation(
         description,
         "service_accounts",
         proposal_schema(
-            vec!["service_account_id"],
-            json!({"service_account_id": {"type": "string", "minLength": 1}}),
+            vec!["serviceAccountId"],
+            json!({"serviceAccountId": {"type": "string", "minLength": 1}}),
         ),
         vec!["service_accounts.manage"],
         tags.to_vec(),
@@ -275,8 +280,8 @@ mod tests {
             let properties = spec.input_schema["properties"]
                 .as_object()
                 .expect("user tool properties");
-            assert!(properties.contains_key("target_user_id"));
-            assert!(!properties.contains_key("user_id"));
+            assert!(properties.contains_key("targetUserId"));
+            assert!(!properties.contains_key("userId"));
             assert!(spec.input_schema.get("required").is_none());
             assert!(spec.description.contains("org.members.read"));
         }

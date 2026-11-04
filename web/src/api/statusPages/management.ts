@@ -324,7 +324,7 @@ export async function reorderAutomationRules(
 ): Promise<ActiveAutomationRule[]> {
   const { data } = await http.put<ActiveAutomationRule[]>(
     `${pagePath(pageId)}/automation/rules/order`,
-    { rule_ids: ruleIds },
+    { ruleIds: ruleIds },
   );
   return data;
 }

@@ -7,7 +7,7 @@ import type {
   ExtendValueField,
 } from '@/api/extendTables';
 import type { ActionAccess } from '@/product/actionAccess';
-import { ChromeButton } from '@/shell/chrome';
+import { ChromeButton, uiSectionTitleClass } from '@/shell/chrome';
 import { EmptyState } from '@/shell/EmptyState';
 import { cn } from '@/shell/lib/cn';
 import {
@@ -33,8 +33,8 @@ export function SchemaPanel({
   const { t } = useTranslation('functions');
   const rows: Array<ExtendValueField & { keyField?: boolean }> = [
     {
-      name: table.key_field,
-      field_type: 'string',
+      name: table.keyField,
+      fieldType: 'string',
       required: true,
       description: t('extend_tables.primary_key_description'),
       keyField: true,
@@ -46,7 +46,7 @@ export function SchemaPanel({
     <section data-extend-table-schema className="rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
       <div className="flex flex-wrap items-start justify-between gap-3 px-1 pb-4">
         <div>
-          <h2 className="text-sm font-display-strong text-tx-0">
+          <h2 className={uiSectionTitleClass}>
             {t('extend_tables.schema_title')}
           </h2>
           <p className="mt-1 text-xs text-tx-2">
@@ -89,7 +89,7 @@ export function SchemaPanel({
                 </TableCell>
                 <TableCell>
                   <span className="rounded bg-bg-3 px-2 py-1 font-mono text-type-micro uppercase text-tx-1">
-                    {t(`extend_tables.types.${field.field_type}`)}
+                    {t(`extend_tables.types.${field.fieldType}`)}
                   </span>
                 </TableCell>
                 <TableCell className="text-xs text-tx-1">
@@ -112,7 +112,7 @@ export function SchemaPanel({
 
 export function UsagePanel({ table }: { table: ExtendTableSummary }) {
   const { t } = useTranslation('functions');
-  if (table.usage_locations.length === 0) {
+  if (table.usageLocations.length === 0) {
     return (
       <EmptyState
         strategy="none"
@@ -127,7 +127,7 @@ export function UsagePanel({ table }: { table: ExtendTableSummary }) {
   return (
     <section data-extend-table-usage className="rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
       <div className="px-1 pb-4">
-        <h2 className="text-sm font-display-strong text-tx-0">
+        <h2 className={uiSectionTitleClass}>
           {t('extend_tables.usage_title')}
         </h2>
         <p className="mt-1 text-xs text-tx-2">
@@ -135,7 +135,7 @@ export function UsagePanel({ table }: { table: ExtendTableSummary }) {
         </p>
       </div>
       <div className="space-y-2">
-        {table.usage_locations.map((usage) => {
+        {table.usageLocations.map((usage) => {
           const UsageIcon = usage.kind === 'pipeline' ? Workflow : Code2;
           return (
             <Link
@@ -184,18 +184,18 @@ export function SettingsPanel({
       className="max-w-3xl space-y-[12px] rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]"
     >
       <div className="rounded-md bg-[var(--control-surface)] p-4">
-        <h2 className="text-sm font-display-strong text-tx-0">
+        <h2 className={uiSectionTitleClass}>
           {t('extend_tables.table_information')}
         </h2>
         <dl className="mt-4 grid gap-4 sm:grid-cols-2">
           <DefinitionTerm
             label={t('extend_tables.columns.name')}
-            value={table.table_name}
+            value={table.tableName}
             mono
           />
           <DefinitionTerm
             label={t('extend_tables.key_field')}
-            value={table.key_field}
+            value={table.keyField}
             mono
           />
           <DefinitionTerm
@@ -205,7 +205,7 @@ export function SettingsPanel({
           <DefinitionTerm
             label={t('extend_tables.columns.status')}
             value={
-              table.row_count > 0
+              table.rowCount > 0
                 ? t('extend_tables.status.healthy')
                 : t('extend_tables.status.empty')
             }
@@ -213,12 +213,12 @@ export function SettingsPanel({
         </dl>
       </div>
       <div className="rounded-md bg-red-dim p-4">
-        <h2 className="text-sm font-display-strong text-red">
+        <h2 className={cn(uiSectionTitleClass, 'text-red')}>
           {t('extend_tables.danger_zone')}
         </h2>
         <p className="mt-2 max-w-2xl text-xs leading-relaxed text-tx-1">
           {t('extend_tables.danger_zone_description', {
-            count: table.row_count,
+            count: table.rowCount,
           })}
         </p>
         <ChromeButton

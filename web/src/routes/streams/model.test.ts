@@ -14,25 +14,19 @@ function summary(id: string, name: string, streamType: StreamType, retentionDays
     id,
     label: name,
     name,
-    stream_type: streamType,
+    streamType: streamType,
     type: streamType,
     schema: { fields: [] },
     retention: null,
-    effective_retention: { days: retentionDays },
+    effectiveRetention: { days: retentionDays },
     settings: {
       description: `${streamType} stream`,
-      index_rules: [],
-      retention_filter: null,
-      keep_conditions: [],
-      max_query_range_hours: null,
-      flatten_level: null,
-      use_stream_stats_for_partitioning: false,
-      store_original_data: false,
-      enable_distinct_values: true,
+      indexRules: [],
+      maxQueryRangeHours: null,
       queryable: true,
     },
-    created_at_micros: 1,
-    updated_at_micros: 1,
+    createdAt: 1,
+    updatedAt: 1,
   };
 }
 
@@ -46,17 +40,17 @@ function runtime(
   return {
     id,
     name,
-    stream_type: streamType,
+    streamType: streamType,
     status,
     rows,
-    stored_bytes: rows * 2,
-    current_stored_bytes: rows * 3,
-    total_rows: rows * 4,
-    collected_bytes: null,
-    index_bytes: rows,
-    first_received_at_micros: 100 + rows,
-    last_received_at_micros: 1_000 + rows,
-    stats_available: true,
+    storedBytes: rows * 2,
+    currentStoredBytes: rows * 3,
+    totalRows: rows * 4,
+    collectedBytes: null,
+    indexBytes: rows,
+    firstReceivedAt: 100 + rows,
+    lastReceivedAt: 1_000 + rows,
+    statsAvailable: true,
     buckets: [],
   };
 }
@@ -99,11 +93,11 @@ describe('groupStreamsByName', () => {
   it('aggregates collected bytes and preserves incomplete history', () => {
     const definitions = [summary('logs-id', 'metered', 'logs'), summary('metrics-id', 'metered', 'metrics')];
     const runtimes = [
-      { ...runtime('logs-id', 'metered', 'logs', 10, 'healthy'), collected_bytes: 1200, collected_bytes_complete: true },
-      { ...runtime('metrics-id', 'metered', 'metrics', 20, 'healthy'), collected_bytes: 800, collected_bytes_complete: true },
+      { ...runtime('logs-id', 'metered', 'logs', 10, 'healthy'), collectedBytes: 1200, collectedBytesComplete: true },
+      { ...runtime('metrics-id', 'metered', 'metrics', 20, 'healthy'), collectedBytes: 800, collectedBytesComplete: true },
     ];
     expect(groupStreamsByName(definitions, runtimes)[0]?.runtime).toMatchObject({ collected_bytes: 2000, collected_bytes_complete: true });
-    runtimes[1]!.collected_bytes_complete = false;
+    runtimes[1]!.collectedBytesComplete = false;
     expect(groupStreamsByName(definitions, runtimes)[0]?.runtime).toMatchObject({ collected_bytes: 2000, collected_bytes_complete: false });
   });
 
@@ -130,7 +124,7 @@ describe('stream detail variants', () => {
       summary('logs-id', '_molesignal', 'logs'),
     ]);
 
-    expect(variants.map((variant) => [variant.id, variant.stream_type])).toEqual([
+    expect(variants.map((variant) => [variant.id, variant.streamType])).toEqual([
       ['logs-id', 'logs'],
       ['metrics-id', 'metrics'],
       ['traces-id', 'traces'],

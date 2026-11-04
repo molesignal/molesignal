@@ -12,7 +12,7 @@ const ROUTES = [
 
 const ALERT_RULE = {
   id: 'rule-alignment',
-  org_id: 'acme-prod',
+  orgId: 'acme-prod',
   name: 'Checkout error rate',
   description: 'Alignment fixture',
   enabled: true,
@@ -20,108 +20,108 @@ const ALERT_RULE = {
   query: {
     language: 'promql',
     statement: 'http_requests_total',
-    period_secs: 300,
-    stream: { name: 'metrics', stream_type: 'metrics' },
+    periodSecs: 300,
+    stream: { name: 'metrics', streamType: 'metrics' },
   },
   trigger: {
     operator: 'gt',
     threshold: 1,
-    for_periods: 1,
-    silence_secs: 300,
+    forPeriods: 1,
+    silenceSecs: 300,
   },
-  escalation_policy_id: 'policy-default',
+  escalationPolicyId: 'policy-default',
   labels: { service: 'checkout' },
   annotations: {},
-  last_state: { kind: 'healthy' },
+  lastState: { kind: 'healthy' },
 };
 
 const NOTIFY_TEMPLATE = {
   id: 'template-alignment',
-  organization_id: 'acme-prod',
+  organizationId: 'acme-prod',
   name: 'Critical incident',
   body: '{{severity}} {{summary}}',
   format: 'text',
-  created_at: 1_783_700_000_000_000,
-  updated_at: 1_783_800_000_000_000,
+  createdAt: 1_783_700_000_000_000,
+  updatedAt: 1_783_800_000_000_000,
 };
 
 const NOTIFY_CONNECTOR = {
   id: 'connector-alignment',
-  organization_id: 'acme-prod',
+  organizationId: 'acme-prod',
   name: 'Primary email',
-  connector_type: 'email_smtp',
+  connectorType: 'email_smtp',
   config: {
     host: 'smtp.example.com',
     port: 587,
     from: 'alerts@example.com',
   },
   capabilities: {
-    direct_user: true,
+    directUser: true,
     group: false,
-    rich_text: true,
+    richText: true,
     interactive: false,
     acknowledgement: false,
     attachments: true,
   },
   enabled: true,
   status: 'connected',
-  last_tested_at: null,
-  last_test_status: null,
-  last_test_error: null,
-  created_at: 1_783_700_000_000_000,
-  updated_at: 1_783_800_000_000_000,
+  lastTestedAt: null,
+  lastTestStatus: null,
+  lastTestError: null,
+  createdAt: 1_783_700_000_000_000,
+  updatedAt: 1_783_800_000_000_000,
 };
 
 const ESCALATION_POLICY = {
   id: 'escalation-alignment',
-  org_id: 'acme-prod',
+  orgId: 'acme-prod',
   name: 'Primary responders',
   steps: [
     {
       targets: [
         {
           kind: 'user',
-          user_id: 'user-primary',
+          userId: 'user-primary',
         },
       ],
-      ack_timeout_secs: 300,
-      min_severity: null,
+      ackTimeoutSecs: 300,
+      minSeverity: null,
     },
   ],
   repeat: false,
-  max_loops: 1,
+  maxLoops: 1,
 };
 
 const EXTEND_TABLE = {
-  table_name: 'customers',
+  tableName: 'customers',
   description: 'Customer ownership metadata',
-  key_field: 'key',
-  value_fields: [
+  keyField: 'key',
+  valueFields: [
     {
       name: 'owner',
-      field_type: 'string',
+      fieldType: 'string',
       required: false,
       description: 'Owning team',
     },
   ],
-  row_count: 3,
-  updated_at: 1_783_800_000_000_000,
-  usage_locations: [],
+  rowCount: 3,
+  updatedAt: 1_783_800_000_000_000,
+  usageLocations: [],
 };
 
 const IAM_USER = {
   id: 'u1',
   email: 'admin@example.com',
-  display_name: 'Root',
-  is_root: true,
+  displayName: 'Root',
+  isRoot: true,
   disabled: false,
   status: 'active',
-  display_role: 'Owner',
+  displayRole: 'Owner',
   roles: [{ id: 'role-owner', key: 'owner', name: 'Owner', builtin: true }],
-  team_names: [],
-  login_method: 'password',
-  last_active_at_micros: 1_783_800_000_000_000,
-  created_at_micros: 1_783_700_000_000_000,
+  teamNames: [],
+  loginMethod: 'password',
+  lastActiveAt: 1_783_800_000_000_000,
+  createdAt: 1_783_700_000_000_000,
 };
 
 test.describe('table action column alignment', () => {

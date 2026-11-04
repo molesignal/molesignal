@@ -3,7 +3,7 @@
 
 //! Flight SQL 端到端（spec flight-sql）：真 tonic server + `FlightSqlServiceClient`。
 //!
-//! - 正向：Handshake（basic auth，password = `ms_` token）→ get_tables →
+//! - 正向：Handshake（basic auth，password = `mspat-` token）→ get_tables →
 //!   `SELECT ... FROM logs.app` → 校验行数 / Arrow 类型。
 //! - 反向：无效 token、跨 org ticket 重放、DML 拒绝。
 //! - registry：慢查询执行中出现在 `QueryRegistry::list_for`，cancel 后客户端收错。
@@ -133,6 +133,9 @@ impl ApiTokenRepository for MemApiTokenRepo {
     async fn list_by_org(&self, _org_id: &Id) -> Result<Vec<ApiToken>> {
         unimplemented!()
     }
+    async fn list_personal(&self, _org_id: &Id, _user_id: &Id) -> Result<Vec<ApiToken>> {
+        unimplemented!()
+    }
     async fn get(&self, _org_id: &Id, _id: &Id) -> Result<ApiToken> {
         unimplemented!()
     }
@@ -142,19 +145,13 @@ impl ApiTokenRepository for MemApiTokenRepo {
     async fn touch_last_used(&self, _prefix: &str, _at: TimestampMicros) -> Result<()> {
         Ok(())
     }
-    async fn ensure_default(
-        &self,
-        _org_id: &Id,
-        _user_id: &Id,
-        _role_id: &Id,
-    ) -> Result<ManagedApiToken> {
+    async fn ensure_default(&self, _org_id: &Id, _user_id: &Id) -> Result<ManagedApiToken> {
         unimplemented!()
     }
     async fn ensure_rum_client(
         &self,
         _org_id: &Id,
         _user_id: &Id,
-        _role_id: &Id,
         _application_id: &str,
     ) -> Result<ManagedApiToken> {
         unimplemented!()
@@ -403,7 +400,7 @@ struct TestServer {
     addr: std::net::SocketAddr,
     query: Arc<QueryService>,
     org: Id,
-    /// 完整 `ms_*` 明文 token。
+    /// 完整的明文 API token。
     token: String,
     /// 账号密码登录用的测试用户（属于 org 与 org2，org 在前）。
     email: String,
@@ -420,10 +417,10 @@ async fn mint_token(repo: &MemApiTokenRepo, org: &Id, user_id: &Id) -> String {
     repo.create(ApiToken {
         id: Id::new(),
         prefix,
-        secret_hash: hash_secret(&secret).unwrap(),
+        secret_hash: hash_secret(&secret),
         org_id: org.clone(),
         user_id: user_id.clone(),
-        role_id: Id::from_string("role-flight-sql"),
+        scope: molesignal::domain::iam::api_token::ApiTokenScope::Principal,
         name: "it-flight-sql".into(),
         expires_at: None,
         last_used_at: None,
@@ -489,6 +486,7 @@ async fn start_server(engine_override: Option<Arc<dyn QueryEngine>>) -> TestServ
         disabled: false,
         status: molesignal::domain::iam::UserStatus::Active,
         created_at: TimestampMicros::now(),
+        sessions_valid_after: TimestampMicros(0),
     };
     let users = MemUserRepo {
         users: Mutex::new(vec![alice.clone()]),
@@ -543,7 +541,7 @@ async fn start_server(engine_override: Option<Arc<dyn QueryEngine>>) -> TestServ
         bind: "127.0.0.1".into(),
         port: 0,
         default_lookback_hours: 24,
-        max_message_size_mb: 32,
+        max_message_size: 32,
     };
     let svc = FlightSqlGrpc::new(
         query.clone(),
@@ -849,10 +847,7 @@ async fn invalid_token_rejected_at_handshake_and_rpc() {
     // handshake 用错误 token
     let mut client = connect(server.addr).await;
     let err = client
-        .handshake(
-            "token",
-            "ms_0000000000000000_00000000000000000000000000000000",
-        )
+        .handshake("token", "mspat-000000000000000000000000000000000000")
         .await
         .expect_err("bad token must fail handshake");
     assert!(err.to_string().contains("handshake"), "{err}");

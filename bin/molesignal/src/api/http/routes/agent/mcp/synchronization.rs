@@ -19,12 +19,13 @@ use crate::{
 };
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct SyncRequest {
     #[serde(default)]
     selected_tools: Vec<String>,
 }
 
-#[permission("agent.use")]
+#[permission("agent.mcp_servers.manage")]
 pub(super) async fn test_server(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -41,7 +42,7 @@ pub(super) async fn test_server(
         "agent_mcp_server",
         &id.0,
         match &outcome.error {
-            None => json!({"success": true, "discovered_tools": outcome.tools.len()}),
+            None => json!({"success": true, "discoveredTools": outcome.tools.len()}),
             Some(error) => json!({"success": false, "error": error}),
         },
     )
@@ -51,11 +52,11 @@ pub(super) async fn test_server(
         "success": outcome.error.is_none(),
         "server": outcome.server,
         "error": outcome.error,
-        "discovered_tools": outcome.tools,
+        "discoveredTools": outcome.tools,
     })))
 }
 
-#[permission("agent.use")]
+#[permission("agent.mcp_servers.manage")]
 pub(super) async fn sync_server(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -80,7 +81,7 @@ pub(super) async fn sync_server(
         json!({
             "tools": outcome.tools.len(),
             "prompts": outcome.prompts,
-            "new_tools_default_enabled": false
+            "newToolsDefaultEnabled": false
         }),
     )
     .await;
@@ -88,6 +89,6 @@ pub(super) async fn sync_server(
     Ok(Json(json!({
         "server": outcome.server,
         "tools": outcome.tools,
-        "prompt_count": outcome.prompts,
+        "promptCount": outcome.prompts,
     })))
 }

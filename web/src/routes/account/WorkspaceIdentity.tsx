@@ -6,13 +6,14 @@ import { useNavigate } from 'react-router-dom';
 
 import * as meApi from '@/api/me';
 import { toApiError } from '@/lib/http';
-import { useActionAccess } from '@/product/actionAccess';
+import { useRoleName } from '@/product/roleName';
 import { AccountSection } from '@/routes/account/AccountSection';
 import { CopyableValue } from '@/routes/settings/_atoms';
-import { ChromeButton, Pill } from '@/shell/chrome';
+import { Pill } from '@/shell/chrome';
 import { DisabledControl } from '@/shell/DisabledControl';
 import { toast } from '@/shell/ui/sonner';
 import { normalizeRole } from '@/stores/auth';
+import { isOrgEntryDeclined } from '@/stores/useOrgEntry';
 import {
   useCurrentOrgSelection,
   useOrgStore,
@@ -20,6 +21,7 @@ import {
 
 export function AccountWorkspaceIdentity() {
   const { t } = useTranslation(['account', 'common']);
+  const roleName = useRoleName();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const profileQuery = useQuery({
@@ -32,9 +34,6 @@ export function AccountWorkspaceIdentity() {
   const switchOrg = useOrgStore((state) => state.switchOrg);
   const loading = useOrgStore((state) => state.loading);
   const [switching, setSwitching] = React.useState<string | null>(null);
-  const apiTokensAccess = useActionAccess({
-    permission: 'api_tokens.read',
-  });
 
   React.useEffect(() => {
     if (!loaded) {
@@ -52,7 +51,7 @@ export function AccountWorkspaceIdentity() {
       await switchOrg(id, { queryClient });
       navigate('/home');
     } catch (error) {
-      toast.error(toApiError(error).message);
+      if (!isOrgEntryDeclined(error)) toast.error(toApiError(error).message);
     } finally {
       setSwitching(null);
     }
@@ -108,10 +107,10 @@ export function AccountWorkspaceIdentity() {
                   )}
                 </span>
                 <span className="font-sans text-xs text-tx-1">
-                  {org.display_role
-                    ? normalizeRole(org.display_role)
+                  {org.displayRole
+                    ? roleName(normalizeRole(org.displayRole))
                     : current
-                      ? normalizeRole(profile?.display_role)
+                      ? roleName(normalizeRole(profile?.displayRole))
                       : '—'}
                 </span>
                 <span>
@@ -145,7 +144,7 @@ export function AccountWorkspaceIdentity() {
                 {t('workspace.user_id')}
               </div>
               <CopyableValue
-                value={profile.user_id}
+                value={profile.userId}
                 copyLabel={t('workspace.copy')}
                 copiedLabel={t('workspace.copied')}
               />
@@ -155,7 +154,7 @@ export function AccountWorkspaceIdentity() {
                 {t('workspace.org_id')}
               </div>
               <CopyableValue
-                value={profile.org_id}
+                value={profile.orgId}
                 copyLabel={t('workspace.copy')}
                 copiedLabel={t('workspace.copied')}
               />
@@ -165,7 +164,7 @@ export function AccountWorkspaceIdentity() {
                 {t('workspace.org_slug')}
               </div>
               <CopyableValue
-                value={profile.org_slug}
+                value={profile.orgSlug}
                 copyLabel={t('workspace.copy')}
                 copiedLabel={t('workspace.copied')}
               />
@@ -177,15 +176,6 @@ export function AccountWorkspaceIdentity() {
         </details>
       )}
 
-      <div className="mt-6 flex flex-wrap items-center gap-2">
-        <ChromeButton
-          disabled={apiTokensAccess.disabled}
-          disabledReason={apiTokensAccess.reason}
-          onClick={() => navigate('/iam/api-tokens')}
-        >
-          {t('workspace.api_tokens')}
-        </ChromeButton>
-      </div>
     </AccountSection>
   );
 }

@@ -47,8 +47,6 @@ use molesignal::{
     },
 };
 use object_store::ObjectStore;
-use testcontainers::runners::AsyncRunner;
-use testcontainers_modules::postgres::Postgres as PgImage;
 
 fn sample_stream() -> StreamDefinition {
     StreamDefinition {
@@ -87,10 +85,7 @@ async fn it_compactor_merges_5_files_into_1_via_pg() {
     if skip_unless_enabled() {
         return;
     }
-    let pg = PgImage::default().start().await.expect("pg start");
-    let port = pg.get_host_port_ipv4(5432).await.unwrap();
-    let host = pg.get_host().await.unwrap();
-    let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+    let (dsn, _pg) = common::test_database().await;
 
     let meta_cfg = molesignal::config::MetaDatabaseSettings {
         dsn,
@@ -150,7 +145,7 @@ async fn it_compactor_merges_5_files_into_1_via_pg() {
             SequenceRange::new(WalSequence(start), WalSequence(start + 19)),
         );
         let segments = writer
-            .flush_catalog(&stream, &dataset, &provenance, batch)
+            .flush_catalog(&stream, &dataset, &provenance, batch, None)
             .await
             .unwrap();
         catalog
@@ -187,6 +182,7 @@ async fn it_compactor_merges_5_files_into_1_via_pg() {
         .sweep_one(
             &stream,
             TimeRange::new(TimestampMicros(0), TimestampMicros(i64::MAX)),
+            true,
         )
         .await
         .unwrap();

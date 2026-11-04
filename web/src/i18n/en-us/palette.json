@@ -3,13 +3,25 @@
   "no_results": "No results.",
   "groups": {
     "results": "Results",
-    "actions": "Actions"
+    "actions": "Actions",
+    "attention": "Waiting on you",
+    "recent": "Recent",
+    "kinds": {
+      "action": "Actions",
+      "incident": "Incidents",
+      "alert": "Alert rules",
+      "service": "Services",
+      "dashboard": "Dashboards",
+      "stream": "Streams",
+      "saved_view": "Saved views"
+    }
   },
   "footer": {
     "open": "open",
     "open_new_stack": "open in new stack",
     "stack_on_top": "stack on top",
-    "close": "close"
+    "close": "close",
+    "acknowledge": "acknowledge"
   },
   "actions": {
     "goto_investigate": "Go to Investigate",
@@ -37,5 +49,9 @@
     "create_alert": "Create alert",
     "create_pipeline": "Create pipeline",
     "connect_source": "Connect data source"
-  }
+  },
+  "show_all_one": "Show {{count}} more",
+  "show_all_other": "Show {{count}} more",
+  "acknowledge": "Acknowledge",
+  "acknowledged": "Incident acknowledged"
 }

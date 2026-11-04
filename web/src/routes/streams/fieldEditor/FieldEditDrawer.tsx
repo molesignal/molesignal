@@ -7,13 +7,7 @@ import type * as streamsApi from '@/api/streams';
 import { AlgorithmEditor, algorithmSummary, defaultAlgorithm } from '@/features/fieldMasking/AlgorithmEditor';
 import type { ActionAccess } from '@/product/actionAccess';
 import { ChromeButton } from '@/shell/chrome';
-import {
-  FormDrawer,
-  FormField,
-  FormInput,
-  FormSelect,
-  FormTextarea,
-} from '@/shell/FormDrawer';
+import { FormDrawer, FormField, FormSelect } from '@/shell/FormDrawer';
 
 import { indexOptionsFor, type FieldDraft, type FieldMaskingMode } from './model';
 import { logicalFieldType } from '../model';
@@ -70,7 +64,7 @@ export function FieldEditDrawer({
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-3 rounded-lg border border-bd-0 bg-bg-2 p-4">
               <SummaryRow label={t('explore.schema.columns.name')} value={editing.name} />
-              <SummaryRow label={t('explore.schema.columns.type')} value={t(`explore.schema.field_types.${logicalFieldType(editing.data_type)}`)} />
+              <SummaryRow label={t('explore.schema.columns.type')} value={t(`explore.schema.field_types.${logicalFieldType(editing.dataType)}`)} />
             </div>
 
             <div className="rounded-lg border border-yellow/30 bg-yellow-dim px-4 py-3 font-sans text-xs leading-relaxed text-tx-1">
@@ -79,34 +73,16 @@ export function FieldEditDrawer({
 
             <FormField label={t('explore.schema.columns.index_type')} hint={t('explore.schema.index_type_hint')}>
               <FormSelect
-                value={editing.index_type}
+                value={editing.indexType}
                 onChange={(value) => setEditing((current) => current ? {
                   ...current,
-                  index_type: value as streamsApi.StreamIndexType,
+                  indexType: value as streamsApi.StreamIndexType,
                   indexed: value !== 'none',
                 } : current)}
-                options={indexOptionsFor(editing.data_type).map((option) => ({
+                options={indexOptionsFor(editing.dataType).map((option) => ({
                   value: option.value,
                   label: t(option.labelKey),
                 }))}
-              />
-            </FormField>
-
-            <FormField label={t('explore.schema.columns.condition')} hint={t('explore.schema.condition_hint')}>
-              <FormInput
-                value={editing.condition}
-                onChange={(event) => setEditing((current) => current ? { ...current, condition: event.target.value } : current)}
-                placeholder={t('explore.schema.condition_placeholder')}
-              />
-            </FormField>
-
-            <FormField label={t('explore.schema.extraction_rules')} hint={t('explore.schema.extraction_hint')}>
-              <FormTextarea
-                value={editing.extraction_patterns_text}
-                onChange={(event) => setEditing((current) => current ? { ...current, extraction_patterns_text: event.target.value } : current)}
-                rows={6}
-                className="font-mono"
-                placeholder={t('explore.schema.pattern_placeholder')}
               />
             </FormField>
 
@@ -123,7 +99,7 @@ export function FieldEditDrawer({
                       ...current,
                       masking_mode: value as FieldMaskingMode,
                       masking_algorithm: value === 'custom' && current.masking_mode !== 'custom'
-                        ? (effectiveMasking?.inherited_algorithm ?? defaultAlgorithm('full'))
+                        ? (effectiveMasking?.inheritedAlgorithm ?? defaultAlgorithm('full'))
                         : current.masking_algorithm,
                     } : current)}
                     options={(['inherit', 'custom', 'none'] as const).map((value) => ({
@@ -138,11 +114,11 @@ export function FieldEditDrawer({
                     <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-indigo-soft" />
                     <div>
                       <div className="font-sans text-sm font-semibold text-tx-0">
-                        {effectiveMasking?.inherited_rule_name ?? t('explore.schema.masking.no_global_rule')}
+                        {effectiveMasking?.inheritedRuleName ?? t('explore.schema.masking.no_global_rule')}
                       </div>
                       <div className="mt-1 font-sans text-xs text-tx-2">
-                        {effectiveMasking?.inherited_algorithm
-                          ? algorithmSummary(effectiveMasking.inherited_algorithm, settingsT)
+                        {effectiveMasking?.inheritedAlgorithm
+                          ? algorithmSummary(effectiveMasking.inheritedAlgorithm, settingsT)
                           : t('explore.schema.masking.no_global_rule_hint')}
                       </div>
                     </div>

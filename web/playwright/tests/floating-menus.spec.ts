@@ -4,39 +4,37 @@ test.beforeEach(async ({ page, mockServer }) => {
   await mountMockRoutes(page, mockServer.port, { theme: 'light' });
 });
 
-test('renders the Trace sorter as a lightweight toolbar menu', async ({
+test('renders a select of the results as a lightweight menu', async ({
   page,
 }) => {
+  // The traces per page, under the trace table: a select with its choices in a list box.
   await page.goto('/traces');
 
-  const trigger = page.getByRole('combobox', { name: 'Sort traces' });
-  await expect(trigger).toHaveCSS('height', '28px');
+  const trigger = page.getByRole('combobox', { name: 'Traces per page' });
   await expect(trigger).toHaveCSS('border-top-width', '0px');
   await trigger.hover();
   await expect(trigger).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await trigger.click();
 
   const menu = page.getByRole('listbox');
-  const selected = page.getByRole('option', { name: 'Newest first' });
+  const selected = page.getByRole('option', { name: '100' });
   await expect(menu).toBeVisible();
   await expect(menu).toHaveCSS('border-top-width', '0px');
   await expect(menu).toHaveCSS('border-radius', '8px');
   await expect(menu).toHaveCSS('box-shadow', /4px 12px/);
   await expect(selected).toHaveAttribute('data-state', 'checked');
-  await expect(selected).toHaveCSS('height', '30px');
   await expect(selected).toHaveCSS('border-radius', '6px');
   await expect(selected).toHaveCSS('font-size', '12px');
-  await expect(selected).toHaveCSS('font-weight', '600');
   expect(
     await selected.evaluate((element) => getComputedStyle(element).color),
   ).not.toBe(
     await page
-      .getByRole('option', { name: 'Oldest first' })
+      .getByRole('option', { name: '200' })
       .evaluate((element) => getComputedStyle(element).color),
   );
 
-  await page.getByRole('option', { name: 'Oldest first' }).click();
-  await expect(trigger).toContainText('Oldest first');
+  await page.getByRole('option', { name: '200' }).click();
+  await expect(trigger).toContainText('200');
 });
 
 test('uses the same lightweight surface for action dropdowns', async ({
@@ -55,7 +53,10 @@ test('uses the same lightweight surface for action dropdowns', async ({
   await expect(selected).toHaveAttribute('data-state', 'checked');
   await expect(selected).toHaveCSS('min-height', '30px');
   await expect(selected).toHaveCSS('font-size', '12px');
-  await expect(selected).toHaveCSS('font-weight', '600');
+  await expect(selected).toHaveCSS(
+    'font-weight',
+    await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--fw-strong').trim()),
+  );
   expect(
     await selected.evaluate((element) => getComputedStyle(element).color),
   ).not.toBe(

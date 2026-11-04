@@ -6,11 +6,11 @@ use std::collections::BTreeMap;
 use async_trait::async_trait;
 
 use super::{
-    ActiveMonitorRevision, LocationStateUpdate, MonitorLifecycle, MonitorLocationState,
+    ActiveMonitorRevision, LocationStateUpdate, MissedRun, MonitorLifecycle, MonitorLocationState,
     MonitorRevision, MonitorState, ProbeAgent, ProbeAgentToken, ProbeLocation, ProbeRegisterToken,
-    ProbeRegistrationGrant, ProbeTask, SecretMaterial, StateObservation, SyntheticMonitor,
-    SyntheticResult, SyntheticResultListQuery, SyntheticResultPage, SyntheticSecret,
-    SyntheticSecretVersion, SyntheticStateTransition,
+    ProbeRegistrationGrant, ProbeTask, PurgedResults, SecretMaterial, StateObservation,
+    SyntheticMonitor, SyntheticResult, SyntheticResultListQuery, SyntheticResultPage,
+    SyntheticSecret, SyntheticSecretVersion, SyntheticStateTransition,
 };
 use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
@@ -26,6 +26,15 @@ pub trait SyntheticLocationRepository: Send + Sync {
 pub trait SyntheticAgentRepository: Send + Sync {
     async fn create_agent(&self, agent: ProbeAgent) -> Result<ProbeAgent>;
     async fn update_agent(&self, agent: ProbeAgent) -> Result<ProbeAgent>;
+    /// Marks an Agent online as of `now`, touching nothing else it holds.
+    async fn touch_agent(&self, agent_id: &Id, now: TimestampMicros) -> Result<()>;
+    /// Marks offline the Agents whose last heartbeat is older than `stale_before`, then sets each
+    /// active Location's health from its Agents. Returns how many Agents went offline.
+    async fn refresh_liveness(
+        &self,
+        now: TimestampMicros,
+        stale_before: TimestampMicros,
+    ) -> Result<u64>;
     async fn update_agent_configuration(
         &self,
         org_id: &Id,
@@ -106,6 +115,8 @@ pub trait SyntheticSecretRepository: Send + Sync {
     ) -> Result<(SyntheticSecretVersion, SecretMaterial)>;
     async fn get_secret(&self, org_id: &Id, secret_id: &Id) -> Result<SyntheticSecret>;
     async fn list_secrets(&self, org_id: &Id) -> Result<Vec<SyntheticSecret>>;
+    /// The private key of the client certificate a revision holds, unsealed.
+    async fn open_client_key(&self, org_id: &Id, revision_id: &Id) -> Result<SecretMaterial>;
 }
 
 #[async_trait]
@@ -180,6 +191,9 @@ pub trait SyntheticTaskRepository: Send + Sync {
         now: TimestampMicros,
     ) -> Result<()>;
     async fn expire_leases(&self, now: TimestampMicros, limit: u32) -> Result<u64>;
+    /// Expires the tasks no Agent took before their deadline and returns them, so that each can
+    /// be reported as a run that did not happen.
+    async fn expire_unclaimed(&self, now: TimestampMicros, limit: u32) -> Result<Vec<ProbeTask>>;
     async fn get_leased_task(
         &self,
         task_id: &Id,
@@ -227,6 +241,18 @@ pub trait SyntheticResultRepository: Send + Sync {
         query: &SyntheticResultListQuery,
     ) -> Result<SyntheticResultPage>;
     async fn get_result(&self, org_id: &Id, result_id: &Id) -> Result<SyntheticResult>;
+    /// Deletes up to `limit` runs received before `before`, with their artifacts, and returns how
+    /// many went and the object keys their artifacts and details were stored under. A run a
+    /// location still shows as its latest, or a revision as its test, is kept.
+    async fn purge_results(&self, before: TimestampMicros, limit: u32) -> Result<PurgedResults>;
+    /// Deletes up to `limit` artifacts that expired before `now`, and returns their object keys.
+    async fn purge_expired_artifacts(
+        &self,
+        now: TimestampMicros,
+        limit: u32,
+    ) -> Result<Vec<String>>;
+    /// Deletes up to `limit` tasks that ended before `before` and that no run refers to.
+    async fn purge_finished_tasks(&self, before: TimestampMicros, limit: u32) -> Result<u64>;
 }
 
 #[async_trait]
@@ -235,6 +261,8 @@ pub trait SyntheticStateRepository: Send + Sync {
         &self,
         observation: StateObservation,
     ) -> Result<LocationStateUpdate>;
+    /// Counts a run the location missed, and returns the location as it now stands.
+    async fn record_missed_run(&self, missed: MissedRun) -> Result<MonitorLocationState>;
     async fn list_location_states(
         &self,
         org_id: &Id,

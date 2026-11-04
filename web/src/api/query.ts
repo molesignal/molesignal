@@ -1,11 +1,11 @@
-import { http } from '@/lib/http';
+import { getOrPost, http } from '@/lib/http';
 import type { QueryProfile, QueryRecommendation, QueryRequest, QueryResult } from '@/types/query';
 
 export type PromqlCapabilityKind = 'function' | 'aggregation' | 'keyword' | 'operator';
 
 export interface PromqlCapabilityItem {
   label: string;
-  insert_text: string;
+  insertText: string;
   detail: string;
   documentation: string;
   kind: PromqlCapabilityKind;
@@ -23,6 +23,30 @@ export interface PromqlCapabilities {
 export async function runQuery(req: QueryRequest): Promise<QueryResult> {
   const { data } = await http.post<QueryResult>('/query', req, { headers: { Prefer: 'respond-sync' } });
   return data;
+}
+
+/**
+ * `runQuery` for the explorers (Logs, Traces, Metrics): the query asked with
+ * GET, its statement and range in the address, while it fits one.
+ */
+export async function readQuery(req: QueryRequest, signal?: AbortSignal): Promise<QueryResult> {
+  return getOrPost<QueryResult>(
+    '/query',
+    {
+      params: {
+        language: req.language,
+        statement: req.statement,
+        start: req.timeRange.start,
+        end: req.timeRange.end,
+        stream: req.stream?.name,
+        streamType: req.stream?.streamType,
+        limit: req.limit,
+        step: req.step,
+      },
+      body: req,
+    },
+    { headers: { Prefer: 'respond-sync' }, ...(signal && { signal }) },
+  );
 }
 
 export interface PrometheusExemplar {
@@ -45,16 +69,16 @@ export interface PrometheusExemplarResponse {
 
 export async function fetchPrometheusExemplars(params: {
   query: string;
-  startMicros: number;
-  endMicros: number;
+  startTime: number;
+  endTime: number;
 }): Promise<PrometheusExemplarResponse> {
   const { data } = await http.get<PrometheusExemplarResponse>(
     '/prometheus/api/v1/query_exemplars',
     {
       params: {
         query: params.query,
-        start: params.startMicros / 1_000_000,
-        end: params.endMicros / 1_000_000,
+        start: params.startTime / 1_000_000,
+        end: params.endTime / 1_000_000,
       },
     },
   );
@@ -70,7 +94,7 @@ export async function fetchPromqlCapabilities(): Promise<PromqlCapabilities> {
 export interface SqlFunctionCapabilityItem {
   label: string;
   /** Monaco snippet 插入文本；`${1:...}` 为 Tab 跳转占位。 */
-  insert_text: string;
+  insertText: string;
   detail: string;
   documentation: string;
   kind: 'function';
@@ -111,7 +135,7 @@ export async function recommendations(
 export function streamQueryUrl(params: {
   sql: string;
   stream: string;
-  stream_type?: 'logs' | 'metrics' | 'traces';
+  streamType?: 'logs' | 'metrics' | 'traces';
   from: number;
   to: number;
   limit?: number;
@@ -119,7 +143,7 @@ export function streamQueryUrl(params: {
   const search = new URLSearchParams();
   search.set('sql', params.sql);
   search.set('stream', params.stream);
-  if (params.stream_type) search.set('stream_type', params.stream_type);
+  if (params.streamType) search.set('streamType', params.streamType);
   search.set('from', String(params.from));
   search.set('to', String(params.to));
   if (params.limit !== undefined) search.set('limit', String(params.limit));

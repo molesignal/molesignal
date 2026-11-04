@@ -11,8 +11,8 @@ use crate::{
 };
 
 const COLS: &str = "id,org_id,principal_type,principal_id,tool_name,request,status,status_message,\
-    input_requests,input_responses,result,error,cancel_requested,expires_at_micros,\
-    created_at_micros,updated_at_micros";
+    input_requests,input_responses,result,error,cancel_requested,expires_at,\
+    created_at,updated_at";
 
 fn parse_status(value: &str) -> Result<InboundMcpTaskStatus> {
     match value {
@@ -51,9 +51,15 @@ fn task_row(row: sqlx::postgres::PgRow) -> Result<InboundMcpTask> {
         result: optional_json(&row, "result")?,
         error: optional_json(&row, "error")?,
         cancel_requested: row.try_get("cancel_requested").map_err(sqlx_err)?,
-        expires_at: TimestampMicros(row.try_get("expires_at_micros").map_err(sqlx_err)?),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        expires_at: row
+            .try_get::<TimestampMicros, _>("expires_at")
+            .map_err(sqlx_err)?,
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -76,9 +82,9 @@ pub(super) async fn create(pool: &PgPool, task: InboundMcpTask) -> Result<Inboun
     .bind(task.result.map(Json))
     .bind(task.error.map(Json))
     .bind(task.cancel_requested)
-    .bind(task.expires_at.0)
-    .bind(task.created_at.0)
-    .bind(task.updated_at.0)
+    .bind(task.expires_at)
+    .bind(task.created_at)
+    .bind(task.updated_at)
     .fetch_one(pool)
     .await
     .map_err(sqlx_err)?;
@@ -118,7 +124,7 @@ pub(super) async fn update(pool: &PgPool, task: InboundMcpTask) -> Result<Inboun
     let row = sqlx::query(&format!(
         "UPDATE inbound_mcp_tasks SET status=$6,status_message=$7,input_requests=$8,
             input_responses=$9,result=$10,error=$11,cancel_requested=$12,
-            expires_at_micros=$13,updated_at_micros=$14
+            expires_at=$13,updated_at=$14
          WHERE id=$1 AND org_id=$2 AND principal_type=$3 AND principal_id=$4 AND tool_name=$5
            AND CASE
              WHEN $6 IN ('completed','failed') THEN status='working'
@@ -141,8 +147,8 @@ pub(super) async fn update(pool: &PgPool, task: InboundMcpTask) -> Result<Inboun
     .bind(task.result.map(Json))
     .bind(task.error.map(Json))
     .bind(task.cancel_requested)
-    .bind(task.expires_at.0)
-    .bind(task.updated_at.0)
+    .bind(task.expires_at)
+    .bind(task.updated_at)
     .fetch_optional(pool)
     .await
     .map_err(sqlx_err)?;
@@ -163,7 +169,7 @@ pub(super) async fn request_cancellation(
     let updated = sqlx::query(
         "UPDATE inbound_mcp_tasks
          SET cancel_requested=TRUE,status='cancelled',
-             status_message='Task cancellation requested',updated_at_micros=$5
+             status_message='Task cancellation requested',updated_at=$5
          WHERE id=$1 AND org_id=$2 AND principal_type=$3 AND principal_id=$4
            AND status IN ('working','input_required')",
     )
@@ -171,7 +177,7 @@ pub(super) async fn request_cancellation(
     .bind(&org_id.0)
     .bind(principal_type)
     .bind(&principal_id.0)
-    .bind(TimestampMicros::now().0)
+    .bind(TimestampMicros::now())
     .execute(pool)
     .await
     .map_err(sqlx_err)?;

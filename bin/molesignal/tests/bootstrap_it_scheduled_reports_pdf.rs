@@ -12,15 +12,20 @@
 //!
 //! 用 axum 起一个 fake `/dashboards/:id` 前端路由返简单 HTML，然后调
 //! `HeadlessChromeRenderer::render` 截图，校验 PNG / PDF magic bytes，以及出图尺寸跟随
-//! 页面内容而不是视口。`/dashboards/guarded` 像真实前端一样先看登录态：没有就去登录页，
-//! 用来验证定时投递带着登录态渲染。
+//! 页面内容而不是视口。`/dashboards/guarded` 像真实前端一样先问 `/api/v1/auth/session`：
+//! 浏览器的会话 Cookie 不在或被拒绝就去登录页，用来验证定时投递带着登录态渲染。
 
 use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
-use axum::{Router, extract::Path, routing::get};
+use axum::{
+    Json, Router,
+    extract::Path,
+    http::{HeaderMap, StatusCode, header::COOKIE},
+    routing::get,
+};
 use molesignal::{
     app::reporting::ReportRenderSession,
     bootstrap::workers::scheduled_reports::ScheduledReportRunner,
@@ -29,42 +34,72 @@ use molesignal::{
     },
     report_renderer::{HeadlessChromeRenderer, RendererConfig},
     shared::{
-        Error, ReportFormat, ReportRenderer, Result, Viewport, ids::Id, time::TimestampMicros,
+        Error, ReportFormat, ReportRenderer, Result, SessionCookie, Viewport, ids::Id,
+        time::TimestampMicros,
     },
 };
 use object_store::{ObjectStore, ObjectStoreExt, memory::InMemory};
 use tokio::net::TcpListener;
 
-/// 真实前端的两种去登录页的方式：没有登录态时路由在同一份文档里换到登录页；登录态被后端
-/// 拒绝（401）时整页跳转。有可用的登录态才显示内容并说 `ready`。
+/// 真实前端的两种去登录页的方式：浏览器没有会话时路由在同一份文档里换到登录页；会话被后端
+/// 拒绝（401）时整页跳转。会话可用才显示内容并说 `ready`。
 const GUARDED_REPORT_PAGE: &str = r#"<!doctype html><html><body style='margin:0'>
 <main id='content'></main>
 <script>
-  const stored = localStorage.getItem('molesignal-auth');
-  const session = stored ? JSON.parse(stored) : null;
-  const token = session?.state?.token;
   const signin = '/signin?next=' + encodeURIComponent(location.pathname + location.search);
   const content = document.getElementById('content');
-  if (!token) {
-    history.replaceState(null, '', signin);
-    content.textContent = 'Sign in to MoleSignal';
-  } else if (token === 'rejected-token') {
-    location.assign(signin);
-  } else {
-    content.textContent = 'report rendered as ' + session.state.ctx.user_id;
-    content.style.cssText = 'display:block;height:500px;background:#dbeafe';
-    document.documentElement.dataset.reportRenderState = 'ready';
-  }
+  fetch('/api/v1/auth/session').then(async (response) => {
+    const session = await response.json();
+    if (session.missing) {
+      history.replaceState(null, '', signin);
+      content.textContent = 'Sign in to MoleSignal';
+    } else if (!response.ok) {
+      location.assign(signin);
+    } else {
+      content.textContent = 'report rendered as ' + session.user_id;
+      content.style.cssText = 'display:block;height:500px;background:#dbeafe';
+      document.documentElement.dataset.reportRenderState = 'ready';
+    }
+  });
 </script></body></html>"#;
 
-fn browser_session(token: &str) -> String {
-    format!(
-        r#"{{"state":{{"token":"{token}","ctx":{{"user_id":"ada","org_id":"o1"}}}},"version":0}}"#
-    )
+/// 渲染时浏览器带的会话 Cookie，与真实的一样只发往 `/api`，页面脚本读不到。
+fn session_cookie(token: &str) -> SessionCookie {
+    SessionCookie {
+        name: "accessToken".into(),
+        value: token.into(),
+        path: "/api".into(),
+    }
+}
+
+/// 假的 `/api/v1/auth/session`：看请求带的会话 Cookie 回答是谁。
+async fn fake_session(headers: HeaderMap) -> (StatusCode, Json<serde_json::Value>) {
+    let token = headers
+        .get(COOKIE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|cookies| {
+            cookies
+                .split(';')
+                .find_map(|pair| pair.trim().strip_prefix("accessToken="))
+        })
+        .map(str::to_owned);
+
+    match token.as_deref() {
+        None => (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({ "missing": true })),
+        ),
+        Some("rejected-token") => (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({ "missing": false })),
+        ),
+        Some(_) => (StatusCode::OK, Json(serde_json::json!({ "userId": "ada" }))),
+    }
 }
 
 async fn spawn_fake_embed_server() -> u16 {
     let app = Router::new()
+        .route("/api/v1/auth/session", get(fake_session))
         .route(
             "/signin",
             get(|| async {
@@ -159,7 +194,7 @@ fn pdf_page_sizes(pdf: &[u8]) -> Vec<(f64, f64)> {
 async fn render_report_document(id: &str, format: ReportFormat) -> Vec<u8> {
     let port = spawn_fake_embed_server().await;
     let renderer = HeadlessChromeRenderer::new(RendererConfig::default());
-    let url = format!("http://127.0.0.1:{port}/dashboards/{id}?report_render=1");
+    let url = format!("http://127.0.0.1:{port}/dashboards/{id}?reportRender=1");
 
     renderer
         .render(&url, format, Viewport::default(), None)
@@ -206,7 +241,7 @@ async fn png_render_returns_image_bytes() {
             height: 600,
         },
     });
-    let url = format!("http://127.0.0.1:{port}/dashboards/d1?report_render=1");
+    let url = format!("http://127.0.0.1:{port}/dashboards/d1?reportRender=1");
     let bytes = renderer
         .render(&url, ReportFormat::Png, Viewport::CONFIGURED, None)
         .await
@@ -226,15 +261,10 @@ async fn png_render_returns_image_bytes() {
 async fn pdf_render_starts_with_pdf_magic() {
     let port = spawn_fake_embed_server().await;
     let renderer = HeadlessChromeRenderer::new(RendererConfig::default());
-    let url = format!("http://127.0.0.1:{port}/dashboards/d1?report_render=1");
-    let browser_auth_storage = r#"{"state":{"token":"report-render-test-token","ctx":{"user_id":"u1","org_id":"o1"}},"version":0}"#;
+    let url = format!("http://127.0.0.1:{port}/dashboards/d1?reportRender=1");
+    let session = session_cookie("report-render-test-token");
     let bytes = renderer
-        .render(
-            &url,
-            ReportFormat::Pdf,
-            Viewport::default(),
-            Some(browser_auth_storage),
-        )
+        .render(&url, ReportFormat::Pdf, Viewport::default(), Some(&session))
         .await
         .expect("pdf render must succeed");
     assert!(bytes.starts_with(b"%PDF-"), "expected %PDF- header");
@@ -250,7 +280,7 @@ async fn pdf_render_starts_with_pdf_magic() {
 async fn application_error_page_is_not_exported_as_pdf() {
     let port = spawn_fake_embed_server().await;
     let renderer = HeadlessChromeRenderer::new(RendererConfig::default());
-    let url = format!("http://127.0.0.1:{port}/dashboards/error?report_render=1");
+    let url = format!("http://127.0.0.1:{port}/dashboards/error?reportRender=1");
     let error = renderer
         .render(&url, ReportFormat::Pdf, Viewport::default(), None)
         .await
@@ -265,13 +295,14 @@ async fn render_guarded_page(
     format: ReportFormat,
     session: Option<&str>,
 ) -> (Result<Vec<u8>>, Duration) {
+    let session = session.map(session_cookie);
     let port = spawn_fake_embed_server().await;
     let renderer = HeadlessChromeRenderer::new(RendererConfig::default());
-    let url = format!("http://127.0.0.1:{port}/dashboards/guarded?report_render=1");
+    let url = format!("http://127.0.0.1:{port}/dashboards/guarded?reportRender=1");
     let started = Instant::now();
 
     let rendered = renderer
-        .render(&url, format, Viewport::default(), session)
+        .render(&url, format, Viewport::default(), session.as_ref())
         .await
         .map(|bytes| bytes.to_vec());
 
@@ -281,8 +312,7 @@ async fn render_guarded_page(
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 #[ignore = "requires headless chromium on host"]
 async fn a_report_page_rendered_with_a_session_is_signed_in() {
-    let session = browser_session("render-token");
-    let (rendered, _) = render_guarded_page(ReportFormat::Png, Some(&session)).await;
+    let (rendered, _) = render_guarded_page(ReportFormat::Png, Some("render-token")).await;
 
     // 500px 高的内容只在登录后才有：登录态确实进了页面。
     let png = rendered.expect("a signed-in report page must render");
@@ -307,8 +337,7 @@ async fn a_report_page_rendered_without_a_session_fails_with_the_reason() {
 #[ignore = "requires headless chromium on host"]
 async fn a_report_page_whose_session_is_rejected_fails_with_the_reason() {
     // 后端拒绝 token 时前端整页跳去登录页，正在等待就绪的执行上下文随之销毁。
-    let session = browser_session("rejected-token");
-    let (rendered, _) = render_guarded_page(ReportFormat::Pdf, Some(&session)).await;
+    let (rendered, _) = render_guarded_page(ReportFormat::Pdf, Some("rejected-token")).await;
 
     let error = rendered.expect_err("a rejected session must not be exported");
     assert!(
@@ -453,7 +482,7 @@ async fn delivered_files(store: &InMemory) -> Vec<Vec<u8>> {
 #[ignore = "requires headless chromium on host"]
 async fn a_scheduled_report_is_rendered_signed_in_and_delivered() {
     for (format, signature) in [("pdf", &b"%PDF-"[..]), ("png", &b"\x89PNG"[..])] {
-        let identity = Identity::Session(browser_session("render-token"));
+        let identity = Identity::Session("render-token".into());
         let (reports, store) = run_scheduled_report(format, identity).await;
 
         let files = delivered_files(&store).await;

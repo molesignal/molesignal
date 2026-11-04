@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+mod common;
+
 use std::sync::Arc;
 
 use molesignal::{
@@ -24,13 +26,7 @@ fn skip_unless_enabled() -> bool {
 }
 
 async fn boot() -> MetaStore {
-    use testcontainers::runners::AsyncRunner;
-    use testcontainers_modules::postgres::Postgres as PgImage;
-
-    let pg = PgImage::default().start().await.expect("start postgres");
-    let port = pg.get_host_port_ipv4(5432).await.expect("postgres port");
-    let host = pg.get_host().await.expect("postgres host");
-    let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+    let (dsn, pg) = common::test_database().await;
     let store = MetaStore::connect(&MetaDatabaseSettings {
         dsn,
         min_connections: 1,

@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! `agent_memories` 与 `agent_memory_settings`：个人与团队的记忆，组织对记忆的设置。
+//! `agent_memories`：个人与团队的记忆；组织对记忆的设置在 `org_settings` 的 `agent.memory` 一节。
 //!
 //! 同一作用域里没忘掉的记忆名称不分大小写唯一（部分唯一索引）；按名称记住时替换同名的那条。
 
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row, postgres::PgRow};
 
+use super::super::org_settings::{self, sections::AGENT_MEMORY};
 use crate::{
     agent::{
         memory::{
@@ -21,11 +23,18 @@ use crate::{
 };
 
 const COLS: &str = "id, org_id, scope, team_id, owner_id, kind, name, description, body, \
-    source_chat_id, created_by, updated_by, created_at_micros, updated_at_micros, \
-    forgotten_at_micros";
+    source_chat_id, created_by, updated_by, created_at, updated_at, \
+    forgotten_at";
 
 pub struct PgMemoryStore {
     pool: PgPool,
+}
+
+/// `agent.memory` 一节的值。
+#[derive(Serialize, Deserialize)]
+struct StoredMemorySettings {
+    #[serde(default)]
+    distill_after_chat: bool,
 }
 
 impl PgMemoryStore {
@@ -55,12 +64,15 @@ fn memory_row(row: PgRow) -> Result<Memory> {
             .map(Id),
         created_by: Id(row.try_get("created_by").map_err(sqlx_err)?),
         updated_by: Id(row.try_get("updated_by").map_err(sqlx_err)?),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
         forgotten_at: row
-            .try_get::<Option<i64>, _>("forgotten_at_micros")
-            .map_err(sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("forgotten_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -76,8 +88,8 @@ impl MemoryStore for PgMemoryStore {
     async fn list(&self, org_id: &Id, scope: &Scope) -> Result<Vec<Memory>> {
         let rows = sqlx::query(&format!(
             "SELECT {COLS} FROM agent_memories
-             WHERE org_id = $1 AND scope_key = $2 AND forgotten_at_micros IS NULL
-             ORDER BY updated_at_micros DESC"
+             WHERE org_id = $1 AND scope_key = $2 AND forgotten_at IS NULL
+             ORDER BY updated_at DESC"
         ))
         .bind(&org_id.0)
         .bind(scope.key())
@@ -106,7 +118,7 @@ impl MemoryStore for PgMemoryStore {
         sqlx::query(&format!(
             "SELECT {COLS} FROM agent_memories
              WHERE org_id = $1 AND scope_key = $2 AND lower(name) = lower($3)
-               AND forgotten_at_micros IS NULL"
+               AND forgotten_at IS NULL"
         ))
         .bind(&org_id.0)
         .bind(scope.key())
@@ -134,7 +146,7 @@ impl MemoryStore for PgMemoryStore {
 
         let count: i64 = sqlx::query(
             "SELECT COUNT(*) AS count FROM agent_memories
-             WHERE org_id = $1 AND scope_key = $2 AND forgotten_at_micros IS NULL",
+             WHERE org_id = $1 AND scope_key = $2 AND forgotten_at IS NULL",
         )
         .bind(&org_id.0)
         .bind(scope.key())
@@ -155,7 +167,7 @@ impl MemoryStore for PgMemoryStore {
         let row = sqlx::query(&format!(
             "INSERT INTO agent_memories
                 (id, org_id, scope, team_id, owner_id, scope_key, kind, name, description, body,
-                 source_chat_id, created_by, updated_by, created_at_micros, updated_at_micros)
+                 source_chat_id, created_by, updated_by, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12, $13, $13)
              RETURNING {COLS}"
         ))
@@ -171,7 +183,7 @@ impl MemoryStore for PgMemoryStore {
         .bind(draft.body.trim())
         .bind(source_chat_id.map(|id| id.0.as_str()))
         .bind(&actor.0)
-        .bind(now.0)
+        .bind(now)
         .fetch_one(&self.pool)
         .await
         .map_err(conflict_on_name)?;
@@ -191,7 +203,7 @@ impl MemoryStore for PgMemoryStore {
 
         let row = sqlx::query(&format!(
             "UPDATE agent_memories SET kind = $3, name = $4, description = $5, body = $6,
-                    updated_by = $7, updated_at_micros = $8
+                    updated_by = $7, updated_at = $8
              WHERE org_id = $1 AND id = $2
              RETURNING {COLS}"
         ))
@@ -202,7 +214,7 @@ impl MemoryStore for PgMemoryStore {
         .bind(draft.description.trim())
         .bind(draft.body.trim())
         .bind(&actor.0)
-        .bind(TimestampMicros::now().0)
+        .bind(TimestampMicros::now())
         .fetch_one(&self.pool)
         .await
         .map_err(conflict_on_name)?;
@@ -215,14 +227,14 @@ impl MemoryStore for PgMemoryStore {
 
         let row = sqlx::query(&format!(
             "UPDATE agent_memories
-             SET forgotten_at_micros = COALESCE(forgotten_at_micros, $4), updated_by = $3
+             SET forgotten_at = COALESCE(forgotten_at, $4), updated_by = $3
              WHERE org_id = $1 AND id = $2
              RETURNING {COLS}"
         ))
         .bind(&org_id.0)
         .bind(&id.0)
         .bind(&actor.0)
-        .bind(now.0)
+        .bind(now)
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?
@@ -234,14 +246,14 @@ impl MemoryStore for PgMemoryStore {
     async fn restore(&self, org_id: &Id, id: &Id, actor: &Id) -> Result<Memory> {
         let row = sqlx::query(&format!(
             "UPDATE agent_memories
-             SET forgotten_at_micros = NULL, updated_by = $3, updated_at_micros = $4
+             SET forgotten_at = NULL, updated_by = $3, updated_at = $4
              WHERE org_id = $1 AND id = $2
              RETURNING {COLS}"
         ))
         .bind(&org_id.0)
         .bind(&id.0)
         .bind(&actor.0)
-        .bind(TimestampMicros::now().0)
+        .bind(TimestampMicros::now())
         .fetch_optional(&self.pool)
         .await
         .map_err(conflict_on_name)?
@@ -262,25 +274,17 @@ impl MemoryStore for PgMemoryStore {
     }
 
     async fn settings(&self, org_id: &Id) -> Result<MemorySettings> {
-        let row = sqlx::query(
-            "SELECT distill_after_chat, updated_by, updated_at_micros FROM agent_memory_settings
-             WHERE org_id = $1",
-        )
-        .bind(&org_id.0)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
+        let section =
+            org_settings::read::<StoredMemorySettings>(&self.pool, &org_id.0, AGENT_MEMORY).await?;
 
-        let Some(row) = row else {
+        let Some(section) = section else {
             return Ok(MemorySettings::default());
         };
 
         Ok(MemorySettings {
-            distill_after_chat: row.try_get("distill_after_chat").map_err(sqlx_err)?,
-            updated_by: Some(Id(row.try_get("updated_by").map_err(sqlx_err)?)),
-            updated_at: Some(TimestampMicros(
-                row.try_get("updated_at_micros").map_err(sqlx_err)?,
-            )),
+            distill_after_chat: section.value.distill_after_chat,
+            updated_by: section.updated_by.map(Id),
+            updated_at: Some(section.updated_at),
         })
     }
 
@@ -290,19 +294,15 @@ impl MemoryStore for PgMemoryStore {
         distill_after_chat: bool,
         actor: &Id,
     ) -> Result<MemorySettings> {
-        sqlx::query(
-            "INSERT INTO agent_memory_settings (org_id, distill_after_chat, updated_by, updated_at_micros)
-             VALUES ($1, $2, $3, $4)
-             ON CONFLICT (org_id) DO UPDATE SET distill_after_chat = EXCLUDED.distill_after_chat,
-                updated_by = EXCLUDED.updated_by, updated_at_micros = EXCLUDED.updated_at_micros",
+        org_settings::write(
+            &self.pool,
+            &org_id.0,
+            AGENT_MEMORY,
+            &StoredMemorySettings { distill_after_chat },
+            Some(&actor.0),
+            TimestampMicros::now(),
         )
-        .bind(&org_id.0)
-        .bind(distill_after_chat)
-        .bind(&actor.0)
-        .bind(TimestampMicros::now().0)
-        .execute(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
+        .await?;
 
         self.settings(org_id).await
     }

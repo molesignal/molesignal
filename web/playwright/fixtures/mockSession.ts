@@ -1,7 +1,6 @@
 import type { Page } from '@playwright/test';
 
 interface MockSessionOptions {
-  token?: string;
   userId?: string;
   orgId?: string;
   orgName?: string;
@@ -22,12 +21,11 @@ export async function installMockSession(
   const role = options.role ?? 'Owner';
   const session = {
     state: {
-      token: options.token ?? 'mock-e2e-token',
       ctx: {
-        user_id: options.userId ?? 'test-user',
-        org_id: options.orgId ?? 'acme-prod',
-        org_name: options.orgName ?? 'acme-prod',
-        display_role: role,
+        userId: options.userId ?? 'test-user',
+        orgId: options.orgId ?? 'acme-prod',
+        orgName: options.orgName ?? 'acme-prod',
+        displayRole: role,
         roles: [
           {
             id: `role-${role.toLowerCase()}`,
@@ -36,11 +34,11 @@ export async function installMockSession(
             builtin: true,
           },
         ],
-        display_name: options.displayName ?? 'Test User',
+        displayName: options.displayName ?? 'Test User',
         email: options.email ?? 'test@molesignal.local',
       },
     },
-    version: 0,
+    version: 1,
   };
 
   await page.addInitScript(
@@ -69,10 +67,76 @@ export async function installMockShellSession(
   const email = options.email ?? 'test@molesignal.local';
   const permissions = options.permissions ?? [
     'streams.read',
+    'log_patterns.read',
+    'debug_artifacts.read',
     'streams.query',
-    'alerts.read',
-    'alerts.manage',
-    'alerts.acknowledge',
+    'logs.read',
+    'traces.read',
+    'metrics.read',
+    'profiles.read',
+    'query.jobs.read',
+    'query.jobs.run',
+    'query.slow.read',
+    'apm.services.read',
+    'apm.errors.read',
+    'apm.error_rules.read',
+    'apm.definitions.read',
+    'apm.deployments.read',
+    'apm.slos.read',
+    'apm.settings.read',
+    'rum.events.read',
+    'rum.analytics.read',
+    'rum.sessions.read',
+    'rum.replay.read',
+    'rum.applications.read',
+    'rum.issues.read',
+    'rum.playlists.read',
+    'alerts.rules.read',
+    'alerts.routing.read',
+    'alerts.escalations.read',
+    'alerts.calendars.read',
+    'alerts.importance.read',
+    'alerts.incidents.read',
+    'alerts.mutes.read',
+    'alerts.inhibitions.read',
+    'alerts.remediation.read',
+    'alerts.response.read',
+    'alerts.semantic_groups.read',
+    'alerts.sources.read',
+    'alerts.tickets.read',
+    'alerts.discovery.read',
+    'notify.connectors.read',
+    'notify.policies.read',
+    'notify.templates.read',
+    'notify.defaults.read',
+    'notify.deliveries.read',
+    'alerts.rules.manage',
+    'alerts.rules.delete',
+    'alerts.routing.manage',
+    'alerts.escalations.manage',
+    'alerts.escalations.delete',
+    'alerts.calendars.manage',
+    'alerts.importance.manage',
+    'alerts.incidents.rca',
+    'alerts.remediation.manage',
+    'alerts.response.manage',
+    'alerts.semantic_groups.manage',
+    'alerts.sources.manage',
+    'alerts.tickets.manage',
+    'notify.connectors.manage',
+    'notify.connectors.delete',
+    'notify.policies.manage',
+    'notify.policies.delete',
+    'notify.templates.manage',
+    'notify.defaults.manage',
+    'notify.deliveries.retry',
+    'alerts.incidents.create',
+    'alerts.incidents.acknowledge',
+    'alerts.incidents.update',
+    'alerts.incidents.escalate',
+    'alerts.incidents.remediate',
+    'alerts.incidents.tickets',
+    'notify.deliveries.acknowledge',
   ];
 
   // Register the catch-all first. Playwright resolves the newest matching
@@ -84,9 +148,9 @@ export async function installMockShellSession(
   await page.route('**/api/v1/iam/capabilities', (route) =>
     route.fulfill({
       json: {
-        organization_id: orgId,
+        organizationId: orgId,
         scope: 'organization',
-        display_role: role,
+        displayRole: role,
         roles: [
           {
             id: `role-${role.toLowerCase()}`,
@@ -98,45 +162,45 @@ export async function installMockShellSession(
         permissions,
         features: [],
         version: 1,
-        route_catalog_version: 1,
+        routeCatalogVersion: 1,
         routes: [
           {
             id: 'root',
-            path_pattern: '/',
+            pathPattern: '/',
             allowed: true,
           },
           {
             id: 'account.settings',
-            path_pattern: '/account/settings/*',
+            pathPattern: '/account/settings/*',
             allowed: true,
           },
           {
             id: 'home',
-            path_pattern: '/home',
+            pathPattern: '/home',
             allowed: true,
-            navigation_group: 'home',
-            navigation_position: 10,
+            navigationGroup: 'home',
+            navigationPosition: 10,
           },
           {
             id: 'logs',
-            path_pattern: '/logs/*',
+            pathPattern: '/logs/*',
             allowed: true,
-            navigation_group: 'observe',
-            navigation_position: 20,
+            navigationGroup: 'observe',
+            navigationPosition: 20,
           },
           {
             id: 'traces',
-            path_pattern: '/traces/*',
+            pathPattern: '/traces/*',
             allowed: true,
-            navigation_group: 'observe',
-            navigation_position: 30,
+            navigationGroup: 'observe',
+            navigationPosition: 30,
           },
           {
             id: 'alerts',
-            path_pattern: '/alerts/*',
+            pathPattern: '/alerts/*',
             allowed: true,
-            navigation_group: 'reliability',
-            navigation_position: 10,
+            navigationGroup: 'reliability',
+            navigationPosition: 10,
           },
         ],
       },
@@ -145,8 +209,9 @@ export async function installMockShellSession(
   await page.route('**/api/v1/instance', (route) =>
     route.fulfill({
       json: {
-        external_url: '',
-        signup_enabled: false,
+        externalUrl: '',
+        signupEnabled: false,
+        passkeySignin: false,
         version: '26.0.0.0',
       },
     }),
@@ -157,9 +222,9 @@ export async function installMockShellSession(
         version: '26.0.0.0',
         commit: 'mock-test',
         branch: 'test',
-        build_epoch_secs: 1_785_087_406,
-        build_id: 'playwright-session',
-        release_channel: 'alpha',
+        buildEpochSecs: 1_785_087_406,
+        buildId: 'playwright-session',
+        releaseChannel: 'alpha',
         edition: 'community',
       },
     }),
@@ -167,13 +232,13 @@ export async function installMockShellSession(
   await page.route('**/api/v1/me/profile', (route) =>
     route.fulfill({
       json: {
-        user_id: userId,
+        userId: userId,
         email,
-        display_name: displayName,
-        org_id: orgId,
-        org_name: orgName,
-        org_slug: orgName,
-        display_role: role,
+        displayName: displayName,
+        orgId: orgId,
+        orgName: orgName,
+        orgSlug: orgName,
+        displayRole: role,
       },
     }),
   );

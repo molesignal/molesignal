@@ -22,12 +22,13 @@ const MAX_IMPORT_REQUEST_BYTES: usize = 3 * 1024 * 1024;
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new().route(
-        "/status-pages/{page_id}/subscribers/import",
+        "/status-pages/{pageId}/subscribers/import",
         post(import).layer(DefaultBodyLimit::max(MAX_IMPORT_REQUEST_BYTES)),
     )
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ImportRequest {
     csv: String,
     mode: StatusPageSubscriberImportMode,
@@ -36,7 +37,7 @@ struct ImportRequest {
     dry_run: bool,
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.subscribers.manage")]
 async fn import(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -66,10 +67,10 @@ async fn import(
             serde_json::json!({
                 "mode": request.mode,
                 "imported": report.outcome.imported,
-                "already_subscribed": report.outcome.already_subscribed,
-                "skipped_unsubscribed": report.outcome.skipped_unsubscribed,
-                "confirmations_queued": report.outcome.confirmations_queued,
-                "problem_count": report.problem_count,
+                "alreadySubscribed": report.outcome.already_subscribed,
+                "skippedUnsubscribed": report.outcome.skipped_unsubscribed,
+                "confirmationsQueued": report.outcome.confirmations_queued,
+                "problemCount": report.problem_count,
             }),
         )
         .await;

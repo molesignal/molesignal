@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use super::{handling::IncidentHandling, routing::IncidentRouting};
 use crate::{
     domain::query::QueryLanguage,
     shared::{ids::Id, time::TimestampMicros},
@@ -12,6 +13,7 @@ use crate::{
 
 /// 告警事件 — 规则触发后产生的实例，是排班升级机制的主对象。
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Incident {
     pub id: Id,
     pub org_id: Id,
@@ -56,10 +58,23 @@ pub struct Incident {
     pub acknowledged_by: Option<Id>,
     pub resolved_at: Option<TimestampMicros>,
     pub resolved_by: Option<Id>,
+    /// 分派到的团队：开事件时由路由定下，见 [`super::routing`]。
+    #[serde(default)]
+    pub team_id: Option<Id>,
+    /// 分派的经过；路由出现以前开的事件没有。
+    #[serde(default)]
+    pub routing: Option<IncidentRouting>,
+    /// 人对事件的处理：暂缓、手动指定的负责人与严重度、合并、升级通知的轮次。
+    #[serde(default, flatten)]
+    pub handling: IncidentHandling,
+    /// 每写一次加一。按状态条件写回时也比对它：读出之后被别人改过的事件写不进去，要重读再改。
+    #[serde(default)]
+    pub revision: u64,
 }
 
 /// 触发 Incident 的查询元数据，与 sample 行一起组成 drawer 里的"原始触发上下文"。
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TriggeringQuery {
     pub language: QueryLanguage,
     pub statement: String,
@@ -80,6 +95,7 @@ pub struct TriggeringSample {
 /// incident 至多一条；`GET /alerts/incidents/{id}/rca` 读取。provider/model/token/
 /// prompt_hash 一并落库，便于审计与成本追溯。
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IncidentRca {
     pub incident_id: Id,
     pub org_id: Id,
@@ -153,7 +169,76 @@ impl Severity {
     }
 }
 
+/// 事件标签里说明它因何而开的那一项；无数据事件取 [`NO_DATA_CONDITION`]，按阈值开的事件没有这一项。
+pub const CONDITION_LABEL: &str = "alert.condition";
+
+/// 规则连续一段没有值、拨测监控项没有结果时开的事件。
+pub const NO_DATA_CONDITION: &str = "no_data";
+
+/// 事件注解里说明发生了什么的那一句；拨测的无数据事件用它写明哪里、为什么没有结果。
+pub const DESCRIPTION_ANNOTATION: &str = "description";
+
+/// 事件标签里说明它从哪里来的那一项；拨测监控项开的事件取 [`SYNTHETIC_SOURCE`]，外部来源开的事件
+/// 取 [`EXTERNAL_SOURCE`]，手动建的事件取 [`MANUAL_SOURCE`]，告警规则开的事件没有这一项。
+pub const SOURCE_LABEL: &str = "alert.source";
+
+/// 有人手动建的事件：它的 `rule_id` 是 [`MANUAL_RULE_ID`]，注解 [`CREATED_BY_ANNOTATION`] 记创建人。
+pub const MANUAL_SOURCE: &str = "manual";
+
+/// 手动建的事件共用的 `rule_id`：洞察里它们归成一项。
+pub const MANUAL_RULE_ID: &str = "manual";
+
+/// 手动建的事件的创建人（用户 id）。
+pub const CREATED_BY_ANNOTATION: &str = "created_by";
+
+/// 拨测监控项开的事件：它的 `rule_id` 是监控项的 id。
+pub const SYNTHETIC_SOURCE: &str = "synthetic";
+
+/// 外部来源（Alertmanager、Grafana、接口调用等）开的事件：它的 `rule_id` 是来源的 id。
+pub const EXTERNAL_SOURCE: &str = "external";
+
+/// 外部事件的标签里来源的类型（[`super::source::AlertSourceKind::as_str`]）。
+pub const EXTERNAL_KIND_LABEL: &str = "external.kind";
+
+/// 拨测事件的标签里监控项当时的状态（failing、degraded、flaky），无数据事件是 no_data。
+pub const SYNTHETIC_STATE_LABEL: &str = "synthetic.state";
+
 impl Incident {
+    /// 规则连续一段没有值时开的无数据事件。
+    pub fn is_no_data(&self) -> bool {
+        self.labels.get(CONDITION_LABEL).map(String::as_str) == Some(NO_DATA_CONDITION)
+    }
+
+    /// 拨测监控项开的事件，返回监控项的 id。
+    pub fn synthetic_monitor_id(&self) -> Option<&Id> {
+        (self.labels.get(SOURCE_LABEL).map(String::as_str) == Some(SYNTHETIC_SOURCE))
+            .then_some(&self.rule_id)
+    }
+
+    /// 外部来源开的事件，返回来源的 id。
+    pub fn external_source_id(&self) -> Option<&Id> {
+        (self.labels.get(SOURCE_LABEL).map(String::as_str) == Some(EXTERNAL_SOURCE))
+            .then_some(&self.rule_id)
+    }
+
+    /// 并入了别的事件。
+    pub fn is_merged(&self) -> bool {
+        self.handling.merged_into.is_some()
+    }
+
+    /// 紧急度；开事件时没定下的（这个字段出现以前开的）按高算。
+    pub fn urgency(&self) -> super::urgency::Urgency {
+        self.handling.urgency.clone().unwrap_or_default()
+    }
+
+    /// 还在进行中：未确认或已确认。
+    pub fn is_active(&self) -> bool {
+        matches!(
+            self.status,
+            IncidentStatus::Open | IncidentStatus::Acknowledged
+        )
+    }
+
     /// 当前层是否已超时未 ack。
     pub fn step_timed_out(&self, ack_timeout_secs: u32, now: TimestampMicros) -> bool {
         if self.status != IncidentStatus::Open {

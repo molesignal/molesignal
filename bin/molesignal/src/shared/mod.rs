@@ -16,6 +16,6 @@ pub mod contracts {
 }
 
 pub use ::report_renderer::{
-    RenderError, ReportFormat, ReportRenderer, Viewport, validate_report_bytes,
+    RenderError, ReportFormat, ReportRenderer, SessionCookie, Viewport, validate_report_bytes,
 };
 pub use kernel::{Error, Probe, Result, cursor, drain, error, health, ids, time};

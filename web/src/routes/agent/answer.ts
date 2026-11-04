@@ -17,7 +17,7 @@ export interface EvidenceRef {
   kind?: string;
   label?: string;
   stream?: string;
-  time_range?: { start_micros: number; end_micros: number };
+  time_range?: { start_time: number; end_time: number };
   trace_id?: string;
   query?: string;
   object_key?: string;
@@ -134,8 +134,8 @@ export function evidenceHref(ev: EvidenceRef): string | null {
   if (ev.href) return ev.href;
   if (ev.route) return ev.route;
   const params = new URLSearchParams();
-  if (ev.time_range?.start_micros) params.set('from', String(ev.time_range.start_micros));
-  if (ev.time_range?.end_micros) params.set('to', String(ev.time_range.end_micros));
+  if (ev.time_range?.start_time) params.set('from', String(ev.time_range.start_time));
+  if (ev.time_range?.end_time) params.set('to', String(ev.time_range.end_time));
   if (ev.stream) params.set('stream', ev.stream);
   const qs = params.toString() ? `?${params.toString()}` : '';
   switch ((ev.kind ?? '').toLowerCase()) {

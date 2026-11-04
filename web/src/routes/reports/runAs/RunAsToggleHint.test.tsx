@@ -22,10 +22,10 @@ function renderSwitch(
   const report = adaptReport({
     id: 'r1',
     name: 'Weekly SLO',
-    dashboard_id: 'd1',
+    dashboardId: 'd1',
     format: 'pdf',
     enabled: true,
-    run_as_user_id: 'u-dana',
+    runAsUserId: 'u-dana',
     ...overrides,
   });
 
@@ -50,20 +50,19 @@ function renderSwitch(
 
 beforeEach(() => {
   useAuthStore.setState({
-    token: 'token',
-    ctx: { user_id: 'u-me', org_id: 'org-1', display_role: 'Editor', roles: [] },
+    ctx: { userId: 'u-me', orgId: 'org-1', displayRole: 'Editor', roles: [] },
   });
 });
 
 afterEach(() => {
   cleanup();
-  useAuthStore.setState({ token: null, ctx: null });
+  useAuthStore.setState({ ctx: null });
 });
 
 describe('RunAsToggleHint', () => {
   it("says that the switch takes over someone else's report, and leaves the switch working", async () => {
     const user = userEvent.setup();
-    const { toggle, onToggle } = renderSwitch({ run_as_user_id: 'u-dana' });
+    const { toggle, onToggle } = renderSwitch({ runAsUserId: 'u-dana' });
 
     // Said to someone who reaches the switch without a pointer, too.
     expect(toggle).toHaveAccessibleDescription(HINT);
@@ -79,18 +78,18 @@ describe('RunAsToggleHint', () => {
 
   it('says so for a PDF report that no signed-in user saved', async () => {
     const user = userEvent.setup();
-    const { toggle } = renderSwitch({ run_as_user_id: null });
+    const { toggle } = renderSwitch({ runAsUserId: null });
 
     await user.hover(toggle);
     expect((await screen.findByRole('tooltip')).textContent).toBe(HINT);
   });
 
   it.each([
-    ['the report already runs as the reader', { run_as_user_id: 'u-me' }, false],
-    ['the format renders no page', { format: 'csv', run_as_user_id: 'u-dana' }, false],
-    ['an SVG report has no user', { format: 'svg', run_as_user_id: null }, false],
-    ['an SVG report has another user', { format: 'svg', run_as_user_id: 'u-dana' }, false],
-    ['the switch cannot be used', { run_as_user_id: 'u-dana' }, true],
+    ['the report already runs as the reader', { runAsUserId: 'u-me' }, false],
+    ['the format renders no page', { format: 'csv', runAsUserId: 'u-dana' }, false],
+    ['an SVG report has no user', { format: 'svg', runAsUserId: null }, false],
+    ['an SVG report has another user', { format: 'svg', runAsUserId: 'u-dana' }, false],
+    ['the switch cannot be used', { runAsUserId: 'u-dana' }, true],
   ])('says nothing when %s', async (_case, overrides, disabled) => {
     const user = userEvent.setup();
     const { toggle } = renderSwitch(overrides, { disabled });

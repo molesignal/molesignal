@@ -17,7 +17,8 @@
     "all_types": "全部",
     "logs": "日志",
     "metrics": "指标",
-    "traces": "链路"
+    "traces": "链路",
+    "profiles": "性能剖析"
   },
   "states": {
     "empty_title": "尚无计划流水线",
@@ -58,7 +59,8 @@
       "paused": "已暂停",
       "unknown": "状态未知",
       "never": "尚未运行",
-      "ready": "等待接收"
+      "ready": "等待接收",
+      "listening": "等待告警事件"
     },
     "run_states": {
       "succeeded": "成功",
@@ -90,7 +92,8 @@
     "metadata": {
       "schedule": "调度",
       "lookback": "回看窗口",
-      "last_run": "最近运行"
+      "last_run": "最近运行",
+      "audit_reader": "读取 _audit 的身份"
     },
     "tabs": {
       "overview": "概览",
@@ -178,7 +181,7 @@
       "definition_title": "流水线定义",
       "definition_description": "粘贴 Vector 兼容的 JSON 或简单的 key: value YAML。",
       "definition_label": "定义",
-      "definition_placeholder": "{\n  \"name\": \"prod-app-logs\",\n  \"source_stream\": \"app-logs\",\n  \"target_stream\": \"enriched-logs\",\n  \"function_steps\": [],\n  \"cron\": \"every:5m\"\n}",
+      "definition_placeholder": "{\n  \"name\": \"prod-app-logs\",\n  \"sourceStream\": \"app-logs\",\n  \"targetStream\": \"enriched-logs\",\n  \"functionSteps\": [],\n  \"cron\": \"every:5m\"\n}",
       "definition_aria": "流水线定义",
       "import_label": "导入",
       "validation_empty": "流水线定义不能为空",
@@ -267,7 +270,8 @@
       "transform_name_missing": "第 {{index}} 个步骤缺少名称。",
       "transform_script_missing": "步骤「{{name}}」缺少 VRL 脚本。",
       "connector_missing": "该连接器已不存在，或不是流水线可以投递的类型：{{id}}",
-      "realtime_logs": "实时模式当前支持日志。",
+      "in_place_route": "指标、链路和 RUM 事件在进来的流里原地处理，它们的实时流水线不能把事件分流到别处。",
+      "protected_field": "步骤「{{name}}」会改动 {{field}}，这条流的实时流水线要保持它进来时的样子。",
       "realtime_nodes": "实时模式只支持一个来源流和一个目标流，不支持连接器。",
       "source_missing": "请选择要读取的数据流。",
       "sink_missing": "请选择要写入的数据流。",
@@ -292,7 +296,38 @@
       "route_field_missing": "步骤「{{name}}」需要填写分流字段和兜底数据流。",
       "route_stream_invalid": "步骤「{{name}}」：「{{stream}}」不是合法的流名。",
       "route_prefix_invalid": "步骤「{{name}}」：流名前缀只能包含字母、数字、_、- 和 .",
-      "route_to_source": "步骤「{{name}}」会把事件写回本流水线读取的 {{stream}}，请换一个数据流。"
+      "rum_sessions_source": "{{name}} 由页面数据合成，流水线不能处理它。",
+      "platform_source": "{{name}} 由平台写入，实时流水线不能处理它；定时流水线可以读取它。",
+      "platform_written": "{{name}} 只由平台写入，请换一个要写入的数据流。",
+      "route_to_platform": "步骤「{{name}}」会把事件写进只由平台写入的 {{stream}}，请换一个数据流。",
+      "rum_keeps_rows": "步骤「{{name}}」会丢弃事件，但 {{source}} 的每一行都要保留。",
+      "rum_written": "{{name}} 只由 RUM 接入写入，请换一个要写入的数据流。",
+      "route_to_rum": "步骤「{{name}}」会把事件写进只由 RUM 接入写入的 {{stream}}，请换一个数据流。",
+      "route_to_source": "步骤「{{name}}」会把事件写回本流水线读取的 {{stream}}，请换一个数据流。",
+      "table_unset": "请为这个目标选择扩展表。",
+      "table_duplicate": "{{name}} 已是目标之一，每行只写一次。",
+      "alert_route": "步骤「{{name}}」是分流，告警流水线不分流。请删除它或换成别的步骤。",
+      "alert_prompt_missing": "步骤「{{name}}」需要填写提示词。",
+      "alert_sample": "步骤「{{name}}」是采样，告警流水线不采样。不需要的事件请用过滤丢弃。",
+      "alert_notify_outside": "步骤「{{name}}」要走出 MoleSignal，这只在开事件时做，不会为每条通知做。请把它放到开事件之前运行的流水线里。",
+      "alert_connector_missing": "请选择步骤「{{name}}」调用的 HTTP 连接器。",
+      "alert_query_stream_missing": "请选择步骤「{{name}}」读取的数据流。",
+      "alert_query_statement_missing": "步骤「{{name}}」需要填写查询。",
+      "counting_condition_invalid": "步骤「{{name}}」的条件还缺值；大于、大于等于、小于、小于等于要和数字比较。",
+      "metric_name_invalid": "步骤「{{name}}」的指标名只能用字母、数字、_ 和 :，且不能以数字开头。",
+      "metric_group_invalid": "步骤「{{name}}」最多按 10 个字段分组，每个字段只写一次。",
+      "metric_label_reserved": "步骤「{{name}}」的分组字段是每个指标样本都有的字段，比如 value、le 或 metric_name，请换一个字段。",
+      "metric_buckets_invalid": "步骤「{{name}}」需要 1 到 30 个桶上界，每个都要比前一个大。",
+      "metric_stream_unwritable": "步骤「{{name}}」不能把指标写进 {{stream}}，请换一个数据流。",
+      "limit_invalid": "步骤「{{name}}」的上限要是 1 以上的数；限流的时间窗是 1 到 86400 秒。",
+      "limit_fields_invalid": "步骤「{{name}}」最多按 5 个字段分桶或分组，每个字段只写一次。",
+      "limit_overrides_invalid": "步骤「{{name}}」单独设上限的桶要给每个分桶字段填值、填上限，同一个桶只能设一次。",
+      "limit_target_missing": "步骤「{{name}}」还没选超出上限后写入的数据流。",
+      "limit_target_source": "步骤「{{name}}」会把超出上限的事件写回它读的 {{stream}}。",
+      "counting_realtime_only": "步骤「{{name}}」在事件进来时计数，只能用在实时流水线里。",
+      "counting_not_here_metric": "步骤「{{name}}」从日志、RUM 事件和 Span 生成指标，这条流水线处理的是别的数据。",
+      "counting_not_here_limit": "步骤「{{name}}」只拦日志和允许丢弃的 RUM 事件，放在这里会让数据出现缺口。",
+      "counting_name_duplicate": "有两个步骤都叫「{{name}}」。计数的步骤按名字存它的计数，名字不能重复。"
     }
   },
   "drawer": {
@@ -345,7 +380,12 @@
     "retain_hint": "分流成功后，额外保留处理前的原始日志到 {{source}}（仍执行脱敏）。目标与源流相同时只写一次。",
     "no_backfill": "实时模式在写入时执行，不支持历史回填。",
     "ready": "等待接收",
-    "logs_only": "实时模式当前支持日志。"
+    "in_place_title": "写回原流",
+    "in_place_detail": "原地写回",
+    "in_place_rum": "RUM 事件在进来时处理，留在这个流里。只能改 context、usr.extra、feature_flags 和 extra：其余列是 RUM 页面读取的内容，改动它们的步骤会让这条事件处理失败。操作、错误、资源和长任务可以丢弃；页面和 Web Vitals 不能丢。",
+    "in_place_metrics": "样本在进来时处理，留在这个流里。可以删除、改名或添加标签来降低基数；改了标签就是一条新的序列。指标名、取值、count、sum、min、max、时间、指标的元数据以及 le 和 quantile 标签保持进来时的样子：改动其中任何一个的步骤会让这条样本处理失败。",
+    "in_place_profiles": "只有性能剖析的元数据行经过步骤，剖析文件本身保持存下时的样子。步骤可以改服务名、改标签、添字段，也可以丢掉一行；丢掉之后这条剖析不再出现在性能剖析页面，文件到保留期结束时清除。文件的位置、ID、类型、时间和测得的数值保持进来时的样子：改动其中任何一个的步骤会让这一行处理失败。",
+    "in_place_traces": "Span 在尾采样之后、写入之前处理，留在这个流里。步骤可以丢弃 span、按 trace_id 整条采样，或删除、改写属性；在这里改的属性，span 的 attributes 里也跟着改。trace 和 span 的 ID、父 span、service.name 和时间保持进来时的样子：改动其中任何一个的步骤会让这个 span 处理失败。从 trace 中间丢掉的 span 会让它的子 span 失去父节点；trace 列表和服务拓扑只统计写下的 span。"
   },
   "processing": {
     "type": "处理类型",
@@ -378,9 +418,14 @@
       "m": "分钟",
       "h": "小时"
     },
-    "realtime_note": "在每条日志写入时即时处理：一个来源流、一个目标，无需调度。"
+    "realtime_note": "在每条日志写入时即时处理：一个来源流、一个目标，无需调度。",
+    "realtime_note_metrics": "在每条样本写入时即时处理，留在原来的流里：一个来源流，无需调度。",
+    "realtime_note_traces": "在每个 span 写入时即时处理（尾采样之后），留在原来的流里：一个来源流，无需调度。",
+    "realtime_note_profiles": "在每条性能剖析存下时处理它的元数据行，留在原来的流里。剖析文件本身不动。"
   },
   "flow": {
+    "remove_node": "删除 {{name}}",
+    "required_node": "必须保留此来源或目标",
     "processing": "处理步骤",
     "destinations": "目标",
     "add_step": "添加步骤",
@@ -397,7 +442,8 @@
     "destination_stream": "数据流",
     "destination_connector": "连接器",
     "at_most": "最多 {{max}} 个数据流",
-    "no_steps": "没有处理步骤：事件按读到的原样写入。"
+    "no_steps": "没有处理步骤：事件按读到的原样写入。",
+    "destination_table": "扩展表"
   },
   "steps": {
     "name": "步骤名称",
@@ -409,14 +455,17 @@
     "groups": {
       "parse": "解析",
       "fields": "字段",
-      "events": "事件"
+      "events": "事件",
+      "counting": "计数与限流"
     },
     "types": {
       "parse_json": "解析 JSON",
       "parse_key_value": "解析键值对",
       "parse_regex": "正则提取",
       "rename": "重命名字段",
+      "rename_regex": "按正则批量改名",
       "remove": "删除字段",
+      "keep": "只保留字段",
       "set": "设置字段",
       "mask": "字段脱敏",
       "case": "大小写转换",
@@ -424,7 +473,14 @@
       "filter": "过滤事件",
       "sample": "采样",
       "route": "数据分流",
-      "vrl": "自定义 VRL"
+      "vrl": "自定义 VRL",
+      "lookup": "查扩展表补充",
+      "ai_summary": "AI 摘要",
+      "http_enrich": "调用接口补充",
+      "query_enrich": "查询补充",
+      "generate_metric": "生成指标",
+      "quota": "配额",
+      "throttle": "限流"
     }
   },
   "editor": {
@@ -434,12 +490,20 @@
     "remove": "移除",
     "fix_before_saving": "保存前需先解决以下问题",
     "source_hint": "每次运行从上次读到的位置接着读这个流。第一次运行往回读到「首次运行往回读」设定的时间。",
+    "source_audit_note": "这个人失去 audit.read 后，流水线会停在已读到的位置；这个人恢复权限，或者有权限的人重新保存后，从那里继续。",
+    "audit_reader": {
+      "label": "读取 _audit 的身份",
+      "you": "{{name}}（你）",
+      "takeover": "保存后改用你的权限读取。"
+    },
     "source_realtime_hint": "写入该流的每条事件都会即时经过各步骤。该流可以尚未创建。",
+    "source_profiles_hint": "组织的性能剖析都进这一条流。",
     "copy_hint": "每条事件都会写一份到这里，不受分流步骤影响。目标流不存在时，会在写入第一条事件时自动创建。",
     "connector": "连接器",
     "connector_placeholder": "选择连接器…",
     "connector_hint": "流水线写入的每条事件也会投递到该连接器。",
     "connector_none": "当前工作区还没有连接器。",
+    "connector_off": "该连接器已停用：重新启用前，运行不会向它投递。",
     "manage_connectors": "管理连接器",
     "save_vrl_invalid": "有步骤的 VRL 无法编译。运行一次试运行即可看到是哪一步及原因。"
   },
@@ -516,7 +580,27 @@
     "sample_percent": "保留比例（%）",
     "sample_percent_hint": "大于 0、不超过 100，可以是小数。",
     "sample_by": "按字段一致采样（可选）",
-    "sample_by_hint": "同一个值的事件要么全部保留，要么全部丢弃，例如同一条 trace。留空则逐条随机抽样。"
+    "sample_by_hint": "同一个值的事件要么全部保留，要么全部丢弃，例如同一条 trace。留空则逐条随机抽样。",
+    "lookup_table": "扩展表",
+    "lookup_table_hint": "到组织的这张表里按键查一行。",
+    "lookup_no_tables": "还没有扩展表，先到「扩展表」页建一张。",
+    "lookup_table_placeholder": "选择扩展表",
+    "lookup_key": "键字段",
+    "lookup_key_hint": "事件里这个字段的值就是行的键（表里的 {{key}}）。",
+    "lookup_fields": "要带过来的值",
+    "lookup_column": "行里的值",
+    "lookup_into": "写入事件的字段",
+    "lookup_remove_field": "删除这一项",
+    "lookup_add_field": "添加一项",
+    "within": "范围",
+    "within_placeholder": "事件本身",
+    "within_hint": "处理哪个对象的键，例如 labels。留空表示事件的顶层。",
+    "rename_pattern": "正则",
+    "rename_pattern_hint": "匹配到的键都会改名，其余不变。",
+    "rename_replacement": "替换为",
+    "rename_replacement_hint": "$1 是正则的第一个分组。留空表示从键名里去掉匹配到的部分。",
+    "keep_fields": "保留的键",
+    "keep_fields_hint": "多个名称用逗号分隔。这里的其他键都会删除。"
   },
   "test": {
     "title": "试运行",
@@ -536,13 +620,19 @@
     "dropped": "已丢弃",
     "failure_runtime": "处理这条事件时失败。",
     "failure_compile": "VRL 语法无效：{{message}}",
+    "failure_protected": "会改动 {{field}}，这条流水线要保持它进来时的样子：这条事件会处理失败。",
     "failed_note": "流水线运行时，在某一步失败的事件计为失败；配置了死信数据流时会写进去。",
     "dropped_note": "这条事件被有意丢弃，不会写入任何地方；运行时计为丢弃，不算失败。",
     "use_recent": "取 {{stream}} 的一条近期事件",
     "no_recent": "{{stream}} 最近 24 小时内没有事件。",
     "after_step": "步骤 {{number}} 之后",
     "dropped_at": "被步骤 {{number}} 丢弃",
-    "no_steps": "这条流水线没有处理步骤：事件按原样写入。"
+    "no_steps": "这条流水线没有处理步骤：事件按原样写入。",
+    "not_called": "试运行时不调用",
+    "use_recent_alert": "用一条最近的告警事件",
+    "recent_alert_label": "最近的告警事件",
+    "no_recent_alert": "最近 7 天没有事件。",
+    "recent_alert_note": "这是事件存下来的样子，已经过开事件时运行的流水线。"
   },
   "streams": {
     "choose_or_name": "选择数据流，或输入新的流名…",
@@ -586,7 +676,10 @@
       "cloudflare_logpush": "Cloudflare Logpush",
       "heroku_drain": "Heroku 日志 Drain",
       "s3": "Amazon S3",
-      "kafka": "Apache Kafka"
+      "kafka": "Apache Kafka",
+      "http": "HTTP / Webhook",
+      "kafka_source": "Kafka 主题",
+      "s3_source": "S3 对象"
     },
     "kind_hints": {
       "aws_cloudwatch_logs": "MoleSignal 定时拉取一个日志组。",
@@ -594,57 +687,111 @@
       "cloudflare_logpush": "由 Logpush 任务把请求日志推送过来。",
       "heroku_drain": "由应用的日志 Drain 把日志行推送过来。",
       "s3": "流水线每写一批，就在存储桶里生成一个 JSON Lines 对象。也适用于 MinIO、R2、OSS 等 S3 兼容存储。",
-      "kafka": "流水线写入的每条事件成为主题上的一条消息。"
+      "kafka": "流水线写入的每条事件成为主题上的一条消息。",
+      "http": "流水线每写一批，就把事件以 NDJSON 或 JSON 数组发到一个 HTTP 地址。适用于自建的接收服务、Logstash、Vector 等。",
+      "kafka_source": "MoleSignal 定时读取一个主题，读取位点自己保存。",
+      "s3_source": "MoleSignal 定时读取一个前缀下的新对象。也适用于 MinIO、R2、OSS 等 S3 兼容存储。"
     },
     "transport": {
       "pull": "拉取",
       "push": "推送",
       "sink": "投递"
     },
+    "read": {
+      "failing": "上次读取失败",
+      "failed": "上次读取失败（{{when}}）：{{reason}}。会从同一位置重试。",
+      "skipped": "最近跳过（{{when}}）：{{reason}}"
+    },
     "auth": {
       "label": "认证方式",
       "modes": {
         "access_key": "访问密钥",
         "temporary_key": "临时密钥",
-        "node_role": "节点角色",
-        "sasl_plain": "用户名和密码",
+        "node_role": "节点身份",
+        "sasl_plain": "SASL/PLAIN",
         "none": "无",
-        "push_token": "令牌"
+        "push_token": "令牌",
+        "assume_role": "扮演角色",
+        "web_identity": "Web Identity",
+        "sasl_scram_sha_256": "SCRAM-SHA-256",
+        "sasl_scram_sha_512": "SCRAM-SHA-512",
+        "mtls": "客户端证书",
+        "bearer": "Bearer 令牌",
+        "basic": "Basic 认证",
+        "header": "自定义请求头",
+        "hmac": "HMAC 签名"
       },
       "hints": {
         "access_key": "IAM 用户的长期密钥。只给该用户这个连接器需要的权限。",
         "temporary_key": "AWS STS 签发的短期密钥，必须与会话令牌一起使用。过期后失效，需要在这里更换。",
-        "node_role": "不保存任何密钥。MoleSignal 使用其所在机器的角色（EC2 实例配置文件），该角色需要对存储桶有 s3:PutObject 权限。",
-        "sasl_plain": "SASL/PLAIN。连接不加密，只应在内网使用：暂不支持 TLS 和 SCRAM。",
-        "none": "用于不要求凭据的 Broker。连接不加密。",
-        "push_token": "对方服务每次推送都会带上这个令牌。任何持有它的人都可以写入该数据流。"
-      }
+        "node_role": "不保存任何密钥，使用 MoleSignal 所在节点的身份：EKS 的 IRSA 或 Pod Identity、ECS 任务角色，或 EC2 实例配置文件。本部署中的每个组织都可以选用它。",
+        "sasl_plain": "用户名和密码按 SASL/PLAIN 原样发送：不开 TLS 时只应在内网使用。",
+        "none": "用于不要求凭据的 Broker。",
+        "push_token": "对方服务每次推送都会带上这个令牌。任何持有它的人都可以写入该数据流。",
+        "node_role_s3": "不保存任何密钥，使用 MoleSignal 所在节点的身份：EKS 的 IRSA 或 Pod Identity、ECS 任务角色，或 EC2 实例配置文件。该身份需要对存储桶有 s3:PutObject 权限；本部署中的每个组织都可以选用它。",
+        "node_role_aws_cloudwatch_logs": "不保存任何密钥，使用 MoleSignal 所在节点的身份：EKS 的 IRSA 或 Pod Identity、ECS 任务角色，或 EC2 实例配置文件。该身份需要对日志组有 logs:FilterLogEvents 权限；本部署中的每个组织都可以选用它。",
+        "assume_role": "通过 AWS STS 扮演这个角色，临时密钥每小时自动更换。默认以节点身份去扮演，也可以改用一把访问密钥。角色的信任策略需要允许这个身份，并要求下面的外部 ID。",
+        "web_identity": "用节点上的 Web Identity 令牌直接扮演这个角色，例如 EKS 为 IRSA 投射的服务账号令牌（路径由 AWS_WEB_IDENTITY_TOKEN_FILE 给出）。角色的信任策略需要信任签发该令牌的 OIDC 提供方。",
+        "sasl_scram_sha_256": "SASL/SCRAM-SHA-256：密码本身不经过网络传输。",
+        "sasl_scram_sha_512": "SASL/SCRAM-SHA-512：密码本身不经过网络传输。Amazon MSK 用的就是这一种。",
+        "mtls": "以客户端证书向 Broker 证明身份（双向 TLS），需要开启 TLS。证书和私钥都是 PEM 格式，私钥不能加密。",
+        "none_http": "请求不带任何凭据。",
+        "bearer": "每个请求都带 Authorization: Bearer <令牌> 头。",
+        "basic": "每个请求都带 HTTP Basic 认证头，请配合 https 使用。",
+        "header": "把密钥放在接收方指定的请求头里，例如 X-API-Key 或 DD-API-KEY。",
+        "hmac": "每个请求带 X-MoleSignal-Timestamp（Unix 秒）和 X-MoleSignal-Sign: sha256=<十六进制>，后者是用共享密钥对「时间戳.请求体」计算的 HMAC-SHA256。接收方用同一密钥重算比对，并拒绝过旧的时间戳。"
+      },
+      "external_id": "外部 ID",
+      "external_id_hint": "本组织扮演角色时都带这个外部 ID，无法修改。在角色的信任策略里用 sts:ExternalId 条件要求它，别的组织即使知道角色的 ARN 也扮演不了。",
+      "copy_external_id": "复制外部 ID",
+      "base_key": "用访问密钥扮演，不用节点身份",
+      "base_key_hint": "适用于不在 AWS 上运行的部署：由一个 IAM 用户的密钥去扮演角色。"
     },
     "fields": {
       "name": "名称",
       "name_placeholder": "为连接器命名",
       "region": "区域",
-      "log_group": "日志组",
-      "target_stream": "写入数据流",
+      "logGroup": "日志组",
+      "targetStream": "写入数据流",
       "bucket": "存储桶",
       "prefix": "对象键前缀",
       "endpoint": "端点",
       "brokers": "Broker 地址",
       "topic": "主题",
-      "access_key": "Access key ID",
-      "secret_key": "Secret access key",
-      "session_token": "会话令牌",
-      "sasl_username": "用户名",
-      "sasl_password": "密码",
-      "push_token": "令牌",
-      "enabled": "启用"
+      "accessKey": "Access key ID",
+      "secretKey": "Secret access key",
+      "sessionToken": "会话令牌",
+      "saslUsername": "用户名",
+      "saslPassword": "密码",
+      "pushToken": "令牌",
+      "enabled": "启用",
+      "roleArn": "角色 ARN",
+      "url": "地址",
+      "method": "请求方法",
+      "format": "请求体格式",
+      "tlsCaCert": "CA 证书",
+      "tlsClientCert": "客户端证书",
+      "tlsClientKey": "客户端私钥",
+      "bearerToken": "令牌",
+      "basicUsername": "用户名",
+      "basicPassword": "密码",
+      "headerName": "请求头名称",
+      "headerValue": "请求头的值",
+      "hmacSecret": "共享密钥",
+      "startFrom": "从哪里开始"
     },
     "hints": {
-      "target_stream": "数据流不存在时，会在写入第一条事件时自动创建。",
+      "targetStream": "数据流不存在时，会在写入第一条事件时自动创建。",
       "region_s3": "存储桶所在区域。S3 兼容存储可能不需要。",
+      "region_s3_source": "存储桶所在区域。S3 兼容存储可能不需要。",
       "prefix": "对象命名为 <前缀><id>.jsonl。",
+      "prefix_s3_source": "只读这个前缀下的对象。每次读取都要列举它，所以请给来源一个专用的前缀。",
+      "startFrom": "只影响第一次读取，之后从上次读到的地方继续。",
+      "topic_kafka_source": "按指定分区读取，不加入消费者组：有这个主题的读权限就够。",
       "brokers": "主机和端口，多个用逗号分隔。",
-      "endpoint": "存储的 S3 API 地址，以 http:// 或 https:// 开头。"
+      "endpoint": "存储的 S3 API 地址，以 http:// 或 https:// 开头。",
+      "url": "接收事件的地址，以 http:// 或 https:// 开头。地址常带凭据，所以按密钥保存：保存后只显示它的主机。",
+      "tlsCaCert": "Broker 的证书由私有 CA 签发时填写，PEM 格式；留空则信任系统的 CA。"
     },
     "compatible": {
       "toggle": "S3 兼容存储",
@@ -672,7 +819,14 @@
       "field_missing": "请填写{{field}}。",
       "endpoint_invalid": "端点必须以 http:// 或 https:// 开头。",
       "secret_missing": "请填写{{field}}。",
-      "push_token_short": "令牌至少需要 16 个字符。"
+      "push_token_short": "令牌至少需要 16 个字符。",
+      "url_invalid": "地址必须以 http:// 或 https:// 开头。",
+      "role_arn_invalid": "角色 ARN 的格式是 arn:aws:iam::<账号>:role/<名称>。",
+      "tls_required": "客户端证书需要开启 TLS。",
+      "pem_invalid": "{{field}}应为 PEM 格式，以 -----BEGIN 开头。",
+      "hmac_secret_short": "共享密钥至少需要 16 个字符。",
+      "header_name_invalid": "请求头名称只能由字母、数字和 - _ . 等符号组成。",
+      "header_name_reserved": "这个请求头由投递本身设置，请换一个名称。"
     },
     "push": {
       "title": "把 {{kind}} 指向这里",
@@ -720,6 +874,244 @@
     "toggle_retype": "当前服务端在切换连接器状态时需要重新填写密钥。请打开连接器进行修改。",
     "edit": "编辑",
     "never": "从未",
-    "unknown_kind": "当前版本不认识的类型：{{kind}}"
+    "unknown_kind": "当前版本不认识的类型：{{kind}}",
+    "choices": {
+      "startFrom": {
+        "latest": "从现在起到达的",
+        "earliest": "已有的全部"
+      },
+      "method": {
+        "post": "POST",
+        "put": "PUT"
+      },
+      "format": {
+        "ndjson": "NDJSON（每行一个事件）",
+        "json": "JSON 数组"
+      }
+    },
+    "tls": {
+      "toggle": "TLS 加密连接",
+      "hint": "连接 Broker 的 TLS 端口（常见为 9093、9094 或 9096）。"
+    },
+    "test": {
+      "button": "测试连接",
+      "running": "正在连接…",
+      "ok": "连接成功，用时 {{ms}} 毫秒",
+      "hints": {
+        "s3": "用当前填写的设置写入一个测试对象 .molesignal-connection-test，权限允许时再删除。留空的密钥用已保存的。",
+        "kafka": "用当前填写的设置向 Broker 读取主题信息，不写入消息。留空的密钥用已保存的。",
+        "http": "用当前填写的设置发送一条标记为测试的事件（molesignal_connection_test: true）。留空的密钥用已保存的。",
+        "aws_cloudwatch_logs": "用当前填写的设置读取日志组最近一分钟的一条日志，不写入数据流。留空的密钥用已保存的。",
+        "kafka_source": "用当前填写的设置向 broker 查询主题的元数据，不读取消息。留空的密钥用已保存的。",
+        "s3_source": "用当前填写的设置列举前缀下的一个对象，不读也不写。留空的密钥用已保存的。"
+      },
+      "codes": {
+        "invalid": "设置不成立",
+        "no_credentials": "拿不到 AWS 凭据",
+        "denied": "凭据或权限被拒绝",
+        "not_found": "目标不存在",
+        "tls": "TLS 握手失败",
+        "unreachable": "连不上",
+        "timeout": "等待应答超时",
+        "failed": "测试失败"
+      }
+    }
+  },
+  "alert_mode": {
+    "title": "告警事件",
+    "signal": "告警事件",
+    "schedule": "开事件之前",
+    "list_line": "告警事件 → 写回事件",
+    "note": "条件命中的告警事件在开事件之前经过这条流水线。多条告警流水线按执行顺序从小到大依次处理。",
+    "note_notify": "通知策略发送之前，条件命中的告警事件的副本经过这条流水线。多条告警流水线按执行顺序从小到大依次处理。",
+    "schedule_notify": "通知之前",
+    "list_line_notify": "告警事件 → 写进通知",
+    "write_back_notify": "写进通知",
+    "write_back_notify_detail": "策略发出步骤留下的内容",
+    "write_back_notify_hint": "策略发出步骤留下的标题、严重度、标签、注解和服务，模板和 Webhook 里也一样。事件本身不变，策略通知到的人也不变。步骤用 abort 丢弃事件时这条策略不发，投递记录里写明原因。步骤出错时，这条流水线的改动作废，通知照进来时的样子往下走。",
+    "stage": {
+      "label": "运行时机",
+      "open": "开事件之前",
+      "notify": "通知之前",
+      "open_hint": "步骤留下的就是事件本身：团队、升级策略和之后的每条通知都从它出发。",
+      "notify_hint": "对事件的副本运行，每条适用的策略各跑一次。只改这条策略发出的通知，步骤只在 MoleSignal 内部运行：不能用 AI 摘要、调用接口和查询补充。"
+    },
+    "policies": "通知策略",
+    "policies_hint": "一个都不选表示告警事件的所有通知策略。",
+    "policies_none": "还没有告警事件的通知策略。",
+    "policies_count_one": "{{count}} 条策略",
+    "policies_count_other": "{{count}} 条策略",
+    "http": {
+      "connector": "HTTP 连接器",
+      "connector_hint": "使用它的地址、凭据和出站防护。在连接器页面创建。",
+      "connector_placeholder": "选择 HTTP 连接器",
+      "none": "还没有 HTTP 连接器。",
+      "manage": "管理连接器",
+      "note": "开事件时把事件和来源信息以 JSON POST 过去，对方有 5 秒回答。回答的 JSON 对象里只取 summary、severity、priority、urgency、labels、annotations 和 affected_services，标签和注解按键合并。调用失败时事件照这一步之前的样子往下走，事件时间线写明原因。"
+    },
+    "query": {
+      "language": "语言",
+      "stream_type": "数据类型",
+      "stream": "数据流",
+      "stream_hint": "查询读取的数据流。这里不能读 _audit。",
+      "statement": "查询",
+      "statement_hint": "{{placeholders}} 代表事件里的值。请写在引号里、字符串之内：值在那里才会被转义。",
+      "window": "往回看（秒）",
+      "window_hint": "截止到开事件的时刻。",
+      "max_rows": "行数",
+      "max_rows_hint": "写进注解的行数，最多 {{max}} 行。",
+      "annotation_hint": "写入哪个注解，一行结果一行文字。没有结果时不写。"
+    },
+    "order": "执行顺序",
+    "source_title": "告警事件",
+    "write_back": "写回事件",
+    "write_back_detail": "按步骤改完的样子开事件",
+    "enabled": "处理告警事件",
+    "no_backfill": "告警流水线在告警事件到来时执行，不支持历史回填。",
+    "no_steps": "没有处理步骤：按告警事件原样开事件。",
+    "test_no_steps": "这条流水线没有处理步骤：按告警事件原样开事件。",
+    "write_back_hint": "事件按步骤改完的标题、严重度、标签、注解和受影响服务开出来。步骤用 abort 丢弃时不开事件。某一步出错时，这条流水线的改动作废，事件按进来时的样子继续。",
+    "source_hint": "这条流水线处理哪些告警事件。列表都不选就处理全部；标签条件要求事件带着这个标签且值相同。",
+    "sources": "来源",
+    "severities": "严重度",
+    "labels": "标签",
+    "label_key": "标签",
+    "label_value": "值",
+    "label_remove": "删除这条标签条件",
+    "label_add": "添加标签条件",
+    "all_events": "全部告警事件",
+    "source": {
+      "rule": "告警规则",
+      "external": "外部来源",
+      "synthetic": "拨测",
+      "no_data": "无数据",
+      "manual": "手动开的事件"
+    },
+    "severity": {
+      "critical": "严重",
+      "error": "错误",
+      "warning": "警告",
+      "info": "提示"
+    },
+    "prompt": "提示词",
+    "prompt_hint": "和告警事件一起发给组织的模型。只在开事件时调用一次，计入组织的每日 token 额度。",
+    "annotation": "写入的注解",
+    "annotation_hint": "模型的回答写进这个注解。",
+    "record_line": "今天：处理 {{processed}} · 丢弃 {{dropped}} · 出错 {{failed}}",
+    "kpi": {
+      "processed": "处理",
+      "dropped": "丢弃",
+      "failed": "出错",
+      "today": "今天（UTC）",
+      "last": "最近：{{rule}}，{{when}}"
+    },
+    "time_hint": "按事件开出来的时刻判断，例如只在夜里丢掉某一类告警。"
+  },
+  "table_sink": {
+    "table": "扩展表",
+    "hint": "每条事件按 {{key}} 字段的值写成一行；表定义了值字段时只写这些字段。",
+    "choose": "选择要按事件写入行的扩展表。",
+    "none": "还没有扩展表，先到「扩展表」页建一张。",
+    "placeholder": "选择扩展表",
+    "manage": "管理扩展表",
+    "choose_short": "选择扩展表",
+    "detail": "扩展表",
+    "named": "扩展表 {{name}}"
+  },
+  "counting": {
+    "conditions": "适用于",
+    "conditions_none": "所有事件。加一条条件就只挑一部分。",
+    "add_condition": "添加条件",
+    "remove_condition": "删除条件",
+    "metric_name": "指标名",
+    "metric_name_hint": "PromQL 按这个名字选它。直方图会加上 _bucket、_count、_sum。",
+    "metric_type": "类型",
+    "metric_types": {
+      "count": "计数",
+      "gauge": "取值",
+      "histogram": "直方图"
+    },
+    "metric_sum_field": "累加字段",
+    "metric_sum_field_hint": "不填按事件条数计；填数值字段就累加它的值。",
+    "metric_sum_placeholder": "按条数计",
+    "metric_field": "数值字段",
+    "metric_field_hint": "这个字段里没有数字的事件不计入。",
+    "group_by": "分组字段",
+    "group_by_hint": "每个字段成为一个标签，每种取值组合一条序列，每个时间间隔最多 1000 条。",
+    "metric_stream": "指标流",
+    "metric_stream_hint": "样本写进这个流；填新名字会新建。",
+    "interval": "时间间隔",
+    "interval_hint": "事件按自己的时间戳计入所在的间隔。",
+    "intervals": {
+      "10": "10 秒",
+      "30": "30 秒",
+      "60": "1 分钟",
+      "300": "5 分钟"
+    },
+    "buckets": "桶上界",
+    "buckets_hint": "从小到大，单位和字段相同；+Inf 一直都有。",
+    "query": "查询",
+    "query_hint": "PromQL、仪表盘和告警规则都这样读。",
+    "copy_query": "复制查询",
+    "over_limit": "超出上限后",
+    "over_actions": {
+      "drop": "丢弃",
+      "pass": "继续放行",
+      "route": "转到其他数据流"
+    },
+    "over_target": "超出后写入",
+    "over_target_hint": "事件按这一步看到的样子写过去，后面的步骤不再处理它。",
+    "quota_unit": "计量",
+    "quota_units": {
+      "events": "事件数",
+      "bytes": "字节数"
+    },
+    "units": {
+      "events": "条",
+      "bytes": "MiB"
+    },
+    "quota_limit": "每日上限（{{unit}}）",
+    "quota_limit_hint": "按 UTC 自然日计，UTC 0 点重新计数。",
+    "partition_by": "分桶字段",
+    "partition_by_hint": "每种取值组合是一个桶，各算各的，每天最多 1000 个桶。",
+    "overrides": "单独设上限的桶",
+    "override_limit": "上限（{{unit}}）",
+    "add_override": "添加桶",
+    "remove_override": "删除桶",
+    "throttle_limit": "每个时间窗放行",
+    "throttle_limit_hint": "空闲一个时间窗后一次放行这么多，之后每隔「时间窗 ÷ 条数」放行一条。",
+    "throttle_window": "时间窗（秒）",
+    "throttle_group_by": "分组字段",
+    "throttle_group_by_hint": "每种取值组合各自限流，最多 10000 组。",
+    "summary_by": "按 {{fields}}",
+    "summary_quota": "每天 {{limit}} {{unit}}",
+    "summary_throttle": "每 {{window}} 秒 {{limit}} 条",
+    "test": {
+      "not_picked": "条件不符，原样往下走。",
+      "no_number": "{{field}} 里没有数字，不计入。",
+      "metric_count": "给 {{series}} 加 {{value}}。",
+      "metric_gauge": "把 {{series}} 设为 {{value}}。",
+      "metric_histogram": "把 {{value}} 计入直方图 {{series}}。",
+      "whole_quota": "整个配额",
+      "whole_throttle": "所有事件",
+      "past_drop": "丢弃",
+      "past_pass": "继续放行",
+      "past_route": "转到 {{stream}}",
+      "quota_limit": "每天 {{limit}} {{unit}}",
+      "throttle_limit": "每 {{window}} 秒 {{limit}} 条",
+      "limit": "计入 {{bucket}}（{{limit}}），超出上限后{{past}}。"
+    },
+    "usage": {
+      "title": "今日配额与限流",
+      "description": "每个配额和限流步骤今天（UTC）放行了多少、超出了多少，是所有节点的合计，每隔几秒更新。",
+      "step": "步骤",
+      "bucket": "桶",
+      "admitted": "已放行",
+      "over": "超出上限",
+      "of_limit": "{{used}} / {{limit}}",
+      "mib": "{{value}} MiB",
+      "whole": "整个步骤",
+      "others": "其余的桶"
+    }
   }
 }

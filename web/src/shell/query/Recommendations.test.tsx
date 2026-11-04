@@ -21,8 +21,8 @@ vi.mock('@/api/query', () => ({
 const RESULT: QueryResult = {
   columns: ['message'],
   rows: [['first'], ['second']],
-  scanned_rows: 24,
-  took_ms: 18,
+  scannedRows: 24,
+  tookMs: 18,
 };
 
 beforeEach(async () => {

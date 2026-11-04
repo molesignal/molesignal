@@ -7,16 +7,19 @@ use serde_json::{Value, json};
 use super::super::OperationOutcome;
 use crate::{
     agent::model::ApprovalRequest,
-    api::AppState,
+    api::{
+        AppState,
+        http::routes::{
+            api_tokens::{TokenSpec, new_token},
+            iam::grant_limit,
+        },
+    },
     app::iam::IamContext,
     domain::iam::{
-        api_token::{ApiToken, ApiTokenKind},
+        api_token::{ApiTokenKind, ApiTokenScope},
         service_account::ServiceAccount,
     },
-    infra::persistence::repositories::{
-        api_tokens::{assemble_token, generate_token_parts, hash_secret},
-        iam::roles::IamRole,
-    },
+    infra::persistence::repositories::iam::roles::IamRole,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
@@ -42,7 +45,7 @@ pub(super) async fn execute(
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct CreateServiceAccount {
     name: String,
     #[serde(default)]
@@ -51,7 +54,7 @@ struct CreateServiceAccount {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct UpdateServiceAccount {
     #[serde(default)]
     name: Option<String>,
@@ -72,29 +75,22 @@ async fn create(
     let now = TimestampMicros::now();
     let account_id = Id(approval.target.clone());
     let name = validate_name(&parameters.name)?;
-    let token_name = format!("{name} initial API token");
-    let (prefix, secret) = generate_token_parts();
-    let plaintext = assemble_token(&prefix, &secret);
 
-    let initial_token = ApiToken {
-        id: Id::new(),
-        prefix,
-        secret_hash: hash_secret(&secret)?,
-        org_id: ctx.org_id.clone(),
-        user_id: approval.requested_by.clone(),
-        role_id: role_id.clone(),
-        name: token_name,
-        expires_at: Some(TimestampMicros(
-            now.0.saturating_add(INITIAL_TOKEN_TTL_MICROS),
-        )),
-        last_used_at: None,
-        revoked: false,
-        created_at: now,
-        is_default: false,
-        token_kind: ApiTokenKind::ServiceAccount,
-        application_id: None,
-        service_account_id: Some(account_id.clone()),
-    };
+    let (initial_token, plaintext) = new_token(
+        TokenSpec {
+            id: Id::new(),
+            org_id: ctx.org_id.clone(),
+            user_id: approval.requested_by.clone(),
+            name: format!("{name} initial API token"),
+            scope: ApiTokenScope::Principal,
+            token_kind: ApiTokenKind::ServiceAccount,
+            service_account_id: Some(account_id.clone()),
+            expires_at: Some(TimestampMicros(
+                now.0.saturating_add(INITIAL_TOKEN_TTL_MICROS),
+            )),
+        },
+        now,
+    );
 
     let (account, token) = state
         .iam
@@ -119,33 +115,31 @@ async fn create(
         "service account and initial API token created",
         json!({
             "verified": true,
-            "service_account": account,
-            "api_token": {
+            "serviceAccount": account,
+            "apiToken": {
                 "id": token.id,
                 "name": token.name,
                 "prefix": token.prefix,
-                "role_id": token.role_id,
-                "role_key": role.key,
-                "role_name": role.name,
-                "token_kind": token.token_kind,
-                "service_account_id": token.service_account_id,
-                "expires_at_micros": token.expires_at.map(|value| value.0),
-                "created_at_micros": token.created_at.0,
+                "roleKey": role.key,
+                "roleName": role.name,
+                "tokenKind": token.token_kind,
+                "serviceAccountId": token.service_account_id,
+                "expiresAt": token.expires_at.map(|value| value.0),
+                "createdAt": token.created_at.0,
             }
         }),
         json!({
-            "api_token": {
+            "apiToken": {
                 "id": token.id,
                 "name": token.name,
                 "prefix": token.prefix,
                 "token": plaintext,
-                "role_id": token.role_id,
-                "role_key": role.key,
-                "role_name": role.name,
-                "token_kind": token.token_kind,
-                "service_account_id": token.service_account_id,
-                "expires_at_micros": token.expires_at.map(|value| value.0),
-                "created_at_micros": token.created_at.0,
+                "roleKey": role.key,
+                "roleName": role.name,
+                "tokenKind": token.token_kind,
+                "serviceAccountId": token.service_account_id,
+                "expiresAt": token.expires_at.map(|value| value.0),
+                "createdAt": token.created_at.0,
             }
         }),
     ))
@@ -235,7 +229,7 @@ async fn delete(
 
     Ok(OperationOutcome {
         summary: "service account deleted and bound active API tokens revoked".into(),
-        verification: json!({"verified": true, "service_account_id": id, "deleted": true}),
+        verification: json!({"verified": true, "serviceAccountId": id, "deleted": true}),
     })
 }
 
@@ -252,21 +246,7 @@ async fn validate_role(state: &AppState, ctx: &IamContext, role_id: &Id) -> Resu
         ));
     }
 
-    if role.key == "rum_client" {
-        return Err(Error::invalid(
-            "rum_client API tokens are application-scoped and cannot authenticate a service account",
-        ));
-    }
-
-    if role
-        .permissions
-        .iter()
-        .any(|permission| !ctx.has_permission(permission))
-    {
-        return Err(Error::forbidden(
-            "service account role permissions cannot exceed executor IAM capabilities",
-        ));
-    }
+    grant_limit::require_held(ctx, &role.effective_permissions)?;
 
     Ok(role)
 }
@@ -301,6 +281,6 @@ fn parse<T: serde::de::DeserializeOwned>(value: &Value) -> Result<T> {
 fn outcome(summary: &str, account: ServiceAccount) -> Result<OperationOutcome> {
     Ok(OperationOutcome {
         summary: summary.into(),
-        verification: json!({"verified": true, "service_account": account}),
+        verification: json!({"verified": true, "serviceAccount": account}),
     })
 }

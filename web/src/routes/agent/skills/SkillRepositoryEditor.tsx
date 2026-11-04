@@ -60,18 +60,18 @@ export function SkillRepositoryEditor({
       existing
         ? scopeChoice({
             scope: existing.scope.scope,
-            team_id: existing.scope.scope === 'team' ? existing.scope.team_id : null,
+            teamId: existing.scope.scope === 'team' ? existing.scope.teamId : null,
           })
         : 'personal',
     );
     setUrl(existing?.url ?? '');
     setHost(existing?.host ?? 'auto');
-    setArchiveUrl(existing?.archive_url ?? '');
-    setGitRef(existing?.git_ref ?? '');
+    setArchiveUrl(existing?.archiveUrl ?? '');
+    setGitRef(existing?.gitRef ?? '');
     setDir(existing?.dir ?? '');
     setToken('');
     setClearToken(false);
-    setAutoSync(existing?.auto_sync ?? false);
+    setAutoSync(existing?.autoSync ?? false);
   }, [existing, target]);
 
   const save = useMutation({
@@ -80,12 +80,12 @@ export function SkillRepositoryEditor({
         ...scopeTarget(scope),
         url,
         host,
-        git_ref: gitRef,
+        gitRef: gitRef,
         dir,
-        auto_sync: autoSync,
-        ...(host === 'archive' && archiveUrl ? { archive_url: archiveUrl } : {}),
+        autoSync: autoSync,
+        ...(host === 'archive' && archiveUrl ? { archiveUrl: archiveUrl } : {}),
         ...(token ? { token } : {}),
-        ...(clearToken && !token ? { clear_token: true } : {}),
+        ...(clearToken && !token ? { clearToken: true } : {}),
       };
       return existing
         ? skillsApi.updateSkillRepository(existing.id, input)
@@ -193,8 +193,8 @@ export function SkillRepositoryEditor({
         <FormField
           label={t('settings.skills.repository.token')}
           hint={
-            existing?.token_set
-              ? t('settings.skills.repository.token_saved', { last4: existing.token_last4 ?? '' })
+            existing?.tokenSet
+              ? t('settings.skills.repository.token_saved', { last4: existing.tokenLast4 ?? '' })
               : t('settings.skills.repository.token_hint')
           }
         >
@@ -205,7 +205,7 @@ export function SkillRepositoryEditor({
             onChange={(event) => setToken(event.target.value)}
           />
         </FormField>
-        {existing?.token_set && (
+        {existing?.tokenSet && (
           <ToggleField
             label={t('settings.skills.repository.clear_token')}
             checked={clearToken}

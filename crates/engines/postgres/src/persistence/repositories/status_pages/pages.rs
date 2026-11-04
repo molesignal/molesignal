@@ -18,10 +18,11 @@ const PAGE_JOIN_COLS: &str = "page.id AS id, page.org_id AS org_id, page.name AS
     page.language AS language, page.languages AS languages, page.history_days AS history_days,
     page.visibility AS visibility, page.delivery_retention_days AS delivery_retention_days,
     page.private_session_days AS private_session_days, page.lifecycle AS lifecycle,
-    page.archived_at_micros AS archived_at_micros,
-    page.purge_after_micros AS purge_after_micros,
-    page.created_at_micros AS created_at_micros,
-    page.updated_at_micros AS updated_at_micros";
+    page.archived_at AS archived_at,
+    page.purge_after AS purge_after,
+    page.created_at AS created_at,
+    page.updated_at AS updated_at,
+    page.slack_connector_id AS slack_connector_id";
 
 #[async_trait]
 impl StatusPagePageRepository for PgStatusPageRepository {
@@ -30,8 +31,8 @@ impl StatusPagePageRepository for PgStatusPageRepository {
             "INSERT INTO status_pages
                 (id, org_id, name, slug, logo_url, brand_color, custom_domain, timezone,
                  language, languages, history_days, delivery_retention_days,
-                 private_session_days, visibility, lifecycle, archived_at_micros,
-                 purge_after_micros, created_at_micros, updated_at_micros)
+                 private_session_days, visibility, lifecycle, archived_at,
+                 purge_after, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
                      $14, $15, $16, $17, $18, $19)
              RETURNING {PAGE_COLS}"
@@ -53,10 +54,10 @@ impl StatusPagePageRepository for PgStatusPageRepository {
             .bind(page.private_session_days)
             .bind(page.visibility.as_str())
             .bind(page.lifecycle.as_str())
-            .bind(page.archived_at.map(|at| at.0))
-            .bind(page.purge_after.map(|at| at.0))
-            .bind(page.created_at.0)
-            .bind(page.updated_at.0)
+            .bind(page.archived_at)
+            .bind(page.purge_after)
+            .bind(page.created_at)
+            .bind(page.updated_at)
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
@@ -82,7 +83,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
                  name = $3, slug = $4, logo_url = $5, brand_color = $6,
                  custom_domain = $7, timezone = $8, language = $9, languages = $10,
                  history_days = $11, delivery_retention_days = $12,
-                 private_session_days = $13, visibility = $14, updated_at_micros = $15
+                 private_session_days = $13, visibility = $14, updated_at = $15
              WHERE org_id = $1 AND id = $2 AND lifecycle = 'active'
              RETURNING {PAGE_COLS}"
         );
@@ -102,7 +103,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
             .bind(page.delivery_retention_days)
             .bind(page.private_session_days)
             .bind(page.visibility.as_str())
-            .bind(page.updated_at.0)
+            .bind(page.updated_at)
             .fetch_one(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
@@ -121,13 +122,13 @@ impl StatusPagePageRepository for PgStatusPageRepository {
             .map_err(super::sqlx_err)?;
 
             sqlx::query(
-                "UPDATE status_page_access_sessions SET revoked_at_micros = $3
+                "UPDATE status_page_access_sessions SET revoked_at = $3
                  WHERE org_id = $1 AND status_page_id = $2
-                   AND revoked_at_micros IS NULL",
+                   AND revoked_at IS NULL",
             )
             .bind(&updated.org_id.0)
             .bind(&updated.id.0)
-            .bind(updated.updated_at.0)
+            .bind(updated.updated_at)
             .execute(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
@@ -136,23 +137,23 @@ impl StatusPagePageRepository for PgStatusPageRepository {
         if updated.visibility == StatusPageVisibility::Private {
             sqlx::query(
                 "UPDATE status_page_subscribers
-                 SET status = 'unsubscribed', unsubscribed_at_micros = $3,
-                     updated_at_micros = $3
+                 SET status = 'unsubscribed', unsubscribed_at = $3,
+                     updated_at = $3
                  WHERE org_id = $1 AND status_page_id = $2 AND channel = 'webhook'
                    AND status <> 'unsubscribed'",
             )
             .bind(&updated.org_id.0)
             .bind(&updated.id.0)
-            .bind(updated.updated_at.0)
+            .bind(updated.updated_at)
             .execute(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
 
             sqlx::query(
                 "UPDATE status_page_notification_deliveries delivery
-                 SET status = 'failed', claimed_at_micros = NULL,
+                 SET status = 'failed', claimed_at = NULL,
                      last_error = 'webhook disabled for private status page',
-                     updated_at_micros = $3
+                     updated_at = $3
                  FROM status_page_subscribers subscriber
                  WHERE delivery.org_id = $1 AND delivery.status_page_id = $2
                    AND delivery.subscriber_id = subscriber.id
@@ -163,7 +164,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
             )
             .bind(&updated.org_id.0)
             .bind(&updated.id.0)
-            .bind(updated.updated_at.0)
+            .bind(updated.updated_at)
             .execute(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
@@ -181,7 +182,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
         updated_at: TimestampMicros,
     ) -> Result<StatusPage> {
         let sql = format!(
-            "UPDATE status_pages SET logo_url = $3, updated_at_micros = $4
+            "UPDATE status_pages SET logo_url = $3, updated_at = $4
              WHERE org_id = $1 AND id = $2 AND lifecycle = 'active'
              RETURNING {PAGE_COLS}"
         );
@@ -190,7 +191,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
             .bind(&org_id.0)
             .bind(&page_id.0)
             .bind(logo_url)
-            .bind(updated_at.0)
+            .bind(updated_at)
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
@@ -214,8 +215,8 @@ impl StatusPagePageRepository for PgStatusPageRepository {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
 
         let sql = format!(
-            "UPDATE status_pages SET lifecycle = 'archived', archived_at_micros = $3,
-                 purge_after_micros = $4, updated_at_micros = $3
+            "UPDATE status_pages SET lifecycle = 'archived', archived_at = $3,
+                 purge_after = $4, updated_at = $3
              WHERE org_id = $1 AND id = $2 AND lifecycle = 'active'
              RETURNING {PAGE_COLS}"
         );
@@ -223,22 +224,22 @@ impl StatusPagePageRepository for PgStatusPageRepository {
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
-            .bind(archived_at.0)
-            .bind(purge_after.0)
+            .bind(archived_at)
+            .bind(purge_after)
             .fetch_one(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
 
         sqlx::query(
             "UPDATE status_page_notification_deliveries
-             SET status = 'failed', claimed_at_micros = NULL,
-                 last_error = 'status page archived', updated_at_micros = $3
+             SET status = 'failed', claimed_at = NULL,
+                 last_error = 'status page archived', updated_at = $3
              WHERE org_id = $1 AND status_page_id = $2
                AND status IN ('pending', 'processing')",
         )
         .bind(&org_id.0)
         .bind(&page_id.0)
-        .bind(archived_at.0)
+        .bind(archived_at)
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -255,17 +256,17 @@ impl StatusPagePageRepository for PgStatusPageRepository {
         updated_at: TimestampMicros,
     ) -> Result<StatusPage> {
         let sql = format!(
-            "UPDATE status_pages SET lifecycle = 'active', archived_at_micros = NULL,
-                 purge_after_micros = NULL, updated_at_micros = $3
+            "UPDATE status_pages SET lifecycle = 'active', archived_at = NULL,
+                 purge_after = NULL, updated_at = $3
              WHERE org_id = $1 AND id = $2 AND lifecycle = 'archived'
-               AND purge_after_micros > $3
+               AND purge_after > $3
              RETURNING {PAGE_COLS}"
         );
 
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
-            .bind(updated_at.0)
+            .bind(updated_at)
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
@@ -282,13 +283,13 @@ impl StatusPagePageRepository for PgStatusPageRepository {
 
         let sql = format!(
             "SELECT {PAGE_COLS} FROM status_pages
-             WHERE lifecycle = 'archived' AND purge_after_micros <= $1
-             ORDER BY purge_after_micros, id
+             WHERE lifecycle = 'archived' AND purge_after <= $1
+             ORDER BY purge_after, id
              LIMIT $2 FOR UPDATE SKIP LOCKED"
         );
 
         let pages = sqlx::query(&sql)
-            .bind(now.0)
+            .bind(now)
             .bind(i64::from(limit.min(100)))
             .fetch_all(&mut *transaction)
             .await
@@ -326,7 +327,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
         updated_at: TimestampMicros,
     ) -> Result<StatusPage> {
         let sql = format!(
-            "UPDATE status_pages SET slack_connector_id = $3, updated_at_micros = $4
+            "UPDATE status_pages SET slack_connector_id = $3, updated_at = $4
              WHERE org_id = $1 AND id = $2
              RETURNING {PAGE_COLS}"
         );
@@ -335,7 +336,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
             .bind(&org_id.0)
             .bind(&page_id.0)
             .bind(connector_id.map(Id::as_str))
-            .bind(updated_at.0)
+            .bind(updated_at)
             .fetch_optional(&self.pool)
             .await
             .map_err(super::sqlx_err)?
@@ -399,7 +400,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
         let sql = format!(
             "SELECT {PAGE_COLS} FROM status_pages
              WHERE org_id = $1
-             ORDER BY (lifecycle = 'active') DESC, updated_at_micros DESC, name, id
+             ORDER BY (lifecycle = 'active') DESC, updated_at DESC, name, id
              LIMIT 200"
         );
 
@@ -456,4 +457,23 @@ async fn delete_page_and_domain(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn columns(list: &str) -> Vec<&str> {
+        list.split(',').map(str::trim).collect()
+    }
+
+    #[test]
+    fn the_joined_page_columns_are_the_page_columns() {
+        let joined: Vec<String> = columns(PAGE_COLS)
+            .into_iter()
+            .map(|column| format!("page.{column} AS {column}"))
+            .collect();
+
+        assert_eq!(columns(PAGE_JOIN_COLS), joined);
+    }
 }

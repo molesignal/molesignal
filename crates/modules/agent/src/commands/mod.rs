@@ -37,6 +37,7 @@ pub enum CommandSource {
 
 /// 记在用户消息上的命令：重新生成时按它重放，打分时按它归因。
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CommandRecord {
     /// 调用时的写法，Skill 可能带 `@团队`。
     pub name: String,

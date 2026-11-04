@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BellOff, Check, CircleCheck } from 'lucide-react';
+import { Check, CircleCheck } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 
 import * as alertsApi from '@/api/alerts';
+import * as alertSourcesApi from '@/api/alertSources';
 import * as incidentsApi from '@/api/incidents';
 import { toApiError } from '@/lib/http';
 import { formatMicrosActive } from '@/lib/time';
@@ -12,9 +13,14 @@ import { restrictActionAccess, useActionAccess } from '@/product/actionAccess';
 import { productStateFor, type ProductStateProps } from '@/product/states';
 import { DetailPage } from '@/product/templates';
 import { ChromeButton, Pill } from '@/shell/chrome';
+import { IncidentActions } from '@/shell/incident/Actions';
 import { IncidentBody } from '@/shell/incident/Body';
 import { courseDuration } from '@/shell/incident/Course';
+import { incidentSourceKey } from '@/shell/incident/ExternalAlert';
+import { priorityLabel, urgencyNote, useImportance } from '@/shell/incident/Importance';
 import { InvestigateWithAgent } from '@/shell/incident/InvestigateWithAgent';
+import { externalSourceOf, hasRule, manualCreatorOf, syntheticCheckOf } from '@/shell/incident/origin';
+import { refreshIncidents } from '@/shell/incident/refresh';
 import { IncidentSilenceDialog } from '@/shell/incident/SilenceDialog';
 import { STATUS_TONE } from '@/shell/incident/tones';
 import { queryStateFor } from '@/shell/query/State';
@@ -58,8 +64,8 @@ export function IncidentDetail() {
   const { id = '' } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const users = useUsers();
-  const acknowledgePermission = useActionAccess({ permission: 'alerts.acknowledge' });
-  const silencePermission = useActionAccess({ permission: 'alerts.silence' });
+  const acknowledgePermission = useActionAccess({ permission: 'alerts.incidents.acknowledge' });
+  const silencePermission = useActionAccess({ permission: 'alerts.incidents.silence' });
   const [silencing, setSilencing] = React.useState(false);
 
   const query = useQuery({
@@ -69,10 +75,7 @@ export function IncidentDetail() {
     staleTime: 10_000,
   });
 
-  const invalidate = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['incidents', id] });
-    await queryClient.invalidateQueries({ queryKey: ['alerts', 'incidents'] });
-  };
+  const invalidate = () => refreshIncidents(queryClient, id);
   const acknowledge = useMutation({
     mutationFn: () => incidentsApi.ack(id),
     onSuccess: async () => {
@@ -95,11 +98,22 @@ export function IncidentDetail() {
   // incident the server no longer has.
   const notFound = query.isError && toApiError(query.error).status === 404;
   const incident = notFound ? null : query.data ?? null;
+  // An incident a synthetic check or an alert source opened has no rule: its `rule_id` is theirs.
+  const syntheticCheck = syntheticCheckOf(incident);
+  const external = externalSourceOf(incident);
+  const creator = manualCreatorOf(incident);
   const ruleQuery = useQuery({
-    queryKey: ['alerts', 'rule', incident?.rule_id],
-    queryFn: () => alertsApi.get(incident!.rule_id),
-    enabled: Boolean(incident?.rule_id),
+    queryKey: ['alerts', 'rule', incident?.ruleId],
+    queryFn: () => alertsApi.get(incident!.ruleId),
+    enabled: hasRule(incident),
     staleTime: 30_000,
+    retry: false,
+  });
+  const sourceQuery = useQuery({
+    queryKey: incidentSourceKey(id),
+    queryFn: () => alertSourcesApi.incidentSource(id),
+    enabled: Boolean(external),
+    staleTime: 15_000,
     retry: false,
   });
   const queryState = queryStateFor({ isLoading: query.isLoading, isError: query.isError, data: incident });
@@ -134,20 +148,15 @@ export function IncidentDetail() {
           // Only what still moves the incident forward: one that has recovered is a record,
           // and one somebody has taken is not offered to be taken again. Investigating it
           // is open to every incident.
-          incident && !active ? (
+          incident && (!active || incident.mergedInto) ? (
             <InvestigateWithAgent incident={incident} />
           ) : incident && active ? (
             <>
               <InvestigateWithAgent incident={incident} />
-              <ChromeButton
-                onClick={() => silenceAccess.allowed && setSilencing(true)}
-                disabled={silenceAccess.disabled}
-                disabledReason={silenceAccess.reason}
-                data-testid="incident-silence"
-              >
-                <BellOff className="h-3.5 w-3.5" />
-                {t('drawer.actions.silence')}
-              </ChromeButton>
+              <IncidentActions
+                incident={incident}
+                onSilence={silenceAccess.allowed ? () => setSilencing(true) : undefined}
+              />
               {incident.status === 'open' && (
                 <ChromeButton
                   onClick={() => acknowledgeAccess.allowed && acknowledge.mutate()}
@@ -178,9 +187,20 @@ export function IncidentDetail() {
             <IncidentStanding
               incident={incident}
               ruleName={ruleQuery.data?.name}
+              syntheticCheck={syntheticCheck}
+              externalSource={
+                external
+                  ? {
+                      id: external.id,
+                      kind: external.kind,
+                      name: sourceQuery.isSuccess ? (sourceQuery.data.source?.name ?? null) : undefined,
+                    }
+                  : null
+              }
+              creatorName={creator ? users.nameOf(creator.userId) : null}
               ownerName={
-                incident.acknowledged_by || incident.assignees[0]
-                  ? users.nameOf(incident.acknowledged_by ?? incident.assignees[0] ?? '')
+                incident.acknowledgedBy || incident.assignees[0]
+                  ? users.nameOf(incident.acknowledgedBy ?? incident.assignees[0] ?? '')
                   : undefined
               }
               language={i18n.language}
@@ -202,19 +222,29 @@ export function IncidentDetail() {
 function IncidentStanding({
   incident,
   ruleName,
+  syntheticCheck,
+  externalSource,
+  creatorName,
   ownerName,
   language,
 }: {
   incident: Incident;
   ruleName: string | undefined;
+  /** Who opened the incident by hand, in place of a rule. */
+  creatorName: string | null;
+  /** The check that opened the incident, in place of a rule. */
+  syntheticCheck: string | null;
+  /** The alert source that opened the incident, in place of a rule: its name is `null` once it was deleted. */
+  externalSource: { id: string; kind: string; name: string | null | undefined } | null;
   ownerName: string | undefined;
   language: string;
 }) {
   const { t } = useTranslation('alerts');
+  const levels = useImportance();
   const active = isActive(incident);
   const nowMicros = Date.now() * 1000;
-  const service = incident.affected_services[0] ?? incident.labels.service ?? incident.labels.svc;
-  const lasted = courseDuration((incident.resolved_at ?? nowMicros) - incident.created_at);
+  const service = incident.affectedServices[0] ?? incident.labels.service ?? incident.labels.svc;
+  const lasted = courseDuration((incident.resolvedAt ?? nowMicros) - incident.createdAt);
 
   return (
     <Statement
@@ -222,7 +252,14 @@ function IncidentStanding({
       tone={active ? SEVERITY_COLOR[incident.severity] : 'var(--green)'}
       eyebrow={
         <span data-testid="incident-severity">
-          {[t(`severity.${incident.severity}`), service].filter(Boolean).join(' · ')}
+          {[
+            t(`severity.${incident.severity}`),
+            incident.priority ? priorityLabel(levels, incident.priority) : null,
+            urgencyNote(levels, incident, t),
+            service,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </span>
       }
       title={
@@ -243,15 +280,47 @@ function IncidentStanding({
             </span>
           </Fact>
           <Fact label={t('incident_detail.meta.fired')}>
-            <span className="tabular-nums">{formatMicrosActive(incident.created_at)}</span>
+            <span className="tabular-nums">{formatMicrosActive(incident.createdAt)}</span>
             <span className="mt-1.5 block truncate text-xs font-normal text-tx-2">
-              {formatRelativeMicros(incident.created_at, language, nowMicros)}
+              {formatRelativeMicros(incident.createdAt, language, nowMicros)}
             </span>
           </Fact>
-          <Fact label={t('incident_detail.meta.rule')}>
-            {ruleName ? (
+          <Fact
+            label={t(
+              syntheticCheck
+                ? 'incident_detail.meta.synthetic'
+                : externalSource
+                  ? 'incident_detail.meta.source'
+                  : creatorName !== null
+                    ? 'incident_detail.meta.created_by'
+                    : 'incident_detail.meta.rule',
+            )}
+          >
+            {creatorName !== null ? (
+              <span className="block truncate" data-incident-created-by>
+                {creatorName || t('incident_detail.someone')}
+              </span>
+            ) : externalSource ? (
+              externalSource.name === null ? (
+                <span className="text-tx-2">{t('alert_sources.incident.deleted')}</span>
+              ) : (
+                <Link
+                  to={`/alerts/sources/${encodeURIComponent(externalSource.id)}`}
+                  className="block truncate underline-offset-4 outline-none hover:underline focus-visible:underline"
+                >
+                  {externalSource.name ?? t(`alert_sources.kinds.${externalSource.kind}`, { defaultValue: externalSource.kind })}
+                </Link>
+              )
+            ) : syntheticCheck ? (
               <Link
-                to={`/alerts/rules/${encodeURIComponent(incident.rule_id)}/edit`}
+                to={`/synthetics/checks/${encodeURIComponent(syntheticCheck)}`}
+                className="block truncate underline-offset-4 outline-none hover:underline focus-visible:underline"
+              >
+                {incident.summary}
+              </Link>
+            ) : ruleName ? (
+              <Link
+                to={`/alerts/rules/${encodeURIComponent(incident.ruleId)}/edit`}
                 className="block truncate underline-offset-4 outline-none hover:underline focus-visible:underline"
               >
                 {ruleName}

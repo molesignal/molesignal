@@ -135,6 +135,7 @@ pub(super) struct ValueRange {
 /// How a number is spread. A statistic is absent where the values do not have
 /// one: a spread needs two values, a shape needs values that differ.
 #[derive(Debug, Default, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct Spread {
     pub(super) avg: Option<f64>,
     /// The quartiles are estimates: they are read in one pass, from a digest.
@@ -170,16 +171,18 @@ pub(super) struct TrendSeries {
     pub(super) counts: Vec<u64>,
 }
 
-/// The commonest values over time: stretches `bucket_micros` long, the first
-/// beginning at `origin_micros`, and a count for every stretch of each value.
+/// The commonest values over time: stretches `bucket_time` long, the first
+/// beginning at `origin_time`, and a count for every stretch of each value.
 #[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct ValueTrend {
-    origin_micros: i64,
-    bucket_micros: i64,
+    origin_time: i64,
+    bucket_time: i64,
     series: Vec<TrendSeries>,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct FieldStatsResponse {
     kind: FieldKind,
     /// The rows the query matches.
@@ -256,6 +259,7 @@ pub(super) async fn analyze(
                     stream_type: scope.stream_type,
                 }),
                 limit: None,
+                step: None,
                 federation_clusters: Vec::new(),
             },
             iam.user_id.clone(),
@@ -347,8 +351,8 @@ where
         response.trend =
             reading::trend(&counted.columns, &counted.rows, &followed, plan.stretches())?.map(
                 |series| ValueTrend {
-                    origin_micros: plan.origin(),
-                    bucket_micros: plan.stretch(),
+                    origin_time: plan.origin(),
+                    bucket_time: plan.stretch(),
                     series,
                 },
             );

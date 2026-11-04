@@ -24,15 +24,15 @@ use crate::{
 pub(super) fn routes() -> Router<AppState> {
     Router::new()
         .route(
-            "/status-pages/{page_id}/incidents/{event_id}/postmortem",
+            "/status-pages/{pageId}/incidents/{eventId}/postmortem",
             put(save_draft).delete(delete_draft),
         )
         .route(
-            "/status-pages/{page_id}/incidents/{event_id}/postmortem/publish",
+            "/status-pages/{pageId}/incidents/{eventId}/postmortem/publish",
             post(publish),
         )
         .route(
-            "/status-pages/{page_id}/incidents/{event_id}/postmortem/unpublish",
+            "/status-pages/{pageId}/incidents/{eventId}/postmortem/unpublish",
             post(unpublish),
         )
 }
@@ -51,7 +51,7 @@ struct PublishRequest {
     notify: bool,
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.events.manage")]
 async fn save_draft(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -88,7 +88,7 @@ async fn save_draft(
     Ok(Json(event))
 }
 
-#[permission("status_pages.publish")]
+#[permission("status_pages.events.publish")]
 async fn publish(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -113,7 +113,7 @@ async fn publish(
     Ok(Json(event))
 }
 
-#[permission("status_pages.publish")]
+#[permission("status_pages.events.publish")]
 async fn unpublish(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -149,7 +149,7 @@ async fn unpublish(
     Ok(Json(event))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.events.manage")]
 async fn delete_draft(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -184,8 +184,8 @@ async fn record_postmortem_audit(
         "status_page_event",
         event.id.as_str(),
         serde_json::json!({
-            "status_page_id": event.status_page_id,
-            "notified_subscribers": notified,
+            "statusPageId": event.status_page_id,
+            "notifiedSubscribers": notified,
         }),
     )
     .await;

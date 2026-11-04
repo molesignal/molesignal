@@ -190,7 +190,7 @@ async fn the_model_is_asked_about_the_stream_and_period_of_this_run() {
     assert_eq!(requests.len(), 1);
     assert_eq!(requests[0].0, "app_logs");
     assert!(requests[0].1.contains("level = 'ERROR'"));
-    assert!(requests[0].1.contains("\"start_micros\": 1791849600000000"));
+    assert!(requests[0].1.contains("\"startTime\": 1791849600000000"));
 }
 
 #[tokio::test]

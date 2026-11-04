@@ -18,26 +18,26 @@ export function IncidentPostmortem({
   language: StatusPageLanguage;
   copy: TFunction;
 }) {
-  const revised = postmortem.revised_at !== null && postmortem.revised_at !== postmortem.published_at;
+  const revised = postmortem.revisedAt !== null && postmortem.revisedAt !== postmortem.publishedAt;
 
   return (
     <section className="border-t border-bd-0 px-5 py-7 sm:px-8 sm:py-9" aria-labelledby="incident-postmortem-heading">
       <h3 id="incident-postmortem-heading" className="text-lg font-display-strong tracking-[-0.01em] text-tx-0 sm:text-xl">
         {copy('public.incident_detail.postmortem')}
       </h3>
-      {postmortem.published_at !== null && (
+      {postmortem.publishedAt !== null && (
         <p className="mt-1.5 text-sm text-tx-2">
-          <time dateTime={microsDateTime(postmortem.published_at)} className="tabular-nums">
+          <time dateTime={microsDateTime(postmortem.publishedAt)} className="tabular-nums">
             {copy('public.incident_detail.postmortem_published', {
-              time: formatMicros(postmortem.published_at, timezone, language),
+              time: formatMicros(postmortem.publishedAt, timezone, language),
             })}
           </time>
-          {revised && postmortem.revised_at !== null && (
+          {revised && postmortem.revisedAt !== null && (
             <>
               {' · '}
-              <time dateTime={microsDateTime(postmortem.revised_at)} className="tabular-nums">
+              <time dateTime={microsDateTime(postmortem.revisedAt)} className="tabular-nums">
                 {copy('public.incident_detail.postmortem_revised', {
-                  time: formatMicros(postmortem.revised_at, timezone, language),
+                  time: formatMicros(postmortem.revisedAt, timezone, language),
                 })}
               </time>
             </>

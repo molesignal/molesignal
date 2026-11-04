@@ -7,6 +7,7 @@
 //! 的权限与执行均委托给 `app::tools::ToolRuntime`，未来入站 MCP adapter 可直接复用后者。
 
 use std::{
+    collections::HashSet,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -28,7 +29,7 @@ use crate::{
         },
     },
     api::AppState,
-    app::skills::SessionSkills,
+    app::{mcp::McpToolCall, skills::SessionSkills},
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
@@ -48,6 +49,8 @@ pub struct RealToolDispatcher {
     interaction: Option<Arc<dyn RunInteraction>>,
     /// 会话在知识、记忆与调查上的位置。
     workspace: Option<Arc<ChatWorkspace>>,
+    /// 这一轮里提问人跳过授权的 MCP 服务器：不再问他。
+    skipped_servers: parking_lot::Mutex<HashSet<Id>>,
 }
 
 impl RealToolDispatcher {
@@ -58,6 +61,7 @@ impl RealToolDispatcher {
             skills: Arc::new(SessionSkills::default()),
             interaction: None,
             workspace: None,
+            skipped_servers: parking_lot::Mutex::default(),
         }
     }
 
@@ -285,16 +289,35 @@ impl RealToolDispatcher {
         }
 
         // 成员凭据与数据权限都按发这条消息的人。
-        self.state
-            .agent
-            .mcp
-            .execute_tool(
-                &server,
-                tool,
-                &Id(ctx.principal_id().to_string()),
-                call.arguments,
-            )
-            .await
+        let member = Id(ctx.principal_id().to_string());
+        let mcp = &self.state.agent.mcp;
+
+        let need = match mcp
+            .execute_tool(&server, tool, &member, call.arguments.clone())
+            .await?
+        {
+            McpToolCall::Done(result) => return Ok(result),
+            McpToolCall::NeedsCredential(need) => need,
+        };
+
+        if self.skipped_servers.lock().contains(&need.server_id) {
+            return Ok(session::skipped(&need.server));
+        }
+
+        // 「授权以继续」：请他在对话里存下凭据，存好就再调一次；还不行就交给模型去说。
+        let (server_id, server_name) = (need.server_id.clone(), need.server.clone());
+
+        match session::authorization(self.interaction.as_deref(), &call.name, need).await {
+            session::Authorization::Saved => Ok(mcp
+                .execute_tool(&server, tool, &member, call.arguments)
+                .await?
+                .into_result()),
+            session::Authorization::Skipped => {
+                self.skipped_servers.lock().insert(server_id);
+                Ok(session::skipped(&server_name))
+            }
+            session::Authorization::Result(result) => Ok(result),
+        }
     }
 
     fn enforce_response_limit(&self, name: &str, result: ToolResult) -> ToolResult {
@@ -379,9 +402,9 @@ impl RealToolDispatcher {
                 profile_id: self.resolution.active_profile_id.clone(),
                 approval_id: None,
                 policy_decision: json!({
-                    "enabled": true, "execution_mode": execution_mode,
-                    "network_access": self.resolution.network_access,
-                    "chat_execution_policy": ctx.execution_policy(),
+                    "enabled": true, "executionMode": execution_mode,
+                    "networkAccess": self.resolution.network_access,
+                    "chatExecutionPolicy": ctx.execution_policy(),
                 }),
                 audit_id: None,
                 created_at: TimestampMicros::now(),
@@ -421,7 +444,7 @@ pub(crate) fn redact_sensitive_value(value: &Value) -> Value {
         "secret",
         "authorization",
         "cookie",
-        "api_key",
+        "apikey",
         "credential",
     ];
 
@@ -429,10 +452,9 @@ pub(crate) fn redact_sensitive_value(value: &Value) -> Value {
         Value::Object(map) => Value::Object(
             map.iter()
                 .map(|(key, value)| {
-                    let value = if SENSITIVE_PARTS
-                        .iter()
-                        .any(|part| key.to_ascii_lowercase().contains(part))
-                    {
+                    // `apiKey` 与 `api_key` 一样算：去掉分隔符再找。
+                    let normalized = key.to_ascii_lowercase().replace(['_', '-'], "");
+                    let value = if SENSITIVE_PARTS.iter().any(|part| normalized.contains(part)) {
                         Value::String("<redacted>".into())
                     } else {
                         redact_sensitive_value(value)
@@ -453,9 +475,9 @@ mod tests {
 
     #[test]
     fn audit_redaction_is_recursive() {
-        let value = json!({"nested": {"api_key": "secret"}, "safe": [1, 2]});
+        let value = json!({"nested": {"apiKey": "secret"}, "safe": [1, 2]});
         assert_eq!(
-            redact_sensitive_value(&value)["nested"]["api_key"],
+            redact_sensitive_value(&value)["nested"]["apiKey"],
             "<redacted>"
         );
         assert_eq!(redact_sensitive_value(&value)["safe"], json!([1, 2]));
@@ -464,11 +486,11 @@ mod tests {
     #[test]
     fn tool_result_summary_never_persists_one_time_credentials() {
         let result = ToolResult::json(json!({
-            "one_time_result": {"api_token": {"token": "ms_prefix_secret"}},
+            "oneTimeResult": {"apiToken": {"token": "mspat-one-time"}},
             "execution": {"status": "succeeded"}
         }));
         let summary = redacted_result_summary(&result).expect("summary");
-        assert!(!summary.contains("ms_prefix_secret"));
+        assert!(!summary.contains("mspat-one-time"));
         assert!(summary.contains("<redacted>"));
     }
 }

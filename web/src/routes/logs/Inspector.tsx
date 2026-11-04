@@ -59,15 +59,15 @@ export function LogsInspector() {
     >
       {data && (
         <div className="rounded-md border border-bd-0 bg-bg-1 px-3">
-          <KvRow label={t('inspector.fields.job_id')}>{data.job_id}</KvRow>
+          <KvRow label={t('inspector.fields.job_id')}>{data.jobId}</KvRow>
           <KvRow label={t('inspector.fields.state')}>{data.state}</KvRow>
-          <KvRow label={t('inspector.fields.submitted_at')}>{formatMicrosActive(data.submitted_at_micros)}</KvRow>
-          <KvRow label={t('inspector.fields.started_at')}>{formatMicrosActive(data.started_at_micros)}</KvRow>
-          <KvRow label={t('inspector.fields.finished_at')}>{formatMicrosActive(data.finished_at_micros)}</KvRow>
-          <KvRow label={t('inspector.fields.result_rows')}>{data.result_rows ?? '-'}</KvRow>
-          <KvRow label={t('inspector.fields.result_object_key')}>{data.result_object_key ?? '-'}</KvRow>
+          <KvRow label={t('inspector.fields.submitted_at')}>{formatMicrosActive(data.submittedAt)}</KvRow>
+          <KvRow label={t('inspector.fields.started_at')}>{formatMicrosActive(data.startedAt)}</KvRow>
+          <KvRow label={t('inspector.fields.finished_at')}>{formatMicrosActive(data.finishedAt)}</KvRow>
+          <KvRow label={t('inspector.fields.result_rows')}>{data.resultRows ?? '-'}</KvRow>
+          <KvRow label={t('inspector.fields.result_object_key')}>{data.resultObjectKey ?? '-'}</KvRow>
           <KvRow label={t('inspector.fields.error')}>{data.error ?? '-'}</KvRow>
-          <KvRow label={t('inspector.fields.expires_at')}>{formatMicrosActive(data.expires_at_micros)}</KvRow>
+          <KvRow label={t('inspector.fields.expires_at')}>{formatMicrosActive(data.expiresAt)}</KvRow>
         </div>
       )}
     </DetailPage>

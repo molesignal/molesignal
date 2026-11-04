@@ -7,6 +7,7 @@
  * - by default it lists the streams and answers;
  * - "ask me" asks which environment and waits for the answer;
  * - "restart" asks to confirm a tool in confirmation mode and waits;
+ * - "linear" calls a Linear tool that waits for the member's own credential;
  * - "remember" remembers a preference;
  * - "plan" keeps a task list of three steps;
  * - "slow" takes its time between steps, for stopping and queueing.
@@ -34,7 +35,7 @@ interface MockRun {
   content: string;
   events: RunEvent[];
   listeners: Set<() => void>;
-  /** Resolves the question or confirmation the run waits on. */
+  /** Resolves the question, confirmation or authorization the run waits on. */
   answer: ((response: Record<string, unknown>) => void) | null;
 }
 
@@ -62,8 +63,8 @@ export function registerAgentRunRoutes(app: Express, deps: Deps) {
   let counter = 0;
 
   const emit = (entry: MockRun, kind: RunEvent['kind'], payload: unknown) => {
-    entry.run.last_seq += 1;
-    entry.events.push({ seq: entry.run.last_seq, kind, payload } as RunEvent);
+    entry.run.lastSeq += 1;
+    entry.events.push({ seq: entry.run.lastSeq, kind, payload } as RunEvent);
     for (const listener of entry.listeners) listener();
   };
 
@@ -74,15 +75,15 @@ export function registerAgentRunRoutes(app: Express, deps: Deps) {
 
   const finish = (entry: MockRun, status: RunStatus, done: Record<string, unknown> = {}) => {
     entry.run.status = status;
-    entry.run.finished_at_micros = Date.now() * 1000;
+    entry.run.finishedAt = Date.now() * 1000;
     emit(entry, 'done', { status, ...done });
-    startNext(entry.run.chat_id);
+    startNext(entry.run.chatId);
   };
 
   const chatRuns = (chatId: string) =>
     [...runs.values()]
-      .filter((entry) => entry.run.chat_id === chatId)
-      .sort((a, b) => a.run.created_at_micros - b.run.created_at_micros);
+      .filter((entry) => entry.run.chatId === chatId)
+      .sort((a, b) => a.run.createdAt - b.run.createdAt);
 
   const startNext = (chatId: string) => {
     const list = chatRuns(chatId);
@@ -91,34 +92,38 @@ export function registerAgentRunRoutes(app: Express, deps: Deps) {
     if (next) void execute(next);
   };
 
-  const stopped = (entry: MockRun) => entry.run.cancel_requested;
+  const stopped = (entry: MockRun) => entry.run.cancelRequested;
 
   const keepAnswer = (entry: MockRun, content: string, evidence: unknown[] = []) => {
-    const messages = deps.chatMessages.get(entry.run.chat_id) ?? [];
-    const asked = messages.find((message) => message.id === entry.run.user_message_id);
+    const messages = deps.chatMessages.get(entry.run.chatId) ?? [];
+    const asked = messages.find((message) => message.id === entry.run.userMessageId);
     const id = `mock-assistant-${Date.now() * 1000}-${counter++}`;
     messages.push({
       id,
-      chat_id: entry.run.chat_id,
-      org_id: 'default',
+      chatId: entry.run.chatId,
+      orgId: 'default',
       role: 'assistant',
       content,
-      run_id: entry.run.id,
-      evidence_json: evidence,
-      created_at_micros: Number(asked?.created_at_micros ?? Date.now() * 1000) + 1,
+      runId: entry.run.id,
+      evidenceJson: evidence,
+      createdAt: Number(asked?.createdAt ?? Date.now() * 1000) + 1,
     });
-    deps.chatMessages.set(entry.run.chat_id, messages);
-    const chat = deps.agentChats.find((item) => item.id === entry.run.chat_id);
-    if (chat) chat.updated_at_micros = Date.now() * 1000;
-    entry.run.assistant_message_id = id;
+    deps.chatMessages.set(entry.run.chatId, messages);
+    const chat = deps.agentChats.find((item) => item.id === entry.run.chatId);
+    if (chat) chat.updatedAt = Date.now() * 1000;
+    entry.run.assistantMessageId = id;
     return id;
   };
 
-  const wait = (entry: MockRun, kind: 'question' | 'confirmation', pending: Record<string, unknown>) =>
+  const wait = (
+    entry: MockRun,
+    kind: 'question' | 'confirmation' | 'authorization',
+    pending: Record<string, unknown>,
+  ) =>
     new Promise<Record<string, unknown> | null>((resolve) => {
       entry.run.pending = pending as unknown as NonNullable<Run['pending']>;
       emit(entry, kind, pending);
-      setStatus(entry, kind === 'question' ? 'waiting_input' : 'waiting_approval');
+      setStatus(entry, kind === 'confirmation' ? 'waiting_approval' : 'waiting_input');
       entry.answer = (response) => {
         entry.answer = null;
         entry.run.pending = null;
@@ -136,7 +141,7 @@ export function registerAgentRunRoutes(app: Express, deps: Deps) {
 
   const execute = async (entry: MockRun) => {
     const { run, content } = entry;
-    run.started_at_micros = Date.now() * 1000;
+    run.startedAt = Date.now() * 1000;
     setStatus(entry, 'running');
     const notice = deps.budgetNotice();
     if (notice) emit(entry, 'notice', notice);
@@ -160,11 +165,11 @@ export function registerAgentRunRoutes(app: Express, deps: Deps) {
     }
 
     // A chat still titled by its first question is named while it is answered.
-    const chat = deps.agentChats.find((item) => item.id === run.chat_id);
-    const title = chat?.title_provisional ? mockTitle(content) : null;
+    const chat = deps.agentChats.find((item) => item.id === run.chatId);
+    const title = chat?.titleProvisional ? mockTitle(content) : null;
     if (chat && title) {
       chat.title = title;
-      chat.title_provisional = false;
+      chat.titleProvisional = false;
       emit(entry, 'notice', { kind: 'title', title });
     }
 
@@ -173,23 +178,23 @@ export function registerAgentRunRoutes(app: Express, deps: Deps) {
     emit(entry, 'tool_start', {
       id: toolId,
       name: 'list_streams',
-      arguments: { time_range: null },
+      arguments: { timeRange: null },
     });
     await sleep(pause);
     if (stopped(entry)) return finish(entry, 'cancelled');
     emit(entry, 'tool_end', {
       id: toolId,
       name: 'list_streams',
-      result: JSON.stringify([{ type: 'json', json: { streams: ['logs/default'], row_count: 1 } }]),
+      result: JSON.stringify([{ type: 'json', json: { streams: ['logs/default'], rowCount: 1 } }]),
       truncated: false,
-      is_error: false,
+      isError: false,
     });
 
     let extra = '';
     if (/ask me/i.test(content)) {
       const response = await wait(entry, 'question', {
         type: 'question',
-        call_id: `question-${run.id}`,
+        callId: `question-${run.id}`,
         question: 'Which environment should I look at?',
         kind: 'single',
         options: ['staging', 'production'],
@@ -201,13 +206,46 @@ export function registerAgentRunRoutes(app: Express, deps: Deps) {
     if (/restart/i.test(content)) {
       const response = await wait(entry, 'confirmation', {
         type: 'confirmation',
-        call_id: `confirm-${run.id}`,
+        callId: `confirm-${run.id}`,
         tool: 'edit_knowledge',
         arguments: { path: 'runbooks/payments.md', summary: 'Add the restart steps', delete: false },
         risk: 'l1',
       });
       if (!response) return finish(entry, 'cancelled');
       extra = response.approved ? ' The runbook was updated.' : ' Nothing was changed.';
+    }
+    if (/linear/i.test(content)) {
+      // The team's Linear server takes every member's own credential, and none is saved yet.
+      const linearId = `mock-linear-${run.id}`;
+      emit(entry, 'tool_start', {
+        id: linearId,
+        name: 'linear_search_issues',
+        arguments: { query: 'payments' },
+      });
+      const response = await wait(entry, 'authorization', {
+        type: 'authorization',
+        callId: `authorize-${run.id}`,
+        tool: 'linear_search_issues',
+        serverId: 'mcp-linear',
+        server: 'Linear',
+        header: 'authorization',
+        bearer: true,
+        instructions: 'Create a personal API key under Linear → Settings → API.',
+        rejected: false,
+      });
+      if (!response) return finish(entry, 'cancelled');
+      emit(entry, 'tool_end', {
+        id: linearId,
+        name: 'linear_search_issues',
+        result: JSON.stringify([
+          { type: 'json', json: response.authorized ? { issues: ['PAY-12', 'PAY-15'] } : { skipped: true } },
+        ]),
+        truncated: false,
+        isError: !response.authorized,
+      });
+      extra = response.authorized
+        ? ' Linear has two open issues about payments.'
+        : ' Linear was left out of this answer.';
     }
     if (/remember/i.test(content)) {
       const rememberId = `mock-remember-${run.id}`;
@@ -219,7 +257,7 @@ export function registerAgentRunRoutes(app: Express, deps: Deps) {
           { type: 'json', json: { remembered: { id: 'memory-time-zone', kind: 'preference', name: 'Time zone' } } },
         ]),
         truncated: false,
-        is_error: false,
+        isError: false,
       });
     }
 
@@ -232,21 +270,21 @@ export function registerAgentRunRoutes(app: Express, deps: Deps) {
     const answer = `The selected data scope is available.${extra}`;
     const messageId = keepAnswer(entry, answer, [
       {
-        tool_call_id: toolId,
+        toolCallId: toolId,
         tool: 'list_streams',
         status: 'success',
         summary: '1 row',
-        row_count: 1,
-        took_ms: 84,
-        arguments: { time_range: null },
+        rowCount: 1,
+        tookMs: 84,
+        arguments: { timeRange: null },
       },
     ]);
     finish(entry, 'succeeded', {
-      message_id: messageId,
+      messageId: messageId,
       content: answer,
-      prompt_tokens: 10,
-      completion_tokens: 12,
-      finish_reason: 'stop',
+      promptTokens: 10,
+      completionTokens: 12,
+      finishReason: 'stop',
     });
   };
 
@@ -254,23 +292,23 @@ export function registerAgentRunRoutes(app: Express, deps: Deps) {
     const now = Date.now() * 1000;
     const run: Run = {
       id: `mock-run-${now}-${counter++}`,
-      chat_id: chatId,
+      chatId: chatId,
       status: 'queued',
       source: 'chat',
       kind,
-      initiator_id: deps.userId,
-      user_message_id: userMessageId,
-      assistant_message_id: null,
+      initiatorId: deps.userId,
+      userMessageId: userMessageId,
+      assistantMessageId: null,
       pending: null,
-      cancel_requested: false,
-      last_seq: 0,
-      prompt_tokens: 0,
-      completion_tokens: 0,
+      cancelRequested: false,
+      lastSeq: 0,
+      promptTokens: 0,
+      completionTokens: 0,
       cost: null,
       error: null,
-      created_at_micros: now,
-      started_at_micros: null,
-      finished_at_micros: null,
+      createdAt: now,
+      startedAt: null,
+      finishedAt: null,
     };
     const entry: MockRun = { run, content, events: [], listeners: new Set(), answer: null };
     runs.set(run.id, entry);
@@ -295,22 +333,22 @@ export function registerAgentRunRoutes(app: Express, deps: Deps) {
     const now = Date.now() * 1000;
     const messages = deps.chatMessages.get(req.params.id) ?? [];
     deps.chatMessages.set(req.params.id, messages);
-    let questionId = String(req.body?.regenerate_from_message_id ?? '');
+    let questionId = String(req.body?.regenerateFromMessageId ?? '');
     if (!questionId) {
       questionId = `mock-user-${now}-${counter++}`;
       messages.push({
         id: questionId,
-        chat_id: req.params.id,
-        org_id: 'default',
+        chatId: req.params.id,
+        orgId: 'default',
         role: 'user',
         content,
         command: read.command,
         references: req.body?.references ?? null,
-        created_at_micros: now,
+        createdAt: now,
       });
     }
     const run = queue(req.params.id, 'answer', content, questionId);
-    res.status(202).json({ run, user_message_id: questionId });
+    res.status(202).json({ run, userMessageId: questionId });
   });
 
   app.post('/api/v1/agent/chat/:id/compact', (req, res) => {
@@ -351,6 +389,13 @@ export function registerAgentRunRoutes(app: Express, deps: Deps) {
           return;
         }
       }
+      // The page's requests reach this server through a proxy that hands a response over only once
+      // it ends. A run that waits for someone ends its stream, and the page reads on from the last
+      // number, the way it does when the backend closes a stream early.
+      if (entry.run.status === 'waiting_input' || entry.run.status === 'waiting_approval') {
+        entry.listeners.delete(flush);
+        res.end();
+      }
     };
     entry.listeners.add(flush);
     req.on('close', () => entry.listeners.delete(flush));
@@ -364,10 +409,10 @@ export function registerAgentRunRoutes(app: Express, deps: Deps) {
       return;
     }
     if (entry.run.status === 'queued') {
-      entry.run.cancel_requested = true;
+      entry.run.cancelRequested = true;
       finish(entry, 'cancelled');
     } else if (!OVER.includes(entry.run.status)) {
-      entry.run.cancel_requested = true;
+      entry.run.cancelRequested = true;
     }
     res.json(entry.run);
   });
@@ -375,7 +420,7 @@ export function registerAgentRunRoutes(app: Express, deps: Deps) {
   app.post('/api/v1/agent/runs/:id/respond', (req, res) => {
     const entry = runs.get(req.params.id);
     const pending = entry?.run.pending;
-    if (!entry || !pending || pending.call_id !== req.body?.call_id || !entry.answer) {
+    if (!entry || !pending || pending.callId !== req.body?.callId || !entry.answer) {
       res.status(409).json({ error: 'conflict', message: 'the answer is not waiting for this' });
       return;
     }

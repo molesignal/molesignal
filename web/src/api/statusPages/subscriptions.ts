@@ -20,25 +20,25 @@ export interface StatusPageImportProblem {
 
 export interface StatusPageSubscriberImportReport {
   imported: number;
-  already_subscribed: number;
-  skipped_unsubscribed: number;
-  confirmations_queued: number;
+  alreadySubscribed: number;
+  skippedUnsubscribed: number;
+  confirmationsQueued: number;
   /** The rows read, header and blank lines aside. */
   rows: number;
   /** The first rows that were not imported; `problem_count` counts all of them. */
   problems: StatusPageImportProblem[];
-  problem_count: number;
-  dry_run: boolean;
+  problemCount: number;
+  dryRun: boolean;
 }
 
 /** What a subscriber sees of their own subscription from a manage link. */
 export interface StatusPageSubscriptionPreferences {
   channel: StatusPageSubscriberChannel;
-  masked_target: string;
-  target_label: string | null;
+  maskedTarget: string;
+  targetLabel: string | null;
   status: StatusPageSubscriberStatus;
-  component_scope: SubscriberComponentScope;
-  component_ids: string[];
+  componentScope: SubscriberComponentScope;
+  componentIds: string[];
 }
 
 /** A Slack App message connector, as the settings of a page offer it. */
@@ -47,7 +47,7 @@ export interface SlackAppConnectorChoice {
   name: string;
   enabled: boolean;
   /** Whether it holds a client ID and secret, which adding channels needs. */
-  adds_channels: boolean;
+  addsChannels: boolean;
 }
 
 /**
@@ -56,8 +56,8 @@ export interface SlackAppConnectorChoice {
  * the installation has an HTTPS public address).
  */
 export interface StatusPageSlackAppSetting {
-  connector_id: string | null;
-  redirect_url: string | null;
+  connectorId: string | null;
+  redirectUrl: string | null;
   connectors: SlackAppConnectorChoice[];
 }
 
@@ -75,7 +75,7 @@ export async function importSubscribers(
 ): Promise<StatusPageSubscriberImportReport> {
   const { data } = await http.post<StatusPageSubscriberImportReport>(
     `/status-pages/${encodeURIComponent(pageId)}/subscribers/import`,
-    { csv, mode, dry_run: dryRun },
+    { csv, mode, dryRun: dryRun },
   );
   return data;
 }
@@ -94,7 +94,7 @@ export async function setSlackApp(
 ): Promise<StatusPageSlackAppSetting> {
   const { data } = await http.put<StatusPageSlackAppSetting>(
     `/status-pages/${encodeURIComponent(pageId)}/slack-app`,
-    { connector_id: connectorId },
+    { connectorId: connectorId },
   );
   return data;
 }
@@ -118,7 +118,7 @@ export async function updateSubscriptionPreferences(
 ): Promise<StatusPageSubscriptionPreferences> {
   const { data } = await http.put<StatusPageSubscriptionPreferences>(
     `${publicPath(slug)}/preferences`,
-    { token, component_ids: componentIds },
+    { token, componentIds: componentIds },
   );
   return data;
 }
@@ -127,9 +127,9 @@ export async function updateSubscriptionPreferences(
 export async function beginSlackSubscription(
   slug: string,
   componentIds: string[],
-): Promise<{ authorize_url: string }> {
-  const { data } = await http.post<{ authorize_url: string }>(`${publicPath(slug)}/slack`, {
-    component_ids: componentIds,
+): Promise<{ authorizeUrl: string }> {
+  const { data } = await http.post<{ authorizeUrl: string }>(`${publicPath(slug)}/slack`, {
+    componentIds: componentIds,
   });
   return data;
 }

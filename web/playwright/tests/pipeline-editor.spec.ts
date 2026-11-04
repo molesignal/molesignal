@@ -4,16 +4,18 @@ import { expect, FROZEN_NOW_ISO, mountMockRoutes, test } from '../fixtures/mockB
 
 interface PipelineBody {
   name: string;
-  source_stream: string;
-  target_stream: string;
+  sourceStream: string;
+  targetStream: string;
   cron: string;
-  lookback_secs?: number;
+  lookbackSecs?: number;
   enabled?: boolean;
-  function_steps: {
+  functionSteps: {
     mode?: string;
     sources?: string[];
     sinks?: string[];
-    sink_connectors?: string[];
+    sinkConnectors?: string[];
+    sink_tables?: string[];
+    alert?: Record<string, unknown>;
     retain_source?: boolean;
     delay_secs?: number;
     retry?: { run_retries: number; delivery_retries: number };
@@ -32,10 +34,10 @@ interface TestRun {
 const stream = (name: string, type: 'logs' | 'metrics') => ({
   id: `${type}/${name}`,
   name,
-  stream_type: type,
+  streamType: type,
   schema: { fields: [] },
-  created_at_micros: 1,
-  updated_at_micros: 1,
+  createdAt: 1,
+  updatedAt: 1,
 });
 
 // What the backend answers for a script that does not compile, as it words it.
@@ -69,10 +71,25 @@ async function mountPipelines(page: Page) {
           id: 'c1',
           name: 'Archive',
           kind: 's3',
-          config_json: {},
+          configJson: {},
           enabled: true,
-          created_at_micros: 1,
-          updated_at_micros: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    }),
+  );
+  await page.route('**/api/v1/extend_tables', (route) =>
+    route.fulfill({
+      json: [
+        {
+          tableName: 'host_owner',
+          description: '',
+          keyField: 'host',
+          valueFields: [],
+          rowCount: 2,
+          updatedAt: 1,
+          usageLocations: [],
         },
       ],
     }),
@@ -145,7 +162,7 @@ async function addStep(page: Page, type: string) {
   await choose(page, 'Add step', type);
 }
 
-async function addDestination(page: Page, kind: 'Stream' | 'Connector') {
+async function addDestination(page: Page, kind: 'Stream' | 'Connector' | 'Extend table') {
   await choose(page, 'Add destination', kind);
 }
 
@@ -268,16 +285,16 @@ test.describe('Pipeline editor', () => {
     await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
     expect(backend.saved[0]).toMatchObject({
       name: 'copy-logs',
-      source_stream: 'app_logs',
-      target_stream: 'app_logs_clean',
+      sourceStream: 'app_logs',
+      targetStream: 'app_logs_clean',
       cron: 'every:5m',
-      lookback_secs: 300,
+      lookbackSecs: 300,
       enabled: true,
     });
-    expect(backend.saved[0]!.function_steps).toMatchObject({
+    expect(backend.saved[0]!.functionSteps).toMatchObject({
       sources: ['app_logs'],
       sinks: ['app_logs_clean'],
-      sink_connectors: [],
+      sinkConnectors: [],
       steps: [],
     });
   });
@@ -315,19 +332,19 @@ test.describe('Pipeline editor', () => {
     await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
 
     const [body] = backend.saved;
-    expect(body!.function_steps.steps).toMatchObject([
+    expect(body!.functionSteps.steps).toMatchObject([
       {
-        transform_name: 'parse-json',
+        transformName: 'parse-json',
         kind: 'vrl',
         processor: { op: 'parse_json', source: 'message', target: '', removeSource: false },
       },
       {
-        transform_name: 'mask',
+        transformName: 'mask',
         kind: 'vrl',
         processor: { op: 'mask', field: 'user.email', mode: 'hash' },
       },
     ]);
-    expect(body!.function_steps.steps.map((step) => step.script)).toEqual([
+    expect(body!.functionSteps.steps.map((step) => step.script)).toEqual([
       backend.runs[0]!.source,
       backend.runs[1]!.source,
     ]);
@@ -416,7 +433,11 @@ test.describe('Pipeline editor', () => {
 
     // A script that does not compile: said in words, and nothing after it runs.
     await node(page, 'transform-0').click();
-    await page.getByLabel('VRL script').click({ force: true });
+    // Monaco's native input target can sit outside the visible editor. Click the
+    // rendered text surface and wait for focus before sending keyboard input.
+    const vrlEditor = nodeEditor(page).locator('.monaco-editor');
+    await vrlEditor.locator('.view-lines').click();
+    await expect(page.getByRole('textbox', { name: 'VRL script', exact: true })).toBeFocused();
     await page.keyboard.press('ControlOrMeta+a');
     await page.keyboard.insertText('.x = to_int(.level)');
     await expect(testResult(page)).toHaveAttribute('data-stale', 'true');
@@ -451,9 +472,9 @@ test.describe('Pipeline editor', () => {
 
     await save(page).click();
     await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
-    expect(backend.saved[0]!.function_steps).toMatchObject({
+    expect(backend.saved[0]!.functionSteps).toMatchObject({
       sinks: ['app_logs_clean'],
-      sink_connectors: ['c1'],
+      sinkConnectors: ['c1'],
     });
   });
 
@@ -465,10 +486,10 @@ test.describe('Pipeline editor', () => {
     await expect(settings.getByText('Run every')).toBeVisible();
     await settings.getByRole('button', { name: 'Realtime', exact: true }).click();
 
-    // No schedule to set and nothing to retry, one stream in and one out, logs only.
+    // No schedule to set and nothing to retry, one stream in and one out.
     await expect(settings.getByText('Run every')).toHaveCount(0);
     await expect(settings.getByRole('combobox', { name: 'Retry a failed run' })).toHaveCount(0);
-    await expect(settings.getByRole('combobox', { name: 'Signal type' })).toBeDisabled();
+    await expect(settings.getByRole('combobox', { name: 'Signal type' })).toBeEnabled();
     await expect(page.getByRole('button', { name: /^Add (source|destination)$/ })).toHaveCount(0);
 
     await node(page, 'source-0').click();
@@ -479,10 +500,10 @@ test.describe('Pipeline editor', () => {
     expect(backend.saved[0]).toMatchObject({
       name: 'route-logs',
       cron: '',
-      source_stream: 'app_logs',
-      target_stream: 'app_logs_clean',
+      sourceStream: 'app_logs',
+      targetStream: 'app_logs_clean',
     });
-    expect(backend.saved[0]!.function_steps).toMatchObject({ mode: 'realtime', retain_source: true });
+    expect(backend.saved[0]!.functionSteps).toMatchObject({ mode: 'realtime', retainSource: true });
   });
 
   test('keeps a long chain inside its lane and the picked step in view', async ({ page }) => {
@@ -528,16 +549,16 @@ test.describe('Pipeline editor', () => {
     const backend = await mountPipelines(page);
     backend.saved.push({
       name: 'archive-logs',
-      source_stream: 'app_logs',
-      target_stream: 'clean_logs',
+      sourceStream: 'app_logs',
+      targetStream: 'clean_logs',
       cron: 'every:15m',
-      lookback_secs: 900,
+      lookbackSecs: 900,
       enabled: true,
-      function_steps: {
+      functionSteps: {
         sources: ['app_logs', 'audit_logs'],
         sinks: ['clean_logs', 'archive_logs'],
-        sink_connectors: ['c1'],
-        steps: [{ transform_name: 'keep', kind: 'vrl', script: '. = .' }],
+        sinkConnectors: ['c1'],
+        steps: [{ transformName: 'keep', kind: 'vrl', script: '. = .' }],
       },
     });
     await page.goto('/pipelines/p-1');
@@ -582,8 +603,8 @@ test.describe('Pipeline editor', () => {
 
     await save(page).click();
     await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
-    expect(backend.saved[0]).toMatchObject({ source_stream: 'app_logs', target_stream: 'app_logs_clean' });
-    expect(backend.saved[0]!.function_steps).toMatchObject({
+    expect(backend.saved[0]).toMatchObject({ sourceStream: 'app_logs', targetStream: 'app_logs_clean' });
+    expect(backend.saved[0]!.functionSteps).toMatchObject({
       sources: ['app_logs', 'audit_logs'],
       sinks: ['app_logs_clean', 'logs_archive'],
     });
@@ -610,11 +631,11 @@ test.describe('Pipeline editor', () => {
 
     await save(page).click();
     await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
-    expect(backend.saved[0]!.function_steps.steps[0]).toMatchObject({
-      transform_name: 'filter',
+    expect(backend.saved[0]!.functionSteps.steps[0]).toMatchObject({
+      transformName: 'filter',
       processor: { op: 'filter', action: 'drop', field: 'level', test: 'equals', value: 'WARN' },
     });
-    expect(String(backend.saved[0]!.function_steps.steps[0]!.script)).toContain('abort');
+    expect(String(backend.saved[0]!.functionSteps.steps[0]!.script)).toContain('abort');
   });
 
   test('saves how a run waits for late events, retries, keeps dead letters and dedupes', async ({ page }) => {
@@ -633,11 +654,11 @@ test.describe('Pipeline editor', () => {
 
     await save(page).click();
     await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
-    expect(backend.saved[0]!.function_steps).toMatchObject({
-      delay_secs: 300,
-      retry: { run_retries: 0, delivery_retries: 3 },
-      dead_letter_stream: 'failed_events',
-      dedupe_field: 'trace_id',
+    expect(backend.saved[0]!.functionSteps).toMatchObject({
+      delaySecs: 300,
+      retry: { runRetries: 0, deliveryRetries: 3 },
+      deadLetterStream: 'failed_events',
+      dedupeField: 'trace_id',
     });
 
     // Saved, it opens with them; a dead letter stream can be let go again.
@@ -647,6 +668,497 @@ test.describe('Pipeline editor', () => {
     await expect(settings.locator('[data-stream-combobox]')).toHaveText('Keep no failed events');
   });
 
+  test('works on alert events before their incidents open', async ({ page }) => {
+    const backend = await mountPipelines(page);
+    await page.goto('/pipelines/new');
+    await nameField(page).fill('prod alerts');
+
+    const settings = page.locator('[data-pipeline-settings]');
+    await settings.getByRole('button', { name: 'Alert events', exact: true }).click();
+
+    // Alert events come in and go back into the incident: no stream, schedule or retry to set.
+    await expect(settings.getByText('Run every')).toHaveCount(0);
+    await expect(settings.getByRole('combobox', { name: 'Retry a failed run' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Add (source|destination)$/ })).toHaveCount(0);
+    await expect(node(page, 'source-0')).toContainText('Every alert event');
+    await expect(node(page, 'sink-0')).toContainText('Back into the incident');
+    await expect(flowCard(page).locator('[data-flow-no-steps]')).toHaveText(
+      'No steps: the incident opens as the alert event came.',
+    );
+
+    await node(page, 'source-0').click();
+    await nodeEditor(page).getByRole('checkbox', { name: 'Alert rules' }).click();
+    await nodeEditor(page).getByRole('checkbox', { name: 'Critical' }).click();
+    await nodeEditor(page).getByRole('button', { name: 'Add a label condition' }).click();
+    await nodeEditor(page).getByRole('textbox', { name: 'Label', exact: true }).fill('env');
+    await nodeEditor(page).getByRole('textbox', { name: 'Value', exact: true }).fill('prod');
+    await expect(node(page, 'source-0')).toContainText('Alert rules · Critical · env=prod');
+
+    await addStep(page, 'Set field');
+    await nodeEditor(page).getByRole('textbox', { name: /^Field/ }).fill('labels.team');
+    await nodeEditor(page).getByRole('textbox', { name: 'Value', exact: true }).fill('payments');
+    await addStep(page, 'AI summary');
+    await expect(nodeEditor(page).getByRole('textbox', { name: 'Prompt' })).not.toBeEmpty();
+
+    // The steps read where the sample came from; the model is asked only about a real event.
+    await page.getByRole('button', { name: 'Run test' }).click();
+    await expect(testResult(page)).toHaveAttribute('data-pipeline-test-result', 'passed');
+    await expect(testResult(page)).toContainText('Back into the incident');
+    expect(backend.runs).toHaveLength(1);
+    expect(backend.runs[0]!.metadata).toEqual({
+      rule_id: 'rule-1',
+      rule_name: 'Checkout error rate',
+      source: 'rule',
+      event: 'opened',
+    });
+    // A sample nobody edited follows the mode: an alert event, not the log it started as.
+    expect(backend.runs[0]!.input).toMatchObject({ summary: 'Checkout error rate above 5%', severity: 'error' });
+
+    await save(page).click();
+    await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
+    expect(backend.saved[0]).toMatchObject({ name: 'prod alerts', sourceStream: '', targetStream: '', cron: '' });
+    expect(backend.saved[0]!.functionSteps).toMatchObject({
+      mode: 'alert',
+      alert: { sources: ['rule'], severities: ['critical'], labels: { env: 'prod' }, order: 0 },
+    });
+    expect(backend.saved[0]!.functionSteps.steps.map((step) => step.kind)).toEqual(['vrl', 'ai_summary']);
+  });
+
+  test('renames labels by a pattern and keeps only some, without writing VRL', async ({ page }) => {
+    const backend = await mountPipelines(page);
+    await page.goto('/pipelines/new');
+    await nameField(page).fill('tidy labels');
+    await page
+      .locator('[data-pipeline-settings]')
+      .getByRole('button', { name: 'Alert events', exact: true })
+      .click();
+
+    await addStep(page, 'Rename by pattern');
+    // In an alert event these go through its labels unless told otherwise.
+    await expect(nodeEditor(page).getByRole('textbox', { name: /^In/ })).toHaveValue('labels');
+    await nodeEditor(page).getByRole('textbox', { name: /^Pattern/ }).fill('^kubernetes_(.+)$');
+    await nodeEditor(page).getByRole('textbox', { name: /^Replace with/ }).fill('$1');
+    await expect(node(page, 'transform-0')).toContainText('^kubernetes_(.+)$ → $1');
+
+    await addStep(page, 'Keep only these fields');
+    await nodeEditor(page).getByRole('textbox', { name: /^Keys to keep/ }).fill('service, env');
+    await expect(node(page, 'transform-1')).toContainText('labels: service, env');
+    await expect(flowStatus(page)).toHaveAttribute('data-flow-status', 'valid');
+
+    await page.getByRole('button', { name: 'Run test' }).click();
+    await expect(testResult(page)).toHaveAttribute('data-pipeline-test-result', 'passed');
+
+    await save(page).click();
+    await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
+
+    const steps = backend.saved[0]!.functionSteps.steps;
+
+    expect(steps[0]).toMatchObject({
+      kind: 'vrl',
+      script:
+        "if is_object(.labels) {\n  .labels = map_keys(object!(.labels)) -> |key| { replace(key, r'^kubernetes_(.+)$', \"$1\") }\n}",
+      processor: { op: 'rename_regex', within: 'labels' },
+    });
+    expect(steps[1]).toMatchObject({
+      kind: 'vrl',
+      script:
+        'if is_object(.labels) {\n  .labels = filter(object!(.labels)) -> |key, _value| { includes(["service", "env"], key) }\n}',
+      processor: { op: 'keep', within: 'labels', fields: ['service', 'env'] },
+    });
+  });
+
+  test('runs before a notification, on a copy, for the policies it names', async ({ page }) => {
+    const backend = await mountPipelines(page);
+    await page.route('**/api/v1/notify/policies', (route) =>
+      route.fulfill({
+        json: [
+          { id: 'policy-oncall', name: 'On-call alerts', eventType: 'alert.triggered' },
+          { id: 'policy-resolved', name: 'Recovered', eventType: 'alert.resolved' },
+          { id: 'policy-report', name: 'Weekly report', eventType: 'report.ready' },
+        ],
+      }),
+    );
+    await page.goto('/pipelines/new');
+    await nameField(page).fill('quiet at night');
+
+    const settings = page.locator('[data-pipeline-settings]');
+    await settings.getByRole('button', { name: 'Alert events', exact: true }).click();
+    await addStep(page, 'AI summary');
+
+    await node(page, 'source-0').click();
+    await nodeEditor(page).locator('[data-alert-stage]').getByRole('button', { name: 'Before a notification' }).click();
+
+    // A step that goes outside runs only as an incident opens.
+    await expect(flowCard(page).locator('[data-flow-issue="error"]')).toHaveText([
+      /goes outside MoleSignal/,
+    ]);
+    await expect(node(page, 'sink-0')).toContainText('Into the notification');
+    await expect(settings).toContainText('when a notification policy is about to send');
+
+    // Only the policies of an alert event are offered, and incidents opened by hand count here.
+    const policies = nodeEditor(page).locator('[data-alert-policies]');
+    await expect(policies.getByRole('checkbox', { name: 'Weekly report' })).toHaveCount(0);
+    await policies.getByRole('checkbox', { name: 'On-call alerts' }).click();
+    await nodeEditor(page).getByRole('checkbox', { name: 'Incidents opened by hand' }).click();
+    await expect(node(page, 'source-0')).toContainText('1 policy');
+
+    await node(page, 'transform-0').click();
+    await page.getByRole('button', { name: 'Remove', exact: true }).click();
+
+    const trigger = page.getByRole('button', { name: 'Add step' });
+    await trigger.click();
+    await expect(page.getByRole('menuitem', { name: 'AI summary', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: 'Call an API', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: 'Add query results', exact: true })).toHaveCount(0);
+    await page.getByRole('menuitem', { name: 'Filter events', exact: true }).click();
+    await nodeEditor(page).getByRole('textbox', { name: /^Field/ }).fill('labels.env');
+    await nodeEditor(page).getByRole('textbox', { name: /^Value/ }).fill('prod');
+
+    // A test run reads what the policy's run would.
+    await page.getByRole('button', { name: 'Run test' }).click();
+    await expect(testResult(page)).toHaveAttribute('data-pipeline-test-result', /passed|dropped/);
+    expect(backend.runs.at(-1)!.metadata).toMatchObject({
+      event: 'triggered',
+      policy_name: 'On-call alerts',
+      source: 'rule',
+    });
+
+    await save(page).click();
+    await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
+    expect(backend.saved[0]!.functionSteps.alert).toMatchObject({
+      stage: 'notify',
+      policies: ['policy-oncall'],
+      sources: ['manual'],
+    });
+  });
+
+  test('calls an API and adds query results when the incident opens', async ({ page }) => {
+    const backend = await mountPipelines(page);
+    await page.route('**/api/v1/connectors', (route) =>
+      route.fulfill({
+        json: [
+          { id: 'c1', name: 'Archive', kind: 's3', configJson: {}, enabled: true, createdAt: 1, updatedAt: 1 },
+          { id: 'c2', name: 'CMDB', kind: 'http', configJson: {}, enabled: true, createdAt: 1, updatedAt: 1 },
+        ],
+      }),
+    );
+    await page.goto('/pipelines/new');
+    await nameField(page).fill('enrich');
+    await page
+      .locator('[data-pipeline-settings]')
+      .getByRole('button', { name: 'Alert events', exact: true })
+      .click();
+
+    await addStep(page, 'Call an API');
+    await expect(flowCard(page).locator('[data-flow-issue="error"]')).toHaveCount(0);
+    await expect(flowStatus(page)).toHaveAttribute('data-flow-status', 'pending');
+
+    // Only an HTTP connector can answer.
+    await nodeEditor(page).getByRole('combobox', { name: 'HTTP connector' }).click();
+    await expect(page.getByRole('option', { name: 'Archive' })).toHaveCount(0);
+    await page.getByRole('option', { name: 'CMDB', exact: true }).click();
+    await expect(node(page, 'transform-0')).toContainText('Call an API · CMDB');
+
+    await addStep(page, 'Add query results');
+    await pickStream(page, 'app_logs');
+    await nodeEditor(page)
+      .getByRole('textbox', { name: /^Query/ })
+      .fill("SELECT count(*) FROM app_logs WHERE host = '{{labels.host_name}}'");
+    await nodeEditor(page).getByRole('textbox', { name: /^Annotation/ }).fill('recent_errors');
+    await expect(node(page, 'transform-1')).toContainText('Add query results · app_logs');
+
+    // A test calls nothing outside; it says so, and shows where the rows would go.
+    await page.getByRole('button', { name: 'Run test' }).click();
+    await expect(testResult(page)).toHaveAttribute('data-pipeline-test-result', 'passed');
+    await expect(testResult(page).locator('[data-test-step="passed"]')).toHaveCount(2);
+    await expect(testResult(page)).toContainText('not called in a test');
+    await expect(testResult(page).locator('[data-pipeline-test-output]')).toContainText('recent_errors');
+    expect(backend.runs).toHaveLength(0);
+
+    await save(page).click();
+    await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
+    expect(backend.saved[0]!.functionSteps.steps).toEqual([
+      { transformName: 'call-api', kind: 'http_enrich', connectorId: 'c2' },
+      {
+        transformName: 'query',
+        kind: 'query_enrich',
+        language: 'sql',
+        stream: 'app_logs',
+        streamType: 'logs',
+        statement: "SELECT count(*) FROM app_logs WHERE host = '{{labels.host_name}}'",
+        windowSecs: 300,
+        maxRows: 5,
+        annotation: 'recent_errors',
+      },
+    ]);
+  });
+
+  test('tries an alert pipeline on a recent incident', async ({ page }) => {
+    const backend = await mountPipelines(page);
+    const incident = {
+      id: 'inc-1',
+      orgId: 'org',
+      ruleId: 'rule-9',
+      escalationPolicyId: 'p',
+      status: 'open',
+      severity: 'error',
+      summary: 'Checkout errors',
+      fingerprint: 'fp',
+      currentStep: 0,
+      currentLoop: 0,
+      currentStepStartedAt: 1,
+      assignees: [],
+      createdAt: 1_761_609_600_000_000,
+      labels: { 'alert.source': 'external', env: 'prod' },
+      annotations: { runbook: 'https://wiki' },
+      traceIds: [],
+      hostIds: [],
+      affectedServices: ['checkout', 'payments'],
+      triggeringQuery: null,
+      priority: 'P2',
+      urgency: 'high',
+    };
+
+    await page.route(/\/api\/v1\/alerts\/incidents(\?.*)?$/, (route) =>
+      route.fulfill({ json: [{ ...incident, affectedServices: ['checkout'] }] }),
+    );
+    await page.route(/\/api\/v1\/alerts\/incidents\/inc-1$/, (route) => route.fulfill({ json: incident }));
+
+    await page.goto('/pipelines/new');
+    await nameField(page).fill('tidy');
+    await page
+      .locator('[data-pipeline-settings]')
+      .getByRole('button', { name: 'Alert events', exact: true })
+      .click();
+    await addStep(page, 'Set field');
+    await nodeEditor(page).getByRole('textbox', { name: /^Field/ }).fill('labels.team');
+    await nodeEditor(page).getByRole('textbox', { name: 'Value', exact: true }).fill('payments');
+
+    await testPanel(page).getByRole('combobox', { name: 'A recent alert event' }).click();
+    await page.getByRole('option', { name: /^Checkout errors/ }).click();
+    await expect(testPanel(page)).toContainText('after the pipelines that ran when it opened');
+
+    await page.getByRole('button', { name: 'Run test' }).click();
+    await expect(testResult(page)).toHaveAttribute('data-pipeline-test-result', 'passed');
+
+    expect(backend.runs[0]!.input).toEqual({
+      summary: 'Checkout errors',
+      severity: 'error',
+      priority: 'P2',
+      urgency: 'high',
+      labels: { 'alert.source': 'external', env: 'prod' },
+      annotations: { runbook: 'https://wiki' },
+      // The list holds the first of the services; the sample takes them all.
+      affected_services: ['checkout', 'payments'],
+    });
+    expect(backend.runs[0]!.metadata).toMatchObject({ rule_id: 'rule-9', source: 'external', event: 'opened' });
+  });
+
+  test('changes profile metadata as it arrives, keeping where the object is', async ({ page }) => {
+    const backend = await mountPipelines(page);
+    await page.goto('/pipelines/new');
+    await nameField(page).fill('tag profiles');
+
+    const settings = page.locator('[data-pipeline-settings]');
+
+    // A scheduled pipeline does not read profiles.
+    await settings.getByRole('combobox', { name: 'Signal type' }).click();
+    await expect(page.getByRole('option', { name: 'Profiles', exact: true })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+
+    await settings.getByRole('button', { name: 'Realtime', exact: true }).click();
+    await settings.getByRole('combobox', { name: 'Signal type' }).click();
+    await page.getByRole('option', { name: 'Profiles', exact: true }).click();
+
+    // Every profile arrives in one stream, so there is nothing to choose.
+    await expect(node(page, 'source-0')).toContainText('default');
+    await node(page, 'source-0').click();
+    const profileSource = nodeEditor(page).locator('[data-pipeline-profile-source]');
+    await expect(profileSource).toContainText('default');
+    await expect(profileSource.getByRole('combobox')).toHaveCount(0);
+
+    await expect(node(page, 'sink-0')).toContainText('Changed in place');
+    await node(page, 'sink-0').click();
+    await expect(nodeEditor(page)).toContainText("Only a profile's metadata row goes through the steps");
+
+    await addStep(page, 'Set field');
+    const field = nodeEditor(page).getByRole('textbox', { name: /^Field/ });
+    await field.fill('object_key');
+    await expect(flowCard(page).locator('[data-flow-issue="error"]')).toHaveCount(1);
+    await field.fill('labels.env');
+    await nodeEditor(page).getByRole('textbox', { name: 'Value', exact: true }).fill('prod');
+    await expect(flowStatus(page)).toHaveAttribute('data-flow-status', 'valid');
+
+    await save(page).click();
+    await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
+    expect(backend.saved[0]).toMatchObject({ sourceStream: 'default', targetStream: 'default', cron: '' });
+    expect(backend.saved[0]!.functionSteps).toMatchObject({ mode: 'realtime', signalType: 'profiles' });
+  });
+
+  test('writes a row per event into an extend table beside the stream', async ({ page }) => {
+    const backend = await mountPipelines(page);
+    await startPipeline(page, 'owners');
+
+    await addDestination(page, 'Extend table');
+    await expect(node(page, 'sink-1')).toContainText('Choose an extend table');
+    await nodeEditor(page).getByRole('combobox', { name: 'Extend table' }).click();
+    await page.getByRole('option', { name: 'host_owner', exact: true }).click();
+    await expect(nodeEditor(page)).toContainText('under the value of its host field');
+    await expect(node(page, 'sink-1')).toContainText('host_owner');
+
+    await save(page).click();
+    await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
+    expect(backend.saved[0]!.functionSteps).toMatchObject({
+      sinks: ['app_logs_clean'],
+      sinkTables: ['host_owner'],
+    });
+  });
+
+  test('changes metrics in the stream they arrive in, keeping what a sample rests on', async ({ page }) => {
+    const backend = await mountPipelines(page);
+    await page.goto('/pipelines/new');
+    await nameField(page).fill('tidy cpu');
+
+    const settings = page.locator('[data-pipeline-settings]');
+    await settings.getByRole('button', { name: 'Realtime', exact: true }).click();
+    await settings.getByRole('combobox', { name: 'Signal type' }).click();
+    await page.getByRole('option', { name: 'Metrics', exact: true }).click();
+    await node(page, 'source-0').click();
+    await pickStream(page, 'cpu');
+
+    // The samples go back into their stream: no destination to choose, nowhere to route them.
+    await expect(node(page, 'sink-0')).toContainText('cpu');
+    await expect(node(page, 'sink-0')).toContainText('Changed in place');
+    await expect(page.getByRole('button', { name: 'Add destination' })).toHaveCount(0);
+    await node(page, 'sink-0').click();
+    await expect(nodeEditor(page)).toContainText('a changed label makes a new series');
+
+    const trigger = page.getByRole('button', { name: 'Add step' });
+    await trigger.click();
+    await expect(page.getByRole('menuitem', { name: 'Route to stream', exact: true })).toHaveCount(0);
+    await page.getByRole('menuitem', { name: 'Remove fields', exact: true }).click();
+    await expect(trigger).toBeFocused();
+
+    const fields = nodeEditor(page).getByRole('textbox', { name: /^Fields/ });
+    await fields.fill('pod, le');
+    await expect(flowCard(page).locator('[data-flow-issue="error"]')).toHaveText([
+      /changes le, which a realtime pipeline on this stream keeps as it arrives\.$/,
+    ]);
+    await fields.fill('pod');
+    await expect(flowStatus(page)).toHaveAttribute('data-flow-status', 'valid');
+
+    // A test run says when a step would change what the sample rests on: that sample would fail.
+    await page.route('**/api/v1/functions/run', (route) => {
+      const { input } = route.request().postDataJSON() as TestRun;
+      return route.fulfill({ json: { output: { ...input, metric_name: 'renamed' }, dropped: false } });
+    });
+    await page.getByRole('button', { name: 'Run test' }).click();
+    await expect(testResult(page)).toHaveAttribute('data-pipeline-test-result', 'failed');
+    await expect(testResult(page)).toContainText('Changes metric_name, which this pipeline keeps as it arrives');
+
+    await save(page).click();
+    await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
+    expect(backend.saved[0]).toMatchObject({ sourceStream: 'cpu', targetStream: 'cpu', cron: '' });
+    expect(backend.saved[0]!.functionSteps).toMatchObject({
+      mode: 'realtime',
+      signalType: 'metrics',
+      sinks: ['cpu'],
+      retainSource: false,
+    });
+  });
+
+  test('changes RUM views in their custom parts as they arrive, and never drops one', async ({ page }) => {
+    const backend = await mountPipelines(page);
+    await page.route('**/api/v1/streams', (route) =>
+      route.request().method() === 'GET'
+        ? route.fulfill({ json: [stream('app_logs', 'logs'), stream('rum_views', 'logs'), stream('rum_actions', 'logs')] })
+        : route.fallback(),
+    );
+    await page.goto('/pipelines/new');
+    await nameField(page).fill('tidy views');
+
+    const settings = page.locator('[data-pipeline-settings]');
+    await settings.getByRole('button', { name: 'Realtime', exact: true }).click();
+    await node(page, 'source-0').click();
+    await pickStream(page, 'rum_views');
+
+    // The views go back into their stream, changed only in what the application fills itself.
+    await expect(node(page, 'sink-0')).toContainText('rum_views');
+    await expect(node(page, 'sink-0')).toContainText('Changed in place');
+    await node(page, 'sink-0').click();
+    await expect(nodeEditor(page)).toContainText('views and vitals never are');
+
+    await addStep(page, 'Set field');
+    const field = nodeEditor(page).getByRole('textbox', { name: /^Field/ });
+    await field.fill('view.name');
+    await nodeEditor(page).getByRole('textbox', { name: 'Value', exact: true }).fill('checkout');
+    await expect(flowCard(page).locator('[data-flow-issue="error"]')).toHaveText([
+      /changes view\.name, which a realtime pipeline/,
+    ]);
+    await field.fill('context.team');
+    await expect(flowStatus(page)).toHaveAttribute('data-flow-status', 'valid');
+
+    // A filter drops events, which a pipeline on views never does.
+    await addStep(page, 'Filter events');
+    await expect(flowCard(page).locator('[data-flow-issue="error"]')).toContainText([
+      /can drop events, but a pipeline on rum_views keeps every row/,
+    ]);
+    await nodeEditor(page).getByRole('button', { name: 'Remove', exact: true }).click();
+    await expect(flowStatus(page)).toHaveAttribute('data-flow-status', 'valid');
+
+    await save(page).click();
+    await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
+    expect(backend.saved[0]).toMatchObject({ sourceStream: 'rum_views', targetStream: 'rum_views', cron: '' });
+    expect(backend.saved[0]!.functionSteps).toMatchObject({
+      mode: 'realtime',
+      signalType: 'logs',
+      sinks: ['rum_views'],
+      retainSource: false,
+    });
+  });
+
+  test('says whose access a pipeline reads _audit with', async ({ page }) => {
+    // Three pages in one test.
+    test.slow();
+    const backend = await mountPipelines(page);
+    await page.route('**/api/v1/streams', (route) =>
+      route.request().method() === 'GET'
+        ? route.fulfill({ json: [stream('app_logs', 'logs'), stream('_audit', 'logs')] })
+        : route.fallback(),
+    );
+
+    // A new pipeline reads as whoever saves it.
+    await page.goto('/pipelines/new');
+    await pickStream(page, '_audit');
+    const note = page.locator('[data-audit-reader]');
+    await expect(note).toContainText('Reads _audit as');
+    await expect(note).toContainText('(you)');
+    await expect(note).not.toContainText('After you save');
+    await expect(note).toContainText('If this person loses audit.read');
+
+    // A saved one reads as whoever saved it, until someone who holds the permission saves it.
+    backend.saved.push({
+      name: 'audit-copy',
+      sourceStream: '_audit',
+      targetStream: 'audit_copy',
+      cron: 'every:15m',
+      lookbackSecs: 900,
+      enabled: true,
+      functionSteps: { steps: [] },
+      auditReaderId: 'u-ada',
+      auditReader: { id: 'u-ada', displayName: 'Ada', email: 'ada@example.com' },
+    } as PipelineBody);
+    await page.goto('/pipelines/p-1/edit');
+    await node(page, 'source-0').click();
+    await expect(note).toContainText('Ada');
+    await expect(note).toContainText('After you save, it reads with your access.');
+    await expect(note.getByText('Ada', { exact: true })).toHaveAttribute('title', 'ada@example.com');
+
+    await page.goto('/pipelines/p-1');
+    await expect(page.getByText('Reads _audit as')).toBeVisible();
+    await expect(page.getByText('Ada', { exact: true })).toBeVisible();
+  });
+
   test('lists what each run read and where its events ended, under the retry that is due', async ({ page }) => {
     const now = Date.parse(FROZEN_NOW_ISO) * 1000;
     await page.route('**/api/v1/scheduled_pipelines/p-1', (route) =>
@@ -654,18 +1166,18 @@ test.describe('Pipeline editor', () => {
         json: {
           id: 'p-1',
           name: 'checkout-logs',
-          source_stream: 'app_logs',
-          target_stream: 'clean_logs',
+          sourceStream: 'app_logs',
+          targetStream: 'clean_logs',
           cron: 'every:5m',
-          lookback_secs: 300,
+          lookbackSecs: 300,
           enabled: true,
           retry: {
             source: 'nginx_logs',
             attempt: 2,
-            next_at_micros: now + 120_000_000,
+            nextAt: now + 120_000_000,
             error: 'read: unavailable: storage unavailable',
           },
-          function_steps: { sources: ['app_logs', 'nginx_logs'], sinks: ['clean_logs'], steps: [] },
+          functionSteps: { sources: ['app_logs', 'nginx_logs'], sinks: ['clean_logs'], steps: [] },
         },
       }),
     );
@@ -689,6 +1201,176 @@ test.describe('Pipeline editor', () => {
     await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
   });
 
+  test('counts matching logs into a metric while the logs go on', async ({ page }) => {
+    const backend = await mountPipelines(page);
+    await startPipeline(page, 'warn-metrics');
+
+    // Steps that keep count need events as they arrive: a scheduled pipeline does not offer them.
+    await page.getByRole('button', { name: 'Add step' }).click();
+    await expect(page.getByRole('menuitem', { name: 'Generate metric', exact: true })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+
+    await page.locator('[data-pipeline-settings]').getByRole('button', { name: 'Realtime', exact: true }).click();
+    await addStep(page, 'Generate metric');
+
+    const editor = nodeEditor(page);
+    await editor.getByRole('button', { name: 'Add a test' }).click();
+    await editor.locator('[data-counting-condition]').getByRole('textbox', { name: 'Field' }).fill('level');
+    await editor.locator('[data-counting-condition]').getByRole('textbox', { name: 'Value' }).fill('WARN');
+    await editor.getByRole('textbox', { name: /^Metric name/ }).fill('app_warnings_total');
+    await editor.getByRole('textbox', { name: /^Group by/ }).fill('appname');
+    await expect(node(page, 'transform-0')).toHaveText(/Generate metric · app_warnings_total · by appname$/);
+    // The query that reads it, to copy into a dashboard or an alert rule.
+    await expect(editor.locator('code')).toHaveText('sum by (appname) (increase(app_warnings_total[5m]))');
+
+    await page.getByRole('button', { name: 'Run test' }).click();
+    await expect(testResult(page)).toHaveAttribute('data-pipeline-test-result', 'passed');
+    await expect(testResult(page).locator('[data-counting-note]')).toHaveText(
+      'Adds 1 to app_warnings_total{appname="checkout"}.',
+    );
+    // The event goes on as it came: a metric step changes nothing.
+    await expect(testResult(page)).toContainText('Written to app_logs_clean');
+    expect(backend.runs).toHaveLength(0);
+
+    await save(page).click();
+    await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
+    expect(backend.saved[0]!.functionSteps.steps).toEqual([
+      {
+        transformName: 'metric',
+        kind: 'generate_metric',
+        conditions: [{ field: 'level', test: 'equals', value: 'WARN' }],
+        metric: {
+          name: 'app_warnings_total',
+          type: 'count',
+          groupBy: ['appname'],
+          stream: 'app_logs',
+          intervalSecs: 60,
+        },
+      },
+    ]);
+
+    // Saved, it opens as the same form.
+    await node(page, 'transform-0').click();
+    await expect(nodeEditor(page).getByRole('textbox', { name: /^Metric name/ })).toHaveValue('app_warnings_total');
+  });
+
+  test('holds back logs past a daily quota and a rate, sending the rest to a cheaper stream', async ({ page }) => {
+    const backend = await mountPipelines(page);
+    await startPipeline(page, 'budgeted');
+    await page.locator('[data-pipeline-settings]').getByRole('button', { name: 'Realtime', exact: true }).click();
+
+    await addStep(page, 'Quota');
+    let editor = nodeEditor(page);
+    await editor.getByRole('textbox', { name: /^Daily limit \(events\)/ }).fill('1000000');
+    await editor.getByRole('textbox', { name: /^Split by/ }).fill('appname');
+    await editor.getByRole('button', { name: 'Add a bucket' }).click();
+    await editor.locator('[data-quota-override]').getByRole('textbox', { name: 'appname' }).fill('checkout');
+    await editor.locator('[data-quota-override]').getByRole('textbox', { name: 'Limit (events)' }).fill('5000000');
+    await editor.getByRole('button', { name: 'Send to another stream' }).click();
+    await nameStream(page, 'app_logs_cold');
+    await expect(node(page, 'transform-0')).toHaveText(/Quota · 1000000 events a day · by appname$/);
+
+    await addStep(page, 'Throttle');
+    editor = nodeEditor(page);
+    await editor.getByRole('textbox', { name: /^Events per window/ }).fill('100');
+    await editor.getByRole('textbox', { name: /^Per group of/ }).fill('kubernetes.pod_name');
+    // A throttle drops what goes past it or sends it elsewhere; it never lets it through.
+    await expect(editor.getByRole('button', { name: 'Let through' })).toHaveCount(0);
+    await expect(node(page, 'transform-1')).toHaveText(/Throttle · 100 per 60 s · by kubernetes\.pod_name$/);
+
+    await page.getByRole('button', { name: 'Run test' }).click();
+    await expect(testResult(page).locator('[data-counting-note]')).toHaveText([
+      'Counts in appname=checkout (5,000,000 events a day); past the limit it is sent to app_logs_cold.',
+      'Counts in kubernetes.pod_name=checkout-7d9f8 (100 per 60 s); past the limit it is dropped.',
+    ]);
+    await expect(testResult(page)).toContainText('Written to app_logs_clean');
+
+    await save(page).click();
+    await expect(page).toHaveURL(/\/pipelines\/p-1\/edit$/);
+    expect(backend.saved[0]!.functionSteps.steps).toEqual([
+      {
+        transformName: 'quota',
+        kind: 'quota',
+        conditions: [],
+        quota: {
+          unit: 'events',
+          limit: 1_000_000,
+          partitionBy: ['appname'],
+          overrides: [{ values: { appname: 'checkout' }, limit: 5_000_000 }],
+          action: 'route',
+          target: 'app_logs_cold',
+        },
+      },
+      {
+        transformName: 'throttle',
+        kind: 'throttle',
+        conditions: [],
+        throttle: { limit: 100, windowSecs: 60, groupBy: ['kubernetes.pod_name'], action: 'drop' },
+      },
+    ]);
+  });
+
+  test('shows what its quotas let through today on the pipeline page', async ({ page }) => {
+    await page.route('**/api/v1/scheduled_pipelines/p-9', (route) =>
+      route.fulfill({
+        json: {
+          id: 'p-9',
+          name: 'budgeted',
+          sourceStream: 'app_logs',
+          targetStream: 'app_logs',
+          cron: '',
+          lookbackSecs: 300,
+          enabled: true,
+          functionSteps: {
+            mode: 'realtime',
+            signalType: 'logs',
+            steps: [
+              {
+                transformName: 'daily',
+                kind: 'quota',
+                quota: {
+                  unit: 'events',
+                  limit: 1000,
+                  partitionBy: ['service'],
+                  overrides: [{ values: { service: 'checkout' }, limit: 5000 }],
+                  action: 'drop',
+                },
+              },
+              {
+                transformName: 'burst',
+                kind: 'throttle',
+                throttle: { limit: 10, windowSecs: 1, action: 'drop' },
+              },
+            ],
+          },
+        },
+      }),
+    );
+    await page.route('**/api/v1/scheduled_pipelines/p-9/runs**', (route) => route.fulfill({ json: [] }));
+    await page.route('**/api/v1/scheduled_pipelines/p-9/limits', (route) =>
+      route.fulfill({
+        json: {
+          dayStart: 0,
+          buckets: [
+            { step: 'daily', bucket: '["cart"]', admittedEvents: 1000, admittedBytes: 51200, overEvents: 240, overBytes: 12288 },
+            { step: 'daily', bucket: '["checkout"]', admittedEvents: 1200, admittedBytes: 61440, overEvents: 0, overBytes: 0 },
+          ],
+        },
+      }),
+    );
+    await page.goto('/pipelines/p-9');
+
+    const section = page.locator('[data-pipeline-section]').filter({ hasText: 'Limits today' });
+    const rows = section.getByRole('row');
+    await expect(rows.nth(1)).toContainText('service=cart');
+    await expect(rows.nth(1)).toContainText('1,000 of 1,000');
+    await expect(rows.nth(1)).toContainText('240 · Drop');
+    await expect(rows.nth(2)).toContainText('1,200 of 5,000');
+    // A throttle that has counted nothing today is still listed.
+    await expect(rows.nth(3)).toContainText('burst');
+    await expect(rows.nth(3)).toContainText('Whole step');
+  });
+
   test('reads in Chinese when the interface does', async ({ page }) => {
     await mountPipelines(page);
     await page.route('**/api/v1/me/preferences', (route) =>
@@ -698,11 +1380,11 @@ test.describe('Pipeline editor', () => {
               theme: 'system',
               density: 'normal',
               language: 'zh-cn',
-              default_home_route: '/home',
-              time_format: 'iso_24h',
-              date_format: 'yyyy_mm_dd_dash',
+              defaultHomeRoute: '/home',
+              timeFormat: 'iso_24h',
+              dateFormat: 'yyyy_mm_dd_dash',
               timezone: '',
-              keyboard_shortcuts_enabled: true,
+              keyboardShortcutsEnabled: true,
             },
           })
         : route.fallback(),

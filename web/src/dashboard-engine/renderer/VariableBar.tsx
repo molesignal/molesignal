@@ -1,5 +1,6 @@
 import { keepPreviousData, useQueries } from '@tanstack/react-query';
 import { ChevronDown } from 'lucide-react';
+import * as React from 'react';
 
 import * as dashboardsApi from '@/api/dashboards';
 import { ChromeButton } from '@/shell/chrome';
@@ -90,12 +91,12 @@ export function DashboardVariableBar({
                 ? {
                     stream: {
                       name: streamName,
-                      ...(streamType ? { stream_type: streamType } : {}),
+                      ...(streamType ? { streamType: streamType } : {}),
                     },
                   }
                 : {}),
             },
-            time_range: {
+            timeRange: {
               start: queryTimeRange.from,
               end: queryTimeRange.to,
             },
@@ -115,6 +116,21 @@ export function DashboardVariableBar({
       queries[index]?.data?.values ?? [],
     ]),
   );
+  // A person who has not chosen is given the first of what there is. A choice that is not among the
+  // options stays: it may come from a link, for a range that does not hold it.
+  const unchosen = queryVariables.flatMap((variable) => {
+    const options = resolved.get(variable.id) ?? [];
+    const value = values[variable.name];
+    const empty = value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0);
+    return !variable.multi && empty && options.length > 0 ? [[variable.name, options[0]] as const] : [];
+  });
+  const unchosenKey = JSON.stringify(unchosen);
+  React.useEffect(() => {
+    if (unchosen.length === 0 || disabled) return;
+    onChange({ ...values, ...Object.fromEntries(unchosen) });
+    // The first options are keyed by their text, as `unchosen` is a new list on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unchosenKey, disabled]);
   const visible = variables.filter(
     (variable) =>
       variable.hide !== 'variable' &&
@@ -126,10 +142,11 @@ export function DashboardVariableBar({
     <div className="flex flex-wrap items-end gap-2 border-b border-bd-0 pb-3">
       {visible.map((variable) => {
         const resolvedValues = resolved.get(variable.id);
-        const options =
+        const listed =
           resolvedValues && resolvedValues.length > 0
             ? resolvedValues.map((value) => ({ label: value, value }))
             : variableOptions(variable);
+        const options = withChosen(listed, values[variable.name], variable);
         return (
           <VariableControl
             key={variable.id}
@@ -249,6 +266,22 @@ function VariableControl({
       </select>
     </label>
   );
+}
+
+/**
+ * What was chosen is always among the options, so the control shows it: a value from the address
+ * need not be one of the values a range holds.
+ */
+function withChosen(
+  options: Array<{ label: string; value: unknown }>,
+  chosen: unknown,
+  variable: DashboardVariable,
+): Array<{ label: string; value: unknown }> {
+  if (variable.multi || variable.type === 'text') return options;
+  if (typeof chosen !== 'string' && typeof chosen !== 'number') return options;
+  if (chosen === '') return options;
+  if (options.some((option) => String(option.value) === String(chosen))) return options;
+  return [{ label: String(chosen), value: chosen }, ...options];
 }
 
 function stringValue(value: unknown): string {

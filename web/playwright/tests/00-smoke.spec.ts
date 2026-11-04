@@ -38,8 +38,8 @@ test('sign-in page has no development bypass and uses authenticated sign-in', as
   await page.route('**/api/v1/instance', (route) =>
     route.fulfill({
       json: {
-        external_url: '',
-        signup_enabled: false,
+        externalUrl: '',
+        signupEnabled: false,
         version: '26.0.0.0',
       },
     }),
@@ -47,9 +47,9 @@ test('sign-in page has no development bypass and uses authenticated sign-in', as
   await page.route('**/api/v1/iam/capabilities', (route) =>
     route.fulfill({
       json: {
-        organization_id: 'acme-prod',
+        organizationId: 'acme-prod',
         scope: 'organization',
-        display_role: 'Owner',
+        displayRole: 'Owner',
         roles: [
           {
             id: 'role-owner',
@@ -61,16 +61,16 @@ test('sign-in page has no development bypass and uses authenticated sign-in', as
         permissions: ['streams.read', 'streams.query'],
         features: [],
         version: 1,
-        route_catalog_version: 1,
+        routeCatalogVersion: 1,
         routes: [
           {
             id: 'root',
-            path_pattern: '/',
+            pathPattern: '/',
             allowed: true,
           },
           {
             id: 'investigate',
-            path_pattern: '/investigate',
+            pathPattern: '/investigate',
             allowed: true,
           },
         ],
@@ -83,13 +83,13 @@ test('sign-in page has no development bypass and uses authenticated sign-in', as
   await page.route('**/api/v1/me/profile', (route) =>
     route.fulfill({
       json: {
-        user_id: 'test-user',
+        userId: 'test-user',
         email: 'test@molesignal.local',
-        display_name: 'Test User',
-        org_id: 'acme-prod',
-        org_name: 'acme-prod',
-        org_slug: 'acme-prod',
-        display_role: 'Owner',
+        displayName: 'Test User',
+        orgId: 'acme-prod',
+        orgName: 'acme-prod',
+        orgSlug: 'acme-prod',
+        displayRole: 'Owner',
       },
     }),
   );
@@ -102,9 +102,9 @@ test('sign-in page has no development bypass and uses authenticated sign-in', as
         version: '26.0.0.0',
         commit: 'mock-test',
         branch: 'test',
-        build_epoch_secs: 1_785_087_406,
-        build_id: 'playwright-smoke',
-        release_channel: 'alpha',
+        buildEpochSecs: 1_785_087_406,
+        buildId: 'playwright-smoke',
+        releaseChannel: 'alpha',
         edition: 'community',
       },
     }),
@@ -112,30 +112,32 @@ test('sign-in page has no development bypass and uses authenticated sign-in', as
   await page.route('**/api/v1/auth/signin', (route) =>
     route.fulfill({
       json: {
-        token: 'mock-signin-token',
-        user_id: 'test-user',
-        email: 'test@molesignal.local',
-        display_name: 'Test User',
-        org_id: 'acme-prod',
-        org_name: 'acme-prod',
-        display_role: 'Owner',
-        roles: [
-          {
-            id: 'role-owner',
-            key: 'owner',
-            name: 'Owner',
-            builtin: true,
-          },
-        ],
+        login: {
+          userId: 'test-user',
+          email: 'test@molesignal.local',
+          displayName: 'Test User',
+          orgId: 'acme-prod',
+          orgName: 'acme-prod',
+          displayRole: 'Owner',
+          roles: [
+            {
+              id: 'role-owner',
+              key: 'owner',
+              name: 'Owner',
+              builtin: true,
+            },
+          ],
+        },
       },
     }),
   );
-  await page.goto('/login?next=/investigate');
+  await page.goto('/signin?next=/investigate');
 
-  await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible();
   await expect(page.getByText(/continue offline|offline dev/i)).toHaveCount(0);
   await page.getByLabel('Email').fill('test@molesignal.local');
-  await page.getByLabel('Password').fill('password');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByLabel('Password', { exact: true }).fill('password');
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/investigate$/);
 });

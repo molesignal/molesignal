@@ -9,8 +9,8 @@ export interface PriceCurrency {
   /** The organization's own symbol; null means the standard symbol. */
   symbol: string | null;
   /** The model providers priced in it: it cannot be deleted while there are any. */
-  used_by: string[];
-  updated_at_micros: number;
+  usedBy: string[];
+  updatedAt: number;
 }
 
 /** The organization's currencies, the first added first; the common ones on a first read. */

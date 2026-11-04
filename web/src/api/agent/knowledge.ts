@@ -3,39 +3,39 @@ import { http } from '@/lib/http';
 /** Whose knowledge: the organization has one, every team one of its own. */
 export interface KnowledgeScope {
   scope: 'org' | 'team';
-  team_id?: string | null;
+  teamId?: string | null;
 }
 
 export interface KnowledgeBase extends KnowledgeScope {
-  team_name?: string | null;
+  teamName?: string | null;
   files: number;
   bytes: number;
   /** MOLE.md is there: every chat of the scope reads it. */
   entry: boolean;
-  entry_updated_at_micros?: number | null;
+  entryUpdatedAt?: number | null;
   /** Other files changed after MOLE.md was last written: it may be out of date. */
-  changed_since_entry: number;
-  updated_at_micros?: number | null;
-  can_edit: boolean;
+  changedSinceEntry: number;
+  updatedAt?: number | null;
+  canEdit: boolean;
 }
 
 export interface KnowledgeLimits {
-  max_file_bytes: number;
-  max_total_bytes: number;
-  max_files: number;
+  maxFileBytes: number;
+  maxTotalBytes: number;
+  maxFiles: number;
 }
 
 export interface KnowledgeOverview {
   bases: KnowledgeBase[];
-  entry_file: string;
+  entryFile: string;
   limits: KnowledgeLimits;
 }
 
 export interface KnowledgeFileMeta {
   path: string;
-  size_bytes: number;
-  updated_by: string;
-  updated_at_micros: number;
+  sizeBytes: number;
+  updatedBy: string;
+  updatedAt: number;
 }
 
 export interface KnowledgeFile extends KnowledgeFileMeta {
@@ -46,13 +46,13 @@ export const ENTRY_FILE = 'MOLE.md';
 
 function params(scope: KnowledgeScope, path?: string): Record<string, string> {
   const result: Record<string, string> = { scope: scope.scope };
-  if (scope.scope === 'team' && scope.team_id) result.team_id = scope.team_id;
+  if (scope.scope === 'team' && scope.teamId) result.teamId = scope.teamId;
   if (path !== undefined) result.path = path;
   return result;
 }
 
 export function scopeKey(scope: KnowledgeScope): string {
-  return scope.scope === 'team' ? `team:${scope.team_id ?? ''}` : 'org';
+  return scope.scope === 'team' ? `team:${scope.teamId ?? ''}` : 'org';
 }
 
 export async function knowledgeOverview(): Promise<KnowledgeOverview> {
@@ -62,12 +62,12 @@ export async function knowledgeOverview(): Promise<KnowledgeOverview> {
 
 export async function listKnowledgeFiles(
   scope: KnowledgeScope,
-): Promise<{ files: KnowledgeFileMeta[]; can_edit: boolean }> {
-  const { data } = await http.get<{ files: KnowledgeFileMeta[]; can_edit: boolean }>(
+): Promise<{ files: KnowledgeFileMeta[]; canEdit: boolean }> {
+  const { data } = await http.get<{ files: KnowledgeFileMeta[]; canEdit: boolean }>(
     '/agent/knowledge/files',
     { params: params(scope) },
   );
-  return { files: data.files ?? [], can_edit: data.can_edit };
+  return { files: data.files ?? [], canEdit: data.canEdit };
 }
 
 export async function readKnowledgeFile(scope: KnowledgeScope, path: string): Promise<KnowledgeFile> {
@@ -111,7 +111,7 @@ export async function uploadKnowledge(
 ): Promise<UploadOutcome> {
   const form = new FormData();
   form.append('scope', scope.scope);
-  if (scope.scope === 'team' && scope.team_id) form.append('team_id', scope.team_id);
+  if (scope.scope === 'team' && scope.teamId) form.append('teamId', scope.teamId);
   if (dir) form.append('dir', dir);
   for (const { path, file } of files) form.append('file', file, path);
   const { data } = await http.post<UploadOutcome>('/agent/knowledge/upload', form);

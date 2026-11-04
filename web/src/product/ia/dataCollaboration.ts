@@ -2,6 +2,7 @@ import {
   createLucideIcon,
   FileBarChart,
   FunctionSquare,
+  Gauge,
   ListChecks,
   Plug,
   TableProperties,
@@ -57,6 +58,12 @@ export const DATA_COLLABORATION_PRODUCT_ROUTES = [
     id: 'stream.jobs', path: '/streams/jobs', labelKey: 'breadcrumbs.stream_jobs',
     group: 'data', icon: ListChecks, owner: 'streams', emptyStateStrategy: 'query-first',
     breadcrumbs: [crumb('streams', '/streams'), crumb('breadcrumbs.stream_jobs')],
+    backTo: '/streams',
+  }),
+  route({
+    id: 'stream.usage', path: '/streams/usage', labelKey: 'breadcrumbs.stream_usage',
+    group: 'data', icon: Gauge, owner: 'streams', emptyStateStrategy: 'query-first',
+    breadcrumbs: [crumb('streams', '/streams'), crumb('breadcrumbs.stream_usage')],
     backTo: '/streams',
   }),
   route({

@@ -41,6 +41,7 @@ export function ManageServiceAccountDrawer({
   const [description, setDescription] = React.useState('');
   const [roleId, setRoleId] = React.useState('');
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const deleteAccess = useActionAccess({ permission: 'service_accounts.delete' });
   const accountId = account?.id ?? '';
   const roles = useQuery({
     queryKey: ['iam', 'roles'],
@@ -48,16 +49,13 @@ export function ManageServiceAccountDrawer({
     enabled: Boolean(account),
   });
   const roleOptions = (roles.data ?? []).filter(
-    (role) =>
-      role.role_type === 'organization' &&
-      role.scope === 'organization' &&
-      role.key !== 'rum_client',
+    (role) => role.roleType === 'organization' && role.scope === 'organization',
   );
 
   React.useEffect(() => {
     setName(account?.name ?? '');
     setDescription(account?.description ?? '');
-    setRoleId(account?.role_id ?? '');
+    setRoleId(account?.roleId ?? '');
   }, [account, accountId]);
 
   const refresh = () =>
@@ -80,7 +78,7 @@ export function ManageServiceAccountDrawer({
       serviceAccountsApi.update(accountId, {
         name: name.trim(),
         description: description.trim(),
-        role_id: roleId,
+        roleId: roleId,
       }),
     onSuccess: async () => {
       toast.success(t('service_accounts.toast_updated'));
@@ -103,7 +101,7 @@ export function ManageServiceAccountDrawer({
   const openApiTokens = () => {
     onClose();
     navigate(
-      `/iam/api-tokens?service_account_id=${encodeURIComponent(accountId)}`,
+      `/iam/api-tokens?serviceAccountId=${encodeURIComponent(accountId)}`,
     );
   };
 
@@ -118,8 +116,8 @@ export function ManageServiceAccountDrawer({
           <div className="flex w-full items-center justify-between gap-3">
             <ChromeButton
               className="text-red-soft enabled:hover:bg-red-dim"
-              disabled={access.disabled || remove.isPending}
-              disabledReason={access.reason}
+              disabled={deleteAccess.disabled || remove.isPending}
+              disabledReason={deleteAccess.reason}
               onClick={() => setDeleteOpen(true)}
             >
               <Trash2 className="h-3 w-3" />
@@ -205,7 +203,7 @@ export function ManageServiceAccountDrawer({
               onCancel={() => {
                 setName(account?.name ?? '');
                 setDescription(account?.description ?? '');
-                setRoleId(account?.role_id ?? '');
+                setRoleId(account?.roleId ?? '');
               }}
               submitLabel={t('service_accounts.save_changes')}
             />
@@ -220,8 +218,8 @@ export function ManageServiceAccountDrawer({
         description={t('service_accounts.delete_confirm_description')}
         confirmLabel={t('service_accounts.delete')}
         busy={remove.isPending}
-        disabled={access.disabled}
-        disabledReason={access.reason}
+        disabled={deleteAccess.disabled}
+        disabledReason={deleteAccess.reason}
         onConfirm={() => remove.mutate()}
       />
     </>

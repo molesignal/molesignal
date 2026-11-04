@@ -24,6 +24,7 @@ import {
   canAccessProductPath,
   useProductAccess,
 } from '@/product/access';
+import { JsonView } from '@/shell/JsonEditor';
 import { cn } from '@/shell/lib/cn';
 import {
   Dialog,
@@ -88,6 +89,7 @@ import type {
   DashboardTimeRange,
   PanelData,
 } from './schema';
+import { sameVariableValues } from './variableAddress';
 import {
   expandRepeatedElements,
   initialVariableValues,
@@ -116,6 +118,13 @@ export interface DashboardRendererProps {
   restricted?: boolean;
   variableControlsEnabled?: boolean;
   resolveVariableQueries?: boolean;
+  /**
+   * Values for variables that come from outside, such as the address of the page. They win over the
+   * defaults of the dashboard, and are taken again whenever they change.
+   */
+  variableValues?: DashboardVariableValues;
+  /** Told of every change a person makes to the variables, so the page can keep them in its address. */
+  onVariablesChange?: (values: DashboardVariableValues) => void;
   maxTimeRangeMicros?: number;
   /**
    * `print` draws the dashboard for a report: the panels and their titles, with
@@ -157,6 +166,8 @@ export function DashboardRenderer({
   restricted = false,
   variableControlsEnabled = true,
   resolveVariableQueries = true,
+  variableValues,
+  onVariablesChange,
   maxTimeRangeMicros,
   presentation = 'screen',
 }: DashboardRendererProps) {
@@ -184,12 +195,29 @@ export function DashboardRenderer({
     onRenderStateChange,
     onRefreshStateChange,
   });
-  const [variables, setVariables] = React.useState<DashboardVariableValues>(
-    () => initialVariableValues(dashboard.variables),
+  const startingVariables = React.useMemo(
+    () => ({
+      ...initialVariableValues(dashboard.variables),
+      ...variableValues,
+    }),
+    [dashboard.variables, variableValues],
   );
+  const [variables, setVariables] =
+    React.useState<DashboardVariableValues>(startingVariables);
   React.useEffect(() => {
-    setVariables(initialVariableValues(dashboard.variables));
-  }, [dashboard.uid, dashboard.variables]);
+    setVariables((current) =>
+      sameVariableValues(current, startingVariables)
+        ? current
+        : startingVariables,
+    );
+  }, [dashboard.uid, startingVariables]);
+  const changeVariables = React.useCallback(
+    (values: DashboardVariableValues) => {
+      setVariables(values);
+      onVariablesChange?.(values);
+    },
+    [onVariablesChange],
+  );
   const queryLookup = React.useMemo(
     () => buildDashboardQueryLookup(dashboard.elements),
     [dashboard.elements],
@@ -261,7 +289,7 @@ export function DashboardRenderer({
             resolveTimeRange={refreshRuntime.resolveTimeRange}
             refreshCadence={refreshCadence}
             containerWidth={refreshRuntime.containerWidth}
-            onChange={setVariables}
+            onChange={changeVariables}
             disabled={!variableControlsEnabled}
             resolveQueries={resolveVariableQueries}
           />
@@ -772,9 +800,11 @@ function DashboardPanelCard({
                 {title} · {tr('Queries')}
               </DialogTitle>
             </DialogHeader>
-            <pre className="max-h-[70vh] overflow-auto rounded-md border border-bd-0 bg-bg-0 p-4 font-mono text-xs text-tx-1">
-              {JSON.stringify(panel.queries, null, 2)}
-            </pre>
+            <JsonView
+              value={panel.queries}
+              ariaLabel={`${title} · ${tr('Queries')}`}
+              maxHeight={Math.round(window.innerHeight * 0.7)}
+            />
           </DialogContent>
         </Dialog>
       )}

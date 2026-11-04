@@ -1,35 +1,36 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
+import { explorerRead, explorerReadBody } from '../fixtures/explorerReads';
 import { serveLogCounts, serveTraceCounts } from '../fixtures/histogramCounts';
 import { installMockShellSession } from '../fixtures/mockSession';
 
 const LOG_STREAM = {
   id: 'application-logs',
   name: 'application_logs',
-  stream_type: 'logs',
+  streamType: 'logs',
   schema: {
     fields: [
-      { name: '_timestamp', data_type: 'timestamp', nullable: false, indexed: true },
-      { name: 'level', data_type: 'utf8', nullable: true, indexed: true },
-      { name: 'message', data_type: 'utf8', nullable: true, indexed: false },
+      { name: '_timestamp', dataType: 'timestamp', nullable: false, indexed: true },
+      { name: 'level', dataType: 'utf8', nullable: true, indexed: true },
+      { name: 'message', dataType: 'utf8', nullable: true, indexed: false },
     ],
   },
   retention: { days: 7 },
-  effective_retention: { days: 7 },
+  effectiveRetention: { days: 7 },
   settings: {
     description: null,
-    index_rules: [],
-    retention_filter: null,
-    keep_conditions: [],
-    max_query_range_hours: null,
-    flatten_level: null,
-    use_stream_stats_for_partitioning: false,
-    store_original_data: false,
-    enable_distinct_values: true,
+    indexRules: [],
+    retentionFilter: null,
+    keepConditions: [],
+    maxQueryRangeHours: null,
+    flattenLevel: null,
+    useStreamStatsForPartitioning: false,
+    storeOriginalData: false,
+    enableDistinctValues: true,
     queryable: true,
   },
-  created_at_micros: 1,
-  updated_at_micros: 1,
+  createdAt: 1,
+  updatedAt: 1,
 };
 
 const LOG_MESSAGE = 'checkout completed';
@@ -38,7 +39,7 @@ async function serveLogs(page: Page, rows: number) {
   await installMockShellSession(page);
   const now = Date.now();
   await page.route('**/api/v1/streams**', (route) => route.fulfill({ json: [LOG_STREAM] }));
-  await page.route('**/api/v1/web/logs', (route) =>
+  await page.route(explorerRead('web/logs'), (route) =>
     route.fulfill({
       json: {
         // The newest rows of the last hour, a second apart, one in four an error.
@@ -47,9 +48,9 @@ async function serveLogs(page: Page, rows: number) {
           level: index % 4 === 3 ? 'ERROR' : 'INFO',
           message: LOG_MESSAGE,
         })),
-        next_cursor: null,
-        previous_cursor: null,
-        has_more: false,
+        nextCursor: null,
+        previousCursor: null,
+        hasMore: false,
       },
     }),
   );
@@ -58,8 +59,8 @@ async function serveLogs(page: Page, rows: number) {
   );
   // A statement gets a result, if an empty one: the page is not built to read the
   // catch-all's `{}` as rows, and a test of the query bar should not turn on that.
-  await page.route('**/api/v1/query', (route) =>
-    route.fulfill({ json: { columns: [], rows: [], scanned_rows: 0, took_ms: 0 } }),
+  await page.route(explorerRead('query'), (route) =>
+    route.fulfill({ json: { columns: [], rows: [], scannedRows: 0, tookMs: 0 } }),
   );
 }
 
@@ -71,20 +72,55 @@ async function serveTraces(page: Page, count: number, spacingMs = 20 * 60 * 1000
     route.fulfill({
       json: {
         items: Array.from({ length: count }, (_, index) => ({
-          trace_id: `trace-${index}`,
+          traceId: `trace-${index}`,
           operation: 'POST /checkout',
           service: 'checkout-api',
-          start_ns: (now - (index + 1) * spacingMs) * 1_000_000,
-          duration_ms: 40 + index,
-          span_count: 4,
-          error_count: index % 4 === 0 ? 1 : 0,
+          startNs: (now - (index + 1) * spacingMs) * 1_000_000,
+          durationMs: 40 + index,
+          spanCount: 4,
+          errorCount: index % 4 === 0 ? 1 : 0,
         })),
-        next_cursor: null,
-        previous_cursor: null,
-        has_more: false,
+        nextCursor: null,
+        previousCursor: null,
+        hasMore: false,
       },
     }),
   );
+}
+
+/** The spans of the Spans view, and their count over time as the RED figures give it, a bar for every bar asked. */
+async function serveSpans(page: Page, count: number) {
+  const now = Date.now();
+  const asked: URLSearchParams[] = [];
+  await page.route('**/api/v1/web/traces/spans**', (route) =>
+    route.fulfill({
+      json: {
+        items: Array.from({ length: count }, (_, index) => ({
+          traceId: `trace-${index}`,
+          spanId: `span-${index}`,
+          service: 'checkout-api',
+          operation: 'POST /checkout',
+          startNs: (now - (index + 1) * 60_000) * 1_000_000,
+          durationNs: 40_000_000,
+          status: 'OK',
+        })),
+        nextCursor: null,
+        previousCursor: null,
+        hasMore: false,
+      },
+    }),
+  );
+  await page.route(/\/api\/v1\/web\/traces\/red(\?.*)?$/, (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    asked.push(params);
+    const to = Number(params.get('to'));
+    const bucket = Number(params.get('bucketTime'));
+    const origin = Number(params.get('originTime'));
+    const figures = { requests: 20, errors: 1, p50Ns: 30_000_000, p95Ns: 90_000_000, p99Ns: 120_000_000 };
+    const buckets = Array.from({ length: Math.ceil((to - origin) / bucket) }, (_, index) => ({ startTime: origin + index * bucket, ...figures }));
+    return route.fulfill({ json: { bucketTime: bucket, originTime: origin, scope: 'all', total: figures, buckets, latency: [] } });
+  });
+  return asked;
 }
 
 /** Where the frame of a histogram begins and ends, and how long a bar of it is, in microseconds. */
@@ -159,9 +195,9 @@ test.describe('Logs explorer modules', () => {
     expect(asked[0]).toMatchObject({
       stream: 'application_logs',
       filters: [],
-      free_text: [],
-      bucket_micros: bar,
-      origin_micros: start,
+      freeText: [],
+      bucketTime: bar,
+      originTime: start,
     });
     expect(asked[0]!.to - asked[0]!.from).toBe(HOUR);
     // The frame is the hour that was queried, widened to whole bars of a length a reader
@@ -215,8 +251,8 @@ test.describe('Logs explorer modules', () => {
       level: index % 4 === 3 ? 'ERROR' : 'INFO',
       message: LOG_MESSAGE,
     }));
-    await page.route('**/api/v1/web/logs', (route) =>
-      route.fulfill({ json: { items, next_cursor: null, previous_cursor: null, has_more: false } }),
+    await page.route(explorerRead('web/logs'), (route) =>
+      route.fulfill({ json: { items, nextCursor: null, previousCursor: null, hasMore: false } }),
     );
     await serveLogCounts(page, {
       events: items.map((item) => ({ micros: item._timestamp, error: item.level === 'ERROR' })),
@@ -258,7 +294,7 @@ test.describe('Logs explorer modules', () => {
     await serveLogs(page, 3);
     const asked = await serveLogCounts(page, () => ({ total: 40, errors: 0 }));
     const now = Date.now();
-    await page.route('**/api/v1/query', (route) =>
+    await page.route(explorerRead('query'), (route) =>
       route.fulfill({
         json: {
           columns: ['_timestamp', 'level', 'message'],
@@ -267,8 +303,8 @@ test.describe('Logs explorer modules', () => {
             'INFO',
             LOG_MESSAGE,
           ]),
-          scanned_rows: 5,
-          took_ms: 1,
+          scannedRows: 5,
+          tookMs: 1,
         },
       }),
     );
@@ -290,8 +326,8 @@ test.describe('Logs explorer modules', () => {
     const asked = await serveLogCounts(page, () => ({ total: 40, errors: 4 }));
     const now = Date.now();
     // Two pages of the same query, the second reached by its cursor.
-    await page.route('**/api/v1/web/logs', (route) => {
-      const second = Boolean(route.request().postDataJSON().cursor);
+    await page.route(explorerRead('web/logs'), (route) => {
+      const second = Boolean(explorerReadBody(route.request()).cursor);
 
       return route.fulfill({
         json: {
@@ -300,9 +336,9 @@ test.describe('Logs explorer modules', () => {
             level: 'INFO',
             message: second ? 'older rows' : LOG_MESSAGE,
           })),
-          next_cursor: second ? null : 'page-2',
-          previous_cursor: second ? 'page-1' : null,
-          has_more: !second,
+          nextCursor: second ? null : 'page-2',
+          previousCursor: second ? 'page-1' : null,
+          hasMore: !second,
         },
       });
     });
@@ -381,44 +417,36 @@ test.describe('Traces explorer modules', () => {
     await expect(histogram).toBeVisible();
   });
 
-  test('heads both views of the results the same way, the histogram across their full width', async ({
-    page,
-  }) => {
+  test('heads both views of the results the same way, the histogram across the results', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await serveTraces(page, 12);
     await serveTraceCounts(page, () => ({ total: 30, errors: 2 }));
+    await serveSpans(page, 8);
     const head = page.locator('[data-trace-results-head]');
     const band = head.locator('[data-explorer-module="histogram"]');
-    const box = async (path: string) => {
+    const box = async (path: string, pane: string) => {
       await page.goto(path);
       await expect(band).toHaveAttribute('data-histogram-counting', 'all');
-      return (await band.boundingBox())!;
+      const [found, results] = await Promise.all([band.boundingBox(), page.locator(`[data-workspace-pane="${pane}"]`).boundingBox()]);
+      return { band: found!, results: results! };
     };
 
-    // In the Spans view the band is of all the traces, so it spans the list and the open trace
-    // alike instead of sitting in the list's column.
-    const spans = await box('/traces');
-    const [list, detail] = await Promise.all([
-      page.locator('[data-workspace-pane="trace-results"]').boundingBox(),
-      page.locator('[data-workspace-pane="trace-detail"]').boundingBox(),
-    ]);
-    expect(Math.round(spans.x)).toBe(Math.round(list!.x));
-    expect(Math.round(spans.x + spans.width)).toBe(Math.round(detail!.x + detail!.width));
-    // The list and the open trace start together, one gutter under the head.
-    expect(list!.y).toBe(detail!.y);
-    expect(Math.round(list!.y - (spans.y + spans.height))).toBe(8);
+    // The band stands in the results it heads, in the Traces view and the Spans view alike.
+    const traces = await box('/traces', 'trace-results');
+    expect(traces.band.x).toBeGreaterThanOrEqual(traces.results.x);
+    expect(traces.band.x + traces.band.width).toBeLessThanOrEqual(traces.results.x + traces.results.width + 0.5);
 
-    // The Traces view draws the same band, in the same place and at the same size.
-    const table = await box('/traces?tab=traces');
-    expect([table.x, table.y, table.width, table.height].map(Math.round)).toEqual(
-      [spans.x, spans.y, spans.width, spans.height].map(Math.round),
+    const spans = await box('/traces?tab=spans', 'span-results');
+    expect([spans.band.x, spans.band.y, spans.band.width, spans.band.height].map(Math.round)).toEqual(
+      [traces.band.x, traces.band.y, traces.band.width, traces.band.height].map(Math.round),
     );
   });
 
-  test('counts a query once for both views of its results, and again on a refresh', async ({ page }) => {
+  test('counts each view its own way once, and again on a refresh', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await serveTraces(page, 12);
     const asked = await serveTraceCounts(page, () => ({ total: 30, errors: 2 }));
+    const red = await serveSpans(page, 8);
     await page.goto('/traces');
 
     const head = page.locator('[data-trace-results-head]');
@@ -426,9 +454,16 @@ test.describe('Traces explorer modules', () => {
     await expect(histogram).toHaveAttribute('data-histogram-counting', 'all');
     expect(asked).toHaveLength(1);
 
-    // The table is another view of the same traces: the same bars, not counted again.
+    // The Spans view counts spans, from the figures the RED view reads; the traces are not counted again.
+    await page.getByRole('tab', { name: /^Spans/ }).click();
+    await expect(page).toHaveURL(/[?&]tab=spans/);
+    await expect(histogram).toHaveAttribute('data-histogram-counting', 'all');
+    expect(red.length).toBeGreaterThan(0);
+    expect(asked).toHaveLength(1);
+
+    // Back on the traces, the count they had stands. It is the view /traces opens on, so its address names no tab.
     await page.getByRole('tab', { name: /^Traces/ }).click();
-    await expect(page).toHaveURL(/tab=traces/);
+    await expect(page).not.toHaveURL(/[?&]tab=/);
     await expect(histogram).toHaveAttribute('data-histogram-counting', 'all');
     expect(asked).toHaveLength(1);
 
@@ -465,8 +500,8 @@ test.describe('Traces explorer modules', () => {
     expect(JSON.parse(asked[0]!.get('filters')!)).toEqual([
       { field: 'service.name', op: '=', value: 'checkout-api' },
     ]);
-    expect(Number(asked[0]!.get('bucket_micros'))).toBe(bar);
-    expect(Number(asked[0]!.get('origin_micros'))).toBe(start);
+    expect(Number(asked[0]!.get('bucketTime'))).toBe(bar);
+    expect(Number(asked[0]!.get('originTime'))).toBe(start);
 
     // The frame is the day, in whole bars of a length a reader counts in, on the clock:
     // not the sixteen seconds the listed traces span.
@@ -581,17 +616,17 @@ test.describe('Traces explorer modules', () => {
     await page.route(/\/api\/v1\/web\/trace\/[^/?]+(\?.*)?$/, (route) =>
       route.fulfill({
         json: {
-          trace_id: 'trace-1',
-          root_span_id: 'root',
+          traceId: 'trace-1',
+          rootSpanId: 'root',
           truncated: false,
           spans: [
             {
-              span_id: 'root',
-              parent_span_id: null,
+              spanId: 'root',
+              parentSpanId: null,
               service: 'checkout-api',
               operation: 'POST /checkout',
-              start_ns: 0,
-              end_ns: 41_000_000,
+              startNs: 0,
+              endNs: 41_000_000,
               status: 'OK',
               resource: { attributes: {} },
               attributes: {},
@@ -603,87 +638,45 @@ test.describe('Traces explorer modules', () => {
     );
     await page.goto('/traces');
 
-    const results = page.locator('[data-workspace-pane="trace-results"]');
-    const rows = results.getByRole('button', { name: /^Inspect trace / });
+    const list = page.getByTestId('trace-table').locator('[data-trace-row]').first().locator('xpath=..');
+    const head = page.locator('[data-trace-table-head]');
+    const rows = page.locator('[data-trace-row]');
     await expect(rows).toHaveCount(6);
 
-    const [pane, ...boxes] = await Promise.all([
-      results.boundingBox(),
-      ...[0, 1, 2].map((index) => rows.nth(index).boundingBox()),
-    ]);
+    const [pane, band, ...boxes] = await Promise.all([list.boundingBox(), head.boundingBox(), ...[0, 1, 2].map((index) => rows.nth(index).boundingBox())]);
     const [first, second, third] = boxes.map((box) => box!);
-    // No inset and no gap: a row is the list's width, and the next begins where it ends.
+    // No inset and no gap: a row is the list's width, the first begins under the head, and the next where it ends.
     expect(first!.x).toBe(pane!.x);
     expect(first!.width).toBe(pane!.width);
-    expect(first!.y).toBe(pane!.y);
+    expect(first!.y).toBe(band!.y + band!.height);
     expect(second!.y).toBe(first!.y + first!.height);
     expect(third!.y).toBe(second!.y + second!.height);
-    // Two lines of text and the line under them, in less room than the three they once took.
-    expect(first!.height).toBeLessThan(54);
+    // One line of one height, the line under it included.
+    expect(first!.height).toBe(32);
     expect(second!.height).toBe(first!.height);
     for (const index of [0, 1, 5]) {
       await expect(rows.nth(index)).toHaveCSS('border-bottom-width', '1px');
     }
 
-    // The trace that is open keeps its fill, also under the pointer. A fill fades in, so it is
-    // read once two readings agree.
-    const settledFill = async (row: Locator) => {
-      let last = '';
-      await expect
-        .poll(async () => {
-          const fill = await row.evaluate((element) => getComputedStyle(element).backgroundColor);
-          const settled = fill === last;
-          last = fill;
-          return settled;
-        })
-        .toBe(true);
-      return last;
-    };
+    // A row opens its trace in the drawer and stands out from the others while it is open.
+    const fill = (row: Locator) => row.evaluate((element) => getComputedStyle(element).backgroundColor);
     await rows.nth(1).click();
     await expect(rows.nth(1)).toHaveAttribute('aria-pressed', 'true');
-    const selected = await settledFill(rows.nth(1));
-    expect(await settledFill(rows.nth(2))).not.toBe(selected);
-    await rows.nth(1).hover();
-    // Long enough for a hover fill to have faded in, had the row taken one.
-    await page.waitForTimeout(300);
-    expect(await settledFill(rows.nth(1))).toBe(selected);
+    await expect.poll(async () => (await fill(rows.nth(1))) !== (await fill(rows.nth(2)))).toBe(true);
+    const drawer = page.getByRole('dialog', { name: 'Trace detail' });
+    await expect(drawer).toBeVisible();
 
-    // Under the keyboard the open trace is still told from the others: its fill deepens.
-    const inkOf = (selector: string) =>
-      rows.nth(1).evaluate(
-        (row, target) => getComputedStyle(row.querySelector(target)!).color,
-        selector,
-      );
-    const quietBefore = await inkOf('time');
-    await page.keyboard.press('Shift+Tab');
-    await page.keyboard.press('Tab');
+    // Closed, the drawer gives the row the focus back, and the row is one of the list again.
+    await page.keyboard.press('Escape');
+    await expect(drawer).toHaveCount(0);
     await expect(rows.nth(1)).toBeFocused();
-    const focused = await settledFill(rows.nth(1));
-    expect(focused).not.toBe(selected);
-    expect(focused).not.toBe(await settledFill(rows.nth(2)));
-    // The deeper fill would leave the quiet text too faint: every word takes the main text colour.
-    const main = await rows.nth(1).evaluate((row) => {
-      const probe = document.createElement('span');
-      probe.style.color = 'var(--tx-0)';
-      row.append(probe);
-      const color = getComputedStyle(probe).color;
-      probe.remove();
-      return color;
-    });
-    // A colour is written `rgb(…)` or `color(srgb …)` by the browser as it pleases.
-    const channels = (color: string) => {
-      const numbers = (color.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
-
-      return color.startsWith('color(') ? numbers.map((value) => Math.round(value * 255)) : numbers;
-    };
-    expect(channels(quietBefore)).not.toEqual(channels(main));
-    expect(channels(await inkOf('time'))).toEqual(channels(main));
+    await expect(rows.nth(1)).toHaveAttribute('aria-pressed', 'false');
   });
 
   test('shows the same module in the trace table view', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await serveTraces(page, 12);
-    await page.goto('/traces?tab=traces');
+    await page.goto('/traces');
 
     const results = page.locator('[data-workspace-pane="trace-results"]');
     await expect(results.locator('[data-explorer-module="histogram"]')).toBeVisible();
@@ -755,7 +748,7 @@ test.describe('Explorer query row', () => {
     };
 
     const logs = await titleBox('/logs', 'Logs');
-    // The panes start right under the row of query tabs and the single bar.
+    // The panes start right under the single bar, which holds the query tabs.
     const workspace = (await page.locator('[data-log-workspace-layout]').boundingBox())!;
     expect(workspace.y).toBeLessThanOrEqual(166);
 
@@ -776,8 +769,10 @@ test.describe('Explorer query row', () => {
     const run = workbench.getByRole('button', { name: 'Query', exact: true });
     expect(Math.abs((await centreY(summary)) - (await centreY(run)))).toBeLessThanOrEqual(2);
     expect((await workbench.boundingBox())!.height).toBeLessThanOrEqual(56);
-    // The summary keeps a readable width; it does not shrink to a stub.
-    expect((await summary.boundingBox())!.width).toBeGreaterThanOrEqual(320);
+    // The folded query keeps a readable width beside its tabs; its summary does not shrink to a stub.
+    const folded = workbench.locator('[data-query-editor-state="collapsed"]');
+    expect((await folded.boundingBox())!.width).toBeGreaterThanOrEqual(320);
+    expect((await summary.locator('code').boundingBox())!.width).toBeGreaterThanOrEqual(96);
   });
 
   test('falls back to a row of its own when the toolbar has no room', async ({ page }) => {

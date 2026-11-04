@@ -6,7 +6,10 @@ use std::collections::{BTreeSet, HashMap};
 use super::{
     ApmQueryContext, ApmQueryService, DependencySummary, PagedResponse, TransactionDetailResponse,
     TransactionSummary,
-    aggregate::{red_from_buckets, trend_from_buckets},
+    aggregate::{
+        distribution_from_buckets, red_from_buckets, red_from_buckets_at, trend_from_buckets_at,
+    },
+    apdex::ApdexThresholds,
     common::{overflow_dimensions, signal_handle},
     errors::error_summaries,
     overview::version_summary,
@@ -22,12 +25,13 @@ impl ApmQueryService {
         &self,
         context: &ApmQueryContext,
     ) -> Result<PagedResponse<TransactionSummary>> {
-        let buckets = self
-            .repository
-            .query_buckets(&self.bucket_query(context, BucketKind::Transaction))
-            .await?;
+        let transaction_query = self.bucket_query(context, BucketKind::Transaction);
+        let (buckets, thresholds) = tokio::try_join!(
+            self.repository.query_buckets(&transaction_query),
+            self.apdex_thresholds(&context.org_id),
+        )?;
 
-        let items = transaction_summaries(context, &buckets, &self.config.histogram)?;
+        let items = transaction_summaries(context, &buckets, &self.config.histogram, &thresholds)?;
         let latency_partial = items.iter().any(|item| item.red.latency_partial);
         let overflows = overflow_dimensions(&buckets);
         let (items, previous_cursor, next_cursor) = paginate(items, context)?;
@@ -62,11 +66,12 @@ impl ApmQueryService {
         let group_query = self.error_group_query(context, None);
         let catalog_query = self.catalog_query(context);
 
-        let (transaction_buckets, error_buckets, groups, versions) = tokio::try_join!(
+        let (transaction_buckets, error_buckets, groups, versions, thresholds) = tokio::try_join!(
             self.repository.query_buckets(&transaction_query),
             self.repository.query_buckets(&error_query),
             self.repository.list_error_groups(&group_query),
             self.repository.list_versions(&catalog_query),
+            self.apdex_thresholds(&context.org_id),
         )?;
 
         let matching = transaction_buckets
@@ -114,7 +119,8 @@ impl ApmQueryService {
             .flatten()
             .flatten();
 
-        let red = red_from_buckets(&matching, &self.config.histogram)?;
+        let apdex_threshold_micros = thresholds.of(&service);
+        let red = red_from_buckets_at(&matching, &self.config.histogram, apdex_threshold_micros)?;
 
         let transaction_summary = TransactionSummary {
             traces: signal_handle(
@@ -128,8 +134,9 @@ impl ApmQueryService {
             service: service.clone(),
             version,
             transaction,
-            total_time_micros: red.duration_sum_micros,
+            total_time: red.duration_sum,
             red,
+            apdex_threshold: apdex_threshold_micros,
         };
 
         let matching_error_buckets = error_buckets
@@ -171,6 +178,8 @@ impl ApmQueryService {
 
         errors.truncate(10);
 
+        self.attach_issues(context, &mut errors).await?;
+
         let mut versions = versions
             .into_iter()
             .filter(|version| version.service == service)
@@ -193,7 +202,12 @@ impl ApmQueryService {
             meta: self
                 .response_meta(context, overflows, latency_partial)
                 .await?,
-            trend: trend_from_buckets(&matching, &self.config.histogram)?,
+            trend: trend_from_buckets_at(
+                &matching,
+                &self.config.histogram,
+                apdex_threshold_micros,
+            )?,
+            latency_distribution: distribution_from_buckets(&matching, &self.config.histogram)?,
             transaction: transaction_summary,
             errors,
             versions,
@@ -228,10 +242,12 @@ impl ApmQueryService {
     }
 }
 
+/// Each endpoint's figures, Apdex read with the threshold of its service.
 pub(super) fn transaction_summaries(
     context: &ApmQueryContext,
     buckets: &[MergedBucket],
     histogram: &crate::domain::apm::HistogramSchema,
+    thresholds: &ApdexThresholds,
 ) -> Result<Vec<TransactionSummary>> {
     let mut grouped = HashMap::new();
 
@@ -252,7 +268,8 @@ pub(super) fn transaction_summaries(
     grouped
         .into_iter()
         .map(|((service, version, transaction), buckets)| {
-            let red = red_from_buckets(&buckets, histogram)?;
+            let apdex_threshold_micros = thresholds.of(&service);
+            let red = red_from_buckets_at(&buckets, histogram, apdex_threshold_micros)?;
 
             Ok(TransactionSummary {
                 traces: signal_handle(
@@ -266,8 +283,9 @@ pub(super) fn transaction_summaries(
                 service,
                 version,
                 transaction,
-                total_time_micros: red.duration_sum_micros,
+                total_time: red.duration_sum,
                 red,
+                apdex_threshold: apdex_threshold_micros,
             })
         })
         .collect()
@@ -311,7 +329,7 @@ pub(super) fn dependency_summaries(
                 service,
                 version,
                 dependency,
-                total_time_micros: red.duration_sum_micros,
+                total_time: red.duration_sum,
                 red,
             })
         })

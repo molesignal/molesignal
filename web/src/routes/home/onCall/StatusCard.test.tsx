@@ -39,16 +39,16 @@ const users = new Map<string, UserLite>([
 const feature: FeaturedOnCall = {
   schedule: {
     id: 'schedule-1',
-    org_id: 'org-1',
+    orgId: 'org-1',
     name: 'Primary rota',
     description: '',
-    team_id: null,
+    teamId: null,
     timezone: 'UTC',
     enabled: true,
     rotations: [],
     overrides: [],
-    created_at: NOW,
-    updated_at: NOW,
+    createdAt: NOW,
+    updatedAt: NOW,
   },
   status: 'active',
   current: {

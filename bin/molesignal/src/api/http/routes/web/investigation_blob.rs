@@ -35,6 +35,7 @@ pub fn routes() -> Router<AppState> {
 pub struct CreateRequest(pub Value);
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateResponse {
     pub blob_id: String,
 }

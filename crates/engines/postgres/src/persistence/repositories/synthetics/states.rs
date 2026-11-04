@@ -7,15 +7,19 @@ use sqlx::Row;
 use super::PgSyntheticRepository;
 use crate::{
     domain::synthetics::{
-        LocationStateUpdate, MonitorLocationState, MonitorState, StateObservation,
+        LocationStateUpdate, MissedRun, MonitorLocationState, MonitorState, StateObservation,
         SyntheticStateRepository, SyntheticStateTransition,
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
+const LOCATION_STATE_COLS: &str = "organization_id, monitor_id, monitor_revision_id, location_id,
+    current_state, candidate_state, candidate_count, consecutive_missing, last_result_id,
+    last_observed_at, updated_at";
+
 const TRANSITION_COLS: &str = "id, organization_id, monitor_id, monitor_revision_id,
     location_id, previous_state, current_state, correlation_key, result_id,
-    started_at_micros, ended_at_micros, created_at_micros";
+    started_at, ended_at, created_at";
 
 fn parse_state(value: &str) -> Result<MonitorState> {
     MonitorState::parse(value)
@@ -73,15 +77,19 @@ fn row_to_location_state(row: sqlx::postgres::PgRow) -> Result<MonitorLocationSt
         candidate_count: row
             .try_get::<i32, _>("candidate_count")
             .map_err(super::sqlx_err)? as u32,
+        consecutive_missing: row
+            .try_get::<i32, _>("consecutive_missing")
+            .map_err(super::sqlx_err)? as u32,
         last_result_id: row
             .try_get::<Option<String>, _>("last_result_id")
             .map_err(super::sqlx_err)?
             .map(Id),
         last_observed_at: row
-            .try_get::<Option<i64>, _>("last_observed_at_micros")
-            .map_err(super::sqlx_err)?
-            .map(TimestampMicros),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(super::sqlx_err)?),
+            .try_get::<Option<TimestampMicros>, _>("last_observed_at")
+            .map_err(super::sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(super::sqlx_err)?,
     })
 }
 
@@ -107,12 +115,15 @@ fn row_to_transition(row: sqlx::postgres::PgRow) -> Result<SyntheticStateTransit
             .try_get::<Option<String>, _>("result_id")
             .map_err(super::sqlx_err)?
             .map(Id),
-        started_at: TimestampMicros(row.try_get("started_at_micros").map_err(super::sqlx_err)?),
+        started_at: row
+            .try_get::<TimestampMicros, _>("started_at")
+            .map_err(super::sqlx_err)?,
         ended_at: row
-            .try_get::<Option<i64>, _>("ended_at_micros")
-            .map_err(super::sqlx_err)?
-            .map(TimestampMicros),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
+            .try_get::<Option<TimestampMicros>, _>("ended_at")
+            .map_err(super::sqlx_err)?,
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(super::sqlx_err)?,
     })
 }
 
@@ -122,14 +133,14 @@ async fn insert_transition(
 ) -> Result<SyntheticStateTransition> {
     sqlx::query(
         "UPDATE synthetic_state_transitions
-         SET ended_at_micros = $4
+         SET ended_at = $4
          WHERE organization_id = $1 AND monitor_id = $2
-           AND location_id IS NOT DISTINCT FROM $3 AND ended_at_micros IS NULL",
+           AND location_id IS NOT DISTINCT FROM $3 AND ended_at IS NULL",
     )
     .bind(&transition.organization_id.0)
     .bind(&transition.monitor_id.0)
     .bind(transition.location_id.as_ref().map(Id::as_str))
-    .bind(transition.started_at.0)
+    .bind(transition.started_at)
     .execute(&mut *connection)
     .await
     .map_err(super::sqlx_err)?;
@@ -138,7 +149,7 @@ async fn insert_transition(
         "INSERT INTO synthetic_state_transitions
             (id, organization_id, monitor_id, monitor_revision_id, location_id,
              previous_state, current_state, correlation_key, result_id,
-             started_at_micros, ended_at_micros, created_at_micros)
+             started_at, ended_at, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULL, $11)
          RETURNING {TRANSITION_COLS}"
     );
@@ -153,8 +164,8 @@ async fn insert_transition(
         .bind(transition.current_state.as_str())
         .bind(&transition.correlation_key)
         .bind(transition.result_id.as_ref().map(Id::as_str))
-        .bind(transition.started_at.0)
-        .bind(transition.created_at.0)
+        .bind(transition.started_at)
+        .bind(transition.created_at)
         .fetch_one(&mut *connection)
         .await
         .map_err(super::sqlx_err)?;
@@ -170,24 +181,24 @@ impl SyntheticStateRepository for PgSyntheticRepository {
     ) -> Result<LocationStateUpdate> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
 
-        let existing = sqlx::query(
-            "SELECT organization_id, monitor_id, monitor_revision_id, location_id,
-                    current_state, candidate_state, candidate_count, last_result_id,
-                    last_observed_at_micros, updated_at_micros
+        let sql = format!(
+            "SELECT {LOCATION_STATE_COLS}
              FROM synthetic_monitor_location_states
              WHERE organization_id = $1 AND monitor_id = $2
                AND monitor_revision_id = $3 AND location_id = $4
-             FOR UPDATE",
-        )
-        .bind(&observation.organization_id.0)
-        .bind(&observation.monitor_id.0)
-        .bind(&observation.monitor_revision_id.0)
-        .bind(&observation.location_id.0)
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(super::sqlx_err)?
-        .map(row_to_location_state)
-        .transpose()?;
+             FOR UPDATE"
+        );
+
+        let existing = sqlx::query(&sql)
+            .bind(&observation.organization_id.0)
+            .bind(&observation.monitor_id.0)
+            .bind(&observation.monitor_revision_id.0)
+            .bind(&observation.location_id.0)
+            .fetch_optional(&mut *transaction)
+            .await
+            .map_err(super::sqlx_err)?
+            .map(row_to_location_state)
+            .transpose()?;
 
         let previous = existing
             .as_ref()
@@ -201,38 +212,42 @@ impl SyntheticStateRepository for PgSyntheticRepository {
             .map(|state| state.candidate_count)
             .unwrap_or(0);
 
+        let previous_missing = existing.as_ref().map(|state| state.consecutive_missing);
+
         let (current, candidate, count) =
             next_location_state(previous, old_candidate, old_count, &observation);
 
-        let row = sqlx::query(
+        // A run the location made ends a stretch of missed ones.
+        let sql = format!(
             "INSERT INTO synthetic_monitor_location_states
                 (organization_id, monitor_id, monitor_revision_id, location_id,
-                 current_state, candidate_state, candidate_count, last_result_id,
-                 last_observed_at_micros, updated_at_micros)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
+                 current_state, candidate_state, candidate_count, consecutive_missing,
+                 last_result_id, last_observed_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $9)
              ON CONFLICT (organization_id, monitor_id, monitor_revision_id, location_id)
              DO UPDATE SET current_state = EXCLUDED.current_state,
                  candidate_state = EXCLUDED.candidate_state,
                  candidate_count = EXCLUDED.candidate_count,
+                 consecutive_missing = 0,
                  last_result_id = EXCLUDED.last_result_id,
-                 last_observed_at_micros = EXCLUDED.last_observed_at_micros,
-                 updated_at_micros = EXCLUDED.updated_at_micros
-             RETURNING organization_id, monitor_id, monitor_revision_id, location_id,
-                 current_state, candidate_state, candidate_count, last_result_id,
-                 last_observed_at_micros, updated_at_micros",
-        )
-        .bind(&observation.organization_id.0)
-        .bind(&observation.monitor_id.0)
-        .bind(&observation.monitor_revision_id.0)
-        .bind(&observation.location_id.0)
-        .bind(current.as_str())
-        .bind(candidate.map(MonitorState::as_str))
-        .bind(count as i32)
-        .bind(&observation.result_id.0)
-        .bind(observation.observed_at.0)
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(super::sqlx_err)?;
+                 last_observed_at = EXCLUDED.last_observed_at,
+                 updated_at = EXCLUDED.updated_at
+             RETURNING {LOCATION_STATE_COLS}"
+        );
+
+        let row = sqlx::query(&sql)
+            .bind(&observation.organization_id.0)
+            .bind(&observation.monitor_id.0)
+            .bind(&observation.monitor_revision_id.0)
+            .bind(&observation.location_id.0)
+            .bind(current.as_str())
+            .bind(candidate.map(MonitorState::as_str))
+            .bind(count as i32)
+            .bind(&observation.result_id.0)
+            .bind(observation.observed_at)
+            .fetch_one(&mut *transaction)
+            .await
+            .map_err(super::sqlx_err)?;
 
         let state = row_to_location_state(row)?;
 
@@ -265,7 +280,39 @@ impl SyntheticStateRepository for PgSyntheticRepository {
         };
 
         transaction.commit().await.map_err(super::sqlx_err)?;
-        Ok(LocationStateUpdate { state, transition })
+
+        Ok(LocationStateUpdate {
+            state,
+            transition,
+            previous_missing,
+        })
+    }
+
+    async fn record_missed_run(&self, missed: MissedRun) -> Result<MonitorLocationState> {
+        // The state stays what the location's last run made it; only the count moves.
+        let sql = format!(
+            "INSERT INTO synthetic_monitor_location_states
+                (organization_id, monitor_id, monitor_revision_id, location_id,
+                 consecutive_missing, updated_at)
+             VALUES ($1, $2, $3, $4, 1, $5)
+             ON CONFLICT (organization_id, monitor_id, monitor_revision_id, location_id)
+             DO UPDATE SET
+                 consecutive_missing = synthetic_monitor_location_states.consecutive_missing + 1,
+                 updated_at = EXCLUDED.updated_at
+             RETURNING {LOCATION_STATE_COLS}"
+        );
+
+        let row = sqlx::query(&sql)
+            .bind(&missed.organization_id.0)
+            .bind(&missed.monitor_id.0)
+            .bind(&missed.monitor_revision_id.0)
+            .bind(&missed.location_id.0)
+            .bind(missed.missed_at)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(super::sqlx_err)?;
+
+        row_to_location_state(row)
     }
 
     async fn list_location_states(
@@ -274,23 +321,23 @@ impl SyntheticStateRepository for PgSyntheticRepository {
         monitor_id: &Id,
         revision_id: &Id,
     ) -> Result<Vec<MonitorLocationState>> {
-        sqlx::query(
-            "SELECT organization_id, monitor_id, monitor_revision_id, location_id,
-                    current_state, candidate_state, candidate_count, last_result_id,
-                    last_observed_at_micros, updated_at_micros
+        let sql = format!(
+            "SELECT {LOCATION_STATE_COLS}
              FROM synthetic_monitor_location_states
              WHERE organization_id = $1 AND monitor_id = $2 AND monitor_revision_id = $3
-             ORDER BY location_id",
-        )
-        .bind(&org_id.0)
-        .bind(&monitor_id.0)
-        .bind(&revision_id.0)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(super::sqlx_err)?
-        .into_iter()
-        .map(row_to_location_state)
-        .collect()
+             ORDER BY location_id"
+        );
+
+        sqlx::query(&sql)
+            .bind(&org_id.0)
+            .bind(&monitor_id.0)
+            .bind(&revision_id.0)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(super::sqlx_err)?
+            .into_iter()
+            .map(row_to_location_state)
+            .collect()
     }
 
     async fn record_state_transition(
@@ -317,14 +364,14 @@ impl SyntheticStateRepository for PgSyntheticRepository {
         let sql = format!(
             "SELECT {TRANSITION_COLS} FROM synthetic_state_transitions
              WHERE organization_id = $1 AND monitor_id = $2
-               AND ($3::BIGINT IS NULL OR started_at_micros < $3)
-             ORDER BY started_at_micros DESC, id DESC LIMIT $4"
+               AND ($3::TIMESTAMPTZ IS NULL OR started_at < $3)
+             ORDER BY started_at DESC, id DESC LIMIT $4"
         );
 
         sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&monitor_id.0)
-            .bind(before.map(|value| value.0))
+            .bind(before)
             .bind(i64::from(limit.clamp(1, 500)))
             .fetch_all(&self.pool)
             .await

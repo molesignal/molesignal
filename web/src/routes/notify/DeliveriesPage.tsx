@@ -3,7 +3,7 @@ import { Check, RotateCcw } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { DataTable } from '@/admin';
+import { DataTable, type DataTableColumn, TableExportButton } from '@/admin';
 import * as notifyApi from '@/api/notify';
 import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
@@ -11,8 +11,11 @@ import { productStateFor } from '@/product/states';
 import { ChromeButton, Pill } from '@/shell/chrome';
 import { FormDrawer, FormField, FormInput, FormSelect } from '@/shell/FormDrawer';
 import { queryStateFor } from '@/shell/query/State';
+import { StatusWord } from '@/shell/StatusWord';
+import { ViewTabs } from '@/shell/tabs/ViewTabs';
 import { toast } from '@/shell/ui/sonner';
 
+import { ByEventTable } from './deliveries/ByEventTable';
 import {
   connectorName,
   deliveryStages,
@@ -28,23 +31,25 @@ const STATUSES: notifyApi.NotifyDeliveryStatus[] = [
   'failed',
   'skipped',
   'acknowledged',
+  'queued',
 ];
 
 export function NotifyDeliveriesPage() {
   const { t, i18n } = useTranslation('notify');
   const qc = useQueryClient();
-  const acknowledge = useActionAccess({ permission: 'alerts.acknowledge' });
-  const manage = useActionAccess({ permission: 'alerts.manage' });
+  const acknowledge = useActionAccess({ permission: 'notify.deliveries.acknowledge' });
+  const manage = useActionAccess({ permission: 'notify.deliveries.retry' });
   const [eventId, setEventId] = React.useState('');
   const [status, setStatus] = React.useState('');
   const [stage, setStage] = React.useState('');
+  const [view, setView] = React.useState<'events' | 'attempts'>('events');
   const [selected, setSelected] =
     React.useState<notifyApi.NotifyDelivery | null>(null);
   const deliveries = useQuery({
     queryKey: ['notify', 'deliveries', eventId, status, stage],
     queryFn: () =>
       notifyApi.listDeliveries({
-        event_id: eventId.trim() || undefined,
+        eventId: eventId.trim() || undefined,
         status: status || undefined,
         stage: stage || undefined,
         limit: 200,
@@ -59,10 +64,10 @@ export function NotifyDeliveriesPage() {
     queryFn: notifyApi.listPolicies,
   });
   const chain = useQuery({
-    queryKey: ['notify', 'deliveries', 'event', selected?.event_id],
+    queryKey: ['notify', 'deliveries', 'event', selected?.eventId],
     queryFn: () =>
       notifyApi.listDeliveries({
-        event_id: selected?.event_id ?? '',
+        eventId: selected?.eventId ?? '',
         limit: 500,
       }),
     enabled: selected !== null,
@@ -96,12 +101,113 @@ export function NotifyDeliveriesPage() {
     },
     onError: (error) => toast.error(toApiError(error).message),
   });
+  const columns: DataTableColumn<notifyApi.NotifyDelivery>[] = [
+    {
+      key: 'event',
+      header: t('deliveries.columns.event'),
+      width: '24%',
+      value: (row) => row.eventId,
+      cell: (row) => (
+        <div>
+          <div className="truncate font-mono text-xs text-tx-1">{row.eventId}</div>
+          <div className="text-xs text-tx-3">#{row.attempt}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'recipient',
+      header: t('deliveries.columns.recipient'),
+      width: '14%',
+      value: (row) => row.recipientUserId ?? '',
+      cell: (row) => (
+        <span className="font-mono text-xs text-tx-2">
+          {row.recipientUserId ?? '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'source',
+      header: t('deliveries.columns.source'),
+      width: '14%',
+      cell: (row) => (
+        <span className="text-xs text-tx-2">
+          {row.stage === 'test' || row.stage === 'direct'
+            ? t(`stages.${row.stage}`)
+            : (() => {
+                const resolver = (
+                  policies.data ?? []
+                ).find(
+                  (policy) => policy.id === row.policyId,
+                )?.recipientResolver;
+                return resolver
+                  ? t(`resolver_types.${resolver}`, {
+                      defaultValue: resolver,
+                    })
+                  : '—';
+              })()}
+        </span>
+      ),
+    },
+    {
+      key: 'connector',
+      header: t('deliveries.columns.connector'),
+      width: '13%',
+      value: (row) => connectorName(connectors.data ?? [], row.connectorId),
+      cell: (row) => (
+        <span className="text-xs text-tx-2">
+          {connectorName(connectors.data ?? [], row.connectorId)}
+        </span>
+      ),
+    },
+    {
+      key: 'stage',
+      header: t('deliveries.columns.stage'),
+      width: 150,
+      value: (row) => t(`stages.${row.stage}`),
+      cell: (row) => <span className="text-xs text-tx-2">{t(`stages.${row.stage}`)}</span>,
+    },
+    {
+      key: 'status',
+      header: t('deliveries.columns.status'),
+      width: 110,
+      value: (row) => t(`statuses.${row.status}`),
+      cell: (row) => (
+        <StatusWord tone={statusTone(row.status)} strong={row.status === 'failed'}>
+          {t(`statuses.${row.status}`)}
+        </StatusWord>
+      ),
+    },
+    {
+      key: 'latency',
+      header: t('deliveries.columns.latency'),
+      width: 90,
+      value: (row) => row.latencyMs ?? null,
+      cell: (row) => (
+        <span className="font-mono text-xs text-tx-2">
+          {row.latencyMs === null || row.latencyMs === undefined
+            ? '—'
+            : `${row.latencyMs} ms`}
+        </span>
+      ),
+    },
+    {
+      key: 'sent',
+      header: t('deliveries.columns.sent'),
+      width: 170,
+      value: (row) => formatMicros(row.sentAt ?? row.createdAt, i18n.language),
+      cell: (row) => (
+        <span className="text-xs text-tx-2">
+          {formatMicros(row.sentAt ?? row.createdAt, i18n.language)}
+        </span>
+      ),
+    },
+  ];
   const eventChain = (chain.data ?? [])
     .slice()
     .sort((left, right) =>
-      left.created_at === right.created_at
+      left.createdAt === right.createdAt
         ? left.attempt - right.attempt
-        : left.created_at - right.created_at,
+        : left.createdAt - right.createdAt,
     );
 
   return (
@@ -109,6 +215,20 @@ export function NotifyDeliveriesPage() {
       <NotifySettingsPage
         title={t('deliveries.title')}
         subtitle={t('deliveries.subtitle')}
+        toolbar={
+          <div className="flex items-center gap-3">
+            <ViewTabs<'events' | 'attempts'>
+              label={t('deliveries.views_label')}
+              value={view}
+              onValueChange={setView}
+              items={[
+                { key: 'events', label: t('deliveries.views.events') },
+                { key: 'attempts', label: t('deliveries.views.attempts') },
+              ]}
+            />
+            <TableExportButton name="molesignal-deliveries" columns={columns} rows={rows} />
+          </div>
+        }
         filters={
           <div className="grid w-full gap-3 md:grid-cols-3">
             <FormField label={t('deliveries.filters.event')}>
@@ -148,103 +268,11 @@ export function NotifyDeliveriesPage() {
         state={state}
       >
         <div className="overflow-x-auto">
-          <DataTable
-            rows={rows}
-            rowKey={(row) => row.id}
-            onRowClick={setSelected}
-            columns={[
-              {
-                key: 'event',
-                header: t('deliveries.columns.event'),
-                width: '24%',
-                cell: (row) => (
-                  <div>
-                    <div className="truncate font-mono text-xs text-tx-1">{row.event_id}</div>
-                    <div className="text-xs text-tx-3">#{row.attempt}</div>
-                  </div>
-                ),
-              },
-              {
-                key: 'recipient',
-                header: t('deliveries.columns.recipient'),
-                width: '14%',
-                cell: (row) => (
-                  <span className="font-mono text-xs text-tx-2">
-                    {row.recipient_user_id ?? '—'}
-                  </span>
-                ),
-              },
-              {
-                key: 'source',
-                header: t('deliveries.columns.source'),
-                width: '14%',
-                cell: (row) => (
-                  <span className="text-xs text-tx-2">
-                    {row.stage === 'test' || row.stage === 'direct'
-                      ? t(`stages.${row.stage}`)
-                      : (() => {
-                          const resolver = (
-                            policies.data ?? []
-                          ).find(
-                            (policy) => policy.id === row.policy_id,
-                          )?.recipient_resolver;
-                          return resolver
-                            ? t(`resolver_types.${resolver}`, {
-                                defaultValue: resolver,
-                              })
-                            : '—';
-                        })()}
-                  </span>
-                ),
-              },
-              {
-                key: 'connector',
-                header: t('deliveries.columns.connector'),
-                width: '13%',
-                cell: (row) => (
-                  <span className="text-xs text-tx-2">
-                    {connectorName(connectors.data ?? [], row.connector_id)}
-                  </span>
-                ),
-              },
-              {
-                key: 'stage',
-                header: t('deliveries.columns.stage'),
-                width: 150,
-                cell: (row) => <Pill tone="dim">{t(`stages.${row.stage}`)}</Pill>,
-              },
-              {
-                key: 'status',
-                header: t('deliveries.columns.status'),
-                width: 110,
-                cell: (row) => (
-                  <Pill tone={statusTone(row.status)}>{t(`statuses.${row.status}`)}</Pill>
-                ),
-              },
-              {
-                key: 'latency',
-                header: t('deliveries.columns.latency'),
-                width: 90,
-                cell: (row) => (
-                  <span className="font-mono text-xs text-tx-2">
-                    {row.latency_ms === null || row.latency_ms === undefined
-                      ? '—'
-                      : `${row.latency_ms} ms`}
-                  </span>
-                ),
-              },
-              {
-                key: 'sent',
-                header: t('deliveries.columns.sent'),
-                width: 170,
-                cell: (row) => (
-                  <span className="text-xs text-tx-2">
-                    {formatMicros(row.sent_at ?? row.created_at, i18n.language)}
-                  </span>
-                ),
-              },
-            ]}
-          />
+          {view === 'events' ? (
+            <ByEventTable rows={rows} connectors={connectors.data ?? []} onOpen={setSelected} />
+          ) : (
+            <DataTable rows={rows} rowKey={(row) => row.id} onRowClick={setSelected} columns={columns} />
+          )}
         </div>
       </NotifySettingsPage>
       <FormDrawer
@@ -268,7 +296,7 @@ export function NotifyDeliveriesPage() {
                   acknowledge.disabled ||
                   ack.isPending ||
                   selected.status === 'acknowledged' ||
-                  !selected.policy_id
+                  !selected.policyId
                 }
                 disabledReason={acknowledge.reason}
                 onClick={() => ack.mutate(selected.id)}
@@ -282,7 +310,7 @@ export function NotifyDeliveriesPage() {
                   manage.disabled ||
                   retry.isPending ||
                   selected.status !== 'failed' ||
-                  !selected.policy_id
+                  !selected.policyId
                 }
                 disabledReason={manage.reason}
                 onClick={() => retry.mutate(selected.id)}
@@ -323,19 +351,23 @@ export function NotifyDeliveriesPage() {
                   </span>
                 </div>
                 <div className="mt-2 text-sm font-semibold text-tx-0">
-                  {connectorName(connectors.data ?? [], delivery.connector_id)}
+                  {connectorName(connectors.data ?? [], delivery.connectorId)}
                 </div>
                 <dl className="mt-2 grid gap-1 text-xs">
                   <div className="flex gap-2">
                     <dt className="w-24 shrink-0 text-tx-3">{t('deliveries.target')}</dt>
                     <dd className="min-w-0 truncate font-mono text-tx-1">
-                      {delivery.target_value_masked ?? '—'}
+                      {delivery.targetValueMasked ?? '—'}
                     </dd>
                   </div>
-                  {delivery.error_message && (
+                  {delivery.errorMessage && (
                     <div className="flex gap-2">
-                      <dt className="w-24 shrink-0 text-tx-3">{t('deliveries.error')}</dt>
-                      <dd className="text-red-soft">{delivery.error_message}</dd>
+                      <dt className="w-24 shrink-0 text-tx-3">
+                        {t(delivery.status === 'skipped' ? 'deliveries.skip_reason' : 'deliveries.error')}
+                      </dt>
+                      <dd className={delivery.status === 'skipped' ? 'text-tx-1' : 'text-red-soft'}>
+                        {delivery.errorMessage}
+                      </dd>
                     </div>
                   )}
                 </dl>

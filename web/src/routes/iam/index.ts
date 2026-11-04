@@ -6,6 +6,7 @@ export { ServiceAccounts } from './ServiceAccounts';
 export { Organizations } from './Organizations';
 export { Groups } from './Groups';
 export { Roles } from './Roles';
+export { Policies } from './Policies';
 export { Teams } from './Teams';
 export { Invitations } from './Invitations';
 export { EmailDomains } from './EmailDomains';

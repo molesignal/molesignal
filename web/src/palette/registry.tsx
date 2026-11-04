@@ -17,6 +17,7 @@ import {
 
 import { PRODUCT_NAV_ITEMS } from '@/product/ia';
 import type { TimeWindow } from '@/stores/useTimeStore';
+import type { Severity } from '@/types/alerting';
 
 export type ItemKind = 'action' | 'stream' | 'service' | 'dashboard' | 'saved_view' | 'alert' | 'incident';
 
@@ -30,6 +31,10 @@ export interface ResultItem {
   priority?: number | undefined;
   /** Static action: handler called with the open mode. Remote items: handled by their `kind` handler. */
   run?: (ctx: { mode: OpenMode; navigate: (to: string) => void }) => void;
+  /** Named in its colour before the subtitle. */
+  severity?: Severity | undefined;
+  /** The incident this row can acknowledge where it stands. */
+  acknowledgeId?: string | undefined;
 }
 
 export type OpenMode = 'replace' | 'new_stack' | 'append_layer';

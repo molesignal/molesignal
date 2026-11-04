@@ -10,20 +10,20 @@ export interface LabelMatcher {
 
 export interface SemanticGroup {
   id: string;
-  org_id: string;
+  orgId: string;
   name: string;
   enabled: boolean;
   matchers: LabelMatcher[];
-  group_by: string[];
-  created_at: number;
-  updated_at: number;
+  groupBy: string[];
+  createdAt: number;
+  updatedAt: number;
 }
 
 export type SemanticGroupInput = {
   name: string;
   enabled: boolean;
   matchers: LabelMatcher[];
-  group_by: string[];
+  groupBy: string[];
 };
 
 export async function list(): Promise<SemanticGroup[]> {

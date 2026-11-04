@@ -7,10 +7,11 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::{ToolContent, ToolResult, catalog::BuiltinToolKind};
 
-use super::{ToolRuntime, common::*, profiles, traces};
+use super::{ToolRuntime, common::*, profiles, rum::equal_to, traces};
 use crate::{
     app::iam::IamContext,
-    domain::stream::StreamType,
+    domain::{rum::event::RumStream, stream::StreamType},
+    infra::rum::query::{ListRequest, Scope, default_columns, list_sql, rows},
     shared::{Error, Result, ids::Id},
 };
 
@@ -28,7 +29,7 @@ pub(super) async fn execute(
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct TopologyArgs {
     time_range: TimeRangeArg,
     #[serde(default)]
@@ -83,14 +84,14 @@ async fn topology(
     let mut edges = aggregate
         .into_iter()
         .map(|((client, server), edge)| json!({
-            "client_service": client, "server_service": server,
-            "request_count": edge.request_count, "error_count": edge.error_count,
-            "error_rate": if edge.request_count == 0 { 0.0 } else { edge.error_count as f64 / edge.request_count as f64 },
-            "p95_us": edge.p95_us,
+            "clientService": client, "serverService": server,
+            "requestCount": edge.request_count, "errorCount": edge.error_count,
+            "errorRate": if edge.request_count == 0 { 0.0 } else { edge.error_count as f64 / edge.request_count as f64 },
+            "p95Us": edge.p95_us,
         }))
         .collect::<Vec<_>>();
 
-    edges.sort_by_key(|edge| std::cmp::Reverse(edge["request_count"].as_u64().unwrap_or(0)));
+    edges.sort_by_key(|edge| std::cmp::Reverse(edge["requestCount"].as_u64().unwrap_or(0)));
     let truncated = edges.len() > limit;
     edges.truncate(limit);
 
@@ -100,7 +101,7 @@ async fn topology(
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct CorrelateArgs {
     time_range: TimeRangeArg,
     #[serde(default)]
@@ -166,8 +167,8 @@ async fn correlate(
         auth,
         BuiltinToolKind::ListTraces,
         json!({
-            "time_range": args.time_range, "service": service,
-            "trace_id": trace_id, "limit": limit,
+            "timeRange": args.time_range, "service": service,
+            "traceId": trace_id, "limit": limit,
         }),
     );
 
@@ -176,8 +177,8 @@ async fn correlate(
         auth,
         BuiltinToolKind::ListContinuousProfiles,
         json!({
-            "time_range": args.time_range, "service": service,
-            "trace_id": trace_id, "limit": limit,
+            "timeRange": args.time_range, "service": service,
+            "traceId": trace_id, "limit": limit,
         }),
     );
 
@@ -193,22 +194,23 @@ async fn correlate(
     let topology = topology(
         runtime,
         auth,
-        json!({"time_range": args.time_range, "service": service, "limit": limit}),
+        json!({"timeRange": args.time_range, "service": service, "limit": limit}),
     );
 
     let (traces, profiles, rum, topology) = tokio::join!(traces, profiles, rum, topology);
 
     Ok(ToolResult::json(json!({
-        "resolved_context": {"service": service, "trace_id": trace_id},
+        "resolvedContext": {"service": service, "traceId": trace_id},
         "incident": incident,
         "traces": json_content(traces?),
         "profiles": json_content(profiles?),
         "rum": rum?,
         "topology": json_content(topology?),
-        "slow_queries": runtime.observability.slow_queries.list_recent(&auth.org_id, limit as i64).await?,
+        "slowQueries": runtime.observability.slow_queries.list_recent(&auth.org_id, limit as i64).await?,
     })))
 }
 
+/// The requests real users made, narrowed to the service and the trace the incident is about.
 async fn correlated_rum(
     runtime: &ToolRuntime,
     auth: &IamContext,
@@ -217,29 +219,50 @@ async fn correlated_rum(
     trace_id: Option<&str>,
     limit: usize,
 ) -> Result<Value> {
-    let mut filters = Vec::new();
-    push_string_filter(&mut filters, "service", service);
-    push_string_filter(&mut filters, "trace_id", trace_id);
+    let stream = RumStream::Resources;
 
-    let statement = format!(
-        "SELECT * FROM rum_actions{} ORDER BY ts_micros DESC LIMIT {limit}",
-        where_clause(&filters),
-    );
+    let conditions = [
+        equal_to("service", service),
+        equal_to("resource.trace_id", trace_id),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>();
+
+    let statement = list_sql(&ListRequest {
+        scope: Scope {
+            stream,
+            from: range.start.0,
+            to: range.end.0,
+            conditions: &conditions,
+        },
+        columns: default_columns(stream),
+        limit,
+        seek: None,
+        oldest_first: false,
+    });
 
     let result = run_optional_stream_query(
         runtime,
         &auth.org_id,
         statement,
         range,
-        "rum_actions",
+        stream.name(),
         StreamType::LOGS,
         limit,
     )
     .await?;
 
+    let events = result.map(|result| {
+        rows(stream, result)
+            .into_iter()
+            .map(|row| Value::Object(row.into_item()))
+            .collect::<Vec<_>>()
+    });
+
     Ok(json!({
-        "events": result.as_ref().map(rows_as_objects).unwrap_or_default(),
-        "stream_available": result.is_some(),
+        "events": events.clone().unwrap_or_default(),
+        "streamAvailable": events.is_some(),
     }))
 }
 

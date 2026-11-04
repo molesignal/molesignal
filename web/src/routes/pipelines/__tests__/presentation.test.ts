@@ -14,9 +14,9 @@ import {
 describe('pipeline presentation', () => {
   it('derives health without inventing a successful run', () => {
     expect(pipelineHealth({ id: '1', name: 'a', enabled: false })).toBe('paused');
-    expect(pipelineHealth({ id: '2', name: 'b', last_run_state: 'failed' })).toBe('error');
-    expect(pipelineHealth({ id: '3', name: 'c', last_run_state: 'succeeded' })).toBe('healthy');
-    expect(pipelineHealth({ id: '4', name: 'd', last_run_at_micros: 123 })).toBe('unknown');
+    expect(pipelineHealth({ id: '2', name: 'b', lastRunState: 'failed' })).toBe('error');
+    expect(pipelineHealth({ id: '3', name: 'c', lastRunState: 'succeeded' })).toBe('healthy');
+    expect(pipelineHealth({ id: '4', name: 'd', lastRunAt: 123 })).toBe('unknown');
     expect(pipelineHealth({ id: '5', name: 'e' })).toBe('never');
   });
 
@@ -25,12 +25,12 @@ describe('pipeline presentation', () => {
       pipelineSuccessRate({
         id: '1',
         name: 'a',
-        runs_24h: 10,
-        succeeded_runs_24h: 8,
-        failed_runs_24h: 2,
+        runs24h: 10,
+        succeededRuns24h: 8,
+        failedRuns24h: 2,
       }),
     ).toBe(80);
-    expect(pipelineSuccessRate({ id: '2', name: 'b', runs_24h: 0 })).toBeNull();
+    expect(pipelineSuccessRate({ id: '2', name: 'b', runs24h: 0 })).toBeNull();
   });
 
   it('humanizes schedules, lookback windows, relative time, and duration', () => {
@@ -52,29 +52,29 @@ describe('pipeline presentation', () => {
       [
         {
           id: 'new-success',
-          pipeline_id: 'pipeline',
+          pipelineId: 'pipeline',
           state: 'succeeded',
-          started_at_micros: nowMicros - 60_000_000,
-          finished_at_micros: nowMicros - 58_000_000,
-          scanned_rows: 80,
+          startedAt: nowMicros - 60_000_000,
+          finishedAt: nowMicros - 58_000_000,
+          scannedRows: 80,
           error: null,
         },
         {
           id: 'new-failure',
-          pipeline_id: 'pipeline',
+          pipelineId: 'pipeline',
           state: 'failed',
-          started_at_micros: nowMicros - 120_000_000,
-          finished_at_micros: nowMicros - 119_000_000,
-          scanned_rows: 20,
+          startedAt: nowMicros - 120_000_000,
+          finishedAt: nowMicros - 119_000_000,
+          scannedRows: 20,
           error: 'failed',
         },
         {
           id: 'old-success',
-          pipeline_id: 'pipeline',
+          pipelineId: 'pipeline',
           state: 'succeeded',
-          started_at_micros: nowMicros - 25 * 3_600_000_000,
-          finished_at_micros: nowMicros - 25 * 3_600_000_000 + 1_000_000,
-          scanned_rows: 999,
+          startedAt: nowMicros - 25 * 3_600_000_000,
+          finishedAt: nowMicros - 25 * 3_600_000_000 + 1_000_000,
+          scannedRows: 999,
           error: null,
         },
       ],

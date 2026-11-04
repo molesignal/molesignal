@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Prometheus active-series admission for the current consistent-hash intake owner.
+//! Prometheus active-series admission in the process that receives a remote-write request, before
+//! the batch is forwarded to an intake node.
 //!
 //! Only 128-bit SHA-256 prefixes are retained. Metric names and label material never enter the
 //! registry, logs, errors, or metric labels.
@@ -184,19 +185,48 @@ impl OrgSeriesState {
 }
 
 /// Process-local registry shared by every remote-write handler on an intake.
+///
+/// The process caps come from the configuration file. The organization and metric caps are a
+/// platform setting, swapped in while running by [`Self::set_limits`].
 pub struct PrometheusSeriesAdmission {
     settings: PrometheusCardinalitySettings,
+    max_per_org: AtomicUsize,
+    max_per_metric: AtomicUsize,
     organizations: DashMap<Id, Arc<Mutex<OrgSeriesState>>>,
     active_process: AtomicUsize,
 }
 
 impl PrometheusSeriesAdmission {
-    pub fn new(settings: PrometheusCardinalitySettings) -> Self {
+    /// `max_per_org` and `max_per_metric` are the caps until the platform setting is read.
+    pub fn new(
+        settings: PrometheusCardinalitySettings,
+        max_per_org: usize,
+        max_per_metric: usize,
+    ) -> Self {
         Self {
             settings,
+            max_per_org: AtomicUsize::new(max_per_org.max(1)),
+            max_per_metric: AtomicUsize::new(max_per_metric.max(1)),
             organizations: DashMap::new(),
             active_process: AtomicUsize::new(0),
         }
+    }
+
+    /// Caps active series of an organization and of each of its metrics. Series already active
+    /// stay; only new ones are held to the caps.
+    pub fn set_limits(&self, max_per_org: usize, max_per_metric: usize) {
+        self.max_per_org
+            .store(max_per_org.max(1), Ordering::Release);
+        self.max_per_metric
+            .store(max_per_metric.max(1), Ordering::Release);
+    }
+
+    /// The organization and metric caps in force.
+    pub fn limits(&self) -> (usize, usize) {
+        (
+            self.max_per_org.load(Ordering::Acquire),
+            self.max_per_metric.load(Ordering::Acquire),
+        )
     }
 
     pub fn admit(
@@ -257,14 +287,16 @@ impl PrometheusSeriesAdmission {
             });
         }
 
-        if state.active.len().saturating_add(new_series) > self.settings.max_active_series_per_org {
+        let (max_per_org, max_per_metric) = self.limits();
+
+        if state.active.len().saturating_add(new_series) > max_per_org {
             return Err(self.reject(SeriesLimitReason::OrganizationActive));
         }
 
         for (metric, count) in &new_by_metric {
             let active = state.metric_counts.get(metric).copied().unwrap_or(0);
 
-            if active.saturating_add(*count) > self.settings.max_active_series_per_metric {
+            if active.saturating_add(*count) > max_per_metric {
                 return Err(self.reject(SeriesLimitReason::MetricActive));
             }
         }
@@ -344,21 +376,21 @@ fn count_as_i64(count: usize) -> i64 {
 mod tests {
     use super::*;
 
-    fn settings(
+    fn admission(
         process: usize,
         org: usize,
         metric: usize,
         new_per_minute: usize,
         ttl_secs: u64,
-    ) -> PrometheusCardinalitySettings {
-        PrometheusCardinalitySettings {
+    ) -> PrometheusSeriesAdmission {
+        let settings = PrometheusCardinalitySettings {
             enabled: true,
             max_active_series_per_process: process,
-            max_active_series_per_org: org,
-            max_active_series_per_metric: metric,
             max_new_series_per_minute: new_per_minute,
             idle_ttl_secs: ttl_secs,
-        }
+        };
+
+        PrometheusSeriesAdmission::new(settings, org, metric)
     }
 
     fn identity(metric: &str, value: &str) -> SeriesIdentity {
@@ -377,7 +409,7 @@ mod tests {
 
     #[test]
     fn existing_series_bypasses_exhausted_new_series_rate() {
-        let registry = PrometheusSeriesAdmission::new(settings(10, 10, 10, 1, 60));
+        let registry = admission(10, 10, 10, 1, 60);
         let org = Id::from_string("org-a");
         let now = Instant::now();
         registry.admit(&org, [identity("up", "a")], now).unwrap();
@@ -395,7 +427,7 @@ mod tests {
     fn metric_org_and_process_caps_are_distinct() {
         let now = Instant::now();
         let org = Id::from_string("org-a");
-        let metric_registry = PrometheusSeriesAdmission::new(settings(10, 10, 1, 10, 60));
+        let metric_registry = admission(10, 10, 1, 10, 60);
         metric_registry
             .admit(&org, [identity("up", "a")], now)
             .unwrap();
@@ -404,7 +436,7 @@ mod tests {
             Err(SeriesLimitReason::MetricActive)
         );
 
-        let org_registry = PrometheusSeriesAdmission::new(settings(10, 1, 1, 10, 60));
+        let org_registry = admission(10, 1, 1, 10, 60);
         org_registry
             .admit(&org, [identity("up", "a")], now)
             .unwrap();
@@ -413,7 +445,7 @@ mod tests {
             Err(SeriesLimitReason::OrganizationActive)
         );
 
-        let process_registry = PrometheusSeriesAdmission::new(settings(1, 1, 1, 10, 60));
+        let process_registry = admission(1, 1, 1, 10, 60);
         process_registry
             .admit(&org, [identity("up", "a")], now)
             .unwrap();
@@ -423,9 +455,35 @@ mod tests {
         );
     }
 
+    /// Caps changed on the settings page apply to the next new series; active ones stay.
+    #[test]
+    fn new_caps_hold_new_series_only() {
+        let registry = admission(10, 10, 10, 10, 60);
+        let org = Id::from_string("org-a");
+        let now = Instant::now();
+
+        registry
+            .admit(&org, [identity("up", "a"), identity("up", "b")], now)
+            .unwrap();
+        registry.set_limits(2, 1);
+
+        assert_eq!(registry.limits(), (2, 1));
+        assert_eq!(
+            registry
+                .admit(&org, [identity("up", "a")], now)
+                .unwrap()
+                .existing_series,
+            1
+        );
+        assert_eq!(
+            registry.admit(&org, [identity("other", "c")], now),
+            Err(SeriesLimitReason::OrganizationActive)
+        );
+    }
+
     #[test]
     fn idle_expiry_releases_all_capacity_levels() {
-        let registry = PrometheusSeriesAdmission::new(settings(1, 1, 1, 10, 10));
+        let registry = admission(1, 1, 1, 10, 10);
         let org = Id::from_string("org-a");
         let now = Instant::now();
         registry.admit(&org, [identity("up", "a")], now).unwrap();

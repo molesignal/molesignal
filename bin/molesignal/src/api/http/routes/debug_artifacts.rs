@@ -41,6 +41,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ListParams {
     pub application_id: Option<String>,
     pub service: Option<String>,
@@ -49,6 +50,7 @@ pub struct ListParams {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ArtifactResponse {
     pub id: String,
     pub application_id: String,
@@ -61,7 +63,7 @@ pub struct ArtifactResponse {
     pub filename: String,
     pub size_bytes: u64,
     pub checksum_sha256: String,
-    pub uploaded_at_micros: i64,
+    pub uploaded_at: i64,
 }
 
 fn to_response(artifact: DebugArtifactMeta) -> ArtifactResponse {
@@ -77,11 +79,11 @@ fn to_response(artifact: DebugArtifactMeta) -> ArtifactResponse {
         filename: artifact.filename,
         size_bytes: artifact.size_bytes,
         checksum_sha256: artifact.checksum_sha256,
-        uploaded_at_micros: artifact.uploaded_at.0,
+        uploaded_at: artifact.uploaded_at.0,
     }
 }
 
-#[permission("streams.read")]
+#[permission("debug_artifacts.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -104,7 +106,7 @@ async fn list(
     Ok(Json(artifacts.into_iter().map(to_response).collect()))
 }
 
-#[permission("streams.configure")]
+#[permission("debug_artifacts.manage")]
 async fn upload(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -190,7 +192,7 @@ async fn upload(
     Ok(Json(to_response(saved)))
 }
 
-#[permission("streams.configure")]
+#[permission("debug_artifacts.manage")]
 async fn delete(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -229,19 +231,19 @@ struct UploadFields {
 impl UploadFields {
     fn set_text(&mut self, name: &str, value: String) {
         match name {
-            "application_id" => self.application_id = Some(value),
+            "applicationId" => self.application_id = Some(value),
             "service" => self.service = Some(value),
             "release" => self.release = Some(value),
             "kind" => self.kind = Some(value),
             "platform" => self.platform = Some(value),
             "architecture" => self.architecture = Some(value),
-            "debug_id" => self.debug_id = Some(value),
+            "debugId" => self.debug_id = Some(value),
             _ => {}
         }
     }
 
     fn into_artifact(self, org_id: &Id) -> Result<UploadArtifact> {
-        let application_id = required(self.application_id, "application_id", 128)?;
+        let application_id = required(self.application_id, "applicationId", 128)?;
         let application_id = validate_application_id(&application_id)?.to_string();
         let service = required(self.service, "service", 255)?;
         let release = required(self.release, "release", 64)?;
@@ -249,7 +251,7 @@ impl UploadFields {
         let platform = required(self.platform, "platform", 16)?.to_ascii_lowercase();
         let architecture =
             normalize_architecture(&optional(self.architecture, "architecture", 32)?);
-        let debug_id = normalize_debug_id(&optional(self.debug_id, "debug_id", 128)?);
+        let debug_id = normalize_debug_id(&optional(self.debug_id, "debugId", 128)?);
 
         let filename = self
             .filename

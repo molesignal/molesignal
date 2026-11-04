@@ -22,20 +22,21 @@ pub(super) fn routes() -> Router<AppState> {
     Router::new()
         .route("/synthetics/locations", get(list).post(create))
         .route(
-            "/synthetics/locations/{location_id}/register-tokens",
+            "/synthetics/locations/{locationId}/register-tokens",
             axum::routing::post(create_register_token),
         )
         .route(
-            "/synthetics/locations/{location_id}/agents",
+            "/synthetics/locations/{locationId}/agents",
             get(list_agents),
         )
         .route(
-            "/synthetics/locations/{location_id}/lifecycle",
+            "/synthetics/locations/{locationId}/lifecycle",
             axum::routing::put(set_lifecycle),
         )
 }
 
 #[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct RegisterTokenRequest {
     #[serde(default = "default_register_ttl")]
     ttl_minutes: u32,
@@ -50,7 +51,7 @@ const fn default_register_ttl() -> u32 {
     15
 }
 
-#[permission("synthetics.read")]
+#[permission("synthetics.locations.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -108,8 +109,8 @@ async fn create_register_token(
         "synthetic_location",
         instructions.token.location_id.as_str(),
         serde_json::json!({
-            "token_id": instructions.token.id,
-            "expires_at": instructions.token.expires_at,
+            "tokenId": instructions.token.id,
+            "expiresAt": instructions.token.expires_at,
         }),
     )
     .await;
@@ -117,7 +118,7 @@ async fn create_register_token(
     Ok((StatusCode::CREATED, Json(instructions)))
 }
 
-#[permission("synthetics.read")]
+#[permission("synthetics.locations.read")]
 async fn list_agents(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,

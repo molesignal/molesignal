@@ -21,7 +21,7 @@ use crate::{
             SlackAppConnectorChoice, SlackIncomingWebhook, StatusPageSlackApp, StatusPageSlackApps,
         },
     },
-    infra::notify::adapters::SLACK_APP_CONNECTOR_TYPE,
+    infra::notify::adapters::{SLACK_APP_CONNECTOR_TYPE, SLACK_SITES},
     shared::{
         Error, Result,
         http_trace::{self, HttpTarget},
@@ -29,14 +29,14 @@ use crate::{
     },
 };
 
-const AUTHORIZE_URL: &str = "https://slack.com/oauth/v2/authorize";
-const ACCESS_URL: &str = "https://slack.com/api/oauth.v2.access";
 pub const SLACK_CALLBACK_PATH: &str = "/api/v1/public/slack/callback";
 
 pub struct SlackOAuthApp {
     client_id: String,
     client_secret: String,
     redirect_uri: String,
+    /// The Web API the app lives on: Slack's, or GovSlack's.
+    api_base_url: String,
 }
 
 impl SlackOAuthApp {
@@ -61,7 +61,27 @@ impl SlackOAuthApp {
             client_id: client_id.to_string(),
             client_secret: client_secret.to_string(),
             redirect_uri,
+            api_base_url: SLACK_SITES[0].1.into(),
         })
+    }
+
+    /// The app on the Web API at `api_base_url`, as its connector names it: GovSlack's apps
+    /// authorize and exchange codes on GovSlack. Empty keeps Slack's.
+    pub fn on(mut self, api_base_url: &str) -> Self {
+        let base = api_base_url.trim().trim_end_matches('/');
+
+        if !base.is_empty() {
+            self.api_base_url = base.to_string();
+        }
+
+        self
+    }
+
+    /// The authorization page lives on the site the Web API belongs to.
+    fn authorize_base(&self) -> &str {
+        self.api_base_url
+            .strip_suffix("/api")
+            .unwrap_or("https://slack.com")
     }
 }
 
@@ -115,11 +135,14 @@ impl StatusPageSlackApps for ConnectorSlackApps {
             return Err(Error::conflict("the Slack App connector is turned off"));
         }
 
-        Ok(Arc::new(SlackOAuthApp::new(
-            config_text(&connector.config, "client_id"),
-            config_text(&connector.config, "client_secret"),
-            &self.external_url,
-        )?))
+        Ok(Arc::new(
+            SlackOAuthApp::new(
+                config_text(&connector.config, "clientId"),
+                config_text(&connector.config, "clientSecret"),
+                &self.external_url,
+            )?
+            .on(config_text(&connector.config, "apiBaseUrl")),
+        ))
     }
 
     async fn connectors(&self, org_id: &Id) -> Result<Vec<SlackAppConnectorChoice>> {
@@ -129,8 +152,8 @@ impl StatusPageSlackApps for ConnectorSlackApps {
             .into_iter()
             .filter(|connector| connector.connector_type == SLACK_APP_CONNECTOR_TYPE)
             .map(|connector| SlackAppConnectorChoice {
-                adds_channels: !config_text(&connector.config, "client_id").is_empty()
-                    && !config_text(&connector.config, "client_secret").is_empty(),
+                adds_channels: !config_text(&connector.config, "clientId").is_empty()
+                    && !config_text(&connector.config, "clientSecret").is_empty(),
                 id: connector.id,
                 name: connector.name,
                 enabled: connector.enabled,
@@ -170,7 +193,7 @@ struct Team {
 #[async_trait]
 impl StatusPageSlackApp for SlackOAuthApp {
     fn authorize_url(&self, state: &str) -> Result<String> {
-        let mut url = Url::parse(AUTHORIZE_URL)
+        let mut url = Url::parse(&format!("{}/oauth/v2/authorize", self.authorize_base()))
             .map_err(|_| Error::internal("the Slack authorization address is invalid"))?;
 
         url.query_pairs_mut()
@@ -196,12 +219,14 @@ impl StatusPageSlackApp for SlackOAuthApp {
 
         let response = http_trace::send(
             &client,
-            client.post(ACCESS_URL).form(&[
-                ("client_id", self.client_id.as_str()),
-                ("client_secret", self.client_secret.as_str()),
-                ("code", code),
-                ("redirect_uri", self.redirect_uri.as_str()),
-            ]),
+            client
+                .post(format!("{}/oauth.v2.access", self.api_base_url))
+                .form(&[
+                    ("client_id", self.client_id.as_str()),
+                    ("client_secret", self.client_secret.as_str()),
+                    ("code", code),
+                    ("redirect_uri", self.redirect_uri.as_str()),
+                ]),
             HttpTarget::ThirdParty,
         )
         .await
@@ -322,7 +347,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_page_adds_channels_with_a_slack_app_connector_that_holds_client_credentials() {
-        let credentials = json!({"client_id": "1.2", "client_secret": "secret"});
+        let credentials = json!({"clientId": "1.2", "clientSecret": "secret"});
 
         let apps = ConnectorSlackApps::new(
             Arc::new(Connectors(vec![
@@ -393,6 +418,17 @@ mod tests {
         assert!(authorize.starts_with("https://slack.com/oauth/v2/authorize?client_id=id"));
         assert!(authorize.contains("scope=incoming-webhook"));
         assert!(authorize.contains("state=state.token"));
+
+        // A GovSlack app authorizes on GovSlack.
+        let gov = SlackOAuthApp::new("id", "secret", "https://ms.example.com/")
+            .unwrap()
+            .on("https://slack-gov.com/api/");
+        assert!(
+            gov.authorize_url("s")
+                .unwrap()
+                .starts_with("https://slack-gov.com/oauth/v2/authorize?client_id=id")
+        );
+        assert_eq!(gov.api_base_url, "https://slack-gov.com/api");
     }
 
     #[test]

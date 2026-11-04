@@ -3,8 +3,9 @@
 
 use std::path::PathBuf;
 
+use anyhow::Context as _;
 use clap::{Parser, Subcommand};
-use molesignal::bootstrap::{activate_self_telemetry, build_state, rewrap_kek, roles};
+use molesignal::bootstrap::{activate_self_telemetry, build_state, reset_mfa, rewrap_kek, roles};
 
 const LOG_FILE_NAME_PREFIX: &str = "molesignal";
 
@@ -21,11 +22,19 @@ struct Cli {
 #[derive(Subcommand, Debug)]
 enum Command {
     /// 离线轮换 KEK：用旧 KEK 解、当前 `MS_CIPHER_KEY` 重封全部 cipher-key 信封列。
-    /// 停写窗口执行，跑完核对各表计数无误后再下线旧 KEK。
+    /// 停写窗口执行，跑完核对各表计数无误后再下线旧 KEK。全部在一个事务里：失败时什么都没改，
+    /// 修好原因后重跑。
     RewrapKek {
         /// 旧 KEK（base64 标准编码 32 字节）。
         #[arg(long)]
         old_key: String,
+    },
+    /// 离线重置一个账号的多因素认证：关掉身份验证器、作废恢复码，所有设备上的登录作废。
+    /// 给 root 丢了验证器、或者所有管理员都进不来时用；之后用密码登录、重新开启。
+    ResetMfa {
+        /// 账号邮箱。
+        #[arg(long)]
+        email: String,
     },
 }
 
@@ -118,7 +127,9 @@ async fn main() -> anyhow::Result<()> {
     // 离线子命令：KEK 轮换重包。跑完即退出，不起服务。
     if let Some(Command::RewrapKek { old_key }) = &cli.command {
         tracing::info!("kek rewrap starting (offline)");
-        let report = rewrap_kek(settings, old_key).await?;
+        let report = rewrap_kek(settings, old_key).await.context(
+            "kek rewrap stopped; it runs in one transaction, so fix the cause and run it again",
+        )?;
 
         for (table, rows) in &report {
             tracing::info!(table = %table, rows = *rows, "kek rewrap");
@@ -126,6 +137,21 @@ async fn main() -> anyhow::Result<()> {
         }
 
         tracing::info!("kek rewrap done; verify counts before retiring the old KEK");
+        return Ok(());
+    }
+
+    // 离线子命令：重置一个账号的多因素认证。跑完即退出，不起服务。
+    if let Some(Command::ResetMfa { email }) = &cli.command {
+        if reset_mfa(settings, email).await? {
+            println!(
+                "multi-factor authentication reset for {email}; every sign-in of the account has ended"
+            );
+        } else {
+            println!(
+                "{email} had no multi-factor authentication; every sign-in of the account has ended"
+            );
+        }
+
         return Ok(());
     }
 

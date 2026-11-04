@@ -98,7 +98,7 @@ export function BaselinePicker({
           aria-label={t('compare.baseline_aria', { value: `${label}, ${spans}` })}
           // The box the time range of the page is: the two stand one over the other, of one width.
           className={cn(
-            'group flex h-8 w-full shrink-0 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-[10px] font-sans text-[13px] font-strong text-tx-1 transition-colors duration-fast hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 focus-visible:text-tx-0 data-[state=open]:bg-bg-3 data-[state=open]:text-tx-0',
+            'group flex h-9 w-full shrink-0 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-[13px] font-strong text-tx-1 transition-colors duration-fast hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 focus-visible:text-tx-0 data-[state=open]:bg-bg-3 data-[state=open]:text-tx-0',
             className,
           )}
         >
@@ -146,7 +146,7 @@ export function BaselinePicker({
                     setOpen(false);
                   }}
                   className={cn(
-                    'flex h-8 items-center gap-2 rounded-sm px-[10px] text-left font-sans text-xs font-body transition-colors duration-fast disabled:cursor-not-allowed disabled:text-tx-3',
+                    'flex h-8 items-center gap-2 rounded-sm px-[10px] text-left font-sans text-xs font-body transition-colors duration-fast disabled:cursor-not-allowed disabled:text-[var(--tx-disabled)]',
                     selected
                       ? 'bg-[var(--floating-item-selected)] font-strong text-indigo-soft'
                       : 'text-tx-1 enabled:hover:bg-[var(--floating-item-hover)] enabled:hover:text-tx-0 enabled:focus-visible:bg-[var(--floating-item-hover)] enabled:focus-visible:text-tx-0',

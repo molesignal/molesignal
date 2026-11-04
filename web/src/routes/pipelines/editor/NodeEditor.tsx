@@ -2,30 +2,28 @@ import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import type * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ChromeButton, IconButton } from '@/shell/chrome';
+import type { ScheduledPipeline } from '@/api/pipelines';
+import { ChromeButton, IconButton, uiSectionTitleClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { surfacePanelClass } from '@/shell/SurfaceWorkbench';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/shell/ui/tooltip';
 
+import { AlertDestinationNote, AlertSourceFields } from './AlertFields';
 import { DestinationFields } from './DestinationFields';
+import { canRemoveNode, parseNodeId, removeNode } from './nodes';
 import type { PipelineResources } from './resources';
-import { SourceFields } from './SourceFields';
+import { InPlaceNote, SourceFields } from './SourceFields';
 import { StepFields } from './StepFields';
 import { moveStep, retypeStep } from './steps';
+import { countingKinds } from '../counting/model';
 import {
+  changesInPlace,
   connectorOf,
+  tableOf,
   type PipelineGraphModel,
   type StepType,
   type TransformStep,
 } from '../PipelineGraph/model';
-
-type NodeKind = 'source' | 'transform' | 'sink';
-
-export function parseNodeId(id: string): { kind: NodeKind; index: number } | null {
-  const match = /^(source|transform|sink)-(\d+)$/.exec(id);
-
-  return match ? { kind: match[1] as NodeKind, index: Number(match[2]) } : null;
-}
 
 /**
  * The node picked in the flow, opened to be edited: a source, a step or a
@@ -37,6 +35,7 @@ export function NodeEditor({
   model,
   selectedId,
   resources,
+  saved = null,
   readOnly = false,
   onChange,
   onSelect,
@@ -45,6 +44,8 @@ export function NodeEditor({
   model: PipelineGraphModel;
   selectedId: string;
   resources: PipelineResources;
+  /** The pipeline as it was last saved; `null` for a new one. */
+  saved?: ScheduledPipeline | null;
   readOnly?: boolean;
   onChange: (next: PipelineGraphModel) => void;
   onSelect: (id: string) => void;
@@ -52,11 +53,21 @@ export function NodeEditor({
 }) {
   const { t } = useTranslation('pipelines');
   const node = parseNodeId(selectedId);
-  const list =
-    node?.kind === 'source' ? model.sources : node?.kind === 'sink' ? model.sinks : model.transforms;
+  const alert = model.mode === 'alert';
+  const inPlace = changesInPlace(model);
+  // An alert pipeline's one source and one destination are not in the lists, and neither is the
+  // stream metrics or spans changed as they arrive go back into.
+  const count =
+    node?.kind === 'transform'
+      ? model.transforms.length
+      : alert || (inPlace && node?.kind === 'sink')
+        ? 1
+        : node?.kind === 'source'
+          ? model.sources.length
+          : model.sinks.length;
   const step = node?.kind === 'transform' ? model.transforms[node.index] : undefined;
 
-  if (!node || node.index >= list.length) {
+  if (!node || node.index >= count) {
     return (
       <section data-pipeline-node-editor className={cn('p-[16px]', surfacePanelClass, className)}>
         <p className="m-0 font-sans text-sm text-tx-3">{t('graph.select_node')}</p>
@@ -64,41 +75,44 @@ export function NodeEditor({
     );
   }
 
-  const sink = node.kind === 'sink' ? (model.sinks[node.index] ?? '') : '';
+  const writesBack = inPlace && node.kind === 'sink';
+  const sink = node.kind === 'sink' && !alert && !writesBack ? (model.sinks[node.index] ?? '') : '';
   const connector = node.kind === 'sink' ? connectorOf(sink) : null;
+  const table = node.kind === 'sink' ? tableOf(sink) : null;
   const title =
     node.kind === 'transform'
       ? t('editor.step_title', { number: node.index + 1 })
-      : connector !== null
-        ? t('editor.connector')
-        : t(`graph.node_kinds.${node.kind}`);
+      : alert
+        ? t(
+            node.kind === 'source'
+              ? 'alert_mode.source_title'
+              : model.alert.stage === 'notify'
+                ? 'alert_mode.write_back_notify'
+                : 'alert_mode.write_back',
+          )
+        : writesBack
+          ? t('realtime.in_place_title')
+          : connector !== null
+            ? t('editor.connector')
+            : table !== null
+              ? t('table_sink.table')
+              : t(`graph.node_kinds.${node.kind}`);
   const name =
     node.kind === 'transform'
       ? step?.name.trim()
-      : node.kind === 'source'
-        ? model.sources[node.index]?.trim()
-        : connector !== null
-          ? (resources.connectorNames[connector] ?? connector)
-          : sink.trim();
-  const streams = model.sinks.filter((item) => connectorOf(item) === null).length;
-  const removable =
-    node.kind === 'transform' ||
-    (node.kind === 'source' ? model.sources.length > 1 : connector !== null || streams > 1);
-
+      : alert
+        ? ''
+        : node.kind === 'source' || writesBack
+          ? model.sources[writesBack ? 0 : node.index]?.trim()
+          : connector !== null
+            ? (resources.connectorNames[connector] ?? connector)
+            : (table ?? sink.trim());
+  const removable = canRemoveNode(model, selectedId);
   const remove = () => {
-    if (node.kind === 'source') {
-      onChange({ ...model, sources: model.sources.filter((_, at) => at !== node.index) });
-    } else if (node.kind === 'sink') {
-      onChange({ ...model, sinks: model.sinks.filter((_, at) => at !== node.index) });
-    } else {
-      onChange({ ...model, transforms: model.transforms.filter((_, at) => at !== node.index) });
-    }
-    // The node before it takes its place under the cursor; with no step left, the first source does.
-    onSelect(
-      node.kind === 'transform' && model.transforms.length === 1
-        ? 'source-0'
-        : `${node.kind}-${Math.max(0, node.index - 1)}`,
-    );
+    if (readOnly) return;
+    const next = removeNode(model, selectedId, selectedId);
+    onChange(next.model);
+    onSelect(next.selectedId);
   };
   const move = (direction: -1 | 1) => {
     onChange({ ...model, transforms: moveStep(model.transforms, node.index, direction) });
@@ -114,7 +128,7 @@ export function NodeEditor({
       ...model,
       transforms: model.transforms.map((item, at) =>
         at === node.index
-          ? retypeStep(item, type, model.transforms.map((other) => other.name))
+          ? retypeStep(item, type, model.transforms.map((other) => other.name), model.mode, model.sources[0])
           : item,
       ),
     });
@@ -127,7 +141,7 @@ export function NodeEditor({
     >
       <header className="flex min-h-[36px] items-center gap-[10px]">
         <h2 className="m-0 flex min-w-0 items-baseline gap-[8px] font-sans">
-          <span className="shrink-0 text-md font-strong text-tx-0">{title}</span>
+          <span className={cn('shrink-0', uiSectionTitleClass)}>{title}</span>
           {name && <span className="min-w-0 truncate font-mono text-xs text-tx-3">{name}</span>}
         </h2>
         <div className="ml-auto flex shrink-0 items-center gap-[2px]">
@@ -165,22 +179,44 @@ export function NodeEditor({
       </header>
 
       <fieldset disabled={readOnly} className="m-0 mt-[10px] min-w-0 border-0 p-0">
-        {node.kind === 'source' && (
-          <SourceFields model={model} index={node.index} resources={resources} onChange={onChange} />
-        )}
-        {node.kind === 'sink' && (
-          <DestinationFields
-            model={model}
-            index={node.index}
-            resources={resources}
-            onChange={onChange}
-          />
-        )}
+        {node.kind === 'source' &&
+          (alert ? (
+            <AlertSourceFields model={model} onChange={onChange} />
+          ) : (
+            <SourceFields
+              model={model}
+              index={node.index}
+              resources={resources}
+              saved={saved}
+              canSave={!readOnly}
+              onChange={onChange}
+            />
+          ))}
+        {node.kind === 'sink' &&
+          (alert ? (
+            <AlertDestinationNote stage={model.alert.stage} />
+          ) : writesBack ? (
+            <InPlaceNote signal={model.signalType} source={model.sources[0]?.trim() ?? ''} />
+          ) : (
+            <DestinationFields
+              model={model}
+              index={node.index}
+              resources={resources}
+              onChange={onChange}
+            />
+          ))}
         {step && (
           <StepFields
             // Another step is another form: nothing typed in one carries into the next.
             key={selectedId}
             step={step}
+            mode={model.mode}
+            stage={model.alert.stage}
+            resources={resources}
+            routes={!inPlace}
+            counting={countingKinds(model.mode, model.signalType, model.sources[0] ?? '')}
+            source={model.sources[0]?.trim() ?? ''}
+            tables={resources.tables}
             readOnly={readOnly}
             onChange={setStep}
             onRetype={retype}

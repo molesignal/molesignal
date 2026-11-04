@@ -116,6 +116,7 @@ fn loaded(call: &WorkspaceCall<'_>) -> Vec<Scope> {
                 team_id: team_id.clone(),
             }));
         }
+        ChatScope::Org => {}
     }
 
     scopes
@@ -154,7 +155,7 @@ async fn admit(
                         interaction
                             .notice(json!({
                                 "kind": "team_mounted",
-                                "team_id": team_id.0,
+                                "teamId": team_id.0,
                                 "team": workspace.team_name(team_id),
                             }))
                             .await;
@@ -167,6 +168,9 @@ async fn admit(
         }
         (ChatScope::Personal { .. }, _) => Err(ToolResult::error(
             "a personal chat reads the knowledge of the teams its owner belongs to",
+        )),
+        (ChatScope::Org, _) => Err(ToolResult::error(
+            "an organization automation reads only the organization's knowledge",
         )),
         _ => Err(ToolResult::error(
             "a team chat reads only the organization's knowledge and its own team's",
@@ -192,11 +196,11 @@ async fn list(call: &WorkspaceCall<'_>, scope: &Scope) -> Result<ToolResult> {
         .await?;
 
     let mut result = describe(call, scope);
-    result["entry_file"] = json!(files.iter().any(|file| file.path == ENTRY_FILE));
+    result["entryFile"] = json!(files.iter().any(|file| file.path == ENTRY_FILE));
 
     result["files"] = files
         .iter()
-        .map(|file| json!({ "path": file.path, "size_bytes": file.size_bytes, "updated_at_micros": file.updated_at.0 }))
+        .map(|file| json!({ "path": file.path, "sizeBytes": file.size_bytes, "updatedAt": file.updated_at.0 }))
         .collect();
 
     Ok(ToolResult::json(result))
@@ -228,8 +232,8 @@ async fn read(call: &WorkspaceCall<'_>, scope: &Scope, path: &str) -> Result<Too
     result["path"] = json!(file.path);
     result["content"] = json!(&file.content[..end]);
     result["truncated"] = json!(end < file.content.len());
-    result["size_bytes"] = json!(file.size_bytes);
-    result["updated_at_micros"] = json!(file.updated_at.0);
+    result["sizeBytes"] = json!(file.size_bytes);
+    result["updatedAt"] = json!(file.updated_at.0);
 
     Ok(ToolResult::json(result))
 }
@@ -310,7 +314,7 @@ async fn edit(call: &WorkspaceCall<'_>, args: EditArgs) -> Result<ToolResult> {
     shown["path"] = json!(path);
     shown["delete"] = json!(content.is_none());
     shown["summary"] = json!(args.summary.as_deref().unwrap_or_default());
-    shown["size_bytes"] = json!(content.as_ref().map_or(0, String::len));
+    shown["sizeBytes"] = json!(content.as_ref().map_or(0, String::len));
     shown["preview"] = json!(
         content
             .as_deref()
@@ -353,7 +357,7 @@ async fn edit(call: &WorkspaceCall<'_>, args: EditArgs) -> Result<ToolResult> {
         "agent.knowledge.changed",
         "agent_knowledge",
         &scope.key(),
-        json!({ "path": path, "action": action, "chat_id": workspace.chat_id.0 }),
+        json!({ "path": path, "action": action, "chatId": workspace.chat_id.0 }),
     )
     .await;
 

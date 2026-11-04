@@ -18,7 +18,7 @@ use crate::{
 };
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct UserTargetArgs {
     target_user_id: Option<String>,
 }
@@ -30,10 +30,10 @@ struct LimitArgs {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct AuditArgs {
-    from_micros: Option<i64>,
-    to_micros: Option<i64>,
+    from_time: Option<i64>,
+    to_time: Option<i64>,
     actor_kind: Option<String>,
     actor_id: Option<String>,
     action: Option<String>,
@@ -47,13 +47,13 @@ struct AuditArgs {
 struct EmptyArgs {}
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ServiceAccountArgs {
     service_account_id: String,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ApiTokenArgs {
     service_account_id: Option<String>,
     limit: Option<usize>,
@@ -99,16 +99,16 @@ pub(super) async fn execute(
             };
 
             Ok(ToolResult::json(serde_json::json!({
-                "user_id": user.id,
+                "userId": user.id,
                 "email": user.email,
-                "display_name": user.display_name,
-                "avatar_url": user.avatar_url,
+                "displayName": user.display_name,
+                "avatarUrl": user.avatar_url,
                 "bio": user.bio,
                 "disabled": user.disabled,
                 "status": user.status,
-                "created_at": user.created_at,
+                "createdAt": user.created_at,
                 "org": org,
-                "display_role": display_role,
+                "displayRole": display_role,
                 "roles": roles,
             })))
         }
@@ -123,15 +123,15 @@ pub(super) async fn execute(
                 .await?;
 
             Ok(ToolResult::json(serde_json::json!({
-                "user_id": target_user_id,
+                "userId": target_user_id,
                 "theme": preferences.theme,
                 "density": preferences.density,
                 "language": preferences.language,
-                "default_home_route": preferences.default_home_route,
-                "time_format": preferences.time_format,
-                "date_format": preferences.date_format,
+                "defaultHomeRoute": preferences.default_home_route,
+                "timeFormat": preferences.time_format,
+                "dateFormat": preferences.date_format,
                 "timezone": preferences.timezone,
-                "keyboard_shortcuts_enabled": preferences.keyboard_shortcuts_enabled,
+                "keyboardShortcutsEnabled": preferences.keyboard_shortcuts_enabled,
             })))
         }
         BuiltinToolKind::ListOrganizationMembers => {
@@ -183,14 +183,14 @@ pub(super) async fn execute(
                 let assigned_roles = roles.remove(&membership.user_id.0).unwrap_or_default();
 
                 members.push(serde_json::json!({
-                    "user_id": user.id,
+                    "userId": user.id,
                     "email": user.email,
-                    "display_name": user.display_name,
-                    "avatar_url": user.avatar_url,
+                    "displayName": user.display_name,
+                    "avatarUrl": user.avatar_url,
                     "bio": user.bio,
                     "disabled": user.disabled,
                     "status": user.status,
-                    "joined_at": membership.joined_at,
+                    "joinedAt": membership.joined_at,
                     "roles": assigned_roles,
                 }));
             }
@@ -219,8 +219,8 @@ pub(super) async fn execute(
             let args: AuditArgs = parse_args(arguments)?;
 
             let query = AuditQuery {
-                from_micros: args.from_micros,
-                to_micros: args.to_micros,
+                from_micros: args.from_time,
+                to_micros: args.to_time,
                 actor_kind: args.actor_kind,
                 actor_id: args.actor_id,
                 action: args.action,
@@ -248,15 +248,15 @@ pub(super) async fn execute(
             let _: EmptyArgs = parse_args(arguments)?;
 
             Ok(ToolResult::json(serde_json::json!({
-                "org_id": auth.org_id,
-                "user_id": auth.user_id,
-                "principal_type": auth.principal_type(),
-                "principal_id": auth.principal_id(),
-                "display_role": auth.display_role,
+                "orgId": auth.org_id,
+                "userId": auth.user_id,
+                "principalType": auth.principal_type(),
+                "principalId": auth.principal_id(),
+                "displayRole": auth.display_role,
                 "roles": auth.roles,
                 "scope": auth.scope,
                 "permissions": auth.permissions,
-                "policy_version": auth.policy_version,
+                "policyVersion": auth.policy_version,
             })))
         }
         BuiltinToolKind::ListServiceAccounts => {
@@ -299,7 +299,7 @@ pub(super) async fn execute(
                 .collect::<Result<Vec<_>>>()?;
 
             Ok(ToolResult::json(
-                serde_json::json!({"service_accounts": values}),
+                serde_json::json!({"serviceAccounts": values}),
             ))
         }
         BuiltinToolKind::GetServiceAccount => {
@@ -347,19 +347,20 @@ pub(super) async fn execute(
                     "id": token.id,
                     "name": token.name,
                     "prefix": token.prefix,
-                    "role_id": token.role_id,
-                    "token_kind": token.token_kind,
-                    "application_id": token.application_id,
-                    "service_account_id": token.service_account_id,
-                    "expires_at": token.expires_at,
-                    "last_used_at": token.last_used_at,
+                    "policyId": token.scope.policy_id(),
+                    "permissions": token.scope.permissions(),
+                    "tokenKind": token.token_kind,
+                    "applicationId": token.application_id,
+                    "serviceAccountId": token.service_account_id,
+                    "expiresAt": token.expires_at,
+                    "lastUsedAt": token.last_used_at,
                     "revoked": token.revoked,
-                    "created_at": token.created_at,
+                    "createdAt": token.created_at,
                 })
             })
             .collect::<Vec<_>>();
 
-            Ok(ToolResult::json(serde_json::json!({"api_tokens": tokens})))
+            Ok(ToolResult::json(serde_json::json!({"apiTokens": tokens})))
         }
         _ => unreachable!("administration executor received unrelated tool"),
     }
@@ -375,9 +376,9 @@ fn service_account_json(
         "description": account.description,
         "role": {"id": role.id, "key": role.key, "name": role.name},
         "disabled": account.disabled,
-        "created_by": account.created_by,
-        "created_at": account.created_at,
-        "updated_at": account.updated_at,
+        "createdBy": account.created_by,
+        "createdAt": account.created_at,
+        "updatedAt": account.updated_at,
     })
 }
 
@@ -425,7 +426,7 @@ fn requested_user_id(auth: &IamContext, target_user_id: Option<String>) -> Resul
     let Some(target_user_id) = target_user_id else {
         if auth.principal_type() == IamPrincipalType::ServiceAccount {
             return Err(Error::invalid(
-                "target_user_id is required when the authenticated principal is a service account",
+                "targetUserId is required when the authenticated principal is a service account",
             ));
         }
 
@@ -435,7 +436,7 @@ fn requested_user_id(auth: &IamContext, target_user_id: Option<String>) -> Resul
     let target_user_id = target_user_id.trim();
 
     if target_user_id.is_empty() {
-        return Err(Error::invalid("target_user_id must not be empty"));
+        return Err(Error::invalid("targetUserId must not be empty"));
     }
 
     let target_user_id = Id::from_string(target_user_id);
@@ -461,7 +462,7 @@ mod tests {
             org_id: Id::from_string("org-a"),
             display_role: String::new(),
             roles: Vec::new(),
-            credential_role_id: None,
+            credential_token_id: None,
             credential_application_id: None,
             credential_service_account_id: None,
             scope: IamScope::Organization,

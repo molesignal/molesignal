@@ -60,7 +60,7 @@ pub fn routes() -> Router<AppState> {
         )
         .route("/agent/mcp-servers/{id}/tools", get(list_server_tools))
         .route(
-            "/agent/mcp-servers/{id}/tools/{tool_id}",
+            "/agent/mcp-servers/{id}/tools/{toolId}",
             patch(members::set_tool_enabled),
         )
         .route(
@@ -74,6 +74,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ServerRequest {
     /// 不填是组织级（只有 `agent.manage` 能建）。
     #[serde(default = "organization")]
@@ -88,7 +89,7 @@ fn organization() -> String {
     "org".into()
 }
 
-#[permission("agent.use")]
+#[permission("agent.mcp_servers.read")]
 async fn list_servers(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -99,11 +100,11 @@ async fn list_servers(
     // 页面据此只在组织级、实例允许时提供 stdio。
     Ok(Json(json!({
         "servers": servers,
-        "stdio_commands": state.agent.mcp.stdio_commands(),
+        "stdioCommands": state.agent.mcp.stdio_commands(),
     })))
 }
 
-#[permission("agent.use")]
+#[permission("agent.mcp_servers.read")]
 async fn get_server(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -126,7 +127,7 @@ async fn get_server(
     ))
 }
 
-#[permission("agent.use")]
+#[permission("agent.mcp_servers.manage")]
 async fn create_server(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -151,8 +152,8 @@ async fn create_server(
             "name": server.name,
             "scope": server.scope.kind(),
             "transport": server.transport,
-            "auth_type": server.auth_type,
-            "credential_set": server.credential_set,
+            "authType": server.auth_type,
+            "credentialSet": server.credential_set,
             "headers": server.headers.iter().map(|header| &header.name).collect::<Vec<_>>(),
         }),
     )
@@ -161,7 +162,7 @@ async fn create_server(
     Ok(Json(json!(server)))
 }
 
-#[permission("agent.use")]
+#[permission("agent.mcp_servers.manage")]
 async fn update_server(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -191,10 +192,10 @@ async fn update_server(
         json!({
             "name": server.name,
             "scope": server.scope.kind(),
-            "moved_from": (before.scope != server.scope).then(|| before.scope.kind()),
+            "movedFrom": (before.scope != server.scope).then(|| before.scope.kind()),
             "transport": server.transport,
             "enabled": server.enabled,
-            "credential_rotated": credential_rotated,
+            "credentialRotated": credential_rotated,
             "headers": server.headers.iter().map(|header| &header.name).collect::<Vec<_>>(),
         }),
     )
@@ -208,7 +209,7 @@ struct EnabledRequest {
     enabled: bool,
 }
 
-#[permission("agent.use")]
+#[permission("agent.mcp_servers.manage")]
 async fn set_server_enabled(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -240,7 +241,7 @@ async fn set_server_enabled(
     Ok(Json(json!(server)))
 }
 
-#[permission("agent.use")]
+#[permission("agent.mcp_servers.manage")]
 async fn delete_server(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -293,14 +294,14 @@ async fn delete_server(
         "agent.mcp_server.deleted",
         "agent_mcp_server",
         &id.0,
-        json!({"name": server.name, "scope": server.scope.kind(), "tool_count": tools.len()}),
+        json!({"name": server.name, "scope": server.scope.kind(), "toolCount": tools.len()}),
     )
     .await;
 
     Ok(Json(json!({"deleted": true})))
 }
 
-#[permission("agent.use")]
+#[permission("agent.mcp_servers.read")]
 async fn list_server_tools(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

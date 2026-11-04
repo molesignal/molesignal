@@ -6,6 +6,7 @@ import {
   Pill,
   uiLabelClass,
   type PillTone,
+  uiSectionTitleClass,
 } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 
@@ -24,10 +25,12 @@ const PIPELINE_HEALTH_TONE: Record<
   paused: { pill: 'dim', dot: 'dim' },
   unknown: { pill: 'yellow', dot: 'yellow' },
   ready: { pill: 'blue', dot: 'blue' },
+  listening: { pill: 'blue', dot: 'blue' },
   never: { pill: 'yellow', dot: 'yellow' },
 };
 
 export const PIPELINE_TYPE_TONE: Record<PipelineSignalType, PillTone> = {
+  profiles: 'neutral',
   logs: 'orange',
   metrics: 'blue',
   traces: 'green',
@@ -117,7 +120,7 @@ export function PipelineSection({
         )}
       >
         <div className="min-w-0 flex-1">
-          <h2 className="truncate font-sans text-sm font-display-strong text-tx-0">
+          <h2 className={cn('truncate', uiSectionTitleClass)}>
             {title}
           </h2>
           {description && (

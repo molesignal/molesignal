@@ -129,7 +129,7 @@ export function DashboardEditor() {
   const nav = useNavigate();
   const qc = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const orgId = useAuthStore((state) => state.ctx?.org_id ?? '');
+  const orgId = useAuthStore((state) => state.ctx?.orgId ?? '');
   const existingId = id && id !== 'new' ? id : undefined;
   const isNewPanelRoute = location.pathname.endsWith('/panels/new');
   const [history, setHistory] = React.useState<HistoryState>(() => ({

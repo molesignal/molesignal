@@ -28,65 +28,65 @@ const getEvent = vi.mocked(statusPagesApi.getEvent);
 const components: StatusPageComponent[] = [
   {
     id: 'component-api',
-    org_id: 'org-one',
-    status_page_id: 'page-one',
+    orgId: 'org-one',
+    statusPageId: 'page-one',
     name: 'Web API',
     description: '',
     status: 'operational',
     visibility: 'enabled',
     lifecycle: 'active',
     position: 0,
-    archived_at: null,
-    created_at: 1,
-    updated_at: 1,
+    archivedAt: null,
+    createdAt: 1,
+    updatedAt: 1,
   },
 ];
 
 function candidate(statusIncidentId: string | null): AutomationCandidate {
   return {
     id: 'candidate-one',
-    organization_id: 'org-one',
-    status_page_id: 'page-one',
-    rule_revision_id: 'revision-one',
-    correlation_key: 'api-latency',
+    organizationId: 'org-one',
+    statusPageId: 'page-one',
+    ruleRevisionId: 'revision-one',
+    correlationKey: 'api-latency',
     state: 'pending_approval',
     title: 'API latency degradation',
     message: 'We are investigating elevated API latency.',
-    resolved_message: 'API latency has recovered.',
+    resolvedMessage: 'API latency has recovered.',
     impact: 'major',
-    component_ids: ['component-api'],
+    componentIds: ['component-api'],
     automatic: false,
-    status_incident_id: statusIncidentId,
-    due_at: 2,
-    created_at: 1,
-    updated_at: 2,
-    last_error: null,
+    statusIncidentId: statusIncidentId,
+    dueAt: 2,
+    createdAt: 1,
+    updatedAt: 2,
+    lastError: null,
   };
 }
 
 function detail(value: AutomationCandidate): AutomationCandidateDetail {
-  return { candidate: value, sources: [], actions: [], work_items: [] };
+  return { candidate: value, sources: [], actions: [], workItems: [] };
 }
 
 function incident(): StatusPageIncident {
   return {
     id: 'incident-one',
-    org_id: 'org-one',
-    status_page_id: 'page-one',
-    source_incident_id: null,
+    orgId: 'org-one',
+    statusPageId: 'page-one',
+    sourceIncidentId: null,
     kind: 'incident',
     title: 'API latency degradation',
     impact: 'major',
     status: 'investigating',
-    publication_state: 'draft',
-    draft_message: 'We are investigating elevated API latency.',
-    component_ids: ['component-api'],
+    publicationState: 'draft',
+    draftMessage: 'We are investigating elevated API latency.',
+    componentIds: ['component-api'],
     updates: [],
-    started_at: 1,
-    ended_at: null,
-    published_at: null,
-    created_at: 1,
-    updated_at: 2,
+    startedAt: 1,
+    endedAt: null,
+    publishedAt: null,
+    createdAt: 1,
+    updatedAt: 2,
   };
 }
 

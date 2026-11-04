@@ -30,14 +30,16 @@ import {
  */
 export function StatusPageRow({
   page,
-  manageAccess,
+  archiveAccess,
+  deleteAccess,
   restoring,
   onArchive,
   onRestore,
   onDelete,
 }: {
   page: StatusPage;
-  manageAccess: ActionAccess;
+  archiveAccess: ActionAccess;
+  deleteAccess: ActionAccess;
   restoring: boolean;
   onArchive: () => void;
   onRestore: () => void;
@@ -75,11 +77,11 @@ export function StatusPageRow({
 
       {archived ? (
         <p className="col-span-3 col-start-2 row-start-2 min-w-0 text-xs text-tx-2 lg:col-span-2 lg:col-start-3 lg:row-start-1">
-          {t('list.archived_on', { date: page.archived_at ? formatMicrosActive(page.archived_at, false) : '—' })}
-          {page.purge_after && (
+          {t('list.archived_on', { date: page.archivedAt ? formatMicrosActive(page.archivedAt, false) : '—' })}
+          {page.purgeAfter && (
             <span className="text-tx-3">
               {' · '}
-              {t('list.removed_after', { date: formatMicrosActive(page.purge_after, false) })}
+              {t('list.removed_after', { date: formatMicrosActive(page.purgeAfter, false) })}
             </span>
           )}
         </p>
@@ -93,8 +95,8 @@ export function StatusPageRow({
             <IconButton
               aria-label={t('actions.restore')}
               title={t('actions.restore')}
-              disabled={manageAccess.disabled || restoring}
-              disabledReason={manageAccess.reason}
+              disabled={archiveAccess.disabled || restoring}
+              disabledReason={archiveAccess.reason}
               onClick={onRestore}
             >
               <ArchiveRestore className="h-3.5 w-3.5" />
@@ -102,8 +104,8 @@ export function StatusPageRow({
             <IconButton
               aria-label={t('actions.delete')}
               title={t('actions.delete')}
-              disabled={manageAccess.disabled}
-              disabledReason={manageAccess.reason}
+              disabled={deleteAccess.disabled}
+              disabledReason={deleteAccess.reason}
               className="enabled:hover:text-red-soft"
               onClick={onDelete}
             >
@@ -122,8 +124,8 @@ export function StatusPageRow({
             <IconButton
               aria-label={t('actions.archive')}
               title={t('actions.archive')}
-              disabled={manageAccess.disabled}
-              disabledReason={manageAccess.reason}
+              disabled={archiveAccess.disabled}
+              disabledReason={archiveAccess.reason}
               onClick={onArchive}
             >
               <Archive className="h-3.5 w-3.5" />
@@ -137,10 +139,10 @@ export function StatusPageRow({
 
 /** Whose page it is: its logo, or its initial on its own colour. */
 function PageMark({ page, dimmed }: { page: StatusPage; dimmed: boolean }) {
-  if (page.logo_url) {
+  if (page.logoUrl) {
     return (
       <img
-        src={page.logo_url}
+        src={page.logoUrl}
         alt=""
         className={cn('h-[40px] w-[40px] shrink-0 rounded-lg bg-white object-contain p-[4px]', dimmed && 'opacity-50 grayscale')}
       />
@@ -154,7 +156,7 @@ function PageMark({ page, dimmed }: { page: StatusPage; dimmed: boolean }) {
         'grid h-[40px] w-[40px] shrink-0 place-items-center rounded-lg font-sans text-md font-bold text-white',
         dimmed && 'opacity-50 grayscale',
       )}
-      style={{ backgroundColor: page.brand_color }}
+      style={{ backgroundColor: page.brandColor }}
     >
       {page.name.slice(0, 1).toUpperCase()}
     </span>
@@ -197,14 +199,14 @@ function LiveState({ pageId }: { pageId: string }) {
 
   return (
     <>
-      <div data-status-page-verdict={snapshot.overall_status} className={cn(cell, 'row-start-2 lg:col-start-3 lg:row-start-1')}>
+      <div data-status-page-verdict={snapshot.overallStatus} className={cn(cell, 'row-start-2 lg:col-start-3 lg:row-start-1')}>
         <div className="flex min-w-0 items-center gap-[8px] font-sans text-sm font-strong text-tx-0">
           <span
             aria-hidden="true"
             className="h-[8px] w-[8px] shrink-0 rounded-full"
-            style={{ background: STATUS_COLOR[snapshot.overall_status] }}
+            style={{ background: STATUS_COLOR[snapshot.overallStatus] }}
           />
-          <span className="truncate">{componentStatusLabel(t, snapshot.overall_status)}</span>
+          <span className="truncate">{componentStatusLabel(t, snapshot.overallStatus)}</span>
         </div>
         <p className="mt-[2px] truncate pl-[16px] text-xs text-tx-2">
           {goingOn.length > 0 ? goingOn.join(' · ') : t('list.nothing_under_way')}

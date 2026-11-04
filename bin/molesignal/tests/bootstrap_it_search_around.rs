@@ -24,10 +24,10 @@ async fn search_around_smoke() {
         .post(format!("{}/api/v1/query/search_around", s.base_url))
         .header(hk, &hv)
         .json(&serde_json::json!({
-            "event_timestamp_us": 1_000_000_i64,
-            "event_fingerprint": "abc",
+            "eventTimestampUs": 1_000_000_i64,
+            "eventFingerprint": "abc",
             "stream": "nonexistent_logs",
-            "stream_type": "logs",
+            "streamType": "logs",
             "before": 5,
             "after": 5,
         }))
@@ -62,10 +62,10 @@ async fn streaming_query_returns_ndjson_content_type() {
         .header(hk, &hv)
         .header("accept", "application/x-ndjson")
         .json(&serde_json::json!({
-            "org_id": s.root_org_id.0,
+            "orgId": s.root_org_id.0,
             "language": "sql",
             "statement": "SELECT 1",
-            "time_range": {
+            "timeRange": {
                 "start": 0_i64,
                 "end": 1_000_000_i64
             }
@@ -102,10 +102,10 @@ async fn search_around_before_after_boundaries() {
         .post(format!("{}/api/v1/query/search_around", s.base_url))
         .header(hk, &hv)
         .json(&serde_json::json!({
-            "event_timestamp_us": 1_000_000_i64,
-            "event_fingerprint": "abc",
+            "eventTimestampUs": 1_000_000_i64,
+            "eventFingerprint": "abc",
             "stream": "nonexistent_logs",
-            "stream_type": "logs",
+            "streamType": "logs",
             "before": 0,
             "after": 0,
         }))
@@ -132,10 +132,10 @@ async fn search_around_cross_day_boundary() {
         .post(format!("{}/api/v1/query/search_around", s.base_url))
         .header(hk, &hv)
         .json(&serde_json::json!({
-            "event_timestamp_us": 86_400_000_000_i64,
-            "event_fingerprint": "boundary",
+            "eventTimestampUs": 86_400_000_000_i64,
+            "eventFingerprint": "boundary",
             "stream": "nonexistent_logs",
-            "stream_type": "logs",
+            "streamType": "logs",
             "before": 5,
             "after": 5,
         }))

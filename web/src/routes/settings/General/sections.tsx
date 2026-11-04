@@ -1,10 +1,8 @@
 import { useTranslation } from 'react-i18next';
 
-import type * as instanceApi from '@/api/instance';
 import type * as meApi from '@/api/me';
 import type * as resourceSharesApi from '@/api/resourceShares';
 import { ProductState } from '@/product/states';
-import { Pill } from '@/shell/chrome';
 import { FormSelect } from '@/shell/FormDrawer';
 import { PreferencesFields } from '@/shell/PreferencesFields';
 import { Switch } from '@/shell/ui/switch';
@@ -20,109 +18,6 @@ import {
 interface AccessProps {
   canManage: boolean;
   disabledReason?: string | undefined;
-}
-
-export function SignupPolicySection({
-  policy,
-  isLoading,
-  isError,
-  error,
-  pending,
-  saveError,
-  dirty,
-  canManage,
-  disabledReason,
-  onChange,
-  onReset,
-  onSave,
-}: AccessProps & {
-  policy?: instanceApi.SignupPolicy | undefined;
-  isLoading: boolean;
-  isError: boolean;
-  error: unknown;
-  pending: boolean;
-  saveError: boolean;
-  dirty: boolean;
-  onChange: (patch: Partial<instanceApi.SignupPolicy>) => void;
-  onReset: () => void;
-  onSave: () => void;
-}) {
-  const { t } = useTranslation(['settings-admin', 'common']);
-  const controlsDisabledReason = !canManage
-    ? disabledReason
-    : pending
-      ? t('common:access.operation_pending')
-      : undefined;
-
-  return (
-    <SettingsSubsection
-      title={t('general.signup.title')}
-      description={t('general.signup.subtitle')}
-    >
-      {isLoading ? (
-        <div className="py-6">
-          <ProductState variant="loading" compact />
-        </div>
-      ) : isError || !policy ? (
-        <div className="py-6">
-          <ProductState variant="error" error={error} compact />
-        </div>
-      ) : (
-        <>
-          <SettingsRow
-            label={t('general.signup.enabled')}
-            description={t('general.signup.enabled_hint')}
-          >
-            <Switch
-              className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
-              checked={policy.signup_enabled}
-              disabled={!canManage || pending}
-              disabledReason={controlsDisabledReason}
-              onCheckedChange={(checked) =>
-                onChange({ signup_enabled: checked })
-              }
-              aria-label={t('general.signup.enabled')}
-            />
-          </SettingsRow>
-          {policy.signup_enabled && (
-            <SettingsRow
-              label={t('general.signup.require_approval')}
-              description={t('general.signup.require_approval_hint')}
-            >
-              <Switch
-                className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
-                checked={policy.signup_require_approval}
-                disabled={!canManage || pending}
-                disabledReason={controlsDisabledReason}
-                onCheckedChange={(checked) =>
-                  onChange({ signup_require_approval: checked })
-                }
-                aria-label={t('general.signup.require_approval')}
-              />
-            </SettingsRow>
-          )}
-          {policy.signup_enabled && (
-            <SettingsRow
-              label={t('general.signup.default_role')}
-              description={t('general.signup.default_role_hint')}
-            >
-              <Pill tone="dim">{t('general.signup.default_role_value')}</Pill>
-            </SettingsRow>
-          )}
-          <SettingsDraftStatus
-            dirty={dirty || pending}
-            error={saveError}
-            modifiedLabel={t('general.auto_save.modified')}
-            undoLabel={t('general.auto_save.undo')}
-            errorLabel={t('general.auto_save.error')}
-            retryLabel={t('general.auto_save.retry')}
-            onUndo={onReset}
-            onRetry={onSave}
-          />
-        </>
-      )}
-    </SettingsSubsection>
-  );
 }
 
 export function SharingPolicySection({
@@ -150,7 +45,7 @@ export function SharingPolicySection({
     patch: Partial<
       Omit<
         resourceSharesApi.ResourceSharePolicy,
-        'organization_id' | 'updated_by' | 'updated_at'
+        'organizationId' | 'updatedBy' | 'updatedAt'
       >
     >,
   ) => void;
@@ -164,7 +59,7 @@ export function SharingPolicySection({
     : pending
       ? t('common:access.operation_pending')
       : undefined;
-  const dependentDisabledReason = !policy?.allow_public_links
+  const dependentDisabledReason = !policy?.allowPublicLinks
     ? dependencyReason
     : controlsDisabledReason;
 
@@ -189,12 +84,12 @@ export function SharingPolicySection({
           >
             <Switch
               className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
-              checked={policy.allow_public_links}
+              checked={policy.allowPublicLinks}
               disabled={!canManage || pending}
               disabledReason={controlsDisabledReason}
               aria-label={t('general.sharing.allow_public_links')}
               onCheckedChange={(checked) =>
-                onChange({ allow_public_links: checked })
+                onChange({ allowPublicLinks: checked })
               }
             />
           </SettingsRow>
@@ -204,12 +99,12 @@ export function SharingPolicySection({
           >
             <Switch
               className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
-              checked={policy.allow_public_dashboards}
-              disabled={!policy.allow_public_links || !canManage || pending}
+              checked={policy.allowPublicDashboards}
+              disabled={!policy.allowPublicLinks || !canManage || pending}
               disabledReason={dependentDisabledReason}
               aria-label={t('general.sharing.allow_public_dashboards')}
               onCheckedChange={(checked) =>
-                onChange({ allow_public_dashboards: checked })
+                onChange({ allowPublicDashboards: checked })
               }
             />
           </SettingsRow>
@@ -219,13 +114,13 @@ export function SharingPolicySection({
             controlClassName="w-full min-[1100px]:w-48"
           >
             <FormSelect
-              value={String(policy.max_public_expiry_secs)}
+              value={String(policy.maxPublicExpirySecs)}
               ariaLabel={t('general.sharing.max_expiry')}
               className="h-11 text-base lg:h-9 lg:text-sm"
-              disabled={!policy.allow_public_links || !canManage || pending}
+              disabled={!policy.allowPublicLinks || !canManage || pending}
               disabledReason={dependentDisabledReason}
               onChange={(value) =>
-                onChange({ max_public_expiry_secs: Number(value) })
+                onChange({ maxPublicExpirySecs: Number(value) })
               }
               options={[
                 {
@@ -249,12 +144,12 @@ export function SharingPolicySection({
           >
             <Switch
               className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
-              checked={policy.require_public_report_password}
-              disabled={!policy.allow_public_links || !canManage || pending}
+              checked={policy.requirePublicReportPassword}
+              disabled={!policy.allowPublicLinks || !canManage || pending}
               disabledReason={dependentDisabledReason}
               aria-label={t('general.sharing.report_password')}
               onCheckedChange={(checked) =>
-                onChange({ require_public_report_password: checked })
+                onChange({ requirePublicReportPassword: checked })
               }
             />
           </SettingsRow>
@@ -264,12 +159,12 @@ export function SharingPolicySection({
           >
             <Switch
               className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
-              checked={policy.deny_production_public_shares}
+              checked={policy.denyProductionPublicShares}
               disabled={!canManage || pending}
               disabledReason={controlsDisabledReason}
               aria-label={t('general.sharing.deny_production')}
               onCheckedChange={(checked) =>
-                onChange({ deny_production_public_shares: checked })
+                onChange({ denyProductionPublicShares: checked })
               }
             />
           </SettingsRow>
@@ -279,12 +174,12 @@ export function SharingPolicySection({
           >
             <Switch
               className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
-              checked={policy.allow_public_csv_download}
-              disabled={!policy.allow_public_links || !canManage || pending}
+              checked={policy.allowPublicCsvDownload}
+              disabled={!policy.allowPublicLinks || !canManage || pending}
               disabledReason={dependentDisabledReason}
               aria-label={t('general.sharing.allow_csv_download')}
               onCheckedChange={(checked) =>
-                onChange({ allow_public_csv_download: checked })
+                onChange({ allowPublicCsvDownload: checked })
               }
             />
           </SettingsRow>

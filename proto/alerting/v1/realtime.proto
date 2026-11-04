@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package alerting.v1;
+
+// 实时规则的集群计数：负责一条实时规则的 alert 节点每秒向各个接收写入的节点拉一次窗口内的命中数，
+// 求和后判断开事件还是解决。只挂在内部 gRPC 端口；调用方必须同时带内部 origin 标记和集群 bearer。
+service RealtimeService {
+  rpc Counts(RealtimeServiceCountsRequest) returns (RealtimeServiceCountsResponse);
+}
+
+message RealtimeServiceCountsRequest {
+  // 要哪几条规则；本节点没有加载的规则不返回。
+  repeated string rule_ids = 1;
+}
+
+message RuleCount {
+  string rule_id = 1;
+  // 本节点到收到请求这一秒为止、规则窗口内的命中数。
+  uint64 count = 2;
+}
+
+message RealtimeServiceCountsResponse {
+  repeated RuleCount counts = 1;
+}

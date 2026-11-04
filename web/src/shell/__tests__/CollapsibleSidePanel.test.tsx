@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import * as React from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { CollapsibleSidePanel, SidePanelSection } from '@/shell/CollapsibleSidePanel';
+import { CollapsibleSidePanel, SidePanelSearch, SidePanelSection } from '@/shell/CollapsibleSidePanel';
 
 afterEach(() => {
   cleanup();
@@ -50,7 +50,46 @@ function UtilityPanelHarness() {
   );
 }
 
+function SearchPanelHarness() {
+  const [collapsed, setCollapsed] = React.useState(false);
+  const [filter, setFilter] = React.useState('');
+
+  return (
+    <CollapsibleSidePanel
+      title="Fields"
+      collapsed={collapsed}
+      onCollapsedChange={setCollapsed}
+      variant="utility"
+      collapseLabel="Collapse fields"
+      expandLabel="Expand fields"
+      header={<SidePanelSearch value={filter} onChange={setFilter} placeholder="Search fields" label="Filter fields" />}
+    >
+      <div>{filter === '' ? 'every field' : `fields matching ${filter}`}</div>
+    </CollapsibleSidePanel>
+  );
+}
+
 describe('CollapsibleSidePanel', () => {
+  it('puts a search in the head row in place of the title, which still names the panel and its rail', () => {
+    render(<SearchPanelHarness />);
+
+    // The search and the button that folds the panel share the row the title had.
+    const panel = screen.getByRole('complementary', { name: 'Fields' });
+    const search = screen.getByRole('textbox', { name: 'Filter fields' });
+    const collapse = screen.getByRole('button', { name: 'Collapse fields' });
+    expect(screen.queryByText('Fields')).toBeNull();
+    expect(search.closest('aside')).toBe(panel);
+    expect(collapse.parentElement?.contains(search)).toBe(true);
+
+    fireEvent.change(search, { target: { value: 'status' } });
+    expect(screen.getByText('fields matching status')).not.toBeNull();
+
+    // Folded, the rail says what is folded.
+    fireEvent.click(collapse);
+    expect(screen.queryByRole('textbox', { name: 'Filter fields' })).toBeNull();
+    expect(screen.getByText('Fields')).not.toBeNull();
+  });
+
   it('renders the lightweight utility treatment and its field grouping', () => {
     render(<UtilityPanelHarness />);
 

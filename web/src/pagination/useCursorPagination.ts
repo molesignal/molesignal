@@ -43,16 +43,16 @@ export function useCursorPagination({
 
   const goPrevious = React.useCallback(
     (page: CursorLinks | null | undefined) => {
-      if (!page?.previous_cursor) return;
-      setPosition({ contextKey, cursor: page.previous_cursor });
+      if (!page?.previousCursor) return;
+      setPosition({ contextKey, cursor: page.previousCursor });
     },
     [contextKey],
   );
 
   const goNext = React.useCallback(
     (page: CursorLinks | null | undefined) => {
-      if (!page?.next_cursor) return;
-      setPosition({ contextKey, cursor: page.next_cursor });
+      if (!page?.nextCursor) return;
+      setPosition({ contextKey, cursor: page.nextCursor });
     },
     [contextKey],
   );

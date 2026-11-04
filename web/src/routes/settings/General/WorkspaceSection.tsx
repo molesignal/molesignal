@@ -113,7 +113,7 @@ export function WorkspaceSection({
           controlClassName="w-full"
         >
           <CopyableValue
-            value={profile?.org_slug ?? '—'}
+            value={profile?.orgSlug ?? '—'}
             copyLabel={t('general.copy')}
             copiedLabel={t('general.copied')}
           />
@@ -124,7 +124,7 @@ export function WorkspaceSection({
           controlClassName="w-full"
         >
           <CopyableValue
-            value={profile?.org_id ?? '—'}
+            value={profile?.orgId ?? '—'}
             copyLabel={t('general.copy')}
             copiedLabel={t('general.copied')}
           />

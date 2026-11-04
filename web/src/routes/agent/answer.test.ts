@@ -47,7 +47,7 @@ describe('evidenceHref', () => {
     const href = evidenceHref({
       kind: 'logs',
       stream: 'app',
-      time_range: { start_micros: 100, end_micros: 200 },
+      time_range: { start_time: 100, end_time: 200 },
     });
     expect(href).toContain('/logs?');
     expect(href).toContain('from=100');

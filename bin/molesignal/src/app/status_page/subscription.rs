@@ -47,6 +47,7 @@ pub struct StatusPageSubscriptionInput {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusPageSubscriptionOutcome {
     pub accepted: bool,
     pub confirmation_required: bool,
@@ -453,7 +454,7 @@ mod tests {
         assert_ne!(token_hash(&token), token);
         assert_eq!(token_hash(&token).len(), 64);
         assert!(validate_token(&token).is_ok());
-        assert!(validate_token("bad&subscription_action=unsubscribe").is_err());
+        assert!(validate_token("bad&subscriptionAction=unsubscribe").is_err());
     }
 
     #[test]

@@ -184,7 +184,7 @@ export function ProfileEditorFields({
         <AgentToolChecklist
           options={tools.map((tool) => ({
             value: tool.name,
-            label: tool.display_name,
+            label: tool.displayName,
             hint: tool.description,
           }))}
           selected={draft.allowedTools}

@@ -15,7 +15,10 @@ import { Link } from 'react-router-dom';
 import * as inboundMcpApi from '@/api/agent/inboundMcp';
 import * as instanceApi from '@/api/instance';
 import { resolvePublicBaseUrl, resolvePublicUrl } from '@/lib/publicUrl';
+import { useActionAccess } from '@/product/actionAccess';
+import { useOpenablePages } from '@/product/moduleAccess';
 import { ProductState } from '@/product/states';
+import { uiSectionTitleClass } from '@/shell/chrome';
 import { Badge } from '@/shell/ui/badge';
 import { Button } from '@/shell/ui/button';
 import { Label } from '@/shell/ui/label';
@@ -30,6 +33,11 @@ import {
   ConnectPrompt,
   OAuthConnections,
 } from './components';
+
+const CREDENTIAL_PAGES = [
+  { to: '/iam/api-tokens', key: 'settings.inbound_mcp.credentials.api_tokens' },
+  { to: '/iam/service-accounts', key: 'settings.inbound_mcp.credentials.service_accounts' },
+] as const;
 
 interface SettingsDraft {
   enabled: boolean;
@@ -46,18 +54,21 @@ function createDraft(
 ): SettingsDraft {
   return {
     enabled: settings.enabled,
-    origins: settings.allowed_origins.join('\n'),
-    requestSize: String(settings.max_request_size),
-    responseSize: String(settings.max_response_size),
-    concurrentCalls: String(settings.max_concurrent_calls),
-    callsPerMinute: String(settings.calls_per_minute),
-    readTimeoutMs: String(settings.read_timeout_ms),
+    origins: settings.allowedOrigins.join('\n'),
+    requestSize: String(settings.maxRequestSize),
+    responseSize: String(settings.maxResponseSize),
+    concurrentCalls: String(settings.maxConcurrentCalls),
+    callsPerMinute: String(settings.callsPerMinute),
+    readTimeoutMs: String(settings.readTimeoutMs),
   };
 }
 
 export function InboundMcpPanel() {
   const { t } = useTranslation('agent');
   const queryClient = useQueryClient();
+  // Only changing the settings takes it: the addresses and the prompt are there to copy.
+  const locked = useActionAccess({ permission: 'agent.inbound_mcp.manage' }).disabled;
+  const credentialPages = useOpenablePages(CREDENTIAL_PAGES, (page) => page.to);
   const settingsQuery = useQuery({
     queryKey: ['agent', 'inbound-mcp', 'settings'],
     queryFn: inboundMcpApi.getSettings,
@@ -106,7 +117,7 @@ export function InboundMcpPanel() {
   if (!settingsQuery.data || !draft) return null;
 
   const publicBaseUrl = resolvePublicBaseUrl(
-    instanceQuery.data?.external_url,
+    instanceQuery.data?.externalUrl,
     window.location.origin,
   );
   const endpointUrl = resolvePublicUrl(
@@ -115,19 +126,19 @@ export function InboundMcpPanel() {
   );
   const oauthUrls = {
     protectedResourceMetadata: resolvePublicUrl(
-      settingsQuery.data.oauth.protected_resource_metadata,
+      settingsQuery.data.oauth.protectedResourceMetadata,
       publicBaseUrl,
     ),
     authorizationServerMetadata: resolvePublicUrl(
-      settingsQuery.data.oauth.authorization_server_metadata,
+      settingsQuery.data.oauth.authorizationServerMetadata,
       publicBaseUrl,
     ),
     registrationEndpoint: resolvePublicUrl(
-      settingsQuery.data.oauth.registration_endpoint,
+      settingsQuery.data.oauth.registrationEndpoint,
       publicBaseUrl,
     ),
     tokenEndpoint: resolvePublicUrl(
-      settingsQuery.data.oauth.token_endpoint,
+      settingsQuery.data.oauth.tokenEndpoint,
       publicBaseUrl,
     ),
   };
@@ -156,15 +167,15 @@ export function InboundMcpPanel() {
     }
     save.mutate({
       enabled: draft.enabled,
-      allowed_origins: draft.origins
+      allowedOrigins: draft.origins
         .split(/[,\n]/)
         .map((value) => value.trim())
         .filter(Boolean),
-      max_request_size: maxRequestSize,
-      max_response_size: maxResponseSize,
-      max_concurrent_calls: maxConcurrentCalls,
-      calls_per_minute: callsPerMinute,
-      read_timeout_ms: readTimeoutMs,
+      maxRequestSize: maxRequestSize,
+      maxResponseSize: maxResponseSize,
+      maxConcurrentCalls: maxConcurrentCalls,
+      callsPerMinute: callsPerMinute,
+      readTimeoutMs: readTimeoutMs,
     });
   };
 
@@ -175,7 +186,7 @@ export function InboundMcpPanel() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <ServerCog className="h-4 w-4 text-indigo" />
-              <h2 className="font-strong text-tx-0">
+              <h2 className={uiSectionTitleClass}>
                 {t('settings.inbound_mcp.title')}
               </h2>
             </div>
@@ -190,6 +201,7 @@ export function InboundMcpPanel() {
             <Switch
               id="inbound-mcp-enabled"
               checked={draft.enabled}
+              disabled={locked}
               onCheckedChange={(enabled) =>
                 setDraft((value) => (value ? { ...value, enabled } : value))
               }
@@ -207,7 +219,7 @@ export function InboundMcpPanel() {
             </Label>
             {/* As high as the endpoint field beside it, the versions centred on it. */}
             <div className="mt-1.5 flex min-h-9 flex-wrap items-center gap-1.5">
-              {settingsQuery.data.protocol_versions.map((version) => (
+              {settingsQuery.data.protocolVersions.map((version) => (
                 <Badge key={version} variant="outline" className="font-mono">
                   {version}
                 </Badge>
@@ -219,9 +231,9 @@ export function InboundMcpPanel() {
 
       <section className="border-t border-bd-0 py-5">
         <div className="flex items-start gap-3">
-          <Link2 className="mt-0.5 h-4 w-4 text-indigo" />
+          <Link2 className="mt-1 h-4 w-4 text-indigo" />
           <div>
-            <h3 className="font-strong text-tx-0">
+            <h3 className={uiSectionTitleClass}>
               {t('settings.inbound_mcp.oauth.discovery_title')}
             </h3>
             <p className="mt-1 text-xs leading-5 text-tx-3">
@@ -251,9 +263,9 @@ export function InboundMcpPanel() {
 
       <section className="border-t border-bd-0 py-5">
         <div className="flex items-start gap-3">
-          <ShieldCheck className="mt-0.5 h-4 w-4 text-[var(--green-ink)]" />
+          <ShieldCheck className="mt-1 h-4 w-4 text-[var(--green-ink)]" />
           <div>
-            <h3 className="font-strong text-tx-0">
+            <h3 className={uiSectionTitleClass}>
               {t('settings.inbound_mcp.security.title')}
             </h3>
             <p className="mt-1 text-xs leading-5 text-tx-3">
@@ -269,6 +281,7 @@ export function InboundMcpPanel() {
             <Textarea
               id="inbound-mcp-allowed-origins"
               value={draft.origins}
+              disabled={locked}
               onChange={(event) =>
                 setDraft((value) =>
                   value ? { ...value, origins: event.target.value } : value,
@@ -289,20 +302,18 @@ export function InboundMcpPanel() {
             <p className="mt-2 text-xs leading-5 text-tx-3">
               {t('settings.inbound_mcp.credentials.description')}
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button asChild size="sm" variant="outline">
-                <Link to="/iam/api-tokens">
-                  {t('settings.inbound_mcp.credentials.api_tokens')}
-                  <ExternalLink />
-                </Link>
-              </Button>
-              <Button asChild size="sm" variant="outline">
-                <Link to="/iam/service-accounts">
-                  {t('settings.inbound_mcp.credentials.service_accounts')}
-                  <ExternalLink />
-                </Link>
-              </Button>
-            </div>
+            {credentialPages.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {credentialPages.map((page) => (
+                  <Button key={page.to} asChild size="sm" variant="outline">
+                    <Link to={page.to}>
+                      {t(page.key)}
+                      <ExternalLink />
+                    </Link>
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -310,7 +321,7 @@ export function InboundMcpPanel() {
       <section className="border-t border-bd-0 py-5">
         <div className="flex items-center gap-2">
           <RefreshCw className="h-4 w-4 text-indigo" />
-          <h3 className="font-strong text-tx-0">
+          <h3 className={uiSectionTitleClass}>
             {t('settings.inbound_mcp.runtime.title')}
           </h3>
         </div>
@@ -318,11 +329,11 @@ export function InboundMcpPanel() {
           {t('settings.inbound_mcp.runtime.description')}
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <NumberField label={t('settings.inbound_mcp.runtime.request_size')} value={draft.requestSize} min={1} max={settingsQuery.data.hard_max_size} onChange={(requestSize) => setDraft({ ...draft, requestSize })} />
-          <NumberField label={t('settings.inbound_mcp.runtime.response_size')} value={draft.responseSize} min={1} max={settingsQuery.data.hard_max_size} onChange={(responseSize) => setDraft({ ...draft, responseSize })} />
-          <NumberField label={t('settings.inbound_mcp.runtime.concurrent_calls')} value={draft.concurrentCalls} min={1} max={128} onChange={(concurrentCalls) => setDraft({ ...draft, concurrentCalls })} />
-          <NumberField label={t('settings.inbound_mcp.runtime.calls_per_minute')} value={draft.callsPerMinute} min={1} max={10_000} onChange={(callsPerMinute) => setDraft({ ...draft, callsPerMinute })} />
-          <NumberField label={t('settings.inbound_mcp.runtime.read_timeout')} value={draft.readTimeoutMs} min={100} max={300_000} onChange={(readTimeoutMs) => setDraft({ ...draft, readTimeoutMs })} />
+          <NumberField label={t('settings.inbound_mcp.runtime.request_size')} value={draft.requestSize} min={1} max={settingsQuery.data.hardMaxSize} disabled={locked} onChange={(requestSize) => setDraft({ ...draft, requestSize })} />
+          <NumberField label={t('settings.inbound_mcp.runtime.response_size')} value={draft.responseSize} min={1} max={settingsQuery.data.hardMaxSize} disabled={locked} onChange={(responseSize) => setDraft({ ...draft, responseSize })} />
+          <NumberField label={t('settings.inbound_mcp.runtime.concurrent_calls')} value={draft.concurrentCalls} min={1} max={128} disabled={locked} onChange={(concurrentCalls) => setDraft({ ...draft, concurrentCalls })} />
+          <NumberField label={t('settings.inbound_mcp.runtime.calls_per_minute')} value={draft.callsPerMinute} min={1} max={10_000} disabled={locked} onChange={(callsPerMinute) => setDraft({ ...draft, callsPerMinute })} />
+          <NumberField label={t('settings.inbound_mcp.runtime.read_timeout')} value={draft.readTimeoutMs} min={100} max={300_000} disabled={locked} onChange={(readTimeoutMs) => setDraft({ ...draft, readTimeoutMs })} />
         </div>
       </section>
 
@@ -331,13 +342,14 @@ export function InboundMcpPanel() {
         loading={connectionsQuery.isLoading}
         error={connectionsQuery.error}
         revoking={revoke.isPending}
+        locked={locked}
         onRevoke={(id) => revoke.mutate(id)}
       />
 
       <ConnectPrompt endpoint={endpointUrl} />
 
       <div className="flex justify-end border-t border-bd-0 pt-4">
-        <Button type="submit" disabled={save.isPending}>
+        <Button type="submit" disabled={locked || save.isPending}>
           <Save />
           {save.isPending
             ? t('common.saving')

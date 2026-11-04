@@ -8,7 +8,11 @@ use serde::{Deserialize, Serialize};
 use super::super::PostMessageReq;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub(crate) enum RunRequest {
     /// 回答一条消息。
     Answer(Box<AnswerRequest>),
@@ -17,7 +21,7 @@ pub(crate) enum RunRequest {
     /// 会话结束后提炼记忆：上一次提炼到 `since_micros`。
     Distill {
         #[serde(default)]
-        since_micros: Option<i64>,
+        since_time: Option<i64>,
     },
 }
 
@@ -32,6 +36,7 @@ impl RunRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct AnswerRequest {
     /// 这条消息的请求；是命令时已经按命令改写了模式与时间。
     pub(crate) message: PostMessageReq,
@@ -44,11 +49,15 @@ pub(crate) struct AnswerRequest {
     pub(crate) dashboard: Option<bool>,
     /// 这一轮问题的时间：回答排在它后面。
     #[serde(default)]
-    pub(crate) asked_at_micros: Option<i64>,
+    pub(crate) asked_at: Option<i64>,
+    /// 自动化的一轮最多跑多少秒，到点就停下并记为超时。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) deadline_secs: Option<u64>,
 }
 
 /// 命令展开后执行时还要用的部分。交给模型的问题记在用户消息上，不在这里。
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct TurnSnapshot {
     /// 命令带来的 system 指令（例如事件的上下文）。
     #[serde(default)]
@@ -75,8 +84,8 @@ mod tests {
         let request = RunRequest::Answer(Box::new(AnswerRequest {
             message: serde_json::from_value(json!({
                 "content": "/rca inc-1",
-                "analysis_mode": "root_cause",
-                "time_range": {"start_micros": 1, "end_micros": 2},
+                "analysisMode": "root_cause",
+                "timeRange": {"startTime": 1, "endTime": 2},
             }))
             .unwrap(),
             turn: TurnSnapshot {
@@ -86,18 +95,21 @@ mod tests {
             },
             regenerate: false,
             dashboard: None,
-            asked_at_micros: Some(1),
+            asked_at: Some(1),
+            deadline_secs: Some(600),
         }));
 
         let value = serde_json::to_value(&request).unwrap();
         assert_eq!(value["kind"], "answer");
+        // 执行器从这里读自动化的总时限。
+        assert_eq!(value["deadlineSecs"], 600);
 
         let RunRequest::Answer(read) = serde_json::from_value(value).unwrap() else {
             panic!("an answer request");
         };
 
         assert_eq!(read.message.analysis_mode.as_deref(), Some("root_cause"));
-        assert_eq!(read.message.time_range.unwrap().end_micros, 2);
+        assert_eq!(read.message.time_range.unwrap().end_time, 2);
         assert_eq!(read.turn.alert_name.as_deref(), Some("API 502s"));
 
         let compact = serde_json::to_value(RunRequest::Compact).unwrap();

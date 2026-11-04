@@ -27,6 +27,8 @@ pub const MAX_REPLAY_SEGMENT_BYTES: u64 = 8 * 1024 * 1024;
 pub const MAX_REPLAY_SESSION_BYTES: u64 = 100 * 1024 * 1024;
 pub const MAX_REPLAY_SEGMENTS_PER_SESSION: usize = 2_000;
 pub const MAX_REPLAY_FILTER_SESSION_IDS: usize = 10_000;
+/// The most of a recording read to show one page of it.
+const MAX_REPLAY_PAGE_BYTES: u64 = 32 * 1024 * 1024;
 const RUM_REPLAY_LAYOUT_VERSION: &str = "v1";
 const RUM_REPLAY_FORMAT_VERSION: u32 = 1;
 
@@ -79,6 +81,48 @@ pub trait RumReplayMetaRepository: Send + Sync {
     ) -> Result<Vec<String>>;
     async fn list_expired(&self, cutoff_micros: i64, limit: usize) -> Result<Vec<RumReplayRecord>>;
     async fn delete_ids(&self, ids: &[String]) -> Result<()>;
+}
+
+/// The events that build a page at a moment: from the meta event of the last full snapshot at or
+/// before it, or of the first one after it, up to the moment the page then stands at.
+fn events_of_page(mut events: Vec<Value>, at_micros: i64) -> Option<(i64, Vec<Value>)> {
+    const META: u64 = 4;
+    const FULL_SNAPSHOT: u64 = 2;
+
+    let millis = |event: &Value| {
+        event_timestamp_millis(event).and_then(|timestamp| i64::try_from(timestamp).ok())
+    };
+    let kind = |event: &Value| event.get("type").and_then(Value::as_u64);
+
+    events.sort_by_key(|event| millis(event).unwrap_or_default());
+
+    let at_ms = at_micros / 1_000;
+
+    let snapshot = events
+        .iter()
+        .rposition(|event| {
+            kind(event) == Some(FULL_SNAPSHOT) && millis(event).is_some_and(|ms| ms <= at_ms)
+        })
+        .or_else(|| {
+            events
+                .iter()
+                .position(|event| kind(event) == Some(FULL_SNAPSHOT))
+        })?;
+
+    // The page is not shown before the snapshot that builds it.
+    let shown_ms = millis(&events[snapshot]).unwrap_or(at_ms).max(at_ms);
+
+    let start = events[..snapshot]
+        .iter()
+        .rposition(|event| kind(event) == Some(META))
+        .unwrap_or(snapshot);
+
+    let kept = events
+        .drain(start..)
+        .filter(|event| millis(event).is_some_and(|ms| ms <= shown_ms))
+        .collect();
+
+    Some((shown_ms.saturating_mul(1_000), kept))
 }
 
 pub struct RumReplayWriter {
@@ -267,6 +311,87 @@ impl RumReplayWriter {
         }
 
         Ok((segment_count, events))
+    }
+
+    /// What builds a page as it stood at a moment of a recording: the full snapshot before it, or
+    /// else the first one after it, and what changed from there. Says the moment it comes to, and
+    /// `None` when the recording has no full snapshot.
+    pub async fn page_at(
+        &self,
+        org_id: &Id,
+        session_id: &str,
+        at_micros: i64,
+    ) -> Result<Option<(i64, Vec<Value>)>> {
+        validate_session_id(session_id)?;
+
+        let mut records = self.meta.list_for_session(org_id, session_id).await?;
+
+        records.sort_by_key(|record| record.first_event_at_micros);
+
+        let Some(first) = records
+            .iter()
+            .rposition(|record| {
+                record.has_full_snapshot && record.first_event_at_micros <= at_micros
+            })
+            .or_else(|| records.iter().position(|record| record.has_full_snapshot))
+        else {
+            return Ok(None);
+        };
+
+        let mut events = Vec::new();
+        let mut bytes = 0_u64;
+
+        for record in &records[first..] {
+            // The first snapshot of a recording that began late is the page: nothing later is read.
+            if record.first_event_at_micros > at_micros && !events.is_empty() {
+                break;
+            }
+
+            bytes = bytes.saturating_add(record.bytes_uncompressed);
+
+            if bytes > MAX_REPLAY_PAGE_BYTES {
+                return Err(Error::resource_exhausted(
+                    "RUM replay exceeds the quota of a recorded page",
+                ));
+            }
+
+            events.extend(self.read_record(record).await?);
+        }
+
+        Ok(events_of_page(events, at_micros))
+    }
+
+    async fn read_record(&self, record: &RumReplayRecord) -> Result<Vec<Value>> {
+        ensure_supported_format(record)?;
+
+        let path = ObjPath::parse(&record.object_key)
+            .map_err(|error| Error::internal(format!("RUM replay object path: {error}")))?;
+
+        let compressed = self
+            .object_store
+            .get(&path)
+            .await
+            .map_err(|error| Error::internal(format!("RUM replay object read: {error}")))?
+            .bytes()
+            .await
+            .map_err(|error| Error::internal(format!("RUM replay object bytes: {error}")))?;
+
+        let decoded =
+            tokio::task::spawn_blocking(move || zstd::stream::decode_all(compressed.as_ref()))
+                .await
+                .map_err(|error| Error::internal(format!("RUM replay decode task: {error}")))?
+                .map_err(|error| Error::internal(format!("RUM replay decode: {error}")))?;
+
+        verify_segment(record, &decoded)?;
+
+        decoded
+            .split(|byte| *byte == b'\n')
+            .filter(|line| !line.is_empty())
+            .map(|line| {
+                serde_json::from_slice::<Value>(line)
+                    .map_err(|error| Error::internal(format!("RUM replay JSON: {error}")))
+            })
+            .collect()
     }
 
     pub async fn existing_session_ids(

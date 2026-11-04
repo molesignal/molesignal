@@ -3,7 +3,7 @@ name: latency-regression
 description: Explain a latency regression - from APM to slow traces to dependencies, then compare versions and CPU profiles before and after.
 argument-hint: <service> [endpoint]
 version: "1"
-allowed-tools: apm_overview, get_apm_service, list_apm_transactions, get_apm_transaction, list_apm_dependencies, list_traces, get_trace, get_trace_dag, compare_apm_versions, list_continuous_profiles, compare_profiles, get_profile_flamegraph
+allowed-tools: apm_overview, get_apm_insights, get_apm_service, list_apm_transactions, get_apm_transaction, list_apm_dependencies, list_traces, get_trace, get_trace_dag, compare_apm_versions, list_continuous_profiles, compare_profiles, get_profile_flamegraph
 tags: [apm, latency, performance]
 examples:
   - Checkout p95 doubled since this morning, why?
@@ -16,6 +16,7 @@ Goal: name the code path or dependency that got slower, when, and why, with numb
 
 ## 1. Confirm and locate
 
+- `get_apm_insights` for the service first: a latency move against the stretch before and the same stretch a week before (a daily rhythm is not a regression), when it began, the changes near then, and slow SQL or calls repeated many times a request.
 - `get_apm_service` for the service: p50, p95, p99, throughput and error rate now against an earlier healthy window of the same length.
 - `list_apm_transactions` to find the endpoints whose latency grew the most. Work on the one with the largest change weighted by traffic.
 

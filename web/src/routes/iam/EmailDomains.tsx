@@ -20,7 +20,7 @@ export function EmailDomains() {
   const { t: tc } = useTranslation('common');
   const qc = useQueryClient();
   const manageAccess = useActionAccess({
-    permission: 'org.settings.manage',
+    permission: 'org.email_domains.manage',
   });
   const [draft, setDraft] = React.useState('');
 

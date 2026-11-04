@@ -35,6 +35,7 @@ use crate::{
         pipeline::{
             ExtendKvRepository, ExtendTable, PgExtendKvRepository, PgScheduledPipelineRepository,
             ScheduledPipelineRepository,
+            lookups::{GeoSource, PlatformLookups},
         },
     },
     shared::{ReportRenderer, Result},
@@ -70,8 +71,10 @@ impl PlatformRuntime {
         storage: &StorageRuntime,
         iam: &IamRuntime,
     ) -> Result<Self> {
-        let connectors: Arc<dyn ConnectorRepository> =
-            Arc::new(PgConnectorRepository::new(core.pool.clone()));
+        let connectors: Arc<dyn ConnectorRepository> = Arc::new(PgConnectorRepository::new(
+            core.pool.clone(),
+            core.cipher_root_key.clone(),
+        ));
 
         // pull 类 connector 同一时刻只能有一个节点在拉：多个 alert 节点按 connector 分担，
         // 开拉前先过运行准入。
@@ -82,6 +85,7 @@ impl PlatformRuntime {
                 30,
             )
             .with_gate(core.alert_run_gate.clone())
+            .with_usage_meter(storage.intake_meter.clone())
             .spawn()
         });
 
@@ -89,7 +93,7 @@ impl PlatformRuntime {
             Arc::new(PgScheduledPipelineRepository::new(core.pool.clone()));
         let extend_kv: Arc<dyn ExtendKvRepository> =
             Arc::new(PgExtendKvRepository::new(core.pool.clone()));
-        let extend_table = Arc::new(ExtendTable::new());
+        let extend_table = Arc::new(ExtendTable::new(extend_kv.clone()));
 
         let resource_shares: Arc<dyn ResourceShareRepository> = Arc::new(
             PgResourceShareRepository::new(core.pool.clone(), core.cipher_root_key.clone()),
@@ -100,6 +104,11 @@ impl PlatformRuntime {
         let search_job_repository = Arc::new(PgSearchJobRepository::new(core.pool.clone()));
         let search_jobs: Arc<dyn SearchJobRepository> = search_job_repository.clone();
         let search_jobs_settings = &settings.search_jobs;
+
+        // Who may still read the audit trail, for the backfills and runs that read it in their name.
+        let audit_read: Arc<dyn crate::app::audit_read::AuditReadCheck> = Arc::new(
+            crate::app::audit_read::IamAuditRead::new(iam.iam.clone(), iam.access.clone()),
+        );
 
         // 搜索 job 由 querier 角色（含 standalone）的节点领取并执行；其它节点只创建与读取 job。
         let _search_jobs_handles = core.roles.run_querier.then(|| {
@@ -117,7 +126,9 @@ impl PlatformRuntime {
                         idle_poll_secs: search_jobs_settings.idle_poll_secs,
                         cleanup_interval_secs: search_jobs_settings.cleanup_interval_secs,
                     },
-                ),
+                )
+                .with_tables(extend_kv.clone())
+                .with_audit_read(audit_read.clone()),
             )
             .spawn();
 
@@ -209,7 +220,9 @@ impl PlatformRuntime {
                     storage.intake.clone(),
                     connectors.clone(),
                     Arc::new(crate::infra::connectors::EgressDispatcher),
-                ),
+                )
+                .with_tables(extend_kv.clone())
+                .with_audit_read(audit_read.clone()),
             );
 
             let runner = Arc::new(
@@ -233,6 +246,17 @@ impl PlatformRuntime {
         } else {
             GeoIp::noop()
         };
+
+        // VRL 的 `lookup` 查组织的扩展表，`geoip_lookup` 查这份库：加载了的节点直接用，别的节点
+        // 第一次有程序查地理位置时才读。
+        crate::infra::runtime::vrl::lookups::install(Arc::new(PlatformLookups::new(
+            extend_table.clone(),
+            if receives_rum {
+                GeoSource::Loaded(geoip.clone())
+            } else {
+                GeoSource::OnFirstUse(settings.mmdb.db_path.clone().into())
+            },
+        )));
 
         Ok(Self {
             connectors,

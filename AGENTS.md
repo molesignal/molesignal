@@ -27,10 +27,24 @@
 - 函数、类型、`impl` 等条目之间空一行；连续的单行条目、`use`、`mod x;` 和 trait 里的方法签名列表可以连写。
 - `{` 之后、`}` 之前不留空行，rustfmt 会删除。
 
-## Rust 后端验证频率
+## 数据库表结构
 
-- 涉及 Rust 后端修改时，先完成当前任务范围内的全部代码变更，再统一进行验证；不得每完成一个小改动就运行一次验证。
-- 实现过程中不得反复运行 `cargo test`、`cargo clippy`、`cargo build`、`cargo check` 或对应的 `make` 目标。只有遇到阻塞后续实现的编译问题时，才可执行一次范围尽可能小的诊断命令。
-- 全部后端修改完成后只执行一轮收尾验证。`cargo test` 或 `cargo clippy` 已经触发编译时，不得再额外运行功能重叠的 `cargo build` 或 `cargo check`。
-- 一轮验证通过后不得重复执行。若验证失败，应先集中修复已发现的问题，之后只重跑失败项，不得重新运行整套已通过的检查。
-- 不得在同一后端任务中多次询问用户是否运行构建或验证；默认按以上规则在收尾阶段执行一次。仅当命令会产生外部副作用、需要额外权限，或预计资源消耗明显超出常规时，才询问一次。
+- 时间点的列用 `TIMESTAMPTZ`，列名不带 `_micros` 之类的单位后缀，Rust 里读写对应 `TimestampMicros`；时长用 `INTERVAL`。写进 JSON 载荷的时间仍是自纪元起的微秒整数（SQL 里用 `epoch_micros(...)`）。
+- 新的组织级设置写成 `org_settings` 的一节：在 `org_settings::sections` 加一个名字，值的结构与校验放在对应仓库和领域类型里，不再为它单独建一张「一个组织一行」的表。
+- 结构相同、只是用途不同的数据放进同一张表，用 `kind` 一类的列区分（如 `one_time_tokens`、`sealed_secrets`），查找必须带上这一列。
+- 只属于一行、随这一行一起读写的子数据存成这一行的 JSONB 列，不建子表；需要跨行按子数据查询或建索引时再建子表。
+- 接口里的时间字段是微秒整数，名字不带单位后缀：时间点按发生的事命名（`createdAt`、`expiresAt`），只有一个词说不清时加 `Time`（`startTime`）；时长以 `Time` 结尾（`p95Time`），名字本身就是时长的不加（`duration`）。
+
+## 验证
+
+多个 session 共用这台机器和这棵工作树。验证一律走 `scripts/verify/verify.py`：它只跑和你的文件有关的检查，记住已通过的，重型步骤全机排队。
+
+- 全部修改完成后验证一次，不要每改一点就跑：`scripts/verify/verify.py <本 session 改过的文件...>`，放后台跑（`run_in_background`），可能要排队。
+- 失败或中断后，修完重跑同一条命令。它只补失败项和文件有变化的步骤；不要拆开重跑，也不要换成全量。验证通过后不要再跑。
+- 前端要跑的 Playwright 用 `--specs` 点名覆盖这个页面的 spec（通常 1～5 个）；改动列表里的 spec 文件会自动跑。没有页面行为变化就不选。
+- 实现过程中只有被编译问题挡住时，才跑一次范围尽可能小的诊断。单个测试、单个 crate、单次 `tsc` / `eslint` / `vitest` 用 `scripts/verify/verify.py --run -- <命令>`，它负责排队、降优先级和共用 `target/verify`。不要再建 `target/iso-*` 这样的私有 target，也不要为了验证复制工作树。
+- `cargo test` 或 `cargo clippy` 已经触发编译时，不要再跑功能重叠的 `cargo build` 或 `cargo check`。
+- 全量（`--all`、`cargo ... --workspace`、不带 spec 的 `playwright test`、`pnpm lint`、`make ci`）只在用户明确要求时跑，这时走 `MS_VERIFY_BYPASS=1 scripts/verify/verify.py --all`，它能断点续跑。Claude Code 的 PreToolUse hook（`scripts/verify/guard.py`）会拦下绕过这些规则的命令。
+- 报错落在别的 session 正在改的文件里时不要替它修。退出码 3 表示被它们的半成品挡住，等几分钟后重跑同一条命令。
+- 仅文档或非代码修改不需要验证。不要多次询问用户是否运行验证；仅当命令有外部副作用或需要额外权限时才询问一次。
+- `git commit` 的 pre-commit 钩子只查暂存文件（版权头、格式、类型、相关 crate 的 clippy），已通过的不重跑。不要用 `--no-verify` 绕过。

@@ -199,6 +199,7 @@ mod tests {
             schema: sb.build(),
             atomic_files: Arc::new(Default::default()),
             object_size: 0,
+            hot_cache: Arc::new(Default::default()),
         })
     }
 

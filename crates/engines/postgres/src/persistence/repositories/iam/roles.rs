@@ -16,6 +16,7 @@ mod queries;
 use queries::{get_sql, list_sql, list_with_usage_sql};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IamRole {
     pub id: Id,
     pub org_id: Id,
@@ -25,15 +26,20 @@ pub struct IamRole {
     pub builtin: bool,
     pub role_type: String,
     pub scope: String,
+    /// The role's own permissions.
     pub permissions: Vec<String>,
+    /// The permission policies the role attaches.
+    pub policy_ids: Vec<Id>,
+    /// What the role grants: its own permissions and those of its policies. Read only.
+    pub effective_permissions: Vec<String>,
     pub created_at: TimestampMicros,
     pub updated_at: TimestampMicros,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RoleUsage {
     pub memberships: i64,
-    pub api_tokens: i64,
     pub service_accounts: i64,
     pub invitations: i64,
     pub bindings: i64,
@@ -47,19 +53,15 @@ pub struct IamRoleWithUsage {
 
 impl RoleUsage {
     pub fn total(&self) -> i64 {
-        self.memberships
-            + self.api_tokens
-            + self.service_accounts
-            + self.invitations
-            + self.bindings
+        self.memberships + self.service_accounts + self.invitations + self.bindings
     }
 }
 
 #[async_trait]
 pub trait IamRoleRepository: Send + Sync {
     async fn ensure_builtin_roles(&self, org_id: &Id) -> Result<()>;
-    /// Keep the owner role holding every permission in the catalog, platform scope included.
-    /// Returns how many assignments were missing. Run at startup, after migrations.
+    /// Keep the owner role holding exactly the organization permissions of the catalog. Returns
+    /// how many roles changed. Run at startup, after migrations.
     async fn grant_catalog_to_organization_owners(&self) -> Result<u64>;
     async fn list(&self, org_id: &Id) -> Result<Vec<IamRole>>;
     async fn list_with_usage(&self, org_id: &Id) -> Result<Vec<IamRoleWithUsage>>;
@@ -91,8 +93,19 @@ fn row_to(row: sqlx::postgres::PgRow, permissions: Vec<String>) -> Result<IamRol
         role_type: row.try_get("role_type").map_err(sqlx_err)?,
         scope: row.try_get("scope").map_err(sqlx_err)?,
         permissions,
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        policy_ids: row
+            .try_get::<Vec<String>, _>("policy_ids")
+            .map_err(sqlx_err)?
+            .into_iter()
+            .map(Id)
+            .collect(),
+        effective_permissions: row.try_get("effective_permissions").map_err(sqlx_err)?,
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -105,7 +118,7 @@ impl IamRoleRepository for PgIamRoleRepository {
         let inserted = sqlx::query(
             "INSERT INTO iam_roles (
                  id, org_id, role_key, name, description, builtin,
-                 role_type, scope, created_at_micros, updated_at_micros, permissions
+                 role_type, scope, created_at, updated_at, permissions
              )
              SELECT
                  gen_random_uuid()::TEXT,
@@ -119,25 +132,29 @@ impl IamRoleRepository for PgIamRoleRepository {
                  $2,
                  $2,
                  catalog.permissions
-               FROM iam_builtin_roles catalog
-              WHERE catalog.role_type = 'organization'
-                AND catalog.scope = 'organization'
+               FROM iam_roles catalog
+               JOIN organizations organization
+                 ON organization.id = $1
+              WHERE catalog.org_id IS NULL
+                AND catalog.scope =
+                    CASE WHEN organization.system THEN 'platform' ELSE 'organization' END
              ON CONFLICT (org_id, role_key) DO NOTHING",
         )
         .bind(&org_id.0)
-        .bind(now.0)
+        .bind(now)
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?
         .rows_affected();
 
-        // A built-in role has exactly the permissions of its catalog entry.
+        // A built-in role has exactly the permissions of its built-in row.
         let synced = sqlx::query(
             "UPDATE iam_roles role
                 SET permissions = catalog.permissions
-               FROM iam_builtin_roles catalog
+               FROM iam_roles catalog
               WHERE role.org_id = $1
                 AND role.builtin
+                AND catalog.org_id IS NULL
                 AND catalog.role_key = role.role_key
                 AND role.permissions IS DISTINCT FROM catalog.permissions",
         )
@@ -189,7 +206,6 @@ impl IamRoleRepository for PgIamRoleRepository {
 
                 let usage = RoleUsage {
                     memberships: row.try_get("memberships").map_err(sqlx_err)?,
-                    api_tokens: row.try_get("api_tokens").map_err(sqlx_err)?,
                     service_accounts: row.try_get("service_accounts").map_err(sqlx_err)?,
                     invitations: row.try_get("invitations").map_err(sqlx_err)?,
                     bindings: row.try_get("bindings").map_err(sqlx_err)?,
@@ -216,14 +232,18 @@ impl IamRoleRepository for PgIamRoleRepository {
     }
 
     async fn create(&self, mut role: IamRole) -> Result<IamRole> {
-        role.permissions = self.validate_permission_keys(&role.permissions).await?;
+        role.permissions = self
+            .validate_permission_keys(&role.permissions, &role.scope)
+            .await?;
+        self.validate_policy_ids(&role.org_id, &role.policy_ids)
+            .await?;
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
 
         sqlx::query(
             "INSERT INTO iam_roles
                 (id, org_id, role_key, name, description, builtin, role_type, scope,
-                 created_at_micros, updated_at_micros)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+                 policy_ids, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
         )
         .bind(&role.id.0)
         .bind(&role.org_id.0)
@@ -233,8 +253,9 @@ impl IamRoleRepository for PgIamRoleRepository {
         .bind(role.builtin)
         .bind(&role.role_type)
         .bind(&role.scope)
-        .bind(role.created_at.0)
-        .bind(role.updated_at.0)
+        .bind(policy_ids(&role.policy_ids))
+        .bind(role.created_at)
+        .bind(role.updated_at)
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
@@ -242,25 +263,31 @@ impl IamRoleRepository for PgIamRoleRepository {
         replace_permissions(&mut tx, &role.id.0, &role.permissions).await?;
         bump_version(&mut tx, &role.org_id).await?;
         tx.commit().await.map_err(sqlx_err)?;
-        Ok(role)
+        self.get(&role.org_id, &role.id).await
     }
 
     async fn update(&self, mut role: IamRole) -> Result<IamRole> {
-        role.permissions = self.validate_permission_keys(&role.permissions).await?;
+        role.permissions = self
+            .validate_permission_keys(&role.permissions, &role.scope)
+            .await?;
+        self.validate_policy_ids(&role.org_id, &role.policy_ids)
+            .await?;
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
 
         let result = sqlx::query(
             "UPDATE iam_roles
                 SET name = $3,
                     description = $4,
-                    updated_at_micros = $5
+                    policy_ids = $5,
+                    updated_at = $6
               WHERE org_id = $1 AND id = $2",
         )
         .bind(&role.org_id.0)
         .bind(&role.id.0)
         .bind(&role.name)
         .bind(&role.description)
-        .bind(role.updated_at.0)
+        .bind(policy_ids(&role.policy_ids))
+        .bind(role.updated_at)
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
@@ -306,17 +333,11 @@ impl IamRoleRepository for PgIamRoleRepository {
                     AND b.resource_id IS NULL
                     AND r.role_key = $2) AS memberships,
                 (SELECT COUNT(*)
-                   FROM api_tokens token
-                   JOIN iam_roles r ON r.id = token.role_id
-                  WHERE token.org_id = $1
-                    AND r.role_key = $2
-                    AND token.revoked = FALSE) AS api_tokens,
-                (SELECT COUNT(*)
                    FROM service_accounts account
                   JOIN iam_roles r ON r.id = account.role_id
                   WHERE account.org_id = $1
                     AND r.role_key = $2
-                    AND account.deleted_at_micros IS NULL) AS service_accounts,
+                    AND account.deleted_at IS NULL) AS service_accounts,
                 (SELECT COUNT(*)
                    FROM invitations invitation
                    JOIN iam_roles r ON r.id = invitation.role_id
@@ -337,7 +358,6 @@ impl IamRoleRepository for PgIamRoleRepository {
 
         Ok(RoleUsage {
             memberships: row.try_get("memberships").map_err(sqlx_err)?,
-            api_tokens: row.try_get("api_tokens").map_err(sqlx_err)?,
             service_accounts: row.try_get("service_accounts").map_err(sqlx_err)?,
             invitations: row.try_get("invitations").map_err(sqlx_err)?,
             bindings: row.try_get("bindings").map_err(sqlx_err)?,
@@ -346,7 +366,43 @@ impl IamRoleRepository for PgIamRoleRepository {
 }
 
 impl PgIamRoleRepository {
-    async fn validate_permission_keys(&self, permissions: &[String]) -> Result<Vec<String>> {
+    /// A role attaches built-in policies and its organization's own.
+    async fn validate_policy_ids(&self, org_id: &Id, ids: &[Id]) -> Result<()> {
+        let ids = policy_ids(ids);
+
+        if ids.is_empty() {
+            return Ok(());
+        }
+
+        let known: Vec<String> = sqlx::query_scalar(
+            "SELECT id
+               FROM iam_policies
+              WHERE id = ANY($1)
+                AND (organization_id IS NULL OR organization_id = $2)",
+        )
+        .bind(&ids)
+        .bind(&org_id.0)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
+
+        match ids
+            .iter()
+            .find(|id| !known.iter().any(|known| known == *id))
+        {
+            Some(unknown) => Err(Error::invalid(format!(
+                "unknown permission policy: {unknown}"
+            ))),
+            None => Ok(()),
+        }
+    }
+
+    /// The permissions, sorted and once each, all of them known and of the role's scope.
+    async fn validate_permission_keys(
+        &self,
+        permissions: &[String],
+        expected_scope: &str,
+    ) -> Result<Vec<String>> {
         let mut normalized = permissions
             .iter()
             .map(|permission| permission.trim().to_ascii_lowercase())
@@ -376,9 +432,9 @@ impl PgIamRoleRepository {
             let permission_key: String = row.try_get("permission_key").map_err(sqlx_err)?;
             let scope: String = row.try_get("scope").map_err(sqlx_err)?;
 
-            if scope != "organization" {
+            if scope != expected_scope {
                 return Err(Error::invalid(format!(
-                    "permission {permission_key} has {scope} scope, expected organization"
+                    "permission {permission_key} has {scope} scope, expected {expected_scope}"
                 )));
             }
 
@@ -397,6 +453,16 @@ impl PgIamRoleRepository {
 
         Ok(validated)
     }
+}
+
+/// A role lists the policies it attaches once each, in the order they were given.
+fn policy_ids(ids: &[Id]) -> Vec<&str> {
+    let mut seen = std::collections::BTreeSet::new();
+
+    ids.iter()
+        .map(|id| id.0.as_str())
+        .filter(|id| seen.insert(*id))
+        .collect()
 }
 
 /// A role lists its permissions sorted and once each.
@@ -422,7 +488,7 @@ async fn replace_permissions(
     Ok(())
 }
 
-async fn bump_version(tx: &mut sqlx::PgConnection, org_id: &Id) -> Result<u64> {
+pub(super) async fn bump_version(tx: &mut sqlx::PgConnection, org_id: &Id) -> Result<u64> {
     let version: i64 = sqlx::query_scalar("SELECT bump_iam_policy_version($1)")
         .bind(&org_id.0)
         .fetch_one(&mut *tx)

@@ -29,7 +29,7 @@ enum Record {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Args {
     record: Record,
     #[serde(default)]
@@ -102,7 +102,7 @@ pub(super) async fn execute(call: &WorkspaceCall<'_>, arguments: Value) -> Resul
                     kind: args.tool.clone().unwrap_or_else(|| "observation".into()),
                     label: args.title,
                     fact_status: args.fact_status.unwrap_or(FactStatus::Verified),
-                    source_ref: json!({ "tool": args.tool, "chat_id": call.workspace.chat_id.0 }),
+                    source_ref: json!({ "tool": args.tool, "chatId": call.workspace.chat_id.0 }),
                     query: args.query,
                     parameters: Value::Null,
                     summary: args.summary,

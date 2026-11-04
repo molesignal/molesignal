@@ -31,6 +31,8 @@
     "notify_defaults": "Fallback routes",
     "notify_deliveries": "Delivery log",
     "client_ip": "Client IP recognition",
+    "signin_requirements": "Sign-in requirements",
+    "signin_limits": "Sign-in limits",
     "nodes": "Nodes",
     "sso_providers": "SSO providers",
     "cipher_keys": "Cipher keys",
@@ -41,8 +43,16 @@
     "ai_toolsets": "AI toolsets",
     "query_management": "Query management",
     "audit": "Audit",
+    "audit_retention": "Audit retention",
+    "stream_retention": "Data retention",
+    "series_limits": "Metric cardinality",
+    "intake_usage": "Intake usage",
     "ai_providers": "AI providers",
-    "ai_prompts": "AI prompts"
+    "ai_prompts": "AI prompts",
+    "alert_evaluation": "Alert evaluation",
+    "group_alerting": "Alerting",
+    "holidays": "Holiday calendars",
+    "importance": "Priority and urgency"
   },
   "general": {
     "title": "General",
@@ -88,15 +98,17 @@
     },
     "access_control": {
       "title": "Access control",
-      "subtitle": "Manage how members join and how organization resources may be accessed publicly."
+      "subtitle": "Manage how organization resources may be accessed publicly."
     },
     "signup": {
       "title": "Registration and access",
-      "subtitle": "Control how new members join this organization and which access they receive.",
+      "subtitle": "Control whether people can create their own account on this instance. New accounts join the first organization.",
       "enabled": "Allow self-service joining",
-      "enabled_hint": "Users who meet the platform signup requirements can join this organization.",
+      "enabled_hint": "People who meet the sign-up requirements can create an account from the sign-in page.",
       "require_approval": "Require admin approval",
       "require_approval_hint": "An administrator must approve join requests before users can access the organization.",
+      "require_approval_no_email": "This instance can’t send email, so it can’t confirm who owns an address. New accounts always wait for an administrator’s approval. Configure SMTP and an external URL to allow signing up without approval.",
+      "require_approval_locked": "Always on while this instance can’t send email",
       "default_role": "Default organization role",
       "default_role_value": "IAM catalog default",
       "default_role_hint": "Members who join through self-service receive the default role configured in the IAM catalog.",
@@ -129,7 +141,11 @@
       "delete_description": "An organization is not deleted from inside itself. It is done from organization management, in the platform organization.",
       "manage_delete": "Open organization management",
       "enters_platform": "Takes you to the platform organization, where organizations are managed.",
-      "platform_only": "Only an owner or a platform administrator can delete an organization."
+      "platform_only": "Deleting an organization takes the Delete organization permission, which you do not have.",
+      "delete_own_description": "Deletes this organization and everything in it, for everyone. It cannot be undone.",
+      "delete_confirm_title": "Delete {{name}}?",
+      "delete_confirm_description": "Its members lose access, and everything in it is deleted and cannot be recovered. You will be signed out.",
+      "deleted": "{{name}} deleted"
     }
   },
   "preferences": {
@@ -212,26 +228,29 @@
   },
   "sso_providers": {
     "title": "SSO providers",
-    "subtitle": "OIDC, SAML, and LDAP identity providers users can sign in with.",
+    "subtitle": "OIDC, OAuth 2.0, SAML, and LDAP identity providers users can sign in with.",
     "new_provider": "New provider",
     "empty_title": "No SSO providers configured",
-    "empty_description": "Add an OIDC, SAML, or LDAP provider for centrally managed sign-in.",
+    "empty_description": "Add Google, GitHub, Feishu and other platforms, or a generic OIDC, OAuth 2.0, SAML, or LDAP provider, for centrally managed sign-in.",
     "columns": {
       "name": "Name",
       "kind": "Kind",
       "enabled": "Enabled",
-      "updated": "Updated"
+      "updated": "Updated",
+      "test": "Test sign-in"
     },
     "kinds": {
       "oidc": "OIDC",
       "saml": "SAML",
-      "ldap": "LDAP"
+      "ldap": "LDAP",
+      "oauth2": "OAuth 2.0"
     },
     "actions": {
       "edit": "Edit",
       "delete": "Delete",
       "enable": "Enable",
-      "disable": "Disable"
+      "disable": "Disable",
+      "test": "Test"
     },
     "delete_confirm_title": "Delete SSO provider?",
     "delete_confirm_description": "Users that depended on this provider will no longer be able to sign in via SSO.",
@@ -246,7 +265,8 @@
         "saml": "SAML settings",
         "ldap": "LDAP settings",
         "field_mapping": "Identity field mapping",
-        "role_mapping": "Role binding"
+        "role_mapping": "Role binding",
+        "oauth2": "OAuth 2.0 settings"
       },
       "fields": {
         "name": "Name",
@@ -287,10 +307,21 @@
         "bind_dn": "Search bind DN",
         "bind_dn_placeholder": "cn=reader,dc=example,dc=com",
         "bind_password": "Search bind password",
-        "bind_pair_hint": "Leave both bind fields empty only when anonymous search is allowed"
+        "bind_pair_hint": "Leave both bind fields empty only when anonymous search is allowed",
+        "protocol": "Protocol",
+        "discover": "Discover",
+        "discovering": "Reading…",
+        "discover_hint": "Reads the issuer's .well-known/openid-configuration and fills in the endpoints below.",
+        "discovered": "Endpoints filled in from the discovery document",
+        "endpoints": "Endpoints and scopes",
+        "endpoints_pending": "The endpoints appear once the fields above are filled in.",
+        "copy_endpoint": "Copy URL",
+        "endpoint_copied": "URL copied",
+        "oauth2_userinfo_hint": "After sign-in this endpoint is read with the access token, and the field mapping picks the account out of it.",
+        "sp_entity_id_hint": "How the identity provider knows MoleSignal; defaults to the instance address."
       },
       "mapping": {
-        "oidc_hint": "Map MoleSignal identity fields to OIDC claims. Dot-separated paths such as realm_access.roles are supported.",
+        "oidc_hint": "Map MoleSignal identity fields to OIDC claims. Dot-separated paths such as realm_access.roles are supported; separate several sources with | to take the first that has a value.",
         "saml_hint": "Map MoleSignal identity fields to SAML Attribute names. Use NameID to read the assertion subject.",
         "ldap_hint": "Map MoleSignal identity fields to LDAP attributes. Use dn to read the matched entry DN.",
         "platform_field": "MoleSignal field",
@@ -298,7 +329,7 @@
         "fields": {
           "subject": "Stable subject",
           "email": "Email",
-          "display_name": "Display name",
+          "displayName": "Display name",
           "groups": "Groups"
         },
         "default_role": "Default role",
@@ -317,7 +348,10 @@
         "group_value_placeholder": "e.g. platform-admins",
         "select_role": "Select role",
         "selected_role": "MoleSignal role",
-        "remove_group_role": "Remove mapping"
+        "remove_group_role": "Remove mapping",
+        "oauth2_hint": "Map MoleSignal identity fields to the JSON the user endpoint returns. Dot-separated paths are supported; separate several sources with | to take the first that has a value.",
+        "github_fixed": "GitHub is read in a fixed way: the subject is the account's numeric ID, the email is the verified primary address, and groups are organizations (my-org) and teams (my-org/sre).",
+        "no_groups": "This platform sends no groups, so every account that signs in gets the default role."
       },
       "submit_create": "Create provider",
       "submit_update": "Save changes",
@@ -326,8 +360,379 @@
       "toast_updated": "SSO provider updated",
       "toast_deleted": "SSO provider deleted",
       "toast_enabled": "Provider enabled",
-      "toast_disabled": "Provider disabled"
+      "toast_disabled": "Provider disabled",
+      "metadata": {
+        "label": "IdP metadata",
+        "url": "Metadata URL",
+        "xml": "Metadata XML",
+        "use_url": "Use a URL",
+        "use_xml": "Paste XML",
+        "import": "Import",
+        "importing": "Importing…",
+        "imported": "IdP entity ID, sign-on URL, and signing certificate filled in from the metadata",
+        "hint": "Fills in the three fields below from the metadata; they can also be entered by hand."
+      }
+    },
+    "platforms": {
+      "custom": "Generic",
+      "google": "Google",
+      "microsoft": "Microsoft Entra ID",
+      "github": "GitHub",
+      "gitlab": "GitLab",
+      "okta": "Okta",
+      "auth0": "Auth0",
+      "keycloak": "Keycloak",
+      "authentik": "authentik",
+      "feishu": "Feishu / Lark",
+      "adfs": "AD FS",
+      "jumpcloud": "JumpCloud",
+      "active_directory": "Active Directory",
+      "openldap": "OpenLDAP",
+      "freeipa": "FreeIPA"
+    },
+    "picker": {
+      "subtitle": "Pick a platform and its endpoints, scopes, and field mapping are filled in.",
+      "groups": {
+        "popular": "Popular platforms",
+        "directory": "Enterprise directories",
+        "generic": "Generic protocols"
+      },
+      "generic": "Configure by hand",
+      "change": "Change platform"
+    },
+    "presets": {
+      "inputs": {
+        "malformed": "Not in the expected format",
+        "tenant_id": "Directory (tenant) ID",
+        "tenant_id_hint": "Copy it from the app registration's Overview page.",
+        "cloud": "Cloud",
+        "cloud_global": "Global",
+        "cloud_china": "Operated by 21Vianet (China)",
+        "okta_domain": "Okta domain",
+        "authorization_server": "Authorization server",
+        "authorization_server_hint": "The ID of a custom authorization server; leave empty for the org authorization server.",
+        "auth0_domain": "Tenant domain",
+        "server_url": "Server URL",
+        "realm": "Realm",
+        "application_slug": "Application slug",
+        "instance_url": "Instance URL",
+        "github_deployment": "Deployment",
+        "github_cloud": "GitHub.com",
+        "github_server": "GitHub Enterprise Server",
+        "github_host": "Server host",
+        "feishu_edition": "Edition",
+        "feishu_china": "Feishu (China)",
+        "feishu_lark": "Lark (international)"
+      },
+      "hints": {
+        "google": "In the Google Cloud console, create an OAuth client ID (Web application) and add the redirect URI below to Authorized redirect URIs.",
+        "microsoft": "In the Microsoft Entra app registration, add a Web platform with the redirect URI, then create a client secret. The groups claim carries group object IDs.",
+        "okta": "In Okta, create an OIDC web app and add the redirect URI to Sign-in redirect URIs. To read groups, add a groups claim on the authorization server.",
+        "auth0": "In Auth0, create a Regular Web Application and add the redirect URI to Allowed Callback URLs. Auth0 sends no groups by itself: write them into a custom claim with an Action, then point the groups mapping at it.",
+        "keycloak": "In the realm, create an OpenID Connect client with Client authentication on and add the redirect URI to Valid redirect URIs. To read groups, add a Group Membership mapper with groups as the token claim name.",
+        "authentik": "Create an OAuth2/OpenID provider bound to an application and add the redirect URI to Redirect URIs. The application slug is on the application's page.",
+        "gitlab": "In GitLab's Applications, create an application with the openid, profile, and email scopes and the redirect URI as its callback URL.",
+        "github": "In GitHub's Settings → Developer settings → OAuth Apps, create an app with the redirect URI as its authorization callback URL. Where an organization restricts OAuth app access, an owner must approve the app before its organizations and teams can be read.",
+        "feishu": "In the Feishu open platform's custom app, add the redirect URL under Security settings and grant the permission to read user email under Permissions. The App ID and App Secret are the client ID and secret.",
+        "microsoft_saml": "In the enterprise application's Single sign-on, choose SAML: the identifier is the SP entity ID and the reply URL is the ACS URL. Then import its App Federation Metadata Url below.",
+        "okta_saml": "In Okta, create a SAML 2.0 app: the single sign-on URL is the ACS URL and the audience URI is the SP entity ID. Add email and displayName attribute statements and a groups group attribute statement.",
+        "google_saml": "In the Google Admin console, add a custom SAML app: the ACS URL and entity ID are the values below. Map email and name, and group membership to groups. Download the IdP metadata and paste it below.",
+        "adfs": "Add a relying party trust: the identifier is the SP entity ID and the SAML assertion consumer endpoint is the ACS URL (POST). Issue E-Mail Address, Name, and Token-Groups with claim rules.",
+        "jumpcloud": "Create a SAML app with the SP entity ID and ACS URL below. Add email and name user attributes and turn on Include group attribute (memberOf). Export the metadata and paste it below.",
+        "active_directory": "Users sign in with their Windows account name, UPN, or email. The search account only needs to read users and memberOf.",
+        "openldap": "Groups are read from memberOf, which needs the memberof overlay.",
+        "freeipa": "A read-only service account under cn=sysaccounts,cn=etc works for the search."
+      },
+      "metadata": {
+        "microsoft": "https://login.microsoftonline.com/<tenant ID>/federationmetadata/2007-06/federationmetadata.xml?appid=<app ID>",
+        "okta": "https://<Okta domain>/app/<app ID>/sso/saml/metadata",
+        "adfs": "https://<AD FS host>/FederationMetadata/2007-06/FederationMetadata.xml",
+        "xml": "Paste the metadata XML downloaded from the identity provider"
+      }
+    },
+    "access": {
+      "title": "Sign-in scope",
+      "allowed_groups": "Groups allowed to sign in",
+      "allowed_groups_hint": "When set, only accounts in one of these groups can sign in with this provider; empty allows every account.",
+      "add_group": "Add group",
+      "remove_group": "Remove",
+      "group_placeholder": "e.g. platform-admins",
+      "github_group_placeholder": "e.g. my-org or my-org/sre",
+      "public_title": "This provider accepts public accounts",
+      "public_missing": "Anyone can create such an account. Before enabling it, add the organization's email domains or the groups allowed to sign in.",
+      "public_domains": "New accounts can join only with an email address on {{domains}}.",
+      "public_groups": "Only accounts in the allowed groups can sign in.",
+      "public_reason": "Restrict email domains or allowed groups first",
+      "email_domains_link": "Manage email domains",
+      "list_separator": ", "
+    },
+    "test": {
+      "title": "Test sign-in",
+      "hint": "Goes through a real sign-in with the saved settings. No session starts, no account is created or linked, and your own sign-in stays as it is.",
+      "save_first": "Save your changes first: a test runs on the saved settings.",
+      "standing": {
+        "untested": "Not tested",
+        "passed": "Passed",
+        "failed": "Failed",
+        "stale": "Settings changed",
+        "waiting": "Waiting…"
+      },
+      "toast_passed": "“{{name}}” passed the test sign-in",
+      "toast_failed": "“{{name}}” failed the test sign-in. Open its result to see why.",
+      "toast_expired": "No result came back from “{{name}}”",
+      "directory": {
+        "title": "Test sign-in · {{name}}",
+        "description": "Checks an account against the directory, the way a sign-in does. A wrong password counts toward the directory’s lockout policy and this instance’s sign-in limits. The password isn’t stored.",
+        "username": "Directory account",
+        "password": "Password",
+        "submit": "Test"
+      },
+      "result": {
+        "title": "Test sign-in · {{name}}",
+        "meta": "Started by {{who}} · {{when}}",
+        "meta_you": "Started by you · {{when}}",
+        "back": "Back to providers",
+        "again": "Test again",
+        "passed_title": "This provider signs in",
+        "passed_body": "The sign-in went all the way through. Nothing changed: no session started, no account was created or linked, and no roles moved.",
+        "pending_title": "Waiting for the identity provider",
+        "pending_body": "Finish signing in on the other tab; this page updates by itself. If the identity provider shows an error there, it can’t reach this page. The usual cause is a redirect URI it doesn’t have registered.",
+        "expired_title": "No result came back",
+        "expired_body": "The identity provider didn’t send the browser back within 10 minutes. If it showed an error page, the usual cause is a redirect URI it doesn’t have registered. Check that, then test again.",
+        "stale_title": "This result no longer counts",
+        "stale_body": "The provider’s settings changed after this test. Test again to check the current ones.",
+        "copy_detail": "Copy the message",
+        "copied_detail": "Message copied",
+        "notes_title": "Worth checking",
+        "identity_title": "What the provider returned",
+        "email": "Email",
+        "email_unverified": "not verified",
+        "name": "Name",
+        "subject": "Subject",
+        "groups": "Groups",
+        "no_groups": "None",
+        "more_groups": "and {{count}} more",
+        "mapping_title": "What a real sign-in would do",
+        "account_label": "Account",
+        "roles_label": "Roles",
+        "no_roles": "None",
+        "account": {
+          "bound_you": "Signs in to your account, {{email}}.",
+          "bound_other": "Signs in to the account {{email}}.",
+          "link_you": "Your account {{email}} has this email, but this identity isn’t linked to it yet. Your first sign-in asks you to confirm, with your password or a code sent by email.",
+          "link_other": "The account {{email}} has this email, but this identity isn’t linked to it yet. Its owner confirms at the first sign-in, with the password or a code sent by email.",
+          "create": "No account has this email. The first sign-in creates {{email}}, without a password.",
+          "joins": "It joins this workspace at that sign-in."
+        },
+        "role_source": {
+          "group_mapping": "From the groups: {{groups}}",
+          "default_role": "The provider’s default role",
+          "signup": "What new members get: no group or default role applies",
+          "unchanged": "Stays as it is: no group or default role applies"
+        }
+      },
+      "failures": {
+        "idp_error": {
+          "title": "The identity provider refused the sign-in",
+          "advice": "Read its message below. Usually the account isn’t assigned to this application, or a scope isn’t allowed."
+        },
+        "no_code": {
+          "title": "The identity provider sent no authorization code",
+          "advice": "Check that the application uses the authorization code flow, and that the authorization URL is right."
+        },
+        "network": {
+          "title": "This server couldn’t reach the identity provider",
+          "advice": "Check the token and user info URLs, and that this server can reach them through any proxy or firewall."
+        },
+        "token_exchange": {
+          "title": "The identity provider refused the authorization code",
+          "advice": "Check the client ID and client secret, and that the redirect URI is registered exactly as shown in the settings."
+        },
+        "no_id_token": {
+          "title": "The identity provider returned no ID token",
+          "advice": "Add the openid scope. If this provider doesn’t do OpenID Connect, set it up as OAuth 2.0 instead."
+        },
+        "id_token_issuer": {
+          "title": "The ID token came from another issuer",
+          "advice": "Set the issuer URL to the value in the provider’s discovery document, including its path."
+        },
+        "id_token_audience": {
+          "title": "The ID token is for another application",
+          "advice": "Check that the client ID is the one of this application at the identity provider."
+        },
+        "id_token_expired": {
+          "title": "The ID token has expired or isn’t valid yet",
+          "advice": "Check that the clocks of this server and the identity provider agree."
+        },
+        "id_token_nonce": {
+          "title": "The ID token doesn’t belong to this sign-in",
+          "advice": "Test again. If it keeps happening, the identity provider isn’t returning the nonce, or something between is caching its answer."
+        },
+        "id_token_invalid": {
+          "title": "The ID token didn’t pass verification",
+          "advice": "Check the JWKS URL and the signing algorithm. A token signed with the client secret needs that secret saved here."
+        },
+        "jwks": {
+          "title": "The identity provider’s signing keys couldn’t be used",
+          "advice": "Check the JWKS URL, and that this server can reach it."
+        },
+        "userinfo": {
+          "title": "The user info request failed",
+          "advice": "Check the user info URL, and that the scopes allow reading the profile."
+        },
+        "claim_missing": {
+          "title": "The identity provider didn’t return a mapped field",
+          "advice": "The message below names it. Correct the identity field mapping, or add the scope or claim that carries the field."
+        },
+        "saml_status": {
+          "title": "The identity provider answered with a failure",
+          "advice": "Read its message below. Usually the account isn’t assigned to this application."
+        },
+        "saml_no_response": {
+          "title": "The callback carried no SAML response",
+          "advice": "Check that the identity provider posts to the ACS URL shown in the settings."
+        },
+        "saml_malformed": {
+          "title": "The SAML response couldn’t be read",
+          "advice": "Check that the identity provider sends a signed assertion with the HTTP-POST binding."
+        },
+        "saml_certificate": {
+          "title": "The signing certificate doesn’t match",
+          "advice": "Copy the current signing certificate from the identity provider, or read its metadata again."
+        },
+        "saml_signature": {
+          "title": "The assertion’s signature didn’t verify",
+          "advice": "The assertion itself must be signed, not only the response. Check the signing settings and the certificate."
+        },
+        "saml_time": {
+          "title": "The assertion is outside its validity window",
+          "advice": "Check that the clocks of this server and the identity provider agree."
+        },
+        "saml_audience": {
+          "title": "The assertion is for another service",
+          "advice": "Set the audience at the identity provider to this provider’s SP entity ID."
+        },
+        "saml_recipient": {
+          "title": "The assertion is for another address",
+          "advice": "Set the ACS URL at the identity provider exactly as shown in the settings."
+        },
+        "ldap_connect": {
+          "title": "This server couldn’t connect to the directory",
+          "advice": "Check the address, the port and the TLS settings, and that this server trusts the directory’s certificate."
+        },
+        "ldap_service_bind": {
+          "title": "The directory refused the search account",
+          "advice": "Check the search bind DN and its password."
+        },
+        "ldap_search": {
+          "title": "The user search failed",
+          "advice": "Check the user base DN and the syntax of the search filter."
+        },
+        "ldap_no_entry": {
+          "title": "No directory entry matches this account",
+          "advice": "Check the account name, the user base DN and the search filter."
+        },
+        "ldap_many_entries": {
+          "title": "Several directory entries match this account",
+          "advice": "Narrow the search filter so it finds exactly one entry."
+        },
+        "ldap_missing_attribute": {
+          "title": "The directory entry lacks a mapped attribute",
+          "advice": "The message below names it. Correct the identity field mapping."
+        },
+        "ldap_rejected": {
+          "title": "The directory refused this password",
+          "advice": "Check the password, and whether the account is locked or has expired. This attempt counts toward the directory’s lockout policy."
+        },
+        "group_not_allowed": {
+          "title": "This account isn’t in an allowed group",
+          "advice": "Add it to one of the allowed groups, or change the list. If the provider returned no groups above, check the groups field mapping and the scopes."
+        },
+        "email_unverified": {
+          "title": "The identity provider hasn’t verified this email",
+          "advice": "Verify it at the identity provider: a provider open to public accounts only lets in verified addresses."
+        },
+        "provider_unrestricted": {
+          "title": "This provider accepts public accounts without a limit",
+          "advice": "Add the organization’s email domains, or the groups allowed to sign in."
+        },
+        "invalid_email": {
+          "title": "The email the provider returned isn’t an address",
+          "advice": "Map the email field to a claim that holds an address."
+        },
+        "email_domain": {
+          "title": "This email’s domain can’t join the workspace",
+          "advice": "Add the domain under Email domains, or sign in with an address on an allowed domain."
+        },
+        "org_disabled": {
+          "title": "This workspace is disabled",
+          "advice": "A platform administrator has to enable it first."
+        },
+        "account_unavailable": {
+          "title": "The account this identity maps to can’t sign in",
+          "advice": "It is disabled, waiting for approval or was rejected. Check it under Users."
+        },
+        "account_confined": {
+          "title": "This account belongs to another organization’s single sign-on",
+          "advice": "Its owner has to verify the email, by resetting the password, before it can join here."
+        },
+        "role_missing": {
+          "title": "The role binding names a role that no longer exists",
+          "advice": "Edit the provider and choose an existing role."
+        },
+        "directory_blocked": {
+          "title": "This workspace only allows single sign-on",
+          "advice": "Directory sign-ins can’t enter while “Only allow single sign-on” is on."
+        },
+        "settings_changed": {
+          "title": "The settings changed during this test",
+          "advice": "Test again with the saved settings."
+        },
+        "unknown": {
+          "title": "The test didn’t go through",
+          "advice": "Check the message below, if there is one, and the provider’s settings, then test again."
+        }
+      },
+      "notes": {
+        "no_groups": "The provider returned no groups, so the role binding has nothing to match. Check the groups field mapping and the scopes.",
+        "groups_unmapped": "None of these groups is in the role binding.",
+        "another_account": "This isn’t the account you’re using now. Test with your own to see that you can still get in.",
+        "roles_change": "Signing in replaces this member’s roles with the ones shown. Check that an administrator keeps enough access.",
+        "second_factor": "A real sign-in also asks this account for a second factor."
+      }
     }
+  },
+  "signin_requirements": {
+    "title": "Sign-in requirements",
+    "subtitle": "What entering this workspace asks of a sign-in. Changes reach every session within 15 minutes.",
+    "platform_subtitle": "What entering the platform organization asks of a sign-in. Changes reach every session within 15 minutes.",
+    "mfa_label": "Require multi-factor authentication",
+    "mfa_description": "Entering this workspace takes multi-factor authentication. Members who haven’t turned it on set it up at their next sign-in; for members coming through this workspace’s single sign-on, the identity provider is responsible.",
+    "mfa_platform": "Entering the platform organization takes multi-factor authentication. Accounts that haven’t turned it on set it up at their next sign-in.",
+    "sso_label": "Only allow single sign-on",
+    "sso_description": "The only way in is this workspace’s OIDC, OAuth 2.0 or SAML provider: account passwords, passkeys and LDAP can’t enter. The root user is the exception, to get in when the identity provider is down.",
+    "sso_unavailable": "Enable an OIDC, OAuth 2.0 or SAML provider first.",
+    "mfa_confirm_title": "Require multi-factor authentication?",
+    "mfa_confirm_description": "Within 15 minutes, every session without multi-factor authentication has to sign in again, yours included. Members who haven’t turned it on set it up as they sign in.",
+    "sso_confirm_title": "Only allow single sign-on?",
+    "sso_confirm_description": "Within 15 minutes, every session that didn’t come through this workspace’s single sign-on has to sign in again, yours included, and database clients can no longer connect with an account password.",
+    "confirm": "Turn on",
+    "saved": "Sign-in requirements saved",
+    "last_provider": "This workspace only allows single sign-on, and this is its last working provider. Turn off “Only allow single sign-on” first.",
+    "sso_untested_note": "No provider has passed a test sign-in with its current settings. Run one from the list below.",
+    "sso_untested_title": "Only allow single sign-on without a passing test?",
+    "sso_untested_description": "No provider of this workspace has passed a test sign-in with its current settings, so nothing shows that anyone can still get in. Cancel to test one first.",
+    "fact_tested": "Tested",
+    "fact_tested_value": "{{name}}: passed, {{when}}",
+    "fact_providers": "Providers",
+    "fact_provider_value": "{{name}}: {{status}}",
+    "fact_sessions": "Sessions",
+    "fact_sessions_value": "Within 15 minutes, every session that didn’t come through single sign-on ends, yours included.",
+    "fact_clients": "Clients",
+    "fact_clients_value": "Database clients can no longer connect with an account password.",
+    "fact_way_back": "Way back",
+    "fact_way_back_value": "Only the root user can still get in with a password.",
+    "confirm_untested": "Turn on anyway"
   },
   "cipher_keys": {
     "title": "Cipher keys",
@@ -449,8 +854,8 @@
       "intake_hint": "Each intake process pairs spans in memory and flushes them. Latency is low, but spans split across nodes may be undercounted."
     },
     "client_ip": {
-      "title": "RUM client IP recognition",
-      "subtitle": "Choose how this deployment identifies client addresses at the RUM intake boundary. Proxy headers are trusted only when the TCP peer matches an approved CIDR.",
+      "title": "Client IP recognition",
+      "subtitle": "Choose how this deployment identifies client addresses for RUM, sign-in limits, and the audit of public links. Proxy headers are trusted only when the TCP peer matches an approved CIDR.",
       "resolver_title": "Client IP resolver",
       "resolver_subtitle": "This database-backed setting is shared by the deployment and refreshes across collector nodes without restarting them.",
       "mode": "Address source",
@@ -475,8 +880,8 @@
       "max_chain_length": "Maximum chain length",
       "fallback": "Fall back to connection address",
       "fallback_hint": "Use the TCP peer if the trusted header is missing, malformed, too long, or has no usable client address.",
-      "allow_private": "Allow private addresses from headers",
-      "allow_private_hint": "Permit private, loopback, and link-local addresses resolved from a trusted header. Leave off for public browser traffic.",
+      "allow_private": "Count private addresses as clients",
+      "allow_private_hint": "Accept private, loopback and link-local addresses from a trusted header, and count them as sources for sign-in limits. Turn on when people connect from a private network. Leave off behind a proxy you haven’t set up here: everyone would count as one address.",
       "save": "Save changes",
       "saving": "Saving…",
       "saved": "Client IP settings saved",
@@ -629,6 +1034,11 @@
   "audit": {
     "title": "Audit",
     "subtitle": "Search the audit trail by time, actor, action, and target.",
+    "subtitle_retention_days_one": "Search the audit trail by time, actor, action, and target. Records are kept for {{count}} day.",
+    "subtitle_retention_days_other": "Search the audit trail by time, actor, action, and target. Records are kept for {{count}} days.",
+    "subtitle_retention_forever": "Search the audit trail by time, actor, action, and target. Records are kept forever.",
+    "change_retention": "Change retention",
+    "change_retention_hint": "Takes you to the platform organization, where audit retention is set.",
     "empty_title": "No audit events",
     "empty_description": "No events match the current filters.",
     "filters": {
@@ -642,7 +1052,19 @@
       "target_id": "Target id",
       "apply": "Apply",
       "reset": "Reset",
-      "placeholder_relative": "e.g. now-24h"
+      "placeholder_relative": "e.g. now-24h",
+      "range": "Time range",
+      "ranges": {
+        "1h": "Last hour",
+        "24h": "Last 24 hours",
+        "7d": "Last 7 days",
+        "30d": "Last 30 days",
+        "all": "All time",
+        "custom": "Custom range"
+      },
+      "actor_kind_all": "All actor kinds",
+      "action_all": "All actions",
+      "target_kind_all": "All target kinds"
     },
     "columns": {
       "ts": "Time",
@@ -678,7 +1100,258 @@
         "tool": "Tool",
         "system": "System"
       }
+    },
+    "views_label": "Which records",
+    "views": {
+      "all": "All",
+      "access": "Access and sign-in"
+    },
+    "views_page_hint": "Among the records of this page",
+    "actor_kinds": {
+      "user": "User",
+      "service_account": "Service account",
+      "api_token": "API token",
+      "system": "System",
+      "agent": "Mole Agent"
+    },
+    "load_error": "Could not load the audit trail",
+    "words": {
+      "access": "access",
+      "action": "action",
+      "add": "added",
+      "agent": "Agent",
+      "alert": "alert",
+      "alerts": "alerts",
+      "apm": "APM",
+      "archived": "archived",
+      "automation": "automation",
+      "calendar": "calendar",
+      "cancelled": "cancelled",
+      "changed": "changed",
+      "chat": "chat",
+      "code": "code",
+      "codes": "codes",
+      "configure": "configured",
+      "connector": "connector",
+      "create": "created",
+      "created": "created",
+      "debug": "debug",
+      "delete": "deleted",
+      "deleted": "deleted",
+      "disable": "turned off",
+      "disabled": "disabled",
+      "domain": "domain",
+      "download": "downloaded",
+      "enabled": "enabled",
+      "error": "error",
+      "escalation": "escalation",
+      "evaluation": "evaluation",
+      "evaluator": "evaluator",
+      "failure": "failed",
+      "holiday": "holiday",
+      "http": "request",
+      "imported": "imported",
+      "incident": "incident",
+      "inhibit": "inhibition",
+      "inhibition": "inhibition",
+      "issue": "issued",
+      "issued": "issued",
+      "lifted": "lifted",
+      "limits": "limits",
+      "lockout": "locked out",
+      "mailbox": "mailbox",
+      "memory": "memory",
+      "mfa": "MFA",
+      "open": "opened",
+      "others": "others",
+      "passkey": "passkey",
+      "password": "password",
+      "policies": "policies",
+      "policy": "policy",
+      "preview": "previewed",
+      "publish": "published",
+      "quality": "quality",
+      "query": "queried",
+      "recovery": "recovery",
+      "regenerate": "regenerated",
+      "remediation": "remediation",
+      "remove": "removed",
+      "removed": "removed",
+      "requested": "requested",
+      "reset": "reset",
+      "resource": "resource",
+      "retention": "retention",
+      "retry": "retried",
+      "revision": "revision",
+      "revoke": "revoked",
+      "rotate": "rotated",
+      "rotated": "rotated",
+      "routing": "routing",
+      "rule": "rule",
+      "rules": "rules",
+      "run": "run",
+      "saved": "saved",
+      "schedule": "schedule",
+      "schedules": "schedules",
+      "series": "series",
+      "session": "session",
+      "sessions": "sessions",
+      "share": "share",
+      "signin": "sign-in",
+      "slo": "SLO",
+      "source": "source",
+      "stream": "stream",
+      "swap": "swap",
+      "synthetic": "synthetic",
+      "ticket": "ticket",
+      "token": "token",
+      "totp": "TOTP",
+      "trace": "trace",
+      "unlock": "unlocked",
+      "update": "updated",
+      "updated": "updated",
+      "use": "used",
+      "verify": "verified"
     }
+  },
+  "audit_retention": {
+    "title": "Audit retention",
+    "subtitle": "Audit records of every organization and of the platform are kept for the number of days set here.",
+    "section_title": "Retention period",
+    "days": "Days to keep",
+    "days_hint": "Older records are deleted once a day and cannot be recovered. Enter 0 to keep them forever.",
+    "days_unit": "days",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "saved": "Audit retention saved",
+    "unsaved": "Unsaved changes",
+    "synced": "Settings are in sync",
+    "invalid": "Enter a whole number from 0 to 3650.",
+    "preview": {
+      "counting": "Counting the records this change would delete…",
+      "failed": "The records could not be counted. Saving will ask for the days to keep typed again.",
+      "nothing": "No records would be deleted right now.",
+      "found_one": "This change would delete {{rows}} record, from {{earliest}}.",
+      "found_other": "This change would delete {{rows}} records, the oldest from {{earliest}}."
+    },
+    "confirm": {
+      "title_one": "Shorten audit retention from {{from}} days to {{count}} day?",
+      "title_other": "Shorten audit retention from {{from}} days to {{count}} days?",
+      "title_from_forever_one": "Stop keeping audit records forever and keep them for {{count}} day?",
+      "title_from_forever_other": "Stop keeping audit records forever and keep them for {{count}} days?",
+      "description": "The next daily cleanup deletes these records and they cannot be recovered.",
+      "description_unknown_one": "The records could not be counted. The next daily cleanup deletes records older than {{count}} day and they cannot be recovered.",
+      "description_unknown_other": "The records could not be counted. The next daily cleanup deletes records older than {{count}} days and they cannot be recovered.",
+      "action": "Shorten retention",
+      "records": "Records",
+      "earliest": "Oldest",
+      "type_first": "Type the days to keep first."
+    }
+  },
+  "stream_retention": {
+    "title": "Data retention",
+    "subtitle": "Streams without a retention of their own keep the default; the runs of synthetic checks keep their own number of days.",
+    "section_title": "Default retention",
+    "days": "Days to keep",
+    "days_hint": "Each stream can set its own retention in its settings. Data older than the retention is deleted in the next cleanup and cannot be recovered.",
+    "days_unit": "days",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "saved": "Default retention saved",
+    "unsaved": "Unsaved changes",
+    "synced": "Settings are in sync",
+    "invalid": "Enter a whole number from 1 to {{max}}.",
+    "preview": {
+      "title": "What this change would delete",
+      "estimated": "Estimated from the file catalog",
+      "estimating": "Estimating what this change would delete…",
+      "failed": "The impact could not be estimated. Saving will ask for the days to keep typed again.",
+      "nothing": "Nothing to delete right now: no stream holds files from that period.",
+      "streams": "Streams",
+      "rows": "Rows",
+      "size": "Size",
+      "earliest": "Oldest data",
+      "unread": "Not read",
+      "unavailable_one": "{{count}} stream, so the real figures may be higher",
+      "unavailable_other": "{{count}} streams, so the real figures may be higher",
+      "column_stream": "Stream",
+      "column_organization": "Organization",
+      "column_type": "Type",
+      "showing": "The largest {{shown}} of {{total}} streams.",
+      "show_all": "Show more",
+      "not_counted": "Session replays and profile archives follow this setting too and are not counted."
+    },
+    "confirm": {
+      "title_one": "Shorten the default retention from {{from}} days to {{count}} day?",
+      "title_other": "Shorten the default retention from {{from}} days to {{count}} days?",
+      "description": "These figures are estimated from the file catalog. The next cleanup deletes this data and it cannot be recovered.",
+      "description_unknown_one": "The impact could not be estimated. The next cleanup deletes data older than {{count}} day and it cannot be recovered.",
+      "description_unknown_other": "The impact could not be estimated. The next cleanup deletes data older than {{count}} days and it cannot be recovered.",
+      "action": "Shorten retention",
+      "type_first": "Type the days to keep first."
+    }
+  },
+  "synthetic_retention": {
+    "section_title": "Synthetic results",
+    "days": "Days to keep runs",
+    "days_hint": "Older runs, their artifacts and finished tasks are deleted once a day; 0 keeps them for good. The _synthetic_results stream that availability reads follows its own stream retention.",
+    "saved": "Synthetic result retention saved",
+    "invalid": "Enter a whole number from 0 to {{max}}."
+  },
+  "series_limits": {
+    "title": "Metric cardinality",
+    "subtitle": "Limits how many series Prometheus writes may keep active at once, so high-cardinality labels cannot exhaust memory and storage.",
+    "section_title": "Active series limits",
+    "per_org": "Per organization",
+    "per_org_hint": "How many series an organization may keep active at once. At the limit, writes of new series are rejected while existing series keep being written; a series without data for a while is no longer active.",
+    "per_metric": "Per metric",
+    "per_metric_hint": "How many series one metric of an organization may keep active at once, at most the organization limit.",
+    "unit": "series",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "saved": "Active series limits saved",
+    "unsaved": "Unsaved changes",
+    "synced": "Settings are in sync",
+    "invalid": "Enter whole numbers from 1 to {{max}}, with the metric limit at most the organization limit."
+  },
+  "signin_limits": {
+    "title": "Sign-in limits",
+    "subtitle": "Stop password guessing without letting anyone lock someone else out. Passkeys and single sign-on aren’t counted or limited.",
+    "section_title": "Failed passwords",
+    "section_subtitle": "Enter 0 to turn a count off. An unknown account counts like any other, so the answer never says whether an account exists. The access password of a public link counts the same way, with each link as one account.",
+    "account_source": "One account from one address",
+    "account_source_hint": "Failures before this address is locked out of this account. Nobody else is affected.",
+    "source": "One address, any account",
+    "source_hint": "Failures before this address can’t sign in with a password at all. People sharing the address are affected too.",
+    "account": "One account from all addresses",
+    "account_hint": "Failures before passwords for this account are slowed down. The account is never locked, and an address that signed in during the last 30 days isn’t slowed.",
+    "interval": "While slowed down, check a password every",
+    "interval_hint": "From 1 to 600 seconds. Attempts in between are told to try again later, without checking the password.",
+    "lock": "Lock and count for",
+    "lock_hint": "How long an address stays locked, and how far back failures count. Resetting the password unlocks the account at once.",
+    "unit_failures": "failures",
+    "unit_seconds": "seconds",
+    "unit_minutes": "minutes",
+    "source_title": "Your address",
+    "source_label": "This request comes from",
+    "source_unknown": "Unknown",
+    "state_counted": "Counted by address",
+    "state_account_only": "Account limit only",
+    "state_proxy": "Set up trusted proxies",
+    "copy_address": "Copy address",
+    "copied": "Copied",
+    "source_counted": "Failures from this address count against it.",
+    "source_private": "This is a private address, so only the account limit applies. If people really connect from private addresses, turn on “Count private addresses as clients”.",
+    "source_proxy_public": "This request carries forwarding headers, but the address is the connection’s. If MoleSignal is behind a proxy, everyone counts as this one address and they lock each other out. Set up trusted proxies.",
+    "source_proxy_private": "This request carries forwarding headers, so MoleSignal is probably behind a proxy. Only the account limit applies until you set up trusted proxies.",
+    "source_none": "No address could be read from this request, so only the account limit applies.",
+    "open_client_ip": "Open Client IP recognition",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "saved": "Sign-in limits saved",
+    "unsaved": "You have unsaved changes",
+    "synced": "Settings are in sync",
+    "invalid": "Enter whole numbers: failures from 0 to {{failures}}, seconds from 1 to {{seconds}}, minutes from 1 to {{minutes}}."
   },
   "ai_providers": {
     "title": "AI providers",
@@ -817,5 +1490,138 @@
     "toast_saved": "Prompt saved",
     "toast_default_set": "Default updated",
     "toast_restored": "Restored from built-in"
+  },
+  "alert_evaluation": {
+    "title": "Alert evaluation",
+    "subtitle": "In a cluster split by role, queries read only what the intake nodes have written out. Alert rules look a little further back each round so recent data has been written.",
+    "section_title": "Default evaluation delay",
+    "delay": "Evaluation delay",
+    "delay_hint": "When a rule sets no delay of its own, each round's window moves back this many seconds. A single process that runs every role moves nothing. Intake writes out every 30 seconds by default.",
+    "unit": "seconds",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "saved": "Default evaluation delay saved",
+    "unsaved": "Unsaved changes",
+    "synced": "Settings are up to date",
+    "invalid": "Enter a whole number from 0 to {{max}}."
+  },
+  "holidays": {
+    "title": "Holiday calendars",
+    "subtitle": "Days off and make-up workdays. Routing rules, alert pipelines, support hours, silences, rotations and notify policies can count by them; a date is read in the timezone of whatever uses the calendar.",
+    "new": "New calendar",
+    "empty_title": "No holiday calendars",
+    "empty_description": "Add one, or import an ICS file of public holidays.",
+    "columns": {
+      "name": "Name",
+      "days": "Days",
+      "next": "Next day off"
+    },
+    "counts": "{{holidays}} off · {{workdays}} make-up",
+    "none_ahead": "None ahead",
+    "delete_title": "Delete {{name}}?",
+    "delete_description": "Nothing counts by it.",
+    "delete_in_use_one": "Used by {{count}} place: {{names}}. Take it out there first.",
+    "delete_in_use_other": "Used by {{count}} places: {{names}}. Take it out there first.",
+    "delete_blocked": "The calendar is in use.",
+    "reference_kinds": {
+      "routing_rule": "routing rule",
+      "escalation_policy": "escalation policy",
+      "schedule": "schedule",
+      "mute_rule": "silence",
+      "notify_policy": "notify policy",
+      "alert_pipeline": "alert pipeline"
+    },
+    "new_title": "New holiday calendar",
+    "edit_title": "Edit holiday calendar",
+    "drawer_subtitle": "A day off takes those days out of weekly hours; a make-up workday counts as a Monday.",
+    "save": "Save calendar",
+    "create": "Create calendar",
+    "created": "Calendar created",
+    "updated": "Calendar saved",
+    "sections": {
+      "calendar": "Calendar",
+      "days": "Days"
+    },
+    "fields": {
+      "name": "Name",
+      "description": "Description",
+      "year": "Year",
+      "kind": "Kind",
+      "date": "Date",
+      "day_name": "Name of the day"
+    },
+    "kinds": {
+      "holiday": "Day off",
+      "workday": "Make-up workday"
+    },
+    "import": "Import ICS",
+    "import_hint": "All-day events become days; a name with 补班, 上班 or ending in 班 becomes a make-up workday. Nothing is saved until you save the calendar.",
+    "imported_one": "Read {{count}} day from the file. Check it and save.",
+    "imported_other": "Read {{count}} days from the file. Check them and save.",
+    "no_days": "No days in {{year}}.",
+    "remove_day": "Remove {{date}}",
+    "add_day": "Add day"
+  },
+  "importance": {
+    "title": "Priority and urgency",
+    "subtitle": "How many priority levels the organization uses and what they are called, and what each urgency level does when it pages.",
+    "save": "Save levels",
+    "saved": "Levels saved",
+    "errors": {
+      "key": "A key starts with a lowercase letter and has lowercase letters, digits and underscores.",
+      "key_twice": "Two urgency levels have the same key.",
+      "built_in": "The built-in levels high and low stay; they can be renamed.",
+      "too_many": "At most five urgency levels.",
+      "severities": "Each severity goes to exactly one urgency level."
+    },
+    "priorities": {
+      "title": "Priority levels",
+      "description": "Keys stay P1, P2, …; integrations and imported files use them. A priority beyond the levels, from an alert or a pipeline, falls to the lowest one.",
+      "name": "Name of {{priority}}",
+      "description_of": "Description of {{priority}}",
+      "description_placeholder": "When to use it",
+      "add": "Add a level",
+      "remove": "Remove {{priority}}"
+    },
+    "urgencies": {
+      "title": "Urgency levels",
+      "description": "The most urgent first. Each level says whether it climbs the policy, what quiet hours do, which of a person's two step groups it uses, and which severities go to it when a policy sets urgency by severity.",
+      "name": "Name of {{key}}",
+      "up": "Move {{key}} up",
+      "down": "Move {{key}} down",
+      "remove": "Remove {{key}}",
+      "built_in": "Built in: it can be renamed, not removed.",
+      "escalates": "Climbs the steps",
+      "quiet_hours": "During quiet hours",
+      "quiet": {
+        "block": "Never wakes anyone",
+        "switch": "Follows the person's switch"
+      },
+      "steps": "Personal steps",
+      "step_groups": {
+        "high": "High-urgency steps",
+        "low": "Low-urgency steps"
+      },
+      "severities": "By severity",
+      "new_key": "Key of a new level",
+      "add": "Add urgency level"
+    }
+  },
+  "intake_usage": {
+    "title": "Intake usage",
+    "subtitle": "How long the record of what each source took in is kept, and how many services are counted apart.",
+    "section_title": "Usage records",
+    "retention_days": "Keep records for",
+    "retention_days_hint": "Hourly records older than this are deleted once a day. At least 35 days, so that a monthly budget can always be read back.",
+    "days": "days",
+    "max_services": "Services per organization",
+    "max_services_hint": "How many services an organization has counted apart in an hour, on each node. Past it, the rest are counted together as other services, so that a sender cannot grow the records by naming services.",
+    "services": "services",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "saved": "Intake usage settings saved",
+    "unsaved": "Unsaved changes",
+    "synced": "Settings are in sync",
+    "invalid": "Keep records for {{minDays}} to {{maxDays}} days, and count 1 to {{maxServices}} services."
   }
 }

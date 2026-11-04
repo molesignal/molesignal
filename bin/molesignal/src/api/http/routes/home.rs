@@ -5,7 +5,7 @@
 //!
 //! The endpoint intentionally aggregates operational metadata instead of
 //! executing one SQL query per stream:
-//! - raw intake bytes come from `intake_usage_hourly`;
+//! - raw intake bytes come from `intake_usage_hourly`, summed over the sources;
 //! - compressed storage bytes, rows and receive timestamps come from
 //!   a multi-dataset `FileCatalog` snapshot;
 //! - process health comes from the same probe as `/healthz`.
@@ -20,7 +20,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     api::AppState,
     app::iam::IamContext,
-    domain::{iam::permission, storage::logical_query_dataset_types, stream::StreamType},
+    domain::{
+        iam::permission, intake::usage::source::UsageSelection,
+        storage::logical_query_dataset_types, stream::StreamType,
+    },
     infra::query::catalog_source::StreamSnapshotSelection,
     shared::{
         Result,
@@ -39,9 +42,9 @@ use storage::{HEALTHY_LAG_MICROS, stream_status};
 
 #[cfg(test)]
 use crate::{
+    domain::intake::usage::source::{HOUR_MICROS, IntakeUsageBucket},
     domain::storage::{QueryFile, primary_dataset_type},
     domain::stream::StreamDefinition,
-    infra::persistence::repositories::usage::{HOUR_MICROS, IntakeUsageBucket},
 };
 
 const DEFAULT_WINDOW_SECS: i64 = 24 * 60 * 60;
@@ -56,6 +59,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct OverviewParams {
     window_secs: Option<i64>,
     bucket_count: Option<usize>,
@@ -72,9 +76,10 @@ enum HealthStatus {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct OverviewWindow {
-    start_micros: i64,
-    end_micros: i64,
+    start_time: i64,
+    end_time: i64,
     window_secs: i64,
 }
 
@@ -85,6 +90,7 @@ struct StatsProbe {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct StreamOverview {
     id: String,
     name: String,
@@ -92,11 +98,12 @@ struct StreamOverview {
     status: HealthStatus,
     rows: u64,
     stored_bytes: u64,
-    first_received_at_micros: Option<i64>,
-    last_received_at_micros: Option<i64>,
+    first_received_at: Option<i64>,
+    last_received_at: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct SignalOverview {
     stream_type: StreamType,
     status: HealthStatus,
@@ -104,21 +111,23 @@ struct SignalOverview {
     active_streams: usize,
     rows: u64,
     stored_bytes: u64,
-    last_received_at_micros: Option<i64>,
+    last_received_at: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct OverviewBucket {
-    start_micros: i64,
-    end_micros: i64,
+    start_time: i64,
+    end_time: i64,
     intake_bytes: Option<u64>,
     stored_bytes: u64,
     rows: u64,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct HomeOverviewResponse {
-    generated_at_micros: i64,
+    generated_at: i64,
     window: OverviewWindow,
     intake_status: HealthStatus,
     probe_reason: Option<String>,
@@ -129,7 +138,7 @@ struct HomeOverviewResponse {
     active_streams: usize,
     total_streams: usize,
     attention_streams: usize,
-    last_received_at_micros: Option<i64>,
+    last_received_at: Option<i64>,
     stats_probe: StatsProbe,
     buckets: Vec<OverviewBucket>,
     signals: Vec<SignalOverview>,
@@ -165,10 +174,12 @@ async fn overview(
 
     let (stream_defs, usage_result) = tokio::join!(
         state.telemetry.streams.list(&ctx.org_id),
-        state
-            .platform
-            .usage
-            .hourly_intake_bytes(&ctx.org_id, range.start.0, range.end.0),
+        state.platform.usage.hourly(UsageSelection {
+            org_id: &ctx.org_id,
+            start_micros: range.start.0,
+            end_micros: range.end.0,
+            source: None,
+        }),
     );
 
     let stream_defs = stream_defs?
@@ -271,9 +282,9 @@ async fn overview(
         .fold(0_u64, |sum, item| sum.saturating_add(item.stored_bytes));
 
     let intake_bytes = raw_usage_available.then(|| {
-        usage.iter().fold(0_u64, |sum, item| {
-            sum.saturating_add(item.intake_bytes.max(0) as u64)
-        })
+        usage
+            .iter()
+            .fold(0_u64, |sum, item| sum.saturating_add(item.intake_bytes))
     });
 
     let compression_savings_ratio = intake_bytes
@@ -289,7 +300,7 @@ async fn overview(
 
     let last_received_at_micros = streams
         .iter()
-        .filter_map(|item| item.last_received_at_micros)
+        .filter_map(|item| item.last_received_at)
         .max();
 
     let stats_succeeded = scans.iter().filter(|scan| scan.stats_ok).count();
@@ -305,10 +316,10 @@ async fn overview(
     };
 
     Ok(Json(HomeOverviewResponse {
-        generated_at_micros: generated_at.0,
+        generated_at: generated_at.0,
         window: OverviewWindow {
-            start_micros: range.start.0,
-            end_micros: range.end.0,
+            start_time: range.start.0,
+            end_time: range.end.0,
             window_secs,
         },
         intake_status,
@@ -320,7 +331,7 @@ async fn overview(
         active_streams,
         total_streams: streams.len(),
         attention_streams,
-        last_received_at_micros,
+        last_received_at: last_received_at_micros,
         stats_probe: StatsProbe {
             succeeded: stats_succeeded,
             total: scans.len(),
@@ -366,6 +377,11 @@ mod tests {
             size_bytes: bytes,
             min_values: Map::new(),
             max_values: Map::new(),
+            value_sets: Map::new(),
+            address_ranges: Map::new(),
+            null_counts: Map::new(),
+            indexed_at_micros: None,
+            shard: None,
         }
     }
 
@@ -383,8 +399,8 @@ mod tests {
 
         assert_eq!(scan.overview.rows, 20);
         assert_eq!(scan.overview.stored_bytes, 200);
-        assert_eq!(scan.overview.first_received_at_micros, Some(20));
-        assert_eq!(scan.overview.last_received_at_micros, Some(100));
+        assert_eq!(scan.overview.first_received_at, Some(20));
+        assert_eq!(scan.overview.last_received_at, Some(100));
         assert_eq!(
             scan.buckets.iter().map(|bucket| bucket.rows).sum::<u64>(),
             20
@@ -409,10 +425,12 @@ mod tests {
             IntakeUsageBucket {
                 bucket_start_micros: 0,
                 intake_bytes: 10,
+                events: 1,
             },
             IntakeUsageBucket {
                 bucket_start_micros: 2 * HOUR_MICROS,
                 intake_bytes: 30,
+                events: 1,
             },
         ];
         assert_eq!(bucket_raw_usage(&usage, window, 4), vec![10, 0, 30, 0]);
@@ -427,8 +445,8 @@ mod tests {
             status: HealthStatus::Healthy,
             rows: 10,
             stored_bytes: 100,
-            first_received_at_micros: Some(1),
-            last_received_at_micros: Some(2),
+            first_received_at: Some(1),
+            last_received_at: Some(2),
         };
         let empty = StreamOverview {
             id: "empty".into(),
@@ -437,8 +455,8 @@ mod tests {
             status: HealthStatus::NoData,
             rows: 0,
             stored_bytes: 0,
-            first_received_at_micros: None,
-            last_received_at_micros: None,
+            first_received_at: None,
+            last_received_at: None,
         };
 
         let signals = signal_overviews(&[active, empty]);

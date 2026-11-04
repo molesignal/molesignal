@@ -18,8 +18,8 @@ function stored(format: string): ScheduledReport {
   return {
     id: 'r1',
     name: 'Weekly SLO',
-    dashboard_id: 'd1',
-    saved_view_id: null,
+    dashboardId: 'd1',
+    savedViewId: null,
     cron: 'every:7d',
     recipients: [{ kind: 'webhook', target: 'https://example.com/hook' }],
     format,

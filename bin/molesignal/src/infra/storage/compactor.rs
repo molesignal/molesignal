@@ -9,20 +9,21 @@
 
 use std::sync::{Arc, OnceLock};
 
-use arrow::compute::concat_batches;
+use arrow::array::RecordBatch;
+use futures::stream::BoxStream;
 use object_store::ObjectStore;
 use prometheus::{IntCounter, IntCounterVec};
 
-use super::parquet::{reader::ParquetReader, writer::ParquetWriter};
+use super::parquet::{partition::storage_ordering, reader::ParquetReader, writer::ParquetWriter};
 use crate::{
     config::CompactorSettings,
     domain::{
         storage::{
             ArtifactRole, ArtifactState, DataSegment, DatasetSelection, DatasetState, FileCatalog,
-            OrganizationScope, PhysicalDataset, ReplaceSegments, SegmentId, TombstoneSegments,
-            type_id,
+            OrganizationScope, Partition, PhysicalDataset, ReplaceSegments, SegmentId,
+            TombstoneSegments, type_id,
         },
-        stream::{StreamDefinition, StreamType},
+        stream::{Downsample, StreamDefinition, StreamType},
     },
     infra::storage::{manifest::PartitionManifestReader, object_reader::ObjectReader},
     shared::{
@@ -32,15 +33,19 @@ use crate::{
     },
 };
 
+mod dedup;
 mod downsample;
 mod partition;
+mod sorted;
 
-use partition::{build_groups, validate_group};
+use partition::{build_groups, common_partitions, daily_groups, validate_day, validate_group};
 
 static FAILURES: OnceLock<IntCounterVec> = OnceLock::new();
 static MERGED: OnceLock<IntCounter> = OnceLock::new();
 static RETENTION_DELETED: OnceLock<IntCounter> = OnceLock::new();
 const DAY_MICROS: i64 = 24 * 60 * 60 * 1_000_000;
+/// Compressed bytes of one merge input read at a time.
+const INPUT_WINDOW_BYTES: u64 = 4 * 1024 * 1024;
 
 fn failures() -> &'static IntCounterVec {
     FAILURES.get_or_init(|| {
@@ -117,16 +122,21 @@ impl Compactor {
             molesignal.stream.type = ?stream.stream_type
         )
     )]
+    /// Merges the small files of `stream` in `time_range`; `daily_merge` is the stream's own
+    /// setting to merge each small finished day into one file as well.
     pub async fn sweep_one(
         &self,
         stream: &StreamDefinition,
         time_range: TimeRange,
+        daily_merge: bool,
     ) -> Result<usize> {
         let datasets = self.datasets_for_stream(stream).await?;
         let mut total = 0;
 
         for dataset in &datasets {
-            total += self.sweep_dataset(stream, dataset, time_range).await?;
+            total += self
+                .sweep_dataset(stream, dataset, time_range, daily_merge)
+                .await?;
         }
 
         Ok(total)
@@ -137,9 +147,15 @@ impl Compactor {
         stream: &StreamDefinition,
         dataset: &PhysicalDataset,
         time_range: TimeRange,
+        daily_merge: bool,
     ) -> Result<usize> {
-        let target_bytes = (self.settings.target_mb as u64).saturating_mul(1024 * 1024);
+        let target_bytes = self.settings.target_bytes();
         let segments = self.snapshot_dataset(stream, dataset, time_range).await?;
+
+        let merges_days =
+            daily_merge && matches!(stream.stream_type, StreamType::LOGS | StreamType::TRACES);
+
+        let days = merges_days.then(|| segments.clone());
         let mut candidates = Vec::new();
 
         for segment in segments {
@@ -172,27 +188,91 @@ impl Compactor {
         }
 
         let mut merged_groups = 0;
+        let hours_changed = !groups.is_empty();
 
         for group in groups {
-            match self.merge_group(stream, dataset, &group).await {
-                Ok(true) => {
-                    merged_groups += 1;
-                    merged().inc();
-                }
-                Ok(false) => {}
-                Err(error) => tracing::warn!(
-                    stream = %stream.name,
-                    dataset_id = %dataset.id,
-                    group_size = group.len(),
-                    %error,
-                    "compactor merge group failed; will retry next sweep"
-                ),
-            }
+            let merging = validate_group(&group, &dataset.id);
+
+            let outcome = match merging {
+                Ok(partition) => self.merge_into(stream, dataset, &group, partition).await,
+                Err(error) => Err(error),
+            };
+
+            merged_groups += self.count_merge(stream, dataset, group.len(), outcome);
+        }
+
+        if let Some(segments) = days {
+            // Merging the hours replaced or tombstoned some of the segments read above.
+            let segments = if hours_changed {
+                self.snapshot_dataset(stream, dataset, time_range).await?
+            } else {
+                segments
+            };
+
+            merged_groups += self.merge_days(stream, dataset, segments).await;
         }
 
         Ok(merged_groups)
     }
 
+    /// Merges each small finished day of `segments` into one Segment, after the hours are merged.
+    async fn merge_days(
+        &self,
+        stream: &StreamDefinition,
+        dataset: &PhysicalDataset,
+        segments: Vec<DataSegment>,
+    ) -> usize {
+        let segments = segments.into_iter().filter(valid_primary);
+        let days = daily_groups(
+            segments,
+            self.settings.target_bytes(),
+            TimestampMicros::now().0,
+        );
+        let mut merged_days = 0;
+
+        for (day, group) in days {
+            let outcome = match validate_day(&group, &dataset.id, day) {
+                Ok(()) => self.merge_into(stream, dataset, &group, day).await,
+                Err(error) => Err(error),
+            };
+
+            merged_days += self.count_merge(stream, dataset, group.len(), outcome);
+        }
+
+        merged_days
+    }
+
+    /// 1 when a merge happened; a failed merge is logged and retried by the next sweep.
+    fn count_merge(
+        &self,
+        stream: &StreamDefinition,
+        dataset: &PhysicalDataset,
+        group_size: usize,
+        outcome: Result<bool>,
+    ) -> usize {
+        match outcome {
+            Ok(true) => {
+                merged().inc();
+                1
+            }
+            Ok(false) => 0,
+            Err(error) => {
+                tracing::warn!(
+                    stream = %stream.name,
+                    dataset_id = %dataset.id,
+                    group_size,
+                    %error,
+                    "compactor merge group failed; will retry next sweep"
+                );
+                0
+            }
+        }
+    }
+
+    /// Merges `group` into one Segment of `partition`. Each input is read a window of rows at a
+    /// time and the output is written as it is merged, so a merge holds about
+    /// [`INPUT_WINDOW_BYTES`] per input, one output row group and a few upload parts, however
+    /// large `target_size` is.
     #[tracing::instrument(
         name = "compactor.merge",
         skip_all,
@@ -201,29 +281,36 @@ impl Compactor {
             molesignal.compactor.file_count = group.len()
         )
     )]
-    async fn merge_group(
+    async fn merge_into(
         &self,
         stream: &StreamDefinition,
         dataset: &PhysicalDataset,
         group: &[DataSegment],
+        partition: Partition,
     ) -> Result<bool> {
-        validate_group(group, &dataset.id)?;
-        let mut batches = Vec::new();
+        let physical_stream =
+            crate::infra::intake::physical_schema::project(stream, &dataset.dataset_type);
+        let schema = crate::infra::storage::arrow_schema::to_arrow(&physical_stream.schema);
+
+        let ordering = storage_ordering(schema.as_ref(), Some(&dataset.dataset_type))
+            .ok_or_else(|| Error::internal("a physical dataset has a storage order"))?;
+
+        let opened =
+            futures::future::join_all(group.iter().map(|segment| self.open_input(stream, segment)))
+                .await;
+
+        let mut inputs = Vec::with_capacity(group.len());
         let mut missing = Vec::new();
 
-        for segment in group {
-            self.object_reader
-                .register_segment(&stream.org_id, segment)?;
-            let key = segment.primary.object.key.as_str();
-
-            match self.reader.read_all(key).await {
-                Ok(read) => batches.extend(read),
+        for (segment, opened) in group.iter().zip(opened) {
+            match opened {
+                Ok(input) => inputs.push(input),
                 Err(Error::NotFound(_)) => {
                     failures().with_label_values(&["ghost_file"]).inc();
                     tracing::warn!(
                         dataset_id = %dataset.id,
                         segment_id = %segment.id,
-                        object_key = key,
+                        object_key = segment.primary.object.key.as_str(),
                         "Catalog primary Artifact is missing; tombstoning its segment"
                     );
                     missing.push(segment.id.clone());
@@ -240,56 +327,55 @@ impl Compactor {
             return Ok(false);
         }
 
-        if batches.is_empty() {
-            return Err(Error::internal(
-                "compactor group produced no record batches",
-            ));
-        }
+        let rows = sorted::merge(
+            inputs,
+            schema.clone(),
+            &ordering,
+            dedup::entity_columns(&schema),
+        )?;
 
-        let physical_stream =
-            crate::infra::intake::physical_schema::project(stream, &dataset.dataset_type);
-        let schema = crate::infra::storage::arrow_schema::to_arrow(&physical_stream.schema);
-
-        let aligned = batches
-            .iter()
-            .map(|batch| {
-                crate::infra::storage::arrow_schema::align_batch_to_schema(batch, &schema)
-                    .map_err(|error| Error::internal(format!("compactor align schema: {error}")))
-            })
-            .collect::<Result<Vec<_>>>()?;
-
-        let merged_batch = concat_batches(&schema, &aligned)
-            .map_err(|error| Error::internal(format!("concat_batches: {error}")))?;
-
-        let replacements = self
+        let mut replacement = self
             .writer
-            .write_compaction_catalog(&physical_stream, dataset, merged_batch)
+            .write_sorted_segment(&physical_stream, dataset, partition, schema, rows)
             .await?;
 
-        if replacements.len() != 1 || replacements[0].partition != group[0].partition {
-            self.writer.delete_catalog_outputs(&replacements).await;
-
-            return Err(Error::internal(
-                "one compaction group must produce exactly one replacement in the same partition",
-            ));
-        }
+        replacement.column_stats.partitions = common_partitions(group);
 
         let scope = OrganizationScope::new(stream.org_id.clone());
 
         let command = ReplaceSegments {
             dataset_id: dataset.id.clone(),
             replaced: group.iter().map(|segment| segment.id.clone()).collect(),
-            replacements: replacements.clone(),
+            replacements: vec![replacement.clone()],
             gc_not_before_micros: self.gc_not_before(),
         };
 
         if let Err(error) = self.catalog.replace_segments(&scope, command).await {
             failures().with_label_values(&["replace"]).inc();
-            self.writer.delete_catalog_outputs(&replacements).await;
+            self.writer
+                .delete_catalog_outputs(std::slice::from_ref(&replacement))
+                .await;
             return Err(error);
         }
 
         Ok(true)
+    }
+
+    async fn open_input(
+        &self,
+        stream: &StreamDefinition,
+        segment: &DataSegment,
+    ) -> Result<BoxStream<'static, Result<RecordBatch>>> {
+        self.object_reader
+            .register_segment(&stream.org_id, segment)?;
+
+        self.reader
+            .stream_windows_from_store(
+                self.object_reader.store(),
+                segment.primary.object.key.as_str(),
+                INPUT_WINDOW_BYTES,
+            )
+            .await
     }
 
     async fn tombstone_missing(
@@ -315,9 +401,15 @@ impl Compactor {
             .map(|_| ())
     }
 
-    pub async fn retention_sweep(&self, stream: &StreamDefinition) -> Result<usize> {
+    /// 删掉过了保留期的数据。`default_retention_days` 是数据流没有设置保留天数时的天数（平台
+    /// 设置）。
+    pub async fn retention_sweep(
+        &self,
+        stream: &StreamDefinition,
+        default_retention_days: u32,
+    ) -> Result<usize> {
         let now = TimestampMicros::now().0;
-        let stream_retention = stream.effective_retention_days(self.settings.retention_days);
+        let stream_retention = stream.effective_retention_days(default_retention_days);
         let profile_cutoff =
             now.saturating_sub(i64::from(stream_retention).saturating_mul(DAY_MICROS));
 
@@ -391,8 +483,12 @@ impl Compactor {
         Ok(total)
     }
 
-    pub async fn downsample_sweep(&self, stream: &StreamDefinition) -> Result<usize> {
-        downsample::sweep(self, stream).await
+    pub async fn downsample_sweep(
+        &self,
+        stream: &StreamDefinition,
+        policy: Downsample,
+    ) -> Result<usize> {
+        downsample::sweep(self, stream, policy).await
     }
 
     async fn datasets_for_stream(&self, stream: &StreamDefinition) -> Result<Vec<PhysicalDataset>> {
@@ -447,7 +543,9 @@ fn valid_primary(segment: &DataSegment) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use arrow::array::{Int64Array, RecordBatch, TimestampMicrosecondArray};
+    use std::collections::BTreeMap;
+
+    use arrow::array::{Int64Array, RecordBatch, StringArray, TimestampMicrosecondArray};
     use futures::StreamExt;
     use object_store::{ObjectStoreExt, memory::InMemory, path::Path};
 
@@ -455,16 +553,17 @@ mod tests {
     use crate::{
         domain::{
             storage::{
-                CommitFlush, FlushProvenance, SequenceRange, WalSequence, WriterEpoch,
-                WriterNodeId, primary_dataset_type, type_id,
+                ArtifactRole, ArtifactState, CommitFlush, FlushProvenance, SequenceRange,
+                WalSequence, WriterEpoch, WriterNodeId, primary_dataset_type, type_id,
             },
-            stream::{FieldDef, FieldType, Schema},
+            stream::{FieldDef, FieldType, Schema, StreamIndexType},
         },
         infra::{
             intake::{
                 ResolvedDataset,
                 dataset_resolver::test_support::{StubFileCatalog, test_catalog_and_resolver},
             },
+            search::tantivy_index::{BarQuery, BarTally, TantivyArchiveOpener},
             storage::arrow_schema,
         },
         shared::ids::Id,
@@ -522,7 +621,13 @@ mod tests {
                 SequenceRange::new(sequence_start, WalSequence(sequence_start.0 + 1)),
             );
             let segments = writer
-                .flush_catalog(stream, &dataset.dataset, &provenance, batch(stream, start))
+                .flush_catalog(
+                    stream,
+                    &dataset.dataset,
+                    &provenance,
+                    batch(stream, start),
+                    None,
+                )
                 .await
                 .unwrap();
             catalog
@@ -581,7 +686,7 @@ mod tests {
             writer,
             store,
             CompactorSettings {
-                target_mb: 1,
+                target_size: 1,
                 ..CompactorSettings::default()
             },
             3600,
@@ -607,6 +712,7 @@ mod tests {
                 .sweep_one(
                     &stream,
                     TimeRange::new(TimestampMicros(0), TimestampMicros(100)),
+                    true,
                 )
                 .await
                 .unwrap(),
@@ -649,6 +755,7 @@ mod tests {
                 .sweep_one(
                     &stream,
                     TimeRange::new(TimestampMicros(0), TimestampMicros(100)),
+                    true,
                 )
                 .await
                 .unwrap(),
@@ -686,6 +793,7 @@ mod tests {
                 .sweep_one(
                     &stream,
                     TimeRange::new(TimestampMicros(0), TimestampMicros(100)),
+                    true,
                 )
                 .await
                 .unwrap(),
@@ -696,6 +804,249 @@ mod tests {
                 .await
                 .is_empty()
         );
+    }
+
+    fn level_batch(stream: &StreamDefinition, times: &[i64]) -> RecordBatch {
+        let levels = times
+            .iter()
+            .map(|time| if time % 3 == 0 { "error" } else { "info" })
+            .collect::<Vec<_>>();
+
+        RecordBatch::try_new(
+            arrow_schema::to_arrow(&stream.schema),
+            vec![
+                Arc::new(TimestampMicrosecondArray::from(times.to_vec()).with_timezone("UTC")),
+                Arc::new(Int64Array::from(times.to_vec())),
+                Arc::new(StringArray::from(levels)),
+            ],
+        )
+        .unwrap()
+    }
+
+    /// The merged Segment holds every input row once, in the storage order, and its index counts
+    /// the rows by time and level as the rows themselves would be counted.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn merges_interleaved_inputs_in_the_storage_order_with_an_index() {
+        let mut stream = stream();
+
+        stream.schema.fields.push(FieldDef {
+            name: "level".into(),
+            data_type: FieldType::Utf8,
+            nullable: true,
+            index_type: Some(StreamIndexType::Exact),
+            indexed: true,
+            encrypted: false,
+            exact: true,
+        });
+
+        let (catalog, resolver) = test_catalog_and_resolver();
+        let dataset = resolver
+            .resolve(&stream, primary_dataset_type(stream.stream_type).unwrap())
+            .await
+            .unwrap();
+        let store: Arc<dyn ObjectStore> = Arc::new(InMemory::new());
+        let writer = Arc::new(ParquetWriter::new(store.clone()));
+        let scope = OrganizationScope::new(stream.org_id.clone());
+
+        // Three inputs whose times interleave: 1, 4, 7, … and 2, 5, 8, … and 3, 6, 9, …
+        for input in 0..3_u64 {
+            let times = (0..20)
+                .map(|step| 1 + input as i64 + 3 * step)
+                .collect::<Vec<_>>();
+
+            let provenance = FlushProvenance::derive(
+                WriterNodeId::new("node-a"),
+                WriterEpoch(1),
+                SequenceRange::new(WalSequence(input * 2 + 1), WalSequence(input * 2 + 2)),
+            );
+
+            let segments = writer
+                .flush_catalog(
+                    &stream,
+                    &dataset.dataset,
+                    &provenance,
+                    level_batch(&stream, &times),
+                    None,
+                )
+                .await
+                .unwrap();
+
+            catalog
+                .commit_flush(
+                    &scope,
+                    CommitFlush {
+                        dataset_id: dataset.dataset.id.clone(),
+                        provenance,
+                        segments,
+                    },
+                )
+                .await
+                .unwrap();
+        }
+
+        let compactor = compactor(catalog.clone(), writer, store.clone());
+
+        assert_eq!(
+            compactor
+                .sweep_one(
+                    &stream,
+                    TimeRange::new(TimestampMicros(0), TimestampMicros(100)),
+                    true,
+                )
+                .await
+                .unwrap(),
+            1
+        );
+
+        let segments = active_segments(&stream, &catalog, &dataset).await;
+        let merged = &segments[0];
+        assert_eq!(segments.len(), 1);
+        assert_eq!(merged.row_count, 60);
+        assert_eq!(
+            (merged.time_range.start.0, merged.time_range.end.0),
+            (1, 60)
+        );
+
+        let batches = ParquetReader::new(store.clone())
+            .read_all(merged.primary.object.key.as_str())
+            .await
+            .unwrap();
+
+        let times = batches
+            .iter()
+            .flat_map(|batch| {
+                let column = batch.column(0).as_any();
+                let times = column.downcast_ref::<TimestampMicrosecondArray>().unwrap();
+                times.values().to_vec()
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(times, (1..=60).rev().collect::<Vec<i64>>());
+
+        let index = merged
+            .auxiliaries
+            .iter()
+            .find(|artifact| artifact.role == ArtifactRole::Index)
+            .expect("the merged Segment is indexed");
+
+        assert_eq!(index.state, ArtifactState::Ready);
+
+        let handle = TantivyArchiveOpener::open_from_object_store(
+            store.clone(),
+            Path::from(index.object.key.as_str()),
+            index.object.size_bytes,
+        )
+        .await
+        .unwrap();
+
+        let query = BarQuery {
+            terms: Vec::new(),
+            contains: Vec::new(),
+            window: 0..100,
+            origin: 0,
+            width: 10,
+            errors: Some("level".into()),
+        };
+
+        let bars = tokio::task::spawn_blocking(move || handle.count_bars(&query).unwrap())
+            .await
+            .unwrap();
+
+        let mut expected: BTreeMap<i64, BarTally> = BTreeMap::new();
+
+        for time in 1..=60_i64 {
+            let bar = expected.entry(time / 10).or_default();
+            bar.total += 1;
+            bar.errors += u64::from(time % 3 == 0);
+        }
+
+        assert_eq!(bars, Some(expected));
+    }
+
+    /// A finished day whose hours hold one small file each becomes one file for the whole day.
+    #[tokio::test]
+    async fn merges_the_hours_of_a_small_finished_day() {
+        let stream = stream();
+        let (catalog, resolver) = test_catalog_and_resolver();
+        let dataset = resolver
+            .resolve(&stream, primary_dataset_type(stream.stream_type).unwrap())
+            .await
+            .unwrap();
+        let store: Arc<dyn ObjectStore> = Arc::new(InMemory::new());
+        let writer = Arc::new(ParquetWriter::new(store.clone()));
+        let scope = OrganizationScope::new(stream.org_id.clone());
+        let hour = 3_600_000_000_i64;
+
+        for (ordinal, start) in [0, hour, 5 * hour].into_iter().enumerate() {
+            let sequence_start = WalSequence(ordinal as u64 * 2 + 1);
+
+            let provenance = FlushProvenance::derive(
+                WriterNodeId::new("node-a"),
+                WriterEpoch(1),
+                SequenceRange::new(sequence_start, WalSequence(sequence_start.0 + 1)),
+            );
+
+            let segments = writer
+                .flush_catalog(
+                    &stream,
+                    &dataset.dataset,
+                    &provenance,
+                    batch(&stream, start + 1),
+                    None,
+                )
+                .await
+                .unwrap();
+
+            catalog
+                .commit_flush(
+                    &scope,
+                    CommitFlush {
+                        dataset_id: dataset.dataset.id.clone(),
+                        provenance,
+                        segments,
+                    },
+                )
+                .await
+                .unwrap();
+        }
+
+        let day = TimeRange::new(TimestampMicros(0), TimestampMicros(24 * hour));
+        let compactor = compactor(catalog.clone(), writer, store);
+
+        let segments = || async {
+            catalog
+                .snapshot(
+                    &scope,
+                    DatasetSelection {
+                        dataset_ids: vec![dataset.dataset.id.clone()],
+                        time_range: day,
+                        partition_shard: None,
+                    },
+                )
+                .await
+                .unwrap()
+                .datasets
+                .remove(0)
+                .segments
+        };
+
+        // A stream that turned the daily merge off keeps its hours.
+        assert_eq!(compactor.sweep_one(&stream, day, false).await.unwrap(), 0);
+        assert_eq!(segments().await.len(), 3);
+
+        assert_eq!(compactor.sweep_one(&stream, day, true).await.unwrap(), 1);
+
+        let segments = segments().await;
+
+        assert_eq!(segments.len(), 1);
+        assert_eq!(
+            (
+                segments[0].partition.start_micros,
+                segments[0].partition.end_micros
+            ),
+            (0, 24 * hour)
+        );
+        assert_eq!(segments[0].row_count, 6);
     }
 
     #[tokio::test]
@@ -712,10 +1063,25 @@ mod tests {
         let writer = Arc::new(ParquetWriter::new(store.clone()));
         publish_two(&stream, &catalog, &raw, &writer).await;
 
-        let mut compactor = compactor(catalog.clone(), writer, store.clone());
-        compactor.settings.downsample_after_days = 1;
-        compactor.settings.downsample_interval_secs = 3_600;
-        assert_eq!(compactor.downsample_sweep(&stream).await.unwrap(), 1);
+        let compactor = compactor(catalog.clone(), writer, store.clone());
+
+        let policy = Downsample {
+            after_days: 1,
+            interval_secs: 3_600,
+        };
+
+        assert_eq!(
+            compactor
+                .downsample_sweep(&stream, Downsample::default())
+                .await
+                .unwrap(),
+            0,
+            "a stream that does not downsample keeps its samples"
+        );
+        assert_eq!(
+            compactor.downsample_sweep(&stream, policy).await.unwrap(),
+            1
+        );
 
         let datasets = catalog
             .list_datasets(&OrganizationScope::new(stream.org_id.clone()), &stream.id)

@@ -1,11 +1,17 @@
-/** Build a small but valid rrweb recording for demo/seed sessions. */
+/**
+ * Build a small but valid rrweb recording for demo/seed sessions: the page, its title changing
+ * with the journey, a scroll, the pointer and the clicks (three of them for a `rage_click`).
+ * A page shows for `pageSpacingMs` and the click comes `clickAfterMs` into the last one. What the
+ * visitor did is told by the events of the session, not by the recording.
+ */
 export function buildRrwebReplay({
   startMs,
   origin,
   journey,
   interaction = 'click',
-  errorLabel,
   viewport = { width: 1440, height: 900 },
+  pageSpacingMs = 12_000,
+  clickAfterMs = 5_000,
 }) {
   let nextId = 1;
   const refs = {};
@@ -27,7 +33,6 @@ export function buildRrwebReplay({
   });
 
   const firstPage = journey[0] ?? '/';
-  const finalPage = journey[journey.length - 1] ?? firstPage;
   const pageTitle = titleForPage(firstPage);
   const style = `
     *{box-sizing:border-box}body{margin:0;background:#f6f7fb;color:#172033;font-family:Inter,system-ui,sans-serif}
@@ -107,12 +112,6 @@ export function buildRrwebReplay({
       data: { node: documentNode, initialOffset: { left: 0, top: 0 } },
       timestamp: startMs + 1,
     },
-    ...journey.map((page, index) => ({
-      type: 'view',
-      ts: startMs + index * 12_000,
-      href: href(page),
-      name: `View ${page}`,
-    })),
   ];
 
   for (const [index, page] of journey.slice(1).entries()) {
@@ -125,14 +124,15 @@ export function buildRrwebReplay({
         removes: [],
         adds: [],
       },
-      timestamp: startMs + (index + 1) * 12_000,
+      timestamp: startMs + (index + 1) * pageSpacingMs,
     });
   }
+  const lastPageAt = startMs + (journey.length - 1) * pageSpacingMs;
   events.push(
     {
       type: 3,
       data: { source: 3, id: documentNode.id, x: 0, y: 320 },
-      timestamp: startMs + 36_000,
+      timestamp: lastPageAt + clickAfterMs / 2,
     },
     {
       type: 3,
@@ -140,7 +140,7 @@ export function buildRrwebReplay({
         source: 1,
         positions: [{ x: 1_120, y: 610, id: refs.actionButton, timeOffset: 0 }],
       },
-      timestamp: startMs + 46_000,
+      timestamp: lastPageAt + clickAfterMs - 500,
     },
   );
   const clickCount = interaction === 'rage_click' ? 3 : 1;
@@ -148,29 +148,7 @@ export function buildRrwebReplay({
     events.push({
       type: 3,
       data: { source: 2, type: 2, id: refs.actionButton, x: 1_120, y: 610 },
-      timestamp: startMs + 48_000 + index * 180,
-    });
-  }
-  events.push({
-    type: interaction,
-    ts: startMs + 48_000,
-    href: href(finalPage),
-    selector: '#checkout-primary-action',
-    name:
-      interaction === 'rage_click'
-        ? 'Repeated checkout submission'
-        : interaction === 'dead_click'
-          ? 'Unresponsive checkout control'
-          : interaction === 'crash'
-            ? 'Checkout page crashed'
-            : 'Continue checkout',
-  });
-  if (errorLabel) {
-    events.push({
-      type: 'error',
-      ts: startMs + 52_000,
-      href: href(finalPage),
-      name: errorLabel,
+      timestamp: lastPageAt + clickAfterMs + index * 180,
     });
   }
   return events.sort((left, right) => eventTime(left) - eventTime(right));
@@ -194,5 +172,5 @@ function titleForPage(page) {
 }
 
 function eventTime(event) {
-  return Number(event.timestamp ?? event.ts ?? 0);
+  return Number(event.timestamp ?? 0);
 }

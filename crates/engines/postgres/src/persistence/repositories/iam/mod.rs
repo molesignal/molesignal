@@ -18,13 +18,11 @@ use crate::{
     domain::iam::{
         IamAssignedRole,
         access::{
-            IamCrossOrgGrant, IamCrossOrgGrantQuery, IamCrossOrgGrantStatus, IamPrincipalType,
-            IamRelationshipQuery, IamRepository, IamResourceRelationship, IamRoleBinding,
-            ResolvedIamResourceRelationship, ResolvedIamRoleBinding,
+            IamCrossOrgGrant, IamCrossOrgGrantQuery, IamCrossOrgGrantStatus, IamPlatformGrant,
+            IamPrincipalType, IamRelationshipQuery, IamRepository, IamResourceRelationship,
+            IamRoleBinding, IamTokenGrant, ResolvedIamResourceRelationship, ResolvedIamRoleBinding,
         },
-        catalog::{
-            IamPermissionBundle, IamPermissionCatalog, IamPermissionDefinition, IamPermissionScope,
-        },
+        catalog::{IamPermissionCatalog, IamPermissionDefinition, IamPermissionScope},
         navigation::{IamRouteCatalog, IamRouteDefinition, IamRoutePermissionMode, IamRouteScope},
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
@@ -33,8 +31,10 @@ use crate::{
 pub mod memberships;
 mod platform_access;
 pub mod platform_administrators;
+pub mod policies;
 pub mod roles;
 pub mod service_accounts;
+mod token_grants;
 
 pub struct PgIamRepository {
     pool: PgPool,
@@ -85,8 +85,9 @@ impl IamRepository for PgIamRepository {
                      ARRAY[]::TEXT[]
                  ) AS builtin_roles
                FROM iam_permissions permission
-          LEFT JOIN iam_builtin_roles builtin
-                 ON permission.permission_key = ANY(builtin.permissions)
+          LEFT JOIN iam_roles builtin
+                 ON builtin.org_id IS NULL
+                AND permission.permission_key = ANY(builtin.permissions)
            GROUP BY permission.permission_key,
                     permission.scope,
                     permission.domain,
@@ -114,32 +115,10 @@ impl IamRepository for PgIamRepository {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let bundle_rows = sqlx::query(
-            "SELECT bundle_key, label_key, description_key, permissions
-               FROM iam_permission_bundles
-           ORDER BY bundle_key",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
-
-        let bundles = bundle_rows
-            .into_iter()
-            .map(|row| {
-                Ok(IamPermissionBundle {
-                    key: row.try_get("bundle_key").map_err(sqlx_err)?,
-                    label_key: row.try_get("label_key").map_err(sqlx_err)?,
-                    description_key: row.try_get("description_key").map_err(sqlx_err)?,
-                    permissions: row.try_get("permissions").map_err(sqlx_err)?,
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
-
         Ok(IamPermissionCatalog {
             version: u64::try_from(version)
                 .map_err(|_| Error::internal("negative IAM permission catalog version"))?,
             permissions,
-            bundles,
         })
     }
 
@@ -222,7 +201,8 @@ impl IamRepository for PgIamRepository {
         sqlx::query_scalar(
             "SELECT role_permission.permission_key
                FROM iam_roles role
-         CROSS JOIN LATERAL unnest(role.permissions) AS role_permission(permission_key)
+         CROSS JOIN LATERAL unnest(iam_role_grants(role.permissions, role.policy_ids))
+                    AS role_permission(permission_key)
                JOIN iam_permissions permission
                  ON permission.permission_key = role_permission.permission_key
                 AND (
@@ -310,36 +290,6 @@ impl IamRepository for PgIamRepository {
                 })
             })
             .collect()
-    }
-
-    async fn role_for_purpose(
-        &self,
-        organization_id: &Id,
-        purpose: &str,
-    ) -> Result<Option<IamAssignedRole>> {
-        let row = sqlx::query(
-            "SELECT role.id, role.role_key, role.name, role.builtin
-               FROM iam_builtin_roles catalog
-               JOIN iam_roles role
-                 ON role.org_id = $1
-                AND role.role_key = catalog.role_key
-              WHERE catalog.purpose = $2",
-        )
-        .bind(&organization_id.0)
-        .bind(purpose)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
-
-        row.map(|row| {
-            Ok(IamAssignedRole {
-                id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
-                key: row.try_get("role_key").map_err(sqlx_err)?,
-                name: row.try_get("name").map_err(sqlx_err)?,
-                builtin: row.try_get("builtin").map_err(sqlx_err)?,
-            })
-        })
-        .transpose()
     }
 
     async fn validate_permission_keys(
@@ -431,6 +381,15 @@ impl IamRepository for PgIamRepository {
         .map_err(sqlx_err)
     }
 
+    async fn api_token_grant(
+        &self,
+        organization_id: &Id,
+        token_id: &Id,
+        now: TimestampMicros,
+    ) -> Result<Option<IamTokenGrant>> {
+        token_grants::api_token_grant(&self.pool, organization_id, token_id, now).await
+    }
+
     async fn active_role_bindings(
         &self,
         organization_id: &Id,
@@ -448,10 +407,10 @@ impl IamRepository for PgIamRepository {
                  b.resource_type,
                  b.resource_id,
                  b.conditions,
-                 b.starts_at_micros,
-                 b.expires_at_micros,
+                 b.starts_at,
+                 b.expires_at,
                  b.created_by,
-                 b.created_at_micros,
+                 b.created_at,
                  r.role_key,
                  r.name AS role_name,
                  r.builtin AS role_builtin,
@@ -460,15 +419,17 @@ impl IamRepository for PgIamRepository {
                JOIN iam_roles r
                  ON r.id = b.role_id
                 AND r.org_id = b.organization_id
-          LEFT JOIN iam_builtin_roles builtin_role
-                 ON builtin_role.role_key = r.role_key
-          LEFT JOIN LATERAL unnest(r.permissions) AS rp(permission_key) ON TRUE
+          LEFT JOIN iam_roles builtin_role
+                 ON builtin_role.org_id IS NULL
+                AND builtin_role.role_key = r.role_key
+          LEFT JOIN LATERAL unnest(iam_role_grants(r.permissions, r.policy_ids))
+                    AS rp(permission_key) ON TRUE
           LEFT JOIN iam_permissions permission
                  ON permission.permission_key = rp.permission_key
-                AND (permission.scope = 'organization' OR r.builtin)
+                AND permission.scope = CASE r.scope WHEN 'platform' THEN 'platform' ELSE 'organization' END
               WHERE b.organization_id = $1
-                AND (b.starts_at_micros IS NULL OR b.starts_at_micros <= $4)
-                AND (b.expires_at_micros IS NULL OR b.expires_at_micros > $4)
+                AND (b.starts_at IS NULL OR b.starts_at <= $4)
+                AND (b.expires_at IS NULL OR b.expires_at > $4)
                 AND (
                     (b.principal_type = $2 AND b.principal_id = $3)
                     OR (
@@ -493,7 +454,7 @@ impl IamRepository for PgIamRepository {
         .bind(&organization_id.0)
         .bind(principal_type.as_str())
         .bind(&principal_id.0)
-        .bind(now.0)
+        .bind(now)
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -526,22 +487,18 @@ impl IamRepository for PgIamRepository {
         Ok(resolved.into_values().collect())
     }
 
-    async fn platform_permissions(
-        &self,
-        user_id: &Id,
-        now: TimestampMicros,
-    ) -> Result<Vec<String>> {
-        platform_access::platform_permissions(&self.pool, user_id, now).await
+    async fn platform_grant(&self, user_id: &Id, now: TimestampMicros) -> Result<IamPlatformGrant> {
+        platform_access::platform_grant(&self.pool, user_id, now).await
     }
 
     async fn list_role_bindings(&self, organization_id: &Id) -> Result<Vec<IamRoleBinding>> {
         let rows = sqlx::query(
             "SELECT id, organization_id, role_id, principal_type, principal_id,
-                    resource_type, resource_id, conditions, starts_at_micros,
-                    expires_at_micros, created_by, created_at_micros
+                    resource_type, resource_id, conditions, starts_at,
+                    expires_at, created_by, created_at
                FROM iam_role_bindings
               WHERE organization_id = $1
-           ORDER BY created_at_micros DESC",
+           ORDER BY created_at DESC",
         )
         .bind(&organization_id.0)
         .fetch_all(&self.pool)
@@ -557,8 +514,8 @@ impl IamRepository for PgIamRepository {
         sqlx::query(
             "INSERT INTO iam_role_bindings (
                  id, organization_id, role_id, principal_type, principal_id,
-                 resource_type, resource_id, conditions, starts_at_micros,
-                 expires_at_micros, created_by, created_at_micros
+                 resource_type, resource_id, conditions, starts_at,
+                 expires_at, created_by, created_at
              ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
         )
         .bind(&binding.id.0)
@@ -569,10 +526,10 @@ impl IamRepository for PgIamRepository {
         .bind(&binding.resource_type)
         .bind(&binding.resource_id)
         .bind(Json(&binding.conditions))
-        .bind(binding.starts_at.map(|value| value.0))
-        .bind(binding.expires_at.map(|value| value.0))
+        .bind(binding.starts_at)
+        .bind(binding.expires_at)
         .bind(&binding.created_by.0)
-        .bind(binding.created_at.0)
+        .bind(binding.created_at)
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
@@ -611,10 +568,10 @@ impl IamRepository for PgIamRepository {
         let rows = sqlx::query(
             "SELECT id, organization_id, resource_type, resource_id, role_id,
                     subject_type, subject_id, container_type, container_id,
-                    created_by, created_at_micros
+                    created_by, created_at
                FROM iam_relationships
               WHERE organization_id = $1
-           ORDER BY created_at_micros DESC",
+           ORDER BY created_at DESC",
         )
         .bind(&organization_id.0)
         .fetch_all(&self.pool)
@@ -632,7 +589,7 @@ impl IamRepository for PgIamRepository {
             "SELECT rel.id, rel.organization_id, rel.resource_type,
                     rel.resource_id, rel.role_id, rel.subject_type,
                     rel.subject_id, rel.container_type, rel.container_id,
-                    rel.created_by, rel.created_at_micros, role.role_key,
+                    rel.created_by, rel.created_at, role.role_key,
                     COALESCE(
                         array_agg(role_permission.permission_key
                                   ORDER BY role_permission.permission_key)
@@ -643,7 +600,8 @@ impl IamRepository for PgIamRepository {
                JOIN iam_roles role
                  ON role.id = rel.role_id
                 AND role.org_id = rel.organization_id
-          LEFT JOIN LATERAL unnest(role.permissions) AS role_permission(permission_key) ON TRUE
+          LEFT JOIN LATERAL unnest(iam_role_grants(role.permissions, role.policy_ids))
+                    AS role_permission(permission_key) ON TRUE
               WHERE rel.organization_id = $1
                 AND (
                     (rel.resource_type = $4 AND rel.resource_id = $5)
@@ -672,8 +630,8 @@ impl IamRepository for PgIamRepository {
            GROUP BY rel.id, rel.organization_id, rel.resource_type,
                     rel.resource_id, rel.role_id, rel.subject_type,
                     rel.subject_id, rel.container_type, rel.container_id,
-                    rel.created_by, rel.created_at_micros, role.role_key
-           ORDER BY rel.created_at_micros DESC",
+                    rel.created_by, rel.created_at, role.role_key
+           ORDER BY rel.created_at DESC",
         )
         .bind(&query.organization_id.0)
         .bind(query.principal_type.as_str())
@@ -707,7 +665,7 @@ impl IamRepository for PgIamRepository {
             "INSERT INTO iam_relationships (
                  id, organization_id, resource_type, resource_id, role_id,
                  subject_type, subject_id, container_type, container_id,
-                 created_by, created_at_micros
+                 created_by, created_at
              ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
         )
         .bind(&relationship.id.0)
@@ -720,7 +678,7 @@ impl IamRepository for PgIamRepository {
         .bind(&relationship.container_type)
         .bind(&relationship.container_id)
         .bind(&relationship.created_by.0)
-        .bind(relationship.created_at.0)
+        .bind(relationship.created_at)
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
@@ -756,12 +714,12 @@ impl IamRepository for PgIamRepository {
         let rows = sqlx::query(
             "SELECT id, source_organization_id, target_organization_id,
                     grantee_type, grantee_id, resource_type, resource_selector,
-                    permissions, conditions, starts_at_micros, expires_at_micros,
-                    status, approved_by, approved_at_micros, revoked_by,
-                    revoked_at_micros, created_by, created_at_micros
+                    permissions, conditions, starts_at, expires_at,
+                    status, approved_by, approved_at, revoked_by,
+                    revoked_at, created_by, created_at
                FROM iam_cross_org_grants
               WHERE source_organization_id = $1 OR target_organization_id = $1
-           ORDER BY created_at_micros DESC",
+           ORDER BY created_at DESC",
         )
         .bind(&organization_id.0)
         .fetch_all(&self.pool)
@@ -778,16 +736,16 @@ impl IamRepository for PgIamRepository {
         let rows = sqlx::query(
             "SELECT id, source_organization_id, target_organization_id,
                     grantee_type, grantee_id, resource_type, resource_selector,
-                    permissions, conditions, starts_at_micros, expires_at_micros,
-                    status, approved_by, approved_at_micros, revoked_by,
-                    revoked_at_micros, created_by, created_at_micros
+                    permissions, conditions, starts_at, expires_at,
+                    status, approved_by, approved_at, revoked_by,
+                    revoked_at, created_by, created_at
                FROM iam_cross_org_grants grant_row
               WHERE source_organization_id = $1
                 AND target_organization_id = $2
                 AND resource_type = $5
                 AND status = 'active'
-                AND (starts_at_micros IS NULL OR starts_at_micros <= $8)
-                AND (expires_at_micros IS NULL OR expires_at_micros > $8)
+                AND (starts_at IS NULL OR starts_at <= $8)
+                AND (expires_at IS NULL OR expires_at > $8)
                 AND permissions ? $7
                 AND (
                     resource_selector -> 'ids' ? $6
@@ -817,7 +775,7 @@ impl IamRepository for PgIamRepository {
         .bind(&query.resource_type)
         .bind(&query.resource_id)
         .bind(&query.permission)
-        .bind(query.now.0)
+        .bind(query.now)
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -835,9 +793,9 @@ impl IamRepository for PgIamRepository {
             "INSERT INTO iam_cross_org_grants (
                  id, source_organization_id, target_organization_id,
                  grantee_type, grantee_id, resource_type, resource_selector,
-                 permissions, conditions, starts_at_micros, expires_at_micros,
-                 status, approved_by, approved_at_micros, revoked_by,
-                 revoked_at_micros, created_by, created_at_micros
+                 permissions, conditions, starts_at, expires_at,
+                 status, approved_by, approved_at, revoked_by,
+                 revoked_at, created_by, created_at
              ) VALUES (
                  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
              )",
@@ -851,15 +809,15 @@ impl IamRepository for PgIamRepository {
         .bind(Json(&grant.resource_selector))
         .bind(Json(&grant.permissions))
         .bind(Json(&grant.conditions))
-        .bind(grant.starts_at.map(|value| value.0))
-        .bind(grant.expires_at.map(|value| value.0))
+        .bind(grant.starts_at)
+        .bind(grant.expires_at)
         .bind(grant.status.as_str())
         .bind(grant.approved_by.as_ref().map(|value| &value.0))
-        .bind(grant.approved_at.map(|value| value.0))
+        .bind(grant.approved_at)
         .bind(grant.revoked_by.as_ref().map(|value| &value.0))
-        .bind(grant.revoked_at.map(|value| value.0))
+        .bind(grant.revoked_at)
         .bind(&grant.created_by.0)
-        .bind(grant.created_at.0)
+        .bind(grant.created_at)
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
@@ -884,22 +842,22 @@ impl IamRepository for PgIamRepository {
                 "UPDATE iam_cross_org_grants
                         SET status = 'active',
                             approved_by = $3,
-                            approved_at_micros = $4,
+                            approved_at = $4,
                             revoked_by = NULL,
-                            revoked_at_micros = NULL
+                            revoked_at = NULL
                       WHERE id = $1
                         AND target_organization_id = $2
                         AND status = 'pending'
                   RETURNING id, source_organization_id, target_organization_id,
                             grantee_type, grantee_id, resource_type, resource_selector,
-                            permissions, conditions, starts_at_micros, expires_at_micros,
-                            status, approved_by, approved_at_micros, revoked_by,
-                            revoked_at_micros, created_by, created_at_micros",
+                            permissions, conditions, starts_at, expires_at,
+                            status, approved_by, approved_at, revoked_by,
+                            revoked_at, created_by, created_at",
             )
             .bind(&grant_id.0)
             .bind(&organization_id.0)
             .bind(&actor_id.0)
-            .bind(now.0)
+            .bind(now)
             .fetch_optional(&mut *tx)
             .await
             .map_err(sqlx_err)?,
@@ -907,20 +865,20 @@ impl IamRepository for PgIamRepository {
                 "UPDATE iam_cross_org_grants
                         SET status = 'revoked',
                             revoked_by = $3,
-                            revoked_at_micros = $4
+                            revoked_at = $4
                       WHERE id = $1
                         AND (source_organization_id = $2 OR target_organization_id = $2)
                         AND status <> 'revoked'
                   RETURNING id, source_organization_id, target_organization_id,
                             grantee_type, grantee_id, resource_type, resource_selector,
-                            permissions, conditions, starts_at_micros, expires_at_micros,
-                            status, approved_by, approved_at_micros, revoked_by,
-                            revoked_at_micros, created_by, created_at_micros",
+                            permissions, conditions, starts_at, expires_at,
+                            status, approved_by, approved_at, revoked_by,
+                            revoked_at, created_by, created_at",
             )
             .bind(&grant_id.0)
             .bind(&organization_id.0)
             .bind(&actor_id.0)
-            .bind(now.0)
+            .bind(now)
             .fetch_optional(&mut *tx)
             .await
             .map_err(sqlx_err)?,
@@ -1007,15 +965,15 @@ fn row_to_binding(row: &sqlx::postgres::PgRow) -> Result<IamRoleBinding> {
             .map_err(sqlx_err)?
             .0,
         starts_at: row
-            .try_get::<Option<i64>, _>("starts_at_micros")
-            .map_err(sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("starts_at")
+            .map_err(sqlx_err)?,
         expires_at: row
-            .try_get::<Option<i64>, _>("expires_at_micros")
-            .map_err(sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("expires_at")
+            .map_err(sqlx_err)?,
         created_by: Id(row.try_get("created_by").map_err(sqlx_err)?),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -1033,7 +991,9 @@ fn row_to_relationship(row: &sqlx::postgres::PgRow) -> Result<IamResourceRelatio
         container_type: row.try_get("container_type").map_err(sqlx_err)?,
         container_id: row.try_get("container_id").map_err(sqlx_err)?,
         created_by: Id(row.try_get("created_by").map_err(sqlx_err)?),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -1060,32 +1020,30 @@ fn row_to_grant(row: &sqlx::postgres::PgRow) -> Result<IamCrossOrgGrant> {
             .map_err(sqlx_err)?
             .0,
         starts_at: row
-            .try_get::<Option<i64>, _>("starts_at_micros")
-            .map_err(sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("starts_at")
+            .map_err(sqlx_err)?,
         expires_at: row
-            .try_get::<Option<i64>, _>("expires_at_micros")
-            .map_err(sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("expires_at")
+            .map_err(sqlx_err)?,
         status: parse_grant_status(&row.try_get::<String, _>("status").map_err(sqlx_err)?),
         approved_by: row
             .try_get::<Option<String>, _>("approved_by")
             .map_err(sqlx_err)?
             .map(Id),
         approved_at: row
-            .try_get::<Option<i64>, _>("approved_at_micros")
-            .map_err(sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("approved_at")
+            .map_err(sqlx_err)?,
         revoked_by: row
             .try_get::<Option<String>, _>("revoked_by")
             .map_err(sqlx_err)?
             .map(Id),
         revoked_at: row
-            .try_get::<Option<i64>, _>("revoked_at_micros")
-            .map_err(sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("revoked_at")
+            .map_err(sqlx_err)?,
         created_by: Id(row.try_get("created_by").map_err(sqlx_err)?),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
     })
 }
 

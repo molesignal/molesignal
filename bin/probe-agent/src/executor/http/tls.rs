@@ -16,10 +16,20 @@ use rustls::{
 use rustls_platform_verifier::Verifier;
 use tokio_rustls::TlsConnector;
 
-/// The TLS client for a server that is about to be sent a request. It offers HTTP/1.1, the one
-/// protocol a check speaks.
+use super::route::{ClientIdentity, Transport};
+
+/// The TLS client for the server a request is for. It offers the HTTP versions the check speaks,
+/// and shows the client certificate the check has, if a server asks for one.
+pub(super) fn target_connector(transport: &Transport) -> Result<TlsConnector> {
+    let mut config = config(transport.verify, transport.identity.as_ref())?;
+    config.alpn_protocols = transport.version.alpn();
+    Ok(TlsConnector::from(Arc::new(config)))
+}
+
+/// The TLS client for a proxy that is about to be sent a plain request to pass on. It offers
+/// HTTP/1.1, the protocol a proxy forwards in.
 pub(super) fn connector(verify: bool) -> Result<TlsConnector> {
-    let mut config = config(verify)?;
+    let mut config = config(verify, None)?;
     config.alpn_protocols = vec![b"http/1.1".to_vec()];
     Ok(TlsConnector::from(Arc::new(config)))
 }
@@ -27,14 +37,14 @@ pub(super) fn connector(verify: bool) -> Result<TlsConnector> {
 /// The TLS client for a proxy that is about to be asked for a tunnel. It offers no protocol: what
 /// the connection carries is settled with the target, inside the tunnel.
 pub(super) fn connector_for_tunnel(verify: bool) -> Result<TlsConnector> {
-    Ok(TlsConnector::from(Arc::new(config(verify)?)))
+    Ok(TlsConnector::from(Arc::new(config(verify, None)?)))
 }
 
 /// What a TLS client of an HTTP check goes by.
 ///
 /// It trusts the certificates the operating system trusts, read afresh for every request, or any
 /// certificate at all for a check that does not verify them.
-fn config(verify: bool) -> Result<ClientConfig> {
+fn config(verify: bool, identity: Option<&ClientIdentity>) -> Result<ClientConfig> {
     let provider = CryptoProvider::get_default()
         .cloned()
         .unwrap_or_else(|| Arc::new(aws_lc_rs::default_provider()));
@@ -45,11 +55,17 @@ fn config(verify: bool) -> Result<ClientConfig> {
         Arc::new(AnyCertificate)
     };
 
-    Ok(ClientConfig::builder_with_provider(provider)
+    let builder = ClientConfig::builder_with_provider(provider)
         .with_safe_default_protocol_versions()?
         .dangerous()
-        .with_custom_certificate_verifier(verifier)
-        .with_no_client_auth())
+        .with_custom_certificate_verifier(verifier);
+
+    Ok(match identity {
+        Some(identity) => builder
+            .with_client_auth_cert(identity.chain(), identity.key())
+            .context("the client certificate and its key do not go together")?,
+        None => builder.with_no_client_auth(),
+    })
 }
 
 /// The name the server of `uri` has to hold a certificate for.

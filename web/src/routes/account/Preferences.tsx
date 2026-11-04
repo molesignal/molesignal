@@ -115,6 +115,7 @@ export function AccountPreferences() {
             }}
             onThemePreview={setTheme}
             surface="page"
+            groups="sections"
             withLanguage={false}
             disabled={save.isPending}
             disabledReason={

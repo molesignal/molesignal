@@ -12,6 +12,7 @@ import { FormField, FormInput, FormSection, FormSelect } from '@/shell/FormDrawe
 import { toast } from '@/shell/ui/sonner';
 
 import { useRumBasePath } from '../RumLayout';
+import { platformName } from './platforms';
 
 const DEFAULT_PLATFORM: Record<debugArtifactsApi.DebugArtifactKind, string> = {
   javascript_sourcemap: 'web',
@@ -48,13 +49,13 @@ export function UploadSourceMaps() {
     mutationFn: () => {
       if (!file) throw new Error(t('upload_source_maps.file_required'));
       return debugArtifactsApi.upload({
-        application_id: applicationId.trim(),
+        applicationId: applicationId.trim(),
         service: service.trim(),
         release: release.trim(),
         kind,
         platform,
         ...(architecture.trim() ? { architecture: architecture.trim() } : {}),
-        ...(debugId.trim() ? { debug_id: debugId.trim() } : {}),
+        ...(debugId.trim() ? { debugId: debugId.trim() } : {}),
         file,
       });
     },
@@ -79,23 +80,7 @@ export function UploadSourceMaps() {
   };
 
   return (
-    <DetailPage
-      title={t('upload_source_maps.title')}
-      metadata={[
-        {
-          label: t('source_maps.title'),
-          value: (
-            <button
-              type="button"
-              onClick={() => navigate(`${basePath}/settings/source-maps`)}
-              className="rounded text-[var(--blue-ink)] outline-none hover:bg-bg-2 focus-visible:bg-bg-2"
-            >
-              {t('source_maps.title')}
-            </button>
-          ),
-        },
-      ]}
-    >
+    <DetailPage title={t('upload_source_maps.title')}>
       <div className="mx-auto max-w-2xl">
         <form onSubmit={submit} className="space-y-4">
           <FormSection>
@@ -146,13 +131,22 @@ export function UploadSourceMaps() {
                   }))}
                 />
               </FormField>
-              <FormField label={t('upload_source_maps.platform_label')} required>
+              <FormField
+                label={t('upload_source_maps.platform_label')}
+                hint={t('upload_source_maps.platform_hint')}
+                required
+              >
                 <FormSelect
                   value={platform}
-                  onChange={setPlatform}
+                  // A new artifact type brings the platform and the choices that hold it in one render,
+                  // and the select then reports an empty value for a choice it has not met yet: no one
+                  // picks "nothing", so it is not taken.
+                  onChange={(next) => {
+                    if (next) setPlatform(next);
+                  }}
                   options={platformsFor(kind).map((value) => ({
                     value,
-                    label: value.toUpperCase(),
+                    label: platformName(value),
                   }))}
                 />
               </FormField>

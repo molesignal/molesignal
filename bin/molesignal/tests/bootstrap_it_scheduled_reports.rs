@@ -35,11 +35,11 @@ async fn create_webhook_report(
         .header(hk, hv)
         .json(&serde_json::json!({
             "name": name,
-            "dashboard_id": "dash-it",
+            "dashboardId": "dash-it",
             "cron": "every:1d",
             "format": "json",
             "recipients": [{ "kind": "webhook", "target": webhook_url }],
-            "time_range_json": { "from": "now-7d", "to": "now" },
+            "timeRangeJson": { "from": "now-7d", "to": "now" },
         }))
         .send()
         .await
@@ -120,7 +120,7 @@ async fn webhook_delivery_records_sent_status() {
     let d = latest_delivery(&s, hk, &hv, &id).await;
     assert_eq!(d["status"], "sent", "200 webhook → sent");
     assert!(d["error"].is_null(), "successful delivery has no error");
-    assert_eq!(d["recipient_kind"], "webhook");
+    assert_eq!(d["recipientKind"], "webhook");
 
     // drop 触发 wiremock 的 expect(1) 校验：webhook 确实被打了一次。
     drop(mock_server);
@@ -170,11 +170,11 @@ async fn preview_returns_rendered_payload() {
         // CreateReq schema：cron + recipients:[{kind,target}] + 恰好一个 dashboard_id/saved_view_id。
         .json(&serde_json::json!({
             "name": "preview-it",
-            "dashboard_id": "dash-preview-it",
+            "dashboardId": "dash-preview-it",
             "cron": "every:1d",
             "format": "json",
             "recipients": [{ "kind": "webhook", "target": "https://example.com/webhook" }],
-            "time_range_json": { "from": "now-7d", "to": "now" },
+            "timeRangeJson": { "from": "now-7d", "to": "now" },
         }))
         .send()
         .await
@@ -229,11 +229,11 @@ async fn pdf_preview_never_returns_json_as_application_pdf() {
         .header(hk, &hv)
         .json(&serde_json::json!({
             "name": "pdf-preview-it",
-            "dashboard_id": "dash-pdf-preview-it",
+            "dashboardId": "dash-pdf-preview-it",
             "cron": "every:1d",
             "format": "pdf",
             "recipients": [{ "kind": "webhook", "target": "https://example.com/webhook" }],
-            "time_range_json": { "from": "now-7d", "to": "now" },
+            "timeRangeJson": { "from": "now-7d", "to": "now" },
         }))
         .send()
         .await
@@ -242,7 +242,7 @@ async fn pdf_preview_never_returns_json_as_application_pdf() {
     let body: serde_json::Value = create.json().await.unwrap();
     let id = body["id"].as_str().expect("report id");
 
-    // TestServer 默认不启用 Chrome renderer。此时必须明确返回 503 JSON 错误，
+    // 有没有 Chrome、报表页打不打得开随机器而定：渲染成了必须是真 PDF，渲染不成必须是 JSON 错误，
     // 不能返回 200 application/pdf + JSON body。
     let response = s
         .client
@@ -254,15 +254,23 @@ async fn pdf_preview_never_returns_json_as_application_pdf() {
         .send()
         .await
         .unwrap();
-    assert_eq!(response.status().as_u16(), 503);
+    let status = response.status();
     let content_type = response
         .headers()
         .get("content-type")
         .and_then(|value| value.to_str().ok())
-        .unwrap_or("");
-    assert!(content_type.contains("application/json"));
-    let error: serde_json::Value = response.json().await.unwrap();
-    assert_eq!(error["error"], "unavailable");
+        .unwrap_or("")
+        .to_owned();
+    let body = response.bytes().await.unwrap();
+
+    if status.is_success() {
+        assert!(content_type.contains("application/pdf"));
+        assert!(body.starts_with(b"%PDF-"));
+    } else {
+        assert!(content_type.contains("application/json"));
+        let error: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert!(error["error"].is_string(), "error body: {error}");
+    }
 }
 
 #[tokio::test]
@@ -284,7 +292,7 @@ async fn a_report_records_the_signed_in_user_who_saved_it() {
         .json()
         .await
         .unwrap();
-    let me = profile["user_id"].as_str().expect("signed-in user id");
+    let me = profile["userId"].as_str().expect("signed-in user id");
 
     let id = create_webhook_report(&s, hk, &hv, "run-as-it", "https://example.com/webhook").await;
     let report_url = format!("{}/api/v1/scheduled_reports/{id}", s.base_url);
@@ -299,15 +307,15 @@ async fn a_report_records_the_signed_in_user_who_saved_it() {
         .json()
         .await
         .unwrap();
-    assert_eq!(stored["run_as_user_id"], me);
+    assert_eq!(stored["runAsUserId"], me);
 
     // 这位用户的显示名和邮箱随报表返回，界面不必再去读成员目录。
     let named = serde_json::json!({
         "id": me,
-        "display_name": profile["display_name"],
+        "displayName": profile["displayName"],
         "email": profile["email"],
     });
-    assert_eq!(stored["run_as_user"], named);
+    assert_eq!(stored["runAsUser"], named);
 
     let listed: serde_json::Value = s
         .client
@@ -325,7 +333,7 @@ async fn a_report_records_the_signed_in_user_who_saved_it() {
         .iter()
         .find(|report| report["id"] == id.as_str())
         .expect("the new report is listed");
-    assert_eq!(listed["run_as_user"], named);
+    assert_eq!(listed["runAsUser"], named);
 
     // 再保存一次（暂停）：身份是这次保存的人，其余字段照请求写入。
     let update = s
@@ -334,11 +342,11 @@ async fn a_report_records_the_signed_in_user_who_saved_it() {
         .header(hk, &hv)
         .json(&serde_json::json!({
             "name": "run-as-it",
-            "dashboard_id": "dash-it",
+            "dashboardId": "dash-it",
             "cron": "every:1d",
             "format": "json",
             "recipients": [{ "kind": "webhook", "target": "https://example.com/webhook" }],
-            "time_range_json": { "from": "now-7d", "to": "now" },
+            "timeRangeJson": { "from": "now-7d", "to": "now" },
             "enabled": false,
         }))
         .send()
@@ -350,7 +358,7 @@ async fn a_report_records_the_signed_in_user_who_saved_it() {
         update.status()
     );
     let updated: serde_json::Value = update.json().await.unwrap();
-    assert_eq!(updated["run_as_user"], named);
+    assert_eq!(updated["runAsUser"], named);
 
     let stored: serde_json::Value = s
         .client
@@ -362,6 +370,6 @@ async fn a_report_records_the_signed_in_user_who_saved_it() {
         .json()
         .await
         .unwrap();
-    assert_eq!(stored["run_as_user_id"], me);
+    assert_eq!(stored["runAsUserId"], me);
     assert_eq!(stored["enabled"], false);
 }

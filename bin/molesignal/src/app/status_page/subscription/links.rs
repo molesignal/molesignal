@@ -153,7 +153,7 @@ pub(super) fn page_action_url(page_url: &str, action: &str) -> Result<String> {
     let mut url = http_url(page_url, "status-page URL is invalid")?;
 
     let fragment = url::form_urlencoded::Serializer::new(String::new())
-        .append_pair("subscription_action", action)
+        .append_pair("subscriptionAction", action)
         .finish();
 
     url.set_fragment(Some(&fragment));
@@ -201,16 +201,16 @@ fn write_subscription_message(
 
     let mut payload = json!({
         "type": payload_type,
-        "page_name": page_name,
-        "page_slug": page_slug,
-        "manage_url": links.manage,
-        "unsubscribe_url": links.unsubscribe,
+        "pageName": page_name,
+        "pageSlug": page_slug,
+        "manageUrl": links.manage,
+        "unsubscribeUrl": links.unsubscribe,
         "components": component_names,
         "token": token,
     });
 
     if kind == SubscriptionMessage::Confirm {
-        payload["confirm_url"] = json!(links.confirm);
+        payload["confirmUrl"] = json!(links.confirm);
     }
 
     // The message is about the subscription: its own links are in the copy.
@@ -227,13 +227,13 @@ pub(super) fn delivery_message(
     postmortem: Option<&str>,
 ) -> Result<StatusPageNotificationMessage> {
     let payload = &delivery.payload;
-    let page_name = payload_text(payload, "page_name", "Status page")?;
+    let page_name = payload_text(payload, "pageName", "Status page")?;
     let links = SubscriberLinks::new(&page.url, &delivery.subscriber_token)?;
     let mut enriched = payload.clone();
 
     let (copy, buttons) = match payload.get("type").and_then(Value::as_str) {
         Some("component_status_changed") => {
-            let component = payload_text(payload, "component_name", "component")?;
+            let component = payload_text(payload, "componentName", "component")?;
             let status = payload_text(payload, "status", "component status")?;
 
             let copy = email_pack
@@ -257,11 +257,11 @@ pub(super) fn delivery_message(
         }
         Some("incident_update") => {
             let maintenance =
-                payload.get("incident_kind").and_then(Value::as_str) == Some("maintenance");
+                payload.get("incidentKind").and_then(Value::as_str) == Some("maintenance");
 
             let incident = incident_url(
                 &page.url,
-                payload_text(payload, "incident_id", "incident id")?,
+                payload_text(payload, "incidentId", "incident id")?,
             );
 
             let update = EventUpdate {
@@ -274,7 +274,7 @@ pub(super) fn delivery_message(
                 scheduled_for: planned_start(payload, maintenance)
                     .map(|at| notification_copy::zoned_time(at, &page.timezone)),
                 next_update_at: payload
-                    .get("next_update_at")
+                    .get("nextUpdateAt")
                     .and_then(Value::as_i64)
                     .map(|at| notification_copy::zoned_time(TimestampMicros(at), &page.timezone)),
             };
@@ -283,7 +283,7 @@ pub(super) fn delivery_message(
                 .map(|pack| notification_copy::event_update(pack, &update))
                 .transpose()?;
 
-            enriched["incident_url"] = json!(incident);
+            enriched["incidentUrl"] = json!(incident);
             (
                 copy,
                 button_list(
@@ -331,7 +331,7 @@ pub(super) fn delivery_message(
 
             let incident = incident_url(
                 &page.url,
-                payload_text(payload, "incident_id", "incident id")?,
+                payload_text(payload, "incidentId", "incident id")?,
             );
 
             let postmortem = postmortem
@@ -347,7 +347,7 @@ pub(super) fn delivery_message(
                 .transpose()?;
 
             enriched["postmortem"] = json!(postmortem);
-            enriched["incident_url"] = json!(incident);
+            enriched["incidentUrl"] = json!(incident);
             (
                 copy,
                 button_list(
@@ -360,7 +360,7 @@ pub(super) fn delivery_message(
             )
         }
         Some("status_page_subscription_confirmation") => {
-            let page_slug = payload_text(payload, "page_slug", "page slug")?;
+            let page_slug = payload_text(payload, "pageSlug", "page slug")?;
 
             return write_subscription_message(
                 SubscriptionMessage::Confirm,
@@ -374,8 +374,8 @@ pub(super) fn delivery_message(
         _ => return Err(Error::internal("unknown status-page notification payload")),
     };
 
-    enriched["manage_url"] = json!(links.manage);
-    enriched["unsubscribe_url"] = json!(links.unsubscribe);
+    enriched["manageUrl"] = json!(links.manage);
+    enriched["unsubscribeUrl"] = json!(links.unsubscribe);
 
     let footer =
         match (delivery.channel, email_pack) {
@@ -439,7 +439,7 @@ fn button_list(pack: Option<&LanguagePack>, buttons: &[(&str, &str)]) -> Result<
 /// delivery queued before the payload carried `started_at`.
 fn planned_start(payload: &Value, maintenance: bool) -> Option<TimestampMicros> {
     payload
-        .get("started_at")
+        .get("startedAt")
         .and_then(Value::as_i64)
         .filter(|_| maintenance)
         .map(TimestampMicros)
@@ -449,8 +449,8 @@ fn subscription_action_url(page_url: &str, action: &str, token: &str) -> Result<
     let mut url = http_url(page_url, "status-page subscription URL is invalid")?;
 
     let fragment = url::form_urlencoded::Serializer::new(String::new())
-        .append_pair("subscription_action", action)
-        .append_pair("subscription_token", token)
+        .append_pair("subscriptionAction", action)
+        .append_pair("subscriptionToken", token)
         .finish();
 
     url.set_fragment(Some(&fragment));

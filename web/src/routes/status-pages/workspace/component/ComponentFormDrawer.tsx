@@ -3,12 +3,10 @@ import { useTranslation } from 'react-i18next';
 
 import type {
   ComponentKind,
-  ComponentServiceLink,
   ComponentStatus,
   StatusPageComponent,
   StatusPageComponentInput,
 } from '@/api/statusPages';
-import { useActionAccess } from '@/product/actionAccess';
 import {
   FormDrawer,
   FormField,
@@ -23,13 +21,7 @@ import {
 
 import { COMPONENT_STATUSES, componentStatusLabel } from '../../model';
 import { NotifySwitch } from '../NotifySwitch';
-import { ServiceLinkFields } from './ServiceLinkFields';
-
-export interface ComponentSubmission {
-  input: StatusPageComponentInput;
-  /** The business service link to set, null to remove it, undefined to leave it as it is. */
-  link: ComponentServiceLink | null | undefined;
-}
+import { DependencyFields, type DependencyDraft } from './dependencies/DependencyFields';
 
 interface ComponentFormDrawerProps {
   open: boolean;
@@ -38,7 +30,7 @@ interface ComponentFormDrawerProps {
   groups: StatusPageComponent[];
   busy: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (submission: ComponentSubmission) => void;
+  onSubmit: (input: StatusPageComponentInput) => void;
 }
 
 /**
@@ -53,7 +45,6 @@ export function ComponentFormDrawer({ open, ...opening }: ComponentFormDrawerPro
 
 function ComponentForm({ component, groups, busy, onOpenChange, onSubmit }: Omit<ComponentFormDrawerProps, 'open'>) {
   const { t } = useTranslation('status-pages');
-  const businessServiceAccess = useActionAccess({ permission: 'business_services.read' });
   // What it is stays as it was made.
   const [kind, setKind] = React.useState<ComponentKind>(() => component?.kind ?? 'component');
   const [name, setName] = React.useState(() => component?.name ?? '');
@@ -65,14 +56,17 @@ function ComponentForm({ component, groups, busy, onOpenChange, onSubmit }: Omit
   const [lifecycle, setLifecycle] = React.useState<'active' | 'archived'>(
     () => component?.lifecycle ?? 'active',
   );
-  const [groupId, setGroupId] = React.useState(() => component?.group_id ?? '');
+  const [groupId, setGroupId] = React.useState(() => component?.groupId ?? '');
   const [notify, setNotify] = React.useState(true);
-  const [link, setLink] = React.useState<ComponentServiceLink | null>(
-    () => component?.business_service ?? null,
-  );
+  const [dependencies, setDependencies] = React.useState<DependencyDraft>(() => ({
+    dependencies: component?.dependencies ?? [],
+    mode: component?.dependencyMode ?? 'follow',
+    notify: component?.dependencyNotify ?? true,
+  }));
   const formId = 'status-page-component-form';
   const group = kind === 'group';
-  const following = link?.mode === 'follow';
+  const complete = dependencies.dependencies.every((dependency) => dependency.target.trim());
+  const following = !group && dependencies.dependencies.length > 0 && dependencies.mode === 'follow';
   const groupChoices = groups.filter((candidate) => candidate.id !== component?.id);
 
   return (
@@ -86,7 +80,7 @@ function ComponentForm({ component, groups, busy, onOpenChange, onSubmit }: Omit
       footer={
         <FormSubmitFooter
           busy={busy}
-          invalid={!name.trim()}
+          invalid={!name.trim() || !complete}
           onCancel={() => onOpenChange(false)}
           submitLabel={component ? t('actions.save') : t(group ? 'actions.add_group' : 'actions.add_component')}
           formId={formId}
@@ -97,23 +91,28 @@ function ComponentForm({ component, groups, busy, onOpenChange, onSubmit }: Omit
         id={formId}
         onSubmit={(event) => {
           event.preventDefault();
-          if (!name.trim()) return;
+          if (!name.trim() || !complete) return;
           onSubmit({
-            input: {
-              name: name.trim(),
-              description: description.trim(),
-              status: group ? 'operational' : status,
-              visibility: group ? 'enabled' : visibility,
-              lifecycle: component ? lifecycle : 'active',
-              ...(component ? { position: component.position } : {}),
-              notify,
-              kind,
-              group_id: group ? null : groupId || null,
-            },
-            link: !group && businessServiceAccess.allowed
-              && !linkUnchanged(component?.business_service ?? null, link)
-              ? link
-              : undefined,
+            name: name.trim(),
+            description: description.trim(),
+            status: group ? 'operational' : status,
+            visibility: group ? 'enabled' : visibility,
+            lifecycle: component ? lifecycle : 'active',
+            ...(component ? { position: component.position } : {}),
+            notify,
+            kind,
+            groupId: group ? null : groupId || null,
+            // A group depends on nothing of its own.
+            ...(group
+              ? {}
+              : {
+                  dependencies: dependencies.dependencies.map((dependency) => ({
+                    ...dependency,
+                    target: dependency.target.trim(),
+                  })),
+                  dependencyMode: dependencies.mode,
+                  dependencyNotify: dependencies.notify,
+                }),
           });
         }}
       >
@@ -205,17 +204,10 @@ function ComponentForm({ component, groups, busy, onOpenChange, onSubmit }: Omit
             </FormRow>
           )}
         </FormSection>
-        {!group && businessServiceAccess.allowed && lifecycle === 'active' && (
-          <ServiceLinkFields link={link} onChange={setLink} />
+        {!group && lifecycle === 'active' && (
+          <DependencyFields draft={dependencies} onChange={setDependencies} health={component?.dependencyHealth} />
         )}
       </form>
     </FormDrawer>
   );
-}
-
-function linkUnchanged(before: ComponentServiceLink | null, after: ComponentServiceLink | null): boolean {
-  if (!before || !after) return before === after;
-  return before.business_service_id === after.business_service_id
-    && before.mode === after.mode
-    && before.notify_subscribers === after.notify_subscribers;
 }

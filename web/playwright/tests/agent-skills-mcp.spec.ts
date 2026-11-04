@@ -117,7 +117,13 @@ test.describe('Mole Agent skills, MCP servers and team chats', () => {
     await page.locator('[data-agent-mcp-servers]').click();
     await page.getByRole('button', { name: 'Import' }).click();
     const drawer = page.getByRole('dialog', { name: 'Import MCP configuration' });
-    await drawer.getByLabel('Configuration JSON').fill(
+    // The configuration is a code editor: the field's words focus it, and the text goes in as
+    // one input, the way a paste does, with no bracket or quote closed on the way.
+    const configuration = drawer.getByRole('textbox', { name: 'Configuration JSON', exact: true });
+    await expect(configuration).toBeAttached();
+    await drawer.getByText('Configuration JSON', { exact: true }).click();
+    await expect(configuration).toBeFocused();
+    await page.keyboard.insertText(
       JSON.stringify({
         mcpServers: {
           sentry: { url: 'https://mcp.sentry.dev/mcp', headers: { Authorization: 'Bearer ${input:token}' } },
@@ -157,7 +163,7 @@ test.describe('Mole Agent skills, MCP servers and team chats', () => {
     const box = page.getByTestId('composer-input');
     await box.fill('Why is checkout slow?');
     await box.press('Enter');
-    expect((await create).postDataJSON()).toMatchObject({ team_id: 'team-platform' });
+    expect((await create).postDataJSON()).toMatchObject({ teamId: 'team-platform' });
   });
 
   test('the command menu groups skills and MCP prompts and says which cannot be used yet', async ({
@@ -185,8 +191,8 @@ test.describe('Mole Agent skills, MCP servers and team chats', () => {
     const put = page.waitForRequest(isRequest('PUT', /\/api\/v1\/agent\/network-policy$/));
     await section.getByRole('button', { name: 'Save' }).click();
     expect((await put).postDataJSON()).toEqual({
-      private_hosts: ['git.corp.example'],
-      private_cidrs: ['10.20.0.0/16', '172.16.4.0/24'],
+      privateHosts: ['git.corp.example'],
+      privateCidrs: ['10.20.0.0/16', '172.16.4.0/24'],
     });
   });
 });

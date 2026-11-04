@@ -48,9 +48,9 @@ export function CreateClusterDrawer({
     mutationFn: () =>
       clustersApi.create({
         name: name.trim(),
-        advertise_addr: advertiseAddr.trim(),
-        token_secret_ref: tokenSecretRef.trim(),
-        tls_verify: tlsVerify,
+        advertiseAddr: advertiseAddr.trim(),
+        tokenSecretRef: tokenSecretRef.trim(),
+        tlsVerify: tlsVerify,
       }),
     onSuccess: () => {
       toast.success(t('nodes.toast_added'));
@@ -190,10 +190,10 @@ export function OrgMapDrawer({
   const save = useMutation({
     mutationFn: () => {
       const payload: clustersApi.OrgMapPayload = {
-        local_org_id: localOrg.trim(),
-        remote_org_id: remoteOrg.trim(),
+        localOrgId: localOrg.trim(),
+        remoteOrgId: remoteOrg.trim(),
       };
-      if (tokenRef.trim()) payload.token_secret_ref = tokenRef.trim();
+      if (tokenRef.trim()) payload.tokenSecretRef = tokenRef.trim();
       return clustersApi.putOrgMap(clusterId, payload);
     },
     onSuccess: () => {
@@ -248,15 +248,15 @@ export function OrgMapDrawer({
       ) : (
         <div className="mb-4 overflow-hidden rounded border border-bd-0">
           <table className="w-full text-left font-sans text-xs">
-            <thead className="bg-bg-2 text-tx-2">
+            <thead className="bg-[var(--table-head-surface)] text-tx-0">
               <tr>
-                <th className="px-2 py-1.5 font-medium">
+                <th className="px-2 py-1.5 font-strong">
                   {t('nodes.org_map.col_local')}
                 </th>
-                <th className="px-2 py-1.5 font-medium">
+                <th className="px-2 py-1.5 font-strong">
                   {t('nodes.org_map.col_remote')}
                 </th>
-                <th className="px-2 py-1.5 font-medium">
+                <th className="px-2 py-1.5 font-strong">
                   {t('nodes.org_map.col_token')}
                 </th>
                 <th className="w-24" />
@@ -265,17 +265,17 @@ export function OrgMapDrawer({
             <tbody>
               {rows.map((row) => (
                 <tr
-                  key={row.local_org_id}
+                  key={row.localOrgId}
                   className="border-t border-bd-0"
                 >
                   <td className="px-2 py-1.5 text-tx-1">
-                    {row.local_org_id}
+                    {row.localOrgId}
                   </td>
                   <td className="px-2 py-1.5 text-tx-1">
-                    {row.remote_org_id}
+                    {row.remoteOrgId}
                   </td>
                   <td className="px-2 py-1.5">
-                    {row.token_secret_ref ? (
+                    {row.tokenSecretRef ? (
                       <Pill tone="green">
                         {t('nodes.org_map.token_set')}
                       </Pill>
@@ -292,7 +292,7 @@ export function OrgMapDrawer({
                       size="sm"
                       disabled={access.disabled || remove.isPending}
                       disabledReason={access.reason}
-                      onClick={() => remove.mutate(row.local_org_id)}
+                      onClick={() => remove.mutate(row.localOrgId)}
                       className="enabled:hover:text-red-soft"
                     >
                       {tc('actions.delete')}
@@ -395,25 +395,25 @@ export function RemoteNodesDrawer({
       ) : (
         <div className="overflow-hidden rounded border border-bd-0">
           <table className="w-full text-left font-sans text-xs">
-            <thead className="bg-bg-2 text-tx-2">
+            <thead className="bg-[var(--table-head-surface)] text-tx-0">
               <tr>
-                <th className="px-2 py-1.5 font-medium">
+                <th className="px-2 py-1.5 font-strong">
                   {t('nodes.remote_nodes.col_node')}
                 </th>
-                <th className="px-2 py-1.5 font-medium">
+                <th className="px-2 py-1.5 font-strong">
                   {t('nodes.remote_nodes.col_roles')}
                 </th>
-                <th className="px-2 py-1.5 font-medium">
+                <th className="px-2 py-1.5 font-strong">
                   {t('nodes.remote_nodes.col_version')}
                 </th>
               </tr>
             </thead>
             <tbody>
               {nodes.map((node) => (
-                <tr key={node.node_id} className="border-t border-bd-0">
+                <tr key={node.nodeId} className="border-t border-bd-0">
                   <td className="px-2 py-1.5 text-tx-1">
-                    <div className="font-medium">{node.node_id}</div>
-                    <div className="text-tx-3">{node.advertise_addr}</div>
+                    <div className="font-medium">{node.nodeId}</div>
+                    <div className="text-tx-3">{node.advertiseAddr}</div>
                   </td>
                   <td className="px-2 py-1.5">
                     <div className="flex flex-wrap gap-1">

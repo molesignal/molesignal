@@ -17,7 +17,8 @@
     "all_types": "All",
     "logs": "Logs",
     "metrics": "Metrics",
-    "traces": "Traces"
+    "traces": "Traces",
+    "profiles": "Profiles"
   },
   "states": {
     "empty_title": "No scheduled pipelines yet",
@@ -58,7 +59,8 @@
       "paused": "Paused",
       "unknown": "Unknown",
       "never": "Never run",
-      "ready": "Ready for intake"
+      "ready": "Ready for intake",
+      "listening": "Waiting for alert events"
     },
     "run_states": {
       "succeeded": "Succeeded",
@@ -90,7 +92,8 @@
     "metadata": {
       "schedule": "Schedule",
       "lookback": "Lookback",
-      "last_run": "Last run"
+      "last_run": "Last run",
+      "audit_reader": "Reads _audit as"
     },
     "tabs": {
       "overview": "Overview",
@@ -178,7 +181,7 @@
       "definition_title": "Pipeline definition",
       "definition_description": "Paste Vector-compatible JSON, or simple key: value YAML.",
       "definition_label": "Definition",
-      "definition_placeholder": "{\n  \"name\": \"prod-app-logs\",\n  \"source_stream\": \"app-logs\",\n  \"target_stream\": \"enriched-logs\",\n  \"function_steps\": [],\n  \"cron\": \"every:5m\"\n}",
+      "definition_placeholder": "{\n  \"name\": \"prod-app-logs\",\n  \"sourceStream\": \"app-logs\",\n  \"targetStream\": \"enriched-logs\",\n  \"functionSteps\": [],\n  \"cron\": \"every:5m\"\n}",
       "definition_aria": "Pipeline definition",
       "import_label": "Import",
       "validation_empty": "Pipeline definition is required",
@@ -267,7 +270,8 @@
       "transform_name_missing": "Step {{index}} has no name.",
       "transform_script_missing": "Step \"{{name}}\" has no VRL script.",
       "connector_missing": "This connector is gone, or is not one a pipeline can deliver to: {{id}}",
-      "realtime_logs": "Realtime mode currently supports logs.",
+      "in_place_route": "Metrics, traces and RUM events are changed in the stream they arrive in: a realtime pipeline on them cannot route events elsewhere.",
+      "protected_field": "Step \"{{name}}\" changes {{field}}, which a realtime pipeline on this stream keeps as it arrives.",
       "realtime_nodes": "Realtime mode takes one source stream and one destination stream, and no connectors.",
       "source_missing": "Choose the stream to read.",
       "sink_missing": "Choose the stream to write to.",
@@ -292,7 +296,38 @@
       "route_field_missing": "Step \"{{name}}\" needs a field and a fallback stream.",
       "route_stream_invalid": "Step \"{{name}}\": \"{{stream}}\" is not a stream name.",
       "route_prefix_invalid": "Step \"{{name}}\": a stream prefix holds letters, numbers, _ - and . only.",
-      "route_to_source": "Step \"{{name}}\" would route events back into {{stream}}, a stream this pipeline reads. Choose another stream."
+      "rum_sessions_source": "{{name}} is built from the views as they arrive; no pipeline changes it.",
+      "platform_source": "{{name}} is written by the platform. A realtime pipeline cannot change it; a scheduled pipeline can read it.",
+      "platform_written": "{{name}} is written by the platform only. Choose another stream to write to.",
+      "route_to_platform": "Step \"{{name}}\" would route events into {{stream}}, which only the platform writes. Choose another stream.",
+      "rum_keeps_rows": "Step \"{{name}}\" can drop events, but a pipeline on {{source}} keeps every row.",
+      "rum_written": "{{name}} is written by RUM intake only. Choose another stream to write to.",
+      "route_to_rum": "Step \"{{name}}\" would route events into {{stream}}, which only RUM intake writes. Choose another stream.",
+      "route_to_source": "Step \"{{name}}\" would route events back into {{stream}}, a stream this pipeline reads. Choose another stream.",
+      "table_unset": "Choose the extend table of this destination.",
+      "table_duplicate": "{{name}} is already a destination: its rows are written once.",
+      "alert_route": "Step \"{{name}}\" routes events, which an alert pipeline does not do. Remove it or make it another kind of step.",
+      "alert_prompt_missing": "Step \"{{name}}\" needs a prompt.",
+      "alert_sample": "Step \"{{name}}\" samples events, which an alert pipeline does not do. Use a filter to drop what is not wanted.",
+      "alert_notify_outside": "Step \"{{name}}\" goes outside MoleSignal, which a step does only when an incident opens, not for every notification. Move it to a pipeline that runs before the incident opens.",
+      "alert_connector_missing": "Choose the HTTP connector step \"{{name}}\" calls.",
+      "alert_query_stream_missing": "Choose the stream step \"{{name}}\" reads.",
+      "alert_query_statement_missing": "Step \"{{name}}\" needs a query.",
+      "counting_condition_invalid": "A test of step \"{{name}}\" still needs a value; \"is greater than\", \"is at least\", \"is less than\" and \"is at most\" compare with a number.",
+      "metric_name_invalid": "Step \"{{name}}\" needs a metric name of letters, digits, _ and :, not starting with a digit.",
+      "metric_group_invalid": "Step \"{{name}}\" groups by at most 10 fields, each once.",
+      "metric_label_reserved": "Step \"{{name}}\" groups by a field every metric sample has, such as value, le or metric_name. Choose another field.",
+      "metric_buckets_invalid": "Step \"{{name}}\" needs 1 to 30 upper bounds, each a number above the one before.",
+      "metric_stream_unwritable": "Step \"{{name}}\" cannot write metrics into {{stream}}. Choose another stream.",
+      "limit_invalid": "Step \"{{name}}\" needs a limit of 1 or more; a throttle's window is 1 to 86400 seconds.",
+      "limit_fields_invalid": "Step \"{{name}}\" is split or grouped by at most 5 fields, each once.",
+      "limit_overrides_invalid": "Each bucket of step \"{{name}}\" with a limit of its own needs a value for every field the quota is split by and a limit, and comes once.",
+      "limit_target_missing": "Step \"{{name}}\" still needs the stream that what goes past its limit is sent to.",
+      "limit_target_source": "Step \"{{name}}\" would send what goes past its limit back into {{stream}}, the stream it reads.",
+      "counting_realtime_only": "Step \"{{name}}\" keeps count as events arrive: it runs only in a realtime pipeline.",
+      "counting_not_here_metric": "Step \"{{name}}\" makes metrics of logs, RUM events and spans; this pipeline changes another kind of data.",
+      "counting_not_here_limit": "Step \"{{name}}\" holds back logs and the RUM events a step may drop; here it would leave gaps in the data.",
+      "counting_name_duplicate": "Two steps are named \"{{name}}\". A step that keeps count needs a name of its own: its counts are kept under it."
     }
   },
   "drawer": {
@@ -345,7 +380,12 @@
     "retain_hint": "Keep the original log in {{source}} after routing (masking still applies). Write once when source and destination match.",
     "no_backfill": "Realtime pipelines run on intake and do not support backfill.",
     "ready": "Ready for intake",
-    "logs_only": "Realtime mode currently supports logs."
+    "in_place_title": "Back into the stream",
+    "in_place_detail": "Changed in place",
+    "in_place_rum": "RUM events are changed as they arrive and stay in this stream. Only context, usr.extra, feature_flags and extra can change: every other column is what the RUM pages read, and a step that changes one fails the event. Actions, errors, resources and long tasks may be dropped; views and vitals never are.",
+    "in_place_metrics": "Samples are changed as they arrive and stay in this stream. Labels can be removed, renamed or added to cut cardinality; a changed label makes a new series. The metric name, the value, count, sum, min and max, the time, the metric's metadata and the le and quantile labels are kept as they arrive: a step that changes one fails the sample.",
+    "in_place_profiles": "Only a profile's metadata row goes through the steps; the profile itself stays as it was stored. Steps can rename the service, change labels, add fields and drop rows; a dropped row takes the profile out of the Profiles pages, and its object is removed when the retention period ends. The object's location, the ID, the type, the time and the measured values are kept as they arrive: a step that changes one fails the row.",
+    "in_place_traces": "Spans are changed as they arrive, after tail sampling, and stay in this stream. Steps can drop spans, sample whole traces by trace_id, and remove or change attributes; an attribute changed here is changed in the span's attributes too. Trace and span IDs, the parent, service.name and the timing are kept as they arrive: a step that changes one fails the span. A span dropped from the middle of a trace leaves its children without a parent, and the trace list and the service map count only the spans that are written."
   },
   "processing": {
     "type": "Processing type",
@@ -378,9 +418,14 @@
       "m": "minutes",
       "h": "hours"
     },
-    "realtime_note": "Runs on every log event as it is ingested: one source stream, one destination, no schedule."
+    "realtime_note": "Runs on every log event as it is ingested: one source stream, one destination, no schedule.",
+    "realtime_note_metrics": "Runs on every sample as it is written, in the stream it arrives in: one source stream, no schedule.",
+    "realtime_note_traces": "Runs on every span as it is written, after tail sampling, in the stream it arrives in: one source stream, no schedule.",
+    "realtime_note_profiles": "Runs on the metadata row of every profile as it is stored, in the stream it arrives in. The profile itself is not touched."
   },
   "flow": {
+    "remove_node": "Remove {{name}}",
+    "required_node": "This source or destination is required",
     "processing": "Processing",
     "destinations": "Destinations",
     "add_step": "Add step",
@@ -397,7 +442,8 @@
     "destination_stream": "Stream",
     "destination_connector": "Connector",
     "at_most": "At most {{max}} streams",
-    "no_steps": "No steps: events are written as they are read."
+    "no_steps": "No steps: events are written as they are read.",
+    "destination_table": "Extend table"
   },
   "steps": {
     "name": "Step name",
@@ -409,14 +455,17 @@
     "groups": {
       "parse": "Parse",
       "fields": "Fields",
-      "events": "Events"
+      "events": "Events",
+      "counting": "Count and limit"
     },
     "types": {
       "parse_json": "Parse JSON",
       "parse_key_value": "Parse key=value",
       "parse_regex": "Extract with regex",
       "rename": "Rename field",
+      "rename_regex": "Rename by pattern",
       "remove": "Remove fields",
+      "keep": "Keep only these fields",
       "set": "Set field",
       "mask": "Mask field",
       "case": "Change case",
@@ -424,7 +473,14 @@
       "filter": "Filter events",
       "sample": "Sample",
       "route": "Route to stream",
-      "vrl": "Custom VRL"
+      "vrl": "Custom VRL",
+      "lookup": "Look up an extend table",
+      "ai_summary": "AI summary",
+      "http_enrich": "Call an API",
+      "query_enrich": "Add query results",
+      "generate_metric": "Generate metric",
+      "quota": "Quota",
+      "throttle": "Throttle"
     }
   },
   "editor": {
@@ -434,12 +490,20 @@
     "remove": "Remove",
     "fix_before_saving": "Fix these before saving",
     "source_hint": "Each run reads this stream from where the last one stopped. The first run reaches back as far as \"First run reads back\" says.",
+    "source_audit_note": "If this person loses audit.read, the pipeline stops where it got to, and goes on once they hold it again or someone who holds it saves the pipeline.",
+    "audit_reader": {
+      "label": "Reads _audit as",
+      "you": "{{name}} (you)",
+      "takeover": "After you save, it reads with your access."
+    },
     "source_realtime_hint": "Every event written to this stream goes through the steps as it arrives. The stream may not exist yet.",
+    "source_profiles_hint": "Every profile of the organization arrives in this stream.",
     "copy_hint": "Every event is written here too, whatever the routing step picks. The stream is created by the first event written to it.",
     "connector": "Connector",
     "connector_placeholder": "Choose a connector…",
     "connector_hint": "Every event the pipeline writes is also delivered to this connector.",
     "connector_none": "This workspace has no connectors yet.",
+    "connector_off": "This connector is off: runs deliver nothing to it until it is turned on.",
     "manage_connectors": "Manage connectors",
     "save_vrl_invalid": "A step is not valid VRL. Run a test to see which one, and why."
   },
@@ -516,7 +580,27 @@
     "sample_percent": "Share to keep (%)",
     "sample_percent_hint": "Above 0 and up to 100; decimals are fine.",
     "sample_by": "Sample by field (optional)",
-    "sample_by_hint": "Events with the same value are all kept or all dropped, such as one trace. Leave it blank to pick events at random."
+    "sample_by_hint": "Events with the same value are all kept or all dropped, such as one trace. Leave it blank to pick events at random.",
+    "lookup_table": "Extend table",
+    "lookup_table_hint": "The organization's table to look the key up in.",
+    "lookup_no_tables": "There is no extend table yet. Make one under Extend tables first.",
+    "lookup_table_placeholder": "Choose an extend table",
+    "lookup_key": "Key field",
+    "lookup_key_hint": "The field of the event whose value is the row's key ({{key}} in the table).",
+    "lookup_fields": "Values to copy",
+    "lookup_column": "Value of the row",
+    "lookup_into": "Field of the event",
+    "lookup_remove_field": "Remove this value",
+    "lookup_add_field": "Add a value",
+    "within": "In",
+    "within_placeholder": "the event itself",
+    "within_hint": "The object whose keys this goes through, such as labels. Leave empty for the top of the event.",
+    "rename_pattern": "Pattern",
+    "rename_pattern_hint": "Every key it matches is renamed; the others stay as they are.",
+    "rename_replacement": "Replace with",
+    "rename_replacement_hint": "$1 is the first group of the pattern. Leave empty to take what matched out of the name.",
+    "keep_fields": "Keys to keep",
+    "keep_fields_hint": "Separate names with commas. Every other key here is removed."
   },
   "test": {
     "title": "Test",
@@ -536,13 +620,19 @@
     "dropped": "dropped",
     "failure_runtime": "Failed on this event.",
     "failure_compile": "Not valid VRL: {{message}}",
+    "failure_protected": "Changes {{field}}, which this pipeline keeps as it arrives: the event would fail.",
     "failed_note": "When the pipeline runs, an event that fails a step counts as failed, and goes to the dead letter stream when there is one.",
     "dropped_note": "The event is dropped on purpose and goes nowhere; a run counts it as dropped, not as failed.",
     "use_recent": "Use a recent event from {{stream}}",
     "no_recent": "No events in {{stream}} in the last 24 hours.",
     "after_step": "After step {{number}}",
     "dropped_at": "Dropped by step {{number}}",
-    "no_steps": "This pipeline has no steps: the event is written as it is."
+    "no_steps": "This pipeline has no steps: the event is written as it is.",
+    "not_called": "not called in a test",
+    "use_recent_alert": "Use a recent alert event",
+    "recent_alert_label": "A recent alert event",
+    "no_recent_alert": "No incidents in the last 7 days.",
+    "recent_alert_note": "This is the incident as it is stored, after the pipelines that ran when it opened."
   },
   "streams": {
     "choose_or_name": "Choose a stream, or name a new one…",
@@ -586,7 +676,10 @@
       "cloudflare_logpush": "Cloudflare Logpush",
       "heroku_drain": "Heroku log drain",
       "s3": "Amazon S3",
-      "kafka": "Apache Kafka"
+      "kafka": "Apache Kafka",
+      "http": "HTTP / Webhook",
+      "kafka_source": "Kafka topic",
+      "s3_source": "S3 objects"
     },
     "kind_hints": {
       "aws_cloudwatch_logs": "MoleSignal fetches a log group on a timer.",
@@ -594,57 +687,111 @@
       "cloudflare_logpush": "A Logpush job pushes request logs here.",
       "heroku_drain": "An app's log drain pushes its lines here.",
       "s3": "Each batch a pipeline writes becomes a JSON Lines object in a bucket. Also for MinIO, R2, OSS and other S3-compatible stores.",
-      "kafka": "Each event a pipeline writes becomes a message on a topic."
+      "kafka": "Each event a pipeline writes becomes a message on a topic.",
+      "http": "Each batch a pipeline writes is sent to an HTTP address as NDJSON or a JSON array. For a receiver of your own, Logstash, Vector and the like.",
+      "kafka_source": "MoleSignal reads a topic on a timer and keeps its own offsets.",
+      "s3_source": "MoleSignal reads the new objects under a prefix on a timer. Also for MinIO, R2, OSS and other S3-compatible stores."
     },
     "transport": {
       "pull": "Pulled",
       "push": "Pushed",
       "sink": "Delivered"
     },
+    "read": {
+      "failing": "The last read failed",
+      "failed": "The last read failed ({{when}}): {{reason}}. It is tried again from the same place.",
+      "skipped": "Last skipped ({{when}}): {{reason}}"
+    },
     "auth": {
       "label": "Authentication",
       "modes": {
         "access_key": "Access key",
         "temporary_key": "Temporary key",
-        "node_role": "Node role",
-        "sasl_plain": "User name and password",
+        "node_role": "Node identity",
+        "sasl_plain": "SASL/PLAIN",
         "none": "None",
-        "push_token": "Token"
+        "push_token": "Token",
+        "assume_role": "Assume a role",
+        "web_identity": "Web identity",
+        "sasl_scram_sha_256": "SCRAM-SHA-256",
+        "sasl_scram_sha_512": "SCRAM-SHA-512",
+        "mtls": "Client certificate",
+        "bearer": "Bearer token",
+        "basic": "Basic auth",
+        "header": "Custom header",
+        "hmac": "HMAC signature"
       },
       "hints": {
         "access_key": "A long-lived key of an IAM user. Give that user only what this connector needs.",
         "temporary_key": "A short-lived key from AWS STS, valid only together with its session token. It stops working when it expires and has to be replaced here.",
-        "node_role": "No key is stored. MoleSignal uses the role of the machine it runs on (an EC2 instance profile), which needs s3:PutObject on the bucket.",
-        "sasl_plain": "SASL/PLAIN. The connection is not encrypted, so use it on a private network only: TLS and SCRAM are not supported yet.",
-        "none": "For a broker that asks for no credentials. The connection is not encrypted.",
-        "push_token": "The other service presents this token with every push. Whoever holds it can write to the stream."
-      }
+        "node_role": "No key is stored. MoleSignal uses the identity of the node it runs on: EKS IRSA or Pod Identity, an ECS task role, or an EC2 instance profile. Every organization in this deployment can choose it.",
+        "sasl_plain": "SASL/PLAIN sends the user name and password as they are: without TLS, use it on a private network only.",
+        "none": "For a broker that asks for no credentials.",
+        "push_token": "The other service presents this token with every push. Whoever holds it can write to the stream.",
+        "node_role_s3": "No key is stored. MoleSignal uses the identity of the node it runs on: EKS IRSA or Pod Identity, an ECS task role, or an EC2 instance profile. It needs s3:PutObject on the bucket, and every organization in this deployment can choose it.",
+        "node_role_aws_cloudwatch_logs": "No key is stored. MoleSignal uses the identity of the node it runs on: EKS IRSA or Pod Identity, an ECS task role, or an EC2 instance profile. It needs logs:FilterLogEvents on the log group, and every organization in this deployment can choose it.",
+        "assume_role": "MoleSignal assumes this role through AWS STS and renews its temporary key every hour. It assumes the role as the node's identity, or with an access key if you give one. The role's trust policy has to allow that identity and require the external ID below.",
+        "web_identity": "MoleSignal assumes this role with the web identity token on the node, such as the service account token EKS projects for IRSA (its path is in AWS_WEB_IDENTITY_TOKEN_FILE). The role's trust policy has to trust the OIDC provider that issues the token.",
+        "sasl_scram_sha_256": "SASL/SCRAM-SHA-256: the password itself never crosses the network.",
+        "sasl_scram_sha_512": "SASL/SCRAM-SHA-512: the password itself never crosses the network. Amazon MSK uses this one.",
+        "mtls": "The client proves who it is with a certificate (mutual TLS), which needs TLS on. The certificate and its key are PEM; the key cannot be encrypted.",
+        "none_http": "Requests carry no credential.",
+        "bearer": "Every request carries an Authorization: Bearer <token> header.",
+        "basic": "Every request carries an HTTP Basic authorization header; use it over https.",
+        "header": "The key travels in a header the receiver names, such as X-API-Key or DD-API-KEY.",
+        "hmac": "Every request carries X-MoleSignal-Timestamp (Unix seconds) and X-MoleSignal-Sign: sha256=<hex>, the HMAC-SHA256 of \"<timestamp>.<body>\" under the shared secret. The receiver computes it again with the same secret and refuses an old timestamp."
+      },
+      "external_id": "External ID",
+      "external_id_hint": "This organization assumes roles with this external ID, which cannot be changed. Require it in the role's trust policy with an sts:ExternalId condition, and no other organization can assume the role even if it learns the ARN.",
+      "copy_external_id": "Copy external ID",
+      "base_key": "Assume it with an access key, not the node's identity",
+      "base_key_hint": "For a deployment that does not run on AWS: an IAM user's key assumes the role."
     },
     "fields": {
       "name": "Name",
       "name_placeholder": "Name this connector",
       "region": "Region",
-      "log_group": "Log group",
-      "target_stream": "Write to stream",
+      "logGroup": "Log group",
+      "targetStream": "Write to stream",
       "bucket": "Bucket",
       "prefix": "Key prefix",
       "endpoint": "Endpoint",
       "brokers": "Brokers",
       "topic": "Topic",
-      "access_key": "Access key ID",
-      "secret_key": "Secret access key",
-      "session_token": "Session token",
-      "sasl_username": "User name",
-      "sasl_password": "Password",
-      "push_token": "Token",
-      "enabled": "Enabled"
+      "accessKey": "Access key ID",
+      "secretKey": "Secret access key",
+      "sessionToken": "Session token",
+      "saslUsername": "User name",
+      "saslPassword": "Password",
+      "pushToken": "Token",
+      "enabled": "Enabled",
+      "roleArn": "Role ARN",
+      "url": "URL",
+      "method": "Method",
+      "format": "Body format",
+      "tlsCaCert": "CA certificate",
+      "tlsClientCert": "Client certificate",
+      "tlsClientKey": "Client private key",
+      "bearerToken": "Token",
+      "basicUsername": "User name",
+      "basicPassword": "Password",
+      "headerName": "Header name",
+      "headerValue": "Header value",
+      "hmacSecret": "Shared secret",
+      "startFrom": "Start from"
     },
     "hints": {
-      "target_stream": "A stream that does not exist yet is created by the first event.",
+      "targetStream": "A stream that does not exist yet is created by the first event.",
       "region_s3": "The bucket's region. An S3-compatible store may not need one.",
+      "region_s3_source": "The bucket's region. An S3-compatible store may not need one.",
       "prefix": "Objects are named <prefix><id>.jsonl.",
+      "prefix_s3_source": "Only objects under this prefix are read. Each read lists it, so give a source a prefix of its own.",
+      "startFrom": "Applies to the first read only; after that it goes on from where it left off.",
+      "topic_kafka_source": "Read with assigned partitions, not as a consumer group: the topic's read permission is enough.",
       "brokers": "Host and port. Separate several with commas.",
-      "endpoint": "The store's S3 API address, starting with http:// or https://."
+      "endpoint": "The store's S3 API address, starting with http:// or https://.",
+      "url": "Where the events are sent, starting with http:// or https://. An address often carries a credential, so it is kept like one: once saved, only its host is shown.",
+      "tlsCaCert": "When a private CA issued the brokers' certificates, its certificate as PEM. Leave empty to trust the system's CAs."
     },
     "compatible": {
       "toggle": "S3-compatible storage",
@@ -672,7 +819,14 @@
       "field_missing": "{{field}} is required.",
       "endpoint_invalid": "The endpoint has to start with http:// or https://.",
       "secret_missing": "{{field}} is required.",
-      "push_token_short": "The token needs at least 16 characters."
+      "push_token_short": "The token needs at least 16 characters.",
+      "url_invalid": "The URL has to start with http:// or https://.",
+      "role_arn_invalid": "A role ARN reads arn:aws:iam::<account>:role/<name>.",
+      "tls_required": "A client certificate needs TLS on.",
+      "pem_invalid": "{{field}} has to be PEM text, starting with -----BEGIN.",
+      "hmac_secret_short": "The shared secret needs at least 16 characters.",
+      "header_name_invalid": "A header name is made of letters, digits and symbols such as - _ .",
+      "header_name_reserved": "The delivery sets this header itself; choose another name."
     },
     "push": {
       "title": "Point {{kind}} here",
@@ -720,6 +874,244 @@
     "toggle_retype": "This server cannot switch a connector without its secrets being entered again. Open it to change it.",
     "edit": "Edit",
     "never": "Never",
-    "unknown_kind": "A kind this version does not know: {{kind}}"
+    "unknown_kind": "A kind this version does not know: {{kind}}",
+    "choices": {
+      "startFrom": {
+        "latest": "What arrives from now on",
+        "earliest": "Everything that is there"
+      },
+      "method": {
+        "post": "POST",
+        "put": "PUT"
+      },
+      "format": {
+        "ndjson": "NDJSON (one event per line)",
+        "json": "JSON array"
+      }
+    },
+    "tls": {
+      "toggle": "Encrypt the connection with TLS",
+      "hint": "Connect to the brokers' TLS port (often 9093, 9094 or 9096)."
+    },
+    "test": {
+      "button": "Test connection",
+      "running": "Connecting…",
+      "ok": "Connected in {{ms}} ms",
+      "hints": {
+        "s3": "Writes a test object, .molesignal-connection-test, with the settings as they are now, and removes it if the policy allows. A secret left empty is the saved one.",
+        "kafka": "Asks the brokers for the topic's metadata with the settings as they are now; no message is written. A secret left empty is the saved one.",
+        "http": "Sends one event marked as a test (molesignal_connection_test: true) with the settings as they are now. A secret left empty is the saved one.",
+        "aws_cloudwatch_logs": "Reads one event of the log group's last minute with the settings as they are now; nothing is written to the stream. A secret left empty is the saved one.",
+        "kafka_source": "Asks the brokers for the topic's metadata with the settings as they are now; no message is read. A secret left empty is the saved one.",
+        "s3_source": "Lists one object under the prefix with the settings as they are now; nothing is read or written. A secret left empty is the saved one."
+      },
+      "codes": {
+        "invalid": "The settings cannot work",
+        "no_credentials": "No AWS credentials to be had",
+        "denied": "Credentials or permissions refused",
+        "not_found": "Not there",
+        "tls": "TLS handshake failed",
+        "unreachable": "Could not connect",
+        "timeout": "No answer in time",
+        "failed": "The test failed"
+      }
+    }
+  },
+  "alert_mode": {
+    "title": "Alert events",
+    "signal": "Alert events",
+    "schedule": "Before an incident opens",
+    "list_line": "Alert events → back into the incident",
+    "note": "Runs on every alert event its conditions take, before the incident opens. Alert pipelines run in order, lowest first.",
+    "note_notify": "Runs on a copy of the event when a notification policy is about to send. Alert pipelines run in order, lowest first.",
+    "schedule_notify": "Before a notification",
+    "list_line_notify": "Alert events → into the notification",
+    "write_back_notify": "Into the notification",
+    "write_back_notify_detail": "The policy sends what the steps leave",
+    "write_back_notify_hint": "The policy sends the title, severity, labels, annotations and services the steps leave, in its templates and webhooks too. The incident stays as it is, and so do the people the policy reaches. A step that drops the event with abort keeps this policy from sending: the delivery record says why. When a step fails, the changes of this pipeline are left out and the notification goes on as it came.",
+    "stage": {
+      "label": "When",
+      "open": "Before the incident opens",
+      "notify": "Before a notification",
+      "open_hint": "What the steps leave is the incident: its team, its policy and every notification follow from it.",
+      "notify_hint": "Runs on a copy of the event, for each policy it applies to. Only that policy's notification changes, and steps stay inside MoleSignal: no AI summary, API call or query."
+    },
+    "policies": "Notification policies",
+    "policies_hint": "Tick none to run before every policy of an alert event.",
+    "policies_none": "There is no notification policy of an alert event yet.",
+    "policies_count_one": "{{count}} policy",
+    "policies_count_other": "{{count}} policies",
+    "http": {
+      "connector": "HTTP connector",
+      "connector_hint": "Its address, credential and outbound checks are used. Create one under Connectors.",
+      "connector_placeholder": "Choose an HTTP connector",
+      "none": "There is no HTTP connector yet.",
+      "manage": "Manage connectors",
+      "note": "The event and where it came from are posted as JSON when the incident opens; the answer has 5 seconds. Of the JSON object that comes back, only summary, severity, priority, urgency, labels, annotations and affected_services are taken, labels and annotations key by key. If the call fails, the event goes on as it was before this step, and the incident's timeline says why."
+    },
+    "query": {
+      "language": "Language",
+      "stream_type": "Stream type",
+      "stream": "Stream",
+      "stream_hint": "The stream the query reads. _audit cannot be read here.",
+      "statement": "Query",
+      "statement_hint": "{{placeholders}} stand for values of the event. Write them between quotes, inside a string: that is where their values are escaped.",
+      "window": "Look back (seconds)",
+      "window_hint": "Up to the moment the incident opens.",
+      "max_rows": "Rows",
+      "max_rows_hint": "How many rows go into the annotation, up to {{max}}.",
+      "annotation_hint": "The annotation the rows go into, one line per row. No rows leave it out."
+    },
+    "order": "Order",
+    "source_title": "Alert events",
+    "write_back": "Back into the incident",
+    "write_back_detail": "The incident opens as the steps leave it",
+    "enabled": "Process alert events",
+    "no_backfill": "Alert pipelines run on alert events as they come and do not support backfill.",
+    "no_steps": "No steps: the incident opens as the alert event came.",
+    "test_no_steps": "This pipeline has no steps: the incident opens as the alert event came.",
+    "write_back_hint": "The incident opens with the title, severity, labels, annotations and services the steps leave. A step that drops the event with abort keeps the incident from opening. When a step fails, the changes of this pipeline are left out and the event goes on as it came.",
+    "source_hint": "Which alert events this pipeline takes. Leave a list empty to take every one. A label condition matches when the event has the label with this value.",
+    "sources": "Sources",
+    "severities": "Severities",
+    "labels": "Labels",
+    "label_key": "Label",
+    "label_value": "Value",
+    "label_remove": "Remove the label condition",
+    "label_add": "Add a label condition",
+    "all_events": "Every alert event",
+    "source": {
+      "rule": "Alert rules",
+      "external": "External sources",
+      "synthetic": "Synthetic checks",
+      "no_data": "No data",
+      "manual": "Incidents opened by hand"
+    },
+    "severity": {
+      "critical": "Critical",
+      "error": "Error",
+      "warning": "Warning",
+      "info": "Info"
+    },
+    "prompt": "Prompt",
+    "prompt_hint": "Sent to the organization's model with the alert event. The model is asked once, when the incident opens, within the organization's daily token budget.",
+    "annotation": "Annotation",
+    "annotation_hint": "The annotation the answer goes into.",
+    "record_line": "Today: {{processed}} processed · {{dropped}} dropped · {{failed}} failed",
+    "kpi": {
+      "processed": "Processed",
+      "dropped": "Dropped",
+      "failed": "Failed",
+      "today": "Today (UTC)",
+      "last": "Last: {{rule}}, {{when}}"
+    },
+    "time_hint": "Judged at the moment the incident opens; for example, drop one kind of alert only at night."
+  },
+  "table_sink": {
+    "table": "Extend table",
+    "hint": "Every event becomes a row under the value of its {{key}} field. A table with value fields takes those fields only.",
+    "choose": "Choose the extend table to write a row per event into.",
+    "none": "There is no extend table yet. Make one under Extend tables first.",
+    "placeholder": "Choose an extend table",
+    "manage": "Manage extend tables",
+    "choose_short": "Choose an extend table",
+    "detail": "Extend table",
+    "named": "extend table {{name}}"
+  },
+  "counting": {
+    "conditions": "Applies to",
+    "conditions_none": "Every event. Add a test to pick only some.",
+    "add_condition": "Add a test",
+    "remove_condition": "Remove test",
+    "metric_name": "Metric name",
+    "metric_name_hint": "What PromQL selects it by. A histogram adds _bucket, _count and _sum.",
+    "metric_type": "Type",
+    "metric_types": {
+      "count": "Count",
+      "gauge": "Gauge",
+      "histogram": "Histogram"
+    },
+    "metric_sum_field": "Add up field",
+    "metric_sum_field_hint": "Empty counts events; a numeric field adds up its values.",
+    "metric_sum_placeholder": "count events",
+    "metric_field": "Numeric field",
+    "metric_field_hint": "An event without a number in it is not counted.",
+    "group_by": "Group by",
+    "group_by_hint": "Each field becomes a label: one series per combination, at most 1,000 an interval.",
+    "metric_stream": "Metrics stream",
+    "metric_stream_hint": "Where the samples are written. A new name creates the stream.",
+    "interval": "Interval",
+    "interval_hint": "An event counts in the interval of its own timestamp.",
+    "intervals": {
+      "10": "10 seconds",
+      "30": "30 seconds",
+      "60": "1 minute",
+      "300": "5 minutes"
+    },
+    "buckets": "Upper bounds",
+    "buckets_hint": "Ascending, in the field's unit. +Inf is always there.",
+    "query": "Query",
+    "query_hint": "How PromQL, a dashboard or an alert rule reads it.",
+    "copy_query": "Copy query",
+    "over_limit": "Past the limit",
+    "over_actions": {
+      "drop": "Drop",
+      "pass": "Let through",
+      "route": "Send to another stream"
+    },
+    "over_target": "Stream past the limit",
+    "over_target_hint": "Events go there as this step sees them; the steps after it do not run on them.",
+    "quota_unit": "Counts",
+    "quota_units": {
+      "events": "Events",
+      "bytes": "Bytes"
+    },
+    "units": {
+      "events": "events",
+      "bytes": "MiB"
+    },
+    "quota_limit": "Daily limit ({{unit}})",
+    "quota_limit_hint": "Per UTC day; the count starts over at 00:00 UTC.",
+    "partition_by": "Split by",
+    "partition_by_hint": "Each combination of values is a bucket with its own count, at most 1,000 a day.",
+    "overrides": "Buckets with a limit of their own",
+    "override_limit": "Limit ({{unit}})",
+    "add_override": "Add a bucket",
+    "remove_override": "Remove bucket",
+    "throttle_limit": "Events per window",
+    "throttle_limit_hint": "After a quiet window this many go through at once, then one every window ÷ limit.",
+    "throttle_window": "Window (seconds)",
+    "throttle_group_by": "Per group of",
+    "throttle_group_by_hint": "Each combination of values is throttled on its own, at most 10,000 groups.",
+    "summary_by": "by {{fields}}",
+    "summary_quota": "{{limit}} {{unit}} a day",
+    "summary_throttle": "{{limit}} per {{window}} s",
+    "test": {
+      "not_picked": "Not picked by its condition: goes on untouched.",
+      "no_number": "No number in {{field}}: not counted.",
+      "metric_count": "Adds {{value}} to {{series}}.",
+      "metric_gauge": "Sets {{series}} to {{value}}.",
+      "metric_histogram": "Puts {{value}} into the histogram {{series}}.",
+      "whole_quota": "the whole quota",
+      "whole_throttle": "every event",
+      "past_drop": "dropped",
+      "past_pass": "let through",
+      "past_route": "sent to {{stream}}",
+      "quota_limit": "{{limit}} {{unit}} a day",
+      "throttle_limit": "{{limit}} per {{window}} s",
+      "limit": "Counts in {{bucket}} ({{limit}}); past the limit it is {{past}}."
+    },
+    "usage": {
+      "title": "Limits today",
+      "description": "What each quota and throttle let through and held back today (UTC), across all nodes. Updated every few seconds.",
+      "step": "Step",
+      "bucket": "Bucket",
+      "admitted": "Let through",
+      "over": "Past the limit",
+      "of_limit": "{{used}} of {{limit}}",
+      "mib": "{{value}} MiB",
+      "whole": "Whole step",
+      "others": "Other buckets"
+    }
   }
 }

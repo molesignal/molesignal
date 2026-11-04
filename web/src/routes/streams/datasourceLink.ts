@@ -24,13 +24,13 @@ export function intakePathForSignal(signal: IntakeSignal, streamName: string): s
 }
 
 export function datasourceLinkForStream(
-  stream: Pick<StreamSummary, 'name' | 'stream_type'>,
+  stream: Pick<StreamSummary, 'name' | 'streamType'>,
 ): string {
-  if (!isIntakeSignal(stream.stream_type)) return '/datasource';
+  if (!isIntakeSignal(stream.streamType)) return '/datasource';
 
   const params = new URLSearchParams({
-    signal: stream.stream_type,
+    signal: stream.streamType,
     stream: stream.name,
   });
-  return `${DATASOURCE_GUIDE_BY_SIGNAL[stream.stream_type]}?${params.toString()}`;
+  return `${DATASOURCE_GUIDE_BY_SIGNAL[stream.streamType]}?${params.toString()}`;
 }

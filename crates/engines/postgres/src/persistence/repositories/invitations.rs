@@ -9,6 +9,7 @@ use super::sqlx_err;
 use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Invitation {
     pub id: Id,
     pub org_id: Id,
@@ -45,8 +46,7 @@ impl PgInvitationRepository {
     }
 }
 
-const COLS: &str =
-    "id, org_id, email, role_id, inviter_id, status, sent_at_micros, updated_at_micros";
+const COLS: &str = "id, org_id, email, role_id, inviter_id, status, sent_at, updated_at";
 
 fn row_to(row: sqlx::postgres::PgRow) -> Result<Invitation> {
     Ok(Invitation {
@@ -56,8 +56,12 @@ fn row_to(row: sqlx::postgres::PgRow) -> Result<Invitation> {
         role_id: Id(row.try_get::<String, _>("role_id").map_err(sqlx_err)?),
         inviter_id: Id(row.try_get::<String, _>("inviter_id").map_err(sqlx_err)?),
         status: row.try_get("status").map_err(sqlx_err)?,
-        sent_at: TimestampMicros(row.try_get("sent_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        sent_at: row
+            .try_get::<TimestampMicros, _>("sent_at")
+            .map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -66,7 +70,7 @@ impl InvitationRepository for PgInvitationRepository {
     async fn create(&self, invitation: Invitation) -> Result<Invitation> {
         sqlx::query(
             "INSERT INTO invitations
-                (id, org_id, email, role_id, inviter_id, status, sent_at_micros, updated_at_micros)
+                (id, org_id, email, role_id, inviter_id, status, sent_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
         )
         .bind(&invitation.id.0)
@@ -75,8 +79,8 @@ impl InvitationRepository for PgInvitationRepository {
         .bind(&invitation.role_id.0)
         .bind(&invitation.inviter_id.0)
         .bind(&invitation.status)
-        .bind(invitation.sent_at.0)
-        .bind(invitation.updated_at.0)
+        .bind(invitation.sent_at)
+        .bind(invitation.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -99,7 +103,7 @@ impl InvitationRepository for PgInvitationRepository {
 
     async fn list(&self, org_id: &Id) -> Result<Vec<Invitation>> {
         let rows = sqlx::query(&format!(
-            "SELECT {COLS} FROM invitations WHERE org_id = $1 ORDER BY sent_at_micros DESC"
+            "SELECT {COLS} FROM invitations WHERE org_id = $1 ORDER BY sent_at DESC"
         ))
         .bind(&org_id.0)
         .fetch_all(&self.pool)
@@ -120,16 +124,16 @@ impl InvitationRepository for PgInvitationRepository {
         let row = sqlx::query(&format!(
             "UPDATE invitations
                 SET status = $3,
-                    sent_at_micros = COALESCE($4, sent_at_micros),
-                    updated_at_micros = $5
+                    sent_at = COALESCE($4, sent_at),
+                    updated_at = $5
               WHERE org_id = $1 AND id = $2
               RETURNING {COLS}"
         ))
         .bind(&org_id.0)
         .bind(&id.0)
         .bind(status)
-        .bind(sent_at.map(|t| t.0))
-        .bind(updated_at.0)
+        .bind(sent_at)
+        .bind(updated_at)
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;

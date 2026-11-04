@@ -3,6 +3,7 @@ import * as React from 'react';
 
 import { DisabledControl } from '@/shell/DisabledControl';
 import { cn } from '@/shell/lib/cn';
+import { hasVisibleText } from '@/shell/lib/hasVisibleText';
 import {
   Table as ShadTable,
   TableCell as ShadTableCell,
@@ -13,7 +14,19 @@ import { TimeRangeControl } from '@/time/TimePicker';
 
 export const uiLabelClass = 'type-label font-sans font-medium tracking-normal text-tx-2';
 export const uiLabelStrongClass = 'type-label font-sans font-semibold tracking-normal text-tx-1';
-export const uiTableHeaderClass = 'type-caption font-sans font-medium tracking-normal text-tx-2';
+export const uiTableHeaderClass = 'type-caption font-sans font-strong tracking-normal text-tx-0';
+/**
+ * The title of one part of a page: a section of its body, or a card or panel that is one.
+ * 16 / 24 at the title weight, a step over the 14px text and the 13px labels under it.
+ */
+export const uiSectionTitleClass = 'type-section-title font-sans font-display tracking-normal text-tx-0';
+/**
+ * The signed-in user's avatar, alike in the top bar, its menu and the profile page: the initial in
+ * the brand's ink on its tint, ringed so the disc stands apart from the white bar and the gray
+ * canvas alike. Its size and the initial's are the caller's.
+ */
+export const uiUserAvatarClass =
+  'flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--indigo-tint)] font-sans font-bold text-[var(--indigo-ink)] [box-shadow:var(--shadow-frame-inline)]';
 /**
  * Hit area for icon-only controls in the app chrome: the 32px icon-button
  * token with a pointer, 44px under a coarse one. (`h-8` would be 27px here —
@@ -116,9 +129,9 @@ export function CriticalAlertBanner({
 }) {
   if (items.length === 0) return null;
   return (
-    <div className="overflow-hidden rounded-lg border border-red/40 bg-red-dim">
+    <div className="overflow-hidden rounded-md border border-red/40 bg-red-dim">
       <div className="flex items-center gap-2.5 px-5 py-3">
-        <AlertTriangle className="h-4.5 w-4.5 shrink-0 text-red-soft" />
+        <AlertTriangle className="h-4 w-4 shrink-0 text-red-soft" />
         <span className="font-sans text-xs font-bold tracking-normal text-red-soft">{title}</span>
         {onViewAll && (
           <button
@@ -170,21 +183,25 @@ export const ChromeButton = React.forwardRef<
   },
   ref,
 ) {
+  // Words get room at either side, 16px in a 32px button and 12px in a 28px one, and their icon
+  // is drawn at their size (polish/icons.css). A button of an icon alone stays nearly square.
+  const words = hasVisibleText(rest.children);
   const button = (
     <button
       ref={ref}
       type="button"
       {...rest}
+      data-text-button={words ? size : undefined}
       disabled={disabled}
       aria-disabled={disabled || undefined}
       className={cn(
-        'ms-press inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md font-sans font-strong disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-transparent disabled:bg-bg-2 disabled:text-tx-3 disabled:opacity-100 disabled:shadow-none',
-        size === 'md' ? 'h-9 px-3 text-sm' : 'h-8 px-2.5 text-xs',
+        'ms-press inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md font-sans font-strong disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-transparent disabled:bg-bg-2 disabled:text-[var(--tx-disabled)] disabled:opacity-100 disabled:shadow-none',
+        size === 'md' ? ['h-9 text-sm', words ? 'px-4' : 'px-3'] : ['h-8 text-xs', words ? 'px-3' : 'px-2.5'],
         variant === 'default' &&
           'border border-transparent bg-bg-2 text-tx-1 enabled:hover:bg-bg-3 enabled:hover:text-tx-0',
         variant === 'primary' &&
           // Primary actions use a saturated indigo fill with white text.
-          'bg-indigo font-bold text-white shadow-primary enabled:hover:brightness-90 enabled:focus-visible:brightness-90',
+          'bg-indigo text-white enabled:hover:brightness-90 enabled:focus-visible:brightness-90',
         variant === 'ghost' &&
           'border border-transparent bg-transparent text-tx-1 enabled:hover:bg-bg-3',
         // A destructive action that is not the final confirmation: tinted, not outlined.
@@ -221,7 +238,7 @@ export const IconButton = React.forwardRef<
       disabled={disabled}
       aria-disabled={disabled || undefined}
       className={cn(
-        'ms-press flex h-8 w-8 items-center justify-center rounded-md text-tx-2 enabled:hover:bg-bg-3 enabled:hover:text-tx-0 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-transparent disabled:text-tx-3 disabled:opacity-100',
+        'ms-press flex h-8 w-8 items-center justify-center rounded-md text-tx-2 enabled:hover:bg-bg-3 enabled:hover:text-tx-0 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-transparent disabled:text-[var(--tx-disabled)] disabled:opacity-100',
         active && 'bg-bg-3 text-tx-0',
         className,
       )}
@@ -270,9 +287,7 @@ export function CardHeader({
     <div
       className={cn(
         'flex min-h-11 items-center gap-3 px-4 py-3',
-        size === 'section'
-          ? 'type-section-title font-sans font-strong tracking-normal text-tx-0'
-          : uiLabelStrongClass,
+        size === 'section' ? uiSectionTitleClass : uiLabelStrongClass,
         className,
       )}
     >
@@ -365,7 +380,7 @@ export function TableShell({
 
 export function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
   return (
-    <ShadTableHead className={cn('sticky top-0 bg-bg-1', className)}>{children}</ShadTableHead>
+    <ShadTableHead className={cn('sticky top-0', className)}>{children}</ShadTableHead>
   );
 }
 

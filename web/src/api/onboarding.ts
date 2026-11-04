@@ -12,7 +12,7 @@ export interface LoadedStream {
 
 export interface LoadSampleResult {
   loaded: boolean;
-  total_rows: number;
+  totalRows: number;
   streams: LoadedStream[];
 }
 

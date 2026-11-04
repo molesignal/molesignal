@@ -67,9 +67,9 @@ export interface ProfileDraft {
 }
 
 export function toolsAvailableToAgentProfiles<
-  T extends Pick<RegisteredTool, 'available_to_agent'>,
+  T extends Pick<RegisteredTool, 'availableToAgent'>,
 >(tools: readonly T[]): T[] {
-  return tools.filter((tool) => tool.available_to_agent);
+  return tools.filter((tool) => tool.availableToAgent);
 }
 
 export function profileEditorPane(
@@ -119,27 +119,27 @@ export function createProfileDraft(
   return {
     name: target.name,
     description: target.description,
-    providerId: target.model_provider_id ?? '',
+    providerId: target.modelProviderId ?? '',
     model: target.model ?? '',
-    allowedTools: target.allowed_tools.filter((tool) =>
+    allowedTools: target.allowedTools.filter((tool) =>
       toolNames.includes(tool),
     ),
     environments: profileScopeValues(target, 'environments'),
     services: profileScopeValues(target, 'services'),
     streams: profileScopeValues(target, 'streams'),
-    networkAccess: target.network_access,
-    maxContextTokens: String(target.max_context_tokens),
+    networkAccess: target.networkAccess,
+    maxContextTokens: String(target.maxContextTokens),
     maxInvestigationMinutes: String(
-      Math.max(1, Math.round(target.max_investigation_secs / 60)),
+      Math.max(1, Math.round(target.maxInvestigationSecs / 60)),
     ),
-    maxToolCalls: String(target.max_tool_calls),
+    maxToolCalls: String(target.maxToolCalls),
     temperature: target.temperature == null ? '' : String(target.temperature),
-    allowBypassPermissions: target.allow_bypass_permissions ?? false,
-    l0Policy: String(target.risk_policy.l0 ?? 'automatic'),
-    l1Policy: String(target.risk_policy.l1 ?? 'automatic'),
-    l2Policy: String(target.risk_policy.l2 ?? 'approval'),
-    l3Policy: String(target.risk_policy.l3 ?? 'two_person_approval'),
-    isDefault: target.is_default,
+    allowBypassPermissions: target.allowBypassPermissions ?? false,
+    l0Policy: String(target.riskPolicy.l0 ?? 'automatic'),
+    l1Policy: String(target.riskPolicy.l1 ?? 'automatic'),
+    l2Policy: String(target.riskPolicy.l2 ?? 'approval'),
+    l3Policy: String(target.riskPolicy.l3 ?? 'two_person_approval'),
+    isDefault: target.isDefault,
     enabled: target.enabled,
   };
 }
@@ -170,37 +170,37 @@ export function profileInputFromDraft(
   return {
     name: draft.name.trim(),
     description: draft.description.trim() || defaultDescription,
-    model_provider_id: draft.providerId || null,
+    modelProviderId: draft.providerId || null,
     model: draft.model.trim() || null,
-    allowed_tools: draft.allowedTools,
-    data_scope: {
+    allowedTools: draft.allowedTools,
+    dataScope: {
       environments: draft.environments,
       services: draft.services,
       streams: draft.streams,
       cross_organization: false,
     },
-    risk_policy: {
+    riskPolicy: {
       l0: draft.l0Policy,
       l1: draft.l1Policy,
       l2: draft.l2Policy,
       l3: draft.l3Policy,
     },
-    network_access: draft.networkAccess,
-    max_context_tokens: Math.round(maxContextTokens),
-    max_investigation_secs: Math.round(maxInvestigationMinutes * 60),
-    max_tool_calls: Math.round(maxToolCalls),
+    networkAccess: draft.networkAccess,
+    maxContextTokens: Math.round(maxContextTokens),
+    maxInvestigationSecs: Math.round(maxInvestigationMinutes * 60),
+    maxToolCalls: Math.round(maxToolCalls),
     temperature,
-    allow_bypass_permissions: draft.allowBypassPermissions,
-    is_default: draft.isDefault,
+    allowBypassPermissions: draft.allowBypassPermissions,
+    isDefault: draft.isDefault,
     enabled: draft.enabled,
   };
 }
 
 export function profileScopeValues(
-  profile: Pick<AgentProfile, 'data_scope'>,
+  profile: Pick<AgentProfile, 'dataScope'>,
   field: 'environments' | 'services' | 'streams',
 ): string[] {
-  const value = profile.data_scope[field];
+  const value = profile.dataScope[field];
   if (Array.isArray(value)) {
     return value.filter((item): item is string => typeof item === 'string');
   }
@@ -208,10 +208,10 @@ export function profileScopeValues(
 }
 
 export function profileRiskPolicy(
-  profile: Pick<AgentProfile, 'risk_policy'>,
+  profile: Pick<AgentProfile, 'riskPolicy'>,
   risk: 'l0' | 'l1' | 'l2' | 'l3',
 ): string {
-  const value = profile.risk_policy[risk];
+  const value = profile.riskPolicy[risk];
   if (typeof value === 'string' && value) return value;
   if (risk === 'l0' || risk === 'l1') return 'automatic';
   return risk === 'l2' ? 'approval' : 'two_person_approval';

@@ -23,21 +23,21 @@ const SECOND = 1_000_000;
 
 function job(overrides: Partial<SearchJob> = {}): SearchJob {
   return {
-    job_id: '2yW8mNqK4tRc7vLpXe1zHb3Ad0F',
+    jobId: '2yW8mNqK4tRc7vLpXe1zHb3Ad0F',
     state: 'done',
     kind: 'query',
-    pipeline_id: null,
+    pipelineId: null,
     attempt: 0,
-    user_id: 'u1',
-    submitted_by: { display_name: 'Dana Reyes', email: 'sre@example.com' },
+    userId: 'u1',
+    submittedBy: { displayName: 'Dana Reyes', email: 'sre@example.com' },
     request: null,
-    submitted_at_micros: 100 * SECOND,
-    started_at_micros: 101 * SECOND,
-    finished_at_micros: 143 * SECOND,
-    result_object_key: null,
-    result_rows: null,
+    submittedAt: 100 * SECOND,
+    startedAt: 101 * SECOND,
+    finishedAt: 143 * SECOND,
+    resultObjectKey: null,
+    resultRows: null,
     error: null,
-    expires_at_micros: 1_000 * SECOND,
+    expiresAt: 1_000 * SECOND,
     ...overrides,
   };
 }
@@ -96,21 +96,21 @@ describe('search job row', () => {
   it('times a job from its start to its end, or to now while it runs', () => {
     expect(jobDurationMicros(job(), 500 * SECOND)).toBe(42 * SECOND);
     expect(
-      jobDurationMicros(job({ state: 'running', finished_at_micros: null }), 111 * SECOND),
+      jobDurationMicros(job({ state: 'running', finishedAt: null }), 111 * SECOND),
     ).toBe(10 * SECOND);
     // Waiting in the queue is not running.
     expect(
       jobDurationMicros(
-        job({ state: 'pending', started_at_micros: null, finished_at_micros: null }),
+        job({ state: 'pending', startedAt: null, finishedAt: null }),
         500 * SECOND,
       ),
     ).toBeNull();
     // A job retried from a cancelled run has its times cleared until it starts again.
     expect(
-      jobDurationMicros(job({ state: 'cancelled', finished_at_micros: null }), 500 * SECOND),
+      jobDurationMicros(job({ state: 'cancelled', finishedAt: null }), 500 * SECOND),
     ).toBeNull();
     // Two clocks that disagree never make a job run backwards.
-    expect(jobDurationMicros(job({ finished_at_micros: 100 * SECOND }), 500 * SECOND)).toBe(0);
+    expect(jobDurationMicros(job({ finishedAt: 100 * SECOND }), 500 * SECOND)).toBe(0);
   });
 
   it('writes a duration in the unit it is read in', () => {
@@ -135,9 +135,9 @@ describe('search job row', () => {
   it('names the submitter by name, then email, then id', () => {
     expect(submitterName(job())).toBe('Dana Reyes');
     expect(
-      submitterName(job({ submitted_by: { display_name: ' ', email: 'sre@example.com' } })),
+      submitterName(job({ submittedBy: { displayName: ' ', email: 'sre@example.com' } })),
     ).toBe('sre@example.com');
-    expect(submitterName(job({ submitted_by: null, user_id: 'u-former' }))).toBe('u-former');
+    expect(submitterName(job({ submittedBy: null, userId: 'u-former' }))).toBe('u-former');
   });
 
   it('counts attempts from one', () => {
@@ -147,6 +147,6 @@ describe('search job row', () => {
 
   it('names the file of results after the job, with nothing a file name cannot hold', () => {
     expect(resultFileName(job())).toBe('search-job-2yW8mNqK4tRc7vLpXe1zHb3Ad0F.ndjson');
-    expect(resultFileName(job({ job_id: '../a b' }))).toBe('search-job-___a_b.ndjson');
+    expect(resultFileName(job({ jobId: '../a b' }))).toBe('search-job-___a_b.ndjson');
   });
 });

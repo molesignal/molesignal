@@ -134,7 +134,7 @@ fn session_response(
 
     let mut response = Json(serde_json::json!({
         "authenticated": true,
-        "expires_at": outcome.session.expires_at,
+        "expiresAt": outcome.session.expires_at,
     }))
     .into_response();
 

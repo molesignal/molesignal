@@ -22,6 +22,7 @@ pub struct ReportRecipient {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ScheduledReport {
     pub id: Id,
     pub org_id: Id,
@@ -69,6 +70,7 @@ impl DeliveryStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ReportDelivery {
     pub id: Id,
     pub report_id: Id,
@@ -107,8 +109,8 @@ impl PgScheduledReportRepository {
 }
 
 const COLS: &str = "id, org_id, name, dashboard_id, saved_view_id, cron, recipients_json,
-                    format, time_range_json, enabled, run_as_user_id, last_run_at_micros,
-                    created_at_micros, updated_at_micros";
+                    format, time_range_json, enabled, run_as_user_id, last_run_at,
+                    created_at, updated_at";
 
 fn row_to(r: sqlx::postgres::PgRow) -> ScheduledReport {
     let recipients: Json<Vec<ReportRecipient>> =
@@ -137,11 +139,14 @@ fn row_to(r: sqlx::postgres::PgRow) -> ScheduledReport {
             .unwrap_or_default()
             .map(Id),
         last_run_at: r
-            .try_get::<Option<i64>, _>("last_run_at_micros")
-            .unwrap_or_default()
-            .map(TimestampMicros),
-        created_at: TimestampMicros(r.try_get::<i64, _>("created_at_micros").unwrap_or_default()),
-        updated_at: TimestampMicros(r.try_get::<i64, _>("updated_at_micros").unwrap_or_default()),
+            .try_get::<Option<TimestampMicros>, _>("last_run_at")
+            .unwrap_or_default(),
+        created_at: r
+            .try_get::<TimestampMicros, _>("created_at")
+            .unwrap_or_default(),
+        updated_at: r
+            .try_get::<TimestampMicros, _>("updated_at")
+            .unwrap_or_default(),
     }
 }
 
@@ -157,10 +162,9 @@ fn delivery_row_to(r: sqlx::postgres::PgRow) -> ReportDelivery {
             .try_get::<String, _>("recipient_target")
             .unwrap_or_default(),
         error: r.try_get::<Option<String>, _>("error").unwrap_or_default(),
-        attempted_at: TimestampMicros(
-            r.try_get::<i64, _>("attempted_at_micros")
-                .unwrap_or_default(),
-        ),
+        attempted_at: r
+            .try_get::<TimestampMicros, _>("attempted_at")
+            .unwrap_or_default(),
     }
 }
 
@@ -170,8 +174,8 @@ impl ScheduledReportRepository for PgScheduledReportRepository {
         sqlx::query(
             "INSERT INTO scheduled_reports
                 (id, org_id, name, dashboard_id, saved_view_id, cron, recipients_json,
-                 format, time_range_json, enabled, run_as_user_id, last_run_at_micros,
-                 created_at_micros, updated_at_micros)
+                 format, time_range_json, enabled, run_as_user_id, last_run_at,
+                 created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NULL, $12, $13)",
         )
         .bind(&r.id.0)
@@ -185,8 +189,8 @@ impl ScheduledReportRepository for PgScheduledReportRepository {
         .bind(Json(&r.time_range_json))
         .bind(r.enabled)
         .bind(r.run_as_user_id.as_ref().map(|i| &i.0))
-        .bind(r.created_at.0)
-        .bind(r.updated_at.0)
+        .bind(r.created_at)
+        .bind(r.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -199,7 +203,7 @@ impl ScheduledReportRepository for PgScheduledReportRepository {
             "UPDATE scheduled_reports SET
                 name = $3, dashboard_id = $4, saved_view_id = $5, cron = $6,
                 recipients_json = $7, format = $8, time_range_json = $9, enabled = $10,
-                run_as_user_id = $11, updated_at_micros = $12
+                run_as_user_id = $11, updated_at = $12
              WHERE id = $1 AND org_id = $2",
         )
         .bind(&r.id.0)
@@ -213,7 +217,7 @@ impl ScheduledReportRepository for PgScheduledReportRepository {
         .bind(Json(&r.time_range_json))
         .bind(r.enabled)
         .bind(r.run_as_user_id.as_ref().map(|i| &i.0))
-        .bind(r.updated_at.0)
+        .bind(r.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -283,9 +287,9 @@ impl ScheduledReportRepository for PgScheduledReportRepository {
     }
 
     async fn touch_last_run(&self, id: &Id, ts: TimestampMicros) -> Result<()> {
-        sqlx::query("UPDATE scheduled_reports SET last_run_at_micros = $2 WHERE id = $1")
+        sqlx::query("UPDATE scheduled_reports SET last_run_at = $2 WHERE id = $1")
             .bind(&id.0)
-            .bind(ts.0)
+            .bind(ts)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
@@ -297,7 +301,7 @@ impl ScheduledReportRepository for PgScheduledReportRepository {
         sqlx::query(
             "INSERT INTO report_deliveries
                 (id, report_id, org_id, status, attempt, recipient_kind, recipient_target,
-                 error, attempted_at_micros)
+                 error, attempted_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         )
         .bind(&d.id.0)
@@ -308,7 +312,7 @@ impl ScheduledReportRepository for PgScheduledReportRepository {
         .bind(&d.recipient_kind)
         .bind(&d.recipient_target)
         .bind(&d.error)
-        .bind(d.attempted_at.0)
+        .bind(d.attempted_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -319,10 +323,10 @@ impl ScheduledReportRepository for PgScheduledReportRepository {
     async fn list_deliveries(&self, org_id: &Id, report_id: &Id) -> Result<Vec<ReportDelivery>> {
         let rows = sqlx::query(
             "SELECT id, report_id, org_id, status, attempt, recipient_kind, recipient_target,
-                    error, attempted_at_micros
+                    error, attempted_at
              FROM report_deliveries
              WHERE org_id = $1 AND report_id = $2
-             ORDER BY attempted_at_micros DESC
+             ORDER BY attempted_at DESC
              LIMIT 500",
         )
         .bind(&org_id.0)

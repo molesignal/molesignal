@@ -20,15 +20,22 @@ use tokio::{sync::Mutex, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
 
 use super::{
-    ApmCandidateProjector, ApmProjectorConfig, ApmProjectorHealthSnapshot, ApmRollupConfig,
-    ApmRollupService, BufferedApmProjector, metrics,
+    ApmCandidateProjector, ApmLimitsHandle, ApmProjectorConfig, ApmProjectorHealthSnapshot,
+    ApmRollupConfig, ApmRollupService, BufferedApmProjector, ErrorRuleBook, OrgSettingsBook,
+    metrics, spawn_refresh, spawn_settings_refresh,
 };
 use crate::{
     app::cluster::WorkOwnership,
     config::ApmSettings,
-    domain::apm::{ApmMaintenanceRepository, ApmRepository, ApmWriteRepository},
+    domain::{
+        apm::{ApmCatalogRepository, ApmMaintenanceRepository, ApmRepository, ApmWriteRepository},
+        iam::InstanceSettingsRepository,
+    },
     shared::{Result, time::TimestampMicros},
 };
+
+/// How long limits saved on another node take at most to apply here.
+const LIMITS_EVERY: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Default)]
 struct RollupHealth {
@@ -40,6 +47,7 @@ struct RollupHealth {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ApmRollupHealthSnapshot {
     pub running: bool,
     pub runs: u64,
@@ -50,6 +58,7 @@ pub struct ApmRollupHealthSnapshot {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ApmRuntimeHealthSnapshot {
     pub enabled: bool,
     pub candidate_owner: bool,
@@ -62,12 +71,19 @@ pub struct ApmRuntime {
     rollup_health: Arc<RollupHealth>,
     rollup_cancel: CancellationToken,
     rollup_join: Mutex<Option<JoinHandle<()>>>,
+    rules_join: Mutex<Option<JoinHandle<()>>>,
+    settings_join: Mutex<Option<JoinHandle<()>>>,
+    limits_join: Mutex<Option<JoinHandle<()>>>,
 }
 
 impl ApmRuntime {
+    /// `catalog` keeps the error rules and settings the projector reads,
+    /// `instance_settings` the limits it keeps to.
     pub fn start<R>(
         owner_id: String,
         repository: Arc<R>,
+        catalog: Arc<dyn ApmCatalogRepository>,
+        instance_settings: Arc<dyn InstanceSettingsRepository>,
         settings: &ApmSettings,
         run_projector: bool,
         rollup: Option<Arc<WorkOwnership>>,
@@ -90,6 +106,19 @@ impl ApmRuntime {
         let rollup_health = Arc::new(RollupHealth::default());
         let rollup_cancel = CancellationToken::new();
         let runs_rollup = rollup.is_some();
+        let rules_join = projector.as_ref().map(|projector| {
+            spawn_refresh(
+                projector.error_rules(),
+                catalog.clone(),
+                rollup_cancel.clone(),
+            )
+        });
+        let settings_join = projector.as_ref().map(|projector| {
+            spawn_settings_refresh(projector.org_settings(), catalog, rollup_cancel.clone())
+        });
+        let limits_join = projector.as_ref().map(|projector| {
+            spawn_limits_refresh(projector.limits(), instance_settings, rollup_cancel.clone())
+        });
 
         let rollup_join = rollup.map(|ownership| {
             let maintenance: Arc<dyn ApmMaintenanceRepository> = repository;
@@ -112,7 +141,29 @@ impl ApmRuntime {
             rollup_health,
             rollup_cancel,
             rollup_join: Mutex::new(rollup_join),
+            rules_join: Mutex::new(rules_join),
+            settings_join: Mutex::new(settings_join),
+            limits_join: Mutex::new(limits_join),
         }))
+    }
+
+    /// The organizations' settings this node's projector applies, when it runs one.
+    pub fn org_settings(&self) -> Option<Arc<OrgSettingsBook>> {
+        self.projector
+            .as_ref()
+            .map(|projector| projector.org_settings())
+    }
+
+    /// The limits this node's projector keeps to, when it runs one.
+    pub fn limits(&self) -> Option<ApmLimitsHandle> {
+        self.projector.as_ref().map(|projector| projector.limits())
+    }
+
+    /// The error rules this node's projector applies, when it runs one.
+    pub fn error_rules(&self) -> Option<Arc<ErrorRuleBook>> {
+        self.projector
+            .as_ref()
+            .map(|projector| projector.error_rules())
     }
 
     pub fn projector(&self) -> Option<Arc<dyn ApmCandidateProjector>> {
@@ -160,7 +211,40 @@ impl ApmRuntime {
         if let Some(join) = self.rollup_join.lock().await.take() {
             let _ = join.await;
         }
+
+        for joins in [&self.rules_join, &self.settings_join, &self.limits_join] {
+            if let Some(join) = joins.lock().await.take() {
+                let _ = join.await;
+            }
+        }
     }
+}
+
+/// Reads the platform's limits into `limits` now and every [`LIMITS_EVERY`]
+/// until `cancel`; a failed read keeps the limits held.
+fn spawn_limits_refresh(
+    limits: ApmLimitsHandle,
+    instance_settings: Arc<dyn InstanceSettingsRepository>,
+    cancel: CancellationToken,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut tick = tokio::time::interval(LIMITS_EVERY);
+        tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        loop {
+            tokio::select! {
+                _ = cancel.cancelled() => break,
+                _ = tick.tick() => match instance_settings.get().await {
+                    Ok(settings) => *limits.write() = settings.apm_limits,
+                    Err(error) => tracing::warn!(
+                        target: "molesignal::app::apm",
+                        error = %error,
+                        "APM limits could not be read; keeping the limits held"
+                    ),
+                },
+            }
+        }
+    })
 }
 
 fn spawn_rollup(

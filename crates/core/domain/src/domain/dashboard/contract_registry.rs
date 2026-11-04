@@ -72,6 +72,7 @@ impl DashboardContractStatus {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DashboardContractRef {
     pub contract_key: String,
     pub version: u32,
@@ -79,6 +80,7 @@ pub struct DashboardContractRef {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DashboardContractVersion {
     pub contract_key: String,
     pub version: u32,
@@ -102,6 +104,7 @@ impl DashboardContractVersion {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DashboardContractSelection {
     pub capability_key: String,
     pub model: DashboardContractRef,
@@ -112,6 +115,7 @@ pub struct DashboardContractSelection {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DashboardContractBinding {
     pub selection: DashboardContractSelection,
     pub revision: i64,

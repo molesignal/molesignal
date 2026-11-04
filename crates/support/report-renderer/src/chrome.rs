@@ -18,15 +18,15 @@ use std::{sync::Arc, time::Duration};
 use async_trait::async_trait;
 use bytes::Bytes;
 use headless_chrome::{
-    Browser, LaunchOptions,
-    protocol::cdp::{Emulation, Page::CaptureScreenshotFormatOption},
+    Browser, LaunchOptions, Tab,
+    protocol::cdp::{Emulation, Network, Page::CaptureScreenshotFormatOption},
     types::PrintToPdfOptions,
 };
 use kernel::Result;
 use parking_lot::Mutex;
 use tokio::sync::Semaphore;
 
-use crate::{RenderError, ReportFormat, ReportRenderer, Viewport};
+use crate::{RenderError, ReportFormat, ReportRenderer, SessionCookie, Viewport};
 
 mod readiness;
 
@@ -140,7 +140,7 @@ impl ReportRenderer for HeadlessChromeRenderer {
         url: &str,
         format: ReportFormat,
         viewport: Viewport,
-        browser_auth_storage: Option<&str>,
+        session: Option<&SessionCookie>,
     ) -> Result<Bytes> {
         let _permit = self
             .semaphore
@@ -150,7 +150,7 @@ impl ReportRenderer for HeadlessChromeRenderer {
             .map_err(|_| RenderError::Internal("semaphore closed".into()))?;
 
         let target_url = url.to_string();
-        let browser_auth_storage = browser_auth_storage.map(str::to_owned);
+        let session = session.cloned();
 
         let target_viewport = if viewport.width == 0 || viewport.height == 0 {
             self.viewport
@@ -175,7 +175,7 @@ impl ReportRenderer for HeadlessChromeRenderer {
                         &target_url,
                         format,
                         target_viewport,
-                        browser_auth_storage.as_deref(),
+                        session.as_ref(),
                     );
 
                     if result.is_ok() {
@@ -222,46 +222,15 @@ fn render_blocking(
     url: &str,
     format: ReportFormat,
     viewport: Viewport,
-    browser_auth_storage: Option<&str>,
+    session: Option<&SessionCookie>,
 ) -> std::result::Result<Bytes, RenderError> {
-    let bootstrap_tab = browser
+    let tab = browser
         .new_tab()
         .map_err(|e| RenderError::PageError(format!("new_tab: {e}")))?;
 
-    set_device_viewport(&bootstrap_tab, viewport)?;
-    navigate_and_wait(&bootstrap_tab, url)?;
-
-    // Browser instance 会复用，但认证上下文不得跨报告/用户复用。先清理旧状态，再按
-    // 当前请求写入短期会话。认证数据只进入浏览器同源存储，不出现在 URL。
-    let auth_value = browser_auth_storage
-        .map(serde_json::to_string)
-        .transpose()
-        .map_err(|e| RenderError::Internal(format!("serialize browser auth: {e}")))?;
-
-    let auth_expression = match auth_value {
-        Some(value) => format!(
-            "window.localStorage.removeItem('molesignal-auth');\
-             window.localStorage.removeItem('molesignal-auth-remember');\
-             window.sessionStorage.removeItem('molesignal-auth');\
-             window.localStorage.setItem('molesignal-auth', {value});"
-        ),
-        None => "window.localStorage.removeItem('molesignal-auth');\
-             window.localStorage.removeItem('molesignal-auth-remember');\
-             window.sessionStorage.removeItem('molesignal-auth');"
-            .to_string(),
-    };
-
-    bootstrap_tab
-        .evaluate(&auth_expression, false)
-        .map_err(|e| RenderError::PageError(format!("install browser auth: {e}")))?;
-
-    let _ = bootstrap_tab.close(true);
-
-    // 同一 Tab 连续导航时 Chrome 偶尔不发 lifecycle event。新 Tab 会共享
-    // localStorage，并可靠地产生一次完整导航事件。
-    let tab = browser
-        .new_tab()
-        .map_err(|e| RenderError::PageError(format!("new render tab: {e}")))?;
+    // Browser instance 会复用，但登录态不得跨报告/用户复用：先清掉上一次留下的 Cookie，再写
+    // 这次渲染的。登录态只在 Cookie 里，不出现在 URL。
+    install_session(&tab, url, session)?;
 
     set_device_viewport(&tab, viewport)?;
     navigate_and_wait(&tab, url)?;
@@ -321,22 +290,55 @@ fn render_blocking(
     };
 
     if result.is_ok()
-        && let Err(error) = tab.evaluate(
-            "window.localStorage.removeItem('molesignal-auth');\
-                 window.localStorage.removeItem('molesignal-auth-remember');\
-                 window.sessionStorage.removeItem('molesignal-auth');",
-            false,
-        )
+        && let Err(error) = tab.call_method(Network::ClearBrowserCookies(None))
     {
         let _ = tab.close(true);
 
         return Err(RenderError::PageError(format!(
-            "clear browser auth: {error}"
+            "clear browser session: {error}"
         )));
     }
 
     let _ = tab.close(true);
     result
+}
+
+/// 清掉浏览器里所有 Cookie，再写这次渲染的登录 Cookie（HttpOnly，页面脚本读不到）。
+fn install_session(
+    tab: &Tab,
+    url: &str,
+    session: Option<&SessionCookie>,
+) -> std::result::Result<(), RenderError> {
+    tab.call_method(Network::ClearBrowserCookies(None))
+        .map_err(|e| RenderError::PageError(format!("clear browser session: {e}")))?;
+
+    let Some(session) = session else {
+        return Ok(());
+    };
+
+    let cookie = Network::CookieParam {
+        name: session.name.clone(),
+        value: session.value.clone(),
+        url: Some(url.to_owned()),
+        domain: None,
+        path: Some(session.path.clone()),
+        secure: None,
+        http_only: Some(true),
+        same_site: Some(Network::CookieSameSite::Strict),
+        expires: None,
+        priority: None,
+        same_party: None,
+        source_scheme: None,
+        source_port: None,
+        partition_key: None,
+    };
+
+    tab.call_method(Network::SetCookies {
+        cookies: vec![cookie],
+    })
+    .map_err(|e| RenderError::PageError(format!("install browser session: {e}")))?;
+
+    Ok(())
 }
 
 /// 出图的尺寸：宽度是视口，高度是页面内容。

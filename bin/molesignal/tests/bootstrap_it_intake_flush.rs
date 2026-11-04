@@ -46,7 +46,6 @@ use molesignal::{
     },
 };
 use serde_json::json;
-use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PgImage;
 
 struct Fixture {
@@ -59,14 +58,11 @@ struct Fixture {
     object_root: tempfile::TempDir,
     wal_root: tempfile::TempDir,
     stream: StreamDefinition,
-    _pg: testcontainers::ContainerAsync<PgImage>,
+    _pg: Option<testcontainers::ContainerAsync<PgImage>>,
 }
 
 async fn fixture() -> Fixture {
-    let pg = PgImage::default().start().await.expect("pg start");
-    let port = pg.get_host_port_ipv4(5432).await.unwrap();
-    let host = pg.get_host().await.unwrap();
-    let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+    let (dsn, pg) = common::test_database().await;
 
     let object_root = tempfile::tempdir().unwrap();
     let wal_root = tempfile::tempdir().unwrap();

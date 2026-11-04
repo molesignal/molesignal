@@ -1,6 +1,6 @@
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 import * as React from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   MarkdownMessage,
@@ -93,5 +93,39 @@ describe('parseMarkdownBlocks', () => {
     expect(container.querySelector('code')?.textContent).toBe('http_requests_total');
     expect(container.querySelectorAll('li')).toHaveLength(2);
     expect(container.querySelector('a')?.getAttribute('href')).toBe('https://example.com/runbook');
+  });
+
+  it('lets a streamed answer in at an even pace, its newest characters bleeding in', () => {
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'performance'] });
+    try {
+      const answer = '错误率在 09:37 升到 1.94%，先回滚 checkout 2.0.0。';
+      const { container, rerender } = render(
+        React.createElement(MarkdownMessage, { content: '', streaming: true }),
+      );
+      rerender(React.createElement(MarkdownMessage, { content: answer, streaming: true }));
+      expect(container.textContent).toBe('');
+
+      act(() => {
+        vi.advanceTimersByTime(16);
+      });
+      const first = container.textContent ?? '';
+      expect(first.length).toBeGreaterThan(0);
+      expect(first.length).toBeLessThan(answer.length);
+      expect(container.querySelector('.ms-ink')?.textContent).toBeTruthy();
+
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(container.textContent).toBe(answer);
+      expect(container.querySelector('.ms-ink')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows a message that does not stream whole, with nothing bleeding in', () => {
+    const { container } = render(React.createElement(MarkdownMessage, { content: '已完成。' }));
+    expect(container.textContent).toBe('已完成。');
+    expect(container.querySelector('.ms-ink')).toBeNull();
   });
 });

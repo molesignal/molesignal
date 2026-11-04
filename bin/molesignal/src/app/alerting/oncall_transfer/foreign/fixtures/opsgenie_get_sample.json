@@ -1,0 +1,46 @@
+{
+  "data": {
+    "id": "4a9e4b7c-b5d2-4ecb-b82c-e3b52alp829cf",
+    "name": "ScheduleName",
+    "description": "ScheduleDescription",
+    "timezone": "Europe/Kirov",
+    "enabled": true,
+    "ownerTeam": {
+      "id": "6c7be998-fad9-4491-a9a7-d99alp4c0ae5",
+      "name": "ops_team"
+    },
+    "rotations": [
+      {
+        "id": "e1c575c4-7143-482c-8e83-4balp7d582d7",
+        "name": "First Rotation",
+        "startDate": "2017-02-06T05:00:00Z",
+        "endDate": "2017-02-23T06:00:00Z",
+        "type": "hourly",
+        "length": 6,
+        "participants": [
+          {
+            "type": "user",
+            "id": "96414alp-3ea5-41b1-a019-601598627d68",
+            "username": "user@opsgenie.com"
+          },
+          {
+            "type": "none"
+          }
+        ],
+        "timeRestriction": {
+          "type": "time-of-day",
+          "restrictions": [
+            {
+              "startHour": 8,
+              "endHour": 18,
+              "startMin": 0,
+              "endMin": 30
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "took": 0.051,
+  "requestId": "13a3alp1-5f0c-4370-a033-87a7f3be5d0e"
+}

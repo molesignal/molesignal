@@ -5,11 +5,11 @@ import type { StatusPageComponent, StatusPageSubscriber } from '@/api/statusPage
  * empty list means the whole page. A component deleted since is left out.
  */
 export function subscriberComponentNames(
-  subscriber: Pick<StatusPageSubscriber, 'component_scope' | 'component_ids'>,
+  subscriber: Pick<StatusPageSubscriber, 'componentScope' | 'componentIds'>,
   components: Pick<StatusPageComponent, 'id' | 'name' | 'position'>[],
 ): string[] {
-  if (subscriber.component_scope !== 'selected') return [];
-  const chosen = new Set(subscriber.component_ids ?? []);
+  if (subscriber.componentScope !== 'selected') return [];
+  const chosen = new Set(subscriber.componentIds ?? []);
   return components
     .filter((component) => chosen.has(component.id))
     .sort((left, right) => left.position - right.position || left.name.localeCompare(right.name))

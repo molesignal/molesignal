@@ -1,7 +1,9 @@
 import { Check } from 'lucide-react';
 import type * as React from 'react';
 
+import { uiSectionTitleClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
+import { IconSwap } from '@/shell/polish/IconSwap';
 
 /** `done`: nothing left to do here. `current`: where the reader is. `attention`: it was tried and needs a look. */
 export type GuideSectionState = 'done' | 'current' | 'upcoming' | 'attention';
@@ -45,10 +47,14 @@ export function GuideSection({
           state === 'upcoming' && 'bg-bg-2 text-tx-3',
         )}
       >
-        {state === 'done' ? <Check className="h-3.5 w-3.5 stroke-[3]" /> : number}
+        <IconSwap
+          active={state === 'done'}
+          inactiveIcon={number}
+          activeIcon={<Check className="h-3.5 w-3.5 stroke-[3]" />}
+        />
       </span>
       <div className="min-w-0">
-        <h3 className="m-0 flex min-h-[28px] items-center font-sans text-lg font-strong text-tx-0">
+        <h3 className={cn('m-0 flex min-h-[28px] items-center', uiSectionTitleClass)}>
           {title}
         </h3>
         {description && (

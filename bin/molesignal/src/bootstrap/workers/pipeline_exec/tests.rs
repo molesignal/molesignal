@@ -16,6 +16,7 @@ use crate::{
         stream::{FieldDef, FieldType, Schema, StreamDefinition, StreamRepository},
     },
     infra::{connectors::Connector, intake_sink::MemoryIntakeSink},
+    shared::time::TimestampMicros,
 };
 
 /// 只实现 `get`（egress 路径用到的唯一方法）；其余方法测试不触达。
@@ -27,6 +28,14 @@ impl ConnectorRepository for Connectors {
         unimplemented!()
     }
     async fn update(&self, _c: Connector) -> Result<Connector> {
+        unimplemented!()
+    }
+    async fn save_read_state(
+        &self,
+        _id: &Id,
+        _succeeded_at: Option<TimestampMicros>,
+        _read_state: &Value,
+    ) -> Result<()> {
         unimplemented!()
     }
     async fn touch_last_run(&self, _id: &Id, _ts: TimestampMicros) -> Result<()> {
@@ -187,6 +196,7 @@ fn connector(id: &str) -> Connector {
         config_json: json!({}),
         enabled: true,
         last_run_at: None,
+        read_state: serde_json::Value::Null,
         created_at: TimestampMicros(0),
         updated_at: TimestampMicros(0),
     }
@@ -271,7 +281,7 @@ fn counts(scanned: i64, written: i64, dropped: i64, failed: i64) -> RunCounts {
 #[tokio::test]
 async fn transforms_then_writes_to_the_target() {
     let fx = fixture(Vec::new());
-    let steps = json!({ "steps": [{ "transform_name": "tag", "script": ".count = 1" }] });
+    let steps = json!({ "steps": [{ "transformName": "tag", "script": ".count = 1" }] });
 
     let outcome = run(
         &fx,
@@ -298,8 +308,8 @@ async fn transforms_then_writes_to_the_target() {
 async fn egresses_to_declared_connectors() {
     let fx = fixture(Vec::new());
     let steps = json!({
-        "steps": [{ "transform_name": "noop", "script": ".kept = true" }],
-        "sink_connectors": ["c1"],
+        "steps": [{ "transformName": "noop", "script": ".kept = true" }],
+        "sinkConnectors": ["c1"],
     });
 
     let outcome = run(&fx, &steps, vec![json!({ "msg": "x" })]).await.unwrap();
@@ -316,7 +326,7 @@ async fn egresses_to_declared_connectors() {
 #[tokio::test]
 async fn compile_error_fails_whole_batch() {
     let fx = fixture(Vec::new());
-    let steps = json!({ "steps": [{ "transform_name": "bad", "script": "this ((" }] });
+    let steps = json!({ "steps": [{ "transformName": "bad", "script": "this ((" }] });
 
     let err = run(&fx, &steps, vec![json!({})]).await.unwrap_err();
 
@@ -382,7 +392,7 @@ async fn new_output_fields_extend_an_existing_target_stream() {
         "out",
         vec![field("msg", FieldType::Utf8)],
     )]);
-    let steps = json!({ "steps": [{ "transform_name": "tag", "script": ".count = 1" }] });
+    let steps = json!({ "steps": [{ "transformName": "tag", "script": ".count = 1" }] });
 
     let outcome = run(&fx, &steps, vec![json!({ "msg": "a" })]).await.unwrap();
 
@@ -400,7 +410,7 @@ async fn events_that_conflict_with_the_target_schema_are_reported_not_fatal() {
         vec![field("count", FieldType::Int64)],
     )]);
     let steps = json!({ "steps": [{
-        "transform_name": "tag",
+        "transformName": "tag",
         "script": "if .n == 1 { .count = 1 } else { .count = \"oops\" }",
     }] });
     let events = vec![json!({ "n": 1 }), json!({ "n": 2 }), json!({ "n": 3 })];
@@ -428,8 +438,8 @@ async fn a_target_stream_that_rejects_everything_fails_the_run_with_the_reason()
         vec![field("count", FieldType::Int64)],
     )]);
     let steps = json!({
-        "steps": [{ "transform_name": "tag", "script": ".count = \"oops\"" }],
-        "sink_connectors": ["c1"],
+        "steps": [{ "transformName": "tag", "script": ".count = \"oops\"" }],
+        "sinkConnectors": ["c1"],
     });
 
     let outcome = run(&fx, &steps, vec![json!({ "n": 1 }), json!({ "n": 2 })])
@@ -538,8 +548,8 @@ async fn an_event_routed_into_a_source_fails_alone() {
 async fn aborted_and_duplicate_events_are_dropped_not_failed() {
     let fx = fixture(Vec::new());
     let steps = json!({
-        "dedupe_field": "trace.id",
-        "steps": [{ "transform_name": "filter", "script": "if .level == \"debug\" { abort }" }],
+        "dedupeField": "trace.id",
+        "steps": [{ "transformName": "filter", "script": "if .level == \"debug\" { abort }" }],
     });
     let events = vec![
         json!({ "level": "debug", "trace": { "id": "t0" } }),
@@ -562,8 +572,8 @@ async fn several_sources_are_processed_together_and_steps_see_where_events_came_
     let fx = fixture(Vec::new());
     let steps = json!({
         "sources": ["app", "nginx"],
-        "dedupe_field": "id",
-        "steps": [{ "transform_name": "tag", "script": ".from = %source_stream" }],
+        "dedupeField": "id",
+        "steps": [{ "transformName": "tag", "script": ".from = %source_stream" }],
     });
 
     let outcome = run_with(
@@ -597,7 +607,7 @@ async fn a_failed_delivery_is_tried_again() {
             ..Dispatcher::default()
         },
     );
-    let steps = json!({ "sink_connectors": ["c1"], "retry": { "delivery_retries": 2 } });
+    let steps = json!({ "sinkConnectors": ["c1"], "retry": { "deliveryRetries": 2 } });
 
     let outcome = run(&fx, &steps, vec![json!({ "a": 1 })]).await.unwrap();
 
@@ -615,8 +625,8 @@ async fn failures_become_dead_letters_with_their_reason() {
         vec![field("n", FieldType::Int64)],
     )]);
     let steps = json!({
-        "dead_letter_stream": "failed_events",
-        "steps": [{ "transform_name": "parse", "script": ". = parse_json!(.message)" }],
+        "deadLetterStream": "failed_events",
+        "steps": [{ "transformName": "parse", "script": ". = parse_json!(.message)" }],
     });
     let events = vec![
         json!({ "message": "not json" }),
@@ -668,7 +678,7 @@ async fn dead_letters_keep_a_stream_that_rejected_everything_from_failing_the_ru
         "out",
         vec![field("n", FieldType::Int64)],
     )]);
-    let steps = json!({ "dead_letter_stream": "failed_events" });
+    let steps = json!({ "deadLetterStream": "failed_events" });
 
     let outcome = run(&fx, &steps, vec![json!({ "n": "text" })])
         .await
@@ -690,9 +700,9 @@ async fn undelivered_events_become_dead_letters() {
         },
     );
     let steps = json!({
-        "sink_connectors": ["c1"],
-        "retry": { "delivery_retries": 1 },
-        "dead_letter_stream": "failed_events",
+        "sinkConnectors": ["c1"],
+        "retry": { "deliveryRetries": 1 },
+        "deadLetterStream": "failed_events",
     });
 
     let outcome = run(&fx, &steps, vec![json!({ "a": 1 }), json!({ "a": 2 })])
@@ -725,13 +735,43 @@ async fn undelivered_events_become_dead_letters() {
     assert_eq!(letters.events[1].fields["a"], 2);
 }
 
+/// A connector that is turned off is given nothing. Its events are neither failed nor dead
+/// letters, the run says why they were not delivered, and a later run does not send them.
+#[tokio::test]
+async fn a_connector_that_is_turned_off_is_skipped() {
+    let mut fx = fixture(Vec::new());
+    let mut off = connector("c1");
+    off.enabled = false;
+    fx.output.connectors = Arc::new(Connectors(vec![off]));
+    let steps = json!({
+        "sinkConnectors": ["c1"],
+        "deadLetterStream": "failed_events",
+    });
+
+    let outcome = run(&fx, &steps, vec![json!({ "a": 1 }), json!({ "a": 2 })])
+        .await
+        .unwrap();
+
+    assert_eq!(outcome.counts, counts(2, 2, 0, 0));
+    assert!(outcome.failure.is_none());
+    assert_eq!(fx.dispatcher.attempts.load(Ordering::SeqCst), 0);
+    assert_eq!(
+        outcome.errors,
+        vec!["connector `c1-sink` is turned off: 2 event(s) were not delivered to it"]
+    );
+    assert!(outcome.sources[0].done.contains(&connector_key("c1")));
+
+    let streams: Vec<String> = fx.written().into_iter().map(|batch| batch.stream).collect();
+    assert_eq!(streams, vec!["out"]);
+}
+
 /// Writing to one stream failing leaves the others written; the failure is kept on the source,
 /// with the streams that did take its rows, for a retry to leave out.
 #[tokio::test]
 async fn a_failed_write_is_kept_on_its_source_and_the_other_streams_are_written() {
     let fx = fixture(Vec::new());
     fx.sink.failing.lock().unwrap().insert("archive".into());
-    let steps = json!({ "sinks": ["out", "archive"], "sink_connectors": ["c1"] });
+    let steps = json!({ "sinks": ["out", "archive"], "sinkConnectors": ["c1"] });
 
     let outcome = run(&fx, &steps, vec![json!({ "a": 1 })]).await.unwrap();
 
@@ -754,7 +794,7 @@ async fn a_failed_write_is_kept_on_its_source_and_the_other_streams_are_written(
 #[tokio::test]
 async fn a_retried_window_leaves_out_what_already_took_it() {
     let fx = fixture(Vec::new());
-    let steps = json!({ "sinks": ["out", "archive"], "sink_connectors": ["c1"] });
+    let steps = json!({ "sinks": ["out", "archive"], "sinkConnectors": ["c1"] });
     let mut retried = rows("app", vec![json!({ "a": 1 })]);
     retried.done = BTreeSet::from(["out".to_owned(), connector_key("c1")]);
 
@@ -824,4 +864,207 @@ fn reasons_are_grouped_and_capped() {
         "stream `out` rejected 2 event(s): 2 more reason(s)"
     );
     assert!(summaries(std::iter::empty(), |_, reason| reason.to_owned()).is_empty());
+}
+
+/// One extend table, `host_owner`: keyed by `host`, holding `owner`. Writes fail while `failing`.
+#[derive(Default)]
+struct Tables {
+    rows: Mutex<Vec<crate::infra::pipeline::ExtendRow>>,
+    failing: bool,
+}
+
+#[async_trait]
+impl crate::infra::pipeline::ExtendKvRepository for Tables {
+    async fn create_table(
+        &self,
+        _table: crate::infra::pipeline::ExtendTableDefinition,
+    ) -> Result<crate::infra::pipeline::ExtendTableDefinition> {
+        unimplemented!()
+    }
+
+    async fn update_table_fields(
+        &self,
+        _org: &Id,
+        _table: &str,
+        _value_fields: &[crate::infra::pipeline::ExtendValueField],
+        _updated_at: TimestampMicros,
+        _require_empty: bool,
+    ) -> Result<bool> {
+        unimplemented!()
+    }
+
+    async fn delete_table(&self, _org: &Id, _table: &str) -> Result<()> {
+        unimplemented!()
+    }
+
+    async fn upsert(&self, row: crate::infra::pipeline::ExtendRow) -> Result<()> {
+        if self.failing {
+            return Err(Error::unavailable("database unreachable"));
+        }
+
+        self.rows.lock().unwrap().push(row);
+        Ok(())
+    }
+
+    async fn delete(&self, _org: &Id, _table: &str, _key: &str) -> Result<()> {
+        unimplemented!()
+    }
+
+    async fn list_table(
+        &self,
+        _org: &Id,
+        _table: &str,
+    ) -> Result<Vec<crate::infra::pipeline::ExtendRow>> {
+        unimplemented!()
+    }
+
+    async fn list_tables(
+        &self,
+        _org: &Id,
+    ) -> Result<Vec<crate::infra::pipeline::ExtendTableSummary>> {
+        Ok(vec![crate::infra::pipeline::ExtendTableSummary {
+            table_name: "host_owner".into(),
+            description: String::new(),
+            key_field: "host".into(),
+            value_fields: vec![crate::infra::pipeline::ExtendValueField {
+                name: "owner".into(),
+                field_type: "string".into(),
+                required: false,
+                description: String::new(),
+            }],
+            row_count: 0,
+            updated_at: TimestampMicros(0),
+        }])
+    }
+}
+
+/// Every event becomes a row of an extend table under its key; one without the key, or for a
+/// table that does not exist, is a dead letter.
+#[tokio::test]
+async fn events_become_rows_of_extend_tables_by_their_key() {
+    let tables = Arc::new(Tables::default());
+    let mut fx = fixture(Vec::new());
+    fx.output = fx.output.clone().with_tables(tables.clone());
+    let steps = json!({
+        "sinkTables": ["host_owner", "missing"],
+        "deadLetterStream": "failed_events",
+    });
+
+    let outcome = run(
+        &fx,
+        &steps,
+        vec![
+            json!({ "host": "web-01", "owner": "alice", "noise": 1 }),
+            json!({ "owner": "bob" }),
+            json!({ "host": "web-01", "owner": "carol" }),
+        ],
+    )
+    .await
+    .unwrap();
+
+    let written: Vec<(String, Value)> = tables
+        .rows
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|row| (row.key.clone(), row.value_json.clone()))
+        .collect();
+
+    // The latest event of a key wins; a row holds the table's value fields.
+    assert_eq!(
+        written,
+        vec![("web-01".into(), json!({ "owner": "carol" }))]
+    );
+    assert_eq!(outcome.counts, counts(3, 0, 0, 3));
+    assert!(outcome.failure.is_none());
+    assert!(
+        outcome.sources[0]
+            .done
+            .contains(&tables::table_key("host_owner"))
+    );
+    assert!(
+        outcome
+            .errors
+            .iter()
+            .any(|line| line.contains("extend table `missing` does not exist"))
+    );
+
+    let letters = fx
+        .written()
+        .into_iter()
+        .find(|batch| batch.stream == "failed_events")
+        .expect("dead letters were written");
+    let destinations: Vec<&Value> = letters
+        .events
+        .iter()
+        .map(|event| &event.fields["dead_letter_destination"])
+        .collect();
+
+    assert_eq!(destinations.len(), 4);
+    assert!(destinations.contains(&&json!("table:missing")));
+    assert!(destinations.contains(&&json!("table:host_owner")));
+}
+
+/// A run reads its rows in no order of time: the latest event of a key stays all the same.
+#[tokio::test]
+async fn the_latest_event_of_a_key_stays_in_any_order_of_reading() {
+    let tables = Arc::new(Tables::default());
+    let mut fx = fixture(Vec::new());
+    fx.output = fx.output.clone().with_tables(tables.clone());
+
+    run(
+        &fx,
+        &json!({ "sinkTables": ["host_owner"] }),
+        vec![
+            json!({ "_timestamp": 3, "host": "web-01", "owner": "latest" }),
+            json!({ "_timestamp": 1, "host": "web-01", "owner": "oldest" }),
+            json!({ "_timestamp": 2, "host": "web-01", "owner": "middle" }),
+        ],
+    )
+    .await
+    .unwrap();
+
+    let written: Vec<Value> = tables
+        .rows
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|row| row.value_json.clone())
+        .collect();
+
+    assert_eq!(written, vec![json!({ "owner": "latest" })]);
+}
+
+/// A table that cannot be written leaves the window to be tried again, without dead letters.
+#[tokio::test]
+async fn a_table_that_cannot_be_written_holds_the_window_for_a_retry() {
+    let tables = Arc::new(Tables {
+        failing: true,
+        ..Tables::default()
+    });
+    let mut fx = fixture(Vec::new());
+    fx.output = fx.output.clone().with_tables(tables);
+
+    let outcome = run(
+        &fx,
+        &json!({ "sinkTables": ["host_owner"] }),
+        vec![json!({ "host": "web-01", "owner": "alice" })],
+    )
+    .await
+    .unwrap();
+
+    let failure = outcome.sources[0]
+        .failure
+        .as_ref()
+        .expect("the window is tried again");
+
+    assert!(failure.message.contains("extend table `host_owner`"));
+    assert!(!failure.permanent);
+    assert!(
+        !outcome.sources[0]
+            .done
+            .contains(&tables::table_key("host_owner"))
+    );
+    // The stream took the event; a retry leaves it out.
+    assert!(outcome.sources[0].done.contains("out"));
 }

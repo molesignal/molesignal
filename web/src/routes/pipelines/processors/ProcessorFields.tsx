@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import type { ExtendTableSummary } from '@/api/extendTables';
 import { uiLabelClass } from '@/shell/chrome';
 import { FormField, FormInput, FormSelect } from '@/shell/FormDrawer';
 import { Checkbox } from '@/shell/ui/checkbox';
@@ -15,6 +16,7 @@ import {
   type ProcessorConfig,
   type SetValueType,
 } from './catalog';
+import { LookupFields } from './LookupFields';
 import { Segmented } from '../editor/Segmented';
 
 const FIELD_INPUT = 'font-mono text-xs';
@@ -23,6 +25,9 @@ const FIELD_INPUT = 'font-mono text-xs';
 const EXAMPLE = {
   regex: '^(?P<method>\\w+) (?P<path>\\S+) (?P<status>\\d+)$',
   fieldList: 'password, user.token',
+  keepList: 'service, env, team',
+  renamePattern: '^kubernetes_(.+)$',
+  renameReplacement: '$1',
 } as const;
 
 /**
@@ -31,9 +36,12 @@ const EXAMPLE = {
  */
 export function ProcessorFields({
   config,
+  tables = [],
   onChange,
 }: {
   config: ProcessorConfig;
+  /** The extend tables a lookup can read. */
+  tables?: readonly ExtendTableSummary[];
   onChange: (next: ProcessorConfig) => void;
 }) {
   const { t } = useTranslation('pipelines');
@@ -124,6 +132,26 @@ export function ProcessorFields({
         </Grid>
       );
 
+    case 'rename_regex':
+      return (
+        <Grid>
+          {field(t('processors.within'), config.within, (within) => onChange({ ...config, within }), {
+            placeholder: t('processors.within_placeholder'),
+            hint: t('processors.within_hint'),
+          })}
+          {field(t('processors.rename_pattern'), config.pattern, (pattern) => onChange({ ...config, pattern }), {
+            placeholder: EXAMPLE.renamePattern,
+            hint: t('processors.rename_pattern_hint'),
+          })}
+          {field(
+            t('processors.rename_replacement'),
+            config.replacement,
+            (replacement) => onChange({ ...config, replacement }),
+            { placeholder: EXAMPLE.renameReplacement, hint: t('processors.rename_replacement_hint') },
+          )}
+        </Grid>
+      );
+
     case 'remove':
       return (
         <Grid>
@@ -131,6 +159,25 @@ export function ProcessorFields({
             <FieldList
               label={t('processors.fields')}
               hint={t('processors.fields_hint')}
+              fields={config.fields}
+              onChange={(fields) => onChange({ ...config, fields })}
+            />
+          </div>
+        </Grid>
+      );
+
+    case 'keep':
+      return (
+        <Grid>
+          {field(t('processors.within'), config.within, (within) => onChange({ ...config, within }), {
+            placeholder: t('processors.within_placeholder'),
+            hint: t('processors.within_hint'),
+          })}
+          <div className="sm:col-span-2">
+            <FieldList
+              label={t('processors.keep_fields')}
+              hint={t('processors.keep_fields_hint')}
+              placeholder={EXAMPLE.keepList}
               fields={config.fields}
               onChange={(fields) => onChange({ ...config, fields })}
             />
@@ -290,6 +337,9 @@ export function ProcessorFields({
           })}
         </Grid>
       );
+
+    case 'lookup':
+      return <LookupFields config={config} tables={tables} onChange={onChange} />;
   }
 }
 
@@ -301,14 +351,16 @@ function Grid({ children }: { children: React.ReactNode }) {
  * Several field names in one line, separated by commas. The text is kept as
  * typed; reformatting it on every key would move the caret.
  */
-function FieldList({
+export function FieldList({
   label,
   hint,
+  placeholder = EXAMPLE.fieldList,
   fields,
   onChange,
 }: {
   label: string;
   hint: string;
+  placeholder?: string;
   fields: readonly string[];
   onChange: (fields: string[]) => void;
 }) {
@@ -332,7 +384,7 @@ function FieldList({
           setText(event.target.value);
           onChange(split(event.target.value).filter(Boolean));
         }}
-        placeholder={EXAMPLE.fieldList}
+        placeholder={placeholder}
         className={FIELD_INPUT}
         autoComplete="off"
         spellCheck={false}

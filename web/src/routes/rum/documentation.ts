@@ -1,4 +1,5 @@
 export type RumDocumentationSection =
+  | 'explorer'
   | 'sdk'
   | 'source-maps'
   | 'sampling'
@@ -6,6 +7,7 @@ export type RumDocumentationSection =
   | 'session-replay';
 
 const DOCUMENTATION_PATHS: Record<RumDocumentationSection, string> = {
+  explorer: 'explorer',
   sdk: 'browser-sdk',
   'source-maps': 'source-maps',
   sampling: 'sampling',

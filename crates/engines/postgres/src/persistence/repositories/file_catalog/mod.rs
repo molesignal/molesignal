@@ -14,11 +14,11 @@ use sqlx::PgPool;
 use super::sqlx_err;
 use crate::{
     domain::storage::{
-        CatalogInvariantIssue, CatalogObject, CatalogSnapshot, CommitFlush, DatasetSelection,
-        DatasetTransformResult, FileCatalog, FlushCommitResult, GcQueueEntry, IndexRebuildTask,
-        ObjectKey, OrganizationScope, PhysicalDataset, PhysicalDatasetId, PhysicalDatasetSpec,
-        PublishDatasetTransform, PublishPartitionManifest, ReplaceSegments, TombstoneSegments,
-        UpdateArtifact, WalCheckpointView,
+        ArtifactId, CatalogInvariantIssue, CatalogObject, CatalogSnapshot, CommitFlush,
+        DatasetSelection, DatasetTransformResult, FileCatalog, FlushCommitResult, GcQueueEntry,
+        IndexRebuildTask, ObjectKey, OrganizationScope, PhysicalDataset, PhysicalDatasetId,
+        PhysicalDatasetSpec, PublishDatasetTransform, PublishPartitionManifest, ReplaceSegments,
+        TombstoneSegments, UpdateArtifact, WalCheckpointView,
     },
     shared::{Result, ids::Id},
 };
@@ -134,6 +134,18 @@ impl FileCatalog for PgFileCatalog {
         limit: u32,
     ) -> Result<Vec<IndexRebuildTask>> {
         maintenance::index_rebuild_tasks(&self.pool, scope, updated_before_micros, limit).await
+    }
+
+    async fn stale_index_tasks(
+        &self,
+        scope: &OrganizationScope,
+        artifact_type: &str,
+        below_format: u32,
+        skip: &[ArtifactId],
+        limit: u32,
+    ) -> Result<Vec<IndexRebuildTask>> {
+        maintenance::stale_index_tasks(&self.pool, scope, artifact_type, below_format, skip, limit)
+            .await
     }
 
     async fn publish_partition_manifest(

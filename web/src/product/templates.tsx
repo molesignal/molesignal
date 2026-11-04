@@ -18,6 +18,7 @@ import {
   SurfacePageBody,
   SurfacePageHeader,
 } from '@/shell/SurfaceWorkbench';
+import { ViewCountsUnknownContext } from '@/shell/tabs/ViewTabs';
 import {
   Tooltip,
   TooltipContent,
@@ -26,6 +27,7 @@ import {
 import { useSubnavStore } from '@/stores/useSubnavStore';
 
 import type { ProductBreadcrumbItem } from './ia';
+import { listContent } from './listContent';
 import { ProductState, type ProductStateProps } from './states';
 
 interface ProductPageFrameProps {
@@ -128,6 +130,11 @@ export function OverviewPage({ kpis, aside, children, bodyClassName, ...frame }:
   );
 }
 
+/** A figure nobody has answered yet: not a zero. */
+function unknownFigure(item: KpiStripItem): KpiStripItem {
+  return { ...item, value: '—', tone: 'neutral' };
+}
+
 export function ListPage({
   kpis,
   kpiLayout,
@@ -137,17 +144,20 @@ export function ListPage({
   lead,
   listHead,
   actionBar,
-  state,
+  state: requestedState,
   stateClassName,
   contentSurface = true,
-  children,
+  children: list,
   bodyClassName,
   appearance = 'default',
   ...frame
 }: ListPageProps) {
   const surface = appearance === 'surface';
   const headed = surface && contentSurface && Boolean(listHead);
+  const figuresUnknown = requestedState?.variant === 'loading' || requestedState?.variant === 'error';
+  const { state, children } = listContent(requestedState, list);
   return (
+    <ViewCountsUnknownContext.Provider value={figuresUnknown}>
     <ProductPageFrame
       {...frame}
       appearance={appearance}
@@ -157,7 +167,7 @@ export function ListPage({
       )}
     >
       <KpiStrip
-        items={kpis}
+        items={figuresUnknown ? kpis?.map(unknownFigure) : kpis}
         layout={kpiLayout}
         className={cn(
           surface
@@ -229,6 +239,7 @@ export function ListPage({
         children
       )}
     </ProductPageFrame>
+    </ViewCountsUnknownContext.Provider>
   );
 }
 
@@ -245,9 +256,11 @@ export function DetailPage({
     <ProductPageFrame {...frame} appearance={appearance} padded={false}>
       <MetadataStrip
         items={metadata}
-        className={surface
-          ? 'mx-[20px] mb-[12px] rounded-md border-0 bg-[var(--functional-surface)] px-[12px] [box-shadow:var(--shadow-functional-surface)]'
-          : undefined}
+        // In the page's gutter, as its title and its body are, and a card's distance over the body.
+        className={cn(
+          'mx-[20px] mb-[12px]',
+          surface && 'rounded-md border-0 bg-[var(--functional-surface)] px-[12px] [box-shadow:var(--shadow-functional-surface)]',
+        )}
       />
       {surface ? (
         <SurfacePageBody className={cn('space-y-[12px]', bodyClassName)}>
@@ -302,14 +315,15 @@ export function BuilderPage({
 export function ManagementPage({
   sections,
   menuOwnsCollapse = false,
-  state,
-  children,
+  state: requestedState,
+  children: content,
   bodyClassName,
   sectionNavigation,
   appearance = 'default',
   ...frame
 }: ManagementPageProps) {
   const { t } = useTranslation('shell');
+  const { state, children } = listContent(requestedState, content);
   const storedCollapsed = useSubnavStore((s) => s.collapsed);
   const storedToggle = useSubnavStore((s) => s.toggle);
   const fullyHidden = sectionNavigation !== undefined;

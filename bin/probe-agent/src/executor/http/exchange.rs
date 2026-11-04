@@ -5,12 +5,12 @@
 
 use std::{future::Future, net::SocketAddr, time::Duration};
 
-use anyhow::{Context as _, Result, anyhow, bail};
+use anyhow::{Context as _, Result, bail};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use bytes::Bytes;
 use http_body_util::{BodyExt as _, Full};
 use hyper::{
-    HeaderMap, Method, Request, StatusCode, Uri,
+    HeaderMap, Method, Request, StatusCode, Uri, Version,
     body::Incoming,
     header::{ACCEPT, AUTHORIZATION, HeaderValue},
 };
@@ -20,8 +20,11 @@ use tower::{ServiceExt as _, service_fn};
 use tower_http::decompression::{Decompression, DecompressionBody};
 use url::Url;
 
-use super::{connection::Connection, proxy};
-use crate::executor::timing::{Phase, PhaseClock};
+use super::{connection::Connection, proxy, route::Transport};
+use crate::executor::{
+    failure,
+    timing::{Phase, PhaseClock},
+};
 
 /// Starts a request for `url`.
 ///
@@ -58,7 +61,7 @@ pub(super) async fn send(
     mut request: Request<Full<Bytes>>,
     address: SocketAddr,
     proxies: &proxy::Rules,
-    verify_tls: bool,
+    transport: &Transport,
     allowed: Duration,
     phases: &PhaseClock,
 ) -> Result<Reply> {
@@ -77,7 +80,7 @@ pub(super) async fn send(
 
     let head = async {
         let proxy = proxy.as_ref();
-        let mut connection = Connection::open(&uri, address, proxy, verify_tls, phases).await?;
+        let mut connection = Connection::open(&uri, address, proxy, transport, phases).await?;
 
         // A request that names no encodings of its own asks for gzip, and a gzip response is
         // unpacked whoever asked for it.
@@ -88,21 +91,27 @@ pub(super) async fn send(
             .gzip(true);
 
         // The wait for the reply starts with the connection ready, and ends with the head of the
-        // response or with the request failing.
+        // response or with the request failing. A connection the server drops or answers with
+        // something other than HTTP fails the check. The message carries what lies under the
+        // error, such as the alert a server that wanted a client certificate sent.
         let waiting = phases.during(Phase::FirstByte, exchange.oneshot(request));
-        let response = waiting.await?;
+
+        let response = waiting.await.map_err(|error| {
+            failure::target("http_failed", format!("{:#}", anyhow::Error::new(error)))
+        })?;
+
         anyhow::Ok((connection, response))
     };
 
-    let (connection, response) = limit
-        .run(head)
-        .await
-        .map_err(|error| anyhow!("error sending request for url ({uri}): {error:#}"))?;
+    let (connection, response) = limit.run(head).await.map_err(|error| {
+        failure::restate(error, format_args!("error sending request for url ({uri})"))
+    })?;
 
     let (head, body) = response.into_parts();
 
     Ok(Reply {
         status: head.status,
+        version: head.version,
         headers: head.headers,
         body,
         limit,
@@ -113,6 +122,8 @@ pub(super) async fn send(
 /// A response whose head has arrived and whose body is still to be read.
 pub(super) struct Reply {
     pub status: StatusCode,
+    /// The HTTP version the server answered in.
+    pub version: Version,
     pub headers: HeaderMap,
     body: DecompressionBody<Incoming>,
     limit: Limit,
@@ -121,22 +132,26 @@ pub(super) struct Reply {
 }
 
 impl Reply {
-    /// Reads the body, unpacked if it came as gzip, and stops after `most` bytes.
-    pub async fn read_body(&mut self, most: usize) -> Result<Vec<u8>> {
+    /// Reads the body, unpacked if it came as gzip. It keeps the first `most` bytes, and reads on
+    /// up to `count_up_to` bytes to tell how big the body is: the size it returns is what it read.
+    pub async fn read_body(&mut self, most: usize, count_up_to: usize) -> Result<(Vec<u8>, usize)> {
         let limit = self.limit;
         let mut body = Vec::new();
+        let mut size = 0usize;
 
         let reading = async {
-            while body.len() < most {
+            while size < count_up_to.max(most) {
                 let Some(frame) = self.body.frame().await else {
                     break;
                 };
 
-                let frame = frame.map_err(anyhow::Error::from_boxed)?;
+                let frame =
+                    frame.map_err(|error| failure::target("http_failed", error.to_string()))?;
 
                 if let Some(chunk) = frame.data_ref() {
-                    let room = most - body.len();
+                    let room = most.saturating_sub(body.len());
                     body.extend_from_slice(&chunk[..chunk.len().min(room)]);
+                    size = size.saturating_add(chunk.len());
                 }
             }
 
@@ -146,9 +161,9 @@ impl Reply {
         limit
             .run(reading)
             .await
-            .map_err(|error| anyhow!("error decoding response body: {error:#}"))?;
+            .map_err(|error| failure::restate(error, "error decoding response body"))?;
 
-        Ok(body)
+        Ok((body, size))
     }
 }
 
@@ -171,7 +186,10 @@ impl Limit {
     async fn run<T>(self, work: impl Future<Output = Result<T>>) -> Result<T> {
         match tokio::time::timeout_at(self.ends, work).await {
             Ok(done) => done,
-            Err(_) => bail!("timed out after {} ms", self.allowed.as_millis()),
+            Err(_) => Err(failure::target(
+                "timeout",
+                format!("timed out after {} ms", self.allowed.as_millis()),
+            )),
         }
     }
 }

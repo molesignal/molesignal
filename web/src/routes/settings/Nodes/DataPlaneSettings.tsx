@@ -23,10 +23,10 @@ import { useSettingsSaveStatus } from '../SettingsSaveStatus';
 
 export function DataPlaneRuntimeSettings() {
   const serviceGraphAccess = useActionAccess({
-    permission: 'org.settings.manage',
+    permission: 'sys.settings.topology.manage',
   });
   const federationAccess = useActionAccess({
-    permission: 'org.settings.manage',
+    permission: 'sys.settings.topology.manage',
   });
 
   return (
@@ -122,21 +122,21 @@ function FederationSettingsSection({ access }: { access: ActionAccess }) {
 
   React.useEffect(() => {
     if (!query.data || hydrated.current) return;
-    setClusterId(query.data.cluster_id);
-    setDrain(String(query.data.drain_interval_secs));
-    setBatch(String(query.data.push_batch_size));
-    setTtl(String(query.data.seen_events_ttl_secs));
-    setGossip(String(query.data.gossip_interval_secs));
+    setClusterId(query.data.clusterId);
+    setDrain(String(query.data.drainIntervalSecs));
+    setBatch(String(query.data.pushBatchSize));
+    setTtl(String(query.data.seenEventsTtlSecs));
+    setGossip(String(query.data.gossipIntervalSecs));
     hydrated.current = true;
   }, [query.data]);
 
   const buildSettings = React.useCallback(
     (): instanceApi.FederationSettings => ({
-      cluster_id: clusterId.trim(),
-      drain_interval_secs: Math.max(1, Number(drain) || 10),
-      push_batch_size: Math.max(1, Number(batch) || 100),
-      seen_events_ttl_secs: Math.max(1, Number(ttl) || 604800),
-      gossip_interval_secs: Math.max(1, Number(gossip) || 60),
+      clusterId: clusterId.trim(),
+      drainIntervalSecs: Math.max(1, Number(drain) || 10),
+      pushBatchSize: Math.max(1, Number(batch) || 100),
+      seenEventsTtlSecs: Math.max(1, Number(ttl) || 604800),
+      gossipIntervalSecs: Math.max(1, Number(gossip) || 60),
     }),
     [batch, clusterId, drain, gossip, ttl],
   );
@@ -144,11 +144,11 @@ function FederationSettingsSection({ access }: { access: ActionAccess }) {
   const draft = buildSettings();
   const dirty =
     query.data !== undefined &&
-    (draft.cluster_id !== query.data.cluster_id ||
-      draft.drain_interval_secs !== query.data.drain_interval_secs ||
-      draft.push_batch_size !== query.data.push_batch_size ||
-      draft.seen_events_ttl_secs !== query.data.seen_events_ttl_secs ||
-      draft.gossip_interval_secs !== query.data.gossip_interval_secs);
+    (draft.clusterId !== query.data.clusterId ||
+      draft.drainIntervalSecs !== query.data.drainIntervalSecs ||
+      draft.pushBatchSize !== query.data.pushBatchSize ||
+      draft.seenEventsTtlSecs !== query.data.seenEventsTtlSecs ||
+      draft.gossipIntervalSecs !== query.data.gossipIntervalSecs);
   const enabled = clusterId.trim().length > 0;
   const numericValues = [drain, batch, ttl, gossip].map(Number);
   const invalid = numericValues.some(
@@ -170,11 +170,11 @@ function FederationSettingsSection({ access }: { access: ActionAccess }) {
     onMutate: () => saveStatus.beginSave(),
     onSuccess: (saved) => {
       qc.setQueryData(['settings', 'federation'], saved);
-      setClusterId(saved.cluster_id);
-      setDrain(String(saved.drain_interval_secs));
-      setBatch(String(saved.push_batch_size));
-      setTtl(String(saved.seen_events_ttl_secs));
-      setGossip(String(saved.gossip_interval_secs));
+      setClusterId(saved.clusterId);
+      setDrain(String(saved.drainIntervalSecs));
+      setBatch(String(saved.pushBatchSize));
+      setTtl(String(saved.seenEventsTtlSecs));
+      setGossip(String(saved.gossipIntervalSecs));
       saveStatus.completeSave();
     },
     onError: (error) => {
@@ -197,7 +197,7 @@ function FederationSettingsSection({ access }: { access: ActionAccess }) {
   const persist = React.useCallback(() => {
     if (access.disabled || !dirty || invalid || save.isPending) return;
     const next = buildSettings();
-    const disabling = Boolean(query.data?.cluster_id) && !next.cluster_id;
+    const disabling = Boolean(query.data?.clusterId) && !next.clusterId;
     if (disabling) {
       setConfirmDisable(true);
       return;
@@ -208,17 +208,17 @@ function FederationSettingsSection({ access }: { access: ActionAccess }) {
     buildSettings,
     dirty,
     invalid,
-    query.data?.cluster_id,
+    query.data?.clusterId,
     save,
   ]);
 
   const reset = React.useCallback(() => {
     if (!query.data) return;
-    setClusterId(query.data.cluster_id);
-    setDrain(String(query.data.drain_interval_secs));
-    setBatch(String(query.data.push_batch_size));
-    setTtl(String(query.data.seen_events_ttl_secs));
-    setGossip(String(query.data.gossip_interval_secs));
+    setClusterId(query.data.clusterId);
+    setDrain(String(query.data.drainIntervalSecs));
+    setBatch(String(query.data.pushBatchSize));
+    setTtl(String(query.data.seenEventsTtlSecs));
+    setGossip(String(query.data.gossipIntervalSecs));
   }, [query.data]);
 
   const advancedFields = [

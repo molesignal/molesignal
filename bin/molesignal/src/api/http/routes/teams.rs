@@ -4,7 +4,7 @@
 //! Teams routes.
 //!
 //! Reads are open to authenticated org members (escalation-policy editors need
-//! to populate team pickers); writes require `iam.policies.manage`.
+//! to populate team pickers); writes require `org.teams.manage`.
 //! `member_ids` is a JSONB array of user ids on the team row. Org isolation is
 //! enforced by re-checking `team.org_id` after the by-id load (the repository
 //! keys on id alone).
@@ -21,10 +21,11 @@ use axum::{
 use serde::Deserialize;
 use serde_json::json;
 
+use super::iam::grant_limit;
 use crate::{
     api::AppState,
     app::iam::IamContext,
-    domain::iam::{Team, permission},
+    domain::iam::{Team, access::IamPrincipalType, permission},
     shared::{Error, Result, ids::Id},
 };
 
@@ -38,6 +39,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct TeamWriteReq {
     name: String,
     #[serde(default)]
@@ -84,7 +86,7 @@ async fn resolve_team_members(
     for raw in raw_member_ids {
         if !org_members.contains(&raw) {
             return Err(Error::invalid(
-                "member_ids must reference users in this organization",
+                "memberIds must reference users in this organization",
             ));
         }
 
@@ -115,7 +117,7 @@ async fn get_team(
     Ok(Json(team))
 }
 
-#[permission("iam.policies.manage")]
+#[permission("org.teams.manage")]
 async fn create_team(
     State(state): State<AppState>,
     axum::Extension(ctx): axum::Extension<IamContext>,
@@ -134,7 +136,7 @@ async fn create_team(
     Ok(Json(state.iam.teams.create(team).await?))
 }
 
-#[permission("iam.policies.manage")]
+#[permission("org.teams.manage")]
 async fn update_team(
     State(state): State<AppState>,
     axum::Extension(ctx): axum::Extension<IamContext>,
@@ -150,6 +152,28 @@ async fn update_team(
 
     let member_ids = resolve_team_members(&state, &ctx.org_id, req.member_ids).await?;
 
+    if member_ids
+        .iter()
+        .any(|member| !existing.member_ids.contains(member))
+    {
+        // Joining a team is receiving what the team was bound to.
+        let team_roles = state
+            .iam
+            .access
+            .repository()
+            .list_role_bindings(&ctx.org_id)
+            .await?
+            .into_iter()
+            .filter(|binding| {
+                binding.principal_type == IamPrincipalType::Team
+                    && binding.principal_id == existing.id
+            })
+            .map(|binding| binding.role_id)
+            .collect::<Vec<_>>();
+
+        grant_limit::require_roles_held(&state, &ctx, &team_roles).await?;
+    }
+
     let team = Team {
         id: existing.id,
         org_id: ctx.org_id.clone(),
@@ -162,7 +186,7 @@ async fn update_team(
 
 /// 团队名下还有 Mole Agent 资源（Skill、Skill 仓库、MCP 服务器）时不删，返回冲突并列出
 /// 它们：先移交或删除，团队私有的内容才不会被并入组织。
-#[permission("iam.policies.manage")]
+#[permission("org.teams.manage")]
 async fn delete_team(
     State(state): State<AppState>,
     axum::Extension(ctx): axum::Extension<IamContext>,

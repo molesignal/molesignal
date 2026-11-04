@@ -41,14 +41,14 @@ export const MOCK_INSPECTION_RUN = {
 } as const;
 
 export const MOCK_INSPECTION_LIMITS: InspectionLimits = {
-  min_interval_secs: 3_600,
-  max_per_org: 20,
-  run_timeout_secs: 300,
-  report_retention_days: 30,
+  minIntervalSecs: 3_600,
+  maxPerOrg: 20,
+  runTimeoutSecs: 300,
+  reportRetentionDays: 30,
 };
 
-const DANA = { id: 'u1', display_name: 'Dana Reyes', email: 'sre@example.com' };
-const KENJI = { id: 'u2', display_name: 'Kenji Watanabe', email: 'kenji@example.com' };
+const DANA = { id: 'u1', displayName: 'Dana Reyes', email: 'sre@example.com' };
+const KENJI = { id: 'u2', displayName: 'Kenji Watanabe', email: 'kenji@example.com' };
 
 const ABNORMAL_REPORT = JSON.stringify({
   level: 'abnormal',
@@ -85,28 +85,28 @@ const NORMAL_REPORT = JSON.stringify({
 function run(nowMicros: number, overrides: Partial<LogInspectionRun>): LogInspectionRun {
   return {
     id: 'run',
-    inspection_id: MOCK_INSPECTION.payments,
+    inspectionId: MOCK_INSPECTION.payments,
     trigger: 'schedule',
     status: 'succeeded',
     level: 'normal',
-    window_start_micros: nowMicros - 2 * HOUR,
-    window_end_micros: nowMicros - HOUR,
+    windowStart: nowMicros - 2 * HOUR,
+    windowEnd: nowMicros - HOUR,
     summary: null,
     report: null,
     failure: null,
     error: null,
-    provider_id: 'openai-gpt-4o',
+    providerId: 'openai-gpt-4o',
     model: 'gpt-4o',
-    run_as_user_id: 'u1',
-    requested_by: null,
-    requested_by_user: null,
-    tool_calls: [],
-    prompt_tokens: 0,
-    completion_tokens: 0,
+    runAsUserId: 'u1',
+    requestedBy: null,
+    requestedByUser: null,
+    toolCalls: [],
+    promptTokens: 0,
+    completionTokens: 0,
     notifications: [],
-    created_at_micros: nowMicros - HOUR,
-    started_at_micros: nowMicros - HOUR,
-    finished_at_micros: nowMicros - HOUR + 48 * SECOND,
+    createdAt: nowMicros - HOUR,
+    startedAt: nowMicros - HOUR,
+    finishedAt: nowMicros - HOUR + 48 * SECOND,
     ...overrides,
   };
 }
@@ -117,111 +117,111 @@ export function seedInspectionRuns(nowMicros: number): LogInspectionRun[] {
     run(nowMicros, {
       id: MOCK_INSPECTION_RUN.abnormal,
       level: 'abnormal',
-      window_start_micros: nowMicros - 80 * MINUTE,
-      window_end_micros: nowMicros - 20 * MINUTE,
+      windowStart: nowMicros - 80 * MINUTE,
+      windowEnd: nowMicros - 20 * MINUTE,
       summary:
         'Payment errors tripled after 09:10: 214 ERROR logs from payment-gateway, most of them acquirer timeouts.',
       report: ABNORMAL_REPORT,
-      tool_calls: [
+      toolCalls: [
         { name: 'get_stream_schema', ok: true },
         { name: 'query_logs', ok: true },
         { name: 'query_logs', ok: false },
         { name: 'search_field_values', ok: true },
       ],
-      prompt_tokens: 18_420,
-      completion_tokens: 1_260,
+      promptTokens: 18_420,
+      completionTokens: 1_260,
       notifications: [
         {
-          connector_id: 'lark-ops',
-          target_type: 'fixed_group',
-          target_masked: 'oc***7f',
+          connectorId: 'lark-ops',
+          targetType: 'fixed_group',
+          targetMasked: 'oc***7f',
           delivered: true,
           error: null,
         },
         {
-          connector_id: 'ops-webhook',
-          target_type: 'fixed_address',
-          target_masked: 'h***@example.com',
+          connectorId: 'ops-webhook',
+          targetType: 'fixed_address',
+          targetMasked: 'h***@example.com',
           delivered: false,
           error: 'webhook returned HTTP 502',
         },
       ],
-      created_at_micros: nowMicros - 20 * MINUTE,
-      started_at_micros: nowMicros - 20 * MINUTE,
-      finished_at_micros: nowMicros - 20 * MINUTE + 72 * SECOND,
+      createdAt: nowMicros - 20 * MINUTE,
+      startedAt: nowMicros - 20 * MINUTE,
+      finishedAt: nowMicros - 20 * MINUTE + 72 * SECOND,
     }),
     run(nowMicros, {
       id: MOCK_INSPECTION_RUN.normal,
       level: 'normal',
-      window_start_micros: nowMicros - 140 * MINUTE,
-      window_end_micros: nowMicros - 80 * MINUTE,
+      windowStart: nowMicros - 140 * MINUTE,
+      windowEnd: nowMicros - 80 * MINUTE,
       summary: 'Nothing unusual: 1,204 logs, 3 of them warnings about retried webhooks.',
       report: NORMAL_REPORT,
-      tool_calls: [
+      toolCalls: [
         { name: 'get_stream_schema', ok: true },
         { name: 'query_logs', ok: true },
       ],
-      prompt_tokens: 9_100,
-      completion_tokens: 420,
-      created_at_micros: nowMicros - 80 * MINUTE,
-      started_at_micros: nowMicros - 80 * MINUTE,
-      finished_at_micros: nowMicros - 80 * MINUTE + 31 * SECOND,
+      promptTokens: 9_100,
+      completionTokens: 420,
+      createdAt: nowMicros - 80 * MINUTE,
+      startedAt: nowMicros - 80 * MINUTE,
+      finishedAt: nowMicros - 80 * MINUTE + 31 * SECOND,
     }),
     run(nowMicros, {
       id: MOCK_INSPECTION_RUN.timedOut,
       status: 'timed_out',
       level: null,
-      window_start_micros: nowMicros - 200 * MINUTE,
-      window_end_micros: nowMicros - 140 * MINUTE,
+      windowStart: nowMicros - 200 * MINUTE,
+      windowEnd: nowMicros - 140 * MINUTE,
       failure: 'timed_out',
       error: 'the inspection did not finish within 300 seconds',
-      tool_calls: [{ name: 'query_logs', ok: true }],
-      created_at_micros: nowMicros - 140 * MINUTE,
-      started_at_micros: nowMicros - 140 * MINUTE,
-      finished_at_micros: nowMicros - 135 * MINUTE,
+      toolCalls: [{ name: 'query_logs', ok: true }],
+      createdAt: nowMicros - 140 * MINUTE,
+      startedAt: nowMicros - 140 * MINUTE,
+      finishedAt: nowMicros - 135 * MINUTE,
     }),
     run(nowMicros, {
       id: MOCK_INSPECTION_RUN.manualProse,
       trigger: 'manual',
       level: 'unknown',
-      window_start_micros: nowMicros - 6 * HOUR,
-      window_end_micros: nowMicros - 5 * HOUR,
+      windowStart: nowMicros - 6 * HOUR,
+      windowEnd: nowMicros - 5 * HOUR,
       // A model that did not keep to the shape: what it wrote is kept as it is.
       report: 'The logs look steady over the hour. I saw no error bursts worth reporting.',
-      requested_by: 'u2',
-      requested_by_user: KENJI,
-      prompt_tokens: 4_800,
-      completion_tokens: 96,
-      created_at_micros: nowMicros - 5 * HOUR,
-      started_at_micros: nowMicros - 5 * HOUR + 4 * SECOND,
-      finished_at_micros: nowMicros - 5 * HOUR + 26 * SECOND,
+      requestedBy: 'u2',
+      requestedByUser: KENJI,
+      promptTokens: 4_800,
+      completionTokens: 96,
+      createdAt: nowMicros - 5 * HOUR,
+      startedAt: nowMicros - 5 * HOUR + 4 * SECOND,
+      finishedAt: nowMicros - 5 * HOUR + 26 * SECOND,
     }),
     run(nowMicros, {
       id: MOCK_INSPECTION_RUN.gatewayFailed,
-      inspection_id: MOCK_INSPECTION.gateway,
+      inspectionId: MOCK_INSPECTION.gateway,
       status: 'failed',
       level: null,
-      window_start_micros: nowMicros - 9 * DAY,
-      window_end_micros: nowMicros - 2 * DAY,
+      windowStart: nowMicros - 9 * DAY,
+      windowEnd: nowMicros - 2 * DAY,
       failure: 'model',
       error: 'model provider `Internal Qwen` is disabled',
-      provider_id: 'compatible-qwen',
+      providerId: 'compatible-qwen',
       model: null,
-      created_at_micros: nowMicros - 2 * DAY,
-      started_at_micros: nowMicros - 2 * DAY,
-      finished_at_micros: nowMicros - 2 * DAY + SECOND,
+      createdAt: nowMicros - 2 * DAY,
+      startedAt: nowMicros - 2 * DAY,
+      finishedAt: nowMicros - 2 * DAY + SECOND,
     }),
     run(nowMicros, {
       id: MOCK_INSPECTION_RUN.auditNormal,
-      inspection_id: MOCK_INSPECTION.audit,
+      inspectionId: MOCK_INSPECTION.audit,
       level: 'normal',
-      window_start_micros: nowMicros - 25 * HOUR,
-      window_end_micros: nowMicros - HOUR,
+      windowStart: nowMicros - 25 * HOUR,
+      windowEnd: nowMicros - HOUR,
       summary: 'Nothing unusual: 1,204 logs, 3 of them warnings about retried webhooks.',
       report: NORMAL_REPORT,
-      created_at_micros: nowMicros - HOUR,
-      started_at_micros: nowMicros - HOUR,
-      finished_at_micros: nowMicros - HOUR + 40 * SECOND,
+      createdAt: nowMicros - HOUR,
+      startedAt: nowMicros - HOUR,
+      finishedAt: nowMicros - HOUR + 40 * SECOND,
     }),
   ];
 }
@@ -232,24 +232,24 @@ function inspection(nowMicros: number, overrides: Partial<LogInspection>): LogIn
     name: 'Inspection',
     stream: 'application_logs',
     statement: '',
-    window_secs: 3_600,
+    windowSecs: 3_600,
     requirements: '',
-    schedule: { type: 'interval', every_minutes: 60 },
+    schedule: { type: 'interval', everyMinutes: 60 },
     timezone: 'UTC',
-    provider_id: 'openai-gpt-4o',
+    providerId: 'openai-gpt-4o',
     model: null,
-    notify_when: 'abnormal',
-    notify_routes: [],
+    notifyWhen: 'abnormal',
+    notifyRoutes: [],
     language: 'en-us',
     enabled: true,
-    run_as_user_id: 'u1',
-    run_as_user: DANA,
-    next_run_at_micros: nowMicros + 40 * MINUTE,
-    last_run: null,
-    active_run: null,
-    created_by: 'u1',
-    created_at_micros: nowMicros - 12 * DAY,
-    updated_at_micros: nowMicros - 3 * DAY,
+    runAsUserId: 'u1',
+    runAsUser: DANA,
+    nextRunAt: nowMicros + 40 * MINUTE,
+    lastRun: null,
+    activeRun: null,
+    createdBy: 'u1',
+    createdAt: nowMicros - 12 * DAY,
+    updatedAt: nowMicros - 3 * DAY,
     ...overrides,
   };
 }
@@ -261,32 +261,32 @@ export function seedInspections(nowMicros: number): LogInspection[] {
       id: MOCK_INSPECTION.audit,
       name: 'Daily audit of application logs',
       schedule: { type: 'daily', hour: 9, minute: 0 },
-      window_secs: 86_400,
-      notify_when: 'always',
-      notify_routes: [{ connector_id: 'lark-ops', target_type: 'fixed_group', target: 'oc_audit_7f' }],
-      next_run_at_micros: nowMicros + 23 * HOUR,
-      last_run: { at_micros: nowMicros - HOUR + 40 * SECOND, status: 'succeeded', level: 'normal' },
-      run_as_user_id: 'u2',
-      run_as_user: KENJI,
+      windowSecs: 86_400,
+      notifyWhen: 'always',
+      notifyRoutes: [{ connectorId: 'lark-ops', targetType: 'fixed_group', target: 'oc_audit_7f' }],
+      nextRunAt: nowMicros + 23 * HOUR,
+      lastRun: { atTime: nowMicros - HOUR + 40 * SECOND, status: 'succeeded', level: 'normal' },
+      runAsUserId: 'u2',
+      runAsUser: KENJI,
     }),
     inspection(nowMicros, {
       id: MOCK_INSPECTION.paused,
       name: 'Debug noise (paused)',
       statement: "level = 'DEBUG'",
       enabled: false,
-      next_run_at_micros: null,
+      nextRunAt: null,
     }),
     inspection(nowMicros, {
       id: MOCK_INSPECTION.payments,
       name: 'Payment errors',
       statement: "level = 'ERROR' AND service = 'payment-gateway'",
       requirements: 'Treat USER_CANCEL as an expected business result.',
-      notify_routes: [
-        { connector_id: 'lark-ops', target_type: 'fixed_group', target: 'oc_ops_7f' },
-        { connector_id: 'ops-webhook', target_type: 'fixed_address', target: 'hooks@example.com' },
+      notifyRoutes: [
+        { connectorId: 'lark-ops', targetType: 'fixed_group', target: 'oc_ops_7f' },
+        { connectorId: 'ops-webhook', targetType: 'fixed_address', target: 'hooks@example.com' },
       ],
-      last_run: {
-        at_micros: nowMicros - 20 * MINUTE + 72 * SECOND,
+      lastRun: {
+        atTime: nowMicros - 20 * MINUTE + 72 * SECOND,
         status: 'succeeded',
         level: 'abnormal',
       },
@@ -296,12 +296,12 @@ export function seedInspections(nowMicros: number): LogInspection[] {
       name: 'Weekly gateway review',
       stream: 'access_logs',
       schedule: { type: 'weekly', weekday: 1, hour: 8, minute: 30 },
-      window_secs: 7 * 86_400,
-      provider_id: 'compatible-qwen',
-      notify_when: 'attention',
-      notify_routes: [{ connector_id: 'lark-ops', target_type: 'fixed_group', target: 'oc_ops_7f' }],
-      next_run_at_micros: nowMicros + 5 * DAY,
-      last_run: { at_micros: nowMicros - 2 * DAY + SECOND, status: 'failed', level: null },
+      windowSecs: 7 * 86_400,
+      providerId: 'compatible-qwen',
+      notifyWhen: 'attention',
+      notifyRoutes: [{ connectorId: 'lark-ops', targetType: 'fixed_group', target: 'oc_ops_7f' }],
+      nextRunAt: nowMicros + 5 * DAY,
+      lastRun: { atTime: nowMicros - 2 * DAY + SECOND, status: 'failed', level: null },
     }),
   ];
 }
@@ -316,26 +316,26 @@ export function registerLogInspectionRoutes(app: Express, nowIso: string): void 
   const missing = (res: Response) => res.status(404).json({ error: 'not found: log inspection' });
   const find = (id: string | undefined) => inspections.find((item) => item.id === id);
   const activeRun = (id: string) =>
-    runs.find((item) => item.inspection_id === id && (item.status === 'queued' || item.status === 'running'));
+    runs.find((item) => item.inspectionId === id && (item.status === 'queued' || item.status === 'running'));
   // The list says of each inspection whether a run of it waits or is under way.
   const shown = (item: LogInspection): LogInspection => {
     const active = activeRun(item.id);
 
     return {
       ...item,
-      active_run: active
+      activeRun: active
         ? {
             id: active.id,
             status: active.status,
             trigger: active.trigger,
-            created_at_micros: active.created_at_micros,
-            started_at_micros: active.started_at_micros,
+            createdAt: active.createdAt,
+            startedAt: active.startedAt,
           }
         : null,
     };
   };
   const nextRun = (input: LogInspectionInput) =>
-    input.enabled ? nowMicros + (input.schedule.type === 'interval' ? input.schedule.every_minutes : 1_440) * MINUTE : null;
+    input.enabled ? nowMicros + (input.schedule.type === 'interval' ? input.schedule.everyMinutes : 1_440) * MINUTE : null;
 
   app.get('/api/v1/logs/inspections', (_req, res) => {
     res.json([...inspections].sort((a, b) => a.name.localeCompare(b.name)).map(shown));
@@ -347,9 +347,9 @@ export function registerLogInspectionRoutes(app: Express, nowIso: string): void 
   app.post('/api/v1/logs/inspections', (req: Request, res: Response) => {
     const input = req.body as LogInspectionInput;
 
-    if (inspections.length >= limits.max_per_org) {
+    if (inspections.length >= limits.maxPerOrg) {
       return res.status(409).json({
-        error: `conflict: this organization already has ${inspections.length} scheduled log inspections; the limit is ${limits.max_per_org}`,
+        error: `conflict: this organization already has ${inspections.length} scheduled log inspections; the limit is ${limits.maxPerOrg}`,
       });
     }
     if (inspections.some((item) => item.name === input.name)) {
@@ -363,9 +363,9 @@ export function registerLogInspectionRoutes(app: Express, nowIso: string): void 
     const saved = inspection(nowMicros, {
       ...input,
       id: `2zNewInspection${String(serial).padStart(12, '0')}`,
-      next_run_at_micros: nextRun(input),
-      created_at_micros: nowMicros,
-      updated_at_micros: nowMicros,
+      nextRunAt: nextRun(input),
+      createdAt: nowMicros,
+      updatedAt: nowMicros,
     });
 
     inspections.push(saved);
@@ -387,8 +387,8 @@ export function registerLogInspectionRoutes(app: Express, nowIso: string): void 
     Object.assign(item, input, {
       run_as_user_id: DANA.id,
       run_as_user: DANA,
-      next_run_at_micros: nextRun(input),
-      updated_at_micros: nowMicros,
+      next_run_at: nextRun(input),
+      updated_at: nowMicros,
     });
     return res.json(shown(item));
   });
@@ -398,7 +398,7 @@ export function registerLogInspectionRoutes(app: Express, nowIso: string): void 
     if (!item) return missing(res);
 
     item.enabled = Boolean((req.body as { enabled?: unknown }).enabled);
-    item.next_run_at_micros = item.enabled ? nowMicros + HOUR : null;
+    item.nextRunAt = item.enabled ? nowMicros + HOUR : null;
     return res.json(shown(item));
   });
 
@@ -406,7 +406,7 @@ export function registerLogInspectionRoutes(app: Express, nowIso: string): void 
     if (!find(req.params.id)) return missing(res);
 
     inspections = inspections.filter((item) => item.id !== req.params.id);
-    runs = runs.filter((item) => item.inspection_id !== req.params.id);
+    runs = runs.filter((item) => item.inspectionId !== req.params.id);
     return res.json({ deleted: true });
   });
 
@@ -423,17 +423,17 @@ export function registerLogInspectionRoutes(app: Express, nowIso: string): void 
 
     const queued = run(nowMicros, {
       id: `2zQueuedRun${String(serial).padStart(16, '0')}`,
-      inspection_id: item.id,
+      inspectionId: item.id,
       trigger: 'manual',
       status: 'queued',
       level: null,
-      window_start_micros: nowMicros - item.window_secs * SECOND,
-      window_end_micros: nowMicros,
-      requested_by: DANA.id,
-      requested_by_user: DANA,
-      created_at_micros: nowMicros,
-      started_at_micros: null,
-      finished_at_micros: null,
+      windowStart: nowMicros - item.windowSecs * SECOND,
+      windowEnd: nowMicros,
+      requestedBy: DANA.id,
+      requestedByUser: DANA,
+      createdAt: nowMicros,
+      startedAt: null,
+      finishedAt: null,
     });
 
     runs.push(queued);
@@ -446,9 +446,9 @@ export function registerLogInspectionRoutes(app: Express, nowIso: string): void 
     const limit = Math.min(200, Math.max(1, Number(req.query.limit ?? 50) || 50));
     const before = Number(req.query.before ?? 0) || null;
     const listed = runs
-      .filter((item) => item.inspection_id === req.params.id)
-      .filter((item) => before === null || item.created_at_micros < before)
-      .sort((a, b) => b.created_at_micros - a.created_at_micros)
+      .filter((item) => item.inspectionId === req.params.id)
+      .filter((item) => before === null || item.createdAt < before)
+      .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, limit)
       // A list carries no report.
       .map((item) => ({ ...item, report: null }));
@@ -458,7 +458,7 @@ export function registerLogInspectionRoutes(app: Express, nowIso: string): void 
 
   app.get('/api/v1/logs/inspections/:id/runs/:runId', (req, res) => {
     const found = runs.find(
-      (item) => item.inspection_id === req.params.id && item.id === req.params.runId,
+      (item) => item.inspectionId === req.params.id && item.id === req.params.runId,
     );
 
     return found
@@ -485,11 +485,11 @@ export function registerLogInspectionRoutes(app: Express, nowIso: string): void 
     Object.assign(found, req.body as Partial<LogInspectionRun>);
 
     // A run that ended is what its inspection last did.
-    const owner = find(found.inspection_id);
+    const owner = find(found.inspectionId);
 
-    if (owner && found.finished_at_micros) {
-      owner.last_run = {
-        at_micros: found.finished_at_micros,
+    if (owner && found.finishedAt) {
+      owner.lastRun = {
+        atTime: found.finishedAt,
         status: found.status,
         level: found.level,
       };

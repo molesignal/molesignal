@@ -11,7 +11,6 @@ mod logo;
 mod management;
 mod postmortems;
 mod public;
-mod service_links;
 mod subscriptions;
 
 use axum::{
@@ -38,12 +37,11 @@ pub fn routes() -> Router<AppState> {
         .merge(management::routes())
         .merge(events::routes())
         .merge(postmortems::routes())
-        .merge(service_links::routes())
         .merge(subscriptions::management_routes())
         .merge(access::management_routes())
         .merge(automation::routes())
         .route(
-            "/status-pages/{page_id}/logo",
+            "/status-pages/{pageId}/logo",
             get(logo::get_logo).post(logo::upload_logo),
         )
 }
@@ -60,6 +58,10 @@ pub fn public_routes() -> Router<AppState> {
         .route(
             "/api/v1/public/status-pages/{slug}/feed.rss",
             get(feed::rss),
+        )
+        .route(
+            "/api/v1/public/status-pages/{slug}/feed.atom",
+            get(feed::atom),
         )
         .route(
             "/api/v1/public/status-pages/{slug}/logo/{file}",

@@ -42,6 +42,7 @@ pub(super) fn routes() -> axum::Router<AppState> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct RepositoryRequest {
     #[serde(default = "personal")]
     scope: String,
@@ -110,7 +111,7 @@ async fn input(
     })
 }
 
-#[permission("agent.use")]
+#[permission("agent.skill_repositories.read")]
 async fn list_repositories(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -136,7 +137,7 @@ async fn list_repositories(
     Ok(Json(json!({ "repositories": repositories })))
 }
 
-#[permission("agent.use")]
+#[permission("agent.skill_repositories.manage")]
 async fn create_repository(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -170,7 +171,7 @@ async fn create_repository(
     Ok(Json(json!({ "repository": repository, "sync": report })))
 }
 
-#[permission("agent.use")]
+#[permission("agent.skill_repositories.manage")]
 async fn update_repository(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -204,7 +205,7 @@ async fn update_repository(
     Ok(Json(json!({ "repository": repository, "sync": report })))
 }
 
-#[permission("agent.use")]
+#[permission("agent.skill_repositories.manage")]
 async fn delete_repository(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -231,7 +232,7 @@ async fn delete_repository(
     Ok(Json(json!({ "deleted": true })))
 }
 
-#[permission("agent.use")]
+#[permission("agent.skill_repositories.manage")]
 async fn sync_repository(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

@@ -11,8 +11,6 @@ use std::collections::HashSet;
 
 use crate::{
     domain::{
-        intake::EVENT_ID_FIELD,
-        metrics::{METRIC_KIND_FIELD, METRIC_NAME_FIELD},
         storage::{DatasetTypeId, type_id::builtin},
         stream::StreamDefinition,
     },
@@ -22,6 +20,9 @@ use crate::{
     },
 };
 
+/// A trace summary is the root Span's own row narrowed to these fields: its
+/// identity, what it was, how it ended and the HTTP status it answered with,
+/// with the trace's counts beside them.
 const TRACE_SUMMARY_FIELDS: &[&str] = &[
     "trace_id",
     "span_id",
@@ -29,6 +30,8 @@ const TRACE_SUMMARY_FIELDS: &[&str] = &[
     "service.name",
     "name",
     "status_code",
+    "http.response.status_code",
+    "http.status_code",
     TRACE_SUMMARY_MARKER_FIELD,
     TRACE_SUMMARY_START_NS_FIELD,
     TRACE_SUMMARY_DURATION_NS_FIELD,
@@ -36,81 +39,9 @@ const TRACE_SUMMARY_FIELDS: &[&str] = &[
     TRACE_SUMMARY_ERROR_COUNT_FIELD,
 ];
 
-const RUM_SESSION_SUMMARY_FIELDS: &[&str] = &[
-    EVENT_ID_FIELD,
-    "session_id",
-    "user_id",
-    "ip_address",
-    "client_ip",
-    "ip",
-    "started_at_micros",
-    "duration_ms",
-    "application",
-    "service",
-    "environment",
-    "version",
-    "country",
-    "browser",
-    "device",
-    "os",
-    "landing_page",
-    "last_page",
-    "view_count",
-    "action_count",
-    "error_count",
-    "trace_id",
-];
-
-const RUM_ERROR_SUMMARY_FIELDS: &[&str] = &[
-    EVENT_ID_FIELD,
-    "fingerprint",
-    "message",
-    "user_id",
-    "session_id",
-    "page",
-    "version",
-    "error_type",
-    "application",
-    "service",
-    "environment",
-];
-
-const RUM_ACTION_SUMMARY_FIELDS: &[&str] = &[
-    EVENT_ID_FIELD,
-    "session_id",
-    "ts_micros",
-    "type",
-    "name",
-    "page",
-    "url",
-    "application",
-    "service",
-    "environment",
-    "version",
-    "country",
-    "browser",
-    "device",
-    "os",
-    "duration_ms",
-    "status",
-    "lcp_ms",
-    "fid_ms",
-    "inp_ms",
-    "cls",
-    "ttfb_ms",
-    "trace_id",
-    "parent_span_id",
-];
-
-const METRIC_CATALOG_FIELDS: &[&str] = &[METRIC_NAME_FIELD, METRIC_KIND_FIELD];
-
 pub(crate) fn project(stream: &StreamDefinition, dataset_type: &DatasetTypeId) -> StreamDefinition {
     let fields = match dataset_type.as_str() {
         builtin::DATASET_TRACE_SUMMARY => Some(TRACE_SUMMARY_FIELDS),
-        builtin::DATASET_RUM_SESSION_SUMMARY => Some(RUM_SESSION_SUMMARY_FIELDS),
-        builtin::DATASET_RUM_ACTION_SUMMARY => Some(RUM_ACTION_SUMMARY_FIELDS),
-        builtin::DATASET_RUM_ERROR_SUMMARY => Some(RUM_ERROR_SUMMARY_FIELDS),
-        builtin::DATASET_METRIC_CATALOG => Some(METRIC_CATALOG_FIELDS),
         _ => None,
     };
 
@@ -192,97 +123,5 @@ mod tests {
             &DatasetTypeId::builtin(builtin::DATASET_TRACE_SPANS),
         );
         assert_eq!(projected.schema.fields.len(), original.schema.fields.len());
-    }
-
-    #[test]
-    fn rum_and_metric_read_models_drop_wide_payload_fields() {
-        let mut original = stream();
-        original.schema.fields.extend([
-            field(EVENT_ID_FIELD),
-            field("session_id"),
-            field("ip_address"),
-            field("type"),
-            field("fingerprint"),
-            field(METRIC_NAME_FIELD),
-            field("large_payload"),
-        ]);
-
-        let sessions = project(
-            &original,
-            &DatasetTypeId::builtin(builtin::DATASET_RUM_SESSION_SUMMARY),
-        );
-        assert!(
-            sessions
-                .schema
-                .fields
-                .iter()
-                .any(|field| field.name == "session_id")
-        );
-        assert!(
-            sessions
-                .schema
-                .fields
-                .iter()
-                .any(|field| field.name == "ip_address")
-        );
-        assert!(
-            !sessions
-                .schema
-                .fields
-                .iter()
-                .any(|field| field.name == "large_payload")
-        );
-
-        let errors = project(
-            &original,
-            &DatasetTypeId::builtin(builtin::DATASET_RUM_ERROR_SUMMARY),
-        );
-        assert!(
-            errors
-                .schema
-                .fields
-                .iter()
-                .any(|field| field.name == "fingerprint")
-        );
-        assert!(
-            !errors
-                .schema
-                .fields
-                .iter()
-                .any(|field| field.name == "large_payload")
-        );
-
-        let actions = project(
-            &original,
-            &DatasetTypeId::builtin(builtin::DATASET_RUM_ACTION_SUMMARY),
-        );
-        assert!(
-            actions
-                .schema
-                .fields
-                .iter()
-                .any(|field| field.name == "type")
-        );
-        assert!(
-            !actions
-                .schema
-                .fields
-                .iter()
-                .any(|field| field.name == "large_payload")
-        );
-
-        let catalog = project(
-            &original,
-            &DatasetTypeId::builtin(builtin::DATASET_METRIC_CATALOG),
-        );
-        assert_eq!(
-            catalog
-                .schema
-                .fields
-                .iter()
-                .map(|field| field.name.as_str())
-                .collect::<Vec<_>>(),
-            vec![METRIC_NAME_FIELD]
-        );
     }
 }

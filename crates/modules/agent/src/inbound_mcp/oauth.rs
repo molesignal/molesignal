@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::shared::{ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InboundMcpOAuthClient {
     pub client_id: String,
     pub client_name: String,
@@ -74,6 +75,7 @@ impl InboundMcpOAuthTokenKind {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InboundMcpOAuthToken {
     pub id: Id,
     #[serde(skip_serializing)]
@@ -92,6 +94,7 @@ pub struct InboundMcpOAuthToken {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InboundMcpOAuthConnection {
     pub family_id: Id,
     pub client_id: String,

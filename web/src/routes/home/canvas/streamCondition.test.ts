@@ -14,14 +14,14 @@ describe('classifyStreamCondition', () => {
     expect(
       classifyStreamCondition({
         status: 'interrupted',
-        lastReceivedAtMicros: NOW - 2 * HOUR,
+        lastReceivedAt: NOW - 2 * HOUR,
         nowMicros: NOW,
       }),
     ).toBe('interrupted');
     expect(
       classifyStreamCondition({
         status: 'interrupted',
-        lastReceivedAtMicros: NOW - STALE_AFTER_MICROS - HOUR,
+        lastReceivedAt: NOW - STALE_AFTER_MICROS - HOUR,
         nowMicros: NOW,
       }),
     ).toBe('stale');
@@ -31,7 +31,7 @@ describe('classifyStreamCondition', () => {
     expect(
       classifyStreamCondition({
         status: 'interrupted',
-        lastReceivedAtMicros: null,
+        lastReceivedAt: null,
         nowMicros: NOW,
       }),
     ).toBe('interrupted');
@@ -41,7 +41,7 @@ describe('classifyStreamCondition', () => {
     expect(
       classifyStreamCondition({
         status: 'interrupted',
-        lastReceivedAtMicros: NOW / 1_000_000 - 3 * 24 * 3600,
+        lastReceivedAt: NOW / 1_000_000 - 3 * 24 * 3600,
         nowMicros: NOW,
       }),
     ).toBe('stale');
@@ -49,7 +49,7 @@ describe('classifyStreamCondition', () => {
 
   it('maps the remaining runtime statuses', () => {
     const at = (status: Parameters<typeof classifyStreamCondition>[0]['status']) =>
-      classifyStreamCondition({ status, lastReceivedAtMicros: NOW, nowMicros: NOW });
+      classifyStreamCondition({ status, lastReceivedAt: NOW, nowMicros: NOW });
     expect(at('healthy')).toBe('healthy');
     expect(at('delayed')).toBe('delayed');
     expect(at('idle')).toBe('inactive');
@@ -64,7 +64,7 @@ describe('summarizeFleet', () => {
     lastReceivedAgoMicros: number | null,
   ) => ({
     status,
-    last_received_at_micros:
+    lastReceivedAt:
       lastReceivedAgoMicros == null ? null : NOW - lastReceivedAgoMicros,
   });
 
@@ -74,7 +74,7 @@ describe('summarizeFleet', () => {
       verdict: 'no_streams',
       affected: 0,
       uniform: false,
-      lastReceivedAtMicros: null,
+      lastReceivedAt: null,
     });
   });
 
@@ -90,7 +90,7 @@ describe('summarizeFleet', () => {
       receiving: 0,
       uniform: true,
     });
-    expect(fleet.lastReceivedAtMicros).toBe(NOW - 6 * 24 * HOUR);
+    expect(fleet.lastReceivedAt).toBe(NOW - 6 * 24 * HOUR);
   });
 
   it('ranks a recent interruption above delay, staleness and health', () => {
@@ -133,7 +133,7 @@ describe('summarizeFleet', () => {
       verdict: 'no_data',
       affected: 2,
       uniform: true,
-      lastReceivedAtMicros: null,
+      lastReceivedAt: null,
     });
   });
 });

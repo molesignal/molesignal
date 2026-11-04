@@ -1,5 +1,7 @@
+import { ExternalLink } from 'lucide-react';
 import type * as React from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 import type {
   MonitorAssertion,
@@ -18,14 +20,16 @@ import { OutcomeMark } from '../marks';
 import { formatDuration, resultDurationMicros } from '../model';
 import { STATE_COLOR } from '../summary';
 import { ArtifactPreview } from './Artifact';
+import { traceLink } from './traceroute';
+import { TracerouteHops } from './TracerouteTable';
 
 // The phases a probe can time on the way to a response, in the order they happen. Each value is
 // the time spent in that phase alone, not a point on the way to the total.
 const PHASES: ReadonlyArray<[label: string, key: keyof TimingBreakdown]> = [
-  ['detail.timing_dns', 'dns_micros'],
-  ['detail.timing_connect', 'connect_micros'],
-  ['detail.timing_tls', 'tls_micros'],
-  ['detail.timing_first_byte', 'first_byte_micros'],
+  ['detail.timing_dns', 'dnsTime'],
+  ['detail.timing_connect', 'connectTime'],
+  ['detail.timing_tls', 'tlsTime'],
+  ['detail.timing_first_byte', 'firstByteTime'],
 ];
 
 /**
@@ -60,7 +64,7 @@ export function ResultDrawer({
       title={monitor?.name ?? t('results.title')}
       subtitle={
         result
-          ? `${formatMicrosActive(result.started_at)} · ${locations.find((location) => location.id === result.location_id)?.name ?? result.location_id}`
+          ? `${formatMicrosActive(result.startedAt)} · ${locations.find((location) => location.id === result.locationId)?.name ?? result.locationId}`
           : undefined
       }
       width={720}
@@ -74,7 +78,7 @@ export function ResultDrawer({
             <Fact label={t('results.columns.outcome')}>
               <span className="inline-flex items-center gap-[10px]">
                 <OutcomeMark outcome={result.outcome} />
-                {result.is_test && <span className="text-xs text-tx-3">{t('results.test_run')}</span>}
+                {result.isTest && <span className="text-xs text-tx-3">{t('results.test_run')}</span>}
               </span>
             </Fact>
             <Fact label={t('results.columns.duration')}>
@@ -85,6 +89,17 @@ export function ResultDrawer({
             </Fact>
           </dl>
 
+          {result.outcome === 'skipped' && result.metadata.skip_reason && (
+            <p
+              data-result-skip-reason={result.metadata.skip_reason}
+              className="mb-6 rounded-md bg-bg-2 px-4 py-3 font-sans text-sm text-tx-1"
+            >
+              {t(`results.skip_reasons.${result.metadata.skip_reason}`, {
+                defaultValue: result.metadata.skip_reason,
+              })}
+            </p>
+          )}
+
           {result.attempts.length > 0 && (
             <FormSection title={t('detail.attempts')}>
               <ol className="divide-y divide-bd-0">
@@ -92,6 +107,11 @@ export function ResultDrawer({
                   <Attempt key={attempt.number} attempt={attempt} />
                 ))}
               </ol>
+              {result.attempts.some((attempt) =>
+                attempt.evidence?.some((step) => step.metadata.trace_id),
+              ) && (
+                <p className="font-sans text-xs leading-relaxed text-tx-2">{t('results.trace_hint')}</p>
+              )}
             </FormSection>
           )}
 
@@ -99,10 +119,10 @@ export function ResultDrawer({
             <FormSection title={t('detail.assertion_evidence')}>
               <ul className="divide-y divide-bd-0">
                 {result.assertions.map((observation) => {
-                  const assertion = assertionDefinitions.get(observation.assertion_id);
+                  const assertion = assertionDefinitions.get(observation.assertionId);
 
                   return (
-                    <li key={observation.assertion_id} className="flex items-start gap-[10px] py-[10px]">
+                    <li key={observation.assertionId} className="flex items-start gap-[10px] py-[10px]">
                       <span
                         aria-hidden="true"
                         className="mt-[6px] h-[7px] w-[7px] shrink-0 rounded-full"
@@ -116,7 +136,7 @@ export function ResultDrawer({
                       />
                       <div className="min-w-0 flex-1">
                         <div className="font-sans text-sm font-strong text-tx-0">
-                          {assertion?.name ?? observation.assertion_id}
+                          {assertion?.name ?? observation.assertionId}
                         </div>
                         <div className="mt-[2px] break-words font-code text-xs text-tx-2">
                           {assertion ? `${assertion.source} ${operatorText(assertion)} · ` : ''}
@@ -177,7 +197,7 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 function Attempt({ attempt }: { attempt: ProbeAttempt }) {
   const { t } = useTranslation('synthetics');
   const phases = PHASES.filter(([, key]) => attempt.timing[key] !== undefined);
-  const excerpt = attempt.bounded_response_excerpt;
+  const excerpt = attempt.boundedResponseExcerpt;
   const steps = attempt.evidence ?? [];
 
   return (
@@ -188,23 +208,36 @@ function Attempt({ attempt }: { attempt: ProbeAttempt }) {
         </span>
         <OutcomeMark outcome={attempt.outcome} />
         <span className="ml-auto font-sans text-xs tabular-nums text-tx-1">
-          {formatDuration(attempt.timing.total_micros ?? attempt.finished_at - attempt.started_at)}
+          {formatDuration(attempt.timing.totalTime ?? attempt.finishedAt - attempt.startedAt)}
         </span>
       </div>
 
-      {(attempt.error_message || attempt.error_category) && (
+      {(attempt.errorMessage || attempt.errorCategory) && (
         <p
           role="alert"
           className="mt-[8px] break-words rounded-md bg-red-dim px-[12px] py-[8px] font-sans text-xs leading-relaxed text-red"
         >
-          {attempt.error_category && (
-            <span className="mr-[8px] font-code font-strong">{attempt.error_category}</span>
+          {attempt.errorCategory && (
+            <span className="mr-[8px] font-code font-strong">{attempt.errorCategory}</span>
           )}
-          {attempt.error_message}
+          {attempt.errorMessage}
         </p>
       )}
 
       {/* A probe reports only the phases it timed, so a run shows the ones it has. */}
+      {attempt.metadata?.['rum.session_id'] && (
+        <Link
+          data-result-rum-session={attempt.metadata['rum.session_id']}
+          to={`/rum/sessions/view/${encodeURIComponent(attempt.metadata['rum.session_id'])}?${new URLSearchParams({
+            from: new Date(attempt.startedAt / 1_000 - 60_000).toISOString(),
+            to: new Date(attempt.finishedAt / 1_000 + 60_000).toISOString(),
+          })}`}
+          className="mt-[8px] inline-block font-sans text-xs text-[var(--blue-ink)] outline-none underline-offset-4 hover:underline focus-visible:underline"
+        >
+          {t('detail.open_rum_session')}
+        </Link>
+      )}
+
       {phases.length > 0 && (
         <dl className="mt-[10px] flex flex-wrap gap-x-[24px] gap-y-[6px] font-sans text-xs">
           {phases.map(([label, key]) => (
@@ -220,7 +253,7 @@ function Attempt({ attempt }: { attempt: ProbeAttempt }) {
         <ol className="mt-[10px] space-y-[6px]">
           {steps.map((step, index) => (
             <li
-              key={`${step.step_id}-${index}`}
+              key={`${step.stepId}-${index}`}
               className="rounded-md bg-bg-2 px-[12px] py-[8px]"
             >
               <div className="flex min-w-0 items-center gap-[8px]">
@@ -230,22 +263,34 @@ function Attempt({ attempt }: { attempt: ProbeAttempt }) {
                   style={{ background: STATE_COLOR[step.outcome] }}
                 />
                 <span className="min-w-0 flex-1 truncate font-sans text-xs font-strong text-tx-0">
-                  {step.name || step.step_id}
+                  {step.action === 'traceroute' && step.metadata.target
+                    ? t('results.traceroute.title', { target: step.metadata.target })
+                    : step.name || step.stepId}
                 </span>
+                {step.metadata.trace_id && (
+                  <Link
+                    to={traceLink(step.metadata.trace_id, step.startedAt, step.finishedAt)}
+                    className="inline-flex shrink-0 items-center gap-1 rounded font-sans text-xs text-indigo-soft hover:text-tx-0 focus-visible:bg-bg-3"
+                  >
+                    {t('results.view_trace')}
+                    <ExternalLink aria-hidden className="h-3 w-3 shrink-0" />
+                  </Link>
+                )}
                 <span className="shrink-0 font-code text-xs text-tx-2">{step.action}</span>
                 <span className="shrink-0 font-sans text-xs tabular-nums text-tx-1">
-                  {formatDuration(Math.max(0, step.finished_at - step.started_at))}
+                  {formatDuration(Math.max(0, step.finishedAt - step.startedAt))}
                 </span>
               </div>
-              {(step.error_category || step.error_message) && (
+              {(step.errorCategory || step.errorMessage) && (
                 <p className="mt-[6px] break-words font-sans text-xs text-red">
-                  {step.error_category && (
-                    <span className="mr-[8px] font-code font-strong">{step.error_category}</span>
+                  {step.errorCategory && (
+                    <span className="mr-[8px] font-code font-strong">{step.errorCategory}</span>
                   )}
-                  {step.error_message}
+                  {step.errorMessage}
                 </p>
               )}
-              {Object.keys(step.metadata).length > 0 && (
+              {step.action === 'traceroute' && <TracerouteHops step={step} />}
+              {step.action !== 'traceroute' && Object.keys(step.metadata).length > 0 && (
                 <dl className="mt-[6px] grid gap-x-3 gap-y-1 text-xs sm:grid-cols-2">
                   {Object.entries(step.metadata).map(([key, value]) => (
                     <div

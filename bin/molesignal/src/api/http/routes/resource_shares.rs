@@ -8,6 +8,10 @@
 //! HttpOnly share session; public dashboard reads then go through a saved-query
 //! proxy that never accepts an arbitrary statement from the browser.
 
+mod audit;
+mod link;
+mod unlock;
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use axum::{
@@ -16,12 +20,9 @@ use axum::{
     extract::{Path, Query, State},
     http::{
         HeaderMap, StatusCode,
-        header::{
-            CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_TYPE, COOKIE, LOCATION, REFERRER_POLICY,
-            SET_COOKIE, USER_AGENT,
-        },
+        header::{CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_TYPE, COOKIE, REFERRER_POLICY},
     },
-    response::{IntoResponse, Response},
+    response::Response,
     routing::{get, post},
 };
 use base64::Engine as _;
@@ -31,6 +32,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
+use self::audit::{ShareVisitor, record_audit};
 use crate::{
     api::{
         AppState,
@@ -38,7 +40,7 @@ use crate::{
             Permission, ProtectedResource, authorize_resource as authorize_protected_resource,
         },
     },
-    app::iam::{IamContext, hash_password, verify_password},
+    app::iam::{IamContext, hash_password_off_thread},
     domain::{
         dashboard::Dashboard,
         iam::{
@@ -64,7 +66,6 @@ use crate::{
 };
 
 const SHARE_SESSION_COOKIE: &str = "molesignal_share_session";
-const SHARE_SESSION_SECS: i64 = 30 * 60;
 const DEFAULT_DASHBOARD_RANGE_SECS: i64 = 60 * 60;
 const MAX_DASHBOARD_RANGE_SECS: i64 = 24 * 60 * 60;
 
@@ -78,7 +79,7 @@ pub fn routes() -> Router<AppState> {
             get(get_policy).put(update_policy),
         )
         .route("/public/share", get(public_metadata))
-        .route("/public/share/unlock", post(public_unlock))
+        .route("/public/share/unlock", post(unlock::public_unlock))
         .route("/public/share/query", post(public_query))
         .route("/public/share/file", get(public_file))
 }
@@ -93,13 +94,13 @@ impl ShareableResourceId {
         let resource_id = resource_id.trim();
 
         if resource_id.is_empty() {
-            return Err(Error::invalid("resource_id is required"));
+            return Err(Error::invalid("resourceId is required"));
         }
 
         match resource_type {
             "dashboard" => Ok(Self::Dashboard(Id::from_string(resource_id))),
             "report" => Ok(Self::Report(Id::from_string(resource_id))),
-            _ => Err(Error::invalid("resource_type must be dashboard or report")),
+            _ => Err(Error::invalid("resourceType must be dashboard or report")),
         }
     }
 }
@@ -186,10 +187,11 @@ impl ProtectedResource for ResourceShare {
 }
 
 pub fn redirect_routes() -> Router<AppState> {
-    Router::new().route("/s/{token}", get(resolve_share_link))
+    Router::new().route("/s/{token}", get(link::resolve_share_link))
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateRequest {
     resource_type: String,
     resource_id: String,
@@ -228,6 +230,7 @@ struct ResourceShareView {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ListQuery {
     #[serde(default)]
     resource_type: Option<String>,
@@ -242,6 +245,7 @@ struct RotateResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct PolicyUpdateRequest {
     allow_public_links: bool,
     allow_public_dashboards: bool,
@@ -263,7 +267,7 @@ async fn create(
     Json(request): Json<CreateRequest>,
 ) -> Result<Json<CreateResponse>> {
     if request.max_views.is_some_and(|value| value <= 0) {
-        return Err(Error::invalid("max_views must be greater than zero"));
+        return Err(Error::invalid("maxViews must be greater than zero"));
     }
 
     let resource_id = Id::from_string(authorized_resource.resource_id());
@@ -316,7 +320,10 @@ async fn create(
             password,
         )?;
 
-        password.map(hash_password).transpose()?
+        match password {
+            Some(password) => Some(hash_password_off_thread(password).await?),
+            None => None,
+        }
     } else {
         None
     };
@@ -326,7 +333,7 @@ async fn create(
             (None, json!([read_permission(&request.resource_type)?]))
         }
         ResourceShareMode::CrossOrg => {
-            Permission::require_key(&context, "iam.policies.manage")?;
+            Permission::require_key(&context, "iam.cross_org.manage")?;
 
             let grant =
                 create_cross_org_grant(&state, &context, &request, &resource_id, expires_at)
@@ -395,13 +402,13 @@ async fn create(
         &context.user_id.0,
         None,
         json!({
-            "share_mode": share.share_mode,
-            "resource_type": share.resource_type,
-            "expires_at_micros": share.expires_at.map(|value| value.0),
-            "allow_download": share.allow_download,
-            "has_password": share.password_hash.is_some(),
-            "max_views": share.max_views,
-            "cross_org_grant_id": share.cross_org_grant_id.as_ref().map(|value| value.0.clone()),
+            "shareMode": share.share_mode,
+            "resourceType": share.resource_type,
+            "expiresAt": share.expires_at.map(|value| value.0),
+            "allowDownload": share.allow_download,
+            "hasPassword": share.password_hash.is_some(),
+            "maxViews": share.max_views,
+            "crossOrgGrantId": share.cross_org_grant_id.as_ref().map(|value| value.0.clone()),
         }),
     )
     .await?;
@@ -412,7 +419,7 @@ async fn create(
     }))
 }
 
-#[permission(any("dashboards.share", "reports.share", "org.settings.manage"))]
+#[permission(any("dashboards.share", "reports.share", "org.sharing.manage"))]
 async fn list(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -424,10 +431,10 @@ async fn list(
         (Some(resource_type), Some(resource_id)) => {
             authorize_shareable_filter(&state, &context, resource_type, resource_id).await?;
         }
-        (None, None) => Permission::require_key(&context, "org.settings.manage")?,
+        (None, None) => Permission::require_key(&context, "org.sharing.manage")?,
         _ => {
             return Err(Error::invalid(
-                "resource_type and resource_id must be provided together",
+                "resourceType and resource_id must be provided together",
             ));
         }
     }
@@ -551,8 +558,8 @@ async fn rotate(
 }
 
 #[permission(any(
-    "org.settings.read",
-    "org.settings.manage",
+    "org.sharing.read",
+    "org.sharing.manage",
     "dashboards.share",
     "reports.share"
 ))]
@@ -569,7 +576,7 @@ async fn get_policy(
     ))
 }
 
-#[permission("org.settings.manage")]
+#[permission("org.sharing.manage")]
 async fn update_policy(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -577,7 +584,7 @@ async fn update_policy(
 ) -> Result<Json<ResourceSharePolicy>> {
     if !(3600..=2_592_000).contains(&request.max_public_expiry_secs) {
         return Err(Error::invalid(
-            "max_public_expiry_secs must be between 3600 and 2592000",
+            "maxPublicExpirySecs must be between 3600 and 2592000",
         ));
     }
 
@@ -611,124 +618,18 @@ async fn update_policy(
             ip: None,
             user_agent: None,
             payload: json!({
-                "allow_public_links": policy.allow_public_links,
-                "allow_public_dashboards": policy.allow_public_dashboards,
-                "max_public_expiry_secs": policy.max_public_expiry_secs,
-                "require_public_report_password": policy.require_public_report_password,
-                "deny_production_public_shares": policy.deny_production_public_shares,
-                "allow_public_csv_download": policy.allow_public_csv_download,
+                "allowPublicLinks": policy.allow_public_links,
+                "allowPublicDashboards": policy.allow_public_dashboards,
+                "maxPublicExpirySecs": policy.max_public_expiry_secs,
+                "requirePublicReportPassword": policy.require_public_report_password,
+                "denyProductionPublicShares": policy.deny_production_public_shares,
+                "allowPublicCsvDownload": policy.allow_public_csv_download,
             }),
             ts: TimestampMicros::now(),
         })
         .await?;
 
     Ok(Json(policy))
-}
-
-async fn resolve_share_link(
-    State(state): State<AppState>,
-    Path(token): Path<String>,
-    headers: HeaderMap,
-) -> Result<Response> {
-    let now = TimestampMicros::now();
-
-    let share = state
-        .storage
-        .resource_shares
-        .find_by_token_hash(&token_hash(&token))
-        .await?
-        .ok_or_else(|| Error::not_found("resource share not found"))?;
-
-    state
-        .iam
-        .service
-        .ensure_organization_access(&share.organization_id)
-        .await?;
-
-    if !share_is_active(&share, now) {
-        return Ok((
-            StatusCode::GONE,
-            [(CACHE_CONTROL, "no-store")],
-            "resource share is expired or revoked",
-        )
-            .into_response());
-    }
-
-    if share.share_mode != ResourceShareMode::PublicLink {
-        let location = authenticated_target(&share)?;
-
-        record_audit(
-            &state,
-            &share,
-            "resource_share.open",
-            "share_link",
-            &share.id.0,
-            Some(&headers),
-            json!({"result": "redirect_to_authenticated_resource"}),
-        )
-        .await?;
-
-        return Ok((
-            StatusCode::FOUND,
-            [
-                (LOCATION, location.as_str()),
-                (CACHE_CONTROL, "no-store"),
-                (REFERRER_POLICY, "no-referrer"),
-            ],
-        )
-            .into_response());
-    }
-
-    let raw_session = generate_opaque_token();
-
-    let session = ResourceShareSession {
-        id: Id::new(),
-        share_id: share.id.clone(),
-        session_token_hash: token_hash(&raw_session),
-        password_verified: share.password_hash.is_none(),
-        created_at: now,
-        expires_at: TimestampMicros(
-            now.0
-                .saturating_add(SHARE_SESSION_SECS.saturating_mul(1_000_000)),
-        ),
-        last_seen_at: now,
-        ip: request_ip(&headers),
-        user_agent: header_text(&headers, USER_AGENT),
-    };
-
-    let share = state
-        .storage
-        .resource_shares
-        .create_session(session, now)
-        .await?;
-
-    let mut cookie = format!(
-        "{SHARE_SESSION_COOKIE}={raw_session}; Path=/; Max-Age={SHARE_SESSION_SECS}; HttpOnly; SameSite=Lax"
-    );
-
-    if state.platform.external_url.trim().starts_with("https://") {
-        cookie.push_str("; Secure");
-    }
-
-    record_audit(
-        &state,
-        &share,
-        "resource_share.open",
-        "share_session",
-        &share.id.0,
-        Some(&headers),
-        json!({"result": "session_created", "view_count": share.view_count}),
-    )
-    .await?;
-
-    Response::builder()
-        .status(StatusCode::FOUND)
-        .header(LOCATION, "/shared")
-        .header(SET_COOKIE, cookie)
-        .header(CACHE_CONTROL, "no-store")
-        .header(REFERRER_POLICY, "no-referrer")
-        .body(Body::empty())
-        .map_err(|error| Error::internal(format!("share redirect response: {error}")))
 }
 
 async fn public_metadata(State(state): State<AppState>, headers: HeaderMap) -> Result<Json<Value>> {
@@ -745,8 +646,8 @@ async fn public_metadata(State(state): State<AppState>, headers: HeaderMap) -> R
     if requires_password {
         return Ok(Json(json!({
             "kind": share.resource_type,
-            "requires_password": true,
-            "expires_at_micros": share.expires_at.map(|value| value.0),
+            "requiresPassword": true,
+            "expiresAt": share.expires_at.map(|value| value.0),
         })));
     }
 
@@ -759,13 +660,13 @@ async fn public_metadata(State(state): State<AppState>, headers: HeaderMap) -> R
             json!({
                 "kind": "dashboard",
                 "title": dashboard.title,
-                "requires_password": false,
-                "expires_at_micros": share.expires_at.map(|value| value.0),
+                "requiresPassword": false,
+                "expiresAt": share.expires_at.map(|value| value.0),
                 "constraints": share.constraints,
                 "definition": definition,
                 "watermark": {
-                    "share_id": share.id.0,
-                    "accessed_at_micros": TimestampMicros::now().0,
+                    "shareId": share.id.0,
+                    "accessedAt": TimestampMicros::now().0,
                 },
             })
         }
@@ -780,14 +681,14 @@ async fn public_metadata(State(state): State<AppState>, headers: HeaderMap) -> R
                 "kind": "report",
                 "title": report.name,
                 "format": report.format,
-                "requires_password": false,
-                "allow_download": share.allow_download,
-                "expires_at_micros": share.expires_at.map(|value| value.0),
-                "generated_at_micros": share.created_at.0,
-                "content_type": share.snapshot_content_type,
+                "requiresPassword": false,
+                "allowDownload": share.allow_download,
+                "expiresAt": share.expires_at.map(|value| value.0),
+                "generatedAt": share.created_at.0,
+                "contentType": share.snapshot_content_type,
                 "watermark": {
-                    "share_id": share.id.0,
-                    "accessed_at_micros": TimestampMicros::now().0,
+                    "shareId": share.id.0,
+                    "accessedAt": TimestampMicros::now().0,
                 },
             })
         }
@@ -798,68 +699,23 @@ async fn public_metadata(State(state): State<AppState>, headers: HeaderMap) -> R
 }
 
 #[derive(Debug, Deserialize)]
-struct UnlockRequest {
-    password: String,
-}
-
-async fn public_unlock(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(request): Json<UnlockRequest>,
-) -> Result<Json<Value>> {
-    let (session, share) = public_share_context(&state, &headers, false).await?;
-
-    let Some(password_hash) = share.password_hash.as_deref() else {
-        return Ok(Json(json!({"unlocked": true})));
-    };
-
-    if verify_password(&request.password, password_hash).is_err() {
-        record_audit(
-            &state,
-            &share,
-            "resource_share.password_failure",
-            "share_session",
-            &session.id.0,
-            Some(&headers),
-            json!({"result": "denied"}),
-        )
-        .await?;
-
-        return Err(Error::unauthorized("invalid share password"));
-    }
-
-    state
-        .storage
-        .resource_shares
-        .mark_password_verified(&session.id)
-        .await?;
-
-    record_audit(
-        &state,
-        &share,
-        "resource_share.unlock",
-        "share_session",
-        &session.id.0,
-        Some(&headers),
-        json!({"result": "allowed"}),
-    )
-    .await?;
-
-    Ok(Json(json!({"unlocked": true})))
-}
-
-#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct PublicQueryRequest {
     panel_id: String,
     ref_id: String,
-    from_micros: i64,
-    to_micros: i64,
+    from_time: i64,
+    to_time: i64,
+    /// The step of a PromQL panel's range query; without one PromQL answers
+    /// the figure at the end of the range.
+    #[serde(default)]
+    step: Option<i64>,
     #[serde(default)]
     variables: BTreeMap<String, Value>,
 }
 
 async fn public_query(
     State(state): State<AppState>,
+    visitor: ShareVisitor,
     headers: HeaderMap,
     Json(request): Json<PublicQueryRequest>,
 ) -> Result<Json<crate::domain::query::QueryResult>> {
@@ -911,16 +767,16 @@ async fn public_query(
 
     let max_range_secs = constraint_i64(
         &share.constraints,
-        "max_time_range_secs",
+        "maxTimeRangeSecs",
         DEFAULT_DASHBOARD_RANGE_SECS,
     )
     .clamp(60, MAX_DASHBOARD_RANGE_SECS);
 
     let now = TimestampMicros::now().0;
-    let end = request.to_micros.min(now);
+    let end = request.to_time.min(now);
 
     let start = request
-        .from_micros
+        .from_time
         .max(end.saturating_sub(max_range_secs.saturating_mul(1_000_000)));
 
     if start >= end {
@@ -961,6 +817,7 @@ async fn public_query(
                 time_range: TimeRange::new(TimestampMicros(start), TimestampMicros(end)),
                 stream,
                 limit: Some(limit),
+                step: request.step,
                 federation_clusters: Vec::new(),
             },
             Id::from_string(format!("share:{}", share.id.0)),
@@ -974,15 +831,15 @@ async fn public_query(
         "resource_share.query",
         "share_session",
         &share.id.0,
-        Some(&headers),
+        Some(&visitor),
         json!({
-            "panel_id": request.panel_id,
-            "ref_id": request.ref_id,
-            "from_micros": start,
-            "to_micros": end,
+            "panelId": request.panel_id,
+            "refId": request.ref_id,
+            "fromTime": start,
+            "toTime": end,
             "variables": variables.keys().collect::<Vec<_>>(),
-            "returned_rows": result.rows.len(),
-            "scanned_rows": result.scanned_rows,
+            "returnedRows": result.rows.len(),
+            "scannedRows": result.scanned_rows,
         }),
     )
     .await?;
@@ -998,6 +855,7 @@ struct PublicFileQuery {
 
 async fn public_file(
     State(state): State<AppState>,
+    visitor: ShareVisitor,
     headers: HeaderMap,
     Query(query): Query<PublicFileQuery>,
 ) -> Result<Response> {
@@ -1051,7 +909,7 @@ async fn public_file(
         },
         "share_session",
         &share.id.0,
-        Some(&headers),
+        Some(&visitor),
         json!({"download": query.download, "bytes": bytes.len()}),
     )
     .await?;
@@ -1090,7 +948,7 @@ fn expiration_for(
 
     match request.expires_in_secs {
         Some(seconds) if seconds <= 0 => {
-            Err(Error::invalid("expires_in_secs must be greater than zero"))
+            Err(Error::invalid("expiresInSecs must be greater than zero"))
         }
         Some(seconds) => Ok(Some(TimestampMicros(
             now.0.saturating_add(seconds.saturating_mul(1_000_000)),
@@ -1174,7 +1032,7 @@ async fn normalize_public_constraints(
 ) -> Result<Value> {
     if resource_type != "dashboard" {
         return Ok(json!({
-            "immutable_snapshot": true,
+            "immutableSnapshot": true,
             "watermark": requested.get("watermark").and_then(Value::as_bool).unwrap_or(true),
         }));
     }
@@ -1187,7 +1045,7 @@ async fn normalize_public_constraints(
         .collect::<BTreeSet<_>>();
 
     let allowed_variables = requested
-        .get("allowed_variables")
+        .get("allowedVariables")
         .and_then(Value::as_array)
         .into_iter()
         .flatten()
@@ -1198,31 +1056,31 @@ async fn normalize_public_constraints(
         .collect::<Vec<_>>();
 
     let max_range = requested
-        .get("max_time_range_secs")
+        .get("maxTimeRangeSecs")
         .and_then(Value::as_i64)
         .unwrap_or(DEFAULT_DASHBOARD_RANGE_SECS)
         .clamp(60, MAX_DASHBOARD_RANGE_SECS);
 
     Ok(json!({
-        "read_only": true,
-        "max_time_range_secs": max_range,
-        "allow_time_range_changes": requested
-            .get("allow_time_range_changes")
+        "readOnly": true,
+        "maxTimeRangeSecs": max_range,
+        "allowTimeRangeChanges": requested
+            .get("allowTimeRangeChanges")
             .and_then(Value::as_bool)
             .unwrap_or(false),
-        "allowed_variables": allowed_variables,
-        "allow_variable_changes": requested
-            .get("allow_variable_changes")
+        "allowedVariables": allowed_variables,
+        "allowVariableChanges": requested
+            .get("allowVariableChanges")
             .and_then(Value::as_bool)
             .unwrap_or(false),
-        "auto_refresh_interval_secs": requested
-            .get("auto_refresh_interval_secs")
+        "autoRefreshIntervalSecs": requested
+            .get("autoRefreshIntervalSecs")
             .and_then(Value::as_i64)
             .unwrap_or(0)
             .clamp(0, 3600),
-        "allow_export": false,
-        "allow_explore": false,
-        "show_queries": false,
+        "allowExport": false,
+        "allowExplore": false,
+        "showQueries": false,
         "watermark": requested.get("watermark").and_then(Value::as_bool).unwrap_or(true),
     }))
 }
@@ -1238,7 +1096,7 @@ async fn create_cross_org_grant(
         request
             .target_organization_id
             .as_deref()
-            .ok_or_else(|| Error::invalid("target_organization_id is required"))?,
+            .ok_or_else(|| Error::invalid("targetOrganizationId is required"))?,
     );
 
     if target_organization_id == context.org_id {
@@ -1348,15 +1206,10 @@ async fn render_report_snapshot(
             chrono::Utc::now(),
         )?;
 
-        let browser_auth_storage = super::reports::scheduled::browser_auth_storage(state, context)?;
+        let session = super::reports::scheduled::render_cookie(state, context)?;
 
         let bytes = renderer
-            .render(
-                &url,
-                format,
-                Viewport::CONFIGURED,
-                Some(&browser_auth_storage),
-            )
+            .render(&url, format, Viewport::CONFIGURED, Some(&session))
             .await?;
 
         validate_report_bytes(format, &bytes)?;
@@ -1455,7 +1308,7 @@ fn sanitize_dashboard_model(mut model: Value, share_id: &Id, constraints: &Value
         }),
     );
 
-    let allowed_variables = constraint_strings(constraints, "allowed_variables");
+    let allowed_variables = constraint_strings(constraints, "allowedVariables");
     let uses_current_schema = object.get("elements").is_some_and(Value::is_array);
 
     if let Some(variables) = object.get_mut("variables").and_then(Value::as_array_mut) {
@@ -1962,10 +1815,10 @@ fn validated_variables(
     constraints: &Value,
     requested: &BTreeMap<String, Value>,
 ) -> Result<BTreeMap<String, Value>> {
-    let allowed_names = constraint_strings(constraints, "allowed_variables");
+    let allowed_names = constraint_strings(constraints, "allowedVariables");
 
     let allow_changes = constraints
-        .get("allow_variable_changes")
+        .get("allowVariableChanges")
         .and_then(Value::as_bool)
         .unwrap_or(false);
 
@@ -2145,14 +1998,6 @@ fn scalar_string(value: &Value) -> String {
     }
 }
 
-fn authenticated_target(share: &ResourceShare) -> Result<String> {
-    match share.resource_type.as_str() {
-        "dashboard" => Ok(format!("/dashboards/{}", share.resource_id.0)),
-        "report" | "report_file" => Ok(format!("/reports?report={}", share.resource_id.0)),
-        _ => Err(Error::invalid("unsupported shared resource type")),
-    }
-}
-
 fn share_is_active(share: &ResourceShare, now: TimestampMicros) -> bool {
     share.enabled
         && share.revoked_at.is_none()
@@ -2163,7 +2008,7 @@ fn read_permission(resource_type: &str) -> Result<&'static str> {
     match resource_type {
         "dashboard" => Ok("dashboards.read"),
         "report" => Ok("reports.read"),
-        _ => Err(Error::invalid("resource_type must be dashboard or report")),
+        _ => Err(Error::invalid("resourceType must be dashboard or report")),
     }
 }
 
@@ -2200,7 +2045,7 @@ async fn authorize_shareable_filter(
 }
 
 fn can_manage_share(context: &IamContext, resource_type: &str) -> bool {
-    context.has_permission("org.settings.manage")
+    context.has_permission("org.sharing.manage")
         || match resource_type {
             "dashboard" => context.has_permission("dashboards.share"),
             "report" | "report_file" => context.has_permission("reports.share"),
@@ -2228,16 +2073,6 @@ fn generate_share_token() -> String {
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
-fn generate_opaque_token() -> String {
-    let mut bytes = [0u8; 32];
-
-    rand::rngs::SysRng
-        .try_fill_bytes(&mut bytes)
-        .expect("operating-system random source");
-
-    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
-}
-
 fn token_hash(raw: &str) -> String {
     blake3::hash(raw.as_bytes()).to_hex().to_string()
 }
@@ -2252,51 +2087,6 @@ fn cookie_value<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
                 (cookie_name == name).then_some(value)
             })
         })
-}
-
-fn request_ip(headers: &HeaderMap) -> Option<String> {
-    headers
-        .get("x-forwarded-for")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.split(',').next())
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_owned)
-}
-
-fn header_text(headers: &HeaderMap, name: http::header::HeaderName) -> Option<String> {
-    headers
-        .get(name)
-        .and_then(|value| value.to_str().ok())
-        .map(str::to_owned)
-}
-
-async fn record_audit(
-    state: &AppState,
-    share: &ResourceShare,
-    action: &str,
-    actor_kind: &str,
-    actor_id: &str,
-    headers: Option<&HeaderMap>,
-    payload: Value,
-) -> Result<()> {
-    state
-        .iam
-        .audit_events
-        .record(AuditEvent {
-            id: Id::new(),
-            org_id: share.organization_id.clone(),
-            actor_kind: actor_kind.into(),
-            actor_id: actor_id.into(),
-            action: action.into(),
-            target_kind: Some("resource_share".into()),
-            target_id: Some(share.id.0.clone()),
-            ip: headers.and_then(request_ip),
-            user_agent: headers.and_then(|headers| header_text(headers, USER_AGENT)),
-            payload,
-            ts: TimestampMicros::now(),
-        })
-        .await
 }
 
 fn constraint_strings(value: &Value, key: &str) -> BTreeSet<String> {
@@ -2363,17 +2153,6 @@ mod tests {
         let second = generate_share_token();
         assert_ne!(first, second);
         assert_eq!(first.len(), 12);
-        assert!(first.chars().all(|character| {
-            character.is_ascii_alphanumeric() || matches!(character, '-' | '_')
-        }));
-    }
-
-    #[test]
-    fn session_tokens_keep_full_entropy() {
-        let first = generate_opaque_token();
-        let second = generate_opaque_token();
-        assert_ne!(first, second);
-        assert_eq!(first.len(), 43);
         assert!(first.chars().all(|character| {
             character.is_ascii_alphanumeric() || matches!(character, '-' | '_')
         }));
@@ -2470,7 +2249,7 @@ mod tests {
         let sanitized = sanitize_dashboard_model(
             model,
             &Id::from_string("share-1"),
-            &json!({"allowed_variables": ["service"]}),
+            &json!({"allowedVariables": ["service"]}),
         );
         assert_eq!(
             sanitized["panels"][0]["targets"][0]["expr"],

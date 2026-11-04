@@ -154,7 +154,7 @@ export function Donut({
         textAnchor="middle"
         fontFamily="var(--font-sans)"
         fontSize="12"
-        fontWeight={600}
+        fontWeight="var(--fw-strong)"
         fill="var(--tx-0)"
       >
         {Math.round(percentage * 100)}%
@@ -259,7 +259,7 @@ export function ServiceMap({
             textAnchor="middle"
             y={3}
             fontSize="10"
-            fontWeight={600}
+            fontWeight="var(--fw-strong)"
             fill="var(--tx-0)"
             fontFamily="var(--font-sans)"
           >

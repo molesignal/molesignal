@@ -80,7 +80,9 @@
       "collected_size": "通过校验的事件在转换前的规范化 JSON 字节累计值，落盘后更新；不含传输封装。≥ 表示历史计量不完整，— 表示暂无计量。",
       "stored_size": "当前有效主数据文件的实际字节数，不包含索引。",
       "index_size": "当前有效且已就绪的独立索引文件大小。"
-    }
+    },
+    "no_match_title": "没有匹配的数据流",
+    "no_match_description": "换一个名称、类型或状态试试。"
   },
   "drawer": {
     "title": "创建数据流",
@@ -137,7 +139,7 @@
   },
   "explore": {
     "subtitle": "运行状态、查询效率、存储与保留策略",
-    "system_stream_immutable": "系统数据流仅允许配置字段索引、提取与遮掩。名称、类型、加密、保留策略和删除操作均由系统管理。",
+    "system_stream_immutable": "系统数据流仅允许配置字段索引、遮掩、保留期与降采样。名称、类型、加密和删除操作由系统管理。",
     "toolbar": {
       "refresh": "刷新",
       "query_data": "查询数据",
@@ -171,7 +173,10 @@
       "full_text": "全文搜索",
       "exact": "精确匹配",
       "bloom": "Bloom 过滤器",
-      "skip": "跳过索引"
+      "skip": "跳过索引",
+      "ngram": "N-gram 子串",
+      "ip": "IP 地址",
+      "key_value": "JSON 键值"
     },
     "kpis": {
       "events_24h": "24h 写入行数",
@@ -183,7 +188,8 @@
       "average_24h": "按最近 24 小时计算",
       "compressed_note": "压缩后 Parquet 数据",
       "live_parquet": "现存且未删除的文件",
-      "index_coverage_note": "按字段计数，非索引字节"
+      "index_coverage_note": "按字段计数，非索引字节",
+      "index_backfill": "历史数据补建索引中，还剩 {{count}} 个文件"
     },
     "overview": {
       "stats_unavailable": "运行统计暂不可用。配置仍可查看和编辑，刷新后会重新探测存储元数据。",
@@ -207,7 +213,7 @@
     },
     "schema": {
       "summary": "{{fields}} 个字段 · {{indexed}} 个已索引 · {{encrypted}} 个已加密",
-      "readonly_hint": "默认只读。点击字段右侧编辑按钮修改索引、提取与遮掩规则。",
+      "readonly_hint": "默认只读。点击字段右侧编辑按钮修改索引与遮掩规则。",
       "search_placeholder": "搜索字段",
       "fts_title": "全文检索由字段级索引决定",
       "fts_description": "为 message、body 等文本字段启用全文索引，可加速 MATCH 查询；历史数据不会自动重建索引。",
@@ -225,23 +231,15 @@
         "name": "字段名称",
         "type": "字段类型",
         "index_type": "索引类型",
-        "condition": "索引条件",
-        "extraction": "提取规则",
         "encryption": "加密"
       },
-      "condition_placeholder": "env = 'prod'",
-      "condition_hint": "仅对匹配表达式的数据构建该字段索引；留空表示始终启用。",
-      "index_type_hint": "精确匹配适合 ID；全文搜索适合自然语言文本。",
-      "pattern_placeholder": "每行一个正则表达式",
-      "pattern_count": "{{count}} 条规则",
-      "extraction_rules": "字段提取规则",
-      "extraction_hint": "写入时按顺序尝试匹配；每行一个正则表达式。",
+      "index_type_hint": "精确匹配适合 ID 与取值不多的维度；全文搜索适合日志正文；N-gram 适合按片段查的 URL、路径；IP 适合按网段查的地址；JSON 键值适合按某个键筛选的 JSON 字段。",
       "encrypted": "已加密",
       "encrypted_hint": "该字段在落盘前加密。为避免已有数据不可读，此开关不能在这里修改。",
       "edit_field": "编辑字段 {{name}}",
       "drawer_title": "编辑字段 · {{name}}",
       "drawer_fallback": "编辑字段",
-      "drawer_subtitle": "配置查询索引、写入时字段提取与返回时遮掩，不改变字段类型。",
+      "drawer_subtitle": "配置查询索引与返回时遮掩，不改变字段类型。",
       "cancel": "取消",
       "apply": "应用到草稿",
       "no_schema": "该数据流还没有 schema。写入第一批数据后会自动展示字段。",
@@ -254,33 +252,28 @@
         "no_global_rule": "当前没有命中的全局规则",
         "no_global_rule_hint": "保持继承后，该字段当前不会被遮掩；未来新增匹配规则会自动生效。",
         "explicit_none_hint": "此流的该字段将明确跳过全局遮掩规则。恢复“继承全局规则”后才会重新使用全局配置。",
-        "metrics_disabled": "Metrics 指标流不参与字段遮掩；指标值和标签保持原样，字段索引与提取仍可配置。"
+        "metrics_disabled": "Metrics 指标流不参与字段遮掩；指标值和标签保持原样，字段索引仍可配置。"
       }
     },
     "retention": {
       "default_policy": "默认保留策略",
       "data_retention_days": "数据保留期（天）",
-      "days_default_hint": "留空时使用全局保留期 {{days}} 天。",
-      "days_placeholder": "全局 {{days}} 天",
-      "default_explanation": "未命中例外规则的数据按默认保留期清理。缩短保留期后，超期数据可能在下一次清理任务中被删除。",
-      "exception_rules": "例外保留规则",
-      "exception_rules_hint": "按优先级匹配，为重要或低价值数据设置不同保留时间。",
-      "add_rule": "添加规则",
-      "priority": "优先级",
-      "enabled": "启用",
-      "rule_name": "规则名称",
-      "condition": "匹配条件",
-      "condition_placeholder": "level = 'error'",
-      "retention_days": "保留天数",
-      "estimated_share": "影响数据",
-      "follow_default": "跟随默认",
-      "evaluate_after_save": "保存后评估",
-      "delete_rule": "删除规则 {{name}}",
-      "no_rules": "暂无例外规则，所有数据按默认保留期处理。",
-      "advanced_filter": "高级：默认保留筛选",
-      "keep_condition": "默认保留筛选表达式",
-      "keep_condition_hint": "表达式为真时保留；为空表示所有未命中例外规则的数据都按默认保留期处理。",
-      "keep_condition_placeholder": "level != 'debug'"
+      "days_default_hint": "留空时使用平台默认保留期 {{days}} 天。",
+      "days_placeholder": "默认 {{days}} 天",
+      "default_explanation": "超过保留期的数据会在下一次清理时删除；缩短保留期后，已经超期的数据随之删除。",
+      "downsample": "降采样",
+      "downsample_toggle": "降采样较早的样本",
+      "downsample_hint": "早于设定天数的样本按时间桶聚合：同一 series 在一个桶里的样本合成一个点（数值取平均，增量计数取总和），原始样本随之删除。长时间范围的查询读得少得多，更早的数据只剩时间桶的精度。",
+      "downsample_after_days": "保留原始样本的天数",
+      "downsample_after_days_hint": "早于这个天数的样本被聚合，聚合后无法恢复原始样本。",
+      "downsample_interval": "时间桶",
+      "intervals": {
+        "60": "1 分钟",
+        "300": "5 分钟",
+        "900": "15 分钟",
+        "3600": "1 小时",
+        "86400": "1 天"
+      }
     },
     "usage": {
       "loading": "正在检查使用位置…",
@@ -306,30 +299,60 @@
       "query_capabilities": "查询能力",
       "query_capabilities_hint": "控制能否查询以及查询范围，关闭能力不会停止数据接收。",
       "max_query_range": "最大查询窗口（小时）",
-      "max_query_range_hint": "0 或空表示不限制。",
-      "flatten_level": "扁平层级",
-      "flatten_level_hint": "JSON flatten 最大层级。",
+      "max_query_range_hint": "一次查询最多覆盖的小时数，时间范围更长的查询会被拒绝。留空或 0 表示不限制。",
       "storage_behavior": "存储行为",
-      "storage_behavior_hint": "影响新写入数据的落盘与分区策略。",
-      "advanced": "高级设置",
+      "storage_behavior_hint": "影响数据文件的合并与分片方式。",
       "queryable": "可查询",
       "queryable_hint": "关闭后，该数据流照常采集并保留数据，但会从查询选择器中隐藏、且查询/搜索会被拒绝。适用于「源数据流仅作入口、由 pipeline 把记录分流到其它数据流」的场景。",
-      "use_stats": "使用 stream stats 进行分区",
-      "store_original": "保留原始数据",
-      "enable_distinct_values": "启用 distinct 计算"
+      "daily_merge": "按天合并小文件",
+      "daily_merge_hint": "一天结束一小时后，当天的数据加起来不超过合并目标大小时合成一个文件，跨多天的查询要打开的文件少得多。保留期随之按天生效：合并后的文件在一整天都过期后才删除。",
+      "partition_field": "按字段分片",
+      "partition_field_hint": "新写入的数据按这些字段的值分片，带这些字段条件的查询只读可能命中的分片，适合几乎每次查询都带的字段，如服务、租户。哈希分得匀，帮得上 = 和 IN；首字符让数字、字母（不分大小写）各占一片、其余字符占一片，还帮得上以文字开头的 LIKE（如 'abc%'）。最多两个字段，分片数相乘不超过 256。",
+      "partition_none": "不分片",
+      "partition_total": "共 {{count}} 片",
+      "partition_add": "添加分片字段",
+      "partition_remove": "删除这个分片字段",
+      "partition_method": "分片方式",
+      "partition_methods": {
+        "hash": "哈希 · {{count}} 片",
+        "prefix": "首字符 · {{count}} 片"
+      },
+      "partition_too_many": "和另一个字段的分片数相乘会超过 {{max}}。",
+      "field_indexes": "字段索引",
+      "field_indexes_hint": "数据流里第一次出现的字段按名字自动选索引。",
+      "index_pattern": "新字段的索引",
+      "index_pattern_name": "字段名模式",
+      "index_pattern_hint": "按次序第一条名字匹配、类型合适的规则生效：* 匹配任意一段文字，? 匹配一个字符，如 *_id、http.*。只管之后第一次出现的字段，已有字段在「字段与索引」里改；在那里给某个字段设过的索引优先。",
+      "index_pattern_add": "添加规则",
+      "index_pattern_remove": "删除这条规则",
+      "index_pattern_up": "上移",
+      "index_pattern_down": "下移"
     },
     "changes": {
       "unsaved": "有未保存的更改",
       "review": "保存后新配置会立即应用。",
-      "index_risk": "索引与提取规则只影响新写入数据，历史数据不会自动重建。",
+      "index_risk": "新写入的数据立即按新的索引类型建；之前写下的数据由后台补建，进度见概览里的「索引字段覆盖」。",
       "retention_risk": "保留期将缩短为 {{days}} 天，超期数据可能被删除。",
-      "query_risk": "关闭查询后，该数据流仍接收数据，但查询和搜索会被拒绝。"
+      "query_risk": "关闭查询后，该数据流仍接收数据，但查询和搜索会被拒绝。",
+      "downsample_risk": "早于 {{days}} 天的原始样本将被聚合成时间桶并删除，无法恢复。",
+      "partition_risk": "分片设置只影响新写入的数据，已有文件保持原样。"
+    },
+    "validation": {
+      "retention_days": "数据保留期必须是 1 到 {{max}} 之间的整数天。",
+      "max_query_range": "最大查询窗口必须是 0 到 {{max}} 之间的整数小时。",
+      "downsample_after_days": "保留原始样本的天数必须是 1 到 {{max}} 之间的整数。",
+      "index_pattern_length": "字段名模式最长 {{max}} 个字符。",
+      "index_pattern_duplicate": "字段名模式不能重复。"
     },
     "delete_confirm_title": "删除该数据流？",
     "delete_confirm_description": "将删除“{{stream}}”及其配置，此操作无法撤销。",
     "toast": {
       "updated": "数据流配置已更新",
       "deleted": "数据流已删除"
+    },
+    "delete_consequences": {
+      "stored": "存储数据",
+      "rows": "数据行"
     }
   },
   "jobs": {
@@ -422,7 +445,7 @@
     },
     "denied": {
       "title": "没有查看搜索任务的权限",
-      "description": "需要 streams.query 或 sys.telemetry.read 权限。"
+      "description": "需要 query.jobs.read 或 sys.telemetry.read 权限。"
     },
     "pagination": {
       "aria": "任务列表分页",
@@ -432,6 +455,112 @@
       "previous_aria": "上一页",
       "next_aria": "下一页",
       "last_aria": "最后一页"
+    }
+  },
+  "usage": {
+    "entry": "接入用量",
+    "title": "接入用量",
+    "subtitle": "每个来源接入了多少数据，预算用到了哪里。预算只用来提醒，数据照常接入。",
+    "dimensions_label": "划分方式",
+    "dimensions": {
+      "credential": "凭证",
+      "stream": "数据流",
+      "service": "服务"
+    },
+    "search_placeholder": "搜索来源…",
+    "window_label": "时间范围",
+    "windows": {
+      "24h": "最近 24 小时",
+      "7d": "最近 7 天",
+      "30d": "最近 30 天"
+    },
+    "total": "共 {{bytes}} · {{events}} 条事件",
+    "metering_since": "计量从 {{time}} 开始，更早的数据未统计",
+    "truncated": "只列出接入量最大的 5000 个来源",
+    "unavailable": "暂时读不出用量",
+    "not_metered": "还没有接入记录",
+    "no_match": "没有匹配的来源",
+    "empty": {
+      "credential": "这段时间没有凭证送来数据",
+      "stream": "这段时间没有数据流接入数据",
+      "service": "这段时间没有事件标注服务",
+      "hint": "数据接入后一分钟内会显示在这里。"
+    },
+    "columns": {
+      "source": "来源",
+      "source_key": "来源标识",
+      "intake_bytes": "接入量",
+      "events": "事件数",
+      "share": "占比",
+      "budget": "预算",
+      "used": "本周期已用",
+      "used_ratio": "预算使用",
+      "state": "状态"
+    },
+    "states": {
+      "ok": "正常",
+      "warning": "接近上限",
+      "exceeded": "超出预算"
+    },
+    "source": {
+      "internal": "平台内部",
+      "unnamed_service": "未标注服务",
+      "other_services": "其他服务",
+      "connector": "连接器 · {{kind}}",
+      "user": "登录用户",
+      "missing": "已删除"
+    },
+    "token_kinds": {
+      "personal": "个人 Token",
+      "default_intake": "默认接入 Token",
+      "rum_client": "RUM 客户端 Token",
+      "service_account": "服务账号 Token"
+    },
+    "budget": {
+      "none": "未设置",
+      "none_hint": "这个来源还没有预算。",
+      "set": "设预算",
+      "change": "修改",
+      "remove": "移除预算",
+      "per_day": "{{limit}} / 天",
+      "per_month": "{{limit}} / 月",
+      "set_title": "设预算",
+      "change_title": "修改预算",
+      "many_subtitle": "给 {{count}} 个来源设同样的预算",
+      "period": "周期",
+      "periods": {
+        "day": "每天",
+        "day_hint": "按 UTC 自然日计算。",
+        "month": "每月",
+        "month_hint": "按 UTC 自然月计算。"
+      },
+      "limit": "额度",
+      "limit_hint": "1 MiB 到 1 PiB。",
+      "unit": "单位",
+      "warn_percent": "预警比例（%）",
+      "warn_percent_hint": "用到这个比例时提醒一次，用完时再提醒一次。填 0 只在用完时提醒。",
+      "notify": "通知谁",
+      "notify_hint": "走通知策略，按各人设置的接收方式送达。",
+      "notify_self": "读不出成员列表，所以只通知你自己。",
+      "notify_required": "至少选一个人。",
+      "save": "保存预算",
+      "saved_one": "预算已保存",
+      "saved_other": "已保存 {{count}} 个预算",
+      "save_failed": "{{total}} 个预算里有 {{count}} 个没有保存：{{reason}}",
+      "remove_title_one": "移除这个预算？",
+      "remove_title_other": "移除 {{count}} 个预算？",
+      "remove_description": "这些来源不再发提醒，用量仍然显示在这个页面上。",
+      "removed_one": "预算已移除",
+      "removed_other": "已移除 {{count}} 个预算",
+      "remove_failed": "{{total}} 个预算里有 {{count}} 个没有移除：{{reason}}"
+    },
+    "detail": {
+      "trend": "这段时间的接入量",
+      "by_credential": "按凭证",
+      "by_stream": "按数据流",
+      "by_service": "按服务",
+      "nothing": "这段时间没有数据。",
+      "used": "已用 {{used}}（{{percent}}）"
     }
   }
 }

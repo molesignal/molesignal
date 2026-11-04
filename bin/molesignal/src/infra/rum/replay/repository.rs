@@ -33,7 +33,7 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
     ) -> Result<Option<RumReplayRecord>> {
         sqlx::query(
             "SELECT id, org_id, application_id, session_id, seq, format_version, object_key, bytes_uncompressed, event_count,
-                    has_full_snapshot, content_hash, first_event_at_micros, created_at_micros
+                    has_full_snapshot, content_hash, first_event_at, created_at
              FROM rum_replay_events
              WHERE org_id = $1 AND application_id = $2 AND session_id = $3 AND seq = $4",
         )
@@ -51,8 +51,8 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         let result = sqlx::query(
             "INSERT INTO rum_replay_events
                 (id, org_id, application_id, session_id, seq, format_version, object_key, bytes_uncompressed,
-                 event_count, has_full_snapshot, content_hash, first_event_at_micros,
-                 created_at_micros)
+                 event_count, has_full_snapshot, content_hash, first_event_at,
+                 created_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
              ON CONFLICT (org_id, application_id, session_id, seq) DO NOTHING",
         )
@@ -67,8 +67,8 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         .bind(row.event_count as i32)
         .bind(row.has_full_snapshot)
         .bind(&row.content_hash)
-        .bind(row.first_event_at_micros)
-        .bind(row.created_at.0)
+        .bind(TimestampMicros(row.first_event_at_micros))
+        .bind(row.created_at)
         .execute(&self.pool)
         .await
         .map_err(crate::infra::persistence::sqlx_err)?;
@@ -83,7 +83,7 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
     ) -> Result<Vec<RumReplayRecord>> {
         sqlx::query(
             "SELECT id, org_id, application_id, session_id, seq, format_version, object_key, bytes_uncompressed, event_count,
-                    has_full_snapshot, content_hash, first_event_at_micros, created_at_micros
+                    has_full_snapshot, content_hash, first_event_at, created_at
              FROM rum_replay_events WHERE org_id = $1 AND session_id = $2
              ORDER BY seq ASC LIMIT $3",
         )
@@ -161,15 +161,15 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         limit: usize,
     ) -> Result<Vec<String>> {
         let rows = sqlx::query(
-            "SELECT session_id, MIN(first_event_at_micros) AS first_segment
+            "SELECT session_id, MIN(first_event_at) AS first_segment
              FROM rum_replay_events
-             WHERE org_id = $1 AND first_event_at_micros >= $2 AND first_event_at_micros < $3
+             WHERE org_id = $1 AND first_event_at >= $2 AND first_event_at < $3
                AND has_full_snapshot = TRUE AND format_version = $4
              GROUP BY session_id ORDER BY first_segment DESC LIMIT $5",
         )
         .bind(&org_id.0)
-        .bind(from_micros)
-        .bind(to_micros)
+        .bind(TimestampMicros(from_micros))
+        .bind(TimestampMicros(to_micros))
         .bind(RUM_REPLAY_FORMAT_VERSION as i32)
         .bind(limit as i64)
         .fetch_all(&self.pool)
@@ -185,11 +185,11 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
     async fn list_expired(&self, cutoff_micros: i64, limit: usize) -> Result<Vec<RumReplayRecord>> {
         sqlx::query(
             "SELECT id, org_id, application_id, session_id, seq, format_version, object_key, bytes_uncompressed, event_count,
-                    has_full_snapshot, content_hash, first_event_at_micros, created_at_micros
-             FROM rum_replay_events WHERE created_at_micros < $1
-             ORDER BY created_at_micros ASC LIMIT $2",
+                    has_full_snapshot, content_hash, first_event_at, created_at
+             FROM rum_replay_events WHERE created_at < $1
+             ORDER BY created_at ASC LIMIT $2",
         )
-        .bind(cutoff_micros)
+        .bind(TimestampMicros(cutoff_micros))
         .bind(limit as i64)
         .fetch_all(&self.pool)
         .await
@@ -225,7 +225,7 @@ fn record_from_row(row: sqlx::postgres::PgRow) -> RumReplayRecord {
         event_count: row.get::<i32, _>("event_count").max(0) as usize,
         has_full_snapshot: row.get("has_full_snapshot"),
         content_hash: row.get("content_hash"),
-        first_event_at_micros: row.get("first_event_at_micros"),
-        created_at: TimestampMicros(row.get("created_at_micros")),
+        first_event_at_micros: row.get::<TimestampMicros, _>("first_event_at").0,
+        created_at: row.get::<TimestampMicros, _>("created_at"),
     }
 }

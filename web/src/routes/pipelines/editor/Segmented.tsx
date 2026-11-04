@@ -2,8 +2,8 @@ import { cn } from '@/shell/lib/cn';
 
 /**
  * A choice between a few named options that are all on view: how a pipeline
- * runs, where a route sends events. The option in force is a lighter key on
- * the control's fill; nothing here is drawn with a border.
+ * runs, where a route sends events. The selected option uses a tinted fill
+ * and text so it stays distinct in both themes without a focus border.
  */
 export function Segmented<T extends string>({
   label,
@@ -38,9 +38,9 @@ export function Segmented<T extends string>({
             aria-pressed={selected}
             onClick={() => onChange(option.value)}
             className={cn(
-              'min-w-0 flex-1 truncate rounded px-3 font-sans text-xs outline-none transition-colors duration-fast disabled:cursor-not-allowed disabled:text-tx-3',
+              'min-w-0 flex-1 truncate rounded px-3 font-sans text-xs outline-none transition-colors duration-fast disabled:cursor-not-allowed disabled:text-[var(--tx-disabled)]',
               selected
-                ? 'bg-[var(--functional-surface)] font-strong text-tx-0'
+                ? 'bg-indigo-dim font-strong text-indigo-soft disabled:bg-bg-3'
                 : 'text-tx-2 enabled:hover:bg-bg-3 enabled:hover:text-tx-0 enabled:focus-visible:bg-bg-3 enabled:focus-visible:text-tx-0',
             )}
           >

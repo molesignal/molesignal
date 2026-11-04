@@ -7,7 +7,7 @@
 //! 把它们 union 到一个 MemTable，跨 parquet schema 演化由 `align_batch_to_schema` 抚平。
 //!
 //! 1. POST `/api/v1/intake/logs/:stream`（含 schema 演化的新字段 `latency_ms`）
-//!    → IntakeService → IntakeWorker WAL → batch_max_delay_ms 内自动 flush
+//!    → IntakeService → IntakeWorker WAL → flush 周期内自动 flush
 //!    出一个 Parquet Artifact + 原子提交 Catalog。
 //! 2. 同时走 `ParquetWriter` 手动写一份只有老 schema (`_timestamp + level`) 的
 //!    Parquet Artifact + `FileCatalog::commit_flush`，验证 query 时能正确合并两批数据。
@@ -77,7 +77,7 @@ async fn intake_api_accepts_batch_and_query_api_returns_seeded_rows() {
         eprintln!("skipped (set MS_RUN_IT=1 to enable)");
         return;
     }
-    let s = TestServer::start().await;
+    let s = TestServer::start_with_fast_flush().await;
 
     let stream = seed_stream(&s).await;
 
@@ -99,8 +99,8 @@ async fn intake_api_accepts_batch_and_query_api_returns_seeded_rows() {
     assert_eq!(body["accepted"], 3, "all 3 events accepted");
     assert_eq!(body["rejected"], 0);
 
-    // 2a. 等 IntakeWorker 自动提交 active Segment（wire 默认 batch_max_delay_ms=50，
-    //     加上 Artifact 写 + Catalog 事务，通常 < 1s；这里给 10s 兜底防 CI 抖动）。
+    // 2a. 等 IntakeWorker 自动提交 active Segment（flush 周期 1s，加上 Artifact 写 +
+    //     Catalog 事务，通常 2s 内；这里给 30s 兜底防 CI 抖动）。
     let pool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(2)
         .connect(&s.settings.meta_database.dsn)
@@ -109,7 +109,7 @@ async fn intake_api_accepts_batch_and_query_api_returns_seeded_rows() {
     let flushed = {
         let pool = pool.clone();
         let organization_id = s.root_org_id.0.clone();
-        common::wait_until_async(10, move || {
+        common::wait_until_async(30, move || {
             let pool = pool.clone();
             let organization_id = organization_id.clone();
             async move {
@@ -158,7 +158,7 @@ async fn intake_api_accepts_batch_and_query_api_returns_seeded_rows() {
         SequenceRange::new(WalSequence(1), WalSequence(3)),
     );
     let segments = writer
-        .flush_catalog(&stream, &dataset, &provenance, batch)
+        .flush_catalog(&stream, &dataset, &provenance, batch, None)
         .await
         .expect("write old-schema Artifacts");
     catalog
@@ -173,17 +173,18 @@ async fn intake_api_accepts_batch_and_query_api_returns_seeded_rows() {
         .await
         .expect("commit old-schema Segment");
 
-    // 3. POST query → 验证 count = 6（intake path 3 + 手写 parquet 3）
+    // 3. POST query → 验证 count = 6（intake path 3 + 手写 parquet 3）。按列计数，两份 schema
+    //    不同的文件都要真正读到；`COUNT(*)` 会直接取 Catalog 行数。
     let resp = s
         .client
         .post(format!("{}/api/v1/query", s.base_url))
         .header(s.auth_header().0, s.auth_header().1)
         .json(&json!({
-            "org_id": s.root_org_id.0,
+            "orgId": s.root_org_id.0,
             "language": "sql",
-            "statement": "SELECT COUNT(*) AS n FROM app",
-            "time_range": { "start": 0, "end": 10_000_000 },
-            "stream": { "name": "app", "stream_type": "logs" }
+            "statement": "SELECT COUNT(level) AS n FROM app",
+            "timeRange": { "start": 0, "end": 10_000_000 },
+            "stream": { "name": "app", "streamType": "logs" }
         }))
         .send()
         .await
@@ -194,7 +195,7 @@ async fn intake_api_accepts_batch_and_query_api_returns_seeded_rows() {
     let body: serde_json::Value = serde_json::from_str(&body_text).unwrap();
     assert_eq!(body["columns"][0], "n");
     assert_eq!(body["rows"][0][0], 6);
-    assert_eq!(body["scanned_rows"], 6);
+    assert_eq!(body["scannedRows"], 6);
 }
 
 /// 撤掉启动期预 seed 后，写入一个不存在的流应由 `IntakeService` 用推断 schema
@@ -205,7 +206,7 @@ async fn intake_auto_creates_missing_stream() {
         eprintln!("skipped (set MS_RUN_IT=1 to enable)");
         return;
     }
-    let s = TestServer::start().await;
+    let s = TestServer::start_with_fast_flush().await;
 
     // 注意：没有 seed_stream —— 流 `auto_created` 此刻并不存在。
     let resp = s
@@ -236,7 +237,7 @@ async fn intake_auto_creates_missing_stream() {
     let flushed = {
         let pool = pool.clone();
         let organization_id = s.root_org_id.0.clone();
-        common::wait_until_async(10, move || {
+        common::wait_until_async(30, move || {
             let pool = pool.clone();
             let organization_id = organization_id.clone();
             async move {
@@ -262,11 +263,11 @@ async fn intake_auto_creates_missing_stream() {
         .post(format!("{}/api/v1/query", s.base_url))
         .header(s.auth_header().0, s.auth_header().1)
         .json(&json!({
-            "org_id": s.root_org_id.0,
+            "orgId": s.root_org_id.0,
             "language": "sql",
             "statement": "SELECT COUNT(*) AS n FROM auto_created",
-            "time_range": { "start": 0, "end": 10_000_000 },
-            "stream": { "name": "auto_created", "stream_type": "logs" }
+            "timeRange": { "start": 0, "end": 10_000_000 },
+            "stream": { "name": "auto_created", "streamType": "logs" }
         }))
         .send()
         .await

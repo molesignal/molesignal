@@ -19,17 +19,19 @@ export function formatTimeSeriesValue(value: number, unit?: string): string {
   if (normalizedUnit && ['bytes', 'byte', 'decbytes', 'binb'].includes(normalizedUnit)) {
     return formatBytes(value);
   }
+  // A zero has no size to pick a unit by: it keeps the unit the value is in, so that the first tick
+  // of an axis in milliseconds reads "0 ms" and not "0 ns".
   if (normalizedUnit && ['ns', 'nanoseconds'].includes(normalizedUnit)) {
-    return formatDuration(value / 1_000_000_000);
+    return value === 0 ? '0 ns' : formatDuration(value / 1_000_000_000);
   }
   if (normalizedUnit && ['us', 'µs', 'μs', 'microseconds'].includes(normalizedUnit)) {
-    return formatDuration(value / 1_000_000);
+    return value === 0 ? '0 μs' : formatDuration(value / 1_000_000);
   }
   if (normalizedUnit && ['ms', 'milliseconds'].includes(normalizedUnit)) {
-    return formatDuration(value / 1000);
+    return value === 0 ? '0 ms' : formatDuration(value / 1000);
   }
   if (normalizedUnit && ['s', 'sec', 'seconds'].includes(normalizedUnit)) {
-    return formatDuration(value);
+    return value === 0 ? '0 s' : formatDuration(value);
   }
   if (normalizedUnit && ['percent', 'percentunit', '%'].includes(normalizedUnit)) {
     const percent = normalizedUnit === 'percentunit' ? value * 100 : value;

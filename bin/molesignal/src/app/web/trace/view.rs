@@ -25,6 +25,7 @@ use crate::{
 };
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Span {
     pub span_id: String,
     pub parent_span_id: Option<String>,
@@ -57,6 +58,7 @@ pub struct Span {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SpanEvent {
     pub ts_ns: i64,
     pub name: String,
@@ -65,6 +67,7 @@ pub struct SpanEvent {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TraceResponse {
     pub trace_id: String,
     pub root_span_id: String,

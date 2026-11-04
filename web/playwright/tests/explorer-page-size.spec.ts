@@ -1,33 +1,34 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { explorerRead, explorerReadBody } from '../fixtures/explorerReads';
 import { installMockShellSession } from '../fixtures/mockSession';
 
 /** More rows than the largest page holds, so every size has a full page to show. */
 const AVAILABLE = 6_000;
 const SIZES = ['100', '200', '500', '1,000', '2,000', '5,000'];
 
-const field = (name: string, dataType = 'utf8') => ({ name, data_type: dataType, nullable: true, indexed: false });
+const field = (name: string, dataType = 'utf8') => ({ name, dataType: dataType, nullable: true, indexed: false });
 const stream = (name: string, type: 'logs' | 'traces', fields: ReturnType<typeof field>[]) => ({
   id: `${type}-stream`,
   name,
-  stream_type: type,
+  streamType: type,
   schema: { fields },
   retention: { days: 7 },
-  effective_retention: { days: 7 },
+  effectiveRetention: { days: 7 },
   settings: {
     description: null,
-    index_rules: [],
-    retention_filter: null,
-    keep_conditions: [],
-    max_query_range_hours: null,
-    flatten_level: null,
-    use_stream_stats_for_partitioning: false,
-    store_original_data: false,
-    enable_distinct_values: true,
+    indexRules: [],
+    retentionFilter: null,
+    keepConditions: [],
+    maxQueryRangeHours: null,
+    flattenLevel: null,
+    useStreamStatsForPartitioning: false,
+    storeOriginalData: false,
+    enableDistinctValues: true,
     queryable: true,
   },
-  created_at_micros: 1,
-  updated_at_micros: 1,
+  createdAt: 1,
+  updatedAt: 1,
 });
 
 async function choosePageSize(page: Page, size: string) {
@@ -56,7 +57,7 @@ test.describe('Explorer page sizes', () => {
       route.fulfill({
         json: [
           stream('application_logs', 'logs', [
-            { name: '_timestamp', data_type: 'timestamp', nullable: false, indexed: true },
+            { name: '_timestamp', dataType: 'timestamp', nullable: false, indexed: true },
             field('level'),
             field('service.name'),
             field('message'),
@@ -64,13 +65,13 @@ test.describe('Explorer page sizes', () => {
         ],
       }),
     );
-    await page.route('**/api/v1/web/logs', (route) => {
-      const body = route.request().postDataJSON() as { limit?: number };
+    await page.route(explorerRead('web/logs'), (route) => {
+      const body = explorerReadBody<{ limit?: number }>(route.request());
       const limit = body.limit ?? 20;
       asked.push(limit);
 
       return route.fulfill({
-        json: { items: items.slice(0, limit), next_cursor: 'older', previous_cursor: null, has_more: true },
+        json: { items: items.slice(0, limit), nextCursor: 'older', previousCursor: null, hasMore: true },
       });
     });
     await page.route('**/api/v1/field_masking/effective/**', (route) => route.fulfill({ json: { fields: [] } }));
@@ -106,13 +107,13 @@ test.describe('Explorer page sizes', () => {
   test('Traces reads a hundred traces to a page, and two thousand when asked', async ({ page }) => {
     const now = Date.now();
     const traces = Array.from({ length: AVAILABLE }, (_, index) => ({
-      trace_id: `7c1f0e${String(index).padStart(6, '0')}a94b4d2e8f3a5b6c7d8e`,
+      traceId: `7c1f0e${String(index).padStart(6, '0')}a94b4d2e8f3a5b6c7d8e`,
       operation: index % 3 === 0 ? 'POST /api/v1/checkout' : 'GET /api/v1/cart',
       service: 'gateway',
-      start_ns: (now - 5_000 - index * 100) * 1_000_000,
-      duration_ms: 12 + (index % 400),
-      span_count: 3 + (index % 9),
-      error_count: index % 40 === 3 ? 1 : 0,
+      startNs: (now - 5_000 - index * 100) * 1_000_000,
+      durationMs: 12 + (index % 400),
+      spanCount: 3 + (index % 9),
+      errorCount: index % 40 === 3 ? 1 : 0,
     }));
     const asked: number[] = [];
     await page.route('**/api/v1/streams**', (route) =>
@@ -126,28 +127,28 @@ test.describe('Explorer page sizes', () => {
       asked.push(limit);
 
       return route.fulfill({
-        json: { items: traces.slice(0, limit), next_cursor: 'older', previous_cursor: null, has_more: true },
+        json: { items: traces.slice(0, limit), nextCursor: 'older', previousCursor: null, hasMore: true },
       });
     });
     await page.route(/\/api\/v1\/web\/trace\/[^/?]+(\?.*)?$/, (route) =>
       route.fulfill({
         json: {
-          trace_id: 'any',
-          root_span_id: 'root',
+          traceId: 'any',
+          rootSpanId: 'root',
           spans: [],
           partial: false,
-          partial_reasons: [],
-          sampling_reasons: [],
-          late_span_count: 0,
-          duplicate_span_count: 0,
-          conflict_span_count: 0,
+          partialReasons: [],
+          samplingReasons: [],
+          lateSpanCount: 0,
+          duplicateSpanCount: 0,
+          conflictSpanCount: 0,
         },
       }),
     );
     await page.goto('/traces');
 
     const results = page.locator('[data-workspace-pane="trace-results"]');
-    const rows = results.locator('button[aria-pressed]');
+    const rows = results.locator('[data-trace-row]');
     await expect(rows).toHaveCount(100);
     await expect(results.locator('[data-page-size]')).toHaveText('100');
     expect(asked.at(-1)).toBe(100);
@@ -157,9 +158,10 @@ test.describe('Explorer page sizes', () => {
     await expect(results.locator('[data-page-size]')).toHaveText('2,000');
     expect(asked.at(-1)).toBe(2_000);
 
-    // The scrollbar is of two thousand rows of fifty-one, and the last of them is reachable.
+    // The scrollbar is of two thousand rows of thirty-two under the head, and the last of them is reachable.
     const height = await rows.first().locator('xpath=..').evaluate((element) => element.scrollHeight);
-    expect(height).toBe(2_000 * 51);
+    const head = await results.locator('[data-trace-table-head]').evaluate((element: HTMLElement) => element.offsetHeight);
+    expect(height).toBe(head + 2_000 * 32);
     await rows.last().scrollIntoViewIfNeeded();
     await rows.last().click();
     await expect(rows.last()).toHaveAttribute('aria-pressed', 'true');

@@ -2,7 +2,6 @@ import { MousePointer2, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { ChromeButton } from '@/shell/chrome';
-import { TimezoneSelect } from '@/shell/TimezoneSelect';
 import {
   Select,
   SelectContent,
@@ -22,9 +21,9 @@ const DRAW_STYLES = [
 ] as const;
 
 /**
- * How the graph is drawn: its zoom state, mark, stacking and the timezone of
- * its time axis. They sit in the results header beside the view tabs, so the
- * chart keeps the row a second toolbar would take.
+ * How the graph is drawn: its zoom state, mark and stacking. They sit in the
+ * results header beside the view tabs, so the chart keeps the row a second
+ * toolbar would take. The zone of its time axis is picked in the time picker.
  */
 export function ChartControls({
   chart,
@@ -68,11 +67,6 @@ export function ChartControls({
         disabled={!canStack}
         onChange={chart.onStackModeChange}
       />
-      <TimezoneSelect
-        value={chart.timezone}
-        onChange={chart.onTimezoneChange}
-        className="h-11 max-w-[220px] sm:h-8"
-      />
     </>
   );
 }
@@ -98,7 +92,7 @@ function DrawStyleControl({
           type="button"
           onClick={() => onChange(id)}
           aria-pressed={value === id}
-          className={`h-full rounded px-2 font-sans text-xs transition-colors focus-visible:bg-bg-3 ${
+          className={`h-full rounded-sm px-2 font-sans text-xs transition-colors focus-visible:bg-bg-3 ${
             value === id
               ? 'bg-[var(--functional-surface)] font-semibold text-tx-0'
               : 'text-tx-2 hover:bg-bg-3 hover:text-tx-0'

@@ -4,10 +4,11 @@
 //! SAML SP 登录端点。
 //!
 //! - `GET /auth/sso/saml/login`：定位 SAML provider → 构造 `SamlLoginFlow` →
-//!   生成 RelayState 存 [`SsoStateStore`] → 302 到 IdP（HTTP-Redirect binding）。
+//!   生成 RelayState 存 [`crate::infra::sso::SsoStateStore`] → 跳到 IdP（HTTP-Redirect binding）。
 //! - `POST /auth/sso/saml/callback`：接 IdP form post（`SAMLResponse` + `RelayState`）
-//!   → 校验 RelayState → 解 Response → 提取 NameID/email/groups → provision_or_get_user
-//!   → 发本地 JWT。
+//!   → 校验 RelayState → 解 Response → 提取 NameID/email/groups → 开户或登录 →
+//!   经 [`super::handoff`] 回到前端。[`super::signin_test`] 发起的测试登录也回到这里：验断言的
+//!   那段相同，结果只记进测试，不登录。
 //!
 //! 签名校验：`SamlLoginFlow::parse_response` 调 `xmldsig::verify_assertion_signature` 做
 //! 真实 XMLDSig（enveloped signature + RSA-SHA256 + reference digest + 内嵌 cert 与配置
@@ -15,174 +16,181 @@
 //! （Azure AD / Okta / Keycloak / ADFS）的 deterministic 输出稳定通过；非规范化 XML 会被拒。
 
 use axum::{
-    Form, Json, Router,
+    Form, Router,
     extract::{Query, State},
     response::{IntoResponse, Redirect, Response},
     routing::{get, post},
 };
 use serde::Deserialize;
 
-use super::provision::{FederatedIdentity, FederatedLoginResponse, complete_login};
+use super::{
+    LoginParams, handoff,
+    provision::{self, FederatedIdentity, SignIn, sign_in},
+    random_token, resolve_provider_for_login, safe_next, signin_test,
+};
 use crate::{
     api::AppState,
     domain::iam::{SsoProvider, SsoProviderConfig, SsoProviderKind, SsoSamlConfig},
-    infra::sso::{SamlConfig, SamlLoginFlow},
-    shared::{Error, Result, ids::Id},
+    infra::sso::{SamlConfig, SamlLoginFlow, SsoStateEntry},
+    shared::{Error, Result},
 };
 
-pub fn routes() -> Router<AppState> {
+pub(super) fn routes() -> Router<AppState> {
     Router::new()
         .route("/auth/sso/saml/login", get(login))
         .route("/auth/sso/saml/callback", post(callback))
 }
 
-#[derive(Debug, Deserialize)]
-pub struct LoginParams {
-    #[serde(default)]
-    pub provider_id: Option<String>,
-    #[serde(default)]
-    pub provider: Option<String>,
+async fn login(State(state): State<AppState>, Query(params): Query<LoginParams>) -> Response {
+    let next = safe_next(params.next.as_deref());
+
+    match authorization_url(&state, &params, next.clone()).await {
+        Ok(url) => Redirect::to(&url).into_response(),
+        Err(error) => handoff::finish(&state, Err(error), next).await,
+    }
 }
 
-async fn login(State(state): State<AppState>, Query(p): Query<LoginParams>) -> Result<Response> {
-    let provider = resolve_provider_for_login(&state, &p).await?;
+async fn authorization_url(
+    state: &AppState,
+    params: &LoginParams,
+    next: Option<String>,
+) -> Result<String> {
+    let provider = resolve_provider_for_login(state, params, &[SsoProviderKind::Saml]).await?;
+    let relay = random_token();
+    let url = redirect_url(&provider, &relay)?;
 
-    if provider.kind != SsoProviderKind::Saml {
-        return Err(Error::invalid(format!(
-            "provider {} is kind={:?}; /auth/sso/saml/login expects SAML",
-            provider.id.0, provider.kind
-        )));
-    }
-
-    let saml_cfg = match &provider.config {
-        SsoProviderConfig::Saml(c) => c.clone(),
-        _ => unreachable!("kind == Saml enforced above"),
-    };
-
-    let flow = SamlLoginFlow::new(to_flow_config(&saml_cfg));
-    let relay = rand_b64(24);
-
-    // nonce 槽位塞空字符串 — SAML 没 OIDC 的 nonce 概念，但复用 store。
+    // SAML 没有 OIDC 的 nonce，nonce 槽位存空字符串。
     state
         .iam
         .sso_state_store
-        .put(relay.clone(), provider.id.0.clone(), String::new());
+        .put(
+            &relay,
+            &SsoStateEntry {
+                provider_id: provider.id.0,
+                nonce: String::new(),
+                next,
+                test_id: None,
+            },
+        )
+        .await?;
 
-    let url = flow.build_authz_url(&relay)?;
-    Ok(Redirect::temporary(&url).into_response())
+    Ok(url)
+}
+
+/// 浏览器要去的 IdP 地址。登录和测试登录用的是同一个。
+pub(super) fn redirect_url(provider: &SsoProvider, relay: &str) -> Result<String> {
+    let SsoProviderConfig::Saml(config) = &provider.config else {
+        return Err(Error::invalid(format!(
+            "provider {} is not SAML",
+            provider.name
+        )));
+    };
+
+    SamlLoginFlow::new(to_flow_config(config)).build_authz_url(relay)
 }
 
 #[derive(Debug, Deserialize)]
-pub struct CallbackForm {
+struct CallbackForm {
     #[serde(default, rename = "SAMLResponse")]
-    pub saml_response: Option<String>,
+    saml_response: Option<String>,
     #[serde(default, rename = "RelayState")]
-    pub relay_state: Option<String>,
+    relay_state: Option<String>,
 }
 
-async fn callback(
-    State(state): State<AppState>,
-    Form(form): Form<CallbackForm>,
-) -> Result<Json<FederatedLoginResponse>> {
-    let saml_response = form
-        .saml_response
-        .ok_or_else(|| Error::Unauthorized("callback missing SAMLResponse".into()))?;
-
-    let relay = form
-        .relay_state
-        .ok_or_else(|| Error::Unauthorized("callback missing RelayState".into()))?;
-
-    let entry = state
-        .iam
-        .sso_state_store
-        .take(&relay)
-        .ok_or_else(|| Error::Unauthorized("invalid or expired RelayState".into()))?;
-
-    let provider = state
-        .iam
-        .sso_providers
-        .get(&Id::from_string(entry.provider_id))
-        .await
-        .map_err(|_| Error::Unauthorized("sso provider not found".into()))?;
-
-    if !provider.enabled {
-        return Err(Error::forbidden(format!(
-            "provider {} is disabled",
-            provider.id.0
-        )));
-    }
-
-    let saml_cfg = match &provider.config {
-        SsoProviderConfig::Saml(c) => c.clone(),
-        _ => {
-            return Err(Error::invalid(format!(
-                "provider {} is not SAML; wrong callback endpoint",
-                provider.id.0
-            )));
-        }
+async fn callback(State(state): State<AppState>, Form(form): Form<CallbackForm>) -> Response {
+    let pending = match form.relay_state.as_deref() {
+        Some(relay) => state.iam.sso_state_store.take(relay).await,
+        None => Ok(None),
     };
 
-    let flow = SamlLoginFlow::new(to_flow_config(&saml_cfg));
-    let assertion = flow.parse_response(&saml_response)?;
+    // 测试登录共用这个回调：只记结果，不登录。
+    if let Ok(Some(SsoStateEntry {
+        test_id: Some(test_id),
+        ..
+    })) = &pending
+    {
+        return test_callback(&state, test_id, form.saml_response).await;
+    }
 
-    let response = complete_login(
-        &state,
-        &provider,
-        FederatedIdentity {
-            email: assertion.email.clone(),
-            display_name: assertion.name.unwrap_or_else(|| assertion.email.clone()),
-            subject: assertion.subject,
-            groups: assertion.groups,
-        },
-        &saml_cfg.group_role_mapping,
-        saml_cfg.default_role_id.as_deref(),
-    )
-    .await?;
+    let next = pending
+        .as_ref()
+        .ok()
+        .and_then(Option::as_ref)
+        .and_then(|entry| entry.next.clone());
 
-    Ok(Json(response))
+    let outcome = finish_login(&state, pending, form.saml_response).await;
+
+    handoff::finish(&state, outcome, next).await
 }
 
-async fn resolve_provider_for_login(state: &AppState, p: &LoginParams) -> Result<SsoProvider> {
-    if let Some(id) = p.provider_id.as_deref() {
-        let p = state
-            .iam
-            .sso_providers
-            .get(&Id::from_string(id.to_string()))
-            .await?;
+async fn finish_login(
+    state: &AppState,
+    pending: Result<Option<SsoStateEntry>>,
+    saml_response: Option<String>,
+) -> Result<SignIn> {
+    let pending = pending?.ok_or_else(|| {
+        Error::unauthorized("the sign-in request has expired or was already used; sign in again")
+    })?;
 
-        if !p.enabled {
-            return Err(Error::invalid(format!("provider {} is disabled", p.id.0)));
-        }
+    let saml_response =
+        saml_response.ok_or_else(|| Error::unauthorized("callback missing SAMLResponse"))?;
 
-        return Ok(p);
-    }
+    let provider = provision::enabled_provider(state, &pending.provider_id).await?;
+    let identity = identity_from_response(&provider, &saml_response)?;
 
-    let mut candidates = state
-        .iam
-        .sso_providers
-        .list_enabled_by_kind(SsoProviderKind::Saml)
-        .await?;
+    sign_in(state, &provider, identity).await
+}
 
-    if let Some(name) = p.provider.as_deref() {
-        candidates.retain(|c| c.name == name);
-    }
+async fn test_callback(state: &AppState, test_id: &str, saml_response: Option<String>) -> Response {
+    let Some(run) = signin_test::Run::open(state, test_id).await else {
+        return signin_test::Run::lost();
+    };
 
-    if candidates.is_empty() {
-        return Err(Error::invalid(
-            "no enabled SAML provider configured; create one via POST /api/v1/sso/providers",
-        ));
-    }
+    let outcome = test_identity(&run, saml_response);
 
-    if candidates.len() > 1 {
-        let names: Vec<String> = candidates.iter().map(|c| c.name.clone()).collect();
+    run.conclude(state, outcome, &[]).await
+}
 
-        return Err(Error::invalid(format!(
-            "multiple enabled SAML providers ({}); add ?provider_id=<id> to choose",
-            names.join(", ")
+fn test_identity(
+    run: &signin_test::Run,
+    saml_response: Option<String>,
+) -> Result<FederatedIdentity> {
+    run.check_settings()?;
+
+    let saml_response =
+        saml_response.ok_or_else(|| Error::unauthorized("callback missing SAMLResponse"))?;
+
+    // 身份源回答失败时响应里没有断言，验签只能说找不到。把它的原话告诉管理员。
+    if let Some(status) = SamlLoginFlow::failed_status(&saml_response) {
+        return Err(Error::unauthorized(format!(
+            "the identity provider answered {status}"
         )));
     }
 
-    Ok(candidates.remove(0))
+    identity_from_response(run.provider(), &saml_response)
+}
+
+/// 验过断言，取出身份。登录和测试登录走的是同一段。
+fn identity_from_response(
+    provider: &SsoProvider,
+    saml_response: &str,
+) -> Result<FederatedIdentity> {
+    let SsoProviderConfig::Saml(config) = &provider.config else {
+        return Err(Error::invalid(format!(
+            "provider {} is not SAML; wrong callback endpoint",
+            provider.name
+        )));
+    };
+
+    let assertion = SamlLoginFlow::new(to_flow_config(config)).parse_response(saml_response)?;
+
+    Ok(FederatedIdentity {
+        display_name: assertion.name.unwrap_or_else(|| assertion.email.clone()),
+        email: assertion.email,
+        subject: assertion.subject,
+        groups: assertion.groups,
+        email_verified: None,
+    })
 }
 
 fn to_flow_config(cfg: &SsoSamlConfig) -> SamlConfig {
@@ -194,12 +202,4 @@ fn to_flow_config(cfg: &SsoSamlConfig) -> SamlConfig {
         assertion_consumer_url: cfg.assertion_consumer_url.clone(),
         field_mapping: cfg.field_mapping.clone(),
     }
-}
-
-fn rand_b64(n: usize) -> String {
-    use base64::Engine as _;
-    let mut buf = vec![0u8; n];
-    use rand::TryRng as _;
-    rand::rngs::SysRng.try_fill_bytes(&mut buf).expect("os rng");
-    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&buf)
 }

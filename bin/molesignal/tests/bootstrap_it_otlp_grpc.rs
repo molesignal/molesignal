@@ -13,7 +13,7 @@
 
 mod common;
 
-use common::{TestServer, skip_unless_enabled};
+use common::{Credential, TestServer, skip_unless_enabled};
 use molesignal::api::grpc::otlp_server::OtlpGrpc;
 use opentelemetry_proto::tonic::{
     collector::{
@@ -88,32 +88,18 @@ fn one_span_request() -> ExportTraceServiceRequest {
     }
 }
 
-async fn create_api_token_for_role(s: &TestServer, role_key: &str) -> String {
-    let roles: Vec<serde_json::Value> = s
-        .client
-        .get(format!("{}/api/v1/roles", s.base_url))
-        .bearer_auth(&s.root_token)
-        .send()
-        .await
-        .expect("list IAM roles")
-        .error_for_status()
-        .expect("IAM role list succeeds")
-        .json()
-        .await
-        .expect("IAM role list JSON");
-    let role_id = roles
-        .iter()
-        .find(|role| role["key"] == role_key)
-        .and_then(|role| role["id"].as_str())
-        .unwrap_or_else(|| panic!("missing IAM role {role_key}"));
+/// A personal token of root's, narrowed to `scope` (a permission policy or a list of permissions).
+async fn create_api_token(s: &TestServer, name: &str, scope: serde_json::Value) -> String {
+    let mut body = serde_json::json!({ "name": format!("otlp-grpc-{name}") });
+    body.as_object_mut()
+        .expect("token request object")
+        .extend(scope.as_object().expect("scope object").clone());
+
     let token: serde_json::Value = s
         .client
-        .post(format!("{}/api/v1/auth/tokens", s.base_url))
-        .bearer_auth(&s.root_token)
-        .json(&serde_json::json!({
-            "name": format!("otlp-grpc-{role_key}"),
-            "role_id": role_id,
-        }))
+        .post(format!("{}/api/v1/me/api-tokens", s.base_url))
+        .credential(&s.root_token)
+        .json(&body)
         .send()
         .await
         .expect("create API token")
@@ -122,7 +108,6 @@ async fn create_api_token_for_role(s: &TestServer, role_key: &str) -> String {
         .json()
         .await
         .expect("API token JSON");
-    assert_eq!(token["role_key"], role_key);
     token["token"]
         .as_str()
         .expect("API token plaintext")
@@ -135,7 +120,7 @@ async fn otlp_grpc_traces_authz_and_lands() {
         eprintln!("skipped (set MS_RUN_IT=1 to enable)");
         return;
     }
-    let s = TestServer::start().await;
+    let s = TestServer::start_keeping_traces().await;
     let addr = spawn_otlp_grpc(s.state.clone()).await;
 
     // 等 server ready（重试 connect）。
@@ -158,8 +143,13 @@ async fn otlp_grpc_traces_authz_and_lands() {
         tonic::Code::Unauthenticated,
     );
 
-    // 2) 权限来自 Token 绑定的 IAM 角色，不依赖 Token 类型或名称。
-    let viewer_token = create_api_token_for_role(&s, "viewer").await;
+    // 2) 权限来自 Token 的权限范围，不依赖 Token 类型或名称。
+    let viewer_token = create_api_token(
+        &s,
+        "reader",
+        serde_json::json!({"permissions": ["streams.read", "streams.query"]}),
+    )
+    .await;
     let mut req = Request::new(one_span_request());
     req.metadata_mut().insert(
         "authorization",
@@ -168,12 +158,17 @@ async fn otlp_grpc_traces_authz_and_lands() {
     let denied = client.export(req).await;
     assert_eq!(
         denied
-            .expect_err("viewer role must not export telemetry")
+            .expect_err("a read-only token must not export telemetry")
             .code(),
         tonic::Code::PermissionDenied,
     );
 
-    let intake_token = create_api_token_for_role(&s, "intake").await;
+    let intake_token = create_api_token(
+        &s,
+        "intake",
+        serde_json::json!({"policyId": "builtin:data_intake"}),
+    )
+    .await;
     let mut req = Request::new(one_span_request());
     req.metadata_mut().insert(
         "authorization",
@@ -186,7 +181,7 @@ async fn otlp_grpc_traces_authz_and_lands() {
         .await
         .expect("authed export must succeed");
 
-    // 3) 等 flush 出 query_file，再 query 验证 span 落到 traces/otel_traces 流。
+    // 3) 等 flush 出 Catalog Segment，再 query 验证 span 落到 traces/otel_traces 流。
     let pool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(2)
         .connect(&s.settings.meta_database.dsn)
@@ -194,14 +189,18 @@ async fn otlp_grpc_traces_authz_and_lands() {
         .expect("test pool");
     let flushed = {
         let pool = pool.clone();
-        common::wait_until_async(10, move || {
+        let organization_id = s.root_org_id.0.clone();
+        common::wait_until_async(30, move || {
             let pool = pool.clone();
+            let organization_id = organization_id.clone();
             async move {
-                let row: (i64,) =
-                    sqlx::query_as("SELECT COUNT(*) FROM query_file WHERE deleted = FALSE")
-                        .fetch_one(&pool)
-                        .await
-                        .unwrap_or((0,));
+                let row: (i64,) = sqlx::query_as(
+                    "SELECT COUNT(*) FROM catalog_segments WHERE org_id = $1 AND state = 'active'",
+                )
+                .bind(organization_id)
+                .fetch_one(&pool)
+                .await
+                .unwrap_or((0,));
                 row.0 >= 1
             }
         })
@@ -209,7 +208,7 @@ async fn otlp_grpc_traces_authz_and_lands() {
     };
     assert!(
         flushed,
-        "otlp traces never flushed to query_file within timeout"
+        "otlp traces never flushed to a Catalog segment within timeout"
     );
 
     let resp = s
@@ -217,11 +216,11 @@ async fn otlp_grpc_traces_authz_and_lands() {
         .post(format!("{}/api/v1/query", s.base_url))
         .header(s.auth_header().0, s.auth_header().1)
         .json(&serde_json::json!({
-            "org_id": s.root_org_id.0,
+            "orgId": s.root_org_id.0,
             "language": "sql",
             "statement": "SELECT COUNT(*) AS n FROM otel_traces",
-            "time_range": { "start": 0, "end": 10_000_000 },
-            "stream": { "name": "otel_traces", "stream_type": "traces" }
+            "timeRange": { "start": 0, "end": 10_000_000 },
+            "stream": { "name": "otel_traces", "streamType": "traces" }
         }))
         .send()
         .await

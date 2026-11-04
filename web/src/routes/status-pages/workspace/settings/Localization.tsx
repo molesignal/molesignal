@@ -6,7 +6,7 @@ import * as statusPagesApi from '@/api/statusPages';
 import type { StatusPageLanguage } from '@/api/statusPages';
 import { toApiError } from '@/lib/http';
 import { ChromeButton } from '@/shell/chrome';
-import { FormChecklist, FormField, FormInput, FormRow, FormSelect } from '@/shell/FormDrawer';
+import { FormChecklist, FormField, FormGroup, FormInput, FormRow, FormSelect } from '@/shell/FormDrawer';
 import { TimezoneField } from '@/shell/TimezoneField';
 import { toast } from '@/shell/ui/sonner';
 
@@ -27,13 +27,13 @@ export function StatusPageLocalizationSettings() {
   const [timezone, setTimezone] = React.useState(page.timezone);
   const [language, setLanguage] = React.useState(page.language);
   const [languages, setLanguages] = React.useState(() => statusPageLanguages(page.language, page.languages));
-  const [historyDays, setHistoryDays] = React.useState(String(page.history_days));
+  const [historyDays, setHistoryDays] = React.useState(String(page.historyDays));
   const mutation = useMutation({
     mutationFn: () => statusPagesApi.update(pageId, statusPageInput(page, {
       timezone: timezone.trim(),
       language,
       languages,
-      history_days: Number(historyDays),
+      historyDays: Number(historyDays),
     })),
     onSuccess: async () => {
       toast.success(t('toast.page_updated'));
@@ -51,7 +51,7 @@ export function StatusPageLocalizationSettings() {
 
   return (
     <SettingsCard title={t('settings.localization.title')} description={t('settings.localization.description')}>
-      <FormField label={t('fields.languages')}>
+      <FormGroup label={t('fields.languages')}>
         <FormChecklist
           options={STATUS_PAGE_LANGUAGES}
           selected={languages}
@@ -59,7 +59,7 @@ export function StatusPageLocalizationSettings() {
           onChange={setAvailableLanguages}
           className="grid grid-cols-1 gap-2 sm:grid-cols-2"
         />
-      </FormField>
+      </FormGroup>
       <FormRow className="grid-cols-1 sm:grid-cols-2">
         <FormField label={t('fields.default_language')}>
           <FormSelect

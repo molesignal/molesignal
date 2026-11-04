@@ -3,8 +3,8 @@
 
 use super::*;
 use crate::domain::apm::{
-    APM_FACT_SCHEMA_VERSION, ApmSpanKind, InstrumentationMetadata, TransactionIdentity,
-    TransactionKind,
+    APM_FACT_SCHEMA_VERSION, ApmOutcome, ApmSpanKind, InstanceSighting, InstrumentationMetadata,
+    TransactionIdentity, TransactionKind,
 };
 
 fn fact(span_id: &str, kind: ApmSpanKind, duration: u64) -> ApmSpanFact {
@@ -23,7 +23,7 @@ fn fact(span_id: &str, kind: ApmSpanKind, duration: u64) -> ApmSpanFact {
         span_id: span_id.into(),
         parent_span_id: (kind == ApmSpanKind::Client).then(|| "server".into()),
         event_time: TimestampMicros(61_000_000),
-        duration_micros: duration,
+        duration,
         span_kind: kind,
         outcome: ApmOutcome::Success,
         transaction: Some(TransactionIdentity {
@@ -33,6 +33,10 @@ fn fact(span_id: &str, kind: ApmSpanKind, duration: u64) -> ApmSpanFact {
         dependency: None,
         error: None,
         exception: None,
+        response_status: None,
+        timed_out: false,
+        retried: false,
+        instance: None,
     }
 }
 
@@ -143,4 +147,98 @@ fn catalog_retains_multiple_versions_and_standalone_services_without_red() {
             .all(|snapshot| snapshot.dimension.service().name != "worker"),
         "standalone internal work is catalogued without inventing request RED"
     );
+}
+
+#[test]
+fn instances_gather_from_looks_and_services_note_the_kinds_they_serve() {
+    let mut aggregator =
+        ApmAggregator::new("owner-a".into(), HistogramSchema::v1(), 2, 2).expect("aggregator");
+    let look = |region: &str| {
+        Box::new(InstanceSighting {
+            instance_id: "pod-a".into(),
+            attributes: [("cloud.region".to_owned(), region.to_owned())].into(),
+        })
+    };
+
+    let mut first = fact("server-1", ApmSpanKind::Server, 20);
+    first.instance = Some(look("ap-southeast-1"));
+    aggregator.observe(first, true).expect("first");
+
+    let mut consumer = fact("consumer", ApmSpanKind::Consumer, 5);
+    consumer.transaction = Some(TransactionIdentity {
+        name: "orders.created".into(),
+        kind: TransactionKind::Messaging,
+    });
+    consumer.event_time = TimestampMicros(130_000_000);
+    consumer.service_version = Some("v2".into());
+    consumer.instance = Some(look("eu-west-1"));
+    aggregator.observe(consumer, true).expect("consumer");
+
+    // A span without a look leaves the instance as it was.
+    aggregator
+        .observe(fact("server-2", ApmSpanKind::Server, 20), true)
+        .expect("plain");
+
+    let batch = aggregator.flush_batch(TimestampMicros(140_000_000), 100);
+    let instance = batch.instances.first().expect("instance");
+
+    assert_eq!(batch.instances.len(), 1);
+    assert_eq!(instance.version.as_deref(), Some("v2"));
+    assert_eq!(instance.attributes["cloud.region"], "eu-west-1");
+    assert_eq!(
+        (instance.first_seen_at, instance.last_seen_at),
+        (TimestampMicros(61_000_000), TimestampMicros(130_000_000))
+    );
+    assert_eq!(
+        batch.services[0].entry_kinds,
+        [TransactionKind::Http, TransactionKind::Messaging]
+    );
+
+    aggregator.acknowledge(&batch);
+    assert!(
+        aggregator
+            .flush_batch(TimestampMicros(150_000_000), 100)
+            .instances
+            .is_empty()
+    );
+}
+
+#[test]
+fn each_instance_counts_the_requests_it_served_and_the_overflow_row_says_so() {
+    let mut aggregator =
+        ApmAggregator::new("owner-a".into(), HistogramSchema::v1(), 2, 2).expect("aggregator");
+    let mut other = fact("server-2", ApmSpanKind::Server, 30);
+    other.service_instance_id = Some(OTHER_DIMENSION.into());
+
+    for fact in [
+        fact("server-1", ApmSpanKind::Server, 20),
+        fact("client-1", ApmSpanKind::Client, 10),
+        other,
+    ] {
+        aggregator.observe(fact, true).expect("observe");
+    }
+
+    let batch = aggregator.flush_batch(TimestampMicros(70_000_000), 100);
+    let served = |wanted: &str| {
+        batch
+            .snapshots
+            .iter()
+            .find(|snapshot| {
+                matches!(&snapshot.dimension, BucketDimension::Instance { instance_id, .. } if instance_id == wanted)
+            })
+            .map(|snapshot| {
+                (
+                    snapshot.measurements.request_count,
+                    snapshot.measurements.overflow_count,
+                )
+            })
+    };
+
+    // The client span is no request the instance served.
+    assert_eq!(served("instance-a"), Some((1, 0)));
+    assert_eq!(served(OTHER_DIMENSION), Some((1, 1)));
+
+    // The overflow row is no instance of the service's.
+    let services = &batch.services;
+    assert_eq!(services[0].recent_instance_count, 1);
 }

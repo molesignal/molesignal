@@ -2,19 +2,17 @@ import { http } from '@/lib/http';
 
 export interface AgentToolset {
   id: string;
-  org_id: string;
+  orgId: string;
   name: string;
   schema: unknown;
   enabled: boolean;
-  created_at_micros: number;
-  updated_at_micros: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
-interface AgentToolsetWire extends Omit<AgentToolset, 'created_at_micros' | 'updated_at_micros'> {
-  created_at?: number;
-  updated_at?: number;
-  created_at_micros?: number;
-  updated_at_micros?: number;
+interface AgentToolsetWire extends Omit<AgentToolset, 'createdAt' | 'updatedAt'> {
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 export interface CreateAgentToolsetInput {
@@ -40,7 +38,7 @@ export async function remove(id: string): Promise<void> {
 function normalize(row: AgentToolsetWire): AgentToolset {
   return {
     ...row,
-    created_at_micros: row.created_at_micros ?? row.created_at ?? 0,
-    updated_at_micros: row.updated_at_micros ?? row.updated_at ?? 0,
+    createdAt: row.createdAt ?? 0,
+    updatedAt: row.updatedAt ?? 0,
   };
 }

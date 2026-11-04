@@ -16,7 +16,10 @@ use crate::{
         query::{PromqlEngine, QueryEngine, QueryRequest},
         storage::DatasetTypeId,
     },
-    infra::cluster::grpc_status::error_to_status,
+    infra::{
+        cluster::grpc_status::error_to_status,
+        query::grants::{self, ReadGrants},
+    },
     protocol::query::v1::{
         ExecuteOp, ExecuteRequest, ExecuteResponse,
         query_execution_service_server::{QueryExecutionService, QueryExecutionServiceServer},
@@ -37,6 +40,26 @@ impl QueryExecutionGrpc {
     pub fn into_server(self) -> QueryExecutionServiceServer<Self> {
         QueryExecutionServiceServer::new(self)
     }
+
+    async fn run(
+        &self,
+        op: i32,
+        req: QueryRequest,
+        dataset_type: String,
+    ) -> std::result::Result<Vec<u8>, Status> {
+        match ExecuteOp::try_from(op).unwrap_or(ExecuteOp::Unspecified) {
+            ExecuteOp::Sql => encode(self.sql.execute(req).await),
+            ExecuteOp::SqlDataset => {
+                let dataset = DatasetTypeId::new(dataset_type)
+                    .map_err(|error| Status::invalid_argument(error.to_string()))?;
+                encode(self.sql.execute_dataset(req, dataset).await)
+            }
+            ExecuteOp::SqlExplain => encode(self.sql.explain(req).await),
+            ExecuteOp::Promql => encode(self.promql.execute(req).await),
+            ExecuteOp::PromqlExemplars => encode(self.promql.query_exemplars(req).await),
+            ExecuteOp::Unspecified => Err(Status::invalid_argument("execute op unspecified")),
+        }
+    }
 }
 
 fn encode<T: Serialize>(result: Result<T>) -> std::result::Result<Vec<u8>, Status> {
@@ -50,6 +73,14 @@ impl QueryExecutionService for QueryExecutionGrpc {
         &self,
         request: Request<ExecuteRequest>,
     ) -> std::result::Result<Response<ExecuteResponse>, Status> {
+        // The query runs with the read grants of the caller it came from.
+        let grants = ReadGrants::from_header(
+            request
+                .metadata()
+                .get(grants::HEADER)
+                .and_then(|value| value.to_str().ok()),
+        );
+
         let ExecuteRequest {
             op,
             request,
@@ -59,20 +90,7 @@ impl QueryExecutionService for QueryExecutionGrpc {
         let req: QueryRequest = serde_json::from_slice(&request)
             .map_err(|error| Status::invalid_argument(format!("query decode: {error}")))?;
 
-        let result = match ExecuteOp::try_from(op).unwrap_or(ExecuteOp::Unspecified) {
-            ExecuteOp::Sql => encode(self.sql.execute(req).await)?,
-            ExecuteOp::SqlDataset => {
-                let dataset = DatasetTypeId::new(dataset_type)
-                    .map_err(|error| Status::invalid_argument(error.to_string()))?;
-                encode(self.sql.execute_dataset(req, dataset).await)?
-            }
-            ExecuteOp::SqlExplain => encode(self.sql.explain(req).await)?,
-            ExecuteOp::Promql => encode(self.promql.execute(req).await)?,
-            ExecuteOp::PromqlExemplars => encode(self.promql.query_exemplars(req).await)?,
-            ExecuteOp::Unspecified => {
-                return Err(Status::invalid_argument("execute op unspecified"));
-            }
-        };
+        let result = grants::scope(grants, self.run(op, req, dataset_type)).await?;
 
         Ok(Response::new(ExecuteResponse {
             result: result.into(),

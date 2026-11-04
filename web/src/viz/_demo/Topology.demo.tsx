@@ -47,10 +47,10 @@ function buildTopology(n: number): TopologyResponse {
     nodes[i] = {
       id: `svc-${i}`,
       name: `svc-${i}`,
-      error_rate: (i % 17) / 100,
-      p95_ms: 20 + ((i * 7) % 400),
+      errorRate: (i % 17) / 100,
+      p95Ms: 20 + ((i * 7) % 400),
       rps: 5 + ((i * 11) % 200),
-      span_count: 100 + i * 13,
+      spanCount: 100 + i * 13,
     };
   }
   const edges: TopologyEdge[] = [];
@@ -59,8 +59,8 @@ function buildTopology(n: number): TopologyResponse {
     const a = `svc-${i}`;
     const b1 = `svc-${(i + 3) % n}`;
     const b2 = `svc-${(i + 7) % n}`;
-    if (a !== b1) edges.push({ source: a, target: b1, rps: 10 + i, err_rate: 0.01, p95_ms: 50 });
-    if (a !== b2) edges.push({ source: a, target: b2, rps: 5 + i, err_rate: 0.005, p95_ms: 30 });
+    if (a !== b1) edges.push({ source: a, target: b1, rps: 10 + i, errRate: 0.01, p95Ms: 50 });
+    if (a !== b2) edges.push({ source: a, target: b2, rps: 5 + i, errRate: 0.005, p95Ms: 30 });
   }
   return { nodes, edges };
 }

@@ -38,22 +38,50 @@
     "slack_webhook": "Slack webhook",
     "lark_app": "Lark app",
     "lark_webhook": "Lark webhook",
+    "dingtalk_app": "DingTalk app",
+    "dingtalk_webhook": "DingTalk webhook",
+    "wecom_app": "WeCom app",
+    "wecom_webhook": "WeCom webhook",
+    "wecom_bot": "WeCom smart bot",
+    "teams_app": "Microsoft Teams bot",
+    "teams_webhook": "Microsoft Teams webhook",
+    "google_chat_app": "Google Chat app",
+    "google_chat_webhook": "Google Chat webhook",
+    "aliyun_voice": "Alibaba Cloud voice",
+    "aliyun_sms": "Alibaba Cloud SMS",
+    "tencent_voice": "Tencent Cloud voice",
+    "tencent_sms": "Tencent Cloud SMS",
+    "huawei_voice": "Huawei Cloud voice",
+    "huawei_sms": "Huawei Cloud SMS",
+    "twilio_voice": "Twilio voice",
+    "twilio_sms": "Twilio SMS",
+    "aws_voice": "AWS voice",
+    "aws_sms": "AWS SMS",
+    "http_sms": "Generic HTTP SMS",
     "webhook": "Webhook"
   },
+  "connector_channels": {
+    "im": "Instant messaging",
+    "phone": "Phone calls",
+    "sms": "SMS",
+    "email": "Email",
+    "webhook": "Custom",
+    "other": "Other"
+  },
   "capabilities": {
-    "direct_user": "Direct user",
+    "directUser": "Direct user",
     "group": "Group",
-    "rich_text": "Rich text",
+    "richText": "Rich text",
     "interactive": "Interactive",
     "acknowledgement": "Acknowledgement",
     "attachments": "Attachments"
   },
   "connectors": {
-    "title": "Enterprise connectors",
+    "title": "Connectors",
     "subtitle": "Manage workspace credentials separately from recipients and routing.",
     "new": "New connector",
     "empty_title": "No connectors",
-    "empty_description": "Add an enterprise connector before binding user endpoints or fallback routes.",
+    "empty_description": "Add a connector before binding user endpoints or fallback routes.",
     "columns": {
       "name": "Name",
       "type": "Type",
@@ -74,13 +102,17 @@
       "subtitle": "Credentials are encrypted at rest and never returned in plain text.",
       "identity": "Connector",
       "configuration": "Provider configuration",
-      "slack_app_hint": "The bot token sends notifications. With the client ID and secret, visitors of a status page can add it to their own Slack channels; choose this connector in the Slack settings of the page. Fill in at least one of the two.",
       "name": "Name",
       "type": "Connector type",
       "enabled": "Allow this connector to deliver",
       "test_target": "Test target",
       "target_type": "Target type",
       "target": "Target",
+      "test_template": "Test template",
+      "test_template_hint": "This provider sends only approved templates: the test sends this one, with sample values for the placeholders.",
+      "test_template_none": "No {{channel}} template is written for this provider yet: write one in Notify templates.",
+      "test_card_hint": "Choose an instant messaging template to send its card, with sample values for the placeholders; without one the test sends a plain test message.",
+      "test_without_template": "No template",
       "save": "Save connector",
       "test": "Test connection",
       "save_before_test": "Save this connector before sending a test.",
@@ -91,19 +123,221 @@
         "password": "Password",
         "from": "From address",
         "tls": "TLS mode",
-        "timeout_secs": "Timeout (seconds)",
-        "bot_token": "Bot token",
-        "client_id": "Client ID",
-        "client_secret": "Client secret",
-        "api_base_url": "API base URL",
-        "webhook_url": "Webhook URL",
-        "app_id": "App ID",
-        "app_secret": "App secret",
-        "receive_id_type": "Recipient ID type",
+        "timeoutSecs": "Timeout (seconds)",
+        "bodyFormat": "Body format",
+        "body": "Body",
+        "phoneFormat": "Number format",
+        "successField": "Success field",
+        "successValue": "Success value",
+        "botToken": "Bot token",
+        "clientId": "Client ID",
+        "clientSecret": "Client secret",
+        "apiBaseUrl": "API base URL",
+        "webhookUrl": "Webhook URL",
+        "appId": "App ID",
+        "appSecret": "AppSecret",
+        "receiveIdType": "Recipient ID type",
         "secret": "Signing secret",
         "url": "Default URL",
         "method": "HTTP method",
-        "headers": "Headers (JSON)"
+        "headers": "Headers (JSON)",
+        "appToken": "App-level token",
+        "robotCode": "Robot code",
+        "cardTemplateId": "Card template ID",
+        "corpId": "Corp ID",
+        "corpSecret": "App secret",
+        "agentId": "AgentId",
+        "callbackToken": "Callback token",
+        "callbackAesKey": "EncodingAESKey",
+        "tenantId": "Tenant ID",
+        "serviceUrl": "Service URL",
+        "credentials": "Service account key (JSON)",
+        "botId": "Bot ID",
+        "botSecret": "Long connection secret",
+        "wsUrl": "Long connection address",
+        "pubsubBaseUrl": "Pub/Sub URL",
+        "subscription": "Pub/Sub subscription",
+        "accessKeyId": "AccessKey ID",
+        "secretId": "SecretId",
+        "sdkAppId": "App ID (SdkAppId)",
+        "appKey": "AppKey",
+        "signature": "Signature name",
+        "accessKeySecret": "AccessKey secret",
+        "showNumber": "Caller ID",
+        "signName": "Signature",
+        "playTimes": "Times read",
+        "accountSid": "Account SID",
+        "authToken": "Auth token",
+        "fromNumber": "Calling number",
+        "language": "Language",
+        "voice": "Voice",
+        "sender": "Sender",
+        "region": "Region",
+        "site": "Platform",
+        "cloud": "Cloud",
+        "auth": "Authentication",
+        "accessKey": "Access key ID",
+        "secretKey": "Secret access key",
+        "sessionToken": "Session token",
+        "roleArn": "Role ARN",
+        "originationIdentity": "Origination identity",
+        "voiceId": "Polly voice",
+        "externalId": "External ID",
+        "signingSecret": "Signing secret",
+        "replies": "Act on replies",
+        "replyTopicArn": "Reply SNS topic ARN"
+      },
+      "hints": {
+        "slack_app": "The bot token sends notifications. With the client ID and secret, visitors of a status page can add it to their own Slack channels; choose this connector in the Slack settings of the page. Fill in at least one of the two. The app-level token (xapp-) lets Mole Agent answer in Slack over Socket Mode.",
+        "lark_app": "With events received over a long connection, the app also lets Mole Agent answer in Feishu; turn it on in Mole Agent → Settings → IM.",
+        "dingtalk_app": "The robot of an internal app. The robot code is the Client ID unless the robot has one of its own. A direct target is a user ID, a group target an openConversationId. With its messages received over Stream, the robot also lets Mole Agent answer in DingTalk. For Acknowledge and Resolve buttons on alert notifications, build an interactive card template on the DingTalk card platform as the docs describe, enter its ID here and turn the robot on in Mole Agent → Settings → IM.",
+        "dingtalk_webhook": "A group's custom robot. Fill in the signing secret when the robot signs requests.",
+        "wecom_app": "A self-built app: the corp ID, the app's secret and its AgentId. A direct target is a member's user ID, a group target an app chat ID. Add the server's address to the app's trusted IPs. For Acknowledge and Resolve buttons on alert notifications to members, set up API receiving under the app's Receive messages, enter the generated token and EncodingAESKey here, save, then enter the callback URL below there.",
+        "wecom_webhook": "A group robot's webhook address.",
+        "wecom_bot": "A WeCom smart bot in API mode over a long connection: its Bot ID and the secret for the long connection. Once it is turned on in Mole Agent → Settings → IM, Mole Agent answers in WeCom and the bot delivers notifications too, with Acknowledge and Resolve buttons on alert notifications. A direct target is a member's userid, a group target a chat's chatid; the bot reaches only conversations where someone messaged it: people who messaged it directly and chats where someone mentioned it.",
+        "teams_app": "A Bot Framework bot: its app ID, a client secret and its tenant (botframework.com for an older multi-tenant bot). Choose the cloud: Global, GCC, or the US government clouds GCC High and DoD; the service URL follows from it. A direct target is a user ID, a group target a conversation ID. The bot must be installed for the people and teams it writes to. The bot also lets Mole Agent answer in Teams: turn it on in Mole Agent → Settings → IM, and enter the callback address shown there as the Azure Bot's messaging endpoint.",
+        "teams_webhook": "A channel's webhook from a Workflows flow, or a classic incoming webhook. Messages are sent as Adaptive Cards.",
+        "google_chat_app": "The service account of a Chat app: paste its JSON key. A group target is a space (spaces/…), a direct target a user (users/…) who has messaged the app. With a Pub/Sub subscription (projects/…/subscriptions/…), the app also lets Mole Agent answer in Google Chat; turn it on in Mole Agent → Settings → IM.",
+        "google_chat_webhook": "A space's incoming webhook address.",
+        "aliyun_voice": "Calls numbers in mainland China only. Apply for a text-to-speech template (TTS_…) in the Alibaba Cloud Voice Service console, write its code and variables into a phone notify template, and choose that template for the phone channel in notify policies. Leave the caller ID empty for the shared mode, or enter your number for the dedicated mode; the template must be of the same mode. A number is called at most once a minute, 5 times an hour and 20 times a day.",
+        "aliyun_sms": "Apply for a signature and a notification template (SMS_…) in the Alibaba Cloud SMS console. The signature goes here; write the template code and variables into an SMS notify template, and choose that template for the SMS channel in notify policies. A variable in a notification template holds 35 characters by default and cannot carry links or IP addresses.",
+        "tencent_voice": "Create an app and apply for a voice template in the Tencent Cloud Voice Message console. Write the template ID and variables into a phone notify template, naming the variables 1, 2, 3 by position, and choose that template for the phone channel in notify policies. Voice is prepaid: once the package runs out calls are refused, and the error shows on the delivery.",
+        "tencent_sms": "Create an app and apply for a signature and a template in the Tencent Cloud SMS console. The signature's text goes here (required for mainland China); write the template ID and variables into an SMS notify template, naming the variables 1, 2, 3 by position. Accounts opened after January 25, 2024 and accounts long idle hold 6 characters per variable by default: once Tencent Cloud raises it, write the limit in the notify template.",
+        "huawei_voice": "Create an app, order a landline number and submit a voice template in the Huawei Cloud VoiceCall console. The AppKey, AppSecret and app address are under App Management; copy the address as it is, since no API lists it. The caller ID is the country code, area code and number. Write the template ID and variables into a phone notify template, naming the variables 1, 2, 3 by position; a variable holds 32 bytes and a Chinese character takes 3.",
+        "huawei_sms": "Create an app and set up a signature and a template in the Huawei Cloud Message & SMS console. The AppKey, AppSecret and app address are under App Management; copy the address as it is, since no API lists it. The sender is the channel number of the signature; a universal template also needs the signature name. Write the template ID and variables into an SMS notify template, naming the variables 1, 2, 3 by position.",
+        "twilio_voice": "The calling number is a voice-capable number on the account, like +14155550100. The language is a tag such as en-US or cmn-CN; the voice is a name such as Polly.Joanna or Polly.Zhiyu, or Twilio's default when left empty.",
+        "twilio_sms": "The sender is a number on the account, a Messaging Service (MG…), or an alphanumeric sender ID. Texts to US numbers need A2P 10DLC registration first.",
+        "aws_voice": "Voice messages from AWS End User Messaging, read by Amazon Polly. The origination identity is a voice-capable phone number, a pool, or the ARN of one; the Polly voice is MATTHEW when left empty, ZHIYU for Mandarin. A sandboxed account only calls verified numbers. The region is one the account has enabled; listing them needs ec2:DescribeRegions.",
+        "aws_sms": "Transactional texts from AWS End User Messaging. With no origination identity AWS picks a number on the account for the destination; or name a phone number, sender ID or pool. A sandboxed account only texts verified numbers. The region is one the account has enabled; listing them needs ec2:DescribeRegions.",
+        "http_sms": "Hands texts to your own SMS gateway, or to a provider without a connector of its own. Write placeholders in the gateway URL, headers and body: {{phone}} is the number, {{content}} the text (the title line and the text line, up to 320 characters), then {{title}}, {{text}}, and {{secret}} for the secret below, kept encrypted. Values are JSON-escaped in a JSON body and URL-encoded in a form or the URL. A 2xx answer counts as sent; with a success field, its value must also equal the success value.",
+        "webhook": "Every request carries X-MoleSignal-Event (the notification type) and X-MoleSignal-Delivery (the delivery ID, to drop duplicates). With a signing secret (at least 16 characters, such as one from openssl rand -hex 32) it also carries X-MoleSignal-Timestamp and X-MoleSignal-Sign: sha256=<hex>, the HMAC-SHA256 of \"<timestamp>.<body>\" under the secret. Only the addresses the host resolves to are connected to, cloud metadata addresses are refused and redirects are not followed."
+      },
+      "options": {
+        "auth": {
+          "access_key": "Access key",
+          "temporary_key": "Temporary key",
+          "node_role": "Node identity",
+          "assume_role": "Assume a role",
+          "web_identity": "Web identity"
+        },
+        "site": {
+          "feishu": "Feishu",
+          "lark": "Lark",
+          "slack": "Slack",
+          "govslack": "GovSlack"
+        },
+        "cloud": {
+          "global": "Global",
+          "gcc": "GCC",
+          "gcc_high": "GCC High",
+          "dod": "DoD"
+        },
+        "method": {
+          "post": "POST",
+          "put": "PUT",
+          "patch": "PATCH",
+          "get": "GET"
+        },
+        "body_format": {
+          "json": "JSON",
+          "form": "Form (x-www-form-urlencoded)"
+        },
+        "phone_format": {
+          "e164": "+8613800138000 (E.164)",
+          "digits": "8613800138000 (no +)",
+          "mainland": "13800138000 (mainland numbers without the country code)"
+        },
+        "body": {
+          "event": "MoleSignal event",
+          "template": "Notify template body"
+        }
+      },
+      "option_hints": {
+        "auth": {
+          "access_key": "A long-lived key of an IAM user. Give that user only what it needs: sms-voice:SendTextMessage and sms-voice:SendVoiceMessage to send, and ec2:DescribeRegions to list the regions.",
+          "temporary_key": "A short-lived key from AWS STS, valid only together with its session token. It stops working when it expires and has to be replaced here.",
+          "node_role": "No key is stored. MoleSignal uses the identity of the node it runs on: EKS IRSA or Pod Identity, an ECS task role, or an EC2 instance profile. Every organization in this deployment can choose it.",
+          "assume_role": "MoleSignal assumes this role through AWS STS, with the access key when you give one and as the node's identity otherwise. The role's trust policy has to allow that identity and require the external ID below.",
+          "web_identity": "MoleSignal assumes this role with the web identity token on the node, such as the service account token EKS projects for IRSA (its path is in AWS_WEB_IDENTITY_TOKEN_FILE)."
+        },
+        "cloud": {
+          "gcc_high": "A US government cloud: tokens come from login.microsoftonline.us, and messages to Mole Agent are verified by the government Bot Framework.",
+          "dod": "A US government cloud: tokens come from login.microsoftonline.us, and messages to Mole Agent are verified by the government Bot Framework."
+        },
+        "site": {
+          "govslack": "The US government's Slack: the API and the status page authorization are on slack-gov.com."
+        },
+        "body": {
+          "event": "The body is the event for machines to read: version, event, alert, rule and escalation, with the target and the rendered message. Fields are only ever added.",
+          "template": "The body is the template the notify policy chose for the webhook channel, sent as written; a JSON template is sent as JSON with its values escaped."
+        }
+      },
+      "switch_hints": {
+        "replies": {
+          "twilio_sms": "Whoever gets an alert text can reply with its code, such as 31 to acknowledge or 32 to resolve, for a day. Replies act as the recipient, with their permissions.",
+          "aws_sms": "Whoever gets an alert text can reply with its code, such as 31 to acknowledge or 32 to resolve, for a day. Replies act as the recipient, with their permissions, and come through SNS from two-way SMS.",
+          "http_sms": "Whoever gets an alert text can reply with its code, such as 31 to acknowledge or 32 to resolve, for a day. Replies act as the recipient, with their permissions; the gateway has to forward the replies it receives.",
+          "aliyun_sms": "Alibaba Cloud sends approved templates only: put the variables reply.ack and reply.resolve in the template parameters, and the recipient replies with those codes to acknowledge or resolve, for a day. Replies act as the recipient, with their permissions.",
+          "twilio_voice": "Whoever answers presses 1 to acknowledge or 2 to resolve, acting as themselves, with their permissions.",
+          "aliyun_voice": "Calls are placed as interactive voice (IvrCall): whoever answers presses 1 to acknowledge or 2 to resolve. Needs the show number, a real number bought for IvrCall.",
+          "tencent_sms": "Tencent Cloud sends approved templates only: put the variables reply.ack and reply.resolve in the template parameters, and the recipient replies with those codes to acknowledge or resolve, for a day. Replies act as the recipient, with their permissions.",
+          "tencent_voice": "Whoever answers presses 1 to acknowledge or 2 to resolve. The template has to say so itself, and the keypress callback must be on in the console; a keypress counts for the latest call to that number.",
+          "huawei_sms": "Huawei Cloud sends approved templates only: put the variables reply.ack and reply.resolve in the template parameters, and the recipient replies with those codes to acknowledge or resolve, for a day. Replies act as the recipient, with their permissions.",
+          "huawei_voice": "One key is collected after the template plays: whoever answers presses 1 to acknowledge or 2 to resolve. The template has to say so itself."
+        }
+      },
+      "type_fields": {
+        "http_sms": {
+          "url": "Gateway URL",
+          "secret": "Secret"
+        },
+        "twilio_voice": {
+          "replies": "Act on keypresses"
+        },
+        "aliyun_voice": {
+          "replies": "Act on keypresses"
+        },
+        "tencent_voice": {
+          "replies": "Act on keypresses",
+          "secretKey": "SecretKey"
+        },
+        "tencent_sms": {
+          "secretKey": "SecretKey"
+        },
+        "huawei_voice": {
+          "replies": "Act on keypresses",
+          "apiBaseUrl": "App address"
+        },
+        "huawei_sms": {
+          "apiBaseUrl": "App address",
+          "sender": "Channel number"
+        }
+      },
+      "copy": "Copy",
+      "copied": "Copied",
+      "copy_external_id": "Copy external ID",
+      "external_id_hint": "This organization assumes roles with this external ID, which cannot be changed. Require it in the role's trust policy with an sts:ExternalId condition, and no other organization can assume the role even if it learns the role's ARN.",
+      "address_by_region": "Set by the region",
+      "regions_loading": "Asking the provider for its regions…",
+      "regions_need_credentials": "Fill in the credentials to list the regions this account has enabled.",
+      "regions_failed": "Could not list the regions: {{error}}",
+      "callbacks": {
+        "label": "Callback URL",
+        "after_save": "Shown here once the connector is saved.",
+        "no_external_url": "The server has no external URL, so the provider cannot call back.",
+        "per_call": "Each call carries its keypress URL to Twilio; there is nothing to set.",
+        "hints": {
+          "twilio_sms": "In the Twilio number's Messaging settings, set A message comes in to Webhook, HTTP POST, with this URL.",
+          "aws_sms": "Add an HTTPS subscription with this endpoint to the SNS topic that receives the replies; it is confirmed automatically.",
+          "aliyun_sms": "In Alibaba Cloud SMS, have inbound messages pushed over HTTP to this URL.",
+          "aliyun_voice": "In Alibaba Cloud Voice, have receipts pushed over HTTP to this URL; keypresses arrive here.",
+          "tencent_sms": "In the callback settings of the Tencent Cloud SMS console, set the reply callback to this URL.",
+          "tencent_voice": "In the event callback settings of the Tencent Cloud Voice Message console, set the keypress callback to this URL.",
+          "huawei_sms": "When creating the SMS app, enter this as the address for inbound messages; its last segment is the callback token.",
+          "huawei_voice": "Under App Management, enter this as the address for call status; its last segment is the callback token.",
+          "http_sms": "Have the gateway POST the replies it receives to this URL as JSON with the fields phone and text.",
+          "wecom_app": "Set up API receiving under the app's Receive messages: the URL is this one, the token and EncodingAESKey the two fields above. The URL's domain must be on an ICP filing of the company."
+        }
       }
     },
     "delete_title": "Delete connector?",
@@ -127,7 +361,7 @@
   },
   "endpoints": {
     "title": "Notify identities",
-    "description": "Each identity belongs to one enterprise connector.",
+    "description": "Each identity belongs to one connector.",
     "add": "Bind notify method",
     "empty": "No notify identities are bound.",
     "identity": "External identity",
@@ -139,7 +373,8 @@
     "edit_title": "Edit notify method",
     "save": "Save endpoint",
     "delete_title": "Delete endpoint?",
-    "delete_description": "Remove this endpoint from every delivery preference first."
+    "delete_description": "Remove this endpoint from every delivery preference first.",
+    "phone_hint": "A phone number with + and the country code, like +14155550100; Alibaba Cloud, Tencent Cloud, Huawei Cloud and generic HTTP SMS connectors also take an 11-digit mainland mobile number."
   },
   "preferences": {
     "title": "Delivery preferences",
@@ -155,12 +390,19 @@
     "move_up": "Move endpoint up",
     "move_down": "Move endpoint down",
     "no_endpoints": "Bind an endpoint before configuring this category.",
-    "critical_bypass": "Allow critical alerts to bypass quiet hours",
     "quiet_enabled": "Use quiet hours",
     "timezone": "Timezone",
     "start": "Start (HH:MM)",
     "end": "End (HH:MM)",
-    "save": "Save {{category}}"
+    "save": "Save {{category}}",
+    "wait_label": "Minutes before step {{step}}",
+    "wait_unit": "min later",
+    "wait_hint": "The first step is sent at once. Each later step waits the minutes you give, counted from the first notification, and is used if nobody has acknowledged the alert by then; a step with the same minutes as the one before is used only when that one fails to send. A step that fails always moves on to the next at once.",
+    "high_urgency_steps": "High-urgency alerts, in order",
+    "low_urgency_steps": "Low-urgency alerts, in order",
+    "low_urgency_hint": "Left empty, only the first method above is used.",
+    "high_urgency_bypass": "Still get high-urgency alerts during quiet hours",
+    "quiet_low_urgency": "Low-urgency alerts never come during quiet hours."
   },
   "event_types": {
     "alert": {
@@ -179,7 +421,16 @@
       },
       "coverage": {
         "missing": "On-call coverage missing"
+      },
+      "swap": {
+        "updated": "Shift swap updated"
+      },
+      "member": {
+        "unreachable": "On-call member cannot be reached"
       }
+    },
+    "incident": {
+      "status_update": "Major incident update"
     }
   },
   "resolver_types": {
@@ -223,13 +474,22 @@
       "resolver": "Recipient resolver",
       "resolver_config": "Resolver config (JSON)",
       "delivery_mode": "Delivery mode",
-      "template": "Message template",
-      "template_hint": "Templates are rendered from event attributes when this policy delivers.",
+      "template": "General template",
+      "template_hint": "Every channel without a template of its own uses it, filled from the event's attributes.",
       "default_template": "Use generated event message",
+      "channel_templates": "Templates by channel",
+      "use_general_template": "Use the general template",
       "connectors": "Selected connectors",
       "user_fallbacks": "Use user fallback endpoints",
       "team_defaults": "Use team fallback routes",
       "organization_defaults": "Use organization fallback routes",
+      "merge_window": "Merge notifications",
+      "merge_window_hint": "Alert notifications to one person or one group within the window go out as one: the first is sent at once, the rest together when the window ends. Calls are merged for at least 60 seconds; webhooks are never merged.",
+      "merge_off": "Do not merge",
+      "merge_seconds_one": "{{count}} second",
+      "merge_seconds_other": "{{count}} seconds",
+      "merge_minutes_one": "{{count}} minute",
+      "merge_minutes_other": "{{count}} minutes",
       "ack_timeout": "Acknowledgement timeout (seconds)",
       "escalation_resolver": "Escalation resolver",
       "escalation_config": "Escalation resolver config (JSON)",
@@ -244,7 +504,11 @@
       "not_matched": "Policy did not match",
       "no_recipients": "No recipients resolved.",
       "resolved_by": "Resolved by {{resolver}}",
-      "save": "Save policy"
+      "step_template": "Template: {{name}}",
+      "save": "Save policy",
+      "restore": "Restore default",
+      "builtin_name_hint": "A built-in policy keeps its name.",
+      "time_hint": "By when the notification's event happened. Outside it this policy sends nothing; other policies still apply."
     },
     "delivery_modes": {
       "prefer_user": "Respect user preference",
@@ -252,7 +516,27 @@
       "multi_connector": "Send through multiple connectors"
     },
     "delete_title": "Delete policy?",
-    "delete_description": "Existing delivery history remains available."
+    "delete_description": "Existing delivery history remains available.",
+    "builtin_label": "Built-in",
+    "builtin_not_deletable": "A built-in policy can be turned off, not deleted.",
+    "builtin": {
+      "alert_triggered": "Alert fired: notify the owner",
+      "alert_resolved": "Alert resolved: notify the owner",
+      "alert_acknowledged": "Alert acknowledged: notify the owner",
+      "alert_escalated_to_users": "Escalation: notify the people of the step",
+      "alert_escalated_to_teams": "Escalation: notify the team of the step",
+      "oncall_shift_starting": "On-call handover: notify both people",
+      "oncall_coverage_missing": "On-call gap: notify the schedule managers",
+      "oncall_override_created": "On-call override: notify the people involved",
+      "oncall_swap_updated": "Shift swap: notify the people involved",
+      "incident_status_update": "Major incident update: notify the stakeholders",
+      "oncall_member_unreachable": "Unreachable on-call member: notify them and the schedule managers",
+      "intake_budget_warning": "Intake budget nearly used: notify the people it names",
+      "intake_budget_exceeded": "Intake budget exceeded: notify the people it names"
+    },
+    "restore_title": "Restore the default settings?",
+    "restore_description": "The built-in policy goes back to its default settings, and the changes made to it are lost.",
+    "restored": "Default restored"
   },
   "defaults": {
     "title": "Fallback routes",
@@ -298,19 +582,46 @@
     "detail_subtitle": "Attempt {{attempt}} · {{status}}",
     "target": "Masked target",
     "error": "Failure",
+    "skip_reason": "Reason",
     "ack": "Acknowledge event",
     "retry": "Retry failed routes",
     "acknowledged": "Event acknowledged",
-    "retried": "Retry started"
+    "retried": "Retry started",
+    "views_label": "How deliveries are listed",
+    "views": {
+      "events": "By alert",
+      "attempts": "By attempt"
+    },
+    "by_event": {
+      "channels": "Channels and tries",
+      "first_delivered": "First arrived",
+      "not_delivered": "Not delivered",
+      "failed_tries": "Failed",
+      "open_try": "Open try {{attempt}}: {{status}}"
+    }
   },
   "templates": {
+    "conditions": {
+      "title": "Conditions",
+      "description": "What is inside is kept only when the condition holds; != comparisons and an else branch work too, and blocks nest.",
+      "items": {
+        "triggered": "Only when it fires",
+        "resolved": "Only when it recovers",
+        "severity": "Other words by severity",
+        "runbook": "The runbook link when there is one"
+      },
+      "problem": "A condition is not right: {{problem}}"
+    },
     "title": "Notify templates",
-    "subtitle": "Define reusable alert and on-call messages with the official placeholders for each category.",
+    "subtitle": "Reusable notification messages: a general template serves every channel, and SMS, phone and other channels can each have their own.",
     "new": "New template",
     "empty_title": "No notify templates",
     "empty_description": "Create a reusable message body and select it from a notify policy.",
+    "channel_filter": "Filter by channel",
+    "all": "All",
     "columns": {
       "name": "Template",
+      "channel": "Channel",
       "format": "Format",
       "category": "Category",
       "updated": "Updated",
@@ -318,21 +629,35 @@
     },
     "new_title": "New notify template",
     "edit_title": "Edit {{name}}",
-    "editor_subtitle": "Choose a notification category, insert its placeholders, or generate a body from a preset.",
+    "editor_subtitle": "Choose a notification category, insert its variables, or start from a preset template.",
     "name": "Name",
     "category": "Notification category",
+    "channel": "Channel",
+    "channels": {
+      "general": "General",
+      "im": "Instant messaging",
+      "phone": "Phone",
+      "sms": "SMS",
+      "email": "Email",
+      "webhook": "Webhook"
+    },
     "format": "Format",
     "body": "Message body",
-    "variables_hint": "Select a key on the right to insert it at the current cursor position.",
+    "variables_hint": "Open Variables on the right and select one to insert it at the cursor.",
+    "body_hint_sms": "The text message is this body alone, without the notification title.",
+    "body_hint_phone": "The call reads out this body alone, without the notification title.",
     "preview_attributes": "Preview event attributes (JSON)",
     "preview": "Message preview",
     "preview_empty": "Start typing a message body.",
+    "length": "{{chars}} / {{limit}} characters",
+    "length_over_sms": "{{chars}} characters: a text message sends {{limit}} at most and cuts the rest.",
+    "length_over_phone": "{{chars}} characters: a call reads out {{limit}} at most and cuts the rest.",
     "attributes_object": "Preview attributes must be a JSON object.",
     "reference": {
-      "title": "Available placeholders",
-      "description": "Select a key to insert it into the message body.",
-      "loading": "Loading available keys…",
-      "error": "Could not load the placeholder catalog.",
+      "title": "Variables",
+      "description": "Select a variable to insert it at the cursor.",
+      "loading": "Loading variables…",
+      "error": "Could not load the variables.",
       "dynamic_key": "Dynamic key found in this workspace",
       "tabs": {
         "common": "Common",
@@ -341,7 +666,8 @@
         "metadata": "Labels & annotations",
         "schedule": "Schedule",
         "oncall": "Handoff",
-        "override": "Override"
+        "override": "Override",
+        "escalation": "Escalation"
       },
       "groups": {
         "event": "Event",
@@ -351,6 +677,7 @@
         "trigger": "Trigger value",
         "labels": "Labels",
         "annotations": "Annotations",
+        "escalation": "Escalation",
         "schedule": "On-call schedule",
         "oncall": "Shift transition",
         "override": "Override"
@@ -359,6 +686,7 @@
         "event_id": "Unique event identifier",
         "event_type": "Event type",
         "event_occurred_at": "Event time in microseconds",
+        "event_time": "Event time (UTC)",
         "message_title": "System-generated message title",
         "message_text": "System-generated default message",
         "event_attribute": "Any event attribute; replace <key>",
@@ -369,12 +697,30 @@
         "incident_fingerprint": "Incident fingerprint",
         "incident_status": "Incident status",
         "incident_summary": "Incident summary",
+        "incident_url": "The alert's address in MoleSignal (needs the external URL)",
+        "incident_started_time": "When the alert started (UTC)",
+        "incident_duration": "How long the alert has lasted, such as 1h 5m",
+        "incident_acknowledged_time": "When it was acknowledged (UTC)",
+        "incident_acknowledged_by": "User ID of who acknowledged it",
+        "incident_resolved_time": "When it was resolved (UTC)",
+        "incident_resolved_by": "User ID of who resolved it",
+        "incident_assignees": "Assignee user IDs, comma-separated",
+        "service": "Service, from the labels or annotations",
+        "environment": "Environment, from the labels or annotations",
+        "affected_services": "Affected services, comma-separated",
         "severity": "Alert severity",
         "value": "Observed trigger value",
         "threshold": "Rule threshold",
         "evaluated_at": "Rule evaluation time in microseconds",
+        "labels_all": "All labels, such as service=api, env=production",
         "labels_key": "Label value; replace <key>",
         "annotations_key": "Annotation value; replace <key>",
+        "reply_ack": "The code a reply acknowledges with, such as 31; filled in only in texts from connectors that act on replies",
+        "reply_resolve": "The code a reply resolves with, such as 32",
+        "escalation_step": "Escalation step, counted from 1",
+        "escalation_loop": "Escalation round, counted from 1",
+        "escalation_target": "Who this step notifies: user, schedule or team",
+        "escalation_reason": "Why this notification went out: step (the policy moved on), manual (escalated by hand), reassigned, responder_added, snooze_ended, ack_timeout (acknowledged but unresolved too long) or severity_raised",
         "schedule_id": "Schedule ID",
         "schedule_name": "Schedule name",
         "schedule_team_id": "Schedule team ID",
@@ -382,16 +728,103 @@
         "oncall_current_user": "Current on-call user ID",
         "oncall_next_user": "Next on-call user ID",
         "oncall_transition_at": "Transition time in microseconds",
+        "oncall_transition_time": "Transition time (UTC)",
         "override_id": "Override ID",
         "override_user": "Substitute user ID",
         "override_original_user": "Original on-call user ID",
         "override_start_at": "Override start in microseconds",
         "override_end_at": "Override end in microseconds",
-        "override_reason": "Override reason"
+        "override_start_time": "Override start (UTC)",
+        "override_end_time": "Override end (UTC)",
+        "override_reason": "Override reason",
+        "urgency": "Urgency: the key of the level, such as high or low",
+        "priority": "Priority P1–P9; empty when none is set",
+        "urgency_name": "The name the organization gave the urgency level; empty when not named",
+        "priority_name": "The name the organization gave the priority; empty when not named"
+      }
+    },
+    "provider": {
+      "title": "Templates approved by the provider",
+      "description_sms": "Alibaba Cloud, Tencent Cloud and Huawei Cloud send only SMS templates they approved: their SMS connectors send the one written here, other SMS connectors the body above.",
+      "description_phone": "Alibaba Cloud, Tencent Cloud and Huawei Cloud read out only voice templates they approved: their phone connectors read the one written here, other phone connectors the body above.",
+      "names": {
+        "aliyun": "Alibaba Cloud",
+        "tencent": "Tencent Cloud",
+        "huawei": "Huawei Cloud"
+      },
+      "code": "Template code",
+      "max_chars": "Characters per variable",
+      "max_chars_placeholder": {
+        "aliyun_sms": "35 (default)",
+        "aliyun_phone": "35 (default)",
+        "tencent_sms": "6 (default)",
+        "tencent_phone": "20 (default)",
+        "huawei_sms": "20 (default)",
+        "huawei_phone": "32 (default)"
+      },
+      "params": "Variables",
+      "param_name": "Variable",
+      "param_value": "Value",
+      "add_param": "Add variable",
+      "remove_param": "Remove variable",
+      "params_hint": "A variable is named as in the template's {{variable}}; its value may use the variables on the right, and one picked there goes in at the cursor.",
+      "params_hint_position": "This provider fills variables by position: name them 1, 2, 3, for the first, second and third variable of the template. A value may use the variables on the right, and one picked there goes in at the cursor.",
+      "preview": "{{provider}} receives {{code}}",
+      "problem_elsewhere": "The {{provider}} template is not finished, and has to be before saving.",
+      "problems": {
+        "code": "Enter the template code the provider gave, using letters, digits, underscores and hyphens.",
+        "param_name": "A variable name uses letters, digits and underscores only.",
+        "param_twice": "A variable is written twice.",
+        "param_value": "Every variable needs a value.",
+        "max_chars": "Characters per variable are between 1 and 500."
+      }
+    },
+    "card": {
+      "title": "Card",
+      "description": "Lark, DingTalk, WeCom, Slack, Teams and Google Chat apps and group bots send the notification as a card whose text is the message body above; turned off, they send text as before.",
+      "toggle": "Send as a card",
+      "card_title": "Card title",
+      "card_title_placeholder": "Empty uses the notification title",
+      "color": "Title color",
+      "colors": {
+        "severity": "By severity",
+        "blue": "Blue",
+        "green": "Green",
+        "yellow": "Yellow",
+        "orange": "Orange",
+        "red": "Red",
+        "grey": "Grey"
+      },
+      "fields": "Fields",
+      "field_label": "Field name",
+      "field_value": "Field value",
+      "add_field": "Add field",
+      "remove_field": "Remove field",
+      "links": "Link buttons",
+      "link_label": "Button text",
+      "link_url": "Link address",
+      "add_link": "Add link",
+      "remove_link": "Remove link",
+      "note": "Footer",
+      "hint": "Every part takes variables; one picked on the right goes in at the cursor. A field or link an event cannot fill is left out. By severity: critical is red, error orange, warning yellow, the rest blue, and green once resolved.",
+      "starting": {
+        "severity": "Severity",
+        "status": "Status",
+        "service": "Service",
+        "schedule": "Schedule",
+        "next": "Next on call",
+        "runbook": "Runbook"
+      },
+      "problems": {
+        "too_many": "A card holds 10 fields and 5 links at most.",
+        "field": "Every field needs a name and a value.",
+        "link": "Every link needs button text and an address.",
+        "link_url": "A link address starts with http:// or https://, or is a variable that fills one.",
+        "too_long": "Something is too long: the title and footer take 200 characters, field names 40 and values 500, button text 30."
       }
     },
     "presets": {
-      "title": "Generate from preset",
+      "title": "Preset templates",
       "description": "Preset bodies remain fully editable.",
       "items": {
         "alert_text": "Alert plain text",
@@ -412,7 +845,20 @@
         "security_html": "Security HTML",
         "system_text": "System plain text",
         "system_markdown": "System Markdown",
-        "system_html": "System HTML"
+        "system_html": "System HTML",
+        "alert_sms": "Alert SMS",
+        "alert_phone": "Alert call",
+        "escalation_sms": "Escalation SMS",
+        "escalation_phone": "Escalation call",
+        "oncall_sms": "Shift transition SMS",
+        "alert_resolved_text": "Alert resolved plain text",
+        "alert_resolved_markdown": "Alert resolved Markdown",
+        "alert_acknowledged_markdown": "Alert acknowledged Markdown",
+        "alert_im_markdown": "Alert Markdown with link",
+        "alert_email_html": "Alert email with table",
+        "alert_resolved_sms": "Alert resolved SMS",
+        "oncall_phone": "Shift transition call",
+        "oncall_coverage_sms": "Coverage gap SMS"
       }
     },
     "delete_title": "Delete notify template?",
@@ -421,7 +867,11 @@
   "account": {
     "title": "My notify settings",
     "subtitle": "Manage your workspace identities, category preferences, and quiet hours.",
-    "unavailable": "Your signed-in user identity is unavailable."
+    "unavailable": "Your signed-in user identity is unavailable.",
+    "reachability": {
+      "none": "You can't get alerts right now: neither alert nor escalation notifications have a method that works, and no team or organization route sends them to a group. Bind a method below and add it to your steps.",
+      "group_only": "You have no method of your own, so alerts reach you only through a team or organization group. Bind a method below and add it to your steps."
+    }
   },
   "target_types": {
     "direct_user": "Direct user",
@@ -444,6 +894,7 @@
     "success": "Success",
     "failed": "Failed",
     "skipped": "Skipped",
-    "acknowledged": "Acknowledged"
+    "acknowledged": "Acknowledged",
+    "queued": "Queued to merge"
   }
 }

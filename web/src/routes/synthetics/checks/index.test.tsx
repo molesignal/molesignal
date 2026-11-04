@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../data', () => ({
   SYNTHETICS_REFRESH_MILLIS: 30_000,
   useSyntheticsWorkspace: () => mocks.workspace.current,
+  useSyntheticsAvailability: () => ({ data: undefined }),
 }));
 vi.mock('@/product/actionAccess', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -186,7 +187,7 @@ describe('Synthetics checks', () => {
     expect(screen.getByRole('button', { name: 'Run Legacy VPN now' }).hasAttribute('disabled')).toBe(true);
 
     cleanup();
-    mocks.access.current = { allowed: false, disabled: true, reason: 'Requires synthetics.manage.' };
+    mocks.access.current = { allowed: false, disabled: true, reason: 'Requires synthetics.monitors.manage.' };
     renderChecks();
     expect(screen.getByRole('button', { name: 'Run Checkout API now' }).hasAttribute('disabled')).toBe(true);
     expect(screen.getByRole('button', { name: 'Create check' }).hasAttribute('disabled')).toBe(true);

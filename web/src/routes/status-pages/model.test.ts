@@ -20,7 +20,7 @@ describe('status page model', () => {
 
   it('resolves affected component names without leaking missing ids', () => {
     const incident = {
-      component_ids: ['api', 'removed'],
+      componentIds: ['api', 'removed'],
     } as StatusPageIncident;
     expect(affectedComponentNames(incident, [{ id: 'api', name: 'Public API' }])).toEqual([
       'Public API',
@@ -44,9 +44,9 @@ describe('status page model', () => {
 
   it('defaults and bounds the configurable event history window', () => {
     expect(statusPageHistoryDays({})).toBe(90);
-    expect(statusPageHistoryDays({ history_days: 30 })).toBe(30);
-    expect(statusPageHistoryDays({ history_days: 0 })).toBe(90);
-    expect(statusPageHistoryDays({ history_days: 366 })).toBe(90);
+    expect(statusPageHistoryDays({ historyDays: 30 })).toBe(30);
+    expect(statusPageHistoryDays({ historyDays: 0 })).toBe(90);
+    expect(statusPageHistoryDays({ historyDays: 366 })).toBe(90);
   });
 
   it('uses the resolved time when filtering historical incidents', () => {
@@ -54,8 +54,8 @@ describe('status page model', () => {
     expect(
       isIncidentWithinHistory(
         {
-          started_at: Date.UTC(2026, 6, 1) * 1_000,
-          ended_at: Date.UTC(2026, 7, 9) * 1_000,
+          startedAt: Date.UTC(2026, 6, 1) * 1_000,
+          endedAt: Date.UTC(2026, 7, 9) * 1_000,
         },
         generatedAt,
         7,

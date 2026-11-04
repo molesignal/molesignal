@@ -4,40 +4,28 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ConfirmDialog, DataTable } from '@/admin';
-import type { NotifyCategory } from '@/api/notify';
 import * as templatesApi from '@/api/notify/templates';
 import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
 import { productStateFor } from '@/product/states';
 import { ChromeButton, Pill } from '@/shell/chrome';
-import {
-  FormDrawer,
-  FormField,
-  FormInput,
-  FormSelect,
-  FormTextarea,
-} from '@/shell/FormDrawer';
 import { queryStateFor } from '@/shell/query/State';
+import { ViewTabs } from '@/shell/tabs/ViewTabs';
 import { toast } from '@/shell/ui/sonner';
 
-import { formatMicros, NOTIFY_CATEGORIES } from '../model';
+import { formatMicros } from '../model';
 import { NotifySettingsPage } from '../SettingsPage';
-import { TemplateMessagePreview } from './MessagePreview';
-import {
-  defaultNotifyTemplatePreview,
-  renderNotifyTemplate,
-} from './model';
-import {
-  TemplateReferencePanel,
-  useTemplateTokenInserter,
-} from './ReferencePanel';
+import { TEMPLATE_CHANNELS, type TemplateChannel, templateChannelLabel } from './model';
+import { TemplateEditor } from './TemplateEditor';
 
-type TemplateFormat = NonNullable<templatesApi.NotifyTemplate['format']>;
+function channelOfTemplate(template: templatesApi.NotifyTemplate): TemplateChannel {
+  return template.channel ?? 'general';
+}
 
 export function NotifyTemplatesPage() {
   const { t, i18n } = useTranslation('notify');
   const qc = useQueryClient();
-  const manage = useActionAccess({ permission: 'alerts.manage' });
+  const manage = useActionAccess({ permission: 'notify.templates.manage' });
   const [creating, setCreating] = React.useState(false);
   const [editing, setEditing] =
     React.useState<templatesApi.NotifyTemplate | null>(null);
@@ -47,7 +35,26 @@ export function NotifyTemplatesPage() {
     queryKey: ['notify', 'templates'],
     queryFn: templatesApi.list,
   });
-  const rows = templates.data ?? [];
+  const [shown, setShown] = React.useState<'all' | TemplateChannel>('all');
+  const all = React.useMemo(
+    () =>
+      [...(templates.data ?? [])].sort(
+        (left, right) =>
+          TEMPLATE_CHANNELS.indexOf(channelOfTemplate(left)) -
+            TEMPLATE_CHANNELS.indexOf(channelOfTemplate(right)) ||
+          left.name.localeCompare(right.name),
+      ),
+    [templates.data],
+  );
+  const present = TEMPLATE_CHANNELS.filter((channel) =>
+    all.some((template) => channelOfTemplate(template) === channel),
+  );
+  // A channel whose last template is gone shows them all again.
+  const channel = shown !== 'all' && present.includes(shown) ? shown : 'all';
+  const rows =
+    channel === 'all'
+      ? all
+      : all.filter((template) => channelOfTemplate(template) === channel);
   const state = productStateFor(
     queryStateFor({
       isLoading: templates.isLoading,
@@ -87,6 +94,24 @@ export function NotifyTemplatesPage() {
           </ChromeButton>
         }
         state={state}
+        filters={
+          present.length > 1 ? (
+            <ViewTabs<'all' | TemplateChannel>
+              label={t('templates.channel_filter')}
+              value={channel}
+              onValueChange={setShown}
+              items={[
+                { key: 'all', label: t('templates.all'), count: all.length },
+                ...present.map((key) => ({
+                  key,
+                  label: templateChannelLabel(t, key),
+                  count: all.filter((template) => channelOfTemplate(template) === key)
+                    .length,
+                })),
+              ]}
+            />
+          ) : undefined
+        }
       >
         <div className="overflow-x-auto">
           <DataTable
@@ -102,6 +127,16 @@ export function NotifyTemplatesPage() {
                 cell: (row) => (
                   <span className="text-sm font-semibold text-tx-0">
                     {row.name}
+                  </span>
+                ),
+              },
+              {
+                key: 'channel',
+                header: t('templates.columns.channel'),
+                width: 140,
+                cell: (row) => (
+                  <span className="text-sm text-tx-1">
+                    {templateChannelLabel(t, channelOfTemplate(row))}
                   </span>
                 ),
               },
@@ -129,8 +164,8 @@ export function NotifyTemplatesPage() {
                 width: 200,
                 cell: (row) => (
                   <span className="text-xs text-tx-2">
-                    {row.updated_at_micros
-                      ? formatMicros(row.updated_at_micros, i18n.language)
+                    {row.updatedAt
+                      ? formatMicros(row.updatedAt, i18n.language)
                       : '—'}
                   </span>
                 ),
@@ -182,208 +217,5 @@ export function NotifyTemplatesPage() {
         onConfirm={() => removing && remove.mutate(removing.id)}
       />
     </>
-  );
-}
-
-function TemplateEditor({
-  open,
-  template,
-  onClose,
-}: {
-  open: boolean;
-  template: templatesApi.NotifyTemplate | null;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation('notify');
-  const qc = useQueryClient();
-  const [name, setName] = React.useState('');
-  const [category, setCategory] =
-    React.useState<NotifyCategory>('alert');
-  const [format, setFormat] = React.useState<TemplateFormat>('text');
-  const [body, setBody] = React.useState('');
-  const bodyRef = React.useRef<HTMLTextAreaElement>(null);
-  const insertToken = useTemplateTokenInserter(bodyRef, setBody);
-  const [attributes, setAttributes] = React.useState(
-    JSON.stringify(
-      defaultNotifyTemplatePreview('alert').attributes,
-      null,
-      2,
-    ),
-  );
-  const preview = React.useMemo(() => {
-    try {
-      const parsed: unknown = JSON.parse(attributes);
-      if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
-        throw new Error(t('templates.attributes_object'));
-      }
-      const input = defaultNotifyTemplatePreview(category);
-      return {
-        rendered: renderNotifyTemplate(body, {
-          ...input,
-          attributes: parsed as Record<string, unknown>,
-        }),
-        error: null,
-      };
-    } catch (error) {
-      return {
-        rendered: '',
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }, [attributes, body, category, t]);
-  React.useEffect(() => {
-    if (!open) return;
-    const nextCategory = template?.category ?? 'alert';
-    setName(template?.name ?? '');
-    setCategory(nextCategory);
-    setFormat(template?.format ?? 'text');
-    setBody(template?.body ?? '');
-    setAttributes(
-      JSON.stringify(
-        defaultNotifyTemplatePreview(nextCategory).attributes,
-        null,
-        2,
-      ),
-    );
-  }, [open, template]);
-  const save = useMutation({
-    mutationFn: () => {
-      const input = { name: name.trim(), body, format, category };
-      return template
-        ? templatesApi.update(template.id, input)
-        : templatesApi.create(input);
-    },
-    onSuccess: () => {
-      toast.success(t('common.saved'));
-      void qc.invalidateQueries({ queryKey: ['notify', 'templates'] });
-      onClose();
-    },
-    onError: (error) => toast.error(toApiError(error).message),
-  });
-  const changeCategory = (nextCategory: NotifyCategory) => {
-    setCategory(nextCategory);
-    setAttributes(
-      JSON.stringify(
-        defaultNotifyTemplatePreview(nextCategory).attributes,
-        null,
-        2,
-      ),
-    );
-  };
-  const usePreset = (preset: templatesApi.NotifyTemplatePreset) => {
-    changeCategory(preset.category);
-    setFormat(preset.format);
-    setBody(preset.body);
-    window.requestAnimationFrame(() => {
-      bodyRef.current?.focus();
-      bodyRef.current?.setSelectionRange(
-        preset.body.length,
-        preset.body.length,
-      );
-    });
-  };
-
-  return (
-    <FormDrawer
-      open={open}
-      onOpenChange={(next) => !next && onClose()}
-      width={1180}
-      title={
-        template
-          ? t('templates.edit_title', { name: template.name })
-          : t('templates.new_title')
-      }
-      subtitle={t('templates.editor_subtitle')}
-      footer={
-        <>
-          <ChromeButton onClick={onClose}>{t('common.cancel')}</ChromeButton>
-          <ChromeButton
-            variant="primary"
-            disabled={
-              !name.trim() ||
-              !body.trim() ||
-              preview.error !== null ||
-              save.isPending
-            }
-            onClick={() => save.mutate()}
-          >
-            {save.isPending ? t('common.saving') : t('common.save')}
-          </ChromeButton>
-        </>
-      }
-    >
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(390px,1fr)]">
-        <div className="space-y-4">
-          <FormField label={t('templates.name')} required>
-            <FormInput
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </FormField>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label={t('templates.category')}>
-              <FormSelect
-                value={category}
-                onChange={(value) =>
-                  changeCategory(value as NotifyCategory)
-                }
-                options={NOTIFY_CATEGORIES.map((value) => ({
-                  value,
-                  label: t(`preferences.${value}`),
-                }))}
-              />
-            </FormField>
-            <FormField label={t('templates.format')}>
-              <FormSelect
-                value={format}
-                onChange={(value) => setFormat(value as TemplateFormat)}
-                options={['text', 'markdown', 'html']}
-              />
-            </FormField>
-          </div>
-          <FormField
-            label={t('templates.body')}
-            hint={t('templates.variables_hint')}
-            required
-          >
-            <FormTextarea
-              ref={bodyRef}
-              className="min-h-72 font-mono text-xs"
-              value={body}
-              onChange={(event) => setBody(event.target.value)}
-            />
-          </FormField>
-        </div>
-        <div className="space-y-4">
-          <TemplateReferencePanel
-            key={category}
-            category={category}
-            onInsert={insertToken}
-            onUsePreset={usePreset}
-          />
-          <FormField label={t('templates.preview_attributes')}>
-            <FormTextarea
-              className="min-h-48 font-mono text-xs"
-              value={attributes}
-              onChange={(event) => setAttributes(event.target.value)}
-            />
-          </FormField>
-          <section className="rounded-md border border-bd-0 bg-bg-2 p-4">
-            <h3 className="text-xs font-semibold tracking-normal text-tx-2">
-              {t('templates.preview')}
-            </h3>
-            {preview.error ? (
-              <p className="mt-3 text-xs text-red-soft">{preview.error}</p>
-            ) : (
-              <TemplateMessagePreview
-                format={format}
-                content={preview.rendered}
-                emptyText={t('templates.preview_empty')}
-              />
-            )}
-          </section>
-        </div>
-      </div>
-    </FormDrawer>
   );
 }

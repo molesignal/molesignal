@@ -11,20 +11,20 @@ const TOGGLE_HINT = 'Turning this on or off saves the report, which then runs wi
 function unownedReport(id: string, name: string, format: string) {
   return {
     id,
-    org_id: 'acme-prod',
+    orgId: 'acme-prod',
     name,
-    dashboard_id: 'd1',
-    saved_view_id: null,
+    dashboardId: 'd1',
+    savedViewId: null,
     cron: 'every:7d',
     recipients: [{ kind: 'email', target: 'sre@example.com' }],
     format,
-    time_range_json: { preset: 'previous-7-days', timezone: 'UTC', description: '' },
+    timeRangeJson: { preset: 'previous-7-days', timezone: 'UTC', description: '' },
     enabled: true,
-    run_as_user_id: null,
-    run_as_user: null,
-    last_run_at_micros: NOW_MICROS - 86_400_000_000,
-    created_at_micros: NOW_MICROS - 604_800_000_000,
-    updated_at_micros: NOW_MICROS,
+    runAsUserId: null,
+    runAsUser: null,
+    lastRunAt: NOW_MICROS - 86_400_000_000,
+    createdAt: NOW_MICROS - 604_800_000_000,
+    updatedAt: NOW_MICROS,
   };
 }
 
@@ -82,8 +82,8 @@ test.describe('whose access a scheduled report runs with', () => {
     page,
     mockServer,
   }) => {
-    // An editor schedules reports but may not list the members of the organization. The mock
-    // report was last saved by Dana Reyes; the signed-in mock user is Dev User.
+    // An editor schedules reports but may not read the details of members, the address on the
+    // report among them. The mock report was last saved by Dana Reyes; the signed-in mock user is Dev User.
     await mountMockRoutes(page, mockServer.port, { role: 'Editor' });
     const memberLists: string[] = [];
     page.on('request', (request) => {
@@ -100,7 +100,7 @@ test.describe('whose access a scheduled report runs with', () => {
 
     const workbench = await openReport(page, 'Weekly SLO');
     const note = workbench.locator('p', { hasText: 'Runs as' });
-    // The report names her itself: the member list is not asked, and would have refused.
+    // The report names the person itself: the member list is not asked.
     await expect(note).toContainText('Dana Reyes');
     await expect(note).toContainText(TAKEOVER);
     await expect(note.getByText('Dana Reyes')).toHaveAttribute('title', 'sre@example.com');
@@ -130,8 +130,8 @@ test.describe('whose access a scheduled report runs with', () => {
     await save.click();
     expect(await (await saved).json()).toMatchObject({
       id: 'r1',
-      run_as_user_id: 'dev',
-      run_as_user: { id: 'dev', display_name: 'Dev User' },
+      runAsUserId: 'dev',
+      runAsUser: { id: 'dev', displayName: 'Dev User' },
     });
     await expect(workbench).toHaveCount(0);
 

@@ -45,7 +45,7 @@ export function IncidentSilenceDialog({
 }: IncidentSilenceDialogProps) {
   const { t } = useTranslation('alerts');
   const queryClient = useQueryClient();
-  const silenceAccess = useActionAccess({ permission: 'alerts.silence' });
+  const silenceAccess = useActionAccess({ permission: 'alerts.incidents.silence' });
   const [durationSecs, setDurationSecs] = React.useState('3600');
   const [comment, setComment] = React.useState('');
 
@@ -58,7 +58,7 @@ export function IncidentSilenceDialog({
   const silence = useMutation({
     mutationFn: () =>
       mutesApi.silenceIncident(incidentId!, {
-        duration_secs: Number(durationSecs),
+        durationSecs: Number(durationSecs),
         comment: comment.trim(),
       }),
     onSuccess: async () => {

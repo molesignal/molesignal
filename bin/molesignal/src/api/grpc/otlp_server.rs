@@ -8,7 +8,7 @@
 //! 私有分发、可信网络免鉴权）**不同协议、分端口**部署：本 server 由
 //! [`super::serve_otlp_grpc`] 挂在 `otlp_grpc.bind:port`（默认 4317），可暴露给
 //! 用户网络 —— 每个 `export` RPC 都要求 `authorization: Bearer`（与 HTTP 中间件
-//! 同一套前缀分发：`ms_` → API token，其余 → JWT）+ `StreamWrite` 权限。
+//! 同一套前缀分发：`mspat-` → API token，其余 → JWT）+ `StreamWrite` 权限。
 //!
 //! 传输层之外的语义与 OTLP/HTTP（[`crate::api::http::routes::intake::otlp`]）完全
 
@@ -46,8 +46,8 @@ use crate::{
             },
         },
     },
-    app::iam::IamContext,
-    domain::{intake::RawEvent, stream::StreamType},
+    app::{iam::IamContext, intake::usage::split_by_events},
+    domain::{iam::api_token::has_token_marker, intake::RawEvent, stream::StreamType},
     infra::persistence::repositories::audit_events::AuditEvent,
     shared::{
         Error as MsError,
@@ -70,9 +70,13 @@ impl OtlpGrpc {
         Self { state }
     }
 
-    /// per-RPC 鉴权：照 Flight SQL 同一套 metadata-Bearer 分发，权限要求 `StreamWrite`
+    /// per-RPC 鉴权：照 Flight SQL 同一套 metadata-Bearer 分发，权限要求 `logs.write` 等写入权限
     /// （摄取是写路径，自动拒只读的 Viewer token）。
-    async fn authenticate<T>(&self, request: &Request<T>) -> Result<IamContext, Status> {
+    async fn authenticate<T>(
+        &self,
+        request: &Request<T>,
+        permission: &str,
+    ) -> Result<IamContext, Status> {
         let bearer = request
             .metadata()
             .get("authorization")
@@ -98,7 +102,7 @@ impl OtlpGrpc {
             .await
             .map_err(|e| Status::permission_denied(e.to_string()))?;
 
-        Permission::require_key(&ctx, "streams.write")
+        Permission::require_key(&ctx, permission)
             .map_err(|e| Status::permission_denied(e.to_string()))?;
 
         update_current_trace_context(|trace_context| {
@@ -116,16 +120,9 @@ impl OtlpGrpc {
         events: Vec<RawEvent>,
         bytes: usize,
     ) -> Result<(), Status> {
-        intake(
-            &self.state,
-            stream_type,
-            ctx.org_id.clone(),
-            stream,
-            events,
-            bytes,
-        )
-        .await
-        .map_err(error_to_status)?;
+        intake(&self.state, stream_type, ctx, stream, events, bytes)
+            .await
+            .map_err(error_to_status)?;
 
         Ok(())
     }
@@ -172,7 +169,7 @@ impl TraceService for OtlpGrpc {
         &self,
         request: Request<ExportTraceServiceRequest>,
     ) -> Result<Response<ExportTraceServiceResponse>, Status> {
-        let ctx = self.authenticate(&request).await?;
+        let ctx = self.authenticate(&request, "traces.write").await?;
         let stream = stream_name(&request);
 
         let mut trace_context = request
@@ -187,7 +184,7 @@ impl TraceService for OtlpGrpc {
             .metadata()
             .get(TRACE_DEBUG_TOKEN)
             .and_then(|value| value.to_str().ok())
-            .filter(|value| value.starts_with("mstd_") && value.len() <= 160)
+            .filter(|value| has_token_marker(value) && value.len() <= 160)
         {
             let token_hash = blake3::hash(debug_token.as_bytes()).to_hex().to_string();
 
@@ -248,7 +245,7 @@ impl TraceService for OtlpGrpc {
 
         submit_traces(
             &self.state,
-            ctx.org_id,
+            &ctx,
             stream,
             spans,
             bytes,
@@ -268,7 +265,7 @@ impl LogsService for OtlpGrpc {
         &self,
         request: Request<ExportLogsServiceRequest>,
     ) -> Result<Response<ExportLogsServiceResponse>, Status> {
-        let ctx = self.authenticate(&request).await?;
+        let ctx = self.authenticate(&request, "logs.write").await?;
         let stream = stream_name(&request);
         let req = request.into_inner();
         let bytes = req.encoded_len();
@@ -285,7 +282,7 @@ impl MetricsService for OtlpGrpc {
         &self,
         request: Request<ExportMetricsServiceRequest>,
     ) -> Result<Response<ExportMetricsServiceResponse>, Status> {
-        let ctx = self.authenticate(&request).await?;
+        let ctx = self.authenticate(&request, "metrics.write").await?;
         let stream = stream_name(&request);
         let req = request.into_inner();
         let bytes = req.encoded_len();
@@ -302,16 +299,18 @@ impl ProfilesService for OtlpGrpc {
         &self,
         request: Request<ExportProfilesServiceRequest>,
     ) -> Result<Response<ExportProfilesServiceResponse>, Status> {
-        let ctx = self.authenticate(&request).await?;
+        let ctx = self.authenticate(&request, "profiles.write").await?;
         let req = request.into_inner();
         let bytes = req.encoded_len();
         // 一次请求含共享 dictionary + N 个 profile → N 个 NormalizedProfile，逐个落盘。
         let normalized = normalize_otlp_profiles(&req);
 
-        for profile in &normalized {
+        let shares = split_by_events(bytes as u64, &vec![1; normalized.len()]);
+
+        for (profile, share) in normalized.iter().zip(shares) {
             let raw = crate::infra::profiles::encode_pprof_raw(profile).map_err(error_to_status)?;
 
-            store_profile(&self.state, &ctx.org_id, profile, &raw, bytes)
+            store_profile(&self.state, &ctx, profile, &raw, share)
                 .await
                 .map_err(error_to_status)?;
         }

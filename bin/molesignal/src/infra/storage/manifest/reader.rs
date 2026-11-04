@@ -13,7 +13,7 @@ use prometheus::{Histogram, IntCounter};
 use super::codec;
 use crate::{
     domain::storage::{PartitionManifest, PartitionManifestPointer},
-    infra::storage::object_reader::ObjectReader,
+    infra::storage::{filters::Filters, object_reader::ObjectReader},
     shared::{
         Error, Result,
         metrics::{register_histogram, register_int_counter},
@@ -28,6 +28,9 @@ struct CachedManifest {
 pub struct PartitionManifestReader {
     objects: Arc<ObjectReader>,
     cache: Cache<String, Arc<CachedManifest>>,
+    /// Filter objects by key: a partition's beside its manifest, or a segment's own filter
+    /// artifact. `None` for a key with no object.
+    blooms: Cache<String, Option<Arc<Filters>>>,
 }
 
 impl PartitionManifestReader {
@@ -37,7 +40,46 @@ impl PartitionManifestReader {
             .weigher(|_key: &String, value: &Arc<CachedManifest>| value.weight)
             .build();
 
-        Self { objects, cache }
+        let blooms = Cache::builder()
+            .max_capacity(max_cache_bytes)
+            .weigher(|_key: &String, value: &Option<Arc<Filters>>| {
+                value.as_ref().map_or(1, |blooms| {
+                    u32::try_from(blooms.weight()).unwrap_or(u32::MAX).max(1)
+                })
+            })
+            .build();
+
+        Self {
+            objects,
+            cache,
+            blooms,
+        }
+    }
+
+    /// The filters stored at `key`, beside a manifest or as a segment's filter artifact, or `None`
+    /// when there is no such object. Filters are written before the manifest or segment that names
+    /// them is published and never change, so an answer is kept, absence included.
+    pub async fn blooms(&self, key: &str) -> Result<Option<Arc<Filters>>> {
+        if let Some(cached) = self.blooms.get(key).await {
+            return Ok(cached);
+        }
+
+        let blooms = match self.objects.origin().get(&Path::from(key)).await {
+            Ok(result) => {
+                let bytes = result.bytes().await.map_err(|error| {
+                    Error::internal(format!("collect partition blooms: {error}"))
+                })?;
+
+                Some(Arc::new(Filters::decode(&bytes)?))
+            }
+            Err(object_store::Error::NotFound { .. }) => None,
+            Err(error) => {
+                return Err(Error::internal(format!("read partition blooms: {error}")));
+            }
+        };
+
+        self.blooms.insert(key.to_owned(), blooms.clone()).await;
+        Ok(blooms)
     }
 
     pub async fn load(&self, pointer: &PartitionManifestPointer) -> Result<Arc<PartitionManifest>> {

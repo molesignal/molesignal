@@ -80,8 +80,8 @@ pub(super) async fn resolve_prompts(
     let time_range_str = match &req.time_range {
         Some(t) => format!(
             "{} to {}",
-            TimestampMicros(t.start_micros).to_datetime().to_rfc3339(),
-            TimestampMicros(t.end_micros).to_datetime().to_rfc3339(),
+            TimestampMicros(t.start_time).to_datetime().to_rfc3339(),
+            TimestampMicros(t.end_time).to_datetime().to_rfc3339(),
         ),
         None => "unspecified".into(),
     };
@@ -217,7 +217,8 @@ pub(super) async fn resolve_prompts(
     (system_texts, active)
 }
 
-fn answer_presentation_instruction(query_generation_only: bool) -> &'static str {
+/// 回答要写成的样子；晋级检查重新回答时也用它。
+pub(crate) fn answer_presentation_instruction(query_generation_only: bool) -> &'static str {
     if query_generation_only {
         return "Write only the requested query plus a short explanation of what it returns. Do not expose internal tool names, function names, parameter names, data-stream discovery attempts, hidden reasoning, or implementation failures.";
     }
@@ -226,7 +227,7 @@ fn answer_presentation_instruction(query_generation_only: bool) -> &'static str 
 }
 
 fn observability_query_instruction() -> &'static str {
-    r#"When investigating observability data, use list_streams and then get_stream_schema before the first log or metric query unless the exact current schema is already present in this chat. SQL must reference only exact fields returned for the selected stream. The query_logs time_range argument already constrains event time, so never invent timestamp, time, or _timestamp fields and never order by one unless that exact field exists in the schema. query_metrics accepts PromQL only; label_values() is a Grafana template helper and is invalid. If a needed capability is not visible, discover it with tool_search and invoke the selected result through tools_call. Do not repeat equivalent empty queries. After at most one corrected retry for a failed query, stop querying that path, explain the limitation in the final answer, and use the evidence already collected to produce a conclusion."#
+    r#"When investigating observability data, use list_streams and then get_stream_schema before the first log or metric query unless the exact current schema is already present in this chat. SQL must reference only exact fields returned for the selected stream. The query_logs timeRange argument already constrains event time, so never invent timestamp, time, or _timestamp fields and never order by one unless that exact field exists in the schema. query_metrics accepts PromQL only; label_values() is a Grafana template helper and is invalid. If a needed capability is not visible, discover it with tool_search and invoke the selected result through tools_call. Do not repeat equivalent empty queries. After at most one corrected retry for a failed query, stop querying that path, explain the limitation in the final answer, and use the evidence already collected to produce a conclusion."#
 }
 
 #[cfg(test)]

@@ -7,7 +7,7 @@ import * as notifyApi from '@/api/notify';
 import * as teamsApi from '@/api/teams';
 import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
-import { ChromeButton, IconButton } from '@/shell/chrome';
+import { ChromeButton, IconButton, uiSectionTitleClass } from '@/shell/chrome';
 import { FormField, FormInput, FormSelect } from '@/shell/FormDrawer';
 import { toast } from '@/shell/ui/sonner';
 import { Switch } from '@/shell/ui/switch';
@@ -27,7 +27,7 @@ function normalizedRoutes(
 export function NotifyDefaultsPage() {
   const { t } = useTranslation('notify');
   const qc = useQueryClient();
-  const manage = useActionAccess({ permission: 'alerts.manage' });
+  const manage = useActionAccess({ permission: 'notify.defaults.manage' });
   const [scope, setScope] = React.useState(ORGANIZATION_SCOPE);
   const [category, setCategory] =
     React.useState<notifyApi.NotifyCategory>('alert');
@@ -90,17 +90,15 @@ export function NotifyDefaultsPage() {
     onError: (error) => toast.error(toApiError(error).message),
   });
 
-  const connectorOptions = (connectors.data ?? []).filter(
-    (connector) => connector.enabled,
-  );
+  const connectorOptions = (connectors.data ?? []).filter((connector) => connector.enabled);
   const addRoute = () => {
     const connector = connectorOptions[0];
     if (!connector) return;
     setRoutes((value) => [
       ...value,
       {
-        connector_id: connector.id,
-        target_type: connector.capabilities.group
+        connectorId: connector.id,
+        targetType: connector.capabilities.group
           ? 'fixed_group'
           : 'fixed_address',
         target: '',
@@ -158,7 +156,7 @@ export function NotifyDefaultsPage() {
         <section>
           <header className="flex min-h-11 flex-wrap items-center gap-3">
             <div className="min-w-0 flex-1">
-              <h2 className="text-sm font-semibold text-tx-0">{t('defaults.routes')}</h2>
+              <h2 className={uiSectionTitleClass}>{t('defaults.routes')}</h2>
               <p className="mt-0.5 text-xs text-tx-3">
                 {current ? t('defaults.configured_hint') : t('defaults.empty')}
               </p>
@@ -171,7 +169,7 @@ export function NotifyDefaultsPage() {
           <div className="mt-6 space-y-6">
             {routes.map((route, index) => (
               <div
-                key={`${index}:${route.connector_id}`}
+                key={`${index}:${route.connectorId}`}
                 className="grid gap-3 md:grid-cols-[36px_minmax(0,1fr)_180px_minmax(0,1fr)_36px]"
               >
                 <div className="grid h-9 place-items-center font-mono text-xs text-tx-2">
@@ -179,9 +177,9 @@ export function NotifyDefaultsPage() {
                 </div>
                 <FormField label={t('defaults.connector')}>
                   <FormSelect
-                    value={route.connector_id}
+                    value={route.connectorId}
                     onChange={(value) =>
-                      updateRoute(index, { connector_id: value })
+                      updateRoute(index, { connectorId: value })
                     }
                     options={connectorOptions.map((connector) => ({
                       value: connector.id,
@@ -191,10 +189,10 @@ export function NotifyDefaultsPage() {
                 </FormField>
                 <FormField label={t('defaults.target_type')}>
                   <FormSelect
-                    value={route.target_type}
+                    value={route.targetType}
                     onChange={(value) =>
                       updateRoute(index, {
-                        target_type: value as notifyApi.NotifyTargetType,
+                        targetType: value as notifyApi.NotifyTargetType,
                       })
                     }
                     options={targetTypeOptions()

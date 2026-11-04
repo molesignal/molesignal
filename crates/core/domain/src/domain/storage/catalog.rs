@@ -336,6 +336,19 @@ pub trait FileCatalog: Send + Sync {
         Ok(Vec::new())
     }
 
+    /// Ready index artifacts of active rows written in an older format than `below_format`, for a
+    /// background rebuild in the current one. `skip` are artifacts whose rebuild failed lately.
+    async fn stale_index_tasks(
+        &self,
+        _scope: &OrganizationScope,
+        _artifact_type: &str,
+        _below_format: u32,
+        _skip: &[ArtifactId],
+        _limit: u32,
+    ) -> Result<Vec<IndexRebuildTask>> {
+        Ok(Vec::new())
+    }
+
     /// Atomically switch the active manifest generation and seal/tombstone its input rows.
     async fn publish_partition_manifest(
         &self,

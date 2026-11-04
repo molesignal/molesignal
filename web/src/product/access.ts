@@ -9,7 +9,7 @@ import {
   type ProductNavGroup,
   type ProductRouteMeta,
 } from '@/product/ia';
-import type { PermissionKey } from '@/product/permissions';
+import type { PermissionKey, PermissionScope } from '@/product/permissions';
 import {
   normalizeAuthScope,
   normalizeRole,
@@ -25,6 +25,8 @@ export interface ProductAccess {
   role: Role;
   scope: AuthScope;
   permissions: ReadonlySet<PermissionKey>;
+  /** Platform permissions held on named organizations only: permission to organization ids. */
+  organizationPermissions?: Readonly<Record<string, readonly string[]>>;
   version: number;
   routeCatalogVersion: number;
   routes: readonly iamApi.IamRouteAccess[];
@@ -42,29 +44,28 @@ const EMPTY_ROUTE_DECISIONS: readonly iamApi.IamRouteAccess[] = [];
  * switch cannot render routes from the old workspace.
  */
 export function useProductAccess(): ProductAccess | null {
-  const token = useAuthStore((state) => state.token);
   const context = useAuthStore((state) => state.ctx);
   const query = useQuery({
-    queryKey: capabilityQueryKey(context?.org_id ?? ''),
+    queryKey: capabilityQueryKey(context?.orgId ?? ''),
     queryFn: async () => {
       const snapshot = await iamApi.capabilities();
-      if (snapshot.organization_id !== useAuthStore.getState().ctx?.org_id) {
+      if (snapshot.organizationId !== useAuthStore.getState().ctx?.orgId) {
         throw new Error('capability snapshot organization mismatch');
       }
       return snapshot;
     },
-    enabled: Boolean(token && context),
+    enabled: Boolean(context),
     staleTime: 0,
     refetchOnWindowFocus: true,
     retry: false,
   });
 
   return useMemo(() => {
-    if (!context || !token) return null;
+    if (!context) return null;
     if (!query.data) {
       return {
-        organizationId: context.org_id,
-        role: normalizeRole(context.display_role),
+        organizationId: context.orgId,
+        role: normalizeRole(context.displayRole),
         scope: normalizeAuthScope(context.scope),
         permissions: new Set<PermissionKey>(),
         version: 0,
@@ -74,19 +75,20 @@ export function useProductAccess(): ProductAccess | null {
       };
     }
     return accessFromSnapshot(query.data);
-  }, [context, query.data, query.isError, token]);
+  }, [context, query.data, query.isError]);
 }
 
 export function accessFromSnapshot(
   snapshot: iamApi.IamCapabilitySnapshot,
 ): ProductAccess {
   return {
-    organizationId: snapshot.organization_id,
-    role: normalizeRole(snapshot.display_role),
+    organizationId: snapshot.organizationId,
+    role: normalizeRole(snapshot.displayRole),
     scope: normalizeAuthScope(snapshot.scope),
     permissions: new Set(snapshot.permissions),
+    organizationPermissions: snapshot.organizationPermissions ?? {},
     version: snapshot.version,
-    routeCatalogVersion: snapshot.route_catalog_version ?? 0,
+    routeCatalogVersion: snapshot.routeCatalogVersion ?? 0,
     routes: Array.isArray(snapshot.routes)
       ? snapshot.routes
       : EMPTY_ROUTE_DECISIONS,
@@ -119,6 +121,20 @@ export function canAccessProductPath(
 }
 
 /**
+ * Whether the catalog closes this path to the reader. A path it says nothing about is left to the
+ * route guard: this decides what to offer, not what to allow.
+ */
+export function isProductPathDenied(
+  pathname: string,
+  access: ProductAccess | null,
+): boolean {
+  return (
+    access?.status === 'ready' &&
+    findRouteDecision(pathname, routeDecisions(access))?.allowed === false
+  );
+}
+
+/**
  * Unknown paths continue to the router's wildcard 404. A registered frontend
  * route without a database decision is known but denied, which fails closed
  * when the two catalogs drift.
@@ -141,6 +157,24 @@ export function hasPermission(
   return access?.status === 'ready' && access.permissions.has(permission);
 }
 
+/** Whether the permission reaches this organization: across the platform, or by name. */
+export function reachesOrganization(
+  permission: PermissionKey,
+  organizationId: string,
+  access: ProductAccess | null,
+): boolean {
+  return (
+    hasPermission(permission, access) ||
+    (access?.status === 'ready' &&
+      (access.organizationPermissions?.[permission]?.includes(organizationId) ?? false))
+  );
+}
+
+/** The permissions that count in this session: the platform's in the platform organization. */
+export function useSessionPermissionScope(): PermissionScope {
+  return useProductAccess()?.scope === 'system' ? 'platform' : 'organization';
+}
+
 export function accessibleProductNavigation(
   access: ProductAccess | null,
   group: ProductNavGroup,
@@ -149,12 +183,12 @@ export function accessibleProductNavigation(
   return routeDecisions(access)
     .filter(
       (decision) =>
-        decision.allowed && decision.navigation_group === group,
+        decision.allowed && decision.navigationGroup === group,
     )
     .sort(
       (left, right) =>
-        (left.navigation_position ?? Number.MAX_SAFE_INTEGER) -
-          (right.navigation_position ?? Number.MAX_SAFE_INTEGER) ||
+        (left.navigationPosition ?? Number.MAX_SAFE_INTEGER) -
+          (right.navigationPosition ?? Number.MAX_SAFE_INTEGER) ||
         left.id.localeCompare(right.id),
     )
     .map((decision) => getProductRouteById(decision.id))
@@ -170,7 +204,7 @@ export function deniedProductRouteFallback(
   const navigationCandidates = decisions
     .filter(
       (decision) =>
-        decision.allowed && decision.navigation_group !== undefined,
+        decision.allowed && decision.navigationGroup !== undefined,
     )
     .sort(navigationDecisionOrder)
     .map((decision) => getProductRouteById(decision.id)?.path)
@@ -180,7 +214,7 @@ export function deniedProductRouteFallback(
     );
   const anyAllowedStaticRoute = decisions
     .filter((decision) => decision.allowed)
-    .map((decision) => decision.path_pattern)
+    .map((decision) => decision.pathPattern)
     .find(
       (candidate) =>
         candidate !== pathname &&
@@ -205,16 +239,16 @@ function navigationDecisionOrder(
   right: iamApi.IamRouteAccess,
 ): number {
   const leftGroup = PRODUCT_NAV_GROUPS.indexOf(
-    left.navigation_group as ProductNavGroup,
+    left.navigationGroup as ProductNavGroup,
   );
   const rightGroup = PRODUCT_NAV_GROUPS.indexOf(
-    right.navigation_group as ProductNavGroup,
+    right.navigationGroup as ProductNavGroup,
   );
   return (
     (leftGroup < 0 ? Number.MAX_SAFE_INTEGER : leftGroup) -
       (rightGroup < 0 ? Number.MAX_SAFE_INTEGER : rightGroup) ||
-    (left.navigation_position ?? Number.MAX_SAFE_INTEGER) -
-      (right.navigation_position ?? Number.MAX_SAFE_INTEGER) ||
+    (left.navigationPosition ?? Number.MAX_SAFE_INTEGER) -
+      (right.navigationPosition ?? Number.MAX_SAFE_INTEGER) ||
     left.id.localeCompare(right.id)
   );
 }
@@ -244,12 +278,12 @@ function findRouteDecision(
   decisions: readonly iamApi.IamRouteAccess[],
 ): iamApi.IamRouteAccess | undefined {
   return decisions
-    .filter((decision) => routePatternMatches(decision.path_pattern, pathname))
+    .filter((decision) => routePatternMatches(decision.pathPattern, pathname))
     .sort(
       (left, right) =>
-        routeSpecificity(right.path_pattern) -
-          routeSpecificity(left.path_pattern) ||
-        right.path_pattern.length - left.path_pattern.length,
+        routeSpecificity(right.pathPattern) -
+          routeSpecificity(left.pathPattern) ||
+        right.pathPattern.length - left.pathPattern.length,
     )[0];
 }
 

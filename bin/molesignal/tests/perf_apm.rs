@@ -14,18 +14,18 @@ use std::{
 use async_trait::async_trait;
 use molesignal::{
     app::apm::{
-        ApmAggregator, ApmCandidateProjector, ApmCardinalityLimiter, ApmProjectorConfig,
-        ApmQueryConfig, ApmQueryRequest, ApmQueryService, BufferedApmProjector,
+        ApmAggregator, ApmCandidateProjector, ApmCardinalityLimiter, ApmLimitsHandle,
+        ApmProjectorConfig, ApmQueryConfig, ApmQueryRequest, ApmQueryService, BufferedApmProjector,
     },
     config::{ApmSettings, MetaDatabaseSettings},
     domain::apm::{
-        APM_FACT_SCHEMA_VERSION, APM_PERSISTENCE_SCHEMA_VERSION, ApmMaintenanceRepository,
-        ApmOutcome, ApmQueryRepository, ApmSpanFact, ApmSpanKind, ApmWriteRepository,
-        BucketDimension, BucketKind, BucketMeasurements, BucketQuery, DependencyCategory,
-        DependencyIdentity, ErrorGroupRecord, ErrorIdentity, ErrorSample, HistogramSchema,
-        InstrumentationMetadata, LatencyHistogram, OwnerSnapshot, ProjectionGap, ProjectionState,
-        QueryResolution, RollupRequest, ServiceIdentity, ServiceObservation, SnapshotWriteStats,
-        TransactionIdentity, TransactionKind, VersionObservation,
+        APM_FACT_SCHEMA_VERSION, APM_PERSISTENCE_SCHEMA_VERSION, ApmLimits,
+        ApmMaintenanceRepository, ApmOutcome, ApmQueryRepository, ApmSpanFact, ApmSpanKind,
+        ApmWriteRepository, BucketDimension, BucketKind, BucketMeasurements, BucketQuery,
+        DependencyCategory, DependencyIdentity, ErrorGroupRecord, ErrorIdentity, ErrorSample,
+        HistogramSchema, InstrumentationMetadata, LatencyHistogram, OwnerSnapshot, ProjectionGap,
+        ProjectionState, QueryResolution, RollupRequest, ServiceIdentity, ServiceObservation,
+        SnapshotWriteStats, TransactionIdentity, TransactionKind, VersionObservation,
     },
     infra::{apm::PgApmRepository, persistence::MetaStore},
     shared::{
@@ -45,6 +45,9 @@ const SNAPSHOT_COUNT: usize = SERVICE_COUNT * MINUTE_COUNT * OWNER_COUNT;
 const FLUSH_SAMPLE_COUNT: usize = 20;
 const QUERY_SAMPLE_COUNT: usize = 20;
 const ACTIVE_DIMENSION_PERCENT: u64 = 5;
+const BUCKET_RELATION: &str = "apm_buckets";
+const SERVICE_ROW_COUNT_SQL: &str =
+    "SELECT COUNT(*) FROM apm_buckets WHERE org_id = $1 AND bucket_kind = 'service'";
 const BUCKET_KINDS: [BucketKind; 4] = [
     BucketKind::Service,
     BucketKind::Transaction,
@@ -75,30 +78,17 @@ async fn apm_capacity_gate() {
         .execute(&pool)
         .await
         .expect("clear prior benchmark tenant");
+    sqlx::query("TRUNCATE TABLE apm_buckets, apm_buckets_hourly")
+        .execute(&pool)
+        .await
+        .expect("reset disposable benchmark bucket tables");
+    let relation_baseline = relation_size(&pool, BUCKET_RELATION).await;
     sqlx::query(
-        "TRUNCATE TABLE
-            apm_service_buckets_default,
-            apm_transaction_buckets_default,
-            apm_dependency_buckets_default,
-            apm_error_buckets_default,
-            apm_service_buckets_hourly_default,
-            apm_transaction_buckets_hourly_default,
-            apm_dependency_buckets_hourly_default,
-            apm_error_buckets_hourly_default",
-    )
-    .execute(&pool)
-    .await
-    .expect("reset disposable benchmark bucket partitions");
-    let mut relation_baselines = [0_i64; BUCKET_KINDS.len()];
-    for (index, kind) in BUCKET_KINDS.into_iter().enumerate() {
-        relation_baselines[index] = relation_size(&pool, bucket_relation(kind)).await;
-    }
-    sqlx::query(
-        "INSERT INTO organizations (id, name, slug, created_at_micros)
+        "INSERT INTO organizations (id, name, slug, created_at)
          VALUES ($1, 'APM capacity benchmark', 'apm-capacity-benchmark', $2)",
     )
     .bind(org_id.as_str())
-    .bind(TimestampMicros::now().0)
+    .bind(TimestampMicros::now())
     .execute(&pool)
     .await
     .expect("create benchmark tenant");
@@ -127,23 +117,13 @@ async fn apm_capacity_gate() {
         flush_samples.push(started.elapsed());
         assert_eq!(stats.applied, SNAPSHOT_COUNT as u64);
         if sequence == 1 {
-            let inserted_rows: i64 =
-                sqlx::query_scalar("SELECT COUNT(*) FROM apm_service_buckets WHERE org_id = $1")
-                    .bind(org_id.as_str())
-                    .fetch_one(&pool)
-                    .await
-                    .expect("initial hot row count");
-            assert_eq!(inserted_rows, SNAPSHOT_COUNT as i64);
-            relation_bytes_after_insert = Some(
-                sqlx::query_scalar(
-                    "SELECT pg_total_relation_size(
-                        'apm_service_buckets_default'::regclass
-                     )",
-                )
+            let inserted_rows: i64 = sqlx::query_scalar(SERVICE_ROW_COUNT_SQL)
+                .bind(org_id.as_str())
                 .fetch_one(&pool)
                 .await
-                .expect("initial hot relation size"),
-            );
+                .expect("initial hot row count");
+            assert_eq!(inserted_rows, SNAPSHOT_COUNT as i64);
+            relation_bytes_after_insert = Some(relation_size(&pool, BUCKET_RELATION).await);
         }
     }
     let retry = repository
@@ -153,24 +133,18 @@ async fn apm_capacity_gate() {
     assert_eq!(retry.applied, 0);
     assert_eq!(retry.stale, SNAPSHOT_COUNT as u64);
 
-    let hot_rows: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM apm_service_buckets WHERE org_id = $1")
-            .bind(org_id.as_str())
-            .fetch_one(&pool)
-            .await
-            .expect("hot row count");
+    let hot_rows: i64 = sqlx::query_scalar(SERVICE_ROW_COUNT_SQL)
+        .bind(org_id.as_str())
+        .fetch_one(&pool)
+        .await
+        .expect("hot row count");
     assert_eq!(hot_rows, SNAPSHOT_COUNT as i64);
-    let relation_bytes_after_updates: i64 = sqlx::query_scalar(
-        "SELECT pg_total_relation_size('apm_service_buckets_default'::regclass)",
-    )
-    .fetch_one(&pool)
-    .await
-    .expect("updated hot relation size");
+    let relation_bytes_after_updates = relation_size(&pool, BUCKET_RELATION)
+        .await
+        .saturating_sub(relation_baseline);
     let relation_bytes_after_insert = relation_bytes_after_insert
         .expect("initial relation size captured")
-        .saturating_sub(relation_baselines[0]);
-    let relation_bytes_after_updates =
-        relation_bytes_after_updates.saturating_sub(relation_baselines[0]);
+        .saturating_sub(relation_baseline);
 
     let query_service = ApmQueryService::new(
         repository.clone() as Arc<dyn ApmQueryRepository>,
@@ -208,14 +182,17 @@ async fn apm_capacity_gate() {
     relation_bytes_by_kind[0] = relation_bytes_after_insert;
     for (index, kind) in BUCKET_KINDS.into_iter().enumerate().skip(1) {
         let storage_rows = snapshots_for_kind(&snapshots, kind);
+
+        // All kinds share one table, so a kind's footprint is the growth its flush causes.
+        let relation_bytes_before = relation_size(&pool, BUCKET_RELATION).await;
         let stats = repository
             .replace_owner_snapshots(&storage_rows)
             .await
             .expect("representative storage snapshot flush");
         assert_eq!(stats.applied, SNAPSHOT_COUNT as u64);
-        relation_bytes_by_kind[index] = relation_size(&pool, bucket_relation(kind))
+        relation_bytes_by_kind[index] = relation_size(&pool, BUCKET_RELATION)
             .await
-            .saturating_sub(relation_baselines[index]);
+            .saturating_sub(relation_bytes_before);
     }
     let mut modeled_hot_rows = 0_u64;
     let mut modeled_rollup_rows = 0_u64;
@@ -376,9 +353,9 @@ async fn measure_projection(settings: &ApmSettings) -> ProjectionResult {
         aggregate_samples.push(started.elapsed());
     }
 
-    let mut limiter = ApmCardinalityLimiter::new(settings.cardinality.clone());
+    let mut limiter = ApmCardinalityLimiter::new(ApmLimitsHandle::default());
     let mut service_rejections = 0_u64;
-    for index in 0..=settings.cardinality.services_per_org_hour {
+    for index in 0..=ApmLimits::default().services_per_org_hour {
         let mut item = fact(&org_id, &format!("bounded-service-{index}"), "span");
         if !limiter.admit(&mut item).accepted {
             service_rejections += 1;
@@ -431,7 +408,7 @@ fn fact(org_id: &Id, service: &str, span_id: &str) -> ApmSpanFact {
         span_id: span_id.into(),
         parent_span_id: None,
         event_time: TimestampMicros::now(),
-        duration_micros: 125_000,
+        duration: 125_000,
         span_kind: ApmSpanKind::Server,
         outcome: ApmOutcome::Success,
         transaction: Some(TransactionIdentity {
@@ -441,6 +418,10 @@ fn fact(org_id: &Id, service: &str, span_id: &str) -> ApmSpanFact {
         dependency: None,
         error: None,
         exception: None,
+        response_status: None,
+        timed_out: false,
+        retried: false,
+        instance: None,
     }
 }
 
@@ -456,6 +437,9 @@ fn snapshots(org_id: &Id, hour: i64) -> Vec<OwnerSnapshot> {
         overflow_count: 0,
         latency,
         exemplars: Vec::new(),
+        status_codes: Default::default(),
+        timeout_count: 0,
+        retry_count: 0,
     };
     let mut rows = Vec::with_capacity(SNAPSHOT_COUNT);
     for service_index in 0..SERVICE_COUNT {
@@ -523,6 +507,11 @@ fn snapshots_for_kind(base: &[OwnerSnapshot], kind: BucketKind) -> Vec<OwnerSnap
                         overflow: false,
                     },
                 },
+                BucketKind::Instance => BucketDimension::Instance {
+                    service,
+                    version,
+                    instance_id: format!("checkout-{:02}", minute_slot % 8),
+                },
             };
             OwnerSnapshot {
                 snapshot_seq: 1,
@@ -534,13 +523,15 @@ fn snapshots_for_kind(base: &[OwnerSnapshot], kind: BucketKind) -> Vec<OwnerSnap
 }
 
 fn modeled_rows(settings: &ApmSettings, kind: BucketKind) -> (u64, u64) {
-    let services = u64::try_from(settings.cardinality.services_per_org_hour)
-        .expect("service cardinality fits u64");
+    let limits = ApmLimits::default();
+    let services =
+        u64::try_from(limits.services_per_org_hour).expect("service cardinality fits u64");
     let dimensions_per_service = u64::try_from(match kind {
         BucketKind::Service => 1,
-        BucketKind::Transaction => settings.cardinality.transactions_per_service_hour,
-        BucketKind::Dependency => settings.cardinality.dependencies_per_service_hour,
-        BucketKind::Error => settings.cardinality.error_groups_per_service_hour,
+        BucketKind::Transaction => limits.transactions_per_service_hour,
+        BucketKind::Dependency => limits.dependencies_per_service_hour,
+        BucketKind::Error => limits.error_groups_per_service_hour,
+        BucketKind::Instance => limits.instances_per_service_hour,
     })
     .expect("dimension cardinality fits u64");
     let active_dimensions_per_minute = match kind {
@@ -561,15 +552,6 @@ fn modeled_rows(settings: &ApmSettings, kind: BucketKind) -> (u64, u64) {
         .saturating_mul(24)
         .saturating_mul(u64::from(settings.rollup_retention_days));
     (hot_rows, rollup_rows)
-}
-
-fn bucket_relation(kind: BucketKind) -> &'static str {
-    match kind {
-        BucketKind::Service => "apm_service_buckets_default",
-        BucketKind::Transaction => "apm_transaction_buckets_default",
-        BucketKind::Dependency => "apm_dependency_buckets_default",
-        BucketKind::Error => "apm_error_buckets_default",
-    }
 }
 
 async fn relation_size(pool: &PgPool, relation: &str) -> i64 {
@@ -596,6 +578,7 @@ async fn seed_catalog(repository: &PgApmRepository, org_id: &Id, hour: i64) {
             telemetry_sdk_name: Some("opentelemetry".into()),
             telemetry_sdk_version: Some("0.29".into()),
             recent_instance_count: 4,
+            entry_kinds: Vec::new(),
         })
         .collect::<Vec<_>>();
     let versions = services

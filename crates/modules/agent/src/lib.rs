@@ -23,12 +23,16 @@ pub mod shared {
     pub use signals::{http_trace, trace_context, trace_stream};
 }
 
+pub mod answer;
+pub mod automations;
 pub mod capabilities;
 pub mod chat;
 pub mod commands;
 pub mod currencies;
 pub mod feedback;
+pub mod im;
 pub mod inbound_mcp;
+pub mod insights;
 pub mod knowledge;
 pub mod mcp;
 pub mod memory;
@@ -37,6 +41,7 @@ pub mod network;
 pub mod references;
 pub mod runs;
 pub mod scope;
+pub mod scoring;
 pub mod skills;
 pub mod telemetry;
 pub mod titles;

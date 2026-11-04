@@ -1,27 +1,35 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { TFunction } from 'i18next';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ConfirmDialog } from '@/admin';
 import * as notifyApi from '@/api/notify';
 import type { NotifyTemplate } from '@/api/notify/templates';
 import { toApiError } from '@/lib/http';
-import { ChromeButton } from '@/shell/chrome';
+import { ReadOnlyValue } from '@/routes/settings/_atoms';
+import { ChromeButton, uiLabelClass } from '@/shell/chrome';
 import {
   FormChecklist,
   FormDrawer,
   FormField,
+  FormGroup,
   FormInput,
   FormRadio,
   FormRow,
   FormSection,
   FormSelect,
-  FormTextarea,
 } from '@/shell/FormDrawer';
+import { JsonEditor } from '@/shell/JsonEditor';
 import { toast } from '@/shell/ui/sonner';
 import { Switch } from '@/shell/ui/switch';
+import { TimeConditionField, windowsInvalid } from '@/shell/weekly-ranges/WeeklyWindowsFields';
+import type { TimeCondition } from '@/types/alerting';
 
-import { EVENT_TYPES, NOTIFY_CATEGORIES } from '../model';
+import { CONNECTOR_CHANNELS } from '../connector/channels';
+import { EVENT_TYPES, NOTIFY_CATEGORIES, policyName } from '../model';
 import { PolicyPreview } from './Preview';
+import { templateChannelLabel } from '../template/model';
 
 interface DraftState {
   name: string;
@@ -34,10 +42,13 @@ interface DraftState {
   mode: notifyApi.NotifyDeliveryMode;
   connectorIds: string[];
   templateId: string;
+  channelTemplates: Partial<Record<notifyApi.NotifyChannel, string>>;
   userFallbacks: boolean;
   teamDefaults: boolean;
   organizationDefaults: boolean;
   ackTimeout: string;
+  mergeWindow: string;
+  time: TimeCondition | null;
   escalationResolver: string;
   escalationResolverConfig: string;
   escalationMode: notifyApi.NotifyDeliveryMode;
@@ -50,46 +61,70 @@ function initialDraft(
   policy: notifyApi.NotifyPolicy | null,
   resolvers: string[],
 ): DraftState {
-  const escalation = policy?.escalation_config as
+  const escalation = policy?.escalationConfig as
     | {
-        recipient_resolver?: string;
-        resolver_config?: unknown;
-        delivery_mode?: notifyApi.NotifyDeliveryMode;
-        delivery_config?: { connector_ids?: string[] };
+        recipientResolver?: string;
+        resolverConfig?: unknown;
+        deliveryMode?: notifyApi.NotifyDeliveryMode;
+        deliveryConfig?: { connectorIds?: string[] };
       }
     | null
     | undefined;
   return {
     name: policy?.name ?? '',
-    eventType: policy?.event_type ?? EVENT_TYPES[0],
+    eventType: policy?.eventType ?? EVENT_TYPES[0],
     category: policy?.category ?? 'alert',
     priority: String(policy?.priority ?? 100),
     matchers: JSON.stringify(policy?.matchers ?? {}, null, 2),
-    resolver: policy?.recipient_resolver ?? resolvers[0] ?? 'fixed_users',
-    resolverConfig: JSON.stringify(policy?.resolver_config ?? {}, null, 2),
-    mode: policy?.delivery_mode ?? 'prefer_user',
-    connectorIds: policy?.delivery_config.connector_ids ?? [],
-    templateId: policy?.template_id ?? '',
-    userFallbacks: policy?.fallback_config.use_user_fallbacks ?? true,
-    teamDefaults: policy?.fallback_config.use_team_defaults ?? true,
+    resolver: policy?.recipientResolver ?? resolvers[0] ?? 'fixed_users',
+    resolverConfig: JSON.stringify(policy?.resolverConfig ?? {}, null, 2),
+    mode: policy?.deliveryMode ?? 'prefer_user',
+    connectorIds: policy?.deliveryConfig.connectorIds ?? [],
+    templateId: policy?.templateId ?? '',
+    channelTemplates: policy?.channelTemplates ?? {},
+    userFallbacks: policy?.fallbackConfig.useUserFallbacks ?? true,
+    teamDefaults: policy?.fallbackConfig.useTeamDefaults ?? true,
     organizationDefaults:
-      policy?.fallback_config.use_organization_defaults ?? true,
-    ackTimeout: policy?.ack_timeout_seconds
-      ? String(policy.ack_timeout_seconds)
+      policy?.fallbackConfig.useOrganizationDefaults ?? true,
+    ackTimeout: policy?.ackTimeoutSeconds
+      ? String(policy.ackTimeoutSeconds)
       : '',
+    mergeWindow: policy?.mergeWindowSecs ? String(policy.mergeWindowSecs) : '',
+    time: policy?.time ?? null,
     escalationResolver:
-      escalation?.recipient_resolver ?? resolvers[0] ?? 'fixed_users',
+      escalation?.recipientResolver ?? resolvers[0] ?? 'fixed_users',
     escalationResolverConfig: JSON.stringify(
-      escalation?.resolver_config ?? {},
+      escalation?.resolverConfig ?? {},
       null,
       2,
     ),
-    escalationMode: escalation?.delivery_mode ?? 'prefer_user',
+    escalationMode: escalation?.deliveryMode ?? 'prefer_user',
     escalationConnectorIds:
-      escalation?.delivery_config?.connector_ids ?? [],
+      escalation?.deliveryConfig?.connectorIds ?? [],
     eventAttributes: '{}',
     enabled: policy?.enabled ?? true,
   };
+}
+
+/** Only alert notifications are merged: of these categories of policy. */
+const MERGING_CATEGORIES: notifyApi.NotifyCategory[] = ['alert', 'escalation'];
+
+/** The merge windows offered, in seconds; one set through the API that none matches is listed too. */
+function mergeWindowOptions(t: TFunction<'notify'>, current: string) {
+  const presets = [30, 60, 120, 300];
+  const secs = Number(current);
+  const values = current && !presets.includes(secs) ? [...presets, secs].sort((a, b) => a - b) : presets;
+
+  return [
+    { value: '', label: t('policies.drawer.merge_off') },
+    ...values.map((value) => ({
+      value: String(value),
+      label:
+        value % 60 === 0
+          ? t('policies.drawer.merge_minutes', { count: value / 60 })
+          : t('policies.drawer.merge_seconds', { count: value }),
+    })),
+  ];
 }
 
 function parseObject(value: string, field: string): Record<string, unknown> {
@@ -102,46 +137,54 @@ function parseObject(value: string, field: string): Record<string, unknown> {
 
 function policyInput(draft: DraftState): notifyApi.NotifyPolicyInput {
   const fallback = {
-    use_user_fallbacks: draft.userFallbacks,
-    use_team_defaults: draft.teamDefaults,
-    use_organization_defaults: draft.organizationDefaults,
+    useUserFallbacks: draft.userFallbacks,
+    useTeamDefaults: draft.teamDefaults,
+    useOrganizationDefaults: draft.organizationDefaults,
   };
   const ackTimeout = draft.ackTimeout.trim()
     ? Number(draft.ackTimeout)
     : null;
   return {
     name: draft.name.trim(),
-    event_type: draft.eventType.trim(),
+    eventType: draft.eventType.trim(),
     category: draft.category,
     priority: Number(draft.priority),
     matchers: parseObject(draft.matchers, 'Matchers'),
-    recipient_resolver: draft.resolver,
-    resolver_config: parseObject(draft.resolverConfig, 'Resolver config'),
-    delivery_mode: draft.mode,
-    delivery_config: {
-      connector_ids:
+    recipientResolver: draft.resolver,
+    resolverConfig: parseObject(draft.resolverConfig, 'Resolver config'),
+    deliveryMode: draft.mode,
+    deliveryConfig: {
+      connectorIds:
         draft.mode === 'prefer_user' ? [] : draft.connectorIds,
     },
-    template_id: draft.templateId || null,
-    fallback_config: fallback,
-    ack_timeout_seconds: ackTimeout,
-    escalation_config:
+    templateId: draft.templateId || null,
+    channelTemplates: Object.fromEntries(
+      Object.entries(draft.channelTemplates).filter(([, id]) => id),
+    ),
+    fallbackConfig: fallback,
+    ackTimeoutSeconds: ackTimeout,
+    mergeWindowSecs:
+      draft.mergeWindow && MERGING_CATEGORIES.includes(draft.category)
+        ? Number(draft.mergeWindow)
+        : null,
+    time: draft.time,
+    escalationConfig:
       ackTimeout === null
         ? null
         : {
-            recipient_resolver: draft.escalationResolver,
-            resolver_config: parseObject(
+            recipientResolver: draft.escalationResolver,
+            resolverConfig: parseObject(
               draft.escalationResolverConfig,
               'Escalation resolver config',
             ),
-            delivery_mode: draft.escalationMode,
-            delivery_config: {
-              connector_ids:
+            deliveryMode: draft.escalationMode,
+            deliveryConfig: {
+              connectorIds:
                 draft.escalationMode === 'prefer_user'
                   ? []
                   : draft.escalationConnectorIds,
             },
-            fallback_config: fallback,
+            fallbackConfig: fallback,
           },
     enabled: draft.enabled,
   };
@@ -179,7 +222,7 @@ export function PolicyEditor({
       attributes: Record<string, unknown>;
     }) =>
       notifyApi.previewPolicy(input.policy, {
-        event_type: input.policy.event_type,
+        eventType: input.policy.eventType,
         attributes: input.attributes,
       }),
     onSuccess: (result) => {
@@ -222,20 +265,35 @@ export function PolicyEditor({
     onError: (error) => toast.error(toApiError(error).message),
   });
 
+  // A built-in policy goes back to how it is built in, the changes made to it gone.
+  const [restoring, setRestoring] = React.useState(false);
+  const restore = useMutation({
+    mutationFn: (id: string) => notifyApi.restorePolicy(id),
+    onSuccess: () => {
+      toast.success(t('policies.restored'));
+      setRestoring(false);
+      void qc.invalidateQueries({ queryKey: ['notify', 'policies'] });
+      onClose();
+    },
+    onError: (error) => toast.error(toApiError(error).message),
+  });
+
   const set = <K extends keyof DraftState>(key: K, value: DraftState[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
+  // Another category keeps only the templates written for it.
   const setCategory = (category: notifyApi.NotifyCategory) =>
-    setDraft((current) => ({
-      ...current,
-      category,
-      templateId: templates.some(
-        (template) =>
-          template.id === current.templateId &&
-          template.category === category,
-      )
-        ? current.templateId
-        : '',
-    }));
+    setDraft((current) => {
+      const kept = (id: string | undefined) =>
+        templates.some((template) => template.id === id && template.category === category);
+      return {
+        ...current,
+        category,
+        templateId: kept(current.templateId) ? current.templateId : '',
+        channelTemplates: Object.fromEntries(
+          Object.entries(current.channelTemplates).filter(([, id]) => kept(id)),
+        ),
+      };
+    });
   const submit = () => {
     try {
       save.mutate(policyInput(draft));
@@ -244,13 +302,25 @@ export function PolicyEditor({
     }
   };
   const selectableConnectors = connectors.filter(
-    (connector) => connector.enabled && connector.capabilities.direct_user,
+    (connector) => connector.enabled && connector.capabilities.directUser,
   );
-  const selectableTemplates = templates.filter(
-    (template) =>
-      template.category === draft.category ||
-      template.id === draft.templateId,
-  );
+  // The templates a slot offers: those of its channel and the policy's category, and the one chosen.
+  const templatesFor = (channel: notifyApi.NotifyChannel | null, chosen: string | undefined) =>
+    templates.filter(
+      (template) =>
+        template.channel === channel &&
+        (template.category === draft.category || template.id === chosen),
+    );
+  const generalTemplates = templatesFor(null, draft.templateId);
+  const channelSlots = CONNECTOR_CHANNELS.map((channel) => ({
+    channel,
+    options: templatesFor(channel, draft.channelTemplates[channel]),
+  })).filter((slot) => slot.options.length > 0);
+  const setChannelTemplate = (channel: notifyApi.NotifyChannel, id: string) =>
+    setDraft((current) => ({
+      ...current,
+      channelTemplates: { ...current.channelTemplates, [channel]: id },
+    }));
 
   return (
     <FormDrawer
@@ -259,16 +329,21 @@ export function PolicyEditor({
       width={1120}
       title={
         policy
-          ? t('policies.drawer.edit_title', { name: policy.name })
+          ? t('policies.drawer.edit_title', { name: policyName(t, policy) })
           : t('policies.drawer.new_title')
       }
       subtitle={t('policies.drawer.subtitle')}
       footer={
         <>
+          {policy?.builtinKey && (
+            <ChromeButton className="mr-auto" onClick={() => setRestoring(true)}>
+              {t('policies.drawer.restore')}
+            </ChromeButton>
+          )}
           <ChromeButton onClick={onClose}>{t('common.cancel')}</ChromeButton>
           <ChromeButton
             variant="primary"
-            disabled={draft.name.trim() === '' || save.isPending}
+            disabled={draft.name.trim() === '' || (draft.time !== null && windowsInvalid(draft.time)) || save.isPending}
             onClick={submit}
           >
             {save.isPending ? t('common.saving') : t('policies.drawer.save')}
@@ -279,9 +354,15 @@ export function PolicyEditor({
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0">
           <FormSection title={t('policies.drawer.trigger')}>
-            <FormField label={t('policies.drawer.name')} required>
-              <FormInput value={draft.name} onChange={(e) => set('name', e.target.value)} />
-            </FormField>
+            {policy?.builtinKey ? (
+              <FormField label={t('policies.drawer.name')} hint={t('policies.drawer.builtin_name_hint')}>
+                <ReadOnlyValue value={policyName(t, policy)} />
+              </FormField>
+            ) : (
+              <FormField label={t('policies.drawer.name')} required>
+                <FormInput value={draft.name} onChange={(e) => set('name', e.target.value)} />
+              </FormField>
+            )}
             <FormRow>
               <FormField label={t('policies.drawer.event_type')} required>
                 <FormSelect
@@ -324,12 +405,17 @@ export function PolicyEditor({
               </label>
             </FormRow>
             <FormField label={t('policies.drawer.matchers')}>
-              <FormTextarea
-                className="font-mono text-xs"
+              <JsonEditor
                 value={draft.matchers}
-                onChange={(e) => set('matchers', e.target.value)}
+                onChange={(value) => set('matchers', value)}
+                ariaLabel={t('policies.drawer.matchers')}
               />
             </FormField>
+            <TimeConditionField
+              value={draft.time}
+              onChange={(time) => set('time', time)}
+              hint={t('policies.drawer.time_hint')}
+            />
           </FormSection>
 
           <FormSection title={t('policies.drawer.recipient')}>
@@ -346,10 +432,10 @@ export function PolicyEditor({
               />
             </FormField>
             <FormField label={t('policies.drawer.resolver_config')}>
-              <FormTextarea
-                className="font-mono text-xs"
+              <JsonEditor
                 value={draft.resolverConfig}
-                onChange={(e) => set('resolverConfig', e.target.value)}
+                onChange={(value) => set('resolverConfig', value)}
+                ariaLabel={t('policies.drawer.resolver_config')}
               />
             </FormField>
           </FormSection>
@@ -367,13 +453,35 @@ export function PolicyEditor({
                     value: '',
                     label: t('policies.drawer.default_template'),
                   },
-                  ...selectableTemplates.map((template) => ({
+                  ...generalTemplates.map((template) => ({
                     value: template.id,
                     label: `${template.name} · ${template.format ?? 'text'}`,
                   })),
                 ]}
               />
             </FormField>
+            {channelSlots.length > 0 && (
+              <div data-channel-templates className="flex flex-col gap-1.5">
+                <span className={uiLabelClass}>{t('policies.drawer.channel_templates')}</span>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {channelSlots.map(({ channel, options }) => (
+                    <FormField key={channel} label={templateChannelLabel(t, channel)}>
+                      <FormSelect
+                        value={draft.channelTemplates[channel] ?? ''}
+                        onChange={(value) => setChannelTemplate(channel, value)}
+                        options={[
+                          { value: '', label: t('policies.drawer.use_general_template') },
+                          ...options.map((template) => ({
+                            value: template.id,
+                            label: template.name,
+                          })),
+                        ]}
+                      />
+                    </FormField>
+                  ))}
+                </div>
+              </div>
+            )}
             <FormRadio
               value={draft.mode}
               onChange={(value) => set('mode', value)}
@@ -385,15 +493,25 @@ export function PolicyEditor({
               )}
             />
             {draft.mode !== 'prefer_user' && (
-              <FormField label={t('policies.drawer.connectors')}>
+              <FormGroup label={t('policies.drawer.connectors')}>
                 <FormChecklist
                   selected={draft.connectorIds}
                   onChange={(value) => set('connectorIds', value)}
                   options={selectableConnectors.map((connector) => ({
                     value: connector.id,
                     label: connector.name,
-                    hint: connector.connector_type,
+                    hint: connector.connectorType,
                   }))}
+                />
+              </FormGroup>
+            )}
+            {MERGING_CATEGORIES.includes(draft.category) && (
+              <FormField label={t('policies.drawer.merge_window')} hint={t('policies.drawer.merge_window_hint')}>
+                <FormSelect
+                  value={draft.mergeWindow}
+                  onChange={(value) => set('mergeWindow', value)}
+                  ariaLabel={t('policies.drawer.merge_window')}
+                  options={mergeWindowOptions(t, draft.mergeWindow)}
                 />
               </FormField>
             )}
@@ -439,10 +557,10 @@ export function PolicyEditor({
                   />
                 </FormField>
                 <FormField label={t('policies.drawer.escalation_config')}>
-                  <FormTextarea
-                    className="font-mono text-xs"
+                  <JsonEditor
                     value={draft.escalationResolverConfig}
-                    onChange={(e) => set('escalationResolverConfig', e.target.value)}
+                    onChange={(value) => set('escalationResolverConfig', value)}
+                    ariaLabel={t('policies.drawer.escalation_config')}
                   />
                 </FormField>
                 <FormField label={t('policies.drawer.escalation_delivery')}>
@@ -458,27 +576,27 @@ export function PolicyEditor({
                   />
                 </FormField>
                 {draft.escalationMode !== 'prefer_user' && (
-                  <FormField label={t('policies.drawer.escalation_connectors')}>
+                  <FormGroup label={t('policies.drawer.escalation_connectors')}>
                     <FormChecklist
                       selected={draft.escalationConnectorIds}
                       onChange={(value) => set('escalationConnectorIds', value)}
                       options={selectableConnectors.map((connector) => ({
                         value: connector.id,
                         label: connector.name,
-                        hint: connector.connector_type,
+                        hint: connector.connectorType,
                       }))}
                     />
-                  </FormField>
+                  </FormGroup>
                 )}
               </>
             )}
           </FormSection>
           <FormSection title={t('policies.drawer.preview_event')}>
             <FormField label={t('policies.drawer.event_attributes')}>
-              <FormTextarea
-                className="font-mono text-xs"
+              <JsonEditor
                 value={draft.eventAttributes}
-                onChange={(e) => set('eventAttributes', e.target.value)}
+                onChange={(value) => set('eventAttributes', value)}
+                ariaLabel={t('policies.drawer.event_attributes')}
               />
             </FormField>
           </FormSection>
@@ -487,8 +605,19 @@ export function PolicyEditor({
           preview={preview}
           error={previewError}
           loading={previewMutation.isPending}
+          templates={templates}
         />
       </div>
+      <ConfirmDialog
+        open={restoring}
+        onOpenChange={(next) => !next && setRestoring(false)}
+        title={t('policies.restore_title')}
+        description={t('policies.restore_description')}
+        confirmLabel={t('policies.drawer.restore')}
+        cancelLabel={t('common.cancel')}
+        busy={restore.isPending}
+        onConfirm={() => policy && restore.mutate(policy.id)}
+      />
     </FormDrawer>
   );
 }

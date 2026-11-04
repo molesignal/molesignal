@@ -5,9 +5,9 @@ export interface VersionInfo {
   version: string;
   commit: string;
   branch: string;
-  build_epoch_secs: number;
-  build_id: string;
-  release_channel: string;
+  buildEpochSecs: number;
+  buildId: string;
+  releaseChannel: string;
   edition: string;
 }
 

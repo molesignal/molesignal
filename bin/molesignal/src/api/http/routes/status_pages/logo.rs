@@ -25,7 +25,7 @@ use crate::{
 const LOGO_MAX_BYTES: usize = 2 * 1024 * 1024;
 const PUBLIC_LOGO_PREFIX: &str = "/api/v1/public/status-pages/";
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.update")]
 pub(super) async fn upload_logo(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -79,7 +79,7 @@ pub(super) async fn upload_logo(
         "status_page.logo.update",
         "status_page",
         page_id.as_str(),
-        serde_json::json!({"managed_upload": true}),
+        serde_json::json!({"managedUpload": true}),
     )
     .await;
 

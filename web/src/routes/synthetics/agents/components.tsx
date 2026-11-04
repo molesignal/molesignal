@@ -74,7 +74,7 @@ export function CompactCapacity({ capacity }: { capacity: ProbeAgent['capacity']
       <CapacityMeter
         label={t('agents.concurrent_short')}
         available={capacity.available}
-        maximum={capacity.max_concurrent}
+        maximum={capacity.maxConcurrent}
       />
     </div>
   );

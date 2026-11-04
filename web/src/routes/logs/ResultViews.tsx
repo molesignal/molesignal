@@ -2,11 +2,10 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useTimeFormatter } from '@/lib/time';
-import { uiTableHeaderClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { LONG_LIST_ROW_CLASS, longListRowStyle } from '@/shell/list/longList';
 
-import { LEVEL_EDGE, LevelWord } from './LevelMark';
+import { LEVEL_BAR, LevelChip } from './LevelMark';
 import {
   displayLogValue,
   formatLogMoment,
@@ -106,11 +105,11 @@ function resultGridStyle(
 function LogResultValue({ log, field }: { log: LogEntry; field: string }) {
   const rawValue = logResultRawValue(log, field);
   const value = displayLogValue(rawValue);
-  if (LEVEL_FIELDS.has(field) && value) return <LevelWord level={value.toUpperCase()} />;
+  if (LEVEL_FIELDS.has(field) && value) return <LevelChip level={value.toUpperCase()} />;
 
   return (
-    <span className="block truncate" title={value}>
-      {value || '—'}
+    <span className="block truncate text-tx-0" title={value}>
+      {value || <span className="text-tx-4">—</span>}
     </span>
   );
 }
@@ -162,22 +161,22 @@ const LogRow = React.memo(function LogRow({
       }}
       style={style}
       className={cn(
-        // The level runs down the row's edge whether or not it has a column of its own.
-        'grid cursor-pointer items-center gap-3 border-b border-l-[3px] border-bd-0 pl-[13px] pr-4 text-left font-sans text-xs',
+        'relative grid cursor-pointer items-center gap-3 border-b border-[var(--row-rule)] px-3 text-left font-sans text-xs outline-none',
         LONG_LIST_ROW_CLASS,
-        LEVEL_EDGE[tone],
         selected ? 'bg-indigo-dim' : 'hover:bg-bg-2 focus-visible:bg-bg-2',
       )}
     >
+      {/* The level runs down the row's edge whether or not it has a column of its own, as how a trace ended does. */}
+      <span aria-hidden="true" className={cn('absolute inset-y-0 left-0 w-[3px]', LEVEL_BAR[tone])} />
       <span
         data-log-field="_timestamp"
-        className="type-micro min-w-0 truncate whitespace-nowrap font-mono tabular-nums text-tx-2"
+        className="min-w-0 truncate whitespace-nowrap tabular-nums text-tx-0"
         title={log.micros == null ? log.ts : formatLogMoment(log.micros, clock, 'full')}
       >
         {moment}
       </span>
       {columns.map((field) => (
-        <span key={field} data-log-field={field} className="min-w-0 text-tx-1">
+        <span key={field} data-log-field={field} className="min-w-0">
           <LogResultValue log={log} field={field} />
         </span>
       ))}
@@ -230,8 +229,8 @@ export function LogListResults({
       <div
         data-log-result-columns="logs"
         style={gridStyle}
-        // The same edge as the rows under it, so the columns line up.
-        className={`sticky top-0 z-10 grid gap-3 border-b border-l-[3px] border-bd-0 border-l-transparent bg-bg-1 py-2 pl-[13px] pr-4 ${uiTableHeaderClass}`}
+        // A band like the trace table's head: the columns line up with the rows under it.
+        className="sticky top-0 z-10 grid h-8 items-center gap-3 border-b border-bd-0 bg-[var(--table-head-surface)] px-3 font-sans text-xs font-strong text-tx-0"
       >
         <span data-log-field="_timestamp" className="min-w-0 truncate" title={timeColumnLabel}>
           {timeColumnLabel}

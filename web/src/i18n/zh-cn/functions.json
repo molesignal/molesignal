@@ -1,6 +1,6 @@
 {
   "title": "函数",
-  "subtitle": "可复用的 VRL 转换函数，可用于流水线与查询阶段。",
+  "subtitle": "可复用的转换函数，可在样例事件上试运行；流水线步骤可从 VRL 函数复制一份开始。",
   "list": {
     "new_function": "新建函数",
     "search_placeholder": "按名称或用途搜索…",
@@ -11,7 +11,7 @@
       "action": "操作"
     },
     "empty_title": "还没有自建函数",
-    "empty_description": "函数写一次，就能在任意流水线里调用。",
+    "empty_description": "函数写一次，就能复制到任意流水线步骤里。",
     "builtin": "内置",
     "preset_copy": "复制脚本",
     "preset_copied": "已复制脚本",
@@ -54,7 +54,7 @@
     "delete": "删除函数",
     "delete_confirm": "删除",
     "delete_confirm_title": "确认删除该函数?",
-    "delete_confirm_description": "依赖该函数的流水线将开始失败，直到重新连线。",
+    "delete_confirm_description": "从该函数复制出去的流水线步骤保留各自的副本，不受影响。",
     "compile_pending": "保存时后端将做编译校验。",
     "definition": "定义",
     "not_found": "未找到函数。",

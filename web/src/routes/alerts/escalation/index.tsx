@@ -11,7 +11,10 @@ import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
 import type { ProductStateProps } from '@/product/states';
 import { ChromeButton, IconButton } from '@/shell/chrome';
+import { ESCALATION_POLICIES } from '@/shell/transfer/kinds';
+import { TransferMenu } from '@/shell/transfer/TransferMenu';
 import { toast } from '@/shell/ui/sonner';
+import { useReachability } from '@/shell/useReachability';
 import { useUsers } from '@/shell/useUsers';
 import type { EscalationPolicy } from '@/types/alerting';
 
@@ -19,7 +22,7 @@ import { AlertsPage } from '../Frame';
 import { alertFlatTableClassName } from '../Surfaces';
 import { EscalationChain } from './Chain';
 import { EscalationDrawer } from './Drawer';
-import type { TargetNames } from './steps';
+import { type TargetNames, stepPeople } from './steps';
 
 /**
  * The escalation policies, each as the path an incident takes while nobody
@@ -30,14 +33,15 @@ export function AlertsEscalations() {
   const { t } = useTranslation('alerts');
   const { t: tc } = useTranslation('common');
   const queryClient = useQueryClient();
-  const manageAccess = useActionAccess({ permission: 'alerts.manage' });
+  const manageAccess = useActionAccess({ permission: 'alerts.escalations.manage' });
+  const deleteAccess = useActionAccess({ permission: 'alerts.escalations.delete' });
   const [creating, setCreating] = React.useState(false);
   const [editing, setEditing] = React.useState<EscalationPolicy | null>(null);
   const [removing, setRemoving] = React.useState<EscalationPolicy | null>(null);
 
   const query = useQuery({ queryKey: ['escalation-policies'], queryFn: () => escalationsApi.list() });
   const rows = query.data ?? [];
-  // The chain names people, schedules and teams; until a name arrives its id stands in for it.
+  // The chain names people, schedules and teams; until a schedule or team arrives its id stands in for it.
   const users = useUsers();
   const schedulesQuery = useQuery({ queryKey: ['schedules'], queryFn: () => schedulesApi.list() });
   const teamsQuery = useQuery({ queryKey: ['teams'], queryFn: () => teamsApi.list() });
@@ -51,6 +55,22 @@ export function AlertsEscalations() {
       team: (id) => teams.get(id) ?? id,
     };
   }, [schedulesQuery.data, teamsQuery.data, users.nameOf]);
+
+  // The people each step can page, and which of them cannot get alerts at all.
+  const schedulesById = React.useMemo(
+    () => new Map((schedulesQuery.data ?? []).map((schedule) => [schedule.id, schedule])),
+    [schedulesQuery.data],
+  );
+  const people = React.useMemo(
+    () => (query.data ?? []).flatMap((policy) => policy.steps.flatMap((step) => stepPeople(step, schedulesById))),
+    [query.data, schedulesById],
+  );
+  const reach = useReachability(people);
+  const unreachableOf = React.useCallback(
+    (step: EscalationPolicy['steps'][number]) =>
+      stepPeople(step, schedulesById).filter((userId) => reach[userId] === 'none'),
+    [reach, schedulesById],
+  );
 
   const remove = useMutation({
     mutationFn: (id: string) => escalationsApi.remove(id),
@@ -93,7 +113,15 @@ export function AlertsEscalations() {
   return (
     <>
       {/* An empty list carries the action itself; the header does not offer it a second time. */}
-      <AlertsPage action={state?.variant === 'empty' ? undefined : newPolicy} state={state}>
+      <AlertsPage
+        action={
+          <>
+            <TransferMenu kind={ESCALATION_POLICIES} />
+            {state?.variant === 'empty' ? null : newPolicy}
+          </>
+        }
+        state={state}
+      >
         <DataTable
           className={alertFlatTableClassName}
           rows={rows}
@@ -111,7 +139,7 @@ export function AlertsEscalations() {
             {
               key: 'steps',
               header: t('escalations.columns.steps'),
-              cell: (policy) => <EscalationChain policy={policy} names={names} />,
+              cell: (policy) => <EscalationChain policy={policy} names={names} unreachableOf={unreachableOf} />,
             },
             {
               key: 'actions',
@@ -136,8 +164,8 @@ export function AlertsEscalations() {
                   <IconButton
                     aria-label={tc('actions.delete')}
                     title={tc('actions.delete')}
-                    disabled={manageAccess.disabled}
-                    disabledReason={manageAccess.reason}
+                    disabled={deleteAccess.disabled}
+                    disabledReason={deleteAccess.reason}
                     className="enabled:hover:text-red-soft"
                     onClick={(event) => {
                       event.stopPropagation();
@@ -168,10 +196,10 @@ export function AlertsEscalations() {
         description={removing?.name ?? ''}
         confirmLabel={tc('actions.delete')}
         busy={remove.isPending}
-        disabled={manageAccess.disabled}
-        disabledReason={manageAccess.reason}
+        disabled={deleteAccess.disabled}
+        disabledReason={deleteAccess.reason}
         onConfirm={() => {
-          if (removing && manageAccess.allowed) remove.mutate(removing.id);
+          if (removing && deleteAccess.allowed) remove.mutate(removing.id);
         }}
       />
     </>

@@ -8,6 +8,8 @@ import {
   formatLogFieldQueryValue,
   isLogFieldFilterable,
   logFieldClauseToSql,
+  logFieldQueryConditions,
+  logStatementFields,
   parseLogFieldStatement,
 } from './fieldQueryModel';
 
@@ -84,9 +86,9 @@ describe('log field query model', () => {
 
   it('derives the complete typed schema before query results are available', () => {
     const fields = deriveLogFields([
-      { name: 'status_code', data_type: 'int64', nullable: true, indexed: false },
-      { name: 'sampled', data_type: 'bool', nullable: true, indexed: false },
-      { name: 'payload', data_type: 'json', nullable: true, indexed: false },
+      { name: 'status_code', dataType: 'int64', nullable: true, indexed: false },
+      { name: 'sampled', dataType: 'bool', nullable: true, indexed: false },
+      { name: 'payload', dataType: 'json', nullable: true, indexed: false },
     ]);
 
     expect(fields.map((field) => [field.name, field.dataType])).toEqual([
@@ -118,7 +120,7 @@ describe('log field query model', () => {
 
   it('uses typed placeholders and parses numeric comparisons', () => {
     const [status] = deriveLogFields([
-      { name: 'status_code', data_type: 'int64', nullable: true, indexed: false },
+      { name: 'status_code', dataType: 'int64', nullable: true, indexed: false },
     ]);
 
     expect(appendLogFieldClause('', status!)).toBe('status_code >= 0');
@@ -129,7 +131,7 @@ describe('log field query model', () => {
 
   it('requires SQL mode for composite JSON fields', () => {
     const [payload] = deriveLogFields([
-      { name: 'payload', data_type: 'json', nullable: true, indexed: false },
+      { name: 'payload', dataType: 'json', nullable: true, indexed: false },
     ]);
 
     expect(isLogFieldFilterable(payload!, 'fields')).toBe(false);
@@ -190,5 +192,55 @@ describe('log field query model', () => {
     expect(sql).toContain('"level" = \'ERROR\'');
     // 函数不能当自由文本被 message LIKE 吞掉。
     expect(sql).not.toContain("LIKE '%MATCH_TEXT");
+  });
+
+  it('reads a quoted phrase as the words it holds, keywords and all', () => {
+    expect(parseLogFieldStatement('"connection reset" AND \'this or that\'').freeText).toEqual([
+      'connection reset',
+      'this or that',
+    ]);
+  });
+
+  it('keeps alternatives out of the lists of what all has to hold', () => {
+    const parsed = parseLogFieldStatement("level = 'error' AND (service = 'a' OR service = 'b') AND timeout");
+
+    expect(parsed.filters.map((filter) => filter.field)).toEqual(['level']);
+    expect(parsed.freeText).toEqual(['timeout']);
+    expect(parsed.rejected).toEqual(["(service = 'a' OR service = 'b')"]);
+    expect(parseLogFieldStatement("level = 'error' OR timeout").rejected).toEqual(["level = 'error' OR timeout"]);
+    // A bracket opened and not closed is no group the query can read.
+    expect(parseLogFieldStatement("level = 'error' AND (service = 'a'").rejected).toEqual(["(service = 'a'"]);
+  });
+
+  it('writes alternatives as SQL in brackets beside what all has to hold', () => {
+    expect(logFieldQueryConditions("level = 'error' AND (service = 'a' OR timeout) OR status >= 500")).toEqual([
+      `(("level" = 'error' AND ("service" = 'a' OR "message" LIKE '%timeout%')) OR "status" >= 500)`,
+    ]);
+    expect(buildLogFieldQuerySql('app', "level = 'error' AND (service = 'a' OR service = 'b')", 50)).toBe(
+      `SELECT * FROM "app"\nWHERE "level" = 'error'\n  AND ("service" = 'a' OR "service" = 'b')\nORDER BY _timestamp DESC\nLIMIT 50`,
+    );
+  });
+
+  it('names the fields a statement compares anywhere', () => {
+    expect(logStatementFields("level = 'error' OR (service = 'a' AND MATCH(message, 'x'))")).toEqual([
+      'level',
+      'service',
+      'message',
+    ]);
+  });
+
+  it('narrows a statement of alternatives as a whole', () => {
+    expect(appendLogFieldValueClause("level = 'error' OR timeout", 'service', 'api')).toBe(
+      "(level = 'error' OR timeout) AND service = 'api'",
+    );
+    expect(
+      appendLogFieldClause("level = 'error' OR timeout", {
+        name: 'status',
+        type: 'number',
+        dataType: 'int64',
+        count: '0',
+        expandable: false,
+      }),
+    ).toBe("(level = 'error' OR timeout) AND status >= 0");
   });
 });

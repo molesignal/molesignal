@@ -27,18 +27,20 @@ use crate::{
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
+/// `X-MoleSignal-Content-SHA256`：产物内容的 SHA-256（十六进制）。请求头名不分大小写，`HeaderName`
+/// 只认小写写法。
 const CONTENT_SHA256: &str = "x-molesignal-content-sha256";
 
 pub(super) fn upload_routes() -> Router<AppState> {
     Router::new().route(
-        "/api/v1/synthetics/artifacts/{task_id}/{artifact_id}",
+        "/api/v1/synthetics/artifacts/{taskId}/{artifactId}",
         put(upload).layer(DefaultBodyLimit::max(MAX_HAR_BYTES as usize)),
     )
 }
 
 pub(super) fn download_routes() -> Router<AppState> {
     Router::new().route(
-        "/synthetics/results/{result_id}/artifacts/{artifact_id}",
+        "/synthetics/results/{resultId}/artifacts/{artifactId}",
         get(download),
     )
 }
@@ -148,7 +150,7 @@ async fn upload(
     }
 }
 
-#[permission("synthetics.read")]
+#[permission("synthetics.results.read")]
 async fn download(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,

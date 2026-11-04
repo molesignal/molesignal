@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as React from 'react';
 import { createMemoryRouter, Link, RouterProvider } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import i18n from '@/i18n';
 import { TooltipProvider } from '@/shell/ui/tooltip';
@@ -9,11 +9,8 @@ import { useAuthStore } from '@/stores/auth';
 import { DEFAULT_WINDOW, type TimeWindow, useTimeStore } from '@/stores/useTimeStore';
 
 import { QueryTabs } from './Host';
-import {
-  useQueryTabSearchParams,
-  useQueryTabState,
-  useQueryTabStatus,
-} from './scope';
+import { useQueryTabSearchParams, useQueryTabState, useQueryTabStatus, useQueryTabStrip } from './scope';
+import { QuerySplitToggle } from './SplitToggle';
 import { QUERY_TABS_STORAGE_KEY, useQueryTabsRuntime, useQueryTabsStore } from './store';
 
 const SIX_HOURS: TimeWindow = { from: 'now-6h', to: 'now', mode: 'relative' };
@@ -41,9 +38,15 @@ function Explorer() {
   const [running, setRunning] = React.useState(false);
   const [note, setNote] = useQueryTabState('note', '');
   useQueryTabStatus({ running, summary: params.get('q') ?? '' });
+  const strip = useQueryTabStrip();
 
   return (
     <section data-testid="explorer">
+      {/* The tabs in the query box, the switch that splits the page in the head of the results. */}
+      <div data-testid="query-box">{strip}</div>
+      <div data-testid="results-head">
+        <QuerySplitToggle />
+      </div>
       <output data-testid="query">{params.get('q') ?? '(none)'}</output>
       <output data-testid="range">{`${window.from}..${window.to}`}</output>
       <output data-testid="results">{results}</output>
@@ -125,12 +128,13 @@ beforeEach(async () => {
   useQueryTabsRuntime.setState({ running: {} });
   useTimeStore.setState({ window: DEFAULT_WINDOW, anchor: null });
   useAuthStore.setState({
-    ctx: { user_id: 'u1', org_id: 'acme', display_role: 'admin', roles: [] },
+    ctx: { userId: 'u1', orgId: 'acme', displayRole: 'admin', roles: [] },
   });
 });
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   useAuthStore.setState({ ctx: null });
   useTimeStore.setState({ window: DEFAULT_WINDOW, anchor: null });
 });
@@ -272,13 +276,69 @@ describe('QueryTabs', () => {
     expect(router.state.location.search).toBe('?q=from-link');
   });
 
+  it('lists the tabs in the query box of the page in front', () => {
+    renderExplorer();
+    addTab();
+
+    // One list of tabs, in the page in front; the pages behind list none.
+    expect(screen.getAllByRole('tablist')).toHaveLength(1);
+    expect(within(front().getByTestId('query-box')).getAllByRole('tab')).toHaveLength(2);
+
+    fireEvent.click(tabs()[0]!);
+    expect(screen.getAllByRole('tablist')).toHaveLength(1);
+    expect(within(front().getByTestId('query-box')).getAllByRole('tab')).toHaveLength(2);
+  });
+
+  it('hands the focus to the tabs of the page that comes forward', () => {
+    renderExplorer();
+    addTab();
+
+    const first = tabs()[0]!;
+    first.focus();
+    fireEvent.click(first);
+
+    // The tabs that held the focus went behind with their page; the ones in front have it now.
+    const selected = within(front().getByTestId('query-box')).getByRole('tab', { selected: true });
+    expect(selected).not.toBe(first);
+    expect(document.activeElement).toBe(selected);
+  });
+
+  it('puts the switch that splits the page in the head of the results at the right, and hands it the focus', () => {
+    // Room for two halves, each wider than a page folds its side panels at.
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(2000);
+    renderExplorer();
+
+    const toggle = within(front().getByTestId('results-head')).getByRole('button', { name: 'Split in two' });
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    toggle.focus();
+    fireEvent.click(toggle);
+
+    const halves = [...document.querySelectorAll<HTMLElement>('[data-query-pane]')];
+    expect(halves).toHaveLength(2);
+    // One switch, in the half at the right, which is the new one and in front.
+    expect(within(halves[0]!).queryByRole('button', { name: /Split in two|Back to one page/ })).toBeNull();
+    const back = within(halves[1]!).getByRole('button', { name: 'Back to one page' });
+    expect(back.getAttribute('aria-pressed')).toBe('true');
+    expect(halves[1]!.getAttribute('data-active')).toBe('true');
+    // The switch went over to that half, and the focus with it.
+    expect(document.activeElement).toBe(back);
+    // Each half lists its own tab in its own query box.
+    expect(halves.map((half) => within(half).getAllByRole('tab').length)).toEqual([1, 1]);
+
+    fireEvent.click(back);
+    expect(document.querySelectorAll('[data-query-pane]')).toHaveLength(1);
+    expect(document.activeElement).toBe(
+      within(front().getByTestId('results-head')).getByRole('button', { name: 'Split in two' }),
+    );
+  });
+
   it('keeps the tabs of another organization apart', () => {
     const first = renderExplorer('/metrics?q=latency');
     addTab();
     first.unmount();
 
     useAuthStore.setState({
-      ctx: { user_id: 'u1', org_id: 'other', display_role: 'admin', roles: [] },
+      ctx: { userId: 'u1', orgId: 'other', displayRole: 'admin', roles: [] },
     });
     renderExplorer('/metrics');
 

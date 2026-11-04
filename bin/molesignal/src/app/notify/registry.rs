@@ -3,10 +3,22 @@
 
 use std::{collections::HashMap, sync::Arc};
 
+use serde_json::Value;
+
 use crate::{
-    domain::notify::connector::{ConnectorAdapter, ConnectorCapabilities},
+    domain::notify::connector::{
+        ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, validate_addresses,
+    },
     shared::{Error, Result},
 };
+
+/// 能建的一种连接器：类型、能力，以及配置里服务商地址的目录。
+#[derive(Debug, Clone)]
+pub struct SupportedConnectorType {
+    pub connector_type: &'static str,
+    pub capabilities: ConnectorCapabilities,
+    pub addresses: Vec<ConnectorAddress>,
+}
 
 /// 启动期构建、运行期只读的连接器 adapter 注册表。
 pub struct ConnectorRegistry {
@@ -43,18 +55,36 @@ impl ConnectorRegistry {
             .ok_or_else(|| Error::invalid(format!("unsupported connector type: {connector_type}")))
     }
 
+    /// 按类型取 adapter 并检查配置：服务商的地址只收目录里的（见 [`ConnectorAdapter::addresses`]），
+    /// 其余由 adapter 自己查。保存、测试与直发前都走这里。
+    pub fn validated(
+        &self,
+        connector_type: &str,
+        config: &Value,
+    ) -> Result<Arc<dyn ConnectorAdapter>> {
+        let adapter = self.get(connector_type)?;
+
+        validate_addresses(connector_type, &adapter.addresses(), config)?;
+        adapter.validate_config(config)?;
+        Ok(adapter)
+    }
+
     pub fn capabilities(&self, connector_type: &str) -> Result<ConnectorCapabilities> {
         Ok(self.get(connector_type)?.capabilities())
     }
 
-    pub fn supported_types(&self) -> Vec<(&'static str, ConnectorCapabilities)> {
+    pub fn supported_types(&self) -> Vec<SupportedConnectorType> {
         let mut supported = self
             .adapters
             .iter()
-            .map(|(connector_type, adapter)| (*connector_type, adapter.capabilities()))
+            .map(|(connector_type, adapter)| SupportedConnectorType {
+                connector_type,
+                capabilities: adapter.capabilities(),
+                addresses: adapter.addresses(),
+            })
             .collect::<Vec<_>>();
 
-        supported.sort_by_key(|(connector_type, _)| *connector_type);
+        supported.sort_by_key(|supported| supported.connector_type);
         supported
     }
 }
@@ -62,10 +92,12 @@ impl ConnectorRegistry {
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
-    use serde_json::Value;
+    use serde_json::json;
 
     use super::*;
-    use crate::domain::notify::connector::{ConnectorDeliveryResult, NotifyMessage, NotifyTarget};
+    use crate::domain::notify::connector::{
+        ConnectorDeliveryResult, NotifyChannel, NotifyMessage, NotifyTarget,
+    };
 
     struct FakeAdapter(&'static str);
 
@@ -80,6 +112,17 @@ mod tests {
                 direct_user: true,
                 ..ConnectorCapabilities::default()
             }
+        }
+
+        fn channel(&self) -> NotifyChannel {
+            NotifyChannel::Im
+        }
+
+        fn addresses(&self) -> Vec<ConnectorAddress> {
+            vec![ConnectorAddress::fixed(
+                "apiBaseUrl",
+                "https://api.example.com",
+            )]
         }
 
         fn validate_config(&self, _config: &Value) -> Result<()> {
@@ -106,6 +149,26 @@ mod tests {
             ConnectorRegistry::new([Arc::new(FakeAdapter("email_smtp")) as Arc<_>]).unwrap();
         assert!(registry.capabilities("email_smtp").unwrap().direct_user);
         assert!(registry.get("unknown").is_err());
+    }
+
+    #[test]
+    fn a_config_may_only_name_an_address_of_the_catalogue() {
+        let registry =
+            ConnectorRegistry::new([Arc::new(FakeAdapter("slack_app")) as Arc<_>]).unwrap();
+        let validated = |config: Value| registry.validated("slack_app", &config).is_ok();
+
+        assert!(validated(json!({})));
+        assert!(validated(
+            json!({ "apiBaseUrl": "https://api.example.com/" })
+        ));
+        assert!(!validated(
+            json!({ "apiBaseUrl": "https://attacker.example" })
+        ));
+        assert!(registry.validated("unknown", &json!({})).is_err());
+
+        let supported = registry.supported_types();
+        assert_eq!(supported[0].connector_type, "slack_app");
+        assert_eq!(supported[0].addresses[0].field, "apiBaseUrl");
     }
 
     #[test]

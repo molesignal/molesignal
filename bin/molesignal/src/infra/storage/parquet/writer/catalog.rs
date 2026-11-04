@@ -8,21 +8,25 @@ use bytes::Bytes;
 use object_store::{ObjectStore, ObjectStoreExt, PutMode, PutOptions, PutPayload, path::Path};
 
 use super::{
-    ParquetWriter, build_tantivy_bytes_for_batch, encode_parquet,
-    metadata::{timestamp_range, zone_maps},
+    ParquetWriter, build_tantivy_bytes_for_batch, column_stats::ColumnStatsBuilder, encode_parquet,
+    filter_artifact::publish_filters, metadata::timestamp_range,
 };
 use crate::{
     domain::{
         storage::{
-            Artifact, ArtifactId, ArtifactRole, ArtifactState, ArtifactTypeId, ColumnStats,
-            DataSegment, FlushProvenance, IndexTypeId, ObjectChecksum, ObjectKey, Partition,
-            PhysicalDataset, SchemaFingerprint, SegmentId, SegmentState, StoredObject, type_id,
+            Artifact, ArtifactId, ArtifactRole, ArtifactState, ArtifactTypeId, DataSegment,
+            FlushProvenance, IndexTypeId, ObjectChecksum, ObjectKey, Partition, PhysicalDataset,
+            SchemaFingerprint, SegmentId, SegmentState, StoredObject, type_id,
         },
-        stream::StreamDefinition,
+        stream::{FieldPartitions, StreamDefinition},
     },
-    infra::storage::{
-        layout::StorageLayout,
-        parquet::partition::{sort_for_storage, split_by_partition},
+    infra::{
+        search::tantivy_index,
+        storage::{
+            filters::SegmentFilters,
+            layout::StorageLayout,
+            parquet::partition::{sort_for_storage, split_by_partition, split_by_shard},
+        },
     },
     shared::{
         Error, Result,
@@ -45,9 +49,18 @@ enum IndexBuild {
     },
 }
 
+/// The rows of one segment: a time partition, or one shard of it.
+struct Piece {
+    batch: RecordBatch,
+    shard: u16,
+    /// The partition fields every row's shard follows; `None` when the rows were not sharded.
+    sharding: Option<FieldPartitions>,
+}
+
 impl ParquetWriter {
-    /// Encode and upload every partition of one immutable buffer generation. The returned
-    /// Segment/Artifact graph is not visible until the caller atomically commits it through
+    /// Encode and upload every partition of one immutable buffer generation, each partition split
+    /// further into the shards of `sharding` when the stream has one. The returned Segment/Artifact
+    /// graph is not visible until the caller atomically commits it through
     /// `FileCatalog::commit_flush`.
     pub async fn flush_catalog(
         &self,
@@ -55,6 +68,7 @@ impl ParquetWriter {
         dataset: &PhysicalDataset,
         provenance: &FlushProvenance,
         batch: RecordBatch,
+        sharding: Option<&FieldPartitions>,
     ) -> Result<Vec<DataSegment>> {
         self.flush_catalog_to_store(
             self.object_store.as_ref(),
@@ -62,6 +76,7 @@ impl ParquetWriter {
             dataset,
             provenance,
             batch,
+            sharding,
         )
         .await
     }
@@ -73,8 +88,9 @@ impl ParquetWriter {
         dataset: &PhysicalDataset,
         provenance: &FlushProvenance,
         batch: RecordBatch,
+        sharding: Option<&FieldPartitions>,
     ) -> Result<Vec<DataSegment>> {
-        self.write_catalog_to_store(store, stream, dataset, Some(provenance), batch)
+        self.write_catalog_to_store(store, stream, dataset, Some(provenance), batch, sharding)
             .await
     }
 
@@ -86,8 +102,15 @@ impl ParquetWriter {
         dataset: &PhysicalDataset,
         batch: RecordBatch,
     ) -> Result<Vec<DataSegment>> {
-        self.write_catalog_to_store(self.object_store.as_ref(), stream, dataset, None, batch)
-            .await
+        self.write_catalog_to_store(
+            self.object_store.as_ref(),
+            stream,
+            dataset,
+            None,
+            batch,
+            None,
+        )
+        .await
     }
 
     async fn write_catalog_to_store(
@@ -97,6 +120,7 @@ impl ParquetWriter {
         dataset: &PhysicalDataset,
         provenance: Option<&FlushProvenance>,
         batch: RecordBatch,
+        sharding: Option<&FieldPartitions>,
     ) -> Result<Vec<DataSegment>> {
         if dataset.organization_id != stream.org_id || dataset.logical_stream_id != stream.id {
             return Err(Error::invalid(format!(
@@ -111,18 +135,37 @@ impl ParquetWriter {
             return Err(Error::invalid("catalog write called with empty batch"));
         }
 
-        let mut segments = Vec::with_capacity(partitions.len());
+        let mut pieces = Vec::with_capacity(partitions.len());
 
-        for (ordinal, partition_batch) in partitions.into_iter().enumerate() {
+        for batch in partitions {
+            let shards = match sharding {
+                Some(partitions) => {
+                    split_by_shard(&batch, partitions)?.map(|shards| (partitions, shards))
+                }
+                None => None,
+            };
+
+            match shards {
+                Some((partitions, shards)) => {
+                    pieces.extend(shards.into_iter().map(|(shard, batch)| Piece {
+                        batch,
+                        shard,
+                        sharding: Some(partitions.clone()),
+                    }));
+                }
+                None => pieces.push(Piece {
+                    batch,
+                    shard: 0,
+                    sharding: None,
+                }),
+            }
+        }
+
+        let mut segments = Vec::with_capacity(pieces.len());
+
+        for (ordinal, piece) in pieces.into_iter().enumerate() {
             let result = self
-                .write_catalog_partition(
-                    store,
-                    stream,
-                    dataset,
-                    provenance,
-                    ordinal as u32,
-                    partition_batch,
-                )
+                .write_catalog_partition(store, stream, dataset, provenance, ordinal as u32, piece)
                 .await;
 
             match result {
@@ -146,8 +189,14 @@ impl ParquetWriter {
         dataset: &PhysicalDataset,
         provenance: Option<&FlushProvenance>,
         output_ordinal: u32,
-        batch: RecordBatch,
+        piece: Piece,
     ) -> Result<DataSegment> {
+        let Piece {
+            batch,
+            shard,
+            sharding,
+        } = piece;
+
         let batch = sort_for_storage(batch, &dataset.dataset_type)?;
         let (start_micros, end_micros) = timestamp_range(&batch)?;
         let partition_start = dataset.partition_policy.bucket_start_micros(start_micros);
@@ -157,7 +206,7 @@ impl ParquetWriter {
             end_micros: partition_start
                 .checked_add(dataset.partition_policy.granularity.micros())
                 .ok_or_else(|| Error::invalid("partition end overflows i64"))?,
-            shard: 0,
+            shard,
         };
 
         let segment_id = SegmentId::generate();
@@ -308,7 +357,7 @@ impl ParquetWriter {
                 id: artifact_id,
                 role: ArtifactRole::Index,
                 artifact_type,
-                format_version: 1,
+                format_version: tantivy_index::FORMAT_VERSION,
                 object,
                 source_artifact_id: Some(primary_id),
                 source_checksum: Some(primary.object.checksum.clone()),
@@ -318,7 +367,28 @@ impl ParquetWriter {
             });
         }
 
-        let (min_values, max_values) = zone_maps(stream, &batch);
+        if let Some(mut filters) = SegmentFilters::new(stream) {
+            filters.add(&batch);
+
+            auxiliaries.extend(
+                publish_filters(
+                    store,
+                    stream,
+                    dataset,
+                    &partition,
+                    &segment_id,
+                    &primary,
+                    filters,
+                )
+                .await,
+            );
+        }
+
+        let mut column_stats = ColumnStatsBuilder::new(stream);
+        column_stats.add(stream, &batch);
+
+        let mut column_stats = column_stats.finish();
+        column_stats.partitions = sharding.unwrap_or_default();
 
         Ok(DataSegment {
             id: segment_id,
@@ -329,10 +399,7 @@ impl ParquetWriter {
             sequence_range: provenance.map(|value| value.sequence),
             row_count: batch.num_rows() as u64,
             schema_fingerprint: Some(schema_fingerprint),
-            column_stats: ColumnStats {
-                min_values,
-                max_values,
-            },
+            column_stats,
             flush_id: provenance.map(|value| value.flush_id.clone()),
             output_ordinal,
             primary,
@@ -370,7 +437,7 @@ impl ParquetWriter {
     }
 }
 
-async fn put_immutable(
+pub(super) async fn put_immutable(
     store: &dyn ObjectStore,
     key: &ObjectKey,
     bytes: Bytes,
@@ -388,11 +455,11 @@ async fn put_immutable(
         .map_err(|error| Error::internal(format!("object_store put immutable {key}: {error}")))
 }
 
-fn checksum(bytes: &[u8]) -> ObjectChecksum {
+pub(super) fn checksum(bytes: &[u8]) -> ObjectChecksum {
     ObjectChecksum::from_string(format!("b3:{}", blake3::hash(bytes).to_hex()))
 }
 
-fn pending_object(key: ObjectKey) -> StoredObject {
+pub(super) fn pending_object(key: ObjectKey) -> StoredObject {
     StoredObject {
         key,
         size_bytes: 0,
@@ -401,11 +468,11 @@ fn pending_object(key: ObjectKey) -> StoredObject {
     }
 }
 
-fn truncate_failure(error: &str) -> String {
+pub(super) fn truncate_failure(error: &str) -> String {
     error.chars().take(1024).collect()
 }
 
-fn schema_fingerprint(schema: &arrow::datatypes::Schema) -> SchemaFingerprint {
+pub(super) fn schema_fingerprint(schema: &arrow::datatypes::Schema) -> SchemaFingerprint {
     let mut hasher = blake3::Hasher::new();
 
     for field in schema.fields() {
@@ -495,7 +562,13 @@ mod tests {
         let store = Arc::new(InMemory::new());
 
         let segments = ParquetWriter::new(store.clone())
-            .flush_catalog(&stream, &dataset.dataset, &provenance, generation.batch)
+            .flush_catalog(
+                &stream,
+                &dataset.dataset,
+                &provenance,
+                generation.batch,
+                None,
+            )
             .await
             .unwrap();
 

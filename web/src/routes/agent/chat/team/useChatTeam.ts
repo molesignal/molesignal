@@ -13,7 +13,7 @@ import { useAuthStore } from '@/stores/auth';
  * administrator of Mole Agent (`agent.manage`).
  */
 export function useChatTeam(chat: Chat | undefined) {
-  const userId = useAuthStore((state) => state.ctx?.user_id ?? '');
+  const userId = useAuthStore((state) => state.ctx?.userId ?? '');
   const manager = !useActionAccess({ permission: 'agent.manage' }).disabled;
   const teamsQ = useQuery({
     queryKey: ['teams'],
@@ -27,12 +27,12 @@ export function useChatTeam(chat: Chat | undefined) {
   const teams = React.useMemo(
     () =>
       (allTeams ?? [])
-        .filter((team) => manager || team.member_ids.includes(userId))
+        .filter((team) => manager || team.memberIds.includes(userId))
         .sort((left, right) => left.name.localeCompare(right.name)),
     [allTeams, manager, userId],
   );
 
-  const teamId = chat ? (chat.scope === 'team' ? (chat.team_id ?? null) : null) : chosenTeamId;
+  const teamId = chat ? (chat.scope === 'team' ? (chat.teamId ?? null) : null) : chosenTeamId;
   const team = teamId ? (allTeams ?? []).find((item) => item.id === teamId) : undefined;
 
   return {

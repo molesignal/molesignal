@@ -19,6 +19,7 @@ pub enum FunctionLanguage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Function {
     pub id: Id,
     pub org_id: Id,

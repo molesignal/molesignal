@@ -25,7 +25,7 @@ impl PgFieldMaskingRuleRepository {
     }
 }
 
-const COLS: &str = "id, org_id, name, priority, enabled, field_pattern, stream_pattern, stream_type, algorithm, created_at_micros, updated_at_micros";
+const COLS: &str = "id, org_id, name, priority, enabled, field_pattern, stream_pattern, stream_type, algorithm, created_at, updated_at";
 
 fn row_to_rule(row: sqlx::postgres::PgRow) -> Result<FieldMaskingRule> {
     let stream_type = row
@@ -46,8 +46,12 @@ fn row_to_rule(row: sqlx::postgres::PgRow) -> Result<FieldMaskingRule> {
         stream_pattern: row.try_get("stream_pattern").map_err(sqlx_err)?,
         stream_type,
         algorithm: algorithm.0,
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -55,7 +59,7 @@ fn row_to_rule(row: sqlx::postgres::PgRow) -> Result<FieldMaskingRule> {
 impl FieldMaskingRuleRepository for PgFieldMaskingRuleRepository {
     async fn list(&self, org_id: &Id) -> Result<Vec<FieldMaskingRule>> {
         let rows = sqlx::query(&format!(
-            "SELECT {COLS} FROM field_masking_rules WHERE org_id = $1 ORDER BY priority ASC, created_at_micros ASC"
+            "SELECT {COLS} FROM field_masking_rules WHERE org_id = $1 ORDER BY priority ASC, created_at ASC"
         ))
         .bind(&org_id.0)
         .fetch_all(&self.pool)
@@ -90,7 +94,7 @@ impl FieldMaskingRuleRepository for PgFieldMaskingRuleRepository {
         let result = sqlx::query(
             "INSERT INTO field_masking_rules
              (id, org_id, name, priority, enabled, field_pattern, stream_pattern, stream_type,
-              algorithm, created_at_micros, updated_at_micros)
+              algorithm, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
         )
         .bind(&rule.id.0)
@@ -102,8 +106,8 @@ impl FieldMaskingRuleRepository for PgFieldMaskingRuleRepository {
         .bind(&rule.stream_pattern)
         .bind(rule.stream_type.map(stream_type_to_str))
         .bind(Json(&rule.algorithm))
-        .bind(rule.created_at.0)
-        .bind(rule.updated_at.0)
+        .bind(rule.created_at)
+        .bind(rule.updated_at)
         .execute(&mut *tx)
         .await;
 
@@ -125,7 +129,7 @@ impl FieldMaskingRuleRepository for PgFieldMaskingRuleRepository {
         let result = sqlx::query(
             "UPDATE field_masking_rules
              SET name = $3, priority = $4, enabled = $5, field_pattern = $6,
-                 stream_pattern = $7, stream_type = $8, algorithm = $9, updated_at_micros = $10
+                 stream_pattern = $7, stream_type = $8, algorithm = $9, updated_at = $10
              WHERE org_id = $1 AND id = $2",
         )
         .bind(&rule.org_id.0)
@@ -137,7 +141,7 @@ impl FieldMaskingRuleRepository for PgFieldMaskingRuleRepository {
         .bind(&rule.stream_pattern)
         .bind(rule.stream_type.map(stream_type_to_str))
         .bind(Json(&rule.algorithm))
-        .bind(rule.updated_at.0)
+        .bind(rule.updated_at)
         .execute(&self.pool)
         .await;
 
@@ -233,13 +237,13 @@ impl FieldMaskingRuleRepository for PgFieldMaskingRuleRepository {
 
         for (priority, id) in ids.iter().enumerate() {
             let result = sqlx::query(
-                "UPDATE field_masking_rules SET priority = $3, updated_at_micros = $4
+                "UPDATE field_masking_rules SET priority = $3, updated_at = $4
                  WHERE org_id = $1 AND id = $2",
             )
             .bind(&org_id.0)
             .bind(&id.0)
             .bind(priority as i32)
-            .bind(now.0)
+            .bind(now)
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;

@@ -14,8 +14,8 @@ const RESULT: QueryResult = {
     [1_000_000, 1, '502'],
     [2_000_000, 2, '502'],
   ],
-  scanned_rows: 4,
-  took_ms: 1,
+  scannedRows: 4,
+  tookMs: 1,
 };
 
 function present(legend: string | undefined) {

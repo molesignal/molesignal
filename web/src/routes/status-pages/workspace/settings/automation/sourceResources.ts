@@ -1,4 +1,4 @@
-import type { BusinessService } from '@/api/businessServices';
+import type { StatusPageComponent } from '@/api/statusPages';
 import { monitorTarget, type MonitorDetail, type SyntheticMonitor } from '@/api/synthetics';
 import type { AlertRule } from '@/types/alerting';
 
@@ -25,13 +25,13 @@ export function syntheticMonitorResources(
   const detailByMonitor = new Map(details.map((detail) => [detail.monitor.id, detail]));
   return sortResources(monitors.flatMap((monitor) => {
     if (
-      !monitor.active_revision_id
+      !monitor.activeRevisionId
       || (monitor.lifecycle !== 'active' && monitor.lifecycle !== 'paused')
     ) {
       return [];
     }
     const detail = detailByMonitor.get(monitor.id);
-    const revision = detail?.revisions.find((item) => item.id === monitor.active_revision_id);
+    const revision = detail?.revisions.find((item) => item.id === monitor.activeRevisionId);
     return [{
       id: monitor.id,
       name: monitor.name,
@@ -41,19 +41,25 @@ export function syntheticMonitorResources(
   }));
 }
 
-/** Business services, with their health where the others have a target. */
-export function businessServiceResources(services: BusinessService[]): AutomationSourceResource[] {
-  return sortResources(services.map((service) => ({
-    id: service.id,
-    name: service.name,
-    target: service.health.status,
-    state: 'active',
-  })));
+/**
+ * The page's components that depend on something, with the health worked out
+ * from their dependencies where the others have a target; empty until it is.
+ */
+export function componentDependencyResources(components: StatusPageComponent[]): AutomationSourceResource[] {
+  return sortResources(components.flatMap((component) =>
+    component.lifecycle === 'active' && component.dependencies?.length
+      ? [{
+          id: component.id,
+          name: component.name,
+          target: component.dependencyHealth?.status ?? '',
+          state: 'active' as const,
+        }]
+      : []));
 }
 
 function alertRuleTarget(rule: AlertRule): string {
   const stream = rule.query.stream;
-  if (stream) return `${stream.stream_type} / ${stream.name}`;
+  if (stream) return `${stream.streamType} / ${stream.name}`;
   return `${rule.query.language.toUpperCase()} / ${rule.kind ?? 'scheduled'}`;
 }
 

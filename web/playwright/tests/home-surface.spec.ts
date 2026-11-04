@@ -5,19 +5,19 @@ import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 const DAY_MICROS = 86_400_000_000;
 
 const EMPTY_OVERVIEW = {
-  generated_at_micros: 200,
-  window: { start_micros: 100, end_micros: 200, window_secs: 100 },
-  intake_status: 'no_data',
-  probe_reason: null,
-  intake_bytes: 0,
-  stored_bytes: 0,
+  generatedAt: 200,
+  window: { startTime: 100, endTime: 200, windowSecs: 100 },
+  intakeStatus: 'no_data',
+  probeReason: null,
+  intakeBytes: 0,
+  storedBytes: 0,
   rows: 0,
-  compression_savings_ratio: null,
-  active_streams: 0,
-  total_streams: 0,
-  attention_streams: 0,
-  last_received_at_micros: null,
-  stats_probe: { succeeded: 1, total: 1 },
+  compressionSavingsRatio: null,
+  activeStreams: 0,
+  totalStreams: 0,
+  attentionStreams: 0,
+  lastReceivedAt: null,
+  statsProbe: { succeeded: 1, total: 1 },
   buckets: [],
   signals: [],
   streams: [],
@@ -28,44 +28,44 @@ function staleFleet() {
   const now = Date.now() * 1000;
   const lastReceived = now - 6 * DAY_MICROS;
   const streams = [
-    { id: 'logs-1', name: 'app_logs', stream_type: 'logs' },
-    { id: 'metrics-1', name: 'http_requests_total', stream_type: 'metrics' },
+    { id: 'logs-1', name: 'app_logs', streamType: 'logs' },
+    { id: 'metrics-1', name: 'http_requests_total', streamType: 'metrics' },
   ];
   return {
     overview: {
       ...EMPTY_OVERVIEW,
-      generated_at_micros: now,
+      generatedAt: now,
       window: {
-        start_micros: now - DAY_MICROS,
-        end_micros: now,
-        window_secs: 86_400,
+        startTime: now - DAY_MICROS,
+        endTime: now,
+        windowSecs: 86_400,
       },
-      total_streams: streams.length,
-      attention_streams: streams.length,
-      last_received_at_micros: lastReceived,
+      totalStreams: streams.length,
+      attentionStreams: streams.length,
+      lastReceivedAt: lastReceived,
       streams: streams.map((stream) => ({
         ...stream,
         status: 'degraded',
         rows: 0,
-        stored_bytes: 0,
-        first_received_at_micros: lastReceived - DAY_MICROS,
-        last_received_at_micros: lastReceived,
+        storedBytes: 0,
+        firstReceivedAt: lastReceived - DAY_MICROS,
+        lastReceivedAt: lastReceived,
       })),
     },
     runtime: {
-      generated_at_micros: now,
-      window_start_micros: now - DAY_MICROS,
-      window_end_micros: now,
-      window_secs: 86_400,
+      generatedAt: now,
+      windowStart: now - DAY_MICROS,
+      windowEnd: now,
+      windowSecs: 86_400,
       streams: streams.map((stream) => ({
         ...stream,
         status: 'interrupted',
         rows: 0,
-        stored_bytes: 0,
-        current_stored_bytes: 0,
-        first_received_at_micros: lastReceived - DAY_MICROS,
-        last_received_at_micros: lastReceived,
-        stats_available: true,
+        storedBytes: 0,
+        currentStoredBytes: 0,
+        firstReceivedAt: lastReceived - DAY_MICROS,
+        lastReceivedAt: lastReceived,
+        statsAvailable: true,
         buckets: [],
       })),
     },
@@ -77,14 +77,14 @@ function auditEvents(count: number) {
   const now = Date.now() * 1000;
   return Array.from({ length: count }, (_, index) => ({
     id: `event-${index}`,
-    org_id: 'org-1',
-    actor_kind: 'user',
-    actor_id: 'user-1',
+    orgId: 'org-1',
+    actorKind: 'user',
+    actorId: 'user-1',
     action: 'agent.tool.called',
-    target_kind: 'chat',
-    target_id: `chat-${index}`,
+    targetKind: 'chat',
+    targetId: `chat-${index}`,
     payload: {},
-    ts_micros: now - index * 60_000_000,
+    ts: now - index * 60_000_000,
   }));
 }
 
@@ -100,7 +100,7 @@ async function mockHome(
     route.fulfill({ json: runtime }),
   );
   await page.route('**/api/v1/audit**', (route) =>
-    route.fulfill({ json: { items: auditEvents(audit), next_cursor: null } }),
+    route.fulfill({ json: { items: auditEvents(audit), nextCursor: null } }),
   );
 }
 
@@ -113,10 +113,10 @@ test.describe('Home surface hierarchy', () => {
     await mockHome(page, {
       overview: EMPTY_OVERVIEW,
       runtime: {
-        generated_at_micros: 200,
-        window_start_micros: 100,
-        window_end_micros: 200,
-        window_secs: 100,
+        generatedAt: 200,
+        windowStart: 100,
+        windowEnd: 200,
+        windowSecs: 100,
         streams: [],
       },
     });
@@ -347,10 +347,10 @@ test.describe('Home surface hierarchy', () => {
     await mockHome(page, {
       overview: EMPTY_OVERVIEW,
       runtime: {
-        generated_at_micros: 200,
-        window_start_micros: 100,
-        window_end_micros: 200,
-        window_secs: 100,
+        generatedAt: 200,
+        windowStart: 100,
+        windowEnd: 200,
+        windowSecs: 100,
         streams: [],
       },
     });
@@ -380,10 +380,10 @@ test.describe('Home surface hierarchy', () => {
     await mockHome(page, {
       overview: EMPTY_OVERVIEW,
       runtime: {
-        generated_at_micros: 200,
-        window_start_micros: 100,
-        window_end_micros: 200,
-        window_secs: 100,
+        generatedAt: 200,
+        windowStart: 100,
+        windowEnd: 200,
+        windowSecs: 100,
         streams: [],
       },
     });

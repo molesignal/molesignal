@@ -14,7 +14,7 @@ use crate::{
 
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct TeamResource {
-    /// `skill`、`skill_repository`、`mcp_server`。
+    /// `skill`、`skill_repository`、`mcp_server`、`automation`。
     pub kind: &'static str,
     pub id: String,
     pub name: String,
@@ -56,6 +56,16 @@ pub(crate) async fn team_resources(
                 kind: "mcp_server",
                 id: server.id.0,
                 name: server.name,
+            });
+        }
+    }
+
+    for automation in state.agent.automations.list(org_id).await? {
+        if in_team(&automation.scope) {
+            resources.push(TeamResource {
+                kind: "automation",
+                id: automation.id.0,
+                name: automation.name,
             });
         }
     }

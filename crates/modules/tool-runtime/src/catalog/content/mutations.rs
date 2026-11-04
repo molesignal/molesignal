@@ -3,7 +3,7 @@
 
 use serde_json::{Value, json};
 
-use super::super::{BuiltinToolKind, open_output};
+use super::super::{BuiltinToolKind, open_output, timestamp_schema};
 use crate::{RiskLevel, ToolSpec};
 
 pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
@@ -16,7 +16,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
                 &["model"],
                 json!({
                     "model": {"type": "object"},
-                    "folder_id": {"type": ["string", "null"]}
+                    "folderId": {"type": ["string", "null"]}
                 }),
             ),
             "dashboards.create",
@@ -29,11 +29,11 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "Replace one Dashboard model and optionally move it to another folder.",
             "dashboards",
             proposal_schema(
-                &["dashboard_id", "model"],
+                &["dashboardId", "model"],
                 json!({
-                    "dashboard_id": {"type": "string", "minLength": 1},
+                    "dashboardId": {"type": "string", "minLength": 1},
                     "model": {"type": "object"},
-                    "folder_id": {"type": ["string", "null"]}
+                    "folderId": {"type": ["string", "null"]}
                 }),
             ),
             "dashboards.edit",
@@ -45,7 +45,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::DeleteDashboard => (
             "Delete one Dashboard.",
             "dashboards",
-            proposal_id_schema("dashboard_id"),
+            proposal_id_schema("dashboardId"),
             "dashboards.delete",
             &["Dashboard", "CRUD", "Delete"][..],
             RiskLevel::L3,
@@ -59,7 +59,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
                 &["name"],
                 json!({
                     "name": {"type": "string", "minLength": 1, "maxLength": 255},
-                    "parent_id": {"type": ["string", "null"]}
+                    "parentId": {"type": ["string", "null"]}
                 }),
             ),
             "dashboards.create",
@@ -72,11 +72,11 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "Rename or move one Dashboard folder.",
             "folders",
             proposal_schema(
-                &["folder_id", "name"],
+                &["folderId", "name"],
                 json!({
-                    "folder_id": {"type": "string", "minLength": 1},
+                    "folderId": {"type": "string", "minLength": 1},
                     "name": {"type": "string", "minLength": 1, "maxLength": 255},
-                    "parent_id": {"type": ["string", "null"]}
+                    "parentId": {"type": ["string", "null"]}
                 }),
             ),
             "dashboards.edit",
@@ -88,7 +88,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::DeleteFolder => (
             "Delete one empty Dashboard folder.",
             "folders",
-            proposal_id_schema("folder_id"),
+            proposal_id_schema("folderId"),
             "dashboards.delete",
             &["Dashboard", "Folders", "CRUD", "Delete"][..],
             RiskLevel::L3,
@@ -125,7 +125,7 @@ fn proposal_schema(required: &[&str], properties: Value) -> Value {
         json!({
             "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
             "impact": {"type": "string", "minLength": 1, "maxLength": 2000},
-            "expires_at_micros": {"type": "integer"}
+            "expiresAt": timestamp_schema()
         })
         .as_object()
         .cloned()

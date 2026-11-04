@@ -15,6 +15,8 @@
 //! MS_RUN_IT=1 cargo test -p molesignal --test infra_it_agent -- --nocapture
 //! ```
 
+mod common;
+
 use molesignal::{
     config::MetaDatabaseSettings,
     infra::{
@@ -50,12 +52,7 @@ fn skip_unless_enabled() -> bool {
 const ZERO_B64: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 
 async fn boot() -> MetaStore {
-    use testcontainers::runners::AsyncRunner;
-    use testcontainers_modules::postgres::Postgres as PgImage;
-    let pg = PgImage::default().start().await.expect("start pg");
-    let port = pg.get_host_port_ipv4(5432).await.expect("pg port");
-    let host = pg.get_host().await.expect("pg host");
-    let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+    let (dsn, pg) = common::test_database().await;
     let store = MetaStore::connect(&MetaDatabaseSettings {
         dsn,
         min_connections: 1,
@@ -106,12 +103,14 @@ async fn provider_crud_and_encrypted_key_roundtrip() {
     assert!(p.key_set);
 
     // 2. 密文落库 != 明文。
-    let row =
-        sqlx::query("SELECT ciphertext FROM agent_model_provider_secrets WHERE provider_id = $1")
-            .bind(&id.0)
-            .fetch_one(&store.pool)
-            .await
-            .expect("secret row");
+    let row = sqlx::query(
+        "SELECT ciphertext FROM sealed_secrets
+         WHERE owner_kind = 'model_provider' AND owner_id = $1",
+    )
+    .bind(&id.0)
+    .fetch_one(&store.pool)
+    .await
+    .expect("secret row");
     let ct: Vec<u8> = row.try_get("ciphertext").expect("ct");
     assert_ne!(ct, b"sk-secret-ABCD1234".to_vec());
 
@@ -192,7 +191,7 @@ async fn prompt_resolution_order_and_versioning() {
         purpose: "anomaly_analysis".into(),
         name: "Org anomaly".into(),
         body: "org body {{time_range}}".into(),
-        variables_schema: json!({"type":"object","properties":{"time_range":{}}}),
+        variables_schema: json!({"type":"object","properties":{"timeRange":{}}}),
         is_default: false,
         enabled: true,
         version: 1,
@@ -229,7 +228,7 @@ async fn prompt_resolution_order_and_versioning() {
         purpose: "anomaly_analysis".into(),
         name: "User anomaly".into(),
         body: "user body {{time_range}}".into(),
-        variables_schema: json!({"type":"object","properties":{"time_range":{}}}),
+        variables_schema: json!({"type":"object","properties":{"timeRange":{}}}),
         is_default: false,
         enabled: true,
         version: 1,
@@ -345,7 +344,7 @@ async fn chat_soft_delete() {
     assert_eq!(repo.list_chats(&org, &user).await.expect("list2").len(), 0);
     assert!(repo.get_chat(&org, &id).await.is_err());
     let any = repo.get_chat_any(&org, &id).await.expect("get any");
-    assert!(any.deleted_at_micros.is_some());
+    assert!(any.deleted_at.is_some());
 }
 
 fn audit_event(org: &Id, id: &str, action: &str, target_kind: &str, ts: i64) -> AuditEvent {

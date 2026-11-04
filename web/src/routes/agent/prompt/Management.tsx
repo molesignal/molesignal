@@ -1,22 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Braces,
-  Check,
-  CopyPlus,
-  FileText,
-  Pencil,
-  Plus,
-  RotateCcw,
-  Search,
-  Star,
-  Trash2,
-} from 'lucide-react';
+import { Braces, Plus, Search } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import * as promptsApi from '@/api/agent/prompts';
 import { toApiError } from '@/lib/http';
-import { formatMicrosActive } from '@/lib/time';
+import { useActionAccess } from '@/product/actionAccess';
 import { ProductState } from '@/product/states';
 import {
   FormDrawer,
@@ -25,6 +14,7 @@ import {
   FormSelect,
   FormTextarea,
 } from '@/shell/FormDrawer';
+import { JsonEditor } from '@/shell/JsonEditor';
 import { cn } from '@/shell/lib/cn';
 import { Facts } from '@/shell/readout/Facts';
 import { Badge } from '@/shell/ui/badge';
@@ -40,6 +30,8 @@ import {
   promptTemplateVariables,
   unknownPromptVariables,
 } from './model';
+import { usePromotion } from './promotion/usePromotion';
+import { PromptRow, type PromptRowAction } from './PromptRow';
 
 type PromptEditorTarget =
   | { kind: 'create' }
@@ -48,22 +40,19 @@ type PromptEditorTarget =
   | { kind: 'override'; prompt: promptsApi.AgentPrompt }
   | null;
 
-type PromptRowAction =
-  | { kind: 'set_default'; prompt: promptsApi.AgentPrompt }
-  | { kind: 'restore'; prompt: promptsApi.AgentPrompt }
-  | { kind: 'delete'; prompt: promptsApi.AgentPrompt };
-
 const PURPOSES: promptsApi.PromptPurpose[] = [
   'system',
   'anomaly_analysis',
   'root_cause',
   'alert_explain',
   'query_generation',
+  'evaluation',
 ];
 
 export function PromptManagementPanel() {
   const { t } = useTranslation('agent');
   const queryClient = useQueryClient();
+  const manageAccess = useActionAccess({ permission: 'agent.prompts.manage' });
   const [editor, setEditor] = React.useState<PromptEditorTarget>(null);
   const [search, setSearch] = React.useState('');
   const prompts = useQuery({
@@ -71,11 +60,13 @@ export function PromptManagementPanel() {
     queryFn: promptsApi.list,
     retry: false,
   });
+  // Setting a default goes through the organization's check (see ./promotion).
+  const promotion = usePromotion(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['agent', 'prompts'] });
+    toast.success(t('settings.prompts.messages.set_default'));
+  });
   const rowAction = useMutation({
-    mutationFn: async (action: PromptRowAction) => {
-      if (action.kind === 'set_default') {
-        return promptsApi.setDefault(action.prompt.id);
-      }
+    mutationFn: async (action: Exclude<PromptRowAction, { kind: 'set_default' }>) => {
       if (action.kind === 'restore') {
         return promptsApi.restore(action.prompt.id);
       }
@@ -105,7 +96,7 @@ export function PromptManagementPanel() {
           prompt.body,
           prompt.purpose,
           prompt.scope,
-          prompt.builtin_key ?? '',
+          prompt.builtinKey ?? '',
         ].some((value) => value.toLocaleLowerCase().includes(normalizedSearch)),
       )
     : rows;
@@ -114,6 +105,10 @@ export function PromptManagementPanel() {
   const customized = rows.filter((prompt) => prompt.scope !== 'builtin').length;
 
   const runAction = (action: PromptRowAction) => {
+    if (action.kind === 'set_default') {
+      promotion.request(action.prompt).catch((error) => toast.error(toApiError(error).message));
+      return;
+    }
     if (
       action.kind === 'delete' &&
       !window.confirm(
@@ -134,7 +129,7 @@ export function PromptManagementPanel() {
           <p className="min-w-0 flex-1 font-sans text-xs leading-5 text-tx-2">
             {t('settings.prompts.description')}
           </p>
-          <Button size="sm" onClick={() => setEditor({ kind: 'create' })}>
+          <Button size="sm" disabled={manageAccess.disabled} onClick={() => setEditor({ kind: 'create' })}>
             <Plus /> {t('settings.prompts.create')}
           </Button>
         </div>
@@ -203,9 +198,11 @@ export function PromptManagementPanel() {
                       key={prompt.id}
                       prompt={prompt}
                       effective={effectiveIds.has(prompt.id)}
+                      canManage={manageAccess.allowed}
                       busy={
-                        rowAction.isPending &&
-                        rowAction.variables?.prompt.id === prompt.id
+                        (rowAction.isPending &&
+                          rowAction.variables?.prompt.id === prompt.id) ||
+                        promotion.busyId === prompt.id
                       }
                       onView={() => setEditor({ kind: 'view', prompt })}
                       onEdit={() => setEditor({ kind: 'edit', prompt })}
@@ -236,119 +233,15 @@ export function PromptManagementPanel() {
           />
         )}
       </section>
-      <PromptEditorDrawer target={editor} onClose={() => setEditor(null)} />
+      <PromptEditorDrawer
+        target={editor}
+        onClose={() => setEditor(null)}
+        onMakeDefault={(prompt) =>
+          promotion.request(prompt).catch((error) => toast.error(toApiError(error).message))
+        }
+      />
+      {promotion.dialog}
     </>
-  );
-}
-
-function PromptRow({
-  prompt,
-  effective,
-  busy,
-  onView,
-  onEdit,
-  onOverride,
-  onAction,
-}: {
-  prompt: promptsApi.AgentPrompt;
-  effective: boolean;
-  busy: boolean;
-  onView: () => void;
-  onEdit: () => void;
-  onOverride: () => void;
-  onAction: (action: PromptRowAction) => void;
-}) {
-  const { t } = useTranslation('agent');
-  const builtin = prompt.scope === 'builtin';
-  return (
-    <article className="flex flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center">
-      <div
-        className={cn(
-          'grid h-9 w-9 shrink-0 place-items-center rounded-md border',
-          effective
-            ? 'border-indigo/30 bg-indigo/10 text-indigo'
-            : 'border-bd-0 bg-bg-2 text-tx-3',
-        )}
-      >
-        {effective ? (
-          <Check className="h-4 w-4" />
-        ) : (
-          <FileText className="h-4 w-4" />
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h4 className="font-strong text-tx-0">{prompt.name}</h4>
-          <Badge variant="outline">
-            {t(`settings.prompts.scopes.${prompt.scope}`)}
-          </Badge>
-          {effective && (
-            <Badge variant="accent">
-              {t('settings.prompts.effective')}
-            </Badge>
-          )}
-          {!prompt.enabled && (
-            <Badge variant="secondary">{t('status.disabled')}</Badge>
-          )}
-        </div>
-        <p className="mt-1 line-clamp-1 font-mono text-xs text-tx-3">
-          {prompt.body}
-        </p>
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-tx-3">
-          <span>{t('settings.prompts.version', { version: prompt.version })}</span>
-          {/* A built-in prompt was not saved by anyone: it has no time, and a time of zero is not 1970. */}
-          {prompt.updated_at_micros > 0 && <span>{formatMicrosActive(prompt.updated_at_micros)}</span>}
-          {prompt.builtin_key && (
-            <span className="font-mono">{prompt.builtin_key}</span>
-          )}
-        </div>
-      </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-1.5 lg:justify-end">
-        <Button size="sm" variant="ghost" onClick={onView}>
-          {t('settings.prompts.view')}
-        </Button>
-        {builtin ? (
-          <Button size="sm" variant="outline" onClick={onOverride}>
-            <CopyPlus /> {t('settings.prompts.override')}
-          </Button>
-        ) : (
-          <>
-            <Button size="sm" variant="outline" onClick={onEdit}>
-              <Pencil /> {t('common.edit')}
-            </Button>
-            {!prompt.is_default && (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => onAction({ kind: 'set_default', prompt })}
-              >
-                <Star /> {t('settings.prompts.set_default')}
-              </Button>
-            )}
-            {prompt.builtin_key && (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => onAction({ kind: 'restore', prompt })}
-              >
-                <RotateCcw /> {t('settings.prompts.restore')}
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={busy}
-              onClick={() => onAction({ kind: 'delete', prompt })}
-              className="text-red hover:text-red"
-            >
-              <Trash2 /> {t('settings.prompts.delete')}
-            </Button>
-          </>
-        )}
-      </div>
-    </article>
   );
 }
 
@@ -394,18 +287,21 @@ function draftFor(
         ? derivedName(source.scope === 'builtin' ? 'override' : 'copy', source.name)
         : source.name,
     body: source.body,
-    schemaSource: JSON.stringify(source.variables_schema, null, 2),
+    schemaSource: JSON.stringify(source.variablesSchema, null, 2),
     enabled: source.enabled,
-    makeDefault: target.kind === 'override' ? true : source.is_default,
+    makeDefault: target.kind === 'override' ? true : source.isDefault,
   };
 }
 
 function PromptEditorDrawer({
   target,
   onClose,
+  onMakeDefault,
 }: {
   target: PromptEditorTarget;
   onClose: () => void;
+  /** Set a saved prompt as the default, through the organization's check. */
+  onMakeDefault: (prompt: promptsApi.AgentPrompt) => void;
 }) {
   const { t } = useTranslation('agent');
   const queryClient = useQueryClient();
@@ -456,7 +352,7 @@ function PromptEditorDrawer({
         saved = await promptsApi.update(target.prompt.id, {
           name,
           body,
-          variables_schema: parsed.schema,
+          variablesSchema: parsed.schema,
           enabled: draft.enabled,
         });
       } else {
@@ -467,21 +363,18 @@ function PromptEditorDrawer({
           purpose: draft.purpose,
           name,
           body,
-          variables_schema: parsed.schema,
+          variablesSchema: parsed.schema,
           enabled: draft.enabled,
-          ...(source?.builtin_key
-            ? { builtin_key: source.builtin_key }
+          ...(source?.builtinKey
+            ? { builtinKey: source.builtinKey }
             : {}),
-          ...(source ? { parent_id: source.id } : {}),
+          ...(source ? { parentId: source.id } : {}),
         });
       }
-      if (draft.makeDefault && !saved.is_default) {
-        saved = await promptsApi.setDefault(saved.id);
-      }
-      return saved;
+      return { saved, makeDefault: draft.makeDefault && !saved.isDefault };
     },
-    onSuccess: async (saved) => {
-      if (!saved) return;
+    onSuccess: async (result) => {
+      if (!result) return;
       await queryClient.invalidateQueries({
         queryKey: ['agent', 'prompts'],
       });
@@ -493,6 +386,7 @@ function PromptEditorDrawer({
         ),
       );
       onClose();
+      if (result.makeDefault) onMakeDefault(result.saved);
     },
     onError: (error) => setFormError(toApiError(error).message),
   });
@@ -671,18 +565,17 @@ function PromptEditorDrawer({
           hint={t('settings.prompts.schema_hint')}
           required
         >
-          <FormTextarea
+          <JsonEditor
             value={draft.schemaSource}
-            onChange={(event) =>
+            onChange={(schemaSource) =>
               setDraft((current) =>
-                current
-                  ? { ...current, schemaSource: event.target.value }
-                  : current,
+                current ? { ...current, schemaSource } : current,
               )
             }
             readOnly={readOnly}
-            spellCheck={false}
-            className="min-h-44 resize-y font-mono text-xs leading-5"
+            ariaLabel={t('settings.prompts.fields.schema')}
+            minHeight={176}
+            maxHeight={480}
           />
         </FormField>
 

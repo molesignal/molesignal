@@ -150,6 +150,14 @@
   margin-inline-start: 0;
 }
 
+/* A centred line that ends on fullwidth punctuation is centred on what is drawn: the mark's
+   ink ends about 0.38 em into its box (PuHuiTi 3.0 has no half-width alternates to trim it
+   with), so the line takes as much room at its start as the mark leaves blank at its end.
+   Taking the blank off the end instead made the lines break early. */
+.ms-auth-end-mark {
+  margin-inline-start: 0.62em;
+}
+
 /* The statement's last phrase takes the mark's gradient, stretched over its own width. */
 .ms-auth-gradient {
   background-image: var(--signal-gradient);
@@ -167,15 +175,15 @@
   color: var(--tx-0);
 }
 
+/* The field has its own show and hide; Edge would add a second one. */
+.ms-auth-field input::-ms-reveal {
+  display: none;
+}
+
 /* A sheen crosses the primary button on hover; a disabled button does not shine. */
 .auth-primary-button {
   position: relative;
   overflow: hidden;
-  box-shadow: var(--shadow-primary);
-}
-
-.auth-primary-button:disabled {
-  box-shadow: none;
 }
 
 .auth-primary-button::after {

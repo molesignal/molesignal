@@ -1,185 +1,237 @@
 {
   "title": "Application Performance Monitoring",
+  "subtitle": "Services, their dependencies and their errors, from traces before sampling.",
   "nav": {
     "overview": "Overview",
     "services": "Services",
-    "transactions": "Transactions",
-    "traces": "Traces",
-    "dependencies": "Dependencies",
+    "map": "Service map",
     "errors": "Errors",
-    "deployments": "Deployments",
-    "versions": "Version compare",
-    "user_experience": "User Experience"
+    "slos": "SLOs",
+    "settings": "Settings"
   },
-  "overview": {
-    "title": "Application performance",
-    "subtitle": "Analyze backend performance through services, Transactions, and Traces.",
-    "high_impact_services": "Highest-impact services",
-    "high_impact_services_description": "Services ranked by traffic, errors, and latency in the selected window.",
-    "focused_service": "Service in focus",
-    "high_impact_transactions": "Highest-impact Transactions",
-    "high_impact_transactions_description": "Find this service's problematic entry points by total time, traffic, errors, and latency.",
-    "dependencies": "Highest-impact dependencies",
-    "dependencies_description": "Slow or error-prone downstream calls with the greatest impact.",
-    "top_errors": "Top backend errors",
-    "top_errors_description": "Sanitized error groups ranked by occurrence count.",
-    "slowest_traces": "Slowest Traces",
-    "slowest_traces_description": "Representative slow requests retained from the current aggregate window.",
-    "recent_versions": "Recent versions"
+  "landing": {
+    "pulse_aria": "How all services did in the time in view",
+    "kpi": {
+      "services": "Active services",
+      "services_detail_one": "{{count}} service, {{idle}} without traffic",
+      "services_detail_other": "{{count}} services, {{idle}} without traffic",
+      "throughput": "Throughput",
+      "requests_one": "{{formatted}} request",
+      "requests_other": "{{formatted}} requests",
+      "error_rate": "Error rate",
+      "errors_one": "{{formatted}} error",
+      "errors_other": "{{formatted}} errors",
+      "p95": "P95 latency",
+      "average": "avg {{value}}",
+      "apdex": "Apdex",
+      "apdex_detail": "T = {{threshold}}"
+    },
+    "health": "Service health",
+    "health_description": "Services in each state over time",
+    "rankings": "Service rankings",
+    "ranking": {
+      "slowest": "Slowest (P95)",
+      "most_errors": "Highest error rate",
+      "busiest": "Most traffic",
+      "empty": "Too few requests in this range to rank."
+    },
+    "alerts": "Active alerts",
+    "alerts_loading": "Reading alerts…",
+    "alerts_denied": "You cannot see alerts.",
+    "alerts_unavailable": "Alerts cannot be read right now.",
+    "no_alerts": "No active alert names a service.",
+    "deployments": "Recent deployments",
+    "deployments_description": "Versions first seen in this range",
+    "no_deployments": "No new version in this range.",
+    "environments": "Environments",
+    "no_environments": "No service in this range.",
+    "environment_services_one": "{{count}} service",
+    "environment_services_other": "{{count}} services",
+    "instrumentation": "Instrumentation quality",
+    "no_sdks": "No service has reported its SDK yet.",
+    "unknown": "Unknown",
+    "gap_one": "{{formatted}} service",
+    "gap_other": "{{formatted}} services",
+    "gap_attribute": "report no",
+    "gap_action": "Open the OpenTelemetry intake guide"
   },
-  "services": {
-    "title": "Services",
-    "subtitle": "Discover instrumented and standalone backend services.",
-    "catalog": "Service catalog",
-    "result_count": "{{count}} services",
-    "detail_subtitle": "Service performance workbench",
-    "first_seen": "First seen",
-    "instances": "Recent instances",
-    "transactions_description": "Highest-impact entry points for this service.",
-    "dependencies_description": "Downstream calls made by this service.",
-    "errors_description": "Sanitized backend error groups affecting this service.",
-    "navigation": "Service analysis",
-    "nav": {
-      "overview": "Overview",
-      "transactions": "Transactions",
-      "traces": "Traces",
-      "dependencies": "Dependencies",
-      "errors": "Errors",
-      "runtime": "Runtime",
-      "deployments": "Deployments"
+  "alerts": {
+    "active_one": "{{count}} alert",
+    "active_other": "{{count}} alerts",
+    "new": "New alert",
+    "related": "Alerts going on",
+    "kind": {
+      "threshold": "Threshold alert",
+      "threshold_hint": "Alerts when a figure passes a line you set",
+      "anomaly": "Anomaly alert",
+      "anomaly_hint": "Alerts when a figure strays from the same time on the days before"
     }
   },
-  "runtime": {
-    "title": "Runtime and instrumentation",
-    "subtitle": "Inspect this service's runtime, OpenTelemetry SDK, and active instances.",
-    "description": "Based on the latest service resource attributes observed in the selected time, environment, and version scope.",
-    "language": "Runtime language",
-    "sdk": "Telemetry SDK",
-    "instances": "Active instances"
-  },
-  "deployments": {
-    "title": "Deployments",
-    "subtitle": "Analyze performance changes with deployment versions and contextual comparisons."
-  },
-  "transactions": {
-    "title": "Transactions",
-    "subtitle": "Rank entry points by traffic, errors, latency, and total time.",
-    "detail_subtitle": "Transactions are independently analyzable application operations such as endpoints, jobs, and message handlers.",
-    "ranking": "Transaction ranking",
-    "ranking_description": "Percentiles are computed from merged fixed-boundary histograms.",
-    "result_count": "{{count}} transactions",
-    "errors": "Top errors",
-    "errors_description": "Sanitized backend error groups associated with this Transaction.",
-    "deployments": "Related deployments",
-    "deployments_description": "Inspect observed service versions and compare performance before and after deployment."
-  },
-  "dependencies": {
-    "title": "Dependencies",
-    "subtitle": "Inspect aggregate downstream service, database, cache, messaging, HTTP, and RPC calls.",
-    "ranking": "Dependency ranking",
-    "topology": "Dependency topology",
-    "safe_topology_description": "Only bounded aggregate identities are displayed; raw destinations and request values are never exposed.",
-    "result_count": "{{count}} dependencies",
-    "caller": "Caller service",
-    "views": {
-      "table": "Table",
-      "topology": "Topology"
+  "slo": {
+    "title": "SLOs",
+    "table": "Service level objectives",
+    "summary_one": "{{count}} SLO",
+    "summary_other": "{{count}} SLOs",
+    "search": "Search SLOs or services",
+    "all_states": "All states",
+    "new": "New SLO",
+    "empty": "No SLO yet",
+    "empty_description": "Set an availability or latency objective on a service or an endpoint to see what it met, the error budget left and how fast it is spent.",
+    "filtered_empty": "No SLO matches.",
+    "removed": "SLO deleted",
+    "edit": "Edit SLO",
+    "remove": "Delete SLO",
+    "remove_title": "Delete SLO {{name}}?",
+    "remove_description": "Only the objective is deleted; APM data stays.",
+    "remove_with_alerts_one": "Its {{count}} burn-rate alert is deleted with it; APM data stays.",
+    "remove_with_alerts_other": "Its {{count}} burn-rate alerts are deleted with it; APM data stays.",
+    "removing": "Deleting…",
+    "remove_watched": "Alert rules still watch this SLO. Delete them in Alerts → Alert rules first.",
+    "service_title": "Service level objectives",
+    "service_empty": "This service has no SLO yet.",
+    "budget_left": "{{value}} budget left",
+    "window_one": "{{count}} day",
+    "window_other": "{{count}} days",
+    "state": {
+      "healthy": "Healthy",
+      "at_risk": "At risk",
+      "breached": "Breached",
+      "no_data": "No data"
+    },
+    "kind": {
+      "availability": "Request succeeds",
+      "latency": "Succeeds within a threshold"
+    },
+    "target": {
+      "availability": "Request succeeds",
+      "latency": "Succeeds within {{threshold}}"
+    },
+    "columns": {
+      "name": "SLO",
+      "target": "Good when",
+      "objective": "Objective",
+      "sli": "Met",
+      "budget": "Budget left",
+      "burn_1h": "1h burn",
+      "burn_6h": "6h burn",
+      "state": "State"
+    },
+    "facts": {
+      "sli": "Met",
+      "budget": "Error budget left",
+      "requests": "{{good}} of {{total}} requests good"
+    },
+    "burn": {
+      "title": "Error budget burn rate",
+      "description": "Times faster than the objective allows; past 14.4 over an hour or 6 over six hours is at risk",
+      "one_hour": "1 hour",
+      "six_hours": "6 hours",
+      "one_day": "24 hours"
+    },
+    "history": {
+      "title": "Met per day",
+      "summary": "{{met}} of {{count}} days with requests met the objective",
+      "day": {
+        "met": "{{date}}: {{sli}}, met",
+        "missed": "{{date}}: {{sli}}, missed",
+        "no_data": "{{date}}: no requests"
+      }
+    },
+    "alerts": {
+      "create": "Create burn-rate alerts",
+      "created_one": "{{count}} burn-rate alert created",
+      "created_other": "{{count}} burn-rate alerts created",
+      "fast_name": "{{name}} fast burn",
+      "slow_name": "{{name}} slow burn",
+      "description": "The error budget of SLO {{name}} is spent too fast",
+      "title": "Burn-rate alerts",
+      "card_description": "Alert rules that watch how fast this SLO spends its error budget",
+      "none": "No alert watches this SLO yet.",
+      "rule": "Past {{threshold}}× over {{window}}",
+      "off": "Off",
+      "window_hours_one": "{{count}} hour",
+      "window_hours_other": "{{count}} hours",
+      "window_minutes_one": "{{count}} minute",
+      "window_minutes_other": "{{count}} minutes"
+    },
+    "form": {
+      "new_title": "New SLO",
+      "edit_title": "Edit SLO",
+      "description": "The share of good requests a service promises over a rolling window.",
+      "name": "Name",
+      "service": "Service",
+      "environment": "Environment",
+      "endpoint": "Endpoint",
+      "endpoint_hint": "The whole service when none is chosen",
+      "whole_service": "Whole service",
+      "kind": "Good when",
+      "threshold": "Latency threshold (ms)",
+      "objective": "Objective (%)",
+      "objective_hint": "Such as 99.9",
+      "window": "Window",
+      "notes": "Notes",
+      "choose": "Choose",
+      "saved": "SLO saved"
     }
   },
-  "errors": {
-    "title": "Backend errors",
-    "subtitle": "Investigate sanitized backend exception groups and their service impact.",
-    "groups": "Error groups",
-    "groups_description": "Messages and stacks are bounded and scrubbed before persistence.",
-    "result_count": "{{count}} error groups",
-    "detail_title": "Backend error",
-    "detail_subtitle": "Sanitized error-group detail",
-    "first_seen": "First seen",
-    "representative_stack": "Representative stack",
-    "sanitized_stack_description": "Application frames are normalized and sensitive values are removed.",
-    "affected_transactions": "Affected Transactions",
-    "samples": "Bounded samples",
-    "no_samples": "No retained samples in this time window.",
-    "no_stack": "No sanitized stack was retained."
+  "time": {
+    "compare": "Compare with",
+    "compare_off": "No comparison",
+    "compare_day": "A day before",
+    "compare_week": "A week before",
+    "compare_env": "Compare with {{environment}}",
+    "resolution": "Resolution",
+    "resolution_auto": "Auto resolution",
+    "resolution_minute": "Per minute",
+    "resolution_hour": "Per hour"
   },
-  "versions": {
-    "title": "Version compare",
-    "subtitle": "Compare two service versions using absolute and relative RED deltas.",
-    "selection": "Comparison scope",
-    "selection_description": "Choose one service, a baseline, and a different candidate version.",
-    "baseline": "Baseline",
-    "candidate": "Candidate",
-    "choose_version": "Choose version",
-    "configure_title": "Choose versions to compare",
-    "configure_description": "Enter a service filter, then select two distinct observed versions.",
-    "type_service_hint": "Enter a service above to load observed versions.",
-    "compare": "Compare versions",
-    "observations": "observations",
-    "sample_count": "{{count}} samples",
-    "deltas": "Candidate deltas",
-    "data_confidence": "Data confidence",
-    "sufficient": "Sufficient",
-    "insufficient": "Insufficient",
-    "regressed_transactions": "Regressed Transactions",
-    "regressed_errors": "Regressed errors",
-    "no_transaction_regressions": "No Transaction regressions detected.",
-    "no_error_regressions": "No error regressions detected.",
-    "status_sufficient": "Both versions meet the minimum sample threshold.",
-    "status_insufficient": "This comparison is neutral until both versions meet the sample threshold.",
-    "status": {
-      "insufficient_data": "Insufficient data",
-      "regressed": "Candidate regressed",
-      "improved": "Candidate improved",
-      "neutral": "No material change"
+  "quality": {
+    "activation": "Data starts in this range",
+    "activation_title": "APM data starts inside this range",
+    "activation_description": "Projection started at {{time}}; earlier data is not available.",
+    "stale": "Data delayed",
+    "stale_title": "APM aggregates are delayed",
+    "stale_description": "The latest complete bucket ended at {{time}}. Values stay visible while the projection catches up.",
+    "partial": "Partial data",
+    "partial_title": "Partial APM data",
+    "partial_description_one": "{{count}} projection gap affects this range. Figures stay available but may be lower than the real traffic.",
+    "partial_description_other": "{{count}} projection gaps affect this range. Figures stay available but may be lower than the real traffic.",
+    "overflow": "Some names counted as Other",
+    "overflow_title": "Names past the cardinality limits",
+    "overflow_description": "Past the limits, names are counted together in a row called Other. Totals stay complete.",
+    "overflow_dimensions": "Counted as Other",
+    "complete_through": "Complete through {{time}}",
+    "dimension": {
+      "service": "Services",
+      "transaction": "Endpoints",
+      "dependency": "Dependencies",
+      "error": "Errors"
     }
-  },
-  "metrics": {
-    "requests": "Requests",
-    "throughput": "Request throughput",
-    "total_requests": "{{count}} total requests",
-    "errors": "Errors",
-    "error_rate": "Error rate",
-    "p50": "P50 latency",
-    "p95": "P95 latency",
-    "p99": "P99 latency",
-    "average": "Average latency",
-    "duration": "Request duration",
-    "in_window": "In selected window",
-    "merged_histogram": "Merged histogram"
-  },
-  "trend": {
-    "title": "Application trends",
-    "throughput": "Throughput",
-    "latency": "Latency",
-    "error_rate": "Error rate",
-    "metric_selector": "Trend metric",
-    "throughput_subtitle": "Requests per second normalized by aggregate bucket.",
-    "latency_subtitle": "P50, P95, and P99 latency percentiles.",
-    "error_rate_subtitle": "Request error rate in each aggregate bucket.",
-    "buckets": "buckets",
-    "throughput_aria": "Request throughput trend",
-    "latency_aria": "Request latency trend",
-    "error_rate_aria": "Request error rate trend"
   },
   "health": {
-    "title": "Service health",
-    "healthy": "Healthy",
-    "warning": "Warning",
     "critical": "Critical",
-    "no_traffic": "No traffic"
+    "warning": "Warning",
+    "healthy": "Healthy",
+    "no_traffic": "No traffic",
+    "with_reasons": "{{health}}: {{reasons}}",
+    "reason_separator": "; ",
+    "reason": {
+      "error_rate": "error rate {{value}}, at or past {{threshold}}",
+      "p95": "P95 {{value}}, at or past {{threshold}}"
+    }
   },
-  "pulse": {
-    "eyebrow": "Service health",
-    "verdict": {
-      "critical_one": "{{count}} service is critical",
-      "critical_other": "{{count}} services are critical",
-      "warning_one": "{{count}} service needs attention",
-      "warning_other": "{{count}} services need attention",
-      "healthy": "All services are healthy",
-      "idle": "No traffic in this window"
-    },
-    "detail": "{{healthy}} of {{total}} services healthy",
-    "distribution": "Service health"
+  "actions": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "retry": "Retry",
+    "see_all": "See all",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "states": {
+    "empty": "Nothing in this range",
+    "activation_empty": "No APM data yet",
+    "activation_empty_description": "Send backend traces to start building application aggregates before sampling."
   },
   "first_run": {
     "eyebrow": "Application performance",
@@ -200,135 +252,976 @@
       }
     }
   },
-  "quality": {
-    "activation_title": "APM data starts inside this window",
-    "activation_description": "Projection started at {{time}}; earlier data is not available.",
-    "partial_title": "Partial APM data",
-    "partial_description": "{{count}} projection gaps affect this window. Aggregates remain available but may be lower than actual traffic.",
-    "partial_unknown_description": "Some APM aggregates are incomplete in this window. Existing values remain useful but may be lower than actual traffic.",
-    "overflow_title": "APM cardinality is truncated",
-    "overflow_description": "{{count}} high-cardinality dimension groups were capped in this window; totals remain available.",
-    "stale_title": "APM aggregates are delayed",
-    "stale_description": "The latest complete bucket ended at {{time}}. Values remain visible while projection catches up.",
-    "overflow": "Cardinality overflow",
-    "complete_through": "Complete through {{time}}",
-    "view_details": "View missing data",
-    "check_collection": "Check collection setup",
-    "dismiss": "Dismiss for now",
-    "impact_description": "Throughput, error rate, latency trends, and impact rankings may be lower than actual values; existing aggregates remain useful for investigation.",
-    "unavailable_range": "Missing before projection",
-    "delayed_range": "Aggregation not complete",
-    "dropped_facts": "{{count}} Span facts dropped",
-    "reasons": {
-      "queue_full": "Projection queue full",
-      "repository_unavailable": "Aggregate storage unavailable",
-      "flush_failed": "Aggregate write failed",
-      "late_dropped": "Late data exceeded grace period",
-      "cardinality_rejected": "Dimension cardinality limit",
-      "shutdown_timeout": "Projection timed out during shutdown"
-    }
-  },
-  "filters": {
-    "search": "Search",
-    "namespace": "Namespace",
-    "service": "Service",
-    "environment": "Environment",
-    "version": "Version",
-    "category": "Category",
-    "all_categories": "All categories",
-    "resolution": "Resolution",
-    "resolution_auto": "Auto resolution",
-    "resolution_minute": "Minute",
-    "resolution_hour": "Hour",
-    "sort": "Sort",
-    "direction": "Direction",
-    "clear": "Clear filters"
-  },
-  "sort": {
-    "name": "Name",
-    "total_time": "Total time",
-    "requests": "Requests",
-    "error_rate": "Error rate",
-    "p95": "P95 latency",
-    "descending": "Descending",
-    "ascending": "Ascending"
+  "drawer": {
+    "close": "Close",
+    "resize": "Resize the drawer",
+    "trail": "Opened from",
+    "back_to": "Back to {{name}}"
   },
   "columns": {
-    "service": "Service",
-    "caller": "Caller",
-    "transaction": "Transaction",
-    "kind": "Kind",
-    "target": "Target",
-    "category": "Category",
-    "operation": "Operation",
-    "instrumentation": "Instrumentation",
-    "versions": "Versions",
+    "title": "Columns",
+    "visible": "Shown",
+    "reorder_hint": "Drag or Alt + ↑↓",
+    "drag_aria": "{{name}}: drag, or Alt and an arrow, to move",
+    "reset": "Back to the default columns",
+    "available": "Add a column"
+  },
+  "catalog": {
+    "table": "Services",
+    "search": "Search services",
+    "environment": "Environment",
+    "all_environments": "All environments",
+    "team": "Team",
+    "all_teams": "All teams",
+    "declare": "Declare a service",
+    "more": "Load more services",
+    "not_reporting": "Not reporting",
+    "filtered_empty": "No service matches",
+    "filtered_empty_description": "Change the search or the filters.",
+    "summary": {
+      "services_one": "{{count}} service",
+      "services_other": "{{count}} services",
+      "throughput": "Throughput",
+      "error_rate": "Error rate"
+    },
+    "columns": {
+      "service": "Service",
+      "environment": "Environment",
+      "type": "Type",
+      "team": "Team",
+      "owner": "Owner",
+      "on_call": "On call",
+      "tier": "Tier",
+      "alerts": "Alerts",
+      "lifecycle": "Lifecycle",
+      "language": "Language / framework",
+      "throughput": "Throughput",
+      "error_rate": "Error rate",
+      "p50": "P50",
+      "p90": "P90",
+      "p95": "P95",
+      "p99": "P99",
+      "average": "Average",
+      "apdex": "Apdex",
+      "instances": "Instances",
+      "region": "Region",
+      "version": "Version",
+      "last_deploy": "Last deploy",
+      "tags": "Tags",
+      "last_seen": "Last seen",
+      "favorite": "Favorite"
+    },
+    "favorite": "Add {{name}} to favorites",
+    "unfavorite": "Remove {{name}} from favorites",
+    "favorites_one": "Favorites {{count}}",
+    "favorites_other": "Favorites {{count}}",
+    "archived": "Archived",
+    "inactive": "Inactive",
+    "namespace": "Namespace",
+    "all_namespaces": "All namespaces",
+    "tag": "Tag",
+    "all_tags": "All tags",
+    "show_archived_one": "Archived {{count}}",
+    "show_archived_other": "Archived {{count}}",
+    "group": {
+      "label": "Group",
+      "off": "None",
+      "by": {
+        "team": "Team",
+        "namespace": "Namespace",
+        "tier": "Tier"
+      },
+      "by_tag": "Tag {{tag}}",
+      "none": {
+        "team": "No team",
+        "namespace": "No namespace",
+        "tier": "No tier",
+        "tag": "No {{tag}} tag"
+      }
+    },
+    "missing": "Needs {{fields}}",
+    "missing_and": ", ",
+    "missing_fields": {
+      "team": "a team",
+      "owner": "an owner",
+      "repository": "a repository"
+    },
+    "missing_hint": "The catalog requirements in APM settings ask this of its tier"
+  },
+  "definition": {
+    "title": "Describe {{name}}",
+    "declare_title": "Declare a service",
+    "description": "Who owns the service and how much it matters. Owners are teams and members of this organization.",
+    "fields": {
+      "name": "Service name",
+      "namespace": "Namespace",
+      "namespace_hint": "service.namespace; the service name when empty.",
+      "team": "Owning team",
+      "owner": "Owner",
+      "owner_hint": "The person answerable for the service.",
+      "tier": "Tier",
+      "lifecycle": "Lifecycle",
+      "repository": "Repository",
+      "repository_hint": "An https or git address, such as git@github.com:acme/checkout.git; a password in it is kept as ****. Shown when the service does not report vcs.repository.url.full",
+      "description": "What it does",
+      "tags": "Tags",
+      "tags_hint": "key=value, or the key alone, separated by commas. Keys use lowercase letters, digits and _ . - /",
+      "apdex": "Apdex threshold T (ms)",
+      "apdex_hint": "Requests within T satisfy, within 4T are tolerated. Empty uses the default 500 ms."
+    },
+    "none": "None",
+    "docs_hint": "Documents and runbooks live in the Mole Agent knowledge base under {{path}}, where Mole Agent reads them too.",
+    "remove": "Remove the description",
+    "saved": "Service description saved",
+    "removed": "Service description removed",
+    "edit": "Edit owners",
+    "declare_owner": "Set owners",
+    "on_call": "On call",
+    "tier": {
+      "p0": "P0",
+      "p1": "P1",
+      "p2": "P2",
+      "p3": "P3",
+      "p4": "P4",
+      "p5": "P5"
+    },
+    "lifecycle": {
+      "production": "Production",
+      "staging": "Staging",
+      "experimental": "Experimental",
+      "deprecated": "Deprecated"
+    },
+    "tags_problem": {
+      "key": "The tag key \"{{tag}}\" may use lowercase letters, digits and _ . - /, up to 64 characters",
+      "value": "The value of tag {{tag}} is at most 128 characters",
+      "too_many": "A service has at most 32 tags",
+      "twice": "The tag {{tag}} is given twice"
+    },
+    "apdex_problem": "Enter milliseconds above 0 and at most 60000",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "archive_hint": "An archived service is left out of the catalog by default; its data is still collected",
+    "unarchive_hint": "Bring this service back into the catalog",
+    "archived": "Archived",
+    "unarchived": "Unarchived",
+    "repository_problem": "Enter an http, https, ssh or git address, or git@host:path, without spaces"
+  },
+  "docs": {
+    "title": "Docs",
+    "where": "Knowledge base, {{folder}}",
+    "none": "No document for this service yet.",
+    "team": "Team",
+    "start_runbook": "Start a runbook",
+    "runbook_template": "# {{name}} runbook\n\n## What it does\n\n## Owners and escalation\n\n## Alerts and what to do\n\n## Dashboards and links\n"
+  },
+  "service": {
+    "navigation": "Service sections",
+    "environment": "Environment",
     "version": "Version",
+    "all_versions": "All versions",
+    "sections": {
+      "overview": "Overview",
+      "endpoints": "Endpoints",
+      "traces": "Traces",
+      "dependencies": "Dependencies",
+      "errors": "Errors",
+      "deployments": "Deployments",
+      "runtime": "Runtime",
+      "settings": "Settings"
+    },
+    "related": {
+      "logs": "Logs",
+      "metrics": "Metrics",
+      "profiles": "Profiles",
+      "rum": "RUM"
+    },
+    "facts": {
+      "no_data": "No data in this range",
+      "last_seen": "Last seen {{when}}",
+      "system": "System",
+      "environment": "Environment",
+      "type": "Type",
+      "kinds": {
+        "http": "HTTP",
+        "rpc": "RPC",
+        "messaging": "Consumer",
+        "span": "Worker"
+      },
+      "stack": "Language / framework",
+      "version": "Version",
+      "commit": "commit {{commit}}",
+      "team": "Team",
+      "instances_one": "{{count}} instance",
+      "instances_other": "{{count}} instances",
+      "deployed_label": "Last deploy",
+      "deployed": "deployed {{when}}",
+      "region": "Region",
+      "repository": "Repository"
+    },
+    "coverage": {
+      "missing": {
+        "logs": "No logs from this service in the last day. Open to see how to send them",
+        "metrics": "No metrics from this service in the last hour. Open to see how to send them",
+        "profiles": "No profiles from this service in the last day. Open to see how to send them"
+      },
+      "reported": {
+        "logs": "Logs are in: {{found}}",
+        "metrics": "{{found}} metric series from this service in the last hour",
+        "profiles": "Profile types sent: {{found}}",
+        "rum": "Browser sessions reach this service through its traces. Open one of them"
+      }
+    },
+    "favorite": "Favorite",
+    "favorited": "Favorited"
+  },
+  "charts": {
     "requests": "Requests",
-    "error": "Error",
-    "message": "Message",
-    "occurrences": "Occurrences",
     "error_rate": "Error rate",
-    "p95": "P95",
-    "total_time": "Total time",
-    "last_seen": "Last seen"
+    "latency": "Latency",
+    "ok": "Succeeded",
+    "errors": "Failed",
+    "previous": "Before",
+    "compared_env": "In {{environment}}",
+    "distribution": "Latency distribution",
+    "distribution_row": "{{range}}: {{count}} requests, {{share}}; {{below}} at or below",
+    "distribution_previous": "Dashed: the same range before",
+    "distribution_compared": "Dashed: {{what}}",
+    "no_distribution": "No request in this range.",
+    "apdex_threshold": "(T = {{threshold}})"
   },
-  "actions": {
-    "view_all": "View all",
-    "explore": "Explore",
-    "open_service_workbench": "Open service workbench",
-    "retry": "Retry",
-    "pagination": "APM list pagination",
-    "page_size": "Rows per page",
-    "previous_page": "Previous",
-    "next_page": "Next",
-    "open_trace": "Open Trace",
-    "filtered_traces": "Filtered Traces",
-    "related_logs": "Related Logs"
+  "overview": {
+    "downstream": "Time spent downstream",
+    "downstream_description": "Share of the time the service waits on each dependency",
+    "no_downstream": "No downstream call in this range.",
+    "top_endpoints": "Endpoints taking the most time",
+    "no_endpoints": "No endpoint in this range.",
+    "top_errors": "Most frequent errors",
+    "no_errors": "No backend error in this range."
   },
-  "states": {
-    "activation_empty": "No APM data yet",
-    "activation_empty_description": "Send backend traces to start building pre-sampling application aggregates.",
-    "filtered_empty": "No results match these filters",
-    "filtered_empty_description": "Change or clear the current service, environment, version, or search filters.",
-    "refreshing": "Refreshing",
-    "no_trend": "No trend buckets",
-    "no_services": "No services",
-    "no_transactions": "No Transactions",
-    "no_dependencies": "No dependencies",
-    "no_errors": "No backend errors",
-    "no_versions": "No observed versions",
-    "no_traces": "No representative Traces were retained in this window."
+  "overflow": {
+    "other": "Other",
+    "other_hint": "Names past the cardinality limits, counted together."
   },
-  "signals": {
-    "traces": "Traces",
-    "logs": "Logs",
-    "metrics": "Metrics",
-    "profiles": "Profiles"
+  "endpoints": {
+    "search": "Search endpoints",
+    "kind_filter": "Kind",
+    "kinds": {
+      "all": "All kinds",
+      "http": "HTTP",
+      "rpc": "RPC",
+      "messaging": "Messaging",
+      "span": "Workers"
+    },
+    "kind": {
+      "http": "HTTP",
+      "rpc": "RPC",
+      "messaging": "MQ",
+      "span": "Worker",
+      "other": "Other"
+    },
+    "count_one": "{{count}} endpoint",
+    "count_other": "{{count}} endpoints",
+    "empty": "No endpoint matches.",
+    "table": "Endpoints",
+    "columns": {
+      "kind": "Type",
+      "endpoint": "Endpoint",
+      "requests": "Requests",
+      "throughput": "Throughput",
+      "error_rate": "Error rate",
+      "p50": "P50",
+      "p90": "P90",
+      "p95": "P95",
+      "p99": "P99",
+      "average": "Average",
+      "apdex": "Apdex",
+      "total_time": "Share of time"
+    },
+    "key": "Key transaction",
+    "key_only_one": "Key transactions {{count}}",
+    "key_only_other": "Key transactions {{count}}",
+    "long_tasks_one": "Long tasks {{count}}",
+    "long_tasks_other": "Long tasks {{count}}",
+    "long_tasks_hint": "Endpoints whose P99 is {{threshold}} or more",
+    "mark_key": "Mark {{name}} as a key transaction",
+    "unmark_key": "Unmark {{name}} as a key transaction"
   },
-  "dependency_categories": {
-    "service": "Service",
-    "database": "Database",
-    "cache": "Cache",
-    "messaging": "Messaging",
-    "external_http": "External HTTP",
-    "external_rpc": "External RPC",
-    "other": "Other"
+  "endpoint": {
+    "errors": "Errors",
+    "no_errors": "No error on this endpoint.",
+    "versions": "Versions",
+    "no_versions": "No version seen.",
+    "summary": "{{requests}} requests · {{rate}} failed · P95 {{p95}}",
+    "slow_requests": "Slowest requests",
+    "slow_requests_description": "From the trace store; each opens its trace",
+    "in_traces": "Open in Traces",
+    "other_has_no_requests": "Other counts many endpoints together; open one of them to see its requests.",
+    "no_requests": "No request of this endpoint is kept in this range.",
+    "status": {
+      "title": "Status codes",
+      "description": "Responses by status code, HTTP and gRPC",
+      "none": "No status code was counted in this range.",
+      "row": "{{status}}: {{count}} responses, {{share}}",
+      "other": "Other {{protocol}}",
+      "trend": "Status codes over time",
+      "classes": {
+        "1xx": "1xx",
+        "2xx": "2xx",
+        "3xx": "3xx",
+        "4xx": "4xx",
+        "5xx": "5xx",
+        "grpc_ok": "gRPC OK",
+        "grpc_error": "gRPC errors",
+        "other": "Other"
+      }
+    },
+    "time_spent": {
+      "title": "Where the time goes",
+      "description_one": "From the latest request in the trace store",
+      "description_other": "From the latest {{count}} requests in the trace store",
+      "about": "From the latest requests in the trace store, at most 200",
+      "none": "No request of this endpoint is kept in this range.",
+      "unavailable": "The trace store did not answer in time; try a shorter range.",
+      "row": "{{part}}: {{share}} of the time, {{each}} a request",
+      "each": "{{time}} a request",
+      "parts": {
+        "own": "Own code",
+        "database": "Database",
+        "cache": "Cache",
+        "http": "HTTP calls",
+        "rpc": "RPC calls",
+        "messaging": "Messaging",
+        "internal": "Internal work",
+        "other": "Other"
+      }
+    }
   },
-  "transaction_kinds": {
-    "http": "HTTP endpoint",
-    "rpc": "RPC method",
-    "messaging": "Message handler",
-    "span": "Background task",
-    "other": "Other"
+  "traces": {
+    "title": "Traces",
+    "description": "Traces this service took part in",
+    "open_explorer": "Open in Traces",
+    "empty": "No trace of this service in this range."
   },
-  "exemplars": {
-    "title": "Trace exemplars",
-    "description": "Representative slow requests retained by the Trace pipeline.",
-    "unavailable": "Trace not retained"
+  "dependencies": {
+    "map": "Neighbours",
+    "map_description": "The services that call this one and those it calls",
+    "map_empty": "No call between services in this range.",
+    "upstream": "Called by",
+    "upstream_description": "Error rate and P95 of their calls",
+    "no_upstream": "No service called this one in this range.",
+    "downstream": "Calls out",
+    "downstream_description": "By target, each operation under it",
+    "no_downstream": "No downstream call in this range.",
+    "columns": {
+      "target": "Target",
+      "category": "Kind",
+      "requests": "Requests",
+      "error_rate": "Error rate",
+      "p95": "P95",
+      "health": "Health",
+      "change": "Against compared"
+    },
+    "operations_one": "{{count}} operation",
+    "operations_other": "{{count}} operations",
+    "no_operation": "No operation name",
+    "category": {
+      "service": "Service",
+      "database": "Database",
+      "cache": "Cache",
+      "messaging": "Messaging",
+      "external_http": "HTTP",
+      "external_rpc": "RPC",
+      "other": "Other"
+    },
+    "timeouts_one": "{{count}} timed out",
+    "timeouts_other": "{{count}} timed out",
+    "retries_one": "{{count}} retried",
+    "retries_other": "{{count}} retried",
+    "slowest_operation": "P95 of its slowest operation",
+    "score": {
+      "errors": "Failed calls: −{{points}}",
+      "timeouts": "Calls out of time: −{{points}}",
+      "latency": "Slower P95: −{{points}}",
+      "none": "Nothing taken off"
+    },
+    "slow_sql": "Slow SQL",
+    "slow_sql_description": "Database statements by P95, as templates: every literal a ?",
+    "new_target": "New"
   },
-  "values": {
-    "unknown": "Unknown",
-    "no_message": "No representative message"
+  "deployments": {
+    "timeline": "Deployment timeline",
+    "report": "Report deployments",
+    "none": "No deployment and no version in this range.",
+    "current": "Current",
+    "columns": {
+      "time": "Time",
+      "version": "Version",
+      "event": "Event",
+      "change": "Change",
+      "requests": "Requests",
+      "error_rate": "Error rate",
+      "p95": "P95",
+      "verdict": "Against the one before"
+    },
+    "kind": {
+      "deployed": "Deployed",
+      "failed": "Failed",
+      "rolled_back": "Rolled back",
+      "returned": "Went back",
+      "first_seen": "First seen",
+      "configuration": "Configuration",
+      "feature_flag": "Feature flag"
+    },
+    "from": "from {{version}}",
+    "pull_request": "PR",
+    "ci_run": "CI run",
+    "compare": "Compare two versions",
+    "baseline": "From",
+    "candidate": "To",
+    "regressed_endpoints": "Endpoints that got slower",
+    "regressed_errors": "Errors that grew",
+    "none_regressed": "None",
+    "status": {
+      "insufficient_data": "Not enough requests",
+      "regressed": "Regressed",
+      "improved": "Improved",
+      "neutral": "No change"
+    },
+    "verdict_title": "Against {{previous}}: error rate {{rate}}, P95 {{p95}}",
+    "worse": {
+      "error_rate": "Error rate {{delta}}",
+      "latency": "P95 {{delta}}"
+    },
+    "delta": {
+      "requests": "Requests",
+      "error_rate": "Error rate",
+      "p95": "P95"
+    },
+    "insufficient": "Too few requests in one of the versions to judge.",
+    "canary": {
+      "title": "{{candidate}} running beside {{baseline}}",
+      "since": "Since {{since}}",
+      "share": "{{share}} of the traffic on the newer version",
+      "figures": "The two versions side by side",
+      "rows": {
+        "requests": "Requests",
+        "error_rate": "Error rate",
+        "p50": "P50",
+        "p95": "P95",
+        "p99": "P99"
+      }
+    }
+  },
+  "errors": {
+    "title": "Error group",
+    "table": "Error groups",
+    "search": "Search errors",
+    "status": "State",
+    "status_filter": "Show",
+    "assignee": "Assignee",
+    "unassigned": "Unassigned",
+    "team": "Team",
+    "no_team": "No team",
+    "saved": "Error group updated",
+    "count_one": "{{count}} group",
+    "count_other": "{{count}} groups",
+    "none": "No error group in this range",
+    "none_open": "No open error group in this range",
+    "none_description": "Errors of backend spans are grouped here by type and where they were thrown.",
+    "filter": {
+      "all": "All groups",
+      "unresolved": "Open",
+      "investigating": "Investigating",
+      "resolved": "Resolved",
+      "ignored": "Ignored"
+    },
+    "set": {
+      "open": "Open",
+      "investigating": "Investigating",
+      "resolved": "Resolved",
+      "ignored": "Ignored"
+    },
+    "state": {
+      "open": "Open",
+      "investigating": "Investigating",
+      "regressed": "Regressed",
+      "resolved": "Resolved",
+      "ignored": "Ignored"
+    },
+    "columns": {
+      "error": "Error",
+      "service": "Service",
+      "state": "State",
+      "assignee": "Assignee",
+      "occurrences": "Occurrences",
+      "last_seen": "Last seen",
+      "first_seen": "First seen"
+    },
+    "facts": {
+      "occurrences": "Occurrences",
+      "first_seen": "First seen",
+      "last_seen": "Last seen",
+      "versions": "Versions"
+    },
+    "trend": "Occurrences over time",
+    "stack": "Where it was thrown",
+    "endpoints": "Endpoints",
+    "no_endpoints": "No endpoint recorded.",
+    "samples": "Samples",
+    "samples_description": "Each opens its trace, where it was kept",
+    "no_samples": "No sample kept.",
+    "logs": "Related logs",
+    "sample_logs": "Logs",
+    "breakdown": {
+      "title": "Where they happened",
+      "listed": "Occurrences of every group listed",
+      "versions": "Versions",
+      "environments": "Environments",
+      "languages": "Languages",
+      "unknown": "Not reported",
+      "none": "None",
+      "row": "{{value}}: {{count}}, {{share}}"
+    },
+    "rules": {
+      "open": "Grouping rules",
+      "title": "Error grouping rules",
+      "new": "New rule",
+      "new_title": "New grouping rule",
+      "edit_title": "Edit grouping rule",
+      "description": "Tried in order on the errors seen from now on; the first that matches holds. It merges them into one group per service, or keeps them out of groups (their requests still count as failed). A saved rule applies on every node within half a minute.",
+      "none": "No grouping rule yet.",
+      "action": {
+        "merge": "Merge",
+        "ignore": "Ignore"
+      },
+      "action_long": {
+        "merge": "Merge into one group",
+        "ignore": "Keep out of groups"
+      },
+      "disabled": "Off",
+      "every_service": "Every service",
+      "fields": {
+        "name": "Name",
+        "name_hint": "A merged group is named by it.",
+        "action": "Does",
+        "service": "Service",
+        "error_type": "Error type",
+        "message": "Message",
+        "frame": "Thrown at",
+        "endpoint": "Endpoint",
+        "enabled": "On"
+      },
+      "placeholder": {
+        "error_type": "*TimeoutException",
+        "message": "*connection reset*",
+        "frame": "com.shop.client.*",
+        "endpoint": "GET /orders/*"
+      },
+      "patterns_hint": "Each matches the whole text, ignoring case, with * for any text; an empty one matches anything. Fill in at least one.",
+      "preview_one": "{{count}} listed error group fits this rule. Groups already made stay as they are: the rule applies to errors seen from now on.",
+      "preview_other": "{{count}} listed error groups fit this rule. Groups already made stay as they are: the rule applies to errors seen from now on.",
+      "pattern": {
+        "error_type": "type {{pattern}}",
+        "message": "message {{pattern}}",
+        "frame": "at {{pattern}}",
+        "endpoint": "endpoint {{pattern}}"
+      },
+      "move_up": "Move {{name}} up",
+      "move_down": "Move {{name}} down",
+      "edit": "Edit {{name}}",
+      "remove": "Delete {{name}}",
+      "remove_title": "Delete the rule {{name}}?",
+      "remove_description": "Errors seen from now on are no longer grouped by it; the groups it made stay.",
+      "remove_confirm": "Delete",
+      "removing": "Deleting…",
+      "saved": "Rule saved",
+      "removed": "Rule deleted",
+      "from_error": "Rule from this error"
+    }
+  },
+  "runtime": {
+    "language": "Language",
+    "sdk": "SDK",
+    "instances": "Recent instances",
+    "none_title": "No runtime metrics from this service",
+    "none_description": "Charts appear by language once the service sends runtime metrics with its service.name: the process, and the runtime of JVM, Go, Node.js, .NET, Python, Ruby, PHP, Rust (Tokio) and Erlang / Elixir. OpenTelemetry's conventions and the common Prometheus client of each language are both read.",
+    "none_action": "Send metrics with OpenTelemetry",
+    "chart_empty": "No value in this range.",
+    "charts": {
+      "cpu": "CPU usage",
+      "memory": "Memory",
+      "threads": "Threads",
+      "file_descriptors": "Open file descriptors",
+      "heap": "Heap",
+      "non_heap": "Non-heap memory",
+      "gc_time": "GC time a second",
+      "gc_count": "GC runs a second",
+      "classes": "Loaded classes",
+      "goroutines": "Goroutines",
+      "scheduler": "Scheduling latency",
+      "event_loop_delay": "Event loop delay P99",
+      "event_loop_utilization": "Event loop utilization",
+      "thread_pool_queue": "Thread pool queue",
+      "exceptions": "Exceptions a second",
+      "heap_slots": "Live heap slots",
+      "allocations": "Allocations a second",
+      "workers": "Workers",
+      "queue": "Queue",
+      "slow_requests": "Slow requests a second",
+      "opcache": "OPcache memory",
+      "tasks": "Live tasks / handles",
+      "busy": "Busy time a second",
+      "processes": "Erlang processes",
+      "run_queue": "Run queue",
+      "reductions": "Reductions a second"
+    },
+    "instance": "Instance",
+    "all_instances": "All instances",
+    "each_instance": "One line per instance",
+    "one_instance": "The chosen instance only",
+    "families": {
+      "process": "Process",
+      "jvm": "JVM",
+      "go": "Go",
+      "nodejs": "Node.js",
+      "dotnet": ".NET",
+      "python": "Python",
+      "ruby": "Ruby",
+      "php": "PHP",
+      "rust": "Rust / Tokio",
+      "beam": "Erlang / Elixir (BEAM)"
+    },
+    "profile": {
+      "title": "Profiling",
+      "description": "The service's profiles of the range merged into a flame graph, one type at a time",
+      "open": "Open in Profiles",
+      "none": "No profile from this service in this range",
+      "none_description": "Once continuous profiling is set up, flame graphs of CPU, wall clock, allocations, heap, locks and more show here.",
+      "types": "Profile type",
+      "empty": "No sample of this type in this range"
+    }
+  },
+  "map": {
+    "not_in_apm": "{{name}} is not among the services APM sees in this range.",
+    "namespace": "Namespace",
+    "all_namespaces": "All namespaces",
+    "search": "Find a node",
+    "clear_search": "Clear",
+    "fold": "Fold namespaces",
+    "unfold": "Unfold the namespace",
+    "critical": "Slowest path",
+    "change": {
+      "new": "New",
+      "gone": "Gone"
+    },
+    "group_figures_one": "{{count}} service",
+    "group_figures_other": "{{count}} services",
+    "none": "No call in this range",
+    "none_description": "Services appear here once their spans reach MoleSignal; calls between them once a span has its parent in another service.",
+    "truncated": "Only the busiest nodes are drawn.",
+    "reach": "Reached from {{callers}} · reaches {{callees}}",
+    "open_service": "Open the service",
+    "close_chosen": "Close",
+    "kind": {
+      "service": "Service",
+      "external": "Called",
+      "topic": "Topic",
+      "group": "Namespace"
+    },
+    "category": {
+      "service": "Service that reports nothing",
+      "database": "Database",
+      "cache": "Cache",
+      "messaging": "Message system",
+      "external_http": "Outside HTTP",
+      "external_rpc": "Outside RPC",
+      "other": "Other"
+    },
+    "call": {
+      "title": "Call",
+      "requests": "Requests",
+      "error_rate": "Error rate",
+      "kinds": {
+        "call": "Call",
+        "publish": "Publishing to a topic",
+        "consume": "Consuming from a topic"
+      },
+      "operations": "Operations along the call",
+      "endpoints": "Endpoints of the service called",
+      "every_caller": "As every caller asked them",
+      "no_operations": "No operation recorded.",
+      "unnamed": "Unnamed",
+      "errors": "Errors of {{service}}",
+      "wait": {
+        "title": "Wait in the topic",
+        "about": "From the latest consumptions in the trace store, at most 200",
+        "description": "{{matched}} of the latest {{count}} consumptions matched their publishing",
+        "p50": "P50",
+        "p95": "P95",
+        "max": "Longest",
+        "none": "No consumption could be matched to its publishing: the spans need links or parents.",
+        "unavailable": "The trace store did not answer in time; try a shorter range."
+      }
+    },
+    "calls": "Calls",
+    "calls_out": "Calls",
+    "calls_in": "Called by",
+    "gone_figures": "No call since the stretch before"
+  },
+  "pagination": {
+    "aria": "Pages of the list",
+    "page_summary": "{{page}} / {{pages}}",
+    "page_size_aria": "Rows per page",
+    "first_aria": "First page",
+    "previous_aria": "Previous page",
+    "next_aria": "Next page",
+    "last_aria": "Last page"
+  },
+  "settings": {
+    "catalog": "Catalog entry",
+    "catalog_description": "Kept by people; used where the telemetry does not say",
+    "reported": {
+      "title": "Reported by the service",
+      "description": "What its instances report in the range and version in view",
+      "instances": "Instances",
+      "hosts": "Hosts",
+      "language": "Language",
+      "runtime": "Runtime",
+      "framework": "Framework",
+      "sdk": "SDK",
+      "cluster": "Cluster",
+      "k8s_namespace": "Kubernetes namespace",
+      "workload": "Workload",
+      "commit": "Commit",
+      "none": "Not reported"
+    },
+    "key_transactions": {
+      "title": "Key transactions",
+      "description": "The endpoints that matter most, starred in the endpoint list or an endpoint's drawer",
+      "empty": "No key transactions yet. Star an endpoint in the endpoint list to add one.",
+      "no_traffic": "No requests in the range"
+    }
+  },
+  "org_settings": {
+    "save": "Save",
+    "reset": "Undo changes",
+    "remove": "Remove",
+    "saved": "Settings saved",
+    "thresholds": {
+      "title": "Health and thresholds",
+      "hint": "The lines health, Apdex and long tasks are read against",
+      "error_rate": "Error rate",
+      "warning": "Warning from",
+      "critical": "Critical from",
+      "apdex": "Default Apdex",
+      "apdex_hint": "For services whose definition sets no T",
+      "long_task": "Long task",
+      "issues": {
+        "error_rates": "The warning error rate is above 0 and below the critical one, which is at most 100%.",
+        "p95": "The warning P95 is above 0 and below the critical one, which is at most 10 minutes.",
+        "apdex": "Apdex T is above 0 and at most a minute.",
+        "long_task": "A long task is from 1 ms to 10 minutes.",
+        "numbers": "Every field takes a number."
+      }
+    },
+    "naming": {
+      "title": "Service naming",
+      "hint": "The first rule that matches renames a service as spans are read",
+      "add": "Add a rule",
+      "empty": "No naming rule: services are read by the names they report.",
+      "pattern": "Pattern",
+      "pattern_placeholder": "Regular expression, e.g. ^(checkout)-[a-z0-9]{5}$",
+      "replacement": "Replacement",
+      "replacement_placeholder": "e.g. $1",
+      "try": "Try a service name",
+      "read_as": "Read as",
+      "unchanged": "Read as it is",
+      "traces_keep": "Traces keep the names spans carry",
+      "unread": "A pattern cannot be read here; the server reads Rust regular expressions and says when it cannot either."
+    },
+    "environments": {
+      "title": "Environment mapping",
+      "hint": "An environment named one way is read as another, case aside, as spans are read",
+      "add": "Add a mapping",
+      "empty": "No mapping: environments are read as named.",
+      "from": "Named",
+      "to": "Read as",
+      "twice": "An environment is mapped twice."
+    },
+    "aliases": {
+      "title": "Service aliases",
+      "hint": "What an alias reported is read as its service on every APM page, data already kept included; taking the alias away reads them apart again",
+      "add": "Add an alias",
+      "empty": "No alias.",
+      "alias_namespace": "Alias namespace",
+      "alias": "Alias",
+      "namespace": "Namespace",
+      "service": "Service",
+      "issues": {
+        "incomplete": "An alias names both services.",
+        "itself": "A service is not its own alias.",
+        "twice": "A name is an alias twice.",
+        "chained": "An alias leads to a service that is itself an alias."
+      }
+    },
+    "catalog_rules": {
+      "title": "Catalog requirements",
+      "hint": "What each service in the catalog needs, by tier; one missing it is flagged",
+      "never": "Not required",
+      "from_tier": "{{tier}} and above",
+      "team_from_tier": "Team",
+      "owner_from_tier": "Owner",
+      "repository_from_tier": "Repository"
+    },
+    "limits": {
+      "title": "Cardinality limits",
+      "hint": "For the whole platform: past them an hour, the rest are counted as \"other\"",
+      "issue": "Each limit is a whole number from 1 to 100000.",
+      "servicesPerOrgHour": "Services per organization",
+      "transactionsPerServiceHour": "Endpoints per service",
+      "dependenciesPerServiceHour": "Dependencies per service",
+      "operationsPerDependencyHour": "Operations per dependency",
+      "errorGroupsPerServiceHour": "Error groups per service",
+      "versionsPerServiceHour": "Versions per service",
+      "instancesPerServiceHour": "Instances per service"
+    },
+    "sampling": {
+      "title": "Trace sampling",
+      "version": "For the whole platform, version {{version}}",
+      "ratio": "Normal traces kept",
+      "ratio_hint": "Errors, slow traces and the rules below keep theirs; APM counts every trace before sampling",
+      "off": "Trace storage is off",
+      "add": "Add a rule",
+      "empty": "No rule: the normal ratio decides.",
+      "name": "Name",
+      "service": "Service",
+      "route": "Route",
+      "operation": "Operation",
+      "minimum": "From ms",
+      "errors_only": "Errors only",
+      "action": "Action",
+      "rule_ratio": "Share kept, %",
+      "actions": {
+        "keep": "Keep",
+        "drop": "Drop",
+        "ratio": "Keep a share"
+      },
+      "issue": "A rule needs a name, a duration in whole milliseconds and a share from 0 to 100%.",
+      "published": "Sampling policy version {{version}} published"
+    },
+    "quality": {
+      "title": "Collection quality",
+      "hint": "Over the past day",
+      "clean": "Nothing to fix in the past day.",
+      "tone": {
+        "warning": "Fix",
+        "suggestion": "Suggestion"
+      },
+      "overflow": "Past the cardinality limits, the rest of these were counted as \"other\": {{kinds}}.",
+      "kinds": {
+        "service": "services",
+        "transaction": "endpoints",
+        "dependency": "dependencies",
+        "error": "error groups",
+        "instance": "instances",
+        "version": "versions"
+      },
+      "and": ", ",
+      "raise_limits": "Raise the limits",
+      "limits_by_platform": "Set by the platform's administrators",
+      "gaps_one": "APM missed {{count}} stretch of spans.",
+      "gaps_other": "APM missed {{count}} stretches of spans.",
+      "stale": "APM is behind: the last complete minute is {{at}}.",
+      "missing_one": "{{formatted}} service reports no",
+      "missing_other": "{{formatted}} services report no",
+      "instrument": "Set it up",
+      "environments": "{{names}} differ only in case.",
+      "map_to": "Read all as {{name}}",
+      "generated": "{{name}} looks like {{base}} with a generated suffix.",
+      "add_rule": "Add a naming rule"
+    }
+  },
+  "instances": {
+    "title": "Instances",
+    "description": "The processes that ran the service in the range and version in view",
+    "empty": "No instance reported in this range",
+    "columns": {
+      "instance": "Instance",
+      "version": "Version",
+      "where": "Workload / host",
+      "runtime": "Runtime",
+      "last_seen": "Last seen",
+      "throughput": "Throughput",
+      "error_rate": "Error rate",
+      "p95": "P95",
+      "signals": "Logs / metrics"
+    },
+    "other": "Other instances",
+    "other_hint": "The instances past the instance limit, counted together",
+    "only_charts": "Click to keep the runtime charts to this instance",
+    "all_charts": "Click to show every instance in the runtime charts"
+  },
+  "apdex": {
+    "threshold_title": "Apdex threshold T = {{threshold}}"
+  },
+  "insights": {
+    "title": "Insights",
+    "none": "Nothing stands out in this range.",
+    "separator": "; ",
+    "and": ", ",
+    "before": "{{value}} the stretch before",
+    "week_before": "{{value}} the same stretch a week before",
+    "since": "since {{at}}",
+    "changes_near": "Changes near then:",
+    "severity": {
+      "critical": "Critical",
+      "warning": "Warning",
+      "info": "Suggestion"
+    },
+    "kind": {
+      "anomaly": "Moved",
+      "regression": "Regressed",
+      "slow_dependency": "Bottleneck",
+      "repeated_call": "N+1",
+      "slow_query": "Slow SQL",
+      "hot_endpoint": "Hot endpoint"
+    },
+    "metric": {
+      "error_rate": "Error rate",
+      "p95": "P95",
+      "throughput": "Throughput"
+    },
+    "sentence": {
+      "anomaly_up": "{{metric}} rose to {{value}} ({{before}})",
+      "anomaly_down": "{{metric}} fell to {{value}} ({{before}})",
+      "regression": "{{version}} did worse than {{previous}}: {{metric}} {{value}}, was {{before}}",
+      "slow_dependency": "{{share}} of the requests' time goes to {{target}}",
+      "repeated_call": "calls {{operation}} {{each}} times a request ({{calls}} calls): a loop one call could replace",
+      "slow_query": "{{operation}}: P95 {{p95}} over {{calls}} calls",
+      "hot_endpoint": "{{endpoint}} takes {{share}} of the service's time (P95 {{p95}})"
+    },
+    "change": {
+      "deployment": "Deployment of",
+      "configuration": "Configuration change of",
+      "feature_flag": "Feature flag of",
+      "observed": ", first seen in spans"
+    },
+    "baseline": {
+      "previous": "Against the stretch before:",
+      "last_week": "Against the same stretch a week before:",
+      "throughput": "throughput",
+      "error_rate": "error rate",
+      "points": "{{value}} pt"
+    }
+  },
+  "agent": {
+    "investigate": "Investigate",
+    "investigate_title": "Ask Mole Agent to investigate",
+    "prompt": {
+      "service": "Investigate {{service}} in {{environment}} from {{from}} to {{to}}: what moved, why, and the changes near then.",
+      "endpoint": "Investigate the endpoint {{endpoint}} of {{service}} in {{environment}} from {{from}} to {{to}}: where its time goes, why it slowed down or failed, and what changed near then.",
+      "error": "Investigate the error {{error}} of {{service}} in {{environment}} (fingerprint {{fingerprint}}): since when, how many requests it fails, and its likely cause.",
+      "finding": "Investigate this finding about {{service}} in {{environment}} from {{from}} to {{to}}: {{finding}}"
+    }
   }
 }

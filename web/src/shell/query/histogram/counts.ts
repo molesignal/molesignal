@@ -9,7 +9,7 @@ export interface HistogramCountsRequest {
   /** What one bar stands for, in microseconds. */
   binMicros: number;
   /** Where the first bar begins: at or before the start of the range. */
-  originMicros: number;
+  originTime: number;
 }
 
 /**
@@ -46,7 +46,14 @@ export interface HistogramCountsSource {
 
 /** Counts as the web endpoints answer them. */
 export interface HistogramCountsPayload {
-  buckets?: Array<{ start_micros: number; total: number; errors: number }> | null;
+  buckets?: Array<{
+    startTime: number;
+    total: number;
+    errors: number;
+    p50Ns?: number | null;
+    p95Ns?: number | null;
+    p99Ns?: number | null;
+  }> | null;
   split?: boolean;
   unavailable?: string | null;
 }
@@ -59,9 +66,13 @@ export function answerFromPayload(payload: HistogramCountsPayload | null | undef
 
   return {
     bars: payload.buckets.map((bucket) => ({
-      startMicros: bucket.start_micros,
+      startTime: bucket.startTime,
       total: bucket.total,
       errors: bucket.errors,
+      // Where the results have a duration, how long a bar's took comes with its count.
+      ...(typeof bucket.p50Ns === 'number' && typeof bucket.p95Ns === 'number' && typeof bucket.p99Ns === 'number'
+        ? { latency: { p50Ns: bucket.p50Ns, p95Ns: bucket.p95Ns, p99Ns: bucket.p99Ns } }
+        : {}),
     })),
     split: payload.split !== false,
   };
@@ -111,7 +122,7 @@ export function useHistogramCounts(
       if (!source || !range || !plan) throw new Error('nothing to count');
 
       try {
-        const request = { range, binMicros: plan.binMicros, originMicros: plan.frame.start };
+        const request = { range, binMicros: plan.binMicros, originTime: plan.frame.start };
 
         return { plan, answer: await source.load(request, signal) };
       } catch (error) {

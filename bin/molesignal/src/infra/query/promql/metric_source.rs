@@ -1,34 +1,141 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Logical-to-physical metric resolution for container-style system metrics.
+//! Which streams a selector reads. A metrics stream holds the metrics of one source, told apart
+//! by `metric_name`; the metric directory says which streams hold a metric and in which hours.
+
+use std::{collections::BTreeMap, time::Duration};
 
 use arrow::array::RecordBatch;
 use futures::future::try_join_all;
+use moka::future::Cache;
 
 use super::*;
 use crate::{
     domain::{
         metrics::{
-            METRIC_NAME_FIELD, is_metric_identity_storage_field,
-            is_metric_query_semantics_storage_field,
+            METRIC_NAME_FIELD, MetricDirectory, MetricDirectoryEntry,
+            is_metric_identity_storage_field, is_metric_query_semantics_storage_field,
+            is_prometheus_exemplar_storage_field,
         },
         storage::QueryFile,
-        stream::{FieldType, MOLESIGNAL_SYSTEM_STREAM, StreamDefinition},
+        stream::{FieldType, StreamDefinition, StreamSettings},
     },
-    shared::{ids::Id, time::TimeRange},
+    shared::{
+        ids::Id,
+        time::{TimeRange, TimestampMicros},
+    },
 };
+
+/// How long a directory answer and a stream's settings are reused.
+const REUSE_FOR: Duration = Duration::from_secs(10);
+
+/// A metric's last hour is taken to last one more: a reused directory answer may not know yet
+/// that the metric reached the next hour.
+const LAST_HOUR_SLACK_US: i64 = 3_600 * 1_000_000;
+
+/// Which metrics a selector reads.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum MetricFilter {
+    /// One metric: `up`, `{"up"}` or `{__name__="up"}`.
+    Name(String),
+    /// Every metric its `__name__` matchers accept, none meaning every metric: `{job="api"}` or
+    /// `{__name__=~"http_.*"}`. Its series carry `__name__`.
+    Matching(Vec<Matcher>),
+}
+
+impl MetricFilter {
+    pub(super) fn of(vs: &VectorSelector) -> Self {
+        if let Some(name) = &vs.name {
+            return Self::Name(name.clone());
+        }
+
+        let names = vs
+            .matchers
+            .matchers
+            .iter()
+            .filter(|matcher| matcher.name == "__name__")
+            .cloned()
+            .collect::<Vec<_>>();
+
+        match names.as_slice() {
+            [matcher] if matcher.op == MatchOp::Equal => Self::Name(matcher.value.clone()),
+            _ => Self::Matching(names),
+        }
+    }
+
+    pub(super) fn name(&self) -> Option<&str> {
+        match self {
+            Self::Name(name) => Some(name),
+            Self::Matching(_) => None,
+        }
+    }
+
+    pub(super) fn accepts(&self, metric: &str) -> bool {
+        match self {
+            Self::Name(name) => name == metric,
+            Self::Matching(matchers) => matchers
+                .iter()
+                .all(|matcher| matcher_matches_value(matcher, metric)),
+        }
+    }
+}
+
+/// The directory of an engine, with its answers and the settings of the streams it names reused
+/// for a few seconds: one query asks for the same metric several times.
+pub(super) struct MetricSources {
+    directory: Arc<dyn MetricDirectory>,
+    /// By organization and metric; no metric holds every metric of the organization.
+    entries: Cache<(String, Option<String>), Arc<Vec<MetricDirectoryEntry>>>,
+    settings: Cache<String, StreamSettings>,
+}
+
+impl MetricSources {
+    pub(super) fn new(directory: Arc<dyn MetricDirectory>) -> Self {
+        Self {
+            directory,
+            entries: Cache::builder()
+                .max_capacity(100_000)
+                .time_to_live(REUSE_FOR)
+                .build(),
+            settings: Cache::builder()
+                .max_capacity(10_000)
+                .time_to_live(REUSE_FOR)
+                .build(),
+        }
+    }
+
+    /// An empty answer is not kept, so a metric is readable as soon as it is recorded.
+    async fn entries(
+        &self,
+        org_id: &Id,
+        filter: &MetricFilter,
+    ) -> Result<Arc<Vec<MetricDirectoryEntry>>> {
+        let key = (org_id.0.clone(), filter.name().map(str::to_string));
+
+        if let Some(entries) = self.entries.get(&key).await {
+            return Ok(entries);
+        }
+
+        let entries = Arc::new(match filter.name() {
+            Some(name) => self.directory.find(org_id, name).await?,
+            None => self.directory.list(org_id).await?,
+        });
+
+        if !entries.is_empty() {
+            self.entries.insert(key, entries.clone()).await;
+        }
+
+        Ok(entries)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ResolvedMetricSource {
-    /// Physical metrics stream used for file lookup.
+    /// Metrics stream to list the files of.
     pub(super) stream: String,
-    /// Logical metric stored in the `metric_name` discriminator column.
-    pub(super) logical_metric: Option<String>,
-    /// Resolved physical stream identity, when a stream repository is present.
-    pub(super) stream_id: Option<crate::shared::ids::Id>,
-    /// Parquet sample scan projection: timestamp, value, labels and internal
-    /// temporality metadata required by the evaluator.
+    /// Parquet sample scan projection: timestamp, value, labels, `metric_name` and the
+    /// temporality metadata the evaluator needs. `None` reads every column.
     pub(super) sample_columns: Option<Vec<String>>,
 }
 
@@ -37,46 +144,67 @@ pub(super) struct MetricStorageSnapshot {
     pub(super) buffered_batches: Vec<RecordBatch>,
 }
 
-impl ResolvedMetricSource {
-    fn direct(metric: &str) -> Self {
-        Self {
-            stream: metric.to_string(),
-            logical_metric: None,
-            stream_id: None,
-            sample_columns: None,
-        }
-    }
-}
-
-fn sample_columns(stream: &StreamDefinition, container: bool) -> Vec<String> {
+fn sample_columns(stream: &StreamDefinition) -> Vec<String> {
     let mut columns = vec!["_timestamp".to_string(), "value".to_string()];
 
     columns.extend(stream.schema.fields.iter().filter_map(|field| {
-        let query_semantics = is_metric_query_semantics_storage_field(&field.name);
-        let logical_discriminator = container && field.name == METRIC_NAME_FIELD;
+        let kept =
+            field.name == METRIC_NAME_FIELD || is_metric_query_semantics_storage_field(&field.name);
 
-        let hidden_metadata = is_metric_identity_storage_field(&field.name)
-            && !query_semantics
-            && !logical_discriminator;
+        let hidden = field.name == "value"
+            || is_prometheus_exemplar_storage_field(&field.name)
+            || (is_metric_identity_storage_field(&field.name) && !kept);
 
-        let supported = matches!(field.data_type, FieldType::Utf8 | FieldType::Json)
-            || logical_discriminator
-            || query_semantics;
+        let label = matches!(field.data_type, FieldType::Utf8 | FieldType::Json);
 
-        if field.name == "value"
-            || hidden_metadata
-            || crate::domain::metrics::is_prometheus_exemplar_storage_field(&field.name)
-            || !supported
-        {
-            return None;
-        }
-
-        Some(field.name.clone())
+        (!hidden && (label || kept)).then(|| field.name.clone())
     }));
 
     columns.sort();
     columns.dedup();
     columns
+}
+
+/// The metric filter of every selector of `expr`, each once.
+pub(super) fn selector_filters(expr: &Expr) -> Vec<MetricFilter> {
+    let mut filters = Vec::new();
+    collect_selector_filters(expr, &mut filters);
+    filters
+}
+
+fn collect_selector_filters(expr: &Expr, out: &mut Vec<MetricFilter>) {
+    match expr {
+        Expr::VectorSelector(vs) => push_filter(vs, out),
+        Expr::MatrixSelector(ms) => push_filter(&ms.vs, out),
+        Expr::Paren(p) => collect_selector_filters(&p.expr, out),
+        Expr::Unary(u) => collect_selector_filters(&u.expr, out),
+        Expr::Binary(b) => {
+            collect_selector_filters(&b.lhs, out);
+            collect_selector_filters(&b.rhs, out);
+        }
+        Expr::Aggregate(a) => {
+            collect_selector_filters(&a.expr, out);
+
+            if let Some(param) = &a.param {
+                collect_selector_filters(param, out);
+            }
+        }
+        Expr::Subquery(sq) => collect_selector_filters(&sq.expr, out),
+        Expr::Call(c) => {
+            for arg in &c.args.args {
+                collect_selector_filters(arg, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn push_filter(vs: &VectorSelector, out: &mut Vec<MetricFilter>) {
+    let filter = MetricFilter::of(vs);
+
+    if !out.contains(&filter) {
+        out.push(filter);
+    }
 }
 
 impl PromQLEngine {
@@ -135,76 +263,140 @@ impl PromQLEngine {
 
         files.dedup_by(|left, right| left.id == right.id);
 
-        let candidate_rows = files.iter().map(|file| file.rows).sum::<u64>()
-            + buffered_batches
-                .iter()
-                .map(|batch| batch.num_rows() as u64)
-                .sum::<u64>();
-
-        crate::infra::query::scan_limit::ensure_within_scan_limit(
-            candidate_rows,
-            self.max_scan_rows,
-        )?;
-
         Ok(MetricStorageSnapshot {
             files,
             buffered_batches,
         })
     }
 
-    /// Resolve a PromQL metric identifier to its physical stream.
-    ///
-    /// Ordinary metrics keep the historical one-stream-per-metric behavior.
-    /// `_sys` self telemetry is intentionally stored in the protected
-    /// `_molesignal` container, so an otherwise missing logical metric falls
-    /// back to that stream and is filtered by its `metric_name` column.
-    pub(super) async fn resolve_metric_source(
+    /// The streams that may hold the filter's metrics in `window`, by name.
+    async fn holding_streams(
         &self,
-        org_id: &crate::shared::ids::Id,
-        metric: &str,
-    ) -> Result<ResolvedMetricSource> {
-        let Some(streams) = &self.streams else {
-            return Ok(ResolvedMetricSource::direct(metric));
+        org_id: &Id,
+        filter: &MetricFilter,
+        window: TimeRange,
+    ) -> Result<BTreeMap<String, Id>> {
+        let Some(sources) = &self.metric_sources else {
+            return Ok(BTreeMap::new());
         };
 
-        if metric == MOLESIGNAL_SYSTEM_STREAM {
-            return match streams.get(org_id, metric, StreamType::METRICS).await {
-                Ok(definition) => Ok(ResolvedMetricSource {
-                    stream: metric.to_string(),
-                    logical_metric: None,
-                    sample_columns: Some(sample_columns(&definition, false)),
-                    stream_id: Some(definition.id),
-                }),
-                Err(Error::NotFound(_)) => Ok(ResolvedMetricSource::direct(metric)),
-                Err(error) => Err(error),
-            };
+        let window = TimeRange::new(
+            TimestampMicros(window.start.0.saturating_sub(LAST_HOUR_SLACK_US)),
+            window.end,
+        );
+
+        Ok(sources
+            .entries(org_id, filter)
+            .await?
+            .iter()
+            .filter(|entry| filter.accepts(&entry.metric_name) && entry.overlaps(window))
+            .map(|entry| (entry.stream_name.clone(), entry.stream_id.clone()))
+            .collect())
+    }
+
+    async fn stream_settings(&self, stream_id: &Id) -> Result<StreamSettings> {
+        let Some(streams) = &self.streams else {
+            return Ok(StreamSettings::default());
+        };
+
+        let Some(sources) = &self.metric_sources else {
+            return streams.get_settings(stream_id).await;
+        };
+
+        if let Some(settings) = sources.settings.get(&stream_id.0).await {
+            return Ok(settings);
         }
 
-        match streams.get(org_id, metric, StreamType::METRICS).await {
-            Ok(definition) => {
-                return Ok(ResolvedMetricSource {
-                    stream: metric.to_string(),
-                    logical_metric: None,
-                    sample_columns: Some(sample_columns(&definition, false)),
-                    stream_id: Some(definition.id),
+        let settings = streams.get_settings(stream_id).await?;
+
+        sources
+            .settings
+            .insert(stream_id.0.clone(), settings.clone())
+            .await;
+
+        Ok(settings)
+    }
+
+    /// The queryable streams that may hold the filter's metrics in `window`, by name.
+    pub(super) async fn metric_sources(
+        &self,
+        org_id: &Id,
+        filter: &MetricFilter,
+        window: TimeRange,
+    ) -> Result<Vec<ResolvedMetricSource>> {
+        let streams = self.holding_streams(org_id, filter, window).await?;
+        let mut sources = Vec::with_capacity(streams.len());
+
+        for (stream, stream_id) in streams {
+            let Some(repository) = &self.streams else {
+                sources.push(ResolvedMetricSource {
+                    stream,
+                    sample_columns: None,
                 });
+
+                continue;
+            };
+
+            if !self.stream_settings(&stream_id).await?.queryable {
+                continue;
             }
-            Err(Error::NotFound(_)) => {}
-            Err(error) => return Err(error),
+
+            match repository.get(org_id, &stream, StreamType::METRICS).await {
+                Ok(definition) => sources.push(ResolvedMetricSource {
+                    sample_columns: Some(sample_columns(&definition)),
+                    stream,
+                }),
+                Err(Error::NotFound(_)) => {}
+                Err(error) => return Err(error),
+            }
         }
 
-        match streams
-            .get(org_id, MOLESIGNAL_SYSTEM_STREAM, StreamType::METRICS)
-            .await
-        {
-            Ok(definition) => Ok(ResolvedMetricSource {
-                stream: MOLESIGNAL_SYSTEM_STREAM.to_string(),
-                logical_metric: Some(metric.to_string()),
-                sample_columns: Some(sample_columns(&definition, true)),
-                stream_id: Some(definition.id),
-            }),
-            Err(Error::NotFound(_)) => Ok(ResolvedMetricSource::direct(metric)),
-            Err(error) => Err(error),
+        Ok(sources)
+    }
+
+    /// Checks the streams every selector of `expr` reads: a selector whose metrics sit only in
+    /// streams that may not be queried is refused, and so is a time range longer than a stream
+    /// holding them allows. A selector no stream holds reads nothing, as in Prometheus.
+    pub(super) async fn ensure_metrics_queryable(
+        &self,
+        req: &QueryRequest,
+        expr: &Expr,
+    ) -> Result<()> {
+        if self.streams.is_none() {
+            return Ok(());
         }
+
+        for filter in selector_filters(expr) {
+            let streams = self
+                .holding_streams(&req.org_id, &filter, req.time_range)
+                .await?;
+
+            let mut queryable = 0;
+
+            for (stream, stream_id) in &streams {
+                let settings = self.stream_settings(stream_id).await?;
+
+                if !settings.queryable {
+                    continue;
+                }
+
+                queryable += 1;
+
+                if let Some(hours) = settings.exceeded_query_range(req.time_range) {
+                    return Err(crate::infra::query::planner::query_range_error(
+                        stream, hours,
+                    ));
+                }
+            }
+
+            if !streams.is_empty() && queryable == 0 {
+                let names = streams.keys().cloned().collect::<Vec<_>>().join(", ");
+                return Err(Error::forbidden(format!(
+                    "stream is not queryable: {names}"
+                )));
+            }
+        }
+
+        Ok(())
     }
 }

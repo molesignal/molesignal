@@ -8,8 +8,8 @@ use crate::ToolSpec;
 
 pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
     let filters = json!({
-        "time_range": time_range_schema(), "service": {"type": "string"},
-        "profile_type": {"type": "string"}, "trace_id": {"type": "string"},
+        "timeRange": time_range_schema(), "service": {"type": "string"},
+        "profileType": {"type": "string"}, "traceId": {"type": "string"},
         "label": {"type": "string", "description": "label selector as key:value"}
     });
 
@@ -27,8 +27,8 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         }
         BuiltinToolKind::GetProfileFlamegraph => {
             let mut fields = filters.clone();
-            fields["span_id"] = json!({"type": "string"});
-            fields["max_profiles"] =
+            fields["spanId"] = json!({"type": "string"});
+            fields["maxProfiles"] =
                 json!({"type": "integer", "minimum": 1, "maximum": 1000, "default": 200});
 
             (
@@ -43,9 +43,9 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
                 "type": "object", "required": ["baseline", "comparison"],
                 "properties": {
                     "baseline": time_range_schema(), "comparison": time_range_schema(),
-                    "service": {"type": "string"}, "profile_type": {"type": "string"},
+                    "service": {"type": "string"}, "profileType": {"type": "string"},
                     "label": {"type": "string"},
-                    "max_profiles": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 200}
+                    "maxProfiles": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 200}
                 }, "additionalProperties": false
             }),
             vec!["Profiles", "Diff"],
@@ -60,7 +60,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         "profiles",
         input,
         open_output(),
-        &["streams.query", "sys.telemetry.read"],
+        &["profiles.read", "sys.telemetry.read"],
         &tags,
     )
     .any_permission()

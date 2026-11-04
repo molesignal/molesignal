@@ -1,15 +1,17 @@
+import type { Locator } from '@playwright/test';
+
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 
 const EMPTY_RED = {
-  request_count: 0,
-  error_count: 0,
-  error_rate: 0,
-  duration_sum_micros: 0,
-  duration_average_micros: 0,
-  p50_micros: 0,
-  p95_micros: 0,
-  p99_micros: 0,
-  latency_partial: false,
+  requestCount: 0,
+  errorCount: 0,
+  errorRate: 0,
+  durationSum: 0,
+  durationAverage: 0,
+  p50Time: 0,
+  p95Time: 0,
+  p99Time: 0,
+  latencyPartial: false,
   exemplars: [],
 };
 
@@ -17,37 +19,17 @@ const EMPTY_APM_OVERVIEW = {
   meta: {
     range: { from: 1, to: 2 },
     resolution: 'minute',
-    data_quality: { partial: false, gaps: [], overflow_dimensions: [] },
-    activation_boundary: false,
+    dataQuality: { partial: false, gaps: [], overflowDimensions: [] },
+    activationBoundary: false,
   },
   red: EMPTY_RED,
   trend: [],
-  service_health: { healthy: 0, warning: 0, critical: 0, no_traffic: 0 },
+  serviceHealth: { healthy: 0, warning: 0, critical: 0, no_traffic: 0 },
   services: [],
-  top_transactions: [],
-  top_dependencies: [],
-  top_errors: [],
-  recent_versions: [],
-};
-
-const EMPTY_RUM_OVERVIEW = {
-  metrics: {
-    users: 0,
-    sessions: 0,
-    errorFreeRate: 0,
-    lcpP75: 0,
-    inpP75: 0,
-    clsP75: 0,
-  },
-  browserDevices: [],
-  regions: [],
-  facets: {
-    applications: [],
-    environments: [],
-    versions: [],
-    countries: [],
-    devices: [],
-  },
+  topTransactions: [],
+  topDependencies: [],
+  topErrors: [],
+  recentVersions: [],
 };
 
 const MODULES = [
@@ -57,20 +39,32 @@ const MODULES = [
     surface: '[data-query-workbench-appearance="surface"]',
     // An explorer gives its title row to the data: the name sits in the workbench bar.
     titleInBar: true,
+    // Its query tabs are in its query box: the bar is the first card under the top bar, 12px
+    // off it, as the cards are off each other.
+    barOffset: 12,
   },
   {
     path: '/metrics',
     canvas: '[data-testid="metrics-page"]',
     surface: '[data-query-workbench-appearance="surface"]',
     titleInBar: true,
+    barOffset: 12,
   },
   {
-    path: '/apm/overview',
+    path: '/apm/services',
     canvas: '[data-surface-workbench-page="apm"]',
     surface: '[data-apm-navigation="surface"]',
   },
   {
-    path: '/rum/overview',
+    path: '/rum/explorer',
+    canvas: '[data-workspace="rum"]',
+    surface: '[data-query-workbench-appearance="surface"]',
+    titleInBar: true,
+    // Right under the module's tabs over the page, which keep the 12px every RUM page has under them.
+    barOffset: 0,
+  },
+  {
+    path: '/rum/applications',
     canvas: '[data-surface-workbench-page="rum"]',
     surface: '[data-rum-navigation="surface"]',
   },
@@ -101,9 +95,6 @@ test.beforeEach(async ({ page, mockServer }) => {
   await mountMockRoutes(page, mockServer.port);
   await page.route(/\/api\/v1\/apm\/overview(?:\?.*)?$/, (route) =>
     route.fulfill({ json: EMPTY_APM_OVERVIEW }),
-  );
-  await page.route(/\/api\/v1\/rum\/overview(?:\?.*)?$/, (route) =>
-    route.fulfill({ json: EMPTY_RUM_OVERVIEW }),
   );
   await page.route(/\/api\/v1\/synthetics\/monitors(?:\?.*)?$/, (route) =>
     route.fulfill({ json: [] }),
@@ -140,12 +131,11 @@ for (const module of MODULES) {
       await expect(
         surface.locator('[data-workbench-title]').getByRole('heading', { level: 1 }),
       ).toBeVisible();
-      // The bar sits close under the query tabs that name it: 6px, not the 12px of a title row.
       const [canvasBox, surfaceBox] = await Promise.all([
         canvas.boundingBox(),
         surface.boundingBox(),
       ]);
-      expect(surfaceBox!.y - canvasBox!.y).toBe(6);
+      expect(surfaceBox!.y - canvasBox!.y).toBe(module.barOffset);
     } else {
       await expect(header).toBeVisible();
       await expect(header).toHaveCSS('border-bottom-width', '0px');
@@ -206,23 +196,23 @@ for (const module of REMAINING_MODULES) {
   });
 }
 
-test('keeps module tabs underlined and Explorer columns separated by canvas gutters', async ({
+test('keeps module tabs underlined and the Logs field list one surface with its results', async ({
   page,
 }) => {
   await page.goto('/logs');
 
-  const workspace = page.locator('[data-log-workspace-layout="surface-grid"]');
+  // As in the trace explorer: the list set off from the results by its own line, with no gutter between.
+  const workspace = page.locator('[data-log-workspace-layout="joined"]');
   const fieldPanel = workspace.locator('aside[data-variant="utility"]');
   const results = workspace.locator('[data-workspace-pane="log-results"]');
-  expect(
-    await workspace.evaluate((element) => getComputedStyle(element).gap),
-  ).toBe('8px');
-  await expect(fieldPanel).toHaveCSS('border-right-width', '0px');
+  const [panelBox, resultsBox] = await Promise.all([fieldPanel.boundingBox(), results.boundingBox()]);
+  expect(Math.abs(panelBox!.x + panelBox!.width - resultsBox!.x)).toBeLessThanOrEqual(0.5);
+  await expect(fieldPanel).toHaveCSS('border-right-width', '1px');
   await expect(results).toHaveCSS('border-left-width', '0px');
 
   for (const [path, selector] of [
-    ['/apm/overview', '[data-apm-navigation="surface"]'],
-    ['/rum/overview', '[data-rum-navigation="surface"]'],
+    ['/apm/services', '[data-apm-navigation="surface"]'],
+    ['/rum/explorer', '[data-rum-navigation="surface"]'],
   ] as const) {
     await page.goto(path);
     const navigation = page.locator(selector);
@@ -264,14 +254,14 @@ test('keeps module and nested secondary menus at the shared height', async ({
 }) => {
   const menus = [
     {
-      path: '/apm/overview',
+      path: '/apm/services',
       selectors: ['[data-apm-navigation="surface"] > nav'],
     },
     {
-      path: '/rum/performance/overview',
+      path: '/rum/settings/sdk',
       selectors: [
         '[data-rum-navigation="surface"] > nav',
-        '[data-rum-subnavigation="performance"]',
+        '[data-rum-subnavigation="settings"]',
       ],
     },
     {
@@ -296,8 +286,8 @@ test('keeps module and nested secondary menus at the shared height', async ({
 });
 
 test('uses Control Surface styling for shared and native selectors', async ({ page }) => {
-  // The session filters are shared selects whatever the workspace has received.
-  await page.goto('/rum/sessions');
+  // The explorer pages its rows with a shared select whatever the workspace has received.
+  await page.goto('/rum/explorer');
 
   const sharedSelectors = page.locator('[data-ui="select-trigger"]');
   await expect(sharedSelectors.first()).toBeVisible();
@@ -324,16 +314,25 @@ test('uses Control Surface styling for shared and native selectors', async ({ pa
   await expect(nativeSelector).toHaveCSS('border-left-width', '0px');
 });
 
-test('uses fill-based focus feedback for global and workbench search controls', async ({
+// A field has no border: its edge is a ring of shadow on the element that carries its fill,
+// the control itself or the box around a bare input.
+const FIELD_RING = '0px 0px 0px 1px';
+
+function fieldEdge(control: Locator): Promise<string> {
+  return control.evaluate((element) => {
+    const field = element.closest('[class*="bg-[var(--control-surface)]"]') ?? element;
+    return getComputedStyle(field).boxShadow;
+  });
+}
+
+test('draws the global and workbench search controls with a ring that darkens on focus', async ({
   page,
 }) => {
-  await page.goto('/rum/sessions');
+  await page.goto('/rum/explorer');
 
   const controls = [
     page.getByTestId('command-palette-trigger'),
-    page.getByPlaceholder(
-      'Search users, pages, browsers, versions, or sessions…',
-    ),
+    page.getByPlaceholder('Find a field'),
   ];
 
   for (const control of controls) {
@@ -341,14 +340,18 @@ test('uses fill-based focus feedback for global and workbench search controls', 
     for (const side of ['top', 'right', 'bottom', 'left'] as const) {
       await expect(control).toHaveCSS(`border-${side}-width`, '0px');
     }
+    const rest = await fieldEdge(control);
+    expect(rest).toContain(FIELD_RING);
     await control.focus();
     await expect(control).toHaveCSS('border-top-width', '0px');
-    await expect(control).toHaveCSS('box-shadow', 'none');
+    await expect.poll(() => fieldEdge(control)).not.toBe(rest);
+    expect(await fieldEdge(control)).toContain(FIELD_RING);
   }
 });
 
 test('uses Control Surface styling for text inputs', async ({ page }) => {
-  await page.goto('/apm/overview');
+  // The error list keeps its search while it is empty; an empty catalog shows how to start instead.
+  await page.goto('/apm/errors');
 
   const inputs = page.locator(
     '[data-surface-workbench-page="apm"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]):not([type="hidden"])',
@@ -361,13 +364,14 @@ test('uses Control Surface styling for text inputs', async ({ page }) => {
     for (const side of ['top', 'right', 'bottom', 'left'] as const) {
       await expect(input).toHaveCSS(`border-${side}-width`, '0px');
     }
-    await expect(input).toHaveCSS('box-shadow', 'none');
+    expect(await fieldEdge(input)).toContain(FIELD_RING);
   }
 
   const firstInput = inputs.first();
+  const rest = await fieldEdge(firstInput);
   await firstInput.focus();
   await expect(firstInput).toHaveCSS('border-top-width', '0px');
-  await expect(firstInput).toHaveCSS('box-shadow', 'none');
+  await expect.poll(() => fieldEdge(firstInput)).not.toBe(rest);
 });
 
 test('uses Control Surface styling for compound and read-only inputs', async ({
@@ -387,19 +391,20 @@ test('uses Control Surface styling for compound and read-only inputs', async ({
     for (const side of ['top', 'right', 'bottom', 'left'] as const) {
       await expect(surface).toHaveCSS(`border-${side}-width`, '0px');
     }
-    await expect(surface).toHaveCSS('box-shadow', 'none');
+    expect(await fieldEdge(surface)).toContain(FIELD_RING);
   }
 
+  const rest = await fieldEdge(searchInput);
   await searchInput.focus();
   const searchSurface = searchInput.locator('..');
   await expect(searchSurface).toHaveCSS('border-top-width', '0px');
-  await expect(searchSurface).toHaveCSS('box-shadow', 'none');
+  await expect.poll(() => fieldEdge(searchInput)).not.toBe(rest);
 });
 
 test('aligns calendar weekdays and dates without a redundant Time heading', async ({
   page,
 }) => {
-  await page.goto('/rum/overview');
+  await page.goto('/rum/explorer');
 
   const timeRange = page.locator('[data-time-range-trigger="true"]');
   await expect(timeRange).toBeVisible();

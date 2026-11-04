@@ -1,602 +1,305 @@
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 
-import {
-  expect,
-  FROZEN_NOW_ISO,
-  mountMockRoutes,
-  test,
-} from '../fixtures/mockBackend';
+import { type Captured, installApmRoutes, SERVICE_PATH } from '../fixtures/mockApm';
+import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 
-const NOW = Date.parse(FROZEN_NOW_ISO) * 1_000;
-const RANGE = { from: NOW - 3_600_000_000, to: NOW };
-const SERVICE = {
-  namespace: 'shop',
-  name: 'checkout',
-  environment: 'prod',
-};
-const TRACE_ID = '0123456789abcdef0123456789abcdef';
-const SPAN_ID = '0123456789abcdef';
-
-const meta = {
-  range: RANGE,
-  resolution: 'minute',
-  projection_started_at: RANGE.from,
-  last_complete_bucket_at: NOW - 30_000_000,
-  data_quality: {
-    partial: false,
-    gaps: [],
-    overflow_dimensions: [],
-  },
-  activation_boundary: false,
-};
-
-const traces = {
-  namespace: SERVICE.namespace,
-  service: SERVICE.name,
-  environment: SERVICE.environment,
-  version: '2.0.0',
-  from: RANGE.from,
-  to: RANGE.to,
-};
-
-function red(requestCount = 1_240, errorCount = 24, p95 = 420_000) {
-  return {
-    request_count: requestCount,
-    error_count: errorCount,
-    error_rate: requestCount === 0 ? 0 : errorCount / requestCount,
-    duration_sum_micros: requestCount * 180_000,
-    duration_average_micros: 180_000,
-    p50_micros: 120_000,
-    p95_micros: p95,
-    p99_micros: p95 * 2,
-    latency_partial: false,
-    exemplars: [
-      {
-        trace_id: TRACE_ID,
-        span_id: SPAN_ID,
-        event_time: NOW - 60_000_000,
-        duration_micros: p95,
-        trace_available: true,
-      },
-    ],
-  };
+async function boot(page: Page, port: number, options: { theme?: 'light' | 'dark'; runtimeMetrics?: boolean } = {}): Promise<Captured> {
+  await mountMockRoutes(page, port, { theme: options.theme ?? 'light' });
+  return installApmRoutes(page, options);
 }
 
-const service = {
-  service: SERVICE,
-  first_seen_at: RANGE.from - 86_400_000_000,
-  last_seen_at: NOW - 5_000_000,
-  instrumentation: {
-    runtime_language: 'rust',
-    telemetry_sdk_name: 'opentelemetry',
-    telemetry_sdk_version: '0.29.0',
-    recent_instance_count: 6,
-  },
-  versions: ['2.0.0', '1.0.0'],
-  red: red(),
-  health: 'warning',
-  traces,
-};
-
-const transaction = {
-  service: SERVICE,
-  version: '2.0.0',
-  transaction: { name: 'POST /orders', kind: 'http' },
-  red: red(880, 18, 510_000),
-  total_time_micros: 158_400_000,
-  traces: { ...traces, transaction: 'POST /orders' },
-};
-
-const dependency = {
-  service: SERVICE,
-  version: '2.0.0',
-  dependency: {
-    category: 'database',
-    target: 'postgres/orders',
-    operation: 'SELECT',
-  },
-  red: red(760, 7, 240_000),
-  total_time_micros: 98_800_000,
-  traces: { ...traces, dependency: 'postgres/orders' },
-};
-
-const error = {
-  error: {
-    fingerprint: 'fp-checkout',
-    error_type: 'PaymentDeclined',
-    application_frame: 'checkout::payment',
-    transaction_name: 'POST /orders',
-    overflow: false,
-  },
-  service: SERVICE,
-  first_seen_at: RANGE.from,
-  last_seen_at: NOW - 20_000_000,
-  occurrence_count: 24,
-  representative_message: 'Payment provider rejected the request',
-  red: red(24, 24, 300_000),
-  traces: { ...traces, error_fingerprint: 'fp-checkout' },
-};
-
-const versions = [
-  {
-    service: SERVICE,
-    version: '2.0.0',
-    first_seen_at: NOW - 1_800_000_000,
-    last_seen_at: NOW,
-    observation_count: 720,
-  },
-  {
-    service: SERVICE,
-    version: '1.0.0',
-    first_seen_at: RANGE.from,
-    last_seen_at: NOW - 1_800_000_000,
-    observation_count: 520,
-  },
-];
-
-const trend = [
-  { bucket_at: NOW - 120_000_000, red: red(90, 1, 250_000) },
-  { bucket_at: NOW - 60_000_000, red: red(110, 3, 420_000) },
-];
-
-const responses: Record<string, unknown> = {
-  '/api/v1/apm/overview': {
-    meta,
-    red: red(),
-    trend,
-    service_health: {
-      healthy: 4,
-      warning: 1,
-      critical: 0,
-      no_traffic: 1,
-    },
-    services: [service],
-    top_transactions: [transaction],
-    top_dependencies: [dependency],
-    top_errors: [error],
-    recent_versions: versions,
-  },
-  '/api/v1/apm/services': {
-    meta,
-    items: [service],
-    total: 1,
-    sort: 'request_count',
-  },
-  '/api/v1/apm/services/checkout': {
-    meta,
-    service,
-    red: service.red,
-    trend,
-    transactions: [transaction],
-    dependencies: [dependency],
-    errors: [error],
-    versions,
-  },
-  '/api/v1/apm/transactions': {
-    meta,
-    items: [transaction],
-    total: 1,
-    sort: 'total_time',
-  },
-  '/api/v1/apm/transactions/POST%20%2Forders': {
-    meta,
-    transaction,
-    trend,
-    errors: [error],
-    versions,
-  },
-  '/api/v1/apm/dependencies': {
-    meta,
-    items: [dependency],
-    total: 1,
-    sort: 'total_time',
-  },
-  '/api/v1/apm/errors': {
-    meta,
-    items: [error],
-    total: 1,
-    sort: 'occurrence_count',
-  },
-  '/api/v1/apm/errors/fp-checkout': {
-    meta,
-    group: error,
-    trend,
-    affected_transactions: [transaction],
-    affected_versions: ['1.0.0', '2.0.0'],
-    representative_stack: [
-      'checkout::payment::authorize',
-      'checkout::orders::submit',
-    ],
-    samples: [
-      {
-        event_time: NOW - 20_000_000,
-        trace_id: TRACE_ID,
-        span_id: SPAN_ID,
-        trace_available: true,
-        representative_message: error.representative_message,
-        representative_stack: ['checkout::payment::authorize'],
-      },
-    ],
-  },
-  '/api/v1/apm/versions/compare': {
-    meta,
-    baseline: { version: '1.0.0', sample_count: 520, red: red(520, 4, 220_000) },
-    candidate: { version: '2.0.0', sample_count: 720, red: red(720, 18, 510_000) },
-    sufficient_data: true,
-    status: 'regressed',
-    delta: {
-      request_count_absolute: 200,
-      request_count_relative: 0.3846,
-      error_rate_absolute: 0.0173,
-      error_rate_relative: 2.25,
-      p95_absolute_micros: 290_000,
-      p95_relative: 1.318,
-    },
-    regressed_transactions: [transaction],
-    regressed_errors: [error],
-  },
-  '/api/v1/apm/health': {
-    meta,
-    enabled: true,
-    degraded: false,
-    runtime: { queue_depth: 0 },
-  },
-};
-
-async function installApmRoutes(page: Page): Promise<void> {
-  await page.route('**/api/v1/apm/**', async (route) => {
-    const path = new URL(route.request().url()).pathname;
-    const body = responses[path];
-    if (!body) {
-      await route.fulfill({ status: 404, json: { error: `No APM fixture for ${path}` } });
-      return;
-    }
-    await route.fulfill({ json: body });
-  });
-  await page.route('**/api/v1/debug-artifacts', (route) =>
-    route.fulfill({ json: [] }),
-  );
-  await page.route('**/api/v1/rum/sessions/*/related-traces', (route) =>
-    route.fulfill({
-      json: {
-        session_id: 'demo',
-        primary_service: SERVICE.name,
-        traces: [
-          {
-            trace_id: TRACE_ID,
-            service: SERVICE.name,
-            span_count: 8,
-            duration_ms: 420,
-            started_at_micros: NOW - 120_000_000,
-            relation: 'direct',
-          },
-        ],
-      },
-    }),
-  );
-  await page.route('**/api/v1/rum/replay/*', (route) =>
-    route.fulfill({
-      json: { session_id: 'demo', segment_count: 0, events: [] },
-    }),
-  );
-  await page.route('**/api/v1/query', (route) => {
-    const request = route.request().postDataJSON() as {
-      stream?: { name?: string };
-    };
-    if (request.stream?.name === 'rum_sessions') {
-      return route.fulfill({
-        json: {
-          columns: [
-            'session_id',
-            'user_id',
-            'application',
-            'environment',
-            'version',
-            'duration_ms',
-            'started_at_micros',
-            'error_count',
-          ],
-          rows: [
-            [
-              'demo',
-              'user-7',
-              'storefront',
-              'prod',
-              '2.0.0',
-              12_000,
-              NOW - 120_000_000,
-              1,
-            ],
-          ],
-          scanned_rows: 1,
-          took_ms: 1,
-        },
-      });
-    }
-    if (request.stream?.name === 'rum_actions') {
-      return route.fulfill({
-        json: {
-          columns: [
-            'session_id',
-            'ts_micros',
-            'type',
-            'url',
-            'trace_id',
-            'service',
-            'duration_ms',
-            'status',
-            'payload',
-          ],
-          rows: [
-            [
-              'demo',
-              NOW - 100_000_000,
-              'network_error',
-              '/checkout',
-              TRACE_ID,
-              SERVICE.name,
-              420,
-              500,
-              {},
-            ],
-          ],
-          scanned_rows: 1,
-          took_ms: 1,
-        },
-      });
-    }
-    return route.fulfill({
-      json: { columns: [], rows: [], scanned_rows: 0, took_ms: 1 },
-    });
-  });
-}
-
-async function boot(
-  page: Page,
-  port: number,
-  theme: 'light' | 'dark' = 'light',
-): Promise<void> {
-  await mountMockRoutes(page, port, { theme });
-  await installApmRoutes(page);
-}
-
-const APM_ROUTES: Array<[string, string]> = [
-  ['/apm/overview', 'Application performance'],
-  ['/apm/services', 'Services'],
-  ['/apm/services/checkout?namespace=shop&environment=prod', 'checkout'],
-  ['/apm/services/checkout/runtime?namespace=shop&environment=prod', 'checkout'],
-  ['/apm/transactions', 'Transactions'],
-  [
-    '/apm/transactions/POST%20%2Forders?namespace=shop&service=checkout&environment=prod&kind=http',
-    'POST /orders',
-  ],
-  ['/apm/errors', 'Backend errors'],
-  ['/apm/errors/fp-checkout', 'PaymentDeclined'],
-  [
-    '/apm/deployments?service=checkout&baseline=1.0.0&candidate=2.0.0',
-    'Deployments',
-  ],
-];
-
-// One test for each route: a page load apiece, so a route's time does not
-// depend on how many routes are listed, and a failure names its route.
-for (const [path, heading] of APM_ROUTES) {
-  test(`APM renders ${path.split('?')[0]} under its heading`, async ({
-    page,
-    mockServer,
-  }) => {
-    await boot(page, mockServer.port);
-    await page.goto(path);
-    await expect(page.getByRole('heading', { name: heading, exact: true }).first()).toBeVisible();
-  });
-}
-
-test('APM dependencies draw a safe topology', async ({ page, mockServer }) => {
+test('the service catalog lists every service with its owners, and the services declared before they report', async ({ page, mockServer }) => {
   await boot(page, mockServer.port);
-  await page.goto('/apm/dependencies');
-  await expect(page.getByRole('heading', { name: 'Dependencies', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Topology' }).click();
-  await expect(page.getByText('postgres/orders')).toBeVisible();
+  await page.goto('/apm/services');
+
+  const checkout = page.locator('[data-apm-service-row="checkout"]');
+  await expect(checkout).toContainText('Payments');
+  await expect(checkout).toContainText('P0');
+  await expect(checkout).toContainText('2.0.0');
+  await expect(page.locator('[data-apm-service-row="billing"]')).toContainText('Not reporting');
+  await expect(page.locator('[data-apm-catalog-summary]')).toContainText('2 services');
+
+  await checkout.click();
+  await expect(page).toHaveURL(/\/apm\/services\/checkout\?namespace=shop&environment=prod$/);
+});
+
+test('the catalog columns are chosen in its column menu and kept', async ({ page, mockServer }) => {
+  await boot(page, mockServer.port);
+  await page.goto('/apm/services');
+  await expect(page.locator('[data-apm-service-row="checkout"]')).toBeVisible();
+
+  await page.locator('[data-apm-columns]').click();
+  await page.getByRole('menuitemcheckbox', { name: 'Owner' }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-apm-catalog-table] [role="columnheader"]', { hasText: 'Owner' })).toBeVisible();
+  await expect(page.locator('[data-apm-service-row="checkout"]')).toContainText('Ada Lovelace');
+
+  await page.reload();
+  await expect(page.locator('[data-apm-catalog-table] [role="columnheader"]', { hasText: 'Owner' })).toBeVisible();
+});
+
+test('a catalog wider than the window scrolls as one, every column inside the head and the rows', async ({ page, mockServer }) => {
+  await boot(page, mockServer.port);
+  await page.goto('/apm/services');
+  await expect(page.locator('[data-apm-service-row="checkout"]')).toBeVisible();
+  await page.locator('[data-apm-columns]').click();
+  await page.getByRole('menuitemcheckbox', { name: 'Lifecycle' }).click();
+  await page.keyboard.press('Escape');
+
+  const table = page.locator('[data-apm-catalog-table]');
+  await expect(table.locator('[role="columnheader"]', { hasText: 'Lifecycle' })).toBeAttached();
+  const widths = await table.evaluate((element) => {
+    const head = element.querySelector('[role="row"]')!;
+    const row = element.querySelector('[data-apm-service-row="checkout"]')!;
+    return { table: [element.scrollWidth, element.clientWidth], head: [head.scrollWidth, head.clientWidth], row: [row.scrollWidth, row.clientWidth] };
+  });
+  // The table scrolls sideways; nothing spills past the head's band or a row's edge.
+  expect(widths.table[0]).toBeGreaterThan(widths.table[1]!);
+  expect(widths.head[0]).toBe(widths.head[1]);
+  expect(widths.row[0]).toBe(widths.row[1]);
+  expect(widths.head[1]).toBe(widths.row[1]);
+
+  const lifecycle = page.locator('[data-apm-service-row="checkout"] [role="cell"]').last();
+  await lifecycle.scrollIntoViewIfNeeded();
+  await expect(lifecycle).toHaveText('Production');
+  await expect(lifecycle).toBeVisible();
+});
+
+test('a service opens on its overview, with its team after its name and its documents in its navigation card', async ({ page, mockServer }) => {
+  await boot(page, mockServer.port);
+  await page.goto(SERVICE_PATH);
+
+  await expect(page.getByRole('heading', { name: 'checkout', exact: true })).toBeVisible();
+  // The team is said after the name; its owner and who is on call when pointed at.
+  const team = page.locator('[data-apm-service-facts] [data-apm-service-fact="Team"]');
+  await expect(team).toContainText('Payments');
+  await expect(team).toHaveAttribute('title', /Owner: Ada Lovelace · On call: Ada Lovelace/);
+  const scope = page.locator('[data-apm-navigation="service"] [data-apm-scope]');
+  await expect(scope.locator('[data-apm-docs]')).toContainText('1');
+  await expect(page.locator('[data-apm-red-charts]')).toBeVisible();
+  await expect(page.locator('[data-apm-latency-distribution]')).toBeVisible();
+  await expect(page.locator('[data-apm-card="downstream"]')).toContainText('postgres/orders');
+  await expect(page.locator('[data-apm-card="top-errors"]')).toContainText('PaymentDeclined');
+});
+
+test('an endpoint opens in a drawer with its slowest requests found again in the trace store', async ({ page, mockServer }) => {
+  const captured = await boot(page, mockServer.port);
+  await page.goto('/apm/services/checkout/endpoints?namespace=shop&environment=prod');
+
+  await page.locator('[data-apm-endpoint-row="POST /orders"]').click();
+  const drawer = page.locator('[data-apm-drawer="endpoint"]');
+  await expect(drawer).toBeVisible();
+  await expect(drawer.locator('[data-apm-slow-request]')).toHaveCount(1);
+
+  const filters = JSON.parse(captured.spanQueries[0]?.searchParams.get('filters') ?? '[]') as Array<{ field: string; value: string }>;
+  expect(filters).toEqual([
+    { field: 'service.name', op: '=', value: 'checkout' },
+    { field: 'http.request.method', op: '=', value: 'POST' },
+    { field: 'http.route', op: '=', value: '/orders' },
+  ]);
+  expect(captured.spanQueries[0]?.searchParams.get('sort')).toBe('duration_desc');
+
+  // A request opens its trace in the trace drawer, over the endpoint, which it names as the way back.
+  await drawer.locator('[data-apm-slow-request]').click();
+  const traceDrawer = page.locator('[data-trace-drawer]');
+  await expect(traceDrawer).toBeVisible();
+  const back = traceDrawer.locator('[data-apm-drawer-trail="trace"] [data-apm-drawer-crumb="endpoint"]');
+  await expect(back).toContainText('POST /orders');
+  await back.click();
+  await expect(traceDrawer).toBeHidden();
+  await expect(drawer).toBeVisible();
+
+  // An error of the endpoint opens over it, and leads back the same way, closing only itself.
+  await drawer.locator('[data-apm-card="endpoint-errors"] button').first().click();
+  const errorDrawer = page.locator('[data-apm-drawer="error"]');
+  await expect(errorDrawer.locator('[data-apm-drawer-trail="error"]')).toContainText('POST /orders');
+  await errorDrawer.locator('[data-apm-drawer-crumb="endpoint"]').click();
+  await expect(errorDrawer).toBeHidden();
+  await expect(drawer).toBeVisible();
+  await expect(page).not.toHaveURL(/[?&]error=/);
+});
+
+test('an endpoint opened from an error lies over it and leads back to it, after a reload too', async ({ page, mockServer }) => {
+  await boot(page, mockServer.port);
+  await page.goto(SERVICE_PATH);
+
+  await page.locator('[data-apm-card="top-errors"] button').first().click();
+  const errorDrawer = page.locator('[data-apm-drawer="error"]');
+  await expect(errorDrawer).toContainText('PaymentDeclined');
+  await errorDrawer.locator('[data-apm-card="error-endpoints"] a').first().click();
+
+  const endpointDrawer = page.locator('[data-apm-drawer="endpoint"]');
+  const back = endpointDrawer.locator('[data-apm-drawer-trail="endpoint"] [data-apm-drawer-crumb="error"]');
+  const onTop = () =>
+    endpointDrawer.evaluate((drawer) => {
+      const box = drawer.getBoundingClientRect();
+      const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+      return hit?.closest('[data-apm-drawer]')?.getAttribute('data-apm-drawer');
+    });
+  await expect(back).toHaveText('PaymentDeclined');
+  await expect.poll(onTop).toBe('endpoint');
+
+  // The address keeps the order the drawers were opened in.
+  await page.reload();
+  await expect(back).toHaveText('PaymentDeclined');
+  await expect.poll(onTop).toBe('endpoint');
+
+  await back.click();
+  await expect(endpointDrawer).toBeHidden();
+  await expect(errorDrawer).toBeVisible();
+  await expect(page).not.toHaveURL(/[?&](endpoint|kind)=/);
+});
+
+test('an endpoint is listed by its type and its name in columns of their own', async ({ page, mockServer }) => {
+  await boot(page, mockServer.port);
+  await page.goto('/apm/services/checkout/endpoints?namespace=shop&environment=prod');
+
+  // After the star of key transactions: the type, then the name.
+  const head = page.locator('[data-apm-card="endpoints"] [role="columnheader"]');
+  await expect(head.nth(1)).toHaveText('Type');
+  await expect(head.nth(2)).toHaveText('Endpoint');
+  const row = page.locator('[data-apm-endpoint-row="POST /orders"]');
+  await expect(row.locator(':scope > span').nth(1)).toHaveText('HTTP');
+  // The method leads the name in its own colour, as the trace table writes it.
+  await expect(row.locator(':scope > span').nth(2).getByText('POST', { exact: true })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+});
+
+test('dependencies list the callers of a service and its calls out by target', async ({ page, mockServer }) => {
+  await boot(page, mockServer.port);
+  await page.goto('/apm/services/checkout/dependencies?namespace=shop&environment=prod');
+
+  await expect(page.locator('[data-apm-card="upstream"]')).toContainText('gateway');
+  const target = page.locator('[data-apm-dependency="postgres/orders"]');
+  await expect(target).toContainText('2 operations');
+  await target.click();
+  await expect(page.locator('[data-apm-card="downstream-table"]')).toContainText('SELECT');
+});
+
+test('error groups are triaged where they are read', async ({ page, mockServer }) => {
+  const captured = await boot(page, mockServer.port);
+  await page.goto('/apm/errors');
+
+  const row = page.locator('[data-apm-error-row="fp-checkout"]');
+  await expect(row).toContainText('PaymentDeclined');
+  await expect(row.locator('[data-apm-issue-state]')).toHaveText('Open');
+  await row.click();
+
+  const drawer = page.locator('[data-apm-drawer="error"]');
+  await expect(drawer).toContainText('checkout::payment::authorize');
+  await drawer.locator('[data-apm-issue-status]').click();
+  await page.getByRole('option', { name: 'Resolved' }).click();
+  await expect.poll(() => captured.issues.length).toBe(1);
+  expect(captured.issues[0]).toMatchObject({ status: 'resolved', assigneeId: null });
+});
+
+test('deployments list each version and compare two of them', async ({ page, mockServer }) => {
+  await boot(page, mockServer.port);
+  await page.goto('/apm/services/checkout/deployments?namespace=shop&environment=prod');
+
+  await expect(page.locator('[data-apm-deployment="2.0.0"]')).toContainText('Current');
+  await expect(page.locator('[data-apm-card="compare"]')).toContainText('Regressed');
+  await expect(page.locator('[data-apm-card="compare"]')).toContainText('POST /orders');
+});
+
+test('runtime charts come from the runtime metrics a service sends', async ({ page, mockServer }) => {
+  await boot(page, mockServer.port, { runtimeMetrics: true });
+  await page.goto('/apm/services/checkout/runtime?namespace=shop&environment=prod');
+
+  await expect(page.locator('[data-apm-instance="checkout-7d9f-abcde"]')).toContainText('2.0.0');
+  await expect(page.locator('[data-apm-card="runtime-process-cpu"]')).toContainText('process_cpu_utilization_ratio');
+});
+
+test('runtime says how to get its charts while a service sends no runtime metrics', async ({ page, mockServer }) => {
+  await boot(page, mockServer.port);
+  await page.goto('/apm/services/checkout/runtime?namespace=shop&environment=prod');
+
+  const empty = page.locator('[data-apm-card="runtime-empty"]');
+  await expect(empty).toContainText('No runtime metrics from this service');
+
+  // Its way forward is the OpenTelemetry intake guide, on metrics.
+  await empty.getByRole('link').click();
+  await expect(page).toHaveURL(/\/datasource\/applications\/opentelemetry\?signal=metrics$/);
+});
+
+test('the service map draws every service, and APM opens on its overview', async ({ page, mockServer }) => {
+  await boot(page, mockServer.port);
+  await page.goto('/apm/map');
+  await expect(page.locator('[data-apm-service-map]')).toContainText('payments');
+
+  await page.goto('/apm');
+  await expect(page).toHaveURL(/\/apm\/overview$/);
+});
+
+test('APM opens on an overview of every service: what they did, which weigh most and what goes on', async ({ page, mockServer }) => {
+  await boot(page, mockServer.port);
+  await page.goto('/apm');
+  await expect(page).toHaveURL(/\/apm\/overview$/);
+
+  const pulse = page.locator('[data-apm-overview-pulse]');
+  await expect(pulse).toContainText('Active services');
+  await expect(pulse).toContainText('2 services, 1 without traffic');
+  await expect(pulse).toContainText('0.91');
+  await expect(pulse).toContainText('P90 380 ms');
+  await expect(page.locator('[data-apm-health-count="warning"]')).toHaveText('Warning 1');
+
+  await expect(page.locator('[data-apm-insight="anomaly"]')).toContainText('checkout');
+  await expect(page.locator('[data-apm-alert="inc-1"]')).toContainText('Checkout error rate above 2%');
+  await expect(page.locator('[data-apm-alert="inc-1"]')).toContainText('Critical');
+  await expect(page.locator('[data-apm-deployment="2.0.0"]')).toContainText('checkout');
+  await expect(page.locator('[data-apm-instrumentation-gaps]')).toContainText('1 service report no service.version');
+
+  // Environments can be chosen whichever one is in view.
+  await page.getByRole('combobox', { name: 'Environment' }).click();
+  await expect(page.getByRole('option', { name: 'staging' })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await page.locator('[data-apm-ranking="slowest"] a').first().click();
+  await expect(page).toHaveURL(/\/apm\/services\/checkout\?namespace=shop&environment=prod/);
 });
 
 test('the APM user-experience address opens RUM', async ({ page, mockServer }) => {
   await boot(page, mockServer.port);
   await page.goto('/apm/user-experience/overview');
-  await expect(page).toHaveURL(/\/rum\/overview$/);
+  await expect(page).toHaveURL(/\/rum\/explorer$/);
   await expect(page.getByRole('link', { name: 'Applications' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Session replay' })).toBeVisible();
 });
 
-test('transaction ranking opens an analysis workbench instead of skipping to Trace search', async ({
-  page,
-  mockServer,
-}) => {
+test('legacy service URLs open the service in APM', async ({ page, mockServer }) => {
   await boot(page, mockServer.port);
-  await page.goto('/apm/transactions');
-  await page.getByText('POST /orders', { exact: true }).click();
-
-  await expect(page).toHaveURL(/\/apm\/transactions\/POST%20%2Forders/);
-  await expect(
-    page.getByText(
-      'Transactions are independently analyzable application operations such as endpoints, jobs, and message handlers.',
-      { exact: true },
-    ),
-  ).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Top errors' })).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Related deployments' }),
-  ).toBeVisible();
-  await expect(
-    page.locator('main').getByRole('link', { name: 'Profiles' }),
-  ).toBeVisible();
-  await page.getByRole('link', { name: `Open Trace: ${TRACE_ID}` }).click();
-  await expect(page).toHaveURL(
-    new RegExp(`/traces/${TRACE_ID}\\?spanId=${SPAN_ID}$`),
-  );
-});
-
-test('service-scoped overview replaces the redundant service ranking with investigation context', async ({
-  page,
-  mockServer,
-}) => {
-  await boot(page, mockServer.port);
-  await page.goto(
-    '/apm/overview?namespace=shop&service=checkout&environment=prod',
-  );
-
-  await expect(
-    page.getByRole('heading', { name: 'Highest-impact Transactions' }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Highest-impact services' }),
-  ).toHaveCount(0);
-  await expect(page.getByText('POST /orders')).toBeVisible();
-  await expect(
-    page.getByRole('link', { name: 'Open service workbench' }),
-  ).toHaveAttribute(
-    'href',
-    '/apm/services/checkout?namespace=shop&environment=prod',
-  );
-  await expect(page.getByText('Request throughput', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Latency' }).click();
-  await expect(page.getByText('P99 latency', { exact: true }).first()).toBeVisible();
-  await expect(
-    page
-      .getByRole('table', { name: 'Series legend' })
-      .locator('tbody tr')
-      .first(),
-  ).toHaveCSS('font-size', '11px');
-});
-
-test('legacy RUM and service URLs preserve suffixes and query state', async ({
-  page,
-  mockServer,
-}) => {
-  await boot(page, mockServer.port);
-  await page.goto('/apm/user-experience/sessions/view/demo?app=shop#event-2');
-  await expect(page).toHaveURL(
-    /\/rum\/sessions\/view\/demo\?app=shop#event-2$/,
-  );
-  const traceReference = page.locator('[data-signal-type="trace_id"]').first();
-  await expect(traceReference).toBeVisible();
-  await traceReference.click();
-  const traceJump = page.getByRole('link', { name: /Open current trace/ });
-  await expect(traceJump).toHaveAttribute('href', new RegExp(`trace_id.*${TRACE_ID}`));
-  await expect(traceJump).toHaveAttribute('href', /from=.*to=/);
-
-  await page.goto('/rum/source-maps?app=storefront');
-  await expect(page).toHaveURL(
-    /\/rum\/settings\/source-maps\?app=storefront$/,
-  );
-  await expect(page.getByRole('link', { name: 'SDK setup' })).toBeVisible();
-
-  await page.goto(
-    '/apm/versions/compare?service=checkout&baseline=1.0.0&candidate=2.0.0',
-  );
-  await expect(page).toHaveURL(
-    /\/apm\/deployments\?service=checkout&baseline=1.0.0&candidate=2.0.0$/,
-  );
-
   await page.goto('/services/checkout?environment=prod');
   await expect(page).toHaveURL(/\/apm\/services\/checkout\?environment=prod$/);
   await expect(page.getByRole('heading', { name: 'checkout', exact: true })).toBeVisible();
 });
 
-test('RUM keeps an independent analysis navigation and guides SDK activation', async ({
-  page,
-  mockServer,
-}) => {
-  await boot(page, mockServer.port);
-  await page.unroute('**/api/v1/query');
-  await page.route('**/api/v1/query', (route) =>
-    route.fulfill({
-      json: { columns: [], rows: [], scanned_rows: 0, took_ms: 1 },
-    }),
-  );
-  await page.route(/\/api\/v1\/rum\/overview(?:\?.*)?$/, (route) =>
-    route.fulfill({
-      json: {
-        metrics: {
-          users: 0,
-          sessions: 0,
-          errorFreeRate: 0,
-          lcpP75: 0,
-          inpP75: 0,
-          clsP75: 0,
-        },
-        browserDevices: [],
-        regions: [],
-        facets: {
-          applications: [],
-          environments: [],
-          versions: [],
-          countries: [],
-          devices: [],
-        },
-      },
-    }),
-  );
-  await page.route(/\/api\/v1\/rum\/overview\/insights(?:\?.*)?$/, (route) =>
-    route.fulfill({
-      json: {
-        trend: [],
-        satisfaction: { good: 0, needsImprovement: 0, poor: 0, total: 0 },
-        slowPages: [],
-        frequentErrors: [],
-      },
-    }),
-  );
-
-  await page.goto('/rum/overview');
-  const main = page.locator('main');
-  await expect(
-    main.getByRole('heading', { name: 'User Experience', exact: true }),
-  ).toBeVisible();
-  await expect(
-    main.getByRole('heading', {
-      name: 'Start collecting real user experience data',
-    }),
-  ).toBeVisible();
-  await expect(main.getByRole('link', { name: 'Applications' })).toBeVisible();
-  await expect(main.getByRole('link', { name: 'Pages' })).toBeVisible();
-  await expect(main.getByRole('link', { name: 'Session replay' })).toBeVisible();
-  await expect(main.getByText('Install SDK', { exact: true })).toBeVisible();
-  await expect(
-    main.getByRole('link', { name: 'Web application' }),
-  ).toBeVisible();
-  await expect(
-    main.getByRole('link', { name: 'Source Maps' }),
-  ).toHaveCount(0);
-});
-
-test('APM keyboard navigation opens the canonical service catalog', async ({
-  page,
-  mockServer,
-}) => {
+test('APM keyboard navigation opens the service catalog', async ({ page, mockServer }) => {
   await boot(page, mockServer.port);
   await page.goto('/investigate');
   await page.keyboard.press('Meta+Alt+S');
   await expect(page).toHaveURL(/\/apm\/services$/);
-  await expect(page.getByRole('heading', { name: 'Services', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Application Performance Monitoring' })).toBeVisible();
 });
 
 for (const theme of ['light', 'dark'] as const) {
-  test(`APM overview is accessible in ${theme} theme`, async ({
-    page,
-    mockServer,
-  }) => {
-    await boot(page, mockServer.port, theme);
+  test(`the APM catalog is accessible in ${theme} theme`, async ({ page, mockServer }) => {
+    await boot(page, mockServer.port, { theme });
+    await page.goto('/apm/services');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+    await expect(page.locator('[data-apm-service-row="checkout"]')).toBeVisible();
+    const results = await new AxeBuilder({ page }).exclude('[role="status"]').exclude('[aria-live]').analyze();
+    const critical = results.violations.filter((violation) => violation.impact === 'critical');
+    expect(critical, JSON.stringify(critical, null, 2)).toEqual([]);
+  });
+
+  test(`the APM overview is accessible in ${theme} theme`, async ({ page, mockServer }) => {
+    await boot(page, mockServer.port, { theme });
+    // Contrast is read from the figures as they rest, not halfway through rising in.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/apm/overview');
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
-    await expect(page.getByRole('heading', { name: 'Application performance' })).toBeVisible();
-    const results = await new AxeBuilder({ page })
-      .exclude('[role="status"]')
-      .exclude('[aria-live]')
-      .analyze();
-    const critical = results.violations.filter(
-      (violation) => violation.impact === 'critical',
-    );
-    expect(critical, JSON.stringify(critical, null, 2)).toEqual([]);
+    await expect(page.locator('[data-apm-alert="inc-1"]')).toBeVisible();
+    const results = await new AxeBuilder({ page }).exclude('[role="status"]').exclude('[aria-live]').analyze();
+    const serious = results.violations.filter((violation) => violation.impact === 'critical' || violation.impact === 'serious');
+    expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
   });
 }

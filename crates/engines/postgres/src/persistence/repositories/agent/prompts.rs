@@ -20,6 +20,7 @@ use super::super::sqlx_err;
 use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentPromptTemplate {
     pub id: Id,
     /// builtin scope 为 None（全局共享）；org/user override 带 org_id。
@@ -77,7 +78,7 @@ impl PgAgentPromptRepository {
 
 const COLS: &str = "id, org_id, user_id, scope, builtin_key, purpose, name, body, \
     variables_schema, is_default, enabled, version, parent_id, created_by, updated_by, \
-    created_at_micros, updated_at_micros";
+    created_at, updated_at";
 
 fn row_to(r: sqlx::postgres::PgRow) -> Result<AgentPromptTemplate> {
     let schema: Json<Value> = r.try_get("variables_schema").map_err(sqlx_err)?;
@@ -98,8 +99,12 @@ fn row_to(r: sqlx::postgres::PgRow) -> Result<AgentPromptTemplate> {
         parent_id: r.try_get("parent_id").map_err(sqlx_err)?,
         created_by: r.try_get("created_by").map_err(sqlx_err)?,
         updated_by: r.try_get("updated_by").map_err(sqlx_err)?,
-        created_at: TimestampMicros(r.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(r.try_get("updated_at_micros").map_err(sqlx_err)?),
+        created_at: r
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: r
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -111,7 +116,7 @@ impl AgentPromptRepository for PgAgentPromptRepository {
              WHERE scope = 'builtin'
                 OR (scope = 'org' AND org_id = $1)
                 OR (scope = 'user' AND org_id = $1 AND user_id = $2)
-             ORDER BY scope, purpose, updated_at_micros DESC, id ASC
+             ORDER BY scope, purpose, updated_at DESC, id ASC
              LIMIT 1000"
         ))
         .bind(&org_id.0)
@@ -159,7 +164,7 @@ impl AgentPromptRepository for PgAgentPromptRepository {
             "INSERT INTO agent_prompt_templates
                 (id, org_id, user_id, scope, builtin_key, purpose, name, body, variables_schema,
                  is_default, enabled, version, parent_id, created_by, updated_by,
-                 created_at_micros, updated_at_micros)
+                 created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $16)",
         )
         .bind(&t.id.0)
@@ -177,7 +182,7 @@ impl AgentPromptRepository for PgAgentPromptRepository {
         .bind(&t.parent_id)
         .bind(&t.created_by)
         .bind(&t.updated_by)
-        .bind(t.created_at.0)
+        .bind(t.created_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -197,7 +202,7 @@ impl AgentPromptRepository for PgAgentPromptRepository {
         sqlx::query(
             "UPDATE agent_prompt_templates SET
                 name = $2, body = $3, variables_schema = $4, enabled = $5,
-                version = version + 1, updated_by = $6, updated_at_micros = $7
+                version = version + 1, updated_by = $6, updated_at = $7
              WHERE id = $1",
         )
         .bind(&t.id.0)
@@ -206,7 +211,7 @@ impl AgentPromptRepository for PgAgentPromptRepository {
         .bind(Json(&t.variables_schema))
         .bind(t.enabled)
         .bind(&t.updated_by)
-        .bind(now.0)
+        .bind(now)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -231,7 +236,7 @@ impl AgentPromptRepository for PgAgentPromptRepository {
 
         // 清掉同 scope + owner + purpose 的其它默认。
         sqlx::query(
-            "UPDATE agent_prompt_templates SET is_default = FALSE, updated_at_micros = $5
+            "UPDATE agent_prompt_templates SET is_default = FALSE, updated_at = $5
              WHERE scope = $1 AND purpose = $2
                AND org_id IS NOT DISTINCT FROM $3 AND user_id IS NOT DISTINCT FROM $4",
         )
@@ -239,17 +244,17 @@ impl AgentPromptRepository for PgAgentPromptRepository {
         .bind(&t.purpose)
         .bind(&t.org_id)
         .bind(&t.user_id)
-        .bind(now.0)
+        .bind(now)
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
 
         sqlx::query(
-            "UPDATE agent_prompt_templates SET is_default = TRUE, enabled = TRUE, updated_at_micros = $2
+            "UPDATE agent_prompt_templates SET is_default = TRUE, enabled = TRUE, updated_at = $2
              WHERE id = $1",
         )
         .bind(&id.0)
-        .bind(now.0)
+        .bind(now)
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;

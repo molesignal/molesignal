@@ -32,6 +32,7 @@ const ABANDONED_SLACK_APP_MICROS: i64 = 60 * 60 * 1_000_000;
 /// The Slack setting of a page: the Slack App connector it names, the ones it
 /// can name, and the redirect URL they need in Slack.
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusPageSlackAppSetting {
     pub connector_id: Option<Id>,
     pub redirect_url: Option<String>,

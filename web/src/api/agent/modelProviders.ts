@@ -6,58 +6,58 @@ export interface ModelProvider {
   id: string;
   provider: ModelProviderKind;
   name: string;
-  base_url?: string | null;
-  default_model: string;
+  baseUrl?: string | null;
+  defaultModel: string;
   enabled: boolean;
   /** How long a call may go without receiving any data before it fails. */
-  timeout_ms: number;
-  max_tokens?: number | null;
+  timeoutMs: number;
+  maxTokens?: number | null;
   /** ISO 4217: what the prices, and the costs they give, are in. */
-  price_currency: string;
+  priceCurrency: string;
   /**
    * Per million input tokens; with a provider that caches, the price of input
    * not found in the cache. Input and output both unset: cost is not computed.
    */
-  input_price_per_mtok?: number | null;
+  inputPricePerMtok?: number | null;
   /** Per million input tokens found in the cache; unset, they cost the input price. */
-  cached_input_price_per_mtok?: number | null;
+  cachedInputPricePerMtok?: number | null;
   /** Per million output tokens. */
-  output_price_per_mtok?: number | null;
+  outputPricePerMtok?: number | null;
   /** masked last 4 chars of the API key; the plaintext key is never returned. */
-  key_last4?: string | null;
-  key_set: boolean;
-  created_at_micros: number;
-  updated_at_micros: number;
+  keyLast4?: string | null;
+  keySet: boolean;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface CreateProviderInput {
   provider: ModelProviderKind;
   name: string;
-  base_url?: string | undefined;
-  default_model: string;
+  baseUrl?: string | undefined;
+  defaultModel: string;
   enabled?: boolean | undefined;
-  timeout_ms?: number | undefined;
-  max_tokens?: number | undefined;
-  price_currency?: string | undefined;
-  input_price_per_mtok?: number | null | undefined;
-  cached_input_price_per_mtok?: number | null | undefined;
-  output_price_per_mtok?: number | null | undefined;
+  timeoutMs?: number | undefined;
+  maxTokens?: number | undefined;
+  priceCurrency?: string | undefined;
+  inputPricePerMtok?: number | null | undefined;
+  cachedInputPricePerMtok?: number | null | undefined;
+  outputPricePerMtok?: number | null | undefined;
   /** write-only API key; stored encrypted, never echoed back. */
-  api_key?: string | undefined;
+  apiKey?: string | undefined;
 }
 
 export interface UpdateProviderInput {
   provider: ModelProviderKind;
   name: string;
-  base_url?: string | undefined;
-  default_model: string;
+  baseUrl?: string | undefined;
+  defaultModel: string;
   enabled: boolean;
-  timeout_ms?: number | undefined;
-  max_tokens?: number | undefined;
-  price_currency?: string | undefined;
-  input_price_per_mtok?: number | null | undefined;
-  cached_input_price_per_mtok?: number | null | undefined;
-  output_price_per_mtok?: number | null | undefined;
+  timeoutMs?: number | undefined;
+  maxTokens?: number | undefined;
+  priceCurrency?: string | undefined;
+  inputPricePerMtok?: number | null | undefined;
+  cachedInputPricePerMtok?: number | null | undefined;
+  outputPricePerMtok?: number | null | undefined;
 }
 
 /** Default and bounds of `timeout_ms`, the same as the backend's. */
@@ -86,7 +86,7 @@ export async function update(id: string, input: UpdateProviderInput): Promise<Mo
 export async function rotateKey(id: string, apiKey: string): Promise<ModelProvider> {
   const { data } = await http.post<ModelProvider>(
     `/agent/settings/model-providers/${encodeURIComponent(id)}/rotate-key`,
-    { api_key: apiKey },
+    { apiKey: apiKey },
   );
   return data;
 }

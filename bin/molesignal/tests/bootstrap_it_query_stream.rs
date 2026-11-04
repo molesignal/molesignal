@@ -78,11 +78,11 @@ async fn query_stream_post_returns_ndjson() {
         .post(format!("{}/api/v1/query/stream", s.base_url))
         .header(hk, &hv)
         .json(&serde_json::json!({
-            "org_id": s.root_org_id.0,
+            "orgId": s.root_org_id.0,
             "language": "sql",
             "statement": "SELECT 1",
-            "time_range": { "start": 0_i64, "end": 1_000_000_i64 },
-            "stream": { "name": "nonexistent_logs", "stream_type": "logs" }
+            "timeRange": { "start": 0_i64, "end": 1_000_000_i64 },
+            "stream": { "name": "nonexistent_logs", "streamType": "logs" }
         }))
         .send()
         .await

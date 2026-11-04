@@ -19,7 +19,7 @@ pub(super) async fn list(
         "SELECT {CANDIDATE_COLS} FROM status_page_automation_candidates candidate
          WHERE candidate.organization_id=$1
            AND candidate.state IN ('pending_approval','failed')
-         ORDER BY candidate.updated_at_micros DESC,candidate.id DESC LIMIT $2"
+         ORDER BY candidate.updated_at DESC,candidate.id DESC LIMIT $2"
     );
 
     sqlx::query(&sql)

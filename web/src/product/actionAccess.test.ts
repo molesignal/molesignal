@@ -43,18 +43,18 @@ describe('action access decisions', () => {
     },
     {
       role: 'Admin',
-      snapshot: access(['org.settings.read', 'org.settings.manage']),
-      permission: 'org.settings.manage',
+      snapshot: access(['org.preferences.read', 'org.preferences.manage']),
+      permission: 'org.preferences.manage',
       allowed: true,
     },
     {
       role: 'Platform Owner',
       snapshot: {
-        ...access(['sys.settings.manage']),
+        ...access(['sys.settings.limits.manage']),
         organizationId: '_sys',
         scope: 'system' as const,
       },
-      permission: 'sys.settings.manage',
+      permission: 'sys.settings.limits.manage',
       allowed: true,
     },
   ] as const)(

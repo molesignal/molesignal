@@ -9,7 +9,7 @@
 //! - 团队资源由团队成员和 `agent.manage` 持有人管理（管理员不必先入队）。
 //! - 个人资源只有本人能改；管理员能看到并停用、删除，看不到其中的凭据。
 //! - 团队会话只加载组织资源与本队资源，任何人的个人资源都不进团队会话；个人会话加载组织资源、
-//!   本人的个人资源，以及已经挂进来的团队的资源。
+//!   本人的个人资源，以及已经挂进来的团队的资源；组织会话（组织作用域的自动化）只加载组织资源。
 
 use std::collections::HashSet;
 
@@ -19,7 +19,11 @@ use crate::shared::{Error, Result, ids::Id};
 
 /// 一项 Agent 资源属于谁。
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(tag = "scope", rename_all = "snake_case")]
+#[serde(
+    tag = "scope",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub enum Scope {
     Org,
     Team { team_id: Id },
@@ -128,6 +132,8 @@ pub enum ChatScope {
     },
     /// 团队会话：团队成员都能读、能续聊。
     Team { team_id: Id },
+    /// 组织会话：组织作用域的自动化每次运行用它，只加载组织的资源，没有记忆。
+    Org,
 }
 
 impl ChatScope {
@@ -143,13 +149,27 @@ impl ChatScope {
             (Self::Personal { owner_id, .. }, Scope::Personal { owner_id: owner }) => {
                 owner_id == owner
             }
+            (Self::Org, _) => false,
         }
     }
 
     pub fn team_id(&self) -> Option<&Id> {
         match self {
             Self::Team { team_id } => Some(team_id),
-            Self::Personal { .. } => None,
+            Self::Personal { .. } | Self::Org => None,
+        }
+    }
+
+    /// 会话的记忆写在哪里：团队会话写本队的，个人会话写发起人的；组织会话没有记忆。
+    pub fn memory_scope(&self) -> Option<Scope> {
+        match self {
+            Self::Team { team_id } => Some(Scope::Team {
+                team_id: team_id.clone(),
+            }),
+            Self::Personal { owner_id, .. } => Some(Scope::Personal {
+                owner_id: owner_id.clone(),
+            }),
+            Self::Org => None,
         }
     }
 }
@@ -180,6 +200,8 @@ pub fn chat_access(viewer: &Viewer, chat: &ChatScope, owner_id: &Id) -> ChatAcce
             ChatAccess::Full
         }
         ChatScope::Team { .. } => ChatAccess::None,
+        // 组织自动化的运行：组织资源人人可用，它的结果也是。
+        ChatScope::Org => ChatAccess::Full,
     }
 }
 
@@ -267,6 +289,24 @@ mod tests {
         assert!(!chat.loads(&personal("bob")));
         assert!(chat.loads(&team("sre")));
         assert!(!chat.loads(&team("dba")));
+    }
+
+    #[test]
+    fn an_org_chat_loads_only_the_organizations_resources_and_keeps_no_memory() {
+        let chat = ChatScope::Org;
+
+        assert!(chat.loads(&Scope::Org));
+        assert!(!chat.loads(&team("sre")));
+        assert!(!chat.loads(&personal("ann")));
+        assert_eq!(chat.memory_scope(), None);
+        assert_eq!(
+            ChatScope::Team { team_id: id("sre") }.memory_scope(),
+            Some(team("sre"))
+        );
+        assert_eq!(
+            chat_access(&viewer("bob", false, &[]), &chat, &id("ann")),
+            ChatAccess::Full
+        );
     }
 
     #[test]

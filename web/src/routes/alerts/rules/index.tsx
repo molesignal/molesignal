@@ -4,16 +4,18 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
-import { DataTable } from '@/admin';
+import { DataTable, useTableSelection } from '@/admin';
 import * as alertsApi from '@/api/alerts';
 import * as incidentsApi from '@/api/incidents';
 import { useActionAccess } from '@/product/actionAccess';
 import type { ProductStateProps } from '@/product/states';
-import { ChromeButton, Dot, IconButton, Pill, type PillTone } from '@/shell/chrome';
+import { ChromeButton, IconButton } from '@/shell/chrome';
 import { FormInput } from '@/shell/FormDrawer';
+import { StatusWord, type StatusTone } from '@/shell/StatusWord';
 import { ViewTabs } from '@/shell/tabs/ViewTabs';
 
 import {
+  DISCOVERY_SOURCE,
   type DisplayRule,
   type RuleDisplayState,
   adaptRule,
@@ -23,16 +25,36 @@ import { AlertsPage } from '../Frame';
 import { AlertsActivation } from '../incidents/Activation';
 import { alertFlatTableClassName } from '../Surfaces';
 import { NewRuleMenu } from './NewRule';
+import { RuleBulkBar } from './RuleBulkBar';
+import { RuleTransferMenu } from './Transfer';
 
 type RuleView = 'all' | 'enabled' | 'disabled';
 
-const RULE_STATE_TONE: Record<RuleDisplayState, PillTone> = {
+const RULE_STATE_TONE: Record<RuleDisplayState, StatusTone> = {
   not_evaluated: 'blue',
   healthy: 'green',
   pending: 'yellow',
+  no_data: 'orange',
   firing: 'red',
+  inhibited: 'indigo',
+  dropped: 'purple',
   disabled: 'dim',
 };
+
+/** Sorted by state, what wants attention comes first. */
+const RULE_STATE_ORDER: Record<RuleDisplayState, number> = {
+  firing: 0,
+  inhibited: 1,
+  no_data: 2,
+  pending: 3,
+  dropped: 4,
+  not_evaluated: 5,
+  healthy: 6,
+  disabled: 7,
+};
+
+/** The states that want attention stand out in the column. */
+const RULE_STATE_STRONG: ReadonlySet<RuleDisplayState> = new Set(['firing', 'no_data', 'dropped']);
 
 /**
  * How long ago something happened, in the units a rule is evaluated in: a rule
@@ -43,6 +65,8 @@ function compactAge(micros: number, nowMicros: number): string {
 }
 
 function rulePath(rule: DisplayRule): string {
+  // A discovery rule is written where the findings are: the workbench has no query for it.
+  if (rule.raw.query.discovery) return `/alerts/discovery?rule=${encodeURIComponent(rule.id)}`;
   return rule.kind === 'anomaly' ? `/alerts/anomaly/edit/${rule.id}` : `/alerts/rules/${rule.id}/edit`;
 }
 
@@ -53,8 +77,9 @@ function rulePath(rule: DisplayRule): string {
  */
 export function AlertRulesPage() {
   const { t } = useTranslation('alerts');
+  const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
-  const manageAccess = useActionAccess({ permission: 'alerts.manage' });
+  const manageAccess = useActionAccess({ permission: 'alerts.rules.manage' });
   const [view, setView] = React.useState<RuleView>('all');
   const [search, setSearch] = React.useState('');
 
@@ -85,6 +110,8 @@ export function AlertRulesPage() {
       || rule.source.toLowerCase().includes(needle)
     );
   });
+
+  const { selection, selectedRows, clear: clearSelection } = useTableSelection(filtered, (rule) => rule.id);
 
   const nowMicros = Date.now() * 1000;
   const loading = rulesQuery.isLoading || incidentsQuery.isLoading;
@@ -122,12 +149,28 @@ export function AlertRulesPage() {
             variant: 'empty',
             title: t('center.rules.no_match.title'),
             description: t('center.rules.no_match.description'),
+            action: (
+              <ChromeButton
+                onClick={() => {
+                  setSearch('');
+                  setView('all');
+                }}
+              >
+                {tc('table.clear_filters')}
+              </ChromeButton>
+            ),
           }
         : null;
 
   return (
     <AlertsPage
-      action={<NewRuleMenu />}
+      action={
+        <>
+          {/* The rules in view are exported; with every rule in view, the whole set is. */}
+          <RuleTransferMenu ruleIds={filtered.length === rules.length ? [] : filtered.map((rule) => rule.id)} />
+          <NewRuleMenu />
+        </>
+      }
       state={state}
       listHead={
         <>
@@ -155,10 +198,12 @@ export function AlertRulesPage() {
         </>
       }
     >
+      {selectedRows.length > 0 && <RuleBulkBar rules={selectedRows} onClear={clearSelection} />}
       <DataTable
         className={alertFlatTableClassName}
         rows={filtered}
         rowKey={(rule) => rule.id}
+        {...(manageAccess.allowed ? { selection } : {})}
         onRowClick={(rule) => navigate(rulePath(rule))}
         isRowClickDisabled={() => manageAccess.disabled}
         rowClickDisabledReason={() => manageAccess.reason}
@@ -166,8 +211,10 @@ export function AlertRulesPage() {
           {
             key: 'rule',
             header: t('center.rules.columns.rule'),
+            sortable: true,
+            value: (rule) => rule.name,
             cell: (rule) => (
-              <div className="min-w-0 py-1">
+              <div className="min-w-0">
                 <div className="truncate font-strong text-tx-0">{rule.name}</div>
                 <div className="mt-0.5 truncate text-xs text-tx-2">
                   {t(`center.rules.kinds.${rule.kind}`)}
@@ -180,30 +227,44 @@ export function AlertRulesPage() {
             key: 'source',
             header: t('center.rules.columns.source'),
             width: 250,
-            cell: (rule) => <span className="block truncate text-tx-1">{rule.source}</span>,
+            sortable: true,
+            value: (rule) => rule.source,
+            cell: (rule) => (
+              <span className="block truncate text-tx-1">
+                {rule.source === DISCOVERY_SOURCE ? t('discovery.rule.source') : rule.source}
+              </span>
+            ),
           },
           {
             key: 'condition',
             header: t('center.rules.columns.condition'),
             width: 180,
             // A condition is read, not followed: it is set as data, in the page's ink.
-            cell: (rule) => <span className="font-mono text-xs text-tx-1">{rule.condition}</span>,
+            cell: (rule) =>
+              rule.condition === DISCOVERY_SOURCE ? (
+                <span className="text-xs text-tx-1">{t('discovery.rule.condition')}</span>
+              ) : (
+                <span className="font-mono text-xs text-tx-1">{rule.condition}</span>
+              ),
           },
           {
             key: 'state',
             header: t('center.rules.columns.state'),
             width: 150,
+            sortable: true,
+            sortValue: (rule) => RULE_STATE_ORDER[rule.state],
             cell: (rule) => (
-              <Pill tone={RULE_STATE_TONE[rule.state]}>
-                {rule.state === 'firing' && <Dot tone="red" />}
+              <StatusWord tone={RULE_STATE_TONE[rule.state]} strong={RULE_STATE_STRONG.has(rule.state)}>
                 {t(`center.rules.state.${rule.state}`)}
-              </Pill>
+              </StatusWord>
             ),
           },
           {
             key: 'lastEvaluation',
             header: t('center.rules.columns.last_evaluation'),
             width: 160,
+            sortable: true,
+            sortValue: (rule) => rule.lastEvaluation,
             cell: (rule) => (
               <span className="text-tx-2">
                 {rule.lastEvaluation

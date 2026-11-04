@@ -127,10 +127,10 @@ describe('resolveRunAs', () => {
 
 describe('runAsName', () => {
   it('prefers the display name, then the email, then the id', () => {
-    const profile = { display_name: 'Dana Reyes', email: 'dana@example.com' };
+    const profile = { displayName: 'Dana Reyes', email: 'dana@example.com' };
 
     expect(runAsName(profile, 'u-dana')).toBe('Dana Reyes');
-    expect(runAsName({ ...profile, display_name: '' }, 'u-dana')).toBe(
+    expect(runAsName({ ...profile, displayName: '' }, 'u-dana')).toBe(
       'dana@example.com',
     );
     // The user record is gone, or the backend did not send it.

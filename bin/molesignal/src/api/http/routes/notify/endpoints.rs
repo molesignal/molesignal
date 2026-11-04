@@ -23,22 +23,23 @@ use crate::{
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new()
-        .route("/users/{user_id}/notify-endpoints", get(list).post(create))
+        .route("/users/{userId}/notify-endpoints", get(list).post(create))
         .route(
-            "/users/{user_id}/notify-endpoints/{id}",
+            "/users/{userId}/notify-endpoints/{id}",
             get(get_one).put(update).delete(delete),
         )
         .route(
-            "/users/{user_id}/notify-endpoints/{id}/test",
+            "/users/{userId}/notify-endpoints/{id}/test",
             axum::routing::post(test),
         )
         .route(
-            "/users/{user_id}/notify-endpoints/{id}/verify",
+            "/users/{userId}/notify-endpoints/{id}/verify",
             axum::routing::post(verify),
         )
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateEndpointRequest {
     connector_id: Id,
     external_identity: String,
@@ -53,6 +54,7 @@ struct CreateEndpointRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct UpdateEndpointRequest {
     connector_id: Id,
     external_identity: String,
@@ -75,9 +77,10 @@ struct EndpointTestRequest {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct EndpointTestResponse {
     sent: bool,
-    tested_at_micros: i64,
+    tested_at: i64,
     elapsed_ms: u64,
     error: Option<String>,
 }
@@ -91,7 +94,7 @@ fn default_true() -> bool {
 }
 
 fn may_attest_verification(context: &IamContext) -> bool {
-    context.has_permission("org.members.manage")
+    context.has_permission("org.members.update")
 }
 
 fn test_message(request: EndpointTestRequest) -> NotifyMessage {
@@ -109,6 +112,9 @@ fn test_message(request: EndpointTestRequest) -> NotifyMessage {
         markdown: None,
         html: None,
         metadata: Default::default(),
+        provider_templates: Default::default(),
+        event: None,
+        card: None,
     }
 }
 
@@ -157,7 +163,7 @@ async fn create(
 
     if request.verified && !may_attest_verification(&context) {
         return Err(Error::forbidden(
-            "org.members.manage is required to attest endpoint verification",
+            "org.members.update is required to attest endpoint verification",
         ));
     }
 
@@ -210,7 +216,7 @@ async fn update(
         && !may_attest_verification(&context)
     {
         return Err(Error::forbidden(
-            "org.members.manage is required to change endpoint verification",
+            "org.members.update is required to change endpoint verification",
         ));
     }
 
@@ -274,7 +280,7 @@ async fn test(
 
     Ok(Json(EndpointTestResponse {
         sent: outcome.sent,
-        tested_at_micros: outcome.tested_at.0,
+        tested_at: outcome.tested_at.0,
         elapsed_ms: outcome.elapsed_ms,
         error: outcome.error,
     }))
@@ -287,7 +293,7 @@ async fn verify(
 ) -> Result<Json<UserNotifyEndpoint>> {
     if !may_attest_verification(&context) {
         return Err(Error::forbidden(
-            "org.members.manage is required to attest endpoint verification",
+            "org.members.update is required to attest endpoint verification",
         ));
     }
 

@@ -33,35 +33,35 @@ async function serveTraceList(page: Page) {
     route.fulfill({
       json: {
         items: OPERATIONS.map((operation, index) => ({
-          trace_id: `trace-${index}`,
+          traceId: `trace-${index}`,
           operation,
           service: 'checkout-api',
-          start_ns: (now - (index + 1) * 20 * 60 * 1000) * 1_000_000,
-          duration_ms: 40 + index,
-          span_count: 4,
-          error_count: index % 4 === 0 ? 1 : 0,
+          startNs: (now - (index + 1) * 20 * 60 * 1000) * 1_000_000,
+          durationMs: 40 + index,
+          spanCount: 4,
+          errorCount: index % 4 === 0 ? 1 : 0,
         })),
-        next_cursor: null,
-        previous_cursor: null,
-        has_more: false,
+        nextCursor: null,
+        previousCursor: null,
+        hasMore: false,
       },
     }),
   );
 }
 
-/** Picks the second span of the mock trace from the keyboard, which opens its panel. */
+/** Picks the second span of the mock trace from the keyboard, which opens its detail. */
 async function pickSpan(page: Page) {
-  await expect(page.getByTestId('trace-span-bar')).toHaveCount(3, LOADED);
+  await expect(page.getByTestId('trace-span-row')).toHaveCount(3, LOADED);
   const select = page.getByTestId('trace-span-select').nth(1);
   await select.focus();
   await page.keyboard.press('Enter');
   await expect(select).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByRole('heading', { level: 2, name: 'GET /users' })).toBeVisible();
+  await expect(page.getByTestId('trace-span-panel').getByRole('heading', { level: 2, name: /GET \/users/ })).toBeVisible();
 }
 
-async function violations(page: Page) {
-  // The page's own content: the shell around it is scanned by `a11y-routes`.
-  const results = await new AxeBuilder({ page }).include('#main').withRules(RULES).analyze();
+async function violations(page: Page, scope = '#main') {
+  // The page's own content, or the drawer over it: the shell around it is scanned by `a11y-routes`.
+  const results = await new AxeBuilder({ page }).include(scope).withRules(RULES).analyze();
   return results.violations.map((violation) => ({
     rule: violation.id,
     nodes: violation.nodes.map((node) => node.target.join(' ')),
@@ -88,23 +88,24 @@ test.describe('a11y: trace with a span open', () => {
     }) => {
       await mountMockRoutes(page, mockServer.port, { theme });
       await serveTraceList(page);
+      await page.setViewportSize({ width: 1440, height: 900 });
       await page.goto('/traces');
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
 
-      // The open trace's row is the one fill a method is hardest to read on.
-      const rows = page
-        .locator('[data-workspace-pane="trace-results"]')
-        .getByRole('button', { name: /^Inspect trace / });
+      // Every tone an HTTP method is set in, on the list; then the trace of one of them in the drawer.
+      const rows = page.locator('[data-trace-row]');
       await expect(rows).toHaveCount(OPERATIONS.length, LOADED);
+      expect(await violations(page)).toEqual([]);
+
       await rows.nth(1).click();
       await expect(rows.nth(1)).toHaveAttribute('aria-pressed', 'true');
       await pickSpan(page);
 
-      expect(await violations(page)).toEqual([]);
+      expect(await violations(page, '[data-trace-drawer]')).toEqual([]);
     });
   }
 
-  test('a span is selected and folded from the keyboard, and its references still open', async ({
+  test('a span is selected and folded from the keyboard, and the references of its detail open their menus', async ({
     page,
     mockServer,
   }) => {
@@ -113,47 +114,40 @@ test.describe('a11y: trace with a span open', () => {
     const bars = page.getByTestId('trace-span-bar');
     await expect(bars).toHaveCount(3, LOADED);
 
-    // Tab leaves the waterfall's head for the first row: the button that selects its span,
-    // then its fold mark, then the references to the span and to its service.
+    // The waterfall is one stop: the arrows walk its rows, and the row walked to is selected.
     const selects = page.getByTestId('trace-span-select');
-    const folds = page.getByRole('button', { name: 'Toggle span children' });
-    await page.getByRole('button', { name: 'Collapse', exact: true }).focus();
-    await page.keyboard.press('Tab');
-    await expect(selects.nth(0)).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(folds.nth(0)).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(page.getByRole('button', { name: 'GET /', exact: true })).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(page.getByRole('button', { name: 'web', exact: true })).toBeFocused();
-    await page.keyboard.press('Tab');
+    await selects.nth(0).focus();
+    await page.keyboard.press('ArrowDown');
     await expect(selects.nth(1)).toBeFocused();
-
-    // Enter selects the span: its panel opens.
-    await page.keyboard.press('Enter');
     await expect(selects.nth(1)).toHaveAttribute('aria-pressed', 'true');
-    const panelTitle = page.getByRole('heading', { level: 2 });
+    const panelTitle = page.getByTestId('trace-span-panel').getByRole('heading', { level: 2 });
     await expect(panelTitle).toHaveText(/GET \/users/);
 
-    // The mark of the span above folds what is under it and selects nothing.
-    await folds.nth(0).focus();
-    await expect(folds.nth(0)).toHaveAttribute('aria-expanded', 'true');
-    await page.keyboard.press('Space');
-    await expect(folds.nth(0)).toHaveAttribute('aria-expanded', 'false');
-    await expect(bars).toHaveCount(1);
-    await expect(selects.nth(0)).toHaveAttribute('aria-pressed', 'false');
-    await expect(panelTitle).toHaveText(/GET \/users/);
-    await page.keyboard.press('Enter');
+    // Left folds what is under the span, right opens it again; folded, left goes up to its parent.
+    const fold = page.getByTestId('trace-span-row').nth(1).getByRole('button', { name: /spans it called/ });
+    await page.keyboard.press('ArrowLeft');
+    await expect(fold).toHaveAttribute('aria-expanded', 'false');
+    await expect(bars).toHaveCount(2);
+    await page.keyboard.press('ArrowRight');
+    await expect(fold).toHaveAttribute('aria-expanded', 'true');
+    await expect(bars).toHaveCount(3);
+    await page.keyboard.press('ArrowLeft');
+    await expect(bars).toHaveCount(2);
+    await page.keyboard.press('ArrowLeft');
+    await expect(selects.nth(0)).toBeFocused();
+    // Right goes down into an open span, and opens a folded one.
+    await page.keyboard.press('ArrowRight');
+    await expect(selects.nth(1)).toBeFocused();
+    await page.keyboard.press('ArrowRight');
     await expect(bars).toHaveCount(3);
 
-    // A span with nothing under it has a mark that is no stop: after its row's button come its references.
-    await selects.nth(2).focus();
-    await page.keyboard.press('Tab');
-    await expect(page.getByRole('button', { name: 'SELECT users', exact: true })).toBeFocused();
-
-    // A reference opens its own menu and selects nothing either.
+    // The detail of the span is reached from the keyboard too, and its references open their menus.
+    await selects.nth(1).focus();
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('link', { name: /View span logs/ })).toBeVisible();
-    await expect(selects.nth(2)).toHaveAttribute('aria-pressed', 'false');
+    await expect(panelTitle).toHaveText(/GET \/users/);
+    const service = page.getByTestId('trace-span-panel').getByRole('button', { name: 'api', exact: true });
+    await service.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('link', { name: /View service metrics/ })).toBeVisible();
   });
 });

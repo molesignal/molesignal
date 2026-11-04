@@ -49,6 +49,7 @@ pub struct QueryRecommendation {
 
 /// 查询画像：语句 + 执行统计。统计通常取自上一次查询响应。
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct QueryProfile {
     pub language: QueryLanguage,
     pub statement: String,

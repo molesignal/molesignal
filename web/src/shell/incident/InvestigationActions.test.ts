@@ -18,7 +18,7 @@ describe('incident investigation links', () => {
       incident({
         language: 'promql',
         statement: 'sum(rate(http_requests_total[5m]))',
-        sample_values: [],
+        sampleValues: [],
       }),
       rule('metrics'),
       time,
@@ -36,7 +36,7 @@ describe('incident investigation links', () => {
       incident({
         language: 'sql',
         statement: 'SELECT * FROM traces',
-        sample_values: [],
+        sampleValues: [],
       }),
       rule('traces'),
       time,
@@ -44,7 +44,7 @@ describe('incident investigation links', () => {
     const trigger = new URL(links.find((link) => link.id === 'trigger')!.to, 'https://molesignal.test');
     expect(trigger.pathname).toBe('/traces');
     expect(trigger.searchParams.get('sql')).toBe('SELECT * FROM traces');
-    expect(trigger.searchParams.get('stream_type')).toBe('traces');
+    expect(trigger.searchParams.get('streamType')).toBe('traces');
   });
 
   it('adds related Logs and Metrics pivots for an affected service', () => {
@@ -52,55 +52,86 @@ describe('incident investigation links', () => {
       .map((link) => link.id);
     expect(ids).toEqual(['logs', 'metrics']);
   });
+
+  it('opens an incident of a RUM rule on the page of RUM that tells its figure, and offers nothing else', () => {
+    const rum = {
+      ...rule('logs'),
+      query: {
+        language: 'sql' as const,
+        statement: 'rum:lcp_p75 storefront',
+        periodSecs: 3_600,
+        stream: null,
+        rum: { applicationId: 'storefront', environment: 'prod', metric: 'lcp_p75' as const },
+      },
+    };
+    const links = buildIncidentInvestigationLinks(
+      {
+        ...incident({ language: 'sql', statement: 'rum:lcp_p75 storefront', sampleValues: [] }),
+        labels: { 'rum.application': 'storefront', 'deployment.environment': 'prod' },
+        affectedServices: [],
+      },
+      rum,
+      time,
+    );
+
+    expect(links.map((link) => link.id)).toEqual(['rum']);
+
+    const open = new URL(links[0]!.to, 'https://molesignal.test');
+
+    expect(open.pathname).toBe('/rum/performance');
+    expect(open.searchParams.get('app')).toBe('storefront');
+    expect(open.searchParams.get('env')).toBe('prod');
+    expect(open.searchParams.get('vital')).toBe('lcp');
+  });
 });
 
 function incident(
-  triggeringQuery: Incident['triggering_query'],
+  triggeringQuery: Incident['triggeringQuery'],
 ): Incident {
   return {
     id: 'incident-1',
-    org_id: 'org-1',
-    rule_id: 'rule-1',
-    escalation_policy_id: '',
+    orgId: 'org-1',
+    ruleId: 'rule-1',
+    escalationPolicyId: '',
     status: 'resolved',
     severity: 'warning',
     summary: 'Checkout errors',
     fingerprint: 'fingerprint',
-    current_step: 0,
-    current_loop: 0,
-    current_step_started_at: 1,
+    currentStep: 0,
+    currentLoop: 0,
+    currentStepStartedAt: 1,
     assignees: [],
-    created_at: Date.parse(time.from) * 1_000,
-    resolved_at: Date.parse(time.to) * 1_000,
+    createdAt: Date.parse(time.from) * 1_000,
+    resolvedAt: Date.parse(time.to) * 1_000,
     labels: { service: 'checkout' },
     annotations: {},
-    trace_ids: [],
-    host_ids: [],
-    affected_services: ['checkout'],
-    triggering_query: triggeringQuery,
+    traceIds: [],
+    hostIds: [],
+    affectedServices: ['checkout'],
+    triggeringQuery: triggeringQuery,
   };
 }
 
 function rule(streamType: 'metrics' | 'logs' | 'traces'): AlertRule {
   return {
     id: 'rule-1',
-    org_id: 'org-1',
+    orgId: 'org-1',
     name: 'Checkout errors',
     description: '',
     enabled: true,
     query: {
       language: streamType === 'metrics' ? 'promql' : 'sql',
       statement: 'query',
-      period_secs: 60,
-      stream: { name: `${streamType}-stream`, stream_type: streamType },
+      periodSecs: 60,
+      stream: { name: `${streamType}-stream`, streamType: streamType },
     },
     trigger: {
       operator: 'gt',
       threshold: 1,
-      for_periods: 1,
-      silence_secs: 300,
+      forPeriods: 1,
+      silenceSecs: 300,
     },
-    escalation_policy_id: '',
+    escalationPolicyId: '',
     labels: {},
     annotations: {},
   };

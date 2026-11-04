@@ -108,10 +108,9 @@ describe('LogDetail', () => {
   it('lists the rest of the record field by field, a signal as the reference it is everywhere', () => {
     const { container } = renderDetail();
 
+    // The attributes the head shows (the service, the trace) are not listed again under it.
     expect(fieldNames(container)).toEqual([
       'level',
-      'service.name',
-      'trace_id',
       'http.method',
       'http.route',
       'http.status_code',
@@ -123,10 +122,13 @@ describe('LogDetail', () => {
       'error.type',
       'error.code',
     ]);
-    const trace = container.querySelector('[data-log-detail-field="trace_id"]') as HTMLElement;
+    const trace = container.querySelector('[data-log-detail-attribute="trace_id"]') as HTMLElement;
     expect(trace.querySelector('[data-signal-type="trace_id"]')?.textContent).toBe(
       '7c1f0e0004a94b4d2e8f3a5b6c7d8e9f',
     );
+    expect(container.querySelector('[data-log-detail-attribute="service"]')?.textContent).toContain('checkout-api');
+    // A log with a trace can be read beside its trace.
+    expect(within(screen.getByRole('group', { name: 'Views of the log' })).getByRole('button', { name: /Trace/ })).not.toBeNull();
     // A list of terms and their values, each pair in the list itself.
     for (const term of container.querySelectorAll('dt')) expect(term.parentElement?.parentElement?.tagName).toBe('DL');
   });
@@ -154,7 +156,7 @@ describe('LogDetail', () => {
 
     await user.type(screen.getByRole('textbox', { name: 'Filter fields' }), 'http');
     expect(fieldNames(container)).toEqual(['http.method', 'http.route', 'http.status_code']);
-    expect(screen.getByText('3 / 13')).not.toBeNull();
+    expect(screen.getByText('3 / 11')).not.toBeNull();
 
     await user.clear(screen.getByRole('textbox', { name: 'Filter fields' }));
     await user.type(screen.getByRole('textbox', { name: 'Filter fields' }), 'no-such-field');
@@ -222,6 +224,8 @@ describe('LogDetail', () => {
     });
 
     expect(container.querySelector('[data-log-detail-message]')).toBeNull();
-    expect(fieldNames(container)).toEqual(['model', 'provider', 'completion_tokens']);
+    // Where it came from stands at the head as an attribute, and is not listed again.
+    expect(fieldNames(container)).toEqual(['model', 'completion_tokens']);
+    expect(container.querySelector('[data-log-detail-attribute="source"]')).not.toBeNull();
   });
 });

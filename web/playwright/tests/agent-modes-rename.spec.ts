@@ -16,21 +16,21 @@ async function allowBypass(page: Page) {
                 id: 'profile-ops',
                 name: 'Operations',
                 description: '',
-                model_provider_id: null,
+                modelProviderId: null,
                 model: null,
-                allowed_tools: [],
-                data_scope: {},
-                risk_policy: {},
-                network_access: 'blocked',
-                max_context_tokens: 32_000,
-                max_investigation_secs: 1_800,
-                max_tool_calls: 32,
-                allow_bypass_permissions: true,
-                is_default: true,
+                allowedTools: [],
+                dataScope: {},
+                riskPolicy: {},
+                networkAccess: 'blocked',
+                maxContextTokens: 32_000,
+                maxInvestigationSecs: 1_800,
+                maxToolCalls: 32,
+                allowBypassPermissions: true,
+                isDefault: true,
                 enabled: true,
-                created_by: 'dev',
-                created_at: 0,
-                updated_at: 0,
+                createdBy: 'dev',
+                createdAt: 0,
+                updatedAt: 0,
               },
             ],
           },
@@ -89,7 +89,7 @@ test.describe('Mole Agent execution modes', () => {
     const box = page.getByTestId('composer-input');
     await box.fill('Restart the checkout pods');
     await box.press('Enter');
-    expect((await sent).postDataJSON()).toMatchObject({ execution_policy: 'bypass_permissions' });
+    expect((await sent).postDataJSON()).toMatchObject({ executionPolicy: 'bypass_permissions' });
   });
 
   test('/policy bypass says why it cannot be picked where it is locked', async ({ page }) => {

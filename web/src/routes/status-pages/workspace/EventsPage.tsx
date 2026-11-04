@@ -54,7 +54,7 @@ export function StatusPageEvents({ kind }: { kind: StatusPageIncidentKind }) {
   const location = useLocation();
   const { eventId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { pageId, snapshot, manageAccess } = useStatusPageWorkspace();
+  const { pageId, snapshot, eventsAccess } = useStatusPageWorkspace();
   const requestedView = searchParams.get('view') as StatusPageEventView | null;
   const defaultView: StatusPageEventView = kind === 'incident' ? 'current' : 'upcoming';
   const view = requestedView && VIEWS[kind].includes(requestedView)
@@ -67,7 +67,7 @@ export function StatusPageEvents({ kind }: { kind: StatusPageIncidentKind }) {
     queryFn: () => statusPagesApi.listEvents(pageId, kind, view),
     enabled: !movedToHistory,
   });
-  const canMutate = manageAccess.allowed && snapshot.page.lifecycle === 'active';
+  const canMutate = eventsAccess.allowed && snapshot.page.lifecycle === 'active';
   const basePath = `/status-pages/${pageId}/${kind === 'incident' ? 'incidents' : 'maintenance'}`;
   const closeDrawer = () => navigate({ pathname: basePath, search: location.search }, { replace: true });
 
@@ -98,7 +98,7 @@ export function StatusPageEvents({ kind }: { kind: StatusPageIncidentKind }) {
             <ChromeButton
               variant="primary"
               disabled={!canMutate}
-              disabledReason={manageAccess.reason}
+              disabledReason={eventsAccess.reason}
               onClick={() => navigate({ pathname: `${basePath}/new`, search: location.search })}
             >
               <Plus className="h-3.5 w-3.5" />
@@ -140,7 +140,7 @@ export function StatusPageEvents({ kind }: { kind: StatusPageIncidentKind }) {
                 width: 150,
                 cell: (event) => (
                   <Pill tone={INCIDENT_TONE[event.status]}>
-                    {event.publication_state === 'draft'
+                    {event.publicationState === 'draft'
                       ? t('publication_state.draft')
                       : incidentStatusLabel(t, event.status, event.kind)}
                   </Pill>
@@ -164,7 +164,7 @@ export function StatusPageEvents({ kind }: { kind: StatusPageIncidentKind }) {
                 header: t(kind === 'incident' ? 'columns.started' : 'columns.scheduled_for'),
                 width: 180,
                 cell: (event) => (
-                  <span className="tabular-nums text-tx-3">{formatMicrosActive(event.started_at)}</span>
+                  <span className="tabular-nums text-tx-3">{formatMicrosActive(event.startedAt)}</span>
                 ),
               },
               {
@@ -172,7 +172,7 @@ export function StatusPageEvents({ kind }: { kind: StatusPageIncidentKind }) {
                 header: t('columns.updated'),
                 width: 180,
                 cell: (event) => (
-                  <span className="tabular-nums text-tx-3">{formatMicrosActive(event.updated_at)}</span>
+                  <span className="tabular-nums text-tx-3">{formatMicrosActive(event.updatedAt)}</span>
                 ),
               },
             ]}

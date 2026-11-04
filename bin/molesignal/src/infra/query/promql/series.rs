@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use arrow::array::{BooleanArray, Int64Array};
+use arrow::{
+    array::{BooleanArray, Int64Array},
+    datatypes::Field,
+};
 
 use super::*;
 use crate::domain::metrics::{
@@ -9,19 +12,21 @@ use crate::domain::metrics::{
     METRIC_TEMPORALITY_FIELD, is_metric_identity_storage_field,
 };
 
-/// 把 record batches 按 (matchers 过滤) + (labels 分组) 转 Vec<Series>。
+/// 把 record batches 按 (指标名 + matchers 过滤) + (labels 分组) 转 Vec<Series>。
 ///
-/// 热路径：每行只做「时间裁剪 → matcher 直读列值 → series key 查表」三件事，
-/// 被过滤掉的行不构建 LabelSet；命中行也只在首次见到该 label 组合时构建一次。
+/// 热路径：每行只做「时间裁剪 → 指标名与 matcher 直读列值 → series key 查表」三件事，
+/// 被过滤掉的行不构建 LabelSet；命中行也只在首次见到该 label 组合时构建一次。不带指标名的
+/// 选择器可能命中多个指标，它的 series 带上 `__name__`。
 /// 物化样本总数超过 `max_samples` 时直接报错（matrix 上限），提示收窄窗口。
 pub(super) fn batches_to_series(
     batches: &[RecordBatch],
     matchers: &Matchers,
-    logical_metric: Option<&str>,
+    filter: &MetricFilter,
     start_us: i64,
     end_us: i64,
     max_samples: usize,
 ) -> Result<Vec<Series>> {
+    let keep_name = filter.name().is_none();
     let mut by_key: HashMap<String, usize> = HashMap::new();
     let mut series: Vec<Series> = Vec::new();
     let mut total = 0usize;
@@ -72,39 +77,16 @@ pub(super) fn batches_to_series(
             .as_ref()
             .and_then(|array| array.as_any().downcast_ref::<Int64Array>());
 
-        let metric_name_arr = logical_metric
-            .and_then(|_| schema.index_of(METRIC_NAME_FIELD).ok())
-            .and_then(|index| b.column(index).as_any().downcast_ref::<StringArray>());
+        let Some(metric_name_arr) = schema
+            .index_of(METRIC_NAME_FIELD)
+            .ok()
+            .and_then(|index| b.column(index).as_any().downcast_ref::<StringArray>())
+        else {
+            continue;
+        };
 
-        // label 列（非 reserved 的 Utf8 列）一个 batch 解析一次；按列名排序，
-        // 使 series key 不受 schema 演进带来的列序差异影响。
-        let mut label_cols: Vec<(&str, &StringArray)> = schema
-            .fields()
-            .iter()
-            .enumerate()
-            .filter_map(|(i, f)| {
-                let name = f.name().as_str();
-
-                if name == "_timestamp" || name == "value" {
-                    return None;
-                }
-
-                if is_metric_identity_storage_field(name) {
-                    return None;
-                }
-
-                if !matches!(f.data_type(), DataType::Utf8) {
-                    return None;
-                }
-
-                b.column(i)
-                    .as_any()
-                    .downcast_ref::<StringArray>()
-                    .map(|arr| (name, arr))
-            })
-            .collect();
-
-        label_cols.sort_by_key(|(name, _)| *name);
+        // label 列一个 batch 解析一次。
+        let label_cols = label_columns(b);
         let matcher_cols = MatcherColumns::resolve(matchers, &label_cols);
 
         for row in 0..b.num_rows() {
@@ -118,14 +100,8 @@ pub(super) fn batches_to_series(
                 continue;
             }
 
-            if let Some(expected) = logical_metric {
-                let Some(metric_names) = metric_name_arr else {
-                    continue;
-                };
-
-                if metric_names.is_null(row) || metric_names.value(row) != expected {
-                    continue;
-                }
+            if metric_name_arr.is_null(row) || !filter.accepts(metric_name_arr.value(row)) {
+                continue;
             }
 
             if !matcher_cols.matches(&label_cols, row) {
@@ -133,6 +109,11 @@ pub(super) fn batches_to_series(
             }
 
             key_buf.clear();
+
+            if keep_name {
+                key_buf.push_str(metric_name_arr.value(row));
+                key_buf.push('\u{2}');
+            }
 
             for (name, arr) in &label_cols {
                 if arr.is_null(row) {
@@ -149,6 +130,10 @@ pub(super) fn batches_to_series(
                 Some(&i) => i,
                 None => {
                     let mut labels = LabelSet::new();
+
+                    if keep_name {
+                        labels.insert("__name__".into(), metric_name_arr.value(row).to_string());
+                    }
 
                     for (name, arr) in &label_cols {
                         if !arr.is_null(row) {
@@ -320,4 +305,34 @@ pub(super) fn matcher_matches_value(m: &Matcher, actual: &str) -> bool {
         MatchOp::Re(r) => r.is_match(actual),
         MatchOp::NotRe(r) => !r.is_match(actual),
     }
+}
+
+/// 一个 batch 里当作 label 的列，按列名排序：series key 不受 schema 演进带来的列序差异影响。
+fn label_columns(batch: &RecordBatch) -> Vec<(&str, &StringArray)> {
+    let mut columns = batch
+        .schema_ref()
+        .fields()
+        .iter()
+        .zip(batch.columns())
+        .filter(|(field, _)| is_label_column(field))
+        .filter_map(|(field, column)| {
+            column
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .map(|array| (field.name().as_str(), array))
+        })
+        .collect::<Vec<_>>();
+
+    columns.sort_by_key(|(name, _)| *name);
+    columns
+}
+
+/// 当作 label 的列：`_timestamp`、`value` 与存储身份列以外的 Utf8 列。
+fn is_label_column(field: &Field) -> bool {
+    let name = field.name().as_str();
+
+    name != "_timestamp"
+        && name != "value"
+        && !is_metric_identity_storage_field(name)
+        && matches!(field.data_type(), DataType::Utf8)
 }

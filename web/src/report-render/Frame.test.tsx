@@ -83,8 +83,7 @@ function preferences(overrides: Partial<UserPreferences> = {}): UserPreferences 
 
 beforeEach(() => {
   useAuthStore.setState({
-    token: 'token',
-    ctx: { user_id: 'user-1', org_id: 'org-1', display_role: 'Owner', roles: [] },
+    ctx: { userId: 'user-1', orgId: 'org-1', displayRole: 'Owner', roles: [] },
   });
   mocks.access.current = READY;
   mocks.allowed.current = true;
@@ -98,13 +97,13 @@ afterEach(() => {
   setActiveTimePreference('', 'iso_24h');
   useThemeStore.setState({ language: 'en-us' });
   useTimeStore.setState({ window: DEFAULT_WINDOW });
-  useAuthStore.setState({ token: null, ctx: null });
+  useAuthStore.setState({ ctx: null });
 });
 
 describe('ReportRenderFrame', () => {
   it('puts the route on a light document that is as long as its content', async () => {
     localStorage.setItem('molesignal-theme', 'dark');
-    const view = renderFrame('/dashboards/d1?report_render=1');
+    const view = renderFrame('/dashboards/d1?reportRender=1');
 
     expect(await screen.findByTestId('content')).toBeTruthy();
     await waitFor(() => expect(root.getAttribute('data-theme')).toBe('light'));
@@ -118,7 +117,7 @@ describe('ReportRenderFrame', () => {
   });
 
   it('takes the time range from the URL before the content is drawn', async () => {
-    renderFrame('/dashboards/d1?report_render=1&time=now-7d..now');
+    renderFrame('/dashboards/d1?reportRender=1&time=now-7d..now');
 
     expect((await screen.findByTestId('content')).textContent).toContain('now-7d..now');
   });
@@ -129,10 +128,10 @@ describe('ReportRenderFrame', () => {
         theme: 'dark',
         language: 'zh-cn',
         timezone: 'Europe/Berlin',
-        time_format: 'local_12h',
+        timeFormat: 'local_12h',
       }),
     );
-    renderFrame('/dashboards/d1?report_render=1');
+    renderFrame('/dashboards/d1?reportRender=1');
 
     expect((await screen.findByTestId('content')).textContent).toContain(
       'in Europe/Berlin as local_12h',
@@ -145,7 +144,7 @@ describe('ReportRenderFrame', () => {
 
   it('reads in the timezone the report names over the reader’s own', async () => {
     mocks.preferences.mockResolvedValue(preferences({ timezone: 'Europe/Berlin' }));
-    renderFrame('/dashboards/d1?report_render=1&report_tz=Asia%2FShanghai');
+    renderFrame('/dashboards/d1?reportRender=1&reportTz=Asia%2FShanghai');
 
     expect((await screen.findByTestId('content')).textContent).toContain('in Asia/Shanghai');
   });
@@ -157,7 +156,7 @@ describe('ReportRenderFrame', () => {
         settle = resolve;
       }),
     );
-    renderFrame('/dashboards/d1?report_render=1');
+    renderFrame('/dashboards/d1?reportRender=1');
 
     await waitFor(() => expect(mocks.preferences).toHaveBeenCalled());
     expect(screen.queryByTestId('content')).toBeNull();
@@ -170,7 +169,7 @@ describe('ReportRenderFrame', () => {
   it('still prints when the preferences cannot be loaded', async () => {
     useThemeStore.setState({ language: 'zh-cn' });
     mocks.preferences.mockRejectedValue(new Error('offline'));
-    renderFrame('/dashboards/d1?report_render=1&report_tz=Asia%2FTokyo');
+    renderFrame('/dashboards/d1?reportRender=1&reportTz=Asia%2FTokyo');
 
     expect((await screen.findByTestId('content')).textContent).toContain('in Asia/Tokyo');
     expect(useThemeStore.getState().language).toBe('zh-cn');
@@ -178,7 +177,7 @@ describe('ReportRenderFrame', () => {
 
   it('waits for the access check and draws nothing meanwhile', async () => {
     mocks.access.current = { ...READY, status: 'loading' };
-    renderFrame('/dashboards/d1?report_render=1');
+    renderFrame('/dashboards/d1?reportRender=1');
 
     await waitFor(() => expect(mocks.preferences).toHaveBeenCalled());
     await Promise.resolve();
@@ -188,7 +187,7 @@ describe('ReportRenderFrame', () => {
 
   it('fails the report when the reader may not open the page', async () => {
     mocks.allowed.current = false;
-    renderFrame('/dashboards/d1?report_render=1');
+    renderFrame('/dashboards/d1?reportRender=1');
 
     const reason = await screen.findByRole('alert');
     expect(reason.textContent).toBe('Your current permissions do not allow access to this page.');
@@ -199,7 +198,7 @@ describe('ReportRenderFrame', () => {
 
   it('fails the report when access cannot be established', async () => {
     mocks.access.current = { ...READY, status: 'error' };
-    renderFrame('/dashboards/d1?report_render=1');
+    renderFrame('/dashboards/d1?reportRender=1');
 
     expect((await screen.findByRole('alert')).textContent).toBe('Unable to load access permissions.');
     expect(root.dataset.reportRenderState).toBe('error');

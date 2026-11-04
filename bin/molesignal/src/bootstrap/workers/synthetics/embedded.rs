@@ -25,9 +25,30 @@ use crate::{
 };
 
 const POLL_INTERVAL: Duration = Duration::from_millis(500);
+const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(15);
 const LEASE_RENEWAL_INTERVAL: Duration = Duration::from_secs(30);
 const LEASE_RENEWAL_WINDOW_MICROS: i64 = 120 * 1_000_000;
 const MAX_EMBEDDED_CONCURRENCY: u32 = 32;
+
+/// The kinds of check the in-process runner offers: all of them, but ICMP only where this process
+/// may send pings.
+pub fn embedded_capabilities() -> Vec<ProbeCapability> {
+    let icmp = probe_agent::executor::icmp_available();
+
+    [
+        ProbeCapability::Http,
+        ProbeCapability::Tcp,
+        ProbeCapability::Ssh,
+        ProbeCapability::Dns,
+        ProbeCapability::Icmp,
+        ProbeCapability::Tls,
+        ProbeCapability::Grpc,
+        ProbeCapability::Browser,
+    ]
+    .into_iter()
+    .filter(|capability| icmp || *capability != ProbeCapability::Icmp)
+    .collect()
+}
 
 pub struct EmbeddedProbeRunner {
     synthetics: Arc<SyntheticService>,
@@ -61,6 +82,22 @@ impl EmbeddedProbeRunner {
     }
 
     pub fn spawn(self) -> JoinHandle<()> {
+        // The runner beats like a remote Agent does, so that its Location says how it is.
+        let synthetics = self.synthetics.clone();
+        let agent = self.agent.clone();
+
+        tokio::spawn(async move {
+            let mut beat = tokio::time::interval(HEARTBEAT_INTERVAL);
+
+            loop {
+                beat.tick().await;
+
+                if let Err(error) = synthetics.record_embedded_heartbeat(&agent).await {
+                    tracing::warn!(%error, "embedded Probe heartbeat failed");
+                }
+            }
+        });
+
         tokio::spawn(async move {
             tracing::info!(
                 agent_id = %self.agent.id,

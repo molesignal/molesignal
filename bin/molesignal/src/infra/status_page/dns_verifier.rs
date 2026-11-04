@@ -189,8 +189,8 @@ mod tests {
 
     #[test]
     fn txt_chunks_are_joined_without_quotes() {
-        assert_eq!(normalize_txt(r#""msv_ab" "cd""#), "msv_abcd");
-        assert_eq!(normalize_txt("msv_plain"), "msv_plain");
+        assert_eq!(normalize_txt(r#""ms-v-ab" "cd""#), "ms-v-abcd");
+        assert_eq!(normalize_txt("ms-v-plain"), "ms-v-plain");
     }
 
     #[test]

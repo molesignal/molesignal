@@ -110,13 +110,13 @@ async fn collect_org_admin_emails(state: &AppState, org_id: &Id) -> Vec<String> 
             .capabilities(&IamSubject {
                 user_id: m.user_id.clone(),
                 organization_id: org_id.clone(),
-                credential_role_id: None,
+                credential_token_id: None,
                 credential_application_id: None,
                 credential_service_account_id: None,
                 scope: IamScope::Organization,
             })
             .await
-            .is_ok_and(|capabilities| capabilities.has("org.members.manage"));
+            .is_ok_and(|capabilities| capabilities.has("org.members.approve"));
 
         if can_manage_members && let Ok(u) = state.iam.service.users.get(&m.user_id).await {
             emails.push(u.email);

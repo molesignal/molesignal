@@ -12,7 +12,13 @@ use sqlx::{PgPool, Row};
 
 use super::sqlx_err;
 use crate::{
-    domain::iam::api_token::{ApiToken, ApiTokenKind, ApiTokenRepository, ManagedApiToken},
+    domain::iam::{
+        api_token::{
+            ApiToken, ApiTokenKind, ApiTokenRepository, ApiTokenScope, ManagedApiToken,
+            RUM_CLIENT_PERMISSION,
+        },
+        policy::DATA_INTAKE_POLICY,
+    },
     infra::cipher::CipherRootKey,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
@@ -20,8 +26,8 @@ use crate::{
 mod credential;
 
 pub use credential::{
-    assemble_rum_token, assemble_token, generate_token_parts, hash_rum_secret, hash_secret,
-    split_rum_token, split_token, verify_rum_secret, verify_secret,
+    assemble_token, generate_token, generate_token_parts, hash_secret, shown_prefix, split_token,
+    verify_secret,
 };
 
 const TOKEN_CACHE_TTL_SECS: u64 = 15;
@@ -59,8 +65,8 @@ impl PgApiTokenRepository {
     }
 }
 
-const COLS: &str = "id, prefix, secret_hash, org_id, user_id, role_id, name,
-                    expires_at_micros, last_used_at_micros, revoked, created_at_micros,
+const COLS: &str = "id, prefix, secret_hash, org_id, user_id, policy_id, permissions,
+                    name, expires_at, last_used_at, revoked, created_at,
                     is_default, token_kind, application_id, service_account_id";
 
 fn row_to(row: sqlx::postgres::PgRow) -> ApiToken {
@@ -76,21 +82,21 @@ fn row_to(row: sqlx::postgres::PgRow) -> ApiToken {
         secret_hash: row.try_get::<String, _>("secret_hash").unwrap_or_default(),
         org_id: Id(row.try_get::<String, _>("org_id").unwrap_or_default()),
         user_id: Id(row.try_get::<String, _>("user_id").unwrap_or_default()),
-        role_id: Id(row.try_get::<String, _>("role_id").unwrap_or_default()),
+        scope: ApiTokenScope::from_columns(
+            row.try_get("policy_id").unwrap_or_default(),
+            row.try_get("permissions").unwrap_or_default(),
+        ),
         name: row.try_get::<String, _>("name").unwrap_or_default(),
         expires_at: row
-            .try_get::<Option<i64>, _>("expires_at_micros")
-            .unwrap_or_default()
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("expires_at")
+            .unwrap_or_default(),
         last_used_at: row
-            .try_get::<Option<i64>, _>("last_used_at_micros")
-            .unwrap_or_default()
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("last_used_at")
+            .unwrap_or_default(),
         revoked: row.try_get::<bool, _>("revoked").unwrap_or(false),
-        created_at: TimestampMicros(
-            row.try_get::<i64, _>("created_at_micros")
-                .unwrap_or_default(),
-        ),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .unwrap_or_default(),
         is_default: row.try_get::<bool, _>("is_default").unwrap_or(false),
         token_kind,
         application_id: row
@@ -108,21 +114,22 @@ impl ApiTokenRepository for PgApiTokenRepository {
     async fn create(&self, token: ApiToken) -> Result<ApiToken> {
         sqlx::query(
             "INSERT INTO api_tokens
-                (id, prefix, secret_hash, org_id, user_id, role_id, name,
-                 expires_at_micros, last_used_at_micros, revoked, created_at_micros,
+                (id, prefix, secret_hash, org_id, user_id, policy_id, permissions, name,
+                 expires_at, last_used_at, revoked, created_at,
                  is_default, token_kind, application_id, service_account_id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULL, $9, $10, $11, $12, $13, $14)",
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULL, $10, $11, $12, $13, $14, $15)",
         )
         .bind(&token.id.0)
         .bind(&token.prefix)
         .bind(&token.secret_hash)
         .bind(&token.org_id.0)
         .bind(&token.user_id.0)
-        .bind(&token.role_id.0)
+        .bind(token.scope.policy_id().map(|id| &id.0))
+        .bind(token.scope.permissions())
         .bind(&token.name)
-        .bind(token.expires_at.map(|value| value.0))
+        .bind(token.expires_at)
         .bind(token.revoked)
-        .bind(token.created_at.0)
+        .bind(token.created_at)
         .bind(token.is_default)
         .bind(token.token_kind.as_str())
         .bind(&token.application_id)
@@ -155,7 +162,7 @@ impl ApiTokenRepository for PgApiTokenRepository {
                        WHERE account.org_id = token.org_id
                          AND account.id = token.service_account_id
                          AND NOT account.disabled
-                         AND account.deleted_at_micros IS NULL
+                         AND account.deleted_at IS NULL
                    )
                )"
         );
@@ -181,11 +188,29 @@ impl ApiTokenRepository for PgApiTokenRepository {
         let sql = format!(
             "SELECT {COLS} FROM api_tokens
              WHERE org_id = $1
-             ORDER BY created_at_micros DESC LIMIT 500"
+             ORDER BY created_at DESC LIMIT 500"
         );
 
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(sqlx_err)?;
+
+        Ok(rows.into_iter().map(row_to).collect())
+    }
+
+    async fn list_personal(&self, org_id: &Id, user_id: &Id) -> Result<Vec<ApiToken>> {
+        let sql = format!(
+            "SELECT {COLS} FROM api_tokens
+             WHERE org_id = $1 AND user_id = $2
+               AND token_kind IN ('personal', 'default_intake')
+             ORDER BY created_at DESC LIMIT 500"
+        );
+
+        let rows = sqlx::query(&sql)
+            .bind(&org_id.0)
+            .bind(&user_id.0)
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
@@ -238,13 +263,15 @@ impl ApiTokenRepository for PgApiTokenRepository {
         self.last_used_writes.insert(prefix.to_string(), at.0);
 
         sqlx::query(
-            "UPDATE api_tokens SET last_used_at_micros = $2
+            "UPDATE api_tokens SET last_used_at = $2
              WHERE prefix = $1
-               AND (last_used_at_micros IS NULL OR last_used_at_micros < $3)",
+               AND (last_used_at IS NULL OR last_used_at < $3)",
         )
         .bind(prefix)
-        .bind(at.0)
-        .bind(at.0.saturating_sub(LAST_USED_WRITE_INTERVAL_MICROS))
+        .bind(at)
+        .bind(TimestampMicros(
+            at.0.saturating_sub(LAST_USED_WRITE_INTERVAL_MICROS),
+        ))
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -252,12 +279,7 @@ impl ApiTokenRepository for PgApiTokenRepository {
         Ok(())
     }
 
-    async fn ensure_default(
-        &self,
-        org_id: &Id,
-        user_id: &Id,
-        role_id: &Id,
-    ) -> Result<ManagedApiToken> {
+    async fn ensure_default(&self, org_id: &Id, user_id: &Id) -> Result<ManagedApiToken> {
         let cipher = self.cipher()?;
         let lock_key = format!("default-intake-token:{}:{}", org_id.0, user_id.0);
         let mut transaction = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
@@ -269,7 +291,7 @@ impl ApiTokenRepository for PgApiTokenRepository {
             .map_err(sqlx_err)?;
 
         let existing = sqlx::query(
-            "SELECT id, prefix, role_id, created_at_micros, plaintext_sealed, plaintext_nonce
+            "SELECT id, prefix, created_at, plaintext_sealed, plaintext_nonce
              FROM api_tokens
              WHERE org_id = $1 AND user_id = $2
                AND token_kind = 'default_intake' AND NOT revoked
@@ -282,24 +304,15 @@ impl ApiTokenRepository for PgApiTokenRepository {
         .map_err(sqlx_err)?;
 
         if let Some(row) = existing
-            && let Some(token) =
-                open_managed_token(cipher, row, role_id, ApiTokenKind::DefaultIntake, None)?
+            && let Some(token) = open_managed_token(cipher, row, ApiTokenKind::DefaultIntake, None)?
         {
-            sqlx::query("UPDATE api_tokens SET role_id = $2 WHERE id = $1")
-                .bind(&token.id.0)
-                .bind(&role_id.0)
-                .execute(&mut *transaction)
-                .await
-                .map_err(sqlx_err)?;
-
             transaction.commit().await.map_err(sqlx_err)?;
-            self.tokens.invalidate(&token.prefix).await;
             return Ok(token);
         }
 
         let (prefix, secret) = generate_token_parts();
         let plaintext = assemble_token(&prefix, &secret);
-        let secret_hash = hash_secret(&secret)?;
+        let secret_hash = hash_secret(&secret);
 
         let (nonce, sealed) = cipher
             .seal(plaintext.as_bytes())
@@ -322,8 +335,8 @@ impl ApiTokenRepository for PgApiTokenRepository {
 
         sqlx::query(
             "INSERT INTO api_tokens
-                (id, prefix, secret_hash, org_id, user_id, role_id, name,
-                 expires_at_micros, last_used_at_micros, revoked, created_at_micros,
+                (id, prefix, secret_hash, org_id, user_id, policy_id, name,
+                 expires_at, last_used_at, revoked, created_at,
                  is_default, plaintext_sealed, plaintext_nonce, token_kind, application_id)
              VALUES ($1, $2, $3, $4, $5, $6, 'Default intake token',
                      NULL, NULL, FALSE, $7, TRUE, $8, $9, 'default_intake', NULL)",
@@ -333,8 +346,8 @@ impl ApiTokenRepository for PgApiTokenRepository {
         .bind(&secret_hash)
         .bind(&org_id.0)
         .bind(&user_id.0)
-        .bind(&role_id.0)
-        .bind(now.0)
+        .bind(DATA_INTAKE_POLICY)
+        .bind(now)
         .bind(&sealed)
         .bind(&nonce)
         .execute(&mut *transaction)
@@ -348,7 +361,6 @@ impl ApiTokenRepository for PgApiTokenRepository {
             id,
             prefix,
             token: plaintext,
-            role_id: role_id.clone(),
             token_kind: ApiTokenKind::DefaultIntake,
             application_id: None,
             created_at: now,
@@ -359,7 +371,6 @@ impl ApiTokenRepository for PgApiTokenRepository {
         &self,
         org_id: &Id,
         user_id: &Id,
-        role_id: &Id,
         application_id: &str,
     ) -> Result<ManagedApiToken> {
         let cipher = self.cipher()?;
@@ -373,7 +384,7 @@ impl ApiTokenRepository for PgApiTokenRepository {
             .map_err(sqlx_err)?;
 
         let existing = sqlx::query(
-            "SELECT id, prefix, role_id, created_at_micros, plaintext_sealed, plaintext_nonce
+            "SELECT id, prefix, created_at, plaintext_sealed, plaintext_nonce
              FROM api_tokens
              WHERE org_id = $1 AND application_id = $2
                AND token_kind = 'rum_client' AND NOT revoked
@@ -389,20 +400,11 @@ impl ApiTokenRepository for PgApiTokenRepository {
             && let Some(token) = open_managed_token(
                 cipher,
                 row,
-                role_id,
                 ApiTokenKind::RumClient,
                 Some(application_id.to_string()),
             )?
         {
-            sqlx::query("UPDATE api_tokens SET role_id = $2 WHERE id = $1")
-                .bind(&token.id.0)
-                .bind(&role_id.0)
-                .execute(&mut *transaction)
-                .await
-                .map_err(sqlx_err)?;
-
             transaction.commit().await.map_err(sqlx_err)?;
-            self.tokens.invalidate(&token.prefix).await;
             return Ok(token);
         }
 
@@ -419,8 +421,8 @@ impl ApiTokenRepository for PgApiTokenRepository {
         .map_err(sqlx_err)?;
 
         let (prefix, secret) = generate_token_parts();
-        let plaintext = assemble_rum_token(&prefix, &secret);
-        let secret_hash = hash_rum_secret(&secret);
+        let plaintext = assemble_token(&prefix, &secret);
+        let secret_hash = hash_secret(&secret);
 
         let (nonce, sealed) = cipher
             .seal(plaintext.as_bytes())
@@ -431,10 +433,10 @@ impl ApiTokenRepository for PgApiTokenRepository {
 
         sqlx::query(
             "INSERT INTO api_tokens
-                (id, prefix, secret_hash, org_id, user_id, role_id, name,
-                 expires_at_micros, last_used_at_micros, revoked, created_at_micros,
+                (id, prefix, secret_hash, org_id, user_id, permissions, name,
+                 expires_at, last_used_at, revoked, created_at,
                  is_default, plaintext_sealed, plaintext_nonce, token_kind, application_id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7,
+             VALUES ($1, $2, $3, $4, $5, ARRAY[$6]::TEXT[], $7,
                      NULL, NULL, FALSE, $8, FALSE, $9, $10, 'rum_client', $11)",
         )
         .bind(&id.0)
@@ -442,9 +444,9 @@ impl ApiTokenRepository for PgApiTokenRepository {
         .bind(&secret_hash)
         .bind(&org_id.0)
         .bind(&user_id.0)
-        .bind(&role_id.0)
+        .bind(RUM_CLIENT_PERMISSION)
         .bind(format!("RUM client · {application_id}"))
-        .bind(now.0)
+        .bind(now)
         .bind(&sealed)
         .bind(&nonce)
         .bind(application_id)
@@ -459,7 +461,6 @@ impl ApiTokenRepository for PgApiTokenRepository {
             id,
             prefix,
             token: plaintext,
-            role_id: role_id.clone(),
             token_kind: ApiTokenKind::RumClient,
             application_id: Some(application_id.to_string()),
             created_at: now,
@@ -479,7 +480,6 @@ impl PgApiTokenRepository {
 fn open_managed_token(
     cipher: &CipherRootKey,
     row: sqlx::postgres::PgRow,
-    role_id: &Id,
     token_kind: ApiTokenKind,
     application_id: Option<String>,
 ) -> Result<Option<ManagedApiToken>> {
@@ -508,12 +508,10 @@ fn open_managed_token(
         id: Id(row.try_get::<String, _>("id").unwrap_or_default()),
         prefix: row.try_get::<String, _>("prefix").unwrap_or_default(),
         token,
-        role_id: role_id.clone(),
         token_kind,
         application_id,
-        created_at: TimestampMicros(
-            row.try_get::<i64, _>("created_at_micros")
-                .unwrap_or_default(),
-        ),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .unwrap_or_default(),
     }))
 }

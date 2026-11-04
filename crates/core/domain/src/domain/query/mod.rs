@@ -23,6 +23,7 @@ pub enum QueryLanguage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct QueryRequest {
     pub org_id: Id,
     pub language: QueryLanguage,
@@ -30,7 +31,12 @@ pub struct QueryRequest {
     pub time_range: TimeRange,
     /// 可选：限定查询的 stream，便于做分区裁剪
     pub stream: Option<StreamHint>,
+    /// 结果行数上限。PromQL range 查询在上限内为每条 series 均匀取点。
     pub limit: Option<usize>,
+    /// PromQL range 查询的步长（微秒，与 `time_range` 同单位）。给出且 `end > start`
+    /// 即 range 求值；缺省为在 `time_range.end` 处的 instant 求值。SQL 忽略。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub step: Option<i64>,
     /// 联邦查询目标集群（spec federated-search）。
     ///
     /// 由 HTTP 层从 `?clusters=<csv>` 填充；`"local"` 表示本集群，其它为
@@ -41,12 +47,14 @@ pub struct QueryRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StreamHint {
     pub name: String,
     pub stream_type: StreamType,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct QueryResult {
     pub columns: Vec<String>,
     pub rows: Vec<Vec<serde_json::Value>>,
@@ -62,6 +70,7 @@ pub struct QueryResult {
 
 /// 联邦查询的扇出结果元信息（响应里挂在 `meta.federation` 下）。
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FederationMeta {
     /// 成功返回数据的集群（含 `"local"`）。
     pub scanned_clusters: Vec<String>,
@@ -75,6 +84,7 @@ pub struct FederationMeta {
 /// 慢查询记录（per org，按 fingerprint 去重累计）。查询执行超阈值时由 API 层 best-effort
 /// 落库；`GET /query/slow` 读、周期 worker 批量分析给优化建议。
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SlowQuery {
     pub id: Id,
     pub org_id: Id,

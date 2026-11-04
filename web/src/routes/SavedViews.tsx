@@ -60,7 +60,7 @@ function viewToInput(v: SavedView, overrides: Partial<SavedViewInput> = {}): Sav
     name: v.name,
     language: v.language,
     statement: v.statement,
-    time_range_secs: v.time_range_secs,
+    timeRangeSecs: v.timeRangeSecs,
     stream: v.stream,
     tags: v.tags,
     pinned: v.pinned,
@@ -111,7 +111,7 @@ export function SavedViews() {
   /** Open a saved view in the matching explorer with its look-back window. */
   const openView = (v: SavedView) => {
     const to = new Date();
-    const from = new Date(to.getTime() - v.time_range_secs * 1000);
+    const from = new Date(to.getTime() - v.timeRangeSecs * 1000);
     // `?time=<from>..<to>` is the platform-wide window contract hydrated by
     // ShellRoot → hydrateFromSearchParams (absolute when neither side is `now`).
     const params = new URLSearchParams({ time: `${from.toISOString()}..${to.toISOString()}` });
@@ -225,13 +225,13 @@ export function SavedViews() {
             {
               key: 'range',
               header: t('list.columns.range', { defaultValue: 'Window' }),
-              cell: (v) => <span className="tabular-nums text-tx-1">{formatRange(v.time_range_secs)}</span>,
+              cell: (v) => <span className="tabular-nums text-tx-1">{formatRange(v.timeRangeSecs)}</span>,
               width: 90,
             },
             {
               key: 'updated',
               header: t('list.columns.updated', { defaultValue: 'Updated' }),
-              cell: (v) => <span className="tabular-nums text-tx-3">{formatMicrosActive(v.updated_at)}</span>,
+              cell: (v) => <span className="tabular-nums text-tx-3">{formatMicrosActive(v.updatedAt)}</span>,
               width: 170,
             },
             {
@@ -366,7 +366,7 @@ function SavedViewDrawer({
     setLanguage(editing?.language ?? 'sql');
     setStatement(editing?.statement ?? '');
     setStream(editing?.stream ?? '');
-    setRangeSecs(String(editing?.time_range_secs ?? 3600));
+    setRangeSecs(String(editing?.timeRangeSecs ?? 3600));
     setTags(editing?.tags.join(', ') ?? '');
     setPinned(editing?.pinned ?? false);
   }, [editing]);
@@ -377,7 +377,7 @@ function SavedViewDrawer({
         name: name.trim(),
         language,
         statement,
-        time_range_secs: Number(rangeSecs) || 3600,
+        timeRangeSecs: Number(rangeSecs) || 3600,
         stream: stream.trim() || null,
         tags: tags
           .split(',')
@@ -400,7 +400,7 @@ function SavedViewDrawer({
     language: editing?.language ?? 'sql',
     statement: editing?.statement ?? '',
     stream: editing?.stream ?? '',
-    rangeSecs: String(editing?.time_range_secs ?? 3600),
+    rangeSecs: String(editing?.timeRangeSecs ?? 3600),
     tags: editing?.tags.join(', ') ?? '',
     pinned: editing?.pinned ?? false,
   };

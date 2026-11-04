@@ -6,6 +6,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { CopyIconButton } from '@/shell/CopyIconButton';
 import { TooltipProvider } from '@/shell/ui/tooltip';
 
+/** The icons shown: both faces are drawn for the cross-fade, and the hidden one is aria-hidden. */
+const shownIcons = (button: HTMLElement) =>
+  [...button.querySelectorAll('svg')].filter((svg) => !svg.parentElement?.closest('[aria-hidden="true"]'));
+
 function renderCopyButton(
   props: ComponentProps<typeof CopyIconButton>,
 ) {
@@ -26,7 +30,7 @@ describe('CopyIconButton', () => {
       name: 'Copy workspace ID',
     });
     expect(button.textContent).toBe('');
-    expect(button.querySelectorAll('svg')).toHaveLength(1);
+    expect(shownIcons(button)).toHaveLength(1);
     expect(within(button).queryByText('Copy workspace ID')).toBeNull();
 
     await user.hover(button);
@@ -48,6 +52,7 @@ describe('CopyIconButton', () => {
       name: 'Workspace ID copied',
     });
     expect(button.textContent).toBe('');
-    expect(button.querySelectorAll('svg')).toHaveLength(1);
+    expect(shownIcons(button)).toHaveLength(1);
+    expect(shownIcons(button)[0]?.classList.contains('lucide-check')).toBe(true);
   });
 });

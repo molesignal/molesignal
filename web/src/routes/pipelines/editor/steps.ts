@@ -1,23 +1,36 @@
 import {
   ArrowRightLeft,
   Braces,
+  CalendarClock,
   CaseSensitive,
+  ChartLine,
   Code2,
   Equal,
   Eraser,
   EyeOff,
+  FileSearch,
   Filter,
+  ListChecks,
   PenLine,
   Percent,
   Regex,
   Replace,
+  ReplaceAll,
+  Sparkles,
   Split,
+  TableProperties,
+  Timer,
+  Webhook,
   type LucideIcon,
 } from 'lucide-react';
 
+import { defaultCounting, isCountingKind } from '../counting/model';
 import {
+  DEFAULT_SUMMARY_ANNOTATION,
+  defaultEnrichQuery,
   defaultRouting,
   stepType,
+  type PipelineMode,
   type StepType,
   type TransformStep,
 } from '../PipelineGraph/model';
@@ -34,13 +47,22 @@ export const STEP_ICONS: Record<StepType, LucideIcon> = {
   parse_key_value: Equal,
   parse_regex: Regex,
   rename: ArrowRightLeft,
+  rename_regex: ReplaceAll,
   remove: Eraser,
+  keep: ListChecks,
   set: PenLine,
   mask: EyeOff,
   case: CaseSensitive,
   convert: Replace,
   filter: Filter,
   sample: Percent,
+  lookup: TableProperties,
+  ai_summary: Sparkles,
+  http_enrich: Webhook,
+  query_enrich: FileSearch,
+  generate_metric: ChartLine,
+  quota: CalendarClock,
+  throttle: Timer,
 };
 
 /**
@@ -50,10 +72,19 @@ export const STEP_ICONS: Record<StepType, LucideIcon> = {
 export const STARTER_VRL = `# \`.\` is the event. Assign to its fields to change it, for example:
 # .service = "checkout"`;
 
+/** What an AI summary step asks the model until someone writes their own. */
+export const STARTER_PROMPT =
+  'Summarize this alert for the person on call in two or three sentences: what is failing, where, and what to check first.';
+
 /** The name a step of this kind is given until someone names it. */
 export function defaultStepName(type: StepType): string {
   if (type === 'route') return 'route';
   if (type === 'vrl') return 'transform';
+  if (type === 'ai_summary') return 'ai-summary';
+  if (type === 'http_enrich') return 'call-api';
+  if (type === 'query_enrich') return 'query';
+  if (type === 'generate_metric') return 'metric';
+  if (isCountingKind(type)) return type;
   return processorStepName(type);
 }
 
@@ -66,9 +97,14 @@ function uniqueName(base: string, taken: readonly string[]): string {
   return `${base}-${suffix}`;
 }
 
-/** A new step of a kind, ready to be filled in. */
-export function newStep(type: StepType, taken: readonly string[]): TransformStep {
-  return ofType(type, uniqueName(defaultStepName(type), taken));
+/** A new step of a kind, ready to be filled in. `mode` and `source` are the pipeline's. */
+export function newStep(
+  type: StepType,
+  taken: readonly string[],
+  mode?: PipelineMode,
+  source?: string,
+): TransformStep {
+  return ofType(type, uniqueName(defaultStepName(type), taken), mode, source);
 }
 
 /**
@@ -79,11 +115,13 @@ export function retypeStep(
   step: TransformStep,
   type: StepType,
   taken: readonly string[],
+  mode?: PipelineMode,
+  source?: string,
 ): TransformStep {
   const previous = defaultStepName(stepType(step));
   const untouched = step.name.trim() === '' || new RegExp(`^${previous}(-\\d+)?$`).test(step.name);
   const others = taken.filter((name) => name !== step.name);
-  const next = ofType(type, untouched ? uniqueName(defaultStepName(type), others) : step.name);
+  const next = ofType(type, untouched ? uniqueName(defaultStepName(type), others) : step.name, mode, source);
 
   // Hand-written VRL keeps its script when it is only switched away and back.
   return type === 'vrl' && step.kind !== 'builtin' && step.script.trim()
@@ -91,7 +129,8 @@ export function retypeStep(
     : next;
 }
 
-function ofType(type: StepType, name: string): TransformStep {
+function ofType(type: StepType, name: string, mode?: PipelineMode, source = ''): TransformStep {
+  if (isCountingKind(type)) return { name, kind: type, script: '', ...defaultCounting(type, source.trim()) };
   if (type === 'route') {
     return {
       name,
@@ -104,8 +143,17 @@ function ofType(type: StepType, name: string): TransformStep {
     };
   }
   if (type === 'vrl') return { name, kind: 'vrl', script: STARTER_VRL };
+  if (type === 'ai_summary') {
+    return { name, kind: 'ai_summary', script: '', prompt: STARTER_PROMPT, annotation: DEFAULT_SUMMARY_ANNOTATION };
+  }
+  if (type === 'http_enrich') return { name, kind: 'http_enrich', script: '', connectorId: '' };
+  if (type === 'query_enrich') return { name, kind: 'query_enrich', script: '', query: { ...defaultEnrichQuery } };
 
-  const processor = defaultProcessor(type);
+  const fresh = defaultProcessor(type);
+  // What these two go through in an alert event is its labels, as Prometheus's relabeling does.
+  const processor =
+    mode === 'alert' && (fresh.op === 'rename_regex' || fresh.op === 'keep') ? { ...fresh, within: 'labels' } : fresh;
+
   return { name, kind: 'vrl', processor, script: compileProcessor(processor) };
 }
 

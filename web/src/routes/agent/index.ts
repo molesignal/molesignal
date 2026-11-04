@@ -4,9 +4,7 @@ export { AgentKnowledgePage } from './knowledge/KnowledgePage';
 export { AgentLayout } from './Layout';
 export { DashboardDraftPage } from './dashboard-authoring';
 export { InvestigationsPage } from './operations/InvestigationsPage';
-export {
-  ApprovalsPage,
-  AutomationsPage,
-  ExecutionsPage,
-  InvestigationDetailPage,
-} from './operations/Pages';
+export { AutomationsPage } from './automations';
+export { AgentQualityPage } from './quality';
+export { ImLinkPage } from './im/LinkPage';
+export { ApprovalsPage, ExecutionsPage, InvestigationDetailPage } from './operations/Pages';

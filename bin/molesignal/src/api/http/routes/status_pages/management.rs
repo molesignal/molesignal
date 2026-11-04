@@ -19,8 +19,9 @@ use crate::{
     domain::{
         iam::permission,
         status_page::{
-            ComponentKind, ComponentLifecycle, ComponentStatus, ComponentVisibility, StatusPage,
-            StatusPageComponent, StatusPageLifecycle, StatusPageSnapshot, StatusPageVisibility,
+            ComponentDependency, ComponentKind, ComponentLifecycle, ComponentStatus,
+            ComponentVisibility, DependencyMode, StatusPage, StatusPageComponent,
+            StatusPageLifecycle, StatusPageSnapshot, StatusPageVisibility,
         },
     },
     shared::{Result, ids::Id},
@@ -30,14 +31,14 @@ pub(super) fn routes() -> Router<AppState> {
     Router::new()
         .route("/status-pages", get(list_pages).post(create_page))
         .route(
-            "/status-pages/{page_id}",
+            "/status-pages/{pageId}",
             get(get_page).put(update_page).delete(delete_page),
         )
-        .route("/status-pages/{page_id}/archive", post(archive_page))
-        .route("/status-pages/{page_id}/restore", post(restore_page))
-        .route("/status-pages/{page_id}/components", post(create_component))
+        .route("/status-pages/{pageId}/archive", post(archive_page))
+        .route("/status-pages/{pageId}/restore", post(restore_page))
+        .route("/status-pages/{pageId}/components", post(create_component))
         .route(
-            "/status-pages/{page_id}/components/{component_id}",
+            "/status-pages/{pageId}/components/{componentId}",
             axum::routing::put(update_component).delete(delete_component),
         )
 }
@@ -48,6 +49,7 @@ struct PageListQuery {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct PageWriteRequest {
     name: String,
     slug: String,
@@ -91,6 +93,7 @@ impl From<PageWriteRequest> for StatusPageInput {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ComponentWriteRequest {
     name: String,
     #[serde(default)]
@@ -112,6 +115,15 @@ struct ComponentWriteRequest {
     /// The group the component goes in.
     #[serde(default)]
     group_id: Option<Id>,
+    /// What the component depends on; left out, it keeps its own.
+    #[serde(default)]
+    dependencies: Option<Vec<ComponentDependency>>,
+    /// How the health of its dependencies reaches it; left out, it keeps its mode.
+    #[serde(default)]
+    dependency_mode: Option<DependencyMode>,
+    /// Whether a status it follows tells subscribers; left out, it keeps its choice.
+    #[serde(default)]
+    dependency_notify: Option<bool>,
 }
 
 impl From<ComponentWriteRequest> for StatusPageComponentInput {
@@ -126,6 +138,9 @@ impl From<ComponentWriteRequest> for StatusPageComponentInput {
             notify_subscribers: value.notify,
             kind: value.kind,
             group_id: value.group_id,
+            dependencies: value.dependencies,
+            dependency_mode: value.dependency_mode,
+            dependency_notify: value.dependency_notify,
         }
     }
 }
@@ -148,7 +163,7 @@ async fn list_pages(
     ))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.create")]
 async fn create_page(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -186,7 +201,7 @@ async fn get_page(
     ))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.update")]
 async fn update_page(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -219,9 +234,9 @@ async fn update_page(
         page_id.as_str(),
         serde_json::json!({
             "visibility": updated.visibility,
-            "history_days": updated.history_days,
-            "delivery_retention_days": updated.delivery_retention_days,
-            "private_session_days": updated.private_session_days,
+            "historyDays": updated.history_days,
+            "deliveryRetentionDays": updated.delivery_retention_days,
+            "privateSessionDays": updated.private_session_days,
         }),
     )
     .await;
@@ -229,7 +244,7 @@ async fn update_page(
     Ok(Json(updated))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.archive")]
 async fn archive_page(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -248,14 +263,14 @@ async fn archive_page(
         "status_page.archive",
         "status_page",
         page_id.as_str(),
-        serde_json::json!({"purge_after": page.purge_after}),
+        serde_json::json!({"purgeAfter": page.purge_after}),
     )
     .await;
 
     Ok(Json(page))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.archive")]
 async fn restore_page(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -281,7 +296,7 @@ async fn restore_page(
     Ok(Json(page))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.delete")]
 async fn delete_page(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -314,7 +329,7 @@ async fn delete_page(
     Ok(Json(serde_json::json!({"deleted": true})))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.update")]
 async fn create_component(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -332,7 +347,7 @@ async fn create_component(
     Ok((StatusCode::CREATED, Json(component)))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.update")]
 async fn update_component(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -353,7 +368,7 @@ async fn update_component(
     Ok(Json(component))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.update")]
 async fn delete_component(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -390,7 +405,7 @@ async fn record_component_audit(
         "status_page_component",
         component.id.as_str(),
         serde_json::json!({
-            "status_page_id": component.status_page_id,
+            "statusPageId": component.status_page_id,
             "status": component.status,
             "visibility": component.visibility,
             "lifecycle": component.lifecycle,

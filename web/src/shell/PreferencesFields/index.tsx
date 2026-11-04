@@ -9,6 +9,7 @@ import {
   hasPermission,
   useProductAccess,
 } from '@/product/access';
+import { uiSectionTitleClass } from '@/shell/chrome';
 import { DisabledControl } from '@/shell/DisabledControl';
 import { FormSelect } from '@/shell/FormDrawer';
 import { cn } from '@/shell/lib/cn';
@@ -43,11 +44,11 @@ export function userPreferencesEqual(
     left.theme === right.theme &&
     left.density === right.density &&
     left.language === right.language &&
-    left.default_home_route === right.default_home_route &&
-    left.time_format === right.time_format &&
-    left.date_format === right.date_format &&
+    left.defaultHomeRoute === right.defaultHomeRoute &&
+    left.timeFormat === right.timeFormat &&
+    left.dateFormat === right.dateFormat &&
     left.timezone === right.timezone &&
-    left.keyboard_shortcuts_enabled === right.keyboard_shortcuts_enabled
+    left.keyboardShortcutsEnabled === right.keyboardShortcutsEnabled
   );
 }
 
@@ -72,6 +73,7 @@ export function PreferencesFields({
   onChange,
   onThemePreview,
   surface = 'drawer',
+  groups = 'topics',
   withLanguage = true,
   disabled = false,
   readOnly = false,
@@ -82,6 +84,11 @@ export function PreferencesFields({
   onChange: (patch: Partial<meApi.UserPreferences>) => void;
   onThemePreview: (theme: meApi.PreferenceTheme) => void;
   surface?: 'drawer' | 'page';
+  /**
+   * What the groups of fields are on a page: topics of a section that names them (Settings),
+   * or the page's own sections (Account), titled as sections are.
+   */
+  groups?: 'topics' | 'sections';
   /**
    * Whether the language is among the fields. A reader chooses their own in
    * the user menu, where it takes effect at once; a workspace sets the one its
@@ -108,7 +115,7 @@ export function PreferencesFields({
     disabled: !canAccessProductPath(value, access),
     disabledReason: unavailableHomeReason,
   });
-  const dashboardId = dashboardIdFromHomeRoute(value.default_home_route);
+  const dashboardId = dashboardIdFromHomeRoute(value.defaultHomeRoute);
   const homeOptions: Array<PreferenceOption<string>> = [
     homeOption('/home', t('preferences.values.home_home')),
     {
@@ -140,12 +147,12 @@ export function PreferencesFields({
       : t('preferences.values.home_dashboard_unavailable'),
   });
   const knownHomeRoute = homeOptions.some(
-    (option) => option.value === value.default_home_route,
+    (option) => option.value === value.defaultHomeRoute,
   );
   const homeSelection = dashboardId
     ? CUSTOM_DASHBOARD
     : knownHomeRoute
-      ? value.default_home_route
+      ? value.defaultHomeRoute
       : '/home';
   const dashboardOptions: Array<PreferenceOption<string>> = dashboards.map(
     (dashboard) => ({
@@ -172,6 +179,7 @@ export function PreferencesFields({
       <PreferenceSection
         title={t('preferences.sections.appearance')}
         surface={surface}
+        groups={groups}
         first
       >
         <PreferenceRow
@@ -233,6 +241,7 @@ export function PreferencesFields({
       <PreferenceSection
         title={t(withLanguage ? 'preferences.sections.locale' : 'preferences.sections.region')}
         surface={surface}
+        groups={groups}
       >
         {withLanguage ? (
           <PreferenceRow
@@ -298,6 +307,7 @@ export function PreferencesFields({
       <PreferenceSection
         title={t('preferences.sections.startup_interaction')}
         surface={surface}
+        groups={groups}
         last
       >
         <PreferenceRow
@@ -315,13 +325,13 @@ export function PreferencesFields({
                   const nextDashboardId = dashboardId ?? dashboards[0]?.id;
                   if (nextDashboardId) {
                     onChange({
-                      default_home_route:
+                      defaultHomeRoute:
                         dashboardHomeRoute(nextDashboardId),
                     });
                   }
                   return;
                 }
-                onChange({ default_home_route: selection });
+                onChange({ defaultHomeRoute: selection });
               }}
               ariaLabel={t('preferences.fields.open_after_signin')}
               options={homeOptions}
@@ -339,7 +349,7 @@ export function PreferencesFields({
                 value={dashboardId}
                 onChange={(nextDashboardId) =>
                   onChange({
-                    default_home_route:
+                    defaultHomeRoute:
                       dashboardHomeRoute(nextDashboardId),
                   })
                 }
@@ -372,10 +382,10 @@ export function PreferencesFields({
             <Switch
               disabled={controlsDisabled}
               aria-disabled={controlsDisabled || undefined}
-              checked={value.keyboard_shortcuts_enabled}
+              checked={value.keyboardShortcutsEnabled}
               onCheckedChange={(keyboardShortcutsEnabled) =>
                 onChange({
-                  keyboard_shortcuts_enabled: keyboardShortcutsEnabled,
+                  keyboardShortcutsEnabled: keyboardShortcutsEnabled,
                 })
               }
               aria-label={t('preferences.fields.keyboard_shortcuts')}
@@ -391,12 +401,14 @@ function PreferenceSection({
   title,
   children,
   surface,
+  groups,
   first = false,
   last = false,
 }: {
   title: string;
   children: React.ReactNode;
   surface: 'drawer' | 'page';
+  groups: 'topics' | 'sections';
   first?: boolean;
   last?: boolean;
 }) {
@@ -412,8 +424,13 @@ function PreferenceSection({
       <h3
         className={cn(
           'mb-4 font-sans text-tx-0',
-          // On a page the section is a topic of the form: set like a Settings subsection.
-          surface === 'page' ? 'text-md font-display-strong' : 'text-sm font-strong',
+          // On a page a group is a topic of the form, set like a Settings subsection, unless the
+          // groups are the page's own sections.
+          surface === 'drawer'
+            ? 'text-sm font-strong'
+            : groups === 'sections'
+              ? uiSectionTitleClass
+              : 'text-md font-display-strong',
         )}
       >
         {title}

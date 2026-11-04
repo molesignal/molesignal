@@ -14,7 +14,7 @@ describe('code editor typography', () => {
       /^"JetBrains Mono", "SFMono-Regular"/,
     );
     expect(CODE_EDITOR_FONT_SIZE).toBe(12);
-    expect(CODE_EDITOR_FONT_WEIGHT).toBe(600);
+    expect(CODE_EDITOR_FONT_WEIGHT).toBe(500);
     expect(CODE_EDITOR_LINE_HEIGHT).toBe(20);
     expect(CODE_EDITOR_PLACEHOLDER_FONT_WEIGHT).toBe(400);
   });

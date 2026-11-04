@@ -24,11 +24,11 @@ use crate::{
 pub(super) fn routes() -> Router<AppState> {
     Router::new()
         .route("/synthetics/agent-tokens", get(list).post(create))
-        .route("/synthetics/agent-tokens/{token_id}/rotate", post(rotate))
-        .route("/synthetics/agent-tokens/{token_id}/disable", post(disable))
+        .route("/synthetics/agent-tokens/{tokenId}/rotate", post(rotate))
+        .route("/synthetics/agent-tokens/{tokenId}/disable", post(disable))
 }
 
-#[permission("synthetics.read")]
+#[permission("synthetics.locations.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -56,8 +56,8 @@ async fn create(
         "synthetic_agent_token",
         instructions.token.id.as_str(),
         serde_json::json!({
-            "location_id": instructions.token.location_id,
-            "expires_at": instructions.token.expires_at,
+            "locationId": instructions.token.location_id,
+            "expiresAt": instructions.token.expires_at,
         }),
     )
     .await;
@@ -83,7 +83,7 @@ async fn rotate(
         "synthetic.agent_token.rotate",
         "synthetic_agent_token",
         instructions.token.id.as_str(),
-        serde_json::json!({"expires_at": instructions.token.expires_at}),
+        serde_json::json!({"expiresAt": instructions.token.expires_at}),
     )
     .await;
 
@@ -107,7 +107,7 @@ async fn disable(
         "synthetic.agent_token.disable",
         "synthetic_agent_token",
         token.id.as_str(),
-        serde_json::json!({"location_id": token.location_id}),
+        serde_json::json!({"locationId": token.location_id}),
     )
     .await;
 

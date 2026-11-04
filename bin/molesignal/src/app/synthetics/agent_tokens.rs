@@ -2,17 +2,18 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use base64::Engine as _;
-use rand::TryRng as _;
 use serde::Deserialize;
 use sha2::{Digest as _, Sha256};
 
 use super::{SyntheticService, model::validate_name};
 use crate::{
     domain::synthetics::{ProbeAgentToken, ProbeAgentTokenInstructions, ProbeAgentTokenStatus},
+    infra::persistence::repositories::api_tokens::{generate_token, shown_prefix},
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateAgentTokenInput {
     pub name: String,
     pub location_id: Id,
@@ -21,6 +22,7 @@ pub struct CreateAgentTokenInput {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RotateAgentTokenInput {
     #[serde(default = "default_expiry_days")]
     pub expires_in_days: u32,
@@ -41,7 +43,7 @@ impl SyntheticService {
         validate_name(&input.name, 128, "Agent Token name")?;
         validate_expiry_days(input.expires_in_days)?;
         let now = TimestampMicros::now();
-        let plaintext = generate_token()?;
+        let plaintext = generate_token();
 
         let token = self
             .repository
@@ -51,7 +53,7 @@ impl SyntheticService {
                     organization_id: org_id.clone(),
                     location_id: input.location_id,
                     name: input.name.trim().to_string(),
-                    token_prefix: token_prefix(&plaintext),
+                    token_prefix: shown_prefix(&plaintext).to_string(),
                     status: ProbeAgentTokenStatus::Active,
                     expires_at: expires_at(now, input.expires_in_days),
                     last_used_at: None,
@@ -81,7 +83,7 @@ impl SyntheticService {
         self.ensure_probe_registration_configured()?;
         validate_expiry_days(input.expires_in_days)?;
         let now = TimestampMicros::now();
-        let plaintext = generate_token()?;
+        let plaintext = generate_token();
 
         let token = self
             .repository
@@ -89,7 +91,7 @@ impl SyntheticService {
                 org_id,
                 token_id,
                 Sha256::digest(plaintext.as_bytes()).to_vec(),
-                &token_prefix(&plaintext),
+                shown_prefix(&plaintext),
                 expires_at(now, input.expires_in_days),
                 now,
             )
@@ -162,38 +164,10 @@ fn expires_at(now: TimestampMicros, days: u32) -> Option<TimestampMicros> {
     })
 }
 
-fn generate_token() -> Result<String> {
-    let mut bytes = [0_u8; 32];
-
-    rand::rngs::SysRng
-        .try_fill_bytes(&mut bytes)
-        .map_err(|error| Error::internal(format!("generate Agent Token: {error}")))?;
-
-    Ok(format!(
-        "ms_probe_{}",
-        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
-    ))
-}
-
-fn token_prefix(plaintext: &str) -> String {
-    plaintext.chars().take(17).collect()
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{expires_at, generate_token, token_prefix, validate_expiry_days};
+    use super::{expires_at, validate_expiry_days};
     use crate::shared::time::TimestampMicros;
-
-    #[test]
-    fn agent_tokens_are_random_and_have_a_safe_prefix() {
-        let first = generate_token().expect("first token");
-        let second = generate_token().expect("second token");
-
-        assert!(first.starts_with("ms_probe_"));
-        assert_eq!(first.len(), 52);
-        assert_ne!(first, second);
-        assert_eq!(token_prefix(&first), first[..17]);
-    }
 
     #[test]
     fn expiry_supports_bounded_and_non_expiring_tokens() {

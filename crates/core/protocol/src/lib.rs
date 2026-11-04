@@ -6,6 +6,14 @@
 //! Cargo generates the Rust bindings from `proto/**/*.proto` into `OUT_DIR`; generated files are
 //! build artifacts and are never stored in the source tree or committed to Git.
 
+pub mod alerting {
+    #[allow(clippy::all)]
+    #[rustfmt::skip]
+    pub mod v1 {
+        tonic::include_proto!("alerting.v1");
+    }
+}
+
 pub mod cluster {
     #[allow(clippy::all)]
     #[rustfmt::skip]

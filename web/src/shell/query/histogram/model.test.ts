@@ -63,7 +63,7 @@ describe('binHistogram', () => {
       [0, 0],
       [1, 0],
     ]);
-    expect(histogram?.buckets[2]).toMatchObject({ startMicros: 12 * SECOND, endMicros: 13 * SECOND });
+    expect(histogram?.buckets[2]).toMatchObject({ startTime: 12 * SECOND, endTime: 13 * SECOND });
   });
 
   it('begins a bar on the reader\'s clock, not on UTC', () => {
@@ -153,8 +153,8 @@ describe('histogramFromCounts', () => {
 
   it('fills the bars of the plan with the counts made for them, errors apart from the rest', () => {
     const histogram = histogramFromCounts(plan, [
-      { startMicros: 12 * SECOND, total: 40, errors: 3 },
-      { startMicros: 10 * SECOND, total: 7, errors: 0 },
+      { startTime: 12 * SECOND, total: 40, errors: 3 },
+      { startTime: 10 * SECOND, total: 7, errors: 0 },
     ]);
 
     expect(histogram.binMicros).toBe(SECOND);
@@ -166,7 +166,7 @@ describe('histogramFromCounts', () => {
       [0, 0],
       [0, 0],
     ]);
-    expect(histogram.buckets[2]).toMatchObject({ startMicros: 12 * SECOND, endMicros: 13 * SECOND });
+    expect(histogram.buckets[2]).toMatchObject({ startTime: 12 * SECOND, endTime: 13 * SECOND });
   });
 
   it('is an empty frame without counts', () => {
@@ -179,16 +179,16 @@ describe('histogramFromCounts', () => {
   it('leaves out a count that was made for other bars', () => {
     const histogram = histogramFromCounts(plan, [
       // Half a second into a bar, before the first bar, and past the last.
-      { startMicros: 11 * SECOND + 500 * MS, total: 9, errors: 0 },
-      { startMicros: 9 * SECOND, total: 9, errors: 0 },
-      { startMicros: 15 * SECOND, total: 9, errors: 0 },
+      { startTime: 11 * SECOND + 500 * MS, total: 9, errors: 0 },
+      { startTime: 9 * SECOND, total: 9, errors: 0 },
+      { startTime: 15 * SECOND, total: 9, errors: 0 },
     ]);
 
     expect(histogram.buckets.reduce((total, bucket) => total + bucket.ok + bucket.err, 0)).toBe(0);
   });
 
   it('counts no more errors in a bar than the bar holds', () => {
-    const histogram = histogramFromCounts(plan, [{ startMicros: 10 * SECOND, total: 4, errors: 9 }]);
+    const histogram = histogramFromCounts(plan, [{ startTime: 10 * SECOND, total: 4, errors: 9 }]);
 
     expect(histogram.buckets[0]).toMatchObject({ ok: 0, err: 4 });
   });

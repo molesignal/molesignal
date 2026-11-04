@@ -22,6 +22,7 @@ impl IamPermissionScope {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IamPermissionDefinition {
     pub key: String,
     pub scope: IamPermissionScope,
@@ -33,17 +34,7 @@ pub struct IamPermissionDefinition {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct IamPermissionBundle {
-    pub key: String,
-    pub label_key: String,
-    pub description_key: String,
-    pub permissions: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IamPermissionCatalog {
     pub version: u64,
     pub permissions: Vec<IamPermissionDefinition>,
-    #[serde(default)]
-    pub bundles: Vec<IamPermissionBundle>,
 }

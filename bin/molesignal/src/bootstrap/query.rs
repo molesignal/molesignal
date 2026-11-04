@@ -26,6 +26,7 @@ use crate::{
         query::{
             federated::FederatedDistributedEngine,
             language_router::LanguageRoutedEngine,
+            parquet_table::parquet_metadata_cache,
             promql::PromQLEngine,
             remote::{RemotePromqlEngine, RemoteQueryClient, RemoteSqlEngine},
             tantivy_pruner::TantivyPruner,
@@ -89,18 +90,22 @@ impl QueryRuntime {
                 .with_regex_patterns(core.regex_patterns.clone())
                 .with_max_result_rows(settings.search.max_result_rows)
                 .with_max_scan_rows(settings.querier.max_scan_rows)
-                .with_field_keys(core.field_key_service.clone()),
+                .with_field_keys(core.field_key_service.clone())
+                .with_parquet_metadata_cache(parquet_metadata_cache(
+                    settings.cache.parquet_metadata.max_bytes(),
+                )),
         );
 
         let local_promql: Arc<PromQLEngine> = {
             let engine = PromQLEngine::new(storage.catalog_files.clone(), read_store.clone())
                 .with_streams(core.streams.clone())
+                .with_metric_directory(core.metric_directory.clone())
                 .with_catalog_source(storage.catalog_query.clone())
                 .with_max_scan_rows(settings.querier.max_scan_rows);
 
             let settings = &settings.search.stream_agg_cache;
 
-            let engine = if settings.capacity > 0 {
+            let engine = if settings.max_size > 0 {
                 let cache = Arc::new(crate::infra::caching::StreamingAggCache::new(settings));
 
                 engine.with_streaming_cache(
@@ -129,7 +134,7 @@ impl QueryRuntime {
             } else {
                 let client = RemoteQueryClient::new(
                     core.registry.clone(),
-                    (settings.grpc.max_message_size_mb as usize).saturating_mul(1024 * 1024),
+                    (settings.grpc.max_message_size as usize).saturating_mul(1024 * 1024),
                 );
 
                 (
@@ -251,7 +256,7 @@ impl QueryRuntime {
                 self.cluster_event_outbox.clone(),
                 self.seen_events.clone(),
                 self.cluster_secrets.clone(),
-                (settings.grpc.max_message_size_mb as usize).saturating_mul(1024 * 1024),
+                (settings.grpc.max_message_size as usize).saturating_mul(1024 * 1024),
             )
             .with_ownership(core.alert_ownership.clone())
             .spawn()

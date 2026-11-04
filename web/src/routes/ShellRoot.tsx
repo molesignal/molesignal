@@ -36,8 +36,8 @@ export function ShellRoot() {
 
   const stack = useInvestigationStack();
   const togglePin = useTimeStore((s) => s.togglePin);
-  const token = useAuthStore((s) => s.token);
   const authContext = useAuthStore((s) => s.ctx);
+  const signedIn = Boolean(authContext);
   const access = useProductAccess();
   const loadOrgs = useOrgStore((s) => s.loadOrgs);
   const orgsLoaded = useOrgStore((s) => s.loaded);
@@ -45,18 +45,18 @@ export function ShellRoot() {
   const preferencesQuery = useQuery({
     queryKey: USER_PREFERENCES_QUERY_KEY,
     queryFn: () => meApi.preferences(),
-    enabled: Boolean(token),
+    enabled: signedIn,
     staleTime: 5 * 60_000,
   });
 
   // Once the shell mounts under an authenticated session, fetch the user's
   // org memberships exactly once — the shell org switcher reads them.
   React.useEffect(() => {
-    if (!token || orgsLoaded) return;
+    if (!signedIn || orgsLoaded) return;
     void loadOrgs().catch(() => {
       // soft-fail: switcher will show a single-entry dropdown for current org
     });
-  }, [token, orgsLoaded, loadOrgs]);
+  }, [signedIn, orgsLoaded, loadOrgs]);
 
   React.useEffect(() => {
     if (preferencesQuery.data) applyUserPreferences(preferencesQuery.data);
@@ -69,8 +69,8 @@ export function ShellRoot() {
   React.useEffect(() => {
     if (!authContext || !canAccessProductPath(location.pathname, access)) return;
     rememberLastVisitedRoute(
-      authContext.user_id,
-      authContext.org_id,
+      authContext.userId,
+      authContext.orgId,
       `${location.pathname}${location.search}`,
     );
   }, [access, authContext, location.pathname, location.search]);

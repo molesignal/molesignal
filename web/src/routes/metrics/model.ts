@@ -2,6 +2,7 @@ import type { TFunction } from 'i18next';
 
 import type { MetricCatalogEntry } from '@/api/metricsCatalog';
 import type * as queryApi from '@/api/query';
+import { promqlSelector } from '@/routes/metrics/builder/model';
 import type { CodeCompletionItem } from '@/shell/codeEditor/types';
 import type { GlobalFilter } from '@/stores/useFiltersStore';
 import type { TimeWindow } from '@/stores/useTimeStore';
@@ -76,7 +77,7 @@ export function buildPromqlCompletionItems(
     : [];
   const engineItems = capabilityItems.map<CodeCompletionItem>((item) => ({
     label: item.label,
-    insertText: item.insert_text,
+    insertText: item.insertText,
     insertTextFormat: 'snippet',
     detail: item.detail,
     documentation: item.documentation,
@@ -85,7 +86,7 @@ export function buildPromqlCompletionItems(
   }));
   const metricItems = metrics.map<CodeCompletionItem>((metric) => ({
     label: metric.name,
-    insertText: metric.name,
+    insertText: promqlSelector(metric.name),
     kind: 'metric',
     sortText: `0:${metric.name}`,
     detail: `metric · ${metric.labels.length} labels`,
@@ -114,7 +115,7 @@ export function requestedPromqlFromParams(params: URLSearchParams): string {
   const host = params.get('host')?.trim();
   const instance = params.get('instance')?.trim();
   const traceId =
-    params.get('trace_id')?.trim() ?? params.get('traceId')?.trim();
+    params.get('traceId')?.trim();
   if (metric) return metric;
 
   const matchers: Record<string, string> = {};

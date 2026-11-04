@@ -12,9 +12,11 @@ export {
   listRelationships,
   listRoleBindings,
   listShareTargets,
+  platformAccountsByIds,
   removeRelationship,
   removeRoleBinding,
   revokeCrossOrgGrant,
+  searchPlatformAccounts,
 } from './iam';
 export type {
   CrossOrgGrant,
@@ -22,6 +24,7 @@ export type {
   CreateRoleBindingPayload,
   MutationResponse,
   IamShareTarget,
+  PlatformAccount,
   PrincipalType,
   ResourceRelationship,
   RoleBinding,

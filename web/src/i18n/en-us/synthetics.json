@@ -31,7 +31,10 @@
     "publish": "Publish revision",
     "test_revision": "Test revision",
     "add_assertion": "Add assertion",
-    "add_header": "Add header"
+    "add_header": "Add header",
+    "add_host_binding": "Add binding",
+    "upload_certificate": "Upload certificate",
+    "upload_key": "Upload key"
   },
   "states": {
     "loading": "Loading synthetic monitoring data…",
@@ -94,6 +97,7 @@
       "actions": "Actions",
       "check": "Check",
       "runs": "Last runs",
+      "availability": "Availability",
       "schedule": "Schedule"
     },
     "confirm_delete": "Delete {{name}}? Existing results remain available for audit.",
@@ -130,6 +134,27 @@
     "description_placeholder": "What this check proves and who owns it",
     "type": "Check type",
     "request": "Request / target",
+    "connection": "Connection",
+    "connection_hint": "HTTP version, how host names are resolved, and a client certificate. Empty fields keep the defaults.",
+    "http_version": "HTTP version",
+    "http_versions": {
+      "auto": "Negotiate",
+      "http1": "HTTP/1.1 only",
+      "http2": "HTTP/2 only"
+    },
+    "dns_server": "DNS server",
+    "dns_server_hint": "Resolve host names on this server instead of the Agent's system settings.",
+    "host_bindings": "Host bindings",
+    "host_bindings_hint": "Send a host name to chosen IP addresses. The Host header and certificate checks still use the original name.",
+    "host_binding_name": "Host name",
+    "host_binding_addresses": "IP addresses, comma separated",
+    "client_certificate": "Client certificate",
+    "client_certificate_hint": "Shown when the server asks for mutual TLS. Upload or paste PEM; a file holding both the certificate and the key fills both fields. The key is stored encrypted and never shown again.",
+    "client_key": "Private key",
+    "client_key_saved": "Saved. Upload or paste a new key to replace it",
+    "no_certificate_in_file": "The file holds no PEM certificate.",
+    "no_key_in_file": "The file holds no PEM private key.",
+    "pem_file_too_large": "The file is larger than 64 KiB.",
     "method": "Method",
     "url": "URL",
     "url_placeholder": "https://api.example.com/health",
@@ -176,7 +201,40 @@
     "assertions": "Assertions",
     "assertions_hint": "Critical failures change the check state; warnings mark it degraded.",
     "assertion_source": "Source",
+    "assertion_sources": {
+      "status": "Status code",
+      "serving_status": "Serving status",
+      "body": "Body",
+      "header": "Header",
+      "duration_ms": "Duration (ms)",
+      "response": "Response",
+      "answers": "Answers",
+      "answer_count": "Answer count",
+      "rcode": "Response code",
+      "json": "JSONPath",
+      "size_bytes": "Response size (bytes)",
+      "timing": {
+        "dns_ms": "DNS time (ms)",
+        "connect_ms": "Connect time (ms)",
+        "tls_ms": "TLS time (ms)",
+        "first_byte_ms": "First byte time (ms)"
+      }
+    },
+    "assertion_header": "Header name",
+    "assertion_json_path": "JSONPath",
+    "assertion_schema": "JSON Schema",
     "assertion_operator": "Operator",
+    "operators": {
+      "equals": "Equals",
+      "not_equals": "Does not equal",
+      "contains": "Contains",
+      "not_contains": "Does not contain",
+      "matches": "Matches regex",
+      "less_than": "Less than",
+      "greater_than": "Greater than",
+      "exists": "Exists",
+      "json_schema": "Matches JSON Schema"
+    },
     "assertion_expected": "Expected value",
     "assertion_severity": "Severity",
     "schedule": "Schedule",
@@ -190,12 +248,21 @@
     "recovery_threshold": "Successes before recovery",
     "locations": "Locations",
     "locations_hint": "Run from one or more public or private probe locations.",
+    "location_no_agent": "No online Agent here runs this kind of check",
     "escalation_policy": "Escalation policy",
+    "diagnostics": "Diagnostics",
+    "diagnostics_hint": "Link each run to the traces of the service it reaches, and find the hop where an unreachable target drops off.",
+    "inject_trace_context": "Send a traceparent with each request, linking the run to the service's traces",
+    "traceroute_on_failure": "Run a traceroute when the target cannot be reached, hop by hop",
+    "alerting": "Alerting",
+    "alerting_hint": "A failing check opens an alert incident, and so does a degraded or flaky one when its switch below is on. The escalation policy pages people and the notify policies deliver it; it resolves when the check is healthy again. When enough locations stop getting results, a warning incident opens beside it and resolves once results return. Pausing or archiving the check resolves them.",
     "no_escalation_policy": "No escalation policy",
+    "routed_policy": "Routed",
     "tags": "Tags",
     "tags_hint": "Comma-separated values",
     "alert_on_degraded": "Alert when degraded",
     "alert_on_flaky": "Alert when flaky",
+    "alert_on_no_data": "Alert when there are no results",
     "validation_name": "Enter a check name.",
     "validation_target": "Enter a valid target.",
     "validation_location": "Select at least one location."
@@ -231,6 +298,10 @@
     "no_failures_one": "No failure in the last {{count}} run",
     "no_failures_other": "No failure in the last {{count}} runs",
     "never_ran": "It has not run yet",
+    "no_data_detail_one": "{{locations}} missed the last run",
+    "no_data_detail_other": "{{locations}} missed the last {{count}} runs",
+    "location_missed_one": "Missed the last run",
+    "location_missed_other": "Missed the last {{count}} runs",
     "paused_detail": "It runs again when resumed",
     "response_time": "Response time",
     "p95": "p95 {{value}}",
@@ -257,7 +328,11 @@
     "severity": {
       "warning": "Warning",
       "critical": "Critical"
-    }
+    },
+    "trace_context": "Trace context",
+    "traceroute_on_failure": "Traceroute on failure",
+    "location_availability": "{{value}} available",
+    "open_rum_session": "Open the RUM session of this run"
   },
   "results": {
     "title": "Results",
@@ -283,7 +358,25 @@
       "last": "Last page"
     },
     "all_outcomes": "All outcomes",
-    "all_locations": "All locations"
+    "all_locations": "All locations",
+    "skip_reasons": {
+      "no_agent_online": "Not run: no Agent at this location was online.",
+      "no_capable_agent": "Not run: no Agent at this location runs this kind of check.",
+      "agent_too_old": "Not run: the Agents at this location are too old for this check's settings. Upgrade probe-agent.",
+      "agents_busy": "Not run: every Agent at this location stayed busy until the run's deadline."
+    },
+    "view_trace": "View trace",
+    "trace_hint": "View trace opens the trace the service under test kept for the request; it finds nothing when the service is not traced.",
+    "traceroute": {
+      "title": "Route to {{target}}",
+      "hop": "Hop",
+      "address": "Address",
+      "loss": "Loss",
+      "best": "Best ms",
+      "average": "Avg ms",
+      "worst": "Worst ms",
+      "not_reached": "The target did not answer the traceroute; the route breaks off after the last hop that did."
+    }
   },
   "locations": {
     "name": "Location",
@@ -340,6 +433,7 @@
     "identity": "Identity and heartbeat",
     "agent_id": "Agent ID",
     "protocol": "Protocol version",
+    "feature_level": "Feature level",
     "last_result_sequence": "Last result sequence",
     "certificate_serial": "Certificate serial",
     "certificate_none": "No client certificate",
@@ -469,6 +563,7 @@
     "degraded": "Degraded",
     "failing": "Failing",
     "unknown": "No data",
+    "no_data": "No results",
     "paused": "Paused",
     "draft": "Draft"
   },
@@ -496,8 +591,8 @@
     "paused_other": "{{count}} paused",
     "states": "Check states",
     "availability": "Availability",
-    "of_runs_one": "of the last {{count}} run",
-    "of_runs_other": "of the last {{count}} runs",
+    "of_runs_one": "of {{count}} run in range",
+    "of_runs_other": "of {{count}} runs in range",
     "no_runs": "No runs yet",
     "locations": "Locations online",
     "locations_all": "Every location is reachable",
@@ -516,7 +611,7 @@
   },
   "by_location": {
     "title": "Availability by location",
-    "description": "How the latest runs went from each place they ran."
+    "description": "How the runs went from each place they run, over the range chosen."
   },
   "first_run": {
     "title": "Check your services from the outside",

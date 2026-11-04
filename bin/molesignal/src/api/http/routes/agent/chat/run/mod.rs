@@ -10,11 +10,17 @@
 //! - [`answer`]：一轮回答。
 //! - [`history`]：交给模型的历史与上下文压缩。
 //! - [`sink`]：把 AgentLoop 的事件写成 Run 的事件，记下工具调用与证据。
-//! - [`interaction`]：任务清单、提问与确认。
+//! - [`interaction`]：任务清单、提问与确认；[`unattended`]：没有人可问的一轮（自动化）。
 //! - [`workspace`]：会话自动带上的知识入口文件与记忆目录。
 //! - [`title`]：标题还是临时的时候给对话起名。
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
 
 use parking_lot::Mutex;
 use serde_json::{Value, json};
@@ -33,11 +39,12 @@ use crate::{
 mod answer;
 mod distill;
 mod history;
-mod identity;
+pub(crate) mod identity;
 mod interaction;
 pub(crate) mod request;
 mod sink;
 mod title;
+mod unattended;
 mod workspace;
 
 use request::RunRequest;
@@ -95,9 +102,17 @@ pub(super) struct RunControl {
     slot: RunSlot,
     /// 实例设置的上下文大小；Agent Profile 设了时用 Profile 的。
     pub(super) context_window: u64,
+    /// 没有人可问时被挡住的地方（[`crate::agent::automations::reasons`] 里的代码）。
+    blocked: Mutex<Vec<&'static str>>,
+    /// 超过了自动化的总时限，被停下。
+    timed_out: AtomicBool,
 }
 
 impl RunControl {
+    pub(super) fn block(&self, reason: &'static str) {
+        self.blocked.lock().push(reason);
+    }
+
     pub(super) async fn emit(&self, kind: RunEventKind, payload: Value) {
         self.emit_all(vec![NewRunEvent::new(kind, payload)]).await;
     }
@@ -187,10 +202,23 @@ pub(crate) async fn execute(
         cancel: CancellationToken::new(),
         slot,
         context_window,
+        blocked: Mutex::new(Vec::new()),
+        timed_out: AtomicBool::new(false),
     });
 
     let watching = CancellationToken::new();
     let watcher = tokio::spawn(watch(control.clone(), watching.clone()));
+
+    // 自动化的一轮有总时限：到点就停下，记为超时。
+    let deadline = deadline(&control.run).map(|limit| {
+        let control = control.clone();
+
+        tokio::spawn(async move {
+            tokio::time::sleep(limit).await;
+            control.timed_out.store(true, Ordering::SeqCst);
+            control.cancel.cancel();
+        })
+    });
 
     control
         .emit(RunEventKind::Status, json!({ "status": "running" }))
@@ -205,9 +233,58 @@ pub(crate) async fn execute(
         ending.error = None;
     }
 
+    if let Some(deadline) = deadline {
+        deadline.abort();
+    }
+
+    let unattended = unattended::is_unattended(&control.run).then(|| {
+        crate::api::http::routes::agent::automations::AnswerEnd {
+            status: ending.status,
+            code: ending.code.map(str::to_string),
+            content: ending.content.clone(),
+            timed_out: control.timed_out.load(Ordering::SeqCst),
+            blocked: control.blocked.lock().clone(),
+        }
+    });
+
+    // 写下了回答的一轮排进打分：在自动化的运行记录写回之后，打分读得到它的结局。
+    let answered = ending.message_id.clone();
+
     finish(&control, ending).await;
     watching.cancel();
     let _ = watcher.await;
+
+    // IM 里的提问：回复到原处。
+    crate::api::http::routes::agent::im::finished(
+        &control.state,
+        &control.run,
+        unattended.as_ref(),
+    )
+    .await;
+
+    // 自动化的运行：写回运行记录，按输出发通知、写 RCA。
+    if let Some(end) = unattended {
+        crate::api::http::routes::agent::automations::finished(&control.state, &control.run, end)
+            .await;
+    }
+
+    if let Some(message_id) = &answered {
+        crate::api::http::routes::agent::quality::answered(
+            &control.state,
+            &control.run,
+            message_id,
+        )
+        .await;
+    }
+}
+
+/// 自动化的一轮最多跑多久：记在请求的 `deadlineSecs` 上。
+fn deadline(run: &Run) -> Option<Duration> {
+    unattended::is_unattended(run)
+        .then(|| run.request.get("deadlineSecs")?.as_u64())
+        .flatten()
+        .filter(|secs| *secs > 0)
+        .map(Duration::from_secs)
 }
 
 async fn perform(control: &Arc<RunControl>) -> Ending {
@@ -216,6 +293,13 @@ async fn perform(control: &Arc<RunControl>) -> Ending {
 
     let ctx = match identity::resolve(state, run).await {
         Ok(ctx) => ctx,
+        // 自动化的执行身份不能再用：运行记录写明原因，等有权限的人重新保存。
+        Err(Error::Forbidden(reason)) if unattended::is_unattended(run) => {
+            return Ending {
+                code: Some(crate::agent::automations::reasons::RUN_AS_UNAVAILABLE),
+                ..Ending::failed(reason)
+            };
+        }
         Err(error) => return Ending::failed(error.to_string()),
     };
 
@@ -235,9 +319,9 @@ async fn perform(control: &Arc<RunControl>) -> Ending {
     match request {
         RunRequest::Answer(request) => answer::answer(control, &ctx, chat, *request).await,
         RunRequest::Compact => history::compact_now(control, &ctx, chat).await,
-        RunRequest::Distill { since_micros } => {
-            distill::distill(control, &ctx, chat, since_micros).await
-        }
+        RunRequest::Distill {
+            since_time: since_micros,
+        } => distill::distill(control, &ctx, chat, since_micros).await,
     }
 }
 
@@ -289,12 +373,12 @@ async fn finish(control: &RunControl, ending: Ending) {
         RunEventKind::Done,
         json!({
             "status": ending.status.as_str(),
-            "message_id": ending.message_id.map(|id| id.0),
+            "messageId": ending.message_id.map(|id| id.0),
             "content": ending.content,
-            "prompt_tokens": ending.prompt_tokens,
-            "completion_tokens": ending.completion_tokens,
+            "promptTokens": ending.prompt_tokens,
+            "completionTokens": ending.completion_tokens,
             "cost": ending.cost,
-            "finish_reason": ending.finish_reason,
+            "finishReason": ending.finish_reason,
             "error": ending.error,
             "code": ending.code,
         }),

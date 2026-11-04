@@ -56,8 +56,12 @@ fn row_to_stream(row: sqlx::postgres::PgRow) -> Result<StreamDefinition> {
         stream_type: stream_type_from_str(&stream_type)?,
         schema: schema.0,
         retention: retention.map(|value| value.0),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -74,8 +78,7 @@ fn invalidate_stream_cache(
     }
 }
 
-const COLS: &str =
-    "id, org_id, name, stream_type, schema, retention, created_at_micros, updated_at_micros";
+const COLS: &str = "id, org_id, name, stream_type, schema, retention, created_at, updated_at";
 
 fn system_schema_settings_only(current: &Schema, proposed: &Schema) -> bool {
     current.fields.len() == proposed.fields.len()
@@ -110,7 +113,7 @@ impl StreamRepository for PgStreamRepository {
 
         let insert = sqlx::query(
             "INSERT INTO logical_streams (id, org_id, name, stream_type, schema, retention, system,
-                                          created_at_micros, updated_at_micros)
+                                          created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         )
         .bind(&def.id.0)
@@ -120,8 +123,8 @@ impl StreamRepository for PgStreamRepository {
         .bind(Json(&def.schema))
         .bind(def.retention.map(Json))
         .bind(system)
-        .bind(def.created_at.0)
-        .bind(def.updated_at.0)
+        .bind(def.created_at)
+        .bind(def.updated_at)
         .execute(&self.pool)
         .await;
 
@@ -176,27 +179,23 @@ impl StreamRepository for PgStreamRepository {
                 .await
                 .map_err(sqlx_err)?;
 
-            sqlx::query(
-                "UPDATE logical_streams SET schema = $2, updated_at_micros = $3 WHERE id = $1",
-            )
-            .bind(&id.0)
-            .bind(Json(&schema))
-            .bind(now)
-            .execute(&mut *tx)
-            .await
-            .map_err(sqlx_err)?;
+            sqlx::query("UPDATE logical_streams SET schema = $2, updated_at = $3 WHERE id = $1")
+                .bind(&id.0)
+                .bind(Json(&schema))
+                .bind(TimestampMicros(now))
+                .execute(&mut *tx)
+                .await
+                .map_err(sqlx_err)?;
 
             tx.commit().await.map_err(sqlx_err)?;
         } else {
-            sqlx::query(
-                "UPDATE logical_streams SET schema = $2, updated_at_micros = $3 WHERE id = $1",
-            )
-            .bind(&id.0)
-            .bind(Json(&schema))
-            .bind(now)
-            .execute(&self.pool)
-            .await
-            .map_err(sqlx_err)?;
+            sqlx::query("UPDATE logical_streams SET schema = $2, updated_at = $3 WHERE id = $1")
+                .bind(&id.0)
+                .bind(Json(&schema))
+                .bind(TimestampMicros(now))
+                .execute(&self.pool)
+                .await
+                .map_err(sqlx_err)?;
         }
 
         let org_id: String = row.try_get("org_id").unwrap_or_default();
@@ -229,10 +228,10 @@ impl StreamRepository for PgStreamRepository {
             .await
             .map_err(sqlx_err)?;
 
-        sqlx::query("UPDATE logical_streams SET schema = $2, updated_at_micros = $3 WHERE id = $1")
+        sqlx::query("UPDATE logical_streams SET schema = $2, updated_at = $3 WHERE id = $1")
             .bind(&id.0)
             .bind(Json(&schema))
-            .bind(now)
+            .bind(TimestampMicros(now))
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
@@ -257,15 +256,13 @@ impl StreamRepository for PgStreamRepository {
                 .map_err(sqlx_err)?
                 .ok_or_else(|| Error::not_found(format!("stream {}", id.0)))?;
 
-        sqlx::query(
-            "UPDATE logical_streams SET retention = $2, updated_at_micros = $3 WHERE id = $1",
-        )
-        .bind(&id.0)
-        .bind(retention.map(Json))
-        .bind(now)
-        .execute(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
+        sqlx::query("UPDATE logical_streams SET retention = $2, updated_at = $3 WHERE id = $1")
+            .bind(&id.0)
+            .bind(retention.map(Json))
+            .bind(TimestampMicros(now))
+            .execute(&self.pool)
+            .await
+            .map_err(sqlx_err)?;
 
         let org_id: String = row.try_get("org_id").unwrap_or_default();
         let name: String = row.try_get("name").unwrap_or_default();
@@ -346,15 +343,13 @@ impl StreamRepository for PgStreamRepository {
                 .map_err(sqlx_err)?
                 .ok_or_else(|| Error::not_found(format!("stream {}", id.0)))?;
 
-        sqlx::query(
-            "UPDATE logical_streams SET settings = $2, updated_at_micros = $3 WHERE id = $1",
-        )
-        .bind(&id.0)
-        .bind(Json(&settings))
-        .bind(now)
-        .execute(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
+        sqlx::query("UPDATE logical_streams SET settings = $2, updated_at = $3 WHERE id = $1")
+            .bind(&id.0)
+            .bind(Json(&settings))
+            .bind(TimestampMicros(now))
+            .execute(&self.pool)
+            .await
+            .map_err(sqlx_err)?;
 
         let org_id: String = row.try_get("org_id").unwrap_or_default();
         let name: String = row.try_get("name").unwrap_or_default();

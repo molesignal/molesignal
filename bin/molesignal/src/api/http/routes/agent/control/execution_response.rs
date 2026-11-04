@@ -15,6 +15,7 @@ use crate::agent::model::{ApprovalRequest, Execution};
 const ONE_TIME_RESULT_KEY: &str = "__one_time_result";
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ExecuteApprovalResponse {
     #[serde(flatten)]
     execution: Execution,
@@ -87,11 +88,11 @@ mod tests {
     fn one_time_result_is_removed_before_persistence() {
         let mut verification = attach_one_time_result(
             json!({"verified": true}),
-            json!({"api_token": {"token": "secret"}}),
+            json!({"apiToken": {"token": "secret"}}),
         );
         let one_time = take_one_time_result(&mut verification);
         assert_eq!(verification, json!({"verified": true}));
-        assert_eq!(one_time, Some(json!({"api_token": {"token": "secret"}})));
+        assert_eq!(one_time, Some(json!({"apiToken": {"token": "secret"}})));
     }
 
     #[test]
@@ -118,7 +119,7 @@ mod tests {
                 created_at: at,
                 updated_at: at,
             },
-            one_time_result: Some(json!({"api_token": {"token": "secret"}})),
+            one_time_result: Some(json!({"apiToken": {"token": "secret"}})),
         });
         assert_eq!(response.headers()[CACHE_CONTROL], "private, no-store");
         assert_eq!(response.headers()[PRAGMA], "no-cache");

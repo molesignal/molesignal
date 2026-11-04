@@ -38,12 +38,12 @@ async fn apm_snapshots_rollups_retention_and_tenant_isolation_are_idempotent() {
     let repository = Arc::new(PgApmRepository::new(pool.clone()));
     let other_org = Id::new();
     sqlx::query(
-        "INSERT INTO organizations (id, name, slug, created_at_micros)
+        "INSERT INTO organizations (id, name, slug, created_at)
          VALUES ($1, 'APM other', $2, $3)",
     )
     .bind(other_org.as_str())
     .bind(format!("apm-other-{}", other_org.as_str()))
-    .bind(TimestampMicros::now().0)
+    .bind(TimestampMicros::now())
     .execute(&pool)
     .await
     .expect("create second organization");
@@ -221,6 +221,7 @@ async fn upsert_service(repository: &PgApmRepository, org_id: &Id, service: &Ser
                 telemetry_sdk_name: Some("opentelemetry".into()),
                 telemetry_sdk_version: Some("1".into()),
                 recent_instance_count: 1,
+                entry_kinds: Vec::new(),
             }],
             &[],
         )
@@ -257,6 +258,9 @@ fn snapshot(
             overflow_count: 0,
             latency,
             exemplars: Vec::new(),
+            status_codes: Default::default(),
+            timeout_count: 0,
+            retry_count: 0,
         },
         updated_at: TimestampMicros(bucket_at + 1),
     }

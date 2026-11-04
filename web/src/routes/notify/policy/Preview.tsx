@@ -2,18 +2,26 @@ import { AlertTriangle, CheckCircle2, Route } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import type { NotifyPolicyPreview } from '@/api/notify';
+import type { NotifyTemplate } from '@/api/notify/templates';
 import { Card, CardBody, CardHeader, Pill } from '@/shell/chrome';
 
 export function PolicyPreview({
   preview,
   error,
   loading,
+  templates,
 }: {
   preview: NotifyPolicyPreview | null;
   error: string | null;
   loading: boolean;
+  /** To name the template each step is sent with. */
+  templates: NotifyTemplate[];
 }) {
   const { t } = useTranslation('notify');
+  const templateName = (id: string | null | undefined) =>
+    id
+      ? (templates.find((template) => template.id === id)?.name ?? id)
+      : t('policies.drawer.default_template');
   return (
     <Card className="sticky top-4">
       <CardHeader
@@ -52,33 +60,38 @@ export function PolicyPreview({
               <div className="space-y-3">
                 {preview.recipients.map((recipient) => (
                   <div
-                    key={`${recipient.user_id}:${recipient.team_id ?? ''}`}
+                    key={`${recipient.userId}:${recipient.teamId ?? ''}`}
                     className="rounded-md border border-bd-0 bg-bg-2 p-3"
                   >
                     <div className="truncate font-mono text-xs font-semibold text-tx-1">
-                      {recipient.user_id}
+                      {recipient.userId}
                     </div>
                     <div className="mt-1 text-xs text-tx-3">
                       {t('policies.drawer.resolved_by', {
                         resolver: t(
-                          `resolver_types.${recipient.resolved_by}`,
-                          { defaultValue: recipient.resolved_by },
+                          `resolver_types.${recipient.resolvedBy}`,
+                          { defaultValue: recipient.resolvedBy },
                         ),
                       })}
                     </div>
                     <div className="mt-2 space-y-2">
-                      {recipient.delivery_plan.map((step, index) => (
+                      {recipient.deliveryPlan.map((step, index) => (
                         <div
-                          key={`${step.stage}:${step.connector_id}:${step.endpoint_id ?? index}`}
+                          key={`${step.stage}:${step.connectorId}:${step.endpointId ?? index}`}
                           className="flex min-w-0 items-start gap-2"
                         >
                           <Route className="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-soft" />
                           <div className="min-w-0 text-xs">
                             <div className="truncate font-semibold text-tx-1">
-                              {step.connector_name}
+                              {step.connectorName}
                             </div>
                             <div className="truncate text-tx-3">
-                              {t(`stages.${step.stage}`)} · {step.target_value_masked}
+                              {t(`stages.${step.stage}`)} · {step.targetValueMasked}
+                            </div>
+                            <div data-step-template className="truncate text-tx-3">
+                              {t('policies.drawer.step_template', {
+                                name: templateName(step.templateId),
+                              })}
                             </div>
                           </div>
                         </div>

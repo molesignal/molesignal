@@ -106,8 +106,8 @@ pub trait ReportRenderer: Send + Sync {
     /// `viewport` 是页面加载时的视口；[`Viewport::CONFIGURED`] 表示用 renderer 配置的尺寸。
     /// 输出的宽度等于视口宽度，高度跟随页面内容。
     ///
-    /// `browser_auth_storage` 是临时写入浏览器 `molesignal-auth` 同源存储的
-    /// Zustand persist JSON；仅交给 Chrome 进程，不拼入 URL，打印后立即清除。
+    /// `session` 是这次渲染的登录 Cookie：只写进这次借出的 Chrome 实例，不拼入 URL，打印后
+    /// 立即清除。
     ///
     /// 返 raw bytes；caller 决定怎么 deliver（webhook POST / s3 PUT / email attach）。
     async fn render(
@@ -115,8 +115,17 @@ pub trait ReportRenderer: Send + Sync {
         url: &str,
         format: ReportFormat,
         viewport: Viewport,
-        browser_auth_storage: Option<&str>,
+        session: Option<&SessionCookie>,
     ) -> Result<Bytes>;
+}
+
+/// 渲染报表页时浏览器带的登录 Cookie。
+#[derive(Debug, Clone)]
+pub struct SessionCookie {
+    pub name: String,
+    pub value: String,
+    /// Cookie 的 `Path`。
+    pub path: String,
 }
 
 /// 在声明 PDF/PNG MIME 前校验 renderer 的 magic bytes，避免把错误页、JSON 或 SVG

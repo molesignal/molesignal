@@ -55,8 +55,8 @@ export function StatusPageLogoField({
   const [storedLogoFailed, setStoredLogoFailed] = React.useState(false);
   const [previewFailed, setPreviewFailed] = React.useState(false);
   const [fileError, setFileError] = React.useState<string | null>(null);
-  const managedPageId = isManagedLogoUrl(page?.logo_url) ? page?.id : undefined;
-  const managedPageLogoUrl = managedPageId ? page?.logo_url : undefined;
+  const managedPageId = isManagedLogoUrl(page?.logoUrl) ? page?.id : undefined;
+  const managedPageLogoUrl = managedPageId ? page?.logoUrl : undefined;
 
   React.useEffect(() => {
     setStoredLogo(null);

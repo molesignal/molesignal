@@ -15,6 +15,7 @@ import { SYNTHETICS_REFRESH_MILLIS, useSyntheticsWorkspace } from '../data';
 import { SyntheticsPage, useLoadState } from '../Frame';
 import { OutcomeMark } from '../marks';
 import { formatDuration, resultDurationMicros } from '../model';
+import { useSyntheticsTimeWindow, windowMicros } from '../time';
 import { ResultDrawer } from './Drawer';
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100];
@@ -45,17 +46,34 @@ export function Results() {
   const outcome = resultOutcomeFrom(searchParams.get('outcome'));
   const locationId = searchParams.get('location') ?? 'all';
   const page = positiveInteger(searchParams.get('page'), 1);
-  const pageSize = pageSizeFrom(searchParams.get('page_size'));
+  const pageSize = pageSizeFrom(searchParams.get('pageSize'));
+  const timeWindow = useSyntheticsTimeWindow();
   const resultQuery = useQuery({
-    queryKey: ['synthetics', 'results', deferredQuery, outcome, locationId, page, pageSize],
-    queryFn: () =>
-      syntheticsApi.listResultPage({
+    queryKey: [
+      'synthetics',
+      'results',
+      deferredQuery,
+      outcome,
+      locationId,
+      timeWindow.from,
+      timeWindow.to,
+      page,
+      pageSize,
+    ],
+    queryFn: () => {
+      // A relative range ends now each time the page asks again.
+      const range = windowMicros(timeWindow);
+
+      return syntheticsApi.listResultPage({
         ...(deferredQuery ? { query: deferredQuery } : {}),
         ...(outcome !== 'all' ? { outcome } : {}),
-        ...(locationId !== 'all' ? { location_id: locationId } : {}),
+        ...(locationId !== 'all' ? { locationId: locationId } : {}),
+        fromTime: range.from,
+        toTime: range.to,
         page,
-        per_page: pageSize,
-      }),
+        perPage: pageSize,
+      });
+    },
     placeholderData: (previous) => previous,
     refetchInterval: SYNTHETICS_REFRESH_MILLIS,
   });
@@ -64,9 +82,9 @@ export function Results() {
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const currentPage = Math.min(page, pageCount);
   const selected = results.find((result) => result.id === resultId);
-  const selectedRow = workspace.rows.find((row) => row.monitor.id === selected?.monitor_id);
+  const selectedRow = workspace.rows.find((row) => row.monitor.id === selected?.monitorId);
   const selectedRevision = selectedRow?.detail?.revisions.find(
-    (revision) => revision.id === selected?.monitor_revision_id,
+    (revision) => revision.id === selected?.monitorRevisionId,
   );
   const setFilter = (key: 'query' | 'outcome' | 'location', value: string) => {
     const next = new URLSearchParams(searchParams);
@@ -83,8 +101,8 @@ export function Results() {
   };
   const setPageSize = (nextPageSize: number) => {
     const next = new URLSearchParams(searchParams);
-    if (nextPageSize === DEFAULT_PAGE_SIZE) next.delete('page_size');
-    else next.set('page_size', String(nextPageSize));
+    if (nextPageSize === DEFAULT_PAGE_SIZE) next.delete('pageSize');
+    else next.set('pageSize', String(nextPageSize));
     next.delete('page');
     setSearchParams(next, { replace: true });
   };
@@ -114,6 +132,7 @@ export function Results() {
     <>
       <SyntheticsPage
         state={state}
+        timed
         listHead={
           <>
             <label className="relative w-full min-w-0 sm:w-[300px]">
@@ -170,7 +189,7 @@ export function Results() {
                 header: t('results.columns.check'),
                 cell: (result) => (
                   <span className="block truncate font-strong text-tx-0">
-                    {checkName(result.monitor_id)}
+                    {checkName(result.monitorId)}
                   </span>
                 ),
               },
@@ -182,7 +201,7 @@ export function Results() {
                   <span className="inline-flex min-w-0 items-center gap-[10px]">
                     <OutcomeMark outcome={result.outcome} />
                     {/* Most runs are scheduled; only the ones a person asked for say so. */}
-                    {result.is_test && (
+                    {result.isTest && (
                       <span className="shrink-0 text-xs text-tx-3">{t('results.test_run')}</span>
                     )}
                   </span>
@@ -193,7 +212,7 @@ export function Results() {
                 header: t('results.columns.location'),
                 width: 180,
                 cell: (result) => (
-                  <span className="block truncate text-tx-1">{locationName(result.location_id)}</span>
+                  <span className="block truncate text-tx-1">{locationName(result.locationId)}</span>
                 ),
               },
               {
@@ -202,7 +221,7 @@ export function Results() {
                 width: 190,
                 cell: (result) => (
                   <span className="tabular-nums text-tx-1">
-                    {formatMicrosActive(result.started_at)}
+                    {formatMicrosActive(result.startedAt)}
                   </span>
                 ),
               },

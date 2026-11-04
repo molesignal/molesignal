@@ -13,12 +13,13 @@ use std::{
 };
 
 use async_trait::async_trait;
+use signals::rendezvous;
 use sqlx::{PgPool, Row};
 use tokio::sync::Mutex;
 
 use super::super::sqlx_err;
 use crate::{
-    domain::cluster::{ClusterRegistry, PeerInfo, PeerRole},
+    domain::cluster::{ClusterRegistry, PeerInfo, PeerRole, intake_routing_key},
     shared::{Result, ids::Id, time::TimestampMicros},
 };
 
@@ -117,17 +118,17 @@ impl ClusterNodesRepository for PgClusterNodesRepository {
     ) -> Result<()> {
         sqlx::query(
             "INSERT INTO cluster_nodes
-                (node_id, role, advertise_addr, started_at_micros, last_heartbeat_at_micros)
+                (node_id, role, advertise_addr, started_at, last_heartbeat_at)
              VALUES ($1, $2, $3, $4, $4)
              ON CONFLICT (node_id) DO UPDATE
              SET role = EXCLUDED.role,
                  advertise_addr = EXCLUDED.advertise_addr,
-                 last_heartbeat_at_micros = EXCLUDED.last_heartbeat_at_micros",
+                 last_heartbeat_at = EXCLUDED.last_heartbeat_at",
         )
         .bind(node_id)
         .bind(roles_to_csv(roles))
         .bind(advertise_addr)
-        .bind(ts.0)
+        .bind(ts)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -137,11 +138,11 @@ impl ClusterNodesRepository for PgClusterNodesRepository {
 
     async fn list_alive(&self, since: TimestampMicros) -> Result<Vec<ClusterNodeRow>> {
         let rows = sqlx::query(
-            "SELECT node_id, role, advertise_addr, started_at_micros, last_heartbeat_at_micros
+            "SELECT node_id, role, advertise_addr, started_at, last_heartbeat_at
              FROM cluster_nodes
-             WHERE last_heartbeat_at_micros >= $1",
+             WHERE last_heartbeat_at >= $1",
         )
-        .bind(since.0)
+        .bind(since)
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -152,17 +153,19 @@ impl ClusterNodesRepository for PgClusterNodesRepository {
                 node_id: r.try_get::<String, _>("node_id").unwrap_or_default(),
                 roles: roles_from_csv(&r.try_get::<String, _>("role").unwrap_or_default()),
                 advertise_addr: r.try_get::<String, _>("advertise_addr").unwrap_or_default(),
-                started_at: TimestampMicros(r.try_get("started_at_micros").unwrap_or_default()),
-                last_heartbeat_at: TimestampMicros(
-                    r.try_get("last_heartbeat_at_micros").unwrap_or_default(),
-                ),
+                started_at: r
+                    .try_get::<TimestampMicros, _>("started_at")
+                    .unwrap_or_default(),
+                last_heartbeat_at: r
+                    .try_get::<TimestampMicros, _>("last_heartbeat_at")
+                    .unwrap_or_default(),
             })
             .collect())
     }
 
     async fn sweep_stale(&self, older_than: TimestampMicros) -> Result<u64> {
-        let res = sqlx::query("DELETE FROM cluster_nodes WHERE last_heartbeat_at_micros < $1")
-            .bind(older_than.0)
+        let res = sqlx::query("DELETE FROM cluster_nodes WHERE last_heartbeat_at < $1")
+            .bind(older_than)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
@@ -271,28 +274,14 @@ impl ClusterRegistry for PgClusterRegistry {
     }
 
     async fn pick_intake(&self, org_id: &Id, stream: &str) -> Option<PeerInfo> {
-        // FNV-1a 一致性哈希按 (org_id, stream) 选 intake
-        let peers = self.list_role(PeerRole::Intake).await;
+        // rendezvous 哈希按 (org_id, stream) 选 intake：与节点列表的顺序无关，节点增减只迁移
+        // 该节点名下的数据流。
+        let key = intake_routing_key(org_id, stream);
 
-        if peers.is_empty() {
-            return None;
-        }
-
-        let mut h: u64 = 0xcbf29ce484222325;
-
-        for &b in org_id
-            .0
-            .as_bytes()
-            .iter()
-            .chain(b"|".iter())
-            .chain(stream.as_bytes())
-        {
-            h ^= b as u64;
-            h = h.wrapping_mul(0x100000001b3);
-        }
-
-        let idx = (h as usize) % peers.len();
-        peers.into_iter().nth(idx)
+        self.list_role(PeerRole::Intake)
+            .await
+            .into_iter()
+            .max_by_key(|peer| rendezvous::weight(&key, &peer.node_id))
     }
 
     async fn pick_querier(&self) -> Option<PeerInfo> {
@@ -407,6 +396,33 @@ mod tests {
             started_at: now,
             last_heartbeat_at: now,
         }
+    }
+
+    #[tokio::test]
+    async fn pick_intake_does_not_depend_on_the_order_nodes_are_listed_in() {
+        let intake = |node: &str| row(node, vec![PeerRole::Intake]);
+
+        let listed = |nodes: [&str; 3]| {
+            PgClusterRegistry::new(
+                Arc::new(FixedRepo(nodes.map(&intake).to_vec())),
+                "self:1".into(),
+                15,
+            )
+        };
+
+        let (forward, backward) = (listed(["a", "b", "c"]), listed(["c", "b", "a"]));
+        let org = Id::from_string("org-a");
+        let mut picked = std::collections::HashSet::new();
+
+        for index in 0..60 {
+            let stream = format!("stream-{index}");
+            let first = forward.pick_intake(&org, &stream).await.unwrap().node_id;
+            let second = backward.pick_intake(&org, &stream).await.unwrap().node_id;
+            assert_eq!(first, second, "{stream}");
+            picked.insert(first);
+        }
+
+        assert_eq!(picked.len(), 3, "streams spread over every intake node");
     }
 
     #[tokio::test]

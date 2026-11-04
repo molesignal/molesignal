@@ -59,16 +59,16 @@ export function RunAsNote({
   }
 
   // The backend names the user with the report, whether or not this reader may list members.
-  const profile = report?.raw.run_as_user;
+  const profile = report?.raw.runAsUser;
   const other = runAs.kind === 'other';
   const name = other
     ? runAsName(profile, runAs.userId)
     : t('run_as.you', {
         name:
-          (profile?.id === reader?.user_id && runAsName(profile, '')) ||
-          reader?.display_name ||
+          (profile?.id === reader?.userId && runAsName(profile, '')) ||
+          reader?.displayName ||
           reader?.email ||
-          reader?.user_id,
+          reader?.userId,
       });
 
   return (
@@ -83,7 +83,7 @@ export function RunAsNote({
       <span
         className="min-w-0 break-words font-strong text-tx-0"
         // The email tells two people with the same name apart.
-        title={other && profile?.display_name ? profile.email : undefined}
+        title={other && profile?.displayName ? profile.email : undefined}
       >
         {name}
       </span>

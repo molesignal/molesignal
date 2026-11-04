@@ -5,18 +5,18 @@ export interface CipherKey {
   name: string;
   alg: string;
   version: number;
-  created_at_micros: number;
-  rotated_at_micros?: number;
+  createdAt: number;
+  rotatedAt?: number;
 }
 
 export interface CreateCipherKeyPayload {
   name: string;
   /** Base64-encoded 32-byte key material. */
-  key_material_b64: string;
+  keyMaterialB64: string;
 }
 
 export interface RotateCipherKeyPayload {
-  key_material_b64: string;
+  keyMaterialB64: string;
 }
 
 export async function list(): Promise<CipherKey[]> {

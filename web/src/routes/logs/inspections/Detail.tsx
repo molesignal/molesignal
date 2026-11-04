@@ -75,7 +75,7 @@ export function LogInspectionDetail() {
     refetchInterval: (current) => {
       const data = current.state.data;
       const active =
-        Boolean(data?.inspection.active_run) ||
+        Boolean(data?.inspection.activeRun) ||
         Boolean(data?.runs.some((run) => isActiveRun(run.status)));
 
       return refreshInterval(active);
@@ -177,10 +177,10 @@ export function LogInspectionDetail() {
                 <span>{t(inspection.enabled ? 'inspections.enabled' : 'inspections.cells.paused')}</span>
               </label>
               <ChromeButton
-                disabled={Boolean(deniedReason) || run.isPending || Boolean(inspection.active_run)}
+                disabled={Boolean(deniedReason) || run.isPending || Boolean(inspection.activeRun)}
                 disabledReason={
                   deniedReason ??
-                  (inspection.active_run ? t('inspections.actions.run_active') : undefined)
+                  (inspection.activeRun ? t('inspections.actions.run_active') : undefined)
                 }
                 onClick={() => run.mutate()}
                 data-log-inspection-run-now
@@ -267,11 +267,11 @@ function statement(t: TFunction<'logs'>, inspection: LogInspection): string {
   const parts = [
     scheduleLabel(t, inspection.schedule),
     inspection.stream,
-    t('inspections.cells.window', { duration: durationLabel(t, inspection.window_secs) }),
+    t('inspections.cells.window', { duration: durationLabel(t, inspection.windowSecs) }),
     t('inspections.detail.run_as', { name: runAsName(inspection) }),
-    inspection.enabled && inspection.next_run_at_micros
+    inspection.enabled && inspection.nextRunAt
       ? t('inspections.detail.next_run', {
-          time: formatMicrosActive(inspection.next_run_at_micros, false),
+          time: formatMicrosActive(inspection.nextRunAt, false),
         })
       : t('inspections.cells.paused'),
   ];

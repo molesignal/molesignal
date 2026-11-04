@@ -20,6 +20,7 @@ use crate::{
 };
 
 pub mod authoring;
+pub mod builtin;
 pub mod contract_registry;
 mod panels;
 pub mod validation;

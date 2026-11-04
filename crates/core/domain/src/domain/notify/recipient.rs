@@ -9,6 +9,7 @@ use super::policy::NotifyEvent;
 use crate::shared::{Result, ids::Id};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NotifyRecipient {
     pub user_id: Id,
     pub team_id: Option<Id>,

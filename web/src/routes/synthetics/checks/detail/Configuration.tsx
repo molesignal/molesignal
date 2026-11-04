@@ -2,7 +2,9 @@ import type * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { MonitorRevision, ProbeLocation } from '@/api/synthetics';
+import { JsonView } from '@/shell/JsonEditor';
 
+import { carriesTraceContext, tracesRoute } from '../../editor/fields';
 import { SyntheticsSection } from '../../Frame';
 import { monitorTarget, scheduleText } from '../../model';
 
@@ -20,7 +22,7 @@ export function CheckConfiguration({
 }) {
   const { t } = useTranslation('synthetics');
   const heartbeat = revision.spec.kind === 'heartbeat';
-  const policy = revision.location_policy;
+  const policy = revision.locationPolicy;
   const yesNo = (value: boolean) => t(value ? 'common.yes' : 'common.no');
   const facts: Array<[label: string, value: React.ReactNode]> = [
     [t('checks.columns.type'), t(`kinds.${revision.spec.kind}`)],
@@ -29,16 +31,16 @@ export function CheckConfiguration({
       : ([[t('checks.columns.target'), <code key="target" className="break-all font-code text-xs">{monitorTarget(revision.spec)}</code>]] as Array<[string, React.ReactNode]>)),
     [t(heartbeat ? 'detail.schedule_heartbeat' : 'checks.columns.interval'), scheduleText(revision.schedule)],
     // The label names the unit.
-    [t('editor.timeout'), revision.timeout_millis.toLocaleString()],
-    [t('editor.retries'), String(revision.max_retries)],
-    [t('editor.failure_threshold'), String(revision.consecutive_failures)],
-    [t('editor.recovery_threshold'), String(revision.consecutive_recoveries)],
+    [t('editor.timeout'), revision.timeoutMillis.toLocaleString()],
+    [t('editor.retries'), String(revision.maxRetries)],
+    [t('editor.failure_threshold'), String(revision.consecutiveFailures)],
+    [t('editor.recovery_threshold'), String(revision.consecutiveRecoveries)],
     ...(heartbeat
       ? []
       : ([
           [
             t('editor.locations'),
-            revision.location_ids
+            revision.locationIds
               .map((id) => locations.find((location) => location.id === id)?.name ?? id)
               .join(', ') || '—',
           ],
@@ -51,10 +53,19 @@ export function CheckConfiguration({
         ] as Array<[string, React.ReactNode]>)),
     [
       t('detail.notifies'),
-      t(revision.escalation_policy_id ? 'detail.notifies_policy' : 'detail.notifies_nobody'),
+      t(revision.escalationPolicyId ? 'detail.notifies_policy' : 'detail.notifies_nobody'),
     ],
-    [t('editor.alert_on_degraded'), yesNo(revision.alert_on_degraded)],
-    [t('editor.alert_on_flaky'), yesNo(revision.alert_on_flaky)],
+    [t('editor.alert_on_degraded'), yesNo(revision.alertOnDegraded)],
+    [t('editor.alert_on_flaky'), yesNo(revision.alertOnFlaky)],
+    ...(revision.locationIds.length > 0
+      ? ([[t('editor.alert_on_no_data'), yesNo(revision.alertOnNoData)]] as Array<[string, React.ReactNode]>)
+      : []),
+    ...(carriesTraceContext(revision.spec.kind)
+      ? ([[t('detail.trace_context'), yesNo(revision.injectTraceContext)]] as Array<[string, React.ReactNode]>)
+      : []),
+    ...(tracesRoute(revision.spec.kind)
+      ? ([[t('detail.traceroute_on_failure'), yesNo(revision.tracerouteOnFailure)]] as Array<[string, React.ReactNode]>)
+      : []),
   ];
 
   return (
@@ -73,18 +84,13 @@ export function CheckConfiguration({
         </dl>
       </SyntheticsSection>
       <SyntheticsSection title={t('detail.request')}>
-        {/* It scrolls, so the keyboard has to be able to reach it. */}
-        <pre
-          tabIndex={0}
-          aria-label={t('detail.request')}
-          className="max-h-[520px] overflow-auto border-t border-bd-0 p-4 font-code text-xs leading-relaxed text-tx-1 outline-none focus-visible:bg-bg-2"
-        >
-          {JSON.stringify(
-            'configuration' in revision.spec ? revision.spec.configuration : revision.spec,
-            null,
-            2,
-          )}
-        </pre>
+        <div className="border-t border-bd-0 p-4">
+          <JsonView
+            value={'configuration' in revision.spec ? revision.spec.configuration : revision.spec}
+            ariaLabel={t('detail.request')}
+            maxHeight={520}
+          />
+        </div>
       </SyntheticsSection>
     </div>
   );

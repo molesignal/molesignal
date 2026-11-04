@@ -15,7 +15,9 @@ import {
   presentFieldQueryCompletion,
   resolveFieldQueryCompletionContext,
 } from './fieldQueryCompletion';
+import { FIELD_QUERY_TOKENS } from './fieldQueryTokens';
 import { registerJavaScriptLanguage } from './javascript';
+import { layOutJson, offsetInLayout } from './jsonLayout';
 import type {
   CodeCompletionItem,
   CodeCompletionKind,
@@ -44,41 +46,23 @@ const MONACO_THEME = 'molesignal-shell';
 const CODE_LETTER_SPACING = 0;
 const CODE_FRAME_HORIZONTAL_PADDING = 4;
 const CODE_LEFT_INSET = 14;
-const CODE_LINE_DECORATIONS_WIDTH = 12;
-const CODE_PLACEHOLDER_FALLBACK_LEFT_WITH_LINE_NUMBERS = 51;
+// The room between a line's number and its text.
+const CODE_LINE_DECORATIONS_WIDTH = 8;
+// Where the text starts after the numbers of three digits at the code size, before the editor has said.
+const CODE_PLACEHOLDER_FALLBACK_LEFT_WITH_LINE_NUMBERS = 30;
+// A guide down every indent, the one the caret is in darker. No guide is drawn from bracket to
+// bracket: down the indent and along under the line that opens it, it reads as a stray underline.
+const CODE_GUIDES: monaco.editor.IGuidesOptions = {
+  bracketPairs: false,
+  bracketPairsHorizontal: false,
+  highlightActiveIndentation: true,
+  indentation: true,
+};
 const FIELD_QUERY_LANGUAGE = 'field-query';
 const NOTIFY_TEMPLATE_LANGUAGE = 'notify-template';
 
-const FIELD_QUERY_FIELDS = [
-  'body',
-  'container',
-  'duration',
-  'duration_ms',
-  'duration_ns',
-  'error',
-  'host',
-  'http.method',
-  'http.route',
-  'level',
-  'message',
-  'method',
-  'name',
-  'operation',
-  'operation_name',
-  'parent_span_id',
-  'pod',
-  'route',
-  'service',
-  'service.name',
-  'service_name',
-  'span_id',
-  'status',
-  'status_code',
-  'trace_id',
-];
-
+// No field of its own: the page offers its stream's, and the query refuses a name the stream lacks.
 const DEFAULT_FIELD_QUERY_COMPLETIONS: CodeCompletionItem[] = [
-  ...FIELD_QUERY_FIELDS.map((label) => ({ label, kind: 'field' as const, detail: 'field' })),
   { label: '=', insertText: '= ', kind: 'operator', detail: 'operator' },
   { label: '!=', insertText: '!= ', kind: 'operator', detail: 'operator' },
   { label: 'contains', insertText: 'contains ', kind: 'operator', detail: 'operator' },
@@ -112,6 +96,7 @@ const completionItemsByModel = new Map<string, CodeCompletionItem[]>();
 
 let customLanguagesReady = false;
 let workersReady = false;
+let codeFontWatched = false;
 
 export const MonacoCodeEditor = React.forwardRef<CodeEditorHandle, CodeEditorProps>(
 function MonacoCodeEditor({
@@ -134,6 +119,7 @@ function MonacoCodeEditor({
   onCursorChange,
   completionItems,
   markers,
+  showProblems = true,
   resizable = false,
   compact = false,
   showHeader = true,
@@ -166,8 +152,10 @@ function MonacoCodeEditor({
     lineNumbers,
     minHeight,
     readOnly,
+    showProblems,
   });
   const sizingRef = React.useRef({ compact, fontSize, lineHeight, maxHeight, minHeight });
+  const languageRef = React.useRef(language);
   const [cursor, setCursor] = React.useState({ line: 1, col: 1 });
   const [isEmpty, setIsEmpty] = React.useState(() => value.length === 0);
   const [contentLineCount, setContentLineCount] = React.useState(() => lineCount(value));
@@ -182,6 +170,7 @@ function MonacoCodeEditor({
   const metrics = editorMetrics(compact, fontSize, lineHeight);
 
   sizingRef.current = { compact, fontSize, lineHeight, maxHeight, minHeight };
+  languageRef.current = language;
 
   React.useEffect(() => {
     onChangeRef.current = onChange;
@@ -262,7 +251,10 @@ function MonacoCodeEditor({
 
     const initialOptions = initialOptionsRef.current;
     const initialMetrics = editorMetrics(initialOptions.compact, initialOptions.fontSize, initialOptions.lineHeight);
-    const model = monaco.editor.createModel(valueRef.current, toMonacoLanguage(initialOptions.language));
+    const model = monaco.editor.createModel(
+      textOfOwner(valueRef.current, initialOptions.language),
+      toMonacoLanguage(initialOptions.language),
+    );
     model.updateOptions({ tabSize: 2, insertSpaces: true });
     completionItemsByModel.set(model.uri.toString(), completionItemsRef.current ?? []);
 
@@ -291,22 +283,16 @@ function MonacoCodeEditor({
       detectIndentation: false,
       domReadOnly: initialOptions.readOnly,
       fixedOverflowWidgets: true,
-      folding: true,
-      foldingHighlight: true,
-      foldingStrategy: 'auto',
+      // No folding: its arrows show only under the pointer, and the column kept for them stood
+      // empty between every line's number and its text.
+      folding: false,
       formatOnPaste: true,
       fontFamily: CODE_EDITOR_FONT_FAMILY,
       fontLigatures: true,
       fontSize: initialMetrics.fontSize,
       fontWeight: String(initialOptions.fontWeight),
       letterSpacing: CODE_LETTER_SPACING,
-      guides: {
-        bracketPairs: 'active',
-        bracketPairsHorizontal: 'active',
-        highlightActiveBracketPair: true,
-        highlightActiveIndentation: true,
-        indentation: true,
-      },
+      guides: CODE_GUIDES,
       glyphMargin: false,
       hideCursorInOverviewRuler: true,
       lineDecorationsWidth: initialOptions.lineNumbers ? CODE_LINE_DECORATIONS_WIDTH : CODE_LEFT_INSET,
@@ -323,8 +309,11 @@ function MonacoCodeEditor({
       quickSuggestionsDelay: 80,
       readOnly: initialOptions.readOnly,
       renderLineHighlight: initialOptions.highlightCurrentLine ? (initialOptions.lineNumbers ? 'all' : 'line') : 'none',
+      // The caret's line is marked while the editor is being used: one left behind on a form, or
+      // the first line of a value only shown, read as picked out.
+      renderLineHighlightOnlyWhenFocus: true,
       renderWhitespace: 'selection',
-      renderValidationDecorations: 'on',
+      renderValidationDecorations: initialOptions.showProblems ? 'on' : 'off',
       roundedSelection: true,
       scrollBeyondLastLine: false,
       scrollbar: {
@@ -333,7 +322,6 @@ function MonacoCodeEditor({
         verticalScrollbarSize: 10,
       },
       selectOnLineNumbers: initialOptions.lineNumbers,
-      showFoldingControls: 'mouseover',
       smoothScrolling: true,
       stickyScroll: {
         enabled: !initialOptions.compact && initialOptions.minHeight >= 280,
@@ -398,6 +386,13 @@ function MonacoCodeEditor({
 
     const sizeDisposable = editor.onDidContentSizeChange(updateHeight);
 
+    // JSON pasted in or left behind is laid out; a text that is not JSON yet stays as it is typed.
+    const layOutJsonWhenDone = () => {
+      if (languageRef.current === 'json') layOutJsonText(editor, model);
+    };
+    const pasteDisposable = editor.onDidPaste(layOutJsonWhenDone);
+    const blurDisposable = editor.onDidBlurEditorWidget(layOutJsonWhenDone);
+
     editorRef.current = editor;
     modelRef.current = model;
     setContentLineCount(model.getLineCount());
@@ -408,6 +403,8 @@ function MonacoCodeEditor({
       cursorDisposable.dispose();
       layoutDisposable.dispose();
       sizeDisposable.dispose();
+      pasteDisposable.dispose();
+      blurDisposable.dispose();
       window.clearTimeout(suggestionTimer);
       completionItemsByModel.delete(model.uri.toString());
       editor.dispose();
@@ -423,7 +420,9 @@ function MonacoCodeEditor({
     // text the editor never held is written in: writing a stale one would undo the keystrokes
     // since and send the caret to the start of the text.
     if (!model || echoesRef.current?.isEcho(value, model.getValue())) return;
-    model.setValue(value);
+    const text = textOfOwner(value, languageRef.current);
+    if (text === model.getValue()) return;
+    model.setValue(text);
     setContentLineCount(model.getLineCount());
     updateHeight();
   }, [updateHeight, value]);
@@ -484,13 +483,7 @@ function MonacoCodeEditor({
         enabled: true,
         independentColorPoolPerBracketType: true,
       },
-      guides: {
-        bracketPairs: 'active',
-        bracketPairsHorizontal: 'active',
-        highlightActiveBracketPair: true,
-        highlightActiveIndentation: true,
-        indentation: true,
-      },
+      guides: CODE_GUIDES,
       lineDecorationsWidth: lineNumbers ? CODE_LINE_DECORATIONS_WIDTH : CODE_LEFT_INSET,
       lineHeight: nextMetrics.lineHeight,
       lineNumbers: lineNumbers ? 'on' : 'off',
@@ -500,6 +493,7 @@ function MonacoCodeEditor({
       parameterHints: { cycle: true, enabled: !readOnly },
       quickSuggestions: quickSuggestionsFor(language, readOnly),
       renderLineHighlight: highlightCurrentLine ? (lineNumbers ? 'all' : 'line') : 'none',
+      renderValidationDecorations: showProblems ? 'on' : 'off',
       selectOnLineNumbers: lineNumbers,
       stickyScroll: {
         enabled: !compact && minHeight >= 280,
@@ -508,7 +502,7 @@ function MonacoCodeEditor({
       suggestOnTriggerCharacters: suggestionsEnabled(language, readOnly),
     });
     updateHeight();
-  }, [ariaLabel, compact, fontSize, fontWeight, highlightCurrentLine, label, language, lineHeight, lineNumbers, minHeight, placeholder, readOnly, updateHeight]);
+  }, [ariaLabel, compact, fontSize, fontWeight, highlightCurrentLine, label, language, lineHeight, lineNumbers, minHeight, placeholder, readOnly, showProblems, updateHeight]);
 
   React.useEffect(() => {
     updateHeight();
@@ -551,6 +545,15 @@ function MonacoCodeEditor({
         className,
       )}
       style={{ '--code-editor-font-weight': fontWeight } as React.CSSProperties}
+      // On a form the editor stands in a field's <label>, which hands the focus of a click to the
+      // first field inside it: a hidden one the editor keeps for input methods, that no typing
+      // reaches. A click in the editor is its own; a click on the label's words focuses the editor.
+      onClick={(event) => event.preventDefault()}
+      onFocusCapture={(event) => {
+        if (event.target instanceof HTMLElement && event.target.classList.contains('ime-text-area')) {
+          editorRef.current?.focus();
+        }
+      }}
     >
       {showHeader && (
         <CodeEditorHeader
@@ -613,6 +616,7 @@ function MonacoCodeEditor({
 });
 
 function configureMonaco() {
+  remeasureWhenCodeFontLoads();
   if (!workersReady) {
     (globalThis as MonacoGlobal).MonacoEnvironment = {
       getWorker(_workerId, label) {
@@ -634,6 +638,20 @@ function configureMonaco() {
   registerFieldQuery();
   registerNotifyTemplate();
   customLanguagesReady = true;
+}
+
+/**
+ * Monaco measures the glyphs of its face once. The code face is served with the
+ * app and may arrive after the first editor was made: then it measures again,
+ * or the cursor and selections stand where the fallback face's letters were.
+ */
+function remeasureWhenCodeFontLoads() {
+  if (codeFontWatched || typeof document === 'undefined' || !document.fonts) return;
+  codeFontWatched = true;
+  void document.fonts
+    .load(`${CODE_EDITOR_FONT_WEIGHT} ${CODE_EDITOR_FONT_SIZE}px "JetBrains Mono"`)
+    .then(() => monaco.editor.remeasureFonts())
+    .catch(() => undefined);
 }
 
 function registerSql() {
@@ -970,33 +988,7 @@ function registerFieldQuery() {
       { open: '[', close: ']' },
     ],
   });
-  monaco.languages.setMonarchTokensProvider(FIELD_QUERY_LANGUAGE, {
-    fields: FIELD_QUERY_FIELDS,
-    operators: ['AND', 'OR', 'contains', 'like', 'eq', 'ne'],
-    tokenizer: {
-      root: [
-        [/[a-zA-Z_][\w.]*\s*(?=\()/, 'function'],
-        [/[a-zA-Z_][\w.]*/, { cases: { '@operators': 'operator.query', '@fields': 'field.query', '@default': 'identifier' } }],
-        [/"([^"\\]|\\.)*$/, 'string.invalid'],
-        [/"/, 'string.query', '@string_double'],
-        [/'([^'\\]|\\.)*$/, 'string.invalid'],
-        [/'/, 'string.query', '@string_single'],
-        [/\b-?\d+(?:\.\d+)?(?:ms|s|m|h|d|w)?\b/, 'number'],
-        [/[()[\],]/, 'delimiter'],
-        [/!=|>=|<=|=|>|</, 'operator.query'],
-      ],
-      string_double: [
-        [/[^\\"]+/, 'string.query'],
-        [/\\./, 'string.escape'],
-        [/"/, 'string.query', '@pop'],
-      ],
-      string_single: [
-        [/[^\\']+/, 'string.query'],
-        [/\\./, 'string.escape'],
-        [/'/, 'string.query', '@pop'],
-      ],
-    },
-  });
+  monaco.languages.setMonarchTokensProvider(FIELD_QUERY_LANGUAGE, FIELD_QUERY_TOKENS);
   registerCompletionProvider(
     FIELD_QUERY_LANGUAGE,
     DEFAULT_FIELD_QUERY_COMPLETIONS,
@@ -1129,12 +1121,13 @@ function defineMoleSignalTheme() {
       'editor.wordHighlightTextBackground': light ? '#e4e8f1' : '#202636',
       'editorBracketMatch.background': light ? '#dfe6f7' : '#1b2945',
       'editorBracketMatch.border': operator,
-      'editorBracketHighlight.foreground1': callable,
+      // The outer brackets are not in blue, the colour of a JSON key and of a function's name.
+      'editorBracketHighlight.foreground1': type,
       'editorBracketHighlight.foreground2': keyword,
-      'editorBracketHighlight.foreground3': type,
-      'editorBracketHighlight.foreground4': callable,
+      'editorBracketHighlight.foreground3': callable,
+      'editorBracketHighlight.foreground4': type,
       'editorBracketHighlight.foreground5': keyword,
-      'editorBracketHighlight.foreground6': type,
+      'editorBracketHighlight.foreground6': callable,
       'editorBracketHighlight.unexpectedBracket.foreground': invalid,
       'editorCursor.foreground': tx0,
       'editorError.foreground': invalid,
@@ -1142,7 +1135,7 @@ function defineMoleSignalTheme() {
       'editorGutter.foldingControlForeground': tx2,
       'editorInfo.foreground': callable,
       'editorIndentGuide.activeBackground1': bd2,
-      'editorIndentGuide.background1': bd0,
+      'editorIndentGuide.background1': bd1,
       'editorLineNumber.activeForeground': tx0,
       'editorLineNumber.foreground': tx3,
       'editorStickyScroll.background': editorBg,
@@ -1259,23 +1252,24 @@ function cssColor(name: string, fallback: string): string {
   return normalizeColor(raw) ?? fallback;
 }
 
+// A colour keeps its alpha, as `#rrggbbaa`: made opaque, a hairline of 6% ink is a black line.
 function normalizeColor(raw: string): string | null {
   const value = raw.trim();
   const hex = value.match(/^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i)?.[1];
   if (hex) {
-    if (hex.length === 3 || hex.length === 4) {
-      const [r, g, b] = hex;
-      if (!r || !g || !b) return null;
-      return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
-    }
-    return `#${hex.slice(0, 6)}`.toLowerCase();
+    const digits = hex.length <= 4 ? [...hex].map((digit) => digit.repeat(2)).join('') : hex;
+    return `#${digits}`.toLowerCase();
   }
 
   const rgb = value.match(/^rgba?\((.+)\)$/i);
   if (!rgb?.[1]) return null;
-  const [r, g, b] = rgb[1].match(/[\d.]+/g)?.map((part) => Number(part)) ?? [];
+  const [r, g, b, alpha] = rgb[1].match(/[\d.]+%?/g) ?? [];
   if (r === undefined || g === undefined || b === undefined) return null;
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  const opacity = alpha === undefined
+    ? 1
+    : Number.parseFloat(alpha) / (alpha.endsWith('%') ? 100 : 1);
+  const channels = [r, g, b].map((channel) => toHex(Number.parseFloat(channel))).join('');
+  return opacity >= 1 ? `#${channels}` : `#${channels}${toHex(opacity * 255)}`;
 }
 
 function tokenHex(color: string): string {
@@ -1284,6 +1278,40 @@ function tokenHex(color: string): string {
 
 function toHex(value: number): string {
   return Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, '0');
+}
+
+/** The owner's text as the editor holds it: JSON laid out, any other text as it is. */
+function textOfOwner(value: string, language: CodeLanguage): string {
+  return language === 'json' ? (layOutJson(value) ?? value) : value;
+}
+
+/**
+ * Lays the JSON in the editor out in one edit, which undo takes back, the caret kept after the same
+ * characters. A text that is not JSON, or is laid out already, is left alone.
+ */
+function layOutJsonText(editor: monaco.editor.IStandaloneCodeEditor, model: monaco.editor.ITextModel) {
+  if (model.isDisposed() || editor.getOption(monaco.editor.EditorOption.readOnly)) return;
+
+  const text = model.getValue(monaco.editor.EndOfLinePreference.LF);
+  const laidOut = layOutJson(text);
+  if (laidOut === null || laidOut === text) return;
+
+  const position = editor.getPosition();
+  const caret = position
+    ? model.getValueInRange(
+        new monaco.Range(1, 1, position.lineNumber, position.column),
+        monaco.editor.EndOfLinePreference.LF,
+      ).length
+    : text.length;
+  const linesBefore = laidOut.slice(0, offsetInLayout(text, caret, laidOut)).split('\n');
+
+  editor.pushUndoStop();
+  editor.executeEdits('molesignal-json-layout', [{ range: model.getFullModelRange(), text: laidOut }]);
+  editor.pushUndoStop();
+  editor.setPosition({
+    lineNumber: linesBefore.length,
+    column: (linesBefore.at(-1)?.length ?? 0) + 1,
+  });
 }
 
 function toMonacoLanguage(language: CodeLanguage): string {
@@ -1299,7 +1327,7 @@ function defaultPlaceholder(language: CodeLanguage): string | undefined {
   if (language === 'yaml') return 'key: value';
   if (language === 'vrl') return '.level = upcase(.level)';
   if (language === 'javascript') return "molesignal.set('environment', 'production');";
-  if (language === 'field-query') return 'trace_id = "..." AND service_name contains "checkout"';
+  if (language === 'field-query') return 'trace_id = "..." AND service.name contains "checkout"';
   if (language === 'template') return '{{severity}} {{rule.name}}';
   return undefined;
 }

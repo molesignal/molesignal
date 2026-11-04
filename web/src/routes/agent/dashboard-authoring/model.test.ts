@@ -18,18 +18,18 @@ function draft(
   patch: Partial<DashboardDraftPreview> = {},
 ): DashboardDraftPreview {
   return {
-    draft_id: 'draft-1',
-    model_hash: 'a'.repeat(64),
+    draftId: 'draft-1',
+    modelHash: 'a'.repeat(64),
     status: 'ready',
-    created_at: NOW - 60_000_000,
-    expires_at: NOW + 600_000_000,
-    compiled_model: createEmptyDashboardDefinition('AI preview'),
+    createdAt: NOW - 60_000_000,
+    expiresAt: NOW + 600_000_000,
+    compiledModel: createEmptyDashboardDefinition('AI preview'),
     warnings: [],
     preflight: { panels: [], warnings: [], issues: [] },
     operation: null,
-    dashboard_id: null,
-    dashboard_route: null,
-    can_propose: true,
+    dashboardId: null,
+    dashboardRoute: null,
+    canPropose: true,
     ...patch,
   };
 }
@@ -51,10 +51,10 @@ describe('Dashboard authoring presentation model', () => {
       dashboardDraftAction(
         draft({
           operation: {
-            approval_id: 'approval-1',
+            approvalId: 'approval-1',
             status: 'approved',
-            required_approvals: 0,
-            approved_reviews: 0,
+            requiredApprovals: 0,
+            approvedReviews: 0,
           },
         }),
         NOW,
@@ -64,10 +64,10 @@ describe('Dashboard authoring presentation model', () => {
       dashboardDraftAction(
         draft({
           operation: {
-            approval_id: 'approval-2',
+            approvalId: 'approval-2',
             status: 'pending',
-            required_approvals: 2,
-            approved_reviews: 1,
+            requiredApprovals: 2,
+            approvedReviews: 1,
           },
         }),
         NOW,
@@ -78,11 +78,11 @@ describe('Dashboard authoring presentation model', () => {
   it('blocks on either draft or approval expiry and opens consumed results', () => {
     const approvalExpired = draft({
       operation: {
-        approval_id: 'approval-1',
+        approvalId: 'approval-1',
         status: 'approved',
-        required_approvals: 0,
-        approved_reviews: 0,
-        expires_at: NOW - 1,
+        requiredApprovals: 0,
+        approvedReviews: 0,
+        expiresAt: NOW - 1,
       },
     });
     expect(effectiveDraftExpiry(approvalExpired)).toBe(NOW - 1);
@@ -91,9 +91,9 @@ describe('Dashboard authoring presentation model', () => {
       dashboardDraftAction(
         draft({
           status: 'consumed',
-          dashboard_id: 'dashboard-1',
-          dashboard_route: '/dashboards/dashboard-1',
-          can_propose: false,
+          dashboardId: 'dashboard-1',
+          dashboardRoute: '/dashboards/dashboard-1',
+          canPropose: false,
         }),
         NOW,
       ),
@@ -117,24 +117,24 @@ describe('Dashboard authoring presentation model', () => {
           {
             path: '/panels/0',
             title: 'Errors',
-            query_kind: 'promql',
+            queryKind: 'promql',
             status: 'empty',
-            tested_from_micros: 100,
-            tested_to_micros: 300,
-            returned_rows: 0,
-            scanned_rows: 4,
-            took_ms: 2,
+            testedFrom: 100,
+            testedTo: 300,
+            returnedRows: 0,
+            scannedRows: 4,
+            tookMs: 2,
           },
           {
             path: '/panels/1',
             title: 'Latency',
-            query_kind: 'promql',
+            queryKind: 'promql',
             status: 'passed',
-            tested_from_micros: 50,
-            tested_to_micros: 250,
-            returned_rows: 2,
-            scanned_rows: 8,
-            took_ms: 3,
+            testedFrom: 50,
+            testedTo: 250,
+            returnedRows: 2,
+            scannedRows: 8,
+            tookMs: 3,
           },
         ],
       },

@@ -24,21 +24,21 @@ export function checkTarget(spec: MonitorSpec | undefined): string | undefined {
 export function activeRevision(detail: MonitorDetail | undefined): MonitorRevision | undefined {
   if (!detail) return undefined;
   return (
-    detail.revisions.find((revision) => revision.id === detail.monitor.draft_revision_id) ??
-    detail.revisions.find((revision) => revision.id === detail.monitor.active_revision_id) ??
+    detail.revisions.find((revision) => revision.id === detail.monitor.draftRevisionId) ??
+    detail.revisions.find((revision) => revision.id === detail.monitor.activeRevisionId) ??
     detail.revisions[0]
   );
 }
 
 export function publishedRevision(detail: MonitorDetail | undefined): MonitorRevision | undefined {
   if (!detail) return undefined;
-  return detail.revisions.find((revision) => revision.id === detail.monitor.active_revision_id);
+  return detail.revisions.find((revision) => revision.id === detail.monitor.activeRevisionId);
 }
 
 export function scheduleSeconds(schedule: MonitorSchedule | undefined): number | undefined {
   if (!schedule) return undefined;
-  if (schedule.kind === 'interval') return schedule.every_seconds;
-  if (schedule.kind === 'heartbeat') return schedule.expected_seconds;
+  if (schedule.kind === 'interval') return schedule.everySeconds;
+  if (schedule.kind === 'heartbeat') return schedule.expectedSeconds;
   return undefined;
 }
 
@@ -54,7 +54,7 @@ export function scheduleText(schedule: MonitorSchedule | undefined): string {
 export function resultDurationMicros(result: SyntheticResult | undefined): number | undefined {
   if (!result) return undefined;
   const latestAttempt = result.attempts.at(-1);
-  return latestAttempt?.timing.total_micros ?? Math.max(0, result.finished_at - result.started_at);
+  return latestAttempt?.timing.totalTime ?? Math.max(0, result.finishedAt - result.startedAt);
 }
 
 export function successRate(results: SyntheticResult[]): number | undefined {
@@ -66,7 +66,7 @@ export function successRate(results: SyntheticResult[]): number | undefined {
 }
 
 export function operationalResults(results: SyntheticResult[]): SyntheticResult[] {
-  return results.filter((result) => !result.is_test);
+  return results.filter((result) => !result.isTest);
 }
 
 export function percentile(values: number[], quantile: number): number | undefined {
@@ -120,20 +120,23 @@ export function detailToInput(detail: MonitorDetail, clone = false): CreateMonit
     description: detail.monitor.description,
     spec: revision.spec,
     schedule: revision.schedule,
-    timeout_millis: revision.timeout_millis,
-    max_retries: revision.max_retries,
-    consecutive_failures: revision.consecutive_failures,
-    consecutive_recoveries: revision.consecutive_recoveries,
-    freshness_seconds: revision.freshness_seconds,
-    location_policy: revision.location_policy,
-    location_ids: revision.location_ids,
-    ...(detail.monitor.team_id ? { team_id: detail.monitor.team_id } : {}),
+    timeoutMillis: revision.timeoutMillis,
+    maxRetries: revision.maxRetries,
+    consecutiveFailures: revision.consecutiveFailures,
+    consecutiveRecoveries: revision.consecutiveRecoveries,
+    freshnessSeconds: revision.freshnessSeconds,
+    locationPolicy: revision.locationPolicy,
+    locationIds: revision.locationIds,
+    ...(detail.monitor.teamId ? { teamId: detail.monitor.teamId } : {}),
     tags: detail.monitor.tags,
-    ...(revision.escalation_policy_id
-      ? { escalation_policy_id: revision.escalation_policy_id }
+    ...(revision.escalationPolicyId
+      ? { escalationPolicyId: revision.escalationPolicyId }
       : {}),
-    alert_on_degraded: revision.alert_on_degraded,
-    alert_on_flaky: revision.alert_on_flaky,
+    alertOnDegraded: revision.alertOnDegraded,
+    alertOnFlaky: revision.alertOnFlaky,
+    alertOnNoData: revision.alertOnNoData,
+    injectTraceContext: revision.injectTraceContext,
+    tracerouteOnFailure: revision.tracerouteOnFailure,
   };
 }
 

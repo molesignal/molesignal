@@ -2,20 +2,20 @@ import { http } from '@/lib/http';
 
 export interface Invitation {
   id: string;
-  org_id: string;
+  orgId: string;
   email: string;
-  role_id: string;
-  role_key: string;
-  role_name: string;
-  inviter_id: string;
+  roleId: string;
+  roleKey: string;
+  roleName: string;
+  inviterId: string;
   status: 'pending' | 'accepted' | 'revoked' | string;
-  sent_at_micros: number;
-  updated_at_micros: number;
+  sentAt: number;
+  updatedAt: number;
 }
 
 export interface CreateInvitationInput {
   email: string;
-  role_id?: string;
+  roleId?: string;
 }
 
 export async function list(): Promise<Invitation[]> {

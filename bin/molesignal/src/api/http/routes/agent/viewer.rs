@@ -31,6 +31,7 @@ pub(crate) fn chat_scope(chat: &Chat) -> ChatScope {
         ("team", Some(team_id)) => ChatScope::Team {
             team_id: Id::from_string(team_id),
         },
+        ("org", _) => ChatScope::Org,
         _ => ChatScope::Personal {
             owner_id: chat.user_id.clone(),
             mounted_teams: chat

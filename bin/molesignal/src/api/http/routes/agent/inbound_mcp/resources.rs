@@ -221,15 +221,15 @@ fn parse_dynamic_uri(uri: &str) -> Result<DynamicResource, ErrorData> {
     match (host, segments.as_slice()) {
         ("approvals", [id]) => Ok(DynamicResource {
             tool: "get_agent_approval",
-            arguments: json!({"approval_id": id}),
+            arguments: json!({"approvalId": id}),
         }),
         ("executions", [id]) => Ok(DynamicResource {
             tool: "get_agent_execution",
-            arguments: json!({"execution_id": id}),
+            arguments: json!({"executionId": id}),
         }),
         ("search-jobs", [id]) => Ok(DynamicResource {
             tool: "get_search_job",
-            arguments: json!({"job_id": id}),
+            arguments: json!({"jobId": id}),
         }),
         ("streams", [stream_type, name, suffix])
             if suffix == "schema"
@@ -240,7 +240,7 @@ fn parse_dynamic_uri(uri: &str) -> Result<DynamicResource, ErrorData> {
         {
             Ok(DynamicResource {
                 tool: "get_stream_schema",
-                arguments: json!({"stream": name, "stream_type": stream_type}),
+                arguments: json!({"stream": name, "streamType": stream_type}),
             })
         }
         _ => Err(ErrorData::resource_not_found(

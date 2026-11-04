@@ -3,7 +3,10 @@
 
 //! Who holds platform permissions, and where they take effect.
 
-use std::sync::Arc;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 use async_trait::async_trait;
 use parking_lot::Mutex;
@@ -16,12 +19,12 @@ use crate::{
     domain::iam::{
         IamAssignedRole, IamPlatformAdministrator, IamPlatformAdministratorRepository, IamScope,
         access::{
-            IamCrossOrgGrant, IamCrossOrgGrantQuery, IamCrossOrgGrantStatus, IamPrincipalType,
-            IamRelationshipQuery, IamRepository, IamResourceRelationship, IamRoleBinding,
-            ResolvedIamResourceRelationship, ResolvedIamRoleBinding,
+            IamCrossOrgGrant, IamCrossOrgGrantQuery, IamCrossOrgGrantStatus, IamPlatformGrant,
+            IamPrincipalType, IamRelationshipQuery, IamRepository, IamResourceRelationship,
+            IamRoleBinding, IamTokenGrant, ResolvedIamResourceRelationship, ResolvedIamRoleBinding,
         },
         catalog::{IamPermissionCatalog, IamPermissionDefinition, IamPermissionScope},
-        navigation::IamRouteCatalog,
+        navigation::{IamRouteCatalog, IamRouteDefinition, IamRoutePermissionMode, IamRouteScope},
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
@@ -29,21 +32,31 @@ use crate::{
 const SYSTEM_ORG: &str = "_sys-id";
 const TENANT: &str = "tenant-a";
 const ROOT: &str = "root-user";
-const OWNER: &str = "owner-user";
-const PLATFORM_KEYS: [&str; 2] = ["sys.organizations.manage", "sys.telemetry.read"];
+const GRANTEE: &str = "granted-user";
+const MEMBER: &str = "member-user";
+const PLATFORM_KEYS: [&str; 2] = ["sys.organizations.read", "sys.telemetry.read"];
 const ORGANIZATION_KEYS: [&str; 2] = ["dashboards.read", "streams.query"];
 
 /// An IAM database reduced to what a capability snapshot and a decision read.
 struct FakeIam {
-    /// What `platform_permissions` answers for the owner; emptied to take the role away.
-    owner_grant: Mutex<Vec<String>>,
+    /// What `platform_grant` answers for the grantee; emptied to take the binding away.
+    platform_grant: Mutex<IamPlatformGrant>,
 }
 
 impl FakeIam {
     fn new() -> Self {
         Self {
-            owner_grant: Mutex::new(PLATFORM_KEYS.map(String::from).to_vec()),
+            platform_grant: Mutex::new(granting(&PLATFORM_KEYS)),
         }
+    }
+}
+
+/// What a role bound across the platform gives.
+fn granting(permissions: &[&str]) -> IamPlatformGrant {
+    IamPlatformGrant {
+        permissions: permissions.iter().map(|key| (*key).to_owned()).collect(),
+        organizations: BTreeMap::new(),
+        roles: vec![role("platform_auditor", "Platform auditor")],
     }
 }
 
@@ -85,7 +98,6 @@ impl IamRepository for FakeIam {
                         .map(|key| definition(key, IamPermissionScope::Organization)),
                 )
                 .collect(),
-            bundles: Vec::new(),
         })
     }
 
@@ -96,7 +108,16 @@ impl IamRepository for FakeIam {
     async fn route_catalog(&self) -> Result<IamRouteCatalog> {
         Ok(IamRouteCatalog {
             version: 1,
-            routes: Vec::new(),
+            routes: vec![IamRouteDefinition {
+                id: "iam.organizations".into(),
+                path_pattern: "/iam/organizations".into(),
+                scope: IamRouteScope::System,
+                permission_mode: IamRoutePermissionMode::All,
+                permissions: vec!["sys.organizations.read".into()],
+                enabled: true,
+                navigation_group: None,
+                navigation_position: None,
+            }],
         })
     }
 
@@ -110,31 +131,19 @@ impl IamRepository for FakeIam {
         })
     }
 
-    async fn role_for_purpose(
-        &self,
-        organization_id: &Id,
-        _purpose: &str,
-    ) -> Result<Option<IamAssignedRole>> {
-        Ok(Some(if organization_id.0 == SYSTEM_ORG {
-            role("platform_owner", "Platform owner")
-        } else {
-            role("owner", "Owner")
-        }))
-    }
-
     async fn policy_version(&self, _organization_id: &Id) -> Result<u64> {
         Ok(1)
     }
 
-    async fn platform_permissions(
+    async fn platform_grant(
         &self,
         user_id: &Id,
         _now: TimestampMicros,
-    ) -> Result<Vec<String>> {
-        Ok(if user_id.0 == OWNER {
-            self.owner_grant.lock().clone()
+    ) -> Result<IamPlatformGrant> {
+        Ok(if user_id.0 == GRANTEE {
+            self.platform_grant.lock().clone()
         } else {
-            Vec::new()
+            IamPlatformGrant::default()
         })
     }
 
@@ -158,18 +167,51 @@ impl IamRepository for FakeIam {
         unreachable!("not read by these tests")
     }
 
-    async fn membership_exists(&self, _: &Id, _: &Id) -> Result<bool> {
-        unreachable!("not read by these tests")
+    async fn membership_exists(&self, _: &Id, user_id: &Id) -> Result<bool> {
+        Ok(user_id.0 == MEMBER)
     }
 
-    async fn active_role_bindings(
+    async fn api_token_grant(
         &self,
         _: &Id,
-        _: IamPrincipalType,
         _: &Id,
         _: TimestampMicros,
+    ) -> Result<Option<IamTokenGrant>> {
+        Ok(Some(IamTokenGrant {
+            ceiling: None,
+            service_account_role_id: None,
+        }))
+    }
+
+    /// A role that still lists a platform permission, as one could in a database not yet
+    /// reconciled.
+    async fn active_role_bindings(
+        &self,
+        organization_id: &Id,
+        _: IamPrincipalType,
+        user_id: &Id,
+        _: TimestampMicros,
     ) -> Result<Vec<ResolvedIamRoleBinding>> {
-        unreachable!("not read by these tests")
+        Ok(vec![ResolvedIamRoleBinding {
+            binding: IamRoleBinding {
+                id: Id::from_string("binding"),
+                organization_id: organization_id.clone(),
+                role_id: Id::from_string("owner-id"),
+                principal_type: IamPrincipalType::User,
+                principal_id: user_id.clone(),
+                resource_type: None,
+                resource_id: None,
+                conditions: serde_json::json!({}),
+                starts_at: None,
+                expires_at: None,
+                created_by: user_id.clone(),
+                created_at: TimestampMicros(0),
+            },
+            role_key: "owner".into(),
+            role_name: "Owner".into(),
+            role_builtin: true,
+            permissions: vec!["dashboards.read".into(), "sys.telemetry.read".into()],
+        }])
     }
 
     async fn list_role_bindings(&self, _: &Id) -> Result<Vec<IamRoleBinding>> {
@@ -259,7 +301,7 @@ fn subject(user: &str, organization: &str, scope: IamScope) -> IamSubject {
     IamSubject {
         user_id: Id::from_string(user),
         organization_id: Id::from_string(organization),
-        credential_role_id: None,
+        credential_token_id: None,
         credential_application_id: None,
         credential_service_account_id: None,
         scope,
@@ -268,11 +310,11 @@ fn subject(user: &str, organization: &str, scope: IamScope) -> IamSubject {
 
 fn context(organization: &str, scope: IamScope, permissions: &[&str]) -> IamContext {
     IamContext {
-        user_id: Id::from_string(OWNER),
+        user_id: Id::from_string(GRANTEE),
         org_id: Id::from_string(organization),
         display_role: String::new(),
         roles: Vec::new(),
-        credential_role_id: None,
+        credential_token_id: None,
         credential_application_id: None,
         credential_service_account_id: None,
         scope,
@@ -296,7 +338,7 @@ fn request(permission: &str, organization: Option<&str>) -> IamAccessRequest {
 }
 
 #[tokio::test]
-async fn root_holds_the_whole_catalog_in_an_organization_as_its_owner_does() {
+async fn root_holds_what_counts_in_an_organization_and_no_more() {
     let (access, _) = service();
 
     let snapshot = access
@@ -304,10 +346,63 @@ async fn root_holds_the_whole_catalog_in_an_organization_as_its_owner_does() {
         .await
         .unwrap();
 
-    for key in PLATFORM_KEYS.iter().chain(ORGANIZATION_KEYS.iter()) {
-        assert!(snapshot.has(key), "root lacks {key} in an organization");
-    }
-    assert_eq!(snapshot.display_role, "Owner");
+    assert_eq!(
+        snapshot.permissions,
+        ORGANIZATION_KEYS.map(String::from).to_vec()
+    );
+    assert_eq!(snapshot.display_role, "Super administrator");
+    assert_eq!(snapshot.roles[0].key, "super_administrator");
+}
+
+#[tokio::test]
+async fn root_reads_as_itself_in_the_platform_organization_too() {
+    let (access, _) = service();
+
+    let snapshot = access
+        .capabilities(&subject(ROOT, SYSTEM_ORG, IamScope::System))
+        .await
+        .unwrap();
+
+    assert_eq!(snapshot.display_role, "Super administrator");
+}
+
+#[tokio::test]
+async fn a_token_of_root_holds_what_counts_in_an_organization_and_no_more() {
+    let (access, _) = service();
+
+    let mut token = subject(ROOT, TENANT, IamScope::ApiToken);
+    token.credential_token_id = Some(Id::from_string("token"));
+
+    let snapshot = access.capabilities(&token).await.unwrap();
+
+    assert_eq!(
+        snapshot.permissions,
+        ORGANIZATION_KEYS.map(String::from).to_vec()
+    );
+}
+
+#[tokio::test]
+async fn a_platform_permission_gives_nothing_in_an_organization_session() {
+    let (access, _) = service();
+
+    let snapshot = access
+        .capabilities(&subject(MEMBER, TENANT, IamScope::Organization))
+        .await
+        .unwrap();
+
+    assert_eq!(snapshot.permissions, vec!["dashboards.read".to_string()]);
+}
+
+#[tokio::test]
+async fn a_token_carries_no_platform_permission_either() {
+    let (access, _) = service();
+
+    let mut token = subject(MEMBER, TENANT, IamScope::ApiToken);
+    token.credential_token_id = Some(Id::from_string("token"));
+
+    let snapshot = access.capabilities(&token).await.unwrap();
+
+    assert_eq!(snapshot.permissions, vec!["dashboards.read".to_string()]);
 }
 
 #[tokio::test]
@@ -326,11 +421,11 @@ async fn the_platform_organization_carries_only_platform_permissions() {
 }
 
 #[tokio::test]
-async fn an_owner_enters_the_platform_organization_with_what_the_role_holds() {
+async fn a_grantee_enters_the_platform_organization_with_what_was_granted() {
     let (access, _) = service();
 
     let snapshot = access
-        .capabilities(&subject(OWNER, SYSTEM_ORG, IamScope::System))
+        .capabilities(&subject(GRANTEE, SYSTEM_ORG, IamScope::System))
         .await
         .unwrap();
 
@@ -338,8 +433,43 @@ async fn an_owner_enters_the_platform_organization_with_what_the_role_holds() {
         snapshot.permissions,
         PLATFORM_KEYS.map(String::from).to_vec()
     );
-    assert_eq!(snapshot.display_role, "Platform owner");
-    assert_eq!(snapshot.roles[0].key, "platform_owner");
+    assert_eq!(snapshot.display_role, "Platform auditor");
+    assert_eq!(snapshot.roles[0].key, "platform_auditor");
+}
+
+#[tokio::test]
+async fn a_binding_narrowed_to_an_organization_lets_in_and_is_not_holding_the_permission() {
+    let (access, iam) = service();
+
+    *iam.platform_grant.lock() = IamPlatformGrant {
+        permissions: BTreeSet::new(),
+        organizations: BTreeMap::from([(
+            "sys.organizations.read".to_owned(),
+            BTreeSet::from([TENANT.to_owned()]),
+        )]),
+        roles: vec![role("tenant_keeper", "Tenant keeper")],
+    };
+
+    let snapshot = access
+        .capabilities(&subject(GRANTEE, SYSTEM_ORG, IamScope::System))
+        .await
+        .unwrap();
+
+    assert!(snapshot.permissions.is_empty());
+    assert_eq!(
+        snapshot.organization_permissions["sys.organizations.read"],
+        vec![TENANT.to_owned()]
+    );
+    assert_eq!(snapshot.display_role, "Tenant keeper");
+
+    // It opens the page about organizations, whose handlers decide organization by organization.
+    assert!(
+        snapshot
+            .routes
+            .iter()
+            .find(|route| route.id == "iam.organizations")
+            .is_some_and(|route| route.allowed)
+    );
 }
 
 #[tokio::test]
@@ -355,20 +485,20 @@ async fn nobody_else_enters_the_platform_organization() {
 }
 
 #[tokio::test]
-async fn taking_the_owner_role_away_ends_an_open_platform_session() {
+async fn taking_the_grant_away_ends_an_open_platform_session() {
     let (access, iam) = service();
-    let owner = subject(OWNER, SYSTEM_ORG, IamScope::System);
-    access.capabilities(&owner).await.unwrap();
+    let grantee = subject(GRANTEE, SYSTEM_ORG, IamScope::System);
+    access.capabilities(&grantee).await.unwrap();
 
     // Narrowed: the snapshot resolved a moment ago is not served for the smaller grant.
-    *iam.owner_grant.lock() = vec!["sys.telemetry.read".into()];
-    let narrowed = access.capabilities(&owner).await.unwrap();
+    *iam.platform_grant.lock() = granting(&["sys.telemetry.read"]);
+    let narrowed = access.capabilities(&grantee).await.unwrap();
     assert_eq!(narrowed.permissions, vec!["sys.telemetry.read".to_string()]);
 
     // Gone: the token is still valid, the session is not.
-    iam.owner_grant.lock().clear();
+    *iam.platform_grant.lock() = IamPlatformGrant::default();
     assert!(matches!(
-        access.capabilities(&owner).await.unwrap_err(),
+        access.capabilities(&grantee).await.unwrap_err(),
         Error::Forbidden(_)
     ));
 }
@@ -412,8 +542,8 @@ async fn a_platform_session_reaches_the_platform_organization_and_no_tenant() {
 #[tokio::test]
 async fn a_platform_permission_decides_no_resource_inside_an_organization() {
     let (access, _) = service();
-    // An owner holds the key in the organization too; resources there are still decided by
-    // organization permissions, so the key cannot be turned on another tenant's resource.
+    // Should the key reach an organization session, resources there are still decided by
+    // organization permissions, so it cannot be turned on another tenant's resource.
     let session = context(TENANT, IamScope::Organization, &["sys.telemetry.read"]);
 
     for target in [Some(TENANT), Some("tenant-b"), None] {

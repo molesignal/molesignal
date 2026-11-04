@@ -11,7 +11,7 @@ import type {
   LogInspectionInput,
   LogInspectionRun,
 } from '@/api/logInspections';
-import type { NotifyConnector } from '@/api/notify';
+import { type NotifyConnector, templateProvider } from '@/api/notify';
 
 export type ScheduleKind = InspectionSchedule['type'];
 
@@ -61,13 +61,18 @@ export interface ChannelConnector {
 /**
  * The connectors the channels of an inspection can be on: those enabled, and
  * after them those a channel is already on although they were disabled since.
+ * A connector that sends only templates its provider approved is not offered:
+ * what an inspection sends is its own text, not a template.
  */
 export function channelConnectors(
   connectors: readonly NotifyConnector[],
   routes: readonly InspectionNotifyRoute[],
 ): ChannelConnector[] {
   const offered: ChannelConnector[] = connectors
-    .filter((connector) => connector.enabled)
+    .filter(
+      (connector) =>
+        connector.enabled && templateProvider(connector.connectorType) === null,
+    )
     .map((connector) => ({
       id: connector.id,
       name: connector.name,
@@ -76,17 +81,17 @@ export function channelConnectors(
     }));
 
   for (const route of routes) {
-    if (offered.some((connector) => connector.id === route.connector_id)) continue;
+    if (offered.some((connector) => connector.id === route.connectorId)) continue;
 
-    const known = connectors.find((connector) => connector.id === route.connector_id);
+    const known = connectors.find((connector) => connector.id === route.connectorId);
 
     offered.push(
       known
         ? { id: known.id, name: known.name, group: known.capabilities.group, standing: 'off' }
         : {
-            id: route.connector_id,
-            name: route.connector_id,
-            group: route.target_type === 'fixed_group',
+            id: route.connectorId,
+            name: route.connectorId,
+            group: route.targetType === 'fixed_group',
             standing: 'gone',
           },
     );
@@ -97,10 +102,10 @@ export function channelConnectors(
 
 /** What the limits are taken to be until the instance has said. */
 export const DEFAULT_LIMITS: InspectionLimits = {
-  min_interval_secs: 3_600,
-  max_per_org: 20,
-  run_timeout_secs: 300,
-  report_retention_days: 30,
+  minIntervalSecs: 3_600,
+  maxPerOrg: 20,
+  runTimeoutSecs: 300,
+  reportRetentionDays: 30,
 };
 
 /** An inspection as the form holds it: one value per control. */
@@ -123,7 +128,7 @@ export interface InspectionDraft {
 
 /** The intervals this instance allows, shortest first. */
 export function intervalOptions(limits: InspectionLimits): number[] {
-  return INTERVAL_MINUTES.filter((minutes) => minutes * 60 >= limits.min_interval_secs);
+  return INTERVAL_MINUTES.filter((minutes) => minutes * 60 >= limits.minIntervalSecs);
 }
 
 /** How far apart two runs of a schedule are, in seconds. */
@@ -144,7 +149,7 @@ export function windowFor(kind: ScheduleKind, everyMinutes: number): number {
 
 export function scheduleOf(draft: InspectionDraft): InspectionSchedule {
   if (draft.scheduleKind === 'interval') {
-    return { type: 'interval', every_minutes: draft.everyMinutes };
+    return { type: 'interval', everyMinutes: draft.everyMinutes };
   }
   if (draft.scheduleKind === 'daily') {
     return { type: 'daily', hour: draft.hour, minute: draft.minute };
@@ -163,7 +168,7 @@ interface DraftSeed {
 export function newDraft(limits: InspectionLimits, seed: DraftSeed = {}): InspectionDraft {
   const allowed = intervalOptions(limits);
   const everyMinutes = allowed.find((minutes) => minutes >= 60) ?? allowed[0] ?? 60;
-  const daily = allowed.length === 0 && limits.min_interval_secs <= 86_400;
+  const daily = allowed.length === 0 && limits.minIntervalSecs <= 86_400;
   const kind: ScheduleKind = allowed.length > 0 ? 'interval' : daily ? 'daily' : 'weekly';
 
   return {
@@ -193,14 +198,14 @@ export function draftFromInspection(inspection: LogInspection): InspectionDraft 
     statement: inspection.statement,
     requirements: inspection.requirements,
     scheduleKind: schedule.type,
-    everyMinutes: schedule.type === 'interval' ? schedule.every_minutes : 60,
+    everyMinutes: schedule.type === 'interval' ? schedule.everyMinutes : 60,
     hour: schedule.type === 'interval' ? 9 : schedule.hour,
     minute: schedule.type === 'interval' ? 0 : schedule.minute,
     weekday: schedule.type === 'weekly' ? schedule.weekday : 1,
-    windowSecs: inspection.window_secs,
-    providerId: inspection.provider_id,
-    notifyWhen: inspection.notify_when,
-    routes: inspection.notify_routes.map((route) => ({ ...route })),
+    windowSecs: inspection.windowSecs,
+    providerId: inspection.providerId,
+    notifyWhen: inspection.notifyWhen,
+    routes: inspection.notifyRoutes.map((route) => ({ ...route })),
     enabled: inspection.enabled,
   };
 }
@@ -221,13 +226,13 @@ export function draftProblems(draft: InspectionDraft, limits: InspectionLimits):
   if (!name || name.length > NAME_MAX) problems.push('name');
   if (!draft.stream.trim()) problems.push('stream');
   if (!draft.providerId) problems.push('provider');
-  if (periodSeconds(draft.scheduleKind, draft.everyMinutes) < limits.min_interval_secs) {
+  if (periodSeconds(draft.scheduleKind, draft.everyMinutes) < limits.minIntervalSecs) {
     problems.push('schedule');
   }
   if (draft.routes.some((route) => !route.target.trim())) problems.push('route_target');
 
   const channels = draft.routes.map(
-    (route) => `${route.connector_id}\u0000${route.target_type}\u0000${route.target.trim()}`,
+    (route) => `${route.connectorId}\u0000${route.targetType}\u0000${route.target.trim()}`,
   );
 
   if (new Set(channels).size !== channels.length) problems.push('route_repeated');
@@ -244,14 +249,14 @@ export function inputFromDraft(
     name: draft.name.trim(),
     stream: draft.stream.trim(),
     statement: draft.statement.trim(),
-    window_secs: draft.windowSecs,
+    windowSecs: draft.windowSecs,
     requirements: draft.requirements.trim(),
     schedule: scheduleOf(draft),
     timezone: context.timezone,
-    provider_id: draft.providerId,
+    providerId: draft.providerId,
     model: context.model ?? null,
-    notify_when: draft.notifyWhen,
-    notify_routes: draft.routes.map((route) => ({ ...route, target: route.target.trim() })),
+    notifyWhen: draft.notifyWhen,
+    notifyRoutes: draft.routes.map((route) => ({ ...route, target: route.target.trim() })),
     language: context.language,
     enabled: draft.enabled,
   };
@@ -289,7 +294,7 @@ export function minuteChoices(minute: number): number[] {
 export function scheduleLabel(t: TFunction<'logs'>, schedule: InspectionSchedule): string {
   if (schedule.type === 'interval') {
     return t('inspections.schedule.every', {
-      duration: durationLabel(t, schedule.every_minutes * 60),
+      duration: durationLabel(t, schedule.everyMinutes * 60),
     });
   }
 
@@ -311,11 +316,11 @@ export type InspectionStanding =
   | { kind: 'level'; level: InspectionLevel };
 
 export function standingOf(inspection: LogInspection): InspectionStanding {
-  const active = inspection.active_run?.status;
+  const active = inspection.activeRun?.status;
 
   if (active === 'queued' || active === 'running') return { kind: 'active', status: active };
 
-  const last = inspection.last_run;
+  const last = inspection.lastRun;
 
   if (!last) return { kind: 'never' };
   if (last.status === 'failed' || last.status === 'timed_out') {
@@ -330,7 +335,7 @@ export function isActiveRun(status: InspectionRunStatus): boolean {
 }
 
 export function hasActiveRun(inspections: readonly LogInspection[] | undefined): boolean {
-  return Boolean(inspections?.some((inspection) => inspection.active_run));
+  return Boolean(inspections?.some((inspection) => inspection.activeRun));
 }
 
 export function refreshInterval(active: boolean): number {
@@ -339,11 +344,11 @@ export function refreshInterval(active: boolean): number {
 
 /** How long a run took, or has taken so far; null for one that has not started. */
 export function runDurationMicros(run: LogInspectionRun, nowMicros: number): number | null {
-  if (!run.started_at_micros) return null;
+  if (!run.startedAt) return null;
 
-  const end = run.finished_at_micros ?? (run.status === 'running' ? nowMicros : null);
+  const end = run.finishedAt ?? (run.status === 'running' ? nowMicros : null);
 
-  return end === null ? null : Math.max(0, end - run.started_at_micros);
+  return end === null ? null : Math.max(0, end - run.startedAt);
 }
 
 export function formatRunDuration(micros: number | null): string {
@@ -359,13 +364,13 @@ export function formatRunDuration(micros: number | null): string {
 /** Who an inspection runs as, by the best name there is for them. */
 export function runAsName(inspection: LogInspection): string {
   return (
-    inspection.run_as_user?.display_name.trim() ||
-    inspection.run_as_user?.email.trim() ||
-    inspection.run_as_user_id
+    inspection.runAsUser?.displayName.trim() ||
+    inspection.runAsUser?.email.trim() ||
+    inspection.runAsUserId
   );
 }
 
 /** Whether another inspection may be saved in the organization. */
 export function atCapacity(count: number, limits: InspectionLimits): boolean {
-  return count >= limits.max_per_org;
+  return count >= limits.maxPerOrg;
 }

@@ -35,7 +35,7 @@ export function ActivationStrip({
           : undefined
       }
       className={cn(
-        'flex min-h-[48px] flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-[var(--functional-surface)] px-[20px] py-1.5 [box-shadow:inset_3px_0_0_var(--indigo),var(--shadow-functional-surface)]',
+        'flex min-h-[48px] flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-[var(--functional-surface)] px-[20px] py-1.5 [box-shadow:inset_2px_0_0_var(--indigo),var(--shadow-functional-surface)]',
         riseIndex !== undefined && 'home-rise',
       )}
     >

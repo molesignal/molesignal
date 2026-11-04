@@ -32,11 +32,13 @@ import {
 } from './model';
 import {
   QueryPaneContext,
+  type QuerySplitControl,
+  QuerySplitContext,
   type QueryTabScope,
   QueryTabScopeContext,
   type QueryTabStatus,
+  QueryTabStripContext,
 } from './scope';
-import { SplitToggle } from './SplitToggle';
 import {
   pruneQueryTabTimeStores,
   queryTabKey,
@@ -58,16 +60,15 @@ import { QueryTabStrip } from './Strip';
  * (`useTimeStore`, through `TimeScopeContext`). The tab in front is the one the
  * address bar and the app's time range describe, so links, reloads and the
  * other pages keep working as they do without tabs.
+ *
+ * The page lists the tabs in its query box (`useQueryTabStrip`): the page
+ * shown in each half lists that half's tabs. The page shown at the right puts
+ * the switch that splits the page in the head of its results
+ * (`QuerySplitToggle`).
  */
-export function QueryTabs({
-  kind,
-  children,
-}: {
-  kind: QueryTabsKind;
-  children: React.ReactNode;
-}) {
-  const userId = useAuthStore((state) => state.ctx?.user_id ?? '');
-  const orgId = useAuthStore((state) => state.ctx?.org_id ?? '');
+export function QueryTabs({ kind, children }: { kind: QueryTabsKind; children: React.ReactNode }) {
+  const userId = useAuthStore((state) => state.ctx?.userId ?? '');
+  const orgId = useAuthStore((state) => state.ctx?.orgId ?? '');
   const scope = queryTabsScope(userId, orgId, kind);
 
   // Another user or organization has other tabs: start over rather than carry state across.
@@ -281,8 +282,38 @@ function QueryTabsHost({
     if (!tabs.some((tab) => tab.id === id)) opened.delete(id);
   }
 
+  // The page lists the tabs in its query box and takes them along when it goes behind: the tab
+  // that held the focus is gone with it. The switch that splits the page goes to the half that
+  // is new. What held the focus is kept for the tabs, or the switch, the page that comes forward
+  // puts up, until the next key or press: the page may put them up more than once while it
+  // settles (its query box moving into the bar's row once it is measured to fit there).
+  const handoff = React.useRef<'strip' | 'split' | null>(null);
+  const claimFocus = React.useCallback(
+    // Only a focus that went with the page: one put somewhere since stays there.
+    (control: 'strip' | 'split') =>
+      handoff.current === control && (!document.activeElement || document.activeElement === document.body),
+    [],
+  );
+  React.useEffect(() => {
+    const forget = () => {
+      handoff.current = null;
+    };
+    document.addEventListener('pointerdown', forget, true);
+    document.addEventListener('keydown', forget, true);
+    return () => {
+      document.removeEventListener('pointerdown', forget, true);
+      document.removeEventListener('keydown', forget, true);
+    };
+  }, []);
+
   const act = React.useCallback(
     (change: (store: ReturnType<typeof useQueryTabsStore.getState>) => void) => {
+      const focused = document.activeElement;
+      handoff.current = focused?.closest('[data-query-split]')
+        ? 'split'
+        : focused?.closest('[data-query-tab-strip]')
+          ? 'strip'
+          : null;
       change(useQueryTabsStore.getState());
       // Whichever tab is in front now, the app is on its time range.
       showFrontTime();
@@ -300,87 +331,91 @@ function QueryTabsHost({
     [act, scope],
   );
 
+  const split = panes.length > 1;
+  const splitControl = React.useMemo<QuerySplitControl>(
+    () => ({
+      split,
+      room,
+      claimFocus: () => claimFocus('split'),
+      onChange: (next) => act((store) => store.setPaneCount(scope, next ? 2 : 1)),
+    }),
+    [act, claimFocus, room, scope, split],
+  );
+
   if (!ready || !activeId) {
     return <div data-query-tabs={kind} className={HOST_CLASS} />;
   }
 
-  const split = panes.length > 1;
+  /** The tabs listed for one half of the page (the whole of it, unsplit), with the one it shows. */
+  const sideStrip = (side: number) => {
+    const shownId = panes[side] ?? activeId;
+
+    return {
+      tabs: (sides[side] ?? []).map((tab) => ({
+        id: tab.id,
+        name: queryTabName(tab),
+        ordinal: tab.ordinal,
+        running: Boolean(running[queryTabKey(scope, tab.id)]),
+        tabId: tabElementId(tab.id),
+        panelId: panelElementId(tab.id),
+      })),
+      activeId: shownId,
+      focused: shownId === activeId,
+      closable: tabs.length > 1,
+      canAdd: tabs.length < MAX_QUERY_TABS,
+      limit: MAX_QUERY_TABS,
+      moveAcross: split
+        ? {
+            label: t(side === 0 ? 'query_tabs.move_right' : 'query_tabs.move_left'),
+            onMove: (id: string) => act((store) => store.moveAcross(scope, id)),
+          }
+        : undefined,
+      onSelect: (id: string) => act((store) => store.activate(scope, id)),
+      onAdd: () => act((store) => store.add(scope, shownId)),
+      onClose: (id: string) => act((store) => store.close(scope, id)),
+      onCloseOthers: (id: string) => act((store) => store.closeOthers(scope, id)),
+      onDuplicate: (id: string) => act((store) => store.duplicate(scope, id)),
+      onRename: (id: string, label: string) => useQueryTabsStore.getState().rename(scope, id, label),
+    };
+  };
+  /** What the page shown in a half lists in its query box: that half's tabs. */
+  const stripOf = (slot: number) =>
+    slot >= 0 ? <QueryTabStrip {...sideStrip(slot)} claimFocus={() => claimFocus('strip')} /> : null;
 
   return (
     <div data-query-tabs={kind} className={HOST_CLASS}>
-      {/* A strip over each half of a split page, listing that half's tabs; one strip otherwise. */}
-      <div data-query-tab-strips={sides.length} className="flex shrink-0">
-        {sides.map((listed, side) => {
-          const shownId = panes[side] ?? activeId;
-
-          return (
-            <div key={side} className="min-w-0 flex-1 basis-0" style={paneGutters(side, sides.length)}>
-              <QueryTabStrip
-                tabs={listed.map((tab) => ({
-                  id: tab.id,
-                  name: queryTabName(tab),
-                  ordinal: tab.ordinal,
-                  running: Boolean(running[queryTabKey(scope, tab.id)]),
-                  tabId: tabElementId(tab.id),
-                  panelId: panelElementId(tab.id),
-                }))}
-                activeId={shownId}
-                focused={shownId === activeId}
-                closable={tabs.length > 1}
-                canAdd={tabs.length < MAX_QUERY_TABS}
-                limit={MAX_QUERY_TABS}
-                moveAcross={
-                  split
-                    ? {
-                        label: t(side === 0 ? 'query_tabs.move_right' : 'query_tabs.move_left'),
-                        onMove: (id) => act((store) => store.moveAcross(scope, id)),
-                      }
-                    : undefined
-                }
-                end={
-                  side === sides.length - 1 ? (
-                    <SplitToggle
-                      split={split}
-                      room={room}
-                      onChange={(next) => act((store) => store.setPaneCount(scope, next ? 2 : 1))}
-                    />
-                  ) : undefined
-                }
-                onSelect={(id) => act((store) => store.activate(scope, id))}
-                onAdd={() => act((store) => store.add(scope, shownId))}
-                onClose={(id) => act((store) => store.close(scope, id))}
-                onCloseOthers={(id) => act((store) => store.closeOthers(scope, id))}
-                onDuplicate={(id) => act((store) => store.duplicate(scope, id))}
-                onRename={(id, label) => useQueryTabsStore.getState().rename(scope, id, label)}
-              />
-            </div>
-          );
-        })}
-      </div>
       <div ref={pagesRef} data-query-panes={panes.length} className="relative min-h-0 flex-1">
         {tabs
           .filter((tab) => opened.has(tab.id))
-          .map((tab) => (
-            <QueryTabPane
-              key={tab.id}
-              scope={scope}
-              id={tab.id}
-              active={tab.id === activeId}
-              slot={panes.indexOf(tab.id)}
-              slots={panes.length}
-              onParamsWrite={onParamsWrite}
-              onWorkedIn={workIn}
-            >
-              {children}
-            </QueryTabPane>
-          ))}
+          .map((tab) => {
+            const slot = panes.indexOf(tab.id);
+
+            return (
+              <QueryTabPane
+                key={tab.id}
+                scope={scope}
+                id={tab.id}
+                active={tab.id === activeId}
+                slot={slot}
+                slots={panes.length}
+                strip={stripOf(slot)}
+                splitControl={slot >= 0 && slot === panes.length - 1 ? splitControl : null}
+                onParamsWrite={onParamsWrite}
+                onWorkedIn={workIn}
+              >
+                {children}
+              </QueryTabPane>
+            );
+          })}
       </div>
     </div>
   );
 }
 
+// The page area under the top bar, unless the page that holds the tabs says how tall they are:
+// `--query-tabs-height: 100%` on an ancestor makes them fill what that ancestor gives them.
 const HOST_CLASS =
-  'flex h-[calc(100vh-var(--topbar-h)-var(--contextbar-h,0px))] min-h-0 flex-col overflow-hidden bg-[var(--page-canvas)]';
+  'flex h-[var(--query-tabs-height,calc(100vh-var(--topbar-h)-var(--contextbar-h,0px)))] min-h-0 flex-col overflow-hidden bg-[var(--page-canvas)]';
 
 /** The least a half of a split page is given. A window with less than two of these is not split. */
 const MIN_PANE_WIDTH = 360;
@@ -417,6 +452,8 @@ const QueryTabPane = React.memo(function QueryTabPane({
   active,
   slot,
   slots,
+  strip,
+  splitControl,
   onParamsWrite,
   onWorkedIn,
   children,
@@ -428,6 +465,10 @@ const QueryTabPane = React.memo(function QueryTabPane({
   slot: number;
   /** How many tabs stand on the page. */
   slots: number;
+  /** The tabs the page lists in its query box, while it is shown. */
+  strip: React.ReactNode;
+  /** What the switch that splits the page works with, for the page shown at the right. */
+  splitControl: QuerySplitControl | null;
   /** Whether the write about to reach the address bar replaces the history entry. */
   onParamsWrite: (replace: boolean) => void;
   /** The tab was touched while another one was in front. */
@@ -540,7 +581,11 @@ const QueryTabPane = React.memo(function QueryTabPane({
     >
       <TimeScopeContext.Provider value={timeStore}>
         <QueryTabScopeContext.Provider value={value}>
-          <QueryPaneContext.Provider value={pane}>{children}</QueryPaneContext.Provider>
+          <QueryPaneContext.Provider value={pane}>
+            <QueryTabStripContext.Provider value={strip}>
+              <QuerySplitContext.Provider value={splitControl}>{children}</QuerySplitContext.Provider>
+            </QueryTabStripContext.Provider>
+          </QueryPaneContext.Provider>
         </QueryTabScopeContext.Provider>
       </TimeScopeContext.Provider>
     </div>

@@ -7,7 +7,7 @@
 //! 1. intake 在 flush traces stream 的 RecordBatch 之前，遍历每个 span，
 //!    经 [`ServiceGraphAggregator::record`] 把 client→server 这条边的样本累计到
 //!    `DashMap<EdgeKey, Bucket>`。
-//! 2. 每分钟边界（`bucket_at_micros = floor(now / 60s)` 变化时）由
+//! 2. 每分钟边界（`bucket_at = floor(now / 60s)` 变化时）由
 //!    [`ServiceGraphAggregator::flush_due`] 把上一窗口的桶 drain，转 [`EdgeSnapshot`]
 //!    通过 [`ServiceGraphRepository::insert_many`] 落 `service_graph_edges` 表。
 //! 3. HTTP `GET /api/v1/traces/service_graph` 走 [`ServiceGraphRepository::query`] 返边集。
@@ -16,17 +16,14 @@
 
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use dashmap::DashMap;
 use parking_lot::Mutex;
-use postgres::sqlx_err;
 use serde::{Deserialize, Serialize};
-use sqlx::{PgPool, Row};
 
 use crate::{
     domain::intake::{RawEvent, ServiceGraphObserver},
     shared::{
-        Result, ids::Id, time::TimestampMicros,
+        ids::Id, time::TimestampMicros,
         trace_normalization::effective_service_name as canonical_effective_service_name,
     },
 };
@@ -34,6 +31,10 @@ use crate::{
 pub mod domain {
     pub use ::domain::*;
 }
+
+mod repository;
+
+pub use repository::{PgServiceGraphRepository, ServiceGraphRepository};
 
 pub mod infra {
     pub mod persistence {
@@ -57,6 +58,8 @@ pub struct EdgeKey {
     pub org_id: Id,
     pub client_service: String,
     pub server_service: String,
+    /// The caller's `deployment.environment(.name)`, else the callee's; empty when neither says.
+    pub environment: String,
     pub bucket_at_micros: i64,
 }
 
@@ -71,6 +74,7 @@ struct Bucket {
 #[derive(Debug, Clone)]
 struct PendingSpan {
     service: String,
+    environment: String,
     ts: TimestampMicros,
     duration_us: i64,
     is_error: bool,
@@ -79,12 +83,15 @@ struct PendingSpan {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EdgeSnapshot {
     pub id: Id,
     pub org_id: Id,
     pub client_service: String,
     pub server_service: String,
-    pub bucket_at_micros: i64,
+    #[serde(default)]
+    pub environment: String,
+    pub bucket_at: i64,
     pub request_count: u64,
     pub error_count: u64,
     pub p50_us: Option<i64>,
@@ -117,12 +124,36 @@ impl ServiceGraphAggregator {
         duration_us: i64,
         is_error: bool,
     ) {
+        self.record_in(
+            org_id,
+            client_service,
+            server_service,
+            "",
+            ts,
+            duration_us,
+            is_error,
+        );
+    }
+
+    /// [`Self::record`] for an edge in `environment`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn record_in(
+        &self,
+        org_id: &Id,
+        client_service: &str,
+        server_service: &str,
+        environment: &str,
+        ts: TimestampMicros,
+        duration_us: i64,
+        is_error: bool,
+    ) {
         let bucket_at = (ts.0 / BUCKET_SIZE_US) * BUCKET_SIZE_US;
 
         let key = EdgeKey {
             org_id: org_id.clone(),
             client_service: client_service.to_string(),
             server_service: server_service.to_string(),
+            environment: environment.to_string(),
             bucket_at_micros: bucket_at,
         };
 
@@ -159,12 +190,41 @@ impl ServiceGraphAggregator {
         duration_us: i64,
         is_error: bool,
     ) {
+        self.observe_span_in(
+            org_id,
+            trace_id,
+            span_id,
+            parent_span_id,
+            service,
+            "",
+            ts,
+            duration_us,
+            is_error,
+        );
+    }
+
+    /// [`Self::observe_span`] for a span of a service in `environment`: the
+    /// edge is in the caller's environment, else in the callee's.
+    #[allow(clippy::too_many_arguments)]
+    pub fn observe_span_in(
+        &self,
+        org_id: &Id,
+        trace_id: &str,
+        span_id: &str,
+        parent_span_id: Option<&str>,
+        service: &str,
+        environment: &str,
+        ts: TimestampMicros,
+        duration_us: i64,
+        is_error: bool,
+    ) {
         if trace_id.is_empty() || span_id.is_empty() {
             return;
         }
 
         let me = PendingSpan {
             service: service.to_string(),
+            environment: environment.to_string(),
             ts,
             duration_us: duration_us.max(0),
             is_error,
@@ -174,11 +234,22 @@ impl ServiceGraphAggregator {
         // 1) 正向：我的父是否已记录？记录了就立即连边，否则把自己挂到 waiting 等父到达。
         if let Some(parent) = parent_span_id.filter(|p| !p.is_empty()) {
             let pk = (org_id.clone(), trace_id.to_string(), parent.to_string());
-            let parent_service = self.pending.get(&pk).map(|p| p.service.clone());
+            let parent = self
+                .pending
+                .get(&pk)
+                .map(|p| (p.service.clone(), p.environment.clone()));
 
-            match parent_service {
-                Some(psvc) if psvc != service => {
-                    self.record(org_id, &psvc, service, ts, me.duration_us, is_error);
+            match parent {
+                Some((psvc, penv)) if psvc != service => {
+                    self.record_in(
+                        org_id,
+                        &psvc,
+                        service,
+                        edge_environment(&penv, environment),
+                        ts,
+                        me.duration_us,
+                        is_error,
+                    );
                 }
                 Some(_) => {} // 同服务内部边，忽略
                 None => {
@@ -198,10 +269,11 @@ impl ServiceGraphAggregator {
         if let Some((_, children)) = self.waiting.remove(&myk) {
             for child in children {
                 if me.service != child.service {
-                    self.record(
+                    self.record_in(
                         org_id,
                         &me.service,
                         &child.service,
+                        edge_environment(&me.environment, &child.environment),
                         child.ts,
                         child.duration_us,
                         child.is_error,
@@ -222,7 +294,7 @@ impl ServiceGraphAggregator {
         });
     }
 
-    /// 把所有 `bucket_at_micros < cutoff` 的桶 drain 出来转 snapshot。
+    /// 把所有 `bucket_at < cutoff` 的桶 drain 出来转 snapshot。
     pub fn flush_due(&self, cutoff_micros: i64) -> Vec<EdgeSnapshot> {
         let mut drained: Vec<EdgeKey> = Vec::new();
 
@@ -255,7 +327,8 @@ impl ServiceGraphAggregator {
                     org_id: k.org_id,
                     client_service: k.client_service,
                     server_service: k.server_service,
-                    bucket_at_micros: k.bucket_at_micros,
+                    environment: k.environment,
+                    bucket_at: k.bucket_at_micros,
                     request_count: b.request_count,
                     error_count: b.error_count,
                     p50_us: p(0.50),
@@ -269,145 +342,9 @@ impl ServiceGraphAggregator {
     }
 }
 
-#[async_trait]
-pub trait ServiceGraphRepository: Send + Sync {
-    async fn insert_many(&self, edges: &[EdgeSnapshot]) -> Result<()>;
-    /// 删除某 org 在 `[from_micros, to_micros]`（按 bucket_at_micros）内的边。
-    /// storage 模式重算 worker 用来「先删后插」实现窗口幂等（重算覆盖、含晚到数据）。
-    async fn delete_range(&self, org_id: &Id, from_micros: i64, to_micros: i64) -> Result<()>;
-    async fn query(
-        &self,
-        org_id: &Id,
-        from_micros: i64,
-        to_micros: i64,
-        service_filter: Option<&str>,
-    ) -> Result<Vec<EdgeSnapshot>>;
-}
-
-pub struct PgServiceGraphRepository {
-    pool: PgPool,
-}
-
-impl PgServiceGraphRepository {
-    pub fn new(pool: PgPool) -> Self {
-        Self { pool }
-    }
-}
-
-#[async_trait]
-impl ServiceGraphRepository for PgServiceGraphRepository {
-    async fn delete_range(&self, org_id: &Id, from_micros: i64, to_micros: i64) -> Result<()> {
-        sqlx::query(
-            "DELETE FROM service_graph_edges
-             WHERE org_id = $1 AND bucket_at_micros BETWEEN $2 AND $3",
-        )
-        .bind(&org_id.0)
-        .bind(from_micros)
-        .bind(to_micros)
-        .execute(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
-
-        Ok(())
-    }
-
-    #[tracing::instrument(
-        name = "db.transaction",
-        skip_all,
-        fields(db.system.name = "postgresql", db.operation.name = "TRANSACTION", db.collection.name = "service_graph_edges")
-    )]
-    async fn insert_many(&self, edges: &[EdgeSnapshot]) -> Result<()> {
-        if edges.is_empty() {
-            return Ok(());
-        }
-
-        let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
-
-        for e in edges {
-            sqlx::query(
-                "INSERT INTO service_graph_edges
-                    (id, org_id, client_service, server_service, bucket_at_micros,
-                     request_count, error_count, p50_us, p95_us, p99_us)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
-            )
-            .bind(&e.id.0)
-            .bind(&e.org_id.0)
-            .bind(&e.client_service)
-            .bind(&e.server_service)
-            .bind(e.bucket_at_micros)
-            .bind(e.request_count as i64)
-            .bind(e.error_count as i64)
-            .bind(e.p50_us)
-            .bind(e.p95_us)
-            .bind(e.p99_us)
-            .execute(&mut *tx)
-            .await
-            .map_err(sqlx_err)?;
-        }
-
-        tx.commit().await.map_err(sqlx_err)?;
-        Ok(())
-    }
-
-    async fn query(
-        &self,
-        org_id: &Id,
-        from_micros: i64,
-        to_micros: i64,
-        service_filter: Option<&str>,
-    ) -> Result<Vec<EdgeSnapshot>> {
-        let rows = if let Some(svc) = service_filter {
-            sqlx::query(
-                "SELECT id, org_id, client_service, server_service, bucket_at_micros,
-                        request_count, error_count, p50_us, p95_us, p99_us
-                 FROM service_graph_edges
-                 WHERE org_id = $1 AND bucket_at_micros BETWEEN $2 AND $3
-                       AND (client_service = $4 OR server_service = $4)
-                 ORDER BY bucket_at_micros DESC
-                 LIMIT 10000",
-            )
-            .bind(&org_id.0)
-            .bind(from_micros)
-            .bind(to_micros)
-            .bind(svc)
-            .fetch_all(&self.pool)
-            .await
-        } else {
-            sqlx::query(
-                "SELECT id, org_id, client_service, server_service, bucket_at_micros,
-                        request_count, error_count, p50_us, p95_us, p99_us
-                 FROM service_graph_edges
-                 WHERE org_id = $1 AND bucket_at_micros BETWEEN $2 AND $3
-                 ORDER BY bucket_at_micros DESC
-                 LIMIT 10000",
-            )
-            .bind(&org_id.0)
-            .bind(from_micros)
-            .bind(to_micros)
-            .fetch_all(&self.pool)
-            .await
-        }
-        .map_err(sqlx_err)?;
-
-        let mut out = Vec::with_capacity(rows.len());
-
-        for r in rows {
-            out.push(EdgeSnapshot {
-                id: Id(r.try_get::<String, _>("id").unwrap_or_default()),
-                org_id: Id(r.try_get::<String, _>("org_id").unwrap_or_default()),
-                client_service: r.try_get::<String, _>("client_service").unwrap_or_default(),
-                server_service: r.try_get::<String, _>("server_service").unwrap_or_default(),
-                bucket_at_micros: r.try_get::<i64, _>("bucket_at_micros").unwrap_or_default(),
-                request_count: r.try_get::<i64, _>("request_count").unwrap_or_default() as u64,
-                error_count: r.try_get::<i64, _>("error_count").unwrap_or_default() as u64,
-                p50_us: r.try_get::<Option<i64>, _>("p50_us").unwrap_or_default(),
-                p95_us: r.try_get::<Option<i64>, _>("p95_us").unwrap_or_default(),
-                p99_us: r.try_get::<Option<i64>, _>("p99_us").unwrap_or_default(),
-            });
-        }
-
-        Ok(out)
-    }
+/// The environment of an edge: the caller's, else the callee's.
+fn edge_environment<'a>(caller: &'a str, callee: &'a str) -> &'a str {
+    if caller.is_empty() { callee } else { caller }
 }
 
 /// 把 trace 事件批旁路喂给 [`ServiceGraphAggregator`] 的 [`ServiceGraphObserver`] 适配器。
@@ -444,6 +381,10 @@ impl ServiceGraphObserver for ServiceGraphObserverImpl {
             );
 
             let parent = f.get("parent_span_id").and_then(|v| v.as_str());
+            let environment = ENVIRONMENT_FIELDS
+                .iter()
+                .find_map(|field| f.get(*field).and_then(|v| v.as_str()))
+                .unwrap_or_default();
 
             let duration_us = f
                 .get("duration_ns")
@@ -457,12 +398,13 @@ impl ServiceGraphObserver for ServiceGraphObserverImpl {
                 .map(|s| s.eq_ignore_ascii_case("ERROR"))
                 .unwrap_or(false);
 
-            self.agg.observe_span(
+            self.agg.observe_span_in(
                 org_id,
                 trace_id,
                 span_id,
                 parent,
                 &service,
+                environment,
                 ev.timestamp,
                 duration_us,
                 is_error,
@@ -470,6 +412,9 @@ impl ServiceGraphObserver for ServiceGraphObserverImpl {
         }
     }
 }
+
+/// The fields that say a span's environment, as APM reads them.
+pub const ENVIRONMENT_FIELDS: [&str; 2] = ["deployment.environment.name", "deployment.environment"];
 
 /// Returns the canonical service identity used by both live and recomputed graph edges.
 pub fn effective_service_name(
@@ -553,6 +498,57 @@ mod tests {
         assert_eq!(snaps.len(), 1);
         assert_eq!(snaps[0].client_service, "web");
         assert_eq!(snaps[0].server_service, "api");
+    }
+
+    #[test]
+    fn an_edge_is_in_the_callers_environment_else_the_callees() {
+        let a = ServiceGraphAggregator::new();
+        let org = Id("o".to_string());
+        let ts = TimestampMicros(120 * BUCKET_SIZE_US);
+
+        a.observe_span_in(&org, "t1", "p1", None, "web", "prod", ts, 10_000, false);
+        a.observe_span_in(
+            &org,
+            "t1",
+            "c1",
+            Some("p1"),
+            "api",
+            "staging",
+            ts,
+            5_000,
+            false,
+        );
+        a.observe_span_in(
+            &org,
+            "t2",
+            "c2",
+            Some("p2"),
+            "api",
+            "prod",
+            ts,
+            5_000,
+            false,
+        );
+        a.observe_span_in(&org, "t2", "p2", None, "cron", "", ts, 10_000, false);
+
+        let mut snaps = a.flush_due(121 * BUCKET_SIZE_US);
+        snaps.sort_by(|left, right| left.client_service.cmp(&right.client_service));
+
+        assert_eq!(snaps.len(), 2);
+        assert_eq!(
+            (
+                snaps[0].client_service.as_str(),
+                snaps[0].environment.as_str()
+            ),
+            ("cron", "prod"),
+        );
+        assert_eq!(
+            (
+                snaps[1].client_service.as_str(),
+                snaps[1].environment.as_str()
+            ),
+            ("web", "prod"),
+        );
     }
 
     #[test]

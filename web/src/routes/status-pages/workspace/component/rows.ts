@@ -66,9 +66,9 @@ export function componentSiblings(
   components: readonly StatusPageComponent[],
   component: StatusPageComponent,
 ): StatusPageComponent[] {
-  const level = component.group_id ?? null;
+  const level = component.groupId ?? null;
   return components
-    .filter((candidate) => candidate.lifecycle === 'active' && (candidate.group_id ?? null) === level)
+    .filter((candidate) => candidate.lifecycle === 'active' && (candidate.groupId ?? null) === level)
     .sort(componentOrder);
 }
 

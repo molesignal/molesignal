@@ -7,6 +7,7 @@ import type { ProbeAgent } from '@/api/synthetics';
 import { ChromeButton } from '@/shell/chrome';
 import { FormDrawer, FormSection } from '@/shell/FormDrawer';
 
+import { KindTag } from '../marks';
 import { formatRelativeTimestamp, formatTimestamp } from '../model';
 import { AgentStatusPill, CapacityMeter } from './components';
 import { agentDisplayName, type AgentRow } from './model';
@@ -27,7 +28,7 @@ export function AgentDetailDrawer({
   const { t, i18n } = useTranslation('synthetics');
   const agent = row?.agent;
   const canRevoke = Boolean(
-    canManage && agent?.organization_id && agent.status !== 'revoked',
+    canManage && agent?.organizationId && agent.status !== 'revoked',
   );
   const footer = canManage && agent ? (
     <>
@@ -54,7 +55,7 @@ export function AgentDetailDrawer({
     >
       {agent && (
         <>
-          <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <AgentFact label={t('agents.status')} value={<AgentStatusPill status={agent.status} />} />
             <AgentFact
               label={t('agents.location')}
@@ -62,21 +63,21 @@ export function AgentDetailDrawer({
                 row.location ? (
                   <Link
                     to={`/synthetics/locations/${row.location.id}`}
-                    className="inline-flex items-center gap-1 rounded text-indigo-soft hover:text-tx-0 focus-visible:bg-bg-3"
+                    className="inline-flex max-w-full items-center gap-1 rounded text-indigo-soft hover:text-tx-0 focus-visible:bg-bg-3"
                   >
-                    {row.location.name}
-                    <ExternalLink aria-hidden className="h-3 w-3" />
+                    <span className="truncate">{row.location.name}</span>
+                    <ExternalLink aria-hidden className="h-3 w-3 shrink-0" />
                   </Link>
                 ) : (
-                  agent.location_id
+                  agent.locationId
                 )
               }
             />
-            <AgentFact label={t('agents.version')} value={`v${agent.agent_version}`} />
+            <AgentFact label={t('agents.version')} value={`v${agent.agentVersion}`} />
             <AgentFact
               label={t('agents.management')}
               value={t(
-                agent.organization_id
+                agent.organizationId
                   ? 'agents.organization_managed'
                   : 'agents.platform_managed',
               )}
@@ -88,25 +89,20 @@ export function AgentDetailDrawer({
               <CapacityMeter
                 label={t('agents.concurrent_capacity')}
                 available={agent.capacity.available}
-                maximum={agent.capacity.max_concurrent}
+                maximum={agent.capacity.maxConcurrent}
               />
               <CapacityMeter
                 label={t('agents.browser_capacity')}
-                available={agent.capacity.available_browser}
-                maximum={agent.capacity.max_browser_concurrent}
+                available={agent.capacity.availableBrowser}
+                maximum={agent.capacity.maxBrowserConcurrent}
               />
             </div>
           </FormSection>
 
           <FormSection title={t('agents.capabilities')}>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1">
               {agent.capabilities.map((capability) => (
-                <span
-                  key={capability}
-                  className="rounded-full bg-bg-2 px-2.5 py-1 text-type-micro text-tx-1"
-                >
-                  {capability}
-                </span>
+                <KindTag key={capability} kind={capability} />
               ))}
             </div>
           </FormSection>
@@ -114,27 +110,28 @@ export function AgentDetailDrawer({
           <FormSection title={t('agents.identity')}>
             <div className="divide-y divide-bd-0 overflow-hidden rounded-md bg-bg-2">
               <DetailRow label={t('agents.agent_id')} value={agent.id} code />
-              <DetailRow label={t('agents.protocol')} value={String(agent.protocol_version)} />
+              <DetailRow label={t('agents.protocol')} value={String(agent.protocolVersion)} />
+              <DetailRow label={t('agents.feature_level')} value={String(agent.featureLevel ?? 0)} />
               <DetailRow
                 label={t('agents.last_heartbeat')}
                 value={
-                  agent.last_heartbeat_at
-                    ? `${formatTimestamp(agent.last_heartbeat_at, i18n.language)} · ${formatRelativeTimestamp(agent.last_heartbeat_at, i18n.language)}`
+                  agent.lastHeartbeatAt
+                    ? `${formatTimestamp(agent.lastHeartbeatAt, i18n.language)} · ${formatRelativeTimestamp(agent.lastHeartbeatAt, i18n.language)}`
                     : t('agents.never')
                 }
               />
               <DetailRow
                 label={t('agents.last_result_sequence')}
-                value={agent.last_result_sequence.toLocaleString(i18n.language)}
+                value={agent.lastResultSequence.toLocaleString(i18n.language)}
               />
               <DetailRow
                 label={t('agents.certificate_serial')}
-                value={agent.certificate_serial ?? t('agents.certificate_none')}
-                code={Boolean(agent.certificate_serial)}
+                value={agent.certificateSerial ?? t('agents.certificate_none')}
+                code={Boolean(agent.certificateSerial)}
               />
               <DetailRow
                 label={t('agents.certificate_expiry')}
-                value={formatTimestamp(agent.certificate_expires_at, i18n.language)}
+                value={formatTimestamp(agent.certificateExpiresAt, i18n.language)}
               />
             </div>
           </FormSection>
@@ -153,7 +150,7 @@ export function AgentDetailDrawer({
             )}
           </FormSection>
 
-          {!agent.organization_id && (
+          {!agent.organizationId && (
             <div className="flex gap-3 rounded-md bg-bg-2 p-3 text-xs leading-relaxed text-tx-2">
               <ShieldCheck aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-indigo-soft" />
               {t('agents.platform_agent_hint')}
@@ -167,9 +164,9 @@ export function AgentDetailDrawer({
 
 function AgentFact({ label, value }: { label: React.ReactNode; value: React.ReactNode }) {
   return (
-    <div className="rounded-md bg-bg-2 p-3">
-      <div className="text-type-micro tracking-normal text-tx-3">{label}</div>
-      <div className="mt-2 min-w-0 truncate text-sm font-strong text-tx-0">{value}</div>
+    <div className="min-w-0 rounded-md bg-bg-2 px-3 py-2">
+      <div className="truncate text-xs text-tx-3">{label}</div>
+      <div className="mt-1 min-w-0 truncate text-sm font-strong text-tx-0">{value}</div>
     </div>
   );
 }

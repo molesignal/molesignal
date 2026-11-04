@@ -25,7 +25,14 @@ export interface Anchor {
 export interface TimeState {
   window: TimeWindow;
   anchor: Anchor | null;
+  /**
+   * The zone the times in scope are shown in, picked at the foot of the time
+   * picker; empty for the user's own default. It goes with the time range: a
+   * query tab has its own.
+   */
+  timezone: string;
   setWindow: (w: TimeWindow) => void;
+  setTimezone: (timezone: string) => void;
   setAnchor: (a: Anchor | null) => void;
   clearAnchor: () => void;
   togglePin: (at: string) => void;
@@ -41,12 +48,14 @@ export type TimeStoreApi = StoreApi<TimeState>;
 
 /** A time store of its own: the app has one, and each query tab has one. */
 export function createTimeStore(
-  initial: { window?: TimeWindow; anchor?: Anchor | null } = {},
+  initial: { window?: TimeWindow; anchor?: Anchor | null; timezone?: string } = {},
 ): TimeStoreApi {
   return createStore<TimeState>((set, get) => ({
     window: initial.window ?? DEFAULT_WINDOW,
     anchor: initial.anchor ?? null,
+    timezone: initial.timezone ?? '',
     setWindow: (window) => set({ window }),
+    setTimezone: (timezone) => set({ timezone }),
     setAnchor: (anchor) => set({ anchor }),
     clearAnchor: () => set({ anchor: null }),
     togglePin: (at) => {

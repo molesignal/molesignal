@@ -1,6 +1,7 @@
 import { Construction } from 'lucide-react';
 
 import type { FrameProps } from '@/investigation/frame';
+import { JsonView } from '@/shell/JsonEditor';
 
 /**
  * Common stub body shared by frame kinds whose real implementation lands in a
@@ -14,9 +15,11 @@ export function FramePlaceholder({ frame, label }: FrameProps & { label: string 
         <Construction className="h-4 w-4" />
         <span>{label} frame – under construction</span>
       </div>
-      <pre className="overflow-auto rounded border border-border bg-bg p-2 text-xs text-muted-foreground">
-{JSON.stringify({ kind: frame.kind, params: frame.params }, null, 2)}
-      </pre>
+      <JsonView
+        value={{ kind: frame.kind, params: frame.params }}
+        ariaLabel={`${label} frame`}
+        maxHeight={480}
+      />
     </div>
   );
 }

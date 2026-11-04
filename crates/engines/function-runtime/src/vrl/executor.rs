@@ -20,7 +20,7 @@ use crate::{
 
 pub struct VrlFunctionExecutor {
     runtime: VrlRuntime,
-    /// `(function_id, updated_at_micros)` → 已编译程序。
+    /// `(function_id, updated_at)` → 已编译程序。
     cache: DashMap<(String, i64), Arc<CompiledProgram>>,
 }
 
@@ -39,7 +39,7 @@ impl VrlFunctionExecutor {
             return Ok(hit.clone());
         }
 
-        let compiled = Arc::new(self.runtime.compile(&f.source)?);
+        let compiled = Arc::new(self.runtime.compile_for(&f.org_id, &f.source)?);
         self.cache.insert(key, compiled.clone());
         // 清理同 function_id 的旧版本，避免缓存膨胀
         self.cache
@@ -74,6 +74,7 @@ impl FunctionExecutor for VrlFunctionExecutor {
         match function.language {
             FunctionLanguage::Vrl => {
                 let prog = self.compile_cached(function)?;
+                self.runtime.prepare(&function.org_id, &prog).await?;
                 self.runtime
                     .run_with_metadata(&prog, event, metadata.clone())
             }

@@ -99,7 +99,7 @@ impl ColumnBuilder {
         }
     }
 
-    /// 追加一个 JSON 值，返回写入的近似字节数供 `buffer_max_mb` 判断。
+    /// 追加一个 JSON 值，返回写入的近似字节数供 `buffer_max_size` 判断。
     ///
     /// 由本函数顺带返回长度，是为了让 Utf8 列上 Object/Array 的 `to_string()` 每行只做一次：
     /// 调用方若另调一个估算函数，同一个值会被完整串化两次（一次写入、一次仅为量长度后丢弃）。
@@ -199,7 +199,7 @@ pub struct RecordBuilder {
     column_order: Vec<String>,
     /// 已 push 的行数（≡ 各列 builder 的 len）。
     row_count: usize,
-    /// 估算的字节数，用于 `buffer_max_mb` 阈值判断。
+    /// 估算的字节数，用于 `buffer_max_size` 阈值判断。
     approx_size_bytes: usize,
     /// 从进程级内存预算中为当前 generation（含 pending）保留的原始 payload 字节。
     accounted_size_bytes: usize,

@@ -13,7 +13,7 @@ import {
 import type { QueryResult } from '@/types/query';
 
 function result(columns: string[], rows: unknown[][]): QueryResult {
-  return { columns, rows, scanned_rows: rows.length, took_ms: 0 };
+  return { columns, rows, scannedRows: rows.length, tookMs: 0 };
 }
 
 describe('classifyColumns', () => {

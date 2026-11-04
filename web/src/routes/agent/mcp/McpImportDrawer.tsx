@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 
 import * as agentApi from '@/api/agent';
 import { toApiError } from '@/lib/http';
-import { FormDrawer, FormField, FormSection, FormSelect, FormTextarea } from '@/shell/FormDrawer';
+import { FormDrawer, FormField, FormSection, FormSelect } from '@/shell/FormDrawer';
+import { JsonEditor } from '@/shell/JsonEditor';
 import { Button } from '@/shell/ui/button';
 import { toast } from '@/shell/ui/sonner';
 
@@ -98,13 +99,13 @@ export function McpImportDrawer({
           label={t('settings.tools.mcp.import.config')}
           hint={t('settings.tools.mcp.import.config_hint')}
         >
-          <FormTextarea
+          <JsonEditor
             value={config}
-            onChange={(event) => setConfig(event.target.value)}
+            onChange={setConfig}
+            ariaLabel={t('settings.tools.mcp.import.config')}
             placeholder={EXAMPLE}
-            rows={12}
-            spellCheck={false}
-            className="font-mono text-xs"
+            minHeight={256}
+            maxHeight={480}
           />
         </FormField>
       </FormSection>

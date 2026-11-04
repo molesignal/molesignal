@@ -27,6 +27,9 @@ use crate::{
     },
     infra::{
         apm::PgApmRepository,
+        persistence::repositories::rum_replay_notes::{
+            PgRumReplayCommentRepository, PgRumSessionSummaryRepository,
+        },
         rum::replay::{PgRumReplayMetaRepository, RumReplayWriter},
         traces::{PgServiceGraphRepository, ServiceGraphRepository},
     },
@@ -47,6 +50,7 @@ pub(super) struct TracingRuntime {
     pub(super) service_graph: Arc<dyn ServiceGraphRepository>,
     pub(super) rum_replay: Arc<RumReplayWriter>,
     pub(super) apm_query: Arc<ApmQueryService>,
+    pub(super) apm_catalog: Arc<dyn crate::domain::apm::ApmCatalogRepository>,
     pub(super) apm_runtime: Option<Arc<ApmRuntime>>,
 }
 
@@ -108,7 +112,7 @@ impl TracingRuntime {
             max_attributes_per_span: settings.telemetry.trace.max_attributes_per_span,
             max_events_per_span: settings.telemetry.trace.max_events_per_span,
             max_links_per_span: settings.telemetry.trace.max_links_per_span,
-            max_string_bytes: settings.telemetry.trace.max_string_bytes,
+            max_string_bytes: settings.telemetry.trace.max_string_length,
             max_spans_per_trace: settings.telemetry.trace.max_spans_per_trace,
         };
 
@@ -121,13 +125,13 @@ impl TracingRuntime {
             .map_err(Error::invalid)?,
         );
 
-        let self_trace_sink: Option<Arc<dyn TraceSink>> =
-            settings.telemetry.self_collect.enabled.then(|| {
-                Arc::new(SelfIntakeTraceSink::new(
-                    storage.intake.clone(),
-                    core.system_org.id.clone(),
-                )) as Arc<dyn TraceSink>
-            });
+        // Tenants' traces are stored through this sink whatever `self_collect` says: the switch only
+        // decides about the process's own.
+        let self_trace_sink: Arc<dyn TraceSink> = Arc::new(SelfIntakeTraceSink::new(
+            storage.intake.clone(),
+            core.system_org.id.clone(),
+            settings.telemetry.self_collect.enabled,
+        ));
 
         let mut local_trace_endpoints = vec![
             format!(
@@ -149,10 +153,16 @@ impl TracingRuntime {
 
         let apm_repository = Arc::new(PgApmRepository::new(core.pool.clone()));
 
-        let apm_query = Arc::new(ApmQueryService::new(
-            apm_repository.clone() as Arc<dyn crate::domain::apm::ApmQueryRepository>,
-            ApmQueryConfig::from_settings(&settings.apm),
-        ));
+        let apm_catalog =
+            apm_repository.clone() as Arc<dyn crate::domain::apm::ApmCatalogRepository>;
+
+        let apm_query = Arc::new(
+            ApmQueryService::new(
+                apm_repository.clone() as Arc<dyn crate::domain::apm::ApmQueryRepository>,
+                ApmQueryConfig::from_settings(&settings.apm),
+            )
+            .with_catalog(apm_catalog.clone()),
+        );
 
         let owns_trace_candidates = core.roles.run_intake || core.roles.run_querier;
         // APM rollup 是单点任务：每个 alert 节点都起循环，只有主节点执行。
@@ -163,6 +173,8 @@ impl TracingRuntime {
                 ApmRuntime::start(
                     core.node_id.clone(),
                     apm_repository.clone(),
+                    apm_catalog.clone(),
+                    iam.instance_settings.clone(),
                     &settings.apm,
                     owns_trace_candidates,
                     apm_rollup,
@@ -173,7 +185,7 @@ impl TracingRuntime {
         let pipeline = TracePipeline::start_with_apm(
             tail_sampler.clone(),
             apm_runtime.as_ref().and_then(|runtime| runtime.projector()),
-            self_trace_sink,
+            Some(self_trace_sink),
             external_trace_sink,
             TracePipelineConfig {
                 candidate_capacity: settings.telemetry.trace.tail_max_traces.max(1),
@@ -267,7 +279,11 @@ impl TracingRuntime {
         let _rum_replay_retention = core.roles.run_compactor.then(|| {
             crate::bootstrap::workers::rum_replay_retention::spawn(
                 rum_replay.clone(),
-                settings.compactor.retention_days,
+                crate::bootstrap::workers::rum_replay_retention::ReplayNotes {
+                    comments: Arc::new(PgRumReplayCommentRepository::new(core.pool.clone())),
+                    summaries: Arc::new(PgRumSessionSummaryRepository::new(core.pool.clone())),
+                },
+                iam.instance_settings.clone(),
                 core.drain_controller.clone(),
             )
         });
@@ -284,6 +300,7 @@ impl TracingRuntime {
             service_graph,
             rum_replay,
             apm_query,
+            apm_catalog,
             apm_runtime,
         })
     }
@@ -373,6 +390,9 @@ pub fn activate_self_telemetry(
     Ok(())
 }
 
+/// 系统流第一次创建时保留的天数。之后在数据流页面修改，启动时不再覆盖。
+pub(super) const SYSTEM_STREAM_RETENTION_DAYS: u32 = 7;
+
 pub(super) async fn prepare_self_telemetry_streams(
     orgs: &dyn OrganizationRepository,
     streams: &dyn StreamRepository,
@@ -407,36 +427,28 @@ pub(super) async fn prepare_self_telemetry_streams(
         (
             settings.enabled && settings.metrics_enabled,
             StreamType::METRICS,
-            settings.metrics_retention_days,
         ),
         (
             settings.enabled && trace_capture_enabled,
             StreamType::TRACES,
-            settings.traces_retention_days,
         ),
         (
             settings.enabled && settings.profiles_enabled,
             StreamType::PROFILES,
-            settings.profiles_retention_days,
         ),
     ];
 
-    for (_, stream_type, retention_days) in
-        enabled_types.into_iter().filter(|(enabled, _, _)| *enabled)
-    {
+    for (_, stream_type) in enabled_types.into_iter().filter(|(enabled, _)| *enabled) {
         let retention = Some(Retention {
-            days: retention_days,
+            days: SYSTEM_STREAM_RETENTION_DAYS,
         });
 
         match streams
             .get(&org.id, MOLESIGNAL_SYSTEM_STREAM, stream_type)
             .await
         {
-            Ok(existing) => {
-                if existing.retention.map(|value| value.days) != Some(retention_days) {
-                    streams.update_retention(&existing.id, retention).await?;
-                }
-            }
+            // 保留天数在数据流页面修改，已有的系统流保持原样。
+            Ok(_) => {}
             Err(Error::NotFound(_)) => {
                 let now = TimestampMicros::now();
 
@@ -464,7 +476,6 @@ pub(super) async fn prepare_self_telemetry_streams(
     tracing::info!(
         org_id = %org.id.0,
         org_slug = %org.slug,
-        trace_retention_days = settings.traces_retention_days,
         "self telemetry system streams ready"
     );
     Ok(Some(org.id))

@@ -1,0 +1,65 @@
+{
+  "type": "view",
+  "date": 1760000000000,
+  "source": "flutter",
+  "service": "web",
+  "env": "prod",
+  "version": "1.4.0",
+  "session": {
+    "id": "6f1c2b7e-1d5a-4c6b-9a3e-0a1b2c3d4e5f",
+    "type": "user",
+    "start": 1759999998000
+  },
+  "view": {
+    "id": "a91e0d52-7b8c-4f10-8d63-5e2f7c9a1b34",
+    "url": "/checkout",
+    "name": "/checkout",
+    "revision": 2,
+    "time_spent": 3000000000,
+    "is_active": true,
+    "loading_type": "view_controller_display",
+    "crash": {
+      "count": 0
+    },
+    "frozen_frame": {
+      "count": 1
+    },
+    "refresh_rate_average": 58.4,
+    "refresh_rate_min": 31,
+    "slow_frames_rate": 12.5,
+    "memory_average": 182000000,
+    "memory_max": 240000000,
+    "flutter_build_time": {
+      "min": 1000000,
+      "max": 38000000,
+      "average": 6500000
+    },
+    "flutter_raster_time": {
+      "min": 900000,
+      "max": 21000000,
+      "average": 5100000
+    },
+    "performance": {
+      "fbc": {
+        "timestamp": 410000000
+      }
+    }
+  },
+  "device": {
+    "type": "mobile",
+    "brand": "Google",
+    "model": "Pixel 8",
+    "architecture": "arm64",
+    "battery_level": 0.62,
+    "power_saving_mode": false
+  },
+  "os": {
+    "name": "Android",
+    "version": "15",
+    "version_major": "15"
+  },
+  "sdk": {
+    "name": "molesignal_flutter",
+    "version": "0.4.0"
+  }
+}

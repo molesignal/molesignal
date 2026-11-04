@@ -63,6 +63,29 @@ pub enum TransactionKind {
     Other,
 }
 
+impl TransactionKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Http => "http",
+            Self::Rpc => "rpc",
+            Self::Messaging => "messaging",
+            Self::Span => "span",
+            Self::Other => "other",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "http" => Some(Self::Http),
+            "rpc" => Some(Self::Rpc),
+            "messaging" => Some(Self::Messaging),
+            "span" => Some(Self::Span),
+            "other" => Some(Self::Other),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct TransactionIdentity {
     pub name: String,
@@ -111,6 +134,7 @@ impl DependencyIdentity {
 /// Stable backend error grouping identity. Representative messages are not
 /// part of this identity because request-specific values would split groups.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ErrorIdentity {
     pub fingerprint: String,
     pub error_type: String,

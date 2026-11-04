@@ -20,7 +20,7 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use super::{extract_apm_fact, metrics};
+use super::{ErrorRuleBook, InstanceLooks, OrgSettingsBook, extract_apm_fact, metrics};
 use crate::{
     config::ApmSettings,
     domain::apm::{ApmSpanFact, ApmWriteRepository, HistogramSchema, ProjectionGapReason},
@@ -51,20 +51,12 @@ pub struct ApmProjectorConfig {
     pub max_exemplars_per_bucket: usize,
     pub max_error_samples_per_group: usize,
     pub histogram: HistogramSchema,
-    pub cardinality: crate::config::ApmCardinalitySettings,
+    /// The limits the projector keeps to: the platform's, put in as they change.
+    pub limits: super::ApmLimitsHandle,
 }
 
 impl ApmProjectorConfig {
     pub fn from_settings(settings: &ApmSettings) -> Self {
-        let mut upper_bounds_micros = settings
-            .histogram
-            .boundaries_ms
-            .iter()
-            .map(|value| value.saturating_mul(1_000))
-            .collect::<Vec<_>>();
-
-        upper_bounds_micros.push(u64::MAX);
-
         Self {
             queue_capacity: settings.queue_capacity,
             flush_interval: Duration::from_millis(settings.flush_interval_ms),
@@ -73,11 +65,11 @@ impl ApmProjectorConfig {
             late_grace: Duration::from_secs(settings.late_grace_secs),
             max_exemplars_per_bucket: settings.max_exemplars_per_bucket,
             max_error_samples_per_group: settings.max_error_samples_per_group,
-            histogram: HistogramSchema {
-                version: settings.histogram.schema_version,
-                upper_bounds_micros,
-            },
-            cardinality: settings.cardinality.clone(),
+            histogram: HistogramSchema::logarithmic(
+                settings.histogram.schema_version,
+                settings.histogram.buckets_per_octave,
+            ),
+            limits: super::ApmLimitsHandle::default(),
         }
     }
 }
@@ -101,6 +93,7 @@ struct ApmProjectorHealth {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ApmProjectorHealthSnapshot {
     pub accepting: bool,
     pub queue_depth: usize,
@@ -127,6 +120,10 @@ pub struct BufferedApmProjector {
     cancel: CancellationToken,
     join: Mutex<Option<JoinHandle<()>>>,
     shutdown_timeout: Duration,
+    looks: InstanceLooks,
+    rules: Arc<ErrorRuleBook>,
+    settings: Arc<OrgSettingsBook>,
+    limits: super::ApmLimitsHandle,
 }
 
 impl BufferedApmProjector {
@@ -163,7 +160,26 @@ impl BufferedApmProjector {
             cancel,
             join: Mutex::new(Some(join)),
             shutdown_timeout: config.shutdown_timeout,
+            looks: InstanceLooks::default(),
+            rules: Arc::default(),
+            settings: Arc::default(),
+            limits: config.limits.clone(),
         }))
+    }
+
+    /// The organizations' naming rules and environment mapping put on facts as they are extracted.
+    pub fn org_settings(&self) -> Arc<OrgSettingsBook> {
+        self.settings.clone()
+    }
+
+    /// The limits the projector keeps to.
+    pub fn limits(&self) -> super::ApmLimitsHandle {
+        self.limits.clone()
+    }
+
+    /// The error rules put on facts as they are extracted.
+    pub fn error_rules(&self) -> Arc<ErrorRuleBook> {
+        self.rules.clone()
     }
 
     pub fn health(&self) -> ApmProjectorHealthSnapshot {
@@ -231,10 +247,16 @@ impl BufferedApmProjector {
 
 impl ApmCandidateProjector for BufferedApmProjector {
     fn extract(&self, org_id: &str, span: &CanonicalSpan) -> Option<ApmSpanFact> {
-        let fact = extract_apm_fact(org_id, span);
+        let mut fact = extract_apm_fact(org_id, span);
 
-        if fact.is_none() {
-            metrics::record_fact("extract_failed");
+        match fact.as_mut() {
+            Some(fact) => {
+                // Named as the organization names it before anything is told by its name.
+                self.settings.apply(fact);
+                self.looks.attach(fact, span);
+                self.rules.apply(fact);
+            }
+            None => metrics::record_fact("extract_failed"),
         }
 
         fact

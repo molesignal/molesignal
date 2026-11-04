@@ -7,6 +7,7 @@ use super::{connector::NotifyTargetType, preference::NotifyCategory};
 use crate::shared::{ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NotifyDefaultRoute {
     pub connector_id: Id,
     pub target_type: NotifyTargetType,
@@ -15,6 +16,7 @@ pub struct NotifyDefaultRoute {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TeamNotifyDefault {
     pub id: Id,
     pub organization_id: Id,
@@ -27,6 +29,7 @@ pub struct TeamNotifyDefault {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OrganizationNotifyDefault {
     pub id: Id,
     pub organization_id: Id,

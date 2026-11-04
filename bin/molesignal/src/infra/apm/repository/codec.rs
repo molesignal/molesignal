@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
-use sqlx::{Row, postgres::PgRow, types::Json};
+use sqlx::{
+    Row,
+    postgres::{PgRow, types::PgInterval},
+    types::Json,
+};
 
 use crate::{
     domain::apm::{BucketDimension, BucketKind, BucketMeasurements, MergedBucket, QueryResolution},
@@ -12,7 +16,26 @@ use crate::{
 
 pub(super) const HOUR_MICROS: i64 = 3_600 * 1_000_000;
 pub(super) const HOT_RESOLUTION_MICROS: i64 = 24 * HOUR_MICROS;
-const MERGED_EXEMPLAR_CAP: usize = 8;
+
+/// 阈值一类的时长按 `INTERVAL` 存取，精度为微秒。
+pub(super) fn interval(micros: u64) -> PgInterval {
+    PgInterval {
+        months: 0,
+        days: 0,
+        microseconds: i64::try_from(micros).unwrap_or(i64::MAX),
+    }
+}
+
+pub(super) fn interval_micros(interval: PgInterval) -> Option<u64> {
+    let days = i64::from(interval.months)
+        .saturating_mul(30)
+        .saturating_add(i64::from(interval.days));
+    let micros = days
+        .saturating_mul(24 * HOUR_MICROS)
+        .saturating_add(interval.microseconds);
+
+    u64::try_from(micros).ok()
+}
 
 type RollupMergeMap =
     BTreeMap<(Vec<u8>, u16), (BucketDimension, BucketMeasurements, BTreeSet<i64>)>;
@@ -34,30 +57,13 @@ pub(super) struct RollupBucket {
     pub source_minute_count: u16,
 }
 
-pub(super) fn minute_table(kind: BucketKind) -> &'static str {
-    match kind {
-        BucketKind::Service => "apm_service_buckets",
-        BucketKind::Transaction => "apm_transaction_buckets",
-        BucketKind::Dependency => "apm_dependency_buckets",
-        BucketKind::Error => "apm_error_buckets",
-    }
-}
-
-pub(super) fn hourly_table(kind: BucketKind) -> &'static str {
-    match kind {
-        BucketKind::Service => "apm_service_buckets_hourly",
-        BucketKind::Transaction => "apm_transaction_buckets_hourly",
-        BucketKind::Dependency => "apm_dependency_buckets_hourly",
-        BucketKind::Error => "apm_error_buckets_hourly",
-    }
-}
-
 pub(super) fn kind_name(kind: BucketKind) -> &'static str {
     match kind {
         BucketKind::Service => "service",
         BucketKind::Transaction => "transaction",
         BucketKind::Dependency => "dependency",
         BucketKind::Error => "error",
+        BucketKind::Instance => "instance",
     }
 }
 
@@ -110,8 +116,9 @@ pub(super) fn row_to_bucket(row: PgRow) -> Result<PersistedBucketRow> {
 
     Ok(PersistedBucketRow {
         bucket_at: row
-            .try_get("bucket_at_micros")
-            .map_err(crate::infra::persistence::sqlx_err)?,
+            .try_get::<TimestampMicros, _>("bucket_at")
+            .map_err(crate::infra::persistence::sqlx_err)?
+            .0,
         dimension_key,
         histogram_schema_version: schema_version,
         dimension: dimension.0,
@@ -139,7 +146,7 @@ pub(super) fn merge_rows(rows: Vec<PersistedBucketRow>) -> Result<Vec<MergedBuck
                     return Err(Error::internal("APM dimension key collision"));
                 }
 
-                merge_measurements(&mut entry.get_mut().1, row.measurements)?;
+                entry.get_mut().1.merge(&row.measurements)?;
             }
         }
     }
@@ -175,7 +182,7 @@ pub(super) fn rollup_rows(rows: Vec<PersistedBucketRow>) -> Result<Vec<RollupBuc
                     return Err(Error::internal("APM dimension key collision"));
                 }
 
-                merge_measurements(&mut entry.get_mut().1, row.measurements)?;
+                entry.get_mut().1.merge(&row.measurements)?;
                 entry.get_mut().2.insert(row.bucket_at);
             }
         }
@@ -196,31 +203,6 @@ pub(super) fn rollup_rows(rows: Vec<PersistedBucketRow>) -> Result<Vec<RollupBuc
             },
         )
         .collect()
-}
-
-fn merge_measurements(target: &mut BucketMeasurements, source: BucketMeasurements) -> Result<()> {
-    target.request_count = target.request_count.saturating_add(source.request_count);
-    target.error_count = target.error_count.saturating_add(source.error_count);
-    target.overflow_count = target.overflow_count.saturating_add(source.overflow_count);
-    target.latency.merge(&source.latency)?;
-
-    let mut seen: HashSet<(String, String)> = target
-        .exemplars
-        .iter()
-        .map(|item| (item.trace_id.clone(), item.span_id.clone()))
-        .collect();
-
-    for exemplar in source.exemplars {
-        if target.exemplars.len() >= MERGED_EXEMPLAR_CAP {
-            break;
-        }
-
-        if seen.insert((exemplar.trace_id.clone(), exemplar.span_id.clone())) {
-            target.exemplars.push(exemplar);
-        }
-    }
-
-    Ok(())
 }
 
 pub(super) fn as_i64(value: u64, field: &str) -> Result<i64> {

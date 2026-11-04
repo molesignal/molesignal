@@ -11,9 +11,9 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::ListTraces => (
             "List bounded trace summaries for a time range, with optional service, duration, error, and trace-id filters.",
             object_schema(json!({
-                "time_range": time_range_schema(), "service": {"type": "string"},
-                "trace_id": {"type": "string"}, "error_only": {"type": "boolean"},
-                "min_duration_ms": {"type": "number", "minimum": 0},
+                "timeRange": time_range_schema(), "service": {"type": "string"},
+                "traceId": {"type": "string"}, "errorOnly": {"type": "boolean"},
+                "minDurationMs": {"type": "number", "minimum": 0},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}
             })),
             vec!["Traces", "Search"],
@@ -21,11 +21,11 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::GetTrace => (
             "Fetch a bounded set of spans for one trace id. Use get_trace_dag when only structure is needed.",
             json!({
-                "type": "object", "required": ["trace_id"],
+                "type": "object", "required": ["traceId"],
                 "properties": {
-                    "trace_id": {"type": "string"},
-                    "time_range": time_range_schema(),
-                    "max_spans": {"type": "integer", "minimum": 1, "maximum": 5000, "default": 2000}
+                    "traceId": {"type": "string"},
+                    "timeRange": time_range_schema(),
+                    "maxSpans": {"type": "integer", "minimum": 1, "maximum": 5000, "default": 2000}
                 }, "additionalProperties": false
             }),
             vec!["Traces", "Spans"],
@@ -33,8 +33,8 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::GetTraceDag => (
             "Return a compact service/span dependency DAG for one trace without full span payloads.",
             json!({
-                "type": "object", "required": ["trace_id"],
-                "properties": {"trace_id": {"type": "string"}, "time_range": time_range_schema()},
+                "type": "object", "required": ["traceId"],
+                "properties": {"traceId": {"type": "string"}, "timeRange": time_range_schema()},
                 "additionalProperties": false
             }),
             vec!["Traces", "DAG"],
@@ -42,7 +42,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::ListTraceSessions => (
             "List bounded LLM/AI trace sessions when session fields exist in the trace stream.",
             object_schema(json!({
-                "time_range": time_range_schema(), "service": {"type": "string"},
+                "timeRange": time_range_schema(), "service": {"type": "string"},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}
             })),
             vec!["Traces", "AI", "Sessions"],
@@ -50,9 +50,9 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::GetTraceSession => (
             "Get bounded per-trace summaries for one LLM/AI session.",
             json!({
-                "type": "object", "required": ["session_id"],
+                "type": "object", "required": ["sessionId"],
                 "properties": {
-                    "session_id": {"type": "string"}, "time_range": time_range_schema(),
+                    "sessionId": {"type": "string"}, "timeRange": time_range_schema(),
                     "limit": {"type": "integer", "minimum": 1, "maximum": 500, "default": 100}
                 }, "additionalProperties": false
             }),
@@ -61,7 +61,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::ListTraceUsers => (
             "List bounded AI trace-user aggregates when user fields exist in the trace stream.",
             object_schema(json!({
-                "time_range": time_range_schema(), "service": {"type": "string"},
+                "timeRange": time_range_schema(), "service": {"type": "string"},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}
             })),
             vec!["Traces", "AI", "Users"],
@@ -76,7 +76,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         "traces",
         input,
         open_output(),
-        &["streams.query", "sys.telemetry.read"],
+        &["traces.read", "sys.telemetry.read"],
         &tags,
     );
 

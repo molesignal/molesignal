@@ -9,16 +9,20 @@
 
 mod members;
 mod rows;
+mod server_secrets;
 mod servers;
 
 use async_trait::async_trait;
 use sqlx::{PgPool, types::Json};
 
 use self::rows::{
-    DEFAULTS_COLS, MCP_TOOL_COLS, POLICY_COLS, defaults_row, execution_mode_string, mcp_tool_row,
+    MCP_TOOL_COLS, POLICY_COLS, StoredPolicyDefaults, execution_mode_string, mcp_tool_row,
     policy_row, risk_string, status_string,
 };
-use super::super::sqlx_err;
+use super::super::{
+    org_settings::{self, sections::AGENT_TOOL_POLICY},
+    sqlx_err,
+};
 use crate::{
     agent::{
         mcp::McpPrompt,
@@ -92,14 +96,14 @@ impl ToolControlRepository for PgToolControlRepository {
         sqlx::query(
             "INSERT INTO agent_tool_policies
                 (org_id,tool_name,enabled,execution_mode,environment_overrides,timeout_ms,
-                 max_calls_per_run,max_response_bytes,updated_by,created_at_micros,updated_at_micros)
+                 max_calls_per_run,max_response_bytes,updated_by,created_at,updated_at)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
              ON CONFLICT (org_id,tool_name) DO UPDATE SET
                 enabled=EXCLUDED.enabled,execution_mode=EXCLUDED.execution_mode,
                 environment_overrides=EXCLUDED.environment_overrides,
                 timeout_ms=EXCLUDED.timeout_ms,max_calls_per_run=EXCLUDED.max_calls_per_run,
                 max_response_bytes=EXCLUDED.max_response_bytes,updated_by=EXCLUDED.updated_by,
-                updated_at_micros=EXCLUDED.updated_at_micros",
+                updated_at=EXCLUDED.updated_at",
         )
         .bind(&policy.org_id.0)
         .bind(&policy.tool_name)
@@ -110,8 +114,8 @@ impl ToolControlRepository for PgToolControlRepository {
         .bind(policy.max_calls_per_run)
         .bind(policy.max_response_bytes)
         .bind(&policy.updated_by.0)
-        .bind(policy.created_at.0)
-        .bind(policy.updated_at.0)
+        .bind(policy.created_at)
+        .bind(policy.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -122,40 +126,43 @@ impl ToolControlRepository for PgToolControlRepository {
     }
 
     async fn get_policy_defaults(&self, org_id: &Id) -> Result<Option<ToolPolicyDefaults>> {
-        let row = sqlx::query(&format!(
-            "SELECT {DEFAULTS_COLS} FROM agent_tool_policy_defaults WHERE org_id=$1"
-        ))
-        .bind(&org_id.0)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
+        let section =
+            org_settings::read::<StoredPolicyDefaults>(&self.pool, &org_id.0, AGENT_TOOL_POLICY)
+                .await?;
 
-        row.map(defaults_row).transpose()
+        Ok(section.map(|section| {
+            section
+                .value
+                .into_defaults(org_id, section.updated_by, section.updated_at)
+        }))
     }
 
     async fn upsert_policy_defaults(
         &self,
         defaults: ToolPolicyDefaults,
     ) -> Result<ToolPolicyDefaults> {
-        sqlx::query(
-            "INSERT INTO agent_tool_policy_defaults
-                (org_id,risk_modes,environment_overrides,updated_by,created_at_micros,updated_at_micros)
-             VALUES ($1,$2,$3,$4,$5,$6)
-             ON CONFLICT (org_id) DO UPDATE SET
-                risk_modes=EXCLUDED.risk_modes,
-                environment_overrides=EXCLUDED.environment_overrides,
-                updated_by=EXCLUDED.updated_by,
-                updated_at_micros=EXCLUDED.updated_at_micros",
+        let mut stored = StoredPolicyDefaults::from_defaults(&defaults);
+
+        // 第一次保存的时间不变。
+        if let Some(existing) = org_settings::read::<StoredPolicyDefaults>(
+            &self.pool,
+            &defaults.org_id.0,
+            AGENT_TOOL_POLICY,
         )
-        .bind(&defaults.org_id.0)
-        .bind(Json(&defaults.risk_modes))
-        .bind(Json(&defaults.environment_overrides))
-        .bind(&defaults.updated_by.0)
-        .bind(defaults.created_at.0)
-        .bind(defaults.updated_at.0)
-        .execute(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
+        .await?
+        {
+            stored.created_at = existing.value.created_at;
+        }
+
+        org_settings::write(
+            &self.pool,
+            &defaults.org_id.0,
+            AGENT_TOOL_POLICY,
+            &stored,
+            Some(&defaults.updated_by.0),
+            defaults.updated_at,
+        )
+        .await?;
 
         self.get_policy_defaults(&defaults.org_id)
             .await?
@@ -330,22 +337,22 @@ impl ToolControlRepository for PgToolControlRepository {
             sqlx::query(
                 "INSERT INTO agent_mcp_tools
                     (id,org_id,server_id,remote_name,name,display_name,description,input_schema,
-                     schema_hash,schema_dialect,schema_synced_at_micros,unavailable_diagnostic,
+                     schema_hash,schema_dialect,schema_synced_at,unavailable_diagnostic,
                      output_schema,minimum_risk,risk,execution_mode,capabilities,tags,enabled,
-                     status,version,last_synced_at_micros,created_at_micros,updated_at_micros)
+                     status,version,last_synced_at,created_at,updated_at)
                  VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
                  ON CONFLICT (server_id,remote_name) DO UPDATE SET
                     name=EXCLUDED.name,display_name=EXCLUDED.display_name,
                     description=EXCLUDED.description,input_schema=EXCLUDED.input_schema,
                     schema_hash=EXCLUDED.schema_hash,schema_dialect=EXCLUDED.schema_dialect,
-                    schema_synced_at_micros=EXCLUDED.schema_synced_at_micros,
+                    schema_synced_at=EXCLUDED.schema_synced_at,
                     unavailable_diagnostic=EXCLUDED.unavailable_diagnostic,
                     output_schema=EXCLUDED.output_schema,minimum_risk=EXCLUDED.minimum_risk,
                     risk=EXCLUDED.risk,execution_mode=EXCLUDED.execution_mode,
                     capabilities=EXCLUDED.capabilities,tags=EXCLUDED.tags,
                     enabled=EXCLUDED.enabled,status=EXCLUDED.status,version=EXCLUDED.version,
-                    last_synced_at_micros=EXCLUDED.last_synced_at_micros,
-                    updated_at_micros=EXCLUDED.updated_at_micros",
+                    last_synced_at=EXCLUDED.last_synced_at,
+                    updated_at=EXCLUDED.updated_at",
             )
             .bind(&tool.id.0)
             .bind(&tool.org_id.0)
@@ -357,7 +364,7 @@ impl ToolControlRepository for PgToolControlRepository {
             .bind(Json(&tool.input_schema))
             .bind(&tool.schema_hash)
             .bind(&tool.schema_dialect)
-            .bind(tool.schema_synced_at.0)
+            .bind(tool.schema_synced_at)
             .bind(&tool.unavailable_diagnostic)
             .bind(tool.output_schema.as_ref().map(Json))
             .bind(risk_string(tool.minimum_risk))
@@ -368,9 +375,9 @@ impl ToolControlRepository for PgToolControlRepository {
             .bind(tool.enabled)
             .bind(status_string(tool.status))
             .bind(&tool.version)
-            .bind(tool.last_synced_at.0)
-            .bind(tool.created_at.0)
-            .bind(tool.updated_at.0)
+            .bind(tool.last_synced_at)
+            .bind(tool.created_at)
+            .bind(tool.updated_at)
             .execute(&mut *transaction)
             .await
             .map_err(sqlx_err)?;
@@ -383,7 +390,7 @@ impl ToolControlRepository for PgToolControlRepository {
     async fn update_mcp_tool_policy(&self, tool: McpTool) -> Result<McpTool> {
         let result = sqlx::query(
             "UPDATE agent_mcp_tools SET
-                risk=$3,execution_mode=$4,enabled=$5,status=$6,updated_at_micros=$7
+                risk=$3,execution_mode=$4,enabled=$5,status=$6,updated_at=$7
              WHERE org_id=$1 AND id=$2",
         )
         .bind(&tool.org_id.0)
@@ -392,7 +399,7 @@ impl ToolControlRepository for PgToolControlRepository {
         .bind(execution_mode_string(tool.execution_mode))
         .bind(tool.enabled)
         .bind(status_string(tool.status))
-        .bind(tool.updated_at.0)
+        .bind(tool.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;

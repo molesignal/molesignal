@@ -1,9 +1,17 @@
 import * as React from 'react';
 
+import type { StreamField } from '@/api/streams';
 import { detectStatementLanguage } from '@/shell/query/builder/model';
 import type { QueryEditorMode } from '@/shell/query/ModeSwitch';
 import { useQueryTabSearchParams, useQueryTabState } from '@/shell/queryTabs';
 
+import {
+  type LogLinkGap,
+  type LogLinkRequest,
+  logLinkKey,
+  logLinkStatement,
+  type LogMeaning,
+} from './conditions/model';
 import { escapeSqlIdentifier } from './fieldQueryModel';
 
 export const DEFAULT_LOG_LIMIT = 200;
@@ -15,31 +23,77 @@ export function defaultLogQuery(stream: string): string {
   return `SELECT * FROM "${escapeSqlIdentifier(stream)}"\nORDER BY _timestamp DESC\nLIMIT ${DEFAULT_LOG_LIMIT}`;
 }
 
-/** The field query a link asks for: its own `q`, or one built from the signal params it carries. */
+/** The field query a link carries as it is written, in its own `q`. */
 export function requestedLogFieldQueryFromParams(params: URLSearchParams): string {
-  const direct = params.get('q') ?? params.get('query') ?? '';
-  if (direct.trim()) return direct.trim();
-  const clauses: string[] = [];
-  const traceId = params.get('trace_id') ?? params.get('traceId');
-  const spanId = params.get('span_id') ?? params.get('spanId');
-  const service = params.get('service') ?? params.get('service_name');
-  const host = params.get('host') ?? params.get('hostname');
-  const path = params.get('path') ?? params.get('route');
-  const method = params.get('method');
-  const status = params.get('status_code') ?? params.get('status');
-  if (traceId) clauses.push(logParamClause('trace_id', traceId));
-  if (spanId) clauses.push(logParamClause('span_id', spanId));
-  if (service) clauses.push(logParamClause('service', service));
-  if (host) clauses.push(logParamClause('host', host));
-  if (path) clauses.push(logParamClause('path', path));
-  if (method) clauses.push(logParamClause('method', method));
-  if (status) clauses.push(logParamClause('status_code', status));
-  return clauses.join(' AND ');
+  return (params.get('q') ?? params.get('query') ?? '').trim();
 }
 
-function logParamClause(field: string, value: string): string {
-  return `${field}='${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+/** The params a link may say each meaning in; the first with a value counts. */
+const LINK_PARAMS: ReadonlyArray<readonly [LogMeaning, readonly string[]]> = [
+  ['trace_id', ['traceId']],
+  ['span_id', ['spanId']],
+  ['service', ['service', 'serviceName']],
+  ['host', ['host', 'hostname']],
+  ['pod', ['pod', 'podName']],
+  ['route', ['route', 'path']],
+  ['operation', ['operation', 'operationName']],
+  ['method', ['method']],
+  ['status', ['status', 'statusCode']],
+  ['environment', ['environment']],
+];
+
+/**
+ * What a link asks of the logs by meaning, as a cross-signal link or a
+ * dashboard's data link says it: `service`, `host`, `trace_id`. Which field
+ * holds each depends on the stream, so the field query is written once the
+ * stream is known. `null` when the link carries a field query of its own, or
+ * asks for nothing of the kind.
+ */
+export function requestedLogLinkFromParams(params: URLSearchParams): LogLinkRequest | null {
+  if (requestedLogFieldQueryFromParams(params)) return null;
+
+  const request: LogLinkRequest = {};
+  for (const [meaning, names] of LINK_PARAMS) {
+    const value = names.map((name) => params.get(name)?.trim()).find(Boolean);
+    if (value) request[meaning] = value;
+  }
+
+  return Object.keys(request).length > 0 ? request : null;
 }
+
+/** A query that ran, as its address says it. */
+export interface LogQueryRun {
+  stream: string;
+  mode: LogQueryMode;
+  statement: string;
+}
+
+/**
+ * The address of a query that ran: its stream, and its statement in `q` or in
+ * `sql` by its language. What a link asked for by meaning (`service`,
+ * `trace_id`) is written into the statement by then, so those params go.
+ */
+export function writeLogQueryParams(current: URLSearchParams, run: LogQueryRun): URLSearchParams {
+  const next = new URLSearchParams(current);
+  for (const key of ['q', 'query', 'sql', ...LINK_PARAMS.flatMap(([, names]) => names)]) next.delete(key);
+
+  const stream = run.stream.trim();
+  const statement = run.statement.trim();
+  if (stream) next.set('stream', stream);
+  else next.delete('stream');
+  if (statement) next.set(run.mode === 'sql' ? 'sql' : 'q', statement);
+
+  return next;
+}
+
+/** What the address says of the query: the page applies it only when it says something else. */
+interface LogQueryAddress {
+  stream: string;
+  fieldQuery: string;
+  sql: string;
+}
+
+const NO_GAPS: readonly LogLinkGap[] = [];
 
 /**
  * The query a Logs page is working on, and the one its link asks for.
@@ -49,13 +103,24 @@ function logParamClause(field: string, value: string): string {
  * starting from the link again. `requested*` is what the link says; the page
  * applies it when it changes.
  *
+ * A link that asks by meaning (`requestedLink`) is written into the field
+ * query here, in the names of the stream's own fields, once `fieldsOf` knows
+ * them; until then it is pending.
+ *
  * The Code editor takes either language: what is typed decides which statement
  * it is (`queryMode`). The builder only ever writes the field query.
+ *
+ * A query that runs is written to the address (`publishQuery`), so a copy of
+ * the address is the query on screen. `addressTaken` is what the page has taken
+ * from its address or written there itself: what the address still says is not
+ * applied again, only what a link or the history changes there.
  */
-export function useLogQueryState() {
-  const [searchParams] = useQueryTabSearchParams();
+export function useLogQueryState(fieldsOf: (stream: string) => readonly StreamField[] | undefined) {
+  const [searchParams, setSearchParams] = useQueryTabSearchParams();
   const requestedStream = searchParams.get('stream') ?? '';
   const requestedFieldQuery = requestedLogFieldQueryFromParams(searchParams);
+  const requestedLink = React.useMemo(() => requestedLogLinkFromParams(searchParams), [searchParams]);
+  const requestedLinkKey = requestedLink ? logLinkKey(requestedLink) : '';
   // `?sql=<statement>` seeds the raw-SQL editor (used by Saved Views "Open" for
   // SQL-language views, which can't round-trip through the `?q=` field DSL).
   const requestedSql = searchParams.get('sql')?.trim() ?? '';
@@ -70,6 +135,28 @@ export function useLogQueryState() {
   );
   const [fieldQuery, setFieldQuery] = useQueryTabState('logs.fieldQuery', requestedFieldQuery);
   const [editorMode, setEditorMode] = useQueryTabState<QueryEditorMode>('logs.editorMode', 'code');
+  // The link the field query was written from: a reload does not write it again over what
+  // the reader has made of it since. Another link's conditions wait for their stream's fields.
+  const [writtenLink, setWrittenLink] = useQueryTabState('logs.writtenLink', '');
+  const [linkGaps, setLinkGaps] = React.useState<{ stream: string; gaps: LogLinkGap[] } | null>(null);
+  const addressTaken = React.useRef<LogQueryAddress>({
+    stream: requestedStream,
+    fieldQuery: requestedFieldQuery,
+    sql: requestedSql,
+  });
+  const linkPending = requestedLinkKey !== '' && writtenLink !== requestedLinkKey;
+  const linkFields = linkPending && stream ? fieldsOf(stream) : undefined;
+
+  React.useEffect(() => {
+    if (!linkPending || !requestedLink || !linkFields) return;
+
+    const { statement, gaps } = logLinkStatement(requestedLink, linkFields);
+    // One update: the page runs the query it sees the link written into.
+    setQueryMode('fields');
+    setFieldQuery(statement);
+    setWrittenLink(requestedLinkKey);
+    setLinkGaps({ stream, gaps });
+  }, [linkFields, linkPending, requestedLink, requestedLinkKey, setFieldQuery, setQueryMode, setWrittenLink, stream]);
 
   // Code holds one statement. The other language's copy is emptied as soon as
   // the typing turns out to be SQL (or stops being it), so the builder never
@@ -82,6 +169,18 @@ export function useLogQueryState() {
       setFieldQuery(sql ? '' : statement);
     },
     [setFieldQuery, setQuery, setQueryMode],
+  );
+  const publishQuery = React.useCallback(
+    (run: LogQueryRun) => {
+      const statement = run.statement.trim();
+      addressTaken.current = {
+        stream: run.stream.trim(),
+        fieldQuery: run.mode === 'fields' ? statement : '',
+        sql: run.mode === 'sql' ? statement : '',
+      };
+      setSearchParams((current) => writeLogQueryParams(current, run), { replace: true });
+    },
+    [setSearchParams],
   );
   const setBuilderStatement = React.useCallback(
     (statement: string) => {
@@ -98,7 +197,13 @@ export function useLogQueryState() {
     setBuilderStatement,
     requestedStream,
     requestedFieldQuery,
+    requestedLink,
+    linkPending,
+    // What the link asked for that the stream in use keeps no field for.
+    linkGaps: linkGaps?.stream === stream ? linkGaps.gaps : NO_GAPS,
     requestedSql,
+    addressTaken,
+    publishQuery,
     queryMode,
     setQueryMode,
     stream,
@@ -112,7 +217,7 @@ export function useLogQueryState() {
 
 /** The hint in an empty Code editor: both languages it takes. */
 export function logQueryPlaceholder(stream: string): string {
-  const fields = 'trace_id = "..." / service_name contains "checkout"';
+  const fields = 'trace_id = "..." / service.name contains "checkout"';
   return stream ? `${fields}\nSELECT * FROM "${escapeSqlIdentifier(stream)}" WHERE ...` : fields;
 }
 

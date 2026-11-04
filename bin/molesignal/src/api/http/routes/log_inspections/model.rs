@@ -23,6 +23,7 @@ use crate::{
 
 /// 创建和修改用同一个请求体：每次保存都是完整的定义。
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct SaveReq {
     pub name: String,
     pub stream: String,
@@ -70,8 +71,9 @@ impl From<SaveReq> for InspectionInput {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct LastRunResp {
-    pub at_micros: i64,
+    pub at_time: i64,
     pub status: RunStatus,
     /// 只有成功的执行才有结论等级。
     pub level: Option<InspectionLevel>,
@@ -79,15 +81,17 @@ pub(super) struct LastRunResp {
 
 /// 这条巡检此刻排队中或执行中的那一次。
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct ActiveRunResp {
     pub id: String,
     pub status: RunStatus,
     pub trigger: RunTrigger,
-    pub created_at_micros: i64,
-    pub started_at_micros: Option<i64>,
+    pub created_at: i64,
+    pub started_at: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct InspectionResp {
     pub id: String,
     pub name: String,
@@ -109,13 +113,13 @@ pub(super) struct InspectionResp {
     /// 这位用户的显示名和邮箱。用户记录已经不存在时为 `null`。
     pub run_as_user: Option<RunAsProfile>,
     /// 下一次定时执行；停用时为 `null`。
-    pub next_run_at_micros: Option<i64>,
+    pub next_run_at: Option<i64>,
     /// 最近一次结束的执行；还没有执行过时为 `null`。
     pub last_run: Option<LastRunResp>,
     pub active_run: Option<ActiveRunResp>,
     pub created_by: String,
-    pub created_at_micros: i64,
-    pub updated_at_micros: i64,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
 impl InspectionResp {
@@ -127,7 +131,7 @@ impl InspectionResp {
         Self {
             run_as_user: users.get(&inspection.run_as_user_id).cloned(),
             last_run: inspection.last_run.map(|run| LastRunResp {
-                at_micros: run.at.0,
+                at_time: run.at.0,
                 status: run.status,
                 level: run.level,
             }),
@@ -135,8 +139,8 @@ impl InspectionResp {
                 id: run.id.0.clone(),
                 status: run.status,
                 trigger: run.trigger,
-                created_at_micros: run.created_at.0,
-                started_at_micros: run.started_at.map(|at| at.0),
+                created_at: run.created_at.0,
+                started_at: run.started_at.map(|at| at.0),
             }),
             id: inspection.id.0,
             name: inspection.name,
@@ -153,23 +157,24 @@ impl InspectionResp {
             language: inspection.language,
             enabled: inspection.enabled,
             run_as_user_id: inspection.run_as_user_id.0,
-            next_run_at_micros: inspection.next_run_at.map(|at| at.0),
+            next_run_at: inspection.next_run_at.map(|at| at.0),
             created_by: inspection.created_by.0,
-            created_at_micros: inspection.created_at.0,
-            updated_at_micros: inspection.updated_at.0,
+            created_at: inspection.created_at.0,
+            updated_at: inspection.updated_at.0,
         }
     }
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct RunResp {
     pub id: String,
     pub inspection_id: String,
     pub trigger: RunTrigger,
     pub status: RunStatus,
     pub level: Option<InspectionLevel>,
-    pub window_start_micros: i64,
-    pub window_end_micros: i64,
+    pub window_start: i64,
+    pub window_end: i64,
     pub summary: Option<String>,
     /// 模型写的报告原文。列表里不带，读单条时才有。
     pub report: Option<String>,
@@ -187,9 +192,9 @@ pub(super) struct RunResp {
     pub prompt_tokens: i64,
     pub completion_tokens: i64,
     pub notifications: Vec<InspectionNotification>,
-    pub created_at_micros: i64,
-    pub started_at_micros: Option<i64>,
-    pub finished_at_micros: Option<i64>,
+    pub created_at: i64,
+    pub started_at: Option<i64>,
+    pub finished_at: Option<i64>,
 }
 
 impl RunResp {
@@ -204,8 +209,8 @@ impl RunResp {
             trigger: run.trigger,
             status: run.status,
             level: run.level,
-            window_start_micros: run.window_start.0,
-            window_end_micros: run.window_end.0,
+            window_start: run.window_start.0,
+            window_end: run.window_end.0,
             summary: run.summary,
             report: run.report,
             failure: run.failure,
@@ -218,15 +223,16 @@ impl RunResp {
             prompt_tokens: run.prompt_tokens,
             completion_tokens: run.completion_tokens,
             notifications: run.notifications,
-            created_at_micros: run.created_at.0,
-            started_at_micros: run.started_at.map(|at| at.0),
-            finished_at_micros: run.finished_at.map(|at| at.0),
+            created_at: run.created_at.0,
+            started_at: run.started_at.map(|at| at.0),
+            finished_at: run.finished_at.map(|at| at.0),
         }
     }
 }
 
 /// 实例对定时巡检的限制，页面据此给出可选的周期并说明上限。
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct LimitsResp {
     pub min_interval_secs: u64,
     pub max_per_org: u32,
@@ -312,10 +318,10 @@ mod tests {
         let req: SaveReq = serde_json::from_value(json!({
             "name": "payments",
             "stream": "app_logs",
-            "window_secs": 3600,
+            "windowSecs": 3600,
             "schedule": { "type": "weekly", "weekday": 1, "hour": 9, "minute": 0 },
             "timezone": "Asia/Shanghai",
-            "provider_id": "provider-1",
+            "providerId": "provider-1",
             "language": "zh-cn"
         }))
         .unwrap();
@@ -355,15 +361,15 @@ mod tests {
             body["schedule"],
             json!({ "type": "daily", "hour": 9, "minute": 30 })
         );
-        assert_eq!(body["notify_when"], "attention");
-        assert_eq!(body["notify_routes"][0]["target_type"], "fixed_group");
-        assert_eq!(body["run_as_user"]["display_name"], "Alice");
-        assert_eq!(body["next_run_at_micros"], 2_000);
+        assert_eq!(body["notifyWhen"], "attention");
+        assert_eq!(body["notifyRoutes"][0]["targetType"], "fixed_group");
+        assert_eq!(body["runAsUser"]["displayName"], "Alice");
+        assert_eq!(body["nextRunAt"], 2_000);
         assert_eq!(
-            body["last_run"],
-            json!({ "at_micros": 1_000, "status": "succeeded", "level": "abnormal" })
+            body["lastRun"],
+            json!({ "atTime": 1_000, "status": "succeeded", "level": "abnormal" })
         );
-        assert_eq!(body["active_run"], json!(null));
+        assert_eq!(body["activeRun"], json!(null));
         assert_eq!(body["model"], json!(null));
     }
 
@@ -372,8 +378,8 @@ mod tests {
         let body =
             serde_json::to_value(InspectionResp::new(inspection(), None, &HashMap::new())).unwrap();
 
-        assert_eq!(body["run_as_user_id"], "user-1");
-        assert_eq!(body["run_as_user"], json!(null));
+        assert_eq!(body["runAsUserId"], "user-1");
+        assert_eq!(body["runAsUser"], json!(null));
     }
 
     #[test]
@@ -386,10 +392,10 @@ mod tests {
         assert_eq!(
             body,
             json!({
-                "min_interval_secs": 3600,
-                "max_per_org": 20,
-                "run_timeout_secs": 300,
-                "report_retention_days": 30
+                "minIntervalSecs": 3600,
+                "maxPerOrg": 20,
+                "runTimeoutSecs": 300,
+                "reportRetentionDays": 30
             })
         );
     }

@@ -3,7 +3,38 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::MonitorKind;
 use crate::shared::ids::Id;
+
+/// Whether an assertion of a `kind` check can look at `source`: what the Agent reads from the
+/// reply of that kind of check.
+pub fn assertion_source_allowed(kind: MonitorKind, source: &str) -> bool {
+    match kind {
+        MonitorKind::Http => {
+            matches!(
+                source,
+                "status"
+                    | "status_code"
+                    | "body"
+                    | "duration_ms"
+                    | "size_bytes"
+                    | "timing.dns_ms"
+                    | "timing.connect_ms"
+                    | "timing.tls_ms"
+                    | "timing.first_byte_ms"
+            ) || source
+                .strip_prefix("header:")
+                .is_some_and(|name| !name.trim().is_empty())
+                || source
+                    .strip_prefix("json:")
+                    .is_some_and(|path| !path.trim().is_empty())
+        }
+        MonitorKind::Tcp => matches!(source, "response" | "duration_ms"),
+        MonitorKind::Dns => matches!(source, "answers" | "answer_count" | "rcode" | "duration_ms"),
+        MonitorKind::Grpc => matches!(source, "status" | "duration_ms"),
+        _ => false,
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -44,7 +75,11 @@ pub struct Extraction {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "source", rename_all = "snake_case")]
+#[serde(
+    tag = "source",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub enum ValueSource {
     Literal { value: String },
     Variable { name: String },

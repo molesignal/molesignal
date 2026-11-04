@@ -14,7 +14,7 @@ use crate::{
         pipeline::processing::{ProcessingKind, parse_processing_steps},
     },
     infra::runtime::VrlRuntime,
-    shared::{Error, Result},
+    shared::{Error, Result, ids::Id},
 };
 
 /// The VRL metadata key that holds the stream an event was read from.
@@ -56,11 +56,14 @@ pub struct ProcessedRows {
 
 /// Runs the steps of `config` on every event. `sources` names the streams events were read from
 /// (indexed by [`SourceEvent::source`]). With `keep_originals`, a failed event is reported as it
-/// was read.
+/// was read. The steps run for `org`: `lookup` reads its extend tables, read in before the first
+/// event.
 ///
-/// A step that does not compile fails the whole batch: that is the pipeline's configuration.
-pub fn process_rows(
+/// A step that does not compile fails the whole batch: that is the pipeline's configuration. So
+/// does an extend table that cannot be read, for the run to be tried again.
+pub async fn process_rows(
     runtime: &VrlRuntime,
+    org: &Id,
     config: &Value,
     fallback_target: &str,
     sources: &[String],
@@ -73,14 +76,21 @@ pub fn process_rows(
         .iter()
         .map(|step| {
             if step.kind == ProcessingKind::Vrl {
-                runtime.compile(&step.script).map(Some).map_err(|e| {
-                    Error::invalid(format!("step `{}` compile: {e}", step.transform_name))
-                })
+                runtime
+                    .compile_for(org, &step.script)
+                    .map(Some)
+                    .map_err(|e| {
+                        Error::invalid(format!("step `{}` compile: {e}", step.transform_name))
+                    })
             } else {
                 Ok(None)
             }
         })
         .collect::<Result<Vec<_>>>()?;
+
+    for program in programs.iter().flatten() {
+        runtime.prepare(org, program).await?;
+    }
 
     let mut processed = ProcessedRows::default();
 
@@ -92,8 +102,12 @@ pub fn process_rows(
         let mut destination = fallback_target.to_owned();
 
         for (step, program) in steps.iter().zip(&programs) {
+            // Steps that keep count never get here: a scheduled pipeline refuses them.
             let Some(program) = program else {
-                destination = step.routing.destination(&event, &step.target);
+                if step.kind == ProcessingKind::Builtin {
+                    destination = step.routing.destination(&event, &step.target);
+                }
+
                 continue;
             };
 
@@ -138,27 +152,33 @@ mod tests {
             .collect()
     }
 
-    fn run(config: &Value, events: Vec<Value>) -> ProcessedRows {
+    fn org() -> Id {
+        Id("org".into())
+    }
+
+    async fn run(config: &Value, events: Vec<Value>) -> ProcessedRows {
         process_rows(
             &VrlRuntime::new(),
+            &org(),
             config,
             "fallback",
             &["default".into()],
             read(events),
             false,
         )
+        .await
         .unwrap()
     }
 
-    #[test]
-    fn builtin_routes_at_its_position_between_vrl_steps() {
+    #[tokio::test]
+    async fn builtin_routes_at_its_position_between_vrl_steps() {
         let config = json!({"steps":[
             {"script":".appname = \"orders\""},
             {"kind":"builtin","operation":"route","routing":{"kind":"field","field":"appname","prefix":"logs_","fallback":"other"}},
             {"script":".appname = \"changed\""}
         ]});
 
-        let result = run(&config, vec![json!({})]);
+        let result = run(&config, vec![json!({})]).await;
 
         assert_eq!(
             result.rows,
@@ -171,8 +191,8 @@ mod tests {
         assert!(result.failed.is_empty());
     }
 
-    #[test]
-    fn fixed_route_and_invalid_field_fallback_are_supported() {
+    #[tokio::test]
+    async fn fixed_route_and_invalid_field_fallback_are_supported() {
         for (routing, target) in [
             (json!({"kind":"fixed"}), "orders"),
             (
@@ -182,25 +202,36 @@ mod tests {
         ] {
             let config = json!({"steps":[{"kind":"builtin","operation":"route","target":"orders","routing":routing}]});
 
-            let result = run(&config, vec![json!({"appname":42})]);
+            let result = run(&config, vec![json!({"appname":42})]).await;
 
             assert_eq!(result.rows[0].destination, target);
         }
     }
 
-    #[test]
-    fn unknown_operations_fail_the_batch() {
+    #[tokio::test]
+    async fn unknown_operations_fail_the_batch() {
         let config = json!({"steps":[{"kind":"builtin","operation":"unknown"}]});
 
-        assert!(process_rows(&VrlRuntime::new(), &config, "t", &[], Vec::new(), false).is_err());
+        let processed = process_rows(
+            &VrlRuntime::new(),
+            &org(),
+            &config,
+            "t",
+            &[],
+            Vec::new(),
+            false,
+        )
+        .await;
+
+        assert!(processed.is_err());
     }
 
-    #[test]
-    fn an_abort_drops_and_a_failure_is_reported_with_the_event_as_read() {
+    #[tokio::test]
+    async fn an_abort_drops_and_a_failure_is_reported_with_the_event_as_read() {
         let config = json!({"steps":[
-            {"transform_name":"tag","script":".tagged = true"},
-            {"transform_name":"filter","script":"if .level == \"debug\" { abort }"},
-            {"transform_name":"count","script":".n = to_int!(.text)"},
+            {"transformName":"tag","script":".tagged = true"},
+            {"transformName":"filter","script":"if .level == \"debug\" { abort }"},
+            {"transformName":"count","script":".n = to_int!(.text)"},
         ]});
         let events = vec![
             json!({"level":"debug","text":"1"}),
@@ -210,12 +241,14 @@ mod tests {
 
         let result = process_rows(
             &VrlRuntime::new(),
+            &org(),
             &config,
             "out",
             &["app".into()],
             read(events),
             true,
         )
+        .await
         .unwrap();
 
         assert_eq!(result.dropped, 1);
@@ -226,8 +259,8 @@ mod tests {
         assert!(result.failed[0].reason.starts_with("step `count` run:"));
     }
 
-    #[test]
-    fn steps_read_the_stream_an_event_came_from() {
+    #[tokio::test]
+    async fn steps_read_the_stream_an_event_came_from() {
         let config = json!({"steps":[{"script":".from = %source_stream"}]});
         let events = vec![
             SourceEvent {
@@ -242,12 +275,14 @@ mod tests {
 
         let result = process_rows(
             &VrlRuntime::new(),
+            &org(),
             &config,
             "out",
             &["app".into(), "nginx".into()],
             events,
             false,
         )
+        .await
         .unwrap();
 
         assert_eq!(result.rows[0].event, json!({"from":"nginx"}));

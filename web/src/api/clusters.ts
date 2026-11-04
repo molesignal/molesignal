@@ -3,30 +3,30 @@ import { http } from '@/lib/http';
 export interface RemoteCluster {
   id: string;
   name: string;
-  advertise_addr: string;
-  token_secret_ref: string;
-  tls_verify: boolean;
+  advertiseAddr: string;
+  tokenSecretRef: string;
+  tlsVerify: boolean;
   enabled: boolean;
   /** Discovered via gossip, not yet enabled/configured by an admin. */
   discovered: boolean;
-  created_at_micros: number;
-  updated_at_micros: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
 /** A node reported by a remote cluster's NodeService.List. */
 export interface RemoteNode {
-  node_id: string;
-  advertise_addr: string;
+  nodeId: string;
+  advertiseAddr: string;
   roles: string[];
   version: string;
 }
 
 export interface CreateClusterPayload {
   name: string;
-  advertise_addr: string;
+  advertiseAddr: string;
   /** Secret manager reference, never an inline token. */
-  token_secret_ref: string;
-  tls_verify?: boolean;
+  tokenSecretRef: string;
+  tlsVerify?: boolean;
   enabled?: boolean;
 }
 
@@ -38,7 +38,7 @@ export async function list(): Promise<RemoteCluster[]> {
 export async function create(payload: CreateClusterPayload): Promise<RemoteCluster> {
   const { data } = await http.post<RemoteCluster>('/clusters', {
     ...payload,
-    tls_verify: payload.tls_verify ?? true,
+    tlsVerify: payload.tlsVerify ?? true,
     enabled: payload.enabled ?? true,
   });
   return data;
@@ -51,18 +51,18 @@ export async function remove(id: string): Promise<void> {
 /** Cross-cluster org mapping. Sender filters sendable orgs by these links;
  *  receiver resolves remote_org -> local_org (unmapped orgs are rejected). */
 export interface OrgMap {
-  remote_cluster_id: string;
-  local_org_id: string;
-  remote_org_id: string;
+  remoteClusterId: string;
+  localOrgId: string;
+  remoteOrgId: string;
   /** Masked: `***` when a per-org token is set, empty otherwise. */
-  token_secret_ref: string;
+  tokenSecretRef: string;
 }
 
 export interface OrgMapPayload {
-  local_org_id: string;
-  remote_org_id: string;
+  localOrgId: string;
+  remoteOrgId: string;
   /** Per-org token reference (`env:VAR` / `cipher_keys:<id>`); empty falls back to the cluster token. */
-  token_secret_ref?: string;
+  tokenSecretRef?: string;
 }
 
 export async function listOrgMap(clusterId: string): Promise<OrgMap[]> {

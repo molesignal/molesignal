@@ -24,6 +24,7 @@ arrow.workspace = true
 arrow-flight.workspace = true
 arrow-schema.workspace = true
 async-trait.workspace = true
+async-imap.workspace = true
 aws-lc-rs.workspace = true
 axum.workspace = true
 axum-extra.workspace = true
@@ -34,6 +35,7 @@ blake3.workspace = true
 bytes.workspace = true
 chrono.workspace = true
 chrono-tz.workspace = true
+ciborium.workspace = true
 contracts = { path = "../../crates/core/contracts" }
 clap.workspace = true
 crc32c.workspace = true
@@ -59,9 +61,10 @@ instant-acme.workspace = true
 index-format = { path = "../../crates/engines/index-format" }
 jsonschema.workspace = true
 jsonwebtoken.workspace = true
-kernel = { path = "../../crates/core/kernel", features = ["http"] }
+kernel = { path = "../../crates/core/kernel", features = ["http", "postgres"] }
 ldap3.workspace = true
 lettre.workspace = true
+mail-parser.workspace = true
 log.workspace = true
 lz4_flex.workspace = true
 maxminddb.workspace = true
@@ -84,6 +87,7 @@ pprof = { version = "0.15", default-features = false, features = ["cpp", "frame-
 pprof_util = { version = "0.8.2", features = ["symbolize"], optional = true }
 prost.workspace = true
 protocol = { path = "../../crates/core/protocol" }
+qrcode.workspace = true
 quick-xml.workspace = true
 rand.workspace = true
 rcgen.workspace = true
@@ -95,8 +99,11 @@ rmcp.workspace = true
 roxmltree.workspace = true
 rustls.workspace = true
 rustls-pemfile.workspace = true
+rustls-platform-verifier.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+serde_json_path.workspace = true
+serde_yaml.workspace = true
 service-graph = { path = "../../crates/engines/service-graph" }
 settings = { path = "../../crates/core/settings" }
 sha2.workspace = true
@@ -115,6 +122,9 @@ tikv-jemallocator = { version = "0.6", optional = true, features = ["profiling"]
 tokio.workspace = true
 tokio-rustls.workspace = true
 tokio-stream.workspace = true
+# Mole Agent in IM: the long connections of Feishu, Slack Socket Mode and DingTalk Stream,
+# over a TLS stream of our own (rustls with the system trust store).
+tokio-tungstenite = { version = "0.29", default-features = false, features = ["handshake"] }
 tokio-util.workspace = true
 time.workspace = true
 toml.workspace = true
@@ -132,6 +142,9 @@ ipnet.workspace = true
 libc = "0.2"
 uuid.workspace = true
 vrl.workspace = true
+webauthn-rs.workspace = true
+webauthn-rs-proto.workspace = true
+woothee.workspace = true
 x509-cert.workspace = true
 zstd.workspace = true
 query-language = { path = "../../crates/engines/query-language" }

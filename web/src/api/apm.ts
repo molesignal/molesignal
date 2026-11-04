@@ -1,5 +1,9 @@
 import { http } from '@/lib/http';
 
+import type { ServiceDefinition, ServiceDefinitionWrite } from './apmCatalog';
+import type { ErrorBreakdown, ErrorIssue, ErrorIssueFilter, ErrorIssueStatus } from './apmErrors';
+import type { ServiceInstance, ServiceProfile } from './apmProfile';
+
 export type ApmResolution = 'auto' | 'minute' | 'hour';
 export type SortDirection = 'asc' | 'desc';
 
@@ -9,7 +13,7 @@ export interface TimeRange {
 }
 
 export interface ProjectionGap {
-  org_id: string;
+  orgId: string;
   range: { start: number; end: number };
   reason:
     | 'queue_full'
@@ -18,49 +22,83 @@ export interface ProjectionGap {
     | 'late_dropped'
     | 'cardinality_rejected'
     | 'shutdown_timeout';
-  dropped_facts: number;
-  recorded_at: number;
+  droppedFacts: number;
+  recordedAt: number;
 }
 
 export interface DataQuality {
   partial: boolean;
   gaps: ProjectionGap[];
-  overflow_dimensions: string[];
+  overflowDimensions: string[];
 }
 
 export interface ApmMeta {
   range: TimeRange;
   resolution: Exclude<ApmResolution, 'auto'>;
-  projection_started_at?: number;
-  last_complete_bucket_at?: number;
-  data_quality: DataQuality;
-  activation_boundary: boolean;
+  projectionStartedAt?: number;
+  lastCompleteBucketAt?: number;
+  dataQuality: DataQuality;
+  activationBoundary: boolean;
 }
 
 export interface TraceExemplar {
-  trace_id: string;
-  span_id: string;
-  event_time: number;
-  duration_micros: number;
-  trace_available: boolean;
+  traceId: string;
+  spanId: string;
+  eventTime: number;
+  duration: number;
+  traceAvailable: boolean;
 }
 
 export interface RedSummary {
-  request_count: number;
-  error_count: number;
-  error_rate: number;
-  duration_sum_micros: number;
-  duration_average_micros?: number;
-  p50_micros?: number;
-  p95_micros?: number;
-  p99_micros?: number;
-  latency_partial: boolean;
+  requestCount: number;
+  errorCount: number;
+  errorRate: number;
+  durationSum: number;
+  durationAverage?: number;
+  p50Time?: number;
+  /** Older backends answer without it. */
+  p90Time?: number | null;
+  p95Time?: number;
+  p99Time?: number;
+  /** Satisfied plus half the tolerating requests over all of them; a failed request is never satisfied. */
+  apdex?: number | null;
+  latencyPartial: boolean;
   exemplars: TraceExemplar[];
+  /** The requests by what they answered (`http:404`, `grpc:14`); absent before status codes were counted. */
+  statusCodes?: Record<string, number>;
+  /** Requests that ran out of time, and requests sent again; absent when none. */
+  timeoutCount?: number;
+  retryCount?: number;
+}
+
+export type ServiceHealth = 'healthy' | 'warning' | 'critical' | 'no_traffic';
+
+/** A figure of a service past the line that makes it a warning or critical. */
+export interface HealthReason {
+  metric: 'error_rate' | 'p95';
+  level: ServiceHealth;
+  value: number;
+  threshold: number;
 }
 
 export interface TrendPoint {
-  bucket_at: number;
+  bucketAt: number;
   red: RedSummary;
+}
+
+/** A bucket of the trend a list draws beside a row. */
+export interface SparkPoint {
+  bucketAt: number;
+  requestCount: number;
+  errorCount: number;
+  p95Time?: number | null;
+}
+
+/** A bucket of a latency histogram that holds requests, narrowed to the fastest and slowest of them. */
+export interface LatencyBucket {
+  lowerTime: number;
+  upperTime: number;
+  count: number;
 }
 
 export interface ServiceIdentity {
@@ -76,26 +114,39 @@ export interface SignalFilterHandle {
   version?: string;
   transaction?: string;
   dependency?: string;
-  error_fingerprint?: string;
+  errorFingerprint?: string;
   from: number;
   to: number;
 }
 
 export interface ServiceSummary {
   service: ServiceIdentity;
-  first_seen_at: number;
-  last_seen_at: number;
+  firstSeenAt: number;
+  lastSeenAt: number;
   instrumentation: {
-    runtime_language?: string;
-    telemetry_sdk_name?: string;
-    telemetry_sdk_version?: string;
-    recent_instance_count: number;
+    runtimeLanguage?: string;
+    telemetrySdkName?: string;
+    telemetrySdkVersion?: string;
+    recentInstanceCount: number;
   };
   versions: string[];
+  /** The version seen most recently, and when it was first seen: the last deploy. */
+  currentVersion?: string | null;
+  currentVersionSince?: number | null;
   red: RedSummary;
-  health: 'healthy' | 'warning' | 'critical' | 'no_traffic';
+  /** The Apdex threshold T the summary was read with. Older backends answer without it. */
+  apdexThreshold?: number;
+  /** Older backends answer without it. */
+  sparkline?: SparkPoint[];
+  health: ServiceHealth;
+  /** What made the health what it is. Older backends answer without it. */
+  healthReasons?: HealthReason[];
   traces: SignalFilterHandle;
+  /** What the service runs as within the range; the catalog and a service's page carry it. */
+  profile?: ServiceProfile | null;
 }
+
+export type { ProfileValue, ServiceInstance, ServiceProfile } from './apmProfile';
 
 export interface TransactionIdentity {
   name: string;
@@ -117,9 +168,9 @@ export interface DependencyIdentity {
 
 export interface ErrorIdentity {
   fingerprint: string;
-  error_type: string;
-  application_frame?: string;
-  transaction_name?: string;
+  errorType: string;
+  applicationFrame?: string;
+  transactionName?: string;
   overflow: boolean;
 }
 
@@ -128,7 +179,9 @@ export interface TransactionSummary {
   version?: string;
   transaction: TransactionIdentity;
   red: RedSummary;
-  total_time_micros: number;
+  /** The Apdex threshold T of the endpoint's service. Older backends answer without it. */
+  apdexThreshold?: number;
+  totalTime: number;
   traces: SignalFilterHandle;
 }
 
@@ -137,35 +190,61 @@ export interface DependencySummary {
   version?: string;
   dependency: DependencyIdentity;
   red: RedSummary;
-  total_time_micros: number;
+  totalTime: number;
   traces: SignalFilterHandle;
 }
 
 export interface ErrorSummary {
   error: ErrorIdentity;
   service: ServiceIdentity;
-  first_seen_at: number;
-  last_seen_at: number;
-  occurrence_count: number;
-  representative_message?: string;
+  firstSeenAt: number;
+  lastSeenAt: number;
+  occurrenceCount: number;
+  representativeMessage?: string;
   red: RedSummary;
   traces: SignalFilterHandle;
+  /** `null` while nobody has touched the group: it reads as open. */
+  issue?: ErrorIssue | null;
 }
 
 export interface VersionSummary {
   service: ServiceIdentity;
   version: string;
-  first_seen_at: number;
-  last_seen_at: number;
-  observation_count: number;
+  firstSeenAt: number;
+  lastSeenAt: number;
+  observationCount: number;
+  /** What the version served in the time in view, where it was read. */
+  red?: RedSummary;
+  /** The version against the one of its service first seen before it. */
+  verdict?: VersionVerdict;
+}
+
+export type VersionStatus = 'insufficient_data' | 'regressed' | 'improved' | 'neutral';
+
+export interface VersionDelta {
+  requestCountAbsolute: number;
+  requestCountRelative?: number;
+  errorRateAbsolute: number;
+  errorRateRelative?: number;
+  p95AbsoluteTime?: number;
+  p95Relative?: number;
+}
+
+export interface VersionVerdict {
+  /** The version it is told against. */
+  previous: string;
+  status: VersionStatus;
+  /** What got worse. */
+  worse?: ('error_rate' | 'latency')[];
+  delta: VersionDelta;
 }
 
 export interface PagedResponse<T> {
   meta: ApmMeta;
   items: T[];
-  next_cursor: string | null;
-  previous_cursor: string | null;
-  has_more: boolean;
+  nextCursor: string | null;
+  previousCursor: string | null;
+  hasMore: boolean;
   sort: string;
 }
 
@@ -173,17 +252,28 @@ export interface OverviewResponse {
   meta: ApmMeta;
   red: RedSummary;
   trend: TrendPoint[];
-  service_health: {
+  serviceHealth: {
     healthy: number;
     warning: number;
     critical: number;
     no_traffic: number;
   };
   services: ServiceSummary[];
-  top_transactions: TransactionSummary[];
-  top_dependencies: DependencySummary[];
-  top_errors: ErrorSummary[];
-  recent_versions: VersionSummary[];
+  topTransactions: TransactionSummary[];
+  topDependencies: DependencySummary[];
+  topErrors: ErrorSummary[];
+  recentVersions: VersionSummary[];
+  /** Services seen in the range, and those of them that served any request. */
+  serviceCount?: number;
+  activeServiceCount?: number;
+  healthTrend?: HealthTrendPoint[];
+  rankings?: ServiceRankings;
+  /** Versions first seen within the range, the newest first. */
+  deployments?: VersionSummary[];
+  environments?: EnvironmentShare[];
+  /** Every environment the services run in, whichever one is in view. */
+  availableEnvironments?: string[];
+  instrumentation?: InstrumentationQuality;
 }
 
 export interface ServiceDetailResponse {
@@ -191,6 +281,7 @@ export interface ServiceDetailResponse {
   service: ServiceSummary;
   red: RedSummary;
   trend: TrendPoint[];
+  latencyDistribution?: LatencyBucket[];
   transactions: TransactionSummary[];
   dependencies: DependencySummary[];
   errors: ErrorSummary[];
@@ -201,46 +292,47 @@ export interface TransactionDetailResponse {
   meta: ApmMeta;
   transaction: TransactionSummary;
   trend: TrendPoint[];
+  latencyDistribution?: LatencyBucket[];
   errors: ErrorSummary[];
   versions: VersionSummary[];
 }
 
 export interface ErrorSample {
-  event_time: number;
-  trace_id: string;
-  span_id: string;
-  trace_available: boolean;
-  trace_link?: string;
-  representative_message?: string;
-  representative_stack: string[];
+  eventTime: number;
+  traceId: string;
+  spanId: string;
+  traceAvailable: boolean;
+  traceLink?: string;
+  representativeMessage?: string;
+  representativeStack: string[];
 }
 
 export interface ErrorDetailResponse {
   meta: ApmMeta;
   group: ErrorSummary;
   trend: TrendPoint[];
-  affected_transactions: TransactionSummary[];
-  affected_versions: string[];
-  representative_stack: string[];
+  affectedTransactions: TransactionSummary[];
+  affectedVersions: string[];
+  /** The group's occurrences by version, environment and language. */
+  breakdown?: ErrorBreakdown;
+  representativeStack: string[];
   samples: ErrorSample[];
+}
+
+/** A page of error groups, with the occurrences of every group the list keeps by version, environment and language. */
+export interface ErrorListResponse extends PagedResponse<ErrorSummary> {
+  breakdown?: ErrorBreakdown;
 }
 
 export interface VersionCompareResponse {
   meta: ApmMeta;
-  baseline: { version: string; sample_count: number; red: RedSummary };
-  candidate: { version: string; sample_count: number; red: RedSummary };
-  sufficient_data: boolean;
-  status: 'insufficient_data' | 'regressed' | 'improved' | 'neutral';
-  delta: {
-    request_count_absolute: number;
-    request_count_relative?: number;
-    error_rate_absolute: number;
-    error_rate_relative?: number;
-    p95_absolute_micros?: number;
-    p95_relative?: number;
-  };
-  regressed_transactions: TransactionSummary[];
-  regressed_errors: ErrorSummary[];
+  baseline: { version: string; sampleCount: number; red: RedSummary };
+  candidate: { version: string; sampleCount: number; red: RedSummary };
+  sufficientData: boolean;
+  status: VersionStatus;
+  delta: VersionDelta;
+  regressedTransactions: TransactionSummary[];
+  regressedErrors: ErrorSummary[];
 }
 
 export interface TenantHealthResponse {
@@ -263,7 +355,21 @@ export interface ApmQueryParams {
   limit?: number;
   cursor?: string;
   kind?: TransactionIdentity['kind'];
+  status?: ErrorIssueFilter;
 }
+
+export type {
+  CoverageState,
+  ServiceCoverage,
+  ServiceDefinition,
+  ServiceDefinitionWrite,
+  ServiceLifecycle,
+  ServiceTier,
+  SignalCoverage,
+} from './apmCatalog';
+
+export type { ErrorRule, ErrorRuleAction, ErrorRuleWrite } from './apmErrorRules';
+export type { ErrorBreakdown, ErrorIssue, ErrorIssueFilter, ErrorIssueStatus, ErrorShare } from './apmErrors';
 
 export interface VersionCompareParams extends ApmQueryParams {
   service: string;
@@ -290,6 +396,8 @@ export const apmApi = {
     get<PagedResponse<ServiceSummary>>('/apm/services', params),
   service: (service: string, params: ApmQueryParams) =>
     get<ServiceDetailResponse>(`/apm/services/${encodeURIComponent(service)}`, params),
+  instances: (service: string, params: ApmQueryParams) =>
+    get<ServiceInstance[]>(`/apm/services/${encodeURIComponent(service)}/instances`, params),
   transactions: (params: ApmQueryParams) =>
     get<PagedResponse<TransactionSummary>>('/apm/transactions', params),
   transaction: (transaction: string, params: ApmQueryParams) =>
@@ -300,12 +408,36 @@ export const apmApi = {
   dependencies: (params: ApmQueryParams) =>
     get<PagedResponse<DependencySummary>>('/apm/dependencies', params),
   errors: (params: ApmQueryParams) =>
-    get<PagedResponse<ErrorSummary>>('/apm/errors', params),
+    get<ErrorListResponse>('/apm/errors', params),
   error: (fingerprint: string, params: ApmQueryParams) =>
     get<ErrorDetailResponse>(`/apm/errors/${encodeURIComponent(fingerprint)}`, params),
   compareVersions: (params: VersionCompareParams) =>
     get<VersionCompareResponse>('/apm/versions/compare', params),
   health: (params: ApmQueryParams) => get<TenantHealthResponse>('/apm/health', params),
+  definitions: async () => {
+    const { data } = await http.get<ServiceDefinition[]>('/apm/service-definitions');
+    return data;
+  },
+  saveDefinition: async (service: { namespace: string; name: string }, write: ServiceDefinitionWrite) => {
+    const { data } = await http.put<ServiceDefinition>(
+      `/apm/service-definitions/${encodeURIComponent(service.name)}`,
+      write,
+      { params: { namespace: service.namespace } },
+    );
+    return data;
+  },
+  deleteDefinition: async (service: { namespace: string; name: string }) => {
+    await http.delete(`/apm/service-definitions/${encodeURIComponent(service.name)}`, {
+      params: { namespace: service.namespace },
+    });
+  },
+  saveIssue: async (
+    fingerprint: string,
+    write: { status: ErrorIssueStatus; assigneeId?: string | null; teamId?: string | null; lastSeenAt?: number },
+  ) => {
+    const { data } = await http.put<ErrorIssue>(`/apm/errors/${encodeURIComponent(fingerprint)}/issue`, write);
+    return data;
+  },
 };
 
 function stableParams(params: ApmQueryParams) {
@@ -322,17 +454,21 @@ function stableParams(params: ApmQueryParams) {
     cursor: params.cursor ?? null,
     limit: params.limit ?? null,
     kind: params.kind ?? null,
+    status: params.status ?? null,
   };
 }
 
 export const apmQueryKeys = {
   all: ['apm'] as const,
+  definitions: (orgId: string) => [...apmQueryKeys.all, 'definitions', orgId] as const,
   overview: (orgId: string, params: ApmQueryParams) =>
     [...apmQueryKeys.all, 'overview', orgId, stableParams(params)] as const,
   services: (orgId: string, params: ApmQueryParams) =>
     [...apmQueryKeys.all, 'services', orgId, stableParams(params)] as const,
   service: (orgId: string, name: string, params: ApmQueryParams) =>
     [...apmQueryKeys.all, 'service', orgId, name, stableParams(params)] as const,
+  instances: (orgId: string, name: string, params: ApmQueryParams) =>
+    [...apmQueryKeys.all, 'instances', orgId, name, stableParams(params)] as const,
   transactions: (orgId: string, params: ApmQueryParams) =>
     [...apmQueryKeys.all, 'transactions', orgId, stableParams(params)] as const,
   transaction: (orgId: string, name: string, params: ApmQueryParams) =>
@@ -353,3 +489,49 @@ export const apmQueryKeys = {
       params.candidate,
     ] as const,
 };
+
+export interface ServiceHealthCounts {
+  healthy: number;
+  warning: number;
+  critical: number;
+  no_traffic: number;
+}
+
+export interface HealthTrendPoint {
+  bucketAt: number;
+  counts: ServiceHealthCounts;
+}
+
+/** A service as a ranking lists it. */
+export interface ServiceRank {
+  service: ServiceIdentity;
+  health: ServiceHealth;
+  requestCount: number;
+  errorRate: number;
+  p95Time?: number | null;
+}
+
+export interface ServiceRankings {
+  slowest: ServiceRank[];
+  most_errors: ServiceRank[];
+  busiest: ServiceRank[];
+}
+
+export interface EnvironmentShare {
+  environment: string;
+  serviceCount: number;
+  requestCount: number;
+}
+
+/** What the services report about how they are instrumented, and what they leave out. */
+export interface InstrumentationQuality {
+  sdks: Array<{
+    language?: string | null;
+    sdkName?: string | null;
+    sdkVersion?: string | null;
+    serviceCount: number;
+  }>;
+  withoutEnvironment: number;
+  withoutVersion: number;
+  withoutInstance: number;
+}

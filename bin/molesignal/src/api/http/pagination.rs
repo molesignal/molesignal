@@ -13,6 +13,7 @@ const DEFAULT_PAGE_SIZE: u32 = 50;
 const MAX_PAGE_SIZE: u32 = 200;
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PageQuery {
     #[serde(default = "default_page")]
     pub page: u32,
@@ -61,6 +62,7 @@ impl Default for PageQuery {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PageResponse<T> {
     pub items: Vec<T>,
     pub total: u64,

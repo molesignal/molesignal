@@ -58,13 +58,13 @@ export function contextStreamHints(
 }
 
 export function timeRangeMicros(window: TimeWindow): {
-  start_micros: number;
-  end_micros: number;
+  startTime: number;
+  endTime: number;
 } {
   const resolved = resolveWindow(window);
   return {
-    start_micros: resolved.from.getTime() * 1_000,
-    end_micros: resolved.to.getTime() * 1_000,
+    startTime: resolved.from.getTime() * 1_000,
+    endTime: resolved.to.getTime() * 1_000,
   };
 }
 

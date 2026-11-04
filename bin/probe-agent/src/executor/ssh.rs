@@ -12,7 +12,7 @@ use tokio::{
 };
 
 use super::{
-    AttemptOutcome, ExecutionContext, now_micros,
+    AttemptOutcome, ExecutionContext, failure, now_micros,
     security::EgressGuard,
     timing::{AwaitingReply, Phase, PhaseClock},
 };
@@ -67,11 +67,13 @@ pub(super) async fn execute(
         .await?
         .remove(0);
 
+    context.dialling(address.ip());
     let timeout = Duration::from_millis(u64::from(task.timeout_millis.max(1)));
 
-    tokio::time::timeout(timeout, execute_inner(address, spec, context, phases))
-        .await
-        .context("SSH check timed out")?
+    match tokio::time::timeout(timeout, execute_inner(address, spec, context, phases)).await {
+        Ok(outcome) => outcome,
+        Err(_) => Err(failure::target("timeout", "SSH check timed out")),
+    }
 }
 
 async fn execute_inner(
@@ -362,7 +364,13 @@ async fn connect(
 ) -> Result<AwaitingReply<TcpStream>> {
     let stream = phases
         .during(Phase::Connect, TcpStream::connect(address))
-        .await?;
+        .await
+        .map_err(|error| {
+            failure::target(
+                "connect_failed",
+                format!("cannot connect to {address}: {error}"),
+            )
+        })?;
 
     Ok(AwaitingReply::new(stream, phases))
 }

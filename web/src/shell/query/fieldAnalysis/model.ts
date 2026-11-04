@@ -28,12 +28,12 @@ export interface FieldTopValue {
 }
 
 /**
- * The commonest values over time: stretches `bucketMicros` long, the first
- * beginning at `originMicros`, and for each value a count for every stretch.
+ * The commonest values over time: stretches `bucketTime` long, the first
+ * beginning at `originTime`, and for each value a count for every stretch.
  */
 export interface FieldValueTrend {
-  originMicros: number;
-  bucketMicros: number;
+  originTime: number;
+  bucketTime: number;
   series: Array<{ value: string; counts: number[] }>;
 }
 
@@ -228,7 +228,7 @@ function trendOf(
     if (stretch >= 0 && stretch < plan.stretches) counts[stretch]! += 1;
   });
 
-  return { originMicros: plan.originMicros, bucketMicros: plan.bucketMicros, series };
+  return { originTime: plan.originMicros, bucketTime: plan.bucketMicros, series };
 }
 
 /**

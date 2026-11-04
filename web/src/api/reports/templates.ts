@@ -4,20 +4,20 @@ export interface ReportTemplate {
   id: string;
   name: string;
   description: string;
-  target_type: 'dashboard' | 'saved_view' | string;
+  targetType: 'dashboard' | 'saved_view' | string;
   format: string;
-  time_range_preset: string;
-  is_builtin: boolean;
-  created_at_micros?: number | null;
-  updated_at_micros?: number | null;
+  timeRangePreset: string;
+  isBuiltin: boolean;
+  createdAt?: number | null;
+  updatedAt?: number | null;
 }
 
 export interface ReportTemplateInput {
   name: string;
   description: string;
-  target_type: 'dashboard' | 'saved_view';
+  targetType: 'dashboard' | 'saved_view';
   format: string;
-  time_range_preset: string;
+  timeRangePreset: string;
 }
 
 export async function list(): Promise<ReportTemplate[]> {

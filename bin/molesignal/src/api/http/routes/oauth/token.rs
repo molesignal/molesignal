@@ -27,6 +27,7 @@ use super::{
 use crate::{
     agent::inbound_mcp::InboundMcpOAuthTokenKind,
     api::AppState,
+    domain::iam::api_token::TOKEN_MARKER,
     shared::{ids::Id, time::TimestampMicros},
 };
 
@@ -199,7 +200,7 @@ async fn exchange_refresh_token(
     }
 
     let plaintext = required(request.refresh_token, "refresh_token")?;
-    validate_credential(&plaintext, "msrefresh_", "refresh token")?;
+    validate_credential(&plaintext, TOKEN_MARKER, "refresh token")?;
     let requested_resource = required(request.resource, "resource")?;
     let (client_id, client_secret, authentication_method) =
         client_credentials(headers, request.client_id, request.client_secret)?;

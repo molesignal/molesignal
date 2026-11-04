@@ -107,6 +107,7 @@ pub enum AgentSourceType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentContext {
     pub source_type: AgentSourceType,
     pub source_id: Option<String>,
@@ -121,6 +122,7 @@ pub struct AgentContext {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Investigation {
     pub id: Id,
     pub org_id: Id,
@@ -139,6 +141,7 @@ pub struct Investigation {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InvestigationStep {
     pub id: Id,
     pub investigation_id: Id,
@@ -157,6 +160,7 @@ pub struct InvestigationStep {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InvestigationEvidence {
     pub id: Id,
     pub investigation_id: Id,
@@ -173,6 +177,7 @@ pub struct InvestigationEvidence {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InvestigationHypothesis {
     pub id: Id,
     pub investigation_id: Id,
@@ -186,26 +191,7 @@ pub struct InvestigationHypothesis {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Automation {
-    pub id: Id,
-    pub org_id: Id,
-    pub name: String,
-    pub description: String,
-    pub enabled: bool,
-    pub trigger: Value,
-    pub input_context: Value,
-    pub steps: Value,
-    pub allowed_tools: Vec<String>,
-    pub approval_policy: Value,
-    pub output_actions: Value,
-    pub failure_policy: Value,
-    pub notification: Value,
-    pub created_by: Id,
-    pub created_at: TimestampMicros,
-    pub updated_at: TimestampMicros,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ApprovalRequest {
     pub id: Id,
     pub org_id: Id,
@@ -227,6 +213,7 @@ pub struct ApprovalRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Execution {
     pub id: Id,
     pub org_id: Id,
@@ -249,6 +236,7 @@ pub struct Execution {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolCallRecord {
     pub id: Id,
     pub org_id: Id,
@@ -272,6 +260,7 @@ pub struct ToolCallRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentProfile {
     pub id: Id,
     pub org_id: Id,
@@ -319,11 +308,6 @@ pub trait AgentRepository: Send + Sync {
         &self,
         item: InvestigationHypothesis,
     ) -> Result<InvestigationHypothesis>;
-
-    async fn list_automations(&self, org_id: &Id) -> Result<Vec<Automation>>;
-    async fn get_automation(&self, org_id: &Id, id: &Id) -> Result<Automation>;
-    async fn create_automation(&self, item: Automation) -> Result<Automation>;
-    async fn update_automation(&self, item: Automation) -> Result<Automation>;
 
     async fn list_approvals(&self, org_id: &Id) -> Result<Vec<ApprovalRequest>>;
     async fn get_approval(&self, org_id: &Id, id: &Id) -> Result<ApprovalRequest>;

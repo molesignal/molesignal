@@ -13,6 +13,7 @@ use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 pub const MAX_POLICY_ENTRIES: usize = 100;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MemberNetworkPolicy {
     /// 主机名，含其子域。
     pub private_hosts: Vec<String>,

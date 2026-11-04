@@ -139,7 +139,7 @@ describe('analyzeLoadedValues', () => {
     const micros = [1 * SECOND, 2 * SECOND, 2 * SECOND, 9 * SECOND, 4 * SECOND, 5 * SECOND];
     const { trend } = analyzeLoadedValues(values, 'text', { micros, range: { start: 0, end: 10 * SECOND } });
 
-    expect(trend).toMatchObject({ originMicros: 0, bucketMicros: SECOND });
+    expect(trend).toMatchObject({ originTime: 0, bucketTime: SECOND });
     expect(trend!.series.map((item) => item.value)).toEqual(['api', 'web', 'db']);
     expect(trend!.series[0]!.counts).toEqual([0, 1, 1, 0, 0, 0, 0, 0, 0, 1]);
     expect(trend!.series[2]!.counts).toEqual([0, 0, 0, 0, 1, 0, 0, 0, 0, 0]);

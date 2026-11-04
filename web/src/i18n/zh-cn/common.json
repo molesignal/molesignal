@@ -1,6 +1,7 @@
 {
   "app_name": "MoleSignal",
   "access": {
+    "super_administrator": "超级管理员",
     "loading": "访问权限仍在加载。",
     "read_only": "当前为只读访问。",
     "page_unavailable": "当前权限不能访问此页面。",
@@ -14,18 +15,18 @@
     "system_workspace": "System Organization 永久不可变。"
   },
   "timezone": {
-    "label": "页面时区",
+    "label": "时区",
     "browser": "浏览器时区",
-    "use_global": "使用个人默认",
-    "use_personal_default": "时区：使用默认（{{offset}}）",
-    "use_personal_default_option": "使用个人默认 · {{timezone}} · {{offset}}",
-    "browser_option": "浏览器时区 · {{timezone}} · {{offset}}",
-    "page_override_label": "{{timezone}} · {{offset}} · 仅当前页面",
+    "use_personal_default_option": "使用个人默认 · {{zone}}",
+    "browser_option": "浏览器时区 · {{zone}}",
+    "page_override_label": "{{zone}} · 仅当前页面",
     "search": "搜索时区…",
     "empty": "没有匹配的时区。",
     "set_as_default": "设为我的默认时区",
     "saving_default": "正在保存默认时区…",
-    "default_saved": "默认时区已更新"
+    "default_saved": "默认时区已更新",
+    "change": "更改",
+    "done": "完成"
   },
   "query_syntax_help": {
     "aria": "打开查询语法速查",
@@ -41,6 +42,8 @@
     "labels": {
       "equals": "字段等值",
       "contains": "字段包含",
+      "exclude": "排除取值",
+      "either": "任一条件",
       "substring": "子串匹配",
       "full_text": "全文检索",
       "basic": "基础查询",
@@ -78,6 +81,11 @@
     "filters": "筛选条件",
     "add": "条件",
     "add_aria": "添加筛选条件",
+    "add_in_group": "在第 {{number}} 组添加筛选条件",
+    "add_alternative": "或",
+    "add_alternative_aria": "添加一组“或”条件",
+    "or": "或",
+    "group": "第 {{number}} 组",
     "edit": "编辑条件 {{filter}}",
     "remove": "移除条件 {{filter}}",
     "unsupported": "不是筛选条件",
@@ -94,6 +102,7 @@
     "submit_update": "更新",
     "cancel": "取消",
     "text": "搜索文本",
+    "text_in_group": "第 {{number}} 组的搜索文本",
     "text_placeholder": "搜索文本…",
     "sql_active": "代码模式里当前是 SQL 语句，筛选条件无法表示它。在这里添加条件会开始一条字段查询。"
   },
@@ -162,7 +171,8 @@
     "rotate": "轮换",
     "add": "添加",
     "choose_file": "选择文件",
-    "copied": "已复制"
+    "copied": "已复制",
+    "confirm": "确认"
   },
   "error_state": {
     "unknown": "未知错误",
@@ -174,7 +184,9 @@
     "code": "代码",
     "message": "消息",
     "error_id": "错误 ID",
-    "empty": "（空）"
+    "empty": "（空）",
+    "request_id": "请求 ID",
+    "copy_request_id": "复制请求 ID"
   },
   "status": {
     "loading": "加载中…",
@@ -190,7 +202,8 @@
     "on": "开",
     "off": "关",
     "enabled": "已启用",
-    "disabled": "已停用"
+    "disabled": "已停用",
+    "working": "处理中…"
   },
   "labels": {
     "email": "邮箱",
@@ -311,11 +324,14 @@
       "password_hint": "输入创建者设置的访问密码以继续。",
       "password_placeholder": "访问密码",
       "password_invalid": "密码不正确，请重试。",
+      "visit_ended": "这次访问已结束，请重新打开分享链接。",
+      "password_unchecked": "暂时无法核对密码，请稍后再试。",
       "continue": "继续访问",
       "invalid_dashboard": "仪表盘快照不可用",
       "invalid_dashboard_hint": "公开模型未通过安全结构校验，请联系分享创建者重新生成链接。",
       "unavailable_title": "链接不可用",
-      "unavailable_hint": "该链接已过期、已停用或访问次数已用完。",
+      "unavailable_hint": "该链接已失效，或分享的内容已被删除。请联系分享创建者重新生成链接。",
+      "open_failed": "暂时打不开这个分享，请稍后再试。",
       "loading_title": "正在打开安全分享",
       "loading_hint": "正在验证链接和访问限制…",
       "trust_label": "MoleSignal 受限分享",
@@ -459,7 +475,7 @@
     "button_aria": "时间范围：{{value}}",
     "quick_ranges": "快速范围",
     "absolute": "绝对时间",
-    "local_time": "浏览器本地时间",
+    "zone_time": "按 {{zone}} 的时间",
     "from": "开始",
     "to": "结束",
     "apply": "应用",
@@ -476,5 +492,72 @@
       "last_7d": "近 7 天",
       "last_30d": "近 30 天"
     }
+  },
+  "weekly_ranges": {
+    "add": "添加时段",
+    "remove": "删除时段",
+    "weekdays": "星期",
+    "start": "开始（HH:MM）",
+    "end": "结束（HH:MM）",
+    "hint": "结束不晚于开始表示跨午夜，算在开始那天；整天写 00:00–24:00。",
+    "problems": {
+      "no_days": "至少选一天。",
+      "same_time": "开始和结束不能相同；整天写 00:00–24:00。",
+      "bad_time": "时间写作 HH:MM，例如 09:30；只有结束可以写 24:00。"
+    },
+    "timezone": "时区"
+  },
+  "time_condition": {
+    "label": "时间",
+    "any": "任何时间",
+    "inside": "只在这些时段",
+    "outside": "只在这些时段以外"
+  },
+  "people": {
+    "someone": "某人",
+    "non_member": "非组织成员"
+  },
+  "holidays": {
+    "label": "节假日",
+    "calendar": "节假日日历",
+    "modes": {
+      "none": "不考虑节假日",
+      "exclude": "节假日不算",
+      "only": "只在节假日"
+    },
+    "hints": {
+      "none": "节假日和平常一样算。",
+      "exclude": "节假日不算在这些时段里；补班日按周一的时段算。",
+      "only": "这些时段只在节假日才算。"
+    },
+    "no_calendars": "先在「设置 → 告警 → 节假日日历」里建一份日历。"
+  },
+  "confirm_dialog": {
+    "type_to_confirm": "输入 {{name}} 以确认",
+    "type_required": "请先输入名称"
+  },
+  "unsaved": {
+    "discard_title": "放弃未保存的修改？",
+    "discard_description": "这里填写的内容还没有保存，放弃后无法找回。",
+    "keep_editing": "继续编辑",
+    "discard": "放弃修改",
+    "leave_title": "不保存就离开？",
+    "leave_description": "这个页面的修改还没有保存，离开后无法找回。",
+    "leave": "离开"
+  },
+  "table": {
+    "select_all": "选择全部行",
+    "select_row": "选择此行",
+    "selected_one": "已选 {{count}} 项",
+    "selected_other": "已选 {{count}} 项",
+    "clear_selection": "取消选择",
+    "bulk_label": "对所选行的操作",
+    "export_csv": "导出 CSV",
+    "export_empty": "没有可导出的行",
+    "bulk_done_one": "已处理 {{count}} 项",
+    "bulk_done_other": "已处理 {{count}} 项",
+    "bulk_failed_one": "{{total}} 项中有 {{count}} 项失败：{{reason}}",
+    "bulk_failed_other": "{{total}} 项中有 {{count}} 项失败：{{reason}}",
+    "clear_filters": "清除筛选"
   }
 }

@@ -1,6 +1,6 @@
 {
   "title": "Functions",
-  "subtitle": "Reusable VRL transforms applied in pipelines and at query time.",
+  "subtitle": "Reusable transforms to try on sample events; a pipeline step can start from a copy of a VRL function.",
   "list": {
     "new_function": "New function",
     "search_placeholder": "Search by name or purpose…",
@@ -11,7 +11,7 @@
       "action": "Actions"
     },
     "empty_title": "No functions of your own yet",
-    "empty_description": "Write a function once and call it from any pipeline.",
+    "empty_description": "Write a function once and copy it into any pipeline step.",
     "builtin": "Built-in",
     "preset_copy": "Copy script",
     "preset_copied": "Script copied",
@@ -54,7 +54,7 @@
     "delete": "Delete function",
     "delete_confirm": "Delete",
     "delete_confirm_title": "Delete this function?",
-    "delete_confirm_description": "Pipelines that reference this function will start failing until rewired.",
+    "delete_confirm_description": "Pipeline steps copied from this function keep their own copy and do not change.",
     "compile_pending": "Backend compile validation happens on save.",
     "definition": "Definition",
     "not_found": "Function not found.",

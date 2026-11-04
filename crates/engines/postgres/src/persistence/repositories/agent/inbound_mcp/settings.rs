@@ -1,82 +1,88 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use serde_json::Value;
-use sqlx::{PgPool, Row, types::Json};
+//! 对外 MCP Server 的组织设置，存在 `org_settings` 的 `inbound_mcp` 一节。取值范围由设置接口校验。
 
-use super::super::super::sqlx_err;
+use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
+
+use super::super::super::org_settings::{self, Section, sections::INBOUND_MCP};
 use crate::{
     agent::inbound_mcp::InboundMcpSettings,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    shared::{Result, ids::Id, time::TimestampMicros},
 };
 
-const COLS: &str = "org_id,enabled,allowed_origins,max_request_size,max_response_size,\
-    max_concurrent_calls,calls_per_minute,read_timeout_ms,updated_by,\
-    created_at_micros,updated_at_micros";
+/// `inbound_mcp` 一节的值。`created_at` 是第一次保存的时间。
+#[derive(Serialize, Deserialize)]
+struct StoredSettings {
+    enabled: bool,
+    allowed_origins: Vec<String>,
+    /// 一次请求的正文最大多少 MiB。
+    max_request_size: i32,
+    /// 一次响应最大多少 MiB。
+    max_response_size: i32,
+    max_concurrent_calls: i32,
+    calls_per_minute: i32,
+    read_timeout_ms: i64,
+    created_at: TimestampMicros,
+}
 
-fn row_to_settings(row: sqlx::postgres::PgRow) -> Result<InboundMcpSettings> {
-    let origins: Json<Value> = row.try_get("allowed_origins").map_err(sqlx_err)?;
-    let allowed_origins = serde_json::from_value(origins.0)
-        .map_err(|error| Error::internal(format!("invalid inbound MCP origins: {error}")))?;
+fn settings_of(org_id: &Id, section: Section<StoredSettings>) -> InboundMcpSettings {
+    let stored = section.value;
 
-    Ok(InboundMcpSettings {
-        org_id: Id(row.try_get("org_id").map_err(sqlx_err)?),
-        enabled: row.try_get("enabled").map_err(sqlx_err)?,
-        allowed_origins,
-        max_request_size: row.try_get("max_request_size").map_err(sqlx_err)?,
-        max_response_size: row.try_get("max_response_size").map_err(sqlx_err)?,
-        max_concurrent_calls: row.try_get("max_concurrent_calls").map_err(sqlx_err)?,
-        calls_per_minute: row.try_get("calls_per_minute").map_err(sqlx_err)?,
-        read_timeout_ms: row.try_get("read_timeout_ms").map_err(sqlx_err)?,
-        updated_by: Id(row.try_get("updated_by").map_err(sqlx_err)?),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
-    })
+    InboundMcpSettings {
+        org_id: org_id.clone(),
+        enabled: stored.enabled,
+        allowed_origins: stored.allowed_origins,
+        max_request_size: stored.max_request_size,
+        max_response_size: stored.max_response_size,
+        max_concurrent_calls: stored.max_concurrent_calls,
+        calls_per_minute: stored.calls_per_minute,
+        read_timeout_ms: stored.read_timeout_ms,
+        updated_by: Id(section.updated_by.unwrap_or_default()),
+        created_at: stored.created_at,
+        updated_at: section.updated_at,
+    }
 }
 
 pub(super) async fn get(pool: &PgPool, org_id: &Id) -> Result<Option<InboundMcpSettings>> {
-    sqlx::query(&format!(
-        "SELECT {COLS} FROM inbound_mcp_settings WHERE org_id=$1"
-    ))
-    .bind(&org_id.0)
-    .fetch_optional(pool)
-    .await
-    .map_err(sqlx_err)?
-    .map(row_to_settings)
-    .transpose()
+    Ok(org_settings::read(pool, &org_id.0, INBOUND_MCP)
+        .await?
+        .map(|section| settings_of(org_id, section)))
 }
 
 pub(super) async fn upsert(
     pool: &PgPool,
     settings: InboundMcpSettings,
 ) -> Result<InboundMcpSettings> {
-    let row = sqlx::query(&format!(
-        "INSERT INTO inbound_mcp_settings ({COLS})
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-         ON CONFLICT (org_id) DO UPDATE SET
-            enabled=EXCLUDED.enabled,allowed_origins=EXCLUDED.allowed_origins,
-            max_request_size=EXCLUDED.max_request_size,
-            max_response_size=EXCLUDED.max_response_size,
-            max_concurrent_calls=EXCLUDED.max_concurrent_calls,
-            calls_per_minute=EXCLUDED.calls_per_minute,
-            read_timeout_ms=EXCLUDED.read_timeout_ms,updated_by=EXCLUDED.updated_by,
-            updated_at_micros=EXCLUDED.updated_at_micros
-         RETURNING {COLS}"
-    ))
-    .bind(&settings.org_id.0)
-    .bind(settings.enabled)
-    .bind(Json(&settings.allowed_origins))
-    .bind(settings.max_request_size)
-    .bind(settings.max_response_size)
-    .bind(settings.max_concurrent_calls)
-    .bind(settings.calls_per_minute)
-    .bind(settings.read_timeout_ms)
-    .bind(&settings.updated_by.0)
-    .bind(settings.created_at.0)
-    .bind(settings.updated_at.0)
-    .fetch_one(pool)
-    .await
-    .map_err(sqlx_err)?;
+    // 第一次保存的时间不变。
+    let created_at = org_settings::read::<StoredSettings>(pool, &settings.org_id.0, INBOUND_MCP)
+        .await?
+        .map_or(settings.created_at, |section| section.value.created_at);
 
-    row_to_settings(row)
+    let stored = StoredSettings {
+        enabled: settings.enabled,
+        allowed_origins: settings.allowed_origins.clone(),
+        max_request_size: settings.max_request_size,
+        max_response_size: settings.max_response_size,
+        max_concurrent_calls: settings.max_concurrent_calls,
+        calls_per_minute: settings.calls_per_minute,
+        read_timeout_ms: settings.read_timeout_ms,
+        created_at,
+    };
+
+    org_settings::write(
+        pool,
+        &settings.org_id.0,
+        INBOUND_MCP,
+        &stored,
+        Some(&settings.updated_by.0),
+        settings.updated_at,
+    )
+    .await?;
+
+    Ok(InboundMcpSettings {
+        created_at,
+        ..settings
+    })
 }

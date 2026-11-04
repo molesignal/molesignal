@@ -112,7 +112,7 @@ export function Locations() {
                 key: 'name',
                 header: t('locations.name'),
                 cell: (location) => (
-                  <div className="min-w-0 py-1">
+                  <div className="min-w-0">
                     <div className="flex min-w-0 items-center gap-[8px]">
                       <span className="truncate font-strong text-tx-0">{location.name}</span>
                       {/* A location runs unless it says otherwise. */}
@@ -170,7 +170,7 @@ export function Locations() {
                 width: 150,
                 cell: (location) => (
                   <span className="text-tx-2">
-                    {formatRelativeMicros(location.updated_at, i18n.language, nowMicros)}
+                    {formatRelativeMicros(location.updatedAt, i18n.language, nowMicros)}
                   </span>
                 ),
               },

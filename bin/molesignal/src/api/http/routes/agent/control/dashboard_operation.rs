@@ -58,10 +58,10 @@ pub(super) async fn execute(
             "dashboard",
             &dashboard.id.0,
             json!({
-                "draft_id": approval.target,
-                "model_hash": expected_hash,
+                "draftId": approval.target,
+                "modelHash": expected_hash,
                 "route": route,
-                "approval_id": approval.id,
+                "approvalId": approval.id,
             }),
         )
         .await;
@@ -75,12 +75,12 @@ pub(super) async fn execute(
         },
         verification: json!({
             "verified": true,
-            "dashboard_id": dashboard.id,
-            "dashboard_route": route,
-            "draft_id": approval.target,
-            "draft_consumed": true,
+            "dashboardId": dashboard.id,
+            "dashboardRoute": route,
+            "draftId": approval.target,
+            "draftConsumed": true,
             "replayed": replayed,
-            "model_hash": expected_hash,
+            "modelHash": expected_hash,
         }),
     })
 }
@@ -97,7 +97,7 @@ fn expected_hash(parameters: &Value) -> Result<&str> {
     }
 
     values
-        .get("expected_hash")
+        .get("expectedHash")
         .and_then(Value::as_str)
         .filter(|value| value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit()))
         .ok_or_else(|| Error::invalid("create_dashboard expected_hash is invalid"))

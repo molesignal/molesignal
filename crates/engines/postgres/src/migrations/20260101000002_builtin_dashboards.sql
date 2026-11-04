@@ -131,7 +131,8 @@ VALUES
     ('molesignal-cache-search-federation', 27, 'federation_events_applied_total', 'counter', 'result', 'ops/s'),
     ('molesignal-cache-search-federation', 28, 'federation_events_pushed_total', 'counter', '', 'ops/s'),
     ('molesignal-cache-search-federation', 29, 'federation_outbox_lag', 'gauge', 'cluster', 'short'),
-    ('molesignal-cache-search-federation', 30, 'federation_push_errors_total', 'counter', 'cluster', 'ops/s')
+    ('molesignal-cache-search-federation', 30, 'federation_push_errors_total', 'counter', 'cluster', 'ops/s'),
+    ('molesignal-cache-search-federation', 31, 'realtime_federated_counts_failed_total', 'counter', 'cluster', 'ops/s')
 ),
 overview_panel_seed (
     dashboard_uid, position, id, title, description,
@@ -338,7 +339,7 @@ dashboard_models AS (
 )
 INSERT INTO dashboards (
     id, org_id, folder_id, uid, title, tags, model, version,
-    created_at_micros, updated_at_micros, created_by, updated_by
+    created_at, updated_at, created_by, updated_by
 )
 SELECT
     dashboard.id,
@@ -349,8 +350,8 @@ SELECT
     dashboard.tags,
     dashboard.model,
     dashboard.version,
-    (EXTRACT(EPOCH FROM clock_timestamp()) * 1000000)::BIGINT,
-    (EXTRACT(EPOCH FROM clock_timestamp()) * 1000000)::BIGINT,
+    clock_timestamp(),
+    clock_timestamp(),
     'molesignal-system',
     'molesignal-system'
 FROM dashboard_models dashboard
@@ -362,7 +363,7 @@ SET folder_id = NULL,
     tags = EXCLUDED.tags,
     model = EXCLUDED.model,
     version = EXCLUDED.version,
-    updated_at_micros = EXCLUDED.updated_at_micros,
+    updated_at = EXCLUDED.updated_at,
     updated_by = EXCLUDED.updated_by
 WHERE dashboards.folder_id IS NOT NULL
    OR dashboards.title IS DISTINCT FROM EXCLUDED.title

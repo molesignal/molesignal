@@ -19,13 +19,16 @@ use futures::StreamExt;
 use object_store::ObjectStore;
 
 use super::{
-    TEXT_COLUMNS, TraceListContext, files::file_may_match_filters, integer_at,
-    matches_text_and_filters,
+    TEXT_COLUMNS, TraceCondition, TraceListContext, files::file_may_match_query, integer_at,
+    matches_query,
 };
 use crate::{
     api::{
         AppState,
-        http::routes::web::histogram::{BarCount, BucketPlan, within_scan_limit},
+        http::routes::web::{
+            histogram::{BarCount, BarLatency, BucketPlan, within_scan_limit},
+            trace::latency::{LatencyTally, latency_edges},
+        },
     },
     domain::{
         storage::{DatasetTypeId, QueryFile, type_id::builtin},
@@ -39,24 +42,34 @@ use crate::{
         Error, Result,
         ids::Id,
         time::{TimeRange, TimestampMicros},
-        trace::summary::{TRACE_SUMMARY_ERROR_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD},
+        trace::summary::{
+            TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
+            TRACE_SUMMARY_START_NS_FIELD,
+        },
     },
 };
 
-/// What every count reads: when a trace began, and how many of its spans failed.
-const COUNTED_COLUMNS: [&str; 2] = [
+/// What every count reads: when a trace began, how long it took and how many
+/// of its spans failed.
+const COUNTED_COLUMNS: [&str; 3] = [
     TRACE_SUMMARY_START_NS_FIELD,
+    TRACE_SUMMARY_DURATION_NS_FIELD,
     TRACE_SUMMARY_ERROR_COUNT_FIELD,
 ];
 /// Files read at once. A range can hold hundreds of small files, and most of
 /// the time one takes is spent waiting for the object store.
 const FILE_CONCURRENCY: usize = 8;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct Tally {
     total: u64,
     errors: u64,
+    /// How long the bar's traces took.
+    latency: LatencyTally,
 }
+
+/// The bars that hold a trace the query matches, and how long their traces took.
+pub(in super::super) type CountedBars = (Vec<BarCount>, Vec<BarLatency>);
 
 /// A column of whole numbers, read row by row. Summaries store them as
 /// `Int64`; any other stored type is read the way the list reads it.
@@ -81,15 +94,16 @@ impl<'a> WholeNumbers<'a> {
     }
 }
 
-/// The bars of `plan` that hold a trace the query matches. `None` when the
-/// range holds more summaries than one query may read.
+/// The bars of `plan` that hold a trace the query matches, with how long
+/// their traces took. `None` when the range holds more summaries than one
+/// query may read.
 pub(in super::super) async fn bars(
     state: &AppState,
     org_id: &Id,
     stream: &str,
     context: &TraceListContext,
     plan: &BucketPlan,
-) -> Result<Option<Vec<BarCount>>> {
+) -> Result<Option<CountedBars>> {
     let range = TimeRange::new(TimestampMicros(context.from), TimestampMicros(context.to));
     let summary_type = DatasetTypeId::builtin(builtin::DATASET_TRACE_SUMMARY);
 
@@ -106,13 +120,15 @@ pub(in super::super) async fn bars(
         .await?;
 
     let Some(dataset) = snapshot.dataset(&summary_type) else {
-        return Ok(Some(Vec::new()));
+        return Ok(Some((Vec::new(), Vec::new())));
     };
+
+    let query = context.query();
 
     let files = dataset
         .files
         .iter()
-        .filter(|file| file_may_match_filters(file, context))
+        .filter(|file| file_may_match_query(file, &query))
         .cloned()
         .collect::<Vec<_>>();
 
@@ -131,28 +147,33 @@ pub(in super::super) async fn bars(
         return Ok(None);
     }
 
+    let edges = latency_edges();
     let mut tallies = vec![Tally::default(); plan.bars()];
 
     for batch in &dataset.buffered_batches {
-        tally_batch(batch, context, plan, &mut tallies);
+        tally_batch(batch, &query, plan, &edges, &mut tallies);
     }
 
     let store = scoped_to_org(state.storage.read_store.clone(), org_id);
     let reader = ParquetReader::new(store.clone());
-    let columns = read_columns(context);
+    let columns = read_columns(&query);
     let scanned_files = files.len();
-    let (reader, store, columns) = (&reader, &store, columns.as_slice());
+    let (reader, store, columns, edges) = (&reader, &store, columns.as_slice(), edges.as_slice());
 
     // Each read owns its file: a stream of borrowed files does not make a
     // future that can move between threads.
-    let mut counted = futures::stream::iter(files)
-        .map(|file| async move { tally_file(reader, store, &file, context, plan, columns).await })
-        .buffer_unordered(FILE_CONCURRENCY);
+    let mut counted =
+        futures::stream::iter(files)
+            .map(|file| async move {
+                tally_file(reader, store, &file, context, plan, columns, edges).await
+            })
+            .buffer_unordered(FILE_CONCURRENCY);
 
     while let Some(file_tallies) = counted.next().await {
         for (tally, counted) in tallies.iter_mut().zip(file_tallies?) {
             tally.total += counted.total;
             tally.errors += counted.errors;
+            tally.latency.merge(&counted.latency);
         }
     }
 
@@ -162,17 +183,32 @@ pub(in super::super) async fn bars(
         "trace summary histogram scan completed"
     );
 
-    Ok(Some(
-        tallies
-            .into_iter()
-            .enumerate()
-            .map(|(index, tally)| BarCount {
+    let latency = tallies
+        .iter()
+        .enumerate()
+        .filter_map(|(index, tally)| {
+            let took = tally.latency.percentiles(edges)?;
+
+            Some(BarLatency {
                 index: index as i64,
-                total: tally.total,
-                errors: tally.errors,
+                p50_ns: took.p50_ns,
+                p95_ns: took.p95_ns,
+                p99_ns: took.p99_ns,
             })
-            .collect(),
-    ))
+        })
+        .collect();
+
+    let bars = tallies
+        .into_iter()
+        .enumerate()
+        .map(|(index, tally)| BarCount {
+            index: index as i64,
+            total: tally.total,
+            errors: tally.errors,
+        })
+        .collect();
+
+    Ok(Some((bars, latency)))
 }
 
 /// The columns a count has to decode: the two it counts by, and whatever the
@@ -181,17 +217,17 @@ pub(in super::super) async fn bars(
 /// The trace id is not among them unless the query looks at it. A summary is
 /// written from a span of its trace, so it always has one, and the id is by
 /// far the widest column of the dataset.
-fn read_columns(context: &TraceListContext) -> Vec<&'static str> {
+fn read_columns(query: &TraceCondition) -> Vec<&'static str> {
     let mut columns = COUNTED_COLUMNS.to_vec();
 
-    if context.q.is_some() {
+    if query.has_text() {
         columns.extend(TEXT_COLUMNS);
     }
 
     columns.extend(
-        context
-            .filters
-            .iter()
+        query
+            .filters()
+            .into_iter()
             .filter_map(|filter| filter.summary_column()),
     );
 
@@ -207,6 +243,7 @@ async fn tally_file(
     context: &TraceListContext,
     plan: &BucketPlan,
     columns: &[&str],
+    edges: &[i64],
 ) -> Result<Vec<Tally>> {
     let mut tallies = vec![Tally::default(); plan.bars()];
 
@@ -227,8 +264,10 @@ async fn tally_file(
         Err(error) => return Err(error),
     };
 
+    let query = context.query();
+
     while let Some(batch) = batches.next().await {
-        tally_batch(&batch?, context, plan, &mut tallies);
+        tally_batch(&batch?, &query, plan, edges, &mut tallies);
     }
 
     Ok(tallies)
@@ -238,12 +277,14 @@ async fn tally_file(
 /// with the conditions the list matches a summary by.
 fn tally_batch(
     batch: &RecordBatch,
-    context: &TraceListContext,
+    query: &TraceCondition,
     plan: &BucketPlan,
+    edges: &[i64],
     tallies: &mut [Tally],
 ) {
-    let selective = context.q.is_some() || !context.filters.is_empty();
+    let selective = !query.conjuncts().is_empty();
     let starts = WholeNumbers::of(batch, TRACE_SUMMARY_START_NS_FIELD);
+    let durations = WholeNumbers::of(batch, TRACE_SUMMARY_DURATION_NS_FIELD);
     let errors = WholeNumbers::of(batch, TRACE_SUMMARY_ERROR_COUNT_FIELD);
 
     for row in 0..batch.num_rows() {
@@ -255,7 +296,7 @@ fn tally_batch(
             continue;
         };
 
-        if selective && !matches_text_and_filters(batch, row, context) {
+        if selective && !matches_query(batch, row, query) {
             continue;
         }
 
@@ -270,6 +311,10 @@ fn tally_batch(
 
         if errors.at(row).unwrap_or(0) > 0 {
             tally.errors += 1;
+        }
+
+        if let Some(duration_ns) = durations.at(row) {
+            tally.latency.record(edges, duration_ns.max(0));
         }
     }
 }
@@ -302,12 +347,17 @@ mod tests {
             page_size: 20,
             q: q.map(String::from),
             filters: filter::parse(filters, &canonical_trace_schema(), 32).expect("filters"),
+            condition: None,
             boundary: None,
         }
     }
 
     fn tally(total: u64, errors: u64) -> Tally {
-        Tally { total, errors }
+        Tally {
+            total,
+            errors,
+            ..Default::default()
+        }
     }
 
     /// Six summaries: one before the range, one at its end, four inside.
@@ -342,7 +392,13 @@ mod tests {
     fn tallied(context: &TraceListContext, batch: &RecordBatch) -> Vec<Tally> {
         let plan = plan();
         let mut tallies = vec![Tally::default(); plan.bars()];
-        tally_batch(batch, context, &plan, &mut tallies);
+        tally_batch(
+            batch,
+            &context.query(),
+            &plan,
+            &latency_edges(),
+            &mut tallies,
+        );
         tallies
     }
 
@@ -396,17 +452,21 @@ mod tests {
     #[test]
     fn only_the_columns_the_query_looks_at_are_read() {
         assert_eq!(
-            read_columns(&context(None, None)),
+            read_columns(&context(None, None).query()),
             vec![
+                TRACE_SUMMARY_DURATION_NS_FIELD,
                 TRACE_SUMMARY_ERROR_COUNT_FIELD,
                 TRACE_SUMMARY_START_NS_FIELD
             ]
         );
 
-        let narrowed = read_columns(&context(
-            Some("checkout"),
-            Some(r#"[{"field":"span_count","op":">=","value":"2"}]"#),
-        ));
+        let narrowed = read_columns(
+            &context(
+                Some("checkout"),
+                Some(r#"[{"field":"span_count","op":">=","value":"2"}]"#),
+            )
+            .query(),
+        );
 
         for column in TEXT_COLUMNS {
             assert!(narrowed.contains(&column));
@@ -414,5 +474,48 @@ mod tests {
 
         assert!(narrowed.contains(&TRACE_SUMMARY_SPAN_COUNT_FIELD));
         assert!(narrowed.contains(&TRACE_SUMMARY_START_NS_FIELD));
+    }
+
+    #[test]
+    fn how_long_the_traces_of_a_bar_took_is_read_back_as_percentiles() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new(TRACE_SUMMARY_START_NS_FIELD, DataType::Int64, false),
+            Field::new(TRACE_SUMMARY_DURATION_NS_FIELD, DataType::Int64, true),
+            Field::new(TRACE_SUMMARY_ERROR_COUNT_FIELD, DataType::Int64, false),
+        ]));
+        // Three traces in the first bar, one without a duration, one in the last.
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int64Array::from(vec![
+                    10_600_000, 10_700_000, 10_800_000, 12_500_000,
+                ])),
+                Arc::new(Int64Array::from(vec![
+                    Some(10_000_000),
+                    Some(20_000_000),
+                    None,
+                    Some(400_000_000),
+                ])),
+                Arc::new(Int64Array::from(vec![0, 0, 0, 1])),
+            ],
+        )
+        .expect("record batch");
+
+        let edges = latency_edges();
+        let tallies = tallied(&context(None, None), &batch);
+
+        assert_eq!(tallies[0].total, 3);
+        let first = tallies[0].latency.percentiles(&edges).expect("first bar");
+        assert!(
+            (8_000_000..=12_500_000).contains(&first.p50_ns),
+            "{first:?}"
+        );
+        assert!(first.p99_ns >= 16_000_000, "{first:?}");
+        assert!(tallies[1].latency.percentiles(&edges).is_none());
+        let last = tallies[2].latency.percentiles(&edges).expect("last bar");
+        assert!(
+            (315_000_000..=500_000_000).contains(&last.p50_ns),
+            "{last:?}"
+        );
     }
 }

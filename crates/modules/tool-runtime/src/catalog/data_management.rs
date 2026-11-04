@@ -3,7 +3,7 @@
 
 use serde_json::{Value, json};
 
-use super::{BuiltinToolKind, object_schema, open_output};
+use super::{BuiltinToolKind, object_schema, open_output, time_range_schema, timestamp_schema};
 use crate::{RiskLevel, ToolSpec};
 
 mod mutations;
@@ -26,7 +26,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "List saved SQL and PromQL views.",
             "saved_views",
             object_schema(
-                json!({"pinned_only": {"type": "boolean", "default": false}, "limit": limit(500, 100)}),
+                json!({"pinnedOnly": {"type": "boolean", "default": false}, "limit": limit(500, 100)}),
             ),
             &["saved_views.read"],
             &["Search", "Saved views"],
@@ -34,7 +34,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::GetSavedView => id_entry(
             "Get one saved query view.",
             "saved_views",
-            "view_id",
+            "viewId",
             &["saved_views.read"],
             &["Search", "Saved views"],
         ),
@@ -42,35 +42,35 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "List bounded asynchronous search jobs.",
             "search_jobs",
             object_schema(json!({"limit": limit(200, 50)})),
-            &["streams.query", "sys.telemetry.read"],
+            &["query.jobs.read", "sys.telemetry.read"],
             &["Search", "Jobs"],
         ),
         BuiltinToolKind::GetSearchJob => id_entry(
             "Get asynchronous search-job status and result metadata.",
             "search_jobs",
-            "job_id",
-            &["streams.query", "sys.telemetry.read"],
+            "jobId",
+            &["query.jobs.read", "sys.telemetry.read"],
             &["Search", "Jobs"],
         ),
         BuiltinToolKind::GetSearchJobResults => entry(
             "Get one bounded page of decoded asynchronous search-job results.",
             "search_jobs",
             json!({
-                "type": "object", "required": ["job_id"],
+                "type": "object", "required": ["jobId"],
                 "properties": {
-                    "job_id": {"type": "string", "minLength": 1},
+                    "jobId": {"type": "string", "minLength": 1},
                     "page": {"type": "integer", "minimum": 1, "default": 1},
-                    "page_size": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 100}
+                    "pageSize": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 100}
                 }, "additionalProperties": false
             }),
-            &["streams.query", "sys.telemetry.read"],
+            &["query.jobs.read", "sys.telemetry.read"],
             &["Search", "Jobs", "Results"],
         ),
         BuiltinToolKind::SubmitSearchJob => entry(
             "Submit one durable asynchronous SQL or PromQL search job.",
             "search_jobs",
             submit_search_job_input(),
-            &["streams.query", "sys.telemetry.read"],
+            &["query.jobs.run", "sys.telemetry.read"],
             &["Search", "Jobs", "Write"],
         ),
         BuiltinToolKind::CancelSearchJob => search_job_operation(
@@ -89,7 +89,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "List scheduled pipelines and recent run health.",
             "pipelines",
             object_schema(
-                json!({"enabled_only": {"type": "boolean", "default": false}, "limit": limit(500, 100)}),
+                json!({"enabledOnly": {"type": "boolean", "default": false}, "limit": limit(500, 100)}),
             ),
             &["pipelines.read"],
             &["Pipelines"],
@@ -97,15 +97,15 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::GetScheduledPipeline => id_entry(
             "Get one scheduled pipeline.",
             "pipelines",
-            "pipeline_id",
+            "pipelineId",
             &["pipelines.read"],
             &["Pipelines"],
         ),
         BuiltinToolKind::ListPipelineRuns => entry(
             "List bounded execution history for one scheduled pipeline.",
             "pipelines",
-            json!({"type": "object", "required": ["pipeline_id"], "properties": {
-                "pipeline_id": {"type": "string"}, "before_micros": {"type": "integer"}, "limit": limit(200, 50)
+            json!({"type": "object", "required": ["pipelineId"], "properties": {
+                "pipelineId": {"type": "string"}, "beforeTime": timestamp_schema(), "limit": limit(200, 50)
             }, "additionalProperties": false}),
             &["pipelines.read"],
             &["Pipelines", "Runs"],
@@ -135,7 +135,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::GetFunction => id_entry(
             "Get one processing function, including source.",
             "functions",
-            "function_id",
+            "functionId",
             &["functions.read"],
             &["Functions", "Pipelines"],
         ),
@@ -177,58 +177,58 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "List persisted log patterns.",
             "patterns",
             object_schema(json!({"limit": limit(500, 100)})),
-            &["streams.read"],
+            &["log_patterns.read"],
             &["Logs", "Patterns"],
         ),
         BuiltinToolKind::GetLogPattern => id_entry(
             "Get one persisted log pattern.",
             "patterns",
-            "pattern_id",
-            &["streams.read"],
+            "patternId",
+            &["log_patterns.read"],
             &["Logs", "Patterns"],
         ),
         BuiltinToolKind::ListRegexPatterns => entry(
             "List reusable regular-expression patterns.",
             "patterns",
             object_schema(json!({"limit": limit(500, 100)})),
-            &["org.settings.read"],
+            &["org.regex_patterns.read"],
             &["Regex", "Patterns"],
         ),
         BuiltinToolKind::GetRegexPattern => id_entry(
             "Get one reusable regular-expression pattern.",
             "patterns",
-            "pattern_id",
-            &["org.settings.read"],
+            "patternId",
+            &["org.regex_patterns.read"],
             &["Regex", "Patterns"],
         ),
         BuiltinToolKind::ListFieldMaskingRules => entry(
             "List field-masking rules without secret key material.",
             "field_masking",
             object_schema(json!({"limit": limit(500, 100)})),
-            &["org.settings.read"],
+            &["org.regex_patterns.read"],
             &["Masking", "Security"],
         ),
         BuiltinToolKind::GetEffectiveFieldMasking => entry(
             "Resolve effective field-masking rules for one stream.",
             "field_masking",
-            json!({"type": "object", "required": ["stream_id"], "properties": {"stream_id": {"type": "string"}}, "additionalProperties": false}),
-            &["org.settings.read"],
+            json!({"type": "object", "required": ["streamId"], "properties": {"streamId": {"type": "string"}}, "additionalProperties": false}),
+            &["org.regex_patterns.read"],
             &["Masking", "Security"],
         ),
         BuiltinToolKind::ListDataConnectors => entry(
             "List data connectors with credential-like config values redacted.",
             "connectors",
             object_schema(
-                json!({"enabled_only": {"type": "boolean", "default": false}, "limit": limit(500, 100)}),
+                json!({"enabledOnly": {"type": "boolean", "default": false}, "limit": limit(500, 100)}),
             ),
-            &["pipelines.read"],
+            &["connectors.read"],
             &["Connectors", "Ingestion"],
         ),
         BuiltinToolKind::GetDataConnector => id_entry(
             "Get one data connector with credential-like config values redacted.",
             "connectors",
-            "connector_id",
-            &["pipelines.read"],
+            "connectorId",
+            &["connectors.read"],
             &["Connectors", "Ingestion"],
         ),
         _ => unreachable!("data-management catalog received unrelated kind"),
@@ -284,7 +284,7 @@ fn pipeline_operation(
     entry(
         description,
         "pipelines",
-        proposal_id_input("pipeline_id"),
+        proposal_id_input("pipelineId"),
         permissions,
         tags,
     )
@@ -297,7 +297,7 @@ fn proposal_id_input(field: &str) -> serde_json::Value {
             (field): {"type": "string", "minLength": 1},
             "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
             "impact": {"type": "string", "minLength": 1, "maxLength": 2000},
-            "expires_at_micros": {"type": "integer"}
+            "expiresAt": timestamp_schema()
         }, "additionalProperties": false
     })
 }
@@ -351,10 +351,10 @@ fn search_job_operation(description: &'static str, tags: &[&'static str]) -> Ent
         description,
         "search_jobs",
         proposal_schema(
-            vec!["job_id"],
-            json!({"job_id": {"type": "string", "minLength": 1}}),
+            vec!["jobId"],
+            json!({"jobId": {"type": "string", "minLength": 1}}),
         ),
-        &["streams.query", "sys.telemetry.read"],
+        &["query.jobs.run", "sys.telemetry.read"],
         tags,
     )
 }
@@ -366,7 +366,7 @@ fn proposal_schema(required: Vec<&str>, properties: Value) -> Value {
         json!({
             "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
             "impact": {"type": "string", "minLength": 1, "maxLength": 2000},
-            "expires_at_micros": {"type": "integer"}
+            "expiresAt": timestamp_schema()
         })
         .as_object()
         .cloned()
@@ -383,25 +383,22 @@ fn proposal_schema(required: Vec<&str>, properties: Value) -> Value {
 
 fn submit_search_job_input() -> Value {
     proposal_schema(
-        vec!["language", "statement", "time_range"],
+        vec!["language", "statement", "timeRange"],
         json!({
             "language": {"type": "string", "enum": ["sql", "promql"]},
             "statement": {"type": "string", "minLength": 1},
-            "time_range": {
-                "type": "object", "required": ["start_micros", "end_micros"],
-                "properties": {"start_micros": {"type": "integer"}, "end_micros": {"type": "integer"}},
-                "additionalProperties": false
-            },
+            "timeRange": time_range_schema(),
             "stream": {
-                "type": "object", "required": ["name", "stream_type"],
+                "type": "object", "required": ["name", "streamType"],
                 "properties": {
                     "name": {"type": "string"},
-                    "stream_type": {"type": "string", "enum": ["logs", "metrics", "traces", "profiles", "extend"]}
+                    "streamType": {"type": "string", "enum": ["logs", "metrics", "traces", "profiles", "extend"]}
                 }, "additionalProperties": false
             },
             "limit": {"type": "integer", "minimum": 1, "maximum": 100000},
-            "federation_clusters": {"type": "array", "items": {"type": "string"}, "maxItems": 32},
-            "ttl_secs": {"type": "integer", "minimum": 60, "maximum": 2592000}
+            "step": {"type": "integer", "minimum": 1, "description": "The step of a PromQL range query, in microseconds."},
+            "federationClusters": {"type": "array", "items": {"type": "string"}, "maxItems": 32},
+            "ttlSecs": {"type": "integer", "minimum": 60, "maximum": 2592000}
         }),
     )
 }

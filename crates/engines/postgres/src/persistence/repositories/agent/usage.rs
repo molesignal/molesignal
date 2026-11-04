@@ -1,15 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! `agent_usage_daily` 与 `agent_usage_budgets`：Mole Agent 的每日用量与组织预算。
+//! `agent_usage_daily`：Mole Agent 的每日用量；组织预算在 `org_settings` 的 `agent.usage_budget` 一节。
 //!
 //! 计数按（组织、UTC 日期、来源、币种）一行，每次模型调用一条 upsert 累加；没有单价的调用记在
 //! 币种为空串的那行。日期在 SQL 里是 `DATE`，Rust 里是从 1970-01-01 起的天数。
 
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row};
 
-use super::sqlx_err;
+use super::{
+    super::org_settings::{self, Section, sections::AGENT_USAGE_BUDGET},
+    sqlx_err,
+};
 use crate::{
     agent::usage::{
         AgentUsageRepository, Currency, DailyUsage, InteractiveBudgetMode, UsageBudget, UsageDay,
@@ -51,15 +55,22 @@ fn usage_row(row: sqlx::postgres::PgRow) -> Result<DailyUsage> {
     })
 }
 
-fn budget_row(row: sqlx::postgres::PgRow) -> Result<UsageBudget> {
-    let mode: String = row.try_get("interactive_mode").map_err(sqlx_err)?;
+/// `agent.usage_budget` 一节的值。没有这一节时跟随实例配置 `[agent] daily_token_budget`。
+#[derive(Serialize, Deserialize)]
+struct StoredBudget {
+    /// 每日 token 上限；空跟随实例默认值，0 表示不限。
+    daily_token_limit: Option<i64>,
+    /// 预算用完时对话与手动 RCA 的处理：block 拦截 | warn 只提示。
+    interactive_mode: String,
+}
 
+fn budget_of(org_id: &Id, section: Section<StoredBudget>) -> Result<UsageBudget> {
     Ok(UsageBudget {
-        org_id: Id(row.try_get("org_id").map_err(sqlx_err)?),
-        daily_token_limit: row.try_get("daily_token_limit").map_err(sqlx_err)?,
-        interactive_mode: InteractiveBudgetMode::parse(&mode)?,
-        updated_by: Id(row.try_get("updated_by").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        org_id: org_id.clone(),
+        daily_token_limit: section.value.daily_token_limit,
+        interactive_mode: InteractiveBudgetMode::parse(&section.value.interactive_mode)?,
+        updated_by: Id(section.updated_by.unwrap_or_default()),
+        updated_at: section.updated_at,
     })
 }
 
@@ -75,7 +86,7 @@ impl AgentUsageRepository for PgAgentUsageRepository {
         sqlx::query(
             "INSERT INTO agent_usage_daily
                 (org_id, day, origin, cost_currency, calls, unpriced_calls, prompt_tokens,
-                 completion_tokens, cost, updated_at_micros)
+                 completion_tokens, cost, updated_at)
              VALUES ($1, DATE '1970-01-01' + $2::INTEGER, $3, $4, $5, $6, $7, $8, $9, $10)
              ON CONFLICT (org_id, day, origin, cost_currency) DO UPDATE SET
                 calls = agent_usage_daily.calls + EXCLUDED.calls,
@@ -84,7 +95,7 @@ impl AgentUsageRepository for PgAgentUsageRepository {
                 completion_tokens =
                     agent_usage_daily.completion_tokens + EXCLUDED.completion_tokens,
                 cost = agent_usage_daily.cost + EXCLUDED.cost,
-                updated_at_micros = EXCLUDED.updated_at_micros",
+                updated_at = EXCLUDED.updated_at",
         )
         .bind(&org_id.0)
         .bind(day_number(day)?)
@@ -100,7 +111,7 @@ impl AgentUsageRepository for PgAgentUsageRepository {
         .bind(delta.prompt_tokens)
         .bind(delta.completion_tokens)
         .bind(delta.cost)
-        .bind(TimestampMicros::now().0)
+        .bind(TimestampMicros::now())
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -144,40 +155,28 @@ impl AgentUsageRepository for PgAgentUsageRepository {
     }
 
     async fn get_budget(&self, org_id: &Id) -> Result<Option<UsageBudget>> {
-        sqlx::query(
-            "SELECT org_id, daily_token_limit, interactive_mode, updated_by, updated_at_micros
-             FROM agent_usage_budgets WHERE org_id = $1",
-        )
-        .bind(&org_id.0)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(sqlx_err)?
-        .map(budget_row)
-        .transpose()
+        org_settings::read::<StoredBudget>(&self.pool, &org_id.0, AGENT_USAGE_BUDGET)
+            .await?
+            .map(|section| budget_of(org_id, section))
+            .transpose()
     }
 
     async fn put_budget(&self, budget: UsageBudget) -> Result<UsageBudget> {
-        let row = sqlx::query(
-            "INSERT INTO agent_usage_budgets
-                (org_id, daily_token_limit, interactive_mode, updated_by, updated_at_micros)
-             VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (org_id) DO UPDATE SET
-                daily_token_limit = EXCLUDED.daily_token_limit,
-                interactive_mode = EXCLUDED.interactive_mode,
-                updated_by = EXCLUDED.updated_by,
-                updated_at_micros = EXCLUDED.updated_at_micros
-             RETURNING org_id, daily_token_limit, interactive_mode, updated_by,
-                       updated_at_micros",
-        )
-        .bind(&budget.org_id.0)
-        .bind(budget.daily_token_limit)
-        .bind(budget.interactive_mode.as_str())
-        .bind(&budget.updated_by.0)
-        .bind(budget.updated_at.0)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
+        let stored = StoredBudget {
+            daily_token_limit: budget.daily_token_limit,
+            interactive_mode: budget.interactive_mode.as_str().to_owned(),
+        };
 
-        budget_row(row)
+        org_settings::write(
+            &self.pool,
+            &budget.org_id.0,
+            AGENT_USAGE_BUDGET,
+            &stored,
+            Some(&budget.updated_by.0),
+            budget.updated_at,
+        )
+        .await?;
+
+        Ok(budget)
     }
 }

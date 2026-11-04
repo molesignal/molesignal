@@ -23,9 +23,11 @@ Command.displayName = CommandPrimitive.displayName;
 
 interface CommandDialogProps extends React.ComponentProps<typeof Dialog> {
   children: React.ReactNode;
+  /** Off where the caller ranks the rows itself: the list then shows them as given. */
+  shouldFilter?: boolean | undefined;
 }
 
-const CommandDialog = ({ children, ...props }: CommandDialogProps) => {
+const CommandDialog = ({ children, shouldFilter = true, ...props }: CommandDialogProps) => {
   const returnFocusRef = React.useRef<HTMLElement | null>(null);
   return (
     <Dialog {...props}>
@@ -42,7 +44,7 @@ const CommandDialog = ({ children, ...props }: CommandDialogProps) => {
           if (returnFocusRef.current?.isConnected) returnFocusRef.current.focus();
         }}
       >
-        <Command className="w-full [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[data-cmdk-input-wrapper]_svg]:h-4 [&_[data-cmdk-input-wrapper]_svg]:w-4 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2 [&_[cmdk-item]_svg]:h-4 [&_[cmdk-item]_svg]:w-4">
+        <Command shouldFilter={shouldFilter} className="w-full [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[data-cmdk-input-wrapper]_svg]:h-4 [&_[data-cmdk-input-wrapper]_svg]:w-4 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2 [&_[cmdk-item]_svg]:h-4 [&_[cmdk-item]_svg]:w-4">
           {children}
         </Command>
       </DialogContent>

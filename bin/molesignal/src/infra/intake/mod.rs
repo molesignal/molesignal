@@ -11,7 +11,7 @@
 //!          WalPool[dataset_id].append(payload) → (epoch, seq) → push(events, position)
 //!
 //!   FlushScheduler tick:
-//!     for each buffer where size >= buffer_max_mb OR age >= flush_interval_secs:
+//!     for each buffer where size >= buffer_max_size OR age >= flush_interval_secs:
 //!       generation = buffer.begin_flush() // remains query-visible as in-flight
 //!       parquet_writer.flush_catalog(...)
 //!       file_catalog.commit_flush(...)

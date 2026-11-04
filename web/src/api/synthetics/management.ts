@@ -13,6 +13,7 @@ import type {
   ProbeRegisterInstructions,
   ProbeLocation,
   ProbeOutcome,
+  SyntheticAvailability,
   SyntheticMonitor,
   SyntheticResult,
   SyntheticResultPage,
@@ -91,7 +92,7 @@ export async function archiveMonitor(monitorId: string): Promise<SyntheticMonito
 
 export async function listResults(
   monitorId: string,
-  options: { before_micros?: number; limit?: number } = {},
+  options: { beforeTime?: number; limit?: number } = {},
 ): Promise<SyntheticResult[]> {
   const { data } = await http.get<SyntheticResult[]>(`${monitorPath(monitorId)}/results`, {
     params: options,
@@ -102,11 +103,28 @@ export async function listResults(
 export async function listResultPage(options: {
   query?: string;
   outcome?: ProbeOutcome;
-  location_id?: string;
+  locationId?: string;
+  /** Runs that finished at or after this, in microseconds. */
+  fromTime?: number;
+  /** Runs that finished before this. */
+  toTime?: number;
   page?: number;
-  per_page?: number;
+  perPage?: number;
 } = {}): Promise<SyntheticResultPage> {
   const { data } = await http.get<SyntheticResultPage>('/synthetics/results', {
+    params: options,
+  });
+  return data;
+}
+
+/** How the checks, or one check, did over a range. */
+export async function getAvailability(options: {
+  from: number;
+  to: number;
+  monitorId?: string;
+  locationId?: string;
+}): Promise<SyntheticAvailability> {
+  const { data } = await http.get<SyntheticAvailability>('/synthetics/availability', {
     params: options,
   });
   return data;
@@ -132,7 +150,7 @@ export async function createLocation(input: {
   name: string;
   code: string;
   description: string;
-  egress_policy: EgressPolicy;
+  egressPolicy: EgressPolicy;
 }): Promise<ProbeLocation> {
   const { data } = await http.post<ProbeLocation>('/synthetics/locations', input);
   return data;
@@ -155,7 +173,7 @@ export async function createRegisterToken(
 ): Promise<ProbeRegisterInstructions> {
   const { data } = await http.post<ProbeRegisterInstructions>(
     `/synthetics/locations/${encodeURIComponent(locationId)}/register-tokens`,
-    { ttl_minutes: ttlMinutes },
+    { ttlMinutes: ttlMinutes },
   );
   return data;
 }
@@ -197,8 +215,8 @@ export async function listAgentTokens(): Promise<ProbeAgentToken[]> {
 
 export async function createAgentToken(input: {
   name: string;
-  location_id: string;
-  expires_in_days: number;
+  locationId: string;
+  expiresInDays: number;
 }): Promise<ProbeAgentTokenInstructions> {
   const { data } = await http.post<ProbeAgentTokenInstructions>(
     '/synthetics/agent-tokens',
@@ -213,7 +231,7 @@ export async function rotateAgentToken(
 ): Promise<ProbeAgentTokenInstructions> {
   const { data } = await http.post<ProbeAgentTokenInstructions>(
     `/synthetics/agent-tokens/${encodeURIComponent(tokenId)}/rotate`,
-    { expires_in_days: expiresInDays },
+    { expiresInDays: expiresInDays },
   );
   return data;
 }

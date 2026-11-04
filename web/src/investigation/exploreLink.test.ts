@@ -43,7 +43,7 @@ describe('buildPanelExploreLink', () => {
       '2026-08-14T05:00:00.000Z..2026-08-14T06:00:00.000Z',
     );
     expect(url.searchParams.get('var-service')).toBe('checkout');
-    expect(url.searchParams.get('data_source')).toBe('source-1');
+    expect(url.searchParams.get('dataSource')).toBe('source-1');
   });
 
   it('puts a Logs statement into the SQL editor contract', () => {
@@ -64,7 +64,7 @@ describe('buildPanelExploreLink', () => {
     expect(url.searchParams.get('sql')).toBe(statement);
     expect(url.searchParams.get('q')).toBeNull();
     expect(url.searchParams.get('stream')).toBe('app_logs');
-    expect(url.searchParams.get('stream_type')).toBe('logs');
+    expect(url.searchParams.get('streamType')).toBe('logs');
   });
 
   it('puts a Traces statement and stream into the SQL editor contract', () => {
@@ -84,6 +84,6 @@ describe('buildPanelExploreLink', () => {
     expect(url.pathname).toBe('/traces');
     expect(url.searchParams.get('sql')).toBe(statement);
     expect(url.searchParams.get('stream')).toBe('checkout_traces');
-    expect(url.searchParams.get('stream_type')).toBe('traces');
+    expect(url.searchParams.get('streamType')).toBe('traces');
   });
 });

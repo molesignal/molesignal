@@ -1,6 +1,7 @@
 import * as queryApi from '@/api/query';
 import type { SavedView } from '@/api/savedViews';
 import * as streamsApi from '@/api/streams';
+import { promqlStepMicros } from '@/lib/promqlRange';
 import { resolveWindow, type TimeWindow } from '@/stores/useTimeStore';
 
 /** The most rows a report prints: as many as the explorer loads when the view is opened there. */
@@ -46,7 +47,7 @@ export function reportRange(
 
   const end = now.getTime() * 1_000;
 
-  return { start: end - view.time_range_secs * 1_000_000, end };
+  return { start: end - view.timeRangeSecs * 1_000_000, end };
 }
 
 /**
@@ -59,12 +60,14 @@ export async function runSavedView(
   range: ReportRange,
 ): Promise<SavedViewResult> {
   if (view.language === 'promql') {
-    // A range query: the engine samples each series evenly to fit the row limit.
+    // A range query with as many steps as the report prints rows; the engine
+    // samples each series evenly to fit the row limit.
     const result = await queryApi.runQuery({
-      org_id: orgId,
+      orgId: orgId,
       language: 'promql',
       statement: view.statement,
-      time_range: range,
+      timeRange: range,
+      step: promqlStepMicros(range.start, range.end, null, REPORT_ROW_LIMIT),
       limit: REPORT_ROW_LIMIT,
     });
 
@@ -72,11 +75,11 @@ export async function runSavedView(
   }
 
   const result = await queryApi.runQuery({
-    org_id: orgId,
+    orgId: orgId,
     language: 'sql',
     statement: view.statement,
-    time_range: range,
-    stream: { name: await sqlStream(view), stream_type: 'logs' },
+    timeRange: range,
+    stream: { name: await sqlStream(view), streamType: 'logs' },
     // One row more than is printed says whether the statement returns more.
     limit: REPORT_ROW_LIMIT + 1,
   });

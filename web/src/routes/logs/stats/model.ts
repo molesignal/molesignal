@@ -1,14 +1,14 @@
 import { createDashboardPanel } from '@/dashboard-engine/factories';
 import { createEmptyDashboardDefinition, dashboardDefinitionToModel } from '@/dashboard-engine/model';
 import type { DashboardPanel, VisualizationType } from '@/dashboard-engine/schema';
-import type { GlobalFilter } from '@/stores/useFiltersStore';
 import type { TimeWindow } from '@/stores/useTimeStore';
 
+import type { PinnedLogFilter } from '../conditions/model';
 import {
   escapeSqlIdentifier,
   escapeSqlString,
   logFieldQueryConditions,
-  parseLogFieldStatement,
+  logStatementFields,
   type LogFieldDef,
 } from '../fieldQueryModel';
 
@@ -124,16 +124,13 @@ export function statsBucketMicros(range: { start: number; end: number }): number
  * pinned filters it does not already speak of. The statistics are of the logs
  * the list pages through.
  */
-export function logStatsConditions(statement: string, globalFilters: readonly GlobalFilter[]): string[] {
-  const named = new Set(parseLogFieldStatement(statement).filters.map((filter) => filter.field));
-  const pinned = globalFilters
-    .filter((filter) => filter.key && filter.value && !named.has(filter.key))
-    .map(
-      (filter) =>
-        `"${escapeSqlIdentifier(filter.key)}" ${filter.operator === '!=' ? '!=' : '='} '${escapeSqlString(filter.value)}'`,
-    );
+export function logStatsConditions(statement: string, pinned: readonly PinnedLogFilter[]): string[] {
+  const named = new Set(logStatementFields(statement));
+  const kept = pinned
+    .filter((filter) => !named.has(filter.field))
+    .map((filter) => `"${escapeSqlIdentifier(filter.field)}" ${filter.operator} '${escapeSqlString(filter.value)}'`);
 
-  return [...logFieldQueryConditions(statement), ...pinned];
+  return [...logFieldQueryConditions(statement), ...kept];
 }
 
 const PERCENTILE: Partial<Record<StatsMeasure, number>> = { p50: 0.5, p95: 0.95, p99: 0.99 };
@@ -172,7 +169,7 @@ interface LogStatsStatementInput {
   conditions: readonly string[];
   config: LogStatsConfig;
   /** What one point stands for when the measure is taken over time. */
-  bucketMicros: number;
+  bucketTime: number;
 }
 
 /**
@@ -184,7 +181,7 @@ interface LogStatsStatementInput {
  * an axis and not a quantity; and the column keeps the name of its field, so
  * it is masked where the field is.
  */
-export function buildLogStatsStatement({ stream, conditions, config, bucketMicros }: LogStatsStatementInput): string {
+export function buildLogStatsStatement({ stream, conditions, config, bucketTime: bucketMicros }: LogStatsStatementInput): string {
   const { expression, alias } = statsMeasureSql(config);
   const measure = `${expression} AS "${alias}"`;
   const source = [

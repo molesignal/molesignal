@@ -5,6 +5,7 @@
 
 mod common;
 
+use molesignal::shared::time::TimestampMicros;
 use reqwest::StatusCode;
 use serde_json::{Value, json};
 
@@ -12,12 +13,12 @@ fn page_settings(slug: &str, logo_url: Option<&str>, visibility: &str) -> Value 
     json!({
         "name": "Acme Customer Status",
         "slug": slug,
-        "logo_url": logo_url,
-        "brand_color": "#4F46E5",
+        "logoUrl": logo_url,
+        "brandColor": "#4F46E5",
         "timezone": "UTC",
         "language": "en-us",
         "languages": ["en-us", "zh-cn"],
-        "history_days": 30,
+        "historyDays": 30,
         "visibility": visibility
     })
 }
@@ -89,15 +90,16 @@ async fn component_history_and_rss_are_published_without_exposing_request_time_a
         .expect("read public history");
     assert_eq!(public.status(), StatusCode::OK);
     let snapshot: Value = public.json().await.expect("public history body");
-    let events = snapshot["component_status_events"]
+    let events = snapshot["componentStatusEvents"]
         .as_array()
         .expect("component status events");
+    // Newest first.
     assert_eq!(events.len(), 2);
-    assert_eq!(events[0]["status"], "operational");
-    assert!(events[0]["ended_at"].is_number());
-    assert_eq!(events[1]["status"], "degraded_performance");
-    assert!(events[1]["ended_at"].is_null());
-    assert!(snapshot["updated_at"].as_i64() <= snapshot["generated_at"].as_i64());
+    assert_eq!(events[0]["status"], "degraded_performance");
+    assert!(events[0]["endedAt"].is_null());
+    assert_eq!(events[1]["status"], "operational");
+    assert!(events[1]["endedAt"].is_number());
+    assert!(snapshot["updatedAt"].as_i64() <= snapshot["generatedAt"].as_i64());
 
     let rss = server
         .client
@@ -180,28 +182,28 @@ async fn custom_domain_routes_only_after_dns_and_tls_activation() {
     let now = molesignal::shared::time::TimestampMicros::now().0;
     sqlx::query(
         "INSERT INTO domains
-            (id, org_id, hostname, state, cert_pem, cert_not_after_micros,
-             last_error, created_at_micros, updated_at_micros)
+            (id, org_id, hostname, state, cert_pem, cert_not_after,
+             last_error, created_at, updated_at)
          VALUES ($1, $2, $3, 'active', 'test-certificate', $4, NULL, $5, $5)",
     )
     .bind(&domain_id.0)
     .bind(&server.root_org_id.0)
     .bind(domain)
-    .bind(now + 90 * 24 * 60 * 60 * 1_000_000_i64)
-    .bind(now)
+    .bind(TimestampMicros(now + 90 * 24 * 60 * 60 * 1_000_000_i64))
+    .bind(TimestampMicros(now))
     .execute(&pool)
     .await
     .expect("activate ACME domain");
     sqlx::query(
         "UPDATE status_page_domain_configs
          SET state = 'verified', domain_id = $3, routing_valid = TRUE,
-             last_checked_at_micros = $4, updated_at_micros = $4
+             last_checked_at = $4, updated_at = $4
          WHERE org_id = $1 AND status_page_id = $2",
     )
     .bind(&server.root_org_id.0)
     .bind(page_id)
     .bind(&domain_id.0)
-    .bind(now)
+    .bind(TimestampMicros(now))
     .execute(&pool)
     .await
     .expect("link active custom domain");
@@ -219,9 +221,9 @@ async fn custom_domain_routes_only_after_dns_and_tls_activation() {
     assert_eq!(by_domain.status(), StatusCode::OK);
     let snapshot: Value = by_domain.json().await.expect("public domain snapshot");
     assert_eq!(snapshot["page"]["slug"], "acme-domain");
-    assert_eq!(snapshot["page"]["history_days"], 30);
-    assert!(snapshot["page"].get("org_id").is_none());
-    assert!(snapshot["page"].get("custom_domain").is_none());
+    assert_eq!(snapshot["page"]["historyDays"], 30);
+    assert!(snapshot["page"].get("orgId").is_none());
+    assert!(snapshot["page"].get("customDomain").is_none());
 
     let by_slug = server
         .client
@@ -318,7 +320,7 @@ async fn status_page_logo_lifecycle_preserves_visibility_and_slug_rules() {
         .expect("upload first logo");
     assert_eq!(first_upload.status(), StatusCode::OK);
     let first_page: Value = first_upload.json().await.expect("first upload response");
-    let first_logo_url = first_page["logo_url"]
+    let first_logo_url = first_page["logoUrl"]
         .as_str()
         .expect("first logo url")
         .to_string();
@@ -369,7 +371,7 @@ async fn status_page_logo_lifecycle_preserves_visibility_and_slug_rules() {
         .expect("replace status page logo");
     assert_eq!(second_upload.status(), StatusCode::OK);
     let second_page: Value = second_upload.json().await.expect("replacement response");
-    let second_logo_url = second_page["logo_url"]
+    let second_logo_url = second_page["logoUrl"]
         .as_str()
         .expect("replacement logo url")
         .to_string();
@@ -447,7 +449,7 @@ async fn status_page_logo_lifecycle_preserves_visibility_and_slug_rules() {
         .expect("rename status page");
     assert_eq!(rename.status(), StatusCode::OK);
     let renamed_page: Value = rename.json().await.expect("renamed page body");
-    let renamed_logo_url = renamed_page["logo_url"]
+    let renamed_logo_url = renamed_page["logoUrl"]
         .as_str()
         .expect("renamed logo url")
         .to_string();
@@ -471,7 +473,7 @@ async fn status_page_logo_lifecycle_preserves_visibility_and_slug_rules() {
         .expect("remove status page logo");
     assert_eq!(remove.status(), StatusCode::OK);
     let removed_page: Value = remove.json().await.expect("removed logo response");
-    assert!(removed_page["logo_url"].is_null());
+    assert!(removed_page["logoUrl"].is_null());
 
     let removed_preview = server
         .client
@@ -540,8 +542,8 @@ async fn subscriber_notifications_skip_hidden_components_and_carry_event_times()
         "a hidden component must not notify subscribers: {payloads:?}"
     );
     assert_eq!(payloads[0]["type"], "component_status_changed");
-    assert_eq!(payloads[0]["component_id"], public_component.as_str());
-    assert_eq!(payloads[0]["component_name"], "API");
+    assert_eq!(payloads[0]["componentId"], public_component.as_str());
+    assert_eq!(payloads[0]["componentName"], "API");
     assert_eq!(payloads[0]["status"], "degraded_performance");
 
     let planned_start =
@@ -558,8 +560,8 @@ async fn subscriber_notifications_skip_hidden_components_and_carry_event_times()
             "title": "Database upgrade",
             "impact": "maintenance",
             "message": "Writes can take a few seconds longer.",
-            "component_ids": [public_component, hidden_component],
-            "started_at": planned_start
+            "componentIds": [public_component, hidden_component],
+            "startedAt": planned_start
         }))
         .send()
         .await
@@ -572,14 +574,14 @@ async fn subscriber_notifications_skip_hidden_components_and_carry_event_times()
     assert_eq!(payloads.len(), 2);
     let announcement = &payloads[1];
     assert_eq!(announcement["type"], "incident_update");
-    assert_eq!(announcement["incident_kind"], "maintenance");
+    assert_eq!(announcement["incidentKind"], "maintenance");
     assert_eq!(announcement["status"], "scheduled");
-    assert_eq!(announcement["started_at"], planned_start);
-    assert_eq!(announcement.get("ended_at"), Some(&Value::Null));
-    let published_at = announcement["occurred_at"].as_i64();
+    assert_eq!(announcement["startedAt"], planned_start);
+    assert_eq!(announcement.get("endedAt"), Some(&Value::Null));
+    let published_at = announcement["occurredAt"].as_i64();
     assert!(published_at.expect("publication time") < planned_start);
     assert_eq!(
-        announcement["component_names"],
+        announcement["componentNames"],
         json!(["API"]),
         "a hidden component must not be named to subscribers"
     );
@@ -597,8 +599,8 @@ async fn subscriber_notifications_skip_hidden_components_and_carry_event_times()
             "title": "Database upgrade",
             "impact": "maintenance",
             "message": "The upgrade starts one hour later.",
-            "component_ids": [public_component, hidden_component],
-            "started_at": rescheduled_start
+            "componentIds": [public_component, hidden_component],
+            "startedAt": rescheduled_start
         }))
         .send()
         .await
@@ -627,15 +629,15 @@ async fn subscriber_notifications_skip_hidden_components_and_carry_event_times()
     assert_eq!(payloads.len(), 5);
     let (rescheduled, started, completed) = (&payloads[2], &payloads[3], &payloads[4]);
     assert_eq!(rescheduled["status"], "scheduled");
-    assert_eq!(rescheduled["started_at"], rescheduled_start);
+    assert_eq!(rescheduled["startedAt"], rescheduled_start);
     assert_eq!(started["status"], "in_progress");
-    assert_eq!(started["started_at"], rescheduled_start);
-    assert_eq!(started.get("ended_at"), Some(&Value::Null));
+    assert_eq!(started["startedAt"], rescheduled_start);
+    assert_eq!(started.get("endedAt"), Some(&Value::Null));
     assert_eq!(completed["status"], "completed");
-    assert_eq!(completed["started_at"], rescheduled_start);
-    assert!(completed["ended_at"].is_i64());
-    assert_eq!(completed["ended_at"], completed["occurred_at"]);
-    assert_eq!(completed["component_names"], json!(["API"]));
+    assert_eq!(completed["startedAt"], rescheduled_start);
+    assert!(completed["endedAt"].is_i64());
+    assert_eq!(completed["endedAt"], completed["occurredAt"]);
+    assert_eq!(completed["componentNames"], json!(["API"]));
 }
 
 /// Subscribes an email address to a public page and confirms it.
@@ -662,11 +664,11 @@ async fn confirm_email_subscriber(
 
     let confirmed = sqlx::query(
         "UPDATE status_page_subscribers
-         SET status = 'active', confirmed_at_micros = $2, updated_at_micros = $2
+         SET status = 'active', confirmed_at = $2, updated_at = $2
          WHERE status_page_id = $1 AND status = 'pending'",
     )
     .bind(page_id)
-    .bind(molesignal::shared::time::TimestampMicros::now().0)
+    .bind(molesignal::shared::time::TimestampMicros::now())
     .execute(pool)
     .await
     .expect("confirm the pending subscriber")
@@ -727,7 +729,7 @@ async fn set_component_status(
 async fn queued_payloads(pool: &sqlx::PgPool, page_id: &str) -> Vec<Value> {
     sqlx::query_scalar::<Value>(
         "SELECT payload FROM status_page_notification_deliveries
-         WHERE status_page_id = $1 ORDER BY created_at_micros, id",
+         WHERE status_page_id = $1 ORDER BY created_at, id",
     )
     .bind(page_id)
     .fetch_all(pool)
@@ -847,8 +849,8 @@ async fn planned_maintenance_reminds_subscribers_and_starts_at_its_planned_time(
             "title": title,
             "impact": "maintenance",
             "message": "写入可能延迟数秒。",
-            "component_ids": [component],
-            "started_at": announced_at + 180 * MINUTE
+            "componentIds": [component],
+            "startedAt": announced_at + 180 * MINUTE
         });
         body.as_object_mut()
             .expect("request object")
@@ -872,20 +874,20 @@ async fn planned_maintenance_reminds_subscribers_and_starts_at_its_planned_time(
     assert_eq!(automatic.status(), StatusCode::CREATED);
     let automatic: Value = automatic.json().await.expect("maintenance body");
     let automatic_id = automatic["id"].as_str().expect("maintenance id");
-    assert_eq!(automatic["auto_start"], true);
-    assert_eq!(automatic["reminder_minutes"], 60);
+    assert_eq!(automatic["autoStart"], true);
+    assert_eq!(automatic["reminderMinutes"], 60);
 
     let manual = announce(
         "网络设备更换",
-        json!({"auto_start": false, "reminder_minutes": 0}),
+        json!({"autoStart": false, "reminderMinutes": 0}),
     )
     .await
     .expect("announce manual maintenance");
     assert_eq!(manual.status(), StatusCode::CREATED);
     let manual: Value = manual.json().await.expect("manual maintenance body");
     let manual_id = manual["id"].as_str().expect("manual maintenance id");
-    assert_eq!(manual["auto_start"], false);
-    assert_eq!(manual["reminder_minutes"], 0);
+    assert_eq!(manual["autoStart"], false);
+    assert_eq!(manual["reminderMinutes"], 0);
 
     // Nothing is due three hours ahead.
     server
@@ -899,7 +901,8 @@ async fn planned_maintenance_reminds_subscribers_and_starts_at_its_planned_time(
     // Two hours pass: both were announced two hours ago and start in 30 minutes.
     let soon = molesignal::shared::time::TimestampMicros::now().0 + 30 * MINUTE;
     sqlx::query(
-        "UPDATE status_page_incident_updates SET created_at_micros = created_at_micros - $2
+        "UPDATE status_page_incident_updates
+         SET created_at = created_at - $2 * INTERVAL '1 microsecond'
          WHERE status_page_id = $1",
     )
     .bind(page_id)
@@ -920,11 +923,11 @@ async fn planned_maintenance_reminds_subscribers_and_starts_at_its_planned_time(
     }
     let sent = reminders(&pool, page_id).await;
     assert_eq!(sent.len(), 1, "one reminder for one subscriber: {sent:?}");
-    assert_eq!(sent[0]["incident_id"], automatic_id);
+    assert_eq!(sent[0]["incidentId"], automatic_id);
     assert_eq!(sent[0]["title"], "数据库升级");
-    assert_eq!(sent[0]["started_at"], soon);
-    assert_eq!(sent[0]["component_names"], json!(["API"]));
-    assert!(sent[0]["occurred_at"].as_i64().expect("reminder time") < soon);
+    assert_eq!(sent[0]["startedAt"], soon);
+    assert_eq!(sent[0]["componentNames"], json!(["API"]));
+    assert!(sent[0]["occurredAt"].as_i64().expect("reminder time") < soon);
 
     // The planned start arrives.
     let due = molesignal::shared::time::TimestampMicros::now().0 - 1_000_000;
@@ -961,9 +964,9 @@ async fn planned_maintenance_reminds_subscribers_and_starts_at_its_planned_time(
         })
         .collect();
     assert_eq!(notified.len(), 1);
-    assert_eq!(notified[0]["incident_id"], automatic_id);
+    assert_eq!(notified[0]["incidentId"], automatic_id);
     assert_eq!(notified[0]["message"], "维护已按计划开始。");
-    assert_eq!(notified[0]["started_at"], due);
+    assert_eq!(notified[0]["startedAt"], due);
 
     // Maintenance that opted out waits for a person, and an edit that names
     // neither option keeps them off.
@@ -984,26 +987,26 @@ async fn planned_maintenance_reminds_subscribers_and_starts_at_its_planned_time(
             "title": "网络设备更换",
             "impact": "maintenance",
             "message": "改到明天进行。",
-            "component_ids": [component],
-            "started_at": due + 24 * 60 * MINUTE
+            "componentIds": [component],
+            "startedAt": due + 24 * 60 * MINUTE
         }))
         .send()
         .await
         .expect("reschedule manual maintenance");
     assert_eq!(reschedule.status(), StatusCode::OK);
     let rescheduled: Value = reschedule.json().await.expect("rescheduled body");
-    assert_eq!(rescheduled["auto_start"], false);
-    assert_eq!(rescheduled["reminder_minutes"], 0);
+    assert_eq!(rescheduled["autoStart"], false);
+    assert_eq!(rescheduled["reminderMinutes"], 0);
 }
 
 /// Moves the planned start of every scheduled maintenance of a page, the way time passing would.
 async fn set_planned_start(pool: &sqlx::PgPool, page_id: &str, planned_start: i64) {
     sqlx::query(
-        "UPDATE status_page_incidents SET started_at_micros = $2
+        "UPDATE status_page_incidents SET started_at = $2
          WHERE status_page_id = $1 AND kind = 'maintenance' AND status = 'scheduled'",
     )
     .bind(page_id)
-    .bind(planned_start)
+    .bind(TimestampMicros(planned_start))
     .execute(pool)
     .await
     .expect("move the planned start");

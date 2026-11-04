@@ -5,7 +5,7 @@
 
 use serde_json::json;
 
-use super::{RuleEvaluator, decision::Decision, evaluation::compute_fingerprint};
+use super::{RuleEvaluator, decision::Decision, groups::Subject};
 use crate::{
     domain::{
         alerting::{incident::Severity, rule::AlertRule},
@@ -36,39 +36,42 @@ impl RuleEvaluator {
             firing: true,
             severity,
             matched: true,
-            deviation_ratio: None,
             consecutive: 1,
+            ..Decision::quiet()
         };
 
-        let fingerprint = compute_fingerprint(rule);
-
-        let existing = self
-            .incidents
-            .find_by_fingerprint(&rule.org_id, &fingerprint)
-            .await?;
-
-        self.on_firing(rule, &decision, existing, &result, &fingerprint, now)
+        self.settle(rule, &decision, &result, &Subject::rule(rule), now)
             .await?;
         self.record_evaluation(rule, &decision, now).await;
         Ok(())
     }
 
-    /// 实时规则的窗口计数不再满足触发条件：解决 open 事件。
-    pub async fn clear_realtime(&self, rule: &AlertRule, now: TimestampMicros) -> Result<()> {
-        let decision = Decision {
-            firing: false,
-            severity: None,
-            matched: false,
-            deviation_ratio: None,
-            consecutive: 0,
-        };
+    /// 接手一条实时规则时读它的状态：有进行中的事件就返回事件的严重度。
+    pub async fn realtime_open(&self, rule: &AlertRule) -> Result<Option<Severity>> {
+        let subject = Subject::rule(rule);
 
         let existing = self
             .incidents
-            .find_by_fingerprint(&rule.org_id, &compute_fingerprint(rule))
+            .find_by_fingerprint(&rule.org_id, &subject.fingerprint)
             .await?;
 
-        self.on_cleared(rule, existing, now).await?;
+        Ok(existing
+            .filter(|incident| incident.is_active())
+            .map(|incident| incident.severity))
+    }
+
+    /// 实时规则的窗口计数不再满足触发条件：解决 open 事件。
+    pub async fn clear_realtime(&self, rule: &AlertRule, now: TimestampMicros) -> Result<()> {
+        let decision = Decision::quiet();
+        let subject = Subject::rule(rule);
+
+        let existing = self
+            .incidents
+            .find_by_fingerprint(&rule.org_id, &subject.fingerprint)
+            .await?;
+
+        self.on_cleared(rule, existing, &subject.state_key, now)
+            .await?;
         self.record_evaluation(rule, &decision, now).await;
         Ok(())
     }

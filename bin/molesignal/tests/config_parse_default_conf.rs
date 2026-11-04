@@ -19,9 +19,9 @@ fn repo_default_conf_parses() {
     assert_eq!(s.router.rate_limit.intake_qps, 1000);
     assert_eq!(s.cluster.heartbeat_interval_secs, 5);
     assert_eq!(s.cluster.advertise_addr, "127.0.0.1:5082");
-    assert_eq!(s.compactor.target_mb, 512);
+    assert_eq!(s.compactor.target_size, 512);
     assert_eq!(s.compactor.max_concurrent_groups, 4);
-    assert_eq!(s.cache.object.block_size_bytes, 4 * 1024 * 1024);
+    assert_eq!(s.cache.object.block_size, 4);
     assert_eq!(s.cache.index_handle.ttl_secs, 600);
     assert_eq!(s.cache.query_result.capacity, 1_000);
     assert!(s.telemetry.self_collect.enabled);
@@ -42,8 +42,8 @@ fn k8s_configmap_conf_parses() {
     assert_eq!(s.object_store.backend, "s3");
     assert_eq!(s.wal.batch_max_delay_ms, 50);
     assert_eq!(s.querier.auto_async_threshold_rows, 50_000_000);
-    assert_eq!(s.compactor.retention_days, 30);
-    assert_eq!(s.cache.object.max_bytes, 10 * 1024 * 1024 * 1024);
+    assert_eq!(s.storage.catalog.seal_after_hours, 48);
+    assert_eq!(s.cache.object.max_size, 10 * 1024);
     assert_eq!(s.cache.index_handle.capacity, 10_000);
 }
 

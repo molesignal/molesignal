@@ -4,26 +4,26 @@ import { http } from '@/lib/http';
 
 export interface ScheduledReport {
   id: string;
-  org_id?: string;
+  orgId?: string;
   name: string;
   description?: string;
-  dashboard_id?: string | null;
-  saved_view_id?: string | null;
+  dashboardId?: string | null;
+  savedViewId?: string | null;
   cron?: string;
   enabled?: boolean;
   recipients?: ReportRecipient[];
   format?: string;
-  time_range_json?: unknown;
+  timeRangeJson?: unknown;
   /**
    * The signed-in user who last saved the report: PDF and PNG deliveries read data with this
    * user's access. `null` when the last save was not made by a signed-in user (an API token).
    */
-  run_as_user_id?: string | null;
+  runAsUserId?: string | null;
   /** That user's name and email. `null` when there is no user, or the user no longer exists. */
-  run_as_user?: ReportRunAsUser | null;
-  last_run_at_micros?: number | null;
-  created_at_micros?: number;
-  updated_at_micros?: number;
+  runAsUser?: ReportRunAsUser | null;
+  lastRunAt?: number | null;
+  createdAt?: number;
+  updatedAt?: number;
   // Backend may include other fields; we keep the shape permissive so the
   // table can show whatever's there without crashing on extra keys.
   [key: string]: unknown;
@@ -37,31 +37,31 @@ export interface ReportRecipient {
 export interface ReportRunAsUser {
   id: string;
   /** Empty for a user who has not set one. */
-  display_name: string;
+  displayName: string;
   email: string;
 }
 
 export interface ReportInput {
   name: string;
-  dashboard_id: string | null;
-  saved_view_id: string | null;
+  dashboardId: string | null;
+  savedViewId: string | null;
   cron: string;
   recipients: ReportRecipient[];
   format: string;
-  time_range_json: unknown;
+  timeRangeJson: unknown;
   enabled: boolean;
 }
 
 export interface ReportDelivery {
   id: string;
-  report_id?: string;
-  org_id?: string;
+  reportId?: string;
+  orgId?: string;
   status?: 'pending' | 'sent' | 'failed' | string;
   attempt?: number;
-  recipient_kind?: string;
-  recipient_target?: string;
+  recipientKind?: string;
+  recipientTarget?: string;
   error?: string | null;
-  attempted_at?: number;
+  attemptedAt?: number;
   [key: string]: unknown;
 }
 

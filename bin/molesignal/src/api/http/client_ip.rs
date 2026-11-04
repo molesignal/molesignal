@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! RUM 客户端 IP 识别：配置来自数据库，热路径只读取编译后的内存快照。
+//! 客户端 IP 识别：RUM、密码登录限速和公开分享的审计共用。配置来自数据库，热路径只读取编译后的内存快照。
 
 use std::{
     collections::HashSet,
@@ -12,16 +12,33 @@ use std::{
 use axum::http::{HeaderMap, HeaderName};
 use ipnet::IpNet;
 use parking_lot::RwLock;
+use serde::Serialize;
 
 use crate::{
+    api::AppState,
     domain::iam::{ClientIpMode, ClientIpResolverSettings},
     shared::{Error, Result},
 };
 
+const CLIENT_IP_SETTINGS_REFRESH_SECS: u64 = 30;
 const MAX_TRUSTED_PROXY_CIDRS: usize = 64;
 const MAX_HEADER_NAME_LENGTH: usize = 128;
 const MAX_HEADER_VALUE_LENGTH: usize = 4096;
 const MAX_CHAIN_LENGTH: u16 = 64;
+/// 代理常带的转发请求头：连接对端不可信时带着它们，说明前面可能有没配上的代理。
+const FORWARDING_HEADERS: [&str; 3] = ["forwarded", "x-forwarded-for", "x-real-ip"];
+
+/// 一个请求在登录限速那里是什么样，用来在设置页检验可信代理配好没有。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ObservedSource {
+    /// 解析出的地址。
+    pub address: Option<String>,
+    /// 这个地址按来源计数。
+    pub counted: bool,
+    /// 请求带着转发请求头，地址却取的是连接对端：前面可能有没配上的代理，所有人都是同一个来源。
+    pub behind_unconfigured_proxy: bool,
+}
 
 #[derive(Clone)]
 pub(crate) struct ClientIpResolverHandle {
@@ -54,6 +71,76 @@ impl ClientIpResolverHandle {
     pub(crate) fn resolve(&self, headers: &HeaderMap, peer: Option<SocketAddr>) -> Option<IpAddr> {
         self.current.read().resolve(headers, peer)
     }
+
+    /// 登录限速认的来源。私有地址默认不算：直接连接模式下，代理后面的所有人都是代理的地址，按它计数
+    /// 的话，谁输错几次都能把所有人锁在外面。打开「私有地址也算客户端」才算。
+    pub(crate) fn signin_source(
+        &self,
+        headers: &HeaderMap,
+        peer: Option<SocketAddr>,
+    ) -> Option<IpAddr> {
+        self.current.read().signin_source(headers, peer)
+    }
+
+    pub(crate) fn observe_signin_source(
+        &self,
+        headers: &HeaderMap,
+        peer: Option<SocketAddr>,
+    ) -> ObservedSource {
+        let resolver = self.current.read();
+        let resolved = resolver.resolve(headers, peer);
+        let peer_ip = peer.map(|address| normalize_ip(address.ip()));
+        let forwarded = FORWARDING_HEADERS
+            .iter()
+            .any(|name| headers.contains_key(*name));
+
+        ObservedSource {
+            address: resolved.map(|ip| ip.to_string()),
+            counted: resolver.signin_source(headers, peer).is_some(),
+            behind_unconfigured_proxy: forwarded && resolved == peer_ip,
+        }
+    }
+
+    /// 按实例设置建一份。读不到或不合法时用连接对端的地址。
+    pub(crate) async fn load(state: &AppState) -> Self {
+        match state.iam.instance_settings.get().await {
+            Ok(settings) => match Self::new(&settings.rum_client_ip_resolver) {
+                Ok(resolver) => resolver,
+                Err(error) => {
+                    tracing::warn!(%error, "invalid client IP resolver in database; using peer mode");
+                    Self::peer()
+                }
+            },
+            Err(error) => {
+                tracing::warn!(%error, "cannot load client IP resolver; using peer mode");
+                Self::peer()
+            }
+        }
+    }
+
+    /// 定时重读实例设置：别的节点改了配置，这里也用上。一直运行。
+    pub(crate) async fn refresh_from_settings(self, state: AppState) -> anyhow::Result<()> {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(
+            CLIENT_IP_SETTINGS_REFRESH_SECS,
+        ));
+
+        interval.tick().await;
+
+        loop {
+            interval.tick().await;
+
+            match state.iam.instance_settings.get().await {
+                Ok(settings) => {
+                    if let Err(error) = self.replace(&settings.rum_client_ip_resolver) {
+                        tracing::warn!(%error, "invalid client IP resolver refresh ignored");
+                    }
+                }
+                Err(error) => {
+                    tracing::warn!(%error, "client IP resolver refresh failed");
+                }
+            }
+        }
+    }
 }
 
 pub(crate) fn normalize_settings(
@@ -80,11 +167,11 @@ pub(crate) fn normalize_settings(
     }
 
     let header = HeaderName::from_bytes(raw_header.as_bytes())
-        .map_err(|_| Error::invalid("header_name is not a valid HTTP header name"))?;
+        .map_err(|_| Error::invalid("headerName is not a valid HTTP header name"))?;
 
     if is_sensitive_header(header.as_str()) {
         return Err(Error::invalid(
-            "header_name cannot reference a sensitive header",
+            "headerName cannot reference a sensitive header",
         ));
     }
 
@@ -92,7 +179,7 @@ pub(crate) fn normalize_settings(
 
     if settings.trusted_proxy_cidrs.is_empty() {
         return Err(Error::invalid(
-            "trusted_proxy_cidrs is required for header and forwarded_chain modes",
+            "trustedProxyCidrs is required for header and forwarded_chain modes",
         ));
     }
 
@@ -138,7 +225,7 @@ impl ClientIpResolver {
         } else {
             Some(
                 HeaderName::from_bytes(settings.header_name.as_bytes())
-                    .map_err(|_| Error::invalid("header_name is not a valid HTTP header name"))?,
+                    .map_err(|_| Error::invalid("headerName is not a valid HTTP header name"))?,
             )
         };
 
@@ -189,6 +276,11 @@ impl ClientIpResolver {
         candidate
             .filter(|ip| self.allow_private_client_ips || is_public_client_ip(*ip))
             .or_else(|| self.fallback(peer_ip))
+    }
+
+    fn signin_source(&self, headers: &HeaderMap, peer: Option<SocketAddr>) -> Option<IpAddr> {
+        self.resolve(headers, peer)
+            .filter(|ip| self.allow_private_client_ips || is_public_client_ip(*ip))
     }
 
     fn forwarded_chain_ip(&self, headers: &HeaderMap, header_name: &HeaderName) -> Option<IpAddr> {
@@ -325,6 +417,12 @@ mod tests {
         Some(format!("{ip}:443").parse().unwrap())
     }
 
+    fn peer_of(ip: &str) -> Option<SocketAddr> {
+        let ip: IpAddr = ip.parse().unwrap();
+
+        Some(SocketAddr::new(ip, 443))
+    }
+
     fn headers(value: &str) -> HeaderMap {
         let mut headers = HeaderMap::new();
         headers.insert("x-forwarded-for", value.parse().unwrap());
@@ -446,6 +544,101 @@ mod tests {
         config.fallback_to_peer = false;
         let resolver = ClientIpResolverHandle::new(&config).unwrap();
         assert_eq!(resolver.resolve(&headers("1.1.1.1"), peer("9.9.9.9")), None);
+    }
+
+    #[test]
+    fn a_public_peer_is_a_signin_source_and_a_documentation_address_is_not() {
+        let resolver = ClientIpResolverHandle::peer();
+
+        assert_eq!(
+            resolver.signin_source(&HeaderMap::new(), peer("203.0.113.7")),
+            None
+        );
+
+        assert_eq!(
+            resolver.signin_source(&HeaderMap::new(), peer("8.8.8.8")),
+            Some("8.8.8.8".parse().unwrap())
+        );
+    }
+
+    #[test]
+    fn a_private_peer_is_no_signin_source_until_allowed() {
+        let resolver = ClientIpResolverHandle::peer();
+
+        for address in ["10.0.0.1", "192.168.1.8", "127.0.0.1", "::1", "fd00::1"] {
+            assert_eq!(
+                resolver.signin_source(&HeaderMap::new(), peer_of(address)),
+                None
+            );
+        }
+
+        let allowed = ClientIpResolverHandle::new(&ClientIpResolverSettings {
+            allow_private_client_ips: true,
+            ..ClientIpResolverSettings::default()
+        })
+        .unwrap();
+
+        assert_eq!(
+            allowed.signin_source(&HeaderMap::new(), peer("10.0.0.1")),
+            Some("10.0.0.1".parse().unwrap())
+        );
+    }
+
+    #[test]
+    fn a_forged_header_changes_nothing_for_a_signin_source() {
+        let resolver = ClientIpResolverHandle::peer();
+
+        assert_eq!(
+            resolver.signin_source(&headers("1.1.1.1"), peer("8.8.8.8")),
+            Some("8.8.8.8".parse().unwrap())
+        );
+
+        assert_eq!(
+            resolver.signin_source(&headers("1.1.1.1"), peer("10.0.0.1")),
+            None
+        );
+    }
+
+    #[test]
+    fn a_trusted_proxy_gives_the_real_signin_source() {
+        let resolver =
+            ClientIpResolverHandle::new(&settings(ClientIpMode::ForwardedChain)).unwrap();
+
+        assert_eq!(
+            resolver.signin_source(&headers("8.8.8.8, 10.0.1.20"), peer("10.0.3.40")),
+            Some("8.8.8.8".parse().unwrap())
+        );
+
+        // 没带请求头时退回代理自己的地址，它是私有地址，不算来源。
+        assert_eq!(
+            resolver.signin_source(&HeaderMap::new(), peer("10.0.3.40")),
+            None
+        );
+    }
+
+    #[test]
+    fn a_proxy_nobody_configured_shows_on_the_settings_page() {
+        let resolver = ClientIpResolverHandle::peer();
+
+        let behind = resolver.observe_signin_source(&headers("8.8.8.8"), peer("10.0.0.1"));
+        assert_eq!(behind.address.as_deref(), Some("10.0.0.1"));
+        assert!(!behind.counted);
+        assert!(behind.behind_unconfigured_proxy);
+
+        let public_proxy = resolver.observe_signin_source(&headers("8.8.8.8"), peer("1.1.1.1"));
+        assert!(public_proxy.counted);
+        assert!(public_proxy.behind_unconfigured_proxy);
+
+        let direct = resolver.observe_signin_source(&HeaderMap::new(), peer("8.8.8.8"));
+        assert!(direct.counted);
+        assert!(!direct.behind_unconfigured_proxy);
+
+        let configured =
+            ClientIpResolverHandle::new(&settings(ClientIpMode::ForwardedChain)).unwrap();
+        let through = configured.observe_signin_source(&headers("8.8.8.8"), peer("10.0.3.40"));
+        assert_eq!(through.address.as_deref(), Some("8.8.8.8"));
+        assert!(through.counted);
+        assert!(!through.behind_unconfigured_proxy);
     }
 
     #[test]

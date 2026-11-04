@@ -28,12 +28,12 @@ impl StatusPagePlannedMaintenanceRepository for PgStatusPageRepository {
                AND incident.publication_state = 'published'
                AND incident.status = 'scheduled'
                AND incident.auto_start
-               AND incident.started_at_micros <= $1
+               AND incident.started_at <= $1
                AND page.lifecycle = 'active'
-             ORDER BY incident.started_at_micros, incident.id
+             ORDER BY incident.started_at, incident.id
              LIMIT $2",
         )
-        .bind(now.0)
+        .bind(now)
         .bind(i64::from(limit.min(500)))
         .fetch_all(&self.pool)
         .await
@@ -59,7 +59,7 @@ impl StatusPagePlannedMaintenanceRepository for PgStatusPageRepository {
         let queued = sqlx::query(
             "WITH due AS (
                  UPDATE status_page_incidents incident
-                 SET reminded_start_micros = incident.started_at_micros
+                 SET reminded_start = incident.started_at
                  FROM status_pages page
                  WHERE page.org_id = incident.org_id
                    AND page.id = incident.status_page_id
@@ -68,35 +68,35 @@ impl StatusPagePlannedMaintenanceRepository for PgStatusPageRepository {
                    AND incident.publication_state = 'published'
                    AND incident.status = 'scheduled'
                    AND incident.reminder_minutes > 0
-                   AND incident.reminded_start_micros IS DISTINCT FROM incident.started_at_micros
-                   AND incident.started_at_micros > $1
-                   AND incident.started_at_micros
-                       - incident.reminder_minutes::BIGINT * 60000000 <= $1
+                   AND incident.reminded_start IS DISTINCT FROM incident.started_at
+                   AND incident.started_at > $1
+                   AND incident.started_at
+                       - make_interval(mins => incident.reminder_minutes) <= $1
                  RETURNING incident.id, incident.org_id, incident.status_page_id,
-                           incident.title, incident.started_at_micros,
+                           incident.title, incident.started_at,
                            incident.reminder_minutes, page.name AS page_name,
                            page.slug AS page_slug, page.visibility AS page_visibility
              )
              INSERT INTO status_page_notification_deliveries (
                  id, org_id, status_page_id, subscriber_id, event_key, payload,
-                 next_attempt_at_micros, created_at_micros, updated_at_micros
+                 next_attempt_at, created_at, updated_at
              )
              SELECT
                  md5(subscriber.id || ':maintenance_reminder:' || due.id || ':'
-                     || due.started_at_micros),
+                     || due.started_at),
                  due.org_id,
                  due.status_page_id,
                  subscriber.id,
-                 'maintenance_reminder:' || due.id || ':' || due.started_at_micros,
+                 'maintenance_reminder:' || due.id || ':' || due.started_at,
                  jsonb_build_object(
                      'type', 'maintenance_reminder',
-                     'page_name', due.page_name,
-                     'page_slug', due.page_slug,
-                     'incident_id', due.id,
+                     'pageName', due.page_name,
+                     'pageSlug', due.page_slug,
+                     'incidentId', due.id,
                      'title', due.title,
-                     'occurred_at', $1::BIGINT,
-                     'started_at', due.started_at_micros,
-                     'component_names', status_page_event_component_names(
+                     'occurredAt', epoch_micros($1),
+                     'startedAt', epoch_micros(due.started_at),
+                     'componentNames', status_page_event_component_names(
                          due.org_id, due.status_page_id, due.id
                      )
                  ),
@@ -120,12 +120,12 @@ impl StatusPagePlannedMaintenanceRepository for PgStatusPageRepository {
                    WHERE told.org_id = due.org_id
                      AND told.status_page_id = due.status_page_id
                      AND told.incident_id = due.id
-                     AND told.created_at_micros >= due.started_at_micros
-                         - due.reminder_minutes::BIGINT * 60000000
+                     AND told.created_at >= due.started_at
+                         - make_interval(mins => due.reminder_minutes)
                )
              ON CONFLICT (subscriber_id, event_key) DO NOTHING",
         )
-        .bind(now.0)
+        .bind(now)
         .execute(&self.pool)
         .await
         .map_err(super::sqlx_err)?;

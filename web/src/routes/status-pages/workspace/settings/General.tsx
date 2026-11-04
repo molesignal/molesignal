@@ -21,14 +21,14 @@ export function StatusPageGeneralSettings() {
   const [name, setName] = React.useState(page.name);
   const [slug, setSlug] = React.useState(page.slug);
   const [visibility, setVisibility] = React.useState<StatusPageVisibility>(page.visibility);
-  const [deliveryRetention, setDeliveryRetention] = React.useState(String(page.delivery_retention_days));
-  const [privateSessionDays, setPrivateSessionDays] = React.useState(String(page.private_session_days));
+  const [deliveryRetention, setDeliveryRetention] = React.useState(String(page.deliveryRetentionDays));
+  const [privateSessionDays, setPrivateSessionDays] = React.useState(String(page.privateSessionDays));
   React.useEffect(() => {
     setName(page.name);
     setSlug(page.slug);
     setVisibility(page.visibility);
-    setDeliveryRetention(String(page.delivery_retention_days));
-    setPrivateSessionDays(String(page.private_session_days));
+    setDeliveryRetention(String(page.deliveryRetentionDays));
+    setPrivateSessionDays(String(page.privateSessionDays));
   }, [page]);
   const mutation = useMutation({
     mutationFn: () =>
@@ -36,8 +36,8 @@ export function StatusPageGeneralSettings() {
         name: name.trim(),
         slug: slug.trim(),
         visibility,
-        delivery_retention_days: Number(deliveryRetention),
-        private_session_days: Number(privateSessionDays),
+        deliveryRetentionDays: Number(deliveryRetention),
+        privateSessionDays: Number(privateSessionDays),
       })),
     onSuccess: async () => {
       toast.success(t('toast.page_updated'));

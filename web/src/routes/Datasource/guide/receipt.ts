@@ -38,18 +38,18 @@ export async function probeHealth(): Promise<HealthProbe> {
 
 /** What a RUM application has sent, in the shape the other signals are summarized in. */
 export function rumSourceSummary(
-  receipt: rumIntakeApi.RumReceiptSummary = { rows: 0, lastReceivedAtMicros: null },
+  receipt: rumIntakeApi.RumReceiptSummary = { rows: 0, lastReceivedAt: null, streams: [] },
 ): SourceSignalSummary {
-  const active = receipt.rows > 0 && receipt.lastReceivedAtMicros != null;
+  const active = receipt.rows > 0 && receipt.lastReceivedAt != null;
 
   return {
     status: active ? 'healthy' : 'no_data',
     rows: receipt.rows,
     storedBytes: 0,
-    lastReceivedAtMicros: receipt.lastReceivedAtMicros,
+    lastReceivedAt: receipt.lastReceivedAt,
     activeSignals: active ? 1 : 0,
     expectedSignals: 1,
-    streamNames: active ? ['rum_errors'] : [],
+    streamNames: active ? receipt.streams : [],
   };
 }
 

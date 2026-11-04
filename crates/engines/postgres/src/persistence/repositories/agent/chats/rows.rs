@@ -14,23 +14,24 @@ use crate::{
 };
 
 pub(super) const CHAT_COLS: &str = "id, org_id, user_id, provider, model, title, provider_id, \
-    analysis_mode, time_range_start_micros, time_range_end_micros, archive_object_key, \
-    deleted_at_micros, scope, team_id, mounted_team_ids, created_at_micros, updated_at_micros, \
-    reply_language, context_summary, context_summary_upto_micros, subject_kind, subject_id, \
-    investigation_id, memory_distilled_at_micros, parent_chat_id, title_provisional";
+    analysis_mode, time_range_start, time_range_end, archive_object_key, \
+    deleted_at, scope, team_id, mounted_team_ids, created_at, updated_at, \
+    reply_language, context_summary, context_summary_upto, subject_kind, subject_id, \
+    investigation_id, memory_distilled_at, parent_chat_id, title_provisional, \
+    automation_id";
 
 /// 与 [`CHAT_COLS`] 相同，带上 `c.` 前缀，给连了别的表的语句用。
 pub(super) const CHAT_COLS_QUALIFIED: &str = "c.id, c.org_id, c.user_id, c.provider, c.model, \
-    c.title, c.provider_id, c.analysis_mode, c.time_range_start_micros, c.time_range_end_micros, \
-    c.archive_object_key, c.deleted_at_micros, c.scope, c.team_id, c.mounted_team_ids, \
-    c.created_at_micros, c.updated_at_micros, c.reply_language, c.context_summary, \
-    c.context_summary_upto_micros, c.subject_kind, c.subject_id, c.investigation_id, \
-    c.memory_distilled_at_micros, c.parent_chat_id, c.title_provisional";
+    c.title, c.provider_id, c.analysis_mode, c.time_range_start, c.time_range_end, \
+    c.archive_object_key, c.deleted_at, c.scope, c.team_id, c.mounted_team_ids, \
+    c.created_at, c.updated_at, c.reply_language, c.context_summary, \
+    c.context_summary_upto, c.subject_kind, c.subject_id, c.investigation_id, \
+    c.memory_distilled_at, c.parent_chat_id, c.title_provisional, c.automation_id";
 
 pub(super) const MESSAGE_COLS: &str = "id, chat_id, org_id, role, content, user_id, tool_calls_json, \
     tool_result_for, prompt_tokens, completion_tokens, cost, cost_currency, prompt_template_id, \
     prompt_builtin_key, prompt_version, prompt_hash, evidence_json, command_json, \
-    created_at_micros, run_id, tool_transcript, references_json";
+    created_at, run_id, tool_transcript, references_json";
 
 pub(super) fn chat_row(r: sqlx::postgres::PgRow) -> Chat {
     Chat {
@@ -46,18 +47,21 @@ pub(super) fn chat_row(r: sqlx::postgres::PgRow) -> Chat {
         analysis_mode: r
             .try_get::<Option<String>, _>("analysis_mode")
             .unwrap_or_default(),
-        time_range_start_micros: r
-            .try_get::<Option<i64>, _>("time_range_start_micros")
-            .unwrap_or_default(),
-        time_range_end_micros: r
-            .try_get::<Option<i64>, _>("time_range_end_micros")
-            .unwrap_or_default(),
+        time_range_start: r
+            .try_get::<Option<TimestampMicros>, _>("time_range_start")
+            .unwrap_or_default()
+            .map(|t| t.0),
+        time_range_end: r
+            .try_get::<Option<TimestampMicros>, _>("time_range_end")
+            .unwrap_or_default()
+            .map(|t| t.0),
         archive_object_key: r
             .try_get::<Option<String>, _>("archive_object_key")
             .unwrap_or_default(),
-        deleted_at_micros: r
-            .try_get::<Option<i64>, _>("deleted_at_micros")
-            .unwrap_or_default(),
+        deleted_at: r
+            .try_get::<Option<TimestampMicros>, _>("deleted_at")
+            .unwrap_or_default()
+            .map(|t| t.0),
         scope: r
             .try_get::<String, _>("scope")
             .unwrap_or_else(|_| "personal".into()),
@@ -72,9 +76,10 @@ pub(super) fn chat_row(r: sqlx::postgres::PgRow) -> Chat {
         context_summary: r
             .try_get::<Option<String>, _>("context_summary")
             .unwrap_or_default(),
-        context_summary_upto_micros: r
-            .try_get::<Option<i64>, _>("context_summary_upto_micros")
-            .unwrap_or_default(),
+        context_summary_upto: r
+            .try_get::<Option<TimestampMicros>, _>("context_summary_upto")
+            .unwrap_or_default()
+            .map(|t| t.0),
         subject_kind: r
             .try_get::<Option<String>, _>("subject_kind")
             .unwrap_or_default(),
@@ -84,17 +89,25 @@ pub(super) fn chat_row(r: sqlx::postgres::PgRow) -> Chat {
         investigation_id: r
             .try_get::<Option<String>, _>("investigation_id")
             .unwrap_or_default(),
-        memory_distilled_at_micros: r
-            .try_get::<Option<i64>, _>("memory_distilled_at_micros")
-            .unwrap_or_default(),
+        memory_distilled_at: r
+            .try_get::<Option<TimestampMicros>, _>("memory_distilled_at")
+            .unwrap_or_default()
+            .map(|t| t.0),
         parent_chat_id: r
             .try_get::<Option<String>, _>("parent_chat_id")
             .unwrap_or_default(),
         title_provisional: r
             .try_get::<bool, _>("title_provisional")
             .unwrap_or_default(),
-        created_at: TimestampMicros(r.try_get::<i64, _>("created_at_micros").unwrap_or_default()),
-        updated_at: TimestampMicros(r.try_get::<i64, _>("updated_at_micros").unwrap_or_default()),
+        automation_id: r
+            .try_get::<Option<String>, _>("automation_id")
+            .unwrap_or_default(),
+        created_at: r
+            .try_get::<TimestampMicros, _>("created_at")
+            .unwrap_or_default(),
+        updated_at: r
+            .try_get::<TimestampMicros, _>("updated_at")
+            .unwrap_or_default(),
     }
 }
 
@@ -152,7 +165,9 @@ pub(super) fn message_row(r: sqlx::postgres::PgRow) -> ChatMessage {
             .map(Id),
         tool_transcript: transcript.map(|j| j.0),
         references_json: references.map(|j| j.0),
-        created_at: TimestampMicros(r.try_get::<i64, _>("created_at_micros").unwrap_or_default()),
+        created_at: r
+            .try_get::<TimestampMicros, _>("created_at")
+            .unwrap_or_default(),
     }
 }
 
@@ -161,13 +176,13 @@ pub(super) async fn insert_chat<'e>(executor: impl PgExecutor<'e>, s: &Chat) -> 
     sqlx::query(
         "INSERT INTO agent_chats
             (id, org_id, user_id, provider, model, title, provider_id, analysis_mode,
-             time_range_start_micros, time_range_end_micros, archive_object_key,
-             deleted_at_micros, scope, team_id, mounted_team_ids, created_at_micros,
-             updated_at_micros, reply_language, context_summary, context_summary_upto_micros,
-             subject_kind, subject_id, investigation_id, memory_distilled_at_micros,
-             parent_chat_id, title_provisional)
+             time_range_start, time_range_end, archive_object_key,
+             deleted_at, scope, team_id, mounted_team_ids, created_at,
+             updated_at, reply_language, context_summary, context_summary_upto,
+             subject_kind, subject_id, investigation_id, memory_distilled_at,
+             parent_chat_id, title_provisional, automation_id)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-                 $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)",
+                 $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)",
     )
     .bind(&s.id.0)
     .bind(&s.org_id.0)
@@ -177,24 +192,25 @@ pub(super) async fn insert_chat<'e>(executor: impl PgExecutor<'e>, s: &Chat) -> 
     .bind(&s.title)
     .bind(&s.provider_id)
     .bind(&s.analysis_mode)
-    .bind(s.time_range_start_micros)
-    .bind(s.time_range_end_micros)
+    .bind(s.time_range_start.map(TimestampMicros))
+    .bind(s.time_range_end.map(TimestampMicros))
     .bind(&s.archive_object_key)
-    .bind(s.deleted_at_micros)
+    .bind(s.deleted_at.map(TimestampMicros))
     .bind(&s.scope)
     .bind(&s.team_id)
     .bind(Json(&s.mounted_team_ids))
-    .bind(s.created_at.0)
-    .bind(s.updated_at.0)
+    .bind(s.created_at)
+    .bind(s.updated_at)
     .bind(&s.reply_language)
     .bind(&s.context_summary)
-    .bind(s.context_summary_upto_micros)
+    .bind(s.context_summary_upto.map(TimestampMicros))
     .bind(&s.subject_kind)
     .bind(&s.subject_id)
     .bind(&s.investigation_id)
-    .bind(s.memory_distilled_at_micros)
+    .bind(s.memory_distilled_at.map(TimestampMicros))
     .bind(&s.parent_chat_id)
     .bind(s.title_provisional)
+    .bind(&s.automation_id)
     .execute(executor)
     .await
     .map_err(sqlx_err)?;

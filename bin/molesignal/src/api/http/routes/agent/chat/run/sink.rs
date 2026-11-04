@@ -140,10 +140,10 @@ impl RunSink {
             &self.chat_id.0,
             json!({
                 "tool": name,
-                "run_id": self.control.run.id.0,
+                "runId": self.control.run.id.0,
                 "status": if is_error { "error" } else { "success" },
-                "row_count": entry.get("row_count").cloned().unwrap_or(Value::Null),
-                "object_key": entry.get("object_key").cloned().unwrap_or(Value::Null),
+                "rowCount": entry.get("rowCount").cloned().unwrap_or(Value::Null),
+                "objectKey": entry.get("objectKey").cloned().unwrap_or(Value::Null),
             }),
         )
         .await;
@@ -160,7 +160,7 @@ impl RunSink {
                     "name": name,
                     "result": kept,
                     "truncated": truncated,
-                    "is_error": is_error,
+                    "isError": is_error,
                 }),
             )
             .await;

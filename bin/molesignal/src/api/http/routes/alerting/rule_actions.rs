@@ -22,7 +22,7 @@ pub(super) fn routes() -> Router<AppState> {
 }
 
 #[resource_permission(
-    action = "alerts.manage",
+    action = "alerts.rules.manage",
     resource = AlertRule,
     id = Id::from_string(id),
     bind = rule
@@ -44,7 +44,7 @@ async fn test_rule(
 }
 
 #[resource_permission(
-    action = "alerts.manage",
+    action = "alerts.rules.manage",
     resource = AlertRule,
     id = Id::from_string(id),
     bind = rule

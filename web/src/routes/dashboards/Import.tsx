@@ -12,8 +12,8 @@ import {
 import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
 import { ChromeButton, uiLabelStrongClass } from '@/shell/chrome';
-import { CodeEditor } from '@/shell/codeEditor';
 import { FilePicker } from '@/shell/FilePicker';
+import { JsonEditor } from '@/shell/JsonEditor';
 import { PageBody, PageHeader } from '@/shell/PageHeader';
 import {
   Select,
@@ -145,16 +145,17 @@ export function DashboardImport() {
               </SelectContent>
             </Select>
           </label>
-          <CodeEditor
+          <JsonEditor
             value={text}
             onChange={setText}
-            language="json"
             label={t('import.editor_label')}
             ariaLabel={t('import.editor_aria')}
             placeholder={t('import.placeholder')}
             minHeight={420}
             maxHeight={640}
             readOnly={createAccess.disabled}
+            showHeader
+            showStatus
           />
           {parseError && <div className="font-sans text-xs text-red-soft">{parseError}</div>}
           <div className="flex items-center gap-2">

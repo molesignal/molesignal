@@ -9,6 +9,7 @@ const PURPOSE_ORDER: PromptPurpose[] = [
   'root_cause',
   'alert_explain',
   'query_generation',
+  'evaluation',
 ];
 
 export interface ParsedPromptSchema {
@@ -75,7 +76,7 @@ export function effectivePromptIds(prompts: AgentPrompt[]): Set<string> {
         (prompt) =>
           prompt.purpose === purpose &&
           prompt.enabled &&
-          prompt.is_default,
+          prompt.isDefault,
       )
       .sort((a, b) => scopePriority(a.scope) - scopePriority(b.scope))[0];
     if (selected) effective.add(selected.id);
@@ -93,7 +94,7 @@ export function groupPromptsByPurpose(
       .sort((a, b) => {
         const scope = scopePriority(a.scope) - scopePriority(b.scope);
         if (scope !== 0) return scope;
-        return b.updated_at_micros - a.updated_at_micros;
+        return b.updatedAt - a.updatedAt;
       }),
   })).filter((group) => group.prompts.length > 0);
 }

@@ -6,11 +6,10 @@ Mole Agent 使用它；后续入站 MCP Server 也必须复用它，不能另写
 
 ## 分层
 
-```text
-Mole Agent adapter ─┐
-                    ├─ surface catalog ─ builtin coordinator ─ ToolRuntime ─ domain/application ports
-Inbound MCP adapter ┘                         └─ approval/execution coordinator
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/architecture/tool-runtime_dark.svg">
+  <img src="../assets/architecture/tool-runtime_light.svg" alt="分层：Mole Agent adapter 和 Inbound MCP adapter 进入 surface catalog，再到 builtin coordinator、ToolRuntime 和 domain / application ports；builtin coordinator 还连接 approval / execution coordinator">
+</picture>
 
 - `crates/modules/tool-runtime`：稳定工具名、JSON Schema、输出契约、风险、权限提示、
   exposure、可信调用上下文和协议中立 dispatcher trait。
@@ -37,8 +36,9 @@ Inbound MCP adapter ┘                         └─ approval/execution coordi
 Service Account 是不可交互登录的 IAM principal，不具备密码、Session 或 JWT 登录链路；
 API Token 是独立的凭证资源。创建 Service Account 时，服务端必须在同一数据库事务内
 创建一个绑定该 principal 的初始 API Token，明文只在创建响应中返回一次。之后 Token 的
-列出、追加签发和撤销仍归 `api_tokens.*` 权限与 `/auth/tokens` API 管理；用户个人 API
-Token 只通过 API Token 管理入口手动创建。
+列出、追加签发和撤销仍归 `api_tokens.*` 权限与 `/auth/tokens` API 管理。用户的个人 API
+Token 由本人在登录会话中通过 `/me/api-tokens` 签发（需要 `personal_tokens.manage`），
+Token 不挂角色，自带权限范围，任何时候都不超过本人当时的权限。
 
 `create_service_account` 由执行策略决定是立即执行、等待确认还是等待审批。执行成功时，初始 Token 明文通过响应的
 `one_time_result` 返回，并在持久化执行记录前剥离；执行历史、审计事件、`list_api_tokens`
@@ -131,9 +131,14 @@ shell 和浏览器执行。
 - APM / Correlation：`apm_overview`、`list_apm_services`、`get_apm_service`、
   `list_apm_transactions`、`get_apm_transaction`、`list_apm_dependencies`、
   `list_apm_errors`、`get_apm_error`、`compare_apm_versions`、`get_apm_health`、
+  `get_apm_insights`、`get_apm_blast_radius`、
   `correlate_signals`、`get_service_topology`
 - RUM：`list_rum_sessions`、`get_rum_session`、`list_rum_actions`、
-  `list_rum_errors`、`get_rum_related_traces`
+  `list_rum_errors`、`get_rum_related_traces`、`get_rum_vitals`、
+  `list_rum_issues`、`get_rum_issue`、`get_rum_overview`、
+  `get_rum_frustration`、`get_rum_view_waterfall`、`aggregate_rum`、
+  `get_rum_funnel`、`get_rum_paths`、`get_rum_retention`、`get_rum_heatmap`、
+  `get_rum_feature_flags`、`get_rum_session_notes`
 - Profiles：`list_continuous_profiles`、`get_profile_flamegraph`、`compare_profiles`
 - Reports / Dashboard 内容：`list_report_templates`、`get_report_template`、
   `list_scheduled_reports`、`get_scheduled_report`、`list_report_deliveries`、

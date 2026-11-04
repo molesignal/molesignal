@@ -1,33 +1,27 @@
 /*
  * Control feedback.
  *
- * Hover and focus already speak through fills (see tokens.css); this layer adds
- * the missing half of the conversation: the control answers a press, a primary
- * action has a little material, and loading placeholders move like light
- * instead of blinking. No outline, ring or frame is introduced here.
+ * Hover and focus already speak through fills and edges (tokens.css, edges.css);
+ * this layer adds the missing half of the conversation: the control answers a
+ * press and loading placeholders move like light instead of blinking.
  */
 :root,
 [data-theme='dark'] {
-  --shadow-primary:
-    inset 0 1px 0 rgb(255 255 255 / 0.16),
-    0 1px 2px color-mix(in srgb, var(--indigo) 45%, transparent);
-  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238b90a4' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238b90a4' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   --skeleton-base: var(--bg-3);
   --skeleton-glint: rgb(255 255 255 / 0.05);
 }
 
 [data-theme='light'] {
-  --shadow-primary:
-    inset 0 1px 0 rgb(255 255 255 / 0.2),
-    0 1px 2px color-mix(in srgb, var(--indigo) 38%, transparent);
-  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235a617e' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235a617e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   --skeleton-glint: rgb(255 255 255 / 0.55);
 }
 
 /*
  * Press feedback. Opt in with `.ms-press` on the shared button primitives; a
- * scale of 0.97 reads as "pushed" on a 32-40px control and is imperceptible
- * noise on a card, which is why it is not applied by a blanket selector.
+ * scale of 0.96 reads as "pushed" on a 32-40px control (below 0.95 it looks
+ * thrown) and would shrink a card visibly, which is why it is not applied by a
+ * blanket selector.
  */
 .ms-press {
   transition-property: color, background-color, border-color, filter, transform, opacity, box-shadow;
@@ -36,14 +30,16 @@
 }
 
 .ms-press:active:not(:disabled):not([aria-disabled='true']) {
-  transform: scale(0.97);
+  transform: scale(0.96);
   transition-duration: 60ms;
   transition-timing-function: var(--easing-out);
 }
 
 /*
  * Native <select> keeps the platform arrow, which is heavier and a different
- * shape from every other chevron in the product. Draw the shared one instead.
+ * shape from every other chevron in the product. Draw the shared one instead,
+ * as heavy as the icons beside it (icons.css): drawn at 14px, its 1.7 on dark
+ * and 2 on light stroke as wide as a 16px icon's 1.5 and 1.75.
  */
 select:not([multiple]):not([size]) {
   -webkit-appearance: none;

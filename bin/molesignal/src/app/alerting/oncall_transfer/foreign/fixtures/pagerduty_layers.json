@@ -1,0 +1,477 @@
+{
+  "since": "2026-10-26T09:00:00-04:00",
+  "until": "2026-11-09T09:00:00-05:00",
+  "users": [
+    {
+      "id": "PALICE1",
+      "type": "user",
+      "summary": "Alice",
+      "name": "Alice",
+      "email": "alice@example.com",
+      "time_zone": "America/New_York"
+    },
+    {
+      "id": "PBOB001",
+      "type": "user",
+      "summary": "Bob",
+      "name": "Bob",
+      "email": "bob@example.com",
+      "time_zone": "America/New_York"
+    },
+    {
+      "id": "PCAROL1",
+      "type": "user",
+      "summary": "Carol",
+      "name": "Carol",
+      "email": "carol@example.com",
+      "time_zone": "America/New_York"
+    },
+    {
+      "id": "PDAN001",
+      "type": "user",
+      "summary": "Dan",
+      "name": "Dan",
+      "email": "dan@example.com",
+      "time_zone": "America/New_York"
+    },
+    {
+      "id": "PERIN01",
+      "type": "user",
+      "summary": "Erin",
+      "name": "Erin",
+      "email": "erin@example.com",
+      "time_zone": "America/New_York"
+    }
+  ],
+  "shift_based_schedules": [],
+  "schedules": [
+    {
+      "id": "PI7DH85",
+      "type": "schedule",
+      "summary": "Payments on-call",
+      "self": "https://api.pagerduty.com/schedules/PI7DH85",
+      "html_url": "https://subdomain.pagerduty.com/schedules/PI7DH85",
+      "name": "Payments on-call",
+      "time_zone": "America/New_York",
+      "description": "Payments rotation",
+      "escalation_policies": [
+        {
+          "id": "PT20YPA",
+          "type": "escalation_policy_reference",
+          "summary": "Payments policy",
+          "self": "https://api.pagerduty.com/escalation_policies/PT20YPA",
+          "html_url": "https://subdomain.pagerduty.com/escalation_policies/PT20YPA"
+        }
+      ],
+      "users": [
+        {
+          "id": "PALICE1",
+          "type": "user_reference",
+          "summary": "Alice",
+          "self": "https://api.pagerduty.com/users/PALICE1",
+          "html_url": "https://subdomain.pagerduty.com/users/PALICE1"
+        },
+        {
+          "id": "PBOB001",
+          "type": "user_reference",
+          "summary": "Bob",
+          "self": "https://api.pagerduty.com/users/PBOB001",
+          "html_url": "https://subdomain.pagerduty.com/users/PBOB001"
+        },
+        {
+          "id": "PCAROL1",
+          "type": "user_reference",
+          "summary": "Carol",
+          "self": "https://api.pagerduty.com/users/PCAROL1",
+          "html_url": "https://subdomain.pagerduty.com/users/PCAROL1"
+        },
+        {
+          "id": "PDAN001",
+          "type": "user_reference",
+          "summary": "Dan",
+          "self": "https://api.pagerduty.com/users/PDAN001",
+          "html_url": "https://subdomain.pagerduty.com/users/PDAN001"
+        },
+        {
+          "id": "PERIN01",
+          "type": "user_reference",
+          "summary": "Erin",
+          "self": "https://api.pagerduty.com/users/PERIN01",
+          "html_url": "https://subdomain.pagerduty.com/users/PERIN01"
+        }
+      ],
+      "teams": [
+        {
+          "id": "PQ9K7I8",
+          "type": "team_reference",
+          "summary": "Payments",
+          "self": "https://api.pagerduty.com/teams/PQ9K7I8",
+          "html_url": "https://subdomain.pagerduty.com/teams/PQ9K7I8"
+        }
+      ],
+      "schedule_layers": [
+        {
+          "name": "Weekend cover",
+          "id": "PLAYER3",
+          "start": "2026-10-03T09:00:00-04:00",
+          "end": null,
+          "rotation_virtual_start": "2026-10-03T09:00:00-04:00",
+          "rotation_turn_length_seconds": 604800,
+          "users": [
+            {
+              "user": {
+                "id": "PCAROL1",
+                "type": "user_reference",
+                "summary": "Carol",
+                "self": "https://api.pagerduty.com/users/PCAROL1",
+                "html_url": "https://subdomain.pagerduty.com/users/PCAROL1"
+              }
+            },
+            {
+              "user": {
+                "id": "PDAN001",
+                "type": "user_reference",
+                "summary": "Dan",
+                "self": "https://api.pagerduty.com/users/PDAN001",
+                "html_url": "https://subdomain.pagerduty.com/users/PDAN001"
+              }
+            }
+          ],
+          "restrictions": [
+            {
+              "type": "weekly_restriction",
+              "start_day_of_week": 6,
+              "start_time_of_day": "09:00:00",
+              "duration_seconds": 172800
+            }
+          ]
+        },
+        {
+          "name": "Nights",
+          "id": "PLAYER2",
+          "start": "2026-10-05T18:00:00-04:00",
+          "end": null,
+          "rotation_virtual_start": "2026-10-05T18:00:00-04:00",
+          "rotation_turn_length_seconds": 86400,
+          "users": [
+            {
+              "user": {
+                "id": "PBOB001",
+                "type": "user_reference",
+                "summary": "Bob",
+                "self": "https://api.pagerduty.com/users/PBOB001",
+                "html_url": "https://subdomain.pagerduty.com/users/PBOB001"
+              }
+            },
+            {
+              "user": {
+                "id": "PERIN01",
+                "type": "user_reference",
+                "summary": "Erin",
+                "self": "https://api.pagerduty.com/users/PERIN01",
+                "html_url": "https://subdomain.pagerduty.com/users/PERIN01"
+              }
+            }
+          ],
+          "restrictions": [
+            {
+              "type": "daily_restriction",
+              "start_time_of_day": "18:00:00",
+              "duration_seconds": 54000
+            }
+          ]
+        },
+        {
+          "name": "Base",
+          "id": "PLAYER1",
+          "start": "2026-10-05T09:30:00-04:00",
+          "end": null,
+          "rotation_virtual_start": "2026-10-05T09:00:00-04:00",
+          "rotation_turn_length_seconds": 604800,
+          "users": [
+            {
+              "user": {
+                "id": "PALICE1",
+                "type": "user_reference",
+                "summary": "Alice",
+                "self": "https://api.pagerduty.com/users/PALICE1",
+                "html_url": "https://subdomain.pagerduty.com/users/PALICE1"
+              }
+            },
+            {
+              "user": {
+                "id": "PBOB001",
+                "type": "user_reference",
+                "summary": "Bob",
+                "self": "https://api.pagerduty.com/users/PBOB001",
+                "html_url": "https://subdomain.pagerduty.com/users/PBOB001"
+              }
+            }
+          ],
+          "restrictions": []
+        },
+        {
+          "name": "Base before the edit",
+          "id": "PLAYER0",
+          "start": "2026-01-05T09:00:00-05:00",
+          "end": "2026-10-05T09:30:00-04:00",
+          "rotation_virtual_start": "2026-01-05T09:00:00-05:00",
+          "rotation_turn_length_seconds": 604800,
+          "users": [
+            {
+              "user": {
+                "id": "PGONE01",
+                "type": "user_reference",
+                "summary": "Gone"
+              }
+            }
+          ],
+          "restrictions": []
+        }
+      ],
+      "overrides_subschedule": {
+        "name": "Overrides",
+        "rendered_schedule_entries": [
+          {
+            "start": "2026-10-28T09:00:00-04:00",
+            "end": "2026-10-28T13:00:00-04:00",
+            "user": {
+              "id": "PDAN001",
+              "type": "user_reference",
+              "summary": "Dan",
+              "self": "https://api.pagerduty.com/users/PDAN001",
+              "html_url": "https://subdomain.pagerduty.com/users/PDAN001"
+            }
+          }
+        ],
+        "rendered_coverage_percentage": 1.2
+      },
+      "final_schedule": {
+        "name": "Final Schedule",
+        "rendered_schedule_entries": [
+          {
+            "start": "2026-10-26T09:00:00-04:00",
+            "end": "2026-10-26T18:00:00-04:00",
+            "user": {
+              "id": "PBOB001",
+              "type": "user_reference",
+              "summary": "Bob",
+              "self": "https://api.pagerduty.com/users/PBOB001",
+              "html_url": "https://subdomain.pagerduty.com/users/PBOB001"
+            }
+          },
+          {
+            "start": "2026-10-26T18:00:00-04:00",
+            "end": "2026-10-27T09:00:00-04:00",
+            "user": {
+              "id": "PERIN01",
+              "type": "user_reference",
+              "summary": "Erin",
+              "self": "https://api.pagerduty.com/users/PERIN01",
+              "html_url": "https://subdomain.pagerduty.com/users/PERIN01"
+            }
+          },
+          {
+            "start": "2026-10-27T09:00:00-04:00",
+            "end": "2026-10-28T09:00:00-04:00",
+            "user": {
+              "id": "PBOB001",
+              "type": "user_reference",
+              "summary": "Bob",
+              "self": "https://api.pagerduty.com/users/PBOB001",
+              "html_url": "https://subdomain.pagerduty.com/users/PBOB001"
+            }
+          },
+          {
+            "start": "2026-10-28T09:00:00-04:00",
+            "end": "2026-10-28T13:00:00-04:00",
+            "user": {
+              "id": "PDAN001",
+              "type": "user_reference",
+              "summary": "Dan",
+              "self": "https://api.pagerduty.com/users/PDAN001",
+              "html_url": "https://subdomain.pagerduty.com/users/PDAN001"
+            }
+          },
+          {
+            "start": "2026-10-28T13:00:00-04:00",
+            "end": "2026-10-28T18:00:00-04:00",
+            "user": {
+              "id": "PBOB001",
+              "type": "user_reference",
+              "summary": "Bob",
+              "self": "https://api.pagerduty.com/users/PBOB001",
+              "html_url": "https://subdomain.pagerduty.com/users/PBOB001"
+            }
+          },
+          {
+            "start": "2026-10-28T18:00:00-04:00",
+            "end": "2026-10-29T09:00:00-04:00",
+            "user": {
+              "id": "PERIN01",
+              "type": "user_reference",
+              "summary": "Erin",
+              "self": "https://api.pagerduty.com/users/PERIN01",
+              "html_url": "https://subdomain.pagerduty.com/users/PERIN01"
+            }
+          },
+          {
+            "start": "2026-10-29T09:00:00-04:00",
+            "end": "2026-10-30T18:00:00-04:00",
+            "user": {
+              "id": "PBOB001",
+              "type": "user_reference",
+              "summary": "Bob",
+              "self": "https://api.pagerduty.com/users/PBOB001",
+              "html_url": "https://subdomain.pagerduty.com/users/PBOB001"
+            }
+          },
+          {
+            "start": "2026-10-30T18:00:00-04:00",
+            "end": "2026-10-31T09:00:00-04:00",
+            "user": {
+              "id": "PERIN01",
+              "type": "user_reference",
+              "summary": "Erin",
+              "self": "https://api.pagerduty.com/users/PERIN01",
+              "html_url": "https://subdomain.pagerduty.com/users/PERIN01"
+            }
+          },
+          {
+            "start": "2026-10-31T09:00:00-04:00",
+            "end": "2026-11-02T09:00:00-05:00",
+            "user": {
+              "id": "PCAROL1",
+              "type": "user_reference",
+              "summary": "Carol",
+              "self": "https://api.pagerduty.com/users/PCAROL1",
+              "html_url": "https://subdomain.pagerduty.com/users/PCAROL1"
+            }
+          },
+          {
+            "start": "2026-11-02T09:00:00-05:00",
+            "end": "2026-11-02T18:00:00-05:00",
+            "user": {
+              "id": "PALICE1",
+              "type": "user_reference",
+              "summary": "Alice",
+              "self": "https://api.pagerduty.com/users/PALICE1",
+              "html_url": "https://subdomain.pagerduty.com/users/PALICE1"
+            }
+          },
+          {
+            "start": "2026-11-02T18:00:00-05:00",
+            "end": "2026-11-03T09:00:00-05:00",
+            "user": {
+              "id": "PBOB001",
+              "type": "user_reference",
+              "summary": "Bob",
+              "self": "https://api.pagerduty.com/users/PBOB001",
+              "html_url": "https://subdomain.pagerduty.com/users/PBOB001"
+            }
+          },
+          {
+            "start": "2026-11-03T09:00:00-05:00",
+            "end": "2026-11-03T18:00:00-05:00",
+            "user": {
+              "id": "PALICE1",
+              "type": "user_reference",
+              "summary": "Alice",
+              "self": "https://api.pagerduty.com/users/PALICE1",
+              "html_url": "https://subdomain.pagerduty.com/users/PALICE1"
+            }
+          },
+          {
+            "start": "2026-11-03T18:00:00-05:00",
+            "end": "2026-11-04T09:00:00-05:00",
+            "user": {
+              "id": "PERIN01",
+              "type": "user_reference",
+              "summary": "Erin",
+              "self": "https://api.pagerduty.com/users/PERIN01",
+              "html_url": "https://subdomain.pagerduty.com/users/PERIN01"
+            }
+          },
+          {
+            "start": "2026-11-04T09:00:00-05:00",
+            "end": "2026-11-04T18:00:00-05:00",
+            "user": {
+              "id": "PALICE1",
+              "type": "user_reference",
+              "summary": "Alice",
+              "self": "https://api.pagerduty.com/users/PALICE1",
+              "html_url": "https://subdomain.pagerduty.com/users/PALICE1"
+            }
+          },
+          {
+            "start": "2026-11-04T18:00:00-05:00",
+            "end": "2026-11-05T09:00:00-05:00",
+            "user": {
+              "id": "PBOB001",
+              "type": "user_reference",
+              "summary": "Bob",
+              "self": "https://api.pagerduty.com/users/PBOB001",
+              "html_url": "https://subdomain.pagerduty.com/users/PBOB001"
+            }
+          },
+          {
+            "start": "2026-11-05T09:00:00-05:00",
+            "end": "2026-11-05T18:00:00-05:00",
+            "user": {
+              "id": "PALICE1",
+              "type": "user_reference",
+              "summary": "Alice",
+              "self": "https://api.pagerduty.com/users/PALICE1",
+              "html_url": "https://subdomain.pagerduty.com/users/PALICE1"
+            }
+          },
+          {
+            "start": "2026-11-05T18:00:00-05:00",
+            "end": "2026-11-06T09:00:00-05:00",
+            "user": {
+              "id": "PERIN01",
+              "type": "user_reference",
+              "summary": "Erin",
+              "self": "https://api.pagerduty.com/users/PERIN01",
+              "html_url": "https://subdomain.pagerduty.com/users/PERIN01"
+            }
+          },
+          {
+            "start": "2026-11-06T09:00:00-05:00",
+            "end": "2026-11-06T18:00:00-05:00",
+            "user": {
+              "id": "PALICE1",
+              "type": "user_reference",
+              "summary": "Alice",
+              "self": "https://api.pagerduty.com/users/PALICE1",
+              "html_url": "https://subdomain.pagerduty.com/users/PALICE1"
+            }
+          },
+          {
+            "start": "2026-11-06T18:00:00-05:00",
+            "end": "2026-11-07T09:00:00-05:00",
+            "user": {
+              "id": "PBOB001",
+              "type": "user_reference",
+              "summary": "Bob",
+              "self": "https://api.pagerduty.com/users/PBOB001",
+              "html_url": "https://subdomain.pagerduty.com/users/PBOB001"
+            }
+          },
+          {
+            "start": "2026-11-07T09:00:00-05:00",
+            "end": "2026-11-09T09:00:00-05:00",
+            "user": {
+              "id": "PDAN001",
+              "type": "user_reference",
+              "summary": "Dan",
+              "self": "https://api.pagerduty.com/users/PDAN001",
+              "html_url": "https://subdomain.pagerduty.com/users/PDAN001"
+            }
+          }
+        ],
+        "rendered_coverage_percentage": 100.0
+      }
+    }
+  ]
+}

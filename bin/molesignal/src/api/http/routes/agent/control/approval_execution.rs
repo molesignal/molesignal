@@ -5,7 +5,10 @@
 
 use serde_json::{Value, json};
 
-use super::{dashboard_operation, execution_response, resource_operation};
+use super::{
+    dashboard_operation, execution_response, incident_operation, remediation_operation,
+    resource_operation,
+};
 use crate::{
     agent::model::{ApprovalRequest, ApprovalStatus, Execution, ExecutionStatus},
     api::{
@@ -16,7 +19,7 @@ use crate::{
         iam::IamContext,
         tools::dashboard::{operation_permission_allowed, operation_policy},
     },
-    domain::alerting::incident::IncidentStatus,
+    domain::alerting::{incident::IncidentStatus, timeline::ActionVia},
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
@@ -33,7 +36,7 @@ pub(in crate::api::http::routes::agent) async fn execute_approved_operation(
 ) -> Result<OperationExecution> {
     if idempotency_key.trim().is_empty() || idempotency_key.len() > 128 {
         return Err(Error::invalid(
-            "idempotency_key length must be between 1 and 128",
+            "idempotencyKey length must be between 1 and 128",
         ));
     }
 
@@ -61,7 +64,7 @@ pub(in crate::api::http::routes::agent) async fn execute_approved_operation(
     {
         if existing.approval_request_id != approval.id {
             return Err(Error::conflict(
-                "idempotency_key is already bound to another approval",
+                "idempotencyKey is already bound to another approval",
             ));
         }
 
@@ -103,7 +106,7 @@ pub(in crate::api::http::routes::agent) async fn execute_approved_operation(
         .into_iter()
         .flatten()
         .filter(|review| review["decision"] == "approved")
-        .filter_map(|review| review["reviewer_id"].as_str())
+        .filter_map(|review| review["reviewerId"].as_str())
         .map(|id| Id(id.to_string()))
         .collect::<Vec<_>>();
 
@@ -136,7 +139,7 @@ pub(in crate::api::http::routes::agent) async fn execute_approved_operation(
     if execution.id != proposed_execution_id {
         if execution.approval_request_id != approval.id {
             return Err(Error::conflict(
-                "idempotency_key is already bound to another approval",
+                "idempotencyKey is already bound to another approval",
             ));
         }
 
@@ -181,11 +184,11 @@ pub(in crate::api::http::routes::agent) async fn execute_approved_operation(
         "agent_execution",
         &execution.id.0,
         json!({
-            "approval_id": approval.id,
+            "approvalId": approval.id,
             "action": execution.action,
             "target": execution.target,
             "status": execution.status,
-            "idempotency_key": execution.idempotency_key,
+            "idempotencyKey": execution.idempotency_key,
         }),
     )
     .await;
@@ -225,11 +228,19 @@ async fn run_registered_operation(
         return resource_operation::execute(state, ctx, approval).await;
     }
 
+    if approval.action == remediation_operation::ACTION {
+        return remediation_operation::execute(state, ctx, approval).await;
+    }
+
     let incident_id = Id(approval.target.clone());
     let incident = state.alerting.service.get_incident(&incident_id).await?;
 
     if incident.org_id != ctx.org_id {
         return Err(Error::forbidden("alert belongs to another organization"));
+    }
+
+    if incident_operation::ACTIONS.contains(&approval.action.as_str()) {
+        return incident_operation::execute(state, ctx, approval, &incident).await;
     }
 
     match approval.action.as_str() {
@@ -245,6 +256,7 @@ async fn run_registered_operation(
                         &incident_id,
                         ctx.principal_id().clone(),
                         TimestampMicros::now(),
+                        ActionVia::Agent,
                     )
                     .await?;
 
@@ -266,6 +278,7 @@ async fn run_registered_operation(
                         &incident_id,
                         ctx.principal_id().clone(),
                         TimestampMicros::now(),
+                        ActionVia::Agent,
                     )
                     .await?;
 
@@ -291,6 +304,11 @@ impl OperationOutcome {
             summary: summary.into(),
             verification: json!({"verified": true}),
         }
+    }
+
+    /// 做完了，状态已经重读过。
+    pub(super) fn verified_summary(summary: &str) -> Self {
+        Self::verified(summary)
     }
 
     pub(super) fn with_one_time_result(

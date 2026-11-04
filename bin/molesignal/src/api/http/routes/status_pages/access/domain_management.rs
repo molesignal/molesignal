@@ -24,15 +24,15 @@ use crate::{
 pub(super) fn routes() -> Router<AppState> {
     Router::new()
         .route(
-            "/status-pages/{page_id}/domain",
+            "/status-pages/{pageId}/domain",
             get(get_domain).put(configure_domain).delete(remove_domain),
         )
         .route(
-            "/status-pages/{page_id}/domain/capability",
+            "/status-pages/{pageId}/domain/capability",
             get(get_domain_capability),
         )
-        .route("/status-pages/{page_id}/domain/verify", post(verify_domain))
-        .route("/status-pages/{page_id}/domain/retry", post(retry_domain))
+        .route("/status-pages/{pageId}/domain/verify", post(verify_domain))
+        .route("/status-pages/{pageId}/domain/retry", post(retry_domain))
 }
 
 #[derive(Debug, Deserialize)]
@@ -40,7 +40,7 @@ struct DomainRequest {
     hostname: String,
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.domain.manage")]
 async fn get_domain_capability(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -54,7 +54,7 @@ async fn get_domain_capability(
     ))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.domain.manage")]
 async fn get_domain(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -68,7 +68,7 @@ async fn get_domain(
     ))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.domain.manage")]
 async fn configure_domain(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -103,7 +103,7 @@ async fn configure_domain(
     Ok(Json(result))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.domain.manage")]
 async fn verify_domain(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -123,7 +123,7 @@ async fn verify_domain(
         &page_id,
         serde_json::json!({
             "state": result.config.state,
-            "routing_valid": result.config.routing_valid,
+            "routingValid": result.config.routing_valid,
         }),
     )
     .await;
@@ -131,7 +131,7 @@ async fn verify_domain(
     Ok(Json(result))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.domain.manage")]
 async fn retry_domain(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -158,7 +158,7 @@ async fn retry_domain(
     Ok(Json(result))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.domain.manage")]
 async fn remove_domain(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,

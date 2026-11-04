@@ -24,7 +24,7 @@ impl SyntheticLocationRepository for PgSyntheticRepository {
         let sql = format!(
             "INSERT INTO synthetic_probe_locations
                 (id, organization_id, name, code, description, scope, execution, lifecycle,
-                 health, system_managed, egress_policy, created_at_micros, updated_at_micros)
+                 health, system_managed, egress_policy, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
              RETURNING {LOCATION_COLS}"
         );
@@ -41,8 +41,8 @@ impl SyntheticLocationRepository for PgSyntheticRepository {
             .bind(location.health.as_str())
             .bind(location.system_managed)
             .bind(sqlx::types::Json(&location.egress_policy))
-            .bind(location.created_at.0)
-            .bind(location.updated_at.0)
+            .bind(location.created_at)
+            .bind(location.updated_at)
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
@@ -54,7 +54,7 @@ impl SyntheticLocationRepository for PgSyntheticRepository {
         let sql = format!(
             "UPDATE synthetic_probe_locations
              SET name = $3, description = $4, lifecycle = $5, health = $6,
-                 egress_policy = $7, updated_at_micros = $8
+                 egress_policy = $7, updated_at = $8
              WHERE id = $1 AND organization_id IS NOT DISTINCT FROM $2
                AND NOT system_managed
              RETURNING {LOCATION_COLS}"
@@ -68,7 +68,7 @@ impl SyntheticLocationRepository for PgSyntheticRepository {
             .bind(location.lifecycle.as_str())
             .bind(location.health.as_str())
             .bind(sqlx::types::Json(&location.egress_policy))
-            .bind(location.updated_at.0)
+            .bind(location.updated_at)
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;

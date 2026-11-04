@@ -13,32 +13,26 @@ function logStream(fields: string[], name = 'app_logs'): StreamSummary {
     id: `logs:${name}`,
     label: name,
     name,
-    stream_type: 'logs',
+    streamType: 'logs',
     type: 'logs',
     schema: {
       fields: fields.map((field) => ({
         name: field,
-        data_type: 'utf8',
+        dataType: 'utf8',
         nullable: true,
         indexed: false,
       })),
     },
     retention: null,
-    effective_retention: { days: 30 },
+    effectiveRetention: { days: 30 },
     settings: {
       description: null,
-      index_rules: [],
-      retention_filter: null,
-      keep_conditions: [],
-      max_query_range_hours: null,
-      flatten_level: null,
-      use_stream_stats_for_partitioning: false,
-      store_original_data: false,
-      enable_distinct_values: true,
+      indexRules: [],
+      maxQueryRangeHours: null,
       queryable: true,
     },
-    created_at_micros: 0,
-    updated_at_micros: 0,
+    createdAt: 0,
+    updatedAt: 0,
   };
 }
 
@@ -65,8 +59,8 @@ describe('starter service discovery', () => {
         ['catalog-api', 200, 20],
         ['checkout-api', '100', '5'],
       ],
-      scanned_rows: 300,
-      took_ms: 4,
+      scannedRows: 300,
+      tookMs: 4,
     })).toEqual([
       {
         service: 'catalog-api',

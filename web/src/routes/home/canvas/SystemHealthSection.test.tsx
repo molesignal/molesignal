@@ -30,56 +30,56 @@ const NOW = 1_800_000_000_000_000;
 const DAY = 86_400_000_000;
 
 const EMPTY_OVERVIEW: HomeOverview = {
-  generated_at_micros: 200,
-  window: { start_micros: 100, end_micros: 200, window_secs: 100 },
-  intake_status: 'no_data',
-  probe_reason: null,
-  intake_bytes: 0,
-  stored_bytes: 0,
+  generatedAt: 200,
+  window: { startTime: 100, endTime: 200, windowSecs: 100 },
+  intakeStatus: 'no_data',
+  probeReason: null,
+  intakeBytes: 0,
+  storedBytes: 0,
   rows: 0,
-  compression_savings_ratio: null,
-  active_streams: 0,
-  total_streams: 1,
-  attention_streams: 1,
-  last_received_at_micros: null,
-  stats_probe: { succeeded: 1, total: 1 },
+  compressionSavingsRatio: null,
+  activeStreams: 0,
+  totalStreams: 1,
+  attentionStreams: 1,
+  lastReceivedAt: null,
+  statsProbe: { succeeded: 1, total: 1 },
   buckets: [],
   signals: [],
   streams: [
     {
       id: 'stream-1',
       name: 'empty-stream',
-      stream_type: 'logs',
+      streamType: 'logs',
       status: 'no_data',
       rows: 0,
-      stored_bytes: 0,
-      first_received_at_micros: null,
-      last_received_at_micros: null,
+      storedBytes: 0,
+      firstReceivedAt: null,
+      lastReceivedAt: null,
     },
   ],
 };
 
 const DATA_OVERVIEW: HomeOverview = {
   ...EMPTY_OVERVIEW,
-  intake_bytes: 30,
+  intakeBytes: 30,
   rows: 5,
   buckets: [
-    { start_micros: 100, end_micros: 150, intake_bytes: 10, stored_bytes: 5, rows: 2 },
-    { start_micros: 150, end_micros: 200, intake_bytes: 20, stored_bytes: 8, rows: 3 },
+    { startTime: 100, endTime: 150, intakeBytes: 10, storedBytes: 5, rows: 2 },
+    { startTime: 150, endTime: 200, intakeBytes: 20, storedBytes: 8, rows: 3 },
   ],
 };
 
 function runtimeStream(
-  overrides: Partial<StreamRuntime> & Pick<StreamRuntime, 'id' | 'stream_type' | 'status'>,
+  overrides: Partial<StreamRuntime> & Pick<StreamRuntime, 'id' | 'streamType' | 'status'>,
 ): StreamRuntime {
   return {
     name: overrides.id,
     rows: 0,
-    stored_bytes: 0,
-    current_stored_bytes: 0,
-    first_received_at_micros: null,
-    last_received_at_micros: null,
-    stats_available: true,
+    storedBytes: 0,
+    currentStoredBytes: 0,
+    firstReceivedAt: null,
+    lastReceivedAt: null,
+    statsAvailable: true,
     buckets: [],
     ...overrides,
   };
@@ -87,10 +87,10 @@ function runtimeStream(
 
 function runtimeOverview(streams: StreamRuntime[]): StreamRuntimeOverview {
   return {
-    generated_at_micros: NOW,
-    window_start_micros: NOW - DAY,
-    window_end_micros: NOW,
-    window_secs: 86_400,
+    generatedAt: NOW,
+    windowStart: NOW - DAY,
+    windowEnd: NOW,
+    windowSecs: 86_400,
     streams,
   };
 }
@@ -180,16 +180,16 @@ describe('SystemHealthSection', () => {
       runtimeOverview: runtimeOverview([
         runtimeStream({
           id: 'a',
-          stream_type: 'logs',
+          streamType: 'logs',
           status: 'interrupted',
-          last_received_at_micros: NOW - 6 * DAY,
+          lastReceivedAt: NOW - 6 * DAY,
         }),
         runtimeStream({
           id: 'b',
-          stream_type: 'metrics',
+          streamType: 'metrics',
           status: 'healthy',
           rows: 100,
-          last_received_at_micros: NOW - 1_000_000,
+          lastReceivedAt: NOW - 1_000_000,
         }),
       ]),
     });

@@ -12,7 +12,7 @@ async fn authorized_users_can_list_product_resources() {
     let server = common::TestServer::start().await;
     let (header, token) = server.auth_header();
     for path in [
-        "/api/v1/clusters",
+        "/api/v1/regex_patterns",
         "/api/v1/domains",
         "/api/v1/agent/chat",
         "/api/v1/auth/sso/providers",

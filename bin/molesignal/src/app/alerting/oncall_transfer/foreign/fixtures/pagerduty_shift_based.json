@@ -1,0 +1,184 @@
+{
+  "since": "2026-10-26T13:00:00Z",
+  "until": "2026-11-09T14:00:00Z",
+  "users": [
+    { "id": "PALICE1", "email": "alice@example.com" },
+    { "id": "PBOB001", "email": "bob@example.com" },
+    { "id": "PCAROL1", "email": "carol@example.com" },
+    { "id": "PDAN001", "email": "dan@example.com" },
+    { "id": "PERIN01", "email": "erin@example.com" }
+  ],
+  "shift_based_schedules": [
+    { "id": "PS1A2B3", "type": "schedule_v3_reference", "summary": "Payments on-call" },
+    { "id": "PS4D5E6", "type": "schedule_v3_reference", "summary": "Platform primary" },
+    { "id": "PS7G8H9", "type": "schedule_v3_reference", "summary": "Not fetched" }
+  ],
+  "schedules": [
+    {
+      "id": "PS1A2B3",
+      "type": "schedule_v3",
+      "name": "Payments on-call",
+      "description": "Payments rotation",
+      "time_zone": "America/New_York",
+      "self": "https://api.pagerduty.com/v3/schedules/PS1A2B3",
+      "html_url": "https://subdomain.pagerduty.com/schedules/PS1A2B3",
+      "teams": [{ "id": "PQ9K7I8", "type": "team_reference", "summary": "Payments" }],
+      "rotations": [
+        {
+          "id": "ROTATIONBUSINESSHOURS00001",
+          "type": "schedule_rotation",
+          "events": [
+            {
+              "id": "EVENTBUSINESSHOURSBEFORE01",
+              "type": "schedule_event",
+              "name": "Everyone in business hours",
+              "start_time": { "date_time": "2025-06-02T13:00:00Z", "time_zone": "America/New_York" },
+              "end_time": { "date_time": "2025-06-02T21:00:00Z", "time_zone": "America/New_York" },
+              "effective_since": "2025-06-02T13:00:00Z",
+              "effective_until": "2026-01-05T14:00:00Z",
+              "recurrence": ["RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"],
+              "assignment_strategy": {
+                "type": "every_member_assignment_strategy",
+                "members": [
+                  { "type": "user_member", "user_id": "PALICE1" },
+                  { "type": "user_member", "user_id": "PBOB001" }
+                ]
+              }
+            },
+            {
+              "id": "EVENTBUSINESSHOURS00000001",
+              "type": "schedule_event",
+              "name": "Business hours",
+              "start_time": { "date_time": "2026-01-05T14:00:00Z", "time_zone": "America/New_York" },
+              "end_time": { "date_time": "2026-01-05T22:00:00Z", "time_zone": "America/New_York" },
+              "effective_since": "2026-01-05T14:00:00Z",
+              "effective_until": null,
+              "recurrence": ["RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"],
+              "assignment_strategy": {
+                "type": "rotating_member_assignment_strategy",
+                "shifts_per_member": 5,
+                "members": [
+                  { "type": "user_member", "user_id": "PALICE1" },
+                  { "type": "user_member", "user_id": "PBOB001" }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "ROTATIONOFFHOURS0000000001",
+          "type": "schedule_rotation",
+          "events": [
+            {
+              "id": "EVENTWEEKNIGHTS00000000001",
+              "type": "schedule_event",
+              "name": "Weeknights",
+              "start_time": { "date_time": "2026-01-05T22:00:00Z", "time_zone": "America/New_York" },
+              "end_time": { "date_time": "2026-01-06T14:00:00Z", "time_zone": "America/New_York" },
+              "effective_since": "2026-01-05T22:00:00Z",
+              "effective_until": null,
+              "recurrence": ["RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH"],
+              "assignment_strategy": {
+                "type": "rotating_member_assignment_strategy",
+                "shifts_per_member": 4,
+                "members": [
+                  { "type": "user_member", "user_id": "PCAROL1" },
+                  { "type": "user_member", "user_id": "PDAN001" }
+                ]
+              }
+            },
+            {
+              "id": "EVENTWEEKENDS0000000000001",
+              "type": "schedule_event",
+              "name": "Weekends",
+              "start_time": { "date_time": "2026-01-09T22:00:00Z", "time_zone": "America/New_York" },
+              "end_time": { "date_time": "2026-01-12T14:00:00Z", "time_zone": "America/New_York" },
+              "effective_since": "2026-01-09T22:00:00Z",
+              "effective_until": null,
+              "recurrence": ["RRULE:FREQ=WEEKLY;BYDAY=FR"],
+              "assignment_strategy": {
+                "type": "rotating_member_assignment_strategy",
+                "shifts_per_member": 1,
+                "members": [
+                  { "type": "user_member", "user_id": "PERIN01" },
+                  { "type": "user_member", "user_id": "PCAROL1" }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "final_schedule": {
+        "type": "final_schedule",
+        "rendered_coverage_percentage": 100,
+        "computed_shift_assignments": [
+          { "start_time": "2026-10-26T13:00:00Z", "end_time": "2026-10-26T21:00:00Z", "member": { "type": "user_member", "user_id": "PALICE1" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-10-26T21:00:00Z", "end_time": "2026-10-27T13:00:00Z", "member": { "type": "user_member", "user_id": "PCAROL1" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-10-27T13:00:00Z", "end_time": "2026-10-27T21:00:00Z", "member": { "type": "user_member", "user_id": "PALICE1" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-10-27T21:00:00Z", "end_time": "2026-10-28T13:00:00Z", "member": { "type": "user_member", "user_id": "PCAROL1" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-10-28T13:00:00Z", "end_time": "2026-10-28T14:00:00Z", "member": { "type": "user_member", "user_id": "PALICE1" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-10-28T14:00:00Z", "end_time": "2026-10-28T17:00:00Z", "member": { "type": "user_member", "user_id": "PDAN001" }, "source": { "type": "schedule_rotation_override" } },
+          { "start_time": "2026-10-28T17:00:00Z", "end_time": "2026-10-28T21:00:00Z", "member": { "type": "user_member", "user_id": "PALICE1" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-10-28T21:00:00Z", "end_time": "2026-10-29T13:00:00Z", "member": { "type": "user_member", "user_id": "PCAROL1" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-10-29T13:00:00Z", "end_time": "2026-10-29T21:00:00Z", "member": { "type": "user_member", "user_id": "PALICE1" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-10-29T21:00:00Z", "end_time": "2026-10-30T13:00:00Z", "member": { "type": "user_member", "user_id": "PCAROL1" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-10-30T13:00:00Z", "end_time": "2026-10-30T21:00:00Z", "member": { "type": "user_member", "user_id": "PALICE1" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-10-30T21:00:00Z", "end_time": "2026-11-02T14:00:00Z", "member": { "type": "user_member", "user_id": "PERIN01" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-11-02T14:00:00Z", "end_time": "2026-11-02T22:00:00Z", "member": { "type": "user_member", "user_id": "PBOB001" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-11-02T22:00:00Z", "end_time": "2026-11-03T14:00:00Z", "member": { "type": "user_member", "user_id": "PDAN001" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-11-03T14:00:00Z", "end_time": "2026-11-03T22:00:00Z", "member": { "type": "user_member", "user_id": "PBOB001" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-11-03T22:00:00Z", "end_time": "2026-11-04T14:00:00Z", "member": { "type": "user_member", "user_id": "PDAN001" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-11-04T14:00:00Z", "end_time": "2026-11-04T22:00:00Z", "member": { "type": "user_member", "user_id": "PBOB001" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-11-04T22:00:00Z", "end_time": "2026-11-05T14:00:00Z", "member": { "type": "user_member", "user_id": "PDAN001" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-11-05T14:00:00Z", "end_time": "2026-11-05T22:00:00Z", "member": { "type": "user_member", "user_id": "PBOB001" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-11-05T22:00:00Z", "end_time": "2026-11-06T14:00:00Z", "member": { "type": "user_member", "user_id": "PDAN001" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-11-06T14:00:00Z", "end_time": "2026-11-06T22:00:00Z", "member": { "type": "user_member", "user_id": "PBOB001" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-11-06T22:00:00Z", "end_time": "2026-11-09T14:00:00Z", "member": { "type": "user_member", "user_id": "PCAROL1" }, "source": { "type": "schedule_rotation" } }
+        ]
+      }
+    },
+    {
+      "id": "PS4D5E6",
+      "type": "schedule_v3",
+      "name": "Platform primary",
+      "time_zone": "America/New_York",
+      "self": "https://api.pagerduty.com/v3/schedules/PS4D5E6",
+      "html_url": "https://subdomain.pagerduty.com/schedules/PS4D5E6",
+      "rotations": [
+        {
+          "id": "ROTATIONPRIMARY00000000001",
+          "type": "schedule_rotation",
+          "events": [
+            {
+              "id": "EVENTPRIMARY00000000000001",
+              "type": "schedule_event",
+              "name": "Weekly on-call",
+              "start_time": { "date_time": "2026-01-05T14:00:00Z", "time_zone": "America/New_York" },
+              "end_time": { "date_time": "2026-01-12T14:00:00Z", "time_zone": "America/New_York" },
+              "effective_since": "2026-01-05T14:00:00Z",
+              "effective_until": null,
+              "recurrence": ["RRULE:FREQ=WEEKLY"],
+              "assignment_strategy": {
+                "type": "rotating_member_assignment_strategy",
+                "shifts_per_member": 1,
+                "members": [
+                  { "type": "user_member", "user_id": "PALICE1" },
+                  { "type": "user_member", "user_id": "PBOB001" },
+                  { "type": "user_member", "user_id": "PCAROL1" }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "final_schedule": {
+        "type": "final_schedule",
+        "rendered_coverage_percentage": 100,
+        "computed_shift_assignments": [
+          { "start_time": "2026-10-26T13:00:00Z", "end_time": "2026-11-02T14:00:00Z", "member": { "type": "user_member", "user_id": "PALICE1" }, "source": { "type": "schedule_rotation" } },
+          { "start_time": "2026-11-02T14:00:00Z", "end_time": "2026-11-09T14:00:00Z", "member": { "type": "user_member", "user_id": "PBOB001" }, "source": { "type": "schedule_rotation" } }
+        ]
+      }
+    }
+  ]
+}

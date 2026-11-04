@@ -59,8 +59,13 @@ fn main() {
     println!("cargo:rustc-env=MOLESIGNAL_BUILD_EPOCH={build_epoch}");
     println!("cargo:rustc-env=MOLESIGNAL_BUILD_ID={build_id}");
     println!("cargo:rustc-env=MOLESIGNAL_PRODUCT_VERSION={INTERNAL_PRODUCT_VERSION}");
-    // Best-effort: refresh git info when HEAD moves (ignored if path absent).
-    println!("cargo:rerun-if-changed=../../.git/HEAD");
+    // Best-effort: refresh git info when HEAD moves. Ask git where HEAD lives: in a worktree `.git`
+    // is a file, and watching a path that does not exist reruns this script, and with it rebuilds
+    // the whole crate, on every Cargo invocation.
+    let head = git(&["rev-parse", "--git-path", "HEAD"]);
+    if Path::new(&head).is_file() {
+        println!("cargo:rerun-if-changed={head}");
+    }
     println!("cargo:rerun-if-env-changed=BUILD_ID");
     println!("cargo:rerun-if-env-changed=GIT_SHA");
 

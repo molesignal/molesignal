@@ -1,0 +1,40 @@
+/*
+ * Icon weight.
+ *
+ * An icon carries the weight of the text beside it. Lucide draws at 2 on its 24-unit grid, which
+ * sits heavier than the text the product sets: light sets its labels at 500 and running text at
+ * 400, so the default comes down to 1.75; dark sets both at 400 (tokens.css), so 1.5. An icon
+ * given a stroke of its own (a `strokeWidth` prop, a `stroke-*` class) keeps it.
+ */
+svg.lucide[stroke-width='2']:not([class*='stroke-']) {
+  stroke-width: 1.75;
+}
+
+[data-theme='dark'] svg.lucide[stroke-width='2']:not([class*='stroke-']) {
+  stroke-width: 1.5;
+}
+
+/* A light scope inside a dark page (the public status page) takes the light weight back. */
+[data-theme='dark'] [data-theme='light'] svg.lucide[stroke-width='2']:not([class*='stroke-']) {
+  stroke-width: 1.75;
+}
+
+/*
+ * Icon size beside words.
+ *
+ * An icon beside a button's words is drawn at about their size, whatever its call site asked
+ * for: 14px by the 13px words of a 32px button, 12px by the 12px words of a 28px one. At 12px it
+ * read smaller than the words and at 16px a size larger. A chevron that says the button opens a
+ * menu stays a step smaller. The buttons mark themselves (`data-text-button`); a button of an
+ * icon alone keeps the size it was given.
+ */
+[data-text-button='md'] svg.lucide {
+  width: 14px;
+  height: 14px;
+}
+
+[data-text-button='sm'] svg.lucide,
+[data-text-button='md'] svg.lucide[class*='chevron'] {
+  width: 12px;
+  height: 12px;
+}

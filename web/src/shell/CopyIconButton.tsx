@@ -3,6 +3,7 @@ import * as React from 'react';
 
 import { IconButton } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
+import { IconSwap } from '@/shell/polish/IconSwap';
 import {
   Tooltip,
   TooltipContent,
@@ -62,17 +63,16 @@ export const CopyIconButton = React.forwardRef<
             }
             className={className}
           >
-            {copied ? (
-              <Check
-                aria-hidden="true"
-                className={cn('h-3.5 w-3.5 animate-check-pop text-[var(--green-ink)]', iconClassName)}
-              />
-            ) : (
-              <Copy
-                aria-hidden="true"
-                className={cn('h-3.5 w-3.5', iconClassName)}
-              />
-            )}
+            <IconSwap
+              active={copied}
+              inactiveIcon={<Copy aria-hidden="true" className={cn('h-3.5 w-3.5', iconClassName)} />}
+              activeIcon={
+                <Check
+                  aria-hidden="true"
+                  className={cn('h-3.5 w-3.5 text-[var(--green-ink)]', iconClassName)}
+                />
+              }
+            />
           </IconButton>
         </span>
       </TooltipTrigger>

@@ -74,7 +74,7 @@
     "subtitle": "Paste a JSON array of groups (or { groups: [...] }).",
     "submit": "Import",
     "editor_label": "Groups JSON",
-    "placeholder": "[{ \"name\": \"crit-by-service\", \"enabled\": true, \"matchers\": [{ \"label\": \"severity\", \"op\": \"eq\", \"value\": \"critical\" }], \"group_by\": [\"service\"] }]",
+    "placeholder": "[{ \"name\": \"crit-by-service\", \"enabled\": true, \"matchers\": [{ \"label\": \"severity\", \"op\": \"eq\", \"value\": \"critical\" }], \"groupBy\": [\"service\"] }]",
     "toast_imported": "Imported {{count}} group(s)",
     "invalid_json": "Invalid JSON: {{message}}",
     "expects_array": "Expected a non-empty array of groups."

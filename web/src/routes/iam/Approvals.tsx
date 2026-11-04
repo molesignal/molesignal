@@ -22,7 +22,7 @@ export function Approvals() {
   const { t } = useTranslation('iam');
   const qc = useQueryClient();
   const manageAccess = useActionAccess({
-    permission: 'org.members.manage',
+    permission: 'org.members.approve',
   });
   const [rejecting, setRejecting] = React.useState<usersApi.UserView | null>(null);
 
@@ -73,7 +73,7 @@ export function Approvals() {
             {
               key: 'user',
               header: t('approvals.columns.user'),
-              cell: (r) => <span className="text-tx-0">{r.display_name || '—'}</span>,
+              cell: (r) => <span className="text-tx-0">{r.displayName || '—'}</span>,
             },
             { key: 'email', header: t('approvals.columns.email'), cell: (r) => r.email },
             {

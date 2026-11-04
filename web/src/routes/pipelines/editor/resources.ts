@@ -2,14 +2,16 @@ import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 
 import * as connectorsApi from '@/api/connectors';
+import * as extendTablesApi from '@/api/extendTables';
 import * as streamsApi from '@/api/streams';
 
 import { isDestinationKind } from '../connectors/kinds';
 
 /**
- * What a pipeline can read from and write to in this workspace: its streams
- * and the connectors it can deliver to. Loaded once for the whole editor, so
- * the flow, the fields and the validation agree on what exists.
+ * What a pipeline can read from and write to in this workspace: its streams,
+ * the connectors it can deliver to and the extend tables it can write and look
+ * up. Loaded once for the whole editor, so the flow, the fields and the
+ * validation agree on what exists.
  */
 export function usePipelineResources() {
   const streamsQuery = useQuery({
@@ -19,6 +21,10 @@ export function usePipelineResources() {
   const connectorsQuery = useQuery({
     queryKey: ['connectors'],
     queryFn: () => connectorsApi.list(),
+  });
+  const tablesQuery = useQuery({
+    queryKey: ['extend-tables'],
+    queryFn: () => extendTablesApi.listTables(),
   });
 
   return React.useMemo(() => {
@@ -34,8 +40,9 @@ export function usePipelineResources() {
       connectorNames: Object.fromEntries(
         connectors.map((connector) => [connector.id, connector.name]),
       ) as Record<string, string>,
+      tables: tablesQuery.data ?? [],
     };
-  }, [connectorsQuery.data, streamsQuery.data, streamsQuery.isError, streamsQuery.isPending]);
+  }, [connectorsQuery.data, streamsQuery.data, streamsQuery.isError, streamsQuery.isPending, tablesQuery.data]);
 }
 
 export type PipelineResources = ReturnType<typeof usePipelineResources>;

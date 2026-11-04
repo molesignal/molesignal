@@ -13,7 +13,7 @@ describe('streamDatasourceLink', () => {
     ['profiles', '/datasource/recommended/continuous-profiling'],
   ] as const)('routes %s streams to the matching intake guide', (streamType, pathname) => {
     const target = new URL(
-      datasourceLinkForStream({ name: `app ${streamType}`, stream_type: streamType }),
+      datasourceLinkForStream({ name: `app ${streamType}`, streamType: streamType }),
       'https://molesignal.test',
     );
 

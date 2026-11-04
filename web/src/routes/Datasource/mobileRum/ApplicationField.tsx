@@ -1,63 +1,105 @@
+import { useQuery } from '@tanstack/react-query';
+import * as React from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
-import { ChromeButton } from '@/shell/chrome';
-import { FormInput } from '@/shell/FormDrawer';
-import { cn } from '@/shell/lib/cn';
+import * as rumApi from '@/api/rum';
+import { FormSelect } from '@/shell/FormDrawer';
 
 /**
- * The application a RUM token is bound to. It is typed, then confirmed: a
- * token is issued per application, so one is not asked for on every keystroke.
+ * The RUM application a token is bound to, chosen among the applications of the organization: a
+ * token is issued per application, and an event for any other one is refused. The one a link
+ * names is taken, and where there is one there is nothing to choose and it is taken; where there
+ * is none, the way to make one is shown.
  */
 export function ApplicationField({
   value,
-  valid,
-  confirmed,
+  preferred,
   onChange,
-  onConfirm,
 }: {
+  /** The application chosen: always one the organization has, or nothing yet. */
   value: string;
-  valid: boolean;
-  confirmed: boolean;
-  onChange: (value: string) => void;
-  onConfirm: () => void;
+  /** The application a link to the guide names. */
+  preferred: string;
+  onChange: (applicationId: string) => void;
 }) {
   const { t } = useTranslation('onboarding');
-  const showError = value.trim().length > 0 && !valid;
+  const query = useQuery({
+    queryKey: ['rum', 'applications'],
+    queryFn: () => rumApi.listApplications(),
+  });
+  const applications = React.useMemo(
+    () => [...(query.data ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
+    [query.data],
+  );
+  const known = applications.some((application) => application.id === value);
+
+  React.useEffect(() => {
+    if (!query.isSuccess) return;
+
+    // What was chosen can be deleted from another page while this one is open.
+    if (value !== '' && !known) {
+      onChange('');
+      return;
+    }
+
+    if (value !== '') return;
+
+    const [only] = applications;
+    const chosen =
+      applications.find((application) => application.id === preferred) ??
+      (applications.length === 1 ? only : undefined);
+    if (chosen) onChange(chosen.id);
+  }, [applications, known, onChange, preferred, query.isSuccess, value]);
+
+  if (query.isError) {
+    return (
+      <p role="alert" className="m-0 font-sans text-xs leading-relaxed text-red-soft">
+        {t('datasource_page.rum_application_load_failed')}
+      </p>
+    );
+  }
+
+  if (query.isSuccess && applications.length === 0) {
+    return (
+      <p className="m-0 font-sans text-xs leading-relaxed text-tx-3">
+        {t('datasource_page.rum_application_none')}{' '}
+        <Link
+          to="/rum/applications?create=1"
+          className="rounded font-strong text-[var(--blue-ink)] hover:underline focus-visible:underline"
+        >
+          {t('datasource_page.rum_application_create')}
+        </Link>
+      </p>
+    );
+  }
 
   return (
     <>
-      <div className="flex min-w-0 items-center gap-2">
-        <FormInput
-          id="rum-application-id"
+      {/* The select is drawn once its choices are known: its value and its options arrive together. */}
+      {query.isSuccess ? (
+        <FormSelect
           value={value}
-          onChange={(event) => onChange(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && valid && !confirmed) onConfirm();
-          }}
-          placeholder="checkout-mobile"
-          pattern="[A-Za-z0-9._:-]{1,128}"
-          maxLength={128}
-          autoComplete="off"
-          aria-invalid={showError || undefined}
-          className="font-mono text-xs"
+          onChange={onChange}
+          ariaLabel={t('datasource_page.rum_application_id')}
+          placeholder={t('datasource_page.rum_application_placeholder')}
+          options={applications.map((application) => ({
+            value: application.id,
+            label: `${application.name} · ${application.id}`,
+          }))}
         />
-        <ChromeButton type="button" disabled={!valid || confirmed} onClick={onConfirm}>
-          {confirmed
-            ? t('datasource_page.rum_application_confirmed')
-            : t('datasource_page.rum_application_confirm')}
-        </ChromeButton>
-      </div>
-      <p
-        className={cn(
-          'm-0 mt-[6px] font-sans text-xs leading-relaxed',
-          showError ? 'text-red-soft' : 'text-tx-3',
-        )}
-      >
-        {showError
-          ? t('datasource_page.rum_application_invalid')
-          : valid && !confirmed
-            ? t('datasource_page.rum_application_confirm_hint')
-            : t('datasource_page.rum_application_hint')}
+      ) : (
+        <FormSelect
+          value=""
+          onChange={onChange}
+          ariaLabel={t('datasource_page.rum_application_id')}
+          placeholder={t('datasource_page.rum_application_loading')}
+          options={[]}
+          disabled
+        />
+      )}
+      <p className="m-0 mt-[6px] font-sans text-xs leading-relaxed text-tx-3">
+        {t('datasource_page.rum_application_hint')}
       </p>
     </>
   );

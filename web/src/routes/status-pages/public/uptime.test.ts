@@ -30,10 +30,10 @@ function incident(
     title: id,
     impact,
     status: resolvedAt ? 'resolved' : 'in_progress',
-    component_ids: ['api'],
+    componentIds: ['api'],
     updates: [],
-    started_at: startedAt,
-    ended_at: resolvedAt,
+    startedAt: startedAt,
+    endedAt: resolvedAt,
   };
 }
 
@@ -44,29 +44,29 @@ function snapshot(
     page: {
       name: 'Acme',
       slug: 'acme',
-      logo_url: null,
-      brand_color: '#4F46E5',
+      logoUrl: null,
+      brandColor: '#4F46E5',
       timezone: 'UTC',
       language: 'en-us',
       languages: ['en-us'],
-      history_days: 90,
+      historyDays: 90,
       visibility: 'public',
     },
-    overall_status: 'operational',
+    overallStatus: 'operational',
     components: [component],
-    component_status_events: [
+    componentStatusEvents: [
       {
-        component_id: 'api',
+        componentId: 'api',
         status: 'operational',
-        started_at: NOW - 90 * DAY,
-        ended_at: null,
+        startedAt: NOW - 90 * DAY,
+        endedAt: null,
       },
     ],
-    active_incidents: [],
-    scheduled_maintenance: [],
+    activeIncidents: [],
+    scheduledMaintenance: [],
     history: [],
-    updated_at: NOW - DAY,
-    generated_at: NOW,
+    updatedAt: NOW - DAY,
+    generatedAt: NOW,
     ...overrides,
   };
 }
@@ -107,21 +107,21 @@ describe('componentUptime', () => {
     const result = componentUptime(
       { ...component, status: 'degraded_performance' },
       snapshot({
-        component_status_events: [
+        componentStatusEvents: [
           {
-            component_id: 'api',
+            componentId: 'api',
             status: 'operational',
-            started_at: NOW - 90 * DAY,
-            ended_at: NOW - 4 * 60 * 60 * 1_000_000,
+            startedAt: NOW - 90 * DAY,
+            endedAt: NOW - 4 * 60 * 60 * 1_000_000,
           },
           {
-            component_id: 'api',
+            componentId: 'api',
             status: 'degraded_performance',
-            started_at: NOW - 4 * 60 * 60 * 1_000_000,
-            ended_at: null,
+            startedAt: NOW - 4 * 60 * 60 * 1_000_000,
+            endedAt: null,
           },
         ],
-        scheduled_maintenance: [maintenance],
+        scheduledMaintenance: [maintenance],
       }),
     );
 
@@ -136,18 +136,18 @@ describe('componentUptime', () => {
     const result = componentUptime(
       component,
       snapshot({
-        component_status_events: [
+        componentStatusEvents: [
           {
-            component_id: 'api',
+            componentId: 'api',
             status: 'operational',
-            started_at: NOW - 90 * DAY,
-            ended_at: NOW - 4 * 60 * 60 * 1_000_000,
+            startedAt: NOW - 90 * DAY,
+            endedAt: NOW - 4 * 60 * 60 * 1_000_000,
           },
           {
-            component_id: 'api',
+            componentId: 'api',
             status: 'maintenance',
-            started_at: NOW - 4 * 60 * 60 * 1_000_000,
-            ended_at: null,
+            startedAt: NOW - 4 * 60 * 60 * 1_000_000,
+            endedAt: null,
           },
         ],
       }),
@@ -162,12 +162,12 @@ describe('componentUptime', () => {
     const result = componentUptime(
       component,
       snapshot({
-        component_status_events: [
+        componentStatusEvents: [
           {
-            component_id: 'api',
+            componentId: 'api',
             status: 'operational',
-            started_at: NOW - DAY,
-            ended_at: null,
+            startedAt: NOW - DAY,
+            endedAt: null,
           },
         ],
       }),

@@ -28,7 +28,7 @@ pub(super) async fn ensure_datasets(
         sqlx::query(
             "INSERT INTO physical_datasets (org_id, id, logical_stream_id, dataset_type, \
              dataset_type_version, partition_policy, storage_policy, index_policy, \
-             catalog_version, state, created_at_micros, updated_at_micros)
+             catalog_version, state, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, 'active', $9, $9)
              ON CONFLICT (org_id, logical_stream_id, dataset_type) DO NOTHING",
         )
@@ -40,7 +40,7 @@ pub(super) async fn ensure_datasets(
         .bind(Json(&spec.partition_policy))
         .bind(Json(&spec.storage_policy))
         .bind(Json(&spec.index_policy))
-        .bind(now)
+        .bind(TimestampMicros(now))
         .execute(pool)
         .await
         .map_err(sqlx_err)?;

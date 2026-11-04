@@ -45,6 +45,7 @@ impl ProjectionGapReason {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProjectionGap {
     pub org_id: Id,
     pub range: TimeRange,
@@ -64,6 +65,7 @@ pub struct ProjectionState {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DataQuality {
     #[serde(default)]
     pub partial: bool,

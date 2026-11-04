@@ -40,16 +40,16 @@ impl StatusPageIncidentQueryRepository for PgStatusPageRepository {
             "SELECT {INCIDENT_COLS} FROM status_page_incidents
              WHERE org_id = $1 AND status_page_id = $2
                AND publication_state = 'published'
-               AND (started_at_micros >= $3 OR ended_at_micros >= $3
-                    OR ended_at_micros IS NULL)
-             ORDER BY (ended_at_micros IS NULL) DESC, started_at_micros DESC, id DESC
+               AND (started_at >= $3 OR ended_at >= $3
+                    OR ended_at IS NULL)
+             ORDER BY (ended_at IS NULL) DESC, started_at DESC, id DESC
              LIMIT 200"
         );
 
         let incidents = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
-            .bind(since.0)
+            .bind(since)
             .fetch_all(&self.pool)
             .await
             .map_err(super::sqlx_err)?
@@ -85,14 +85,14 @@ impl StatusPageIncidentQueryRepository for PgStatusPageRepository {
             .map_err(super::sqlx_err)?;
 
         let order = if matches!(view, StatusPageEventView::Upcoming) {
-            "started_at_micros, id"
+            "started_at, id"
         } else if matches!(
             view,
             StatusPageEventView::Resolved | StatusPageEventView::Completed
         ) {
-            "ended_at_micros DESC, id DESC"
+            "ended_at DESC, id DESC"
         } else {
-            "updated_at_micros DESC, id DESC"
+            "updated_at DESC, id DESC"
         };
 
         let sql = format!(
@@ -132,12 +132,12 @@ impl StatusPageIncidentQueryRepository for PgStatusPageRepository {
         let kind = query.kind.map(|value| value.as_str());
 
         let filter = "event.org_id = $1 AND event.status_page_id = $2
-            AND event.publication_state = 'published' AND event.ended_at_micros IS NOT NULL
+            AND event.publication_state = 'published' AND event.ended_at IS NOT NULL
             AND ($3::VARCHAR IS NULL OR event.kind = $3)
             AND ($4::VARCHAR IS NULL OR event.status = $4)
             AND ($5::VARCHAR IS NULL OR $5 = ANY(event.component_ids))
-            AND ($6::BIGINT IS NULL OR event.ended_at_micros >= $6)
-            AND ($7::BIGINT IS NULL OR event.ended_at_micros <= $7)
+            AND ($6::TIMESTAMPTZ IS NULL OR event.ended_at >= $6)
+            AND ($7::TIMESTAMPTZ IS NULL OR event.ended_at <= $7)
             AND ($8::TEXT IS NULL OR event.title ILIKE ('%' || $8 || '%') ESCAPE '\\'
                  OR EXISTS (
                     SELECT 1 FROM status_page_incident_updates update_row
@@ -155,8 +155,8 @@ impl StatusPageIncidentQueryRepository for PgStatusPageRepository {
             .bind(kind)
             .bind(status)
             .bind(query.component_id.as_ref().map(Id::as_str))
-            .bind(query.from.map(|value| value.0))
-            .bind(query.to.map(|value| value.0))
+            .bind(query.from)
+            .bind(query.to)
             .bind(search.as_deref())
             .fetch_one(&self.pool)
             .await
@@ -168,7 +168,7 @@ impl StatusPageIncidentQueryRepository for PgStatusPageRepository {
         let sql = format!(
             "SELECT {INCIDENT_COLS} FROM status_page_incidents event
              WHERE {filter}
-             ORDER BY event.ended_at_micros DESC, event.id DESC
+             ORDER BY event.ended_at DESC, event.id DESC
              LIMIT $9 OFFSET $10"
         );
 
@@ -178,8 +178,8 @@ impl StatusPageIncidentQueryRepository for PgStatusPageRepository {
             .bind(kind)
             .bind(status)
             .bind(query.component_id.as_ref().map(Id::as_str))
-            .bind(query.from.map(|value| value.0))
-            .bind(query.to.map(|value| value.0))
+            .bind(query.from)
+            .bind(query.to)
             .bind(search.as_deref())
             .bind(i64::from(query.per_page))
             .bind(i64::try_from(offset).unwrap_or(i64::MAX))
@@ -247,14 +247,14 @@ async fn hydrate_incidents(
              SELECT update_row.*,
                     ROW_NUMBER() OVER (
                         PARTITION BY update_row.incident_id
-                        ORDER BY update_row.created_at_micros DESC, update_row.id DESC
+                        ORDER BY update_row.created_at DESC, update_row.id DESC
                     ) AS update_rank
              FROM status_page_incident_updates update_row
              WHERE update_row.org_id = $1 AND update_row.status_page_id = $2
                AND update_row.incident_id = ANY($3::TEXT[])
          ) ranked
          WHERE update_rank <= 200
-         ORDER BY created_at_micros DESC, id DESC"
+         ORDER BY created_at DESC, id DESC"
     );
 
     let update_rows = sqlx::query(&update_sql)

@@ -67,7 +67,7 @@ struct Exemplar {
     timestamp: f64,
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("metrics.read", "sys.telemetry.read"))]
 async fn query_exemplars_get(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -76,7 +76,7 @@ async fn query_exemplars_get(
     query_exemplars(state, ctx, params).await
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("metrics.read", "sys.telemetry.read"))]
 async fn query_exemplars_post(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -117,6 +117,7 @@ async fn query_exemplars(
                 time_range: TimeRange::new(start, end),
                 stream: None,
                 limit: Some(MAX_EXEMPLARS_PER_QUERY),
+                step: None,
                 federation_clusters: Vec::new(),
             },
             &role_key,

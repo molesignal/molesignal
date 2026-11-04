@@ -77,7 +77,9 @@ test.describe('Explorer bar actions', () => {
       const row = page.locator('[data-log-result-actions] [data-query-icon-action]');
       await expectSigns(
         row,
-        zh ? ['列设置', '隐藏直方图', '下载日志'] : ['Columns', 'Hide histogram', 'Download logs'],
+        zh
+          ? ['分成两栏', '列设置', '隐藏直方图', '下载日志']
+          : ['Split in two', 'Columns', 'Hide histogram', 'Download logs'],
       );
       // The same box as the signs of the bar above.
       expect(await sizeOf(row.first())).toEqual(
@@ -85,10 +87,16 @@ test.describe('Explorer bar actions', () => {
       );
 
       await openExplorer(page, 'traces');
-      const histogram = page.locator('[data-module-state]');
-      await expect(histogram).toHaveCount(1);
-      await expect(histogram).toHaveText('');
-      await expect(histogram).toHaveAccessibleName(zh ? '隐藏直方图' : 'Hide histogram');
+      // The trace table's columns are set from a sign beside it, as the log table's are.
+      const head = page.locator('[data-trace-results-head] [data-query-icon-action]');
+      await expectSigns(
+        head,
+        zh
+          ? ['分成两栏', '挑选两条链路进行对比', '列设置', '隐藏直方图']
+          : ['Split in two', 'Pick two traces to compare', 'Columns', 'Hide histogram'],
+      );
+      // The histogram is one of the switches among them, and it is on.
+      await expect(head.last()).toHaveAttribute('data-module-state', 'open');
     });
   }
 
@@ -112,6 +120,7 @@ test.describe('Explorer bar actions', () => {
     await page.keyboard.press('Shift+Tab');
     await page.keyboard.press('Tab');
     await expect(columns).toBeFocused();
-    await expect(page.getByRole('tooltip')).toHaveText('Columns');
+    // The tip of the sign before it may still be fading out.
+    await expect(page.getByRole('tooltip', { name: 'Columns' })).toBeVisible();
   });
 });

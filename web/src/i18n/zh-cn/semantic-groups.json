@@ -74,7 +74,7 @@
     "subtitle": "粘贴分组的 JSON 数组（或 { groups: [...] }）。",
     "submit": "导入",
     "editor_label": "分组 JSON",
-    "placeholder": "[{ \"name\": \"crit-by-service\", \"enabled\": true, \"matchers\": [{ \"label\": \"severity\", \"op\": \"eq\", \"value\": \"critical\" }], \"group_by\": [\"service\"] }]",
+    "placeholder": "[{ \"name\": \"crit-by-service\", \"enabled\": true, \"matchers\": [{ \"label\": \"severity\", \"op\": \"eq\", \"value\": \"critical\" }], \"groupBy\": [\"service\"] }]",
     "toast_imported": "已导入 {{count}} 个分组",
     "invalid_json": "JSON 非法：{{message}}",
     "expects_array": "需要一个非空的分组数组。"

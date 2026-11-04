@@ -61,9 +61,17 @@ const PAGES: Array<{
   { slug: 'settings-general', route: '/settings/general', signedIn: true },
   { slug: 'datasource', route: '/datasource', signedIn: true },
   { slug: 'pipelines', route: '/pipelines', signedIn: true },
-  { slug: 'apm-overview', route: '/apm/overview', signedIn: true },
+  { slug: 'apm-services', route: '/apm/services', signedIn: true },
   { slug: 'rum-overview', route: '/rum/overview', signedIn: true },
-  { slug: 'rum-sessions', route: '/rum/sessions', signedIn: true },
+  { slug: 'rum-explorer', route: '/rum/explorer', signedIn: true },
+  { slug: 'rum-errors', route: '/rum/errors', signedIn: true },
+  { slug: 'rum-performance', route: '/rum/performance', signedIn: true },
+  { slug: 'rum-performance-resources', route: '/rum/performance/resources', signedIn: true },
+  { slug: 'rum-performance-long-tasks', route: '/rum/performance/long-tasks', signedIn: true },
+  { slug: 'rum-frustration', route: '/rum/frustration', signedIn: true },
+  { slug: 'rum-applications', route: '/rum/applications', signedIn: true },
+  { slug: 'rum-analytics-heatmaps', route: '/rum/analytics/heatmaps', signedIn: true },
+  { slug: 'rum-feature-flags', route: '/rum/feature-flags', signedIn: true },
 ];
 
 for (const locale of LOCALES) {

@@ -51,17 +51,17 @@ impl StatusPagePostmortemRepository for PgStatusPageRepository {
                 sqlx::query(
                     "UPDATE status_page_incidents SET
                          postmortem_body = $4, postmortem_state = 'draft',
-                         postmortem_published_at_micros = NULL,
-                         postmortem_revised_at_micros = NULL,
-                         postmortem_updated_at_micros = $5, postmortem_updated_by = $6,
-                         updated_at_micros = CASE WHEN $7 THEN $5 ELSE updated_at_micros END
+                         postmortem_published_at = NULL,
+                         postmortem_revised_at = NULL,
+                         postmortem_updated_at = $5, postmortem_updated_by = $6,
+                         updated_at = CASE WHEN $7 THEN $5 ELSE updated_at END
                      WHERE org_id = $1 AND status_page_id = $2 AND id = $3",
                 )
                 .bind(&org_id.0)
                 .bind(&page_id.0)
                 .bind(&incident_id.0)
                 .bind(body)
-                .bind(now.0)
+                .bind(now)
                 .bind(actor_id.map(Id::as_str))
                 .bind(was_published)
                 .execute(&mut *transaction)
@@ -72,18 +72,18 @@ impl StatusPagePostmortemRepository for PgStatusPageRepository {
                 sqlx::query(
                     "UPDATE status_page_incidents SET
                          postmortem_body = $4, postmortem_state = 'published',
-                         postmortem_published_at_micros =
-                             CASE WHEN $7 THEN postmortem_published_at_micros ELSE $5 END,
-                         postmortem_revised_at_micros = CASE WHEN $7 THEN $5 ELSE NULL END,
-                         postmortem_updated_at_micros = $5, postmortem_updated_by = $6,
-                         updated_at_micros = $5
+                         postmortem_published_at =
+                             CASE WHEN $7 THEN postmortem_published_at ELSE $5 END,
+                         postmortem_revised_at = CASE WHEN $7 THEN $5 ELSE NULL END,
+                         postmortem_updated_at = $5, postmortem_updated_by = $6,
+                         updated_at = $5
                      WHERE org_id = $1 AND status_page_id = $2 AND id = $3",
                 )
                 .bind(&org_id.0)
                 .bind(&page_id.0)
                 .bind(&incident_id.0)
                 .bind(body)
-                .bind(now.0)
+                .bind(now)
                 .bind(actor_id.map(Id::as_str))
                 .bind(was_published)
                 .execute(&mut *transaction)
@@ -123,8 +123,8 @@ impl StatusPagePostmortemRepository for PgStatusPageRepository {
         let deleted = sqlx::query(
             "UPDATE status_page_incidents SET
                  postmortem_body = NULL, postmortem_state = NULL,
-                 postmortem_published_at_micros = NULL, postmortem_revised_at_micros = NULL,
-                 postmortem_updated_at_micros = NULL, postmortem_updated_by = NULL
+                 postmortem_published_at = NULL, postmortem_revised_at = NULL,
+                 postmortem_updated_at = NULL, postmortem_updated_by = NULL
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3
                AND postmortem_state = 'draft'",
         )
@@ -165,26 +165,26 @@ async fn queue_postmortem_deliveries(
          )
          INSERT INTO status_page_notification_deliveries (
              id, org_id, status_page_id, subscriber_id, event_key, payload,
-             next_attempt_at_micros, created_at_micros, updated_at_micros
+             next_attempt_at, created_at, updated_at
          )
          SELECT
-             md5(subscriber.id || ':postmortem:' || incident.id || ':' || $4::BIGINT),
+             md5(subscriber.id || ':postmortem:' || incident.id || ':' || epoch_micros($4)),
              incident.org_id,
              incident.status_page_id,
              subscriber.id,
-             'postmortem:' || incident.id || ':' || $4::BIGINT,
+             'postmortem:' || incident.id || ':' || epoch_micros($4),
              jsonb_build_object(
                  'type', 'postmortem_published',
-                 'page_name', page.name,
-                 'page_slug', page.slug,
-                 'incident_id', incident.id,
+                 'pageName', page.name,
+                 'pageSlug', page.slug,
+                 'incidentId', incident.id,
                  'title', incident.title,
                  'impact', incident.impact,
                  'revision', $5::BOOLEAN,
-                 'occurred_at', $4::BIGINT,
-                 'started_at', incident.started_at_micros,
-                 'ended_at', incident.ended_at_micros,
-                 'component_names', status_page_event_component_names(
+                 'occurredAt', epoch_micros($4),
+                 'startedAt', epoch_micros(incident.started_at),
+                 'endedAt', epoch_micros(incident.ended_at),
+                 'componentNames', status_page_event_component_names(
                      incident.org_id, incident.status_page_id, incident.id
                  )
              ),
@@ -208,7 +208,7 @@ async fn queue_postmortem_deliveries(
     .bind(&org_id.0)
     .bind(&page_id.0)
     .bind(&incident_id.0)
-    .bind(now.0)
+    .bind(now)
     .bind(revision)
     .execute(transaction)
     .await

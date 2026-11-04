@@ -10,6 +10,9 @@ use serde::{Deserialize, Serialize};
 use super::{IntakeBatch, RawEvent};
 use crate::shared::{Error, Result};
 
+pub mod budget;
+pub mod source;
+
 /// WAL payload containing the accepted batch and its pre-transformation measurement.
 #[derive(Serialize, Deserialize)]
 pub struct MeteredBatch<T = IntakeBatch> {

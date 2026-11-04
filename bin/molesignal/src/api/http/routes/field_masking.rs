@@ -28,10 +28,11 @@ pub fn routes() -> Router<AppState> {
         .route("/field_masking/rules", get(list).post(create))
         .route("/field_masking/rules/reorder", put(reorder))
         .route("/field_masking/rules/{id}", put(update).delete(delete))
-        .route("/field_masking/effective/{stream_id}", get(effective))
+        .route("/field_masking/effective/{streamId}", get(effective))
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct RuleRequest {
     name: String,
     #[serde(default = "default_true")]
@@ -62,7 +63,7 @@ fn normalize_request(request: RuleRequest) -> Result<RuleRequest> {
     }
 
     if field_pattern.is_empty() || field_pattern.len() > 255 {
-        return Err(Error::invalid("field_pattern must be 1..255 characters"));
+        return Err(Error::invalid("fieldPattern must be 1..255 characters"));
     }
 
     let stream_pattern = request
@@ -75,7 +76,7 @@ fn normalize_request(request: RuleRequest) -> Result<RuleRequest> {
         .is_some_and(|value| value.len() > 255)
     {
         return Err(Error::invalid(
-            "stream_pattern must not exceed 255 characters",
+            "streamPattern must not exceed 255 characters",
         ));
     }
 
@@ -95,7 +96,7 @@ fn normalize_request(request: RuleRequest) -> Result<RuleRequest> {
     })
 }
 
-#[permission("org.settings.read")]
+#[permission("org.field_masking.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -105,7 +106,7 @@ async fn list(
     ))
 }
 
-#[permission("org.settings.manage")]
+#[permission("org.field_masking.manage")]
 async fn create(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -132,7 +133,7 @@ async fn create(
     Ok(Json(state.storage.field_masking_rules.create(rule).await?))
 }
 
-#[permission("org.settings.manage")]
+#[permission("org.field_masking.manage")]
 async fn update(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -164,7 +165,7 @@ async fn update(
     Ok(Json(state.storage.field_masking_rules.update(rule).await?))
 }
 
-#[permission("org.settings.manage")]
+#[permission("org.field_masking.manage")]
 async fn delete(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -179,7 +180,7 @@ async fn delete(
     Ok(Json(serde_json::json!({"deleted": true})))
 }
 
-#[permission("org.settings.manage")]
+#[permission("org.field_masking.manage")]
 async fn reorder(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

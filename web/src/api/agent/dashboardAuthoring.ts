@@ -26,13 +26,13 @@ export interface DashboardPreflightWarning {
 export interface DashboardPanelPreflight {
   path: string;
   title: string;
-  query_kind: string;
+  queryKind: string;
   status: 'passed' | 'empty' | 'skipped';
-  tested_from_micros: number;
-  tested_to_micros: number;
-  returned_rows: number;
-  scanned_rows: number;
-  took_ms: number;
+  testedFrom: number;
+  testedTo: number;
+  returnedRows: number;
+  scannedRows: number;
+  tookMs: number;
 }
 
 export interface DashboardPreflightReport {
@@ -42,34 +42,34 @@ export interface DashboardPreflightReport {
 }
 
 export interface DashboardDraftOperation {
-  approval_id: string;
+  approvalId: string;
   status: ApprovalRequest['status'];
-  required_approvals: number;
-  approved_reviews: number;
-  expires_at?: number | null;
+  requiredApprovals: number;
+  approvedReviews: number;
+  expiresAt?: number | null;
 }
 
 export interface DashboardDraftPreview {
-  draft_id: string;
-  model_hash: string;
-  folder_id?: string | null;
+  draftId: string;
+  modelHash: string;
+  folderId?: string | null;
   status: DashboardDraftStatus;
-  created_at: number;
-  expires_at: number;
-  compiled_model: DashboardDefinition;
+  createdAt: number;
+  expiresAt: number;
+  compiledModel: DashboardDefinition;
   warnings: DashboardPreflightWarning[];
   preflight: DashboardPreflightReport;
   operation?: DashboardDraftOperation | null;
-  dashboard_id?: string | null;
-  dashboard_route?: string | null;
-  can_propose: boolean;
+  dashboardId?: string | null;
+  dashboardRoute?: string | null;
+  canPropose: boolean;
 }
 
 export interface DashboardAuthoringCapabilities {
-  authoring_versions: number[];
-  dashboard_model_version: number;
-  compiler_version: string;
-  query_kinds: string[];
+  authoringVersions: number[];
+  dashboardModelVersion: number;
+  compilerVersion: string;
+  queryKinds: string[];
   visualizations: Array<Record<string, unknown>>;
   units: string[];
   reducers: string[];
@@ -104,7 +104,7 @@ export async function proposeDashboardCreation(
   const { data } = await http.post<{ approval: ApprovalRequest }>(
     `/agent/dashboard-drafts/${encodeURIComponent(input.draftId)}/propose`,
     {
-      expected_hash: input.expectedHash,
+      expectedHash: input.expectedHash,
       reason: input.reason,
       impact: input.impact,
     },
@@ -134,9 +134,9 @@ export function useProposeDashboardCreation() {
 
 export interface DashboardExecutionResult extends Execution {
   verification: Execution['verification'] & {
-    dashboard_id?: string;
-    dashboard_route?: string;
-    draft_consumed?: boolean;
+    dashboardId?: string;
+    dashboardRoute?: string;
+    draftConsumed?: boolean;
     replayed?: boolean;
   };
 }

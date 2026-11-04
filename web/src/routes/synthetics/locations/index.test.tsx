@@ -59,16 +59,16 @@ beforeEach(() => {
       code: 'office',
       scope: 'organization',
       health: 'offline',
-      system_managed: false,
+      systemManaged: false,
     }),
     location({ id: 'loc-core', name: 'Built-in', code: 'core', execution: 'embedded' }),
   ]);
   mocks.listAgents.mockImplementation((locationId: string) =>
     Promise.resolve(
       locationId === 'loc-us'
-        ? [agent({ id: 'a', location_id: 'loc-us' }), agent({ id: 'b', location_id: 'loc-us' })]
+        ? [agent({ id: 'a', locationId: 'loc-us' }), agent({ id: 'b', locationId: 'loc-us' })]
         : locationId === 'loc-office'
-          ? [agent({ id: 'c', location_id: 'loc-office', status: 'offline' })]
+          ? [agent({ id: 'c', locationId: 'loc-office', status: 'offline' })]
           : [],
     ),
   );

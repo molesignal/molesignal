@@ -23,7 +23,7 @@ async fn sso_provider_role_options_include_organization_roles() {
     let response = server
         .client
         .get(format!("{}/api/v1/sso/providers/roles", server.base_url))
-        .header("authorization", format!("Bearer {}", server.root_token))
+        .header("cookie", format!("accessToken={}", server.root_token))
         .send()
         .await
         .expect("list SSO-assignable roles");

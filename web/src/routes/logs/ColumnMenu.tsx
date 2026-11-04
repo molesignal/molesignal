@@ -3,6 +3,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/shell/lib/cn';
+import { useFlipList } from '@/shell/polish/useFlipList';
 import { QueryIconAction } from '@/shell/query/IconAction';
 import {
   DropdownMenu,
@@ -73,6 +74,9 @@ export function LogColumnMenu({
     [availableSet, visibleFields],
   );
   const visibleSet = React.useMemo(() => new Set(orderedVisibleFields), [orderedVisibleFields]);
+  // A moved column slides to its new place in the list.
+  const listRef = React.useRef<HTMLDivElement>(null);
+  const captureOrder = useFlipList(listRef, orderedVisibleFields.join('\n'));
   const hiddenFields = React.useMemo(
     () => availableFields.filter((field) => !visibleSet.has(field)),
     [availableFields, visibleSet],
@@ -87,8 +91,9 @@ export function LogColumnMenu({
     const index = orderedVisibleFields.indexOf(field);
     const target = orderedVisibleFields[index + direction];
     if (!target) return;
+    captureOrder();
     onReorderField(field, target, direction < 0 ? 'before' : 'after');
-  }, [onReorderField, orderedVisibleFields]);
+  }, [captureOrder, onReorderField, orderedVisibleFields]);
 
   return (
     <DropdownMenu onOpenChange={(open) => {
@@ -98,6 +103,7 @@ export function LogColumnMenu({
         <QueryIconAction icon={Columns3} label={t('explore.results.columns')} data-log-columns />
       </DropdownMenuTrigger>
       <DropdownMenuContent
+        ref={listRef}
         align="end"
         // No taller than the room under its button: a short window scrolls it instead of cutting it.
         className="max-h-[min(420px,var(--radix-dropdown-menu-content-available-height))] w-72 overflow-auto"
@@ -112,6 +118,7 @@ export function LogColumnMenu({
           return (
             <DropdownMenuCheckboxItem
               key={field}
+              data-flip-key={field}
               checked
               draggable
               aria-label={t('explore.results.drag_column_aria', { name: field })}
@@ -141,7 +148,10 @@ export function LogColumnMenu({
                     + event.currentTarget.getBoundingClientRect().height / 2
                     ? 'before'
                     : 'after');
-                if (source && source !== field) onReorderField(source, field, position);
+                if (source && source !== field) {
+                  captureOrder();
+                  onReorderField(source, field, position);
+                }
                 clearDragState();
               }}
               onDragEnd={clearDragState}

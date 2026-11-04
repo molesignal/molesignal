@@ -48,9 +48,9 @@ export function CandidateReviewDrawer({
   });
   const candidate = detail.data?.candidate;
   const event = useQuery({
-    queryKey: ['status-pages', pageId, 'event', candidate?.status_incident_id],
-    queryFn: () => statusPagesApi.getEvent(pageId, candidate?.status_incident_id ?? ''),
-    enabled: Boolean(candidate?.status_incident_id),
+    queryKey: ['status-pages', pageId, 'event', candidate?.statusIncidentId],
+    queryFn: () => statusPagesApi.getEvent(pageId, candidate?.statusIncidentId ?? ''),
+    enabled: Boolean(candidate?.statusIncidentId),
   });
   const [draft, setDraft] = React.useState<CandidateDraft | null>(null);
   const [note, setNote] = React.useState('');
@@ -77,7 +77,7 @@ export function CandidateReviewDrawer({
           title: draft.title.trim(),
           impact: draft.impact,
           message: draft.message.trim(),
-          component_ids: draft.componentIds,
+          componentIds: draft.componentIds,
           ...(decisionNote ? { note: decisionNote } : {}),
         });
       }
@@ -103,7 +103,7 @@ export function CandidateReviewDrawer({
     || !draft.title.trim()
     || !draft.message.trim()
     || draft.componentIds.length === 0;
-  const missingDraft = candidate?.state === 'pending_approval' && !candidate.status_incident_id;
+  const missingDraft = candidate?.state === 'pending_approval' && !candidate.statusIncidentId;
   const draftLoadFailed = candidate?.state === 'pending_approval' && event.isError;
   const draftProblem = missingDraft
     ? t('automation.review.missing_draft')
@@ -184,7 +184,7 @@ export function CandidateReviewDrawer({
               <span>{t(`impact.${event.data?.impact ?? candidate.impact}`)}</span>
             </Fact>
             <Fact label={t('automation.review.due_at')}>
-              <span className="tabular-nums">{formatMicrosActive(candidate.due_at)}</span>
+              <span className="tabular-nums">{formatMicrosActive(candidate.dueAt)}</span>
             </Fact>
           </div>
 
@@ -240,16 +240,16 @@ export function CandidateReviewDrawer({
               <div className="rounded-md border border-bd-0 bg-bg-2 px-4 py-3">
                 <div className="text-sm font-strong text-tx-0">{event.data?.title ?? candidate.title}</div>
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-tx-2">
-                  {event.data?.draft_message ?? event.data?.updates.at(-1)?.message ?? candidate.message}
+                  {event.data?.draftMessage ?? event.data?.updates.at(-1)?.message ?? candidate.message}
                 </p>
               </div>
             </FormSection>
           )}
 
-          {candidate.last_error && (
+          {candidate.lastError && (
             <FormSection title={t('automation.review.failure')}>
               <div className="rounded-md border border-red/30 bg-red-dim px-4 py-3 font-code text-xs leading-relaxed text-red-soft">
-                {candidate.last_error}
+                {candidate.lastError}
               </div>
             </FormSection>
           )}
@@ -257,36 +257,36 @@ export function CandidateReviewDrawer({
           <FormSection title={t('automation.review.sources')} description={t('automation.review.sources_hint')}>
             <div className="overflow-hidden rounded-md border border-bd-0">
               {(detail.data?.sources ?? []).map((source) => (
-                <div key={`${source.source_kind}:${source.source_instance_id}`} className="border-b border-bd-0 px-4 py-3 last:border-b-0">
+                <div key={`${source.sourceKind}:${source.sourceInstanceId}`} className="border-b border-bd-0 px-4 py-3 last:border-b-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <Pill tone={source.active && !source.muted ? 'green' : 'dim'}>
                       {source.active && !source.muted ? t('automation.review.active') : t('automation.review.inactive')}
                     </Pill>
-                    <span className="text-xs font-strong text-tx-0">{t(`automation.source.${source.source_kind}`)}</span>
-                    <span className="font-code text-xs text-tx-3">{source.source_instance_id}</span>
+                    <span className="text-xs font-strong text-tx-0">{t(`automation.source.${source.sourceKind}`)}</span>
+                    <span className="font-code text-xs text-tx-3">{source.sourceInstanceId}</span>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {Object.entries(source.labels).map(([key, value]) => (
                       <span key={key} className="rounded bg-bg-3 px-2 py-1 font-code text-xs text-tx-2">{key}={value}</span>
                     ))}
                   </div>
-                  <div className="mt-2 text-xs tabular-nums text-tx-3">{formatMicrosActive(source.observed_at)}</div>
+                  <div className="mt-2 text-xs tabular-nums text-tx-3">{formatMicrosActive(source.observedAt)}</div>
                 </div>
               ))}
             </div>
           </FormSection>
 
           <FormSection title={t('automation.review.activity')}>
-            {(detail.data?.work_items.length ?? 0) > 0 && (
+            {(detail.data?.workItems.length ?? 0) > 0 && (
               <div className="mb-4 overflow-hidden rounded-md border border-bd-0">
-                {(detail.data?.work_items ?? []).map((item) => (
+                {(detail.data?.workItems ?? []).map((item) => (
                   <div key={item.id} className="flex flex-wrap items-center gap-2 border-b border-bd-0 px-3 py-2.5 last:border-b-0">
                     <Pill tone={item.status === 'dead_letter' ? 'red' : item.status === 'completed' ? 'green' : 'yellow'}>
                       {t(`automation.work_status.${item.status}`)}
                     </Pill>
                     <span className="text-xs font-strong text-tx-1">{t(`automation.work_kind.${item.kind}`)}</span>
                     <span className="text-xs text-tx-3">{t('automation.review.attempts', { count: item.attempts })}</span>
-                    <span className="ml-auto text-xs tabular-nums text-tx-3">{formatMicrosActive(item.updated_at)}</span>
+                    <span className="ml-auto text-xs tabular-nums text-tx-3">{formatMicrosActive(item.updatedAt)}</span>
                   </div>
                 ))}
               </div>
@@ -299,7 +299,7 @@ export function CandidateReviewDrawer({
                     <div className="text-xs font-strong text-tx-1">{t(`automation.action.${action.action}`, { defaultValue: action.action })}</div>
                     {action.note && <div className="mt-1 text-xs leading-relaxed text-tx-3">{action.note}</div>}
                   </div>
-                  <span className="shrink-0 text-xs tabular-nums text-tx-3">{formatMicrosActive(action.created_at)}</span>
+                  <span className="shrink-0 text-xs tabular-nums text-tx-3">{formatMicrosActive(action.createdAt)}</span>
                 </div>
               ))}
             </div>
@@ -321,8 +321,8 @@ function candidateDraft(event: StatusPageIncident): CandidateDraft {
   return {
     title: event.title,
     impact: event.impact,
-    message: event.draft_message ?? event.updates.at(-1)?.message ?? '',
-    componentIds: event.component_ids,
+    message: event.draftMessage ?? event.updates.at(-1)?.message ?? '',
+    componentIds: event.componentIds,
   };
 }
 

@@ -11,19 +11,19 @@ function component(
 ): StatusPageComponent {
   return {
     id,
-    org_id: 'org',
-    status_page_id: 'page',
+    orgId: 'org',
+    statusPageId: 'page',
     name: id,
     description: '',
     status: 'operational' as ComponentStatus,
     visibility: 'enabled',
     lifecycle: 'active',
     position,
-    archived_at: null,
-    created_at: 1,
-    updated_at: 1,
+    archivedAt: null,
+    createdAt: 1,
+    updatedAt: 1,
     kind: 'component',
-    group_id: null,
+    groupId: null,
     ...overrides,
   };
 }
@@ -31,8 +31,8 @@ function component(
 const components = [
   component('api', 10),
   component('ai', 20, { kind: 'group', name: 'AI SRE' }),
-  component('chat', 30, { group_id: 'ai', name: 'Web Chat' }),
-  component('sandbox', 40, { group_id: 'ai', name: 'Sandbox', status: 'partial_outage' }),
+  component('chat', 30, { groupId: 'ai', name: 'Web Chat' }),
+  component('sandbox', 40, { groupId: 'ai', name: 'Sandbox', status: 'partial_outage' }),
   component('billing', 50),
 ];
 

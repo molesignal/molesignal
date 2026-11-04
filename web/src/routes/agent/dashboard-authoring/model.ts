@@ -11,23 +11,23 @@ export function dashboardDraftAction(
   draft: DashboardDraftPreview,
   nowMicros = Date.now() * 1000,
 ): DashboardDraftAction {
-  if (draft.status === 'consumed' && draft.dashboard_route) return 'open';
+  if (draft.status === 'consumed' && draft.dashboardRoute) return 'open';
   if (draft.status !== 'ready' || effectiveDraftExpiry(draft) <= nowMicros) {
     return 'blocked';
   }
   const operation = draft.operation;
-  if (!operation) return draft.can_propose ? 'propose' : 'blocked';
+  if (!operation) return draft.canPropose ? 'propose' : 'blocked';
   if (operation.status === 'approved') return 'execute';
   if (operation.status === 'pending') return 'wait_for_review';
-  if (operation.status === 'executed' && draft.dashboard_route) return 'open';
+  if (operation.status === 'executed' && draft.dashboardRoute) return 'open';
   return 'blocked';
 }
 
 export function effectiveDraftExpiry(draft: DashboardDraftPreview): number {
-  const operationExpiry = draft.operation?.expires_at;
+  const operationExpiry = draft.operation?.expiresAt;
   return operationExpiry == null
-    ? draft.expires_at
-    : Math.min(draft.expires_at, operationExpiry);
+    ? draft.expiresAt
+    : Math.min(draft.expiresAt, operationExpiry);
 }
 
 export function dashboardCreationIdempotencyKey(
@@ -57,10 +57,10 @@ export function preflightRange(draft: DashboardDraftPreview): {
   if (draft.preflight.panels.length === 0) return null;
   return {
     from: Math.min(
-      ...draft.preflight.panels.map((panel) => panel.tested_from_micros),
+      ...draft.preflight.panels.map((panel) => panel.testedFrom),
     ),
     to: Math.max(
-      ...draft.preflight.panels.map((panel) => panel.tested_to_micros),
+      ...draft.preflight.panels.map((panel) => panel.testedTo),
     ),
   };
 }

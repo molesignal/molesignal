@@ -14,6 +14,7 @@
  */
 import { expect, type Page } from '@playwright/test';
 
+import { explorerRead, explorerReadBody } from './explorerReads';
 import { serveLogCounts, serveTraceCounts } from './histogramCounts';
 import { FROZEN_NOW_ISO } from './mockBackend';
 
@@ -31,7 +32,7 @@ interface Held {
 
 const field = (name: string, dataType = 'utf8') => ({
   name,
-  data_type: dataType,
+  dataType: dataType,
   nullable: name !== '_timestamp',
   indexed: false,
 });
@@ -47,12 +48,12 @@ const stream = (
 ) => ({
   id,
   name,
-  stream_type: type,
+  streamType: type,
   schema: { fields },
   retention: { days: 7 },
-  effective_retention: { days: 7 },
-  created_at_micros: NOW - 30 * DAY,
-  updated_at_micros: NOW - DAY,
+  effectiveRetention: { days: 7 },
+  createdAt: NOW - 30 * DAY,
+  updatedAt: NOW - DAY,
 });
 
 const STREAMS = [
@@ -184,12 +185,12 @@ const TRACES: Held[] = TRACES_PER_HOUR.flatMap((count, hoursAgo) => spread(count
       micros,
       error: errors > 0,
       row: {
-        trace_id: traceId(index),
+        traceId: traceId(index),
         ...TRACE_ROOTS[index % TRACE_ROOTS.length]!,
-        start_ns: micros * 1_000,
-        duration_ms: TRACE_DURATIONS_MS[index % TRACE_DURATIONS_MS.length]!,
-        span_count: 3 + ((index * 5) % 11),
-        error_count: errors,
+        startNs: micros * 1_000,
+        durationMs: TRACE_DURATIONS_MS[index % TRACE_DURATIONS_MS.length]!,
+        spanCount: 3 + ((index * 5) % 11),
+        errorCount: errors,
       },
     };
   },
@@ -221,9 +222,9 @@ function lister(held: readonly Held[]) {
 
     return {
       items: matched.slice(start, end).map(({ row }) => row),
-      next_cursor: end < matched.length ? String(end) : null,
-      previous_cursor: start > 0 ? String(Math.max(0, start - limit)) : null,
-      has_more: end < matched.length,
+      nextCursor: end < matched.length ? String(end) : null,
+      previousCursor: start > 0 ? String(Math.max(0, start - limit)) : null,
+      hasMore: end < matched.length,
     };
   };
 }
@@ -240,7 +241,7 @@ export async function serveExplorerResults(page: Page): Promise<void> {
   await page.route(/\/api\/v1\/streams(\?.*)?$/, (route) =>
     route.request().method() === 'GET' ? route.fulfill({ json: STREAMS }) : route.fallback(),
   );
-  await page.route('**/api/v1/web/logs', (route) => route.fulfill({ json: logs(route.request().postDataJSON()) }));
+  await page.route(explorerRead('web/logs'), (route) => route.fulfill({ json: logs(explorerReadBody(route.request())) }));
   await page.route(/\/api\/v1\/web\/traces(\?.*)?$/, (route) =>
     route.fulfill({ json: traces(Object.fromEntries(new URL(route.request().url()).searchParams)) }),
   );

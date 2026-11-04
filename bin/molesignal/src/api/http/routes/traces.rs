@@ -27,7 +27,7 @@ pub struct ServiceGraphParams {
     pub service: Option<String>,
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("traces.read", "sys.telemetry.read"))]
 async fn service_graph(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

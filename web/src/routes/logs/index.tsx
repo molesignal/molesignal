@@ -22,7 +22,6 @@ import {
 } from '@/pagination/explorerPageSize';
 import { useCursorPagination } from '@/pagination/useCursorPagination';
 import { TimeRangeChip } from '@/shell/chrome';
-import type { CodeCompletionItem } from '@/shell/codeEditor/types';
 import { CursorPagination } from '@/shell/CursorPagination';
 import { FilterBuilder } from '@/shell/query/builder/FilterBuilder';
 import { QueryEditorFrame } from '@/shell/query/EditorFrame';
@@ -36,7 +35,7 @@ import { QueryState } from '@/shell/query/State';
 import { QuerySyntaxHelp } from '@/shell/query/SyntaxHelp';
 import { useSqlFunctionCompletions } from '@/shell/query/useSqlFunctionCompletions';
 import { QueryWorkbench } from '@/shell/query/Workbench';
-import { useFoldedWhileNarrow, useQueryTabStatus } from '@/shell/queryTabs';
+import { useFoldedWhileNarrow, useQueryTabState, useQueryTabStatus, useQueryTabStrip } from '@/shell/queryTabs';
 import { ResultPagination } from '@/shell/ResultPagination';
 import { WorkbenchTitle } from '@/shell/SurfaceWorkbench';
 import { isNarrowViewport } from '@/shell/useViewportWidth';
@@ -49,17 +48,18 @@ import type { QueryResult } from '@/types/query';
 
 import { logBuilderDialect, logBuilderFields } from './builderDialect';
 import { useLogColumns } from './columns/useLogColumns';
+import { logQueryCompletions } from './completions';
+import { type PinnedLogFilter, pinnedLogFilters } from './conditions/model';
+import { LogConditionNotice } from './conditions/Notice';
 import { runLogCursorQuery } from './cursorQuery';
 import { LogDetail } from './detail/Drawer';
+import { LogDetailFrame } from './detail/Frame';
 import {
   appendLogFieldClause,
   appendLogFieldContainsClause,
   appendLogFieldValueClause,
   buildLogFieldQuerySql,
   deriveLogFields,
-  escapeSqlIdentifier,
-  escapeSqlString,
-  type LogFieldDef,
 } from './fieldQueryModel';
 import { LogFieldPanel } from './fields/Panel';
 import { type CountedLogQuery, useLogHistogramCounts } from './histogramCounts';
@@ -74,192 +74,27 @@ import {
   logQueryPlaceholder,
   logQuerySummary,
   useLogQueryState,
+  writeLogQueryParams,
 } from './queryState';
 import { LogResultSummary } from './ResultSummary';
 import { LogListResults } from './ResultViews';
+import {
+  appendPinnedFilters,
+  appendSqlFieldContainsFilter,
+  appendSqlFieldFilter,
+  appendSqlFieldValueFilter,
+} from './sqlStatement';
 import { LogStatsView } from './stats/View';
 import { LogStreamSelect } from './StreamSelect';
 import {
   logLevelTone,
-  displayLogValue,
   recordsToCsv,
   recordsToLogText,
   topLogFieldValues,
   type LogEntry,
   type LogLevel,
 } from './viewModel';
-import { LogResultViewTabs, type LogResultView } from './views';
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function quotedCompletion(value: string): string {
-  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-}
-
-function logQueryCompletions(
-  fields: LogFieldDef[],
-  rows: LogEntry[],
-  maskedFields: ReadonlySet<string> | null,
-): CodeCompletionItem[] {
-  const fieldNames = new Set([
-    'level',
-    'message',
-    'body',
-    'service',
-    'service_name',
-    'trace_id',
-    'span_id',
-    'status',
-    'status_code',
-    'duration',
-    'duration_ms',
-    ...fields.map((field) => field.name),
-  ]);
-  const values = new Map<string, Set<string>>([
-    ['level', new Set(['INFO', 'WARN', 'ERROR', 'DEBUG', 'TRACE'])],
-    ['service', new Set(['checkout', 'api', 'web'])],
-    ['service_name', new Set(['checkout', 'api', 'web'])],
-  ]);
-  // Until masking metadata is known, expose only the static, non-sensitive
-  // fallbacks above. Observed log values are added only for confirmed
-  // unmasked fields so autocomplete cannot become a masking side channel.
-  if (maskedFields !== null) {
-    for (const row of rows.slice(0, 200)) {
-      if (!maskedFields.has('level')) values.get('level')?.add(row.level);
-      for (const [key, value] of Object.entries(row.raw)) {
-        if (!fieldNames.has(key) || maskedFields.has(key.toLowerCase())) continue;
-        const bucket = values.get(key) ?? new Set<string>();
-        values.set(key, bucket);
-        if (bucket.size >= 50) continue;
-        if (typeof value === 'string' && value.length > 0 && value.length <= 80) {
-          bucket.add(value);
-        }
-        if (typeof value === 'number' || typeof value === 'boolean') {
-          bucket.add(String(value));
-        }
-      }
-    }
-  }
-  return [
-    ...Array.from(fieldNames).sort().map((label) => ({ label, kind: 'field' as const, detail: 'log field' })),
-    { label: '=', insertText: '= ', kind: 'operator', detail: 'operator' },
-    { label: '!=', insertText: '!= ', kind: 'operator', detail: 'operator' },
-    { label: '>=', insertText: '>= ', kind: 'operator', detail: 'operator' },
-    { label: '<=', insertText: '<= ', kind: 'operator', detail: 'operator' },
-    { label: '>', insertText: '> ', kind: 'operator', detail: 'operator' },
-    { label: '<', insertText: '< ', kind: 'operator', detail: 'operator' },
-    { label: 'contains', insertText: 'contains ', kind: 'operator', detail: 'operator' },
-    { label: 'AND', insertText: 'AND ', kind: 'operator', detail: 'operator' },
-    { label: 'OR', insertText: 'OR ', kind: 'operator', detail: 'operator' },
-    ...Array.from(values.entries()).flatMap(([field, fieldValues]) => (
-      Array.from(fieldValues).sort().map((value) => {
-        const quoted = quotedCompletion(value);
-        return {
-          label: quoted,
-          insertText: quoted,
-          kind: 'value' as const,
-          detail: `${field} value`,
-          field,
-          value,
-        };
-      })
-    )),
-  ];
-}
-
-function hasSqlFieldFilter(statement: string, field: string): boolean {
-  const quotedField = `"${escapeSqlIdentifier(field)}"`;
-  const escapedQuoted = escapeRegExp(quotedField);
-  const escapedBare = escapeRegExp(field);
-  const pattern = new RegExp(`(?:^|\\s|\\()(${escapedQuoted}|${escapedBare})\\s*(?:>=|<=|=|!=|<>|>|<|LIKE\\b|IN\\s*\\(|IS\\s+(?:NOT\\s+)?NULL)`, 'i');
-  return pattern.test(statement);
-}
-
-function appendSqlFieldFilter(statement: string, stream: string, field: LogFieldDef): string {
-  const base = statement.trim() || defaultLogQuery(stream);
-  if (hasSqlFieldFilter(base, field.name)) return statement;
-  const identifier = `"${escapeSqlIdentifier(field.name)}"`;
-  const clause = field.dataType === 'json'
-    ? `CAST(${identifier} AS VARCHAR) LIKE '%"key"%'`
-    : field.dataType === 'bool'
-      ? `${identifier} = TRUE`
-      : field.dataType === 'timestamp'
-        ? `CAST(${identifier} AS BIGINT) >= 0`
-        : ['int64', 'float64'].includes(field.dataType)
-        ? `${identifier} >= 0`
-        : `${identifier} = ''`;
-  const boundary = base.search(/\s+(ORDER\s+BY|LIMIT)\b/i);
-  if (boundary >= 0) {
-    const before = base.slice(0, boundary).trimEnd();
-    const after = base.slice(boundary);
-    const joiner = /\bWHERE\b/i.test(before) ? `\n  AND ${clause}` : `\nWHERE ${clause}`;
-    return `${before}${joiner}${after}`;
-  }
-  return /\bWHERE\b/i.test(base) ? `${base}\n  AND ${clause}` : `${base}\nWHERE ${clause}`;
-}
-
-function appendSqlFieldValueFilter(
-  statement: string,
-  stream: string,
-  field: string,
-  value: unknown,
-  mode: 'include' | 'exclude',
-): string {
-  const base = statement.trim() || defaultLogQuery(stream);
-  const sqlValue = typeof value === 'number' && Number.isFinite(value)
-    ? String(value)
-    : typeof value === 'boolean'
-      ? String(value).toUpperCase()
-      : `'${escapeSqlString(displayLogValue(value))}'`;
-  const clause = `"${escapeSqlIdentifier(field)}" ${mode === 'exclude' ? '!=' : '='} ${sqlValue}`;
-  const boundary = base.search(/\s+(ORDER\s+BY|LIMIT)\b/i);
-  const before = boundary >= 0 ? base.slice(0, boundary).trimEnd() : base;
-  const after = boundary >= 0 ? base.slice(boundary) : '';
-  const joiner = /\bWHERE\b/i.test(before) ? `\n  AND ${clause}` : `\nWHERE ${clause}`;
-  return `${before}${joiner}${after}`;
-}
-
-/** The SQL form of asking for the records whose field has `text` somewhere in it. */
-function appendSqlFieldContainsFilter(statement: string, stream: string, field: string, text: string): string {
-  const base = statement.trim() || defaultLogQuery(stream);
-  const clause = `"${escapeSqlIdentifier(field)}" LIKE '%${escapeSqlString(text)}%'`;
-  if (base.includes(clause)) return base;
-
-  const boundary = base.search(/\s+(ORDER\s+BY|LIMIT)\b/i);
-  const before = boundary >= 0 ? base.slice(0, boundary).trimEnd() : base;
-  const after = boundary >= 0 ? base.slice(boundary) : '';
-  const joiner = /\bWHERE\b/i.test(before) ? `\n  AND ${clause}` : `\nWHERE ${clause}`;
-
-  return `${before}${joiner}${after}`;
-}
-
-/**
- * Append pinned global filters (`useFiltersStore`) to the SQL about to run, as
- * `"key" = 'value'` clauses inserted before any ORDER BY / LIMIT. Filters whose
- * field the query already constrains are skipped (no conflict / duplication),
- * and an empty filter set is a no-op — so behavior is unchanged when nothing is
- * pinned.
- */
-function appendGlobalFilters(statement: string, stream: string, filters: GlobalFilter[]): string {
-  if (filters.length === 0) return statement;
-  const base = statement.trim() || defaultLogQuery(stream);
-  const clauses = filters
-    .filter((f) => f.key && f.value && !hasSqlFieldFilter(base, f.key))
-    .map((f) => `"${escapeSqlIdentifier(f.key)}" ${f.operator === '!=' ? '!=' : '='} '${f.value.replace(/'/g, "''")}'`);
-  if (clauses.length === 0) return base;
-  const boundary = base.search(/\s+(ORDER\s+BY|LIMIT)\b/i);
-  const body = boundary >= 0 ? base.slice(0, boundary).trimEnd() : base;
-  const tail = boundary >= 0 ? base.slice(boundary) : '';
-  let hasWhere = /\bWHERE\b/i.test(body);
-  let result = body;
-  for (const clause of clauses) {
-    result += hasWhere ? `\n  AND ${clause}` : `\nWHERE ${clause}`;
-    hasWhere = true;
-  }
-  return `${result}${tail}`;
-}
+import { LogResultViewTabs, useLogResultView } from './views';
 
 function isPresent(value: unknown): boolean {
   return value !== null && value !== undefined && value !== '';
@@ -349,6 +184,10 @@ function resultToLogs(result: QueryResult, tz: string, format: TimeFormat, dateF
   return result.rows.map((row) => rowToLog(row, result.columns, idx, tz, format, dateFormat));
 }
 
+const NO_FIELDS: readonly streamsApi.StreamField[] = [];
+const NO_PINNED: readonly PinnedLogFilter[] = [];
+const NO_FILTERS: readonly GlobalFilter[] = [];
+
 /** What opens a log in the drawer: a row of the list, or a log under a pattern. */
 const LOG_OPENERS = '[data-log-result-row="logs"], [data-log-pattern-example]';
 
@@ -356,6 +195,30 @@ export function Logs() {
   const { t, i18n } = useTranslation('logs');
   const { t: tCommon } = useTranslation('common');
   const fmt = useTimeFormatter();
+  const streamsQuery = useQuery({
+    queryKey: ['streams', 'logs-selector'],
+    queryFn: () => streamsApi.list(500),
+  });
+  // Logs always queries with `stream_type: 'logs'`, so the selector must only
+  // offer logs streams. Otherwise the auto-select picks `streams[0]` — which
+  // after on-demand creation can be a traces/metrics stream (e.g. a `default`
+  // traces stream from a test trace) — and the query 404s with
+  // `stream not found: default`.
+  const streams = React.useMemo(
+    () => (streamsQuery.data ?? []).filter((s) => s.type === 'logs' && streamsApi.isQueryable(s)),
+    [streamsQuery.data],
+  );
+  // Known once the list is in: a link's conditions and the pinned filters are applied on the
+  // stream's own fields, and a stream the list does not have has none.
+  const streamsListed = !streamsQuery.isPending;
+  const fieldsOf = React.useCallback(
+    (name: string) => {
+      if (!streamsListed) return undefined;
+      const listed = streams.find((candidate) => candidate.name === name && candidate.streamType === 'logs');
+      return listed?.schema.fields ?? NO_FIELDS;
+    },
+    [streams, streamsListed],
+  );
   const {
     editorMode,
     setEditorMode,
@@ -363,7 +226,12 @@ export function Logs() {
     setBuilderStatement,
     requestedStream,
     requestedFieldQuery,
+    requestedLink,
+    linkPending,
+    linkGaps,
     requestedSql,
+    addressTaken,
+    publishQuery,
     queryMode,
     setQueryMode,
     stream,
@@ -372,11 +240,19 @@ export function Logs() {
     setQuery,
     fieldQuery,
     setFieldQuery,
-  } = useLogQueryState();
+  } = useLogQueryState(fieldsOf);
+  const selectedStream = React.useMemo(
+    () => streams.find((candidate) => candidate.name === stream && candidate.streamType === 'logs'),
+    [stream, streams],
+  );
+  const selectedStreamFields = React.useMemo(
+    () => selectedStream?.schema.fields ?? [],
+    [selectedStream],
+  );
   // A field picked in the field list while the builder is open starts a filter there.
   const [builderField, setBuilderField] = React.useState<string | null>(null);
   // Which view of the results is shown: the logs, their statistics, an inspection, or their patterns.
-  const [view, setView] = React.useState<LogResultView>('raw');
+  const [view, setView] = useLogResultView();
   // The histogram can be closed to give the rows more room; that choice is
   // remembered, so the page opens the way it was left.
   const showHistogram = useExplorerLayoutStore((state) => state.logsHistogramVisible);
@@ -385,8 +261,10 @@ export function Logs() {
   const [fieldPanelCollapsed, setFieldPanelCollapsed] = useFoldedWhileNarrow(isNarrowViewport);
   // The editor starts folded into the bar, as on Traces: it opens when there is a
   // query to look at (one arrived in the link, a filter was added) or on request.
-  const [queryEditorCollapsed, setQueryEditorCollapsed] = React.useState(
-    !requestedFieldQuery && !requestedSql,
+  // Kept with the tab: its address carries the query it ran, which is no reason to open it on a reload.
+  const [queryEditorCollapsed, setQueryEditorCollapsed] = useQueryTabState(
+    'logs.editorFolded',
+    !requestedFieldQuery && !requestedSql && !requestedLink,
   );
   const [expandedField, setExpandedField] = React.useState<string | null>(null);
   const [resultPage, setResultPage] = React.useState(1);
@@ -406,14 +284,22 @@ export function Logs() {
   const [queryError, setQueryError] = React.useState<unknown>(null);
   const [queryPending, setQueryPending] = React.useState(false);
   const initialRunStreamRef = React.useRef<string | null>(null);
-  const appliedFieldQueryRef = React.useRef(requestedFieldQuery);
-  const appliedSqlRef = React.useRef(requestedSql);
 
-  const orgId = useAuthStore((s) => s.ctx?.org_id ?? '');
+  const orgId = useAuthStore((s) => s.ctx?.orgId ?? '');
   const timeWindow = useTimeStore((s) => s.window);
   const setTimeWindow = useTimeStore((s) => s.setWindow);
   const globalFilters = useFiltersStore((s) => s.filters);
   const clearGlobalFilters = useFiltersStore((s) => s.clearFilters);
+  // The pinned filters as they apply to the stream, on its own fields. One it keeps no field
+  // for is not applied, and the page says so.
+  const pinnedFilters = React.useMemo(
+    () => (streamsListed ? pinnedLogFilters(globalFilters, selectedStreamFields) : null),
+    [globalFilters, selectedStreamFields, streamsListed],
+  );
+  const appliedPinned = pinnedFilters?.applied ?? NO_PINNED;
+  // The logs are asked for once what the query is made of is known: the link's conditions
+  // written, and the fields the pinned filters apply on.
+  const conditionsReady = !linkPending && (pinnedFilters !== null || globalFilters.length === 0);
   const previousTimeWindowRef = React.useRef(timeWindow);
   const logCursorContextKey = React.useMemo(
     () =>
@@ -436,20 +322,6 @@ export function Logs() {
     contextKey: logCursorContextKey,
     defaultPageSize: DEFAULT_EXPLORER_PAGE_SIZE,
   });
-
-  const streamsQuery = useQuery({
-    queryKey: ['streams', 'logs-selector'],
-    queryFn: () => streamsApi.list(500),
-  });
-  // Logs always queries with `stream_type: 'logs'`, so the selector must only
-  // offer logs streams. Otherwise the auto-select picks `streams[0]` — which
-  // after on-demand creation can be a traces/metrics stream (e.g. a `default`
-  // traces stream from a test trace) — and the query 404s with
-  // `stream not found: default`.
-  const streams = React.useMemo(
-    () => (streamsQuery.data ?? []).filter((s) => s.type === 'logs' && streamsApi.isQueryable(s)),
-    [streamsQuery.data],
-  );
 
   const setAutoStream = React.useCallback((nextStream: string, options?: { preserveFieldQuery?: boolean }) => {
     const nextQuery = defaultLogQuery(nextStream);
@@ -476,6 +348,10 @@ export function Logs() {
     }
     setQueryPending(true);
     setQueryError(null);
+    // The address says what runs: a copy of it is this query. Another page of it is the same query.
+    if (!options.cursor) {
+      publishQuery({ stream: selectedStream, mode: queryMode, statement: queryMode === 'sql' ? query : fieldQuery });
+    }
     try {
       const resolvedWindow = resolveWindow(timeWindow);
       const queryTimeRange = options.cursor && executedTimeRange
@@ -487,13 +363,13 @@ export function Logs() {
       const baseStatement = queryMode === 'sql'
         ? (query.trim() || defaultLogQuery(selectedStream))
         : buildLogFieldQuerySql(selectedStream, fieldQuery, options.pageSize ?? logPageSize);
-      const statement = appendGlobalFilters(baseStatement, selectedStream, globalFilters);
+      const statement = appendPinnedFilters(baseStatement, selectedStream, appliedPinned);
       let result: QueryResult;
       if (queryMode === 'fields') {
         const { page, result: cursorResult } = await runLogCursorQuery({
           stream: selectedStream,
           statement: fieldQuery,
-          globalFilters,
+          pinned: appliedPinned,
           timeRange: queryTimeRange,
           pageSize: options.pageSize ?? logPageSize,
           cursor: options.cursor,
@@ -504,12 +380,12 @@ export function Logs() {
       } else {
         resetLogCursor();
         setLogCursorPage(null);
-        result = await queryApi.runQuery({
-          org_id: orgId,
+        result = await queryApi.readQuery({
+          orgId: orgId,
           language: 'sql',
           statement,
-          time_range: queryTimeRange,
-          stream: { name: selectedStream, stream_type: 'logs' },
+          timeRange: queryTimeRange,
+          stream: { name: selectedStream, streamType: 'logs' },
           limit: DEFAULT_LOG_LIMIT,
         });
       }
@@ -519,7 +395,7 @@ export function Logs() {
       if (!options.cursor) {
         setCountedQuery(
           queryMode === 'fields'
-            ? { orgId, stream: selectedStream, statement: fieldQuery, globalFilters, ranAt: Date.now() }
+            ? { orgId, stream: selectedStream, statement: fieldQuery, pinned: appliedPinned, ranAt: Date.now() }
             : null,
         );
         setWrittenStatement(queryMode === 'sql' ? statement : null);
@@ -538,11 +414,12 @@ export function Logs() {
       setQueryPending(false);
     }
   }, [
+    appliedPinned,
     executedTimeRange,
     fieldQuery,
-    globalFilters,
     logPageSize,
     orgId,
+    publishQuery,
     query,
     queryMode,
     resetLogCursor,
@@ -551,9 +428,11 @@ export function Logs() {
   ]);
 
   React.useEffect(() => {
-    if (!requestedStream || requestedStream === stream) return;
+    if (!requestedStream || requestedStream === addressTaken.current.stream) return;
+    addressTaken.current.stream = requestedStream;
+    if (requestedStream === stream) return;
     setAutoStream(requestedStream, { preserveFieldQuery: Boolean(requestedFieldQuery) });
-  }, [requestedFieldQuery, requestedStream, setAutoStream, stream]);
+  }, [addressTaken, requestedFieldQuery, requestedStream, setAutoStream, stream]);
 
   React.useEffect(() => {
     if (stream || streams.length === 0) return;
@@ -563,11 +442,9 @@ export function Logs() {
     setAutoStream(streams[0]!.name, { preserveFieldQuery: Boolean(requestedFieldQuery) });
   }, [requestedFieldQuery, setAutoStream, stream, streams]);
 
-  React.useEffect(() => {
-    if (requestedFieldQuery === appliedFieldQueryRef.current) return;
-    appliedFieldQueryRef.current = requestedFieldQuery;
-    setQueryMode('fields');
-    setFieldQuery(requestedFieldQuery);
+  // A query the address brings (a link, the history) is shown from the start in an open editor,
+  // and runs: what was on screen answered another one.
+  const openArrivedQuery = React.useCallback(() => {
     setSelectedRow(null);
     setResultPage(1);
     setQueryResult(undefined);
@@ -575,32 +452,44 @@ export function Logs() {
     setQueryError(null);
     setQueryEditorCollapsed(false);
     initialRunStreamRef.current = null;
-  }, [requestedFieldQuery, setFieldQuery, setQueryMode]);
+  }, [setQueryEditorCollapsed]);
+
+  React.useEffect(() => {
+    if (requestedFieldQuery === addressTaken.current.fieldQuery) return;
+    addressTaken.current.fieldQuery = requestedFieldQuery;
+    setQueryMode('fields');
+    setFieldQuery(requestedFieldQuery);
+    openArrivedQuery();
+  }, [addressTaken, openArrivedQuery, requestedFieldQuery, setFieldQuery, setQueryMode]);
 
   // Apply the raw-SQL seed (`?sql=`) with the same state reset as a field query,
   // then enter SQL mode with the statement verbatim and let auto-run fire.
   React.useEffect(() => {
-    if (!requestedSql || requestedSql === appliedSqlRef.current) return;
-    appliedSqlRef.current = requestedSql;
+    if (!requestedSql || requestedSql === addressTaken.current.sql) return;
+    addressTaken.current.sql = requestedSql;
     setQueryMode('sql');
     setQuery(requestedSql);
-    setSelectedRow(null);
-    setResultPage(1);
-    setQueryResult(undefined);
-    setLogCursorPage(null);
-    setQueryError(null);
-    setQueryEditorCollapsed(false);
-    initialRunStreamRef.current = null;
-  }, [requestedSql, setQuery, setQueryMode]);
+    openArrivedQuery();
+  }, [addressTaken, openArrivedQuery, requestedSql, setQuery, setQueryMode]);
+
+  // A link's conditions are written into the field query once the stream's fields are
+  // known (`useLogQueryState`): that is the query the page opens on, and it runs.
+  const linkPendingRef = React.useRef(linkPending);
+  React.useEffect(() => {
+    const written = linkPendingRef.current && !linkPending;
+    linkPendingRef.current = linkPending;
+    if (written) openArrivedQuery();
+  }, [linkPending, openArrivedQuery]);
 
   React.useEffect(() => {
     const runKey = `${orgId}:${stream}`;
-    if (!orgId || !stream || (queryMode === 'sql' && !query.trim()) || initialRunStreamRef.current === runKey) return;
+    if (!orgId || !stream || !conditionsReady || (queryMode === 'sql' && !query.trim())) return;
+    if (initialRunStreamRef.current === runKey) return;
     initialRunStreamRef.current = runKey;
     void executeQuery();
     // Runs once for the active org + stream. Re-runs are explicit through the
     // query / refresh controls.
-  }, [executeQuery, orgId, query, queryMode, stream]);
+  }, [conditionsReady, executeQuery, orgId, query, queryMode, stream]);
 
   const rows = React.useMemo<LogEntry[]>(
     () => (queryResult ? resultToLogs(queryResult, fmt.tz, fmt.format, fmt.dateFormat) : []),
@@ -667,8 +556,8 @@ export function Logs() {
 
   const changeLogPage = React.useCallback((direction: 'previous' | 'next') => {
     const token = direction === 'previous'
-      ? logCursorPage?.previous_cursor
-      : logCursorPage?.next_cursor;
+      ? logCursorPage?.previousCursor
+      : logCursorPage?.nextCursor;
     if (!token) return;
     if (direction === 'previous') goToPreviousLogPage(logCursorPage);
     else goToNextLogPage(logCursorPage);
@@ -705,14 +594,6 @@ export function Logs() {
     row?.focus();
   }, []);
 
-  const selectedStream = React.useMemo(
-    () => streams.find((candidate) => candidate.name === stream && candidate.stream_type === 'logs'),
-    [stream, streams],
-  );
-  const selectedStreamFields = React.useMemo(
-    () => selectedStream?.schema.fields ?? [],
-    [selectedStream],
-  );
   const fieldMaskingQuery = useQuery({
     queryKey: ['field-masking-effective', selectedStream?.id],
     queryFn: () => fieldMaskingApi.effectiveForStream(selectedStream?.id ?? ''),
@@ -740,7 +621,7 @@ export function Logs() {
   // SQL 检索函数（MATCH / MATCH_TEXT）由后端能力接口驱动；Fields 与 SQL 模式都注入。
   const sqlFunctions = useSqlFunctionCompletions();
   const completionItems = React.useMemo(
-    () => [...sqlFunctions, ...logQueryCompletions(fields, rows, maskedFields)],
+    () => logQueryCompletions(sqlFunctions, fields, rows, maskedFields),
     [sqlFunctions, fields, maskedFields, rows],
   );
 
@@ -765,7 +646,7 @@ export function Logs() {
       return;
     }
     setFieldQuery((current) => appendLogFieldClause(current, definition));
-  }, [editorMode, fields, queryMode, setFieldQuery, setQuery, stream]);
+  }, [editorMode, fields, queryMode, setFieldQuery, setQuery, setQueryEditorCollapsed, stream]);
 
   const insertLogFieldValueFilter = React.useCallback((
     field: string,
@@ -784,7 +665,7 @@ export function Logs() {
     }
     setQueryMode('fields');
     setFieldQuery((current) => appendLogFieldValueClause(current, field, value, filterMode));
-  }, [editorMode, fields, queryMode, setFieldQuery, setQuery, setQueryMode, stream]);
+  }, [editorMode, fields, queryMode, setFieldQuery, setQuery, setQueryEditorCollapsed, setQueryMode, stream]);
 
   // A pattern is asked for by the longest run of words all of its logs have.
   const insertLogPatternFilter = React.useCallback((field: string, fragment: string) => {
@@ -798,7 +679,7 @@ export function Logs() {
     }
     setQueryMode('fields');
     setFieldQuery((current) => appendLogFieldContainsClause(current, field, fragment));
-  }, [editorMode, queryMode, setFieldQuery, setQuery, setQueryMode, stream]);
+  }, [editorMode, queryMode, setFieldQuery, setQuery, setQueryEditorCollapsed, setQueryMode, stream]);
 
   // A statement the statistics view wrote goes into the editor as the reader's own, and is run:
   // the run-once guard is lifted, so the effect below runs it with the state as it then is.
@@ -807,7 +688,7 @@ export function Logs() {
     setQuery(statement);
     setQueryEditorCollapsed(false);
     initialRunStreamRef.current = null;
-  }, [setQuery, setQueryMode]);
+  }, [setQuery, setQueryEditorCollapsed, setQueryMode]);
   const inspectionTarget = React.useMemo<InspectionTarget | null>(() => {
     if (!executedTimeRange) return null;
     if (countedQuery) return { stream: countedQuery.stream, statement: countedQuery.statement, range: executedTimeRange };
@@ -848,7 +729,7 @@ export function Logs() {
   }, [rawRecords, rows.length, visibleLogFields]);
 
   const hasRunnableQuery = queryMode === 'fields' || query.trim().length > 0;
-  const canRun = Boolean(orgId && stream.trim() && hasRunnableQuery && !queryPending);
+  const canRun = Boolean(orgId && stream.trim() && hasRunnableQuery && !queryPending && conditionsReady);
   const recoveryHasFilters = globalFilters.length > 0 || (
     queryMode === 'fields'
       ? fieldQuery.trim().length > 0
@@ -874,25 +755,26 @@ export function Logs() {
   React.useEffect(() => {
     if (previousTimeWindowRef.current === timeWindow) return;
     previousTimeWindowRef.current = timeWindow;
-    if (!orgId || !stream.trim() || !hasRunnableQuery || queryPending) return;
+    if (!orgId || !stream.trim() || !hasRunnableQuery || queryPending || !conditionsReady) return;
     void executeQuery();
-  }, [executeQuery, hasRunnableQuery, orgId, queryPending, stream, timeWindow]);
+  }, [conditionsReady, executeQuery, hasRunnableQuery, orgId, queryPending, stream, timeWindow]);
 
   const selectedLog = selectedRow === null ? null : viewRows[selectedRow] ?? null;
-  // What a link to this query carries of the page's own: the stream and the statement, in the language it is in.
+  // What a link to this query carries of the page's own: the stream, the statement in the language
+  // it is in, and the view of its results.
   const shareSearch = React.useMemo(() => {
-    const params = new URLSearchParams();
-    const statement = (queryMode === 'sql' ? query : fieldQuery).trim();
+    const statement = queryMode === 'sql' ? query : fieldQuery;
+    const params = writeLogQueryParams(new URLSearchParams(), { stream, mode: queryMode, statement });
 
-    if (stream) params.set('stream', stream);
-    if (statement) params.set(queryMode === 'sql' ? 'sql' : 'q', statement);
+    if (view !== 'raw') params.set('view', view);
 
     return params;
-  }, [fieldQuery, query, queryMode, stream]);
+  }, [fieldQuery, query, queryMode, stream, view]);
   useQueryTabStatus({
     running: queryPending,
     summary: logQuerySummary({ stream, queryMode, query, fieldQuery }),
   });
+  const queryTabStrip = useQueryTabStrip();
 
   return (
     <div
@@ -900,11 +782,23 @@ export function Logs() {
       className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--page-canvas)]"
     >
       {/* No title row: the explorer gives that row to the data and carries its
-          name at the start of the workbench bar instead. */}
+          name at the start of the workbench bar instead. Its query tabs are in
+          the query box, so the bar is the first card under the top bar, as far
+          off it as the cards are off each other. */}
       <QueryWorkbench
         appearance="surface"
-        className="mt-[6px] shrink-0"
+        className="mt-[12px] shrink-0"
         inlineBody={queryEditorCollapsed}
+        notice={
+          // Said only of a stream the list has: without its fields, nothing is known to be missing from it.
+          selectedStream && (linkGaps.length > 0 || (pinnedFilters?.unmatched.length ?? 0) > 0) ? (
+            <LogConditionNotice
+              stream={selectedStream.name}
+              link={linkGaps}
+              pinned={pinnedFilters?.unmatched ?? NO_FILTERS}
+            />
+          ) : undefined
+        }
         title={<WorkbenchTitle title={t('explore.title')} />}
         toolbar={
           <>
@@ -951,6 +845,7 @@ export function Logs() {
       >
         <QueryEditorFrame
           queryRef="A"
+          tabs={queryTabStrip}
           value={queryMode === 'sql' ? query : fieldQuery}
           // One editor for both languages: what is typed says which it is.
           onChange={setCodeStatement}
@@ -996,260 +891,256 @@ export function Logs() {
       </QueryWorkbench>
 
       {/* Body: independent field and result scrollers fill the remaining viewport. */}
-      <div
-        data-log-workspace-layout="surface-grid"
-        className="flex min-h-0 flex-1 gap-[8px] overflow-hidden bg-[var(--page-canvas)] pl-[var(--pane-gutter-start,20px)] pr-[var(--pane-gutter-end,20px)]"
-      >
-        <LogFieldPanel
-          collapsed={fieldPanelCollapsed}
-          onCollapsedChange={setFieldPanelCollapsed}
-          fields={fields}
-          visibleFields={visibleLogFields}
-          queryMode={queryMode}
-          records={rawRecords}
-          moments={rowMoments}
-          loading={queryPending && !queryResult}
-          hasStream={Boolean(stream)}
-          canRefresh={canRun}
-          onRefresh={() => void executeQuery()}
-          expandedField={expandedField}
-          onExpandedFieldChange={setExpandedField}
-          onToggleVisibility={toggleLogFieldVisibility}
-          onInsertFilter={insertLogFieldFilter}
-          onInsertValueFilter={insertLogFieldValueFilter}
-          counted={countedQuery}
-          range={executedTimeRange}
-          maskedFields={maskedFields}
-        />
+      <div className="flex min-h-0 flex-1 overflow-hidden bg-[var(--page-canvas)] pl-[var(--pane-gutter-start,20px)] pr-[var(--pane-gutter-end,20px)]">
+        {/* The field list and the results are one surface, as in the trace explorer: the list is the margin of the results. */}
+        <div
+          data-log-workspace-layout="joined"
+          className="flex min-h-0 min-w-0 flex-1 items-stretch overflow-hidden rounded-md bg-[var(--functional-surface)]"
+        >
+          <LogFieldPanel
+            collapsed={fieldPanelCollapsed}
+            onCollapsedChange={setFieldPanelCollapsed}
+            fields={fields}
+            visibleFields={visibleLogFields}
+            queryMode={queryMode}
+            records={rawRecords}
+            moments={rowMoments}
+            loading={queryPending && !queryResult}
+            hasStream={Boolean(stream)}
+            canRefresh={canRun}
+            onRefresh={() => void executeQuery()}
+            expandedField={expandedField}
+            onExpandedFieldChange={setExpandedField}
+            onToggleVisibility={toggleLogFieldVisibility}
+            onInsertFilter={insertLogFieldFilter}
+            onInsertValueFilter={insertLogFieldValueFilter}
+            counted={countedQuery}
+            range={executedTimeRange}
+            maskedFields={maskedFields}
+          />
 
-        <div className="flex min-w-0 flex-1 overflow-hidden">
-          <div
-            data-workspace-pane="log-results"
-            className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-md bg-[var(--functional-surface)]"
-          >
-            <LogResultSummary
-              eventCount={viewRows.length}
-              tookMs={queryResult?.took_ms ?? 0}
-              timeWindowLabel={formatTimeWindowLabel(timeWindow, tCommon)}
-              pending={queryPending}
-              fields={fields.map((field) => field.name)}
-              visibleFields={visibleLogFields}
-              onToggleField={toggleLogFieldVisibility}
-              onReorderField={reorderLogField}
-              columnsArranged={logColumns.arranged}
-              onResetColumns={logColumns.reset}
-              histogramOpen={showHistogram}
-              onHistogramOpenChange={setShowHistogram}
-              onDownloadCsv={downloadVisibleCsv}
-              onDownloadLog={downloadVisibleLog}
-              views={<LogResultViewTabs value={view} onChange={setView} />}
-              listControls={view === 'raw'}
-              resultControls={view === 'raw' || view === 'patterns'}
-            />
-            {/* Without rows there is nothing to draw: the band would only be an empty
-                strip pushing the empty state down. */}
-            {showHistogram && rows.length > 0 && (view === 'raw' || view === 'patterns') && (
-              <ResultHistogram
-                points={histogramPoints}
-                range={executedTimeRange}
-                counts={histogramCounts}
-                short={viewRows.length < 5}
-                labels={{
-                  chart: t('explore.toolbar.histogram'),
-                  ok: t('explore.histogram.normal'),
-                  errors: t('explore.histogram.errors'),
-                }}
-                onRangeSelect={selectHistogramRange}
+          <div className="flex min-w-0 flex-1 overflow-hidden">
+            <div data-workspace-pane="log-results" className="flex min-w-0 flex-1 flex-col overflow-hidden">
+              <LogResultSummary
+                eventCount={viewRows.length}
+                tookMs={queryResult?.tookMs ?? 0}
+                timeWindowLabel={formatTimeWindowLabel(timeWindow, tCommon)}
+                pending={queryPending}
+                fields={fields.map((field) => field.name)}
+                visibleFields={visibleLogFields}
+                onToggleField={toggleLogFieldVisibility}
+                onReorderField={reorderLogField}
+                columnsArranged={logColumns.arranged}
+                onResetColumns={logColumns.reset}
+                histogramOpen={showHistogram}
+                onHistogramOpenChange={setShowHistogram}
+                onDownloadCsv={downloadVisibleCsv}
+                onDownloadLog={downloadVisibleLog}
+                views={<LogResultViewTabs value={view} onChange={setView} />}
+                listControls={view === 'raw'}
+                resultControls={view === 'raw' || view === 'patterns'}
               />
-            )}
-
-            <div className="min-h-0 flex-1 overflow-hidden">
-              {queryError ? (
-                <QueryRecoveryState
-                  state="error"
-                  error={queryError}
-                  copy={{
-                    errorTitle: t('explore.recovery.query_failed'),
-                    emptyTitle: t('explore.recovery.no_data_title'),
-                    emptyDescription: t('explore.recovery.no_data_description'),
-                    clearFiltersLabel: t('explore.recovery.clear_filters'),
-                    widenRangeLabel: t('explore.recovery.expand_time'),
-                    docsLabel: t('explore.recovery.query_docs'),
-                  }}
-                  recovery={{
-                    hasFilters: recoveryHasFilters,
-                    onRetry: () => void executeQuery(),
-                    onClearFilters: clearRecoveryFilters,
-                    onWidenRange: widenRecoveryRange,
-                    docsHref: queryDocsHref,
-                  }}
-                  className="h-full min-h-0 justify-center rounded-none border-0"
-                  testId="logs-query-error"
-                />
-              ) : queryPending && !queryResult ? (
-                <QueryState
-                  state="loading"
-                  loadingLabel={t('explore.table.running_query')}
-                  className="h-full min-h-0"
-                />
-              ) : view === 'inspection' ? (
-                // Shown without results too: a query that matches nothing now can still be
-                // saved to be inspected on a schedule, and the saved inspections are reached
-                // from here.
-                <LogInspectionView
-                  target={inspectionTarget}
-                  rangeLabel={formatTimeWindowLabel(timeWindow, tCommon)}
-                  rows={viewRows}
-                  empty={rows.length === 0}
-                  inspection={inspection}
-                />
-              ) : rows.length === 0 ? (
-                <QueryRecoveryState
-                  state="empty"
-                  copy={{
-                    errorTitle: t('explore.recovery.query_failed'),
-                    emptyTitle: t('explore.recovery.no_data_title'),
-                    emptyDescription: t('explore.recovery.no_data_description'),
-                    clearFiltersLabel: t('explore.recovery.clear_filters'),
-                    widenRangeLabel: t('explore.recovery.expand_time'),
-                    docsLabel: t('explore.recovery.query_docs'),
-                  }}
-                  recovery={{
-                    hasFilters: recoveryHasFilters,
-                    onRetry: () => void executeQuery(),
-                    onClearFilters: clearRecoveryFilters,
-                    onWidenRange: widenRecoveryRange,
-                    docsHref: queryDocsHref,
-                  }}
-                  className="h-full min-h-0"
-                  testId="logs-no-data"
-                />
-              ) : view === 'stats' ? (
-                <LogStatsView
-                  stream={stream}
-                  fields={fields}
-                  counted={countedQuery}
+              {/* Without rows there is nothing to draw: the band would only be an empty
+                  strip pushing the empty state down. */}
+              {showHistogram && rows.length > 0 && (view === 'raw' || view === 'patterns') && (
+                <ResultHistogram
+                  points={histogramPoints}
                   range={executedTimeRange}
-                  written={writtenStatement && queryResult ? { statement: writtenStatement, result: queryResult } : null}
-                  timeWindow={timeWindow}
-                  onOpenStatement={openStatement}
+                  counts={histogramCounts}
+                  short={viewRows.length < 5}
+                  labels={{
+                    chart: t('explore.toolbar.histogram'),
+                    ok: t('explore.histogram.normal'),
+                    errors: t('explore.histogram.errors'),
+                  }}
+                  onRangeSelect={selectHistogramRange}
                 />
-              ) : view === 'patterns' ? (
-                // What the loaded logs say, kind by kind, in place of the logs one by one.
-                <LogPatternsView
-                  rows={viewRows}
-                  selectedIndex={selectedRow}
-                  sample={
-                    patternQuery
-                      ? {
-                          held: sampled,
-                          reading: patternSample.reading,
-                          more: patternSample.more,
-                          failed: patternSample.failed,
-                          step: patternQuery.step,
-                          onReadMore: patternSample.readMore,
-                          onRetry: patternSample.retry,
-                        }
-                      : undefined
-                  }
-                  onOpenLog={setSelectedRow}
-                  onFilter={insertLogPatternFilter}
+              )}
+
+              <div className="min-h-0 flex-1 overflow-hidden">
+                {queryError ? (
+                  <QueryRecoveryState
+                    state="error"
+                    error={queryError}
+                    copy={{
+                      errorTitle: t('explore.recovery.query_failed'),
+                      emptyTitle: t('explore.recovery.no_data_title'),
+                      emptyDescription: t('explore.recovery.no_data_description'),
+                      clearFiltersLabel: t('explore.recovery.clear_filters'),
+                      widenRangeLabel: t('explore.recovery.expand_time'),
+                      docsLabel: t('explore.recovery.query_docs'),
+                    }}
+                    recovery={{
+                      hasFilters: recoveryHasFilters,
+                      onRetry: () => void executeQuery(),
+                      onClearFilters: clearRecoveryFilters,
+                      onWidenRange: widenRecoveryRange,
+                      docsHref: queryDocsHref,
+                    }}
+                    className="h-full min-h-0 justify-center rounded-none border-0"
+                    testId="logs-query-error"
+                  />
+                ) : queryPending && !queryResult ? (
+                  <QueryState
+                    state="loading"
+                    loadingLabel={t('explore.table.running_query')}
+                    className="h-full min-h-0"
+                  />
+                ) : view === 'inspection' ? (
+                  // Shown without results too: a query that matches nothing now can still be
+                  // saved to be inspected on a schedule, and the saved inspections are reached
+                  // from here.
+                  <LogInspectionView
+                    target={inspectionTarget}
+                    rangeLabel={formatTimeWindowLabel(timeWindow, tCommon)}
+                    rows={viewRows}
+                    empty={rows.length === 0}
+                    inspection={inspection}
+                  />
+                ) : rows.length === 0 ? (
+                  <QueryRecoveryState
+                    state="empty"
+                    copy={{
+                      errorTitle: t('explore.recovery.query_failed'),
+                      emptyTitle: t('explore.recovery.no_data_title'),
+                      emptyDescription: t('explore.recovery.no_data_description'),
+                      clearFiltersLabel: t('explore.recovery.clear_filters'),
+                      widenRangeLabel: t('explore.recovery.expand_time'),
+                      docsLabel: t('explore.recovery.query_docs'),
+                    }}
+                    recovery={{
+                      hasFilters: recoveryHasFilters,
+                      onRetry: () => void executeQuery(),
+                      onClearFilters: clearRecoveryFilters,
+                      onWidenRange: widenRecoveryRange,
+                      docsHref: queryDocsHref,
+                    }}
+                    className="h-full min-h-0"
+                    testId="logs-no-data"
+                  />
+                ) : view === 'stats' ? (
+                  <LogStatsView
+                    stream={stream}
+                    fields={fields}
+                    counted={countedQuery}
+                    range={executedTimeRange}
+                    written={writtenStatement && queryResult ? { statement: writtenStatement, result: queryResult } : null}
+                    timeWindow={timeWindow}
+                    onOpenStatement={openStatement}
+                  />
+                ) : view === 'patterns' ? (
+                  // What the loaded logs say, kind by kind, in place of the logs one by one.
+                  <LogPatternsView
+                    rows={viewRows}
+                    selectedIndex={selectedRow}
+                    sample={
+                      patternQuery
+                        ? {
+                            held: sampled,
+                            reading: patternSample.reading,
+                            more: patternSample.more,
+                            failed: patternSample.failed,
+                            step: patternQuery.step,
+                            onReadMore: patternSample.readMore,
+                            onRetry: patternSample.retry,
+                          }
+                        : undefined
+                    }
+                    onOpenLog={setSelectedRow}
+                    onFilter={insertLogPatternFilter}
+                  />
+                ) : (
+                  <LogListResults
+                    rows={pagedRows}
+                    fields={visibleLogFields}
+                    startIndex={resultPageStart}
+                    selectedIndex={selectedRow}
+                    onSelect={setSelectedRow}
+                  />
+                )}
+              </div>
+              {view !== 'raw' ? null : cursorResults ? (
+                <CursorPagination
+                  className="border-t-0 bg-transparent"
+                  pageSize={logPageSize}
+                  pageSizeOptions={EXPLORER_PAGE_SIZE_OPTIONS}
+                  hasPrevious={Boolean(logCursorPage?.previousCursor)}
+                  hasNext={Boolean(logCursorPage?.nextCursor)}
+                  pending={queryPending}
+                  ariaLabel={t('explore.table.pagination_aria')}
+                  pageSizeAriaLabel={t('explore.table.events_per_page_aria')}
+                  previousLabel={t('explore.table.prev_page')}
+                  nextLabel={t('explore.table.next_page')}
+                  onPrevious={() => changeLogPage('previous')}
+                  onNext={() => changeLogPage('next')}
+                  onPageSizeChange={changeLogPageSize}
                 />
               ) : (
-                <LogListResults
-                  rows={pagedRows}
-                  fields={visibleLogFields}
-                  startIndex={resultPageStart}
-                  selectedIndex={selectedRow}
-                  onSelect={setSelectedRow}
+                <ResultPagination
+                  className="border-t-0 bg-transparent"
+                  page={activeResultPage}
+                  pageCount={resultPageCount}
+                  pageSize={resultPageSize}
+                  pageSizeOptions={resultPageSizes}
+                  pageLabel={t('explore.table.page_summary', {
+                    page: activeResultPage,
+                    pages: resultPageCount,
+                  })}
+                  ariaLabel={t('explore.table.pagination_aria')}
+                  pageSizeAriaLabel={t('explore.table.events_per_page_aria')}
+                  firstAriaLabel={t('explore.table.first_page_aria')}
+                  previousAriaLabel={t('explore.table.prev_page_aria')}
+                  nextAriaLabel={t('explore.table.next_page_aria')}
+                  lastAriaLabel={t('explore.table.last_page_aria')}
+                  onPageChange={changeResultPage}
+                  onPageSizeChange={changeResultPageSize}
                 />
               )}
             </div>
-            {view !== 'raw' ? null : cursorResults ? (
-              <CursorPagination
-                className="border-t-0 bg-transparent"
-                pageSize={logPageSize}
-                pageSizeOptions={EXPLORER_PAGE_SIZE_OPTIONS}
-                hasPrevious={Boolean(logCursorPage?.previous_cursor)}
-                hasNext={Boolean(logCursorPage?.next_cursor)}
-                pending={queryPending}
-                ariaLabel={t('explore.table.pagination_aria')}
-                pageSizeAriaLabel={t('explore.table.events_per_page_aria')}
-                previousLabel={t('explore.table.prev_page')}
-                nextLabel={t('explore.table.next_page')}
-                onPrevious={() => changeLogPage('previous')}
-                onNext={() => changeLogPage('next')}
-                onPageSizeChange={changeLogPageSize}
-              />
-            ) : (
-              <ResultPagination
-                className="border-t-0 bg-transparent"
-                page={activeResultPage}
-                pageCount={resultPageCount}
-                pageSize={resultPageSize}
-                pageSizeOptions={resultPageSizes}
-                pageLabel={t('explore.table.page_summary', {
-                  page: activeResultPage,
-                  pages: resultPageCount,
-                })}
-                ariaLabel={t('explore.table.pagination_aria')}
-                pageSizeAriaLabel={t('explore.table.events_per_page_aria')}
-                firstAriaLabel={t('explore.table.first_page_aria')}
-                previousAriaLabel={t('explore.table.prev_page_aria')}
-                nextAriaLabel={t('explore.table.next_page_aria')}
-                lastAriaLabel={t('explore.table.last_page_aria')}
-                onPageChange={changeResultPage}
-                onPageSizeChange={changeResultPageSize}
-              />
+
+            {selectedLog && selectedRow !== null && (
+              <>
+                {/* The page under the drawer is one click away: on another log that click opens it,
+                    anywhere else it closes the drawer. */}
+                <button
+                  type="button"
+                  aria-label={t('explore.detail.close')}
+                  tabIndex={-1}
+                  onClick={(event) => {
+                    const row = document
+                      .elementsFromPoint(event.clientX, event.clientY)
+                      .find((element) => element.matches(LOG_OPENERS));
+
+                    if (row instanceof HTMLElement) row.click();
+                    else closeLogDetail();
+                  }}
+                  className="fixed bottom-0 left-0 right-0 top-topbar z-[55] cursor-default border-0 bg-transparent p-0 focus:outline-none"
+                />
+                <LogDetailFrame label={t('explore.detail.drawer_aria')}>
+                  <LogDetail
+                    log={selectedLog}
+                    index={selectedRow}
+                    total={viewRows.length}
+                    stream={stream}
+                    contextRows={viewRows.slice(
+                      Math.max(0, selectedRow - 5),
+                      Math.min(viewRows.length, selectedRow + 6),
+                    )}
+                    visibleFields={visibleLogFields}
+                    onInsertValueFilter={insertLogFieldValueFilter}
+                    onToggleVisibility={toggleLogFieldVisibility}
+                    onSelectContext={(log) => {
+                      const nextIndex = viewRows.indexOf(log);
+                      if (nextIndex >= 0) setSelectedRow(nextIndex);
+                    }}
+                    onClose={closeLogDetail}
+                    onPrev={() => setSelectedRow(Math.max(0, selectedRow - 1))}
+                    onNext={() => setSelectedRow(Math.min(viewRows.length - 1, selectedRow + 1))}
+                  />
+                </LogDetailFrame>
+              </>
             )}
           </div>
-
-          {selectedLog && selectedRow !== null && (
-            <>
-              {/* The page under the drawer is one click away: on another log that click opens it,
-                  anywhere else it closes the drawer. */}
-              <button
-                type="button"
-                aria-label={t('explore.detail.close')}
-                tabIndex={-1}
-                onClick={(event) => {
-                  const row = document
-                    .elementsFromPoint(event.clientX, event.clientY)
-                    .find((element) => element.matches(LOG_OPENERS));
-
-                  if (row instanceof HTMLElement) row.click();
-                  else closeLogDetail();
-                }}
-                className="fixed bottom-0 left-0 right-0 top-topbar z-[55] cursor-default border-0 bg-transparent p-0 focus:outline-none"
-              />
-              <aside
-                aria-label={t('explore.detail.drawer_aria')}
-                className="fixed bottom-0 right-0 top-topbar z-[60] min-h-0 w-full max-w-[660px] border-l border-bd-1 bg-[var(--functional-surface)] shadow-drawer data-[state=open]:animate-slide-in-right sm:w-[34vw] sm:min-w-[440px]"
-                data-state="open"
-              >
-                <LogDetail
-                  log={selectedLog}
-                  index={selectedRow}
-                  total={viewRows.length}
-                  stream={stream}
-                  contextRows={viewRows.slice(
-                    Math.max(0, selectedRow - 5),
-                    Math.min(viewRows.length, selectedRow + 6),
-                  )}
-                  visibleFields={visibleLogFields}
-                  onInsertValueFilter={insertLogFieldValueFilter}
-                  onToggleVisibility={toggleLogFieldVisibility}
-                  onSelectContext={(log) => {
-                    const nextIndex = viewRows.indexOf(log);
-                    if (nextIndex >= 0) setSelectedRow(nextIndex);
-                  }}
-                  onClose={closeLogDetail}
-                  onPrev={() => setSelectedRow(Math.max(0, selectedRow - 1))}
-                  onNext={() => setSelectedRow(Math.min(viewRows.length - 1, selectedRow + 1))}
-                />
-              </aside>
-            </>
-          )}
         </div>
       </div>
     </div>

@@ -10,7 +10,6 @@ export type PermissionDomain =
   | 'pipelines'
   | 'reports'
   | 'status_pages'
-  | 'business_services'
   | 'synthetics'
   | 'service_levels'
   | 'postmortems'
@@ -20,22 +19,14 @@ export interface PermissionDefinition {
   key: PermissionKey;
   scope: PermissionScope;
   domain: PermissionDomain;
-  label_key: string;
-  description_key: string;
-  builtin_roles: string[];
-}
-
-export interface PermissionBundle {
-  key: string;
-  label_key: string;
-  description_key: string;
-  permissions: PermissionKey[];
+  labelKey: string;
+  descriptionKey: string;
+  builtinRoles: string[];
 }
 
 export interface PermissionCatalog {
   version: number;
   permissions: PermissionDefinition[];
-  bundles: PermissionBundle[];
 }
 
 export function isPermissionKey(
@@ -62,24 +53,22 @@ export function permissionDefinition(
   return catalog?.permissions.find((permission) => permission.key === key);
 }
 
-export function organizationPermissionDefinitions(
+export function permissionDefinitionsOf(
   catalog: PermissionCatalog,
+  scope: PermissionScope,
 ): PermissionDefinition[] {
-  return catalog.permissions.filter(
-    (permission) => permission.scope === 'organization',
-  );
+  return catalog.permissions.filter((permission) => permission.scope === scope);
 }
 
 export function permissionDefinitionsByDomain(
   catalog: PermissionCatalog | undefined,
+  scope: PermissionScope = 'organization',
 ): Array<{
   domain: PermissionDomain;
   permissions: PermissionDefinition[];
 }> {
   const groups = new Map<PermissionDomain, PermissionDefinition[]>();
-  for (const permission of catalog
-    ? organizationPermissionDefinitions(catalog)
-    : []) {
+  for (const permission of catalog ? permissionDefinitionsOf(catalog, scope) : []) {
     const values = groups.get(permission.domain) ?? [];
     values.push(permission);
     groups.set(permission.domain, values);
@@ -88,6 +77,21 @@ export function permissionDefinitionsByDomain(
     domain,
     permissions,
   }));
+}
+
+/**
+ * The platform permissions a grant can narrow to one organization. The others are about the whole
+ * instance, so they hold across the platform or not at all.
+ */
+const ORGANIZATION_NARROWABLE: readonly string[] = [
+  'sys.organizations.read',
+  'sys.organizations.update',
+  'sys.organizations.disable',
+  'sys.organizations.delete',
+];
+
+export function isOrganizationNarrowable(key: string): boolean {
+  return ORGANIZATION_NARROWABLE.includes(key);
 }
 
 export function normalizePermissionKeys(

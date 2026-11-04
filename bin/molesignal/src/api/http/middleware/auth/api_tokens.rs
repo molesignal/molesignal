@@ -9,11 +9,9 @@ use crate::{
     app::iam::{IamContext, IamService},
     domain::iam::{
         IamScope,
-        api_token::{ApiTokenKind, ApiTokenRepository},
+        api_token::{ApiTokenKind, ApiTokenRepository, has_token_marker},
     },
-    infra::persistence::repositories::api_tokens::{
-        split_rum_token, split_token, verify_rum_secret, verify_secret,
-    },
+    infra::persistence::repositories::api_tokens::{split_token, verify_secret},
     shared::{Error, ids::Id, time::TimestampMicros},
 };
 
@@ -40,10 +38,13 @@ pub(super) async fn authenticate_bearer_identity(
     iam: &IamService,
     repo: Arc<dyn ApiTokenRepository>,
 ) -> Result<IamContext, Error> {
-    if token.starts_with("ms_") || token.starts_with("msrum_") {
+    if has_token_marker(token) {
         authenticate_api_token_identity(token, iam, repo).await
     } else {
-        let context = iam.verify_token(token)?;
+        let context = iam
+            .verify_with_current_secrets(token, |iam| iam.verify_token(token))
+            .await?;
+
         iam.ensure_user_access(&context.user_id).await?;
         Ok(context)
     }
@@ -94,7 +95,7 @@ async fn authenticate_api_token_identity(
     Ok(context)
 }
 
-/// Verify either `ms_<16>_<32>` or application-bound `msrum_<16>_<32>`.
+/// Verify an API token, whatever its kind.
 pub async fn verify_api_token(
     token: &str,
     repo: Arc<dyn ApiTokenRepository>,
@@ -106,38 +107,14 @@ pub(crate) async fn verify_api_token_with_metadata(
     token: &str,
     repo: Arc<dyn ApiTokenRepository>,
 ) -> Result<VerifiedApiTokenIdentity, Error> {
-    let ((prefix, secret), presented_kind) = if token.starts_with("msrum_") {
-        (
-            split_rum_token(token).ok_or_else(|| {
-                Error::unauthorized("malformed msrum_ token (expected msrum_<16>_<32>)")
-            })?,
-            ApiTokenKind::RumClient,
-        )
-    } else {
-        (
-            split_token(token).ok_or_else(|| {
-                Error::unauthorized("malformed ms_ token (expected ms_<16>_<32>)")
-            })?,
-            ApiTokenKind::Personal,
-        )
-    };
+    let (prefix, secret) = split_token(token)
+        .ok_or_else(|| Error::unauthorized("malformed API token (expected mspat-<36>)"))?;
 
     let row = repo
         .find_by_prefix(prefix)
         .await
         .map_err(|error| Error::unauthorized(format!("api token lookup: {error}")))?
         .ok_or_else(|| Error::unauthorized("api token not found"))?;
-
-    let kind_matches = match presented_kind {
-        ApiTokenKind::RumClient => row.token_kind == ApiTokenKind::RumClient,
-        _ => row.token_kind != ApiTokenKind::RumClient,
-    };
-
-    if !kind_matches {
-        return Err(Error::unauthorized(
-            "api token type does not match its prefix",
-        ));
-    }
 
     if row.revoked {
         return Err(Error::unauthorized("api token revoked"));
@@ -151,12 +128,7 @@ pub(crate) async fn verify_api_token_with_metadata(
         return Err(Error::unauthorized("api token expired"));
     }
 
-    let secret_valid = match row.token_kind {
-        ApiTokenKind::RumClient => verify_rum_secret(secret, &row.secret_hash),
-        _ => verify_secret(secret, &row.secret_hash),
-    };
-
-    if !secret_valid {
+    if !verify_secret(secret, &row.secret_hash) {
         return Err(Error::unauthorized("api token secret invalid"));
     }
 
@@ -177,7 +149,7 @@ pub(crate) async fn verify_api_token_with_metadata(
             org_id: Id(row.org_id.0),
             display_role: String::new(),
             roles: Vec::new(),
-            credential_role_id: Some(row.role_id),
+            credential_token_id: Some(token_id.clone()),
             credential_application_id: row.application_id,
             credential_service_account_id: service_account_id,
             scope: IamScope::ApiToken,

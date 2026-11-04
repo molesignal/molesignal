@@ -31,8 +31,8 @@ impl AdaptiveRotation {
     pub fn new(settings: &ParquetRotationSettings, max_bytes: usize) -> Self {
         Self {
             enabled: settings.adaptive_enabled,
-            target_bytes: mb_to_bytes(settings.target_file_size_mb),
-            min_bytes: mb_to_bytes(settings.min_buffer_mb).min(max_bytes),
+            target_bytes: mb_to_bytes(settings.target_file_size),
+            min_bytes: mb_to_bytes(settings.min_buffer_size).min(max_bytes),
             max_bytes,
             alpha: settings.ewma_alpha,
             feedback: DashMap::new(),
@@ -106,8 +106,8 @@ mod tests {
     fn settings(enabled: bool, alpha: f64) -> ParquetRotationSettings {
         ParquetRotationSettings {
             adaptive_enabled: enabled,
-            target_file_size_mb: 50,
-            min_buffer_mb: 10,
+            target_file_size: 50,
+            min_buffer_size: 10,
             ewma_alpha: alpha,
         }
     }

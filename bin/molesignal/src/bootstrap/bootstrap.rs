@@ -20,15 +20,19 @@ use super::{
     tracing::TracingRuntime,
 };
 use crate::{
-    api::state::{
-        AgentState, AlertingState, AppState, ClusterState, IamState, PlatformState, StorageState,
-        TelemetryState, TraceSystemLoadHealth,
+    api::{
+        http::routes::agent::im::{ImAlertButtons, TextSources},
+        state::{
+            AgentState, AlertingState, AppState, ClusterState, IamState, PlatformState,
+            StorageState, TelemetryState, TraceSystemLoadHealth,
+        },
     },
     app::{
         dashboard::{
             authoring::{DashboardAuthoringService, RuntimeDashboardQueryPreflight},
             contract_registry::{DashboardContractRegistryService, DashboardContractResolver},
         },
+        iam::signin_limit::SigninLimiter,
         tools::{
             AdministrationToolDependencies, AgentToolDependencies, AlertingToolDependencies,
             ContentToolDependencies, DataToolDependencies, ObservabilityToolDependencies,
@@ -36,14 +40,39 @@ use crate::{
         },
     },
     config::{Role, Settings},
-    domain::stream::StreamRepository,
-    infra::{cipher::CipherRootKey, persistence::MetaStore},
+    domain::{
+        rum::{
+            RumApplicationRepository, RumIssueRepository, RumPlaylistRepository,
+            RumReplayCommentRepository, RumSessionSummaryRepository,
+        },
+        stream::StreamRepository,
+    },
+    infra::{
+        cipher::CipherRootKey,
+        mfa::{
+            PgMfaChallengeRepository, PgMfaFactorRepository, PgMfaLockoutRepository,
+            PgPasskeyRepository, PgSigninPolicyRepository,
+        },
+        persistence::{
+            MetaStore,
+            repositories::{
+                rum_applications::PgRumApplicationRepository,
+                rum_issues::{PgRumIssueRepository, PgRumVersionRepository},
+                rum_playlists::PgRumPlaylistRepository,
+                rum_replay_notes::{PgRumReplayCommentRepository, PgRumSessionSummaryRepository},
+                usage::PgIntakeBudgetRepository,
+                workspace_preference_defaults::PgWorkspacePreferenceDefaultsRepository,
+            },
+        },
+        rum::intake::RumIntake,
+        signin::{PgSigninAttemptRepository, PgSignupRequestRepository},
+    },
     shared::{Error, Result},
 };
 
 /// KEK 轮换离线工具：用 `old_key_b64`（旧 KEK，base64 32B）解、当前 `MS_CIPHER_KEY`（新 KEK）
 /// 重封 DB 里全部 KEK-sealed 列，返回每表重包行数。**离线运维操作**（停写窗口执行）：
-/// 跑完核对各表计数无误后方可下线旧 KEK。字段数据本身不动（只换信封）。
+/// 跑完核对各表计数无误后方可下线旧 KEK。字段数据本身不动（只换信封）。报错时事务已回滚，可以重跑。
 pub async fn rewrap_kek(settings: &Settings, old_key_b64: &str) -> Result<Vec<(String, usize)>> {
     let old = CipherRootKey::from_base64(old_key_b64)
         .map_err(|e| Error::invalid(format!("old KEK invalid: {e}")))?;
@@ -51,6 +80,16 @@ pub async fn rewrap_kek(settings: &Settings, old_key_b64: &str) -> Result<Vec<(S
         .map_err(|e| Error::invalid(format!("new KEK (MS_CIPHER_KEY) invalid: {e}")))?;
     let meta = MetaStore::connect(&settings.meta_database).await?;
     crate::infra::cipher::kek_rewrap::rewrap_all(&meta.pool, &old, &new).await
+}
+
+/// 多因素认证离线重置：关掉 `email` 这个账号的多因素认证，它所有设备上的登录作废。返回原来是否
+/// 开着；没有这个账号时报错。给 root 丢了验证器、或者所有管理员都进不来时在服务器上用。
+pub async fn reset_mfa(settings: &Settings, email: &str) -> Result<bool> {
+    let meta = MetaStore::connect(&settings.meta_database).await?;
+
+    crate::infra::mfa::reset_by_email(&meta.pool, email)
+        .await?
+        .ok_or_else(|| Error::not_found(format!("no account has the email {email}")))
 }
 
 pub async fn build_state(settings: &Settings) -> Result<AppState> {
@@ -69,14 +108,57 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
 
     let query_runtime = QueryRuntime::build(settings, &core, &storage_runtime).await;
 
+    // Sessions the intake meets without memory of them are rebuilt by reading them back.
+    storage_runtime.rum_query.fill(query_runtime.query.clone());
+
     let dashboard_contract_registry = Arc::new(DashboardContractRegistryService::new(
         core.dashboard_contracts.clone(),
     ));
 
     dashboard_contract_registry.publish_builtins().await?;
     let dashboard_contracts: Arc<dyn DashboardContractResolver> = dashboard_contract_registry;
-    let alerting_runtime =
-        AlertingRuntime::build(settings, &core, &query_runtime, dashboard_contracts.clone())?;
+    // 告警流水线的步骤：VRL，问组织模型的 AI 摘要（告警量小，不看 `llm_eval_enabled`），调 HTTP
+    // 连接器和跑查询的补充。
+    let alert_pipelines = Arc::new(
+        crate::app::alerting::event_pipelines::AlertPipelines::new(
+            Arc::new(
+                crate::infra::pipeline::alert::PgAlertPipelineRepository::new(core.pool.clone()),
+            ),
+            Arc::new(crate::infra::runtime::ChainedFunctionExecutor::new(
+                Arc::new(crate::infra::runtime::VrlFunctionExecutor::new()),
+                None,
+                Some(Arc::new(
+                    crate::bootstrap::llm_executor::LlmFunctionExecutor::new(
+                        agent_model_providers.clone(),
+                        agent_usage.clone(),
+                    ),
+                )),
+            )),
+        )
+        .with_enrichment(
+            Arc::new(crate::infra::connectors::enrich::ConnectorEnricher::new(
+                Arc::new(crate::infra::connectors::PgConnectorRepository::new(
+                    core.pool.clone(),
+                    core.cipher_root_key.clone(),
+                )),
+            )),
+            query_runtime.alert_engine.clone(),
+        )
+        .with_language(
+            core.i18n_language.clone(),
+            Arc::new(PgWorkspacePreferenceDefaultsRepository::new(
+                core.pool.clone(),
+            )),
+        ),
+    );
+
+    let alerting_runtime = AlertingRuntime::build(
+        settings,
+        &core,
+        &query_runtime,
+        dashboard_contracts.clone(),
+        alert_pipelines,
+    )?;
 
     let pg_synthetic_repository = Arc::new(
         crate::infra::persistence::repositories::synthetics::PgSyntheticRepository::new(
@@ -91,6 +173,8 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
                 .ensure_builtin_local_agent(
                     &core.node_id,
                     env!("CARGO_PKG_VERSION"),
+                    &crate::bootstrap::workers::synthetics::embedded_capabilities(),
+                    probe_agent::executor::FEATURE_LEVEL,
                     crate::shared::time::TimestampMicros::now(),
                 )
                 .await?,
@@ -112,21 +196,39 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         .await?,
     );
 
+    // 拨测的每次运行也写进各组织的 `_synthetic_results` 流：排队，写入 worker 在 intake 就绪后启动。
+    let (synthetic_result_stream, synthetic_result_receiver) =
+        crate::app::synthetics::result_stream_queue();
+    let synthetic_result_repository = synthetic_repository.clone();
+
     let synthetics = Arc::new(
         crate::app::synthetics::SyntheticService::new(synthetic_repository.clone())
+            .with_result_stream(synthetic_result_stream)
             .with_probe_configuration(
                 settings.probe.resolved_register_endpoint(),
                 settings.probe.resolved_control_endpoint(),
                 probe_authority.ca_certificate_pem().to_string(),
             )
-            .with_transition_sink(super::business_services::synthetic_transition_sink(
-                alerting_runtime.status_pages.clone(),
-                alerting_runtime.business_service_signals.clone(),
+            // 拨测状态的变化交给状态页，也开、解决告警事件。
+            .with_transition_sink(Arc::new(
+                crate::app::synthetics::SyntheticTransitionSinks::new(vec![
+                    super::status_page_dependencies::synthetic_transition_sink(
+                        alerting_runtime.status_pages.clone(),
+                        alerting_runtime.dependency_signals.clone(),
+                    ),
+                    Arc::new(crate::app::alerting::SyntheticIncidentSink::new(
+                        alerting_runtime.evaluator.clone(),
+                        synthetic_repository.clone(),
+                        core.i18n_language.clone(),
+                        Arc::new(PgWorkspacePreferenceDefaultsRepository::new(
+                            core.pool.clone(),
+                        )),
+                    )),
+                ]),
             )),
     );
 
-    let business_services =
-        super::business_services::build(&core, &alerting_runtime, synthetic_repository.clone());
+    super::status_page_dependencies::spawn_worker(&core, &alerting_runtime);
 
     let probe_artifact_base_url = super::synthetics::artifact_base_url(settings);
 
@@ -156,7 +258,9 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         .spawn()
     });
 
-    let iam_runtime = IamRuntime::build(settings, &core).await?;
+    // 审计事件也写进各组织的 `_audit` 流：排队，写入 worker 在 intake 就绪后启动。
+    let (audit_stream, audit_stream_receiver) = crate::app::audit_stream::audit_stream_queue();
+    let iam_runtime = IamRuntime::build(settings, &core, audit_stream).await?;
 
     let tracing_runtime = TracingRuntime::build(
         settings,
@@ -166,6 +270,11 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         &iam_runtime,
     )
     .await?;
+
+    // APM rules read their figures from APM's query service, built only now.
+    alerting_runtime
+        .apm_alerts
+        .fill(tracing_runtime.apm_query.clone());
 
     let platform_runtime = PlatformRuntime::build(
         settings,
@@ -196,6 +305,14 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
 
     query_runtime.spawn_federation_workers(settings, &core, &iam_runtime);
 
+    let alert_sources = super::alert_sources::build(
+        settings,
+        &core,
+        &alerting_runtime,
+        &iam_runtime,
+        &query_runtime,
+    );
+
     let Core {
         store,
         object_reader,
@@ -208,6 +325,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         teams,
         org_schema_cache,
         streams,
+        metric_directory,
         saved_views,
         email_sender,
         cipher_keys,
@@ -227,6 +345,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
 
     let QueryRuntime {
         query,
+        alert_engine,
         local_engines,
         remote_clusters,
         cluster_event_outbox,
@@ -247,6 +366,8 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         function_executor,
         functions_js_runtime_enabled,
         usage,
+        intake_meter,
+        pipeline_steps,
         investigation_blobs,
         catalog_query,
         catalog_files,
@@ -259,13 +380,39 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         notify_engine,
         dashboard,
         status_pages,
-        business_service_signals: _,
+        dependency_signals: _,
         notify_templates,
         mute_rules,
+        inhibitions,
         incident_groups,
         semantic_groups,
         evaluator,
+        apm_alerts: _,
+        rum_alerts,
+        routing: alert_routing,
+        actions: incident_actions,
+        reply_callbacks,
+        insights: alert_insights,
+        related: related_incidents,
+        calendar: calendar_feeds,
+        swaps: shift_swaps,
+        heartbeats: alert_heartbeats,
+        remediation: alert_remediation,
+        tickets: alert_tickets,
+        response: incident_response,
+        postmortems: incident_postmortems,
+        discovery_findings,
+        holiday_calendars,
+        importance,
+        realtime_counts,
     } = alerting_runtime;
+
+    // 节假日日历：先读一遍进缓存（时间段按它判断节假日），之后每分钟刷新。
+    if let Err(error) = holiday_calendars.load().await {
+        tracing::warn!(%error, "holiday calendars could not be loaded");
+    }
+
+    let _holiday_refresh = holiday_calendars.spawn_refresh();
 
     let IamRuntime {
         iam,
@@ -279,11 +426,14 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         workspace_preference_defaults,
         invitations,
         roles: iam_roles,
+        policies: iam_policies,
         email_domains,
         audit_events,
         sso_state_store,
         sso_jwks_cache,
-        sso_sessions,
+        sso_identities,
+        sso_link_requests,
+        sso_signin_tests,
         sso_providers,
     } = iam_runtime;
 
@@ -298,6 +448,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         service_graph: service_graph_repo,
         rum_replay,
         apm_query,
+        apm_catalog,
         apm_runtime,
     } = tracing_runtime;
 
@@ -344,10 +495,64 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         knowledge: agent_knowledge,
         memory: agent_memory,
         currencies: agent_currencies,
+        automations: agent_automations,
+        scoring: agent_scoring,
+        im: agent_im,
     } = agent_runtime;
 
     let _agent_trace_writer =
         super::workers::agent_traces::AgentTraceWriter::new(agent_traces, intake.clone()).spawn();
+
+    let _synthetic_result_writer = super::workers::synthetic_results::SyntheticResultWriter::new(
+        synthetic_result_receiver,
+        synthetic_result_repository,
+        intake.clone(),
+    )
+    .spawn();
+
+    let _audit_stream_writer =
+        super::workers::audit_stream::AuditStreamWriter::new(audit_stream_receiver, intake.clone())
+            .spawn();
+
+    let intake_budgets: Arc<dyn crate::domain::intake::usage::budget::IntakeBudgetRepository> =
+        Arc::new(PgIntakeBudgetRepository::new(core.pool.clone()));
+
+    let intake_sources = Arc::new(crate::app::intake::usage::IntakeSourceDirectory::new(
+        api_tokens.clone(),
+        connectors.clone(),
+        core.users.clone(),
+        streams.clone(),
+    ));
+
+    // 预算只用来提醒：告警节点按组织分担，每分钟看一次。
+    let _intake_budget_events = core.roles.run_alert.then(|| {
+        super::workers::intake_usage::spawn_budget_events(
+            Arc::new(crate::app::notify::IntakeBudgetEventProducer::new(
+                notify_engine.clone(),
+                intake_budgets.clone(),
+                usage.clone(),
+                intake_sources.clone(),
+                core.i18n_language.clone(),
+                Arc::new(PgWorkspacePreferenceDefaultsRepository::new(
+                    core.pool.clone(),
+                )),
+            )),
+            core.orgs.clone() as Arc<dyn crate::domain::iam::OrganizationRepository>,
+            core.alert_ownership.clone(),
+            drain_controller.clone(),
+        )
+    });
+
+    // 告警通知上的确认、解决按钮：开了「在 IM 里回答」的机器人收得到点击。
+    notify_engine.fill_alert_buttons(Arc::new(ImAlertButtons::new(
+        agent_im.clone(),
+        TextSources {
+            user_preferences: user_preferences.clone(),
+            workspace_defaults: workspace_preference_defaults.clone(),
+            i18n_language: core.i18n_language.clone(),
+        },
+        settings.http.external_url.clone(),
+    )));
 
     let stream_repository: Arc<dyn StreamRepository> = streams.clone();
 
@@ -357,10 +562,50 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         query.clone(),
     ));
 
+    // The tools of Mole Agent read the applications and the error issues of RUM as its pages do.
+    let rum_applications: Arc<dyn RumApplicationRepository> =
+        Arc::new(PgRumApplicationRepository::new(core.pool.clone()));
+    let rum_issues: Arc<dyn RumIssueRepository> =
+        Arc::new(PgRumIssueRepository::new(core.pool.clone()));
+    let rum_playlists: Arc<dyn RumPlaylistRepository> =
+        Arc::new(PgRumPlaylistRepository::new(core.pool.clone()));
+    let rum_comments: Arc<dyn RumReplayCommentRepository> =
+        Arc::new(PgRumReplayCommentRepository::new(core.pool.clone()));
+    let rum_summaries: Arc<dyn RumSessionSummaryRepository> =
+        Arc::new(PgRumSessionSummaryRepository::new(core.pool.clone()));
+
+    // 自动发现：每个组织每 5 分钟找一遍 APM、RUM、日志和资源指标的问题，按组织分给各 alert 节点。
+    let _discovery_worker = core.roles.run_alert.then(|| {
+        crate::app::alerting::discovery::DiscoveryWorker::new(
+            discovery_findings.clone(),
+            core.orgs.clone() as Arc<dyn crate::domain::iam::OrganizationRepository>,
+            Some(apm_query.clone()),
+            Some(Arc::new(
+                crate::app::alerting::discovery::RumDiscovery::new(
+                    rum_applications.clone(),
+                    rum_issues.clone(),
+                ),
+            )),
+            core.alert_ownership.clone(),
+        )
+        .with_signals(
+            Arc::new(crate::app::alerting::discovery::LogDiscovery::new(
+                alert_engine.clone(),
+                stream_repository.clone(),
+            )),
+            Arc::new(crate::app::alerting::discovery::MetricDiscovery::new(
+                alert_engine.clone(),
+                metric_directory.clone(),
+            )),
+        )
+        .spawn()
+    });
+
     let tools = Arc::new(ToolRuntime::new(ToolRuntimeDependencies {
         observability: ObservabilityToolDependencies {
             query: query.clone(),
             streams: stream_repository.clone(),
+            metric_directory: metric_directory.clone(),
             apm: apm_query.clone(),
             apm_runtime: apm_runtime.clone(),
             service_graph: service_graph_repo.clone(),
@@ -368,16 +613,25 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             catalog_query: catalog_query.clone(),
             object_store: read_store.clone(),
             slow_queries: slow_queries.clone(),
+            rum_applications: rum_applications.clone(),
+            rum_issues: rum_issues.clone(),
+            rum_comments: rum_comments.clone(),
+            rum_summaries: rum_summaries.clone(),
         },
         alerting: AlertingToolDependencies {
             service: alerting.clone(),
+            actions: incident_actions.clone(),
             evaluator: evaluator.clone(),
             incident_rca: incident_rca.clone(),
             incident_groups: incident_groups.clone(),
             mute_rules: mute_rules.clone(),
+            inhibitions: inhibitions.clone(),
             notify: notify.clone(),
             notify_engine: notify_engine.clone(),
             notify_templates: notify_templates.clone(),
+            tickets: alert_tickets.clone(),
+            remediation: alert_remediation.clone(),
+            discovery: discovery_findings.clone(),
         },
         content: ContentToolDependencies {
             dashboard: dashboard.clone(),
@@ -415,6 +669,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         },
         agent: AgentToolDependencies {
             repository: agent.clone(),
+            automations: agent_automations.clone(),
         },
     }));
 
@@ -437,13 +692,41 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
 
     tools.bind_log_inspections(log_inspections.clone());
 
+    // The dashboards of the organizations that had RUM applications before they existed, and of
+    // those whose dashboards this build has changed.
+    let _rum_dashboards = core.roles.run_alert.then(|| {
+        super::workers::rum_dashboards::spawn(
+            core.orgs.clone(),
+            dashboard.clone(),
+            rum_applications.clone(),
+            drain_controller.clone(),
+        )
+    });
+
+    let rum_intake = Arc::new(
+        RumIntake::new(
+            intake.clone(),
+            stream_repository.clone(),
+            rum_applications.clone(),
+            geoip.clone(),
+        )
+        .with_versions(Arc::new(PgRumVersionRepository::new(core.pool.clone()))),
+    );
+
+    let signin_limiter = Arc::new(SigninLimiter::new(
+        Arc::new(PgSigninAttemptRepository::new(core.pool.clone())),
+        instance_settings.clone(),
+        iam.users.clone(),
+        audit_events.clone(),
+        system_org.id.clone(),
+    ));
+
     Ok(AppState {
         intake,
         query,
         search_jobs: search_job_service,
         dashboard,
         status_pages,
-        business_services,
         synthetics,
         probe_control,
         alerting: AlertingState {
@@ -454,7 +737,27 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             semantic_groups,
             templates: notify_templates,
             mute_rules,
+            inhibitions,
             evaluator,
+            rum: rum_alerts,
+            sources: alert_sources,
+            routing: alert_routing,
+            actions: incident_actions,
+            reply_callbacks,
+            insights: alert_insights,
+            related: related_incidents,
+            calendar: calendar_feeds,
+            swaps: shift_swaps,
+            heartbeats: alert_heartbeats,
+            remediation: alert_remediation,
+            tickets: alert_tickets,
+            response: incident_response,
+            postmortems: incident_postmortems,
+            realtime: core.realtime_alerts.clone(),
+            realtime_counts,
+            discovery: discovery_findings.clone(),
+            holidays: holiday_calendars.clone(),
+            importance: importance.clone(),
         },
         iam: IamState {
             service: iam,
@@ -466,12 +769,15 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             instance_settings,
             sso_state_store,
             sso_jwks_cache,
-            sso_sessions,
+            sso_identities,
+            sso_link_requests,
+            sso_signin_tests,
             sso_providers,
             email_sender,
             invitations,
             email_domains,
             roles: iam_roles,
+            policies: iam_policies,
             signing_secrets,
             api_tokens,
             service_accounts,
@@ -479,10 +785,23 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             user_ui_preference,
             workspace_preference_defaults,
             audit_events,
+            mfa_factors: Arc::new(PgMfaFactorRepository::new(
+                core.pool.clone(),
+                core.cipher_root_key.clone(),
+            )),
+            mfa_lockouts: Arc::new(PgMfaLockoutRepository::new(core.pool.clone())),
+            mfa_challenges: Arc::new(PgMfaChallengeRepository::new(
+                core.pool.clone(),
+                core.cipher_root_key.clone(),
+            )),
+            passkeys: Arc::new(PgPasskeyRepository::new(core.pool.clone())),
+            signin_policies: Arc::new(PgSigninPolicyRepository::new(core.pool.clone())),
+            signin_limiter,
+            signup_requests: Arc::new(PgSignupRequestRepository::new(core.pool.clone())),
         },
         telemetry: TelemetryState {
             streams: stream_repository,
-            stream_retention_days: settings.compactor.retention_days.max(1),
+            metric_directory,
             self_telemetry_org_id,
             self_telemetry_runtime: None,
             self_telemetry_resource: None,
@@ -499,8 +818,15 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             },
             service_graph: service_graph_repo,
             rum_replay,
+            rum_intake,
+            rum_applications,
+            rum_issues,
+            rum_playlists,
+            rum_comments,
+            rum_summaries,
             geoip,
             apm_query,
+            apm_catalog,
             apm_runtime,
             trace_policies,
             trace_debug_tokens,
@@ -554,6 +880,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         platform: PlatformState {
             saved_view: saved_views,
             external_url: settings.http.external_url.clone(),
+            http_gzip: settings.http.gzip,
             i18n_language: core.i18n_language.clone(),
 
             scheduled_reports,
@@ -563,6 +890,10 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             report_renderer_base_url,
 
             usage,
+            intake_meter,
+            pipeline_steps,
+            intake_budgets,
+            intake_sources,
             domains,
         },
         agent: AgentState {
@@ -587,6 +918,9 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             runs: agent_runs,
             knowledge: agent_knowledge,
             memory: agent_memory,
+            automations: agent_automations,
+            scoring: agent_scoring,
+            im: agent_im,
         },
         tools,
     })
@@ -597,7 +931,10 @@ mod tests {
     use std::sync::Mutex;
 
     use crate::{
-        bootstrap::{storage::build_fsync_policy, tracing::prepare_self_telemetry_streams},
+        bootstrap::{
+            storage::build_fsync_policy,
+            tracing::{SYSTEM_STREAM_RETENTION_DAYS, prepare_self_telemetry_streams},
+        },
         config::{SelfCollectSettings, WalFlushStrategy, WalSettings, WalSyncLevel},
         domain::{
             iam::{Organization, OrganizationRepository},
@@ -732,10 +1069,6 @@ mod tests {
         SelfCollectSettings {
             enabled: true,
             profiles_enabled: true,
-            retention_days: 3,
-            metrics_retention_days: 3,
-            traces_retention_days: 7,
-            profiles_retention_days: 3,
             ..SelfCollectSettings::default()
         }
     }
@@ -791,8 +1124,10 @@ mod tests {
         assert!(matches!(error, Error::Internal(_)));
     }
 
+    /// The system streams are created with a week of retention; a retention changed on the stream
+    /// page afterwards stays across restarts.
     #[tokio::test]
-    async fn self_telemetry_startup_precreates_all_typed_streams_and_updates_retention() {
+    async fn self_telemetry_startup_precreates_all_typed_streams_and_keeps_their_retention() {
         let orgs = TestOrganizations {
             org: Some(default_org()),
         };
@@ -804,41 +1139,45 @@ mod tests {
                 .unwrap();
         let definitions = streams.list(&org_id).await.unwrap();
         assert_eq!(definitions.len(), 3);
-        for (stream_type, retention_days) in [
-            (StreamType::METRICS, 3),
-            (StreamType::TRACES, 7),
-            (StreamType::PROFILES, 3),
-        ] {
-            let stream = definitions
+
+        let of = |definitions: &[StreamDefinition], stream_type| {
+            definitions
                 .iter()
                 .find(|definition| definition.stream_type == stream_type)
-                .unwrap();
+                .cloned()
+                .unwrap()
+        };
+
+        for stream_type in [
+            StreamType::METRICS,
+            StreamType::TRACES,
+            StreamType::PROFILES,
+        ] {
+            let stream = of(&definitions, stream_type);
             assert_eq!(stream.name, MOLESIGNAL_SYSTEM_STREAM);
-            assert_eq!(stream.retention.unwrap().days, retention_days);
+            assert_eq!(stream.retention.unwrap().days, SYSTEM_STREAM_RETENTION_DAYS);
         }
 
-        let settings = SelfCollectSettings {
-            retention_days: 9,
-            metrics_retention_days: 10,
-            traces_retention_days: 11,
-            profiles_retention_days: 12,
-            ..self_collect_settings()
-        };
-        prepare_self_telemetry_streams(&orgs, &streams, &settings, true)
+        let metrics = of(&definitions, StreamType::METRICS);
+
+        streams
+            .update_retention(&metrics.id, Some(Retention { days: 30 }))
             .await
             .unwrap();
+
+        prepare_self_telemetry_streams(&orgs, &streams, &self_collect_settings(), true)
+            .await
+            .unwrap();
+
         let definitions = streams.list(&org_id).await.unwrap();
-        for (stream_type, retention_days) in [
-            (StreamType::METRICS, 10),
-            (StreamType::TRACES, 11),
-            (StreamType::PROFILES, 12),
-        ] {
-            let stream = definitions
-                .iter()
-                .find(|definition| definition.stream_type == stream_type)
-                .unwrap();
-            assert_eq!(stream.retention.unwrap().days, retention_days);
-        }
+        assert_eq!(definitions.len(), 3);
+        assert_eq!(
+            of(&definitions, StreamType::METRICS)
+                .retention
+                .unwrap()
+                .days,
+            30
+        );
     }
 
     #[tokio::test]

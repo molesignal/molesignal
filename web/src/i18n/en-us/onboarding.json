@@ -6,7 +6,7 @@
     "progress": "{{completed}}/{{total}} complete",
     "progress_short": "{{completed}}/{{total}}",
     "ready": "Core workflows are active",
-    "empty": "Finish the first three steps to make this org operational.",
+    "empty": "Get data in, then create a dashboard and an alert to make this org operational.",
     "remaining_single": "1 setup step remaining",
     "remaining_multiple": "{{count}} setup steps remaining",
     "next": "Next",
@@ -25,13 +25,25 @@
         "title": "Create an alert",
         "description": "Define the first service or platform signal."
       },
+      "schedule": {
+        "title": "Set up an on-call schedule",
+        "description": "Decide who picks up an alert, and when."
+      },
+      "notification": {
+        "title": "Add a notification channel",
+        "description": "Add a connector to reach people by chat, email, SMS, or phone."
+      },
+      "ai": {
+        "title": "Connect an AI model",
+        "description": "Add a model provider so Mole Agent can help investigate."
+      },
       "pipeline": {
         "title": "Automate a pipeline",
         "description": "Schedule a data movement or backfill workflow."
       },
       "sample_data": {
         "title": "Load sample data",
-        "description": "Use the HTTP JSON guide to load a small preview stream."
+        "description": "Try the product on a small set of related logs, metrics, and traces."
       }
     },
     "load": "Load",
@@ -126,7 +138,8 @@
       "stored_bytes": "Compressed data size",
       "compression_pending": "Waiting for raw intake metering",
       "compression_saved": "{{percent}}% smaller than raw",
-      "compression_overhead": "Small-batch storage overhead +{{percent}}%"
+      "compression_overhead": "Small-batch storage overhead +{{percent}}%",
+      "unavailable": "Could not be fetched"
     },
     "health": {
       "title": "System health overview",
@@ -203,7 +216,8 @@
       "pending_summary_one": "{{count}} event needs acknowledgement",
       "pending_summary_other": "{{count}} events need acknowledgement",
       "open_incidents": "Open incidents",
-      "view_schedule": "View schedule"
+      "view_schedule": "View schedule",
+      "unavailable_title": "Could not load the schedules"
     },
     "dashboards": {
       "title": "Recent dashboards",
@@ -223,7 +237,7 @@
     "rum_client_token": "RUM client token",
     "copy_token": "Copy token",
     "token_loading": "Loading…",
-    "token_description": "Default intake token — paste it into the Authorization: Bearer header above. Manage or create more under API tokens.",
+    "token_description": "Default intake token — paste it into the Authorization: Bearer header above. Manage or create more under API tokens in your account settings.",
     "validation": "Validation",
     "test_event": "Send test event",
     "test_event_sending": "Sending…",
@@ -282,18 +296,19 @@
     "manage_tokens": "Manage tokens",
     "show_token": "Show token",
     "hide_token": "Hide token",
-    "token_permission": "Role",
+    "token_permission": "Scope",
     "token_workspace": "Workspace",
     "token_expiry": "Expires",
     "token_never_expires": "Never",
-    "token_load_failed": "Unable to load an intake token. Confirm that you can manage API tokens.",
-    "rum_application_id": "RUM application ID",
-    "rum_application_hint": "A stable mobile-app identifier. Events, tokens, and debug artifacts for one app must use the same value.",
-    "rum_application_invalid": "Use 1–128 letters, numbers, periods, underscores, colons, or hyphens.",
-    "rum_application_required": "Enter a valid RUM application ID before an app-bound token can be issued.",
-    "rum_application_confirm": "Use this application",
-    "rum_application_confirmed": "Application confirmed",
-    "rum_application_confirm_hint": "Confirm before issuing or reusing this application's RUM client token.",
+    "token_load_failed": "Unable to load an intake token. An intake token needs permission to write data.",
+    "rum_application_id": "RUM application",
+    "rum_application_hint": "The client token below is bound to this application. Events sent for any other application are refused.",
+    "rum_application_required": "Choose a RUM application first: its client token is shown once it is chosen.",
+    "rum_application_placeholder": "Choose an application",
+    "rum_application_loading": "Loading applications…",
+    "rum_application_none": "There is no RUM application yet.",
+    "rum_application_create": "Create an application",
+    "rum_application_load_failed": "The applications could not be loaded.",
     "validation_overview_unavailable": "Receipt overview is temporarily unavailable.",
     "validation_endpoint_failed": "Receiver health check failed.",
     "validating": "Checking…",
@@ -326,7 +341,7 @@
     "validation_volume": "{{rate}} · {{rows}} rows · {{bytes}}",
     "possible_causes": "Possible causes",
     "cause_collector": "The collector is not running, or the current setup has not produced telemetry.",
-    "cause_token": "The token is invalid, expired, or its role does not match the write configuration.",
+    "cause_token": "The token is invalid, expired, or its scope does not include writing data.",
     "cause_network": "The collector cannot reach the endpoint, or a proxy / firewall blocks it.",
     "view_received_data": "View received data",
     "create_pipeline": "Create pipeline",

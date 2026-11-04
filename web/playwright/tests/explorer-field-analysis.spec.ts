@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 
+import { explorerRead } from '../fixtures/explorerReads';
 import {
   numberFieldStats,
   serveLogFieldStats,
@@ -52,7 +53,7 @@ test.describe('Field analysis in the Logs explorer', () => {
 
     // It is asked with what the list asked: the stream, the range, the conditions, and the field.
     expect(asked).toHaveLength(1);
-    expect(asked[0]).toMatchObject({ stream: 'application_logs', filters: [], free_text: [], field: 'http.status_code' });
+    expect(asked[0]).toMatchObject({ stream: 'application_logs', filters: [], freeText: [], field: 'http.status_code' });
     expect(asked[0]!.to).toBeGreaterThan(asked[0]!.from);
 
     // The numbers are of all 12,840 that match, not of the hundred on the page.
@@ -171,8 +172,8 @@ test.describe('Field analysis in the Logs explorer', () => {
   });
 
   test('offers no analysis while there are no results', async ({ page }) => {
-    await page.route('**/api/v1/web/logs', (route) =>
-      route.fulfill({ json: { items: [], next_cursor: null, previous_cursor: null, has_more: false } }),
+    await page.route(explorerRead('web/logs'), (route) =>
+      route.fulfill({ json: { items: [], nextCursor: null, previousCursor: null, hasMore: false } }),
     );
     await page.goto('/logs');
 
@@ -208,7 +209,7 @@ test.describe('Field analysis in the Traces explorer', () => {
     // The traces are named one by one: the page of the list, and the stream it was listed from.
     expect(asked).toHaveLength(1);
     expect(asked[0]).toMatchObject({ stream: 'default', field: 'http.response.status_code' });
-    expect(asked[0]!.trace_ids).toHaveLength(100);
+    expect(asked[0]!.traceIds).toHaveLength(100);
   });
 
   test('a field a trace has one value for is analysed on the rows of the list', async ({ page }) => {
@@ -225,7 +226,7 @@ test.describe('Field analysis in the Traces explorer', () => {
     await expect(panel.locator('[data-field-analysis-scope-line]')).toHaveText('Of the 100 loaded traces');
     await expect(figure(panel, 'Traces')).toHaveText('100');
     // A duration is read in its natural unit, as in the values under the row.
-    await expect(figure(panel, 'Max')).toHaveText('2450 ms');
+    await expect(figure(panel, 'Max')).toHaveText('2.45 s');
     await expect(panel.locator('[data-field-analysis-plot]')).toBeVisible();
     // Nothing is asked: the rows are in hand.
     expect(asked).toHaveLength(0);

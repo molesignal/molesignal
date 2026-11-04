@@ -1,6 +1,7 @@
 import * as React from 'react';
 
 import { writeClipboardText } from '@/lib/clipboard';
+import { uiSectionTitleClass } from '@/shell/chrome';
 import { CopyIconButton } from '@/shell/CopyIconButton';
 import { cn } from '@/shell/lib/cn';
 
@@ -27,7 +28,7 @@ export function SectionBody({
       data-settings-body={opensOnSection ? 'sections' : 'content'}
       className={cn(
         'px-0 pb-8 lg:px-0 lg:pb-10',
-        opensOnSection ? 'pt-2 sm:pt-3 lg:pt-4' : 'pt-4 sm:pt-5 lg:pt-6',
+        opensOnSection ? 'pt-2 sm:pt-2.5 lg:pt-3' : 'pt-4 sm:pt-5 lg:pt-6',
         className,
       )}
     >
@@ -97,10 +98,7 @@ export function SettingsSection({
         <header>
           <div
             data-settings-section-title
-            className={cn(
-              'font-sans text-lg font-display-strong',
-              tone === 'danger' ? 'text-red-soft' : 'text-tx-0',
-            )}
+            className={cn(uiSectionTitleClass, tone === 'danger' && 'text-red-soft')}
           >
             {title}
           </div>
@@ -208,6 +206,42 @@ export function SettingsRow({
   );
 }
 
+/**
+ * A value that can be copied but not changed (an identifier, a callback address). It sits in a
+ * well of the page's canvas, without the ring and the white of a field: nothing in it may look
+ * as if it could be typed in.
+ */
+/** The ground a value that cannot be edited sits on, the same whether it can be copied or not. */
+const readOnlyGround =
+  'flex min-h-11 w-full min-w-0 items-center rounded-md bg-[var(--page-canvas)] pl-3 lg:min-h-9';
+
+/** A value that cannot be edited and is not one to copy, such as the type of a saved connector. */
+export function ReadOnlyValue({
+  value,
+  muted = false,
+  mono = false,
+}: {
+  value: string;
+  /** Says what the value will be rather than being it, as a placeholder does. */
+  muted?: boolean;
+  /** An identifier or a part of one (a token's prefix), set in the face `CopyableValue` sets one in. */
+  mono?: boolean;
+}) {
+  return (
+    <div className={cn(readOnlyGround, 'pr-3')}>
+      <span
+        className={cn(
+          'min-w-0 flex-1 truncate text-base lg:text-sm',
+          mono ? 'font-mono' : 'font-sans',
+          muted ? 'text-tx-3' : 'text-tx-1',
+        )}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
 export function CopyableValue({
   value,
   copyLabel,
@@ -240,8 +274,8 @@ export function CopyableValue({
   }, [value]);
 
   return (
-    <div className="flex min-h-11 w-full min-w-0 items-center rounded-md bg-[var(--control-surface)] pl-3 lg:min-h-9">
-      <code className="min-w-0 flex-1 truncate font-mono text-base text-tx-1 lg:text-xs">{value}</code>
+    <div className={readOnlyGround}>
+      <code className="min-w-0 flex-1 truncate font-mono text-base text-tx-1 lg:text-sm">{value}</code>
       <CopyIconButton
         onClick={() => void copy()}
         disabled={!value || value === '—'}

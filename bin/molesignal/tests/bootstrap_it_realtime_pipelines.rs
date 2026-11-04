@@ -12,8 +12,8 @@ async fn realtime_configuration_is_unique_and_cannot_be_backfilled() {
     let s = common::TestServer::start().await;
     let (hk, hv) = s.auth_header();
     let url = format!("{}/api/v1/scheduled_pipelines", s.base_url);
-    let payload = json!({"name":"app routing","source_stream":"default","target_stream":"default","cron":"","lookback_secs":300,"enabled":true,
-        "function_steps":{"mode":"realtime","signal_type":"logs","sources":["default"],"sinks":["default"],"steps":[],"routing":{"kind":"field","field":"appname","fallback":"default","retain_source":true}}});
+    let payload = json!({"name":"app routing","sourceStream":"default","targetStream":"default","cron":"","lookbackSecs":300,"enabled":true,
+        "functionSteps":{"mode":"realtime","signalType":"logs","sources":["default"],"sinks":["default"],"steps":[],"routing":{"kind":"field","field":"appname","fallback":"default","retainSource":true}}});
     let response = s
         .client
         .post(&url)
@@ -42,7 +42,7 @@ async fn realtime_configuration_is_unique_and_cannot_be_backfilled() {
         .client
         .post(format!("{url}/{id}/backfill"))
         .header(hk, &hv)
-        .json(&json!({"start_micros":1,"end_micros":2}))
+        .json(&json!({"startTime":1,"endTime":2}))
         .send()
         .await
         .unwrap();
@@ -101,15 +101,19 @@ async fn realtime_configuration_is_unique_and_cannot_be_backfilled() {
     // Repository projection must keep the organization predicate.
     use molesignal::domain::pipeline::realtime::RealtimePipelineRepository;
     assert!(
-        repo.for_source(&s.root_org_id, "default")
+        repo.for_source(&s.root_org_id, StreamType::LOGS, "default")
             .await
             .unwrap()
             .is_some()
     );
     assert!(
-        repo.for_source(&molesignal::shared::ids::Id::new(), "default")
-            .await
-            .unwrap()
-            .is_none()
+        repo.for_source(
+            &molesignal::shared::ids::Id::new(),
+            StreamType::LOGS,
+            "default"
+        )
+        .await
+        .unwrap()
+        .is_none()
     );
 }

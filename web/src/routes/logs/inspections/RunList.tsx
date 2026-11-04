@@ -65,9 +65,9 @@ export function RunList({ runs, selectedId, nowMicros, more, onSelect, onMore }:
                   )}
                   <span
                     className="ml-auto shrink-0 whitespace-nowrap text-xs text-tx-2"
-                    title={formatMicrosActive(run.created_at_micros)}
+                    title={formatMicrosActive(run.createdAt)}
                   >
-                    {formatRelativeMicros(run.created_at_micros, locale, nowMicros)}
+                    {formatRelativeMicros(run.createdAt, locale, nowMicros)}
                   </span>
                 </span>
                 {line && <span className="line-clamp-2 text-xs leading-relaxed text-tx-2">{line}</span>}

@@ -261,7 +261,7 @@ mod tests {
             org_id: Id("org-a".into()),
             display_role: String::new(),
             roles: Vec::new(),
-            credential_role_id: Some(Id("role-a".into())),
+            credential_token_id: Some(Id("token-a".into())),
             credential_application_id: None,
             credential_service_account_id: None,
             scope: IamScope::ApiToken,
@@ -288,8 +288,8 @@ mod tests {
         assert_eq!(context.org_id(), "org-a");
         assert_eq!(context.iam_context().scope, IamScope::ApiToken);
         assert_eq!(
-            context.iam_context().credential_role_id.as_ref(),
-            Some(&Id("role-a".into()))
+            context.iam_context().credential_token_id.as_ref(),
+            Some(&Id("token-a".into()))
         );
         assert!(context.iam_context().has_permission("streams.query"));
         assert_eq!(context.chat_id(), Some("chat-a"));
@@ -308,7 +308,7 @@ mod tests {
             org_id: Id("org-a".into()),
             display_role: String::new(),
             roles: Vec::new(),
-            credential_role_id: None,
+            credential_token_id: None,
             credential_application_id: None,
             credential_service_account_id: None,
             scope: IamScope::Organization,
@@ -402,7 +402,7 @@ mod tests {
             org_id: Id("org-a".into()),
             display_role: String::new(),
             roles: Vec::new(),
-            credential_role_id: Some(Id("role-a".into())),
+            credential_token_id: Some(Id("token-a".into())),
             credential_application_id: None,
             credential_service_account_id: Some(Id("collector-agent".into())),
             scope: IamScope::ApiToken,

@@ -15,14 +15,17 @@ pub(super) mod count;
 mod files;
 mod top;
 
-use files::{file_may_match_cursor, file_may_match_filters, order_files, remaining_cannot_beat};
+use files::{file_may_match_cursor, file_may_match_query, order_files, remaining_cannot_beat};
 use top::TopTraces;
 
-use super::{TraceListContext, TraceListRow, TraceListSort};
+use super::{TraceCondition, TraceFilter, TraceListContext, TraceListRow, TraceListSort};
 #[cfg(test)]
 use crate::domain::storage::QueryFile;
 use crate::{
-    api::{AppState, http::pagination::cursor::CursorDirection},
+    api::{
+        AppState,
+        http::{pagination::cursor::CursorDirection, routes::web::trace::HTTP_STATUS_FIELDS},
+    },
     domain::{
         storage::{DatasetTypeId, type_id::builtin},
         stream::FieldType,
@@ -42,6 +45,8 @@ use crate::{
     },
 };
 
+/// What a page reads of a summary. A file written before the summaries kept
+/// the HTTP status lacks those columns, and is read without them.
 const COLUMNS: &[&str] = &[
     "_timestamp",
     "trace_id",
@@ -50,6 +55,8 @@ const COLUMNS: &[&str] = &[
     "service.name",
     "name",
     "status_code",
+    HTTP_STATUS_FIELDS[0],
+    HTTP_STATUS_FIELDS[1],
     TRACE_SUMMARY_START_NS_FIELD,
     TRACE_SUMMARY_DURATION_NS_FIELD,
     TRACE_SUMMARY_SPAN_COUNT_FIELD,
@@ -97,6 +104,7 @@ pub(super) async fn run(
     let store = scoped_to_org(state.storage.read_store.clone(), org_id);
     let reader = ParquetReader::new(store.clone());
     let mut top = TopTraces::new(context, fetch_limit);
+    let query = context.query();
 
     let from_ns = context
         .from
@@ -115,11 +123,11 @@ pub(super) async fn run(
     // They therefore participate in Top-K without the file-order early-stop optimization.
     for batch in &buffered_batches {
         scanned_rows += batch.num_rows();
-        collect_batch(batch, context, from_ns, to_ns, &mut top, false)?;
+        collect_batch(batch, context, &query, (from_ns, to_ns), &mut top, false)?;
     }
 
     while let Some(file) = files.pop_front() {
-        if !file_may_match_cursor(&file, context) || !file_may_match_filters(&file, context) {
+        if !file_may_match_cursor(&file, context) || !file_may_match_query(&file, &query) {
             continue;
         }
 
@@ -146,7 +154,7 @@ pub(super) async fn run(
             let batch = batch?;
             scanned_rows += batch.num_rows();
 
-            if collect_batch(&batch, context, from_ns, to_ns, &mut top, true)? {
+            if collect_batch(&batch, context, &query, (from_ns, to_ns), &mut top, true)? {
                 break;
             }
         }
@@ -177,8 +185,8 @@ pub(super) async fn run(
 fn collect_batch(
     batch: &RecordBatch,
     context: &TraceListContext,
-    from_ns: i64,
-    to_ns: i64,
+    query: &TraceCondition,
+    (from_ns, to_ns): (i64, i64),
     top: &mut TopTraces<'_>,
     allow_physical_short_circuit: bool,
 ) -> Result<bool> {
@@ -204,28 +212,38 @@ fn collect_batch(
             .unwrap_or_default()
             .max(0);
 
+        let text = |name| {
+            string_at(batch, name, row_index)
+                .unwrap_or_default()
+                .to_string()
+        };
+
         let candidate = TraceListRow {
             item: super::TraceListItem {
                 trace_id: trace_id.to_string(),
-                service: string_at(batch, "service.name", row_index)
-                    .unwrap_or_default()
-                    .to_string(),
-                operation: string_at(batch, "name", row_index)
-                    .unwrap_or_default()
-                    .to_string(),
+                service: text("service.name"),
+                operation: text("name"),
                 start_ns,
                 duration_ms: duration_ns as f64 / 1_000_000.0,
                 span_count: integer_at(batch, TRACE_SUMMARY_SPAN_COUNT_FIELD, row_index)
                     .unwrap_or_default(),
                 error_count: integer_at(batch, TRACE_SUMMARY_ERROR_COUNT_FIELD, row_index)
                     .unwrap_or_default(),
+                status: text("status_code"),
+                http_status_code: HTTP_STATUS_FIELDS
+                    .iter()
+                    .find_map(|name| {
+                        integer_at(batch, name, row_index)
+                            .or_else(|| string_at(batch, name, row_index)?.trim().parse().ok())
+                    })
+                    .filter(|status| (100..600).contains(status)),
+                ..Default::default()
             },
             duration_ns,
+            root_span_id: text("span_id"),
         };
 
-        if matches_text_and_filters(batch, row_index, context)
-            && matches_cursor(&candidate, context)
-        {
+        if matches_query(batch, row_index, query) && matches_cursor(&candidate, context) {
             top.offer(candidate.clone());
         }
 
@@ -301,10 +319,7 @@ fn matches_cursor(row: &TraceListRow, context: &TraceListContext) -> bool {
     let edge = TraceListRow {
         item: super::TraceListItem {
             trace_id: position.trace_id.clone(),
-            service: String::new(),
-            operation: String::new(),
             start_ns: position.start_ns,
-            duration_ms: 0.0,
             span_count: if context.sort == TraceListSort::SpanCountDesc {
                 position.primary
             } else {
@@ -315,6 +330,7 @@ fn matches_cursor(row: &TraceListRow, context: &TraceListContext) -> bool {
             } else {
                 0
             },
+            ..Default::default()
         },
         duration_ns: if matches!(
             context.sort,
@@ -324,6 +340,7 @@ fn matches_cursor(row: &TraceListRow, context: &TraceListContext) -> bool {
         } else {
             0
         },
+        root_span_id: String::new(),
     };
 
     let ordering = canonical_cmp(row, &edge, context.sort);
@@ -334,76 +351,37 @@ fn matches_cursor(row: &TraceListRow, context: &TraceListContext) -> bool {
     }
 }
 
-fn matches_text_and_filters(batch: &RecordBatch, row: usize, context: &TraceListContext) -> bool {
-    let values = || {
+/// Whether a summary passes the query: each comparison on the trace's own
+/// fields, and free text in its text columns, whatever the case.
+fn matches_query(batch: &RecordBatch, row: usize, query: &TraceCondition) -> bool {
+    query.holds(&|filter| summary_matches(batch, row, filter), &|text| {
+        let text = text.to_ascii_lowercase();
+
         TEXT_COLUMNS
             .into_iter()
             .filter_map(|field| string_at(batch, field, row))
-    };
-
-    if let Some(query) = context.q.as_deref() {
-        let query = query.to_ascii_lowercase();
-
-        if !values().any(|value| value.to_ascii_lowercase().contains(&query)) {
-            return false;
-        }
-    }
-
-    context.filters.iter().all(|filter| {
-        let Some(field) = filter.summary_column() else {
-            return false;
-        };
-
-        match filter.data_type {
-            FieldType::Utf8 => {
-                let value = string_at(batch, field, row).unwrap_or_default();
-
-                match filter.op.as_str() {
-                    "=" => value == filter.value,
-                    "!=" => value != filter.value,
-                    "contains" => value.contains(&filter.value),
-                    _ => false,
-                }
-            }
-            FieldType::Int64 | FieldType::Timestamp => integer_at(batch, field, row)
-                .zip(filter.integer_value())
-                .is_some_and(|(left, right)| compare_i64(left, filter.op.as_str(), right)),
-            FieldType::Float64 => numeric_at(batch, field, row)
-                .zip(filter.float_value())
-                .is_some_and(|(left, right)| compare_f64(left, filter.op.as_str(), right)),
-            FieldType::Bool => bool_at(batch, field, row)
-                .zip(filter.bool_value())
-                .is_some_and(|(left, right)| match filter.op.as_str() {
-                    "=" => left == right,
-                    "!=" => left != right,
-                    _ => false,
-                }),
-            FieldType::Json => false,
-        }
+            .any(|value| value.to_ascii_lowercase().contains(&text))
     })
 }
 
-fn compare_i64(left: i64, op: &str, right: i64) -> bool {
-    match op {
-        "=" => left == right,
-        "!=" => left != right,
-        ">" => left > right,
-        ">=" => left >= right,
-        "<" => left < right,
-        "<=" => left <= right,
-        _ => false,
-    }
-}
+/// Whether a summary passes a comparison on one of the trace's own fields.
+fn summary_matches(batch: &RecordBatch, row: usize, filter: &TraceFilter) -> bool {
+    let Some(field) = filter.summary_column() else {
+        return false;
+    };
 
-fn compare_f64(left: f64, op: &str, right: f64) -> bool {
-    match op {
-        "=" => left == right,
-        "!=" => left != right,
-        ">" => left > right,
-        ">=" => left >= right,
-        "<" => left < right,
-        "<=" => left <= right,
-        _ => false,
+    match filter.data_type {
+        FieldType::Utf8 => filter.matches_text(string_at(batch, field, row).unwrap_or_default()),
+        FieldType::Int64 | FieldType::Timestamp => {
+            integer_at(batch, field, row).is_some_and(|value| filter.matches_integer(value))
+        }
+        FieldType::Float64 => {
+            numeric_at(batch, field, row).is_some_and(|value| filter.matches_float(value))
+        }
+        FieldType::Bool => {
+            bool_at(batch, field, row).is_some_and(|value| filter.matches_bool(value))
+        }
+        FieldType::Json => false,
     }
 }
 
@@ -492,6 +470,7 @@ mod tests {
             page_size: 2,
             q: None,
             filters: Vec::new(),
+            condition: None,
             boundary: None,
         }
     }
@@ -512,8 +491,10 @@ mod tests {
                 duration_ms: duration_ns as f64 / 1_000_000.0,
                 span_count,
                 error_count,
+                ..Default::default()
             },
             duration_ns,
+            root_span_id: format!("{trace_id}-root"),
         }
     }
 
@@ -608,8 +589,8 @@ mod tests {
         )
         .unwrap();
 
-        assert!(!matches_text_and_filters(&batch, 0, &context));
-        assert!(matches_text_and_filters(&batch, 1, &context));
+        assert!(!matches_query(&batch, 0, &context.query()));
+        assert!(matches_query(&batch, 1, &context.query()));
     }
 
     #[test]
@@ -635,14 +616,133 @@ mod tests {
             size_bytes: 1,
             min_values: serde_json::Map::new(),
             max_values: serde_json::Map::new(),
+            value_sets: serde_json::Map::new(),
+            address_ranges: serde_json::Map::new(),
+            null_counts: serde_json::Map::new(),
+            indexed_at_micros: None,
+            shard: None,
         };
         file.min_values.insert("trace_id".into(), "trace-a".into());
         file.max_values.insert("trace_id".into(), "trace-m".into());
-        assert!(!file_may_match_filters(&file, &context));
+        assert!(!file_may_match_query(&file, &context.query()));
 
         file.max_values.insert("trace_id".into(), "trace-z".into());
-        assert!(file_may_match_filters(&file, &context));
+        assert!(file_may_match_query(&file, &context.query()));
         file.max_values.clear();
-        assert!(file_may_match_filters(&file, &context));
+        assert!(file_may_match_query(&file, &context.query()));
+    }
+
+    /// The query of the list with a condition tree beside its empty filters.
+    fn context_where(condition: &str) -> TraceListContext {
+        let mut context = context(TraceListSort::Latest);
+
+        context.condition = super::super::filter::condition::parse(
+            Some(condition),
+            &crate::shared::trace::normalization::canonical_trace_schema(),
+            32,
+        )
+        .unwrap();
+
+        context
+    }
+
+    #[test]
+    fn a_summary_passes_when_either_part_holds() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("trace_id", DataType::Utf8, false),
+            Field::new("name", DataType::Utf8, true),
+            Field::new(TRACE_SUMMARY_SPAN_COUNT_FIELD, DataType::Int64, true),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(StringArray::from(vec![
+                    "trace-a", "trace-b", "trace-c", "trace-d",
+                ])),
+                Arc::new(StringArray::from(vec![
+                    Some("GET /"),
+                    Some("job"),
+                    None,
+                    None,
+                ])),
+                Arc::new(Int64Array::from(vec![Some(1), Some(1), Some(3), None])),
+            ],
+        )
+        .unwrap();
+
+        let query = context_where(
+            r#"{"or":[{"field":"span_count","op":">=","value":"2"},{"text":"JOB"}]}"#,
+        )
+        .query();
+
+        // `trace-d` keeps neither a name nor a count: it answers neither part.
+        assert_eq!(
+            (0..4)
+                .map(|row| matches_query(&batch, row, &query))
+                .collect::<Vec<_>>(),
+            [false, true, true, false]
+        );
+
+        // `span_count >= 1 AND (job OR trace_id = 'trace-a')`.
+        let query = context_where(
+            r#"{"and":[{"field":"span_count","op":">=","value":"1"},
+                       {"or":[{"text":"job"},{"field":"trace_id","op":"=","value":"trace-a"}]}]}"#,
+        )
+        .query();
+        assert_eq!(
+            (0..4)
+                .map(|row| matches_query(&batch, row, &query))
+                .collect::<Vec<_>>(),
+            [true, true, false, false]
+        );
+    }
+
+    #[test]
+    fn a_file_is_left_out_of_an_or_only_when_no_part_can_hold_in_it() {
+        let mut file = QueryFile {
+            id: Id::from_string("file"),
+            org_id: Id::from_string("org"),
+            stream: "default".into(),
+            stream_type: crate::domain::stream::StreamType::TRACES,
+            dataset_type: DatasetTypeId::builtin(builtin::DATASET_TRACE_SUMMARY),
+            object_key: "file.parquet".into(),
+            checksum: None,
+            etag: None,
+            time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(1)),
+            rows: 1,
+            size_bytes: 1,
+            min_values: serde_json::Map::new(),
+            max_values: serde_json::Map::new(),
+            value_sets: serde_json::Map::new(),
+            address_ranges: serde_json::Map::new(),
+            null_counts: serde_json::Map::new(),
+            indexed_at_micros: None,
+            shard: None,
+        };
+        file.min_values.insert("trace_id".into(), "trace-a".into());
+        file.max_values.insert("trace_id".into(), "trace-m".into());
+
+        let kept = |condition: &str| file_may_match_query(&file, &context_where(condition).query());
+        let id = |value: &str| format!(r#"{{"field":"trace_id","op":"=","value":"{value}"}}"#);
+
+        assert!(!kept(&format!(
+            r#"{{"or":[{},{}]}}"#,
+            id("trace-y"),
+            id("trace-z")
+        )));
+        assert!(kept(&format!(
+            r#"{{"or":[{},{}]}}"#,
+            id("trace-z"),
+            id("trace-b")
+        )));
+        // Text may be anywhere: the zone maps do not say.
+        assert!(kept(&format!(
+            r#"{{"or":[{},{{"text":"x"}}]}}"#,
+            id("trace-z")
+        )));
+        assert!(!kept(&format!(
+            r#"{{"and":[{},{{"text":"x"}}]}}"#,
+            id("trace-z")
+        )));
     }
 }

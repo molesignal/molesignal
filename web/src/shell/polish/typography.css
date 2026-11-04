@@ -1,7 +1,7 @@
 /*
  * Typesetting.
  *
- * The typeface is fixed (Alibaba PuHuiTi, see fonts.css); what this layer fixes
+ * The faces are the platform's own (see tokens.css); what this layer fixes
  * is how lines break. Headings balance their lines instead of leaving a lone
  * character on the last row, and running text avoids orphans. (Figures are
  * already tabular: see the base rule in tokens.css.)
@@ -20,6 +20,19 @@ figcaption {
   text-wrap: pretty;
 }
 
+/* The title roles balance their lines in whatever element they are set, and a description set as
+   running text (`leading-relaxed`) avoids an orphan in a `div` as in a `p`. */
+.type-page-title,
+.type-section-title,
+.type-heading,
+.type-display {
+  text-wrap: balance;
+}
+
+.leading-relaxed:not(pre) {
+  text-wrap: pretty;
+}
+
 /*
  * Eyebrow: the small label above a heading or a group. Latin text is set in
  * tracked capitals; CJK has no case, so it is set plain, one size up and with
@@ -28,7 +41,7 @@ figcaption {
 .type-eyebrow {
   font-size: var(--font-micro);
   font-weight: var(--fw-strong);
-  line-height: 1.4;
+  line-height: calc(16 / 11);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -38,6 +51,7 @@ figcaption {
   /* Han glyphs fill their em box, so at 11px a block's name reads smaller than
      the 12px rows under it; one step up keeps it a heading. */
   font-size: var(--font-caption);
+  line-height: calc(16 / 12);
   letter-spacing: 0.04em;
   text-transform: none;
 }

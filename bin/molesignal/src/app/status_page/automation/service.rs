@@ -304,10 +304,10 @@ impl StatusPageService {
             ));
         }
 
-        // A business-service rule that names no components publishes on the
-        // components that stand for the service.
+        // A dependency rule that names no components publishes on the
+        // component whose dependencies changed.
         let names_components_later =
-            input.matchers.source_kind == AutomationSourceKind::BusinessService;
+            input.matchers.source_kind == AutomationSourceKind::ComponentDependencies;
 
         if (input.action.component_ids.is_empty() && !names_components_later)
             || input.action.component_ids.len() > 500

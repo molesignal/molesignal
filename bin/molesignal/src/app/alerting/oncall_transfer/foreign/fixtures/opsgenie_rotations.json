@@ -1,0 +1,662 @@
+{
+  "data": [
+    {
+      "id": "d875e654-9b4e-4219-a803-0c26936d18de",
+      "name": "Platform on-call",
+      "description": "Platform rotation",
+      "timezone": "Europe/Berlin",
+      "enabled": true,
+      "ownerTeam": {
+        "id": "90098f2e-f0e3-41d3-a060-0ea895027630",
+        "name": "ops_team"
+      },
+      "rotations": [
+        {
+          "id": "a47ed593-0541-4aa3-bac6-4084cfa02d20",
+          "name": "Business hours",
+          "startDate": "2026-10-05T07:00:00Z",
+          "type": "weekly",
+          "length": 1,
+          "participants": [
+            {
+              "type": "user",
+              "id": "a9514028-2bca-4510-a51f-4b65f2c33a56",
+              "username": "anna@example.com"
+            },
+            {
+              "type": "user",
+              "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+              "username": "ben@example.com"
+            }
+          ],
+          "timeRestriction": {
+            "type": "weekday-and-time-of-day",
+            "restrictions": [
+              {
+                "startDay": "monday",
+                "startHour": 9,
+                "startMin": 0,
+                "endDay": "monday",
+                "endHour": 18,
+                "endMin": 0
+              },
+              {
+                "startDay": "tuesday",
+                "startHour": 9,
+                "startMin": 0,
+                "endDay": "tuesday",
+                "endHour": 18,
+                "endMin": 0
+              },
+              {
+                "startDay": "wednesday",
+                "startHour": 9,
+                "startMin": 0,
+                "endDay": "wednesday",
+                "endHour": 18,
+                "endMin": 0
+              },
+              {
+                "startDay": "thursday",
+                "startHour": 9,
+                "startMin": 0,
+                "endDay": "thursday",
+                "endHour": 18,
+                "endMin": 0
+              },
+              {
+                "startDay": "friday",
+                "startHour": 9,
+                "startMin": 0,
+                "endDay": "friday",
+                "endHour": 18,
+                "endMin": 0
+              }
+            ]
+          }
+        },
+        {
+          "id": "e1c575c4-7143-482c-8e83-4bab97d582d7",
+          "name": "Off hours",
+          "startDate": "2026-10-05T16:00:00Z",
+          "type": "daily",
+          "length": 2,
+          "participants": [
+            {
+              "type": "user",
+              "id": "1f2a2191-bca3-4ae2-bdea-b02e94d10953",
+              "username": "carl@example.com"
+            },
+            {
+              "type": "user",
+              "id": "c569c016-5d89-4e20-8a28-bd5dc33b798e",
+              "username": "dora@example.com"
+            },
+            {
+              "type": "user",
+              "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+              "username": "ben@example.com"
+            }
+          ],
+          "timeRestriction": {
+            "type": "weekday-and-time-of-day",
+            "restrictions": [
+              {
+                "startDay": "monday",
+                "startHour": 18,
+                "startMin": 0,
+                "endDay": "tuesday",
+                "endHour": 9,
+                "endMin": 0
+              },
+              {
+                "startDay": "tuesday",
+                "startHour": 18,
+                "startMin": 0,
+                "endDay": "wednesday",
+                "endHour": 9,
+                "endMin": 0
+              },
+              {
+                "startDay": "wednesday",
+                "startHour": 18,
+                "startMin": 0,
+                "endDay": "thursday",
+                "endHour": 9,
+                "endMin": 0
+              },
+              {
+                "startDay": "thursday",
+                "startHour": 18,
+                "startMin": 0,
+                "endDay": "friday",
+                "endHour": 9,
+                "endMin": 0
+              },
+              {
+                "startDay": "friday",
+                "startHour": 18,
+                "startMin": 0,
+                "endDay": "monday",
+                "endHour": 9,
+                "endMin": 0
+              }
+            ]
+          }
+        },
+        {
+          "id": "b1a2c3d4-0541-4aa3-bac6-4084cfa02d20",
+          "name": "Old team rotation",
+          "startDate": "2026-01-05T07:00:00Z",
+          "endDate": "2026-09-01T07:00:00Z",
+          "type": "weekly",
+          "length": 1,
+          "participants": [
+            {
+              "type": "team",
+              "id": "00564944-b42f-4b95-a882-ee9a5a70b9bb",
+              "name": "ops_team"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "timelines": [
+    {
+      "_parent": {
+        "id": "d875e654-9b4e-4219-a803-0c26936d18de",
+        "name": "Platform on-call",
+        "enabled": true
+      },
+      "startDate": "2026-10-19T07:00:00Z",
+      "endDate": "2026-11-02T08:00:00Z",
+      "finalTimeline": {
+        "rotations": [
+          {
+            "id": "a47ed593-0541-4aa3-bac6-4084cfa02d20",
+            "name": "Business hours",
+            "order": 1,
+            "periods": [
+              {
+                "startDate": "2026-10-19T07:00:00Z",
+                "endDate": "2026-10-19T16:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "a9514028-2bca-4510-a51f-4b65f2c33a56",
+                  "type": "user",
+                  "name": "anna@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-20T07:00:00Z",
+                "endDate": "2026-10-20T10:00:00Z",
+                "type": "override",
+                "recipient": {
+                  "id": "1f2a2191-bca3-4ae2-bdea-b02e94d10953",
+                  "type": "user",
+                  "name": "carl@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-20T10:00:00Z",
+                "endDate": "2026-10-20T16:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "a9514028-2bca-4510-a51f-4b65f2c33a56",
+                  "type": "user",
+                  "name": "anna@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-21T07:00:00Z",
+                "endDate": "2026-10-21T16:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "a9514028-2bca-4510-a51f-4b65f2c33a56",
+                  "type": "user",
+                  "name": "anna@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-22T07:00:00Z",
+                "endDate": "2026-10-22T16:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "a9514028-2bca-4510-a51f-4b65f2c33a56",
+                  "type": "user",
+                  "name": "anna@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-23T07:00:00Z",
+                "endDate": "2026-10-23T16:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "a9514028-2bca-4510-a51f-4b65f2c33a56",
+                  "type": "user",
+                  "name": "anna@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-26T08:00:00Z",
+                "endDate": "2026-10-26T17:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+                  "type": "user",
+                  "name": "ben@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-27T08:00:00Z",
+                "endDate": "2026-10-27T17:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+                  "type": "user",
+                  "name": "ben@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-28T08:00:00Z",
+                "endDate": "2026-10-28T17:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+                  "type": "user",
+                  "name": "ben@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-29T08:00:00Z",
+                "endDate": "2026-10-29T17:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+                  "type": "user",
+                  "name": "ben@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-30T08:00:00Z",
+                "endDate": "2026-10-30T17:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+                  "type": "user",
+                  "name": "ben@example.com"
+                }
+              }
+            ]
+          },
+          {
+            "id": "e1c575c4-7143-482c-8e83-4bab97d582d7",
+            "name": "Off hours",
+            "order": 2,
+            "periods": [
+              {
+                "startDate": "2026-10-19T16:00:00Z",
+                "endDate": "2026-10-20T07:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "c569c016-5d89-4e20-8a28-bd5dc33b798e",
+                  "type": "user",
+                  "name": "dora@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-20T16:00:00Z",
+                "endDate": "2026-10-21T07:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "c569c016-5d89-4e20-8a28-bd5dc33b798e",
+                  "type": "user",
+                  "name": "dora@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-21T16:00:00Z",
+                "endDate": "2026-10-22T07:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+                  "type": "user",
+                  "name": "ben@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-22T16:00:00Z",
+                "endDate": "2026-10-23T07:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+                  "type": "user",
+                  "name": "ben@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-23T16:00:00Z",
+                "endDate": "2026-10-25T17:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "1f2a2191-bca3-4ae2-bdea-b02e94d10953",
+                  "type": "user",
+                  "name": "carl@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-25T17:00:00Z",
+                "endDate": "2026-10-26T08:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "c569c016-5d89-4e20-8a28-bd5dc33b798e",
+                  "type": "user",
+                  "name": "dora@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-26T17:00:00Z",
+                "endDate": "2026-10-27T08:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "c569c016-5d89-4e20-8a28-bd5dc33b798e",
+                  "type": "user",
+                  "name": "dora@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-27T17:00:00Z",
+                "endDate": "2026-10-28T08:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+                  "type": "user",
+                  "name": "ben@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-28T17:00:00Z",
+                "endDate": "2026-10-29T08:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+                  "type": "user",
+                  "name": "ben@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-29T17:00:00Z",
+                "endDate": "2026-10-30T08:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "1f2a2191-bca3-4ae2-bdea-b02e94d10953",
+                  "type": "user",
+                  "name": "carl@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-30T17:00:00Z",
+                "endDate": "2026-10-31T17:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "1f2a2191-bca3-4ae2-bdea-b02e94d10953",
+                  "type": "user",
+                  "name": "carl@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-31T17:00:00Z",
+                "endDate": "2026-11-02T08:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "c569c016-5d89-4e20-8a28-bd5dc33b798e",
+                  "type": "user",
+                  "name": "dora@example.com"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "baseTimeline": {
+        "rotations": [
+          {
+            "id": "a47ed593-0541-4aa3-bac6-4084cfa02d20",
+            "name": "Business hours",
+            "order": 1,
+            "periods": [
+              {
+                "startDate": "2026-10-19T07:00:00Z",
+                "endDate": "2026-10-19T16:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "a9514028-2bca-4510-a51f-4b65f2c33a56",
+                  "type": "user",
+                  "name": "anna@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-20T07:00:00Z",
+                "endDate": "2026-10-20T16:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "a9514028-2bca-4510-a51f-4b65f2c33a56",
+                  "type": "user",
+                  "name": "anna@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-21T07:00:00Z",
+                "endDate": "2026-10-21T16:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "a9514028-2bca-4510-a51f-4b65f2c33a56",
+                  "type": "user",
+                  "name": "anna@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-22T07:00:00Z",
+                "endDate": "2026-10-22T16:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "a9514028-2bca-4510-a51f-4b65f2c33a56",
+                  "type": "user",
+                  "name": "anna@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-23T07:00:00Z",
+                "endDate": "2026-10-23T16:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "a9514028-2bca-4510-a51f-4b65f2c33a56",
+                  "type": "user",
+                  "name": "anna@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-26T08:00:00Z",
+                "endDate": "2026-10-26T17:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+                  "type": "user",
+                  "name": "ben@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-27T08:00:00Z",
+                "endDate": "2026-10-27T17:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+                  "type": "user",
+                  "name": "ben@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-28T08:00:00Z",
+                "endDate": "2026-10-28T17:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+                  "type": "user",
+                  "name": "ben@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-29T08:00:00Z",
+                "endDate": "2026-10-29T17:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+                  "type": "user",
+                  "name": "ben@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-30T08:00:00Z",
+                "endDate": "2026-10-30T17:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+                  "type": "user",
+                  "name": "ben@example.com"
+                }
+              }
+            ]
+          },
+          {
+            "id": "e1c575c4-7143-482c-8e83-4bab97d582d7",
+            "name": "Off hours",
+            "order": 2,
+            "periods": [
+              {
+                "startDate": "2026-10-19T16:00:00Z",
+                "endDate": "2026-10-20T07:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "c569c016-5d89-4e20-8a28-bd5dc33b798e",
+                  "type": "user",
+                  "name": "dora@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-20T16:00:00Z",
+                "endDate": "2026-10-21T07:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "c569c016-5d89-4e20-8a28-bd5dc33b798e",
+                  "type": "user",
+                  "name": "dora@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-21T16:00:00Z",
+                "endDate": "2026-10-22T07:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+                  "type": "user",
+                  "name": "ben@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-22T16:00:00Z",
+                "endDate": "2026-10-23T07:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+                  "type": "user",
+                  "name": "ben@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-23T16:00:00Z",
+                "endDate": "2026-10-25T17:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "1f2a2191-bca3-4ae2-bdea-b02e94d10953",
+                  "type": "user",
+                  "name": "carl@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-25T17:00:00Z",
+                "endDate": "2026-10-26T08:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "c569c016-5d89-4e20-8a28-bd5dc33b798e",
+                  "type": "user",
+                  "name": "dora@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-26T17:00:00Z",
+                "endDate": "2026-10-27T08:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "c569c016-5d89-4e20-8a28-bd5dc33b798e",
+                  "type": "user",
+                  "name": "dora@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-27T17:00:00Z",
+                "endDate": "2026-10-28T08:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+                  "type": "user",
+                  "name": "ben@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-28T17:00:00Z",
+                "endDate": "2026-10-29T08:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "4fb3e3de-348d-4b7c-b71b-149efb8361e4",
+                  "type": "user",
+                  "name": "ben@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-29T17:00:00Z",
+                "endDate": "2026-10-30T08:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "1f2a2191-bca3-4ae2-bdea-b02e94d10953",
+                  "type": "user",
+                  "name": "carl@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-30T17:00:00Z",
+                "endDate": "2026-10-31T17:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "1f2a2191-bca3-4ae2-bdea-b02e94d10953",
+                  "type": "user",
+                  "name": "carl@example.com"
+                }
+              },
+              {
+                "startDate": "2026-10-31T17:00:00Z",
+                "endDate": "2026-11-02T08:00:00Z",
+                "type": "default",
+                "recipient": {
+                  "id": "c569c016-5d89-4e20-8a28-bd5dc33b798e",
+                  "type": "user",
+                  "name": "dora@example.com"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

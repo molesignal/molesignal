@@ -36,12 +36,12 @@ export function RunReport({ inspection, run, nowMicros, copied, onCopy }: RunRep
   const logsHref = evidenceHref({
     kind: 'logs',
     stream: inspection.stream,
-    time_range: { start_micros: run.window_start_micros, end_micros: run.window_end_micros },
+    time_range: { start_time: run.windowStart, end_time: run.windowEnd },
   });
   const requestedBy =
-    run.requested_by_user?.display_name.trim() ||
-    run.requested_by_user?.email.trim() ||
-    run.requested_by;
+    run.requestedByUser?.displayName.trim() ||
+    run.requestedByUser?.email.trim() ||
+    run.requestedBy;
 
   return (
     <article
@@ -52,10 +52,10 @@ export function RunReport({ inspection, run, nowMicros, copied, onCopy }: RunRep
       <header className="flex min-w-0 flex-col gap-[6px]">
         <div className="flex min-w-0 flex-wrap items-center gap-[8px]">
           <RunMark run={run} />
-          <h2 className="m-0 min-w-0 flex-1 truncate text-sm font-strong text-tx-0">
-            {formatMicrosActive(run.window_start_micros, false)}
+          <h2 className="m-0 min-w-0 flex-1 truncate text-sm font-display text-tx-0">
+            {formatMicrosActive(run.windowStart, false)}
             {' – '}
-            {formatMicrosActive(run.window_end_micros, false)}
+            {formatMicrosActive(run.windowEnd, false)}
           </h2>
           {logsHref && !active && (
             <Link
@@ -75,7 +75,7 @@ export function RunReport({ inspection, run, nowMicros, copied, onCopy }: RunRep
               ? t('inspections.report.manual_by', { name: requestedBy ?? '—' })
               : t('inspections.report.scheduled')}
           </span>
-          {run.started_at_micros ? (
+          {run.startedAt ? (
             <span>
               {t('inspections.report.took', {
                 duration: formatRunDuration(runDurationMicros(run, nowMicros)),
@@ -83,10 +83,10 @@ export function RunReport({ inspection, run, nowMicros, copied, onCopy }: RunRep
             </span>
           ) : null}
           {run.model && <span>{run.model}</span>}
-          {run.prompt_tokens + run.completion_tokens > 0 && (
+          {run.promptTokens + run.completionTokens > 0 && (
             <span>
               {t('inspections.report.tokens', {
-                formatted: count.format(run.prompt_tokens + run.completion_tokens),
+                formatted: count.format(run.promptTokens + run.completionTokens),
               })}
             </span>
           )}
@@ -115,14 +115,14 @@ export function RunReport({ inspection, run, nowMicros, copied, onCopy }: RunRep
 
       {run.report && <InspectionReport content={run.report} />}
 
-      {run.tool_calls.length > 0 && (
+      {run.toolCalls.length > 0 && (
         <section className="flex flex-col gap-[6px]">
           <h3 className={HEADING}>{t('inspections.report.tools')}</h3>
           <ul
             data-log-inspection-run-tools
             className="m-0 flex list-none flex-col gap-[4px] rounded-md bg-[var(--control-surface)] px-[12px] py-[8px]"
           >
-            {run.tool_calls.map((tool, index) => (
+            {run.toolCalls.map((tool, index) => (
               <li key={index} className="flex items-center gap-[8px] text-xs text-tx-2">
                 {tool.ok ? (
                   <Check className="h-3 w-3 text-[var(--green-ink)]" aria-hidden="true" />
@@ -156,8 +156,8 @@ export function RunReport({ inspection, run, nowMicros, copied, onCopy }: RunRep
                       : 'inspections.report.undelivered',
                   )}
                 </Pill>
-                <span className="text-tx-2">{tn(`target_types.${notification.target_type}`)}</span>
-                <span className="min-w-0 truncate">{notification.target_masked || '—'}</span>
+                <span className="text-tx-2">{tn(`target_types.${notification.targetType}`)}</span>
+                <span className="min-w-0 truncate">{notification.targetMasked || '—'}</span>
                 {notification.error && (
                   <span className="basis-full break-words text-[var(--orange-ink)]">
                     {notification.error}

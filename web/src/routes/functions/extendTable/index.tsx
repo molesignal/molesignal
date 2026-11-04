@@ -75,19 +75,19 @@ export function ExtendTables() {
     return allTables.filter((table) => {
       const matchesSearch =
         !needle ||
-        table.table_name.toLocaleLowerCase().includes(needle) ||
+        table.tableName.toLocaleLowerCase().includes(needle) ||
         table.description.toLocaleLowerCase().includes(needle) ||
-        table.value_fields.some((field) =>
+        table.valueFields.some((field) =>
           field.name.toLocaleLowerCase().includes(needle),
         );
       const matchesStatus =
         statusFilter === 'all' ||
-        (statusFilter === 'healthy' && table.row_count > 0) ||
-        (statusFilter === 'empty' && table.row_count === 0);
+        (statusFilter === 'healthy' && table.rowCount > 0) ||
+        (statusFilter === 'empty' && table.rowCount === 0);
       const matchesUsage =
         usageFilter === 'all' ||
-        (usageFilter === 'used' && table.usage_locations.length > 0) ||
-        (usageFilter === 'unused' && table.usage_locations.length === 0);
+        (usageFilter === 'used' && table.usageLocations.length > 0) ||
+        (usageFilter === 'unused' && table.usageLocations.length === 0);
       return matchesSearch && matchesStatus && matchesUsage;
     });
   }, [allTables, search, statusFilter, usageFilter]);
@@ -130,7 +130,7 @@ export function ExtendTables() {
     };
   }
 
-  const rowCount = allTables.reduce((total, table) => total + table.row_count, 0);
+  const rowCount = allTables.reduce((total, table) => total + table.rowCount, 0);
 
   return (
     <>
@@ -218,20 +218,20 @@ export function ExtendTables() {
             </div>
             {pagination.pageItems.map((table, index) => (
               <div
-                key={table.table_name}
+                key={table.tableName}
                 className={cn(
                   'group grid min-h-[64px] gap-3 px-5 py-3 transition-colors hover:bg-bg-2 xl:grid-cols-[minmax(280px,1.7fr)_minmax(220px,1.3fr)_120px_150px_150px_136px] xl:items-center xl:gap-4',
                   index > 0 && 'border-t border-bd-0',
                 )}
               >
                 <Link
-                  to={`/extend-tables/${encodeURIComponent(table.table_name)}`}
+                  to={`/extend-tables/${encodeURIComponent(table.tableName)}`}
                   className="min-w-0 rounded px-1 py-0.5 focus-visible:bg-bg-2"
                 >
                   <div className="flex items-center gap-2">
                     <TableProperties className="h-4 w-4 shrink-0 text-indigo-soft" />
                     <span className="truncate text-sm font-display-strong text-tx-0 group-hover:text-indigo-soft">
-                      {table.table_name}
+                      {table.tableName}
                     </span>
                   </div>
                   <p className="mt-1 truncate pl-6 text-xs text-tx-2">
@@ -240,37 +240,37 @@ export function ExtendTables() {
                 </Link>
                 <div className="min-w-0 pl-6 xl:pl-0">
                   <div className="truncate font-mono text-xs text-tx-1">
-                    <span className="text-indigo-soft">{table.key_field}</span>
+                    <span className="text-indigo-soft">{table.keyField}</span>
                     <ArrowRight className="mx-1.5 inline h-3 w-3 text-tx-3" />
                     <span>
-                      {table.value_fields.length > 0
-                        ? table.value_fields
+                      {table.valueFields.length > 0
+                        ? table.valueFields
                             .slice(0, 4)
                             .map((field) => field.name)
                             .join(', ')
                         : t('extend_tables.flexible_fields')}
                     </span>
                   </div>
-                  {table.value_fields.length > 4 && (
+                  {table.valueFields.length > 4 && (
                     <span className="mt-1 block text-type-micro text-tx-3">
                       {t('extend_tables.more_fields', {
-                        count: table.value_fields.length - 4,
+                        count: table.valueFields.length - 4,
                       })}
                     </span>
                   )}
                 </div>
                 <Metric
                   label={t('extend_tables.columns.rows')}
-                  value={table.row_count.toLocaleString(i18n.language)}
+                  value={table.rowCount.toLocaleString(i18n.language)}
                 />
                 <Metric
                   label={t('extend_tables.columns.usage')}
                   value={
-                    table.usage_locations.length > 0 ? (
+                    table.usageLocations.length > 0 ? (
                       <span className="inline-flex items-center gap-1.5">
                         <Workflow className="h-3.5 w-3.5 text-[var(--purple-ink)]" />
                         {t('extend_tables.usage_count', {
-                          count: table.usage_locations.length,
+                          count: table.usageLocations.length,
                         })}
                       </span>
                     ) : (
@@ -281,7 +281,7 @@ export function ExtendTables() {
                 <Metric
                   label={t('extend_tables.columns.updated')}
                   value={formatRelativeMicros(
-                    table.updated_at,
+                    table.updatedAt,
                     i18n.language,
                   )}
                 />
@@ -292,14 +292,14 @@ export function ExtendTables() {
                   <span className="xl:hidden text-type-micro tracking-normalr text-tx-3">
                     {t('extend_tables.columns.status')}
                   </span>
-                  <TableStatus populated={table.row_count > 0} />
+                  <TableStatus populated={table.rowCount > 0} />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
                         className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-tx-3 opacity-100 hover:bg-bg-3 hover:text-tx-0 xl:pointer-events-none xl:absolute xl:right-0 xl:top-1/2 xl:-translate-y-1/2 xl:opacity-0 xl:group-hover:pointer-events-auto xl:group-hover:opacity-100"
                         aria-label={t('extend_tables.table_actions', {
-                          table: table.table_name,
+                          table: table.tableName,
                         })}
                       >
                         <MoreHorizontal className="h-4 w-4" />
@@ -309,7 +309,7 @@ export function ExtendTables() {
                       <DropdownMenuItem
                         onSelect={() =>
                           navigate(
-                            `/extend-tables/${encodeURIComponent(table.table_name)}`,
+                            `/extend-tables/${encodeURIComponent(table.tableName)}`,
                           )
                         }
                       >
@@ -343,7 +343,7 @@ export function ExtendTables() {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={(table) =>
-          navigate(`/extend-tables/${encodeURIComponent(table.table_name)}`)
+          navigate(`/extend-tables/${encodeURIComponent(table.tableName)}`)
         }
       />
       <ConfirmDialog
@@ -351,8 +351,8 @@ export function ExtendTables() {
         onOpenChange={(open) => !open && setPendingDelete(null)}
         title={t('extend_tables.delete_table_title')}
         description={t('extend_tables.delete_table_description', {
-          table: pendingDelete?.table_name,
-          count: pendingDelete?.row_count ?? 0,
+          table: pendingDelete?.tableName,
+          count: pendingDelete?.rowCount ?? 0,
         })}
         confirmLabel={t('extend_tables.confirm_delete')}
         cancelLabel={t('extend_tables.cancel')}
@@ -362,7 +362,7 @@ export function ExtendTables() {
         disabledReason={deleteAccess.reason}
         onConfirm={() => {
           if (deleteAccess.allowed && pendingDelete) {
-            deleteTable.mutate(pendingDelete.table_name);
+            deleteTable.mutate(pendingDelete.tableName);
           }
         }}
       />

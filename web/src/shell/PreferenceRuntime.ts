@@ -23,11 +23,11 @@ export function useApplyUserPreferences() {
       setTheme(preferences.theme);
       setDensity(preferences.density);
       setLanguage(preferences.language);
-      setKeyboardShortcutsEnabled(preferences.keyboard_shortcuts_enabled);
+      setKeyboardShortcutsEnabled(preferences.keyboardShortcutsEnabled);
       setActiveTimePreference(
         preferences.timezone,
-        preferences.time_format,
-        preferences.date_format,
+        preferences.timeFormat,
+        preferences.dateFormat,
       );
     },
     [setDensity, setKeyboardShortcutsEnabled, setLanguage, setTheme],

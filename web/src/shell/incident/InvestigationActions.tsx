@@ -1,7 +1,9 @@
-import { Activity, ChartNoAxesCombined, FileSearch } from 'lucide-react';
+import { Activity, ChartNoAxesCombined, FileSearch, MonitorSmartphone } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { incidentRange, rumOpenPath } from '@/routes/rum/alerts/links';
+import { incidentFigure } from '@/routes/rum/alerts/samples';
 import { buildSignalJumps } from '@/shell/signalReference/links';
 import type { AlertRule, Incident } from '@/types/alerting';
 
@@ -11,7 +13,7 @@ export interface IncidentTimeWindow {
 }
 
 export interface IncidentInvestigationLink {
-  id: 'trigger' | 'logs' | 'metrics';
+  id: 'trigger' | 'logs' | 'metrics' | 'rum';
   to: string;
 }
 
@@ -41,6 +43,11 @@ export function IncidentInvestigationActions({
       icon: ChartNoAxesCombined,
       label: t('drawer.investigation.related_metrics'),
       description: t('drawer.investigation.related_metrics_description'),
+    },
+    rum: {
+      icon: MonitorSmartphone,
+      label: t('drawer.investigation.open_rum'),
+      description: t('drawer.investigation.open_rum_description'),
     },
   } as const;
 
@@ -74,6 +81,13 @@ export function buildIncidentInvestigationLinks(
   rule: AlertRule | undefined,
   time: IncidentTimeWindow,
 ): IncidentInvestigationLink[] {
+  // An incident of a RUM rule is about a figure of an application: its statement only names it, and
+  // it has no service to pivot on, so the way on is the page of RUM that tells the figure.
+  const figure = incidentFigure(incident, rule);
+  if (figure) {
+    return [{ id: 'rum', to: rumOpenPath(figure, incidentRange(incident, (rule as Partial<AlertRule> | undefined)?.query?.periodSecs)) }];
+  }
+
   const links: IncidentInvestigationLink[] = [];
   const trigger = triggeringQueryLink(incident, rule, time);
   if (trigger) links.push({ id: 'trigger', to: trigger });
@@ -89,9 +103,9 @@ export function buildIncidentInvestigationLinks(
 export function buildIncidentTimeWindow(
   incident: Incident,
 ): IncidentTimeWindow {
-  const fromMs = Math.floor(incident.created_at / 1_000);
-  const toMs = incident.resolved_at
-    ? Math.floor(incident.resolved_at / 1_000)
+  const fromMs = Math.floor(incident.createdAt / 1_000);
+  const toMs = incident.resolvedAt
+    ? Math.floor(incident.resolvedAt / 1_000)
     : Date.now();
   return {
     from: new Date(fromMs).toISOString(),
@@ -104,7 +118,7 @@ function triggeringQueryLink(
   rule: AlertRule | undefined,
   time: IncidentTimeWindow,
 ): string | null {
-  const query = incident.triggering_query;
+  const query = incident.triggeringQuery;
   if (!query?.statement.trim()) return null;
 
   const params = timeParams(time);
@@ -112,7 +126,7 @@ function triggeringQueryLink(
   // then built from the incident's own statement alone.
   const stream = (rule as Partial<AlertRule> | undefined)?.query?.stream;
   if (stream?.name) params.set('stream', stream.name);
-  if (stream?.stream_type) params.set('stream_type', stream.stream_type);
+  if (stream?.streamType) params.set('streamType', stream.streamType);
 
   if (query.language === 'promql') {
     params.set('promql', query.statement.trim());
@@ -120,7 +134,7 @@ function triggeringQueryLink(
   }
 
   params.set('sql', query.statement.trim());
-  return stream?.stream_type === 'traces'
+  return stream?.streamType === 'traces'
     ? `/traces?${params.toString()}`
     : `/logs?${params.toString()}`;
 }
@@ -131,15 +145,15 @@ function incidentSignalJumps(
 ) {
   const labels = incident.labels;
   const service =
-    incident.affected_services[0] ?? labels.service ?? labels.svc;
+    incident.affectedServices[0] ?? labels.service ?? labels.svc;
   if (service) {
     return buildSignalJumps('service', service, time, { labels });
   }
-  const traceId = incident.trace_ids[0];
+  const traceId = incident.traceIds[0];
   if (traceId) {
     return buildSignalJumps('trace_id', traceId, time, { labels });
   }
-  const host = incident.host_ids[0];
+  const host = incident.hostIds[0];
   if (host) {
     return buildSignalJumps('host', host, time, { labels });
   }

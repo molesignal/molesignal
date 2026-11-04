@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 跟着会话走的工具：知识（[`knowledge`]）、记忆（[`memory`]）与调查记录（[`investigation`]）。
+//! 跟着会话走的工具：知识（[`knowledge`]）、记忆（[`memory`]）、调查记录（[`investigation`]）与
+//! `/insight` 读的数（[`insights`]）。
 //!
 //! 读哪份知识、写谁的记忆、记哪个调查都由会话决定（[`ChatWorkspace`]），不听模型传的身份：
 //! - 团队会话读组织与本队的知识，写本队的知识与记忆；
@@ -25,6 +26,7 @@ use crate::{
     shared::{Error, Result, ids::Id},
 };
 
+mod insights;
 mod investigation;
 mod knowledge;
 mod memory;
@@ -62,16 +64,13 @@ impl ChatWorkspace {
             .ok_or_else(|| Error::invalid(format!("there is no team called `{raw}`")))
     }
 
-    /// 这个会话的记忆写在哪里：团队会话写本队的，个人会话写发起人的。
-    fn memory_scope(&self) -> Scope {
-        match &self.scope {
-            ChatScope::Team { team_id } => Scope::Team {
-                team_id: team_id.clone(),
-            },
-            ChatScope::Personal { owner_id, .. } => Scope::Personal {
-                owner_id: owner_id.clone(),
-            },
-        }
+    /// 这个会话的记忆写在哪里：团队会话写本队的，个人会话写发起人的；组织会话没有记忆。
+    fn memory_scope(&self) -> Result<Scope> {
+        self.scope.memory_scope().ok_or_else(|| {
+            Error::invalid(
+                "an organization automation keeps no memories; put lasting facts in the organization's knowledge",
+            )
+        })
     }
 }
 
@@ -114,6 +113,7 @@ pub(super) async fn execute(
             memory::execute(&call, kind, arguments).await
         }
         BuiltinToolKind::UpdateInvestigation => investigation::execute(&call, arguments).await,
+        BuiltinToolKind::GetAgentInsights => insights::execute(&call, arguments).await,
         _ => Ok(ToolResult::error(format!("unknown tool: {}", kind.name()))),
     }
 }

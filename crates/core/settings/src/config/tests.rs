@@ -20,7 +20,6 @@ fn example_config_file_parses_all_sections() {
     assert_eq!(s.search_jobs.workers, 2);
     assert_eq!(s.querier.auto_async_threshold_rows, 50_000_000);
     assert_eq!(s.querier.estimate_throughput_per_sec, 1_000);
-    assert_eq!(s.compactor.retention_days, 30);
     assert_eq!(
         s.scheduled_reports.renderer.base_url,
         "http://127.0.0.1:5173"
@@ -41,22 +40,24 @@ fn example_config_file_parses_all_sections() {
     assert!(!s.flight_sql.enabled);
     assert_eq!(s.flight_sql.port, 5083);
     assert!(s.telemetry.self_collect.enabled);
-    assert_eq!(s.telemetry.self_collect.retention_days, 7);
     assert!(!s.telemetry.self_collect.profiles_enabled);
     assert!(!s.profiling.enabled);
     assert_eq!(s.profiling.bind, "127.0.0.1");
     assert_eq!(s.profiling.port, 5084);
     assert_eq!(s.intake.prometheus.max_labels_per_series, 64);
     assert_eq!(s.intake.prometheus.max_samples_per_batch, 16_384);
-    assert_eq!(s.intake.max_buffer_memory_mb, 1024);
+    assert_eq!(s.intake.max_buffer_memory_size, 1024);
     assert!(s.intake.rotation.adaptive_enabled);
-    assert_eq!(s.intake.rotation.target_file_size_mb, 128);
+    assert_eq!(s.intake.rotation.target_file_size, 128);
     assert_eq!(
-        s.intake.prometheus.cardinality.max_active_series_per_org,
-        200_000
+        s.intake
+            .prometheus
+            .cardinality
+            .max_active_series_per_process,
+        1_000_000
     );
     assert_eq!(s.apm.queue_capacity, 65_536);
-    assert_eq!(s.apm.cardinality.services_per_org_hour, 200);
+    assert_eq!(s.apm.version_comparison.min_requests_per_version, 1_000);
     s.validate().expect("example config validation");
 }
 
@@ -83,7 +84,8 @@ fn apm_defaults_are_bounded_and_validated() {
     assert_eq!(defaults.apm.flush_interval_ms, 5_000);
     assert_eq!(defaults.apm.hot_retention_hours, 24);
     assert_eq!(defaults.apm.rollup_retention_days, 30);
-    assert_eq!(defaults.apm.histogram.boundaries_ms.last(), Some(&60_000));
+    assert_eq!(defaults.apm.histogram.schema_version, 2);
+    assert_eq!(defaults.apm.histogram.buckets_per_octave, 8);
     assert_eq!(
         defaults.apm.version_comparison.min_requests_per_version,
         1_000
@@ -108,7 +110,7 @@ queue_capacity = 1
     let invalid_histogram: Settings = toml::from_str(
         r#"
 [apm.histogram]
-boundaries_ms = [1, 4, 4]
+buckets_per_octave = 32
 "#,
     )
     .expect("invalid histogram still deserializes");
@@ -117,8 +119,17 @@ boundaries_ms = [1, 4, 4]
             .validate()
             .unwrap_err()
             .to_string()
-            .contains("boundaries_ms")
+            .contains("buckets_per_octave")
     );
+
+    let removed_bounds = toml::from_str::<Settings>(
+        r#"
+[apm.histogram]
+boundaries_ms = [1, 2, 4]
+"#,
+    )
+    .expect_err("the old fixed bounds must not be accepted");
+    assert!(removed_bounds.to_string().contains("boundaries_ms"));
 
     for removed_switch in ["enabled", "force_disabled"] {
         let error = toml::from_str::<Settings>(&format!(
@@ -133,14 +144,24 @@ boundaries_ms = [1, 4, 4]
             "unexpected error for removed APM switch {removed_switch}: {error}"
         );
     }
+
+    // Cardinality limits are set on the platform settings page.
+    let removed_limits = toml::from_str::<Settings>(
+        r#"
+[apm.cardinality]
+services_per_org_hour = 100
+"#,
+    )
+    .expect_err("cardinality limits are no longer read from the file");
+    assert!(removed_limits.to_string().contains("cardinality"));
 }
 
 #[test]
 fn prometheus_intake_limits_are_bounded_and_validated() {
     let defaults: Settings = toml::from_str("").expect("defaults parse");
     assert_eq!(defaults.intake.prometheus.max_labels_per_series, 64);
-    assert_eq!(defaults.intake.prometheus.max_label_name_bytes, 128);
-    assert_eq!(defaults.intake.prometheus.max_label_value_bytes, 2048);
+    assert_eq!(defaults.intake.prometheus.max_label_name_length, 128);
+    assert_eq!(defaults.intake.prometheus.max_label_value_length, 2048);
     assert_eq!(defaults.intake.prometheus.max_samples_per_batch, 16_384);
     defaults.validate().expect("defaults validate");
 
@@ -168,8 +189,8 @@ fn prometheus_intake_limits_are_bounded_and_validated() {
 #[test]
 fn intake_resource_control_defaults_are_bounded_and_validated() {
     let defaults: Settings = toml::from_str("").expect("defaults parse");
-    assert_eq!(defaults.intake.max_buffer_memory_mb, 1024);
-    assert_eq!(defaults.intake.rotation.min_buffer_mb, 16);
+    assert_eq!(defaults.intake.max_buffer_memory_size, 1024);
+    assert_eq!(defaults.intake.rotation.min_buffer_size, 16);
     assert_eq!(defaults.intake.rotation.ewma_alpha, 0.2);
     assert!(defaults.intake.prometheus.cardinality.enabled);
     defaults.validate().expect("defaults validate");
@@ -192,8 +213,7 @@ ewma_alpha = 0.0
     let invalid_cardinality: Settings = toml::from_str(
         r#"
 [intake.prometheus.cardinality]
-max_active_series_per_process = 10
-max_active_series_per_org = 20
+max_active_series_per_process = 0
 "#,
     )
     .unwrap();
@@ -302,7 +322,7 @@ fn flight_sql_defaults_when_missing_from_toml() {
     assert_eq!(s.flight_sql.bind, "0.0.0.0");
     assert_eq!(s.flight_sql.port, 5083);
     assert_eq!(s.flight_sql.default_lookback_hours, 24);
-    assert_eq!(s.flight_sql.max_message_size_mb, 32);
+    assert_eq!(s.flight_sql.max_message_size, 32);
     // 显式开启 round-trip
     let s2: Settings = toml::from_str("[flight_sql]\nenabled = true\nport = 6000\n").unwrap();
     assert!(s2.flight_sql.enabled);
@@ -315,7 +335,7 @@ fn otlp_grpc_defaults_when_missing_from_toml() {
     let s: Settings = toml::from_str("").expect("empty TOML must parse with defaults");
     assert_eq!(s.otlp_grpc.bind, "0.0.0.0");
     assert_eq!(s.otlp_grpc.port, 4317);
-    assert_eq!(s.otlp_grpc.max_message_size_mb, 32);
+    assert_eq!(s.otlp_grpc.max_message_size, 32);
     let s2: Settings = toml::from_str("[otlp_grpc]\nport = 14317\n").unwrap();
     assert_eq!(s2.otlp_grpc.port, 14317);
 }
@@ -331,6 +351,8 @@ fn removed_service_switches_are_rejected() {
         "[telemetry.trace]\nself_intake_enabled = true\n",
         "[telemetry.self_collect]\nlogs_enabled = false\n",
         "[telemetry.self_collect]\nlogs_retention_days = 7\n",
+        "[telemetry.self_collect]\nretention_days = 7\n",
+        "[telemetry.self_collect]\nmetrics_retention_days = 7\n",
         "[telemetry.self_collect]\ntraces_enabled = false\n",
     ] {
         assert!(
@@ -375,12 +397,12 @@ fn object_store_transfer_settings_are_bounded_and_validated() {
         .expect("defaults are valid");
 
     for invalid in [
-        "[object_store]\nmultipart_threshold_mb = 0\n",
-        "[object_store]\nmultipart_part_size_mb = 4\n",
-        "[object_store]\nmultipart_part_size_mb = 1025\n",
-        "[object_store]\nrange_threshold_mb = 0\n",
-        "[object_store]\nrange_chunk_mb = 0\n",
-        "[object_store]\nrange_chunk_mb = 1025\n",
+        "[object_store]\nmultipart_threshold_size = 0\n",
+        "[object_store]\nmultipart_part_size = 4\n",
+        "[object_store]\nmultipart_part_size = 1025\n",
+        "[object_store]\nrange_threshold_size = 0\n",
+        "[object_store]\nrange_chunk_size = 0\n",
+        "[object_store]\nrange_chunk_size = 1025\n",
     ] {
         let settings: Settings = toml::from_str(invalid).expect("valid TOML shape");
         assert!(
@@ -405,7 +427,7 @@ fn defaults_roundtrip_through_toml() {
     assert_eq!(s.alert.eval_timeout_secs, 10);
     assert_eq!(s.cluster.heartbeat_interval_secs, 5);
     assert_eq!(s.cluster.advertise_addr, "127.0.0.1:5082");
-    assert_eq!(s.compactor.target_mb, 512);
+    assert_eq!(s.compactor.target_size, 512);
     assert_eq!(s.compactor.max_concurrent_groups, 4);
     assert_eq!(s.router.rate_limit.intake_qps, 1000);
     assert_eq!(s.cache.index_handle.capacity, 10_000);
@@ -417,19 +439,38 @@ fn defaults_roundtrip_through_toml() {
     let text = toml::to_string(&s).unwrap();
     let s2: Settings = toml::from_str(&text).unwrap();
     assert_eq!(s2.alert.dispatch_interval_secs, 10);
-    assert_eq!(s2.compactor.target_mb, 512);
+    assert_eq!(s2.compactor.target_size, 512);
     assert_eq!(s2.cluster.advertise_addr, "127.0.0.1:5082");
     assert_eq!(s2.cache.query_result.capacity, 1_000);
 }
 
 #[test]
-fn compactor_target_mb_accepts_legacy_alias() {
+fn compactor_target_size_must_be_positive_and_bounded() {
+    for (size, valid) in [
+        (0, false),
+        (1, true),
+        (512, true),
+        (64 * 1024, true),
+        (64 * 1024 + 1, false),
+    ] {
+        let settings = CompactorSettings {
+            target_size: size,
+            ..CompactorSettings::default()
+        };
+
+        assert_eq!(settings.validate().is_ok(), valid, "target_size {size}");
+    }
+}
+
+#[test]
+fn compactor_target_size_is_in_mib() {
     let toml_text = r#"
 [compactor]
-target_file_size_mb = 256
+target_size = 256
 "#;
-    let s: Settings = toml::from_str(toml_text).expect("alias must parse");
-    assert_eq!(s.compactor.target_mb, 256);
+    let s: Settings = toml::from_str(toml_text).expect("compactor target size must parse");
+    assert_eq!(s.compactor.target_size, 256);
+    assert_eq!(s.compactor.target_bytes(), 256 * 1024 * 1024);
 }
 
 #[test]
@@ -463,12 +504,13 @@ jwt_secret = "legacy-value"
 fn object_cache_defaults_when_missing_from_toml() {
     let s: Settings = toml::from_str("").expect("empty TOML must parse with defaults");
     assert_eq!(s.cache.object.root, PathBuf::from("./data/cache/objects"));
-    assert_eq!(s.cache.object.max_bytes, 10 * 1024 * 1024 * 1024);
-    assert_eq!(s.cache.object.block_size_bytes, 4 * 1024 * 1024);
+    assert_eq!(s.cache.object.max_size, 10 * 1024);
+    assert_eq!(s.cache.object.block_size, 4);
+    assert_eq!(s.cache.object.block_bytes(), 4 * 1024 * 1024);
     assert!(s.cache.object.is_effectively_enabled());
 
     let only_cache: Settings = toml::from_str("[cache]\n").expect("empty [cache] must parse");
-    assert_eq!(only_cache.cache.object.block_size_bytes, 4 * 1024 * 1024);
+    assert_eq!(only_cache.cache.object.block_size, 4);
 }
 
 #[test]
@@ -477,14 +519,14 @@ fn object_cache_explicit_disable_round_trips() {
 [cache.object]
 enabled = false
 root = "/var/cache/molesignal/objects"
-max_bytes = 1234
+max_size = 1234
 "#;
     let s: Settings = toml::from_str(toml_text).expect("object cache settings must parse");
     assert_eq!(
         s.cache.object.root,
         PathBuf::from("/var/cache/molesignal/objects")
     );
-    assert_eq!(s.cache.object.max_bytes, 1234);
+    assert_eq!(s.cache.object.max_size, 1234);
     assert!(!s.cache.object.is_effectively_enabled());
 }
 
@@ -517,9 +559,9 @@ ttl_secs = 1
 
 #[test]
 fn streaming_agg_cache_defaults_when_missing_from_toml() {
-    // 缺省 TOML（[search.streaming_agg_cache] 整段都没写）必须落到默认值，且默认关闭（capacity=0）。
+    // 缺省 TOML（[search.stream_agg_cache] 整段都没写）必须落到默认值：默认开启，256 MiB。
     let s: Settings = toml::from_str("").expect("empty TOML must parse with defaults");
-    assert_eq!(s.search.stream_agg_cache.capacity, 0);
+    assert_eq!(s.search.stream_agg_cache.max_size, 256);
     assert_eq!(s.search.stream_agg_cache.ttl_secs, 300);
     assert_eq!(s.search.stream_agg_cache.safe_lookback_secs, 300);
     assert_eq!(s.search.stream_agg_cache.max_series_per_query, 10_000);
@@ -529,14 +571,14 @@ fn streaming_agg_cache_defaults_when_missing_from_toml() {
 fn streaming_agg_cache_explicit_enable_round_trips() {
     let toml_text = r#"
 [search.stream_agg_cache]
-capacity = 64
+max_size = 64
 ttl_secs = 120
 safe_lookback_secs = 600
 max_series_per_query = 0
 "#;
     let s: Settings = toml::from_str(toml_text).expect("streaming_agg_cache must parse");
-    // capacity > 0 即启用（无独立 enabled）。
-    assert_eq!(s.search.stream_agg_cache.capacity, 64);
+    // max_size > 0 即启用（无独立 enabled）。
+    assert_eq!(s.search.stream_agg_cache.max_size, 64);
     assert_eq!(s.search.stream_agg_cache.ttl_secs, 120);
     assert_eq!(s.search.stream_agg_cache.safe_lookback_secs, 600);
     assert_eq!(s.search.stream_agg_cache.max_series_per_query, 0);
@@ -549,7 +591,7 @@ max_series_per_query = 0
 fn wal_defaults_yield_batch_data_64_50() {
     let s: Settings = toml::from_str("[wal]\n").expect("empty [wal] section must parse");
     assert_eq!(s.wal.dir, "./data/wal");
-    assert_eq!(s.wal.segment_size_mb, 256);
+    assert_eq!(s.wal.segment_size, 256);
     assert!(matches!(s.wal.flush_strategy, WalFlushStrategy::Batch));
     assert!(matches!(s.wal.sync_level, WalSyncLevel::Data));
     assert_eq!(s.wal.batch_max_pending, 64);
@@ -586,4 +628,23 @@ sync_level = "none"
     let w2: WalSettings = toml::from_str(&text).expect("re-parse");
     assert!(matches!(w2.flush_strategy, WalFlushStrategy::None));
     assert!(matches!(w2.sync_level, WalSyncLevel::None));
+}
+
+#[test]
+fn parquet_metadata_and_block_memory_caches_default_on_and_turn_off_at_zero() {
+    let s: Settings = toml::from_str("").expect("empty TOML must parse with defaults");
+    assert_eq!(s.cache.parquet_metadata.max_size, 256);
+    assert_eq!(s.cache.parquet_metadata.max_bytes(), 256 * 1024 * 1024);
+    assert_eq!(s.cache.object.memory_size, 256);
+
+    let toml_text = r#"
+[cache.parquet_metadata]
+max_size = 0
+
+[cache.object]
+memory_size = 0
+"#;
+    let s: Settings = toml::from_str(toml_text).expect("zero sizes must parse");
+    assert_eq!(s.cache.parquet_metadata.max_size, 0);
+    assert_eq!(s.cache.object.memory_size, 0);
 }

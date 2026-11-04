@@ -7,6 +7,8 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+const MIB: u64 = 1024 * 1024;
+
 /// 单层缓存容量与 TTL。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CacheLayerSettings {
@@ -39,6 +41,9 @@ pub struct CacheSettings {
     /// IndexHandle 过期后短路掉对象存储 GET。`capacity = 0` 整层关闭。
     #[serde(default)]
     pub tantivy_footer: TantivyFooterCacheSettings,
+    /// Primary Artifact object key → 解析后的 Parquet footer（含 page index）。
+    #[serde(default)]
+    pub parquet_metadata: ParquetMetadataCacheSettings,
 }
 
 fn default_index_handle_cache() -> CacheLayerSettings {
@@ -57,7 +62,37 @@ impl Default for CacheSettings {
             object: ObjectCacheSettings::default(),
             tantivy_result: TantivyResultCacheSettings::default(),
             tantivy_footer: TantivyFooterCacheSettings::default(),
+            parquet_metadata: ParquetMetadataCacheSettings::default(),
         }
+    }
+}
+
+/// `[cache.parquet_metadata]` —— 查询打开 Parquet 文件时解析出的 footer（含 page index）。
+///
+/// Key = immutable Primary Artifact object key。命中时打开文件不再读 footer；`max_size = 0`
+/// 整层关闭。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ParquetMetadataCacheSettings {
+    /// 缓存的最大大小，单位 MiB。
+    #[serde(default = "default_parquet_metadata_max_size")]
+    pub max_size: u64,
+}
+
+fn default_parquet_metadata_max_size() -> u64 {
+    256
+}
+
+impl Default for ParquetMetadataCacheSettings {
+    fn default() -> Self {
+        Self {
+            max_size: default_parquet_metadata_max_size(),
+        }
+    }
+}
+
+impl ParquetMetadataCacheSettings {
+    pub fn max_bytes(&self) -> u64 {
+        self.max_size.saturating_mul(MIB)
     }
 }
 
@@ -128,12 +163,19 @@ pub struct ObjectCacheSettings {
     pub enabled: bool,
     #[serde(default = "default_object_cache_root")]
     pub root: PathBuf,
-    #[serde(default = "default_object_cache_max_bytes")]
-    pub max_bytes: u64,
-    #[serde(default = "default_object_cache_block_size_bytes")]
-    pub block_size_bytes: u64,
-    #[serde(default = "default_object_cache_min_free_bytes")]
-    pub min_free_bytes: u64,
+    /// 磁盘缓存的大小上限，单位 MiB。
+    #[serde(default = "default_object_cache_max_size")]
+    pub max_size: u64,
+    /// block 大小，单位 MiB，范围 1–16。
+    #[serde(default = "default_object_cache_block_size")]
+    pub block_size: u64,
+    /// 解码并校验过的 block 在内存里保留的大小，单位 MiB；同一 block 的后续读不再读盘、
+    /// 不再校验。`0` 只用磁盘。
+    #[serde(default = "default_object_cache_memory_size")]
+    pub memory_size: u64,
+    /// 需要保留的磁盘剩余空间，单位 MiB。
+    #[serde(default = "default_object_cache_min_free_size")]
+    pub min_free_size: u64,
     #[serde(default = "default_object_cache_max_concurrent_fetches")]
     pub max_concurrent_fetches: usize,
     #[serde(default = "default_object_cache_max_concurrent_fetches_per_object")]
@@ -148,16 +190,20 @@ fn default_object_cache_root() -> PathBuf {
     PathBuf::from("./data/cache/objects")
 }
 
-fn default_object_cache_max_bytes() -> u64 {
-    10 * 1024 * 1024 * 1024
+fn default_object_cache_max_size() -> u64 {
+    10 * 1024
 }
 
-fn default_object_cache_block_size_bytes() -> u64 {
-    4 * 1024 * 1024
+fn default_object_cache_block_size() -> u64 {
+    4
 }
 
-fn default_object_cache_min_free_bytes() -> u64 {
-    1024 * 1024 * 1024
+fn default_object_cache_memory_size() -> u64 {
+    256
+}
+
+fn default_object_cache_min_free_size() -> u64 {
+    1024
 }
 
 fn default_object_cache_max_concurrent_fetches() -> usize {
@@ -173,9 +219,10 @@ impl Default for ObjectCacheSettings {
         Self {
             enabled: default_object_cache_enabled(),
             root: default_object_cache_root(),
-            max_bytes: default_object_cache_max_bytes(),
-            block_size_bytes: default_object_cache_block_size_bytes(),
-            min_free_bytes: default_object_cache_min_free_bytes(),
+            max_size: default_object_cache_max_size(),
+            block_size: default_object_cache_block_size(),
+            memory_size: default_object_cache_memory_size(),
+            min_free_size: default_object_cache_min_free_size(),
             max_concurrent_fetches: default_object_cache_max_concurrent_fetches(),
             max_concurrent_fetches_per_object:
                 default_object_cache_max_concurrent_fetches_per_object(),
@@ -185,14 +232,28 @@ impl Default for ObjectCacheSettings {
 
 impl ObjectCacheSettings {
     pub fn is_effectively_enabled(&self) -> bool {
-        self.enabled && self.max_bytes > 0
+        self.enabled && self.max_size > 0
+    }
+
+    pub fn max_bytes(&self) -> u64 {
+        self.max_size.saturating_mul(MIB)
+    }
+
+    pub fn block_bytes(&self) -> u64 {
+        self.block_size.saturating_mul(MIB)
+    }
+
+    pub fn memory_bytes(&self) -> u64 {
+        self.memory_size.saturating_mul(MIB)
+    }
+
+    pub fn min_free_bytes(&self) -> u64 {
+        self.min_free_size.saturating_mul(MIB)
     }
 
     pub fn validate(&self) -> anyhow::Result<()> {
-        const MIB: u64 = 1024 * 1024;
-
-        if !(MIB..=16 * MIB).contains(&self.block_size_bytes) {
-            anyhow::bail!("cache.object.block_size_bytes must be between 1 MiB and 16 MiB");
+        if !(1..=16).contains(&self.block_size) {
+            anyhow::bail!("cache.object.block_size must be between 1 and 16 (MiB)");
         }
 
         if self.max_concurrent_fetches == 0 {

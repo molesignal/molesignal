@@ -101,6 +101,7 @@ async fn knowledge_entries(
     let teams = match &workspace.scope {
         ChatScope::Team { team_id } => vec![team_id.clone()],
         ChatScope::Personal { mounted_teams, .. } => mounted_teams.clone(),
+        ChatScope::Org => Vec::new(),
     };
 
     let mut sources = vec![("organization".to_string(), Scope::Org)];
@@ -150,6 +151,8 @@ async fn memory_index(
             },
             "the person you are talking to".to_string(),
         ),
+        // 组织会话没有记忆。
+        ChatScope::Org => return None,
     };
 
     match state.agent.memory.list(&ctx.org_id, &scope).await {

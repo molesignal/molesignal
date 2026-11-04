@@ -11,6 +11,8 @@ import { cn } from '@/shell/lib/cn';
  *   - hover row uses bg-bg-3 (the dedicated hover layer)
  *   - selected row uses bg-bg-4 (the active layer)
  *   - sort indicator uses indigo accent (brand)
+ *   - the head is a band (--table-head-surface) with dark words at the strong
+ *     weight; the body is 12px in the body grey, every column alike
  *
  * Apply `data-state="selected"` to any TableRow to flag it as the
  * keyboard / multi-select active row. Apply `aria-sort="ascending" |
@@ -28,7 +30,7 @@ const Table = React.forwardRef<HTMLTableElement, TableProps>(
       <table
         ref={ref}
         className={cn(
-          'w-full caption-bottom border-collapse font-sans text-sm text-tx-1 tabular-nums',
+          'w-full caption-bottom border-collapse font-sans text-xs text-tx-0 tabular-nums',
           className,
         )}
         {...props}
@@ -98,10 +100,10 @@ const TableHead = React.forwardRef<
     ref={ref}
     className={cn(
       'px-row-pad-x py-row-pad-y text-left align-middle',
-      'font-sans text-xs font-medium tracking-normal text-tx-2',
-      // aria-sort surfaces the sorted column with an indigo top border.
-      '[&[aria-sort=ascending]]:border-t-2 [&[aria-sort=ascending]]:border-t-indigo [&[aria-sort=ascending]]:text-tx-0',
-      '[&[aria-sort=descending]]:border-t-2 [&[aria-sort=descending]]:border-t-indigo [&[aria-sort=descending]]:text-tx-0',
+      'bg-[var(--table-head-surface)] font-sans text-xs font-strong tracking-normal text-tx-0',
+      // aria-sort surfaces the sorted column with a hairline of indigo over it.
+      '[&[aria-sort=ascending]]:border-t [&[aria-sort=ascending]]:border-t-indigo [&[aria-sort=ascending]]:text-tx-0',
+      '[&[aria-sort=descending]]:border-t [&[aria-sort=descending]]:border-t-indigo [&[aria-sort=descending]]:text-tx-0',
       '[&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
       className,
     )}

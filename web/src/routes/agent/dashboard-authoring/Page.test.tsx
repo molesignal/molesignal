@@ -46,7 +46,7 @@ vi.mock('@/dashboard-engine/DashboardRenderer', () => ({
 vi.mock('@/shell/ui/sonner', () => ({ toast }));
 
 vi.mock('@/stores/auth', () => {
-  const state = { ctx: { org_id: 'org-1' } };
+  const state = { ctx: { orgId: 'org-1' } };
   return {
     useAuthStore: (selector: (value: typeof state) => unknown) => selector(state),
   };
@@ -59,12 +59,12 @@ function readyDraft(
 ): DashboardDraftPreview {
   const model = createEmptyDashboardDefinition('Service health');
   return {
-    draft_id: 'draft-1',
-    model_hash: 'b'.repeat(64),
+    draftId: 'draft-1',
+    modelHash: 'b'.repeat(64),
     status: 'ready',
-    created_at: NOW - 60_000_000,
-    expires_at: NOW + 600_000_000,
-    compiled_model: model,
+    createdAt: NOW - 60_000_000,
+    expiresAt: NOW + 600_000_000,
+    compiledModel: model,
     warnings: [
       { code: 'EMPTY_RESULT', path: '/panels/0', message: 'No recent rows' },
     ],
@@ -73,22 +73,22 @@ function readyDraft(
         {
           path: '/panels/0',
           title: 'Error rate',
-          query_kind: 'promql',
+          queryKind: 'promql',
           status: 'empty',
-          tested_from_micros: NOW - 3_600_000_000,
-          tested_to_micros: NOW,
-          returned_rows: 0,
-          scanned_rows: 0,
-          took_ms: 4,
+          testedFrom: NOW - 3_600_000_000,
+          testedTo: NOW,
+          returnedRows: 0,
+          scannedRows: 0,
+          tookMs: 4,
         },
       ],
       warnings: [],
       issues: [],
     },
     operation: null,
-    dashboard_id: null,
-    dashboard_route: null,
-    can_propose: true,
+    dashboardId: null,
+    dashboardRoute: null,
+    canPropose: true,
     ...patch,
   };
 }
@@ -163,7 +163,7 @@ describe('Dashboard draft preview page', () => {
 
   it('disables creation for an expired draft and while a mutation is pending', () => {
     api.draft.mockReturnValue({
-      data: readyDraft({ status: 'expired', expires_at: NOW - 1, can_propose: false }),
+      data: readyDraft({ status: 'expired', expiresAt: NOW - 1, canPropose: false }),
       isLoading: false,
       isError: false,
     });
@@ -195,10 +195,10 @@ describe('Dashboard draft preview page', () => {
     api.draft.mockReturnValue({
       data: readyDraft({
         operation: {
-          approval_id: 'approval-1',
+          approvalId: 'approval-1',
           status: 'approved',
-          required_approvals: 0,
-          approved_reviews: 0,
+          requiredApprovals: 0,
+          approvedReviews: 0,
         },
       }),
       isLoading: false,
@@ -208,7 +208,7 @@ describe('Dashboard draft preview page', () => {
       (_input: unknown, callbacks: { onSuccess: (result: unknown) => void }) =>
         callbacks.onSuccess({
           status: 'succeeded',
-          verification: { dashboard_route: '/dashboards/dashboard-1' },
+          verification: { dashboardRoute: '/dashboards/dashboard-1' },
         }),
     );
     api.execute.mockReturnValue({ isPending: false, mutate });
@@ -230,10 +230,10 @@ describe('Dashboard draft preview page', () => {
     api.draft.mockReturnValue({
       data: readyDraft({
         operation: {
-          approval_id: 'approval-2',
+          approvalId: 'approval-2',
           status: 'pending',
-          required_approvals: 2,
-          approved_reviews: 1,
+          requiredApprovals: 2,
+          approvedReviews: 1,
         },
         preflight: {
           panels: [],

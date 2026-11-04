@@ -70,10 +70,10 @@ export function resolveRunAs({
  * has not set one, and the id alone when the user no longer exists.
  */
 export function runAsName(
-  profile: { display_name: string; email: string } | null | undefined,
+  profile: { displayName: string; email: string } | null | undefined,
   userId: string,
 ): string {
-  return profile?.display_name || profile?.email || userId;
+  return profile?.displayName || profile?.email || userId;
 }
 
 /** Whether saving the report hands it over to the person who saves it. */

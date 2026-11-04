@@ -3,6 +3,9 @@
 
 //! 列清单与行到领域类型的转换。
 
+use std::collections::HashSet;
+
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{Row, postgres::PgRow, types::Json};
 
@@ -21,24 +24,18 @@ use crate::{
 };
 
 pub(super) const POLICY_COLS: &str = "org_id,tool_name,enabled,execution_mode,environment_overrides,\
-    timeout_ms,max_calls_per_run,max_response_bytes,updated_by,created_at_micros,updated_at_micros";
-
-pub(super) const DEFAULTS_COLS: &str = "org_id,risk_modes,environment_overrides,updated_by,\
-    created_at_micros,updated_at_micros";
+    timeout_ms,max_calls_per_run,max_response_bytes,updated_by,created_at,updated_at";
 
 pub(super) const SERVER_COLS: &str = "id,org_id,scope,team_id,owner_id,handle,name,transport,\
     endpoint_url,command_template,auth_type,auth_header,credential_last4,credential_set,\
     member_credential,headers,env,private_only,allowed_domains,allowed_cidrs,follow_redirects,\
-    tls_verify,timeout_ms,max_response_bytes,enabled,status,last_error,last_tested_at_micros,\
-    last_synced_at_micros,created_by,created_at_micros,updated_at_micros";
+    tls_verify,timeout_ms,max_response_bytes,enabled,status,last_error,last_tested_at,\
+    last_synced_at,created_by,created_at,updated_at";
 
 pub(super) const MCP_TOOL_COLS: &str = "id,org_id,server_id,remote_name,name,display_name,description,\
-    input_schema,schema_hash,schema_dialect,schema_synced_at_micros,unavailable_diagnostic,\
+    input_schema,schema_hash,schema_dialect,schema_synced_at,unavailable_diagnostic,\
     output_schema,minimum_risk,risk,execution_mode,capabilities,tags,enabled,status,\
-    version,last_synced_at_micros,created_at_micros,updated_at_micros";
-
-pub(super) const PROMPT_COLS: &str =
-    "org_id,server_id,name,title,description,arguments,synced_at_micros";
+    version,last_synced_at,created_at,updated_at";
 
 fn parse_execution_mode(value: &str) -> Result<ToolExecutionMode> {
     match value {
@@ -117,14 +114,11 @@ pub(super) fn named_values(row: &PgRow, column: &str) -> Result<Vec<NamedValue>>
 }
 
 fn micros(row: &PgRow, column: &str) -> Result<TimestampMicros> {
-    Ok(TimestampMicros(row.try_get(column).map_err(sqlx_err)?))
+    row.try_get(column).map_err(sqlx_err)
 }
 
 fn optional_micros(row: &PgRow, column: &str) -> Result<Option<TimestampMicros>> {
-    Ok(row
-        .try_get::<Option<i64>, _>(column)
-        .map_err(sqlx_err)?
-        .map(TimestampMicros))
+    row.try_get(column).map_err(sqlx_err)
 }
 
 pub(super) fn policy_row(row: PgRow) -> Result<ToolPolicy> {
@@ -144,24 +138,43 @@ pub(super) fn policy_row(row: PgRow) -> Result<ToolPolicy> {
         max_calls_per_run: row.try_get("max_calls_per_run").map_err(sqlx_err)?,
         max_response_bytes: row.try_get("max_response_bytes").map_err(sqlx_err)?,
         updated_by: Id(row.try_get("updated_by").map_err(sqlx_err)?),
-        created_at: micros(&row, "created_at_micros")?,
-        updated_at: micros(&row, "updated_at_micros")?,
+        created_at: micros(&row, "created_at")?,
+        updated_at: micros(&row, "updated_at")?,
     })
 }
 
-pub(super) fn defaults_row(row: PgRow) -> Result<ToolPolicyDefaults> {
-    let risk_modes: Json<Value> = row.try_get("risk_modes").map_err(sqlx_err)?;
-    let environment_overrides: Json<Value> =
-        row.try_get("environment_overrides").map_err(sqlx_err)?;
+/// `org_settings` 里 `agent.tool_policy` 一节的值。`created_at` 是第一次保存的时间。
+#[derive(Serialize, Deserialize)]
+pub(super) struct StoredPolicyDefaults {
+    risk_modes: Value,
+    environment_overrides: Value,
+    pub(super) created_at: TimestampMicros,
+}
 
-    Ok(ToolPolicyDefaults {
-        org_id: Id(row.try_get("org_id").map_err(sqlx_err)?),
-        risk_modes: risk_modes.0,
-        environment_overrides: environment_overrides.0,
-        updated_by: Id(row.try_get("updated_by").map_err(sqlx_err)?),
-        created_at: micros(&row, "created_at_micros")?,
-        updated_at: micros(&row, "updated_at_micros")?,
-    })
+impl StoredPolicyDefaults {
+    pub(super) fn from_defaults(defaults: &ToolPolicyDefaults) -> Self {
+        Self {
+            risk_modes: defaults.risk_modes.clone(),
+            environment_overrides: defaults.environment_overrides.clone(),
+            created_at: defaults.created_at,
+        }
+    }
+
+    pub(super) fn into_defaults(
+        self,
+        org_id: &Id,
+        updated_by: Option<String>,
+        updated_at: TimestampMicros,
+    ) -> ToolPolicyDefaults {
+        ToolPolicyDefaults {
+            org_id: org_id.clone(),
+            risk_modes: self.risk_modes,
+            environment_overrides: self.environment_overrides,
+            updated_by: Id(updated_by.unwrap_or_default()),
+            created_at: self.created_at,
+            updated_at,
+        }
+    }
 }
 
 pub(super) fn server_row(row: PgRow) -> Result<McpServer> {
@@ -198,11 +211,11 @@ pub(super) fn server_row(row: PgRow) -> Result<McpServer> {
         enabled: row.try_get("enabled").map_err(sqlx_err)?,
         status: row.try_get("status").map_err(sqlx_err)?,
         last_error: row.try_get("last_error").map_err(sqlx_err)?,
-        last_tested_at: optional_micros(&row, "last_tested_at_micros")?,
-        last_synced_at: optional_micros(&row, "last_synced_at_micros")?,
+        last_tested_at: optional_micros(&row, "last_tested_at")?,
+        last_synced_at: optional_micros(&row, "last_synced_at")?,
         created_by: Id(row.try_get("created_by").map_err(sqlx_err)?),
-        created_at: micros(&row, "created_at_micros")?,
-        updated_at: micros(&row, "updated_at_micros")?,
+        created_at: micros(&row, "created_at")?,
+        updated_at: micros(&row, "updated_at")?,
     })
 }
 
@@ -222,7 +235,7 @@ pub(super) fn mcp_tool_row(row: PgRow) -> Result<McpTool> {
         input_schema: input_schema.0,
         schema_hash: row.try_get("schema_hash").map_err(sqlx_err)?,
         schema_dialect: row.try_get("schema_dialect").map_err(sqlx_err)?,
-        schema_synced_at: micros(&row, "schema_synced_at_micros")?,
+        schema_synced_at: micros(&row, "schema_synced_at")?,
         unavailable_diagnostic: row.try_get("unavailable_diagnostic").map_err(sqlx_err)?,
         output_schema: output_schema.map(|value| value.0),
         minimum_risk: parse_risk(
@@ -245,24 +258,54 @@ pub(super) fn mcp_tool_row(row: PgRow) -> Result<McpTool> {
                 .as_str(),
         )?,
         version: row.try_get("version").map_err(sqlx_err)?,
-        last_synced_at: micros(&row, "last_synced_at_micros")?,
-        created_at: micros(&row, "created_at_micros")?,
-        updated_at: micros(&row, "updated_at_micros")?,
+        last_synced_at: micros(&row, "last_synced_at")?,
+        created_at: micros(&row, "created_at")?,
+        updated_at: micros(&row, "updated_at")?,
     })
 }
 
-pub(super) fn prompt_row(row: PgRow) -> Result<McpPrompt> {
-    let arguments: Json<Vec<McpPromptArgument>> = row.try_get("arguments").map_err(sqlx_err)?;
+/// `agent_mcp_servers.prompts` 里的一个 prompt。
+#[derive(Serialize, Deserialize)]
+pub(super) struct StoredPrompt {
+    name: String,
+    title: Option<String>,
+    description: String,
+    arguments: Vec<McpPromptArgument>,
+    synced_at: TimestampMicros,
+}
 
-    Ok(McpPrompt {
-        org_id: Id(row.try_get("org_id").map_err(sqlx_err)?),
-        server_id: Id(row.try_get("server_id").map_err(sqlx_err)?),
-        name: row.try_get("name").map_err(sqlx_err)?,
-        title: row.try_get("title").map_err(sqlx_err)?,
-        description: row.try_get("description").map_err(sqlx_err)?,
-        arguments: arguments.0,
-        synced_at: micros(&row, "synced_at_micros")?,
-    })
+impl StoredPrompt {
+    pub(super) fn into_prompt(self, org_id: &Id, server_id: &Id) -> McpPrompt {
+        McpPrompt {
+            org_id: org_id.clone(),
+            server_id: server_id.clone(),
+            name: self.name,
+            title: self.title,
+            description: self.description,
+            arguments: self.arguments,
+            synced_at: self.synced_at,
+        }
+    }
+}
+
+/// 按名称排序，同名的只留第一个。
+pub(super) fn stored_prompts(prompts: Vec<McpPrompt>) -> Vec<StoredPrompt> {
+    let mut names = HashSet::new();
+
+    let mut stored: Vec<StoredPrompt> = prompts
+        .into_iter()
+        .filter(|prompt| names.insert(prompt.name.clone()))
+        .map(|prompt| StoredPrompt {
+            name: prompt.name,
+            title: prompt.title,
+            description: prompt.description,
+            arguments: prompt.arguments,
+            synced_at: prompt.synced_at,
+        })
+        .collect();
+
+    stored.sort_by(|left, right| left.name.cmp(&right.name));
+    stored
 }
 
 pub(super) fn member_credential_row(row: PgRow) -> Result<MemberCredential> {
@@ -270,6 +313,6 @@ pub(super) fn member_credential_row(row: PgRow) -> Result<MemberCredential> {
         server_id: Id(row.try_get("server_id").map_err(sqlx_err)?),
         user_id: Id(row.try_get("user_id").map_err(sqlx_err)?),
         last4: row.try_get("last4").map_err(sqlx_err)?,
-        updated_at: micros(&row, "updated_at_micros")?,
+        updated_at: micros(&row, "updated_at")?,
     })
 }

@@ -38,7 +38,7 @@ const m2t: LinkProvider = {
   derive: (ctx) => {
     const at = ctx.t ?? new Date().toISOString();
     return {
-      time_range: rangeToObject(halo('metric_sample', at, ctx.globalWindow)),
+      timeRange: rangeToObject(halo('metric_sample', at, ctx.globalWindow)),
       filters: filtersFromFields(ctx.fields, ['service.name']),
       prefill: {
         sql: `SELECT trace_id, duration_ms FROM traces WHERE service.name = '${ctx.fields['service.name'] ?? ''}' ORDER BY duration_ms DESC LIMIT 100`,
@@ -55,7 +55,7 @@ const m2l: LinkProvider = {
   derive: (ctx) => {
     const at = ctx.t ?? new Date().toISOString();
     return {
-      time_range: rangeToObject(halo('metric_sample', at, ctx.globalWindow)),
+      timeRange: rangeToObject(halo('metric_sample', at, ctx.globalWindow)),
       filters: filtersFromFields(ctx.fields, ['service.name', 'host']),
     };
   },
@@ -69,7 +69,7 @@ const t2l: LinkProvider = {
   derive: (ctx) => {
     const at = ctx.t ?? new Date().toISOString();
     return {
-      time_range: rangeToObject(halo('trace_span', at, ctx.globalWindow)),
+      timeRange: rangeToObject(halo('trace_span', at, ctx.globalWindow)),
       filters: filtersFromFields(ctx.fields, ['trace_id', 'service.name', 'host']),
     };
   },
@@ -83,7 +83,7 @@ const t2h: LinkProvider = {
   derive: (ctx) => {
     const at = ctx.t ?? new Date().toISOString();
     return {
-      time_range: rangeToObject(halo('trace_span', at, ctx.globalWindow)),
+      timeRange: rangeToObject(halo('trace_span', at, ctx.globalWindow)),
       filters: filtersFromFields(ctx.fields, ['host']),
     };
   },
@@ -97,7 +97,7 @@ const l2t: LinkProvider = {
   derive: (ctx) => {
     const at = ctx.t ?? new Date().toISOString();
     return {
-      time_range: rangeToObject(halo('log_row', at, ctx.globalWindow)),
+      timeRange: rangeToObject(halo('log_row', at, ctx.globalWindow)),
       filters: filtersFromFields(ctx.fields, ['trace_id']),
     };
   },
@@ -111,7 +111,7 @@ const l2h: LinkProvider = {
   derive: (ctx) => {
     const at = ctx.t ?? new Date().toISOString();
     return {
-      time_range: rangeToObject(halo('log_row', at, ctx.globalWindow)),
+      timeRange: rangeToObject(halo('log_row', at, ctx.globalWindow)),
       filters: filtersFromFields(ctx.fields, ['host']),
     };
   },
@@ -125,7 +125,7 @@ const h2m: LinkProvider = {
   derive: (ctx) => {
     const at = ctx.t ?? new Date().toISOString();
     return {
-      time_range: rangeToObject(halo('metric_sample', at, ctx.globalWindow)),
+      timeRange: rangeToObject(halo('metric_sample', at, ctx.globalWindow)),
       filters: filtersFromFields(ctx.fields, ['host']),
     };
   },
@@ -139,7 +139,7 @@ const s2t: LinkProvider = {
   derive: (ctx) => {
     const at = ctx.t ?? new Date().toISOString();
     return {
-      time_range: rangeToObject(halo('trace_span', at, ctx.globalWindow)),
+      timeRange: rangeToObject(halo('trace_span', at, ctx.globalWindow)),
       filters: filtersFromFields(ctx.fields, ['service.name']),
       prefill: {
         sql: `SELECT trace_id, duration_ms FROM traces WHERE service.name = '${ctx.fields['service.name'] ?? ''}' ORDER BY duration_ms DESC LIMIT 100`,

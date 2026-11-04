@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-pptx-page-role="content" font-family="Microsoft YaHei, Arial">
+<rect id="bg" data-pptx-role="background" width="1280" height="720" fill="#F7F9FC" />
+<g id="heading" data-pptx-bounds="56 44 1168 115"><text x="56" y="65" font-size="18" fill="#007E87">02 / 事件响应与 MOLE AGENT</text><text x="56" y="126" font-size="44" fill="#102C44" font-weight="bold">把调查结果带进团队响应流程</text></g>
+<g id="workflow" data-pptx-bounds="56 200 550 350"><text x="56" y="240" font-size="30" fill="#1766D3" font-weight="bold">面向值班团队</text><text fill="#173247" font-size="24" x="56" y="300">接收、分组并路由告警，通知值班人员。</text><text fill="#173247" font-size="24" x="56" y="348">通过排班与升级策略明确响应责任。</text><text fill="#173247" font-size="24" x="56" y="396">在事件中记录进展并更新状态页。</text><text fill="#173247" font-size="24" x="56" y="444">把复盘改进项带入后续工作。</text></g>
+<g id="agent" data-pptx-bounds="680 200 544 350"><text x="680" y="240" font-size="30" fill="#007E87" font-weight="bold">面向可控的 AI 调查</text><text fill="#173247" font-size="24" x="680" y="300">记录假设与证据，辅助根因调查。</text><text fill="#173247" font-size="24" x="680" y="348">复用平台身份、权限与审计边界。</text><text fill="#173247" font-size="24" x="680" y="396">模型由团队选择，可接内网模型。</text><text fill="#173247" font-size="24" x="680" y="444">高风险操作审批后执行。</text></g>
+<g id="caveat" data-pptx-bounds="56 571 1168 66"><rect x="56" y="571" width="1168" height="66" fill="#E8F2F4" /><text x="80" y="614" font-size="24" fill="#102C44">价值主张：减少工具间交接；可靠性与实际排障效果仍需试点验证。</text></g>
+<text id="footer" data-pptx-role="footer" x="56" y="682" font-size="16" fill="#53677B">当前实现与文档能力；不承诺自动根因结论或无人审批的生产修复。</text><text id="page" data-pptx-role="page-number" x="1224" y="682" text-anchor="end" font-size="16" fill="#53677B">06 / 14</text>
+</svg>

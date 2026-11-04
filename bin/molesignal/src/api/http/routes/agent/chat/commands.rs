@@ -193,7 +193,7 @@ async fn rca(
         state,
         ctx,
         Id::from_string(incident_id),
-        "alerts.read",
+        "alerts.incidents.read",
     )
     .await
     {
@@ -215,8 +215,8 @@ async fn rca(
     let end = incident.resolved_at.unwrap_or_else(TimestampMicros::now).0;
 
     req.time_range = Some(TimeRangeReq {
-        start_micros: start,
-        end_micros: end.max(start),
+        start_time: start,
+        end_time: end.max(start),
     });
 
     req.analysis_mode = Some("root_cause".into());

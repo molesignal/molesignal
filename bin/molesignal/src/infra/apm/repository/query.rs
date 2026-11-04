@@ -6,13 +6,13 @@ use sqlx::Row;
 
 use super::{
     PgApmRepository,
-    codec::{hourly_table, merge_rows, minute_table, resolve_resolution, row_to_bucket},
+    codec::{kind_name, merge_rows, resolve_resolution, row_to_bucket},
 };
 use crate::{
     domain::apm::{
         ApmQueryRepository, BucketQuery, CatalogQuery, ErrorGroupQuery, ErrorGroupRecord,
-        ErrorSample, MergedBucket, ProjectionGap, ProjectionGapReason, ProjectionState,
-        QueryResolution, ServiceObservation, VersionObservation,
+        ErrorSample, InstanceObservation, MergedBucket, ProjectionGap, ProjectionGapReason,
+        ProjectionState, QueryResolution, ServiceObservation, VersionObservation,
     },
     infra::persistence::sqlx_err,
     shared::{
@@ -36,33 +36,35 @@ impl ApmQueryRepository for PgApmRepository {
         let resolution = resolve_resolution(query.resolution, query.range.duration_micros());
 
         let table = match resolution {
-            QueryResolution::Minute => minute_table(query.kind),
-            QueryResolution::Hour => hourly_table(query.kind),
+            QueryResolution::Minute => "apm_buckets",
+            QueryResolution::Hour => "apm_buckets_hourly",
             QueryResolution::Auto => unreachable!("auto resolution is resolved above"),
         };
 
         let sql = format!(
-            "SELECT bucket_at_micros, dimension_key, histogram_schema_version,
+            "SELECT bucket_at, dimension_key, histogram_schema_version,
                     dimension, measurements
              FROM {table}
              WHERE org_id = $1
-               AND bucket_at_micros BETWEEN $2 AND $3
+               AND bucket_kind = $8
+               AND bucket_at BETWEEN $2 AND $3
                AND ($4::TEXT IS NULL OR service_namespace = $4)
                AND ($5::TEXT IS NULL OR service_name = $5)
                AND ($6::TEXT IS NULL OR environment = $6)
                AND ($7::TEXT IS NULL OR version = $7)
-             ORDER BY bucket_at_micros ASC, dimension_key ASC,
+             ORDER BY bucket_at ASC, dimension_key ASC,
                       histogram_schema_version ASC"
         );
 
         let rows = sqlx::query(&sql)
             .bind(query.org_id.as_str())
-            .bind(query.range.start.0)
-            .bind(query.range.end.0)
+            .bind(query.range.start)
+            .bind(query.range.end)
             .bind(query.namespace.as_deref())
             .bind(query.service_name.as_deref())
             .bind(query.environment.as_deref())
             .bind(query.version.as_deref())
+            .bind(kind_name(query.kind))
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
@@ -83,6 +85,10 @@ impl ApmQueryRepository for PgApmRepository {
         self.query_versions(query).await
     }
 
+    async fn list_instances(&self, query: &CatalogQuery) -> Result<Vec<InstanceObservation>> {
+        super::instance::list(&self.pool, query).await
+    }
+
     async fn list_error_groups(&self, query: &ErrorGroupQuery) -> Result<Vec<ErrorGroupRecord>> {
         self.query_error_groups(query).await
     }
@@ -100,9 +106,9 @@ impl ApmQueryRepository for PgApmRepository {
         org_id: &crate::shared::ids::Id,
     ) -> Result<Option<ProjectionState>> {
         let row = sqlx::query(
-            "SELECT projection_started_at_micros,
-                    last_complete_bucket_at_micros,
-                    last_rollup_bucket_at_micros
+            "SELECT projection_started_at,
+                    last_complete_bucket_at,
+                    last_rollup_bucket_at
              FROM apm_projection_state
              WHERE org_id = $1",
         )
@@ -114,18 +120,15 @@ impl ApmQueryRepository for PgApmRepository {
         row.map(|row| {
             Ok(ProjectionState {
                 org_id: org_id.clone(),
-                projection_started_at: TimestampMicros(
-                    row.try_get("projection_started_at_micros")
-                        .map_err(sqlx_err)?,
-                ),
+                projection_started_at: row
+                    .try_get::<TimestampMicros, _>("projection_started_at")
+                    .map_err(sqlx_err)?,
                 last_complete_bucket_at: row
-                    .try_get::<Option<i64>, _>("last_complete_bucket_at_micros")
-                    .map_err(sqlx_err)?
-                    .map(TimestampMicros),
+                    .try_get::<Option<TimestampMicros>, _>("last_complete_bucket_at")
+                    .map_err(sqlx_err)?,
                 last_rollup_bucket_at: row
-                    .try_get::<Option<i64>, _>("last_rollup_bucket_at_micros")
-                    .map_err(sqlx_err)?
-                    .map(TimestampMicros),
+                    .try_get::<Option<TimestampMicros>, _>("last_rollup_bucket_at")
+                    .map_err(sqlx_err)?,
             })
         })
         .transpose()
@@ -141,17 +144,17 @@ impl ApmQueryRepository for PgApmRepository {
         }
 
         let rows = sqlx::query(
-            "SELECT range_start_micros, range_end_micros, reason,
-                    dropped_facts, recorded_at_micros
+            "SELECT range_start, range_end, reason,
+                    dropped_facts, recorded_at
              FROM apm_projection_gaps
              WHERE org_id = $1
-               AND range_start_micros <= $2
-               AND range_end_micros >= $3
-             ORDER BY range_start_micros ASC, range_end_micros ASC",
+               AND range_start <= $2
+               AND range_end >= $3
+             ORDER BY range_start ASC, range_end ASC",
         )
         .bind(org_id.as_str())
-        .bind(range.end.0)
-        .bind(range.start.0)
+        .bind(range.end)
+        .bind(range.start)
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -166,15 +169,17 @@ impl ApmQueryRepository for PgApmRepository {
                 Ok(ProjectionGap {
                     org_id: org_id.clone(),
                     range: TimeRange::new(
-                        TimestampMicros(row.try_get("range_start_micros").map_err(sqlx_err)?),
-                        TimestampMicros(row.try_get("range_end_micros").map_err(sqlx_err)?),
+                        row.try_get::<TimestampMicros, _>("range_start")
+                            .map_err(sqlx_err)?,
+                        row.try_get::<TimestampMicros, _>("range_end")
+                            .map_err(sqlx_err)?,
                     ),
                     reason,
                     dropped_facts: u64::try_from(dropped)
                         .map_err(|_| Error::internal("negative APM dropped fact count"))?,
-                    recorded_at: TimestampMicros(
-                        row.try_get("recorded_at_micros").map_err(sqlx_err)?,
-                    ),
+                    recorded_at: row
+                        .try_get::<TimestampMicros, _>("recorded_at")
+                        .map_err(sqlx_err)?,
                 })
             })
             .collect()

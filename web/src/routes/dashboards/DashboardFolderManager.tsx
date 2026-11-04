@@ -192,7 +192,7 @@ export function DashboardFolderManager({
       setSelectedId(folder.id);
       setMode('browse');
       setRootExpanded(true);
-      const parentId = folder.parent_id;
+      const parentId = folder.parentId;
       if (parentId) {
         setExpandedFolderIds((current) => {
           const next = new Set(current);
@@ -219,7 +219,7 @@ export function DashboardFolderManager({
     }) => foldersApi.update(id, input),
     onSuccess: async (folder) => {
       setRootExpanded(true);
-      const parentId = folder.parent_id;
+      const parentId = folder.parentId;
       if (parentId) {
         setExpandedFolderIds((current) => {
           const next = new Set(current);
@@ -277,7 +277,7 @@ export function DashboardFolderManager({
   };
   const selectedChildren = selected
     ? (childrenByParent.get(selected.id) ?? 0)
-    : apiFolders.filter((folder) => !folder.parent_id).length;
+    : apiFolders.filter((folder) => !folder.parentId).length;
   const selectedDashboards =
     selected?.dashboards ??
     folders.reduce((sum, folder) => sum + folder.dashboards, 0);

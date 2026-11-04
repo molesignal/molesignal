@@ -780,7 +780,7 @@ fn sensitive_value_regex() -> &'static Regex {
 
     REGEX.get_or_init(|| {
         Regex::new(
-            r#"(?i)\b(?:bearer|basic)\s+[a-z0-9._~+/=-]{4,}|\b(?:password|passwd|pwd|secret|token|api[_-]?key|authorization|cookie)\s*[:=]\s*[^\s,;]+|\beyj[a-z0-9_-]{8,}\.[a-z0-9_-]{8,}\.[a-z0-9_-]{4,}\b|\b(?:sk-|ms_|mstd_)[a-z0-9_-]{8,}\b|[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@(?:[a-z0-9-]+\.)+[a-z]{2,}|-----begin[^\r\n]*(?:private key|certificate)-----"#,
+            r#"(?i)\b(?:bearer|basic)\s+[a-z0-9._~+/=-]{4,}|\b(?:password|passwd|pwd|secret|token|api[_-]?key|authorization|cookie)\s*[:=]\s*[^\s,;]+|\beyj[a-z0-9_-]{8,}\.[a-z0-9_-]{8,}\.[a-z0-9_-]{4,}\b|\b(?:sk-|mspat-)[a-z0-9_-]{8,}\b|[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@(?:[a-z0-9-]+\.)+[a-z]{2,}|-----begin[^\r\n]*(?:private key|certificate)-----"#,
         )
         .expect("static sensitive telemetry value regex")
     })
@@ -1292,6 +1292,17 @@ mod tests {
             },
         )
         .unwrap();
+    }
+
+    #[test]
+    fn a_credential_is_forbidden_in_a_telemetry_value() {
+        assert!(forbidden_value(
+            "mspat-c16jb8m5zrzf174p8g8b7m5p4jz0kp9y1hxr"
+        ));
+        assert!(forbidden_value(
+            "sent mspat-c16jb8m5zrzf174p8g8b7m5p4jz0kp9y1hxr upstream"
+        ));
+        assert!(!forbidden_value("mspat"));
     }
 
     #[test]

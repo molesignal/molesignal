@@ -1,11 +1,21 @@
+import type { Locator } from '@playwright/test';
+
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 
 const WHITE = 'rgb(255, 255, 255)';
 const TRANSPARENT = 'rgba(0, 0, 0, 0)';
+const RING = '0px 0px 0px 1px';
+
+/** A control has no border: a ring of shadow, on it or on the box around a bare input, is its edge. */
+const ringOf = (control: Locator) =>
+  control.evaluate((element) => {
+    const box = element.closest('[class*="bg-[var(--control-surface)]"]') ?? element;
+    return getComputedStyle(box).boxShadow;
+  });
 
 test.describe('public status page', () => {
   test.beforeEach(async ({ page, mockServer }) => {
-    await mountMockRoutes(page, mockServer.port, { token: 'fake-jwt' });
+    await mountMockRoutes(page, mockServer.port);
   });
 
   test('reads from the verdict down and keeps its three places in the header', async ({ page }) => {
@@ -64,12 +74,12 @@ test.describe('public status page', () => {
     await page.goto('/status/acme-cloud');
 
     // The language select says the language and no more: the mark, the name and the arrow stand
-    // together, on a fill that tells it from the header it lies on.
+    // together, inside a ring that tells it from the header it lies on.
     const language = page.getByRole('combobox', { name: 'Status page language' });
     await expect(language).toBeVisible();
     const languageBox = (await language.boundingBox())!;
     expect(languageBox.width).toBeLessThan(140);
-    await expect(language).not.toHaveCSS('background-color', WHITE);
+    expect(await ringOf(language)).toContain(RING);
     await expect(language).not.toHaveCSS('background-color', TRANSPARENT);
 
     const subscribe = page.getByRole('button', { name: 'Subscribe' });
@@ -79,13 +89,11 @@ test.describe('public status page', () => {
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
 
-    // Fields have no border, so the fill is what makes them fields.
+    // Fields have no border, so the ring is what makes them fields.
     const channel = dialog.getByRole('combobox');
     const address = dialog.getByPlaceholder('you@example.com');
-    const feed = dialog.getByRole('link', { name: 'RSS feed' });
-    for (const control of [channel, address, feed]) {
-      await expect(control).not.toHaveCSS('background-color', WHITE);
-      await expect(control).not.toHaveCSS('background-color', TRANSPARENT);
+    for (const control of [channel, address]) {
+      expect(await ringOf(control)).toContain(RING);
     }
     // The dialog grows into place as it opens, and a box read on screen is scaled with it: the two
     // fields are compared by the height they are laid out at.
@@ -98,6 +106,19 @@ test.describe('public status page', () => {
     const send = dialog.getByRole('button', { name: 'Send confirmation' });
     await expect(send).not.toHaveCSS('background-color', TRANSPARENT);
     await expect(send).not.toHaveCSS('background-color', WHITE);
+
+    // The feed is one more way in the same select: an address in RSS and one in Atom, each with
+    // its copy button, and nothing to send.
+    await channel.click();
+    await page.getByRole('option', { name: 'RSS feed' }).click();
+    const rss = dialog.getByRole('textbox', { name: 'RSS feed address' });
+    const atom = dialog.getByRole('textbox', { name: 'Atom feed address' });
+    await expect(rss).toHaveValue(/\/api\/v1\/public\/status-pages\/acme-cloud\/feed\.rss$/);
+    await expect(atom).toHaveValue(/\/api\/v1\/public\/status-pages\/acme-cloud\/feed\.atom$/);
+    for (const control of [rss, atom, dialog.getByRole('button', { name: 'Copy the RSS feed address' })]) {
+      expect(await ringOf(control)).toContain(RING);
+    }
+    await expect(send).toHaveCount(0);
   });
 
   test('says an incident from its latest update back', async ({ page }) => {

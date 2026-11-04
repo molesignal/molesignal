@@ -21,6 +21,7 @@ import type { Page } from '@playwright/test';
 
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 import { expectExplorerResults, serveExplorerResults, type Explorer } from '../fixtures/mockExplorers';
+import { MOCK_RUM } from '../fixtures/mockRumData';
 
 const ROUTES: Array<{ path: string; label: string }> = [
   { path: '/login', label: 'login' },
@@ -38,23 +39,34 @@ const ROUTES: Array<{ path: string; label: string }> = [
   { path: '/agent/executions', label: 'agent-executions' },
   { path: '/agent/settings', label: 'agent-settings' },
   { path: '/agent/settings/inbound-mcp', label: 'agent-inbound-mcp' },
+  { path: '/agent/settings/im', label: 'agent-im' },
   { path: '/streams', label: 'streams' },
   { path: '/settings', label: 'settings' },
   { path: '/noc', label: 'noc' },
 
-  // RUM analysis and settings routes
+  // RUM overview, explorer, applications and settings routes
   { path: '/rum/overview', label: 'rum-overview' },
-  { path: '/rum/applications', label: 'rum-applications' },
-  { path: '/rum/sessions', label: 'rum-sessions' },
-  { path: '/rum/sessions/view/sample-session', label: 'rum-session-detail' },
-  { path: '/rum/pages', label: 'rum-pages' },
+  { path: '/rum/explorer', label: 'rum-explorer' },
+  { path: '/rum/explorer?type=views&viz=timeseries&by=view.url_path_group', label: 'rum-explorer-timeseries' },
+  { path: '/rum/explorer?type=views&viz=toplist', label: 'rum-explorer-toplist' },
+  { path: '/rum/explorer?type=views&viz=table', label: 'rum-explorer-table' },
+  { path: '/rum/explorer?viz=map', label: 'rum-explorer-map' },
+  { path: '/rum/explorer?type=views&viz=distribution', label: 'rum-explorer-distribution' },
   { path: '/rum/errors', label: 'rum-errors' },
-  { path: '/rum/errors/view/sample-fingerprint', label: 'rum-error-detail' },
-  { path: '/rum/performance/overview', label: 'rum-perf-overview' },
-  { path: '/rum/performance/web-vitals', label: 'rum-perf-webvitals' },
-  { path: '/rum/performance/errors', label: 'rum-perf-errors' },
-  { path: '/rum/performance/apis', label: 'rum-perf-apis' },
-  { path: '/rum/session-replay', label: 'rum-session-replay' },
+  { path: '/rum/performance', label: 'rum-performance' },
+  { path: '/rum/performance?open=%2Fcheckout', label: 'rum-performance-drawer' },
+  { path: '/rum/performance/resources', label: 'rum-performance-resources' },
+  { path: '/rum/performance/resources?open=%5B%22api.example.com%22%2C%22fetch%22%5D', label: 'rum-performance-resources-panel' },
+  { path: '/rum/performance/long-tasks', label: 'rum-performance-long-tasks' },
+  { path: '/rum/frustration', label: 'rum-frustration' },
+  { path: '/rum/frustration?open=%5B%22Pay%20now%22%2C%22button%5Bdata-testid%3D%5C%22pay-now%5C%22%5D%22%5D', label: 'rum-frustration-panel' },
+  { path: '/rum/applications', label: 'rum-applications' },
+  { path: '/rum/analytics/heatmaps', label: 'rum-analytics-heatmaps' },
+  { path: '/rum/analytics/heatmaps?map=scroll', label: 'rum-analytics-heatmaps-scroll' },
+  { path: '/rum/feature-flags', label: 'rum-feature-flags' },
+  { path: '/rum/feature-flags?flag=checkout_v2', label: 'rum-feature-flags-compare' },
+  // A visit that has no DOM recording: the replayer's frame is a sandbox axe cannot enter.
+  { path: `/rum/sessions/view/${MOCK_RUM.session.anonymous}`, label: 'rum-session-detail' },
   { path: '/rum/settings/sdk', label: 'rum-settings-sdk' },
   { path: '/rum/settings/sampling', label: 'rum-settings-sampling' },
   { path: '/rum/settings/privacy', label: 'rum-settings-privacy' },

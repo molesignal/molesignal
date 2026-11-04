@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatShare, regionName } from './_helpers';
-import { metricPercentile, webVitalGrade } from './Pages';
-import { relativeTime } from './Sessions';
+import { formatDurationNs, formatShare, formatSize, regionName } from './_helpers';
 
 describe('formatShare', () => {
   it('writes a share with the decimals it has, up to two', () => {
@@ -21,6 +19,16 @@ describe('regionName', () => {
     expect(regionName('JP', 'zh-cn')).toBe('日本');
   });
 
+  it('names Taiwan, Hong Kong and Macao as parts of China, as the map draws them', () => {
+    expect(regionName('TW', 'zh-cn')).toBe('中国台湾');
+    expect(regionName('tw', 'en-us')).toBe('Taiwan, China');
+    expect(regionName('HK', 'zh-cn')).toBe('中国香港');
+    expect(regionName('HK', 'en-us')).toBe('Hong Kong, China');
+    expect(regionName('MO', 'zh-cn')).toBe('中国澳门');
+    expect(regionName('MO', undefined)).toBe('Macao, China');
+    expect(regionName('CN', 'zh-cn')).toBe('中国');
+  });
+
   it('leaves what is not a region code as it came', () => {
     expect(regionName('Unknown', 'en-us')).toBe('Unknown');
     expect(regionName('', 'en-us')).toBe('');
@@ -28,45 +36,26 @@ describe('regionName', () => {
   });
 });
 
-describe('relativeTime', () => {
-  const now = Date.parse('2026-10-13T03:00:00Z');
-  const ago = (minutes: number) => (now - minutes * 60_000) * 1000;
-
-  it('is said in the language of the product, not of the browser', () => {
-    expect(relativeTime(ago(47), 'en-us', now)).toBe('47 minutes ago');
-    expect(relativeTime(ago(47), 'zh-cn', now)).toBe('47分钟前');
-    expect(relativeTime(ago(180), 'zh-cn', now)).toBe('3小时前');
-    expect(relativeTime(ago(3 * 24 * 60), 'en-us', now)).toBe('3 days ago');
+describe('formatDurationNs', () => {
+  it('tells a duration the SDK sent in nanoseconds in the unit that reads best', () => {
+    expect(formatDurationNs(850)).toBe('850 ns');
+    expect(formatDurationNs(42_000)).toBe('42 µs');
+    expect(formatDurationNs(120_000_000)).toBe('120 ms');
+    expect(formatDurationNs(1_400_000_000)).toBe('1.4 s');
+    expect(formatDurationNs(90_000_000_000)).toBe('1.5 min');
   });
 
-  it('has nothing to say of a session with no start', () => {
-    expect(relativeTime(undefined, 'en-us', now)).toBe('—');
+  it('has nothing to say of a duration that is not there', () => {
+    expect(formatDurationNs(undefined)).toBe('—');
+    expect(formatDurationNs(Number.NaN)).toBe('—');
   });
 });
 
-describe('the vitals of a page', () => {
-  const point = (values: Record<string, number | null | undefined>) =>
-    ({ ts_micros: 1, ...values }) as Parameters<typeof metricPercentile>[0][number];
-
-  it('are the 75th percentile of the samples that carry them', () => {
-    const points = [1000, 2000, 3000, 4000].map((lcp_ms) => point({ lcp_ms }));
-
-    expect(metricPercentile(points, 'lcp_ms')).toBe(3000);
-  });
-
-  it('are not measured where no sample carries them: that is not a vital of zero', () => {
-    const points = [point({ lcp_ms: 2000, inp_ms: null }), point({ lcp_ms: 2400 })];
-
-    expect(metricPercentile(points, 'inp_ms')).toBeNull();
-    expect(metricPercentile([], 'cls')).toBeNull();
-  });
-
-  it('grade a page by what was measured on it', () => {
-    expect(webVitalGrade(2000, null, 0.05)).toBe('good');
-    expect(webVitalGrade(3000, null, null)).toBe('needs_improvement');
-    expect(webVitalGrade(2000, 600, 0.05)).toBe('poor');
-    expect(webVitalGrade(null, null, null)).toBe('unknown');
-    // A layout that never shifted is a measurement, and a good one.
-    expect(webVitalGrade(null, null, 0)).toBe('good');
+describe('formatSize', () => {
+  it('tells a size in bytes in the unit that reads best', () => {
+    expect(formatSize(812)).toBe('812 B');
+    expect(formatSize(4_300)).toBe('4.2 KB');
+    expect(formatSize(1_400_000)).toBe('1.3 MB');
+    expect(formatSize(undefined)).toBe('—');
   });
 });

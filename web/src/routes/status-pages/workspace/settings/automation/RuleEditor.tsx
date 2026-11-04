@@ -52,8 +52,8 @@ export function RuleEditor({
     (component) => component.kind !== 'group' && component.lifecycle === 'active',
   );
   const delayMinutes = Number(form.delayMinutes);
-  // A business-service rule that names no components publishes on the ones that stand for the service.
-  const componentsOptional = form.sourceKind === 'business_service';
+  // A dependency rule that names no components publishes on the component whose dependencies changed.
+  const componentsOptional = form.sourceKind === 'component_dependencies';
   const invalid =
     !form.name.trim()
     || (form.componentIds.length === 0 && !componentsOptional)
@@ -124,7 +124,7 @@ export function RuleEditor({
               options={[
                 { value: 'alert_incident', label: t('automation.source.alert_incident') },
                 { value: 'synthetic_monitor', label: t('automation.source.synthetic_monitor') },
-                { value: 'business_service', label: t('automation.source.business_service') },
+                { value: 'component_dependencies', label: t('automation.source.component_dependencies') },
               ]}
             />
           </FormField>
@@ -147,6 +147,7 @@ export function RuleEditor({
           value={form.sourceId}
           onChange={(sourceId) => setForm({ ...form, sourceId })}
           enabled={open}
+          components={components}
         />
         <FormField label={t('automation.fields.labels')} hint={t('automation.fields.labels_hint')}>
           <FormInput value={form.labels} placeholder="service=checkout, env=production" onChange={(event) => setForm({ ...form, labels: event.currentTarget.value })} />
@@ -176,7 +177,7 @@ export function RuleEditor({
         <FormField
           label={t('fields.affected_components')}
           required={!componentsOptional}
-          {...(componentsOptional ? { hint: t('automation.fields.business_service_components_hint') } : {})}
+          {...(componentsOptional ? { hint: t('automation.fields.dependency_components_hint') } : {})}
         >
           <div className="grid gap-2 sm:grid-cols-2">
             {activeComponents.map((component) => (
@@ -251,25 +252,25 @@ function editorState(rule: ActiveAutomationRule | null): EditorState {
   const revision = rule?.revision;
   return {
     name: rule?.rule.name ?? '',
-    sourceKind: revision?.matchers.source_kind ?? 'alert_incident',
-    sourceId: revision?.matchers.source_id ?? '',
-    minimumSeverity: revision?.matchers.minimum_severity ?? '',
+    sourceKind: revision?.matchers.sourceKind ?? 'alert_incident',
+    sourceId: revision?.matchers.sourceId ?? '',
+    minimumSeverity: revision?.matchers.minimumSeverity ?? '',
     labels: Object.entries(revision?.matchers.labels ?? {}).map(([key, value]) => `${key}=${value}`).join(', '),
-    mode: revision?.action.publication_mode ?? 'approval',
-    delayMinutes: String((revision?.action.sustained_delay_seconds ?? 300) / 60),
-    degradedImpact: revision?.action.impact_map.degraded ?? 'minor',
-    failingImpact: revision?.action.impact_map.failing ?? 'major',
-    componentIds: revision?.action.component_ids ?? [],
+    mode: revision?.action.publicationMode ?? 'approval',
+    delayMinutes: String((revision?.action.sustainedDelaySeconds ?? 300) / 60),
+    degradedImpact: revision?.action.impactMap.degraded ?? 'minor',
+    failingImpact: revision?.action.impactMap.failing ?? 'major',
+    componentIds: revision?.action.componentIds ?? [],
     title: revision?.action.templates.title ?? defaultTitle('alert_incident'),
     investigating: revision?.action.templates.investigating ?? 'We are investigating reports of degraded service.',
     update: revision?.action.templates.update ?? 'We have confirmed an increased impact and are continuing remediation.',
     resolved: revision?.action.templates.resolved ?? 'The service has recovered and is operating normally.',
-    correlation: revision?.action.correlation_key_template ?? '{{source.id}}',
+    correlation: revision?.action.correlationKeyTemplate ?? '{{source.id}}',
   };
 }
 
 function defaultTitle(sourceKind: AutomationSourceKind): string {
-  return sourceKind === 'business_service' ? '{{labels.business_service_name}}' : '{{labels.incident_summary}}';
+  return sourceKind === 'component_dependencies' ? '{{labels.component_name}}' : '{{labels.incident_summary}}';
 }
 
 function toInput(form: EditorState, position?: number): AutomationRuleInput {
@@ -282,20 +283,20 @@ function toInput(form: EditorState, position?: number): AutomationRuleInput {
     name: form.name.trim(),
     ...(position === undefined ? {} : { position }),
     matchers: {
-      source_kind: form.sourceKind,
-      source_id: form.sourceId.trim() || null,
+      sourceKind: form.sourceKind,
+      sourceId: form.sourceId.trim() || null,
       labels,
-      minimum_severity: form.minimumSeverity || null,
+      minimumSeverity: form.minimumSeverity || null,
     },
     action: {
-      component_ids: form.componentIds,
-      publication_mode: form.mode,
-      sustained_delay_seconds: Number.isFinite(delayMinutes)
+      componentIds: form.componentIds,
+      publicationMode: form.mode,
+      sustainedDelaySeconds: Number.isFinite(delayMinutes)
         ? Math.max(0, Math.min(86_400, Math.round(delayMinutes * 60)))
         : 0,
-      impact_map: { degraded: form.degradedImpact, failing: form.failingImpact },
+      impactMap: { degraded: form.degradedImpact, failing: form.failingImpact },
       templates: { title: form.title.trim(), investigating: form.investigating.trim(), update: form.update.trim(), resolved: form.resolved.trim() },
-      correlation_key_template: form.correlation.trim(),
+      correlationKeyTemplate: form.correlation.trim(),
     },
   };
 }

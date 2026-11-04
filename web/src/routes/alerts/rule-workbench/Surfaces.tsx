@@ -1,14 +1,16 @@
 import { Check, Database, TestTube2 } from 'lucide-react';
-import type * as React from 'react';
+import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ChromeButton, Dot, Pill } from '@/shell/chrome';
+import { ChromeButton, Dot, Pill, uiSectionTitleClass } from '@/shell/chrome';
 import { ErrorState } from '@/shell/ErrorState';
 import { cn } from '@/shell/lib/cn';
 import { LoadingState } from '@/shell/LoadingState';
 import type { SeverityThreshold } from '@/types/alerting';
 import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
+import { backtestRule } from './backtest';
+import { BacktestSummary } from './BacktestSummary';
 import { COMPARISON_LABEL } from '../alertRuleModel';
 
 export function WorkbenchSection({
@@ -26,12 +28,10 @@ export function WorkbenchSection({
 }) {
   return (
     <section id={id} data-alert-workbench-section className="min-w-0 bg-transparent">
-      <header className="flex items-start gap-3 border-b border-bd-0 py-3.5">
-        <span className="mt-0.5 font-mono text-xs font-semibold text-indigo-soft">
-          {number}
-        </span>
+      <header className="flex items-baseline gap-3 border-b border-bd-0 py-3.5">
+        <span className="font-mono text-xs font-semibold text-indigo-soft">{number}</span>
         <div>
-          <h2 className="font-sans text-sm font-display-strong text-tx-0">{title}</h2>
+          <h2 className={uiSectionTitleClass}>{title}</h2>
           <p className="mt-0.5 text-xs leading-relaxed text-tx-2">{description}</p>
         </div>
       </header>
@@ -51,9 +51,10 @@ export function QueryPreview({
   to,
   threshold,
   currentValue,
-  estimatedEpisodes,
   scannedRows,
   tookMs,
+  hours,
+  groups,
   onRun,
 }: {
   pending: boolean;
@@ -66,13 +67,26 @@ export function QueryPreview({
   to?: number;
   threshold: SeverityThreshold | null;
   currentValue?: number;
-  estimatedEpisodes: number | null;
   scannedRows?: number;
   tookMs?: number;
+  /**
+   * How many hours the preview covers: six when left out, as a query's is. A figure of a product
+   * is read over what the server chose for the rule's window, which is known once it has run.
+   */
+  hours?: number | null;
+  /** A rule split by columns: the columns, and how many groups the preview's rows fall into. */
+  groups?: { columns: string[]; count: number };
   onRun: () => void;
 }) {
   const { i18n, t } = useTranslation('alerts');
   const hasData = points.length > 0;
+  const backtest = React.useMemo(
+    () =>
+      threshold && hasData
+        ? backtestRule(points.map((point) => point.value), timestamps, threshold)
+        : null,
+    [hasData, points, threshold, timestamps],
+  );
   const docsLocale = (i18n.resolvedLanguage ?? i18n.language)
     .toLowerCase()
     .startsWith('zh')
@@ -82,12 +96,18 @@ export function QueryPreview({
     <section data-alert-query-preview className="min-w-0 bg-transparent">
       <header className="flex min-h-12 items-center gap-3 border-b border-bd-0 py-3">
         <div className="min-w-0 flex-1">
-          <h2 className="font-sans text-sm font-display-strong text-tx-0">
+          <h2 className={uiSectionTitleClass}>
             {t('workbench.preview.title')}
           </h2>
-          <p className="mt-0.5 text-xs text-tx-2">{t('workbench.preview.window')}</p>
+          <p className="mt-0.5 text-xs text-tx-2">
+            {hours === undefined
+              ? t('workbench.preview.window')
+              : hours === null
+                ? t('workbench.preview.window_open')
+                : t('workbench.preview.window_hours', { count: hours })}
+          </p>
         </div>
-        <ChromeButton size="sm" onClick={onRun} disabled={pending}>
+        <ChromeButton size="sm" onClick={onRun} disabled={pending} data-draft-ignore="">
           <TestTube2 className="h-3.5 w-3.5" />
           {pending ? t('workbench.actions.testing') : t('workbench.actions.test')}
         </ChromeButton>
@@ -148,13 +168,30 @@ export function QueryPreview({
                       },
                     ]
                   : [],
+                annotations: [
+                  ...(backtest?.pending ?? []).map((span, index) => ({
+                    id: `pending-${index}`,
+                    timestamp: span.from,
+                    endTimestamp: span.to,
+                    label: t('workbench.preview.span_pending'),
+                    color: 'var(--yellow)',
+                  })),
+                  ...(backtest?.firing ?? []).map((span, index) => ({
+                    id: `firing-${index}`,
+                    timestamp: span.from,
+                    endTimestamp: span.to,
+                    label: t('workbench.preview.span_firing'),
+                    color: 'var(--red)',
+                  })),
+                ],
               }}
               {...(from !== undefined && to !== undefined
                 ? { xDomain: [from, to] as [number, number] }
                 : {})}
               showLegend
             />
-            <dl className="mt-4 grid grid-cols-2 gap-x-3 sm:grid-cols-4 xl:grid-cols-2 min-[1560px]:grid-cols-4">
+            {backtest && threshold && <BacktestSummary backtest={backtest} threshold={threshold} />}
+            <dl className="mt-3 grid grid-cols-3 gap-x-3">
               <PreviewStat
                 label={t('workbench.preview.current')}
                 value={formatNumber(currentValue)}
@@ -168,10 +205,6 @@ export function QueryPreview({
                 }
               />
               <PreviewStat
-                label={t('workbench.preview.estimated')}
-                value={estimatedEpisodes === null ? '—' : String(estimatedEpisodes)}
-              />
-              <PreviewStat
                 label={t('workbench.preview.cost')}
                 value={
                   scannedRows === undefined || tookMs === undefined
@@ -180,6 +213,11 @@ export function QueryPreview({
                 }
               />
             </dl>
+            {groups && (
+              <p className="px-1 text-xs text-tx-2">
+                {t('workbench.preview.groups', { count: groups.count, columns: groups.columns.join(', ') })}
+              </p>
+            )}
           </>
         )}
       </div>
@@ -221,16 +259,19 @@ export function ValidationSummary({
   queryReady,
   thresholdsReady,
   runbookReady,
+  queryLabel,
 }: {
   identityReady: boolean;
   queryReady: boolean;
   thresholdsReady: boolean;
   runbookReady: boolean;
+  /** What stands for the query check of a rule that runs none. */
+  queryLabel?: string;
 }) {
   const { t } = useTranslation('alerts');
   const items = [
     { ready: identityReady, label: t('workbench.validation.identity') },
-    { ready: queryReady, label: t('workbench.validation.query') },
+    { ready: queryReady, label: queryLabel ?? t('workbench.validation.query') },
     { ready: thresholdsReady, label: t('workbench.validation.thresholds') },
     { ready: runbookReady, label: t('workbench.validation.runbook') },
   ];
@@ -238,7 +279,7 @@ export function ValidationSummary({
     <section data-alert-validation className="min-w-0 bg-transparent">
       <header className="flex min-h-12 items-center gap-2 border-b border-bd-0 py-3">
         <Check className="h-4 w-4 text-[var(--green-ink)]" />
-        <h2 className="font-sans text-sm font-display-strong text-tx-0">
+        <h2 className={uiSectionTitleClass}>
           {t('workbench.validation.title')}
         </h2>
       </header>

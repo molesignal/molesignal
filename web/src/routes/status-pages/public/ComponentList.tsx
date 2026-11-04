@@ -103,22 +103,28 @@ function ComponentGroup({
   const status = groupStatus(members.map(({ component }) => component));
   const [open, setOpen] = React.useState(status !== 'operational');
   const listId = React.useId();
+  const nameId = React.useId();
+  const countId = React.useId();
 
   return (
     <li data-status-component={status} data-status-group className="px-5 py-5 sm:px-6">
       <div className="flex items-start gap-3">
         {!open && <StatusDot status={status} />}
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-          <h3 className="min-w-0 text-base font-bold leading-6 text-tx-0">{group.name}</h3>
+          <h3 id={nameId} className="min-w-0 text-base font-bold leading-6 text-tx-0">{group.name}</h3>
           {group.description && <ComponentDescription name={group.name} description={group.description} copy={copy} />}
+          <span id={countId} className="text-sm leading-6 text-tx-2">
+            {copy('public.group_components', { count: members.length })}
+          </span>
+          {/* Only the sign folds and unfolds the group; it shows a fill while it is pressed. */}
           <button
             type="button"
             aria-expanded={open}
             aria-controls={listId}
+            aria-labelledby={`${nameId} ${countId}`}
             onClick={() => setOpen((current) => !current)}
-            className="inline-flex min-h-[32px] items-center gap-1 rounded-md px-1.5 text-sm text-tx-2 transition-colors hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0"
+            className={SIGN_BUTTON}
           >
-            {copy('public.group_components', { count: members.length })}
             <ChevronDown aria-hidden className={cn('h-4 w-4 transition-transform', open && 'rotate-180')} />
           </button>
         </div>
@@ -167,6 +173,10 @@ function ComponentRow({
     </>
   );
 }
+
+/** A sign beside a name: no fill at rest or on hover, a fill while pressed or focused from the keyboard. */
+const SIGN_BUTTON =
+  'relative grid h-6 w-6 shrink-0 place-items-center rounded-md text-tx-2 transition-colors after:absolute after:-inset-2 after:content-[""] hover:text-tx-0 active:bg-bg-2 focus-visible:bg-bg-2 focus-visible:text-tx-0';
 
 function StatusDot({ status }: { status: ComponentStatus }) {
   return <span aria-hidden className={cn('mt-[7px] h-2.5 w-2.5 shrink-0 rounded-full', STATUS_DOT[status])} />;
@@ -255,9 +265,17 @@ function ComponentDescription({
   copy: TFunction;
 }) {
   const [open, setOpen] = React.useState(false);
+  // A hover only shows the words; the sign takes its fill once it is clicked open.
+  const [clicked, setClicked] = React.useState(false);
 
   return (
-    <Tooltip open={open} onOpenChange={setOpen}>
+    <Tooltip
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setClicked(false);
+      }}
+    >
       <TooltipTrigger asChild>
         <button
           type="button"
@@ -269,8 +287,9 @@ function ComponentDescription({
           onClick={(event) => {
             event.preventDefault();
             setOpen(true);
+            setClicked(true);
           }}
-          className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-bg-2 text-tx-2 transition-colors hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 focus-visible:text-tx-0"
+          className={cn(SIGN_BUTTON, clicked && 'bg-bg-2 text-tx-0')}
         >
           <Info aria-hidden className="h-3.5 w-3.5" />
         </button>

@@ -79,19 +79,19 @@ export function streamVariantsForDetail(
   current: StreamSummary,
   summaries: StreamSummary[],
 ): StreamSummary[] {
-  if (current.stream_type === 'extend') return [current];
+  if (current.streamType === 'extend') return [current];
 
   const variants = new Map<string, StreamSummary>([[current.id, current]]);
   for (const summary of summaries) {
-    if (summary.name === current.name && summary.stream_type !== 'extend') {
+    if (summary.name === current.name && summary.streamType !== 'extend') {
       variants.set(summary.id, summary);
     }
   }
 
   return Array.from(variants.values()).sort(
     (left, right) =>
-      STREAM_TYPE_ORDER.indexOf(left.stream_type as VisibleStreamType) -
-      STREAM_TYPE_ORDER.indexOf(right.stream_type as VisibleStreamType),
+      STREAM_TYPE_ORDER.indexOf(left.streamType as VisibleStreamType) -
+      STREAM_TYPE_ORDER.indexOf(right.streamType as VisibleStreamType),
   );
 }
 
@@ -112,10 +112,10 @@ function aggregateRuntime(variants: DisplayStreamVariant[]): DisplayStreamRuntim
     .map((variant) => variant.runtime)
     .filter((runtime): runtime is StreamRuntime => runtime != null);
   const latestRuntime = runtimes
-    .filter((runtime) => runtime.last_received_at_micros != null)
+    .filter((runtime) => runtime.lastReceivedAt != null)
     .reduce<StreamRuntime | null>((latest, candidate) => {
       if (latest == null) return candidate;
-      return candidate.last_received_at_micros! > latest.last_received_at_micros!
+      return candidate.lastReceivedAt! > latest.lastReceivedAt!
         ? candidate
         : latest;
     }, null);
@@ -126,28 +126,34 @@ function aggregateRuntime(variants: DisplayStreamVariant[]): DisplayStreamRuntim
   return {
     status,
     ...Object.fromEntries(
-      (['total_rows', 'collected_bytes', 'index_bytes'] as const).map((field) => [
+      (
+        [
+          ['total_rows', 'totalRows'],
+          ['collected_bytes', 'collectedBytes'],
+          ['index_bytes', 'indexBytes'],
+        ] as const
+      ).map(([field, source]) => [
         field,
-        runtimes.length === variants.length && runtimes.every((runtime) => runtime.stats_available && runtime[field] != null)
-          ? runtimes.reduce((sum, runtime) => sum + runtime[field]!, 0)
+        runtimes.length === variants.length && runtimes.every((runtime) => runtime.statsAvailable && runtime[source] != null)
+          ? runtimes.reduce((sum, runtime) => sum + runtime[source]!, 0)
           : null,
       ]),
     ),
-    collected_bytes_complete: runtimes.length === variants.length && runtimes.every((runtime) => runtime.collected_bytes_complete === true),
+    collected_bytes_complete: runtimes.length === variants.length && runtimes.every((runtime) => runtime.collectedBytesComplete === true),
     rows: runtimes.reduce((sum, runtime) => sum + runtime.rows, 0),
-    stored_bytes: runtimes.reduce((sum, runtime) => sum + runtime.stored_bytes, 0),
+    stored_bytes: runtimes.reduce((sum, runtime) => sum + runtime.storedBytes, 0),
     current_stored_bytes: runtimes.reduce(
-      (sum, runtime) => sum + runtime.current_stored_bytes,
+      (sum, runtime) => sum + runtime.currentStoredBytes,
       0,
     ),
     first_received_at_micros: minNullable(
-      runtimes.map((runtime) => runtime.first_received_at_micros),
+      runtimes.map((runtime) => runtime.firstReceivedAt),
     ),
     last_received_at_micros: maxNullable(
-      runtimes.map((runtime) => runtime.last_received_at_micros),
+      runtimes.map((runtime) => runtime.lastReceivedAt),
     ),
     stats_available:
-      runtimes.length === variants.length && runtimes.every((runtime) => runtime.stats_available),
+      runtimes.length === variants.length && runtimes.every((runtime) => runtime.statsAvailable),
   };
 }
 
@@ -163,14 +169,14 @@ export function groupStreamsByName(
   const byName = new Map<string, DisplayStreamVariant[]>();
 
   for (const summary of summaries) {
-    if (summary.stream_type === 'extend') continue;
+    if (summary.streamType === 'extend') continue;
     const variants = byName.get(summary.name) ?? [];
     variants.push({
       id: summary.id,
-      type: summary.stream_type,
+      type: summary.streamType,
       description: summary.settings.description?.trim() || '',
       queryable: isQueryable(summary),
-      retentionDays: summary.effective_retention.days,
+      retentionDays: summary.effectiveRetention.days,
       runtime: runtimeById.get(summary.id) ?? null,
     });
     byName.set(summary.name, variants);

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! `GET /api/v1/metrics/catalog`：列出当前 org 下所有 `stream_type = metrics`
-//! 的 stream，给前端 Metrics 页面填左侧的 metric 选择面板。
+//! `GET /api/v1/metrics/catalog`：按指标目录列出当前 org 的全部指标（一个指标流装一个来源的
+//! 全部指标），给前端 Metrics 页面填左侧的 metric 选择面板。
 //!
 //! 与顶层的 Prometheus scrape 端点 [`super::scrape_routes`] 不同：那是吐进程自身的
 //! 监控指标，这里是用户能用 PromQL 查询的 metric 目录。
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use axum::{
     Extension, Json, Router,
@@ -22,25 +22,10 @@ use crate::{
         http::pagination::cursor::{CursorDirection, CursorPage, trim_cursor_page},
     },
     app::iam::IamContext,
-    domain::{
-        iam::permission,
-        metrics::{
-            METRIC_NAME_FIELD, is_metric_identity_storage_field,
-            is_prometheus_exemplar_storage_field,
-        },
-        query::{QueryLanguage, QueryRequest, StreamHint},
-        storage::{DatasetTypeId, type_id::builtin},
-        stream::{FieldDef, FieldType, MOLESIGNAL_SYSTEM_STREAM, StreamDefinition, StreamType},
-    },
-    shared::{
-        Result,
-        metrics::gather_structured,
-        time::{TimeRange, TimestampMicros},
-    },
+    domain::{iam::permission, metrics::MetricDirectoryEntry, stream::MOLESIGNAL_SYSTEM_STREAM},
+    shared::Result,
 };
 
-const SELF_METRIC_DISCOVERY_WINDOW_US: i64 = 60 * 60 * 1_000_000;
-const MAX_SELF_METRIC_NAMES: usize = 10_000;
 const DEFAULT_PAGE_SIZE: usize = 20;
 pub(super) const MAX_PAGE_SIZE: usize = 100;
 
@@ -51,16 +36,16 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct MetricCatalogEntry {
-    /// PromQL metric identifier. Self telemetry entries are logical names
-    /// resolved by the PromQL engine to the protected `_molesignal` stream.
+    /// PromQL metric identifier: the `metric_name` of its samples.
     name: String,
-    /// Prometheus metric kind。存量数据没有单独的 metadata 表，因此根据
-    /// stream schema、classic histogram sibling 与命名约定推断。
+    /// Prometheus metric kind：按样本带的 `metric_kind` 推断；Prometheus 指标没有它，按
+    /// classic histogram sibling 与命名约定推断。
     metric_type: MetricType,
-    /// 可用作 PromQL label 的 UTF-8 字段名。
+    /// 这个指标的样本带过的标签名，覆盖持有它的每个流。
     labels: Vec<String>,
-    /// 该字段的可用列总数（含未索引），方便前端展示。
+    /// 这个指标的列数：标签、值与时间，方便前端展示。
     field_count: usize,
 }
 
@@ -81,7 +66,7 @@ struct MetricCatalogQuery {
 
 type MetricCatalogPageContext = (Option<String>, usize, Option<(CursorDirection, String)>);
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("metrics.read", "sys.telemetry.read"))]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -89,38 +74,19 @@ async fn list(
 ) -> Result<Json<CursorPage<MetricCatalogEntry>>> {
     let (query, page_size, boundary) = resolve_page_context(&state, &ctx, request)?;
 
-    // 复用 StreamRead 权限：能看 streams 就能看 metric 目录。
-    let metric_streams = state
+    // 自身遥测只给平台范围看：`_sys` 组织里的其他身份看不到 `_molesignal` 的指标。
+    let self_telemetry = ctx.is_system_scope() && ctx.org_id == state.iam.system_org_id;
+
+    let entries = state
         .telemetry
-        .streams
+        .metric_directory
         .list(&ctx.org_id)
         .await?
         .into_iter()
-        .filter(|s| s.stream_type == StreamType::METRICS)
+        .filter(|entry| self_telemetry || entry.stream_name != MOLESIGNAL_SYSTEM_STREAM)
         .collect::<Vec<_>>();
 
-    let self_metric_stream = metric_streams
-        .iter()
-        .find(|stream| stream.name == MOLESIGNAL_SYSTEM_STREAM);
-
-    let self_metric_names = if ctx.is_system_scope()
-        && ctx.org_id == state.iam.system_org_id
-        && self_metric_stream.is_some()
-    {
-        let persisted_schema_ready = self_metric_stream.is_some_and(|stream| {
-            stream
-                .schema
-                .fields
-                .iter()
-                .any(|field| field.name == METRIC_NAME_FIELD)
-        });
-
-        discover_self_metric_names(&state, &ctx, persisted_schema_ready).await
-    } else {
-        HashSet::new()
-    };
-
-    let mut metrics = build_catalog(&metric_streams, &self_metric_names);
+    let mut metrics = build_catalog(&entries);
 
     if let Some(query) = query.as_deref() {
         metrics.retain(|metric| metric_matches(metric, query));
@@ -248,135 +214,50 @@ impl MetricType {
     }
 }
 
-/// Self telemetry deliberately stores hundreds of logical metrics in one
-/// protected physical stream. Discover active names from the recent persisted
-/// window and merge the current process snapshot so the catalog also works
-/// before the next parquet flush.
-async fn discover_self_metric_names(
-    state: &AppState,
-    ctx: &IamContext,
-    persisted_schema_ready: bool,
-) -> HashSet<String> {
-    let mut names = gather_structured()
-        .into_iter()
-        .map(|sample| sample.metric_name)
+/// One entry per metric, with the labels of every stream holding it, in name order.
+fn build_catalog(entries: &[MetricDirectoryEntry]) -> Vec<MetricCatalogEntry> {
+    let names = entries
+        .iter()
+        .map(|entry| entry.metric_name.as_str())
         .collect::<HashSet<_>>();
 
-    if !persisted_schema_ready {
-        return names;
+    let mut metrics = BTreeMap::<&str, (Option<&str>, BTreeSet<&str>)>::new();
+
+    for entry in entries {
+        let (kind, labels) = metrics.entry(entry.metric_name.as_str()).or_default();
+
+        if kind.is_none() {
+            *kind = entry.metric_kind.as_deref();
+        }
+
+        labels.extend(entry.labels.iter().map(String::as_str));
     }
 
-    let now = TimestampMicros::now();
-
-    let request = QueryRequest {
-        org_id: ctx.org_id.clone(),
-        language: QueryLanguage::Sql,
-        statement: format!(
-            "SELECT DISTINCT {METRIC_NAME_FIELD} FROM \"{MOLESIGNAL_SYSTEM_STREAM}\" \
-             WHERE {METRIC_NAME_FIELD} IS NOT NULL \
-             ORDER BY {METRIC_NAME_FIELD} LIMIT {MAX_SELF_METRIC_NAMES}"
-        ),
-        time_range: TimeRange::new(
-            TimestampMicros(now.0.saturating_sub(SELF_METRIC_DISCOVERY_WINDOW_US)),
-            now,
-        ),
-        stream: Some(StreamHint {
-            name: MOLESIGNAL_SYSTEM_STREAM.to_string(),
-            stream_type: StreamType::METRICS,
-        }),
-        limit: Some(MAX_SELF_METRIC_NAMES),
-        federation_clusters: Vec::new(),
-    };
-
-    match state
-        .query
-        .run_dataset(
-            request,
-            DatasetTypeId::builtin(builtin::DATASET_METRIC_CATALOG),
-        )
-        .await
-    {
-        Ok(result) => {
-            if let Some(index) = result
-                .columns
-                .iter()
-                .position(|column| column == METRIC_NAME_FIELD)
-            {
-                names.extend(result.rows.into_iter().filter_map(|row| {
-                    row.get(index)
-                        .and_then(serde_json::Value::as_str)
-                        .filter(|name| !name.is_empty())
-                        .map(str::to_string)
-                }));
-            }
-        }
-        Err(error) => {
-            tracing::warn!(
-                error = %error,
-                "failed to discover persisted self telemetry metric names"
-            );
-        }
-    }
-
-    names
-}
-
-fn build_catalog(
-    metric_streams: &[StreamDefinition],
-    self_metric_names: &HashSet<String>,
-) -> Vec<MetricCatalogEntry> {
-    let expanded = metric_streams
-        .iter()
-        .flat_map(|stream| {
-            if stream.name == MOLESIGNAL_SYSTEM_STREAM && !self_metric_names.is_empty() {
-                self_metric_names
-                    .iter()
-                    .cloned()
-                    .map(|name| (name, stream))
-                    .collect::<Vec<_>>()
-            } else {
-                vec![(stream.name.clone(), stream)]
-            }
-        })
-        .collect::<Vec<_>>();
-
-    let metric_names = expanded
-        .iter()
-        .map(|(name, _)| name.clone())
-        .collect::<HashSet<_>>();
-
-    let mut metrics = expanded
-        .into_iter()
-        .map(|(name, stream)| MetricCatalogEntry {
-            metric_type: infer_metric_type(&name, &stream.schema.fields, &metric_names),
-            name,
-            labels: metric_labels(&stream.schema.fields),
-            field_count: visible_field_count(&stream.schema.fields),
-        })
-        .collect::<Vec<_>>();
-
-    metrics.sort_by(|left, right| left.name.cmp(&right.name));
     metrics
+        .into_iter()
+        .map(|(name, (kind, labels))| MetricCatalogEntry {
+            metric_type: infer_metric_type(name, kind, &names),
+            name: name.to_string(),
+            field_count: labels.len() + 2,
+            labels: labels.into_iter().map(str::to_string).collect(),
+        })
+        .collect()
 }
 
-fn infer_metric_type(
-    name: &str,
-    fields: &[FieldDef],
-    metric_names: &HashSet<String>,
-) -> MetricType {
-    let normalized = name.to_ascii_lowercase();
-    let has_field = |field_name: &str| fields.iter().any(|field| field.name == field_name);
-
-    // OTLP Histogram / ExponentialHistogram rows carry count + sum and no
-    // scalar value. Summary has the same shape in today's normalized model,
-    // so histogram is the closest useful Prometheus explorer presentation.
-    if has_field("count") && has_field("sum") && !has_field("value") {
-        return MetricType::Histogram;
+fn infer_metric_type(name: &str, kind: Option<&str>, metric_names: &HashSet<&str>) -> MetricType {
+    // OTLP and self telemetry samples say what they are. Summary has the shape of a histogram
+    // in today's normalized model, so histogram is the closest useful presentation.
+    match kind {
+        Some("histogram" | "exponential_histogram" | "summary") => return MetricType::Histogram,
+        Some("counter") => return MetricType::Counter,
+        Some("gauge" | "up_down_counter") => return MetricType::Gauge,
+        _ => {}
     }
 
-    // Classic Prometheus histograms arrive as three remote_write streams:
-    // <family>_bucket, <family>_sum and <family>_count. Metadata is not
-    // currently persisted, so recognize the siblings as one histogram family.
+    let normalized = name.to_ascii_lowercase();
+
+    // Classic Prometheus histograms arrive as three metrics: <family>_bucket, <family>_sum and
+    // <family>_count. Metadata is not persisted, so recognize the siblings as one family.
     if normalized.ends_with("_bucket") {
         return MetricType::Histogram;
     }
@@ -405,163 +286,81 @@ fn infer_metric_type(
     MetricType::Gauge
 }
 
-/// PromQL evaluator treats UTF-8 sample fields as labels whether or not they
-/// have a search index. Internal container identity and exemplar sidecars are
-/// storage metadata, not user-visible labels.
-fn metric_labels(fields: &[FieldDef]) -> Vec<String> {
-    let mut labels = fields
-        .iter()
-        .filter(|field| field.data_type == FieldType::Utf8)
-        .map(|f| f.name.clone())
-        .filter(|name| {
-            name != "value"
-                && name != "_timestamp"
-                && !is_metric_identity_storage_field(name)
-                && !is_prometheus_exemplar_storage_field(name)
-        })
-        .collect::<Vec<_>>();
-
-    labels.sort();
-    labels.dedup();
-    labels
-}
-
-fn visible_field_count(fields: &[FieldDef]) -> usize {
-    fields
-        .iter()
-        .filter(|field| !is_prometheus_exemplar_storage_field(&field.name))
-        .count()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        domain::stream::{FieldType, Schema},
-        shared::ids::Id,
-    };
+    use crate::shared::{ids::Id, time::TimestampMicros};
 
-    fn field(name: &str) -> FieldDef {
-        FieldDef {
-            name: name.into(),
-            data_type: FieldType::Float64,
-            nullable: false,
-            index_type: None,
-            indexed: false,
-            encrypted: false,
-            exact: false,
+    fn entry(
+        stream: &str,
+        metric: &str,
+        kind: Option<&str>,
+        labels: &[&str],
+    ) -> MetricDirectoryEntry {
+        MetricDirectoryEntry {
+            stream_id: Id::from_string(format!("id-{stream}")),
+            stream_name: stream.into(),
+            metric_name: metric.into(),
+            metric_kind: kind.map(str::to_string),
+            labels: labels.iter().map(|label| label.to_string()).collect(),
+            first_seen: TimestampMicros(0),
+            last_seen: TimestampMicros(3_600_000_000),
         }
     }
 
     #[test]
     fn infers_scalar_metric_types_from_prometheus_names() {
         let names = HashSet::new();
-        let value = [field("value")];
 
         assert_eq!(
-            infer_metric_type("http_requests_total", &value, &names),
+            infer_metric_type("http_requests_total", None, &names),
             MetricType::Counter
         );
         assert_eq!(
-            infer_metric_type("process_resident_memory_bytes", &value, &names),
+            infer_metric_type("process_resident_memory_bytes", None, &names),
             MetricType::Gauge
         );
     }
 
     #[test]
-    fn infers_otlp_and_classic_histograms() {
-        let names = [
-            "http_request_duration_seconds_bucket".into(),
-            "http_request_duration_seconds_sum".into(),
-            "http_request_duration_seconds_count".into(),
-        ]
-        .into_iter()
-        .collect();
-
-        assert_eq!(
-            infer_metric_type(
-                "db_query_duration_seconds",
-                &[field("count"), field("sum")],
-                &HashSet::new(),
-            ),
-            MetricType::Histogram
-        );
-        assert_eq!(
-            infer_metric_type(
-                "http_request_duration_seconds_sum",
-                &[field("value")],
-                &names,
-            ),
-            MetricType::Histogram
-        );
-    }
-
-    #[test]
-    fn hides_internal_exemplar_storage_fields_from_catalog_metadata() {
-        let mut fields = vec![field("value")];
-        for name in [
-            crate::domain::metrics::PROMETHEUS_EXEMPLAR_MARKER_FIELD,
-            crate::domain::metrics::PROMETHEUS_EXEMPLAR_VALUE_FIELD,
-            crate::domain::metrics::PROMETHEUS_EXEMPLAR_LABELS_FIELD,
-        ] {
-            let mut internal = field(name);
-            internal.indexed = true;
-            fields.push(internal);
-        }
-
-        assert!(metric_labels(&fields).is_empty());
-        assert_eq!(visible_field_count(&fields), 1);
-    }
-
-    #[test]
-    fn exposes_unindexed_utf8_fields_as_promql_labels() {
-        let mut service = field("service.name");
-        service.data_type = FieldType::Utf8;
-        let mut fields = vec![service];
-        for name in [
-            METRIC_NAME_FIELD,
-            crate::domain::metrics::METRIC_KIND_FIELD,
-            crate::domain::metrics::METRIC_DESCRIPTION_FIELD,
-            crate::domain::metrics::METRIC_UNIT_FIELD,
-            crate::domain::metrics::METRIC_TEMPORALITY_FIELD,
-        ] {
-            let mut metadata = field(name);
-            metadata.data_type = FieldType::Utf8;
-            fields.push(metadata);
-        }
-
-        assert_eq!(metric_labels(&fields), vec!["service.name"]);
-    }
-
-    #[test]
-    fn expands_self_telemetry_stream_into_logical_metrics() {
-        let stream = StreamDefinition {
-            id: Id::new(),
-            org_id: Id::from_string("_sys"),
-            name: MOLESIGNAL_SYSTEM_STREAM.into(),
-            stream_type: StreamType::METRICS,
-            schema: Schema {
-                fields: vec![field("value")],
-            },
-            retention: None,
-            created_at: TimestampMicros(1),
-            updated_at: TimestampMicros(1),
-        };
+    fn infers_otlp_kinds_and_classic_histograms() {
         let names = HashSet::from([
-            "process_resident_memory_bytes".to_string(),
-            "http_requests_total".to_string(),
+            "http_request_duration_seconds_bucket",
+            "http_request_duration_seconds_sum",
+            "http_request_duration_seconds_count",
         ]);
 
-        let catalog = build_catalog(&[stream], &names);
+        assert_eq!(
+            infer_metric_type("db.query.duration", Some("histogram"), &HashSet::new()),
+            MetricType::Histogram
+        );
+        assert_eq!(
+            infer_metric_type("queue.depth_total", Some("gauge"), &HashSet::new()),
+            MetricType::Gauge
+        );
+        assert_eq!(
+            infer_metric_type("http_request_duration_seconds_sum", None, &names),
+            MetricType::Histogram
+        );
+    }
+
+    #[test]
+    fn one_entry_per_metric_with_the_labels_of_every_stream() {
+        let catalog = build_catalog(&[
+            entry("prod", "up", None, &["instance", "job"]),
+            entry("staging", "up", None, &["job", "region"]),
+            entry("prod", "http_requests_total", None, &["path"]),
+        ]);
 
         assert_eq!(
             catalog
                 .iter()
                 .map(|metric| metric.name.as_str())
                 .collect::<Vec<_>>(),
-            vec!["http_requests_total", "process_resident_memory_bytes"]
+            ["http_requests_total", "up"]
         );
         assert_eq!(catalog[0].metric_type, MetricType::Counter);
-        assert_eq!(catalog[1].metric_type, MetricType::Gauge);
+        assert_eq!(catalog[1].labels, ["instance", "job", "region"]);
+        assert_eq!(catalog[1].field_count, 5);
     }
 }

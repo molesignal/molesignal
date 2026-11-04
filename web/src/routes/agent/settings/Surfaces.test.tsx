@@ -66,6 +66,7 @@ describe('the sections of the settings', () => {
       'skills',
       'tools',
       'inbound-mcp',
+      'im',
       'data',
       'network',
       'approvals',

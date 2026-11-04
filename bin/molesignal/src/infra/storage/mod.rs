@@ -12,6 +12,7 @@
 pub mod arrow_schema;
 pub mod compactor;
 pub mod downsample;
+pub mod filters;
 pub mod index_rebuild;
 pub mod layout;
 pub mod manifest;

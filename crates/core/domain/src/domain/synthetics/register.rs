@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::shared::{ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProbeRegisterToken {
     pub id: Id,
     pub organization_id: Id,
@@ -40,6 +41,7 @@ impl ProbeAgentTokenStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProbeAgentToken {
     pub id: Id,
     pub organization_id: Id,
@@ -63,6 +65,7 @@ pub struct ProbeRegistrationGrant {
 }
 
 #[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProbeAgentTokenInstructions {
     pub token: ProbeAgentToken,
     pub agent_token: String,
@@ -74,6 +77,7 @@ pub struct ProbeAgentTokenInstructions {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProbeRegisterInstructions {
     pub token: ProbeRegisterToken,
     pub register_token: String,

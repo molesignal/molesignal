@@ -17,7 +17,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::GetAgentInvestigation => (
             "Get one Mole Agent investigation with steps, evidence, and hypotheses.",
             "investigations",
-            id_input("investigation_id"),
+            id_input("investigationId"),
             vec!["Agent", "Investigations"],
         ),
         BuiltinToolKind::ListAgentApprovals => (
@@ -29,7 +29,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::GetAgentApproval => (
             "Get one Mole Agent approval request.",
             "approvals",
-            id_input("approval_id"),
+            id_input("approvalId"),
             vec!["Agent", "Approvals"],
         ),
         BuiltinToolKind::ExecuteAgentApproval => {
@@ -40,10 +40,10 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
                 "approvals",
                 json!({
                     "type": "object",
-                    "required": ["approval_id", "idempotency_key"],
+                    "required": ["approvalId", "idempotencyKey"],
                     "properties": {
-                        "approval_id": {"type": "string"},
-                        "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 128}
+                        "approvalId": {"type": "string"},
+                        "idempotencyKey": {"type": "string", "minLength": 1, "maxLength": 128}
                     },
                     "additionalProperties": false
                 }),
@@ -63,7 +63,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::GetAgentExecution => (
             "Get one Mole Agent approved-operation execution.",
             "executions",
-            id_input("execution_id"),
+            id_input("executionId"),
             vec!["Agent", "Executions"],
         ),
         BuiltinToolKind::ListAgentAutomations => (

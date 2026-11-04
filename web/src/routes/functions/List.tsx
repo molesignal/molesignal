@@ -139,7 +139,7 @@ export function FunctionsList() {
           rows={rows}
           rowKey={(r) => r.id}
           onRowClick={(r) =>
-            r.is_builtin ? setViewing(r) : navigate(`/functions/${encodeURIComponent(r.id)}`)
+            r.isBuiltin ? setViewing(r) : navigate(`/functions/${encodeURIComponent(r.id)}`)
           }
           columns={[
             {
@@ -149,7 +149,7 @@ export function FunctionsList() {
                 <div data-function-row={r.name} className="min-w-0 py-1">
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="truncate font-strong text-tx-0">{r.name}</span>
-                    {r.is_builtin && <Pill tone="dim">{t('list.builtin')}</Pill>}
+                    {r.isBuiltin && <Pill tone="dim">{t('list.builtin')}</Pill>}
                   </div>
                   {r.description ? (
                     <div className="mt-0.5 truncate text-xs text-tx-2">{r.description}</div>
@@ -168,10 +168,10 @@ export function FunctionsList() {
               header: t('list.columns.updated'),
               // A preset came with the product: it has no time of its own to tell.
               cell: (r) =>
-                r.is_builtin ? (
+                r.isBuiltin ? (
                   <span className="text-tx-3">{t('list.ships_with_product')}</span>
                 ) : (
-                  formatMicros(r.updated_at_micros)
+                  formatMicros(r.updatedAt)
                 ),
               width: 200,
             },
@@ -179,7 +179,7 @@ export function FunctionsList() {
               key: 'action',
               header: <span className="sr-only">{t('list.columns.action')}</span>,
               cell: (r) =>
-                r.is_builtin ? (
+                r.isBuiltin ? (
                   // The row opens the preset; the button starts a function from it. Neither a
                   // click on the button nor a key pressed on it is the row's.
                   <div className="flex justify-end" onKeyDown={(event) => event.stopPropagation()}>

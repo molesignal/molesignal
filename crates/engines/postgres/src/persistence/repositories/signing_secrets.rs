@@ -5,15 +5,22 @@
 //!
 //! JWT signing key 启动期 bootstrap → DB primary；rotate 通过把老 primary
 //! 标 retired + 插入新 primary 完成（24h 内老 secret 仍参与 verify）。
+//!
+//! 库里只有根密钥（[`CipherRootKey`]）加密后的密文，读写时在这里加解密，调用方拿到的都是原文。
+//! 换根密钥时 `kek_rewrap` 会把它们一起重包。
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row};
 
 use super::sqlx_err;
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
+use crate::{
+    infra::cipher::CipherRootKey,
+    shared::{Error, Result, ids::Id, time::TimestampMicros},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SigningSecret {
     pub id: Id,
     /// 'jwt' | 'cookie' | ... 按用途 namespace
@@ -49,28 +56,57 @@ pub trait SigningSecretRepository: Send + Sync {
 
 pub struct PgSigningSecretRepository {
     pool: PgPool,
+    cipher: CipherRootKey,
 }
 
 impl PgSigningSecretRepository {
-    pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+    pub fn new(pool: PgPool, cipher: CipherRootKey) -> Self {
+        Self { pool, cipher }
     }
 }
 
-const COLS: &str = "id, kind, secret, is_primary, created_at_micros, retired_at_micros";
+const COLS: &str = "id, kind, secret_nonce, secret_ciphertext, is_primary, created_at, retired_at";
 
-fn row_to(r: sqlx::postgres::PgRow) -> SigningSecret {
-    SigningSecret {
-        id: Id(r.try_get::<String, _>("id").unwrap_or_default()),
+fn row_to(r: sqlx::postgres::PgRow, cipher: &CipherRootKey) -> Result<SigningSecret> {
+    let id = Id(r.try_get::<String, _>("id").unwrap_or_default());
+    let nonce: Vec<u8> = r.try_get("secret_nonce").map_err(sqlx_err)?;
+    let ciphertext: Vec<u8> = r.try_get("secret_ciphertext").map_err(sqlx_err)?;
+    let secret = open_secret(cipher, &id, &nonce, &ciphertext)?;
+
+    Ok(SigningSecret {
+        id,
         kind: r.try_get::<String, _>("kind").unwrap_or_default(),
-        secret: r.try_get::<Vec<u8>, _>("secret").unwrap_or_default(),
+        secret,
         is_primary: r.try_get::<bool, _>("is_primary").unwrap_or(false),
-        created_at: TimestampMicros(r.try_get::<i64, _>("created_at_micros").unwrap_or_default()),
+        created_at: r
+            .try_get::<TimestampMicros, _>("created_at")
+            .unwrap_or_default(),
         retired_at: r
-            .try_get::<Option<i64>, _>("retired_at_micros")
-            .unwrap_or_default()
-            .map(TimestampMicros),
-    }
+            .try_get::<Option<TimestampMicros>, _>("retired_at")
+            .unwrap_or_default(),
+    })
+}
+
+/// 用根密钥加密，返回 `(nonce, ciphertext)`。
+fn seal_secret(cipher: &CipherRootKey, secret: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
+    cipher
+        .seal(secret)
+        .map_err(|e| Error::internal(format!("seal signing secret: {e}")))
+}
+
+/// 解不开时报错只点名这一行，不带密文。多半是这个节点的 `MS_CIPHER_KEY` 不是加密时用的那个。
+fn open_secret(
+    cipher: &CipherRootKey,
+    id: &Id,
+    nonce: &[u8],
+    ciphertext: &[u8],
+) -> Result<Vec<u8>> {
+    cipher.open(nonce, ciphertext).map_err(|e| {
+        Error::internal(format!(
+            "open signing secret {} with the cipher root key (MS_CIPHER_KEY): {e}",
+            id.0
+        ))
+    })
 }
 
 #[async_trait]
@@ -86,7 +122,7 @@ impl SigningSecretRepository for PgSigningSecretRepository {
             .await
             .map_err(sqlx_err)?;
 
-        Ok(row.map(row_to))
+        row.map(|r| row_to(r, &self.cipher)).transpose()
     }
 
     async fn list_active(
@@ -100,18 +136,18 @@ impl SigningSecretRepository for PgSigningSecretRepository {
         let sql = format!(
             "SELECT {COLS} FROM signing_secrets
              WHERE kind = $1
-               AND (retired_at_micros IS NULL OR retired_at_micros > $2)
-             ORDER BY is_primary DESC, created_at_micros DESC"
+               AND (retired_at IS NULL OR retired_at > $2)
+             ORDER BY is_primary DESC, created_at DESC"
         );
 
         let rows = sqlx::query(&sql)
             .bind(kind)
-            .bind(cutoff)
+            .bind(TimestampMicros(cutoff))
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
 
-        Ok(rows.into_iter().map(row_to).collect())
+        rows.into_iter().map(|r| row_to(r, &self.cipher)).collect()
     }
 
     #[tracing::instrument(
@@ -120,16 +156,17 @@ impl SigningSecretRepository for PgSigningSecretRepository {
         fields(db.system.name = "postgresql", db.operation.name = "TRANSACTION", db.collection.name = "signing_secrets")
     )]
     async fn rotate(&self, kind: &str, new_secret: &[u8]) -> Result<Id> {
+        let (nonce, ciphertext) = seal_secret(&self.cipher, new_secret)?;
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
         let now = TimestampMicros::now();
 
         sqlx::query(
             "UPDATE signing_secrets
-             SET is_primary = FALSE, retired_at_micros = $2
+             SET is_primary = FALSE, retired_at = $2
              WHERE kind = $1 AND is_primary = TRUE",
         )
         .bind(kind)
-        .bind(now.0)
+        .bind(now)
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
@@ -138,13 +175,14 @@ impl SigningSecretRepository for PgSigningSecretRepository {
 
         sqlx::query(
             "INSERT INTO signing_secrets
-                (id, kind, secret, is_primary, created_at_micros)
-             VALUES ($1, $2, $3, TRUE, $4)",
+                (id, kind, secret_nonce, secret_ciphertext, is_primary, created_at)
+             VALUES ($1, $2, $3, $4, TRUE, $5)",
         )
         .bind(&new_id.0)
         .bind(kind)
-        .bind(new_secret)
-        .bind(now.0)
+        .bind(&nonce)
+        .bind(&ciphertext)
+        .bind(now)
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
@@ -154,19 +192,21 @@ impl SigningSecretRepository for PgSigningSecretRepository {
     }
 
     async fn insert_primary_if_absent(&self, kind: &str, secret: &[u8]) -> Result<Id> {
+        let (nonce, ciphertext) = seal_secret(&self.cipher, secret)?;
         let id = Id::new();
         let now = TimestampMicros::now();
 
         // partial unique index uq_signing_primary 保护并发抢插
         let res = sqlx::query(
             "INSERT INTO signing_secrets
-                (id, kind, secret, is_primary, created_at_micros)
-             VALUES ($1, $2, $3, TRUE, $4)",
+                (id, kind, secret_nonce, secret_ciphertext, is_primary, created_at)
+             VALUES ($1, $2, $3, $4, TRUE, $5)",
         )
         .bind(&id.0)
         .bind(kind)
-        .bind(secret)
-        .bind(now.0)
+        .bind(&nonce)
+        .bind(&ciphertext)
+        .bind(now)
         .execute(&self.pool)
         .await;
 
@@ -202,7 +242,7 @@ impl SigningSecretRepository for PgSigningSecretRepository {
         // 与 list_active 类似但**不返 secret**（handler 直接 to_resp 排除）
         let sql = format!(
             "SELECT {COLS} FROM signing_secrets WHERE kind = $1
-             ORDER BY is_primary DESC, created_at_micros DESC"
+             ORDER BY is_primary DESC, created_at DESC"
         );
 
         let rows = sqlx::query(&sql)
@@ -211,12 +251,17 @@ impl SigningSecretRepository for PgSigningSecretRepository {
             .await
             .map_err(sqlx_err)?;
 
-        Ok(rows.into_iter().map(row_to).collect())
+        rows.into_iter().map(|r| row_to(r, &self.cipher)).collect()
     }
 }
 
 /// rotate window 默认 24h（spec auth-hardening Multi-secret verify）。
 pub const DEFAULT_RETIRE_WINDOW_MICROS: i64 = 24 * 60 * 60 * 1_000_000;
+
+/// 宽限期到了之后再多留的时间。别的节点读到轮换之前还会用旧 secret 签发，那些 token 比宽限期晚
+/// 结束这段延迟，校验时还有 60 秒的时钟容差，节点之间的时钟也可能有偏差。留够这些，有效期不超过
+/// 24 小时的 token 都能用到自己过期。
+const RETIRE_WINDOW_MARGIN_MICROS: i64 = 5 * 60 * 1_000_000;
 
 // ===========================================================================
 // Bootstrap / rotate helpers（auth-hardening）
@@ -303,22 +348,31 @@ async fn load_active(
     repo: &dyn SigningSecretRepository,
     primary_kid: String,
 ) -> Result<(Vec<Vec<u8>>, String)> {
-    let now = TimestampMicros::now();
+    Ok((load_active_jwt_secrets(repo).await?, primary_kid))
+}
 
+/// 现在参与校验的 JWT secret：`[0]` 是 primary，其余是宽限期内的 retired secret。节点读到就换上，
+/// 所以没有 primary 或者 secret 是空的都报错，不让节点拿它去签发。
+pub async fn load_active_jwt_secrets(repo: &dyn SigningSecretRepository) -> Result<Vec<Vec<u8>>> {
     let mut all = repo
-        .list_active("jwt", DEFAULT_RETIRE_WINDOW_MICROS, now)
+        .list_active(
+            "jwt",
+            DEFAULT_RETIRE_WINDOW_MICROS + RETIRE_WINDOW_MARGIN_MICROS,
+            TimestampMicros::now(),
+        )
         .await?;
 
     all.sort_by_key(|s| std::cmp::Reverse(s.is_primary));
-    let secrets: Vec<Vec<u8>> = all.into_iter().map(|s| s.secret).collect();
 
-    if secrets.is_empty() {
-        return Err(Error::internal(
-            "jwt active secret set empty after bootstrap",
-        ));
+    if !all.first().is_some_and(|s| s.is_primary) {
+        return Err(Error::internal("jwt active secret set has no primary"));
     }
 
-    Ok((secrets, primary_kid))
+    if all.iter().any(|s| s.secret.is_empty()) {
+        return Err(Error::internal("jwt active secret set has an empty secret"));
+    }
+
+    Ok(all.into_iter().map(|s| s.secret).collect())
 }
 
 fn generate_csprng_32() -> Result<Vec<u8>> {
@@ -332,16 +386,15 @@ fn generate_csprng_32() -> Result<Vec<u8>> {
     Ok(buf.to_vec())
 }
 
-/// rotate 路径：retire 当前 primary + insert 新 primary + 重新拉 active set。
-/// 返回 `(new_active_secrets, new_kid, retired_kid)`。
+/// rotate 路径：retire 当前 primary + insert 新 primary。返回 `(new_kid, retired_kid)`。
 pub async fn rotate_jwt_secret(
     repo: &dyn SigningSecretRepository,
-) -> Result<(Vec<Vec<u8>>, String, Option<String>)> {
+) -> Result<(String, Option<String>)> {
     let retired = repo.get_primary("jwt").await?.map(|s| s.id.0);
     let new_secret = generate_csprng_32()?;
     let new_id = repo.rotate("jwt", &new_secret).await?;
-    let (active, primary_kid) = load_active(repo, new_id.0.clone()).await?;
-    Ok((active, primary_kid, retired))
+
+    Ok((new_id.0, retired))
 }
 
 #[cfg(test)]
@@ -365,14 +418,21 @@ mod tests {
         async fn list_active(
             &self,
             _: &str,
-            _: i64,
-            _: TimestampMicros,
+            window_micros: i64,
+            now: TimestampMicros,
         ) -> Result<Vec<SigningSecret>> {
+            let cutoff = now.0 - window_micros;
             let mut out = Vec::new();
             if let Some(p) = self.primary.lock().clone() {
                 out.push(p);
             }
-            out.extend(self.retired.lock().clone());
+            out.extend(
+                self.retired
+                    .lock()
+                    .iter()
+                    .filter(|s| s.retired_at.is_some_and(|at| at.0 > cutoff))
+                    .cloned(),
+            );
             Ok(out)
         }
         async fn rotate(&self, _: &str, new: &[u8]) -> Result<Id> {
@@ -456,9 +516,99 @@ mod tests {
     #[tokio::test]
     async fn rotate_adds_retired_to_active_set() {
         let repo = MockRepo::default();
-        bootstrap_or_load_jwt_secret(&repo, None).await.unwrap();
-        let (active, _, retired) = rotate_jwt_secret(&repo).await.unwrap();
+        let (before, first_kid) = bootstrap_or_load_jwt_secret(&repo, None).await.unwrap();
+        let (new_kid, retired) = rotate_jwt_secret(&repo).await.unwrap();
+        let active = load_active_jwt_secrets(&repo).await.unwrap();
+
         assert_eq!(active.len(), 2); // primary + 1 retired in 24h window
-        assert!(retired.is_some());
+        assert_eq!(active[1], before[0]);
+        assert_ne!(active[0], before[0], "the new primary comes first");
+        assert_ne!(new_kid, first_kid);
+        assert_eq!(retired, Some(first_kid));
+    }
+
+    /// A retired secret that retired `age_micros` ago, beside the primary.
+    async fn with_retired_secret_of_age(age_micros: i64) -> MockRepo {
+        let repo = MockRepo::default();
+        repo.insert_primary_if_absent("jwt", &[1u8; 32])
+            .await
+            .unwrap();
+        repo.retired.lock().push(SigningSecret {
+            id: Id::new(),
+            kind: "jwt".into(),
+            secret: vec![2u8; 32],
+            is_primary: false,
+            created_at: TimestampMicros(0),
+            retired_at: Some(TimestampMicros(TimestampMicros::now().0 - age_micros)),
+        });
+        repo
+    }
+
+    #[tokio::test]
+    async fn a_retired_secret_outlasts_every_token_a_lagging_node_can_sign_with_it() {
+        // The longest token a node signs lasts a day from now, however late it read the rotation,
+        // and `jsonwebtoken` accepts it for another minute. A node re-reads every ten seconds.
+        const LAG_AND_LEEWAY_MICROS: i64 = (10 + 60) * 1_000_000;
+
+        let repo =
+            with_retired_secret_of_age(DEFAULT_RETIRE_WINDOW_MICROS + LAG_AND_LEEWAY_MICROS).await;
+
+        assert_eq!(load_active_jwt_secrets(&repo).await.unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn a_retired_secret_leaves_when_the_window_and_its_margin_are_over() {
+        let repo = with_retired_secret_of_age(
+            DEFAULT_RETIRE_WINDOW_MICROS + RETIRE_WINDOW_MARGIN_MICROS + 1_000_000,
+        )
+        .await;
+
+        assert_eq!(
+            load_active_jwt_secrets(&repo).await.unwrap(),
+            vec![vec![1u8; 32]]
+        );
+    }
+
+    #[tokio::test]
+    async fn no_node_takes_a_set_without_a_primary() {
+        let repo = with_retired_secret_of_age(1_000_000).await;
+        *repo.primary.lock() = None;
+
+        assert!(load_active_jwt_secrets(&repo).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn no_node_takes_a_set_with_an_empty_secret() {
+        let repo = MockRepo::default();
+        repo.insert_primary_if_absent("jwt", &[]).await.unwrap();
+
+        assert!(load_active_jwt_secrets(&repo).await.is_err());
+    }
+
+    fn root_key(byte: u8) -> CipherRootKey {
+        use base64::Engine as _;
+
+        let key = base64::engine::general_purpose::STANDARD.encode([byte; 32]);
+
+        CipherRootKey::from_base64(&key).unwrap()
+    }
+
+    #[test]
+    fn a_stored_secret_opens_only_with_the_root_key_that_sealed_it() {
+        let secret = [7u8; 32];
+        let id = Id::from_string("kid-1");
+        let (nonce, ciphertext) = seal_secret(&root_key(1), &secret).unwrap();
+
+        assert_eq!(
+            open_secret(&root_key(1), &id, &nonce, &ciphertext).unwrap(),
+            secret
+        );
+
+        let error = open_secret(&root_key(2), &id, &nonce, &ciphertext)
+            .unwrap_err()
+            .to_string();
+
+        assert!(error.contains("kid-1"), "{error}");
+        assert!(error.contains("MS_CIPHER_KEY"), "{error}");
     }
 }

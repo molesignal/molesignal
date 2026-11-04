@@ -20,7 +20,7 @@ use crate::{
 
 /// 报表在 `now` 这一刻要渲染的页面。
 ///
-/// `report_render=1` 让前端只输出内容本身：没有应用外壳，文档随内容增高，renderer 按内容
+/// `reportRender=1` 让前端只输出内容本身：没有应用外壳，文档随内容增高，renderer 按内容
 /// 高度出图。
 pub fn render_page_url(
     base_url: &str,
@@ -48,7 +48,7 @@ pub fn render_page_url(
         ));
     };
 
-    query.append_pair("report_render", "1");
+    query.append_pair("reportRender", "1");
 
     let zone = report_timezone(&report.time_range_json);
 
@@ -57,7 +57,7 @@ pub fn render_page_url(
     }
 
     if let Some(zone) = zone {
-        query.append_pair("report_tz", zone.name());
+        query.append_pair("reportTz", zone.name());
     }
 
     Ok(format!("{base}{path}?{}", query.finish()))
@@ -226,7 +226,7 @@ mod tests {
 
         assert_eq!(
             url,
-            "http://web:5173/dashboards/d1?report_render=1&time=now-7d..now&report_tz=Asia%2FShanghai"
+            "http://web:5173/dashboards/d1?reportRender=1&time=now-7d..now&reportTz=Asia%2FShanghai"
         );
     }
 
@@ -281,7 +281,7 @@ mod tests {
 
         assert_eq!(
             url,
-            "http://web:5173/dashboards/d1?report_render=1&time=2026-10-10T00%3A00%3A00Z..2026-10-11T00%3A00%3A00Z"
+            "http://web:5173/dashboards/d1?reportRender=1&time=2026-10-10T00%3A00%3A00Z..2026-10-11T00%3A00%3A00Z"
         );
     }
 
@@ -302,7 +302,7 @@ mod tests {
                 json!({ "from": "now-7d", "to": "now" }),
                 "2026-10-11T02:00:00Z"
             )
-            .ends_with("?report_render=1&time=now-7d..now")
+            .ends_with("?reportRender=1&time=now-7d..now")
         );
         assert!(
             url_at(
@@ -323,7 +323,7 @@ mod tests {
             let url = url_at(unreadable.clone(), "2026-10-11T02:00:00Z");
 
             assert_eq!(
-                url, "http://web:5173/dashboards/d1?report_render=1",
+                url, "http://web:5173/dashboards/d1?reportRender=1",
                 "{unreadable}"
             );
         }
@@ -354,7 +354,7 @@ mod tests {
             "2026-10-11T02:00:00Z",
         );
 
-        assert!(fixed.ends_with("&report_tz=Etc%2FGMT%2B8"), "{fixed}");
+        assert!(fixed.ends_with("&reportTz=Etc%2FGMT%2B8"), "{fixed}");
         assert!(unknown.ends_with("&time=now-24h..now"), "{unknown}");
     }
 
@@ -368,7 +368,7 @@ mod tests {
 
         assert_eq!(
             url,
-            "http://web:5173/saved-views?view=v1&report_render=1&time=now-24h..now"
+            "http://web:5173/saved-views?view=v1&reportRender=1&time=now-24h..now"
         );
     }
 

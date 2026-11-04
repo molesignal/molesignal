@@ -64,7 +64,7 @@ export function TimezoneCombobox({
             aria-disabled={disabled || undefined}
             aria-label={label}
             aria-expanded={open}
-            className="flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-sm text-tx-0 transition-colors enabled:hover:bg-bg-3 data-[state=open]:bg-bg-3 focus-visible:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-3 disabled:text-tx-3"
+            className="flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-sm text-tx-0 transition-colors enabled:hover:bg-bg-3 data-[state=open]:bg-bg-3 focus-visible:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-3 disabled:text-[var(--tx-disabled)]"
           >
             <span className="truncate text-left">{selected?.label ?? value}</span>
             {/* The arrow of every other select in a form: a field is told by its fill and this

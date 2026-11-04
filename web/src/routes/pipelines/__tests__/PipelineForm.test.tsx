@@ -16,12 +16,17 @@ vi.mock('@/api/connectors', () => ({
     { id: 'c2', name: 'Edge requests', kind: 'cloudflare_logpush' },
   ],
 }));
+vi.mock('@/api/extendTables', () => ({
+  listTables: async () => [
+    { tableName: 'host_owner', description: '', keyField: 'host', valueFields: [], rowCount: 0, updatedAt: 0, usageLocations: [] },
+  ],
+}));
 vi.mock('@/api/functions', () => ({ list: async () => [], run: vi.fn() }));
 vi.mock('@/api/streams', () => ({
   list: async () => [
-    { name: 'app_logs', stream_type: 'logs' },
-    { name: 'audit_logs', stream_type: 'logs' },
-    { name: 'cpu', stream_type: 'metrics' },
+    { name: 'app_logs', streamType: 'logs' },
+    { name: 'audit_logs', streamType: 'logs' },
+    { name: 'cpu', streamType: 'metrics' },
   ],
 }));
 vi.mock('@/product/actionAccess', () => ({
@@ -76,12 +81,12 @@ type Steps = { steps: Array<Record<string, unknown>> } & Record<string, unknown>
 const SAVED: ScheduledPipeline = {
   id: 'p1',
   name: 'nightly',
-  source_stream: 'app_logs',
-  target_stream: 'clean_logs',
+  sourceStream: 'app_logs',
+  targetStream: 'clean_logs',
   cron: 'every:2h',
-  lookback_secs: 90,
+  lookbackSecs: 90,
   enabled: false,
-  function_steps: { steps: [{ transform_name: 'keep', script: '. = .' }] },
+  functionSteps: { steps: [{ transformName: 'keep', script: '. = .' }] },
 };
 
 function renderForm(initial?: ScheduledPipeline) {
@@ -103,7 +108,7 @@ function renderForm(initial?: ScheduledPipeline) {
     submit,
     save: () => fireEvent.click(screen.getByRole('button', { name: 'Save' })),
     payload: () => submit.mock.calls.at(-1)?.[0] as PipelineInput,
-    steps: () => (submit.mock.calls.at(-1)?.[0].function_steps as Steps).steps,
+    steps: () => (submit.mock.calls.at(-1)?.[0].functionSteps as Steps).steps,
   };
 }
 
@@ -208,8 +213,8 @@ describe('pipeline editor', () => {
     save();
 
     // With no steps it copies what it reads.
-    expect(payload()).toMatchObject({ name: 'copy', source_stream: 'app_logs', target_stream: 'clean_logs' });
-    expect(payload().function_steps).toMatchObject({ sources: ['app_logs'], sinks: ['clean_logs'], steps: [] });
+    expect(payload()).toMatchObject({ name: 'copy', sourceStream: 'app_logs', targetStream: 'clean_logs' });
+    expect(payload().functionSteps).toMatchObject({ sources: ['app_logs'], sinks: ['clean_logs'], steps: [] });
   });
 
   it('reads from a stream the workspace has and may write to one it does not have yet', async () => {
@@ -257,11 +262,11 @@ describe('pipeline editor', () => {
     type(settings().getByRole('combobox', { name: 'First run reads back: unit' }), 'h');
     save();
 
-    expect(payload()).toMatchObject({ name: 'tidy', cron: 'every:15s', lookback_secs: 7200, enabled: true });
+    expect(payload()).toMatchObject({ name: 'tidy', cron: 'every:15s', lookbackSecs: 7200, enabled: true });
     // What the backend does when nothing else is said.
-    expect(payload().function_steps).toMatchObject({
-      delay_secs: 60,
-      retry: { run_retries: 3, delivery_retries: 3 },
+    expect(payload().functionSteps).toMatchObject({
+      delaySecs: 60,
+      retry: { runRetries: 3, deliveryRetries: 3 },
     });
   });
 
@@ -276,11 +281,11 @@ describe('pipeline editor', () => {
     type(settings().getByRole('textbox', { name: 'Dedupe by field' }), 'trace_id');
     save();
 
-    expect(payload().function_steps).toMatchObject({
-      delay_secs: 300,
-      retry: { run_retries: 5, delivery_retries: 0 },
-      dead_letter_stream: 'failed_events',
-      dedupe_field: 'trace_id',
+    expect(payload().functionSteps).toMatchObject({
+      delaySecs: 300,
+      retry: { runRetries: 5, deliveryRetries: 0 },
+      deadLetterStream: 'failed_events',
+      dedupeField: 'trace_id',
     });
 
     // A dead letter stream the pipeline reads would feed it its own failures.
@@ -326,13 +331,13 @@ describe('pipeline editor', () => {
 
     expect(steps()).toEqual([
       {
-        transform_name: 'rename',
+        transformName: 'rename',
         kind: 'vrl',
         script: 'if exists(.msg) {\n  .message = del(.msg)\n}',
         processor: { op: 'rename', from: 'msg', to: 'message' },
       },
       {
-        transform_name: 'mask',
+        transformName: 'mask',
         kind: 'vrl',
         script: 'if exists(.token) {\n  .token = "***"\n}',
         processor: { op: 'mask', field: 'token', mode: 'full' },
@@ -381,7 +386,7 @@ describe('pipeline editor', () => {
     expect(editor().getByRole('button', { name: 'Move earlier' })).toBeDisabled();
     save();
 
-    expect(steps().map((step) => step.transform_name)).toEqual(['parse-json', 'keep']);
+    expect(steps().map((step) => step.transformName)).toEqual(['parse-json', 'keep']);
   });
 
   it('removes steps down to none, and never the source or the stream', async () => {
@@ -424,7 +429,7 @@ describe('pipeline editor', () => {
     );
     save();
     expect(steps()[1]).toEqual({
-      transform_name: 'transform',
+      transformName: 'transform',
       kind: 'vrl',
       script: 'if is_string(.level) {\n  .level = downcase(string!(.level))\n}',
     });
@@ -446,7 +451,7 @@ describe('pipeline editor', () => {
     type(editor().getByRole('textbox', { name: 'VRL script' }), '.seen = true');
     type(editor().getByRole('textbox', { name: 'Step name' }), 'mark');
     save();
-    expect(steps()[1]).toEqual({ transform_name: 'mark', kind: 'vrl', script: '.seen = true' });
+    expect(steps()[1]).toEqual({ transformName: 'mark', kind: 'vrl', script: '.seen = true' });
   });
 
   it('delivers to connectors beside the stream, each one chosen and not guessed', async () => {
@@ -477,18 +482,18 @@ describe('pipeline editor', () => {
     expect(heading()).toBe('ConnectorArchive');
     expect(status()).toBe('valid');
     save();
-    expect(payload().function_steps).toMatchObject({ sinks: ['clean_logs'], sink_connectors: ['c1'] });
+    expect(payload().functionSteps).toMatchObject({ sinks: ['clean_logs'], sinkConnectors: ['c1'] });
 
     fireEvent.click(editor().getByRole('button', { name: 'Remove' }));
     expect(nodes('sink')).toEqual(['clean_logs Stream output']);
     save();
-    expect(payload().function_steps).toMatchObject({ sink_connectors: [] });
+    expect(payload().functionSteps).toMatchObject({ sinkConnectors: [] });
   });
 
   it('reads every source and writes every stream, the pipeline’s own first', () => {
     const { save, payload } = renderForm({
       ...SAVED,
-      function_steps: {
+      functionSteps: {
         sources: ['audit_logs', 'app_logs'],
         sinks: ['clean_logs', 'archive_logs'],
         steps: [],
@@ -500,8 +505,8 @@ describe('pipeline editor', () => {
     expect(status()).toBe('valid');
     save();
 
-    expect(payload()).toMatchObject({ source_stream: 'app_logs', target_stream: 'clean_logs' });
-    expect(payload().function_steps).toMatchObject({
+    expect(payload()).toMatchObject({ sourceStream: 'app_logs', targetStream: 'clean_logs' });
+    expect(payload().functionSteps).toMatchObject({
       sources: ['app_logs', 'audit_logs'],
       sinks: ['clean_logs', 'archive_logs'],
     });
@@ -522,7 +527,7 @@ describe('pipeline editor', () => {
     type(destinationField(), 'archive_logs');
     expect(nodes('sink')).toEqual(['clean_logs Stream output', 'archive_logs Stream output']);
     save();
-    expect(payload().function_steps).toMatchObject({
+    expect(payload().functionSteps).toMatchObject({
       sources: ['app_logs', 'audit_logs'],
       sinks: ['clean_logs', 'archive_logs'],
     });
@@ -537,7 +542,7 @@ describe('pipeline editor', () => {
     expect(nodes('sink')).toEqual(['clean_logs Stream output']);
     expect(editor().queryByRole('button', { name: 'Remove' })).toBeNull();
     save();
-    expect(payload()).toMatchObject({ source_stream: 'audit_logs', target_stream: 'clean_logs' });
+    expect(payload()).toMatchObject({ sourceStream: 'audit_logs', targetStream: 'clean_logs' });
   });
 
   it('drops what a filter step says, saved as VRL that aborts the event', async () => {
@@ -554,7 +559,7 @@ describe('pipeline editor', () => {
     expect(status()).toBe('valid');
     save();
     expect(steps()[1]).toEqual({
-      transform_name: 'filter',
+      transformName: 'filter',
       kind: 'vrl',
       script: 'value = .level\nmatched = value == "debug"\nif matched {\n  abort\n}',
       processor: { op: 'filter', action: 'drop', field: 'level', test: 'equals', value: 'debug' },
@@ -584,7 +589,8 @@ describe('pipeline editor', () => {
     expect(settings().queryByText('Run every')).toBeNull();
     // Nothing waits or retries: an event is processed as it is written.
     expect(settings().queryByRole('combobox', { name: 'Retry a failed run' })).toBeNull();
-    expect(settings().getByRole('combobox', { name: 'Signal type' })).toBeDisabled();
+    // Metrics and traces can be changed as they arrive too.
+    expect(settings().getByRole('combobox', { name: 'Signal type' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Add destination' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Add source' })).toBeNull();
     // The connector went with the mode; a realtime source may be a stream that is yet to come.
@@ -605,13 +611,13 @@ describe('pipeline editor', () => {
     fireEvent.click(editor().getByRole('checkbox', { name: 'Also retain in source stream' }));
     save();
 
-    expect(payload()).toMatchObject({ cron: '', source_stream: 'app_logs', target_stream: 'default' });
-    expect(payload().function_steps).toMatchObject({
+    expect(payload()).toMatchObject({ cron: '', sourceStream: 'app_logs', targetStream: 'default' });
+    expect(payload().functionSteps).toMatchObject({
       mode: 'realtime',
-      retain_source: true,
+      retainSource: true,
       sources: ['app_logs'],
       sinks: ['default'],
-      sink_connectors: [],
+      sinkConnectors: [],
     });
     expect(steps().at(-1)).toMatchObject({
       kind: 'builtin',

@@ -24,10 +24,10 @@ const DOMAIN_CONFIG_COLS: &str = "config.org_id, config.status_page_id, config.h
         WHEN domain.state = 'expired' THEN 'degraded'
         ELSE config.state
     END AS effective_state,
-    config.domain_id, config.routing_valid, config.last_checked_at_micros,
+    config.domain_id, config.routing_valid, config.last_checked_at,
     COALESCE(config.last_error, domain.last_error) AS effective_error,
-    domain.cert_not_after_micros, config.last_alerted_state,
-    config.last_alerted_at_micros, config.created_at_micros, config.updated_at_micros";
+    domain.cert_not_after, config.last_alerted_state,
+    config.last_alerted_at, config.created_at, config.updated_at";
 
 #[async_trait]
 impl StatusPageDomainRepository for PgStatusPageRepository {
@@ -94,8 +94,8 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         sqlx::query(
             "INSERT INTO status_page_domain_configs
                 (org_id, status_page_id, hostname, verification_token, state, domain_id,
-                 routing_valid, last_checked_at_micros, last_error,
-                 created_at_micros, updated_at_micros)
+                 routing_valid, last_checked_at, last_error,
+                 created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, NULL, $6, $7, $8, $9, $10)",
         )
         .bind(&config.org_id.0)
@@ -104,22 +104,22 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         .bind(&config.verification_token)
         .bind(config.state.as_str())
         .bind(config.routing_valid)
-        .bind(config.last_checked_at.map(|at| at.0))
+        .bind(config.last_checked_at)
         .bind(&config.last_error)
-        .bind(config.created_at.0)
-        .bind(config.updated_at.0)
+        .bind(config.created_at)
+        .bind(config.updated_at)
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
 
         let updated = sqlx::query(
-            "UPDATE status_pages SET custom_domain = $3, updated_at_micros = $4
+            "UPDATE status_pages SET custom_domain = $3, updated_at = $4
              WHERE org_id = $1 AND id = $2 AND lifecycle = 'active'",
         )
         .bind(&config.org_id.0)
         .bind(&config.status_page_id.0)
         .bind(&config.hostname)
-        .bind(config.updated_at.0)
+        .bind(config.updated_at)
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -171,14 +171,14 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
              LEFT JOIN domains domain
                ON domain.org_id = config.org_id AND domain.id = config.domain_id
              WHERE page.lifecycle = 'active'
-               AND (config.last_checked_at_micros IS NULL
-                    OR config.last_checked_at_micros <= $1)
-             ORDER BY config.last_checked_at_micros NULLS FIRST, config.updated_at_micros
+               AND (config.last_checked_at IS NULL
+                    OR config.last_checked_at <= $1)
+             ORDER BY config.last_checked_at NULLS FIRST, config.updated_at
              LIMIT $2"
         );
 
         sqlx::query(&sql)
-            .bind(checked_before.0)
+            .bind(checked_before)
             .bind(i64::from(limit.min(100)))
             .fetch_all(&self.pool)
             .await
@@ -223,14 +223,14 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
 
                 sqlx::query(
                     "INSERT INTO domains
-                        (id, org_id, hostname, state, cert_pem, cert_not_after_micros,
-                         last_error, created_at_micros, updated_at_micros)
+                        (id, org_id, hostname, state, cert_pem, cert_not_after,
+                         last_error, created_at, updated_at)
                      VALUES ($1, $2, $3, 'pending', NULL, NULL, NULL, $4, $4)",
                 )
                 .bind(&new_domain_id.0)
                 .bind(&org_id.0)
                 .bind(&hostname)
-                .bind(checked_at.0)
+                .bind(checked_at)
                 .execute(&mut *transaction)
                 .await
                 .map_err(super::sqlx_err)?;
@@ -246,8 +246,8 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         sqlx::query(
             "UPDATE status_page_domain_configs SET
                  state = $3, domain_id = $4, routing_valid = $5,
-                 last_checked_at_micros = $6, last_error = $7,
-                 updated_at_micros = $6
+                 last_checked_at = $6, last_error = $7,
+                 updated_at = $6
              WHERE org_id = $1 AND status_page_id = $2",
         )
         .bind(&org_id.0)
@@ -255,7 +255,7 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         .bind(stored_state.as_str())
         .bind(&domain_id)
         .bind(routing_valid)
-        .bind(checked_at.0)
+        .bind(checked_at)
         .bind(last_error)
         .execute(&mut *transaction)
         .await
@@ -290,24 +290,24 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
 
         sqlx::query(
             "UPDATE domains SET state = 'pending', last_error = NULL,
-                 updated_at_micros = $3
+                 updated_at = $3
              WHERE org_id = $1 AND id = $2",
         )
         .bind(&org_id.0)
         .bind(&domain_id)
-        .bind(updated_at.0)
+        .bind(updated_at)
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
 
         sqlx::query(
             "UPDATE status_page_domain_configs SET state = 'provisioning_tls',
-                 last_error = NULL, updated_at_micros = $3
+                 last_error = NULL, updated_at = $3
              WHERE org_id = $1 AND status_page_id = $2",
         )
         .bind(&org_id.0)
         .bind(&page_id.0)
-        .bind(updated_at.0)
+        .bind(updated_at)
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -329,14 +329,14 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         let result = sqlx::query(
             "UPDATE status_page_domain_configs SET
                  last_alerted_state = $3,
-                 last_alerted_at_micros = CASE WHEN $3 IS NULL THEN NULL ELSE $4 END,
-                 updated_at_micros = $4
+                 last_alerted_at = CASE WHEN $3 IS NULL THEN NULL ELSE $4 END,
+                 updated_at = $4
              WHERE org_id = $1 AND status_page_id = $2",
         )
         .bind(&org_id.0)
         .bind(&page_id.0)
         .bind(state.map(StatusPageDomainState::as_str))
-        .bind(updated_at.0)
+        .bind(updated_at)
         .execute(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
@@ -364,12 +364,12 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         .flatten();
 
         sqlx::query(
-            "UPDATE status_pages SET custom_domain = NULL, updated_at_micros = $3
+            "UPDATE status_pages SET custom_domain = NULL, updated_at = $3
              WHERE org_id = $1 AND id = $2",
         )
         .bind(&org_id.0)
         .bind(&page_id.0)
-        .bind(TimestampMicros::now().0)
+        .bind(TimestampMicros::now())
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -403,14 +403,12 @@ fn row_to_domain_config(row: sqlx::postgres::PgRow) -> Result<StatusPageDomainCo
             .map(Id),
         routing_valid: row.try_get("routing_valid").map_err(super::sqlx_err)?,
         last_checked_at: row
-            .try_get::<Option<i64>, _>("last_checked_at_micros")
-            .map_err(super::sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("last_checked_at")
+            .map_err(super::sqlx_err)?,
         last_error: row.try_get("effective_error").map_err(super::sqlx_err)?,
         cert_not_after: row
-            .try_get::<Option<i64>, _>("cert_not_after_micros")
-            .map_err(super::sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("cert_not_after")
+            .map_err(super::sqlx_err)?,
         last_alerted_state: row
             .try_get::<Option<String>, _>("last_alerted_state")
             .map_err(super::sqlx_err)?
@@ -421,10 +419,13 @@ fn row_to_domain_config(row: sqlx::postgres::PgRow) -> Result<StatusPageDomainCo
             })
             .transpose()?,
         last_alerted_at: row
-            .try_get::<Option<i64>, _>("last_alerted_at_micros")
-            .map_err(super::sqlx_err)?
-            .map(TimestampMicros),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(super::sqlx_err)?),
+            .try_get::<Option<TimestampMicros>, _>("last_alerted_at")
+            .map_err(super::sqlx_err)?,
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(super::sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(super::sqlx_err)?,
     })
 }

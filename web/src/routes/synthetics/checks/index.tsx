@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
-import { ConfirmDialog, DataTable } from '@/admin';
+import { ConfirmDialog, DataTable, TableNoMatch } from '@/admin';
 import * as syntheticsApi from '@/api/synthetics';
 import type { MonitorState } from '@/api/synthetics';
 import { toApiError } from '@/lib/http';
@@ -16,11 +16,12 @@ import { formatRelativeMicros } from '@/time/relative';
 
 import { SyntheticsActivation } from '../Activation';
 import { CheckEditor } from '../CheckEditor';
-import { useSyntheticsWorkspace, type CheckRow } from '../data';
+import { useSyntheticsAvailability, useSyntheticsWorkspace, type CheckRow } from '../data';
 import { CreateCheckAction, SyntheticsPage, useLoadState } from '../Frame';
 import { CheckStateMark, RunStrip } from '../marks';
-import { checkTarget, formatDuration, monitorTarget, scheduleText } from '../model';
+import { checkTarget, formatDuration, formatPercent, monitorTarget, scheduleText } from '../model';
 import { CHECK_FAMILIES, STATES_WORST_FIRST, checkFamily, type CheckFamily } from '../summary';
+import { useSyntheticsTimeWindow } from '../time';
 import { CheckRowActions } from './RowActions';
 
 type FamilyView = CheckFamily | 'all';
@@ -42,8 +43,12 @@ export function Checks() {
   const { monitorId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const manageAccess = useActionAccess({ permission: 'synthetics.manage' });
+  const manageAccess = useActionAccess({ permission: 'synthetics.monitors.manage' });
   const workspace = useSyntheticsWorkspace();
+  const availability = useSyntheticsAvailability(useSyntheticsTimeWindow());
+  const availabilityByCheck = new Map(
+    (availability.data?.checks ?? []).map((check) => [check.checkId, check.availability]),
+  );
   const [cloneDetail, setCloneDetail] = React.useState<CheckRow['detail']>();
   const [deleteRow, setDeleteRow] = React.useState<CheckRow>();
   const query = searchParams.get('query') ?? '';
@@ -126,6 +131,7 @@ export function Checks() {
         // The first-run page carries the way to a first check itself.
         action={firstRun ? undefined : <CreateCheckAction />}
         state={state}
+        timed={!firstRun}
         {...(firstRun ? { contentSurface: false } : {})}
         listHead={
           firstRun ? undefined : (
@@ -181,14 +187,23 @@ export function Checks() {
               rows={rows}
               rowKey={(row) => row.monitor.id}
               onRowClick={(row) => navigate(`/synthetics/checks/${row.monitor.id}`)}
-              emptyLabel={t('states.filtered_empty')}
+              emptyLabel={
+                <TableNoMatch
+                  label={t('states.filtered_empty')}
+                  onClear={() => {
+                    const next = new URLSearchParams(searchParams);
+                    for (const key of ['query', 'kind', 'state']) next.delete(key);
+                    setSearchParams(next, { replace: true });
+                  }}
+                />
+              }
               className="min-w-[940px] rounded-none border-0 bg-transparent"
               columns={[
                 {
                   key: 'check',
                   header: t('checks.columns.check'),
                   cell: (row) => (
-                    <div className="min-w-0 py-1">
+                    <div className="min-w-0">
                       <div className="truncate font-strong text-tx-0">{row.monitor.name}</div>
                       <div className="mt-0.5 flex min-w-0 items-baseline gap-[6px] text-xs text-tx-2">
                         <span className="shrink-0">{t(`kinds.${row.monitor.kind}`)}</span>
@@ -210,7 +225,11 @@ export function Checks() {
                   header: t('checks.columns.status'),
                   width: 120,
                   cell: (row) => (
-                    <CheckStateMark state={row.monitor.state} lifecycle={row.monitor.lifecycle} />
+                    <CheckStateMark
+                      state={row.monitor.state}
+                      lifecycle={row.monitor.lifecycle}
+                      noData={row.detail?.missingRuns?.noData}
+                    />
                   ),
                 },
                 {
@@ -218,6 +237,16 @@ export function Checks() {
                   header: t('checks.columns.runs'),
                   width: 150,
                   cell: (row) => <RunStrip results={row.results} />,
+                },
+                {
+                  key: 'availability',
+                  header: t('checks.columns.availability'),
+                  width: 100,
+                  cell: (row) => (
+                    <span className="tabular-nums text-tx-1">
+                      {formatPercent(availabilityByCheck.get(row.monitor.id) ?? undefined)}
+                    </span>
+                  ),
                 },
                 {
                   key: 'latency',
@@ -242,7 +271,7 @@ export function Checks() {
                             })
                           : t('checks.schedule', {
                               interval: scheduleText(row.revision.schedule),
-                              count: row.revision.location_ids.length,
+                              count: row.revision.locationIds.length,
                             })
                         : '—'}
                     </span>
@@ -255,7 +284,7 @@ export function Checks() {
                   cell: (row) => (
                     <span className="text-tx-2">
                       {row.latestResult
-                        ? formatRelativeMicros(row.latestResult.started_at, i18n.language, nowMicros)
+                        ? formatRelativeMicros(row.latestResult.startedAt, i18n.language, nowMicros)
                         : '—'}
                     </span>
                   ),

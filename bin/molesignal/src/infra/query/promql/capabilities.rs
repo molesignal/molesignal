@@ -18,6 +18,7 @@ pub enum PromqlCompletionKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PromqlCompletion {
     pub label: &'static str,
     pub insert_text: &'static str,

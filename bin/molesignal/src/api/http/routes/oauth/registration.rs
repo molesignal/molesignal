@@ -14,7 +14,10 @@ use super::{
     OAuthError, OAuthResult,
     client::{validate_client_uri, validate_redirect_uris},
 };
-use crate::{agent::inbound_mcp::NewInboundMcpOAuthClient, api::AppState, app::iam::hash_password};
+use crate::{
+    agent::inbound_mcp::NewInboundMcpOAuthClient, api::AppState, app::iam::hash_password,
+    infra::persistence::repositories::api_tokens::generate_token,
+};
 
 #[derive(Debug, Deserialize)]
 struct RegistrationRequest {
@@ -142,9 +145,8 @@ async fn register(
 
     let scopes =
         super::client::normalize_scope(&request.scope).map_err(OAuthError::invalid_request)?;
-    let client_id = format!("ms_cli_{}", super::token::random_secret(18));
-    let client_secret = (request.token_endpoint_auth_method != "none")
-        .then(|| format!("msmcp_secret_{}", super::token::random_secret(32)));
+    let client_id = generate_token();
+    let client_secret = (request.token_endpoint_auth_method != "none").then(generate_token);
 
     let secret_hash = client_secret
         .as_deref()

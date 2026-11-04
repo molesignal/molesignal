@@ -27,7 +27,7 @@ export function arrangeChats(chats: readonly Chat[], now = new Date()): ChatList
   const present = new Set(chats.map((chat) => chat.id));
   const forks = new Map<string, Chat[]>();
   for (const chat of chats) {
-    const parent = chat.parent_chat_id;
+    const parent = chat.parentChatId;
     if (!parent || !present.has(parent)) continue;
     forks.set(parent, [...(forks.get(parent) ?? []), chat]);
   }
@@ -36,8 +36,8 @@ export function arrangeChats(chats: readonly Chat[], now = new Date()): ChatList
   const latestOf = (chat: Chat): number => {
     const known = latest.get(chat.id);
     if (known !== undefined) return known;
-    latest.set(chat.id, chat.updated_at_micros);
-    const value = Math.max(chat.updated_at_micros, ...(forks.get(chat.id) ?? []).map(latestOf));
+    latest.set(chat.id, chat.updatedAt);
+    const value = Math.max(chat.updatedAt, ...(forks.get(chat.id) ?? []).map(latestOf));
     latest.set(chat.id, value);
     return value;
   };
@@ -54,7 +54,7 @@ export function arrangeChats(chats: readonly Chat[], now = new Date()): ChatList
   };
 
   const roots = chats
-    .filter((chat) => !chat.parent_chat_id || !present.has(chat.parent_chat_id))
+    .filter((chat) => !chat.parentChatId || !present.has(chat.parentChatId))
     .sort(newestFirst);
   const seen = new Set<string>();
   const groups: ChatListGroup[] = [];

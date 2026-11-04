@@ -17,7 +17,7 @@ export function shouldUseBlob(serialized: string): boolean {
 
 export async function storeBlob(payload: Record<string, unknown>): Promise<string> {
   const ref = await webApi.storeInvestigationBlob(payload);
-  return ref.blob_id;
+  return ref.blobId;
 }
 
 export async function fetchBlob(id: string): Promise<Record<string, unknown>> {

@@ -12,8 +12,13 @@ use super::{
     common::{TimeRangeArg, optional_time_range, parse_args},
 };
 use crate::{
-    app::iam::IamContext,
-    domain::alerting::incident::{Incident, IncidentStatus},
+    app::{alerting::Actor, iam::IamContext},
+    domain::alerting::{
+        incident::{Incident, IncidentStatus},
+        priority::Priority,
+        timeline::ActionVia,
+        urgency::Urgency,
+    },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
@@ -30,6 +35,13 @@ pub(super) async fn execute(
         BuiltinToolKind::GetIncidentRca => get_incident_rca(runtime, auth, arguments).await,
         BuiltinToolKind::GetIncidentInsights => {
             get_incident_insights(runtime, auth, arguments).await
+        }
+        BuiltinToolKind::GetIncidentTimeline => {
+            get_incident_timeline(runtime, auth, arguments).await
+        }
+        BuiltinToolKind::GetIncidentTickets => get_incident_tickets(runtime, auth, arguments).await,
+        BuiltinToolKind::ListRemediationActions => {
+            list_remediation_actions(runtime, auth, arguments).await
         }
         BuiltinToolKind::ListOnCallSchedules => {
             list_on_call_schedules(runtime, auth, arguments).await
@@ -68,12 +80,17 @@ async fn list_recent(
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ListIncidentsArgs {
     #[serde(default = "active_status")]
     status: String,
     #[serde(default)]
     time_range: Option<TimeRangeArg>,
+    /// 只要这些优先级的；空着不筛。
+    #[serde(default)]
+    priorities: Vec<Priority>,
+    #[serde(default)]
+    urgency: Option<Urgency>,
     #[serde(default)]
     limit: Option<usize>,
 }
@@ -133,6 +150,19 @@ async fn list_incidents(
         });
     }
 
+    if !args.priorities.is_empty() {
+        incidents.retain(|incident| {
+            incident
+                .handling
+                .priority
+                .is_some_and(|priority| args.priorities.contains(&priority))
+        });
+    }
+
+    if let Some(urgency) = args.urgency {
+        incidents.retain(|incident| incident.urgency() == urgency);
+    }
+
     let limit = args.limit.unwrap_or(50).clamp(1, 500);
     sort_and_limit(&mut incidents, limit);
 
@@ -147,7 +177,7 @@ fn sort_and_limit(incidents: &mut Vec<Incident>, limit: usize) {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct IncidentArgs {
     incident_id: String,
 }
@@ -176,9 +206,110 @@ async fn get_incident(
 
     let rca = runtime.alerting.incident_rca.get(&incident.id).await?;
 
+    // 最近几条备注：人在处理时写下的发现与做法。
+    let notes = runtime
+        .alerting
+        .actions
+        .recent_notes(&actor(auth), &incident.id, 5)
+        .await
+        .unwrap_or_default();
+
     Ok(ToolResult::json(json!({
-        "incident": incident, "rule": rule, "rca_available": rca.is_some(),
+        "incident": incident, "rule": rule, "rcaAvailable": rca.is_some(), "recentNotes": notes,
     })))
+}
+
+async fn get_incident_timeline(
+    runtime: &ToolRuntime,
+    auth: &IamContext,
+    arguments: Value,
+) -> Result<ToolResult> {
+    let args: IncidentArgs = parse_args(arguments)?;
+    let incident = runtime
+        .alerting
+        .service
+        .get_incident(&Id(args.incident_id))
+        .await?;
+
+    ensure_tenant(auth, &incident.org_id)?;
+
+    let timeline = runtime
+        .alerting
+        .actions
+        .timeline(&actor(auth), &incident.id)
+        .await?;
+
+    Ok(ToolResult::json(json!({
+        "incidentId": incident.id, "timeline": timeline,
+    })))
+}
+
+async fn get_incident_tickets(
+    runtime: &ToolRuntime,
+    auth: &IamContext,
+    arguments: Value,
+) -> Result<ToolResult> {
+    let args: IncidentArgs = parse_args(arguments)?;
+    let incident = runtime
+        .alerting
+        .service
+        .get_incident(&Id(args.incident_id))
+        .await?;
+
+    ensure_tenant(auth, &incident.org_id)?;
+
+    let tickets = runtime
+        .alerting
+        .tickets
+        .repository()
+        .list_for_incident(&incident.org_id, &incident.id)
+        .await?;
+
+    Ok(ToolResult::json(
+        json!({ "incidentId": incident.id, "tickets": tickets }),
+    ))
+}
+
+/// 这个事件能用的修复动作：名字、说明、要填的参数与风险等级；执行方式的细节与秘密不给。
+async fn list_remediation_actions(
+    runtime: &ToolRuntime,
+    auth: &IamContext,
+    arguments: Value,
+) -> Result<ToolResult> {
+    let args: IncidentArgs = parse_args(arguments)?;
+    let incident = runtime
+        .alerting
+        .service
+        .get_incident(&Id(args.incident_id))
+        .await?;
+
+    ensure_tenant(auth, &incident.org_id)?;
+
+    let actions = runtime
+        .alerting
+        .remediation
+        .applicable(&incident)
+        .await?
+        .into_iter()
+        .map(|action| {
+            json!({
+                "id": action.id,
+                "name": action.name,
+                "description": action.description,
+                "parameters": action.parameters,
+                "risk": action.risk,
+            })
+        })
+        .collect::<Vec<_>>();
+
+    Ok(ToolResult::json(
+        json!({ "incidentId": incident.id, "actions": actions }),
+    ))
+}
+
+/// 读的人：时间线与备注按他的组织读。
+fn actor(auth: &IamContext) -> Actor {
+    Actor::new(&auth.org_id, auth.principal_id(), ActionVia::Agent)
 }
 
 async fn get_incident_rca(
@@ -193,13 +324,13 @@ async fn get_incident_rca(
     let rca = runtime.alerting.incident_rca.get(&incident_id).await?;
 
     Ok(ToolResult::json(json!({
-        "incident_id": incident_id, "rca": rca,
+        "incidentId": incident_id, "rca": rca,
         "available": rca.is_some(),
     })))
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct IncidentInsightsArgs {
     #[serde(default)]
     time_range: Option<TimeRangeArg>,
@@ -247,12 +378,12 @@ async fn get_incident_insights(
     let limit = args.limit.unwrap_or(20).clamp(1, 100);
 
     Ok(ToolResult::json(json!({
-        "time_range": range,
-        "incident_count": incidents.len(),
-        "by_status": status,
-        "by_severity": severity,
-        "top_services": top_counts(services, limit),
-        "top_rules": top_counts(rules, limit),
+        "timeRange": range,
+        "incidentCount": incidents.len(),
+        "byStatus": status,
+        "bySeverity": severity,
+        "topServices": top_counts(services, limit),
+        "topRules": top_counts(rules, limit),
     })))
 }
 
@@ -283,12 +414,12 @@ fn ensure_tenant(auth: &IamContext, org_id: &Id) -> Result<()> {
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ScheduleArgs {
     #[serde(default)]
     enabled_only: Option<bool>,
     #[serde(default)]
-    at_micros: Option<i64>,
+    at_time: Option<i64>,
 }
 
 async fn list_on_call_schedules(
@@ -297,7 +428,7 @@ async fn list_on_call_schedules(
     arguments: Value,
 ) -> Result<ToolResult> {
     let args: ScheduleArgs = parse_args(arguments)?;
-    let at = TimestampMicros(args.at_micros.unwrap_or_else(|| TimestampMicros::now().0));
+    let at = TimestampMicros(args.at_time.unwrap_or_else(|| TimestampMicros::now().0));
     let mut rows = Vec::new();
 
     for schedule in runtime
@@ -316,21 +447,21 @@ async fn list_on_call_schedules(
         };
 
         rows.push(json!({
-            "schedule_id": schedule.id, "name": schedule.name,
-            "description": schedule.description, "team_id": schedule.team_id,
+            "scheduleId": schedule.id, "name": schedule.name,
+            "description": schedule.description, "teamId": schedule.team_id,
             "timezone": schedule.timezone, "enabled": schedule.enabled,
-            "rotation_count": schedule.rotations.len(),
-            "override_count": schedule.overrides.len(), "current_on_call": user,
+            "rotationCount": schedule.rotations.len(),
+            "overrideCount": schedule.overrides.len(), "currentOnCall": user,
         }));
     }
 
     Ok(ToolResult::json(json!({
-        "at_micros": at, "schedule_count": rows.len(), "schedules": rows,
+        "atTime": at, "scheduleCount": rows.len(), "schedules": rows,
     })))
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct GetScheduleArgs {
     schedule_id: String,
 }
@@ -356,12 +487,12 @@ async fn get_on_call_schedule(
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct CurrentOnCallArgs {
     #[serde(default)]
     schedule_id: Option<String>,
     #[serde(default)]
-    at_micros: Option<i64>,
+    at_time: Option<i64>,
 }
 
 async fn current_on_call(
@@ -370,7 +501,7 @@ async fn current_on_call(
     arguments: Value,
 ) -> Result<ToolResult> {
     let args: CurrentOnCallArgs = parse_args(arguments)?;
-    let at = TimestampMicros(args.at_micros.unwrap_or_else(|| TimestampMicros::now().0));
+    let at = TimestampMicros(args.at_time.unwrap_or_else(|| TimestampMicros::now().0));
 
     let schedules = if let Some(id) = args.schedule_id {
         let schedule = runtime.alerting.service.get_schedule(&Id(id)).await?;
@@ -393,13 +524,13 @@ async fn current_on_call(
     for schedule in schedules.into_iter().filter(|schedule| schedule.enabled) {
         if let Some(user_id) = schedule.who_is_on_call(at) {
             rows.push(json!({
-                "schedule_id": schedule.id, "schedule_name": schedule.name,
-                "at_micros": at, "user": on_call_user(runtime, &user_id).await,
+                "scheduleId": schedule.id, "scheduleName": schedule.name,
+                "atTime": at, "user": on_call_user(runtime, &user_id).await,
             }));
         }
     }
 
-    Ok(ToolResult::json(json!({"at_micros": at, "on_call": rows})))
+    Ok(ToolResult::json(json!({"atTime": at, "onCall": rows})))
 }
 
 async fn on_call_user(runtime: &ToolRuntime, user_id: &Id) -> Value {
@@ -407,7 +538,7 @@ async fn on_call_user(runtime: &ToolRuntime, user_id: &Id) -> Value {
 
     json!({
         "id": user_id,
-        "display_name": user.as_ref().map(|user| user.display_name.as_str()),
-        "avatar_url": user.as_ref().and_then(|user| user.avatar_url.as_deref()),
+        "displayName": user.as_ref().map(|user| user.display_name.as_str()),
+        "avatarUrl": user.as_ref().and_then(|user| user.avatar_url.as_deref()),
     })
 }

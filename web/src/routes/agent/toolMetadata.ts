@@ -11,7 +11,7 @@ export function localizeToolMetadata(
   const key = `tools.${tool.name}`;
   return {
     ...tool,
-    display_name: t(`${key}.title`, { defaultValue: tool.display_name }),
+    displayName: t(`${key}.title`, { defaultValue: tool.displayName }),
     description: t(`${key}.description`, { defaultValue: tool.description }),
   };
 }

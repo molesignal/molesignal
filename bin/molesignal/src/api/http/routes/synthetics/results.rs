@@ -17,7 +17,7 @@ use crate::{
             ProbeOutcome, SyntheticResult, SyntheticResultListQuery, SyntheticResultPage,
         },
     },
-    shared::{Error, Result, ids::Id},
+    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub(super) fn routes() -> Router<AppState> {
@@ -25,10 +25,15 @@ pub(super) fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ResultListQuery {
     query: Option<String>,
     outcome: Option<String>,
     location_id: Option<String>,
+    /// Runs that finished at or after this, in microseconds.
+    from_time: Option<i64>,
+    /// Runs that finished before this.
+    to_time: Option<i64>,
     #[serde(default = "default_page")]
     page: u32,
     #[serde(default = "default_page_size")]
@@ -36,6 +41,7 @@ struct ResultListQuery {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ResultListResponse {
     items: Vec<SyntheticResult>,
     total: u64,
@@ -51,7 +57,7 @@ const fn default_page_size() -> u32 {
     20
 }
 
-#[permission("synthetics.read")]
+#[permission("synthetics.results.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -92,6 +98,14 @@ impl ResultListQuery {
             })
             .transpose()?;
 
+        if let (Some(from), Some(to)) = (self.from_time, self.to_time)
+            && from >= to
+        {
+            return Err(Error::invalid(
+                "synthetic result range must end after it starts",
+            ));
+        }
+
         let page = self.page.max(1);
         let per_page = self.per_page.clamp(1, 100);
 
@@ -106,6 +120,8 @@ impl ResultListQuery {
                 check_query,
                 outcome,
                 location_id,
+                from: self.from_time.map(TimestampMicros),
+                to: self.to_time.map(TimestampMicros),
                 offset: u64::from(page - 1).saturating_mul(u64::from(per_page)),
                 limit: per_page,
             },
@@ -125,6 +141,8 @@ mod tests {
             query: Some("  checkout  ".to_owned()),
             outcome: Some("failing".to_owned()),
             location_id: Some("sin".to_owned()),
+            from_time: Some(1_000),
+            to_time: Some(2_000),
             page: 3,
             per_page: 50,
         }
@@ -140,6 +158,8 @@ mod tests {
             query.location_id.as_ref().map(|id| id.as_str()),
             Some("sin")
         );
+        assert_eq!(query.from.map(|from| from.0), Some(1_000));
+        assert_eq!(query.to.map(|to| to.0), Some(2_000));
         assert_eq!(query.offset, 100);
         assert_eq!(query.limit, 50);
         assert_eq!((page, per_page), (3, 50));
@@ -151,6 +171,8 @@ mod tests {
             query: None,
             outcome: Some("broken".to_owned()),
             location_id: None,
+            from_time: None,
+            to_time: None,
             page: 1,
             per_page: 20,
         }

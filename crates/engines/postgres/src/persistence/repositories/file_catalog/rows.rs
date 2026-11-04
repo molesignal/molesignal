@@ -16,22 +16,26 @@ use crate::{
         PhysicalDataset, PhysicalDatasetId, SchemaFingerprint, SegmentId, SegmentState,
         SequenceRange, StoragePolicy, StoredObject, WalSequence,
     },
-    shared::{Error, Result, ids::Id, time::TimeRange},
+    shared::{
+        Error, Result,
+        ids::Id,
+        time::{TimeRange, TimestampMicros},
+    },
 };
 
 pub(super) const DATASET_COLS: &str = "org_id, id, logical_stream_id, dataset_type, \
      dataset_type_version, partition_policy, storage_policy, index_policy, catalog_version, \
-     state, created_at_micros, updated_at_micros";
+     state, created_at, updated_at";
 
-pub(super) const SEGMENT_COLS: &str = "org_id, id, dataset_id, partition_start_micros, \
-     partition_end_micros, partition_shard, min_event_micros, max_event_micros, row_count, \
+pub(super) const SEGMENT_COLS: &str = "org_id, id, dataset_id, partition_start, \
+     partition_end, partition_shard, min_event, max_event, row_count, \
      schema_fingerprint, column_stats, flush_id, sequence_start, sequence_end, output_ordinal, \
-     state, visible_from_version, retired_at_version, created_at_micros";
+     state, visible_from_version, retired_at_version, created_at";
 
 pub(super) const ARTIFACT_COLS: &str = "org_id, id, segment_id, role, artifact_type, \
      format_version, object_key, size_bytes, checksum, etag, source_artifact_id, \
-     source_checksum, schema_fingerprint, state, failure_reason, created_at_micros, \
-     updated_at_micros";
+     source_checksum, schema_fingerprint, state, failure_reason, created_at, \
+     updated_at";
 
 pub(super) fn to_i64(value: u64, what: &str) -> Result<i64> {
     i64::try_from(value).map_err(|_| Error::invalid(format!("{what} {value} exceeds BIGINT")))
@@ -68,8 +72,14 @@ pub(super) fn dataset_from_row(row: &PgRow) -> Result<PhysicalDataset> {
             "catalog_version",
         )?,
         state: row_state::<DatasetState>(&state)?,
-        created_at_micros: row.try_get("created_at_micros").map_err(sqlx_err)?,
-        updated_at_micros: row.try_get("updated_at_micros").map_err(sqlx_err)?,
+        created_at_micros: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?
+            .0,
+        updated_at_micros: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?
+            .0,
     })
 }
 
@@ -164,17 +174,21 @@ pub(super) fn segment_from_row(row: &PgRow, artifacts: Vec<Artifact>) -> Result<
             row.try_get::<String, _>("dataset_id").map_err(sqlx_err)?,
         ),
         partition: Partition {
-            start_micros: row.try_get("partition_start_micros").map_err(sqlx_err)?,
-            end_micros: row.try_get("partition_end_micros").map_err(sqlx_err)?,
+            start_micros: row
+                .try_get::<TimestampMicros, _>("partition_start")
+                .map_err(sqlx_err)?
+                .0,
+            end_micros: row
+                .try_get::<TimestampMicros, _>("partition_end")
+                .map_err(sqlx_err)?
+                .0,
             shard: row.try_get::<i16, _>("partition_shard").map_err(sqlx_err)? as u16,
         },
         time_range: TimeRange::new(
-            crate::shared::time::TimestampMicros(
-                row.try_get("min_event_micros").map_err(sqlx_err)?,
-            ),
-            crate::shared::time::TimestampMicros(
-                row.try_get("max_event_micros").map_err(sqlx_err)?,
-            ),
+            row.try_get::<TimestampMicros, _>("min_event")
+                .map_err(sqlx_err)?,
+            row.try_get::<TimestampMicros, _>("max_event")
+                .map_err(sqlx_err)?,
         ),
         sequence_range,
         row_count: to_u64(
@@ -204,6 +218,9 @@ pub(super) fn segment_from_row(row: &PgRow, artifacts: Vec<Artifact>) -> Result<
             .map_err(sqlx_err)?
             .map(|v| to_u64(v, "retired_at_version"))
             .transpose()?,
-        created_at_micros: row.try_get("created_at_micros").map_err(sqlx_err)?,
+        created_at_micros: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?
+            .0,
     })
 }

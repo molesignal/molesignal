@@ -17,24 +17,24 @@ const SECOND = 1_000_000;
 function incident(overrides: Partial<Incident> = {}): Incident {
   return {
     id: 'incident-1',
-    org_id: 'org-1',
-    rule_id: 'rule-1',
-    escalation_policy_id: 'policy-1',
+    orgId: 'org-1',
+    ruleId: 'rule-1',
+    escalationPolicyId: 'policy-1',
     status: 'open',
     severity: 'warning',
     summary: 'Checkout latency is high',
     fingerprint: 'fp',
-    current_step: 0,
-    current_loop: 0,
-    current_step_started_at: 0,
+    currentStep: 0,
+    currentLoop: 0,
+    currentStepStartedAt: 0,
     assignees: [],
-    created_at: 100 * SECOND,
+    createdAt: 100 * SECOND,
     labels: {},
     annotations: {},
-    trace_ids: [],
-    host_ids: [],
-    affected_services: [],
-    triggering_query: null,
+    traceIds: [],
+    hostIds: [],
+    affectedServices: [],
+    triggeringQuery: null,
     ...overrides,
   };
 }
@@ -42,10 +42,10 @@ function incident(overrides: Partial<Incident> = {}): Incident {
 describe('incident urgency', () => {
   it('puts the worst first and, among equals, the one that has burnt longest', () => {
     const sorted = [
-      incident({ id: 'warning-old', severity: 'warning', created_at: 1 * SECOND }),
-      incident({ id: 'critical-new', severity: 'critical', created_at: 50 * SECOND }),
-      incident({ id: 'critical-old', severity: 'critical', created_at: 10 * SECOND }),
-      incident({ id: 'error', severity: 'error', created_at: 5 * SECOND }),
+      incident({ id: 'warning-old', severity: 'warning', createdAt: 1 * SECOND }),
+      incident({ id: 'critical-new', severity: 'critical', createdAt: 50 * SECOND }),
+      incident({ id: 'critical-old', severity: 'critical', createdAt: 10 * SECOND }),
+      incident({ id: 'error', severity: 'error', createdAt: 5 * SECOND }),
     ]
       .sort(byUrgency)
       .map((item) => item.id);
@@ -74,7 +74,7 @@ describe('incident facts', () => {
 
   it('names the service from the incident, then from its labels', () => {
     expect(
-      incidentService(incident({ affected_services: ['checkout'], labels: { service: 'cart' } })),
+      incidentService(incident({ affectedServices: ['checkout'], labels: { service: 'cart' } })),
     ).toBe('checkout');
     expect(incidentService(incident({ labels: { service: 'cart' } }))).toBe('cart');
     expect(incidentService(incident({ labels: { svc: 'payments' } }))).toBe('payments');
@@ -84,7 +84,7 @@ describe('incident facts', () => {
   it('lists each affected service once, in the order they are met', () => {
     expect(
       affectedServices([
-        incident({ affected_services: ['checkout', 'cart'] }),
+        incident({ affectedServices: ['checkout', 'cart'] }),
         incident({ labels: { service: 'cart' } }),
         incident({ labels: { svc: 'payments' } }),
         incident(),
@@ -94,7 +94,7 @@ describe('incident facts', () => {
 
   it('measures how long an incident has lasted, or lasted until it recovered', () => {
     expect(incidentDurationSecs(incident(), 160 * SECOND)).toBe(60);
-    expect(incidentDurationSecs(incident({ resolved_at: 130 * SECOND }), 9_999 * SECOND)).toBe(30);
+    expect(incidentDurationSecs(incident({ resolvedAt: 130 * SECOND }), 9_999 * SECOND)).toBe(30);
     // A clock behind the incident's does not make the duration negative.
     expect(incidentDurationSecs(incident(), 50 * SECOND)).toBe(0);
   });

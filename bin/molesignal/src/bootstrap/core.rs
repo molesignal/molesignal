@@ -13,6 +13,7 @@ use crate::{
     domain::{
         i18n_language::I18nLanguageRepository,
         iam::{IamPlatformAdministratorRepository, Organization},
+        metrics::MetricDirectory,
         run_claim::RunGate,
         trace_policy::{TraceDebugTokenRepository, TracePolicyRepository},
     },
@@ -38,6 +39,7 @@ use crate::{
                     platform_administrators::PgIamPlatformAdministratorRepository,
                 },
                 incidents::PgIncidentRepository,
+                metric_directory::PgMetricDirectory,
                 organizations::PgOrganizationRepository,
                 password_resets::{PasswordResetRepository, PgPasswordResetRepository},
                 run_claims::PgRunClaimRepository,
@@ -80,6 +82,8 @@ pub(super) struct Core {
     pub(super) teams: Arc<PgTeamRepository>,
     pub(super) org_schema_cache: Arc<OrgSchemaCache>,
     pub(super) streams: Arc<PgStreamRepository>,
+    /// 每个指标流里有哪些指标：intake 登记，PromQL 与指标目录按名字找流。
+    pub(super) metric_directory: Arc<dyn MetricDirectory>,
     pub(super) folders: Arc<PgFolderRepository>,
     pub(super) dashboards: Arc<PgDashboardRepository>,
     pub(super) dashboard_drafts: Arc<PgDashboardDraftRepository>,
@@ -165,6 +169,9 @@ impl Core {
         let streams = Arc::new(
             PgStreamRepository::new(pool.clone()).with_mutation_observer(org_schema_cache.clone()),
         );
+
+        let metric_directory: Arc<dyn MetricDirectory> =
+            Arc::new(PgMetricDirectory::new(pool.clone()));
 
         let folders = Arc::new(PgFolderRepository::new(pool.clone()));
         let dashboards = Arc::new(PgDashboardRepository::new(pool.clone()));
@@ -297,6 +304,7 @@ impl Core {
             teams,
             org_schema_cache,
             streams,
+            metric_directory,
             folders,
             dashboards,
             dashboard_drafts,

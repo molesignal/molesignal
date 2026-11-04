@@ -69,9 +69,9 @@ export function KnowledgeExplorer({
   const folderInput = React.useRef<HTMLInputElement>(null);
 
   const rows = React.useMemo(() => files.data?.files ?? [], [files.data]);
-  const canEdit = files.data?.can_edit ?? base.can_edit;
+  const canEdit = files.data?.canEdit ?? base.canEdit;
   const tree = React.useMemo(() => buildTree(rows), [rows]);
-  const name = base.scope === 'org' ? t('knowledge.org') : (base.team_name ?? '');
+  const name = base.scope === 'org' ? t('knowledge.org') : (base.teamName ?? '');
 
   // The entry file opens first; a file that is gone closes. Nothing is chosen
   // before the files are read, so a file a link named is kept until then.
@@ -134,20 +134,20 @@ export function KnowledgeExplorer({
   const ask = (prompt: string) =>
     useMoleAgentStore.getState().start({
       prompt,
-      teamId: base.scope === 'team' ? (base.team_id ?? null) : null,
+      teamId: base.scope === 'team' ? (base.teamId ?? null) : null,
     });
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-agent-knowledge-explorer={scopeKey(scope)}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-bd-0 px-4 py-2.5">
         <div className="min-w-0">
-          <h2 className="truncate text-sm font-strong text-tx-0">{name}</h2>
+          <h2 className="truncate text-sm font-display text-tx-0">{name}</h2>
           <p className="type-micro text-tx-3">
             {t('knowledge.quota', {
               files: base.files,
-              maxFiles: limits.max_files,
+              maxFiles: limits.maxFiles,
               size: formatSize(base.bytes),
-              maxSize: formatSize(limits.max_total_bytes),
+              maxSize: formatSize(limits.maxTotalBytes),
             })}
           </p>
         </div>
@@ -207,10 +207,10 @@ export function KnowledgeExplorer({
         />
       </div>
 
-      {base.changed_since_entry > 0 && (
+      {base.changedSinceEntry > 0 && (
         <div className="flex flex-wrap items-center gap-2 bg-[var(--yellow-tint)] px-4 py-2 text-xs text-[var(--yellow-ink)]">
           <CircleAlert aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-          <span className="min-w-0 flex-1">{t('knowledge.stale', { count: base.changed_since_entry })}</span>
+          <span className="min-w-0 flex-1">{t('knowledge.stale', { count: base.changedSinceEntry })}</span>
           {canEdit && (
             <ChromeButton size="sm" onClick={() => ask(t('knowledge.update_entry_prompt'))}>
               {t('knowledge.update_entry')}

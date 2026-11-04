@@ -27,6 +27,7 @@ pub(super) const ERRORS: &str = "apm.errors.v1";
 const VERSION: u8 = 1;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ApmCursorPayload {
     version: u8,
     from: i64,

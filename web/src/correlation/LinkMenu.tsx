@@ -105,12 +105,12 @@ function CorrelationItems({
     stack.push({
       kind: p.targetFrameKind,
       params: { filters: derived.filters, prefill: derived.prefill ?? {} },
-      time_range_override: {
-        from: derived.time_range.from,
-        to: derived.time_range.to,
+      timeRangeOverride: {
+        from: derived.timeRange.from,
+        to: derived.timeRange.to,
         mode: 'absolute',
       },
-      ...(parentFrameId && { parent_frame_id: parentFrameId }),
+      ...(parentFrameId && { parentFrameId: parentFrameId }),
     });
     nav('/investigate');
   };

@@ -5,7 +5,7 @@ import { publicStatusPageUrl } from './publicUrl';
 describe('publicStatusPageUrl', () => {
   it('keeps the slug path on the MoleSignal domain', () => {
     expect(
-      publicStatusPageUrl({ slug: 'acme-cloud', custom_domain: null }),
+      publicStatusPageUrl({ slug: 'acme-cloud', customDomain: null }),
     ).toBe('/status/acme-cloud');
   });
 
@@ -13,7 +13,7 @@ describe('publicStatusPageUrl', () => {
     expect(
       publicStatusPageUrl({
         slug: 'acme-cloud',
-        custom_domain: 'status.acme.example',
+        customDomain: 'status.acme.example',
       }, 'active'),
     ).toBe('https://status.acme.example/');
   });
@@ -22,7 +22,7 @@ describe('publicStatusPageUrl', () => {
     expect(
       publicStatusPageUrl({
         slug: 'acme-cloud',
-        custom_domain: 'status.acme.example',
+        customDomain: 'status.acme.example',
       }, 'provisioning_tls'),
     ).toBe('/status/acme-cloud');
   });

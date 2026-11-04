@@ -31,7 +31,7 @@ pub(super) async fn build_evidence(
     let (row_count, scanned_rows, took_ms, summary) = summarize_tool_result(result_json);
 
     let mut entry = json!({
-        "tool_call_id": tool_call_id,
+        "toolCallId": tool_call_id,
         "tool": name,
         "arguments": args,
         "status": if is_error { "error" } else { "success" },
@@ -39,15 +39,15 @@ pub(super) async fn build_evidence(
     });
 
     if let Some(v) = row_count {
-        entry["row_count"] = json!(v);
+        entry["rowCount"] = json!(v);
     }
 
     if let Some(v) = scanned_rows {
-        entry["scanned_rows"] = json!(v);
+        entry["scannedRows"] = json!(v);
     }
 
     if let Some(v) = took_ms {
-        entry["took_ms"] = json!(v);
+        entry["tookMs"] = json!(v);
     }
 
     if result_json.len() > INLINE_TOOL_RESULT_LIMIT {
@@ -62,12 +62,12 @@ pub(super) async fn build_evidence(
                     .await
                 {
                     Ok(_) => {
-                        entry["object_key"] = json!(object_key);
-                        entry["spilled_bytes"] = json!(result_json.len());
+                        entry["objectKey"] = json!(object_key);
+                        entry["spilledBytes"] = json!(result_json.len());
                     }
                     Err(e) => {
                         tracing::warn!(error = %e, "failed to spill tool result to object store");
-                        entry["spill_error"] = json!(e.to_string());
+                        entry["spillError"] = json!(e.to_string());
                     }
                 }
             }
@@ -112,8 +112,8 @@ fn summarize_tool_result(result_json: &str) -> (Option<i64>, Option<i64>, Option
                         }
                     }
 
-                    scanned = j.get("scanned_rows").and_then(|v| v.as_i64()).or(scanned);
-                    took = j.get("took_ms").and_then(|v| v.as_i64()).or(took);
+                    scanned = j.get("scannedRows").and_then(|v| v.as_i64()).or(scanned);
+                    took = j.get("tookMs").and_then(|v| v.as_i64()).or(took);
                 }
                 Some("text") => {
                     if let Some(t) = item.get("text").and_then(|v| v.as_str()) {
@@ -152,7 +152,7 @@ mod tests {
     #[test]
     fn summarize_extracts_row_count() {
         let result =
-            r#"[{"type":"json","json":{"rows":[[1],[2],[3]],"scanned_rows":99,"took_ms":7}}]"#;
+            r#"[{"type":"json","json":{"rows":[[1],[2],[3]],"scannedRows":99,"tookMs":7}}]"#;
         let (rows, scanned, took, summary) = summarize_tool_result(result);
         assert_eq!(rows, Some(3));
         assert_eq!(scanned, Some(99));

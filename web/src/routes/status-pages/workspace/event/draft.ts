@@ -29,12 +29,12 @@ export const NEXT_UPDATE_CHOICES = [15, 30, 60, 120, 240, 1_440] as const;
 export function initialDraft(kind: StatusPageIncidentKind, event: StatusPageIncident | null): EventDraft {
   return {
     title: event?.title ?? '',
-    sourceIncidentId: event?.source_incident_id ?? '',
+    sourceIncidentId: event?.sourceIncidentId ?? '',
     impact: event?.impact ?? (kind === 'maintenance' ? 'maintenance' : 'major'),
     status: event?.status ?? (kind === 'maintenance' ? 'scheduled' : 'investigating'),
-    message: event?.draft_message ?? '',
-    componentIds: event?.component_ids ?? [],
-    startedAt: toLocalDateTime(event?.started_at ?? (Date.now() + 60 * 60_000) * 1_000),
+    message: event?.draftMessage ?? '',
+    componentIds: event?.componentIds ?? [],
+    startedAt: toLocalDateTime(event?.startedAt ?? (Date.now() + 60 * 60_000) * 1_000),
     nextUpdateMinutes: null,
     notify: true,
   };
@@ -47,20 +47,20 @@ export function eventInput(
   now = Date.now(),
 ): StatusPageIncidentInput {
   return {
-    source_incident_id: kind === 'incident' ? draft.sourceIncidentId || null : null,
+    sourceIncidentId: kind === 'incident' ? draft.sourceIncidentId || null : null,
     kind,
     title: draft.title.trim(),
     impact: kind === 'maintenance' ? 'maintenance' : draft.impact,
     status: draft.status,
-    publication_state: publicationState,
+    publicationState: publicationState,
     message: draft.message.trim() || null,
-    component_ids: draft.componentIds,
-    ...(kind === 'maintenance' ? { started_at: new Date(draft.startedAt).getTime() * 1_000 } : {}),
+    componentIds: draft.componentIds,
+    ...(kind === 'maintenance' ? { startedAt: new Date(draft.startedAt).getTime() * 1_000 } : {}),
     // Who is told, and what is promised, is decided when the event goes out.
     ...(publicationState === 'published'
       ? {
           notify: draft.notify,
-          next_update_at: nextUpdateAt(kind, draft.status, draft.nextUpdateMinutes, now),
+          nextUpdateAt: nextUpdateAt(kind, draft.status, draft.nextUpdateMinutes, now),
         }
       : {}),
   };
@@ -107,9 +107,9 @@ function isTerminalStatus(kind: StatusPageIncidentKind, status: PublicIncidentSt
 export function promisedNextUpdate(event: StatusPageIncident): number | null {
   if (isTerminal(event)) return null;
   const latest = [...event.updates].sort(
-    (left, right) => right.created_at - left.created_at || right.id.localeCompare(left.id),
+    (left, right) => right.createdAt - left.createdAt || right.id.localeCompare(left.id),
   )[0];
-  return latest?.next_update_at ?? null;
+  return latest?.nextUpdateAt ?? null;
 }
 
 export function toLocalDateTime(micros: number): string {

@@ -4,7 +4,7 @@ import {
   DEFAULT_METRICS_QUERY_OPTIONS,
   isValidMetricsStep,
   metricsLegendNames,
-  metricsQueryLimit,
+  metricsQueryRange,
   parseMetricsStepMilliseconds,
 } from './model';
 
@@ -16,22 +16,25 @@ describe('metrics query options', () => {
     expect(isValidMetricsStep('5 minutes')).toBe(false);
   });
 
-  it('maps range step and instant type to the existing query limit contract', () => {
+  it('asks for the chosen step, a thousand steps for Auto, and none for an instant query', () => {
     const oneHourInMicros = 3_600_000_000;
     expect(
-      metricsQueryLimit(
+      metricsQueryRange(
         { ...DEFAULT_METRICS_QUERY_OPTIONS, step: '1m' },
         0,
         oneHourInMicros,
-      ),
-    ).toBe(60);
+      ).step,
+    ).toBe(60_000_000);
     expect(
-      metricsQueryLimit(
+      metricsQueryRange(DEFAULT_METRICS_QUERY_OPTIONS, 0, oneHourInMicros).step,
+    ).toBe(3_600_000);
+    expect(
+      metricsQueryRange(
         { ...DEFAULT_METRICS_QUERY_OPTIONS, type: 'instant' },
         0,
         oneHourInMicros,
       ),
-    ).toBe(1);
+    ).toEqual({});
   });
 
   it('renders Grafana legend templates with labels and metric name', () => {

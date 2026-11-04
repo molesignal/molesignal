@@ -4,27 +4,33 @@ import type { AssignedRole } from '@/stores/auth';
 export interface UserView {
   id: string;
   email: string;
-  display_name: string;
-  is_root: boolean;
-  avatar_url?: string | null;
+  displayName: string;
+  isRoot: boolean;
+  avatarUrl?: string | null;
   disabled: boolean;
   /** "active" | "pending"（待审批的自助注册用户）。 */
   status?: string;
-  display_role?: string | null;
+  displayRole?: string | null;
   roles: AssignedRole[];
-  team_names: string[];
-  login_method: 'password' | 'oidc' | 'saml' | string;
-  last_active_at_micros?: number | null;
-  joined_at_micros?: number | null;
-  created_at_micros: number;
+  teamNames: string[];
+  loginMethod: 'password' | 'oidc' | 'saml' | string;
+  lastActiveAt?: number | null;
+  joinedAt?: number | null;
+  createdAt: number;
+  /** The member has turned on multi-factor authentication. */
+  mfaEnabled?: boolean;
 }
 
 export interface CreateUserPayload {
   email: string;
-  display_name: string;
+  displayName: string;
   password: string;
 }
 
+/** What every member of the organization sees of the others; the rest of `UserView` takes `org.members.read`. */
+export type MemberName = Pick<UserView, 'id' | 'displayName' | 'avatarUrl'> & Partial<Pick<UserView, 'email'>>;
+
+/** The members of the organization. A caller without `org.members.read` gets `MemberName`s only. */
 export async function list(): Promise<UserView[]> {
   const { data } = await http.get<UserView[] | { items: UserView[] }>('/users');
   return Array.isArray(data) ? data : data.items;
@@ -45,8 +51,8 @@ export async function remove(id: string): Promise<void> {
 }
 
 export interface UpsertMembershipPayload {
-  user_id: string;
-  role_ids: string[];
+  userId: string;
+  roleIds: string[];
 }
 
 export async function upsertMembership(orgId: string, payload: UpsertMembershipPayload): Promise<void> {
@@ -62,8 +68,8 @@ export async function removeMembership(orgId: string, userId: string): Promise<v
 
 export interface UpdateUserPayload {
   email?: string;
-  display_name?: string;
-  avatar_url?: string;
+  displayName?: string;
+  avatarUrl?: string;
   disabled?: boolean;
 }
 

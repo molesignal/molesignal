@@ -3,8 +3,8 @@
 
 //! 输入框里的 `@` 引用：搜索，以及发消息时的解析。
 //!
-//! - `GET /api/v1/agent/references?q=&kind=`：按名字找提问人能读的事件、告警规则、服务、仪表盘
-//!   与数据流，每类最多 [`PER_KIND`] 个。
+//! - `GET /api/v1/agent/references?q=&kind=`：按名字找提问人能读的事件、告警规则、服务、RUM
+//!   应用、仪表盘与数据流，每类最多 [`PER_KIND`] 个。
 //! - [`resolve`]：发消息时逐个核对提问人能不能读，写成交给模型的上下文块；读不了的引用让这条
 //!   消息被拒绝，不悄悄丢掉。
 
@@ -16,6 +16,7 @@ use axum::{
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use super::{rum_facts::rum_application_facts, service_facts::service_facts};
 use crate::{
     agent::references::{
         MAX_REFERENCES, MessageReference, REFERENCES_INTRODUCTION, ReferenceKind, context_block,
@@ -32,7 +33,11 @@ use crate::{
         iam::permission,
         stream::StreamDefinition,
     },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    shared::{
+        Error, Result,
+        ids::Id,
+        time::{TimeRange, TimestampMicros},
+    },
 };
 
 /// 搜索时每类最多给几个。
@@ -84,7 +89,7 @@ async fn search(
     let wants = |kind: ReferenceKind| query.kind.is_none_or(|want| want == kind);
     let mut results = Vec::new();
 
-    if wants(ReferenceKind::Incident) && ctx.has_permission("alerts.read") {
+    if wants(ReferenceKind::Incident) && ctx.has_permission("alerts.incidents.read") {
         let since = TimestampMicros(TimestampMicros::now().0 - 7 * SERVICE_WINDOW_MICROS);
         let mut incidents = state
             .alerting
@@ -102,7 +107,15 @@ async fn search(
                 break;
             }
 
-            if allowed(&state, &ctx, "alerts.read", "alert", &incident.id.0).await {
+            if allowed(
+                &state,
+                &ctx,
+                "alerts.incidents.read",
+                "alert",
+                &incident.id.0,
+            )
+            .await
+            {
                 let detail = format!("{:?} · {:?}", incident.severity, incident.status);
                 results.push(result(
                     ReferenceKind::Incident,
@@ -116,7 +129,7 @@ async fn search(
 
     let mut found = results.len();
 
-    if wants(ReferenceKind::AlertRule) && ctx.has_permission("alerts.read") {
+    if wants(ReferenceKind::AlertRule) && ctx.has_permission("alerts.rules.read") {
         let rules = state.alerting.service.list_rules(&ctx.org_id).await?;
 
         for rule in rules.iter().filter(|rule| matches(&rule.name, &q)) {
@@ -124,7 +137,7 @@ async fn search(
                 break;
             }
 
-            if allowed(&state, &ctx, "alerts.read", "alert", &rule.id.0).await {
+            if allowed(&state, &ctx, "alerts.rules.read", "alert", &rule.id.0).await {
                 let detail = if rule.enabled { "enabled" } else { "disabled" }.to_string();
                 results.push(result(
                     ReferenceKind::AlertRule,
@@ -194,6 +207,32 @@ async fn search(
         }
     }
 
+    if wants(ReferenceKind::RumApplication) && can_read_rum(&ctx) {
+        let applications = state.telemetry.rum_applications.list(&ctx.org_id).await?;
+
+        results.extend(
+            applications
+                .iter()
+                .filter(|application| {
+                    matches(&application.name, &q) || matches(&application.id, &q)
+                })
+                .take(PER_KIND)
+                .map(|application| {
+                    let detail = serde_json::to_value(application.platform)
+                        .ok()
+                        .and_then(|value| value.as_str().map(str::to_string))
+                        .unwrap_or_default();
+
+                    result(
+                        ReferenceKind::RumApplication,
+                        &application.id,
+                        &application.name,
+                        detail,
+                    )
+                }),
+        );
+    }
+
     if wants(ReferenceKind::Service) && ctx.has_permission("streams.query") {
         let mut names = service_names(&state, &ctx.org_id).await;
         names.retain(|name| matches(name, &q));
@@ -231,6 +270,11 @@ async fn service_names(state: &AppState, org_id: &Id) -> Vec<String> {
     names
 }
 
+/// RUM figures are read with the permission of the queries they are made of.
+fn can_read_rum(ctx: &IamContext) -> bool {
+    ctx.has_permission("streams.query") || ctx.has_permission("sys.telemetry.read")
+}
+
 fn cut(text: String) -> String {
     if text.chars().count() <= FACTS_CHARS {
         return text;
@@ -249,10 +293,12 @@ fn unavailable(reference: &MessageReference) -> Error {
 }
 
 /// 核对并解析这条消息的引用：返回改写好名字的引用，与交给模型的上下文（没有引用时为空）。
+/// `window` 是这条消息问的时间段，服务按它读 APM；没有时读最近一小时。
 pub(crate) async fn resolve(
     state: &AppState,
     ctx: &IamContext,
     references: Vec<MessageReference>,
+    window: Option<TimeRange>,
 ) -> Result<(Vec<MessageReference>, Option<String>)> {
     if references.len() > MAX_REFERENCES {
         return Err(Error::invalid(format!(
@@ -268,14 +314,15 @@ pub(crate) async fn resolve(
 
         let (label, facts) = match reference.kind {
             ReferenceKind::Incident => {
-                let incident: Incident = authorize_resource(state, ctx, id, "alerts.read")
-                    .await
-                    .map_err(|_| unavailable(&reference))?;
+                let incident: Incident =
+                    authorize_resource(state, ctx, id, "alerts.incidents.read")
+                        .await
+                        .map_err(|_| unavailable(&reference))?;
 
                 (incident.summary.clone(), incident_facts(&incident))
             }
             ReferenceKind::AlertRule => {
-                let rule: AlertRule = authorize_resource(state, ctx, id, "alerts.read")
+                let rule: AlertRule = authorize_resource(state, ctx, id, "alerts.rules.read")
                     .await
                     .map_err(|_| unavailable(&reference))?;
 
@@ -309,13 +356,30 @@ pub(crate) async fn resolve(
 
                 (stream.name.clone(), facts)
             }
+            ReferenceKind::RumApplication => {
+                if !can_read_rum(ctx) {
+                    return Err(unavailable(&reference));
+                }
+
+                let application = state
+                    .telemetry
+                    .rum_applications
+                    .get(&ctx.org_id, reference.id.trim())
+                    .await
+                    .map_err(|_| unavailable(&reference))?;
+
+                let facts = rum_application_facts(state, ctx, &application, window).await;
+
+                (application.name.clone(), facts)
+            }
             ReferenceKind::Service => {
                 if !ctx.has_permission("streams.query") {
                     return Err(unavailable(&reference));
                 }
 
                 let name = reference.id.trim().to_string();
-                (name.clone(), service_facts(state, &ctx.org_id, &name).await)
+                let facts = service_facts(state, ctx, &name, window).await;
+                (name, facts)
             }
         };
 
@@ -381,26 +445,4 @@ fn dashboard_facts(dashboard: &Dashboard) -> String {
         dashboard.tags.join(", "),
         panels
     )
-}
-
-async fn service_facts(state: &AppState, org_id: &Id, name: &str) -> String {
-    let now = TimestampMicros::now().0;
-
-    let edges = state
-        .telemetry
-        .service_graph
-        .query(org_id, now - SERVICE_WINDOW_MICROS, now, Some(name))
-        .await
-        .unwrap_or_default();
-
-    let mut lines = vec![format!("Service: {name}")];
-
-    for edge in edges.iter().take(40) {
-        lines.push(format!(
-            "{} -> {}: {} requests, {} errors in the last day",
-            edge.client_service, edge.server_service, edge.request_count, edge.error_count
-        ));
-    }
-
-    lines.join("\n")
 }

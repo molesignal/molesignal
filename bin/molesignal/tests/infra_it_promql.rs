@@ -22,6 +22,7 @@ use common::write_parquet_fixture;
 use molesignal::{
     config::StreamAggCacheSettings,
     domain::{
+        metrics::{MemoryMetricDirectory, MetricDirectory, MetricObservation},
         query::{PromqlEngine, QueryLanguage, QueryRequest},
         storage::{QueryFile, QueryFileSource},
         stream::{
@@ -143,6 +144,15 @@ fn metric_stream() -> StreamDefinition {
                     exact: false,
                 },
                 FieldDef {
+                    name: "metric_name".into(),
+                    data_type: FieldType::Utf8,
+                    nullable: false,
+                    index_type: None,
+                    indexed: false,
+                    encrypted: false,
+                    exact: false,
+                },
+                FieldDef {
                     name: "method".into(),
                     data_type: FieldType::Utf8,
                     nullable: false,
@@ -168,7 +178,32 @@ fn metric_stream() -> StreamDefinition {
     }
 }
 
-/// 构造 RecordBatch：(ts, value, method, code)；100 个样本 / 60s。
+const METRIC: &str = "http_requests_total";
+
+/// The engine over `repo`, with a directory naming `metric_stream()` as the holder of
+/// `http_requests_total` at every time.
+async fn engine(repo: &Arc<InMemQueryFile>, store: &Arc<dyn ObjectStore>) -> PromQLEngine {
+    let directory = Arc::new(MemoryMetricDirectory::default());
+
+    directory
+        .record(
+            &metric_stream(),
+            &[MetricObservation {
+                metric_name: METRIC.into(),
+                metric_kind: None,
+                labels: vec!["code".into(), "method".into()],
+                first_seen: TimestampMicros(0),
+                last_seen: TimestampMicros(i64::MAX / 2),
+            }],
+        )
+        .await
+        .unwrap();
+
+    PromQLEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone())
+        .with_metric_directory(directory)
+}
+
+/// 构造 RecordBatch：(ts, value, metric_name, method, code)；100 个样本 / 60s。
 fn build_batch(start_us: i64, n: usize, method: &str, code: &str) -> RecordBatch {
     let schema = Arc::new(ArrowSchema::new(vec![
         Field::new(
@@ -177,6 +212,7 @@ fn build_batch(start_us: i64, n: usize, method: &str, code: &str) -> RecordBatch
             false,
         ),
         Field::new("value", DataType::Float64, false),
+        Field::new("metric_name", DataType::Utf8, false),
         Field::new("method", DataType::Utf8, false),
         Field::new("code", DataType::Utf8, false),
     ]));
@@ -196,6 +232,7 @@ fn build_batch(start_us: i64, n: usize, method: &str, code: &str) -> RecordBatch
         vec![
             Arc::new(ts),
             Arc::new(vals),
+            Arc::new(StringArray::from(vec![METRIC; n])),
             Arc::new(methods),
             Arc::new(codes),
         ],
@@ -220,7 +257,7 @@ async fn rate_and_sum_by_method() {
         repo.insert(meta).await.unwrap();
     }
 
-    let engine = PromQLEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone());
+    let engine = engine(&repo, &store).await;
 
     // 1) rate(http_requests_total[5m]) — 每秒变化率
     //    序列每个 60s 内 0..59，rate = (59 - 0)/60 ≈ 0.983
@@ -231,6 +268,7 @@ async fn rate_and_sum_by_method() {
         time_range: TimeRange::new(TimestampMicros(t0), TimestampMicros(t0 + 60_000_000)),
         stream: None,
         limit: None,
+        step: None,
         federation_clusters: Vec::new(),
     };
     let res = engine.execute(req).await.expect("rate query");
@@ -244,6 +282,7 @@ async fn rate_and_sum_by_method() {
         time_range: TimeRange::new(TimestampMicros(t0), TimestampMicros(t0 + 60_000_000)),
         stream: None,
         limit: None,
+        step: None,
         federation_clusters: Vec::new(),
     };
     let res = engine.execute(req).await.expect("sum by query");
@@ -257,6 +296,7 @@ async fn rate_and_sum_by_method() {
         time_range: TimeRange::new(TimestampMicros(t0), TimestampMicros(t0 + 60_000_000)),
         stream: None,
         limit: None,
+        step: None,
         federation_clusters: Vec::new(),
     };
     let res = engine.execute(req).await.expect("holt_winters query");
@@ -270,6 +310,7 @@ async fn rate_and_sum_by_method() {
         time_range: TimeRange::new(TimestampMicros(t0), TimestampMicros(t0 + 60_000_000)),
         stream: None,
         limit: None,
+        step: None,
         federation_clusters: Vec::new(),
     };
     let err = engine.execute(req).await.unwrap_err();
@@ -305,7 +346,7 @@ async fn perf_smoke_range_query_over_dense_samples() {
         repo.insert(meta).await.unwrap();
     }
 
-    let engine = PromQLEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone());
+    let engine = engine(&repo, &store).await;
     let req = QueryRequest {
         org_id: stream.org_id.clone(),
         language: QueryLanguage::Promql,
@@ -313,6 +354,7 @@ async fn perf_smoke_range_query_over_dense_samples() {
         time_range: TimeRange::new(TimestampMicros(t0), TimestampMicros(t0 + 1_200_000_000)),
         stream: None,
         limit: Some(1_000),
+        step: Some(1_200_000),
         federation_clusters: Vec::new(),
     };
     let started = std::time::Instant::now();
@@ -347,7 +389,7 @@ async fn rate_range_query_is_step_bounded() {
         repo.insert(meta).await.unwrap();
     }
 
-    let engine = PromQLEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone());
+    let engine = engine(&repo, &store).await;
     let req = QueryRequest {
         org_id: stream.org_id.clone(),
         language: QueryLanguage::Promql,
@@ -355,6 +397,7 @@ async fn rate_range_query_is_step_bounded() {
         time_range: TimeRange::new(TimestampMicros(t0), TimestampMicros(t0 + 60_000_000)),
         stream: None,
         limit: Some(100),
+        step: Some(600_000),
         federation_clusters: Vec::new(),
     };
     let res = engine.execute(req).await.expect("range query");
@@ -383,6 +426,7 @@ fn build_counter_batch(
             false,
         ),
         Field::new("value", DataType::Float64, false),
+        Field::new("metric_name", DataType::Utf8, false),
         Field::new("method", DataType::Utf8, false),
         Field::new("code", DataType::Utf8, false),
     ]));
@@ -404,6 +448,7 @@ fn build_counter_batch(
         vec![
             Arc::new(ts_arr),
             Arc::new(val_arr),
+            Arc::new(StringArray::from(vec![METRIC; n])),
             Arc::new(methods),
             Arc::new(codes),
         ],
@@ -450,7 +495,7 @@ async fn streaming_agg_cache_reuses_stable_buckets_across_refresh() {
     let repo: Arc<InMemQueryFile> = Arc::new(InMemQueryFile::default());
     let stream = metric_stream();
 
-    // step = span / limit = 60s；start 落在 step 网格上 → 无缓存（start 锚定）与
+    // step = 60s；start 落在 step 网格上 → 无缓存（start 锚定）与
     // 缓存（grid 归一）两路步点重合，可逐行比对。
     let step_us: i64 = 60_000_000;
     let span_us: i64 = 60 * step_us; // 1h
@@ -481,11 +526,12 @@ async fn streaming_agg_cache_reuses_stable_buckets_across_refresh() {
         time_range: TimeRange::new(TimestampMicros(start), TimestampMicros(end)),
         stream: None,
         limit: Some(60),
+        step: Some(step_us),
         federation_clusters: Vec::new(),
     };
 
     // 基准：无缓存引擎。
-    let nocache = PromQLEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone());
+    let nocache = engine(&repo, &store).await;
     let res_nocache = nocache.execute(mk_req()).await.expect("nocache query");
     assert!(!res_nocache.rows.is_empty());
 
@@ -493,12 +539,13 @@ async fn streaming_agg_cache_reuses_stable_buckets_across_refresh() {
 
     // 启用增量缓存的引擎（safe_lookback 300s；数据在 2023，水位仍由数据封顶）。
     let cache = Arc::new(StreamingAggCache::new(&StreamAggCacheSettings {
-        capacity: 64,
+        max_size: 64,
         ttl_secs: 300,
         safe_lookback_secs: 300,
         max_series_per_query: 0,
     }));
-    let cached = PromQLEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone())
+    let cached = engine(&repo, &store)
+        .await
         .with_streaming_cache(cache.clone(), Duration::from_secs(300));
 
     // 刷新 1（冷）：稳定桶全部重算 + 封存。
@@ -573,14 +620,16 @@ async fn streaming_agg_cache_slide_recomputes_only_new_bucket() {
         time_range: TimeRange::new(TimestampMicros(s), TimestampMicros(e)),
         stream: None,
         limit: Some(60),
+        step: Some(step_us),
         federation_clusters: Vec::new(),
     };
 
     let cache = Arc::new(StreamingAggCache::new(&StreamAggCacheSettings {
-        capacity: 64,
+        max_size: 64,
         ..Default::default()
     }));
-    let cached = PromQLEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone())
+    let cached = engine(&repo, &store)
+        .await
         .with_streaming_cache(cache.clone(), Duration::from_secs(300));
 
     // 刷新 1：窗口 [start, end]。
@@ -606,7 +655,7 @@ async fn streaming_agg_cache_slide_recomputes_only_new_bucket() {
     assert!(h2 > 0, "overlapping buckets served from cache (hits={h2})");
 
     // 与无缓存路径逐行一致（start+step 仍落在 step 网格上）。
-    let nocache = PromQLEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone());
+    let nocache = engine(&repo, &store).await;
     let res_nocache = nocache
         .execute(mk_req(start + step_us, end + step_us))
         .await
@@ -636,11 +685,13 @@ async fn non_queryable_metric_stream_is_rejected() {
         time_range: TimeRange::new(TimestampMicros(t0), TimestampMicros(t0 + 60_000_000)),
         stream: None,
         limit: None,
+        step: None,
         federation_clusters: Vec::new(),
     };
 
     // queryable = false → Forbidden「not queryable」（与「不存在」区分）。
-    let blocked = PromQLEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone())
+    let blocked = engine(&repo, &store)
+        .await
         .with_streams(Arc::new(FakeStreams { queryable: false }) as Arc<dyn StreamRepository>);
     let err = blocked
         .execute(mk_req())
@@ -652,11 +703,91 @@ async fn non_queryable_metric_stream_is_rejected() {
     }
 
     // queryable = true → 照常求值。
-    let allowed = PromQLEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone())
+    let allowed = engine(&repo, &store)
+        .await
         .with_streams(Arc::new(FakeStreams { queryable: true }) as Arc<dyn StreamRepository>);
     let res = allowed
         .execute(mk_req())
         .await
         .expect("queryable metric runs");
     assert_eq!(res.rows.len(), 1, "one GET series");
+}
+
+/// The files of a query are read several at a time, and label matchers keep their meaning across
+/// them: a label a file has no column for is empty, so `{code=""}` finds the series of a file
+/// written before the stream had `code`, and `{code="200"}` finds nothing in that file.
+#[tokio::test]
+async fn label_matchers_read_a_missing_label_as_empty() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store: Arc<dyn ObjectStore> =
+        Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
+    let writer = ParquetWriter::new(store.clone());
+    let repo: Arc<InMemQueryFile> = Arc::new(InMemQueryFile::default());
+    let stream = metric_stream();
+    let t0: i64 = 1_700_000_000_000_000;
+
+    for (method, code) in &[("GET", "200"), ("POST", "500")] {
+        let batch = build_batch(t0, 60, method, code);
+        let meta = write_parquet_fixture(&writer, &stream, batch).await;
+        repo.insert(meta).await.unwrap();
+    }
+
+    // The same stream before it had `code`.
+    let mut older = stream.clone();
+    older.schema.fields.retain(|field| field.name != "code");
+
+    let batch = build_batch(t0, 60, "PUT", "-");
+    let code = batch.schema().index_of("code").unwrap();
+    let mut batch = batch;
+    batch.remove_column(code);
+
+    let meta = write_parquet_fixture(&writer, &older, batch).await;
+    repo.insert(meta).await.unwrap();
+
+    let engine = engine(&repo, &store).await;
+
+    let methods = |selector: &'static str| {
+        let engine = &engine;
+        let org_id = stream.org_id.clone();
+
+        async move {
+            let req = QueryRequest {
+                org_id,
+                language: QueryLanguage::Promql,
+                statement: selector.into(),
+                time_range: TimeRange::new(TimestampMicros(t0), TimestampMicros(t0 + 60_000_000)),
+                stream: None,
+                limit: None,
+                step: None,
+                federation_clusters: Vec::new(),
+            };
+
+            let res = engine.execute(req).await.expect("instant query");
+            let method = res.columns.iter().position(|column| column == "method");
+
+            let mut methods = res
+                .rows
+                .iter()
+                .filter_map(|row| row.get(method?)?.as_str().map(str::to_owned))
+                .collect::<Vec<_>>();
+
+            methods.sort();
+            methods
+        }
+    };
+
+    assert_eq!(methods(r#"http_requests_total{code="200"}"#).await, ["GET"]);
+    assert_eq!(methods(r#"http_requests_total{code=""}"#).await, ["PUT"]);
+    assert_eq!(
+        methods(r#"http_requests_total{code!="200"}"#).await,
+        ["POST", "PUT"]
+    );
+    assert_eq!(
+        methods(r#"http_requests_total{method=~"P.*"}"#).await,
+        ["POST", "PUT"]
+    );
+    assert_eq!(
+        methods(r#"http_requests_total"#).await,
+        ["GET", "POST", "PUT"]
+    );
 }

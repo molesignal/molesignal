@@ -14,11 +14,11 @@ import {
 function message(overrides: Partial<ChatMessageRow>): ChatMessageRow {
   return {
     id: 'msg-1',
-    chat_id: 'chat-1',
-    org_id: 'default',
+    chatId: 'chat-1',
+    orgId: 'default',
     role: 'assistant',
     content: '',
-    created_at_micros: 1_000_000,
+    createdAt: 1_000_000,
     ...overrides,
   };
 }
@@ -28,7 +28,7 @@ describe('Mole Agent chat message render state', () => {
     const pending: PendingUserMessage = {
       chatId: 'chat-1',
       content: '帮我写一个查询',
-      sentAtMicros: 10_000_000,
+      sentAt: 10_000_000,
     };
 
     expect(
@@ -37,7 +37,7 @@ describe('Mole Agent chat message render state', () => {
           message({
             role: 'user',
             content: '帮我写一个查询',
-            created_at_micros: 10_200_000,
+            createdAt: 10_200_000,
           }),
         ],
         pending,
@@ -49,7 +49,7 @@ describe('Mole Agent chat message render state', () => {
     const pending: PendingUserMessage = {
       chatId: 'chat-1',
       content: '帮我写一个查询',
-      sentAtMicros: 10_000_000,
+      sentAt: 10_000_000,
     };
 
     expect(
@@ -58,13 +58,13 @@ describe('Mole Agent chat message render state', () => {
           message({
             role: 'user',
             content: '帮我写一个查询',
-            created_at_micros: 1_000_000,
+            createdAt: 1_000_000,
           }),
           message({
             id: 'msg-2',
             role: 'assistant',
             content: '上一轮回答',
-            created_at_micros: 2_000_000,
+            createdAt: 2_000_000,
           }),
         ],
         pending,
@@ -94,19 +94,19 @@ describe('Mole Agent chat message render state', () => {
       id: 'msg-1',
       role: 'user',
       content: '帮我写一个查询',
-      created_at_micros: 1_000_000,
+      createdAt: 1_000_000,
     });
     const duplicate = message({
       id: 'msg-2',
       role: 'user',
       content: ' 帮我写一个查询 ',
-      created_at_micros: 1_100_000,
+      createdAt: 1_100_000,
     });
     const answered = message({
       id: 'msg-3',
       role: 'assistant',
       content: '回答',
-      created_at_micros: 2_000_000,
+      createdAt: 2_000_000,
     });
 
     expect(visibleChatMessages([first, duplicate, answered])).toEqual([first, answered]);
@@ -117,19 +117,19 @@ describe('Mole Agent chat message render state', () => {
       id: 'user-1',
       role: 'user',
       content: '谁正在负责生产环境值班？',
-      created_at_micros: 1_000_000,
+      createdAt: 1_000_000,
     });
     const first = message({
       id: 'answer-1',
       role: 'assistant',
       content: '第一版回答',
-      created_at_micros: 2_000_000,
+      createdAt: 2_000_000,
     });
     const regenerated = message({
       id: 'answer-2',
       role: 'assistant',
       content: '第二版回答',
-      created_at_micros: 3_000_000,
+      createdAt: 3_000_000,
     });
 
     expect(conversationItems([user, first, regenerated])).toEqual([
@@ -160,25 +160,25 @@ describe('Mole Agent chat message render state', () => {
       id: 'user-1',
       role: 'user',
       content: '检查错误率',
-      created_at_micros: 1_000_000,
+      createdAt: 1_000_000,
     });
     const firstAnswer = message({
       id: 'answer-1',
       role: 'assistant',
       content: '第一次回答',
-      created_at_micros: 2_000_000,
+      createdAt: 2_000_000,
     });
     const secondUser = message({
       id: 'user-2',
       role: 'user',
       content: '检查错误率',
-      created_at_micros: 3_000_000,
+      createdAt: 3_000_000,
     });
     const secondAnswer = message({
       id: 'answer-2',
       role: 'assistant',
       content: '第二次回答',
-      created_at_micros: 4_000_000,
+      createdAt: 4_000_000,
     });
 
     expect(conversationItems([firstUser, firstAnswer, secondUser, secondAnswer])).toHaveLength(2);

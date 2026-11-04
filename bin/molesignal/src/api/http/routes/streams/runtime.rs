@@ -35,6 +35,7 @@ const HEALTHY_LAG_MICROS: i64 = 15 * 60 * 1_000_000;
 const INTERRUPTED_LAG_MICROS: i64 = 2 * 60 * 60 * 1_000_000;
 
 #[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct RuntimeParams {
     window_secs: Option<i64>,
     bucket_count: Option<usize>,
@@ -52,14 +53,16 @@ enum RuntimeStatus {
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct RuntimeBucket {
-    start_micros: i64,
-    end_micros: i64,
+    start_time: i64,
+    end_time: i64,
     rows: u64,
     stored_bytes: u64,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct StreamRuntime {
     id: String,
     name: String,
@@ -73,17 +76,20 @@ struct StreamRuntime {
     collected_bytes: Option<u64>,
     collected_bytes_complete: bool,
     index_bytes: u64,
-    first_received_at_micros: Option<i64>,
-    last_received_at_micros: Option<i64>,
+    /// 改了已有字段的索引以后，索引还按旧设置建的文件数：后台补建到它为 0。
+    stale_index_files: u64,
+    first_received_at: Option<i64>,
+    last_received_at: Option<i64>,
     stats_available: bool,
     buckets: Vec<RuntimeBucket>,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct StreamRuntimeResponse {
-    generated_at_micros: i64,
-    window_start_micros: i64,
-    window_end_micros: i64,
+    generated_at: i64,
+    window_start: i64,
+    window_end: i64,
     window_secs: i64,
     streams: Vec<StreamRuntime>,
 }
@@ -122,6 +128,7 @@ pub(super) async fn handle(
         .await?
         .into_iter()
         .filter(|definition| definition.stream_type != StreamType::EXTEND)
+        .filter(|definition| super::audit::shows(&ctx, &definition.name))
         .collect::<Vec<_>>();
 
     // Include backfilled events that predate the stream definition.
@@ -148,6 +155,17 @@ pub(super) async fn handle(
         }
     };
 
+    // 改过已有字段索引的数据流，与改的时刻。
+    let mut index_changes = std::collections::HashMap::new();
+
+    for definition in &definitions {
+        if let Ok(settings) = state.telemetry.streams.get_settings(&definition.id).await
+            && let Some(changed_at) = settings.index_changed_at
+        {
+            index_changes.insert(definition.id.clone(), changed_at);
+        }
+    }
+
     let mut streams: Vec<StreamRuntime> = match state
         .storage
         .catalog_query
@@ -158,13 +176,14 @@ pub(super) async fn handle(
             .into_iter()
             .zip(snapshots)
             .map(|(definition, snapshot)| {
-                let mut runtime = summarize_runtime(
-                    definition,
-                    &snapshot.files(),
-                    window,
-                    generated_at.0,
-                    bucket_count,
-                );
+                let files = snapshot.files();
+                let changed_at = index_changes.get(&definition.id).copied();
+
+                let mut runtime =
+                    summarize_runtime(definition, &files, window, generated_at.0, bucket_count);
+
+                runtime.stale_index_files =
+                    changed_at.map_or(0, |changed_at| stale_index_files(&files, changed_at));
 
                 if let Ok(primary_type) =
                     crate::domain::storage::primary_dataset_type(runtime.stream_type)
@@ -204,9 +223,9 @@ pub(super) async fn handle(
     });
 
     Ok(Json(StreamRuntimeResponse {
-        generated_at_micros: generated_at.0,
-        window_start_micros: window.start.0,
-        window_end_micros: window.end.0,
+        generated_at: generated_at.0,
+        window_start: window.start.0,
+        window_end: window.end.0,
         window_secs,
         streams,
     }))
@@ -275,8 +294,9 @@ fn summarize_runtime(
         collected_bytes: None,
         collected_bytes_complete: false,
         index_bytes: 0,
-        first_received_at_micros,
-        last_received_at_micros,
+        stale_index_files: 0,
+        first_received_at: first_received_at_micros,
+        last_received_at: last_received_at_micros,
         stats_available: true,
         buckets,
     }
@@ -299,11 +319,20 @@ fn unavailable_runtime(
         collected_bytes: None,
         collected_bytes_complete: false,
         index_bytes: 0,
-        first_received_at_micros: None,
-        last_received_at_micros: None,
+        stale_index_files: 0,
+        first_received_at: None,
+        last_received_at: None,
         stats_available: false,
         buckets: runtime_buckets(window, bucket_count),
     }
+}
+
+/// 索引还按 `changed_at` 之前的设置建的文件数；没记下建索引时刻的文件也算。
+fn stale_index_files(files: &[QueryFile], changed_at: i64) -> u64 {
+    files
+        .iter()
+        .filter(|file| file.indexed_at_micros.unwrap_or(i64::MIN) < changed_at)
+        .count() as u64
 }
 
 fn runtime_status(
@@ -391,8 +420,8 @@ fn runtime_buckets(window: TimeRange, bucket_count: usize) -> Vec<RuntimeBucket>
             };
 
             RuntimeBucket {
-                start_micros,
-                end_micros,
+                start_time: start_micros,
+                end_time: end_micros,
                 rows: 0,
                 stored_bytes: 0,
             }
@@ -460,7 +489,23 @@ mod tests {
             size_bytes: bytes,
             min_values: Map::new(),
             max_values: Map::new(),
+            value_sets: Map::new(),
+            address_ranges: Map::new(),
+            null_counts: Map::new(),
+            indexed_at_micros: None,
+            shard: None,
         }
+    }
+
+    /// 改了已有字段的索引以后，建索引早于改动的文件（没记下时刻的也算）等着后台补建。
+    #[test]
+    fn files_indexed_before_the_change_are_counted_as_stale() {
+        let mut files = vec![file(0, 1, 1, 1), file(1, 2, 1, 1), file(2, 3, 1, 1)];
+        files[0].indexed_at_micros = Some(10);
+        files[1].indexed_at_micros = Some(30);
+
+        assert_eq!(stale_index_files(&files, 20), 2);
+        assert_eq!(stale_index_files(&files, 5), 1);
     }
 
     #[test]
@@ -474,8 +519,8 @@ mod tests {
         assert_eq!(summary.current_stored_bytes, 300);
         assert_eq!(summary.total_rows, 30);
         assert_eq!(summary.collected_bytes, None);
-        assert_eq!(summary.first_received_at_micros, Some(0));
-        assert_eq!(summary.last_received_at_micros, Some(250));
+        assert_eq!(summary.first_received_at, Some(0));
+        assert_eq!(summary.last_received_at, Some(250));
         assert_eq!(
             summary
                 .buckets

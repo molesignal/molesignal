@@ -6,27 +6,20 @@ use sqlx::{Postgres, QueryBuilder, Row, types::Json};
 
 use super::{
     PgApmRepository,
-    codec::{as_i16, as_i64, dimension_key, gap_id, minute_table},
+    codec::{as_i16, as_i64, dimension_key, gap_id, kind_name},
 };
 use crate::{
     domain::apm::{
-        ApmWriteRepository, BucketKind, ErrorGroupRecord, ErrorSample, OwnerSnapshot,
+        ApmWriteRepository, ErrorGroupRecord, ErrorSample, InstanceObservation, OwnerSnapshot,
         ProjectionGap, ProjectionState, ServiceObservation, SnapshotWriteStats, VersionObservation,
     },
     infra::persistence::sqlx_err,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
-const SNAPSHOT_BIND_COUNT: usize = 14;
+const SNAPSHOT_BIND_COUNT: usize = 15;
 const POSTGRES_BIND_LIMIT: usize = 65_535;
 const SNAPSHOT_BATCH_SIZE: usize = POSTGRES_BIND_LIMIT / SNAPSHOT_BIND_COUNT;
-
-const BUCKET_KINDS: [BucketKind; 4] = [
-    BucketKind::Service,
-    BucketKind::Transaction,
-    BucketKind::Dependency,
-    BucketKind::Error,
-];
 
 struct PreparedSnapshot<'a> {
     snapshot: &'a OwnerSnapshot,
@@ -58,16 +51,16 @@ impl ApmWriteRepository for PgApmRepository {
             sqlx::query(
                 "INSERT INTO apm_services (
                     org_id, service_namespace, service_name, environment,
-                    first_seen_at_micros, last_seen_at_micros, runtime_language,
-                    telemetry_sdk_name, telemetry_sdk_version, recent_instance_count
-                 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+                    first_seen_at, last_seen_at, runtime_language,
+                    telemetry_sdk_name, telemetry_sdk_version, recent_instance_count, entry_kinds
+                 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
                  ON CONFLICT (org_id, service_namespace, service_name, environment)
                  DO UPDATE SET
-                    first_seen_at_micros = LEAST(
-                        apm_services.first_seen_at_micros, EXCLUDED.first_seen_at_micros
+                    first_seen_at = LEAST(
+                        apm_services.first_seen_at, EXCLUDED.first_seen_at
                     ),
-                    last_seen_at_micros = GREATEST(
-                        apm_services.last_seen_at_micros, EXCLUDED.last_seen_at_micros
+                    last_seen_at = GREATEST(
+                        apm_services.last_seen_at, EXCLUDED.last_seen_at
                     ),
                     runtime_language = COALESCE(
                         EXCLUDED.runtime_language, apm_services.runtime_language
@@ -78,20 +71,32 @@ impl ApmWriteRepository for PgApmRepository {
                     telemetry_sdk_version = COALESCE(
                         EXCLUDED.telemetry_sdk_version, apm_services.telemetry_sdk_version
                     ),
-                    recent_instance_count = EXCLUDED.recent_instance_count",
+                    recent_instance_count = EXCLUDED.recent_instance_count,
+                    entry_kinds = ARRAY(
+                        SELECT DISTINCT kind
+                        FROM unnest(apm_services.entry_kinds || EXCLUDED.entry_kinds) AS kind
+                        ORDER BY kind
+                    )",
             )
             .bind(service.org_id.as_str())
             .bind(&service.service.namespace)
             .bind(&service.service.name)
             .bind(&service.service.environment)
-            .bind(service.first_seen_at.0)
-            .bind(service.last_seen_at.0)
+            .bind(service.first_seen_at)
+            .bind(service.last_seen_at)
             .bind(service.runtime_language.as_deref())
             .bind(service.telemetry_sdk_name.as_deref())
             .bind(service.telemetry_sdk_version.as_deref())
             .bind(i32::try_from(service.recent_instance_count).map_err(|_| {
                 Error::resource_exhausted("APM recent instance count exceeds INTEGER")
             })?)
+            .bind(
+                service
+                    .entry_kinds
+                    .iter()
+                    .map(|kind| kind.as_str())
+                    .collect::<Vec<_>>(),
+            )
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
@@ -101,18 +106,18 @@ impl ApmWriteRepository for PgApmRepository {
             sqlx::query(
                 "INSERT INTO apm_service_versions (
                     org_id, service_namespace, service_name, environment, version,
-                    first_seen_at_micros, last_seen_at_micros, observation_count
+                    first_seen_at, last_seen_at, observation_count
                  ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
                  ON CONFLICT (
                     org_id, service_namespace, service_name, environment, version
                  ) DO UPDATE SET
-                    first_seen_at_micros = LEAST(
-                        apm_service_versions.first_seen_at_micros,
-                        EXCLUDED.first_seen_at_micros
+                    first_seen_at = LEAST(
+                        apm_service_versions.first_seen_at,
+                        EXCLUDED.first_seen_at
                     ),
-                    last_seen_at_micros = GREATEST(
-                        apm_service_versions.last_seen_at_micros,
-                        EXCLUDED.last_seen_at_micros
+                    last_seen_at = GREATEST(
+                        apm_service_versions.last_seen_at,
+                        EXCLUDED.last_seen_at
                     ),
                     observation_count = GREATEST(
                         apm_service_versions.observation_count,
@@ -124,8 +129,8 @@ impl ApmWriteRepository for PgApmRepository {
             .bind(&version.service.name)
             .bind(&version.service.environment)
             .bind(&version.version)
-            .bind(version.first_seen_at.0)
-            .bind(version.last_seen_at.0)
+            .bind(version.first_seen_at)
+            .bind(version.last_seen_at)
             .bind(as_i64(
                 version.observation_count,
                 "version observation count",
@@ -178,47 +183,40 @@ impl ApmWriteRepository for PgApmRepository {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        for kind in BUCKET_KINDS {
-            let table = minute_table(kind);
-
-            let rows = prepared
-                .iter()
-                .filter(|row| row.snapshot.dimension.kind() == kind)
-                .collect::<Vec<_>>();
-
-            for chunk in rows.chunks(SNAPSHOT_BATCH_SIZE) {
-                let mut query = QueryBuilder::<Postgres>::new(format!(
-                    "INSERT INTO {table} (
-                    org_id, service_namespace, service_name, environment, version,
-                    bucket_at_micros, owner_id, snapshot_seq,
+        for chunk in prepared.chunks(SNAPSHOT_BATCH_SIZE) {
+            let mut query = QueryBuilder::<Postgres>::new(
+                "INSERT INTO apm_buckets (
+                    org_id, bucket_kind, service_namespace, service_name, environment,
+                    version, bucket_at, owner_id, snapshot_seq,
                     persistence_schema_version, histogram_schema_version,
-                    dimension_key, dimension, measurements, updated_at_micros
-                 ) "
-                ));
+                    dimension_key, dimension, measurements, updated_at
+                 ) ",
+            );
 
-                query.push_values(chunk, |mut row, prepared| {
-                    let snapshot = prepared.snapshot;
-                    let service = snapshot.dimension.service();
+            query.push_values(chunk, |mut row, prepared| {
+                let snapshot = prepared.snapshot;
+                let service = snapshot.dimension.service();
 
-                    row.push_bind(snapshot.org_id.as_str())
-                        .push_bind(&service.namespace)
-                        .push_bind(&service.name)
-                        .push_bind(&service.environment)
-                        .push_bind(snapshot.dimension.version().unwrap_or_default())
-                        .push_bind(snapshot.bucket_at.0)
-                        .push_bind(&snapshot.owner_id)
-                        .push_bind(prepared.snapshot_seq)
-                        .push_bind(prepared.persistence_schema_version)
-                        .push_bind(prepared.histogram_schema_version)
-                        .push_bind(&prepared.dimension_key)
-                        .push_bind(Json(&snapshot.dimension))
-                        .push_bind(Json(&snapshot.measurements))
-                        .push_bind(snapshot.updated_at.0);
-                });
+                row.push_bind(snapshot.org_id.as_str())
+                    .push_bind(kind_name(snapshot.dimension.kind()))
+                    .push_bind(&service.namespace)
+                    .push_bind(&service.name)
+                    .push_bind(&service.environment)
+                    .push_bind(snapshot.dimension.version().unwrap_or_default())
+                    .push_bind(snapshot.bucket_at)
+                    .push_bind(&snapshot.owner_id)
+                    .push_bind(prepared.snapshot_seq)
+                    .push_bind(prepared.persistence_schema_version)
+                    .push_bind(prepared.histogram_schema_version)
+                    .push_bind(&prepared.dimension_key)
+                    .push_bind(Json(&snapshot.dimension))
+                    .push_bind(Json(&snapshot.measurements))
+                    .push_bind(snapshot.updated_at);
+            });
 
-                query.push(format!(
-                    " ON CONFLICT (
-                    org_id, bucket_at_micros, dimension_key, owner_id,
+            query.push(
+                " ON CONFLICT (
+                    org_id, bucket_kind, bucket_at, dimension_key, owner_id,
                     histogram_schema_version
                  ) DO UPDATE SET
                     service_namespace = EXCLUDED.service_namespace,
@@ -229,13 +227,12 @@ impl ApmWriteRepository for PgApmRepository {
                     persistence_schema_version = EXCLUDED.persistence_schema_version,
                     dimension = EXCLUDED.dimension,
                     measurements = EXCLUDED.measurements,
-                    updated_at_micros = EXCLUDED.updated_at_micros
-                 WHERE {table}.snapshot_seq < EXCLUDED.snapshot_seq"
-                ));
+                    updated_at = EXCLUDED.updated_at
+                 WHERE apm_buckets.snapshot_seq < EXCLUDED.snapshot_seq",
+            );
 
-                let result = query.build().execute(&mut *tx).await.map_err(sqlx_err)?;
-                stats.applied = stats.applied.saturating_add(result.rows_affected());
-            }
+            let result = query.build().execute(&mut *tx).await.map_err(sqlx_err)?;
+            stats.applied = stats.applied.saturating_add(result.rows_affected());
         }
 
         stats.stale = stats.attempted.saturating_sub(stats.applied);
@@ -266,17 +263,17 @@ impl ApmWriteRepository for PgApmRepository {
             sqlx::query(
                 "INSERT INTO apm_error_groups (
                     org_id, fingerprint, service_namespace, service_name, environment,
-                    error_identity, first_seen_at_micros, last_seen_at_micros,
+                    error_identity, first_seen_at, last_seen_at,
                     occurrence_count, representative_message, representative_stack
                  ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
                  ON CONFLICT (org_id, fingerprint) DO UPDATE SET
-                    first_seen_at_micros = LEAST(
-                        apm_error_groups.first_seen_at_micros,
-                        EXCLUDED.first_seen_at_micros
+                    first_seen_at = LEAST(
+                        apm_error_groups.first_seen_at,
+                        EXCLUDED.first_seen_at
                     ),
-                    last_seen_at_micros = GREATEST(
-                        apm_error_groups.last_seen_at_micros,
-                        EXCLUDED.last_seen_at_micros
+                    last_seen_at = GREATEST(
+                        apm_error_groups.last_seen_at,
+                        EXCLUDED.last_seen_at
                     ),
                     occurrence_count = GREATEST(
                         apm_error_groups.occurrence_count, EXCLUDED.occurrence_count
@@ -297,8 +294,8 @@ impl ApmWriteRepository for PgApmRepository {
             .bind(&group.service.name)
             .bind(&group.service.environment)
             .bind(Json(&group.error))
-            .bind(group.first_seen_at.0)
-            .bind(group.last_seen_at.0)
+            .bind(group.first_seen_at)
+            .bind(group.last_seen_at)
             .bind(as_i64(group.occurrence_count, "error occurrence count")?)
             .bind(group.representative_message.as_deref())
             .bind(Json(&group.representative_stack))
@@ -312,22 +309,22 @@ impl ApmWriteRepository for PgApmRepository {
 
             sqlx::query(
                 "INSERT INTO apm_error_samples (
-                    org_id, fingerprint, sample_slot, event_time_micros, trace_id,
+                    org_id, fingerprint, sample_slot, event_time, trace_id,
                     span_id, trace_available, representative_message, representative_stack
                  ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
                  ON CONFLICT (org_id, fingerprint, sample_slot) DO UPDATE SET
-                    event_time_micros = EXCLUDED.event_time_micros,
+                    event_time = EXCLUDED.event_time,
                     trace_id = EXCLUDED.trace_id,
                     span_id = EXCLUDED.span_id,
                     trace_available = EXCLUDED.trace_available,
                     representative_message = EXCLUDED.representative_message,
                     representative_stack = EXCLUDED.representative_stack
-                 WHERE apm_error_samples.event_time_micros <= EXCLUDED.event_time_micros",
+                 WHERE apm_error_samples.event_time <= EXCLUDED.event_time",
             )
             .bind(sample.org_id.as_str())
             .bind(&sample.error.fingerprint)
             .bind(slot)
-            .bind(sample.event_time.0)
+            .bind(sample.event_time)
             .bind(&sample.trace_id)
             .bind(&sample.span_id)
             .bind(sample.trace_available)
@@ -340,6 +337,10 @@ impl ApmWriteRepository for PgApmRepository {
 
         tx.commit().await.map_err(sqlx_err)?;
         Ok(())
+    }
+
+    async fn upsert_instances(&self, instances: &[InstanceObservation]) -> Result<()> {
+        super::instance::upsert(&self.pool, instances).await
     }
 
     async fn record_projection_gaps(&self, gaps: &[ProjectionGap]) -> Result<()> {
@@ -362,25 +363,25 @@ impl ApmWriteRepository for PgApmRepository {
 
             sqlx::query(
                 "INSERT INTO apm_projection_gaps (
-                    id, org_id, range_start_micros, range_end_micros, reason,
-                    dropped_facts, recorded_at_micros
+                    id, org_id, range_start, range_end, reason,
+                    dropped_facts, recorded_at
                  ) VALUES ($1,$2,$3,$4,$5,$6,$7)
                  ON CONFLICT (org_id, id) DO UPDATE SET
                     dropped_facts = GREATEST(
                         apm_projection_gaps.dropped_facts, EXCLUDED.dropped_facts
                     ),
-                    recorded_at_micros = GREATEST(
-                        apm_projection_gaps.recorded_at_micros,
-                        EXCLUDED.recorded_at_micros
+                    recorded_at = GREATEST(
+                        apm_projection_gaps.recorded_at,
+                        EXCLUDED.recorded_at
                     )",
             )
             .bind(id)
             .bind(gap.org_id.as_str())
-            .bind(gap.range.start.0)
-            .bind(gap.range.end.0)
+            .bind(gap.range.start)
+            .bind(gap.range.end)
             .bind(gap.reason.as_str())
             .bind(as_i64(gap.dropped_facts, "dropped fact count")?)
-            .bind(gap.recorded_at.0)
+            .bind(gap.recorded_at)
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
@@ -397,37 +398,34 @@ impl ApmWriteRepository for PgApmRepository {
     ) -> Result<ProjectionState> {
         let row = sqlx::query(
             "INSERT INTO apm_projection_state (
-                org_id, projection_started_at_micros
+                org_id, projection_started_at
              ) VALUES ($1,$2)
              ON CONFLICT (org_id) DO UPDATE SET
-                projection_started_at_micros = LEAST(
-                    apm_projection_state.projection_started_at_micros,
-                    EXCLUDED.projection_started_at_micros
+                projection_started_at = LEAST(
+                    apm_projection_state.projection_started_at,
+                    EXCLUDED.projection_started_at
                 )
-             RETURNING projection_started_at_micros,
-                       last_complete_bucket_at_micros,
-                       last_rollup_bucket_at_micros",
+             RETURNING projection_started_at,
+                       last_complete_bucket_at,
+                       last_rollup_bucket_at",
         )
         .bind(org_id.as_str())
-        .bind(started_at.0)
+        .bind(started_at)
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
 
         Ok(ProjectionState {
             org_id: org_id.clone(),
-            projection_started_at: TimestampMicros(
-                row.try_get("projection_started_at_micros")
-                    .map_err(sqlx_err)?,
-            ),
+            projection_started_at: row
+                .try_get::<TimestampMicros, _>("projection_started_at")
+                .map_err(sqlx_err)?,
             last_complete_bucket_at: row
-                .try_get::<Option<i64>, _>("last_complete_bucket_at_micros")
-                .map_err(sqlx_err)?
-                .map(TimestampMicros),
+                .try_get::<Option<TimestampMicros>, _>("last_complete_bucket_at")
+                .map_err(sqlx_err)?,
             last_rollup_bucket_at: row
-                .try_get::<Option<i64>, _>("last_rollup_bucket_at_micros")
-                .map_err(sqlx_err)?
-                .map(TimestampMicros),
+                .try_get::<Option<TimestampMicros>, _>("last_rollup_bucket_at")
+                .map_err(sqlx_err)?,
         })
     }
 
@@ -438,13 +436,13 @@ impl ApmWriteRepository for PgApmRepository {
     ) -> Result<()> {
         sqlx::query(
             "UPDATE apm_projection_state
-             SET last_complete_bucket_at_micros = GREATEST(
-                 COALESCE(last_complete_bucket_at_micros, $2), $2
+             SET last_complete_bucket_at = GREATEST(
+                 COALESCE(last_complete_bucket_at, $2), $2
              )
              WHERE org_id = $1",
         )
         .bind(org_id.as_str())
-        .bind(bucket_at.0)
+        .bind(bucket_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;

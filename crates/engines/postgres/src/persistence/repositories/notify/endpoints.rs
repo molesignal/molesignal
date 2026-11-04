@@ -22,7 +22,7 @@ impl PgUserNotifyEndpointRepository {
 
 const COLS: &str = "id, organization_id, user_id, connector_id, provider_type,
     external_identity, display_name, metadata, verified, enabled,
-    created_at_micros, updated_at_micros";
+    created_at, updated_at";
 
 fn row_to_endpoint(row: sqlx::postgres::PgRow) -> Result<UserNotifyEndpoint> {
     let metadata: Json<serde_json::Value> = row.try_get("metadata").map_err(sqlx_err)?;
@@ -41,8 +41,12 @@ fn row_to_endpoint(row: sqlx::postgres::PgRow) -> Result<UserNotifyEndpoint> {
         metadata: metadata.0,
         verified: row.try_get("verified").map_err(sqlx_err)?,
         enabled: row.try_get("enabled").map_err(sqlx_err)?,
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -53,7 +57,7 @@ impl UserNotifyEndpointRepository for PgUserNotifyEndpointRepository {
             "INSERT INTO user_notify_endpoints (
                  id, organization_id, user_id, connector_id, provider_type,
                  external_identity, display_name, metadata, verified, enabled,
-                 created_at_micros, updated_at_micros
+                 created_at, updated_at
              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
         )
         .bind(&endpoint.id.0)
@@ -66,8 +70,8 @@ impl UserNotifyEndpointRepository for PgUserNotifyEndpointRepository {
         .bind(Json(&endpoint.metadata))
         .bind(endpoint.verified)
         .bind(endpoint.enabled)
-        .bind(endpoint.created_at.0)
-        .bind(endpoint.updated_at.0)
+        .bind(endpoint.created_at)
+        .bind(endpoint.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -85,7 +89,7 @@ impl UserNotifyEndpointRepository for PgUserNotifyEndpointRepository {
                     metadata = $8,
                     verified = $9,
                     enabled = $10,
-                    updated_at_micros = $11
+                    updated_at = $11
               WHERE organization_id = $1 AND user_id = $2 AND id = $3",
         )
         .bind(&endpoint.organization_id.0)
@@ -98,7 +102,7 @@ impl UserNotifyEndpointRepository for PgUserNotifyEndpointRepository {
         .bind(Json(&endpoint.metadata))
         .bind(endpoint.verified)
         .bind(endpoint.enabled)
-        .bind(endpoint.updated_at.0)
+        .bind(endpoint.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -173,21 +177,55 @@ impl UserNotifyEndpointRepository for PgUserNotifyEndpointRepository {
     }
 
     async fn delete(&self, organization_id: &Id, user_id: &Id, id: &Id) -> Result<()> {
-        let deleted = sqlx::query(
-            "DELETE FROM user_notify_endpoints
-              WHERE organization_id = $1 AND user_id = $2 AND id = $3",
+        let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
+        // 先锁住这一行：正在保存的接收顺序用到它时，等那次保存完再检查引用。
+        let locked = sqlx::query(
+            "SELECT id FROM user_notify_endpoints
+              WHERE organization_id = $1 AND user_id = $2 AND id = $3
+                FOR UPDATE",
         )
         .bind(&organization_id.0)
         .bind(&user_id.0)
         .bind(&id.0)
-        .execute(&self.pool)
+        .fetch_optional(&mut *tx)
         .await
         .map_err(sqlx_err)?;
 
-        if deleted.rows_affected() == 0 {
+        if locked.is_none() {
             return Err(Error::not_found("user notify endpoint"));
         }
 
+        let referenced: bool = sqlx::query_scalar(
+            "SELECT EXISTS (
+                 SELECT 1
+                   FROM user_notify_preferences preference,
+                        jsonb_array_elements(preference.steps) AS step
+                  WHERE preference.organization_id = $1
+                    AND preference.user_id = $2
+                    AND step->>'endpoint_id' = $3
+             )",
+        )
+        .bind(&organization_id.0)
+        .bind(&user_id.0)
+        .bind(&id.0)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(sqlx_err)?;
+
+        if referenced {
+            return Err(Error::conflict(
+                "user notify endpoint is referenced by a notify preference",
+            ));
+        }
+
+        sqlx::query("DELETE FROM user_notify_endpoints WHERE id = $1")
+            .bind(&id.0)
+            .execute(&mut *tx)
+            .await
+            .map_err(sqlx_err)?;
+
+        tx.commit().await.map_err(sqlx_err)?;
         Ok(())
     }
 }

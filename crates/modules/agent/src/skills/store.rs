@@ -45,6 +45,7 @@ impl SkillSource {
 
 /// 数据库里的一个 Skill（上传或仓库来源）。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StoredSkill {
     pub id: Id,
     pub org_id: Id,
@@ -105,6 +106,7 @@ impl RepositoryStatus {
 
 /// 一个 Skill 仓库。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SkillRepository {
     pub id: Id,
     pub org_id: Id,

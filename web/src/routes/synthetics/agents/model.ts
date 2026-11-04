@@ -54,7 +54,7 @@ export function joinAgentLocations(
   locations: ProbeLocation[],
 ): AgentRow[] {
   const locationsById = new Map(locations.map((location) => [location.id, location]));
-  return agents.map((agent) => ({ agent, location: locationsById.get(agent.location_id) }));
+  return agents.map((agent) => ({ agent, location: locationsById.get(agent.locationId) }));
 }
 
 export function filterAgentRows(rows: AgentRow[], filters: AgentFilters): AgentRow[] {
@@ -63,7 +63,7 @@ export function filterAgentRows(rows: AgentRow[], filters: AgentFilters): AgentR
     const text = [
       agent.name,
       agent.hostname,
-      agent.agent_version,
+      agent.agentVersion,
       location?.name,
       location?.code,
       ...agent.capabilities,
@@ -75,7 +75,7 @@ export function filterAgentRows(rows: AgentRow[], filters: AgentFilters): AgentR
     return (
       (!query || text.includes(query)) &&
       (filters.status === 'all' || agent.status === filters.status) &&
-      (filters.locationId === 'all' || agent.location_id === filters.locationId)
+      (filters.locationId === 'all' || agent.locationId === filters.locationId)
     );
   });
 }
@@ -88,8 +88,8 @@ export function summarizeAgents(agents: ProbeAgent[]): AgentSummary {
     online: active.filter((agent) => agent.status === 'online').length,
     attention: active.filter((agent) => agent.status !== 'online').length,
     revoked: agents.length - active.length,
-    capacity: sumCapacity(active, 'available', 'max_concurrent'),
-    browserCapacity: sumCapacity(active, 'available_browser', 'max_browser_concurrent'),
+    capacity: sumCapacity(active, 'available', 'maxConcurrent'),
+    browserCapacity: sumCapacity(active, 'availableBrowser', 'maxBrowserConcurrent'),
   };
 }
 
@@ -128,8 +128,8 @@ export function validateAgentConfiguration(
 
 function sumCapacity(
   agents: ProbeAgent[],
-  availableKey: 'available' | 'available_browser',
-  maximumKey: 'max_concurrent' | 'max_browser_concurrent',
+  availableKey: 'available' | 'availableBrowser',
+  maximumKey: 'maxConcurrent' | 'maxBrowserConcurrent',
 ): { available: number; maximum: number } {
   return agents.reduce(
     (total, agent) => ({

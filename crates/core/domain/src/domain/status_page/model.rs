@@ -3,7 +3,9 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{ComponentKind, ComponentServiceLink, StatusPagePostmortem};
+use super::{
+    ComponentDependency, ComponentKind, DependencyHealth, DependencyMode, StatusPagePostmortem,
+};
 use crate::shared::{ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -296,6 +298,7 @@ impl StatusPagePublicationState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusPage {
     pub id: Id,
     pub org_id: Id,
@@ -322,6 +325,7 @@ pub struct StatusPage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusPageComponent {
     pub id: Id,
     pub org_id: Id,
@@ -335,9 +339,18 @@ pub struct StatusPageComponent {
     pub archived_at: Option<TimestampMicros>,
     pub created_at: TimestampMicros,
     pub updated_at: TimestampMicros,
-    /// The business service the component stands for.
+    /// What the component depends on; empty when its status is set by hand.
     #[serde(default)]
-    pub business_service: Option<ComponentServiceLink>,
+    pub dependencies: Vec<ComponentDependency>,
+    /// How the health of the dependencies reaches the component.
+    #[serde(default)]
+    pub dependency_mode: DependencyMode,
+    /// Whether a status the component follows tells subscribers.
+    #[serde(default = "notify_by_default")]
+    pub dependency_notify: bool,
+    /// The health last worked out from the dependencies.
+    #[serde(default)]
+    pub dependency_health: Option<DependencyHealth>,
     /// A component, or a group of components with no status of its own.
     #[serde(default)]
     pub kind: ComponentKind,
@@ -347,6 +360,7 @@ pub struct StatusPageComponent {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusPageComponentStatusEvent {
     pub id: Id,
     pub org_id: Id,
@@ -362,6 +376,7 @@ pub struct StatusPageComponentStatusEvent {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusPageIncidentUpdate {
     pub id: Id,
     pub org_id: Id,
@@ -380,6 +395,7 @@ pub struct StatusPageIncidentUpdate {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusPageIncident {
     pub id: Id,
     pub org_id: Id,
@@ -434,6 +450,7 @@ fn notify_by_default() -> bool {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusPageSnapshot {
     pub page: StatusPage,
     pub overall_status: ComponentStatus,
@@ -617,7 +634,10 @@ mod tests {
                 archived_at: None,
                 created_at: TimestampMicros(1),
                 updated_at: TimestampMicros(1),
-                business_service: None,
+                dependencies: Vec::new(),
+                dependency_mode: Default::default(),
+                dependency_notify: true,
+                dependency_health: None,
                 kind: ComponentKind::Component,
                 group_id: None,
             }],

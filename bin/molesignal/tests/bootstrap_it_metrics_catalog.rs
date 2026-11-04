@@ -27,5 +27,5 @@ async fn metric_catalog_is_mounted_under_api_v1() {
         "metric catalog must be mounted under /api/v1"
     );
     let body: serde_json::Value = response.json().await.expect("decode metric catalog");
-    assert!(body["metrics"].is_array(), "catalog response: {body}");
+    assert!(body["items"].is_array(), "catalog response: {body}");
 }

@@ -42,7 +42,7 @@ test.describe('account settings menu and preference fields', () => {
     await expect(page.getByRole('button', { name: 'Collapse menu' })).toBeVisible();
   });
 
-  test('keeps every preference field filled, one step darker, when pointed at or opened', async ({
+  test('keeps every preference field on its fill, its ring darker, when pointed at or opened', async ({
     page,
   }) => {
     await page.goto('/account/settings/preferences');
@@ -60,10 +60,12 @@ test.describe('account settings menu and preference fields', () => {
       }, colour);
     const fillOf = (selector: string) =>
       page.locator(selector).first().evaluate((element) => getComputedStyle(element).backgroundColor);
+    // A field's edge is a ring of shadow; the pointer and the focus darken it, the fill stays.
+    const ringOf = (selector: string) =>
+      page.locator(selector).first().evaluate((element) => getComputedStyle(element).boxShadow);
     const canvasFill = await painted(
       await page.locator('main#main').evaluate((element) => getComputedStyle(element).backgroundColor),
     );
-    const sum = (rgb: number[]) => rgb[0]! + rgb[1]! + rgb[2]!;
 
     for (const selector of [
       '[role="combobox"][aria-label="Default timezone"]',
@@ -73,22 +75,20 @@ test.describe('account settings menu and preference fields', () => {
       const field = page.locator(selector).first();
       await field.scrollIntoViewIfNeeded();
       const rest = await painted(await fillOf(selector));
+      const restRing = await ringOf(selector);
+      // Never the page canvas: the field would vanish into it.
+      expect(rest.join(), `${selector} at rest`).not.toBe(canvasFill.join());
+      expect(restRing, `${selector} at rest`).toContain('0px 0px 0px 1px');
 
       await field.hover();
-      // The fill eases from one palette step to the next; wait for it to settle.
-      await expect
-        .poll(async () => (await painted(await fillOf(selector))).join())
-        .not.toBe(rest.join());
-      const hovered = await painted(await fillOf(selector));
-      // Never the page canvas (the field would vanish), and darker than at rest.
-      expect(hovered.join(), `${selector} hovered`).not.toBe(canvasFill.join());
-      expect(sum(hovered), `${selector} hovered`).toBeLessThan(sum(rest));
+      // The ring eases to its darker step; the fill stays where it was.
+      await expect.poll(() => ringOf(selector)).not.toBe(restRing);
+      expect((await painted(await fillOf(selector))).join(), `${selector} hovered`).toBe(rest.join());
 
       await field.click();
       await expect(field).toHaveAttribute('aria-expanded', 'true');
-      await expect
-        .poll(async () => (await painted(await fillOf(selector))).join())
-        .not.toBe(canvasFill.join());
+      await expect.poll(() => ringOf(selector)).not.toBe(restRing);
+      expect((await painted(await fillOf(selector))).join(), `${selector} open`).not.toBe(canvasFill.join());
       await page.keyboard.press('Escape');
       await page.mouse.move(2, 2);
     }

@@ -6,7 +6,7 @@ use sqlx::{PgPool, Row};
 use super::{maintenance, sqlx_err};
 use crate::{
     domain::storage::{GcQueueEntry, GcReason, ObjectChecksum, ObjectKey, OrganizationScope},
-    shared::Result,
+    shared::{Result, time::TimestampMicros},
 };
 
 pub(super) async fn claim_entries(
@@ -20,17 +20,17 @@ pub(super) async fn claim_entries(
         "WITH candidates AS ( \
            SELECT object_key FROM object_gc_queue \
            WHERE org_id = $1 AND ( \
-             (state = 'pending' AND not_before_micros <= $2) OR \
-             (state = 'processing' AND updated_at_micros <= $3)) \
-           ORDER BY not_before_micros, object_key FOR UPDATE SKIP LOCKED LIMIT $4) \
-         UPDATE object_gc_queue q SET state = 'processing', updated_at_micros = $2 \
+             (state = 'pending' AND not_before <= $2) OR \
+             (state = 'processing' AND updated_at <= $3)) \
+           ORDER BY not_before, object_key FOR UPDATE SKIP LOCKED LIMIT $4) \
+         UPDATE object_gc_queue q SET state = 'processing', updated_at = $2 \
          FROM candidates c WHERE q.org_id = $1 AND q.object_key = c.object_key \
-         RETURNING q.object_key, q.checksum, q.reason, q.not_before_micros, \
+         RETURNING q.object_key, q.checksum, q.reason, q.not_before, \
                    q.attempt_count, q.last_error",
     )
     .bind(scope.organization_id.as_str())
-    .bind(now_micros)
-    .bind(lease_expired_before_micros)
+    .bind(TimestampMicros(now_micros))
+    .bind(TimestampMicros(lease_expired_before_micros))
     .bind(i64::from(limit.max(1)))
     .fetch_all(pool)
     .await
@@ -48,7 +48,10 @@ pub(super) async fn claim_entries(
                     .map_err(sqlx_err)?
                     .map(ObjectChecksum::from_string),
                 reason: parse_reason(&row.try_get::<String, _>("reason").map_err(sqlx_err)?)?,
-                not_before_micros: row.try_get("not_before_micros").map_err(sqlx_err)?,
+                not_before_micros: row
+                    .try_get::<TimestampMicros, _>("not_before")
+                    .map_err(sqlx_err)?
+                    .0,
                 attempt_count: row.try_get::<i32, _>("attempt_count").map_err(sqlx_err)? as u32,
                 last_error: row.try_get("last_error").map_err(sqlx_err)?,
             })
@@ -107,11 +110,11 @@ pub(super) async fn complete_entry(
 ) -> Result<()> {
     sqlx::query(
         "UPDATE object_gc_queue SET state = 'deleted', last_error = NULL, \
-         updated_at_micros = $3 WHERE org_id = $1 AND object_key = $2 AND state = 'processing'",
+         updated_at = $3 WHERE org_id = $1 AND object_key = $2 AND state = 'processing'",
     )
     .bind(scope.organization_id.as_str())
     .bind(object_key.as_str())
-    .bind(crate::shared::time::TimestampMicros::now().0)
+    .bind(crate::shared::time::TimestampMicros::now())
     .execute(pool)
     .await
     .map_err(sqlx_err)?;
@@ -128,14 +131,14 @@ pub(super) async fn retry_entry(
 ) -> Result<()> {
     sqlx::query(
         "UPDATE object_gc_queue SET state = 'pending', attempt_count = attempt_count + 1, \
-         last_error = $3, not_before_micros = $4, updated_at_micros = $5 \
+         last_error = $3, not_before = $4, updated_at = $5 \
          WHERE org_id = $1 AND object_key = $2 AND state = 'processing'",
     )
     .bind(scope.organization_id.as_str())
     .bind(object_key.as_str())
     .bind(error)
-    .bind(not_before_micros)
-    .bind(crate::shared::time::TimestampMicros::now().0)
+    .bind(TimestampMicros(not_before_micros))
+    .bind(crate::shared::time::TimestampMicros::now())
     .execute(pool)
     .await
     .map_err(sqlx_err)?;

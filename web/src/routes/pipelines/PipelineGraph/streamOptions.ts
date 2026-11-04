@@ -13,7 +13,7 @@ export function pipelineStreamOptions(
   currentValue = '',
 ): string[] {
   const names = streams
-    .filter((stream) => stream.stream_type === signalType)
+    .filter((stream) => stream.streamType === signalType)
     .map((stream) => stream.name)
     .sort((left, right) => left.localeCompare(right));
 

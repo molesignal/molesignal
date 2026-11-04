@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 
+import { explorerRead, explorerReadBody, isExplorerRead } from '../fixtures/explorerReads';
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 
 interface QueryRange {
@@ -98,10 +99,11 @@ test.describe('Metrics time-range zoom', () => {
     expect(searchTriggerBox).not.toBeNull();
     expect(startBox).not.toBeNull();
     if (!workspaceBox || !queryCardBox || !searchTriggerBox || !startBox) return;
-    // The trigger is the first row of the query card, beside the query's letter.
+    // The trigger is the first row of the query card, after the query tabs, and takes what they leave of it.
+    const tabsBox = (await queryCard.locator('[data-query-editor-tabs]').boundingBox())!;
     expect(searchTriggerBox.y).toBeGreaterThan(queryCardBox.y);
-    expect(searchTriggerBox.x).toBeGreaterThanOrEqual(queryCardBox.x);
-    expect(searchTriggerBox.width).toBeGreaterThan(queryCardBox.width * 0.9);
+    expect(searchTriggerBox.x).toBeGreaterThanOrEqual(tabsBox.x + tabsBox.width);
+    expect(searchTriggerBox.width).toBeGreaterThan((queryCardBox.width - tabsBox.width) * 0.9);
     expect(workspaceBox.y).toBeGreaterThanOrEqual(
       queryCardBox.y + queryCardBox.height,
     );
@@ -180,14 +182,11 @@ test.describe('Metrics time-range zoom', () => {
   }) => {
     const requests: Array<{
       limit?: number;
-      time_range?: QueryRange;
+      step?: number;
     }> = [];
     page.on('request', (request) => {
-      if (
-        request.method() === 'POST' &&
-        new URL(request.url()).pathname === '/api/v1/query'
-      ) {
-        requests.push(request.postDataJSON());
+      if (isExplorerRead(request, 'query')) {
+        requests.push(explorerReadBody(request));
       }
     });
 
@@ -227,19 +226,18 @@ test.describe('Metrics time-range zoom', () => {
     const beforeInstant = requests.length;
     await runButton.click();
     await expect.poll(() => requests.length).toBeGreaterThan(beforeInstant);
-    expect(requests.at(-1)?.limit).toBe(1);
+    // An instant query asks for no step: PromQL answers it at the end of the range.
+    expect(requests.at(-1)?.step).toBeUndefined();
+    expect(requests.at(-1)?.limit).toBeUndefined();
 
     await page.getByTestId('metrics-option-type').click();
     await page.getByRole('option', { name: 'Range', exact: true }).click();
     const beforeRange = requests.length;
     await runButton.click();
     await expect.poll(() => requests.length).toBeGreaterThan(beforeRange);
-    const latest = requests.at(-1)!;
-    const spanMilliseconds =
-      (latest.time_range!.end - latest.time_range!.start) / 1_000;
-    expect(latest.limit).toBe(
-      Math.min(1_000, Math.max(2, Math.ceil(spanMilliseconds / 300_000))),
-    );
+    // A range query asks for the step that was chosen, in microseconds as the range is.
+    expect(requests.at(-1)?.step).toBe(300_000_000);
+    expect(requests.at(-1)?.limit).toBe(50_000);
   });
 
   test('switches one query result between graph, table, and inspector views', async ({
@@ -310,17 +308,17 @@ test.describe('Metrics time-range zoom', () => {
   }) => {
     await page.setViewportSize({ width: 1_280, height: 900 });
     const instanceId = `instance-${'0123456789abcdef'.repeat(12)}`;
-    await page.route('**/api/v1/query', async (route) => {
-      const body = route.request().postDataJSON() as {
+    await page.route(explorerRead('query'), async (route) => {
+      const body = explorerReadBody(route.request()) as {
         language?: string;
-        time_range?: QueryRange;
+        timeRange?: QueryRange;
       };
       if (body.language !== 'promql') {
         await route.fallback();
         return;
       }
-      const start = body.time_range?.start ?? 1;
-      const end = body.time_range?.end ?? 2;
+      const start = body.timeRange?.start ?? 1;
+      const end = body.timeRange?.end ?? 2;
       await route.fulfill({
         json: {
           columns: ['_timestamp', 'value', 'service.instance.id'],
@@ -328,8 +326,8 @@ test.describe('Metrics time-range zoom', () => {
             [start, 1, instanceId],
             [end, 2, instanceId],
           ],
-          scanned_rows: 2,
-          took_ms: 1,
+          scannedRows: 2,
+          tookMs: 1,
         },
       });
     });
@@ -400,17 +398,17 @@ test.describe('Metrics time-range zoom', () => {
 
   test('plots an all-zero rate on the bottom zero baseline', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 1_200 });
-    await page.route('**/api/v1/query', async (route) => {
-      const body = route.request().postDataJSON() as {
+    await page.route(explorerRead('query'), async (route) => {
+      const body = explorerReadBody(route.request()) as {
         language?: string;
-        time_range?: QueryRange;
+        timeRange?: QueryRange;
       };
       if (body.language !== 'promql') {
         await route.fallback();
         return;
       }
-      const start = body.time_range?.start ?? 1;
-      const end = body.time_range?.end ?? 3;
+      const start = body.timeRange?.start ?? 1;
+      const end = body.timeRange?.end ?? 3;
       await route.fulfill({
         json: {
           columns: ['_timestamp', 'value', 'status'],
@@ -419,8 +417,8 @@ test.describe('Metrics time-range zoom', () => {
             [start + (end - start) / 2, 0, '200'],
             [end, 0, '200'],
           ],
-          scanned_rows: 3,
-          took_ms: 2,
+          scannedRows: 3,
+          tookMs: 2,
         },
       });
     });
@@ -456,18 +454,15 @@ test.describe('Metrics time-range zoom', () => {
   test('dragging the chart narrows the query range and reset restores it', async ({ page }) => {
     const requestedRanges: QueryRange[] = [];
     page.on('request', (request) => {
-      if (
-        request.method() !== 'POST' ||
-        new URL(request.url()).pathname !== '/api/v1/query'
-      ) {
+      if (!isExplorerRead(request, 'query')) {
         return;
       }
-      const body = request.postDataJSON() as {
+      const body = explorerReadBody(request) as {
         language?: string;
-        time_range?: QueryRange;
+        timeRange?: QueryRange;
       };
-      if (body.language === 'promql' && body.time_range) {
-        requestedRanges.push(body.time_range);
+      if (body.language === 'promql' && body.timeRange) {
+        requestedRanges.push(body.timeRange);
       }
     });
 
@@ -511,18 +506,15 @@ test.describe('Metrics time-range zoom', () => {
   test('double-click doubles the current range instead of resetting to the origin', async ({ page }) => {
     const requestedRanges: QueryRange[] = [];
     page.on('request', (request) => {
-      if (
-        request.method() !== 'POST' ||
-        new URL(request.url()).pathname !== '/api/v1/query'
-      ) {
+      if (!isExplorerRead(request, 'query')) {
         return;
       }
-      const body = request.postDataJSON() as {
+      const body = explorerReadBody(request) as {
         language?: string;
-        time_range?: QueryRange;
+        timeRange?: QueryRange;
       };
-      if (body.language === 'promql' && body.time_range) {
-        requestedRanges.push(body.time_range);
+      if (body.language === 'promql' && body.timeRange) {
+        requestedRanges.push(body.timeRange);
       }
     });
 
@@ -591,18 +583,15 @@ test.describe('Metrics time-range zoom', () => {
   test('x-axis drag previews the pan before committing the query range', async ({ page }) => {
     const requestedRanges: QueryRange[] = [];
     page.on('request', (request) => {
-      if (
-        request.method() !== 'POST' ||
-        new URL(request.url()).pathname !== '/api/v1/query'
-      ) {
+      if (!isExplorerRead(request, 'query')) {
         return;
       }
-      const body = request.postDataJSON() as {
+      const body = explorerReadBody(request) as {
         language?: string;
-        time_range?: QueryRange;
+        timeRange?: QueryRange;
       };
-      if (body.language === 'promql' && body.time_range) {
-        requestedRanges.push(body.time_range);
+      if (body.language === 'promql' && body.timeRange) {
+        requestedRanges.push(body.timeRange);
       }
     });
 

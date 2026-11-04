@@ -272,12 +272,12 @@ export interface LogColumnCandidate {
 }
 
 /** Letters and digits alone: `service.name`, `service_name` and `serviceName` are one name. */
-function plainFieldName(name: string): string {
+export function plainFieldName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 /** The names the end of a dotted field can be known by: `log.level` is a `level`, `k8s.pod.name` a `pod.name`. */
-function endingsOf(name: string): string[] {
+export function endingsOf(name: string): string[] {
   const parts = name.split('.');
 
   return parts.slice(1).map((_, index) => plainFieldName(parts.slice(index + 1).join('.')));

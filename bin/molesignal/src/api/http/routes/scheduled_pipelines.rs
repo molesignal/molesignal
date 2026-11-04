@@ -20,7 +20,7 @@ use serde_json::Value;
 
 use crate::{
     api::{AppState, http::middleware::ProtectedResource},
-    app::iam::IamContext,
+    app::{iam::IamContext, reporting::RunAsProfile},
     domain::{
         iam::{permission, resource_permission},
         pipeline::scheduled::ScheduledConfig,
@@ -37,6 +37,8 @@ use crate::{
     },
 };
 
+mod audit_reader;
+mod limits;
 mod validation;
 
 const MAX_BACKFILL_WINDOW_MICROS: i64 = 31 * 24 * 3600 * 1_000_000;
@@ -50,6 +52,7 @@ pub fn routes() -> Router<AppState> {
             get(get_one).put(update).delete(delete),
         )
         .route("/scheduled_pipelines/{id}/runs", get(list_runs))
+        .route("/scheduled_pipelines/{id}/limits", get(limits::today))
         .route("/scheduled_pipelines/{id}/backfill", post(submit_backfill))
 }
 
@@ -75,6 +78,7 @@ impl ProtectedResource for ScheduledPipeline {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateReq {
     pub name: String,
     pub source_stream: String,
@@ -88,6 +92,7 @@ pub struct CreateReq {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateReq {
     pub name: String,
     pub source_stream: String,
@@ -99,17 +104,10 @@ pub struct UpdateReq {
 }
 
 fn update_permissions(existing: &ScheduledPipeline, request: &UpdateReq) -> Vec<&'static str> {
-    let configuration_changed = existing.name != request.name
-        || existing.source_stream != request.source_stream.trim()
-        || existing.target_stream != request.target_stream.trim()
-        || existing.function_steps != request.function_steps
-        || existing.cron != request.cron
-        || existing.lookback_secs != request.lookback_secs;
-
     let enabled_changed = existing.enabled != request.enabled;
     let mut permissions = Vec::with_capacity(2);
 
-    if configuration_changed || !enabled_changed {
+    if validation::configuration_changed(existing, request) || !enabled_changed {
         permissions.push("pipelines.edit");
     }
 
@@ -129,6 +127,7 @@ fn default_true() -> bool {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Resp {
     pub id: String,
     pub name: String,
@@ -138,21 +137,29 @@ pub struct Resp {
     pub cron: String,
     pub lookback_secs: i32,
     pub enabled: bool,
-    pub last_run_at_micros: Option<i64>,
+    pub last_run_at: Option<i64>,
     /// Per source, the time before which its events have been handled.
-    pub read_until_micros: BTreeMap<String, i64>,
+    pub read_until: BTreeMap<String, i64>,
     /// The soonest planned retry of a window that failed.
     pub retry: Option<RetryResp>,
-    pub created_at_micros: i64,
-    pub updated_at_micros: i64,
+    /// An alert pipeline's count of today's events (UTC): `day`, `processed`, `dropped`, `failed`,
+    /// and the latest drop and failure (`last_dropped`, `last_failed`).
+    pub alert_record: Option<Value>,
+    /// Whose access a pipeline that reads `_audit` reads it with: whoever last saved it.
+    pub audit_reader_id: Option<String>,
+    /// Their name and email; `None` when the user no longer exists.
+    pub audit_reader: Option<RunAsProfile>,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RetryResp {
     pub source: String,
     /// The attempt the retry will be.
     pub attempt: u32,
-    pub next_at_micros: i64,
+    pub next_at: i64,
     pub error: String,
 }
 
@@ -167,7 +174,7 @@ fn to_resp(p: ScheduledPipeline) -> Resp {
         .map(|(source, retry)| RetryResp {
             source: source.clone(),
             attempt: retry.failures + 1,
-            next_at_micros: retry.next_at,
+            next_at: retry.next_at,
             error: retry.error.clone(),
         });
 
@@ -180,25 +187,29 @@ fn to_resp(p: ScheduledPipeline) -> Resp {
         cron: p.cron,
         lookback_secs: p.lookback_secs,
         enabled: p.enabled,
-        last_run_at_micros: p.last_run_at.map(|t| t.0),
-        read_until_micros: state
+        last_run_at: p.last_run_at.map(|t| t.0),
+        read_until: state
             .sources
             .iter()
             .map(|(source, state)| (source.clone(), state.read_until))
             .collect(),
         retry,
-        created_at_micros: p.created_at.0,
-        updated_at_micros: p.updated_at.0,
+        alert_record: p.run_state.get("alert").cloned(),
+        audit_reader_id: p.audit_reader_id.map(|id| id.0),
+        audit_reader: None,
+        created_at: p.created_at.0,
+        updated_at: p.updated_at.0,
     }
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ListResp {
     #[serde(flatten)]
     pub pipeline: Resp,
     pub last_run_state: Option<String>,
-    pub last_run_started_at_micros: Option<i64>,
-    pub last_run_finished_at_micros: Option<i64>,
+    pub last_run_started_at: Option<i64>,
+    pub last_run_finished_at: Option<i64>,
     pub last_run_scanned_rows: Option<i64>,
     pub last_run_error: Option<String>,
     pub runs_24h: i64,
@@ -210,9 +221,8 @@ fn to_list_resp(pipeline: ScheduledPipeline, summary: Option<&PipelineRunSummary
     ListResp {
         pipeline: to_resp(pipeline),
         last_run_state: summary.map(|item| item.last_state.as_str().to_string()),
-        last_run_started_at_micros: summary.map(|item| item.last_started_at.0),
-        last_run_finished_at_micros: summary
-            .and_then(|item| item.last_finished_at.map(|time| time.0)),
+        last_run_started_at: summary.map(|item| item.last_started_at.0),
+        last_run_finished_at: summary.and_then(|item| item.last_finished_at.map(|time| time.0)),
         last_run_scanned_rows: summary.map(|item| item.last_scanned_rows),
         last_run_error: summary.and_then(|item| item.last_error.clone()),
         runs_24h: summary.map_or(0, |item| item.runs_in_window),
@@ -238,15 +248,17 @@ async fn list(
         .map(|summary| (summary.pipeline_id.0.clone(), summary))
         .collect();
 
-    Ok(Json(
-        pipelines
-            .into_iter()
-            .map(|pipeline| {
-                let summary = summaries.get(&pipeline.id.0);
-                to_list_resp(pipeline, summary)
-            })
-            .collect(),
-    ))
+    let mut items: Vec<ListResp> = pipelines
+        .into_iter()
+        .map(|pipeline| {
+            let summary = summaries.get(&pipeline.id.0);
+            to_list_resp(pipeline, summary)
+        })
+        .collect();
+
+    audit_reader::name_readers(&state, items.iter_mut().map(|i| &mut i.pipeline).collect()).await;
+
+    Ok(Json(items))
 }
 
 #[resource_permission(
@@ -260,7 +272,7 @@ async fn get_one(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Resp>> {
-    Ok(Json(to_resp(pipeline)))
+    Ok(Json(audit_reader::named(&state, to_resp(pipeline)).await))
 }
 
 #[permission("pipelines.create")]
@@ -279,6 +291,8 @@ async fn create(
         &req.cron,
         req.lookback_secs,
     )?;
+    validation::check_references(&state, &req.function_steps, &ctx.org_id).await?;
+    let audit_reader_id = validation::audit_reader(&ctx, &source_stream, &req.function_steps)?;
 
     let now = TimestampMicros::now();
 
@@ -293,13 +307,14 @@ async fn create(
         lookback_secs: req.lookback_secs,
         last_run_at: None,
         run_state: serde_json::json!({}),
+        audit_reader_id,
         enabled: req.enabled,
         created_at: now,
         updated_at: now,
     };
 
     let p = state.storage.scheduled_pipelines.create(p).await?;
-    Ok(Json(to_resp(p)))
+    Ok(Json(audit_reader::named(&state, to_resp(p)).await))
 }
 
 #[resource_permission(
@@ -324,6 +339,8 @@ async fn update(
         &req.cron,
         req.lookback_secs,
     )?;
+    validation::check_references(&state, &req.function_steps, &existing.org_id).await?;
+    let audit_reader_id = validation::audit_reader_after(&ctx, &existing, &req)?;
 
     let p = ScheduledPipeline {
         id: existing.id,
@@ -336,13 +353,14 @@ async fn update(
         lookback_secs: req.lookback_secs,
         last_run_at: existing.last_run_at,
         run_state: existing.run_state,
+        audit_reader_id,
         enabled: req.enabled,
         created_at: existing.created_at,
         updated_at: TimestampMicros::now(),
     };
 
     let p = state.storage.scheduled_pipelines.update(p).await?;
-    Ok(Json(to_resp(p)))
+    Ok(Json(audit_reader::named(&state, to_resp(p)).await))
 }
 
 #[resource_permission(
@@ -366,10 +384,11 @@ async fn delete(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ListRunsQuery {
     #[serde(default = "default_run_limit")]
     pub limit: i64,
-    pub before_micros: Option<i64>,
+    pub before_time: Option<i64>,
 }
 
 fn default_run_limit() -> i64 {
@@ -377,12 +396,13 @@ fn default_run_limit() -> i64 {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RunResp {
     pub id: String,
     pub pipeline_id: String,
     pub state: String,
-    pub started_at_micros: i64,
-    pub finished_at_micros: Option<i64>,
+    pub started_at: i64,
+    pub finished_at: Option<i64>,
     pub scanned_rows: i64,
     pub written_rows: i64,
     pub dropped_rows: i64,
@@ -397,8 +417,8 @@ fn to_run_resp(r: PipelineRun) -> RunResp {
         id: r.id.0,
         pipeline_id: r.pipeline_id.0,
         state: r.state.as_str().to_string(),
-        started_at_micros: r.started_at.0,
-        finished_at_micros: r.finished_at.map(|t| t.0),
+        started_at: r.started_at.0,
+        finished_at: r.finished_at.map(|t| t.0),
         scanned_rows: r.scanned_rows,
         written_rows: r.written_rows,
         dropped_rows: r.dropped_rows,
@@ -426,16 +446,17 @@ async fn list_runs(
     let rows = state
         .storage
         .pipeline_runs
-        .list(&pipeline.org_id, &pipeline.id, q.limit, q.before_micros)
+        .list(&pipeline.org_id, &pipeline.id, q.limit, q.before_time)
         .await?;
 
     Ok(Json(rows.into_iter().map(to_run_resp).collect()))
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BackfillReq {
-    pub start_micros: i64,
-    pub end_micros: i64,
+    pub start_time: i64,
+    pub end_time: i64,
 }
 
 #[derive(Debug, Serialize)]
@@ -445,6 +466,7 @@ pub struct BackfillResp {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BackfillJob {
     pub source: String,
     pub job_id: String,
@@ -465,17 +487,22 @@ async fn submit_backfill(
     Path(id): Path<String>,
     Json(req): Json<BackfillReq>,
 ) -> Result<Response> {
-    if crate::domain::pipeline::realtime::is_realtime(&pipeline.function_steps) {
-        return Err(Error::invalid("realtime pipelines do not support backfill"));
-    }
-
-    if req.end_micros <= req.start_micros {
+    if crate::domain::pipeline::realtime::is_realtime(&pipeline.function_steps)
+        || crate::domain::pipeline::alert::is_alert(&pipeline.function_steps)
+    {
         return Err(Error::invalid(
-            "end_micros must be greater than start_micros",
+            "realtime and alert pipelines do not support backfill",
         ));
     }
 
-    let window = req.end_micros - req.start_micros;
+    // A backfill reads with the access of whoever starts it.
+    validation::audit_reader(&ctx, &pipeline.source_stream, &pipeline.function_steps)?;
+
+    if req.end_time <= req.start_time {
+        return Err(Error::invalid("endTime must be greater than startTime"));
+    }
+
+    let window = req.end_time - req.start_time;
 
     if window > MAX_BACKFILL_WINDOW_MICROS {
         return Err(Error::invalid("backfill window must be <= 31 days"));
@@ -500,14 +527,15 @@ async fn submit_backfill(
             language: QueryLanguage::Sql,
             statement: format!("SELECT * FROM {source}"),
             time_range: TimeRange::new(
-                TimestampMicros(req.start_micros),
-                TimestampMicros(req.end_micros),
+                TimestampMicros(req.start_time),
+                TimestampMicros(req.end_time),
             ),
             stream: Some(StreamHint {
                 name: source.clone(),
                 stream_type,
             }),
             limit: None,
+            step: None,
             federation_clusters: Vec::new(),
         };
 

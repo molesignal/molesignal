@@ -3,18 +3,18 @@ import { http } from '@/lib/http';
 /** One run of a scheduled pipeline. Every event it read ends written, dropped or failed. */
 export interface PipelineRun {
   id: string;
-  pipeline_id: string;
+  pipelineId: string;
   state: 'running' | 'succeeded' | 'failed' | 'cancelled' | string;
-  started_at_micros: number;
-  finished_at_micros: number | null;
+  startedAt: number;
+  finishedAt: number | null;
   /** Events read from the sources. */
-  scanned_rows: number;
+  scannedRows: number;
   /** Events that went everywhere they were meant to. */
-  written_rows?: number;
+  writtenRows?: number;
   /** Events a step or the dedupe dropped on purpose. */
-  dropped_rows?: number;
+  droppedRows?: number;
   /** Events a step failed on, a stream rejected or a connector did not take. */
-  failed_rows?: number;
+  failedRows?: number;
   /** 1 for a first attempt; more when the run tried a failed stretch of time again. */
   attempt?: number;
   /** Why the run failed. */
@@ -24,14 +24,14 @@ export interface PipelineRun {
 }
 
 export interface BackfillSubmissionInput {
-  start_micros: number;
-  end_micros: number;
+  startTime: number;
+  endTime: number;
 }
 
 export interface BackfillJob {
   /** The source this job reads. */
   source: string;
-  job_id: string;
+  jobId: string;
   monitor: string;
 }
 
@@ -46,7 +46,7 @@ export async function list(
   limit = 50,
 ): Promise<PipelineRun[]> {
   const params: Record<string, number> = { limit };
-  if (before_micros !== undefined) params.before_micros = before_micros;
+  if (before_micros !== undefined) params.beforeTime = before_micros;
   const { data } = await http.get<PipelineRun[]>(
     `/scheduled_pipelines/${encodeURIComponent(pipelineId)}/runs`,
     { params },

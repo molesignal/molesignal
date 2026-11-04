@@ -62,6 +62,7 @@ impl ProtectedResource for Folder {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateFolderReq {
     name: String,
     #[serde(default)]
@@ -69,13 +70,14 @@ struct CreateFolderReq {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct UpdateFolderReq {
     name: String,
     #[serde(default)]
     parent_id: Option<String>,
 }
 
-#[permission(any("dashboards.read", "sys.dashboards.read"))]
+#[permission(any("dashboards.folders.read", "sys.dashboards.read"))]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -83,7 +85,7 @@ async fn list(
     Ok(Json(state.dashboard.folders().list(&ctx.org_id).await?))
 }
 
-#[permission("dashboards.create")]
+#[permission("dashboards.folders.manage")]
 async fn create(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -108,7 +110,7 @@ async fn create(
 }
 
 #[resource_permission(
-    action = "dashboards.edit",
+    action = "dashboards.folders.manage",
     resource = Folder,
     id = Id::from_string(id),
     bind = folder
@@ -147,7 +149,7 @@ async fn update(
 }
 
 #[resource_permission(
-    action = "dashboards.delete",
+    action = "dashboards.folders.delete",
     resource = Folder,
     id = Id::from_string(id),
     bind = folder

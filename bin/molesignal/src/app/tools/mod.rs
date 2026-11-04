@@ -161,6 +161,9 @@ impl ToolRuntime {
             | BuiltinToolKind::GetIncident
             | BuiltinToolKind::GetIncidentRca
             | BuiltinToolKind::GetIncidentInsights
+            | BuiltinToolKind::GetIncidentTimeline
+            | BuiltinToolKind::GetIncidentTickets
+            | BuiltinToolKind::ListRemediationActions
             | BuiltinToolKind::ListOnCallSchedules
             | BuiltinToolKind::GetOnCallSchedule
             | BuiltinToolKind::GetCurrentOnCall => {
@@ -173,8 +176,12 @@ impl ToolRuntime {
             | BuiltinToolKind::GetIncidentGroup
             | BuiltinToolKind::ListMuteRules
             | BuiltinToolKind::GetMuteRule
+            | BuiltinToolKind::ListInhibitRules
+            | BuiltinToolKind::GetInhibitRule
             | BuiltinToolKind::ListEscalationPolicies
-            | BuiltinToolKind::GetEscalationPolicy => {
+            | BuiltinToolKind::GetEscalationPolicy
+            | BuiltinToolKind::ListDiscoveryFindings
+            | BuiltinToolKind::GetDiscoveryFinding => {
                 alerting::execute(self, auth, kind, arguments).await
             }
             BuiltinToolKind::ListNotificationConnectors
@@ -196,7 +203,9 @@ impl ToolRuntime {
             | BuiltinToolKind::ListApmErrors
             | BuiltinToolKind::GetApmError
             | BuiltinToolKind::CompareApmVersions
-            | BuiltinToolKind::GetApmHealth => apm::execute(self, auth, kind, arguments).await,
+            | BuiltinToolKind::GetApmHealth
+            | BuiltinToolKind::GetApmInsights
+            | BuiltinToolKind::GetApmBlastRadius => apm::execute(self, auth, kind, arguments).await,
             BuiltinToolKind::CorrelateSignals | BuiltinToolKind::GetServiceTopology => {
                 correlation::execute(self, auth, kind, arguments).await
             }
@@ -205,7 +214,21 @@ impl ToolRuntime {
             | BuiltinToolKind::ListRumActions
             | BuiltinToolKind::ListRumErrors
             | BuiltinToolKind::GetRumRelatedTraces
-            | BuiltinToolKind::GetRumVitals => rum::execute(self, auth, kind, arguments).await,
+            | BuiltinToolKind::GetRumVitals
+            | BuiltinToolKind::ListRumIssues
+            | BuiltinToolKind::GetRumIssue
+            | BuiltinToolKind::GetRumOverview
+            | BuiltinToolKind::GetRumFrustration
+            | BuiltinToolKind::GetRumViewWaterfall
+            | BuiltinToolKind::AggregateRum
+            | BuiltinToolKind::GetRumFunnel
+            | BuiltinToolKind::GetRumPaths
+            | BuiltinToolKind::GetRumRetention
+            | BuiltinToolKind::GetRumFeatureFlags
+            | BuiltinToolKind::GetRumHeatmap
+            | BuiltinToolKind::GetRumSessionNotes => {
+                rum::execute(self, auth, kind, arguments).await
+            }
             BuiltinToolKind::ListContinuousProfiles
             | BuiltinToolKind::GetProfileFlamegraph
             | BuiltinToolKind::CompareProfiles => {
@@ -296,6 +319,24 @@ impl ToolRuntime {
             BuiltinToolKind::TriggerAlertRule
             | BuiltinToolKind::AcknowledgeIncident
             | BuiltinToolKind::ResolveIncident
+            | BuiltinToolKind::ReassignIncident
+            | BuiltinToolKind::AddIncidentResponders
+            | BuiltinToolKind::EscalateIncident
+            | BuiltinToolKind::SnoozeIncident
+            | BuiltinToolKind::LiftIncidentInhibition
+            | BuiltinToolKind::SetIncidentSeverity
+            | BuiltinToolKind::SetIncidentPriority
+            | BuiltinToolKind::SetIncidentUrgency
+            | BuiltinToolKind::CreateIncident
+            | BuiltinToolKind::MergeIncidents
+            | BuiltinToolKind::AddIncidentNote
+            | BuiltinToolKind::CreateTicket
+            | BuiltinToolKind::RunRemediationAction
+            | BuiltinToolKind::DeclareMajorIncident
+            | BuiltinToolKind::AssignIncidentRole
+            | BuiltinToolKind::PostIncidentUpdate
+            | BuiltinToolKind::AddIncidentTask
+            | BuiltinToolKind::DraftIncidentPostmortem
             | BuiltinToolKind::CreateAlertRule
             | BuiltinToolKind::UpdateAlertRule
             | BuiltinToolKind::DeleteAlertRule
@@ -372,7 +413,8 @@ impl ToolRuntime {
             | BuiltinToolKind::Remember
             | BuiltinToolKind::Forget
             | BuiltinToolKind::ReadMemory
-            | BuiltinToolKind::UpdateInvestigation => unreachable!(),
+            | BuiltinToolKind::UpdateInvestigation
+            | BuiltinToolKind::GetAgentInsights => unreachable!(),
         }?;
 
         if result.serialized_len() > HARD_RESULT_BYTES {

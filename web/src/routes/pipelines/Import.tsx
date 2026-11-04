@@ -50,9 +50,9 @@ export function PipelineImport() {
         });
         payload = {
           name: obj.name ?? 'imported',
-          source_stream: obj.source_stream ?? '',
-          target_stream: obj.target_stream ?? '',
-          function_steps: [],
+          sourceStream: obj.sourceStream ?? '',
+          targetStream: obj.targetStream ?? '',
+          functionSteps: [],
           cron: obj.cron ?? 'every:5m',
         };
       }

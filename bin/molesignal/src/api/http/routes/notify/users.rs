@@ -21,6 +21,7 @@ pub(super) fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct NotifyUserSummary {
     user_id: Id,
     email: String,

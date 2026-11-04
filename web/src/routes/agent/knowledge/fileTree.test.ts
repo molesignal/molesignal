@@ -6,9 +6,9 @@ import { buildTree, isMarkdown, parentFolders } from './fileTree';
 
 const file = (path: string): KnowledgeFileMeta => ({
   path,
-  size_bytes: 10,
-  updated_by: 'u1',
-  updated_at_micros: 1,
+  sizeBytes: 10,
+  updatedBy: 'u1',
+  updatedAt: 1,
 });
 
 describe('the files of a knowledge base', () => {

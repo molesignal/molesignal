@@ -37,6 +37,7 @@ pub struct StatusPageImportProblem {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusPageSubscriberImportReport {
     #[serde(flatten)]
     pub outcome: StatusPageSubscriberImportOutcome,

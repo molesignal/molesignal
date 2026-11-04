@@ -10,6 +10,7 @@ import { RouterProvider } from 'react-router-dom';
 import { KeyboardProvider } from '@/keyboard/controller';
 import { router } from '@/routes';
 import { ThemeBootstrap } from '@/shell/ThemeBootstrap';
+import { OrgEntryDialog } from '@/routes/account/mfa/OrgEntryDialog';
 import { Toaster } from '@/shell/ui/sonner';
 import { TooltipProvider } from '@/shell/ui/tooltip';
 
@@ -30,6 +31,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <TooltipProvider delayDuration={200}>
           <KeyboardProvider>
             <RouterProvider router={router} future={{ v7_startTransition: true }} />
+            <OrgEntryDialog onOpenPath={(path) => void router.navigate(path)} />
             <Toaster />
           </KeyboardProvider>
         </TooltipProvider>

@@ -138,7 +138,7 @@ pub struct GrpcSettings {
     #[serde(default = "default_grpc_port")]
     pub port: u16,
     #[serde(default = "default_grpc_msg")]
-    pub max_message_size_mb: u32,
+    pub max_message_size: u32,
 }
 
 fn default_grpc_port() -> u16 {
@@ -154,7 +154,7 @@ impl Default for GrpcSettings {
         Self {
             bind: default_http_bind(),
             port: default_grpc_port(),
-            max_message_size_mb: default_grpc_msg(),
+            max_message_size: default_grpc_msg(),
         }
     }
 }
@@ -178,7 +178,7 @@ pub struct ProbeGrpcSettings {
     #[serde(default = "default_probe_certificate_days")]
     pub certificate_days: u32,
     #[serde(default = "default_grpc_msg")]
-    pub max_message_size_mb: u32,
+    pub max_message_size: u32,
 }
 
 const fn default_probe_register_port() -> u16 {
@@ -250,7 +250,7 @@ impl Default for ProbeGrpcSettings {
             control_endpoint: String::new(),
             server_names: default_probe_server_names(),
             certificate_days: default_probe_certificate_days(),
-            max_message_size_mb: default_grpc_msg(),
+            max_message_size: default_grpc_msg(),
         }
     }
 }
@@ -271,7 +271,7 @@ pub struct FlightSqlSettings {
     #[serde(default = "default_flight_sql_lookback_hours")]
     pub default_lookback_hours: u32,
     #[serde(default = "default_grpc_msg")]
-    pub max_message_size_mb: u32,
+    pub max_message_size: u32,
 }
 
 fn default_flight_sql_port() -> u16 {
@@ -289,7 +289,7 @@ impl Default for FlightSqlSettings {
             bind: default_http_bind(),
             port: default_flight_sql_port(),
             default_lookback_hours: default_flight_sql_lookback_hours(),
-            max_message_size_mb: default_grpc_msg(),
+            max_message_size: default_grpc_msg(),
         }
     }
 }
@@ -307,7 +307,7 @@ pub struct OtlpGrpcSettings {
     #[serde(default = "default_otlp_grpc_port")]
     pub port: u16,
     #[serde(default = "default_grpc_msg")]
-    pub max_message_size_mb: u32,
+    pub max_message_size: u32,
 }
 
 fn default_otlp_grpc_port() -> u16 {
@@ -319,7 +319,7 @@ impl Default for OtlpGrpcSettings {
         Self {
             bind: default_http_bind(),
             port: default_otlp_grpc_port(),
-            max_message_size_mb: default_grpc_msg(),
+            max_message_size: default_grpc_msg(),
         }
     }
 }

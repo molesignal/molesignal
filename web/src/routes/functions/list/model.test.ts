@@ -10,11 +10,11 @@ function fn(name: string, patch: Partial<FunctionResp> = {}): FunctionResp {
     name,
     language: 'vrl',
     source: '.a = 1',
-    params_schema: {},
-    is_builtin: false,
+    paramsSchema: {},
+    isBuiltin: false,
     description: '',
-    created_at_micros: 1,
-    updated_at_micros: 2,
+    createdAt: 1,
+    updatedAt: 2,
     ...patch,
   };
 }
@@ -22,8 +22,8 @@ function fn(name: string, patch: Partial<FunctionResp> = {}): FunctionResp {
 const FUNCTIONS = [
   fn('mask-cards'),
   fn('to-celsius', { language: 'js' }),
-  fn('redact-email', { is_builtin: true, description: 'Replaces email addresses with a placeholder.' }),
-  fn('normalize-logs', { is_builtin: true, description: 'Parses the JSON message.' }),
+  fn('redact-email', { isBuiltin: true, description: 'Replaces email addresses with a placeholder.' }),
+  fn('normalize-logs', { isBuiltin: true, description: 'Parses the JSON message.' }),
 ];
 
 describe('viewCounts', () => {

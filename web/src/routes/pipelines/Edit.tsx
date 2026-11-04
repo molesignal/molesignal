@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/shell/ui/dropdown-menu';
 import { toast } from '@/shell/ui/sonner';
+import { useLeaveGuard } from '@/shell/unsaved/useLeaveGuard';
 
 import { PipelineForm, saveFailureMessage } from './PipelineForm';
 
@@ -31,6 +32,9 @@ export function PipelineEdit() {
   const pauseAccess = useActionAccess({ permission: 'pipelines.pause' });
   const deleteAccess = useActionAccess({ permission: 'pipelines.delete' });
   const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const [dirty, setDirty] = React.useState(false);
+  const [savedRevision, setSavedRevision] = React.useState(0);
+  const leave = useLeaveGuard(dirty);
 
   const q = useQuery({
     queryKey: ['pipelines', 'get', id],
@@ -43,6 +47,7 @@ export function PipelineEdit() {
     mutationFn: (payload: pipelinesApi.PipelineInput) => pipelinesApi.update(id, payload),
     onSuccess: () => {
       toast.success(t('flows.edit.toast_updated'));
+      setSavedRevision((revision) => revision + 1);
       void qc.invalidateQueries({ queryKey: ['pipelines'] });
     },
     onError: (err) => toast.error(saveFailureMessage(err, t)),
@@ -53,12 +58,14 @@ export function PipelineEdit() {
     onSuccess: () => {
       toast.success(t('flows.edit.toast_deleted'));
       void qc.invalidateQueries({ queryKey: ['pipelines'] });
+      leave.allowLeave();
       navigate('/pipelines');
     },
   });
 
   return (
     <>
+      {leave.prompt}
       <PageHeader
         title={q.data ? t('drawer.edit_title', { name: q.data.name }) : t('drawer.edit_title', { name: '' })}
         subtitle={t('workspace.subtitle')}
@@ -137,6 +144,8 @@ export function PipelineEdit() {
             disabledReason={editAccess.reason}
             enabledDisabled={pauseAccess.disabled}
             enabledDisabledReason={pauseAccess.reason}
+            onDirtyChange={setDirty}
+            savedRevision={savedRevision}
             onSubmit={(p) => {
               if (editAccess.allowed) update.mutate(p);
             }}

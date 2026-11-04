@@ -111,6 +111,7 @@ impl LocationHealth {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct EgressPolicy {
     #[serde(default)]
     pub allowed_cidrs: Vec<String>,
@@ -129,6 +130,7 @@ pub struct EgressPolicy {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProbeLocation {
     pub id: Id,
     pub organization_id: Option<Id>,
@@ -224,6 +226,7 @@ impl AgentStatus {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentCapacity {
     pub max_concurrent: u32,
     pub max_browser_concurrent: u32,
@@ -232,6 +235,7 @@ pub struct AgentCapacity {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProbeAgent {
     pub id: Id,
     pub organization_id: Option<Id>,
@@ -241,6 +245,10 @@ pub struct ProbeAgent {
     pub status: AgentStatus,
     pub agent_version: String,
     pub protocol_version: u32,
+    /// What the Agent runs beyond the first protocol, as it said in its last heartbeat. It is
+    /// handed only tasks whose checks need no higher level.
+    #[serde(default)]
+    pub feature_level: u32,
     pub capabilities: Vec<ProbeCapability>,
     pub capacity: AgentCapacity,
     pub labels: std::collections::BTreeMap<String, String>,

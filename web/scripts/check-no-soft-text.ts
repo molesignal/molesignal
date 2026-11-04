@@ -41,11 +41,6 @@ const PATTERNS: Array<{ name: string; re: RegExp }> = [
 /** Lines that keep a soft tone on purpose. Each entry has to match a line, or it has gone stale. */
 const KEPT: Array<{ file: string; line: string; why: string }> = [
   {
-    file: 'src/routes/apm/RedReadouts.tsx',
-    line: 'trendClassName="text-orange-soft"',
-    why: 'the line of a sparkline, drawn in currentColor',
-  },
-  {
     file: 'src/routes/metrics/ExemplarRail.tsx',
     line: '<Diamond className="h-3.5 w-3.5 shrink-0 text-purple-soft" aria-hidden />',
     why: 'the mark that keys the exemplars on the rail',

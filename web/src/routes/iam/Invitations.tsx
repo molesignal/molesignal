@@ -32,7 +32,7 @@ export function Invitations() {
   const qc = useQueryClient();
   const { t: tc } = useTranslation('common');
   const manageAccess = useActionAccess({
-    permission: 'org.members.manage',
+    permission: 'org.members.invite',
   });
   const [open, setOpen] = React.useState(false);
 
@@ -110,7 +110,7 @@ export function Invitations() {
               {
                 key: 'role',
                 header: t('invitations.columns.role'),
-                cell: (row) => row.role_name,
+                cell: (row) => row.roleName,
                 width: 120,
               },
               {
@@ -126,13 +126,13 @@ export function Invitations() {
               {
                 key: 'sent',
                 header: t('invitations.columns.sent'),
-                cell: (row) => formatMicros(row.sent_at_micros),
+                cell: (row) => formatMicros(row.sentAt),
                 width: 180,
               },
               {
                 key: 'inviter',
                 header: t('invitations.columns.inviter'),
-                cell: (row) => row.inviter_id,
+                cell: (row) => row.inviterId,
                 width: 220,
               },
               {
@@ -223,7 +223,7 @@ function InviteDrawer({
     mutationFn: () =>
       invitationsApi.create({
         email,
-        ...(roleId ? { role_id: roleId } : {}),
+        ...(roleId ? { roleId: roleId } : {}),
       }),
     onSuccess: () => {
       toast.success(t('invitations.toast_invited'));

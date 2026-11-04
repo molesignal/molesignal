@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Serialize same-organization configuration mutations to avoid competing realtime routes.
+//! Serialize same-organization configuration mutations to avoid competing realtime routes: one
+//! enabled realtime pipeline per kind of data and source stream, as the realtime lookup keys them.
 use sqlx::{PgPool, TracedTransaction};
 
 use super::repository::ScheduledPipeline;
@@ -15,8 +16,7 @@ pub(super) async fn lock_and_validate(
     pool: &PgPool,
     p: &ScheduledPipeline,
 ) -> Result<TracedTransaction<'static>> {
-    let realtime =
-        validate_config(&p.function_steps, &p.source_stream, &p.target_stream)?.is_some();
+    let realtime = validate_config(&p.function_steps, &p.source_stream, &p.target_stream)?;
     let mut tx = sqlx::begin(pool).await.map_err(sqlx_err)?;
 
     sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
@@ -25,14 +25,18 @@ pub(super) async fn lock_and_validate(
         .await
         .map_err(sqlx_err)?;
 
-    if realtime && p.enabled {
-        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM scheduled_pipelines WHERE org_id = $1 AND source_stream = $2 AND id <> $3 AND enabled = TRUE AND function_steps->>'mode' = 'realtime')")
-            .bind(p.org_id.as_str()).bind(&p.source_stream).bind(p.id.as_str()).fetch_one(&mut *tx).await.map_err(sqlx_err)?;
+    if let Some(setup) = &realtime
+        && p.enabled
+    {
+        let signal = setup.signal.external_name();
+
+        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM scheduled_pipelines WHERE org_id = $1 AND source_stream = $2 AND id <> $3 AND enabled = TRUE AND function_steps->>'mode' = 'realtime' AND COALESCE(function_steps->>'signalType', 'logs') = $4)")
+            .bind(p.org_id.as_str()).bind(&p.source_stream).bind(p.id.as_str()).bind(signal).fetch_one(&mut *tx).await.map_err(sqlx_err)?;
 
         if exists {
-            return Err(Error::conflict(
-                "a realtime pipeline is already enabled for this source",
-            ));
+            return Err(Error::conflict(format!(
+                "a realtime pipeline is already enabled for this {signal} stream"
+            )));
         }
     }
 

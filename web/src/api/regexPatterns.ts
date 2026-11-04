@@ -2,23 +2,21 @@ import { http } from '@/lib/http';
 
 export interface RegexPattern {
   id: string;
-  org_id: string;
+  orgId: string;
   name: string;
   pattern: string;
   description: string;
   /** Matched text is replaced with this (supports `$1` capture groups). */
   replacement: string;
   /** Permanently redact matches at write time; off = query-side `mask(col)` only. */
-  apply_on_intake: boolean;
-  created_at_micros: number;
-  updated_at_micros: number;
+  applyOnIntake: boolean;
+  createdAt: number;
+  updatedAt: number;
 }
 
-interface RegexPatternWire extends Omit<RegexPattern, 'created_at_micros' | 'updated_at_micros'> {
-  created_at?: number;
-  updated_at?: number;
-  created_at_micros?: number;
-  updated_at_micros?: number;
+interface RegexPatternWire extends Omit<RegexPattern, 'createdAt' | 'updatedAt'> {
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 export interface CreateRegexPatternInput {
@@ -26,7 +24,7 @@ export interface CreateRegexPatternInput {
   pattern: string;
   description?: string;
   replacement?: string;
-  apply_on_intake?: boolean;
+  applyOnIntake?: boolean;
 }
 
 export async function list(): Promise<RegexPattern[]> {
@@ -54,7 +52,7 @@ export async function remove(id: string): Promise<void> {
 function normalize(row: RegexPatternWire): RegexPattern {
   return {
     ...row,
-    created_at_micros: row.created_at_micros ?? row.created_at ?? 0,
-    updated_at_micros: row.updated_at_micros ?? row.updated_at ?? 0,
+    createdAt: row.createdAt ?? 0,
+    updatedAt: row.updatedAt ?? 0,
   };
 }

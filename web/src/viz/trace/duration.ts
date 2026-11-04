@@ -16,6 +16,11 @@ export function formatTraceDurationNs(ns: number): string {
   const absoluteNs = Math.abs(ns);
   const milliseconds = absoluteNs / 1_000_000;
 
+  // A second and longer is read in seconds, a minute and longer in minutes:
+  // "921070 ms" has to be counted, "15 min 21 s" is read.
+  if (milliseconds >= 1_000) {
+    return `${sign}${formatLong(milliseconds / 1_000)}`;
+  }
   if (milliseconds >= 100) {
     return `${sign}${Math.round(milliseconds)} ms`;
   }
@@ -29,6 +34,22 @@ export function formatTraceDurationNs(ns: number): string {
   const microseconds = absoluteNs / 1_000;
   const fractionDigits = microseconds >= 100 ? 0 : microseconds >= 10 ? 1 : 2;
   return `${sign}${compactFixed(microseconds, fractionDigits)} μs`;
+}
+
+function formatLong(seconds: number): string {
+  if (seconds < 10) return `${compactFixed(seconds, 2)} s`;
+  if (seconds < 60) return `${compactFixed(seconds, 1)} s`;
+
+  const wholeSeconds = Math.round(seconds);
+  if (wholeSeconds < 3_600) {
+    const minutes = Math.floor(wholeSeconds / 60);
+    const rest = wholeSeconds % 60;
+    return rest > 0 ? `${minutes} min ${rest} s` : `${minutes} min`;
+  }
+
+  const hours = Math.floor(wholeSeconds / 3_600);
+  const minutes = Math.floor((wholeSeconds % 3_600) / 60);
+  return minutes > 0 ? `${hours} h ${minutes} min` : `${hours} h`;
 }
 
 export function formatTraceDurationMs(milliseconds: number): string {

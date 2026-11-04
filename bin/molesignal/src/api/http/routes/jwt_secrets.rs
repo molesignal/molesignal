@@ -20,22 +20,24 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SecretMeta {
     pub id: String,
     pub is_primary: bool,
-    pub created_at_micros: i64,
-    pub retired_at_micros: Option<i64>,
+    pub created_at: i64,
+    pub retired_at: Option<i64>,
     // 注意：**不**返 secret raw bytes
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RotateResp {
     pub new_kid: String,
     pub retired_kid: Option<String>,
     pub active_count: usize,
 }
 
-#[permission("sys.settings.manage")]
+#[permission("sys.signing_keys.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -47,25 +49,24 @@ async fn list(
             .map(|s| SecretMeta {
                 id: s.id.0,
                 is_primary: s.is_primary,
-                created_at_micros: s.created_at.0,
-                retired_at_micros: s.retired_at.map(|v| v.0),
+                created_at: s.created_at.0,
+                retired_at: s.retired_at.map(|v| v.0),
             })
             .collect(),
     ))
 }
 
-#[permission("sys.settings.manage")]
+#[permission("sys.signing_keys.rotate")]
 async fn rotate(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<RotateResp>> {
-    let (active, new_kid, retired_kid) =
-        rotate_jwt_secret(state.iam.signing_secrets.as_ref()).await?;
-    state.iam.service.replace_jwt_secrets(active.clone());
+    let (new_kid, retired_kid) = rotate_jwt_secret(state.iam.signing_secrets.as_ref()).await?;
+    let active_count = state.iam.service.reload_jwt_secrets().await?;
 
     Ok(Json(RotateResp {
         new_kid,
         retired_kid,
-        active_count: active.len(),
+        active_count,
     }))
 }

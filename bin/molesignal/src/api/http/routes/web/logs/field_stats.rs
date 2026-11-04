@@ -11,10 +11,7 @@
 use axum::{Extension, Json, extract::State};
 use serde::Deserialize;
 
-use super::{
-    LogFilter, clean_required, match_clauses, normalize_filters, normalize_free_text,
-    validate_filter_fields,
-};
+use super::{LogFilter, clean_required, match_clauses, validate_filter_fields};
 use crate::{
     api::{
         AppState,
@@ -32,18 +29,28 @@ use crate::{
 };
 
 #[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct LogFieldStatsRequest {
     stream: Option<String>,
     from: Option<i64>,
     to: Option<i64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "super::address::json_list")]
     filters: Vec<LogFilter>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "super::address::json_list")]
     free_text: Vec<String>,
+    #[serde(
+        default,
+        rename = "where",
+        deserialize_with = "super::address::json_value"
+    )]
+    condition: Option<serde_json::Value>,
+    /// The field query as text; it stands for `filters`, `free_text` and `where`.
+    #[serde(default)]
+    expression: Option<String>,
     field: Option<String>,
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("logs.read", "sys.telemetry.read"))]
 pub(super) async fn field_stats(
     State(state): State<AppState>,
     Extension(iam): Extension<IamContext>,
@@ -61,8 +68,12 @@ pub(super) async fn field_stats(
 
     let stream_name = clean_required(request.stream, "log stream is required", 128)?;
     let field_name = clean_required(request.field, "log field is required", 128)?;
-    let filters = normalize_filters(request.filters)?;
-    let free_text = normalize_free_text(request.free_text)?;
+    let (filters, free_text, condition) = super::expression::read_match(
+        request.expression,
+        request.filters,
+        request.free_text,
+        request.condition,
+    )?;
 
     let stream = match state
         .telemetry
@@ -77,7 +88,7 @@ pub(super) async fn field_stats(
     };
 
     let fields = &stream.schema.fields;
-    validate_filter_fields(&filters, &free_text, fields)?;
+    validate_filter_fields(&filters, &free_text, condition.as_ref(), fields)?;
 
     let (field_type, encrypted) = declared(&field_name, fields)
         .ok_or_else(|| Error::invalid(format!("unknown log field: {field_name}")))?;
@@ -97,7 +108,7 @@ pub(super) async fn field_stats(
         stream_type: StreamType::LOGS,
         from,
         to,
-        clauses: match_clauses((from, to), &filters, &free_text, fields)?,
+        clauses: match_clauses((from, to), &filters, &free_text, condition.as_ref(), fields)?,
     };
 
     Ok(Json(analyze(&state, &iam, &scope, &field).await?))

@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! `cluster_secrets` 表 CRUD —— 联邦 token 的 DB 后端（spec federated-search）。
+//! 联邦 token 的存取（spec federated-search），存在 `sealed_secrets` 里 `owner_kind = 'cluster'` 的行。
 //!
-//! `remote_clusters.token_secret_ref` 形如 `cipher_keys:<ref_id>` 时即指向本表一行。
+//! `remote_clusters.token_secret_ref` 形如 `cipher_keys:<ref_id>` 时，`ref_id` 就是那一行的 `owner_id`。
 //! 明文 token 用 [`CipherRootKey`]（envelope KEK）AES-256-GCM `seal` 后存
 //! `ciphertext` + `nonce`，读取时 `open` 还原。
 //!
 //! 为什么不复用 `cipher_keys` 表：`cipher_keys` 行按语义只放固定 32B 字段级 DEK
 //! （`create` 强校验 `raw_key.len() == 32`），承接不了任意长度的 bearer token。
-//! `cipher_keys:` 这个 scheme 名沿用 spec 指针写法，落地在这张专用表。
+//! `cipher_keys:` 这个 scheme 名沿用 spec 指针写法，落地在 `sealed_secrets`。
 //!
 //! **明文 token 绝不能进日志或任何序列化响应**——本模块不实现 `Serialize`，
 //! `get_plaintext` 的返回值只在 [`crate::infra::secret::resolve_secret_ref`] 内即用即弃。
@@ -57,19 +57,19 @@ impl ClusterSecretRepository for PgClusterSecretRepository {
         let now = TimestampMicros::now();
 
         sqlx::query(
-            "INSERT INTO cluster_secrets
-                (org_id, ref_id, ciphertext, nonce, created_at_micros, updated_at_micros)
-             VALUES ($1, $2, $3, $4, $5, $5)
-             ON CONFLICT (org_id, ref_id) DO UPDATE SET
+            "INSERT INTO sealed_secrets
+                (org_id, owner_kind, owner_id, ciphertext, nonce, created_at, updated_at)
+             VALUES ($1, 'cluster', $2, $3, $4, $5, $5)
+             ON CONFLICT (org_id, owner_kind, owner_id, slot) DO UPDATE SET
                 ciphertext = EXCLUDED.ciphertext,
                 nonce = EXCLUDED.nonce,
-                updated_at_micros = EXCLUDED.updated_at_micros",
+                updated_at = EXCLUDED.updated_at",
         )
         .bind(&org_id.0)
         .bind(ref_id)
         .bind(&enc)
         .bind(&nonce)
-        .bind(now.0)
+        .bind(now)
         .execute(&self.pool)
         .await
         .map_err(crate::infra::persistence::sqlx_err)?;
@@ -79,7 +79,8 @@ impl ClusterSecretRepository for PgClusterSecretRepository {
 
     async fn get_plaintext(&self, org_id: &Id, ref_id: &str) -> Result<String> {
         let row = sqlx::query(
-            "SELECT ciphertext, nonce FROM cluster_secrets WHERE org_id = $1 AND ref_id = $2",
+            "SELECT ciphertext, nonce FROM sealed_secrets
+             WHERE org_id = $1 AND owner_kind = 'cluster' AND owner_id = $2",
         )
         .bind(&org_id.0)
         .bind(ref_id)
@@ -107,12 +108,15 @@ impl ClusterSecretRepository for PgClusterSecretRepository {
     }
 
     async fn delete(&self, org_id: &Id, ref_id: &str) -> Result<()> {
-        sqlx::query("DELETE FROM cluster_secrets WHERE org_id = $1 AND ref_id = $2")
-            .bind(&org_id.0)
-            .bind(ref_id)
-            .execute(&self.pool)
-            .await
-            .map_err(crate::infra::persistence::sqlx_err)?;
+        sqlx::query(
+            "DELETE FROM sealed_secrets
+             WHERE org_id = $1 AND owner_kind = 'cluster' AND owner_id = $2",
+        )
+        .bind(&org_id.0)
+        .bind(ref_id)
+        .execute(&self.pool)
+        .await
+        .map_err(crate::infra::persistence::sqlx_err)?;
 
         Ok(())
     }

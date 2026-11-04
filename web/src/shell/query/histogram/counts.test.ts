@@ -6,10 +6,10 @@ describe('answerFromPayload', () => {
   it('reads the bars an endpoint counted', () => {
     expect(
       answerFromPayload({
-        buckets: [{ start_micros: 1_000, total: 12, errors: 2 }],
+        buckets: [{ startTime: 1_000, total: 12, errors: 2 }],
         split: true,
       }),
-    ).toEqual({ bars: [{ startMicros: 1_000, total: 12, errors: 2 }], split: true });
+    ).toEqual({ bars: [{ startTime: 1_000, total: 12, errors: 2 }], split: true });
     expect(answerFromPayload({ buckets: [], split: false })).toEqual({ bars: [], split: false });
   });
 

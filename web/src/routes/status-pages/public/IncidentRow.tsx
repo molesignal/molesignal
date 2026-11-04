@@ -43,9 +43,9 @@ export function EndedIncidentRow({
   withDate: boolean;
 }) {
   const components = affectedComponentNames(incident, snapshot.components);
-  const endedAt = incident.ended_at ?? incident.started_at;
+  const endedAt = incident.endedAt ?? incident.startedAt;
   // Work that was called off did not last any time.
-  const ran = incident.status !== 'cancelled' && incident.ended_at !== null;
+  const ran = incident.status !== 'cancelled' && incident.endedAt !== null;
 
   return (
     <li>
@@ -73,7 +73,7 @@ export function EndedIncidentRow({
         {ran && (
           <span className="shrink-0 pt-0.5 text-right text-sm tabular-nums leading-5 text-tx-1">
             <span className="sr-only">{copy('public.incident_detail.duration')} </span>
-            {lasted(copy, incident.started_at, endedAt)}
+            {lasted(copy, incident.startedAt, endedAt)}
           </span>
         )}
       </Link>

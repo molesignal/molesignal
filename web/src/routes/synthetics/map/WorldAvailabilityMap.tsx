@@ -1,12 +1,8 @@
-import { geoContains, geoGraticule10, geoNaturalEarth1, geoPath } from 'd3-geo';
 import { Minus, Plus } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { feature, mesh } from 'topojson-client';
-import type { GeometryCollection, Topology } from 'topojson-specification';
-import countriesTopologyJson from 'world-atlas/countries-110m.json';
 
-import type { ProbeLocation, SyntheticResult } from '@/api/synthetics';
+import type { AvailabilitySummary, ProbeLocation, SyntheticResult } from '@/api/synthetics';
 import { IconButton } from '@/shell/chrome';
 import {
   Tooltip,
@@ -14,24 +10,29 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/shell/ui/tooltip';
+import { MAP_HEIGHT, MAP_WIDTH } from '@/viz/worldmap/size';
+import {
+  BORDERS_PATH,
+  COUNTRIES,
+  countryAt,
+  GRATICULE_PATH,
+  project,
+  SHAPE_TRANSFORM,
+  type WorldCountry,
+} from '@/viz/worldmap/world';
 
 import { AvailabilityScale } from './AvailabilityScale';
 import {
   availabilityColor,
   probeHealthColor,
   summarizeProbeLocationAvailability,
+  summarizeRangeAvailability,
   type ProbeLocationAvailability,
 } from './model';
 
-const MAP_WIDTH = 1_080;
-const MAP_HEIGHT = 440;
-const MAP_INSET = 18;
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 0.5;
-
-type WorldTopology = Topology<{ countries: GeometryCollection }>;
-type WorldCountry = (typeof WORLD_COUNTRIES.features)[number];
 
 interface MapRegion {
   id: string;
@@ -63,26 +64,15 @@ interface DragStart {
   panY: number;
 }
 
-const WORLD_TOPOLOGY = countriesTopologyJson as unknown as WorldTopology;
-const WORLD_OBJECT = WORLD_TOPOLOGY.objects.countries;
-const WORLD_COUNTRIES = feature(WORLD_TOPOLOGY, WORLD_OBJECT);
-const WORLD_BORDERS = mesh(WORLD_TOPOLOGY, WORLD_OBJECT, (left, right) => left !== right);
-const WORLD_GRATICULE = geoGraticule10();
-const MAP_PROJECTION = geoNaturalEarth1().fitExtent(
-  [
-    [MAP_INSET, MAP_INSET],
-    [MAP_WIDTH - MAP_INSET, MAP_HEIGHT - MAP_INSET],
-  ],
-  WORLD_COUNTRIES,
-);
-const MAP_PATH = geoPath(MAP_PROJECTION);
-
 export function WorldAvailabilityMap({
   locations,
   results = [],
+  availability,
 }: {
   locations: ProbeLocation[];
   results?: SyntheticResult[];
+  /** How each place's runs went over a range; the runs given are read when there is none. */
+  availability?: ReadonlyArray<AvailabilitySummary & { locationId: string }>;
 }) {
   const { t } = useTranslation('synthetics');
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -95,8 +85,11 @@ export function WorldAvailabilityMap({
   const [dragging, setDragging] = React.useState(false);
   const [hover, setHover] = React.useState<MapHover>();
   const { mapped, unmapped } = React.useMemo(
-    () => summarizeProbeLocationAvailability(locations, results),
-    [locations, results],
+    () =>
+      availability
+        ? summarizeRangeAvailability(locations, availability)
+        : summarizeProbeLocationAvailability(locations, results),
+    [availability, locations, results],
   );
   const regions = React.useMemo(() => mapRegions(mapped), [mapped]);
   const unmappedNames = unmapped.map((location) => location.name).join(', ');
@@ -219,72 +212,74 @@ export function WorldAvailabilityMap({
         <title>{t('overview.map_aria_label')}</title>
         <g data-map-viewport transform={viewportTransform}>
           <path
-            d={MAP_PATH(WORLD_GRATICULE) ?? undefined}
+            d={GRATICULE_PATH}
             fill="none"
             stroke="var(--bd-0)"
             strokeWidth={0.7}
             opacity={0.7}
             vectorEffect="non-scaling-stroke"
           />
-          {regions.map((region) => {
-            const active =
-              hover?.regionId === region.id ||
-              region.locations.some((item) =>
-                hover?.locations.some((hovered) => hovered.location.id === item.location.id),
+          <g transform={SHAPE_TRANSFORM}>
+            {regions.map((region) => {
+              const active =
+                hover?.regionId === region.id ||
+                region.locations.some((item) =>
+                  hover?.locations.some((hovered) => hovered.location.id === item.location.id),
+                );
+              const hasLocations = region.locations.length > 0;
+              return (
+                <path
+                  key={region.id}
+                  d={region.country.path}
+                  fill={
+                    region.availability === undefined
+                      ? hasLocations
+                        ? 'var(--bg-4)'
+                        : 'var(--bg-3)'
+                      : availabilityColor(region.availability)
+                  }
+                  data-world-country
+                  data-world-region={region.id}
+                  data-world-has-locations={hasLocations ? '' : undefined}
+                  tabIndex={hasLocations ? 0 : undefined}
+                  role={hasLocations ? 'img' : undefined}
+                  aria-label={
+                    hasLocations
+                      ? `${region.name}: ${region.locations.map((item) => item.location.name).join(', ')}`
+                      : undefined
+                  }
+                  className="transition-[fill,filter] duration-fast"
+                  style={{
+                    cursor: 'help',
+                    filter: active ? 'brightness(1.18)' : undefined,
+                  }}
+                  onPointerEnter={(event) =>
+                    showHover(region.locations, event, region.name, region.id)
+                  }
+                  onPointerMove={(event) =>
+                    showHover(region.locations, event, region.name, region.id)
+                  }
+                  onPointerLeave={() => setHover(undefined)}
+                  onFocus={
+                    hasLocations
+                      ? () => showFocused(region.locations, region.name, region.id)
+                      : undefined
+                  }
+                  onBlur={hasLocations ? () => setHover(undefined) : undefined}
+                />
               );
-            const hasLocations = region.locations.length > 0;
-            return (
-              <path
-                key={region.id}
-                d={MAP_PATH(region.country) ?? undefined}
-                fill={
-                  region.availability === undefined
-                    ? hasLocations
-                      ? 'var(--bg-4)'
-                      : 'var(--bg-3)'
-                    : availabilityColor(region.availability)
-                }
-                data-world-country
-                data-world-region={region.id}
-                data-world-has-locations={hasLocations ? '' : undefined}
-                tabIndex={hasLocations ? 0 : undefined}
-                role={hasLocations ? 'img' : undefined}
-                aria-label={
-                  hasLocations
-                    ? `${region.name}: ${region.locations.map((item) => item.location.name).join(', ')}`
-                    : undefined
-                }
-                className="transition-[fill,filter] duration-fast"
-                style={{
-                  cursor: 'help',
-                  filter: active ? 'brightness(1.18)' : undefined,
-                }}
-                onPointerEnter={(event) =>
-                  showHover(region.locations, event, region.name, region.id)
-                }
-                onPointerMove={(event) =>
-                  showHover(region.locations, event, region.name, region.id)
-                }
-                onPointerLeave={() => setHover(undefined)}
-                onFocus={
-                  hasLocations
-                    ? () => showFocused(region.locations, region.name, region.id)
-                    : undefined
-                }
-                onBlur={hasLocations ? () => setHover(undefined) : undefined}
-              />
-            );
-          })}
-          <path
-            d={MAP_PATH(WORLD_BORDERS) ?? undefined}
-            fill="none"
-            stroke="var(--bg-1)"
-            strokeWidth={0.8}
-            pointerEvents="none"
-            vectorEffect="non-scaling-stroke"
-          />
+            })}
+            <path
+              d={BORDERS_PATH}
+              fill="none"
+              stroke="var(--bg-1)"
+              strokeWidth={0.8}
+              pointerEvents="none"
+              vectorEffect="non-scaling-stroke"
+            />
+          </g>
           {mapped.map((item) => {
-            const point = MAP_PROJECTION([...item.coordinates]);
+            const point = project(item.coordinates[0], item.coordinates[1]);
             if (!point) return null;
             const color = probeHealthColor(item.location.health);
             const active = hover?.locations.some(
@@ -450,18 +445,19 @@ function MapHoverCard({ hover }: { hover: MapHover }) {
 }
 
 function mapRegions(locations: ProbeLocationAvailability[]): MapRegion[] {
-  return WORLD_COUNTRIES.features.map((country, index) => {
-    const regionLocations = locations.filter((item) =>
-      geoContains(country, [...item.coordinates]),
-    );
+  const placed = new Map<WorldCountry, ProbeLocationAvailability[]>();
+  for (const item of locations) {
+    const country = countryAt(item.coordinates[0], item.coordinates[1]);
+    if (country) placed.set(country, [...(placed.get(country) ?? []), item]);
+  }
+  return COUNTRIES.map((country) => {
+    const regionLocations = placed.get(country) ?? [];
     const availability = regionLocations
       .map((item) => item.availability)
       .filter((value): value is number => value !== undefined);
     return {
-      id: String(country.id ?? index),
-      name: String(
-        (country.properties as { name?: string }).name ?? country.id ?? index,
-      ),
+      id: country.code ?? country.name,
+      name: country.name,
       country,
       locations: regionLocations,
       availability:

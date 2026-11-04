@@ -4,12 +4,15 @@
 use super::{NotifyEngine, model::ResolvedRoute};
 use crate::{
     app::notify::quiet_hours_active,
-    domain::notify::{
-        connector::{ConnectorStatus, NotifyTarget, NotifyTargetType},
-        delivery::DeliveryStage,
-        policy::{NotifyEvent, NotifyPolicy},
-        recipient::NotifyRecipient,
-        routing::NotifyDefaultRoute,
+    domain::{
+        alerting::{importance::StepGroup, urgency::Urgency},
+        notify::{
+            connector::{ConnectorStatus, NotifyTarget, NotifyTargetType},
+            delivery::DeliveryStage,
+            policy::{NotifyEvent, NotifyPolicy},
+            recipient::NotifyRecipient,
+            routing::NotifyDefaultRoute,
+        },
     },
     shared::{Result, ids::Id, time::TimestampMicros},
 };
@@ -73,7 +76,7 @@ impl NotifyEngine {
         Ok(routes)
     }
 
-    async fn user_routes(
+    pub(super) async fn user_routes(
         &self,
         policy: &NotifyPolicy,
         event: &NotifyEvent,
@@ -91,7 +94,13 @@ impl NotifyEngine {
             return Ok(Vec::new());
         }
 
-        preference.steps.sort_by_key(|step| step.step_order);
+        // 高、低紧急度各用自己那组步骤；低紧急度的没设时只用高紧急度的第一步。
+        let steps: Vec<_> = preference
+            .steps_for(event_steps(event))
+            .into_iter()
+            .cloned()
+            .collect();
+        preference.steps = steps;
 
         let max_steps = if policy.fallback_config.use_user_fallbacks {
             usize::MAX
@@ -143,6 +152,7 @@ impl NotifyEngine {
                 connector,
                 endpoint_id: Some(endpoint.id),
                 target,
+                delay_secs: step.delay_secs,
             });
         }
 
@@ -206,6 +216,7 @@ impl NotifyEngine {
                 connector,
                 endpoint_id: Some(endpoint.id.clone()),
                 target,
+                delay_secs: 0,
             });
         }
 
@@ -261,6 +272,7 @@ impl NotifyEngine {
                 connector,
                 endpoint_id: None,
                 target,
+                delay_secs: 0,
             });
         }
 
@@ -268,22 +280,58 @@ impl NotifyEngine {
     }
 }
 
+/// 免打扰时段里：紧急度那一档说一律不打扰的就不打扰，说看开关的看个人的「免打扰时仍接收高紧急度」
+/// （内置的低是前一种，高是后一种）。没有紧急度的通知（排班、换班等）按高紧急度算。
 fn preference_is_quiet(
     preference: &crate::domain::notify::preference::UserNotifyPreference,
     event: &NotifyEvent,
 ) -> bool {
-    let critical_bypass = preference.allow_critical_bypass
-        && event
-            .attributes
-            .get("severity")
-            .and_then(serde_json::Value::as_str)
-            .is_some_and(|severity| severity.eq_ignore_ascii_case("critical"));
+    let bypass = preference.allow_high_urgency_bypass && quiet_follows_switch(event);
 
-    !critical_bypass
+    !bypass
         && preference
             .quiet_hours
             .as_ref()
             .is_some_and(|quiet_hours| quiet_hours_active(quiet_hours, TimestampMicros::now()))
+}
+
+/// 通知的紧急度：告警通知带着 `urgency`；别的通知没有，按高算。
+fn event_urgency(event: &NotifyEvent) -> Urgency {
+    event
+        .attributes
+        .get("urgency")
+        .and_then(serde_json::Value::as_str)
+        .and_then(Urgency::from_label)
+        .unwrap_or_default()
+}
+
+fn attribute<'a>(event: &'a NotifyEvent, key: &str) -> Option<&'a str> {
+    event
+        .attributes
+        .get(key)
+        .and_then(serde_json::Value::as_str)
+}
+
+/// 用个人的哪组步骤：告警通知按组织的档位补上了 `urgency_steps`；没有时内置的低用低的一组，其余用
+/// 高的一组。
+fn event_steps(event: &NotifyEvent) -> StepGroup {
+    attribute(event, "urgency_steps")
+        .and_then(StepGroup::from_label)
+        .unwrap_or_else(|| {
+            if event_urgency(event).is_low() {
+                StepGroup::Low
+            } else {
+                StepGroup::High
+            }
+        })
+}
+
+/// 免打扰时看不看个人的开关：告警通知按组织的档位补上了 `urgency_quiet`；没有时内置的低不看。
+fn quiet_follows_switch(event: &NotifyEvent) -> bool {
+    match attribute(event, "urgency_quiet") {
+        Some(quiet) => quiet == "switch",
+        None => !event_urgency(event).is_low(),
+    }
 }
 
 fn event_team_id(attributes: &serde_json::Value) -> Option<Id> {

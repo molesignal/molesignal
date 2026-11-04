@@ -40,17 +40,17 @@ export function CreateLocationDrawer({
         name,
         code,
         description,
-        egress_policy: {
-          allowed_cidrs: [],
-          denied_cidrs: [],
-          allowed_domains: allowedDomains
+        egressPolicy: {
+          allowedCidrs: [],
+          deniedCidrs: [],
+          allowedDomains: allowedDomains
             .split(',')
             .map((value) => value.trim())
             .filter(Boolean),
-          denied_domains: [],
-          allowed_ports: [],
-          allow_private_networks: allowPrivate,
-          allow_loopback: false,
+          deniedDomains: [],
+          allowedPorts: [],
+          allowPrivateNetworks: allowPrivate,
+          allowLoopback: false,
         },
       }),
     onSuccess: onCreated,

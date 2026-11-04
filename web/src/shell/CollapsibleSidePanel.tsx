@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import * as React from 'react';
 
 import { cn } from '@/shell/lib/cn';
@@ -20,6 +20,15 @@ interface CollapsibleSidePanelProps {
   className?: string;
   widthClassName?: string;
   bodyClassName?: string;
+  /** The row with the title and the button that folds the panel, where it must line up with a row beside the panel. */
+  headerClassName?: string;
+  /**
+   * What stands in that row in place of the title, beside the button that
+   * folds the panel: a search over what the panel lists, whose words already
+   * say what the list is. The title then names the panel to assistive
+   * technology and on the folded rail.
+   */
+  header?: React.ReactNode;
   footer?: React.ReactNode;
   collapseLabel?: string;
   expandLabel?: string;
@@ -45,6 +54,8 @@ export function CollapsibleSidePanel({
   className,
   widthClassName = 'w-[280px]',
   bodyClassName,
+  headerClassName,
+  header,
   footer,
   collapseLabel = 'Collapse panel',
   expandLabel = 'Expand panel',
@@ -189,6 +200,7 @@ export function CollapsibleSidePanel({
   return (
     <aside
       data-variant={variant}
+      aria-label={header && typeof title === 'string' ? title : undefined}
       style={resizable
         ? ({ '--side-panel-width': `${panelWidth}px` } as React.CSSProperties)
         : undefined}
@@ -207,9 +219,10 @@ export function CollapsibleSidePanel({
           utility
             ? 'h-10 px-3 text-tx-1'
             : 'h-11 border-b border-bd-0 px-3.5 tracking-normal text-tx-2',
+          headerClassName,
         )}
       >
-        <span className="min-w-0 flex-1 truncate">{title}</span>
+        {header ? <div className="min-w-0 flex-1">{header}</div> : <span className="min-w-0 flex-1 truncate">{title}</span>}
         <button
           type="button"
           onClick={() => onCollapsedChange(true)}
@@ -263,11 +276,41 @@ export function CollapsibleSidePanel({
   );
 }
 
+interface SidePanelSearchProps {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  /** What the field searches, said where a placeholder is not read. */
+  label: string;
+}
+
+/**
+ * A search over what a side panel lists, made for the panel's head row
+ * (`header`): a field as tall as the button beside it, in the weight of the
+ * list and not of the row's title.
+ */
+export function SidePanelSearch({ value, onChange, placeholder, label }: SidePanelSearchProps) {
+  return (
+    <div className="flex h-8 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-2.5 font-sans text-xs font-body">
+      <Search className="h-3.5 w-3.5 shrink-0 text-tx-3" />
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        aria-label={label}
+        className="min-w-0 flex-1 bg-transparent text-tx-0 placeholder:text-tx-3 focus:bg-transparent"
+      />
+    </div>
+  );
+}
+
 interface SidePanelSectionProps {
   title: React.ReactNode;
   count?: number | undefined;
   children: React.ReactNode;
   className?: string | undefined;
+  /** The heading as a line of the panel, or as a row across it at the height and inset of the head of a table beside it. */
+  variant?: 'plain' | 'band' | undefined;
 }
 
 /**
@@ -276,19 +319,25 @@ interface SidePanelSectionProps {
  * beside it, and it folds them away: a list of three kinds of thing can be cut
  * to the one that is being looked through.
  */
-export function SidePanelSection({ title, count, children, className }: SidePanelSectionProps) {
+export function SidePanelSection({ title, count, children, className, variant = 'plain' }: SidePanelSectionProps) {
   const [open, setOpen] = React.useState(true);
   const id = React.useId();
+  const band = variant === 'band';
 
   return (
     // The parts of a list follow closely: the heading and its count set a part off, not the air above it.
-    <section data-side-panel-section className={cn('pb-0.5', className)}>
+    <section data-side-panel-section className={cn(!band && 'pb-0.5', className)}>
       <button
         type="button"
         aria-expanded={open}
         aria-controls={open ? id : undefined}
         onClick={() => setOpen((current) => !current)}
-        className="flex h-7 w-full items-center gap-1.5 rounded-md px-1 text-left font-sans text-xs font-strong text-tx-1 hover:text-tx-0 focus-visible:bg-bg-3"
+        className={cn(
+          'flex w-full items-center gap-1.5 text-left font-sans text-xs font-strong',
+          band
+            ? 'h-8 px-3 text-tx-2 hover:text-tx-0 focus-visible:bg-bg-3 focus-visible:text-tx-0'
+            : 'h-7 rounded-md px-1 text-tx-1 hover:text-tx-0 focus-visible:bg-bg-3',
+        )}
       >
         <ChevronDown
           aria-hidden="true"
@@ -300,7 +349,7 @@ export function SidePanelSection({ title, count, children, className }: SidePane
         ) : null}
       </button>
       {open && (
-        <div id={id} className="pt-0.5">
+        <div id={id} className={cn(!band && 'pt-0.5')}>
           {children}
         </div>
       )}

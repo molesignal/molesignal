@@ -1,11 +1,8 @@
-export { ApmDependencies } from './Dependencies';
-export { ApmErrorDetail } from './ErrorDetail';
-export { ApmErrors } from './Errors';
+export { ApmCatalog } from './catalog/Catalog';
+export { ApmErrors } from './errors/Errors';
 export { ApmLayout } from './Layout';
 export { ApmOverview } from './overview/Overview';
-export { ApmServiceDetail } from './service/Overview';
-export { ApmServiceRuntime } from './service/Runtime';
-export { ApmServices } from './Services';
-export { ApmTransactionDetail } from './transactions/Detail';
-export { ApmTransactions } from './transactions/List';
-export { ApmDeployments } from './Deployments';
+export { ApmServiceMap } from './map/ServiceMap';
+export { ApmService } from './service/Service';
+export { ApmSettings } from './settings/Settings';
+export { ApmSlos } from './slo/Slos';

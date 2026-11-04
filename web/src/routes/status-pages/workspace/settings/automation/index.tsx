@@ -21,8 +21,8 @@ import { AutomationSimulator } from './Simulator';
 
 export function StatusPageAutomationSettings() {
   const { t } = useTranslation('status-pages');
-  const { pageId, snapshot, manageAccess } = useStatusPageWorkspace();
-  const publishAccess = useActionAccess({ permission: 'status_pages.publish' });
+  const { pageId, snapshot, automationAccess } = useStatusPageWorkspace();
+  const publishAccess = useActionAccess({ permission: 'status_pages.automation.approve' });
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const candidateId = searchParams.get('candidate');
@@ -110,7 +110,7 @@ export function StatusPageAutomationSettings() {
           </div>
           <Switch
             checked={settings.data?.paused ?? false}
-            disabled={!manageAccess.allowed || pauseAll.isPending}
+            disabled={!automationAccess.allowed || pauseAll.isPending}
             onCheckedChange={(checked) => pauseAll.mutate(checked)}
             aria-label={t('automation.pause.title')}
           />
@@ -119,7 +119,7 @@ export function StatusPageAutomationSettings() {
           <div className="text-xs text-tx-3">{t('automation.rules.count', { count: activeRules.length })}</div>
           <ChromeButton
             variant="primary"
-            disabled={!manageAccess.allowed}
+            disabled={!automationAccess.allowed}
             onClick={() => {
               setEditing(null);
               setEditorOpen(true);
@@ -138,7 +138,7 @@ export function StatusPageAutomationSettings() {
                 <IconButton
                   aria-label={t('actions.move_up')}
                   title={t('actions.move_up')}
-                  disabled={!manageAccess.allowed || index === 0 || reorder.isPending}
+                  disabled={!automationAccess.allowed || index === 0 || reorder.isPending}
                   onClick={() => reorder.mutate({ from: index, to: index - 1 })}
                 >
                   <ChevronUp className="h-4 w-4" />
@@ -146,7 +146,7 @@ export function StatusPageAutomationSettings() {
                 <IconButton
                   aria-label={t('actions.move_down')}
                   title={t('actions.move_down')}
-                  disabled={!manageAccess.allowed || index === activeRules.length - 1 || reorder.isPending}
+                  disabled={!automationAccess.allowed || index === activeRules.length - 1 || reorder.isPending}
                   onClick={() => reorder.mutate({ from: index, to: index + 1 })}
                 >
                   <ChevronDown className="h-4 w-4" />
@@ -164,7 +164,7 @@ export function StatusPageAutomationSettings() {
                   {rule.rule.name}
                 </button>
                 <div className="mt-1 text-xs text-tx-3">
-                  {t(`automation.source.${rule.revision.matchers.source_kind}`)} · {t(`automation.mode.${rule.revision.action.publication_mode}`)} · {t('automation.rules.delay', { count: Math.round(rule.revision.action.sustained_delay_seconds / 60) })}
+                  {t(`automation.source.${rule.revision.matchers.sourceKind}`)} · {t(`automation.mode.${rule.revision.action.publicationMode}`)} · {t('automation.rules.delay', { count: Math.round(rule.revision.action.sustainedDelaySeconds / 60) })}
                 </div>
               </div>
               <Pill tone={rule.rule.lifecycle === 'active' ? 'green' : rule.rule.lifecycle === 'paused' ? 'yellow' : 'dim'}>
@@ -172,22 +172,22 @@ export function StatusPageAutomationSettings() {
               </Pill>
               <div className="flex items-center gap-1">
                 {rule.rule.lifecycle === 'active' ? (
-                  <ChromeButton size="sm" disabled={!manageAccess.allowed} onClick={() => lifecycle.mutate({ rule, action: 'pause' })}>
+                  <ChromeButton size="sm" disabled={!automationAccess.allowed} onClick={() => lifecycle.mutate({ rule, action: 'pause' })}>
                     <Pause className="h-3.5 w-3.5" />{t('automation.actions.pause')}
                   </ChromeButton>
                 ) : (
-                  <ChromeButton size="sm" disabled={!manageAccess.allowed} onClick={() => lifecycle.mutate({ rule, action: 'resume' })}>
+                  <ChromeButton size="sm" disabled={!automationAccess.allowed} onClick={() => lifecycle.mutate({ rule, action: 'resume' })}>
                     <Play className="h-3.5 w-3.5" />{t('automation.actions.resume')}
                   </ChromeButton>
                 )}
-                <ChromeButton size="sm" variant="ghost" disabled={!manageAccess.allowed} onClick={() => lifecycle.mutate({ rule, action: 'archive' })}>
+                <ChromeButton size="sm" variant="ghost" disabled={!automationAccess.allowed} onClick={() => lifecycle.mutate({ rule, action: 'archive' })}>
                   <Archive className="h-3.5 w-3.5" />{t('actions.archive')}
                 </ChromeButton>
               </div>
             </div>
           ))}
         </div>
-        <AutomationSimulator pageId={pageId} rules={activeRules} />
+        <AutomationSimulator pageId={pageId} rules={activeRules} components={snapshot.components} />
       </SettingsCard>
 
       <SettingsCard title={t('automation.approvals.title')} description={t('automation.approvals.description')}>

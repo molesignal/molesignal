@@ -87,20 +87,20 @@ export function useLogInspection(): LogInspection {
       try {
         const chat = await chatApi.createChat({
           provider: provider.provider,
-          model: provider.default_model,
-          provider_id: provider.id,
+          model: provider.defaultModel,
+          providerId: provider.id,
           title,
         });
 
         update((current) => ({ ...current, chatId: chat.id }));
         const posted = await chatApi.postMessage(chat.id, {
           content: prompt,
-          time_range: { start_micros: range.start, end_micros: range.end },
+          timeRange: { startTime: range.start, endTime: range.end },
           // It reads and reports: nothing it finds is acted on.
-          execution_policy: 'read_only',
-          stream_hints: [stream],
-          provider_id: provider.id,
-          model: provider.default_model,
+          executionPolicy: 'read_only',
+          streamHints: [stream],
+          providerId: provider.id,
+          model: provider.defaultModel,
         });
 
         if (posted.kind !== 'queued') {
@@ -131,7 +131,7 @@ export function useLogInspection(): LogInspection {
                 tools: [...current.tools, { id, name, status: 'running' }],
               }));
             } else if (event.kind === 'tool_end') {
-              const { id, is_error: isError } = event.payload;
+              const { id, isError: isError } = event.payload;
               update((current) => ({
                 ...current,
                 tools: current.tools.map((item) =>

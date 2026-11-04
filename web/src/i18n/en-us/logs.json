@@ -225,6 +225,25 @@
       "clear_filters": "Clear filters and retry",
       "query_docs": "Log query documentation"
     },
+    "conditions": {
+      "unmatched_one": "Not added to the query: {{conditions}}. Stream {{stream}} has no field for it.",
+      "unmatched_other": "Not added to the query: {{conditions}}. Stream {{stream}} has no fields for them.",
+      "pinned_one": "pinned filter {{conditions}}",
+      "pinned_other": "pinned filters {{conditions}}",
+      "groups": "{{link}}; {{pinned}}",
+      "meanings": {
+        "trace_id": "trace ID",
+        "span_id": "span ID",
+        "service": "service",
+        "host": "host",
+        "route": "route",
+        "operation": "operation",
+        "method": "method",
+        "status": "status code",
+        "environment": "environment",
+        "pod": "pod"
+      }
+    },
     "results": {
       "content": "Content",
       "columns": "Columns",
@@ -280,6 +299,7 @@
       "download_json": "Download log JSON",
       "tabs": {
         "fields": "Fields",
+        "trace": "Trace",
         "json": "Raw JSON",
         "context": "Context"
       },
@@ -292,7 +312,10 @@
       "copy_value": "Copy value",
       "copied_value": "Field value copied",
       "show_column": "Show as column",
-      "hide_column": "Hide column"
+      "hide_column": "Hide column",
+      "open_trace": "Open the trace",
+      "stream": "Stream",
+      "resize": "Resize the log drawer"
     }
   },
   "inspections": {
@@ -399,7 +422,7 @@
     },
     "denied": {
       "title": "You cannot see scheduled inspections",
-      "description": "Mole Agent does the inspecting and the reports quote logs, so it takes both agent.use and streams.query.",
+      "description": "Mole Agent does the inspecting and the reports quote logs, so it takes both inspections.read and logs.read.",
       "manage": "Requires the inspections.manage permission"
     },
     "no_model": {
@@ -450,7 +473,7 @@
       "enabled": "Run on the schedule once saved",
       "notify_when": "When to notify",
       "channels": "Notification channels",
-      "channels_denied": "Choosing a notification channel requires the alerts.read permission.",
+      "channels_denied": "Choosing a notification channel requires the notify.connectors.read permission.",
       "channels_none": "No notification connector is enabled yet. Add one under Settings → Notifications.",
       "channels_failed": "The notification connectors could not be loaded.",
       "channels_kept_one": "The {{count}} channel already chosen is kept as it is.",

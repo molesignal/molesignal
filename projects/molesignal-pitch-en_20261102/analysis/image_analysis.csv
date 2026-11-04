@@ -1,0 +1,3 @@
+No,Filename,Width,Height,AspectRatio,PixelAspectRatio,SourceDisplayRatio,RatioSource,Format,HasTransparentPixels,UsageCount,DisplayRatioVariants,AssetKind,SvgRenderable,PptxNativeSupported,SizeKB,Category
+1,logs.png,1280,720,1.78,1.78,,native,PNG,False,1,,bitmap,True,True,129.6,Wide landscape
+2,traces.png,1280,720,1.78,1.78,,native,PNG,False,1,,bitmap,True,True,131.3,Wide landscape

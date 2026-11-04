@@ -31,14 +31,14 @@ export type ProfileTypeName =
 export interface ProfileEntry {
   id: string;
   service: string;
-  profile_type: ProfileTypeName;
+  profileType: ProfileTypeName;
   timestamp: number;
-  total_value: number;
-  sample_count: number;
-  duration_nanos: number;
+  totalValue: number;
+  sampleCount: number;
+  durationNanos: number;
   unsymbolized: boolean;
-  trace_id?: string;
-  span_id?: string;
+  traceId?: string;
+  spanId?: string;
 }
 
 /** Single-window flamebearer (`names[]` + per-depth flat `levels[]`).
@@ -65,14 +65,14 @@ export interface DiffFlamebearer {
 export interface FlamegraphResult {
   flamebearer: Flamebearer;
   truncated: boolean;
-  profile_count: number;
+  profileCount: number;
 }
 
 export interface DiffResult {
   flamebearer: DiffFlamebearer;
   truncated: boolean;
-  baseline_count: number;
-  comparison_count: number;
+  baselineCount: number;
+  comparisonCount: number;
 }
 
 export interface ListParams {
@@ -83,7 +83,7 @@ export interface ListParams {
   to?: number | undefined;
   /** `key:value` single-label filter. */
   label?: string | undefined;
-  trace_id?: string | undefined;
+  traceId?: string | undefined;
   limit?: number | undefined;
 }
 
@@ -93,14 +93,14 @@ export interface FlamegraphParams {
   from?: number | undefined;
   to?: number | undefined;
   label?: string | undefined;
-  trace_id?: string | undefined;
-  span_id?: string | undefined;
-  max_merge?: number | undefined;
+  traceId?: string | undefined;
+  spanId?: string | undefined;
+  maxMerge?: number | undefined;
 }
 
 export interface FlamegraphSelectionParams {
-  profile_ids: string[];
-  max_merge?: number | undefined;
+  profileIds: string[];
+  maxMerge?: number | undefined;
 }
 
 export interface DiffParams {
@@ -110,10 +110,10 @@ export interface DiffParams {
   from?: number | undefined;
   to?: number | undefined;
   /** Baseline window (micros). */
-  baseline_from?: number | undefined;
-  baseline_to?: number | undefined;
+  baselineFrom?: number | undefined;
+  baselineTo?: number | undefined;
   label?: string | undefined;
-  max_merge?: number | undefined;
+  maxMerge?: number | undefined;
 }
 
 function queryParams(params: Record<string, string | number | undefined>): Record<string, string> {
@@ -157,7 +157,7 @@ export async function flamegraph(params: FlamegraphParams = {}): Promise<Flamegr
     return data;
   } catch (err) {
     if (isMissingStreamError(err)) {
-      return { flamebearer: EMPTY_FLAMEBEARER, truncated: false, profile_count: 0 };
+      return { flamebearer: EMPTY_FLAMEBEARER, truncated: false, profileCount: 0 };
     }
     throw err;
   }

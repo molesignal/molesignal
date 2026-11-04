@@ -15,16 +15,21 @@ use sqlx::{PgPool, types::Json};
 
 use super::super::sqlx_err;
 use crate::{
-    agent::usage::Cost,
+    agent::{
+        insights::{InsightScope, Insights},
+        usage::Cost,
+    },
     shared::{Result, ids::Id, time::TimestampMicros},
 };
 
 mod distillation;
 mod fork;
+mod insights;
 mod rows;
 mod titles;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Chat {
     pub id: Id,
     pub org_id: Id,
@@ -36,13 +41,13 @@ pub struct Chat {
     pub provider_id: Option<String>,
     /// 分析模式：anomaly_analysis | root_cause | alert_explain | query_generation | 自由问答。
     pub analysis_mode: Option<String>,
-    pub time_range_start_micros: Option<i64>,
-    pub time_range_end_micros: Option<i64>,
+    pub time_range_start: Option<i64>,
+    pub time_range_end: Option<i64>,
     /// 归档对象存储 key（最近一次成功归档）。
     pub archive_object_key: Option<String>,
     /// 软删时间戳；非 NULL = 已删除（normal history 列表过滤掉）。
-    pub deleted_at_micros: Option<i64>,
-    /// `personal` 或 `team`；第一条消息前选定，之后不再改变。
+    pub deleted_at: Option<i64>,
+    /// `personal`、`team` 或 `org`（只用于组织作用域的自动化）；第一条消息前选定，之后不再改变。
     pub scope: String,
     /// 团队会话所属的团队。
     pub team_id: Option<String>,
@@ -50,20 +55,22 @@ pub struct Chat {
     pub mounted_team_ids: Vec<String>,
     /// 回答用的语言：建会话时发起人的界面语言；空表示不指定。
     pub reply_language: String,
-    /// 上下文压缩的摘要：截至 `context_summary_upto_micros`（含）的消息交给模型时换成它。
+    /// 上下文压缩的摘要：截至 `context_summary_upto`（含）的消息交给模型时换成它。
     pub context_summary: Option<String>,
-    pub context_summary_upto_micros: Option<i64>,
+    pub context_summary_upto: Option<i64>,
     /// 会话调查的对象，例如从事件页发起时的 `incident` 与事件 ID。
     pub subject_kind: Option<String>,
     pub subject_id: Option<String>,
     /// 这个会话写的调查记录。
     pub investigation_id: Option<String>,
     /// 会话结束后提炼记忆：已经提炼到的位置（当时的 `updated_at`）。
-    pub memory_distilled_at_micros: Option<i64>,
+    pub memory_distilled_at: Option<i64>,
     /// 从哪个会话分叉出来的。
     pub parent_chat_id: Option<String>,
     /// 标题还是对话页取自第一个问题的临时标题，回答时由模型起名。
     pub title_provisional: bool,
+    /// 自动化的一次运行：隐藏会话，不进对话列表。
+    pub automation_id: Option<String>,
     pub created_at: TimestampMicros,
     pub updated_at: TimestampMicros,
 }
@@ -88,22 +95,23 @@ impl Chat {
             title,
             provider_id: None,
             analysis_mode: None,
-            time_range_start_micros: None,
-            time_range_end_micros: None,
+            time_range_start: None,
+            time_range_end: None,
             archive_object_key: None,
-            deleted_at_micros: None,
+            deleted_at: None,
             scope: "personal".into(),
             team_id: None,
             mounted_team_ids: Vec::new(),
             reply_language: String::new(),
             context_summary: None,
-            context_summary_upto_micros: None,
+            context_summary_upto: None,
             subject_kind: None,
             subject_id: None,
             investigation_id: None,
-            memory_distilled_at_micros: None,
+            memory_distilled_at: None,
             parent_chat_id: None,
             title_provisional: false,
+            automation_id: None,
             created_at: now,
             updated_at: now,
         }
@@ -111,6 +119,7 @@ impl Chat {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChatMessage {
     pub id: Id,
     pub chat_id: Id,
@@ -200,10 +209,12 @@ pub trait ChatRepository: Send + Sync {
     async fn list_chats(&self, org_id: &Id, user_id: &Id) -> Result<Vec<Chat>>;
     /// 这些团队的团队会话。
     async fn list_team_chats(&self, org_id: &Id, team_ids: &[String]) -> Result<Vec<Chat>>;
+    /// `/insight` 读的数：这个范围里的会话与自动化从 `since` 起用得怎么样。
+    async fn insights(&self, scope: &InsightScope, since: TimestampMicros) -> Result<Insights>;
     /// 把一个团队挂进个人会话；已经挂过时不变。
     async fn mount_team(&self, id: &Id, team_id: &str) -> Result<()>;
     async fn touch_chat(&self, id: &Id, at: TimestampMicros) -> Result<()>;
-    /// 软删：标记 deleted_at_micros，不物删消息。
+    /// 软删：标记 deleted_at，不物删消息。
     async fn delete_chat(&self, org_id: &Id, id: &Id) -> Result<()>;
     /// 记录归档 object_key（最近一次成功归档）。
     async fn set_archive_object_key(&self, id: &Id, object_key: &str) -> Result<()>;
@@ -263,7 +274,7 @@ impl ChatRepository for PgChatRepository {
     async fn get_chat(&self, org_id: &Id, id: &Id) -> Result<Chat> {
         let row = sqlx::query(&format!(
             "SELECT {CHAT_COLS} FROM agent_chats
-             WHERE org_id = $1 AND id = $2 AND deleted_at_micros IS NULL"
+             WHERE org_id = $1 AND id = $2 AND deleted_at IS NULL"
         ))
         .bind(&org_id.0)
         .bind(&id.0)
@@ -302,8 +313,9 @@ impl ChatRepository for PgChatRepository {
     async fn list_chats(&self, org_id: &Id, user_id: &Id) -> Result<Vec<Chat>> {
         let rows = sqlx::query(&format!(
             "SELECT {CHAT_COLS} FROM agent_chats
-             WHERE org_id = $1 AND user_id = $2 AND deleted_at_micros IS NULL
-             ORDER BY updated_at_micros DESC LIMIT 200"
+             WHERE org_id = $1 AND user_id = $2 AND deleted_at IS NULL
+               AND automation_id IS NULL
+             ORDER BY updated_at DESC LIMIT 200"
         ))
         .bind(&org_id.0)
         .bind(&user_id.0)
@@ -314,6 +326,10 @@ impl ChatRepository for PgChatRepository {
         Ok(rows.into_iter().map(chat_row).collect())
     }
 
+    async fn insights(&self, scope: &InsightScope, since: TimestampMicros) -> Result<Insights> {
+        insights::insights(&self.pool, scope, since).await
+    }
+
     async fn list_team_chats(&self, org_id: &Id, team_ids: &[String]) -> Result<Vec<Chat>> {
         if team_ids.is_empty() {
             return Ok(Vec::new());
@@ -321,8 +337,9 @@ impl ChatRepository for PgChatRepository {
 
         let rows = sqlx::query(&format!(
             "SELECT {CHAT_COLS} FROM agent_chats
-             WHERE org_id = $1 AND team_id = ANY($2) AND deleted_at_micros IS NULL
-             ORDER BY updated_at_micros DESC LIMIT 200"
+             WHERE org_id = $1 AND team_id = ANY($2) AND deleted_at IS NULL
+               AND automation_id IS NULL
+             ORDER BY updated_at DESC LIMIT 200"
         ))
         .bind(&org_id.0)
         .bind(team_ids)
@@ -350,9 +367,9 @@ impl ChatRepository for PgChatRepository {
     }
 
     async fn touch_chat(&self, id: &Id, at: TimestampMicros) -> Result<()> {
-        sqlx::query("UPDATE agent_chats SET updated_at_micros = $2 WHERE id = $1")
+        sqlx::query("UPDATE agent_chats SET updated_at = $2 WHERE id = $1")
             .bind(&id.0)
-            .bind(at.0)
+            .bind(at)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
@@ -363,12 +380,12 @@ impl ChatRepository for PgChatRepository {
     async fn delete_chat(&self, org_id: &Id, id: &Id) -> Result<()> {
         // 软删：标记时间戳，保留消息行供归档/审计保留路径解析。
         sqlx::query(
-            "UPDATE agent_chats SET deleted_at_micros = $3
-             WHERE org_id = $1 AND id = $2 AND deleted_at_micros IS NULL",
+            "UPDATE agent_chats SET deleted_at = $3
+             WHERE org_id = $1 AND id = $2 AND deleted_at IS NULL",
         )
         .bind(&org_id.0)
         .bind(&id.0)
-        .bind(TimestampMicros::now().0)
+        .bind(TimestampMicros::now())
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -397,14 +414,14 @@ impl ChatRepository for PgChatRepository {
         sqlx::query(
             "UPDATE agent_chats SET
                 analysis_mode = COALESCE($2, analysis_mode),
-                time_range_start_micros = COALESCE($3, time_range_start_micros),
-                time_range_end_micros = COALESCE($4, time_range_end_micros)
+                time_range_start = COALESCE($3, time_range_start),
+                time_range_end = COALESCE($4, time_range_end)
              WHERE id = $1",
         )
         .bind(&id.0)
         .bind(analysis_mode)
-        .bind(time_range_start)
-        .bind(time_range_end)
+        .bind(time_range_start.map(TimestampMicros))
+        .bind(time_range_end.map(TimestampMicros))
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -424,14 +441,14 @@ impl ChatRepository for PgChatRepository {
                 provider = $2,
                 model = $3,
                 provider_id = $4,
-                updated_at_micros = $5
+                updated_at = $5
              WHERE id = $1",
         )
         .bind(&id.0)
         .bind(provider)
         .bind(model)
         .bind(provider_id)
-        .bind(TimestampMicros::now().0)
+        .bind(TimestampMicros::now())
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -441,12 +458,12 @@ impl ChatRepository for PgChatRepository {
 
     async fn set_context_summary(&self, id: &Id, summary: &str, upto_micros: i64) -> Result<()> {
         sqlx::query(
-            "UPDATE agent_chats SET context_summary = $2, context_summary_upto_micros = $3
+            "UPDATE agent_chats SET context_summary = $2, context_summary_upto = $3
              WHERE id = $1",
         )
         .bind(&id.0)
         .bind(summary)
-        .bind(upto_micros)
+        .bind(TimestampMicros(upto_micros))
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -468,7 +485,7 @@ impl ChatRepository for PgChatRepository {
                 (id, chat_id, org_id, role, content, user_id, tool_calls_json, tool_result_for,
                  prompt_tokens, completion_tokens, cost, cost_currency, prompt_template_id,
                  prompt_builtin_key, prompt_version, prompt_hash, evidence_json, command_json,
-                 created_at_micros, run_id, tool_transcript, references_json)
+                 created_at, run_id, tool_transcript, references_json)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
                      $17, $18, $19, $20, $21, $22)",
         )
@@ -490,7 +507,7 @@ impl ChatRepository for PgChatRepository {
         .bind(&m.prompt_hash)
         .bind(m.evidence_json.as_ref().map(Json))
         .bind(m.command_json.as_ref().map(Json))
-        .bind(m.created_at.0)
+        .bind(m.created_at)
         .bind(m.run_id.as_ref().map(|id| id.0.as_str()))
         .bind(m.tool_transcript.as_ref().map(Json))
         .bind(m.references_json.as_ref().map(Json))
@@ -505,7 +522,7 @@ impl ChatRepository for PgChatRepository {
         let rows = sqlx::query(&format!(
             "SELECT {MESSAGE_COLS} FROM agent_messages
              WHERE chat_id = $1
-             ORDER BY created_at_micros ASC, id ASC"
+             ORDER BY created_at ASC, id ASC"
         ))
         .bind(&chat_id.0)
         .fetch_all(&self.pool)

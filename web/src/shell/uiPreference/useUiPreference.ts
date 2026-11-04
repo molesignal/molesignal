@@ -42,8 +42,8 @@ export function useUiPreference<T>(
   key: string | null,
   parse: (raw: unknown) => T | null,
 ): UiPreference<T> {
-  const userId = useAuthStore((state) => state.ctx?.user_id ?? '');
-  const orgId = useAuthStore((state) => state.ctx?.org_id ?? '');
+  const userId = useAuthStore((state) => state.ctx?.userId ?? '');
+  const orgId = useAuthStore((state) => state.ctx?.orgId ?? '');
   const queryClient = useQueryClient();
   const parseRef = React.useRef(parse);
   parseRef.current = parse;

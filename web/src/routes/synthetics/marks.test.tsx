@@ -39,6 +39,19 @@ describe('state marks', () => {
     expect(screen.queryByText('Passing')).toBeNull();
   });
 
+  it('says a check without results has none, whatever its last runs said, unless it is paused', () => {
+    render(
+      <>
+        <CheckStateMark state="failing" noData />
+        <CheckStateMark state="healthy" lifecycle="paused" noData />
+      </>,
+    );
+
+    expect(screen.getByText('No results').parentElement?.className).not.toContain('text-red');
+    expect(screen.getByText('Paused')).toBeTruthy();
+    expect(screen.queryByText('Failing')).toBeNull();
+  });
+
   it('says a location is online or not: a place does not pass', () => {
     render(
       <>
@@ -83,7 +96,7 @@ describe('RunStrip', () => {
   });
 
   it('leaves test runs out and says so when there is nothing to draw', () => {
-    render(<RunStrip results={runs(['failing'], { is_test: true })} />);
+    render(<RunStrip results={runs(['failing'], { isTest: true })} />);
 
     expect(screen.queryByRole('img')).toBeNull();
     expect(screen.getByText('No runs yet')).toBeTruthy();

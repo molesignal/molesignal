@@ -22,9 +22,10 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
             let sql = format!(
                 "INSERT INTO synthetic_probe_tasks
                     (id, organization_id, monitor_id, monitor_revision_id, location_id, spec,
-                     is_test, state, scheduled_at_micros, deadline_at_micros, timeout_millis,
-                     max_attempts, lease_agent_id, lease_token_hash, leased_until_micros,
-                     created_at_micros, updated_at_micros)
+                     is_test, state, scheduled_at, deadline_at, timeout_millis,
+                     max_attempts, required_feature_level, inject_trace_context,
+                     traceroute_on_failure, lease_agent_id, lease_token_hash,
+                     leased_until, created_at, updated_at)
                  VALUES ($1, $2, $3, $4, $5, $6, $7,
                          CASE WHEN $7 OR NOT EXISTS (
                              SELECT 1 FROM synthetic_probe_tasks existing
@@ -33,9 +34,9 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
                                AND NOT existing.is_test
                                AND existing.state IN ('pending', 'leased', 'running')
                          ) THEN 'pending' ELSE 'skipped' END,
-                         $8, $9, $10, $11,
+                         $8, $9, $10, $11, $14, $15, $16,
                          NULL, NULL, NULL, $12, $13)
-                 ON CONFLICT (monitor_revision_id, location_id, scheduled_at_micros, is_test)
+                 ON CONFLICT (monitor_revision_id, location_id, scheduled_at, is_test)
                  DO UPDATE SET id = synthetic_probe_tasks.id
                  RETURNING {TASK_COLS}"
             );
@@ -48,12 +49,15 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
                 .bind(&task.location_id.0)
                 .bind(sqlx::types::Json(&task.spec))
                 .bind(task.is_test)
-                .bind(task.scheduled_at.0)
-                .bind(task.deadline_at.0)
+                .bind(task.scheduled_at)
+                .bind(task.deadline_at)
                 .bind(task.timeout_millis as i32)
                 .bind(task.max_attempts as i16)
-                .bind(task.created_at.0)
-                .bind(task.updated_at.0)
+                .bind(task.created_at)
+                .bind(task.updated_at)
+                .bind(i32::try_from(task.spec.required_feature_level()).unwrap_or(i32::MAX))
+                .bind(task.inject_trace_context)
+                .bind(task.traceroute_on_failure)
                 .fetch_one(&mut *transaction)
                 .await
                 .map_err(super::sqlx_err)?;
@@ -89,15 +93,16 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
                    ON revision.organization_id = task.organization_id
                   AND revision.id = task.monitor_revision_id
                  WHERE task.location_id = $1 AND task.state = 'pending'
-                   AND task.scheduled_at_micros <= $3 AND task.deadline_at_micros > $3
+                   AND task.scheduled_at <= $3 AND task.deadline_at > $3
                    AND location.organization_id IS NOT DISTINCT FROM $2
                    AND revision.spec->>'kind' = ANY($7)
-                 ORDER BY task.scheduled_at_micros, task.id
+                   AND task.required_feature_level <= $8
+                 ORDER BY task.scheduled_at, task.id
                  LIMIT 1 FOR UPDATE OF task SKIP LOCKED
              )
              UPDATE synthetic_probe_tasks task
              SET state = 'leased', lease_agent_id = $4, lease_token_hash = $5,
-                 leased_until_micros = $6, updated_at_micros = $3
+                 leased_until = $6, updated_at = $3
              FROM candidate
              WHERE task.id = candidate.task_id
              RETURNING {TASK_COLS}"
@@ -106,10 +111,10 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
         sqlx::query(&sql)
             .bind(&agent.location_id.0)
             .bind(agent.organization_id.as_ref().map(Id::as_str))
-            .bind(now.0)
+            .bind(now)
             .bind(&agent.id.0)
             .bind(lease_token_hash)
-            .bind(leased_until.0)
+            .bind(leased_until)
             .bind(
                 agent
                     .capabilities
@@ -117,6 +122,7 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
                     .map(|capability| capability.as_str().to_string())
                     .collect::<Vec<_>>(),
             )
+            .bind(i32::try_from(agent.feature_level).unwrap_or(i32::MAX))
             .fetch_optional(&self.pool)
             .await
             .map_err(super::sqlx_err)?
@@ -133,7 +139,7 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
     ) -> Result<()> {
         let rows = sqlx::query(
             "UPDATE synthetic_probe_tasks
-             SET state = 'completed', updated_at_micros = $4
+             SET state = 'completed', updated_at = $4
              WHERE organization_id = $1 AND id = $2
                AND lease_agent_id IS NOT DISTINCT FROM $3
                AND state IN ('leased', 'running', 'completed')",
@@ -141,7 +147,7 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
         .bind(&org_id.0)
         .bind(&task_id.0)
         .bind(agent_id.map(Id::as_str))
-        .bind(now.0)
+        .bind(now)
         .execute(&self.pool)
         .await
         .map_err(super::sqlx_err)?
@@ -158,23 +164,50 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
         let result = sqlx::query(
             "WITH expired AS (
                  SELECT id FROM synthetic_probe_tasks
-                 WHERE state IN ('leased', 'running') AND leased_until_micros <= $1
-                 ORDER BY leased_until_micros, id
+                 WHERE state IN ('leased', 'running') AND leased_until <= $1
+                 ORDER BY leased_until, id
                  LIMIT $2 FOR UPDATE SKIP LOCKED
              )
              UPDATE synthetic_probe_tasks task
-             SET state = CASE WHEN deadline_at_micros > $1 THEN 'pending' ELSE 'expired' END,
-                 lease_agent_id = NULL, lease_token_hash = NULL, leased_until_micros = NULL,
-                 updated_at_micros = $1
+             SET state = CASE WHEN deadline_at > $1 THEN 'pending' ELSE 'expired' END,
+                 lease_agent_id = NULL, lease_token_hash = NULL, leased_until = NULL,
+                 updated_at = $1
              FROM expired WHERE task.id = expired.id",
         )
-        .bind(now.0)
+        .bind(now)
         .bind(i64::from(limit.min(10_000)))
         .execute(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
 
         Ok(result.rows_affected())
+    }
+
+    async fn expire_unclaimed(&self, now: TimestampMicros, limit: u32) -> Result<Vec<ProbeTask>> {
+        // A task no Agent took by its deadline would otherwise stay pending for good, and every
+        // later run of its check at that location would be skipped behind it.
+        let sql = format!(
+            "WITH unclaimed AS (
+                 SELECT id AS task_id FROM synthetic_probe_tasks
+                 WHERE state = 'pending' AND deadline_at <= $1
+                 ORDER BY deadline_at, id
+                 LIMIT $2 FOR UPDATE SKIP LOCKED
+             )
+             UPDATE synthetic_probe_tasks task
+             SET state = 'expired', updated_at = $1
+             FROM unclaimed WHERE task.id = unclaimed.task_id
+             RETURNING {TASK_COLS}"
+        );
+
+        sqlx::query(&sql)
+            .bind(now)
+            .bind(i64::from(limit.min(10_000)))
+            .fetch_all(&self.pool)
+            .await
+            .map_err(super::sqlx_err)?
+            .into_iter()
+            .map(row_to_task)
+            .collect()
     }
 
     async fn get_leased_task(
@@ -187,7 +220,7 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
         let sql = format!(
             "SELECT {TASK_COLS} FROM synthetic_probe_tasks
              WHERE id = $1 AND lease_agent_id = $2 AND lease_token_hash = $3
-               AND ((state IN ('leased', 'running') AND leased_until_micros > $4)
+               AND ((state IN ('leased', 'running') AND leased_until > $4)
                     OR state = 'completed')"
         );
 
@@ -195,7 +228,7 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
             .bind(&task_id.0)
             .bind(&agent_id.0)
             .bind(lease_token_hash)
-            .bind(now.0)
+            .bind(now)
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
@@ -212,13 +245,13 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
         let sql = format!(
             "SELECT {TASK_COLS} FROM synthetic_probe_tasks
              WHERE id = $1 AND lease_token_hash = $2
-               AND state IN ('leased', 'running') AND leased_until_micros > $3"
+               AND state IN ('leased', 'running') AND leased_until > $3"
         );
 
         let row = sqlx::query(&sql)
             .bind(&task_id.0)
             .bind(lease_token_hash)
-            .bind(now.0)
+            .bind(now)
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
@@ -237,12 +270,12 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
         let rows = sqlx::query(
             "UPDATE synthetic_probe_tasks
              SET state = CASE WHEN $4 THEN 'running'
-                              WHEN deadline_at_micros > $5 THEN 'pending'
+                              WHEN deadline_at > $5 THEN 'pending'
                               ELSE 'expired' END,
                  lease_agent_id = CASE WHEN $4 THEN lease_agent_id ELSE NULL END,
                  lease_token_hash = CASE WHEN $4 THEN lease_token_hash ELSE NULL END,
-                 leased_until_micros = CASE WHEN $4 THEN leased_until_micros ELSE NULL END,
-                 updated_at_micros = $5
+                 leased_until = CASE WHEN $4 THEN leased_until ELSE NULL END,
+                 updated_at = $5
              WHERE id = $1 AND lease_agent_id = $2 AND lease_token_hash = $3
                AND state = 'leased'",
         )
@@ -250,7 +283,7 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
         .bind(&agent_id.0)
         .bind(lease_token_hash)
         .bind(accepted)
-        .bind(now.0)
+        .bind(now)
         .execute(&self.pool)
         .await
         .map_err(super::sqlx_err)?
@@ -274,27 +307,25 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
         now: TimestampMicros,
     ) -> Result<TimestampMicros> {
         let maximum = TimestampMicros(now.0.saturating_add(120 * 1_000_000));
-        let requested = requested_until.0.max(now.0).min(maximum.0);
+        let requested = TimestampMicros(requested_until.0.max(now.0).min(maximum.0));
 
-        let value: Option<i64> = sqlx::query_scalar(
+        let value: Option<TimestampMicros> = sqlx::query_scalar(
             "UPDATE synthetic_probe_tasks
-             SET leased_until_micros = LEAST(deadline_at_micros, $5),
-                 updated_at_micros = $4
+             SET leased_until = LEAST(deadline_at, $5),
+                 updated_at = $4
              WHERE id = $1 AND lease_agent_id = $2 AND lease_token_hash = $3
-               AND state IN ('leased', 'running') AND leased_until_micros > $4
-             RETURNING leased_until_micros",
+               AND state IN ('leased', 'running') AND leased_until > $4
+             RETURNING leased_until",
         )
         .bind(&task_id.0)
         .bind(&agent_id.0)
         .bind(lease_token_hash)
-        .bind(now.0)
+        .bind(now)
         .bind(requested)
         .fetch_optional(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
 
-        value
-            .map(TimestampMicros)
-            .ok_or_else(|| Error::conflict("Probe task lease cannot be renewed"))
+        value.ok_or_else(|| Error::conflict("Probe task lease cannot be renewed"))
     }
 }

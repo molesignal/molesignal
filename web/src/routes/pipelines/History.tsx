@@ -60,7 +60,7 @@ export function PipelineHistory() {
               {t('flows.history.retry', {
                 source: retry.source,
                 attempt: retry.attempt,
-                when: formatRelativeMicros(retry.next_at_micros, i18n.language),
+                when: formatRelativeMicros(retry.nextAt, i18n.language),
               })}
               {retry.error && <span className="block text-xs text-tx-3">{retry.error}</span>}
             </span>

@@ -34,6 +34,7 @@ const MAX_INSTRUCTIONS_CHARS: usize = 2_000;
 
 /// 新建或修改一台服务器时提交的内容。
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ServerDraft {
     pub name: String,
     #[serde(default = "default_transport")]
@@ -599,10 +600,10 @@ mod tests {
             personal,
             json!({
                 "name": "GitHub",
-                "endpoint_url": "https://api.githubcopilot.com/mcp/",
-                "private_only": true,
-                "tls_verify": false,
-                "allowed_cidrs": ["10.0.0.0/8"]
+                "endpointUrl": "https://api.githubcopilot.com/mcp/",
+                "privateOnly": true,
+                "tlsVerify": false,
+                "allowedCidrs": ["10.0.0.0/8"]
             }),
         )
         .unwrap();
@@ -615,9 +616,9 @@ mod tests {
             Scope::Org,
             json!({
                 "name": "Internal",
-                "endpoint_url": "https://mcp.internal/mcp",
-                "tls_verify": false,
-                "allowed_cidrs": ["10.0.0.0/8"]
+                "endpointUrl": "https://mcp.internal/mcp",
+                "tlsVerify": false,
+                "allowedCidrs": ["10.0.0.0/8"]
             }),
         )
         .unwrap();
@@ -632,9 +633,9 @@ mod tests {
             Scope::Org,
             json!({
                 "name": "Linear",
-                "endpoint_url": "https://mcp.linear.app/mcp",
-                "auth_type": "member_secret",
-                "member_credential": {"header": "Authorization", "bearer": true, "instructions": " Settings → API "},
+                "endpointUrl": "https://mcp.linear.app/mcp",
+                "authType": "member_secret",
+                "memberCredential": {"header": "Authorization", "bearer": true, "instructions": " Settings → API "},
                 "headers": [{"name": "X-Team", "value": "platform"}]
             }),
         )
@@ -646,9 +647,9 @@ mod tests {
         assert_eq!(input.headers[0].name, "x-team");
 
         for value in [
-            json!({"name": "x", "endpoint_url": "https://x", "auth_type": "member_secret"}),
+            json!({"name": "x", "endpointUrl": "https://x", "authType": "member_secret"}),
             json!({
-                "name": "x", "endpoint_url": "https://x", "auth_type": "bearer_token",
+                "name": "x", "endpointUrl": "https://x", "authType": "bearer_token",
                 "headers": [{"name": "Authorization", "value": "Bearer y"}]
             }),
             json!({"name": "x", "transport": "sse"}),

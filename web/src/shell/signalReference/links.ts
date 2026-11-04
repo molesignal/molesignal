@@ -85,28 +85,29 @@ export function buildSignalJumps(
   options: SignalReferenceOptions = {},
   filters: GlobalFilter[] = [],
 ): SignalJumpAction[] {
-  const params = new URLSearchParams();
+  // What every link carries: the time, where it came from, the pinned filters.
+  const base = new URLSearchParams();
   if (time) {
-    params.set('from', time.from);
-    params.set('to', time.to);
-    params.set('time', `${time.from}..${time.to}`);
+    base.set('from', time.from);
+    base.set('to', time.to);
+    base.set('time', `${time.from}..${time.to}`);
   }
   if (options.source) {
-    params.set('source', options.source.type);
-    params.set('source_id', options.source.id);
+    base.set('source', options.source.type);
+    base.set('sourceId', options.source.id);
   }
-  if (filters.length > 0) params.set('filters', encodeFilters(filters));
-  const filterClauses = filters.map((filter) =>
-    fieldClause(filter.key, filter.value, filter.operator === '!=' ? '!=' : '='),
+  if (filters.length > 0) base.set('filters', encodeFilters(filters));
+  const traceFilterClauses = filters.map((filter) =>
+    fieldClause(traceFieldOf(filter.key), filter.value, filter.operator === '!=' ? '!=' : '='),
   );
-  const withFilters = (query: string) =>
-    [query, ...filterClauses].filter(Boolean).join(' AND ');
+  const withTraceFilters = (query: string) =>
+    [query, ...traceFilterClauses].filter(Boolean).join(' AND ');
   const context = buildSignalContext(type, value, options);
+  const params = new URLSearchParams(base);
   appendExplicitContext(params, context);
 
   if (type === 'trace_id') {
     const traceId = context.traceId ?? value;
-    const logsParams = paramsWith(params, 'q', withFilters(logFieldQuery(context)));
     const metricsParams = paramsWith(params, 'promql', metricQueryForContext(context, filters));
     return [
       {
@@ -118,7 +119,7 @@ export function buildSignalJumps(
       {
         id: 'logs',
         labelKey: 'signal_reference.jumps.trace_logs',
-        to: `/logs?${logsParams}`,
+        to: logsPath(base, context),
         relation: 'exact',
       },
       {
@@ -132,9 +133,8 @@ export function buildSignalJumps(
 
   if (type === 'span_id') {
     const similarContext = withoutIdentifiers(context);
-    const logsParams = paramsWith(params, 'q', withFilters(logFieldQuery(context)));
     const metricsParams = paramsWith(params, 'promql', metricQueryForContext(similarContext, filters));
-    const tracesParams = paramsWith(params, 'q', withFilters(traceFieldQuery(similarContext)));
+    const tracesParams = paramsWith(params, 'q', withTraceFilters(traceFieldQuery(similarContext)));
     return [
       context.traceId
         ? {
@@ -152,7 +152,7 @@ export function buildSignalJumps(
       {
         id: 'logs',
         labelKey: 'signal_reference.jumps.span_logs',
-        to: `/logs?${logsParams}`,
+        to: logsPath(base, context),
         relation: 'exact',
       },
       {
@@ -166,7 +166,7 @@ export function buildSignalJumps(
 
   if (type === 'service') {
     const serviceContext = serviceOnlyContext(context);
-    return contextSignalJumps(serviceContext, params, filters, withFilters, {
+    return contextSignalJumps(serviceContext, { base, params }, filters, withTraceFilters, {
       metrics: 'signal_reference.jumps.service_metrics',
       traces: 'signal_reference.jumps.service_traces',
       logs: 'signal_reference.jumps.service_logs',
@@ -174,7 +174,7 @@ export function buildSignalJumps(
   }
 
   if (type === 'host') {
-    return contextSignalJumps(context, params, filters, withFilters, {
+    return contextSignalJumps(context, { base, params }, filters, withTraceFilters, {
       metrics: 'signal_reference.jumps.host_metrics',
       traces: context.service
         ? 'signal_reference.jumps.service_traces'
@@ -216,18 +216,17 @@ export function buildSignalContext(
 
 function contextSignalJumps(
   context: SignalContext,
-  params: URLSearchParams,
+  { base, params }: { base: URLSearchParams; params: URLSearchParams },
   filters: GlobalFilter[],
-  withFilters: (query: string) => string,
+  withTraceFilters: (query: string) => string,
   labels: { metrics: string; traces: string; logs: string },
 ): SignalJumpAction[] {
   const metricsParams = paramsWith(params, 'promql', metricQueryForContext(context, filters));
-  const logsParams = paramsWith(params, 'q', withFilters(logFieldQuery(context)));
-  const tracesParams = paramsWith(params, 'q', withFilters(traceFieldQuery(context)));
+  const tracesParams = paramsWith(params, 'q', withTraceFilters(traceFieldQuery(context)));
   return [
     { id: 'metrics', labelKey: labels.metrics, to: `/metrics?${metricsParams}`, relation: 'context' },
     { id: 'traces', labelKey: labels.traces, to: `/traces?${tracesParams}`, relation: 'context' },
-    { id: 'logs', labelKey: labels.logs, to: `/logs?${logsParams}`, relation: 'context' },
+    { id: 'logs', labelKey: labels.logs, to: logsPath(base, context), relation: 'context' },
   ];
 }
 
@@ -246,7 +245,8 @@ function streamSignalJumps(
   };
   const streamParams = new URLSearchParams(params);
   if (streamType === 'metrics') {
-    streamParams.set('metric', value);
+    // A metrics stream holds the metrics of one source, so no metric is picked.
+    streamParams.delete('metric');
     return [openStream, {
       id: 'metrics',
       labelKey: 'signal_reference.jumps.stream_metrics',
@@ -290,8 +290,8 @@ function exactTracePath(traceId: string, base: URLSearchParams): string {
 
 function appendExplicitContext(params: URLSearchParams, context: SignalContext): void {
   if (context.type === 'trace_id' || context.type === 'span_id') {
-    if (context.traceId) params.set('trace_id', context.traceId);
-    if (context.spanId) params.set('span_id', context.spanId);
+    if (context.traceId) params.set('traceId', context.traceId);
+    if (context.spanId) params.set('spanId', context.spanId);
   }
   if (context.service) params.set('service', context.service);
   if (context.operation && context.type !== 'service') params.set('operation', context.operation);
@@ -347,42 +347,67 @@ function fieldClause(
   return `${field} ${op} '${quoteFieldValue(value)}'`;
 }
 
-function logFieldQuery(context: SignalContext): string {
-  const clauses: string[] = [];
-  if (context.traceId) {
-    clauses.push(fieldClause('trace_id', context.traceId));
-    if (context.spanId) clauses.push(fieldClause('span_id', context.spanId));
-    return clauses.join(' AND ');
-  }
-  if (context.service) clauses.push(fieldClause('service', context.service));
-  if (context.route) clauses.push(fieldClause('path', context.route));
-  else if (context.operation) clauses.push(fieldClause('operation', context.operation));
-  if (context.method) clauses.push(fieldClause('method', context.method));
-  if (context.status && /^\d+$/.test(context.status)) {
-    clauses.push(fieldClause('status_code', context.status));
-  }
-  if (context.host && context.hostLabelName?.toLowerCase() !== 'instance') {
-    clauses.push(fieldClause('host', context.host));
-  }
-  if (context.environment) {
-    clauses.push(fieldClause(context.environmentLabelName ?? 'environment', context.environment));
-  }
-  if (clauses.length > 0) return clauses.join(' AND ');
-  if (context.type === 'host') return fieldClause('host', context.host ?? context.value);
-  if (context.type === 'service') return fieldClause('service', context.service ?? context.value);
-  return '';
+/**
+ * A link to the logs asks by meaning (`service=checkout`), not by field: which
+ * field holds the service depends on the stream the Logs page queries, and the
+ * page writes the field query in that stream's own names. The pinned filters
+ * ride along in `filters`, and the page applies them the same way.
+ */
+function logsPath(base: URLSearchParams, context: SignalContext): string {
+  const params = new URLSearchParams(base);
+  for (const [meaning, value] of logConditions(context)) params.set(meaning, value);
+  return `/logs?${params}`;
 }
 
+/** What a jump asks of the logs: the trace when it names one, else what the context says of where. */
+function logConditions(context: SignalContext): Array<[string, string]> {
+  if (context.traceId) {
+    return context.spanId
+      ? [['traceId', context.traceId], ['spanId', context.spanId]]
+      : [['traceId', context.traceId]];
+  }
+  const conditions: Array<[string, string]> = [];
+  if (context.service) conditions.push(['service', context.service]);
+  if (context.route) conditions.push(['route', context.route]);
+  else if (context.operation) conditions.push(['operation', context.operation]);
+  if (context.method) conditions.push(['method', context.method]);
+  if (context.status && /^\d+$/.test(context.status)) conditions.push(['status', context.status]);
+  if (context.host && context.hostLabelName?.toLowerCase() !== 'instance') {
+    conditions.push(['host', context.host]);
+  }
+  if (context.environment) conditions.push(['environment', context.environment]);
+  if (conditions.length > 0) return conditions;
+  if (context.type === 'host') return [['host', context.host ?? context.value]];
+  if (context.type === 'service') return [['service', context.service ?? context.value]];
+  return [];
+}
+
+/** A trace field query names a span's fields as the stream does: `service.name`, `name`. */
 function traceFieldQuery(context: SignalContext): string {
   const clauses: string[] = [];
   if (context.traceId) clauses.push(fieldClause('trace_id', context.traceId));
   if (context.spanId) clauses.push(fieldClause('span_id', context.spanId));
-  if (context.service) clauses.push(fieldClause('service_name', context.service));
+  if (context.service) clauses.push(fieldClause('service.name', context.service));
   const operation = context.operation ?? context.route;
   if (operation && !context.traceId) {
-    clauses.push(fieldClause('operation_name', operation, 'contains'));
+    clauses.push(fieldClause('name', operation, 'contains'));
   }
   return clauses.join(' AND ');
+}
+
+/**
+ * The field of a span a pinned filter compares. A filter is keyed by the label
+ * it was picked from, which another signal may name otherwise (`service_name`
+ * on a metric): the stream keeps the service as `service.name`, the operation
+ * as `name`.
+ */
+function traceFieldOf(key: string): string {
+  const lower = key.toLowerCase();
+  if (SERVICE_LABEL_ALIASES.includes(lower)) return 'service.name';
+  if (OPERATION_LABEL_ALIASES.includes(lower)) return 'name';
+  if (TRACE_ID_LABEL_ALIASES.includes(lower)) return 'trace_id';
+  if (SPAN_ID_LABEL_ALIASES.includes(lower)) return 'span_id';
+  return key;
 }
 
 function metricQueryForContext(context: SignalContext, filters: GlobalFilter[] = []): string {

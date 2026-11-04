@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-pptx-page-role="content" font-family="Microsoft YaHei, Arial">
+<rect id="bg" data-pptx-role="background" width="1280" height="720" fill="#F7F9FC"/>
+<g id="heading" data-pptx-bounds="56 35 1168 105"><text x="56" y="60" font-size="18" fill="#007E87">02 / 产品实景 · 链路</text><text x="56" y="120" font-size="44" fill="#102C44" font-weight="bold">围绕一次请求追查延迟与错误</text></g>
+<g id="product" data-pptx-bounds="56 152 900 506.25"><image href="../images/traces.png" x="56" y="152" width="900" height="506.25" preserveAspectRatio="xMidYMid meet"/></g>
+<g id="features" data-pptx-bounds="992 180 232 430"><text x="992" y="216" font-size="30" fill="#102C44" font-weight="bold">链路调查</text><text x="992" y="270" font-size="24" fill="#173247"><tspan x="992">服务与状态筛选</tspan><tspan x="992" dy="52">耗时与错误定位</tspan><tspan x="992" dy="52">Span / RED 入口</tspan></text><text x="992" y="494" font-size="20" fill="#007E87"><tspan x="992">关联请求与日志</tspan><tspan x="992" dy="32">减少上下文切换</tspan></text></g>
+<text id="footer" data-pptx-role="footer" x="56" y="690" font-size="16" fill="#53677B">真实产品前端截图 · 测试演示数据，非客户数据 · 尚未量化排障效率改善</text><text id="page" data-pptx-role="page-number" x="1224" y="690" text-anchor="end" font-size="16" fill="#53677B">05 / 14</text>
+</svg>

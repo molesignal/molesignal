@@ -4,8 +4,6 @@ import {
   describeTraceValue,
   isTraceFieldExpandable,
   isTraceFieldMeasure,
-  isTraceListField,
-  traceFieldValue,
   traceLevelFieldValues,
   traceValueKind,
   type TraceFieldRecord,
@@ -116,21 +114,5 @@ describe('whether a field can be opened', () => {
     expect(isTraceFieldExpandable(field('span_id', 'utf8'), true)).toBe(true);
     expect(isTraceFieldExpandable(field('span_id', 'utf8'), false)).toBe(false);
     expect(isTraceFieldExpandable(field('span_count', 'int64'), false)).toBe(true);
-  });
-});
-
-describe('what a picked trace can show', () => {
-  it('is what its row in the list carries', () => {
-    const picked = trace('t-1', 442, 11, 2);
-
-    expect(traceFieldValue(picked, 'service.name')).toBe('web');
-    expect(traceFieldValue(picked, 'error_count')).toBe('2');
-    expect(isTraceListField('duration_ns')).toBe(true);
-  });
-
-  it('does not make up a status for a trace from its error count', () => {
-    // A span's status is OK, ERROR or UNSET; a row of the list does not say which.
-    expect(traceFieldValue(trace('t-1', 442, 11, 2), 'status_code')).toBe('');
-    expect(isTraceListField('status_code')).toBe(false);
   });
 });

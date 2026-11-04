@@ -3,6 +3,7 @@
 
 mod actions;
 mod proxy;
+mod rum_session;
 mod trace;
 
 use std::{
@@ -23,7 +24,8 @@ use url::{Host, Url};
 
 use self::{proxy::EgressProxy, trace::TraceCapture};
 use super::{
-    ArtifactPayload, AttemptOutcome, ExecutionContext, now_micros, security::EgressGuard, unknown,
+    ArtifactPayload, AttemptOutcome, ExecutionContext, failure, now_micros, security::EgressGuard,
+    unknown,
 };
 use crate::protocol::v1::{self as wire, ProbeOutcome, StepEvidence};
 
@@ -43,7 +45,11 @@ pub(super) async fn execute(
     let guard = EgressGuard::new(task.egress_policy.clone())?;
     let spec = spec.clone();
     let context = context.clone();
-    let blocking = tokio::task::spawn_blocking(move || run_blocking(spec, context, guard, timeout));
+    let test_context = rum_session::test_context_script(task);
+
+    let blocking = tokio::task::spawn_blocking(move || {
+        run_blocking(spec, context, guard, timeout, &test_context)
+    });
 
     match tokio::time::timeout(timeout.saturating_add(FINALIZATION_GRACE), blocking).await {
         Ok(Ok(outcome)) => Ok(outcome),
@@ -51,7 +57,8 @@ pub(super) async fn execute(
             "browser_runtime_failed",
             format!("Browser runtime worker failed: {error}"),
         )),
-        Err(_) => Ok(unknown(
+        // A journey that does not get through in its time fails, as a page that never loads does.
+        Err(_) => Err(failure::target(
             "browser_timeout",
             "Browser Journey exceeded its execution timeout",
         )),
@@ -63,8 +70,9 @@ fn run_blocking(
     context: ExecutionContext,
     guard: EgressGuard,
     timeout: Duration,
+    test_context: &str,
 ) -> AttemptOutcome {
-    let mut runtime = match BrowserRuntime::new(spec, context, guard, timeout) {
+    let mut runtime = match BrowserRuntime::new(spec, context, guard, timeout, test_context) {
         Ok(runtime) => runtime,
         Err(error) => {
             return unknown(
@@ -166,6 +174,11 @@ fn run_blocking(
         metadata.insert("browser.artifact_error".into(), error);
     }
 
+    // Last, because it leaves the page: everything above reads it.
+    if let Some(session) = runtime.leave_recorded_page() {
+        metadata.insert("rum.session_id".into(), session);
+    }
+
     AttemptOutcome {
         outcome,
         assertions,
@@ -201,6 +214,7 @@ impl BrowserRuntime {
         context: ExecutionContext,
         guard: EgressGuard,
         timeout: Duration,
+        test_context: &str,
     ) -> Result<Self> {
         if spec.steps.is_empty() || spec.steps.len() > 100 {
             bail!("Browser Journey requires 1 to 100 steps");
@@ -258,6 +272,13 @@ impl BrowserRuntime {
         if !spec.user_agent.trim().is_empty() {
             tab.set_user_agent(&spec.user_agent, None, None)?;
         }
+
+        tab.call_method(Page::AddScriptToEvaluateOnNewDocument {
+            source: test_context.to_string(),
+            world_name: None,
+            include_command_line_api: None,
+            run_immediately: None,
+        })?;
 
         install_egress_interceptor(&tab, guard.clone(), denied_request.clone())?;
 

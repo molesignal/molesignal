@@ -4,10 +4,11 @@ import { AlertTriangle, LoaderCircle, Pause, Play, RotateCcw } from 'lucide-reac
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type { ReplayEvent, SessionRow } from '@/api/rum';
+import type { ReplayEvent } from '@/api/rum';
 import { ChromeButton, Pill } from '@/shell/chrome';
 
-import { formatDurationMs } from '../_helpers';
+import { formatDurationNs } from '../_helpers';
+import type { ReplayController } from './controller';
 import type { PlayerEvent } from './events';
 
 interface RrwebEvent extends Record<string, unknown> {
@@ -16,30 +17,57 @@ interface RrwebEvent extends Record<string, unknown> {
   data: unknown;
 }
 
+/** A moment of the session worth a tick on the ruler: an error, a sign of frustration, a new page. */
+export interface ReplayMark {
+  /** In milliseconds since the epoch. */
+  at: number;
+  kind: 'error' | 'frustration' | 'view' | 'comment' | 'chapter';
+}
+
 export function ReplayPlayer({
   replayEvents,
   timelineEvents,
-  session,
+  durationNs,
   loading = false,
   loadError,
+  controller,
+  marks,
+  startAt,
 }: {
   replayEvents: ReplayEvent[];
   timelineEvents: PlayerEvent[];
-  session: SessionRow;
+  /** How long the session lasted, as the server derived it. */
+  durationNs?: number | undefined;
   loading?: boolean;
   loadError?: unknown;
+  /** What lets the rest of the page read where the replay is and move it. */
+  controller?: ReplayController | undefined;
+  /** The ticks on the ruler. */
+  marks?: readonly ReplayMark[] | undefined;
+  /** Where the replay opens, held there: a moment in milliseconds since the epoch. It opens at its beginning without one. */
+  startAt?: number | undefined;
 }) {
   const rrwebEvents = React.useMemo(() => validRrwebEvents(replayEvents), [replayEvents]);
   if (loading) return <ReplayRequestState loading />;
   if (loadError) return <ReplayRequestState error={loadError} />;
   const available = rrwebEvents.some((event) => event.type === 2);
   if (!available) {
-    return <TimelineFallback events={timelineEvents} session={session} />;
+    return <TimelineFallback events={timelineEvents} durationNs={durationNs} />;
   }
-  return <RrwebReplay events={rrwebEvents} />;
+  return <RrwebReplay events={rrwebEvents} controller={controller} marks={marks} startAt={startAt} />;
 }
 
-function RrwebReplay({ events }: { events: RrwebEvent[] }) {
+function RrwebReplay({
+  events,
+  controller,
+  marks,
+  startAt,
+}: {
+  events: RrwebEvent[];
+  controller: ReplayController | undefined;
+  marks: readonly ReplayMark[] | undefined;
+  startAt: number | undefined;
+}) {
   const { t } = useTranslation('rum');
   const stageRef = React.useRef<HTMLDivElement>(null);
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -49,6 +77,10 @@ function RrwebReplay({ events }: { events: RrwebEvent[] }) {
   const [playing, setPlaying] = React.useState(false);
   const [speed, setSpeed] = React.useState(1);
   const [error, setError] = React.useState<string>();
+  const [ready, setReady] = React.useState(false);
+  // The recording is in order of time; its first event is where its clock starts.
+  const origin = events[0]?.timestamp ?? 0;
+  const openedAt = React.useRef<number | undefined>(undefined);
 
   React.useEffect(() => {
     const root = rootRef.current;
@@ -58,6 +90,8 @@ function RrwebReplay({ events }: { events: RrwebEvent[] }) {
     setError(undefined);
     setPlaying(false);
     setPosition(0);
+    setReady(false);
+    openedAt.current = undefined;
 
     try {
       const player = new Replayer(
@@ -78,6 +112,7 @@ function RrwebReplay({ events }: { events: RrwebEvent[] }) {
       playerRef.current = player;
       const metadata = player.getMetaData();
       setDuration(metadata.totalTime);
+      setReady(true);
 
       const resize = () => {
         const meta = viewport(events);
@@ -105,6 +140,7 @@ function RrwebReplay({ events }: { events: RrwebEvent[] }) {
         observer?.disconnect();
         player.destroy();
         playerRef.current = undefined;
+        setReady(false);
         root.replaceChildren();
       };
     } catch (cause) {
@@ -121,13 +157,32 @@ function RrwebReplay({ events }: { events: RrwebEvent[] }) {
     return () => window.clearInterval(timer);
   }, [duration, playing]);
 
-  const seek = (next: number) => {
+  const seek = React.useCallback((next: number) => {
     const player = playerRef.current;
     if (!player) return;
     player.pause(next);
     setPosition(next);
     setPlaying(false);
-  };
+  }, []);
+
+  // The rest of the page reads where the replay is, and moves it.
+  React.useEffect(() => {
+    controller?.publish({ origin, duration, position, playing });
+  }, [controller, origin, duration, position, playing]);
+
+  React.useEffect(() => {
+    if (!controller || !ready) return undefined;
+    controller.attach(seek);
+
+    return () => controller.attach(null);
+  }, [controller, ready, seek]);
+
+  // It opens where the address says, once, and waits there.
+  React.useEffect(() => {
+    if (!ready || startAt === undefined || openedAt.current === startAt) return;
+    openedAt.current = startAt;
+    seek(Math.min(duration, Math.max(0, startAt - origin)));
+  }, [duration, origin, ready, seek, startAt]);
 
   const toggle = React.useCallback(() => {
     const player = playerRef.current;
@@ -228,28 +283,68 @@ function RrwebReplay({ events }: { events: RrwebEvent[] }) {
             <Play className="h-4 w-4 fill-current" />
           )}
         </button>
-        <span className="w-24 font-mono text-xs text-tx-3">
+        <span className="min-w-24 shrink-0 whitespace-nowrap font-mono text-xs text-tx-3">
           {formatReplayTime(position)} / {formatReplayTime(duration)}
         </span>
-        <input
-          type="range"
-          min={0}
-          max={Math.max(1, duration)}
-          step={100}
-          value={Math.min(position, Math.max(1, duration))}
-          onChange={(event) => seek(Number(event.target.value))}
-          className="h-[3px] min-w-40 flex-1 cursor-pointer appearance-none rounded-full bg-bd-1 disabled:cursor-not-allowed disabled:opacity-40 [&::-moz-range-progress]:h-[3px] [&::-moz-range-progress]:bg-transparent [&::-moz-range-thumb]:h-2.5 [&::-moz-range-thumb]:w-2.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-indigo [&::-moz-range-track]:h-[3px] [&::-moz-range-track]:bg-transparent [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo"
-          style={{
-            background: `linear-gradient(to right, var(--indigo) 0%, var(--indigo) ${progress}%, var(--bd-1) ${progress}%, var(--bd-1) 100%)`,
-          }}
-          aria-label={t('session_detail.seek')}
-          disabled={Boolean(error)}
-        />
+        <div className="relative flex min-w-40 flex-1 items-center">
+          <input
+            type="range"
+            min={0}
+            max={Math.max(1, duration)}
+            step={100}
+            value={Math.min(position, Math.max(1, duration))}
+            onChange={(event) => seek(Number(event.target.value))}
+            className="h-[3px] w-full cursor-pointer appearance-none rounded-full bg-bd-1 disabled:cursor-not-allowed disabled:opacity-40 [&::-moz-range-progress]:h-[3px] [&::-moz-range-progress]:bg-transparent [&::-moz-range-thumb]:h-2.5 [&::-moz-range-thumb]:w-2.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-indigo [&::-moz-range-track]:h-[3px] [&::-moz-range-track]:bg-transparent [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo"
+            style={{
+              background: `linear-gradient(to right, var(--indigo) 0%, var(--indigo) ${progress}%, var(--bd-1) ${progress}%, var(--bd-1) 100%)`,
+            }}
+            aria-label={t('session_detail.seek')}
+            disabled={Boolean(error)}
+          />
+          <Ticks marks={marks} origin={origin} duration={duration} />
+        </div>
         <ChromeButton size="sm" variant="ghost" onClick={cycleSpeed}>
           {speed}×
         </ChromeButton>
       </div>
     </div>
+  );
+}
+
+const TICK: Record<ReplayMark['kind'], string> = {
+  error: 'h-[9px] bg-[var(--red)]',
+  frustration: 'h-[9px] bg-[var(--orange)]',
+  view: 'h-[13px] bg-[var(--tx-3)] opacity-60',
+  comment: 'h-[9px] bg-[var(--blue)]',
+  chapter: 'h-[13px] bg-[var(--indigo)] opacity-60',
+};
+
+/**
+ * The moments worth finding on the ruler, as ticks across the track: errors, signs of frustration, the
+ * lines where the page changed, comments and chapters. They are not controls: the lists beside the replay
+ * name each one.
+ */
+function Ticks({ marks, origin, duration }: { marks: readonly ReplayMark[] | undefined; origin: number; duration: number }) {
+  if (!marks || marks.length === 0 || duration <= 0) return null;
+
+  return (
+    // The thumb's centre runs from half its width in from either end of the track.
+    <span aria-hidden data-replay-ticks="" className="pointer-events-none absolute inset-x-[5px] top-1/2 h-0">
+      {marks.map((mark, index) => {
+        const share = (mark.at - origin) / duration;
+
+        if (share < 0 || share > 1) return null;
+
+        return (
+          <span
+            key={`${mark.kind}-${index}`}
+            data-replay-tick={mark.kind}
+            className={`absolute top-0 w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-[1px] ${TICK[mark.kind]}`}
+            style={{ left: `${share * 100}%` }}
+          />
+        );
+      })}
+    </span>
   );
 }
 
@@ -299,10 +394,10 @@ function ReplayRequestState({ loading, error }: { loading?: boolean; error?: unk
 
 function TimelineFallback({
   events,
-  session,
+  durationNs,
 }: {
   events: PlayerEvent[];
-  session: SessionRow;
+  durationNs?: number | undefined;
 }) {
   const { t } = useTranslation('rum');
   return (
@@ -313,7 +408,7 @@ function TimelineFallback({
         </span>
         <Pill tone="dim">{t('session_detail.action_timeline_fallback')}</Pill>
         <span className="ml-auto text-xs text-tx-3">
-          {events.length} {t('session_detail.events_unit')} · {formatDurationMs(session.duration_ms)}
+          {events.length} {t('session_detail.events_unit')} · {formatDurationNs(durationNs)}
         </span>
       </div>
       <div className="grid min-h-80 place-items-center bg-bg-3 p-8 text-center">

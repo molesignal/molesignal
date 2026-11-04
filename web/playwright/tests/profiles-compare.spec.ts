@@ -37,11 +37,11 @@ async function serveCompare(
   const profiles = services.map((service, index) => ({
     id: `cpu-${index}`,
     service,
-    profile_type: 'cpu',
+    profileType: 'cpu',
     timestamp: NOW - (index + 1) * 60_000_000,
-    total_value: 25 * S,
-    sample_count: 100,
-    duration_nanos: 60_000_000_000,
+    totalValue: 25 * S,
+    sampleCount: 100,
+    durationNanos: 60_000_000_000,
     unsymbolized: false,
   }));
 
@@ -53,8 +53,8 @@ async function serveCompare(
       json: {
         flamebearer: DIFF_FLAME,
         truncated: false,
-        baseline_count: options.baselineCount ?? 12,
-        comparison_count: 12,
+        baselineCount: options.baselineCount ?? 12,
+        comparisonCount: 12,
       },
     });
   });
@@ -82,8 +82,8 @@ test.describe('Profile comparison', () => {
     // The last hour, against the hour before it, of the first type there are profiles of.
     const first = asked.at(-1)!;
     expect(span(first, 'from', 'to')).toBe(HOUR);
-    expect(first.baseline_to).toBe(first.from);
-    expect(span(first, 'baseline_from', 'baseline_to')).toBe(HOUR);
+    expect(first.baselineTo).toBe(first.from);
+    expect(span(first, 'baselineFrom', 'baselineTo')).toBe(HOUR);
     expect(first.type).toBe('cpu');
 
     // What each period holds is said beside it.
@@ -146,15 +146,15 @@ test.describe('Profile comparison', () => {
     await baseline.click();
     await expect(panel.getByRole('button', { name: 'The period before' })).toHaveAttribute('aria-pressed', 'true');
     await panel.getByRole('button', { name: 'Same time a week earlier' }).click();
-    await expect.poll(() => span(asked.at(-1), 'baseline_from', 'from')).toBe(7 * DAY);
-    expect(span(asked.at(-1), 'baseline_from', 'baseline_to')).toBe(HOUR);
+    await expect.poll(() => span(asked.at(-1), 'baselineFrom', 'from')).toBe(7 * DAY);
+    expect(span(asked.at(-1), 'baselineFrom', 'baselineTo')).toBe(HOUR);
     await sameWidth();
 
     // The quick ranges the period itself is set with.
     await baseline.click();
     await panel.getByRole('button', { name: 'Last 6 hours' }).click();
     await expect(baseline).toHaveText('Last 6 hours');
-    await expect.poll(() => span(asked.at(-1), 'baseline_from', 'baseline_to')).toBe(6 * HOUR);
+    await expect.poll(() => span(asked.at(-1), 'baselineFrom', 'baselineTo')).toBe(6 * HOUR);
     // The last six hours hold the last hour: said, since what is in both counts on both sides.
     await expect(page.locator('[data-compare-overlap]')).toBeVisible();
     await sameWidth();

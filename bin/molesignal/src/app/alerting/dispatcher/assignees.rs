@@ -55,13 +55,18 @@ impl<'a> ScheduleCache<'a> {
 /// 把 `incident.assignees` 对齐到该步骤直接点名的人，返回是否有变化。
 ///
 /// `user` 目标是本人，`schedule` 目标是此刻的值班人；`team` 目标是广播，不指定个人。
-/// 步骤没有点名任何个人（只广播给团队、或值班表此刻没人）时保持现状。
+/// 步骤没有点名任何个人（只广播给团队、或值班表此刻没人）时保持现状。有人手动指定过负责人
+/// （转派、增派、退回未确认）时，这一步里也保持现状。
 pub(super) async fn apply_assignees(
     incident: &mut Incident,
     step: &EscalationStep,
     schedules: &mut ScheduleCache<'_>,
     at: TimestampMicros,
 ) -> bool {
+    if incident.handling.assignees_pinned {
+        return false;
+    }
+
     let mut desired: Vec<Id> = Vec::new();
 
     for target in &step.targets {
@@ -151,10 +156,13 @@ mod tests {
                 name: "primary".to_owned(),
                 members: vec![Id::from_string(member)],
                 kind: RotationKind::Daily,
-                active_window: None,
+                active_windows: Vec::new(),
+                calendar: None,
                 start_at: TimestampMicros(0),
+                end_at: None,
             }],
             overrides: Vec::new(),
+            swap_needs_approval: false,
             created_by: None,
             updated_by: None,
             created_at: TimestampMicros(0),
@@ -187,6 +195,10 @@ mod tests {
             acknowledged_by: None,
             resolved_at: None,
             resolved_by: None,
+            team_id: None,
+            routing: None,
+            handling: Default::default(),
+            revision: 0,
         }
     }
 

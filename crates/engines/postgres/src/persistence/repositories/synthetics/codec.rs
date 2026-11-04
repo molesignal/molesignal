@@ -16,60 +16,62 @@ use crate::{
 
 pub(super) const LOCATION_COLS: &str = "id, organization_id, name, code, description, scope,
     execution, lifecycle, health, system_managed, egress_policy,
-    created_at_micros, updated_at_micros";
+    created_at, updated_at";
 
 pub(super) const AGENT_COLS: &str = "agent.id AS id,
     location.organization_id AS organization_id, agent.location_id AS location_id,
     agent.name AS name, agent.hostname AS hostname, agent.status AS status,
     agent.agent_version AS agent_version, agent.protocol_version AS protocol_version,
+    agent.feature_level AS feature_level,
     agent.capabilities AS capabilities, agent.capacity AS capacity, agent.labels AS labels,
     agent.public_key_der AS public_key_der, agent.certificate_serial AS certificate_serial,
-    agent.certificate_expires_at_micros AS certificate_expires_at_micros,
-    agent.last_heartbeat_at_micros AS last_heartbeat_at_micros,
+    agent.certificate_expires_at AS certificate_expires_at,
+    agent.last_heartbeat_at AS last_heartbeat_at,
     agent.last_result_sequence AS last_result_sequence,
-    agent.revoked_at_micros AS revoked_at_micros,
-    agent.created_at_micros AS created_at_micros,
-    agent.updated_at_micros AS updated_at_micros";
+    agent.revoked_at AS revoked_at,
+    agent.created_at AS created_at,
+    agent.updated_at AS updated_at";
 
 pub(super) const CONFIGURED_AGENT_COLS: &str = "agent.id AS id,
     location.organization_id AS organization_id, agent.location_id AS location_id,
     COALESCE(configuration.name, agent.name) AS name,
     agent.hostname AS hostname, agent.status AS status,
     agent.agent_version AS agent_version, agent.protocol_version AS protocol_version,
+    agent.feature_level AS feature_level,
     agent.capabilities AS capabilities, agent.capacity AS capacity,
     COALESCE(configuration.labels, agent.labels) AS labels,
     agent.public_key_der AS public_key_der, agent.certificate_serial AS certificate_serial,
-    agent.certificate_expires_at_micros AS certificate_expires_at_micros,
-    agent.last_heartbeat_at_micros AS last_heartbeat_at_micros,
+    agent.certificate_expires_at AS certificate_expires_at,
+    agent.last_heartbeat_at AS last_heartbeat_at,
     agent.last_result_sequence AS last_result_sequence,
-    agent.revoked_at_micros AS revoked_at_micros,
-    agent.created_at_micros AS created_at_micros,
+    agent.revoked_at AS revoked_at,
+    agent.created_at AS created_at,
     GREATEST(
-        agent.updated_at_micros,
-        COALESCE(configuration.updated_at_micros, agent.updated_at_micros)
-    ) AS updated_at_micros";
+        agent.updated_at,
+        COALESCE(configuration.updated_at, agent.updated_at)
+    ) AS updated_at";
 
 pub(super) const SECRET_COLS: &str = "id, organization_id, name, description, current_version,
-    created_by, created_at_micros, updated_at_micros, archived_at_micros";
+    created_by, created_at, updated_at, archived_at";
 
 pub(super) const MONITOR_COLS: &str = "id, organization_id, name, description, kind, lifecycle,
-    state, team_id, tags, active_revision_id, draft_revision_id, next_due_at_micros,
-    created_by, created_at_micros, updated_at_micros, archived_at_micros";
+    state, team_id, tags, active_revision_id, draft_revision_id, next_due_at,
+    created_by, created_at, updated_at, archived_at";
 
 pub(super) const REVISION_COLS: &str = "id, organization_id, monitor_id, revision_number,
     spec, schedule, timeout_millis, max_retries, consecutive_failures, consecutive_recoveries,
     freshness_seconds, location_policy, location_ids, escalation_policy_id, alert_on_degraded,
-    alert_on_flaky, last_test_result_id, last_test_passed_at_micros,
-    created_by, created_at_micros, content_hash";
+    alert_on_flaky, alert_on_no_data, inject_trace_context, traceroute_on_failure,
+    last_test_result_id, last_test_passed_at, created_by, created_at, content_hash";
 
 pub(super) const TASK_COLS: &str = "id, organization_id, monitor_id, monitor_revision_id,
-    location_id, spec, is_test, state, scheduled_at_micros, deadline_at_micros, timeout_millis,
-    max_attempts, lease_agent_id, lease_token_hash, leased_until_micros,
-    created_at_micros, updated_at_micros";
+    location_id, spec, is_test, state, scheduled_at, deadline_at, timeout_millis,
+    max_attempts, inject_trace_context, traceroute_on_failure, lease_agent_id, lease_token_hash,
+    leased_until, created_at, updated_at";
 
 pub(super) const RESULT_COLS: &str = "id, organization_id, monitor_id, monitor_revision_id,
-    location_id, agent_id, task_id, is_test, result_sequence, scheduled_at_micros, started_at_micros,
-    finished_at_micros, received_at_micros, outcome, attempts, assertions, secret_versions,
+    location_id, agent_id, task_id, is_test, result_sequence, scheduled_at, started_at,
+    finished_at, received_at, outcome, attempts, assertions, secret_versions,
     protocol_version, metadata";
 
 fn parse<T>(value: &str, parser: impl FnOnce(&str) -> Option<T>, label: &str) -> Result<T> {
@@ -99,8 +101,12 @@ pub(super) fn row_to_location(row: sqlx::postgres::PgRow) -> Result<ProbeLocatio
         system_managed: row.try_get("system_managed").map_err(super::sqlx_err)?,
         egress_policy: serde_json::from_value::<EgressPolicy>(egress)
             .map_err(|error| Error::internal(format!("decode Location egress policy: {error}")))?,
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(super::sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(super::sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(super::sqlx_err)?,
     })
 }
 
@@ -126,6 +132,11 @@ pub(super) fn row_to_agent(row: sqlx::postgres::PgRow) -> Result<ProbeAgent> {
                 .map_err(super::sqlx_err)?,
         )
         .map_err(|_| Error::internal("negative Probe protocol version"))?,
+        feature_level: u32::try_from(
+            row.try_get::<i32, _>("feature_level")
+                .map_err(super::sqlx_err)?,
+        )
+        .map_err(|_| Error::internal("negative Probe feature level"))?,
         capabilities: capabilities
             .into_iter()
             .map(|value| parse(&value, ProbeCapability::parse, "Probe capability"))
@@ -137,24 +148,25 @@ pub(super) fn row_to_agent(row: sqlx::postgres::PgRow) -> Result<ProbeAgent> {
         public_key_der: row.try_get("public_key_der").map_err(super::sqlx_err)?,
         certificate_serial: row.try_get("certificate_serial").map_err(super::sqlx_err)?,
         certificate_expires_at: row
-            .try_get::<Option<i64>, _>("certificate_expires_at_micros")
-            .map_err(super::sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("certificate_expires_at")
+            .map_err(super::sqlx_err)?,
         last_heartbeat_at: row
-            .try_get::<Option<i64>, _>("last_heartbeat_at_micros")
-            .map_err(super::sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("last_heartbeat_at")
+            .map_err(super::sqlx_err)?,
         last_result_sequence: u64::try_from(
             row.try_get::<i64, _>("last_result_sequence")
                 .map_err(super::sqlx_err)?,
         )
         .map_err(|_| Error::internal("negative Agent result sequence"))?,
         revoked_at: row
-            .try_get::<Option<i64>, _>("revoked_at_micros")
-            .map_err(super::sqlx_err)?
-            .map(TimestampMicros),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(super::sqlx_err)?),
+            .try_get::<Option<TimestampMicros>, _>("revoked_at")
+            .map_err(super::sqlx_err)?,
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(super::sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(super::sqlx_err)?,
     })
 }
 
@@ -168,12 +180,15 @@ pub(super) fn row_to_secret(row: sqlx::postgres::PgRow) -> Result<SyntheticSecre
             .try_get::<i32, _>("current_version")
             .map_err(super::sqlx_err)? as u32,
         created_by: Id(row.try_get("created_by").map_err(super::sqlx_err)?),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(super::sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(super::sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(super::sqlx_err)?,
         archived_at: row
-            .try_get::<Option<i64>, _>("archived_at_micros")
-            .map_err(super::sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("archived_at")
+            .map_err(super::sqlx_err)?,
     })
 }
 
@@ -208,16 +223,18 @@ pub(super) fn row_to_monitor(row: sqlx::postgres::PgRow) -> Result<SyntheticMoni
             .map_err(super::sqlx_err)?
             .map(Id),
         next_due_at: row
-            .try_get::<Option<i64>, _>("next_due_at_micros")
-            .map_err(super::sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("next_due_at")
+            .map_err(super::sqlx_err)?,
         created_by: Id(row.try_get("created_by").map_err(super::sqlx_err)?),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(super::sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(super::sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(super::sqlx_err)?,
         archived_at: row
-            .try_get::<Option<i64>, _>("archived_at_micros")
-            .map_err(super::sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("archived_at")
+            .map_err(super::sqlx_err)?,
     })
 }
 
@@ -262,16 +279,24 @@ pub(super) fn row_to_revision(row: sqlx::postgres::PgRow) -> Result<MonitorRevis
             .map(Id),
         alert_on_degraded: row.try_get("alert_on_degraded").map_err(super::sqlx_err)?,
         alert_on_flaky: row.try_get("alert_on_flaky").map_err(super::sqlx_err)?,
+        alert_on_no_data: row.try_get("alert_on_no_data").map_err(super::sqlx_err)?,
+        inject_trace_context: row
+            .try_get("inject_trace_context")
+            .map_err(super::sqlx_err)?,
+        traceroute_on_failure: row
+            .try_get("traceroute_on_failure")
+            .map_err(super::sqlx_err)?,
         last_test_result_id: row
             .try_get::<Option<String>, _>("last_test_result_id")
             .map_err(super::sqlx_err)?
             .map(Id),
         last_test_passed_at: row
-            .try_get::<Option<i64>, _>("last_test_passed_at_micros")
-            .map_err(super::sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("last_test_passed_at")
+            .map_err(super::sqlx_err)?,
         created_by: Id(row.try_get("created_by").map_err(super::sqlx_err)?),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(super::sqlx_err)?,
         content_hash: row.try_get("content_hash").map_err(super::sqlx_err)?,
     })
 }
@@ -292,28 +317,38 @@ pub(super) fn row_to_task(row: sqlx::postgres::PgRow) -> Result<ProbeTask> {
             .map_err(|error| Error::internal(format!("decode Probe task spec: {error}")))?,
         is_test: row.try_get("is_test").map_err(super::sqlx_err)?,
         state: parse(&state, ProbeTaskState::parse, "Probe task state")?,
-        scheduled_at: TimestampMicros(
-            row.try_get("scheduled_at_micros")
-                .map_err(super::sqlx_err)?,
-        ),
-        deadline_at: TimestampMicros(row.try_get("deadline_at_micros").map_err(super::sqlx_err)?),
+        scheduled_at: row
+            .try_get::<TimestampMicros, _>("scheduled_at")
+            .map_err(super::sqlx_err)?,
+        deadline_at: row
+            .try_get::<TimestampMicros, _>("deadline_at")
+            .map_err(super::sqlx_err)?,
         timeout_millis: row
             .try_get::<i32, _>("timeout_millis")
             .map_err(super::sqlx_err)? as u32,
         max_attempts: row
             .try_get::<i16, _>("max_attempts")
             .map_err(super::sqlx_err)? as u8,
+        inject_trace_context: row
+            .try_get("inject_trace_context")
+            .map_err(super::sqlx_err)?,
+        traceroute_on_failure: row
+            .try_get("traceroute_on_failure")
+            .map_err(super::sqlx_err)?,
         lease_agent_id: row
             .try_get::<Option<String>, _>("lease_agent_id")
             .map_err(super::sqlx_err)?
             .map(Id),
         lease_token_hash: row.try_get("lease_token_hash").map_err(super::sqlx_err)?,
         leased_until: row
-            .try_get::<Option<i64>, _>("leased_until_micros")
-            .map_err(super::sqlx_err)?
-            .map(TimestampMicros),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(super::sqlx_err)?),
+            .try_get::<Option<TimestampMicros>, _>("leased_until")
+            .map_err(super::sqlx_err)?,
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(super::sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(super::sqlx_err)?,
     })
 }
 
@@ -343,13 +378,18 @@ pub(super) fn row_to_result(row: sqlx::postgres::PgRow) -> Result<SyntheticResul
             .try_get::<Option<i64>, _>("result_sequence")
             .map_err(super::sqlx_err)?
             .map(|value| value as u64),
-        scheduled_at: TimestampMicros(
-            row.try_get("scheduled_at_micros")
-                .map_err(super::sqlx_err)?,
-        ),
-        started_at: TimestampMicros(row.try_get("started_at_micros").map_err(super::sqlx_err)?),
-        finished_at: TimestampMicros(row.try_get("finished_at_micros").map_err(super::sqlx_err)?),
-        received_at: TimestampMicros(row.try_get("received_at_micros").map_err(super::sqlx_err)?),
+        scheduled_at: row
+            .try_get::<TimestampMicros, _>("scheduled_at")
+            .map_err(super::sqlx_err)?,
+        started_at: row
+            .try_get::<TimestampMicros, _>("started_at")
+            .map_err(super::sqlx_err)?,
+        finished_at: row
+            .try_get::<TimestampMicros, _>("finished_at")
+            .map_err(super::sqlx_err)?,
+        received_at: row
+            .try_get::<TimestampMicros, _>("received_at")
+            .map_err(super::sqlx_err)?,
         outcome: parse(&outcome, ProbeOutcome::parse, "Probe outcome")?,
         attempts: serde_json::from_value(attempts)
             .map_err(|error| Error::internal(format!("decode Probe attempts: {error}")))?,

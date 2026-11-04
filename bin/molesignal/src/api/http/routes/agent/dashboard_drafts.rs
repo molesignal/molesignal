@@ -82,34 +82,34 @@ async fn get_draft(
             .count();
 
         json!({
-            "approval_id": approval.id,
+            "approvalId": approval.id,
             "status": approval.status,
-            "required_approvals": approval.required_approvals,
-            "approved_reviews": review_count,
-            "expires_at": approval.expires_at,
+            "requiredApprovals": approval.required_approvals,
+            "approvedReviews": review_count,
+            "expiresAt": approval.expires_at,
         })
     });
 
     Ok(Json(json!({
-        "draft_id": draft.id,
-        "model_hash": draft.model_hash,
-        "folder_id": draft.folder_id,
+        "draftId": draft.id,
+        "modelHash": draft.model_hash,
+        "folderId": draft.folder_id,
         "status": draft.status,
-        "created_at": draft.created_at,
-        "expires_at": draft.expires_at,
-        "compiled_model": draft.compiled_model,
+        "createdAt": draft.created_at,
+        "expiresAt": draft.expires_at,
+        "compiledModel": draft.compiled_model,
         "warnings": draft.warnings,
         "preflight": draft.preflight,
         "operation": operation,
-        "dashboard_id": draft.dashboard_id,
-        "dashboard_route": draft.dashboard_id.map(|id| format!("/dashboards/{}", id.0)),
-        "can_propose": draft.status == DashboardDraftStatus::Ready
+        "dashboardId": draft.dashboard_id,
+        "dashboardRoute": draft.dashboard_id.map(|id| format!("/dashboards/{}", id.0)),
+        "canPropose": draft.status == DashboardDraftStatus::Ready
             && draft.expires_at > TimestampMicros::now(),
     })))
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ProposeRequest {
     expected_hash: String,
     reason: String,
@@ -143,11 +143,12 @@ async fn propose(
             investigation_id: None,
             action: "create_dashboard".into(),
             target: id,
-            parameters: json!({"expected_hash": request.expected_hash}),
+            parameters: json!({"expectedHash": request.expected_hash}),
             reason: request.reason,
             impact: request.impact,
-            expires_at_micros: None,
+            expires_at: None,
             required_approvals_override: Some(required_approvals),
+            risk_override: None,
         },
     )
     .await?;
@@ -162,7 +163,7 @@ async fn propose(
             "action": "create_dashboard",
             "target": approval.target,
             "risk": approval.risk,
-            "required_approvals": approval.required_approvals,
+            "requiredApprovals": approval.required_approvals,
         }),
     )
     .await;

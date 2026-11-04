@@ -90,7 +90,7 @@ function isDecided(result: SyntheticResult): boolean {
 export function decidedRuns(results: readonly SyntheticResult[]): SyntheticResult[] {
   return operationalResults([...results])
     .filter(isDecided)
-    .sort((left, right) => right.started_at - left.started_at);
+    .sort((left, right) => right.startedAt - left.startedAt);
 }
 
 /**
@@ -101,7 +101,7 @@ export function unhealthySince(results: readonly SyntheticResult[]): number | un
   let since: number | undefined;
   for (const result of decidedRuns(results)) {
     if (result.outcome === 'healthy') break;
-    since = result.started_at;
+    since = result.startedAt;
   }
 
   return since;
@@ -109,7 +109,7 @@ export function unhealthySince(results: readonly SyntheticResult[]): number | un
 
 /** When a run last did not pass, among the runs given. */
 export function lastFailureAt(results: readonly SyntheticResult[]): number | undefined {
-  return decidedRuns(results).find((result) => result.outcome !== 'healthy')?.started_at;
+  return decidedRuns(results).find((result) => result.outcome !== 'healthy')?.startedAt;
 }
 
 /** What the latest run that did not pass said went wrong. */
@@ -119,13 +119,13 @@ export function latestError(results: readonly SyntheticResult[]): string | undef
 
   const attempt = [...failed.attempts]
     .reverse()
-    .find((candidate) => candidate.error_message || candidate.error_category);
+    .find((candidate) => candidate.errorMessage || candidate.errorCategory);
   const assertion = failed.assertions.find((observation) => !observation.passed);
 
   return (
-    attempt?.error_message ||
+    attempt?.errorMessage ||
     assertion?.message ||
-    attempt?.error_category ||
+    attempt?.errorCategory ||
     undefined
   );
 }
@@ -136,7 +136,7 @@ export function latestByLocation(
 ): Map<string, SyntheticResult> {
   const latest = new Map<string, SyntheticResult>();
   for (const result of decidedRuns(results)) {
-    if (!latest.has(result.location_id)) latest.set(result.location_id, result);
+    if (!latest.has(result.locationId)) latest.set(result.locationId, result);
   }
 
   return latest;
@@ -210,13 +210,13 @@ export function availabilityTrend(
   const oldest = decided.at(-1);
   if (!latest || !oldest || steps < 1) return [];
 
-  const span = Math.max(1, latest.started_at - oldest.started_at);
+  const span = Math.max(1, latest.startedAt - oldest.startedAt);
   const passed = new Array<number>(steps).fill(0);
   const total = new Array<number>(steps).fill(0);
   for (const result of decided) {
     const step = Math.min(
       steps - 1,
-      Math.floor(((result.started_at - oldest.started_at) / span) * steps),
+      Math.floor(((result.startedAt - oldest.startedAt) / span) * steps),
     );
     total[step] = (total[step] ?? 0) + 1;
     if (result.outcome === 'healthy') passed[step] = (passed[step] ?? 0) + 1;
@@ -228,7 +228,7 @@ export function availabilityTrend(
 /** The latest scheduled runs, oldest first, for a strip that reads left to right. */
 export function runStrip(results: readonly SyntheticResult[], length = 20): SyntheticResult[] {
   return operationalResults([...results])
-    .sort((left, right) => right.started_at - left.started_at)
+    .sort((left, right) => right.startedAt - left.startedAt)
     .slice(0, length)
     .reverse();
 }

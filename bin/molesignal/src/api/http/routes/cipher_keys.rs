@@ -36,6 +36,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateReq {
     pub name: String,
     /// base64 standard，必须解码后正好 32 字节。
@@ -43,18 +44,20 @@ pub struct CreateReq {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RotateReq {
     pub key_material_b64: String,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct KeyResp {
     pub id: String,
     pub name: String,
     pub alg: String,
     pub version: i32,
-    pub created_at_micros: i64,
-    pub rotated_at_micros: Option<i64>,
+    pub created_at: i64,
+    pub rotated_at: Option<i64>,
 }
 
 fn decode_b64_32(s: &str) -> Result<Vec<u8>> {
@@ -80,12 +83,12 @@ fn to_resp(k: &crate::infra::cipher::CipherKey) -> KeyResp {
         name: k.name.clone(),
         alg: k.alg.clone(),
         version: k.version,
-        created_at_micros: k.created_at.0,
-        rotated_at_micros: k.rotated_at.map(|t| t.0),
+        created_at: k.created_at.0,
+        rotated_at: k.rotated_at.map(|t| t.0),
     }
 }
 
-#[permission("org.settings.read")]
+#[permission("org.cipher_keys.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -94,7 +97,7 @@ async fn list(
     Ok(Json(keys.iter().map(to_resp).collect()))
 }
 
-#[permission("org.settings.read")]
+#[permission("org.cipher_keys.read")]
 async fn get_latest(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -109,7 +112,7 @@ async fn get_latest(
     Ok(Json(to_resp(&k)))
 }
 
-#[permission("org.settings.manage")]
+#[permission("org.cipher_keys.manage")]
 async fn create(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -128,7 +131,7 @@ async fn create(
     Ok(Json(to_resp(&k)))
 }
 
-#[permission("org.settings.manage")]
+#[permission("org.cipher_keys.rotate")]
 async fn rotate(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -147,7 +150,7 @@ async fn rotate(
     Ok(Json(to_resp(&k)))
 }
 
-#[permission("org.settings.manage")]
+#[permission("org.cipher_keys.manage")]
 async fn delete(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -159,6 +162,7 @@ async fn delete(
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FieldKeyResp {
     pub key_id: String,
     pub version: i32,
@@ -166,7 +170,7 @@ pub struct FieldKeyResp {
 
 /// 轮换该 org 的字段加密 DEK（`__field_default__`）：服务端生成新 raw key、写新版本、
 /// 即时失效解密缓存。新写入用新版本，历史密文仍可解。`raw_key` 永不出库。
-#[permission("org.settings.manage")]
+#[permission("org.cipher_keys.rotate")]
 async fn rotate_field_default(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

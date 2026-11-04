@@ -2,19 +2,25 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import * as modelProvidersApi from '@/api/agent/modelProviders';
 import * as alertsApi from '@/api/alerts';
 import * as auditApi from '@/api/audit';
 import * as dashboardsApi from '@/api/dashboards';
 import * as escalationsApi from '@/api/escalations';
 import * as homeApi from '@/api/home';
 import * as incidentsApi from '@/api/incidents';
+import * as notifyApi from '@/api/notify';
 import * as onboardingApi from '@/api/onboarding';
 import * as pipelinesApi from '@/api/pipelines';
 import * as schedulesApi from '@/api/schedules';
 import * as streamsApi from '@/api/streams';
 import * as teamsApi from '@/api/teams';
 import { toApiError } from '@/lib/http';
-import { deriveActivationState } from '@/product/activation';
+import { useProductAccess } from '@/product/access';
+import {
+  canReadActivationStep,
+  deriveActivationState,
+} from '@/product/activation';
 import type { CriticalAlertItem } from '@/shell/chrome';
 import { queryStateFor } from '@/shell/query/State';
 import { toast } from '@/shell/ui/sonner';
@@ -39,9 +45,11 @@ import { selectFeaturedOnCall, summarizeOnCallShift } from './onCall/model';
 export function useHomeData(windowSecs: number) {
   const { t } = useTranslation('onboarding');
   const qc = useQueryClient();
-  const orgId = useAuthStore((state) => state.ctx?.org_id ?? '');
-  const currentUserId = useAuthStore((state) => state.ctx?.user_id ?? '');
+  const orgId = useAuthStore((state) => state.ctx?.orgId ?? '');
+  const currentUserId = useAuthStore((state) => state.ctx?.userId ?? '');
   const users = useUsers();
+  const access = useProductAccess();
+  const canReadSchedules = canReadActivationStep('schedule', access);
   const [nowMicros, setNowMicros] = React.useState(() => Date.now() * 1000);
 
   React.useEffect(() => {
@@ -62,10 +70,12 @@ export function useHomeData(windowSecs: number) {
   const sampleStatusQuery = useQuery({
     queryKey: ['onboarding', 'sample-data'],
     queryFn: onboardingApi.getSampleDataStatus,
+    enabled: canReadActivationStep('sample-data', access),
   });
   const streamsQuery = useQuery({
     queryKey: ['streams', 'list'],
     queryFn: () => streamsApi.list(200),
+    enabled: canReadActivationStep('datasource', access),
   });
   const runtimeQuery = useQuery({
     queryKey: ['streams', 'runtime', windowSecs],
@@ -76,19 +86,32 @@ export function useHomeData(windowSecs: number) {
   const dashboardsQuery = useQuery({
     queryKey: ['dashboards', 'list'],
     queryFn: () => dashboardsApi.list(),
+    enabled: canReadActivationStep('dashboard', access),
   });
   const incidentsQuery = useQuery({
     queryKey: ['alerts', 'incidents'],
     queryFn: () =>
-      incidentsApi.list({ scope: 'all', window_secs: 14 * 24 * 60 * 60 }),
+      incidentsApi.list({ scope: 'all', windowSecs: 14 * 24 * 60 * 60 }),
   });
   const rulesQuery = useQuery({
     queryKey: ['alerts', 'rules'],
     queryFn: () => alertsApi.list(),
+    enabled: canReadActivationStep('alert', access),
   });
   const pipelinesQuery = useQuery({
     queryKey: ['pipelines', 'list'],
     queryFn: () => pipelinesApi.list(),
+    enabled: canReadActivationStep('pipeline', access),
+  });
+  const notifyConnectorsQuery = useQuery({
+    queryKey: ['notify', 'connectors'],
+    queryFn: notifyApi.listConnectors,
+    enabled: canReadActivationStep('notification', access),
+  });
+  const modelProvidersQuery = useQuery({
+    queryKey: ['agent', 'model-providers'],
+    queryFn: modelProvidersApi.list,
+    enabled: canReadActivationStep('ai', access),
   });
   const activityQuery = useQuery({
     queryKey: ['audit', 'recent', HOME_RECENT_ACTIVITY_LIMIT],
@@ -98,20 +121,24 @@ export function useHomeData(windowSecs: number) {
     queryKey: ['schedules'],
     queryFn: schedulesApi.list,
     refetchInterval: 60_000,
+    enabled: canReadSchedules,
   });
+  // These two only fill in the on-call card, which shows nothing without the schedules.
   const escalationPoliciesQuery = useQuery({
     queryKey: ['escalation-policies'],
     queryFn: escalationsApi.list,
+    enabled: canReadSchedules,
   });
   const teamsQuery = useQuery({
     queryKey: ['teams'],
     queryFn: teamsApi.list,
+    enabled: canReadSchedules,
   });
 
   const loadSample = useMutation({
     mutationFn: onboardingApi.loadSampleData,
     onSuccess: (result) => {
-      toast.success(t('activation.load_success', { rows: result.total_rows }));
+      toast.success(t('activation.load_success', { rows: result.totalRows }));
       void qc.invalidateQueries({ queryKey: ['onboarding', 'sample-data'] });
       void qc.invalidateQueries({ queryKey: ['streams'] });
       void qc.invalidateQueries({ queryKey: ['home', 'overview'] });
@@ -128,13 +155,12 @@ export function useHomeData(windowSecs: number) {
     // absent field means "nothing reported", never a crash on the home page.
     return summarizeFleet(
       runtimeOverview.streams ?? [],
-      runtimeOverview.generated_at_micros != null
-        ? toMicros(runtimeOverview.generated_at_micros)
+      runtimeOverview.generatedAt != null
+        ? toMicros(runtimeOverview.generatedAt)
         : Date.now() * 1000,
     );
   }, [runtimeOverview, runtimeQuery.isError]);
 
-  const streams = streamsQuery.data ?? [];
   const dashboards = dashboardsQuery.data ?? [];
   const rules = rulesQuery.data ?? [];
   const pipelines = pipelinesQuery.data ?? [];
@@ -165,8 +191,8 @@ export function useHomeData(windowSecs: number) {
     .filter((incident) => incident.status === 'open')
     .slice(0, 5)
     .map((incident) => {
-      const service = incident.affected_services?.[0];
-      const age = formatAge(incident.created_at);
+      const service = incident.affectedServices?.[0];
+      const age = formatAge(incident.createdAt);
       return {
         id: incident.id,
         label: incident.summary || incident.id,
@@ -174,20 +200,26 @@ export function useHomeData(windowSecs: number) {
       };
     });
 
-  const activation = deriveActivationState({
-    streamsCount: streams.length,
-    dashboardsCount: dashboards.length,
-    alertsCount: rules.length,
-    pipelinesCount: pipelines.length,
-    sampleDataAvailable: sampleStatusQuery.data?.loaded ?? false,
-  });
+  const activation = deriveActivationState(
+    {
+      streams: streamsQuery.data,
+      dashboardsCount: dashboards.length,
+      alertsCount: rules.length,
+      schedulesCount: schedules.length,
+      notifyConnectors: notifyConnectorsQuery.data ?? [],
+      modelProviders: modelProvidersQuery.data ?? [],
+      pipelinesCount: pipelines.length,
+      sampleDataAvailable: sampleStatusQuery.data?.loaded ?? false,
+    },
+    access,
+  );
 
   const featuredOnCall = React.useMemo(
     () => selectFeaturedOnCall(schedules, currentUserId, nowMicros),
     [currentUserId, nowMicros, schedules],
   );
-  const featuredTeamName = featuredOnCall?.schedule.team_id
-    ? teamsById.get(featuredOnCall.schedule.team_id)?.name
+  const featuredTeamName = featuredOnCall?.schedule.teamId
+    ? teamsById.get(featuredOnCall.schedule.teamId)?.name
     : undefined;
   const shiftOverview = React.useMemo(
     () =>
@@ -212,11 +244,14 @@ export function useHomeData(windowSecs: number) {
   const queries = [
     overviewQuery,
     runtimeQuery,
+    sampleStatusQuery,
     streamsQuery,
     dashboardsQuery,
     incidentsQuery,
     rulesQuery,
     pipelinesQuery,
+    notifyConnectorsQuery,
+    modelProvidersQuery,
     activityQuery,
     schedulesQuery,
     escalationPoliciesQuery,
@@ -224,7 +259,10 @@ export function useHomeData(windowSecs: number) {
   ];
   const isRefreshing = queries.some((query) => query.isFetching);
   const refresh = async () => {
-    await Promise.all(queries.map((query) => query.refetch()));
+    // `refetch` runs a query whatever its `enabled` says, and the backend would refuse these.
+    await Promise.all(
+      queries.filter((query) => query.isEnabled).map((query) => query.refetch()),
+    );
   };
 
   return {
@@ -244,6 +282,7 @@ export function useHomeData(windowSecs: number) {
     firing,
     acknowledged,
     incidentsLoading: incidentsQuery.isLoading,
+    incidentsFailed: incidentsQuery.isError,
     criticalItems,
     activity,
     activityState: queryStateFor({
@@ -253,11 +292,26 @@ export function useHomeData(windowSecs: number) {
     }),
     activityError: activityQuery.error,
     activation,
+    /** The steps left can only be counted once every list the reader may see has answered. */
+    activationKnown:
+      access?.status === 'ready' &&
+      [
+        streamsQuery,
+        dashboardsQuery,
+        rulesQuery,
+        schedulesQuery,
+        notifyConnectorsQuery,
+        modelProvidersQuery,
+        pipelinesQuery,
+        sampleStatusQuery,
+      ].every((query) => !query.isEnabled || query.isSuccess),
     loadSample,
+    canReadSchedules,
     featuredOnCall,
     featuredTeamName,
     shiftOverview,
     schedulesLoading: schedulesQuery.isLoading,
+    schedulesError: schedulesQuery.error,
     users,
     nowMicros,
     isRefreshing,

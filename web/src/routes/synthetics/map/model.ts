@@ -1,4 +1,9 @@
-import type { LocationHealth, ProbeLocation, SyntheticResult } from '@/api/synthetics';
+import type {
+  AvailabilitySummary,
+  LocationHealth,
+  ProbeLocation,
+  SyntheticResult,
+} from '@/api/synthetics';
 
 export type GeographicCoordinates = readonly [longitude: number, latitude: number];
 
@@ -92,10 +97,10 @@ export function summarizeProbeLocationAvailability(
   const decidedByLocation = new Map<string, SyntheticResult[]>();
 
   results.forEach((result) => {
-    if (result.is_test || result.outcome === 'unknown' || result.outcome === 'skipped') return;
-    const decided = decidedByLocation.get(result.location_id) ?? [];
+    if (result.isTest || result.outcome === 'unknown' || result.outcome === 'skipped') return;
+    const decided = decidedByLocation.get(result.locationId) ?? [];
     decided.push(result);
-    decidedByLocation.set(result.location_id, decided);
+    decidedByLocation.set(result.locationId, decided);
   });
 
   return {
@@ -109,6 +114,28 @@ export function summarizeProbeLocationAvailability(
           decided.length > 0
             ? decided.filter((result) => result.outcome === 'healthy').length / decided.length
             : undefined,
+      };
+    }),
+    unmapped,
+  };
+}
+
+/** The places from how their runs went over a range, as the availability endpoint answers. */
+export function summarizeRangeAvailability(
+  locations: ProbeLocation[],
+  summaries: ReadonlyArray<AvailabilitySummary & { locationId: string }>,
+): { mapped: ProbeLocationAvailability[]; unmapped: ProbeLocation[] } {
+  const { mapped, unmapped } = partitionProbeLocations(locations);
+  const byLocation = new Map(summaries.map((summary) => [summary.locationId, summary]));
+
+  return {
+    mapped: mapped.map(({ location, coordinates }) => {
+      const summary = byLocation.get(location.id);
+      return {
+        location,
+        coordinates,
+        samples: summary ? summary.available + summary.failing : 0,
+        availability: summary?.availability ?? undefined,
       };
     }),
     unmapped,

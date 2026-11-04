@@ -20,6 +20,10 @@ use crate::{
 
 pub const PROBE_PROTOCOL_VERSION: u32 = 1;
 
+/// The Secret reference a task gives the private key of its client certificate under. The key is
+/// sealed into the revision, not kept as a Secret, and no Secret a check names can take this name.
+pub const CLIENT_KEY_REFERENCE: &str = "client_certificate.private_key";
+
 #[derive(Debug, Clone)]
 pub struct ProbeRegisterInput {
     pub register_token: String,
@@ -32,6 +36,7 @@ pub struct ProbeRegisterInput {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProbeRegisterOutcome {
     pub agent: ProbeAgent,
     pub certificate_chain_pem: String,
@@ -103,6 +108,7 @@ impl ProbeControlService {
                     status: AgentStatus::Registered,
                     agent_version: input.agent_version,
                     protocol_version: input.protocol_version,
+                    feature_level: 0,
                     capabilities: input.capabilities,
                     capacity: AgentCapacity::default(),
                     labels: input.labels,
@@ -186,6 +192,7 @@ impl ProbeControlService {
         mut agent: ProbeAgent,
         capacity: AgentCapacity,
         draining: bool,
+        feature_level: u32,
         observed_at: TimestampMicros,
     ) -> Result<ProbeAgent> {
         agent.status = if draining {
@@ -195,6 +202,7 @@ impl ProbeControlService {
         };
 
         agent.capacity = capacity;
+        agent.feature_level = feature_level;
         agent.last_heartbeat_at = Some(observed_at);
         agent.updated_at = TimestampMicros::now();
         self.repository.update_agent(agent).await

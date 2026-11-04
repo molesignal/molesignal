@@ -25,7 +25,7 @@ use self::{
 };
 use crate::{
     domain::{
-        pipeline::{realtime::is_realtime, scheduled::ScheduledConfig},
+        pipeline::{alert::is_alert, realtime::is_realtime, scheduled::ScheduledConfig},
         run_claim::{OpenGate, RunGate},
     },
     infra::persistence::repositories::pipelines::runs::{
@@ -325,10 +325,10 @@ fn schedule(p: &ScheduledPipeline) -> Result<(ScheduledConfig, Timing)> {
     Ok((config, timing))
 }
 
-/// 该 pipeline 在 `now` 是否到期：已启用、不是实时 pipeline，且距上次运行已满一个周期，或者有
-/// 窗口的重试到了时候、有源落后到一次读不完。
+/// 该 pipeline 在 `now` 是否到期：已启用、不是实时或告警 pipeline，且距上次运行已满一个周期，或者
+/// 有窗口的重试到了时候、有源落后到一次读不完。
 fn is_due(p: &ScheduledPipeline, now: TimestampMicros) -> bool {
-    if !p.enabled || is_realtime(&p.function_steps) {
+    if !p.enabled || is_realtime(&p.function_steps) || is_alert(&p.function_steps) {
         return false;
     }
 
@@ -593,6 +593,7 @@ mod tests {
             lookback_secs: 300,
             last_run_at,
             run_state: json!({}),
+            audit_reader_id: None,
             enabled: true,
             created_at: TimestampMicros(0),
             updated_at: TimestampMicros(0),
@@ -845,6 +846,10 @@ mod tests {
         let mut realtime = pipeline(None);
         realtime.function_steps = json!({ "mode": "realtime" });
         assert!(!is_due(&realtime, now));
+
+        let mut alert = pipeline(None);
+        alert.function_steps = json!({ "mode": "alert" });
+        assert!(!is_due(&alert, now));
 
         let ran_just_now = pipeline(Some(now));
         assert!(!is_due(&ran_just_now, now));

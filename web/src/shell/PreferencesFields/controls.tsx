@@ -41,15 +41,15 @@ export function DateTimeFormatPopover({
   const { t } = useTranslation('settings-admin');
   const [open, setOpen] = React.useState(false);
   const timeLabel =
-    value.time_format === 'local_12h'
+    value.timeFormat === 'local_12h'
       ? t('preferences.values.time_12h')
       : t('preferences.values.time_24h');
   const preview = formatMicros(
     Date.now() * 1000,
     resolveTimezone(value.timezone),
-    value.time_format,
+    value.timeFormat,
     true,
-    value.date_format,
+    value.dateFormat,
   );
 
   return (
@@ -69,10 +69,10 @@ export function DateTimeFormatPopover({
             aria-disabled={disabled || undefined}
             aria-label={t('preferences.fields.date_time_format')}
             aria-expanded={open}
-            className="flex h-9 w-full items-center justify-between gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-sm text-tx-0 transition-colors enabled:hover:bg-bg-3 data-[state=open]:bg-bg-3 focus-visible:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-3 disabled:text-tx-3"
+            className="flex h-9 w-full items-center justify-between gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-sm text-tx-0 transition-colors enabled:hover:bg-bg-3 data-[state=open]:bg-bg-3 focus-visible:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-3 disabled:text-[var(--tx-disabled)]"
           >
             <span className="truncate">
-              {DATE_SAMPLES[value.date_format]} · {timeLabel}
+              {DATE_SAMPLES[value.dateFormat]} · {timeLabel}
             </span>
             <ChevronDown aria-hidden="true" className="h-[14px] w-[14px] shrink-0 opacity-50" />
           </button>
@@ -87,10 +87,10 @@ export function DateTimeFormatPopover({
             {t('preferences.fields.date_format')}
           </span>
           <FormSelect
-            value={value.date_format}
+            value={value.dateFormat}
             onChange={(dateFormat) =>
               onChange({
-                date_format: dateFormat as meApi.PreferenceDateFormat,
+                dateFormat: dateFormat as meApi.PreferenceDateFormat,
               })
             }
             ariaLabel={t('preferences.fields.date_format')}
@@ -111,10 +111,10 @@ export function DateTimeFormatPopover({
           </div>
           <SegmentedControl
             ariaLabel={t('preferences.fields.time_format')}
-            value={value.time_format}
+            value={value.timeFormat}
             onChange={(timeFormat) =>
               onChange({
-                time_format: timeFormat as meApi.PreferenceTimeFormat,
+                timeFormat: timeFormat as meApi.PreferenceTimeFormat,
               })
             }
             options={[
@@ -182,7 +182,7 @@ export function SegmentedControl<T extends string>({
               aria-checked={selected}
               onClick={() => onChange(option.value)}
               className={cn(
-                'min-h-7 rounded-md px-2 font-sans text-xs font-strong transition-colors duration-fast focus-visible:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:text-tx-3',
+                'min-h-7 rounded-[3px] px-2 font-sans text-xs font-strong transition-colors duration-fast focus-visible:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:text-[var(--tx-disabled)]',
                 selected
                   ? 'bg-bg-1 text-tx-0 shadow-sm'
                   : 'text-tx-3 enabled:hover:bg-bg-3 enabled:hover:text-tx-1',

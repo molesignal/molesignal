@@ -44,9 +44,9 @@ function StatusView({ snapshot, page, source, slug, language, copy, paths, langu
   return (
     <>
       <PublicStatusVerdict
-        status={snapshot.overall_status}
+        status={snapshot.overallStatus}
         pageName={page.name}
-        updatedAt={snapshot.updated_at ?? snapshot.generated_at}
+        updatedAt={snapshot.updatedAt ?? snapshot.generatedAt}
         timezone={page.timezone}
         language={language}
         copy={copy}

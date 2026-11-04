@@ -24,7 +24,8 @@ impl PgScheduleRepository {
 }
 
 const COLS: &str = "id, org_id, name, description, team_id, timezone, enabled,
-    rotations, overrides, created_by, updated_by, created_at_micros, updated_at_micros";
+    rotations, overrides, swap_needs_approval, created_by, updated_by,
+    created_at, updated_at";
 
 fn row_to_schedule(row: sqlx::postgres::PgRow) -> Result<Schedule> {
     let rotations: Json<Vec<Rotation>> = row.try_get("rotations").map_err(sqlx_err)?;
@@ -43,6 +44,7 @@ fn row_to_schedule(row: sqlx::postgres::PgRow) -> Result<Schedule> {
         enabled: row.try_get("enabled").map_err(sqlx_err)?,
         rotations: rotations.0,
         overrides: overrides.0,
+        swap_needs_approval: row.try_get("swap_needs_approval").map_err(sqlx_err)?,
         created_by: row
             .try_get::<Option<String>, _>("created_by")
             .map_err(sqlx_err)?
@@ -51,8 +53,12 @@ fn row_to_schedule(row: sqlx::postgres::PgRow) -> Result<Schedule> {
             .try_get::<Option<String>, _>("updated_by")
             .map_err(sqlx_err)?
             .map(Id::from_string),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -63,8 +69,8 @@ impl ScheduleRepository for PgScheduleRepository {
             "INSERT INTO schedules
              (id, org_id, name, description, team_id, timezone, enabled,
               rotations, overrides, created_by, updated_by,
-              created_at_micros, updated_at_micros)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
+              created_at, updated_at, swap_needs_approval)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",
         )
         .bind(&s.id.0)
         .bind(&s.org_id.0)
@@ -77,8 +83,9 @@ impl ScheduleRepository for PgScheduleRepository {
         .bind(Json(&s.overrides))
         .bind(s.created_by.as_ref().map(|id| &id.0))
         .bind(s.updated_by.as_ref().map(|id| &id.0))
-        .bind(s.created_at.0)
-        .bind(s.updated_at.0)
+        .bind(s.created_at)
+        .bind(s.updated_at)
+        .bind(s.swap_needs_approval)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -91,7 +98,7 @@ impl ScheduleRepository for PgScheduleRepository {
             "UPDATE schedules SET
                name = $2, description = $3, team_id = $4, timezone = $5,
                enabled = $6, rotations = $7, overrides = $8, updated_by = $9,
-               updated_at_micros = $10
+               updated_at = $10, swap_needs_approval = $11
              WHERE id = $1",
         )
         .bind(&s.id.0)
@@ -103,7 +110,8 @@ impl ScheduleRepository for PgScheduleRepository {
         .bind(Json(&s.rotations))
         .bind(Json(&s.overrides))
         .bind(s.updated_by.as_ref().map(|id| &id.0))
-        .bind(s.updated_at.0)
+        .bind(s.updated_at)
+        .bind(s.swap_needs_approval)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;

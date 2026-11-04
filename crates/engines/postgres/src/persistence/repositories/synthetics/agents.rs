@@ -10,7 +10,7 @@ use super::{
     codec::{AGENT_COLS, CONFIGURED_AGENT_COLS, row_to_agent},
 };
 use crate::{
-    domain::synthetics::{AgentCapacity, ProbeAgent, SyntheticAgentRepository},
+    domain::synthetics::{AgentCapacity, ProbeAgent, ProbeCapability, SyntheticAgentRepository},
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
@@ -58,8 +58,8 @@ impl SyntheticAgentRepository for PgSyntheticRepository {
             "INSERT INTO synthetic_probe_agents
                 (id, location_id, name, hostname, status, agent_version, protocol_version,
                  capabilities, capacity, labels, public_key_der, certificate_serial,
-                 certificate_expires_at_micros, last_heartbeat_at_micros,
-                 last_result_sequence, revoked_at_micros, created_at_micros, updated_at_micros)
+                 certificate_expires_at, last_heartbeat_at,
+                 last_result_sequence, revoked_at, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
                      $15, $16, $17, $18)",
         )
@@ -81,12 +81,12 @@ impl SyntheticAgentRepository for PgSyntheticRepository {
         .bind(sqlx::types::Json(&agent.labels))
         .bind(&agent.public_key_der)
         .bind(&agent.certificate_serial)
-        .bind(agent.certificate_expires_at.map(|value| value.0))
-        .bind(agent.last_heartbeat_at.map(|value| value.0))
+        .bind(agent.certificate_expires_at)
+        .bind(agent.last_heartbeat_at)
         .bind(agent.last_result_sequence as i64)
-        .bind(agent.revoked_at.map(|value| value.0))
-        .bind(agent.created_at.0)
-        .bind(agent.updated_at.0)
+        .bind(agent.revoked_at)
+        .bind(agent.created_at)
+        .bind(agent.updated_at)
         .execute(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
@@ -100,9 +100,9 @@ impl SyntheticAgentRepository for PgSyntheticRepository {
             "UPDATE synthetic_probe_agents agent
              SET name = $3, hostname = $4, status = $5, agent_version = $6,
                  protocol_version = $7, capabilities = $8, capacity = $9, labels = $10,
-                 certificate_serial = $11, certificate_expires_at_micros = $12,
-                 last_heartbeat_at_micros = $13, last_result_sequence = $14,
-                 revoked_at_micros = $15, updated_at_micros = $16
+                 certificate_serial = $11, certificate_expires_at = $12,
+                 last_heartbeat_at = $13, last_result_sequence = $14,
+                 revoked_at = $15, updated_at = $16, feature_level = $17
              FROM synthetic_probe_locations location
              WHERE agent.id = $1 AND location.id = agent.location_id
                AND location.organization_id IS NOT DISTINCT FROM $2
@@ -125,11 +125,12 @@ impl SyntheticAgentRepository for PgSyntheticRepository {
         .bind(sqlx::types::Json(&agent.capacity))
         .bind(sqlx::types::Json(&agent.labels))
         .bind(&agent.certificate_serial)
-        .bind(agent.certificate_expires_at.map(|value| value.0))
-        .bind(agent.last_heartbeat_at.map(|value| value.0))
+        .bind(agent.certificate_expires_at)
+        .bind(agent.last_heartbeat_at)
         .bind(agent.last_result_sequence as i64)
-        .bind(agent.revoked_at.map(|value| value.0))
-        .bind(agent.updated_at.0)
+        .bind(agent.revoked_at)
+        .bind(agent.updated_at)
+        .bind(i32::try_from(agent.feature_level).unwrap_or(i32::MAX))
         .fetch_optional(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
@@ -140,6 +141,72 @@ impl SyntheticAgentRepository for PgSyntheticRepository {
 
         self.get_agent_for_scope(agent.organization_id.as_ref(), &agent.id)
             .await
+    }
+
+    async fn touch_agent(&self, agent_id: &Id, now: TimestampMicros) -> Result<()> {
+        sqlx::query(
+            "UPDATE synthetic_probe_agents
+             SET status = 'online', last_heartbeat_at = $2, updated_at = $2
+             WHERE id = $1 AND status <> 'revoked'",
+        )
+        .bind(&agent_id.0)
+        .bind(now)
+        .execute(&self.pool)
+        .await
+        .map_err(super::sqlx_err)?;
+
+        Ok(())
+    }
+
+    async fn refresh_liveness(
+        &self,
+        now: TimestampMicros,
+        stale_before: TimestampMicros,
+    ) -> Result<u64> {
+        let gone = sqlx::query(
+            "UPDATE synthetic_probe_agents
+             SET status = 'offline', updated_at = $1
+             WHERE status IN ('online', 'degraded', 'draining')
+               AND COALESCE(last_heartbeat_at, TIMESTAMPTZ 'epoch') < $2",
+        )
+        .bind(now)
+        .bind(stale_before)
+        .execute(&self.pool)
+        .await
+        .map_err(super::sqlx_err)?
+        .rows_affected();
+
+        // A Location is online when every Agent that should run its checks is, degraded when only
+        // some are, offline when none is, and unknown before any Agent has joined it.
+        sqlx::query(
+            "WITH derived AS (
+                 SELECT location.id,
+                        CASE
+                            WHEN count(agent.id) FILTER (WHERE agent.status <> 'revoked') = 0
+                                THEN 'unknown'
+                            WHEN count(agent.id) FILTER (WHERE agent.status IN ('online', 'degraded')) = 0
+                                THEN 'offline'
+                            WHEN count(agent.id) FILTER (WHERE agent.status IN ('online', 'degraded'))
+                                 < count(agent.id) FILTER (WHERE agent.status IN ('online', 'degraded', 'offline'))
+                                THEN 'degraded'
+                            ELSE 'online'
+                        END AS health
+                 FROM synthetic_probe_locations location
+                 LEFT JOIN synthetic_probe_agents agent ON agent.location_id = location.id
+                 WHERE location.lifecycle = 'active'
+                 GROUP BY location.id
+             )
+             UPDATE synthetic_probe_locations location
+             SET health = derived.health, updated_at = $1
+             FROM derived
+             WHERE location.id = derived.id AND location.health IS DISTINCT FROM derived.health",
+        )
+        .bind(now)
+        .execute(&self.pool)
+        .await
+        .map_err(super::sqlx_err)?;
+
+        Ok(gone)
     }
 
     async fn update_agent_configuration(
@@ -154,7 +221,7 @@ impl SyntheticAgentRepository for PgSyntheticRepository {
         let configured_agent_id: Option<String> = sqlx::query_scalar(
             "INSERT INTO synthetic_probe_agent_configurations AS saved_configuration
                 (organization_id, agent_id, name, labels, created_by, updated_by,
-                 created_at_micros, updated_at_micros)
+                 created_at, updated_at)
              SELECT $1, agent.id, $3, $4, $5, $5, $6, $6
              FROM synthetic_probe_agents agent
              JOIN synthetic_probe_locations location ON location.id = agent.location_id
@@ -163,7 +230,7 @@ impl SyntheticAgentRepository for PgSyntheticRepository {
              ON CONFLICT (organization_id, agent_id) DO UPDATE
              SET name = EXCLUDED.name, labels = EXCLUDED.labels,
                  updated_by = EXCLUDED.updated_by,
-                 updated_at_micros = EXCLUDED.updated_at_micros
+                 updated_at = EXCLUDED.updated_at
              RETURNING saved_configuration.agent_id",
         )
         .bind(&org_id.0)
@@ -171,7 +238,7 @@ impl SyntheticAgentRepository for PgSyntheticRepository {
         .bind(name)
         .bind(sqlx::types::Json(labels))
         .bind(&actor_id.0)
-        .bind(updated_at.0)
+        .bind(updated_at)
         .fetch_optional(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
@@ -252,6 +319,8 @@ impl PgSyntheticRepository {
         &self,
         hostname: &str,
         agent_version: &str,
+        capabilities: &[ProbeCapability],
+        feature_level: u32,
         now: TimestampMicros,
     ) -> Result<ProbeAgent> {
         let capacity = AgentCapacity {
@@ -266,18 +335,19 @@ impl PgSyntheticRepository {
             ("system_managed".to_string(), "true".to_string()),
         ]);
 
-        let capabilities = vec![
-            "http", "tcp", "ssh", "dns", "icmp", "tls", "grpc", "browser",
-        ];
+        let capabilities = capabilities
+            .iter()
+            .map(|capability| capability.as_str())
+            .collect::<Vec<_>>();
 
         let rows = sqlx::query(
             "INSERT INTO synthetic_probe_agents AS agent
                 (id, location_id, name, hostname, status, agent_version, protocol_version,
-                 capabilities, capacity, labels, public_key_der, certificate_serial,
-                 certificate_expires_at_micros, last_heartbeat_at_micros,
-                 last_result_sequence, revoked_at_micros, created_at_micros, updated_at_micros)
+                 feature_level, capabilities, capacity, labels, public_key_der,
+                 certificate_serial, certificate_expires_at, last_heartbeat_at,
+                 last_result_sequence, revoked_at, created_at, updated_at)
              SELECT $1, location.id, 'Standalone Embedded Runner', $2, 'online', $3, 1,
-                    $4, $5, $6, decode('', 'hex'), NULL, NULL, $7, 0, NULL, $7, $7
+                    $9, $4, $5, $6, decode('', 'hex'), NULL, NULL, $7, 0, NULL, $7, $7
              FROM synthetic_probe_locations location
              WHERE location.id = $8 AND location.execution = 'embedded'
                AND location.lifecycle = 'active' AND location.system_managed
@@ -286,11 +356,12 @@ impl PgSyntheticRepository {
                  hostname = EXCLUDED.hostname, status = 'online',
                  agent_version = EXCLUDED.agent_version,
                  protocol_version = EXCLUDED.protocol_version,
+                 feature_level = EXCLUDED.feature_level,
                  capabilities = EXCLUDED.capabilities, capacity = EXCLUDED.capacity,
                  labels = EXCLUDED.labels, public_key_der = EXCLUDED.public_key_der,
-                 certificate_serial = NULL, certificate_expires_at_micros = NULL,
-                 last_heartbeat_at_micros = EXCLUDED.last_heartbeat_at_micros,
-                 revoked_at_micros = NULL, updated_at_micros = EXCLUDED.updated_at_micros",
+                 certificate_serial = NULL, certificate_expires_at = NULL,
+                 last_heartbeat_at = EXCLUDED.last_heartbeat_at,
+                 revoked_at = NULL, updated_at = EXCLUDED.updated_at",
         )
         .bind(BUILTIN_LOCAL_AGENT_ID)
         .bind(hostname)
@@ -298,8 +369,9 @@ impl PgSyntheticRepository {
         .bind(capabilities)
         .bind(sqlx::types::Json(capacity))
         .bind(sqlx::types::Json(labels))
-        .bind(now.0)
+        .bind(now)
         .bind(BUILTIN_LOCAL_LOCATION_ID)
+        .bind(i32::try_from(feature_level).unwrap_or(i32::MAX))
         .execute(&self.pool)
         .await
         .map_err(super::sqlx_err)?

@@ -56,11 +56,14 @@ pub(super) fn validate_system_settings_update(
 ) -> Result<()> {
     let mut allowed = current.clone();
     allowed.index_rules = proposed.index_rules.clone();
+    allowed.index_patterns = proposed.index_patterns.clone();
+    allowed.index_changed_at = proposed.index_changed_at;
     allowed.field_masking = proposed.field_masking.clone();
+    allowed.downsample = proposed.downsample;
 
     if &allowed != proposed {
         return Err(Error::forbidden(
-            "system streams only allow field indexing, extraction and masking settings",
+            "system streams only allow field indexing, masking and downsampling settings",
         ));
     }
 

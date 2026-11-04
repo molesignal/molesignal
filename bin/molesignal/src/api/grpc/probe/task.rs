@@ -4,10 +4,10 @@
 use base64::Engine as _;
 
 use crate::{
-    app::synthetics::{ResolvedProbeSecret, artifact_targets},
+    app::synthetics::{CLIENT_KEY_REFERENCE, ResolvedProbeSecret, artifact_targets},
     domain::synthetics::{
         AssertionOperator, AssertionSeverity, BrowserAction, EgressPolicy, GrpcCall, HeaderValue,
-        MonitorAssertion, MonitorSpec, ProbeCapability, ProbeLocation, ProbeTask,
+        HttpVersion, MonitorAssertion, MonitorSpec, ProbeCapability, ProbeLocation, ProbeTask,
         SshAuthentication, ValueSource,
     },
     protocol::probe::v1 as wire,
@@ -89,6 +89,8 @@ pub(crate) fn task_to_wire(
             .collect(),
         test_run: task.is_test,
         artifact_uploads,
+        inject_trace_context: task.inject_trace_context,
+        traceroute_on_failure: task.traceroute_on_failure,
         spec: Some(spec),
     })
 }
@@ -137,6 +139,35 @@ fn spec_to_wire(spec: &MonitorSpec) -> Result<wire::probe_task::Spec> {
             follow_redirects: value.follow_redirects,
             max_redirects: u32::from(value.max_redirects),
             verify_tls: value.verify_tls,
+            http_version: match value.http_version {
+                HttpVersion::Auto => wire::HttpVersion::Auto,
+                HttpVersion::Http1 => wire::HttpVersion::Http1,
+                HttpVersion::Http2 => wire::HttpVersion::Http2,
+            } as i32,
+            // The key goes as a Secret the task resolves, so the Agent redacts it as it does any.
+            client_certificate: value.client_certificate.as_ref().map(|certificate| {
+                wire::ClientCertificate {
+                    certificate: Some(wire::Value {
+                        source: Some(wire::value::Source::Literal(
+                            certificate.certificate.clone(),
+                        )),
+                    }),
+                    private_key: Some(wire::Value {
+                        source: Some(wire::value::Source::SecretReference(
+                            CLIENT_KEY_REFERENCE.to_string(),
+                        )),
+                    }),
+                }
+            }),
+            dns_server: value.dns_server.clone(),
+            hosts: value
+                .hosts
+                .iter()
+                .map(|binding| wire::HostBinding {
+                    name: binding.name.clone(),
+                    addresses: binding.addresses.clone(),
+                })
+                .collect(),
         }),
         MonitorSpec::Tcp(value) => Spec::Tcp(wire::TcpSpec {
             host: Some(value_to_wire(&value.host)),

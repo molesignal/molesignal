@@ -29,6 +29,7 @@ export interface CountedTraceQuery {
   orgId: string;
   q?: string | undefined;
   filters: webApi.TraceFilter[];
+  where?: webApi.TraceCondition | undefined;
   /** Goes up when the reader asks for the results again. */
   epoch: number;
 }
@@ -59,11 +60,11 @@ export function useTraceHistogram({
   const counts = React.useMemo<HistogramCountsSource | undefined>(() => {
     if (!counted) return undefined;
 
-    const { orgId, q, filters, epoch } = counted;
+    const { orgId, q, filters, where, epoch } = counted;
 
     return {
-      key: ['traces', orgId, q ?? '', JSON.stringify(filters), epoch],
-      load: async ({ range: asked, binMicros, originMicros }, signal) =>
+      key: ['traces', orgId, q ?? '', JSON.stringify(filters), JSON.stringify(where ?? null), epoch],
+      load: async ({ range: asked, binMicros, originTime: originMicros }, signal) =>
         answerFromPayload(
           await webApi.tracesHistogram(
             {
@@ -71,8 +72,9 @@ export function useTraceHistogram({
               to: asked.end,
               ...(q ? { q } : {}),
               ...(filters.length > 0 ? { filters } : {}),
-              bucket_micros: binMicros,
-              origin_micros: originMicros,
+              ...(where ? { where } : {}),
+              bucketTime: binMicros,
+              originTime: originMicros,
             },
             signal,
           ),
@@ -129,12 +131,15 @@ export function TraceHistogramToggle({ model }: { model: TraceHistogramModel }) 
  */
 export function TraceHistogramBand({
   model,
-  timezone,
+  latency = false,
+  unit = 'traces',
   className,
 }: {
   model: TraceHistogramModel;
-  /** The zone the view shows times in, where the view lets it be changed. */
-  timezone?: string | undefined;
+  /** How long the traces of each bar took is drawn beside the bars. */
+  latency?: boolean;
+  /** What the bars count. */
+  unit?: 'traces' | 'spans';
   className?: string;
 }) {
   const { t } = useTranslation('traces');
@@ -148,12 +153,14 @@ export function TraceHistogramBand({
       counts={model.counts}
       short
       labels={{
-        chart: t('explore.histogram.label'),
-        ok: t('explore.histogram.ok'),
-        errors: t('explore.histogram.errors'),
+        chart: t(unit === 'spans' ? 'explore.histogram.span_label' : 'explore.histogram.label'),
+        ok: t(unit === 'spans' ? 'explore.histogram.span_ok' : 'explore.histogram.ok'),
+        errors: t(unit === 'spans' ? 'explore.histogram.span_errors' : 'explore.histogram.errors'),
       }}
+      {...(latency
+        ? { latency: { chart: t('explore.histogram.latency_label'), p50: 'p50', p95: 'p95', p99: 'p99' } }
+        : {})}
       onRangeSelect={model.onRangeSelect}
-      timezone={timezone}
       {...(className ? { className } : {})}
     />
   );

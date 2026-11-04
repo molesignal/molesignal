@@ -11,6 +11,7 @@ use super::sqlx_err;
 use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ReportTemplate {
     pub id: Id,
     pub org_id: Id,
@@ -43,7 +44,7 @@ impl PgReportTemplateRepository {
 }
 
 const COLS: &str = "id, org_id, name, description, target_type, format,
-                    time_range_preset, created_at_micros, updated_at_micros";
+                    time_range_preset, created_at, updated_at";
 
 fn row_to(row: sqlx::postgres::PgRow) -> ReportTemplate {
     ReportTemplate {
@@ -56,14 +57,12 @@ fn row_to(row: sqlx::postgres::PgRow) -> ReportTemplate {
         time_range_preset: row
             .try_get::<String, _>("time_range_preset")
             .unwrap_or_default(),
-        created_at: TimestampMicros(
-            row.try_get::<i64, _>("created_at_micros")
-                .unwrap_or_default(),
-        ),
-        updated_at: TimestampMicros(
-            row.try_get::<i64, _>("updated_at_micros")
-                .unwrap_or_default(),
-        ),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .unwrap_or_default(),
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .unwrap_or_default(),
     }
 }
 
@@ -72,7 +71,7 @@ impl ReportTemplateRepository for PgReportTemplateRepository {
     async fn list(&self, org_id: &Id) -> Result<Vec<ReportTemplate>> {
         let rows = sqlx::query(&format!(
             "SELECT {COLS} FROM report_templates WHERE org_id = $1
-             ORDER BY updated_at_micros DESC, name ASC"
+             ORDER BY updated_at DESC, name ASC"
         ))
         .bind(&org_id.0)
         .fetch_all(&self.pool)
@@ -99,7 +98,7 @@ impl ReportTemplateRepository for PgReportTemplateRepository {
         sqlx::query(
             "INSERT INTO report_templates
                 (id, org_id, name, description, target_type, format,
-                 time_range_preset, created_at_micros, updated_at_micros)
+                 time_range_preset, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         )
         .bind(&template.id.0)
@@ -109,8 +108,8 @@ impl ReportTemplateRepository for PgReportTemplateRepository {
         .bind(&template.target_type)
         .bind(&template.format)
         .bind(&template.time_range_preset)
-        .bind(template.created_at.0)
-        .bind(template.updated_at.0)
+        .bind(template.created_at)
+        .bind(template.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -122,7 +121,7 @@ impl ReportTemplateRepository for PgReportTemplateRepository {
         sqlx::query(
             "UPDATE report_templates
              SET name = $3, description = $4, target_type = $5, format = $6,
-                 time_range_preset = $7, updated_at_micros = $8
+                 time_range_preset = $7, updated_at = $8
              WHERE org_id = $1 AND id = $2",
         )
         .bind(&template.org_id.0)
@@ -132,7 +131,7 @@ impl ReportTemplateRepository for PgReportTemplateRepository {
         .bind(&template.target_type)
         .bind(&template.format)
         .bind(&template.time_range_preset)
-        .bind(template.updated_at.0)
+        .bind(template.updated_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;

@@ -11,7 +11,6 @@ import {
   ExternalLink,
   type LucideIcon,
   MoreHorizontal,
-  Plus,
   RefreshCw,
   RotateCcw,
   Save,
@@ -47,11 +46,6 @@ import {
   type PillTone,
   uiTableHeaderClass,
 } from '@/shell/chrome';
-import {
-  FormField,
-  FormInput,
-  FormTextarea,
-} from '@/shell/FormDrawer';
 import { cn } from '@/shell/lib/cn';
 import { queryStateFor } from '@/shell/query/State';
 import { StreamTypeTag } from '@/shell/StreamTypeTag';
@@ -64,7 +58,6 @@ import {
   DropdownMenuTrigger,
 } from '@/shell/ui/dropdown-menu';
 import { toast } from '@/shell/ui/sonner';
-import { Switch } from '@/shell/ui/switch';
 import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
 import {
@@ -73,41 +66,28 @@ import {
   isIntakeSignal,
 } from './datasourceLink';
 import { FieldEditDrawer } from './fieldEditor/FieldEditDrawer';
-import { INDEX_OPTIONS, toFieldDrafts, type FieldDraft } from './fieldEditor/model';
+import { INDEX_OPTIONS, type FieldDraft } from './fieldEditor/model';
 import { logicalFieldType, streamVariantsForDetail } from './model';
+import { RetentionPanel } from './RetentionPanel';
+import {
+  draftSignature,
+  parseOptionalNumber,
+  partitionsForDraft,
+  payloadForDraft,
+  type StreamDraft,
+  toDraft,
+  validateDraft,
+} from './settingsDraft';
+import { SettingsPanel } from './SettingsPanel';
 import {
   streamFlatTableClassName,
   StreamKpiBand,
   StreamSection,
-  StreamSettingsSection,
-  StreamToggleRow,
 } from './Surfaces';
 
 type DetailTab = 'overview' | 'schema' | 'retention' | 'usage' | 'settings';
 
 const MOLESIGNAL_SYSTEM_STREAM = '_molesignal';
-
-interface RetentionRuleDraft {
-  id: string;
-  name: string;
-  expression: string;
-  retentionDays: string;
-  enabled: boolean;
-}
-
-interface StreamDraft {
-  fields: FieldDraft[];
-  description: string;
-  retentionDays: string;
-  retentionFilter: string;
-  retentionRules: RetentionRuleDraft[];
-  maxQueryRange: string;
-  flattenLevel: string;
-  useStats: boolean;
-  storeOriginal: boolean;
-  distinctValues: boolean;
-  queryable: boolean;
-}
 
 interface UsageSummary {
   pipelines: pipelinesApi.ScheduledPipeline[];
@@ -145,12 +125,15 @@ const STATUS_DOT: Record<
   unknown: 'orange',
 };
 
+/** A bordered notice: 11px and the 1px border put its text on the 12px line of the cards. */
+const NOTICE_CLASS = 'rounded-lg border px-[11px] py-3';
+
 function queryPath(stream: streamsApi.StreamSummary): string {
   const encoded = encodeURIComponent(stream.name);
-  if (stream.stream_type === 'logs') return `/logs?stream=${encoded}`;
-  if (stream.stream_type === 'metrics') return `/metrics?metric=${encoded}`;
-  if (stream.stream_type === 'traces') return `/traces?stream=${encoded}`;
-  if (stream.stream_type === 'profiles') return `/profiles?stream=${encoded}`;
+  if (stream.streamType === 'logs') return `/logs?stream=${encoded}`;
+  if (stream.streamType === 'metrics') return '/metrics';
+  if (stream.streamType === 'traces') return `/traces?stream=${encoded}`;
+  if (stream.streamType === 'profiles') return `/profiles?stream=${encoded}`;
   return `/streams/${encodeURIComponent(stream.id)}`;
 }
 
@@ -161,99 +144,6 @@ function streamTypeLabel(
   if (type === 'profiles') return 'Profiles';
   if (type === 'extend') return t('list.tabs.extend', { defaultValue: '扩展表' });
   return t(`list.tabs.${type}`);
-}
-
-function toDraft(stream: streamsApi.StreamSummary): StreamDraft {
-  return {
-    fields: toFieldDrafts(stream),
-    description: stream.settings.description ?? '',
-    retentionDays: stream.retention ? String(stream.retention.days) : '',
-    retentionFilter: stream.settings.retention_filter ?? '',
-    retentionRules: stream.settings.keep_conditions.map((condition, index) => ({
-      id: `${condition.name}-${index}`,
-      name: condition.name,
-      expression: condition.expression,
-      retentionDays:
-        condition.retention_days == null ? '' : String(condition.retention_days),
-      enabled: condition.enabled,
-    })),
-    maxQueryRange: stream.settings.max_query_range_hours?.toString() ?? '',
-    flattenLevel: stream.settings.flatten_level?.toString() ?? '',
-    useStats: stream.settings.use_stream_stats_for_partitioning,
-    storeOriginal: stream.settings.store_original_data,
-    distinctValues: stream.settings.enable_distinct_values,
-    queryable: stream.settings.queryable,
-  };
-}
-
-function parseOptionalNumber(value: string): number | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const number = Number(trimmed);
-  return Number.isFinite(number) && number >= 0 ? number : null;
-}
-
-function payloadForDraft(
-  draft: StreamDraft,
-  systemStream = false,
-): streamsApi.UpdateStreamSettingsRequest {
-  const settings: streamsApi.StreamSettings = {
-    description: draft.description.trim() || null,
-    index_rules: draft.fields.map((field) => ({
-      field: field.name,
-      enabled: field.indexed && field.index_type !== 'none',
-      index_type: field.index_type,
-      condition: field.condition.trim() || null,
-      sdr_patterns: field.extraction_patterns_text
-        .split('\n')
-        .map((item) => item.trim())
-        .filter(Boolean),
-    })),
-    retention_filter: draft.retentionFilter.trim() || null,
-    keep_conditions: draft.retentionRules.map((rule) => ({
-      name: rule.name.trim(),
-      expression: rule.expression.trim(),
-      enabled: rule.enabled,
-      retention_days: parseOptionalNumber(rule.retentionDays),
-    })),
-    max_query_range_hours: parseOptionalNumber(draft.maxQueryRange),
-    flatten_level: parseOptionalNumber(draft.flattenLevel),
-    use_stream_stats_for_partitioning: draft.useStats,
-    store_original_data: draft.storeOriginal,
-    enable_distinct_values: draft.distinctValues,
-    queryable: draft.queryable,
-    field_masking: draft.fields.flatMap((field) => {
-      if (field.masking_mode === 'inherit') return [];
-      return [{
-        field: field.name,
-        algorithm: field.masking_mode === 'custom' ? field.masking_algorithm : null,
-      }];
-    }),
-  };
-  return {
-    ...(systemStream
-      ? {}
-      : {
-          retention_days: draft.retentionDays.trim()
-            ? Number(draft.retentionDays)
-            : null,
-        }),
-    fields: draft.fields.map((field) => ({
-      name: field.name,
-      indexed: field.indexed,
-      index_type: field.index_type,
-      condition: field.condition.trim() || null,
-      sdr_patterns: field.extraction_patterns_text
-        .split('\n')
-        .map((item) => item.trim())
-        .filter(Boolean),
-    })),
-    settings,
-  };
-}
-
-function draftSignature(draft: StreamDraft | null, systemStream = false): string {
-  return draft ? JSON.stringify(payloadForDraft(draft, systemStream)) : '';
 }
 
 function formatBytes(value: number | null | undefined): string {
@@ -311,22 +201,6 @@ function formatRelativeMicros(
   return formatter.format(Math.round(hours / 24), 'day');
 }
 
-function validateDraft(draft: StreamDraft): string | null {
-  const retention = parseOptionalNumber(draft.retentionDays);
-  if (draft.retentionDays.trim() && (retention == null || retention < 1 || retention > 3650)) {
-    return '数据保留期必须在 1 到 3650 天之间';
-  }
-  for (const rule of draft.retentionRules) {
-    if (!rule.name.trim()) return '每条保留规则都需要名称';
-    if (!rule.expression.trim()) return `保留规则“${rule.name || '未命名'}”缺少匹配条件`;
-    const days = parseOptionalNumber(rule.retentionDays);
-    if (rule.retentionDays.trim() && (days == null || days < 1 || days > 3650)) {
-      return `保留规则“${rule.name}”的保留天数必须在 1 到 3650 之间`;
-    }
-  }
-  return null;
-}
-
 async function loadUsage(streamName: string): Promise<UsageSummary> {
   const [pipelinesResult, viewsResult, alertsResult] = await Promise.allSettled([
     pipelinesApi.list(),
@@ -338,7 +212,7 @@ async function loadUsage(streamName: string): Promise<UsageSummary> {
       pipelinesResult.status === 'fulfilled'
         ? pipelinesResult.value.filter(
             (item) =>
-              item.source_stream === streamName || item.target_stream === streamName,
+              item.sourceStream === streamName || item.targetStream === streamName,
           )
         : [],
     views:
@@ -358,7 +232,7 @@ async function loadUsage(streamName: string): Promise<UsageSummary> {
 async function sendTestEvent(
   stream: streamsApi.StreamSummary,
 ): Promise<intakeApi.IntakeResult> {
-  if (stream.stream_type === 'traces') {
+  if (stream.streamType === 'traces') {
     const startNs = Date.now() * 1_000_000;
     return intakeApi.intakeTraces(stream.name, [
       {
@@ -376,17 +250,17 @@ async function sendTestEvent(
       },
     ]);
   }
-  if (stream.stream_type === 'metrics') {
+  if (stream.streamType === 'metrics') {
     return intakeApi.intakeMetrics(stream.name, [
       {
-        name: 'molesignal_stream_test_total',
+        metric_name: 'molesignal_stream_test_total',
         value: 1,
         timestamp: new Date().toISOString(),
-        tags: { stream: stream.name, generated_by: 'molesignal-web' },
+        generated_by: 'molesignal-web',
       },
     ]);
   }
-  if (stream.stream_type === 'logs') {
+  if (stream.streamType === 'logs') {
     return intakeApi.intakeLogs(stream.name, [
       {
         timestamp: new Date().toISOString(),
@@ -460,7 +334,7 @@ export function StreamExplore() {
   const fieldMaskingQuery = useQuery({
     queryKey: ['field-masking-effective', stream?.id],
     queryFn: () => fieldMaskingApi.effectiveForStream(stream?.id ?? ''),
-    enabled: Boolean(stream?.id) && stream?.stream_type !== 'metrics',
+    enabled: Boolean(stream?.id) && stream?.streamType !== 'metrics',
   });
   const streamVariants = React.useMemo(
     () => (stream ? streamVariantsForDetail(stream, streamListQuery.data ?? []) : []),
@@ -481,13 +355,10 @@ export function StreamExplore() {
   }, [stream]);
 
   const baselineSignature = React.useMemo(
-    () => (stream ? draftSignature(toDraft(stream), systemStream) : ''),
-    [stream, systemStream],
+    () => (stream ? draftSignature(toDraft(stream)) : ''),
+    [stream],
   );
-  const currentSignature = React.useMemo(
-    () => draftSignature(draft, systemStream),
-    [draft, systemStream],
-  );
+  const currentSignature = React.useMemo(() => draftSignature(draft), [draft]);
   const dirty = Boolean(draft && stream && currentSignature !== baselineSignature);
 
   React.useEffect(() => {
@@ -506,12 +377,9 @@ export function StreamExplore() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!stream || !draft) throw new Error('stream not loaded');
-      const validation = validateDraft(draft);
+      const validation = validateDraft(draft, t);
       if (validation) throw new Error(validation);
-      return streamsApi.updateSettings(
-        stream.id,
-        payloadForDraft(draft, systemStream),
-      );
+      return streamsApi.updateSettings(stream.id, payloadForDraft(draft));
     },
     onSuccess: (updated) => {
       queryClient.setQueryData(['streams', 'detail', updated.id], updated);
@@ -560,6 +428,12 @@ export function StreamExplore() {
   const status = runtime?.status ?? 'unknown';
   const risks = stream && draft ? changeRisks(stream, draft, t) : [];
   const streamName = stream?.name ?? id ?? t('detail.fallback_title');
+  const deleteConsequences = runtime?.statsAvailable
+    ? [
+        { label: t('explore.delete_consequences.stored'), value: formatBytes(runtime.currentStoredBytes) },
+        { label: t('explore.delete_consequences.rows'), value: formatCount(runtime.totalRows) },
+      ]
+    : undefined;
 
   const refresh = () => {
     void Promise.all([
@@ -661,10 +535,10 @@ export function StreamExplore() {
                     <span className="inline-flex flex-wrap items-center gap-1.5 py-px">
                       {streamVariants.map((variant) => {
                         const active = variant.id === stream.id;
-                        const label = streamTypeLabel(t, variant.stream_type);
+                        const label = streamTypeLabel(t, variant.streamType);
                         const pill = (
                           <StreamTypeTag
-                            type={variant.stream_type}
+                            type={variant.streamType}
                             label={label}
                             className={cn(
                               !active &&
@@ -705,10 +579,10 @@ export function StreamExplore() {
                 },
                 {
                   label: t('explore.metadata.last_received'),
-                  value: runtime?.last_received_at_micros ? (
-                    <span title={formatMicrosActive(runtime.last_received_at_micros)}>
+                  value: runtime?.lastReceivedAt ? (
+                    <span title={formatMicrosActive(runtime.lastReceivedAt)}>
                       {formatRelativeMicros(
-                        runtime.last_received_at_micros,
+                        runtime.lastReceivedAt,
                         i18n.language,
                       )}
                     </span>
@@ -719,7 +593,7 @@ export function StreamExplore() {
                 {
                   label: t('explore.metadata.retention'),
                   value: t('list.retention_days', {
-                    days: stream.effective_retention.days,
+                    days: stream.effectiveRetention.days,
                   }),
                 },
               ]
@@ -757,7 +631,7 @@ export function StreamExplore() {
               <OverviewPanel
                 stream={stream}
                 runtime={runtime}
-                runtimeWindowSecs={runtimeQuery.data?.window_secs ?? 24 * 60 * 60}
+                runtimeWindowSecs={runtimeQuery.data?.windowSecs ?? 24 * 60 * 60}
                 runtimeError={runtimeQuery.isError}
                 locale={i18n.language}
                 onStatsRefresh={() => void runtimeQuery.refetch()}
@@ -776,12 +650,14 @@ export function StreamExplore() {
             )}
 
             {tab === 'retention' && (
-              <PermissionFieldset access={mutableSettingsAccess}>
+              // 系统流也在这里改保留期与降采样。
+              <PermissionFieldset access={configureAccess}>
                 <RetentionPanel
                   draft={draft}
-                  effectiveRetentionDays={stream.effective_retention.days}
+                  effectiveRetentionDays={stream.effectiveRetention.days}
+                  downsamples={stream.streamType === 'metrics'}
                   onChange={(patch) => {
-                    if (!mutableSettingsAccess.allowed) return;
+                    if (!configureAccess.allowed) return;
                     setDraft((current) =>
                       current ? { ...current, ...patch } : current,
                     );
@@ -803,6 +679,7 @@ export function StreamExplore() {
               <PermissionFieldset access={mutableSettingsAccess}>
                 <SettingsPanel
                   draft={draft}
+                  mergesByDay={stream.streamType === 'logs' || stream.streamType === 'traces'}
                   onChange={(patch) => {
                     if (!mutableSettingsAccess.allowed) return;
                     setDraft((current) =>
@@ -822,7 +699,7 @@ export function StreamExplore() {
         effectiveMasking={
           fieldMaskingQuery.data?.fields.find((field) => field.field === editingField?.name) ?? null
         }
-        maskingSupported={stream?.stream_type !== 'metrics'}
+        maskingSupported={stream?.streamType !== 'metrics'}
         onClose={() => setEditingField(null)}
         onApply={(updated) => {
           if (!configureAccess.allowed) return;
@@ -847,6 +724,8 @@ export function StreamExplore() {
         description={t('explore.delete_confirm_description', {
           stream: streamName,
         })}
+        consequences={deleteConsequences}
+        typeToConfirm={streamName}
         confirmLabel={t('explore.toolbar.delete')}
         busy={deleteMutation.isPending}
         disabled={deleteAccess.disabled}
@@ -869,7 +748,7 @@ function PermissionFieldset({
       disabled={access.disabled}
       aria-disabled={access.disabled || undefined}
       title={access.reason}
-      className="contents disabled:cursor-not-allowed"
+      className="min-w-0 disabled:cursor-not-allowed"
     >
       {children}
     </fieldset>
@@ -886,7 +765,7 @@ function changeRisks(
   if (JSON.stringify(original.fields) !== JSON.stringify(draft.fields)) {
     risks.push(t('explore.changes.index_risk'));
   }
-  const originalDays = stream.retention?.days ?? stream.effective_retention.days;
+  const originalDays = stream.retention?.days ?? stream.effectiveRetention.days;
   const nextDays = parseOptionalNumber(draft.retentionDays);
   if (nextDays != null && nextDays < originalDays) {
     risks.push(
@@ -897,6 +776,20 @@ function changeRisks(
   }
   if (original.queryable && !draft.queryable) {
     risks.push(t('explore.changes.query_risk'));
+  }
+  const nextDownsample = parseOptionalNumber(draft.downsampleAfterDays);
+  const downsampledSooner =
+    draft.downsample &&
+    nextDownsample != null &&
+    (!original.downsample ||
+      nextDownsample < (parseOptionalNumber(original.downsampleAfterDays) ?? 0));
+  if (downsampledSooner) {
+    risks.push(t('explore.changes.downsample_risk', { days: nextDownsample }));
+  }
+  const partitionChanged =
+    JSON.stringify(partitionsForDraft(original)) !== JSON.stringify(partitionsForDraft(draft));
+  if (partitionChanged) {
+    risks.push(t('explore.changes.partition_risk'));
   }
   return risks;
 }
@@ -916,7 +809,7 @@ function UnsavedChanges({
 }) {
   const { t } = useTranslation('streams');
   return (
-    <div className="sticky top-2 z-20 flex flex-wrap items-center gap-3 rounded-lg border border-yellow/35 bg-yellow-dim px-4 py-3 shadow-sm">
+    <div className={cn(NOTICE_CLASS, 'sticky top-2 z-20 flex flex-wrap items-center gap-3 border-yellow/35 bg-yellow-dim shadow-sm')}>
       <div className="min-w-0 flex-1">
         <div className="font-sans text-sm font-semibold text-tx-0">
           {t('explore.changes.unsaved')}
@@ -964,7 +857,7 @@ function OverviewPanel({
     !runtimeError &&
     runtime != null &&
     runtime.rows === 0 &&
-    runtime.current_stored_bytes === 0;
+    runtime.currentStoredBytes === 0;
   const testMutation = useMutation({
     mutationFn: () => sendTestEvent(stream),
     onSuccess: (result) => {
@@ -984,7 +877,7 @@ function OverviewPanel({
   return (
     <div className="space-y-4">
       {runtimeError && (
-        <div className="rounded-lg border border-yellow/35 bg-yellow-dim px-4 py-3 font-sans text-sm text-tx-1">
+        <div className={cn(NOTICE_CLASS, 'border-yellow/35 bg-yellow-dim font-sans text-sm text-tx-1')}>
           {t('explore.overview.stats_unavailable')}
         </div>
       )}
@@ -993,30 +886,32 @@ function OverviewPanel({
         items={[
           {
             label: t('explore.kpis.events_24h'),
-            value: runtime?.stats_available ? formatCount(runtime.rows) : '—',
+            value: runtime?.statsAvailable ? formatCount(runtime.rows) : '—',
             note: t('explore.kpis.from_catalog'),
           },
           {
             label: t('explore.kpis.receive_rate'),
-            value: formatRate(runtime?.rows, runtimeWindowSecs, stream.stream_type),
+            value: formatRate(runtime?.rows, runtimeWindowSecs, stream.streamType),
             note: t('explore.kpis.average_24h'),
           },
           {
             label: t('explore.kpis.compressed_24h'),
-            value: runtime?.stats_available ? formatBytes(runtime.stored_bytes) : '—',
+            value: runtime?.statsAvailable ? formatBytes(runtime.storedBytes) : '—',
             note: t('explore.kpis.compressed_note'),
           },
           {
             label: t('explore.kpis.current_storage'),
-            value: runtime?.stats_available
-              ? formatBytes(runtime.current_stored_bytes)
+            value: runtime?.statsAvailable
+              ? formatBytes(runtime.currentStoredBytes)
               : '—',
             note: t('explore.kpis.live_parquet'),
           },
           {
             label: t('explore.kpis.index_coverage'),
             value: totalFields > 0 ? `${indexedFields} / ${totalFields}` : '—',
-            note: t('explore.kpis.index_coverage_note'),
+            note: runtime?.staleIndexFiles
+              ? t('explore.kpis.index_backfill', { count: runtime.staleIndexFiles })
+              : t('explore.kpis.index_coverage_note'),
           },
         ]}
       />
@@ -1038,7 +933,7 @@ function OverviewPanel({
                   <ExternalLink className="h-3.5 w-3.5" />
                 </ChromeButton>
               </Link>
-              {stream.stream_type !== 'profiles' && (
+              {stream.streamType !== 'profiles' && (
                 <ChromeButton
                   variant="primary"
                   onClick={() => testMutation.mutate()}
@@ -1071,23 +966,23 @@ function OverviewPanel({
               <OverviewRow
                 label={t('explore.overview.first_received')}
                 value={
-                  runtime?.first_received_at_micros
-                    ? formatRelativeMicros(runtime.first_received_at_micros, locale)
+                  runtime?.firstReceivedAt
+                    ? formatRelativeMicros(runtime.firstReceivedAt, locale)
                     : '—'
                 }
               />
               <OverviewRow
                 label={t('explore.metadata.last_received')}
                 value={
-                  runtime?.last_received_at_micros
-                    ? formatRelativeMicros(runtime.last_received_at_micros, locale)
+                  runtime?.lastReceivedAt
+                    ? formatRelativeMicros(runtime.lastReceivedAt, locale)
                     : '—'
                 }
               />
               <OverviewRow
                 label={t('explore.metadata.retention')}
                 value={t('list.retention_days', {
-                  days: stream.effective_retention.days,
+                  days: stream.effectiveRetention.days,
                 })}
               />
               <OverviewRow
@@ -1113,7 +1008,7 @@ function TrendChart({
   const { t } = useTranslation('streams');
   const [metric, setMetric] = React.useState<'rows' | 'storage'>('rows');
   const values = buckets.map((bucket) =>
-    metric === 'rows' ? bucket.rows : bucket.stored_bytes,
+    metric === 'rows' ? bucket.rows : bucket.storedBytes,
   );
   const max = Math.max(0, ...values);
   return (
@@ -1129,7 +1024,7 @@ function TrendChart({
               type="button"
               onClick={() => setMetric(item)}
               className={cn(
-                'rounded px-2 py-1 font-sans text-xs font-semibold',
+                'rounded-[5px] px-2 py-1 font-sans text-xs font-semibold',
                 metric === item ? 'bg-bg-4 text-tx-0' : 'text-tx-2',
               )}
             >
@@ -1151,7 +1046,7 @@ function TrendChart({
               name: t(`explore.overview.metric_${metric}`),
               data: values,
               timestamps: buckets.map((bucket) =>
-                Math.round((bucket.start_micros + bucket.end_micros) / 2),
+                Math.round((bucket.startTime + bucket.endTime) / 2),
               ),
               unit: metric === 'rows' ? 'rows' : 'bytes',
             },
@@ -1159,8 +1054,8 @@ function TrendChart({
           {...(buckets[0] && buckets.at(-1)
             ? {
                 xDomain: [
-                  buckets[0].start_micros,
-                  buckets.at(-1)!.end_micros,
+                  buckets[0].startTime,
+                  buckets.at(-1)!.endTime,
                 ] as [number, number],
               }
             : {})}
@@ -1209,12 +1104,12 @@ function SchemaPanel({
   const indexed = fields.filter((field) => field.indexed).length;
   const encrypted = fields.filter((field) => field.encrypted).length;
   const suggestedField =
-    fields.find((field) => field.data_type === 'utf8' && !field.indexed) ??
+    fields.find((field) => field.dataType === 'utf8' && !field.indexed) ??
     fields.find((field) => !field.indexed);
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 pl-3">
         <div>
           <div className="font-sans text-sm font-semibold text-tx-0">
             {t('explore.schema.summary', {
@@ -1241,7 +1136,7 @@ function SchemaPanel({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-blue/25 bg-blue-dim px-4 py-3">
+      <div className={cn(NOTICE_CLASS, 'flex flex-wrap items-center gap-3 border-blue/25 bg-blue-dim')}>
         <div className="min-w-0 flex-1">
           <div className="font-sans text-sm font-semibold text-tx-0">
             {t('explore.schema.fts_title')}
@@ -1260,9 +1155,9 @@ function SchemaPanel({
       <div className={streamFlatTableClassName}>
         <div>
           <table className="w-full min-w-[900px] border-collapse font-sans text-xs">
-            <thead>
+            <thead className="bg-[var(--table-head-surface)]">
               <tr>
-                <th className={cn('px-4 py-2.5 text-left', uiTableHeaderClass)}>
+                <th className={cn('py-2.5 pl-3 pr-4 text-left', uiTableHeaderClass)}>
                   {t('explore.schema.columns.name')}
                 </th>
                 <th className={cn('w-28 px-4 py-2.5 text-left', uiTableHeaderClass)}>
@@ -1271,16 +1166,10 @@ function SchemaPanel({
                 <th className={cn('w-40 px-4 py-2.5 text-left', uiTableHeaderClass)}>
                   {t('explore.schema.columns.index_type')}
                 </th>
-                <th className={cn('px-4 py-2.5 text-left', uiTableHeaderClass)}>
-                  {t('explore.schema.columns.condition')}
-                </th>
-                <th className={cn('w-44 px-4 py-2.5 text-left', uiTableHeaderClass)}>
-                  {t('explore.schema.columns.extraction')}
-                </th>
                 <th className={cn('w-24 px-4 py-2.5 text-left', uiTableHeaderClass)}>
                   {t('explore.schema.columns.encryption')}
                 </th>
-                <th className={cn('w-20 px-4 py-2.5 text-right', uiTableHeaderClass)}>
+                <th className={cn('w-20 py-2.5 pl-4 pr-3 text-right', uiTableHeaderClass)}>
                   {t('list.columns.actions')}
                 </th>
               </tr>
@@ -1288,39 +1177,28 @@ function SchemaPanel({
             <tbody>
               {visibleFields.map((field) => (
                 <tr key={field.name} className="border-t border-bd-0 hover:bg-bg-2">
-                  <td className="px-4 py-3 font-mono text-xs font-semibold text-tx-0">
+                  <td className="py-3 pl-3 pr-4 font-mono text-xs font-semibold text-tx-0">
                     {field.name}
                   </td>
                   <td className="px-4 py-3">
-                    <span title={t('explore.schema.storage_type', { type: field.data_type })}>
+                    <span title={t('explore.schema.storage_type', { type: field.dataType })}>
                       <Pill tone="blue">
-                        {t(`explore.schema.field_types.${logicalFieldType(field.data_type)}`)}
+                        {t(`explore.schema.field_types.${logicalFieldType(field.dataType)}`)}
                       </Pill>
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <Pill tone={field.indexed ? 'indigo' : 'dim'}>
                       {t(
-                        INDEX_OPTIONS.find((option) => option.value === field.index_type)
+                        INDEX_OPTIONS.find((option) => option.value === field.indexType)
                           ?.labelKey ?? 'explore.index_options.none',
                       )}
                     </Pill>
                   </td>
-                  <td className="max-w-[300px] truncate px-4 py-3 font-mono text-xs text-tx-2">
-                    {field.condition || '—'}
-                  </td>
-                  <td className="px-4 py-3 text-tx-2">
-                    {field.extraction_patterns_text
-                      ? t('explore.schema.pattern_count', {
-                          count: field.extraction_patterns_text.split('\n').filter(Boolean)
-                            .length,
-                        })
-                      : '—'}
-                  </td>
                   <td className="px-4 py-3 text-tx-2">
                     {field.encrypted ? t('explore.schema.encrypted') : '—'}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="py-3 pl-4 pr-3 text-right">
                     <button
                       type="button"
                       onClick={() => onEdit(field)}
@@ -1334,7 +1212,7 @@ function SchemaPanel({
               ))}
               {visibleFields.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="h-32 text-center text-tx-3">
+                  <td colSpan={5} className="h-32 text-center text-tx-3">
                     {fields.length === 0
                       ? t('explore.schema.no_schema')
                       : t('explore.schema.no_match')}
@@ -1345,187 +1223,6 @@ function SchemaPanel({
           </table>
         </div>
       </div>
-    </div>
-  );
-}
-
-function RetentionPanel({
-  draft,
-  effectiveRetentionDays,
-  onChange,
-}: {
-  draft: StreamDraft;
-  effectiveRetentionDays: number;
-  onChange: (patch: Partial<StreamDraft>) => void;
-}) {
-  const { t } = useTranslation('streams');
-  const updateRule = (id: string, patch: Partial<RetentionRuleDraft>) => {
-    onChange({
-      retentionRules: draft.retentionRules.map((rule) =>
-        rule.id === id ? { ...rule, ...patch } : rule,
-      ),
-    });
-  };
-  const addRule = () => {
-    const index = draft.retentionRules.length + 1;
-    onChange({
-      retentionRules: [
-        ...draft.retentionRules,
-        {
-          id: `new-${Date.now()}`,
-          name: `retention_${index}`,
-          expression: '',
-          retentionDays: '',
-          enabled: true,
-        },
-      ],
-    });
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <StreamSection
-          title={t('explore.retention.default_policy')}
-          bodyClassName="space-y-4 pt-4"
-        >
-            <FormField
-              label={t('explore.retention.data_retention_days')}
-              hint={t('explore.retention.days_default_hint', {
-                days: effectiveRetentionDays,
-              })}
-            >
-              <FormInput
-                type="number"
-                min={1}
-                max={3650}
-                value={draft.retentionDays}
-                onChange={(event) => onChange({ retentionDays: event.target.value })}
-                placeholder={t('explore.retention.days_placeholder', {
-                  days: effectiveRetentionDays,
-                })}
-              />
-            </FormField>
-            <div className="bg-bg-2 px-3 py-2.5 font-sans text-xs leading-relaxed text-tx-2">
-              {t('explore.retention.default_explanation')}
-            </div>
-        </StreamSection>
-
-        <div className="min-w-0">
-          <div className="mb-3 flex flex-wrap items-center gap-3">
-            <div>
-              <div className="font-sans text-sm font-semibold text-tx-0">
-                {t('explore.retention.exception_rules')}
-              </div>
-              <div className="mt-1 font-sans text-xs text-tx-3">
-                {t('explore.retention.exception_rules_hint')}
-              </div>
-            </div>
-            <ChromeButton className="ml-auto" onClick={addRule}>
-              <Plus className="h-3.5 w-3.5" />
-              {t('explore.retention.add_rule')}
-            </ChromeButton>
-          </div>
-
-          <div className="min-w-0 overflow-hidden bg-transparent">
-            <div className="hidden grid-cols-[52px_52px_170px_minmax(220px,1fr)_130px_120px_44px] border-b border-bd-0 px-3 py-2 lg:grid">
-              {[
-                t('explore.retention.priority'),
-                t('explore.retention.enabled'),
-                t('explore.retention.rule_name'),
-                t('explore.retention.condition'),
-                t('explore.retention.retention_days'),
-                t('explore.retention.estimated_share'),
-                '',
-              ].map((label, index) => (
-                <div key={`${label}-${index}`} className={uiTableHeaderClass}>
-                  {label}
-                </div>
-              ))}
-            </div>
-
-            {draft.retentionRules.length === 0 ? (
-              <div className="grid h-36 place-items-center px-6 text-center font-sans text-sm text-tx-3">
-                {t('explore.retention.no_rules')}
-              </div>
-            ) : (
-              draft.retentionRules.map((rule, index) => (
-                <div
-                  key={rule.id}
-                  className="grid gap-3 border-b border-bd-0 px-3 py-3 last:border-b-0 lg:grid-cols-[52px_52px_170px_minmax(220px,1fr)_130px_120px_44px] lg:items-center"
-                >
-                  <span className="font-mono text-xs text-tx-2">{index + 1}</span>
-                  <Switch
-                    checked={rule.enabled}
-                    onCheckedChange={(checked) => updateRule(rule.id, { enabled: checked })}
-                  />
-                  <FormInput
-                    value={rule.name}
-                    onChange={(event) => updateRule(rule.id, { name: event.target.value })}
-                    aria-label={t('explore.retention.rule_name')}
-                  />
-                  <FormInput
-                    value={rule.expression}
-                    onChange={(event) =>
-                      updateRule(rule.id, { expression: event.target.value })
-                    }
-                    placeholder={t('explore.retention.condition_placeholder')}
-                    className="font-mono"
-                    aria-label={t('explore.retention.condition')}
-                  />
-                  <FormInput
-                    type="number"
-                    min={1}
-                    max={3650}
-                    value={rule.retentionDays}
-                    onChange={(event) =>
-                      updateRule(rule.id, { retentionDays: event.target.value })
-                    }
-                    placeholder={t('explore.retention.follow_default')}
-                    aria-label={t('explore.retention.retention_days')}
-                  />
-                  <span className="font-sans text-xs text-tx-3">
-                    {t('explore.retention.evaluate_after_save')}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onChange({
-                        retentionRules: draft.retentionRules.filter(
-                          (item) => item.id !== rule.id,
-                        ),
-                      })
-                    }
-                    className="grid h-8 w-8 place-items-center rounded-md text-tx-3 hover:bg-red-dim hover:text-red-soft"
-                    aria-label={t('explore.retention.delete_rule', { name: rule.name })}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-
-      <details className="[&[open]>summary]:border-b [&[open]>summary]:border-bd-0">
-        <summary className="cursor-pointer py-3 font-sans text-sm font-semibold text-tx-1">
-          {t('explore.retention.advanced_filter')}
-        </summary>
-        <div className="pt-4">
-          <FormField
-            label={t('explore.retention.keep_condition')}
-            hint={t('explore.retention.keep_condition_hint')}
-          >
-            <FormInput
-              value={draft.retentionFilter}
-              onChange={(event) => onChange({ retentionFilter: event.target.value })}
-              placeholder={t('explore.retention.keep_condition_placeholder')}
-              className="font-mono"
-            />
-          </FormField>
-        </div>
-      </details>
     </div>
   );
 }
@@ -1559,8 +1256,8 @@ function UsagePanel({
           {
             id: 'intake',
             title: t('explore.usage.intake_endpoint'),
-            description: isIntakeSignal(stream.stream_type)
-              ? intakePathForSignal(stream.stream_type, stream.name)
+            description: isIntakeSignal(stream.streamType)
+              ? intakePathForSignal(stream.streamType, stream.name)
               : '—',
             to: datasourceLinkForStream(stream),
           },
@@ -1572,7 +1269,7 @@ function UsagePanel({
         items={(summary?.pipelines ?? []).map((item) => ({
           id: item.id,
           title: item.name,
-          description: `${item.source_stream ?? '—'} → ${item.target_stream ?? '—'}`,
+          description: `${item.sourceStream ?? '—'} → ${item.targetStream ?? '—'}`,
           to: `/pipelines/${encodeURIComponent(item.id)}`,
         }))}
       />
@@ -1599,7 +1296,7 @@ function UsagePanel({
         }))}
       />
       {(error || (summary?.unavailable ?? 0) > 0) && (
-        <div className="xl:col-span-2 rounded-lg border border-yellow/30 bg-yellow-dim px-4 py-3 font-sans text-xs text-tx-1">
+        <div className={cn(NOTICE_CLASS, 'xl:col-span-2 border-yellow/30 bg-yellow-dim font-sans text-xs text-tx-1')}>
           {t('explore.usage.partial_unavailable')}
         </div>
       )}
@@ -1633,7 +1330,7 @@ function UsageGroup({
             <Link
               key={item.id}
               to={item.to}
-              className="flex min-h-14 items-center gap-3 border-b border-bd-0 px-4 py-3 last:border-b-0 hover:bg-bg-2"
+              className="-mx-3 flex min-h-14 items-center gap-3 border-b border-bd-0 px-3 py-3 last:border-b-0 hover:bg-bg-2"
             >
               <div className="min-w-0 flex-1">
                 <div className="truncate font-sans text-sm font-semibold text-tx-0">
@@ -1648,95 +1345,5 @@ function UsageGroup({
           ))
         )}
     </StreamSection>
-  );
-}
-
-function SettingsPanel({
-  draft,
-  onChange,
-}: {
-  draft: StreamDraft;
-  onChange: (patch: Partial<StreamDraft>) => void;
-}) {
-  const { t } = useTranslation('streams');
-  return (
-    <div className="grid gap-4 xl:grid-cols-3">
-      <StreamSettingsSection
-        title={t('explore.runtime.basic')}
-        description={t('explore.runtime.basic_hint')}
-      >
-        <FormField label={t('explore.runtime.description_label')}>
-          <FormTextarea
-            value={draft.description}
-            onChange={(event) => onChange({ description: event.target.value })}
-            rows={5}
-            placeholder={t('explore.runtime.description_placeholder')}
-          />
-        </FormField>
-      </StreamSettingsSection>
-
-      <StreamSettingsSection
-        title={t('explore.runtime.query_capabilities')}
-        description={t('explore.runtime.query_capabilities_hint')}
-      >
-        <StreamToggleRow
-          title={t('explore.runtime.queryable')}
-          hint={t('explore.runtime.queryable_hint')}
-          checked={draft.queryable}
-          onChange={(queryable) => onChange({ queryable })}
-        />
-        <StreamToggleRow
-          title={t('explore.runtime.enable_distinct_values')}
-          checked={draft.distinctValues}
-          onChange={(distinctValues) => onChange({ distinctValues })}
-        />
-        <FormField
-          label={t('explore.runtime.max_query_range')}
-          hint={t('explore.runtime.max_query_range_hint')}
-        >
-          <FormInput
-            type="number"
-            min={0}
-            value={draft.maxQueryRange}
-            onChange={(event) => onChange({ maxQueryRange: event.target.value })}
-          />
-        </FormField>
-      </StreamSettingsSection>
-
-      <StreamSettingsSection
-        title={t('explore.runtime.storage_behavior')}
-        description={t('explore.runtime.storage_behavior_hint')}
-      >
-        <StreamToggleRow
-          title={t('explore.runtime.store_original')}
-          checked={draft.storeOriginal}
-          onChange={(storeOriginal) => onChange({ storeOriginal })}
-        />
-        <StreamToggleRow
-          title={t('explore.runtime.use_stats')}
-          checked={draft.useStats}
-          onChange={(useStats) => onChange({ useStats })}
-        />
-        <details className="[&[open]>summary]:border-b [&[open]>summary]:border-bd-0">
-          <summary className="cursor-pointer py-2.5 font-sans text-xs font-semibold text-tx-1">
-            {t('explore.runtime.advanced')}
-          </summary>
-          <div className="pt-3">
-            <FormField
-              label={t('explore.runtime.flatten_level')}
-              hint={t('explore.runtime.flatten_level_hint')}
-            >
-              <FormInput
-                type="number"
-                min={0}
-                max={32}
-                value={draft.flattenLevel}
-                onChange={(event) => onChange({ flattenLevel: event.target.value })}
-              />
-            </FormField>
-          </div>
-        </details>
-      </StreamSettingsSection>
-    </div>
   );
 }

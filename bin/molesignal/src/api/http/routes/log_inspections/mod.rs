@@ -36,12 +36,12 @@ pub fn routes() -> Router<AppState> {
         .route("/logs/inspections/{id}/enabled", post(set_enabled))
         .route("/logs/inspections/{id}/run", post(run_now))
         .route("/logs/inspections/{id}/runs", get(list_runs))
-        .route("/logs/inspections/{id}/runs/{run_id}", get(get_run))
+        .route("/logs/inspections/{id}/runs/{runId}", get(get_run))
 }
 
-/// 读巡检和报告的第二项权限；第一项 `agent.use` 在路由上声明。
+/// 读巡检和报告的第二项权限；第一项 `inspections.read` 在路由上声明。
 fn require_log_access(ctx: &IamContext) -> Result<()> {
-    Permission::require_key(ctx, "streams.query")
+    Permission::require_key(ctx, "logs.read")
 }
 
 /// 一条巡检连同它此刻有没有在执行、以谁的身份执行。
@@ -59,7 +59,7 @@ async fn respond(state: &AppState, inspection: LogInspection) -> Result<Json<Ins
     Ok(Json(InspectionResp::new(inspection, running, &users)))
 }
 
-#[permission("agent.use")]
+#[permission("inspections.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -90,7 +90,7 @@ async fn list(
     ))
 }
 
-#[permission("agent.use")]
+#[permission("inspections.read")]
 async fn limits(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -102,7 +102,7 @@ async fn limits(
     )))
 }
 
-#[permission("agent.use")]
+#[permission("inspections.read")]
 async fn get_one(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -186,7 +186,7 @@ async fn delete(
     Ok(Json(json!({ "deleted": true })))
 }
 
-#[permission("inspections.manage")]
+#[permission("inspections.run")]
 async fn run_now(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -205,7 +205,7 @@ async fn run_now(
 
 #[derive(Debug, Deserialize)]
 struct RunsQuery {
-    /// 只要创建时间早于它的，用上一页最后一条的 `created_at_micros` 翻页。
+    /// 只要创建时间早于它的，用上一页最后一条的 `created_at` 翻页。
     #[serde(default)]
     before: Option<i64>,
     #[serde(default = "default_runs_limit")]
@@ -216,7 +216,7 @@ fn default_runs_limit() -> i64 {
     50
 }
 
-#[permission("agent.use")]
+#[permission("inspections.read")]
 async fn list_runs(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -249,7 +249,7 @@ async fn list_runs(
     ))
 }
 
-#[permission("agent.use")]
+#[permission("inspections.read")]
 async fn get_run(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

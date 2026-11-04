@@ -17,7 +17,7 @@ use crate::{
 
 mod embedded;
 
-pub use embedded::EmbeddedProbeRunner;
+pub use embedded::{EmbeddedProbeRunner, embedded_capabilities};
 
 /// 合成监控自动化：只在 alert 主节点上运行（见 [`WorkOwnership::is_primary`]）。
 pub struct SyntheticAutomationWorker {
@@ -80,7 +80,9 @@ impl SyntheticAutomationWorker {
     )]
     async fn sweep_once(&self) -> Result<u64> {
         let now = TimestampMicros::now();
+        let silent = self.synthetics.refresh_probe_liveness(now).await?;
         let expired = self.synthetics.expire_task_leases(now, 500).await?;
+        let unclaimed = self.synthetics.expire_unclaimed_tasks(now, 500).await?;
         let tasks = self.synthetics.materialize_due_tasks(now, 200).await?;
 
         let candidates = self
@@ -90,7 +92,9 @@ impl SyntheticAutomationWorker {
 
         let outbox = self.status_pages.process_automation_outbox(200).await?;
         tracing::debug!(
+            silent_agents = silent,
             expired_leases = expired,
+            unclaimed_tasks = unclaimed,
             materialized_tasks = tasks.len(),
             due_candidates = candidates,
             processed_outbox = outbox,
@@ -98,6 +102,7 @@ impl SyntheticAutomationWorker {
         );
 
         Ok(expired
+            .saturating_add(unclaimed)
             .saturating_add(u64::try_from(tasks.len()).unwrap_or(u64::MAX))
             .saturating_add(u64::from(candidates))
             .saturating_add(u64::from(outbox)))

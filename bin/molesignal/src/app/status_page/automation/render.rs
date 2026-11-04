@@ -33,7 +33,7 @@ pub(super) fn materialize_candidate(
         .is_some_and(|state| matches!(state.as_str(), "degraded" | "failing"))
         || observation
             .labels
-            .get("previous_business_service_status")
+            .get("previous_dependency_status")
             .is_some_and(|status| status != "operational");
 
     let message = render_template(

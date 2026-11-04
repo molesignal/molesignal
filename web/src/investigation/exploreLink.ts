@@ -44,8 +44,8 @@ export function buildPanelExploreLink({
   const stream = firstString(config.streamName, config.stream);
   const streamType = firstString(config.streamType, config.stream_type);
   if (stream) params.set('stream', stream);
-  if (streamType) params.set('stream_type', streamType);
-  if (query.dataSourceId) params.set('data_source', query.dataSourceId);
+  if (streamType) params.set('streamType', streamType);
+  if (query.dataSourceId) params.set('dataSource', query.dataSourceId);
 
   const search = params.toString();
   return search ? `${target.pathname}?${search}` : target.pathname;

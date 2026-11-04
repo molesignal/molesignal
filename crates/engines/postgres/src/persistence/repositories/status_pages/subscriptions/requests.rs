@@ -70,7 +70,7 @@ pub(super) async fn upsert_pending(
         // link that changes them, which only the subscriber can open.
         if existing.status == StatusPageSubscriberStatus::Active {
             let sql = format!(
-                "UPDATE status_page_subscribers SET confirmation_sent_at_micros = $4
+                "UPDATE status_page_subscribers SET confirmation_sent_at = $4
                  WHERE org_id = $1 AND status_page_id = $2 AND id = $3
                  RETURNING {SUBSCRIBER_COLS}"
             );
@@ -79,7 +79,7 @@ pub(super) async fn upsert_pending(
                 .bind(&existing.org_id.0)
                 .bind(&existing.status_page_id.0)
                 .bind(&existing.id.0)
-                .bind(subscriber.updated_at.0)
+                .bind(subscriber.updated_at)
                 .fetch_one(&mut *transaction)
                 .await
                 .map_err(super::super::sqlx_err)?;
@@ -98,8 +98,8 @@ pub(super) async fn upsert_pending(
                 target_ciphertext = $4, target_nonce = $5, target_hash = $6,
                 status = 'pending', token_hash = $7, token_ciphertext = $8, token_nonce = $9,
                 component_scope = $10, component_ids = $11, origin = $12,
-                confirmation_sent_at_micros = $13, confirmed_at_micros = NULL,
-                unsubscribed_at_micros = NULL, updated_at_micros = $13
+                confirmation_sent_at = $13, confirmed_at = NULL,
+                unsubscribed_at = NULL, updated_at = $13
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3
              RETURNING {SUBSCRIBER_COLS}"
         );
@@ -117,7 +117,7 @@ pub(super) async fn upsert_pending(
             .bind(subscriber.components.scope.as_str())
             .bind(&component_ids)
             .bind(subscriber.origin.as_str())
-            .bind(subscriber.updated_at.0)
+            .bind(subscriber.updated_at)
             .fetch_one(&mut *transaction)
             .await
             .map_err(super::super::sqlx_err)?;
@@ -175,8 +175,8 @@ pub(super) async fn insert_subscriber(
         "INSERT INTO status_page_subscribers
             (id, org_id, status_page_id, channel, target_ciphertext, target_nonce,
              target_hash, target_label, status, token_hash, token_ciphertext, token_nonce,
-             component_scope, component_ids, origin, confirmation_sent_at_micros,
-             confirmed_at_micros, unsubscribed_at_micros, created_at_micros, updated_at_micros)
+             component_scope, component_ids, origin, confirmation_sent_at,
+             confirmed_at, unsubscribed_at, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
                  $17, NULL, $18, $19)
          RETURNING {SUBSCRIBER_COLS}"
@@ -198,10 +198,10 @@ pub(super) async fn insert_subscriber(
         .bind(subscriber.components.scope.as_str())
         .bind(component_id_strings(&subscriber.components))
         .bind(subscriber.origin.as_str())
-        .bind(subscriber.confirmation_sent_at.map(|at| at.0))
-        .bind(subscriber.confirmed_at.map(|at| at.0))
-        .bind(subscriber.created_at.0)
-        .bind(subscriber.updated_at.0)
+        .bind(subscriber.confirmation_sent_at)
+        .bind(subscriber.confirmed_at)
+        .bind(subscriber.created_at)
+        .bind(subscriber.updated_at)
         .fetch_one(transaction)
         .await
         .map_err(super::super::sqlx_err)

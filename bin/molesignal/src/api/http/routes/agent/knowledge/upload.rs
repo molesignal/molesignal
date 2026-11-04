@@ -22,7 +22,7 @@ use crate::{
     shared::{Error, Result},
 };
 
-#[permission("agent.use")]
+#[permission("agent.knowledge.manage")]
 pub(super) async fn upload(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -59,7 +59,7 @@ pub(super) async fn upload(
 
         match name.as_str() {
             "scope" => scope = value,
-            "team_id" => team_id = Some(value).filter(|value| !value.trim().is_empty()),
+            "teamId" => team_id = Some(value).filter(|value| !value.trim().is_empty()),
             "dir" => dir = value,
             _ => {}
         }

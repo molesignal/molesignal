@@ -1,0 +1,61 @@
+{
+  "date": 1760000000000,
+  "source": "browser",
+  "application": {
+    "id": "shop-web"
+  },
+  "service": "shop-web",
+  "env": "prod",
+  "version": "2.4.1",
+  "session": {
+    "id": "6e1f0b1c-6d0a-4a11-9f3a-2f7f8f0c1a10",
+    "type": "synthetics",
+    "start": 1760000000000
+  },
+  "view": {
+    "id": "1c7c2e34-1a45-4c6d-8e90-77a1c2d3e4f6",
+    "url": "https://shop.example.com/checkout",
+    "name": "/checkout",
+    "revision": 2,
+    "time_spent": 4200000000,
+    "is_active": false,
+    "loading_type": "initial_load",
+    "scroll": {
+      "max_depth": 1840,
+      "max_depth_scroll_top": 1120,
+      "max_scroll_height": 3200,
+      "max_scroll_height_time": 1800000000
+    },
+    "action": {
+      "count": 1
+    },
+    "error": {
+      "count": 0
+    },
+    "resource": {
+      "count": 12
+    },
+    "long_task": {
+      "count": 0
+    },
+    "frustration": {
+      "count": 0
+    }
+  },
+  "sdk": {
+    "name": "molesignal-browser-rum",
+    "version": "0.3.0",
+    "session_sample_rate": 100,
+    "replay_sample_rate": 0
+  },
+  "type": "view",
+  "synthetics": {
+    "test_id": "chk-checkout",
+    "result_id": "task-7c1d",
+    "location_id": "loc-eu-west"
+  },
+  "feature_flags": {
+    "checkout_v2": "treatment",
+    "new_nav": true
+  }
+}

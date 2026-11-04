@@ -31,6 +31,8 @@
     "notify_defaults": "兜底路由",
     "notify_deliveries": "投递记录",
     "client_ip": "客户端 IP 识别",
+    "signin_requirements": "登录要求",
+    "signin_limits": "登录限速",
     "nodes": "节点 / 远程集群",
     "sso_providers": "SSO 服务",
     "cipher_keys": "加密密钥",
@@ -41,8 +43,16 @@
     "ai_toolsets": "AI 工具集",
     "query_management": "活动查询管理",
     "audit": "审计",
+    "audit_retention": "审计保留",
+    "stream_retention": "数据保留",
+    "series_limits": "指标基数",
+    "intake_usage": "接入用量",
     "ai_providers": "AI 模型服务",
-    "ai_prompts": "AI 提示词"
+    "ai_prompts": "AI 提示词",
+    "alert_evaluation": "告警评估",
+    "group_alerting": "告警",
+    "holidays": "节假日日历",
+    "importance": "优先级与紧急度"
   },
   "general": {
     "title": "通用",
@@ -88,15 +98,17 @@
     },
     "access_control": {
       "title": "访问控制",
-      "subtitle": "管理成员加入方式以及组织资源的公开访问策略。"
+      "subtitle": "管理组织资源的公开访问策略。"
     },
     "signup": {
       "title": "注册与访问",
-      "subtitle": "控制新成员如何加入当前组织以及加入后的默认权限。",
+      "subtitle": "控制是否允许人们在这个实例上自行注册账号。新账号加入第一个组织。",
       "enabled": "允许自助加入",
-      "enabled_hint": "符合平台注册条件的用户可以自行加入当前组织。",
+      "enabled_hint": "符合注册条件的人可以在登录页自行注册账号。",
       "require_approval": "需要管理员审批",
       "require_approval_hint": "用户提交加入请求后，必须由管理员审核才能访问组织。",
+      "require_approval_no_email": "这个实例发不了邮件，确认不了邮箱归谁所有，新账号都要等管理员审批。配好 SMTP 和对外地址后才能不经审批注册。",
+      "require_approval_locked": "实例发不了邮件时一直开启",
       "default_role": "默认组织角色",
       "default_role_value": "IAM 目录默认角色",
       "default_role_hint": "自助加入的成员将获得 IAM 目录中配置的默认角色。",
@@ -129,7 +141,11 @@
       "delete_description": "组织不能在自身会话内被删除，需要在平台组织的「组织管理」中完成。",
       "manage_delete": "前往组织管理",
       "enters_platform": "将切换到平台组织，在那里管理各个组织。",
-      "platform_only": "只有 Owner 或平台管理员可以删除组织。"
+      "platform_only": "删除组织需要「删除组织」权限，你没有这个权限。",
+      "delete_own_description": "删除这个组织及其中的全部内容，对所有成员生效，无法撤销。",
+      "delete_confirm_title": "删除 {{name}}？",
+      "delete_confirm_description": "成员将失去访问权限，其中的全部内容都会被删除且无法恢复。你也会退出登录。",
+      "deleted": "已删除 {{name}}"
     }
   },
   "preferences": {
@@ -212,26 +228,29 @@
   },
   "sso_providers": {
     "title": "SSO 服务",
-    "subtitle": "支持 OIDC、SAML 和 LDAP 的集中身份认证服务。",
+    "subtitle": "支持 OIDC、OAuth 2.0、SAML 和 LDAP 的集中身份认证服务。",
     "new_provider": "新建服务",
     "empty_title": "尚未配置 SSO 服务",
-    "empty_description": "添加 OIDC、SAML 或 LDAP 服务，接入企业统一身份认证。",
+    "empty_description": "添加 Google、GitHub、飞书等平台，或通用的 OIDC、OAuth 2.0、SAML、LDAP 服务，接入企业统一身份认证。",
     "columns": {
       "name": "名称",
       "kind": "类型",
       "enabled": "启用",
-      "updated": "更新时间"
+      "updated": "更新时间",
+      "test": "测试登录"
     },
     "kinds": {
       "oidc": "OIDC",
       "saml": "SAML",
-      "ldap": "LDAP"
+      "ldap": "LDAP",
+      "oauth2": "OAuth 2.0"
     },
     "actions": {
       "edit": "编辑",
       "delete": "删除",
       "enable": "启用",
-      "disable": "停用"
+      "disable": "停用",
+      "test": "测试"
     },
     "delete_confirm_title": "删除该 SSO 服务？",
     "delete_confirm_description": "依赖该服务的用户将无法通过 SSO 登录。",
@@ -246,7 +265,8 @@
         "saml": "SAML 配置",
         "ldap": "LDAP 配置",
         "field_mapping": "身份字段映射",
-        "role_mapping": "角色绑定"
+        "role_mapping": "角色绑定",
+        "oauth2": "OAuth 2.0 配置"
       },
       "fields": {
         "name": "名称",
@@ -287,10 +307,21 @@
         "bind_dn": "查询账号 Bind DN",
         "bind_dn_placeholder": "cn=reader,dc=example,dc=com",
         "bind_password": "查询账号密码",
-        "bind_pair_hint": "仅目录允许匿名查询时才可同时留空"
+        "bind_pair_hint": "仅目录允许匿名查询时才可同时留空",
+        "protocol": "协议",
+        "discover": "自动发现",
+        "discovering": "读取中…",
+        "discover_hint": "读取 Issuer 的 .well-known/openid-configuration，填好下面的端点。",
+        "discovered": "已按发现文档填好端点",
+        "endpoints": "端点与 Scopes",
+        "endpoints_pending": "填好上面的信息后显示端点。",
+        "copy_endpoint": "复制地址",
+        "endpoint_copied": "地址已复制",
+        "oauth2_userinfo_hint": "登录后带访问令牌读取这个接口，再按字段映射取出账号。",
+        "sp_entity_id_hint": "MoleSignal 在身份提供商那里的标识，默认是实例地址。"
       },
       "mapping": {
-        "oidc_hint": "将 MoleSignal 身份字段映射到 OIDC Claim；支持 realm_access.roles 这类点分路径。",
+        "oidc_hint": "将 MoleSignal 身份字段映射到 OIDC Claim；支持 realm_access.roles 这类点分路径，多个来源用 | 分隔，取第一个有值的。",
         "saml_hint": "将 MoleSignal 身份字段映射到 SAML Attribute Name；使用 NameID 读取断言主体。",
         "ldap_hint": "将 MoleSignal 身份字段映射到 LDAP 属性；使用 dn 读取匹配条目的 DN。",
         "platform_field": "MoleSignal 字段",
@@ -298,7 +329,7 @@
         "fields": {
           "subject": "稳定主体标识",
           "email": "邮箱",
-          "display_name": "显示名称",
+          "displayName": "显示名称",
           "groups": "用户组"
         },
         "default_role": "默认角色",
@@ -317,7 +348,10 @@
         "group_value_placeholder": "例如 platform-admins",
         "select_role": "选择角色",
         "selected_role": "MoleSignal 角色",
-        "remove_group_role": "移除映射"
+        "remove_group_role": "移除映射",
+        "oauth2_hint": "将 MoleSignal 身份字段映射到用户信息接口返回的 JSON 字段；支持点分路径，多个来源用 | 分隔，取第一个有值的。",
+        "github_fixed": "GitHub 按固定字段读取：主体是账号的数字 ID，邮箱取已验证的主邮箱，用户组是组织（my-org）和团队（my-org/sre）。",
+        "no_groups": "该平台不提供用户组，登录的账号都使用默认角色。"
       },
       "submit_create": "创建服务",
       "submit_update": "保存修改",
@@ -326,8 +360,379 @@
       "toast_updated": "SSO 服务已更新",
       "toast_deleted": "SSO 服务已删除",
       "toast_enabled": "服务已启用",
-      "toast_disabled": "服务已停用"
+      "toast_disabled": "服务已停用",
+      "metadata": {
+        "label": "IdP 元数据",
+        "url": "元数据 URL",
+        "xml": "元数据 XML",
+        "use_url": "填写 URL",
+        "use_xml": "粘贴 XML",
+        "import": "导入",
+        "importing": "导入中…",
+        "imported": "已从元数据填好 IdP 实体 ID、登录地址和签名证书",
+        "hint": "从元数据填好下面三项，也可以手动填写。"
+      }
+    },
+    "platforms": {
+      "custom": "通用",
+      "google": "Google",
+      "microsoft": "Microsoft Entra ID",
+      "github": "GitHub",
+      "gitlab": "GitLab",
+      "okta": "Okta",
+      "auth0": "Auth0",
+      "keycloak": "Keycloak",
+      "authentik": "authentik",
+      "feishu": "飞书",
+      "adfs": "AD FS",
+      "jumpcloud": "JumpCloud",
+      "active_directory": "Active Directory",
+      "openldap": "OpenLDAP",
+      "freeipa": "FreeIPA"
+    },
+    "picker": {
+      "subtitle": "选好平台后，端点、Scopes 和字段映射会自动填好。",
+      "groups": {
+        "popular": "常用平台",
+        "directory": "企业目录",
+        "generic": "通用协议"
+      },
+      "generic": "手动配置",
+      "change": "更换平台"
+    },
+    "presets": {
+      "inputs": {
+        "malformed": "格式不对",
+        "tenant_id": "目录（租户）ID",
+        "tenant_id_hint": "在应用注册的「概述」页复制。",
+        "cloud": "云环境",
+        "cloud_global": "全球",
+        "cloud_china": "世纪互联",
+        "okta_domain": "Okta 域名",
+        "authorization_server": "授权服务器",
+        "authorization_server_hint": "自定义授权服务器的 ID；留空使用组织授权服务器。",
+        "auth0_domain": "租户域名",
+        "server_url": "服务地址",
+        "realm": "Realm",
+        "application_slug": "应用 slug",
+        "instance_url": "实例地址",
+        "github_deployment": "部署方式",
+        "github_cloud": "GitHub.com",
+        "github_server": "GitHub Enterprise Server",
+        "github_host": "服务器域名",
+        "feishu_edition": "版本",
+        "feishu_china": "飞书",
+        "feishu_lark": "Lark（海外版）"
+      },
+      "hints": {
+        "google": "在 Google Cloud 控制台创建 OAuth 客户端 ID（Web 应用），把下面的 Redirect URI 加入「已获授权的重定向 URI」。",
+        "microsoft": "在 Microsoft Entra 的应用注册里添加 Web 平台，把 Redirect URI 加进去，再新建客户端密码。用户组声明给出的是组的对象 ID。",
+        "okta": "在 Okta 新建 OIDC Web 应用，把 Redirect URI 填进 Sign-in redirect URIs；要读用户组，在授权服务器上添加 groups 声明。",
+        "auth0": "在 Auth0 新建 Regular Web Application，把 Redirect URI 填进 Allowed Callback URLs；Auth0 不直接给用户组，可用 Action 写进自定义声明，再改用户组映射。",
+        "keycloak": "在 Realm 里新建 OpenID Connect 客户端并打开 Client authentication，把 Redirect URI 填进 Valid redirect URIs；要读用户组，加一个 Group Membership mapper，Token Claim Name 填 groups。",
+        "authentik": "新建 OAuth2/OpenID 提供程序并绑定应用，把 Redirect URI 填进 Redirect URIs；应用 slug 在应用详情里。",
+        "gitlab": "在 GitLab 的 Applications 里新建应用，勾选 openid、profile、email，把 Redirect URI 填进 Callback URL。",
+        "github": "在 GitHub 的 Settings → Developer settings → OAuth Apps 新建应用，把 Redirect URI 填进 Authorization callback URL。组织开启了 OAuth 应用访问限制时，需组织所有者批准该应用，才能读到组织和团队。",
+        "feishu": "在飞书开放平台的企业自建应用里，「安全设置」添加重定向 URL，「权限管理」开通获取用户邮箱信息；App ID 和 App Secret 就是 Client ID 和 Client Secret。",
+        "microsoft_saml": "在企业应用的「单一登录」里选择 SAML：标识符填 SP Entity ID，回复 URL 填 ACS 地址，再把「应用联合元数据 URL」粘到下面导入。",
+        "okta_saml": "在 Okta 新建 SAML 2.0 应用：Single sign-on URL 填 ACS 地址，Audience URI 填 SP Entity ID；Attribute Statements 加 email 和 displayName，Group Attribute Statements 加 groups。",
+        "google_saml": "在 Google 管理控制台添加自定义 SAML 应用：ACS 网址填 ACS 地址，实体 ID 填 SP Entity ID；属性映射加 email 和 name，群组成员资格映射到 groups。下载 IdP 元数据后粘贴导入。",
+        "adfs": "添加信赖方信任：标识符填 SP Entity ID，SAML 断言使用者终结点填 ACS 地址（POST）；声明规则发出 E-Mail Address、Name 和 Token-Groups。",
+        "jumpcloud": "新建 SAML 应用：SP Entity ID 和 ACS URL 填下面的值；User Attributes 加 email 和 name，勾选 Include group attribute（memberOf）。导出元数据后粘贴导入。",
+        "active_directory": "按 Windows 账号名、UPN 或邮箱都能登录；查询账号只需读取用户和 memberOf。",
+        "openldap": "用户组读自 memberOf，目录需要启用 memberof overlay。",
+        "freeipa": "建议在 cn=sysaccounts,cn=etc 下建一个只读服务账号用于查询。"
+      },
+      "metadata": {
+        "microsoft": "https://login.microsoftonline.com/<租户 ID>/federationmetadata/2007-06/federationmetadata.xml?appid=<应用 ID>",
+        "okta": "https://<Okta 域名>/app/<应用 ID>/sso/saml/metadata",
+        "adfs": "https://<AD FS 主机>/FederationMetadata/2007-06/FederationMetadata.xml",
+        "xml": "粘贴从身份提供商下载的元数据 XML"
+      }
+    },
+    "access": {
+      "title": "登录范围",
+      "allowed_groups": "允许登录的组",
+      "allowed_groups_hint": "填写后，只有属于其中任一组的账号能通过该服务登录；不填不限。",
+      "add_group": "添加组",
+      "remove_group": "移除",
+      "group_placeholder": "例如 platform-admins",
+      "github_group_placeholder": "例如 my-org 或 my-org/sre",
+      "public_title": "这个服务接受公网账号",
+      "public_missing": "这类账号谁都能注册。启用前，先在邮箱域名里添加组织的域名，或填写允许登录的组。",
+      "public_domains": "新账号只能用这些域名的邮箱加入：{{domains}}。",
+      "public_groups": "只有属于允许登录的组的账号能登录。",
+      "public_reason": "先限定邮箱域名或允许登录的组",
+      "email_domains_link": "管理邮箱域名",
+      "list_separator": "、"
+    },
+    "test": {
+      "title": "测试登录",
+      "hint": "用保存的配置走一遍真实的登录。不会建立会话，不会新建或关联账号，你自己的登录也不受影响。",
+      "save_first": "先保存改动：测试用的是保存后的配置。",
+      "standing": {
+        "untested": "未测试",
+        "passed": "通过",
+        "failed": "未通过",
+        "stale": "配置已改",
+        "waiting": "等待中…"
+      },
+      "toast_passed": "「{{name}}」通过了测试登录",
+      "toast_failed": "「{{name}}」没有通过测试登录，打开结果看原因。",
+      "toast_expired": "「{{name}}」没有返回结果",
+      "directory": {
+        "title": "测试登录 · {{name}}",
+        "description": "像登录一样，用这个账号去目录核对一次。输错密码会计入目录的锁定策略和这个实例的登录限速。密码不会保存。",
+        "username": "目录账号",
+        "password": "密码",
+        "submit": "测试"
+      },
+      "result": {
+        "title": "测试登录 · {{name}}",
+        "meta": "{{who}} 发起 · {{when}}",
+        "meta_you": "你发起 · {{when}}",
+        "back": "返回服务列表",
+        "again": "再测一次",
+        "passed_title": "这个服务能正常登录",
+        "passed_body": "登录走完了全程，没有留下任何变化：没有建立会话，没有新建或关联账号，角色也没动。",
+        "pending_title": "等待身份源",
+        "pending_body": "请在另一个标签页完成登录，这个页面会自动更新。如果身份源在那边显示错误，结果不会回到这里，常见原因是回调地址没有注册。",
+        "expired_title": "没有等到结果",
+        "expired_body": "身份源 10 分钟内没有把浏览器送回来。如果它显示了错误页面，常见原因是回调地址没有注册。检查之后再测一次。",
+        "stale_title": "这次结果已作废",
+        "stale_body": "这次测试之后，服务的配置改过了。再测一次来确认当前的配置。",
+        "copy_detail": "复制这段说明",
+        "copied_detail": "已复制",
+        "notes_title": "值得留意",
+        "identity_title": "身份源返回了什么",
+        "email": "邮箱",
+        "email_unverified": "未验证",
+        "name": "名称",
+        "subject": "主体",
+        "groups": "用户组",
+        "no_groups": "没有",
+        "more_groups": "还有 {{count}} 个",
+        "mapping_title": "真实登录会发生什么",
+        "account_label": "账号",
+        "roles_label": "角色",
+        "no_roles": "没有",
+        "account": {
+          "bound_you": "登录到你的账号 {{email}}。",
+          "bound_other": "登录到账号 {{email}}。",
+          "link_you": "你的账号 {{email}} 用的是这个邮箱，但还没有关联这个身份。第一次登录时要你确认：输入密码或邮件验证码。",
+          "link_other": "账号 {{email}} 用的是这个邮箱，但还没有关联这个身份。第一次登录时由账号主人确认：输入密码或邮件验证码。",
+          "create": "没有账号用这个邮箱。第一次登录时新建账号 {{email}}，没有密码。",
+          "joins": "登录时加入这个工作区。"
+        },
+        "role_source": {
+          "group_mapping": "来自用户组：{{groups}}",
+          "default_role": "这个服务的默认角色",
+          "signup": "新成员得到的角色：没有用户组或默认角色适用",
+          "unchanged": "保持不变：没有用户组或默认角色适用"
+        }
+      },
+      "failures": {
+        "idp_error": {
+          "title": "身份源拒绝了这次登录",
+          "advice": "看下面它的说明。常见原因是账号没有分配到这个应用，或者请求的 Scope 不被允许。"
+        },
+        "no_code": {
+          "title": "身份源没有返回授权码",
+          "advice": "确认应用用的是授权码流程，授权地址也填对了。"
+        },
+        "network": {
+          "title": "这台服务器连不上身份源",
+          "advice": "检查令牌地址和用户信息地址，以及这台服务器经代理或防火墙能否访问它们。"
+        },
+        "token_exchange": {
+          "title": "身份源拒绝了授权码",
+          "advice": "检查 Client ID 和 Client Secret，并确认回调地址按设置里显示的原样注册了。"
+        },
+        "no_id_token": {
+          "title": "身份源没有返回 ID Token",
+          "advice": "在 Scope 里加上 openid。如果这个服务不支持 OpenID Connect，改用 OAuth 2.0 接入。"
+        },
+        "id_token_issuer": {
+          "title": "ID Token 来自别的签发者",
+          "advice": "把 Issuer URL 改成服务发现文档里的值，路径也要一致。"
+        },
+        "id_token_audience": {
+          "title": "ID Token 是发给别的应用的",
+          "advice": "确认 Client ID 是身份源上这个应用的。"
+        },
+        "id_token_expired": {
+          "title": "ID Token 已过期或还没生效",
+          "advice": "检查这台服务器和身份源的时钟是否一致。"
+        },
+        "id_token_nonce": {
+          "title": "ID Token 不属于这次登录",
+          "advice": "再测一次。如果一直这样，可能是身份源没有带回 nonce，或者中间有缓存。"
+        },
+        "id_token_invalid": {
+          "title": "ID Token 没通过校验",
+          "advice": "检查 JWKS 地址和签名算法。用 Client Secret 签名的令牌，要在这里保存好 Secret。"
+        },
+        "jwks": {
+          "title": "身份源的签名密钥用不了",
+          "advice": "检查 JWKS 地址，以及这台服务器能否访问它。"
+        },
+        "userinfo": {
+          "title": "读取用户信息失败",
+          "advice": "检查用户信息地址，以及 Scope 是否允许读取资料。"
+        },
+        "claim_missing": {
+          "title": "身份源没有返回映射的字段",
+          "advice": "下面的说明里有字段名。改正身份字段映射，或者加上带这个字段的 Scope 或声明。"
+        },
+        "saml_status": {
+          "title": "身份源回答登录失败",
+          "advice": "看下面它的说明。常见原因是账号没有分配到这个应用。"
+        },
+        "saml_no_response": {
+          "title": "回调里没有 SAML 响应",
+          "advice": "确认身份源是向设置里显示的 ACS 地址发送响应。"
+        },
+        "saml_malformed": {
+          "title": "读不了这个 SAML 响应",
+          "advice": "确认身份源用 HTTP-POST 绑定发送带签名的断言。"
+        },
+        "saml_certificate": {
+          "title": "签名证书对不上",
+          "advice": "从身份源复制当前的签名证书，或者重新读取它的元数据。"
+        },
+        "saml_signature": {
+          "title": "断言的签名没通过校验",
+          "advice": "要给断言本身签名，只签响应不够。检查签名设置和证书。"
+        },
+        "saml_time": {
+          "title": "断言不在有效期内",
+          "advice": "检查这台服务器和身份源的时钟是否一致。"
+        },
+        "saml_audience": {
+          "title": "断言是发给别的服务的",
+          "advice": "把身份源上的 Audience 设为这个服务的 SP Entity ID。"
+        },
+        "saml_recipient": {
+          "title": "断言是发给别的地址的",
+          "advice": "把身份源上的 ACS 地址按设置里显示的原样填写。"
+        },
+        "ldap_connect": {
+          "title": "这台服务器连不上目录",
+          "advice": "检查地址、端口和 TLS 设置，以及这台服务器是否信任目录的证书。"
+        },
+        "ldap_service_bind": {
+          "title": "目录拒绝了查询账号",
+          "advice": "检查查询 Bind DN 和它的密码。"
+        },
+        "ldap_search": {
+          "title": "查找用户失败",
+          "advice": "检查用户 Base DN 和查询过滤器的语法。"
+        },
+        "ldap_no_entry": {
+          "title": "目录里没有和这个账号对应的条目",
+          "advice": "检查账号名、用户 Base DN 和查询过滤器。"
+        },
+        "ldap_many_entries": {
+          "title": "目录里有多个条目对应这个账号",
+          "advice": "收窄查询过滤器，让它只找到一个条目。"
+        },
+        "ldap_missing_attribute": {
+          "title": "目录条目缺少映射的属性",
+          "advice": "下面的说明里有属性名。改正身份字段映射。"
+        },
+        "ldap_rejected": {
+          "title": "目录拒绝了这个密码",
+          "advice": "检查密码，以及账号是否被锁定或已过期。这次尝试会计入目录的锁定策略。"
+        },
+        "group_not_allowed": {
+          "title": "这个账号不在允许登录的组里",
+          "advice": "把它加进允许登录的组，或者修改名单。如果上面身份源没有返回用户组，检查用户组的字段映射和 Scope。"
+        },
+        "email_unverified": {
+          "title": "身份源没有验证过这个邮箱",
+          "advice": "先在身份源验证邮箱：接受公网账号的服务只放行验证过的邮箱。"
+        },
+        "provider_unrestricted": {
+          "title": "这个服务接受公网账号，且没有限定范围",
+          "advice": "添加组织的邮箱域名，或者填写允许登录的组。"
+        },
+        "invalid_email": {
+          "title": "身份源返回的邮箱不是有效地址",
+          "advice": "把邮箱字段映射到存放邮箱地址的声明。"
+        },
+        "email_domain": {
+          "title": "这个邮箱的域名不能加入工作区",
+          "advice": "在邮箱域名里添加这个域名，或者用允许的域名的邮箱登录。"
+        },
+        "org_disabled": {
+          "title": "这个工作区已停用",
+          "advice": "要由平台管理员先启用它。"
+        },
+        "account_unavailable": {
+          "title": "这个身份对应的账号不能登录",
+          "advice": "账号已停用、在等待审批或已被拒绝，到用户列表里看一下。"
+        },
+        "account_confined": {
+          "title": "这个账号属于别的组织的单点登录",
+          "advice": "账号主人先通过重置密码证明邮箱，才能加入这里。"
+        },
+        "role_missing": {
+          "title": "角色绑定里有已经不存在的角色",
+          "advice": "编辑这个服务，选一个现有的角色。"
+        },
+        "directory_blocked": {
+          "title": "这个工作区只允许单点登录",
+          "advice": "开启「只允许单点登录」期间，目录账号不能进入。"
+        },
+        "settings_changed": {
+          "title": "测试期间配置改了",
+          "advice": "用保存后的配置再测一次。"
+        },
+        "unknown": {
+          "title": "这次测试没有走通",
+          "advice": "看下面的说明（如果有），检查服务的配置，然后再测一次。"
+        }
+      },
+      "notes": {
+        "no_groups": "身份源没有返回用户组，角色绑定没有东西可以匹配。检查用户组的字段映射和 Scope。",
+        "groups_unmapped": "这些用户组都不在角色绑定里。",
+        "another_account": "这不是你现在用的账号。用你自己的账号再测一次，确认你还能进来。",
+        "roles_change": "登录时，这个成员的角色会换成这里显示的角色。确认管理员还留有足够的权限。",
+        "second_factor": "真实登录时，这个账号还要过第二因素。"
+      }
     }
+  },
+  "signin_requirements": {
+    "title": "登录要求",
+    "subtitle": "进入这个工作区要满足的条件，最迟 15 分钟后对所有会话生效。",
+    "platform_subtitle": "进入平台组织要满足的条件，最迟 15 分钟后对所有会话生效。",
+    "mfa_label": "要求多因素认证",
+    "mfa_description": "进入这个工作区要过多因素认证。还没开启的成员下次登录时现场开启；经本工作区单点登录进入的成员由身份提供方负责。",
+    "mfa_platform": "进入平台组织要过多因素认证。还没开启的账号下次登录时现场开启。",
+    "sso_label": "只允许单点登录",
+    "sso_description": "只能通过本工作区的 OIDC、OAuth 2.0 或 SAML 服务进入，账号密码、Passkey 和 LDAP 都不能进入。Root 用户例外，身份提供方出问题时还能进来。",
+    "sso_unavailable": "先启用一个 OIDC、OAuth 2.0 或 SAML 服务。",
+    "mfa_confirm_title": "要求多因素认证？",
+    "mfa_confirm_description": "最迟 15 分钟后，没过多因素认证的会话都要重新登录，包括你自己。还没开启的成员登录时现场开启。",
+    "sso_confirm_title": "只允许单点登录？",
+    "sso_confirm_description": "最迟 15 分钟后，不是经本工作区单点登录的会话都要重新登录，包括你自己；数据库客户端也不能再用账号密码连接。",
+    "confirm": "开启",
+    "saved": "登录要求已保存",
+    "last_provider": "这个工作区只允许单点登录，这是它最后一个可用的服务。请先关闭「只允许单点登录」。",
+    "sso_untested_note": "还没有服务用当前配置通过测试登录，可以在下面的列表里测一次。",
+    "sso_untested_title": "没有通过测试，仍然只允许单点登录？",
+    "sso_untested_description": "这个工作区还没有服务用当前配置通过测试登录，开启后大家还能不能进来，现在没有依据。取消后可以先测一次。",
+    "fact_tested": "已测试",
+    "fact_tested_value": "{{name}}：通过，{{when}}",
+    "fact_providers": "服务",
+    "fact_provider_value": "{{name}}：{{status}}",
+    "fact_sessions": "会话",
+    "fact_sessions_value": "最迟 15 分钟后，不是经单点登录的会话都会结束，包括你自己。",
+    "fact_clients": "客户端",
+    "fact_clients_value": "数据库客户端不能再用账号密码连接。",
+    "fact_way_back": "退路",
+    "fact_way_back_value": "只有 Root 用户还能用密码进来。",
+    "confirm_untested": "仍然开启"
   },
   "cipher_keys": {
     "title": "加密密钥",
@@ -449,8 +854,8 @@
       "intake_hint": "每个 intake 进程在内存中配对 Span 并 flush；延迟低，但跨节点分散的 Span 可能少算。"
     },
     "client_ip": {
-      "title": "RUM 客户端 IP 识别",
-      "subtitle": "配置本部署在 RUM 采集入口如何识别客户端地址。只有 TCP 对端命中可信 CIDR 时，代理 Header 才会被信任。",
+      "title": "客户端 IP 识别",
+      "subtitle": "配置本部署的 RUM、登录限速和公开链接审计如何识别客户端地址。只有 TCP 对端命中可信 CIDR 时，代理 Header 才会被信任。",
       "resolver_title": "客户端 IP 解析器",
       "resolver_subtitle": "该配置持久化在数据库中，由整个部署共享；各 Collector 节点无需重启即可刷新。",
       "mode": "地址来源",
@@ -475,8 +880,8 @@
       "max_chain_length": "最大链长度",
       "fallback": "回退到连接地址",
       "fallback_hint": "可信 Header 缺失、格式错误、超长或没有可用客户端地址时，使用 TCP 对端地址。",
-      "allow_private": "允许 Header 中的私网地址",
-      "allow_private_hint": "允许从可信 Header 解析私网、loopback 和链路本地地址。公网浏览器流量建议保持关闭。",
+      "allow_private": "私有地址也算客户端",
+      "allow_private_hint": "接受可信 Header 里的私网、loopback 和链路本地地址，登录限速也按这些地址计数。用户从内网连接时打开。前面有代理又没在这里配置时保持关闭，否则所有人都算成同一个地址。",
       "save": "保存更改",
       "saving": "保存中…",
       "saved": "客户端 IP 配置已保存",
@@ -629,6 +1034,11 @@
   "audit": {
     "title": "审计",
     "subtitle": "按时间、操作者、动作和目标搜索审计记录。",
+    "subtitle_retention_days_one": "按时间、操作者、动作和目标搜索审计记录，记录保留 {{count}} 天。",
+    "subtitle_retention_days_other": "按时间、操作者、动作和目标搜索审计记录，记录保留 {{count}} 天。",
+    "subtitle_retention_forever": "按时间、操作者、动作和目标搜索审计记录，记录永久保留。",
+    "change_retention": "修改保留期限",
+    "change_retention_hint": "将切换到平台组织，在那里修改审计保留天数。",
     "empty_title": "暂无审计事件",
     "empty_description": "没有事件匹配当前筛选条件。",
     "filters": {
@@ -642,7 +1052,19 @@
       "target_id": "目标 ID",
       "apply": "应用",
       "reset": "重置",
-      "placeholder_relative": "如 now-24h"
+      "placeholder_relative": "如 now-24h",
+      "range": "时间范围",
+      "ranges": {
+        "1h": "最近 1 小时",
+        "24h": "最近 24 小时",
+        "7d": "最近 7 天",
+        "30d": "最近 30 天",
+        "all": "全部时间",
+        "custom": "自定义范围"
+      },
+      "actor_kind_all": "全部操作者类型",
+      "action_all": "全部动作",
+      "target_kind_all": "全部目标类型"
     },
     "columns": {
       "ts": "时间",
@@ -678,7 +1100,258 @@
         "tool": "工具",
         "system": "系统"
       }
+    },
+    "views_label": "显示哪些记录",
+    "views": {
+      "all": "全部",
+      "access": "权限与登录"
+    },
+    "views_page_hint": "仅在当前页的记录中筛选",
+    "actor_kinds": {
+      "user": "用户",
+      "service_account": "服务账号",
+      "api_token": "API Token",
+      "system": "系统",
+      "agent": "Mole Agent"
+    },
+    "load_error": "无法加载审计记录",
+    "words": {
+      "access": "访问",
+      "action": "动作",
+      "add": "添加",
+      "agent": "Agent",
+      "alert": "告警",
+      "alerts": "告警",
+      "apm": "APM",
+      "archived": "已归档",
+      "automation": "自动化",
+      "calendar": "日历",
+      "cancelled": "已取消",
+      "changed": "已变更",
+      "chat": "对话",
+      "code": "码",
+      "codes": "码",
+      "configure": "配置",
+      "connector": "连接器",
+      "create": "创建",
+      "created": "已创建",
+      "debug": "调试",
+      "delete": "删除",
+      "deleted": "已删除",
+      "disable": "关闭",
+      "disabled": "已停用",
+      "domain": "域名",
+      "download": "下载",
+      "enabled": "已启用",
+      "error": "错误",
+      "escalation": "升级",
+      "evaluation": "评估",
+      "evaluator": "评估器",
+      "failure": "失败",
+      "holiday": "假日",
+      "http": "请求",
+      "imported": "已导入",
+      "incident": "事件",
+      "inhibit": "抑制",
+      "inhibition": "抑制",
+      "issue": "签发",
+      "issued": "已签发",
+      "lifted": "已解除",
+      "limits": "限制",
+      "lockout": "锁定",
+      "mailbox": "邮箱",
+      "memory": "记忆",
+      "mfa": "多因素认证",
+      "open": "打开",
+      "others": "其他",
+      "passkey": "通行密钥",
+      "password": "密码",
+      "policies": "策略",
+      "policy": "策略",
+      "preview": "预览",
+      "publish": "发布",
+      "quality": "质量",
+      "query": "查询",
+      "recovery": "恢复",
+      "regenerate": "重新生成",
+      "remediation": "修复",
+      "remove": "移除",
+      "removed": "已移除",
+      "requested": "已申请",
+      "reset": "重置",
+      "resource": "资源",
+      "retention": "保留",
+      "retry": "重试",
+      "revision": "修订",
+      "revoke": "吊销",
+      "rotate": "轮换",
+      "rotated": "已轮换",
+      "routing": "路由",
+      "rule": "规则",
+      "rules": "规则",
+      "run": "运行",
+      "saved": "已保存",
+      "schedule": "值班",
+      "schedules": "值班",
+      "series": "序列",
+      "session": "会话",
+      "sessions": "会话",
+      "share": "分享",
+      "signin": "登录",
+      "slo": "SLO",
+      "source": "来源",
+      "stream": "数据流",
+      "swap": "换班",
+      "synthetic": "拨测",
+      "ticket": "工单",
+      "token": "Token",
+      "totp": "TOTP",
+      "trace": "链路",
+      "unlock": "解锁",
+      "update": "更新",
+      "updated": "已更新",
+      "use": "使用",
+      "verify": "验证"
     }
+  },
+  "audit_retention": {
+    "title": "审计保留",
+    "subtitle": "所有组织和平台的审计记录都按这里的天数保留。",
+    "section_title": "保留期限",
+    "days": "保留天数",
+    "days_hint": "早于这个天数的记录每天清理一次，删除后无法恢复。填 0 表示永久保留。",
+    "days_unit": "天",
+    "save": "保存更改",
+    "saving": "保存中…",
+    "saved": "审计保留天数已保存",
+    "unsaved": "有未保存的更改",
+    "synced": "配置已同步",
+    "invalid": "请输入 0 到 3650 之间的整数。",
+    "preview": {
+      "counting": "正在统计这次改动会删除多少记录…",
+      "failed": "没能统计出记录数。保存时需要再输入一遍保留天数。",
+      "nothing": "目前没有记录要删除。",
+      "found_one": "这次改动会删除 {{rows}} 条记录，时间是 {{earliest}}。",
+      "found_other": "这次改动会删除 {{rows}} 条记录，最早的是 {{earliest}}。"
+    },
+    "confirm": {
+      "title_one": "把审计保留期从 {{from}} 天缩短到 {{count}} 天？",
+      "title_other": "把审计保留期从 {{from}} 天缩短到 {{count}} 天？",
+      "title_from_forever_one": "不再永久保留审计记录，改为保留 {{count}} 天？",
+      "title_from_forever_other": "不再永久保留审计记录，改为保留 {{count}} 天？",
+      "description": "下一次每日清理时会删除这些记录，删除后无法恢复。",
+      "description_unknown_one": "没能统计出记录数。下一次每日清理时会删除早于 {{count}} 天的记录，删除后无法恢复。",
+      "description_unknown_other": "没能统计出记录数。下一次每日清理时会删除早于 {{count}} 天的记录，删除后无法恢复。",
+      "action": "缩短保留期",
+      "records": "记录数",
+      "earliest": "最早记录",
+      "type_first": "请先输入保留天数。"
+    }
+  },
+  "stream_retention": {
+    "title": "数据保留",
+    "subtitle": "数据流没有设置自己的保留天数时按默认保留期保留；拨测的运行结果另有保留天数。",
+    "section_title": "默认保留期",
+    "days": "保留天数",
+    "days_hint": "各数据流可以在自己的设置里另设保留天数。早于保留期的数据在下一次清理时删除，删除后无法恢复。",
+    "days_unit": "天",
+    "save": "保存更改",
+    "saving": "保存中…",
+    "saved": "默认保留天数已保存",
+    "unsaved": "有未保存的更改",
+    "synced": "配置已同步",
+    "invalid": "请输入 1 到 {{max}} 之间的整数。",
+    "preview": {
+      "title": "这次改动会清理什么",
+      "estimated": "根据文件目录估算",
+      "estimating": "正在估算这次改动会清理什么…",
+      "failed": "没能估算出影响。保存时需要再输入一遍保留天数。",
+      "nothing": "目前没有数据要清理：没有数据流在这段时间里有文件。",
+      "streams": "数据流",
+      "rows": "行数",
+      "size": "大小",
+      "earliest": "最早数据",
+      "unread": "未读取",
+      "unavailable_one": "{{count}} 个数据流，实际影响可能更大",
+      "unavailable_other": "{{count}} 个数据流，实际影响可能更大",
+      "column_stream": "数据流",
+      "column_organization": "组织",
+      "column_type": "类型",
+      "showing": "{{total}} 个数据流里最大的 {{shown}} 个。",
+      "show_all": "显示更多",
+      "not_counted": "会话回放和 Profile 归档也按这个设置清理，没有计入。"
+    },
+    "confirm": {
+      "title_one": "把默认保留期从 {{from}} 天缩短到 {{count}} 天？",
+      "title_other": "把默认保留期从 {{from}} 天缩短到 {{count}} 天？",
+      "description": "这些数字是根据文件目录估算的。下一次清理时会删除这些数据，删除后无法恢复。",
+      "description_unknown_one": "没能估算出影响。下一次清理时会删除早于 {{count}} 天的数据，删除后无法恢复。",
+      "description_unknown_other": "没能估算出影响。下一次清理时会删除早于 {{count}} 天的数据，删除后无法恢复。",
+      "action": "缩短保留期",
+      "type_first": "请先输入保留天数。"
+    }
+  },
+  "synthetic_retention": {
+    "section_title": "拨测结果",
+    "days": "运行结果保留天数",
+    "days_hint": "更早的运行结果、它们的附件和已结束的任务每天清理一次；填 0 永久保留。可用率读的 _synthetic_results 数据流按数据流的保留期另算。",
+    "saved": "拨测结果保留天数已保存",
+    "invalid": "请输入 0 到 {{max}} 之间的整数。"
+  },
+  "series_limits": {
+    "title": "指标基数",
+    "subtitle": "限制 Prometheus 写入同时保持活跃的 series 数，不让高基数的标签撑爆内存与存储。",
+    "section_title": "活跃 series 上限",
+    "per_org": "每个组织",
+    "per_org_hint": "一个组织同时保持活跃的 series 数。达到上限后，新 series 的写入被拒绝，已有的 series 照常写入；一段时间没有数据的 series 不再算作活跃。",
+    "per_metric": "每个指标",
+    "per_metric_hint": "组织里一个指标同时保持活跃的 series 数，不超过每个组织的上限。",
+    "unit": "个",
+    "save": "保存更改",
+    "saving": "保存中…",
+    "saved": "活跃 series 上限已保存",
+    "unsaved": "有未保存的更改",
+    "synced": "配置已同步",
+    "invalid": "请输入 1 到 {{max}} 之间的整数，且每个指标的上限不超过每个组织的上限。"
+  },
+  "signin_limits": {
+    "title": "登录限速",
+    "subtitle": "挡住猜密码的人，又不让别人靠输错密码把账号锁在外面。Passkey 和单点登录不计数，也不受限。",
+    "section_title": "输错密码",
+    "section_subtitle": "填 0 关掉这一项。不存在的账号一样计数，回答不会说出账号是否存在。公开链接的访问密码也这样计数，一个链接算一个账号。",
+    "account_source": "同一地址、同一账号",
+    "account_source_hint": "失败几次后，这个地址对这个账号锁定。其他人不受影响。",
+    "source": "同一地址、任何账号",
+    "source_hint": "失败几次后，这个地址不能再用密码登录。共用这个地址的人也会受影响。",
+    "account": "同一账号、所有地址",
+    "account_hint": "失败几次后，这个账号的密码开始限速。账号不会被锁，最近 30 天在这个地址登录成功过的也不受限。",
+    "interval": "限速期间，隔多久核对一次密码",
+    "interval_hint": "1 到 600 秒。这期间的其他请求不核对密码，直接提示稍后再试。",
+    "lock": "锁定和计数的时长",
+    "lock_hint": "地址锁多久，失败次数往回算多久。重置密码会立即解开账号。",
+    "unit_failures": "次",
+    "unit_seconds": "秒",
+    "unit_minutes": "分钟",
+    "source_title": "你现在的地址",
+    "source_label": "这次请求来自",
+    "source_unknown": "未知",
+    "state_counted": "按地址计数",
+    "state_account_only": "只有账号限速",
+    "state_proxy": "请配置可信代理",
+    "copy_address": "复制地址",
+    "copied": "已复制",
+    "source_counted": "从这个地址输错的次数会计入这个地址。",
+    "source_private": "这是私有地址，只有账号限速生效。如果用户确实从私有地址连接，请打开「私有地址也算客户端」。",
+    "source_proxy_public": "这次请求带着转发请求头，取到的却是连接地址。如果 MoleSignal 在代理后面，所有人都算成这一个地址，会互相锁定。请配置可信代理。",
+    "source_proxy_private": "这次请求带着转发请求头，MoleSignal 应该在代理后面。配置可信代理之前，只有账号限速生效。",
+    "source_none": "这次请求取不到地址，只有账号限速生效。",
+    "open_client_ip": "打开客户端 IP 识别",
+    "save": "保存更改",
+    "saving": "保存中…",
+    "saved": "登录限速已保存",
+    "unsaved": "有未保存的更改",
+    "synced": "配置已同步",
+    "invalid": "请输入整数：次数 0 到 {{failures}}，秒数 1 到 {{seconds}}，分钟数 1 到 {{minutes}}。"
   },
   "ai_providers": {
     "title": "AI 模型服务",
@@ -817,5 +1490,138 @@
     "toast_saved": "提示词已保存",
     "toast_default_set": "默认已更新",
     "toast_restored": "已从内置还原"
+  },
+  "alert_evaluation": {
+    "title": "告警评估",
+    "subtitle": "分角色集群里，查询只读 intake 已经刷写的数据。告警规则每一轮往回多看一会儿，等最近的数据写出来。",
+    "section_title": "默认评估延迟",
+    "delay": "评估延迟",
+    "delay_hint": "规则没有自己设评估延迟时，每一轮的窗口往回挪这么多秒。一个进程跑全部角色的单机不挪。intake 默认每 30 秒刷写一次。",
+    "unit": "秒",
+    "save": "保存更改",
+    "saving": "保存中…",
+    "saved": "默认评估延迟已保存",
+    "unsaved": "有未保存的更改",
+    "synced": "配置已同步",
+    "invalid": "请输入 0 到 {{max}} 之间的整数。"
+  },
+  "holidays": {
+    "title": "节假日日历",
+    "subtitle": "放假和补班的日子。路由规则、告警流水线、支持时段、静默、轮值和通知策略都能按它算；日期按引用它的地方的时区算。",
+    "new": "新建日历",
+    "empty_title": "还没有节假日日历",
+    "empty_description": "新建一份，或导入法定节假日的 ICS 文件。",
+    "columns": {
+      "name": "名称",
+      "days": "天数",
+      "next": "下一个假日"
+    },
+    "counts": "放假 {{holidays}} 天 · 补班 {{workdays}} 天",
+    "none_ahead": "之后没有",
+    "delete_title": "删除「{{name}}」？",
+    "delete_description": "没有地方在用它。",
+    "delete_in_use_one": "有 {{count}} 处在用：{{names}}。先在那里去掉再删。",
+    "delete_in_use_other": "有 {{count}} 处在用：{{names}}。先在那里去掉再删。",
+    "delete_blocked": "日历还在用。",
+    "reference_kinds": {
+      "routing_rule": "路由规则",
+      "escalation_policy": "升级策略",
+      "schedule": "排班",
+      "mute_rule": "静默",
+      "notify_policy": "通知策略",
+      "alert_pipeline": "告警流水线"
+    },
+    "new_title": "新建节假日日历",
+    "edit_title": "编辑节假日日历",
+    "drawer_subtitle": "放假的日子不算在每周时段里；补班日按周一的时段算。",
+    "save": "保存日历",
+    "create": "创建日历",
+    "created": "已创建日历",
+    "updated": "已保存日历",
+    "sections": {
+      "calendar": "日历",
+      "days": "日子"
+    },
+    "fields": {
+      "name": "名称",
+      "description": "说明",
+      "year": "年份",
+      "kind": "类型",
+      "date": "日期",
+      "day_name": "这一天的名称"
+    },
+    "kinds": {
+      "holiday": "放假",
+      "workday": "补班"
+    },
+    "import": "导入 ICS",
+    "import_hint": "全天事件按天读进来；名称含「补班」「上班」或以「班」结尾的算补班。保存日历之前什么都不写。",
+    "imported_one": "从文件读出 {{count}} 天，核对后保存。",
+    "imported_other": "从文件读出 {{count}} 天，核对后保存。",
+    "no_days": "{{year}} 年还没有日子。",
+    "remove_day": "删除 {{date}}",
+    "add_day": "添加这一天"
+  },
+  "importance": {
+    "title": "优先级与紧急度",
+    "subtitle": "组织用几档优先级、各叫什么，以及每档紧急度怎么通知。",
+    "save": "保存档位",
+    "saved": "已保存档位",
+    "errors": {
+      "key": "键以小写字母开头，只用小写字母、数字和下划线。",
+      "key_twice": "有两档紧急度的键相同。",
+      "built_in": "内置的高、低两档不能删，可以改名。",
+      "too_many": "紧急度最多五档。",
+      "severities": "每个严重度恰好落在一档紧急度里。"
+    },
+    "priorities": {
+      "title": "优先级档位",
+      "description": "键固定是 P1、P2……，集成和导入的文件都用它。告警或流水线给的优先级超出档数时落到最低一档。",
+      "name": "{{priority}} 的名称",
+      "description_of": "{{priority}} 的说明",
+      "description_placeholder": "什么时候用",
+      "add": "加一档",
+      "remove": "去掉 {{priority}}"
+    },
+    "urgencies": {
+      "title": "紧急度档位",
+      "description": "最急的在前。每档定：往不往下升级、免打扰时怎么算、用个人的哪组步骤，以及升级策略「按严重度」时哪些严重度落到这一档。",
+      "name": "{{key}} 的名称",
+      "up": "把 {{key}} 上移",
+      "down": "把 {{key}} 下移",
+      "remove": "删除 {{key}}",
+      "built_in": "内置档：能改名，不能删。",
+      "escalates": "逐级升级",
+      "quiet_hours": "免打扰时",
+      "quiet": {
+        "block": "一律不打扰",
+        "switch": "看个人开关"
+      },
+      "steps": "个人步骤",
+      "step_groups": {
+        "high": "高紧急度步骤",
+        "low": "低紧急度步骤"
+      },
+      "severities": "按严重度",
+      "new_key": "新一档的键",
+      "add": "加一档紧急度"
+    }
+  },
+  "intake_usage": {
+    "title": "接入用量",
+    "subtitle": "每个来源的接入记录保留多久，分别统计多少个服务。",
+    "section_title": "用量记录",
+    "retention_days": "记录保留",
+    "retention_days_hint": "早于这个天数的小时记录每天清理一次。至少 35 天，这样按月的预算总能读全。",
+    "days": "天",
+    "max_services": "每组织服务数",
+    "max_services_hint": "每个节点上，一个组织每小时最多分别统计多少个服务。超出的合并计入「其他服务」，防止发送方靠服务名把记录撑大。",
+    "services": "个服务",
+    "save": "保存更改",
+    "saving": "保存中…",
+    "saved": "接入用量设置已保存",
+    "unsaved": "有未保存的更改",
+    "synced": "设置已同步",
+    "invalid": "记录保留 {{minDays}} 到 {{maxDays}} 天，服务数 1 到 {{maxServices}} 个。"
   }
 }

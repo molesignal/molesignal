@@ -19,23 +19,27 @@ use crate::{
             ChatMessage, CompletionRequest, MessageRole, ModelCallObserver, Provider,
             TransportOptions, adapter_from_parts, observed_complete,
         },
+        scoring::{ScoreTarget, ScoringRepository, TargetSource},
         usage::UsageOrigin,
     },
     api::AppState,
-    app::agent_usage::{AgentUsage, BudgetGate, UsageScope},
+    app::{
+        agent_usage::{AgentUsage, BudgetGate, UsageScope},
+        scoring::enqueue_answered,
+    },
     domain::alerting::{
         incident::{Incident, IncidentRca},
         repositories::IncidentRcaRepository,
     },
     infra::persistence::repositories::agent::{
         model_providers::{ModelProvider, ModelProviderRepository},
-        prompts::{AgentPromptRepository, prompt_hash, render_prompt},
+        prompts::{AgentPromptRepository, AgentPromptTemplate, prompt_hash, render_prompt},
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// root_cause prompt 的 purpose（与迁移 seed 的 builtin 行一致）。
-const RCA_PURPOSE: &str = "root_cause";
+pub(crate) const RCA_PURPOSE: &str = "root_cause";
 
 /// 证据文本里样本行上限（incident 已裁到 20，这里再压一层控制 prompt 体积）。
 const MAX_EVIDENCE_SAMPLES: usize = 10;
@@ -127,6 +131,17 @@ pub struct RcaGenerator {
     /// 每次生成记进组织的每日用量；预算由调用方在生成前用 [`Self::budget`] 判定。
     usage: Arc<AgentUsage>,
     cfg: RcaGenConfig,
+    /// 生成的 RCA 排进打分。
+    scoring: Option<Arc<dyn ScoringRepository>>,
+}
+
+/// 写好、还没存下的一份 RCA。
+pub struct RcaDraft {
+    pub summary: String,
+    pub prompt_hash: String,
+    pub prompt_tokens: i32,
+    pub completion_tokens: i32,
+    pub finish_reason: String,
 }
 
 impl RcaGenerator {
@@ -143,7 +158,14 @@ impl RcaGenerator {
             incident_rca,
             usage,
             cfg,
+            scoring: None,
         }
+    }
+
+    /// 生成的 RCA 排进打分。
+    pub fn with_scoring(mut self, scoring: Arc<dyn ScoringRepository>) -> Self {
+        self.scoring = Some(scoring);
+        self
     }
 
     /// 从 [`AppState`] 装配（HTTP 按需触发用）。
@@ -155,6 +177,7 @@ impl RcaGenerator {
             state.agent.usage.clone(),
             RcaGenConfig::default(),
         )
+        .with_scoring(state.agent.scoring.clone())
     }
 
     /// 组织今天的预算还允不允许生成。`interactive`：有人在事件页上等这次生成。
@@ -227,6 +250,73 @@ impl RcaGenerator {
         now: TimestampMicros,
         locale: RcaOutputLocale,
     ) -> Result<IncidentRca> {
+        // 解析 root_cause prompt（user→org→builtin）作系统消息；哨兵 user 落 org/builtin 默认。
+        let tmpl = self
+            .agent_prompts
+            .resolve(org_id, &system_user_id(), RCA_PURPOSE)
+            .await?;
+
+        let draft = self
+            .draft(
+                org_id,
+                provider,
+                &tmpl,
+                incident,
+                now,
+                locale,
+                UsageOrigin::Rca,
+            )
+            .await?;
+
+        let rca = IncidentRca {
+            incident_id: incident.id.clone(),
+            org_id: org_id.clone(),
+            summary: draft.summary,
+            provider: Some(provider.provider.clone()),
+            model: Some(provider.default_model.clone()),
+            prompt_builtin_key: tmpl.builtin_key.clone(),
+            prompt_hash: Some(draft.prompt_hash),
+            prompt_tokens: draft.prompt_tokens,
+            completion_tokens: draft.completion_tokens,
+            finish_reason: Some(draft.finish_reason),
+            created_at: now,
+            updated_at: now,
+        };
+
+        let saved = self.incident_rca.upsert(rca).await?;
+
+        if let Some(scoring) = &self.scoring {
+            let target = (ScoreTarget::IncidentRca, saved.incident_id.0.as_str());
+
+            if let Err(error) = enqueue_answered(
+                scoring.as_ref(),
+                org_id,
+                target,
+                None,
+                TargetSource::IncidentRca,
+            )
+            .await
+            {
+                tracing::warn!(incident = %saved.incident_id.0, %error, "an rca could not be queued for scoring");
+            }
+        }
+
+        Ok(saved)
+    }
+
+    /// 用一个 root_cause 模板写一份 RCA，不存下。Prompt 晋级检查用它比较两个版本，用量记在
+    /// `origin` 下。
+    #[allow(clippy::too_many_arguments)]
+    pub async fn draft(
+        &self,
+        org_id: &Id,
+        provider: &ModelProvider,
+        tmpl: &AgentPromptTemplate,
+        incident: &Incident,
+        now: TimestampMicros,
+        locale: RcaOutputLocale,
+        origin: UsageOrigin,
+    ) -> Result<RcaDraft> {
         // 解密 key → 构造 adapter（明文即用即弃，绝不落库/日志）。
         let key = self
             .agent_model_providers
@@ -240,12 +330,6 @@ impl RcaGenerator {
             key,
             TransportOptions::from_timeout_ms(provider.timeout_ms),
         )?;
-
-        // 解析 root_cause prompt（user→org→builtin）作系统消息；哨兵 user 落 org/builtin 默认。
-        let tmpl = self
-            .agent_prompts
-            .resolve(org_id, &system_user_id(), RCA_PURPOSE)
-            .await?;
 
         let rendered = render_prompt(&tmpl.body, &render_vars(incident, locale));
         let system_body = format!("{rendered}\n\n{}", locale.system_instruction());
@@ -272,7 +356,7 @@ impl RcaGenerator {
             provider_id: Some(provider.id.clone()),
             prices: provider.prices(),
             prompt_hash: Some(phash.clone()),
-            ..UsageScope::new(org_id.clone(), UsageOrigin::Rca)
+            ..UsageScope::new(org_id.clone(), origin)
         });
 
         let resp = observed_complete(adapter.as_ref(), req, Some(&recorder)).await?;
@@ -282,27 +366,18 @@ impl RcaGenerator {
             return Err(Error::internal("llm returned empty rca summary"));
         }
 
-        let rca = IncidentRca {
-            incident_id: incident.id.clone(),
-            org_id: org_id.clone(),
+        Ok(RcaDraft {
             summary,
-            provider: Some(provider.provider.clone()),
-            model: Some(provider.default_model.clone()),
-            prompt_builtin_key: tmpl.builtin_key.clone(),
-            prompt_hash: Some(phash),
+            prompt_hash: phash,
             prompt_tokens: resp.prompt_tokens,
             completion_tokens: resp.completion_tokens,
-            finish_reason: Some(resp.finish_reason),
-            created_at: now,
-            updated_at: now,
-        };
-
-        self.incident_rca.upsert(rca).await
+            finish_reason: resp.finish_reason,
+        })
     }
 }
 
 /// 后台无真实用户：用哨兵 user_id 走 prompt 解析，落到 org/builtin 默认（不匹配任何 user override）。
-fn system_user_id() -> Id {
+pub(crate) fn system_user_id() -> Id {
     Id::from_string("system")
 }
 
@@ -510,6 +585,10 @@ mod tests {
             acknowledged_by: None,
             resolved_at: None,
             resolved_by: None,
+            team_id: None,
+            routing: None,
+            handling: Default::default(),
+            revision: 0,
         }
     }
 

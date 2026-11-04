@@ -22,10 +22,11 @@ pub use location::{
 };
 pub use monitor::{
     ActiveMonitorRevision, AssertionOperator, AssertionSeverity, BrowserAction, BrowserJourneySpec,
-    BrowserStep, DnsSpec, Extraction, GrpcCall, GrpcSpec, HeaderValue, HttpJourneySpec, HttpStep,
-    IcmpSpec, MonitorAssertion, MonitorKind, MonitorLifecycle, MonitorRevision, MonitorSchedule,
-    MonitorSpec, MonitorState, MultiLocationPolicy, SshAuthentication, SshSpec, SyntheticMonitor,
-    TcpSpec, TlsSpec, ValueSource, Viewport,
+    BrowserStep, ClientCertificate, ClientKey, DnsSpec, Extraction, GrpcCall, GrpcSpec,
+    HeaderValue, HostBinding, HttpJourneySpec, HttpStep, HttpVersion, IcmpSpec, MonitorAssertion,
+    MonitorKind, MonitorLifecycle, MonitorRevision, MonitorSchedule, MonitorSpec, MonitorState,
+    MultiLocationPolicy, SshAuthentication, SshSpec, SyntheticMonitor, TcpSpec, TlsSpec,
+    ValueSource, Viewport, assertion_source_allowed,
 };
 pub use register::{
     ProbeAgentToken, ProbeAgentTokenInstructions, ProbeAgentTokenStatus, ProbeRegisterInstructions,
@@ -38,11 +39,13 @@ pub use repository::{
     SyntheticTaskRepository,
 };
 pub use result::{
-    AssertionObservation, ProbeAttempt, ProbeOutcome, ProbeStepEvidence, SyntheticResult,
-    SyntheticResultArtifact, SyntheticResultListQuery, SyntheticResultPage, TimingBreakdown,
+    AssertionObservation, ProbeAttempt, ProbeOutcome, ProbeStepEvidence, PurgedResults,
+    SyntheticResult, SyntheticResultArtifact, SyntheticResultListQuery, SyntheticResultPage,
+    TimingBreakdown,
 };
 pub use secret::{SecretMaterial, SyntheticSecret, SyntheticSecretVersion};
 pub use state::{
-    LocationStateUpdate, MonitorLocationState, StateObservation, SyntheticStateTransition,
+    LocationStateUpdate, MissedRun, MonitorLocationState, StateObservation,
+    SyntheticStateTransition,
 };
 pub use task::{ProbeTask, ProbeTaskState};

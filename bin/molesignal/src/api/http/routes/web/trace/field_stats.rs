@@ -30,6 +30,7 @@ use crate::{
 };
 
 #[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct TraceFieldStatsRequest {
     /// The stream the Traces were listed from. Without one, the stream the
     /// list itself reads.
@@ -41,7 +42,7 @@ pub(super) struct TraceFieldStatsRequest {
     field: Option<String>,
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("traces.read", "sys.telemetry.read"))]
 pub(super) async fn field_stats(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

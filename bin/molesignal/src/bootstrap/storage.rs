@@ -10,17 +10,28 @@ use crate::{
     app::{
         agent_usage::AgentUsage,
         cluster::{PeerRole, WorkOwnership},
-        intake::IntakeService,
+        intake::{
+            IntakeService,
+            realtime::StepState,
+            usage::{IntakeReceipt, IntakeUsageMeter},
+        },
         profile_storage::ProfileStorageService,
         profiling::ProfilingService,
     },
     bootstrap::{
         roles::{compactor::spawn_compactor_loop, intake::IntakeWorker},
-        workers::storage_maintenance,
+        workers::{
+            audit_retention::AuditRetentionWorker, intake_usage, pipeline_steps, series_limits,
+            storage_maintenance, synthetic_retention::SyntheticRetentionWorker,
+        },
     },
     config::{Settings, WalFlushStrategy, WalSettings, WalSyncLevel},
     domain::{
-        iam::OrganizationRepository,
+        iam::{
+            DEFAULT_MAX_ACTIVE_SERIES_PER_METRIC, DEFAULT_MAX_ACTIVE_SERIES_PER_ORG,
+            InstanceSettingsRepository, OrganizationRepository,
+        },
+        intake::usage::source::IntakeUsageRepository,
         storage::{FileCatalog, QueryFileSource, builtin_registry},
         stream::StreamRepository,
     },
@@ -28,10 +39,17 @@ use crate::{
         intake::{BufferPool, DatasetResolver, PrometheusSeriesAdmission, WalPool},
         persistence::repositories::{
             agent::model_providers::ModelProviderRepository,
+            audit_events::PgAuditEventRepository,
             file_catalog::PgFileCatalog,
-            usage::{PgUsageRepository, UsageRepository},
+            instance_settings::PgInstanceSettingsRepository,
+            rum_applications::PgRumApplicationRepository,
+            rum_issues::{PgRumIssueRepository, PgRumVersionRepository},
+            synthetics::PgSyntheticRepository,
+            usage::PgIntakeUsageRepository,
         },
+        pipeline::realtime::limit_usage::PgLimitUsageLedger,
         query::catalog_source::CatalogQuerySource,
+        rum::{issues::IssueTracker, session_state::SessionMerger},
         segment_wal::{FsyncPolicy, SyncLevel},
         storage::{
             compactor::Compactor,
@@ -43,7 +61,7 @@ use crate::{
         },
         traces::{ServiceGraphAggregator, ServiceGraphObserverImpl},
     },
-    shared::{Error, Result, health::Probe, ids::Id, time::TimestampMicros},
+    shared::{Error, Result, health::Probe, ids::Id},
 };
 
 pub(super) struct StorageRuntime {
@@ -55,12 +73,17 @@ pub(super) struct StorageRuntime {
     pub(super) function_executor: Arc<dyn crate::app::intake::FunctionExecutor>,
     pub(super) functions_js_runtime_enabled: bool,
     pub(super) service_graph_aggregator: Arc<ServiceGraphAggregator>,
-    pub(super) usage: Arc<dyn UsageRepository>,
+    pub(super) usage: Arc<dyn IntakeUsageRepository>,
+    pub(super) intake_meter: Arc<IntakeUsageMeter>,
+    /// What realtime pipelines' metric, quota and throttle steps hold between events.
+    pub(super) pipeline_steps: Arc<StepState>,
     pub(super) investigation_blobs: Arc<
         dyn crate::infra::persistence::repositories::investigation_blobs::InvestigationBlobRepository,
     >,
     pub(super) catalog_query: Arc<CatalogQuerySource>,
     pub(super) catalog_files: Arc<dyn QueryFileSource>,
+    /// Filled with the query service once it is built: sessions are rebuilt by reading back.
+    pub(super) rum_query: Arc<super::rum::QuerySlot>,
 }
 
 impl StorageRuntime {
@@ -70,7 +93,7 @@ impl StorageRuntime {
         model_providers: Arc<dyn ModelProviderRepository>,
         agent_usage: Arc<AgentUsage>,
     ) -> Result<Self> {
-        let segment_bytes = (settings.wal.segment_size_mb as usize)
+        let segment_bytes = (settings.wal.segment_size as usize)
             .saturating_mul(1024 * 1024)
             .max(64 * 1024);
 
@@ -106,12 +129,21 @@ impl StorageRuntime {
         };
 
         let buffer_pool = Arc::new(BufferPool::with_memory_limit_bytes(
-            (settings.intake.max_buffer_memory_mb as usize).saturating_mul(1024 * 1024),
+            (settings.intake.max_buffer_memory_size as usize).saturating_mul(1024 * 1024),
         ));
 
+        // 组织与指标的上限是平台设置：先用默认值，读到平台设置后换上，之后定期刷新。
         let prometheus_series_admission = Arc::new(PrometheusSeriesAdmission::new(
             settings.intake.prometheus.cardinality.clone(),
+            DEFAULT_MAX_ACTIVE_SERIES_PER_ORG as usize,
+            DEFAULT_MAX_ACTIVE_SERIES_PER_METRIC as usize,
         ));
+
+        let _series_limits_handle = series_limits::spawn(
+            prometheus_series_admission.clone(),
+            Arc::new(PgInstanceSettingsRepository::new(core.pool.clone())),
+            core.drain_controller.clone(),
+        );
 
         let parquet_writer = Arc::new(ParquetWriter::new(core.store.clone()));
         let probe = Arc::new(Probe::new());
@@ -120,7 +152,7 @@ impl StorageRuntime {
 
         let manifest_reader = Arc::new(PartitionManifestReader::new(
             core.object_reader.clone(),
-            settings.storage.catalog.manifest_cache_bytes,
+            settings.storage.catalog.manifest_cache_bytes(),
         ));
 
         let dataset_resolver = Arc::new(DatasetResolver::new(
@@ -138,7 +170,7 @@ impl StorageRuntime {
 
         let catalog_files: Arc<dyn QueryFileSource> = catalog_query.clone();
         let replay_byte_cap =
-            (settings.wal.max_replay_mb.max(1) as usize).saturating_mul(1024 * 1024);
+            (settings.wal.max_replay_size.max(1) as usize).saturating_mul(1024 * 1024);
 
         let worker = Arc::new(
             IntakeWorker::new(
@@ -165,18 +197,6 @@ impl StorageRuntime {
             core.store.clone(),
             probe.clone(),
             settings.object_store.health_probe_interval_secs,
-        );
-
-        let functions: Arc<dyn crate::domain::function::FunctionRepository> = Arc::new(
-            crate::infra::persistence::repositories::functions::PgFunctionRepository::new(
-                core.pool.clone(),
-            ),
-        );
-
-        let pipelines: Arc<dyn crate::domain::pipeline::PipelineRepository> = Arc::new(
-            crate::infra::persistence::repositories::pipelines::PgPipelineRepository::new(
-                core.pool.clone(),
-            ),
         );
 
         let vrl_executor = Arc::new(crate::infra::runtime::VrlFunctionExecutor::new());
@@ -218,40 +238,46 @@ impl StorageRuntime {
                 llm_executor,
             ));
 
-        let pipeline_engine = Arc::new(crate::app::intake::PipelineEngine::new(
-            pipelines,
-            functions,
-            function_executor.clone(),
-        ));
-
         let functions_js_runtime_enabled = cfg!(feature = "js-runtime");
 
         let service_graph_aggregator = Arc::new(ServiceGraphAggregator::new());
-        let usage: Arc<dyn UsageRepository> = Arc::new(PgUsageRepository::new(core.pool.clone()));
-        let internal_usage = usage.clone();
+        let usage: Arc<dyn IntakeUsageRepository> =
+            Arc::new(PgIntakeUsageRepository::new(core.pool.clone()));
+        let intake_meter = Arc::new(IntakeUsageMeter::new(usage.clone()));
 
-        let internal_usage_recorder = Arc::new(
-            move |org_id: Id, received_at: TimestampMicros, bytes: u64| {
-                let usage = internal_usage.clone();
-
-                tokio::spawn(async move {
-                    if let Err(error) = usage
-                        .add_hourly_intake_bytes(&org_id, received_at.0, bytes as i64)
-                        .await
-                    {
-                        tracing::warn!(
-                            org_id = %org_id.0,
-                            error = %error,
-                            "failed to record internal hourly intake usage"
-                        );
-                    }
-                });
-            },
+        let _intake_meter_handle = intake_usage::spawn_meter(
+            intake_meter.clone(),
+            Arc::new(PgInstanceSettingsRepository::new(core.pool.clone())),
         );
+
+        let internal_usage = intake_meter.clone();
+
+        let internal_usage_recorder =
+            Arc::new(move |org_id: &Id, receipt: IntakeReceipt, accepted: u64| {
+                internal_usage.record(org_id, receipt, accepted);
+            });
+
+        let rum_query = Arc::new(super::rum::QuerySlot::default());
+
+        let rum_sessions = Arc::new(SessionMerger::new(Arc::new(
+            super::rum::SqlSessionHistory::new(rum_query.clone()),
+        )));
+
+        let rum_issues = Arc::new(IssueTracker::new(
+            Arc::new(PgRumIssueRepository::new(core.pool.clone())),
+            Arc::new(PgRumVersionRepository::new(core.pool.clone())),
+            Arc::new(PgRumApplicationRepository::new(core.pool.clone())),
+        ));
+
+        let pipeline_steps = Arc::new(StepState::new(Arc::new(PgLimitUsageLedger::new(
+            core.pool.clone(),
+        ))));
 
         let intake_service = IntakeService::new(worker.clone(), core.streams.clone())
             .with_system_org_id(core.system_org.id.clone())
-            .with_pipeline(pipeline_engine)
+            .with_metric_directory(core.metric_directory.clone())
+            .with_rum_sessions(rum_sessions)
+            .with_rum_issues(rum_issues)
             .with_realtime(crate::app::intake::realtime::RealtimeEngine {
                 repository: Arc::new(
                     crate::infra::pipeline::realtime::PgRealtimePipelineRepository::new(
@@ -259,6 +285,7 @@ impl StorageRuntime {
                     ),
                 ),
                 executor: function_executor.clone(),
+                steps: pipeline_steps.clone(),
             })
             .with_masking(core.masking_service.clone())
             .with_drain(core.drain_controller.clone())
@@ -278,6 +305,7 @@ impl StorageRuntime {
         };
 
         let intake = Arc::new(intake_service);
+        let _pipeline_steps_handle = pipeline_steps::spawn(pipeline_steps.clone(), intake.clone());
 
         let profile_storage = Arc::new(ProfileStorageService::new(
             core.store.clone(),
@@ -320,16 +348,58 @@ impl StorageRuntime {
             ownership
         });
 
+        // 数据流没有设置保留天数时的天数在平台设置里，compactor 与清单维护每一轮读一次。
+        let instance_settings: Arc<dyn InstanceSettingsRepository> =
+            Arc::new(PgInstanceSettingsRepository::new(core.pool.clone()));
+
         let _compactor_handle = compactor_ownership.clone().map(|ownership| {
             spawn_compactor_loop(
                 compactor,
                 core.orgs.clone() as Arc<dyn OrganizationRepository>,
                 core.streams.clone() as Arc<dyn StreamRepository>,
+                core.metric_directory.clone(),
+                instance_settings.clone(),
                 ownership,
                 investigation_blobs.clone(),
                 core.store.clone(),
                 core.drain_controller.clone(),
             )
+        });
+
+        // 审计记录保留：compactor 主节点每天删除过了保留期的审计记录。
+        let _audit_retention_handle = compactor_ownership.clone().map(|ownership| {
+            AuditRetentionWorker::new(
+                Arc::new(PgAuditEventRepository::new(core.pool.clone())),
+                Arc::new(PgInstanceSettingsRepository::new(core.pool.clone())),
+                ownership,
+                core.drain_controller.clone(),
+            )
+            .spawn()
+        });
+
+        // 接入用量保留：compactor 主节点每天删除过了保留期的小时记录。
+        let _intake_usage_retention_handle = compactor_ownership.clone().map(|ownership| {
+            intake_usage::spawn_retention(
+                usage.clone(),
+                instance_settings.clone(),
+                ownership,
+                core.drain_controller.clone(),
+            )
+        });
+
+        // 拨测结果保留：compactor 主节点每天删除过了保留期的结果、过期的附件与已结束的任务。
+        let _synthetic_retention_handle = compactor_ownership.clone().map(|ownership| {
+            SyntheticRetentionWorker::new(
+                Arc::new(PgSyntheticRepository::new(
+                    core.pool.clone(),
+                    core.cipher_root_key.clone(),
+                )),
+                instance_settings.clone(),
+                core.store.clone(),
+                ownership,
+                core.drain_controller.clone(),
+            )
+            .spawn()
         });
 
         let _storage_maintenance_handles = compactor_ownership.map(|ownership| {
@@ -344,6 +414,7 @@ impl StorageRuntime {
                 )),
                 Arc::new(ObjectGcWorker::new(
                     file_catalog.clone(),
+                    core.object_reader.clone(),
                     core.store.clone(),
                     settings.storage.gc.clone(),
                 )),
@@ -360,10 +431,10 @@ impl StorageRuntime {
                     core.store.clone(),
                     settings.storage.catalog.clone(),
                     &settings.storage.gc,
-                    settings.compactor.retention_days,
                 )),
                 core.orgs.clone() as Arc<dyn OrganizationRepository>,
                 core.streams.clone() as Arc<dyn StreamRepository>,
+                instance_settings,
                 ownership,
                 core.drain_controller.clone(),
             )
@@ -379,9 +450,12 @@ impl StorageRuntime {
             functions_js_runtime_enabled,
             service_graph_aggregator,
             usage,
+            intake_meter,
+            pipeline_steps,
             investigation_blobs,
             catalog_query,
             catalog_files,
+            rum_query,
         })
     }
 }

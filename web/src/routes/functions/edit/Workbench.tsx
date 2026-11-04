@@ -12,9 +12,10 @@ import { useTranslation } from 'react-i18next';
 
 import type { FunctionLanguage } from '@/api/functions';
 import type { ActionAccess } from '@/product/actionAccess';
-import { ChromeButton } from '@/shell/chrome';
+import { ChromeButton, uiSectionTitleClass } from '@/shell/chrome';
 import { CodeEditor } from '@/shell/codeEditor';
 import { FormField, FormInput, FormSelect } from '@/shell/FormDrawer';
+import { JsonEditor } from '@/shell/JsonEditor';
 import { cn } from '@/shell/lib/cn';
 import { surfacePanelClass } from '@/shell/SurfaceWorkbench';
 
@@ -34,7 +35,7 @@ export type RunState =
 
 /** The head of a card: its title, what state it is in, and its one action at the far end. */
 const CARD_HEAD = 'flex min-h-[44px] items-center gap-[12px] px-[16px]';
-const CARD_TITLE = 'm-0 font-sans text-md font-strong text-tx-0';
+const CARD_TITLE = `m-0 ${uiSectionTitleClass}`;
 /** The head of a step inside the test card, a size down from the card's own. */
 const STEP_HEAD = 'flex min-h-[36px] items-center gap-[8px] px-[16px]';
 const STEP_TITLE = 'font-sans text-sm font-strong text-tx-1';
@@ -245,17 +246,14 @@ export function FunctionWorkbench({
               {t('edit.format')}
             </ChromeButton>
           </div>
-          <CodeEditor
+          <JsonEditor
             value={sampleInput}
             onChange={onSampleInputChange}
             readOnly={runAccess.disabled}
-            language="json"
             ariaLabel={t('edit.sample_input')}
             minHeight={180}
             maxHeight={280}
             onModEnter={onRun}
-            showHeader={false}
-            showStatus={false}
             className={SET_IN}
           />
 
@@ -280,16 +278,13 @@ export function FunctionWorkbench({
               </div>
             </div>
           ) : (
-            <CodeEditor
+            <JsonEditor
               value={sampleOutput}
-              language="json"
               ariaLabel={t('edit.sample_output')}
               placeholder={outputPlaceholder}
               readOnly
               minHeight={220}
               maxHeight={320}
-              showHeader={false}
-              showStatus={false}
               className={SET_IN}
             />
           )}

@@ -54,7 +54,7 @@ test.beforeEach(async ({ page }) => {
   );
   await page.route('**/api/v1/query**', (route) =>
     route.fulfill({
-      json: { columns: [], rows: [], scanned_rows: 0, took_ms: 0 },
+      json: { columns: [], rows: [], scannedRows: 0, tookMs: 0 },
     }),
   );
 });

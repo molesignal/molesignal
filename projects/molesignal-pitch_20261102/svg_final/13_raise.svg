@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-pptx-page-role="content" font-family="Microsoft YaHei, Arial">
+<rect id="bg" data-pptx-role="background" width="1280" height="720" fill="#F7F9FC" />
+<g id="heading" data-pptx-bounds="56 44 1168 115"><text x="56" y="65" font-size="18" fill="#007E87">08 / 融资计划</text><text x="56" y="126" font-size="44" fill="#102C44" font-weight="bold">75 万美元，支持 24 个月验证</text></g>
+<g id="ask" data-pptx-bounds="56 210 470 355"><text x="56" y="290" font-size="76" fill="#007E87" font-weight="bold">$750,000</text><text x="56" y="362" font-size="30" fill="#102C44">24 个月计划覆盖期</text><text fill="#53677B" font-size="24" x="56" y="426">折合月均预算 $31,250，含缓冲。</text><text fill="#53677B" font-size="24" x="56" y="462">实际支出随招聘与云用量调整。</text></g>
+<g id="allocation" data-pptx-bounds="620 202 604 365"><text x="620" y="232" font-size="20" fill="#53677B">建议用途分配 · 待预算细化</text><text x="620" y="288" font-size="24" fill="#173247">55% · $412,500　核心产品与研发</text><text x="620" y="358" font-size="24" fill="#173247">20% · $150,000　云基础设施与运营</text><text x="620" y="428" font-size="24" fill="#173247">15% · $112,500　客户验证与早期市场</text><text x="620" y="498" font-size="24" fill="#173247">10% · $75,000　 公司设立、法务与缓冲</text></g>
+<g id="purpose" data-pptx-bounds="56 580 1168 57"><text x="56" y="618" font-size="24" fill="#102C44">本轮重点：产品可靠性、Cloud 可运营性、真实需求与初始付费验证。</text></g>
+<text id="footer" data-pptx-role="footer" x="56" y="682" font-size="16" fill="#53677B">融资额与周期由创始人提供；比例为建议规划，非当前支出。本材料未设定估值与融资工具。</text><text id="page" data-pptx-role="page-number" x="1224" y="682" text-anchor="end" font-size="16" fill="#53677B">13 / 14</text>
+</svg>

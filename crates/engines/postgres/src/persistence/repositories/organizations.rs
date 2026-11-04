@@ -34,7 +34,7 @@ impl PgOrganizationRepository {
             .map_err(sqlx_err)?;
 
         let existing = sqlx::query(
-            "SELECT id, name, slug, system, disabled, created_at_micros
+            "SELECT id, name, slug, system, disabled, created_at
              FROM organizations
              WHERE system OR name = $1 OR slug = $2
              ORDER BY system DESC
@@ -71,13 +71,13 @@ impl PgOrganizationRepository {
             };
 
             sqlx::query(
-                "INSERT INTO organizations (id, name, slug, system, created_at_micros)
+                "INSERT INTO organizations (id, name, slug, system, created_at)
                  VALUES ($1, $2, $3, TRUE, $4)",
             )
             .bind(&organization.id.0)
             .bind(&organization.name)
             .bind(&organization.slug)
-            .bind(organization.created_at.0)
+            .bind(organization.created_at)
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
@@ -97,7 +97,7 @@ async fn sync_system_iam_roles(tx: &mut PgConnection, organization: &Organizatio
     let roles_changed = sqlx::query(
         "INSERT INTO iam_roles (
              id, org_id, role_key, name, description, builtin,
-             role_type, scope, created_at_micros, updated_at_micros, permissions
+             role_type, scope, created_at, updated_at, permissions
          )
          SELECT
              gen_random_uuid()::TEXT,
@@ -111,8 +111,9 @@ async fn sync_system_iam_roles(tx: &mut PgConnection, organization: &Organizatio
              $2,
              $2,
              catalog.permissions
-           FROM iam_builtin_roles catalog
-          WHERE catalog.role_type = 'platform'
+           FROM iam_roles catalog
+          WHERE catalog.org_id IS NULL
+            AND catalog.role_type = 'platform'
             AND catalog.scope = 'platform'
          ON CONFLICT (org_id, role_key) DO UPDATE
          SET name = EXCLUDED.name,
@@ -120,7 +121,7 @@ async fn sync_system_iam_roles(tx: &mut PgConnection, organization: &Organizatio
              builtin = TRUE,
              role_type = EXCLUDED.role_type,
              scope = EXCLUDED.scope,
-             updated_at_micros = EXCLUDED.updated_at_micros
+             updated_at = EXCLUDED.updated_at
          WHERE iam_roles.name IS DISTINCT FROM EXCLUDED.name
             OR iam_roles.description IS DISTINCT FROM EXCLUDED.description
             OR iam_roles.builtin IS DISTINCT FROM TRUE
@@ -128,20 +129,21 @@ async fn sync_system_iam_roles(tx: &mut PgConnection, organization: &Organizatio
             OR iam_roles.scope IS DISTINCT FROM EXCLUDED.scope",
     )
     .bind(&organization.id.0)
-    .bind(now.0)
+    .bind(now)
     .execute(&mut *tx)
     .await
     .map_err(sqlx_err)?
     .rows_affected();
 
-    // A built-in platform role has exactly the permissions of its catalog entry.
+    // A built-in platform role has exactly the permissions of its built-in row.
     let permissions_synced = sqlx::query(
         "UPDATE iam_roles role
             SET permissions = catalog.permissions
-           FROM iam_builtin_roles catalog
+           FROM iam_roles catalog
           WHERE role.org_id = $1
             AND role.builtin
             AND role.scope = 'platform'
+            AND catalog.org_id IS NULL
             AND catalog.role_key = role.role_key
             AND role.permissions IS DISTINCT FROM catalog.permissions",
     )
@@ -169,7 +171,9 @@ fn row_to_org(row: sqlx::postgres::PgRow) -> Result<Organization> {
         slug: row.try_get("slug").map_err(sqlx_err)?,
         system: row.try_get("system").map_err(sqlx_err)?,
         disabled: row.try_get("disabled").map_err(sqlx_err)?,
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -179,7 +183,7 @@ impl OrganizationRepository for PgOrganizationRepository {
         org.validate_system_invariants()?;
 
         sqlx::query(
-            "INSERT INTO organizations (id, name, slug, system, disabled, created_at_micros)
+            "INSERT INTO organizations (id, name, slug, system, disabled, created_at)
              VALUES ($1, $2, $3, $4, $5, $6)",
         )
         .bind(&org.id.0)
@@ -187,7 +191,7 @@ impl OrganizationRepository for PgOrganizationRepository {
         .bind(&org.slug)
         .bind(org.system)
         .bind(org.disabled)
-        .bind(org.created_at.0)
+        .bind(org.created_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -197,7 +201,7 @@ impl OrganizationRepository for PgOrganizationRepository {
 
     async fn get(&self, id: &Id) -> Result<Organization> {
         let row = sqlx::query(
-            "SELECT id, name, slug, system, disabled, created_at_micros FROM organizations WHERE id = $1",
+            "SELECT id, name, slug, system, disabled, created_at FROM organizations WHERE id = $1",
         )
         .bind(&id.0)
         .fetch_one(&self.pool)
@@ -209,7 +213,7 @@ impl OrganizationRepository for PgOrganizationRepository {
 
     async fn get_by_slug(&self, slug: &str) -> Result<Organization> {
         let row = sqlx::query(
-            "SELECT id, name, slug, system, disabled, created_at_micros FROM organizations WHERE slug = $1",
+            "SELECT id, name, slug, system, disabled, created_at FROM organizations WHERE slug = $1",
         )
         .bind(slug)
         .fetch_one(&self.pool)
@@ -220,7 +224,7 @@ impl OrganizationRepository for PgOrganizationRepository {
     }
 
     async fn list(&self) -> Result<Vec<Organization>> {
-        let rows = sqlx::query("SELECT id, name, slug, system, disabled, created_at_micros FROM organizations ORDER BY created_at_micros")
+        let rows = sqlx::query("SELECT id, name, slug, system, disabled, created_at FROM organizations ORDER BY created_at")
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
@@ -255,7 +259,7 @@ impl OrganizationRepository for PgOrganizationRepository {
             .map_err(sqlx_err)?;
 
         let row = sqlx::query(
-            "SELECT id, name, slug, system, disabled, created_at_micros
+            "SELECT id, name, slug, system, disabled, created_at
              FROM organizations
              WHERE id = $1
              FOR UPDATE",
@@ -308,6 +312,17 @@ impl OrganizationRepository for PgOrganizationRepository {
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
+        // Platform grants narrowed to this organization live in the platform organization.
+        sqlx::query(
+            "DELETE FROM iam_role_bindings
+              WHERE resource_type = 'organization'
+                AND resource_id = $1",
+        )
+        .bind(&id.0)
+        .execute(&mut *tx)
+        .await
+        .map_err(sqlx_err)?;
 
         sqlx::query("DELETE FROM organizations WHERE id = $1")
             .bind(&id.0)

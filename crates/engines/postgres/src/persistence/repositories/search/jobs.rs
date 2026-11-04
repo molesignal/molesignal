@@ -4,7 +4,7 @@
 //! `search_jobs` 表 Pg 实装（spec search-jobs capability）。
 //!
 //! 状态机：pending → running → done | failed | cancelled；failed/cancelled → pending（retry）。
-//! TTL 由 expires_at_micros 控制；后台 cleanup task 扫超时行 + 删 NDJSON result。
+//! TTL 由 expires_at 控制；后台 cleanup task 扫超时行 + 删 NDJSON result。
 
 use std::{sync::Arc, time::Duration};
 
@@ -70,6 +70,7 @@ pub enum SearchJobKind {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SearchJob {
     pub id: Id,
     pub org_id: Id,
@@ -96,7 +97,7 @@ pub struct SearchJob {
 impl SearchJob {
     /// 回填任务所属的数据管道：提交回填时写进 `request_json` 的 `pipeline_id`。
     pub fn pipeline_id(&self) -> Option<&str> {
-        self.request_json.get("pipeline_id").and_then(Value::as_str)
+        self.request_json.get("pipelineId").and_then(Value::as_str)
     }
 
     pub fn kind(&self) -> SearchJobKind {
@@ -234,8 +235,8 @@ pub(crate) fn notification_reconnect_delay(failures: u32) -> Duration {
 }
 
 const COLS: &str = "id, org_id, user_id, role_key, request_json, state, attempt,
-                    result_object_key, result_rows, error, submitted_at_micros,
-                    started_at_micros, finished_at_micros, expires_at_micros, trace_link";
+                    result_object_key, result_rows, error, submitted_at,
+                    started_at, finished_at, expires_at, trace_link";
 
 fn row_to(r: sqlx::postgres::PgRow) -> SearchJob {
     let req: Json<Value> = r.try_get("request_json").unwrap_or(Json(Value::Null));
@@ -261,19 +262,18 @@ fn row_to(r: sqlx::postgres::PgRow) -> SearchJob {
             .try_get::<Option<i64>, _>("result_rows")
             .unwrap_or_default(),
         error: r.try_get::<Option<String>, _>("error").unwrap_or_default(),
-        submitted_at: TimestampMicros(
-            r.try_get::<i64, _>("submitted_at_micros")
-                .unwrap_or_default(),
-        ),
+        submitted_at: r
+            .try_get::<TimestampMicros, _>("submitted_at")
+            .unwrap_or_default(),
         started_at: r
-            .try_get::<Option<i64>, _>("started_at_micros")
-            .unwrap_or_default()
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("started_at")
+            .unwrap_or_default(),
         finished_at: r
-            .try_get::<Option<i64>, _>("finished_at_micros")
-            .unwrap_or_default()
-            .map(TimestampMicros),
-        expires_at: TimestampMicros(r.try_get::<i64, _>("expires_at_micros").unwrap_or_default()),
+            .try_get::<Option<TimestampMicros>, _>("finished_at")
+            .unwrap_or_default(),
+        expires_at: r
+            .try_get::<TimestampMicros, _>("expires_at")
+            .unwrap_or_default(),
     }
 }
 
@@ -284,7 +284,7 @@ impl SearchJobRepository for PgSearchJobRepository {
             "WITH inserted AS (
                  INSERT INTO search_jobs
                     (id, org_id, user_id, role_key, request_json, trace_link, state,
-                     submitted_at_micros, expires_at_micros)
+                     submitted_at, expires_at)
                  VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8)
                  RETURNING 1
              )
@@ -296,8 +296,8 @@ impl SearchJobRepository for PgSearchJobRepository {
         .bind(&j.role_key)
         .bind(Json(&j.request_json))
         .bind(j.trace_link.as_ref().map(Json))
-        .bind(j.submitted_at.0)
-        .bind(j.expires_at.0)
+        .bind(j.submitted_at)
+        .bind(j.expires_at)
         .bind(PENDING_CHANNEL)
         .fetch_one(&self.pool)
         .await
@@ -331,11 +331,11 @@ impl SearchJobRepository for PgSearchJobRepository {
     async fn claim_next_pending(&self) -> Result<Option<SearchJob>> {
         // Postgres FOR UPDATE SKIP LOCKED 让多 worker 安全抢占
         let sql = format!(
-            "UPDATE search_jobs SET state = 'running', started_at_micros = $1
+            "UPDATE search_jobs SET state = 'running', started_at = $1
              WHERE id = (
                  SELECT id FROM search_jobs
                  WHERE state = 'pending'
-                 ORDER BY submitted_at_micros ASC
+                 ORDER BY submitted_at ASC
                  LIMIT 1
                  FOR UPDATE SKIP LOCKED
              )
@@ -343,7 +343,7 @@ impl SearchJobRepository for PgSearchJobRepository {
         );
 
         let row = sqlx::query(&sql)
-            .bind(TimestampMicros::now().0)
+            .bind(TimestampMicros::now())
             .fetch_optional(&self.pool)
             .await
             .map_err(sqlx_err)?;
@@ -370,14 +370,14 @@ impl SearchJobRepository for PgSearchJobRepository {
         let result = sqlx::query(
             "UPDATE search_jobs
              SET state = 'done', result_object_key = $3, result_rows = $4,
-                 error = NULL, finished_at_micros = $5
+                 error = NULL, finished_at = $5
              WHERE org_id = $1 AND id = $2 AND attempt = $6 AND state = 'running'",
         )
         .bind(&org_id.0)
         .bind(&id.0)
         .bind(result_object_key)
         .bind(result_rows)
-        .bind(finished_at.0)
+        .bind(finished_at)
         .bind(attempt)
         .execute(&self.pool)
         .await
@@ -396,13 +396,13 @@ impl SearchJobRepository for PgSearchJobRepository {
     ) -> Result<bool> {
         let result = sqlx::query(
             "UPDATE search_jobs
-             SET state = 'failed', error = $3, finished_at_micros = $4
+             SET state = 'failed', error = $3, finished_at = $4
              WHERE org_id = $1 AND id = $2 AND attempt = $5 AND state = 'running'",
         )
         .bind(&org_id.0)
         .bind(&id.0)
         .bind(error)
-        .bind(finished_at.0)
+        .bind(finished_at)
         .bind(attempt)
         .execute(&self.pool)
         .await
@@ -419,7 +419,7 @@ impl SearchJobRepository for PgSearchJobRepository {
     ) -> Result<SearchJob> {
         let sql = format!(
             "UPDATE search_jobs
-             SET state = 'cancelled', error = NULL, finished_at_micros = $3
+             SET state = 'cancelled', error = NULL, finished_at = $3
              WHERE org_id = $1 AND id = $2 AND state IN ('pending', 'running')
              RETURNING {COLS}"
         );
@@ -427,7 +427,7 @@ impl SearchJobRepository for PgSearchJobRepository {
         if let Some(row) = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&id.0)
-            .bind(finished_at.0)
+            .bind(finished_at)
             .fetch_optional(&self.pool)
             .await
             .map_err(sqlx_err)?
@@ -458,8 +458,8 @@ impl SearchJobRepository for PgSearchJobRepository {
                        UPDATE search_jobs
                           SET state = 'pending', attempt = attempt + 1,
                               result_object_key = NULL, result_rows = NULL, error = NULL,
-                              submitted_at_micros = $3, started_at_micros = NULL,
-                              finished_at_micros = NULL, expires_at_micros = $4
+                              submitted_at = $3, started_at = NULL,
+                              finished_at = NULL, expires_at = $4
                         WHERE org_id = $1
                           AND id = $2
                           AND state IN ('failed', 'cancelled')
@@ -471,8 +471,8 @@ impl SearchJobRepository for PgSearchJobRepository {
         let row = sqlx::query(sql)
             .bind(&org_id.0)
             .bind(&id.0)
-            .bind(submitted_at.0)
-            .bind(expires_at.0)
+            .bind(submitted_at)
+            .bind(expires_at)
             .bind(PENDING_CHANNEL)
             .fetch_optional(&self.pool)
             .await
@@ -495,10 +495,10 @@ impl SearchJobRepository for PgSearchJobRepository {
     }
 
     async fn list_expired(&self, cutoff: TimestampMicros, limit: i64) -> Result<Vec<SearchJob>> {
-        let sql = format!("SELECT {COLS} FROM search_jobs WHERE expires_at_micros < $1 LIMIT $2");
+        let sql = format!("SELECT {COLS} FROM search_jobs WHERE expires_at < $1 LIMIT $2");
 
         let rows = sqlx::query(&sql)
-            .bind(cutoff.0)
+            .bind(cutoff)
             .bind(limit)
             .fetch_all(&self.pool)
             .await
@@ -580,12 +580,12 @@ mod tests {
         assert_eq!(query.kind(), SearchJobKind::Query);
         assert_eq!(query.pipeline_id(), None);
 
-        let backfill = job(serde_json::json!({"statement": "SELECT 1", "pipeline_id": "p1"}));
+        let backfill = job(serde_json::json!({"statement": "SELECT 1", "pipelineId": "p1"}));
         assert_eq!(backfill.kind(), SearchJobKind::Backfill);
         assert_eq!(backfill.pipeline_id(), Some("p1"));
 
         // 调度器只把字符串当作管道 ID；别的形状仍按普通查询执行。
-        let malformed = job(serde_json::json!({"pipeline_id": 7}));
+        let malformed = job(serde_json::json!({"pipelineId": 7}));
         assert_eq!(malformed.kind(), SearchJobKind::Query);
     }
 }

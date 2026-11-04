@@ -5,7 +5,9 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{DataSegment, Partition, PhysicalDatasetId, StoredObject};
+use super::{
+    Artifact, ArtifactId, DataSegment, Partition, PhysicalDatasetId, SegmentId, StoredObject,
+};
 use crate::shared::ids::Id;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -83,7 +85,18 @@ pub struct PublishPartitionManifest {
     pub seal_segment_ids: Vec<super::SegmentId>,
     /// Rows excluded by retention; their objects enter delayed GC.
     pub tombstone_segment_ids: Vec<super::SegmentId>,
+    /// Index artifacts of sealed rows rebuilt for the new generation: each old artifact is
+    /// tombstoned and its object enters delayed GC, and its replacement takes the slot.
+    pub replace_artifacts: Vec<ArtifactReplacement>,
     pub gc_not_before_micros: i64,
+}
+
+/// One artifact of a sealed row swapped for a rebuilt one with the same role, type and source.
+#[derive(Debug, Clone)]
+pub struct ArtifactReplacement {
+    pub segment_id: SegmentId,
+    pub artifact_id: ArtifactId,
+    pub replacement: Artifact,
 }
 
 /// Reconciler uses this without knowing an Artifact's concrete reader.

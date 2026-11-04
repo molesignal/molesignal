@@ -6,7 +6,7 @@ import { hasPermission, type ProductAccess } from '@/product/access';
  * for both permissions; so does the page.
  */
 export function canReadInspections(access: ProductAccess | null): boolean {
-  return hasPermission('agent.use', access) && hasPermission('streams.query', access);
+  return hasPermission('inspections.read', access) && hasPermission('logs.read', access);
 }
 
 /**

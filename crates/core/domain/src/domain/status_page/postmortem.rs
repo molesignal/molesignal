@@ -12,6 +12,7 @@ use crate::shared::{Result, ids::Id, time::TimestampMicros};
 /// What the customers of a resolved incident are told about why it happened
 /// and what changes because of it. The body is Markdown.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusPagePostmortem {
     pub body: String,
     pub publication_state: StatusPagePublicationState,

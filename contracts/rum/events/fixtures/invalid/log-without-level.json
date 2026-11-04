@@ -1,0 +1,31 @@
+{
+  "date": 1760000000000,
+  "source": "browser",
+  "application": {
+    "id": "shop-web"
+  },
+  "service": "shop-web",
+  "env": "prod",
+  "version": "2.4.1",
+  "session": {
+    "id": "6e1f0b1c-6d0a-4a11-9f3a-2f7f8f0c1a10",
+    "type": "user",
+    "start": 1760000000000
+  },
+  "view": {
+    "id": "0b7c2e34-1a45-4c6d-8e90-77a1c2d3e4f5",
+    "url": "https://shop.example.com/checkout",
+    "name": "/checkout"
+  },
+  "sdk": {
+    "name": "molesignal-browser-rum",
+    "version": "0.3.0",
+    "session_sample_rate": 100,
+    "replay_sample_rate": 0
+  },
+  "type": "log",
+  "message": "no level",
+  "log": {
+    "id": "8a6f3c2e-99d1-4d21-8f52-3c1d5e7a9b02"
+  }
+}

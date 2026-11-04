@@ -2,6 +2,7 @@ import type { TFunction } from 'i18next';
 import { CheckCircle2, ChevronDown, ChevronRight, CircleAlert, CircleGauge, Loader2 } from 'lucide-react';
 import * as React from 'react';
 
+import { JsonView } from '@/shell/JsonEditor';
 import { cn } from '@/shell/lib/cn';
 
 import { activitySummary } from './activity';
@@ -24,15 +25,15 @@ export function InvestigationProcess({
   evidence = [],
   liveTools = [],
   running = false,
-  startedAtMicros,
-  finishedAtMicros,
+  startedAt: startedAtMicros,
+  finishedAt: finishedAtMicros,
 }: {
   t: TFunction<'agent'>;
   evidence?: InvestigationEvidenceItem[];
   liveTools?: LiveTool[];
   running?: boolean;
-  startedAtMicros?: number;
-  finishedAtMicros?: number;
+  startedAt?: number;
+  finishedAt?: number;
 }) {
   const [open, setOpen] = React.useState(false);
   const listId = React.useId();
@@ -173,15 +174,16 @@ function InvestigationProcessRow({
         <p className="ml-[22px] line-clamp-2 text-xs text-tx-3">{item.summary}</p>
       )}
       {open && (
-        <div
-          id={detailId}
-          className="type-micro ml-[22px] mt-1 max-h-32 overflow-auto rounded bg-bg-3 px-2 py-1.5 font-mono text-tx-2"
-        >
-          <div>{item.tool}</div>
+        <div id={detailId} className="ml-[22px] mt-1">
+          <div className="type-micro font-mono text-tx-2">{item.tool}</div>
           {item.arguments !== undefined && (
-            <pre className="whitespace-pre-wrap break-words">
-              {JSON.stringify(item.arguments, null, 2)}
-            </pre>
+            <JsonView
+              className="mt-1"
+              value={item.arguments}
+              ariaLabel={item.tool}
+              maxHeight={200}
+              compact
+            />
           )}
         </div>
       )}

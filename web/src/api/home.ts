@@ -4,9 +4,9 @@ import { http } from '@/lib/http';
 export type HomeHealthStatus = 'healthy' | 'degraded' | 'delayed' | 'no_data' | 'unknown';
 
 export interface HomeOverviewWindow {
-  start_micros: number;
-  end_micros: number;
-  window_secs: number;
+  startTime: number;
+  endTime: number;
+  windowSecs: number;
 }
 
 export interface HomeStatsProbe {
@@ -17,46 +17,46 @@ export interface HomeStatsProbe {
 export interface HomeStreamOverview {
   id: string;
   name: string;
-  stream_type: Exclude<StreamType, 'extend'>;
+  streamType: Exclude<StreamType, 'extend'>;
   status: HomeHealthStatus;
   rows: number;
-  stored_bytes: number;
-  first_received_at_micros: number | null;
-  last_received_at_micros: number | null;
+  storedBytes: number;
+  firstReceivedAt: number | null;
+  lastReceivedAt: number | null;
 }
 
 export interface HomeSignalOverview {
-  stream_type: Exclude<StreamType, 'extend'>;
+  streamType: Exclude<StreamType, 'extend'>;
   status: HomeHealthStatus;
-  total_streams: number;
-  active_streams: number;
+  totalStreams: number;
+  activeStreams: number;
   rows: number;
-  stored_bytes: number;
-  last_received_at_micros: number | null;
+  storedBytes: number;
+  lastReceivedAt: number | null;
 }
 
 export interface HomeOverviewBucket {
-  start_micros: number;
-  end_micros: number;
-  intake_bytes: number | null;
-  stored_bytes: number;
+  startTime: number;
+  endTime: number;
+  intakeBytes: number | null;
+  storedBytes: number;
   rows: number;
 }
 
 export interface HomeOverview {
-  generated_at_micros: number;
+  generatedAt: number;
   window: HomeOverviewWindow;
-  intake_status: HomeHealthStatus;
-  probe_reason: string | null;
-  intake_bytes: number | null;
-  stored_bytes: number;
+  intakeStatus: HomeHealthStatus;
+  probeReason: string | null;
+  intakeBytes: number | null;
+  storedBytes: number;
   rows: number;
-  compression_savings_ratio: number | null;
-  active_streams: number;
-  total_streams: number;
-  attention_streams: number;
-  last_received_at_micros: number | null;
-  stats_probe: HomeStatsProbe;
+  compressionSavingsRatio: number | null;
+  activeStreams: number;
+  totalStreams: number;
+  attentionStreams: number;
+  lastReceivedAt: number | null;
+  statsProbe: HomeStatsProbe;
   buckets: HomeOverviewBucket[];
   signals: HomeSignalOverview[];
   streams: HomeStreamOverview[];
@@ -68,8 +68,8 @@ export async function overview(params: {
 }): Promise<HomeOverview> {
   const { data } = await http.get<HomeOverview>('/home/overview', {
     params: {
-      window_secs: params.windowSecs,
-      bucket_count: params.bucketCount,
+      windowSecs: params.windowSecs,
+      bucketCount: params.bucketCount,
     },
   });
   return data;

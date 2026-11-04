@@ -64,12 +64,6 @@ pub fn get_empty_file_bytes(ext: &str) -> Option<Bytes> {
     MAP.get_or_init(build).get(ext).cloned()
 }
 
-/// 仅用于 PuffinDirWriter 的测试：构造 tantivy footer cache 占位。
-/// 现阶段不在生产路径上使用；保留接口供未来真正 bake segment meta 用。
-pub fn build_footer_cache_for_test_only() -> Bytes {
-    Bytes::from_static(b"__placeholder_footer_cache__")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

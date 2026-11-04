@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{LogFilter, LogListContext, LogListRow, sql_literal};
+use super::{LogCondition, LogFilter, LogListContext, LogListRow, sql_literal};
 use crate::{
     api::http::pagination::cursor::{CursorDirection, decode_signed_cursor, encode_signed_cursor},
     app::iam::IamService,
@@ -18,6 +18,7 @@ const VERSION: u8 = 2;
 const PURPOSE: &str = "web.log-list.v2";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct LogCursorPayload {
     version: u8,
     pub(super) stream: String,
@@ -26,8 +27,10 @@ pub(super) struct LogCursorPayload {
     pub(super) page_size: usize,
     pub(super) filters: Vec<LogFilter>,
     pub(super) free_text: Vec<String>,
+    #[serde(default, rename = "where", skip_serializing_if = "Option::is_none")]
+    pub(super) condition: Option<LogCondition>,
     pub(super) direction: CursorDirection,
-    pub(super) timestamp_micros: i64,
+    pub(super) timestamp: i64,
     pub(super) event_id: String,
 }
 
@@ -72,8 +75,9 @@ pub(super) fn encode(
             page_size: context.page_size,
             filters: context.filters.clone(),
             free_text: context.free_text.clone(),
+            condition: context.condition.clone(),
             direction,
-            timestamp_micros: row.timestamp_micros,
+            timestamp: row.timestamp_micros,
             event_id: row.event_id.clone(),
         },
     )

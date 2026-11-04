@@ -14,10 +14,11 @@ use super::{
 };
 use crate::{
     domain::storage::{
-        Artifact, CatalogInvariant, CatalogInvariantIssue, CatalogObject, IndexRebuildTask,
-        ObjectChecksum, ObjectKey, OrganizationScope, PhysicalDatasetId, StoredObject,
+        Artifact, ArtifactId, CatalogInvariant, CatalogInvariantIssue, CatalogObject,
+        IndexRebuildTask, ObjectChecksum, ObjectKey, OrganizationScope, PhysicalDatasetId,
+        StoredObject,
     },
-    shared::Result,
+    shared::{Result, time::TimestampMicros},
 };
 
 pub(super) async fn index_rebuild_tasks(
@@ -30,17 +31,60 @@ pub(super) async fn index_rebuild_tasks(
         "SELECT a.id, a.segment_id, s.dataset_id FROM catalog_artifacts a \
          JOIN catalog_segments s ON s.org_id = a.org_id AND s.id = a.segment_id \
          WHERE a.org_id = $1 AND a.role = 'index' \
-           AND (a.state = 'pending' OR (a.state = 'failed' AND a.updated_at_micros <= $2)) \
+           AND (a.state = 'pending' OR (a.state = 'failed' AND a.updated_at <= $2)) \
            AND s.state = 'active' \
-         ORDER BY a.updated_at_micros, a.id LIMIT $3",
+         ORDER BY a.updated_at, a.id LIMIT $3",
     )
     .bind(scope.organization_id.as_str())
-    .bind(updated_before_micros)
+    .bind(TimestampMicros(updated_before_micros))
     .bind(i64::from(limit.max(1)))
     .fetch_all(pool)
     .await
     .map_err(sqlx_err)?;
 
+    tasks_from_candidates(pool, scope, candidates).await
+}
+
+/// Ready index artifacts of active rows written in a format older than `below_format`.
+pub(super) async fn stale_index_tasks(
+    pool: &PgPool,
+    scope: &OrganizationScope,
+    artifact_type: &str,
+    below_format: u32,
+    skip: &[ArtifactId],
+    limit: u32,
+) -> Result<Vec<IndexRebuildTask>> {
+    let skip = skip
+        .iter()
+        .map(|id| id.as_str().to_owned())
+        .collect::<Vec<_>>();
+
+    let candidates = sqlx::query(
+        "SELECT a.id, a.segment_id, s.dataset_id FROM catalog_artifacts a \
+         JOIN catalog_segments s ON s.org_id = a.org_id AND s.id = a.segment_id \
+         WHERE a.org_id = $1 AND a.role = 'index' AND a.state = 'ready' \
+           AND a.artifact_type = $2 AND a.format_version < $3 \
+           AND NOT (a.id = ANY($4)) AND s.state = 'active' \
+         ORDER BY a.updated_at, a.id LIMIT $5",
+    )
+    .bind(scope.organization_id.as_str())
+    .bind(artifact_type)
+    .bind(i32::try_from(below_format).unwrap_or(i32::MAX))
+    .bind(&skip)
+    .bind(i64::from(limit.max(1)))
+    .fetch_all(pool)
+    .await
+    .map_err(sqlx_err)?;
+
+    tasks_from_candidates(pool, scope, candidates).await
+}
+
+/// The tasks of candidate rows `(id, segment_id, dataset_id)`, with their segments and datasets.
+async fn tasks_from_candidates(
+    pool: &PgPool,
+    scope: &OrganizationScope,
+    candidates: Vec<sqlx::postgres::PgRow>,
+) -> Result<Vec<IndexRebuildTask>> {
     if candidates.is_empty() {
         return Ok(Vec::new());
     }
@@ -206,9 +250,9 @@ pub(super) async fn catalog_objects(
 
     {
         let manifest_rows = sqlx::query(
-            "SELECT dataset_id, partition_start_micros, partition_end_micros, partition_shard, \
+            "SELECT dataset_id, partition_start, partition_end, partition_shard, \
                     generation, object_key, size_bytes, checksum, etag, segment_count, \
-                    created_at_micros \
+                    created_at \
              FROM partition_manifests WHERE org_id = $1 AND state = 'active' \
                AND ($2::TEXT IS NULL OR object_key > $2) \
              ORDER BY object_key LIMIT $3",
@@ -250,8 +294,14 @@ pub(super) async fn catalog_objects(
                     organization_id: scope.organization_id.clone(),
                     dataset_id,
                     partition: crate::domain::storage::Partition {
-                        start_micros: row.try_get("partition_start_micros").map_err(sqlx_err)?,
-                        end_micros: row.try_get("partition_end_micros").map_err(sqlx_err)?,
+                        start_micros: row
+                            .try_get::<TimestampMicros, _>("partition_start")
+                            .map_err(sqlx_err)?
+                            .0,
+                        end_micros: row
+                            .try_get::<TimestampMicros, _>("partition_end")
+                            .map_err(sqlx_err)?
+                            .0,
                         shard: row.try_get::<i16, _>("partition_shard").map_err(sqlx_err)? as u16,
                     },
                     generation: super::rows::to_u64(
@@ -260,7 +310,10 @@ pub(super) async fn catalog_objects(
                     )?,
                     object,
                     segment_count: row.try_get::<i32, _>("segment_count").map_err(sqlx_err)? as u32,
-                    created_at_micros: row.try_get("created_at_micros").map_err(sqlx_err)?,
+                    created_at_micros: row
+                        .try_get::<TimestampMicros, _>("created_at")
+                        .map_err(sqlx_err)?
+                        .0,
                 }),
             });
         }
@@ -284,6 +337,8 @@ pub(super) async fn object_is_referenced(
                     AND a.state <> 'tombstoned' AND s.state IN ('active', 'sealed')) \
            OR EXISTS(SELECT 1 FROM partition_manifests \
                      WHERE org_id = $1 AND object_key = $2 AND state = 'active') \
+           OR (right($2, 6) = '.bloom' AND EXISTS(SELECT 1 FROM partition_manifests \
+                     WHERE org_id = $1 AND object_key = left($2, -6) AND state = 'active')) \
            OR EXISTS(SELECT 1 FROM catalog_artifacts source JOIN catalog_artifacts derived \
                      ON derived.org_id = source.org_id AND derived.source_artifact_id = source.id \
                      WHERE source.org_id = $1 AND source.object_key = $2 \
@@ -307,15 +362,15 @@ pub(super) async fn enqueue_orphan(
     let now = crate::shared::time::TimestampMicros::now().0;
 
     sqlx::query(
-        "INSERT INTO object_gc_queue (org_id, object_key, checksum, reason, not_before_micros, \
-         attempt_count, state, last_error, created_at_micros, updated_at_micros) \
+        "INSERT INTO object_gc_queue (org_id, object_key, checksum, reason, not_before, \
+         attempt_count, state, last_error, created_at, updated_at) \
          VALUES ($1, $2, NULL, 'orphan', $3, 0, 'pending', NULL, $4, $4) \
          ON CONFLICT (org_id, object_key) DO NOTHING",
     )
     .bind(scope.organization_id.as_str())
     .bind(object_key.as_str())
-    .bind(not_before_micros)
-    .bind(now)
+    .bind(TimestampMicros(not_before_micros))
+    .bind(TimestampMicros(now))
     .execute(pool)
     .await
     .map_err(sqlx_err)?;
@@ -349,7 +404,7 @@ pub(super) async fn catalog_invariant_issues(
            (SELECT COUNT(*) FROM checkpoint_mismatches) AS checkpoint_mismatch, \
            (SELECT COUNT(*) FROM object_gc_queue q WHERE q.org_id = $1 \
               AND q.state IN ('pending', 'processing') AND q.attempt_count > 0 \
-              AND q.updated_at_micros <= $2) AS gc_stuck, \
+              AND q.updated_at <= $2) AS gc_stuck, \
            (SELECT COUNT(*) FROM catalog_artifacts a \
               JOIN catalog_segments s ON s.org_id = a.org_id AND s.id = a.segment_id \
               JOIN catalog_artifacts p ON p.org_id = s.org_id AND p.segment_id = s.id \
@@ -362,7 +417,7 @@ pub(super) async fn catalog_invariant_issues(
                 s.schema_fingerprint IS DISTINCT FROM p.schema_fingerprint)) AS stale_index",
     )
     .bind(scope.organization_id.as_str())
-    .bind(gc_stuck_before_micros)
+    .bind(TimestampMicros(gc_stuck_before_micros))
     .fetch_one(pool)
     .await
     .map_err(sqlx_err)?;

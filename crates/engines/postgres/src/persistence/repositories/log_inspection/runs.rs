@@ -19,16 +19,16 @@ use crate::{
     shared::{Result, ids::Id, time::TimestampMicros},
 };
 
-const COLS: &str = "id, inspection_id, org_id, trigger_kind, status, level, window_start_micros,
-    window_end_micros, summary, report, failure, error, provider_id, model, run_as_user_id,
+const COLS: &str = "id, inspection_id, org_id, trigger_kind, status, level, window_start,
+    window_end, summary, report, failure, error, provider_id, model, run_as_user_id,
     requested_by, tool_calls, prompt_tokens, completion_tokens, notifications,
-    created_at_micros, started_at_micros, finished_at_micros";
+    created_at, started_at, finished_at";
 
 /// 列表用：报告正文可能有几千字，一页几十条时不取。
 const COLS_WITHOUT_REPORT: &str = "id, inspection_id, org_id, trigger_kind, status, level,
-    window_start_micros, window_end_micros, summary, NULL::TEXT AS report, failure, error,
+    window_start, window_end, summary, NULL::TEXT AS report, failure, error,
     provider_id, model, run_as_user_id, requested_by, tool_calls, prompt_tokens,
-    completion_tokens, notifications, created_at_micros, started_at_micros, finished_at_micros";
+    completion_tokens, notifications, created_at, started_at, finished_at";
 
 fn row_to_run(row: PgRow) -> Result<LogInspectionRun> {
     let trigger: String = row.try_get("trigger_kind").map_err(sqlx_err)?;
@@ -45,8 +45,8 @@ fn row_to_run(row: PgRow) -> Result<LogInspectionRun> {
         trigger: RunTrigger::parse(&trigger)?,
         status: RunStatus::parse(&status)?,
         level: optional_level(&row, "level")?,
-        window_start: timestamp(&row, "window_start_micros")?,
-        window_end: timestamp(&row, "window_end_micros")?,
+        window_start: timestamp(&row, "window_start")?,
+        window_end: timestamp(&row, "window_end")?,
         summary: row.try_get("summary").map_err(sqlx_err)?,
         report: row.try_get("report").map_err(sqlx_err)?,
         failure: failure
@@ -61,18 +61,18 @@ fn row_to_run(row: PgRow) -> Result<LogInspectionRun> {
         prompt_tokens: row.try_get("prompt_tokens").map_err(sqlx_err)?,
         completion_tokens: row.try_get("completion_tokens").map_err(sqlx_err)?,
         notifications: notifications.0,
-        created_at: timestamp(&row, "created_at_micros")?,
-        started_at: optional_timestamp(&row, "started_at_micros")?,
-        finished_at: optional_timestamp(&row, "finished_at_micros")?,
+        created_at: timestamp(&row, "created_at")?,
+        started_at: optional_timestamp(&row, "started_at")?,
+        finished_at: optional_timestamp(&row, "finished_at")?,
     })
 }
 
 fn insert_sql() -> String {
     format!(
         "INSERT INTO log_inspection_runs (
-             id, inspection_id, org_id, trigger_kind, status, window_start_micros,
-             window_end_micros, provider_id, model, run_as_user_id, requested_by,
-             created_at_micros, started_at_micros
+             id, inspection_id, org_id, trigger_kind, status, window_start,
+             window_end, provider_id, model, run_as_user_id, requested_by,
+             created_at, started_at
          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
          RETURNING {COLS}"
     )
@@ -86,14 +86,14 @@ fn bind_new_run<'q>(query: TracedQuery<'q>, run: &'q LogInspectionRun) -> Traced
         .bind(&run.org_id.0)
         .bind(run.trigger.as_str())
         .bind(run.status.as_str())
-        .bind(run.window_start.0)
-        .bind(run.window_end.0)
+        .bind(run.window_start)
+        .bind(run.window_end)
         .bind(run.provider_id.as_ref().map(|value| value.0.as_str()))
         .bind(&run.model)
         .bind(run.run_as_user_id.as_ref().map(|value| value.0.as_str()))
         .bind(run.requested_by.as_ref().map(|value| value.0.as_str()))
-        .bind(run.created_at.0)
-        .bind(run.started_at.map(|at| at.0))
+        .bind(run.created_at)
+        .bind(run.started_at)
 }
 
 #[async_trait]
@@ -111,9 +111,9 @@ impl LogInspectionRunRepository for PgLogInspectionRepository {
             .await
             .map_err(sqlx_err)?;
 
-        sqlx::query("UPDATE log_inspections SET next_run_at_micros = $2 WHERE id = $1")
+        sqlx::query("UPDATE log_inspections SET next_run_at = $2 WHERE id = $1")
             .bind(&run.inspection_id.0)
-            .bind(next_run_at.map(|at| at.0))
+            .bind(next_run_at)
             .execute(&mut *transaction)
             .await
             .map_err(sqlx_err)?;
@@ -137,7 +137,7 @@ impl LogInspectionRunRepository for PgLogInspectionRepository {
         let sql = format!(
             "SELECT {COLS} FROM log_inspection_runs
               WHERE status = 'queued'
-              ORDER BY created_at_micros, id
+              ORDER BY created_at, id
               LIMIT $1"
         );
 
@@ -160,14 +160,14 @@ impl LogInspectionRunRepository for PgLogInspectionRepository {
     ) -> Result<bool> {
         let started = sqlx::query(
             "UPDATE log_inspection_runs
-                SET status = 'running', started_at_micros = $2,
-                    window_start_micros = $3, window_end_micros = $4
+                SET status = 'running', started_at = $2,
+                    window_start = $3, window_end = $4
               WHERE id = $1 AND status = 'queued'",
         )
         .bind(&run_id.0)
-        .bind(started_at.0)
-        .bind(window_start.0)
-        .bind(window_end.0)
+        .bind(started_at)
+        .bind(window_start)
+        .bind(window_end)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?
@@ -184,12 +184,12 @@ impl LogInspectionRunRepository for PgLogInspectionRepository {
                     SET status = $2, level = $3, summary = $4, report = $5, failure = $6,
                         error = $7, provider_id = $8, model = $9, run_as_user_id = $10,
                         tool_calls = $11, prompt_tokens = $12, completion_tokens = $13,
-                        finished_at_micros = $14
+                        finished_at = $14
                   WHERE id = $1 AND status IN ('queued', 'running')
               RETURNING inspection_id
              )
              UPDATE log_inspections AS inspection
-                SET last_run_at_micros = $14, last_run_status = $2, last_run_level = $3
+                SET last_run_at = $14, last_run_status = $2, last_run_level = $3
                FROM finished
               WHERE inspection.id = finished.inspection_id
           RETURNING inspection.id",
@@ -217,7 +217,7 @@ impl LogInspectionRunRepository for PgLogInspectionRepository {
         .bind(Json(&completion.tool_calls))
         .bind(completion.prompt_tokens)
         .bind(completion.completion_tokens)
-        .bind(completion.finished_at.0)
+        .bind(completion.finished_at)
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -247,15 +247,15 @@ impl LogInspectionRunRepository for PgLogInspectionRepository {
     ) -> Result<Vec<LogInspectionRun>> {
         let sql = format!(
             "SELECT {COLS_WITHOUT_REPORT} FROM log_inspection_runs
-              WHERE (status = 'running' AND started_at_micros < $1)
-                 OR (status = 'queued' AND created_at_micros < $2)
-              ORDER BY created_at_micros, id
+              WHERE (status = 'running' AND started_at < $1)
+                 OR (status = 'queued' AND created_at < $2)
+              ORDER BY created_at, id
               LIMIT 200"
         );
 
         sqlx::query(&sql)
-            .bind(running_before.0)
-            .bind(queued_before.0)
+            .bind(running_before)
+            .bind(queued_before)
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?
@@ -268,7 +268,7 @@ impl LogInspectionRunRepository for PgLogInspectionRepository {
         let sql = format!(
             "SELECT {COLS_WITHOUT_REPORT} FROM log_inspection_runs
               WHERE org_id = $1 AND status IN ('queued', 'running')
-              ORDER BY created_at_micros, id"
+              ORDER BY created_at, id"
         );
 
         sqlx::query(&sql)
@@ -291,15 +291,15 @@ impl LogInspectionRunRepository for PgLogInspectionRepository {
         let sql = format!(
             "SELECT {COLS_WITHOUT_REPORT} FROM log_inspection_runs
               WHERE org_id = $1 AND inspection_id = $2
-                AND ($3::BIGINT IS NULL OR created_at_micros < $3)
-              ORDER BY created_at_micros DESC, id DESC
+                AND ($3::TIMESTAMPTZ IS NULL OR created_at < $3)
+              ORDER BY created_at DESC, id DESC
               LIMIT $4"
         );
 
         sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&inspection_id.0)
-            .bind(before.map(|at| at.0))
+            .bind(before)
             .bind(limit.clamp(1, 200))
             .fetch_all(&self.pool)
             .await
@@ -330,9 +330,9 @@ impl LogInspectionRunRepository for PgLogInspectionRepository {
     async fn delete_before(&self, cutoff: TimestampMicros) -> Result<u64> {
         let deleted = sqlx::query(
             "DELETE FROM log_inspection_runs
-              WHERE created_at_micros < $1 AND status NOT IN ('queued', 'running')",
+              WHERE created_at < $1 AND status NOT IN ('queued', 'running')",
         )
-        .bind(cutoff.0)
+        .bind(cutoff)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?

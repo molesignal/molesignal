@@ -4,6 +4,7 @@
 # 用法：
 #   scripts/license-headers.sh             # add 模式：给缺头的自有 .rs 文件补齐
 #   scripts/license-headers.sh --check     # check 模式：列出缺头文件，非零退出
+#   scripts/license-headers.sh --check a.rs b.rs  # 只查这些文件（pre-commit 查暂存文件）
 #
 # 排除范围：
 #   - vendored / backport / shim 目录（保留上游版权头）
@@ -11,6 +12,7 @@
 set -euo pipefail
 
 MODE="${1:-add}"
+shift || true
 
 HEADER_LINE_1="// SPDX-License-Identifier: Apache-2.0"
 HEADER_LINE_2="// Copyright (c) 2026 MoleSignal Authors"
@@ -60,7 +62,7 @@ while IFS= read -r f; do
     cat "$f" >> "$tmp"
     mv "$tmp" "$f"
     added=$((added + 1))
-done < <(find bin crates tools -name '*.rs' -type f | sort)
+done < <(if [[ $# -gt 0 ]]; then printf '%s\n' "$@"; else find bin crates tools -name '*.rs' -type f | sort; fi)
 
 if [[ "$MODE" == "--check" ]]; then
     if [[ ${#missing[@]} -gt 0 ]]; then

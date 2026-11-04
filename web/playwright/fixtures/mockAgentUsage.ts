@@ -38,12 +38,12 @@ function seedDays(today: number): DailyUsageRow[] {
     cost: number,
     unpriced = 0,
   ): DailyUsageRow => ({
-    day_start_micros: today - daysAgo * DAY,
+    dayStart: today - daysAgo * DAY,
     origin,
     calls,
-    unpriced_calls: unpriced,
-    prompt_tokens: prompt,
-    completion_tokens: completion,
+    unpricedCalls: unpriced,
+    promptTokens: prompt,
+    completionTokens: completion,
     cost,
     currency: cost > 0 ? 'USD' : null,
   });
@@ -80,8 +80,8 @@ export function registerAgentUsageRoutes(app: Express, nowIso: string): MockAgen
   const effectiveLimit = () => orgLimit ?? MOCK_USAGE_INSTANCE_DEFAULT;
   const usedToday = () =>
     days
-      .filter((row) => row.day_start_micros === today)
-      .reduce((sum, row) => sum + row.prompt_tokens + row.completion_tokens, 0);
+      .filter((row) => row.dayStart === today)
+      .reduce((sum, row) => sum + row.promptTokens + row.completionTokens, 0);
 
   const level = (): BudgetLevel => {
     const limit = effectiveLimit();
@@ -95,33 +95,33 @@ export function registerAgentUsageRoutes(app: Express, nowIso: string): MockAgen
   const view = (): AgentUsage => ({
     status: {
       level: level(),
-      used_tokens: usedToday(),
-      limit_tokens: Math.max(0, effectiveLimit()),
-      warning_percent: WARNING_PERCENT,
-      interactive_mode: interactiveMode,
-      resets_at: today + DAY,
+      usedTokens: usedToday(),
+      limitTokens: Math.max(0, effectiveLimit()),
+      warningPercent: WARNING_PERCENT,
+      interactiveMode: interactiveMode,
+      resetsAt: today + DAY,
     },
     budget: {
-      org_limit: orgLimit,
-      instance_default: MOCK_USAGE_INSTANCE_DEFAULT,
-      effective_limit: effectiveLimit(),
-      interactive_mode: interactiveMode,
-      warning_percent: WARNING_PERCENT,
-      updated_by: updatedAt === null ? null : 'u1',
-      updated_at: updatedAt,
+      orgLimit: orgLimit,
+      instanceDefault: MOCK_USAGE_INSTANCE_DEFAULT,
+      effectiveLimit: effectiveLimit(),
+      interactiveMode: interactiveMode,
+      warningPercent: WARNING_PERCENT,
+      updatedBy: updatedAt === null ? null : 'u1',
+      updatedAt: updatedAt,
     },
-    cost_known: true,
+    costKnown: true,
     days: days.map((row) => ({ ...row })),
   });
 
   app.get('/api/v1/agent/usage', (_req, res) => res.json(view()));
   app.put('/api/v1/agent/usage/budget', (req, res) => {
-    const limit = req.body?.daily_token_limit;
+    const limit = req.body?.dailyTokenLimit;
     if (limit !== null && (typeof limit !== 'number' || limit < 0)) {
       return res.status(400).json({ error: 'daily_token_limit must be zero or more' });
     }
     orgLimit = limit;
-    interactiveMode = req.body?.interactive_mode === 'warn' ? 'warn' : 'block';
+    interactiveMode = req.body?.interactiveMode === 'warn' ? 'warn' : 'block';
     updatedAt = nowMicros;
     return res.json(view());
   });
@@ -130,8 +130,8 @@ export function registerAgentUsageRoutes(app: Express, nowIso: string): MockAgen
   const key = (kind: string, id: string) => `${kind}:${id}`;
 
   app.get('/api/v1/agent/feedback', (req, res) => {
-    const kind = String(req.query.target_kind ?? '');
-    const ids = String(req.query.target_ids ?? '')
+    const kind = String(req.query.targetKind ?? '');
+    const ids = String(req.query.targetIds ?? '')
       .split(',')
       .map((id) => id.trim())
       .filter(Boolean);
@@ -143,21 +143,21 @@ export function registerAgentUsageRoutes(app: Express, nowIso: string): MockAgen
   });
   app.put('/api/v1/agent/feedback', (req, res) => {
     const input = req.body as FeedbackInput;
-    if (input.target_kind === 'chat_message' && !input.chat_id) {
+    if (input.targetKind === 'chat_message' && !input.chatId) {
       return res.status(400).json({ error: 'chat_id is required to rate a chat answer' });
     }
-    const existing = feedback.get(key(input.target_kind, input.target_id));
+    const existing = feedback.get(key(input.targetKind, input.targetId));
     const saved: AgentFeedback = {
       id: existing?.id ?? `feedback-${feedback.size + 1}`,
-      target_kind: input.target_kind,
-      target_id: input.target_id,
+      targetKind: input.targetKind,
+      targetId: input.targetId,
       rating: input.rating,
       reasons: input.rating === 'down' ? [...new Set(input.reasons ?? [])] : [],
       comment: (input.comment ?? '').trim(),
-      created_at: existing?.created_at ?? nowMicros,
-      updated_at: nowMicros,
+      createdAt: existing?.createdAt ?? nowMicros,
+      updatedAt: nowMicros,
     };
-    feedback.set(key(input.target_kind, input.target_id), saved);
+    feedback.set(key(input.targetKind, input.targetId), saved);
     return res.json(saved);
   });
   app.delete('/api/v1/agent/feedback/:kind/:id', (req, res) => {
@@ -166,9 +166,9 @@ export function registerAgentUsageRoutes(app: Express, nowIso: string): MockAgen
   });
 
   const numbers = () => ({
-    used_tokens: usedToday(),
-    limit_tokens: Math.max(0, effectiveLimit()),
-    resets_at_micros: today + DAY,
+    usedTokens: usedToday(),
+    limitTokens: Math.max(0, effectiveLimit()),
+    resetsAt: today + DAY,
   });
 
   return {

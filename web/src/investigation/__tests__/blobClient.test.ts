@@ -20,7 +20,7 @@ describe('stack encode/decode property', () => {
       key: fc.string({ maxLength: 40 }),
     }),
     pinned: fc.boolean(),
-    created_at: fc.integer({ min: 0, max: 2 ** 32 }),
+    createdAt: fc.integer({ min: 0, max: 2 ** 32 }),
   }) as fc.Arbitrary<Frame>;
 
   it('round-trips a stack through encodeStack/decodeStack', () => {
@@ -45,13 +45,13 @@ describe('stack encode/decode property', () => {
       {
         kind: fc.constantFrom('trace', 'log', 'metric', 'host', 'service'),
         params: fc.dictionary(fc.string({ maxLength: 12 }), fc.option(fc.jsonValue(), { nil: undefined })),
-        time_range_override: fc.record({
+        timeRangeOverride: fc.record({
           from: fc.string({ maxLength: 12 }),
           to: fc.string({ maxLength: 12 }),
           mode: fc.constantFrom('relative', 'absolute'),
         }),
-        anchor_override: fc.string({ maxLength: 12 }),
-        parent_frame_id: fc.string({ maxLength: 10 }),
+        anchorOverride: fc.string({ maxLength: 12 }),
+        parentFrameId: fc.string({ maxLength: 10 }),
         pinned: fc.boolean(),
       },
       { requiredKeys: ['kind', 'params'] },

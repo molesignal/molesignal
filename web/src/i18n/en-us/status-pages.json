@@ -145,7 +145,7 @@
     "event": "Event",
     "attempts": "Attempts",
     "duration": "Duration",
-    "business_service": "Business service",
+    "dependencies": "Dependencies",
     "subscription_scope": "Hears about"
   },
   "fields": {
@@ -183,7 +183,6 @@
     "allowed_value": "Allowed email or domain",
     "next_update": "Next update",
     "notify_subscribers": "Notify subscribers",
-    "business_service": "Business service",
     "group_name": "Group name",
     "component_group": "Group",
     "slack_app": "Slack app",
@@ -286,14 +285,7 @@
       "create_title": "Add component",
       "edit_title": "Edit component",
       "subtitle": "Components communicate the health of a customer-visible capability.",
-      "business_service": "Business service",
-      "business_service_hint": "Let this component stand for a business service, so what customers see matches its internal health.",
-      "no_business_service": "None",
-      "unknown_business_service": "Business service no longer available",
-      "no_business_services": "There are no business services yet.",
-      "open_business_services": "Create one",
-      "follow_notify_hint": "Whether status changes that follow the health notify subscribers.",
-      "follow_status_hint": "While the component follows a business service, its next change of health overwrites the status.",
+      "follow_status_hint": "While the component follows its dependencies, their next change of health overwrites the status.",
       "notify_hint": "Subscribers are told of this change of status.",
       "silent_hint": "Only the status on the page changes; nothing is sent.",
       "edit_group_title": "Edit group",
@@ -619,12 +611,12 @@
       "resolved_template": "Resolved update",
       "correlation_template": "Correlation key",
       "template_hint": "Allowed: {{source.id}}, {{source.kind}}, {{severity}}, and {{labels.key}}.",
-      "business_service_components_hint": "With none chosen, it publishes on the components of this page that stand for the business service through automation."
+      "dependency_components_hint": "With none chosen, it publishes on the component whose dependencies changed, when that component hands them to automation rules."
     },
     "source": {
       "alert_incident": "Alert incident",
       "synthetic_monitor": "Synthetic check",
-      "business_service": "Business service"
+      "component_dependencies": "Component dependencies"
     },
     "source_picker": {
       "alert_rule": "Alert rule",
@@ -644,12 +636,12 @@
       "unavailable": "Unavailable source · {{id}}",
       "enabled": "Enabled",
       "disabled": "Disabled",
-      "business_service": "Business service",
-      "business_service_hint": "Choose one business service, or select All business services to match a change of health of any of them.",
-      "business_service_required_hint": "Choose the business service to use in this simulation.",
-      "all_business_service": "All business services",
-      "select_business_service": "Select a business service",
-      "empty_business_service": "No business services available"
+      "component": "Component",
+      "component_hint": "Choose one component, or select All components to match a change of health of any of them.",
+      "component_required_hint": "Choose the component to use in this simulation.",
+      "all_component": "All components",
+      "select_component": "Select a component",
+      "empty_component": "No component of this page has dependencies"
     },
     "mode": {
       "approval": "Draft for approval",
@@ -793,7 +785,7 @@
     "subscription": {
       "trigger": "Subscribe",
       "title": "Get status updates",
-      "description": "Choose email, an HTTPS webhook or Slack. We will send a confirmation before activating notifications.",
+      "description": "Get updates by email, HTTPS webhook, Slack or RSS. Email, webhooks and Slack start after a confirmation.",
       "channel": "Delivery channel",
       "email": "Email",
       "webhook": "Webhook",
@@ -803,6 +795,11 @@
       "webhook_hint": "The HTTPS endpoint must accept a confirmation request before updates are sent.",
       "private_email_hint": "Notifications will be sent to the verified email address used for this private session.",
       "rss": "RSS feed",
+      "feed_rss": "RSS feed address",
+      "feed_atom": "Atom feed address",
+      "feed_hint": "Add an address to a feed reader. It carries every incident and maintenance of the page, with nothing to confirm.",
+      "feed_copy": "Copy the {{name}}",
+      "feed_copied": "{{name}} copied",
       "submit": "Send confirmation",
       "submitting": "Sending…",
       "accepted_title": "Check your destination",
@@ -915,13 +912,42 @@
     "import": "Imported",
     "slack_app": "Add to Slack"
   },
-  "service_link_mode": {
-    "follow": "Follow the health",
-    "follow_short": "Follows",
-    "follow_hint": "The component's status changes with the business service's health.",
-    "automation": "Through automation rules",
-    "automation_short": "Automation",
-    "automation_hint": "Changes of the business service's health are a source of this page's automation rules, which publish incidents with their delay, approval and wording."
+  "dependencies": {
+    "title": "Dependencies",
+    "hint": "The component’s health is the worst its dependencies pass on. “Passes its status on” makes a dependency’s status the component’s; “At most degraded” suits one it can work around.",
+    "empty": "Without dependencies, the status is set by hand.",
+    "add": "Add dependency",
+    "remove": "Remove dependency",
+    "kind": "Dependency type",
+    "target": "Dependency",
+    "impact": "Impact",
+    "kinds": {
+      "technical_service": "Technical service",
+      "synthetic_monitor": "Synthetic check",
+      "alert_rule": "Alert rule"
+    },
+    "impacts": {
+      "outage": "Passes its status on",
+      "degraded": "At most degraded"
+    },
+    "technical_service_placeholder": "Service name, as traces and alerts carry it",
+    "select_synthetic_monitor": "Choose a synthetic check",
+    "select_alert_rule": "Choose an alert rule",
+    "unavailable_target": "Unavailable ({{id}})",
+    "modes": {
+      "follow": "Follow the health",
+      "follow_short": "Follows",
+      "follow_hint": "The component’s status changes with the health of its dependencies.",
+      "automation": "Through automation rules",
+      "automation_short": "Automation",
+      "automation_hint": "Changes of the health are a source of this page’s automation rules, which publish incidents with their delay, approval and wording."
+    },
+    "follow_notify_hint": "Whether status changes that follow the health notify subscribers.",
+    "health": "Health of the dependencies",
+    "open_incidents_one": "{{count}} open alert incident",
+    "open_incidents_other": "{{count}} open alert incidents",
+    "count_one": "{{count}} dependency",
+    "count_other": "{{count}} dependencies"
   },
   "component_kind": {
     "component": "Component",

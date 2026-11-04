@@ -10,7 +10,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
-import { DataTable } from '@/admin';
+import { DataTable, TableNoMatch } from '@/admin';
 import * as pipelinesApi from '@/api/pipelines';
 import { useActionAccess } from '@/product/actionAccess';
 import type { ProductStateProps } from '@/product/states';
@@ -20,9 +20,9 @@ import {
   Dot,
   Pill,
   QueryInput,
-  type PillTone,
 } from '@/shell/chrome';
 import { queryStateFor } from '@/shell/query/State';
+import { StatusWord, type StatusTone } from '@/shell/StatusWord';
 import {
   Select,
   SelectContent,
@@ -31,12 +31,13 @@ import {
   SelectValue,
 } from '@/shell/ui/select';
 
+import { alertRecordLine } from './alertRecord';
 import {
   pipelineStreams,
   signalTypeFromPipeline,
   type PipelineSignalType,
 } from './PipelineGraph';
-import { executionMode } from './PipelineGraph/model';
+import { alertStageOf, executionMode } from './PipelineGraph/model';
 import {
   formatRelativeMicros,
   formatSchedule,
@@ -58,14 +59,27 @@ interface DisplayPipeline extends pipelinesApi.ScheduledPipeline {
 
 type DotTone = NonNullable<React.ComponentProps<typeof Dot>['tone']>;
 
-const HEALTH_TONE: Record<PipelineHealth, { pill: PillTone; dot: DotTone }> = {
-  healthy: { pill: 'green', dot: 'green' },
-  running: { pill: 'blue', dot: 'blue' },
-  error: { pill: 'red', dot: 'red' },
-  paused: { pill: 'dim', dot: 'dim' },
-  unknown: { pill: 'yellow', dot: 'yellow' },
-  ready: { pill: 'blue', dot: 'blue' },
-  never: { pill: 'yellow', dot: 'yellow' },
+/** Sorted by status, what wants attention comes first. */
+const HEALTH_ORDER: Record<PipelineHealth, number> = {
+  error: 0,
+  unknown: 1,
+  never: 2,
+  paused: 3,
+  running: 4,
+  listening: 5,
+  ready: 6,
+  healthy: 7,
+};
+
+const HEALTH_TONE: Record<PipelineHealth, StatusTone> = {
+  healthy: 'green',
+  running: 'blue',
+  error: 'red',
+  paused: 'dim',
+  unknown: 'yellow',
+  ready: 'blue',
+  listening: 'blue',
+  never: 'yellow',
 };
 
 export function Pipelines() {
@@ -145,7 +159,7 @@ export function Pipelines() {
   const errorCount = pipelines.filter((pipeline) => pipeline.health === 'error').length;
   const pausedCount = pipelines.filter((pipeline) => pipeline.health === 'paused').length;
   const failedRuns24h = pipelines.reduce(
-    (total, pipeline) => total + (pipeline.failed_runs_24h ?? 0),
+    (total, pipeline) => total + (pipeline.failedRuns24h ?? 0),
     0,
   );
 
@@ -219,7 +233,7 @@ export function Pipelines() {
             className="h-9 min-w-[220px] max-w-[360px] flex-1"
           />
           <div className="flex gap-1 rounded-md border border-bd-0 bg-bg-2 p-0.5">
-            {(['all', 'logs', 'metrics', 'traces'] as const).map((kind) => {
+            {(['all', 'logs', 'metrics', 'traces', 'profiles'] as const).map((kind) => {
               const count = kind === 'all'
                 ? pipelines.length
                 : pipelines.filter((pipeline) => pipeline.type === kind).length;
@@ -228,12 +242,12 @@ export function Pipelines() {
                   key={kind}
                   type="button"
                   onClick={() => setTypeFilter(kind)}
-                  className={`rounded px-2.5 py-1.5 font-sans text-xs font-strong ${
+                  className={`rounded-[5px] px-2.5 py-1 font-sans text-xs font-strong ${
                     typeFilter === kind ? 'bg-bg-4 text-tx-0' : 'text-tx-2 hover:text-tx-0'
                   }`}
                 >
                   {t(`filters.${kind === 'all' ? 'all_types' : kind}`)}
-                  <span className="ml-1.5 font-mono text-tx-3">{count}</span>
+                  <span className="ml-1.5 font-mono text-tx-3">{listQuery.isSuccess ? count : '–'}</span>
                 </button>
               );
             })}
@@ -245,18 +259,18 @@ export function Pipelines() {
             }
           >
             <SelectTrigger
-              className="h-9 w-40 bg-[var(--control-surface)] px-2.5 font-sans text-xs font-semibold text-tx-1"
+              className="h-9 w-40 bg-[var(--control-surface)] px-3 font-sans text-tx-1"
               aria-label={t('overview.filters.all_statuses')}
             >
               <SelectValue />
             </SelectTrigger>
             <SelectContent align="start">
-              <SelectItem value="all" className="h-8 text-xs">
+              <SelectItem value="all" className="h-8">
                 {t('overview.filters.all_statuses')}
               </SelectItem>
-              {(['ready', 'healthy', 'running', 'error', 'paused', 'unknown', 'never'] as const).map(
+              {(['ready', 'listening', 'healthy', 'running', 'error', 'paused', 'unknown', 'never'] as const).map(
                 (health) => (
-                  <SelectItem key={health} value={health} className="h-8 text-xs">
+                  <SelectItem key={health} value={health} className="h-8">
                     {t(`overview.health.${health}`)}
                   </SelectItem>
                 ),
@@ -272,19 +286,32 @@ export function Pipelines() {
         rows={filtered}
         rowKey={(pipeline) => pipeline.id}
         onRowClick={(pipeline) => navigate(`/pipelines/${encodeURIComponent(pipeline.id)}`)}
-        emptyLabel={t('overview.no_matches')}
+        emptyLabel={
+          <TableNoMatch
+            label={t('overview.no_matches')}
+            onClear={() => {
+              setSearch('');
+              setTypeFilter('all');
+              setHealthFilter('all');
+            }}
+          />
+        }
         columns={[
             {
               key: 'name',
               header: t('overview.columns.name'),
               width: '30%',
+              sortable: true,
+              value: (pipeline) => pipeline.name,
               cell: (pipeline) => (
                 <div className="min-w-0 py-1">
                   <div className="truncate font-sans text-sm font-strong text-tx-0">
                     {pipeline.name}
                   </div>
                   <div className="mt-1 truncate font-mono text-xs text-tx-3">
-                    {pipeline.streams.sources.join(', ') || '—'} → {pipeline.streams.sinks.join(', ') || '—'}
+                    {executionMode(pipeline) === 'alert'
+                      ? t(alertStageOf(pipeline) === 'notify' ? 'alert_mode.list_line_notify' : 'alert_mode.list_line')
+                      : `${pipeline.streams.sources.join(', ') || '—'} → ${pipeline.streams.sinks.join(', ') || '—'}`}
                   </div>
                 </div>
               ),
@@ -293,44 +320,61 @@ export function Pipelines() {
               key: 'type',
               header: t('overview.columns.type'),
               width: 110,
-              cell: (pipeline) => (
-                <Pill tone={PIPELINE_TYPE_TONE[pipeline.type]}>
-                  {t(`filters.${pipeline.type}`)}
-                </Pill>
-              ),
+              cell: (pipeline) =>
+                executionMode(pipeline) === 'alert' ? (
+                  <Pill tone="red">{t('alert_mode.signal')}</Pill>
+                ) : (
+                  <Pill tone={PIPELINE_TYPE_TONE[pipeline.type]}>{t(`filters.${pipeline.type}`)}</Pill>
+                ),
             },
             {
               key: 'schedule',
               header: t('overview.columns.schedule'),
               width: 140,
-              cell: (pipeline) => executionMode(pipeline) === 'realtime' ? t('realtime.title') : formatSchedule(pipeline.cron, i18n.language),
+              cell: (pipeline) => {
+                const mode = executionMode(pipeline);
+                if (mode === 'alert') {
+                  return t(alertStageOf(pipeline) === 'notify' ? 'alert_mode.schedule_notify' : 'alert_mode.schedule');
+                }
+                return mode === 'realtime' ? t('realtime.title') : formatSchedule(pipeline.cron, i18n.language);
+              },
             },
             {
               key: 'status',
               header: t('overview.columns.status'),
               width: 130,
+              sortable: true,
+              sortValue: (pipeline) => HEALTH_ORDER[pipeline.health],
               cell: (pipeline) => <HealthBadge health={pipeline.health} />,
             },
             {
               key: 'last_run',
               header: t('overview.columns.last_run'),
               width: 210,
-              cell: (pipeline) => (
-                <div className="flex min-w-0 items-center gap-2">
-                  <RunState state={pipeline.last_run_state} />
-                  <span className="truncate text-tx-2">
-                    {formatRelativeMicros(
-                      pipeline.last_run_started_at_micros ?? pipeline.last_run_at_micros,
-                      i18n.language,
-                    )}
-                  </span>
-                </div>
-              ),
+              sortable: true,
+              sortValue: (pipeline) => pipeline.lastRunStartedAt ?? pipeline.lastRunAt ?? null,
+              cell: (pipeline) =>
+                // An alert pipeline has no runs: what it did today stands in their place.
+                executionMode(pipeline) === 'alert' ? (
+                  <span className="truncate text-tx-2">{alertRecordLine(pipeline, t)}</span>
+                ) : (
+                  <div className="flex min-w-0 items-center gap-2">
+                    <RunState state={pipeline.lastRunState} />
+                    <span className="truncate text-tx-2">
+                      {formatRelativeMicros(
+                        pipeline.lastRunStartedAt ?? pipeline.lastRunAt,
+                        i18n.language,
+                      )}
+                    </span>
+                  </div>
+                ),
             },
             {
               key: 'success_rate',
               header: t('overview.columns.success_rate'),
               width: 120,
+              sortable: true,
+              sortValue: (pipeline) => pipelineSuccessRate(pipeline),
               cell: (pipeline) => {
                 const rate = pipelineSuccessRate(pipeline);
                 return rate == null ? '—' : `${rate.toFixed(rate === 100 ? 0 : 1)}%`;
@@ -340,10 +384,12 @@ export function Pipelines() {
               key: 'rows',
               header: t('overview.columns.rows'),
               width: 110,
+              sortable: true,
+              sortValue: (pipeline) => pipeline.lastRunScannedRows ?? null,
               cell: (pipeline) =>
-                pipeline.last_run_scanned_rows == null
+                pipeline.lastRunScannedRows == null
                   ? '—'
-                  : new Intl.NumberFormat(i18n.language).format(pipeline.last_run_scanned_rows),
+                  : new Intl.NumberFormat(i18n.language).format(pipeline.lastRunScannedRows),
             },
             {
               key: 'open',
@@ -357,12 +403,10 @@ export function Pipelines() {
   );
 
   function HealthBadge({ health }: { health: PipelineHealth }) {
-    const tone = HEALTH_TONE[health];
     return (
-      <Pill tone={tone.pill}>
-        <Dot tone={tone.dot} />
+      <StatusWord tone={HEALTH_TONE[health]} strong={health === 'error'}>
         {t(`overview.health.${health}`)}
-      </Pill>
+      </StatusWord>
     );
   }
 

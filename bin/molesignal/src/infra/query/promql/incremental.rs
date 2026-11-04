@@ -54,7 +54,7 @@ fn match_op_tag(op: &MatchOp) -> &'static str {
 
 /// 查询指纹：`blake3(org + 函数指纹 + 选择器 + window + step)`。选择器 matcher 经规范化
 /// 排序，使语义相同但书写顺序不同的查询命中同一缓存。`step` 入指纹是因为它决定网格与窗口
-/// 划分——step 变（时间跨度/limit 变）即另一套桶，不可混用。
+/// 划分——请求的 step 不同即另一套桶，不可混用。
 fn selector_fingerprint(
     org_id: &str,
     func_key: &str,
@@ -183,42 +183,45 @@ impl PromQLEngine {
         }
     }
 
-    /// 该 metric 在查询窗口内的 intake 水位约等于
+    /// 该 metric 在查询窗口内的 intake 水位约等于持有它的各流里
     /// `max(Catalog Segment time_range.end, visible Buffer _timestamp)`；无数据返回
-    /// `i64::MIN`（→ 全活跃、无可封存桶）。Catalog 与 Buffer 来自同一次 checkpoint
-    /// 去重后的查询快照，且不会读取 WAL。
+    /// `i64::MIN`（→ 全活跃、无可封存桶）。Buffer 里是整个流的行，水位可能偏晚，只会让活跃区
+    /// 更大。Catalog 与 Buffer 来自同一次 checkpoint 去重后的查询快照，且不会读取 WAL。
     async fn intake_watermark(&self, vs: &VectorSelector, req: &QueryRequest) -> Result<i64> {
-        let Some(metric) = vs.name.as_deref() else {
-            return Ok(i64::MIN);
-        };
-
-        let source = self.resolve_metric_source(&req.org_id, metric).await?;
-
-        let storage = self
-            .metric_files(&req.org_id, &source.stream, req.time_range)
+        let filter = MetricFilter::of(vs);
+        let sources = self
+            .metric_sources(&req.org_id, &filter, req.time_range)
             .await?;
+        let mut watermark = i64::MIN;
 
-        let file_watermark = storage.files.iter().map(|m| m.time_range.end.0).max();
+        for source in sources {
+            let storage = self
+                .metric_files(&req.org_id, &source.stream, req.time_range)
+                .await?;
 
-        let buffer_watermark = storage
-            .buffered_batches
-            .iter()
-            .filter_map(|batch| {
-                batch
-                    .column_by_name(crate::infra::storage::arrow_schema::TS_COL)?
-                    .as_any()
-                    .downcast_ref::<TimestampMicrosecondArray>()?
-                    .iter()
-                    .flatten()
-                    .max()
-            })
-            .max();
+            let file_watermark = storage.files.iter().map(|m| m.time_range.end.0).max();
 
-        Ok(file_watermark
-            .into_iter()
-            .chain(buffer_watermark)
-            .max()
-            .unwrap_or(i64::MIN))
+            let buffer_watermark = storage
+                .buffered_batches
+                .iter()
+                .filter_map(|batch| {
+                    batch
+                        .column_by_name(crate::infra::storage::arrow_schema::TS_COL)?
+                        .as_any()
+                        .downcast_ref::<TimestampMicrosecondArray>()?
+                        .iter()
+                        .flatten()
+                        .max()
+                })
+                .max();
+
+            watermark = file_watermark
+                .into_iter()
+                .chain(buffer_watermark)
+                .fold(watermark, i64::max);
+        }
+
+        Ok(watermark)
     }
 
     /// range 函数（rate / `*_over_time` / delta 等）的增量缓存求值。`compute` 是纯窗口
@@ -370,6 +373,9 @@ impl PromQLEngine {
                         max_buckets,
                         max_series,
                     );
+
+                    // 缓存按条目的大小计重：封存了新桶的条目放回一次重新计重。
+                    cache.reweigh(fp, e.clone()).await;
                 }
                 None => {
                     let mut fresh = SealedSeries::default();

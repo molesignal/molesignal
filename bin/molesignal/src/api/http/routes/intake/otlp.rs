@@ -33,10 +33,16 @@ use opentelemetry_proto::tonic::{
 use serde::Serialize;
 use serde_json::{Map, Value};
 
+use super::{DEFAULT_STREAM, stream_name};
 use crate::{
     api::AppState,
+    app::{
+        iam::IamContext,
+        intake::usage::{IntakeReceipt, ServiceTally},
+    },
     domain::{
-        intake::{IntakeBatch, RawEvent},
+        iam::permission,
+        intake::{IntakeBatch, RawEvent, usage::source::IntakeCredential},
         stream::StreamType,
     },
     shared::{
@@ -54,10 +60,6 @@ mod json;
 mod metrics;
 
 pub(crate) use metrics::metrics_to_events;
-
-/// 无 `stream-name` 头时 OTLP 各信号类型落入的默认流名（默认约定）；
-/// 使用前端 explore / send-test-event 相同的 `default` 流，不存在时 intake 自动建流。
-const DEFAULT_STREAM: &str = "default";
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -108,16 +110,6 @@ where
                 .map_err(|e| Error::invalid(format!("OTLP/JSON decode: {e}")))
         }
     }
-}
-
-fn stream_name(headers: &HeaderMap, default: &str) -> String {
-    headers
-        .get("stream-name")
-        .and_then(|v| v.to_str().ok())
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .unwrap_or(default)
-        .to_string()
 }
 
 /// OTLP/HTTP 成功响应：200 + 对应编码的（空）Export*ServiceResponse。
@@ -426,25 +418,26 @@ pub(crate) fn traces_to_events(req: ExportTraceServiceRequest) -> Vec<RawEvent> 
 pub(crate) async fn intake(
     state: &AppState,
     stream_type: StreamType,
-    org_id: Id,
+    ctx: &IamContext,
     stream: String,
     events: Vec<RawEvent>,
     bytes: usize,
 ) -> Result<usize> {
-    crate::api::http::intake_usage::record_intake_usage(
-        state,
-        &org_id,
-        bytes as u64,
-        TimestampMicros::now().0,
-    );
-
     if events.is_empty() {
         return Ok(0);
     }
 
+    let receipt = IntakeReceipt::of_events(
+        IntakeCredential::of(ctx),
+        stream_type,
+        &stream,
+        bytes as u64,
+        &events,
+    );
+
     let batch = IntakeBatch {
         batch_id: Id::new(),
-        org_id,
+        org_id: ctx.org_id.clone(),
         stream,
         stream_type,
         events,
@@ -452,11 +445,18 @@ pub(crate) async fn intake(
     };
 
     let r = state.intake.intake(batch).await?;
+
+    state
+        .platform
+        .intake_meter
+        .record(&ctx.org_id, receipt, r.accepted as u64);
+
     Ok(r.accepted)
 }
 
 // ===== handlers =====
 
+#[permission("logs.write")]
 async fn otlp_logs(
     State(state): State<AppState>,
     axum::Extension(ctx): axum::Extension<crate::app::iam::IamContext>,
@@ -468,19 +468,12 @@ async fn otlp_logs(
     let stream = stream_name(&headers, DEFAULT_STREAM);
     let events = logs_to_events(req);
 
-    intake(
-        &state,
-        StreamType::LOGS,
-        ctx.org_id,
-        stream,
-        events,
-        body.len(),
-    )
-    .await?;
+    intake(&state, StreamType::LOGS, &ctx, stream, events, body.len()).await?;
 
     Ok(otlp_ok(enc, ExportLogsServiceResponse::default()))
 }
 
+#[permission("metrics.write")]
 async fn otlp_metrics(
     State(state): State<AppState>,
     axum::Extension(ctx): axum::Extension<crate::app::iam::IamContext>,
@@ -495,7 +488,7 @@ async fn otlp_metrics(
     intake(
         &state,
         StreamType::METRICS,
-        ctx.org_id,
+        &ctx,
         stream,
         events,
         body.len(),
@@ -505,6 +498,7 @@ async fn otlp_metrics(
     Ok(otlp_ok(enc, ExportMetricsServiceResponse::default()))
 }
 
+#[permission("traces.write")]
 async fn otlp_traces(
     State(state): State<AppState>,
     axum::Extension(ctx): axum::Extension<crate::app::iam::IamContext>,
@@ -519,7 +513,7 @@ async fn otlp_traces(
 
     submit_traces(
         &state,
-        ctx.org_id,
+        &ctx,
         stream,
         spans,
         body.len(),
@@ -533,19 +527,24 @@ async fn otlp_traces(
 
 pub(crate) async fn submit_traces(
     state: &AppState,
-    org_id: Id,
+    ctx: &IamContext,
     stream: String,
     mut spans: Vec<CanonicalSpan>,
     bytes: usize,
     trace_context: &crate::shared::trace_context::TraceContext,
     suppress_external: bool,
 ) -> Result<usize> {
-    crate::api::http::intake_usage::record_intake_usage(
-        state,
-        &org_id,
-        bytes as u64,
-        TimestampMicros::now().0,
-    );
+    // Spans are written after tail sampling, where a refusal reaches no one: a stream only the
+    // platform writes is refused here, while the sender waits for the answer.
+    crate::domain::stream::refuse_platform_stream(&stream)?;
+
+    let receipt = IntakeReceipt {
+        credential: IntakeCredential::of(ctx),
+        stream_type: StreamType::TRACES,
+        stream: stream.clone(),
+        bytes: bytes as u64,
+        services: ServiceTally::of_spans(&spans),
+    };
 
     let force_keep = match trace_context.trust {
         crate::shared::trace_context::TraceTrust::DebugToken if trace_context.force_keep => {
@@ -568,18 +567,27 @@ pub(crate) async fn submit_traces(
         }
     }
 
+    let mut taken = 0_u64;
+
     for span in spans {
         // Queue exhaustion is an explicitly measured fail-open drop; OTLP producer success
         // must not backpressure the caller.
-        let _ = state.telemetry.trace_candidates.try_submit(
+        let submitted = state.telemetry.trace_candidates.try_submit(
             crate::shared::tail_sampling::TraceCandidate {
-                org_id: org_id.0.clone(),
+                org_id: ctx.org_id.0.clone(),
                 stream: Some(stream.clone()),
                 span,
                 force_keep,
             },
         );
+
+        taken += u64::from(submitted.is_ok());
     }
+
+    state
+        .platform
+        .intake_meter
+        .record(&ctx.org_id, receipt, taken);
 
     Ok(count)
 }

@@ -80,6 +80,11 @@ export function ThemeBootstrap({ children }: { children: React.ReactNode }) {
   React.useLayoutEffect(() => {
     document.body.setAttribute('data-theme', theme);
     document.documentElement.setAttribute('data-theme', theme);
+    // Follow the app's resolved theme, including explicit overrides of the OS theme.
+    for (const link of document.querySelectorAll<HTMLLinkElement>('link[data-favicon]')) {
+      const suffix = theme === 'dark' ? '-dark' : '';
+      link.href = `/favicon${suffix}.${link.dataset.favicon}?v=20261104`;
+    }
   }, [theme]);
 
   React.useLayoutEffect(() => {

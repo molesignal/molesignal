@@ -23,7 +23,7 @@ impl PgSlowQueryRepository {
 }
 
 const COLS: &str = "id, org_id, fingerprint, language, statement, scanned_rows, returned_rows, \
-    took_ms, time_range_secs, hit_count, first_seen_micros, last_seen_micros";
+    took_ms, time_range_secs, hit_count, first_seen, last_seen";
 
 fn lang_str(l: QueryLanguage) -> &'static str {
     match l {
@@ -53,8 +53,12 @@ fn row_to(r: sqlx::postgres::PgRow) -> SlowQuery {
             .try_get::<Option<i64>, _>("time_range_secs")
             .unwrap_or_default(),
         hit_count: r.try_get::<i64, _>("hit_count").unwrap_or_default(),
-        first_seen: TimestampMicros(r.try_get::<i64, _>("first_seen_micros").unwrap_or_default()),
-        last_seen: TimestampMicros(r.try_get::<i64, _>("last_seen_micros").unwrap_or_default()),
+        first_seen: r
+            .try_get::<TimestampMicros, _>("first_seen")
+            .unwrap_or_default(),
+        last_seen: r
+            .try_get::<TimestampMicros, _>("last_seen")
+            .unwrap_or_default(),
     }
 }
 
@@ -66,7 +70,7 @@ impl SlowQueryRepository for PgSlowQueryRepository {
         sqlx::query(
             "INSERT INTO slow_queries
                 (id, org_id, fingerprint, language, statement, scanned_rows, returned_rows,
-                 took_ms, time_range_secs, hit_count, first_seen_micros, last_seen_micros)
+                 took_ms, time_range_secs, hit_count, first_seen, last_seen)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $10, $10)
              ON CONFLICT (org_id, fingerprint) DO UPDATE SET
                 language = EXCLUDED.language,
@@ -76,7 +80,7 @@ impl SlowQueryRepository for PgSlowQueryRepository {
                 took_ms = EXCLUDED.took_ms,
                 time_range_secs = EXCLUDED.time_range_secs,
                 hit_count = slow_queries.hit_count + 1,
-                last_seen_micros = EXCLUDED.last_seen_micros",
+                last_seen = EXCLUDED.last_seen",
         )
         .bind(&q.id.0)
         .bind(&q.org_id.0)
@@ -87,7 +91,7 @@ impl SlowQueryRepository for PgSlowQueryRepository {
         .bind(q.returned_rows)
         .bind(q.took_ms)
         .bind(q.time_range_secs)
-        .bind(q.last_seen.0)
+        .bind(q.last_seen)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -98,7 +102,7 @@ impl SlowQueryRepository for PgSlowQueryRepository {
     async fn list_recent(&self, org_id: &Id, limit: i64) -> Result<Vec<SlowQuery>> {
         let rows = sqlx::query(&format!(
             "SELECT {COLS} FROM slow_queries
-             WHERE org_id = $1 ORDER BY last_seen_micros DESC LIMIT $2"
+             WHERE org_id = $1 ORDER BY last_seen DESC LIMIT $2"
         ))
         .bind(&org_id.0)
         .bind(limit.clamp(1, 500))

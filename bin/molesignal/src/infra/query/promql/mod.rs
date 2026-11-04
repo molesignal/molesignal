@@ -22,11 +22,11 @@
 //! 未实现（classic bucket 模型下 N/A）：native-histogram 系列 `histogram_count|histogram_sum|
 //! histogram_avg|histogram_stddev|histogram_stdvar`、二元 `default` 填充。
 //!
-//! Instant query：在 `req.time_range.end` 处求值。
-//! Range query：在 `[req.time_range.start, req.time_range.end]` 按 step 步进，
-//! 每个步点对其前置窗口求值，结果合成 `matrix`（输出 `(ts_us, value)` 序列每个 label 集）。
-//! step 由跨度与 `limit` 推导（[`range_step_us`]），每条 series 输出 ≤ [`MAX_RANGE_STEPS`]
-//! 个点，与原始采样密度无关；单 selector 物化样本数受 [`MAX_MATRIX_SAMPLES`] 约束。
+//! Instant query：请求不带 `step` 时在 `req.time_range.end` 处求值。
+//! Range query：请求带 `step` 时在 `[req.time_range.start, req.time_range.end]` 按 step
+//! 步进，每个步点对其前置窗口求值，结果合成 `matrix`（输出 `(ts_us, value)` 序列每个
+//! label 集）。每条 series 至多 [`MAX_RANGE_STEPS`] 步，与原始采样密度无关；`limit` 是
+//! 整个结果的行数上限；单 selector 物化样本数受 [`MAX_MATRIX_SAMPLES`] 约束。
 //!
 //! 列布局约定：metrics stream schema 必须含数值 `value`；其余字段通常视为 labels，
 //! `metric_temporality` / `metric_monotonic` / `metric_start_time_unix_nano` 作为查询语义
@@ -63,6 +63,7 @@ use regex::{Captures, Regex};
 
 use crate::{
     domain::{
+        metrics::MetricDirectory,
         query::{PromqlEngine, QueryRequest, QueryResult},
         storage::QueryFileSource,
         stream::{StreamRepository, StreamType},
@@ -92,7 +93,9 @@ mod metric_source;
 mod range_funcs;
 mod rate;
 mod results;
+mod samples;
 mod series;
+mod step;
 #[cfg(test)]
 mod tests;
 mod types;
@@ -109,12 +112,14 @@ use functions::*;
 use incremental::StreamingAgg;
 use labels::*;
 use math::*;
+use metric_source::{MetricFilter, MetricSources};
 use range_funcs::*;
 #[doc(hidden)]
 pub use rate::apply_rate_like;
 use rate::*;
 use results::{instant_to_query_result, range_to_query_result};
 use series::*;
+use step::{range_step_us, validate_range_step};
 pub use types::{InstantVector, LabelSet, MetricSampleMetadata, MetricTemporality, Series};
 use types::{RangePoint, RangeVector};
 
@@ -122,80 +127,9 @@ use types::{RangePoint, RangeVector};
 /// 回看的窗口。
 const STALENESS_LOOKBACK_US: i64 = 5 * 60 * 1_000_000;
 
-/// range 查询每条 series 的输出点数上限。请求没有显式 step 参数，按
-/// 「时间跨度 / 目标点数」推导 step（目标点数取 `limit`，封顶本值）；输出点数
-/// 与原始采样密度无关——这是 range 路径的 step 降采样。
-const MAX_RANGE_STEPS: i64 = 1_000;
-
 /// 单个 selector 一次扫描可物化的样本数上限（约 160 MB 的 `(ts, value)` 对）。
 /// 超过即报错提示收窄窗口 / 加 matcher，避免无界内存与超时。
 const MAX_MATRIX_SAMPLES: usize = 10_000_000;
-
-/// range 查询的步长（micros）：`span / min(limit, MAX_RANGE_STEPS)`，至少 1µs。
-fn range_step_us(req: &QueryRequest) -> i64 {
-    let span_us = req
-        .time_range
-        .end
-        .0
-        .saturating_sub(req.time_range.start.0)
-        .max(1);
-
-    let target = req
-        .limit
-        .map(|l| l as i64)
-        .unwrap_or(MAX_RANGE_STEPS)
-        .clamp(1, MAX_RANGE_STEPS);
-
-    (span_us / target).max(1)
-}
-
-/// 递归收集表达式里所有 vector/matrix selector 的 metric 名（去重由调用方的 `BTreeSet` 负责）。
-/// 覆盖求值器支持的全部 `Expr` 变体；字面量（Number/String）无 selector，命中 `_` 分支跳过——
-/// 任何其它变体本就不被求值器支持、会在 eval 阶段报错，故不会漏过能返回数据的查询。
-fn collect_metric_names(expr: &Expr, out: &mut std::collections::BTreeSet<String>) {
-    match expr {
-        Expr::VectorSelector(vs) => {
-            if let Some(name) = &vs.name {
-                out.insert(name.clone());
-            }
-        }
-        Expr::MatrixSelector(ms) => {
-            if let Some(name) = &ms.vs.name {
-                out.insert(name.clone());
-            }
-        }
-        Expr::Paren(p) => collect_metric_names(&p.expr, out),
-        Expr::Unary(u) => collect_metric_names(&u.expr, out),
-        Expr::Binary(b) => {
-            collect_metric_names(&b.lhs, out);
-            collect_metric_names(&b.rhs, out);
-        }
-        Expr::Aggregate(a) => {
-            collect_metric_names(&a.expr, out);
-
-            if let Some(param) = &a.param {
-                collect_metric_names(param, out);
-            }
-        }
-        Expr::Subquery(sq) => collect_metric_names(&sq.expr, out),
-        Expr::Call(c) => {
-            for arg in &c.args.args {
-                collect_metric_names(arg, out);
-            }
-        }
-        _ => {}
-    }
-}
-
-pub(crate) fn referenced_metric_names(
-    statement: &str,
-) -> Result<std::collections::BTreeSet<String>> {
-    let expression = parser::parse(statement)
-        .map_err(|error| Error::invalid(format!("promql parse: {error}")))?;
-    let mut names = std::collections::BTreeSet::new();
-    collect_metric_names(&expression, &mut names);
-    Ok(names)
-}
 
 fn collect_derived_label_dependencies(
     expression: &Expr,
@@ -258,6 +192,8 @@ pub struct PromQLEngine {
     /// `None` = 不校验（保持历史单测行为）。
     streams: Option<Arc<dyn StreamRepository>>,
     catalog_source: Option<Arc<CatalogQuerySource>>,
+    /// 指标目录：选择器按它找到持有指标的流。`None` = 没有可读的流。
+    metric_sources: Option<MetricSources>,
     /// 单个 selector 读取行数上限（`[querier].max_scan_rows`）；0 = 不限制。
     max_scan_rows: u64,
 }
@@ -270,8 +206,15 @@ impl PromQLEngine {
             streaming: None,
             streams: None,
             catalog_source: None,
+            metric_sources: None,
             max_scan_rows: 0,
         }
+    }
+
+    /// 注入指标目录：选择器读持有其指标的流。
+    pub fn with_metric_directory(mut self, directory: Arc<dyn MetricDirectory>) -> Self {
+        self.metric_sources = Some(MetricSources::new(directory));
+        self
     }
 
     /// 单个 selector 读取行数上限（`[querier].max_scan_rows`）；0 = 不限制。
@@ -290,31 +233,6 @@ impl PromQLEngine {
     pub fn with_catalog_source(mut self, source: Arc<CatalogQuerySource>) -> Self {
         self.catalog_source = Some(source);
         self
-    }
-
-    /// 校验表达式引用到的所有 metric stream 均可查询：存在但 `queryable == false` → 拒绝；
-    /// 不存在 → 放行（保持 PromQL 空集语义）。未注入 streams 时直接放行。
-    async fn ensure_metrics_queryable(&self, req: &QueryRequest, expr: &Expr) -> Result<()> {
-        let Some(streams) = &self.streams else {
-            return Ok(());
-        };
-
-        let mut names = std::collections::BTreeSet::new();
-        collect_metric_names(expr, &mut names);
-
-        for name in names {
-            let source = self.resolve_metric_source(&req.org_id, &name).await?;
-
-            let Some(stream_id) = source.stream_id else {
-                continue;
-            };
-
-            if !streams.get_settings(&stream_id).await?.queryable {
-                return Err(Error::forbidden(format!("stream is not queryable: {name}")));
-            }
-        }
-
-        Ok(())
     }
 
     /// 装配 range 窗口聚合增量缓存（实时仪表盘刷新只重算活跃区）。`safe_lookback`
@@ -350,21 +268,20 @@ impl PromqlEngine for PromQLEngine {
         // 不可查询 → 拒绝；不存在则放行（PromQL「选择不存在的指标得空集」语义，不报错）。
         // 放在最前面，确保 streaming agg cache 全命中时也不会绕过该校验。
         self.ensure_metrics_queryable(&req, &expr).await?;
+        validate_range_step(&req)?;
 
-        let should_range = req.limit.is_some_and(|limit| limit > 1)
-            && req.time_range.end.0 > req.time_range.start.0;
+        let should_range = req.step.is_some() && req.time_range.end.0 > req.time_range.start.0;
 
         if should_range && let Some(vec) = self.eval_range(&expr, &req).await? {
-            // `range_step_us` bounds evaluation work per series. The result
-            // adapter then applies the request-wide row limit with
-            // series-aware temporal sampling so cardinality cannot multiply
-            // the response past `limit`.
+            // The step bounds evaluation work per series. The result adapter
+            // then applies the request-wide row limit with series-aware
+            // temporal sampling so cardinality cannot multiply the response
+            // past `limit`.
             return Ok(range_to_query_result(vec, started, req.limit));
         }
 
-        // Instant evaluation at time_range.end. Alert-style scalar probes pass
-        // limit=1 and keep this path so existing threshold evaluation stays
-        // unchanged.
+        // Instant evaluation at time_range.end: a request without a step, such
+        // as an alert's threshold probe or a figure at the end of a range.
         let at_us = req.time_range.end.0;
         let vec = self.eval(&expr, &req, at_us).await?;
         let result = instant_to_query_result(vec, started);
@@ -777,32 +694,6 @@ impl PromQLEngine {
         apply_binary_instant(binary, lhs, rhs, lhs_is_scalar, rhs_is_scalar)
     }
 
-    /// 拉取整个查询时间范围，以及 range 函数计算所需的前置窗口。
-    async fn load_matrix_for_query_range(
-        &self,
-        vs: &VectorSelector,
-        matrix_range: Duration,
-        req: &QueryRequest,
-    ) -> Result<Vec<Series>> {
-        let span_us = req
-            .time_range
-            .end
-            .0
-            .saturating_sub(req.time_range.start.0)
-            .max(1);
-
-        let matrix_us = (matrix_range.as_micros() as i64).max(1);
-        let total_us = span_us.saturating_add(matrix_us).max(1);
-
-        self.load_matrix(
-            vs,
-            Duration::from_micros(total_us as u64),
-            req.time_range.end.0,
-            req,
-        )
-        .await
-    }
-
     /// instant vector selector：取 (at_us - 5min, at_us] 内每个 series 的最新一个样本。
     async fn eval_instant_vector(
         &self,
@@ -1106,87 +997,6 @@ impl PromQLEngine {
         let arg = expr_arg(args, index, context)?;
         let value = Box::pin(self.eval(arg, req, at_us)).await?;
         scalar_value(value, context)
-    }
-
-    /// 从 `(at_us - range, at_us]` 拉一个 matrix（每个 series 的样本序列）。
-    /// 实现：按 QueryFile 裁剪时间窗，Parquet 只投影 timestamp/value/label 列并做
-    /// row-group pruning，再在内存按 matchers 过滤与按 labels 分组。
-    async fn load_matrix(
-        &self,
-        vs: &VectorSelector,
-        range: Duration,
-        at_us: i64,
-        req: &QueryRequest,
-    ) -> Result<Vec<Series>> {
-        let metric = vs
-            .name
-            .clone()
-            .ok_or_else(|| Error::invalid("VectorSelector missing metric name"))?;
-
-        let source = self.resolve_metric_source(&req.org_id, &metric).await?;
-        // 选择器上的 `@` / `offset` 修饰：先把求值时刻平移到生效时刻。
-        let at_us = effective_eval_time(vs, at_us, req);
-        let range_us = range.as_micros() as i64;
-        let start_us = at_us - range_us;
-
-        let storage = self
-            .metric_files(
-                &req.org_id,
-                &source.stream,
-                TimeRange::new(
-                    crate::shared::time::TimestampMicros(start_us),
-                    crate::shared::time::TimestampMicros(at_us),
-                ),
-            )
-            .await?;
-
-        if storage.files.is_empty() && storage.buffered_batches.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        // 样本文件只能从请求组织自己的对象前缀读取。
-        let store = scoped_to_org(self.object_store.clone(), &req.org_id);
-        let reader = ParquetReader::new(store.clone());
-        let mut batches: Vec<RecordBatch> = Vec::new();
-
-        let projection = source
-            .sample_columns
-            .as_ref()
-            .map(|columns| columns.iter().map(String::as_str).collect::<Vec<_>>());
-
-        for fm in &storage.files {
-            // 时间窗口下推：按 `_timestamp` row-group 统计裁剪，边界文件只解码
-            // 与窗口相交的 row group；QueryFile 里的权威 size 避免每文件
-            // 再做一次 object_store HEAD。
-            let mut options = ReadOptions::new()
-                .with_time_range(start_us, at_us)
-                .with_known_size(fm.size_bytes);
-
-            if let Some(columns) = projection.as_deref() {
-                options = options.with_columns(columns);
-            }
-
-            let bs = reader
-                .read_from_store(store.clone(), &fm.object_key, options)
-                .await?;
-
-            batches.extend(bs);
-        }
-
-        batches.extend(storage.buffered_batches);
-
-        if batches.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        batches_to_series(
-            &batches,
-            &vs.matchers,
-            source.logical_metric.as_deref(),
-            start_us,
-            at_us,
-            MAX_MATRIX_SAMPLES,
-        )
     }
 
     /// 求值 range 函数的「矩阵参数」（`metric[range]`）。同时支持原生 matrix selector

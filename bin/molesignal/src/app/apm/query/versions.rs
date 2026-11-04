@@ -5,8 +5,8 @@ use std::collections::HashMap;
 
 use super::{
     ApmQueryContext, ApmQueryService, RedDelta, RedSummary, VersionCompareResponse, VersionSide,
-    aggregate::red_from_buckets, common::overflow_dimensions, errors::error_summaries,
-    ranking::transaction_summaries,
+    aggregate::red_from_buckets_at, apdex::ApdexThresholds, common::overflow_dimensions,
+    deploys::judge, errors::error_summaries, ranking::transaction_summaries,
 };
 use crate::{
     domain::apm::BucketKind,
@@ -57,6 +57,7 @@ impl ApmQueryService {
             baseline_errors,
             candidate_errors,
             error_groups,
+            thresholds,
         ) = tokio::try_join!(
             self.repository.query_buckets(&baseline_service_query),
             self.repository.query_buckets(&candidate_service_query),
@@ -65,12 +66,25 @@ impl ApmQueryService {
             self.repository.query_buckets(&baseline_error_query),
             self.repository.query_buckets(&candidate_error_query),
             self.repository.list_error_groups(&error_group_query),
+            self.apdex_thresholds(&context.org_id),
         )?;
 
-        let baseline_red = red_from_buckets(&baseline_service, &self.config.histogram)?;
-        let candidate_red = red_from_buckets(&candidate_service, &self.config.histogram)?;
-        let sufficient_data = baseline_red.request_count >= self.config.minimum_version_requests
-            && candidate_red.request_count >= self.config.minimum_version_requests;
+        // The service is named: compare_versions is refused without one.
+        let threshold = thresholds.named(
+            context.namespace.as_deref(),
+            context.service_name.as_deref().unwrap_or_default(),
+        );
+        let baseline_red =
+            red_from_buckets_at(&baseline_service, &self.config.histogram, threshold)?;
+        let candidate_red =
+            red_from_buckets_at(&candidate_service, &self.config.histogram, threshold)?;
+        // The same rule the version list flags each version by.
+        let (status, _) = judge(
+            &baseline_red,
+            &candidate_red,
+            self.config.minimum_version_requests,
+        );
+        let sufficient_data = status != "insufficient_data";
         let delta = red_delta(&baseline_red, &candidate_red);
 
         let mut regressed_transactions = regressed_transactions(
@@ -78,6 +92,7 @@ impl ApmQueryService {
             &baseline_transactions,
             &candidate_transactions,
             &self.config.histogram,
+            &thresholds,
         )?;
 
         regressed_transactions.truncate(20);
@@ -97,20 +112,6 @@ impl ApmQueryService {
         });
 
         regressed_errors.truncate(20);
-
-        let status = if !sufficient_data {
-            "insufficient_data"
-        } else if delta.error_rate_absolute > 0.0
-            || delta.p95_absolute_micros.is_some_and(|value| value > 0)
-        {
-            "regressed"
-        } else if delta.error_rate_absolute < 0.0
-            || delta.p95_absolute_micros.is_some_and(|value| value < 0)
-        {
-            "improved"
-        } else {
-            "neutral"
-        };
 
         let latency_partial = baseline_red.latency_partial || candidate_red.latency_partial;
         let mut overflows = overflow_dimensions(&baseline_service);
@@ -151,7 +152,7 @@ fn validate_version(value: &str) -> Result<()> {
     Ok(())
 }
 
-fn red_delta(baseline: &RedSummary, candidate: &RedSummary) -> RedDelta {
+pub(super) fn red_delta(baseline: &RedSummary, candidate: &RedSummary) -> RedDelta {
     RedDelta {
         request_count_absolute: signed_delta(candidate.request_count, baseline.request_count),
         request_count_relative: relative(
@@ -160,13 +161,13 @@ fn red_delta(baseline: &RedSummary, candidate: &RedSummary) -> RedDelta {
         ),
         error_rate_absolute: candidate.error_rate - baseline.error_rate,
         error_rate_relative: relative(candidate.error_rate, baseline.error_rate),
-        p95_absolute_micros: candidate
-            .p95_micros
-            .zip(baseline.p95_micros)
+        p95_absolute_time: candidate
+            .p95_time
+            .zip(baseline.p95_time)
             .map(|(candidate, baseline)| signed_delta(candidate, baseline)),
         p95_relative: candidate
-            .p95_micros
-            .zip(baseline.p95_micros)
+            .p95_time
+            .zip(baseline.p95_time)
             .and_then(|(candidate, baseline)| relative(candidate as f64, baseline as f64)),
     }
 }
@@ -186,13 +187,14 @@ fn regressed_transactions(
     baseline: &[crate::domain::apm::MergedBucket],
     candidate: &[crate::domain::apm::MergedBucket],
     histogram: &crate::domain::apm::HistogramSchema,
+    thresholds: &ApdexThresholds,
 ) -> Result<Vec<super::TransactionSummary>> {
-    let baseline = transaction_summaries(context, baseline, histogram)?
+    let baseline = transaction_summaries(context, baseline, histogram, thresholds)?
         .into_iter()
         .map(|item| (item.transaction.name.clone(), item.red))
         .collect::<HashMap<_, _>>();
 
-    let mut candidate = transaction_summaries(context, candidate, histogram)?;
+    let mut candidate = transaction_summaries(context, candidate, histogram, thresholds)?;
 
     candidate.sort_by(|left, right| {
         regression_score(&right.red, baseline.get(&right.transaction.name))
@@ -208,14 +210,14 @@ fn regressed_transactions(
 
 fn regression_score(candidate: &RedSummary, baseline: Option<&RedSummary>) -> f64 {
     let Some(baseline) = baseline else {
-        return candidate.error_rate + candidate.p95_micros.unwrap_or_default() as f64;
+        return candidate.error_rate + candidate.p95_time.unwrap_or_default() as f64;
     };
 
     (candidate.error_rate - baseline.error_rate).max(0.0) * 1_000_000.0
         + candidate
-            .p95_micros
+            .p95_time
             .unwrap_or_default()
-            .saturating_sub(baseline.p95_micros.unwrap_or_default()) as f64
+            .saturating_sub(baseline.p95_time.unwrap_or_default()) as f64
 }
 
 #[cfg(test)]
@@ -227,18 +229,18 @@ mod tests {
         let baseline = RedSummary {
             request_count: 100,
             error_rate: 0.01,
-            p95_micros: Some(100),
+            p95_time: Some(100),
             ..RedSummary::default()
         };
         let candidate = RedSummary {
             request_count: 120,
             error_rate: 0.03,
-            p95_micros: Some(150),
+            p95_time: Some(150),
             ..RedSummary::default()
         };
         let delta = red_delta(&baseline, &candidate);
         assert_eq!(delta.request_count_absolute, 20);
-        assert_eq!(delta.p95_absolute_micros, Some(50));
+        assert_eq!(delta.p95_absolute_time, Some(50));
         assert!((delta.error_rate_absolute - 0.02).abs() < f64::EPSILON);
     }
 }

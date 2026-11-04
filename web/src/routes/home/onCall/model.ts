@@ -7,6 +7,7 @@ import type {
 
 import {
   nextScheduleBoundary,
+  replacedUserAt,
   resolutionStartedAt,
   resolveScheduleAt,
   scheduleStatus,
@@ -41,21 +42,9 @@ function activeOverrideAt(
   return (
     schedule.overrides.find(
       (override) =>
-        override.start_at <= atMicros && atMicros < override.end_at,
+        override.startAt <= atMicros && atMicros < override.endAt,
     ) ?? null
   );
-}
-
-function withoutOverride(
-  schedule: Schedule,
-  override: ScheduleOverride,
-): Schedule {
-  return {
-    ...schedule,
-    overrides: schedule.overrides.filter(
-      (item) => item.id !== override.id,
-    ),
-  };
 }
 
 function priority(feature: FeaturedOnCall): number {
@@ -82,13 +71,6 @@ export function selectFeaturedOnCall(
         ? null
         : resolveScheduleAt(schedule, nextAt + 1);
     const activeOverride = activeOverrideAt(schedule, nowMicros);
-    const replaced =
-      activeOverride == null
-        ? null
-        : resolveScheduleAt(
-            withoutOverride(schedule, activeOverride),
-            nowMicros,
-          );
 
     return {
       schedule,
@@ -98,7 +80,8 @@ export function selectFeaturedOnCall(
       currentStartedAt: resolutionStartedAt(schedule, current, nowMicros),
       nextUserId: next?.userId ?? null,
       activeOverride,
-      replacedUserId: replaced?.userId ?? null,
+      replacedUserId:
+        activeOverride == null ? null : replacedUserAt(schedule, nowMicros),
       isMine:
         Boolean(currentUserId) && current?.userId === currentUserId,
     };
@@ -121,7 +104,7 @@ function policyTargetsSchedule(
     step.targets.some(
       (target) =>
         target.kind === 'schedule' &&
-        target.schedule_id === scheduleId,
+        target.scheduleId === scheduleId,
     ),
   );
 }
@@ -145,13 +128,13 @@ export function summarizeOnCallShift(
       ? []
       : incidents.filter((incident) => {
           if (
-            incident.created_at < startedAt ||
-            incident.created_at >= endedAt
+            incident.createdAt < startedAt ||
+            incident.createdAt >= endedAt
           ) {
             return false;
           }
           if (relatedPolicyIds.size > 0) {
-            return relatedPolicyIds.has(incident.escalation_policy_id);
+            return relatedPolicyIds.has(incident.escalationPolicyId);
           }
           return feature.current
             ? incident.assignees.includes(feature.current.userId)
@@ -164,11 +147,11 @@ export function summarizeOnCallShift(
       (incident) => incident.status === 'open',
     ).length,
     acknowledgedCount: shiftIncidents.filter(
-      (incident) => incident.acknowledged_at != null,
+      (incident) => incident.acknowledgedAt != null,
     ).length,
     escalatedCount: shiftIncidents.filter(
       (incident) =>
-        incident.current_step > 0 || incident.current_loop > 0,
+        incident.currentStep > 0 || incident.currentLoop > 0,
     ).length,
     escalationPolicyNames: relatedPolicies.map((policy) => policy.name),
   };

@@ -149,7 +149,7 @@ export interface SourceSignalSummary {
   status: HomeHealthStatus;
   rows: number;
   storedBytes: number;
-  lastReceivedAtMicros: number | null;
+  lastReceivedAt: number | null;
   activeSignals: number;
   expectedSignals: number;
   streamNames: string[];
@@ -172,7 +172,7 @@ export function summarizeSourceSignals(
       status: 'unknown',
       rows: 0,
       storedBytes: 0,
-      lastReceivedAtMicros: null,
+      lastReceivedAt: null,
       activeSignals: 0,
       expectedSignals: source.signals.length,
       streamNames: [],
@@ -182,25 +182,25 @@ export function summarizeSourceSignals(
   const signals = Array.isArray(overview.signals) ? overview.signals : [];
   const streams = Array.isArray(overview.streams) ? overview.streams : [];
   const matchingSignals = signals.filter((item) =>
-    source.signals.includes(item.stream_type as Signal),
+    source.signals.includes(item.streamType as Signal),
   );
   const matchingStreams = streams
-    .filter((item) => source.signals.includes(item.stream_type as Signal) && item.rows > 0)
+    .filter((item) => source.signals.includes(item.streamType as Signal) && item.rows > 0)
     .sort(
       (a, b) =>
-        (b.last_received_at_micros ?? Number.NEGATIVE_INFINITY) -
-        (a.last_received_at_micros ?? Number.NEGATIVE_INFINITY),
+        (b.lastReceivedAt ?? Number.NEGATIVE_INFINITY) -
+        (a.lastReceivedAt ?? Number.NEGATIVE_INFINITY),
     );
   const lastReceivedAtMicros = matchingSignals.reduce<number | null>(
     (latest, item) =>
-      item.last_received_at_micros != null &&
-      (latest == null || item.last_received_at_micros > latest)
-        ? item.last_received_at_micros
+      item.lastReceivedAt != null &&
+      (latest == null || item.lastReceivedAt > latest)
+        ? item.lastReceivedAt
         : latest,
     null,
   );
   const activeSignals = matchingSignals.filter(
-    (item) => item.rows > 0 && item.last_received_at_micros != null,
+    (item) => item.rows > 0 && item.lastReceivedAt != null,
   );
   const status =
     activeSignals
@@ -211,8 +211,8 @@ export function summarizeSourceSignals(
   return {
     status,
     rows: matchingSignals.reduce((sum, item) => sum + item.rows, 0),
-    storedBytes: matchingSignals.reduce((sum, item) => sum + item.stored_bytes, 0),
-    lastReceivedAtMicros,
+    storedBytes: matchingSignals.reduce((sum, item) => sum + item.storedBytes, 0),
+    lastReceivedAt: lastReceivedAtMicros,
     activeSignals: activeSignals.length,
     expectedSignals: source.signals.length,
     streamNames: [...new Set(matchingStreams.map((item) => item.name))],

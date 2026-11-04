@@ -50,13 +50,13 @@ export function ImportDrawer({
     mutationFn: (dryRun: boolean) => statusPagesApi.importSubscribers(pageId, csv, mode, dryRun),
     onSuccess: async (result) => {
       setReport(result);
-      if (result.dry_run) return;
+      if (result.dryRun) return;
       toast.success(t('toast.subscribers_imported', { count: result.imported }));
       await onImported();
     },
     onError: (error: unknown) => toast.error(toApiError(error).message),
   });
-  const imported = report !== null && !report.dry_run;
+  const imported = report !== null && !report.dryRun;
   const invalid = !csv.trim() || tooLarge || importMutation.isPending;
 
   return (
@@ -124,7 +124,7 @@ export function ImportDrawer({
         />
       </FormSection>
       {report && (
-        <FormSection title={t(report.dry_run ? 'subscribers.import.checked' : 'subscribers.import.done')}>
+        <FormSection title={t(report.dryRun ? 'subscribers.import.checked' : 'subscribers.import.done')}>
           <ImportReport report={report} />
         </FormSection>
       )}

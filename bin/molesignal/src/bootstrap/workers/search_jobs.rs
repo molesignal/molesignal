@@ -33,7 +33,11 @@ use super::{
     polling::PollingBackoff,
 };
 use crate::{
-    app::{intake::IntakeService, query::QueryService},
+    app::{
+        audit_read::{AuditReadCheck, grants_to_read},
+        intake::IntakeService,
+        query::QueryService,
+    },
     domain::{
         pipeline::scheduled::ScheduledConfig,
         query::{QueryRequest, QueryResult},
@@ -42,6 +46,7 @@ use crate::{
         connectors::{ConnectorDispatcher, ConnectorRepository},
         persistence::repositories::search::jobs::{SearchJob, SearchJobRepository},
         pipeline::{ScheduledPipelineRepository, exec::parse_signal_type},
+        query::grants::{ReadGrants, scope},
         runtime::VrlRuntime,
         storage::layout::StorageLayout,
     },
@@ -76,6 +81,7 @@ pub struct SearchJobScheduler {
     /// 写目标 stream、egress connector、死信。
     scheduled_pipelines: Arc<dyn ScheduledPipelineRepository>,
     output: PipelineOutput,
+    audit_read: Option<Arc<dyn AuditReadCheck>>,
     cfg: SearchJobSchedulerConfig,
 }
 
@@ -97,8 +103,24 @@ impl SearchJobScheduler {
             object_store,
             scheduled_pipelines,
             output: PipelineOutput::new(intake, connectors, dispatcher),
+            audit_read: None,
             cfg,
         }
+    }
+
+    /// Lets backfills read the audit trail for as long as `check` finds it is allowed.
+    pub fn with_audit_read(mut self, check: Arc<dyn AuditReadCheck>) -> Self {
+        self.audit_read = Some(check);
+        self
+    }
+
+    /// Lets backfills write the rows of extend tables to `store`.
+    pub fn with_tables(
+        mut self,
+        store: Arc<dyn crate::infra::pipeline::ExtendKvRepository>,
+    ) -> Self {
+        self.output = self.output.with_tables(store);
+        self
     }
 
     /// Spawn one claim poller plus one cleanup loop.
@@ -210,17 +232,38 @@ impl SearchJobScheduler {
         let pipeline_id = job.pipeline_id().map(str::to_string);
         let source = req.stream.as_ref().map(|stream| stream.name.clone());
 
-        let query_result = self
-            .query
-            .run_search_job(
-                req,
-                job.user_id.clone(),
-                &job.role_key,
-                job.id.clone(),
-                job.attempt,
-                pipeline_id.is_some(),
-            )
-            .await;
+        // A backfill reads with the access of whoever started it, for as long as it holds; any
+        // other job reads without the grant.
+        let grants = match (&pipeline_id, source.as_deref()) {
+            (Some(_), Some(source)) => {
+                grants_to_read(
+                    self.audit_read.as_deref(),
+                    &job.org_id,
+                    Some(&job.user_id),
+                    source,
+                )
+                .await
+            }
+            _ => Ok(ReadGrants::default()),
+        };
+
+        let query_result = match grants {
+            Ok(grants) => {
+                scope(
+                    grants,
+                    self.query.run_search_job(
+                        req,
+                        job.user_id.clone(),
+                        &job.role_key,
+                        job.id.clone(),
+                        job.attempt,
+                        pipeline_id.is_some(),
+                    ),
+                )
+                .await
+            }
+            Err(error) => Err(error),
+        };
 
         let result = match query_result {
             Ok(r) => r,

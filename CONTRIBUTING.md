@@ -51,13 +51,14 @@ Prerequisites:
 - `protoc` (e.g. `apt-get install protobuf-compiler` or `brew install protobuf`) and the [Buf CLI](https://buf.build/docs/installation) for the gRPC bindings.
 - Docker (for integration tests and the sandbox compose stack).
 - Node 20 + `pnpm` 9. The Vite production assets are embedded in every `molesignal` binary.
+- Python 3 (standard library only): used by `scripts/verify` and the pre-commit hook.
 
 Quick sanity loop:
 
 ```bash
 make proto-lint                                     # validate Proto; Cargo generates bindings
 make fmt-check                                      # match the rustfmt config
-make lint                                           # builds web/dist, then runs Clippy
+make lint                                           # builds web/dist if missing, then runs Clippy
 make test                                           # fast: unit + bin tests only
 
 # Sandbox: Postgres + RustFS + molesignal standalone
@@ -73,7 +74,9 @@ pnpm -C web test:run
 pnpm -C web dev          # vite dev server
 ```
 
-A pre-commit hook is installed via `make install-hooks` and enforces the license header, nightly fmt, and clippy locally — please don't bypass it with `--no-verify`.
+For everyday checks use `scripts/verify/verify.py <changed files...>`: it runs only the relevant checks, skips what already passed, and after a failure the same command picks up only what failed. `make verify-all` is the full gate and resumes the same way.
+
+A pre-commit hook is installed via `make install-hooks` and checks only the staged files: license header, nightly fmt, web types, and clippy for the affected crates — please don't bypass it with `--no-verify`.
 
 ## Coding conventions
 

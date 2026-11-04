@@ -323,7 +323,8 @@ impl ScheduledReportRunner {
             let url = render_page_url(&self.render_base_url, r, chrono::Utc::now())?;
 
             // 报表页要登录后才能取数。没有登录态时前端会跳去登录页，渲染只能等到超时。
-            let session = self.sessions.issue(r).await?;
+            let session =
+                crate::api::http::session_cookie::render_cookie(self.sessions.issue(r).await?);
 
             let bytes = renderer
                 .render(&url, fmt, Viewport::CONFIGURED, Some(&session))
@@ -439,7 +440,9 @@ mod tests {
         use async_trait::async_trait;
         use bytes::Bytes;
 
-        use crate::shared::{ReportFormat, ReportRenderer, Result as SResult, Viewport};
+        use crate::shared::{
+            ReportFormat, ReportRenderer, Result as SResult, SessionCookie, Viewport,
+        };
 
         struct PanicRenderer;
         #[async_trait]
@@ -449,7 +452,7 @@ mod tests {
                 _url: &str,
                 _format: ReportFormat,
                 _viewport: Viewport,
-                _browser_auth_storage: Option<&str>,
+                _session: Option<&SessionCookie>,
             ) -> SResult<Bytes> {
                 panic!("renderer must not be called for format=svg")
             }
@@ -508,12 +511,12 @@ mod tests {
             url: &str,
             format: ReportFormat,
             _viewport: Viewport,
-            browser_auth_storage: Option<&str>,
+            session: Option<&crate::shared::SessionCookie>,
         ) -> Result<Bytes> {
             self.renders
                 .lock()
                 .unwrap()
-                .push((url.to_owned(), browser_auth_storage.map(str::to_owned)));
+                .push((url.to_owned(), session.map(|cookie| cookie.value.clone())));
 
             Ok(match format {
                 ReportFormat::Pdf => Bytes::from_static(b"%PDF-1.7 rendered"),
@@ -587,7 +590,7 @@ mod tests {
         assert!(
             renders[0]
                 .0
-                .starts_with("http://web:5173/dashboards/d1?report_render=1"),
+                .starts_with("http://web:5173/dashboards/d1?reportRender=1"),
             "{}",
             renders[0].0
         );

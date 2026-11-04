@@ -31,7 +31,7 @@ interface Scene {
 export function QuickActions({ displayName, onPrime }: QuickActionsProps) {
   const { t } = useTranslation('agent');
   const navigate = useNavigate();
-  const orgId = useAuthStore((state) => state.ctx?.org_id ?? '');
+  const orgId = useAuthStore((state) => state.ctx?.orgId ?? '');
   const starterService = useQuery({
     queryKey: ['agent', 'starter-service', orgId],
     queryFn: () => discoverStarterService({ orgId }),

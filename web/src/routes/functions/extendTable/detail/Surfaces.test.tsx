@@ -10,13 +10,13 @@ import { TableMetadata } from './Metadata';
 import { RecordsPanel } from './RecordsPanel';
 
 const table: ExtendTableSummary = {
-  table_name: 'service_owners',
+  tableName: 'service_owners',
   description: i18n.t('functions:extend_tables.definition_description'),
-  key_field: 'service',
-  value_fields: [],
-  row_count: 0,
-  updated_at: 1_700_000_000_000_000,
-  usage_locations: [],
+  keyField: 'service',
+  valueFields: [],
+  rowCount: 0,
+  updatedAt: 1_700_000_000_000_000,
+  usageLocations: [],
 };
 
 describe('Extend Table surface hierarchy', () => {

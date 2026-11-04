@@ -170,9 +170,9 @@ describe('the edges of QueryTabStrip', () => {
     expect(fadeAtEnd()).toBe('28px');
   });
 
-  it('does not take the surface for a tab where it reaches past the last one', () => {
-    // Both tabs fit. The one in front has just lost its running mark, and the
-    // surface under it is still as wide as the tab was.
+  it('does not fade for the tab in front where it was measured past the last one', () => {
+    // Both tabs fit. The one in front has just lost its running mark, and what
+    // the strip measured of it is still as wide as the tab was.
     layOut({ shown: 200, scrollWidth: 212 });
     renderStrip({ activeId: 't2' });
 

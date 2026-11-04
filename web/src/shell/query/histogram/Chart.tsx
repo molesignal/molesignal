@@ -2,6 +2,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useTimeFormatter } from '@/lib/time';
+import { cn } from '@/shell/lib/cn';
 
 import { type AxisClock, utcOffsetMicros } from './axis';
 import { type HistogramCountsSource, type HistogramUnavailable, useHistogramCounts } from './counts';
@@ -14,6 +15,7 @@ import {
   type HistogramRange,
   planHistogram,
 } from './model';
+import { type LatencyLabels, LatencyPlot } from './LatencyPlot';
 import { ASSUMED_PLOT_PIXELS, type HistogramLabels, HistogramPlot } from './Plot';
 import { useWidth } from './width';
 
@@ -34,6 +36,11 @@ interface ResultHistogramProps {
   onRangeSelect: (range: { from: number; to: number }) => void;
   /** The zone the view beside it shows times in, where that is not the reader's own. */
   timezone?: string | undefined;
+  /**
+   * Draws how long each bar's results took beside the bars, where the counts
+   * say: on the same bars, from the same answer.
+   */
+  latency?: LatencyLabels | undefined;
   className?: string;
 }
 
@@ -84,6 +91,7 @@ export function ResultHistogram({
   labels,
   onRangeSelect,
   timezone,
+  latency,
   className,
 }: ResultHistogramProps) {
   const { t, i18n } = useTranslation('common');
@@ -156,7 +164,7 @@ export function ResultHistogram({
       ? t('histogram.scope_because', { scope: said, reason: t(`histogram.unavailable.${drawn.reason}`) })
       : said;
 
-  return (
+  const bars = (
     <HistogramPlot
       histogram={drawn.histogram}
       clock={clock}
@@ -168,7 +176,17 @@ export function ResultHistogram({
       stale={drawn.stale}
       onRangeSelect={onRangeSelect}
       onModule={setModule}
-      className={className}
+      className={latency && plan ? undefined : className}
     />
+  );
+
+  // Only counts say how long a bar's results took: the loaded results alone are drawn as bars.
+  if (!latency || !plan) return bars;
+
+  return (
+    <div className={cn('grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)]', className)} data-explorer-overview>
+      {bars}
+      <LatencyPlot histogram={drawn.histogram} clock={clock} short={short} labels={latency} className={drawn.stale ? 'opacity-60' : undefined} />
+    </div>
   );
 }

@@ -1,0 +1,1008 @@
+{
+  "schema": "ppt-master.svg-quality-report.v1",
+  "stage": "final",
+  "target": "/Users/gagral/code/molesignal/molesignal/projects/molesignal-pitch-en_20261102",
+  "source_fingerprint": {
+    "algorithm": "sha256",
+    "digest": "d46f6c55623af9aa904a9c604404a526a43dd5b6847e76dc5a129b0281c0f3a6",
+    "file_count": 14,
+    "files": [
+      {
+        "file": "01_cover.svg",
+        "sha256": "dd4b5be3f1ae445e9b7b4a219a109cae727996dd32eb0ad42b1a6946a231ff24"
+      },
+      {
+        "file": "02_pain.svg",
+        "sha256": "dec57564b7be699f37d30b4e1c361a635fbb1f2585be3a3df054feadca9ffb94"
+      },
+      {
+        "file": "03_solution.svg",
+        "sha256": "93ee4eebaeb4cec8630ce0197cd0ae5bd4dc8563ef02b9617950d1a5522ec2c5"
+      },
+      {
+        "file": "04_logs.svg",
+        "sha256": "e11fda07f2f3628e8592a6ffd0c0a71818722a8dfa855931cf9cdd46de5fbf95"
+      },
+      {
+        "file": "05_traces.svg",
+        "sha256": "f5683c44b2cbc6a17330b5b64acb0659d7ef2c28d35f1254d5ca0532ce79d821"
+      },
+      {
+        "file": "06_response.svg",
+        "sha256": "f7af531e42e9f24b9a828695fb9de1efad0dba798be35e729e215a35a17b1a01"
+      },
+      {
+        "file": "07_customer.svg",
+        "sha256": "a249c4c31434fca480a9e8d9fc9a984f615d8f0552c936263203b3953ad4f443"
+      },
+      {
+        "file": "08_competition.svg",
+        "sha256": "696537c61486b5f69c95f6efc5d964f4aa0328a4acdb87d147bae4dce3a5f973"
+      },
+      {
+        "file": "09_difference.svg",
+        "sha256": "1e251d3c0d00b5af03f65be77a75406eae389d991a4f8cc6bcbcd0f5e5cfce11"
+      },
+      {
+        "file": "10_business.svg",
+        "sha256": "a7962dbd9f249aa69c35c7be79c9d4be4aa23f2e32130d1cd1d5165267d6c06c"
+      },
+      {
+        "file": "11_stage.svg",
+        "sha256": "d0ca7ca364eb715cd7dd26c198469f628674f193958e6cac075b51c57c07bb49"
+      },
+      {
+        "file": "12_founder.svg",
+        "sha256": "97be2bd887c2a149c9baf9eb2f758a05ecb15e3c97c0bb3c350f6714340216a6"
+      },
+      {
+        "file": "13_raise.svg",
+        "sha256": "de92b0ee9dfe116ac9e1c2cc3c53463696962ac0a1e044e95daba7d44cd3dc01"
+      },
+      {
+        "file": "14_milestones.svg",
+        "sha256": "a33136c6e1df8fdcb4d4fa249a0e7fa05e53907af79dae9fcd55fce7a62b3c42"
+      }
+    ]
+  },
+  "summary": {
+    "total": 14,
+    "passed": 14,
+    "warnings": 0,
+    "errors": 0
+  },
+  "issue_types": {},
+  "categories": {
+    "blocking": {
+      "count": 0,
+      "issues": []
+    },
+    "introduced": {
+      "count": 0,
+      "issues": []
+    },
+    "inherited": {
+      "count": 0,
+      "issues": []
+    },
+    "source-import": {
+      "count": 0,
+      "summary": {
+        "warning_count": 0,
+        "by_code": {}
+      }
+    }
+  },
+  "drift": {
+    "colors": {
+      "#4DCCC5": [
+        "01_cover.svg"
+      ],
+      "#9EDDD9": [
+        "01_cover.svg",
+        "14_milestones.svg"
+      ],
+      "#B8D2E1": [
+        "01_cover.svg",
+        "14_milestones.svg"
+      ],
+      "#FFFFFF": [
+        "01_cover.svg",
+        "14_milestones.svg"
+      ]
+    },
+    "fonts": {},
+    "sizes": {}
+  },
+  "carrier_receipt": {
+    "scope": "informational-not-a-quota",
+    "pages": 14,
+    "totals": {
+      "text_elements": 155,
+      "image_placements": 2,
+      "icons": 0,
+      "svg_geometry_elements": 19,
+      "preset_shapes": 0,
+      "page_frame_elements": 14,
+      "marker_uses": 0,
+      "inline_emphasis_runs": 0,
+      "gradient_uses": 0,
+      "filter_uses": 0,
+      "text_effects": 0
+    },
+    "pages_with": {
+      "images": 2,
+      "icons": 0,
+      "presets": 0,
+      "charts": 0,
+      "tables": 0,
+      "formulas": 0,
+      "inline_emphasis_runs": 0,
+      "gradient_uses": 0,
+      "filter_uses": 0,
+      "text_effects": 0
+    },
+    "relationship_pages": 0,
+    "geometry_elements": {
+      "circle": 0,
+      "ellipse": 0,
+      "line": 0,
+      "path": 0,
+      "polygon": 0,
+      "polyline": 0,
+      "rect": 19
+    },
+    "preset_names": {},
+    "native_objects": {
+      "chart": 0,
+      "formula_block": 0,
+      "formula_inline": 0,
+      "other": 0,
+      "table": 0
+    },
+    "image_page_max_frame_share_range": [
+      0.4944,
+      0.4944
+    ]
+  },
+  "project_issues": {
+    "template": [],
+    "animation": [],
+    "illustration": [],
+    "communication_trace": [],
+    "pptx_structure": []
+  },
+  "files": [
+    {
+      "file": "01_cover.svg",
+      "path": "projects/molesignal-pitch-en_20261102/svg_output/01_cover.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 8,
+          "images": {
+            "placements": 0,
+            "files": [],
+            "max_frame_share": 0.0
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 2,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 0,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 1,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Arial"
+        ],
+        "text_elements": 8,
+        "tspan_elements": 2,
+        "contextual_values": {
+          "colors": [
+            "#4DCCC5",
+            "#9EDDD9",
+            "#B8D2E1",
+            "#FFFFFF"
+          ]
+        }
+      },
+      "passed": true,
+      "source_sha256": "dd4b5be3f1ae445e9b7b4a219a109cae727996dd32eb0ad42b1a6946a231ff24"
+    },
+    {
+      "file": "02_pain.svg",
+      "path": "projects/molesignal-pitch-en_20261102/svg_output/02_pain.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 14,
+          "images": {
+            "placements": 0,
+            "files": [],
+            "max_frame_share": 0.0
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 2,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 0,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 1,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Arial"
+        ],
+        "text_elements": 14,
+        "tspan_elements": 15
+      },
+      "passed": true,
+      "source_sha256": "dec57564b7be699f37d30b4e1c361a635fbb1f2585be3a3df054feadca9ffb94"
+    },
+    {
+      "file": "03_solution.svg",
+      "path": "projects/molesignal-pitch-en_20261102/svg_output/03_solution.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 13,
+          "images": {
+            "placements": 0,
+            "files": [],
+            "max_frame_share": 0.0
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 1,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 0,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 1,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Arial"
+        ],
+        "text_elements": 13,
+        "tspan_elements": 8
+      },
+      "passed": true,
+      "source_sha256": "93ee4eebaeb4cec8630ce0197cd0ae5bd4dc8563ef02b9617950d1a5522ec2c5"
+    },
+    {
+      "file": "04_logs.svg",
+      "path": "projects/molesignal-pitch-en_20261102/svg_output/04_logs.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 7,
+          "images": {
+            "placements": 1,
+            "files": [
+              "logs.png"
+            ],
+            "max_frame_share": 0.4944
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 1,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 0,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 1,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Arial"
+        ],
+        "text_elements": 7,
+        "tspan_elements": 5
+      },
+      "passed": true,
+      "source_sha256": "e11fda07f2f3628e8592a6ffd0c0a71818722a8dfa855931cf9cdd46de5fbf95"
+    },
+    {
+      "file": "05_traces.svg",
+      "path": "projects/molesignal-pitch-en_20261102/svg_output/05_traces.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 7,
+          "images": {
+            "placements": 1,
+            "files": [
+              "traces.png"
+            ],
+            "max_frame_share": 0.4944
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 1,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 0,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 1,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Arial"
+        ],
+        "text_elements": 7,
+        "tspan_elements": 5
+      },
+      "passed": true,
+      "source_sha256": "f5683c44b2cbc6a17330b5b64acb0659d7ef2c28d35f1254d5ca0532ce79d821"
+    },
+    {
+      "file": "06_response.svg",
+      "path": "projects/molesignal-pitch-en_20261102/svg_output/06_response.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 9,
+          "images": {
+            "placements": 0,
+            "files": [],
+            "max_frame_share": 0.0
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 2,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 0,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 1,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Arial"
+        ],
+        "text_elements": 9,
+        "tspan_elements": 8
+      },
+      "passed": true,
+      "source_sha256": "f7af531e42e9f24b9a828695fb9de1efad0dba798be35e729e215a35a17b1a01"
+    },
+    {
+      "file": "07_customer.svg",
+      "path": "projects/molesignal-pitch-en_20261102/svg_output/07_customer.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 11,
+          "images": {
+            "placements": 0,
+            "files": [],
+            "max_frame_share": 0.0
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 2,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 0,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 1,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Arial"
+        ],
+        "text_elements": 11,
+        "tspan_elements": 8
+      },
+      "passed": true,
+      "source_sha256": "a249c4c31434fca480a9e8d9fc9a984f615d8f0552c936263203b3953ad4f443"
+    },
+    {
+      "file": "08_competition.svg",
+      "path": "projects/molesignal-pitch-en_20261102/svg_output/08_competition.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 14,
+          "images": {
+            "placements": 0,
+            "files": [],
+            "max_frame_share": 0.0
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 1,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 0,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 1,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Arial"
+        ],
+        "text_elements": 14,
+        "tspan_elements": 18
+      },
+      "passed": true,
+      "source_sha256": "696537c61486b5f69c95f6efc5d964f4aa0328a4acdb87d147bae4dce3a5f973"
+    },
+    {
+      "file": "09_difference.svg",
+      "path": "projects/molesignal-pitch-en_20261102/svg_output/09_difference.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 12,
+          "images": {
+            "placements": 0,
+            "files": [],
+            "max_frame_share": 0.0
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 1,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 0,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 1,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Arial"
+        ],
+        "text_elements": 12,
+        "tspan_elements": 8
+      },
+      "passed": true,
+      "source_sha256": "1e251d3c0d00b5af03f65be77a75406eae389d991a4f8cc6bcbcd0f5e5cfce11"
+    },
+    {
+      "file": "10_business.svg",
+      "path": "projects/molesignal-pitch-en_20261102/svg_output/10_business.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 11,
+          "images": {
+            "placements": 0,
+            "files": [],
+            "max_frame_share": 0.0
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 2,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 0,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 1,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Arial"
+        ],
+        "text_elements": 11,
+        "tspan_elements": 6
+      },
+      "passed": true,
+      "source_sha256": "a7962dbd9f249aa69c35c7be79c9d4be4aa23f2e32130d1cd1d5165267d6c06c"
+    },
+    {
+      "file": "11_stage.svg",
+      "path": "projects/molesignal-pitch-en_20261102/svg_output/11_stage.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 11,
+          "images": {
+            "placements": 0,
+            "files": [],
+            "max_frame_share": 0.0
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 1,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 0,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 1,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Arial"
+        ],
+        "text_elements": 11,
+        "tspan_elements": 8
+      },
+      "passed": true,
+      "source_sha256": "d0ca7ca364eb715cd7dd26c198469f628674f193958e6cac075b51c57c07bb49"
+    },
+    {
+      "file": "12_founder.svg",
+      "path": "projects/molesignal-pitch-en_20261102/svg_output/12_founder.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 10,
+          "images": {
+            "placements": 0,
+            "files": [],
+            "max_frame_share": 0.0
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 1,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 0,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 1,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Arial"
+        ],
+        "text_elements": 10,
+        "tspan_elements": 11
+      },
+      "passed": true,
+      "source_sha256": "97be2bd887c2a149c9baf9eb2f758a05ecb15e3c97c0bb3c350f6714340216a6"
+    },
+    {
+      "file": "13_raise.svg",
+      "path": "projects/molesignal-pitch-en_20261102/svg_output/13_raise.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 13,
+          "images": {
+            "placements": 0,
+            "files": [],
+            "max_frame_share": 0.0
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 1,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 0,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 1,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Arial"
+        ],
+        "text_elements": 13,
+        "tspan_elements": 3
+      },
+      "passed": true,
+      "source_sha256": "de92b0ee9dfe116ac9e1c2cc3c53463696962ac0a1e044e95daba7d44cd3dc01"
+    },
+    {
+      "file": "14_milestones.svg",
+      "path": "projects/molesignal-pitch-en_20261102/svg_output/14_milestones.svg",
+      "exists": true,
+      "errors": [],
+      "warnings": [],
+      "info": {
+        "viewbox": "0 0 1280 720",
+        "carrier_receipt": {
+          "text_elements": 15,
+          "images": {
+            "placements": 0,
+            "files": [],
+            "max_frame_share": 0.0
+          },
+          "icons": 0,
+          "effects": {
+            "inline_emphasis_runs": 0,
+            "gradient_uses": 0,
+            "filter_uses": 0,
+            "text_effects": 0
+          },
+          "geometry": {
+            "svg_elements": {
+              "rect": 1,
+              "circle": 0,
+              "ellipse": 0,
+              "line": 0,
+              "polyline": 0,
+              "polygon": 0,
+              "path": 0
+            },
+            "preset_shapes": 0,
+            "preset_names": {},
+            "page_frame_elements": 1,
+            "marker_uses": {
+              "start": 0,
+              "mid": 0,
+              "end": 0
+            }
+          },
+          "native_objects": {
+            "chart": 0,
+            "table": 0,
+            "formula_block": 0,
+            "formula_inline": 0,
+            "other": 0
+          }
+        },
+        "fonts": [
+          "Arial"
+        ],
+        "text_elements": 15,
+        "tspan_elements": 15,
+        "contextual_values": {
+          "colors": [
+            "#9EDDD9",
+            "#B8D2E1",
+            "#FFFFFF"
+          ]
+        }
+      },
+      "passed": true,
+      "source_sha256": "a33136c6e1df8fdcb4d4fa249a0e7fa05e53907af79dae9fcd55fce7a62b3c42"
+    }
+  ]
+}

@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import '@/i18n';
 import { TooltipProvider } from '@/shell/ui/tooltip';
 
 import { MarkdownCodeBlock } from './MarkdownCodeBlock';
@@ -56,9 +57,7 @@ describe('MarkdownCodeBlock', () => {
     const writeText = vi.spyOn(navigator.clipboard, 'writeText');
     renderCodeBlock('const answer = 42;');
 
-    await user.click(
-      screen.getByRole('button', { name: 'datasource_page.copy' }),
-    );
+    await user.click(screen.getByRole('button', { name: 'Copy' }));
 
     expect(writeText).toHaveBeenCalledWith('const answer = 42;');
   });
@@ -69,18 +68,14 @@ describe('MarkdownCodeBlock', () => {
 
     const code = screen.getByLabelText('TypeScript code');
     const pre = code.closest('pre');
-    const collapse = screen.getByRole('button', {
-      name: 'datasource_page.collapse_code',
-    });
+    const collapse = screen.getByRole('button', { name: 'Collapse code' });
 
     expect(collapse.getAttribute('aria-expanded')).toBe('true');
     expect(pre?.hidden).toBe(false);
 
     await user.click(collapse);
 
-    const expand = screen.getByRole('button', {
-      name: 'datasource_page.expand_code',
-    });
+    const expand = screen.getByRole('button', { name: 'Expand code' });
     expect(expand.getAttribute('aria-expanded')).toBe('false');
     expect(pre?.hidden).toBe(true);
 

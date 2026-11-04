@@ -2,33 +2,46 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use std::{
+    collections::HashMap,
     sync::{Arc, OnceLock},
-    time::Instant,
+    time::{Duration, Instant},
 };
 
-use arrow::compute::concat_batches;
-use bytes::Bytes;
 use futures::{StreamExt, stream};
-use object_store::{ObjectStore, PutMode, PutOptions, PutPayload, path::Path};
+use object_store::ObjectStore;
+use parking_lot::Mutex;
 use prometheus::{Histogram, IntCounter};
+
+mod reindex;
+
+pub(crate) use reindex::reindex_segment;
 
 use crate::{
     config::{GarbageCollectionSettings, IndexMaintenanceSettings},
     domain::{
         storage::{
             Artifact, ArtifactId, ArtifactRole, ArtifactState, ArtifactTypeId, ArtifactUpdate,
-            FileCatalog, IndexRebuildTask, ObjectChecksum, OrganizationScope, StoredObject,
+            DataSegment, FileCatalog, IndexRebuildTask, OrganizationScope, PhysicalDatasetId,
             UpdateArtifact, type_id,
         },
-        stream::StreamRepository,
+        stream::{StreamDefinition, StreamRepository},
     },
-    infra::storage::{
-        layout::StorageLayout,
-        object_reader::ObjectReader,
-        parquet::{reader::ParquetReader, writer::build_tantivy_bytes_for_batch},
+    infra::{
+        search::tantivy_index::{self, TIMESTAMP_FIELD, TantivyArchiveBuilder},
+        storage::{
+            layout::StorageLayout,
+            object_reader::ObjectReader,
+            parquet::{
+                reader::{ParquetReader, ReadOptions},
+                writer::{add_batch_docs, upload_tantivy_archive},
+            },
+        },
     },
-    shared::{Error, Result, time::TimestampMicros},
+    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
+
+/// Stale indexes whose rebuild failed are remembered at most this many at once.
+const MAX_REMEMBERED_FAILURES: usize = 1_000;
 
 pub struct IndexRebuildWorker {
     catalog: Arc<dyn FileCatalog>,
@@ -37,6 +50,9 @@ pub struct IndexRebuildWorker {
     origin: Arc<dyn ObjectStore>,
     settings: IndexMaintenanceSettings,
     gc_grace_micros: i64,
+    /// Ready indexes of an older format whose rebuild failed, and when: they stay as they are and
+    /// are skipped until `retry_after_secs` pass.
+    failed_upgrades: Mutex<HashMap<ArtifactId, Instant>>,
 }
 
 impl IndexRebuildWorker {
@@ -55,6 +71,7 @@ impl IndexRebuildWorker {
             origin,
             settings,
             gc_grace_micros: i64::from(gc.grace_period_secs) * 1_000_000,
+            failed_upgrades: Mutex::new(HashMap::new()),
         }
     }
 
@@ -71,10 +88,30 @@ impl IndexRebuildWorker {
             .0
             .saturating_sub(i64::from(self.settings.retry_after_secs) * 1_000_000);
 
-        let tasks = self
+        let mut tasks = self
             .catalog
             .index_rebuild_tasks(&scope, retry_before, self.settings.batch_size)
             .await?;
+
+        // With room left after the missing indexes, the ones in an older format are rebuilt in
+        // the current one.
+        let room = (self.settings.batch_size as usize).saturating_sub(tasks.len());
+
+        if room > 0 {
+            let skip = self.recent_failures();
+
+            tasks.extend(
+                self.catalog
+                    .stale_index_tasks(
+                        &scope,
+                        type_id::builtin::ARTIFACT_TANTIVY,
+                        tantivy_index::FORMAT_VERSION,
+                        &skip,
+                        room as u32,
+                    )
+                    .await?,
+            );
+        }
 
         let completed = stream::iter(tasks)
             .map(|task| self.rebuild(&scope, task))
@@ -93,8 +130,28 @@ impl IndexRebuildWorker {
         Ok(completed)
     }
 
+    /// Stale indexes whose rebuild failed within `retry_after_secs`, forgetting older failures.
+    fn recent_failures(&self) -> Vec<ArtifactId> {
+        let wait = Duration::from_secs(u64::from(self.settings.retry_after_secs));
+        let mut failed = self.failed_upgrades.lock();
+
+        failed.retain(|_, at| at.elapsed() < wait);
+        failed.keys().cloned().collect()
+    }
+
+    fn remember_failure(&self, artifact_id: &ArtifactId) {
+        let mut failed = self.failed_upgrades.lock();
+
+        if failed.len() < MAX_REMEMBERED_FAILURES {
+            failed.insert(artifact_id.clone(), Instant::now());
+        }
+    }
+
     async fn rebuild(&self, scope: &OrganizationScope, task: IndexRebuildTask) -> Result<()> {
         let started = Instant::now();
+        // A ready index of an older format: it keeps serving until its replacement is in.
+        let stale = task.artifact.state == ArtifactState::Ready;
+        let artifact_id = task.artifact.id.clone();
 
         if task.artifact.state == ArtifactState::Failed {
             self.catalog
@@ -116,6 +173,12 @@ impl IndexRebuildWorker {
             Ok(replacement) => replacement,
             Err(error) => {
                 failed_total().inc();
+
+                if stale {
+                    self.remember_failure(&artifact_id);
+                    return Err(error);
+                }
+
                 let reason = truncate_error(&error.to_string());
 
                 let _ = self
@@ -156,6 +219,10 @@ impl IndexRebuildWorker {
             .await;
 
         if let Err(error) = update {
+            if stale {
+                self.remember_failure(&artifact_id);
+            }
+
             let _ = self
                 .catalog
                 .enqueue_orphan(
@@ -202,68 +269,117 @@ impl IndexRebuildWorker {
         self.objects
             .register_segment(&scope.organization_id, &task.segment)?;
 
-        let batches = ParquetReader::new(self.objects.store())
-            .read_all(task.segment.primary.object.key.as_str())
-            .await?;
-
-        let schema = batches
-            .first()
-            .map(|batch| batch.schema())
-            .ok_or_else(|| Error::internal("primary artifact contained no record batches"))?;
-
-        let batch = concat_batches(&schema, &batches)
-            .map_err(|error| Error::internal(format!("concat index source batches: {error}")))?;
-        let bytes = build_tantivy_bytes_for_batch(&stream, &batch)?
-            .ok_or_else(|| Error::invalid("stream has no supported indexed columns"))?;
-        let artifact_id = ArtifactId::generate();
-        let artifact_type = ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_TANTIVY);
-
-        let key = StorageLayout::artifact_key(
+        build_index_artifact(
+            self.objects.store(),
+            self.origin.clone(),
+            &stream,
             &scope.organization_id,
-            stream.stream_type,
             &task.dataset.id,
-            &task.segment.partition,
-            &task.segment.id,
-            &artifact_id,
-            &artifact_type,
-        );
-
-        let bytes = Bytes::from(bytes);
-
-        let put = self
-            .origin
-            .put_opts(
-                &Path::from(key.as_str()),
-                PutPayload::from(bytes.clone()),
-                PutOptions {
-                    mode: PutMode::Create,
-                    ..PutOptions::default()
-                },
-            )
-            .await
-            .map_err(|error| Error::internal(format!("upload rebuilt index: {error}")))?;
-
-        Ok(Artifact {
-            id: artifact_id,
-            role: ArtifactRole::Index,
-            artifact_type,
-            format_version: task.artifact.format_version,
-            object: StoredObject {
-                key,
-                size_bytes: bytes.len() as u64,
-                checksum: ObjectChecksum::from_string(format!(
-                    "b3:{}",
-                    blake3::hash(&bytes).to_hex()
-                )),
-                etag: put.e_tag,
-            },
-            source_artifact_id: Some(task.segment.primary.id.clone()),
-            source_checksum: Some(task.segment.primary.object.checksum.clone()),
-            schema_fingerprint: task.segment.primary.schema_fingerprint,
-            state: ArtifactState::Ready,
-            failure_reason: None,
-        })
+            &task.segment,
+        )
+        .await
     }
+}
+
+/// Builds the Tantivy archive of `segment` in the current format from its primary Parquet file and
+/// uploads it under a new artifact id. The file is read from `source` a row group at a time, only
+/// the columns the index is built from, and the archive goes through a local file: neither the
+/// file nor its index is ever held in memory whole.
+pub(crate) async fn build_index_artifact(
+    source: Arc<dyn ObjectStore>,
+    origin: Arc<dyn ObjectStore>,
+    stream: &StreamDefinition,
+    organization_id: &Id,
+    dataset_id: &PhysicalDatasetId,
+    segment: &DataSegment,
+) -> Result<Artifact> {
+    let mut builder = TantivyArchiveBuilder::try_new(stream)
+        .map_err(|error| Error::internal(format!("tantivy builder: {error}")))?
+        .ok_or_else(|| Error::invalid("stream has no supported indexed columns"))?;
+
+    let columns = builder
+        .fields()
+        .keys()
+        .cloned()
+        .chain([TIMESTAMP_FIELD.to_owned()])
+        .collect::<Vec<_>>();
+
+    let columns = columns.iter().map(String::as_str).collect::<Vec<_>>();
+
+    let mut batches = ParquetReader::new(source.clone())
+        .stream_from_store(
+            source,
+            segment.primary.object.key.as_str(),
+            ReadOptions::new().with_columns(&columns),
+        )
+        .await?;
+
+    let mut rows = 0_usize;
+
+    while let Some(batch) = batches.next().await {
+        let batch = batch?;
+        rows += batch.num_rows();
+
+        if !add_batch_docs(&mut builder, stream, &batch)? {
+            return Err(Error::invalid("stream has no supported indexed columns"));
+        }
+    }
+
+    if rows == 0 {
+        return Err(Error::internal(
+            "primary artifact contained no record batches",
+        ));
+    }
+
+    upload_archive(
+        origin,
+        builder,
+        stream,
+        organization_id,
+        dataset_id,
+        segment,
+    )
+    .await
+}
+
+/// Uploads the archive `builder` holds as the Tantivy index of `segment`, under a new artifact id.
+pub(crate) async fn upload_archive(
+    origin: Arc<dyn ObjectStore>,
+    builder: TantivyArchiveBuilder,
+    stream: &StreamDefinition,
+    organization_id: &Id,
+    dataset_id: &PhysicalDatasetId,
+    segment: &DataSegment,
+) -> Result<Artifact> {
+    let artifact_id = ArtifactId::generate();
+    let artifact_type = ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_TANTIVY);
+
+    let key = StorageLayout::artifact_key(
+        organization_id,
+        stream.stream_type,
+        dataset_id,
+        &segment.partition,
+        &segment.id,
+        &artifact_id,
+        &artifact_type,
+    );
+
+    let object = upload_tantivy_archive(origin, builder, key)
+        .await
+        .map_err(|error| Error::internal(format!("upload rebuilt index: {error}")))?;
+
+    Ok(Artifact {
+        id: artifact_id,
+        role: ArtifactRole::Index,
+        artifact_type,
+        format_version: tantivy_index::FORMAT_VERSION,
+        object,
+        source_artifact_id: Some(segment.primary.id.clone()),
+        source_checksum: Some(segment.primary.object.checksum.clone()),
+        schema_fingerprint: segment.primary.schema_fingerprint,
+        state: ArtifactState::Ready,
+        failure_reason: None,
+    })
 }
 
 fn truncate_error(error: &str) -> String {

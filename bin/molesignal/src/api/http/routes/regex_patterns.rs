@@ -39,6 +39,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateReq {
     pub name: String,
     pub pattern: String,
@@ -56,7 +57,7 @@ fn replacement_or_default(r: Option<String>) -> String {
     r.unwrap_or_else(|| "[REDACTED]".to_string())
 }
 
-#[permission("org.settings.read")]
+#[permission("org.regex_patterns.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -65,7 +66,7 @@ async fn list(
     Ok(Json(rows))
 }
 
-#[permission("org.settings.manage")]
+#[permission("org.regex_patterns.manage")]
 async fn create(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -112,7 +113,7 @@ async fn create(
     Ok(Json(saved))
 }
 
-#[permission("org.settings.manage")]
+#[permission("org.regex_patterns.manage")]
 async fn update(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -165,7 +166,7 @@ async fn update(
     Ok(Json(saved))
 }
 
-#[permission("org.settings.manage")]
+#[permission("org.regex_patterns.manage")]
 async fn delete(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

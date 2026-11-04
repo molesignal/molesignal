@@ -6,10 +6,13 @@ import {
   type BuilderField,
   type BuilderFieldKind,
   type BuilderOperator,
+  type BuilderPart,
   NUMBER_OPERATORS,
+  readBuilderStatement,
+  writeBuilderStatement,
 } from '@/shell/query/builder/model';
 
-import { type LogFieldDef, parseLogFieldStatement } from './fieldQueryModel';
+import { type LogFieldDef, readLogFieldPart } from './fieldQueryModel';
 
 // Text can also be searched with the index-backed functions.
 const LOG_TEXT_OPERATORS: readonly BuilderOperator[] = ['=', '!=', 'contains', 'match', 'match_text'];
@@ -56,30 +59,35 @@ function writeClause(clause: BuilderClause): string {
   return `${clause.field} ${clause.op} ${value}`;
 }
 
-/** The Logs field query, read and written as the filters the builder shows. */
-export const logBuilderDialect: BuilderDialect = {
-  parse(statement) {
-    const parsed = parseLogFieldStatement(statement);
-    return {
-      clauses: parsed.filters.map((filter) => ({
-        field: filter.field,
-        op: filter.op,
-        value: filter.value,
-        quoted: filter.quoted,
-      })),
-      text: parsed.freeText.join(' AND '),
-      unsupported: parsed.rejected,
-    };
-  },
-  serialize({ clauses, text, unsupported }) {
-    return [...clauses.map(writeClause), ...unsupported, text.trim()]
-      .filter(Boolean)
-      .join(' AND ');
-  },
-  operators(field) {
-    if (!field) return LOG_ANY_OPERATORS;
-    if (field.kind === 'number') return NUMBER_OPERATORS;
-    if (field.kind === 'boolean') return BOOLEAN_OPERATORS;
-    return LOG_TEXT_OPERATORS;
-  },
-};
+/** A part of the statement as the builder shows it: text to find as it was written, quotes and all. */
+function readPart(text: string): BuilderPart {
+  const read = readLogFieldPart(text);
+  if (read.kind === 'filter') {
+    const { field, op, value, quoted } = read.filter;
+    return { kind: 'clause', clause: { field, op, value, quoted } };
+  }
+  return read.kind === 'text' ? { kind: 'text', text } : { kind: 'unsupported', text };
+}
+
+function dialect(alternatives: boolean): BuilderDialect {
+  return {
+    alternatives,
+    parse: (statement) => readBuilderStatement(statement, readPart, { alternatives, joinText: ' AND ' }),
+    serialize: (statement) => writeBuilderStatement(statement, writeClause),
+    operators(field) {
+      if (!field) return LOG_ANY_OPERATORS;
+      if (field.kind === 'number') return NUMBER_OPERATORS;
+      if (field.kind === 'boolean') return BOOLEAN_OPERATORS;
+      return LOG_TEXT_OPERATORS;
+    },
+  };
+}
+
+/** The Logs field query, read and written as rows of filters: one row for each alternative. */
+export const logBuilderDialect = dialect(true);
+
+/**
+ * The same field query as one row of filters, for a page whose reads take no
+ * alternatives: a statement with an OR outside brackets is kept as written.
+ */
+export const logFilterListDialect = dialect(false);

@@ -8,6 +8,7 @@ use std::collections::{HashMap, HashSet};
 use sqlx::{PgPool, Row};
 
 use super::super::{
+    manifest::bloom_key,
     rows::{to_i64, to_u64},
     sqlx_err,
     writes::{
@@ -19,7 +20,7 @@ use crate::{
         ArtifactState, DatasetTransformResult, GcReason, OrganizationScope,
         PublishDatasetTransform, SegmentState,
     },
-    shared::{Error, Result},
+    shared::{Error, Result, time::TimestampMicros},
 };
 
 pub(crate) async fn publish_dataset_transform(
@@ -70,12 +71,13 @@ pub(crate) async fn publish_dataset_transform(
     if let Some(pointer) = &command.input_manifest {
         sqlx::query(
             "UPDATE partition_manifests SET state = 'retired' WHERE org_id = $1 \
-               AND dataset_id = $2 AND partition_start_micros = $3 \
-               AND partition_shard = $4 AND state = 'active'",
+               AND dataset_id = $2 AND partition_start = $3 \
+               AND partition_end = $4 AND partition_shard = $5 AND state = 'active'",
         )
         .bind(scope.organization_id.as_str())
         .bind(command.input_dataset_id.as_str())
-        .bind(command.input_partition.start_micros)
+        .bind(TimestampMicros(command.input_partition.start_micros))
+        .bind(TimestampMicros(command.input_partition.end_micros))
         .bind(command.input_partition.shard as i16)
         .execute(&mut *tx)
         .await
@@ -86,6 +88,16 @@ pub(crate) async fn publish_dataset_transform(
             scope,
             &pointer.object.key,
             Some(&pointer.object.checksum),
+            GcReason::Replaced,
+            command.gc_not_before_micros,
+        )
+        .await?;
+
+        enqueue_object_gc(
+            &mut tx,
+            scope,
+            &bloom_key(pointer.object.key.as_str()),
+            None,
             GcReason::Replaced,
             command.gc_not_before_micros,
         )
@@ -174,12 +186,14 @@ async fn lock_manifest(
 ) -> Result<Option<sqlx::postgres::PgRow>> {
     sqlx::query(
         "SELECT generation, object_key, checksum, segment_count FROM partition_manifests \
-         WHERE org_id = $1 AND dataset_id = $2 AND partition_start_micros = $3 \
-           AND partition_shard = $4 AND state = 'active' FOR UPDATE",
+         WHERE org_id = $1 AND dataset_id = $2 AND partition_start = $3 \
+           AND partition_end = $4 AND partition_shard = $5 AND state = 'active' \
+         FOR UPDATE",
     )
     .bind(scope.organization_id.as_str())
     .bind(command.input_dataset_id.as_str())
-    .bind(command.input_partition.start_micros)
+    .bind(TimestampMicros(command.input_partition.start_micros))
+    .bind(TimestampMicros(command.input_partition.end_micros))
     .bind(command.input_partition.shard as i16)
     .fetch_optional(&mut *conn)
     .await
@@ -236,14 +250,14 @@ async fn validate_input_rows(
 ) -> Result<()> {
     let input_rows = sqlx::query(
         "SELECT id, state FROM catalog_segments WHERE org_id = $1 AND dataset_id = $2 \
-           AND id = ANY($3) AND partition_start_micros = $4 AND partition_end_micros = $5 \
+           AND id = ANY($3) AND partition_start = $4 AND partition_end = $5 \
            AND partition_shard = $6 FOR UPDATE",
     )
     .bind(scope.organization_id.as_str())
     .bind(command.input_dataset_id.as_str())
     .bind(input_ids)
-    .bind(command.input_partition.start_micros)
-    .bind(command.input_partition.end_micros)
+    .bind(TimestampMicros(command.input_partition.start_micros))
+    .bind(TimestampMicros(command.input_partition.end_micros))
     .bind(command.input_partition.shard as i16)
     .fetch_all(&mut *conn)
     .await
@@ -291,13 +305,13 @@ async fn validate_complete_sealed_base(
 ) -> Result<()> {
     let rows = sqlx::query(
         "SELECT id FROM catalog_segments WHERE org_id = $1 AND dataset_id = $2 \
-           AND partition_start_micros = $3 AND partition_end_micros = $4 \
+           AND partition_start = $3 AND partition_end = $4 \
            AND partition_shard = $5 AND state = 'sealed' FOR UPDATE",
     )
     .bind(scope.organization_id.as_str())
     .bind(command.input_dataset_id.as_str())
-    .bind(command.input_partition.start_micros)
-    .bind(command.input_partition.end_micros)
+    .bind(TimestampMicros(command.input_partition.start_micros))
+    .bind(TimestampMicros(command.input_partition.end_micros))
     .bind(command.input_partition.shard as i16)
     .fetch_all(&mut *conn)
     .await

@@ -27,6 +27,7 @@ pub(super) fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct DeliveryQuery {
     event_id: Option<String>,
     policy_id: Option<Id>,
@@ -34,8 +35,8 @@ struct DeliveryQuery {
     connector_id: Option<Id>,
     status: Option<String>,
     stage: Option<String>,
-    from_micros: Option<i64>,
-    to_micros: Option<i64>,
+    from_time: Option<i64>,
+    to_time: Option<i64>,
     limit: Option<u32>,
 }
 
@@ -48,6 +49,7 @@ fn parse_status(value: Option<&str>) -> Result<Option<DeliveryStatus>> {
             "failed" => Ok(DeliveryStatus::Failed),
             "skipped" => Ok(DeliveryStatus::Skipped),
             "acknowledged" => Ok(DeliveryStatus::Acknowledged),
+            "queued" => Ok(DeliveryStatus::Queued),
             _ => Err(Error::invalid("unknown notify delivery status")),
         })
         .transpose()
@@ -68,18 +70,18 @@ fn parse_stage(value: Option<&str>) -> Result<Option<DeliveryStage>> {
         .transpose()
 }
 
-#[permission("alerts.read")]
+#[permission("notify.deliveries.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
     Query(query): Query<DeliveryQuery>,
 ) -> Result<Json<Vec<NotifyDelivery>>> {
     if query
-        .from_micros
-        .zip(query.to_micros)
+        .from_time
+        .zip(query.to_time)
         .is_some_and(|(from, to)| from > to)
     {
-        return Err(Error::invalid("from_micros must not exceed to_micros"));
+        return Err(Error::invalid("fromTime must not exceed toTime"));
     }
 
     let filter = DeliveryFilter {
@@ -89,8 +91,8 @@ async fn list(
         connector_id: query.connector_id,
         status: parse_status(query.status.as_deref())?,
         stage: parse_stage(query.stage.as_deref())?,
-        from: query.from_micros.map(TimestampMicros),
-        to: query.to_micros.map(TimestampMicros),
+        from: query.from_time.map(TimestampMicros),
+        to: query.to_time.map(TimestampMicros),
         limit: query.limit.unwrap_or(100),
     };
 
@@ -103,7 +105,7 @@ async fn list(
     ))
 }
 
-#[permission("alerts.read")]
+#[permission("notify.deliveries.read")]
 async fn get_one(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -118,7 +120,7 @@ async fn get_one(
     ))
 }
 
-#[permission("alerts.acknowledge")]
+#[permission("notify.deliveries.acknowledge")]
 async fn acknowledge(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -137,7 +139,7 @@ async fn acknowledge(
     ))
 }
 
-#[permission("alerts.manage")]
+#[permission("notify.deliveries.retry")]
 async fn retry(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,

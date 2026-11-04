@@ -21,7 +21,7 @@ export function monitorTarget(spec: MonitorSpec | undefined): string {
     case 'ssh':
       return `${valueSourceText(spec.configuration.host)}:${spec.configuration.port}`;
     case 'dns':
-      return `${spec.configuration.name} · ${spec.configuration.record_type}`;
+      return `${spec.configuration.name} · ${spec.configuration.recordType}`;
     case 'icmp':
       return spec.configuration.host;
     case 'tls':

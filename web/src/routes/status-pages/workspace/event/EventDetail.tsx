@@ -30,7 +30,7 @@ export function EventDetail({ event }: { event: StatusPageIncident }) {
         </Detail>
         <Detail label={t('fields.impact')}>{impactLabel(t, event.impact)}</Detail>
         <Detail label={t('fields.starts_at')}>
-          {formatMicros(event.started_at, timezone, i18n.language)}
+          {formatMicros(event.startedAt, timezone, i18n.language)}
         </Detail>
         <Detail label={t('fields.affected_components')}>
           {components.join(', ') || t('values.none')}
@@ -52,16 +52,16 @@ export function EventDetail({ event }: { event: StatusPageIncident }) {
                   {incidentStatusLabel(t, update.status, event.kind)}
                 </span>
                 <time className="text-xs tabular-nums text-tx-3">
-                  {formatMicros(update.created_at, timezone, i18n.language)}
+                  {formatMicros(update.createdAt, timezone, i18n.language)}
                 </time>
                 {/* Telling subscribers is the rule; only an update that went out quietly is marked. */}
-                {update.notify_subscribers === false && <Pill tone="dim">{t('values.not_notified')}</Pill>}
+                {update.notifySubscribers === false && <Pill tone="dim">{t('values.not_notified')}</Pill>}
               </div>
               <p className="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-tx-2">{update.message}</p>
-              {update.next_update_at != null && (
+              {update.nextUpdateAt != null && (
                 <p className="mt-1 text-xs text-tx-3">
                   {t('values.next_update_by', {
-                    time: formatMicros(update.next_update_at, timezone, i18n.language),
+                    time: formatMicros(update.nextUpdateAt, timezone, i18n.language),
                   })}
                 </p>
               )}

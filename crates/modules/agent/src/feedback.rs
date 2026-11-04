@@ -111,6 +111,7 @@ impl FeedbackReason {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentFeedback {
     pub id: Id,
     pub org_id: Id,
@@ -165,6 +166,14 @@ pub trait AgentFeedbackRepository: Send + Sync {
         target_id: &str,
         user_id: &Id,
     ) -> Result<bool>;
+
+    /// 大家对一个对象给过的评价，最近改的在前。
+    async fn list_for_target(
+        &self,
+        org_id: &Id,
+        target_kind: FeedbackTarget,
+        target_id: &str,
+    ) -> Result<Vec<AgentFeedback>>;
 
     /// 一个人对这些对象给过的评价。
     async fn list_for_user(

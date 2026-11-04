@@ -4,18 +4,29 @@
 //! On-call 排班。
 //!
 //! 一个 [`Schedule`] 由一条或多条 [`Rotation`] 拼接而成，
-//! 通过 [`Override`] 可临时替换某个时间段的 on-call 人。
+//! 通过 [`ScheduleOverride`] 可临时替换某个时间段的 on-call 人。
 //!
 //! 解析"当前 on-call 是谁"是一个纯函数 `who_is_on_call(schedule, at)`：
 //! 1. 若 `at` 落在某个 Override 内 → 直接返回该 Override 指定的人
 //! 2. 否则按 Rotation 的周期算出当前班次序号 → 取对应成员
+//!
+//! 轮换按排班时区的本地时间推进：第 k 次交接是起始时刻的本地时间加 k 个周期，所以有夏令时的时区里
+//! 交接时刻全年不变，跨夏令时的那一班长一小时或短一小时。生效时段也按本地时间判断，精确到分钟。
 
-use chrono::{DateTime, Duration, Utc};
+use chrono::Duration;
 use serde::{Deserialize, Serialize};
 
-use crate::shared::{ids::Id, time::TimestampMicros};
+use super::time_window::{
+    ALL_DAY, CalendarUse, WeeklyRange, local_instant, parse_timezone, timezone_or_utc,
+    validate_ranges, windows_contain, windows_transitions,
+};
+use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
+
+/// 求覆盖时段时，一条轮值最多列出多少次交接；周期极短的轮值不会因此列出几十万个点。
+const MAX_HANDOFFS: usize = 10_000;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Schedule {
     pub id: Id,
     pub org_id: Id,
@@ -26,13 +37,16 @@ pub struct Schedule {
     /// 可选关联团队，用于列表筛选与责任归属展示。
     #[serde(default)]
     pub team_id: Option<Id>,
-    /// 时区名（IANA），影响周期切换时刻。
+    /// 时区名（IANA），轮换的交接时刻与生效时段都按它的本地时间。
     pub timezone: String,
     /// 暂停的排班不参与 on-call 解析。
     #[serde(default = "default_enabled")]
     pub enabled: bool,
     pub rotations: Vec<Rotation>,
     pub overrides: Vec<ScheduleOverride>,
+    /// 换班申请对方接受后，还要有排班管理权限的人批准。
+    #[serde(default)]
+    pub swap_needs_approval: bool,
     #[serde(default)]
     pub created_by: Option<Id>,
     #[serde(default)]
@@ -46,20 +60,28 @@ fn default_enabled() -> bool {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Rotation {
     pub id: Id,
     pub name: String,
     /// 参与轮值的成员，按顺序轮换。
     pub members: Vec<Id>,
     pub kind: RotationKind,
-    /// 该轮值生效的时间窗（小时级，0-23）和星期掩码，可表达"工作日 9-18"等。
-    pub active_window: Option<ActiveWindow>,
-    /// 轮值起算时间。
+    /// 只在这些时段生效（排班时区的本地时间），例如工作日 09:30–18:00；空着时一直生效。
+    #[serde(default)]
+    pub active_windows: Vec<WeeklyRange>,
+    /// 生效时段按这份节假日日历算：节假日不上班，或只在节假日上班；没设生效时段时按全天。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub calendar: Option<CalendarUse>,
+    /// 轮值起算时间：第一次交接，之后每次交接都在它的本地时刻。
     pub start_at: TimestampMicros,
+    /// 轮值到这一刻结束，从这一刻起这条轮值没人值班；空着时一直轮下去。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_at: Option<TimestampMicros>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case", rename_all_fields = "camelCase")]
 pub enum RotationKind {
     Daily,
     Weekly,
@@ -69,15 +91,8 @@ pub enum RotationKind {
     },
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct ActiveWindow {
-    /// 0=周日，6=周六
-    pub weekday_mask: u8,
-    pub hour_start: u8,
-    pub hour_end: u8,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ScheduleOverride {
     pub id: Id,
     pub user_id: Id,
@@ -86,222 +101,360 @@ pub struct ScheduleOverride {
     pub reason: String,
 }
 
+/// 某一刻由谁值班、因为什么。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Resolution {
+    pub user_id: Id,
+    pub source: CoverageSource,
+    pub rotation_id: Option<Id>,
+    pub override_id: Option<Id>,
+}
+
+/// 覆盖时段的来历。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CoverageSource {
+    Rotation,
+    Override,
+    /// 没人值班。
+    Gap,
+}
+
+/// 一段由同一来历、同一个人值的时间；没人值班的一段也列出来。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CoverageSegment {
+    pub start_at: TimestampMicros,
+    pub end_at: TimestampMicros,
+    pub source: CoverageSource,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<Id>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rotation_id: Option<Id>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub override_id: Option<Id>,
+    /// 替班的时段里，按轮值本该值班的人；没人时为空。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub replaced_user_id: Option<Id>,
+}
+
+/// 一段连着由同一个人值的班。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Shift {
+    pub user_id: Id,
+    pub start_at: TimestampMicros,
+    pub end_at: TimestampMicros,
+}
+
 impl Schedule {
+    /// 时区认得出；每条轮值都说得通。
+    pub fn validate(&self) -> Result<()> {
+        parse_timezone(&self.timezone)?;
+        self.rotations.iter().try_for_each(Rotation::validate)
+    }
+
+    /// 轮值引用的节假日日历都是这个组织的。
+    pub fn check_calendars(&self) -> Result<()> {
+        self.rotations
+            .iter()
+            .filter_map(|rotation| rotation.calendar.as_ref())
+            .try_for_each(|calendar| calendar.check(&self.org_id))
+    }
+
     /// 解析在 `at` 时刻当前 on-call 是谁。
     /// 没人值班时返回 `None`。
     pub fn who_is_on_call(&self, at: TimestampMicros) -> Option<Id> {
+        self.resolution_at(at).map(|resolution| resolution.user_id)
+    }
+
+    /// 在 `at` 时刻由谁值班、因为哪个替班或哪条轮值；没人值班或排班暂停时为空。
+    pub fn resolution_at(&self, at: TimestampMicros) -> Option<Resolution> {
         if !self.enabled {
             return None;
         }
 
         // 1. Override 优先
-        for ov in &self.overrides {
-            if ov.start_at.0 <= at.0 && at.0 < ov.end_at.0 {
-                return Some(ov.user_id.clone());
+        if let Some(cover) = self
+            .overrides
+            .iter()
+            .find(|cover| cover.start_at.0 <= at.0 && at.0 < cover.end_at.0)
+        {
+            return Some(Resolution {
+                user_id: cover.user_id.clone(),
+                source: CoverageSource::Override,
+                rotation_id: None,
+                override_id: Some(cover.id.clone()),
+            });
+        }
+
+        // 2. 否则按 rotation，排在前面的先算
+        self.rotation_resolution(at)
+    }
+
+    /// 不看替班时，`at` 时按轮值由谁值班。
+    fn rotation_resolution(&self, at: TimestampMicros) -> Option<Resolution> {
+        let tz = timezone_or_utc(&self.timezone);
+
+        self.rotations.iter().find_map(|rotation| {
+            rotation.resolve_in_tz(at, tz).map(|user_id| Resolution {
+                user_id,
+                source: CoverageSource::Rotation,
+                rotation_id: Some(rotation.id.clone()),
+                override_id: None,
+            })
+        })
+    }
+
+    /// `[from, to)` 的覆盖时段，按时间先后，首尾相接；替班的起止、轮换的交接和生效时段的开关都会切开
+    /// 时段，来历和人都相同的相邻时段合成一段。暂停的排班整段没人值班。
+    pub fn segments(&self, from: TimestampMicros, to: TimestampMicros) -> Vec<CoverageSegment> {
+        if to.0 <= from.0 {
+            return Vec::new();
+        }
+
+        let mut points = vec![from.0];
+
+        if self.enabled {
+            let tz = timezone_or_utc(&self.timezone);
+
+            for cover in &self.overrides {
+                points.extend(
+                    [cover.start_at.0, cover.end_at.0]
+                        .into_iter()
+                        .filter(|at| *at > from.0 && *at < to.0),
+                );
+            }
+
+            for rotation in &self.rotations {
+                points.extend(rotation.boundaries(from.0, to.0, tz));
             }
         }
 
-        // 2. 否则按 rotation；timezone 与 active_window 判定一起喂给 rotation
-        let tz = parse_tz(&self.timezone);
+        points.sort_unstable();
+        points.dedup();
 
-        for rot in &self.rotations {
-            if let Some(uid) = rot.resolve_in_tz(at, tz) {
-                return Some(uid);
+        let mut segments: Vec<CoverageSegment> = Vec::new();
+
+        for (index, &start) in points.iter().enumerate() {
+            let end = points.get(index + 1).copied().unwrap_or(to.0);
+            let resolution = self.resolution_at(TimestampMicros(start));
+
+            let replaced_user_id = resolution
+                .as_ref()
+                .filter(|resolution| resolution.source == CoverageSource::Override)
+                .and_then(|_| self.rotation_resolution(TimestampMicros(start)))
+                .map(|rotation| rotation.user_id);
+
+            let segment = CoverageSegment {
+                start_at: TimestampMicros(start),
+                end_at: TimestampMicros(end),
+                source: resolution
+                    .as_ref()
+                    .map_or(CoverageSource::Gap, |resolution| resolution.source),
+                user_id: resolution
+                    .as_ref()
+                    .map(|resolution| resolution.user_id.clone()),
+                rotation_id: resolution
+                    .as_ref()
+                    .and_then(|resolution| resolution.rotation_id.clone()),
+                override_id: resolution.and_then(|resolution| resolution.override_id),
+                replaced_user_id,
+            };
+
+            match segments.last_mut() {
+                Some(last) if same_coverage(last, &segment) => last.end_at = segment.end_at,
+                _ => segments.push(segment),
             }
         }
 
-        None
+        segments
+    }
+
+    /// `[from, to)` 里的班次，按时间先后：同一个人连着值的合成一段（不管来自替班还是轮值）；
+    /// 暂停的排班没有班次。
+    pub fn shifts(&self, from: TimestampMicros, to: TimestampMicros) -> Vec<Shift> {
+        let mut shifts: Vec<Shift> = Vec::new();
+
+        for segment in self.segments(from, to) {
+            let Some(user_id) = segment.user_id else {
+                continue;
+            };
+
+            match shifts.last_mut() {
+                Some(last) if last.user_id == user_id && last.end_at == segment.start_at => {
+                    last.end_at = segment.end_at;
+                }
+                _ => shifts.push(Shift {
+                    user_id,
+                    start_at: segment.start_at,
+                    end_at: segment.end_at,
+                }),
+            }
+        }
+
+        shifts
     }
 }
 
-/// 解析时区名，失败回落到 UTC。
-fn parse_tz(name: &str) -> chrono_tz::Tz {
-    if name.is_empty() {
-        return chrono_tz::UTC;
-    }
-
-    name.parse::<chrono_tz::Tz>().unwrap_or(chrono_tz::UTC)
+fn same_coverage(last: &CoverageSegment, next: &CoverageSegment) -> bool {
+    last.end_at == next.start_at
+        && last.source == next.source
+        && last.user_id == next.user_id
+        && last.rotation_id == next.rotation_id
+        && last.override_id == next.override_id
+        && last.replaced_user_id == next.replaced_user_id
 }
 
 impl Rotation {
-    /// 在 `tz` 时区下解析当前 on-call。
-    /// - 周期推进按 UTC 时间戳（保证跨时区一致性）；
-    /// - 但 `ActiveWindow.{weekday_mask, hour_start, hour_end}` 用 `tz` 本地时间判定。
+    /// 自定义周期至少 1 秒；结束晚于开始；生效时段说得通。
+    pub fn validate(&self) -> Result<()> {
+        if let RotationKind::Custom { period_secs: 0 } = self.kind {
+            return Err(Error::invalid(
+                "a custom rotation period must be at least one second",
+            ));
+        }
+
+        if self.end_at.is_some_and(|end| end.0 <= self.start_at.0) {
+            return Err(Error::invalid("a rotation must end after it starts"));
+        }
+
+        if let Some(calendar) = &self.calendar {
+            calendar.validate()?;
+        }
+
+        validate_ranges(&self.active_windows)
+    }
+
+    /// 生效时段在什么时候算：设了的段，或（只设了节假日日历时）每天全天；都没设时一直生效。
+    fn active_ranges(&self) -> Option<&[WeeklyRange]> {
+        match (self.active_windows.is_empty(), &self.calendar) {
+            (false, _) => Some(&self.active_windows),
+            (true, Some(_)) => Some(std::slice::from_ref(&ALL_DAY)),
+            (true, None) => None,
+        }
+    }
+
+    /// 在 `tz` 时区下解析当前 on-call：第几班按本地时间的交接算，生效时段也按本地时间判断。
     pub fn resolve_in_tz(&self, at: TimestampMicros, tz: chrono_tz::Tz) -> Option<Id> {
-        if self.members.is_empty() {
+        if self.members.is_empty() || self.end_at.is_some_and(|end| at.0 >= end.0) {
             return None;
         }
 
-        let at_dt: DateTime<Utc> = at.to_datetime();
-        let start_dt: DateTime<Utc> = self.start_at.to_datetime();
+        let index = self.shift_index(at.0, tz)?;
 
-        if at_dt < start_dt {
-            return None;
-        }
-
-        let period = match self.kind {
-            RotationKind::Daily => Duration::days(1),
-            RotationKind::Weekly => Duration::weeks(1),
-            RotationKind::Custom { period_secs } => Duration::seconds(period_secs as i64),
-        };
-
-        let elapsed = at_dt - start_dt;
-        let idx = (elapsed.num_seconds() / period.num_seconds().max(1)) as usize;
-        let member = &self.members[idx % self.members.len()];
-
-        if let Some(w) = self.active_window
-            && !w.contains(at_dt, tz)
+        if let Some(ranges) = self.active_ranges()
+            && !windows_contain(ranges, tz, self.calendar.as_ref(), at)
         {
             return None;
         }
 
-        Some(member.clone())
+        let position = index.rem_euclid(self.members.len() as i64) as usize;
+
+        Some(self.members[position].clone())
     }
 
-    /// 向后兼容的 UTC 版本。
+    /// UTC 版本。
     pub fn resolve(&self, at: TimestampMicros) -> Option<Id> {
         self.resolve_in_tz(at, chrono_tz::UTC)
     }
-}
 
-impl ActiveWindow {
-    /// 判断 UTC 时间戳 `at_utc` 在 `tz` 本地时区下是否落在窗口内。
-    pub fn contains(&self, at_utc: DateTime<Utc>, tz: chrono_tz::Tz) -> bool {
-        use chrono::{Datelike, Timelike};
-        let local = at_utc.with_timezone(&tz);
+    fn period_micros(&self) -> i64 {
+        match self.kind {
+            RotationKind::Daily => 86_400_000_000,
+            RotationKind::Weekly => 7 * 86_400_000_000,
+            RotationKind::Custom { period_secs } => i64::try_from(period_secs)
+                .unwrap_or(i64::MAX)
+                .saturating_mul(1_000_000),
+        }
+    }
 
-        // 约定 weekday_mask bit0=周日, bit6=周六
-        let weekday_idx: u8 = match local.weekday() {
-            chrono::Weekday::Sun => 0,
-            chrono::Weekday::Mon => 1,
-            chrono::Weekday::Tue => 2,
-            chrono::Weekday::Wed => 3,
-            chrono::Weekday::Thu => 4,
-            chrono::Weekday::Fri => 5,
-            chrono::Weekday::Sat => 6,
+    /// 第 `index` 次交接的时刻（第 0 次是起始时刻）：起始时刻的本地时间加 `index` 个周期，再按时区
+    /// 换回时刻。
+    pub fn handoff(&self, index: i64, tz: chrono_tz::Tz) -> i64 {
+        let local = self.start_at.to_datetime().with_timezone(&tz).naive_local();
+
+        let step = match self.kind {
+            RotationKind::Daily => Duration::try_days(index),
+            RotationKind::Weekly => Duration::try_weeks(index),
+            RotationKind::Custom { period_secs } => i64::try_from(period_secs)
+                .ok()
+                .and_then(|secs| secs.checked_mul(index))
+                .and_then(Duration::try_seconds),
         };
 
-        if (self.weekday_mask & (1 << weekday_idx)) == 0 {
-            return false;
+        step.and_then(|step| local.checked_add_signed(step))
+            .map_or(i64::MAX, |shifted| {
+                local_instant(tz, shifted).timestamp_micros()
+            })
+    }
+
+    /// `at` 时是第几班（从 0 起）：到 `at` 为止交接过几次。早于起始时刻时为空。
+    pub fn shift_index(&self, at: i64, tz: chrono_tz::Tz) -> Option<i64> {
+        if at < self.start_at.0 {
+            return None;
         }
 
-        let hour = local.hour() as u8;
+        // 本地时间和 UTC 只差夏令时那一点：先按 UTC 估，再往前后校正。
+        let mut index = (at - self.start_at.0) / self.period_micros().max(1);
 
-        if self.hour_start <= self.hour_end {
-            self.hour_start <= hour && hour < self.hour_end
-        } else {
-            // 跨午夜窗口，如 22 → 6
-            hour >= self.hour_start || hour < self.hour_end
+        while index > 0 && self.handoff(index, tz) > at {
+            index -= 1;
         }
+
+        while self.handoff(index + 1, tz) <= at {
+            index += 1;
+        }
+
+        Some(index)
+    }
+
+    /// `(from, to)` 里可能换人的时刻：开始轮值、每次交接、生效时段的开关、结束轮值。
+    fn boundaries(&self, from: i64, to: i64, tz: chrono_tz::Tz) -> Vec<i64> {
+        let mut points = Vec::new();
+
+        if self.start_at.0 > from && self.start_at.0 < to {
+            points.push(self.start_at.0);
+        }
+
+        // 结束之后不再换人。
+        let to = match self.end_at {
+            Some(end) if end.0 <= from => return points,
+            Some(end) if end.0 < to => {
+                points.push(end.0);
+                end.0
+            }
+            _ => to,
+        };
+
+        if let Some(mut index) = self.shift_index(from.max(self.start_at.0), tz) {
+            for _ in 0..MAX_HANDOFFS {
+                index += 1;
+                let at = self.handoff(index, tz);
+
+                if at >= to {
+                    break;
+                }
+
+                if at > from {
+                    points.push(at);
+                }
+            }
+        }
+
+        if let Some(ranges) = self.active_ranges() {
+            points.extend(windows_transitions(
+                ranges,
+                tz,
+                self.calendar.as_ref(),
+                from,
+                to,
+            ));
+        }
+
+        points
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use chrono::TimeZone;
-
-    use super::*;
-
-    fn ts(s: &str) -> TimestampMicros {
-        let dt = chrono::DateTime::parse_from_rfc3339(s)
-            .expect("rfc3339")
-            .with_timezone(&Utc);
-        TimestampMicros::from_datetime(dt)
-    }
-
-    #[test]
-    fn active_window_weekday_match_in_shanghai() {
-        // 2026-05-23 02:00 UTC == 10:00 CST (Asia/Shanghai), weekday = Sat (bit 6)
-        let w = ActiveWindow {
-            weekday_mask: 1 << 6,
-            hour_start: 9,
-            hour_end: 18,
-        };
-        let at = ts("2026-05-23T02:00:00Z");
-        assert!(w.contains(at.to_datetime(), chrono_tz::Asia::Shanghai));
-        // 同一时刻在 UTC 评估则不该命中（UTC 02 点）
-        assert!(!w.contains(at.to_datetime(), chrono_tz::UTC));
-    }
-
-    #[test]
-    fn active_window_crosses_midnight() {
-        // 22 → 6 跨午夜：本地 23:00 应命中，10:00 不命中
-        let w = ActiveWindow {
-            weekday_mask: 0xFF,
-            hour_start: 22,
-            hour_end: 6,
-        };
-        let utc = chrono_tz::UTC;
-        let inside = chrono::Utc.with_ymd_and_hms(2026, 5, 23, 23, 0, 0).unwrap();
-        let outside = chrono::Utc.with_ymd_and_hms(2026, 5, 23, 10, 0, 0).unwrap();
-        assert!(w.contains(inside, utc));
-        assert!(!w.contains(outside, utc));
-    }
-
-    #[test]
-    fn rotation_picks_member_by_period_then_filters_window() {
-        let members: Vec<Id> = (0..3).map(|_| Id::new()).collect();
-        let start = ts("2026-05-20T00:00:00Z");
-        // weekly rotation, no window → 第 0 天命中 members[0]
-        let rot = Rotation {
-            id: Id::new(),
-            name: "primary".into(),
-            members: members.clone(),
-            kind: RotationKind::Weekly,
-            active_window: None,
-            start_at: start,
-        };
-        let at = ts("2026-05-21T03:00:00Z");
-        assert_eq!(rot.resolve(at), Some(members[0].clone()));
-
-        // 一周后 -> members[1]
-        let at2 = ts("2026-05-28T00:00:00Z");
-        assert_eq!(rot.resolve(at2), Some(members[1].clone()));
-
-        // 加 active_window 只允许工作日 9-18（Mon=2, Tue=4, Wed=8, Thu=16, Fri=32）
-        // 2026-05-23 是周六 → 不应命中
-        let rot2 = Rotation {
-            active_window: Some(ActiveWindow {
-                weekday_mask: 0b0111110, // Mon-Fri
-                hour_start: 9,
-                hour_end: 18,
-            }),
-            ..rot
-        };
-        let sat = ts("2026-05-23T12:00:00Z");
-        assert_eq!(rot2.resolve(sat), None);
-        // 2026-06-01 是周一 12:00 UTC，距 start 12 天 → idx=12/7=1 → members[1]
-        let mon_noon = ts("2026-06-01T12:00:00Z");
-        assert_eq!(rot2.resolve(mon_noon), Some(members[1].clone()));
-    }
-
-    #[test]
-    fn paused_schedule_never_resolves_an_on_call_member() {
-        let member = Id::new();
-        let start = ts("2026-05-20T00:00:00Z");
-        let schedule = Schedule {
-            id: Id::new(),
-            org_id: Id::new(),
-            name: "paused".into(),
-            description: String::new(),
-            team_id: None,
-            timezone: "UTC".into(),
-            enabled: false,
-            rotations: vec![Rotation {
-                id: Id::new(),
-                name: "primary".into(),
-                members: vec![member],
-                kind: RotationKind::Daily,
-                active_window: None,
-                start_at: start,
-            }],
-            overrides: vec![],
-            created_by: None,
-            updated_by: None,
-            created_at: start,
-            updated_at: start,
-        };
-
-        assert_eq!(schedule.who_is_on_call(ts("2026-05-21T03:00:00Z")), None);
-    }
-}
+mod tests;

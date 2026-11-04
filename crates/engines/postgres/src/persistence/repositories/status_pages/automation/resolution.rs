@@ -76,14 +76,14 @@ pub(super) async fn resolve_if_inactive(
 
     let incident_rows = sqlx::query(
         "UPDATE status_page_incidents
-         SET status='resolved',ended_at_micros=$4,updated_at_micros=$4
+         SET status='resolved',ended_at=$4,updated_at=$4
          WHERE org_id=$1 AND status_page_id=$2 AND id=$3
            AND publication_state='published' AND status <> 'resolved'",
     )
     .bind(&org_id.0)
     .bind(&page_id)
     .bind(&incident_id)
-    .bind(update.created_at.0)
+    .bind(update.created_at)
     .execute(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?
@@ -103,7 +103,7 @@ pub(super) async fn resolve_if_inactive(
 
     let sql = format!(
         "UPDATE status_page_automation_candidates
-         SET state='resolved',last_error=NULL,updated_at_micros=$3
+         SET state='resolved',last_error=NULL,updated_at=$3
          WHERE organization_id=$1 AND id=$2
          RETURNING {CANDIDATE_COLS}"
     );
@@ -111,20 +111,20 @@ pub(super) async fn resolve_if_inactive(
     let candidate_row = sqlx::query(&sql)
         .bind(&org_id.0)
         .bind(&candidate_id.0)
-        .bind(update.created_at.0)
+        .bind(update.created_at)
         .fetch_one(&mut *tx)
         .await
         .map_err(super::super::sqlx_err)?;
 
     sqlx::query(
         "INSERT INTO status_page_automation_actions
-            (id,organization_id,candidate_id,action,actor_id,note,created_at_micros)
+            (id,organization_id,candidate_id,action,actor_id,note,created_at)
          VALUES ($1,$2,$3,'resolved',NULL,'all correlated sources recovered',$4)",
     )
     .bind(Id::new().0)
     .bind(&org_id.0)
     .bind(&candidate_id.0)
-    .bind(update.created_at.0)
+    .bind(update.created_at)
     .execute(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;

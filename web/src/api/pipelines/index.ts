@@ -2,30 +2,36 @@ import { http } from '@/lib/http';
 
 export interface ScheduledPipeline {
   id: string;
-  org_id?: string;
+  orgId?: string;
   name: string;
   description?: string;
-  source_stream?: string;
-  target_stream?: string;
-  function_steps?: unknown;
+  sourceStream?: string;
+  targetStream?: string;
+  functionSteps?: unknown;
   cron?: string;
-  lookback_secs?: number;
+  lookbackSecs?: number;
   enabled?: boolean;
-  last_run_at_micros?: number;
+  lastRunAt?: number;
   /** Per source, the time before which its events have been handled (microseconds). */
-  read_until_micros?: Record<string, number>;
+  readUntil?: Record<string, number>;
   /** The soonest planned retry of a stretch of time that failed. */
   retry?: PipelineRetry | null;
-  last_run_state?: 'running' | 'succeeded' | 'failed' | 'cancelled' | string;
-  last_run_started_at_micros?: number;
-  last_run_finished_at_micros?: number;
-  last_run_scanned_rows?: number;
-  last_run_error?: string;
-  runs_24h?: number;
-  succeeded_runs_24h?: number;
-  failed_runs_24h?: number;
-  created_at_micros?: number;
-  updated_at_micros?: number;
+  /** An alert pipeline's count of today's events (UTC), with the latest drop and failure. */
+  alertRecord?: AlertPipelineRecord | null;
+  /** Whose access a pipeline that reads `_audit` reads it with: whoever last saved it. */
+  auditReaderId?: string | null;
+  /** Their name and email; `null` when the user no longer exists. */
+  auditReader?: { id: string; displayName: string; email: string } | null;
+  lastRunState?: 'running' | 'succeeded' | 'failed' | 'cancelled' | string;
+  lastRunStartedAt?: number;
+  lastRunFinishedAt?: number;
+  lastRunScannedRows?: number;
+  lastRunError?: string;
+  runs24h?: number;
+  succeededRuns24h?: number;
+  failedRuns24h?: number;
+  createdAt?: number;
+  updatedAt?: number;
   [key: string]: unknown;
 }
 
@@ -33,17 +39,34 @@ export interface PipelineRetry {
   source: string;
   /** The attempt the retry will be. */
   attempt: number;
-  next_at_micros: number;
+  nextAt: number;
   error: string;
+}
+
+/** What became of the events an alert pipeline saw today (UTC). */
+export interface AlertPipelineRecord {
+  day?: string;
+  processed?: number;
+  dropped?: number;
+  failed?: number;
+  lastDropped?: AlertPipelineOutcome;
+  lastFailed?: AlertPipelineOutcome;
+}
+
+export interface AlertPipelineOutcome {
+  atTime: number;
+  /** The rule or source the event came from. */
+  rule: string;
+  reason?: string | null;
 }
 
 export interface PipelineInput {
   name: string;
-  source_stream: string;
-  target_stream: string;
-  function_steps: unknown;
+  sourceStream: string;
+  targetStream: string;
+  functionSteps: unknown;
   cron: string;
-  lookback_secs?: number;
+  lookbackSecs?: number;
   enabled?: boolean;
 }
 

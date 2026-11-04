@@ -7,20 +7,20 @@ export interface FunctionResp {
   name: string;
   language: FunctionLanguage;
   source: string;
-  params_schema: Record<string, unknown>;
+  paramsSchema: Record<string, unknown>;
   /** Built-in preset (seeded under the `__builtin__` org): read-only, shown with a badge. */
-  is_builtin: boolean;
+  isBuiltin: boolean;
   /** Human description (built-in presets carry one; user functions are usually empty). */
   description: string;
-  created_at_micros: number;
-  updated_at_micros: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface FunctionInput {
   name: string;
   language: FunctionLanguage;
   source: string;
-  params_schema?: Record<string, unknown>;
+  paramsSchema?: Record<string, unknown>;
 }
 
 export interface FunctionRunInput {
@@ -50,7 +50,7 @@ export async function get(id: string): Promise<FunctionResp> {
 export async function create(payload: FunctionInput): Promise<FunctionResp> {
   const { data } = await http.post<FunctionResp>('/functions', {
     ...payload,
-    params_schema: payload.params_schema ?? {},
+    paramsSchema: payload.paramsSchema ?? {},
   });
   return data;
 }
@@ -58,7 +58,7 @@ export async function create(payload: FunctionInput): Promise<FunctionResp> {
 export async function update(id: string, payload: FunctionInput): Promise<FunctionResp> {
   const { data } = await http.put<FunctionResp>(`/functions/${encodeURIComponent(id)}`, {
     ...payload,
-    params_schema: payload.params_schema ?? {},
+    paramsSchema: payload.paramsSchema ?? {},
   });
   return data;
 }

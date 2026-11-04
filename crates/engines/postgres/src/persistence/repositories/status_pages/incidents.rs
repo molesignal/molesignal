@@ -71,7 +71,7 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
 
         let result = sqlx::query(
             "UPDATE status_page_incidents
-             SET status = $5, ended_at_micros = $6, updated_at_micros = $7
+             SET status = $5, ended_at = $6, updated_at = $7
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3 AND status = $4
                AND publication_state = 'published'",
         )
@@ -80,8 +80,8 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         .bind(&update.incident_id.0)
         .bind(expected_status.as_str())
         .bind(update.status.as_str())
-        .bind(ended_at.map(|at| at.0))
-        .bind(updated_at.0)
+        .bind(ended_at)
+        .bind(updated_at)
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -124,8 +124,8 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         let result = sqlx::query(
             "UPDATE status_page_incidents SET
                  source_incident_id = $4, kind = $5, title = $6, impact = $7,
-                 status = $8, draft_message = $9, started_at_micros = $10,
-                 updated_at_micros = $11, auto_start = $12, reminder_minutes = $13,
+                 status = $8, draft_message = $9, started_at = $10,
+                 updated_at = $11, auto_start = $12, reminder_minutes = $13,
                  component_ids = $14
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3
                AND publication_state = 'draft'",
@@ -139,8 +139,8 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         .bind(incident.impact.as_str())
         .bind(incident.status.as_str())
         .bind(&incident.draft_message)
-        .bind(incident.started_at.0)
-        .bind(incident.updated_at.0)
+        .bind(incident.started_at)
+        .bind(incident.updated_at)
         .bind(incident.auto_start)
         .bind(incident.reminder_minutes)
         .bind(component_ids(&incident))
@@ -171,7 +171,7 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
 
         let result = sqlx::query(
             "UPDATE status_page_incidents SET
-                 title=$4,impact=$5,updated_at_micros=$6,component_ids=$7
+                 title=$4,impact=$5,updated_at=$6,component_ids=$7
              WHERE org_id=$1 AND status_page_id=$2 AND id=$3
                AND publication_state='published' AND status <> 'resolved'",
         )
@@ -180,7 +180,7 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         .bind(&incident.id.0)
         .bind(&incident.title)
         .bind(incident.impact.as_str())
-        .bind(incident.updated_at.0)
+        .bind(incident.updated_at)
         .bind(component_ids(&incident))
         .execute(&mut *transaction)
         .await
@@ -225,8 +225,8 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         let result = sqlx::query(
             "UPDATE status_page_incidents SET
                  source_incident_id = $4, kind = $5, title = $6, impact = $7,
-                 status = $8, publication_state = 'published', started_at_micros = $9,
-                 published_at_micros = $10, draft_message = NULL, updated_at_micros = $10,
+                 status = $8, publication_state = 'published', started_at = $9,
+                 published_at = $10, draft_message = NULL, updated_at = $10,
                  auto_start = $11, reminder_minutes = $12, component_ids = $13
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3
                AND publication_state = 'draft'",
@@ -239,8 +239,8 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         .bind(&incident.title)
         .bind(incident.impact.as_str())
         .bind(incident.status.as_str())
-        .bind(incident.started_at.0)
-        .bind(published_at.0)
+        .bind(incident.started_at)
+        .bind(published_at)
         .bind(incident.auto_start)
         .bind(incident.reminder_minutes)
         .bind(component_ids(&incident))
@@ -284,7 +284,7 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
 
         let result = sqlx::query(
             "UPDATE status_page_incidents SET
-                 title = $4, started_at_micros = $5, updated_at_micros = $6,
+                 title = $4, started_at = $5, updated_at = $6,
                  auto_start = $7, reminder_minutes = $8, component_ids = $9
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3
                AND kind = 'maintenance' AND publication_state = 'published'
@@ -294,8 +294,8 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         .bind(&incident.status_page_id.0)
         .bind(&incident.id.0)
         .bind(&incident.title)
-        .bind(incident.started_at.0)
-        .bind(incident.updated_at.0)
+        .bind(incident.started_at)
+        .bind(incident.updated_at)
         .bind(incident.auto_start)
         .bind(incident.reminder_minutes)
         .bind(component_ids(&incident))
@@ -340,8 +340,8 @@ async fn insert_incident(
     sqlx::query(
         "INSERT INTO status_page_incidents
             (id, org_id, status_page_id, source_incident_id, kind, title, impact,
-             status, publication_state, draft_message, started_at_micros, ended_at_micros,
-             published_at_micros, created_at_micros, updated_at_micros,
+             status, publication_state, draft_message, started_at, ended_at,
+             published_at, created_at, updated_at,
              auto_start, reminder_minutes, component_ids)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
                  $18)",
@@ -356,11 +356,11 @@ async fn insert_incident(
     .bind(incident.status.as_str())
     .bind(incident.publication_state.as_str())
     .bind(&incident.draft_message)
-    .bind(incident.started_at.0)
-    .bind(incident.ended_at.map(|at| at.0))
-    .bind(incident.published_at.map(|at| at.0))
-    .bind(incident.created_at.0)
-    .bind(incident.updated_at.0)
+    .bind(incident.started_at)
+    .bind(incident.ended_at)
+    .bind(incident.published_at)
+    .bind(incident.created_at)
+    .bind(incident.updated_at)
     .bind(incident.auto_start)
     .bind(incident.reminder_minutes)
     .bind(component_ids(incident))
@@ -390,8 +390,8 @@ pub(super) async fn insert_update(
 ) -> std::result::Result<sqlx::postgres::PgQueryResult, sqlx::Error> {
     sqlx::query(
         "INSERT INTO status_page_incident_updates
-            (id, org_id, status_page_id, incident_id, status, message, created_at_micros,
-             next_update_at_micros, notify_subscribers)
+            (id, org_id, status_page_id, incident_id, status, message, created_at,
+             next_update_at, notify_subscribers)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
     )
     .bind(&update.id.0)
@@ -400,8 +400,8 @@ pub(super) async fn insert_update(
     .bind(&update.incident_id.0)
     .bind(update.status.as_str())
     .bind(&update.message)
-    .bind(update.created_at.0)
-    .bind(update.next_update_at.map(|at| at.0))
+    .bind(update.created_at)
+    .bind(update.next_update_at)
     .bind(update.notify_subscribers)
     .execute(transaction)
     .await

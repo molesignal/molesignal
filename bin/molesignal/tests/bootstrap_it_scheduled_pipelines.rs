@@ -24,11 +24,11 @@ async fn scheduled_pipelines_crud_roundtrip() {
         .header(hk, &hv)
         .json(&serde_json::json!({
             "name": "daily-rollup",
-            "source_stream": "raw_logs",
-            "target_stream": "logs_5m",
-            "function_steps": [{"kind": "vrl", "script": ".count = 1"}],
+            "sourceStream": "raw_logs",
+            "targetStream": "logs_5m",
+            "functionSteps": [{"kind": "vrl", "script": ".count = 1"}],
             "cron": "every:5m",
-            "lookback_secs": 600,
+            "lookbackSecs": 600,
             "enabled": true,
         }))
         .send()
@@ -42,7 +42,7 @@ async fn scheduled_pipelines_crud_roundtrip() {
     let created: Value = resp.json().await.unwrap();
     assert_eq!(created["name"], "daily-rollup");
     assert_eq!(created["cron"], "every:5m");
-    assert!(created["last_run_at_micros"].is_null());
+    assert!(created["lastRunAt"].is_null());
     let id = created["id"].as_str().unwrap().to_string();
 
     // 写入一条真实运行记录，列表端点应在同一响应返回最近状态与 24h 汇总。
@@ -105,11 +105,11 @@ async fn scheduled_pipelines_crud_roundtrip() {
     assert!(resp.status().is_success());
     let arr: Vec<Value> = resp.json().await.unwrap();
     assert_eq!(arr.len(), 1);
-    assert_eq!(arr[0]["last_run_state"], "succeeded");
-    assert_eq!(arr[0]["last_run_scanned_rows"], 12_345);
-    assert_eq!(arr[0]["runs_24h"], 1);
-    assert_eq!(arr[0]["succeeded_runs_24h"], 1);
-    assert_eq!(arr[0]["failed_runs_24h"], 0);
+    assert_eq!(arr[0]["lastRunState"], "succeeded");
+    assert_eq!(arr[0]["lastRunScannedRows"], 12_345);
+    assert_eq!(arr[0]["runs24h"], 1);
+    assert_eq!(arr[0]["succeededRuns24h"], 1);
+    assert_eq!(arr[0]["failedRuns24h"], 0);
 
     // record_run via repo（验证运行路径会更新 last_run_at 与读取位点）
     s.state
@@ -118,7 +118,7 @@ async fn scheduled_pipelines_crud_roundtrip() {
         .record_run(
             &Id(id.clone()),
             TimestampMicros::now(),
-            &serde_json::json!({ "sources": { "raw_logs": { "read_until": 42 } } }),
+            &serde_json::json!({ "sources": { "raw_logs": { "readUntil": 42 } } }),
         )
         .await
         .expect("record_run");
@@ -130,11 +130,8 @@ async fn scheduled_pipelines_crud_roundtrip() {
         .await
         .unwrap();
     let v: Value = resp.json().await.unwrap();
-    assert!(
-        v["last_run_at_micros"].is_i64(),
-        "record_run should set value"
-    );
-    assert_eq!(v["read_until_micros"]["raw_logs"], 42);
+    assert!(v["lastRunAt"].is_i64(), "record_run should set value");
+    assert_eq!(v["readUntil"]["raw_logs"], 42);
     assert!(v["retry"].is_null());
 
     // delete
@@ -165,10 +162,10 @@ async fn pipeline_force_tick_updates_last_run_at() {
         .header(hk, &hv)
         .json(&serde_json::json!({
             "name": "tick-test",
-            "schedule_cron": "* * * * *",
+            "scheduleCron": "* * * * *",
             "sql": "SELECT 1",
-            "target_stream": "tick_out",
-            "target_stream_type": "logs",
+            "targetStream": "tick_out",
+            "targetStreamType": "logs",
         }))
         .send()
         .await
@@ -195,7 +192,7 @@ async fn pipeline_force_tick_updates_last_run_at() {
             match r {
                 Ok(resp) if resp.status().is_success() => {
                     let v: serde_json::Value = resp.json().await.unwrap_or(serde_json::Value::Null);
-                    v.get("last_run_at_micros")
+                    v.get("lastRunAt")
                         .and_then(serde_json::Value::as_i64)
                         .map(|n| n > 0)
                         .unwrap_or(false)

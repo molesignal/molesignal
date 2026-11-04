@@ -27,7 +27,9 @@ mod enabled {
     use serde_json::{Map, Value, json};
     use tonic::Request;
 
-    use super::common::{TestServer, skip_unless_enabled, wait_until_async};
+    use super::common::{
+        Credential, TestServer, skip_unless_enabled, system_session_token, wait_until_async,
+    };
 
     #[derive(Clone, PartialEq, Message)]
     struct PromLabel {
@@ -80,6 +82,13 @@ mod enabled {
         false
     }
 
+    /// 最近一小时。时间范围再宽，`/api/v1/query` 估算的行数就超过阈值，转成异步任务（202）。
+    fn recent_range() -> Value {
+        let now = TimestampMicros::now().0;
+
+        json!({ "start": now - 3_600_000_000, "end": now + 10_000_000 })
+    }
+
     async fn query_count(
         server: &TestServer,
         token: &str,
@@ -107,18 +116,15 @@ mod enabled {
         let response = server
             .client
             .post(format!("{}/api/v1/query", server.base_url))
-            .bearer_auth(token)
+            .credential(token)
             .json(&json!({
-                "org_id": org_id,
+                "orgId": org_id,
                 "language": "sql",
                 "statement": format!("SELECT COUNT(*) AS n FROM \"{stream_name}\""),
-                "time_range": {
-                    "start": 0,
-                    "end": TimestampMicros::now().0 + 10_000_000
-                },
+                "timeRange": recent_range(),
                 "stream": {
                     "name": stream_name,
-                    "stream_type": stream_type
+                    "streamType": stream_type
                 }
             }))
             .send()
@@ -138,7 +144,7 @@ mod enabled {
             eprintln!("skipped (set MS_RUN_IT=1 to enable)");
             return;
         }
-        let server = TestServer::start_with_trace_capture().await;
+        let server = TestServer::start_with_self_profiles().await;
         let system_org_id = server.state.iam.system_org_id.clone();
         server
             .state
@@ -147,12 +153,7 @@ mod enabled {
             .bootstrap_root(&server.root_user_id)
             .await
             .expect("reconcile root platform administrator");
-        let system_token = server
-            .state
-            .iam
-            .service
-            .issue_system_token(&server.root_user_id, &system_org_id)
-            .expect("issue system-scope token");
+        let system_token = system_session_token(&server.state, &server.root_user_id);
 
         let auth = || server.auth_header();
         let response = server
@@ -202,7 +203,7 @@ mod enabled {
             timeseries: vec![PromTimeSeries {
                 labels: vec![PromLabel {
                     name: "__name__".into(),
-                    value: MOLESIGNAL_SYSTEM_STREAM.into(),
+                    value: "up".into(),
                 }],
                 samples: vec![PromSample {
                     value: 1.0,
@@ -222,6 +223,7 @@ mod enabled {
             .header(auth().0, auth().1)
             .header("content-type", "application/x-protobuf")
             .header("content-encoding", "snappy")
+            .header("stream-name", MOLESIGNAL_SYSTEM_STREAM)
             .body(compressed)
             .send()
             .await
@@ -289,7 +291,7 @@ mod enabled {
             .header(auth().0, auth().1)
             .json(&json!({
                 "name": MOLESIGNAL_SYSTEM_STREAM,
-                "stream_type": "logs"
+                "streamType": "logs"
             }))
             .send()
             .await
@@ -309,7 +311,7 @@ mod enabled {
                 server.base_url, system_trace.id.0
             ))
             .header(auth().0, auth().1)
-            .json(&json!({"retention_days": 3}))
+            .json(&json!({"retentionDays": 3}))
             .send()
             .await
             .unwrap();
@@ -354,7 +356,7 @@ mod enabled {
                 "{}/api/v1/streams/{}",
                 server.base_url, system_trace.id.0
             ))
-            .bearer_auth(&system_token)
+            .credential(&system_token)
             .send()
             .await
             .unwrap();
@@ -435,13 +437,19 @@ mod enabled {
             .unwrap();
         let flushed_org_id = system_org_id.0.clone();
         assert!(
-            wait_until_async(15, move || {
+            wait_until_async(30, move || {
                 let pool = pool.clone();
                 let org_id = flushed_org_id.clone();
                 async move {
                     let row: (i64,) = sqlx::query_as(
-                        "SELECT COUNT(*) FROM query_file
-                         WHERE org_id = $1 AND deleted = FALSE",
+                        "SELECT COUNT(DISTINCT stream.stream_type)
+                         FROM catalog_segments segment
+                         JOIN physical_datasets dataset
+                           ON dataset.org_id = segment.org_id AND dataset.id = segment.dataset_id
+                         JOIN logical_streams stream
+                           ON stream.org_id = dataset.org_id
+                          AND stream.id = dataset.logical_stream_id
+                         WHERE segment.org_id = $1 AND segment.state = 'active'",
                     )
                     .bind(org_id)
                     .fetch_one(&pool)
@@ -489,26 +497,26 @@ mod enabled {
         let response = server
             .client
             .post(format!("{}/api/v1/query", server.base_url))
-            .bearer_auth(&system_token)
+            .credential(&system_token)
             .json(&json!({
-                "org_id": system_org_id.0,
+                "orgId": system_org_id.0,
                 "language": "sql",
                 "statement": "SELECT \"service.name\", \"node.id\", \"service.instance.id\" FROM _molesignal LIMIT 1",
-                "time_range": {
-                    "start": 0,
-                    "end": TimestampMicros::now().0 + 10_000_000
-                },
+                "timeRange": recent_range(),
                 "stream": {
                     "name": MOLESIGNAL_SYSTEM_STREAM,
-                    "stream_type": "logs"
+                    "streamType": "traces"
                 }
             }))
             .send()
             .await
             .unwrap();
         let identity: Value = response.json().await.unwrap();
-        assert_eq!(identity["rows"][0][0], "molesignal");
-        assert_eq!(identity["rows"][0][1], "trace-e2e-node");
+        let service = identity["rows"][0][0].as_str().unwrap_or_default();
+
+        // A span is stored under the role that ran it, such as `molesignal-intake`.
+        assert!(service.starts_with("molesignal-"), "{identity}");
+        assert_eq!(identity["rows"][0][1], server.state.cluster.node_id);
         assert_eq!(identity["rows"][0][2], resource.service_instance_id());
         assert!(has_profile_archive(server.object_store_root.path()));
     }

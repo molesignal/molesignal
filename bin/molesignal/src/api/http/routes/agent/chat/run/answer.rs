@@ -21,7 +21,9 @@ use super::{
     interaction::Interaction,
     request::AnswerRequest,
     sink::{Record, RunSink},
-    title, workspace,
+    title,
+    unattended::{Unattended, is_unattended},
+    workspace,
 };
 use crate::{
     agent::{
@@ -35,7 +37,10 @@ use crate::{
     api::{
         AppState,
         http::routes::agent::{
-            budget, tool_dispatcher::RealToolDispatcher, toolsets, viewer::chat_scope,
+            budget,
+            tool_dispatcher::{RealToolDispatcher, RunInteraction},
+            toolsets,
+            viewer::chat_scope,
         },
     },
     app::{
@@ -82,8 +87,9 @@ pub(super) async fn answer(
     let req = &request.message;
     let turn = &request.turn;
 
-    // 组织今天的预算：排队这段时间里可能已经用完。
-    let gate = state.agent.usage.gate(&ctx.org_id, true).await;
+    // 组织今天的预算：排队这段时间里可能已经用完。没有人可问的一轮（自动化）按后台工作算。
+    let unattended = is_unattended(&control.run);
+    let gate = state.agent.usage.gate(&ctx.org_id, !unattended).await;
 
     if let Some(notice) = budget::notice(gate.status()) {
         control.emit(RunEventKind::Notice, notice).await;
@@ -105,7 +111,7 @@ pub(super) async fn answer(
     {
         Ok(resolved) => resolved,
         Err(error) => {
-            let asked_at = request.asked_at_micros.map(TimestampMicros);
+            let asked_at = request.asked_at.map(TimestampMicros);
             return failure_message(control, ctx, &chat, asked_at, error.to_string()).await;
         }
     };
@@ -206,7 +212,14 @@ pub(super) async fn answer(
         profile_id: resolution.active_profile_id.clone(),
         prompt_hash: prompt_meta.hash.clone(),
         skill_id: turn.skill_id.clone(),
-        ..UsageScope::new(ctx.org_id.clone(), UsageOrigin::Chat)
+        ..UsageScope::new(
+            ctx.org_id.clone(),
+            if unattended {
+                UsageOrigin::Automation
+            } else {
+                UsageOrigin::Chat
+            },
+        )
     });
 
     let window = resolution
@@ -232,12 +245,18 @@ pub(super) async fn answer(
         visible_tools.extend(["list_skills", "load_skill", "read_skill_file"].map(String::from));
     }
 
+    let interaction: Arc<dyn RunInteraction> = if unattended {
+        Arc::new(Unattended::new(control.clone()))
+    } else {
+        Arc::new(Interaction::new(control.clone()))
+    };
+
     let dispatcher: Arc<dyn ToolDispatcher> = Arc::new(
         RealToolDispatcher::new(state.clone())
             .with_toolsets(resolution.clone())
             .with_skills(Arc::new(skills))
             .with_workspace(loaded.workspace)
-            .with_interaction(Arc::new(Interaction::new(control.clone()))),
+            .with_interaction(interaction),
     );
 
     let agent_loop = AgentLoop::new(resolved.adapter.clone(), dispatcher)

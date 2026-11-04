@@ -17,6 +17,7 @@ use crate::{
         alerting::{
             incident::Incident,
             incident_group::{IncidentGroup, IncidentGroupState},
+            timeline::ActionVia,
         },
         iam::permission,
     },
@@ -43,17 +44,18 @@ fn default_limit() -> i64 {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GroupResp {
     pub id: String,
     pub alert_rule_id: String,
     pub fingerprint: String,
     pub state: String,
     pub incident_count: i32,
-    pub first_at_micros: i64,
-    pub last_at_micros: i64,
+    pub first_at: i64,
+    pub last_at: i64,
     pub acked_by: Option<String>,
-    pub acked_at_micros: Option<i64>,
-    pub resolved_at_micros: Option<i64>,
+    pub acked_at: Option<i64>,
+    pub resolved_at: Option<i64>,
 }
 
 fn to_resp(g: IncidentGroup) -> GroupResp {
@@ -63,15 +65,15 @@ fn to_resp(g: IncidentGroup) -> GroupResp {
         fingerprint: g.fingerprint,
         state: g.state.as_str().to_string(),
         incident_count: g.incident_count,
-        first_at_micros: g.first_at.0,
-        last_at_micros: g.last_at.0,
+        first_at: g.first_at.0,
+        last_at: g.last_at.0,
         acked_by: g.acked_by.map(|i| i.0),
-        acked_at_micros: g.acked_at.map(|t| t.0),
-        resolved_at_micros: g.resolved_at.map(|t| t.0),
+        acked_at: g.acked_at.map(|t| t.0),
+        resolved_at: g.resolved_at.map(|t| t.0),
     }
 }
 
-#[permission("alerts.read")]
+#[permission("alerts.incidents.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -88,7 +90,7 @@ async fn list(
     Ok(Json(groups.into_iter().map(to_resp).collect()))
 }
 
-#[permission("alerts.read")]
+#[permission("alerts.incidents.read")]
 async fn get_one(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -103,7 +105,7 @@ async fn get_one(
     Ok(Json(to_resp(g)))
 }
 
-#[permission("alerts.acknowledge")]
+#[permission("alerts.incidents.acknowledge")]
 async fn ack(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -132,7 +134,7 @@ async fn ack(
         if state
             .alerting
             .service
-            .acknowledge(&inc.id, ctx.user_id.clone(), now)
+            .acknowledge(&inc.id, ctx.user_id.clone(), now, ActionVia::Web)
             .await
             .is_ok()
         {
@@ -142,8 +144,8 @@ async fn ack(
 
     Ok(Json(serde_json::json!({
         "acked": true,
-        "incident_acked": acked > 0,
-        "incidents_acked": acked,
+        "incidentAcked": acked > 0,
+        "incidentsAcked": acked,
     })))
 }
 
@@ -186,7 +188,7 @@ async fn member_incidents(
         .collect())
 }
 
-#[permission("alerts.acknowledge")]
+#[permission("alerts.incidents.acknowledge")]
 async fn resolve(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -217,7 +219,7 @@ async fn resolve(
         if state
             .alerting
             .service
-            .resolve(&inc.id, ctx.user_id.clone(), now)
+            .resolve(&inc.id, ctx.user_id.clone(), now, ActionVia::Web)
             .await
             .is_ok()
         {
@@ -227,7 +229,7 @@ async fn resolve(
 
     Ok(Json(serde_json::json!({
         "resolved": true,
-        "incident_resolved": resolved > 0,
-        "incidents_resolved": resolved,
+        "incidentResolved": resolved > 0,
+        "incidentsResolved": resolved,
     })))
 }

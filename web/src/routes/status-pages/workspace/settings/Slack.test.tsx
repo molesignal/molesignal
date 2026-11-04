@@ -24,11 +24,11 @@ const setSlackApp = vi.mocked(statusPagesApi.setSlackApp);
 const workspace = vi.mocked(useStatusPageWorkspace);
 
 const setting: StatusPageSlackAppSetting = {
-  connector_id: null,
-  redirect_url: 'https://ms.example.com/api/v1/public/slack/callback',
+  connectorId: null,
+  redirectUrl: 'https://ms.example.com/api/v1/public/slack/callback',
   connectors: [
-    { id: 'status-app', name: 'Status app', enabled: true, adds_channels: true },
-    { id: 'alerts-bot', name: 'Alerts bot', enabled: true, adds_channels: false },
+    { id: 'status-app', name: 'Status app', enabled: true, addsChannels: true },
+    { id: 'alerts-bot', name: 'Alerts bot', enabled: true, addsChannels: false },
   ],
 };
 
@@ -63,12 +63,12 @@ describe('StatusPageSlackSettings', () => {
 
   it('names the connector visitors add the page to Slack with', async () => {
     getSetting.mockResolvedValue(setting);
-    setSlackApp.mockResolvedValue({ ...setting, connector_id: 'status-app' });
+    setSlackApp.mockResolvedValue({ ...setting, connectorId: 'status-app' });
     renderSettings();
 
     const select = await screen.findByRole('combobox', { name: 'Slack app' });
     expect(select.textContent).toContain('Off');
-    expect(screen.getByText(setting.redirect_url!)).toBeTruthy();
+    expect(screen.getByText(setting.redirectUrl!)).toBeTruthy();
     expect((screen.getByRole('button', { name: 'Save changes' }) as HTMLButtonElement).disabled).toBe(true);
 
     fireEvent.click(select);
@@ -81,7 +81,7 @@ describe('StatusPageSlackSettings', () => {
   });
 
   it('points to the connectors when there is none and to the public address it needs', async () => {
-    getSetting.mockResolvedValue({ connector_id: null, redirect_url: null, connectors: [] });
+    getSetting.mockResolvedValue({ connectorId: null, redirectUrl: null, connectors: [] });
     renderSettings();
 
     expect(await screen.findByRole('link', { name: 'Connectors' })).toHaveProperty(

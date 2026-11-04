@@ -24,7 +24,7 @@ const MonacoCodeEditor = React.lazy(() =>
 
 const FALLBACK_FRAME_HORIZONTAL_PADDING = 4;
 const FALLBACK_LEFT_INSET = 14;
-const FALLBACK_LEFT_INSET_WITH_LINE_NUMBERS = 38;
+const FALLBACK_LEFT_INSET_WITH_LINE_NUMBERS = 30;
 
 export const CodeEditor = React.forwardRef<CodeEditorHandle, CodeEditorProps>(
   function CodeEditor(props, ref) {
@@ -107,7 +107,7 @@ function defaultPlaceholder(language: CodeLanguage): string | undefined {
   if (language === 'yaml') return 'key: value';
   if (language === 'vrl') return '.level = upcase(.level)';
   if (language === 'javascript') return 'export function transform(event) {\n  return event;\n}';
-  if (language === 'field-query') return 'trace_id = "..." AND service_name contains "checkout"';
+  if (language === 'field-query') return 'trace_id = "..." AND service.name contains "checkout"';
   if (language === 'template') return '{{severity}} {{rule.name}}';
   return undefined;
 }

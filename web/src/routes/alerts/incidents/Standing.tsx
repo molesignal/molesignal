@@ -52,10 +52,10 @@ export function IncidentStanding({
   const worst = SEVERITIES_WORST_FIRST.find((severity) => counts[severity] > 0);
   const services = affectedServices(active);
   const oldest = active.reduce<Incident | undefined>(
-    (first, incident) => (!first || incident.created_at < first.created_at ? incident : first),
+    (first, incident) => (!first || incident.createdAt < first.createdAt ? incident : first),
     undefined,
   );
-  const lastRecovery = recovered[0]?.resolved_at;
+  const lastRecovery = recovered[0]?.resolvedAt;
 
   return (
     <Statement

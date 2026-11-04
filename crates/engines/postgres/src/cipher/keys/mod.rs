@@ -17,6 +17,7 @@ use crate::shared::{Result, ids::Id, time::TimestampMicros};
 pub mod root;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CipherKey {
     pub id: Id,
     pub org_id: Id,
@@ -82,16 +83,17 @@ fn row_to(r: sqlx::postgres::PgRow, mk: &CipherRootKey) -> Result<CipherKey> {
         alg: r.try_get::<String, _>("alg").unwrap_or_default(),
         version: r.try_get::<i32, _>("version").unwrap_or(1),
         raw_key: raw,
-        created_at: TimestampMicros(r.try_get::<i64, _>("created_at_micros").unwrap_or_default()),
+        created_at: r
+            .try_get::<TimestampMicros, _>("created_at")
+            .unwrap_or_default(),
         rotated_at: r
-            .try_get::<Option<i64>, _>("rotated_at_micros")
-            .unwrap_or_default()
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("rotated_at")
+            .unwrap_or_default(),
     })
 }
 
 const COLS: &str = "id, org_id, name, alg, version, key_material_enc, nonce,
-                    created_at_micros, rotated_at_micros";
+                    created_at, rotated_at";
 
 #[async_trait]
 impl CipherKeyRepository for PgCipherKeyRepository {
@@ -113,7 +115,7 @@ impl CipherKeyRepository for PgCipherKeyRepository {
         sqlx::query(
             "INSERT INTO cipher_keys
                 (id, org_id, name, alg, version, key_material_enc, nonce,
-                 created_at_micros, rotated_at_micros)
+                 created_at, rotated_at)
              VALUES ($1, $2, $3, 'aes-256-gcm', 1, $4, $5, $6, NULL)",
         )
         .bind(&id.0)
@@ -121,7 +123,7 @@ impl CipherKeyRepository for PgCipherKeyRepository {
         .bind(name)
         .bind(&enc)
         .bind(&nonce)
-        .bind(created.0)
+        .bind(created)
         .execute(&self.pool)
         .await
         .map_err(|error| match super::super::persistence::sqlx_err(error) {
@@ -177,7 +179,7 @@ impl CipherKeyRepository for PgCipherKeyRepository {
         sqlx::query(
             "INSERT INTO cipher_keys
                 (id, org_id, name, alg, version, key_material_enc, nonce,
-                 created_at_micros, rotated_at_micros)
+                 created_at, rotated_at)
              VALUES ($1, $2, $3, 'aes-256-gcm', $4, $5, $6, $7, $7)",
         )
         .bind(&id.0)
@@ -186,7 +188,7 @@ impl CipherKeyRepository for PgCipherKeyRepository {
         .bind(next)
         .bind(&enc)
         .bind(&nonce)
-        .bind(now.0)
+        .bind(now)
         .execute(&self.pool)
         .await
         .map_err(super::super::persistence::sqlx_err)?;

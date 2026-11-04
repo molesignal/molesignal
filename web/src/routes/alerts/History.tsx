@@ -3,23 +3,26 @@ import { Search } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { DataTable } from '@/admin';
+import { ClearFiltersButton, DataTable } from '@/admin';
 import * as incidentsApi from '@/api/incidents';
 import { formatMicrosActive } from '@/lib/time';
 import type { ProductStateProps } from '@/product/states';
-import { ChromeButton, Pill, type PillTone } from '@/shell/chrome';
+import { ChromeButton } from '@/shell/chrome';
 import { FormInput, FormSelect } from '@/shell/FormDrawer';
 import { IncidentDetailDrawer } from '@/shell/incident/DetailDrawer';
+import { PriorityText } from '@/shell/incident/Importance';
 import { ResultPagination } from '@/shell/ResultPagination';
-import type { IncidentStatus, Severity } from '@/types/alerting';
+import { StatusWord, type StatusTone } from '@/shell/StatusWord';
+import type { IncidentStatus, Priority, Severity } from '@/types/alerting';
 
 import { formatDurationSecs } from './alertRuleModel';
 import { AlertsPage } from './Frame';
+import { PrioritySelect } from './incidents';
 import { SEVERITIES_WORST_FIRST, incidentDurationSecs } from './incidents/model';
 import { IncidentSummaryCell } from './incidents/SummaryCell';
 import { alertFlatTableClassName } from './Surfaces';
 
-const STATUS_TONE: Record<IncidentStatus, PillTone> = {
+const STATUS_TONE: Record<IncidentStatus, StatusTone> = {
   open: 'red',
   acknowledged: 'yellow',
   resolved: 'green',
@@ -32,7 +35,7 @@ const PAGE_SIZE_OPTIONS = [20, 50, 100];
 
 /**
  * Every incident of the last ninety days, whatever became of it. The search
- * and the two filters are the head of the list; a row names the incident the
+ * and the filters are the head of the list; a row names the incident the
  * way the Incidents tab does, then says when it fired, when it recovered and
  * how long that took.
  */
@@ -42,16 +45,17 @@ export function AlertsHistory() {
   const [search, setSearch] = React.useState('');
   const [severity, setSeverity] = React.useState<Severity | ''>('');
   const [status, setStatus] = React.useState<IncidentStatus | ''>('');
+  const [priority, setPriority] = React.useState<Priority | 'none' | ''>('');
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
   const query = useQuery({
     queryKey: ['alerts-history'],
-    queryFn: () => incidentsApi.list({ scope: 'all', window_secs: 90 * 24 * 60 * 60 }),
+    queryFn: () => incidentsApi.list({ scope: 'all', windowSecs: 90 * 24 * 60 * 60 }),
   });
   const rows = React.useMemo(
     () =>
       [...(query.data ?? [])].sort(
-        (left, right) => (right.resolved_at ?? right.created_at) - (left.resolved_at ?? left.created_at),
+        (left, right) => (right.resolvedAt ?? right.createdAt) - (left.resolvedAt ?? left.createdAt),
       ),
     [query.data],
   );
@@ -61,13 +65,14 @@ export function AlertsHistory() {
     return rows.filter((incident) => {
       if (severity && incident.severity !== severity) return false;
       if (status && incident.status !== status) return false;
+      if (priority && (priority === 'none' ? Boolean(incident.priority) : incident.priority !== priority)) return false;
       if (!needle) return true;
 
       return [
         incident.summary,
         incident.id,
-        incident.rule_id,
-        ...incident.affected_services,
+        incident.ruleId,
+        ...incident.affectedServices,
         incident.labels.service,
         incident.labels.svc,
       ]
@@ -76,11 +81,11 @@ export function AlertsHistory() {
         .toLocaleLowerCase()
         .includes(needle);
     });
-  }, [rows, search, severity, status]);
+  }, [rows, search, severity, status, priority]);
 
   React.useEffect(() => {
     setPage(1);
-  }, [search, severity, status]);
+  }, [search, severity, status, priority]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
@@ -103,6 +108,16 @@ export function AlertsHistory() {
               variant: 'empty',
               title: t('history.no_matches_title'),
               description: t('history.no_matches_description'),
+              action: (
+                <ClearFiltersButton
+                  onClear={() => {
+                    setSearch('');
+                    setSeverity('');
+                    setStatus('');
+                    setPriority('');
+                  }}
+                />
+              ),
             }
           : null;
 
@@ -143,6 +158,7 @@ export function AlertsHistory() {
                 ...STATUSES.map((item) => ({ value: item, label: t(`history.status.${item}`) })),
               ]}
             />
+            <PrioritySelect value={priority} onChange={setPriority} className="w-full sm:w-[140px]" />
           </>
         }
       >
@@ -164,11 +180,17 @@ export function AlertsHistory() {
               ),
             },
             {
+              key: 'priority',
+              header: t('history.columns.priority'),
+              width: 80,
+              cell: (incident) => <PriorityText priority={incident.priority} />,
+            },
+            {
               key: 'status',
               header: t('history.columns.current_status'),
               width: 140,
               cell: (incident) => (
-                <Pill tone={STATUS_TONE[incident.status]}>{t(`history.status.${incident.status}`)}</Pill>
+                <StatusWord tone={STATUS_TONE[incident.status]}>{t(`history.status.${incident.status}`)}</StatusWord>
               ),
             },
             {
@@ -176,7 +198,7 @@ export function AlertsHistory() {
               header: t('history.columns.created'),
               width: 180,
               cell: (incident) => (
-                <span className="tabular-nums text-tx-2">{formatMicrosActive(incident.created_at)}</span>
+                <span className="tabular-nums text-tx-2">{formatMicrosActive(incident.createdAt)}</span>
               ),
             },
             {
@@ -185,7 +207,7 @@ export function AlertsHistory() {
               width: 180,
               cell: (incident) => (
                 <span className="tabular-nums text-tx-2">
-                  {incident.resolved_at ? formatMicrosActive(incident.resolved_at) : '—'}
+                  {incident.resolvedAt ? formatMicrosActive(incident.resolvedAt) : '—'}
                 </span>
               ),
             },

@@ -12,6 +12,8 @@
 //! MS_RUN_IT=1 cargo test -p molesignal --test infra_it_semantic_groups -- --nocapture
 //! ```
 
+mod common;
+
 use molesignal::{
     config::MetaDatabaseSettings,
     domain::alerting::{
@@ -27,18 +29,13 @@ use molesignal::{
     },
     shared::{ids::Id, time::TimestampMicros},
 };
-use testcontainers::runners::AsyncRunner;
-use testcontainers_modules::postgres::Postgres as PgImage;
 
 fn skip_unless_enabled() -> bool {
     std::env::var("MS_RUN_IT").ok().as_deref() != Some("1")
 }
 
 async fn boot() -> MetaStore {
-    let pg = PgImage::default().start().await.expect("start pg");
-    let port = pg.get_host_port_ipv4(5432).await.expect("pg port");
-    let host = pg.get_host().await.expect("pg host");
-    let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+    let (dsn, pg) = common::test_database().await;
     let store = MetaStore::connect(&MetaDatabaseSettings {
         dsn,
         min_connections: 1,

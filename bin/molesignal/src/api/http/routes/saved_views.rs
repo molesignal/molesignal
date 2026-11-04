@@ -60,6 +60,7 @@ struct ListQuery {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct WriteReq {
     name: String,
     language: QueryLanguage,
@@ -102,7 +103,7 @@ fn validate(req: &WriteReq) -> Result<()> {
 
     if req.time_range_secs == 0 || req.time_range_secs > MAX_RANGE_SECS {
         return Err(Error::invalid(
-            "time_range_secs must be between 1 and 31622400",
+            "timeRangeSecs must be between 1 and 31622400",
         ));
     }
 

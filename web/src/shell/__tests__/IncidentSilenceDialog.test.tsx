@@ -45,15 +45,15 @@ describe('IncidentSilenceDialog', () => {
     });
     silenceIncident.mockResolvedValue({
       id: 'mute-1',
-      org_id: 'org-1',
+      orgId: 'org-1',
       name: 'incident-incident-1',
       enabled: true,
       matchers: [],
       window: { type: 'fixed', start: 1, end: 2 },
       comment: '',
-      created_by: null,
-      created_at: 1,
-      updated_at: 1,
+      createdBy: null,
+      createdAt: 1,
+      updatedAt: 1,
     });
 
     render(
@@ -77,7 +77,7 @@ describe('IncidentSilenceDialog', () => {
 
     await waitFor(() => {
       expect(silenceIncident).toHaveBeenCalledWith('incident-1', {
-        duration_secs: 3_600,
+        durationSecs: 3_600,
         comment: '',
       });
       expect(onOpenChange).toHaveBeenCalledWith(false);

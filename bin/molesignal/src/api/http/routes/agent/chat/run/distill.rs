@@ -22,7 +22,6 @@ use crate::{
         },
         memory::{DISTILL_INSTRUCTION, index_prompt, parse_drafts},
         runs::{RunEventKind, language_instruction},
-        scope::{ChatScope, Scope},
         usage::UsageOrigin,
     },
     api::http::routes::agent::{budget, viewer::chat_scope},
@@ -82,9 +81,9 @@ pub(super) async fn distill(
         return Ending::succeeded();
     }
 
-    let scope = match chat_scope(&chat) {
-        ChatScope::Team { team_id } => Scope::Team { team_id },
-        ChatScope::Personal { owner_id, .. } => Scope::Personal { owner_id },
+    // 组织会话（组织作用域的自动化）没有记忆。
+    let Some(scope) = chat_scope(&chat).memory_scope() else {
+        return Ending::succeeded();
     };
 
     let existing = state
@@ -160,7 +159,7 @@ pub(super) async fn distill(
         control
             .emit(
                 RunEventKind::Notice,
-                json!({ "kind": "memories", "count": names.len(), "names": names, "at_micros": TimestampMicros::now().0 }),
+                json!({ "kind": "memories", "count": names.len(), "names": names, "atTime": TimestampMicros::now().0 }),
             )
             .await;
     }

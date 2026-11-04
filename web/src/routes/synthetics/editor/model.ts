@@ -2,6 +2,7 @@ import type {
   AssertionOperator,
   AssertionSeverity,
   CreateMonitorInput,
+  HttpVersion,
   MonitorAssertion,
   MonitorDetail,
   MonitorKind,
@@ -28,6 +29,12 @@ export interface HeaderDraft {
   value: string;
 }
 
+/** A host name and the addresses it is reached at, comma separated as typed. */
+export interface HostBindingDraft {
+  name: string;
+  addresses: string;
+}
+
 export interface CheckDraft {
   name: string;
   description: string;
@@ -36,6 +43,15 @@ export interface CheckDraft {
   url: string;
   body: string;
   headers: HeaderDraft[];
+  httpVersion: HttpVersion;
+  /** The client certificate chain, in PEM. */
+  clientCertificate: string;
+  /** A new private key in PEM; empty keeps the key the revision below holds, if any. */
+  clientKey: string;
+  /** The revision holding the saved private key, which is never sent back. */
+  clientKeyRevision: string | null;
+  dnsServer: string;
+  hostBindings: HostBindingDraft[];
   browserSteps: string;
   host: string;
   port: string;
@@ -72,6 +88,9 @@ export interface CheckDraft {
   tags: string;
   alertOnDegraded: boolean;
   alertOnFlaky: boolean;
+  alertOnNoData: boolean;
+  injectTraceContext: boolean;
+  tracerouteOnFailure: boolean;
   escalationPolicyId: string;
 }
 
@@ -93,6 +112,12 @@ export function emptyDraft(locations: ProbeLocation[]): CheckDraft {
     url: 'https://',
     body: '',
     headers: [],
+    httpVersion: 'auto',
+    clientCertificate: '',
+    clientKey: '',
+    clientKeyRevision: null,
+    dnsServer: '',
+    hostBindings: [],
     browserSteps: 'open https://',
     host: '',
     port: '443',
@@ -129,6 +154,9 @@ export function emptyDraft(locations: ProbeLocation[]): CheckDraft {
     tags: '',
     alertOnDegraded: false,
     alertOnFlaky: false,
+    alertOnNoData: true,
+    injectTraceContext: true,
+    tracerouteOnFailure: true,
     escalationPolicyId: '',
   };
 }
@@ -181,15 +209,18 @@ export function draftFromDetail(
     name: input.name,
     description: input.description,
     kind: input.spec.kind,
-    timeoutMillis: String(input.timeout_millis),
-    retries: String(input.max_retries),
-    failureThreshold: String(input.consecutive_failures),
-    recoveryThreshold: String(input.consecutive_recoveries),
-    locationIds: input.location_ids,
+    timeoutMillis: String(input.timeoutMillis),
+    retries: String(input.maxRetries),
+    failureThreshold: String(input.consecutiveFailures),
+    recoveryThreshold: String(input.consecutiveRecoveries),
+    locationIds: input.locationIds,
     tags: input.tags.join(', '),
-    alertOnDegraded: input.alert_on_degraded,
-    alertOnFlaky: input.alert_on_flaky,
-    escalationPolicyId: input.escalation_policy_id ?? '',
+    alertOnDegraded: input.alertOnDegraded,
+    alertOnFlaky: input.alertOnFlaky,
+    alertOnNoData: input.alertOnNoData,
+    injectTraceContext: input.injectTraceContext,
+    tracerouteOnFailure: input.tracerouteOnFailure,
+    escalationPolicyId: input.escalationPolicyId ?? '',
     ...(revision.schedule.kind === 'cron'
       ? {
           scheduleKind: 'cron' as const,
@@ -200,8 +231,8 @@ export function draftFromDetail(
           scheduleKind: 'interval' as const,
           intervalSeconds: String(
             revision.schedule.kind === 'heartbeat'
-              ? revision.schedule.expected_seconds
-              : revision.schedule.every_seconds,
+              ? revision.schedule.expectedSeconds
+              : revision.schedule.everySeconds,
           ),
         }),
   };
@@ -220,23 +251,34 @@ function hydrateSpec(draft: CheckDraft, spec: MonitorSpec) {
       value: valueSourceText(header.value),
     }));
     draft.assertions = (step?.assertions ?? []).map(assertionToDraft);
+    draft.httpVersion = spec.configuration.httpVersion ?? 'auto';
+    const clientCertificate = spec.configuration.clientCertificate;
+    draft.clientCertificate = clientCertificate?.certificate ?? '';
+    draft.clientKey = '';
+    draft.clientKeyRevision =
+      clientCertificate?.privateKey.state === 'kept' ? clientCertificate.privateKey.revisionId : null;
+    draft.dnsServer = spec.configuration.dnsServer ?? '';
+    draft.hostBindings = (spec.configuration.hosts ?? []).map((binding) => ({
+      name: binding.name,
+      addresses: binding.addresses.join(', '),
+    }));
   } else if (spec.kind === 'browser') {
     draft.browserSteps = spec.configuration.steps.map(browserStepText).join('\n');
   } else if (spec.kind === 'tcp') {
     draft.host = valueSourceText(spec.configuration.host);
     draft.port = String(spec.configuration.port);
-    draft.useTls = spec.configuration.use_tls;
+    draft.useTls = spec.configuration.useTls;
     draft.assertions = spec.configuration.assertions.map(assertionToDraft);
   } else if (spec.kind === 'ssh') {
     draft.host = valueSourceText(spec.configuration.host);
     draft.port = String(spec.configuration.port);
-    draft.sshIdentificationRegex = spec.configuration.expected_identification_regex ?? '';
-    draft.sshHostKeySha256 = spec.configuration.expected_host_key_sha256 ?? '';
+    draft.sshIdentificationRegex = spec.configuration.expectedIdentificationRegex ?? '';
+    draft.sshHostKeySha256 = spec.configuration.expectedHostKeySha256 ?? '';
     draft.sshCommand = spec.configuration.command
       ? valueSourceText(spec.configuration.command)
       : '';
-    draft.sshOutputRegex = spec.configuration.expected_output_regex ?? '';
-    draft.sshExitStatus = String(spec.configuration.expected_exit_status ?? 0);
+    draft.sshOutputRegex = spec.configuration.expectedOutputRegex ?? '';
+    draft.sshExitStatus = String(spec.configuration.expectedExitStatus ?? 0);
     const authentication = spec.configuration.authentication;
     if (authentication?.kind === 'password') {
       draft.sshAuthMode = 'password';
@@ -245,30 +287,30 @@ function hydrateSpec(draft: CheckDraft, spec: MonitorSpec) {
     } else if (authentication?.kind === 'public_key') {
       draft.sshAuthMode = 'public_key';
       draft.sshUsername = valueSourceText(authentication.username);
-      draft.sshPrivateKey = valueSourceText(authentication.private_key);
+      draft.sshPrivateKey = valueSourceText(authentication.privateKey);
       draft.sshPassphrase = authentication.passphrase
         ? valueSourceText(authentication.passphrase)
         : '';
     }
   } else if (spec.kind === 'dns') {
     draft.host = spec.configuration.name;
-    draft.recordType = spec.configuration.record_type;
+    draft.recordType = spec.configuration.recordType;
     draft.resolver = spec.configuration.resolver ?? '';
-    draft.expectedValues = spec.configuration.expected_values.join(', ');
-    draft.dnssec = spec.configuration.require_dnssec;
+    draft.expectedValues = spec.configuration.expectedValues.join(', ');
+    draft.dnssec = spec.configuration.requireDnssec;
     draft.assertions = spec.configuration.assertions.map(assertionToDraft);
   } else if (spec.kind === 'icmp') {
     draft.host = spec.configuration.host;
     draft.pingCount = String(spec.configuration.count);
-    draft.packetLoss = String(spec.configuration.max_packet_loss_ratio * 100);
-    draft.latencyLimit = String(spec.configuration.max_mean_rtt_millis ?? '');
+    draft.packetLoss = String(spec.configuration.maxPacketLossRatio * 100);
+    draft.latencyLimit = String(spec.configuration.maxMeanRttMillis ?? '');
   } else if (spec.kind === 'tls') {
     draft.host = spec.configuration.host;
     draft.port = String(spec.configuration.port);
-    draft.certificateDays = String(spec.configuration.minimum_days_remaining);
+    draft.certificateDays = String(spec.configuration.minimumDaysRemaining);
   } else if (spec.kind === 'grpc') {
     draft.host = spec.configuration.endpoint;
-    draft.useTls = spec.configuration.use_tls;
+    draft.useTls = spec.configuration.useTls;
     draft.grpcService = spec.configuration.call.service;
     draft.assertions = spec.configuration.assertions.map(assertionToDraft);
   }
@@ -301,7 +343,7 @@ function browserStepText(step: { action: Record<string, unknown> & { action: str
   if (action.action === 'fill') {
     return `input ${String(action.selector ?? '')} ${valueSourceText(action.value as ValueSource)}`;
   }
-  if (action.action === 'wait_duration') return `wait ${String(action.duration_millis ?? 1000)}`;
+  if (action.action === 'wait_duration') return `wait ${String(action.durationMillis ?? 1000)}`;
   if (action.action === 'wait_selector') return `wait ${String(action.selector ?? '')}`;
   if (action.action === 'screenshot') return `screenshot ${String(action.name ?? 'capture')}`;
   return `${action.action} ${String(action.selector ?? action.expression ?? '')}`.trim();
@@ -322,22 +364,25 @@ export function inputFromDraft(
     spec: buildSpec(draft, secrets),
     schedule:
       draft.kind === 'heartbeat'
-        ? { kind: 'heartbeat', expected_seconds: interval, grace_seconds: interval * 2 }
+        ? { kind: 'heartbeat', expectedSeconds: interval, graceSeconds: interval * 2 }
         : draft.scheduleKind === 'cron'
           ? { kind: 'cron', expression: draft.cron.trim(), timezone: draft.timezone }
-          : { kind: 'interval', every_seconds: interval },
-    timeout_millis: timeout,
-    max_retries: Math.max(0, Math.min(2, Number(draft.retries) || 0)),
-    consecutive_failures: Math.max(1, Number(draft.failureThreshold) || 1),
-    consecutive_recoveries: Math.max(1, Number(draft.recoveryThreshold) || 1),
-    freshness_seconds: Math.max(interval * 3, 60),
-    location_policy: { kind: 'majority' },
-    location_ids: draft.kind === 'heartbeat' ? [] : draft.locationIds,
+          : { kind: 'interval', everySeconds: interval },
+    timeoutMillis: timeout,
+    maxRetries: Math.max(0, Math.min(2, Number(draft.retries) || 0)),
+    consecutiveFailures: Math.max(1, Number(draft.failureThreshold) || 1),
+    consecutiveRecoveries: Math.max(1, Number(draft.recoveryThreshold) || 1),
+    freshnessSeconds: Math.max(interval * 3, 60),
+    locationPolicy: { kind: 'majority' },
+    locationIds: draft.kind === 'heartbeat' ? [] : draft.locationIds,
     tags: draft.tags.split(',').map((tag) => tag.trim()).filter(Boolean),
     ...(draft.escalationPolicyId
-      ? { escalation_policy_id: draft.escalationPolicyId }
+      ? { escalationPolicyId: draft.escalationPolicyId }
       : {}),
-    alert_on_degraded: draft.alertOnDegraded,
-    alert_on_flaky: draft.alertOnFlaky,
+    alertOnDegraded: draft.alertOnDegraded,
+    alertOnFlaky: draft.alertOnFlaky,
+    alertOnNoData: draft.alertOnNoData,
+    injectTraceContext: draft.injectTraceContext,
+    tracerouteOnFailure: draft.tracerouteOnFailure,
   };
 }

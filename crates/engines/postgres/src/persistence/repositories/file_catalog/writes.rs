@@ -44,13 +44,13 @@ pub(super) async fn bump_dataset_version(
     new_version: u64,
 ) -> Result<()> {
     sqlx::query(
-        "UPDATE physical_datasets SET catalog_version = $3, updated_at_micros = $4 \
+        "UPDATE physical_datasets SET catalog_version = $3, updated_at = $4 \
          WHERE org_id = $1 AND id = $2",
     )
     .bind(scope.organization_id.as_str())
     .bind(dataset_id.as_str())
     .bind(to_i64(new_version, "catalog_version")?)
-    .bind(TimestampMicros::now().0)
+    .bind(TimestampMicros::now())
     .execute(conn)
     .await
     .map_err(sqlx_err)?;
@@ -69,21 +69,21 @@ pub(super) async fn insert_segment(
     let now = TimestampMicros::now().0;
 
     sqlx::query(
-        "INSERT INTO catalog_segments (org_id, id, dataset_id, partition_start_micros, \
-         partition_end_micros, partition_shard, min_event_micros, max_event_micros, row_count, \
+        "INSERT INTO catalog_segments (org_id, id, dataset_id, partition_start, \
+         partition_end, partition_shard, min_event, max_event, row_count, \
          schema_fingerprint, column_stats, flush_id, sequence_start, sequence_end, \
-         output_ordinal, state, visible_from_version, retired_at_version, created_at_micros)
+         output_ordinal, state, visible_from_version, retired_at_version, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, \
                  'active', $16, NULL, $17)",
     )
     .bind(scope.organization_id.as_str())
     .bind(segment.id.as_str())
     .bind(segment.dataset_id.as_str())
-    .bind(segment.partition.start_micros)
-    .bind(segment.partition.end_micros)
+    .bind(TimestampMicros(segment.partition.start_micros))
+    .bind(TimestampMicros(segment.partition.end_micros))
     .bind(segment.partition.shard as i16)
-    .bind(segment.time_range.start.0)
-    .bind(segment.time_range.end.0)
+    .bind(segment.time_range.start)
+    .bind(segment.time_range.end)
     .bind(to_i64(segment.row_count, "row_count")?)
     .bind(segment.schema_fingerprint.map(|f| f.0))
     .bind(Json(&segment.column_stats))
@@ -102,7 +102,7 @@ pub(super) async fn insert_segment(
     )
     .bind(segment.output_ordinal as i32)
     .bind(to_i64(visible_from_version, "visible_from_version")?)
-    .bind(now)
+    .bind(TimestampMicros(now))
     .execute(&mut *conn)
     .await
     .map_err(sqlx_err)?;
@@ -125,7 +125,7 @@ pub(super) async fn insert_artifact(
     sqlx::query(
         "INSERT INTO catalog_artifacts (org_id, id, segment_id, role, artifact_type, format_version, \
          object_key, size_bytes, checksum, etag, source_artifact_id, source_checksum, schema_fingerprint, \
-         state, failure_reason, created_at_micros, updated_at_micros)
+         state, failure_reason, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $16)",
     )
     .bind(scope.organization_id.as_str())
@@ -143,7 +143,7 @@ pub(super) async fn insert_artifact(
     .bind(artifact.schema_fingerprint.map(|f| f.0))
     .bind(artifact.state.as_str())
     .bind(artifact.failure_reason.as_deref())
-    .bind(now)
+    .bind(TimestampMicros(now))
     .execute(conn)
     .await
     .map_err(sqlx_err)?;
@@ -163,25 +163,25 @@ pub(super) async fn enqueue_object_gc(
     let now = TimestampMicros::now().0;
 
     sqlx::query(
-        "INSERT INTO object_gc_queue (org_id, object_key, checksum, reason, not_before_micros, \
-         attempt_count, state, last_error, created_at_micros, updated_at_micros)
+        "INSERT INTO object_gc_queue (org_id, object_key, checksum, reason, not_before, \
+         attempt_count, state, last_error, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, 0, 'pending', NULL, $6, $6)
          ON CONFLICT (org_id, object_key) DO UPDATE SET
-             not_before_micros = GREATEST(object_gc_queue.not_before_micros, \
-                                          EXCLUDED.not_before_micros),
+             not_before = GREATEST(object_gc_queue.not_before, \
+                                          EXCLUDED.not_before),
              checksum = COALESCE(EXCLUDED.checksum, object_gc_queue.checksum),
              reason = EXCLUDED.reason,
              attempt_count = 0,
              state = 'pending',
              last_error = NULL,
-             updated_at_micros = EXCLUDED.updated_at_micros",
+             updated_at = EXCLUDED.updated_at",
     )
     .bind(scope.organization_id.as_str())
     .bind(object_key.as_str())
     .bind(checksum.map(|c| c.as_str()))
     .bind(reason.as_str())
-    .bind(not_before_micros)
-    .bind(now)
+    .bind(TimestampMicros(not_before_micros))
+    .bind(TimestampMicros(now))
     .execute(conn)
     .await
     .map_err(sqlx_err)?;
@@ -213,12 +213,12 @@ pub(super) async fn tombstone_segment_artifacts(
     .map_err(sqlx_err)?;
 
     sqlx::query(
-        "UPDATE catalog_artifacts SET state = 'tombstoned', updated_at_micros = $3 \
+        "UPDATE catalog_artifacts SET state = 'tombstoned', updated_at = $3 \
          WHERE org_id = $1 AND segment_id = ANY($2) AND state <> 'tombstoned'",
     )
     .bind(scope.organization_id.as_str())
     .bind(segment_ids)
-    .bind(TimestampMicros::now().0)
+    .bind(TimestampMicros::now())
     .execute(&mut *conn)
     .await
     .map_err(sqlx_err)?;

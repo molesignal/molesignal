@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import type * as usersApi from '@/api/users';
 import { formatRelativeMicros } from '@/routes/pipelines/presentation';
-import { Pill, type PillTone } from '@/shell/chrome';
+import { StatusWord, type StatusTone } from '@/shell/StatusWord';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shell/ui/avatar';
 
 export type StatusFilter =
@@ -14,10 +14,10 @@ export type StatusFilter =
   | 'rejected';
 
 export function UserAvatar({ user }: { user: usersApi.UserView }) {
-  const fallback = initials(user.display_name || user.email);
+  const fallback = initials(user.displayName || user.email);
   return (
     <Avatar className="h-8 w-8">
-      {user.avatar_url && <AvatarImage src={user.avatar_url} alt="" />}
+      {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt="" />}
       <AvatarFallback className="bg-indigo-dim font-sans text-type-micro font-bold text-tx-0">
         {fallback}
       </AvatarFallback>
@@ -25,17 +25,21 @@ export function UserAvatar({ user }: { user: usersApi.UserView }) {
   );
 }
 
-export function UserStatusPill({ user }: { user: usersApi.UserView }) {
+export function UserStatusWord({ user }: { user: usersApi.UserView }) {
   const { t } = useTranslation('iam');
   const status = normalizedStatus(user);
-  const tones: Record<StatusFilter, PillTone> = {
+  const tones: Record<StatusFilter, StatusTone> = {
     all: 'neutral',
     active: 'green',
     pending: 'yellow',
     disabled: 'red',
     rejected: 'red',
   };
-  return <Pill tone={tones[status]}>{t(`users.status_${status}`)}</Pill>;
+  return (
+    <StatusWord tone={tones[status]} strong={status !== 'active'}>
+      {t(`users.status_${status}`)}
+    </StatusWord>
+  );
 }
 
 export function normalizedStatus(
@@ -65,8 +69,8 @@ export function lastActiveLabel(
   t: TFunction<'iam'>,
 ): string {
   if (user.id === currentUserId) return t('users.just_now');
-  if (user.last_active_at_micros) {
-    return formatRelativeMicros(user.last_active_at_micros, locale);
+  if (user.lastActiveAt) {
+    return formatRelativeMicros(user.lastActiveAt, locale);
   }
   if (user.status === 'pending' || user.status === 'rejected') {
     return t('users.never_login');

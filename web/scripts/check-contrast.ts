@@ -55,7 +55,25 @@ const BODY_PAIRS: Array<[string, string]> = [
   ['--tx-3', '--bg-2'],
   ['--tx-3', '--bg-3'],
   ['--fg', '--surface'],
+  // The words of a table's head on its band.
+  ['--tx-0', '--table-head-surface'],
 ];
+
+// The current entry of a menu: the brand's words on its fill, which on dark is a veil over the
+// sidebar or the page.
+const NAV_CURRENT: Pair = {
+  fg: '--nav-current-ink',
+  bg: '--nav-current-surface',
+  over: ['--sidebar-surface', '--page-canvas'],
+  target: 4.5,
+  label: 'AA body',
+};
+
+// A placeholder is a hint, not the field's content: 3:1 on the field's fill wherever the field
+// stands. The fill does not change under the pointer; on dark it is a veil, measured over each
+// ground a field stands on.
+const PLACEHOLDER_FILL = '--control-surface';
+const FIELD_GROUNDS = ['--functional-surface', '--page-canvas', '--bg-2', '--floating-surface'];
 // Status-text pairs: a word in a status color (`text-green`, the state of a check in its row)
 // holds AA on every fill a row takes, as ink does.
 const STATUS_TONES = ['--green', '--yellow', '--blue', '--purple', '--orange'];
@@ -63,10 +81,11 @@ const STATUS_TONES = ['--green', '--yellow', '--blue', '--purple', '--orange'];
 // the hardest of them; a selected row (indigo-dim over its surface) stays nearer the surface.
 const INK_TONES = ['--blue-ink', '--green-ink', '--orange-ink', '--red-ink', '--purple-ink', '--yellow-ink'];
 const ROW_FILLS = ['--bg-0', '--bg-1', '--bg-2', '--bg-3'];
-// Tint pairs: a word in ink on the tint of its tone (a chip, a notice), and every ink on the
-// indigo tint, the fill of a reference that holds the keyboard (what it names may be set in ink,
-// an HTTP method). A tint is opaque on light; on dark it is a veil over the fill of its row.
-const TINT_TONES = ['blue', 'green', 'orange', 'purple', 'yellow'];
+// Tint pairs: a word in ink on the tint of its tone (a chip, a notice, the chosen toggle of a
+// query toolbar), and every ink on the indigo tint, the fill of a reference that holds the
+// keyboard (what it names may be set in ink, an HTTP method). A tint is opaque on light; on dark
+// it is a veil over the fill of its row.
+const TINT_TONES = ['blue', 'green', 'orange', 'purple', 'yellow', 'indigo'];
 const FOCUS_TINT = '--indigo-tint';
 // The tones in which a chip is set in the status color itself on its tint: a table that has
 // rows, a notice that an import went through, a filter that was left out of a query.
@@ -103,6 +122,10 @@ function buildPairList(): Pair[] {
   for (const fg of INK_TONES) out.push({ fg, bg: FOCUS_TINT, over: ROW_FILLS, target: 4.5, label: 'AA body' });
   for (const [fg, bg] of ALERT_TEXT_PAIRS) out.push({ fg, bg, target: 7, label: 'AAA alert' });
   for (const [fg, bg] of BADGE_PAIRS) out.push({ fg, bg, target: 3, label: 'AA UI' });
+  out.push(NAV_CURRENT);
+  out.push({ fg: '--placeholder', bg: PLACEHOLDER_FILL, over: FIELD_GROUNDS, target: 3, label: 'AA UI' });
+  // A shortcut shown in a field is read like any word: AA on the field over the top bar.
+  out.push({ fg: '--shortcut-hint', bg: PLACEHOLDER_FILL, over: ['--functional-surface'], target: 4.5, label: 'AA body' });
   return out;
 }
 

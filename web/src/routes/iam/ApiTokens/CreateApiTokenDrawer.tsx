@@ -3,14 +3,10 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import * as apiTokens from '@/api/apiTokens';
-import * as rolesApi from '@/api/roles';
 import * as serviceAccountsApi from '@/api/serviceAccounts';
 import { writeClipboardText } from '@/lib/clipboard';
 import { toApiError } from '@/lib/http';
-import {
-  type ActionAccess,
-  useActionAccess,
-} from '@/product/actionAccess';
+import type { ActionAccess } from '@/product/actionAccess';
 import { ChromeButton } from '@/shell/chrome';
 import { CopyIconButton } from '@/shell/CopyIconButton';
 import {
@@ -23,87 +19,92 @@ import {
 } from '@/shell/FormDrawer';
 import { toast } from '@/shell/ui/sonner';
 
+import {
+  PRINCIPAL_SCOPE,
+  type ScopeChoice,
+  type TokenPrincipal,
+  TokenScopeField,
+  scopeIncomplete,
+  scopePayload,
+} from './scope';
+
+/** Where each kind of token is listed, refreshed once a new one is issued. */
+export const TOKEN_LIST_KEYS: Record<TokenPrincipal, readonly string[]> = {
+  me: ['me', 'api-tokens'],
+  service_account: ['iam', 'api-tokens'],
+};
+
+/**
+ * Issues a token: one of the signed-in user's own, or one for a service
+ * account. Either way it never does more than its principal may do, and its
+ * secret is shown this once.
+ */
 export function CreateApiTokenDrawer({
   open,
   access,
+  principal,
   defaultServiceAccountId,
   onClose,
 }: {
   open: boolean;
   access: ActionAccess;
+  principal: TokenPrincipal;
   defaultServiceAccountId?: string;
   onClose: () => void;
 }) {
   const { t } = useTranslation('iam');
   const { t: tc } = useTranslation('common');
   const queryClient = useQueryClient();
-  const serviceAccountAccess = useActionAccess({
-    permission: 'service_accounts.read',
-  });
   const [name, setName] = React.useState('');
-  const [roleId, setRoleId] = React.useState('');
   const [serviceAccountId, setServiceAccountId] = React.useState('');
+  const [scope, setScope] = React.useState<ScopeChoice>(PRINCIPAL_SCOPE);
   const [expiresInDays, setExpiresInDays] = React.useState('365');
-  const [created, setCreated] =
-    React.useState<apiTokens.CreatedApiToken | null>(null);
-  const roles = useQuery({
-    queryKey: ['iam', 'roles'],
-    queryFn: rolesApi.list,
-    enabled: open,
-  });
+  const [created, setCreated] = React.useState<apiTokens.IssuedApiToken | null>(null);
+  const forServiceAccount = principal === 'service_account';
   const serviceAccounts = useQuery({
     queryKey: ['iam', 'service-accounts'],
     queryFn: serviceAccountsApi.list,
-    enabled: open && serviceAccountAccess.allowed,
+    enabled: open && forServiceAccount,
   });
-  const selectedServiceAccount = (serviceAccounts.data ?? []).find(
-    (account) => account.id === serviceAccountId,
-  );
-  const roleOptions = (roles.data ?? []).filter(
-    (role) =>
-      role.role_type === 'organization' &&
-      role.scope === 'organization' &&
-      role.key !== 'rum_client',
-  );
 
   React.useEffect(() => {
     if (!open) return;
     setName('');
-    setRoleId('');
     setServiceAccountId(defaultServiceAccountId ?? '');
+    setScope(PRINCIPAL_SCOPE);
     setExpiresInDays('365');
     setCreated(null);
   }, [defaultServiceAccountId, open]);
 
   const create = useMutation({
     mutationFn: () => {
+      const trimmedDays = expiresInDays.trim();
       const payload: apiTokens.CreateApiTokenPayload = {
         name: name.trim(),
+        ...scopePayload(scope),
+        ...(trimmedDays ? { expiresInDays: Number(trimmedDays) } : {}),
       };
-      if (serviceAccountId) {
-        payload.service_account_id = serviceAccountId;
-      } else if (roleId) {
-        payload.role_id = roleId;
-      }
-      const trimmedDays = expiresInDays.trim();
-      if (trimmedDays) payload.expires_in_days = Number(trimmedDays);
-      return apiTokens.create(payload);
+      return forServiceAccount
+        ? apiTokens.createForServiceAccount({
+            ...payload,
+            serviceAccountId: serviceAccountId,
+          })
+        : apiTokens.createMine(payload);
     },
     onSuccess: async (token) => {
       setCreated(token);
       toast.success(t('api_tokens.toast_created'));
-      await queryClient.invalidateQueries({ queryKey: ['iam', 'api-tokens'] });
+      await queryClient.invalidateQueries({ queryKey: TOKEN_LIST_KEYS[principal] });
     },
     onError: (error) => toast.error(toApiError(error).message),
   });
-  const expiresValue =
-    expiresInDays.trim() === '' ? null : Number(expiresInDays);
+  const expiresValue = expiresInDays.trim() === '' ? null : Number(expiresInDays);
   const invalid =
     !name.trim() ||
+    (forServiceAccount && !serviceAccountId) ||
+    scopeIncomplete(scope) ||
     (expiresValue !== null &&
-      (!Number.isFinite(expiresValue) ||
-        expiresValue < 1 ||
-        expiresValue > 1825));
+      (!Number.isFinite(expiresValue) || expiresValue < 1 || expiresValue > 1825));
 
   const copyToken = async () => {
     if (!created) return;
@@ -119,8 +120,8 @@ export function CreateApiTokenDrawer({
     <FormDrawer
       open={open}
       onOpenChange={(next) => !next && onClose()}
-      title={t('api_tokens.drawer_title')}
-      subtitle={t('api_tokens.drawer_subtitle')}
+      title={t(`api_tokens.drawer_title.${principal}`)}
+      subtitle={t(`api_tokens.drawer_subtitle.${principal}`)}
       footer={
         created ? (
           <ChromeButton variant="primary" onClick={onClose}>
@@ -131,10 +132,7 @@ export function CreateApiTokenDrawer({
             busy={create.isPending}
             disabled={access.disabled}
             invalid={invalid}
-            disabledReason={
-              access.reason ??
-              (invalid ? tc('access.form_invalid') : undefined)
-            }
+            disabledReason={access.reason ?? (invalid ? tc('access.form_invalid') : undefined)}
             onCancel={onClose}
             submitLabel={t('api_tokens.submit_label')}
             formId="api-token-form"
@@ -151,11 +149,7 @@ export function CreateApiTokenDrawer({
             <code className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs text-tx-0">
               {created.token}
             </code>
-            <CopyIconButton
-              type="button"
-              onClick={copyToken}
-              label={t('api_tokens.copy_token')}
-            />
+            <CopyIconButton type="button" onClick={copyToken} label={t('api_tokens.copy_token')} />
           </div>
         </FormSection>
       ) : (
@@ -176,58 +170,33 @@ export function CreateApiTokenDrawer({
                 required
               />
             </FormField>
-            <FormField
-              label={t('api_tokens.fields.principal')}
-              hint={t('api_tokens.fields.principal_hint')}
-            >
-              <FormSelect
-                value={serviceAccountId}
-                onChange={setServiceAccountId}
-                disabled={create.isPending}
-                options={[
-                  { value: '', label: t('api_tokens.current_user') },
-                  ...(serviceAccounts.data ?? [])
-                    .filter((account) => !account.disabled)
-                    .map((account) => ({
-                      value: account.id,
-                      label: account.name,
-                    })),
-                ]}
-              />
-            </FormField>
-            <FormField
-              label={t('api_tokens.fields.role')}
-              hint={selectedServiceAccount ? t('api_tokens.fields.role_inherited') : ''}
-            >
-              <FormSelect
-                value={
-                  selectedServiceAccount
-                    ? selectedServiceAccount.role_id
-                    : roleId
-                }
-                onChange={setRoleId}
-                disabled={create.isPending || Boolean(selectedServiceAccount)}
-                options={
-                  selectedServiceAccount
-                    ? [
-                        {
-                          value: selectedServiceAccount.role_id,
-                          label: selectedServiceAccount.role_name,
-                        },
-                      ]
-                    : [
-                        {
-                          value: '',
-                          label: t('api_tokens.fields.default_role'),
-                        },
-                        ...roleOptions.map((role) => ({
-                          value: role.id,
-                          label: role.name,
-                        })),
-                      ]
-                }
-              />
-            </FormField>
+            {forServiceAccount && (
+              <FormField
+                label={t('api_tokens.fields.service_account')}
+                hint={t('api_tokens.fields.service_account_hint')}
+                required
+              >
+                <FormSelect
+                  value={serviceAccountId}
+                  onChange={setServiceAccountId}
+                  disabled={create.isPending}
+                  options={[
+                    { value: '', label: t('api_tokens.fields.service_account_placeholder') },
+                    ...(serviceAccounts.data ?? [])
+                      .filter((account) => !account.disabled)
+                      .map((account) => ({ value: account.id, label: account.name })),
+                  ]}
+                />
+              </FormField>
+            )}
+          </FormSection>
+          <TokenScopeField
+            value={scope}
+            onChange={setScope}
+            principal={principal}
+            disabled={create.isPending}
+          />
+          <FormSection>
             <FormField
               label={t('api_tokens.fields.expires_in_days')}
               hint={t('api_tokens.fields.expires_hint')}

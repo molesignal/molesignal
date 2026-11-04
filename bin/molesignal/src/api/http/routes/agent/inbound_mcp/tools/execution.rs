@@ -25,7 +25,7 @@ use crate::{
 };
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ReadCallArgs {
     name: String,
     #[serde(default)]
@@ -239,9 +239,9 @@ async fn audit(
             approval_id,
             policy_decision: json!({
                 "surface": "inbound_mcp",
-                "execution_mode": execution_mode,
-                "agent_profile_applied": false,
-                "outbound_mcp_allowed": false,
+                "executionMode": execution_mode,
+                "agentProfileApplied": false,
+                "outboundMcpAllowed": false,
             }),
             audit_id: None,
             created_at: TimestampMicros::now(),
@@ -255,7 +255,7 @@ pub(super) fn approval_id(result: &ToolResult) -> Option<Id> {
     result.content.iter().find_map(|content| match content {
         ToolContent::Json { json } => json
             .pointer("/approval/id")
-            .or_else(|| json.get("approval_id"))
+            .or_else(|| json.get("approvalId"))
             .and_then(Value::as_str)
             .map(Id::from_string),
         ToolContent::Text { .. } => None,
@@ -282,7 +282,7 @@ pub(super) fn sanitize_result(mut result: ToolResult) -> ToolResult {
 fn sanitize_value(value: Value) -> Value {
     match value {
         Value::Object(mut map) => {
-            let withheld = map.remove("one_time_result").is_some();
+            let withheld = map.remove("oneTimeResult").is_some();
 
             for (key, value) in &mut map {
                 if is_secret_key(key) {
@@ -312,8 +312,7 @@ fn redact_credentials_in_text(text: &str) -> String {
     static CREDENTIAL: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
             r"(?x)
-            (?:ms_|msrum_)[A-Za-z0-9]{16}_[A-Za-z0-9]{32}
-            |(?:msoauth_|msrefresh_|msmcp_secret_)[A-Za-z0-9_-]{32,128}
+            mspat-[0-9a-z]{36}
             |ms_sp_[A-Fa-f0-9]{16}
             ",
         )
@@ -399,8 +398,8 @@ mod tests {
 
     #[test]
     fn redacts_credentials_without_reformatting_text() {
-        let api_token = "ms_aB3kZ1xT9pQrU7nM_dFgHjKl8eRvNcWxYz4tBmEqPaS2vG6Qz";
-        let oauth_token = format!("msoauth_{}", "x".repeat(43));
+        let api_token = "mspat-c16jb8m5zrzf174p8g8b7m5p4jz0kp9y1hxr";
+        let oauth_token = "mspat-0123456789abcdefghjkmnpqrstvwxyz0123";
         let input = format!("token=\"{api_token}\"\nAuthorization: Bearer {oauth_token}.");
         assert_eq!(
             redact_credentials_in_text(&input),

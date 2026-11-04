@@ -18,7 +18,7 @@ function fleetOf(
   return summarizeFleet(
     streams.map((stream) => ({
       status: stream.status,
-      last_received_at_micros:
+      lastReceivedAt:
         stream.agoMicros == null ? null : NOW - stream.agoMicros,
     })),
     NOW,

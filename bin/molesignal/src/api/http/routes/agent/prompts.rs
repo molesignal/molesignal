@@ -19,8 +19,9 @@ use crate::{
     api::{
         AppState,
         http::{
-            interface_language::interface_language_pack, middleware::Permission,
-            routes::activity_audit,
+            interface_language::interface_language_pack,
+            middleware::Permission,
+            routes::{activity_audit, agent::quality},
         },
     },
     app::iam::IamContext,
@@ -59,6 +60,7 @@ const PURPOSES: &[&str] = &[
     "alert_explain",
     "query_generation",
     "dashboard_authoring",
+    "evaluation",
 ];
 
 fn validate_purpose(p: &str) -> Result<()> {
@@ -72,9 +74,9 @@ fn validate_purpose(p: &str) -> Result<()> {
 /// scope-based 授权：org override 需 Admin+；user override 需 StreamWrite + 归属本人。
 fn authorize_scope(ctx: &IamContext, scope: &str, owner_user_id: Option<&str>) -> Result<()> {
     match scope {
-        "org" => Permission::require_key(ctx, "agent.manage"),
+        "org" => Permission::require_key(ctx, "agent.prompts.manage"),
         "user" => {
-            Permission::require_key(ctx, "agent.manage")?;
+            Permission::require_key(ctx, "agent.prompts.manage")?;
 
             if let Some(uid) = owner_user_id
                 && uid != ctx.user_id.0
@@ -90,6 +92,7 @@ fn authorize_scope(ctx: &IamContext, scope: &str, owner_user_id: Option<&str>) -
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PromptResp {
     pub id: String,
     pub org_id: Option<String>,
@@ -104,8 +107,8 @@ pub struct PromptResp {
     pub enabled: bool,
     pub version: i32,
     pub parent_id: Option<String>,
-    pub created_at_micros: i64,
-    pub updated_at_micros: i64,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
 fn to_resp(t: AgentPromptTemplate) -> PromptResp {
@@ -123,12 +126,13 @@ fn to_resp(t: AgentPromptTemplate) -> PromptResp {
         enabled: t.enabled,
         version: t.version,
         parent_id: t.parent_id,
-        created_at_micros: t.created_at.0,
-        updated_at_micros: t.updated_at.0,
+        created_at: t.created_at.0,
+        updated_at: t.updated_at.0,
     }
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateReq {
     pub scope: String, // org | user
     pub purpose: String,
@@ -145,6 +149,7 @@ pub struct CreateReq {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateReq {
     pub name: String,
     pub body: String,
@@ -154,7 +159,7 @@ pub struct UpdateReq {
     pub enabled: Option<bool>,
 }
 
-#[permission("agent.use")]
+#[permission("agent.prompts.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -252,9 +257,9 @@ async fn create(
         json!({
             "scope": saved.scope,
             "purpose": saved.purpose,
-            "builtin_key": saved.builtin_key,
+            "builtinKey": saved.builtin_key,
             "version": saved.version,
-            "prompt_hash": prompt_hash(&saved.body),
+            "promptHash": prompt_hash(&saved.body),
         }),
     )
     .await;
@@ -304,7 +309,7 @@ async fn update(
             "scope": saved.scope,
             "purpose": saved.purpose,
             "version": saved.version,
-            "prompt_hash": prompt_hash(&saved.body),
+            "promptHash": prompt_hash(&saved.body),
         }),
     )
     .await;
@@ -312,10 +317,18 @@ async fn update(
     Ok(Json(to_resp(saved)))
 }
 
+#[derive(Debug, Default, Deserialize)]
+pub struct SetDefaultReq {
+    /// 晋级检查没做或新版本变差时，设的人确认仍要设为默认（门禁为「提示」时）。
+    #[serde(default)]
+    pub confirm: bool,
+}
+
 async fn set_default(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
+    request: Option<Json<SetDefaultReq>>,
 ) -> Result<Json<PromptResp>> {
     let existing = state.agent.prompts.get(&Id(id.clone())).await?;
     authorize_scope(&ctx, &existing.scope, existing.user_id.as_deref())?;
@@ -324,6 +337,10 @@ async fn set_default(
         return Err(Error::forbidden("prompt belongs to another org"));
     }
 
+    let confirmed = request.is_some_and(|Json(request)| request.confirm);
+
+    // 组织 Prompt 设为默认之前看晋级检查（见 `quality`）。
+    quality::gate_set_default(&state, &ctx, &existing, confirmed).await?;
     state.agent.prompts.set_default(&Id(id.clone())).await?;
 
     activity_audit::record(
@@ -332,7 +349,12 @@ async fn set_default(
         "agent.prompt.default_set",
         "agent_prompt",
         &id,
-        json!({ "scope": existing.scope, "purpose": existing.purpose }),
+        json!({
+            "scope": existing.scope,
+            "purpose": existing.purpose,
+            "version": existing.version,
+            "confirmed": confirmed,
+        }),
     )
     .await;
 
@@ -375,8 +397,8 @@ async fn restore(
             "scope": saved.scope,
             "purpose": saved.purpose,
             "version": saved.version,
-            "restored_from_builtin": builtin_key,
-            "prompt_hash": prompt_hash(&saved.body),
+            "restoredFromBuiltin": builtin_key,
+            "promptHash": prompt_hash(&saved.body),
         }),
     )
     .await;
@@ -431,8 +453,8 @@ mod reader_language_tests {
             enabled: true,
             version: 1,
             parent_id: None,
-            created_at_micros: 0,
-            updated_at_micros: 0,
+            created_at: 0,
+            updated_at: 0,
         }
     }
 

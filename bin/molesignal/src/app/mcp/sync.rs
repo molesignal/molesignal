@@ -31,6 +31,7 @@ const RESYNC_EVERY_MICROS: i64 = 60 * 60 * 1_000_000;
 const RESYNC_BATCH: i64 = 50;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RemoteMcpTool {
     pub name: String,
     #[serde(default)]
@@ -197,8 +198,8 @@ fn tool_row(
         risk,
         execution_mode,
         capabilities: json!({
-            "read_only": remote.annotations["readOnlyHint"].as_bool().unwrap_or(false),
-            "supports_dry_run": false,
+            "readOnly": remote.annotations["readOnlyHint"].as_bool().unwrap_or(false),
+            "supportsDryRun": false,
             "idempotent": remote.annotations["idempotentHint"].as_bool().unwrap_or(false),
             "streaming": false
         }),
@@ -566,7 +567,7 @@ mod tests {
             minimum_risk: RiskLevel::L0,
             risk: RiskLevel::L0,
             execution_mode: ToolExecutionMode::Automatic,
-            capabilities: json!({"read_only": true}),
+            capabilities: json!({"readOnly": true}),
             tags: vec!["MCP".into()],
             enabled: true,
             status: ManagedToolStatus::Healthy,

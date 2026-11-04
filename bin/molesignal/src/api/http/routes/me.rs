@@ -45,10 +45,11 @@ pub fn routes() -> Router<AppState> {
 /// 公开端点（auth 白名单，顶层 merge）：`<img src>` 渲染头像时不会带 Bearer，
 /// 所以头像读取走免鉴权、内容寻址（路径含随机 id）的公开 GET。
 pub fn avatar_serve_routes() -> Router<AppState> {
-    Router::new().route("/api/v1/public/avatars/{user_id}/{file}", get(serve_avatar))
+    Router::new().route("/api/v1/public/avatars/{userId}/{file}", get(serve_avatar))
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct MeProfileResp {
     user_id: String,
     email: String,
@@ -60,7 +61,7 @@ struct MeProfileResp {
     org_name: String,
     org_slug: String,
     display_role: String,
-    created_at_micros: i64,
+    created_at: i64,
 }
 
 async fn profile(
@@ -73,6 +74,7 @@ async fn profile(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct UpdateProfileReq {
     display_name: Option<String>,
     username: Option<String>,
@@ -92,13 +94,11 @@ async fn update_profile(
         let name = name.trim().to_string();
 
         if name.is_empty() {
-            return Err(Error::invalid("display_name must not be empty"));
+            return Err(Error::invalid("displayName must not be empty"));
         }
 
         if name.chars().count() > 255 {
-            return Err(Error::invalid(
-                "display_name must be at most 255 characters",
-            ));
+            return Err(Error::invalid("displayName must be at most 255 characters"));
         }
 
         user.display_name = name;
@@ -162,7 +162,7 @@ async fn update_preferences(
     ))
 }
 
-#[permission("org.settings.read")]
+#[permission("org.preferences.read")]
 async fn get_workspace_preferences(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -176,7 +176,7 @@ async fn get_workspace_preferences(
     ))
 }
 
-#[permission("org.settings.manage")]
+#[permission("org.preferences.manage")]
 async fn update_workspace_preferences(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -238,7 +238,7 @@ fn normalize_and_validate(preferences: &mut UserPreferences) -> Result<()> {
             || preferences.default_home_route.starts_with("//"))
     {
         return Err(Error::invalid(
-            "default_home_route must be last_visited or an absolute app route",
+            "defaultHomeRoute must be last_visited or an absolute app route",
         ));
     }
 
@@ -274,7 +274,7 @@ impl MeProfileResp {
             org_name: org.name,
             org_slug: org.slug,
             display_role,
-            created_at_micros: user.created_at.0,
+            created_at: user.created_at.0,
         }
     }
 }
@@ -436,11 +436,11 @@ fn normalize_avatar_url(value: String) -> Result<Option<String>> {
     }
 
     if value.len() > 2048 {
-        return Err(Error::invalid("avatar_url must be at most 2048 characters"));
+        return Err(Error::invalid("avatarUrl must be at most 2048 characters"));
     }
 
     if !(value.starts_with("https://") || value.starts_with("http://")) {
-        return Err(Error::invalid("avatar_url must be an http(s) URL"));
+        return Err(Error::invalid("avatarUrl must be an http(s) URL"));
     }
 
     Ok(Some(value))

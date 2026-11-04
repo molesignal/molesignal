@@ -104,10 +104,10 @@ export function AboutDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       ? t(editionKey)
       : humanizeEdition(v.edition)
     : dash;
-  const buildTimeUtc = v ? formatBuildTimeUtc(v.build_epoch_secs) : dash;
+  const buildTimeUtc = v ? formatBuildTimeUtc(v.buildEpochSecs) : dash;
   const buildTime = v
     ? t('about.time_with_zone', {
-        time: timeFormatter.millis(v.build_epoch_secs * 1000),
+        time: timeFormatter.millis(v.buildEpochSecs * 1000),
         zone: tzOffsetLabel(timeFormatter.tz),
       })
     : dash;
@@ -118,9 +118,9 @@ export function AboutDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         'MoleSignal',
         `${t('about.version')}: v${v.version}`,
         `${t('about.edition')}: ${edition} (${v.edition})`,
-        `${t('about.release_channel')}: ${v.release_channel}`,
+        `${t('about.release_channel')}: ${v.releaseChannel}`,
         `${t('about.commit')}: ${v.commit}`,
-        `${t('about.build_id')}: ${v.build_id}`,
+        `${t('about.build_id')}: ${v.buildId}`,
         `${t('about.built')}: ${buildTimeUtc}`,
         ...(v.branch ? [`${t('about.branch')}: ${v.branch}`] : []),
       ].join('\n')
@@ -143,7 +143,7 @@ export function AboutDialog({ open, onOpenChange }: { open: boolean; onOpenChang
               <LogoMark size={30} />
             </div>
             <div className="min-w-0 pt-0.5">
-              <div className="font-sans text-xl font-semibold leading-6 text-tx-0">
+              <div className="font-sans text-xl font-display leading-6 text-tx-0">
                 MoleSignal
               </div>
               <DialogDescription className="mt-1 max-w-[390px] font-sans text-sm leading-5 text-tx-2">
@@ -166,7 +166,7 @@ export function AboutDialog({ open, onOpenChange }: { open: boolean; onOpenChang
             />
             <InfoRow
               label={t('about.release_channel')}
-              value={v?.release_channel ?? dash}
+              value={v?.releaseChannel ?? dash}
               code
               testId="about-release-channel"
             />
@@ -182,7 +182,7 @@ export function AboutDialog({ open, onOpenChange }: { open: boolean; onOpenChang
               />
               <InfoRow
                 label={t('about.build_id')}
-                value={v?.build_id ?? dash}
+                value={v?.buildId ?? dash}
                 code
                 testId="about-build-id"
               />

@@ -78,7 +78,7 @@ pub(super) async fn execute(
 
             return Ok(OperationOutcome {
                 summary: "search job deleted".into(),
-                verification: json!({"verified": true, "job_id": job_id, "deleted": true}),
+                verification: json!({"verified": true, "jobId": job_id, "deleted": true}),
             });
         }
         _ => unreachable!("search-job operation received unrelated action"),
@@ -100,7 +100,7 @@ fn viewer(ctx: &IamContext, approval: &ApprovalRequest) -> SearchJobViewer {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SubmitSearchJob {
     language: QueryLanguage,
     statement: String,
@@ -109,6 +109,10 @@ struct SubmitSearchJob {
     stream: Option<StreamInput>,
     #[serde(default)]
     limit: Option<usize>,
+    /// The step of a PromQL range query; without one PromQL answers the
+    /// figure at the end of the range.
+    #[serde(default)]
+    step: Option<i64>,
     #[serde(default)]
     federation_clusters: Vec<String>,
     #[serde(default)]
@@ -116,14 +120,14 @@ struct SubmitSearchJob {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct TimeRangeInput {
-    start_micros: i64,
-    end_micros: i64,
+    start_time: i64,
+    end_time: i64,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct StreamInput {
     name: String,
     stream_type: StreamType,
@@ -137,9 +141,9 @@ impl SubmitSearchJob {
             return Err(Error::invalid("search job statement must not be empty"));
         }
 
-        if self.time_range.end_micros < self.time_range.start_micros {
+        if self.time_range.end_time < self.time_range.start_time {
             return Err(Error::invalid(
-                "time_range.end_micros must not precede start_micros",
+                "timeRange.endTime must not precede startTime",
             ));
         }
 
@@ -148,14 +152,15 @@ impl SubmitSearchJob {
             language: self.language,
             statement: statement.to_string(),
             time_range: TimeRange::new(
-                TimestampMicros(self.time_range.start_micros),
-                TimestampMicros(self.time_range.end_micros),
+                TimestampMicros(self.time_range.start_time),
+                TimestampMicros(self.time_range.end_time),
             ),
             stream: self.stream.as_ref().map(|stream| StreamHint {
                 name: stream.name.clone(),
                 stream_type: stream.stream_type,
             }),
             limit: self.limit.map(|limit| limit.clamp(1, 100_000)),
+            step: self.step,
             federation_clusters: self.federation_clusters.clone(),
         })
     }
@@ -178,14 +183,14 @@ struct EmptyParameters {}
 fn safe_job(job: SearchJob) -> Value {
     json!({
         "id": job.id,
-        "user_id": job.user_id,
+        "userId": job.user_id,
         "state": job.state,
         "attempt": job.attempt,
-        "result_rows": job.result_rows,
+        "resultRows": job.result_rows,
         "error": job.error,
-        "submitted_at": job.submitted_at,
-        "started_at": job.started_at,
-        "finished_at": job.finished_at,
-        "expires_at": job.expires_at,
+        "submittedAt": job.submitted_at,
+        "startedAt": job.started_at,
+        "finishedAt": job.finished_at,
+        "expiresAt": job.expires_at,
     })
 }

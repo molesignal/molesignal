@@ -36,7 +36,10 @@ pub(super) async fn execute(
     kind: BuiltinToolKind,
     arguments: Value,
 ) -> Result<ToolResult> {
-    let scope = call.workspace.memory_scope();
+    let scope = match call.workspace.memory_scope() {
+        Ok(scope) => scope,
+        Err(error) => return Ok(ToolResult::error(error.to_string())),
+    };
 
     // 团队的记忆由团队成员（与管理员）写。
     if kind != BuiltinToolKind::ReadMemory && !call.workspace.viewer.can_edit(&scope) {
@@ -100,7 +103,7 @@ pub(super) async fn execute(
                     "kind": memory.kind,
                     "description": memory.description,
                     "body": memory.body,
-                    "updated_at_micros": memory.updated_at.0,
+                    "updatedAt": memory.updated_at.0,
                 })),
                 None => ToolResult::error(format!(
                     "there is no memory called `{}` here",

@@ -227,6 +227,7 @@ async fn handle_frame(
                     agent.clone(),
                     capacity_from_wire(value.capacity),
                     value.draining,
+                    value.feature_level,
                     TimestampMicros(value.observed_at_micros),
                 )
                 .await
@@ -293,7 +294,13 @@ async fn handle_frame(
             agent.status = AgentStatus::Draining;
 
             *agent = service
-                .heartbeat(agent.clone(), agent.capacity, true, TimestampMicros::now())
+                .heartbeat(
+                    agent.clone(),
+                    agent.capacity,
+                    true,
+                    agent.feature_level,
+                    TimestampMicros::now(),
+                )
                 .await
                 .map_err(to_status)?;
 

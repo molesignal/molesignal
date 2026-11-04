@@ -76,7 +76,7 @@ export function FieldValueList({ items, className }: { items: FieldValueItem[]; 
             <span className="flex min-w-0 items-baseline gap-[6px]">
               <span
                 className={cn(
-                  'min-w-0 flex-1 truncate font-mono text-xs',
+                  'min-w-0 flex-1 truncate text-xs',
                   item.actions.some((action) => action.pressed) ? 'font-strong text-tx-0' : 'text-tx-1',
                 )}
                 title={item.title ?? item.label}
@@ -84,7 +84,7 @@ export function FieldValueList({ items, className }: { items: FieldValueItem[]; 
                 {item.label}
               </span>
               {item.count !== undefined && (
-                <span className="shrink-0 font-mono text-xs tabular-nums text-tx-2" title={item.countTitle}>
+                <span className="shrink-0 text-xs tabular-nums text-tx-2" title={item.countTitle}>
                   {item.countLabel ?? item.count}
                 </span>
               )}

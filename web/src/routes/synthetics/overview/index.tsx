@@ -1,17 +1,19 @@
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/shell/lib/cn';
+import { usePreloadWorldMap } from '@/viz/worldmap/preload';
 
 import { SyntheticsActivation } from '../Activation';
-import { useSyntheticsWorkspace } from '../data';
+import { useSyntheticsAvailability, useSyntheticsWorkspace } from '../data';
 import {
   CreateCheckAction,
   SyntheticsPage,
   SyntheticsSection,
   useLoadState,
 } from '../Frame';
-import { WorldAvailabilityMap } from '../map/WorldAvailabilityMap';
+import { LazyWorldAvailabilityMap } from '../map/LazyWorldAvailabilityMap';
 import { checksNeedingAttention } from '../summary';
+import { useSyntheticsTimeWindow } from '../time';
 import { ChecksNeedingAttention } from './Attention';
 import { ChecksStanding } from './Standing';
 
@@ -27,6 +29,7 @@ import { ChecksStanding } from './Standing';
 export function SyntheticsOverview() {
   const { t } = useTranslation('synthetics');
   const workspace = useSyntheticsWorkspace({ resultLimit: 30 });
+  const availability = useSyntheticsAvailability(useSyntheticsTimeWindow());
   const state = useLoadState({
     pending: workspace.pending,
     error: workspace.error,
@@ -36,15 +39,19 @@ export function SyntheticsOverview() {
   const firstRun = !state && workspace.rows.length === 0;
   const attention = checksNeedingAttention(workspace.rows);
 
+  // The map of the places the checks run from is on this tab: its shapes load while the checks do.
+  usePreloadWorldMap(!firstRun);
+
   return (
     <SyntheticsPage
       // The first-run page carries the way to a first check itself.
       action={firstRun ? undefined : <CreateCheckAction />}
+      timed={!firstRun}
       lead={
         !state && !firstRun ? (
           <ChecksStanding
             rows={workspace.rows}
-            results={workspace.operationalResults}
+            availability={availability.data}
             locations={workspace.locations}
           />
         ) : undefined
@@ -72,9 +79,9 @@ export function SyntheticsOverview() {
             title={t('by_location.title')}
             description={t('by_location.description')}
           >
-            <WorldAvailabilityMap
+            <LazyWorldAvailabilityMap
               locations={workspace.locations}
-              results={workspace.operationalResults}
+              {...(availability.data ? { availability: availability.data.locations } : {})}
             />
           </SyntheticsSection>
         </div>

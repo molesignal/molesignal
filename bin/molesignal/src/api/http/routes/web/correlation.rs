@@ -27,7 +27,7 @@ use serde_json::Value;
 use crate::{api::AppState, app::iam::IamContext, domain::iam::permission, shared::Error};
 
 pub fn routes() -> Router<AppState> {
-    Router::new().route("/correlation/{from_kind}/{to_kind}", get(correlation))
+    Router::new().route("/correlation/{fromKind}/{toKind}", get(correlation))
 }
 
 #[derive(Debug, Deserialize)]
@@ -57,13 +57,14 @@ pub struct Prefill {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CorrelationResponse {
     pub time_range: TimeRange,
     pub filters: Vec<Filter>,
     pub prefill: Prefill,
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("traces.read", "sys.telemetry.read"))]
 async fn correlation(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

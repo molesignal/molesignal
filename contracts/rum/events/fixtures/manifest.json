@@ -1,0 +1,201 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "path": "valid/view-first-revision.json",
+      "contract": "rum-event-v1",
+      "valid": true
+    },
+    {
+      "path": "valid/view-final-browser.json",
+      "contract": "rum-event-v1",
+      "valid": true
+    },
+    {
+      "path": "valid/view-flutter.json",
+      "contract": "rum-event-v1",
+      "valid": true
+    },
+    {
+      "path": "valid/action-click-with-frustration.json",
+      "contract": "rum-event-v1",
+      "valid": true
+    },
+    {
+      "path": "valid/error-javascript.json",
+      "contract": "rum-event-v1",
+      "valid": true
+    },
+    {
+      "path": "valid/error-javascript-sourcemap-frame.json",
+      "contract": "rum-event-v1",
+      "valid": true
+    },
+    {
+      "path": "valid/error-network.json",
+      "contract": "rum-event-v1",
+      "valid": true
+    },
+    {
+      "path": "valid/resource-fetch-traced.json",
+      "contract": "rum-event-v1",
+      "valid": true
+    },
+    {
+      "path": "valid/long-task-animation-frame.json",
+      "contract": "rum-event-v1",
+      "valid": true
+    },
+    {
+      "path": "valid/vital-duration.json",
+      "contract": "rum-event-v1",
+      "valid": true
+    },
+    {
+      "path": "valid/vital-app-launch.json",
+      "contract": "rum-event-v1",
+      "valid": true
+    },
+    {
+      "path": "valid/batch-mixed.json",
+      "contract": "rum-event-v1",
+      "valid": true,
+      "batch": true
+    },
+    {
+      "path": "valid/log-logger.json",
+      "contract": "rum-event-v1",
+      "valid": true
+    },
+    {
+      "path": "valid/view-synthetics-scroll.json",
+      "contract": "rum-event-v1",
+      "valid": true
+    },
+    {
+      "path": "valid/action-click-positions.json",
+      "contract": "rum-event-v1",
+      "valid": true
+    },
+    {
+      "path": "invalid/missing-type.json",
+      "contract": "rum-event-v1",
+      "valid": false,
+      "expectedIssueCodes": [
+        "CONTRACT_REQUIRED"
+      ]
+    },
+    {
+      "path": "invalid/unknown-type.json",
+      "contract": "rum-event-v1",
+      "valid": false,
+      "expectedIssueCodes": [
+        "CONTRACT_ENUM"
+      ]
+    },
+    {
+      "path": "invalid/missing-view.json",
+      "contract": "rum-event-v1",
+      "valid": false,
+      "expectedIssueCodes": [
+        "CONTRACT_REQUIRED"
+      ]
+    },
+    {
+      "path": "invalid/view-missing-revision.json",
+      "contract": "rum-event-v1",
+      "valid": false,
+      "expectedIssueCodes": [
+        "CONTRACT_REQUIRED"
+      ]
+    },
+    {
+      "path": "invalid/view-revision-zero.json",
+      "contract": "rum-event-v1",
+      "valid": false,
+      "expectedIssueCodes": [
+        "CONTRACT_MINIMUM"
+      ]
+    },
+    {
+      "path": "invalid/negative-duration.json",
+      "contract": "rum-event-v1",
+      "valid": false,
+      "expectedIssueCodes": [
+        "CONTRACT_MINIMUM"
+      ]
+    },
+    {
+      "path": "invalid/fractional-nanoseconds.json",
+      "contract": "rum-event-v1",
+      "valid": false,
+      "expectedIssueCodes": [
+        "CONTRACT_TYPE"
+      ]
+    },
+    {
+      "path": "invalid/date-as-string.json",
+      "contract": "rum-event-v1",
+      "valid": false,
+      "expectedIssueCodes": [
+        "CONTRACT_TYPE"
+      ]
+    },
+    {
+      "path": "invalid/session-id-with-space.json",
+      "contract": "rum-event-v1",
+      "valid": false,
+      "expectedIssueCodes": [
+        "CONTRACT_PATTERN"
+      ]
+    },
+    {
+      "path": "invalid/resource-unknown-type.json",
+      "contract": "rum-event-v1",
+      "valid": false,
+      "expectedIssueCodes": [
+        "CONTRACT_ENUM"
+      ]
+    },
+    {
+      "path": "invalid/resource-uppercase-trace-id.json",
+      "contract": "rum-event-v1",
+      "valid": false,
+      "expectedIssueCodes": [
+        "CONTRACT_PATTERN"
+      ]
+    },
+    {
+      "path": "invalid/error-without-message.json",
+      "contract": "rum-event-v1",
+      "valid": false,
+      "expectedIssueCodes": [
+        "CONTRACT_REQUIRED"
+      ]
+    },
+    {
+      "path": "invalid/action-unknown-frustration.json",
+      "contract": "rum-event-v1",
+      "valid": false,
+      "expectedIssueCodes": [
+        "CONTRACT_ENUM"
+      ]
+    },
+    {
+      "path": "invalid/vital-duration-without-name.json",
+      "contract": "rum-event-v1",
+      "valid": false,
+      "expectedIssueCodes": [
+        "CONTRACT_REQUIRED"
+      ]
+    },
+    {
+      "path": "invalid/log-without-level.json",
+      "contract": "rum-event-v1",
+      "valid": false,
+      "expectedIssueCodes": [
+        "CONTRACT_REQUIRED"
+      ]
+    }
+  ]
+}

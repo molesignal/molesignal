@@ -49,11 +49,11 @@ interface Draft {
 function draftFromSettings(settings: instanceApi.ClientIpResolverSettings): Draft {
   return {
     mode: settings.mode,
-    headerName: settings.header_name,
-    trustedCidrs: settings.trusted_proxy_cidrs.join('\n'),
-    fallbackToPeer: settings.fallback_to_peer,
-    allowPrivateClientIps: settings.allow_private_client_ips,
-    maxChainLength: String(settings.max_chain_length),
+    headerName: settings.headerName,
+    trustedCidrs: settings.trustedProxyCidrs.join('\n'),
+    fallbackToPeer: settings.fallbackToPeer,
+    allowPrivateClientIps: settings.allowPrivateClientIps,
+    maxChainLength: String(settings.maxChainLength),
   };
 }
 
@@ -61,16 +61,16 @@ function settingsFromDraft(draft: Draft): instanceApi.ClientIpResolverSettings {
   const usesProxy = draft.mode !== 'peer';
   return {
     mode: draft.mode,
-    header_name: usesProxy ? draft.headerName.trim().toLowerCase() : '',
-    trusted_proxy_cidrs: usesProxy
+    headerName: usesProxy ? draft.headerName.trim().toLowerCase() : '',
+    trustedProxyCidrs: usesProxy
       ? draft.trustedCidrs
           .split(/\r?\n/)
           .map((value) => value.trim())
           .filter(Boolean)
       : [],
-    fallback_to_peer: draft.fallbackToPeer,
-    allow_private_client_ips: draft.allowPrivateClientIps,
-    max_chain_length: Number(draft.maxChainLength),
+    fallbackToPeer: draft.fallbackToPeer,
+    allowPrivateClientIps: draft.allowPrivateClientIps,
+    maxChainLength: Number(draft.maxChainLength),
   };
 }
 
@@ -80,13 +80,13 @@ function sameSettings(
 ) {
   return (
     left.mode === right.mode &&
-    left.header_name === right.header_name &&
-    left.fallback_to_peer === right.fallback_to_peer &&
-    left.allow_private_client_ips === right.allow_private_client_ips &&
-    left.max_chain_length === right.max_chain_length &&
-    left.trusted_proxy_cidrs.length === right.trusted_proxy_cidrs.length &&
-    left.trusted_proxy_cidrs.every(
-      (cidr, index) => cidr === right.trusted_proxy_cidrs[index],
+    left.headerName === right.headerName &&
+    left.fallbackToPeer === right.fallbackToPeer &&
+    left.allowPrivateClientIps === right.allowPrivateClientIps &&
+    left.maxChainLength === right.maxChainLength &&
+    left.trustedProxyCidrs.length === right.trustedProxyCidrs.length &&
+    left.trustedProxyCidrs.every(
+      (cidr, index) => cidr === right.trustedProxyCidrs[index],
     )
   );
 }
@@ -127,7 +127,7 @@ function validateDraft(draft: Draft): string | null {
 
 export function ClientIpSettings() {
   const { t } = useTranslation('settings-admin');
-  const access = useActionAccess({ permission: 'sys.settings.manage' });
+  const access = useActionAccess({ permission: 'sys.settings.signin.manage' });
 
   return (
     <>
@@ -332,22 +332,22 @@ function ClientIpSettingsSection({ access }: { access: ActionAccess }) {
               aria-label={t('nodes.client_ip.fallback')}
             />
           </SettingsRow>
-
-          <SettingsRow
-            label={t('nodes.client_ip.allow_private')}
-            description={t('nodes.client_ip.allow_private_hint')}
-          >
-            <Switch
-              checked={draft.allowPrivateClientIps}
-              onCheckedChange={(checked) =>
-                set('allowPrivateClientIps', checked)
-              }
-              disabled={controlsDisabled}
-              disabledReason={controlsDisabledReason}
-              aria-label={t('nodes.client_ip.allow_private')}
-            />
-          </SettingsRow>
         </>
+      )}
+
+      {draft && (
+        <SettingsRow
+          label={t('nodes.client_ip.allow_private')}
+          description={t('nodes.client_ip.allow_private_hint')}
+        >
+          <Switch
+            checked={draft.allowPrivateClientIps}
+            onCheckedChange={(checked) => set('allowPrivateClientIps', checked)}
+            disabled={controlsDisabled}
+            disabledReason={controlsDisabledReason}
+            aria-label={t('nodes.client_ip.allow_private')}
+          />
+        </SettingsRow>
       )}
 
       <div className="flex min-h-16 flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">

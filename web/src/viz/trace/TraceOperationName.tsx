@@ -1,61 +1,43 @@
 import { cn } from '@/shell/lib/cn';
 
-const HTTP_METHODS = [
-  'GET',
-  'POST',
-  'PUT',
-  'PATCH',
-  'DELETE',
-  'HEAD',
-  'OPTIONS',
-  'CONNECT',
-  'TRACE',
-] as const;
-
-type HttpMethod = (typeof HTTP_METHODS)[number];
-
-/** The ink tones: a method reads at AA on a row at rest, under the pointer and selected. */
-const HTTP_METHOD_TONE: Record<HttpMethod, string> = {
-  GET: 'text-[var(--green-ink)]',
-  POST: 'text-[var(--blue-ink)]',
-  PUT: 'text-[var(--orange-ink)]',
-  PATCH: 'text-[var(--orange-ink)]',
-  DELETE: 'text-[var(--red-ink)]',
-  HEAD: 'text-[var(--purple-ink)]',
-  OPTIONS: 'text-[var(--purple-ink)]',
-  CONNECT: 'text-[var(--yellow-ink)]',
-  TRACE: 'text-[var(--yellow-ink)]',
-};
-
-const HTTP_METHOD_SET = new Set<string>(HTTP_METHODS);
+import { OPERATION_TONE, type OperationAction, operationAction } from './operationVerb';
 
 export interface ParsedTraceOperation {
-  method: HttpMethod;
+  /** The leading word in upper case: an HTTP method, a SQL statement, a Redis or MongoDB command. */
+  verb: string;
+  action: OperationAction;
   target: string;
 }
 
+/** A span name led by a data verb (`GET /cart`, `SELECT orders`, `hgetall session:1`), split at it. */
 export function parseTraceOperation(operation: string): ParsedTraceOperation | null {
-  const match = operation.match(/^([a-z]+)(?:\s+(.+))?$/i);
-  if (!match) return null;
-  const method = match[1]?.toUpperCase();
-  if (!method || !HTTP_METHOD_SET.has(method)) return null;
+  const match = operation.match(/^([a-z]+)(?:\s+([\s\S]+))?$/i);
+  if (!match?.[1]) return null;
+  const action = operationAction(match[1]);
+  if (!action) return null;
   return {
-    method: method as HttpMethod,
+    verb: match[1].toUpperCase(),
+    action,
     target: match[2] ?? '',
   };
 }
 
 /**
  * Trace operation names use the same compact, color-coded prefix treatment as
- * metric kinds (`MetricTypePrefix`), in the same ink tones. Only standard HTTP
- * methods are highlighted; RPC/database span names remain plain text.
+ * metric kinds (`MetricTypePrefix`), in the same ink tones. HTTP methods, SQL
+ * statements and Redis or MongoDB commands lead with their verb, coloured by
+ * what it does; other span names (RPC methods, messaging) stay plain text.
+ * The verb is a small word in the monospace face, except in a list table
+ * (`mono={false}`): there it is a word of the row, in the row's face and size.
  */
 export function TraceOperationName({
   operation,
   className,
+  mono = true,
 }: {
   operation: string;
   className?: string;
+  mono?: boolean;
 }) {
   const parsed = parseTraceOperation(operation);
   if (!parsed) {
@@ -75,11 +57,12 @@ export function TraceOperationName({
       <span
         aria-hidden="true"
         className={cn(
-          'type-micro shrink-0 font-mono font-semibold',
-          HTTP_METHOD_TONE[parsed.method],
+          'shrink-0 font-semibold',
+          mono && 'type-micro font-mono',
+          OPERATION_TONE[parsed.action],
         )}
       >
-        {parsed.method}
+        {parsed.verb}
       </span>
       {parsed.target && (
         <span aria-hidden="true" className="ml-1.5 min-w-0 truncate">

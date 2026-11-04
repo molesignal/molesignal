@@ -7,8 +7,8 @@
 //! - **AgentLoop ↔ wiremock**（无 docker，常规 `cargo test` 即跑）：provider 错误路径
 //!   → `AgentStreamEvent::Error`，证明 5xx 被翻译成 error 事件而非 panic。
 //! - **HTTP handler ↔ TestServer**（需 docker Postgres + 本地对象存储，`MS_RUN_IT=1` 才跑）：
-//!   PG provider 解析 → SSE happy path → prompt 元数据持久化（builtin_key/version/hash）→
-//!   transcript 归档（object_key + sha256 + status）。
+//!   PG provider 解析 → 排队的 Run 执行完，事件流（SSE）读到回答 → prompt 元数据持久化
+//!   （builtin_key/version/hash）→ transcript 归档（object_key + sha256 + status）。
 //!
 //! 其余场景在别处单测：tool 证据抽取见 `agent::chat::tests::summarize_*`；跨 org tool
 //! 隔离见 `agent_mcp_dispatcher::tests::list_streams_uses_ctx_org_and_ignores_arg_org_id`；
@@ -61,7 +61,7 @@ fn test_tool_context() -> ToolAuthContext {
         org_id: Id("orgA".into()),
         display_role: String::new(),
         roles: Vec::new(),
-        credential_role_id: None,
+        credential_token_id: None,
         credential_application_id: None,
         credential_service_account_id: None,
         scope: molesignal::domain::iam::IamScope::Organization,
@@ -112,6 +112,7 @@ async fn http_chat_prompt_metadata_and_archive() {
         return;
     }
     let server = common::TestServer::start().await;
+    let _agent_runs = server.spawn_agent_runs();
 
     // 假 OpenAI：返一条简单 SSE completion（无 tool call）。
     let openai = MockServer::start().await;
@@ -159,13 +160,13 @@ async fn http_chat_prompt_metadata_and_archive() {
     let create: serde_json::Value = server
         .client
         .post(format!("{}/api/v1/agent/chat", server.base_url))
-        .header("authorization", format!("Bearer {}", server.root_token))
+        .header("cookie", format!("accessToken={}", server.root_token))
         .json(&serde_json::json!({
             "provider": "openai",
             "model": "gpt-4o",
             "title": "rca",
-            "provider_id": provider.id.0,
-            "analysis_mode": "root_cause",
+            "providerId": provider.id.0,
+            "analysisMode": "root_cause",
         }))
         .send()
         .await
@@ -175,30 +176,25 @@ async fn http_chat_prompt_metadata_and_archive() {
         .expect("chat json");
     let chat_id = create["id"].as_str().expect("chat id").to_string();
 
-    // 3) POST 一条消息，读 SSE。
+    // 3) POST 一条消息，排队的 Run 执行完，读它的事件（SSE）。
     let sse = server
-        .client
-        .post(format!(
-            "{}/api/v1/agent/chat/{}/messages",
-            server.base_url, chat_id
-        ))
-        .header("authorization", format!("Bearer {}", server.root_token))
-        .header("accept", "text/event-stream")
-        .json(&serde_json::json!({
-            "content": "why did errors spike?",
-            "analysis_mode": "root_cause",
-            "time_range": { "start_micros": 1_000_000, "end_micros": 2_000_000 },
-            "stream_hints": ["app-logs"],
-            "provider_id": provider.id.0,
-        }))
-        .send()
-        .await
-        .expect("post message")
-        .text()
-        .await
-        .expect("sse body");
-    assert!(sse.contains("event: chunk"), "SSE happy path: {sse}");
+        .ask_agent(
+            &chat_id,
+            &serde_json::json!({
+                "content": "why did errors spike?",
+                "analysisMode": "root_cause",
+                "timeRange": { "startTime": 1_000_000, "endTime": 2_000_000 },
+                "streamHints": ["app-logs"],
+                "providerId": provider.id.0,
+            }),
+        )
+        .await;
+    assert!(sse.contains("event: text"), "SSE happy path: {sse}");
     assert!(sse.contains("event: done"), "SSE done: {sse}");
+    assert!(
+        sse.contains(r#""status":"succeeded""#),
+        "the run succeeded: {sse}"
+    );
 
     // 4) 断言 assistant 消息持久化了 prompt 元数据（root_cause builtin）。
     let messages = server
@@ -233,7 +229,7 @@ async fn http_chat_prompt_metadata_and_archive() {
             "{}/api/v1/agent/chat/{}/archive",
             server.base_url, chat_id
         ))
-        .header("authorization", format!("Bearer {}", server.root_token))
+        .header("cookie", format!("accessToken={}", server.root_token))
         .send()
         .await
         .expect("archive")
@@ -242,7 +238,7 @@ async fn http_chat_prompt_metadata_and_archive() {
         .expect("archive json");
     assert_eq!(archive["status"], "ok", "archive ok: {archive}");
     assert!(
-        archive["object_key"].as_str().is_some(),
+        archive["objectKey"].as_str().is_some(),
         "archive object_key set"
     );
     let archives = server

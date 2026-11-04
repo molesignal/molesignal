@@ -1,6 +1,7 @@
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { AuthorizationCard } from './AuthorizationCard';
 import { ConfirmationCard, QuestionCard } from './RunCards';
 import { MemoryChanges, RunNotices, TodoProgress } from './RunExtras';
 import type { ChatRun } from './useChatRun';
@@ -20,8 +21,8 @@ function liveContent(chatRun: ChatRun): string {
 
 /**
  * The answer being written, read from its run: the text so far, the tools it
- * called, the task list, and a question or a confirmation it waits on. A
- * compaction shows only that it is under way.
+ * called, the task list, and a question, a confirmation or an authorization it
+ * waits on. A compaction shows only that it is under way.
  */
 export function LiveRun({
   chatRun,
@@ -31,7 +32,7 @@ export function LiveRun({
 }: {
   chatRun: ChatRun;
   user: ChatUserIdentity;
-  /** Who is reading: only the person who asked decides a confirmation. */
+  /** Who is reading: only the person who asked decides a confirmation or authorizes. */
   viewerId: string;
   initiatorName: (id: string) => string;
 }) {
@@ -65,17 +66,27 @@ export function LiveRun({
         user={user}
         streaming={writing && !pending}
         liveTools={view.tools}
-        investigationStartedAtMicros={view.startedAtMicros}
+        investigationStartedAtMicros={view.startedAt}
       />
       <TodoProgress items={view.todo} />
       {pending?.type === 'question' && (
-        <QuestionCard key={pending.call_id} pending={pending} onRespond={chatRun.respond} />
+        <QuestionCard key={pending.callId} pending={pending} onRespond={chatRun.respond} />
       )}
       {pending?.type === 'confirmation' && (
         <ConfirmationCard
-          key={pending.call_id}
+          key={pending.callId}
           pending={pending}
           canDecide={view.initiatorId === viewerId}
+          initiatorName={initiatorName(view.initiatorId)}
+          toolLabel={toolLabel(pending.tool)}
+          onRespond={chatRun.respond}
+        />
+      )}
+      {pending?.type === 'authorization' && (
+        <AuthorizationCard
+          key={pending.callId}
+          pending={pending}
+          canAuthorize={view.initiatorId === viewerId}
           initiatorName={initiatorName(view.initiatorId)}
           toolLabel={toolLabel(pending.tool)}
           onRespond={chatRun.respond}

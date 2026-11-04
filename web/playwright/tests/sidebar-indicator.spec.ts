@@ -105,15 +105,18 @@ test.describe('Primary sidebar active indicator', () => {
     await expect.poll(() => labelIs('Reliability', '--tx-2')).toBe(true);
     await expect.poll(() => labelIs('Data', '--tx-2')).toBe(true);
 
-    // Rows are regular weight; only the current one is bold.
+    // Rows and the current one are in the body weight, as Ant Design Pro's menus; the current
+    // one stands out by its ink and fill (the icon test below).
     const weight = (name: string) =>
       sidebar
         .getByRole('link', { name, exact: true })
         .locator('span')
         .first()
         .evaluate((el) => getComputedStyle(el).fontWeight);
-    expect(await weight('Logs')).toBe('500');
-    expect(await weight('Metrics')).toBe('600');
+    const scale = (step: string) =>
+      page.evaluate((name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim(), step);
+    expect(await weight('Logs')).toBe(await scale('--fw-body'));
+    expect(await weight('Metrics')).toBe(await scale('--fw-body'));
   });
 
   test('lights only the active icon: the rest of the rail stays neutral', async ({ page }) => {
@@ -161,7 +164,7 @@ test.describe('Primary sidebar active indicator', () => {
       .poll(async () => {
         const [icon, expected] = [
           await painted(await iconColour('Metrics')),
-          await painted(await token('--indigo-soft')),
+          await painted(await token('--nav-current-ink')),
         ];
         return icon.join() === expected.join();
       })

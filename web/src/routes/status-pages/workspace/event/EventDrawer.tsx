@@ -37,8 +37,8 @@ export function StatusPageEventDrawer({
 }) {
   const { t } = useTranslation('status-pages');
   const queryClient = useQueryClient();
-  const { pageId, snapshot, manageAccess, refresh } = useStatusPageWorkspace();
-  const publishAccess = useActionAccess({ permission: 'status_pages.publish' });
+  const { pageId, snapshot, refresh, eventsAccess } = useStatusPageWorkspace();
+  const publishAccess = useActionAccess({ permission: 'status_pages.events.publish' });
   const isNew = eventId === 'new';
   const eventQuery = useQuery({
     queryKey: ['status-pages', pageId, 'event', eventId],
@@ -66,7 +66,7 @@ export function StatusPageEventDrawer({
     mutationFn: async (mode: SubmitMode) => {
       const input = eventInput(kind, draft, mode === 'draft' ? 'draft' : 'published');
       if (!event) return statusPagesApi.createIncident(pageId, input);
-      if (event.publication_state === 'draft') {
+      if (event.publicationState === 'draft') {
         return mode === 'publish'
           ? statusPagesApi.publishDraft(pageId, event.id, input)
           : statusPagesApi.updateEvent(pageId, event.id, input);
@@ -82,15 +82,15 @@ export function StatusPageEventDrawer({
   });
 
   const pageActive = snapshot.page.lifecycle === 'active';
-  const canManage = manageAccess.allowed && pageActive;
+  const canManage = eventsAccess.allowed && pageActive;
   const canPublish = publishAccess.allowed && pageActive;
   const editable =
     isNew ||
-    event?.publication_state === 'draft' ||
+    event?.publicationState === 'draft' ||
     (event?.kind === 'maintenance' && event.status === 'scheduled');
   const canEditForm = isNew
     ? canManage
-    : event?.publication_state === 'draft'
+    : event?.publicationState === 'draft'
       ? canManage || canPublish
       : canManage;
   const publicationInvalid =
@@ -109,7 +109,7 @@ export function StatusPageEventDrawer({
   const showPostmortem = Boolean(
     event
       && event.kind === 'incident'
-      && event.publication_state === 'published'
+      && event.publicationState === 'published'
       && (event.status === 'resolved' || event.postmortem),
   );
 
@@ -126,7 +126,7 @@ export function StatusPageEventDrawer({
       footer={
         editable && canEditForm ? (
           <>
-            {(isNew || event?.publication_state === 'draft') && canManage && (
+            {(isNew || event?.publicationState === 'draft') && canManage && (
               <ChromeButton
                 disabled={draftInvalid || eventMutation.isPending}
                 onClick={() => eventMutation.mutate('draft')}

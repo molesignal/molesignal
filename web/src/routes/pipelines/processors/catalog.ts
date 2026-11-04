@@ -14,13 +14,22 @@ export type ProcessorConfig =
   | { op: 'parse_key_value'; source: string; target: string; removeSource: boolean }
   | { op: 'parse_regex'; source: string; pattern: string }
   | { op: 'rename'; from: string; to: string }
+  | { op: 'rename_regex'; within: string; pattern: string; replacement: string }
   | { op: 'remove'; fields: string[] }
+  | { op: 'keep'; within: string; fields: string[] }
   | { op: 'set'; field: string; valueType: SetValueType; value: string }
   | { op: 'mask'; field: string; mode: MaskMode }
   | { op: 'case'; field: string; to: 'lower' | 'upper' }
   | { op: 'convert'; field: string; to: ConvertTarget }
   | { op: 'filter'; action: FilterAction; field: string; test: FilterTest; value: string }
-  | { op: 'sample'; percent: string; by: string };
+  | { op: 'sample'; percent: string; by: string }
+  | { op: 'lookup'; table: string; key: string; fields: LookupField[] };
+
+/** A value of an extend table's row (`column`) put into a field of the event (`field`). */
+export interface LookupField {
+  column: string;
+  field: string;
+}
 
 export type ProcessorOp = ProcessorConfig['op'];
 export type SetValueType = 'string' | 'number' | 'boolean' | 'field';
@@ -71,7 +80,7 @@ export const PROCESSOR_GROUPS: ReadonlyArray<{
   ops: readonly ProcessorOp[];
 }> = [
   { group: 'parse', ops: ['parse_json', 'parse_key_value', 'parse_regex'] },
-  { group: 'fields', ops: ['rename', 'remove', 'set', 'mask', 'case', 'convert'] },
+  { group: 'fields', ops: ['rename', 'rename_regex', 'remove', 'keep', 'set', 'mask', 'case', 'convert', 'lookup'] },
   { group: 'events', ops: ['filter', 'sample'] },
 ];
 
@@ -86,8 +95,12 @@ export function defaultProcessor(op: ProcessorOp): ProcessorConfig {
       return { op, source: 'message', pattern: '' };
     case 'rename':
       return { op, from: '', to: '' };
+    case 'rename_regex':
+      return { op, within: '', pattern: '', replacement: '' };
     case 'remove':
       return { op, fields: [] };
+    case 'keep':
+      return { op, within: '', fields: [] };
     case 'set':
       return { op, field: '', valueType: 'string', value: '' };
     case 'mask':
@@ -100,6 +113,8 @@ export function defaultProcessor(op: ProcessorOp): ProcessorConfig {
       return { op, action: 'keep', field: '', test: 'equals', value: '' };
     case 'sample':
       return { op, percent: '10', by: '' };
+    case 'lookup':
+      return { op, table: '', key: '', fields: [{ column: '', field: '' }] };
   }
 }
 
@@ -121,7 +136,10 @@ export function processorProblem(config: ProcessorConfig): string | null {
       return blank(config.pattern) ? 'processor_pattern_missing' : null;
     case 'rename':
       return blank(config.from) || blank(config.to) ? 'processor_field_missing' : null;
+    case 'rename_regex':
+      return blank(config.pattern) ? 'processor_pattern_missing' : null;
     case 'remove':
+    case 'keep':
       return config.fields.every(blank) ? 'processor_field_missing' : null;
     case 'set':
       if (blank(config.field)) return 'processor_field_missing';
@@ -143,7 +161,15 @@ export function processorProblem(config: ProcessorConfig): string | null {
       return NUMERIC_TESTS[config.test] && !numberLiteral(config.value) ? 'processor_number_invalid' : null;
     case 'sample':
       return percentOf(config.percent) === null ? 'processor_percent_invalid' : null;
+    case 'lookup':
+      if (blank(config.table) || blank(config.key)) return 'processor_field_missing';
+      return lookupFields(config).length > 0 ? null : 'processor_field_missing';
   }
+}
+
+/** The mappings of a lookup that say something: a column and a field, both named. */
+function lookupFields(config: Extract<ProcessorConfig, { op: 'lookup' }>): LookupField[] {
+  return config.fields.filter(({ column, field }) => column.trim() !== '' && field.trim() !== '');
 }
 
 /** The VRL a processor stands for. */
@@ -165,10 +191,18 @@ function lines(config: ProcessorConfig): string[] {
       );
     case 'rename':
       return onField(config.from, 'exists', (path) => [`${vrlPath(config.to)} = del(${path})`]);
+    case 'rename_regex':
+      return onObject(
+        config.within,
+        (target, read) =>
+          `${target} = map_keys(${read}) -> |key| { replace(key, ${vrlRegex(config.pattern)}, ${vrlString(config.replacement)}) }`,
+      );
     case 'remove':
       return config.fields
         .filter((field) => field.trim() !== '')
         .flatMap((field) => vrlReadPaths(field).map((path) => `del(${path})`));
+    case 'keep':
+      return keepLines(config);
     case 'set':
       return setLines(config);
     case 'mask':
@@ -189,7 +223,41 @@ function lines(config: ProcessorConfig): string[] {
       return [...filterTest(config), `if ${config.action === 'keep' ? '!matched' : 'matched'} {`, '  abort', '}'];
     case 'sample':
       return sampleLines(config);
+    case 'lookup':
+      // `lookup` finds the row of the key in the organization's extend table; null when there is none.
+      return [
+        ...readValue(config.key),
+        `row = lookup(${vrlString(config.table.trim())}, value)`,
+        'if is_object(row) {',
+        ...lookupFields(config).map(
+          ({ column, field }) => `  ${vrlPath(field)} = row${vrlPath(column)}`,
+        ),
+        '}',
+      ];
   }
+}
+
+/**
+ * One line that replaces the object named `within`, or the event itself when
+ * none is named. A field that is missing or holds something else is left as it
+ * was.
+ */
+function onObject(within: string, line: (target: string, read: string) => string): string[] {
+  if (within.trim() === '') return [line('.', '.')];
+
+  return onField(within, 'is_object', (path) => [line(path, `object!(${path})`)]);
+}
+
+/**
+ * Leaves only the named keys of an object. The event's own time stays: a row
+ * read back from a stream goes on carrying the moment it happened.
+ */
+function keepLines(config: Extract<ProcessorConfig, { op: 'keep' }>): string[] {
+  const named = config.fields.map((field) => field.trim()).filter(Boolean);
+  const kept = config.within.trim() === '' ? [...new Set([...named, '_timestamp'])] : named;
+  const list = `[${kept.map(vrlString).join(', ')}]`;
+
+  return onObject(config.within, (target, read) => `${target} = filter(${read}) -> |key, _value| { includes(${list}, key) }`);
 }
 
 /**
@@ -392,8 +460,15 @@ export function processorSummary(config: ProcessorConfig): string {
       return config.source;
     case 'rename':
       return config.from || config.to ? `${config.from} → ${config.to}` : '';
+    case 'rename_regex':
+      return config.pattern ? `${config.pattern} → ${config.replacement}` : '';
     case 'remove':
       return config.fields.filter((field) => field.trim() !== '').join(', ');
+    case 'keep': {
+      const fields = config.fields.filter((field) => field.trim() !== '').join(', ');
+
+      return config.within.trim() && fields ? `${config.within}: ${fields}` : fields;
+    }
     case 'set':
       return config.field ? `${config.field} = ${config.value}` : '';
     case 'mask':
@@ -408,6 +483,8 @@ export function processorSummary(config: ProcessorConfig): string {
         : `${config.field} ${FILTER_SIGNS[config.test]}`;
     case 'sample':
       return config.by.trim() ? `${config.percent}% · ${config.by}` : `${config.percent}%`;
+    case 'lookup':
+      return config.table.trim() && config.key.trim() ? `${config.table} · ${config.key}` : '';
   }
 }
 
@@ -425,62 +502,3 @@ const FILTER_SIGNS: Record<FilterTest, string> = {
   lt: '<',
   lte: '≤',
 };
-
-const TEXT = (value: unknown): value is string => typeof value === 'string';
-
-/** A stored processor read back, or `null` for anything that is not one. */
-export function parseProcessor(value: unknown): ProcessorConfig | null {
-  if (typeof value !== 'object' || value === null) return null;
-  const raw = value as Record<string, unknown>;
-
-  switch (raw.op) {
-    case 'parse_json':
-    case 'parse_key_value':
-      return TEXT(raw.source) && TEXT(raw.target) && typeof raw.removeSource === 'boolean'
-        ? { op: raw.op, source: raw.source, target: raw.target, removeSource: raw.removeSource }
-        : null;
-    case 'parse_regex':
-      return TEXT(raw.source) && TEXT(raw.pattern)
-        ? { op: 'parse_regex', source: raw.source, pattern: raw.pattern }
-        : null;
-    case 'rename':
-      return TEXT(raw.from) && TEXT(raw.to) ? { op: 'rename', from: raw.from, to: raw.to } : null;
-    case 'remove':
-      return Array.isArray(raw.fields) && raw.fields.every(TEXT)
-        ? { op: 'remove', fields: raw.fields }
-        : null;
-    case 'set':
-      return TEXT(raw.field) &&
-        TEXT(raw.value) &&
-        (raw.valueType === 'string' ||
-          raw.valueType === 'number' ||
-          raw.valueType === 'boolean' ||
-          raw.valueType === 'field')
-        ? { op: 'set', field: raw.field, valueType: raw.valueType, value: raw.value }
-        : null;
-    case 'mask':
-      return TEXT(raw.field) && (raw.mode === 'full' || raw.mode === 'last4' || raw.mode === 'hash')
-        ? { op: 'mask', field: raw.field, mode: raw.mode }
-        : null;
-    case 'case':
-      return TEXT(raw.field) && (raw.to === 'lower' || raw.to === 'upper')
-        ? { op: 'case', field: raw.field, to: raw.to }
-        : null;
-    case 'convert':
-      return TEXT(raw.field) &&
-        (raw.to === 'integer' || raw.to === 'float' || raw.to === 'boolean' || raw.to === 'string')
-        ? { op: 'convert', field: raw.field, to: raw.to }
-        : null;
-    case 'filter':
-      return (raw.action === 'keep' || raw.action === 'drop') &&
-        TEXT(raw.field) &&
-        TEXT(raw.value) &&
-        FILTER_TESTS.includes(raw.test as FilterTest)
-        ? { op: 'filter', action: raw.action, field: raw.field, test: raw.test as FilterTest, value: raw.value }
-        : null;
-    case 'sample':
-      return TEXT(raw.percent) && TEXT(raw.by) ? { op: 'sample', percent: raw.percent, by: raw.by } : null;
-    default:
-      return null;
-  }
-}

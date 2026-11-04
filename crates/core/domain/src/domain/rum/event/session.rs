@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 MoleSignal Authors
+
+use super::field::{RumField, RumUnit};
+
+/// The columns of `rum_sessions`. No SDK sends them: the server derives a session from the views
+/// of it and writes a new row, with a higher `session.revision`, whenever the session changed.
+/// `_timestamp` is the start of the session.
+pub(super) const SESSION: &[RumField] = &[
+    RumField::text("session.id").exact(),
+    RumField::int("session.revision"),
+    RumField::text("session.type"),
+    RumField::text("synthetics.test_id").exact(),
+    RumField::text("synthetics.result_id").exact(),
+    RumField::text("synthetics.location_id"),
+    RumField::text("ci_test.test_execution_id").exact(),
+    RumField::flag("session.has_replay"),
+    RumField::int("session.last_activity").unit(RumUnit::Milliseconds),
+    RumField::ns("session.duration"),
+    RumField::count("session.view.count"),
+    RumField::count("session.action.count"),
+    RumField::count("session.error.count"),
+    RumField::count("session.resource.count"),
+    RumField::count("session.long_task.count"),
+    RumField::count("session.frustration.count"),
+    RumField::count("session.crash.count"),
+    RumField::text("session.landing_view.url").long(4096),
+    RumField::text("session.landing_view.url_path").long(2048),
+    RumField::text("session.landing_view.name").long(512),
+    RumField::text("session.exit_view.url").long(4096),
+    RumField::text("session.exit_view.url_path").long(2048),
+    RumField::text("session.exit_view.name").long(512),
+    // What the aggregator carries from one row to the next: the latest counts of every view.
+    RumField::json("session.view_state"),
+    RumField::text("application.id").exact(),
+    RumField::text("service"),
+    RumField::text("env").exact(),
+    RumField::text("version").exact(),
+    RumField::text("source"),
+    RumField::text("usr.id").exact(),
+    RumField::text("usr.name"),
+    RumField::text("usr.email"),
+    RumField::text("usr.anonymous_id"),
+    RumField::json("usr.extra"),
+    RumField::text("account.id"),
+    RumField::text("browser.name").exact(),
+    RumField::text("browser.version"),
+    RumField::text("os.name"),
+    RumField::text("os.version"),
+    RumField::text("device.type"),
+    RumField::text("device.model"),
+    RumField::text("device.brand"),
+    RumField::text("geo.country_iso_code").exact(),
+    RumField::text("geo.country"),
+    RumField::text("geo.country_subdivision"),
+    RumField::text("geo.city"),
+    RumField::text("geo.continent_code"),
+    RumField::text("network.client.ip"),
+    RumField::text("sdk.name"),
+    RumField::text("sdk.version"),
+    RumField::float("retention.rate").unit(RumUnit::Percent),
+    RumField::text("retention.filter").exact(),
+];

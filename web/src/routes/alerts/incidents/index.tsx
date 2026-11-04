@@ -1,28 +1,38 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BellOff, Check, ExternalLink } from 'lucide-react';
+import { BellOff, Check, ExternalLink, Plus } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DataTable } from '@/admin';
 import * as alertsApi from '@/api/alerts';
+import * as alertSourcesApi from '@/api/alertSources';
 import * as incidentsApi from '@/api/incidents';
 import { toApiError } from '@/lib/http';
+import { formatMicrosActive } from '@/lib/time';
 import { restrictActionAccess, useActionAccess } from '@/product/actionAccess';
 import { ProductState, type ProductStateProps } from '@/product/states';
-import { ChromeButton, Dot, IconButton, Pill, type PillTone } from '@/shell/chrome';
+import { ChromeButton, IconButton } from '@/shell/chrome';
+import { FormSelect } from '@/shell/FormDrawer';
 import { IncidentDetailDrawer } from '@/shell/incident/DetailDrawer';
+import { prioritiesOf, priorityLabel, PriorityText, useImportance } from '@/shell/incident/Importance';
+import { useTeams } from '@/shell/incident/Routing';
 import { IncidentSilenceDialog } from '@/shell/incident/SilenceDialog';
+import { StatusWord, type StatusTone } from '@/shell/StatusWord';
 import { ViewTabs } from '@/shell/tabs/ViewTabs';
+import { Checkbox } from '@/shell/ui/checkbox';
 import { toast } from '@/shell/ui/sonner';
 import { useUsers } from '@/shell/useUsers';
+import { useAuthStore } from '@/stores/auth';
 import { formatRelativeMicros } from '@/time/relative';
-import type { IncidentStatus } from '@/types/alerting';
+import type { IncidentStatus, Priority } from '@/types/alerting';
 import { SeverityRail } from '@/viz/SeverityRail';
 
 import { formatDurationSecs, isActiveIncident } from '../alertRuleModel';
 import { AlertsPage } from '../Frame';
 import { alertFlatTableClassName } from '../Surfaces';
 import { AlertsActivation } from './Activation';
+import { IncidentBulkBar } from './BulkBar';
+import { IncidentCreateDrawer } from './CreateDrawer';
 import {
   byUrgency,
   incidentDurationSecs,
@@ -33,13 +43,15 @@ import {
 import { IncidentStanding } from './Standing';
 import { IncidentSummaryCell } from './SummaryCell';
 
-type IncidentView = 'active' | 'unacknowledged';
+type IncidentView = 'active' | 'unacknowledged' | 'my_teams' | 'inhibited';
+/** A priority, those without one (`none`), or every incident (`''`). */
+type PriorityFilter = Priority | 'none' | '';
 
 const DAY_MICROS = 24 * 60 * 60 * 1_000_000;
 /** How many recovered incidents the tab recalls when nothing is firing; History has them all. */
 const RECENT_COUNT = 5;
 
-const INCIDENT_TONE: Record<IncidentStatus, PillTone> = {
+const INCIDENT_TONE: Record<IncidentStatus, StatusTone> = {
   open: 'red',
   acknowledged: 'yellow',
   resolved: 'green',
@@ -58,22 +70,35 @@ const INCIDENT_TONE: Record<IncidentStatus, PillTone> = {
 export function AlertIncidentsPage() {
   const { t, i18n } = useTranslation('alerts');
   const queryClient = useQueryClient();
-  const acknowledgeAccess = useActionAccess({ permission: 'alerts.acknowledge' });
-  const silenceAccess = useActionAccess({ permission: 'alerts.silence' });
+  const acknowledgeAccess = useActionAccess({ permission: 'alerts.incidents.acknowledge' });
+  const silenceAccess = useActionAccess({ permission: 'alerts.incidents.silence' });
   const users = useUsers();
+  const currentUserId = useAuthStore((state) => state.ctx?.userId ?? '');
+  const teamsQuery = useTeams();
   const [view, setView] = React.useState<IncidentView>('active');
+  const [priority, setPriority] = React.useState<PriorityFilter>('');
   const [viewingIncidentId, setViewingIncidentId] = React.useState<string | null>(null);
   const [silencingIncident, setSilencingIncident] = React.useState<{ id: string; name: string } | null>(null);
+  const [selected, setSelected] = React.useState<string[]>([]);
+  const [creating, setCreating] = React.useState(false);
 
   const incidentsQuery = useQuery({
     queryKey: ['alerts', 'incidents', 'all'],
-    queryFn: () => incidentsApi.list({ scope: 'all', window_secs: 7 * 24 * 60 * 60 }),
+    queryFn: () => incidentsApi.list({ scope: 'all', windowSecs: 7 * 24 * 60 * 60 }),
     refetchInterval: 30_000,
   });
   const rulesQuery = useQuery({
     queryKey: ['alerts', 'rules'],
     queryFn: () => alertsApi.list(),
     refetchInterval: 30_000,
+  });
+  // The names of the alert sources whose incidents are listed: a nicety, so an answer that is not
+  // a list names nothing rather than breaking the page.
+  const sourcesQuery = useQuery({
+    queryKey: ['alert-sources'],
+    queryFn: () => alertSourcesApi.list(),
+    staleTime: 30_000,
+    retry: false,
   });
   const acknowledge = useMutation({
     mutationFn: (id: string) => incidentsApi.ack(id),
@@ -91,12 +116,33 @@ export function AlertIncidentsPage() {
   const waiting = active.filter((incident) => incident.status === 'open');
   const recovered = incidents
     .filter(isResolvedIncident)
-    .sort((left, right) => (right.resolved_at ?? 0) - (left.resolved_at ?? 0));
+    .sort((left, right) => (right.resolvedAt ?? 0) - (left.resolvedAt ?? 0));
   const recoveredToday = recovered.filter(
-    (incident) => incident.resolved_at !== undefined && nowMicros - incident.resolved_at <= DAY_MICROS,
+    (incident) => incident.resolvedAt !== undefined && nowMicros - incident.resolvedAt <= DAY_MICROS,
   );
   const ruleById = new Map(rules.map((rule) => [rule.id, rule]));
-  const rows = view === 'active' ? active : waiting;
+  const sourceById = new Map(
+    (Array.isArray(sourcesQuery.data) ? sourcesQuery.data : []).map((source) => [source.id, source]),
+  );
+  const teams = Array.isArray(teamsQuery.data) ? teamsQuery.data : [];
+  const teamNames = new Map(teams.map((team) => [team.id, team.name]));
+  // The teams the reader is in: their view is offered only to someone in one.
+  const myTeamIds = new Set(teams.filter((team) => team.memberIds.includes(currentUserId)).map((team) => team.id));
+  const mine = active.filter((incident) => incident.teamId && myTeamIds.has(incident.teamId));
+  const inhibited = active.filter((incident) => incident.inhibition);
+  const shownView: IncidentView =
+    (view === 'my_teams' && myTeamIds.size === 0) || (view === 'inhibited' && inhibited.length === 0) ? 'active' : view;
+  const viewRows =
+    shownView === 'active' ? active : shownView === 'unacknowledged' ? waiting : shownView === 'inhibited' ? inhibited : mine;
+  const rows =
+    priority === ''
+      ? viewRows
+      : viewRows.filter((incident) => (priority === 'none' ? !incident.priority : incident.priority === priority));
+  // Only incidents still listed stay ticked: one that recovered or moved out of the view drops out.
+  const picked = rows.filter((incident) => selected.includes(incident.id));
+  const selectable = acknowledgeAccess.allowed;
+  const toggle = (id: string, on: boolean) =>
+    setSelected((current) => (on ? [...current.filter((other) => other !== id), id] : current.filter((other) => other !== id)));
 
   const state: ProductStateProps | null =
     incidentsQuery.isLoading || rulesQuery.isLoading
@@ -120,40 +166,101 @@ export function AlertIncidentsPage() {
         : null;
   // Nothing can fire until something is watched: the tab says how to begin instead.
   const firstRun = !state && rules.length === 0 && incidents.length === 0;
+  // What no rule caught is opened by hand: a customer's report, something someone saw.
+  const newIncident = (
+    <ChromeButton
+      variant="primary"
+      disabled={acknowledgeAccess.disabled}
+      disabledReason={acknowledgeAccess.reason}
+      onClick={() => setCreating(true)}
+      data-testid="incident-create"
+    >
+      <Plus className="h-4 w-4" />
+      {t('create_incident.open')}
+    </ChromeButton>
+  );
 
   const body = () => {
     if (active.length > 0) {
       return rows.length === 0 ? (
-        // Only the "waiting" view can be empty while something is firing.
+        // Only a narrower view can be empty while something is firing.
         <ProductState
           variant="empty"
-          title={t('center.incidents.empty.unacknowledged.title')}
-          description={t('center.incidents.empty.unacknowledged.description')}
+          title={
+            viewRows.length > 0
+              ? t('center.incidents.empty.priority.title')
+              : t(`center.incidents.empty.${shownView === 'my_teams' ? 'my_teams' : 'unacknowledged'}.title`)
+          }
+          description={
+            viewRows.length > 0
+              ? t('center.incidents.empty.priority.description')
+              : t(`center.incidents.empty.${shownView === 'my_teams' ? 'my_teams' : 'unacknowledged'}.description`)
+          }
           className="rounded-none border-0 bg-transparent shadow-none"
         />
       ) : (
+        <>
+        {picked.length > 0 && <IncidentBulkBar incidents={picked} onClear={() => setSelected([])} />}
         <DataTable
           className={alertFlatTableClassName}
           rows={rows}
           rowKey={(incident) => incident.id}
           onRowClick={(incident) => setViewingIncidentId(incident.id)}
           columns={[
+            ...(selectable
+              ? [
+                  {
+                    key: 'select',
+                    width: 40,
+                    header: (
+                      <Checkbox
+                        aria-label={t('incident_actions.select_all')}
+                        checked={picked.length === rows.length ? true : picked.length > 0 ? 'indeterminate' : false}
+                        onCheckedChange={(next) => setSelected(next === true ? rows.map((incident) => incident.id) : [])}
+                      />
+                    ),
+                    cell: (incident: (typeof rows)[number]) => (
+                      <Checkbox
+                        aria-label={t('incident_actions.select', { name: incident.summary })}
+                        checked={selected.includes(incident.id)}
+                        onCheckedChange={(next) => toggle(incident.id, next === true)}
+                        data-incident-select
+                      />
+                    ),
+                  },
+                ]
+              : []),
             {
               key: 'incident',
               header: t('center.incidents.columns.incident'),
               cell: (incident) => (
-                <IncidentSummaryCell incident={incident} extra={ruleById.get(incident.rule_id)?.name} />
+                <IncidentSummaryCell
+                  incident={incident}
+                  extra={ruleById.get(incident.ruleId)?.name ?? sourceById.get(incident.ruleId)?.name}
+                />
               ),
+            },
+            {
+              key: 'priority',
+              header: t('center.incidents.columns.priority'),
+              width: 80,
+              cell: (incident) => <PriorityText priority={incident.priority} />,
             },
             {
               key: 'status',
               header: t('center.incidents.columns.status'),
               width: 130,
               cell: (incident) => (
-                <Pill tone={INCIDENT_TONE[incident.status]}>
-                  {incident.status === 'open' && <Dot tone="red" />}
-                  {t(`center.incidents.status.${incident.status}`)}
-                </Pill>
+                <div className="min-w-0 py-1">
+                  <StatusWord tone={INCIDENT_TONE[incident.status]} strong={incident.status === 'open'}>
+                    {t(`center.incidents.status.${incident.status}`)}
+                  </StatusWord>
+                  {incident.snoozedUntil && (
+                    <span className="mt-0.5 block truncate text-xs text-tx-2" data-incident-snoozed>
+                      {t('incident_actions.snoozed_until', { time: formatMicrosActive(incident.snoozedUntil) })}
+                    </span>
+                  )}
+                </div>
               ),
             },
             {
@@ -171,13 +278,24 @@ export function AlertIncidentsPage() {
               header: t('center.incidents.columns.owner'),
               width: 180,
               cell: (incident) => {
-                const owner = incident.acknowledged_by ?? incident.assignees?.[0];
+                const owner = incident.acknowledgedBy ?? incident.assignees?.[0];
+                const team = incident.teamId ? teamNames.get(incident.teamId) : undefined;
 
-                // "Waiting" already says nobody has it; the column names a person or stays empty.
-                return owner ? (
-                  <span className="block truncate text-tx-1">{users.nameOf(owner)}</span>
-                ) : (
-                  <span className="text-tx-3">—</span>
+                // "Waiting" already says nobody has it; the column names a person or stays empty,
+                // with the team routing gave the incident under it.
+                return (
+                  <div className="min-w-0 py-1">
+                    {owner ? (
+                      <span className="block truncate text-tx-1">{users.nameOf(owner)}</span>
+                    ) : (
+                      <span className="block text-tx-3">—</span>
+                    )}
+                    {team && (
+                      <span className="mt-0.5 block truncate text-xs text-tx-2" data-incident-team-name>
+                        {team}
+                      </span>
+                    )}
+                  </div>
                 );
               },
             },
@@ -188,7 +306,7 @@ export function AlertIncidentsPage() {
               className: 'overflow-visible text-right',
               headerClassName: 'text-right',
               cell: (incident) => {
-                const runbook = incidentRunbook(incident, ruleById.get(incident.rule_id)?.annotations);
+                const runbook = incidentRunbook(incident, ruleById.get(incident.ruleId)?.annotations);
                 const acknowledgeHere = restrictActionAccess(
                   acknowledgeAccess,
                   incident.status === 'open',
@@ -237,6 +355,7 @@ export function AlertIncidentsPage() {
             },
           ]}
         />
+        </>
       );
     }
 
@@ -256,7 +375,7 @@ export function AlertIncidentsPage() {
                 onClick={() => setViewingIncidentId(incident.id)}
                 className="flex w-full min-w-0 items-stretch gap-[12px] px-4 py-[10px] text-left outline-none transition-colors hover:bg-bg-2 focus-visible:bg-bg-2"
               >
-                <SeverityRail severity={incident.severity} className="w-[3px] shrink-0 rounded-full" />
+                <SeverityRail severity={incident.severity} className="w-[2px] shrink-0 rounded-full" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-sans text-sm font-strong text-tx-0">{incident.summary}</span>
                   <span className="mt-0.5 block truncate text-xs text-tx-2">
@@ -264,7 +383,7 @@ export function AlertIncidentsPage() {
                       t(`severity.${incident.severity}`),
                       incidentService(incident),
                       t('center.incidents.recent.recovered', {
-                        when: formatRelativeMicros(incident.resolved_at, i18n.language, nowMicros),
+                        when: formatRelativeMicros(incident.resolvedAt, i18n.language, nowMicros),
                       }),
                       t('center.incidents.recent.lasted', {
                         duration: formatDurationSecs(incidentDurationSecs(incident, nowMicros)),
@@ -290,11 +409,12 @@ export function AlertIncidentsPage() {
       {state ? (
         <AlertsPage state={state} />
       ) : firstRun ? (
-        <AlertsPage contentSurface={false}>
+        <AlertsPage contentSurface={false} action={newIncident}>
           <AlertsActivation />
         </AlertsPage>
       ) : (
         <AlertsPage
+          action={newIncident}
           lead={
             <IncidentStanding
               active={active}
@@ -308,17 +428,25 @@ export function AlertIncidentsPage() {
           {...(active.length > 0
             ? {
                 listHead: (
-                  <ViewTabs<IncidentView>
-                    label={t('center.incidents.tabs_label')}
-                    value={view}
-                    onValueChange={setView}
-                    dataAttributes={{ 'data-alert-filter-tabs': '' }}
-                    // The statement above has counted both; the views only choose between them.
-                    items={[
-                      { key: 'active', label: t('center.incidents.tabs.active') },
-                      { key: 'unacknowledged', label: t('center.incidents.tabs.unacknowledged') },
-                    ]}
-                  />
+                  <>
+                    <ViewTabs<IncidentView>
+                      label={t('center.incidents.tabs_label')}
+                      value={shownView}
+                      onValueChange={setView}
+                      dataAttributes={{ 'data-alert-filter-tabs': '' }}
+                      // The statement above has counted the first two; the views only choose among what is firing.
+                      items={[
+                        { key: 'active', label: t('center.incidents.tabs.active') },
+                        { key: 'unacknowledged', label: t('center.incidents.tabs.unacknowledged') },
+                        ...(myTeamIds.size > 0 ? [{ key: 'my_teams' as const, label: t('center.incidents.tabs.my_teams') }] : []),
+                        // Offered only while a rule holds something back.
+                        ...(inhibited.length > 0
+                          ? [{ key: 'inhibited' as const, label: t('center.incidents.tabs.inhibited'), count: inhibited.length }]
+                          : []),
+                      ]}
+                    />
+                    <PrioritySelect value={priority} onChange={setPriority} className="ml-auto w-full sm:w-[140px]" />
+                  </>
                 ),
               }
             : {})}
@@ -327,6 +455,7 @@ export function AlertIncidentsPage() {
         </AlertsPage>
       )}
       <IncidentDetailDrawer incidentId={viewingIncidentId} onClose={() => setViewingIncidentId(null)} />
+      <IncidentCreateDrawer open={creating} onClose={() => setCreating(false)} />
       <IncidentSilenceDialog
         incidentId={silencingIncident?.id ?? null}
         incidentName={silencingIncident?.name}
@@ -336,5 +465,34 @@ export function AlertIncidentsPage() {
         }}
       />
     </>
+  );
+}
+
+/** Narrows a list of incidents to one priority, or to those without one. */
+export function PrioritySelect({
+  value,
+  onChange,
+  className,
+}: {
+  value: PriorityFilter;
+  onChange: (value: PriorityFilter) => void;
+  className: string;
+}) {
+  const { t } = useTranslation('alerts');
+  const levels = useImportance();
+  const priorities = prioritiesOf(levels);
+
+  return (
+    <FormSelect
+      ariaLabel={t('importance.filter_label')}
+      className={className}
+      value={value}
+      onChange={(next) => onChange(next as PriorityFilter)}
+      options={[
+        { value: '', label: t('importance.all_priorities') },
+        ...priorities.map((item) => ({ value: item, label: priorityLabel(levels, item) })),
+        { value: 'none', label: t('importance.without_priority') },
+      ]}
+    />
   );
 }

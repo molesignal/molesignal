@@ -24,6 +24,7 @@ function editing(overrides: Partial<FlowEditing> = {}): FlowEditing {
   return {
     selectedId: 'transform-0',
     onSelect: vi.fn(),
+    onRemove: vi.fn(),
     onAddStep: vi.fn(),
     onAddSource: vi.fn(),
     onAddDestination: vi.fn(),
@@ -107,7 +108,7 @@ describe('PipelineFlow', () => {
           operation: 'route',
           script: '',
           target: 'default',
-          routing: { kind: 'field', field: 'appname', prefix: '', fallback: 'default', retain_source: false },
+          routing: { kind: 'field', field: 'appname', prefix: '', fallback: 'default', retainSource: false },
         },
       ],
     });
@@ -201,6 +202,7 @@ describe('PipelineFlow', () => {
     expect((await screen.findAllByRole('menuitem')).map((item) => item.textContent)).toEqual([
       'Stream',
       'Connector',
+      'Extend table',
     ]);
     await user.click(screen.getByRole('menuitem', { name: 'Connector' }));
     expect(state.onAddDestination).toHaveBeenCalledWith('connector');
@@ -211,11 +213,14 @@ describe('PipelineFlow', () => {
       'Parse key=value',
       'Extract with regex',
       'Rename field',
+      'Rename by pattern',
       'Remove fields',
+      'Keep only these fields',
       'Set field',
       'Mask field',
       'Change case',
       'Convert type',
+      'Look up an extend table',
       'Filter events',
       'Sample',
       'Route to stream',
@@ -224,6 +229,18 @@ describe('PipelineFlow', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Filter events' }));
 
     expect(state.onAddStep).toHaveBeenCalledWith('filter');
+  });
+
+  it('removes cards without selecting them and keeps required endpoints disabled', () => {
+    const state = editing();
+    renderFlow({ ...MODEL, sources: ['app_logs', 'audit_logs'] }, state);
+
+    for (const [name, id] of [['app_logs', 'source-0'], ['parse', 'transform-0'], ['Archive', 'sink-1']]) {
+      fireEvent.click(screen.getByRole('button', { name: `Remove ${name}` }));
+      expect(state.onRemove).toHaveBeenLastCalledWith(id);
+    }
+    expect(state.onSelect).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Remove clean_logs' })).toBeDisabled();
   });
 
   it('adds no more streams to a side that has as many as a pipeline takes', async () => {
@@ -247,6 +264,7 @@ describe('PipelineFlow', () => {
   it('adds nothing while the editor is read-only', () => {
     renderFlow(MODEL, editing({ disabled: true, disabledReason: 'Requires pipelines.update' }));
 
+    expect(screen.getByRole('button', { name: 'Remove parse' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Add step' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Add source' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Add destination' })).toBeDisabled();

@@ -14,6 +14,7 @@ use crate::{
         http::{
             federation::{delete_payload, emit_cud},
             middleware::Permission,
+            routes::alerting::check_rum_application,
         },
     },
     app::iam::IamContext,
@@ -46,7 +47,7 @@ pub(super) async fn execute(
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct RuleWrite {
     name: String,
     #[serde(default)]
@@ -80,8 +81,9 @@ async fn create(
     ctx: &IamContext,
     approval: &ApprovalRequest,
 ) -> Result<OperationOutcome> {
-    let request: RuleWrite = parse(&approval.parameters)?;
-    validate(&request)?;
+    let mut request: RuleWrite = parse(&approval.parameters)?;
+    validate(&mut request)?;
+    check_rum_application(state, &ctx.org_id, &request.query).await?;
     let now = TimestampMicros::now();
 
     let rule = state
@@ -120,8 +122,9 @@ async fn update(
     ctx: &IamContext,
     approval: &ApprovalRequest,
 ) -> Result<OperationOutcome> {
-    let request: RuleWrite = parse(&approval.parameters)?;
-    validate(&request)?;
+    let mut request: RuleWrite = parse(&approval.parameters)?;
+    validate(&mut request)?;
+    check_rum_application(state, &ctx.org_id, &request.query).await?;
     let existing = load_authorized(state, ctx, &approval.target).await?;
 
     let rule = state
@@ -176,7 +179,7 @@ async fn delete(
 
     Ok(OperationOutcome {
         summary: "alert rule deleted".into(),
-        verification: json!({"verified": true, "rule_id": rule.id, "deleted": true}),
+        verification: json!({"verified": true, "ruleId": rule.id, "deleted": true}),
     })
 }
 
@@ -198,7 +201,7 @@ async fn trigger(
         summary: format!("manually triggered alert rule {}", rule.id.0),
         verification: json!({
             "verified": true,
-            "rule_id": rule.id,
+            "ruleId": rule.id,
             "incident": incident,
         }),
     })
@@ -214,7 +217,7 @@ async fn load_authorized(state: &AppState, ctx: &IamContext, id: &str) -> Result
     Permission::require_resource(
         state,
         ctx,
-        "alerts.manage",
+        "alerts.rules.manage",
         &rule.org_id,
         "alert",
         &rule.id.0,
@@ -224,25 +227,12 @@ async fn load_authorized(state: &AppState, ctx: &IamContext, id: &str) -> Result
     Ok(rule)
 }
 
-fn validate(request: &RuleWrite) -> Result<()> {
+fn validate(request: &mut RuleWrite) -> Result<()> {
     if request.name.trim().is_empty() {
         return Err(Error::invalid("name cannot be empty"));
     }
 
-    if request.query.statement.trim().is_empty() {
-        return Err(Error::invalid("query.statement cannot be empty"));
-    }
-
-    let stream = request
-        .query
-        .stream
-        .as_ref()
-        .ok_or_else(|| Error::invalid("query.stream is required"))?;
-
-    if stream.name.trim().is_empty() {
-        return Err(Error::invalid("query.stream.name cannot be empty"));
-    }
-
+    request.query.normalize(request.kind)?;
     normalize_anomaly(request.kind, request.anomaly_params.clone()).map(|_| ())
 }
 
@@ -255,7 +245,7 @@ fn normalize_anomaly(
     }
 
     let parameters = parameters
-        .ok_or_else(|| Error::invalid("anomaly_params is required when kind = anomaly"))?;
+        .ok_or_else(|| Error::invalid("anomalyParams is required when kind = anomaly"))?;
 
     if !SUPPORTED_DETECTORS.contains(&parameters.algorithm.as_str()) {
         return Err(Error::invalid(format!(
@@ -282,7 +272,7 @@ fn normalize_anomaly(
 
     if parameters.weekly_seasonality && parameters.lookback_days < 7 {
         return Err(Error::invalid(
-            "weekly_seasonality requires lookback_days >= 7",
+            "weeklySeasonality requires lookback_days >= 7",
         ));
     }
 
@@ -304,7 +294,7 @@ async fn emit_rule_cud(state: &AppState, rule: &AlertRule, action: CudAction) {
 fn outcome(summary: &str, rule: AlertRule) -> Result<OperationOutcome> {
     Ok(OperationOutcome {
         summary: summary.into(),
-        verification: json!({"verified": true, "alert_rule": rule}),
+        verification: json!({"verified": true, "alertRule": rule}),
     })
 }
 

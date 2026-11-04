@@ -23,6 +23,7 @@ const UNFINISHED_RESULT: &str = "[the run was stopped before this call returned]
 
 /// 一次工具调用。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TranscriptCall {
     pub id: String,
     pub name: String,

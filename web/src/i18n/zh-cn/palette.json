@@ -3,13 +3,25 @@
   "no_results": "无匹配结果。",
   "groups": {
     "results": "结果",
-    "actions": "操作"
+    "actions": "操作",
+    "attention": "等你处理",
+    "recent": "最近打开",
+    "kinds": {
+      "action": "操作",
+      "incident": "事件",
+      "alert": "告警规则",
+      "service": "服务",
+      "dashboard": "仪表盘",
+      "stream": "数据流",
+      "saved_view": "已保存视图"
+    }
   },
   "footer": {
     "open": "打开",
     "open_new_stack": "在新栈打开",
     "stack_on_top": "叠加到栈顶",
-    "close": "关闭"
+    "close": "关闭",
+    "acknowledge": "确认事件"
   },
   "actions": {
     "goto_investigate": "跳转到 Investigate",
@@ -37,5 +49,9 @@
     "create_alert": "创建告警",
     "create_pipeline": "创建流水线",
     "connect_source": "接入数据源"
-  }
+  },
+  "show_all_one": "再显示 {{count}} 项",
+  "show_all_other": "再显示 {{count}} 项",
+  "acknowledge": "确认",
+  "acknowledged": "事件已确认"
 }

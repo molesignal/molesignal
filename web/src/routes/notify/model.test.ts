@@ -17,37 +17,37 @@ import {
 
 const connector: NotifyConnector = {
   id: 'connector-email',
-  organization_id: 'org',
+  organizationId: 'org',
   name: 'Company email',
-  connector_type: 'email_smtp',
+  connectorType: 'email_smtp',
   config: {},
   capabilities: {
-    direct_user: true,
+    directUser: true,
     group: true,
-    rich_text: true,
+    richText: true,
     interactive: false,
     acknowledgement: false,
     attachments: false,
   },
   enabled: true,
   status: 'connected',
-  created_at: 1,
-  updated_at: 1,
+  createdAt: 1,
+  updatedAt: 1,
 };
 
 function endpoint(id: string, identity: string): UserNotifyEndpoint {
   return {
     id,
-    organization_id: 'org',
-    user_id: 'user',
-    connector_id: connector.id,
-    provider_type: connector.connector_type,
-    external_identity: identity,
+    organizationId: 'org',
+    userId: 'user',
+    connectorId: connector.id,
+    providerType: connector.connectorType,
+    externalIdentity: identity,
     verified: true,
     enabled: true,
     metadata: {},
-    created_at: 1,
-    updated_at: 1,
+    createdAt: 1,
+    updatedAt: 1,
   };
 }
 
@@ -57,29 +57,31 @@ describe('notify model', () => {
     const second = endpoint('endpoint-second', 'backup@example.com');
     const preference: UserNotifyPreference = {
       id: 'preference',
-      organization_id: 'org',
-      user_id: 'user',
+      organizationId: 'org',
+      userId: 'user',
       category: 'alert',
       enabled: true,
-      allow_critical_bypass: true,
+      allowHighUrgencyBypass: true,
       steps: [
         {
           id: 'step-second',
-          preference_id: 'preference',
-          endpoint_id: second.id,
-          step_order: 2,
-          created_at: 1,
+          preferenceId: 'preference',
+          endpointId: second.id,
+          stepOrder: 2,
+          delaySecs: 0,
+          createdAt: 1,
         },
         {
           id: 'step-first',
-          preference_id: 'preference',
-          endpoint_id: first.id,
-          step_order: 1,
-          created_at: 1,
+          preferenceId: 'preference',
+          endpointId: first.id,
+          stepOrder: 1,
+          delaySecs: 0,
+          createdAt: 1,
         },
       ],
-      created_at: 1,
-      updated_at: 1,
+      createdAt: 1,
+      updatedAt: 1,
     };
 
     expect(connectorName([connector], connector.id)).toBe('Company email');

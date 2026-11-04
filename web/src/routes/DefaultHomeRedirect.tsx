@@ -8,8 +8,7 @@ import { useAuthStore } from '@/stores/auth';
 
 export function DefaultHomeRedirect() {
   const context = useAuthStore((state) => state.ctx);
-  const token = useAuthStore((state) => state.token);
-  const shouldLoadPreferences = Boolean(token);
+  const shouldLoadPreferences = Boolean(context);
   const preferencesQuery = useQuery({
     queryKey: USER_PREFERENCES_QUERY_KEY,
     queryFn: () => meApi.preferences(),
@@ -21,9 +20,9 @@ export function DefaultHomeRedirect() {
   const preferences =
     preferencesQuery.data ?? meApi.DEFAULT_USER_PREFERENCES;
   const destination = resolveDefaultHomeRoute(
-    preferences.default_home_route,
-    context?.user_id ?? '',
-    context?.org_id ?? '',
+    preferences.defaultHomeRoute,
+    context?.userId ?? '',
+    context?.orgId ?? '',
   );
   return <Navigate to={destination} replace />;
 }

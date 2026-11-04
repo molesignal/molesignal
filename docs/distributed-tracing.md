@@ -61,11 +61,10 @@ when its first Span arrived. A decision happens after the 30-second default
 window, one second after the root ends, or early under capacity pressure. Every
 retained Trace then enters one fan-out stage:
 
-```text
-instrumentation -> candidate queue -> rendezvous owner -> tail sampler
-                                                     -> self-intake queue
-                                                     -> external OTLP queue
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/architecture/trace-fan-out_dark.svg">
+  <img src="../assets/architecture/trace-fan-out_light.svg" alt="Instrumentation goes to the candidate queue, the rendezvous owner, and the tail sampler. Retained Traces fan out to the self-intake queue and the external OTLP queue">
+</picture>
 
 The two sink queues have independent batching, timeout, retry, drop, and health
 state. Failure of either sink never blocks the other sink or the application.
@@ -85,6 +84,13 @@ Span names and dimensions are intentionally low-cardinality:
 | Query | planning/DataFusion/PromQL spans and the `rpc.client` span of a query forwarded to a querier | language, stage, row/byte counts |
 | Background | compaction, reports, search jobs, service graph, replay, sync | static worker/operation names and result counts |
 | Agent | provider/tool stages and linked stream segments | provider, model, stage, tool name, token counts |
+
+In `_sys/traces/_molesignal` a span is stored under the name it declares as `otel.name`, where
+it declares one: an HTTP server span as its method and route template (`GET /api/v1/streams`),
+an HTTP client span as `HTTP` and its method, a gRPC span as `service/method`, a SQL query as
+its operation and collection (`SELECT logical_streams`), and a stream session or a queued
+execution as its operation. Other spans keep the names above. Every span carries the kind it
+declares as `otel.kind`; a span that declares none is internal.
 
 Federated scans of remote clusters are sibling spans. Retry attempts and multipart parts are
 bounded Events on one logical Span. SSE, streaming HTTP, AI provider streams,
@@ -139,7 +145,7 @@ tail memory ~= concurrent unresolved traces * average canonical bytes per trace
 sink memory ~= queue capacity * average retained trace bytes
 ```
 
-Set `tail_max_traces` and `tail_memory_bytes` together. An 80% queue/tail-cache
+Set `tail_max_traces` and `tail_memory_size` together. An 80% queue/tail-cache
 occupancy is the default alert threshold.
 
 ## Privacy boundary
@@ -195,9 +201,9 @@ created later. Root receives every current permission in the database catalog;
 ordinary users remain bound to their organization Membership and role grants.
 
 Only a system-scoped interactive root JWT (maximum one hour) can discover or
-select `_sys` and call the APIs below. Tenant JWTs and `ms_*` API tokens receive
+select `_sys` and call the APIs below. Tenant JWTs and `mspat-*` API tokens receive
 `404`, without leaking system metadata. Ordinary organization mutation, public
-intake, remote profiling, and `ms_*` API-token creation remain unavailable in
+intake, remote profiling, and `mspat-*` API-token creation remain unavailable in
 system scope.
 
 - `GET /api/v1/system/platform-admins`

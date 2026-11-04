@@ -66,7 +66,7 @@ export function sampleStatisticsStatements(
   const grouped = defaultLogStatsConfig(fields);
   const overTime: LogStatsConfig = { ...grouped, groupBy: STATS_GROUP_TIME, chart: 'line' };
   const bucketMicros = statsBucketMicros(range ?? { start: 0, end: 3_600_000_000 });
-  const statement = (config: LogStatsConfig) => buildLogStatsStatement({ stream, conditions: [], config, bucketMicros });
+  const statement = (config: LogStatsConfig) => buildLogStatsStatement({ stream, conditions: [], config, bucketTime: bucketMicros });
 
   return grouped.groupBy === STATS_GROUP_TIME ? [statement(overTime)] : [statement(grouped), statement(overTime)];
 }

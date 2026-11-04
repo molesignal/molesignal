@@ -57,15 +57,15 @@ const providers = vi.mocked(providersApi);
 const SECOND = 1_000_000;
 const NOW = Date.UTC(2026, 9, 13, 2) * 1000;
 const LIMITS: InspectionLimits = {
-  min_interval_secs: 3_600,
-  max_per_org: 20,
-  run_timeout_secs: 300,
-  report_retention_days: 30,
+  minIntervalSecs: 3_600,
+  maxPerOrg: 20,
+  runTimeoutSecs: 300,
+  reportRetentionDays: 30,
 };
 /** The label of the name field; it carries the mark of a field that must be filled. */
 const NAME = /^Name/;
-const MANAGER = ['agent.use', 'streams.query', 'inspections.manage', 'alerts.read'];
-const READER = ['agent.use', 'streams.query'];
+const MANAGER = ['inspections.read', 'logs.read', 'inspections.manage', 'inspections.run', 'notify.connectors.read'];
+const READER = ['inspections.read', 'logs.read'];
 
 function access(permissions: string[]): ProductAccess {
   return {
@@ -86,24 +86,24 @@ function inspection(id: string, overrides: Partial<LogInspection> = {}): LogInsp
     name: `Inspection ${id}`,
     stream: 'app_logs',
     statement: "level = 'ERROR'",
-    window_secs: 3_600,
+    windowSecs: 3_600,
     requirements: '',
-    schedule: { type: 'interval', every_minutes: 60 },
+    schedule: { type: 'interval', everyMinutes: 60 },
     timezone: 'UTC',
-    provider_id: 'provider-1',
+    providerId: 'provider-1',
     model: null,
-    notify_when: 'abnormal',
-    notify_routes: [{ connector_id: 'c1', target_type: 'fixed_group', target: 'oc_ops' }],
+    notifyWhen: 'abnormal',
+    notifyRoutes: [{ connectorId: 'c1', targetType: 'fixed_group', target: 'oc_ops' }],
     language: 'en-us',
     enabled: true,
-    run_as_user_id: 'u1',
-    run_as_user: { id: 'u1', display_name: 'Dana Reyes', email: 'dana@example.com' },
-    next_run_at_micros: NOW + 38 * 60 * SECOND,
-    last_run: { at_micros: NOW - 22 * 60 * SECOND, status: 'succeeded', level: 'normal' },
-    active_run: null,
-    created_by: 'u1',
-    created_at_micros: NOW - 86_400 * SECOND,
-    updated_at_micros: NOW - 86_400 * SECOND,
+    runAsUserId: 'u1',
+    runAsUser: { id: 'u1', displayName: 'Dana Reyes', email: 'dana@example.com' },
+    nextRunAt: NOW + 38 * 60 * SECOND,
+    lastRun: { atTime: NOW - 22 * 60 * SECOND, status: 'succeeded', level: 'normal' },
+    activeRun: null,
+    createdBy: 'u1',
+    createdAt: NOW - 86_400 * SECOND,
+    updatedAt: NOW - 86_400 * SECOND,
     ...overrides,
   };
 }
@@ -112,13 +112,13 @@ const PROVIDER: ModelProvider = {
   id: 'provider-1',
   provider: 'openai',
   name: 'OpenAI',
-  default_model: 'gpt-4o',
+  defaultModel: 'gpt-4o',
   enabled: true,
-  timeout_ms: 30_000,
-  price_currency: 'USD',
-  key_set: true,
-  created_at_micros: 1,
-  updated_at_micros: 1,
+  timeoutMs: 30_000,
+  priceCurrency: 'USD',
+  keySet: true,
+  createdAt: 1,
+  updatedAt: 1,
 };
 
 /** A backend holding `inspections`, answered from as it stands now. */
@@ -133,20 +133,20 @@ function serve(inspections: LogInspection[], limits: InspectionLimits = LIMITS) 
   api.list.mockImplementation(async () => [...held]);
   api.limits.mockResolvedValue(limits);
   api.setEnabled.mockImplementation(async (id, enabled) =>
-    change(id, { enabled, next_run_at_micros: enabled ? NOW + 3_600 * SECOND : null }),
+    change(id, { enabled, nextRunAt: enabled ? NOW + 3_600 * SECOND : null }),
   );
   api.runNow.mockImplementation(async (id) => {
     change(id, {
-      active_run: {
+      activeRun: {
         id: 'run-queued',
         status: 'queued',
         trigger: 'manual',
-        created_at_micros: NOW,
-        started_at_micros: null,
+        createdAt: NOW,
+        startedAt: null,
       },
     });
 
-    return { id: 'run-queued', inspection_id: id, status: 'queued' } as LogInspectionRun;
+    return { id: 'run-queued', inspectionId: id, status: 'queued' } as LogInspectionRun;
   });
   api.remove.mockImplementation(async (id) => {
     held.splice(
@@ -201,10 +201,10 @@ describe('scheduled log inspections', () => {
         name: 'Weekly audit',
         statement: '',
         schedule: { type: 'weekly', weekday: 1, hour: 9, minute: 30 },
-        window_secs: 7 * 86_400,
-        notify_when: 'always',
-        notify_routes: [],
-        last_run: { at_micros: NOW - 3 * 86_400 * SECOND, status: 'succeeded', level: 'abnormal' },
+        windowSecs: 7 * 86_400,
+        notifyWhen: 'always',
+        notifyRoutes: [],
+        lastRun: { atTime: NOW - 3 * 86_400 * SECOND, status: 'succeeded', level: 'abnormal' },
       }),
     ]);
     renderPage();
@@ -240,18 +240,18 @@ describe('scheduled log inspections', () => {
 
   it('marks an inspection that never ran, one that failed, and one that is running', async () => {
     serve([
-      inspection('new', { last_run: null }),
-      inspection('broken', { last_run: { at_micros: NOW - 60 * SECOND, status: 'timed_out', level: null } }),
+      inspection('new', { lastRun: null }),
+      inspection('broken', { lastRun: { atTime: NOW - 60 * SECOND, status: 'timed_out', level: null } }),
       inspection('busy', {
-        active_run: {
+        activeRun: {
           id: 'r9',
           status: 'running',
           trigger: 'schedule',
-          created_at_micros: NOW - 30 * SECOND,
-          started_at_micros: NOW - 30 * SECOND,
+          createdAt: NOW - 30 * SECOND,
+          startedAt: NOW - 30 * SECOND,
         },
       }),
-      inspection('off', { enabled: false, next_run_at_micros: null }),
+      inspection('off', { enabled: false, nextRunAt: null }),
     ]);
     renderPage();
     await listed('new');
@@ -325,12 +325,12 @@ describe('scheduled log inspections', () => {
   });
 
   it('says which permissions are missing instead of asking the backend', async () => {
-    session.access = access(['streams.query']);
+    session.access = access(['logs.read']);
     serve([inspection('hourly')]);
     renderPage();
 
     expect(await screen.findByText('You cannot see scheduled inspections')).toBeInTheDocument();
-    expect(screen.getByText(/agent\.use and streams\.query/)).toBeInTheDocument();
+    expect(screen.getByText(/inspections\.read and logs\.read/)).toBeInTheDocument();
     expect(api.list).not.toHaveBeenCalled();
   });
 
@@ -402,7 +402,7 @@ describe('scheduled log inspections', () => {
     fireEvent.change(name, { target: { value: 'Renamed while a run finished' } });
     // The same inspection, read again: a run of it ended in the meantime.
     rerender(
-      form(inspection('one', { last_run: { at_micros: NOW, status: 'succeeded', level: 'abnormal' } })),
+      form(inspection('one', { lastRun: { atTime: NOW, status: 'succeeded', level: 'abnormal' } })),
     );
 
     expect(screen.getByLabelText(NAME)).toHaveValue('Renamed while a run finished');
@@ -447,7 +447,7 @@ describe('scheduled log inspections', () => {
     // The form is not drawn on a guess of the limits.
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
-    answer({ ...LIMITS, min_interval_secs: 7_200 });
+    answer({ ...LIMITS, minIntervalSecs: 7_200 });
 
     const dialog = within(await screen.findByRole('dialog'));
 
@@ -460,22 +460,22 @@ describe('scheduled log inspections', () => {
     vi.mocked(notifyApi.listConnectors).mockResolvedValue([
       {
         id: 'c1',
-        organization_id: 'org',
+        organizationId: 'org',
         name: 'Lark · Ops',
-        connector_type: 'lark_app',
+        connectorType: 'lark_app',
         config: {},
         capabilities: {
-          direct_user: true,
+          directUser: true,
           group: true,
-          rich_text: true,
+          richText: true,
           interactive: false,
           acknowledgement: false,
           attachments: false,
         },
         enabled: false,
         status: 'connected',
-        created_at: 1,
-        updated_at: 1,
+        createdAt: 1,
+        updatedAt: 1,
       },
     ]);
     serve([inspection('one')]);
@@ -496,7 +496,7 @@ describe('scheduled log inspections', () => {
   it('says in the form that the model of the inspection was disabled since', async () => {
     providers.list.mockResolvedValue([
       { ...PROVIDER, enabled: false },
-      { ...PROVIDER, id: 'provider-2', name: 'Qwen', default_model: 'qwen-max' },
+      { ...PROVIDER, id: 'provider-2', name: 'Qwen', defaultModel: 'qwen-max' },
     ]);
     serve([inspection('one')]);
     renderPage();
@@ -515,20 +515,20 @@ describe('scheduled log inspections', () => {
   });
 
   it('says the channels are kept as they are to someone who may not see the connectors', async () => {
-    session.access = access(MANAGER.filter((permission) => permission !== 'alerts.read'));
+    session.access = access(MANAGER.filter((permission) => permission !== 'notify.connectors.read'));
     serve([inspection('one')]);
     renderPage();
     (await listed('one')).getByRole('button', { name: 'Edit Inspection one' }).click();
     await screen.findByRole('dialog');
 
     expect(document.querySelector('[data-inspection-channels="denied"]')).toHaveTextContent(
-      'Choosing a notification channel requires the alerts.read permission. The 1 channel already chosen is kept as it is.',
+      'Choosing a notification channel requires the notify.connectors.read permission. The 1 channel already chosen is kept as it is.',
     );
     expect(notifyApi.listConnectors).not.toHaveBeenCalled();
   });
 
   it('stops offering a new inspection once the organization holds as many as it may', async () => {
-    serve([inspection('one'), inspection('two')], { ...LIMITS, max_per_org: 2 });
+    serve([inspection('one'), inspection('two')], { ...LIMITS, maxPerOrg: 2 });
     renderPage();
     await listed('one');
 

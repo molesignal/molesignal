@@ -40,6 +40,7 @@ impl NotifyEventStatus {
 
 /// 可重试的通知事件信封。业务事件和渲染后的消息一起持久化，确保确认超时后仍能升级。
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NotifyEventRecord {
     pub event: NotifyEvent,
     pub message: NotifyMessage,

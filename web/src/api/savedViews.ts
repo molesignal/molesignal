@@ -6,19 +6,19 @@ export type QueryLanguage = 'sql' | 'promql';
 /** Mirrors `molesignal_domain::saved_view::SavedView`. */
 export interface SavedView {
   id: string;
-  org_id: string;
-  owner_user_id: string;
+  orgId: string;
+  ownerUserId: string;
   name: string;
   language: QueryLanguage;
   statement: string;
   /** Default look-back window, in seconds, applied when the view is opened. */
-  time_range_secs: number;
+  timeRangeSecs: number;
   stream: string | null;
   tags: string[];
   pinned: boolean;
   /** Microseconds since epoch. */
-  created_at: number;
-  updated_at: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
 /** Request body for create / update (`WriteReq` on the backend). */
@@ -26,7 +26,7 @@ export interface SavedViewInput {
   name: string;
   language: QueryLanguage;
   statement: string;
-  time_range_secs: number;
+  timeRangeSecs: number;
   stream?: string | null;
   tags?: string[];
   pinned?: boolean;

@@ -13,7 +13,11 @@ pub struct Viewport {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "action", rename_all = "snake_case")]
+#[serde(
+    tag = "action",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub enum BrowserAction {
     Navigate {
         url: ValueSource,
@@ -63,6 +67,7 @@ pub struct BrowserStep {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BrowserJourneySpec {
     pub steps: Vec<BrowserStep>,
     pub viewport: Viewport,

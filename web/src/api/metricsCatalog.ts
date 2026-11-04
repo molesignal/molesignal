@@ -6,9 +6,9 @@ export type MetricType = 'counter' | 'histogram' | 'gauge';
 export interface MetricCatalogEntry {
   name: string;
   /** Optional so the web UI remains compatible with pre-type catalog responses. */
-  metric_type?: MetricType;
+  metricType?: MetricType;
   labels: string[];
-  field_count: number;
+  fieldCount: number;
 }
 
 export type MetricCatalogResponse = CursorPage<MetricCatalogEntry>;

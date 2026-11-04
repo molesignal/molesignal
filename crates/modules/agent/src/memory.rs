@@ -53,6 +53,7 @@ impl MemoryKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Memory {
     pub id: Id,
     pub org_id: Id,
@@ -169,6 +170,7 @@ pub fn parse_drafts(text: &str) -> Vec<MemoryDraft> {
 
 /// 组织对记忆的设置。
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MemorySettings {
     /// 会话停下一段时间后，由模型从对话里提炼记忆（计入预算）。
     pub distill_after_chat: bool,

@@ -69,7 +69,7 @@ export function SchemaEditorDrawer({
     if (!open) return;
     setDrafts(makeExistingDrafts(fields));
     nextId.current = fields.length;
-  }, [fields, open, table.table_name]);
+  }, [fields, open, table.tableName]);
 
   const normalized = React.useMemo(() => normalizeFields(drafts), [drafts]);
   const original = React.useMemo(
@@ -123,7 +123,7 @@ export function SchemaEditorDrawer({
         existing: false,
         value: {
           name: '',
-          field_type: 'string',
+          fieldType: 'string',
           required: false,
           description: '',
         },
@@ -165,7 +165,7 @@ export function SchemaEditorDrawer({
             {t('extend_tables.columns.name')}
           </dt>
           <dd className="mt-1.5 font-mono text-xs font-strong text-tx-0">
-            {table.table_name}
+            {table.tableName}
           </dd>
         </div>
         <div>
@@ -174,7 +174,7 @@ export function SchemaEditorDrawer({
             {t('extend_tables.key_field')}
           </dt>
           <dd className="mt-1.5 font-mono text-xs font-strong text-tx-0">
-            {table.key_field}
+            {table.keyField}
           </dd>
         </div>
       </dl>
@@ -186,9 +186,9 @@ export function SchemaEditorDrawer({
               {t('extend_tables.value_fields')}
             </h2>
             <p className="mt-1 max-w-2xl text-xs leading-relaxed text-tx-2">
-              {table.row_count > 0
+              {table.rowCount > 0
                 ? t('extend_tables.schema_locked_with_rows', {
-                    count: table.row_count,
+                    count: table.rowCount,
                   })
                 : t('extend_tables.schema_destructive_allowed_empty')}
             </p>
@@ -225,7 +225,7 @@ export function SchemaEditorDrawer({
         ) : (
           <div className="mt-5 divide-y divide-bd-0 border-y border-bd-0">
             {drafts.map((draft, index) => {
-              const locked = table.row_count > 0 && draft.existing;
+              const locked = table.rowCount > 0 && draft.existing;
               const fieldLabel = draft.value.name
                 || t('extend_tables.schema_field_number', {
                   number: index + 1,
@@ -282,7 +282,7 @@ export function SchemaEditorDrawer({
                     </FormField>
                     <FormField label={t('extend_tables.field_type')} required>
                       <FormSelect
-                        value={draft.value.field_type}
+                        value={draft.value.fieldType}
                         disabled={formDisabled || locked}
                         disabledReason={
                           access.reason
@@ -302,7 +302,7 @@ export function SchemaEditorDrawer({
                         }))}
                         onChange={(fieldType) =>
                           updateField(draft.id, {
-                            field_type: fieldType as ExtendFieldType,
+                            fieldType: fieldType as ExtendFieldType,
                           })
                         }
                       />

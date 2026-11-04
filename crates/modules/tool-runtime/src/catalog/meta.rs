@@ -17,7 +17,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
                 "query": {"type": "string", "description": "Capability, domain, tag, or exact tool name."},
                 "domain": {"type": "string"},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10},
-                "include_schema": {"type": "boolean", "default": true}
+                "includeSchema": {"type": "boolean", "default": true}
             })),
             json!({"type": "object", "properties": {"tools": {"type": "array"}}}),
             &[],

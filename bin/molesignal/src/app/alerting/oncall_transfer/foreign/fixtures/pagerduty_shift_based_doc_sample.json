@@ -1,0 +1,60 @@
+{
+  "schedule": {
+    "id": "PL5FQHC",
+    "type": "schedule_v3",
+    "name": "Primary On-Call",
+    "description": "...",
+    "time_zone": "America/Los_Angeles",
+    "self": "https://api.pagerduty.com/v3/schedules/PL5FQHC",
+    "html_url": "https://acme.pagerduty.com/schedules/PL5FQHC",
+    "escalation_policies": [{ "id": "PESC123", "type": "escalation_policy_reference" }],
+    "teams": [{ "id": "PTEAM01", "type": "team_reference" }],
+    "http_cal_url": "https://acme.pagerduty.com/private/...",
+    "web_cal_url": "webcal://acme.pagerduty.com/private/...",
+    "rotations": [
+      {
+        "id": "ABCDEFGHIJKLMNOPQRSTUVWXY2",
+        "type": "schedule_rotation",
+        "events": [
+          {
+            "id": "ABCDEFGHIJKLMNOPQRSTUVWXY3",
+            "type": "schedule_event",
+            "name": "Weekday business hours",
+            "start_time": {
+              "date_time": "2026-01-05T09:00:00-08:00",
+              "time_zone": "America/Los_Angeles"
+            },
+            "end_time": {
+              "date_time": "2026-01-05T17:00:00-08:00",
+              "time_zone": "America/Los_Angeles"
+            },
+            "effective_since": "2026-01-05T17:00:00Z",
+            "effective_until": null,
+            "recurrence": ["RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"],
+            "assignment_strategy": {
+              "type": "rotating_member_assignment_strategy",
+              "shifts_per_member": 1,
+              "members": [{ "type": "user_member", "user_id": "PUSER01" }]
+            }
+          }
+        ]
+      }
+    ],
+    "final_schedule": {
+      "type": "final_schedule",
+      "rendered_coverage_percentage": 100,
+      "computed_shift_assignments": [
+        {
+          "type": "computed_shift_assignment",
+          "start_time": "2026-04-29T16:00:00Z",
+          "end_time": "2026-04-30T00:00:00Z",
+          "member": { "type": "user_member", "user_id": "PUSER01" },
+          "source": {
+            "type": "schedule_rotation",
+            "rotation_id": "ABCDEFGHIJKLMNOPQRSTUVWXY2"
+          }
+        }
+      ]
+    }
+  }
+}

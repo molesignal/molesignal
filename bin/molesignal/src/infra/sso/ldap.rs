@@ -37,6 +37,44 @@ pub struct LdapUser {
     pub groups: Vec<String>,
 }
 
+/// Where a directory sign-in stopped.
+///
+/// A sign-in answers every failure but an outage with "invalid credentials", so nobody can tell
+/// from outside which accounts exist. A test sign-in by an administrator names the step instead.
+/// The texts are the directory's own answers and hold no password.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LdapFailure {
+    /// The username or password is empty or too long; the directory was not contacted.
+    BadInput,
+    Connect(String),
+    ServiceBind(String),
+    Search(String),
+    NoEntry,
+    ManyEntries,
+    /// The entry lacks the attribute a field is mapped to.
+    MissingAttribute {
+        field: &'static str,
+        attribute: String,
+    },
+    /// The directory refused this entry's password.
+    Rejected(String),
+}
+
+impl From<LdapFailure> for Error {
+    fn from(failure: LdapFailure) -> Self {
+        match failure {
+            LdapFailure::Connect(_) | LdapFailure::ServiceBind(_) | LdapFailure::Search(_) => {
+                Error::unavailable("LDAP authentication service unavailable")
+            }
+            LdapFailure::BadInput
+            | LdapFailure::NoEntry
+            | LdapFailure::ManyEntries
+            | LdapFailure::MissingAttribute { .. }
+            | LdapFailure::Rejected(_) => Error::unauthorized("invalid LDAP credentials"),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct LdapLoginFlow {
     cfg: LdapConfig,
@@ -53,6 +91,11 @@ impl LdapLoginFlow {
     /// Empty passwords are rejected before contacting LDAP because several
     /// servers interpret an empty simple-bind password as anonymous access.
     pub async fn authenticate(&self, username: &str, password: &str) -> Result<LdapUser> {
+        self.check(username, password).await.map_err(Error::from)
+    }
+
+    /// The same check as [`Self::authenticate`], saying which step it stopped at.
+    pub async fn check(&self, username: &str, password: &str) -> Result<LdapUser, LdapFailure> {
         let username = username.trim();
 
         if username.is_empty()
@@ -60,7 +103,7 @@ impl LdapLoginFlow {
             || password.is_empty()
             || password.len() > 1024
         {
-            return Err(Error::unauthorized("invalid LDAP credentials"));
+            return Err(LdapFailure::BadInput);
         }
 
         let mut ldap = self.connect().await?;
@@ -69,9 +112,11 @@ impl LdapLoginFlow {
             ldap.with_timeout(OPERATION_TIMEOUT)
                 .simple_bind(&self.cfg.bind_dn, &self.cfg.bind_password)
                 .await
-                .map_err(|error| ldap_unavailable("service bind", error))?
+                .map_err(|error| LdapFailure::ServiceBind(ldap_unavailable("service bind", error)))?
                 .success()
-                .map_err(|error| ldap_unavailable("service bind", error))?;
+                .map_err(|error| {
+                    LdapFailure::ServiceBind(ldap_unavailable("service bind", error))
+                })?;
         }
 
         let filter = render_user_filter(&self.cfg.user_filter, username);
@@ -97,11 +142,11 @@ impl LdapLoginFlow {
             .with_timeout(OPERATION_TIMEOUT)
             .search(&self.cfg.base_dn, Scope::Subtree, &filter, attributes)
             .await
-            .map_err(|error| ldap_unavailable("user search", error))?;
+            .map_err(|error| LdapFailure::Search(ldap_unavailable("user search", error)))?;
 
         let (entries, _) = search
             .success()
-            .map_err(|error| ldap_unavailable("user search", error))?;
+            .map_err(|error| LdapFailure::Search(ldap_unavailable("user search", error)))?;
 
         if entries.len() != 1 {
             tracing::warn!(
@@ -109,7 +154,12 @@ impl LdapLoginFlow {
                 "LDAP user filter did not resolve exactly one entry"
             );
             let _ = ldap.unbind().await;
-            return Err(Error::unauthorized("invalid LDAP credentials"));
+
+            return Err(if entries.is_empty() {
+                LdapFailure::NoEntry
+            } else {
+                LdapFailure::ManyEntries
+            });
         }
 
         let entry = SearchEntry::construct(
@@ -130,21 +180,21 @@ impl LdapLoginFlow {
         if let Err(error) = authenticated {
             tracing::debug!(error = %error, "LDAP user bind rejected");
             let _ = ldap.unbind().await;
-            return Err(Error::unauthorized("invalid LDAP credentials"));
+            return Err(LdapFailure::Rejected(error.to_string()));
         }
 
         let _ = ldap.unbind().await;
         Ok(user)
     }
 
-    async fn connect(&self) -> Result<Ldap> {
+    async fn connect(&self) -> Result<Ldap, LdapFailure> {
         let settings = LdapConnSettings::new()
             .set_conn_timeout(CONNECT_TIMEOUT)
             .set_starttls(self.cfg.start_tls);
 
         let (connection, ldap) = LdapConnAsync::with_settings(settings, &self.cfg.url)
             .await
-            .map_err(|error| ldap_unavailable("connect", error))?;
+            .map_err(|error| LdapFailure::Connect(ldap_unavailable("connect", error)))?;
 
         tokio::spawn(async move {
             if let Err(error) = connection.drive().await {
@@ -223,7 +273,7 @@ fn render_user_filter(template: &str, username: &str) -> String {
     template.replace("{username}", escaped.as_ref())
 }
 
-fn user_from_entry(entry: &SearchEntry, cfg: &LdapConfig) -> Result<LdapUser> {
+fn user_from_entry(entry: &SearchEntry, cfg: &LdapConfig) -> Result<LdapUser, LdapFailure> {
     let subject = if cfg.field_mapping.subject.eq_ignore_ascii_case("dn") {
         entry.dn.clone()
     } else {
@@ -232,7 +282,11 @@ fn user_from_entry(entry: &SearchEntry, cfg: &LdapConfig) -> Result<LdapUser> {
                 attribute = %cfg.field_mapping.subject,
                 "LDAP user entry is missing the configured subject attribute"
             );
-            Error::unauthorized("invalid LDAP credentials")
+
+            LdapFailure::MissingAttribute {
+                field: "subject",
+                attribute: cfg.field_mapping.subject.clone(),
+            }
         })?
     };
 
@@ -241,7 +295,11 @@ fn user_from_entry(entry: &SearchEntry, cfg: &LdapConfig) -> Result<LdapUser> {
             attribute = %cfg.field_mapping.email,
             "LDAP user entry is missing the configured email attribute"
         );
-        return Err(Error::unauthorized("invalid LDAP credentials"));
+
+        return Err(LdapFailure::MissingAttribute {
+            field: "email",
+            attribute: cfg.field_mapping.email.clone(),
+        });
     };
 
     let email = email.to_ascii_lowercase();
@@ -285,15 +343,20 @@ fn first_attribute(entry: &SearchEntry, name: &str) -> Option<String> {
     })
 }
 
-fn ldap_unavailable(operation: &'static str, error: impl std::fmt::Display) -> Error {
+/// Logs a failed directory operation and keeps its text for a test sign-in to show.
+fn ldap_unavailable(operation: &'static str, error: impl std::fmt::Display) -> String {
     tracing::warn!(operation, error = %error, "LDAP operation failed");
-    Error::unavailable("LDAP authentication service unavailable")
+    error.to_string()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{LdapConfig, LdapLoginFlow, render_user_filter};
-    use crate::domain::iam::SsoFieldMapping;
+    use std::collections::HashMap;
+
+    use ldap3::SearchEntry;
+
+    use super::{LdapConfig, LdapFailure, LdapLoginFlow, render_user_filter, user_from_entry};
+    use crate::{domain::iam::SsoFieldMapping, shared::Error};
 
     fn config() -> LdapConfig {
         LdapConfig {
@@ -333,5 +396,97 @@ mod tests {
         let mut cfg = config();
         cfg.bind_password.clear();
         assert!(LdapLoginFlow::new(cfg).is_err());
+    }
+
+    fn entry(attributes: &[(&str, &[&str])]) -> SearchEntry {
+        SearchEntry {
+            dn: "uid=alice,ou=people,dc=example,dc=com".into(),
+            attrs: attributes
+                .iter()
+                .map(|(name, values)| {
+                    (
+                        (*name).to_owned(),
+                        values.iter().map(|value| (*value).to_owned()).collect(),
+                    )
+                })
+                .collect::<HashMap<_, Vec<_>>>(),
+            bin_attrs: HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn a_missing_attribute_names_the_field_and_the_attribute() {
+        let failure = user_from_entry(&entry(&[("cn", &["Alice"])]), &config())
+            .expect_err("no mail attribute");
+
+        assert_eq!(
+            failure,
+            LdapFailure::MissingAttribute {
+                field: "email",
+                attribute: "mail".into(),
+            }
+        );
+    }
+
+    #[test]
+    fn an_entry_with_the_mapped_attributes_becomes_a_user() {
+        let user = user_from_entry(
+            &entry(&[
+                ("mail", &["Alice@Example.com"]),
+                ("displayName", &["Alice"]),
+                ("memberOf", &["cn=sre", "cn=dev", "cn=sre"]),
+            ]),
+            &config(),
+        )
+        .expect("user");
+
+        assert_eq!(user.email, "alice@example.com");
+        assert_eq!(user.subject, "uid=alice,ou=people,dc=example,dc=com");
+        assert_eq!(user.groups, ["cn=dev", "cn=sre"]);
+    }
+
+    #[tokio::test]
+    async fn empty_credentials_never_reach_the_directory() {
+        let flow = LdapLoginFlow::new(config()).expect("flow");
+
+        assert_eq!(
+            flow.check("alice", "").await.expect_err("no password"),
+            LdapFailure::BadInput
+        );
+        assert_eq!(
+            flow.check("  ", "secret").await.expect_err("no username"),
+            LdapFailure::BadInput
+        );
+    }
+
+    #[test]
+    fn a_sign_in_tells_outsiders_only_about_an_outage() {
+        let answer = |failure| Error::from(failure).to_string();
+
+        for failure in [
+            LdapFailure::BadInput,
+            LdapFailure::NoEntry,
+            LdapFailure::ManyEntries,
+            LdapFailure::Rejected("rc=49".into()),
+            LdapFailure::MissingAttribute {
+                field: "email",
+                attribute: "mail".into(),
+            },
+        ] {
+            assert!(answer(failure).contains("invalid LDAP credentials"));
+        }
+
+        for failure in [
+            LdapFailure::Connect("refused".into()),
+            LdapFailure::ServiceBind("rc=49".into()),
+            LdapFailure::Search("timeout".into()),
+        ] {
+            let answer = answer(failure);
+            assert!(answer.contains("service unavailable"));
+            assert!(
+                !answer.contains("rc=49"),
+                "the directory's text stays inside"
+            );
+        }
     }
 }

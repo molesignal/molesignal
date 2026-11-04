@@ -34,7 +34,7 @@ pub(super) async fn execute(
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ProfileFilters {
     #[serde(default)]
     time_range: Option<TimeRangeArg>,
@@ -78,7 +78,7 @@ async fn list(runtime: &ToolRuntime, auth: &IamContext, arguments: Value) -> Res
     .await?
     else {
         return Ok(ToolResult::json(json!({
-            "profiles": [], "stream_available": false,
+            "profiles": [], "streamAvailable": false,
             "message": "Continuous Profiles has not received data yet",
         })));
     };
@@ -91,8 +91,8 @@ async fn list(runtime: &ToolRuntime, auth: &IamContext, arguments: Value) -> Res
         .collect::<Vec<_>>();
 
     Ok(ToolResult::json(json!({
-        "profiles": profiles, "stream_available": true,
-        "scanned_rows": result.scanned_rows, "took_ms": result.took_ms,
+        "profiles": profiles, "streamAvailable": true,
+        "scannedRows": result.scanned_rows, "tookMs": result.took_ms,
     })))
 }
 
@@ -115,12 +115,12 @@ async fn flamegraph(
 
     Ok(ToolResult::json(json!({
         "flamebearer": profiles_merge::build_flamebearer(&profiles),
-        "profile_count": profiles.len(), "truncated": truncated,
+        "profileCount": profiles.len(), "truncated": truncated,
     })))
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct CompareArgs {
     baseline: TimeRangeArg,
     comparison: TimeRangeArg,
@@ -161,7 +161,7 @@ async fn compare(runtime: &ToolRuntime, auth: &IamContext, arguments: Value) -> 
 
     Ok(ToolResult::json(json!({
         "flamebearer": profiles_merge::build_diff(&baseline, &comparison),
-        "baseline_count": baseline.len(), "comparison_count": comparison.len(),
+        "baselineCount": baseline.len(), "comparisonCount": comparison.len(),
         "truncated": baseline_truncated || comparison_truncated,
     })))
 }

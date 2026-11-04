@@ -124,6 +124,7 @@ pub struct AgentLoop {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentLoopResult {
     pub assistant_content: String,
     pub tool_calls_made: usize,

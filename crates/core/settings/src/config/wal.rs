@@ -35,7 +35,7 @@ pub struct WalSettings {
     #[serde(default = "default_wal_dir")]
     pub dir: String,
     #[serde(default = "default_wal_seg")]
-    pub segment_size_mb: u32,
+    pub segment_size: u32,
     /// fsync 触发模式；默认 `batch`。
     #[serde(default = "default_flush_strategy")]
     pub flush_strategy: WalFlushStrategy,
@@ -55,8 +55,8 @@ pub struct WalSettings {
     pub encrypt: bool,
     /// 启动恢复重放的内存上限（MB）：重放累计超过该值即强制 flush 一次腾空 buffer，
     /// 保证恢复期占用有界。0 视为 1。
-    #[serde(default = "default_max_replay_mb")]
-    pub max_replay_mb: u32,
+    #[serde(default = "default_max_replay_size")]
+    pub max_replay_size: u32,
 }
 
 fn default_wal_dir() -> String {
@@ -83,7 +83,7 @@ fn default_batch_max_delay_ms() -> u32 {
     50
 }
 
-fn default_max_replay_mb() -> u32 {
+fn default_max_replay_size() -> u32 {
     512
 }
 
@@ -91,13 +91,13 @@ impl Default for WalSettings {
     fn default() -> Self {
         Self {
             dir: default_wal_dir(),
-            segment_size_mb: default_wal_seg(),
+            segment_size: default_wal_seg(),
             flush_strategy: default_flush_strategy(),
             sync_level: default_sync_level(),
             batch_max_pending: default_batch_max_pending(),
             batch_max_delay_ms: default_batch_max_delay_ms(),
             encrypt: false,
-            max_replay_mb: default_max_replay_mb(),
+            max_replay_size: default_max_replay_size(),
         }
     }
 }

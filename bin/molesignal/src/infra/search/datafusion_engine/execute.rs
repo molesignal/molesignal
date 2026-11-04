@@ -3,31 +3,41 @@
 
 //! Physical-file execution for the DataFusion query engine.
 
-use std::{collections::HashSet, sync::Arc, time::Instant};
+use std::{collections::HashMap, sync::Arc, time::Instant};
 
 use arrow::datatypes::{DataType, Schema as ArrowSchema, TimeUnit};
-use datafusion::{
-    common::TableReference, error::DataFusionError, execution::object_store::ObjectStoreUrl,
-};
+use datafusion::execution::object_store::ObjectStoreUrl;
 
-use super::{DataFusionEngine, dataset, resolve_stream_type};
+use super::{
+    DataFusionEngine,
+    blooms::{self, FilterTerms},
+    counts::Counted,
+    dataset,
+    paging::{self, Page},
+    resolve_stream_type,
+    selection::{exact_terms, row_selections, rows_to_read},
+    shards,
+    tables::{TableInput, collect_planned, plan_error},
+    waves::time_order,
+};
 use crate::{
     domain::{
         masking::Masker,
         query::{QueryRequest, QueryResult, StreamHint},
         storage::DatasetTypeId,
-        stream::{FieldType, StreamIndexType, StreamRepository, StreamType as StreamTypeEnum},
+        stream::{StreamIndexType, StreamRepository, StreamType as StreamTypeEnum},
     },
     infra::{
         query::{
             arrow_json::batches_to_json,
             catalog_source::StreamSnapshotSelection,
-            parquet_table::PrunedParquetTable,
-            parser::{extract_equality_predicates, extract_referenced_tables, parse_sample_hint},
+            current_views,
+            parser::{WhereTree, equality_sets, extract_referenced_tables, parse_sample_hint},
             planner::ensure_stream_in_org,
+            refutations::Refutations,
             scan_limit::ensure_within_scan_limit,
             skip_pruner,
-            tantivy_pruner::{MatchPredicate, extract_match_predicates, match_text_fields},
+            tantivy_pruner::{self, indexed_atoms, match_text_fields, rewrite_match_calls},
             udfs::{build_extract_pattern_udf, build_mask_udf, compile_patterns},
         },
         storage::{org_scoped_store::scoped_to_org, parquet::reader::ParquetReader},
@@ -46,8 +56,18 @@ pub(super) async fn run(
         Error::invalid("query.stream hint is required; caller must name the target table")
     })?;
 
+    // 提示写成当前版本视图的名字，说的就是视图所属的流。
+    let name = current_views::base_stream(&name).map_or(name, str::to_string);
+
     if let Some(streams) = &engine.streams {
-        ensure_stream_in_org(streams.as_ref(), &req.org_id, &name, stream_type).await?;
+        ensure_stream_in_org(
+            streams.as_ref(),
+            &req.org_id,
+            &name,
+            stream_type,
+            req.time_range,
+        )
+        .await?;
     }
 
     let (sample_cap, statement) = parse_sample_hint(&req.statement);
@@ -61,17 +81,11 @@ pub(super) async fn run(
     )
     .await?;
 
-    let (mut predicates, rewritten_sql) = extract_match_predicates(&statement);
+    let rewritten_sql = rewrite_match_calls(&statement);
 
-    constrain_tantivy_predicates(
-        engine,
-        &req,
-        &name,
-        stream_type,
-        &statement,
-        &mut predicates,
-    )
-    .await;
+    // 读当前版本视图的流不能按语句剪文件：不匹配的行可能是某个实体的最新版本，而它的旧版本匹配。
+    let views = current_views::mentioned(&rewritten_sql);
+    let viewed = views.iter().any(|view| view.base() == name);
 
     // 数据文件只能从请求组织自己的对象前缀读取，即使 Catalog 返回了越界的 key。
     let store = scoped_to_org(engine.object_store.clone(), &req.org_id);
@@ -88,16 +102,26 @@ pub(super) async fn run(
 
     if let Some(streams) = &engine.streams {
         for reference in extract_referenced_tables(&rewritten_sql).unwrap_or_default() {
-            if reference.name == name {
+            // 当前版本视图读它所属的流。
+            let table: &str =
+                current_views::base_stream(&reference.name).unwrap_or(reference.name.as_str());
+
+            if table == name || tables.iter().any(|(known, ..)| known == table) {
                 continue;
             }
 
             if let Some(stream_type) =
-                resolve_stream_type(streams.as_ref(), &req.org_id, &reference.name).await
+                resolve_stream_type(streams.as_ref(), &req.org_id, table).await
             {
-                ensure_stream_in_org(streams.as_ref(), &req.org_id, &reference.name, stream_type)
-                    .await?;
-                tables.push((reference.name, stream_type, None));
+                ensure_stream_in_org(
+                    streams.as_ref(),
+                    &req.org_id,
+                    table,
+                    stream_type,
+                    req.time_range,
+                )
+                .await?;
+                tables.push((table.to_string(), stream_type, None));
             }
         }
     }
@@ -112,6 +136,19 @@ pub(super) async fn run(
 
         stream_definitions.push(definition);
     }
+
+    // 只数行数的语句与 explorer 直方图：能用 Catalog 行数或 Tantivy 索引回答的文件不读数据。
+    let mut counted = (sample_cap.is_none() && tables.len() == 1 && !viewed)
+        .then(|| {
+            Counted::plan(
+                engine,
+                &req,
+                &rewritten_sql,
+                &name,
+                stream_definitions[0].as_ref(),
+            )
+        })
+        .flatten();
 
     let mut catalog_snapshots = std::iter::repeat_with(|| None)
         .take(tables.len())
@@ -145,6 +182,49 @@ pub(super) async fn run(
     }
 
     let mut scanned_rows = 0_u64;
+    let mut main_table = None;
+
+    // 剪枝的每一步证明条件树里自己看得懂的原子不成立，按文件累积，见 [`Refutations`]。
+    let tree = match viewed {
+        true => WhereTree::default(),
+        false => WhereTree::parse(&rewritten_sql),
+    };
+
+    let definition = stream_definitions[0].as_ref();
+    let shard_atoms = shards::Atoms::new(&tree);
+    let filter_terms = FilterTerms::new(definition, &tree);
+    let skip_atoms =
+        definition.map(|definition| skip_pruner::Atoms::new(&tree, &definition.schema));
+    let tantivy_atoms =
+        definition.map_or_else(Vec::new, |definition| indexed_atoms(&tree, definition));
+
+    // 只读命中行用的等值条件：整值字段上的，与 JSON 字段的键值。
+    let exact_terms = match viewed {
+        true => Vec::new(),
+        false => exact_terms(&equality_sets(&rewritten_sql), definition)
+            .into_iter()
+            .chain(tantivy_pruner::key_value_conjuncts(&tree, &tantivy_atoms))
+            .collect(),
+    };
+
+    let mut refutations = Refutations::new(tree);
+
+    // 每一步能证明的原子都不成立也剔除不了文件时，哪一步都不必做。
+    let prunable = refutations.could_drop(
+        shard_atoms.mask()
+            | filter_terms.mask()
+            | skip_atoms.as_ref().map_or(0, skip_pruner::Atoms::mask)
+            | tantivy_pruner::mask(&tantivy_atoms),
+    );
+
+    let tantivy_atoms = match prunable {
+        true => tantivy_atoms,
+        false => Vec::new(),
+    };
+
+    // 单表、不抽样、不由索引计数的语句先不剪枝：按时间取一页时只剪要读的文件，否则规划后
+    // 一次剪完。
+    let defer = tables.len() == 1 && sample_cap.is_none() && counted.is_none();
 
     for (index, (table_name, stream_type, selected_dataset)) in tables.iter().enumerate() {
         let stream_definition = stream_definitions[index].clone();
@@ -172,20 +252,43 @@ pub(super) async fn run(
         let tantivy_indexes = loaded.tantivy_indexes;
         let buffered_batches = loaded.buffered_batches;
 
-        if table_name == &name
-            && let Some(definition) = stream_definition.as_ref()
-        {
-            files = skip_pruner::prune(files, &statement, &definition.schema);
+        // 分片、文件级过滤器与文件统计先排除不可能命中的文件，再打开其余文件的索引。
+        if table_name == &name && prunable {
+            files = refutations.retain(files, |file| shard_atoms.refuted(file));
+
+            files = blooms::prune(
+                engine,
+                files,
+                &filter_terms,
+                &mut refutations,
+                &loaded.bloom_keys,
+                &loaded.filter_keys,
+            )
+            .await;
+
+            if let Some(skip_atoms) = &skip_atoms {
+                files = refutations.retain(files, |file| skip_atoms.refuted(file));
+            }
         }
 
-        if !predicates.is_empty()
+        if !tantivy_atoms.is_empty()
+            && !defer
             && table_name == &name
             && let Some(pruner) = &engine.tantivy_pruner
         {
             files = pruner
-                .prune_with_index_keys(files, &predicates, &tantivy_indexes)
+                .prune_counting(files, &tantivy_atoms, &mut refutations, &tantivy_indexes)
                 .await
-                .map_err(|error| Error::internal(format!("tantivy prune: {error}")))?;
+                .map_err(|error| Error::internal(format!("tantivy prune: {error}")))?
+                .files;
+        }
+
+        if let Some(counted) = counted.as_mut()
+            && table_name == &name
+        {
+            files = counted
+                .take(engine, files, req.time_range, &tantivy_indexes)
+                .await;
         }
 
         if let Some(cap) = sample_cap
@@ -211,8 +314,6 @@ pub(super) async fn run(
                     .map(|batch| batch.num_rows() as u64)
                     .sum::<u64>(),
             );
-
-        ensure_within_scan_limit(scanned_rows, engine.max_scan_rows)?;
 
         let schema: Arc<ArrowSchema> = match stream_definition {
             Some(definition) => {
@@ -244,36 +345,116 @@ pub(super) async fn run(
             },
         };
 
-        let table = PrunedParquetTable::new(
+        let table = TableInput {
+            name: table_name.clone(),
             schema,
-            &files,
-            object_store_url.clone(),
-            req.time_range,
-            selected_dataset.clone(),
-        )
-        .with_buffered_batches(buffered_batches);
+            files,
+            buffered: buffered_batches,
+            dataset: selected_dataset.clone(),
+            index_keys: tantivy_indexes,
+            selections: HashMap::new(),
+            views: views
+                .iter()
+                .filter(|view| view.base() == table_name.as_str())
+                .copied()
+                .collect(),
+        };
 
-        ctx.register_table(TableReference::bare(table_name.clone()), Arc::new(table))
-            .map_err(|error| Error::internal(format!("datafusion register: {error}")))?;
+        table.register(
+            &ctx,
+            engine,
+            &table.files,
+            &object_store_url,
+            req.time_range,
+        )?;
+
+        if table_name == &name {
+            main_table = Some(table);
+        }
     }
 
-    let dataframe = ctx.sql(&rewritten_sql).await.map_err(|error| {
-        tracing::warn!(%error, sql = %rewritten_sql, "query planning failed");
+    let planned = counted.as_ref().map_or(rewritten_sql.as_str(), |counted| {
+        counted.statement(&rewritten_sql)
+    });
 
-        Error::invalid(
-            "query could not be planned: check the SQL syntax and that every referenced field exists in the stream",
-        )
-    })?;
+    let mut dataframe = ctx.sql(planned).await.map_err(plan_error(planned))?;
 
-    let dataframe = if let Some(limit) = req.limit {
-        dataframe
-            .limit(0, Some(limit))
-            .map_err(|error| Error::internal(format!("datafusion limit: {error}")))?
-    } else {
-        dataframe
+    let order = (tables.len() == 1 && sample_cap.is_none() && counted.is_none() && !viewed)
+        .then(|| time_order(dataframe.logical_plan()))
+        .flatten();
+
+    let batches = match (order, main_table) {
+        (Some(order), Some(table)) if table.files.len() > 1 => {
+            let page = Page {
+                engine,
+                ctx: &ctx,
+                object_store_url: &object_store_url,
+                time_range: req.time_range,
+                limit: req.limit,
+                sql: &rewritten_sql,
+                atoms: if defer { &tantivy_atoms } else { &[] },
+                refutations: &mut refutations,
+                exact_terms: &exact_terms,
+            };
+
+            let (batches, scanned) = paging::read(page, order, table).await?;
+            scanned_rows = scanned;
+            batches
+        }
+        (_, main) => {
+            // 剪枝推迟到这里的文件一次剪完；等值条件命中很少行的文件只读命中的行所在的页。
+            // 文件或要读的行变了，主表重新注册、语句重新规划。
+            if let Some(mut table) = main {
+                let all = table.files.iter().map(|file| file.rows).sum::<u64>();
+                let before = table.files.len();
+
+                if defer
+                    && !tantivy_atoms.is_empty()
+                    && let Some(pruner) = &engine.tantivy_pruner
+                {
+                    table.files = pruner
+                        .prune_counting(
+                            std::mem::take(&mut table.files),
+                            &tantivy_atoms,
+                            &mut refutations,
+                            &table.index_keys,
+                        )
+                        .await
+                        .map_err(|error| Error::internal(format!("tantivy prune: {error}")))?
+                        .files;
+                }
+
+                table.selections =
+                    row_selections(engine, &table.files, &exact_terms, &table.index_keys).await;
+
+                if table.files.len() != before || !table.selections.is_empty() {
+                    scanned_rows = scanned_rows
+                        .saturating_sub(all)
+                        .saturating_add(rows_to_read(&table.files, &table.selections));
+
+                    table.register(
+                        &ctx,
+                        engine,
+                        &table.files,
+                        &object_store_url,
+                        req.time_range,
+                    )?;
+                    dataframe = ctx.sql(planned).await.map_err(plan_error(planned))?;
+                }
+            }
+
+            ensure_within_scan_limit(scanned_rows, engine.max_scan_rows)?;
+
+            let (schema, mut batches) = collect_planned(dataframe, req.limit).await?;
+
+            if let Some(counted) = &counted {
+                counted.add_to(&mut batches, schema)?;
+            }
+
+            batches
+        }
     };
 
-    let batches = dataframe.collect().await.map_err(collect_error)?;
     let (columns, rows) = batches_to_json(&batches);
 
     Ok(QueryResult {
@@ -283,22 +464,6 @@ pub(super) async fn run(
         took_ms: started.elapsed().as_millis() as u64,
         federation: None,
     })
-}
-
-/// `collect()` 才会触发 DataFusion 的惰性分析（类型强制等），这类失败是 SQL 本身的问题，
-/// 按无效请求应答 400；其余执行期错误是内部错误。
-fn collect_error(error: DataFusionError) -> Error {
-    let root = error.find_root();
-
-    if matches!(
-        root,
-        DataFusionError::Plan(_) | DataFusionError::SchemaError(..)
-    ) {
-        tracing::warn!(%error, "query planning failed");
-        return Error::invalid(format!("query could not be planned: {root}"));
-    }
-
-    Error::internal(format!("datafusion collect: {error}"))
 }
 
 /// 校验 SQL 中所有 `MATCH_TEXT(field, ...)` 调用的字段前提（设计 D2/D3、spec
@@ -344,61 +509,6 @@ pub(super) async fn validate_match_text_fields(
     Ok(())
 }
 
-/// 把 MATCH/MATCH_TEXT 产生的候选谓词限制到真正的 `full_text` 字段，再补入可由
-/// Tantivy STRING 消费的文本 `exact` 等值谓词。没有 schema 上下文时关闭裁剪，避免把
-/// exact 整值索引误用于 MATCH 子串语义。
-async fn constrain_tantivy_predicates(
-    engine: &DataFusionEngine,
-    req: &QueryRequest,
-    stream: &str,
-    stream_type: StreamTypeEnum,
-    statement: &str,
-    predicates: &mut Vec<MatchPredicate>,
-) {
-    let exact = extract_equality_predicates(statement);
-
-    let Some(streams) = &engine.streams else {
-        predicates.clear();
-        return;
-    };
-
-    let Ok(definition) = streams.get(&req.org_id, stream, stream_type).await else {
-        predicates.clear();
-        return;
-    };
-
-    let full_text = definition
-        .schema
-        .fields
-        .iter()
-        .filter(|field| {
-            !field.encrypted && field.effective_index_type() == StreamIndexType::FullText
-        })
-        .map(|field| field.name.as_str())
-        .collect::<HashSet<_>>();
-
-    predicates.retain(|predicate| full_text.contains(predicate.field.as_str()));
-
-    let exact_fields = definition
-        .schema
-        .fields
-        .iter()
-        .filter(|field| {
-            !field.encrypted
-                && matches!(field.data_type, FieldType::Utf8 | FieldType::Json)
-                && field.effective_index_type() == StreamIndexType::Exact
-        })
-        .map(|field| field.name.as_str())
-        .collect::<HashSet<_>>();
-
-    predicates.extend(
-        exact
-            .into_iter()
-            .filter(|(column, _)| exact_fields.contains(column.as_str()))
-            .map(|(field, term)| MatchPredicate { field, term }),
-    );
-}
-
 async fn register_query_udfs(
     engine: &DataFusionEngine,
     req: &QueryRequest,
@@ -438,27 +548,4 @@ async fn register_query_udfs(
     }
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn planning_failures_raised_by_collect_are_client_errors() {
-        let planning = DataFusionError::Context(
-            "type_coercion".into(),
-            Box::new(DataFusionError::Plan(
-                "Cannot infer common argument type for comparison operation".into(),
-            )),
-        );
-        assert!(matches!(
-            collect_error(planning),
-            Error::InvalidArgument(message) if message.contains("could not be planned")
-        ));
-        assert!(matches!(
-            collect_error(DataFusionError::Execution("boom".into())),
-            Error::Internal(_)
-        ));
-    }
 }

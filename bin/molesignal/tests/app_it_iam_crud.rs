@@ -240,7 +240,7 @@ fn make_service() -> (
         memberships.clone() as Arc<dyn IamMembershipRepository>,
         AuthSettings {
             deprecated_jwt_secret: None,
-            token_ttl_secs: 3600,
+            session_ttl_secs: 3600,
             root_email: String::new(),
             root_password: String::new(),
         },

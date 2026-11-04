@@ -1,0 +1,5655 @@
+{
+  "sessions": {
+    "type": "sessions",
+    "stream": "rum_sessions",
+    "idField": "session.id",
+    "versioned": true,
+    "defaultColumns": [
+      "session.id",
+      "session.type",
+      "synthetics.result_id",
+      "synthetics.test_id",
+      "session.has_replay",
+      "session.last_activity",
+      "session.duration",
+      "session.view.count",
+      "session.action.count",
+      "session.error.count",
+      "session.resource.count",
+      "session.long_task.count",
+      "session.frustration.count",
+      "session.crash.count",
+      "session.landing_view.url_path",
+      "session.exit_view.url_path",
+      "application.id",
+      "service",
+      "env",
+      "version",
+      "source",
+      "usr.id",
+      "usr.name",
+      "usr.email",
+      "usr.anonymous_id",
+      "browser.name",
+      "browser.version",
+      "os.name",
+      "os.version",
+      "device.type",
+      "device.model",
+      "geo.country_iso_code",
+      "geo.country",
+      "geo.city",
+      "network.client.ip"
+    ],
+    "fields": [
+      {
+        "name": "session.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "session.revision",
+        "dataType": "int64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.has_replay",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.last_activity",
+        "dataType": "int64",
+        "unit": "ms",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.duration",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.view.count",
+        "dataType": "int64",
+        "unit": "count",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.action.count",
+        "dataType": "int64",
+        "unit": "count",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.error.count",
+        "dataType": "int64",
+        "unit": "count",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.resource.count",
+        "dataType": "int64",
+        "unit": "count",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.long_task.count",
+        "dataType": "int64",
+        "unit": "count",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.frustration.count",
+        "dataType": "int64",
+        "unit": "count",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.crash.count",
+        "dataType": "int64",
+        "unit": "count",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.landing_view.url",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.landing_view.url_path",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.landing_view.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.exit_view.url",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.exit_view.url_path",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.exit_view.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "application.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "service",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "env",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "source",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "usr.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.email",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.anonymous_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.extra",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "account.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "browser.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "browser.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.model",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.brand",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.country_iso_code",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "geo.country",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.country_subdivision",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.city",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.continent_code",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "network.client.ip",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "retention.rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "retention.filter",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "synthetics.test_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "synthetics.result_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "synthetics.location_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "ci_test.test_execution_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      }
+    ]
+  },
+  "views": {
+    "type": "views",
+    "stream": "rum_views",
+    "idField": "view.id",
+    "versioned": true,
+    "defaultColumns": [
+      "view.id",
+      "view.url",
+      "view.url_path",
+      "view.url_path_group",
+      "view.name",
+      "view.is_active",
+      "view.loading_type",
+      "view.loading_time",
+      "view.time_spent",
+      "view.first_byte",
+      "view.performance.fcp.timestamp",
+      "view.performance.lcp.timestamp",
+      "view.performance.inp.duration",
+      "view.performance.cls.score",
+      "view.action.count",
+      "view.error.count",
+      "view.resource.count",
+      "view.long_task.count",
+      "view.frustration.count",
+      "session.id",
+      "application.id",
+      "service",
+      "env",
+      "version",
+      "source",
+      "usr.id",
+      "browser.name",
+      "os.name",
+      "device.type",
+      "geo.country_iso_code"
+    ],
+    "fields": [
+      {
+        "name": "application.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "service",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "env",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "build_version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "build_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "source",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "session.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.has_replay",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.start",
+        "dataType": "int64",
+        "unit": "ms",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "view.url",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_host",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_path",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_path_group",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.referrer",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.in_foreground",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "usr.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "usr.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.email",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.anonymous_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.extra",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "account.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "account.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "tab.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.status",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.effective_type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.interfaces",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.cellular.technology",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.cellular.carrier_name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "display.viewport.width",
+        "dataType": "float64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "display.viewport.height",
+        "dataType": "float64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "browser.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "browser.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "browser.version_major",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.version_major",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.build",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.model",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.brand",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.architecture",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.locale",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.locales",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "device.time_zone",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.battery_level",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.brightness_level",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.power_saving_mode",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.is_low_ram",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.logical_cpu_count",
+        "dataType": "int64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.total_ram",
+        "dataType": "int64",
+        "unit": "bytes",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.country_iso_code",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "geo.country",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.continent_code",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.continent",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.country_subdivision",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.city",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.latitude",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.longitude",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "network.client.ip",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.session_sample_rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.replay_sample_rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "retention.rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "retention.filter",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "context",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "feature_flags",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "extra",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "view.revision",
+        "dataType": "int64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.is_active",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.loading_type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.loading_time",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.time_spent",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.first_byte",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.dom_interactive",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.dom_content_loaded",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.dom_complete",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.load_event",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.network_settled_time",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.interaction_to_next_view_time",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.fcp.timestamp",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.lcp.timestamp",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.lcp.target_selector",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.lcp.resource_url",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.lcp.sub_parts.load_delay",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.lcp.sub_parts.load_time",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.lcp.sub_parts.render_delay",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.fid.duration",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.fid.timestamp",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.fid.target_selector",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.inp.duration",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.inp.timestamp",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.inp.target_selector",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.inp.sub_parts.input_delay",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.inp.sub_parts.processing_duration",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.inp.sub_parts.presentation_delay",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.cls.score",
+        "dataType": "float64",
+        "unit": "score",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.cls.timestamp",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.cls.target_selector",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.performance.fbc.timestamp",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.custom_timings",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "view.action.count",
+        "dataType": "int64",
+        "unit": "count",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.error.count",
+        "dataType": "int64",
+        "unit": "count",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.resource.count",
+        "dataType": "int64",
+        "unit": "count",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.long_task.count",
+        "dataType": "int64",
+        "unit": "count",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.frustration.count",
+        "dataType": "int64",
+        "unit": "count",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.crash.count",
+        "dataType": "int64",
+        "unit": "count",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.frozen_frame.count",
+        "dataType": "int64",
+        "unit": "count",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.memory_average",
+        "dataType": "float64",
+        "unit": "bytes",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.memory_max",
+        "dataType": "float64",
+        "unit": "bytes",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.cpu_ticks_count",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.cpu_ticks_per_second",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.refresh_rate_average",
+        "dataType": "float64",
+        "unit": "per_second",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.refresh_rate_min",
+        "dataType": "float64",
+        "unit": "per_second",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.slow_frames_rate",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.freeze_rate",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.flutter_build_time.min",
+        "dataType": "float64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.flutter_build_time.max",
+        "dataType": "float64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.flutter_build_time.average",
+        "dataType": "float64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.flutter_build_time.metric_max",
+        "dataType": "float64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.flutter_raster_time.min",
+        "dataType": "float64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.flutter_raster_time.max",
+        "dataType": "float64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.flutter_raster_time.average",
+        "dataType": "float64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.flutter_raster_time.metric_max",
+        "dataType": "float64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "synthetics.test_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "synthetics.result_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "synthetics.location_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "ci_test.test_execution_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "view.scroll.max_depth",
+        "dataType": "float64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.scroll.max_depth_scroll_top",
+        "dataType": "float64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.scroll.max_scroll_height",
+        "dataType": "float64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.scroll.max_scroll_height_time",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      }
+    ]
+  },
+  "actions": {
+    "type": "actions",
+    "stream": "rum_actions",
+    "idField": "action.id",
+    "versioned": false,
+    "defaultColumns": [
+      "action.id",
+      "action.type",
+      "action.target.name",
+      "action.target.selector",
+      "action.loading_time",
+      "action.frustration.type",
+      "action.frustration.count",
+      "action.error.count",
+      "action.resource.count",
+      "view.id",
+      "view.url_path",
+      "session.id",
+      "application.id",
+      "service",
+      "env",
+      "version",
+      "usr.id",
+      "browser.name",
+      "device.type",
+      "geo.country_iso_code"
+    ],
+    "fields": [
+      {
+        "name": "application.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "service",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "env",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "build_version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "build_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "source",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "session.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.has_replay",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.start",
+        "dataType": "int64",
+        "unit": "ms",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "view.url",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_host",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_path",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_path_group",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.referrer",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.in_foreground",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "usr.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "usr.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.email",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.anonymous_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.extra",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "account.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "account.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "tab.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.status",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.effective_type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.interfaces",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.cellular.technology",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.cellular.carrier_name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "display.viewport.width",
+        "dataType": "float64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "display.viewport.height",
+        "dataType": "float64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "browser.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "browser.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "browser.version_major",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.version_major",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.build",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.model",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.brand",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.architecture",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.locale",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.locales",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "device.time_zone",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.battery_level",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.brightness_level",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.power_saving_mode",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.is_low_ram",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.logical_cpu_count",
+        "dataType": "int64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.total_ram",
+        "dataType": "int64",
+        "unit": "bytes",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.country_iso_code",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "geo.country",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.continent_code",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.continent",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.country_subdivision",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.city",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.latitude",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.longitude",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "network.client.ip",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.session_sample_rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.replay_sample_rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "retention.rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "retention.filter",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "context",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "feature_flags",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "extra",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "action.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.loading_time",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.target.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.target.selector",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.target.width",
+        "dataType": "int64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.target.height",
+        "dataType": "int64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.position.x",
+        "dataType": "int64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.position.y",
+        "dataType": "int64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.name_source",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.frustration.type",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "action.frustration.count",
+        "dataType": "int64",
+        "unit": "count",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.error.count",
+        "dataType": "int64",
+        "unit": "count",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.crash.count",
+        "dataType": "int64",
+        "unit": "count",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.long_task.count",
+        "dataType": "int64",
+        "unit": "count",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.resource.count",
+        "dataType": "int64",
+        "unit": "count",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "synthetics.test_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "synthetics.result_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "synthetics.location_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "ci_test.test_execution_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "action.target.path",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.target.offset.x",
+        "dataType": "int64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.target.offset.y",
+        "dataType": "int64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.page_position.x",
+        "dataType": "int64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.page_position.y",
+        "dataType": "int64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      }
+    ]
+  },
+  "errors": {
+    "type": "errors",
+    "stream": "rum_errors",
+    "idField": "error.id",
+    "versioned": false,
+    "defaultColumns": [
+      "error.id",
+      "error.message",
+      "error.source",
+      "error.type",
+      "error.handling",
+      "error.is_crash",
+      "error.category",
+      "error.issue_id",
+      "error.resource.status_code",
+      "error.resource.url",
+      "action.id",
+      "view.id",
+      "view.url_path",
+      "session.id",
+      "application.id",
+      "service",
+      "env",
+      "version",
+      "usr.id",
+      "browser.name",
+      "device.type",
+      "geo.country_iso_code"
+    ],
+    "fields": [
+      {
+        "name": "application.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "service",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "env",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "build_version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "build_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "source",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "session.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.has_replay",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.start",
+        "dataType": "int64",
+        "unit": "ms",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "view.url",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_host",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_path",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_path_group",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.referrer",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.in_foreground",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "usr.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "usr.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.email",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.anonymous_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.extra",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "account.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "account.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "tab.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.status",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.effective_type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.interfaces",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.cellular.technology",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.cellular.carrier_name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "display.viewport.width",
+        "dataType": "float64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "display.viewport.height",
+        "dataType": "float64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "browser.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "browser.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "browser.version_major",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.version_major",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.build",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.model",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.brand",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.architecture",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.locale",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.locales",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "device.time_zone",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.battery_level",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.brightness_level",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.power_saving_mode",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.is_low_ram",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.logical_cpu_count",
+        "dataType": "int64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.total_ram",
+        "dataType": "int64",
+        "unit": "bytes",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.country_iso_code",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "geo.country",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.continent_code",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.continent",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.country_subdivision",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.city",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.latitude",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.longitude",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "network.client.ip",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.session_sample_rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.replay_sample_rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "retention.rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "retention.filter",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "context",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "feature_flags",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "extra",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "error.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "error.message",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "error.source",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "error.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "error.stack",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "error.frames",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "error.fingerprint",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "error.issue_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "error.handling",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "error.handling_stack",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "error.causes",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "error.is_crash",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "error.category",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "error.source_type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "error.resource.method",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "error.resource.status_code",
+        "dataType": "int64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "error.resource.url",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "error.threads",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "error.binary_images",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "error.was_truncated",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "error.csp.disposition",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "error.time_since_app_start",
+        "dataType": "int64",
+        "unit": "ms",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "error.meta",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "error.symbolication",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "synthetics.test_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "synthetics.result_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "synthetics.location_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "ci_test.test_execution_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      }
+    ]
+  },
+  "resources": {
+    "type": "resources",
+    "stream": "rum_resources",
+    "idField": "resource.id",
+    "versioned": false,
+    "defaultColumns": [
+      "resource.id",
+      "resource.type",
+      "resource.method",
+      "resource.url",
+      "resource.url_host",
+      "resource.url_path_group",
+      "resource.status_code",
+      "resource.duration",
+      "resource.size",
+      "resource.transfer_size",
+      "resource.trace_id",
+      "resource.span_id",
+      "action.id",
+      "view.id",
+      "view.url_path",
+      "session.id",
+      "application.id",
+      "service",
+      "env",
+      "version",
+      "usr.id",
+      "browser.name",
+      "geo.country_iso_code"
+    ],
+    "fields": [
+      {
+        "name": "application.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "service",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "env",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "build_version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "build_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "source",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "session.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.has_replay",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.start",
+        "dataType": "int64",
+        "unit": "ms",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "view.url",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_host",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_path",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_path_group",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.referrer",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.in_foreground",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "usr.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "usr.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.email",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.anonymous_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.extra",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "account.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "account.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "tab.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.status",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.effective_type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.interfaces",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.cellular.technology",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.cellular.carrier_name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "display.viewport.width",
+        "dataType": "float64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "display.viewport.height",
+        "dataType": "float64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "browser.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "browser.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "browser.version_major",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.version_major",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.build",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.model",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.brand",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.architecture",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.locale",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.locales",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "device.time_zone",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.battery_level",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.brightness_level",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.power_saving_mode",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.is_low_ram",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.logical_cpu_count",
+        "dataType": "int64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.total_ram",
+        "dataType": "int64",
+        "unit": "bytes",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.country_iso_code",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "geo.country",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.continent_code",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.continent",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.country_subdivision",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.city",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.latitude",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.longitude",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "network.client.ip",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.session_sample_rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.replay_sample_rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "retention.rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "retention.filter",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "context",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "feature_flags",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "extra",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "resource.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.method",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.url",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.url_host",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.url_path",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.url_path_group",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.status_code",
+        "dataType": "int64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.duration",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.size",
+        "dataType": "int64",
+        "unit": "bytes",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.encoded_body_size",
+        "dataType": "int64",
+        "unit": "bytes",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.decoded_body_size",
+        "dataType": "int64",
+        "unit": "bytes",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.transfer_size",
+        "dataType": "int64",
+        "unit": "bytes",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.render_blocking_status",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.protocol",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.delivery_type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.worker.start",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.worker.duration",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.redirect.start",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.redirect.duration",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.dns.start",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.dns.duration",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.connect.start",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.connect.duration",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.ssl.start",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.ssl.duration",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.first_byte.start",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.first_byte.duration",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.download.start",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.download.duration",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.request.headers",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "resource.response.headers",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "resource.graphql.operation_type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.graphql.operation_name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.graphql.payload",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.graphql.variables",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "resource.trace_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "resource.span_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "synthetics.test_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "synthetics.result_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "synthetics.location_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "ci_test.test_execution_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      }
+    ]
+  },
+  "long_tasks": {
+    "type": "long_tasks",
+    "stream": "rum_long_tasks",
+    "idField": "long_task.id",
+    "versioned": false,
+    "defaultColumns": [
+      "long_task.id",
+      "long_task.duration",
+      "long_task.entry_type",
+      "long_task.start_time",
+      "long_task.blocking_duration",
+      "long_task.is_frozen_frame",
+      "action.id",
+      "view.id",
+      "view.url_path",
+      "session.id",
+      "application.id",
+      "service",
+      "env",
+      "version",
+      "usr.id",
+      "browser.name"
+    ],
+    "fields": [
+      {
+        "name": "application.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "service",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "env",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "build_version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "build_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "source",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "session.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.has_replay",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.start",
+        "dataType": "int64",
+        "unit": "ms",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "view.url",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_host",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_path",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_path_group",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.referrer",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.in_foreground",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "usr.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "usr.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.email",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.anonymous_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.extra",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "account.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "account.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "tab.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.status",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.effective_type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.interfaces",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.cellular.technology",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.cellular.carrier_name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "display.viewport.width",
+        "dataType": "float64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "display.viewport.height",
+        "dataType": "float64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "browser.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "browser.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "browser.version_major",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.version_major",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.build",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.model",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.brand",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.architecture",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.locale",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.locales",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "device.time_zone",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.battery_level",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.brightness_level",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.power_saving_mode",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.is_low_ram",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.logical_cpu_count",
+        "dataType": "int64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.total_ram",
+        "dataType": "int64",
+        "unit": "bytes",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.country_iso_code",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "geo.country",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.continent_code",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.continent",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.country_subdivision",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.city",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.latitude",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.longitude",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "network.client.ip",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.session_sample_rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.replay_sample_rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "retention.rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "retention.filter",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "context",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "feature_flags",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "extra",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "long_task.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "long_task.duration",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "long_task.entry_type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "long_task.start_time",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "long_task.blocking_duration",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "long_task.render_start",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "long_task.style_and_layout_start",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "long_task.first_ui_event_timestamp",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "long_task.is_frozen_frame",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "long_task.scripts",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "long_task.top_script.source_url",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "long_task.top_script.function",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "long_task.top_script.invoker_type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "synthetics.test_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "synthetics.result_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "synthetics.location_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "ci_test.test_execution_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      }
+    ]
+  },
+  "vitals": {
+    "type": "vitals",
+    "stream": "rum_vitals",
+    "idField": "vital.id",
+    "versioned": false,
+    "defaultColumns": [
+      "vital.id",
+      "vital.type",
+      "vital.name",
+      "vital.duration",
+      "vital.app_launch_metric",
+      "vital.startup_type",
+      "view.id",
+      "view.url_path",
+      "session.id",
+      "application.id",
+      "service",
+      "env",
+      "version",
+      "usr.id"
+    ],
+    "fields": [
+      {
+        "name": "application.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "service",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "env",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "build_version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "build_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "source",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "session.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.has_replay",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.start",
+        "dataType": "int64",
+        "unit": "ms",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "view.url",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_host",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_path",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_path_group",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.referrer",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.in_foreground",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "usr.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "usr.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.email",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.anonymous_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.extra",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "account.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "account.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "tab.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.status",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.effective_type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.interfaces",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.cellular.technology",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.cellular.carrier_name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "display.viewport.width",
+        "dataType": "float64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "display.viewport.height",
+        "dataType": "float64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "browser.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "browser.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "browser.version_major",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.version_major",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.build",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.model",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.brand",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.architecture",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.locale",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.locales",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "device.time_zone",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.battery_level",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.brightness_level",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.power_saving_mode",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.is_low_ram",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.logical_cpu_count",
+        "dataType": "int64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.total_ram",
+        "dataType": "int64",
+        "unit": "bytes",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.country_iso_code",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "geo.country",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.continent_code",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.continent",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.country_subdivision",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.city",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.latitude",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.longitude",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "network.client.ip",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.session_sample_rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.replay_sample_rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "retention.rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "retention.filter",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "context",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "feature_flags",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "extra",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "vital.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "vital.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "vital.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "vital.description",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "vital.duration",
+        "dataType": "int64",
+        "unit": "ns",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "vital.app_launch_metric",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "vital.startup_type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "vital.is_prewarmed",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "vital.has_saved_instance_state_bundle",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "vital.step_type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "vital.operation_key",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "vital.failure_reason",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "synthetics.test_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "synthetics.result_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "synthetics.location_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "ci_test.test_execution_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      }
+    ]
+  },
+  "logs": {
+    "type": "logs",
+    "stream": "rum_logs",
+    "idField": "log.id",
+    "versioned": false,
+    "defaultColumns": [
+      "log.id",
+      "level",
+      "message",
+      "log.logger",
+      "log.origin",
+      "log.error_type",
+      "log.stack",
+      "view.id",
+      "view.url_path",
+      "session.id",
+      "application.id",
+      "service",
+      "env",
+      "version",
+      "usr.id",
+      "browser.name"
+    ],
+    "fields": [
+      {
+        "name": "application.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "service",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "env",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "build_version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "build_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "source",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "session.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.has_replay",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "session.start",
+        "dataType": "int64",
+        "unit": "ms",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "view.url",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_host",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_path",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.url_path_group",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.referrer",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "view.in_foreground",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "action.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "usr.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "usr.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.email",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.anonymous_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "usr.extra",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "account.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "account.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "tab.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.status",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.effective_type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.interfaces",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.cellular.technology",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "connectivity.cellular.carrier_name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "display.viewport.width",
+        "dataType": "float64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "display.viewport.height",
+        "dataType": "float64",
+        "unit": "px",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "browser.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "browser.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "browser.version_major",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.version_major",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "os.build",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.model",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.brand",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.architecture",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.locale",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.locales",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "device.time_zone",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.battery_level",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.brightness_level",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.power_saving_mode",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.is_low_ram",
+        "dataType": "bool",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.logical_cpu_count",
+        "dataType": "int64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "device.total_ram",
+        "dataType": "int64",
+        "unit": "bytes",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.country_iso_code",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "geo.country",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.continent_code",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.continent",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.country_subdivision",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.city",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.latitude",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "geo.longitude",
+        "dataType": "float64",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "network.client.ip",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.name",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.version",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.session_sample_rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "sdk.replay_sample_rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "retention.rate",
+        "dataType": "float64",
+        "unit": "percent",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "retention.filter",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "context",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "feature_flags",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "extra",
+        "dataType": "json",
+        "unit": "none",
+        "facetable": false,
+        "indexed": false
+      },
+      {
+        "name": "synthetics.test_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "synthetics.result_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "synthetics.location_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "ci_test.test_execution_id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "log.id",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "level",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": true
+      },
+      {
+        "name": "message",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "log.logger",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "log.origin",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "log.error_type",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      },
+      {
+        "name": "log.stack",
+        "dataType": "utf8",
+        "unit": "none",
+        "facetable": true,
+        "indexed": false
+      }
+    ]
+  }
+}

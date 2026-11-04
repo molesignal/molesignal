@@ -5,7 +5,9 @@
 
 use std::{cmp::Ordering, collections::VecDeque};
 
-use super::{TraceListContext, TraceListRow, TraceListSort, effective_cmp};
+use super::{
+    TraceCondition, TraceFilter, TraceListContext, TraceListRow, TraceListSort, effective_cmp,
+};
 use crate::{
     api::http::pagination::cursor::CursorDirection,
     domain::{storage::QueryFile, stream::FieldType},
@@ -163,55 +165,58 @@ pub(super) fn file_may_match_cursor(file: &QueryFile, context: &TraceListContext
 }
 
 /// Zone maps provide a cheap first pass before opening Parquet. Missing or incompatible bounds
-/// always retain the file so pruning can never create a false negative.
-pub(super) fn file_may_match_filters(file: &QueryFile, context: &TraceListContext) -> bool {
-    context.filters.iter().all(|filter| {
-        let Some(field) = filter.summary_column() else {
-            return true;
-        };
+/// always retain the file so pruning can never create a false negative. A file is left out of
+/// an `OR` only when no part of it can hold there; free text may always hold.
+pub(super) fn file_may_match_query(file: &QueryFile, query: &TraceCondition) -> bool {
+    query.holds(&|filter| file_may_match_filter(file, filter), &|_| true)
+}
 
-        match filter.data_type {
-            FieldType::Utf8 => {
-                if filter.op != "=" {
-                    return true;
-                }
+fn file_may_match_filter(file: &QueryFile, filter: &TraceFilter) -> bool {
+    let Some(field) = filter.summary_column() else {
+        return true;
+    };
 
-                let Some(minimum) = file
-                    .min_values
-                    .get(field)
-                    .and_then(serde_json::Value::as_str)
-                else {
-                    return true;
-                };
-
-                let Some(maximum) = file
-                    .max_values
-                    .get(field)
-                    .and_then(serde_json::Value::as_str)
-                else {
-                    return true;
-                };
-
-                filter.value.as_str() >= minimum && filter.value.as_str() <= maximum
+    match filter.data_type {
+        FieldType::Utf8 => {
+            if filter.op != "=" {
+                return true;
             }
-            FieldType::Int64 | FieldType::Timestamp => {
-                let Some(value) = filter.integer_value() else {
-                    return true;
-                };
 
-                let Some(minimum) = file.min_values.get(field).and_then(json_i64) else {
-                    return true;
-                };
+            let Some(minimum) = file
+                .min_values
+                .get(field)
+                .and_then(serde_json::Value::as_str)
+            else {
+                return true;
+            };
 
-                let Some(maximum) = file.max_values.get(field).and_then(json_i64) else {
-                    return true;
-                };
+            let Some(maximum) = file
+                .max_values
+                .get(field)
+                .and_then(serde_json::Value::as_str)
+            else {
+                return true;
+            };
 
-                numeric_range_may_match(minimum, maximum, filter.op.as_str(), value)
-            }
-            _ => true,
+            filter.value.as_str() >= minimum && filter.value.as_str() <= maximum
         }
-    })
+        FieldType::Int64 | FieldType::Timestamp => {
+            let Some(value) = filter.integer_value() else {
+                return true;
+            };
+
+            let Some(minimum) = file.min_values.get(field).and_then(json_i64) else {
+                return true;
+            };
+
+            let Some(maximum) = file.max_values.get(field).and_then(json_i64) else {
+                return true;
+            };
+
+            numeric_range_may_match(minimum, maximum, filter.op.as_str(), value)
+        }
+        _ => true,
+    }
 }
 
 fn json_i64(value: &serde_json::Value) -> Option<i64> {

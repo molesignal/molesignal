@@ -12,6 +12,7 @@ chrono.workspace = true
 contracts = { path = "../contracts" }
 serde.workspace = true
 serde_json = { workspace = true, optional = true }
+sqlx = { workspace = true, optional = true }
 svix-ksuid.workspace = true
 thiserror.workspace = true
 tracing = { workspace = true, optional = true }
@@ -20,3 +21,4 @@ uuid.workspace = true
 [features]
 default = []
 http = ["dep:axum", "dep:serde_json", "dep:tracing"]
+postgres = ["dep:sqlx"]

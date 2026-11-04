@@ -16,7 +16,11 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub enum FieldMaskingAlgorithm {
     Full {
         #[serde(default = "default_replacement")]
@@ -103,6 +107,7 @@ pub struct FieldMaskingOverride {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FieldMaskingRule {
     pub id: Id,
     pub org_id: Id,
@@ -134,6 +139,7 @@ pub enum FieldMaskingSource {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EffectiveFieldMaskingEntry {
     pub field: String,
     pub masked: bool,
@@ -154,6 +160,7 @@ pub struct EffectiveFieldMaskingEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EffectiveFieldMasking {
     pub stream_id: Id,
     pub fields: Vec<EffectiveFieldMaskingEntry>,

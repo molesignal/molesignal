@@ -51,7 +51,7 @@ export function EventForm({
 }) {
   const { t } = useTranslation('status-pages');
   const { snapshot } = useStatusPageWorkspace();
-  const incidentReadAccess = useActionAccess({ permission: 'alerts.read' });
+  const incidentReadAccess = useActionAccess({ permission: 'alerts.incidents.read' });
   const sourceIncidents = useQuery({
     queryKey: ['status-pages', 'source-incidents'],
     queryFn: () => incidentsApi.list({ scope: 'active' }),

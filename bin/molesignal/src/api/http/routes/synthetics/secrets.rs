@@ -19,7 +19,7 @@ use crate::{
 pub(super) fn routes() -> Router<AppState> {
     Router::new()
         .route("/synthetics/secrets", get(list).post(create))
-        .route("/synthetics/secrets/{secret_id}/rotate", post(rotate))
+        .route("/synthetics/secrets/{secretId}/rotate", post(rotate))
 }
 
 #[derive(Deserialize)]
@@ -27,7 +27,7 @@ struct RotateSecretRequest {
     value: String,
 }
 
-#[permission("synthetics.read")]
+#[permission("synthetics.secrets.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,

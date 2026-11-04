@@ -1,13 +1,34 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 告警规则、Incident 与升级策略路由。
+//! 告警规则、Incident、升级策略与告警来源路由。
 //!
-//! 当前实装：list / get / ack / resolve；create / update 接受前端构造的完整 domain
-//! 结构（DTO 层后续可拆得更薄）。
+//! 当前实装：list / get / ack / resolve；转派、升级、暂缓、合并、备注等处理在
+//! [`incident_actions`]。create / update 接受前端构造的完整 domain 结构（DTO 层后续可拆得更薄）。
 
+mod discovery;
+mod heartbeats;
+mod holiday_calendars;
+mod importance;
+mod incident_actions;
+mod incident_create;
+mod incident_importance;
+mod incident_related;
+mod inhibitions;
+mod intake;
+mod oncall_load;
+mod oncall_transfer;
+mod remediation;
+mod remediation_clusters;
 mod resources;
+mod response;
+mod routing;
 mod rule_actions;
+mod rule_kinds;
+mod rule_transfer;
+mod source_mailbox;
+mod sources;
+mod tickets;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -18,8 +39,11 @@ use axum::{
     routing::{get, post},
 };
 use chrono::{TimeZone, Timelike, Utc};
+pub use heartbeats::public_routes as heartbeat_routes;
+pub use intake::{INTAKE_PATH, public_routes as intake_routes};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+pub use tickets::public_routes as ticket_webhook_routes;
 
 use crate::{
     api::{
@@ -30,11 +54,15 @@ use crate::{
     domain::{
         alerting::{
             anomaly::{AnomalyParams, MAX_ANOMALY_LOOKBACK_DAYS, SUPPORTED_DETECTORS},
-            escalation::{DEFAULT_POLICY_ID, EscalationPolicy, EscalationStepInput},
+            escalation::{
+                DEFAULT_POLICY_ID, EscalationPolicy, EscalationStepInput, validate_ack_retrigger,
+            },
             incident::{Incident, IncidentStatus, Severity},
             rule::{
                 AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, RuleState, SeverityThreshold,
             },
+            timeline::ActionVia,
+            urgency::UrgencyRule,
         },
         federation::{CudAction, ResourceKind},
         iam::{permission, resource_permission},
@@ -49,7 +77,10 @@ pub fn routes() -> Router<AppState> {
             "/alerts/rules/{id}",
             get(get_rule).put(update_rule).delete(delete_rule),
         )
-        .route("/alerts/incidents", get(list_incidents))
+        .route(
+            "/alerts/incidents",
+            get(list_incidents).post(incident_create::create_incident),
+        )
         .route("/alerts/insights", get(get_insights))
         .route("/alerts/incidents/{id}", get(get_incident))
         .route(
@@ -69,9 +100,28 @@ pub fn routes() -> Router<AppState> {
                 .delete(delete_escalation),
         )
         .merge(rule_actions::routes())
+        .merge(sources::routes())
+        .merge(source_mailbox::routes())
+        .merge(inhibitions::routes())
+        .merge(routing::routes())
+        .merge(incident_actions::routes())
+        .merge(incident_importance::routes())
+        .merge(discovery::routes())
+        .merge(holiday_calendars::routes())
+        .merge(importance::routes())
+        .merge(oncall_transfer::routes())
+        .merge(rule_transfer::routes())
+        .merge(incident_related::routes())
+        .merge(heartbeats::routes())
+        .merge(oncall_load::routes())
+        .merge(remediation::routes())
+        .merge(remediation_clusters::routes())
+        .merge(tickets::routes())
+        .merge(response::routes())
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct RuleWriteReq {
     name: String,
     #[serde(default)]
@@ -116,7 +166,7 @@ fn normalize_anomaly(
 
     let Some(params) = params else {
         return Err(Error::invalid(
-            "anomaly_params is required when kind = anomaly",
+            "anomalyParams is required when kind = anomaly",
         ));
     };
 
@@ -129,7 +179,7 @@ fn normalize_anomaly(
 
     if params.lookback_days < 1 || params.lookback_days > MAX_ANOMALY_LOOKBACK_DAYS {
         return Err(Error::invalid(format!(
-            "anomaly lookback_days must be between 1 and {MAX_ANOMALY_LOOKBACK_DAYS}"
+            "anomaly lookbackDays must be between 1 and {MAX_ANOMALY_LOOKBACK_DAYS}"
         )));
     }
 
@@ -148,14 +198,41 @@ fn normalize_anomaly(
     // inconclusive。入口直接拒绝，避免落库一条"永不触发"的死规则。
     if params.weekly_seasonality && params.lookback_days < 7 {
         return Err(Error::invalid(
-            "weekly_seasonality requires lookback_days >= 7",
+            "weeklySeasonality requires lookbackDays >= 7",
         ));
     }
 
     Ok(Some(params))
 }
 
+/// A rule on a RUM figure names an application that exists: one that does not could never have a
+/// value, and the rule would look healthy for ever.
+pub(crate) async fn check_rum_application(
+    state: &AppState,
+    org_id: &Id,
+    query: &AlertQuery,
+) -> Result<()> {
+    let Some(rum) = &query.rum else {
+        return Ok(());
+    };
+
+    match state
+        .telemetry
+        .rum_applications
+        .get(org_id, &rum.application_id)
+        .await
+    {
+        Ok(_) => Ok(()),
+        Err(Error::NotFound(_)) => Err(Error::invalid(format!(
+            "RUM application `{}` does not exist",
+            rum.application_id
+        ))),
+        Err(error) => Err(error),
+    }
+}
+
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct EscalationWriteReq {
     name: String,
     #[serde(default)]
@@ -164,6 +241,15 @@ struct EscalationWriteReq {
     repeat: bool,
     #[serde(default = "default_max_loops")]
     max_loops: u32,
+    /// 确认后多久仍未解决就重新通知（秒）；空着不重新通知。
+    #[serde(default)]
+    ack_retrigger_secs: Option<u32>,
+    /// 没有明确指定紧急度的事件怎么定；不传按严重度。
+    #[serde(default)]
+    urgency_rule: UrgencyRule,
+    /// 低紧急度事件也照常往下升级。
+    #[serde(default)]
+    escalate_low_urgency: bool,
 }
 
 fn default_max_loops() -> u32 {
@@ -171,7 +257,7 @@ fn default_max_loops() -> u32 {
 }
 
 // ---- rules ----
-#[permission("alerts.read")]
+#[permission("alerts.rules.read")]
 async fn list_rules(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -181,29 +267,22 @@ async fn list_rules(
     ))
 }
 
-#[permission("alerts.manage")]
+#[permission("alerts.rules.manage")]
 async fn create_rule(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
-    Json(req): Json<RuleWriteReq>,
+    Json(mut req): Json<RuleWriteReq>,
 ) -> Result<Json<Value>> {
     if req.name.trim().is_empty() {
         return Err(Error::invalid("name cannot be empty"));
     }
 
-    if req.query.statement.trim().is_empty() {
-        return Err(Error::invalid("query.statement cannot be empty"));
-    }
-
-    let Some(stream_hint) = req.query.stream.as_ref() else {
-        return Err(Error::invalid(
-            "query.stream is required; must specify { name, stream_type }",
-        ));
-    };
-
-    if stream_hint.name.trim().is_empty() {
-        return Err(Error::invalid("query.stream.name cannot be empty"));
-    }
+    req.kind = req.query.rule_kind(req.kind);
+    req.query.normalize(req.kind)?;
+    importance::check_trigger(&state, &ctx.org_id, &req.trigger).await?;
+    check_rum_application(&state, &ctx.org_id, &req.query).await?;
+    rule_kinds::check_composite(&state, &ctx.org_id, req.kind, &req.query, None).await?;
+    rule_kinds::check_home_cluster(&state, &req.query).await?;
 
     let anomaly_params = normalize_anomaly(req.kind, req.anomaly_params)?;
     let now = TimestampMicros::now();
@@ -243,11 +322,11 @@ async fn create_rule(
     )
     .await;
 
-    Ok(Json(serde_json::to_value(saved).unwrap()))
+    Ok(Json(rule_kinds::saved_rule_json(&state, &saved).await?))
 }
 
 #[resource_permission(
-    action = "alerts.read",
+    action = "alerts.rules.read",
     resource = AlertRule,
     id = Id::from_string(id),
     bind = rule
@@ -261,7 +340,7 @@ async fn get_rule(
 }
 
 #[resource_permission(
-    action = "alerts.manage",
+    action = "alerts.rules.manage",
     resource = AlertRule,
     id = Id::from_string(id),
     bind = existing
@@ -270,25 +349,25 @@ async fn update_rule(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
-    Json(req): Json<RuleWriteReq>,
+    Json(mut req): Json<RuleWriteReq>,
 ) -> Result<Json<Value>> {
     if req.name.trim().is_empty() {
         return Err(Error::invalid("name cannot be empty"));
     }
 
-    if req.query.statement.trim().is_empty() {
-        return Err(Error::invalid("query.statement cannot be empty"));
-    }
-
-    let Some(stream_hint) = req.query.stream.as_ref() else {
-        return Err(Error::invalid(
-            "query.stream is required; must specify { name, stream_type }",
-        ));
-    };
-
-    if stream_hint.name.trim().is_empty() {
-        return Err(Error::invalid("query.stream.name cannot be empty"));
-    }
+    req.kind = req.query.rule_kind(req.kind);
+    req.query.normalize(req.kind)?;
+    importance::check_trigger(&state, &existing.org_id, &req.trigger).await?;
+    check_rum_application(&state, &existing.org_id, &req.query).await?;
+    rule_kinds::check_composite(
+        &state,
+        &existing.org_id,
+        req.kind,
+        &req.query,
+        Some(&existing.id),
+    )
+    .await?;
+    rule_kinds::check_home_cluster(&state, &req.query).await?;
 
     let anomaly_params = normalize_anomaly(req.kind, req.anomaly_params)?;
 
@@ -327,11 +406,11 @@ async fn update_rule(
     )
     .await;
 
-    Ok(Json(serde_json::to_value(saved).unwrap()))
+    Ok(Json(rule_kinds::saved_rule_json(&state, &saved).await?))
 }
 
 #[resource_permission(
-    action = "alerts.manage",
+    action = "alerts.rules.delete",
     resource = AlertRule,
     id = Id::from_string(id),
     bind = rule
@@ -374,6 +453,7 @@ fn shrink_for_list(mut i: Incident) -> Incident {
 }
 
 #[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct IncidentListQuery {
     /// `active`（默认）只返回 open / acknowledged；`all` 返回窗口内历史，
     /// 并始终合并仍活跃的长周期事件，避免超过窗口的未恢复事件消失。
@@ -382,7 +462,7 @@ struct IncidentListQuery {
     window_secs: Option<u64>,
 }
 
-#[permission("alerts.read")]
+#[permission("alerts.incidents.read")]
 async fn list_incidents(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -428,13 +508,15 @@ async fn list_incidents(
             .await?
     };
 
+    // 并入了别的事件的只在主事件详情里列出。
+    incidents.retain(|item| !item.is_merged());
     incidents.sort_by_key(|item| std::cmp::Reverse(item.created_at.0));
     let items: Vec<Incident> = incidents.into_iter().map(shrink_for_list).collect();
     Ok(Json(serde_json::to_value(items).unwrap()))
 }
 
 #[resource_permission(
-    action = "alerts.read",
+    action = "alerts.incidents.read",
     resource = Incident,
     id = Id::from_string(id),
     bind = incident
@@ -449,7 +531,7 @@ async fn get_incident(
 
 /// AI 根因分析（RCA）：后台 sweeper 异步产出，尚未生成时返 404。
 #[resource_permission(
-    action = "alerts.read",
+    action = "alerts.incidents.read",
     resource = Incident,
     id = Id::from_string(id),
     bind = incident
@@ -477,7 +559,7 @@ struct IncidentRcaGenerateQuery {
 
 /// 按需手动触发 RCA 生成（同步调 LLM，返回生成结果）。需 AlertWrite + agent feature。
 #[resource_permission(
-    action = "alerts.manage",
+    action = "alerts.incidents.rca",
     resource = Incident,
     id = Id::from_string(id),
     bind = incident
@@ -516,7 +598,7 @@ async fn generate_incident_rca(
 }
 
 #[resource_permission(
-    action = "alerts.acknowledge",
+    action = "alerts.incidents.acknowledge",
     resource = Incident,
     id = Id::from_string(id),
     bind = incident
@@ -529,14 +611,19 @@ async fn ack_incident(
     let incident = state
         .alerting
         .service
-        .acknowledge(&incident.id, ctx.user_id.clone(), TimestampMicros::now())
+        .acknowledge(
+            &incident.id,
+            ctx.user_id.clone(),
+            TimestampMicros::now(),
+            ActionVia::Web,
+        )
         .await?;
 
     Ok(Json(serde_json::to_value(incident).unwrap()))
 }
 
 #[resource_permission(
-    action = "alerts.acknowledge",
+    action = "alerts.incidents.acknowledge",
     resource = Incident,
     id = Id::from_string(id),
     bind = incident
@@ -549,7 +636,12 @@ async fn resolve_incident(
     let incident = state
         .alerting
         .service
-        .resolve(&incident.id, ctx.user_id.clone(), TimestampMicros::now())
+        .resolve(
+            &incident.id,
+            ctx.user_id.clone(),
+            TimestampMicros::now(),
+            ActionVia::Web,
+        )
         .await?;
 
     Ok(Json(serde_json::to_value(incident).unwrap()))
@@ -558,6 +650,7 @@ async fn resolve_incident(
 // ---- insights  ----
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct InsightsQuery {
     /// Look-back window in seconds; defaults to 7 days, clamped to [1h, 365d].
     window_secs: Option<u64>,
@@ -570,6 +663,7 @@ struct CountItem {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct InsightsResponse {
     window_secs: u64,
     total: usize,
@@ -586,6 +680,8 @@ struct InsightsResponse {
     by_severity: BTreeMap<String, u32>,
     top_services: Vec<CountItem>,
     top_rules: Vec<CountItem>,
+    /// 人的响应：这一段和前一段同样长的时间，以及按团队、服务、个人拆开。
+    response: crate::app::alerting::insights::ResponseInsights,
 }
 
 /// Incidents resolved faster than this are treated as noise (flapping).
@@ -614,7 +710,7 @@ fn top_counts(counts: HashMap<String, u32>, n: usize) -> Vec<CountItem> {
     v
 }
 
-#[permission("alerts.read")]
+#[permission("alerts.incidents.read")]
 async fn get_insights(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -628,12 +724,15 @@ async fn get_insights(
     let now = TimestampMicros::now();
     let since = TimestampMicros(now.0 - (window_secs as i64) * 1_000_000);
 
-    let incidents = state
+    // 并入了别的事件的算在主事件里，不另计。
+    let mut incidents = state
         .alerting
         .service
         .incidents
         .list_since(&ctx.org_id, since)
         .await?;
+
+    incidents.retain(|incident| !incident.is_merged());
 
     let mut by_hour = vec![0u32; 24];
     let mut by_severity: BTreeMap<String, u32> = BTreeMap::new();
@@ -689,6 +788,12 @@ async fn get_insights(
         noisy as f64 / resolved_n as f64
     };
 
+    let response = state
+        .alerting
+        .insights
+        .response(&ctx.org_id, since, now)
+        .await?;
+
     Ok(Json(InsightsResponse {
         window_secs,
         total: incidents.len(),
@@ -700,11 +805,12 @@ async fn get_insights(
         by_severity,
         top_services: top_counts(svc_counts, TOP_N),
         top_rules: top_counts(rule_counts, TOP_N),
+        response,
     }))
 }
 
 // ---- escalations ----
-#[permission("alerts.read")]
+#[permission("alerts.escalations.read")]
 async fn list_escalations(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -714,7 +820,7 @@ async fn list_escalations(
     ))
 }
 
-#[permission("alerts.manage")]
+#[permission("alerts.escalations.manage")]
 async fn create_escalation(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -724,6 +830,16 @@ async fn create_escalation(
         return Err(Error::invalid("name cannot be empty"));
     }
 
+    validate_ack_retrigger(req.ack_retrigger_secs)?;
+    req.urgency_rule.validate()?;
+
+    if let Some(calendar) = req.urgency_rule.calendar() {
+        calendar.check(&ctx.org_id)?;
+    }
+
+    req.urgency_rule
+        .check_levels(&*state.alerting.importance.levels(&ctx.org_id).await)?;
+
     let policy = EscalationPolicy {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -731,6 +847,9 @@ async fn create_escalation(
         steps: state.alerting.service.escalation_steps(req.steps),
         repeat: req.repeat,
         max_loops: req.max_loops.max(1),
+        ack_retrigger_secs: req.ack_retrigger_secs,
+        urgency_rule: req.urgency_rule.clone(),
+        escalate_low_urgency: req.escalate_low_urgency,
     };
 
     let saved = state.alerting.service.create_policy(policy).await?;
@@ -749,7 +868,7 @@ async fn create_escalation(
 }
 
 #[resource_permission(
-    action = "alerts.read",
+    action = "alerts.escalations.read",
     resource = EscalationPolicy,
     id = Id::from_string(id),
     bind = policy
@@ -763,7 +882,7 @@ async fn get_escalation(
 }
 
 #[resource_permission(
-    action = "alerts.manage",
+    action = "alerts.escalations.manage",
     resource = EscalationPolicy,
     id = Id::from_string(id),
     bind = existing
@@ -778,6 +897,16 @@ async fn update_escalation(
         return Err(Error::invalid("name cannot be empty"));
     }
 
+    validate_ack_retrigger(req.ack_retrigger_secs)?;
+    req.urgency_rule.validate()?;
+
+    if let Some(calendar) = req.urgency_rule.calendar() {
+        calendar.check(&ctx.org_id)?;
+    }
+
+    req.urgency_rule
+        .check_levels(&*state.alerting.importance.levels(&ctx.org_id).await)?;
+
     let policy = EscalationPolicy {
         id: existing.id,
         org_id: existing.org_id,
@@ -785,6 +914,9 @@ async fn update_escalation(
         steps: state.alerting.service.escalation_steps(req.steps),
         repeat: req.repeat,
         max_loops: req.max_loops.max(1),
+        ack_retrigger_secs: req.ack_retrigger_secs,
+        urgency_rule: req.urgency_rule.clone(),
+        escalate_low_urgency: req.escalate_low_urgency,
     };
 
     let saved = state.alerting.service.update_policy(policy).await?;
@@ -803,7 +935,7 @@ async fn update_escalation(
 }
 
 #[resource_permission(
-    action = "alerts.manage",
+    action = "alerts.escalations.delete",
     resource = EscalationPolicy,
     id = Id::from_string(id),
     bind = policy

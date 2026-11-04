@@ -1,15 +1,16 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { explorerRead, explorerReadBody } from '../fixtures/explorerReads';
 import { installMockShellSession } from '../fixtures/mockSession';
 
-const field = (name: string, dataType = 'utf8') => ({ name, data_type: dataType, nullable: true, indexed: false });
+const field = (name: string, dataType = 'utf8') => ({ name, dataType: dataType, nullable: true, indexed: false });
 const STREAM = {
   id: 'application-logs',
   name: 'application_logs',
-  stream_type: 'logs',
+  streamType: 'logs',
   schema: {
     fields: [
-      { name: '_timestamp', data_type: 'timestamp', nullable: false, indexed: true },
+      { name: '_timestamp', dataType: 'timestamp', nullable: false, indexed: true },
       field('level'),
       field('service.name'),
       field('message'),
@@ -24,21 +25,21 @@ const STREAM = {
     ],
   },
   retention: { days: 7 },
-  effective_retention: { days: 7 },
+  effectiveRetention: { days: 7 },
   settings: {
     description: null,
-    index_rules: [],
-    retention_filter: null,
-    keep_conditions: [],
-    max_query_range_hours: null,
-    flatten_level: null,
-    use_stream_stats_for_partitioning: false,
-    store_original_data: false,
-    enable_distinct_values: true,
+    indexRules: [],
+    retentionFilter: null,
+    keepConditions: [],
+    maxQueryRangeHours: null,
+    flattenLevel: null,
+    useStreamStatsForPartitioning: false,
+    storeOriginalData: false,
+    enableDistinctValues: true,
     queryable: true,
   },
-  created_at_micros: 1,
-  updated_at_micros: 1,
+  createdAt: 1,
+  updatedAt: 1,
 };
 const LEVELS = ['INFO', 'ERROR', 'WARN', 'INFO', 'DEBUG', 'INFO'];
 const FAILURE = 'failed to reserve stock: sku=SKU-48213 requested=4 available=1';
@@ -62,8 +63,8 @@ async function serveLogs(page: Page) {
     'user.id': `u_${index}`,
   }));
   await page.route('**/api/v1/streams**', (route) => route.fulfill({ json: [STREAM] }));
-  await page.route('**/api/v1/web/logs', (route) =>
-    route.fulfill({ json: { items, next_cursor: null, previous_cursor: null, has_more: false } }),
+  await page.route(explorerRead('web/logs'), (route) =>
+    route.fulfill({ json: { items, nextCursor: null, previousCursor: null, hasMore: false } }),
   );
   await page.route('**/api/v1/field_masking/effective/**', (route) =>
     route.fulfill({ json: { fields: [] } }),
@@ -97,15 +98,18 @@ test.describe('Logs list and detail', () => {
     const message = await rows.first().locator('[data-log-field="message"]').boundingBox();
     expect(message!.width).toBeGreaterThan(400);
 
-    // The level runs down the row's edge, loud only where something went wrong, and is a word
-    // in the row, not a chip.
+    // The level runs down the row's edge as how a trace ended does, loud only where something went
+    // wrong; in the row it is a word in its colour with nothing behind it, as an HTTP method is.
     await expect(rows.nth(1)).toHaveAttribute('data-log-level', 'error');
-    const edge = (index: number) => rows.nth(index).evaluate((row) => getComputedStyle(row).borderLeftColor);
+    const edge = (index: number) =>
+      rows.nth(index).locator(':scope > span[aria-hidden="true"]').first().evaluate((bar) => getComputedStyle(bar).backgroundColor);
     const [info, error, warn] = await Promise.all([edge(0), edge(1), edge(2)]);
     expect(new Set([info, error, warn]).size).toBe(3);
-    const word = rows.nth(1).locator('[data-log-field="level"] span');
-    await expect(word).toHaveText('ERROR');
-    await expect(word).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    const word = (index: number) => rows.nth(index).locator('[data-log-field="level"] span');
+    await expect(word(1)).toHaveText('ERROR');
+    for (const index of [0, 1, 2]) await expect(word(index)).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    const colour = (index: number) => word(index).evaluate((node) => getComputedStyle(node).color);
+    expect(new Set(await Promise.all([colour(0), colour(1), colour(2)])).size).toBe(3);
 
     // A field every loaded record carries says no count; the number of rows is said once, above.
     const panel = page.locator('aside[data-variant="utility"]');
@@ -121,10 +125,11 @@ test.describe('Logs list and detail', () => {
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await expect(http.locator('[data-field-group-count]')).toHaveText('3');
     await expect(panel.locator('[data-log-field-row="http.method"]')).toHaveCount(0);
-    // A first part only one field has says nothing: that field keeps its whole name and its own card.
+    // A first part only one field has says nothing: that field keeps its whole name on a row of its
+    // own, a row of the flat list as the trace explorer's are.
     await expect(panel.locator('[data-log-field-row="k8s.pod.name"]')).toBeVisible();
     await expect(panel.locator('[data-field-group="k8s"]')).toHaveCount(0);
-    await expect(panel.locator('[data-log-field-row="k8s.pod.name"]')).not.toHaveCSS('box-shadow', 'none');
+    await expect(panel.locator('[data-log-field-row="k8s.pod.name"]')).toHaveCSS('box-shadow', 'none');
     // The list is divided by what a field is to the reader: on display, kept in an index, or neither.
     // The fields on display are the columns of the list, in their order: they stay a plain list.
     const sections = panel.locator('[data-side-panel-section]');
@@ -141,21 +146,21 @@ test.describe('Logs list and detail', () => {
     await expect(panel.locator('[data-log-field-row="service.name"]')).toHaveCount(0);
     await sections.nth(0).getByRole('button', { name: /^Displayed fields/ }).click();
 
-    // Open, its fields are inside its card by the rest of their names, each a row on a ground of its own.
+    // Open, its fields stand under its row by the rest of their names, set in, as the trace explorer's do.
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     const fields = http.locator('[data-field-group-fields="http"]');
     await expect(fields.locator('[data-log-field-row]')).toHaveCount(3);
     const status = fields.locator('[data-log-field-row="http.status_code"]');
-    await expect(status.getByText('status_code', { exact: true })).toHaveAttribute('title', 'http.status_code');
-    const [groupBox, statusBox] = await Promise.all([http.boundingBox(), status.boundingBox()]);
-    expect(statusBox!.x).toBeGreaterThan(groupBox!.x);
-    expect(statusBox!.x + statusBox!.width).toBeLessThan(groupBox!.x + groupBox!.width);
-    const ground = (locator: typeof http) =>
-      locator.evaluate((element) => getComputedStyle(element).backgroundColor);
-    expect(await ground(status)).not.toBe(await ground(http));
-    // The group is one small card lifted off the list; the fields in it are rows, not cards.
-    await expect(http).not.toHaveCSS('box-shadow', 'none');
+    const statusName = status.getByText('status_code', { exact: true });
+    await expect(statusName).toHaveAttribute('title', 'http.status_code');
+    const [groupNameBox, statusNameBox] = await Promise.all([
+      http.getByText('http', { exact: true }).first().boundingBox(),
+      statusName.boundingBox(),
+    ]);
+    expect(statusNameBox!.x).toBeGreaterThan(groupNameBox!.x + 8);
+    // Rows of one flat list from edge to edge: neither the group nor its fields is a card.
+    await expect(http).toHaveCSS('box-shadow', 'none');
     await expect(status).toHaveCSS('box-shadow', 'none');
 
     // A field under a group opens on its values like any other, inside the group.
@@ -201,7 +206,10 @@ test.describe('Logs list and detail', () => {
     expect(Math.max(...ends) - Math.min(...ends)).toBeLessThan(1);
     // The chosen one is told by its fill and weight.
     await expect(options.first()).toHaveAttribute('data-state', 'checked');
-    await expect(options.first()).toHaveCSS('font-weight', '600');
+    await expect(options.first()).toHaveCSS(
+      'font-weight',
+      await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--fw-strong').trim()),
+    );
   });
 
   test('opens a log in a drawer that says each thing once', async ({ page }) => {
@@ -223,8 +231,10 @@ test.describe('Logs list and detail', () => {
     for (const name of [/^Fields/, 'Raw JSON', 'Context']) {
       await expect(views.getByRole('button', { name })).toBeVisible();
     }
+    // The attributes the log is told by stand at the head, and are not listed again under it.
+    await expect(drawer.locator('[data-log-detail-attribute="service"]')).toBeVisible();
     const fields = drawer.locator('[data-log-detail-field]');
-    await expect(fields).toHaveCount(10);
+    await expect(fields).toHaveCount(7);
     await expect(drawer.locator('[data-log-detail-field="message"]')).toHaveCount(0);
     await expect(drawer.locator('[data-log-detail-field="_timestamp"]')).toHaveCount(0);
 
@@ -362,8 +372,8 @@ test.describe('Log patterns beyond a page of the list', () => {
     const asked: number[] = [];
     await page.route('**/api/v1/streams**', (route) => route.fulfill({ json: [STREAM] }));
     // The list endpoint as it pages: `limit` logs from the start, then from where the cursor says.
-    await page.route('**/api/v1/web/logs', (route) => {
-      const body = route.request().postDataJSON() as { cursor?: string; limit?: number };
+    await page.route(explorerRead('web/logs'), (route) => {
+      const body = explorerReadBody<{ cursor?: string; limit?: number }>(route.request());
       const offset = body.cursor ? Number(body.cursor) : 0;
       const limit = body.limit ?? 20;
       const next = offset + limit < TOTAL ? String(offset + limit) : null;
@@ -372,9 +382,9 @@ test.describe('Log patterns beyond a page of the list', () => {
       return route.fulfill({
         json: {
           items: items.slice(offset, offset + limit),
-          next_cursor: next,
-          previous_cursor: null,
-          has_more: next !== null,
+          nextCursor: next,
+          previousCursor: null,
+          hasMore: next !== null,
         },
       });
     });

@@ -54,17 +54,17 @@ pub(super) fn normalize_page_input(mut input: StatusPageInput) -> Result<StatusP
     input.languages = normalize_languages(input.languages, &input.language)?;
 
     if !(1..=MAX_STATUS_PAGE_HISTORY_DAYS).contains(&input.history_days) {
-        return Err(Error::invalid("history_days must be between 1 and 365"));
+        return Err(Error::invalid("historyDays must be between 1 and 365"));
     }
 
     if !matches!(input.delivery_retention_days, 30 | 60 | 90 | 180 | 365) {
         return Err(Error::invalid(
-            "delivery_retention_days must be 30, 60, 90, 180, or 365",
+            "deliveryRetentionDays must be 30, 60, 90, 180, or 365",
         ));
     }
 
     if !matches!(input.private_session_days, 1 | 7 | 30) {
-        return Err(Error::invalid("private_session_days must be 1, 7, or 30"));
+        return Err(Error::invalid("privateSessionDays must be 1, 7, or 30"));
     }
 
     Ok(input)
@@ -130,7 +130,7 @@ pub(super) fn normalize_logo_url(value: Option<String>) -> Result<Option<String>
     };
 
     if value.len() > 2_048 {
-        return Err(Error::invalid("logo_url is too long"));
+        return Err(Error::invalid("logoUrl is too long"));
     }
 
     if value.starts_with('/')
@@ -141,14 +141,14 @@ pub(super) fn normalize_logo_url(value: Option<String>) -> Result<Option<String>
     }
 
     let parsed =
-        Url::parse(&value).map_err(|_| Error::invalid("logo_url must be an HTTP(S) URL"))?;
+        Url::parse(&value).map_err(|_| Error::invalid("logoUrl must be an HTTP(S) URL"))?;
 
     if !matches!(parsed.scheme(), "http" | "https")
         || !parsed.username().is_empty()
         || parsed.password().is_some()
     {
         return Err(Error::invalid(
-            "logo_url must be an HTTP(S) URL without credentials",
+            "logoUrl must be an HTTP(S) URL without credentials",
         ));
     }
 
@@ -162,7 +162,7 @@ fn normalize_brand_color(value: &str) -> Result<String> {
         || !value.starts_with('#')
         || !value[1..].bytes().all(|byte| byte.is_ascii_hexdigit())
     {
-        return Err(Error::invalid("brand_color must be a six-digit hex color"));
+        return Err(Error::invalid("brandColor must be a six-digit hex color"));
     }
 
     Ok(value)
@@ -174,7 +174,7 @@ pub(super) fn normalize_custom_domain(value: Option<String>) -> Result<Option<St
     };
 
     normalize_domain_lookup(&value).map(Some).ok_or_else(|| {
-        Error::invalid("custom_domain must be a valid hostname without scheme or path")
+        Error::invalid("customDomain must be a valid hostname without scheme or path")
     })
 }
 
@@ -237,7 +237,7 @@ pub(super) fn validate_incident_input(input: &StatusPageIncidentInput) -> Result
         .is_some_and(|minutes| !(0..=MAX_REMINDER_MINUTES).contains(&minutes))
     {
         return Err(Error::invalid(
-            "reminder_minutes must be between 0 and 10080",
+            "reminderMinutes must be between 0 and 10080",
         ));
     }
 

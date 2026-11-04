@@ -57,10 +57,10 @@ export function jobAction(state: SearchJobState): 'cancel' | 'retry' | 'download
  * still running. Null for a job that has not started.
  */
 export function jobDurationMicros(job: SearchJob, nowMicros: number): number | null {
-  if (!job.started_at_micros) return null;
-  const end = job.finished_at_micros ?? (job.state === 'running' ? nowMicros : null);
+  if (!job.startedAt) return null;
+  const end = job.finishedAt ?? (job.state === 'running' ? nowMicros : null);
   if (end === null) return null;
-  return Math.max(0, end - job.started_at_micros);
+  return Math.max(0, end - job.startedAt);
 }
 
 export function formatJobDuration(micros: number | null): string {
@@ -83,7 +83,7 @@ export function statementLine(statement: string | undefined): string {
 
 /** Who submitted the job, by the best name there is for them. */
 export function submitterName(job: SearchJob): string {
-  return job.submitted_by?.display_name.trim() || job.submitted_by?.email.trim() || job.user_id;
+  return job.submittedBy?.displayName.trim() || job.submittedBy?.email.trim() || job.userId;
 }
 
 /** The attempt a person would count: the first run is attempt 1. */
@@ -92,5 +92,5 @@ export function attemptNumber(job: SearchJob): number {
 }
 
 export function resultFileName(job: SearchJob): string {
-  return `search-job-${job.job_id.replace(/[^A-Za-z0-9_-]/g, '_')}.ndjson`;
+  return `search-job-${job.jobId.replace(/[^A-Za-z0-9_-]/g, '_')}.ndjson`;
 }

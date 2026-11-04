@@ -9,6 +9,7 @@ import type {
 import type { ActionAccess } from '@/product/actionAccess';
 import { DisabledControl } from '@/shell/DisabledControl';
 import { EmptyState } from '@/shell/EmptyState';
+import { JsonView } from '@/shell/JsonEditor';
 import { cn } from '@/shell/lib/cn';
 import {
   DropdownMenu,
@@ -70,7 +71,7 @@ export function RecordsPanel({
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
             placeholder={t('extend_tables.search_key_placeholder', {
-              key: table.key_field,
+              key: table.keyField,
             })}
             className="h-9 w-full rounded-md border border-bd-1 bg-[var(--control-surface)] pl-9 pr-3 text-sm text-tx-0 placeholder:text-tx-3 focus:outline-none focus-visible:bg-bg-3"
           />
@@ -121,7 +122,7 @@ export function RecordsPanel({
             <TableHeader>
               <TableRow className="h-10 hover:bg-transparent">
                 <TableHead className="min-w-[200px] normal-case tracking-normal">
-                  {table.key_field}
+                  {table.keyField}
                 </TableHead>
                 {fields.map((field) => (
                   <TableHead
@@ -185,7 +186,7 @@ function RecordRows({
   onToggleExpanded: () => void;
 }) {
   const { t } = useTranslation('functions');
-  const values = valueAsObject(row.value_json);
+  const values = valueAsObject(row.valueJson);
   return (
     <>
       <TableRow className="h-12">
@@ -199,7 +200,7 @@ function RecordRows({
               disabled={editAccess.disabled}
               aria-disabled={editAccess.disabled || undefined}
               onClick={() => editAccess.allowed && onEdit(row)}
-              className="max-w-[260px] truncate rounded px-1 py-0.5 font-mono text-xs font-strong text-indigo-soft enabled:hover:underline focus-visible:bg-indigo-dim focus-visible:text-indigo disabled:cursor-not-allowed disabled:text-tx-3"
+              className="max-w-[260px] truncate rounded px-1 py-0.5 font-mono text-xs font-strong text-indigo-soft enabled:hover:underline focus-visible:bg-indigo-dim focus-visible:text-indigo disabled:cursor-not-allowed disabled:text-[var(--tx-disabled)]"
             >
               {row.key}
             </button>
@@ -210,7 +211,7 @@ function RecordRows({
             <span
               className={cn(
                 'block max-w-[240px] truncate text-xs text-tx-1',
-                field.field_type === 'object' && 'font-mono',
+                field.fieldType === 'object' && 'font-mono',
               )}
               title={displayValue(values[field.name])}
             >
@@ -219,7 +220,7 @@ function RecordRows({
           </TableCell>
         ))}
         <TableCell className="whitespace-nowrap text-xs text-tx-2">
-          {formatRelativeMicros(row.updated_at_micros, language)}
+          {formatRelativeMicros(row.updatedAt, language)}
         </TableCell>
         <TableCell className="text-right">
           <DropdownMenu>
@@ -264,9 +265,7 @@ function RecordRows({
       {expanded && (
         <TableRow className="hover:bg-transparent">
           <TableCell colSpan={fields.length + 3} className="bg-bg-2 p-4">
-            <pre className="max-h-72 overflow-auto whitespace-pre-wrap border-l-2 border-bd-1 bg-bg-0 p-4 font-mono text-xs leading-relaxed text-tx-1">
-              {JSON.stringify(row.value_json, null, 2)}
-            </pre>
+            <JsonView value={row.valueJson} ariaLabel={row.key} maxHeight={288} />
           </TableCell>
         </TableRow>
       )}

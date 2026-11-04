@@ -10,8 +10,8 @@ import {
 describe('Mole Agent profile tool selection', () => {
   it('excludes tools that are not exposed to Mole Agent', () => {
     const tools = [
-      { name: 'query_logs', available_to_agent: true },
-      { name: 'execute_agent_approval', available_to_agent: false },
+      { name: 'query_logs', availableToAgent: true },
+      { name: 'execute_agent_approval', availableToAgent: false },
     ];
 
     expect(toolsAvailableToAgentProfiles(tools)).toEqual([tools[0]]);
@@ -22,18 +22,18 @@ describe('Mole Agent profile tool selection', () => {
       id: 'profile-1',
       name: 'Legacy profile',
       description: '',
-      allowed_tools: ['query_logs', 'execute_agent_approval'],
-      data_scope: {},
-      risk_policy: {},
-      network_access: 'blocked' as const,
-      max_context_tokens: 32000,
-      max_investigation_secs: 1800,
-      max_tool_calls: 32,
-      is_default: true,
+      allowedTools: ['query_logs', 'execute_agent_approval'],
+      dataScope: {},
+      riskPolicy: {},
+      networkAccess: 'blocked' as const,
+      maxContextTokens: 32000,
+      maxInvestigationSecs: 1800,
+      maxToolCalls: 32,
+      isDefault: true,
       enabled: true,
-      created_by: 'user-1',
-      created_at: 1,
-      updated_at: 1,
+      createdBy: 'user-1',
+      createdAt: 1,
+      updatedAt: 1,
     };
 
     expect(createProfileDraft(profile, 1, ['query_logs']).allowedTools).toEqual([
@@ -70,18 +70,18 @@ describe('Mole Agent profile tool selection', () => {
 
     expect(profileInputFromDraft(draft, 'Fallback')).toMatchObject({
       name: 'Production read-only',
-      model_provider_id: 'provider-1',
+      modelProviderId: 'provider-1',
       model: 'gpt-5',
-      allowed_tools: ['query_logs'],
-      data_scope: {
+      allowedTools: ['query_logs'],
+      dataScope: {
         environments: ['production'],
         services: ['checkout', 'payments'],
         streams: ['application-logs'],
       },
-      network_access: 'allowed',
-      risk_policy: { l2: 'two_person_approval' },
-      max_investigation_secs: 720,
-      max_tool_calls: 7,
+      networkAccess: 'allowed',
+      riskPolicy: { l2: 'two_person_approval' },
+      maxInvestigationSecs: 720,
+      maxToolCalls: 7,
     });
   });
 

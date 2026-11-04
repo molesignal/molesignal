@@ -50,7 +50,7 @@ export function PrivateAccessSettings() {
   });
 
   return (
-    <SettingsCard title={t('settings.private_access.title')} description={t('settings.private_access.description', { count: snapshot.page.private_session_days })}>
+    <SettingsCard title={t('settings.private_access.title')} description={t('settings.private_access.description', { count: snapshot.page.privateSessionDays })}>
       <div className="grid items-end gap-2 sm:grid-cols-[150px_minmax(0,1fr)_auto]">
         <FormField label={t('fields.rule_type')}>
           <FormSelect
@@ -86,7 +86,7 @@ export function PrivateAccessSettings() {
         {(rules.data ?? []).map((rule) => (
           <div key={rule.id} className="flex min-h-11 items-center gap-3 px-3">
             <Pill tone="neutral">{t(`access_rule.${rule.kind}`)}</Pill>
-            <span className="min-w-0 flex-1 truncate font-mono text-xs text-tx-1">{rule.masked_value}</span>
+            <span className="min-w-0 flex-1 truncate font-mono text-xs text-tx-1">{rule.maskedValue}</span>
             <IconButton
               aria-label={t('actions.delete')}
               title={t('actions.delete')}
@@ -120,9 +120,9 @@ export function PrivateAccessSettings() {
         {(sessions.data ?? []).map((session) => (
           <div key={session.id} className="flex min-h-14 items-center gap-3 px-3">
             <div className="min-w-0 flex-1">
-              <div className="truncate font-mono text-xs text-tx-1">{session.masked_email}</div>
+              <div className="truncate font-mono text-xs text-tx-1">{session.maskedEmail}</div>
               <div className="mt-1 truncate text-xs text-tx-3">
-                {session.origin_host} · {t('settings.private_access.expires', { date: formatMicrosActive(session.expires_at) })}
+                {session.originHost} · {t('settings.private_access.expires', { date: formatMicrosActive(session.expiresAt) })}
               </div>
             </div>
             <IconButton

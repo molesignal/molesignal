@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Clock3, UsersRound } from 'lucide-react';
+import { Clock3 } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -8,13 +8,14 @@ import * as schedulesApi from '@/api/schedules';
 import type { Team } from '@/api/teams';
 import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
-import { ChromeButton, Pill } from '@/shell/chrome';
+import { ChromeButton } from '@/shell/chrome';
 import { DateTimePicker } from '@/shell/DateTimePicker';
 import {
   FieldArray,
   FormChecklist,
   FormDrawer,
   FormField,
+  FormGroup,
   FormInput,
   FormRow,
   FormSection,
@@ -24,34 +25,27 @@ import {
 import { TimezoneField } from '@/shell/TimezoneField';
 import { Checkbox } from '@/shell/ui/checkbox';
 import { toast } from '@/shell/ui/sonner';
+import { Switch } from '@/shell/ui/switch';
 import type { UserLite } from '@/shell/useUsers';
+import { HolidayField } from '@/shell/weekly-ranges/HolidayField';
+import { newRange } from '@/shell/weekly-ranges/model';
+import { WeeklyRangesEditor } from '@/shell/weekly-ranges/WeeklyRangesEditor';
 import type {
-  ActiveWindow,
   Rotation,
   Schedule,
+  WeeklyRange,
 } from '@/types/alerting';
 
-import {
-  buildScheduleTimeline,
-  rotationKindKey,
-} from './model';
-import {
-  UserAvatar,
-  formatScheduleDay,
-  formatScheduleTime,
-} from './Ui';
+import { DEFAULT_TZ, ScheduleDraftPreview } from './DraftPreview';
+import { rotationKindKey } from './model';
 
-const DEFAULT_TZ = 'UTC';
-const WORKDAY_WINDOW: ActiveWindow = {
-  weekday_mask: 62,
-  hour_start: 0,
-  hour_end: 24,
+const WORKDAY_RANGE: WeeklyRange = {
+  weekdayMask: 62,
+  start: '00:00',
+  end: '24:00',
 };
-const DEFAULT_WINDOW: ActiveWindow = {
-  weekday_mask: 62,
-  hour_start: 9,
-  hour_end: 18,
-};
+
+const WEEK_MICROS = 7 * 24 * 3_600_000_000;
 
 export function microsToLocalInput(micros: number): string {
   const date = new Date(micros / 1000);
@@ -73,8 +67,8 @@ function newRotation(): Rotation {
     name: 'primary',
     members: [],
     kind: 'daily',
-    active_window: null,
-    start_at: now.getTime() * 1000,
+    activeWindows: [],
+    startAt: now.getTime() * 1000,
   };
 }
 
@@ -95,11 +89,12 @@ export function ScheduleEditorDrawer({
   const { t: tc } = useTranslation('common');
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const manageAccess = useActionAccess({ permission: 'schedules.manage' });
+  const manageAccess = useActionAccess({ permission: 'schedules.update' });
   const [name, setName] = React.useState('');
   const [description, setDescription] = React.useState('');
   const [teamId, setTeamId] = React.useState('');
   const [timezone, setTimezone] = React.useState(DEFAULT_TZ);
+  const [swapNeedsApproval, setSwapNeedsApproval] = React.useState(false);
   const [rotations, setRotations] = React.useState<Rotation[]>([
     newRotation(),
   ]);
@@ -108,16 +103,17 @@ export function ScheduleEditorDrawer({
     if (!open) return;
     setName(editing?.name ?? '');
     setDescription(editing?.description ?? '');
-    setTeamId(editing?.team_id ?? '');
+    setTeamId(editing?.teamId ?? '');
     setTimezone(editing?.timezone ?? DEFAULT_TZ);
+    setSwapNeedsApproval(editing?.swapNeedsApproval ?? false);
     setRotations(
       editing?.rotations?.length
         ? editing.rotations.map((rotation) => ({
             ...rotation,
             members: [...rotation.members],
-            active_window: rotation.active_window
-              ? { ...rotation.active_window }
-              : null,
+            active_windows: (rotation.activeWindows ?? []).map(
+              (range) => ({ ...range }),
+            ),
           }))
         : [newRotation()],
     );
@@ -128,7 +124,7 @@ export function ScheduleEditorDrawer({
       const payload: schedulesApi.ScheduleInput = {
         name: name.trim(),
         description: description.trim(),
-        team_id: teamId || null,
+        teamId: teamId || null,
         timezone: timezone.trim() || DEFAULT_TZ,
         enabled,
         rotations: rotations
@@ -138,6 +134,7 @@ export function ScheduleEditorDrawer({
             name: rotation.name.trim(),
           })),
         overrides: editing?.overrides ?? [],
+        swapNeedsApproval: swapNeedsApproval,
       };
       return editing
         ? schedulesApi.update(editing.id, payload)
@@ -188,18 +185,18 @@ export function ScheduleEditorDrawer({
 
   const previewSchedule: Schedule = {
     id: editing?.id ?? 'preview',
-    org_id: editing?.org_id ?? 'preview',
+    orgId: editing?.orgId ?? 'preview',
     name,
     description,
-    team_id: teamId || null,
+    teamId: teamId || null,
     timezone,
     enabled: true,
     rotations,
     overrides: editing?.overrides ?? [],
-    created_by: editing?.created_by ?? null,
-    updated_by: editing?.updated_by ?? null,
-    created_at: editing?.created_at ?? Date.now() * 1000,
-    updated_at: Date.now() * 1000,
+    createdBy: editing?.createdBy ?? null,
+    updatedBy: editing?.updatedBy ?? null,
+    createdAt: editing?.createdAt ?? Date.now() * 1000,
+    updatedAt: Date.now() * 1000,
   };
 
   return (
@@ -298,6 +295,24 @@ export function ScheduleEditorDrawer({
                 />
               </FormField>
             </FormRow>
+            <label
+              data-swap-approval
+              className="flex items-start justify-between gap-4 bg-bg-2 px-3 py-2.5"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm text-tx-0">
+                  {t('schedules.fields.swap_needs_approval')}
+                </span>
+                <span className="mt-0.5 block text-xs text-tx-2">
+                  {t('schedules.hints.swap_needs_approval')}
+                </span>
+              </span>
+              <Switch
+                checked={swapNeedsApproval}
+                onCheckedChange={setSwapNeedsApproval}
+                aria-label={t('schedules.fields.swap_needs_approval')}
+              />
+            </label>
           </FormSection>
 
           <FormSection
@@ -352,9 +367,9 @@ function RotationEditor({
   const cadence = rotationKindKey(rotation);
   const customHours =
     typeof rotation.kind === 'object'
-      ? Math.max(1, rotation.kind.custom.period_secs / 3600)
+      ? Math.max(1, rotation.kind.custom.periodSecs / 3600)
       : 24;
-  const activeWindow = rotation.active_window ?? null;
+  const activeWindows = rotation.activeWindows ?? [];
   const cadenceOptions = [
     'daily',
     'weekly',
@@ -367,7 +382,7 @@ function RotationEditor({
       onChange({
         ...rotation,
         kind: 'daily',
-        active_window: WORKDAY_WINDOW,
+        activeWindows: [WORKDAY_RANGE],
       });
       return;
     }
@@ -376,23 +391,20 @@ function RotationEditor({
         ...rotation,
         kind: {
           custom: {
-            period_secs:
+            periodSecs:
               typeof rotation.kind === 'object'
-                ? rotation.kind.custom.period_secs
+                ? rotation.kind.custom.periodSecs
                 : 86_400,
           },
         },
-        active_window: null,
+        activeWindows: [],
       });
       return;
     }
     onChange({
       ...rotation,
       kind: value,
-      active_window:
-        cadence === 'workdays'
-          ? null
-          : rotation.active_window ?? null,
+      activeWindows: cadence === 'workdays' ? [] : activeWindows,
     });
   };
 
@@ -436,11 +448,11 @@ function RotationEditor({
         <FormRow>
           <FormField label={t('schedules.fields.start_at')}>
             <DateTimePicker
-              value={microsToLocalInput(rotation.start_at)}
+              value={microsToLocalInput(rotation.startAt)}
               onChange={(value) =>
                 onChange({
                   ...rotation,
-                  start_at: localInputToMicros(value),
+                  startAt: localInputToMicros(value),
                 })
               }
             />
@@ -456,7 +468,7 @@ function RotationEditor({
                     ...rotation,
                     kind: {
                       custom: {
-                        period_secs:
+                        periodSecs:
                           Math.max(
                             1,
                             Math.floor(Number(event.target.value)) || 1,
@@ -471,7 +483,7 @@ function RotationEditor({
             <FormField label={t('schedules.fields.handoff_time')}>
               <div className="flex h-9 items-center gap-2 rounded-md bg-[var(--control-surface)] px-3 text-sm text-tx-1">
                 <Clock3 className="h-3.5 w-3.5 text-tx-3" />
-                {new Date(rotation.start_at / 1000).toLocaleTimeString(
+                {new Date(rotation.startAt / 1000).toLocaleTimeString(
                   undefined,
                   { hour: '2-digit', minute: '2-digit' },
                 )}
@@ -482,7 +494,7 @@ function RotationEditor({
       </div>
 
       <div className="mt-4">
-        <FormField label={t('schedules.fields.members')} required>
+        <FormGroup label={t('schedules.fields.members')} required>
           {users.length > 0 ? (
             <FormChecklist
               options={users.map((user) => ({
@@ -497,226 +509,72 @@ function RotationEditor({
               {t('schedules.no_users')}
             </div>
           )}
-        </FormField>
+        </FormGroup>
+      </div>
+
+      <div className="mt-4 border-t border-bd-0 pt-3" data-rotation-end>
+        <label className="flex min-h-9 items-center gap-2 text-xs font-strong text-tx-1">
+          <Checkbox
+            checked={rotation.endAt != null}
+            onCheckedChange={(checked) =>
+              onChange({
+                ...rotation,
+                endAt: checked === true ? rotation.startAt + WEEK_MICROS : null,
+              })
+            }
+          />
+          {t('schedules.fields.ends')}
+        </label>
+        {rotation.endAt != null && (
+          <div className="mt-2">
+            <FormField label={t('schedules.fields.end_at')}>
+              <DateTimePicker
+                value={microsToLocalInput(rotation.endAt)}
+                onChange={(value) =>
+                  onChange({
+                    ...rotation,
+                    endAt: localInputToMicros(value),
+                  })
+                }
+              />
+            </FormField>
+          </div>
+        )}
       </div>
 
       {cadence !== 'workdays' && (
         <div className="mt-4 border-t border-bd-0 pt-3">
           <label className="flex min-h-9 items-center gap-2 text-xs font-strong text-tx-1">
             <Checkbox
-              checked={activeWindow !== null}
+              checked={activeWindows.length > 0}
               onCheckedChange={(checked) =>
                 onChange({
                   ...rotation,
-                  active_window:
-                    checked === true ? DEFAULT_WINDOW : null,
+                  activeWindows: checked === true ? [newRange()] : [],
                 })
               }
             />
             {t('schedules.fields.restrict_window')}
           </label>
-          {activeWindow && (
-            <ActiveWindowEditor
-              window={activeWindow}
-              onChange={(window) =>
-                onChange({ ...rotation, active_window: window })
-              }
-            />
+          {activeWindows.length > 0 && (
+            <div className="mt-2">
+              <WeeklyRangesEditor
+                ranges={activeWindows}
+                onChange={(ranges) =>
+                  onChange({ ...rotation, activeWindows: ranges })
+                }
+              />
+            </div>
           )}
         </div>
       )}
+
+      <div className="mt-4 border-t border-bd-0 pt-3" data-rotation-holidays>
+        <HolidayField
+          value={rotation.calendar}
+          onChange={(calendar) => onChange({ ...rotation, calendar })}
+        />
+      </div>
     </div>
   );
-}
-
-function ActiveWindowEditor({
-  window,
-  onChange,
-}: {
-  window: ActiveWindow;
-  onChange: (window: ActiveWindow) => void;
-}) {
-  const { t } = useTranslation('alerts');
-  return (
-    <div className="mt-2 bg-bg-2 p-3">
-      <div className="flex flex-wrap gap-1">
-        {Array.from({ length: 7 }, (_, day) => {
-          const enabled = (window.weekday_mask & (1 << day)) !== 0;
-          return (
-            <button
-              key={day}
-              type="button"
-              onClick={() =>
-                onChange({
-                  ...window,
-                  weekday_mask: window.weekday_mask ^ (1 << day),
-                })
-              }
-              className={
-                enabled
-                  ? 'h-7 rounded border border-indigo/40 bg-indigo-dim px-2 text-xs font-strong text-indigo-soft'
-                  : 'h-7 rounded border border-bd-0 bg-bg-1 px-2 text-xs text-tx-3'
-              }
-            >
-              {new Intl.DateTimeFormat(undefined, {
-                weekday: 'short',
-              }).format(new Date(Date.UTC(2023, 0, 1 + day)))}
-            </button>
-          );
-        })}
-      </div>
-      <FormRow className="mt-3">
-        <FormField label={t('schedules.fields.hour_start')}>
-          <FormInput
-            type="number"
-            min={0}
-            max={24}
-            value={String(window.hour_start)}
-            onChange={(event) =>
-              onChange({
-                ...window,
-                hour_start: clampHour(event.target.value),
-              })
-            }
-          />
-        </FormField>
-        <FormField label={t('schedules.fields.hour_end')}>
-          <FormInput
-            type="number"
-            min={0}
-            max={24}
-            value={String(window.hour_end)}
-            onChange={(event) =>
-              onChange({
-                ...window,
-                hour_end: clampHour(event.target.value),
-              })
-            }
-          />
-        </FormField>
-      </FormRow>
-    </div>
-  );
-}
-
-function ScheduleDraftPreview({
-  schedule,
-  users,
-  locale,
-}: {
-  schedule: Schedule;
-  users: UserLite[];
-  locale: string;
-}) {
-  const { t } = useTranslation('alerts');
-  const byId = React.useMemo(
-    () => new Map(users.map((user) => [user.id, user])),
-    [users],
-  );
-  const [now] = React.useState(() => Date.now() * 1000);
-  const segments = React.useMemo(
-    () => buildScheduleTimeline(schedule, now, 7).slice(0, 7),
-    [now, schedule],
-  );
-
-  return (
-    <aside className="border-t border-bd-0 bg-bg-2 px-5 py-5 xl:overflow-auto xl:border-l xl:border-t-0">
-      <div className="flex items-center gap-2">
-        <CalendarDays className="h-4 w-4 text-indigo-soft" />
-        <h3 className="type-section-title font-sans font-display text-tx-0">
-          {t('schedules.preview.title')}
-        </h3>
-      </div>
-      <p className="mt-1 text-xs leading-relaxed text-tx-3">
-        {t('schedules.preview.description')}
-      </p>
-
-      <div className="mt-4 flex flex-col gap-2">
-        {segments.length === 0 ? (
-          <div className="bg-bg-1 px-4 py-8 text-center text-xs text-tx-3">
-            {t('schedules.preview.empty')}
-          </div>
-        ) : (
-          segments.map((segment, index) => {
-            const user = segment.userId
-              ? byId.get(segment.userId)
-              : undefined;
-            return (
-              <div
-                key={segment.id}
-                className="flex items-center gap-3 border-b border-bd-0 bg-transparent px-1 py-2.5 last:border-b-0"
-              >
-                <span className="w-20 shrink-0">
-                  <span className="block text-xs font-strong text-tx-1">
-                    {formatScheduleDay(
-                      segment.startAt,
-                      locale,
-                      schedule.timezone,
-                    )}
-                  </span>
-                  <span className="mt-0.5 block font-mono text-type-micro text-tx-3">
-                    {formatScheduleTime(
-                      segment.startAt,
-                      locale,
-                      schedule.timezone,
-                    )}
-                  </span>
-                </span>
-                <UserAvatar user={user} size="sm" />
-                <span className="min-w-0 flex-1 truncate text-xs font-strong text-tx-0">
-                  {user?.name ?? t('schedules.nobody_on_call')}
-                </span>
-                {segment.source === 'override' && (
-                  <Pill tone="orange">
-                    {t('schedules.override_badge')}
-                  </Pill>
-                )}
-                {segment.source === 'gap' && (
-                  <Pill tone="red">{t('schedules.status.gap')}</Pill>
-                )}
-                {index < segments.length - 1 && (
-                  <span className="sr-only">
-                    {t('schedules.preview.then')}
-                  </span>
-                )}
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <div className="bg-bg-1 p-3">
-          <UsersRound className="h-4 w-4 text-[var(--blue-ink)]" />
-          <div className="mt-2 text-xs text-tx-3">
-            {t('schedules.preview.member_count')}
-          </div>
-          <div className="mt-0.5 font-sans text-lg font-display text-tx-0">
-            {
-              new Set(
-                schedule.rotations.flatMap(
-                  (rotation) => rotation.members,
-                ),
-              ).size
-            }
-          </div>
-        </div>
-        <div className="bg-bg-1 p-3">
-          <Clock3 className="h-4 w-4 text-[var(--green-ink)]" />
-          <div className="mt-2 text-xs text-tx-3">
-            {t('schedules.preview.timezone')}
-          </div>
-          <div className="mt-0.5 truncate font-mono text-sm font-strong text-tx-0">
-            {schedule.timezone || DEFAULT_TZ}
-          </div>
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-function clampHour(value: string): number {
-  const number = Math.floor(Number(value));
-  if (!Number.isFinite(number)) return 0;
-  return Math.min(24, Math.max(0, number));
 }

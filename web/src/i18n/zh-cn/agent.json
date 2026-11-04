@@ -62,6 +62,7 @@
     "chat": "对话",
     "investigations": "调查",
     "automations": "自动化",
+    "quality": "质量",
     "approvals": "审批",
     "executions": "执行记录",
     "settings": "设置",
@@ -227,47 +228,440 @@
   },
   "automations": {
     "title": "自动化",
-    "description": "保存可复用的 Mole Agent 调查工作流；试运行不会产生真实写操作。",
-    "create": "创建自动化",
-    "created": "自动化已创建",
-    "edit": "编辑自动化",
-    "updated": "自动化已更新",
-    "create_description": "先创建一个只读、手动触发的调查模板，之后可继续配置事件触发。",
-    "editor_description": "配置触发条件、工作流、可用工具、审批与失败策略。",
-    "name_placeholder": "例如：生产环境严重告警调查",
+    "description": "不用人在对话里，让 Mole Agent 做一件事：定时、有新事件时、CI/CD 调用时，或手动运行。每次运行都留成一个对话，可以打开看。",
+    "create": "新建自动化",
     "empty_title": "还没有自动化",
-    "empty_description": "将常见调查步骤保存为可复用工作流。",
-    "default_description": "只读可观测性调查工作流",
-    "manual": "手动运行",
-    "dry_run": "试运行",
-    "dry_run_success": "试运行完成，未产生真实写操作",
-    "json_hint": "高级工作流字段使用 JSON；保存前会进行格式与对象类型校验。",
-    "tools_fallback_hint": "工具注册表不可用时，可用逗号或换行分隔工具名称。",
-    "sections": {
-      "basic": "基本信息",
-      "tools": "可用工具",
-      "tools_description": "自动化只能调用此白名单中的已注册工具。",
-      "workflow": "触发与工作流",
-      "governance": "审批、输出与失败处理"
-    },
-    "fields": {
+    "empty_hint": "可以从模板开始，例如事件自动分析或每日健康巡检。",
+    "denied": "只有管理这个范围内自动化的人能这样做",
+    "list_separator": "、",
+    "clone_name": "{{name}}（副本）",
+    "columns": {
       "name": "名称",
-      "description": "说明",
-      "enabled": "启用自动化",
-      "trigger": "触发条件",
-      "input_context": "输入上下文",
-      "steps": "工作流步骤",
-      "allowed_tools": "允许的工具",
-      "approval_policy": "审批策略",
-      "output_actions": "输出动作",
-      "failure_policy": "失败策略",
-      "notification": "通知配置"
+      "trigger": "触发",
+      "last_run": "最近一次",
+      "enabled": "启用",
+      "actions": "操作"
     },
-    "default_steps": {
-      "metrics": "查询关键指标",
-      "logs": "查询异常日志",
-      "traces": "关联异常链路",
-      "hypothesis": "输出根因假设"
+    "cells": {
+      "next": "下次 {{when}}",
+      "paused": "已暂停",
+      "token": "令牌 {{prefix}}…",
+      "no_token": "还没有令牌",
+      "never": "还没运行过",
+      "writes_rca": "结论写回事件 RCA",
+      "channels_one": "通知 {{count}} 个渠道",
+      "channels_other": "通知 {{count}} 个渠道",
+      "no_output": "只留运行记录"
+    },
+    "actions": {
+      "run": "立即运行",
+      "run_named": "立即运行「{{name}}」",
+      "runs": "运行记录",
+      "runs_named": "「{{name}}」的运行记录",
+      "edit": "编辑",
+      "edit_named": "编辑「{{name}}」",
+      "more_named": "「{{name}}」的更多操作",
+      "clone": "克隆",
+      "token": "API 令牌",
+      "delete": "删除",
+      "toggle_named": "启用或停用「{{name}}」"
+    },
+    "trigger_kind": {
+      "schedule": "定时",
+      "incident": "新事件",
+      "api": "API 调用",
+      "manual": "手动",
+      "finding": "新的自动发现"
+    },
+    "trigger_hint": {
+      "schedule": "按 Cron 表达式的时间运行，最短 15 分钟一次。",
+      "incident": "每个符合条件的新事件运行一次。同一事件，或 30 分钟内同一组的事件，只分析一次。",
+      "api": "外部系统带着令牌调用时运行，它发来的文字作为这次运行的上下文。保存后在列表的这一行生成令牌。",
+      "manual": "只在有人手动运行时运行。",
+      "finding": "每有一条满足条件的新自动发现就运行一次；同一条发现只调查一次。"
+    },
+    "trigger_summary": {
+      "incident": "所有新事件",
+      "incident_severities": "新的{{severities}}事件",
+      "api": "API 调用",
+      "manual": "手动",
+      "finding": "每条新的自动发现",
+      "finding_severity": "{{severity}}及以上的新发现"
+    },
+    "cron": {
+      "weekdays_morning": "工作日 09:00",
+      "daily_morning": "每天 09:00",
+      "monday_morning": "每周一 10:00",
+      "hourly": "每小时"
+    },
+    "severity": {
+      "critical": "严重",
+      "error": "错误",
+      "warning": "警告",
+      "info": "信息"
+    },
+    "run_status": {
+      "running": "运行中",
+      "succeeded": "成功",
+      "partial": "部分完成",
+      "failed": "失败",
+      "skipped": "已跳过",
+      "blocked": "需要有人处理",
+      "abandoned": "已停止"
+    },
+    "reasons": {
+      "budget_exhausted": "组织今天的 Mole Agent token 预算已用完。",
+      "still_running": "上一次运行还没有结束。",
+      "already_analyzed": "这个事件，或同一组的事件，刚刚分析过。",
+      "run_as_unavailable": "执行身份已不能在这里使用 Mole Agent。重新保存，就改为以你的身份运行。",
+      "no_model": "这个组织没有启用的 AI 模型。",
+      "timeout": "运行超过了时间上限。",
+      "error": "模型或工具出错了。",
+      "question": "Mole Agent 有一个问题没人能回答，按自己的判断继续了。",
+      "confirmation": "有一个工具要人确认才能执行，所以没有执行。",
+      "credential": "一台 MCP 服务器要用执行身份自己的凭据，但还没有保存。",
+      "delivery": "有通知没有发出去。",
+      "rca": "事件的 RCA 没写成。",
+      "stopped": "被人停下了。",
+      "interrupted": "执行它的服务器停了。"
+    },
+    "editor": {
+      "new_title": "新建自动化",
+      "edit_title": "编辑自动化",
+      "subtitle": "让 Mole Agent 做什么、什么时候做、结果发到哪里。",
+      "what": "任务",
+      "name": "名称",
+      "name_placeholder": "每日健康巡检",
+      "prompt": "要做什么",
+      "prompt_hint": "每次运行时交给 Mole Agent，就像在一个新对话里提问。它能用这个范围里的工具、技能和知识。",
+      "prompt_placeholder": "检查结算相关服务最近 24 小时的错误率和延迟，说明哪些需要关注。",
+      "description": "说明",
+      "description_placeholder": "一句话说明它的用途",
+      "scope": "归属",
+      "scope_hint": "运行时加载这个范围的知识、技能和 MCP 服务器，谁能看到它也由范围决定。范围创建后不能改，换范围请克隆。",
+      "when": "触发",
+      "trigger": "触发方式",
+      "presets": "常用时间",
+      "cron": "Cron",
+      "cron_hint": "分、时、日、月、星期",
+      "cron_invalid": "需要五段：分、时、日、月、星期",
+      "timezone": "时区",
+      "severities": "严重级别",
+      "severities_hint": "都不选表示不限级别。",
+      "rules": "告警规则",
+      "rules_hint": "都不选表示不限规则。",
+      "services": "服务",
+      "services_hint": "用逗号分隔，事件影响其中任何一个就算。留空表示不限。",
+      "labels": "标签",
+      "labels_hint": "每行一个 key=value，事件要全部符合。",
+      "timeout": "时间上限",
+      "timeout_hint": "超过上限的运行会被停下，记为失败。",
+      "minutes_one": "{{count}} 分钟",
+      "minutes_other": "{{count}} 分钟",
+      "enabled": "启用",
+      "outputs": "结果",
+      "channels": "通知渠道",
+      "channels_hint": "运行完成、需要有人处理或失败时，发送结论和运行链接。",
+      "channels_none": "还没有配置通知连接器。",
+      "channels_unavailable": "这里列不出通知连接器：选择渠道需要 notify.connectors.read 权限。",
+      "write_rca": "把结论写成事件的 RCA",
+      "run_as": "保存后，它以你的身份运行：用你的权限，以及你在 MCP 服务器上的凭据。",
+      "save": "保存",
+      "create": "创建",
+      "finding_kinds": "种类",
+      "finding_kinds_hint": "都不勾就是全部种类。",
+      "min_severity": "至少",
+      "any_severity": "不限严重度",
+      "finding_subjects": "服务、主机或容器",
+      "finding_subjects_hint": "用逗号分开；空着就是全部。"
+    },
+    "runs": {
+      "subtitle": "新的在前，每次运行都留成一个对话。",
+      "none": "还没有运行过。",
+      "input": "触发时带的内容：{{text}}",
+      "undelivered": "没有送达：{{targets}}",
+      "open_chat": "查看运行过程",
+      "rca": "已写成事件的 RCA"
+    },
+    "templates": {
+      "title": "新建自动化",
+      "subtitle": "从空白开始，或从模板开始：模板会填好任务和触发方式。",
+      "blank": "空白自动化",
+      "blank_description": "自己写任务，选择什么时候运行。"
+    },
+    "token": {
+      "title": "「{{name}}」的 API 令牌",
+      "description": "外部系统（例如 CI/CD 任务）带着这个令牌调用，就会启动这条自动化。",
+      "shown_once": "现在复制令牌：它不会再显示。生成新令牌会替换它。",
+      "copy": "复制令牌",
+      "example": "这样调用：",
+      "current": "已设置令牌（{{prefix}}…），生成新令牌会立即替换它。",
+      "none": "还没有令牌。",
+      "create": "生成令牌",
+      "rotate": "生成新令牌",
+      "revoke": "收回令牌",
+      "revoked": "令牌已收回"
+    },
+    "toast": {
+      "created": "自动化已创建",
+      "saved": "自动化已保存",
+      "deleted": "自动化已删除",
+      "started": "「{{name}}」正在运行",
+      "not_started": "「{{name}}」没有开始：{{reason}}"
+    },
+    "delete_confirm": {
+      "title": "删除自动化「{{name}}」？",
+      "description": "它的运行记录会一起删除，运行留下的对话会保留。",
+      "confirm": "删除",
+      "busy": "正在删除…"
+    }
+  },
+  "automation_run": {
+    "notice": "这是自动化「{{name}}」的一次运行，只能查看。想再来一次，就再运行这条自动化。",
+    "open": "查看自动化"
+  },
+  "quality": {
+    "title": "质量",
+    "description": "Mole Agent 回答得怎么样：每个回答都按规则打分，评审用模型抽样打分，分数低的与被评为没帮助的进入待审。",
+    "views": {
+      "overview": "概览",
+      "answers": "回答",
+      "reviews": "待审",
+      "evaluators": "评审"
+    },
+    "empty_title": "还没有打过分的回答",
+    "empty_hint": "回答写完就会打分。在「评审」里添加评审，可以再用模型抽样打分。",
+    "no_score": "—",
+    "rules": "规则",
+    "evaluator_deleted": "已删除的评审",
+    "list_separator": "、",
+    "filters": {
+      "days": "时间段",
+      "last_days_one": "最近 {{count}} 天",
+      "last_days_other": "最近 {{count}} 天",
+      "source": "来源"
+    },
+    "sources": {
+      "all": "全部来源",
+      "personal_chat": "个人对话",
+      "team_chat": "团队对话",
+      "automation": "自动化",
+      "incident_rca": "事件 RCA"
+    },
+    "totals": {
+      "label": "合计",
+      "answers": "打过分的回答",
+      "rules_mean": "规则",
+      "rules_hint": "规则打分的平均，0 到 100",
+      "evaluated": "评审评过",
+      "evaluator_mean": "评审",
+      "evaluator_hint": "评审打分的平均，0 到 100",
+      "thumbs_up": "有帮助",
+      "thumbs_down": "没帮助",
+      "pending_reviews": "待审"
+    },
+    "trend": {
+      "title": "每天的分数",
+      "rules": "规则",
+      "evaluators": "评审"
+    },
+    "dimensions": {
+      "title": "规则",
+      "column": "规则项",
+      "tool_success": {
+        "title": "工具调用",
+        "hint": "没有出错的调用"
+      },
+      "evidence": {
+        "title": "证据",
+        "hint": "引用的、有工具结果撑着的证据"
+      },
+      "query_validity": {
+        "title": "查询",
+        "hint": "能解析的 SQL 与 PromQL"
+      },
+      "answer_format": {
+        "title": "格式",
+        "hint": "是要求的回答形状"
+      },
+      "completion": {
+        "title": "完成",
+        "hint": "这一轮做完了"
+      },
+      "feedback": {
+        "title": "评价",
+        "hint": "提问人评的有没有帮助"
+      }
+    },
+    "groups": {
+      "sources": "按来源",
+      "prompts": "按 Prompt 版本",
+      "skills": "按 Skill",
+      "models": "按模型",
+      "prompt_version": "{{name}} v{{version}}",
+      "none": "这段时间没有"
+    },
+    "columns": {
+      "answer": "回答",
+      "source": "来源",
+      "score": "分数",
+      "scored_by": "打分",
+      "when": "回答时间",
+      "name": "名称",
+      "answers": "回答数",
+      "rules": "规则",
+      "evaluated": "评审评过",
+      "evaluators": "评审",
+      "cause": "原因",
+      "status": "状态",
+      "actions": "操作"
+    },
+    "notes": {
+      "tools_ok_one": "工具调用成功了",
+      "tools_ok_other": "{{count}} 次工具调用都成功了",
+      "tools_failed": "{{total}} 次工具调用里 {{failed}} 次失败",
+      "evidence_none": "没有引用证据",
+      "evidence_one": "引用了 {{count}} 条证据",
+      "evidence_other": "引用了 {{count}} 条证据",
+      "evidence_unbacked_one": "引用了 {{count}} 条证据，但没有成功的工具调用",
+      "evidence_unbacked_other": "引用了 {{count}} 条证据，但没有成功的工具调用",
+      "queries_ok_one": "查询能解析",
+      "queries_ok_other": "{{count}} 条查询都能解析",
+      "queries_invalid": "{{total}} 条查询里 {{invalid}} 条解析不了",
+      "format_ok": "是要求的形状",
+      "format_plain": "不是要求的形状",
+      "completion": {
+        "succeeded": "做完了",
+        "blocked": "做完了，但途中要人处理，没有人可问",
+        "empty": "做完了，但没有回答",
+        "failed": "失败了",
+        "cancelled": "被停下了",
+        "interrupted": "中断了"
+      },
+      "feedback_up": "评为有帮助",
+      "feedback_down": "评为没帮助",
+      "feedback_down_reasons": "评为没帮助：{{reasons}}"
+    },
+    "answers": {
+      "description": "打过分的回答，新的在前。个人对话只计入合计。",
+      "low_only": "只看低分",
+      "none_low": "没有低于待审阈值的回答",
+      "empty_hint": "回答写完就会打分；换个时间段或来源看看。",
+      "more": "显示更多",
+      "no_question": "没有问题"
+    },
+    "answer": {
+      "title": "回答的分数",
+      "open_chat": "打开对话",
+      "open_incident": "打开事件",
+      "evaluators": "评审",
+      "not_evaluated": "没有评审评过。",
+      "samples_one": "评了 {{count}} 次",
+      "samples_other": "{{count}} 次的平均",
+      "rules": "规则",
+      "question": "问题",
+      "answer": "回答",
+      "tools_one": "{{count}} 次工具调用，{{failed}} 次失败",
+      "tools_other": "{{count}} 次工具调用，{{failed}} 次失败",
+      "gone": "对话或 RCA 已经不在了。"
+    },
+    "reviews": {
+      "description": "要人看一看的回答：分数低于阈值的、被评为没帮助的，以及随机抽到的。确认有问题的就采纳：它们组成回归集，Prompt 检查时会重新回答。",
+      "status_label": "状态",
+      "filter": {
+        "pending": "待审",
+        "accepted": "已采纳",
+        "rejected": "已驳回",
+        "all": "全部"
+      },
+      "status": {
+        "pending": "待审",
+        "accepted": "已采纳",
+        "rejected": "已驳回"
+      },
+      "causes": {
+        "low_score": "分数低",
+        "thumbs_down": "被评为没帮助",
+        "sampled": "随机抽到"
+      },
+      "none_pending": "没有待审的回答",
+      "none": "没有记录",
+      "empty_hint": "分数低于待审阈值、提问人评为没帮助，或被抽中复核的回答会出现在这里。",
+      "note": "备注",
+      "note_placeholder": "错在哪里，好的回答应该答对什么",
+      "accept": "采纳",
+      "reject": "驳回",
+      "accept_hint": "采纳：回答有问题，加入回归集。驳回：回答没有问题。",
+      "decided": {
+        "accepted": "已采纳，加入回归集",
+        "rejected": "已驳回"
+      }
+    },
+    "evaluators": {
+      "description": "评审用模型照你写的评分标准给回答打 1 到 5 分，并用一两句话说明理由。",
+      "new": "新建评审",
+      "none": "还没有评审",
+      "none_hint": "没有评审时，每个回答仍按规则打分。添加评审后，会再用模型抽样打分。",
+      "new_title": "新建评审",
+      "edit_title": "编辑评审",
+      "subtitle": "评审写理由用最后保存它的人的界面语言。",
+      "what": "看什么",
+      "name": "名称",
+      "rubric": "评分标准",
+      "rubric_hint": "好的回答该做到什么、什么会扣分。评审给 1 到 5 分。",
+      "which": "评哪些",
+      "targets": "回答",
+      "targets_hint": "个人对话只按规则打分：除了本人，谁都读不到。",
+      "sample": "抽样比例",
+      "sample_hint": "新回答里抽这个百分比来评。被评为没帮助的都评，低分的会再评一次。",
+      "sample_short": "抽样",
+      "model_section": "模型",
+      "provider": "模型服务",
+      "provider_default": "组织第一个可用的",
+      "model": "模型",
+      "model_default": "它的默认模型",
+      "temperature": "温度",
+      "temperature_hint": "0 让分数更稳定。",
+      "enabled": "启用",
+      "enabled_short": "启用",
+      "toggle": "启用或停用 {{name}}",
+      "edit": "编辑",
+      "edit_named": "编辑 {{name}}",
+      "more_named": "{{name}} 的更多操作",
+      "delete": "删除",
+      "delete_confirm": {
+        "title": "删除 {{name}}？",
+        "description": "它给过的分数会保留，排着等它评的会作废。",
+        "busy": "删除中…"
+      },
+      "deleted": "评审已删除",
+      "created": "已添加 {{name}}",
+      "saved": "已保存 {{name}}",
+      "create": "添加",
+      "save": "保存",
+      "default_name": "回答准确度",
+      "default_rubric": "评这个回答有没有找到并讲清楚问题。\n5：结论正确，每个说法都有工具查到的结果撑着。\n4：正确，有一点缺漏，或个别细节没有依据。\n3：部分正确，或者正确但证据说得含糊。\n2：大多没有依据，或者答非所问。\n1：错误或凭空编造。"
+    },
+    "settings": {
+      "title": "设置",
+      "description": "回答怎样进入待审，新的默认 Prompt 怎样检查。",
+      "threshold": "待审阈值",
+      "threshold_hint": "分数（0 到 100）低于它的回答进入待审。",
+      "sample": "随机复核",
+      "sample_hint": "其余回答里再随机抽这个百分比进入待审，用来校准评审。",
+      "gate": "Prompt 设为默认之前",
+      "gates": {
+        "warn": "检查，变差时再确认",
+        "block": "检查，变差时不允许",
+        "off": "不检查"
+      },
+      "gate_hint": {
+        "warn": "把对话或 RCA 用的组织 Prompt 设为默认时要先检查；没检查过或新版本变差时，要再确认一次。",
+        "block": "只有检查过且没有变差的 Prompt 才能设为默认。",
+        "off": "设为默认时不检查。"
+      },
+      "save": "保存",
+      "saved": "设置已保存"
     }
   },
   "approvals": {
@@ -311,6 +705,7 @@
       "prompts": "Prompt 管理",
       "tools": "工具与能力",
       "inbound_mcp": "Inbound MCP",
+      "im": "IM 接入",
       "data": "数据访问范围",
       "network": "网络策略",
       "approvals": "审批规则",
@@ -327,8 +722,8 @@
       "invalid_limits": "所有运行限制都必须是正整数。",
       "allowed_origins": "允许的浏览器 Origin",
       "origins_hint": "每行填写一个完整 HTTP 或 HTTPS Origin。未携带 Origin 以及同源请求仍会放行。",
-      "copy": "复制 MCP 端点",
-      "copied": "MCP 端点已复制",
+      "copy": "复制地址",
+      "copied": "地址已复制",
       "save": "保存设置",
       "security": {
         "title": "租户与策略约束",
@@ -376,6 +771,61 @@
         "text_stdio": "请把 MoleSignal 添加为一个 MCP 服务器并连接：\n- 名称：molesignal\n- 传输方式：stdio\n- 命令：npx -y @molesignal/cli mcp\n添加前先在终端运行 npx -y @molesignal/cli login --url {{address}}：它会打开浏览器，登录 MoleSignal 并同意授权，不需要 API Key。\n如果打不开浏览器，就改在这个 MCP 服务器的环境变量里设置 MOLESIGNAL_URL={{address}} 和 MOLESIGNAL_TOKEN=<MoleSignal API Token>，Token 由我在 MoleSignal 里创建后交给你。\n配置好后，列出 molesignal 提供的工具，确认已经连上。",
         "text_http": "请把 MoleSignal 添加为一个 MCP 服务器并连接：\n- 名称：molesignal\n- 地址：{{endpoint}}\n- 传输方式：Streamable HTTP\n- 认证：OAuth 2.1。连接时会打开浏览器，登录 MoleSignal 并同意授权，不需要 API Key。\n如果你不支持 OAuth，就在请求头里带上 Authorization: Bearer <MoleSignal API Token>，Token 由我在 MoleSignal 里创建后交给你。\n配置好后，列出 molesignal 提供的工具，确认已经连上。"
       }
+    },
+    "im": {
+      "description": "Mole Agent 通过这些连接器在飞书、Slack、钉钉、企业微信、Google Chat 和 Microsoft Teams 里回答：在群里 @ 它或私聊它。Teams 把消息投到 MoleSignal 的公网回调地址；其他平台由一台服务器用长连接或 Pub/Sub 订阅收消息，不需要公网地址。开启后，经飞书和 Slack 发出的告警通知带确认、解决按钮。",
+      "guide": "接入说明",
+      "no_external_url": "没有配置对外地址（http.external_url）：IM 里的人不能自己绑定账号，回答里没有会话的链接，Microsoft Teams 也收不到消息。管理员仍可以在成员的通知方式里添加并验证他们的 IM 账号。",
+      "none": "还没有能在 IM 里回答的连接器",
+      "none_hint": "先在通知设置里添加一个应用连接器，再回到这里开启。",
+      "add_connector": "添加连接器",
+      "columns": {
+        "connector": "连接器",
+        "state": "状态",
+        "team": "群里的新话题",
+        "enabled": "启用"
+      },
+      "state": {
+        "missing": "还缺 {{fields}}",
+        "connector_off": "连接器已停用",
+        "off": "未开启",
+        "idle": "等待服务器连接",
+        "connecting": "连接中",
+        "connected": "已连接",
+        "error": "连不上"
+      },
+      "fields": {
+        "appToken": "App-Level Token",
+        "botToken": "Bot Token",
+        "appId": "App ID",
+        "appSecret": "App Secret",
+        "clientId": "Client ID",
+        "clientSecret": "Client Secret",
+        "botId": "Bot ID",
+        "botSecret": "长连接 Secret",
+        "credentials": "服务账号密钥",
+        "subscription": "Pub/Sub 订阅",
+        "tenantId": "租户 ID"
+      },
+      "list_separator": "、",
+      "platforms": {
+        "feishu": "飞书",
+        "slack": "Slack",
+        "dingtalk": "钉钉",
+        "wecom": "企业微信",
+        "google_chat": "Google Chat",
+        "teams": "Microsoft Teams"
+      },
+      "last_message": "最近消息 {{at}}",
+      "callback": "回调地址",
+      "copy_callback": "复制回调地址",
+      "copied": "已复制",
+      "callback_needs_https": "对外地址要是 https，Teams 才能投消息",
+      "team_personal": "提问人的个人会话",
+      "team_label": "{{name}} 在群里的新话题记在哪里",
+      "toggle": "用 {{name}} 在 IM 里回答",
+      "turned_on": "{{name}} 开始在 IM 里回答",
+      "saved": "已保存 {{name}}"
     },
     "profiles": {
       "title": "Agent Profile",
@@ -604,6 +1054,10 @@
         "query_generation": {
           "title": "查询生成",
           "description": "生成 SQL、PromQL 或链路筛选条件，不执行写操作。"
+        },
+        "evaluation": {
+          "title": "回答评审",
+          "description": "质量页签里的评审怎样给回答打分；每个评审的评分标准会填进去。"
         }
       },
       "fields": {
@@ -641,6 +1095,47 @@
         "set_default": "默认 Prompt 已更新",
         "restore": "已恢复内置 Prompt 内容",
         "delete": "Prompt 已删除"
+      },
+      "promotion": {
+        "title": "把 {{name}} 设为默认",
+        "description": "组织 Prompt 设为默认之前先检查：用这个版本和现在的默认各重新回答最多 8 个最近的回答（不再调用工具），由同一个评审给两份回答打分。",
+        "reasons": {
+          "prompt_check_required": "这个版本还没有和现在的默认比较过。{{mode}}",
+          "prompt_check_running": "正在检查。",
+          "prompt_check_worse": "检查发现这个版本比现在的默认差。{{mode}}",
+          "prompt_check_unavailable": "没有评审评这类回答，没法检查。请在 Mole Agent → 质量 → 评审里添加。{{mode}}"
+        },
+        "modes": {
+          "warn": "确认后仍可设为默认。",
+          "block": "组织只允许检查过且没有变差的 Prompt 设为默认。",
+          "off": "组织不检查 Prompt。"
+        },
+        "check": "开始检查",
+        "check_again": "重新检查",
+        "picking": "正在挑选要比较的回答…",
+        "progress": "已重新回答并评分 {{done}} / {{total}}…",
+        "failed": "检查失败：{{error}}",
+        "verdicts": {
+          "better_one": "更好：在同样的 {{count}} 个回答上，这个版本 {{candidate}} 分，现在的默认 {{baseline}} 分。",
+          "better_other": "更好：在同样的 {{count}} 个回答上，这个版本 {{candidate}} 分，现在的默认 {{baseline}} 分。",
+          "same_one": "没有变差：在同样的 {{count}} 个回答上，这个版本 {{candidate}} 分，现在的默认 {{baseline}} 分。",
+          "same_other": "没有变差：在同样的 {{count}} 个回答上，这个版本 {{candidate}} 分，现在的默认 {{baseline}} 分。",
+          "worse_one": "变差了：在同样的 {{count}} 个回答上，这个版本 {{candidate}} 分，现在的默认 {{baseline}} 分。",
+          "worse_other": "变差了：在同样的 {{count}} 个回答上，这个版本 {{candidate}} 分，现在的默认 {{baseline}} 分。",
+          "inconclusive_one": "能比较的回答太少（{{count}} 个），说不准；不影响设为默认。",
+          "inconclusive_other": "能比较的回答太少（{{count}} 个），说不准；不影响设为默认。"
+        },
+        "columns": {
+          "sample": "回答",
+          "baseline": "现在的默认",
+          "candidate": "这个版本"
+        },
+        "kinds": {
+          "chat_answer": "对话回答",
+          "incident_rca": "事件 RCA"
+        },
+        "regression": "来自回归集",
+        "set_anyway": "仍然设为默认"
       }
     },
     "tools": {
@@ -858,7 +1353,6 @@
         "none": "当前没有依赖",
         "warning": "该工具当前被 {{count}} 个对象使用。",
         "agent_profiles": "Agent Profile",
-        "automations": "自动化",
         "investigation_templates": "调查任务模板",
         "empty": "无"
       },
@@ -1136,7 +1630,10 @@
         "chat": "对话",
         "rca": "根因分析",
         "inspection": "日志巡检",
-        "llm_eval": "LLM 函数"
+        "llm_eval": "LLM 函数",
+        "automation": "自动化",
+        "evaluation": "质量打分",
+        "replay_summary": "回放摘要"
       },
       "calls_hint": "调用 {{calls}} 次",
       "tokens_value": "{{value}} token",
@@ -1269,6 +1766,26 @@
         "download": "下载",
         "try": "在对话中试试"
       }
+    }
+  },
+  "im_link": {
+    "title": "绑定 IM 账号",
+    "question": "把{{platform}}账号 {{account}} 绑定到你的 MoleSignal 账号？",
+    "explain": "之后你在{{platform}}（{{connector}}）里问 Mole Agent，它按你的身份和权限回答。链接只能用一次，{{until}} 前有效。",
+    "confirm": "绑定",
+    "linking": "绑定中…",
+    "linked": "已绑定",
+    "linked_hint": "回到{{platform}}里再问一次。",
+    "expired": "链接已用过或已过期",
+    "expired_hint": "在 IM 里再问一次 Mole Agent，它会发给你一个新链接。",
+    "platform_fallback": " IM ",
+    "platforms": {
+      "feishu": "飞书",
+      "slack": " Slack ",
+      "dingtalk": "钉钉",
+      "wecom": "企业微信",
+      "google_chat": " Google Chat ",
+      "teams": " Teams "
     }
   },
   "starter_title": "今晚想调查什么？",
@@ -1540,7 +2057,7 @@
     },
     "list_metric_names": {
       "title": "列出指标名",
-      "description": "列出指标流名称，可按子串过滤。"
+      "description": "列出指标名，可按子串过滤。"
     },
     "list_metric_label_values": {
       "title": "列出指标标签值",
@@ -1548,7 +2065,7 @@
     },
     "list_metric_labels": {
       "title": "列出指标标签",
-      "description": "列出单个指标流的真实标签字段。"
+      "description": "列出单个指标的真实标签字段。"
     },
     "list_metric_series": {
       "title": "列出指标 Series",
@@ -1630,6 +2147,42 @@
       "title": "解决事件",
       "description": "解决一个开放或已确认的事件。"
     },
+    "reassign_incident": {
+      "title": "转派事件",
+      "description": "把一个进行中的事件转给成员、团队（按它的值班策略）或升级策略。"
+    },
+    "add_incident_responders": {
+      "title": "增派成员",
+      "description": "把几个人加进一个进行中事件的负责人，并通知他们。"
+    },
+    "escalate_incident": {
+      "title": "立即升级事件",
+      "description": "把一个进行中的事件立即升级到升级策略的某一步，默认下一步。"
+    },
+    "snooze_incident": {
+      "title": "暂缓事件",
+      "description": "暂缓一个进行中的事件：先确认，到点退回未确认并重新通知。"
+    },
+    "lift_incident_inhibition": {
+      "title": "放开被抑制的事件",
+      "description": "让一个被抑制的事件照常通知：压着的通知发出，之后不再被抑制。"
+    },
+    "set_incident_severity": {
+      "title": "改事件严重度",
+      "description": "改一个进行中事件的严重度；之后规则不再改它。"
+    },
+    "merge_incidents": {
+      "title": "合并事件",
+      "description": "把别的进行中事件并入一个事件：它们不再通知，随主事件一起解决。"
+    },
+    "add_incident_note": {
+      "title": "写事件备注",
+      "description": "在事件的时间线上写一条备注：发现了什么、做了什么。"
+    },
+    "get_incident_timeline": {
+      "title": "获取事件时间线",
+      "description": "获取事件的时间线：通知了谁、人做了什么、备注，以及并入它的事件。"
+    },
     "list_alert_rules": {
       "title": "列出告警规则",
       "description": "列出告警规则及状态、查询、阈值与路由元数据。"
@@ -1673,6 +2226,14 @@
     "get_mute_rule": {
       "title": "获取静默规则",
       "description": "按 ID 获取静默规则。"
+    },
+    "list_inhibit_rules": {
+      "title": "列出抑制规则",
+      "description": "列出告警抑制规则：源事件进行中时，压住哪些目标事件的通知，以及此刻压着几个。"
+    },
+    "get_inhibit_rule": {
+      "title": "获取抑制规则",
+      "description": "按 ID 获取告警抑制规则。"
     },
     "list_escalation_policies": {
       "title": "列出升级策略",
@@ -1774,6 +2335,14 @@
       "title": "获取 APM 健康",
       "description": "返回 APM 投影新鲜度、覆盖率及数据质量健康。"
     },
+    "get_apm_insights": {
+      "title": "获取 APM 洞察",
+      "description": "返回 APM 发现值得关注的内容：与上一时段和上周同时段相比的突变及附近的变更、变差的版本，以及可优化的地方。"
+    },
+    "get_apm_blast_radius": {
+      "title": "获取服务影响范围",
+      "description": "沿服务地图返回调用该服务的服务和它调用的对象，不健康的排在前面。"
+    },
     "correlate_signals": {
       "title": "跨信号关联",
       "description": "按服务或 Trace 在事件、链路、日志、RUM 与 Profile 间建立有界关联。"
@@ -1805,6 +2374,42 @@
     "get_rum_vitals": {
       "title": "汇总 Web Vitals",
       "description": "按页面汇总真实用户的 Core Web Vitals：LCP、INP、CLS、TTFB 的 P75 与浏览量，并附好与差的阈值。"
+    },
+    "list_rum_issues": {
+      "title": "列出 RUM 问题",
+      "description": "列出 RUM 应用的错误问题：状态、首次与最近出现，以及范围内各自影响的会话、用户和次数，带趋势。"
+    },
+    "get_rum_issue": {
+      "title": "查看 RUM 问题",
+      "description": "查看一个 RUM 问题：历史、范围内的数字、最近发生的会话和它的堆栈。"
+    },
+    "get_rum_overview": {
+      "title": "汇总 RUM 应用表现",
+      "description": "汇总一个 RUM 应用的表现：会话数、没有错误或崩溃的会话占比、Core Web Vitals、浏览最多的页面和主要问题。"
+    },
+    "get_rum_frustration": {
+      "title": "汇总 RUM 受挫信号",
+      "description": "说明用户为什么受挫：狂点、无响应点击和出错点击，以及它们集中的元素、页面和版本。"
+    },
+    "get_rum_view_waterfall": {
+      "title": "查看 RUM 视图瀑布",
+      "description": "查看一次页面视图的加载：各个时刻、最大绘制在等什么、请求的资源和阻塞它的长任务。"
+    },
+    "aggregate_rum": {
+      "title": "聚合 RUM 数据",
+      "description": "对 RUM 流的行计数、求平均、取分位数，可按字段分组，也可按时间分段。"
+    },
+    "get_rum_funnel": {
+      "title": "查看 RUM 漏斗",
+      "description": "数出按顺序走完一串页面和操作的会话数、耗时，可按浏览器、版本或国家分组。"
+    },
+    "get_rum_paths": {
+      "title": "查看 RUM 路径",
+      "description": "跟踪会话在某个页面之后打开了哪些页面，或之前来自哪些页面：每一步访问最多的页面，以及会话的去向。"
+    },
+    "get_rum_retention": {
+      "title": "查看 RUM 留存",
+      "description": "说明某天或某周首次出现的用户，在之后各个周期里有多少再次出现。"
     },
     "list_continuous_profiles": {
       "title": "查询持续剖析",
@@ -2341,6 +2946,78 @@
     "update_investigation": {
       "title": "记录调查",
       "description": "把调查的步骤、证据、假设和结论记到这个对话的调查上。"
+    },
+    "get_agent_insights": {
+      "title": "读取 Mole Agent 使用情况",
+      "description": "汇总这个对话范围内最近几天 Mole Agent 的使用情况：提问、回答与自动化的结果、有帮助与没帮助的评价及原因，以及用到的工具和技能。"
+    },
+    "get_incident_tickets": {
+      "title": "查事件的工单",
+      "description": "列出为一个事件在 Jira、ServiceNow 或飞书项目里建的工单和它们的状态。"
+    },
+    "create_ticket": {
+      "title": "建工单",
+      "description": "用 Jira、ServiceNow 或飞书项目连接器为一个事件建单（每个连接器一张）。"
+    },
+    "list_remediation_actions": {
+      "title": "列修复动作",
+      "description": "列出一个事件能用的修复动作，以及每个要填的参数。"
+    },
+    "run_remediation_action": {
+      "title": "执行修复动作",
+      "description": "提议在一个事件上执行修复动作；一律要人批准后才执行。"
+    },
+    "declare_major_incident": {
+      "title": "宣布重大事件",
+      "description": "把一个事件宣布为重大事件：指派角色、建作战室、套用检查清单、向关注人同步进展。"
+    },
+    "assign_incident_role": {
+      "title": "指派事件角色",
+      "description": "指派重大事件的指挥官、沟通负责人或记录员，或撤下这个角色。"
+    },
+    "post_incident_update": {
+      "title": "发事件进展",
+      "description": "为重大事件发一条进展（影响、现状、下一步），发到作战室并通知关注人。"
+    },
+    "add_incident_task": {
+      "title": "加事件任务",
+      "description": "给重大事件的任务清单加一项任务。"
+    },
+    "draft_incident_postmortem": {
+      "title": "起草复盘",
+      "description": "把事件的内部复盘保存成 Markdown 草稿；已经过了草稿阶段的不改。"
+    },
+    "set_incident_priority": {
+      "title": "改事件优先级",
+      "description": "改一个进行中事件的优先级（P1–P5，或不设）；不重新通知。"
+    },
+    "set_incident_urgency": {
+      "title": "改事件紧急度",
+      "description": "改一个进行中事件的紧急度；调高时，未确认的事件从第一级重新通知。"
+    },
+    "create_incident": {
+      "title": "手动建事件",
+      "description": "为规则没抓到的问题（例如客户报障）开一个事件，照常通知和升级；不指定团队、升级策略或成员时按路由分派。"
+    },
+    "list_discovery_findings": {
+      "title": "列出自动发现",
+      "description": "列出不用建规则就找到的问题：APM 服务的突变、变差的新版本、前端新出现和又出现的错误、日志里突增和新出现的错误，以及快满、CPU 突变或在重启的主机和容器。默认只列进行中的。"
+    },
+    "get_discovery_finding": {
+      "title": "读一条自动发现",
+      "description": "读一条自动发现：什么变了、现值和基线、从什么时候开始，以及它的详情。"
+    },
+    "get_rum_feature_flags": {
+      "title": "查看 RUM 功能开关",
+      "description": "列出会话算过的功能开关；给定开关时对比它每个取值下的会话、错误、受挫和 Web Vitals。"
+    },
+    "get_rum_heatmap": {
+      "title": "查看 RUM 热力图",
+      "description": "说明人们点一个页面的哪些元素、往下看到多远。"
+    },
+    "get_rum_session_notes": {
+      "title": "查看回放评论和摘要",
+      "description": "读一个录制会话上大家写的评论，以及模型写的摘要和章节。"
     }
   },
   "dashboard_authoring": {
@@ -2499,6 +3176,19 @@
       "decline": "不执行",
       "waiting": "等 {{name}} 确认：工具以发起人的身份执行"
     },
+    "authorization": {
+      "title": "授权以继续",
+      "needed": "「{{tool}}」要用你在 {{server}} 的凭据，存好后接着执行。",
+      "rejected": "{{server}} 拒绝了你保存的凭据。换一个新的，「{{tool}}」再执行一次。",
+      "value": "你在 {{server}} 的凭据",
+      "placeholder": "粘贴凭据",
+      "hint": "加密保存，只用于你自己的调用；放在 {{header}} 请求头里发送。",
+      "hint_bearer": "加密保存，只用于你自己的调用；以 Bearer <凭据> 的形式放在 {{header}} 请求头里发送。",
+      "continue": "保存并继续",
+      "skip": "跳过",
+      "saved": "凭据已保存，接着回答",
+      "waiting": "等 {{name}} 授权：凭据是发起人自己的"
+    },
     "todo": {
       "progress": "第 {{current}}/{{total}} 步"
     },
@@ -2530,11 +3220,12 @@
       "incident": "事件",
       "alert_rule": "告警规则",
       "service": "服务",
+      "rum_application": "RUM 应用",
       "dashboard": "仪表盘",
       "stream": "数据流"
     },
-    "what": "可引用事件、告警规则、服务、仪表盘和数据流，输入名称查找",
-    "none": "还没有可引用的事件、告警规则、服务、仪表盘或数据流",
+    "what": "可引用事件、告警规则、服务、RUM 应用、仪表盘和数据流，输入名称查找",
+    "none": "还没有可引用的事件、告警规则、服务、RUM 应用、仪表盘或数据流",
     "no_match": "没有找到名称含「{{query}}」的对象",
     "failed": "查找失败：{{reason}}"
   },

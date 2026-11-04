@@ -41,146 +41,146 @@ export const MOCK_SEARCH_JOB = {
 export function seedSearchJobs(nowMicros: number): SearchJob[] {
   return [
     {
-      job_id: MOCK_SEARCH_JOB.pendingBackfill,
+      jobId: MOCK_SEARCH_JOB.pendingBackfill,
       state: 'pending',
       kind: 'backfill',
-      pipeline_id: 'checkout-logs',
+      pipelineId: 'checkout-logs',
       attempt: 0,
-      user_id: 'u2',
-      submitted_by: { display_name: 'Kenji Watanabe', email: 'kenji@example.com' },
+      userId: 'u2',
+      submittedBy: { displayName: 'Kenji Watanabe', email: 'kenji@example.com' },
       request: {
         language: 'sql',
         statement: 'SELECT * FROM logs',
-        time_range: { start: nowMicros - 7 * DAY, end: nowMicros },
-        stream: { name: 'logs', stream_type: 'logs' },
+        timeRange: { start: nowMicros - 7 * DAY, end: nowMicros },
+        stream: { name: 'logs', streamType: 'logs' },
         limit: null,
       },
-      submitted_at_micros: nowMicros - MINUTE,
-      started_at_micros: null,
-      finished_at_micros: null,
-      result_object_key: null,
-      result_rows: null,
+      submittedAt: nowMicros - MINUTE,
+      startedAt: null,
+      finishedAt: null,
+      resultObjectKey: null,
+      resultRows: null,
       error: null,
-      expires_at_micros: nowMicros - MINUTE + 7 * DAY,
+      expiresAt: nowMicros - MINUTE + 7 * DAY,
     },
     {
-      job_id: MOCK_SEARCH_JOB.running,
+      jobId: MOCK_SEARCH_JOB.running,
       state: 'running',
       kind: 'query',
-      pipeline_id: null,
+      pipelineId: null,
       attempt: 0,
-      user_id: 'u1',
-      submitted_by: { display_name: 'Dana Reyes', email: 'sre@example.com' },
+      userId: 'u1',
+      submittedBy: { displayName: 'Dana Reyes', email: 'sre@example.com' },
       request: {
         language: 'sql',
         statement:
           'SELECT status, count(*) AS requests\nFROM "access_logs"\nWHERE status >= 500\nGROUP BY status',
-        time_range: { start: nowMicros - DAY, end: nowMicros },
-        stream: { name: 'access_logs', stream_type: 'logs' },
+        timeRange: { start: nowMicros - DAY, end: nowMicros },
+        stream: { name: 'access_logs', streamType: 'logs' },
         limit: 100_000,
       },
-      submitted_at_micros: nowMicros - 2 * MINUTE,
-      started_at_micros: nowMicros - 110 * SECOND,
-      finished_at_micros: null,
-      result_object_key: null,
-      result_rows: null,
+      submittedAt: nowMicros - 2 * MINUTE,
+      startedAt: nowMicros - 110 * SECOND,
+      finishedAt: null,
+      resultObjectKey: null,
+      resultRows: null,
       error: null,
-      expires_at_micros: nowMicros - 2 * MINUTE + 7 * DAY,
+      expiresAt: nowMicros - 2 * MINUTE + 7 * DAY,
     },
     {
-      job_id: MOCK_SEARCH_JOB.done,
+      jobId: MOCK_SEARCH_JOB.done,
       state: 'done',
       kind: 'query',
-      pipeline_id: null,
+      pipelineId: null,
       attempt: 0,
-      user_id: 'u1',
-      submitted_by: { display_name: 'Dana Reyes', email: 'sre@example.com' },
+      userId: 'u1',
+      submittedBy: { displayName: 'Dana Reyes', email: 'sre@example.com' },
       request: {
         language: 'promql',
         statement: 'sum by (service) (rate(http_requests_total[5m]))',
-        time_range: { start: nowMicros - 3 * DAY, end: nowMicros - 3 * HOUR },
-        stream: { name: 'http_requests_total', stream_type: 'metrics' },
+        timeRange: { start: nowMicros - 3 * DAY, end: nowMicros - 3 * HOUR },
+        stream: { name: 'http_requests_total', streamType: 'metrics' },
         limit: null,
       },
-      submitted_at_micros: nowMicros - 3 * HOUR,
-      started_at_micros: nowMicros - 3 * HOUR + 2 * SECOND,
-      finished_at_micros: nowMicros - 3 * HOUR + 44 * SECOND,
-      result_object_key: `search_jobs/v1/acme-prod/${MOCK_SEARCH_JOB.done}-0.ndjson`,
-      result_rows: 12_480,
+      submittedAt: nowMicros - 3 * HOUR,
+      startedAt: nowMicros - 3 * HOUR + 2 * SECOND,
+      finishedAt: nowMicros - 3 * HOUR + 44 * SECOND,
+      resultObjectKey: `search_jobs/v1/acme-prod/${MOCK_SEARCH_JOB.done}-0.ndjson`,
+      resultRows: 12_480,
       error: null,
-      expires_at_micros: nowMicros - 3 * HOUR + 7 * DAY,
+      expiresAt: nowMicros - 3 * HOUR + 7 * DAY,
     },
     {
-      job_id: MOCK_SEARCH_JOB.failed,
+      jobId: MOCK_SEARCH_JOB.failed,
       state: 'failed',
       kind: 'query',
-      pipeline_id: null,
+      pipelineId: null,
       attempt: 1,
-      user_id: 'u3',
-      submitted_by: { display_name: 'Amara Okafor', email: 'amara@example.com' },
+      userId: 'u3',
+      submittedBy: { displayName: 'Amara Okafor', email: 'amara@example.com' },
       request: {
         language: 'sql',
         statement:
           "SELECT trace_id, duration FROM traces WHERE service_name = 'checkout' ORDER BY duration DESC",
-        time_range: { start: nowMicros - 30 * DAY, end: nowMicros - 5 * HOUR },
-        stream: { name: 'traces', stream_type: 'traces' },
+        timeRange: { start: nowMicros - 30 * DAY, end: nowMicros - 5 * HOUR },
+        stream: { name: 'traces', streamType: 'traces' },
         limit: 50_000,
       },
-      submitted_at_micros: nowMicros - 5 * HOUR,
-      started_at_micros: nowMicros - 5 * HOUR + SECOND,
-      finished_at_micros: nowMicros - 5 * HOUR + 4 * MINUTE + 12 * SECOND,
-      result_object_key: null,
-      result_rows: null,
+      submittedAt: nowMicros - 5 * HOUR,
+      startedAt: nowMicros - 5 * HOUR + SECOND,
+      finishedAt: nowMicros - 5 * HOUR + 4 * MINUTE + 12 * SECOND,
+      resultObjectKey: null,
+      resultRows: null,
       error:
         'resource exhausted: the query needs 2.4 GiB of memory, more than the 2.0 GiB one search job may use',
-      expires_at_micros: nowMicros - 5 * HOUR + 7 * DAY,
+      expiresAt: nowMicros - 5 * HOUR + 7 * DAY,
     },
     {
-      job_id: MOCK_SEARCH_JOB.cancelled,
+      jobId: MOCK_SEARCH_JOB.cancelled,
       state: 'cancelled',
       kind: 'query',
-      pipeline_id: null,
+      pipelineId: null,
       attempt: 0,
       // Somebody who has left since: the user record is gone, the id is all that remains.
-      user_id: 'u-former-7c41',
-      submitted_by: null,
+      userId: 'u-former-7c41',
+      submittedBy: null,
       request: {
         language: 'sql',
         statement: 'SELECT actor, action, count(*) FROM audit GROUP BY actor, action',
-        time_range: { start: nowMicros - 90 * DAY, end: nowMicros - 26 * HOUR },
-        stream: { name: 'audit', stream_type: 'logs' },
+        timeRange: { start: nowMicros - 90 * DAY, end: nowMicros - 26 * HOUR },
+        stream: { name: 'audit', streamType: 'logs' },
         limit: null,
       },
-      submitted_at_micros: nowMicros - 26 * HOUR,
-      started_at_micros: nowMicros - 26 * HOUR + SECOND,
-      finished_at_micros: nowMicros - 26 * HOUR + 38 * SECOND,
-      result_object_key: null,
-      result_rows: null,
+      submittedAt: nowMicros - 26 * HOUR,
+      startedAt: nowMicros - 26 * HOUR + SECOND,
+      finishedAt: nowMicros - 26 * HOUR + 38 * SECOND,
+      resultObjectKey: null,
+      resultRows: null,
       error: null,
-      expires_at_micros: nowMicros - 26 * HOUR + 7 * DAY,
+      expiresAt: nowMicros - 26 * HOUR + 7 * DAY,
     },
     {
-      job_id: MOCK_SEARCH_JOB.doneEmpty,
+      jobId: MOCK_SEARCH_JOB.doneEmpty,
       state: 'done',
       kind: 'query',
-      pipeline_id: null,
+      pipelineId: null,
       attempt: 0,
-      user_id: 'u2',
-      submitted_by: { display_name: 'Kenji Watanabe', email: 'kenji@example.com' },
+      userId: 'u2',
+      submittedBy: { displayName: 'Kenji Watanabe', email: 'kenji@example.com' },
       request: {
         language: 'sql',
         statement: "SELECT * FROM logs WHERE trace_id = '4bf92f3577b34da6a3ce929d0e0e4736'",
-        time_range: { start: nowMicros - 4 * DAY, end: nowMicros - 2 * DAY },
-        stream: { name: 'logs', stream_type: 'logs' },
+        timeRange: { start: nowMicros - 4 * DAY, end: nowMicros - 2 * DAY },
+        stream: { name: 'logs', streamType: 'logs' },
         limit: 1_000,
       },
-      submitted_at_micros: nowMicros - 2 * DAY,
-      started_at_micros: nowMicros - 2 * DAY + SECOND,
-      finished_at_micros: nowMicros - 2 * DAY + SECOND + 820_000,
-      result_object_key: `search_jobs/v1/acme-prod/${MOCK_SEARCH_JOB.doneEmpty}-0.ndjson`,
-      result_rows: 0,
+      submittedAt: nowMicros - 2 * DAY,
+      startedAt: nowMicros - 2 * DAY + SECOND,
+      finishedAt: nowMicros - 2 * DAY + SECOND + 820_000,
+      resultObjectKey: `search_jobs/v1/acme-prod/${MOCK_SEARCH_JOB.doneEmpty}-0.ndjson`,
+      resultRows: 0,
       error: null,
-      expires_at_micros: nowMicros - 2 * DAY + 7 * DAY,
+      expiresAt: nowMicros - 2 * DAY + 7 * DAY,
     },
   ];
 }
@@ -190,9 +190,9 @@ export function registerSearchJobRoutes(app: Express, nowIso: string): void {
   let jobs = seedSearchJobs(nowMicros);
   // The member the caller is; null for an administrator.
   let viewer: string | null = null;
-  const visible = (job: SearchJob) => viewer === null || job.user_id === viewer;
+  const visible = (job: SearchJob) => viewer === null || job.userId === viewer;
   const find = (id: string | undefined) =>
-    jobs.find((job) => job.job_id === id && visible(job));
+    jobs.find((job) => job.jobId === id && visible(job));
   const missing = (res: Response) => res.status(404).json({ error: 'not found: row not found' });
 
   app.get('/api/v1/query/jobs', (req: Request, res: Response) => {
@@ -214,7 +214,7 @@ export function registerSearchJobRoutes(app: Express, nowIso: string): void {
     const matching = jobs
       .filter(visible)
       .filter((job) => names.length === 0 || names.includes(job.state))
-      .sort((a, b) => b.submitted_at_micros - a.submitted_at_micros);
+      .sort((a, b) => b.submittedAt - a.submittedAt);
     return res.json(matching.slice(offset, offset + limit));
   });
 
@@ -240,8 +240,8 @@ export function registerSearchJobRoutes(app: Express, nowIso: string): void {
     if (!job) return missing(res);
 
     const page = Math.max(1, Number(req.query.page ?? 1) || 1);
-    const pageSize = Math.min(10_000, Math.max(1, Number(req.query.page_size ?? 1000) || 1000));
-    const total = job.state === 'done' ? (job.result_rows ?? 0) : 0;
+    const pageSize = Math.min(10_000, Math.max(1, Number(req.query.pageSize ?? 1000) || 1000));
+    const total = job.state === 'done' ? (job.resultRows ?? 0) : 0;
     const first = (page - 1) * pageSize;
     const rows = Array.from({ length: Math.max(0, Math.min(pageSize, total - first)) }, (_, i) => ({
       row: first + i + 1,
@@ -250,11 +250,11 @@ export function registerSearchJobRoutes(app: Express, nowIso: string): void {
     }));
     return res.json({
       state: job.state,
-      result_rows: job.result_rows,
+      resultRows: job.resultRows,
       page,
-      page_size: pageSize,
+      pageSize: pageSize,
       rows,
-      has_more: page * pageSize < total,
+      hasMore: page * pageSize < total,
       error: job.error,
     });
   });
@@ -269,7 +269,7 @@ export function registerSearchJobRoutes(app: Express, nowIso: string): void {
     }
     job.state = 'cancelled';
     job.error = null;
-    job.finished_at_micros = nowMicros;
+    job.finishedAt = nowMicros;
     return res.json(job);
   });
 
@@ -281,24 +281,24 @@ export function registerSearchJobRoutes(app: Express, nowIso: string): void {
         .status(400)
         .json({ error: `invalid argument: search job in state \`${job.state}\` cannot be retried` });
     }
-    const ttl = job.expires_at_micros - job.submitted_at_micros;
+    const ttl = job.expiresAt - job.submittedAt;
     Object.assign(job, {
       state: 'pending',
       attempt: job.attempt + 1,
-      result_object_key: null,
-      result_rows: null,
+      resultObjectKey: null,
+      resultRows: null,
       error: null,
-      submitted_at_micros: nowMicros,
-      started_at_micros: null,
-      finished_at_micros: null,
-      expires_at_micros: nowMicros + ttl,
+      submittedAt: nowMicros,
+      startedAt: null,
+      finishedAt: null,
+      expiresAt: nowMicros + ttl,
     } satisfies Partial<SearchJob>);
     return res.json(job);
   });
 
   app.delete('/api/v1/query/jobs/:id', (req, res) => {
     if (!find(req.params.id)) return missing(res);
-    jobs = jobs.filter((job) => job.job_id !== req.params.id);
+    jobs = jobs.filter((job) => job.jobId !== req.params.id);
     return res.json({ deleted: true });
   });
 
@@ -308,13 +308,13 @@ export function registerSearchJobRoutes(app: Express, nowIso: string): void {
     res.json({ jobs: jobs.length });
   });
   app.put('/api/v1/__mock/search-jobs/viewer', (req: Request, res: Response) => {
-    const userId = (req.body as { user_id?: unknown }).user_id;
+    const userId = (req.body as { userId?: unknown }).userId;
     viewer = typeof userId === 'string' ? userId : null;
     res.json({ viewer });
   });
   app.post('/api/v1/__mock/search-jobs/:id', (req: Request, res: Response) => {
     // The worker changes a job whoever is looking at the list.
-    const job = jobs.find((candidate) => candidate.job_id === req.params.id);
+    const job = jobs.find((candidate) => candidate.jobId === req.params.id);
     if (!job) return missing(res);
     Object.assign(job, req.body as Partial<SearchJob>);
     return res.json(job);
@@ -335,7 +335,7 @@ async function send(port: number, method: 'PUT' | 'POST', path: string, body: un
  * `null` makes the caller an administrator again.
  */
 export function setMockSearchJobViewer(port: number, userId: string | null): Promise<void> {
-  return send(port, 'PUT', '/viewer', { user_id: userId });
+  return send(port, 'PUT', '/viewer', { userId: userId });
 }
 
 /** Replaces the organization's jobs, for a test about an empty or a long list. */

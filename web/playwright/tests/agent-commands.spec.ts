@@ -89,9 +89,9 @@ test.describe('Mole Agent slash commands', () => {
     const outbound = page.waitForRequest(isPost);
     await box.fill('Why is checkout slow?');
     await box.press('Enter');
-    const body = (await outbound).postDataJSON() as { analysis_mode?: string; provider_id?: string };
-    expect(body.analysis_mode).toBe('root_cause');
-    expect(body.provider_id).toBe('compatible-qwen');
+    const body = (await outbound).postDataJSON() as { analysisMode?: string; providerId?: string };
+    expect(body.analysisMode).toBe('root_cause');
+    expect(body.providerId).toBe('compatible-qwen');
   });
 
   test('a task command goes out as typed and reads as a capsule in the chat', async ({ page }) => {

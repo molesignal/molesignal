@@ -23,7 +23,7 @@ const QUERY: CountedTraceQuery = {
   filters: [{ field: 'service.name', op: '=', value: 'checkout' }],
   epoch: 0,
 };
-const REQUEST = { range: { start: 100, end: 200 }, binMicros: 10, originMicros: 90 };
+const REQUEST = { range: { start: 100, end: 200 }, binMicros: 10, originTime: 90 };
 
 const histogramOf = (counted: CountedTraceQuery | null) =>
   renderHook(({ query }) => useTraceHistogram({ traces: TRACES, range: RANGE, onTimeWindowChange: vi.fn(), counted: query }), {
@@ -52,16 +52,16 @@ describe('useTraceHistogram', () => {
 
   it('counts with the query the list sends, into the bars the chart asks for', async () => {
     mocks.tracesHistogram.mockResolvedValue({
-      bucket_micros: 10,
-      origin_micros: 90,
-      buckets: [{ start_micros: 110, total: 31, errors: 4 }],
+      bucketTime: 10,
+      originTime: 90,
+      buckets: [{ startTime: 110, total: 31, errors: 4 }],
       split: true,
     });
     const { result } = histogramOf(QUERY);
     const signal = new AbortController().signal;
 
     await expect(result.current.counts?.load(REQUEST, signal)).resolves.toEqual({
-      bars: [{ startMicros: 110, total: 31, errors: 4 }],
+      bars: [{ startTime: 110, total: 31, errors: 4 }],
       split: true,
     });
     expect(mocks.tracesHistogram).toHaveBeenCalledExactlyOnceWith(
@@ -70,15 +70,15 @@ describe('useTraceHistogram', () => {
         to: 200,
         q: 'checkout',
         filters: [{ field: 'service.name', op: '=', value: 'checkout' }],
-        bucket_micros: 10,
-        origin_micros: 90,
+        bucketTime: 10,
+        originTime: 90,
       },
       signal,
     );
   });
 
   it('sends no free text and no filters where the query has none', async () => {
-    mocks.tracesHistogram.mockResolvedValue({ bucket_micros: 10, origin_micros: 90, buckets: [], split: true });
+    mocks.tracesHistogram.mockResolvedValue({ bucketTime: 10, originTime: 90, buckets: [], split: true });
     const { result } = histogramOf({ orgId: 'org-1', filters: [], epoch: 0 });
 
     await result.current.counts?.load(REQUEST, new AbortController().signal);
@@ -86,8 +86,8 @@ describe('useTraceHistogram', () => {
     expect(mocks.tracesHistogram.mock.calls[0]?.[0]).toEqual({
       from: 100,
       to: 200,
-      bucket_micros: 10,
-      origin_micros: 90,
+      bucketTime: 10,
+      originTime: 90,
     });
   });
 

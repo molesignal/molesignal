@@ -1,0 +1,196 @@
+{
+  "logs": [
+    {
+      "query": "level = 'error'",
+      "read": { "filters": [{ "field": "level", "op": "=", "value": "error", "quoted": true }], "freeText": [] }
+    },
+    {
+      "query": "level eq error AND status_code >= 500",
+      "read": {
+        "filters": [
+          { "field": "level", "op": "=", "value": "error", "quoted": false },
+          { "field": "status_code", "op": ">=", "value": "500", "quoted": false }
+        ],
+        "freeText": []
+      }
+    },
+    {
+      "query": "service.name ne \"checkout\"",
+      "read": { "filters": [{ "field": "service.name", "op": "!=", "value": "checkout", "quoted": true }], "freeText": [] }
+    },
+    {
+      "query": "message like 'timeout'",
+      "read": { "filters": [{ "field": "message", "op": "contains", "value": "timeout", "quoted": true }], "freeText": [] }
+    },
+    {
+      "query": "host = ''",
+      "read": { "filters": [{ "field": "host", "op": "=", "value": "", "quoted": true }], "freeText": [] }
+    },
+    {
+      "query": "MATCH(message, 'connection reset')",
+      "read": { "filters": [{ "field": "message", "op": "match", "value": "connection reset", "quoted": true }], "freeText": [] }
+    },
+    {
+      "query": "match_text(message, 'db pool')",
+      "read": { "filters": [{ "field": "message", "op": "match_text", "value": "db pool", "quoted": true }], "freeText": [] }
+    },
+    {
+      "query": "timeout",
+      "read": { "filters": [], "freeText": ["timeout"] }
+    },
+    {
+      "query": "\"connection reset\" AND level = 'error'",
+      "read": {
+        "filters": [{ "field": "level", "op": "=", "value": "error", "quoted": true }],
+        "freeText": ["connection reset"]
+      }
+    },
+    {
+      "query": "level = 'error' AND (service.name = 'checkout' OR timeout)",
+      "read": {
+        "filters": [{ "field": "level", "op": "=", "value": "error", "quoted": true }],
+        "freeText": [],
+        "where": {
+          "or": [
+            { "field": "service.name", "op": "=", "value": "checkout", "quoted": true },
+            { "text": "timeout" }
+          ]
+        }
+      }
+    },
+    {
+      "query": "a = 1 OR b = 2",
+      "read": {
+        "filters": [],
+        "freeText": [],
+        "where": {
+          "or": [
+            { "field": "a", "op": "=", "value": "1", "quoted": false },
+            { "field": "b", "op": "=", "value": "2", "quoted": false }
+          ]
+        }
+      }
+    },
+    {
+      "query": "(a = 1 OR b = 2) AND (c = 3 OR d = 4)",
+      "read": {
+        "filters": [],
+        "freeText": [],
+        "where": {
+          "and": [
+            {
+              "or": [
+                { "field": "a", "op": "=", "value": "1", "quoted": false },
+                { "field": "b", "op": "=", "value": "2", "quoted": false }
+              ]
+            },
+            {
+              "or": [
+                { "field": "c", "op": "=", "value": "3", "quoted": false },
+                { "field": "d", "op": "=", "value": "4", "quoted": false }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "query": "msg = 'it\\'s ok' and level = \"warn\"",
+      "read": {
+        "filters": [
+          { "field": "msg", "op": "=", "value": "it's ok", "quoted": true },
+          { "field": "level", "op": "=", "value": "warn", "quoted": true }
+        ],
+        "freeText": []
+      }
+    },
+    {
+      "query": "message contains 'a or b'",
+      "read": { "filters": [{ "field": "message", "op": "contains", "value": "a or b", "quoted": true }], "freeText": [] }
+    },
+    {
+      "query": "ORDER = 'x'",
+      "read": { "filters": [{ "field": "ORDER", "op": "=", "value": "x", "quoted": true }], "freeText": [] }
+    },
+    {
+      "query": "service.name = '订单服务' AND 支付 超时",
+      "read": {
+        "filters": [{ "field": "service.name", "op": "=", "value": "订单服务", "quoted": true }],
+        "freeText": ["支付 超时"]
+      }
+    },
+    { "query": "   ", "read": { "filters": [], "freeText": [] } },
+    { "query": "(level = 'error'", "error": true },
+    { "query": "MATCH(message, timeout)", "error": true },
+    { "query": "duration > ''", "error": true },
+    { "query": "\"\"", "error": true }
+  ],
+  "traces": [
+    {
+      "query": "service.name = 'checkout'",
+      "read": { "filters": [{ "field": "service.name", "op": "=", "value": "checkout" }] }
+    },
+    {
+      "query": "status_code != ERROR",
+      "read": { "filters": [{ "field": "status_code", "op": "!=", "value": "ERROR" }] }
+    },
+    {
+      "query": "duration_ns > 1000000",
+      "read": { "filters": [{ "field": "duration_ns", "op": ">", "value": "1000000" }] }
+    },
+    {
+      "query": "service.name in ('checkout', \"payments\")",
+      "read": {
+        "filters": [{ "field": "service.name", "op": "in", "value": "", "values": ["checkout", "payments"] }]
+      }
+    },
+    {
+      "query": "name contains 'GET /api'",
+      "read": { "filters": [{ "field": "name", "op": "contains", "value": "GET /api" }] }
+    },
+    {
+      "query": "service.name eq \"a\\\"b\"",
+      "read": { "filters": [{ "field": "service.name", "op": "=", "value": "a\"b" }] }
+    },
+    {
+      "query": "timeout",
+      "read": { "q": "timeout", "filters": [] }
+    },
+    {
+      "query": "timeout AND \"connection reset\"",
+      "read": { "q": "timeout connection reset", "filters": [] }
+    },
+    {
+      "query": "service.name = 'api' AND (status_code = 'ERROR' OR timeout)",
+      "read": {
+        "filters": [{ "field": "service.name", "op": "=", "value": "api" }],
+        "where": {
+          "or": [
+            { "field": "status_code", "op": "=", "value": "ERROR" },
+            { "text": "timeout" }
+          ]
+        }
+      }
+    },
+    {
+      "query": "(service.name = 'a' AND slow AND db) OR error_count > 0",
+      "read": {
+        "filters": [],
+        "where": {
+          "or": [
+            {
+              "and": [
+                { "field": "service.name", "op": "=", "value": "a" },
+                { "text": "slow db" }
+              ]
+            },
+            { "field": "error_count", "op": ">", "value": "0" }
+          ]
+        }
+      }
+    },
+    { "query": "service.name in ()", "error": true },
+    { "query": "(service.name = 'a'", "error": true },
+    { "query": "service.name = ''", "error": true }
+  ]
+}

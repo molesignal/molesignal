@@ -6,22 +6,24 @@ use std::collections::HashMap;
 use axum::{
     Extension, Json, Router,
     extract::{Path, State},
-    http::header::{CACHE_CONTROL, PRAGMA},
-    response::{IntoResponse, Response},
+    response::Response,
     routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    api::{AppState, http::middleware::Permission},
+    api::{
+        AppState,
+        http::{
+            middleware::Permission,
+            routes::api_tokens::{IssuedTokenResp, TokenSpec, new_token, secret_response},
+        },
+    },
     app::iam::IamContext,
     domain::iam::{
         IamAssignedRole,
-        api_token::{ApiToken, ApiTokenKind},
+        api_token::{ApiTokenKind, ApiTokenScope},
         service_account::ServiceAccount,
-    },
-    infra::persistence::repositories::api_tokens::{
-        assemble_token, generate_token_parts, hash_secret,
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
@@ -40,6 +42,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ServiceAccountResp {
     id: String,
     name: String,
@@ -49,33 +52,20 @@ struct ServiceAccountResp {
     role_name: String,
     disabled: bool,
     created_by: String,
-    created_at_micros: i64,
-    updated_at_micros: i64,
+    created_at: i64,
+    updated_at: i64,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ProvisionedServiceAccountResp {
     service_account: ServiceAccountResp,
-    api_token: InitialApiTokenResp,
-}
-
-#[derive(Debug, Serialize)]
-struct InitialApiTokenResp {
-    id: String,
-    name: String,
-    prefix: String,
-    /// Complete bearer token. Returned once and never stored in plaintext.
-    token: String,
-    role_id: String,
-    role_key: String,
-    role_name: String,
-    token_kind: String,
-    service_account_id: String,
-    expires_at_micros: i64,
-    created_at_micros: i64,
+    /// The account's first token, which may do whatever the account may.
+    api_token: IssuedTokenResp,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateReq {
     name: String,
     #[serde(default)]
@@ -84,6 +74,7 @@ struct CreateReq {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct UpdateReq {
     #[serde(default)]
     name: Option<String>,
@@ -103,8 +94,8 @@ fn account_resp(account: ServiceAccount, role: IamAssignedRole) -> ServiceAccoun
         role_name: role.name,
         disabled: account.disabled,
         created_by: account.created_by.0,
-        created_at_micros: account.created_at.0,
-        updated_at_micros: account.updated_at.0,
+        created_at: account.created_at.0,
+        updated_at: account.updated_at.0,
     }
 }
 
@@ -188,29 +179,22 @@ async fn create(
     validate_role(&state, &context, &role_id).await?;
     let now = TimestampMicros::now();
     let account_id = Id::new();
-    let token_name = format!("{name} initial API token");
-    let (prefix, secret) = generate_token_parts();
-    let plaintext = assemble_token(&prefix, &secret);
 
-    let initial_token = ApiToken {
-        id: Id::new(),
-        prefix,
-        secret_hash: hash_secret(&secret)?,
-        org_id: context.org_id.clone(),
-        user_id: context.principal_id().clone(),
-        role_id: role_id.clone(),
-        name: token_name,
-        expires_at: Some(TimestampMicros(
-            now.0.saturating_add(INITIAL_TOKEN_TTL_MICROS),
-        )),
-        last_used_at: None,
-        revoked: false,
-        created_at: now,
-        is_default: false,
-        token_kind: ApiTokenKind::ServiceAccount,
-        application_id: None,
-        service_account_id: Some(account_id.clone()),
-    };
+    let (initial_token, plaintext) = new_token(
+        TokenSpec {
+            id: Id::new(),
+            org_id: context.org_id.clone(),
+            user_id: context.principal_id().clone(),
+            name: format!("{name} initial API token"),
+            scope: ApiTokenScope::Principal,
+            token_kind: ApiTokenKind::ServiceAccount,
+            service_account_id: Some(account_id.clone()),
+            expires_at: Some(TimestampMicros(
+                now.0.saturating_add(INITIAL_TOKEN_TTL_MICROS),
+            )),
+        },
+        now,
+    );
 
     let (saved_account, saved_token) = state
         .iam
@@ -234,32 +218,12 @@ async fn create(
     let service_account = resolve_account_resp(&state, saved_account).await?;
 
     Ok(secret_response(ProvisionedServiceAccountResp {
-        api_token: InitialApiTokenResp {
-            id: saved_token.id.0,
-            name: saved_token.name,
-            prefix: saved_token.prefix,
+        api_token: IssuedTokenResp {
+            meta: saved_token.into(),
             token: plaintext,
-            role_id: service_account.role_id.clone(),
-            role_key: service_account.role_key.clone(),
-            role_name: service_account.role_name.clone(),
-            token_kind: saved_token.token_kind.as_str().to_string(),
-            service_account_id: service_account.id.clone(),
-            expires_at_micros: saved_token
-                .expires_at
-                .expect("initial service-account API token always expires")
-                .0,
-            created_at_micros: saved_token.created_at.0,
         },
         service_account,
     }))
-}
-
-fn secret_response(payload: ProvisionedServiceAccountResp) -> Response {
-    (
-        [(CACHE_CONTROL, "private, no-store"), (PRAGMA, "no-cache")],
-        Json(payload),
-    )
-        .into_response()
 }
 
 async fn update(
@@ -333,7 +297,7 @@ async fn delete(
     Extension(context): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>> {
-    require(&context, "service_accounts.manage")?;
+    require(&context, "service_accounts.delete")?;
 
     state
         .iam
@@ -353,21 +317,7 @@ async fn validate_role(state: &AppState, context: &IamContext, role_id: &Id) -> 
         ));
     }
 
-    if role.key == "rum_client" {
-        return Err(Error::invalid(
-            "rum_client API tokens are application-scoped and cannot authenticate a service account",
-        ));
-    }
-
-    if role
-        .permissions
-        .iter()
-        .any(|permission| !context.has_permission(permission))
-    {
-        return Err(Error::forbidden(
-            "service account role permissions cannot exceed caller IAM capabilities",
-        ));
-    }
+    super::grant_limit::require_held(context, &role.effective_permissions)?;
 
     Ok(())
 }
@@ -404,7 +354,10 @@ pub(super) fn require(context: &IamContext, permission: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use axum::http::header::{CACHE_CONTROL, PRAGMA};
+
     use super::*;
+    use crate::api::http::routes::api_tokens::{ScopeResp, TokenResp};
 
     #[test]
     fn provision_response_with_plaintext_token_is_not_cacheable() {
@@ -414,25 +367,32 @@ mod tests {
                 name: "collector".into(),
                 description: String::new(),
                 role_id: "role-id".into(),
-                role_key: "intake".into(),
-                role_name: "Intake".into(),
+                role_key: "editor".into(),
+                role_name: "Editor".into(),
                 disabled: false,
                 created_by: "user-id".into(),
-                created_at_micros: 1,
-                updated_at_micros: 1,
+                created_at: 1,
+                updated_at: 1,
             },
-            api_token: InitialApiTokenResp {
-                id: "token-id".into(),
-                name: "collector initial API token".into(),
-                prefix: "0123456789abcdef".into(),
-                token: "ms_0123456789abcdef_0123456789abcdef0123456789abcdef".into(),
-                role_id: "role-id".into(),
-                role_key: "intake".into(),
-                role_name: "Intake".into(),
-                token_kind: "service_account".into(),
-                service_account_id: "account-id".into(),
-                expires_at_micros: 2,
-                created_at_micros: 1,
+            api_token: IssuedTokenResp {
+                meta: TokenResp {
+                    id: "token-id".into(),
+                    prefix: "0123456789abcdef".into(),
+                    name: "collector initial API token".into(),
+                    token_kind: "service_account".into(),
+                    user_id: "user-id".into(),
+                    scope: ScopeResp {
+                        policy_id: None,
+                        permissions: None,
+                    },
+                    application_id: None,
+                    service_account_id: Some("account-id".into()),
+                    expires_at: Some(2),
+                    last_used_at: None,
+                    revoked: false,
+                    created_at: 1,
+                },
+                token: "mspat-0123456789abcdefghjkmnpqrstvwxyz0123".into(),
             },
         });
         assert_eq!(response.headers()[CACHE_CONTROL], "private, no-store");

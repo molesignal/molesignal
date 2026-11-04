@@ -9,14 +9,17 @@ use sqlx::{PgPool, Row, types::Json};
 use super::sqlx_err;
 use crate::{
     domain::alerting::{
+        handling::IncidentHandling,
         incident::{Incident, IncidentStatus, Severity, TriggeringQuery},
         repositories::IncidentRepository,
+        routing::IncidentRouting,
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub mod groups;
 pub mod rca;
+pub mod timeline;
 
 pub struct PgIncidentRepository {
     pool: PgPool,
@@ -68,22 +71,25 @@ fn severity_from_str(s: &str) -> Result<Severity> {
 
 const COLS: &str =
     "id, org_id, rule_id, escalation_policy_id, status, severity, summary, fingerprint,
-     current_step, current_loop, current_step_started_at_micros, assignees,
+     current_step, current_loop, current_step_started_at, assignees,
      labels, annotations, trace_ids, host_ids, affected_services, triggering_query,
-     created_at_micros, acknowledged_at_micros, acknowledged_by,
-     resolved_at_micros, resolved_by";
+     created_at, acknowledged_at, acknowledged_by,
+     resolved_at, resolved_by, team_id, routing, handling, revision";
 
-/// `$21` 为 `NULL` 时无条件更新；否则仅当库中状态在该集合内才更新。
+/// `$24` 为 `NULL` 时无条件更新；否则仅当库中状态在该集合内、且 `revision` 仍是 `$25` 时才更新。
 const UPDATE_SQL: &str = "UPDATE incidents SET
         status = $2, severity = $3, summary = $4, fingerprint = $5,
-        current_step = $6, current_step_started_at_micros = $7, assignees = $8,
-        acknowledged_at_micros = $9, acknowledged_by = $10,
-        resolved_at_micros = $11, resolved_by = $12,
+        current_step = $6, current_step_started_at = $7, assignees = $8,
+        acknowledged_at = $9, acknowledged_by = $10,
+        resolved_at = $11, resolved_by = $12,
         escalation_policy_id = $13,
         labels = $14, annotations = $15,
         trace_ids = $16, host_ids = $17, affected_services = $18,
-        triggering_query = $19, current_loop = $20
-     WHERE id = $1 AND ($21::text[] IS NULL OR status = ANY($21))";
+        triggering_query = $19, current_loop = $20,
+        team_id = $21, routing = $22, handling = $23,
+        revision = revision + 1
+     WHERE id = $1 AND ($24::text[] IS NULL OR (status = ANY($24) AND revision = $25))
+     RETURNING revision";
 
 fn bind_update<'q>(query: sqlx::TracedQuery<'q>, i: &'q Incident) -> sqlx::TracedQuery<'q> {
     let assignees: Vec<String> = i.assignees.iter().map(|x| x.0.clone()).collect();
@@ -95,11 +101,11 @@ fn bind_update<'q>(query: sqlx::TracedQuery<'q>, i: &'q Incident) -> sqlx::Trace
         .bind(&i.summary)
         .bind(&i.fingerprint)
         .bind(i.current_step as i32)
-        .bind(i.current_step_started_at.0)
+        .bind(i.current_step_started_at)
         .bind(Json(assignees))
-        .bind(i.acknowledged_at.map(|t| t.0))
+        .bind(i.acknowledged_at)
         .bind(i.acknowledged_by.as_ref().map(|x| &x.0))
-        .bind(i.resolved_at.map(|t| t.0))
+        .bind(i.resolved_at)
         .bind(i.resolved_by.as_ref().map(|x| &x.0))
         .bind(&i.escalation_policy_id.0)
         .bind(Json(&i.labels))
@@ -109,6 +115,9 @@ fn bind_update<'q>(query: sqlx::TracedQuery<'q>, i: &'q Incident) -> sqlx::Trace
         .bind(Json(&i.affected_services))
         .bind(i.triggering_query.as_ref().map(Json))
         .bind(i.current_loop as i32)
+        .bind(i.team_id.as_ref().map(|x| &x.0))
+        .bind(i.routing.as_ref().map(Json))
+        .bind(Json(&i.handling))
 }
 
 fn row_to_incident(row: sqlx::postgres::PgRow) -> Result<Incident> {
@@ -124,12 +133,22 @@ fn row_to_incident(row: sqlx::postgres::PgRow) -> Result<Incident> {
         row.try_get("affected_services").map_err(sqlx_err)?;
     let triggering_query: Option<Json<TriggeringQuery>> =
         row.try_get("triggering_query").map_err(sqlx_err)?;
-    let ack_at: Option<i64> = row.try_get("acknowledged_at_micros").map_err(sqlx_err)?;
+    let ack_at: Option<i64> = row
+        .try_get::<Option<TimestampMicros>, _>("acknowledged_at")
+        .map_err(sqlx_err)?
+        .map(|t| t.0);
     let ack_by: Option<String> = row.try_get("acknowledged_by").map_err(sqlx_err)?;
-    let res_at: Option<i64> = row.try_get("resolved_at_micros").map_err(sqlx_err)?;
+    let res_at: Option<i64> = row
+        .try_get::<Option<TimestampMicros>, _>("resolved_at")
+        .map_err(sqlx_err)?
+        .map(|t| t.0);
     let res_by: Option<String> = row.try_get("resolved_by").map_err(sqlx_err)?;
     let current_step: i32 = row.try_get("current_step").map_err(sqlx_err)?;
     let current_loop: i32 = row.try_get("current_loop").map_err(sqlx_err)?;
+    let team_id: Option<String> = row.try_get("team_id").map_err(sqlx_err)?;
+    let routing: Option<Json<IncidentRouting>> = row.try_get("routing").map_err(sqlx_err)?;
+    let handling: Json<IncidentHandling> = row.try_get("handling").map_err(sqlx_err)?;
+    let revision: i64 = row.try_get("revision").map_err(sqlx_err)?;
 
     Ok(Incident {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
@@ -145,10 +164,9 @@ fn row_to_incident(row: sqlx::postgres::PgRow) -> Result<Incident> {
         fingerprint: row.try_get("fingerprint").map_err(sqlx_err)?,
         current_step: current_step as u32,
         current_loop: current_loop as u32,
-        current_step_started_at: TimestampMicros(
-            row.try_get("current_step_started_at_micros")
-                .map_err(sqlx_err)?,
-        ),
+        current_step_started_at: row
+            .try_get::<TimestampMicros, _>("current_step_started_at")
+            .map_err(sqlx_err)?,
         assignees: assignees.0.into_iter().map(Id::from_string).collect(),
         labels: labels.0,
         annotations: annotations.0,
@@ -156,11 +174,17 @@ fn row_to_incident(row: sqlx::postgres::PgRow) -> Result<Incident> {
         host_ids: host_ids.0,
         affected_services: affected_services.0,
         triggering_query: triggering_query.map(|j| j.0),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
         acknowledged_at: ack_at.map(TimestampMicros),
         acknowledged_by: ack_by.map(Id::from_string),
         resolved_at: res_at.map(TimestampMicros),
         resolved_by: res_by.map(Id::from_string),
+        team_id: team_id.map(Id::from_string),
+        routing: routing.map(|j| j.0),
+        handling: handling.0,
+        revision: u64::try_from(revision).unwrap_or_default(),
     })
 }
 
@@ -172,11 +196,11 @@ impl IncidentRepository for PgIncidentRepository {
         sqlx::query(
             "INSERT INTO incidents
              (id, org_id, rule_id, escalation_policy_id, status, severity, summary, fingerprint,
-              current_step, current_loop, current_step_started_at_micros, assignees,
+              current_step, current_loop, current_step_started_at, assignees,
               labels, annotations, trace_ids, host_ids, affected_services, triggering_query,
-              created_at_micros, acknowledged_at_micros, acknowledged_by,
-              resolved_at_micros, resolved_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)",
+              created_at, acknowledged_at, acknowledged_by,
+              resolved_at, resolved_by, team_id, routing, handling, revision)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,0)",
         )
         .bind(&i.id.0)
         .bind(&i.org_id.0)
@@ -188,7 +212,7 @@ impl IncidentRepository for PgIncidentRepository {
         .bind(&i.fingerprint)
         .bind(i.current_step as i32)
         .bind(i.current_loop as i32)
-        .bind(i.current_step_started_at.0)
+        .bind(i.current_step_started_at)
         .bind(Json(&assignees))
         .bind(Json(&i.labels))
         .bind(Json(&i.annotations))
@@ -196,26 +220,38 @@ impl IncidentRepository for PgIncidentRepository {
         .bind(Json(&i.host_ids))
         .bind(Json(&i.affected_services))
         .bind(i.triggering_query.as_ref().map(Json))
-        .bind(i.created_at.0)
-        .bind(i.acknowledged_at.map(|t| t.0))
+        .bind(i.created_at)
+        .bind(i.acknowledged_at)
         .bind(i.acknowledged_by.as_ref().map(|x| &x.0))
-        .bind(i.resolved_at.map(|t| t.0))
+        .bind(i.resolved_at)
         .bind(i.resolved_by.as_ref().map(|x| &x.0))
+        .bind(i.team_id.as_ref().map(|x| &x.0))
+        .bind(i.routing.as_ref().map(Json))
+        .bind(Json(&i.handling))
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
 
-        Ok(i)
+        Ok(Incident { revision: 0, ..i })
     }
 
     async fn update(&self, i: Incident) -> Result<Incident> {
-        bind_update(sqlx::query(UPDATE_SQL), &i)
+        let revision: Option<i64> = bind_update(sqlx::query(UPDATE_SQL), &i)
             .bind(None::<Vec<String>>)
-            .execute(&self.pool)
+            .bind(None::<i64>)
+            .fetch_optional(&self.pool)
             .await
+            .map_err(sqlx_err)?
+            .map(|row| row.try_get("revision"))
+            .transpose()
             .map_err(sqlx_err)?;
 
-        Ok(i)
+        let revision = revision.ok_or_else(|| Error::not_found("incident not found"))?;
+
+        Ok(Incident {
+            revision: u64::try_from(revision).unwrap_or_default(),
+            ..i
+        })
     }
 
     async fn update_if_status(
@@ -228,13 +264,20 @@ impl IncidentRepository for PgIncidentRepository {
             .map(|status| status_to_str(*status).to_owned())
             .collect();
 
-        let result = bind_update(sqlx::query(UPDATE_SQL), &i)
+        let revision: Option<i64> = bind_update(sqlx::query(UPDATE_SQL), &i)
             .bind(Some(expected))
-            .execute(&self.pool)
+            .bind(i64::try_from(i.revision).unwrap_or(i64::MAX))
+            .fetch_optional(&self.pool)
             .await
+            .map_err(sqlx_err)?
+            .map(|row| row.try_get("revision"))
+            .transpose()
             .map_err(sqlx_err)?;
 
-        Ok((result.rows_affected() > 0).then_some(i))
+        Ok(revision.map(|revision| Incident {
+            revision: u64::try_from(revision).unwrap_or_default(),
+            ..i
+        }))
     }
 
     async fn get(&self, id: &Id) -> Result<Incident> {
@@ -260,6 +303,35 @@ impl IncidentRepository for PgIncidentRepository {
         rows.into_iter().map(row_to_incident).collect()
     }
 
+    async fn list_merged_into(&self, org_id: &Id, target_id: &Id) -> Result<Vec<Incident>> {
+        let rows = sqlx::query(&format!(
+            "SELECT {COLS} FROM incidents
+             WHERE org_id = $1 AND handling->>'mergedInto' = $2
+             ORDER BY created_at"
+        ))
+        .bind(&org_id.0)
+        .bind(&target_id.0)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
+
+        rows.into_iter().map(row_to_incident).collect()
+    }
+
+    async fn list_active_for_rule(&self, org_id: &Id, rule_id: &Id) -> Result<Vec<Incident>> {
+        let rows = sqlx::query(&format!(
+            "SELECT {COLS} FROM incidents
+             WHERE org_id = $1 AND rule_id = $2 AND status IN ('open', 'acknowledged')"
+        ))
+        .bind(&org_id.0)
+        .bind(&rule_id.0)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
+
+        rows.into_iter().map(row_to_incident).collect()
+    }
+
     async fn find_by_fingerprint(
         &self,
         org_id: &Id,
@@ -268,7 +340,7 @@ impl IncidentRepository for PgIncidentRepository {
         let row = sqlx::query(&format!(
             "SELECT {COLS} FROM incidents
              WHERE org_id = $1 AND fingerprint = $2
-             ORDER BY created_at_micros DESC LIMIT 1"
+             ORDER BY created_at DESC LIMIT 1"
         ))
         .bind(&org_id.0)
         .bind(fingerprint)
@@ -299,10 +371,10 @@ impl IncidentRepository for PgIncidentRepository {
     ) -> Result<Vec<Incident>> {
         let rows = sqlx::query(&format!(
             "SELECT {COLS} FROM incidents
-             WHERE org_id = $1 AND created_at_micros >= $2"
+             WHERE org_id = $1 AND created_at >= $2"
         ))
         .bind(&org_id.0)
-        .bind(since.0)
+        .bind(since)
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;

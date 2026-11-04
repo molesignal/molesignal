@@ -93,7 +93,7 @@ endif
 all: build
 
 # === 构建 ===
-.PHONY: build build-release build-debug web-build
+.PHONY: build build-release build-debug web-build web-dist
 
 # Rust build.rs 只负责嵌入产物，不隐式启动包管理器；统一构建入口先确保 dist 新鲜。
 $(WEB_NODE_MODULES_STAMP): $(WEB_DIR)/package.json $(WEB_DIR)/pnpm-lock.yaml
@@ -103,6 +103,11 @@ $(WEB_DIST_INDEX): $(WEB_NODE_MODULES_STAMP) $(WEB_BUILD_INPUTS)
 	BUILD_HASH="$(GIT_SHA)" pnpm -C $(WEB_DIR) build
 
 web-build: $(WEB_DIST_INDEX)
+
+# Rust 检查和测试只要求 web/dist 存在（build.rs 要嵌入它），内容不影响结果；
+# 每次重新构建前端只会让 molesignal 整个重编。真正要出产物的目标才依赖 web-build。
+web-dist:
+	@test -f $(WEB_DIST_INDEX) || $(MAKE) web-build
 
 build:
 	$(MAKE) build-release
@@ -176,18 +181,18 @@ run-release: web-build
 .PHONY: test test-unit test-integration test-all
 test: test-unit
 
-test-unit: web-build
+test-unit: web-dist
 	cargo test $(CARGO_FLAGS_BASE) --workspace --lib --bins $(CARGO_FEATURE_FLAGS)
 
-test-integration: web-build
+test-integration: web-dist
 	cargo test $(CARGO_FLAGS_BASE) --workspace --tests $(CARGO_FEATURE_FLAGS)
 
-test-all: web-build
+test-all: web-dist
 	cargo test $(CARGO_FLAGS_BASE) --workspace --all-targets $(CARGO_FEATURE_FLAGS)
 
 # === Bench ===
 .PHONY: bench
-bench: web-build
+bench: web-dist
 	cargo bench $(CARGO_FLAGS_BASE) --workspace $(CARGO_FEATURE_FLAGS)
 
 # === Git hooks ===
@@ -220,16 +225,16 @@ fmt: _ensure-nightly-rustfmt
 fmt-check: _ensure-nightly-rustfmt
 	cargo +nightly fmt --all -- --check
 
-lint: web-build
+lint: web-dist
 	cargo clippy --workspace --all-targets $(CARGO_FEATURE_FLAGS) -- -D warnings
 
-lint-fix: web-build
+lint-fix: web-dist
 	cargo clippy --workspace --all-targets --fix --allow-dirty --allow-staged $(CARGO_FEATURE_FLAGS) -- -D warnings
 
-check: web-build
+check: web-dist
 	cargo check $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS)
 
-check-all: web-build
+check-all: web-dist
 	cargo check --workspace --all-targets $(CARGO_FEATURE_FLAGS)
 
 # === Proto schema ===
@@ -245,12 +250,20 @@ proto-breaking:
 	buf breaking --against '.git#branch=main'
 
 # === 统一入口（后端 + 前端）===
-.PHONY: ci ci-fast
-# 提交前自检：格式、lint、测试、web 检查
-ci: fmt-check lint test web-typecheck web-lint web-test
+.PHONY: verify verify-all ci ci-fast
+# 只验这些文件：make verify FILES="a.rs b.tsx"。失败或中断后重跑只补失败项
+verify:
+	python3 scripts/verify/verify.py $(FILES)
+
+# 全量门禁：失败或中断后再跑一次接着跑，FRESH=1 从头开始
+verify-all:
+	python3 scripts/verify/verify.py --all $(if $(FRESH),--fresh)
+
+ci: verify-all
 
 # 不跑测试的快速门禁
-ci-fast: fmt-check lint check-all web-typecheck web-lint
+ci-fast:
+	python3 scripts/verify/verify.py --all --only license,rustfmt,eslint,web-rules,tsc,clippy
 
 # === Docker ===
 .PHONY: docker-build docker-build-web docker-build-probe-agent docker-build-multi docker-build-probe-agent-multi docker-push docker-run
@@ -397,7 +410,8 @@ help:
 	@echo "  make test / test-integration / test-all"
 	@echo "  make bench"
 	@echo "  make fmt / fmt-check / lint / lint-fix / check / check-all"
-	@echo "  make ci / ci-fast               - 组合门禁"
+	@echo "  make verify FILES=\"a.rs b.tsx\"  - 只验这些文件，通过的不再跑"
+	@echo "  make verify-all / ci / ci-fast  - 全量门禁，失败或中断后可续跑（FRESH=1 从头开始）"
 	@echo ""
 	@echo "Proto:"
 	@echo "  make proto / proto-lint              - 校验 .proto（Rust binding 构建时生成）"

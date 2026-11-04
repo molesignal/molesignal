@@ -4,10 +4,10 @@ export interface Domain {
   id: string;
   hostname: string;
   state: string;
-  cert_not_after_micros?: number;
-  last_error?: string;
-  created_at_micros: number;
-  updated_at_micros: number;
+  certNotAfter?: number;
+  lastError?: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface CreateDomainPayload {

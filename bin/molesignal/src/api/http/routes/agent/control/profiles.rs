@@ -22,6 +22,7 @@ use crate::{
 };
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct AgentProfileRequest {
     name: String,
     #[serde(default)]
@@ -72,12 +73,12 @@ fn default_tool_calls() -> i32 {
 
 fn validate_profile_request(request: &AgentProfileRequest) -> Result<()> {
     if request.max_tool_calls < 1 || request.max_tool_calls > 256 {
-        return Err(Error::invalid("max_tool_calls must be between 1 and 256"));
+        return Err(Error::invalid("maxToolCalls must be between 1 and 256"));
     }
 
     if request.max_investigation_secs < 30 || request.max_investigation_secs > 7_200 {
         return Err(Error::invalid(
-            "max_investigation_secs must be between 30 and 7200",
+            "maxInvestigationSecs must be between 30 and 7200",
         ));
     }
 
@@ -91,7 +92,7 @@ fn validate_profile_request(request: &AgentProfileRequest) -> Result<()> {
     Ok(())
 }
 
-#[permission("agent.use")]
+#[permission("agent.profiles.read")]
 pub(super) async fn list_profiles(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -101,7 +102,7 @@ pub(super) async fn list_profiles(
     })))
 }
 
-#[permission("agent.manage")]
+#[permission("agent.profiles.manage")]
 pub(super) async fn create_profile(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -145,7 +146,7 @@ pub(super) async fn create_profile(
     Ok(Json(state.agent.repository.create_profile(profile).await?))
 }
 
-#[permission("agent.use")]
+#[permission("agent.profiles.read")]
 pub(super) async fn get_profile(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -160,7 +161,7 @@ pub(super) async fn get_profile(
     ))
 }
 
-#[permission("agent.manage")]
+#[permission("agent.profiles.manage")]
 pub(super) async fn update_profile(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -221,14 +222,14 @@ mod tests {
         assert!(validate_profile_request(&defaulted).is_ok());
 
         let allowed: AgentProfileRequest =
-            serde_json::from_value(json!({"name": "networked", "network_access": "allowed"}))
+            serde_json::from_value(json!({"name": "networked", "networkAccess": "allowed"}))
                 .unwrap();
         assert_eq!(allowed.network_access, NetworkAccess::Allowed);
         assert!(validate_profile_request(&allowed).is_ok());
 
         assert!(
             serde_json::from_value::<AgentProfileRequest>(
-                json!({"name": "invalid", "network_access": "unrestricted"}),
+                json!({"name": "invalid", "networkAccess": "unrestricted"}),
             )
             .is_err()
         );
@@ -255,7 +256,7 @@ mod tests {
             validate_profile_request(&request(json!({"name": "a", "temperature": -0.1}))).is_err()
         );
         assert!(
-            validate_profile_request(&request(json!({"name": "a", "max_investigation_secs": 10})))
+            validate_profile_request(&request(json!({"name": "a", "maxInvestigationSecs": 10})))
                 .is_err()
         );
     }

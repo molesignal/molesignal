@@ -112,7 +112,7 @@ export function ScheduleTable({
                 </Td>
                 <Td className="tabular-nums">
                   {report.enabled
-                    ? nextRun === null || !report.raw.last_run_at_micros
+                    ? nextRun === null || !report.raw.lastRunAt
                       ? t('table.first_run')
                       : formatMicrosActive(nextRun, false)
                     : '—'}
@@ -245,7 +245,7 @@ export function HistoryTable({
         </thead>
         <tbody>
           {rows.map((row) => {
-            const attemptedAt = normalizeMicros(row.delivery.attempted_at);
+            const attemptedAt = normalizeMicros(row.delivery.attemptedAt);
             return (
               <Tr key={`${row.report.id}:${row.delivery.id}`}>
                 <Td>
@@ -264,10 +264,10 @@ export function HistoryTable({
                 <Td>
                   <div className="flex items-center gap-2">
                     <RecipientIcon
-                      kind={row.delivery.recipient_kind ?? 'email'}
+                      kind={row.delivery.recipientKind ?? 'email'}
                     />
                     <span className="truncate">
-                      {row.delivery.recipient_target ?? '—'}
+                      {row.delivery.recipientTarget ?? '—'}
                     </span>
                   </div>
                 </Td>

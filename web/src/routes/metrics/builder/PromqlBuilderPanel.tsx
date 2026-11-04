@@ -75,7 +75,7 @@ export function PromqlBuilderPanel({
       byName.set(query.metric, {
         name: query.metric,
         labels: query.matchers.map((matcher) => matcher.name).filter(Boolean),
-        field_count: 0,
+        fieldCount: 0,
       });
     }
     return [...byName.values()].sort((left, right) =>
@@ -282,7 +282,7 @@ export function PromqlBuilderPanel({
               })
             }
             disabled={!query.metric || availableLabels.length === 0}
-            className="inline-flex h-11 items-center gap-1.5 rounded-md px-2.5 font-sans text-xs font-semibold text-[var(--blue-ink)] hover:bg-bg-2 hover:text-blue focus-visible:bg-bg-2 focus-visible:text-blue disabled:cursor-not-allowed disabled:text-tx-4 sm:h-8"
+            className="inline-flex h-11 items-center gap-1.5 rounded-md px-2.5 font-sans text-xs font-semibold text-[var(--blue-ink)] hover:bg-bg-2 hover:text-blue focus-visible:bg-bg-2 focus-visible:text-blue disabled:cursor-not-allowed disabled:text-[var(--tx-disabled)] sm:h-8"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden="true" />
             {t('builder.add_matcher')}

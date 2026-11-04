@@ -88,7 +88,7 @@ function InspectionForm({
   const { t, i18n } = useTranslation('logs');
   const queryClient = useQueryClient();
   const access = useProductAccess();
-  const mayListConnectors = hasPermission('alerts.read', access);
+  const mayListConnectors = hasPermission('notify.connectors.read', access);
   // The draft is there before the fields are drawn. A select that is given its value after
   // it was drawn, in the same step as the one choice holding that value, reads it back as
   // nothing chosen: the stream of an inspection would be lost on opening it.
@@ -116,7 +116,8 @@ function InspectionForm({
 
   const logStreams = React.useMemo(() => {
     const names = (streams.data ?? [])
-      .filter((stream) => stream.type === 'logs' && streamsApi.isQueryable(stream))
+      // An inspection runs in the background, where nobody's audit.read applies.
+      .filter((stream) => stream.type === 'logs' && stream.name !== '_audit' && streamsApi.isQueryable(stream))
       .map((stream) => stream.name);
 
     // The stream of the inspection stays offered while the list loads, or after it was removed.
@@ -157,7 +158,7 @@ function InspectionForm({
       const input = inputFromDraft(draft, {
         timezone,
         language: inspection?.language ?? i18n.resolvedLanguage ?? i18n.language,
-        model: inspection?.provider_id === draft.providerId ? inspection.model : null,
+        model: inspection?.providerId === draft.providerId ? inspection.model : null,
       });
 
       return inspection ? inspectionsApi.update(inspection.id, input) : inspectionsApi.create(input);
@@ -181,7 +182,7 @@ function InspectionForm({
       footer={
         <>
           <p data-inspection-run-as className="mr-auto min-w-0 max-w-[420px] font-sans text-xs leading-relaxed text-tx-3">
-            {inspection && inspection.run_as_user
+            {inspection && inspection.runAsUser
               ? t('inspections.editor.run_as_change', { name: runAsName(inspection) })
               : t('inspections.editor.run_as_you')}
           </p>
@@ -271,7 +272,7 @@ function InspectionForm({
                 !model
                   ? t('inspections.editor.no_model')
                   : model.enabled
-                    ? t('explore.inspection.disclosure', { model: model.default_model })
+                    ? t('explore.inspection.disclosure', { model: model.defaultModel })
                     : t('inspections.editor.model_off_hint')
               }
             >
@@ -281,7 +282,7 @@ function InspectionForm({
                 placeholder={t('inspections.editor.model_placeholder')}
                 onChange={(providerId) => change({ providerId })}
                 options={models.map((provider) => {
-                  const name = `${provider.name} · ${provider.default_model}`;
+                  const name = `${provider.name} · ${provider.defaultModel}`;
 
                   // The model of the inspection stays shown after it was disabled, and says so.
                   return {

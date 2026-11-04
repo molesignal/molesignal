@@ -44,12 +44,12 @@ describe('Mole Agent prompt models', () => {
       purpose: 'system',
       name: 'Builtin',
       body: 'body',
-      variables_schema: {},
-      is_default: true,
+      variablesSchema: {},
+      isDefault: true,
       enabled: true,
       version: 1,
-      created_at_micros: 1,
-      updated_at_micros: 1,
+      createdAt: 1,
+      updatedAt: 1,
     };
     const org = { ...base, id: 'org', scope: 'org' as const };
     const user = { ...base, id: 'user', scope: 'user' as const };

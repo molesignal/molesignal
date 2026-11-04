@@ -1,15 +1,13 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { Plus, Search } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { ConfirmDialog, DataTable } from '@/admin';
-import * as businessServicesApi from '@/api/businessServices';
 import * as statusPagesApi from '@/api/statusPages';
 import type { StatusPageComponent, StatusPageComponentInput } from '@/api/statusPages';
 import { toApiError } from '@/lib/http';
-import { useActionAccess } from '@/product/actionAccess';
 import { ChromeButton } from '@/shell/chrome';
 import { FormInput, FormSelect } from '@/shell/FormDrawer';
 import { PageBody } from '@/shell/PageHeader';
@@ -18,7 +16,7 @@ import { toast } from '@/shell/ui/sonner';
 
 import { COMPONENT_STATUSES, componentStatusLabel, isComponentGroup, namedComponents } from '../model';
 import { componentColumns } from './component/columns';
-import { ComponentFormDrawer, type ComponentSubmission } from './component/ComponentFormDrawer';
+import { ComponentFormDrawer } from './component/ComponentFormDrawer';
 import { componentOrder, componentRows, componentSiblings } from './component/rows';
 import { useStatusPageWorkspace } from './Layout';
 import {
@@ -51,16 +49,8 @@ export function StatusPageComponents() {
     .filter((item) => isComponentGroup(item) && item.lifecycle === 'active')
     .sort(componentOrder);
   const canMutate = manageAccess.allowed && snapshot.page.lifecycle === 'active';
-  const businessServiceAccess = useActionAccess({ permission: 'business_services.read' });
-  // The column is there only when a component on the page stands for a business service.
-  const linksShown = businessServiceAccess.allowed
-    && snapshot.components.some((component) => component.business_service);
-  const servicesQuery = useQuery({
-    queryKey: ['business-services'],
-    queryFn: businessServicesApi.list,
-    enabled: linksShown,
-    staleTime: 30_000,
-  });
+  // The column is there only when a component on the page depends on something.
+  const dependenciesShown = snapshot.components.some((component) => component.dependencies?.length);
   const hasHidden = namedComponents(snapshot.components).some(
     (item) => item.lifecycle === lifecycle && item.visibility === 'hidden',
   );
@@ -73,16 +63,10 @@ export function StatusPageComponents() {
   };
 
   const saveMutation = useMutation({
-    mutationFn: async ({ input, link }: ComponentSubmission) => {
-      const saved = editing
-        ? await statusPagesApi.updateComponent(pageId, editing.id, input)
-        : await statusPagesApi.createComponent(pageId, input);
-      if (link) return statusPagesApi.linkComponentService(pageId, saved.id, link);
-      if (link === null && saved.business_service) {
-        return statusPagesApi.unlinkComponentService(pageId, saved.id);
-      }
-      return saved;
-    },
+    mutationFn: (input: StatusPageComponentInput) =>
+      editing
+        ? statusPagesApi.updateComponent(pageId, editing.id, input)
+        : statusPagesApi.createComponent(pageId, input),
     onSuccess: async () => {
       toast.success(t('toast.component_saved'));
       closeDrawer();
@@ -143,9 +127,7 @@ export function StatusPageComponents() {
 
   const columns = componentColumns({
     t,
-    serviceNames: linksShown
-      ? new Map((servicesQuery.data ?? []).map((service) => [service.id, service.name]))
-      : null,
+    dependenciesShown,
     actions: {
       canMutate,
       disabledReason: manageAccess.reason,
@@ -277,6 +259,6 @@ function componentInput(
     lifecycle,
     position,
     kind: component.kind ?? 'component',
-    group_id: component.group_id ?? null,
+    groupId: component.groupId ?? null,
   };
 }

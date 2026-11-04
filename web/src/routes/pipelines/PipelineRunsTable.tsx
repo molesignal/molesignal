@@ -102,11 +102,11 @@ export function PipelineRunsTable({
           cell: (run) => (
             <div>
               <div className="text-tx-1">
-                {formatRelativeMicros(run.started_at_micros, locale)}
+                {formatRelativeMicros(run.startedAt, locale)}
               </div>
               {!compact && (
                 <div className="mt-0.5 font-mono text-xs text-tx-3">
-                  {new Date(run.started_at_micros / 1000).toLocaleString(locale)}
+                  {new Date(run.startedAt / 1000).toLocaleString(locale)}
                 </div>
               )}
             </div>
@@ -116,7 +116,7 @@ export function PipelineRunsTable({
           key: 'duration',
           header: labels.duration,
           width: 130,
-          cell: (run) => formatRunDuration(run.started_at_micros, run.finished_at_micros),
+          cell: (run) => formatRunDuration(run.startedAt, run.finishedAt),
         },
         {
           key: 'rows',
@@ -157,15 +157,15 @@ function RunCounts({
   labels: PipelineRunsTableLabels;
 }) {
   const format = (value: number) => new Intl.NumberFormat(locale).format(value);
-  const dropped = run.dropped_rows ?? 0;
-  const failed = run.failed_rows ?? 0;
+  const dropped = run.droppedRows ?? 0;
+  const failed = run.failedRows ?? 0;
 
   return (
     <div className="font-sans text-xs tabular-nums">
       <div className="text-tx-1">
-        {labels.count('scanned', format(run.scanned_rows))}
-        {run.written_rows !== undefined && (
-          <span className="text-tx-3"> · {labels.count('written', format(run.written_rows))}</span>
+        {labels.count('scanned', format(run.scannedRows))}
+        {run.writtenRows !== undefined && (
+          <span className="text-tx-3"> · {labels.count('written', format(run.writtenRows))}</span>
         )}
       </div>
       {(dropped > 0 || failed > 0) && (

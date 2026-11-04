@@ -8,11 +8,15 @@
     "meta": {
       "status": "状态",
       "fired": "触发时间",
-      "rule": "规则"
+      "rule": "规则",
+      "synthetic": "拨测",
+      "source": "来源",
+      "created_by": "手动创建"
     },
     "firing_for": "已持续触发 {{duration}}",
     "recovered_after": "{{duration}} 后恢复",
-    "no_owner": "尚无人接手"
+    "no_owner": "尚无人接手",
+    "someone": "有人"
   },
   "actions": {
     "new_rule": "新建规则",
@@ -61,13 +65,20 @@
     "label": "告警视图",
     "incidents": "告警事件",
     "rules": "规则",
+    "sources": "告警来源",
     "status_pages": "状态页",
     "history": "历史",
     "insights": "洞察",
     "groups": "分组",
     "escalations": "升级",
     "schedules": "值班排班",
-    "silences": "静默策略"
+    "silences": "静默策略",
+    "inhibitions": "抑制",
+    "routing": "路由",
+    "remediation": "修复动作",
+    "tickets": "工单",
+    "postmortems": "复盘",
+    "discovery": "自动发现"
   },
   "history": {
     "error_title": "无法加载告警历史",
@@ -94,7 +105,8 @@
       "current_status": "当前状态",
       "created": "触发时间",
       "resolved": "恢复时间",
-      "duration": "持续时间"
+      "duration": "持续时间",
+      "priority": "优先级"
     },
     "severity": {
       "info": "信息",
@@ -125,7 +137,9 @@
       },
       "tabs": {
         "active": "触发中",
-        "unacknowledged": "等待确认"
+        "unacknowledged": "等待确认",
+        "my_teams": "我的团队",
+        "inhibited": "已抑制"
       },
       "columns": {
         "severity": "级别",
@@ -133,7 +147,8 @@
         "status": "状态",
         "duration": "持续时间",
         "owner": "负责人",
-        "actions": "操作"
+        "actions": "操作",
+        "priority": "优先级"
       },
       "status": {
         "open": "等待确认",
@@ -172,6 +187,14 @@
         "unacknowledged": {
           "title": "没有等待确认的事件",
           "description": "当前活跃事件都已经有人接手。"
+        },
+        "my_teams": {
+          "title": "你的团队没有触发中的事件",
+          "description": "分派给你所在团队的事件会列在这里。"
+        },
+        "priority": {
+          "title": "没有这个优先级的事件",
+          "description": "换一个优先级，或选「全部优先级」。"
         }
       },
       "tabs_label": "告警事件状态",
@@ -212,13 +235,20 @@
         "not_evaluated": "尚未评估",
         "healthy": "正常",
         "pending": "等待持续",
+        "no_data": "无数据",
         "firing": "触发中",
+        "inhibited": "触发中（已抑制）",
+        "dropped": "被流水线丢弃",
         "disabled": "已停用"
       },
       "kinds": {
         "scheduled": "阈值规则",
         "real_time": "实时规则",
-        "anomaly": "异常检测"
+        "anomaly": "异常检测",
+        "composite": "组合规则",
+        "forecast": "预测规则",
+        "outlier": "离群规则",
+        "heartbeat": "心跳规则"
       },
       "never_evaluated": "尚未评估",
       "no_match": {
@@ -226,7 +256,10 @@
         "description": "尝试调整关键词或状态筛选。"
       },
       "tabs_label": "规则状态",
-      "evaluated_ago": "{{age}}前"
+      "evaluated_ago": "{{age}}前",
+      "bulk_delete_title_one": "删除 {{count}} 条规则？",
+      "bulk_delete_title_other": "删除 {{count}} 条规则？",
+      "bulk_delete_description": "这些规则将不再评估，删除后无法恢复。"
     }
   },
   "workbench": {
@@ -261,24 +294,37 @@
       "interval": "评估间隔",
       "query": "查询",
       "query_language": "查询语言",
+      "group_by": "按维度拆分",
       "thresholds": "触发条件",
-      "runbook": "处理指南 / Runbook URL"
+      "runbook": "处理指南 / Runbook URL",
+      "delay": "评估延迟",
+      "priority": "优先级",
+      "urgency": "紧急度",
+      "home_cluster": "汇总集群"
     },
     "placeholders": {
       "name": "例如 api_high_error_rate",
       "service": "例如 api-gateway",
       "description": "说明该规则保护的用户路径或系统能力",
-      "stream": "例如 app_metrics"
+      "stream": "例如 app_metrics",
+      "group_by": "例如 host, service"
     },
     "hints": {
       "query": "测试规则会使用最近 6 小时真实数据执行此查询。",
       "thresholds": "最高命中的严重度生效；持续时间会自动换算为评估周期。",
-      "runbook": "可选。事件处理人员可以从事件列表直接打开。"
+      "runbook": "可选。事件处理人员可以从事件列表直接打开。",
+      "group_by": "填查询结果里的列，如 host、service，逗号分隔，最多 8 列。每组取值各比各的阈值、各开各的事件，值取其余列里第一个数值列；留空则整条规则一个事件。",
+      "delay": "每一轮往回挪的时间，等晚到或还没刷写的数据。自动：单机不挪，分角色集群按平台设置。",
+      "priority": "开出来的事件带这个优先级；不设时告警流水线还可以设。",
+      "urgency": "不设时按事件走的升级策略定。",
+      "home_cluster": "联邦里每个集群各自统计写入自己的记录。选一个集群把映射了这个组织的各集群的计数加起来，只在它那里开事件，别的集群只计数。"
     },
     "signals": {
       "metrics": "指标告警",
       "logs": "日志告警",
-      "traces": "链路告警"
+      "traces": "链路告警",
+      "apm": "APM 告警",
+      "rum": "RUM 告警"
     },
     "quick_start": "快速开始",
     "presets": {
@@ -323,6 +369,22 @@
       "duration": "并持续",
       "minutes": "分钟"
     },
+    "conditions": {
+      "recovery": "恢复条件",
+      "recovery_hint": "数值在阈值附近来回时，设恢复阈值或持续时间，免得反复触发、反复恢复。",
+      "recovery_threshold": "恢复阈值",
+      "recovery_threshold_placeholder": "同触发阈值",
+      "no_data": "没有数据时",
+      "no_data_hint": "查不到值，或按维度拆分时某一组不在结果里，都算没有数据。",
+      "no_data_action": "处理方式",
+      "no_data_actions": {
+        "resolve": "当作恢复",
+        "keep": "保持原状态",
+        "alert": "开无数据事件",
+        "zero": "按 0 计算"
+      },
+      "no_data_duration": "无数据持续"
+    },
     "operators": {
       "gt": "> (大于)",
       "gte": "≥ (大于等于)",
@@ -340,6 +402,9 @@
     "preview": {
       "title": "查询预览",
       "window": "最近 6 小时真实数据",
+      "window_hours_one": "最近 1 小时真实数据",
+      "window_hours_other": "最近 {{count}} 小时真实数据",
+      "window_open": "真实数据",
       "not_run": "尚未运行测试",
       "not_run_description": "运行后会显示查询曲线、阈值线和历史预计触发次数。",
       "stale": "上次测试后查询已变化",
@@ -351,8 +416,16 @@
       "query_value": "查询结果",
       "threshold": "阈值",
       "current": "当前值",
-      "estimated": "预计触发次数",
-      "cost": "扫描行 · 耗时"
+      "cost": "扫描行 · 耗时",
+      "groups_one": "按 {{columns}} 分成 {{count}} 组",
+      "groups_other": "按 {{columns}} 分成 {{count}} 组",
+      "backtest_fires_one": "按当前条件，这段时间会触发 {{count}} 次（{{times}}）。",
+      "backtest_fires_other": "按当前条件，这段时间会触发 {{count}} 次（{{times}}）。",
+      "backtest_quiet": "按当前条件，这段时间不会触发。",
+      "backtest_near_one": "另有 {{count}} 次越过阈值，但没有持续满 {{periods}} 个周期。",
+      "backtest_near_other": "另有 {{count}} 次越过阈值，但没有持续满 {{periods}} 个周期。",
+      "span_pending": "越过阈值，尚未持续够",
+      "span_firing": "会触发"
     },
     "validation": {
       "title": "创建前检查",
@@ -367,22 +440,264 @@
         "preview_running": "请等待查询测试完成后再启用。",
         "preview_required": "请先使用当前查询成功运行「测试规则」，再启用规则。",
         "thresholds": "请先修复阈值校验问题，再启用规则。",
-        "runbook": "请输入有效的 Runbook URL 后再启用。"
-      }
+        "runbook": "请输入有效的 Runbook URL 后再启用。",
+        "composite": "先写好组合表达式并选好其中的规则，再启用规则。",
+        "heartbeat": "打卡周期至少 1 分钟。"
+      },
+      "composite": "组合表达式和规则已选好",
+      "heartbeat": "打卡周期有效"
     },
     "errors": {
       "load_rule": "无法加载告警规则",
       "org_required": "当前组织不可用。",
       "name_required": "规则名称必填。",
       "stream_required": "目标数据流必填。",
+      "stream_audit": "告警规则不能读取 _audit：规则在后台评估，用不了任何人的 audit.read 权限。",
       "query_required": "查询语句必填。",
       "threshold_required": "至少需要一个有效阈值。",
       "threshold_conflict": "高严重度阈值不能比低严重度阈值更容易命中。",
-      "runbook_invalid": "请输入有效的 http 或 https 地址。"
+      "runbook_invalid": "请输入有效的 http 或 https 地址。",
+      "apm_service_required": "选择要告警的服务",
+      "rum_application_required": "选择要告警的应用",
+      "group_by_missing": "查询结果里没有用来拆分的列：{{columns}}",
+      "group_by_too_many": "最多按 {{count}} 列拆分。",
+      "recovery_side": "恢复阈值要在健康的一侧：高于阈值触发时不能比阈值高，低于阈值触发时不能比阈值低，而且各档要朝同一个方向。"
     },
     "toast": {
       "saved": "规则「{{name}}」已保存并启用",
       "draft_saved": "规则草稿「{{name}}」已保存"
+    },
+    "apm": {
+      "service": "服务",
+      "service_placeholder": "选择服务",
+      "environment": "环境",
+      "every_environment": "所有环境",
+      "endpoint": "端点",
+      "whole_service": "整个服务",
+      "metric": "指标",
+      "unit": {
+        "percent": "单位：%",
+        "milliseconds": "单位：毫秒",
+        "per_second": "单位：每秒请求数",
+        "count": "单位：次",
+        "score": "取值 0–1",
+        "burn_rate": "错误预算消耗速度的倍数"
+      },
+      "metrics": {
+        "error_rate": "错误率",
+        "p50": "P50 延迟",
+        "p90": "P90 延迟",
+        "p95": "P95 延迟",
+        "p99": "P99 延迟",
+        "average": "平均耗时",
+        "throughput": "吞吐",
+        "request_count": "请求数",
+        "error_count": "错误数",
+        "new_error_groups": "新错误组",
+        "apdex": "Apdex",
+        "slo_burn_rate": "SLO 燃烧率"
+      }
+    },
+    "rum": {
+      "application": "应用",
+      "application_placeholder": "选择应用",
+      "environment": "环境",
+      "every_environment": "所有环境",
+      "page": "页面",
+      "every_page": "所有页面",
+      "screen": "屏幕",
+      "every_screen": "所有屏幕",
+      "version": "版本",
+      "every_version": "所有版本",
+      "metric": "指标",
+      "window": "评估窗口",
+      "windows": {
+        "300": "5 分钟",
+        "900": "15 分钟",
+        "3600": "1 小时"
+      },
+      "min_samples": "最少样本",
+      "min_samples_hint": "不足这个数的{{kind}}时指标没有值，因此不会触发。默认 {{rows}}。",
+      "sample_kinds": {
+        "views": "视图",
+        "sessions": "会话",
+        "requests": "请求",
+        "views_with_value": "有值的视图",
+        "rows": "匹配的行"
+      },
+      "unit": {
+        "percent": "单位：%",
+        "milliseconds": "单位：毫秒",
+        "count": "单位：个",
+        "score": "得分，0.1 以内为良好",
+        "bytes": "单位：字节",
+        "none": "没有单位"
+      },
+      "not_for": {
+        "page_sessions": "会话不在某一个页面上。",
+        "page_issues": "一个问题会出现在很多页面。",
+        "version_issues": "一个问题会出现在很多版本。",
+        "page_query": "查询里写页面条件。",
+        "version_query": "查询里写版本条件。"
+      },
+      "unavailable": {
+        "time_budget": "预览花的时间太长：请选更短的窗口。",
+        "busy": "正在运行的查询太多，请稍后再试。",
+        "timestamp_masked": "这个数据流的时间被脱敏，画不出预览。"
+      },
+      "metrics": {
+        "session_count": "会话数",
+        "view_count": "视图数",
+        "error_count": "错误数",
+        "error_rate": "错误率（出现错误的视图）",
+        "crash_free_sessions": "无崩溃会话",
+        "frustration_rate": "受挫会话",
+        "failed_request_rate": "请求失败率",
+        "lcp_p75": "LCP（p75）",
+        "inp_p75": "INP（p75）",
+        "cls_p75": "CLS（p75）",
+        "ttfb_p75": "首字节（p75）",
+        "new_issues": "新问题",
+        "regressed_issues": "问题回归",
+        "issue_impact": "影响最大的问题波及的会话",
+        "custom_vital": "自定义耗时（vital）",
+        "custom_timing": "自定义时刻（timing）",
+        "query": "Explorer 查询"
+      },
+      "custom": {
+        "name_vital": "Vital 名称",
+        "name_timing": "Timing 名称",
+        "placeholder": "选择或输入名称",
+        "statistic": "取值",
+        "statistics": {
+          "p50": "P50",
+          "p75": "P75",
+          "p90": "P90",
+          "p95": "P95",
+          "p99": "P99",
+          "avg": "平均",
+          "count": "次数"
+        }
+      },
+      "query": {
+        "type": "行的类型",
+        "statement": "查询",
+        "statement_hint": "和 RUM Explorer 的 Code 写法一样，留空就是这个类型的全部行。",
+        "ignored": "这个类型回答不了，已忽略：{{parts}}",
+        "measure": "度量",
+        "field": "字段",
+        "field_placeholder": "选择字段",
+        "open_explorer": "在 Explorer 中打开",
+        "functions": {
+          "count": "行数",
+          "count_distinct": "不同值的个数",
+          "sum": "求和",
+          "avg": "平均值",
+          "min": "最小值",
+          "max": "最大值",
+          "p50": "p50",
+          "p75": "p75",
+          "p90": "p90",
+          "p95": "p95",
+          "p99": "p99"
+        }
+      }
+    },
+    "kind": {
+      "label": "判定方式",
+      "options": {
+        "scheduled": "阈值",
+        "forecast": "预测",
+        "outlier": "离群",
+        "composite": "组合",
+        "heartbeat": "心跳"
+      },
+      "hints": {
+        "scheduled": "查询结果越过阈值时触发。",
+        "forecast": "按过去的走势往后推，预计在提前量之内越过阈值就触发。",
+        "outlier": "按列拆分，各组相互比较，明显偏离其余组的组各开一个事件。",
+        "composite": "用与、或、非把几条规则组合起来，规则有进行中的事件就算成立。",
+        "heartbeat": "等定时任务、备份脚本来打卡；过了周期加宽限还没打卡，或打卡报了失败就触发。"
+      }
+    },
+    "composite": {
+      "expression": "表达式",
+      "expression_hint": "用字母指代下面的规则，用 &&（并且）、||（或者）、!（不是）和括号组合。",
+      "rules": "规则",
+      "rule_named": "规则 {{letter}}",
+      "pick_rule": "选择规则",
+      "missing_rule": "规则已不存在",
+      "add_rule": "添加规则 {{letter}}",
+      "remove_rule": "移除规则 {{letter}}",
+      "merge_children": "把这些规则的事件并到组合规则的事件下",
+      "merge_children_hint": "组合规则开事件后，被组合的规则进行中的事件不再单独通知，都挂在它下面。",
+      "problems": {
+        "empty": "写一个表达式，比如 A && B。",
+        "characters": "表达式里只能有单个字母、&&、||、! 和括号。",
+        "letters": "表达式里的 {{letters}} 还没有选规则。",
+        "unused": "{{letters}} 没有用在表达式里。"
+      }
+    },
+    "forecast": {
+      "line": "预计",
+      "lead": "提前量",
+      "lookback": "回看",
+      "model": "外推方式",
+      "models": {
+        "linear": "线性趋势",
+        "daily": "按天的规律",
+        "weekly": "按周的规律"
+      },
+      "hours_one": "{{count}} 小时",
+      "hours_other": "{{count}} 小时",
+      "days_one": "{{count}} 天",
+      "days_other": "{{count}} 天",
+      "hint": "规则每轮把当前值记进序列，刚建好时先补一批历史点；点不够时不判断。"
+    },
+    "outlier": {
+      "tolerance": "容差",
+      "tolerance_hint": "偏离多少个尺度算离群，越小越敏感，默认 3。",
+      "direction": "看哪一侧",
+      "directions": {
+        "both": "偏高或偏低",
+        "above": "只看偏高",
+        "below": "只看偏低"
+      },
+      "needs_split": "离群规则要按列拆分，有值的组至少 3 个才比较。"
+    },
+    "heartbeat": {
+      "period": "打卡周期",
+      "grace": "宽限",
+      "address_after_save": "保存后给出打卡地址，只显示一次。",
+      "last_checkin": "最后一次打卡：{{value}}",
+      "never": "还没有打过卡",
+      "status": {
+        "ok": "正常",
+        "fail": "报了失败"
+      },
+      "due": "最晚下次打卡：{{value}}",
+      "reset": "重置打卡地址",
+      "dialog_title": "打卡地址",
+      "dialog_description": "让任务每次跑完请求这个地址（GET 或 POST）；失败时加上 ?status=fail，会马上触发。",
+      "shown_once": "地址只显示这一次，重置后旧地址马上失效。",
+      "no_external_url": "实例没有设外部地址，这里用的是你现在访问的地址，任务要能访问到它。",
+      "example": "示例",
+      "copy": "复制地址"
+    },
+    "delay": {
+      "auto": "自动",
+      "none": "不延迟",
+      "seconds_one": "{{count}} 秒",
+      "seconds_other": "{{count}} 秒",
+      "minutes_one": "{{count}} 分钟",
+      "minutes_other": "{{count}} 分钟",
+      "hours_one": "{{count}} 小时",
+      "hours_other": "{{count}} 小时"
+    },
+    "urgency_by_policy": "按升级策略",
+    "home_cluster": {
+      "each": "各集群各算各的",
+      "local": "{{name}}（本集群）"
     }
   },
   "drawer": {
@@ -406,7 +721,15 @@
       "signals": "跨信号引用",
       "metadata": "元数据",
       "triggering_query": "触发查询",
-      "assignees": "负责人"
+      "assignees": "负责人",
+      "blast_radius": "影响范围",
+      "rum_sessions": "样本会话",
+      "similar": "相似事件",
+      "changes": "最近变更",
+      "remediation": "修复动作",
+      "tickets": "工单",
+      "major": "重大事件",
+      "postmortem": "复盘"
     },
     "investigation": {
       "open_trigger": "打开触发查询",
@@ -414,7 +737,9 @@
       "related_logs": "相关日志",
       "related_logs_description": "检查受影响上下文中的日志。",
       "related_metrics": "相关指标",
-      "related_metrics_description": "在同一时间窗对比服务健康状态。"
+      "related_metrics_description": "在同一时间窗对比服务健康状态。",
+      "open_rum": "在 RUM 中打开",
+      "open_rum_description": "在事件发生的时间范围里，看这项指标所在的页面。"
     },
     "rca": {
       "generate": "生成",
@@ -448,7 +773,65 @@
       "sample_count_one": "1 条样本",
       "show_samples": "展开样本值"
     },
-    "assignees_none": "暂无负责人。"
+    "assignees_none": "暂无负责人。",
+    "routing": {
+      "team": "团队",
+      "reason": "依据",
+      "no_team": "没有分派团队"
+    },
+    "rum": {
+      "why": {
+        "lcp_p75": "LCP 最慢的视图所在的会话",
+        "inp_p75": "交互最慢的视图所在的会话",
+        "cls_p75": "布局偏移最大的视图所在的会话",
+        "ttfb_p75": "首字节最慢的视图所在的会话",
+        "error_rate": "最近出现错误的会话",
+        "error_count": "最近出现错误的会话",
+        "new_issues": "这些问题最近的错误所在的会话",
+        "regressed_issues": "这些问题最近的错误所在的会话",
+        "issue_impact": "影响最大的问题最近的错误所在的会话",
+        "crash_free_sessions": "崩溃了的会话",
+        "frustration_rate": "出现受挫信号的会话",
+        "failed_request_rate": "有请求失败的会话"
+      },
+      "cause": {
+        "lcp": "LCP {{value}}",
+        "inp": "INP {{value}}",
+        "cls": "CLS {{value}}",
+        "ttfb": "首字节 {{value}}",
+        "request": "{{request}} → {{status}}"
+      },
+      "replay": "回放",
+      "replay_at": "回放 {{time}}",
+      "session": "会话",
+      "anonymous": "匿名 {{id}}",
+      "element": "元素 {{element}}",
+      "crashes_one": "崩溃 {{count}} 次",
+      "crashes_other": "崩溃 {{count}} 次",
+      "signs_one": "{{count}} 个受挫信号",
+      "signs_other": "{{count}} 个受挫信号",
+      "no_answer": "没有响应",
+      "sessions_failed": "读不到会话的详情，下面是事件保存下来的内容。"
+    },
+    "blast": {
+      "off_map": "这段时间的服务地图上没有 {{service}}。",
+      "upstream": "调用它的服务：会受它影响",
+      "downstream": "它调用的：问题可能来自这里",
+      "no_upstream": "没有服务调用它。",
+      "no_downstream": "它没有调用其他服务。",
+      "open_map": "在服务地图中查看",
+      "direct": "直接",
+      "hops_one": "相隔 {{count}} 层",
+      "hops_other": "相隔 {{count}} 层",
+      "calls_one": "{{formatted}} 次调用，失败 {{rate}}",
+      "calls_other": "{{formatted}} 次调用，失败 {{rate}}",
+      "health": {
+        "critical": "严重",
+        "warning": "警告",
+        "healthy": "健康",
+        "no_traffic": "无流量"
+      }
+    }
   },
   "insights": {
     "error_title": "无法计算洞察",
@@ -495,7 +878,8 @@
       "description": "按所选时段内触发的事件数量排序。",
       "empty_title": "暂无规则归因",
       "empty_description": "当前事件没有可识别的规则来源。",
-      "unknown_rule": "已删除或不可用的规则"
+      "unknown_rule": "已删除或不可用的规则",
+      "manual_secondary": "有人手动开的事件"
     },
     "rankings": {
       "count_and_share_one": "{{count}} 个事件 · {{percent}}",
@@ -507,6 +891,78 @@
       "minutes_seconds": "{{minutes}} 分 {{seconds}} 秒",
       "hours": "{{count}} 小时",
       "hours_minutes": "{{hours}} 小时 {{minutes}} 分"
+    },
+    "response": {
+      "title": "响应",
+      "description": "多久有人接手、多久恢复、升级了多少，和前一段同样长的时间比。",
+      "mtta": "平均接手时间",
+      "percentiles": "P50 {{p50}} · P90 {{p90}}",
+      "none_responded": "这段时间还没有人接手过事件",
+      "mttr": "恢复时间中位数",
+      "p90": "P90 {{p90}}",
+      "escalation_rate": "升级率",
+      "responded": "有人接手",
+      "responded_detail": "{{responded}} / {{incidents}} 个事件，其余自行恢复或仍在等待",
+      "faster": "比前一段快 {{change}}",
+      "slower": "比前一段慢 {{change}}",
+      "lower": "比前一段低 {{change}}",
+      "higher": "比前一段高 {{change}}",
+      "same": "和前一段持平",
+      "no_previous": "前一段没有可比的数据",
+      "steps_title": "各级确认率",
+      "steps_description": "到过这一级的事件里，在这一级被确认的比例。",
+      "step": "第 {{n}} 级",
+      "step_rate": "{{acknowledged}} / {{reached}} · {{percent}}",
+      "steps_empty": "这段时间没有升级记录。",
+      "via_title": "接手途径",
+      "via_description": "第一次确认或解决是在哪里做的。",
+      "via": {
+        "web": "网页",
+        "api": "接口",
+        "im": "IM 卡片",
+        "sms": "回复短信",
+        "phone": "电话按键",
+        "agent": "Mole Agent"
+      },
+      "via_empty": "这段时间还没有人接手过事件。",
+      "breakdown_title": "按团队、服务、个人",
+      "breakdown_description": "个人按第一个接手的人算；一个事件涉及几个服务时，每个服务各算一次；没设优先级的事件不算在优先级里。",
+      "breakdown_label": "拆分维度",
+      "dimensions": {
+        "teams": "团队",
+        "services": "服务",
+        "people": "个人",
+        "priorities": "优先级"
+      },
+      "columns": {
+        "teams": "团队",
+        "services": "服务",
+        "people": "成员",
+        "incidents": "事件",
+        "mtta": "平均接手",
+        "mttr": "平均恢复",
+        "escalation": "升级率",
+        "priorities": "优先级"
+      },
+      "breakdown_empty": "没有可拆分的数据。"
+    },
+    "load": {
+      "title": "值班负担",
+      "description": "每个人值了多久的班、收到几次告警通知；夜里按各自排班的时区算 {{start}}:00 到次日 {{end}}:00。",
+      "loading": "正在统计…",
+      "error": "值班负担读取失败。",
+      "empty": "这段时间没有人值班，也没有发出告警通知。",
+      "columns": {
+        "person": "成员",
+        "oncall": "值班时长",
+        "pages": "通知",
+        "night": "夜间",
+        "weekend": "周末",
+        "nights": "被吵醒的夜晚",
+        "mtta": "先接手",
+        "timezone": "时区"
+      },
+      "mtta_of": "{{count}} 个 · 平均 {{mtta}}"
     }
   },
   "anomaly": {
@@ -534,7 +990,8 @@
       "k": "灵敏度（k·σ）",
       "alpha": "平滑系数（α）",
       "for_periods": "触发所需连续周期",
-      "weekly_seasonality": "周季节性"
+      "weekly_seasonality": "周季节性",
+      "source": "数据源"
     },
     "hints": {
       "name": "会显示在该规则触发的事件上。",
@@ -547,7 +1004,8 @@
       "k": "越大越不敏感。当 |当前值 - 基线| > k·σ 时触发。",
       "alpha": "仅 EWMA：越大越看重近期样本（0-1）。",
       "for_periods": "开事件前需连续异常的周期数。",
-      "weekly_seasonality": "只比较相同星期几的历史，降低工作日/周末模式的误报。需 lookback ≥ 7（建议 28+）。"
+      "weekly_seasonality": "只比较相同星期几的历史，降低工作日/周末模式的误报。需 lookback ≥ 7（建议 28+）。",
+      "source": "检测查询结果，或某个服务的 APM 指标"
     },
     "placeholders": {
       "name": "checkout_latency_anomaly",
@@ -567,6 +1025,11 @@
     "weekly": {
       "off": "关（逐日）",
       "on": "开（同星期几）"
+    },
+    "source": {
+      "query": "查询",
+      "apm": "APM 指标",
+      "rum": "RUM 指标"
     }
   },
   "severity": {
@@ -574,6 +1037,405 @@
     "warning": "警告",
     "error": "错误",
     "critical": "严重"
+  },
+  "conditions": {
+    "no_data": "无数据"
+  },
+  "sources": {
+    "synthetic": "拨测",
+    "manual": "手动创建"
+  },
+  "alert_sources": {
+    "new_source": "新建告警来源",
+    "empty_title": "还没有告警来源",
+    "empty_description": "让 Alertmanager、Grafana、Datadog、PagerDuty、Zabbix、云监控、邮件或自己的系统把告警发进来，开成事件，走升级和通知。",
+    "kinds": {
+      "api": "API",
+      "alertmanager": "Alertmanager",
+      "grafana": "Grafana",
+      "datadog": "Datadog",
+      "pagerduty": "PagerDuty",
+      "aliyun_cms": "阿里云云监控",
+      "tencent_monitor": "腾讯云可观测平台",
+      "aws_cloudwatch": "Amazon CloudWatch",
+      "zabbix": "Zabbix",
+      "email": "邮件"
+    },
+    "kind_hints": {
+      "api": "用 MoleSignal 的接口触发、确认和恢复，适合脚本、CI 和自研系统。",
+      "alertmanager": "webhook_configs 接收器；一个通知分组开一个事件。",
+      "grafana": "Webhook 联系点；一个通知分组开一个事件。",
+      "datadog": "Webhooks 集成，在监控里 @webhook；请求体用文档给的模板。",
+      "pagerduty": "Webhook v3 订阅；跟着 PagerDuty 事件触发、确认和解决。",
+      "aliyun_cms": "阈值报警回调与事件订阅推送；Token 写在地址里。",
+      "tencent_monitor": "通知模板里的接口回调，指标告警和事件告警都行；Token 写在地址里。",
+      "aws_cloudwatch": "告警发到 SNS 主题，主题订阅这个地址；验 SNS 的签名，自动确认订阅。",
+      "zabbix": "导入 Webhook 媒介类型；一个问题一个事件，跟着恢复和确认。",
+      "email": "读一个 IMAP 邮箱，不用公网地址；也能收已有邮件系统转来的原始邮件。"
+    },
+    "columns": {
+      "name": "名称",
+      "kind": "类型",
+      "policy": "升级策略",
+      "last_intake": "最近收到",
+      "status": "状态",
+      "actions": "操作"
+    },
+    "never_received": "还没收到",
+    "status": {
+      "on": "启用",
+      "off": "已停用"
+    },
+    "policy_default": "按路由分派（默认）",
+    "policy_none": "不升级，只按通知策略通知",
+    "delete_title": "删除告警来源",
+    "delete_description": "{{name}} 的 Token 立即失效，它开着的事件都会被解决。",
+    "delete_named": "删除 {{name}}",
+    "drawer_title": "新建告警来源",
+    "edit_title": "编辑告警来源",
+    "drawer_subtitle": "外部系统发来的告警按这里的设置开事件。",
+    "create": "创建",
+    "save": "保存",
+    "toast_created": "告警来源已创建",
+    "toast_updated": "告警来源已更新",
+    "toast_deleted": "告警来源已删除",
+    "sections": {
+      "email": "读邮件的规则",
+      "kind": "类型",
+      "identity": "标识",
+      "incidents": "事件",
+      "labels": "附加标签"
+    },
+    "fields": {
+      "name": "名称",
+      "name_placeholder": "生产环境 Prometheus",
+      "enabled": "启用",
+      "policy": "升级策略",
+      "severity": "默认严重度",
+      "severity_hint": "告警自己没带严重度时用这一档。",
+      "cluster": "接收集群",
+      "cluster_hint": "事件只在这个集群上开，发到其他集群的告警会转过去。",
+      "cluster_local": "{{name}}（本集群）",
+      "labels_hint": "加在这个来源开的每个事件上；告警自己带了同名标签时以告警的为准。",
+      "add_label": "添加标签",
+      "remove_label": "删除标签",
+      "label_key": "标签键",
+      "label_value": "标签值"
+    },
+    "errors": {
+      "name_required": "名称必填。"
+    },
+    "token": {
+      "title": "{{name}} 的 Token",
+      "shown_once": "Token 只显示这一次，关掉后就看不到了；忘了就轮换一个。",
+      "copy": "复制 Token",
+      "close": "完成",
+      "rotate": "轮换 Token",
+      "rotate_title": "轮换 Token",
+      "rotate_description": "旧 Token 立即失效，还在用旧 Token 的发送方要换上新的。",
+      "rotated": "Token 已轮换"
+    },
+    "detail": {
+      "loading": "告警来源",
+      "intake": "接入方式",
+      "intake_email": "或者把原始邮件发过来",
+      "setup_docs": "接入说明",
+      "address": "接入地址",
+      "copy_address": "复制接入地址",
+      "token": "Token",
+      "token_hint": "这里只显示前缀，完整的 Token 只在新建和轮换时出现一次。",
+      "setup": "配置",
+      "setup_hint": "把 <TOKEN> 换成这个来源的 Token。",
+      "copy_setup": "复制配置",
+      "not_found_title": "未找到告警来源",
+      "not_found_description": "它可能已被删除，或属于其他组织。",
+      "requests": "最近收到",
+      "requests_description": "每个来源保留最近 500 次请求，最长 7 天。",
+      "home_elsewhere": "这个来源的事件在 {{cluster}} 上开，最近收到的请求记在那边。",
+      "meta": {
+        "policy": "升级策略",
+        "severity": "默认严重度",
+        "labels": "附加标签",
+        "cluster": "接收集群"
+      }
+    },
+    "email": {
+      "description": "邮件怎么读成告警。主题里的状态词、严重度、时间和百分比不算在去重键里，同一个告警的问题和恢复两封邮件落到同一个事件。",
+      "senders": "接受谁发来的",
+      "senders_hint": "逗号分隔：完整地址，或 @example.com 整个域；* 是谁都接受。配了邮箱时必填，否则知道地址的人都能开事件。",
+      "resolve": "什么主题算恢复",
+      "resolve_hint": "正则。空着用内置的：resolved、recovered、recovery、cleared、恢复、已解决，以及开头的 OK。",
+      "dedup": "从主题取去重键",
+      "dedup_hint": "正则，取第一个分组。空着或没匹配到时用整理过的主题。",
+      "ignore": "什么主题不算告警",
+      "ignore_hint": "正则。匹配到的邮件直接跳过，空着不跳过。"
+    },
+    "mailbox": {
+      "title": "读邮箱",
+      "description": "只读：不改已读状态，也不删邮件。第一次连上时从那一刻开始，邮箱里已有的邮件不算。",
+      "elsewhere": "邮箱由这个来源的接收集群 {{cluster}} 读，到那边配置：密码不出集群。",
+      "host": "IMAP 服务器",
+      "port": "端口",
+      "security": "加密",
+      "security_tls": "TLS",
+      "security_starttls": "STARTTLS",
+      "security_none": "不加密",
+      "plaintext_warning": "不加密时密码明文过网，只该用在可信的内网。",
+      "auth_password": "密码",
+      "auth_password_hint": "邮箱密码，或服务商给的授权码、应用专用密码。",
+      "auth_oauth2": "OAuth 2.0",
+      "auth_oauth2_hint": "客户端凭证换令牌：Microsoft 365 不再收密码登录。",
+      "username": "用户名",
+      "password": "密码或授权码",
+      "client_secret": "客户端密钥",
+      "secret_kept": "留空保持原样",
+      "token_url": "令牌地址",
+      "client_id": "客户端 ID",
+      "scope": "Scope",
+      "folder": "文件夹",
+      "poll_secs": "多久读一次（秒）",
+      "poll_hint": "15 到 3600。太频繁时有的邮件服务器会限制登录。",
+      "save": "保存邮箱",
+      "test": "试连",
+      "remove": "不再读这个邮箱",
+      "saved": "邮箱已保存，下一轮开始读",
+      "removed": "不再读这个邮箱",
+      "test_ok_one": "连上了，这个文件夹有 {{count}} 封邮件",
+      "test_ok_other": "连上了，这个文件夹有 {{count}} 封邮件",
+      "test_failed": "连不上：{{error}}",
+      "last_error": "上次没读成：{{error}}",
+      "last_success": "{{time}} 读过",
+      "not_read_yet": "还没读过，下一轮开始。"
+    },
+    "standing": {
+      "label": "来源状态",
+      "off": "已停用",
+      "waiting": "等待第一条请求",
+      "quiet": "近 7 天没有请求",
+      "refused": "最近一次请求被拒收",
+      "receiving": "正常接收",
+      "off_detail": "停用期间发来的请求都会被拒收。",
+      "waiting_detail": "按下面的方式设置好发送方，第一条请求到达后这里会更新。",
+      "last_received": "{{when}}收到最近一次请求",
+      "refused_detail": "{{when}}拒收：{{reason}}",
+      "requests": "近 24 小时请求",
+      "refused_count_one": "拒收 {{count}} 次",
+      "refused_count_other": "拒收 {{count}} 次",
+      "none_refused": "没有被拒收的",
+      "no_requests": "还没有请求",
+      "alerts": "告警",
+      "alert_outcomes": "开事件 {{opened}} · 恢复 {{resolved}}",
+      "open_incidents": "未关闭事件",
+      "oldest_open": "{{when}}开出最早的一个",
+      "none_open": "没有未关闭的"
+    },
+    "steps": {
+      "address": "复制接入地址",
+      "address_description": "所有告警来源共用这个地址，Token 决定是哪个来源。",
+      "token": "填上 Token",
+      "token_header": "发送方把它放进 Authorization 请求头：Bearer 加 Token。",
+      "token_query": "这个发送方设不了请求头，Token 放在接入地址的 token 参数里。",
+      "configure": "配置发送方"
+    },
+    "setup_guide": {
+      "api": "用下面的请求发送告警；同一个 dedup_key 的触发、确认和恢复落在同一个事件上。",
+      "alertmanager": "把下面的接收器加进 alertmanager.yml，并在路由里把告警交给它；send_resolved 要保持 true。",
+      "grafana": "在 Alerting → Contact points 新建 Webhook 联系点，按下面填写，再在通知策略里使用它。",
+      "datadog": "在 Integrations → Webhooks 新建 Webhook，按下面填写，再在监控的通知消息里写 @webhook-名称。",
+      "pagerduty": "在 Integrations → Generic Webhooks (v3) 新建 Webhook，按下面填写。",
+      "aliyun_cms": "把接入地址填进报警规则的「报警回调」；系统事件则填进事件订阅推送渠道的 Webhook 地址。",
+      "tencent_monitor": "在告警管理 → 通知模板的「接口回调」填接入地址，再把通知模板绑到告警策略上。",
+      "aws_cloudwatch": "让告警的状态变化发到一个 SNS 主题，给主题加一个 HTTPS 订阅（下面是 AWS CLI 的写法），地址就是接入地址。订阅会自动确认；不要打开 Raw message delivery。OK 状态也要发到这个主题，事件才会自动解决。",
+      "zabbix": "把下面存成 YAML，在 Alerts → Media types 导入；给一个用户加这个媒介（发送到随便填），再建一个触发器动作，操作、恢复操作和更新操作都发给他。",
+      "email": "邮箱读不了的时候用这个：已有的邮件系统（Postfix、SES、Mailgun）把原始邮件这样 POST 过来，读法和邮箱一样。"
+    },
+    "setup_docs_anchor": {
+      "api": "api",
+      "alertmanager": "alertmanager",
+      "grafana": "grafana",
+      "datadog": "datadog",
+      "pagerduty": "pagerduty",
+      "aliyun_cms": "阿里云云监控",
+      "tencent_monitor": "腾讯云可观测平台",
+      "aws_cloudwatch": "amazon-cloudwatch",
+      "zabbix": "zabbix",
+      "email": "邮件"
+    },
+    "requests": {
+      "columns": {
+        "time": "时间",
+        "result": "结果",
+        "alerts": "告警",
+        "message": "说明"
+      },
+      "status": {
+        "accepted": "已处理",
+        "rejected": "已拒收",
+        "forwarded": "已转发"
+      },
+      "via": "经 {{cluster}} 转来",
+      "alert_count_one": "{{count}} 条",
+      "alert_count_other": "{{count}} 条",
+      "outcomes": {
+        "opened": "开事件",
+        "updated": "更新",
+        "unchanged": "未变",
+        "acknowledged": "确认",
+        "resolved": "恢复",
+        "ignored": "忽略"
+      },
+      "actions": {
+        "trigger": "触发",
+        "acknowledge": "确认",
+        "resolve": "恢复"
+      },
+      "body": "请求体开头",
+      "open_incident": "查看事件",
+      "no_alerts": "这次请求里没有告警。"
+    },
+    "incident": {
+      "title": "外部告警",
+      "source": "来源",
+      "deleted": "来源已删除",
+      "dedup_key": "去重键",
+      "last_intake": "最近收到",
+      "members_one": "分组里的 {{count}} 条告警",
+      "members_other": "分组里的 {{count}} 条告警",
+      "member_firing": "触发中",
+      "member_resolved": "已恢复",
+      "since": "{{time}} 开始",
+      "open_sender": "在发送方查看"
+    }
+  },
+  "routing": {
+    "new_rule": "新建规则",
+    "rules_title": "路由规则",
+    "rules_description": "从上往下比对，第一条命中的规则决定去向；都不命中时，依次按服务的负责团队、team 标签、默认策略分派。",
+    "rules_empty": "还没有路由规则。",
+    "every_incident": "所有事件",
+    "min_severity": "{{severity}}及以上",
+    "only_origins": "仅{{origins}}",
+    "list_separator": "、",
+    "origins": {
+      "rule": "告警规则",
+      "external": "外部告警",
+      "synthetic": "拨测",
+      "manual": "手动创建的事件"
+    },
+    "reorder": "调整「{{name}}」的顺序",
+    "reorder_hint": "拖动，或按 ↑ ↓ 键调整顺序",
+    "target_policy": "策略",
+    "target_team": "团队",
+    "target_missing": "去向已删除",
+    "target_missing_hint": "这条规则指向的策略或团队已经删除，比对时会跳过它。",
+    "enable": "启用「{{name}}」",
+    "delete_named": "删除「{{name}}」",
+    "delete_title": "删除路由规则",
+    "delete_description": "删除「{{name}}」后，原本命中它的事件改按后面的规则分派。",
+    "toast_created": "规则已创建",
+    "toast_updated": "规则已保存",
+    "toast_deleted": "规则已删除",
+    "toast_team_policy": "值班策略已保存",
+    "teams_title": "团队的值班策略",
+    "teams_description": "事件分派到团队后，按团队的值班策略升级；团队没设时用默认策略。",
+    "teams_empty": "还没有团队。",
+    "teams_create": "去身份与访问里建团队",
+    "columns": {
+      "team": "团队",
+      "services": "负责的服务",
+      "policy": "值班策略",
+      "policy_of": "{{team}} 的值班策略"
+    },
+    "members_one": "{{count}} 人",
+    "members_other": "{{count}} 人",
+    "services_one": "{{count}} 个服务",
+    "services_other": "{{count}} 个服务",
+    "services_rest": " 等",
+    "services_none": "服务目录里没有登记",
+    "no_policy": "不设，用默认策略",
+    "default_policy": "默认策略",
+    "no_team": "不分派团队",
+    "try_title": "试一试",
+    "try_description": "填一组标签，看这样的事件会分派给哪个团队、走哪个升级策略。",
+    "try_labels": "标签",
+    "try_labels_hint": "每行一个，写成 key=value。",
+    "try_origin": "来源",
+    "try_severity": "严重度",
+    "try_run": "试一试",
+    "try_idle": "结果显示在这里：分派到的团队、升级策略，以及每一步看到了什么。",
+    "outcome_team": "团队",
+    "outcome_policy": "升级策略",
+    "outcome_reason": "依据",
+    "steps": {
+      "rule": "路由规则",
+      "rule_matched": "命中「{{name}}」",
+      "rule_none": "没有命中",
+      "rule_empty": "没有启用的规则",
+      "service": "服务的负责团队",
+      "service_none": "标签里没有服务",
+      "service_owned": "{{service}} 归 {{team}}",
+      "service_unowned": "{{service}} 没有登记负责团队",
+      "label": "team 标签",
+      "label_team": "指向 {{team}}",
+      "label_none": "没有能认出团队的 team 或 team_id 标签",
+      "default": "默认策略",
+      "default_used": "用默认策略",
+      "default_for_team": "{{team}} 没设值班策略，用默认策略",
+      "default_unused": "没有用到"
+    },
+    "reasons": {
+      "rule": "命中规则「{{name}}」",
+      "service_owner": "服务 {{service}} 的负责团队",
+      "team_label": "事件的 team 标签",
+      "default": "都没命中，用默认策略",
+      "source": "来源指定了升级策略",
+      "manual": "创建时指定"
+    },
+    "drawer": {
+      "new_title": "新建路由规则",
+      "edit_title": "编辑路由规则",
+      "subtitle": "事件满足这条规则的全部条件时，按它的去向分派。",
+      "create": "创建",
+      "save": "保存",
+      "identity": "基本信息",
+      "name": "名称",
+      "name_placeholder": "例如：生产环境的支付服务",
+      "enabled": "启用",
+      "conditions": "条件",
+      "conditions_hint": "比对事件的标签，全部满足才算命中；不加条件时匹配所有事件。",
+      "add_condition": "添加条件",
+      "remove_condition": "删除条件",
+      "key": "标签",
+      "operator": "比较方式",
+      "operators": {
+        "equals": "等于",
+        "not_equals": "不等于",
+        "in": "属于",
+        "matches": "匹配正则"
+      },
+      "value": "取值",
+      "value_in_placeholder": "多个取值用逗号分隔",
+      "scope": "范围",
+      "min_severity": "最低严重度",
+      "any_severity": "不限",
+      "origins": "来源",
+      "origins_hint": "都不选时，所有来源的事件都参与比对。",
+      "target": "去向",
+      "target_team": "团队",
+      "target_team_hint": "分派给团队，按团队的值班策略升级",
+      "target_policy": "升级策略",
+      "target_policy_hint": "直接用这个策略，团队仍按服务归属或标签认",
+      "target_placeholder": "请选择",
+      "priorities": "优先级",
+      "priorities_hint": "都不勾表示不看优先级；勾了以后，没设优先级的事件不匹配。",
+      "time_hint": "按事件开出来的时刻判断。"
+    },
+    "only_priorities": "优先级 {{priorities}}",
+    "time_inside": "只在 {{ranges}}（{{timezone}}）",
+    "time_outside": "{{ranges}}（{{timezone}}）以外",
+    "try_priority": "优先级",
+    "try_at": "开出时刻",
+    "try_at_now": "现在"
   },
   "matchers": {
     "title": "标签匹配器",
@@ -604,7 +1466,8 @@
     "toast_created": "策略已创建",
     "errors": {
       "name_required": "名称必填。",
-      "target_required": "至少添加一个目标。"
+      "target_required": "至少添加一个目标。",
+      "support_hours": "支持时段至少要有一段，每段都要选星期、写对时间。"
     },
     "sections": {
       "identity": "标识",
@@ -615,13 +1478,21 @@
       "name": "策略名称",
       "repeat": "循环整个策略直到被确认",
       "max_loops": "最大循环次数",
+      "ack_retrigger": "确认后仍未解决",
       "min_severity": "生效起始严重度",
       "ack_timeout": "确认超时",
       "targets": "目标",
       "notify_routing": "连接器选择和兜底路由在「设置 → Notify → 策略」中配置。"
     },
     "hints": {
-      "max_loops": "放弃前重复的次数。"
+      "max_loops": "放弃前重复的次数。",
+      "ack_retrigger": "确认后过了这么久还没解决，事件退回未确认，重新通知负责人；仍没人确认就继续往下升级。"
+    },
+    "ack_retrigger": {
+      "off": "不重新通知",
+      "minutes": "{{count}} 分钟",
+      "hours_one": "{{count}} 小时",
+      "hours_other": "{{count}} 小时"
     },
     "add_step": "添加级别",
     "remove_step": "删除级别",
@@ -630,6 +1501,7 @@
     "remove_target": "删除目标",
     "any_severity": "任意严重度",
     "pick_ref": "— 选择 —",
+    "missing_target": "已不存在",
     "target_kinds": {
       "user": "用户",
       "schedule": "排班",
@@ -638,7 +1510,32 @@
     "no_target": "尚未指定",
     "from_severity": "{{severity}}及以上",
     "repeats_one": "重复 {{count}} 次",
-    "repeats_other": "重复 {{count}} 次"
+    "repeats_other": "重复 {{count}} 次",
+    "unreachable_one": "{{count}} 人收不到告警",
+    "unreachable_other": "{{count}} 人收不到告警",
+    "urgency": {
+      "title": "紧急度",
+      "description": "事件没有指定紧急度时按这里定。每档紧急度怎么通知（往不往下升、免打扰时怎么算、用个人的哪组步骤）在组织的紧急度档位里设。",
+      "modes": {
+        "by_severity": "按严重度",
+        "support_hours": "按支持时段",
+        "always": "始终某一档"
+      },
+      "mode_hints": {
+        "by_severity": "每个严重度落到组织给它定的那一档（没改过时严重、错误为高，警告、提示为低）。",
+        "support_hours": "支持时段内用一档，时段外用另一档。",
+        "always": "每个事件都用下面选的那一档。"
+      },
+      "raise_at_start": "支持时段开始时，把还没人确认、比时段内那一档不急的事件升上去，从第一级重新通知",
+      "escalate_low": "只通知第一级的那几档，在这条策略下也照常逐级升级",
+      "chain": {
+        "support_hours": "按支持时段定紧急度",
+        "always": "始终{{urgency}}"
+      },
+      "always_level": "紧急度",
+      "inside": "时段内",
+      "outside": "时段外"
+    }
   },
   "schedules": {
     "title": "值班排班",
@@ -694,14 +1591,16 @@
       "cadence": "轮换方式",
       "period_hours": "周期（小时）",
       "start_at": "开始日期与时间",
+      "ends": "到指定时间结束",
+      "end_at": "结束日期与时间",
       "handoff_time": "交接时间",
       "members": "轮值成员（按顺序轮换）",
       "restrict_window": "限定具体日期 / 时段",
-      "hour_start": "起始小时（0–24）",
-      "hour_end": "结束小时（0–24）"
+      "swap_needs_approval": "换班需要批准"
     },
     "hints": {
-      "timezone": "如 UTC、America/New_York、Asia/Shanghai"
+      "timezone": "如 UTC、America/New_York、Asia/Shanghai",
+      "swap_needs_approval": "对方接受换班后，还要有排班管理权限的人批准才生效。"
     },
     "add_rotation": "添加轮值",
     "remove_rotation": "删除轮值",
@@ -812,7 +1711,8 @@
       "copy": "复制排班",
       "export_calendar": "导出日历",
       "delete": "删除排班",
-      "more": "更多操作"
+      "more": "更多操作",
+      "subscribe_calendar": "订阅日历"
     },
     "pagination": {
       "label": "值班排班分页",
@@ -829,7 +1729,8 @@
       "empty": "选择轮值成员后显示预览",
       "member_count": "覆盖成员",
       "timezone": "排班时区",
-      "then": "随后"
+      "then": "随后",
+      "unreadable": "时段有误，改好后再预览。"
     },
     "detail": {
       "current": "当前值班",
@@ -847,7 +1748,8 @@
       "rotation_name": "轮值名称",
       "rotation_members": "轮值人员",
       "handoff_time": "交接时间",
-      "handoff_value": "{{cadence}} {{time}}（{{timezone}}）"
+      "handoff_value": "{{cadence}} {{time}}（{{timezone}}）",
+      "rotation_ends": "结束"
     },
     "timeline": {
       "title": "未来 7 天时间线",
@@ -873,7 +1775,8 @@
         "override": "替班",
         "pause": "暂停",
         "resume": "恢复",
-        "delete": "删除"
+        "delete": "删除",
+        "swap": "换班"
       },
       "descriptions": {
         "create": "创建排班 {{name}}",
@@ -881,8 +1784,196 @@
         "override": "{{user}} 的临时替班发生变化，原因：{{reason}}",
         "pause": "暂停排班 {{name}}",
         "resume": "恢复排班 {{name}}",
-        "delete": "删除排班 {{name}}"
+        "delete": "删除排班 {{name}}",
+        "swap": "{{requester}} 请 {{target}} 替班：{{status}}"
       }
+    },
+    "load": {
+      "title": "成员负担（近 30 天）"
+    },
+    "swaps": {
+      "title": "换班申请",
+      "request": "申请换班",
+      "request_title": "申请换班",
+      "request_description": "选一段只有你在值班的时间，再选排班里接班的人。对方接受后就生效。",
+      "request_description_approval": "选一段只有你在值班的时间，再选排班里接班的人。对方接受后，还要排班管理员批准才生效。",
+      "not_on_call": "你在这个排班里接下来 30 天没有班次",
+      "fields": {
+        "shift": "我的班次",
+        "start": "开始",
+        "end": "结束",
+        "target": "接班的人",
+        "note": "备注"
+      },
+      "pick_shift": "选一个班次，或在下面自己填时间",
+      "pick_target": "选择成员",
+      "placeholders": {
+        "note": "比如：周五要出差"
+      },
+      "submit": "发出申请",
+      "sent": "换班申请已发出",
+      "errors": {
+        "window": "结束时间要晚于开始时间",
+        "target": "选择接班的人"
+      },
+      "empty": "还没有换班申请。",
+      "show_settled": "显示已结束的",
+      "hide_settled": "只看进行中的",
+      "asks": "{{requester}} 请 {{target}} 替班",
+      "decided_by": "{{name}} 处理",
+      "status": {
+        "pending": "等对方答复",
+        "awaiting_approval": "等管理员批准",
+        "accepted": "已生效",
+        "declined": "对方拒绝",
+        "rejected": "管理员驳回",
+        "cancelled": "已撤回",
+        "expired": "已过期"
+      },
+      "answer": {
+        "accept": "接受",
+        "decline": "拒绝",
+        "cancel": "撤回",
+        "approve": "批准",
+        "reject": "驳回"
+      },
+      "done": {
+        "accept": "已接受，替班已生效",
+        "accept_waiting": "已接受，等管理员批准",
+        "decline": "已拒绝换班",
+        "cancel": "已撤回换班申请",
+        "approve": "已批准，替班已生效",
+        "reject": "已驳回换班"
+      },
+      "mine_title": "我的换班申请",
+      "mine_description": "你发起的和请你替班的申请。批准和驳回在排班详情里。",
+      "mine_button": "换班申请",
+      "mine_waiting": "{{count}} 条等你答复",
+      "mine_empty": "没有你发起或请你替班的申请。",
+      "open_schedule": "查看排班"
+    },
+    "calendar": {
+      "title_schedule": "订阅「{{name}}」",
+      "title_mine": "订阅我的值班",
+      "description_schedule": "把这个排班的全部班次加到日历应用里（Google 日历、Outlook、Apple 日历等）。日历应用大约每小时刷新一次，包含过去 30 天到未来 90 天，替班和换班都算在内。",
+      "description_mine": "把你在各个排班里的班次加到日历应用里（Google 日历、Outlook、Apple 日历等）。日历应用大约每小时刷新一次，包含过去 30 天到未来 90 天，替班和换班都算在内。",
+      "create": "生成订阅地址",
+      "reset": "重置地址",
+      "revoke": "停止订阅",
+      "address": "订阅地址",
+      "copy": "复制地址",
+      "open_app": "在日历应用中打开",
+      "shown_once": "地址只显示这一次。拿到地址的人都能看到这些班次，不用了就停止订阅。",
+      "no_external_url": "实例没有设外部地址，这里用的是你现在访问的地址，日历应用要能访问到它。",
+      "subscribed": "已订阅：{{created}} 生成",
+      "last_used": "日历上次读取：{{value}}",
+      "never_used": "还没有日历读过",
+      "reset_hint": "重置后旧地址马上失效，要在日历应用里换成新地址。",
+      "revoked": "已停止订阅",
+      "mine_button": "订阅我的值班",
+      "loading": "正在读取订阅…"
+    },
+    "unreachable": {
+      "next": "下一个接班的 {{name}} 收不到告警：没有能用的通知方式，也没有发到群里的默认路由。",
+      "members_one": "{{count}} 名成员收不到告警：{{names}}。",
+      "members_other": "{{count}} 名成员收不到告警：{{names}}。",
+      "fix": "去设置通知方式"
+    },
+    "coverage": {
+      "title": "未来 14 天值班覆盖",
+      "gaps_one": "未来 {{days}} 天有 {{count}} 个缺口，共 {{hours}} 小时无人值班。",
+      "gaps_other": "未来 {{days}} 天有 {{count}} 个缺口，共 {{hours}} 小时无人值班。",
+      "no_gaps": "未来 {{days}} 天都有人值班。",
+      "nobody": "无人值班",
+      "hours": "{{hours}} 小时",
+      "legend": {
+        "rotation": "轮值",
+        "override": "临时替班",
+        "gap": "无人值班"
+      }
+    }
+  },
+  "inhibitions": {
+    "new_rule": "新建抑制规则",
+    "empty_title": "暂无抑制规则",
+    "empty_description": "有更严重或更上游的事件时，压住次要事件的通知，只通知该看的那一个。",
+    "held": "已抑制",
+    "any_incident": "任何事件",
+    "only_worse": "只压比它轻的",
+    "at_least": "严重度不低于{{severity}}",
+    "at_most": "严重度不高于{{severity}}",
+    "columns": {
+      "name": "名称",
+      "source": "这些事件在时",
+      "target": "压住这些事件",
+      "equal": "相同的标签",
+      "status": "状态",
+      "actions": "操作"
+    },
+    "standing": {
+      "holding_one": "正压着 {{count}} 个事件",
+      "holding_other": "正压着 {{count}} 个事件",
+      "on": "没压任何事件",
+      "off": "已关闭"
+    },
+    "drawer_title": "新建抑制规则",
+    "edit_title": "修改抑制规则",
+    "drawer_subtitle": "源事件在时，目标事件照开、页面上看得见，但通知压着、不往下升级；源事件恢复后还开着的才通知。",
+    "create": "创建规则",
+    "save": "保存",
+    "toast_created": "抑制规则已创建",
+    "toast_updated": "抑制规则已保存",
+    "delete_named": "删除抑制规则 {{name}}",
+    "delete_title": "删除这条抑制规则？",
+    "delete_effect_label": "删除之后",
+    "delete_effect_one": "它压着的 {{count}} 个事件马上通知",
+    "delete_effect_other": "它压着的 {{count}} 个事件马上通知",
+    "sections": {
+      "identity": "基本信息",
+      "source": "源事件：谁能压别的",
+      "source_hint": "被静默的事件不算：它自己没人收到，再压别的就谁都收不到了。已确认的算，有人在处理了。",
+      "target": "目标事件：谁会被压",
+      "target_hint": "空着是所有事件。有人手动开的事件不会被压。",
+      "relation": "两边的关系",
+      "timing": "时间",
+      "comment": "说明",
+      "preview": "现在会压住哪些",
+      "preview_hint": "用这条规则（不用先保存）算一遍此刻进行中的事件。"
+    },
+    "fields": {
+      "name": "名称",
+      "name_placeholder": "同一个服务，严重的压住次要的",
+      "enabled": "启用",
+      "min_severity": "严重度不低于",
+      "max_severity": "严重度不高于",
+      "any_severity": "不限",
+      "equal": "这些标签要相同",
+      "equal_hint": "逗号分隔。两边都要有这个标签、取值相同才压；缺了算不同。空着不看标签，这时要写清源事件的条件。",
+      "more_severe_only": "源事件要比目标事件严重",
+      "wait_secs": "目标事件先等（秒）",
+      "wait_hint": "症状常比根因先报出来：先等这么久，看源事件会不会来。最短 15 秒，最长 600 秒。",
+      "linger_secs": "源事件恢复后再压（秒）",
+      "linger_hint": "根因恢复时症状也快好了，不必再叫一遍人。最长 3600 秒。",
+      "comment": "说明"
+    },
+    "preview": {
+      "run": "算一遍",
+      "none": "此刻不会压住任何事件。",
+      "held_by": "被压住，因为"
+    },
+    "note": {
+      "held_by": "通知压着，因为",
+      "rule": "还在（规则 {{rule}}）。",
+      "ending": "它已恢复，{{time}} 放开。",
+      "waiting": "可能被更严重的事件压住，通知先等到 {{time}}。",
+      "lift": "照常通知",
+      "lifted": "已放开，压着的通知马上发出"
+    },
+    "errors": {
+      "name": "写上规则的名称。",
+      "no_scope": "写清源事件的条件，或两边要相同的标签：否则任何事件都能压住所有别的事件。",
+      "wait": "目标事件最多先等 600 秒。",
+      "linger": "源事件恢复后最多再压 3600 秒。"
     }
   },
   "silences": {
@@ -907,7 +1998,10 @@
     "errors": {
       "name_required": "名称必填。",
       "matcher_required": "至少添加一个匹配器。",
-      "window_range": "结束时间必须晚于开始时间。"
+      "window_range": "结束时间必须晚于开始时间。",
+      "window_ranges": "时段有误：每段至少选一天，时间写作 HH:MM。",
+      "monthly": "开始时刻写作 HH:MM，持续 1 到 10080 分钟。",
+      "calendar": "选一份节假日日历。"
     },
     "sections": {
       "identity": "标识",
@@ -922,14 +2016,20 @@
       "start": "开始",
       "end": "结束",
       "timezone": "时区",
-      "hour_start": "起始小时（0–24）",
-      "hour_end": "结束小时（0–24）",
       "comment": "原因",
-      "weekdays": "星期"
+      "month_day_kind": "按",
+      "month_date": "每月第几天",
+      "ordinal": "第几个",
+      "weekday": "星期几",
+      "start_time": "开始时刻（HH:MM）",
+      "duration_minutes": "持续（分钟）",
+      "calendar": "节假日日历"
     },
     "window_kinds": {
       "fixed": "固定区间",
-      "recurring": "周期重复"
+      "weekly": "每周重复",
+      "monthly": "每月一次",
+      "holidays": "节假日"
     },
     "comment_placeholder": "为什么静默？",
     "standing": {
@@ -940,6 +2040,975 @@
       "off": "已关闭"
     },
     "matches_everything": "所有事件",
-    "delete_named": "删除 {{name}}"
+    "delete_named": "删除 {{name}}",
+    "month_day_kinds": {
+      "date": "日期",
+      "weekday": "星期"
+    },
+    "hints": {
+      "month_date": "这个月没有这一天时取最后一天。",
+      "duration_minutes": "最长 7 天（10080 分钟）。"
+    },
+    "ordinals": {
+      "1": "第一个",
+      "2": "第二个",
+      "3": "第三个",
+      "4": "第四个",
+      "5": "第五个",
+      "last": "最后一个"
+    },
+    "month_day": {
+      "date": "每月 {{day}} 日",
+      "weekday": "每月{{ordinal}}{{weekday}}"
+    },
+    "summary": {
+      "monthly": "{{day}} {{start}} 起 {{duration}}（{{timezone}}）",
+      "holidays": "节假日（{{timezone}}）",
+      "calendar_exclude": "节假日除外",
+      "calendar_only": "只在节假日"
+    },
+    "duration": {
+      "minutes_one": "{{count}} 分钟",
+      "minutes_other": "{{count}} 分钟",
+      "hours_one": "{{count}} 小时",
+      "hours_other": "{{count}} 小时",
+      "hours_minutes": "{{hours}} 小时 {{minutes}} 分钟"
+    },
+    "next_start": "下次开始 {{time}}",
+    "next_end": "{{time}} 结束",
+    "no_calendars": "先在「设置 → 告警 → 节假日日历」里建一份日历。",
+    "delete_effect_label": "影响",
+    "delete_active_effect": "它正在静默告警，删除后通知会立即恢复。",
+    "bulk_delete_title_one": "删除 {{count}} 条静默策略？",
+    "bulk_delete_title_other": "删除 {{count}} 条静默策略？"
+  },
+  "incident_actions": {
+    "more": "更多操作",
+    "reassign": "转派",
+    "add_responders": "增派",
+    "escalate": "立即升级",
+    "snooze": "暂缓",
+    "snooze_hours_one": "{{count}} 小时",
+    "snooze_hours_other": "{{count}} 小时",
+    "snooze_custom": "自定义…",
+    "snooze_cancel": "取消暂缓",
+    "severity": "严重度",
+    "merge": "合并",
+    "toasts": {
+      "snoozed": "已暂缓",
+      "snooze_cancelled": "已取消暂缓",
+      "severity_changed": "已改严重度",
+      "responders_added": "已增派",
+      "reassigned": "已转派",
+      "escalated": "已升级",
+      "merged_one": "已合并 {{count}} 个事件",
+      "merged_other": "已合并 {{count}} 个事件",
+      "bulk_done_one": "已处理 {{count}} 个事件",
+      "bulk_done_other": "已处理 {{count}} 个事件",
+      "bulk_failed": "{{total}} 个事件里有 {{count}} 个没处理成：{{reason}}",
+      "priority_changed": "已改优先级",
+      "urgency_changed": "已改紧急度",
+      "urgency_raised": "已升为高紧急度，从第一级重新通知"
+    },
+    "people_search": "按名字或邮箱搜索",
+    "reassign_title": "转派",
+    "reassign_description": "转给成员时，事件回到未确认，被选中的人收到通知；转给团队或升级策略时，从第一步重新开始。",
+    "add_responders_title": "增派成员",
+    "add_responders_description": "选中的人加进负责人并收到通知，事件状态不变。",
+    "reassign_to": "转给",
+    "kinds": {
+      "users": "成员",
+      "team": "团队",
+      "policy": "升级策略"
+    },
+    "people": "成员（最多 {{max}} 个）",
+    "team_hint": "按这个团队的值班策略从第一步重新开始；团队没设值班策略时用默认策略。",
+    "policy_hint": "按这条策略从第一步重新开始，团队不变。",
+    "choose": "选择…",
+    "note_optional": "备注（可选）",
+    "note_placeholder": "写给接手的人，会记在时间线上",
+    "cancel": "取消",
+    "escalate_title": "立即升级",
+    "escalate_description": "选一步，立即通知这一步的对象；已确认的事件会退回未确认。",
+    "loading": "加载中…",
+    "no_policy": "这个事件没有升级策略。",
+    "step_n": "第 {{n}} 步",
+    "current_step": "当前",
+    "schedule_target": "排班的值班人",
+    "escalate_submit": "升级",
+    "snooze_title": "暂缓",
+    "snooze_description": "暂缓期间不再通知；到点后事件退回未确认，重新通知负责人。未确认的事件会先确认。",
+    "snooze_for": "暂缓多久",
+    "snooze_unit": "单位",
+    "units": {
+      "minutes": "分钟",
+      "hours": "小时"
+    },
+    "merge_title": "合并事件",
+    "merge_description": "并入的事件不再单独通知和升级，主事件解决时一并解决；合并后不能拆开。",
+    "merge_target": "合并到",
+    "merge_sources": "并入这个事件",
+    "merge_nothing": "没有别的进行中的事件。",
+    "merge_submit_one": "合并 {{count}} 个",
+    "merge_submit_other": "合并 {{count}} 个",
+    "bulk_label": "批量处理",
+    "select_all": "全选",
+    "select": "选择「{{name}}」",
+    "snoozed_until": "暂缓到 {{time}}",
+    "priority": "优先级",
+    "urgency": "紧急度",
+    "adjust": "调整"
+  },
+  "incident_timeline": {
+    "notice": {
+      "triggered": "通知了",
+      "escalated": "升级通知了",
+      "acknowledged": "确认通知发给了",
+      "resolved": "恢复通知发给了"
+    },
+    "recipient": "{{who}}（{{through}}）",
+    "recipient_failed": "{{who}}（未送达）",
+    "policy_skipped": "一条策略没有发送：{{reason}}",
+    "pipeline_processed": "经过流水线 {{pipeline}}：",
+    "pipeline_more_one": "还有 {{count}} 处改动",
+    "pipeline_more_other": "还有 {{count}} 处改动",
+    "pipeline_fields": {
+      "summary": "标题",
+      "severity": "严重度",
+      "priority": "优先级",
+      "urgency": "紧急度",
+      "labels": "标签",
+      "annotations": "注解",
+      "affected_services": "服务"
+    },
+    "someone": "某人",
+    "system": "系统",
+    "via": {
+      "api": "（接口）",
+      "im": "（在 IM 里）",
+      "sms": "（回复短信）",
+      "phone": "（电话按键）",
+      "agent": "（Mole Agent）"
+    },
+    "acknowledged": "{{actor}} 确认了{{via}}",
+    "resolved": "{{actor}} 解决了{{via}}",
+    "escalated": "升级到第 {{n}} 步",
+    "escalated_manual": "{{actor}} 立即升级到第 {{n}} 步",
+    "reassigned": "{{actor}} 转派给 {{target}}",
+    "responders_added": "{{actor}} 增派了 {{people}}",
+    "snoozed": "{{actor}} 暂缓到 {{until}}",
+    "snooze_cancelled": "{{actor}} 取消了暂缓",
+    "retriggered_snooze": "暂缓到点，退回未确认并重新通知",
+    "retriggered_ack_timeout": "确认后一直没解决，退回未确认并重新通知",
+    "severity_changed": "{{actor}} 把严重度从{{from}}改为{{to}}",
+    "merged": "{{actor}} 把它并入了",
+    "merged_target": "另一个事件",
+    "merged_in_one": "{{actor}} 把 {{count}} 个事件并入这里",
+    "merged_in_other": "{{actor}} 把 {{count}} 个事件并入这里",
+    "merged_recovered": "并入的「{{summary}}」已恢复",
+    "noted": "{{actor}} 写了备注",
+    "recovered": "已恢复",
+    "merged_list": "并入这里的事件（{{count}}）",
+    "note_placeholder": "写一条备注：发现了什么、做了什么",
+    "note_label": "备注",
+    "note_too_long": "最多 {{max}} 字",
+    "add_note": "添加备注",
+    "handling": {
+      "snoozed": "{{actor}} 暂缓到 {{until}}",
+      "merged": "已并入",
+      "severity_set": "严重度由 {{actor}} 手动设置，规则不再改它",
+      "inhibition_lifted": "{{actor}} 说了照常通知，不再被抑制"
+    },
+    "remediation_requested": "{{actor}} 发起了修复动作「{{action}}」，等审批",
+    "remediation_executed": "修复动作「{{action}}」已执行（{{actor}} 批准）",
+    "remediation_failed": "修复动作「{{action}}」执行失败（{{actor}} 批准）",
+    "remediation_verified": "修复动作「{{action}}」验证通过",
+    "remediation_unverified": "修复动作「{{action}}」验证没通过",
+    "ticket_created": "{{actor}} 建了{{system}}工单",
+    "ticket_updated": "工单 {{key}} 变为「{{status}}」",
+    "declared_major": "{{actor}} 宣布为重大事件",
+    "declared_major_auto": "按组织的规则宣布为重大事件",
+    "role_assigned": "{{actor}} 指派 {{person}} 为{{role}}",
+    "role_cleared": "{{actor}} 撤下了{{role}}",
+    "war_room_created": "建了作战室",
+    "join": "进入",
+    "task_added": "{{actor}} 加了任务「{{title}}」",
+    "task_done": "{{actor}} 完成了任务「{{title}}」",
+    "status_update": "{{actor}} 发了进展",
+    "step_unreachable": "第 {{n}} 级谁都收不到告警，直接升到下一级",
+    "inhibited": "被规则 {{rule}} 抑制，通知压着，因为",
+    "inhibition_source_recovered": "源事件恢复，抑制结束，压着的通知发出",
+    "inhibition_rule_changed": "抑制规则改了或删了，压着的通知发出",
+    "inhibition_lifted": "{{actor}} 让它照常通知，压着的通知发出",
+    "priority_changed": "{{actor}} 把优先级从 {{from}} 改为 {{to}}",
+    "no_priority": "不设",
+    "urgency_changed": "{{actor}} 把紧急度从{{from}}改为{{to}}",
+    "urgency_raised_support_hours": "支持时段开始，紧急度升为{{to}}，从第 1 级重新通知",
+    "phases": {
+      "fired": "触发",
+      "acknowledged": "确认用时",
+      "resolved": "恢复用时",
+      "not_yet": "尚未"
+    },
+    "filter_label": "事件类别",
+    "filter": {
+      "all": "全部",
+      "alert": "告警",
+      "notice": "通知",
+      "people": "人员",
+      "notes": "备注"
+    }
+  },
+  "related": {
+    "loading": "加载中…",
+    "similar_none": "近 90 天没有相似的事件。",
+    "lasted": "持续 {{duration}}",
+    "resolved_by": "{{name}} 解决",
+    "notes_one": "{{count}} 条备注",
+    "notes_other": "{{count}} 条备注",
+    "reasons": {
+      "fingerprint": "同一告警",
+      "rule": "同规则",
+      "services": "同服务",
+      "labels": "标签相近",
+      "title": "标题相近",
+      "team": "同团队"
+    },
+    "changes_none": "触发前 30 分钟到触发后 10 分钟，这些服务没有上报变更，规则前一天也没改过。",
+    "at_trigger": "触发时",
+    "before_trigger": "触发前 {{duration}}",
+    "after_trigger": "触发后 {{duration}}",
+    "kinds": {
+      "deployment": "部署",
+      "configuration": "配置",
+      "feature_flag": "开关",
+      "rule": "规则修改"
+    },
+    "downstream": "下游",
+    "status": {
+      "failed": "失败",
+      "rolled_back": "已回滚"
+    },
+    "open_link": "查看流水线"
+  },
+  "remediation": {
+    "new_action": "新建修复动作",
+    "actions_title": "修复动作",
+    "empty": "还没有修复动作。定义好以后，在事件上一键发起，审批通过就执行。",
+    "all_incidents": "所有事件",
+    "disabled": "已停用",
+    "delete_named": "删除 {{name}}",
+    "delete_title": "删除修复动作？",
+    "saved": "已保存「{{name}}」",
+    "risks": {
+      "l2": "L2 · 一人批准",
+      "l3": "L3 · 两人批准"
+    },
+    "kinds": {
+      "http": "HTTP 请求",
+      "http_hint": "调用 Jenkins、GitHub Actions、Argo、Rundeck 这类系统的地址。",
+      "kubernetes": "Kubernetes",
+      "kubernetes_hint": "在登记的集群上重启、扩缩容，或把 Deployment 回滚到上一个版本。"
+    },
+    "operations": {
+      "restart": "重启",
+      "scale": "扩缩容",
+      "rollback": "回滚到上一版本"
+    },
+    "parameter_kinds": {
+      "text": "文本",
+      "number": "数字",
+      "select": "选项"
+    },
+    "verify_by": {
+      "incident_resolved": "事件恢复了",
+      "rule_healthy": "规则回到健康"
+    },
+    "drawer": {
+      "new_title": "新建修复动作",
+      "edit_title": "编辑修复动作",
+      "subtitle": "在事件上发起时一律走审批，批准后执行并记进时间线。",
+      "save": "保存",
+      "identity": "基本信息",
+      "name": "名称",
+      "description": "说明",
+      "target": "执行方式",
+      "method": "方法",
+      "url": "地址",
+      "headers": "请求头",
+      "headers_hint": "值加密保存，不再显示；编辑时留空保持原值。",
+      "add_header": "添加请求头",
+      "remove_header": "移除请求头",
+      "header_name": "请求头名称",
+      "header_value": "请求头的值",
+      "secret_kept": "已设置，留空不变",
+      "body": "请求体",
+      "body_hint": "JSON 格式。可用 {{incident.id}}、{{incident.summary}}、{{incident.service}}、{{incident.url}} 和 {{params.name}}（name 换成参数的名字）；写在引号里是字符串，不带引号可以当数字用。",
+      "signing_secret": "签名密钥",
+      "signing_secret_hint": "设了就带 X-MoleSignal-Timestamp 和 X-MoleSignal-Sign，与 Webhook 的签名相同。",
+      "cluster": "集群",
+      "pick_cluster": "选择集群",
+      "operation": "操作",
+      "workload_kind": "工作负载类型",
+      "namespace": "命名空间",
+      "workload_name": "工作负载名称",
+      "replicas": "副本数",
+      "parameters": "发起时填的参数",
+      "parameters_hint": "模板里用 {{params.name}} 取值，name 换成参数的名字。",
+      "add_parameter": "添加参数",
+      "remove_parameter": "移除参数",
+      "parameter_key": "名字",
+      "parameter_label": "显示名",
+      "parameter_kind": "类型",
+      "parameter_options": "选项（逗号分隔）",
+      "parameter_default": "默认值",
+      "parameter_required": "必填",
+      "scope": "适用范围与审批",
+      "services": "适用的服务",
+      "services_hint": "逗号分隔；空着时所有事件都能用。",
+      "risk": "风险等级",
+      "verify_after": "执行后验证",
+      "verify_after_hint": "多少分钟后看结果；0 不验证。",
+      "verify_by": "怎样算有效",
+      "enabled": "启用"
+    },
+    "clusters": {
+      "title": "Kubernetes 集群",
+      "add": "添加集群",
+      "empty": "还没有登记集群。Kubernetes 修复动作要先登记集群。",
+      "test": "测试连接",
+      "reached": "连上了，Kubernetes {{version}}",
+      "saved": "已保存集群",
+      "edit_title": "编辑集群",
+      "description": "用一个 ServiceAccount Token 连 API Server，Token 加密保存，不再显示。它需要对目标工作负载有 get、patch 权限，回滚还要能列出 ReplicaSet。",
+      "name": "名称",
+      "api_server": "API Server 地址",
+      "ca": "CA 证书",
+      "ca_hint": "PEM 格式；空着用系统信任的根证书。",
+      "token": "ServiceAccount Token"
+    },
+    "run": {
+      "none": "没有适用于这个事件的修复动作。",
+      "set_up": "去设置",
+      "start": "执行",
+      "closed": "事件已经解决",
+      "by": "{{name}} 发起",
+      "approve": "批准",
+      "reject": "驳回",
+      "approved": "已批准",
+      "rejected": "已驳回",
+      "requested_one": "已提交审批，需要 {{count}} 人批准",
+      "requested_other": "已提交审批，需要 {{count}} 人批准",
+      "title": "执行「{{name}}」",
+      "needs_one": "提交后要一位有审批权限的人批准，批准后马上执行。",
+      "needs_two": "提交后要两位有审批权限的人批准，批准后马上执行。",
+      "reason": "原因",
+      "reason_placeholder": "比如：checkout 连接池耗尽，先重启",
+      "submit": "提交审批",
+      "status": {
+        "awaiting_approval": "等审批",
+        "running": "执行中",
+        "succeeded": "已执行",
+        "failed": "执行失败",
+        "declined": "没有执行",
+        "verifying": "等验证",
+        "verified": "验证通过",
+        "verification_failed": "验证没通过"
+      }
+    }
+  },
+  "tickets": {
+    "new_connector": "新建工单连接器",
+    "empty": "还没有工单连接器。连上 Jira、ServiceNow 或飞书项目以后，可以在事件上建单，也可以按规则自动建单。",
+    "auto_on": "自动建单",
+    "auto_off": "手动建单",
+    "test": "测试连接",
+    "reached": "连上了",
+    "reached_as": "连上了，登录身份：{{name}}",
+    "delete_named": "删除 {{name}}",
+    "delete_title": "删除工单连接器？",
+    "saved": "已保存「{{name}}」",
+    "webhook_address": "Jira Webhook 地址（在 Jira 系统设置的 Webhooks 里填，密钥同连接器里的 Webhook 密钥）",
+    "copy_webhook": "复制地址",
+    "copy_address": "复制地址",
+    "address_copied": "已复制",
+    "sites": {
+      "feishu": "飞书",
+      "lark": "Lark"
+    },
+    "systems": {
+      "jira": "Jira",
+      "meegle": "飞书项目",
+      "servicenow": "ServiceNow"
+    },
+    "drawer": {
+      "new_title": "新建工单连接器",
+      "edit_title": "编辑工单连接器",
+      "subtitle": "凭证加密保存，不再显示；编辑时留空保持原值。",
+      "save": "保存",
+      "identity": "基本信息",
+      "name": "名称",
+      "meegle_hint": "飞书项目，海外版是 Meegle。",
+      "jira": "Jira",
+      "site_url": "站点地址",
+      "cloud": "Jira Cloud",
+      "data_center": "Jira Data Center / Server",
+      "email": "账号邮箱",
+      "api_token": "API Token",
+      "pat": "个人访问令牌",
+      "project_key": "项目 Key",
+      "issue_type": "问题类型",
+      "priorities": "优先级对应的工单优先级",
+      "priorities_hint": "填 Jira 里优先级的名字；先看事件的优先级，没设或没填时再看严重度。空着不设。",
+      "labels": "标签",
+      "resolve_transition": "解决事件时的流转",
+      "resolve_transition_hint": "流转的名字或 ID；空着时走第一个通往完结类状态的流转。",
+      "webhook_secret": "Webhook 密钥",
+      "webhook_secret_hint": "设了才接收 Jira 的 Webhook（验 X-Hub-Signature）；不设时每 5 分钟同步一次状态。",
+      "meegle": "飞书项目",
+      "platform": "平台",
+      "base_url": "站点地址",
+      "plugin_id": "插件 ID",
+      "plugin_secret": "插件密钥",
+      "user_key": "以谁的身份（user_key）",
+      "user_key_hint": "工单由这个人建、评论也以他的名义写。",
+      "project_key_meegle": "空间（project_key）",
+      "work_item_type": "工作项类型（work_item_type_key）",
+      "priority_field": "优先级字段 key",
+      "priorities_hint_meegle": "填优先级选项的值；先看事件的优先级，没设或没填时再看严重度。空着不设。",
+      "resolve_transition_id": "解决事件时的流转 ID",
+      "resolve_transition_id_hint": "状态流用。",
+      "resolve_node_id": "解决事件时完成的节点 ID",
+      "resolve_node_id_hint": "节点流用。",
+      "done_states": "算完结的状态",
+      "done_states_hint": "状态 key，逗号分隔。",
+      "follow": "跟着事件走",
+      "comments": {
+        "acknowledged": "事件被确认时写评论",
+        "resolved": "事件被解决时写评论",
+        "notes": "事件上的备注写成评论"
+      },
+      "transition_on_resolve": "解决事件时把工单流转到完结",
+      "resolve_when_done": "工单完结时解决事件",
+      "on_major": "宣布重大事件时建单",
+      "auto": "自动建单",
+      "auto_hint": "新事件满足条件时自动建一张单。",
+      "auto_enabled": "开启自动建单",
+      "auto_severity": "严重度不低于",
+      "auto_services": "服务",
+      "auto_services_hint": "逗号分隔；空着不限。",
+      "servicenow": "ServiceNow",
+      "instance_url": "实例地址",
+      "table": "表",
+      "table_hint": "默认 incident；要继承 task。",
+      "auth_basic": "用户名和密码",
+      "auth_oauth": "OAuth 客户端凭证",
+      "auth_oauth_hint": "实例要打开客户端凭证授权。",
+      "auth_api_key": "API Key",
+      "auth_api_key_hint": "Washington DC 版本起。",
+      "username": "用户名",
+      "password": "密码",
+      "client_id": "客户端 ID",
+      "client_secret": "客户端密钥",
+      "api_key": "API Key",
+      "assignment_group": "分派组",
+      "caller_id": "提单人",
+      "sys_id_hint": "写 sys_id；空着不设。",
+      "category": "类别",
+      "priorities_hint_servicenow": "写 impact/urgency（如 2/1），ServiceNow 按它们算优先级；只写一个数字时两个都用它。上面是事件的优先级，下面是严重度，先看优先级。",
+      "resolve_state": "解决时的状态值",
+      "resolve_state_hint": "state 字段的值；默认 6（已解决）。",
+      "close_code": "解决代码",
+      "close_code_hint": "close_code 的选项各实例不同；空着不写。",
+      "done_states_hint_servicenow": "state 字段的值，逗号分隔；默认 6、7、8（已解决、已关闭、已取消）。"
+    },
+    "incident": {
+      "none": "还没有工单。",
+      "created": "已建单 {{key}}",
+      "synced": "同步于 {{value}}",
+      "connector": "工单连接器",
+      "create": "建单",
+      "create_in": "在 {{name}} 建单"
+    }
+  },
+  "major": {
+    "hint": "影响面大、要多人协作时宣布：指派角色、建作战室和会议、按清单分工、统一发进展。",
+    "declare": "宣布重大事件",
+    "declared": "已宣布为重大事件",
+    "declared_by": "{{name}} 宣布为重大事件",
+    "declared_by_rule": "按组织的规则宣布为重大事件",
+    "roles": {
+      "commander": "指挥官",
+      "communications": "沟通负责人",
+      "scribe": "记录员"
+    },
+    "unassigned": "未指派",
+    "war_room": "进入作战室（{{platform}}）",
+    "war_room_made": "已建群（{{platform}}）",
+    "platforms": {
+      "lark_app": "飞书",
+      "slack_app": "Slack",
+      "dingtalk_app": "钉钉",
+      "wecom_app": "企业微信"
+    },
+    "meeting": "加入会议",
+    "tasks": "任务",
+    "no_tasks": "还没有任务。",
+    "remove_task": "删除任务「{{title}}」",
+    "task_placeholder": "加一项任务",
+    "add_task": "添加",
+    "post_update": "发进展",
+    "update_hint": "发到作战室，并通知负责人、各角色和关注人。",
+    "update": {
+      "impact": "影响",
+      "current": "现状",
+      "next": "下一步"
+    },
+    "send_update": "发送",
+    "update_sent": "进展已发出",
+    "settings": {
+      "open": "重大事件设置",
+      "title": "重大事件设置",
+      "subtitle": "宣布重大事件时怎样建作战室、开会议、分工，进展告诉谁，哪些事件一开出来就是重大事件。",
+      "saved": "已保存重大事件设置",
+      "war_room": "作战室与会议",
+      "war_room_hint": "用能建群的消息连接器建群（飞书 App、Slack App、钉钉、企业微信），按各人在连接器里绑定的身份拉进负责人、各角色和关注人。",
+      "connector": "建群用的连接器",
+      "no_war_room": "不建群",
+      "meeting": "会议",
+      "meetings": {
+        "none": "不开会议",
+        "feishu_vc": "预约飞书视频会议",
+        "fixed_url": "固定的会议链接",
+        "tencent_meeting": "预约腾讯会议",
+        "zoom": "开 Zoom 会议",
+        "google_meet": "建 Google Meet 会议"
+      },
+      "meeting_url": "会议链接",
+      "checklist": "检查清单",
+      "checklist_hint": "宣布时套用的任务，一行一项。",
+      "stakeholders": "关注人",
+      "stakeholders_hint": "不参与处理、但要知道进展的人，例如主管、客户成功或公关。发进展时会通知他们（另加负责人和各角色），建作战室时也会拉进群。",
+      "auto": "自动宣布",
+      "auto_hint": "新事件满足条件时一开出来就是重大事件。",
+      "auto_enabled": "开启自动宣布",
+      "room_notes": {
+        "dingtalk_app": "钉钉的群要在钉钉里把应用的机器人加进去，进展才发得进群；群名最多 20 个字。",
+        "wecom_app": "企业微信应用的可见范围要是根部门；群里至少两个人，没有入群链接，成员在企业微信里直接看到。"
+      },
+      "meeting_connector": "预约会议用的飞书 App",
+      "same_as_war_room": "同建群的连接器",
+      "meeting_hints": {
+        "feishu_vc": "用飞书 App 预约一场 6 小时的飞书视频会议，指挥官是会议所有人。应用要开通视频会议预约的权限。",
+        "tencent_meeting": "在腾讯会议的企业管理后台创建企业自建应用，取得 AppId、SdkId、SecretId 和 SecretKey；预约一场 6 小时的会议，挂在下面这位成员名下。",
+        "zoom": "在 Zoom App Marketplace 建一个服务器到服务器 OAuth 应用，给它创建会议的权限（meeting:write:meeting:admin）；开一场即时会议，主持人是下面这位用户。",
+        "google_meet": "服务账号代组织者建会议：在 Google Workspace 管理台给服务账号开全网域委派，授权 https://www.googleapis.com/auth/meetings.space.created。"
+      },
+      "secret_kept": "已设置，留空不变",
+      "tencent": {
+        "sdk_id_hint": "应用有才填",
+        "userid": "会议创建人（userid）",
+        "userid_hint": "会议挂在这位企业成员名下"
+      },
+      "zoom": {
+        "host": "主持人",
+        "host_hint": "Zoom 账号里一个用户的邮箱或用户 ID"
+      },
+      "google": {
+        "organizer": "组织者邮箱",
+        "organizer_hint": "代这个人建会议",
+        "credentials": "服务账号密钥（JSON）"
+      },
+      "auto_priority": "优先级",
+      "auto_priority_hint": "设了以后，没设优先级的事件不会自动宣布。",
+      "any_priority": "不看优先级",
+      "at_least_priority": "{{priority}} 及以上"
+    }
+  },
+  "postmortems": {
+    "empty": "还没有复盘。在事件详情里「写复盘」开始。",
+    "loading": "正在读取复盘…",
+    "none": "还没有复盘。",
+    "start": "写复盘",
+    "open": "打开复盘",
+    "summary_line_one": "{{status}} · {{count}} 项改进没完成",
+    "summary_line_other": "{{status}} · {{count}} 项改进没完成",
+    "saved": "复盘已保存",
+    "drawer_title": "复盘",
+    "title": "标题",
+    "status_label": "状态",
+    "status": {
+      "draft": "草稿",
+      "in_review": "评审中",
+      "published": "已发布"
+    },
+    "body": "正文（Markdown）",
+    "draft_with_agent": "让 Mole Agent 起草",
+    "agent_prompt": "请根据这个事件的时间线、备注、根因分析和触发查询，起草一份内部复盘（摘要、影响、时间线、根因、做得好与不好、改进项），写好后保存成这个事件复盘的草稿。",
+    "copy_summary": "复制摘要",
+    "summary_copied": "摘要已复制，可以贴到状态页的公开复盘",
+    "actions_title": "改进项",
+    "action_placeholder": "加一项改进",
+    "add_action": "添加",
+    "remove_action": "删除改进项「{{title}}」",
+    "make_ticket": "建工单",
+    "ticket_created": "已建单 {{key}}",
+    "open_actions_one": "{{count}} 项改进未完成",
+    "open_actions_other": "{{count}} 项改进未完成",
+    "overdue_one": "{{count}} 项过期",
+    "overdue_other": "{{count}} 项过期",
+    "template": {
+      "summary": "摘要",
+      "impact": "影响",
+      "duration": "持续：{{value}}",
+      "minutes_one": "{{count}} 分钟",
+      "minutes_other": "{{count}} 分钟",
+      "ongoing": "仍在进行",
+      "services": "受影响的服务：{{value}}",
+      "severity": "严重度：{{value}}",
+      "timeline": "时间线",
+      "triggered": "触发",
+      "resolved": "解决",
+      "root_cause": "根因",
+      "went_well": "做得好的",
+      "went_badly": "做得不好的",
+      "actions": "改进项",
+      "kinds": {
+        "acknowledged": "确认",
+        "resolved": "解决",
+        "escalated": "升级",
+        "reassigned": "转派",
+        "responders_added": "增派",
+        "snoozed": "暂缓",
+        "severity_changed": "改严重度",
+        "merged_in": "并入其他事件",
+        "note": "备注",
+        "remediation_executed": "执行修复动作",
+        "ticket_created": "建工单",
+        "declared_major": "宣布重大事件",
+        "role_assigned": "指派角色",
+        "war_room_created": "建作战室",
+        "task_done": "完成任务",
+        "status_update": "发进展",
+        "step_unreachable": "收不到告警，直接升级",
+        "priority_changed": "改优先级",
+        "urgency_changed": "改紧急度"
+      }
+    }
+  },
+  "urgency": {
+    "high": "高",
+    "low": "低"
+  },
+  "importance": {
+    "no_priority": "未设优先级",
+    "without_priority": "不设",
+    "all_priorities": "全部优先级",
+    "filter_label": "按优先级筛选",
+    "low_urgency": "低紧急度",
+    "urgency": {
+      "high": "高紧急度",
+      "low": "低紧急度"
+    },
+    "behaviour": {
+      "escalates": "逐级升级",
+      "first_step": "只通知第一级",
+      "quiet_switch": "免打扰时看个人开关",
+      "quiet_block": "免打扰时不打扰",
+      "steps_high": "用高紧急度步骤",
+      "steps_low": "用低紧急度步骤"
+    }
+  },
+  "create_incident": {
+    "open": "新建事件",
+    "title": "新建事件",
+    "subtitle": "规则没抓到的问题，比如客户报障、有人发现的异常，在这里开一个事件，照常通知和升级。",
+    "submit": "创建事件",
+    "created": "事件已创建",
+    "sections": {
+      "what": "发生了什么",
+      "who": "交给谁"
+    },
+    "fields": {
+      "title": "标题",
+      "description": "说明",
+      "severity": "严重度",
+      "priority": "优先级",
+      "urgency": "紧急度",
+      "services": "受影响的服务",
+      "labels": "标签",
+      "team": "团队",
+      "policy": "升级策略",
+      "people": "成员"
+    },
+    "hints": {
+      "description": "支持 Markdown。",
+      "services": "用逗号分开，按服务目录里的名字写。",
+      "labels": "每行一个 key=value，路由规则和静默按它们匹配。",
+      "people_one": "最多 {{count}} 人；只通知他们，不走升级策略。",
+      "people_other": "最多 {{count}} 人；只通知他们，不走升级策略。"
+    },
+    "placeholders": {
+      "title": "例如：华北区客户反馈支付页打不开",
+      "choose": "选择…"
+    },
+    "assign": {
+      "auto": "按路由分派",
+      "team": "交给团队",
+      "policy": "交给升级策略",
+      "users": "指定成员"
+    },
+    "assign_hints": {
+      "auto": "和规则开的事件一样，按路由规则、服务的负责团队、团队标签分派。",
+      "team": "用团队的值班策略，没设时用默认策略。",
+      "policy": "从这条策略的第一级开始通知。",
+      "users": "直接通知这些人，不升级。"
+    },
+    "declare_major": "同时宣布为重大事件"
+  },
+  "discovery": {
+    "load_error": "自动发现的结果读不出来",
+    "tabs_label": "发现",
+    "tabs": {
+      "open": "进行中",
+      "ended": "已结束"
+    },
+    "filter_kind": "按种类筛选",
+    "all_kinds": "全部种类",
+    "kinds": {
+      "apm_anomaly": "服务突变",
+      "apm_regression": "新版本变差",
+      "rum_new_issue": "前端新错误",
+      "rum_regressed_issue": "前端错误又出现",
+      "log_error_surge": "错误日志突增",
+      "log_new_error": "新的错误日志",
+      "metric_saturation": "资源快满",
+      "metric_shift": "CPU 突变",
+      "metric_restarts": "容器重启"
+    },
+    "metrics": {
+      "error_rate": "错误率",
+      "p95": "P95 延迟",
+      "throughput": "流量",
+      "requests": "请求"
+    },
+    "summary": {
+      "apm_anomaly": "{{service}} 的{{metric}}变为 {{value}}（之前 {{baseline}}）",
+      "apm_regression": "{{service}} {{version}} 比上一个版本差",
+      "rum_new_issue": "{{application}} 出现新错误：{{message}}",
+      "rum_regressed_issue": "{{application}} 解决过的错误又出现：{{message}}",
+      "log_error_surge": "{{stream}} 里 {{service}} 的错误日志：15 分钟 {{value}} 条（平常 {{baseline}} 条）",
+      "log_new_error": "{{service}} 出现新错误：{{template}}",
+      "metric_saturation": "{{subject}} 已用 {{value}}",
+      "metric_shift": "{{subject}} 的 CPU 到了 {{value}}（1 小时前 {{baseline}}）",
+      "metric_restarts": "{{subject}} 15 分钟里重启了 {{value}} 次"
+    },
+    "empty": {
+      "open": {
+        "title": "现在没有发现问题",
+        "description": "每 5 分钟找一遍 APM 服务的突变、变差的新版本，以及前端新出现和又出现的错误。"
+      },
+      "ended": {
+        "title": "最近没有结束的发现",
+        "description": "连续三轮没再看到的发现算结束，保留 30 天。"
+      }
+    },
+    "columns": {
+      "finding": "发现",
+      "started": "开始",
+      "last_seen": "最近一次看到",
+      "ended": "结束"
+    },
+    "new_rule": "建自动发现规则",
+    "rule_for_kind": "为这类发现建规则",
+    "downstream": "下游",
+    "version_after": "{{version}}（上一个是 {{previous}}）",
+    "sections": {
+      "what": "发现了什么",
+      "changes": "附近的变更"
+    },
+    "fields": {
+      "kind": "种类",
+      "now": "现在",
+      "before": "前一段",
+      "last_week": "上周同段",
+      "version": "版本",
+      "location": "位置",
+      "started": "开始",
+      "last_seen": "最近一次看到",
+      "ended": "结束"
+    },
+    "rule": {
+      "new_title": "建自动发现规则",
+      "edit_title": "编辑自动发现规则",
+      "subtitle": "命中的每条发现各开一个事件，严重度就是发现的严重度；发现结束，事件就恢复。",
+      "create": "创建规则",
+      "save": "保存规则",
+      "created": "规则已创建",
+      "updated": "规则已保存",
+      "name_from": "自动发现：{{subject}}",
+      "source": "自动发现",
+      "condition": "每条发现开一个事件",
+      "urgency_low_default": "低（默认）",
+      "sections": {
+        "which": "哪些发现",
+        "who": "通知谁"
+      },
+      "fields": {
+        "name": "名称",
+        "kinds": "种类",
+        "subjects": "服务或应用",
+        "environments": "环境",
+        "min_severity": "最低严重度",
+        "policy": "升级策略",
+        "urgency": "紧急度"
+      },
+      "hints": {
+        "kinds": "都不勾表示全部种类。",
+        "subjects": "APM 服务名或 RUM 应用 id，逗号分开；空着是全部。",
+        "environments": "逗号分开；空着是全部。",
+        "urgency": "自动发现是推算出来的，默认低紧急度：只通知第一级，免打扰时段不打扰。"
+      }
+    },
+    "open": {
+      "apm": "在 APM 里打开",
+      "rum": "在 RUM 里打开",
+      "logs": "看这些日志",
+      "metrics": "在指标里打开"
+    },
+    "investigate": "让 Mole Agent 调查",
+    "investigate_prompt": "调查这条自动发现：{{summary}}。结合它开始前后的日志、指标、链路和变更，查出原因，并说下一步该做什么。"
+  },
+  "rule_transfer": {
+    "menu": "导入导出",
+    "export_all": "导出全部规则",
+    "export_one": "导出这 {{count}} 条规则",
+    "export_other": "导出这 {{count}} 条规则",
+    "exported_one": "已导出 {{count}} 条规则",
+    "exported_other": "已导出 {{count}} 条规则",
+    "import": "导入规则…",
+    "import_title": "导入规则",
+    "import_subtitle": "贴上或选择 MoleSignal 导出的规则包，或 Prometheus 的告警规则文件（含 PrometheusRule）。先预演，看清每条规则会怎样，再一次写进去。",
+    "content": "内容",
+    "content_hint": "JSON 或 YAML。按名称对上已有的规则：没有就新建，有就更新。",
+    "choose_file": "选择文件",
+    "create_only": "只新建，已有的同名项不动",
+    "try": "预演",
+    "apply_one": "导入 {{count}} 条",
+    "apply_other": "导入 {{count}} 条",
+    "cancel": "取消",
+    "imported_one": "已导入 {{count}} 条规则",
+    "imported_other": "已导入 {{count}} 条规则",
+    "result": "预演结果",
+    "has_errors": "有出错的规则，改好再导入",
+    "changes": "改动：{{fields}}",
+    "formats": {
+      "molesignal": "MoleSignal 规则包",
+      "prometheus": "Prometheus 告警规则",
+      "pagerduty": "PagerDuty 排班",
+      "opsgenie": "Opsgenie 排班"
+    },
+    "actions": {
+      "create": "新建",
+      "update": "更新",
+      "unchanged": "不变",
+      "skip": "跳过",
+      "error": "出错"
+    }
+  },
+  "transfer": {
+    "unknown_members": "这些邮箱在这个工作区里没有对应的成员：",
+    "findings": {
+      "schedules_only": "只导入排班。升级策略、路由规则和临时替班不导入。",
+      "shift_based_not_listed": "文件没有列出 PagerDuty 的 shift-based 排班，V2 API 查不到它们，所以这里可能缺了几个。迁移脚本会把它们列出来。",
+      "shift_based_not_fetched": "文件里只有这个 shift-based 排班的名字，没有它的内容，所以跳过。重新运行迁移脚本，或用 GET /v3/schedules/{id} 取。",
+      "schedule_unreadable": "读不了这个排班：{{detail}}",
+      "timezone_unknown": "时区「{{timezone}}」不是 IANA 时区名。",
+      "layers_missing": "文件里没有这个排班的层。用 GET /schedules/{id} 取。",
+      "rotations_missing": "文件里没有这个排班的轮换。用 GET /v2/schedules/{id} 取。",
+      "events_missing": "文件里没有这个排班的轮换和事件。用 GET /v3/schedules/{id} 取。",
+      "time_invalid": "{{rotation}}：「{{value}}」不是时间。",
+      "user_without_email": "{{rotation}}：文件里没有 {{user}} 的邮箱。",
+      "participant_team": "{{rotation}}：团队 {{name}} 参与轮换，这里的轮值只能排人。",
+      "participant_escalation": "{{rotation}}：升级策略 {{name}} 参与轮换，这里的轮值只能排人。",
+      "participant_none": "{{rotation}}：有一班没有人，这里的轮值不能空出一班。",
+      "participant_unknown": "{{rotation}}：参与者的类型 {{value}} 认不出。",
+      "rotations_overlap": "{{rotation}} 和 {{other}} 有重叠，最早在 {{at}}。来源里两个人同时值班，这里一个排班同一时刻只有一个人；请把它们拆到不同的排班里。",
+      "every_member_on_call": "{{rotation}}：所有成员同时值班，这里一个排班同一时刻只有一个人；请把成员拆到不同的排班里。",
+      "recurrence_unsupported": "{{rotation}}：重复规则 {{value}} 写不成轮值。",
+      "shifts_per_member_unsupported": "{{rotation}}：每人连值 {{value}} 班，一周有 {{per_week}} 班，交接不在固定的周期上，这里的轮值表达不了。",
+      "event_timezones_differ": "{{rotation}} 用 {{timezone}}，{{other}} 用 {{other_timezone}}。这里一个排班只有一个时区；请把它们拆到不同的排班里。",
+      "timezone_from_events": "排班的时区是 {{schedule_timezone}}，它的事件用 {{timezone}}。这里用 {{timezone}}，交接时间才不变。",
+      "custom_shifts_one": "从现在起有 {{count}} 个自定义班次：{{at}} 到 {{until}}，{{user}}。这里的轮值表达不了一次性的班次。等它过去再导入，或者从文件的 final_schedule 里删掉它，导入后用临时替班补上。",
+      "custom_shifts_other": "从现在起有 {{count}} 个自定义班次，最早的是 {{at}} 到 {{until}}，{{user}}。这里的轮值表达不了一次性的班次。等它们过去再导入，或者从文件的 final_schedule 里删掉它们，导入后用临时替班补上。",
+      "rendered_several_on_call": "从 {{at}} 到 {{until}} 来源里 {{first}} 和 {{second}} 同时值班，这里一个排班同一时刻只有一个人。",
+      "rotation_type_unsupported": "{{rotation}}：轮换类型 {{value}} 认不出。",
+      "rotation_length_invalid": "{{rotation}}：轮换长度 {{value}} 不能用。",
+      "restriction_unsupported": "{{rotation}}：时段限制 {{value}} 写不成每周时段。",
+      "rendered_in_other_zone": "{{rotation}}：这份响应是按别的时区渲染的（{{value}}），它的时段限制没法按排班的时区读。请用 GET /schedules/{id} 取，不要传 time_zone。",
+      "starts_before_handoff": "{{rotation}}：这一层比它的轮换开始得早，那段时间谁值班不确定。",
+      "rendered_mismatch": "从 {{at}} 到 {{until}} 和来源不一样：来源是 {{expected}}，这次导入会是 {{actual}}。",
+      "rendered_mismatch_more_one": "还有 {{count}} 段。",
+      "rendered_mismatch_more_other": "还有 {{count}} 段。",
+      "rotation_ended": "{{rotation}} 在 {{at}} 已结束，跳过：它不再决定谁值班。",
+      "too_many_rotations": "一个排班里的轮值超过 {{limit}} 条。",
+      "schedule_paused": "来源里已停用：带过来也是暂停的，没有对照。",
+      "rotation_empty": "{{rotation}} 没有人或从不生效，跳过。",
+      "team_not_carried": "团队 {{name}} 没带过来：这里没有同名团队，或排班已经有团队了。不影响谁值班。",
+      "rendered_matched": "和来源对照过 {{from}} 到 {{to}}：值班人一致。",
+      "rendered_missing": "没有对照：文件里没有来源排出来的值班表。导入后请核对谁在值班。",
+      "rendered_stale": "没有对照：文件里来源排出来的值班表全在过去，请重新取一份。",
+      "clock_change_not_compared": "对照的范围没跨过 {{timezone}} 的夏令时切换：下一次切换之后的交接没有比过。",
+      "overrides_left_out_one": "对照范围内有 {{count}} 个临时替班，不导入。",
+      "overrides_left_out_other": "对照范围内有 {{count}} 个临时替班，不导入。"
+    },
+    "policies": {
+      "menu": "导入导出",
+      "export_all": "导出全部升级策略",
+      "export_one": "导出 {{count}} 条升级策略",
+      "export_other": "导出 {{count}} 条升级策略",
+      "import": "导入升级策略…",
+      "import_title": "导入升级策略",
+      "import_subtitle": "`molesignal.escalation-policies/v1` 格式的包。按名称对上：没有的新建，有的更新；先预演再导入。",
+      "exported_one": "已导出 {{count}} 条升级策略",
+      "exported_other": "已导出 {{count}} 条升级策略",
+      "imported_one": "已导入 {{count}} 条升级策略",
+      "imported_other": "已导入 {{count}} 条升级策略",
+      "content_hint": "JSON 或 YAML。用户按邮箱，排班、团队和节假日日历按名称引用。"
+    },
+    "schedules": {
+      "menu": "导入导出",
+      "export_all": "导出全部排班",
+      "export_one": "导出 {{count}} 个排班",
+      "export_other": "导出 {{count}} 个排班",
+      "import": "导入排班…",
+      "import_title": "导入排班",
+      "import_subtitle": "`molesignal.schedules/v1` 格式的包，或 Opsgenie、PagerDuty API 返回的排班。按名称对上：没有的新建，有的更新；先预演再导入。",
+      "exported_one": "已导出 {{count}} 个排班",
+      "exported_other": "已导出 {{count}} 个排班",
+      "imported_one": "已导入 {{count}} 个排班",
+      "imported_other": "已导入 {{count}} 个排班",
+      "content_hint": "JSON 或 YAML。成员按邮箱，团队和节假日日历按名称引用。临时覆盖和换班不在文件里，更新时保留。",
+      "has_errors": "先解决出错的排班，再导入",
+      "migration_title": "从 Opsgenie 或 PagerDuty 迁移",
+      "migration_intro": "在装有 curl 和 jq 的机器上运行这段脚本，再选择它写出的文件。API Key 只留在那台机器上：MoleSignal 不保存它，也不会向对方发请求。",
+      "migration_key": "先设置 {{name}}；能读的 Key 就够了。",
+      "migration_copy": "复制脚本",
+      "migration_docs": "哪些内容能带过来，哪些不能"
+    },
+    "routing": {
+      "menu": "导入导出",
+      "export_all": "导出全部路由规则",
+      "export_one": "导出 {{count}} 条路由规则",
+      "export_other": "导出 {{count}} 条路由规则",
+      "import": "导入路由规则…",
+      "import_title": "导入路由规则",
+      "import_subtitle": "`molesignal.routing-rules/v1` 格式的包。按名称对上：没有的新建，有的更新；先预演再导入。",
+      "exported_one": "已导出 {{count}} 条路由规则",
+      "exported_other": "已导出 {{count}} 条路由规则",
+      "imported_one": "已导入 {{count}} 条路由规则",
+      "imported_other": "已导入 {{count}} 条路由规则",
+      "content_hint": "JSON 或 YAML。升级策略、团队和节假日日历按名称引用。文件里的规则按文件的先后排在最前面，其余的保持原来的先后排在后面。"
+    }
   }
 }

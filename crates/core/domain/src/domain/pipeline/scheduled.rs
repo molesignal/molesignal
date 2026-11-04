@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use super::{
     processing::{ProcessingKind, parse_processing_steps},
-    realtime::{OutputKind, public_stream},
+    realtime::{OutputKind, public_stream, writable_stream},
 };
 use crate::shared::{Error, Result};
 
@@ -49,6 +49,8 @@ pub struct ScheduledConfig {
     pub sinks: Vec<String>,
     /// Connectors every event is delivered to.
     pub connectors: Vec<String>,
+    /// Extend tables every event is written to, a row under the value of the table's key field.
+    pub tables: Vec<String>,
     /// Within a run, an event whose value of this field was already seen is dropped.
     pub dedupe_field: Option<String>,
     /// How long the latest stretch of time is left for late events before a run reads it.
@@ -69,6 +71,10 @@ impl ScheduledConfig {
         let sources = stream_list(config, "sources", source_stream)?;
         let sinks = stream_list(config, "sinks", target_stream)?;
 
+        for sink in &sinks {
+            writable_stream(sink)?;
+        }
+
         if let Some(name) = sinks.iter().find(|sink| sources.contains(sink)) {
             return Err(Error::conflict(format!(
                 "pipeline cannot write to `{name}`, which it reads"
@@ -76,6 +82,15 @@ impl ScheduledConfig {
         }
 
         for step in parse_processing_steps(config)? {
+            // Counting across events needs the events as they arrive; a run reads a window of
+            // stored ones, and the next run another.
+            if step.kind.keeps_count() {
+                return Err(Error::invalid(format!(
+                    "step `{}` keeps count as events arrive: it runs in a realtime pipeline",
+                    step.transform_name.trim()
+                )));
+            }
+
             if step.kind != ProcessingKind::Builtin {
                 continue;
             }
@@ -92,10 +107,10 @@ impl ScheduledConfig {
             }
         }
 
-        let dead_letter_stream = optional_text(config, "dead_letter_stream")?;
+        let dead_letter_stream = optional_text(config, "deadLetterStream")?;
 
         if let Some(name) = &dead_letter_stream {
-            public_stream(name)?;
+            writable_stream(name)?;
 
             if sources.contains(name) || sinks.contains(name) {
                 return Err(Error::invalid(format!(
@@ -108,8 +123,9 @@ impl ScheduledConfig {
             sources,
             sinks,
             connectors: connectors(config)?,
-            dedupe_field: optional_text(config, "dedupe_field")?,
-            delay_secs: bounded(config.get("delay_secs"), DEFAULT_DELAY_SECS, MAX_DELAY_SECS)
+            tables: extend_tables(config)?,
+            dedupe_field: optional_text(config, "dedupeField")?,
+            delay_secs: bounded(config.get("delaySecs"), DEFAULT_DELAY_SECS, MAX_DELAY_SECS)
                 .ok_or_else(|| {
                     Error::invalid(format!(
                         "delay_secs must be a whole number from 0 to {MAX_DELAY_SECS}"
@@ -155,8 +171,46 @@ fn stream_list(config: &Value, key: &str, first: &str) -> Result<Vec<String>> {
     Ok(names)
 }
 
+/// The extend tables of `sink_tables`, trimmed, without blanks or repeats.
+fn extend_tables(config: &Value) -> Result<Vec<String>> {
+    let Some(value) = config.get("sinkTables") else {
+        return Ok(Vec::new());
+    };
+
+    let values = value
+        .as_array()
+        .ok_or_else(|| Error::invalid("sink_tables must be an array of extend table names"))?;
+
+    let mut tables: Vec<String> = Vec::new();
+
+    for value in values {
+        let name = value
+            .as_str()
+            .ok_or_else(|| Error::invalid("sink_tables must be an array of extend table names"))?
+            .trim();
+
+        if name.len() > MAX_FIELD_LENGTH {
+            return Err(Error::invalid(format!(
+                "extend table names are at most {MAX_FIELD_LENGTH} bytes"
+            )));
+        }
+
+        if !name.is_empty() && !tables.iter().any(|known| known == name) {
+            tables.push(name.to_owned());
+        }
+    }
+
+    if tables.len() > MAX_STREAMS {
+        return Err(Error::invalid(format!(
+            "a pipeline writes at most {MAX_STREAMS} extend tables"
+        )));
+    }
+
+    Ok(tables)
+}
+
 fn connectors(config: &Value) -> Result<Vec<String>> {
-    let Some(value) = config.get("sink_connectors") else {
+    let Some(value) = config.get("sinkConnectors") else {
         return Ok(Vec::new());
     };
 
@@ -225,8 +279,8 @@ fn retry_policy(value: Option<&Value>) -> Result<RetryPolicy> {
     };
 
     Ok(RetryPolicy {
-        run_retries: count("run_retries", DEFAULT_RUN_RETRIES)?,
-        delivery_retries: count("delivery_retries", DEFAULT_DELIVERY_RETRIES)?,
+        run_retries: count("runRetries", DEFAULT_RUN_RETRIES)?,
+        delivery_retries: count("deliveryRetries", DEFAULT_DELIVERY_RETRIES)?,
     })
 }
 
@@ -242,7 +296,7 @@ mod tests {
             &json!({
                 "sources": ["nginx", "app", " app ", ""],
                 "sinks": ["archive", "clean"],
-                "sink_connectors": ["c1", "c1"],
+                "sinkConnectors": ["c1", "c1"],
             }),
             "app",
             "clean",
@@ -252,6 +306,7 @@ mod tests {
         assert_eq!(config.sources, vec!["app", "nginx"]);
         assert_eq!(config.sinks, vec!["clean", "archive"]);
         assert_eq!(config.connectors, vec!["c1"]);
+        assert!(config.tables.is_empty());
     }
 
     #[test]
@@ -281,6 +336,20 @@ mod tests {
 
             assert_eq!(err.http_status_code(), 409, "{err}");
         }
+    }
+
+    #[test]
+    fn steps_that_keep_count_run_only_as_events_arrive() {
+        let config = json!({
+            "steps": [{
+                "transformName": "errors",
+                "kind": "generate_metric",
+                "metric": { "name": "errors", "type": "count", "stream": "app" },
+            }],
+        });
+
+        let error = ScheduledConfig::parse(&config, "app", "clean").unwrap_err();
+        assert!(error.to_string().contains("realtime pipeline"), "{error}");
     }
 
     #[test]
@@ -317,13 +386,51 @@ mod tests {
     }
 
     #[test]
+    fn extend_tables_are_named_once_each_and_counted() {
+        let config = ScheduledConfig::parse(
+            &json!({ "sinkTables": [" host_owner ", "host_owner", "", "service_team"] }),
+            "app",
+            "clean",
+        )
+        .unwrap();
+
+        assert_eq!(config.tables, vec!["host_owner", "service_team"]);
+
+        let many: Vec<String> = (0..=MAX_STREAMS).map(|n| format!("t{n}")).collect();
+
+        assert!(ScheduledConfig::parse(&json!({ "sinkTables": many }), "app", "clean").is_err());
+        assert!(ScheduledConfig::parse(&json!({ "sinkTables": "t" }), "app", "clean").is_err());
+        assert!(ScheduledConfig::parse(&json!({ "sinkTables": [1] }), "app", "clean").is_err());
+    }
+
+    #[test]
+    fn rum_streams_are_read_but_never_written() {
+        let config = ScheduledConfig::parse(
+            &json!({ "sources": ["rum_views"], "sinkConnectors": ["c1"] }),
+            "rum_errors",
+            "rum_copy",
+        )
+        .unwrap();
+
+        assert_eq!(config.sources, vec!["rum_errors", "rum_views"]);
+        assert!(ScheduledConfig::parse(&json!({}), "app", "rum_errors").is_err());
+        assert!(
+            ScheduledConfig::parse(&json!({ "sinks": ["rum_actions"] }), "app", "clean").is_err()
+        );
+        assert!(
+            ScheduledConfig::parse(&json!({ "deadLetterStream": "rum_vitals" }), "app", "clean")
+                .is_err()
+        );
+    }
+
+    #[test]
     fn retry_delay_and_dead_letters_are_read_and_bounded() {
         let config = ScheduledConfig::parse(
             &json!({
-                "delay_secs": 0,
-                "retry": { "run_retries": 0, "delivery_retries": 10 },
-                "dead_letter_stream": " failed_events ",
-                "dedupe_field": "trace_id",
+                "delaySecs": 0,
+                "retry": { "runRetries": 0, "deliveryRetries": 10 },
+                "deadLetterStream": " failed_events ",
+                "dedupeField": "trace_id",
             }),
             "app",
             "clean",
@@ -342,14 +449,14 @@ mod tests {
         assert_eq!(config.dedupe_field.as_deref(), Some("trace_id"));
 
         for bad in [
-            json!({ "delay_secs": -1 }),
-            json!({ "delay_secs": MAX_DELAY_SECS + 1 }),
-            json!({ "delay_secs": "60" }),
-            json!({ "retry": { "run_retries": 11 } }),
+            json!({ "delaySecs": -1 }),
+            json!({ "delaySecs": MAX_DELAY_SECS + 1 }),
+            json!({ "delaySecs": "60" }),
+            json!({ "retry": { "runRetries": 11 } }),
             json!({ "retry": 3 }),
-            json!({ "dead_letter_stream": "clean" }),
-            json!({ "dead_letter_stream": "app" }),
-            json!({ "dead_letter_stream": 7 }),
+            json!({ "deadLetterStream": "clean" }),
+            json!({ "deadLetterStream": "app" }),
+            json!({ "deadLetterStream": 7 }),
         ] {
             assert!(
                 ScheduledConfig::parse(&bad, "app", "clean").is_err(),

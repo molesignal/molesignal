@@ -9,14 +9,21 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::incident::Severity;
-use crate::shared::ids::Id;
+use super::{incident::Severity, urgency::UrgencyRule};
+use crate::shared::{Error, Result, ids::Id};
 
 /// 规则不指定升级策略时的取值。它不是真实的策略 id，而是别名：解析时落到所在组织里
 /// 名为 `default` 的策略，见 [`EscalationPolicy::resolve`]。
 pub const DEFAULT_POLICY_ID: &str = "default";
 
+/// 「确认后仍未解决」最短多久：5 分钟。
+pub const MIN_ACK_RETRIGGER_SECS: u32 = 5 * 60;
+
+/// 「确认后仍未解决」最长多久：24 小时。
+pub const MAX_ACK_RETRIGGER_SECS: u32 = 24 * 60 * 60;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EscalationPolicy {
     pub id: Id,
     pub org_id: Id,
@@ -25,6 +32,28 @@ pub struct EscalationPolicy {
     /// 走完所有步骤后是否循环；true 时配合 max_loops。
     pub repeat: bool,
     pub max_loops: u32,
+    /// 确认后过这么久（秒）还没解决，事件退回未确认，重新通知负责人；没人确认就继续升级。
+    /// 空着时确认后不再提醒。
+    #[serde(default)]
+    pub ack_retrigger_secs: Option<u32>,
+    /// 走这条策略、又没有明确指定紧急度的事件怎么定紧急度；默认按严重度。
+    #[serde(default)]
+    pub urgency_rule: UrgencyRule,
+    /// 低紧急度事件也照常往下升级、整轮重复；默认只通知第一级。
+    #[serde(default)]
+    pub escalate_low_urgency: bool,
+}
+
+/// 「确认后仍未解决」的时长要在 5 分钟到 24 小时之间。
+pub fn validate_ack_retrigger(secs: Option<u32>) -> Result<()> {
+    match secs {
+        Some(secs) if !(MIN_ACK_RETRIGGER_SECS..=MAX_ACK_RETRIGGER_SECS).contains(&secs) => {
+            Err(Error::invalid(format!(
+                "ack_retrigger_secs must be between {MIN_ACK_RETRIGGER_SECS} and {MAX_ACK_RETRIGGER_SECS}"
+            )))
+        }
+        _ => Ok(()),
+    }
 }
 
 impl EscalationPolicy {
@@ -47,6 +76,7 @@ impl EscalationPolicy {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EscalationStep {
     pub targets: Vec<EscalationTarget>,
     /// 本步派发后多久没 ack 就升级，秒。
@@ -60,6 +90,7 @@ pub struct EscalationStep {
 /// 创建或更新策略时提交的升级步骤。`ack_timeout_secs` 可省略，省略时取
 /// `[alert].default_ack_timeout_secs`，保存后每一步都带有确定的超时。
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EscalationStepInput {
     pub targets: Vec<EscalationTarget>,
     #[serde(default)]
@@ -87,7 +118,11 @@ impl EscalationStep {
 
 /// 派发目标。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub enum EscalationTarget {
     /// 直接指定到具体用户。
     User { user_id: Id },
@@ -109,6 +144,9 @@ mod tests {
             steps: Vec::new(),
             repeat: false,
             max_loops: 1,
+            ack_retrigger_secs: None,
+            urgency_rule: Default::default(),
+            escalate_low_urgency: false,
         }
     }
 
@@ -136,18 +174,33 @@ mod tests {
     #[test]
     fn omitted_ack_timeout_takes_the_configured_default() {
         let omitted: EscalationStepInput =
-            serde_json::from_str(r#"{"targets":[{"kind":"user","user_id":"u1"}]}"#)
+            serde_json::from_str(r#"{"targets":[{"kind":"user","userId":"u1"}]}"#)
                 .expect("ack_timeout_secs is optional");
         assert_eq!(omitted.into_step(420).ack_timeout_secs, 420);
 
         let explicit: EscalationStepInput =
-            serde_json::from_str(r#"{"targets":[],"ack_timeout_secs":0,"min_severity":null}"#)
+            serde_json::from_str(r#"{"targets":[],"ackTimeoutSecs":0,"minSeverity":null}"#)
                 .expect("explicit timeout");
         assert_eq!(
             explicit.into_step(420).ack_timeout_secs,
             0,
             "an explicit zero is kept"
         );
+    }
+
+    #[test]
+    fn the_retrigger_wait_is_bounded() {
+        assert!(validate_ack_retrigger(None).is_ok());
+        assert!(validate_ack_retrigger(Some(MIN_ACK_RETRIGGER_SECS)).is_ok());
+        assert!(validate_ack_retrigger(Some(MAX_ACK_RETRIGGER_SECS)).is_ok());
+        assert!(validate_ack_retrigger(Some(60)).is_err());
+        assert!(validate_ack_retrigger(Some(MAX_ACK_RETRIGGER_SECS + 1)).is_err());
+
+        let old: EscalationPolicy = serde_json::from_str(
+            r#"{"id":"p","orgId":"o","name":"n","steps":[],"repeat":false,"maxLoops":1}"#,
+        )
+        .expect("a policy saved before the setting existed");
+        assert_eq!(old.ack_retrigger_secs, None);
     }
 
     /// 3 个 target variant 都 round-trip 一致，避免 escalation_policies.steps JSON 写入 ↔ 读出

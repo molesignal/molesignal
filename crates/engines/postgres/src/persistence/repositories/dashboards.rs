@@ -21,7 +21,7 @@ impl PgDashboardRepository {
 }
 
 pub(crate) const COLS: &str = "id, org_id, folder_id, uid, title, tags, model, version,
-     created_at_micros, updated_at_micros, created_by, updated_by";
+     created_at, updated_at, created_by, updated_by";
 
 pub(crate) fn row_to_dashboard(row: sqlx::postgres::PgRow) -> Result<Dashboard> {
     let folder_id: Option<String> = row.try_get("folder_id").map_err(sqlx_err)?;
@@ -38,8 +38,12 @@ pub(crate) fn row_to_dashboard(row: sqlx::postgres::PgRow) -> Result<Dashboard> 
         tags: tags.0,
         model: model.0,
         version: version as u32,
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
         created_by: Id::from_string(row.try_get::<String, _>("created_by").map_err(sqlx_err)?),
         updated_by: Id::from_string(row.try_get::<String, _>("updated_by").map_err(sqlx_err)?),
     })
@@ -51,7 +55,7 @@ impl DashboardRepository for PgDashboardRepository {
         sqlx::query(
             "INSERT INTO dashboards
              (id, org_id, folder_id, uid, title, tags, model, version,
-              created_at_micros, updated_at_micros, created_by, updated_by)
+              created_at, updated_at, created_by, updated_by)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
         )
         .bind(&d.id.0)
@@ -62,8 +66,8 @@ impl DashboardRepository for PgDashboardRepository {
         .bind(Json(&d.tags))
         .bind(Json(&d.model))
         .bind(d.version as i32)
-        .bind(d.created_at.0)
-        .bind(d.updated_at.0)
+        .bind(d.created_at)
+        .bind(d.updated_at)
         .bind(&d.created_by.0)
         .bind(&d.updated_by.0)
         .execute(&self.pool)
@@ -77,7 +81,7 @@ impl DashboardRepository for PgDashboardRepository {
         sqlx::query(
             "UPDATE dashboards SET
                folder_id = $2, uid = $3, title = $4, tags = $5, model = $6,
-               version = $7, updated_at_micros = $8, updated_by = $9
+               version = $7, updated_at = $8, updated_by = $9
              WHERE id = $1",
         )
         .bind(&d.id.0)
@@ -87,7 +91,7 @@ impl DashboardRepository for PgDashboardRepository {
         .bind(Json(&d.tags))
         .bind(Json(&d.model))
         .bind(d.version as i32)
-        .bind(d.updated_at.0)
+        .bind(d.updated_at)
         .bind(&d.updated_by.0)
         .execute(&self.pool)
         .await
@@ -100,7 +104,7 @@ impl DashboardRepository for PgDashboardRepository {
         let row = sqlx::query(&format!(
             "UPDATE dashboards SET
                folder_id = $3, uid = $4, title = $5, tags = $6, model = $7,
-               version = $8, updated_at_micros = $9, updated_by = $10
+               version = $8, updated_at = $9, updated_by = $10
              WHERE id = $1 AND org_id = $2 AND version = $11
              RETURNING {COLS}"
         ))
@@ -112,7 +116,7 @@ impl DashboardRepository for PgDashboardRepository {
         .bind(Json(&d.tags))
         .bind(Json(&d.model))
         .bind(d.version as i32)
-        .bind(d.updated_at.0)
+        .bind(d.updated_at)
         .bind(&d.updated_by.0)
         .bind(expected_version as i32)
         .fetch_optional(&self.pool)

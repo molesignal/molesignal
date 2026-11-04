@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation } from 'react-router-dom';
 
+import { hasPermission, useProductAccess } from '@/product/access';
 import { ManagementPage } from '@/product/templates';
 import { ManagementNav } from '@/shell/ManagementNav';
 import { useSubnavStore } from '@/stores/useSubnavStore';
@@ -27,6 +28,11 @@ const GROUPS = [
       {
         key: 'sessions',
         to: '/account/settings/sessions',
+      },
+      {
+        key: 'api_tokens',
+        to: '/account/settings/api-tokens',
+        permission: 'personal_tokens.manage',
       },
     ],
   },
@@ -63,13 +69,16 @@ function AccountNav({ onCollapse }: { onCollapse: () => void }) {
   const { t } = useTranslation('account');
   const { t: tShell } = useTranslation('shell');
   const { pathname } = useLocation();
+  const access = useProductAccess();
   const groups = GROUPS.map((group) => ({
     key: group.key,
     label: t(`nav.groups.${group.key}`),
-    sections: group.items.map((item) => ({
-      to: item.to,
-      label: t(`nav.items.${item.key}`),
-    })),
+    sections: group.items
+      .filter((item) => !('permission' in item) || hasPermission(item.permission, access))
+      .map((item) => ({
+        to: item.to,
+        label: t(`nav.items.${item.key}`),
+      })),
   }));
 
   return (

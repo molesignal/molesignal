@@ -16,7 +16,7 @@ export type ProbeOutcome = MonitorState | 'skipped';
 export type ValueSource =
   | { source: 'literal'; value: string }
   | { source: 'variable'; name: string }
-  | { source: 'secret'; reference: string; secret_id: string };
+  | { source: 'secret'; reference: string; secretId: string };
 
 export type AssertionSeverity = 'warning' | 'critical';
 
@@ -51,6 +51,21 @@ export interface HeaderValue {
   value: ValueSource;
 }
 
+/** What TLS negotiates, or HTTP/1.1 or HTTP/2 only (over plain HTTP by prior knowledge). */
+export type HttpVersion = 'auto' | 'http1' | 'http2';
+
+/**
+ * The private key of a client certificate: a new one in PEM, or the one a revision holds. The
+ * server seals a key and never sends it back; a revision shows its key as kept.
+ */
+export type ClientKey = { state: 'new'; pem: string } | { state: 'kept'; revisionId: string };
+
+/** A host name reached at chosen addresses, as a hosts file would. */
+export interface HostBinding {
+  name: string;
+  addresses: string[];
+}
+
 export interface HttpStep {
   id: string;
   name: string;
@@ -74,9 +89,13 @@ export type MonitorSpec =
       kind: 'http';
       configuration: {
         steps: HttpStep[];
-        follow_redirects: boolean;
-        max_redirects: number;
-        verify_tls: boolean;
+        followRedirects: boolean;
+        maxRedirects: number;
+        verifyTls: boolean;
+        httpVersion?: HttpVersion;
+        clientCertificate?: { certificate: string; privateKey: ClientKey };
+        dnsServer?: string;
+        hosts?: HostBinding[];
       };
     }
   | {
@@ -84,10 +103,10 @@ export type MonitorSpec =
       configuration: {
         steps: BrowserStep[];
         viewport: { width: number; height: number };
-        user_agent?: string;
-        capture_screenshot_on_failure: boolean;
-        capture_har_on_failure: boolean;
-        capture_trace_on_failure: boolean;
+        userAgent?: string;
+        captureScreenshotOnFailure: boolean;
+        captureHarOnFailure: boolean;
+        captureTraceOnFailure: boolean;
       };
     }
   | {
@@ -95,10 +114,10 @@ export type MonitorSpec =
       configuration: {
         host: ValueSource;
         port: number;
-        use_tls: boolean;
-        server_name?: string;
+        useTls: boolean;
+        serverName?: string;
         send?: ValueSource;
-        expect_regex?: string;
+        expectRegex?: string;
         assertions: MonitorAssertion[];
       };
     }
@@ -107,30 +126,30 @@ export type MonitorSpec =
       configuration: {
         host: ValueSource;
         port: number;
-        expected_identification_regex?: string;
+        expectedIdentificationRegex?: string;
         authentication?:
           | { kind: 'password'; username: ValueSource; password: ValueSource }
           | {
               kind: 'public_key';
               username: ValueSource;
-              private_key: ValueSource;
+              privateKey: ValueSource;
               passphrase?: ValueSource;
             };
         command?: ValueSource;
-        expected_output_regex?: string;
-        expected_exit_status?: number;
-        expected_host_key_sha256?: string;
+        expectedOutputRegex?: string;
+        expectedExitStatus?: number;
+        expectedHostKeySha256?: string;
       };
     }
   | {
       kind: 'dns';
       configuration: {
         name: string;
-        record_type: string;
+        recordType: string;
         resolver?: string;
-        require_dnssec: boolean;
-        expected_values: string[];
-        expected_rcode?: string;
+        requireDnssec: boolean;
+        expectedValues: string[];
+        expectedRcode?: string;
         assertions: MonitorAssertion[];
       };
     }
@@ -139,9 +158,9 @@ export type MonitorSpec =
       configuration: {
         host: string;
         count: number;
-        interval_millis: number;
-        max_packet_loss_ratio: number;
-        max_mean_rtt_millis?: number;
+        intervalMillis: number;
+        maxPacketLossRatio: number;
+        maxMeanRttMillis?: number;
       };
     }
   | {
@@ -149,19 +168,19 @@ export type MonitorSpec =
       configuration: {
         host: string;
         port: number;
-        server_name?: string;
-        minimum_days_remaining: number;
-        expected_sans: string[];
-        expected_issuer_regex?: string;
-        minimum_protocol?: string;
+        serverName?: string;
+        minimumDaysRemaining: number;
+        expectedSans: string[];
+        expectedIssuerRegex?: string;
+        minimumProtocol?: string;
       };
     }
   | {
       kind: 'grpc';
       configuration: {
         endpoint: string;
-        use_tls: boolean;
-        server_name?: string;
+        useTls: boolean;
+        serverName?: string;
         metadata: HeaderValue[];
         call:
           | { kind: 'health'; service: string }
@@ -169,9 +188,9 @@ export type MonitorSpec =
               kind: 'unary';
               service: string;
               method: string;
-              descriptor_set_base64?: string;
-              use_reflection: boolean;
-              request_json: string;
+              descriptorSetBase64?: string;
+              useReflection: boolean;
+              requestJson: string;
             };
         assertions: MonitorAssertion[];
       };
@@ -179,9 +198,9 @@ export type MonitorSpec =
   | { kind: 'heartbeat' };
 
 export type MonitorSchedule =
-  | { kind: 'interval'; every_seconds: number }
+  | { kind: 'interval'; everySeconds: number }
   | { kind: 'cron'; expression: string; timezone: string }
-  | { kind: 'heartbeat'; expected_seconds: number; grace_seconds: number };
+  | { kind: 'heartbeat'; expectedSeconds: number; graceSeconds: number };
 
 export type MultiLocationPolicy =
   | { kind: 'any' }
@@ -191,45 +210,51 @@ export type MultiLocationPolicy =
 
 export interface SyntheticMonitor {
   id: string;
-  organization_id: string;
+  organizationId: string;
   name: string;
   description: string;
   kind: MonitorKind;
   lifecycle: MonitorLifecycle;
   state: MonitorState;
-  team_id?: string;
+  teamId?: string;
   tags: string[];
-  active_revision_id?: string;
-  draft_revision_id?: string;
-  next_due_at?: number;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-  archived_at?: number;
+  activeRevisionId?: string;
+  draftRevisionId?: string;
+  nextDueAt?: number;
+  createdBy: string;
+  createdAt: number;
+  updatedAt: number;
+  archivedAt?: number;
 }
 
 export interface MonitorRevision {
   id: string;
-  organization_id: string;
-  monitor_id: string;
+  organizationId: string;
+  monitorId: string;
   number: number;
   spec: MonitorSpec;
   schedule: MonitorSchedule;
-  timeout_millis: number;
-  max_retries: number;
-  consecutive_failures: number;
-  consecutive_recoveries: number;
-  freshness_seconds: number;
-  location_policy: MultiLocationPolicy;
-  location_ids: string[];
-  escalation_policy_id?: string;
-  alert_on_degraded: boolean;
-  alert_on_flaky: boolean;
-  last_test_result_id?: string;
-  last_test_passed_at?: number;
-  created_by: string;
-  created_at: number;
-  content_hash: string;
+  timeoutMillis: number;
+  maxRetries: number;
+  consecutiveFailures: number;
+  consecutiveRecoveries: number;
+  freshnessSeconds: number;
+  locationPolicy: MultiLocationPolicy;
+  locationIds: string[];
+  escalationPolicyId?: string;
+  alertOnDegraded: boolean;
+  alertOnFlaky: boolean;
+  /** An incident opens when enough locations stop getting results. */
+  alertOnNoData: boolean;
+  /** HTTP requests and gRPC calls carry a W3C trace context. */
+  injectTraceContext: boolean;
+  /** A run that cannot reach its target traces the route to it. */
+  tracerouteOnFailure: boolean;
+  lastTestResultId?: string;
+  lastTestPassedAt?: number;
+  createdBy: string;
+  createdAt: number;
+  contentHash: string;
 }
 
 export interface ActiveMonitorRevision {
@@ -240,6 +265,18 @@ export interface ActiveMonitorRevision {
 export interface MonitorDetail {
   monitor: SyntheticMonitor;
   revisions: MonitorRevision[];
+  /** Where the published revision is missing runs. */
+  missingRuns?: MissingRuns;
+}
+
+/**
+ * The locations of a check that missed as many runs in a row as fail a
+ * location (runs no Agent took in time), and whether they are as many as its
+ * location policy needs: then the check has no results.
+ */
+export interface MissingRuns {
+  noData: boolean;
+  locations: { locationId: string; missedRuns: number }[];
 }
 
 export interface CreateMonitorInput {
@@ -247,18 +284,21 @@ export interface CreateMonitorInput {
   description: string;
   spec: MonitorSpec;
   schedule: MonitorSchedule;
-  timeout_millis: number;
-  max_retries: number;
-  consecutive_failures: number;
-  consecutive_recoveries: number;
-  freshness_seconds: number;
-  location_policy: MultiLocationPolicy;
-  location_ids: string[];
-  team_id?: string;
+  timeoutMillis: number;
+  maxRetries: number;
+  consecutiveFailures: number;
+  consecutiveRecoveries: number;
+  freshnessSeconds: number;
+  locationPolicy: MultiLocationPolicy;
+  locationIds: string[];
+  teamId?: string;
   tags: string[];
-  escalation_policy_id?: string;
-  alert_on_degraded: boolean;
-  alert_on_flaky: boolean;
+  escalationPolicyId?: string;
+  alertOnDegraded: boolean;
+  alertOnFlaky: boolean;
+  alertOnNoData: boolean;
+  injectTraceContext: boolean;
+  tracerouteOnFailure: boolean;
 }
 
 /**
@@ -270,40 +310,40 @@ export interface CreateMonitorInput {
  * `TimingBreakdown` in `proto/probe/v1/probe.proto` is the full definition.
  */
 export interface TimingBreakdown {
-  dns_micros?: number;
-  connect_micros?: number;
-  tls_micros?: number;
-  first_byte_micros?: number;
-  total_micros?: number;
+  dnsTime?: number;
+  connectTime?: number;
+  tlsTime?: number;
+  firstByteTime?: number;
+  totalTime?: number;
 }
 
 export interface ProbeAttempt {
   number: number;
-  started_at: number;
-  finished_at: number;
+  startedAt: number;
+  finishedAt: number;
   outcome: ProbeOutcome;
   timing: TimingBreakdown;
-  error_category?: string;
-  error_message?: string;
-  bounded_response_excerpt?: number[];
+  errorCategory?: string;
+  errorMessage?: string;
+  boundedResponseExcerpt?: number[];
   metadata: Record<string, string>;
   evidence?: ProbeStepEvidence[];
 }
 
 export interface ProbeStepEvidence {
-  step_id: string;
+  stepId: string;
   name: string;
   action: string;
-  started_at: number;
-  finished_at: number;
+  startedAt: number;
+  finishedAt: number;
   outcome: ProbeOutcome;
-  error_category?: string;
-  error_message?: string;
+  errorCategory?: string;
+  errorMessage?: string;
   metadata: Record<string, string>;
 }
 
 export interface AssertionObservation {
-  assertion_id: string;
+  assertionId: string;
   severity: AssertionSeverity;
   passed: boolean;
   actual?: string;
@@ -314,33 +354,33 @@ export interface SyntheticResultArtifact {
   id: string;
   name: string;
   kind: 'screenshot' | 'har' | string;
-  content_type: string;
-  content_length: number;
+  contentType: string;
+  contentLength: number;
   sha256: string;
-  expires_at: number;
-  created_at: number;
+  expiresAt: number;
+  createdAt: number;
 }
 
 export interface SyntheticResult {
   id: string;
-  organization_id: string;
-  monitor_id: string;
-  monitor_revision_id: string;
-  location_id: string;
-  agent_id?: string;
-  task_id: string;
-  is_test: boolean;
-  result_sequence?: number;
-  scheduled_at: number;
-  started_at: number;
-  finished_at: number;
-  received_at: number;
+  organizationId: string;
+  monitorId: string;
+  monitorRevisionId: string;
+  locationId: string;
+  agentId?: string;
+  taskId: string;
+  isTest: boolean;
+  resultSequence?: number;
+  scheduledAt: number;
+  startedAt: number;
+  finishedAt: number;
+  receivedAt: number;
   outcome: ProbeOutcome;
   attempts: ProbeAttempt[];
   assertions: AssertionObservation[];
   artifacts?: SyntheticResultArtifact[];
-  secret_versions: Record<string, number>;
-  protocol_version: number;
+  secretVersions: Record<string, number>;
+  protocolVersion: number;
   metadata: Record<string, string>;
 }
 
@@ -348,7 +388,37 @@ export interface SyntheticResultPage {
   items: SyntheticResult[];
   total: number;
   page: number;
-  per_page: number;
+  perPage: number;
+}
+
+/**
+ * How a set of runs went. A run that passed, flapped or slowed was available; one that failed was
+ * not; one that could not be judged or never ran (`undecided`) counts toward neither.
+ */
+export interface AvailabilitySummary {
+  runs: number;
+  available: number;
+  failing: number;
+  undecided: number;
+  /** Available runs of those judged; null when no run was. */
+  availability: number | null;
+  p50Ms: number | null;
+  p95Ms: number | null;
+  maxMs: number | null;
+}
+
+/** How the checks did over a range, from the `_synthetic_results` stream. Times in microseconds. */
+export interface SyntheticAvailability {
+  from: number;
+  to: number;
+  /** The step the range is cut into. */
+  step: number;
+  total: AvailabilitySummary;
+  checks: Array<AvailabilitySummary & { checkId: string }>;
+  locations: Array<AvailabilitySummary & { locationId: string }>;
+  buckets: Array<AvailabilitySummary & { start: number }>;
+  /** Each location step by step, when one check is asked about. */
+  locationBuckets: Array<AvailabilitySummary & { locationId: string; start: number }>;
 }
 
 export type LocationScope = 'platform' | 'organization';
@@ -357,18 +427,18 @@ export type LocationLifecycle = 'active' | 'paused' | 'archived';
 export type LocationHealth = 'online' | 'degraded' | 'offline' | 'unknown';
 
 export interface EgressPolicy {
-  allowed_cidrs: string[];
-  denied_cidrs: string[];
-  allowed_domains: string[];
-  denied_domains: string[];
-  allowed_ports: number[];
-  allow_private_networks: boolean;
-  allow_loopback: boolean;
+  allowedCidrs: string[];
+  deniedCidrs: string[];
+  allowedDomains: string[];
+  deniedDomains: string[];
+  allowedPorts: number[];
+  allowPrivateNetworks: boolean;
+  allowLoopback: boolean;
 }
 
 export interface ProbeLocation {
   id: string;
-  organization_id?: string;
+  organizationId?: string;
   name: string;
   code: string;
   description: string;
@@ -376,36 +446,38 @@ export interface ProbeLocation {
   execution: LocationExecution;
   lifecycle: LocationLifecycle;
   health: LocationHealth;
-  system_managed: boolean;
-  egress_policy: EgressPolicy;
-  created_at: number;
-  updated_at: number;
+  systemManaged: boolean;
+  egressPolicy: EgressPolicy;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface ProbeAgent {
   id: string;
-  organization_id?: string;
-  location_id: string;
+  organizationId?: string;
+  locationId: string;
   name: string;
   hostname: string;
   status: 'registered' | 'online' | 'degraded' | 'offline' | 'draining' | 'revoked';
-  agent_version: string;
-  protocol_version: number;
+  agentVersion: string;
+  protocolVersion: number;
+  /** What the Agent runs beyond the first protocol, from its last heartbeat. */
+  featureLevel?: number;
   capabilities: MonitorKind[];
   capacity: {
-    max_concurrent: number;
-    max_browser_concurrent: number;
+    maxConcurrent: number;
+    maxBrowserConcurrent: number;
     available: number;
-    available_browser: number;
+    availableBrowser: number;
   };
   labels: Record<string, string>;
-  certificate_serial?: string;
-  certificate_expires_at?: number;
-  last_heartbeat_at?: number;
-  last_result_sequence: number;
-  revoked_at?: number;
-  created_at: number;
-  updated_at: number;
+  certificateSerial?: string;
+  certificateExpiresAt?: number;
+  lastHeartbeatAt?: number;
+  lastResultSequence: number;
+  revokedAt?: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface UpdateAgentConfigurationInput {
@@ -416,9 +488,9 @@ export interface UpdateAgentConfigurationInput {
 export interface ProbeRegisterInstructions {
   token: {
     id: string;
-    organization_id: string;
-    location_id: string;
-    expires_at: number;
+    organizationId: string;
+    locationId: string;
+    expiresAt: number;
   };
   command: string;
 }
@@ -427,34 +499,34 @@ export type ProbeAgentTokenStatus = 'active' | 'disabled';
 
 export interface ProbeAgentToken {
   id: string;
-  organization_id: string;
-  location_id: string;
+  organizationId: string;
+  locationId: string;
   name: string;
-  token_prefix: string;
+  tokenPrefix: string;
   status: ProbeAgentTokenStatus;
-  expires_at?: number;
-  last_used_at?: number;
-  created_by: string;
-  created_at: number;
-  rotated_at?: number;
-  disabled_at?: number;
-  updated_at: number;
+  expiresAt?: number;
+  lastUsedAt?: number;
+  createdBy: string;
+  createdAt: number;
+  rotatedAt?: number;
+  disabledAt?: number;
+  updatedAt: number;
 }
 
 export interface ProbeAgentTokenInstructions {
   token: ProbeAgentToken;
-  agent_token: string;
+  agentToken: string;
   command: string;
 }
 
 export interface SyntheticSecret {
   id: string;
-  organization_id: string;
+  organizationId: string;
   name: string;
   description: string;
-  current_version: number;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-  archived_at?: number;
+  currentVersion: number;
+  createdBy: string;
+  createdAt: number;
+  updatedAt: number;
+  archivedAt?: number;
 }

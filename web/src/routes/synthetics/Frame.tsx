@@ -12,11 +12,19 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import { useActionAccess } from '@/product/actionAccess';
+import { useOpenablePages } from '@/product/moduleAccess';
 import type { ProductStateProps } from '@/product/states';
 import { ListPage } from '@/product/templates';
-import { ChromeButton } from '@/shell/chrome';
+import { ChromeButton, uiSectionTitleClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
+import { TimeRangeControl } from '@/time/TimePicker';
+
+import { useSyntheticsTimeWindow } from './time';
+
+/** The range control beside the tabs, shaped as APM's and RUM's are. */
+const TIME_CONTROL =
+  'h-8 max-w-[220px] border-0 bg-[var(--control-surface)] px-2.5 text-xs hover:bg-bg-3 focus-visible:bg-bg-3 data-[state=open]:bg-bg-3 sm:h-8';
 
 // What the checks say and what they are, then where they run, then what they are given.
 const TABS = [
@@ -28,15 +36,24 @@ const TABS = [
   ['variables', '/synthetics/variables', KeyRound, 'inputs'],
 ] as const;
 
-export function SyntheticsNavigation() {
+/** The module's pages, in the order it opens on the first the reader may see. */
+export const SYNTHETICS_PAGES = TABS.map(([, to]) => to) as [string, ...string[]];
+
+/**
+ * The tabs of Synthetics. A tab that reads runs over a range carries the range beside them; the
+ * module opens on a day.
+ */
+export function SyntheticsNavigation({ timed = false }: { timed?: boolean }) {
   const { t } = useTranslation('synthetics');
+  const tabs = useOpenablePages(TABS, ([, to]) => to);
 
   return (
     <ModuleTabs
       label={t('navigation_label')}
       className="relative z-10"
       dataAttributes={{ 'data-testid': 'synthetics-subnav' }}
-      items={TABS.map(([key, to, icon, group]) => ({
+      end={timed ? <SyntheticsTimeControl /> : undefined}
+      items={tabs.map(([key, to, icon, group]) => ({
         key,
         to,
         icon,
@@ -45,6 +62,12 @@ export function SyntheticsNavigation() {
       }))}
     />
   );
+}
+
+/** The range control, which also opens the module on its day. */
+export function SyntheticsTimeControl() {
+  useSyntheticsTimeWindow();
+  return <TimeRangeControl align="end" className={TIME_CONTROL} />;
 }
 
 /**
@@ -60,6 +83,7 @@ export function SyntheticsPage({
   listHead,
   state,
   contentSurface,
+  timed,
   children,
 }: {
   /** The tab's own action: the thing that can be added to what it lists. */
@@ -70,6 +94,8 @@ export function SyntheticsPage({
   listHead?: React.ReactNode;
   state?: ProductStateProps | null | undefined;
   contentSurface?: boolean;
+  /** The tab reads runs over a range, which it carries beside the tabs. */
+  timed?: boolean;
   children?: React.ReactNode;
 }) {
   const { t } = useTranslation('synthetics');
@@ -79,7 +105,7 @@ export function SyntheticsPage({
       appearance="surface"
       title={t('title')}
       subtitle={t('subtitle')}
-      subnav={<SyntheticsNavigation />}
+      subnav={<SyntheticsNavigation timed={timed ?? false} />}
       toolbar={action}
       lead={lead}
       listHead={listHead}
@@ -120,7 +146,7 @@ export function useLoadState({
 export function CreateCheckAction() {
   const { t } = useTranslation('synthetics');
   const navigate = useNavigate();
-  const access = useActionAccess({ permission: 'synthetics.manage' });
+  const access = useActionAccess({ permission: 'synthetics.monitors.manage' });
 
   return (
     <ChromeButton
@@ -198,7 +224,7 @@ export function SyntheticsSection({
     >
       <div className="flex min-h-12 items-center justify-between gap-4 px-4 py-2.5">
         <div className="min-w-0">
-          <h2 id={headingId} className="font-sans text-sm font-display-strong text-tx-0">
+          <h2 id={headingId} className={uiSectionTitleClass}>
             {title}
           </h2>
           {description && <p className="mt-0.5 text-pretty font-sans text-xs text-tx-2">{description}</p>}

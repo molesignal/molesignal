@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -7,6 +8,7 @@ import { useActionAccess } from '@/product/actionAccess';
 import { ChromeButton } from '@/shell/chrome';
 import { PageBody, PageHeader } from '@/shell/PageHeader';
 import { toast } from '@/shell/ui/sonner';
+import { useLeaveGuard } from '@/shell/unsaved/useLeaveGuard';
 
 import { PipelineForm, saveFailureMessage } from './PipelineForm';
 
@@ -15,11 +17,14 @@ export function PipelineAdd() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const createAccess = useActionAccess({ permission: 'pipelines.create' });
+  const [dirty, setDirty] = React.useState(false);
+  const leave = useLeaveGuard(dirty);
   const create = useMutation({
     mutationFn: (payload: pipelinesApi.PipelineInput) => pipelinesApi.create(payload),
     onSuccess: (resp) => {
       toast.success(t('flows.add.toast_created'));
       void qc.invalidateQueries({ queryKey: ['pipelines', 'list'] });
+      leave.allowLeave();
       navigate(`/pipelines/${encodeURIComponent(resp.id)}/edit`);
     },
     onError: (err) => toast.error(saveFailureMessage(err, t)),
@@ -27,12 +32,20 @@ export function PipelineAdd() {
 
   return (
     <>
+      {leave.prompt}
       <PageHeader
         title={t('flows.add.title')}
         subtitle={t('workspace.subtitle')}
         toolbar={
           <>
-            <ChromeButton onClick={() => navigate('/pipelines')}>{t('flows.add.cancel')}</ChromeButton>
+            <ChromeButton
+              onClick={() => {
+                leave.allowLeave();
+                navigate('/pipelines');
+              }}
+            >
+              {t('flows.add.cancel')}
+            </ChromeButton>
             <ChromeButton
               type="submit"
               form="pipeline-form"
@@ -50,6 +63,7 @@ export function PipelineAdd() {
           formId="pipeline-form"
           disabled={createAccess.disabled}
           disabledReason={createAccess.reason}
+          onDirtyChange={setDirty}
           onSubmit={(p) => {
             if (createAccess.allowed) create.mutate(p);
           }}

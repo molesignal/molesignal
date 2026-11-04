@@ -43,7 +43,7 @@ struct AddReq {
     domain: String,
 }
 
-#[permission("org.settings.read")]
+#[permission("org.email_domains.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -52,7 +52,7 @@ async fn list(
     Ok(Json(Resp { domains }))
 }
 
-#[permission("org.settings.manage")]
+#[permission("org.email_domains.manage")]
 async fn add(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -66,7 +66,7 @@ async fn add(
     Ok(Json(Resp { domains }))
 }
 
-#[permission("org.settings.manage")]
+#[permission("org.email_domains.manage")]
 async fn remove(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

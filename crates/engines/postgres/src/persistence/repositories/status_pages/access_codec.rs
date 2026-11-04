@@ -28,8 +28,12 @@ impl PgStatusPageRepository {
             kind: StatusPageAccessRuleKind::parse(&kind)
                 .ok_or_else(|| Error::internal(format!("unknown access rule kind: {kind}")))?,
             value: self.open_access_value(&nonce, &ciphertext)?,
-            created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
-            updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(super::sqlx_err)?),
+            created_at: row
+                .try_get::<TimestampMicros, _>("created_at")
+                .map_err(super::sqlx_err)?,
+            updated_at: row
+                .try_get::<TimestampMicros, _>("updated_at")
+                .map_err(super::sqlx_err)?,
         })
     }
 
@@ -48,12 +52,15 @@ impl PgStatusPageRepository {
             email: self.open_access_value(&nonce, &ciphertext)?,
             token_hash: row.try_get("token_hash").map_err(super::sqlx_err)?,
             origin_host: row.try_get("origin_host").map_err(super::sqlx_err)?,
-            expires_at: TimestampMicros(row.try_get("expires_at_micros").map_err(super::sqlx_err)?),
+            expires_at: row
+                .try_get::<TimestampMicros, _>("expires_at")
+                .map_err(super::sqlx_err)?,
             consumed_at: row
-                .try_get::<Option<i64>, _>("consumed_at_micros")
-                .map_err(super::sqlx_err)?
-                .map(TimestampMicros),
-            created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
+                .try_get::<Option<TimestampMicros>, _>("consumed_at")
+                .map_err(super::sqlx_err)?,
+            created_at: row
+                .try_get::<TimestampMicros, _>("created_at")
+                .map_err(super::sqlx_err)?,
         })
     }
 
@@ -72,16 +79,18 @@ impl PgStatusPageRepository {
             email: self.open_access_value(&nonce, &ciphertext)?,
             session_token_hash: row.try_get("session_token_hash").map_err(super::sqlx_err)?,
             origin_host: row.try_get("origin_host").map_err(super::sqlx_err)?,
-            expires_at: TimestampMicros(row.try_get("expires_at_micros").map_err(super::sqlx_err)?),
+            expires_at: row
+                .try_get::<TimestampMicros, _>("expires_at")
+                .map_err(super::sqlx_err)?,
             revoked_at: row
-                .try_get::<Option<i64>, _>("revoked_at_micros")
-                .map_err(super::sqlx_err)?
-                .map(TimestampMicros),
-            last_seen_at: TimestampMicros(
-                row.try_get("last_seen_at_micros")
-                    .map_err(super::sqlx_err)?,
-            ),
-            created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
+                .try_get::<Option<TimestampMicros>, _>("revoked_at")
+                .map_err(super::sqlx_err)?,
+            last_seen_at: row
+                .try_get::<TimestampMicros, _>("last_seen_at")
+                .map_err(super::sqlx_err)?,
+            created_at: row
+                .try_get::<TimestampMicros, _>("created_at")
+                .map_err(super::sqlx_err)?,
         })
     }
 }

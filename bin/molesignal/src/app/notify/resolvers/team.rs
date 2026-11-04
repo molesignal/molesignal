@@ -22,12 +22,14 @@ pub const TEAM_MEMBERS_RESOLVER: &str = "team_members";
 pub const TEAM_LEAD_RESOLVER: &str = "team_lead";
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct TeamConfig {
     #[serde(default)]
     team_id: Option<Id>,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct TeamLeadConfig {
     #[serde(default)]
     team_id: Option<Id>,
@@ -127,7 +129,7 @@ impl RecipientResolver for TeamLeadResolver {
         }
 
         if config.user_ids.iter().collect::<HashSet<_>>().len() != config.user_ids.len() {
-            return Err(Error::invalid("team_lead user_ids must be unique"));
+            return Err(Error::invalid("team_lead userIds must be unique"));
         }
 
         Ok(())

@@ -55,19 +55,19 @@ export function AccountRow({
   onSwitch: (id: string) => void;
 }) {
   const { t } = useTranslation('agent');
-  const name = profile?.display_name || profile?.email || '';
+  const name = profile?.displayName || profile?.email || '';
 
   return (
     <div className="mt-5 flex items-center gap-3 rounded-xl bg-bg-2 px-3.5 py-3" data-oauth-account>
       <Avatar className="h-9 w-9">
-        {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt="" /> : null}
+        {profile?.avatarUrl ? <AvatarImage src={profile.avatarUrl} alt="" /> : null}
         <AvatarFallback className="bg-indigo-dim font-sans text-xs font-strong text-indigo-soft">
           {initials(name || '?')}
         </AvatarFallback>
       </Avatar>
       <div className="min-w-0 flex-1">
         <div className="truncate font-sans text-[13px] font-strong text-tx-0">{name}</div>
-        {profile?.display_name && profile.email ? (
+        {profile?.displayName && profile.email ? (
           <div className="truncate font-sans text-xs text-tx-2">{profile.email}</div>
         ) : null}
       </div>
@@ -122,7 +122,7 @@ export function PermissionList({ client, scope }: { client: string; scope: strin
 
   return (
     <section className="mt-6" data-oauth-permissions>
-      <h2 className="font-sans text-xs font-strong text-tx-1">{t('oauth.allows', { client })}</h2>
+      <h2 className="font-sans text-xs font-display text-tx-1">{t('oauth.allows', { client })}</h2>
       <ul className="mt-1 divide-y divide-bd-0">
         <Permission
           icon={<Wrench className="h-3.5 w-3.5" />}
@@ -156,7 +156,7 @@ export function TrustNote({ client }: { client: oauthApi.OAuthAuthorizationInspe
 
   return (
     <section className="mt-4 rounded-xl bg-bg-2 px-4 py-3.5" data-oauth-trust>
-      <h2 className="flex items-center gap-1.5 font-sans text-xs font-strong text-tx-1">
+      <h2 className="flex items-center gap-1.5 font-sans text-xs font-display text-tx-1">
         <ShieldAlert className="h-3.5 w-3.5 text-[var(--yellow-ink)]" />
         {t('oauth.trust_title', { client: client.client_name })}
       </h2>

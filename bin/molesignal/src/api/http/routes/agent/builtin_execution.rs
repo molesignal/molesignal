@@ -147,16 +147,16 @@ fn execution_result(approval_id: Id, completed: control::OperationExecution) -> 
     let operation_id = completed.execution.id.clone();
 
     ToolResult::json(json!({
-        "operation_id": operation_id,
-        "approval_id": approval_id,
+        "operationId": operation_id,
+        "approvalId": approval_id,
         "status": completed.execution.status,
         "execution": completed.execution,
-        "one_time_result": completed.one_time_result,
+        "oneTimeResult": completed.one_time_result,
     }))
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ExecuteAgentApprovalArgs {
     approval_id: String,
     #[serde(default)]

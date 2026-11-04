@@ -266,7 +266,6 @@ pub mod builtin {
     pub const DATASET_RUM_ERROR_SUMMARY: &str = "builtin.logs.rum_error_summary";
     pub const DATASET_METRIC_SAMPLES: &str = "builtin.metrics.samples";
     pub const DATASET_METRIC_ROLLUP: &str = "builtin.metrics.rollup";
-    pub const DATASET_METRIC_CATALOG: &str = "builtin.metrics.catalog";
     pub const DATASET_TRACE_SPANS: &str = "builtin.traces.spans";
     pub const DATASET_TRACE_SUMMARY: &str = "builtin.traces.summary";
     pub const DATASET_PROFILE_SAMPLES: &str = "builtin.profiles.samples";
@@ -274,6 +273,8 @@ pub mod builtin {
     // Artifact types
     pub const ARTIFACT_PARQUET: &str = "builtin.parquet";
     pub const ARTIFACT_TANTIVY: &str = "builtin.tantivy";
+    /// 一个段的文件级过滤器：`bloom` 字段的整值、`ngram` 字段的三元组。
+    pub const ARTIFACT_BLOOM: &str = "builtin.bloom";
     pub const ARTIFACT_PARTITION_MANIFEST: &str = "builtin.partition_manifest";
 
     // Index types
@@ -339,12 +340,12 @@ mod tests {
             builtin::DATASET_RUM_ERROR_SUMMARY,
             builtin::DATASET_METRIC_SAMPLES,
             builtin::DATASET_METRIC_ROLLUP,
-            builtin::DATASET_METRIC_CATALOG,
             builtin::DATASET_TRACE_SPANS,
             builtin::DATASET_TRACE_SUMMARY,
             builtin::DATASET_PROFILE_SAMPLES,
             builtin::ARTIFACT_PARQUET,
             builtin::ARTIFACT_TANTIVY,
+            builtin::ARTIFACT_BLOOM,
             builtin::ARTIFACT_PARTITION_MANIFEST,
             builtin::INDEX_TANTIVY,
             builtin::WAL_CODEC_ROW_BATCH,

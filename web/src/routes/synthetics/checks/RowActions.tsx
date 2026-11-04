@@ -37,7 +37,7 @@ export function CheckRowActions({
   const { t } = useTranslation('synthetics');
   const { monitor } = row;
   const paused = monitor.lifecycle === 'paused';
-  const published = Boolean(monitor.active_revision_id);
+  const published = Boolean(monitor.activeRevisionId);
   // A heartbeat is reported to MoleSignal: there is nothing for it to run.
   const runAccess = restrictActionAccess(
     access,
@@ -56,7 +56,7 @@ export function CheckRowActions({
         disabledReason={runAccess.reason}
         onClick={onRun}
       >
-        <Play className="h-3.5 w-3.5" />
+        <Play className="h-4 w-4" />
       </IconButton>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

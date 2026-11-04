@@ -39,6 +39,10 @@ impl StatusPageService {
 
         let group_id = component_group(input.kind, input.group_id.clone(), &components)?;
 
+        let dependencies = self
+            .component_dependencies(org_id, input.kind, input.dependencies.unwrap_or_default())
+            .await?;
+
         let position = input.position.unwrap_or_else(|| {
             components
                 .iter()
@@ -52,7 +56,8 @@ impl StatusPageService {
         let component_id = Id::new();
         let (status, visibility) = shown_as(input.kind, input.status, input.visibility);
 
-        self.repository
+        let created = self
+            .repository
             .create_component(
                 StatusPageComponent {
                     id: component_id.clone(),
@@ -67,7 +72,10 @@ impl StatusPageService {
                     archived_at: None,
                     created_at: now,
                     updated_at: now,
-                    business_service: None,
+                    dependencies,
+                    dependency_mode: input.dependency_mode.unwrap_or_default(),
+                    dependency_notify: input.dependency_notify.unwrap_or(true),
+                    dependency_health: None,
                     kind: input.kind,
                     group_id,
                 },
@@ -83,7 +91,13 @@ impl StatusPageService {
                     notify_subscribers: input.notify_subscribers,
                 },
             )
-            .await
+            .await?;
+
+        if !created.dependencies.is_empty() {
+            self.request_dependency_evaluation(org_id);
+        }
+
+        Ok(created)
     }
 
     pub async fn update_component(
@@ -127,6 +141,22 @@ impl StatusPageService {
         let components = self.repository.list_components(org_id, page_id).await?;
         let group_id = component_group(kind, input.group_id.clone(), &components)?;
 
+        let dependencies = match input.dependencies {
+            Some(dependencies) => {
+                self.component_dependencies(org_id, kind, dependencies)
+                    .await?
+            }
+            None => existing.dependencies.clone(),
+        };
+
+        let dependency_mode = input.dependency_mode.unwrap_or(existing.dependency_mode);
+
+        // New dependencies, or a new way for them to reach the component, are
+        // worked out again at once.
+        let reevaluate = !dependencies.is_empty()
+            && (dependencies != existing.dependencies
+                || dependency_mode != existing.dependency_mode);
+
         if kind == ComponentKind::Group
             && input.lifecycle == ComponentLifecycle::Archived
             && group_members(&components, &existing.id).next().is_some()
@@ -151,7 +181,8 @@ impl StatusPageService {
             notify_subscribers: input.notify_subscribers,
         });
 
-        self.repository
+        let updated = self
+            .repository
             .update_component(
                 StatusPageComponent {
                     id: existing.id,
@@ -169,14 +200,25 @@ impl StatusPageService {
                     },
                     created_at: existing.created_at,
                     updated_at: now,
-                    business_service: existing.business_service,
+                    dependencies,
+                    dependency_mode,
+                    dependency_notify: input
+                        .dependency_notify
+                        .unwrap_or(existing.dependency_notify),
+                    dependency_health: existing.dependency_health,
                     kind,
                     group_id,
                 },
                 expected_status,
                 status_event,
             )
-            .await
+            .await?;
+
+        if reevaluate {
+            self.request_dependency_evaluation(org_id);
+        }
+
+        Ok(updated)
     }
 
     pub async fn delete_component(

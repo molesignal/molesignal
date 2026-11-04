@@ -39,11 +39,11 @@ function profile(id: string, type: string, service: string, minutesAgo: number) 
   return {
     id,
     service,
-    profile_type: type,
+    profileType: type,
     timestamp: NOW - minutesAgo * 60_000_000,
-    total_value: type === 'cpu' ? 25 * S : 4 * MIB,
-    sample_count: 100,
-    duration_nanos: 60_000_000_000,
+    totalValue: type === 'cpu' ? 25 * S : 4 * MIB,
+    sampleCount: 100,
+    durationNanos: 60_000_000_000,
     unsymbolized: false,
   };
 }
@@ -66,14 +66,14 @@ async function serveProfiles(page: Page): Promise<string[][]> {
     route.fulfill({ json: { profiles: PROFILES } }),
   );
   await page.route(/\/api\/v1\/profiles\/flamegraph\/selection$/, (route) => {
-    const ids = (route.request().postDataJSON() as { profile_ids: string[] }).profile_ids;
+    const ids = (route.request().postDataJSON() as { profileIds: string[] }).profileIds;
     merged.push(ids);
 
     return route.fulfill({
       json: {
         flamebearer: ids[0]?.startsWith('alloc') ? ALLOC_FLAME : CPU_FLAME,
         truncated: false,
-        profile_count: ids.length,
+        profileCount: ids.length,
       },
     });
   });

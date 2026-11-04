@@ -93,7 +93,7 @@ pub const BUILTIN_COMMANDS: &[BuiltinCommand] = &[
     task("dashboard"),
     BuiltinCommand {
         suggest: Some(Suggest::Incidents),
-        permission: Some("alerts.read"),
+        permission: Some("alerts.incidents.read"),
         ..task("rca")
     },
     control("compact"),
@@ -134,7 +134,10 @@ mod tests {
             assert_eq!(command.argument, Argument::Required, "{}", command.name);
         }
 
-        assert_eq!(find_builtin("rca").unwrap().permission, Some("alerts.read"));
+        assert_eq!(
+            find_builtin("rca").unwrap().permission,
+            Some("alerts.incidents.read")
+        );
         assert!(find_builtin("RCA").is_none());
     }
 }

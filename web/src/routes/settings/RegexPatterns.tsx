@@ -31,7 +31,7 @@ export function RegexPatterns() {
   const { t: tc } = useTranslation('common');
   const qc = useQueryClient();
   const manageAccess = useActionAccess({
-    permission: 'org.settings.manage',
+    permission: 'org.regex_patterns.manage',
   });
   const [creating, setCreating] = React.useState(false);
   const [editing, setEditing] = React.useState<patternsApi.RegexPattern | null>(null);
@@ -133,8 +133,8 @@ export function RegexPatterns() {
                 header: t('regex_patterns.columns.scope'),
                 width: 130,
                 cell: (r) => (
-                  <span className={r.apply_on_intake ? 'text-tx-1' : 'text-tx-3'}>
-                    {r.apply_on_intake
+                  <span className={r.applyOnIntake ? 'text-tx-1' : 'text-tx-3'}>
+                    {r.applyOnIntake
                       ? t('regex_patterns.scope_intake')
                       : t('regex_patterns.scope_query')}
                   </span>
@@ -143,7 +143,7 @@ export function RegexPatterns() {
               {
                 key: 'updated',
                 header: t('regex_patterns.columns.updated'),
-                cell: (r) => formatMicros(r.updated_at_micros),
+                cell: (r) => formatMicros(r.updatedAt),
                 width: 180,
               },
               {
@@ -217,7 +217,7 @@ function PatternDrawer({
       setPattern(editing?.pattern ?? '');
       setDescription(editing?.description ?? '');
       setReplacement(editing?.replacement ?? '[REDACTED]');
-      setApplyOnIntake(editing?.apply_on_intake ?? false);
+      setApplyOnIntake(editing?.applyOnIntake ?? false);
     }
   }, [open, editing]);
 
@@ -228,7 +228,7 @@ function PatternDrawer({
         pattern,
         description,
         replacement,
-        apply_on_intake: applyOnIntake,
+        applyOnIntake: applyOnIntake,
       };
       return editing ? patternsApi.update(editing.id, input) : patternsApi.create(input);
     },
@@ -246,7 +246,7 @@ function PatternDrawer({
     pattern !== editing.pattern ||
     description !== editing.description ||
     replacement !== editing.replacement ||
-    applyOnIntake !== editing.apply_on_intake;
+    applyOnIntake !== editing.applyOnIntake;
   const submitDisabled = access.disabled || !dirty;
 
   return (
@@ -300,7 +300,7 @@ function PatternDrawer({
               value={pattern}
               onChange={(e) => setPattern(e.target.value)}
               rows={4}
-              className="font-sans text-xs"
+              className="font-sans"
               disabled={access.disabled || save.isPending}
               disabledReason={access.reason}
               required
@@ -313,7 +313,7 @@ function PatternDrawer({
             <FormInput
               value={replacement}
               onChange={(e) => setReplacement(e.target.value)}
-              className="font-sans text-xs"
+              className="font-sans"
               disabled={access.disabled || save.isPending}
               disabledReason={access.reason}
             />

@@ -83,8 +83,8 @@ export function PublicUptimeHistory({
             <SelectContent data-theme="light">
               {choices.map((item) => (
                 <SelectItem key={item.id} value={item.id} className="min-h-10">
-                  {item.group_id && groupNames.has(item.group_id)
-                    ? `${groupNames.get(item.group_id)} / ${item.name}`
+                  {item.groupId && groupNames.has(item.groupId)
+                    ? `${groupNames.get(item.groupId)} / ${item.name}`
                     : item.name}
                 </SelectItem>
               ))}

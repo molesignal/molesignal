@@ -30,7 +30,9 @@ export function StatusPages() {
   const { t } = useTranslation('status-pages');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const manageAccess = useActionAccess({ permission: 'status_pages.manage' });
+  const manageAccess = useActionAccess({ permission: 'status_pages.create' });
+  const archiveAccess = useActionAccess({ permission: 'status_pages.archive' });
+  const deleteAccess = useActionAccess({ permission: 'status_pages.delete' });
   const [searchParams, setSearchParams] = useSearchParams();
   const lifecycle: StatusPageLifecycle =
     searchParams.get('lifecycle') === 'archived' ? 'archived' : 'active';
@@ -158,11 +160,12 @@ export function StatusPages() {
               <StatusPageRow
                 key={page.id}
                 page={page}
-                manageAccess={manageAccess}
+                archiveAccess={archiveAccess}
+                deleteAccess={deleteAccess}
                 restoring={restoreMutation.isPending}
-                onArchive={() => manageAccess.allowed && setPendingAction({ kind: 'archive', page })}
-                onRestore={() => manageAccess.allowed && restoreMutation.mutate(page.id)}
-                onDelete={() => manageAccess.allowed && setPendingAction({ kind: 'delete', page })}
+                onArchive={() => archiveAccess.allowed && setPendingAction({ kind: 'archive', page })}
+                onRestore={() => archiveAccess.allowed && restoreMutation.mutate(page.id)}
+                onDelete={() => deleteAccess.allowed && setPendingAction({ kind: 'delete', page })}
               />
             ))}
           </ul>

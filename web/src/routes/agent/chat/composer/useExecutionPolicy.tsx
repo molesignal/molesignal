@@ -39,8 +39,8 @@ export function useExecutionPolicy({
   const profile =
     agentProfileId !== AUTO
       ? agentProfiles.find((item) => item.id === agentProfileId)
-      : agentProfiles.find((item) => item.is_default);
-  const bypassAllowed = Boolean(profile?.allow_bypass_permissions);
+      : agentProfiles.find((item) => item.isDefault);
+  const bypassAllowed = Boolean(profile?.allowBypassPermissions);
 
   React.useEffect(() => {
     if (policy === 'bypass_permissions' && !bypassAllowed) setPolicy('policy');

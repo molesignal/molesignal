@@ -5,6 +5,10 @@
 //! within the run, waiting twice as long each time, as often as the pipeline's retry policy says.
 //! What still does not go out becomes dead letters: a later run never delivers it again, so a
 //! retried window cannot deliver the same events twice.
+//!
+//! A connector that is turned off is given nothing. The run says so in its warnings, and the
+//! events count neither as failed nor as dead letters: turning a destination off is a decision,
+//! not a delivery that went wrong.
 
 use std::time::Duration;
 
@@ -51,6 +55,17 @@ pub(super) async fn deliver(
                 .get(pipeline.org_id, &Id(id.clone()))
                 .await
             {
+                // Like a delivery, the window counts as handled: turning the connector on again
+                // does not send it what it was not given while it was off.
+                Ok(connector) if !connector.enabled => {
+                    ledger.errors.push(format!(
+                        "connector `{}` is turned off: {} event(s) were not delivered to it",
+                        connector.name,
+                        events.len()
+                    ));
+
+                    (connector.name, Ok(()))
+                }
                 Ok(connector) => {
                     let retries = pipeline.config.retry.delivery_retries;
                     let delivered = dispatch(output, &connector, &events, retries).await;

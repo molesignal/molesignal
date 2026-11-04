@@ -38,6 +38,7 @@ struct UsageQuery {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct BudgetRequest {
     /// 每日 token 上限；`null` 跟随实例默认值，0 表示不限。
     daily_token_limit: Option<i64>,
@@ -47,12 +48,12 @@ struct BudgetRequest {
 
 fn day_row(row: &DailyUsage) -> Value {
     json!({
-        "day_start_micros": row.day.start().0,
+        "dayStart": row.day.start().0,
         "origin": row.origin,
         "calls": row.calls,
-        "unpriced_calls": row.unpriced_calls,
-        "prompt_tokens": row.prompt_tokens,
-        "completion_tokens": row.completion_tokens,
+        "unpricedCalls": row.unpriced_calls,
+        "promptTokens": row.prompt_tokens,
+        "completionTokens": row.completion_tokens,
         "cost": row.cost,
         "currency": row.currency,
     })
@@ -75,12 +76,12 @@ async fn usage_view(state: &AppState, ctx: &IamContext, days: i64) -> Result<Val
     Ok(json!({
         "status": status,
         "budget": budget,
-        "cost_known": cost_known,
+        "costKnown": cost_known,
         "days": history.iter().map(day_row).collect::<Vec<_>>(),
     }))
 }
 
-#[permission("agent.use")]
+#[permission("agent.usage.read")]
 async fn get_usage(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -91,7 +92,7 @@ async fn get_usage(
     Ok(Json(usage_view(&state, &ctx, days).await?))
 }
 
-#[permission("agent.manage")]
+#[permission("agent.usage.manage")]
 async fn put_budget(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -115,8 +116,8 @@ async fn put_budget(
         "agent_usage_budget",
         &ctx.org_id.0,
         json!({
-            "daily_token_limit": saved.org_limit,
-            "interactive_mode": saved.interactive_mode,
+            "dailyTokenLimit": saved.org_limit,
+            "interactiveMode": saved.interactive_mode,
         }),
     )
     .await;

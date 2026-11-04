@@ -44,7 +44,7 @@ pub(super) async fn execute(
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct AggregateArgs {
     #[serde(default)]
     time_range: Option<TimeRangeArg>,
@@ -117,7 +117,7 @@ async fn aggregate_identities(
     let identity = quote_ident(identity_field);
 
     let statement = format!(
-        "SELECT {identity} AS {alias}, COUNT(DISTINCT trace_id) AS trace_count, COUNT(*) AS span_count, MIN(_timestamp) AS first_seen_micros, MAX(_timestamp) AS last_seen_micros FROM {stream} WHERE {filters} GROUP BY {identity} ORDER BY last_seen_micros DESC LIMIT {limit}",
+        "SELECT {identity} AS {alias}, COUNT(DISTINCT trace_id) AS trace_count, COUNT(*) AS span_count, MIN(_timestamp) AS first_seen, MAX(_timestamp) AS last_seen FROM {stream} WHERE {filters} GROUP BY {identity} ORDER BY last_seen DESC LIMIT {limit}",
         alias = quote_ident(alias),
         stream = quote_ident(&stream.name),
         filters = filters.join(" AND "),
@@ -136,15 +136,15 @@ async fn aggregate_identities(
 
     Ok(ToolResult::json(json!({
         "supported": true,
-        "identity_field": identity_field,
+        "identityField": identity_field,
         "items": rows_as_objects(&result),
-        "scanned_rows": result.scanned_rows,
-        "took_ms": result.took_ms,
+        "scannedRows": result.scanned_rows,
+        "tookMs": result.took_ms,
     })))
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SessionArgs {
     session_id: String,
     #[serde(default)]
@@ -162,7 +162,7 @@ async fn get_session(
     let session_id = args.session_id.trim();
 
     if session_id.is_empty() || session_id.len() > 512 {
-        return Err(Error::invalid("session_id must contain 1 to 512 bytes"));
+        return Err(Error::invalid("sessionId must contain 1 to 512 bytes"));
     }
 
     let Some(stream) = resolve_traces_stream(runtime, &auth.org_id).await? else {
@@ -184,7 +184,7 @@ async fn get_session(
     let limit = args.limit.unwrap_or(100).clamp(1, 500);
 
     let statement = format!(
-        "SELECT trace_id, COUNT(*) AS span_count, MIN(_timestamp) AS started_at_micros, MAX(_timestamp) AS ended_at_micros FROM {} WHERE {} = '{}' GROUP BY trace_id ORDER BY started_at_micros DESC LIMIT {limit}",
+        "SELECT trace_id, COUNT(*) AS span_count, MIN(_timestamp) AS started_at, MAX(_timestamp) AS ended_at FROM {} WHERE {} = '{}' GROUP BY trace_id ORDER BY started_at DESC LIMIT {limit}",
         quote_ident(&stream.name),
         quote_ident(field),
         sql_literal(session_id),
@@ -203,11 +203,11 @@ async fn get_session(
 
     Ok(ToolResult::json(json!({
         "supported": true,
-        "session_id": session_id,
-        "identity_field": field,
+        "sessionId": session_id,
+        "identityField": field,
         "traces": rows_as_objects(&result),
-        "scanned_rows": result.scanned_rows,
-        "took_ms": result.took_ms,
+        "scannedRows": result.scanned_rows,
+        "tookMs": result.took_ms,
     })))
 }
 

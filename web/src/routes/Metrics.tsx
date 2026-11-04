@@ -11,7 +11,7 @@ import * as queryApi from '@/api/query';
 import { resolveMetricType } from '@/lib/metricTypes';
 import { useCursorPagination } from '@/pagination/useCursorPagination';
 import { useActionAccess } from '@/product/actionAccess';
-import { useQueryTabSearchParams, useQueryTabStatus } from '@/shell/queryTabs';
+import { useQueryTabSearchParams, useQueryTabState, useQueryTabStatus } from '@/shell/queryTabs';
 import { useAuthStore } from '@/stores/auth';
 import { useFiltersStore } from '@/stores/useFiltersStore';
 import {
@@ -39,7 +39,7 @@ import {
 } from './metrics/model';
 import {
   isValidMetricsStep,
-  metricsQueryLimit,
+  metricsQueryRange,
   type MetricsQueryOptions,
 } from './metrics/queryOptions/model';
 import { MetricsExploreResults } from './metrics/results';
@@ -77,9 +77,8 @@ export function Metrics() {
   const [metricBrowserOpen, setMetricBrowserOpen] = React.useState(false);
   const [queryMode, setQueryMode] = React.useState<'code' | 'builder'>('code');
   // The editor starts folded into the bar, as on Logs and Traces: it opens on a query that
-  // arrived in the link, or on request.
-  const [queryEditorCollapsed, setQueryEditorCollapsed] = React.useState(!requestedPromql);
-  const [timezone, setTimezone] = React.useState('');
+  // arrived in a link, or on request. Kept with the tab, whose address carries the query that ran.
+  const [queryEditorCollapsed, setQueryEditorCollapsed] = useQueryTabState('metrics.editorFolded', !requestedPromql);
   const [queryOptions, setQueryOptions] = React.useState<MetricsQueryOptions>(
     initialUrlState.queryOptions,
   );
@@ -90,7 +89,7 @@ export function Metrics() {
   const [chartZoomOrigin, setChartZoomOrigin] =
     React.useState<TimeWindow | null>(null);
 
-  const orgId = useAuthStore((state) => state.ctx?.org_id ?? '');
+  const orgId = useAuthStore((state) => state.ctx?.orgId ?? '');
   const timeWindow = useTimeStore((state) => state.window);
   const setTimeWindow = useTimeStore((state) => state.setWindow);
   const globalFilters = useFiltersStore((state) => state.filters);
@@ -119,15 +118,15 @@ export function Metrics() {
       );
       lastRunDraft.current = draft;
       lastRunStatement.current = statement;
-      return queryApi.runQuery({
-        org_id: orgId,
+      return queryApi.readQuery({
+        orgId: orgId,
         language: 'promql',
         statement,
-        time_range: {
+        timeRange: {
           start: resolvedWindow.from.getTime() * 1000,
           end: resolvedWindow.to.getTime() * 1000,
         },
-        limit: metricsQueryLimit(
+        ...metricsQueryRange(
           queryOptions,
           resolvedWindow.from.getTime() * 1000,
           resolvedWindow.to.getTime() * 1000,
@@ -279,8 +278,8 @@ export function Metrics() {
     queryFn: () =>
       queryApi.fetchPrometheusExemplars({
         query: lastExecutedPromql!,
-        startMicros: chartXDomain[0],
-        endMicros: chartXDomain[1],
+        startTime: chartXDomain[0],
+        endTime: chartXDomain[1],
       }),
     enabled: Boolean(
       orgId && lastExecutedPromql && exemplarsEnabled,
@@ -442,8 +441,8 @@ export function Metrics() {
           filter={filter}
           open={metricBrowserOpen}
           pageSize={metricCatalogPagination.pageSize}
-          hasPrevious={Boolean(catalog.data?.previous_cursor)}
-          hasNext={Boolean(catalog.data?.next_cursor)}
+          hasPrevious={Boolean(catalog.data?.previousCursor)}
+          hasNext={Boolean(catalog.data?.nextCursor)}
           onOpenChange={setMetricBrowserOpen}
           onFilterChange={setFilter}
           onPickMetric={pickMetric}
@@ -470,11 +469,9 @@ export function Metrics() {
           }}
           chart={{
             xDomain: chartXDomain,
-            timezone,
             drawStyle: chartDrawStyle,
             stackMode: chartStackMode,
             zoomed: chartZoomOrigin !== null,
-            onTimezoneChange: setTimezone,
             onDrawStyleChange: setChartDrawStyle,
             onStackModeChange: setChartStackMode,
             onRangeSelect: selectChartTimeRange,

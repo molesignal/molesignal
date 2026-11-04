@@ -1,7 +1,7 @@
 /** Stream workspace surface primitives. */
 import type * as React from 'react';
 
-import { uiLabelClass } from '@/shell/chrome';
+import { uiLabelClass, uiSectionTitleClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { Switch } from '@/shell/ui/switch';
 
@@ -76,13 +76,13 @@ export function StreamSection({
     <section
       data-stream-section
       className={cn(
-        'min-w-0 rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]',
+        'min-w-0 rounded-md bg-[var(--functional-surface)] px-3 py-4 [box-shadow:var(--shadow-functional-surface)]',
         className,
       )}
     >
       <header className="flex min-h-[50px] items-center gap-4 py-2.5">
         <div className="min-w-0 flex-1">
-          <h2 className="truncate font-sans text-sm font-display-strong text-tx-0">
+          <h2 className={cn('truncate', uiSectionTitleClass)}>
             {title}
           </h2>
           {description && (
@@ -108,9 +108,9 @@ export function StreamSettingsSection({
   children: React.ReactNode;
 }) {
   return (
-    <section data-stream-settings-section className="min-w-0 rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
+    <section data-stream-settings-section className="min-w-0 rounded-md bg-[var(--functional-surface)] px-3 py-4 [box-shadow:var(--shadow-functional-surface)]">
       <header className="min-h-[68px] py-3">
-        <h2 className="font-sans text-sm font-display-strong text-tx-0">{title}</h2>
+        <h2 className={uiSectionTitleClass}>{title}</h2>
         <p className="mt-1 font-sans text-xs leading-relaxed text-tx-2">{description}</p>
       </header>
       <div className="space-y-4 pt-4">{children}</div>

@@ -72,7 +72,7 @@ export function KnowledgeView() {
             base={current}
             initialPath={linkedPath}
             limits={data.limits}
-            scope={{ scope: current.scope, team_id: current.team_id ?? null } satisfies KnowledgeScope}
+            scope={{ scope: current.scope, teamId: current.teamId ?? null } satisfies KnowledgeScope}
           />
         )}
       </div>
@@ -95,10 +95,10 @@ function BaseRow({
 }) {
   const { t } = useTranslation('agent');
   const Icon = base.scope === 'org' ? Building2 : Users;
-  const name = base.scope === 'org' ? t('knowledge.org') : (base.team_name ?? base.team_id ?? '');
+  const name = base.scope === 'org' ? t('knowledge.org') : (base.teamName ?? base.teamId ?? '');
   const warning =
-    base.changed_since_entry > 0
-      ? t('knowledge.stale_short', { count: base.changed_since_entry })
+    base.changedSinceEntry > 0
+      ? t('knowledge.stale_short', { count: base.changedSinceEntry })
       : !base.entry && base.files > 0
         ? t('knowledge.entry_missing')
         : null;
@@ -109,8 +109,8 @@ function BaseRow({
       aria-current={active ? 'true' : undefined}
       data-agent-knowledge-base={scopeKey(base)}
       title={
-        base.updated_at_micros
-          ? t('knowledge.updated', { time: formatMicrosActive(base.updated_at_micros) })
+        base.updatedAt
+          ? t('knowledge.updated', { time: formatMicrosActive(base.updatedAt) })
           : undefined
       }
       className={cn(
@@ -122,7 +122,7 @@ function BaseRow({
       <span className="min-w-0 flex-1 truncate text-xs font-strong">{name}</span>
       {warning && (
         <span
-          data-agent-knowledge-stale={base.changed_since_entry > 0 ? '' : undefined}
+          data-agent-knowledge-stale={base.changedSinceEntry > 0 ? '' : undefined}
           title={warning}
           className="shrink-0 text-[var(--yellow-ink)]"
         >

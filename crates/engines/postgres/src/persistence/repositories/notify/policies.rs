@@ -1,15 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use std::collections::BTreeMap;
+
 use async_trait::async_trait;
 use sqlx::{PgPool, Row, types::Json};
 
 use super::super::sqlx_err;
 use crate::{
-    domain::notify::{
-        policy::{NotifyDeliveryConfig, NotifyDeliveryMode, NotifyFallbackConfig, NotifyPolicy},
-        preference::NotifyCategory,
-        repositories::NotifyPolicyRepository,
+    domain::{
+        alerting::time_window::TimeCondition,
+        notify::{
+            connector::NotifyChannel,
+            policy::{
+                NotifyDeliveryConfig, NotifyDeliveryMode, NotifyFallbackConfig, NotifyPolicy,
+            },
+            preference::NotifyCategory,
+            repositories::NotifyPolicyRepository,
+        },
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
@@ -24,10 +32,10 @@ impl PgNotifyPolicyRepository {
     }
 }
 
-const COLS: &str = "id, organization_id, name, event_type, category, matchers,
-    recipient_resolver, resolver_config, delivery_mode, template_id,
-    delivery_config, fallback_config, ack_timeout_seconds, escalation_config, enabled, priority,
-    created_at_micros, updated_at_micros";
+const COLS: &str = "id, organization_id, name, builtin_key, event_type, category, matchers,
+    recipient_resolver, resolver_config, delivery_mode, template_id, channel_templates,
+    delivery_config, fallback_config, ack_timeout_seconds, escalation_config, merge_window_secs,
+    time, enabled, priority, created_at, updated_at";
 
 fn row_to_policy(row: sqlx::postgres::PgRow) -> Result<NotifyPolicy> {
     let category: String = row.try_get("category").map_err(sqlx_err)?;
@@ -39,8 +47,11 @@ fn row_to_policy(row: sqlx::postgres::PgRow) -> Result<NotifyPolicy> {
         row.try_get("fallback_config").map_err(sqlx_err)?;
     let delivery_config: Json<NotifyDeliveryConfig> =
         row.try_get("delivery_config").map_err(sqlx_err)?;
+    let channel_templates: Json<BTreeMap<NotifyChannel, Id>> =
+        row.try_get("channel_templates").map_err(sqlx_err)?;
     let escalation_config: Option<Json<serde_json::Value>> =
         row.try_get("escalation_config").map_err(sqlx_err)?;
+    let time: Option<Json<TimeCondition>> = row.try_get("time").map_err(sqlx_err)?;
 
     Ok(NotifyPolicy {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
@@ -49,6 +60,7 @@ fn row_to_policy(row: sqlx::postgres::PgRow) -> Result<NotifyPolicy> {
                 .map_err(sqlx_err)?,
         ),
         name: row.try_get("name").map_err(sqlx_err)?,
+        builtin_key: row.try_get("builtin_key").map_err(sqlx_err)?,
         event_type: row.try_get("event_type").map_err(sqlx_err)?,
         category: NotifyCategory::parse(&category)?,
         matchers: matchers.0,
@@ -60,13 +72,23 @@ fn row_to_policy(row: sqlx::postgres::PgRow) -> Result<NotifyPolicy> {
             .try_get::<Option<String>, _>("template_id")
             .map_err(sqlx_err)?
             .map(Id::from_string),
+        channel_templates: channel_templates.0,
         fallback_config: fallback_config.0,
         ack_timeout_seconds: row.try_get("ack_timeout_seconds").map_err(sqlx_err)?,
         escalation_config: escalation_config.map(|value| value.0),
+        merge_window_secs: row
+            .try_get::<Option<i32>, _>("merge_window_secs")
+            .map_err(sqlx_err)?
+            .and_then(|secs| u32::try_from(secs).ok()),
+        time: time.map(|value| value.0),
         enabled: row.try_get("enabled").map_err(sqlx_err)?,
         priority: row.try_get("priority").map_err(sqlx_err)?,
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -78,11 +100,11 @@ impl NotifyPolicyRepository for PgNotifyPolicyRepository {
                  id, organization_id, name, event_type, category, matchers,
                  recipient_resolver, resolver_config, delivery_mode, template_id,
                  delivery_config, fallback_config, ack_timeout_seconds,
-                 escalation_config, enabled, priority, created_at_micros,
-                 updated_at_micros
+                 escalation_config, enabled, priority, created_at,
+                 updated_at, channel_templates, merge_window_secs, time
              ) VALUES (
                  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-                 $11, $12, $13, $14, $15, $16, $17, $18
+                 $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
              )",
         )
         .bind(&policy.id.0)
@@ -101,8 +123,11 @@ impl NotifyPolicyRepository for PgNotifyPolicyRepository {
         .bind(policy.escalation_config.as_ref().map(Json))
         .bind(policy.enabled)
         .bind(policy.priority)
-        .bind(policy.created_at.0)
-        .bind(policy.updated_at.0)
+        .bind(policy.created_at)
+        .bind(policy.updated_at)
+        .bind(Json(&policy.channel_templates))
+        .bind(policy.merge_window_secs.map(|secs| secs as i32))
+        .bind(policy.time.as_ref().map(Json))
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -127,7 +152,10 @@ impl NotifyPolicyRepository for PgNotifyPolicyRepository {
                     escalation_config = $14,
                     enabled = $15,
                     priority = $16,
-                    updated_at_micros = $17
+                    updated_at = $17,
+                    channel_templates = $18,
+                    merge_window_secs = $19,
+                    time = $20
               WHERE organization_id = $1 AND id = $2",
         )
         .bind(&policy.organization_id.0)
@@ -146,7 +174,10 @@ impl NotifyPolicyRepository for PgNotifyPolicyRepository {
         .bind(policy.escalation_config.as_ref().map(Json))
         .bind(policy.enabled)
         .bind(policy.priority)
-        .bind(policy.updated_at.0)
+        .bind(policy.updated_at)
+        .bind(Json(&policy.channel_templates))
+        .bind(policy.merge_window_secs.map(|secs| secs as i32))
+        .bind(policy.time.as_ref().map(Json))
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -224,5 +255,46 @@ impl NotifyPolicyRepository for PgNotifyPolicyRepository {
         }
 
         Ok(())
+    }
+
+    async fn restore_builtin(&self, organization_id: &Id, id: &Id) -> Result<NotifyPolicy> {
+        let restored = sqlx::query(
+            "UPDATE notify_policies policy
+                SET name = builtin.name,
+                    event_type = builtin.event_type,
+                    category = builtin.category,
+                    matchers = builtin.matchers,
+                    recipient_resolver = builtin.recipient_resolver,
+                    resolver_config = builtin.resolver_config,
+                    delivery_mode = builtin.delivery_mode,
+                    template_id = builtin.template_id,
+                    channel_templates = builtin.channel_templates,
+                    delivery_config = builtin.delivery_config,
+                    fallback_config = builtin.fallback_config,
+                    ack_timeout_seconds = builtin.ack_timeout_seconds,
+                    escalation_config = builtin.escalation_config,
+                    merge_window_secs = builtin.merge_window_secs,
+                    time = builtin.time,
+                    enabled = builtin.enabled,
+                    priority = builtin.priority,
+                    updated_at = $3
+               FROM notify_policies builtin
+              WHERE policy.organization_id = $1
+                AND policy.id = $2
+                AND builtin.organization_id IS NULL
+                AND builtin.builtin_key = policy.builtin_key",
+        )
+        .bind(&organization_id.0)
+        .bind(&id.0)
+        .bind(TimestampMicros::now())
+        .execute(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
+
+        if restored.rows_affected() == 0 {
+            return Err(Error::not_found("built-in notify policy"));
+        }
+
+        self.get(organization_id, id).await
     }
 }

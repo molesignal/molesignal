@@ -20,7 +20,7 @@
 
 use crate::{
     domain::stream::{StreamRepository, StreamType},
-    shared::{Error, Result, ids::Id},
+    shared::{Error, Result, ids::Id, time::TimeRange},
 };
 
 /// 抓取 SQL 中所有 base table 名。
@@ -45,17 +45,27 @@ pub fn parse_from_tables(stmt: &str) -> Vec<String> {
     out
 }
 
-/// 校验 streamHint 在当前 org 下可被查询。
+/// 校验 streamHint 在当前 org 下可被查询，查询时间范围 `time_range` 也在它允许的范围内。
+/// - `_audit` 只给持有 `audit.read` 的调用者读（[`super::grants`]）→ 否则 `Error::Forbidden`。
 /// - stream 不存在或属其它 org → `Error::Forbidden("stream not found: <name>")`。
 /// - stream 存在但被标记为不可查询（`settings.queryable == false`，仅作 intake 入口 /
 ///   pipeline 源）→ `Error::Forbidden("stream is not queryable: <name>")`——与「不存在」
 ///   分开返回，便于调用方/前端区分原因。
+/// - 时间范围长于 stream 设置的 `max_query_range_hours` → `Error::InvalidArgument`。
 pub async fn ensure_stream_in_org(
     streams: &dyn StreamRepository,
     org_id: &Id,
     name: &str,
     stream_type: StreamType,
+    time_range: TimeRange,
 ) -> Result<()> {
+    if !super::grants::may_read(name) {
+        return Err(Error::forbidden(format!(
+            "reading `{name}` needs the {} permission",
+            super::grants::AUDIT_READ
+        )));
+    }
+
     let def = match streams.get(org_id, name, stream_type).await {
         Ok(def) => def,
         Err(Error::NotFound(_)) => {
@@ -64,11 +74,24 @@ pub async fn ensure_stream_in_org(
         Err(e) => return Err(e),
     };
 
-    if !streams.get_settings(&def.id).await?.queryable {
+    let settings = streams.get_settings(&def.id).await?;
+
+    if !settings.queryable {
         return Err(Error::forbidden(format!("stream is not queryable: {name}")));
     }
 
+    if let Some(hours) = settings.exceeded_query_range(time_range) {
+        return Err(query_range_error(name, hours));
+    }
+
     Ok(())
+}
+
+/// 查询时间范围长于数据流允许的 `hours` 小时。
+pub fn query_range_error(name: &str, hours: u32) -> Error {
+    Error::invalid(format!(
+        "stream `{name}` allows queries over at most {hours} hours; narrow the time range"
+    ))
 }
 
 /// LogicalPlan rewrite pass（占位 — 当前透传）。
@@ -140,6 +163,7 @@ mod tests {
     struct FakeStreams {
         exists: bool,
         queryable: bool,
+        max_query_range_hours: Option<u32>,
     }
 
     #[async_trait]
@@ -176,6 +200,7 @@ mod tests {
         async fn get_settings(&self, _id: &Id) -> Result<StreamSettings> {
             Ok(StreamSettings {
                 queryable: self.queryable,
+                max_query_range_hours: self.max_query_range_hours,
                 ..Default::default()
             })
         }
@@ -184,15 +209,68 @@ mod tests {
         }
     }
 
+    fn hours(hours: i64) -> TimeRange {
+        TimeRange::new(TimestampMicros(0), TimestampMicros(hours * 3_600_000_000))
+    }
+
     #[tokio::test]
     async fn queryable_stream_passes() {
         let streams = FakeStreams {
             exists: true,
             queryable: true,
+            max_query_range_hours: None,
         };
-        ensure_stream_in_org(&streams, &Id::from_string("org"), "app", StreamType::LOGS)
+        ensure_stream_in_org(
+            &streams,
+            &Id::from_string("org"),
+            "app",
+            StreamType::LOGS,
+            hours(24 * 365),
+        )
+        .await
+        .expect("queryable stream should pass");
+    }
+
+    #[tokio::test]
+    async fn the_audit_trail_is_read_only_with_the_audit_grant() {
+        use crate::infra::query::grants::{ReadGrants, scope};
+
+        let streams = FakeStreams {
+            exists: true,
+            queryable: true,
+            max_query_range_hours: None,
+        };
+        let org = Id::from_string("org");
+        let read = || ensure_stream_in_org(&streams, &org, "_audit", StreamType::LOGS, hours(1));
+
+        let refused = read().await.unwrap_err();
+        assert!(matches!(refused, Error::Forbidden(_)), "{refused:?}");
+        assert!(refused.to_string().contains("audit.read"));
+
+        scope(ReadGrants::of_caller(true), read())
             .await
-            .expect("queryable stream should pass");
+            .expect("a caller with audit.read reads the audit trail");
+    }
+
+    #[tokio::test]
+    async fn a_range_longer_than_the_stream_allows_is_rejected() {
+        let streams = FakeStreams {
+            exists: true,
+            queryable: true,
+            max_query_range_hours: Some(24),
+        };
+        let org = Id::from_string("org");
+
+        ensure_stream_in_org(&streams, &org, "app", StreamType::LOGS, hours(24))
+            .await
+            .expect("a day is allowed");
+
+        let err = ensure_stream_in_org(&streams, &org, "app", StreamType::LOGS, hours(25))
+            .await
+            .expect_err("more than a day is not");
+
+        assert!(matches!(err, Error::InvalidArgument(_)), "{err:?}");
+        assert!(err.to_string().contains("24 hours"), "{err}");
     }
 
     #[tokio::test]
@@ -200,10 +278,17 @@ mod tests {
         let streams = FakeStreams {
             exists: true,
             queryable: false,
+            max_query_range_hours: None,
         };
-        let err = ensure_stream_in_org(&streams, &Id::from_string("org"), "app", StreamType::LOGS)
-            .await
-            .expect_err("non-queryable stream must be rejected");
+        let err = ensure_stream_in_org(
+            &streams,
+            &Id::from_string("org"),
+            "app",
+            StreamType::LOGS,
+            hours(1),
+        )
+        .await
+        .expect_err("non-queryable stream must be rejected");
         match err {
             Error::Forbidden(msg) => {
                 // 与「不存在」区分开：专门的 not-queryable 信号。
@@ -218,10 +303,17 @@ mod tests {
         let streams = FakeStreams {
             exists: false,
             queryable: true,
+            max_query_range_hours: None,
         };
-        let err = ensure_stream_in_org(&streams, &Id::from_string("org"), "app", StreamType::LOGS)
-            .await
-            .expect_err("missing stream must be rejected");
+        let err = ensure_stream_in_org(
+            &streams,
+            &Id::from_string("org"),
+            "app",
+            StreamType::LOGS,
+            hours(1),
+        )
+        .await
+        .expect_err("missing stream must be rejected");
         match err {
             Error::Forbidden(msg) => {
                 assert!(msg.contains("not found"), "unexpected message: {msg}")

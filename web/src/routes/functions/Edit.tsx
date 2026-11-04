@@ -87,7 +87,7 @@ export function FunctionsEdit() {
   React.useEffect(() => {
     if (!startFromData) return;
     const taken = (qc.getQueryData<functionsApi.FunctionResp[]>(['functions', 'list']) ?? [])
-      .filter((item) => !item.is_builtin)
+      .filter((item) => !item.isBuiltin)
       .map((item) => item.name);
 
     setName(copyName(startFromData.name, taken));

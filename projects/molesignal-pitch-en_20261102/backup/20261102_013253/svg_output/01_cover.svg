@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-pptx-page-role="cover" font-family="Arial">
+<rect id="bg" data-pptx-role="background" width="1280" height="720" fill="#102C44"/>
+<g id="brand" data-pptx-bounds="56 50 1168 70"><text x="56" y="83" font-size="30" fill="#FFFFFF" font-weight="bold">MoleSignal</text><text x="1224" y="80" text-anchor="end" font-size="18" fill="#9EDDD9">INVESTOR DECK · NOV 2026</text></g>
+<g id="thesis" data-pptx-bounds="56 178 1168 280"><text x="56" y="250" font-size="76" fill="#FFFFFF" font-weight="bold"><tspan x="56">Observability meets</tspan><tspan x="56" dy="100">incident response</tspan></text><text x="60" y="419" font-size="30" fill="#B8D2E1">Open source. Self-hosted. Your choice of AI model.</text></g>
+<g id="ask" data-pptx-bounds="56 505 1168 105"><rect x="56" y="505" width="6" height="92" fill="#4DCCC5"/><text x="82" y="546" font-size="30" fill="#FFFFFF">Raising $750,000 for a 24-month plan</text><text x="82" y="586" font-size="24" fill="#B8D2E1">Zongsheng Xu · Founder | From product delivery to customer validation</text></g>
+<text id="footer" data-pptx-role="footer" x="56" y="682" font-size="16" fill="#B8D2E1">Pre-launch refinement · No external users or paying customers · Company not yet incorporated</text><text id="page" data-pptx-role="page-number" x="1224" y="682" text-anchor="end" font-size="16" fill="#B8D2E1">01 / 14</text>
+</svg>

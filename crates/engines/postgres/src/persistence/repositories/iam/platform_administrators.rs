@@ -20,7 +20,7 @@ impl PgIamPlatformAdministratorRepository {
     }
 }
 
-const COLS: &str = "user_id, active, granted_by, granted_at_micros, revoked_by, revoked_at_micros";
+const COLS: &str = "user_id, active, granted_by, granted_at, revoked_by, revoked_at";
 
 fn row_to_assignment(row: sqlx::postgres::PgRow) -> Result<IamPlatformAdministrator> {
     Ok(IamPlatformAdministrator {
@@ -30,15 +30,16 @@ fn row_to_assignment(row: sqlx::postgres::PgRow) -> Result<IamPlatformAdministra
             .try_get::<Option<String>, _>("granted_by")
             .map_err(sqlx_err)?
             .map(Id),
-        granted_at: TimestampMicros(row.try_get("granted_at_micros").map_err(sqlx_err)?),
+        granted_at: row
+            .try_get::<TimestampMicros, _>("granted_at")
+            .map_err(sqlx_err)?,
         revoked_by: row
             .try_get::<Option<String>, _>("revoked_by")
             .map_err(sqlx_err)?
             .map(Id),
         revoked_at: row
-            .try_get::<Option<i64>, _>("revoked_at_micros")
-            .map_err(sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("revoked_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -46,7 +47,7 @@ fn row_to_assignment(row: sqlx::postgres::PgRow) -> Result<IamPlatformAdministra
 impl IamPlatformAdministratorRepository for PgIamPlatformAdministratorRepository {
     async fn list(&self) -> Result<Vec<IamPlatformAdministrator>> {
         let rows = sqlx::query(&format!(
-            "SELECT {COLS} FROM iam_platform_administrators ORDER BY granted_at_micros, user_id"
+            "SELECT {COLS} FROM iam_platform_administrators ORDER BY granted_at, user_id"
         ))
         .fetch_all(&self.pool)
         .await
@@ -132,28 +133,28 @@ impl IamPlatformAdministratorRepository for PgIamPlatformAdministratorRepository
             "UPDATE iam_platform_administrators
                 SET active = FALSE,
                     revoked_by = $1,
-                    revoked_at_micros = $2
+                    revoked_at = $2
               WHERE active AND user_id <> $1",
         )
         .bind(&user_id.0)
-        .bind(now.0)
+        .bind(now)
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
 
         let reconciled = sqlx::query(
             "INSERT INTO iam_platform_administrators
-                (user_id, active, granted_by, granted_at_micros, revoked_by, revoked_at_micros)
+                (user_id, active, granted_by, granted_at, revoked_by, revoked_at)
              VALUES ($1, TRUE, $1, $2, NULL, NULL)
              ON CONFLICT (user_id) DO UPDATE
              SET active = TRUE,
                  granted_by = EXCLUDED.granted_by,
-                 granted_at_micros = EXCLUDED.granted_at_micros,
+                 granted_at = EXCLUDED.granted_at,
                  revoked_by = NULL,
-                 revoked_at_micros = NULL",
+                 revoked_at = NULL",
         )
         .bind(&user_id.0)
-        .bind(now.0)
+        .bind(now)
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?

@@ -21,6 +21,66 @@ const tokenColor = (token: string) =>
     return `color-mix(in srgb, var(${token}) ${percentage}, transparent)`;
   };
 
+/**
+ * The root is 14px, the body size, so Tailwind's rem steps stood 3.5px apart and fell between
+ * pixels (`h-9` was 31.5px, `gap-2.5` 8.75px). The scale is set in pixels instead: each step on
+ * the nearest 4px to where it stood (2px apart under 8px), so boxes land on whole pixels and on
+ * one grid, and the density stays as it was.
+ */
+const GRID_SPACING = {
+  px: '1px',
+  0: '0px',
+  0.5: '2px',
+  1: '4px',
+  1.5: '6px',
+  2: '8px',
+  2.5: '8px',
+  3: '12px',
+  3.5: '12px',
+  4: '16px',
+  5: '16px',
+  6: '20px',
+  7: '24px',
+  8: '28px',
+  9: '32px',
+  10: '36px',
+  11: '40px',
+  12: '44px',
+  14: '48px',
+  16: '56px',
+  20: '72px',
+  24: '84px',
+  28: '96px',
+  32: '112px',
+  36: '128px',
+  40: '140px',
+  44: '152px',
+  48: '168px',
+  52: '184px',
+  56: '196px',
+  60: '208px',
+  64: '224px',
+  72: '252px',
+  80: '280px',
+  96: '336px',
+};
+
+/** Line heights on whole pixels too, at the even step nearest to where the rem ones stood. */
+const GRID_LINE_HEIGHT = {
+  3: '12px',
+  4: '16px',
+  5: '18px',
+  6: '20px',
+  7: '24px',
+  8: '28px',
+  9: '32px',
+  10: '36px',
+  // `relaxed` keeps its 1.625 and ends on the whole pixel nearest to it at the size it is set
+  // at (12px → 20px, 13px → 21px, 14px → 23px). Being a length, it is inherited as one: text of
+  // another size inside it takes the same height unless it sets its own.
+  relaxed: 'round(1.625em, 1px)',
+};
+
 const config: Config = {
   darkMode: ['class', '[data-theme="dark"]'],
   // Unit tests are not content. The patterns leave them out themselves,
@@ -35,7 +95,9 @@ const config: Config = {
     './src/**/!(__tests__)/!(*.test).{ts,tsx}',
   ],
   theme: {
+    spacing: GRID_SPACING,
     extend: {
+      lineHeight: GRID_LINE_HEIGHT,
       colors: {
         /* layer 1 — design-handoff terminal-dark scale */
         'bg-0': tokenColor('--bg-0'),
@@ -161,24 +223,33 @@ const config: Config = {
         /* Editors and query expressions use the dedicated code stack. */
         code: ['var(--font-code)'],
       },
+      /* The type scale in tokens.css: running text 14 / 22, dense data 13 / 20,
+       * supporting text 12 / 18. Line heights are those pixel steps as ratios,
+       * so they follow a size that a token changes. */
       fontSize: {
-        body: 'var(--font-body, 13.5px)',
-        chrome: '12.5px',
-        xs: ['var(--font-caption, 12px)', { lineHeight: '1.45' }],
-        sm: ['var(--font-label, 12.5px)', { lineHeight: '1.5' }],
-        md: ['13.5px', { lineHeight: '1.5' }],
-        lg: ['15px', { lineHeight: '1.45' }],
-        xl: ['17px', { lineHeight: '1.35' }],
-        '2xl': ['var(--font-page-title, 22px)', { lineHeight: '1.2' }],
-        // Review calibration: keep the refreshed hierarchy while reducing display scale.
-        kpi: ['var(--font-kpi, 32px)', { lineHeight: '1.05' }],
+        body: ['var(--font-body, 14px)', { lineHeight: 'calc(22 / 14)' }],
+        chrome: ['var(--font-label, 13px)', { lineHeight: '1.5385' }],
+        xs: ['var(--font-caption, 12px)', { lineHeight: '1.5' }],
+        sm: ['var(--font-label, 13px)', { lineHeight: '1.5385' }],
+        md: ['var(--font-body, 14px)', { lineHeight: 'calc(22 / 14)' }],
+        lg: ['15px', { lineHeight: '1.4667' }],
+        xl: ['var(--font-heading, 18px)', { lineHeight: 'calc(26 / 18)' }],
+        '2xl': ['var(--font-page-title, 20px)', { lineHeight: '1.4' }],
+        kpi: ['var(--font-kpi, 30px)', { lineHeight: '1.2667' }],
         noc: ['56px', { lineHeight: '1.0' }],
       },
+      /* The weights are the type scale in tokens.css (`--fw-*`), so the whole
+       * product moves together when the scale does. Tailwind's own names land
+       * on its steps: `font-medium` and `font-semibold` are the strong one
+       * (navigation, buttons, table heads, labels), `font-bold` the title one. */
       fontWeight: {
-        body: '500',
-        strong: '600',
-        display: '600',
-        'display-strong': '700',
+        body: 'var(--fw-body)',
+        strong: 'var(--fw-strong)',
+        display: 'var(--fw-display)',
+        'display-strong': 'var(--fw-display-strong)',
+        medium: 'var(--fw-strong)',
+        semibold: 'var(--fw-strong)',
+        bold: 'var(--fw-display-strong)',
       },
       spacing: {
         topbar: 'var(--topbar-h)',
@@ -208,7 +279,6 @@ const config: Config = {
         drawer: 'var(--shadow-drawer)',
         popup: 'var(--shadow-popup)',
         login: 'var(--shadow-login)',
-        primary: 'var(--shadow-primary)',
       },
       transitionDuration: {
         instant: 'var(--duration-instant)',
@@ -235,7 +305,8 @@ const config: Config = {
           to: { transform: 'translateX(100%)' },
         },
         // Floating surfaces grow out of their trigger (transform-origin comes
-        // from Radix) and leave a little faster than they arrive.
+        // from Radix) and leave a little faster than they arrive, both easing
+        // out: a leave that starts slowly reads as lag.
         'pop-in': {
           from: { opacity: '0', transform: 'scale(0.96)' },
           to: { opacity: '1', transform: 'scale(1)' },
@@ -255,11 +326,6 @@ const config: Config = {
           to: { opacity: '0', transform: 'translate(-50%, -49%) scale(0.98)' },
         },
         'fade-out': { from: { opacity: '1' }, to: { opacity: '0' } },
-        // The check mark lands with a small overshoot, the only spring in the product.
-        'check-pop': {
-          from: { opacity: '0', transform: 'scale(0.4)' },
-          to: { opacity: '1', transform: 'scale(1)' },
-        },
       },
       animation: {
         'fade-in': 'fade-in var(--duration-fast) var(--easing-out)',
@@ -267,11 +333,10 @@ const config: Config = {
         'slide-in-right': 'slide-in-right var(--duration-normal) var(--easing-out)',
         'slide-out-right': 'slide-out-right var(--duration-normal) var(--easing-out) forwards',
         'pop-in': 'pop-in 160ms var(--easing-expo-out)',
-        'pop-out': 'pop-out 100ms var(--easing-in) forwards',
+        'pop-out': 'pop-out 100ms var(--easing-out) forwards',
         'dialog-in': 'dialog-in var(--duration-enter) var(--easing-expo-out)',
-        'dialog-out': 'dialog-out 120ms var(--easing-in) forwards',
-        'fade-out': 'fade-out var(--duration-fast) var(--easing-in) forwards',
-        'check-pop': 'check-pop 200ms var(--easing-spring)',
+        'dialog-out': 'dialog-out 120ms var(--easing-out) forwards',
+        'fade-out': 'fade-out var(--duration-fast) var(--easing-out) forwards',
       },
     },
   },

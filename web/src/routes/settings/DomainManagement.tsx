@@ -29,7 +29,7 @@ export function DomainManagement() {
   const { t: tc } = useTranslation('common');
   const qc = useQueryClient();
   const manageAccess = useActionAccess({
-    permission: 'org.settings.manage',
+    permission: 'org.domains.manage',
   });
   const [creating, setCreating] = React.useState(false);
   const [removing, setRemoving] = React.useState<domainsApi.Domain | null>(null);
@@ -129,13 +129,13 @@ export function DomainManagement() {
               {
                 key: 'expires',
                 header: t('domain_management.columns.cert_expires'),
-                cell: (r) => formatMicros(r.cert_not_after_micros),
+                cell: (r) => formatMicros(r.certNotAfter),
                 width: 200,
               },
               {
                 key: 'last_error',
                 header: t('domain_management.columns.last_error'),
-                cell: (r) => r.last_error ?? '—',
+                cell: (r) => r.lastError ?? '—',
               },
               {
                 key: 'actions',

@@ -7,6 +7,7 @@ use axum::Router;
 
 use crate::api::AppState;
 
+pub mod automations;
 pub(super) mod budget;
 pub(crate) mod builtin_execution;
 pub mod chat;
@@ -15,6 +16,7 @@ pub mod control;
 mod currencies;
 pub mod dashboard_drafts;
 pub mod feedback;
+pub mod im;
 pub mod inbound_mcp;
 pub mod investigate;
 pub mod knowledge;
@@ -23,8 +25,11 @@ pub mod memory;
 pub mod model_providers;
 pub mod network_policy;
 pub mod prompts;
+pub mod quality;
 pub mod references;
+mod rum_facts;
 pub mod runs;
+mod service_facts;
 pub mod skills;
 pub(crate) mod team_resources;
 pub mod telemetry;
@@ -36,12 +41,14 @@ pub(crate) mod viewer;
 
 pub fn routes(state: AppState) -> Router<AppState> {
     Router::new()
+        .merge(automations::routes())
         .merge(chat::routes())
         .merge(commands::routes())
         .merge(control::routes())
         .merge(currencies::routes())
         .merge(dashboard_drafts::routes())
         .merge(feedback::routes())
+        .merge(im::routes())
         .merge(inbound_mcp::routes(state))
         .merge(investigate::routes())
         .merge(knowledge::routes())
@@ -50,6 +57,7 @@ pub fn routes(state: AppState) -> Router<AppState> {
         .merge(network_policy::routes())
         .merge(mcp::routes())
         .merge(prompts::routes())
+        .merge(quality::routes())
         .merge(references::routes())
         .merge(runs::routes())
         .merge(skills::routes())

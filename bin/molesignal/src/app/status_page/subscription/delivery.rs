@@ -223,7 +223,7 @@ fn announced_postmortem(delivery: &StatusPageNotificationDelivery) -> Option<Id>
     (payload.get("type").and_then(serde_json::Value::as_str) == Some("postmortem_published"))
         .then(|| {
             payload
-                .get("incident_id")
+                .get("incidentId")
                 .and_then(serde_json::Value::as_str)
         })
         .flatten()

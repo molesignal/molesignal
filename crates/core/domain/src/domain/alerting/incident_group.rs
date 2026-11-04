@@ -45,6 +45,7 @@ impl IncidentGroupState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IncidentGroup {
     pub id: Id,
     pub org_id: Id,

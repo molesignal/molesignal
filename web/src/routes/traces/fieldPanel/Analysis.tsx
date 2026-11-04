@@ -68,7 +68,7 @@ export function TraceFieldAnalysis({ field, traces, source, onClose }: TraceFiel
       load: async (signal) =>
         answerFromPayload(
           await webApi.tracesFieldStats(
-            { stream: source.stream, from: window.start, to: window.end, trace_ids: ids, field: field.name },
+            { stream: source.stream, from: window.start, to: window.end, traceIds: ids, field: field.name },
             signal,
           ),
         ),

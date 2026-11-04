@@ -16,6 +16,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct AnomalyParams {
     /// 算法。`mad` 默认；`ewma` 已实装；其它字符串走 `unimplemented` detector。
     pub algorithm: String,
@@ -462,12 +463,26 @@ mod tests {
                 statement: "SELECT avg(latency) FROM logs".into(),
                 period_secs: 60,
                 stream: None,
+                apm: None,
+                rum: None,
+                group_by: Vec::new(),
+                composite: None,
+                forecast: None,
+                outlier: None,
+                heartbeat: None,
+                delay_secs: None,
+                discovery: None,
+                home_cluster: None,
             },
             trigger: AlertTrigger {
                 operator: ComparisonOp::Gt,
                 threshold: 0.0,
                 for_periods: 1,
                 silence_secs: 300,
+                no_data: None,
+                recovery: None,
+                priority: None,
+                urgency: None,
             },
             anomaly_params: Some(AnomalyParams {
                 algorithm: "ewma".into(),

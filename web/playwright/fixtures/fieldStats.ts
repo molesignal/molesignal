@@ -1,9 +1,11 @@
 import type { Page } from '@playwright/test';
 
+import { explorerRead, explorerReadBody } from './explorerReads';
+
 /**
  * Answers for the two endpoints an explorer asks for what a field holds across
- * everything a query matches: `POST /api/v1/web/logs/field-stats` and
- * `POST /api/v1/web/traces/field-stats`.
+ * everything a query matches: `GET /api/v1/web/logs/field-stats` (a POST when
+ * the query is too long for an address) and `POST /api/v1/web/traces/field-stats`.
  *
  * Neither is answered by default. A spec that does not serve them gets `{}`
  * from the catch-all, which the page reads as an analysis that did not come
@@ -18,9 +20,9 @@ export interface AskedFieldStats {
   /** Logs: the stream and the query the list sent. */
   stream?: string;
   filters?: unknown[];
-  free_text?: string[];
+  freeText?: string[];
   /** Traces: the traces on the page. */
-  trace_ids?: string[];
+  traceIds?: string[];
 }
 
 /** The commonest values of a field, with how many rows hold each. */
@@ -49,13 +51,13 @@ export function textFieldStats(asked: AskedFieldStats, { total, present, top }: 
     total,
     present,
     distinct: top.length,
-    distinct_exact: true,
+    distinctExact: true,
     top: listed(top),
-    top_skipped: false,
+    topSkipped: false,
     ...((top[0]?.[1] ?? 0) > 1 && {
       trend: {
-        origin_micros: origin,
-        bucket_micros: bucket,
+        originTime: origin,
+        bucketTime: bucket,
         series: top.slice(0, 5).map(([value, count]) => ({
           value,
           counts: Array.from({ length: stretches }, (_, index) =>
@@ -83,22 +85,22 @@ export function numberFieldStats(_asked: AskedFieldStats, { total, present, top 
     total,
     present,
     distinct: top.length,
-    distinct_exact: true,
+    distinctExact: true,
     range: { min: String(min), max: String(max) },
-    spread: { avg: mean, q1: min, median: min, q3: max, stddev_samp: 118.2, stddev_pop: 118.1, skewness: 1.52, kurtosis: 0.41 },
+    spread: { avg: mean, q1: min, median: min, q3: max, stddevSamp: 118.2, stddevPop: 118.1, skewness: 1.52, kurtosis: 0.41 },
     bars: { origin, width, counts },
     top: listed(top),
-    top_skipped: false,
+    topSkipped: false,
   };
 }
 
 type Answer = (asked: AskedFieldStats) => Record<string, unknown> | { status: number };
 
-async function serve(page: Page, url: string, answer: Answer): Promise<AskedFieldStats[]> {
+async function serve(page: Page, url: string | RegExp, answer: Answer): Promise<AskedFieldStats[]> {
   const asked: AskedFieldStats[] = [];
 
   await page.route(url, async (route) => {
-    const body = route.request().postDataJSON() as AskedFieldStats;
+    const body = explorerReadBody<AskedFieldStats>(route.request());
     const answered = answer(body);
 
     asked.push(body);
@@ -115,7 +117,7 @@ async function serve(page: Page, url: string, answer: Answer): Promise<AskedFiel
  * it after the routes of the list. Returns what was asked, in the order it was.
  */
 export function serveLogFieldStats(page: Page, answer: Answer): Promise<AskedFieldStats[]> {
-  return serve(page, '**/api/v1/web/logs/field-stats', answer);
+  return serve(page, explorerRead('web/logs/field-stats'), answer);
 }
 
 /** The same for a field of a Span, across every Span of the traces on the page. */

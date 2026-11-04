@@ -4,7 +4,7 @@ export type ExtendFieldType = 'string' | 'number' | 'boolean' | 'object';
 
 export interface ExtendValueField {
   name: string;
-  field_type: ExtendFieldType;
+  fieldType: ExtendFieldType;
   required: boolean;
   description: string;
 }
@@ -16,29 +16,29 @@ export interface ExtendTableUsage {
 }
 
 export interface ExtendTableSummary {
-  table_name: string;
+  tableName: string;
   description: string;
-  key_field: string;
-  value_fields: ExtendValueField[];
-  row_count: number;
-  updated_at: number;
-  usage_locations: ExtendTableUsage[];
+  keyField: string;
+  valueFields: ExtendValueField[];
+  rowCount: number;
+  updatedAt: number;
+  usageLocations: ExtendTableUsage[];
 }
 
 export interface ExtendRow {
   id: string;
-  org_id: string;
-  table_name: string;
+  orgId: string;
+  tableName: string;
   key: string;
-  value_json: unknown;
-  updated_at_micros: number;
+  valueJson: unknown;
+  updatedAt: number;
 }
 
 export interface CreateExtendTableInput {
-  table_name: string;
+  tableName: string;
   description: string;
-  key_field: string;
-  value_fields: ExtendValueField[];
+  keyField: string;
+  valueFields: ExtendValueField[];
 }
 
 export async function listTables(): Promise<ExtendTableSummary[]> {
@@ -59,7 +59,7 @@ export async function updateTableFields(
 ): Promise<ExtendTableSummary> {
   const { data } = await http.patch<ExtendTableSummary>(
     `/extend_tables/${encodeURIComponent(table)}`,
-    { value_fields },
+    { valueFields: value_fields },
   );
   return data;
 }
@@ -76,7 +76,7 @@ export async function listRows(table: string): Promise<ExtendRow[]> {
 export async function upsert(table: string, key: string, value_json: unknown): Promise<void> {
   await http.put(
     `/extend_tables/${encodeURIComponent(table)}/rows/${encodeURIComponent(key)}`,
-    { value_json },
+    { valueJson: value_json },
   );
 }
 

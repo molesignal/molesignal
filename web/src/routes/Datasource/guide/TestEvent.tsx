@@ -80,7 +80,7 @@ async function sendTestEvent(
   context: IntakeContext,
 ): Promise<intakeApi.IntakeResult> {
   if (source.rumPlatform) {
-    return rumIntakeApi.sendTestError({
+    return rumIntakeApi.sendTestEvents({
       token: context.token,
       applicationId: context.applicationId,
       platform: source.rumPlatform,

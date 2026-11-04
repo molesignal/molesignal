@@ -63,15 +63,15 @@ export function ExtendTableDetail() {
   });
 
   const table = tablesQuery.data?.find(
-    (candidate) => candidate.table_name === tableName,
+    (candidate) => candidate.tableName === tableName,
   );
   const rows = React.useMemo(() => rowsQuery.data ?? [], [rowsQuery.data]);
   const fields = React.useMemo(
     () =>
-      table?.value_fields.length
-        ? table.value_fields
+      table?.valueFields.length
+        ? table.valueFields
         : inferValueFields(rows),
-    [rows, table?.value_fields],
+    [rows, table?.valueFields],
   );
   const visibleFields = fields.slice(0, 6);
   const filteredRows = React.useMemo(() => {
@@ -80,7 +80,7 @@ export function ExtendTableDetail() {
     return rows.filter(
       (row) =>
         row.key.toLocaleLowerCase().includes(needle) ||
-        JSON.stringify(row.value_json).toLocaleLowerCase().includes(needle),
+        JSON.stringify(row.valueJson).toLocaleLowerCase().includes(needle),
     );
   }, [rows, search]);
 
@@ -118,7 +118,7 @@ export function ExtendTableDetail() {
         ['extend-tables', 'list'],
         (current) =>
           current?.map((candidate) =>
-            candidate.table_name === updatedTable.table_name
+            candidate.tableName === updatedTable.tableName
               ? updatedTable
               : candidate,
           ),
@@ -256,7 +256,7 @@ export function ExtendTableDetail() {
           <UpsertExtendRowDrawer
             access={editAccess}
             open={addOpen || editingRow !== null}
-            table={{ ...table, value_fields: fields }}
+            table={{ ...table, valueFields: fields }}
             rows={rows}
             editingRow={editingRow}
             onClose={() => {
@@ -307,7 +307,7 @@ export function ExtendTableDetail() {
         title={t('extend_tables.delete_table_title')}
         description={t('extend_tables.delete_table_description', {
           table: tableName,
-          count: table?.row_count ?? 0,
+          count: table?.rowCount ?? 0,
         })}
         confirmLabel={t('extend_tables.confirm_delete')}
         cancelLabel={t('extend_tables.cancel')}

@@ -1,5 +1,4 @@
 import type { PublicStatusPagePostmortem, StatusPagePostmortem } from './postmortems';
-import type { ComponentServiceLink } from './serviceLinks';
 import type { StatusPageSubscriberOrigin, SubscriberComponentScope } from './subscriptions';
 
 export type StatusPageVisibility = 'public' | 'private';
@@ -14,6 +13,43 @@ export type ComponentStatus =
 export type ComponentVisibility = 'enabled' | 'hidden';
 /** A component, or a group that holds components and shows their worst status. */
 export type ComponentKind = 'component' | 'group';
+/** What a component depends on: a service name, a synthetic monitor or an alert rule. */
+export type DependencyKind = 'technical_service' | 'synthetic_monitor' | 'alert_rule';
+/** How much of a dependency's trouble reaches the component. */
+export type DependencyImpact = 'outage' | 'degraded';
+/** How the health of its dependencies reaches a component. */
+export type DependencyMode = 'follow' | 'automation';
+export type DependencyStatus = 'operational' | 'degraded_performance' | 'partial_outage' | 'major_outage';
+
+export interface ComponentDependency {
+  kind: DependencyKind;
+  /** The service name of a technical service, or the id of the monitor or alert rule. */
+  target: string;
+  impact: DependencyImpact;
+}
+
+/** A dependency that is not operational, and why. */
+export interface DependencyCause {
+  kind: DependencyKind;
+  target: string;
+  status: DependencyStatus;
+  /** The open alert incidents behind it, most severe first, at most five. */
+  incidents?: Array<{ id: string; summary: string; severity: AlertSeverity }>;
+  incidentCount: number;
+  monitorState?: string;
+}
+
+/** The health last worked out from a component's dependencies. */
+export interface DependencyHealth {
+  status: DependencyStatus;
+  /** The dependencies that are not operational, worst first. */
+  causes: DependencyCause[];
+  changedAt: number;
+  evaluatedAt: number;
+}
+
+/** The most dependencies one component can have. */
+export const MAX_COMPONENT_DEPENDENCIES = 100;
 export type ComponentLifecycle = 'active' | 'archived';
 export type StatusPageIncidentKind = 'incident' | 'maintenance';
 export type StatusPagePublicationState = 'draft' | 'published';
@@ -45,7 +81,7 @@ export type StatusPageDomainState =
   | 'failed'
   | 'degraded';
 export type StatusPageAccessRuleKind = 'email' | 'domain';
-export type AutomationSourceKind = 'alert_incident' | 'synthetic_monitor' | 'business_service';
+export type AutomationSourceKind = 'alert_incident' | 'synthetic_monitor' | 'component_dependencies';
 export type AutomationRuleLifecycle = 'draft' | 'active' | 'paused' | 'archived';
 export type AutomationPublicationMode = 'approval' | 'automatic';
 export type AutomationCandidateState =
@@ -61,120 +97,125 @@ export type AlertSeverity = 'info' | 'warning' | 'error' | 'critical';
 
 export interface StatusPage {
   id: string;
-  org_id: string;
+  orgId: string;
   name: string;
   slug: string;
-  logo_url: string | null;
-  brand_color: string;
-  custom_domain: string | null;
+  logoUrl: string | null;
+  brandColor: string;
+  customDomain: string | null;
   timezone: string;
   language: StatusPageLanguage;
   languages: StatusPageLanguage[];
-  history_days: number;
-  delivery_retention_days: number;
-  private_session_days: number;
+  historyDays: number;
+  deliveryRetentionDays: number;
+  privateSessionDays: number;
   visibility: StatusPageVisibility;
   lifecycle: StatusPageLifecycle;
-  archived_at: number | null;
-  purge_after: number | null;
-  created_at: number;
-  updated_at: number;
+  archivedAt: number | null;
+  purgeAfter: number | null;
+  createdAt: number;
+  updatedAt: number;
   /** The Slack App message connector visitors add the page to Slack with. */
-  slack_connector_id?: string | null;
+  slackConnectorId?: string | null;
 }
 
 export interface StatusPageComponent {
   id: string;
-  org_id: string;
-  status_page_id: string;
+  orgId: string;
+  statusPageId: string;
   name: string;
   description: string;
   status: ComponentStatus;
   visibility: ComponentVisibility;
   lifecycle: ComponentLifecycle;
   position: number;
-  archived_at: number | null;
-  created_at: number;
-  updated_at: number;
-  /** The business service the component stands for. */
-  business_service?: ComponentServiceLink | null;
+  archivedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+  /** What the component depends on; empty when its status is set by hand. */
+  dependencies?: ComponentDependency[];
+  dependencyMode?: DependencyMode;
+  /** Whether a status the component follows tells subscribers. */
+  dependencyNotify?: boolean;
+  /** The health last worked out from the dependencies. */
+  dependencyHealth?: DependencyHealth | null;
   kind?: ComponentKind;
   /** The group the component is in. */
-  group_id?: string | null;
+  groupId?: string | null;
 }
 
 export interface StatusPageComponentStatusEvent {
   id: string;
-  org_id: string;
-  status_page_id: string;
-  component_id: string;
+  orgId: string;
+  statusPageId: string;
+  componentId: string;
   status: ComponentStatus;
-  started_at: number;
-  ended_at: number | null;
-  created_at: number;
+  startedAt: number;
+  endedAt: number | null;
+  createdAt: number;
   /** A change made without telling subscribers queued no delivery. */
-  notify_subscribers?: boolean;
+  notifySubscribers?: boolean;
 }
 
 export interface StatusPageIncidentUpdate {
   id: string;
-  org_id: string;
-  status_page_id: string;
-  incident_id: string;
+  orgId: string;
+  statusPageId: string;
+  incidentId: string;
   status: PublicIncidentStatus;
   message: string;
-  created_at: number;
+  createdAt: number;
   /** By when this update promised the next one. */
-  next_update_at?: number | null;
+  nextUpdateAt?: number | null;
   /** Whether subscribers were told of this update. */
-  notify_subscribers?: boolean;
+  notifySubscribers?: boolean;
 }
 
 export interface StatusPageIncident {
   id: string;
-  org_id: string;
-  status_page_id: string;
-  source_incident_id: string | null;
+  orgId: string;
+  statusPageId: string;
+  sourceIncidentId: string | null;
   kind: StatusPageIncidentKind;
   title: string;
   impact: IncidentImpact;
   status: PublicIncidentStatus;
-  publication_state: StatusPagePublicationState;
-  draft_message: string | null;
-  component_ids: string[];
+  publicationState: StatusPagePublicationState;
+  draftMessage: string | null;
+  componentIds: string[];
   updates: StatusPageIncidentUpdate[];
-  started_at: number;
-  ended_at: number | null;
-  published_at: number | null;
-  created_at: number;
-  updated_at: number;
+  startedAt: number;
+  endedAt: number | null;
+  publishedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
   /** The postmortem of a resolved incident, draft or published. */
   postmortem?: StatusPagePostmortem | null;
 }
 
 export interface StatusPageSnapshot {
   page: StatusPage;
-  overall_status: ComponentStatus;
+  overallStatus: ComponentStatus;
   components: StatusPageComponent[];
-  component_status_events: StatusPageComponentStatusEvent[];
-  active_incidents: StatusPageIncident[];
-  scheduled_maintenance: StatusPageIncident[];
+  componentStatusEvents: StatusPageComponentStatusEvent[];
+  activeIncidents: StatusPageIncident[];
+  scheduledMaintenance: StatusPageIncident[];
   history: StatusPageIncident[];
-  updated_at: number;
-  generated_at: number;
+  updatedAt: number;
+  generatedAt: number;
 }
 
 export interface StatusPageInput {
   name: string;
   slug: string;
-  logo_url?: string | null;
-  brand_color: string;
+  logoUrl?: string | null;
+  brandColor: string;
   timezone: string;
   language: StatusPageLanguage;
   languages: StatusPageLanguage[];
-  history_days: number;
-  delivery_retention_days: number;
-  private_session_days: number;
+  historyDays: number;
+  deliveryRetentionDays: number;
+  privateSessionDays: number;
   visibility: StatusPageVisibility;
 }
 
@@ -189,21 +230,25 @@ export interface StatusPageComponentInput {
   notify?: boolean;
   /** Fixed once the component is made. */
   kind?: ComponentKind;
-  group_id?: string | null;
+  groupId?: string | null;
+  /** What the component depends on; left out, it keeps its own. */
+  dependencies?: ComponentDependency[];
+  dependencyMode?: DependencyMode;
+  dependencyNotify?: boolean;
 }
 
 export interface StatusPageIncidentInput {
-  source_incident_id?: string | null;
+  sourceIncidentId?: string | null;
   kind: StatusPageIncidentKind;
   title: string;
   impact: IncidentImpact;
   status?: PublicIncidentStatus;
-  publication_state: StatusPagePublicationState;
+  publicationState: StatusPagePublicationState;
   message?: string | null;
-  component_ids: string[];
-  started_at?: number;
+  componentIds: string[];
+  startedAt?: number;
   /** By when the first published update promises the next one. */
-  next_update_at?: number | null;
+  nextUpdateAt?: number | null;
   /** Whether the first published update tells subscribers. */
   notify?: boolean;
 }
@@ -211,7 +256,7 @@ export interface StatusPageIncidentInput {
 export interface StatusPageIncidentUpdateInput {
   status: PublicIncidentStatus;
   message: string;
-  next_update_at?: number | null;
+  nextUpdateAt?: number | null;
   notify?: boolean;
 }
 
@@ -225,78 +270,78 @@ export interface StatusPageEventList {
 export interface StatusPageHistoryPage {
   items: StatusPageIncident[];
   page: number;
-  per_page: number;
+  perPage: number;
   total: number;
 }
 
 export interface StatusPageSubscriber {
   id: string;
   channel: StatusPageSubscriberChannel;
-  masked_target: string;
+  maskedTarget: string;
   /** The Slack channel and workspace of a subscriber added with Add to Slack. */
-  target_label?: string | null;
+  targetLabel?: string | null;
   status: StatusPageSubscriberStatus;
-  component_scope?: SubscriberComponentScope;
-  component_ids?: string[];
+  componentScope?: SubscriberComponentScope;
+  componentIds?: string[];
   origin?: StatusPageSubscriberOrigin;
-  confirmation_sent_at: number | null;
-  confirmed_at: number | null;
-  unsubscribed_at: number | null;
-  created_at: number;
-  updated_at: number;
+  confirmationSentAt: number | null;
+  confirmedAt: number | null;
+  unsubscribedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface StatusPageSubscriberPage {
   items: StatusPageSubscriber[];
   page: number;
-  per_page: number;
+  perPage: number;
   total: number;
 }
 
 export interface StatusPageDelivery {
   id: string;
-  subscriber_id: string;
+  subscriberId: string;
   channel: StatusPageSubscriberChannel;
-  masked_target: string;
-  event_key: string;
+  maskedTarget: string;
+  eventKey: string;
   status: 'pending' | 'processing' | 'delivered' | 'failed';
   attempts: number;
-  next_attempt_at: number;
-  last_error: string | null;
-  delivered_at: number | null;
-  created_at: number;
-  updated_at: number;
+  nextAttemptAt: number;
+  lastError: string | null;
+  deliveredAt: number | null;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface StatusPageDeliveryPage {
   items: StatusPageDelivery[];
   page: number;
-  per_page: number;
+  perPage: number;
   total: number;
 }
 
 export interface StatusPageDomainConfig {
-  org_id: string;
-  status_page_id: string;
+  orgId: string;
+  statusPageId: string;
   hostname: string;
-  verification_token: string;
+  verificationToken: string;
   state: StatusPageDomainState;
-  domain_id: string | null;
-  routing_valid: boolean;
-  last_checked_at: number | null;
-  last_error: string | null;
-  cert_not_after: number | null;
-  last_alerted_state: StatusPageDomainState | null;
-  last_alerted_at: number | null;
-  created_at: number;
-  updated_at: number;
+  domainId: string | null;
+  routingValid: boolean;
+  lastCheckedAt: number | null;
+  lastError: string | null;
+  certNotAfter: number | null;
+  lastAlertedState: StatusPageDomainState | null;
+  lastAlertedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface StatusPageDomainInstructions {
   config: StatusPageDomainConfig;
-  txt_name: string;
-  txt_value: string;
-  routing_target: string;
+  txtName: string;
+  txtValue: string;
+  routingTarget: string;
 }
 
 export interface StatusPageDomainCapability {
@@ -306,44 +351,44 @@ export interface StatusPageDomainCapability {
 export interface StatusPageAccessRule {
   id: string;
   kind: StatusPageAccessRuleKind;
-  masked_value: string;
-  created_at: number;
-  updated_at: number;
+  maskedValue: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface StatusPageAccessSession {
   id: string;
-  masked_email: string;
-  origin_host: string;
-  expires_at: number;
-  last_seen_at: number;
-  created_at: number;
+  maskedEmail: string;
+  originHost: string;
+  expiresAt: number;
+  lastSeenAt: number;
+  createdAt: number;
 }
 
 export interface StatusPageSubscriptionOutcome {
   accepted: boolean;
-  confirmation_required: boolean;
+  confirmationRequired: boolean;
 }
 
 export interface AutomationMatchers {
-  source_kind: AutomationSourceKind;
-  source_id: string | null;
+  sourceKind: AutomationSourceKind;
+  sourceId: string | null;
   labels: Record<string, string>;
-  minimum_severity: AlertSeverity | null;
+  minimumSeverity: AlertSeverity | null;
 }
 
 export interface AutomationAction {
-  component_ids: string[];
-  publication_mode: AutomationPublicationMode;
-  sustained_delay_seconds: number;
-  impact_map: { degraded: IncidentImpact; failing: IncidentImpact };
+  componentIds: string[];
+  publicationMode: AutomationPublicationMode;
+  sustainedDelaySeconds: number;
+  impactMap: { degraded: IncidentImpact; failing: IncidentImpact };
   templates: {
     title: string;
     investigating: string;
     update: string;
     resolved: string;
   };
-  correlation_key_template: string;
+  correlationKeyTemplate: string;
 }
 
 export interface AutomationRuleInput {
@@ -357,35 +402,35 @@ export interface AutomationApprovalInput {
   title: string;
   impact: IncidentImpact;
   message: string;
-  component_ids: string[];
+  componentIds: string[];
   note?: string;
 }
 
 export interface AutomationRule {
   id: string;
-  organization_id: string;
-  status_page_id: string;
+  organizationId: string;
+  statusPageId: string;
   name: string;
   position: number;
   lifecycle: AutomationRuleLifecycle;
-  active_revision_id: string | null;
-  draft_revision_id: string | null;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
+  activeRevisionId: string | null;
+  draftRevisionId: string | null;
+  createdBy: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface AutomationRevision {
   id: string;
-  organization_id: string;
-  status_page_id: string;
-  rule_id: string;
+  organizationId: string;
+  statusPageId: string;
+  ruleId: string;
   number: number;
   matchers: AutomationMatchers;
   action: AutomationAction;
-  content_hash: string;
-  created_by: string;
-  created_at: number;
+  contentHash: string;
+  createdBy: string;
+  createdAt: number;
 }
 
 export interface ActiveAutomationRule {
@@ -395,42 +440,42 @@ export interface ActiveAutomationRule {
 
 export interface AutomationCandidate {
   id: string;
-  organization_id: string;
-  status_page_id: string;
-  rule_revision_id: string;
-  correlation_key: string;
+  organizationId: string;
+  statusPageId: string;
+  ruleRevisionId: string;
+  correlationKey: string;
   state: AutomationCandidateState;
   title: string;
   message: string;
-  resolved_message: string;
+  resolvedMessage: string;
   impact: IncidentImpact;
-  component_ids: string[];
+  componentIds: string[];
   automatic: boolean;
-  status_incident_id: string | null;
-  due_at: number;
-  created_at: number;
-  updated_at: number;
-  last_error: string | null;
+  statusIncidentId: string | null;
+  dueAt: number;
+  createdAt: number;
+  updatedAt: number;
+  lastError: string | null;
 }
 
 export interface AutomationCandidateSource {
-  source_kind: AutomationSourceKind;
-  source_id: string;
-  source_instance_id: string;
+  sourceKind: AutomationSourceKind;
+  sourceId: string;
+  sourceInstanceId: string;
   severity: AlertSeverity;
   labels: Record<string, string>;
   active: boolean;
   muted: boolean;
-  observed_at: number;
-  updated_at: number;
+  observedAt: number;
+  updatedAt: number;
 }
 
 export interface AutomationCandidateAction {
   id: string;
   action: string;
-  actor_id: string | null;
+  actorId: string | null;
   note: string | null;
-  created_at: number;
+  createdAt: number;
 }
 
 export interface AutomationWorkItem {
@@ -438,88 +483,88 @@ export interface AutomationWorkItem {
   kind: string;
   status: 'pending' | 'processing' | 'completed' | 'dead_letter';
   attempts: number;
-  available_at: number;
-  last_error: string | null;
-  completed_at: number | null;
-  created_at: number;
-  updated_at: number;
+  availableAt: number;
+  lastError: string | null;
+  completedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface AutomationCandidateDetail {
   candidate: AutomationCandidate;
   sources: AutomationCandidateSource[];
   actions: AutomationCandidateAction[];
-  work_items: AutomationWorkItem[];
+  workItems: AutomationWorkItem[];
 }
 
 export interface AutomationSimulationInput {
-  source_kind: AutomationSourceKind;
-  source_id: string;
-  source_instance_id?: string;
+  sourceKind: AutomationSourceKind;
+  sourceId: string;
+  sourceInstanceId?: string;
   severity: AlertSeverity;
   labels?: Record<string, string>;
 }
 
 export interface AutomationSimulation {
-  matched_rule_id: string | null;
-  matched_revision_id: string | null;
+  matchedRuleId: string | null;
+  matchedRevisionId: string | null;
   reason: string;
 }
 
 export interface PublicStatusPage {
   name: string;
   slug: string;
-  logo_url: string | null;
-  brand_color: string;
+  logoUrl: string | null;
+  brandColor: string;
   timezone: string;
   language: StatusPageLanguage;
   languages: StatusPageLanguage[];
-  history_days: number;
+  historyDays: number;
   visibility: StatusPageVisibility;
   /** Whether a reader can add the page to Slack with the installation's Slack app. */
-  slack_app?: boolean;
+  slackApp?: boolean;
 }
 
 export type PublicStatusPageComponent = Pick<
   StatusPageComponent,
-  'id' | 'name' | 'description' | 'status' | 'kind' | 'group_id'
+  'id' | 'name' | 'description' | 'status' | 'kind' | 'groupId'
 >;
 export type PublicStatusPageComponentStatusEvent = Pick<
   StatusPageComponentStatusEvent,
-  'component_id' | 'status' | 'started_at' | 'ended_at'
+  'componentId' | 'status' | 'startedAt' | 'endedAt'
 >;
 export type PublicStatusPageIncidentUpdate = Pick<
   StatusPageIncidentUpdate,
-  'id' | 'status' | 'message' | 'created_at' | 'next_update_at'
+  'id' | 'status' | 'message' | 'createdAt' | 'nextUpdateAt'
 >;
 export type PublicStatusPageIncident = Pick<
   StatusPageIncident,
-  'id' | 'kind' | 'title' | 'impact' | 'status' | 'component_ids' | 'started_at' | 'ended_at'
+  'id' | 'kind' | 'title' | 'impact' | 'status' | 'componentIds' | 'startedAt' | 'endedAt'
 > & {
   updates: PublicStatusPageIncidentUpdate[];
   /** By when the latest update promises the next one, while the event goes on. */
-  next_update_at?: number | null;
+  nextUpdateAt?: number | null;
   /** The published postmortem; a draft is never shown. */
   postmortem?: PublicStatusPagePostmortem | null;
 };
 
 export interface PublicStatusPageSnapshot {
   page: PublicStatusPage;
-  overall_status: ComponentStatus;
+  overallStatus: ComponentStatus;
   components: PublicStatusPageComponent[];
-  component_status_events?: PublicStatusPageComponentStatusEvent[];
-  active_incidents: PublicStatusPageIncident[];
-  scheduled_maintenance: PublicStatusPageIncident[];
+  componentStatusEvents?: PublicStatusPageComponentStatusEvent[];
+  activeIncidents: PublicStatusPageIncident[];
+  scheduledMaintenance: PublicStatusPageIncident[];
   history: PublicStatusPageIncident[];
-  updated_at?: number;
-  generated_at: number;
+  updatedAt?: number;
+  generatedAt: number;
 }
 
 export interface StatusPageAccessMetadata {
   name: string;
   slug: string;
-  logo_url: string | null;
-  brand_color: string;
+  logoUrl: string | null;
+  brandColor: string;
   language: StatusPageLanguage;
   languages: StatusPageLanguage[];
   visibility: StatusPageVisibility;

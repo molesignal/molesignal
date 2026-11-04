@@ -29,7 +29,7 @@ interface QueryTabStripProps {
   tabs: readonly QueryTabStripItem[];
   activeId: string;
   /**
-   * The half of the page under this strip is the one worked in. On a split
+   * The half of the page this strip is in is the one worked in. On a split
    * page each half has its strip, and only one of them is.
    */
   focused?: boolean | undefined;
@@ -40,8 +40,12 @@ interface QueryTabStripProps {
   limit: number;
   /** Moves a tab to the other half of a split page; named by where that is. */
   moveAcross?: { label: string; onMove: (id: string) => void } | undefined;
-  /** What stands at the far end of the strip. */
-  end?: React.ReactNode;
+  /**
+   * Asked once, when the strip is put on the page: whether it takes the focus.
+   * The page that comes forward lists the tabs in a strip of its own, and the
+   * strip it took the place of may have had it.
+   */
+  claimFocus?: (() => boolean) | undefined;
   onSelect: (id: string) => void;
   onAdd: () => void;
   onClose: (id: string) => void;
@@ -51,17 +55,16 @@ interface QueryTabStripProps {
 }
 
 /**
- * The queries open in an explorer, as tabs above its workbench.
+ * The queries open in an explorer, as tabs in its query box, each a small
+ * block of its own.
  *
  * Each tab is a query of its own: selecting one brings its page to the front
- * with its results as they were left. The surface under the selected tab is the
- * same one the workbench below is drawn on, and it glides to the tab that is
- * picked. A dot beside a name means that tab's query is still running, wherever
- * the tab is.
+ * with its results as they were left. The one in front is tinted. A dot beside
+ * a name means that tab's query is still running, wherever the tab is.
  *
- * A page split in two has a strip over each half, listing that half's tabs.
- * The tab each half shows keeps a surface; the surface of the half that is
- * worked in is the one the workbench is drawn on, the other is quieter.
+ * A page split in two lists each half's tabs in that half's query box. The tab
+ * each half shows keeps a fill of its own; the tint is for the half that is
+ * worked in, the other is quieter.
  */
 export function QueryTabStrip({
   tabs,
@@ -71,7 +74,7 @@ export function QueryTabStrip({
   canAdd,
   limit,
   moveAcross,
-  end,
+  claimFocus,
   onSelect,
   onAdd,
   onClose,
@@ -80,19 +83,25 @@ export function QueryTabStrip({
   onRename,
 }: QueryTabStripProps) {
   const { t } = useTranslation('common');
-  const { scrollerRef, contentRef, box, animated, fadeStyle, onKeyDown } = useTabStrip(
+  const { scrollerRef, contentRef, fadeStyle, onKeyDown } = useTabStrip(
     activeId,
     { activateOnArrow: true },
   );
   const [renaming, setRenaming] = React.useState<string | null>(null);
   const closable = closableProp ?? tabs.length > 1;
 
+  React.useLayoutEffect(() => {
+    if (!claimFocus?.()) return;
+    scrollerRef.current?.querySelector<HTMLElement>('[data-tab-active="true"] [data-tab]')?.focus();
+    // Only the strip just put on the page asks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div
       data-query-tab-strip
-      // Close under the top bar and close over the page: the strip names the page under it.
       data-query-tab-strip-focused={focused}
-      className="flex shrink-0 items-center gap-[4px] pl-[var(--pane-gutter-start,20px)] pr-[var(--pane-gutter-end,20px)] pt-[4px]"
+      className="flex min-w-0 items-center gap-[4px]"
     >
       <div
         ref={scrollerRef}
@@ -103,34 +112,12 @@ export function QueryTabStrip({
         onKeyDown={renaming ? undefined : onKeyDown}
       >
         <div ref={contentRef} className="relative flex items-center gap-[4px]">
-          <span
-            aria-hidden="true"
-            data-query-tab-surface
-            className={cn(
-              'pointer-events-none absolute left-0 top-0 rounded-md',
-              // The half that is worked in has the workbench's own surface under its tab.
-              focused
-                ? 'bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]'
-                : 'bg-bg-3',
-              animated &&
-                'transition-[transform,width] duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)]',
-              box ? 'opacity-100' : 'opacity-0',
-            )}
-            style={
-              box
-                ? {
-                    width: box.width,
-                    height: box.height,
-                    transform: `translate(${box.left}px, ${box.top}px)`,
-                  }
-                : undefined
-            }
-          />
           {tabs.map((tab) => (
             <QueryTabPill
               key={tab.id}
               tab={tab}
               active={tab.id === activeId}
+              focused={focused}
               moveAcross={moveAcross}
               closable={closable}
               canDuplicate={canAdd}
@@ -159,19 +146,29 @@ export function QueryTabStrip({
           title={canAdd ? t('query_tabs.new') : undefined}
           disabled={!canAdd}
           onClick={onAdd}
-          className="ms-press grid h-[28px] w-[28px] shrink-0 place-items-center rounded-md text-tx-2 transition-colors duration-fast enabled:hover:bg-bg-2 enabled:hover:text-tx-0 enabled:focus-visible:bg-bg-3 enabled:focus-visible:text-tx-0 disabled:cursor-not-allowed disabled:text-tx-3"
+          className="ms-press grid h-[24px] w-[24px] shrink-0 place-items-center rounded-[5px] text-tx-2 transition-colors duration-fast enabled:hover:bg-bg-3 enabled:hover:text-tx-0 enabled:focus-visible:bg-bg-3 enabled:focus-visible:text-tx-0 disabled:cursor-not-allowed disabled:text-[var(--tx-disabled)]"
         >
           <Plus className="h-[14px] w-[14px]" aria-hidden="true" />
         </button>
       </DisabledControl>
-      {end ? <div className="ml-auto flex shrink-0 items-center">{end}</div> : null}
     </div>
   );
+}
+
+/**
+ * The fill of a tab. The one in front has the tint the bar marks a choice
+ * with, where its half is worked in; every other is a gray block a step off
+ * the field it stands on, in either theme.
+ */
+function blockClass(active: boolean, focused: boolean): string {
+  if (!active) return 'bg-bg-3 text-tx-2 hover:bg-bg-4 hover:text-tx-0 focus-within:bg-bg-4 focus-within:text-tx-0';
+  return focused ? 'bg-[var(--indigo-tint)] text-[var(--indigo-ink)]' : 'bg-bg-4 text-tx-0';
 }
 
 function QueryTabPill({
   tab,
   active,
+  focused,
   moveAcross,
   closable,
   canDuplicate,
@@ -185,6 +182,7 @@ function QueryTabPill({
 }: {
   tab: QueryTabStripItem;
   active: boolean;
+  focused: boolean;
   moveAcross?: { label: string; onMove: (id: string) => void } | undefined;
   closable: boolean;
   canDuplicate: boolean;
@@ -205,13 +203,11 @@ function QueryTabPill({
       <ContextMenuTrigger asChild>
         <div
           data-query-tab={tab.id}
-          // The strip measures this element to place the surface under it.
+          // The strip measures its tabs by this, and keeps the one in front in view.
           data-tab-active={active}
           className={cn(
-            'group/qtab relative z-10 flex h-[28px] min-w-0 max-w-[220px] shrink-0 items-center rounded-md transition-colors duration-fast',
-            active
-              ? 'text-tx-0'
-              : 'text-tx-2 hover:bg-bg-2 hover:text-tx-0 focus-within:bg-bg-2 focus-within:text-tx-0',
+            'group/qtab relative flex h-[24px] min-w-0 max-w-[160px] shrink-0 items-center rounded-[5px] transition-colors duration-fast',
+            blockClass(active, focused),
           )}
           // Middle click closes, as on any tab.
           onAuxClick={(event) => {
@@ -221,11 +217,7 @@ function QueryTabPill({
           }}
         >
           {renaming ? (
-            <RenameField
-              name={tab.name ?? ''}
-              placeholder={name}
-              onDone={onRenameEnd}
-            />
+            <RenameField name={tab.name ?? ''} placeholder={name} onDone={onRenameEnd} />
           ) : (
             <button
               type="button"
@@ -245,8 +237,8 @@ function QueryTabPill({
                 }
               }}
               className={cn(
-                'flex h-full min-w-0 items-center gap-[6px] rounded-md pl-[10px] font-sans text-xs outline-none',
-                closable ? 'pr-[2px]' : 'pr-[10px]',
+                'flex h-full min-w-0 items-center gap-[6px] rounded-[5px] pl-[8px] font-sans text-xs outline-none',
+                closable ? 'pr-[2px]' : 'pr-[8px]',
               )}
             >
               {tab.running && (
@@ -284,7 +276,7 @@ function QueryTabPill({
               tabIndex={active ? 0 : -1}
               onClick={() => onClose(tab.id)}
               className={cn(
-                'mr-[4px] grid h-[20px] w-[20px] shrink-0 place-items-center rounded text-tx-3 outline-none transition-[opacity,color,background-color] duration-fast hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 focus-visible:text-tx-0',
+                'mr-[3px] grid h-[18px] w-[18px] shrink-0 place-items-center rounded text-current outline-none transition-[opacity,color,background-color] duration-fast hover:bg-bg-4 hover:text-tx-0 focus-visible:bg-bg-4 focus-visible:text-tx-0',
                 // Always there for the selected tab; the others show it when approached.
                 active
                   ? 'opacity-100'
@@ -358,7 +350,7 @@ function RenameField({
         if (event.key === 'Enter') finish(draft);
         if (event.key === 'Escape') finish(null);
       }}
-      className="mx-[3px] h-[22px] w-[160px] min-w-0 rounded bg-[var(--control-surface)] px-[8px] font-sans text-xs text-tx-0 outline-none placeholder:text-tx-3"
+      className="mx-[2px] h-[20px] w-[128px] min-w-0 rounded bg-[var(--control-surface)] px-[8px] font-sans text-xs text-tx-0 outline-none placeholder:text-tx-3"
     />
   );
 }

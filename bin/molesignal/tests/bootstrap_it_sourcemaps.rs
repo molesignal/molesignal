@@ -22,7 +22,7 @@ async fn debug_artifact_upload_endpoint_reachable() {
         .header(hk, &hv)
         .header("content-type", "application/json")
         .json(&serde_json::json!({
-            "application_id": "storefront",
+            "applicationId": "storefront",
             "service": "web",
             "release": "v1.0.0",
             "kind": "javascript_sourcemap",

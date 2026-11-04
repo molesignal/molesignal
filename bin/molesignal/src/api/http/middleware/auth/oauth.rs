@@ -18,21 +18,21 @@ pub(crate) fn token_hash(token: &str) -> String {
     hex::encode(Sha256::digest(token.as_bytes()))
 }
 
+/// Who an OAuth access token acts for, or `None` when the store holds no OAuth token of this value:
+/// an API token looks just the same.
 pub(crate) async fn authenticate_access_token(
     state: &AppState,
     token: &str,
     expected_resource: &str,
-) -> Result<(IamContext, AuthenticatedCredential)> {
-    if !token.starts_with("msoauth_") || token.len() > 256 {
-        return Err(Error::unauthorized("invalid OAuth access token"));
-    }
-
-    let record = state
+) -> Result<Option<(IamContext, AuthenticatedCredential)>> {
+    let Some(record) = state
         .agent
         .inbound_mcp
         .find_oauth_token(&token_hash(token))
         .await?
-        .ok_or_else(|| Error::unauthorized("OAuth access token not found"))?;
+    else {
+        return Ok(None);
+    };
 
     if record.token_kind != InboundMcpOAuthTokenKind::Access
         || record.revoked_at.is_some()
@@ -70,7 +70,7 @@ pub(crate) async fn authenticate_access_token(
         org_id: record.org_id,
         display_role: String::new(),
         roles: Vec::new(),
-        credential_role_id: None,
+        credential_token_id: None,
         credential_application_id: None,
         credential_service_account_id: None,
         scope: IamScope::Organization,
@@ -78,10 +78,10 @@ pub(crate) async fn authenticate_access_token(
         policy_version: 0,
     };
 
-    Ok((
+    Ok(Some((
         context,
         AuthenticatedCredential::OAuthAccess {
             token_id: record.id,
         },
-    ))
+    )))
 }

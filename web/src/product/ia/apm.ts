@@ -1,12 +1,4 @@
-import {
-  Activity,
-  Boxes,
-  Bug,
-  Cpu,
-  Gauge,
-  GitBranch,
-  Network,
-} from 'lucide-react';
+import { Activity, Boxes, Bug, Gauge, Network, Settings2, Target } from 'lucide-react';
 
 import type { ProductRouteMeta } from '../ia';
 
@@ -15,8 +7,6 @@ const BACKEND_ACCESS = {
   emptyStateStrategy: 'query-first',
   group: 'observe',
 } as const;
-
-const apmCrumb = { labelKey: 'apm', to: '/apm/overview' } as const;
 
 export const APM_PRODUCT_ROUTES = [
   {
@@ -39,60 +29,13 @@ export const APM_PRODUCT_ROUTES = [
     id: 'apm.services',
     path: '/apm/services',
     labelKey: 'breadcrumbs.apm_services',
-    icon: Activity,
-  },
-  {
-    ...BACKEND_ACCESS,
-    id: 'apm.service.detail',
-    path: '/apm/services/:service',
-    labelKey: 'breadcrumbs.apm_service_detail',
-    icon: Activity,
-    breadcrumbs: [
-      apmCrumb,
-      { labelKey: 'breadcrumbs.apm_services', to: '/apm/services' },
-      { labelKey: 'breadcrumbs.apm_service_detail' },
-    ],
-    backTo: '/apm/services',
-  },
-  {
-    ...BACKEND_ACCESS,
-    id: 'apm.service.runtime',
-    path: '/apm/services/:service/runtime',
-    labelKey: 'breadcrumbs.apm_service_runtime',
-    icon: Cpu,
-    breadcrumbs: [
-      apmCrumb,
-      { labelKey: 'breadcrumbs.apm_services', to: '/apm/services' },
-      { labelKey: 'breadcrumbs.apm_service_detail' },
-      { labelKey: 'breadcrumbs.apm_service_runtime' },
-    ],
-    backTo: '/apm/services',
-  },
-  {
-    ...BACKEND_ACCESS,
-    id: 'apm.transactions',
-    path: '/apm/transactions',
-    labelKey: 'breadcrumbs.apm_transactions',
     icon: Boxes,
   },
   {
     ...BACKEND_ACCESS,
-    id: 'apm.transaction.detail',
-    path: '/apm/transactions/:transaction',
-    labelKey: 'breadcrumbs.apm_transaction_detail',
-    icon: Boxes,
-    breadcrumbs: [
-      apmCrumb,
-      { labelKey: 'breadcrumbs.apm_transactions', to: '/apm/transactions' },
-      { labelKey: 'breadcrumbs.apm_transaction_detail' },
-    ],
-    backTo: '/apm/transactions',
-  },
-  {
-    ...BACKEND_ACCESS,
-    id: 'apm.dependencies',
-    path: '/apm/dependencies',
-    labelKey: 'breadcrumbs.apm_dependencies',
+    id: 'apm.map',
+    path: '/apm/map',
+    labelKey: 'breadcrumbs.apm_map',
     icon: Network,
   },
   {
@@ -104,22 +47,32 @@ export const APM_PRODUCT_ROUTES = [
   },
   {
     ...BACKEND_ACCESS,
-    id: 'apm.error.detail',
-    path: '/apm/errors/:fingerprint',
-    labelKey: 'breadcrumbs.apm_error_detail',
-    icon: Bug,
-    breadcrumbs: [
-      apmCrumb,
-      { labelKey: 'breadcrumbs.apm_errors', to: '/apm/errors' },
-      { labelKey: 'breadcrumbs.apm_error_detail' },
-    ],
-    backTo: '/apm/errors',
+    id: 'apm.slos',
+    path: '/apm/slos',
+    labelKey: 'breadcrumbs.apm_slos',
+    icon: Target,
   },
   {
     ...BACKEND_ACCESS,
-    id: 'apm.deployments',
-    path: '/apm/deployments',
-    labelKey: 'breadcrumbs.apm_deployments',
-    icon: GitBranch,
+    id: 'apm.settings',
+    path: '/apm/settings',
+    labelKey: 'breadcrumbs.apm_settings',
+    icon: Settings2,
+  },
+  {
+    ...BACKEND_ACCESS,
+    id: 'apm.service.detail',
+    path: '/apm/services/:service',
+    labelKey: 'breadcrumbs.apm_service_detail',
+    icon: Activity,
+    backTo: '/apm/services',
+  },
+  {
+    ...BACKEND_ACCESS,
+    id: 'apm.service.section',
+    path: '/apm/services/:service/:section',
+    labelKey: 'breadcrumbs.apm_service_detail',
+    icon: Activity,
+    backTo: '/apm/services',
   },
 ] as const satisfies readonly ProductRouteMeta[];

@@ -1,19 +1,25 @@
 export type QueryLanguage = 'sql' | 'promql';
 
 export interface QueryRequest {
-  org_id: string;
+  orgId: string;
   language: QueryLanguage;
   statement: string;
-  time_range: { start: number; end: number };
-  stream?: { name: string; stream_type: 'logs' | 'metrics' | 'traces' };
+  timeRange: { start: number; end: number };
+  stream?: { name: string; streamType: 'logs' | 'metrics' | 'traces' | 'profiles' };
+  /** Rows the answer may hold; a PromQL range answer samples each series evenly to fit. */
   limit?: number;
+  /**
+   * PromQL range step in microseconds. With it PromQL answers a series per
+   * step; without it, the figure at the end of the range. SQL ignores it.
+   */
+  step?: number;
 }
 
 export interface QueryResult {
   columns: string[];
   rows: unknown[][];
-  scanned_rows: number;
-  took_ms: number;
+  scannedRows: number;
+  tookMs: number;
 }
 
 export type RecommendationSeverity = 'info' | 'warning' | 'critical';
@@ -32,8 +38,8 @@ export interface QueryRecommendation {
 export interface QueryProfile {
   language: QueryLanguage;
   statement: string;
-  scanned_rows?: number;
-  returned_rows?: number;
-  took_ms?: number;
-  time_range_secs?: number;
+  scannedRows?: number;
+  returnedRows?: number;
+  tookMs?: number;
+  timeRangeSecs?: number;
 }

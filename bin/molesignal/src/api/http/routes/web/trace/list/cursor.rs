@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{TraceFilter, TraceListContext, TraceListRow, TraceListSort};
+use super::{TraceCondition, TraceFilter, TraceListContext, TraceListRow, TraceListSort};
 use crate::{
     api::http::pagination::cursor::{CursorDirection, decode_signed_cursor, encode_signed_cursor},
     app::iam::IamService,
@@ -16,6 +16,7 @@ const CURSOR_VERSION: u8 = 2;
 const CURSOR_PURPOSE: &str = "web.trace-list.v2";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct TraceCursorPosition {
     pub(super) primary: i64,
     pub(super) start_ns: i64,
@@ -23,6 +24,7 @@ pub(super) struct TraceCursorPosition {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct TraceCursorPayload {
     version: u8,
     pub(super) from: i64,
@@ -31,6 +33,8 @@ pub(super) struct TraceCursorPayload {
     pub(super) page_size: usize,
     pub(super) q: Option<String>,
     pub(super) filters: Vec<TraceFilter>,
+    #[serde(default, rename = "where", skip_serializing_if = "Option::is_none")]
+    pub(super) condition: Option<TraceCondition>,
     pub(super) direction: CursorDirection,
     pub(super) position: TraceCursorPosition,
 }
@@ -71,6 +75,7 @@ pub(super) fn encode(
         page_size: context.page_size,
         q: context.q.clone(),
         filters: context.filters.clone(),
+        condition: context.condition.clone(),
         direction,
         position: position_for(row, context.sort),
     };
@@ -108,8 +113,10 @@ mod tests {
                 duration_ms: 0.000_099,
                 span_count: 7,
                 error_count: 1,
+                ..Default::default()
             },
             duration_ns: 99,
+            root_span_id: "root".to_string(),
         };
         let position = position_for(&row, TraceListSort::DurationDesc);
         assert_eq!(position.primary, 99);

@@ -61,6 +61,7 @@ impl Provider {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Chat {
     pub id: Id,
     pub org_id: Id,
@@ -81,6 +82,7 @@ pub enum MessageRole {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChatMessage {
     pub id: Id,
     pub chat_id: Id,
@@ -118,6 +120,7 @@ pub enum ToolChoice {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CompletionRequest {
     pub model: String,
     pub messages: Vec<ChatMessage>,
@@ -164,6 +167,7 @@ impl CompletionRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CompletionResponse {
     /// 文本内容（不含 tool_calls 时填）
     pub content: Option<String>,

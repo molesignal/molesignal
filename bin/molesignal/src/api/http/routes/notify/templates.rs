@@ -3,7 +3,7 @@
 
 //! Notify 模板 CRUD。
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use axum::{
     Extension, Json, Router,
@@ -15,16 +15,22 @@ use serde::{Deserialize, Serialize};
 use crate::{
     api::{
         AppState,
-        http::federation::{delete_payload, emit_cud},
+        http::{
+            federation::{delete_payload, emit_cud},
+            interface_language::interface_language_pack,
+        },
     },
-    app::{iam::IamContext, notify::validate_notify_template_body},
+    app::{iam::IamContext, notify::validate_notify_template},
     domain::{
         federation::{CudAction, ResourceKind},
         iam::permission,
         notify::{
+            connector::NotifyChannel,
+            policy::NotifyPolicy,
             preference::NotifyCategory,
             template::{
-                NotifyTemplateField, NotifyTemplatePreset, notify_template_field_catalog,
+                NOTIFY_TEMPLATE_PRESET_LANGUAGE_PREFIX, NotifyCard, NotifyTemplateField,
+                NotifyTemplatePreset, ProviderTemplate, notify_template_field_catalog,
                 notify_template_preset_catalog,
             },
         },
@@ -44,6 +50,7 @@ pub(super) fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct WriteRequest {
     name: String,
     body: String,
@@ -51,9 +58,15 @@ struct WriteRequest {
     format: Option<String>,
     #[serde(default = "default_template_category")]
     category: NotifyCategory,
+    /// 空着是通用模板。
+    #[serde(default)]
+    channel: Option<NotifyChannel>,
+    #[serde(default)]
+    provider_templates: BTreeMap<String, ProviderTemplate>,
+    /// 即时通讯的 App 与群机器人发成的卡片；只有即时通讯模板有。
+    #[serde(default)]
+    card: Option<NotifyCard>,
 }
-
-const ALLOWED_FORMATS: &[&str] = &["text", "markdown", "html"];
 
 const fn default_template_category() -> NotifyCategory {
     NotifyCategory::Alert
@@ -64,19 +77,32 @@ fn validate_request(request: &WriteRequest) -> Result<String> {
         return Err(Error::invalid("name must not be empty"));
     }
 
-    validate_notify_template_body(&request.body)?;
     let format = request.format.as_deref().unwrap_or("text");
 
-    if !ALLOWED_FORMATS.contains(&format) {
-        return Err(Error::invalid(
-            "format must be one of: text | markdown | html",
-        ));
-    }
+    validate_notify_template(
+        request.channel,
+        format,
+        &request.body,
+        &request.provider_templates,
+        request.card.as_ref(),
+    )?;
 
     Ok(format.to_string())
 }
 
+/// 用着模板 `id` 的一个通知策略：当通用模板，或给哪个渠道另选的模板。
+fn used_by<'a>(policies: &'a [NotifyPolicy], id: &Id) -> Option<&'a NotifyPolicy> {
+    policies.iter().find(|policy| {
+        policy.template_id.as_ref() == Some(id)
+            || policy
+                .channel_templates
+                .values()
+                .any(|template_id| template_id == id)
+    })
+}
+
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct TemplateFieldsResponse {
     fields: Vec<NotifyTemplateField>,
     presets: Vec<NotifyTemplatePreset>,
@@ -84,7 +110,8 @@ struct TemplateFieldsResponse {
     annotation_keys: Vec<String>,
 }
 
-#[permission("alerts.read")]
+/// 模板的变量与预置模板；预置模板的正文是登录的人读界面用的语言。
+#[permission("notify.templates.read")]
 async fn list_fields(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -111,15 +138,18 @@ async fn list_fields(
         }
     }
 
+    let preset_bodies =
+        interface_language_pack(&state, &context, NOTIFY_TEMPLATE_PRESET_LANGUAGE_PREFIX).await;
+
     Ok(Json(TemplateFieldsResponse {
         fields: notify_template_field_catalog(),
-        presets: notify_template_preset_catalog(),
+        presets: notify_template_preset_catalog(&preset_bodies),
         label_keys: label_keys.into_iter().collect(),
         annotation_keys: annotation_keys.into_iter().collect(),
     }))
 }
 
-#[permission("alerts.read")]
+#[permission("notify.templates.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -127,7 +157,7 @@ async fn list(
     Ok(Json(state.alerting.templates.list(&context.org_id).await?))
 }
 
-#[permission("alerts.manage")]
+#[permission("notify.templates.manage")]
 async fn create(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -155,6 +185,9 @@ async fn create(
             body: request.body,
             format,
             category: request.category,
+            channel: request.channel,
+            provider_templates: request.provider_templates,
+            card: request.card,
             created_at: now,
             updated_at: now,
         })
@@ -173,7 +206,7 @@ async fn create(
     Ok(Json(saved))
 }
 
-#[permission("alerts.read")]
+#[permission("notify.templates.read")]
 async fn get_one(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -188,7 +221,7 @@ async fn get_one(
     ))
 }
 
-#[permission("alerts.manage")]
+#[permission("notify.templates.manage")]
 async fn update(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -214,6 +247,22 @@ async fn update(
         return Err(Error::conflict("notify template name already exists"));
     }
 
+    // 策略按渠道选模板：被用着的模板换了渠道，那个策略的那个渠道就用错了模板。
+    if request.channel != existing.channel {
+        let policies = state
+            .alerting
+            .notify_engine
+            .list_policies(&context.org_id)
+            .await?;
+
+        if let Some(policy) = used_by(&policies, &existing.id) {
+            return Err(Error::conflict(format!(
+                "notify template is used by notify policy {}: choose another template there before changing its channel",
+                policy.name
+            )));
+        }
+    }
+
     let saved = state
         .alerting
         .templates
@@ -224,6 +273,9 @@ async fn update(
             body: request.body,
             format,
             category: request.category,
+            channel: request.channel,
+            provider_templates: request.provider_templates,
+            card: request.card,
             created_at: existing.created_at,
             updated_at: TimestampMicros::now(),
         })
@@ -242,7 +294,7 @@ async fn update(
     Ok(Json(saved))
 }
 
-#[permission("alerts.manage")]
+#[permission("notify.templates.manage")]
 async fn delete(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -250,14 +302,13 @@ async fn delete(
 ) -> Result<Json<serde_json::Value>> {
     let id = Id::from_string(id);
 
-    if state
+    let policies = state
         .alerting
         .notify_engine
         .list_policies(&context.org_id)
-        .await?
-        .iter()
-        .any(|policy| policy.template_id.as_ref() == Some(&id))
-    {
+        .await?;
+
+    if used_by(&policies, &id).is_some() {
         return Err(Error::conflict(
             "notify template is referenced by a notify policy",
         ));

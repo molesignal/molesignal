@@ -9,16 +9,18 @@
 //! would sort and cut a page. Unlike the list it does not rank the summaries
 //! of a trace first: a summary that was written twice counts twice.
 
-use super::{
-    SUMMARY_TABLE, TraceListContext, matching_trace_ids_sql, qualified, register_tables,
-    summary_predicates,
-};
+use serde_json::Value;
+
+use super::{SUMMARY_TABLE, TraceListContext, plan, qualified, register_tables};
 use crate::{
     api::{
         AppState,
-        http::routes::web::histogram::{
-            BUCKET_COLUMN, BarCount, BucketPlan, Counts, ERRORS_COLUMN, TOTAL_COLUMN, read_counts,
-            within_scan_limit,
+        http::routes::web::{
+            histogram::{
+                BUCKET_COLUMN, BarLatency, BucketPlan, Counts, ERRORS_COLUMN, TOTAL_COLUMN,
+                read_counts, within_scan_limit,
+            },
+            trace::list::scan::count::CountedBars,
         },
     },
     domain::stream::StreamDefinition,
@@ -26,22 +28,31 @@ use crate::{
     shared::{
         Error, Result,
         time::{TimeRange, TimestampMicros},
-        trace::summary::{TRACE_SUMMARY_ERROR_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD},
+        trace::summary::{
+            TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
+            TRACE_SUMMARY_START_NS_FIELD,
+        },
     },
 };
 
-/// The bars of `plan` that hold a trace the query matches. `None` when the
-/// range holds more spans and summaries than one query may read.
+/// Result columns of how long a bar's traces took: names no field has.
+const P50_COLUMN: &str = "__histogram_p50";
+const P95_COLUMN: &str = "__histogram_p95";
+const P99_COLUMN: &str = "__histogram_p99";
+
+/// The bars of `plan` that hold a trace the query matches, with how long
+/// their traces took. `None` when the range holds more spans and summaries
+/// than one query may read.
 pub(in super::super) async fn bars(
     state: &AppState,
     definition: &StreamDefinition,
     context: &TraceListContext,
     plan: &BucketPlan,
-) -> Result<Option<Vec<BarCount>>> {
+) -> Result<Option<CountedBars>> {
     let range = TimeRange::new(TimestampMicros(context.from), TimestampMicros(context.to));
 
     let Some(tables) = register_tables(state, definition, range).await? else {
-        return Ok(Some(Vec::new()));
+        return Ok(Some((Vec::new(), Vec::new())));
     };
 
     if !within_scan_limit(tables.candidate_rows) {
@@ -62,10 +73,39 @@ pub(in super::super) async fn bars(
     let (columns, rows) = batches_to_json(&batches);
 
     match read_counts(&columns, &rows)? {
-        Counts::Bars { bars, .. } => Ok(Some(bars)),
+        Counts::Bars { bars, .. } => Ok(Some((bars, read_latency(&columns, &rows)))),
         // Nothing masks a statement this module runs itself.
         Counts::TimeMasked => Err(Error::internal("trace histogram returned no bars")),
     }
+}
+
+/// How long each bar's traces took, as the statement read it.
+fn read_latency(columns: &[String], rows: &[Vec<Value>]) -> Vec<BarLatency> {
+    let position = |name: &str| columns.iter().position(|column| column == name);
+    let number = |row: &[Value], index: Option<usize>| {
+        index
+            .and_then(|index| row.get(index))
+            .and_then(Value::as_f64)
+            .map(|value| value.round() as i64)
+    };
+
+    let (bucket, p50, p95, p99) = (
+        position(BUCKET_COLUMN),
+        position(P50_COLUMN),
+        position(P95_COLUMN),
+        position(P99_COLUMN),
+    );
+
+    rows.iter()
+        .filter_map(|row| {
+            Some(BarLatency {
+                index: number(row, bucket)?,
+                p50_ns: number(row, p50)?,
+                p95_ns: number(row, p95)?,
+                p99_ns: number(row, p99)?,
+            })
+        })
+        .collect()
 }
 
 fn count_sql(context: &TraceListContext, plan: &BucketPlan) -> Result<String> {
@@ -81,11 +121,22 @@ fn count_sql(context: &TraceListContext, plan: &BucketPlan) -> Result<String> {
 
     let start = qualified("s", TRACE_SUMMARY_START_NS_FIELD);
     let error_count = qualified("s", TRACE_SUMMARY_ERROR_COUNT_FIELD);
+    let duration = format!(
+        "CAST({} AS DOUBLE)",
+        qualified("s", TRACE_SUMMARY_DURATION_NS_FIELD)
+    );
+    let percentile = |share: f64, alias: &str| {
+        format!("approx_percentile_cont({share}) WITHIN GROUP (ORDER BY {duration}) AS {alias}")
+    };
+
+    let asked = plan::plan(context)?;
+
     let mut predicates = vec![
         format!("{start} >= {from_ns}"),
         format!("{start} < {to_ns}"),
     ];
-    predicates.extend(summary_predicates(context)?);
+
+    predicates.extend(asked.predicates);
 
     Ok(format!(
         "WITH matching_trace_ids AS (\n\
@@ -93,15 +144,19 @@ fn count_sql(context: &TraceListContext, plan: &BucketPlan) -> Result<String> {
          )\n\
          SELECT {} AS {BUCKET_COLUMN},\n\
                 COUNT(*) AS {TOTAL_COLUMN},\n\
-                SUM(CASE WHEN {error_count} > 0 THEN 1 ELSE 0 END) AS {ERRORS_COLUMN}\n\
+                SUM(CASE WHEN {error_count} > 0 THEN 1 ELSE 0 END) AS {ERRORS_COLUMN},\n\
+                {}, {}, {}\n\
          FROM \"{SUMMARY_TABLE}\" AS s\n\
          INNER JOIN matching_trace_ids AS m\n\
            ON {} = {}\n\
          WHERE {}\n\
          GROUP BY 1",
-        matching_trace_ids_sql(context)?,
+        asked.matching,
         // A trace begins on a nanosecond; a bar is counted in microseconds.
         plan.bucket_sql(&format!("{start} / 1000")),
+        percentile(0.5, P50_COLUMN),
+        percentile(0.95, P95_COLUMN),
+        percentile(0.99, P99_COLUMN),
         qualified("s", "trace_id"),
         qualified("m", "trace_id"),
         predicates.join(" AND "),
@@ -120,7 +175,10 @@ mod tests {
 
     use super::*;
     use crate::{
-        api::http::routes::web::trace::list::{TraceListSort, filter, span_filter::RAW_TABLE},
+        api::http::routes::web::{
+            histogram::BarCount,
+            trace::list::{TraceListSort, filter, span_filter::RAW_TABLE},
+        },
         domain::stream::{FieldDef, FieldType},
         shared::trace::{
             normalization::canonical_trace_schema, summary::TRACE_SUMMARY_SPAN_COUNT_FIELD,
@@ -151,6 +209,7 @@ mod tests {
             page_size: 20,
             q: q.map(String::from),
             filters: filter::parse(Some(filters), &schema, 32).expect("filters"),
+            condition: None,
             boundary: None,
         }
     }
@@ -187,6 +246,7 @@ mod tests {
             Field::new("name", DataType::Utf8, true),
             Field::new("status_code", DataType::Utf8, true),
             Field::new(TRACE_SUMMARY_START_NS_FIELD, DataType::Int64, false),
+            Field::new(TRACE_SUMMARY_DURATION_NS_FIELD, DataType::Int64, false),
             Field::new(TRACE_SUMMARY_SPAN_COUNT_FIELD, DataType::Int64, false),
             Field::new(TRACE_SUMMARY_ERROR_COUNT_FIELD, DataType::Int64, false),
         ]));
@@ -206,6 +266,9 @@ mod tests {
                 Arc::new(Int64Array::from(vec![
                     10_499_999, 10_500_000, 11_200_000, 12_999_999, 13_000_000,
                 ])),
+                Arc::new(Int64Array::from(vec![
+                    5_000_000, 40_000_000, 2_000_000, 7_000_000, 9_000_000,
+                ])),
                 Arc::new(Int64Array::from(vec![1, 2, 1, 1, 1])),
                 Arc::new(Int64Array::from(vec![1, 1, 0, 0, 1])),
             ],
@@ -223,7 +286,7 @@ mod tests {
         session
     }
 
-    async fn counted(context: &TraceListContext) -> Vec<BarCount> {
+    async fn rows(context: &TraceListContext) -> (Vec<String>, Vec<Vec<Value>>) {
         let batches = session()
             .await
             .sql(&count_sql(context, &plan()).expect("sql"))
@@ -232,7 +295,12 @@ mod tests {
             .collect()
             .await
             .expect("the statement should execute");
-        let (columns, rows) = batches_to_json(&batches);
+
+        batches_to_json(&batches)
+    }
+
+    async fn counted(context: &TraceListContext) -> Vec<BarCount> {
+        let (columns, rows) = rows(context).await;
 
         match read_counts(&columns, &rows).expect("counts") {
             Counts::Bars { mut bars, split } => {
@@ -265,6 +333,18 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_trace_that_leaves_a_value_out_is_counted_when_none_of_its_spans_has_it() {
+        let context = context(
+            None,
+            r#"[{"field":"http.status_code","op":"!=","value":"503"}]"#,
+        );
+
+        // `b` began inside the range with a Span that answered 503 beside one
+        // that did not; `c` and `d` have no such Span.
+        assert_eq!(counted(&context).await, vec![bar(1, 1, 0), bar(2, 1, 0)]);
+    }
+
+    #[tokio::test]
     async fn summary_filters_and_free_text_narrow_what_is_counted() {
         let by_spans = context(
             None,
@@ -288,14 +368,15 @@ mod tests {
                 {"field":"span_count","op":">=","value":"2"}]"#,
         );
         let statement = count_sql(&context, &plan()).expect("sql");
+        let asked = super::plan::plan(&context).expect("plan");
 
-        assert!(statement.contains(&matching_trace_ids_sql(&context).expect("spans")));
+        assert!(statement.contains(&asked.matching));
         assert!(
             statement
                 .contains("MAX(CASE WHEN r.\"http.status_code\" >= 500 THEN 1 ELSE 0 END) = 1")
         );
 
-        for predicate in summary_predicates(&context).expect("predicates") {
+        for predicate in asked.predicates {
             assert!(statement.contains(&predicate));
         }
 
@@ -304,5 +385,26 @@ mod tests {
         assert!(statement.contains(
             "(s.\"molesignal.trace.start_ns\" / 1000 - 10000) / 1000 AS __histogram_bucket"
         ));
+    }
+
+    #[tokio::test]
+    async fn reads_how_long_the_traces_of_each_bar_took() {
+        let context = context(
+            None,
+            r#"[{"field":"http.status_code","op":">=","value":"200"}]"#,
+        );
+        let (columns, rows) = rows(&context).await;
+        let mut latency = read_latency(&columns, &rows);
+        latency.sort_by_key(|took| took.index);
+
+        // `b` (40 ms) is the first bar's only trace, `c` (2 ms) the second's, `d` (7 ms) the third's.
+        assert_eq!(
+            latency
+                .iter()
+                .map(|took| (took.index, took.p50_ns))
+                .collect::<Vec<_>>(),
+            vec![(0, 40_000_000), (1, 2_000_000), (2, 7_000_000)]
+        );
+        assert!(latency.iter().all(|took| took.p50_ns <= took.p99_ns));
     }
 }

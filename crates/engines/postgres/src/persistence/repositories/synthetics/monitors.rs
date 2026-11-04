@@ -4,7 +4,7 @@
 use async_trait::async_trait;
 
 use super::{
-    PgSyntheticRepository,
+    PgSyntheticRepository, client_key,
     codec::{MONITOR_COLS, REVISION_COLS, row_to_monitor, row_to_revision},
 };
 use crate::{
@@ -12,19 +12,23 @@ use crate::{
         ActiveMonitorRevision, MonitorLifecycle, MonitorRevision, MonitorSpec, MonitorState,
         SyntheticMonitor, SyntheticMonitorRepository,
     },
+    infra::cipher::CipherRootKey,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 const REVISION_CAN_PUBLISH_SQL: &str = "SELECT EXISTS(
         SELECT 1 FROM synthetic_monitor_revisions
         WHERE organization_id = $1 AND monitor_id = $2 AND id = $3
-          AND (spec->>'kind' = 'heartbeat' OR last_test_passed_at_micros IS NOT NULL)
+          AND (spec->>'kind' = 'heartbeat' OR last_test_passed_at IS NOT NULL)
      )";
 
+/// Stores `revision`, and returns it as stored: holding its client private key, if any, sealed
+/// beside the spec.
 async fn insert_revision(
     connection: &mut sqlx::PgConnection,
+    cipher: &CipherRootKey,
     revision: &MonitorRevision,
-) -> Result<()> {
+) -> Result<MonitorRevision> {
     let kind: String = sqlx::query_scalar(
         "SELECT kind FROM synthetic_monitors
          WHERE organization_id = $1 AND id = $2 AND lifecycle <> 'archived'
@@ -59,6 +63,8 @@ async fn insert_revision(
     }
 
     validate_locations(connection, revision).await?;
+    let (spec, client_key) = client_key::seal(connection, cipher, revision).await?;
+    let (key_nonce, key_ciphertext) = client_key.unzip();
 
     sqlx::query(
         "INSERT INTO synthetic_monitor_revisions
@@ -66,16 +72,18 @@ async fn insert_revision(
              timeout_millis, max_retries, consecutive_failures, consecutive_recoveries,
              freshness_seconds, location_policy, escalation_policy_id, alert_on_degraded,
              alert_on_flaky,
-             last_test_result_id, last_test_passed_at_micros,
-             created_by, created_at_micros, content_hash, location_ids)
+             last_test_result_id, last_test_passed_at,
+             created_by, created_at, content_hash, location_ids,
+             client_key_nonce, client_key_ciphertext, inject_trace_context,
+             traceroute_on_failure, alert_on_no_data)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-                 $15, $16, $17, $18, $19, $20, $21)",
+                 $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)",
     )
     .bind(&revision.id.0)
     .bind(&revision.organization_id.0)
     .bind(&revision.monitor_id.0)
     .bind(revision.number as i32)
-    .bind(sqlx::types::Json(&revision.spec))
+    .bind(sqlx::types::Json(&spec))
     .bind(sqlx::types::Json(&revision.schedule))
     .bind(revision.timeout_millis as i32)
     .bind(revision.max_retries as i16)
@@ -87,9 +95,9 @@ async fn insert_revision(
     .bind(revision.alert_on_degraded)
     .bind(revision.alert_on_flaky)
     .bind(revision.last_test_result_id.as_ref().map(Id::as_str))
-    .bind(revision.last_test_passed_at.map(|value| value.0))
+    .bind(revision.last_test_passed_at)
     .bind(&revision.created_by.0)
-    .bind(revision.created_at.0)
+    .bind(revision.created_at)
     .bind(&revision.content_hash)
     .bind(
         revision
@@ -98,11 +106,19 @@ async fn insert_revision(
             .map(Id::as_str)
             .collect::<Vec<_>>(),
     )
+    .bind(key_nonce)
+    .bind(key_ciphertext)
+    .bind(revision.inject_trace_context)
+    .bind(revision.traceroute_on_failure)
+    .bind(revision.alert_on_no_data)
     .execute(&mut *connection)
     .await
     .map_err(super::sqlx_err)?;
 
-    Ok(())
+    Ok(MonitorRevision {
+        spec,
+        ..revision.clone()
+    })
 }
 
 async fn validate_locations(
@@ -191,8 +207,8 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
         let sql = format!(
             "INSERT INTO synthetic_monitors
                 (id, organization_id, name, description, kind, lifecycle, state, team_id,
-                 tags, active_revision_id, draft_revision_id, next_due_at_micros, created_by,
-                 created_at_micros, updated_at_micros, archived_at_micros)
+                 tags, active_revision_id, draft_revision_id, next_due_at, created_by,
+                 created_at, updated_at, archived_at)
              VALUES ($1, $2, $3, $4, $5, 'draft', $6, $7, $8, NULL, NULL, NULL,
                      $9, $10, $11, NULL)
              RETURNING {MONITOR_COLS}"
@@ -208,13 +224,13 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
             .bind(monitor.team_id.as_ref().map(Id::as_str))
             .bind(&monitor.tags)
             .bind(&monitor.created_by.0)
-            .bind(monitor.created_at.0)
-            .bind(monitor.updated_at.0)
+            .bind(monitor.created_at)
+            .bind(monitor.updated_at)
             .fetch_one(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
 
-        insert_revision(&mut transaction, &revision).await?;
+        let revision = insert_revision(&mut transaction, &self.cipher, &revision).await?;
 
         sqlx::query(
             "UPDATE synthetic_monitors SET draft_revision_id = $3
@@ -235,17 +251,17 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
 
     async fn create_draft_revision(&self, revision: MonitorRevision) -> Result<MonitorRevision> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
-        insert_revision(&mut transaction, &revision).await?;
+        let revision = insert_revision(&mut transaction, &self.cipher, &revision).await?;
 
         sqlx::query(
             "UPDATE synthetic_monitors
-             SET draft_revision_id = $3, updated_at_micros = $4
+             SET draft_revision_id = $3, updated_at = $4
              WHERE organization_id = $1 AND id = $2 AND lifecycle <> 'archived'",
         )
         .bind(&revision.organization_id.0)
         .bind(&revision.monitor_id.0)
         .bind(&revision.id.0)
-        .bind(revision.created_at.0)
+        .bind(revision.created_at)
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -312,8 +328,8 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
             "UPDATE synthetic_monitors
              SET active_revision_id = $3,
                  draft_revision_id = CASE WHEN draft_revision_id = $3 THEN NULL ELSE draft_revision_id END,
-                 lifecycle = 'active', next_due_at_micros = $4,
-                 archived_at_micros = NULL, updated_at_micros = $5
+                 lifecycle = 'active', next_due_at = $4,
+                 archived_at = NULL, updated_at = $5
              WHERE organization_id = $1 AND id = $2 AND lifecycle <> 'archived'
              RETURNING {MONITOR_COLS}"
         );
@@ -322,8 +338,8 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
             .bind(&org_id.0)
             .bind(&monitor_id.0)
             .bind(&revision_id.0)
-            .bind(next_due_at.map(|value| value.0))
-            .bind(updated_at.0)
+            .bind(next_due_at)
+            .bind(updated_at)
             .fetch_one(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
@@ -344,7 +360,7 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
     ) -> Result<MonitorRevision> {
         let rows = sqlx::query(
             "UPDATE synthetic_monitor_revisions revision
-             SET last_test_result_id = $4, last_test_passed_at_micros = $5
+             SET last_test_result_id = $4, last_test_passed_at = $5
              FROM synthetic_results result
              WHERE revision.organization_id = $1 AND revision.monitor_id = $2
                AND revision.id = $3 AND result.organization_id = $1
@@ -355,7 +371,7 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
         .bind(&monitor_id.0)
         .bind(&revision_id.0)
         .bind(&result_id.0)
-        .bind(passed_at.0)
+        .bind(passed_at)
         .execute(&self.pool)
         .await
         .map_err(super::sqlx_err)?
@@ -381,9 +397,9 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
     ) -> Result<SyntheticMonitor> {
         let sql = format!(
             "UPDATE synthetic_monitors
-             SET lifecycle = $3, state = $4, next_due_at_micros = $5,
-                 archived_at_micros = CASE WHEN $3 = 'archived' THEN $6 ELSE NULL END,
-                 updated_at_micros = $6
+             SET lifecycle = $3, state = $4, next_due_at = $5,
+                 archived_at = CASE WHEN $3 = 'archived' THEN $6 ELSE NULL END,
+                 updated_at = $6
              WHERE organization_id = $1 AND id = $2
              RETURNING {MONITOR_COLS}"
         );
@@ -393,8 +409,8 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
             .bind(&monitor_id.0)
             .bind(lifecycle.as_str())
             .bind(state.as_str())
-            .bind(next_due_at.map(|value| value.0))
-            .bind(updated_at.0)
+            .bind(next_due_at)
+            .bind(updated_at)
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
@@ -437,7 +453,7 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
         let sql = format!(
             "SELECT {MONITOR_COLS} FROM synthetic_monitors
              WHERE organization_id = $1
-             ORDER BY archived_at_micros NULLS FIRST, updated_at_micros DESC, id DESC"
+             ORDER BY archived_at NULLS FIRST, updated_at DESC, id DESC"
         );
 
         sqlx::query(&sql)
@@ -458,12 +474,12 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
         let sql = format!(
             "SELECT {MONITOR_COLS} FROM synthetic_monitors
              WHERE lifecycle = 'active' AND active_revision_id IS NOT NULL
-               AND next_due_at_micros <= $1
-             ORDER BY next_due_at_micros, id LIMIT $2"
+               AND next_due_at <= $1
+             ORDER BY next_due_at, id LIMIT $2"
         );
 
         let monitors = sqlx::query(&sql)
-            .bind(due_at.0)
+            .bind(due_at)
             .bind(i64::from(limit.min(1000)))
             .fetch_all(&self.pool)
             .await

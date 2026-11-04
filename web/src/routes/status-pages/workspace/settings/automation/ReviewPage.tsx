@@ -12,7 +12,7 @@ export function StatusPageAutomationReview() {
   const navigate = useNavigate();
   const { candidateId } = useParams();
   const { pageId, snapshot } = useStatusPageWorkspace();
-  const publishAccess = useActionAccess({ permission: 'status_pages.publish' });
+  const publishAccess = useActionAccess({ permission: 'status_pages.automation.approve' });
 
   return (
     <PageBody>

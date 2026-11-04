@@ -53,12 +53,12 @@ fn switched(tool: McpTool, enabled: bool) -> Result<McpTool> {
 fn enables_as_read_only(tool: &McpTool) -> bool {
     !tool.enabled
         && tool.minimum_risk == RiskLevel::L0
-        && tool.capabilities["read_only"].as_bool().unwrap_or(false)
+        && tool.capabilities["readOnly"].as_bool().unwrap_or(false)
         && tool.status != ManagedToolStatus::Unavailable
         && tool.unavailable_diagnostic.is_none()
 }
 
-#[permission("agent.use")]
+#[permission("agent.mcp_servers.manage")]
 pub(super) async fn set_tool_enabled(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -101,7 +101,7 @@ pub(super) async fn set_tool_enabled(
     Ok(Json(json!(tool)))
 }
 
-#[permission("agent.use")]
+#[permission("agent.mcp_servers.manage")]
 pub(super) async fn enable_read_only(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -150,7 +150,7 @@ pub(super) struct CredentialRequest {
     value: String,
 }
 
-#[permission("agent.use")]
+#[permission("agent.mcp_servers.manage")]
 pub(super) async fn put_my_credential(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -178,7 +178,7 @@ pub(super) async fn put_my_credential(
     Ok(Json(json!({ "credential": credential })))
 }
 
-#[permission("agent.use")]
+#[permission("agent.mcp_servers.manage")]
 pub(super) async fn delete_my_credential(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -232,7 +232,7 @@ mod tests {
             minimum_risk: risk,
             risk,
             execution_mode: ToolExecutionMode::Automatic,
-            capabilities: json!({"read_only": read_only}),
+            capabilities: json!({"readOnly": read_only}),
             tags: Vec::new(),
             enabled: false,
             status,

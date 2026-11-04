@@ -6,7 +6,7 @@
 
 use serde_json::json;
 
-use super::{BuiltinToolKind, object_schema, open_output};
+use super::{BuiltinToolKind, object_schema, open_output, timestamp_schema};
 use crate::{RiskLevel, ToolSpec};
 
 pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
@@ -14,45 +14,45 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::ListLogInspections => (
             "List the organization's log inspections: the stream each reads, what it looks for, its schedule, whether it is on, and how its last run ended.",
             object_schema(json!({})),
-            vec!["agent.use", "streams.query"],
+            vec!["inspections.read", "logs.read"],
             vec!["Logs", "Inspections"],
         ),
         BuiltinToolKind::ListLogInspectionRuns => (
             "List the recent runs of one log inspection, newest first, with their status, verdict and summary.",
             json!({
-                "type": "object", "required": ["inspection_id"],
+                "type": "object", "required": ["inspectionId"],
                 "properties": {
-                    "inspection_id": {"type": "string", "minLength": 1},
+                    "inspectionId": {"type": "string", "minLength": 1},
                     "limit": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10}
                 }, "additionalProperties": false
             }),
-            vec!["agent.use", "streams.query"],
+            vec!["inspections.read", "logs.read"],
             vec!["Logs", "Inspections", "Runs"],
         ),
         BuiltinToolKind::GetLogInspectionRun => (
             "Read one run of a log inspection: its verdict, findings and the report it wrote.",
             json!({
-                "type": "object", "required": ["inspection_id", "run_id"],
+                "type": "object", "required": ["inspectionId", "runId"],
                 "properties": {
-                    "inspection_id": {"type": "string", "minLength": 1},
-                    "run_id": {"type": "string", "minLength": 1}
+                    "inspectionId": {"type": "string", "minLength": 1},
+                    "runId": {"type": "string", "minLength": 1}
                 }, "additionalProperties": false
             }),
-            vec!["agent.use", "streams.query"],
+            vec!["inspections.read", "logs.read"],
             vec!["Logs", "Inspections", "Runs"],
         ),
         BuiltinToolKind::RunLogInspection => (
             "Run one log inspection now. The run is queued, uses the organization's model budget, and is read with get_log_inspection_run once it ends.",
             json!({
-                "type": "object", "required": ["inspection_id", "reason", "impact"],
+                "type": "object", "required": ["inspectionId", "reason", "impact"],
                 "properties": {
-                    "inspection_id": {"type": "string", "minLength": 1},
+                    "inspectionId": {"type": "string", "minLength": 1},
                     "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
                     "impact": {"type": "string", "minLength": 1, "maxLength": 2000},
-                    "expires_at_micros": {"type": "integer"}
+                    "expiresAt": timestamp_schema()
                 }, "additionalProperties": false
             }),
-            vec!["inspections.manage"],
+            vec!["inspections.run"],
             vec!["Logs", "Inspections", "Run"],
         ),
         _ => unreachable!("log-inspection catalog received unrelated kind"),

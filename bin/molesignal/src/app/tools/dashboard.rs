@@ -58,7 +58,7 @@ pub(super) async fn execute(
 struct EmptyArgs {}
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct DashboardProposalArgs {
     draft_id: String,
     expected_hash: String,
@@ -89,23 +89,24 @@ async fn propose_dashboard(
             investigation_id: ctx.investigation_id().map(|value| Id(value.to_string())),
             action: "create_dashboard".into(),
             target: draft_id.0,
-            parameters: json!({"expected_hash": args.expected_hash}),
+            parameters: json!({"expectedHash": args.expected_hash}),
             reason: args.reason,
             impact: args.impact,
-            expires_at_micros: Some(draft.expires_at.0),
+            expires_at: Some(draft.expires_at.0),
             required_approvals_override: execution_mode_reviews(ctx)?,
+            risk_override: None,
         },
     )
     .await?;
 
     Ok(ToolResult::json(json!({
-        "approval": approval, "draft_id": draft.id, "model_hash": draft.model_hash,
+        "approval": approval, "draftId": draft.id, "modelHash": draft.model_hash,
         "message": "The dashboard creation proposal was submitted. No dashboard will be created until it is explicitly confirmed or approved and executed.",
     })))
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct OperationProposalArgs {
     action: String,
     target: String,
@@ -114,7 +115,7 @@ struct OperationProposalArgs {
     reason: String,
     impact: String,
     #[serde(default)]
-    expires_at_micros: Option<i64>,
+    expires_at: Option<i64>,
 }
 
 async fn propose_operation(
@@ -136,8 +137,9 @@ async fn propose_operation(
             parameters: args.parameters,
             reason: args.reason,
             impact: args.impact,
-            expires_at_micros: args.expires_at_micros,
+            expires_at: args.expires_at,
             required_approvals_override: execution_mode_reviews(ctx)?,
+            risk_override: None,
         },
     )
     .await?;
@@ -149,7 +151,7 @@ async fn propose_operation(
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct TypedOperationProposalArgs {
     action: String,
     incident_id: Option<String>,
@@ -160,7 +162,7 @@ struct TypedOperationProposalArgs {
     reason: String,
     impact: String,
     #[serde(default)]
-    expires_at_micros: Option<i64>,
+    expires_at: Option<i64>,
 }
 
 async fn propose_typed_operation(
@@ -236,8 +238,9 @@ async fn propose_typed_operation(
             parameters: json!({}),
             reason: args.reason,
             impact: args.impact,
-            expires_at_micros: args.expires_at_micros,
+            expires_at: args.expires_at,
             required_approvals_override: execution_mode_reviews(ctx)?,
+            risk_override: None,
         },
     )
     .await?;
@@ -270,6 +273,7 @@ fn execution_mode_reviews(ctx: &ToolInvocationContext) -> Result<Option<i32>> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct CreateApprovalRequest {
     pub investigation_id: Option<Id>,
     pub action: String,
@@ -278,62 +282,85 @@ pub(crate) struct CreateApprovalRequest {
     pub parameters: Value,
     pub reason: String,
     pub impact: String,
-    pub expires_at_micros: Option<i64>,
+    pub expires_at: Option<i64>,
     #[serde(skip)]
     pub required_approvals_override: Option<i32>,
+    /// 风险等级不按操作的默认算（修复动作按它自己设的 L2 或 L3）。
+    #[serde(skip)]
+    pub risk_override: Option<RiskLevel>,
 }
 
 pub(crate) fn operation_policy(action: &str) -> Result<(RiskLevel, &'static str)> {
     match action {
-        "acknowledge_alert" | "resolve_alert" => Ok((RiskLevel::L2, "alerts.acknowledge")),
+        "acknowledge_alert" | "resolve_alert" | "snooze_alert" => {
+            Ok((RiskLevel::L2, "alerts.incidents.acknowledge"))
+        }
+        "reassign_alert"
+        | "add_alert_responders"
+        | "lift_alert_inhibition"
+        | "set_alert_severity"
+        | "set_alert_priority"
+        | "set_alert_urgency" => Ok((RiskLevel::L2, "alerts.incidents.update")),
+        "escalate_alert" | "merge_alerts" => Ok((RiskLevel::L2, "alerts.incidents.escalate")),
+        "create_incident" => Ok((RiskLevel::L2, "alerts.incidents.create")),
+        "note_alert" => Ok((RiskLevel::L1, "alerts.incidents.update")),
+        // 从页面发起时按动作自己设的 L2 或 L3；Mole Agent 提议的一律按 L3。
+        "run_remediation_action" => Ok((RiskLevel::L3, "alerts.incidents.remediate")),
+        "create_incident_ticket" | "assign_incident_role" | "add_incident_task" => {
+            Ok((RiskLevel::L1, "alerts.incidents.update"))
+        }
+        "declare_major_incident" | "post_incident_update" => {
+            Ok((RiskLevel::L2, "alerts.incidents.escalate"))
+        }
+        "draft_incident_postmortem" => Ok((RiskLevel::L1, "postmortems.manage")),
         "create_dashboard" => Ok((RiskLevel::L1, "dashboards.create")),
         "run_synthetic_monitor" | "pause_synthetic_monitor" | "resume_synthetic_monitor" => {
-            Ok((RiskLevel::L2, "synthetics.manage"))
+            Ok((RiskLevel::L2, "synthetics.monitors.manage"))
         }
-        "archive_synthetic_monitor" => Ok((RiskLevel::L3, "synthetics.manage")),
-        "archive_status_page" => Ok((RiskLevel::L3, "status_pages.manage")),
+        "archive_synthetic_monitor" => Ok((RiskLevel::L3, "synthetics.monitors.archive")),
+        "archive_status_page" => Ok((RiskLevel::L3, "status_pages.archive")),
         "restore_status_page"
         | "pause_status_page_automation"
-        | "resume_status_page_automation" => Ok((RiskLevel::L2, "status_pages.manage")),
-        "draft_status_page_postmortem" => Ok((RiskLevel::L1, "status_pages.manage")),
-        "run_log_inspection" => Ok((RiskLevel::L1, "inspections.manage")),
-        "retry_notification_delivery" => Ok((RiskLevel::L2, "alerts.manage")),
-        "acknowledge_notification_delivery" => Ok((RiskLevel::L2, "alerts.acknowledge")),
+        | "resume_status_page_automation" => Ok((RiskLevel::L2, "status_pages.automation.manage")),
+        "draft_status_page_postmortem" => Ok((RiskLevel::L1, "status_pages.events.manage")),
+        "run_log_inspection" => Ok((RiskLevel::L1, "inspections.run")),
+        "retry_notification_delivery" => Ok((RiskLevel::L2, "notify.deliveries.retry")),
+        "acknowledge_notification_delivery" => Ok((RiskLevel::L2, "notify.deliveries.acknowledge")),
         "enable_scheduled_pipeline" | "disable_scheduled_pipeline" => {
             Ok((RiskLevel::L2, "pipelines.edit"))
         }
         "delete_scheduled_pipeline" => Ok((RiskLevel::L3, "pipelines.delete")),
-        "trigger_alert_rule" => Ok((RiskLevel::L3, "alerts.manage")),
-        "create_alert_rule" | "update_alert_rule" => Ok((RiskLevel::L2, "alerts.manage")),
-        "delete_alert_rule" => Ok((RiskLevel::L3, "alerts.manage")),
-        "create_annotation" | "move_dashboard_panel" => Ok((RiskLevel::L1, "dashboards.edit")),
-        "update_annotation" | "add_dashboard_panel" | "update_dashboard_panel" => {
-            Ok((RiskLevel::L2, "dashboards.edit"))
-        }
-        "delete_annotation" | "delete_dashboard_panel" => Ok((RiskLevel::L3, "dashboards.edit")),
+        "trigger_alert_rule" => Ok((RiskLevel::L3, "alerts.rules.manage")),
+        "create_alert_rule" | "update_alert_rule" => Ok((RiskLevel::L2, "alerts.rules.manage")),
+        "delete_alert_rule" => Ok((RiskLevel::L3, "alerts.rules.delete")),
+        "create_annotation" => Ok((RiskLevel::L1, "dashboards.annotations.manage")),
+        "move_dashboard_panel" => Ok((RiskLevel::L1, "dashboards.edit")),
+        "update_annotation" => Ok((RiskLevel::L2, "dashboards.annotations.manage")),
+        "add_dashboard_panel" | "update_dashboard_panel" => Ok((RiskLevel::L2, "dashboards.edit")),
+        "delete_annotation" => Ok((RiskLevel::L3, "dashboards.annotations.manage")),
+        "delete_dashboard_panel" => Ok((RiskLevel::L3, "dashboards.edit")),
         "create_dashboard_model" => Ok((RiskLevel::L2, "dashboards.create")),
         "update_dashboard" => Ok((RiskLevel::L2, "dashboards.edit")),
         "delete_dashboard" => Ok((RiskLevel::L3, "dashboards.delete")),
-        "create_folder" => Ok((RiskLevel::L1, "dashboards.create")),
-        "update_folder" => Ok((RiskLevel::L2, "dashboards.edit")),
-        "delete_folder" => Ok((RiskLevel::L3, "dashboards.delete")),
-        "submit_search_job" | "cancel_search_job" => Ok((RiskLevel::L1, "streams.query")),
-        "retry_search_job" => Ok((RiskLevel::L2, "streams.query")),
-        "delete_search_job" => Ok((RiskLevel::L3, "streams.query")),
+        "create_folder" => Ok((RiskLevel::L1, "dashboards.folders.manage")),
+        "update_folder" => Ok((RiskLevel::L2, "dashboards.folders.manage")),
+        "delete_folder" => Ok((RiskLevel::L3, "dashboards.folders.delete")),
+        "submit_search_job" | "cancel_search_job" => Ok((RiskLevel::L1, "query.jobs.run")),
+        "retry_search_job" => Ok((RiskLevel::L2, "query.jobs.run")),
+        "delete_search_job" => Ok((RiskLevel::L3, "query.jobs.run")),
         "create_saved_view" => Ok((RiskLevel::L1, "saved_views.create")),
         "update_saved_view" => Ok((RiskLevel::L2, "saved_views.edit")),
         "delete_saved_view" => Ok((RiskLevel::L3, "saved_views.delete")),
         "create_function" => Ok((RiskLevel::L2, "functions.create")),
         "update_function" => Ok((RiskLevel::L2, "functions.edit")),
         "delete_function" => Ok((RiskLevel::L3, "functions.delete")),
-        "create_api_token" => Ok((RiskLevel::L2, "api_tokens.manage")),
-        "revoke_api_token" => Ok((RiskLevel::L3, "api_tokens.manage")),
+        "create_api_token" => Ok((RiskLevel::L2, "personal_tokens.manage")),
+        "revoke_api_token" => Ok((RiskLevel::L3, "api_tokens.revoke")),
         "create_service_account" | "update_service_account" | "enable_service_account" => {
             Ok((RiskLevel::L2, "service_accounts.manage"))
         }
-        "disable_service_account" | "delete_service_account" => {
-            Ok((RiskLevel::L3, "service_accounts.manage"))
-        }
+        "disable_service_account" => Ok((RiskLevel::L3, "service_accounts.manage")),
+        "delete_service_account" => Ok((RiskLevel::L3, "service_accounts.delete")),
         other => Err(Error::invalid(format!(
             "operation `{other}` is not registered"
         ))),
@@ -352,6 +379,7 @@ pub(crate) async fn create_agent_approval(
     request: CreateApprovalRequest,
 ) -> Result<ApprovalRequest> {
     let (risk, required_permission) = operation_policy(&request.action)?;
+    let risk = request.risk_override.unwrap_or(risk);
 
     if request.action == "create_api_token"
         && auth.principal_type() != crate::domain::iam::access::IamPrincipalType::User
@@ -387,7 +415,7 @@ pub(crate) async fn create_agent_approval(
     let draft_expiry = if request.action == "create_dashboard" {
         let expected_hash = request
             .parameters
-            .get("expected_hash")
+            .get("expectedHash")
             .and_then(Value::as_str)
             .ok_or_else(|| Error::invalid("create_dashboard requires expected_hash"))?;
 
@@ -426,7 +454,7 @@ pub(crate) async fn create_agent_approval(
         .clamp(0, 2);
 
     let expires_at = request
-        .expires_at_micros
+        .expires_at
         .unwrap_or(now.0.saturating_add(DEFAULT_APPROVAL_TTL_MICROS));
 
     let expires_at = draft_expiry.map_or(expires_at, |draft| expires_at.min(draft.0));

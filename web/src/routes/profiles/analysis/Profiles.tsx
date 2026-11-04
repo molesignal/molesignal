@@ -34,12 +34,12 @@ const LIST_LIMIT = 200;
 export function Profiles() {
   const { t } = useTranslation('profiles');
   const navigate = useNavigate();
-  const uploadAccess = useActionAccess({ permission: 'streams.write' });
+  const uploadAccess = useActionAccess({ permission: 'profiles.write' });
   const typeLabel = useProfileTypeLabel();
-  const { window: timeWindow, fromMicros, toMicros } = useWindowMicros();
+  const { window: timeWindow, fromTime: fromMicros, toTime: toMicros } = useWindowMicros();
   const [searchParams] = useSearchParams();
-  const traceId = searchParams.get('trace_id') ?? undefined;
-  const spanId = searchParams.get('span_id') ?? undefined;
+  const traceId = searchParams.get('traceId') ?? undefined;
+  const spanId = searchParams.get('spanId') ?? undefined;
   const [service, setService] = React.useState('');
   // The type the reader picked. Until they pick one, the first type the window has profiles of.
   const [chosenType, setChosenType] = React.useState('');
@@ -64,15 +64,20 @@ export function Profiles() {
         from: fromMicros,
         to: toMicros,
         label: label || undefined,
-        trace_id: traceId,
+        traceId: traceId,
         limit: LIST_LIMIT,
       }),
   });
-  const windowRows = React.useMemo(() => windowQuery.data ?? [], [windowQuery.data]);
+  // A link from a span is to the profiles that kept that span, not every one of its trace.
+  const ofSpan = React.useCallback(
+    (list: readonly profilesApi.ProfileEntry[]) => (spanId ? list.filter((row) => row.spanId === spanId) : [...list]),
+    [spanId],
+  );
+  const windowRows = React.useMemo(() => ofSpan(windowQuery.data ?? []), [ofSpan, windowQuery.data]);
   const windowTypes = React.useMemo(() => profileTypesIn(windowRows), [windowRows]);
   const type = chosenType || windowTypes[0] || '';
   // A window listed whole already has the profiles of the type; a longer one is asked for them.
-  const windowListedWhole = windowRows.length < LIST_LIMIT;
+  const windowListedWhole = (windowQuery.data?.length ?? 0) < LIST_LIMIT;
 
   const typedQuery = useQuery({
     queryKey: ['profiles-list', ...winKey, type, label, traceId ?? ''],
@@ -82,7 +87,7 @@ export function Profiles() {
         to: toMicros,
         type: type as ProfileTypeName,
         label: label || undefined,
-        trace_id: traceId,
+        traceId: traceId,
         limit: LIST_LIMIT,
       }),
     enabled: type !== '' && !windowListedWhole,
@@ -91,9 +96,9 @@ export function Profiles() {
   const rows = React.useMemo(
     () =>
       windowListedWhole
-        ? windowRows.filter((row) => row.profile_type === type)
-        : typedQuery.data ?? [],
-    [type, typedQuery.data, windowListedWhole, windowRows],
+        ? windowRows.filter((row) => row.profileType === type)
+        : ofSpan(typedQuery.data ?? []),
+    [ofSpan, type, typedQuery.data, windowListedWhole, windowRows],
   );
   const services = React.useMemo(
     () => Array.from(new Set(rows.map((row) => row.service).filter(Boolean))).sort(),
@@ -133,8 +138,8 @@ export function Profiles() {
     queryFn: () => {
       if (selectedProfileIds.length > 0) {
         return profilesApi.flamegraphSelection({
-          profile_ids: selectedProfileIds,
-          max_merge: 1000,
+          profileIds: selectedProfileIds,
+          maxMerge: 1000,
         });
       }
       return profilesApi.flamegraph({
@@ -143,8 +148,8 @@ export function Profiles() {
         service: service || undefined,
         type: (type || undefined) as ProfileTypeName | undefined,
         label: label || undefined,
-        trace_id: traceId,
-        span_id: spanId,
+        traceId: traceId,
+        spanId: spanId,
       });
     },
     enabled: selectedProfileIds.length > 0 || fallbackToTraceCorrelation,
@@ -168,11 +173,11 @@ export function Profiles() {
     [fb],
   );
   const totalSamples = React.useMemo(
-    () => selectedRows.reduce((sum, row) => sum + (row.sample_count || 0), 0),
+    () => selectedRows.reduce((sum, row) => sum + (row.sampleCount || 0), 0),
     [selectedRows],
   );
   const totalDuration = React.useMemo(
-    () => selectedRows.reduce((sum, row) => sum + (row.duration_nanos || 0), 0),
+    () => selectedRows.reduce((sum, row) => sum + (row.durationNanos || 0), 0),
     [selectedRows],
   );
   const selectedServices = React.useMemo(
@@ -347,7 +352,7 @@ export function Profiles() {
                     tableRows.length === 0 ? (
                       <span>
                         {t('flamegraph.profiles_merged', {
-                          count: flameQuery.data?.profile_count ?? 0,
+                          count: flameQuery.data?.profileCount ?? 0,
                         })}
                       </span>
                     ) : undefined

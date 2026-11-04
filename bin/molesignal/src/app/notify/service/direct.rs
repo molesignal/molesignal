@@ -38,7 +38,7 @@ pub struct DirectSendOutcome {
 
 impl NotifyService {
     /// 直接发送能用的目标：连接器在这个组织里，目标是固定地址或固定群组，且连接器接受它。
-    /// 发给个人要经过通知策略和个人的接收端点，不走这条路。
+    /// 发给个人要经过通知策略和个人的接收端点，不走这条路；只发审核过模板的连接器（阿里云）也不走。
     pub async fn validate_direct_target(
         &self,
         organization_id: &Id,
@@ -55,10 +55,17 @@ impl NotifyService {
         }
 
         let connector = self.connectors.get(organization_id, connector_id).await?;
+        let adapter = self.registry.get(&connector.connector_type)?;
 
-        self.registry
-            .get(&connector.connector_type)?
-            .validate_target(target)?;
+        // 只发审核过模板的连接器要有通知模板才发得出去，而直接发送的内容是功能自己写的。
+        if adapter.template_provider().is_some() {
+            return Err(Error::invalid(format!(
+                "{} sends only templates its provider approved: it delivers through notify policies, not direct sends",
+                connector.connector_type
+            )));
+        }
+
+        adapter.validate_target(target)?;
 
         Ok(connector)
     }
@@ -104,8 +111,9 @@ impl NotifyService {
             return Err(Error::invalid("notify connector is disabled"));
         }
 
-        let adapter = self.registry.get(&connector.connector_type)?;
-        adapter.validate_config(&connector.config)?;
+        let adapter = self
+            .registry
+            .validated(&connector.connector_type, &connector.config)?;
         let sent_at = TimestampMicros::now();
 
         let claim = self
@@ -148,7 +156,7 @@ impl NotifyService {
         let started = Instant::now();
 
         let result = adapter
-            .send(&connector.config, &send.target, &send.message)
+            .send_as(&connector, &send.target, &send.message)
             .await;
 
         let (delivered, _, _, error, _, completion) =

@@ -9,6 +9,11 @@ import {
   useProductAccess,
 } from '@/product/access';
 
+import { AccessDenied } from './gate/AccessDenied';
+
+/** The landing page is where the app sends people, nobody asked for it: it moves on quietly. */
+const LANDING_PATH = '/home';
+
 /**
  * Applies the central route-access policy to every authenticated shell route.
  * It reacts to organization switches synchronously, before a denied leaf
@@ -47,11 +52,12 @@ export function ProductRouteAccessGuard({
     isKnownProductPath(location.pathname, access) &&
     !canAccessProductPath(location.pathname, access)
   ) {
-    return (
-      <Navigate
-        to={deniedProductRouteFallback(location.pathname, access)}
-        replace
-      />
+    const fallback = deniedProductRouteFallback(location.pathname, access);
+
+    return location.pathname === LANDING_PATH ? (
+      <Navigate to={fallback} replace />
+    ) : (
+      <AccessDenied fallback={fallback} />
     );
   }
   return <>{children}</>;

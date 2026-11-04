@@ -31,7 +31,7 @@ export interface RunView {
   /** Who asked: a confirmation is theirs to decide. */
   initiatorId: string;
   /** When the run started, or was queued: how long the answer has taken is counted from it. */
-  startedAtMicros: number;
+  startedAt: number;
   /** What the model is writing now: the answer, once it stops calling tools. */
   text: string;
   tools: LiveTool[];
@@ -47,13 +47,13 @@ export interface RunView {
 const CARD_TOOLS = new Set(['ask_user', 'todo_write']);
 
 export function emptyView(
-  run: Pick<Run, 'id' | 'status' | 'initiator_id' | 'created_at_micros' | 'started_at_micros'>,
+  run: Pick<Run, 'id' | 'status' | 'initiatorId' | 'createdAt' | 'startedAt'>,
 ): RunView {
   return {
     runId: run.id,
     status: run.status,
-    initiatorId: run.initiator_id,
-    startedAtMicros: run.started_at_micros ?? run.created_at_micros,
+    initiatorId: run.initiatorId,
+    startedAt: run.startedAt ?? run.createdAt,
     text: '',
     tools: [],
     todo: [],
@@ -123,7 +123,7 @@ export function applyEvent(view: RunView, event: RunEvent): RunView {
       };
     }
     case 'tool_end': {
-      const { id, name, result, is_error: isError } = event.payload;
+      const { id, name, result, isError: isError } = event.payload;
       const change =
         !isError && (name === 'remember' || name === 'forget') ? memoryChange(result) : null;
       return {
@@ -138,6 +138,7 @@ export function applyEvent(view: RunView, event: RunEvent): RunView {
       return { ...next, todo: event.payload.items ?? [] };
     case 'question':
     case 'confirmation':
+    case 'authorization':
       return { ...next, pending: event.payload };
     case 'response':
       return { ...next, pending: null };

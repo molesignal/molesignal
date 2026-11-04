@@ -3,15 +3,15 @@ import { http } from '@/lib/http';
 /** Mirrors `molesignal::domain::iam::Team`. */
 export interface Team {
   id: string;
-  org_id: string;
+  orgId: string;
   name: string;
   /** User ids belonging to the team. */
-  member_ids: string[];
+  memberIds: string[];
 }
 
 export interface TeamInput {
   name: string;
-  member_ids: string[];
+  memberIds: string[];
 }
 
 export async function list(): Promise<Team[]> {

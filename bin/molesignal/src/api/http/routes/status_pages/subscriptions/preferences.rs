@@ -34,6 +34,7 @@ struct ReadRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct UpdateRequest {
     token: String,
     /// The components to hear about; none means the whole page.
@@ -42,6 +43,7 @@ struct UpdateRequest {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct PreferencesResponse {
     channel: StatusPageSubscriberChannel,
     masked_target: String,

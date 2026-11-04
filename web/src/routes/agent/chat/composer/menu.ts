@@ -33,7 +33,7 @@ export function commandMenu(
   const argument = argumentQuery(input, caret);
   if (!argument) return null;
   const command = commands.find((item) => item.name.toLowerCase() === argument.name);
-  if (!command?.argument_required) return null;
+  if (!command?.argumentRequired) return null;
 
   const options = filterOptions(optionsFor(command), argument.query);
   if (options.length > 0) {

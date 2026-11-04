@@ -2,15 +2,20 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 mod artifacts;
+mod assertions;
 mod browser;
+mod failure;
 mod http;
 mod network;
 mod security;
 mod ssh;
 mod timing;
+mod trace_context;
 
 use std::{
     collections::HashMap,
+    net::IpAddr,
+    sync::{Arc, Mutex},
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
@@ -21,14 +26,27 @@ use crate::protocol::v1::{
     self as wire, AssertionResult, ProbeAttempt, ProbeOutcome, ProbeResult, probe_task,
 };
 
+/// What this build of the executor can run beyond the first protocol, told to the server with
+/// every heartbeat so that it hands out only checks the Agent runs as written.
+///
+/// - 1 adds ICMP, DNS of every record type through a chosen resolver with DNSSEC, and assertions
+///   on TCP, DNS and gRPC checks.
+/// - 2 adds to HTTP checks JSONPath and JSON Schema, the size and timing sources, HTTP/2,
+///   client certificates, a chosen DNS server and host bindings.
+pub const FEATURE_LEVEL: u32 = 2;
+
 const MAX_EXCERPT_BYTES: usize = 64 * 1024;
 const MAX_METADATA_ENTRIES: usize = 64;
+const MAX_STEP_EVIDENCE: usize = 100;
 const MAX_STEP_METADATA_ENTRIES: usize = 16;
 
 #[derive(Clone)]
 pub(super) struct ExecutionContext {
     secrets: HashMap<String, Vec<u8>>,
     variables: HashMap<String, String>,
+    /// The address the attempt last set out to reach, which a traceroute follows when the
+    /// attempt cannot reach it.
+    dialled: Arc<Mutex<Option<IpAddr>>>,
 }
 
 pub(super) struct AttemptOutcome {
@@ -57,7 +75,19 @@ impl ExecutionContext {
                 .map(|secret| (secret.reference.clone(), secret.value.to_vec()))
                 .collect(),
             variables: HashMap::new(),
+            dialled: Arc::default(),
         }
+    }
+
+    /// Notes that the attempt sets out to reach `address`.
+    pub fn dialling(&self, address: IpAddr) {
+        if let Ok(mut dialled) = self.dialled.lock() {
+            *dialled = Some(address);
+        }
+    }
+
+    fn dialled(&self) -> Option<IpAddr> {
+        self.dialled.lock().ok().and_then(|dialled| *dialled)
     }
 
     pub fn resolve(&self, value: &wire::Value) -> Result<String> {
@@ -123,6 +153,7 @@ pub async fn execute(task: wire::ProbeTask, result_sequence: u64) -> Result<Prob
     let mut final_assertions = Vec::new();
     let mut final_outcome = ProbeOutcome::Unknown;
     let mut captured_artifacts = Vec::new();
+    let mut last_dialled = None;
     let max_attempts = task.max_attempts.clamp(1, 3);
 
     for number in 1..=max_attempts {
@@ -132,22 +163,32 @@ pub async fn execute(task: wire::ProbeTask, result_sequence: u64) -> Result<Prob
         let mut context = ExecutionContext::new(&task);
         let executed = run_once(&task, &mut context, &phases).await;
         let attempt_finished = now_micros();
+        last_dialled = context.dialled();
 
         // The total comes off the clock the phases are timed on, so they never add up to more.
         let timing = phases.breakdown(clock_started.elapsed());
 
         let mut outcome = match executed {
             Ok(outcome) => outcome,
-            Err(error) => AttemptOutcome {
-                outcome: ProbeOutcome::Unknown,
-                assertions: Vec::new(),
-                response_excerpt: Vec::new(),
-                error_category: "executor_error".to_string(),
-                error_message: context.redact(&error.to_string()),
-                metadata: HashMap::new(),
-                evidence: Vec::new(),
-                artifacts: Vec::new(),
-            },
+            Err(error) => {
+                // The target letting the check down fails the attempt. Anything else leaves it
+                // unknown: the check could not run as written.
+                let (outcome, category) = match failure::target_failure(&error) {
+                    Some(failure) => (ProbeOutcome::Failing, failure.category),
+                    None => (ProbeOutcome::Unknown, "executor_error"),
+                };
+
+                AttemptOutcome {
+                    outcome,
+                    assertions: Vec::new(),
+                    response_excerpt: Vec::new(),
+                    error_category: category.to_string(),
+                    error_message: context.redact(&error.to_string()),
+                    metadata: HashMap::new(),
+                    evidence: Vec::new(),
+                    artifacts: Vec::new(),
+                }
+            }
         };
 
         normalize_attempt(&mut outcome);
@@ -182,6 +223,20 @@ pub async fn execute(task: wire::ProbeTask, result_sequence: u64) -> Result<Prob
         final_outcome = ProbeOutcome::Flaky;
     }
 
+    // A run that could not reach its target follows the route to the address it last tried. The
+    // trace is a step of the last attempt, which lasts until the trace ends.
+    if task.traceroute_on_failure
+        && final_outcome == ProbeOutcome::Failing
+        && let Some(target) = last_dialled
+        && let Some(attempt) = attempts.last_mut()
+        && network::worth_tracing(&attempt.error_category)
+    {
+        let traced = network::trace_route(target).await;
+        attempt.finished_at_micros = attempt.finished_at_micros.max(traced.finished_at_micros);
+        attempt.evidence.truncate(MAX_STEP_EVIDENCE - 1);
+        attempt.evidence.push(traced);
+    }
+
     let finished_at = now_micros();
     let upload = artifacts::upload(&task, captured_artifacts).await;
     let mut metadata = HashMap::new();
@@ -200,6 +255,13 @@ pub async fn execute(task: wire::ProbeTask, result_sequence: u64) -> Result<Prob
 
     if let Some(error) = upload.error {
         metadata.insert("artifact_upload_error".into(), error);
+    }
+
+    if let Some(trace_id) = attempts
+        .last()
+        .and_then(|attempt| attempt.metadata.get("trace_id"))
+    {
+        metadata.insert("trace_id".into(), trace_id.clone());
     }
 
     if flaky {
@@ -244,12 +306,17 @@ async fn run_once(
         probe_task::Spec::Http(spec) => http::execute(task, spec, context, phases).await,
         probe_task::Spec::Tcp(spec) => network::execute_tcp(task, spec, context, phases).await,
         probe_task::Spec::Ssh(spec) => ssh::execute(task, spec, context, phases).await,
-        probe_task::Spec::Dns(spec) => network::execute_dns(task, spec, phases).await,
-        probe_task::Spec::Tls(spec) => network::execute_tls(task, spec, phases).await,
-        probe_task::Spec::Icmp(spec) => network::execute_icmp(task, spec).await,
-        probe_task::Spec::Grpc(spec) => network::execute_grpc(task, spec, phases).await,
+        probe_task::Spec::Dns(spec) => network::execute_dns(task, spec, context, phases).await,
+        probe_task::Spec::Tls(spec) => network::execute_tls(task, spec, context, phases).await,
+        probe_task::Spec::Icmp(spec) => network::execute_icmp(task, spec, context, phases).await,
+        probe_task::Spec::Grpc(spec) => network::execute_grpc(task, spec, context, phases).await,
         probe_task::Spec::Browser(spec) => browser::execute(task, spec, context).await,
     }
+}
+
+/// Whether this process may send pings, and so offer ICMP checks.
+pub fn icmp_available() -> bool {
+    network::icmp_available()
 }
 
 pub(super) fn unknown(category: &str, message: impl Into<String>) -> AttemptOutcome {
@@ -284,7 +351,7 @@ fn normalize_attempt(outcome: &mut AttemptOutcome) {
         assertion.message = truncate_string(std::mem::take(&mut assertion.message), 4096);
     }
 
-    outcome.evidence.truncate(100);
+    outcome.evidence.truncate(MAX_STEP_EVIDENCE);
 
     for evidence in &mut outcome.evidence {
         evidence.step_id = truncate_string(std::mem::take(&mut evidence.step_id), 128);
@@ -351,6 +418,7 @@ mod tests {
         let context = ExecutionContext {
             secrets: HashMap::from([("secret".into(), b"a b/c".to_vec())]),
             variables: HashMap::new(),
+            dialled: Default::default(),
         };
 
         let redacted = context.redact("plain=a b/c query=a+b%2Fc alternate=a%20b%2Fc");

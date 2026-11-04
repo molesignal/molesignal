@@ -118,6 +118,27 @@ pub fn spawn_alert_loops(
                                     "notify acknowledgement escalation tick failed"
                                 );
                             }
+
+                            if let Err(e) = notify_engine
+                                .process_due_follow_ups(&org.id, now, 100)
+                                .await
+                            {
+                                tracing::warn!(
+                                    org=%org.id,
+                                    error=%e,
+                                    "notify follow-up step tick failed"
+                                );
+                            }
+
+                            if let Err(e) =
+                                notify_engine.process_merged_calls(&org.id, now, 100).await
+                            {
+                                tracing::warn!(
+                                    org=%org.id,
+                                    error=%e,
+                                    "notify merged call tick failed"
+                                );
+                            }
                         }
 
                         ownership.record_owned(ESCALATION_WORK, escalated);

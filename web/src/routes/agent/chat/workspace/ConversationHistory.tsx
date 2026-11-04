@@ -174,7 +174,7 @@ export function ConversationHistory({
               {/* The day stays on top while its chats scroll under it. */}
               <h3
                 className={cn(
-                  'sticky top-0 z-10 flex items-center bg-[var(--control-surface)] px-2 font-sans type-micro font-strong tracking-normal text-tx-3',
+                  'sticky top-0 z-10 flex items-center bg-[var(--panel-surface)] px-2 font-sans type-micro font-strong tracking-normal text-tx-3',
                   drawer ? 'h-12' : 'h-9',
                   !hasTeamChats && (drawer ? 'pr-14' : 'pr-10'),
                 )}
@@ -185,7 +185,7 @@ export function ConversationHistory({
                 {group.rows.map(({ chat, depth }) => {
                   const active = chat.id === selectedChatId;
                   const investigating = active && streaming;
-                  const isInvestigation = Boolean(chat.analysis_mode);
+                  const isInvestigation = Boolean(chat.analysisMode);
                   const ChatIcon = isInvestigation
                     ? CircleGauge
                     : MessageSquareText;
@@ -271,7 +271,7 @@ export function ConversationHistory({
                               >
                                 <Users aria-hidden="true" className="h-3 w-3 shrink-0" />
                                 <span className="truncate">
-                                  {teamName?.(chat.team_id) ?? t('team.label')}
+                                  {teamName?.(chat.teamId) ?? t('team.label')}
                                 </span>
                               </span>
                             )}

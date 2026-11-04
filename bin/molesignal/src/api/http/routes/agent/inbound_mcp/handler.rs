@@ -237,7 +237,7 @@ impl ServerHandler for InboundMcpHandler {
             env!("CARGO_PKG_VERSION"),
         ))
         .with_instructions(
-            "Manage the authenticated MoleSignal organization. Use tool_search to discover the full catalog, call_read_tool for reads, and call_managed_tool with an idempotency_key for changes. API credentials are never returned over MCP.".to_string(),
+            "Manage the authenticated MoleSignal organization. Use tool_search to discover the full catalog, call_read_tool for reads, and call_managed_tool with an idempotencyKey for changes. API credentials are never returned over MCP.".to_string(),
         )
     }
 

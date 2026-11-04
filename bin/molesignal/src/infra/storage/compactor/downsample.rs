@@ -22,7 +22,7 @@ use crate::{
             Partition, PartitionManifestPointer, PhysicalDataset, PublishDatasetTransform,
             builtin_registry, primary_dataset_type, type_id,
         },
-        stream::{StreamDefinition, StreamType},
+        stream::{Downsample, StreamDefinition, StreamType},
     },
     infra::storage::downsample::downsample_batch,
     shared::{
@@ -37,19 +37,21 @@ struct PartitionInput {
     segments: Vec<DataSegment>,
 }
 
-pub(super) async fn sweep(compactor: &Compactor, stream: &StreamDefinition) -> Result<usize> {
-    if compactor.settings.downsample_after_days == 0
-        || compactor.settings.downsample_interval_secs == 0
-        || stream.stream_type != StreamType::METRICS
-    {
+/// 按数据流自己的降采样设置 `policy`，把早于 `policy.after_days` 天的原始分区聚合进 rollup。
+pub(super) async fn sweep(
+    compactor: &Compactor,
+    stream: &StreamDefinition,
+    policy: Downsample,
+) -> Result<usize> {
+    if !policy.enabled() || stream.stream_type != StreamType::METRICS {
         return Ok(0);
     }
 
     let (raw, rollup) = resolve_datasets(compactor, stream).await?;
 
-    let cutoff = TimestampMicros::now().0.saturating_sub(
-        i64::from(compactor.settings.downsample_after_days).saturating_mul(DAY_MICROS),
-    );
+    let cutoff = TimestampMicros::now()
+        .0
+        .saturating_sub(i64::from(policy.after_days).saturating_mul(DAY_MICROS));
 
     let mut partitions = snapshot_partitions(compactor, stream, &raw, cutoff).await?;
 
@@ -64,7 +66,17 @@ pub(super) async fn sweep(compactor: &Compactor, stream: &StreamDefinition) -> R
     let mut completed = 0;
 
     for (partition, input) in partitions {
-        match transform_partition(compactor, stream, &raw, &rollup, partition, input).await {
+        let transformed = transform_partition(
+            compactor,
+            stream,
+            (&raw, &rollup),
+            partition,
+            input,
+            policy.interval_secs,
+        )
+        .await;
+
+        match transformed {
             Ok(true) => {
                 completed += 1;
                 downsampled().inc();
@@ -195,10 +207,10 @@ async fn snapshot_partitions(
 async fn transform_partition(
     compactor: &Compactor,
     stream: &StreamDefinition,
-    raw: &PhysicalDataset,
-    rollup: &PhysicalDataset,
+    (raw, rollup): (&PhysicalDataset, &PhysicalDataset),
     partition: Partition,
     input: PartitionInput,
+    interval_secs: u32,
 ) -> Result<bool> {
     if input.segments.is_empty() {
         return Ok(false);
@@ -249,7 +261,7 @@ async fn transform_partition(
 
     let merged = concat_batches(&raw_schema, &aligned)
         .map_err(|error| Error::internal(format!("downsample concat batches: {error}")))?;
-    let reduced = downsample_batch(merged, compactor.settings.downsample_interval_secs).await?;
+    let reduced = downsample_batch(merged, interval_secs).await?;
     let rollup_stream =
         crate::infra::intake::physical_schema::project(stream, &rollup.dataset_type);
 

@@ -6,17 +6,18 @@ use axum::{
     middleware::{from_fn, from_fn_with_state},
 };
 use http::HeaderName;
-use tower_http::cors::CorsLayer;
+use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer};
 
 use crate::api::AppState;
 
 pub(crate) mod client_ip;
 pub mod federation;
-pub(crate) mod intake_usage;
 pub(crate) mod interface_language;
 pub mod middleware;
 pub mod pagination;
 pub mod routes;
+pub(crate) mod session_cookie;
+pub(crate) mod signin_limit;
 pub mod validate;
 pub(crate) mod web_assets;
 
@@ -50,6 +51,20 @@ pub(crate) fn build_router_with_limits(
         .merge(routes::me::avatar_serve_routes().with_state(state.clone()))
         // /api/v1/public/status-pages/<slug>：客户状态页无需 MoleSignal 登录。
         .merge(routes::status_pages::public_routes().with_state(state.clone()))
+        // /api/v1/public/automations/<id>/trigger：自动化的 API 触发，用规则自己的令牌鉴权。
+        .merge(routes::agent::automations::public_routes().with_state(state.clone()))
+        // /api/v1/intake/alerts：外部告警的接入地址，用告警来源自己的 Token 鉴权。
+        .merge(routes::alerting::intake_routes().with_state(state.clone()))
+        // /api/v1/intake/heartbeats/<token>：心跳规则的打卡地址，地址里的 Token 自鉴权。
+        .merge(routes::alerting::heartbeat_routes().with_state(state.clone()))
+        // /api/v1/public/tickets/jira/<connector>：Jira 的 Webhook，验连接器 Webhook 密钥签的 X-Hub-Signature。
+        .merge(routes::alerting::ticket_webhook_routes().with_state(state.clone()))
+        // /api/v1/public/im/teams/<connector>/messages：Teams 的回调，验 Bot Framework 的令牌。
+        .merge(routes::agent::im::public_routes().with_state(state.clone()))
+        // /api/v1/public/notify/<connector>/{replies,keypress}：短信回复、电话按键，验服务商签名或回调 Token。
+        .merge(routes::notify::public_routes().with_state(state.clone()))
+        // /api/v1/public/calendar/<token>.ics：值班日历的订阅，地址里的 Token 自鉴权，按订阅人重新核对权限。
+        .merge(routes::schedule_calendar::public_routes().with_state(state.clone()))
         // Probe Artifact 上传：任务 lease token 自鉴权，不接受用户 Bearer。
         .merge(routes::synthetics::artifact_upload_routes().with_state(state.clone()));
 
@@ -58,23 +73,40 @@ pub(crate) fn build_router_with_limits(
     // /.well-known/acme-challenge/<token>：顶层公开（无 auth），仅
     let r = r.merge(routes::domains::challenge_routes().with_state(state.clone()));
 
+    // 读授权在认证层之内：请求里的查询按调用者能不能读 `_audit` 执行。
+    let r = r.layer(from_fn(middleware::read_grants_layer));
+
     // 限流在认证层之内：此时请求已带有 IamContext，限流按已认证的组织计数。
     let r = match rate_limits {
         Some(limits) => r.layer(from_fn_with_state(limits, middleware::rate_limit_layer)),
         None => r,
     };
 
+    let web_gzip = state.platform.http_gzip;
+
     // 认证层注入 IamContext，供路由执行组织隔离与权限校验。
     let api = r
+        .layer(from_fn_with_state(
+            state.clone(),
+            middleware::organization_status_layer,
+        ))
         .layer(from_fn_with_state(state.clone(), middleware::auth_layer))
         .layer(from_fn(middleware::trace_context_layer))
         .layer(Extension(client_ip))
-        .layer(CorsLayer::very_permissive().expose_headers([
-            HeaderName::from_static("x-request-id"),
-            HeaderName::from_static("x-trace-id"),
-        ]))
+        // 任何来源都可以跨域调用 API（浏览器里的 RUM SDK、带 API Token 的脚本），但不带凭据：
+        // 浏览器的登录会话在 Cookie 里，别的网站不能借它读写接口。
+        .layer(
+            CorsLayer::new()
+                .allow_origin(AllowOrigin::any())
+                .allow_methods(AllowMethods::mirror_request())
+                .allow_headers(AllowHeaders::mirror_request())
+                .expose_headers([
+                    HeaderName::from_static("x-request-id"),
+                    HeaderName::from_static("x-trace-id"),
+                ]),
+        )
         .with_state(state);
 
-    // 静态 UI 位于 API middleware 之外：登录页和 Vite chunk 不应要求 Bearer token。
-    web_assets::with_embedded_web(Router::new().merge(api))
+    // 静态 UI 位于 API middleware 之外：登录页和 Vite chunk 不需要登录。
+    web_assets::with_embedded_web(Router::new().merge(api), web_gzip)
 }

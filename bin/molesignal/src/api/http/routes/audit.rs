@@ -4,7 +4,8 @@
 //! Audit activity routes（change `add-ai-anomaly-chat`：可搜索 + 游标分页）。
 //!
 //! `GET /api/v1/audit?from=&to=&actor_kind=&actor=&action=&target_kind=&target_id=&limit=&cursor=`
-//! 返 `{ items, next_cursor }`，按 `ts DESC, id DESC` 排序；权限 `AuditRead`（Admin/Owner）。
+//! 返 `{ items, next_cursor, retention_days }`，按 `ts DESC, id DESC` 排序；权限 `AuditRead`
+//! （Admin/Owner）。`retention_days` 是部署级的审计保留天数，0 = 永久保留。
 //! `from` / `to` 支持绝对 micros 或相对串 `now` / `now-<N>{s,m,h,d}`。
 
 use axum::{
@@ -35,6 +36,7 @@ const DEFAULT_LIMIT: i64 = 50;
 const MAX_LIMIT: i64 = 200;
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct AuditQueryParams {
     #[serde(default)]
     from: Option<String>,
@@ -61,6 +63,7 @@ fn default_limit() -> i64 {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct Resp {
     id: String,
     org_id: String,
@@ -72,7 +75,7 @@ struct Resp {
     ip: Option<String>,
     user_agent: Option<String>,
     payload: Value,
-    ts_micros: i64,
+    ts: i64,
 }
 
 fn to_resp(event: AuditEvent) -> Resp {
@@ -87,17 +90,21 @@ fn to_resp(event: AuditEvent) -> Resp {
         ip: event.ip,
         user_agent: event.user_agent,
         payload: event.payload,
-        ts_micros: event.ts.0,
+        ts: event.ts.0,
     }
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct AuditPage {
     items: Vec<Resp>,
     next_cursor: Option<String>,
+    /// 审计记录保留天数（组织审计与平台审计共用）；0 = 永久保留。
+    retention_days: u32,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct AuditChatResp {
     id: String,
     provider: String,
@@ -105,15 +112,16 @@ struct AuditChatResp {
     title: String,
     provider_id: Option<String>,
     analysis_mode: Option<String>,
-    time_range_start_micros: Option<i64>,
-    time_range_end_micros: Option<i64>,
+    time_range_start: Option<i64>,
+    time_range_end: Option<i64>,
     archive_object_key: Option<String>,
-    deleted_at_micros: Option<i64>,
-    created_at_micros: i64,
-    updated_at_micros: i64,
+    deleted_at: Option<i64>,
+    created_at: i64,
+    updated_at: i64,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct AuditChatMessageResp {
     id: String,
     chat_id: String,
@@ -129,7 +137,7 @@ struct AuditChatMessageResp {
     prompt_tokens: Option<i64>,
     completion_tokens: Option<i64>,
     cost: Option<Cost>,
-    created_at_micros: i64,
+    created_at: i64,
 }
 
 #[derive(Debug, Serialize)]
@@ -175,7 +183,7 @@ fn parse_time(s: &str) -> Result<i64> {
     Err(Error::invalid(format!("unparseable time: {s}")))
 }
 
-/// 游标 = base64url("{ts_micros}:{id}")；对客户端不透明。
+/// 游标 = base64url("{ts}:{id}")；对客户端不透明。
 fn encode_cursor(ts: i64, id: &str) -> String {
     use base64::Engine as _;
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(format!("{ts}:{id}"))
@@ -205,36 +213,7 @@ async fn query_audit(
     Query(params): Query<AuditQueryParams>,
 ) -> Result<Json<AuditPage>> {
     // Admin / Owner only（Viewer / Editor → 403）。
-    let page_size = params.limit.clamp(1, MAX_LIMIT);
-
-    let q = AuditQuery {
-        from_micros: params.from.as_deref().map(parse_time).transpose()?,
-        to_micros: params.to.as_deref().map(parse_time).transpose()?,
-        actor_kind: params.actor_kind.filter(|s| !s.is_empty()),
-        actor_id: params.actor.filter(|s| !s.is_empty()),
-        action: params.action.filter(|s| !s.is_empty()),
-        target_kind: params.target_kind.filter(|s| !s.is_empty()),
-        target_id: params.target_id.filter(|s| !s.is_empty()),
-        // 多取一行探测是否有下一页。
-        limit: page_size + 1,
-        cursor: params.cursor.as_deref().map(decode_cursor).transpose()?,
-    };
-
-    let mut rows = state.iam.audit_events.query(&ctx.org_id, &q).await?;
-
-    let next_cursor = if rows.len() as i64 > page_size {
-        let last = &rows[(page_size - 1) as usize];
-        let c = encode_cursor(last.ts.0, &last.id.0);
-        rows.truncate(page_size as usize);
-        Some(c)
-    } else {
-        None
-    };
-
-    Ok(Json(AuditPage {
-        items: rows.into_iter().map(to_resp).collect(),
-        next_cursor,
-    }))
+    query_audit_for_org(&state, &ctx.org_id, params).await
 }
 
 #[permission("sys.telemetry.read")]
@@ -261,6 +240,7 @@ async fn query_audit_for_org(
         action: params.action.filter(|value| !value.is_empty()),
         target_kind: params.target_kind.filter(|value| !value.is_empty()),
         target_id: params.target_id.filter(|value| !value.is_empty()),
+        // 多取一行探测是否有下一页。
         limit: page_size + 1,
         cursor: params.cursor.as_deref().map(decode_cursor).transpose()?,
     };
@@ -276,9 +256,12 @@ async fn query_audit_for_org(
         None
     };
 
+    let settings = state.iam.instance_settings.get().await?;
+
     Ok(Json(AuditPage {
         items: rows.into_iter().map(to_resp).collect(),
         next_cursor,
+        retention_days: settings.audit_retention_days,
     }))
 }
 
@@ -306,12 +289,12 @@ async fn get_agent_chat_transcript(
             title: chat.title,
             provider_id: chat.provider_id,
             analysis_mode: chat.analysis_mode,
-            time_range_start_micros: chat.time_range_start_micros,
-            time_range_end_micros: chat.time_range_end_micros,
+            time_range_start: chat.time_range_start,
+            time_range_end: chat.time_range_end,
             archive_object_key: chat.archive_object_key,
-            deleted_at_micros: chat.deleted_at_micros,
-            created_at_micros: chat.created_at.0,
-            updated_at_micros: chat.updated_at.0,
+            deleted_at: chat.deleted_at,
+            created_at: chat.created_at.0,
+            updated_at: chat.updated_at.0,
         },
         messages: messages
             .into_iter()
@@ -330,7 +313,7 @@ async fn get_agent_chat_transcript(
                 prompt_tokens: m.prompt_tokens,
                 completion_tokens: m.completion_tokens,
                 cost: m.cost,
-                created_at_micros: m.created_at.0,
+                created_at: m.created_at.0,
             })
             .collect(),
     }))

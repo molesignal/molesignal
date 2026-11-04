@@ -1,43 +1,45 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use sqlx::Row;
+use sqlx::{Row, types::Json};
 
 use crate::{
     domain::status_page::{
-        ComponentKind, ComponentLifecycle, ComponentServiceLink, ComponentStatus,
-        ComponentVisibility, IncidentImpact, PublicIncidentStatus, ServiceLinkMode, StatusPage,
-        StatusPageComponent, StatusPageComponentStatusEvent, StatusPageIncident,
-        StatusPageIncidentKind, StatusPageIncidentUpdate, StatusPageLifecycle,
-        StatusPagePostmortem, StatusPagePublicationState, StatusPageVisibility,
+        ComponentDependency, ComponentKind, ComponentLifecycle, ComponentStatus,
+        ComponentVisibility, DependencyHealth, DependencyMode, DependencyStatus, HealthCause,
+        IncidentImpact, PublicIncidentStatus, StatusPage, StatusPageComponent,
+        StatusPageComponentStatusEvent, StatusPageIncident, StatusPageIncidentKind,
+        StatusPageIncidentUpdate, StatusPageLifecycle, StatusPagePostmortem,
+        StatusPagePublicationState, StatusPageVisibility,
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub(super) const PAGE_COLS: &str = "id, org_id, name, slug, logo_url, brand_color,
     custom_domain, timezone, language, languages, history_days, visibility,
-    delivery_retention_days, private_session_days, lifecycle, archived_at_micros,
-    purge_after_micros,
-    created_at_micros, updated_at_micros, slack_connector_id";
+    delivery_retention_days, private_session_days, lifecycle, archived_at,
+    purge_after,
+    created_at, updated_at, slack_connector_id";
 
 pub(super) const COMPONENT_COLS: &str = "id, org_id, status_page_id, name, description,
-    status, visibility, lifecycle, position, archived_at_micros,
-    created_at_micros, updated_at_micros,
-    business_service_id, business_service_mode, business_service_notify, kind, group_id";
+    status, visibility, lifecycle, position, archived_at,
+    created_at, updated_at,
+    dependencies, dependency_mode, dependency_notify, dependency_status, dependency_causes,
+    dependency_changed_at, dependency_evaluated_at, kind, group_id";
 
 pub(super) const COMPONENT_STATUS_EVENT_COLS: &str = "id, org_id, status_page_id,
-    component_id, status, started_at_micros, ended_at_micros, created_at_micros,
+    component_id, status, started_at, ended_at, created_at,
     notify_subscribers";
 
 pub(super) const INCIDENT_COLS: &str = "id, org_id, status_page_id, source_incident_id,
     kind, title, impact, status, publication_state, draft_message, component_ids,
-    started_at_micros, ended_at_micros, auto_start, reminder_minutes,
-    published_at_micros, created_at_micros, updated_at_micros,
-    postmortem_body, postmortem_state, postmortem_published_at_micros,
-    postmortem_revised_at_micros, postmortem_updated_at_micros, postmortem_updated_by";
+    started_at, ended_at, auto_start, reminder_minutes,
+    published_at, created_at, updated_at,
+    postmortem_body, postmortem_state, postmortem_published_at,
+    postmortem_revised_at, postmortem_updated_at, postmortem_updated_by";
 
 pub(super) const UPDATE_COLS: &str = "id, org_id, status_page_id, incident_id, status, message,
-    created_at_micros, next_update_at_micros, notify_subscribers";
+    created_at, next_update_at, notify_subscribers";
 
 pub(super) fn row_to_page(row: sqlx::postgres::PgRow) -> Result<StatusPage> {
     let visibility: String = row.try_get("visibility").map_err(super::sqlx_err)?;
@@ -70,15 +72,17 @@ pub(super) fn row_to_page(row: sqlx::postgres::PgRow) -> Result<StatusPage> {
             Error::internal(format!("unknown status page lifecycle: {lifecycle}"))
         })?,
         archived_at: row
-            .try_get::<Option<i64>, _>("archived_at_micros")
-            .map_err(super::sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("archived_at")
+            .map_err(super::sqlx_err)?,
         purge_after: row
-            .try_get::<Option<i64>, _>("purge_after_micros")
-            .map_err(super::sqlx_err)?
-            .map(TimestampMicros),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(super::sqlx_err)?),
+            .try_get::<Option<TimestampMicros>, _>("purge_after")
+            .map_err(super::sqlx_err)?,
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(super::sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(super::sqlx_err)?,
         slack_connector_id: row
             .try_get::<Option<String>, _>("slack_connector_id")
             .map_err(super::sqlx_err)?
@@ -107,12 +111,26 @@ pub(super) fn row_to_component(row: sqlx::postgres::PgRow) -> Result<StatusPageC
             .ok_or_else(|| Error::internal(format!("unknown component lifecycle: {lifecycle}")))?,
         position: row.try_get("position").map_err(super::sqlx_err)?,
         archived_at: row
-            .try_get::<Option<i64>, _>("archived_at_micros")
+            .try_get::<Option<TimestampMicros>, _>("archived_at")
+            .map_err(super::sqlx_err)?,
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(super::sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(super::sqlx_err)?,
+        dependencies: row
+            .try_get::<Json<Vec<ComponentDependency>>, _>("dependencies")
             .map_err(super::sqlx_err)?
-            .map(TimestampMicros),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(super::sqlx_err)?),
-        business_service: row_to_service_link(&row)?,
+            .0,
+        dependency_mode: {
+            let mode: String = row.try_get("dependency_mode").map_err(super::sqlx_err)?;
+
+            DependencyMode::parse(&mode)
+                .ok_or_else(|| Error::internal(format!("unknown dependency mode: {mode}")))?
+        },
+        dependency_notify: row.try_get("dependency_notify").map_err(super::sqlx_err)?,
+        dependency_health: row_to_dependency_health(&row)?,
         kind: ComponentKind::parse(&kind)
             .ok_or_else(|| Error::internal(format!("unknown component kind: {kind}")))?,
         group_id: row
@@ -122,26 +140,28 @@ pub(super) fn row_to_component(row: sqlx::postgres::PgRow) -> Result<StatusPageC
     })
 }
 
-fn row_to_service_link(row: &sqlx::postgres::PgRow) -> Result<Option<ComponentServiceLink>> {
-    let business_service_id: Option<String> = row
-        .try_get("business_service_id")
-        .map_err(super::sqlx_err)?;
+fn row_to_dependency_health(row: &sqlx::postgres::PgRow) -> Result<Option<DependencyHealth>> {
+    let status: Option<String> = row.try_get("dependency_status").map_err(super::sqlx_err)?;
 
-    let Some(business_service_id) = business_service_id else {
+    let Some(status) = status else {
         return Ok(None);
     };
 
-    let mode: String = row
-        .try_get("business_service_mode")
-        .map_err(super::sqlx_err)?;
+    let micros = |column: &str| -> Result<TimestampMicros> {
+        row.try_get::<Option<TimestampMicros>, _>(column)
+            .map(|value| value.unwrap_or(TimestampMicros(0)))
+            .map_err(super::sqlx_err)
+    };
 
-    Ok(Some(ComponentServiceLink {
-        business_service_id: Id(business_service_id),
-        mode: ServiceLinkMode::parse(&mode)
-            .ok_or_else(|| Error::internal(format!("unknown business service link: {mode}")))?,
-        notify_subscribers: row
-            .try_get("business_service_notify")
-            .map_err(super::sqlx_err)?,
+    Ok(Some(DependencyHealth {
+        status: DependencyStatus::parse(&status)
+            .ok_or_else(|| Error::internal(format!("unknown dependency status: {status}")))?,
+        causes: row
+            .try_get::<Json<Vec<HealthCause>>, _>("dependency_causes")
+            .map_err(super::sqlx_err)?
+            .0,
+        changed_at: micros("dependency_changed_at")?,
+        evaluated_at: micros("dependency_evaluated_at")?,
     }))
 }
 
@@ -149,7 +169,10 @@ pub(super) fn row_to_component_status_event(
     row: sqlx::postgres::PgRow,
 ) -> Result<StatusPageComponentStatusEvent> {
     let status: String = row.try_get("status").map_err(super::sqlx_err)?;
-    let ended_at: Option<i64> = row.try_get("ended_at_micros").map_err(super::sqlx_err)?;
+    let ended_at: Option<i64> = row
+        .try_get::<Option<TimestampMicros>, _>("ended_at")
+        .map_err(super::sqlx_err)?
+        .map(|t| t.0);
 
     Ok(StatusPageComponentStatusEvent {
         id: Id(row.try_get("id").map_err(super::sqlx_err)?),
@@ -158,9 +181,13 @@ pub(super) fn row_to_component_status_event(
         component_id: Id(row.try_get("component_id").map_err(super::sqlx_err)?),
         status: ComponentStatus::parse(&status)
             .ok_or_else(|| Error::internal(format!("unknown component status event: {status}")))?,
-        started_at: TimestampMicros(row.try_get("started_at_micros").map_err(super::sqlx_err)?),
+        started_at: row
+            .try_get::<TimestampMicros, _>("started_at")
+            .map_err(super::sqlx_err)?,
         ended_at: ended_at.map(TimestampMicros),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(super::sqlx_err)?,
         notify_subscribers: row.try_get("notify_subscribers").map_err(super::sqlx_err)?,
     })
 }
@@ -170,7 +197,10 @@ pub(super) fn row_to_incident(row: sqlx::postgres::PgRow) -> Result<StatusPageIn
     let impact: String = row.try_get("impact").map_err(super::sqlx_err)?;
     let status: String = row.try_get("status").map_err(super::sqlx_err)?;
     let publication_state: String = row.try_get("publication_state").map_err(super::sqlx_err)?;
-    let ended_at: Option<i64> = row.try_get("ended_at_micros").map_err(super::sqlx_err)?;
+    let ended_at: Option<i64> = row
+        .try_get::<Option<TimestampMicros>, _>("ended_at")
+        .map_err(super::sqlx_err)?
+        .map(|t| t.0);
     let component_ids: Vec<String> = row.try_get("component_ids").map_err(super::sqlx_err)?;
 
     Ok(StatusPageIncident {
@@ -194,16 +224,21 @@ pub(super) fn row_to_incident(row: sqlx::postgres::PgRow) -> Result<StatusPageIn
         draft_message: row.try_get("draft_message").map_err(super::sqlx_err)?,
         component_ids: component_ids.into_iter().map(Id).collect(),
         updates: Vec::new(),
-        started_at: TimestampMicros(row.try_get("started_at_micros").map_err(super::sqlx_err)?),
+        started_at: row
+            .try_get::<TimestampMicros, _>("started_at")
+            .map_err(super::sqlx_err)?,
         ended_at: ended_at.map(TimestampMicros),
         auto_start: row.try_get("auto_start").map_err(super::sqlx_err)?,
         reminder_minutes: row.try_get("reminder_minutes").map_err(super::sqlx_err)?,
         published_at: row
-            .try_get::<Option<i64>, _>("published_at_micros")
-            .map_err(super::sqlx_err)?
-            .map(TimestampMicros),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(super::sqlx_err)?),
+            .try_get::<Option<TimestampMicros>, _>("published_at")
+            .map_err(super::sqlx_err)?,
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(super::sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(super::sqlx_err)?,
         postmortem: row_to_postmortem(&row)?,
     })
 }
@@ -216,9 +251,7 @@ fn row_to_postmortem(row: &sqlx::postgres::PgRow) -> Result<Option<StatusPagePos
     };
 
     let micros = |column: &str| -> Result<Option<TimestampMicros>> {
-        row.try_get::<Option<i64>, _>(column)
-            .map(|value| value.map(TimestampMicros))
-            .map_err(super::sqlx_err)
+        row.try_get(column).map_err(super::sqlx_err)
     };
 
     Ok(Some(StatusPagePostmortem {
@@ -228,13 +261,13 @@ fn row_to_postmortem(row: &sqlx::postgres::PgRow) -> Result<Option<StatusPagePos
             .unwrap_or_default(),
         publication_state: StatusPagePublicationState::parse(&state)
             .ok_or_else(|| Error::internal(format!("unknown postmortem state: {state}")))?,
-        published_at: micros("postmortem_published_at_micros")?,
-        revised_at: micros("postmortem_revised_at_micros")?,
+        published_at: micros("postmortem_published_at")?,
+        revised_at: micros("postmortem_revised_at")?,
         updated_by: row
             .try_get::<Option<String>, _>("postmortem_updated_by")
             .map_err(super::sqlx_err)?
             .map(Id),
-        updated_at: micros("postmortem_updated_at_micros")?.unwrap_or(TimestampMicros(0)),
+        updated_at: micros("postmortem_updated_at")?.unwrap_or(TimestampMicros(0)),
     }))
 }
 
@@ -249,11 +282,12 @@ pub(super) fn row_to_update(row: sqlx::postgres::PgRow) -> Result<StatusPageInci
         status: PublicIncidentStatus::parse(&status)
             .ok_or_else(|| Error::internal(format!("unknown public incident status: {status}")))?,
         message: row.try_get("message").map_err(super::sqlx_err)?,
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(super::sqlx_err)?,
         next_update_at: row
-            .try_get::<Option<i64>, _>("next_update_at_micros")
-            .map_err(super::sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("next_update_at")
+            .map_err(super::sqlx_err)?,
         notify_subscribers: row.try_get("notify_subscribers").map_err(super::sqlx_err)?,
     })
 }

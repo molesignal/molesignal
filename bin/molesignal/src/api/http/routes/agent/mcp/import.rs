@@ -22,6 +22,7 @@ use crate::{
 const MAX_CONFIG_BYTES: usize = 256 * 1024;
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct ImportRequest {
     #[serde(default = "personal")]
     scope: String,
@@ -50,7 +51,7 @@ fn config_value(config: Value) -> Result<Value> {
     }
 }
 
-#[permission("agent.use")]
+#[permission("agent.mcp_servers.manage")]
 pub(super) async fn import_servers(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

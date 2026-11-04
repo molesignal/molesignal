@@ -21,6 +21,7 @@ export function StreamField({
   clearable = false,
   placeholder,
   disabled = false,
+  offers,
   onChange,
 }: {
   label: string;
@@ -33,10 +34,13 @@ export function StreamField({
   clearable?: boolean;
   placeholder?: string;
   disabled?: boolean;
+  /** Which of the workspace's streams are on offer here; every one when left out. */
+  offers?: (stream: string) => boolean;
   onChange: (stream: string) => void;
 }) {
   const { t } = useTranslation('pipelines');
-  const streams = pipelineStreamOptions(resources.streams, signalType, value);
+  const onOffer = offers ? resources.streams.filter((stream) => offers(stream.name)) : resources.streams;
+  const streams = pipelineStreamOptions(onOffer, signalType, value);
 
   return (
     <FormField label={label} {...(hint ? { hint } : {})}>

@@ -3,15 +3,13 @@
 
 use serde::Serialize;
 
-use super::{
-    StatusPageDomainInput, StatusPageService, private_access::opaque_token,
-    validation::normalize_custom_domain,
-};
+use super::{StatusPageDomainInput, StatusPageService, validation::normalize_custom_domain};
 use crate::{
     domain::status_page::{
         StatusPageDomainCheckUpdate, StatusPageDomainConfig, StatusPageDomainHealthAlert,
         StatusPageDomainState, StatusPageLifecycle,
     },
+    infra::persistence::repositories::api_tokens::generate_token_parts,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
@@ -19,6 +17,7 @@ const VERIFY_COOLDOWN_MICROS: i64 = 30 * 1_000_000;
 const BACKGROUND_INTERVAL_MICROS: i64 = 5 * 60 * 1_000_000;
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusPageDomainInstructions {
     pub config: StatusPageDomainConfig,
     pub txt_name: String,
@@ -74,6 +73,7 @@ impl StatusPageService {
         }
 
         let now = TimestampMicros::now();
+        let (lookup, rest) = generate_token_parts();
 
         let config = self
             .repository
@@ -81,7 +81,7 @@ impl StatusPageService {
                 org_id: org_id.clone(),
                 status_page_id: page_id.clone(),
                 hostname,
-                verification_token: format!("msv_{}", opaque_token(24)),
+                verification_token: format!("ms-v-{lookup}{rest}"),
                 state: StatusPageDomainState::PendingDns,
                 domain_id: None,
                 routing_valid: false,

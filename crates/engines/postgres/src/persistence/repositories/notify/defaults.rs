@@ -61,8 +61,12 @@ fn row_to_team_default(row: sqlx::postgres::PgRow) -> Result<TeamNotifyDefault> 
         category: NotifyCategory::parse(&category)?,
         routes: routes.0,
         enabled: row.try_get("enabled").map_err(sqlx_err)?,
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -79,8 +83,12 @@ fn row_to_organization_default(row: sqlx::postgres::PgRow) -> Result<Organizatio
         category: NotifyCategory::parse(&category)?,
         routes: routes.0,
         enabled: row.try_get("enabled").map_err(sqlx_err)?,
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -94,7 +102,7 @@ impl TeamNotifyDefaultRepository for PgTeamNotifyDefaultRepository {
     ) -> Result<Option<TeamNotifyDefault>> {
         let row = sqlx::query(
             "SELECT id, organization_id, team_id, category, routes, enabled,
-                    created_at_micros, updated_at_micros
+                    created_at, updated_at
                FROM notify_defaults
               WHERE organization_id = $1 AND team_id = $2 AND category = $3",
         )
@@ -111,7 +119,7 @@ impl TeamNotifyDefaultRepository for PgTeamNotifyDefaultRepository {
     async fn list(&self, organization_id: &Id, team_id: &Id) -> Result<Vec<TeamNotifyDefault>> {
         let rows = sqlx::query(
             "SELECT id, organization_id, team_id, category, routes, enabled,
-                    created_at_micros, updated_at_micros
+                    created_at, updated_at
                FROM notify_defaults
               WHERE organization_id = $1 AND team_id = $2
            ORDER BY category, id",
@@ -129,14 +137,14 @@ impl TeamNotifyDefaultRepository for PgTeamNotifyDefaultRepository {
         let row = sqlx::query(
             "INSERT INTO notify_defaults (
                  id, organization_id, team_id, category, routes, enabled,
-                 created_at_micros, updated_at_micros
+                 created_at, updated_at
              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
              ON CONFLICT (organization_id, team_id, category) WHERE team_id IS NOT NULL
              DO UPDATE SET
                  routes = EXCLUDED.routes,
                  enabled = EXCLUDED.enabled,
-                 updated_at_micros = EXCLUDED.updated_at_micros
-             RETURNING id, created_at_micros",
+                 updated_at = EXCLUDED.updated_at
+             RETURNING id, created_at",
         )
         .bind(&route.id.0)
         .bind(&route.organization_id.0)
@@ -144,14 +152,16 @@ impl TeamNotifyDefaultRepository for PgTeamNotifyDefaultRepository {
         .bind(route.category.as_str())
         .bind(Json(&route.routes))
         .bind(route.enabled)
-        .bind(route.created_at.0)
-        .bind(route.updated_at.0)
+        .bind(route.created_at)
+        .bind(route.updated_at)
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
 
         route.id = Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?);
-        route.created_at = TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?);
+        route.created_at = row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?;
         Ok(route)
     }
 
@@ -189,7 +199,7 @@ impl OrganizationNotifyDefaultRepository for PgOrganizationNotifyDefaultReposito
     ) -> Result<Option<OrganizationNotifyDefault>> {
         let row = sqlx::query(
             "SELECT id, organization_id, category, routes, enabled,
-                    created_at_micros, updated_at_micros
+                    created_at, updated_at
                FROM notify_defaults
               WHERE organization_id = $1 AND team_id IS NULL AND category = $2",
         )
@@ -205,7 +215,7 @@ impl OrganizationNotifyDefaultRepository for PgOrganizationNotifyDefaultReposito
     async fn list(&self, organization_id: &Id) -> Result<Vec<OrganizationNotifyDefault>> {
         let rows = sqlx::query(
             "SELECT id, organization_id, category, routes, enabled,
-                    created_at_micros, updated_at_micros
+                    created_at, updated_at
                FROM notify_defaults
               WHERE organization_id = $1 AND team_id IS NULL
            ORDER BY category, id",
@@ -225,28 +235,30 @@ impl OrganizationNotifyDefaultRepository for PgOrganizationNotifyDefaultReposito
         let row = sqlx::query(
             "INSERT INTO notify_defaults (
                  id, organization_id, category, routes, enabled,
-                 created_at_micros, updated_at_micros
+                 created_at, updated_at
              ) VALUES ($1, $2, $3, $4, $5, $6, $7)
              ON CONFLICT (organization_id, category) WHERE team_id IS NULL
              DO UPDATE SET
                  routes = EXCLUDED.routes,
                  enabled = EXCLUDED.enabled,
-                 updated_at_micros = EXCLUDED.updated_at_micros
-             RETURNING id, created_at_micros",
+                 updated_at = EXCLUDED.updated_at
+             RETURNING id, created_at",
         )
         .bind(&route.id.0)
         .bind(&route.organization_id.0)
         .bind(route.category.as_str())
         .bind(Json(&route.routes))
         .bind(route.enabled)
-        .bind(route.created_at.0)
-        .bind(route.updated_at.0)
+        .bind(route.created_at)
+        .bind(route.updated_at)
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
 
         route.id = Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?);
-        route.created_at = TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?);
+        route.created_at = row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?;
         Ok(route)
     }
 
@@ -281,7 +293,7 @@ impl NotifyRouteReferenceRepository for PgNotifyRouteReferenceRepository {
                         AND EXISTS (
                             SELECT 1
                               FROM jsonb_array_elements(defaults.routes) AS route
-                             WHERE route ->> 'connector_id' = $2
+                             WHERE route ->> 'connectorId' = $2
                         )
                  )
                  +
@@ -293,7 +305,7 @@ impl NotifyRouteReferenceRepository for PgNotifyRouteReferenceRepository {
                             EXISTS (
                                 SELECT 1
                                   FROM jsonb_array_elements_text(
-                                      policy.delivery_config -> 'connector_ids'
+                                      policy.delivery_config -> 'connectorIds'
                                   ) AS configured(connector_id)
                                  WHERE configured.connector_id = $2
                             )
@@ -301,8 +313,8 @@ impl NotifyRouteReferenceRepository for PgNotifyRouteReferenceRepository {
                                 SELECT 1
                                   FROM jsonb_array_elements_text(
                                       policy.escalation_config
-                                          -> 'delivery_config'
-                                          -> 'connector_ids'
+                                          -> 'deliveryConfig'
+                                          -> 'connectorIds'
                                   ) AS configured(connector_id)
                                  WHERE configured.connector_id = $2
                             )
@@ -322,8 +334,14 @@ impl NotifyRouteReferenceRepository for PgNotifyRouteReferenceRepository {
                         AND EXISTS (
                             SELECT 1
                               FROM jsonb_array_elements(inspection.notify_routes) AS route
-                             WHERE route ->> 'connector_id' = $2
+                             WHERE route ->> 'connectorId' = $2
                         )
+                 )
+                 +
+                 (
+                     SELECT COUNT(*)
+                       FROM agent_im_bots AS bot
+                      WHERE bot.org_id = $1 AND bot.connector_id = $2 AND bot.enabled
                  )",
         )
         .bind(&organization_id.0)

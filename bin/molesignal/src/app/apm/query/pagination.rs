@@ -126,9 +126,9 @@ impl ApmSortable for ServiceSummary {
             "error_rate" => self.red.error_rate.total_cmp(&other.red.error_rate),
             "p95" => self
                 .red
-                .p95_micros
+                .p95_time
                 .unwrap_or_default()
-                .cmp(&other.red.p95_micros.unwrap_or_default()),
+                .cmp(&other.red.p95_time.unwrap_or_default()),
             _ => self.red.request_count.cmp(&other.red.request_count),
         }
     }
@@ -137,7 +137,7 @@ impl ApmSortable for ServiceSummary {
         match field {
             "name" => Ok(self.service.stable_key().as_str().cmp(value)),
             "error_rate" => compare_u64(self.red.error_rate.to_bits(), value),
-            "p95" => compare_u64(self.red.p95_micros.unwrap_or_default(), value),
+            "p95" => compare_u64(self.red.p95_time.unwrap_or_default(), value),
             _ => compare_u64(self.red.request_count, value),
         }
     }
@@ -146,7 +146,7 @@ impl ApmSortable for ServiceSummary {
         match field {
             "name" => self.service.stable_key(),
             "error_rate" => self.red.error_rate.to_bits().to_string(),
-            "p95" => self.red.p95_micros.unwrap_or_default().to_string(),
+            "p95" => self.red.p95_time.unwrap_or_default().to_string(),
             _ => self.red.request_count.to_string(),
         }
     }
@@ -161,18 +161,18 @@ impl ApmSortable for TransactionSummary {
         compare_red(
             &self.red,
             &other.red,
-            self.total_time_micros,
-            other.total_time_micros,
+            self.total_time,
+            other.total_time,
             field,
         )
     }
 
     fn compare_cursor_value(&self, value: &str, field: &str) -> Result<Ordering> {
-        compare_red_cursor(&self.red, self.total_time_micros, value, field)
+        compare_red_cursor(&self.red, self.total_time, value, field)
     }
 
     fn sort_value(&self, field: &str) -> String {
-        red_sort_value(&self.red, self.total_time_micros, field)
+        red_sort_value(&self.red, self.total_time, field)
     }
 
     fn tie_breaker(&self) -> String {
@@ -190,18 +190,18 @@ impl ApmSortable for DependencySummary {
         compare_red(
             &self.red,
             &other.red,
-            self.total_time_micros,
-            other.total_time_micros,
+            self.total_time,
+            other.total_time,
             field,
         )
     }
 
     fn compare_cursor_value(&self, value: &str, field: &str) -> Result<Ordering> {
-        compare_red_cursor(&self.red, self.total_time_micros, value, field)
+        compare_red_cursor(&self.red, self.total_time, value, field)
     }
 
     fn sort_value(&self, field: &str) -> String {
-        red_sort_value(&self.red, self.total_time_micros, field)
+        red_sort_value(&self.red, self.total_time, field)
     }
 
     fn tie_breaker(&self) -> String {
@@ -254,9 +254,9 @@ fn compare_red(
     match field {
         "error_rate" => left.error_rate.total_cmp(&right.error_rate),
         "p95" => left
-            .p95_micros
+            .p95_time
             .unwrap_or_default()
-            .cmp(&right.p95_micros.unwrap_or_default()),
+            .cmp(&right.p95_time.unwrap_or_default()),
         "total_time" => left_total.cmp(&right_total),
         _ => left.request_count.cmp(&right.request_count),
     }
@@ -265,7 +265,7 @@ fn compare_red(
 fn red_sort_value(red: &super::RedSummary, total: u64, field: &str) -> String {
     match field {
         "error_rate" => red.error_rate.to_bits().to_string(),
-        "p95" => red.p95_micros.unwrap_or_default().to_string(),
+        "p95" => red.p95_time.unwrap_or_default().to_string(),
         "total_time" => total.to_string(),
         _ => red.request_count.to_string(),
     }
@@ -279,7 +279,7 @@ fn compare_red_cursor(
 ) -> Result<Ordering> {
     match field {
         "error_rate" => compare_u64(red.error_rate.to_bits(), value),
-        "p95" => compare_u64(red.p95_micros.unwrap_or_default(), value),
+        "p95" => compare_u64(red.p95_time.unwrap_or_default(), value),
         "total_time" => compare_u64(total, value),
         _ => compare_u64(red.request_count, value),
     }

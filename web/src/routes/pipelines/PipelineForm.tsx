@@ -3,12 +3,14 @@ import { useTranslation } from 'react-i18next';
 
 import type { PipelineInput, ScheduledPipeline } from '@/api/pipelines';
 import { toApiError } from '@/lib/http';
+import { uiSectionTitleClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { surfacePanelClass } from '@/shell/SurfaceWorkbench';
 
 import { PipelineFlow, type DestinationKind } from './editor/Flow';
 import { FlowIssues, FlowStatus } from './editor/Issues';
-import { NodeEditor, parseNodeId } from './editor/NodeEditor';
+import { NodeEditor } from './editor/NodeEditor';
+import { parseNodeId, removeNode } from './editor/nodes';
 import { usePipelineResources } from './editor/resources';
 import {
   formatInterval,
@@ -16,21 +18,20 @@ import {
   intervalSeconds,
   parseInterval,
 } from './editor/schedule';
-import {
-  PipelineSettings,
-  type PipelineMode,
-  type PipelineSettingsValue,
-} from './editor/Settings';
+import { PipelineSettings, type PipelineSettingsValue } from './editor/Settings';
 import { newStep } from './editor/steps';
 import { TestPanel } from './editor/test/TestPanel';
 import {
   blocksSave,
   CONNECTOR_PREFIX,
   connectorOf,
+  isStreamSink,
   pipelineGraphFromPipeline,
   pipelineInputFromGraph,
+  TABLE_PREFIX,
   validateGraph,
   type PipelineGraphModel,
+  type PipelineMode,
   type PipelineSignalType,
   type StepType,
 } from './PipelineGraph';
@@ -53,6 +54,10 @@ interface PipelineFormProps {
   enabledDisabled?: boolean;
   enabledDisabledReason?: string | undefined;
   onSubmit: (payload: PipelineInput) => void;
+  /** Whether what is on the form differs from what was last saved. */
+  onDirtyChange?: ((dirty: boolean) => void) | undefined;
+  /** Goes up each time the page saved what is on the form. */
+  savedRevision?: number | undefined;
 }
 
 const SOURCE = 'source-0';
@@ -79,12 +84,14 @@ export function PipelineForm({
   enabledDisabled = false,
   enabledDisabledReason,
   onSubmit,
+  onDirtyChange,
+  savedRevision = 0,
 }: PipelineFormProps) {
   const { t } = useTranslation('pipelines');
   const resources = usePipelineResources();
   const [name, setName] = React.useState(initial?.name ?? '');
   const [every, setEvery] = React.useState(() => parseInterval(initial?.cron));
-  const [lookback, setLookback] = React.useState(() => intervalFromSeconds(initial?.lookback_secs));
+  const [lookback, setLookback] = React.useState(() => intervalFromSeconds(initial?.lookbackSecs));
   const [enabled, setEnabled] = React.useState(initial?.enabled ?? true);
   const [graph, setGraph] = React.useState<PipelineGraphModel>(() =>
     pipelineGraphFromPipeline(initial, 'logs'),
@@ -92,6 +99,15 @@ export function PipelineForm({
   const [selectedId, setSelectedId] = React.useState(() => firstNode(graph));
   const [heldBack, setHeldBack] = React.useState(false);
   const issuesRef = React.useRef<HTMLDivElement>(null);
+
+  const content = JSON.stringify({ name, every, lookback, enabled, graph });
+  const [saved, setSaved] = React.useState(content);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- a save settles the form as it stands at that moment
+  React.useEffect(() => setSaved(content), [savedRevision]);
+
+  const dirty = content !== saved;
+  React.useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 
   const issues = React.useMemo(
     () => validateGraph(graph, resources.connectorIds),
@@ -104,17 +120,19 @@ export function PipelineForm({
     if (!blocked) setHeldBack(false);
   }, [blocked]);
 
-  // A node that was removed, or a mode that dropped it, leaves the source picked.
+  // A node that was removed, or a mode that dropped it, leaves the source picked. An alert
+  // pipeline has one source and one destination, which are not in the lists.
   React.useEffect(() => {
     const node = parseNodeId(selectedId);
+    const alert = graph.mode === 'alert';
     const count =
       node?.kind === 'source'
-        ? graph.sources.length
+        ? alert ? 1 : graph.sources.length
         : node?.kind === 'sink'
-          ? graph.sinks.length
+          ? alert ? 1 : graph.sinks.length
           : graph.transforms.length;
     if (!node || node.index >= count) setSelectedId(SOURCE);
-  }, [graph.sinks.length, graph.sources.length, graph.transforms.length, selectedId]);
+  }, [graph.mode, graph.sinks.length, graph.sources.length, graph.transforms.length, selectedId]);
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -138,17 +156,34 @@ export function PipelineForm({
   };
 
   const changeMode = (mode: PipelineMode) => {
-    setGraph((current) => ({
-      ...current,
-      mode,
-      // Realtime works on logs as they arrive: one stream in, one stream out, no connectors.
-      ...(mode === 'realtime' && {
-        signalType: 'logs',
-        sources: [current.sources[0] ?? ''],
-        sinks: [current.sinks.find((sink) => connectorOf(sink) === null) ?? ''],
-        retainSource: current.retainSource ?? false,
-      }),
-    }));
+    setGraph((current) => {
+      // An alert pipeline has no stream on either side; one that turns back starts with a place for each.
+      const sources = current.sources.length > 0 ? current.sources : [''];
+      const sinks = current.sinks.length > 0 ? current.sinks : [''];
+
+      if (mode === 'alert') {
+        return { ...current, mode, sources: [], sinks: [] };
+      }
+
+      // Only a realtime pipeline takes profiles.
+      if (mode === 'scheduled' && current.signalType === 'profiles') {
+        return { ...current, mode, signalType: 'logs', sources: [''], sinks: [''] };
+      }
+
+      // Realtime works on data as it arrives: one stream in, and for logs one stream out, nothing
+      // else; metrics and traces go back to the stream they came from.
+      if (mode === 'realtime') {
+        return {
+          ...current,
+          mode,
+          sources: [sources[0] ?? ''],
+          sinks: [sinks.find(isStreamSink) ?? ''],
+          retainSource: current.retainSource ?? false,
+        };
+      }
+
+      return { ...current, mode, sources, sinks };
+    });
   };
 
   // Streams belong to a signal: another signal means another source and destination to choose.
@@ -156,8 +191,9 @@ export function PipelineForm({
     setGraph((current) => ({
       ...current,
       signalType,
-      sources: [''],
-      sinks: ['', ...current.sinks.filter((sink) => connectorOf(sink) !== null)],
+      // Profiles arrive in one stream, whichever service sends them.
+      sources: [signalType === 'profiles' ? 'default' : ''],
+      sinks: ['', ...current.sinks.filter((sink) => !isStreamSink(sink))],
     }));
   };
 
@@ -167,9 +203,16 @@ export function PipelineForm({
     if (patch.lookback !== undefined) setLookback(patch.lookback);
     if (patch.enabled !== undefined) setEnabled(patch.enabled);
 
-    // How the pipeline reads and what it does when something fails is saved with its flow.
-    const { delaySecs, retry, deadLetterStream, dedupeField } = patch;
-    if (delaySecs === undefined && !retry && deadLetterStream === undefined && dedupeField === undefined) {
+    // How the pipeline reads and what it does when something fails is saved with its flow, and
+    // so is an alert pipeline's place in the order.
+    const { delaySecs, retry, deadLetterStream, dedupeField, order } = patch;
+    if (
+      delaySecs === undefined &&
+      !retry &&
+      deadLetterStream === undefined &&
+      dedupeField === undefined &&
+      order === undefined
+    ) {
       return;
     }
 
@@ -179,6 +222,7 @@ export function PipelineForm({
       ...(retry && { retry }),
       ...(deadLetterStream !== undefined && { deadLetterStream }),
       ...(dedupeField !== undefined && { dedupeField }),
+      ...(order !== undefined && { alert: { ...current.alert, order } }),
     }));
   };
 
@@ -188,17 +232,20 @@ export function PipelineForm({
     setGraph({ ...graph, sources: [...graph.sources, ''] });
   };
   const addDestination = (kind: DestinationKind) => {
-    const sink = kind === 'connector' ? CONNECTOR_PREFIX : '';
-    // A new stream goes after the other streams, before the connectors, as the flow lists them.
+    const sink = kind === 'connector' ? CONNECTOR_PREFIX : kind === 'table' ? TABLE_PREFIX : '';
+    // A new stream goes after the other streams, before the connectors and tables, as the flow lists
+    // them; a connector after the connectors; a table at the end.
     const at =
-      kind === 'connector'
+      kind === 'table'
         ? graph.sinks.length
-        : graph.sinks.filter((item) => connectorOf(item) === null).length;
+        : kind === 'connector'
+          ? graph.sinks.filter((item) => connectorOf(item) !== null || isStreamSink(item)).length
+          : graph.sinks.filter(isStreamSink).length;
     setSelectedId(`sink-${at}`);
     setGraph({ ...graph, sinks: [...graph.sinks.slice(0, at), sink, ...graph.sinks.slice(at)] });
   };
   const addStep = (type: StepType) => {
-    const step = newStep(type, graph.transforms.map((item) => item.name));
+    const step = newStep(type, graph.transforms.map((item) => item.name), graph.mode, graph.sources[0]);
     setSelectedId(`transform-${graph.transforms.length}`);
     setGraph({ ...graph, transforms: [...graph.transforms, step] });
   };
@@ -222,6 +269,8 @@ export function PipelineForm({
           retry: graph.retry,
           deadLetterStream: graph.deadLetterStream,
           dedupeField: graph.dedupeField,
+          stage: graph.alert.stage,
+          order: graph.alert.order,
         }}
         resources={resources}
         onChange={changeSettings}
@@ -239,7 +288,7 @@ export function PipelineForm({
         className={cn('min-w-0 px-[16px] pb-[14px] pt-[12px]', surfacePanelClass)}
       >
         <header className="mb-[8px] flex min-h-[28px] items-center gap-[12px]">
-          <h2 className="m-0 font-sans text-md font-strong text-tx-0">{t('workspace.stage_graph')}</h2>
+          <h2 className={cn('m-0', uiSectionTitleClass)}>{t('workspace.stage_graph')}</h2>
           <FlowStatus issues={issues} urgent={heldBack} />
         </header>
         <PipelineFlow
@@ -248,6 +297,12 @@ export function PipelineForm({
           editing={{
             selectedId,
             onSelect: setSelectedId,
+            onRemove: (id) => {
+              if (disabled) return;
+              const next = removeNode(graph, id, selectedId);
+              setGraph(next.model);
+              setSelectedId(next.selectedId);
+            },
             onAddStep: addStep,
             onAddSource: addSource,
             onAddDestination: addDestination,
@@ -267,6 +322,7 @@ export function PipelineForm({
           model={graph}
           selectedId={selectedId}
           resources={resources}
+          saved={initial ?? null}
           readOnly={disabled}
           onChange={setGraph}
           onSelect={setSelectedId}

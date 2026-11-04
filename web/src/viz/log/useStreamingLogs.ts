@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-import { useAuthStore } from '@/stores/auth';
+import { authFetch } from '@/lib/http';
 
 import type { LogRow } from './types';
 
@@ -30,7 +30,6 @@ export function useStreamingLogs({ url, body, enabled = true, maxRows = 100_000 
   const [, setVersion] = React.useState(0);
   const [isConnected, setConnected] = React.useState(false);
   const [error, setError] = React.useState<Error | null>(null);
-  const token = useAuthStore((s) => s.token);
 
   React.useEffect(() => {
     if (!enabled) return;
@@ -42,12 +41,11 @@ export function useStreamingLogs({ url, body, enabled = true, maxRows = 100_000 
 
     (async () => {
       try {
-        const resp = await fetch(url, {
+        const resp = await authFetch(url, {
           method: body ? 'POST' : 'GET',
           headers: {
             Accept: 'application/x-ndjson',
             ...(body ? { 'content-type': 'application/json' } : {}),
-            ...(token ? { authorization: `Bearer ${token}` } : {}),
           },
           ...(body && { body: JSON.stringify(body) }),
           signal: ac.signal,
@@ -103,7 +101,7 @@ export function useStreamingLogs({ url, body, enabled = true, maxRows = 100_000 
     // body is intentionally serialised in the dependency array — restart the
     // stream whenever the request payload changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, JSON.stringify(body ?? {}), enabled, maxRows, token]);
+  }, [url, JSON.stringify(body ?? {}), enabled, maxRows]);
 
   return { rows: rowsRef.current, isConnected, error };
   // NOTE: rows is a stable reference; subscribers should pair it with `version`

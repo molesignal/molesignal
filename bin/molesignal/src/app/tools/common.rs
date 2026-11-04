@@ -7,6 +7,7 @@ use tool_runtime::ToolResult;
 
 use super::ToolRuntime;
 use crate::{
+    app::trace::summary::carries_summaries,
     domain::{
         query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
         stream::{Schema, StreamDefinition, StreamType},
@@ -21,9 +22,10 @@ use crate::{
 pub(super) const DEFAULT_LOOKBACK_MICROS: i64 = 60 * 60 * 1_000_000;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct TimeRangeArg {
-    pub start_micros: i64,
-    pub end_micros: i64,
+    pub start_time: i64,
+    pub end_time: i64,
 }
 
 pub(super) fn parse_args<T: for<'de> Deserialize<'de>>(value: Value) -> Result<T> {
@@ -49,9 +51,9 @@ pub(super) fn redact_credentials(value: &Value) -> Value {
         "secret",
         "authorization",
         "cookie",
-        "api_key",
+        "apikey",
         "credential",
-        "private_key",
+        "privatekey",
     ];
 
     match value {
@@ -59,10 +61,9 @@ pub(super) fn redact_credentials(value: &Value) -> Value {
             values
                 .iter()
                 .map(|(key, value)| {
-                    let value = if SENSITIVE
-                        .iter()
-                        .any(|needle| key.to_ascii_lowercase().contains(needle))
-                    {
+                    // `apiKey` 与 `api_key` 一样算：去掉分隔符再找。
+                    let normalized = key.to_ascii_lowercase().replace(['_', '-'], "");
+                    let value = if SENSITIVE.iter().any(|needle| normalized.contains(needle)) {
                         Value::String("<redacted>".into())
                     } else {
                         redact_credentials(value)
@@ -78,15 +79,15 @@ pub(super) fn redact_credentials(value: &Value) -> Value {
 }
 
 pub(super) fn time_range(value: TimeRangeArg) -> Result<TimeRange> {
-    if value.start_micros > value.end_micros {
+    if value.start_time > value.end_time {
         return Err(Error::invalid(
-            "time_range.start_micros must be less than or equal to end_micros",
+            "timeRange.startTime must be less than or equal to endTime",
         ));
     }
 
     Ok(TimeRange::new(
-        TimestampMicros(value.start_micros),
-        TimestampMicros(value.end_micros),
+        TimestampMicros(value.start_time),
+        TimestampMicros(value.end_time),
     ))
 }
 
@@ -126,6 +127,32 @@ pub(super) async fn run_query(
                 stream_type,
             }),
             limit: Some(limit),
+            step: None,
+            federation_clusters: Vec::new(),
+        })
+        .await
+}
+
+/// A PromQL range query read every `step` microseconds, at most `limit` rows.
+pub(super) async fn run_metric_range(
+    runtime: &ToolRuntime,
+    org_id: &Id,
+    statement: String,
+    range: TimeRange,
+    step: i64,
+    limit: usize,
+) -> Result<QueryResult> {
+    runtime
+        .observability
+        .query
+        .run(QueryRequest {
+            org_id: org_id.clone(),
+            language: QueryLanguage::Promql,
+            statement,
+            time_range: range,
+            stream: None,
+            limit: Some(limit),
+            step: Some(step),
             federation_clusters: Vec::new(),
         })
         .await
@@ -186,8 +213,8 @@ pub(super) fn query_result(result: QueryResult) -> ToolResult {
     ToolResult::json(serde_json::json!({
         "columns": result.columns,
         "rows": result.rows,
-        "scanned_rows": result.scanned_rows,
-        "took_ms": result.took_ms,
+        "scannedRows": result.scanned_rows,
+        "tookMs": result.took_ms,
         "federation": result.federation,
     }))
 }
@@ -227,6 +254,14 @@ pub(super) async fn require_stream(
     name: &str,
     stream_type: StreamType,
 ) -> Result<StreamDefinition> {
+    // A tool call carries nobody's audit.read, and a schema or a field value of the audit trail
+    // says as much as a row does.
+    if !crate::infra::query::grants::may_read(name) {
+        return Err(Error::forbidden(format!(
+            "tools cannot read `{name}`: open it in Logs, which needs the audit.read permission"
+        )));
+    }
+
     let stream = runtime
         .observability
         .streams
@@ -255,6 +290,15 @@ pub(super) fn require_field<'a>(schema: &'a Schema, field: &str) -> Result<&'a s
         .ok_or_else(|| Error::invalid(format!("field `{field}` is not present in stream schema")))
 }
 
+/// A stream with summaries first, as the trace list has it, then `default`, then by name.
+fn traces_stream_order(stream: &StreamDefinition) -> (bool, bool, String) {
+    (
+        !carries_summaries(&stream.schema),
+        stream.name != "default",
+        stream.name.clone(),
+    )
+}
+
 pub(super) async fn resolve_traces_stream(
     runtime: &ToolRuntime,
     org_id: &Id,
@@ -270,7 +314,7 @@ pub(super) async fn resolve_traces_stream(
         })
         .collect::<Vec<_>>();
 
-    candidates.sort_by_key(|stream| (stream.name != "default", stream.name.clone()));
+    candidates.sort_by_key(traces_stream_order);
 
     for stream in candidates {
         if runtime
@@ -294,7 +338,7 @@ pub(super) fn validate_trace_id(trace_id: &str) -> Result<()> {
             .chars()
             .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_'))
     {
-        return Err(Error::invalid("trace_id must be 1..=128 safe characters"));
+        return Err(Error::invalid("traceId must be 1..=128 safe characters"));
     }
 
     Ok(())
@@ -302,4 +346,69 @@ pub(super) fn validate_trace_id(trace_id: &str) -> Result<()> {
 
 pub(super) fn is_internal_stream(name: &str) -> bool {
     name.starts_with('_')
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        domain::stream::{FieldDef, FieldType},
+        shared::{
+            time::TimestampMicros,
+            trace::summary::{
+                TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
+                TRACE_SUMMARY_MARKER_FIELD, TRACE_SUMMARY_SPAN_COUNT_FIELD,
+                TRACE_SUMMARY_START_NS_FIELD,
+            },
+        },
+    };
+
+    fn stream(name: &str, fields: &[&str]) -> StreamDefinition {
+        StreamDefinition {
+            id: Id::from_string(name),
+            org_id: Id::from_string("org-1"),
+            name: name.to_string(),
+            stream_type: StreamType::TRACES,
+            schema: Schema {
+                fields: fields
+                    .iter()
+                    .map(|name| FieldDef {
+                        name: (*name).to_string(),
+                        data_type: FieldType::Utf8,
+                        nullable: true,
+                        index_type: None,
+                        indexed: false,
+                        encrypted: false,
+                        exact: false,
+                    })
+                    .collect(),
+            },
+            retention: None,
+            created_at: TimestampMicros(1),
+            updated_at: TimestampMicros(1),
+        }
+    }
+
+    #[test]
+    fn a_traces_stream_with_summaries_comes_before_default() {
+        let summarized = [
+            TRACE_SUMMARY_MARKER_FIELD,
+            TRACE_SUMMARY_START_NS_FIELD,
+            TRACE_SUMMARY_DURATION_NS_FIELD,
+            TRACE_SUMMARY_SPAN_COUNT_FIELD,
+            TRACE_SUMMARY_ERROR_COUNT_FIELD,
+        ];
+
+        let mut streams = [
+            stream("checkout", &["trace_id"]),
+            stream("default", &["trace_id"]),
+            stream("prod", &summarized),
+        ];
+
+        streams.sort_by_key(traces_stream_order);
+
+        let names: Vec<&str> = streams.iter().map(|stream| stream.name.as_str()).collect();
+
+        assert_eq!(names, ["prod", "default", "checkout"]);
+    }
 }

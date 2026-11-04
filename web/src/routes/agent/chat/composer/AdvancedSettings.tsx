@@ -71,10 +71,10 @@ export function AgentSettingsMenu({
   const limits = selectedAgentProfile
     ? [
         `${t('advanced.investigation_limit')} ${t('advanced.minutes', {
-          count: Math.max(1, Math.round(selectedAgentProfile.max_investigation_secs / 60)),
+          count: Math.max(1, Math.round(selectedAgentProfile.maxInvestigationSecs / 60)),
         })}`,
         `${t('advanced.tool_limit')} ${t('advanced.calls', {
-          count: selectedAgentProfile.max_tool_calls,
+          count: selectedAgentProfile.maxToolCalls,
         })}`,
       ].join(' · ')
     : null;

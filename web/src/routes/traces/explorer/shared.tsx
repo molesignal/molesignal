@@ -1,53 +1,35 @@
-import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
-import type * as webApi from '@/api/web';
 import { zonedMoment } from '@/lib/time';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/shell/ui/select';
-
-import {
-  parseTraceListSort,
-  TRACE_LIST_SORT_OPTIONS,
-} from '../sort';
-
-export function TraceListSortSelect({
-  value,
-  onChange,
-}: {
-  value: webApi.TraceListSort;
-  onChange: (value: webApi.TraceListSort) => void;
-}) {
-  const { t } = useTranslation('traces');
-
-  return (
-    <Select
-      value={value}
-      onValueChange={(nextValue) => onChange(parseTraceListSort(nextValue))}
-    >
-      <SelectTrigger
-        aria-label={t('explore.sort.aria')}
-        className="h-[44px] w-fit min-w-0 rounded-sm border-0 bg-transparent px-[10px] py-0 text-xs font-semibold text-tx-2 shadow-none hover:bg-[var(--control-surface)] hover:text-tx-0 data-[state=open]:border-0 data-[state=open]:bg-[var(--control-surface)] data-[state=open]:text-tx-0 sm:h-[28px]"
-      >
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent align="end" className="min-w-[136px]">
-        {TRACE_LIST_SORT_OPTIONS.map((option) => (
-          <SelectItem key={option.value} value={option.value} className="h-8 text-xs">
-            {t(option.labelKey)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
+import { cn } from '@/shell/lib/cn';
+import { HTTP_STATUS_TEXT, httpStatusTone, OUTCOME_TEXT, type RequestOutcome } from '@/viz/trace/model/span';
 
 export function formatTraceStart(startNs: number, tz: string): string {
   if (!Number.isFinite(startNs) || startNs <= 0) return '-';
   const date = zonedMoment(Math.floor(startNs / 1_000_000), tz);
   return date.isValid() ? date.format('HH:mm:ss.SSS') : '-';
+}
+
+/**
+ * How a trace or a span ended, as a word in its colour: a refused request is still not an answer.
+ * An answer is in the body weight and what went wrong in the strong one, so a page of answers
+ * does not read as a column of emphasis.
+ */
+export function OutcomeWord({ outcome, t }: { outcome: RequestOutcome; t: TFunction<'traces'> }) {
+  return (
+    <span className={cn('truncate', outcome === 'ok' ? 'font-body' : 'font-strong', OUTCOME_TEXT[outcome])}>
+      {t(outcome === 'ok' ? 'explore.table.status_ok' : 'explore.table.status_error')}
+    </span>
+  );
+}
+
+/** The HTTP status a request answered with, in the colour of its class, a 4xx or 5xx in the strong weight; a dash where it kept none. */
+export function HttpStatusCode({ status }: { status: number | null | undefined }) {
+  if (!status) return <span className="text-tx-4">—</span>;
+  const tone = httpStatusTone(status);
+  return (
+    <span className={cn('tabular-nums', tone === 'client' || tone === 'server' ? 'font-strong' : 'font-body', HTTP_STATUS_TEXT[tone])}>
+      {status}
+    </span>
+  );
 }

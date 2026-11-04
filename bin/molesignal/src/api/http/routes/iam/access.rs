@@ -11,13 +11,15 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use super::grant_limit;
 use crate::{
     api::{AppState, http::middleware::Permission},
     app::iam::{IamAccessRequest, IamCapabilitySnapshot, IamContext, validate_iam_conditions},
     domain::iam::{
+        IamScope,
         access::{
             IamCrossOrgGrant, IamCrossOrgGrantStatus, IamPrincipalType, IamResourceRelationship,
-            IamRoleBinding,
+            IamRoleBinding, ORGANIZATION_NARROWABLE_PERMISSIONS,
         },
         catalog::{IamPermissionCatalog, IamPermissionScope},
         permission,
@@ -68,7 +70,12 @@ pub fn routes() -> Router<AppState> {
         .route("/iam/evaluate-batch", post(evaluate_batch))
 }
 
-#[permission(any("iam.roles.read", "iam.policies.read"))]
+#[permission(any(
+    "iam.roles.read",
+    "iam.policies.read",
+    "iam.grants.read",
+    "sys.administrators.read"
+))]
 async fn permission_catalog(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -90,7 +97,7 @@ struct IamShareTarget {
     name: String,
 }
 
-#[permission("iam.policies.manage")]
+#[permission("iam.cross_org.manage")]
 async fn list_share_targets(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -120,6 +127,7 @@ async fn list_share_targets(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateRoleBindingRequest {
     role_id: String,
     principal_type: IamPrincipalType,
@@ -131,9 +139,9 @@ struct CreateRoleBindingRequest {
     #[serde(default = "empty_object")]
     conditions: Value,
     #[serde(default)]
-    starts_at_micros: Option<i64>,
+    starts_at: Option<i64>,
     #[serde(default)]
-    expires_at_micros: Option<i64>,
+    expires_at: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -148,7 +156,7 @@ struct DeleteResponse {
     version: u64,
 }
 
-#[permission("iam.policies.read")]
+#[permission(any("iam.grants.read", "sys.administrators.read"))]
 async fn list_role_bindings(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -163,33 +171,35 @@ async fn list_role_bindings(
     ))
 }
 
-#[permission("iam.policies.manage")]
+#[permission(any("iam.grants.manage", "sys.administrators.manage"))]
 async fn create_role_binding(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
     Json(request): Json<CreateRoleBindingRequest>,
 ) -> Result<Json<MutationResponse<IamRoleBinding>>> {
-    validate_window(request.starts_at_micros, request.expires_at_micros)?;
+    validate_window(request.starts_at, request.expires_at)?;
     validate_iam_conditions(&request.conditions)?;
 
-    validate_resource_selector(
-        request.resource_type.as_deref(),
-        request.resource_id.as_deref(),
-    )?;
+    let role_id = Id::from_string(&request.role_id);
+    let role = state.iam.roles.get(&context.org_id, &role_id).await?;
+    grant_limit::require_roles_held(&state, &context, std::slice::from_ref(&role_id)).await?;
 
-    state
-        .iam
-        .roles
-        .get(&context.org_id, &Id::from_string(&request.role_id))
+    if context.scope == IamScope::System {
+        validate_platform_binding(&state, &request, &role.effective_permissions).await?;
+    } else {
+        validate_resource_selector(
+            request.resource_type.as_deref(),
+            request.resource_id.as_deref(),
+        )?;
+
+        validate_principal(
+            &state,
+            &context.org_id,
+            request.principal_type,
+            &request.principal_id,
+        )
         .await?;
-
-    validate_principal(
-        &state,
-        &context.org_id,
-        request.principal_type,
-        &request.principal_id,
-    )
-    .await?;
+    }
 
     let binding = IamRoleBinding {
         id: Id::new(),
@@ -200,8 +210,8 @@ async fn create_role_binding(
         resource_type: request.resource_type,
         resource_id: request.resource_id,
         conditions: request.conditions,
-        starts_at: request.starts_at_micros.map(TimestampMicros),
-        expires_at: request.expires_at_micros.map(TimestampMicros),
+        starts_at: request.starts_at.map(TimestampMicros),
+        expires_at: request.expires_at.map(TimestampMicros),
         created_by: context.user_id.clone(),
         created_at: TimestampMicros::now(),
     };
@@ -219,7 +229,7 @@ async fn create_role_binding(
         "iam.role_binding.create",
         "iam_role_binding",
         &binding.id,
-        serde_json::json!({"role_id": binding.role_id.0}),
+        serde_json::json!({"roleId": binding.role_id.0}),
     )
     .await?;
 
@@ -229,13 +239,27 @@ async fn create_role_binding(
     }))
 }
 
-#[permission("iam.policies.manage")]
+#[permission(any("iam.grants.manage", "sys.administrators.manage"))]
 async fn delete_role_binding(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<DeleteResponse>> {
     let id = Id::from_string(id);
+
+    // Taking away more than the caller holds would be a way past the limit on what it may give.
+    let binding = state
+        .iam
+        .access
+        .repository()
+        .list_role_bindings(&context.org_id)
+        .await?
+        .into_iter()
+        .find(|binding| binding.id == id)
+        .ok_or_else(|| Error::not_found("role binding"))?;
+
+    grant_limit::require_roles_held(&state, &context, std::slice::from_ref(&binding.role_id))
+        .await?;
 
     let version = state
         .iam
@@ -261,6 +285,7 @@ async fn delete_role_binding(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateRelationshipRequest {
     resource_type: String,
     resource_id: String,
@@ -273,7 +298,7 @@ struct CreateRelationshipRequest {
     container_id: Option<String>,
 }
 
-#[permission("iam.policies.read")]
+#[permission("iam.grants.read")]
 async fn list_relationships(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -288,7 +313,7 @@ async fn list_relationships(
     ))
 }
 
-#[permission("iam.policies.manage")]
+#[permission("iam.grants.manage")]
 async fn create_relationship(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -305,6 +330,7 @@ async fn create_relationship(
     validate_nonempty_id("role_id", &request.role_id)?;
     let role_id = Id::from_string(request.role_id);
     state.iam.roles.get(&context.org_id, &role_id).await?;
+    grant_limit::require_roles_held(&state, &context, std::slice::from_ref(&role_id)).await?;
 
     validate_principal(
         &state,
@@ -341,7 +367,7 @@ async fn create_relationship(
         "iam.relationship.create",
         "iam_relationship",
         &relationship.id,
-        serde_json::json!({"role_id": relationship.role_id}),
+        serde_json::json!({"roleId": relationship.role_id}),
     )
     .await?;
 
@@ -351,7 +377,7 @@ async fn create_relationship(
     }))
 }
 
-#[permission("iam.policies.manage")]
+#[permission("iam.grants.manage")]
 async fn delete_relationship(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -383,6 +409,7 @@ async fn delete_relationship(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateCrossOrgGrantRequest {
     target_organization_id: String,
     grantee_type: IamPrincipalType,
@@ -393,12 +420,12 @@ struct CreateCrossOrgGrantRequest {
     #[serde(default = "empty_object")]
     conditions: Value,
     #[serde(default)]
-    starts_at_micros: Option<i64>,
+    starts_at: Option<i64>,
     #[serde(default)]
-    expires_at_micros: Option<i64>,
+    expires_at: Option<i64>,
 }
 
-#[permission("iam.policies.read")]
+#[permission("iam.cross_org.read")]
 async fn list_cross_org_grants(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -413,7 +440,7 @@ async fn list_cross_org_grants(
     ))
 }
 
-#[permission("iam.policies.manage")]
+#[permission("iam.cross_org.manage")]
 async fn create_cross_org_grant(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -429,7 +456,7 @@ async fn create_cross_org_grant(
 
     state.iam.service.orgs.get(&target_org).await?;
     validate_resource_type(&request.resource_type)?;
-    validate_window(request.starts_at_micros, request.expires_at_micros)?;
+    validate_window(request.starts_at, request.expires_at)?;
     validate_iam_conditions(&request.conditions)?;
     let resource_ids = validate_cross_org_selector(&request.resource_selector)?;
 
@@ -445,6 +472,8 @@ async fn create_cross_org_grant(
             "cross-organization grants require at least one registered permission",
         ));
     }
+
+    grant_limit::require_held(&context, &permissions)?;
 
     validate_principal(
         &state,
@@ -499,8 +528,8 @@ async fn create_cross_org_grant(
         resource_selector: request.resource_selector,
         permissions,
         conditions: request.conditions,
-        starts_at: request.starts_at_micros.map(TimestampMicros),
-        expires_at: request.expires_at_micros.map(TimestampMicros),
+        starts_at: request.starts_at.map(TimestampMicros),
+        expires_at: request.expires_at.map(TimestampMicros),
         status: IamCrossOrgGrantStatus::Pending,
         approved_by: None,
         approved_at: None,
@@ -533,7 +562,7 @@ async fn create_cross_org_grant(
     }))
 }
 
-#[permission("iam.policies.manage")]
+#[permission("iam.cross_org.manage")]
 async fn accept_cross_org_grant(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -548,7 +577,7 @@ async fn accept_cross_org_grant(
     .await
 }
 
-#[permission("iam.policies.manage")]
+#[permission("iam.cross_org.manage")]
 async fn revoke_cross_org_grant(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -685,6 +714,76 @@ async fn validate_principal(
     Ok(())
 }
 
+/// A binding in the platform organization: an account, wherever it belongs, across the platform or
+/// on one organization. A condition could never hold, because nothing about a platform session
+/// answers it, so it is refused rather than kept as a grant that gives nothing.
+async fn validate_platform_binding(
+    state: &AppState,
+    request: &CreateRoleBindingRequest,
+    role_permissions: &[String],
+) -> Result<()> {
+    if request.principal_type != IamPrincipalType::User {
+        return Err(Error::invalid(
+            "platform roles are granted to accounts, not to teams or service accounts",
+        ));
+    }
+
+    let principal = Id::from_string(&request.principal_id);
+    validate_nonempty_id("principal_id", &request.principal_id)?;
+    let account = state.iam.service.users.get(&principal).await?;
+
+    if account.disabled {
+        return Err(Error::invalid("this account is disabled"));
+    }
+
+    if !is_empty_conditions(&request.conditions) {
+        return Err(Error::invalid(
+            "platform bindings do not take conditions: nothing about a platform session answers them",
+        ));
+    }
+
+    match (
+        request.resource_type.as_deref(),
+        request.resource_id.as_deref(),
+    ) {
+        (None, None) => Ok(()),
+        (Some("organization"), Some(organization_id)) => {
+            let organization = state
+                .iam
+                .service
+                .orgs
+                .get(&Id::from_string(organization_id))
+                .await?;
+
+            if organization.system {
+                return Err(Error::invalid(
+                    "a platform binding cannot be narrowed to the platform organization",
+                ));
+            }
+
+            if !role_permissions.iter().any(|permission| {
+                ORGANIZATION_NARROWABLE_PERMISSIONS.contains(&permission.as_str())
+            }) {
+                return Err(Error::invalid(
+                    "this role holds nothing that can be narrowed to an organization",
+                ));
+            }
+
+            Ok(())
+        }
+        _ => Err(Error::invalid(
+            "a platform binding covers the whole platform or names one organization",
+        )),
+    }
+}
+
+fn is_empty_conditions(conditions: &Value) -> bool {
+    conditions.is_null()
+        || conditions
+            .as_object()
+            .is_some_and(serde_json::Map::is_empty)
+}
+
 fn validate_resource_selector(
     resource_type: Option<&str>,
     resource_id: Option<&str>,
@@ -701,7 +800,7 @@ fn validate_resource_selector(
             Ok(())
         }
         (None, Some(_)) => Err(Error::invalid(
-            "resource_id requires a registered resource_type",
+            "resourceId requires a registered resource_type",
         )),
     }
 }
@@ -739,12 +838,12 @@ fn validate_window(starts_at: Option<i64>, expires_at: Option<i64>) -> Result<()
 
 fn validate_cross_org_selector(selector: &Value) -> Result<Vec<String>> {
     let Some(object) = selector.as_object() else {
-        return Err(Error::invalid("resource_selector must be an object"));
+        return Err(Error::invalid("resourceSelector must be an object"));
     };
 
     if object.len() != 1 {
         return Err(Error::invalid(
-            "resource_selector must contain exactly one of ids or all",
+            "resourceSelector must contain exactly one of ids or all",
         ));
     }
 
@@ -754,13 +853,13 @@ fn validate_cross_org_selector(selector: &Value) -> Result<Vec<String>> {
 
     let Some(ids) = object.get("ids").and_then(Value::as_array) else {
         return Err(Error::invalid(
-            "resource_selector must contain ids or all=true",
+            "resourceSelector must contain ids or all=true",
         ));
     };
 
     if ids.is_empty() || ids.len() > 100 {
         return Err(Error::invalid(
-            "resource_selector ids must contain 1..100 values",
+            "resourceSelector ids must contain 1..100 values",
         ));
     }
 
@@ -768,7 +867,7 @@ fn validate_cross_org_selector(selector: &Value) -> Result<Vec<String>> {
         .map(|value| {
             let value = value
                 .as_str()
-                .ok_or_else(|| Error::invalid("resource_selector ids must be strings"))?;
+                .ok_or_else(|| Error::invalid("resourceSelector ids must be strings"))?;
 
             validate_nonempty_id("resource_selector id", value)?;
             Ok(value.to_string())
@@ -810,6 +909,15 @@ fn empty_object() -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_a_binding_without_conditions_counts_as_having_none() {
+        assert!(is_empty_conditions(&serde_json::json!({})));
+        assert!(is_empty_conditions(&Value::Null));
+        assert!(!is_empty_conditions(
+            &serde_json::json!({"environment": "prod"})
+        ));
+    }
 
     #[test]
     fn cross_org_selector_is_bounded() {

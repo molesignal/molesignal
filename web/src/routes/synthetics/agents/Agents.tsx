@@ -17,6 +17,7 @@ import { toast } from '@/shell/ui/sonner';
 
 import { SYNTHETICS_REFRESH_MILLIS } from '../data';
 import { SyntheticsList, SyntheticsPage, useLoadState } from '../Frame';
+import { KindWords } from '../marks';
 import { formatRelativeTimestamp } from '../model';
 import { AgentConfigurationDrawer } from './AgentConfigurationDrawer';
 import { AgentDetailDrawer } from './AgentDetailDrawer';
@@ -274,7 +275,7 @@ function agentColumns(t: TFunction<'synthetics'>, locale: string): DataTableColu
       cell: ({ agent }) => (
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-bg-3 text-tx-2">
-            {agent.organization_id ? <Server aria-hidden className="h-4 w-4" /> : <Cpu aria-hidden className="h-4 w-4" />}
+            {agent.organizationId ? <Server aria-hidden className="h-4 w-4" /> : <Cpu aria-hidden className="h-4 w-4" />}
           </span>
           <div className="min-w-0">
             <div className="truncate font-strong text-tx-0">{agentDisplayName(agent)}</div>
@@ -295,7 +296,7 @@ function agentColumns(t: TFunction<'synthetics'>, locale: string): DataTableColu
       width: 150,
       cell: ({ agent, location }) => (
         <div>
-          <div className="truncate text-tx-1">{location?.name ?? agent.location_id}</div>
+          <div className="truncate text-tx-1">{location?.name ?? agent.locationId}</div>
           {location && <div className="mt-0.5 font-code text-type-micro text-tx-3">{location.code}</div>}
         </div>
       ),
@@ -306,8 +307,8 @@ function agentColumns(t: TFunction<'synthetics'>, locale: string): DataTableColu
       width: 100,
       cell: ({ agent }) => (
         <div className="font-code text-xs text-tx-2">
-          v{agent.agent_version}
-          <div className="mt-0.5 text-type-micro text-tx-3">P{agent.protocol_version}</div>
+          v{agent.agentVersion}
+          <div className="mt-0.5 text-type-micro text-tx-3">P{agent.protocolVersion}</div>
         </div>
       ),
     },
@@ -315,12 +316,7 @@ function agentColumns(t: TFunction<'synthetics'>, locale: string): DataTableColu
       key: 'capabilities',
       header: t('agents.capabilities'),
       width: 155,
-      cell: ({ agent }) => (
-        <span className="text-xs text-tx-2">
-          {agent.capabilities.slice(0, 3).join(' · ')}
-          {agent.capabilities.length > 3 ? ` +${agent.capabilities.length - 3}` : ''}
-        </span>
-      ),
+      cell: ({ agent }) => <KindWords kinds={agent.capabilities} />,
     },
     {
       key: 'capacity',
@@ -332,15 +328,15 @@ function agentColumns(t: TFunction<'synthetics'>, locale: string): DataTableColu
       key: 'heartbeat',
       header: t('agents.last_heartbeat'),
       width: 120,
-      cell: ({ agent }) => formatRelativeTimestamp(agent.last_heartbeat_at, locale),
+      cell: ({ agent }) => formatRelativeTimestamp(agent.lastHeartbeatAt, locale),
     },
     {
       key: 'certificate',
       header: t('agents.certificate'),
       width: 130,
       cell: ({ agent }) =>
-        agent.certificate_expires_at
-          ? formatRelativeTimestamp(agent.certificate_expires_at, locale)
+        agent.certificateExpiresAt
+          ? formatRelativeTimestamp(agent.certificateExpiresAt, locale)
           : t('agents.embedded_identity'),
     },
   ];

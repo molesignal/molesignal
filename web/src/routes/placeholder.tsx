@@ -10,7 +10,7 @@ import { Kbd } from '@/shell/ui/kbd';
 export function Placeholder({ title }: { title: string }) {
   return (
     <div className="flex h-[calc(100vh-32px)] flex-col items-center justify-center gap-2 text-muted-foreground">
-      <div className="text-base font-semibold text-foreground">{title}</div>
+      <div className="text-base font-display text-foreground">{title}</div>
       <div className="text-xs">
         <Trans
           i18nKey="shell:pages.placeholder.navigate_hint"

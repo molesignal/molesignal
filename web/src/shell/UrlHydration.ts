@@ -108,9 +108,9 @@ export function encodeStack(frames: FrameContent[]): string {
   const minimal = frames.map((f) => ({
     k: f.kind,
     p: f.params,
-    t: f.time_range_override,
-    a: f.anchor_override,
-    pp: f.parent_frame_id,
+    t: f.timeRangeOverride,
+    a: f.anchorOverride,
+    pp: f.parentFrameId,
     pin: f.pinned,
   }));
   const json = JSON.stringify(minimal);
@@ -136,9 +136,9 @@ export function decodeStack(payload: string): FrameContent[] {
   return arr.map((x) => ({
     kind: x.k,
     params: x.p,
-    ...(x.t !== undefined && { time_range_override: x.t }),
-    ...(x.a !== undefined && { anchor_override: x.a }),
-    ...(x.pp !== undefined && { parent_frame_id: x.pp }),
+    ...(x.t !== undefined && { timeRangeOverride: x.t }),
+    ...(x.a !== undefined && { anchorOverride: x.a }),
+    ...(x.pp !== undefined && { parentFrameId: x.pp }),
     pinned: x.pin ?? false,
   }));
 }

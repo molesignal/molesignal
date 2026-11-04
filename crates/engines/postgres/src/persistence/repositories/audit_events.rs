@@ -3,7 +3,8 @@
 
 //! `audit_events` 表 Pg 实装。
 //!
-//! 用于 IAM deny 路径 + 后续 intake/query/管控类操作写审计。
+//! 用于 IAM deny 路径 + 后续 intake/query/管控类操作写审计；过了保留期的记录由
+//! compactor 的审计保留任务分批删除。
 
 use async_trait::async_trait;
 use serde::Serialize;
@@ -16,6 +17,7 @@ use crate::shared::{
 };
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AuditEvent {
     pub id: Id,
     pub org_id: Id,
@@ -31,7 +33,7 @@ pub struct AuditEvent {
 }
 
 /// 审计查询过滤条件（change `add-ai-anomaly-chat`，task 4.1）。
-/// 所有过滤项可空；`cursor` 为上一页最后一行的 `(ts_micros, id)`，用于稳定游标分页。
+/// 所有过滤项可空；`cursor` 为上一页最后一行的 `(ts, id)`，用于稳定游标分页。
 #[derive(Debug, Clone, Default)]
 pub struct AuditQuery {
     pub from_micros: Option<i64>,
@@ -43,16 +45,32 @@ pub struct AuditQuery {
     pub target_id: Option<String>,
     /// SQL LIMIT；调用方一般传 page_size + 1 以探测是否有下一页。
     pub limit: i64,
-    /// `(ts_micros, id)`：仅返回 DESC 序中严格位于其后的行。
+    /// `(ts, id)`：仅返回 DESC 序中严格位于其后的行。
     pub cursor: Option<(i64, String)>,
+}
+
+/// 一段时间里的审计记录：多少条，最早的一条是什么时候。没有记录时 `earliest` 是 `None`。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct AuditRangeSummary {
+    pub rows: u64,
+    pub earliest: Option<TimestampMicros>,
 }
 
 #[async_trait]
 pub trait AuditEventRepository: Send + Sync {
     async fn record(&self, e: AuditEvent) -> Result<()>;
     async fn list_recent(&self, org_id: &Id, limit: i64) -> Result<Vec<AuditEvent>>;
-    /// 过滤 + 游标分页查询，按 `ts_micros DESC, id DESC` 排序。
+    /// 过滤 + 游标分页查询，按 `ts DESC, id DESC` 排序。
     async fn query(&self, org_id: &Id, q: &AuditQuery) -> Result<Vec<AuditEvent>>;
+    /// 删除早于 `before` 的记录（不分组织），最早的先删，一次最多 `limit` 条；返回删除条数。
+    async fn delete_before(&self, before: TimestampMicros, limit: i64) -> Result<u64>;
+    /// 时间在 `[from, before)` 的记录（不分组织）：调短保留期之前看会删掉什么。`from` 为 `None`
+    /// 时从最早的记录算起。
+    async fn summarize_range(
+        &self,
+        from: Option<TimestampMicros>,
+        before: TimestampMicros,
+    ) -> Result<AuditRangeSummary>;
 }
 
 pub struct PgAuditEventRepository {
@@ -65,7 +83,8 @@ impl PgAuditEventRepository {
     }
 }
 
-const COLS: &str = "id, org_id, actor_kind, actor_id, action, target_kind, target_id, ip, user_agent, payload, ts_micros";
+const COLS: &str =
+    "id, org_id, actor_kind, actor_id, action, target_kind, target_id, ip, user_agent, payload, ts";
 
 fn row_to(row: sqlx::postgres::PgRow) -> Result<AuditEvent> {
     let payload: Json<Value> = row.try_get("payload").map_err(sqlx_err)?;
@@ -81,11 +100,13 @@ fn row_to(row: sqlx::postgres::PgRow) -> Result<AuditEvent> {
         ip: row.try_get("ip").map_err(sqlx_err)?,
         user_agent: row.try_get("user_agent").map_err(sqlx_err)?,
         payload: payload.0,
-        ts: TimestampMicros(row.try_get("ts_micros").map_err(sqlx_err)?),
+        ts: row.try_get::<TimestampMicros, _>("ts").map_err(sqlx_err)?,
     })
 }
 
-fn sanitize_audit_event(event: &mut AuditEvent) {
+/// 审计事件持久化前的清洗：凭据从 payload、ip、user agent 里去掉，长度有上限。写到别处的审计
+/// 事件（例如组织的 `_audit` 流）也先过这一道。
+pub fn sanitize_audit_event(event: &mut AuditEvent) {
     let mut fields = Map::new();
     fields.insert("payload".into(), std::mem::take(&mut event.payload));
 
@@ -119,7 +140,7 @@ impl AuditEventRepository for PgAuditEventRepository {
         sqlx::query(
             "INSERT INTO audit_events
                 (id, org_id, actor_kind, actor_id, action, target_kind, target_id,
-                 ip, user_agent, payload, ts_micros)
+                 ip, user_agent, payload, ts)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
         )
         .bind(&e.id.0)
@@ -132,7 +153,7 @@ impl AuditEventRepository for PgAuditEventRepository {
         .bind(&e.ip)
         .bind(&e.user_agent)
         .bind(Json(&e.payload))
-        .bind(e.ts.0)
+        .bind(e.ts)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -142,7 +163,7 @@ impl AuditEventRepository for PgAuditEventRepository {
 
     async fn list_recent(&self, org_id: &Id, limit: i64) -> Result<Vec<AuditEvent>> {
         let rows = sqlx::query(&format!(
-            "SELECT {COLS} FROM audit_events WHERE org_id = $1 ORDER BY ts_micros DESC LIMIT $2"
+            "SELECT {COLS} FROM audit_events WHERE org_id = $1 ORDER BY ts DESC LIMIT $2"
         ))
         .bind(&org_id.0)
         .bind(limit.clamp(1, 100))
@@ -155,7 +176,7 @@ impl AuditEventRepository for PgAuditEventRepository {
 
     async fn query(&self, org_id: &Id, q: &AuditQuery) -> Result<Vec<AuditEvent>> {
         // 全过滤项以 `($n IS NULL OR col = $n)` 形式恒绑定，避免动态 SQL 拼接。
-        // 游标条件 `(ts_micros, id) < (cts, cid)` 在 DESC 序里取「下一页」。
+        // 游标条件 `(ts, id) < (cts, cid)` 在 DESC 序里取「下一页」。
         let (cursor_ts, cursor_id) = match &q.cursor {
             Some((ts, id)) => (Some(*ts), Some(id.clone())),
             None => (None, None),
@@ -164,26 +185,26 @@ impl AuditEventRepository for PgAuditEventRepository {
         let rows = sqlx::query(&format!(
             "SELECT {COLS} FROM audit_events
              WHERE org_id = $1
-               AND ($2::bigint IS NULL OR ts_micros >= $2)
-               AND ($3::bigint IS NULL OR ts_micros <= $3)
+               AND ($2::timestamptz IS NULL OR ts >= $2)
+               AND ($3::timestamptz IS NULL OR ts <= $3)
                AND ($4::text   IS NULL OR actor_kind = $4)
                AND ($5::text   IS NULL OR actor_id = $5)
                AND ($6::text   IS NULL OR action = $6)
                AND ($7::text   IS NULL OR target_kind = $7)
                AND ($8::text   IS NULL OR target_id = $8)
-               AND ($9::bigint IS NULL OR ts_micros < $9 OR (ts_micros = $9 AND id < $10))
-             ORDER BY ts_micros DESC, id DESC
+               AND ($9::timestamptz IS NULL OR ts < $9 OR (ts = $9 AND id < $10))
+             ORDER BY ts DESC, id DESC
              LIMIT $11"
         ))
         .bind(&org_id.0)
-        .bind(q.from_micros)
-        .bind(q.to_micros)
+        .bind(q.from_micros.map(TimestampMicros))
+        .bind(q.to_micros.map(TimestampMicros))
         .bind(&q.actor_kind)
         .bind(&q.actor_id)
         .bind(&q.action)
         .bind(&q.target_kind)
         .bind(&q.target_id)
-        .bind(cursor_ts)
+        .bind(cursor_ts.map(TimestampMicros))
         .bind(cursor_id)
         .bind(q.limit.clamp(1, 500))
         .fetch_all(&self.pool)
@@ -191,6 +212,51 @@ impl AuditEventRepository for PgAuditEventRepository {
         .map_err(sqlx_err)?;
 
         rows.into_iter().map(row_to).collect()
+    }
+
+    async fn delete_before(&self, before: TimestampMicros, limit: i64) -> Result<u64> {
+        // 子查询走 `idx_audit_ts`，每次只锁住一批行，不让一次清理长时间占着表。
+        let result = sqlx::query(
+            "DELETE FROM audit_events
+             WHERE id IN (
+                 SELECT id FROM audit_events
+                 WHERE ts < $1
+                 ORDER BY ts
+                 LIMIT $2
+             )",
+        )
+        .bind(before)
+        .bind(limit.max(1))
+        .execute(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
+
+        Ok(result.rows_affected())
+    }
+
+    async fn summarize_range(
+        &self,
+        from: Option<TimestampMicros>,
+        before: TimestampMicros,
+    ) -> Result<AuditRangeSummary> {
+        // 走 `idx_audit_ts`，与 `delete_before` 同一个边界：早于 `before` 的才删。
+        let row = sqlx::query(
+            "SELECT COUNT(*) AS total, MIN(ts) AS earliest FROM audit_events
+             WHERE ($1::timestamptz IS NULL OR ts >= $1) AND ts < $2",
+        )
+        .bind(from)
+        .bind(before)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
+
+        let total: i64 = row.try_get("total").map_err(sqlx_err)?;
+        let earliest: Option<TimestampMicros> = row.try_get("earliest").map_err(sqlx_err)?;
+
+        Ok(AuditRangeSummary {
+            rows: total.max(0) as u64,
+            earliest,
+        })
     }
 }
 

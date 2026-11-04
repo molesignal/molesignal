@@ -101,7 +101,7 @@ const STAT_HEIGHT = 'h-[160px]';
  */
 export function LogStatsView({ stream, fields, counted, range, written, timeWindow, onOpenStatement }: LogStatsViewProps) {
   const { t } = useTranslation('logs');
-  const orgId = useAuthStore((state) => state.ctx?.org_id ?? '');
+  const orgId = useAuthStore((state) => state.ctx?.orgId ?? '');
   const [chosen, setChosen] = useQueryTabState<LogStatsConfig | null>('logs.stats', null);
   const [stage, setStage] = React.useState<HTMLDivElement | null>(null);
   const [sheet, setSheet] = React.useState<HTMLDivElement | null>(null);
@@ -117,20 +117,20 @@ export function LogStatsView({ stream, fields, counted, range, written, timeWind
 
     return buildLogStatsStatement({
       stream: counted.stream,
-      conditions: logStatsConditions(counted.statement, counted.globalFilters),
+      conditions: logStatsConditions(counted.statement, counted.pinned),
       config,
-      bucketMicros: statsBucketMicros(range),
+      bucketTime: statsBucketMicros(range),
     });
   }, [config, counted, range, written?.statement]);
   const answer = useQuery({
     queryKey: ['log-stats', orgId, counted?.stream, statement, range?.start, range?.end, counted?.ranAt],
     queryFn: () =>
-      queryApi.runQuery({
-        org_id: orgId,
+      queryApi.readQuery({
+        orgId: orgId,
         language: 'sql',
         statement,
-        time_range: range!,
-        stream: { name: counted!.stream, stream_type: 'logs' },
+        timeRange: range!,
+        stream: { name: counted!.stream, streamType: 'logs' },
         limit: ROW_LIMIT,
       }),
     enabled: built && Boolean(orgId),

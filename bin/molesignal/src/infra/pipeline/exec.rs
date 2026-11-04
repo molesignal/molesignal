@@ -17,7 +17,7 @@ use crate::domain::stream::StreamType;
 /// 因此缺失或无法识别时保持 Logs 兼容。
 pub fn parse_signal_type(function_steps: &Value) -> StreamType {
     match function_steps
-        .get("signal_type")
+        .get("signalType")
         .and_then(Value::as_str)
         .unwrap_or("logs")
     {
@@ -36,16 +36,16 @@ mod tests {
     #[test]
     fn parse_signal_type_supports_workbench_shape_and_legacy_logs() {
         assert_eq!(
-            parse_signal_type(&json!({ "signal_type": "metrics" })),
+            parse_signal_type(&json!({ "signalType": "metrics" })),
             StreamType::METRICS
         );
         assert_eq!(
-            parse_signal_type(&json!({ "signal_type": "traces" })),
+            parse_signal_type(&json!({ "signalType": "traces" })),
             StreamType::TRACES
         );
         assert_eq!(parse_signal_type(&json!([])), StreamType::LOGS);
         assert_eq!(
-            parse_signal_type(&json!({ "signal_type": "unknown" })),
+            parse_signal_type(&json!({ "signalType": "unknown" })),
             StreamType::LOGS
         );
     }

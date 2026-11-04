@@ -15,7 +15,7 @@ import {
 export function NewRuleMenu() {
   const { t } = useTranslation('alerts');
   const navigate = useNavigate();
-  const manageAccess = useActionAccess({ permission: 'alerts.manage' });
+  const manageAccess = useActionAccess({ permission: 'alerts.rules.manage' });
 
   return (
     <DropdownMenu>

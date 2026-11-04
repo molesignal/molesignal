@@ -12,16 +12,16 @@ describe('subscriber scope', () => {
   it('names the chosen components in the order of the page', () => {
     expect(
       subscriberComponentNames(
-        { component_scope: 'selected', component_ids: ['billing', 'api'] },
+        { componentScope: 'selected', componentIds: ['billing', 'api'] },
         components,
       ),
     ).toEqual(['API', 'Billing']);
   });
 
   it('names nothing for the whole page, and leaves out a component deleted since', () => {
-    expect(subscriberComponentNames({ component_scope: 'all', component_ids: [] }, components)).toEqual([]);
+    expect(subscriberComponentNames({ componentScope: 'all', componentIds: [] }, components)).toEqual([]);
     expect(
-      subscriberComponentNames({ component_scope: 'selected', component_ids: ['gone', 'api'] }, components),
+      subscriberComponentNames({ componentScope: 'selected', componentIds: ['gone', 'api'] }, components),
     ).toEqual(['API']);
   });
 });

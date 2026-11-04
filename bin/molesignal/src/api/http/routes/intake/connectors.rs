@@ -8,8 +8,9 @@
 //! - `POST /api/v1/_heroku` — Heroku log drain（文本，每行一条）
 //!
 //! 这些端点**不走 JWT/API token**（外部平台带不了 `Authorization: Bearer`），而是用
-//! 一个 connector token 自鉴权：反查 `kind` + `config_json.push_token` 命中的 enabled
-//! connector，取其 `org_id` 与 `config_json.target_stream`。故路由在鉴权中间件白名单内。
+//! 一个 connector token 自鉴权：按 `kind` + 令牌的 SHA-256 反查命中的 enabled connector
+//! （令牌本身与其它密钥一起封存，见 `infra::connectors::secrets`），取其 `org_id` 与
+//! `config_json.target_stream`。故路由在鉴权中间件白名单内。
 //!
 //! token 的来源因平台而异，三种都接受：
 //! - `X-Connector-Token` 头（Cloudflare 等可配自定义头的平台）
@@ -32,8 +33,9 @@ use flate2::read::GzDecoder;
 
 use crate::{
     api::AppState,
+    app::intake::usage::IntakeReceipt,
     domain::{
-        intake::{IntakeBatch, RawEvent},
+        intake::{IntakeBatch, RawEvent, usage::source::IntakeCredential},
         stream::StreamType,
     },
     infra::connectors::{
@@ -127,7 +129,7 @@ async fn intake_events(
     connector: &Connector,
     stream: String,
     events: Vec<RawEvent>,
-    body_len: usize,
+    bytes: usize,
 ) -> Result<usize> {
     state
         .iam
@@ -135,16 +137,17 @@ async fn intake_events(
         .ensure_organization_access(&connector.org_id)
         .await?;
 
-    crate::api::http::intake_usage::record_intake_usage(
-        state,
-        &connector.org_id,
-        body_len as u64,
-        TimestampMicros::now().0,
-    );
-
     let accepted = if events.is_empty() {
         0
     } else {
+        let receipt = IntakeReceipt::of_events(
+            IntakeCredential::connector(&connector.id),
+            StreamType::LOGS,
+            &stream,
+            bytes as u64,
+            &events,
+        );
+
         let batch = IntakeBatch {
             batch_id: Id::new(),
             org_id: connector.org_id.clone(),
@@ -154,7 +157,14 @@ async fn intake_events(
             received_at: TimestampMicros::now(),
         };
 
-        state.intake.intake(batch).await?.accepted
+        let accepted = state.intake.intake(batch).await?.accepted;
+
+        state
+            .platform
+            .intake_meter
+            .record(&connector.org_id, receipt, accepted as u64);
+
+        accepted
     };
 
     // last_run 仅观测用，失败不影响接入结果。
@@ -183,7 +193,7 @@ async fn kinesis_firehose(
         serde_json::from_slice(&raw).map_err(|e| Error::invalid(format!("firehose body: {e}")))?;
     let request_id = req.request_id.clone();
     let events = parse_firehose_request(req)?;
-    intake_events(&state, &connector, stream, events, body.len()).await?;
+    intake_events(&state, &connector, stream, events, raw.len()).await?;
 
     let resp = serde_json::json!({
         "requestId": request_id,
@@ -206,7 +216,7 @@ async fn cloudflare(
     let raw = decode_body(&headers, &body)?;
     let text = String::from_utf8_lossy(&raw);
     let events = parse_ndjson(text.as_ref())?;
-    intake_events(&state, &connector, stream, events, body.len()).await?;
+    intake_events(&state, &connector, stream, events, raw.len()).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -223,6 +233,6 @@ async fn heroku(
     let raw = decode_body(&headers, &body)?;
     let text = String::from_utf8_lossy(&raw);
     let events = parse_text(text.as_ref())?;
-    intake_events(&state, &connector, stream, events, body.len()).await?;
+    intake_events(&state, &connector, stream, events, raw.len()).await?;
     Ok(StatusCode::NO_CONTENT)
 }

@@ -24,12 +24,12 @@ function command(
     kind,
     source: 'builtin',
     description,
-    argument_hint: argument ? (argument.choices?.join(' | ') ?? argument.hint ?? null) : null,
-    argument_required: argument !== null,
+    argumentHint: argument ? (argument.choices?.join(' | ') ?? argument.hint ?? null) : null,
+    argumentRequired: argument !== null,
     choices: argument?.choices ?? [],
     suggest: argument?.suggest ?? null,
     available: true,
-    unavailable_reason: null,
+    unavailableReason: null,
   };
 }
 
@@ -61,7 +61,7 @@ export const MOCK_AGENT_COMMANDS: AgentCommand[] = [
     source: 'mcp',
     server: 'Linear',
     available: false,
-    unavailable_reason: 'Add your own credential for Linear first',
+    unavailableReason: 'Add your own credential for Linear first',
   },
   {
     ...command('github:review_pr', 'task', 'Review a pull request', { hint: '<pr> [focus]' }),

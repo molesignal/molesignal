@@ -11,6 +11,7 @@ import {
   FormChecklist,
   FormDrawer,
   FormField,
+  FormGroup,
   FormInput,
   FormSection,
   FormSelect,
@@ -23,7 +24,7 @@ import {
   lastActiveLabel,
   loginMethodLabel,
   UserAvatar,
-  UserStatusPill,
+  UserStatusWord,
 } from './presentation';
 
 export function InviteDrawer({
@@ -56,7 +57,7 @@ export function InviteDrawer({
     mutationFn: () =>
       invitationsApi.create({
         email: email.trim(),
-        ...(roleId ? { role_id: roleId } : {}),
+        ...(roleId ? { roleId: roleId } : {}),
       }),
     onSuccess: () => {
       toast.success(t('invitations.toast_invited'));
@@ -159,7 +160,7 @@ export function RoleDrawer({
       onOpenChange={(open) => !open && onClose()}
       title={t('users.role_drawer_title')}
       subtitle={t('users.role_drawer_subtitle', {
-        user: user?.display_name || user?.email,
+        user: user?.displayName || user?.email,
       })}
       width={520}
       footer={
@@ -184,7 +185,7 @@ export function RoleDrawer({
         }}
       >
         <FormSection>
-          <FormField label={t('users.columns.role')} required>
+          <FormGroup label={t('users.columns.role')} required>
             <FormChecklist
               selected={roleIds}
               onChange={setRoleIds}
@@ -196,7 +197,7 @@ export function RoleDrawer({
                 hint: role.description,
               }))}
             />
-          </FormField>
+          </FormGroup>
         </FormSection>
       </form>
     </FormDrawer>
@@ -227,13 +228,13 @@ export function UserDetailDrawer({
     },
     {
       label: t('users.columns.teams'),
-      value: user.team_names?.length
-        ? user.team_names.join(', ')
+      value: user.teamNames?.length
+        ? user.teamNames.join(', ')
         : t('users.no_team'),
     },
     {
       label: t('users.columns.login_method'),
-      value: loginMethodLabel(t, user.login_method),
+      value: loginMethodLabel(t, user.loginMethod),
     },
     {
       label: t('users.columns.last_active'),
@@ -241,11 +242,11 @@ export function UserDetailDrawer({
     },
     {
       label: t('users.columns.joined'),
-      value: formatAbsoluteMicros(user.joined_at_micros, locale),
+      value: formatAbsoluteMicros(user.joinedAt, locale),
     },
     {
       label: t('users.account_created'),
-      value: formatAbsoluteMicros(user.created_at_micros, locale),
+      value: formatAbsoluteMicros(user.createdAt, locale),
     },
   ];
 
@@ -253,7 +254,7 @@ export function UserDetailDrawer({
     <FormDrawer
       open
       onOpenChange={(open) => !open && onClose()}
-      title={user.display_name || user.email}
+      title={user.displayName || user.email}
       subtitle={t('users.detail_subtitle')}
       width={560}
     >
@@ -264,7 +265,7 @@ export function UserDetailDrawer({
             {user.email}
           </div>
           <div className="mt-1">
-            <UserStatusPill user={user} />
+            <UserStatusWord user={user} />
           </div>
         </div>
       </div>

@@ -68,8 +68,8 @@ export function seenComponents(snapshot: StatusPageSnapshot): SeenComponent[] {
     .sort((left, right) => left.position - right.position || left.name.localeCompare(right.name))
     .map((component) => ({
       component,
-      status: snapshot.active_incidents
-        .filter((event) => event.component_ids.includes(component.id))
+      status: snapshot.activeIncidents
+        .filter((event) => event.componentIds.includes(component.id))
         .reduce<ComponentStatus>(
           (status, event) => worstStatus(status, IMPACT_STATUS[event.impact]),
           component.status,
@@ -89,20 +89,20 @@ export function componentSpectrum(t: TFunction, components: readonly SeenCompone
 
 /** What is under way, the worst first and among equals the one that began last. */
 export function eventsUnderWay(snapshot: StatusPageSnapshot): StatusPageIncident[] {
-  return [...snapshot.active_incidents].sort(
-    (left, right) => IMPACT_RANK[right.impact] - IMPACT_RANK[left.impact] || right.started_at - left.started_at,
+  return [...snapshot.activeIncidents].sort(
+    (left, right) => IMPACT_RANK[right.impact] - IMPACT_RANK[left.impact] || right.startedAt - left.startedAt,
   );
 }
 
 /** Maintenance that is announced and has not begun, the soonest first. */
 export function maintenanceAhead(snapshot: StatusPageSnapshot): StatusPageIncident[] {
-  return [...snapshot.scheduled_maintenance].sort((left, right) => left.started_at - right.started_at);
+  return [...snapshot.scheduledMaintenance].sort((left, right) => left.startedAt - right.startedAt);
 }
 
 /** The latest thing said about an event, if anything has been. */
 export function latestUpdate(event: StatusPageIncident): StatusPageIncident['updates'][number] | undefined {
   return event.updates.reduce<StatusPageIncident['updates'][number] | undefined>(
-    (latest, update) => (!latest || update.created_at > latest.created_at ? update : latest),
+    (latest, update) => (!latest || update.createdAt > latest.createdAt ? update : latest),
     undefined,
   );
 }

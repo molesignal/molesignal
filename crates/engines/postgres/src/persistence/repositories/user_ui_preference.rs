@@ -3,7 +3,7 @@
 
 //! How a user prefers a page to look, kept per organization, purpose and key.
 //!
-//! Unlike the settings of `user_preferences`, these are written as the user
+//! Unlike the settings in `users_ext.preferences`, these are written as the user
 //! works, read back the next time the page opens, and seen by nobody else. The
 //! first of its kind is the arrangement of a log stream's columns, keyed by the
 //! stream's name.
@@ -20,9 +20,10 @@ use crate::shared::{Result, ids::Id, time::TimestampMicros};
 pub const MAX_KEYS_PER_SCOPE: i64 = 200;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UserUiPreference {
     pub value: serde_json::Value,
-    pub updated_at_micros: i64,
+    pub updated_at: i64,
 }
 
 /// Whose preference it is, in which organization, of what purpose, and under what key.
@@ -59,7 +60,7 @@ impl PgUserUiPreferenceRepository {
 impl UserUiPreferenceRepository for PgUserUiPreferenceRepository {
     async fn get(&self, key: UiPreferenceKey<'_>) -> Result<Option<UserUiPreference>> {
         let row = sqlx::query(
-            "SELECT preference_value, updated_at_micros
+            "SELECT preference_value, updated_at
              FROM user_ui_preference
              WHERE user_id = $1 AND org_id = $2 AND scope = $3 AND preference_key = $4",
         )
@@ -79,7 +80,10 @@ impl UserUiPreferenceRepository for PgUserUiPreferenceRepository {
 
         Ok(Some(UserUiPreference {
             value: value.0,
-            updated_at_micros: row.try_get("updated_at_micros").map_err(sqlx_err)?,
+            updated_at: row
+                .try_get::<TimestampMicros, _>("updated_at")
+                .map_err(sqlx_err)?
+                .0,
         }))
     }
 
@@ -92,19 +96,19 @@ impl UserUiPreferenceRepository for PgUserUiPreferenceRepository {
 
         sqlx::query(
             "INSERT INTO user_ui_preference (
-                user_id, org_id, scope, preference_key, preference_value, updated_at_micros
+                user_id, org_id, scope, preference_key, preference_value, updated_at
              )
              VALUES ($1, $2, $3, $4, $5, $6)
              ON CONFLICT (user_id, org_id, scope, preference_key) DO UPDATE
                 SET preference_value = EXCLUDED.preference_value,
-                    updated_at_micros = EXCLUDED.updated_at_micros",
+                    updated_at = EXCLUDED.updated_at",
         )
         .bind(&key.user_id.0)
         .bind(&key.org_id.0)
         .bind(key.scope)
         .bind(key.key)
         .bind(Json(&value))
-        .bind(updated_at_micros)
+        .bind(TimestampMicros(updated_at_micros))
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -117,7 +121,7 @@ impl UserUiPreferenceRepository for PgUserUiPreferenceRepository {
                    SELECT preference_key
                    FROM user_ui_preference
                    WHERE user_id = $1 AND org_id = $2 AND scope = $3
-                   ORDER BY updated_at_micros DESC, preference_key ASC
+                   ORDER BY updated_at DESC, preference_key ASC
                    OFFSET $4
                )",
         )
@@ -131,7 +135,7 @@ impl UserUiPreferenceRepository for PgUserUiPreferenceRepository {
 
         Ok(UserUiPreference {
             value,
-            updated_at_micros,
+            updated_at: updated_at_micros,
         })
     }
 

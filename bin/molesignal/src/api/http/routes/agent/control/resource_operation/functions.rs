@@ -28,7 +28,7 @@ pub(super) async fn execute(
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct FunctionWrite {
     name: String,
     language: FunctionLanguage,
@@ -109,7 +109,7 @@ async fn delete(
 
     Ok(OperationOutcome {
         summary: "function deleted".into(),
-        verification: json!({"verified": true, "function_id": function.id, "deleted": true}),
+        verification: json!({"verified": true, "functionId": function.id, "deleted": true}),
     })
 }
 

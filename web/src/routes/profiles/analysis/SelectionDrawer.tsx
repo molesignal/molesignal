@@ -82,7 +82,7 @@ export function ProfileSelectionDrawer({
     {
       key: 'type',
       header: t('list.columns.type'),
-      cell: (row) => typeLabel(row.profile_type),
+      cell: (row) => typeLabel(row.profileType),
       width: 130,
     },
     {
@@ -94,31 +94,31 @@ export function ProfileSelectionDrawer({
     {
       key: 'duration',
       header: <span title={t('list.tooltip.duration')}>{t('list.columns.duration')}</span>,
-      cell: (row) => formatDuration(row.duration_nanos),
+      cell: (row) => formatDuration(row.durationNanos),
       width: 90,
     },
     {
       key: 'samples',
       header: t('list.columns.samples'),
-      cell: (row) => formatCount(row.sample_count),
+      cell: (row) => formatCount(row.sampleCount),
       width: 80,
     },
     {
       key: 'total',
       header: <span title={t('list.tooltip.total')}>{t('list.columns.total_value')}</span>,
-      cell: (row) => formatValue(row.total_value, unitForProfileType(row.profile_type)),
+      cell: (row) => formatValue(row.totalValue, unitForProfileType(row.profileType)),
       width: 100,
     },
   ];
 
-  if (rows.some((row) => row.trace_id)) {
+  if (rows.some((row) => row.traceId)) {
     columns.push({
       key: 'trace',
       header: t('list.columns.trace'),
       cell: (row) =>
-        row.trace_id ? (
-          <SignalReference type="trace_id" value={row.trace_id}>
-            {row.trace_id.slice(0, 12)}
+        row.traceId ? (
+          <SignalReference type="trace_id" value={row.traceId}>
+            {row.traceId.slice(0, 12)}
           </SignalReference>
         ) : (
           <span className="text-tx-3">—</span>

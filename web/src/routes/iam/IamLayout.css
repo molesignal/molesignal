@@ -3,20 +3,15 @@
   border-width: 0;
 }
 
+/* The head is the band every table head is, with a rule under it; the rows keep their stripes,
+   half the band, so the head stays the strongest of them. A rule drawn inside the cell stays
+   with it when the head sticks. */
 .iam-surface-workspace [data-data-table] thead th {
-  background: var(--control-surface);
-}
-
-.iam-surface-workspace [data-data-table] thead th:first-child {
-  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-}
-
-.iam-surface-workspace [data-data-table] thead th:last-child {
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  box-shadow: inset 0 -1px 0 var(--bd-0);
 }
 
 .iam-surface-workspace [data-data-table] tbody tr:nth-child(even) {
-  background: var(--control-surface);
+  background: color-mix(in srgb, var(--table-head-surface) 50%, transparent);
 }
 
 .iam-surface-workspace [data-data-table] tbody tr:hover {

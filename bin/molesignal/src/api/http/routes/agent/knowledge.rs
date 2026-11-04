@@ -53,6 +53,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ScopeQuery {
     scope: String,
     #[serde(default)]
@@ -103,20 +104,20 @@ fn base_json(
 ) -> Value {
     json!({
         "scope": scope.kind(),
-        "team_id": scope.team_id().map(|id| id.0.clone()),
-        "team_name": team_name,
+        "teamId": scope.team_id().map(|id| id.0.clone()),
+        "teamName": team_name,
         "files": base.map_or(0, |base| base.files),
         "bytes": base.map_or(0, |base| base.bytes),
         "entry": base.is_some_and(|base| base.entry_updated_at.is_some()),
-        "entry_updated_at_micros": base.and_then(|base| base.entry_updated_at.map(|at| at.0)),
-        "changed_since_entry": base.map_or(0, |base| base.changed_since_entry),
-        "updated_at_micros": base.and_then(|base| base.updated_at.map(|at| at.0)),
-        "can_edit": can_edit,
+        "entryUpdatedAt": base.and_then(|base| base.entry_updated_at.map(|at| at.0)),
+        "changedSinceEntry": base.map_or(0, |base| base.changed_since_entry),
+        "updatedAt": base.and_then(|base| base.updated_at.map(|at| at.0)),
+        "canEdit": can_edit,
     })
 }
 
 /// 组织的一份，加上能看到的每个团队一份（还没有文件的也列出来）。
-#[permission("agent.use")]
+#[permission("agent.knowledge.read")]
 async fn bases(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -154,16 +155,16 @@ async fn bases(
 
     Ok(Json(json!({
         "bases": list,
-        "entry_file": ENTRY_FILE,
+        "entryFile": ENTRY_FILE,
         "limits": {
-            "max_file_bytes": MAX_FILE_BYTES,
-            "max_total_bytes": MAX_TOTAL_BYTES,
-            "max_files": MAX_FILES,
+            "maxFileBytes": MAX_FILE_BYTES,
+            "maxTotalBytes": MAX_TOTAL_BYTES,
+            "maxFiles": MAX_FILES,
         },
     })))
 }
 
-#[permission("agent.use")]
+#[permission("agent.knowledge.read")]
 async fn files(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -179,16 +180,16 @@ async fn files(
             .iter()
             .map(|file| json!({
                 "path": file.path,
-                "size_bytes": file.size_bytes,
-                "updated_by": file.updated_by.0,
-                "updated_at_micros": file.updated_at.0,
+                "sizeBytes": file.size_bytes,
+                "updatedBy": file.updated_by.0,
+                "updatedAt": file.updated_at.0,
             }))
             .collect::<Vec<_>>(),
-        "can_edit": viewer.can_edit(&scope),
+        "canEdit": viewer.can_edit(&scope),
     })))
 }
 
-#[permission("agent.use")]
+#[permission("agent.knowledge.read")]
 async fn read_file(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -207,14 +208,14 @@ async fn read_file(
     Ok(Json(json!({
         "path": file.path,
         "content": file.content,
-        "size_bytes": file.size_bytes,
-        "updated_by": file.updated_by.0,
-        "updated_at_micros": file.updated_at.0,
+        "sizeBytes": file.size_bytes,
+        "updatedBy": file.updated_by.0,
+        "updatedAt": file.updated_at.0,
     })))
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct WriteReq {
     scope: String,
     #[serde(default)]
@@ -223,7 +224,7 @@ struct WriteReq {
     content: String,
 }
 
-#[permission("agent.use")]
+#[permission("agent.knowledge.manage")]
 async fn write_file(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -247,7 +248,7 @@ async fn write_file(
     Ok(Json(json!({ "written": true })))
 }
 
-#[permission("agent.use")]
+#[permission("agent.knowledge.manage")]
 async fn delete_file(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -269,7 +270,7 @@ async fn delete_file(
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct MoveReq {
     scope: String,
     #[serde(default)]
@@ -278,7 +279,7 @@ struct MoveReq {
     to: String,
 }
 
-#[permission("agent.use")]
+#[permission("agent.knowledge.manage")]
 async fn move_file(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

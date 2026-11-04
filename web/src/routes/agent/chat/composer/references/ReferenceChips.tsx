@@ -1,4 +1,4 @@
-import { Bell, LayoutDashboard, Network, Siren, Waves, X } from 'lucide-react';
+import { Bell, LayoutDashboard, MonitorSmartphone, Network, Siren, Waves, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import type { MessageReference, ReferenceKind } from '@/api/agent/chat';
@@ -7,6 +7,7 @@ export const REFERENCE_ICON: Record<ReferenceKind, typeof Bell> = {
   incident: Siren,
   alert_rule: Bell,
   service: Network,
+  rum_application: MonitorSmartphone,
   dashboard: LayoutDashboard,
   stream: Waves,
 };

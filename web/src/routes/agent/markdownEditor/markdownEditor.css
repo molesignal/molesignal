@@ -22,7 +22,7 @@
 .md-editor h3,
 .md-editor h4 {
   color: var(--tx-0);
-  font-weight: 700;
+  font-weight: var(--fw-display-strong);
   line-height: 1.45;
 }
 
@@ -47,7 +47,7 @@
 
 .md-editor strong {
   color: var(--tx-0);
-  font-weight: 700;
+  font-weight: var(--fw-display-strong);
 }
 
 .md-editor a {
@@ -152,9 +152,9 @@
 }
 
 .md-editor th {
-  background: var(--bg-2);
+  background: var(--table-head-surface);
   color: var(--tx-0);
-  font-weight: 600;
+  font-weight: var(--fw-strong);
 }
 
 .md-editor th > p,

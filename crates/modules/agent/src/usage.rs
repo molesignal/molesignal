@@ -32,10 +32,24 @@ pub enum UsageOrigin {
     Inspection,
     /// 写入管道里的 LLM 函数（`_llm_eval`）。
     LlmEval,
+    /// 自动化的运行，事件触发的也算。
+    Automation,
+    /// 评审打分，以及晋级检查里的重新回答。
+    Evaluation,
+    /// RUM 会话回放的摘要和章节。
+    ReplaySummary,
 }
 
 impl UsageOrigin {
-    pub const ALL: [Self; 4] = [Self::Chat, Self::Rca, Self::Inspection, Self::LlmEval];
+    pub const ALL: [Self; 7] = [
+        Self::Chat,
+        Self::Rca,
+        Self::Inspection,
+        Self::LlmEval,
+        Self::Automation,
+        Self::Evaluation,
+        Self::ReplaySummary,
+    ];
 
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -43,6 +57,9 @@ impl UsageOrigin {
             Self::Rca => "rca",
             Self::Inspection => "inspection",
             Self::LlmEval => "llm_eval",
+            Self::Automation => "automation",
+            Self::Evaluation => "evaluation",
+            Self::ReplaySummary => "replay_summary",
         }
     }
 
@@ -103,6 +120,7 @@ impl UsageDelta {
 
 /// 一个组织某一天某个来源、某个币种的用量。没有单价的调用记在没有币种的那一行。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DailyUsage {
     pub day: UsageDay,
     pub origin: UsageOrigin,
@@ -153,6 +171,7 @@ impl InteractiveBudgetMode {
 
 /// 组织自己的预算设置。没有这一行时全部跟随实例默认值。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UsageBudget {
     pub org_id: Id,
     /// 每日 token 上限；`None` 跟随实例默认值，0 表示不限。
@@ -176,6 +195,7 @@ pub enum BudgetLevel {
 
 /// 一个组织今天的预算状况。
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BudgetStatus {
     pub level: BudgetLevel,
     pub used_tokens: i64,
@@ -330,6 +350,7 @@ pub struct TokenCounts {
 /// 两个价：`input_per_mtok` 是未命中（也是不分的厂商的输入价），`cached_input_per_mtok`
 /// 是命中；没有填命中价时命中的输入也按输入价算。
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ModelPrices {
     pub currency: Currency,
     pub input_per_mtok: f64,
@@ -414,7 +435,7 @@ mod tests {
             assert_eq!(UsageOrigin::parse(origin.as_str()).unwrap(), origin);
         }
 
-        assert!(UsageOrigin::parse("judge").is_err());
+        assert!(UsageOrigin::parse("replay").is_err());
     }
 
     #[test]

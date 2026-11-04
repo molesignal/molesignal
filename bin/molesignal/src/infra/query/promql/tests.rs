@@ -10,6 +10,23 @@ fn ls(pairs: &[(&str, &str)]) -> LabelSet {
         .collect()
 }
 
+/// `batch` with a `metric_name` column naming `metric` on every row.
+fn named(batch: RecordBatch, metric: &str) -> RecordBatch {
+    use arrow::datatypes::{Field, Schema};
+
+    let mut fields = batch.schema().fields().iter().cloned().collect::<Vec<_>>();
+    fields.push(Arc::new(Field::new("metric_name", DataType::Utf8, false)));
+
+    let mut columns = batch.columns().to_vec();
+    columns.push(Arc::new(StringArray::from(vec![metric; batch.num_rows()])));
+
+    RecordBatch::try_new(Arc::new(Schema::new(fields)), columns).unwrap()
+}
+
+fn metric(name: &str) -> MetricFilter {
+    MetricFilter::Name(name.into())
+}
+
 fn scalar_vector(value: f64) -> InstantVector {
     InstantVector {
         items: vec![(LabelSet::new(), value)],
@@ -56,9 +73,9 @@ fn batches_to_series_accepts_int64_value_column() {
         RecordBatch::try_new(schema, vec![Arc::new(ts), Arc::new(val), Arc::new(host)]).unwrap();
 
     let series = batches_to_series(
-        &[batch],
+        &[named(batch, "m")],
         &Matchers::empty(),
-        None,
+        &metric("m"),
         0,
         30_000_000,
         usize::MAX,
@@ -109,9 +126,9 @@ fn batches_to_series_keeps_last_value_for_duplicate_timestamp() {
     .unwrap();
 
     let series = batches_to_series(
-        &[batch],
+        &[named(batch, "m")],
         &Matchers::empty(),
-        None,
+        &metric("m"),
         0,
         30_000_000,
         usize::MAX,
@@ -185,7 +202,7 @@ fn batches_to_series_filters_container_metric_and_hides_storage_identity() {
     let series = batches_to_series(
         &[batch],
         &Matchers::empty(),
-        Some("requests_total"),
+        &metric("requests_total"),
         0,
         30_000_000,
         usize::MAX,
@@ -219,12 +236,13 @@ fn batches_to_series_filters_container_metric_and_hides_storage_identity() {
 }
 
 #[tokio::test]
-async fn missing_system_metric_resolves_to_protected_container_stream() {
+async fn a_metric_is_read_from_the_streams_the_directory_names() {
     use crate::{
         domain::{
             metrics::{
                 METRIC_DESCRIPTION_FIELD, METRIC_KIND_FIELD, METRIC_MONOTONIC_FIELD,
                 METRIC_NAME_FIELD, METRIC_START_TIME_UNIX_NANO_FIELD, METRIC_TEMPORALITY_FIELD,
+                MemoryMetricDirectory, MetricDirectory, MetricObservation,
             },
             stream::{
                 FieldDef, FieldType, Schema as StreamSchema, StreamDefinition, StreamSettings,
@@ -317,21 +335,69 @@ async fn missing_system_metric_resolves_to_protected_container_stream() {
         }
     }
 
+    let org = Id::from_string("_sys");
+
+    let system = SystemStreams
+        .get(&org, "_molesignal", StreamType::METRICS)
+        .await
+        .unwrap();
+
+    let directory = Arc::new(MemoryMetricDirectory::default());
+
+    directory
+        .record(
+            &system,
+            &[MetricObservation {
+                metric_name: "requests_total".into(),
+                metric_kind: Some("counter".into()),
+                labels: vec!["host".into()],
+                first_seen: TimestampMicros(0),
+                last_seen: TimestampMicros(3_600_000_000),
+            }],
+        )
+        .await
+        .unwrap();
+
     let engine = PromQLEngine::new(
         Arc::new(EmptyFiles),
         Arc::new(object_store::local::LocalFileSystem::new()),
     )
-    .with_streams(Arc::new(SystemStreams));
+    .with_streams(Arc::new(SystemStreams))
+    .with_metric_directory(directory);
 
-    let source = engine
-        .resolve_metric_source(&Id::from_string("_sys"), "requests_total")
+    let window = TimeRange::new(TimestampMicros(60_000_000), TimestampMicros(120_000_000));
+
+    let sources = engine
+        .metric_sources(&org, &metric("requests_total"), window)
         .await
         .unwrap();
 
-    assert_eq!(source.stream, "_molesignal");
-    assert_eq!(source.logical_metric.as_deref(), Some("requests_total"));
+    assert_eq!(sources.len(), 1);
+    assert_eq!(sources[0].stream, "_molesignal");
+
+    let later = TimeRange::new(
+        TimestampMicros(10 * 3_600_000_000),
+        TimestampMicros(11 * 3_600_000_000),
+    );
+
+    assert!(
+        engine
+            .metric_sources(&org, &metric("requests_total"), later)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    assert!(
+        engine
+            .metric_sources(&org, &metric("queue_depth"), window)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
     assert_eq!(
-        source.sample_columns.unwrap(),
+        sources[0].sample_columns.clone().unwrap(),
         vec![
             "_timestamp",
             "host",
@@ -1325,6 +1391,7 @@ async fn unsupported_function_returns_invalid() {
         time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(1_000_000)),
         stream: None,
         limit: None,
+        step: None,
         federation_clusters: Vec::new(),
     };
     let err = engine.execute(req).await.unwrap_err();
@@ -1586,6 +1653,7 @@ fn offset_and_at_modifiers_shift_eval_time() {
         time_range: TimeRange::new(TimestampMicros(1_000_000), TimestampMicros(10_000_000)),
         stream: None,
         limit: None,
+        step: None,
         federation_clusters: Vec::new(),
     };
     let vs = |q: &str| match parser::parse(q).unwrap() {
@@ -1684,6 +1752,7 @@ async fn subquery_steps_inner_expression_over_window() {
         time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(1_000_000_000)),
         stream: None,
         limit: None,
+        step: None,
         federation_clusters: Vec::new(),
     };
     // vector(time()) 是无需文件的 instant 向量；子查询逐步把它在窗口内采样成 series。
@@ -1776,28 +1845,6 @@ fn samples_to_range_vector_steps_with_staleness_lookback() {
 }
 
 #[test]
-fn range_step_us_derives_from_span_and_limit() {
-    use crate::{
-        domain::query::QueryLanguage,
-        shared::{ids::Id, time::TimestampMicros},
-    };
-
-    let mk = |limit: Option<usize>| QueryRequest {
-        org_id: Id::from_string("org"),
-        language: QueryLanguage::Promql,
-        statement: "m".into(),
-        time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(3_600_000_000)),
-        stream: None,
-        limit,
-        federation_clusters: Vec::new(),
-    };
-    assert_eq!(range_step_us(&mk(Some(100))), 36_000_000); // 1h / 100
-    assert_eq!(range_step_us(&mk(None)), 3_600_000); // 缺省 = MAX_RANGE_STEPS
-    assert_eq!(range_step_us(&mk(Some(100_000))), 3_600_000); // limit 超大 → 封顶
-    assert_eq!(range_step_us(&mk(Some(1))), 3_600_000_000); // 单步 = 整个跨度
-}
-
-#[test]
 fn batches_to_series_enforces_sample_cap() {
     use std::sync::Arc;
 
@@ -1815,10 +1862,12 @@ fn batches_to_series_enforces_sample_cap() {
     let val = Float64Array::from(vec![1.0_f64; 10]);
     let batch = RecordBatch::try_new(schema, vec![Arc::new(ts), Arc::new(val)]).unwrap();
 
+    let batch = named(batch, "m");
+
     let err = batches_to_series(
         std::slice::from_ref(&batch),
         &Matchers::empty(),
-        None,
+        &metric("m"),
         0,
         i64::MAX,
         5,
@@ -1828,7 +1877,8 @@ fn batches_to_series_enforces_sample_cap() {
         err.to_string().contains("narrow the time window"),
         "got {err}"
     );
-    let ok = batches_to_series(&[batch], &Matchers::empty(), None, 0, i64::MAX, 10).unwrap();
+    let ok =
+        batches_to_series(&[batch], &Matchers::empty(), &metric("m"), 0, i64::MAX, 10).unwrap();
     assert_eq!(ok.len(), 1);
     assert_eq!(ok[0].samples.len(), 10);
 }
@@ -1891,8 +1941,90 @@ fn batches_to_series_matches_columns_and_merges_across_schemas() {
     .unwrap();
 
     let matchers = selector_matchers(r#"m{host=~"a|c"}"#);
-    let series = batches_to_series(&[b1, b2], &matchers, None, 0, i64::MAX, usize::MAX).unwrap();
+    let batches = [named(b1, "m"), named(b2, "m")];
+
+    let series =
+        batches_to_series(&batches, &matchers, &metric("m"), 0, i64::MAX, usize::MAX).unwrap();
+
     assert_eq!(series.len(), 1, "host=b filtered, host=a merged");
     assert_eq!(series[0].labels, ls(&[("host", "a")]));
     assert_eq!(series[0].samples, vec![(1_000_000, 1.0), (3_000_000, 3.0)]);
+}
+
+#[test]
+fn a_selector_without_a_name_keeps_each_metric_apart() {
+    use arrow::datatypes::{Field, Schema as ArrowSchema, TimeUnit};
+
+    let schema = Arc::new(ArrowSchema::new(vec![
+        Field::new(
+            "_timestamp",
+            DataType::Timestamp(TimeUnit::Microsecond, None),
+            false,
+        ),
+        Field::new("value", DataType::Float64, false),
+        Field::new("metric_name", DataType::Utf8, false),
+        Field::new("job", DataType::Utf8, true),
+    ]));
+
+    let batch = RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(TimestampMicrosecondArray::from(vec![
+                1_000_000_i64,
+                1_000_000,
+                2_000_000,
+            ])),
+            Arc::new(Float64Array::from(vec![1.0, 2.0, 3.0])),
+            Arc::new(StringArray::from(vec!["up", "http_requests_total", "up"])),
+            Arc::new(StringArray::from(vec!["api", "api", "db"])),
+        ],
+    )
+    .unwrap();
+
+    let selector = |query: &str| match parser::parse(query).unwrap() {
+        Expr::VectorSelector(vs) => vs,
+        other => panic!("expected vector selector, got {other:?}"),
+    };
+
+    let api = selector(r#"{job="api"}"#);
+    let filter = MetricFilter::of(&api);
+    assert_eq!(filter, MetricFilter::Matching(Vec::new()));
+
+    let series = batches_to_series(
+        std::slice::from_ref(&batch),
+        &api.matchers,
+        &filter,
+        0,
+        i64::MAX,
+        10,
+    )
+    .unwrap();
+
+    assert_eq!(
+        series
+            .iter()
+            .map(|series| series.labels.clone())
+            .collect::<Vec<_>>(),
+        [
+            ls(&[("__name__", "http_requests_total"), ("job", "api")]),
+            ls(&[("__name__", "up"), ("job", "api")]),
+        ]
+    );
+
+    let named = selector(r#"{__name__=~"u.*"}"#);
+    let filter = MetricFilter::of(&named);
+
+    let series = batches_to_series(&[batch], &named.matchers, &filter, 0, i64::MAX, 10).unwrap();
+
+    assert_eq!(series.len(), 2);
+    assert!(
+        series
+            .iter()
+            .all(|series| series.labels["__name__"] == "up")
+    );
+
+    assert_eq!(
+        MetricFilter::of(&selector(r#"{"cpu.usage"}"#)),
+        MetricFilter::Name("cpu.usage".into())
+    );
 }

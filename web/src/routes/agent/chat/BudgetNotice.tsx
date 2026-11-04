@@ -18,9 +18,9 @@ export function ChatBudgetNotice({ notice }: { notice: BudgetNotice | null }) {
   const state = notice.blocked ? 'blocked' : notice.level;
   const values = {
     percent: usedPercent(notice) ?? 0,
-    used: formatTokens(notice.used_tokens),
-    limit: formatTokens(notice.limit_tokens),
-    time: formatMicrosActive(notice.resets_at_micros, false),
+    used: formatTokens(notice.usedTokens),
+    limit: formatTokens(notice.limitTokens),
+    time: formatMicrosActive(notice.resetsAt, false),
   };
 
   return (

@@ -20,7 +20,7 @@ export function LogFrame({ frame }: FrameProps) {
   });
 
   const onRowOpen = (row: LogRow) => {
-    push({ kind: 'log_row', params: { row }, parent_frame_id: frame.id });
+    push({ kind: 'log_row', params: { row }, parentFrameId: frame.id });
   };
 
   return <LogStream rows={rows} isLive={isLive} onToggleLive={() => setIsLive((l) => !l)} onRowOpen={onRowOpen} />;

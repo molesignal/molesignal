@@ -21,10 +21,10 @@ async fn annotations_crud_and_tag_filter() {
         .header(hk, &hv)
         .json(&serde_json::json!({
             "title": "deploy v1.2.3",
-            "ts_micros": 1_700_000_000_000_000_i64,
+            "ts": 1_700_000_000_000_000_i64,
             "tags": ["deploy", "release"],
             "stream": null,
-            "dashboard_id": null,
+            "dashboardId": null,
         }))
         .send()
         .await

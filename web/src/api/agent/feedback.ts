@@ -21,20 +21,20 @@ export const FEEDBACK_REASONS: readonly FeedbackReason[] = [
 
 export interface AgentFeedback {
   id: string;
-  target_kind: FeedbackTargetKind;
-  target_id: string;
+  targetKind: FeedbackTargetKind;
+  targetId: string;
   rating: FeedbackRating;
   reasons: FeedbackReason[];
   comment: string;
-  created_at: number;
-  updated_at: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface FeedbackInput {
-  target_kind: FeedbackTargetKind;
-  target_id: string;
+  targetKind: FeedbackTargetKind;
+  targetId: string;
   /** The chat an answer belongs to; required for chat answers. */
-  chat_id?: string | undefined;
+  chatId?: string | undefined;
   rating: FeedbackRating;
   reasons?: FeedbackReason[] | undefined;
   comment?: string | undefined;
@@ -47,7 +47,7 @@ export async function listFeedback(
 ): Promise<AgentFeedback[]> {
   if (targetIds.length === 0) return [];
   const { data } = await http.get<{ feedback: AgentFeedback[] }>('/agent/feedback', {
-    params: { target_kind: targetKind, target_ids: targetIds.join(',') },
+    params: { targetKind: targetKind, targetIds: targetIds.join(',') },
   });
   return data.feedback ?? [];
 }
@@ -57,11 +57,14 @@ export async function putFeedback(input: FeedbackInput): Promise<AgentFeedback> 
   return data;
 }
 
+/** Withdraw a rating. `chatId` lets a chat answer be scored again without it. */
 export async function deleteFeedback(
   targetKind: FeedbackTargetKind,
   targetId: string,
+  chatId?: string,
 ): Promise<void> {
   await http.delete(
     `/agent/feedback/${encodeURIComponent(targetKind)}/${encodeURIComponent(targetId)}`,
+    chatId ? { params: { chatId: chatId } } : undefined,
   );
 }

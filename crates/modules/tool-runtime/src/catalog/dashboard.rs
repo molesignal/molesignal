@@ -3,7 +3,7 @@
 
 use serde_json::json;
 
-use super::{BuiltinToolKind, object_schema, open_output};
+use super::{BuiltinToolKind, object_schema, open_output, timestamp_schema};
 use crate::{RiskLevel, ToolSpec};
 
 pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
@@ -23,9 +23,9 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             kind.name(), "Create an approval request for a previously prepared Dashboard draft; never creates it directly.",
             "dashboard_reports", "dashboard_authoring",
             json!({
-                "type": "object", "required": ["draft_id", "expected_hash", "reason", "impact"],
+                "type": "object", "required": ["draftId", "expectedHash", "reason", "impact"],
                 "properties": {
-                    "draft_id": {"type": "string"}, "expected_hash": {"type": "string"},
+                    "draftId": {"type": "string"}, "expectedHash": {"type": "string"},
                     "reason": {"type": "string"}, "impact": {"type": "string"}
                 }, "additionalProperties": false
             }), open_output(), &["agent.use", "dashboards.create"], &["Dashboard", "Approval"],
@@ -38,6 +38,9 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
                 "properties": {
                     "action": {"type": "string", "enum": [
                         "acknowledge_alert", "resolve_alert",
+                        "reassign_alert", "add_alert_responders", "escalate_alert", "snooze_alert",
+                        "lift_alert_inhibition",
+                        "set_alert_severity", "merge_alerts", "note_alert",
                         "run_synthetic_monitor", "pause_synthetic_monitor", "resume_synthetic_monitor", "archive_synthetic_monitor",
                         "archive_status_page", "restore_status_page", "pause_status_page_automation", "resume_status_page_automation",
                         "retry_notification_delivery", "acknowledge_notification_delivery",
@@ -45,7 +48,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
                     ]},
                     "target": {"type": "string"}, "parameters": {"type": "object"},
                     "reason": {"type": "string"}, "impact": {"type": "string"},
-                    "expires_at_micros": {"type": "integer"}
+                    "expiresAt": timestamp_schema()
                 }, "additionalProperties": false
             }), open_output(), &["agent.use"], &["Approval", "Operations"],
         ).proposal(RiskLevel::L3).mole_agent_only(),
@@ -53,7 +56,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             kind,
             "Create an approval request to acknowledge or resolve one alert incident.",
             "alert",
-            "incident_id",
+            "incidentId",
             &["acknowledge_alert", "resolve_alert"],
             &["agent.use"],
             RiskLevel::L2,
@@ -62,31 +65,31 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             kind,
             "Create an approval request to run, pause, resume, or archive one synthetic monitor.",
             "synthetic",
-            "monitor_id",
+            "monitorId",
             &[
                 "run_synthetic_monitor", "pause_synthetic_monitor",
                 "resume_synthetic_monitor", "archive_synthetic_monitor",
             ],
-            &["agent.use", "synthetics.manage"],
+            &["agent.use", "synthetics.monitors.manage"],
             RiskLevel::L3,
         ),
         BuiltinToolKind::ProposeStatusPageAction => action_proposal(
             kind,
             "Create an approval request to archive or restore a status page, or pause/resume its automation.",
             "status_page",
-            "page_id",
+            "pageId",
             &[
                 "archive_status_page", "restore_status_page",
                 "pause_status_page_automation", "resume_status_page_automation",
             ],
-            &["agent.use", "status_pages.manage"],
+            &["agent.use", "status_pages.automation.manage"],
             RiskLevel::L3,
         ),
         BuiltinToolKind::ProposeNotificationAction => action_proposal(
             kind,
             "Create an approval request to retry or acknowledge one notification delivery.",
             "notification",
-            "delivery_id",
+            "deliveryId",
             &["retry_notification_delivery", "acknowledge_notification_delivery"],
             &["agent.use"],
             RiskLevel::L2,
@@ -95,7 +98,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             kind,
             "Create an approval request to enable, disable, or delete one scheduled pipeline.",
             "pipeline",
-            "pipeline_id",
+            "pipelineId",
             &[
                 "enable_scheduled_pipeline", "disable_scheduled_pipeline",
                 "delete_scheduled_pipeline",
@@ -129,7 +132,7 @@ fn action_proposal(
                 (target_field): {"type": "string"},
                 "reason": {"type": "string"},
                 "impact": {"type": "string"},
-                "expires_at_micros": {"type": "integer"}
+                "expiresAt": timestamp_schema()
             },
             "additionalProperties": false
         }),

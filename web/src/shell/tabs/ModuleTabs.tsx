@@ -183,7 +183,15 @@ function Strip({
       style={fadeStyle}
       onKeyDown={onKeyDown}
     >
-      <div ref={contentRef} className="relative flex min-w-full items-stretch gap-[2px] px-[10px]">
+      <div
+        ref={contentRef}
+        className={cn(
+          'relative flex min-w-full items-stretch gap-[2px] pr-[10px]',
+          // On the bare canvas the first label lines up with the text of the cards around it, 12px
+          // inside their edge: 2px here and the tab's own 10px. In a card the strip keeps 10px.
+          variant === 'inline' && divider ? 'pl-[2px]' : 'pl-[10px]',
+        )}
+      >
         {row}
         {trailing && trailing.length > 0 && (
           <div className="ml-auto flex items-stretch gap-[2px] pl-[10px]">
@@ -288,10 +296,10 @@ function Tab({
           )}
         />
       )}
-      {/* The bold label is laid out invisibly under the shown one, so the tab
-          keeps the width it has when active and nothing shifts on selection. */}
+      {/* The label is laid out a second time, invisibly, in the weight of the active one, so
+          the tab keeps its width and nothing shifts on selection. */}
       <span className="inline-grid">
-        <span className={cn('col-start-1 row-start-1', active ? 'font-strong' : 'font-body')}>
+        <span className="col-start-1 row-start-1 font-strong">
           {item.label}
         </span>
         <span aria-hidden="true" className="invisible col-start-1 row-start-1 font-strong">

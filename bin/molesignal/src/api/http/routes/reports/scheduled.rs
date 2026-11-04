@@ -25,7 +25,7 @@ use crate::{
     domain::iam::{permission, resource_permission},
     infra::persistence::repositories::scheduled_reports::{ReportRecipient, ScheduledReport},
     shared::{
-        Error, ReportFormat, Result, Viewport, ids::Id, time::TimestampMicros,
+        Error, ReportFormat, Result, SessionCookie, Viewport, ids::Id, time::TimestampMicros,
         validate_report_bytes,
     },
 };
@@ -63,6 +63,7 @@ impl ProtectedResource for ScheduledReport {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateReq {
     pub name: String,
     pub dashboard_id: Option<String>,
@@ -77,6 +78,7 @@ pub struct CreateReq {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateReq {
     pub name: String,
     pub dashboard_id: Option<String>,
@@ -94,6 +96,7 @@ fn default_true() -> bool {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Resp {
     pub id: String,
     pub name: String,
@@ -108,9 +111,9 @@ pub struct Resp {
     pub run_as_user_id: Option<String>,
     /// 这位用户的显示名和邮箱。报表没有运行身份，或用户记录已经不存在时为 `null`。
     pub run_as_user: Option<RunAsProfile>,
-    pub last_run_at_micros: Option<i64>,
-    pub created_at_micros: i64,
-    pub updated_at_micros: i64,
+    pub last_run_at: Option<i64>,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
 /// 这些用户的显示名和邮箱：直接读用户记录，不要求请求方能读成员目录。
@@ -139,9 +142,9 @@ fn to_resp(r: ScheduledReport, run_as: &HashMap<Id, RunAsProfile>) -> Resp {
         enabled: r.enabled,
         run_as_user_id: r.run_as_user_id.map(|i| i.0),
         run_as_user,
-        last_run_at_micros: r.last_run_at.map(|t| t.0),
-        created_at_micros: r.created_at.0,
-        updated_at_micros: r.updated_at.0,
+        last_run_at: r.last_run_at.map(|t| t.0),
+        created_at: r.created_at.0,
+        updated_at: r.updated_at.0,
     }
 }
 
@@ -237,15 +240,10 @@ async fn preview(
             chrono::Utc::now(),
         )?;
 
-        let browser_auth_storage = browser_auth_storage(&state, &ctx)?;
+        let session = render_cookie(&state, &ctx)?;
 
         let bytes = renderer
-            .render(
-                &url,
-                format,
-                Viewport::CONFIGURED,
-                Some(&browser_auth_storage),
-            )
+            .render(&url, format, Viewport::CONFIGURED, Some(&session))
             .await?;
 
         validate_report_bytes(format, &bytes)?;
@@ -266,9 +264,10 @@ async fn preview(
         .map_err(|e| Error::internal(format!("preview response build: {e}")))
 }
 
-/// 即时导出和分享快照以发起请求的用户渲染：登录态里的 token 只在一次渲染的时间内有效。
-pub(crate) fn browser_auth_storage(state: &AppState, ctx: &IamContext) -> Result<String> {
+/// 即时导出和分享快照以发起请求的用户渲染：Cookie 里的 token 只在一次渲染的时间内有效。
+pub(crate) fn render_cookie(state: &AppState, ctx: &IamContext) -> Result<SessionCookie> {
     crate::app::reporting::render_session(&state.iam.service, ctx)
+        .map(crate::api::http::session_cookie::render_cookie)
 }
 
 #[permission("reports.schedule")]
@@ -440,10 +439,10 @@ mod tests {
     fn a_report_names_the_user_it_runs_as() {
         let body = body(report(Some("u-ada")), &ada());
 
-        assert_eq!(body["run_as_user_id"], "u-ada");
+        assert_eq!(body["runAsUserId"], "u-ada");
         assert_eq!(
-            body["run_as_user"],
-            json!({ "id": "u-ada", "display_name": "Ada", "email": "ada@example.com" })
+            body["runAsUser"],
+            json!({ "id": "u-ada", "displayName": "Ada", "email": "ada@example.com" })
         );
     }
 
@@ -451,8 +450,8 @@ mod tests {
     fn a_user_who_no_longer_exists_leaves_only_the_id() {
         let body = body(report(Some("u-gone")), &ada());
 
-        assert_eq!(body["run_as_user_id"], "u-gone");
-        assert_eq!(body["run_as_user"], Value::Null);
+        assert_eq!(body["runAsUserId"], "u-gone");
+        assert_eq!(body["runAsUser"], Value::Null);
     }
 
     #[test]

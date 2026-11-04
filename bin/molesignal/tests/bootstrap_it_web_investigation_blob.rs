@@ -35,9 +35,9 @@ async fn blob_create_and_fetch_roundtrip() {
     );
     let body: Value = resp.json().await.unwrap();
     let blob_id = body
-        .get("blob_id")
+        .get("blobId")
         .and_then(Value::as_str)
-        .expect("blob_id")
+        .expect("blobId")
         .to_string();
 
     let (hk, hv) = s.auth_header();
@@ -81,9 +81,9 @@ async fn blob_oversize_rejected() {
         "256 KiB blob should now be accepted (S3-backed), got {}",
         resp.status()
     );
-    let blob_id = resp.json::<Value>().await.unwrap()["blob_id"]
+    let blob_id = resp.json::<Value>().await.unwrap()["blobId"]
         .as_str()
-        .expect("blob_id")
+        .expect("blobId")
         .to_string();
     let got: Value = s
         .client

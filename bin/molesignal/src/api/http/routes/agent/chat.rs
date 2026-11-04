@@ -40,13 +40,19 @@ use crate::{
     api::AppState,
     app::{agent_usage::BudgetGate, iam::IamContext},
     domain::iam::permission,
-    infra::persistence::repositories::agent::chats::ChatMessage,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    infra::persistence::repositories::agent::chats::{Chat, ChatMessage},
+    shared::{
+        Error, Result,
+        ids::Id,
+        time::{TimeRange, TimestampMicros},
+    },
 };
 
 mod archive;
 mod commands;
 mod evidence;
+mod forking;
+mod im;
 mod mcp_prompt;
 mod messages;
 mod prompts;
@@ -56,7 +62,10 @@ mod skill_invocation;
 mod tool_schema;
 
 use archive::archive_chat_route;
-use messages::{create_chat, delete_chat, fork_chat, list_chats, list_messages, rename_chat};
+use forking::fork_chat;
+pub(crate) use im::{ImPost, prepare_im_post};
+use messages::{create_chat, delete_chat, get_chat, list_chats, list_messages, rename_chat};
+pub(crate) use prompts::answer_presentation_instruction;
 use run::request::{AnswerRequest, RunRequest, TurnSnapshot};
 
 /// Agent chat 对象目录布局版本，与 transcript JSON schema 版本独立演进。
@@ -74,7 +83,7 @@ pub fn routes() -> Router<AppState> {
         .route("/agent/chat/{id}/archive", post(archive_chat_route))
         .route(
             "/agent/chat/{id}",
-            axum::routing::delete(delete_chat).patch(rename_chat),
+            get(get_chat).delete(delete_chat).patch(rename_chat),
         )
 }
 
@@ -83,12 +92,14 @@ pub fn routes() -> Router<AppState> {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TimeRangeReq {
-    pub start_micros: i64,
-    pub end_micros: i64,
+    pub start_time: i64,
+    pub end_time: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PostMessageReq {
     pub content: String,
     #[serde(default)]
@@ -132,6 +143,7 @@ async fn post_message(
 ) -> Result<Response> {
     // 只有能读这个会话的人能续聊：个人会话的本人，团队会话的成员与管理员。
     let (chat, viewer) = readable_chat(&state, &ctx, &Id(chat_id)).await?;
+    refuse_automation_run(&chat)?;
 
     // 0) 斜杠命令：未知命令、缺参数、没有权限时直接拒绝，不落消息、不排队；task 命令改写
     //    这一轮的模式、时间与问题。
@@ -154,8 +166,15 @@ async fn post_message(
     }
 
     // @ 引用：逐个核对能不能读，写成交给模型的上下文；读不了的让这条消息被拒绝。
+    // The time the question is about, which an attached service is read over.
+    let window = req.time_range.as_ref().map(|range| {
+        TimeRange::new(
+            TimestampMicros(range.start_time),
+            TimestampMicros(range.end_time),
+        )
+    });
     let (attached, reference_context) =
-        references::resolve(&state, &ctx, std::mem::take(&mut req.references)).await?;
+        references::resolve(&state, &ctx, std::mem::take(&mut req.references), window).await?;
 
     turn.system_texts.extend(reference_context);
 
@@ -223,8 +242,8 @@ async fn post_message(
         .set_chat_context(
             &chat.id,
             effective_analysis_mode,
-            req.time_range.as_ref().map(|t| t.start_micros),
-            req.time_range.as_ref().map(|t| t.end_micros),
+            req.time_range.as_ref().map(|t| t.start_time),
+            req.time_range.as_ref().map(|t| t.end_time),
         )
         .await;
 
@@ -241,14 +260,15 @@ async fn post_message(
         },
         regenerate,
         dashboard: dashboard_activation.map(|activation| activation.input_complete),
-        asked_at_micros: Some(asked_at.0),
+        asked_at: Some(asked_at.0),
+        deadline_secs: None,
     }));
 
     let run = enqueue(&state, &ctx, &chat.id, &request, Some(question_id.clone())).await?;
 
     Ok((
         StatusCode::ACCEPTED,
-        Json(json!({ "run": RunResp::of(&run), "user_message_id": question_id.0 })),
+        Json(json!({ "run": RunResp::of(&run), "userMessageId": question_id.0 })),
     )
         .into_response())
 }
@@ -261,6 +281,7 @@ async fn compact_chat(
     Path(chat_id): Path<String>,
 ) -> Result<Response> {
     let (chat, _) = readable_chat(&state, &ctx, &Id(chat_id)).await?;
+    refuse_automation_run(&chat)?;
 
     if let BudgetGate::Refuse(status) = state.agent.usage.gate(&ctx.org_id, true).await {
         return Ok(budget::exhausted_response(&status));
@@ -273,6 +294,17 @@ async fn compact_chat(
         Json(json!({ "run": RunResp::of(&run) })),
     )
         .into_response())
+}
+
+/// 自动化的一次运行只读：要再来一次就再运行一次规则。
+fn refuse_automation_run(chat: &Chat) -> Result<()> {
+    if chat.automation_id.is_some() {
+        return Err(Error::invalid(
+            "a run of an automation cannot be continued; run the automation again",
+        ));
+    }
+
+    Ok(())
 }
 
 async fn enqueue(

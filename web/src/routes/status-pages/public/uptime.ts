@@ -55,7 +55,7 @@ export function componentUptime(
   snapshot: PublicStatusPageSnapshot,
   dayCount = DEFAULT_DAYS,
 ): ComponentUptime {
-  const endAt = snapshot.generated_at;
+  const endAt = snapshot.generatedAt;
   const startAt = endAt - dayCount * DAY_MICROS;
   const segments = componentStatusSegments(component, snapshot, startAt, endAt);
   const days = Array.from({ length: dayCount }, (_, index) => {
@@ -111,7 +111,7 @@ export function componentCalendarUptime(
   dayCount: number,
   timezone: string,
 ): ComponentUptime {
-  const endAt = snapshot.generated_at;
+  const endAt = snapshot.generatedAt;
   const count = Math.max(1, Math.floor(dayCount));
   const today = zonedDateParts(endAt, timezone);
   const todayOrdinal = Date.UTC(today.year, today.month - 1, today.day);
@@ -206,11 +206,11 @@ function componentStatusSegments(
   windowStart: number,
   windowEnd: number,
 ): StatusSegment[] {
-  const intervals: StatusInterval[] = (snapshot.component_status_events ?? [])
-    .filter((event) => event.component_id === component.id)
+  const intervals: StatusInterval[] = (snapshot.componentStatusEvents ?? [])
+    .filter((event) => event.componentId === component.id)
     .map((event) => ({
-      startAt: Math.max(event.started_at, windowStart),
-      endAt: Math.min(event.ended_at ?? windowEnd, windowEnd),
+      startAt: Math.max(event.startedAt, windowStart),
+      endAt: Math.min(event.endedAt ?? windowEnd, windowEnd),
       status: event.status,
     }))
     .filter((interval) => interval.endAt > interval.startAt);
@@ -227,10 +227,10 @@ function componentStatusSegments(
 
   const incidents = new Map<string, PublicStatusPageIncident>();
   [
-    ...snapshot.active_incidents,
+    ...snapshot.activeIncidents,
     ...snapshot.history,
-    ...snapshot.scheduled_maintenance.filter(
-      (incident) => incident.started_at <= snapshot.generated_at,
+    ...snapshot.scheduledMaintenance.filter(
+      (incident) => incident.startedAt <= snapshot.generatedAt,
     ),
   ].forEach((incident) => incidents.set(incident.id, incident));
 
@@ -238,10 +238,10 @@ function componentStatusSegments(
   // identity so affected days can link back to the public timeline.
   intervals.push(
     ...[...incidents.values()]
-      .filter((incident) => incident.component_ids.includes(component.id))
+      .filter((incident) => incident.componentIds.includes(component.id))
       .map((incident) => ({
-        startAt: Math.max(incident.started_at, windowStart),
-        endAt: Math.min(incident.ended_at ?? windowEnd, windowEnd),
+        startAt: Math.max(incident.startedAt, windowStart),
+        endAt: Math.min(incident.endedAt ?? windowEnd, windowEnd),
         status: incidentComponentStatus(incident),
         incident: { id: incident.id, title: incident.title },
       }))

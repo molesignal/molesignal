@@ -31,10 +31,32 @@ export const LEVEL_EDGE: Record<LogLevelTone, string> = {
   quiet: 'border-l-tx-0/10',
 };
 
-/** A level as a word in its colour, at the size of the table it stands in unless told another. */
-export function LevelWord({ level, size = 'type-micro' }: { level: string; size?: string }) {
+/** The bar a log row carries down its left edge, as a trace row carries how it ended: loud for a failure or a warning, faint otherwise. */
+export const LEVEL_BAR: Record<LogLevelTone, string> = {
+  error: 'bg-red',
+  warn: 'bg-[var(--yellow)]',
+  info: 'bg-[var(--blue)] opacity-30',
+  quiet: 'bg-tx-0/10',
+};
+
+/**
+ * A level in a table cell, written as the trace table writes an HTTP method:
+ * the word alone in its colour, in the face and size of the rest of the row,
+ * with no chip behind it.
+ */
+export function LevelChip({ level }: { level: string }) {
+  return <LevelWord level={level} size="text-xs" mono={false} />;
+}
+
+/**
+ * A level as a word in its colour, at the size of the table it stands in unless told another. A
+ * failure and a warning are in the strong weight, the ordinary run of things in the body one. It
+ * is in the monospace face, except in a list table (`mono={false}`).
+ */
+export function LevelWord({ level, size = 'type-micro', mono = true }: { level: string; size?: string; mono?: boolean }) {
+  const tone = logLevelTone(level);
   return (
-    <span className={cn(size, 'font-mono font-semibold', LEVEL_TEXT[logLevelTone(level)])}>{level}</span>
+    <span className={cn(size, mono && 'font-mono', tone === 'error' || tone === 'warn' ? 'font-strong' : 'font-body', LEVEL_TEXT[tone])}>{level}</span>
   );
 }
 

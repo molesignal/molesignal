@@ -34,6 +34,9 @@ interface WorkspaceContextValue {
   domain: StatusPageDomainInstructions | null | undefined;
   domainCapability: StatusPageDomainCapability | undefined;
   manageAccess: ActionAccess;
+  eventsAccess: ActionAccess;
+  subscribersAccess: ActionAccess;
+  automationAccess: ActionAccess;
   refresh: () => Promise<void>;
 }
 
@@ -53,7 +56,11 @@ export function StatusPageWorkspaceLayout() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const productAccess = useProductAccess();
-  const manageAccess = useActionAccess({ permission: 'status_pages.manage' });
+  const manageAccess = useActionAccess({ permission: 'status_pages.update' });
+  const subscribersAccess = useActionAccess({ permission: 'status_pages.subscribers.manage' });
+  const domainAccess = useActionAccess({ permission: 'status_pages.domain.manage' });
+  const eventsAccess = useActionAccess({ permission: 'status_pages.events.manage' });
+  const automationAccess = useActionAccess({ permission: 'status_pages.automation.manage' });
   const snapshotQuery = useQuery({
     queryKey: ['status-pages', pageId, 'snapshot'],
     queryFn: () => statusPagesApi.get(pageId),
@@ -62,13 +69,13 @@ export function StatusPageWorkspaceLayout() {
   const domainCapabilityQuery = useQuery({
     queryKey: ['status-pages', pageId, 'domain-capability'],
     queryFn: () => statusPagesApi.getDomainCapability(pageId),
-    enabled: Boolean(pageId) && manageAccess.allowed,
+    enabled: Boolean(pageId) && domainAccess.allowed,
   });
   const domainQuery = useQuery({
     queryKey: ['status-pages', pageId, 'domain'],
     queryFn: () => statusPagesApi.getDomain(pageId),
     enabled:
-      Boolean(pageId) && manageAccess.allowed && domainCapabilityQuery.data?.available === true,
+      Boolean(pageId) && domainAccess.allowed && domainCapabilityQuery.data?.available === true,
   });
 
   if (snapshotQuery.isLoading) {
@@ -94,21 +101,24 @@ export function StatusPageWorkspaceLayout() {
     );
   }
 
-  const isManageOnlyRoute = /\/(subscribers|settings)(?:\/|$)/.test(location.pathname);
-  if (
-    isManageOnlyRoute
-    && productAccess?.status === 'ready'
-    && !hasPermission('status_pages.manage', productAccess)
-  ) {
+  const manageOnly =
+    productAccess?.status === 'ready' &&
+    ((/\/subscribers(?:\/|$)/.test(location.pathname) &&
+      !hasPermission('status_pages.subscribers.manage', productAccess)) ||
+      (/\/settings(?:\/|$)/.test(location.pathname) &&
+        !hasPermission('status_pages.update', productAccess)));
+  if (manageOnly) {
     return <Navigate to={`/status-pages/${pageId}/overview`} replace />;
   }
 
   const snapshot = snapshotQuery.data;
   const { page } = snapshot;
   const publicUrl = publicStatusPageUrl(page, domainQuery.data?.config.state);
-  const visibleTabs = manageAccess.allowed
-    ? TABS
-    : TABS.filter((tab) => tab !== 'subscribers' && tab !== 'settings');
+  const visibleTabs = TABS.filter(
+    (tab) =>
+      (tab !== 'subscribers' || subscribersAccess.allowed) &&
+      (tab !== 'settings' || manageAccess.allowed),
+  );
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['status-pages', pageId] }),
@@ -121,6 +131,9 @@ export function StatusPageWorkspaceLayout() {
     domain: domainQuery.data,
     domainCapability: domainCapabilityQuery.data,
     manageAccess,
+    eventsAccess,
+    subscribersAccess,
+    automationAccess,
     refresh,
   };
 

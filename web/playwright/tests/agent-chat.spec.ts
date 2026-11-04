@@ -218,10 +218,11 @@ test.describe('Mole Agent operations workspace', () => {
       .getByTestId('composer-shell')
       .boundingBox();
     // A scene about a service also opens the shell's filter strip: the page makes room for
-    // it above, and the composer stays where it was.
+    // it above, and the composer stays where it was. The service is found out after the
+    // page opens: until then the scene asks about no service, and opens nothing.
     await page
       .getByRole('button', {
-        name: /Ask for data in plain words/,
+        name: /Ask for data in plain words.*errors of web/,
       })
       .click();
     await expect(page.getByTestId('investigation-context-bar')).toBeVisible();

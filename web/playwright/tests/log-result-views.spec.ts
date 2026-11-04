@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 
+import { explorerRead, explorerReadBody } from '../fixtures/explorerReads';
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 import { expectExplorerResults, serveExplorerResults } from '../fixtures/mockExplorers';
 
@@ -9,36 +10,36 @@ const view = (page: Page, name: string) => views(page).getByRole('button', { nam
 
 interface AskedStatement {
   statement: string;
-  time_range: { start: number; end: number };
-  stream: { name: string; stream_type: string };
+  timeRange: { start: number; end: number };
+  stream: { name: string; streamType: string };
 }
 
 /** Answers a statement of statistics by its shape, and records what was asked. */
 async function serveStatistics(page: Page): Promise<AskedStatement[]> {
   const asked: AskedStatement[] = [];
 
-  await page.route('**/api/v1/query', async (route) => {
-    const body = route.request().postDataJSON() as AskedStatement;
+  await page.route(explorerRead('query'), async (route) => {
+    const body = explorerReadBody<AskedStatement>(route.request());
     asked.push(body);
 
     if (/AS "time"/.test(body.statement)) {
-      const start = Math.floor(body.time_range.start / 60_000_000) * 60_000_000;
+      const start = Math.floor(body.timeRange.start / 60_000_000) * 60_000_000;
       const rows = Array.from({ length: 60 }, (_, index) => [start + index * 60_000_000, 4 + (index % 7)]);
 
-      return route.fulfill({ json: { columns: ['time', 'count'], rows, scanned_rows: 354, took_ms: 9 } });
+      return route.fulfill({ json: { columns: ['time', 'count'], rows, scannedRows: 354, tookMs: 9 } });
     }
     if (/GROUP BY/.test(body.statement)) {
       return route.fulfill({
         json: {
           columns: ['level', 'count'],
           rows: [['INFO', 212], ['ERROR', 71], ['WARN', 44], ['DEBUG', 27]],
-          scanned_rows: 354,
-          took_ms: 7,
+          scannedRows: 354,
+          tookMs: 7,
         },
       });
     }
 
-    return route.fulfill({ json: { columns: ['count'], rows: [[354]], scanned_rows: 354, took_ms: 3 } });
+    return route.fulfill({ json: { columns: ['count'], rows: [[354]], scannedRows: 354, tookMs: 3 } });
   });
 
   return asked;
@@ -104,8 +105,8 @@ test.describe('Views of the log results', () => {
         'LIMIT 20',
       ].join('\n'),
     );
-    expect(asked.at(-1)).toMatchObject({ stream: { name: 'application_logs', stream_type: 'logs' } });
-    expect(asked.at(-1)!.time_range.end - asked.at(-1)!.time_range.start).toBe(3_600_000_000);
+    expect(asked.at(-1)).toMatchObject({ stream: { name: 'application_logs', streamType: 'logs' } });
+    expect(asked.at(-1)!.timeRange.end - asked.at(-1)!.timeRange.start).toBe(3_600_000_000);
 
     // Drawn as bars that stand on an axis, over the rows they are drawn from.
     const bars = stats.locator('[data-testid="bar-chart-bar"]');
@@ -138,7 +139,7 @@ test.describe('Views of the log results', () => {
       created.push(body);
 
       return route.fulfill({
-        json: { id: 'dash-new', org_id: 'default', uid: 'u', title: body.model.title, tags: [], model: body.model, version: 1, created_at: 1, updated_at: 1 },
+        json: { id: 'dash-new', orgId: 'default', uid: 'u', title: body.model.title, tags: [], model: body.model, version: 1, createdAt: 1, updatedAt: 1 },
       });
     });
     await page.goto('/logs');
@@ -215,7 +216,7 @@ test.describe('AI inspection of the log results', () => {
   test('needs a model that is set up and switched on', async ({ page }) => {
     await page.route('**/api/v1/agent/settings/model-providers', (route) =>
       route.fulfill({
-        json: [{ id: 'p1', provider: 'openai', name: 'OpenAI', default_model: 'gpt-4o', enabled: false, timeout_ms: 30_000, key_set: true, created_at_micros: 1, updated_at_micros: 1 }],
+        json: [{ id: 'p1', provider: 'openai', name: 'OpenAI', defaultModel: 'gpt-4o', enabled: false, timeoutMs: 30_000, keySet: true, createdAt: 1, updatedAt: 1 }],
       }),
     );
     await page.goto('/logs');
@@ -232,31 +233,37 @@ test.describe('AI inspection of the log results', () => {
 
   test('inspects the logs the query matches, and keeps the report while the reader looks elsewhere', async ({ page }) => {
     const sent: Array<Record<string, unknown>> = [];
+    const answer = JSON.stringify({
+      summary: 'Errors rose sharply between 09:36 and 09:42.',
+      evidence: [{ label: '71 ERROR logs from payment-gateway', kind: 'logs' }],
+      likely_causes: ['The acquirer timed out'],
+      limitations: [],
+      suggested_next_steps: ['Check the acquirer status page'],
+      related_links: [],
+      confidence: 'medium',
+    });
+    // The message is queued as a run; what the run does is read from its numbered events.
     await page.route('**/api/v1/agent/chat/*/messages', async (route) => {
       if (route.request().method() !== 'POST') return route.fallback();
 
       sent.push(route.request().postDataJSON() as Record<string, unknown>);
-      const answer = JSON.stringify({
-        summary: 'Errors rose sharply between 09:36 and 09:42.',
-        evidence: [{ label: '71 ERROR logs from payment-gateway', kind: 'logs' }],
-        likely_causes: ['The acquirer timed out'],
-        limitations: [],
-        suggested_next_steps: ['Check the acquirer status page'],
-        related_links: [],
-        confidence: 'medium',
-      });
 
-      return route.fulfill({
+      return route.fulfill({ status: 202, json: { run: { id: 'inspection-run' }, userMessageId: 'question' } });
+    });
+    await page.route('**/api/v1/agent/runs/inspection-run/events?after=*', (route) =>
+      route.fulfill({
         status: 200,
         headers: { 'content-type': 'text/event-stream' },
         body: [
-          `event: tool_start\ndata: ${JSON.stringify({ id: 't1', name: 'query_logs', arguments: '{}' })}\n\n`,
-          `event: tool_end\ndata: ${JSON.stringify({ id: 't1', result: '{}', is_error: false })}\n\n`,
-          `event: chunk\ndata: ${JSON.stringify({ text: answer })}\n\n`,
-          'event: done\ndata: {"prompt_tokens":10,"completion_tokens":12,"finish_reason":"stop"}\n\n',
-        ].join(''),
-      });
-    });
+          { event: 'tool_start', data: { id: 't1', name: 'query_logs', arguments: {} } },
+          { event: 'tool_end', data: { id: 't1', name: 'query_logs', result: '{}', truncated: false, isError: false } },
+          { event: 'text', data: { text: answer } },
+          { event: 'done', data: { status: 'succeeded', content: answer, promptTokens: 10, completionTokens: 12, finishReason: 'stop' } },
+        ]
+          .map(({ event, data }, index) => `id: ${index + 1}\nevent: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+          .join(''),
+      }),
+    );
     await page.goto(`/logs?q=${encodeURIComponent("level = 'ERROR'")}`);
     await expectExplorerResults(page, 'logs');
     await view(page, 'AI inspection').click();
@@ -277,12 +284,12 @@ test.describe('AI inspection of the log results', () => {
 
     // The model is asked about this stream, this range and this query, and to read only.
     expect(sent).toHaveLength(1);
-    expect(sent[0]).toMatchObject({ execution_policy: 'read_only', stream_hints: ['application_logs'] });
+    expect(sent[0]).toMatchObject({ executionPolicy: 'read_only', streamHints: ['application_logs'] });
     expect(String(sent[0]!.content)).toContain('application_logs');
     expect(String(sent[0]!.content)).toContain("level = 'ERROR'");
     expect(String(sent[0]!.content)).toContain('only payment-gateway');
-    const range = sent[0]!.time_range as { start_micros: number; end_micros: number };
-    expect(range.end_micros - range.start_micros).toBe(3_600_000_000);
+    const range = sent[0]!.timeRange as { startTime: number; endTime: number };
+    expect(range.endTime - range.startTime).toBe(3_600_000_000);
 
     // The report is the page's, not the view's: it is there on the way back.
     await view(page, 'Logs').click();

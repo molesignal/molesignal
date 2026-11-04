@@ -61,7 +61,7 @@ pub fn routes() -> Router<AppState> {
         .merge(repositories::routes())
 }
 
-#[permission("agent.use")]
+#[permission("agent.skills.read")]
 async fn list_skills(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -85,12 +85,12 @@ async fn list_skills(
         "paths": {
             "roots": instance.roots(),
             "problems": if viewer.manager { json!(instance.problems()) } else { json!([]) },
-            "scanned_at_micros": instance.scanned_at().map(|at| at.0),
+            "scannedAt": instance.scanned_at().map(|at| at.0),
         },
     })))
 }
 
-#[permission("agent.use")]
+#[permission("agent.skills.manage")]
 async fn upload_skill(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -127,7 +127,7 @@ async fn upload_skill(
 
         match name.as_str() {
             "scope" => scope = value,
-            "team_id" => team_id = Some(value),
+            "teamId" => team_id = Some(value),
             "replace" => replace = matches!(value.as_str(), "true" | "1"),
             _ => {}
         }
@@ -190,7 +190,7 @@ async fn upload_skill(
     Ok(Json(skill).into_response())
 }
 
-#[permission("agent.use")]
+#[permission("agent.skills.read")]
 async fn skill_detail(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -209,7 +209,7 @@ struct FileQuery {
     path: String,
 }
 
-#[permission("agent.use")]
+#[permission("agent.skills.read")]
 async fn skill_file(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -227,7 +227,7 @@ async fn skill_file(
     Ok(Json(json!({ "path": query.path, "content": text })))
 }
 
-#[permission("agent.use")]
+#[permission("agent.skills.read")]
 async fn skill_package(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -264,6 +264,7 @@ async fn skill_package(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct UpdateSkillRequest {
     #[serde(default)]
     enabled: Option<bool>,
@@ -274,7 +275,7 @@ struct UpdateSkillRequest {
     team_id: Option<String>,
 }
 
-#[permission("agent.use")]
+#[permission("agent.skills.manage")]
 async fn update_skill(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -329,7 +330,7 @@ async fn update_skill(
     Ok(Json(json!(detail)))
 }
 
-#[permission("agent.use")]
+#[permission("agent.skills.manage")]
 async fn delete_skill(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -351,7 +352,7 @@ async fn delete_skill(
     Ok(Json(json!({ "deleted": true })))
 }
 
-#[permission("agent.manage")]
+#[permission("agent.skills.rescan")]
 async fn rescan(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -367,6 +368,6 @@ async fn rescan(
     Ok(Json(json!({
         "roots": instance.roots(),
         "problems": instance.problems(),
-        "scanned_at_micros": instance.scanned_at().map(|at| at.0),
+        "scannedAt": instance.scanned_at().map(|at| at.0),
     })))
 }

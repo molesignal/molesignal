@@ -8,7 +8,8 @@ use std::collections::BTreeSet;
 use serde_json::Value;
 
 use super::{
-    IamAccessRequest, IamAccessService, IamAttributes, IamDecision, IamDecisionReason, IamTarget,
+    IamAccessRequest, IamAccessService, IamAttributes, IamDecision, IamDecisionReason, IamSubject,
+    IamTarget,
 };
 use crate::{
     app::iam::IamContext,
@@ -75,6 +76,17 @@ impl IamAccessService {
         if permission_scope != IamPermissionScope::Organization {
             return Ok(IamDecision::deny(
                 IamDecisionReason::ScopeBoundary,
+                context.policy_version,
+            ));
+        }
+
+        // A token reaches nothing its scope leaves out, whatever its principal was granted on a
+        // resource or in another organization.
+        if context.scope == IamScope::ApiToken
+            && !self.token_reaches(context, &request.permission).await?
+        {
+            return Ok(IamDecision::deny(
+                IamDecisionReason::CredentialScope,
                 context.policy_version,
             ));
         }
@@ -245,6 +257,20 @@ impl IamAccessService {
         }
 
         Ok(decisions)
+    }
+
+    /// Whether a token's scope lets it use a permission. A public RUM credential has no principal
+    /// to borrow a grant from: it reaches what it holds and nothing else.
+    async fn token_reaches(&self, context: &IamContext, permission: &str) -> Result<bool> {
+        if context.credential_application_id.is_some() {
+            return Ok(context.has_permission(permission));
+        }
+
+        let grant = self.token_grant(&IamSubject::from(context)).await?;
+
+        Ok(grant
+            .ceiling
+            .is_none_or(|ceiling| ceiling.contains(permission)))
     }
 }
 

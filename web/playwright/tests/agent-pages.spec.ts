@@ -1,3 +1,5 @@
+import type { Page } from '@playwright/test';
+
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 
 test.describe('Mole Agent pages', () => {
@@ -66,6 +68,7 @@ test.describe('Mole Agent pages', () => {
       'Skills',
       'Tools & capabilities',
       'Inbound MCP',
+      'IM',
       'Data access',
       'Network policy',
       'Approval policy',
@@ -204,6 +207,551 @@ test.describe('Mole Agent chat without a model', () => {
 
     await expect(page.getByTestId('composer-shell')).toBeVisible();
     await expect(page.locator('[data-agent-no-model]')).toHaveCount(0);
+  });
+});
+
+test.describe('Mole Agent settings ask for what the API of each section asks for', () => {
+  const MODEL_MANAGER = ['agent.use', 'agent.models.read', 'agent.models.manage'];
+  const PROVIDER = '/api/v1/agent/settings/model-providers/openai-gpt-4o';
+
+  const openSection = async (
+    page: Page,
+    port: number,
+    section: string,
+    capabilityPermissions: string[],
+  ) => {
+    await mountMockRoutes(page, port, { role: 'viewer', capabilityPermissions });
+    await page.goto(`/agent/settings/${section}`);
+  };
+  const openModels = (page: Page, port: number, capabilityPermissions: string[]) =>
+    openSection(page, port, 'models', capabilityPermissions);
+  const surface = (page: Page) => page.locator('[data-agent-content-surface]');
+  const addProvider = (page: Page) => surface(page).getByRole('button', { name: 'Add model provider' });
+  const editProvider = (page: Page) =>
+    surface(page).getByRole('button', { name: 'Edit model provider' }).first();
+  const notice = (page: Page) => surface(page).getByRole('status').filter({ hasText: /^Requires the/ });
+
+  /** The calls made to matching paths. The mock answers anything, so a refusal shows as a call made. */
+  function callsTo(page: Page, path: RegExp): string[] {
+    const calls: string[] = [];
+    page.on('request', (request) => {
+      const { pathname } = new URL(request.url());
+      if (path.test(pathname)) calls.push(`${request.method()} ${pathname}`);
+    });
+    return calls;
+  }
+
+  test('the models permissions alone add a provider and ask for nothing they would be refused', async ({
+    page,
+    mockServer,
+  }) => {
+    const refused = callsTo(page, /\/agent\/(tools|settings\/(agent-profiles|currencies))$/);
+    await openModels(page, mockServer.port, MODEL_MANAGER);
+
+    await addProvider(page).click();
+    const drawer = page.getByRole('dialog', { name: 'Add model provider' });
+    await drawer.getByLabel('Display name').fill('Gateway');
+    await drawer.getByLabel('Default model').fill('gpt-5');
+    await drawer.getByLabel('API key').fill('sk-gateway');
+    // The currencies are the usage permissions' to read, so the provider keeps the default one.
+    await expect(drawer.getByRole('combobox', { name: 'Currency' })).toBeDisabled();
+    const created = page.waitForRequest(
+      (request) =>
+        request.method() === 'POST' &&
+        new URL(request.url()).pathname === '/api/v1/agent/settings/model-providers',
+    );
+    await drawer.getByRole('button', { name: 'Create' }).click();
+
+    expect((await created).postDataJSON()).toMatchObject({
+      name: 'Gateway',
+      defaultModel: 'gpt-5',
+      priceCurrency: 'USD',
+      apiKey: 'sk-gateway',
+    });
+    await expect(surface(page).getByText('Gateway', { exact: true })).toBeVisible();
+    await expect(notice(page)).toHaveCount(0);
+    await expect(surface(page).getByText('Currencies', { exact: true })).toHaveCount(0);
+    expect(refused).toEqual([]);
+  });
+
+  test('the permission of another section does not open it, and the notice names the right one', async ({
+    page,
+    mockServer,
+  }) => {
+    await openModels(page, mockServer.port, ['agent.use', 'agent.models.read', 'agent.profiles.manage']);
+
+    await expect(notice(page)).toHaveText('Requires the agent.models.manage permission.');
+    await expect(addProvider(page)).toBeDisabled();
+    await expect(editProvider(page)).toBeDisabled();
+  });
+
+  test('the models permission does not open the other sections', async ({ page, mockServer }) => {
+    await mountMockRoutes(page, mockServer.port, {
+      role: 'viewer',
+      capabilityPermissions: [...MODEL_MANAGER, 'agent.profiles.read'],
+    });
+    await page.goto('/agent/settings');
+
+    await expect(notice(page)).toHaveText('Requires the agent.profiles.manage permission.');
+    await expect(surface(page).getByRole('button', { name: 'Create profile' })).toBeDisabled();
+  });
+
+  test('replacing the key of a provider takes a permission of its own', async ({ page, mockServer }) => {
+    await openModels(page, mockServer.port, MODEL_MANAGER);
+    const writes = callsTo(page, /\/agent\/settings\/model-providers\/.+/);
+
+    await editProvider(page).click();
+    const drawer = page.getByRole('dialog', { name: 'Edit model provider' });
+    await expect(drawer.getByLabel('API key')).toBeDisabled();
+    await expect(drawer).toContainText('Requires the agent.models.rotate permission.');
+    await drawer.getByLabel('Display name').fill('OpenAI renamed');
+    await drawer.getByRole('button', { name: 'Save' }).click();
+
+    await expect(surface(page).getByText('OpenAI renamed', { exact: true })).toBeVisible();
+    expect(writes).toEqual([`PUT ${PROVIDER}`]);
+  });
+
+  test('that permission alone replaces the key and changes nothing else', async ({ page, mockServer }) => {
+    await openModels(page, mockServer.port, ['agent.use', 'agent.models.read', 'agent.models.rotate']);
+    const writes = callsTo(page, /\/agent\/settings\/model-providers\/.+/);
+
+    await expect(notice(page)).toHaveText('Requires the agent.models.manage permission.');
+    await expect(addProvider(page)).toBeDisabled();
+    await editProvider(page).click();
+    const drawer = page.getByRole('dialog', { name: 'Edit model provider' });
+    await expect(drawer).toContainText('Requires the agent.models.manage permission.');
+    await expect(drawer.getByLabel('Display name')).toBeDisabled();
+    await expect(drawer.getByRole('combobox', { name: 'Provider type' })).toBeDisabled();
+    await expect(drawer.getByRole('combobox', { name: 'Currency' })).toBeDisabled();
+    await expect(drawer.getByRole('switch', { name: 'Enable model provider' })).toBeDisabled();
+    // A save with no key would have nothing it may send.
+    const save = drawer.getByRole('button', { name: 'Save' });
+    await expect(save).toBeDisabled();
+
+    await drawer.getByLabel('API key').fill('sk-rotated');
+    await save.click();
+
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(writes).toEqual([`POST ${PROVIDER}/rotate-key`]);
+  });
+
+  test('the currencies answer to the usage permissions, whatever locks the providers', async ({
+    page,
+    mockServer,
+  }) => {
+    await openModels(page, mockServer.port, [
+      'agent.use',
+      'agent.models.read',
+      'agent.usage.read',
+      'agent.usage.manage',
+    ]);
+
+    await expect(addProvider(page)).toBeDisabled();
+    await surface(page).getByRole('button', { name: 'Add currency' }).click();
+    await expect(page.getByRole('dialog', { name: 'Add currency' })).toBeVisible();
+  });
+
+  test('reading the currencies offers them to price in, and does not change them', async ({
+    page,
+    mockServer,
+  }) => {
+    await openModels(page, mockServer.port, [...MODEL_MANAGER, 'agent.usage.read']);
+
+    await expect(surface(page).locator('[data-agent-currency="CNY"]')).toBeVisible();
+    await expect(surface(page).getByRole('button', { name: 'Add currency' })).toHaveCount(0);
+
+    await addProvider(page).click();
+    const drawer = page.getByRole('dialog', { name: 'Add model provider' });
+    await drawer.getByRole('combobox', { name: 'Currency' }).click();
+    await expect(page.getByRole('option', { name: /^CNY/ })).toBeVisible();
+  });
+
+  for (const { section, read, manage, control } of [
+    {
+      section: 'usage',
+      read: 'agent.usage.read',
+      manage: 'agent.usage.manage',
+      control: (page: Page) => surface(page).getByRole('button', { name: 'Save budget' }),
+    },
+    {
+      section: 'prompts',
+      read: 'agent.prompts.read',
+      manage: 'agent.prompts.manage',
+      control: (page: Page) => surface(page).getByRole('button', { name: 'Create prompt' }),
+    },
+    {
+      section: 'inbound-mcp',
+      read: 'agent.inbound_mcp.read',
+      manage: 'agent.inbound_mcp.manage',
+      control: (page: Page) => surface(page).getByRole('button', { name: 'Save settings' }),
+    },
+    {
+      section: 'im',
+      read: 'agent.im.read',
+      manage: 'agent.im.manage',
+      control: (page: Page) => surface(page).getByRole('switch', { name: 'Answer in IM with Ops Feishu' }),
+    },
+  ]) {
+    test(`${section} opens on its own permissions and asks for nothing they would be refused`, async ({
+      page,
+      mockServer,
+    }) => {
+      const refused = callsTo(page, /\/agent\/(tools|settings\/(agent-profiles|model-providers))$/);
+      await openSection(page, mockServer.port, section, ['agent.use', read, manage]);
+
+      await expect(control(page)).toBeEnabled();
+      await expect(notice(page)).toHaveCount(0);
+      expect(refused).toEqual([]);
+    });
+
+    test(`${section} stays locked on the permission of another section, and names its own`, async ({
+      page,
+      mockServer,
+    }) => {
+      await openSection(page, mockServer.port, section, ['agent.use', read, 'agent.profiles.manage']);
+
+      await expect(control(page)).toBeDisabled();
+      await expect(notice(page)).toHaveText(`Requires the ${manage} permission.`);
+    });
+  }
+
+  for (const [section, edit] of [
+    ['data', 'Edit data access'],
+    ['approvals', 'Edit approval policy'],
+  ] as const) {
+    test(`${section} stays on the permission that changes a profile`, async ({ page, mockServer }) => {
+      await openSection(page, mockServer.port, section, ['agent.use', 'agent.profiles.read', 'agent.usage.manage']);
+
+      await expect(notice(page)).toHaveText('Requires the agent.profiles.manage permission.');
+      await expect(surface(page).getByRole('button', { name: edit })).toBeDisabled();
+    });
+  }
+
+  test('the usage permissions alone save a budget', async ({ page, mockServer }) => {
+    await openSection(page, mockServer.port, 'usage', ['agent.use', 'agent.usage.read', 'agent.usage.manage']);
+
+    const saved = page.waitForRequest(
+      (request) =>
+        request.method() === 'PUT' && new URL(request.url()).pathname === '/api/v1/agent/usage/budget',
+    );
+    await surface(page).getByRole('button', { name: 'Save budget' }).click();
+    await saved;
+    await expect(page.getByText('Budget saved')).toBeVisible();
+  });
+
+  test('usage shows what was used and what the budget is to one who may not change it', async ({
+    page,
+    mockServer,
+  }) => {
+    await openSection(page, mockServer.port, 'usage', ['agent.use', 'agent.usage.read']);
+
+    await expect(surface(page).locator('[data-agent-usage-today]')).toBeVisible();
+    const form = surface(page).locator('[data-agent-usage-budget]');
+    await expect(form.getByRole('combobox', { name: 'Daily token limit' })).toBeDisabled();
+    await expect(
+      form.getByRole('combobox', { name: 'When the budget is used up, chats and on-demand analyses' }),
+    ).toBeDisabled();
+  });
+
+  test('prompts can be searched and read without the permission to change them', async ({
+    page,
+    mockServer,
+  }) => {
+    await mountMockRoutes(page, mockServer.port, {
+      role: 'viewer',
+      capabilityPermissions: ['agent.use', 'agent.prompts.read'],
+    });
+    await page.route('**/api/v1/agent/settings/prompts', (route) =>
+      route.fulfill({
+        json: [
+          {
+            id: 'prompt-builtin',
+            orgId: null,
+            userId: null,
+            scope: 'builtin',
+            builtinKey: 'system.default',
+            purpose: 'system',
+            name: 'Built-in instruction',
+            body: 'Answer from the evidence.',
+            variablesSchema: { type: 'object', properties: {} },
+            isDefault: true,
+            enabled: true,
+            version: 1,
+            parentId: null,
+            createdAt: 0,
+            updatedAt: 0,
+          },
+          {
+            id: 'prompt-own',
+            orgId: 'org',
+            userId: null,
+            scope: 'org',
+            builtinKey: 'system.default',
+            purpose: 'system',
+            name: 'Our instruction',
+            body: 'Answer briefly.',
+            variablesSchema: { type: 'object', properties: {} },
+            isDefault: false,
+            enabled: true,
+            version: 2,
+            parentId: 'prompt-builtin',
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        ],
+      }),
+    );
+    await page.goto('/agent/settings/prompts');
+
+    const row = (name: string) => surface(page).locator('article').filter({ hasText: name });
+    await expect(row('Built-in instruction').getByRole('button', { name: 'Create override' })).toBeDisabled();
+    for (const action of ['Edit', 'Set as default', 'Restore', 'Delete']) {
+      await expect(row('Our instruction').getByRole('button', { name: action })).toBeDisabled();
+    }
+
+    await surface(page).getByLabel('Search prompts').fill('briefly');
+    await expect(row('Built-in instruction')).toHaveCount(0);
+    await row('Our instruction').getByRole('button', { name: 'View' }).click();
+    await expect(page.getByRole('dialog', { name: 'View prompt' })).toBeVisible();
+  });
+
+  for (const [who, permissions, locked] of [
+    ['one who may not change it', ['agent.use', 'agent.inbound_mcp.read'], true],
+    ['one who may', ['agent.use', 'agent.inbound_mcp.read', 'agent.inbound_mcp.manage'], false],
+  ] as const) {
+    test(`inbound MCP keeps its addresses and prompt to copy, and its settings for ${who}`, async ({
+      page,
+      mockServer,
+    }) => {
+      await mountMockRoutes(page, mockServer.port, { role: 'viewer', capabilityPermissions: [...permissions] });
+      await page.route('**/api/v1/agent/settings/inbound-mcp/oauth-connections', (route) =>
+        route.fulfill({
+          json: {
+            connections: [
+              {
+                familyId: 'family-1',
+                clientId: 'mspat-client1',
+                clientName: 'An agent tool',
+                scope: 'mcp',
+                userDisplayName: 'Dev',
+                active: true,
+                lastExpiresAt: 4_000_000_000_000_000,
+              },
+            ],
+          },
+        }),
+      );
+      await page.goto('/agent/settings/inbound-mcp');
+
+      await expect(surface(page).getByRole('button', { name: 'Copy address' }).first()).toBeEnabled();
+      await expect(surface(page).getByRole('button', { name: 'Copy prompt' })).toBeEnabled();
+      const settings = [
+        surface(page).getByRole('switch', { name: 'Enabled' }),
+        surface(page).getByLabel('Allowed browser origins'),
+        surface(page).getByRole('spinbutton').first(),
+        surface(page).getByRole('button', { name: 'Revoke' }),
+      ];
+      for (const control of settings) {
+        if (locked) await expect(control).toBeDisabled();
+        else await expect(control).toBeEnabled();
+      }
+    });
+  }
+
+  test('IM keeps a callback address to copy without the permission to change a bot', async ({
+    page,
+    mockServer,
+  }) => {
+    await openSection(page, mockServer.port, 'im', ['agent.use', 'agent.im.read']);
+
+    await expect(
+      surface(page).getByRole('combobox', { name: 'Where new group threads of Ops Feishu go' }),
+    ).toBeDisabled();
+    await expect(surface(page).getByRole('button', { name: 'Copy the callback address' })).toBeEnabled();
+  });
+
+  test('the network permissions alone change what members may reach, and nothing of a profile shows', async ({
+    page,
+    mockServer,
+  }) => {
+    const refused = callsTo(page, /\/agent\/(tools|settings\/(agent-profiles|model-providers))$/);
+    await openSection(page, mockServer.port, 'network', [
+      'agent.use',
+      'agent.network_policy.read',
+      'agent.network_policy.manage',
+    ]);
+
+    const policy = surface(page).locator('[data-agent-member-network]');
+    await policy.getByLabel('Internal hosts').fill('git.internal.example');
+    const saved = page.waitForRequest(
+      (request) =>
+        request.method() === 'PUT' && new URL(request.url()).pathname === '/api/v1/agent/network-policy',
+    );
+    await policy.getByRole('button', { name: 'Save' }).click();
+
+    expect((await saved).postDataJSON()).toMatchObject({ privateHosts: ['git.internal.example'] });
+    await expect(notice(page)).toHaveCount(0);
+    await expect(surface(page).getByText('Network access', { exact: true })).toHaveCount(0);
+    await expect(surface(page).getByText('Runtime capabilities', { exact: true })).toHaveCount(0);
+    await expect(surface(page).getByRole('button', { name: 'Edit network policy' })).toHaveCount(0);
+    expect(refused).toEqual([]);
+  });
+
+  test('the profiles permissions change the network of a profile, and do not read what members may reach', async ({
+    page,
+    mockServer,
+  }) => {
+    const refused = callsTo(page, /\/agent\/network-policy$/);
+    await openSection(page, mockServer.port, 'network', [
+      'agent.use',
+      'agent.profiles.read',
+      'agent.profiles.manage',
+      'agent.tools.read',
+    ]);
+
+    await expect(surface(page).getByRole('button', { name: 'Edit network policy' })).toBeEnabled();
+    await expect(surface(page).getByText('Network access', { exact: true })).toBeVisible();
+    await expect(surface(page).getByText('Runtime capabilities', { exact: true })).toBeVisible();
+    const policy = surface(page).locator('[data-agent-member-network]');
+    await expect(policy.getByRole('status')).toHaveText('Requires the agent.network_policy.read permission.');
+    await expect(policy.getByLabel('Internal hosts')).toHaveCount(0);
+    expect(refused).toEqual([]);
+  });
+
+  test('each part of the network section says which permission it lacks', async ({ page, mockServer }) => {
+    await openSection(page, mockServer.port, 'network', [
+      'agent.use',
+      'agent.profiles.read',
+      'agent.network_policy.read',
+    ]);
+
+    await expect(surface(page).getByRole('button', { name: 'Edit network policy' })).toBeDisabled();
+    await expect(notice(page).filter({ hasText: 'agent.profiles.manage' })).toBeVisible();
+    const policy = surface(page).locator('[data-agent-member-network]');
+    await expect(policy.getByRole('status')).toHaveText('Requires the agent.network_policy.manage permission.');
+    const hosts = policy.getByLabel('Internal hosts');
+    await expect(hosts).toBeDisabled();
+    await expect(policy.getByRole('button', { name: 'Save' })).toBeDisabled();
+    // A locked field keeps the room it has when it can be used.
+    const room = await hosts.locator('xpath=ancestor::label').boundingBox();
+    expect((await hosts.boundingBox())!.width).toBeCloseTo(room!.width, 0);
+  });
+
+  for (const [section, read] of [
+    ['profiles', 'agent.profiles.read'],
+    ['data', 'agent.profiles.read'],
+    ['approvals', 'agent.profiles.read'],
+    ['usage', 'agent.usage.read'],
+    ['prompts', 'agent.prompts.read'],
+    ['inbound-mcp', 'agent.inbound_mcp.read'],
+    ['im', 'agent.im.read'],
+  ] as const) {
+    test(`${section} says which permission opens it, and asks for nothing without it`, async ({
+      page,
+      mockServer,
+    }) => {
+      const refused = callsTo(page, /^\/api\/v1\/agent\/(settings\/|usage|im\/bots)/);
+      // Its permission to change it is no way in: there would be nothing to change.
+      const manage = read.replace('.read', '.manage');
+      await openSection(page, mockServer.port, section, ['agent.use', manage]);
+
+      const denied = surface(page).locator('[data-product-state]');
+      await expect(denied).toContainText('Permission required');
+      await expect(denied).toContainText(`Requires the ${read} permission.`);
+      await expect(notice(page)).toHaveCount(0);
+      expect(refused).toEqual([]);
+    });
+  }
+
+  for (const section of ['data', 'approvals']) {
+    test(`${section} shows no defaults while there is no profile to show`, async ({ page, mockServer }) => {
+      await mountMockRoutes(page, mockServer.port, {
+        role: 'viewer',
+        capabilityPermissions: ['agent.use', 'agent.profiles.read'],
+      });
+      await page.route('**/api/v1/agent/settings/agent-profiles', (route) =>
+        route.fulfill({ json: { profiles: [] } }),
+      );
+      await page.goto(`/agent/settings/${section}`);
+
+      await expect(surface(page).locator('[data-product-state]')).toContainText('No agent profiles yet');
+
+      await page.route('**/api/v1/agent/settings/agent-profiles', (route) =>
+        route.fulfill({ status: 500, json: { message: 'profiles are unavailable' } }),
+      );
+      await page.reload();
+
+      await expect(surface(page).getByRole('alert')).toContainText('profiles are unavailable');
+    });
+  }
+
+  test('the usage permissions alone keep the currencies, with no word about a provider', async ({
+    page,
+    mockServer,
+  }) => {
+    const refused = callsTo(page, /\/agent\/settings\/model-providers$/);
+    await openModels(page, mockServer.port, ['agent.use', 'agent.usage.read', 'agent.usage.manage']);
+
+    await expect(surface(page).getByRole('button', { name: 'Add currency' })).toBeEnabled();
+    await expect(addProvider(page)).toHaveCount(0);
+    await expect(notice(page)).toHaveCount(0);
+    expect(refused).toEqual([]);
+  });
+
+  test('the models section says what opens it to one who may read nothing in it', async ({
+    page,
+    mockServer,
+  }) => {
+    const refused = callsTo(page, /\/agent\/settings\/(model-providers|currencies)$/);
+    await openModels(page, mockServer.port, ['agent.use', 'agent.models.manage']);
+
+    const denied = surface(page).locator('[data-product-state]');
+    await expect(denied).toContainText('Requires the agent.models.read permission.');
+    await expect(notice(page)).toHaveCount(0);
+    expect(refused).toEqual([]);
+  });
+
+  for (const [who, permissions, offered] of [
+    ['one who may not open the connectors', [], false],
+    ['one who may', ['notify.connectors.read'], true],
+  ] as const) {
+    test(`IM with no connector offers to add one only to ${who}`, async ({ page, mockServer }) => {
+      await mountMockRoutes(page, mockServer.port, {
+        role: 'viewer',
+        capabilityPermissions: ['agent.use', 'agent.im.read', ...permissions],
+      });
+      await page.route('**/api/v1/agent/im/bots', (route) =>
+        route.fulfill({ json: { bots: [], externalUrl: true } }),
+      );
+      await page.goto('/agent/settings/im');
+
+      await expect(surface(page).getByText('No connector that can answer in IM yet')).toBeVisible();
+      const add = surface(page).getByRole('link', { name: 'Add a connector' });
+      if (offered) await expect(add).toHaveAttribute('href', '/settings/notify/connectors');
+      else await expect(add).toHaveCount(0);
+    });
+  }
+
+  test('inbound MCP links only to the credential pages the reader may open', async ({ page, mockServer }) => {
+    await openSection(page, mockServer.port, 'inbound-mcp', ['agent.use', 'agent.inbound_mcp.read']);
+
+    await expect(surface(page).getByText('Credentials', { exact: true })).toBeVisible();
+    await expect(surface(page).getByRole('link', { name: 'Manage API tokens' })).toHaveCount(0);
+    await expect(surface(page).getByRole('link', { name: 'Manage Service Accounts' })).toHaveCount(0);
+  });
+
+  test('inbound MCP links to the credential page the reader may open', async ({ page, mockServer }) => {
+    await openSection(page, mockServer.port, 'inbound-mcp', [
+      'agent.use',
+      'agent.inbound_mcp.read',
+      'api_tokens.read',
+    ]);
+
+    await expect(surface(page).getByRole('link', { name: 'Manage API tokens' })).toHaveAttribute(
+      'href',
+      '/iam/api-tokens',
+    );
+    await expect(surface(page).getByRole('link', { name: 'Manage Service Accounts' })).toHaveCount(0);
   });
 });
 

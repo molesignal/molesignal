@@ -8,7 +8,7 @@ test.describe('Page title row', () => {
   for (const width of [1440, 1280, 1024]) {
     test(`keeps the title whole at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
-      await page.goto('/apm/transactions');
+      await page.goto('/apm/services');
 
       const heading = page.getByTestId('page-header').getByRole('heading', { level: 1 });
       await expect(heading).toBeVisible();
@@ -19,15 +19,15 @@ test.describe('Page title row', () => {
 
   test('keeps what the page is scoped to out of the title row', async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 900 });
-    await page.goto('/apm/transactions');
+    await page.goto('/apm/services');
 
     const header = page.getByTestId('page-header');
     const navigation = page.locator('[data-apm-navigation="surface"]');
-    // The filters and the time range belong to the navigation card under the title…
-    await expect(navigation.getByLabel('Namespace')).toBeVisible();
+    // The tabs and the time range belong to the navigation card under the title…
+    await expect(navigation.getByRole('link', { name: 'Service map' })).toBeVisible();
     await expect(navigation.getByRole('button', { name: /^Time range:/ })).toBeVisible();
     // …so the title row stays one line, with nothing squeezed in beside the title.
-    await expect(header.getByLabel('Namespace')).toHaveCount(0);
+    await expect(header.getByRole('button', { name: /^Time range:/ })).toHaveCount(0);
     const row = (await header.locator('[data-page-title-row]').boundingBox())!;
     expect(row.height).toBeLessThanOrEqual(40);
   });

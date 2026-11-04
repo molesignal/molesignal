@@ -97,7 +97,6 @@ export function GraphView({
                   }
                 : {}),
             }}
-            {...(chart.timezone ? { timezone: chart.timezone } : {})}
             onRangeSelect={chart.onRangeSelect}
             {...(chart.zoomed ? { onRangeReset: chart.onRangeReset } : {})}
             rangeSelectionAriaLabel={t('explore.chart.zoom_aria')}

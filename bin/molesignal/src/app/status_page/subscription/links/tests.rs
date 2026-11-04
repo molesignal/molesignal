@@ -71,37 +71,37 @@ fn english_footer() -> String {
 fn maintenance_payload(status: &str) -> Value {
     json!({
         "type": "incident_update",
-        "page_name": "Acme Cloud",
-        "page_slug": "acme-cloud",
-        "incident_id": "maintenance-1",
-        "incident_kind": "maintenance",
+        "pageName": "Acme Cloud",
+        "pageSlug": "acme-cloud",
+        "incidentId": "maintenance-1",
+        "incidentKind": "maintenance",
         "title": "Database upgrade",
         "impact": "maintenance",
         "status": status,
         "message": "Writes can take a few seconds longer.",
-        "occurred_at": 1_779_443_280_000_000_i64,
-        "started_at": PLANNED_START,
-        "ended_at": null,
-        "component_names": ["EU region"],
+        "occurredAt": 1_779_443_280_000_000_i64,
+        "startedAt": PLANNED_START,
+        "endedAt": null,
+        "componentNames": ["EU region"],
     })
 }
 
 fn incident_payload() -> Value {
     json!({
         "type": "incident_update",
-        "page_name": "Acme Cloud",
-        "page_slug": "acme-cloud",
-        "incident_id": "incident-1",
-        "incident_kind": "incident",
+        "pageName": "Acme Cloud",
+        "pageSlug": "acme-cloud",
+        "incidentId": "incident-1",
+        "incidentKind": "incident",
         "title": "Elevated error rates",
         "impact": "major",
         "status": "identified",
         "message": "A bad deploy is being rolled back.",
-        "occurred_at": 1_779_529_260_000_000_i64,
-        "next_update_at": PLANNED_START,
-        "started_at": 1_779_529_260_000_000_i64,
-        "ended_at": null,
-        "component_names": ["Public API"],
+        "occurredAt": 1_779_529_260_000_000_i64,
+        "nextUpdateAt": PLANNED_START,
+        "startedAt": 1_779_529_260_000_000_i64,
+        "endedAt": null,
+        "componentNames": ["Public API"],
     })
 }
 
@@ -155,7 +155,7 @@ fn an_update_states_by_when_the_next_one_comes() {
     assert!(
         chinese
             .text
-            .contains("管理订阅：https://status.acme.example/#subscription_action=manage")
+            .contains("管理订阅：https://status.acme.example/#subscriptionAction=manage")
     );
 }
 
@@ -181,14 +181,14 @@ fn a_webhook_receives_the_payload_with_the_subscription_links() {
         );
     }
 
-    assert_eq!(message.payload["manage_url"], links().manage);
-    assert_eq!(message.payload["unsubscribe_url"], links().unsubscribe);
+    assert_eq!(message.payload["manageUrl"], links().manage);
+    assert_eq!(message.payload["unsubscribeUrl"], links().unsubscribe);
     assert_eq!(
-        message.payload["incident_url"],
+        message.payload["incidentUrl"],
         "https://status.acme.example/incidents/incident-1"
     );
 
-    let unknown = json!({"type": "page_renamed", "page_name": "Acme Cloud"});
+    let unknown = json!({"type": "page_renamed", "pageName": "Acme Cloud"});
     assert!(delivery_message(&delivery(unknown), &page("UTC"), None, None).is_err());
 }
 
@@ -229,14 +229,14 @@ fn a_slack_channel_gets_the_email_copy_as_a_slack_message() {
 fn a_postmortem_email_carries_the_text_and_needs_it() {
     let payload = json!({
         "type": "postmortem_published",
-        "page_name": "Acme Cloud",
-        "page_slug": "acme-cloud",
-        "incident_id": "incident-1",
+        "pageName": "Acme Cloud",
+        "pageSlug": "acme-cloud",
+        "incidentId": "incident-1",
         "title": "Elevated error rates",
         "impact": "major",
         "revision": false,
-        "occurred_at": 1_779_529_960_000_000_i64,
-        "component_names": ["Public API"],
+        "occurredAt": 1_779_529_960_000_000_i64,
+        "componentNames": ["Public API"],
     });
 
     let message = delivery_message(
@@ -271,12 +271,12 @@ fn a_postmortem_email_carries_the_text_and_needs_it() {
 fn component_email_names_the_component_and_its_status() {
     let payload = json!({
         "type": "component_status_changed",
-        "page_name": "Acme Cloud",
-        "page_slug": "acme-cloud",
-        "component_id": "component-1",
-        "component_name": "API",
+        "pageName": "Acme Cloud",
+        "pageSlug": "acme-cloud",
+        "componentId": "component-1",
+        "componentName": "API",
         "status": "partial_outage",
-        "occurred_at": 1_779_529_440_000_000_i64,
+        "occurredAt": 1_779_529_440_000_000_i64,
     });
 
     let message = delivery_message(
@@ -299,13 +299,13 @@ fn component_email_names_the_component_and_its_status() {
 fn reminder_email_states_the_planned_time_and_needs_it_in_the_payload() {
     let payload = json!({
         "type": "maintenance_reminder",
-        "page_name": "Acme Cloud",
-        "page_slug": "acme-cloud",
-        "incident_id": "maintenance-1",
+        "pageName": "Acme Cloud",
+        "pageSlug": "acme-cloud",
+        "incidentId": "maintenance-1",
         "title": "Database upgrade",
-        "occurred_at": PLANNED_START - 3_600_000_000,
-        "started_at": PLANNED_START,
-        "component_names": ["EU region"],
+        "occurredAt": PLANNED_START - 3_600_000_000,
+        "startedAt": PLANNED_START,
+        "componentNames": ["EU region"],
     });
 
     let message = delivery_message(
@@ -325,7 +325,7 @@ fn reminder_email_states_the_planned_time_and_needs_it_in_the_payload() {
     );
 
     let mut without_start = payload;
-    without_start.as_object_mut().unwrap().remove("started_at");
+    without_start.as_object_mut().unwrap().remove("startedAt");
     assert!(delivery_message(&delivery(without_start), &page("UTC"), None, None).is_err());
 }
 
@@ -333,9 +333,9 @@ fn reminder_email_states_the_planned_time_and_needs_it_in_the_payload() {
 fn a_queued_confirmation_names_the_components_the_subscriber_chose() {
     let payload = json!({
         "type": "status_page_subscription_confirmation",
-        "page_name": "Acme Cloud",
-        "page_slug": "acme-cloud",
-        "occurred_at": 1_779_529_440_000_000_i64,
+        "pageName": "Acme Cloud",
+        "pageSlug": "acme-cloud",
+        "occurredAt": 1_779_529_440_000_000_i64,
     });
 
     let message = delivery_message(
@@ -348,7 +348,7 @@ fn a_queued_confirmation_names_the_components_the_subscriber_chose() {
 
     assert_eq!(message.title, "Confirm updates from Acme Cloud");
     assert!(message.text.contains("You will hear about: EU region."));
-    assert!(message.text.contains("subscription_action=confirm"));
+    assert!(message.text.contains("subscriptionAction=confirm"));
     assert_eq!(message.payload["token"], TOKEN);
 }
 
@@ -412,8 +412,8 @@ fn confirmation_is_written_for_email_and_left_to_the_payload_for_a_webhook() {
     )
     .unwrap();
     assert_eq!(email.title, "确认订阅 Acme Cloud 的状态更新");
-    assert!(email.text.contains("subscription_action=confirm"));
-    assert!(email.text.contains("subscription_action=unsubscribe"));
+    assert!(email.text.contains("subscriptionAction=confirm"));
+    assert!(email.text.contains("subscriptionAction=unsubscribe"));
     assert!(email.text.contains("你将收到页面上所有组件的更新。"));
 
     let webhook = subscription_message(
@@ -445,7 +445,7 @@ fn an_address_already_subscribed_is_sent_the_link_that_manages_it() {
     assert_eq!(email.title, "Manage your updates from Acme Cloud");
     assert!(email.text.contains(&links().manage));
     assert_eq!(email.payload["type"], "status_page_subscription_manage");
-    assert!(email.payload.get("confirm_url").is_none());
+    assert!(email.payload.get("confirmUrl").is_none());
 }
 
 #[test]
@@ -457,9 +457,9 @@ fn subscription_links_are_action_bound_and_url_encoded() {
             .confirm
             .starts_with("https://molesignal.example/status/acme-cloud#")
     );
-    assert!(links.confirm.contains("subscription_action=confirm"));
-    assert!(links.manage.contains("subscription_action=manage"));
-    assert!(links.unsubscribe.contains("subscription_token=abc.DEF-"));
+    assert!(links.confirm.contains("subscriptionAction=confirm"));
+    assert!(links.manage.contains("subscriptionAction=manage"));
+    assert!(links.unsubscribe.contains("subscriptionToken=abc.DEF-"));
     assert_eq!(
         incident_url(&page_url, "incident-1"),
         "https://molesignal.example/status/acme-cloud/incidents/incident-1"

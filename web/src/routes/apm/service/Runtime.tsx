@@ -1,111 +1,165 @@
-import { useQuery } from '@tanstack/react-query';
-import { Cpu, RadioTower, ServerCog } from 'lucide-react';
+import { useQueries, useQuery } from '@tanstack/react-query';
+import { Cpu } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
-import { apmApi, apmQueryKeys } from '@/api/apm';
+import { apmApi, apmQueryKeys, type ServiceSummary } from '@/api/apm';
+import { fetchMetricCatalog } from '@/api/metricsCatalog';
+import { runQuery } from '@/api/query';
+import { promqlStepMicros } from '@/lib/promqlRange';
+import { FittedSelect } from '@/shell/ui/fitted-select';
+import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
-import { ApmPageFrame, QueryBoundary, Section } from '../components';
-import { ApmFilters } from '../Filters';
-import { formatCount } from '../format';
-import { useApmFilters } from '../useApmFilters';
-import { ServiceNavigation } from './Navigation';
+import { instanceLabel, ServiceInstances } from './Instances';
+import { RuntimeProfile } from './RuntimeProfile';
+import type { ServiceAddress } from './useService';
+import { ApmCard, ApmQueryState } from '../frame/Page';
+import { chartsOf, familiesFor, RUNTIME_FAMILIES } from '../runtime/families';
+import { runtimeStatement, seriesOfResult } from '../runtime/metrics';
+import { OTHER_DIMENSION } from '../scope';
 
-export function ApmServiceRuntime() {
+/** Steps a runtime card is drawn with: plenty for a card a third of the page wide. */
+const RUNTIME_CHART_STEPS = 300;
+
+const ALL = '__all__';
+
+/**
+ * How the service's processes run, as ARMS's instance monitoring shows it:
+ * the instances that ran it and what each served; the runtime metrics it
+ * sends, the process's first, then those of the runtime of its language
+ * (JVM, Go, Node.js, .NET, CPython, Ruby, PHP, Tokio, BEAM), a line for each
+ * instance or the lines of one; and where its time goes, from its profiles.
+ */
+export function ServiceRuntime({ address, summary }: { address: ServiceAddress; summary: ServiceSummary | undefined }) {
   const { t } = useTranslation('apm');
-  const { service = '' } = useParams();
-  const { orgId, filters, params, setFilter, clearFilters } = useApmFilters();
-  const query = useQuery({
-    queryKey: apmQueryKeys.service(orgId, service, params),
-    queryFn: () => apmApi.service(service, params),
-    enabled: Boolean(orgId && service),
-    staleTime: 30_000,
+  const [searchParams, setSearchParams] = useSearchParams();
+  const params = address.queryParams(address.range);
+  const instances = useQuery({
+    queryKey: apmQueryKeys.instances(address.orgId, address.name, params),
+    queryFn: () => apmApi.instances(address.name, params),
+    enabled: Boolean(address.orgId && address.name),
+    refetchInterval: 60_000,
   });
-  const detail = query.data;
+  const chosen = searchParams.get('instance') ?? '';
+  const chosenInstance = instances.data?.find((instance) => instance.instanceId === chosen);
+  const filter = chosenInstance ? instanceLabel(chosenInstance) : null;
+  const choose = (instanceId: string) =>
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (instanceId) next.set('instance', instanceId);
+        else next.delete('instance');
+        return next;
+      },
+      { replace: true },
+    );
 
-  return (
-    <ApmPageFrame
-      title={detail?.service.service.name ?? service}
-      subtitle={t('runtime.subtitle')}
-      meta={detail?.meta}
-      navigation={
-        detail ? (
-          <ServiceNavigation
-            active="runtime"
-            service={detail.service.service}
-            traces={detail.service.traces}
-            version={filters.version}
-          />
-        ) : null
-      }
-      toolbar={
-        <ApmFilters
-          filters={filters}
-          setFilter={setFilter}
-          clearFilters={clearFilters}
-          showSearch={false}
-          showService={false}
-        />
-      }
-    >
-      <QueryBoundary
-        pending={query.isPending}
-        error={query.error}
-        empty={false}
-        refetching={query.isFetching && Boolean(detail)}
-        onRetry={() => void query.refetch()}
-      >
-        {detail && (
-          <div className="space-y-[12px]">
-            <Section
-              title={t('runtime.title')}
-              description={t('runtime.description')}
-            >
-              <div className="grid gap-[8px] p-[12px] md:grid-cols-3">
-                <RuntimeFact
-                  icon={Cpu}
-                  label={t('runtime.language')}
-                  value={detail.service.instrumentation.runtime_language ?? t('values.unknown')}
-                />
-                <RuntimeFact
-                  icon={RadioTower}
-                  label={t('runtime.sdk')}
-                  value={detail.service.instrumentation.telemetry_sdk_name ?? t('values.unknown')}
-                  detail={detail.service.instrumentation.telemetry_sdk_version}
-                />
-                <RuntimeFact
-                  icon={ServerCog}
-                  label={t('runtime.instances')}
-                  value={formatCount(
-                    detail.service.instrumentation.recent_instance_count,
-                  )}
-                />
-              </div>
-            </Section>
-          </div>
-        )}
-      </QueryBoundary>
-    </ApmPageFrame>
+  const languages = [...(summary?.profile?.languages ?? []).map((entry) => entry.value), summary?.instrumentation.runtimeLanguage].filter(
+    (language): language is string => Boolean(language),
   );
-}
+  const searched = languages.length > 0 ? familiesFor(languages, new Set()) : RUNTIME_FAMILIES;
+  const prefixes = [...new Set(searched.flatMap((family) => family.prefixes))];
+  const catalogs = useQueries({
+    queries: prefixes.map((prefix) => ({
+      queryKey: ['metrics', 'catalog', 'runtime', prefix],
+      queryFn: () => fetchMetricCatalog({ q: prefix, limit: 200 }),
+      staleTime: 5 * 60_000,
+    })),
+  });
+  const pending = catalogs.some((query) => query.isPending);
+  const names = new Set(catalogs.flatMap((query) => (query.data?.items ?? []).filter((item) => item.labels.includes('service.name')).map((item) => item.name)));
+  const families = familiesFor(languages, names)
+    .map((family) => ({ family, charts: chartsOf(family, names) }))
+    .filter((entry) => entry.charts.length > 0);
+  const drawn = families.flatMap(({ family, charts }) => charts.map((chart) => ({ family: family.key, ...chart })));
+  const start = address.range.from.getTime() * 1_000;
+  const end = address.range.to.getTime() * 1_000;
 
-function RuntimeFact({
-  icon: Icon,
-  label,
-  value,
-  detail,
-}: {
-  icon: typeof Cpu;
-  label: string;
-  value: string;
-  detail?: string | undefined;
-}) {
+  const answers = useQueries({
+    queries: drawn.map(({ family, spec, candidate }) => {
+      const statement = runtimeStatement(candidate, { name: address.name, namespace: address.namespace }, filter);
+      return {
+        queryKey: ['apm', 'runtime', address.orgId, family, spec.chart, statement, start, end],
+        queryFn: () => runQuery({ orgId: address.orgId, language: 'promql', statement, timeRange: { start, end }, step: promqlStepMicros(start, end, null, RUNTIME_CHART_STEPS), limit: 5_000 }),
+        enabled: Boolean(address.orgId),
+      };
+    }),
+  });
+  const answerOf = (family: string, chart: string) => answers[drawn.findIndex((entry) => entry.family === family && entry.spec.chart === chart)];
+  const choices = (instances.data ?? []).filter((instance) => instance.instanceId !== OTHER_DIMENSION);
+
   return (
-    <div className="rounded-md bg-[var(--control-surface)] p-5">
-      <Icon aria-hidden className="h-4 w-4 text-indigo-soft" />
-      <div className="mt-4 text-xs font-strong text-tx-3">{label}</div>
-      <div className="mt-1 text-base font-display-strong text-tx-0">{value}</div>
-      {detail && <div className="mt-1 font-mono text-xs text-tx-2">{detail}</div>}
+    <div className="space-y-[12px]">
+      <ServiceInstances address={address} query={instances} chosen={chosen} onChoose={choose} />
+      {pending ? (
+        <ApmQueryState query={{ isPending: true, isError: false, error: null, refetch: () => undefined }} empty={false}>
+          {null}
+        </ApmQueryState>
+      ) : families.length === 0 ? (
+        <ApmCard testId="runtime-empty">
+          <div className="space-y-2 px-4 py-6 font-sans text-xs text-tx-2">
+            <p className="font-strong text-tx-0">{t('runtime.none_title')}</p>
+            <p className="leading-relaxed">{t('runtime.none_description')}</p>
+            <Link to="/datasource/applications/opentelemetry?signal=metrics" className="inline-flex font-strong text-indigo-soft hover:underline">
+              {t('runtime.none_action')}
+            </Link>
+          </div>
+        </ApmCard>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 px-1 font-sans text-xs text-tx-2">
+            <FittedSelect
+              aria-label={t('runtime.instance')}
+              data-apm-runtime-instance=""
+              value={chosenInstance ? chosen : ALL}
+              onValueChange={(value) => choose(value === ALL ? '' : value)}
+              options={[{ value: ALL, label: t('runtime.all_instances') }, ...choices.map((instance) => ({ value: instance.instanceId, label: instance.instanceId }))]}
+              maxWidth={280}
+              prefix={t('runtime.instance')}
+              className="h-8 border-0 bg-[var(--control-surface)] px-2.5 text-xs font-strong text-tx-1 hover:bg-bg-3"
+            />
+            <span className="text-tx-3">{t(chosenInstance ? 'runtime.one_instance' : 'runtime.each_instance')}</span>
+          </div>
+          {families.map(({ family, charts }) => (
+            <section key={family.key} data-apm-runtime-family={family.key} aria-label={t(`runtime.families.${family.key}`)} className="space-y-2">
+              <h3 className="flex items-center gap-1.5 px-1 font-sans text-sm font-strong text-tx-1">
+                <Cpu aria-hidden className="h-3.5 w-3.5 text-[var(--chart-7)]" />
+                {t(`runtime.families.${family.key}`)}
+              </h3>
+              <div className="grid min-w-0 gap-[12px] lg:grid-cols-2 2xl:grid-cols-3">
+                {charts.map(({ spec, candidate }) => {
+                  const query = answerOf(family.key, spec.chart)!;
+                  const series = query.data ? seriesOfResult(query.data, spec.unit) : [];
+                  const title = t(`runtime.charts.${spec.chart}`);
+
+                  return (
+                    <ApmCard key={spec.chart} title={title} description={candidate.metric} testId={`runtime-${family.key}-${spec.chart}`} bodyClassName="px-2 pb-2 pt-1">
+                      <ApmQueryState query={query} empty={series.length === 0} emptyTitle={t('runtime.chart_empty')} compact>
+                        <TimeSeriesChart
+                          series={series}
+                          xDomain={[start, end]}
+                          height={180}
+                          ariaLabel={title}
+                          showLegend={series.length > 1}
+                          legendDensity="compact"
+                          options={{
+                            drawStyle: 'line',
+                            showPoints: 'never',
+                            tooltipMode: 'all',
+                            compactAxes: true,
+                            leftAxis: { scale: 'linear', min: 0, ...(spec.unit ? { unit: spec.unit } : {}) },
+                          }}
+                        />
+                      </ApmQueryState>
+                    </ApmCard>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </>
+      )}
+      <RuntimeProfile address={address} />
     </div>
   );
 }

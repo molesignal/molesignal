@@ -27,10 +27,10 @@ function incident(id: string, overrides: Partial<PublicStatusPageIncident> = {})
     title: id,
     impact: 'minor',
     status: 'investigating',
-    component_ids: [],
+    componentIds: [],
     updates: [],
-    started_at: now - HOUR,
-    ended_at: null,
+    startedAt: now - HOUR,
+    endedAt: null,
     ...overrides,
   };
 }
@@ -40,21 +40,21 @@ function snapshot(overrides: Partial<PublicStatusPageSnapshot> = {}): PublicStat
     page: {
       name: 'Acme',
       slug: 'acme',
-      logo_url: null,
-      brand_color: '#4F46E5',
+      logoUrl: null,
+      brandColor: '#4F46E5',
       timezone: 'UTC',
       language: 'en-us',
       languages: ['en-us'],
-      history_days: 90,
+      historyDays: 90,
       visibility: 'public',
     },
-    overall_status: 'operational',
+    overallStatus: 'operational',
     components: [],
-    component_status_events: [],
-    active_incidents: [],
-    scheduled_maintenance: [],
+    componentStatusEvents: [],
+    activeIncidents: [],
+    scheduledMaintenance: [],
     history: [],
-    generated_at: now,
+    generatedAt: now,
     ...overrides,
   };
 }
@@ -75,9 +75,9 @@ describe('public status routing', () => {
 
   it('finds an incident wherever the snapshot keeps it', () => {
     const page = snapshot({
-      active_incidents: [incident('going-on')],
-      scheduled_maintenance: [incident('planned', { kind: 'maintenance', status: 'scheduled' })],
-      history: [incident('over', { status: 'resolved', ended_at: now - DAY })],
+      activeIncidents: [incident('going-on')],
+      scheduledMaintenance: [incident('planned', { kind: 'maintenance', status: 'scheduled' })],
+      history: [incident('over', { status: 'resolved', endedAt: now - DAY })],
     });
 
     expect(findPublicIncident(page, 'going-on')?.id).toBe('going-on');
@@ -88,11 +88,11 @@ describe('public status routing', () => {
 
   it('puts the worst of what is going on first, then the one that began last', () => {
     const page = snapshot({
-      active_incidents: [
+      activeIncidents: [
         incident('maintenance', { kind: 'maintenance', impact: 'maintenance', status: 'in_progress' }),
-        incident('minor-old', { impact: 'minor', started_at: now - 3 * HOUR }),
-        incident('critical', { impact: 'critical', started_at: now - 5 * HOUR }),
-        incident('minor-new', { impact: 'minor', started_at: now - HOUR }),
+        incident('minor-old', { impact: 'minor', startedAt: now - 3 * HOUR }),
+        incident('critical', { impact: 'critical', startedAt: now - 5 * HOUR }),
+        incident('minor-new', { impact: 'minor', startedAt: now - HOUR }),
         incident('major', { impact: 'major' }),
       ],
     });
@@ -105,14 +105,14 @@ describe('public status routing', () => {
       'maintenance',
     ]);
     // The snapshot is somebody else's; it is not sorted in place.
-    expect(page.active_incidents[0]?.id).toBe('maintenance');
+    expect(page.activeIncidents[0]?.id).toBe('maintenance');
   });
 
   it('lists announced maintenance by how soon it begins', () => {
     const page = snapshot({
-      scheduled_maintenance: [
-        incident('next-week', { kind: 'maintenance', status: 'scheduled', started_at: now + 7 * DAY }),
-        incident('tomorrow', { kind: 'maintenance', status: 'scheduled', started_at: now + DAY }),
+      scheduledMaintenance: [
+        incident('next-week', { kind: 'maintenance', status: 'scheduled', startedAt: now + 7 * DAY }),
+        incident('tomorrow', { kind: 'maintenance', status: 'scheduled', startedAt: now + DAY }),
       ],
     });
 
@@ -121,18 +121,18 @@ describe('public status routing', () => {
 
   it('looks back a fortnight, or as far as the page keeps if that is less', () => {
     expect(pastIncidentDays(snapshot())).toBe(14);
-    expect(pastIncidentDays(snapshot({ page: { ...snapshot().page, history_days: 7 } }))).toBe(7);
+    expect(pastIncidentDays(snapshot({ page: { ...snapshot().page, historyDays: 7 } }))).toBe(7);
   });
 
   it('lists what ended within those days, the latest first, and nothing that is still open', () => {
     const page = snapshot({
-      active_incidents: [incident('going-on')],
+      activeIncidents: [incident('going-on')],
       history: [
-        incident('a-week-ago', { status: 'resolved', ended_at: now - 7 * DAY }),
-        incident('yesterday', { status: 'resolved', ended_at: now - DAY }),
-        incident('last-month', { status: 'resolved', ended_at: now - 30 * DAY }),
+        incident('a-week-ago', { status: 'resolved', endedAt: now - 7 * DAY }),
+        incident('yesterday', { status: 'resolved', endedAt: now - DAY }),
+        incident('last-month', { status: 'resolved', endedAt: now - 30 * DAY }),
         // A snapshot that lists something both as open and as over: open wins.
-        incident('going-on', { status: 'resolved', ended_at: now - HOUR }),
+        incident('going-on', { status: 'resolved', endedAt: now - HOUR }),
       ],
     });
 
@@ -142,9 +142,9 @@ describe('public status routing', () => {
   it('reads the updates of an incident from the latest back', () => {
     const subject = incident('one', {
       updates: [
-        { id: 'first', status: 'investigating', message: '', created_at: now - 3 * HOUR },
-        { id: 'third', status: 'resolved', message: '', created_at: now - HOUR },
-        { id: 'second', status: 'identified', message: '', created_at: now - 2 * HOUR },
+        { id: 'first', status: 'investigating', message: '', createdAt: now - 3 * HOUR },
+        { id: 'third', status: 'resolved', message: '', createdAt: now - HOUR },
+        { id: 'second', status: 'identified', message: '', createdAt: now - 2 * HOUR },
       ],
     });
 

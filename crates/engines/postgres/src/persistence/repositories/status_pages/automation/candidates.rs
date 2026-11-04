@@ -39,7 +39,7 @@ pub(super) async fn observe(
         "INSERT INTO status_page_automation_candidates
             (id,organization_id,status_page_id,rule_revision_id,correlation_key,state,
              title,message,resolved_message,impact,component_ids,automatic,status_incident_id,
-             due_at_micros,last_error,created_at_micros,updated_at_micros)
+             due_at,last_error,created_at,updated_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NULL,$13,NULL,$14,$15)
          ON CONFLICT (organization_id,status_page_id,correlation_key)
            WHERE state IN ('delayed','pending_approval','approved','published','failed')
@@ -47,8 +47,8 @@ pub(super) async fn observe(
             title=EXCLUDED.title, message=EXCLUDED.message,
             resolved_message=EXCLUDED.resolved_message,
             impact=EXCLUDED.impact, component_ids=EXCLUDED.component_ids,
-            updated_at_micros=GREATEST(status_page_automation_candidates.updated_at_micros,
-                                      EXCLUDED.updated_at_micros)
+            updated_at=GREATEST(status_page_automation_candidates.updated_at,
+                                      EXCLUDED.updated_at)
          RETURNING {CANDIDATE_COLS}"
     );
 
@@ -71,9 +71,9 @@ pub(super) async fn observe(
                 .collect::<Vec<_>>(),
         )
         .bind(automatic)
-        .bind(candidate.due_at.0)
-        .bind(candidate.created_at.0)
-        .bind(candidate.updated_at.0)
+        .bind(candidate.due_at)
+        .bind(candidate.created_at)
+        .bind(candidate.updated_at)
         .fetch_one(&mut *tx)
         .await
         .map_err(super::super::sqlx_err)?;
@@ -83,12 +83,12 @@ pub(super) async fn observe(
     sqlx::query(
         "INSERT INTO status_page_automation_candidate_sources
             (organization_id,candidate_id,source_kind,source_id,source_instance_id,severity,
-             labels,active,muted,observed_at_micros,updated_at_micros)
+             labels,active,muted,observed_at,updated_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,TRUE,$8,$9,$9)
          ON CONFLICT (organization_id,candidate_id,source_kind,source_instance_id)
          DO UPDATE SET severity=EXCLUDED.severity,labels=EXCLUDED.labels,active=TRUE,
-             muted=EXCLUDED.muted,observed_at_micros=EXCLUDED.observed_at_micros,
-             updated_at_micros=EXCLUDED.updated_at_micros",
+             muted=EXCLUDED.muted,observed_at=EXCLUDED.observed_at,
+             updated_at=EXCLUDED.updated_at",
     )
     .bind(&observation.organization_id.0)
     .bind(&persisted.id.0)
@@ -98,7 +98,7 @@ pub(super) async fn observe(
     .bind(observation.severity.as_str())
     .bind(sqlx::types::Json(&observation.labels))
     .bind(observation.muted)
-    .bind(observation.observed_at.0)
+    .bind(observation.observed_at)
     .execute(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;
@@ -106,13 +106,13 @@ pub(super) async fn observe(
     if persisted.id == candidate.id {
         sqlx::query(
             "INSERT INTO status_page_automation_actions
-                (id,organization_id,candidate_id,action,actor_id,note,created_at_micros)
+                (id,organization_id,candidate_id,action,actor_id,note,created_at)
              VALUES ($1,$2,$3,'created',NULL,'source matched active Rule',$4)",
         )
         .bind(Id::new().0)
         .bind(&observation.organization_id.0)
         .bind(&persisted.id.0)
-        .bind(observation.observed_at.0)
+        .bind(observation.observed_at)
         .execute(&mut *tx)
         .await
         .map_err(super::super::sqlx_err)?;
@@ -142,7 +142,7 @@ pub(super) async fn recover(
 
     let candidate_ids: Vec<String> = sqlx::query_scalar(
         "UPDATE status_page_automation_candidate_sources source
-         SET active=FALSE,muted=$4,observed_at_micros=$5,updated_at_micros=$5
+         SET active=FALSE,muted=$4,observed_at=$5,updated_at=$5
          FROM status_page_automation_candidates candidate
          WHERE source.organization_id=$1 AND source.source_kind=$2
            AND source.source_instance_id=$3
@@ -155,7 +155,7 @@ pub(super) async fn recover(
     .bind(observation.source_kind.as_str())
     .bind(&observation.source_instance_id.0)
     .bind(observation.muted)
-    .bind(observation.observed_at.0)
+    .bind(observation.observed_at)
     .fetch_all(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;
@@ -210,19 +210,19 @@ pub(super) async fn list_due(
            ON rule.organization_id=revision.organization_id AND rule.id=revision.rule_id
          JOIN status_pages page
            ON page.org_id=candidate.organization_id AND page.id=candidate.status_page_id
-         WHERE candidate.state='delayed' AND candidate.due_at_micros <= $1
+         WHERE candidate.state='delayed' AND candidate.due_at <= $1
            AND rule.lifecycle='active' AND NOT page.automation_paused
            AND EXISTS (
              SELECT 1 FROM status_page_automation_candidate_sources source
              WHERE source.organization_id=candidate.organization_id
                AND source.candidate_id=candidate.id AND source.active AND NOT source.muted
            )
-         ORDER BY candidate.due_at_micros,candidate.created_at_micros,candidate.id
+         ORDER BY candidate.due_at,candidate.created_at,candidate.id
          LIMIT $2"
     );
 
     sqlx::query(&sql)
-        .bind(now.0)
+        .bind(now)
         .bind(i64::from(limit.clamp(1, 500)))
         .fetch_all(&repository.pool)
         .await
@@ -256,7 +256,7 @@ pub(super) async fn mark(
     let sql = format!(
         "UPDATE status_page_automation_candidates
          SET state=$3,status_incident_id=COALESCE($4,status_incident_id),
-             last_error=CASE WHEN $3='failed' THEN $5 ELSE NULL END,updated_at_micros=$6
+             last_error=CASE WHEN $3='failed' THEN $5 ELSE NULL END,updated_at=$6
          WHERE organization_id=$1 AND id=$2 AND state=ANY($7)
          RETURNING {CANDIDATE_COLS}"
     );
@@ -267,7 +267,7 @@ pub(super) async fn mark(
         .bind(state.as_str())
         .bind(incident_id.map(Id::as_str))
         .bind(note)
-        .bind(updated_at.0)
+        .bind(updated_at)
         .bind(expected)
         .fetch_optional(&mut *tx)
         .await
@@ -278,7 +278,7 @@ pub(super) async fn mark(
 
     sqlx::query(
         "INSERT INTO status_page_automation_actions
-            (id,organization_id,candidate_id,action,actor_id,note,created_at_micros)
+            (id,organization_id,candidate_id,action,actor_id,note,created_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7)",
     )
     .bind(Id::new().0)
@@ -287,7 +287,7 @@ pub(super) async fn mark(
     .bind(state.as_str())
     .bind(actor_id.map(Id::as_str))
     .bind(note)
-    .bind(updated_at.0)
+    .bind(updated_at)
     .execute(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;
@@ -306,7 +306,7 @@ async fn cancel_if_inactive(
         "UPDATE status_page_automation_candidates candidate
          SET state=CASE WHEN state IN ('delayed','pending_approval','approved','failed')
                         THEN 'cancelled' ELSE state END,
-             updated_at_micros=$3
+             updated_at=$3
          WHERE candidate.organization_id=$1 AND candidate.id=$2
            AND NOT EXISTS (
              SELECT 1 FROM status_page_automation_candidate_sources source
@@ -316,7 +316,7 @@ async fn cancel_if_inactive(
     )
     .bind(&org_id.0)
     .bind(&candidate_id.0)
-    .bind(updated_at.0)
+    .bind(updated_at)
     .execute(tx)
     .await
     .map_err(super::super::sqlx_err)?;
@@ -361,10 +361,10 @@ pub(super) async fn detail(
 
     let source_rows = sqlx::query(
         "SELECT source_kind,source_id,source_instance_id,severity,labels,active,muted,
-                observed_at_micros,updated_at_micros
+                observed_at,updated_at
          FROM status_page_automation_candidate_sources
          WHERE organization_id=$1 AND candidate_id=$2
-         ORDER BY active DESC,observed_at_micros DESC,source_kind,source_instance_id",
+         ORDER BY active DESC,observed_at DESC,source_kind,source_instance_id",
     )
     .bind(&org_id.0)
     .bind(&candidate_id.0)
@@ -395,22 +395,20 @@ pub(super) async fn detail(
                 .0,
             active: row.try_get("active").map_err(super::super::sqlx_err)?,
             muted: row.try_get("muted").map_err(super::super::sqlx_err)?,
-            observed_at: TimestampMicros(
-                row.try_get("observed_at_micros")
-                    .map_err(super::super::sqlx_err)?,
-            ),
-            updated_at: TimestampMicros(
-                row.try_get("updated_at_micros")
-                    .map_err(super::super::sqlx_err)?,
-            ),
+            observed_at: row
+                .try_get::<TimestampMicros, _>("observed_at")
+                .map_err(super::super::sqlx_err)?,
+            updated_at: row
+                .try_get::<TimestampMicros, _>("updated_at")
+                .map_err(super::super::sqlx_err)?,
         });
     }
 
     let action_rows = sqlx::query(
-        "SELECT id,action,actor_id,note,created_at_micros
+        "SELECT id,action,actor_id,note,created_at
          FROM status_page_automation_actions
          WHERE organization_id=$1 AND candidate_id=$2
-         ORDER BY created_at_micros DESC,id DESC",
+         ORDER BY created_at DESC,id DESC",
     )
     .bind(&org_id.0)
     .bind(&candidate_id.0)
@@ -429,20 +427,19 @@ pub(super) async fn detail(
                     .map_err(super::super::sqlx_err)?
                     .map(Id),
                 note: row.try_get("note").map_err(super::super::sqlx_err)?,
-                created_at: TimestampMicros(
-                    row.try_get("created_at_micros")
-                        .map_err(super::super::sqlx_err)?,
-                ),
+                created_at: row
+                    .try_get::<TimestampMicros, _>("created_at")
+                    .map_err(super::super::sqlx_err)?,
             })
         })
         .collect::<Result<Vec<_>>>()?;
 
     let work_rows = sqlx::query(
-        "SELECT id,kind,status,attempts,available_at_micros,last_error,completed_at_micros,
-                created_at_micros,updated_at_micros
+        "SELECT id,kind,status,attempts,available_at,last_error,completed_at,
+                created_at,updated_at
          FROM status_page_automation_outbox
          WHERE organization_id=$1 AND candidate_id=$2
-         ORDER BY created_at_micros DESC,id DESC",
+         ORDER BY created_at DESC,id DESC",
     )
     .bind(&org_id.0)
     .bind(&candidate_id.0)
@@ -460,23 +457,19 @@ pub(super) async fn detail(
                 attempts: row
                     .try_get::<i32, _>("attempts")
                     .map_err(super::super::sqlx_err)? as u32,
-                available_at: TimestampMicros(
-                    row.try_get("available_at_micros")
-                        .map_err(super::super::sqlx_err)?,
-                ),
+                available_at: row
+                    .try_get::<TimestampMicros, _>("available_at")
+                    .map_err(super::super::sqlx_err)?,
                 last_error: row.try_get("last_error").map_err(super::super::sqlx_err)?,
                 completed_at: row
-                    .try_get::<Option<i64>, _>("completed_at_micros")
-                    .map_err(super::super::sqlx_err)?
-                    .map(TimestampMicros),
-                created_at: TimestampMicros(
-                    row.try_get("created_at_micros")
-                        .map_err(super::super::sqlx_err)?,
-                ),
-                updated_at: TimestampMicros(
-                    row.try_get("updated_at_micros")
-                        .map_err(super::super::sqlx_err)?,
-                ),
+                    .try_get::<Option<TimestampMicros>, _>("completed_at")
+                    .map_err(super::super::sqlx_err)?,
+                created_at: row
+                    .try_get::<TimestampMicros, _>("created_at")
+                    .map_err(super::super::sqlx_err)?,
+                updated_at: row
+                    .try_get::<TimestampMicros, _>("updated_at")
+                    .map_err(super::super::sqlx_err)?,
             })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -500,7 +493,7 @@ pub(super) async fn list(
         "SELECT {CANDIDATE_COLS} FROM status_page_automation_candidates candidate
          WHERE candidate.organization_id=$1 AND candidate.status_page_id=$2
            AND ($3::TEXT IS NULL OR candidate.state=$3)
-         ORDER BY candidate.updated_at_micros DESC,candidate.id DESC LIMIT $4"
+         ORDER BY candidate.updated_at DESC,candidate.id DESC LIMIT $4"
     );
 
     sqlx::query(&sql)

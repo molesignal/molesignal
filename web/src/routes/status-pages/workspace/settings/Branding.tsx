@@ -18,19 +18,19 @@ export function StatusPageBrandingSettings() {
   const { pageId, snapshot, refresh } = useStatusPageWorkspace();
   const page = snapshot.page;
   const editable = page.lifecycle === 'active';
-  const [brandColor, setBrandColor] = React.useState(page.brand_color);
-  const [logoUrl, setLogoUrl] = React.useState(page.logo_url ?? '');
+  const [brandColor, setBrandColor] = React.useState(page.brandColor);
+  const [logoUrl, setLogoUrl] = React.useState(page.logoUrl ?? '');
   const [logoFile, setLogoFile] = React.useState<File | null>(null);
   React.useEffect(() => {
-    setBrandColor(page.brand_color);
-    setLogoUrl(page.logo_url ?? '');
+    setBrandColor(page.brandColor);
+    setLogoUrl(page.logoUrl ?? '');
     setLogoFile(null);
   }, [page]);
   const mutation = useMutation({
     mutationFn: async () => {
       let updated = await statusPagesApi.update(pageId, statusPageInput(page, {
-        brand_color: brandColor.toUpperCase(),
-        logo_url: logoFile ? page.logo_url : logoUrl.trim() || null,
+        brandColor: brandColor.toUpperCase(),
+        logoUrl: logoFile ? page.logoUrl : logoUrl.trim() || null,
       }));
       if (logoFile) updated = await statusPagesApi.uploadLogo(pageId, logoFile);
       return updated;

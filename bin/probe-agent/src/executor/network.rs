@@ -20,18 +20,23 @@ use tonic::transport::{ClientTlsConfig, Endpoint};
 use x509_parser::{extensions::GeneralName, parse_x509_certificate};
 
 use super::{
-    AttemptOutcome, ExecutionContext,
+    AttemptOutcome, ExecutionContext, assertions, failure,
     security::EgressGuard,
     timing::{Phase, PhaseClock},
+    trace_context::{self, TRACEPARENT, TraceContext},
     unknown,
 };
-use crate::protocol::v1::{
-    self as wire, DnsSpec, GrpcSpec, IcmpSpec, ProbeOutcome, TcpSpec, TlsSpec, grpc_spec,
-};
+use crate::protocol::v1::{self as wire, GrpcSpec, ProbeOutcome, TcpSpec, TlsSpec, grpc_spec};
 
+mod dns;
 mod endpoint;
+mod icmp;
+mod traceroute;
 
+pub(super) use dns::{execute as execute_dns, named_resolver};
 use endpoint::GrpcEndpoint;
+pub(super) use icmp::{available as icmp_available, execute as execute_icmp};
+pub(super) use traceroute::{trace as trace_route, worth_tracing};
 
 trait ProbeIo: AsyncRead + AsyncWrite + Unpin + Send {}
 impl<T> ProbeIo for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
@@ -51,6 +56,7 @@ pub(super) async fn execute_tcp(
     let port = u16::try_from(spec.port).context("TCP port is out of range")?;
     let guard = EgressGuard::new(task.egress_policy.clone())?;
     let address = guard.resolve(&host, port, phases).await?.remove(0);
+    context.dialling(address.ip());
     let timeout = Duration::from_millis(u64::from(task.timeout_millis.max(1)));
     let started = Instant::now();
     let tcp = connect_tcp(address, timeout, phases).await?;
@@ -80,7 +86,12 @@ pub(super) async fn execute_tcp(
     let mut response = vec![0u8; 64 * 1024];
 
     let length = if reads_reply {
-        tokio::time::timeout(timeout, stream.read(&mut response)).await??
+        match tokio::time::timeout(timeout, stream.read(&mut response)).await {
+            Ok(read) => read.map_err(|error| {
+                failure::target("connection_lost", format!("TCP connection failed: {error}"))
+            })?,
+            Err(_) => return Err(failure::target("timeout", "TCP reply timed out")),
+        }
     } else {
         0
     };
@@ -88,6 +99,7 @@ pub(super) async fn execute_tcp(
     drop(waiting);
     response.truncate(length);
     let text = String::from_utf8_lossy(&response);
+    let elapsed = started.elapsed();
 
     let matched = spec
         .expect_regex
@@ -96,16 +108,26 @@ pub(super) async fn execute_tcp(
         .transpose()?
         .unwrap_or(true);
 
+    let read = |source: &str| match source {
+        "response" => Some(text.to_string()),
+        "duration_ms" => Some(elapsed.as_millis().to_string()),
+        _ => None,
+    };
+
+    let assertions = assertions::evaluate_all(&spec.assertions, read, context)?;
+
     let outcome = if matched {
-        ProbeOutcome::Healthy
+        assertions::outcome(&assertions)
     } else {
         ProbeOutcome::Failing
     };
 
+    let passed = outcome == ProbeOutcome::Healthy;
+
     Ok(AttemptOutcome {
         outcome,
-        assertions: Vec::new(),
-        response_excerpt: if matched {
+        assertions,
+        response_excerpt: if passed {
             Vec::new()
         } else {
             context.redact(&text).into_bytes()
@@ -122,74 +144,8 @@ pub(super) async fn execute_tcp(
         },
         metadata: HashMap::from([
             ("remote_address".into(), address.to_string()),
-            (
-                "duration_micros".into(),
-                started.elapsed().as_micros().to_string(),
-            ),
+            ("duration_micros".into(), elapsed.as_micros().to_string()),
         ]),
-        evidence: Vec::new(),
-        artifacts: Vec::new(),
-    })
-}
-
-pub(super) async fn execute_dns(
-    task: &wire::ProbeTask,
-    spec: &DnsSpec,
-    phases: &PhaseClock,
-) -> Result<AttemptOutcome> {
-    if spec.require_dnssec
-        || !matches!(spec.record_type.to_ascii_uppercase().as_str(), "A" | "AAAA")
-    {
-        return Ok(unknown(
-            "dns_capability_unavailable",
-            "this Agent build supports system-resolver A/AAAA checks; DNSSEC and other records require a full DNS runtime",
-        ));
-    }
-
-    if spec.resolver.is_some() {
-        return Ok(unknown(
-            "custom_dns_resolver_unavailable",
-            "custom DNS resolvers are not available in this Agent build",
-        ));
-    }
-
-    let guard = EgressGuard::new(task.egress_policy.clone())?;
-    let addresses = guard.resolve(&spec.name, 53, phases).await?;
-
-    let values = addresses
-        .iter()
-        .map(|address| address.ip().to_string())
-        .filter(|address| {
-            (spec.record_type.eq_ignore_ascii_case("A") && address.contains('.'))
-                || (spec.record_type.eq_ignore_ascii_case("AAAA") && address.contains(':'))
-        })
-        .collect::<Vec<_>>();
-
-    let matches = spec.expected_values.is_empty()
-        || spec
-            .expected_values
-            .iter()
-            .all(|expected| values.contains(expected));
-
-    Ok(AttemptOutcome {
-        outcome: if matches {
-            ProbeOutcome::Healthy
-        } else {
-            ProbeOutcome::Failing
-        },
-        assertions: Vec::new(),
-        response_excerpt: Vec::new(),
-        error_category: if matches {
-            String::new()
-        } else {
-            "dns_answer_mismatch".into()
-        },
-        error_message: if matches {
-            String::new()
-        } else {
-            "DNS answer did not contain every expected value".into()
-        },
-        metadata: HashMap::from([("answers".into(), values.join(","))]),
         evidence: Vec::new(),
         artifacts: Vec::new(),
     })
@@ -198,11 +154,13 @@ pub(super) async fn execute_dns(
 pub(super) async fn execute_tls(
     task: &wire::ProbeTask,
     spec: &TlsSpec,
+    context: &ExecutionContext,
     phases: &PhaseClock,
 ) -> Result<AttemptOutcome> {
     let port = u16::try_from(spec.port).context("TLS port is out of range")?;
     let guard = EgressGuard::new(task.egress_policy.clone())?;
     let address = guard.resolve(&spec.host, port, phases).await?.remove(0);
+    context.dialling(address.ip());
     let timeout = Duration::from_millis(u64::from(task.timeout_millis.max(1)));
     let tcp = connect_tcp(address, timeout, phases).await?;
     let server_name = spec.server_name.as_deref().unwrap_or(&spec.host);
@@ -285,19 +243,10 @@ pub(super) async fn execute_tls(
     })
 }
 
-pub(super) async fn execute_icmp(
-    _task: &wire::ProbeTask,
-    _spec: &IcmpSpec,
-) -> Result<AttemptOutcome> {
-    Ok(unknown(
-        "icmp_runtime_unavailable",
-        "ICMP requires a platform-specific raw-socket capability not present in this Agent build",
-    ))
-}
-
 pub(super) async fn execute_grpc(
     task: &wire::ProbeTask,
     spec: &GrpcSpec,
+    context: &ExecutionContext,
     phases: &PhaseClock,
 ) -> Result<AttemptOutcome> {
     let Some(grpc_spec::Call::Health(health)) = &spec.call else {
@@ -311,6 +260,7 @@ pub(super) async fn execute_grpc(
     let host = target.host();
     let guard = EgressGuard::new(task.egress_policy.clone())?;
     let address = guard.resolve(&host, target.port(), phases).await?.remove(0);
+    context.dialling(address.ip());
 
     // The connection goes to the address the egress policy let by. Every call on it still names
     // the endpoint's own host, which is what a server that routes by host name goes by.
@@ -330,9 +280,11 @@ pub(super) async fn execute_grpc(
         endpoint = endpoint.tls_config(tls)?;
     }
 
-    let request = tonic_health::pb::HealthCheckRequest {
+    let mut request = tonic::Request::new(tonic_health::pb::HealthCheckRequest {
         service: health.service.clone(),
-    };
+    });
+
+    let trace_id = call_metadata(&mut request, task, spec, context)?;
 
     // tonic can time the TCP connection, the TLS handshake and the wait for the head of the
     // reply, each on its own, and nothing after that. One timeout over the whole exchange leaves
@@ -343,20 +295,40 @@ pub(super) async fn execute_grpc(
         anyhow::Ok(client.check(request).await?.into_inner())
     };
 
-    let response = tokio::time::timeout(timeout, exchange)
-        .await
-        .context("gRPC check timed out")??;
+    let started = Instant::now();
 
-    let serving =
-        response.status == tonic_health::pb::health_check_response::ServingStatus::Serving as i32;
+    // A server that cannot be reached, turns the call down or does not answer in time fails the
+    // check, as a service that is not serving does.
+    let response = match tokio::time::timeout(timeout, exchange).await {
+        Ok(Ok(response)) => response,
+        Ok(Err(error)) => {
+            return Err(failure::target(
+                "grpc_failed",
+                format!("gRPC call failed: {error:#}"),
+            ));
+        }
+        Err(_) => return Err(failure::target("timeout", "gRPC check timed out")),
+    };
+
+    let elapsed = started.elapsed();
+    let status = serving_status(response.status);
+    let serving = status == "SERVING";
+
+    let read = |source: &str| match source {
+        "status" => Some(status.to_string()),
+        "duration_ms" => Some(elapsed.as_millis().to_string()),
+        _ => None,
+    };
+
+    let assertions = assertions::evaluate_all(&spec.assertions, read, context)?;
 
     Ok(AttemptOutcome {
         outcome: if serving {
-            ProbeOutcome::Healthy
+            assertions::outcome(&assertions)
         } else {
             ProbeOutcome::Failing
         },
-        assertions: Vec::new(),
+        assertions,
         response_excerpt: Vec::new(),
         error_category: if serving {
             String::new()
@@ -368,10 +340,73 @@ pub(super) async fn execute_grpc(
         } else {
             "gRPC Health service is not serving".into()
         },
-        metadata: HashMap::from([("health_status".into(), response.status.to_string())]),
+        metadata: HashMap::from_iter(
+            [
+                ("health_status".into(), status.to_string()),
+                ("duration_micros".into(), elapsed.as_micros().to_string()),
+            ]
+            .into_iter()
+            .chain(trace_id.map(|trace_id| ("trace_id".into(), trace_id))),
+        ),
         evidence: Vec::new(),
         artifacts: Vec::new(),
     })
+}
+
+/// Puts the check's metadata on a call, and a span of a new trace unless the check sends its own
+/// `traceparent`. Returns the trace the call belongs to, when it names one.
+fn call_metadata<T>(
+    request: &mut tonic::Request<T>,
+    task: &wire::ProbeTask,
+    spec: &GrpcSpec,
+    context: &ExecutionContext,
+) -> Result<Option<String>> {
+    for entry in &spec.metadata {
+        let value = context.resolve(
+            entry
+                .value
+                .as_ref()
+                .ok_or_else(|| anyhow!("gRPC metadata value is required"))?,
+        )?;
+
+        let key = tonic::metadata::AsciiMetadataKey::from_bytes(
+            entry.name.trim().to_ascii_lowercase().as_bytes(),
+        )
+        .with_context(|| format!("`{}` is not a gRPC metadata name", entry.name))?;
+
+        let value = value
+            .parse()
+            .with_context(|| format!("the value of `{}` is not ASCII", entry.name))?;
+
+        request.metadata_mut().append(key, value);
+    }
+
+    if let Some(own) = request.metadata().get(TRACEPARENT) {
+        return Ok(own.to_str().ok().and_then(trace_context::trace_id_of));
+    }
+
+    if !task.inject_trace_context {
+        return Ok(None);
+    }
+
+    let trace = TraceContext::new();
+    let (_, traceparent) = trace.span();
+    request
+        .metadata_mut()
+        .insert(TRACEPARENT, traceparent.parse()?);
+    Ok(Some(trace.trace_id()))
+}
+
+/// The name the gRPC health protocol gives a serving status.
+fn serving_status(status: i32) -> &'static str {
+    use tonic_health::pb::health_check_response::ServingStatus;
+
+    match ServingStatus::try_from(status) {
+        Ok(ServingStatus::Serving) => "SERVING",
+        Ok(ServingStatus::NotServing) => "NOT_SERVING",
+        Ok(ServingStatus::ServiceUnknown) => "SERVICE_UNKNOWN",
+        _ => "UNKNOWN",
+    }
 }
 
 async fn connect_tcp(
@@ -380,7 +415,18 @@ async fn connect_tcp(
     phases: &PhaseClock,
 ) -> Result<TcpStream> {
     let connecting = tokio::time::timeout(timeout, TcpStream::connect(address));
-    Ok(phases.during(Phase::Connect, connecting).await??)
+
+    match phases.during(Phase::Connect, connecting).await {
+        Ok(Ok(stream)) => Ok(stream),
+        Ok(Err(error)) => Err(failure::target(
+            "connect_failed",
+            format!("cannot connect to {address}: {error}"),
+        )),
+        Err(_) => Err(failure::target(
+            "timeout",
+            format!("connecting to {address} timed out"),
+        )),
+    }
 }
 
 async fn connect_tls(
@@ -402,11 +448,15 @@ async fn connect_tls(
     // The timeout starts inside the phase too, so a handshake it cuts short is never timed at less.
     let handshake = async { tokio::time::timeout(timeout, connector.connect(name, tcp)).await };
 
-    phases
-        .during(Phase::Tls, handshake)
-        .await
-        .context("TLS handshake timed out")?
-        .context("TLS handshake failed")
+    // A certificate the check cannot trust fails the handshake, and the check with it.
+    match phases.during(Phase::Tls, handshake).await {
+        Ok(Ok(stream)) => Ok(stream),
+        Ok(Err(error)) => Err(failure::target(
+            "tls_failed",
+            format!("TLS handshake failed: {error}"),
+        )),
+        Err(_) => Err(failure::target("timeout", "TLS handshake timed out")),
+    }
 }
 
 fn now_seconds() -> i64 {

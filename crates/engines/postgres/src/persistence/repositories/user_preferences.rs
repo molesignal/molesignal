@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Per-user preferences persisted as explicit columns.
+//! 每个用户的界面偏好，存在 `users_ext.preferences`；`preferences_updated_at` 为空表示本人还没保存过。
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use sqlx::{PgPool, Row};
+use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
 use crate::shared::{Result, ids::Id, time::TimestampMicros};
@@ -44,6 +44,7 @@ fn default_keyboard_shortcuts_enabled() -> bool {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UserPreferences {
     #[serde(default = "default_theme")]
     pub theme: String,
@@ -97,74 +98,37 @@ impl PgUserPreferencesRepository {
     }
 }
 
-pub(crate) fn row_to_preferences(row: sqlx::postgres::PgRow) -> Result<UserPreferences> {
-    Ok(UserPreferences {
-        theme: row.try_get("theme").map_err(sqlx_err)?,
-        density: row.try_get("density").map_err(sqlx_err)?,
-        language: row.try_get("language").map_err(sqlx_err)?,
-        default_home_route: row.try_get("default_home_route").map_err(sqlx_err)?,
-        time_format: row.try_get("time_format").map_err(sqlx_err)?,
-        date_format: row.try_get("date_format").map_err(sqlx_err)?,
-        timezone: row.try_get("timezone").map_err(sqlx_err)?,
-        keyboard_shortcuts_enabled: row
-            .try_get("keyboard_shortcuts_enabled")
-            .map_err(sqlx_err)?,
-    })
-}
-
 #[async_trait]
 impl UserPreferencesRepository for PgUserPreferencesRepository {
     async fn get_optional(&self, user_id: &Id) -> Result<Option<UserPreferences>> {
         let row = sqlx::query(
-            "SELECT theme, density, language, default_home_route, time_format,
-                    date_format, timezone, keyboard_shortcuts_enabled
-             FROM user_preferences
-             WHERE user_id = $1",
+            "SELECT preferences FROM users_ext
+             WHERE user_id = $1 AND preferences_updated_at IS NOT NULL",
         )
         .bind(&user_id.0)
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
 
-        row.map(row_to_preferences).transpose()
+        row.map(|row| {
+            row.try_get::<Json<UserPreferences>, _>("preferences")
+                .map(|preferences| preferences.0)
+                .map_err(sqlx_err)
+        })
+        .transpose()
     }
 
     async fn upsert(&self, user_id: &Id, preferences: UserPreferences) -> Result<UserPreferences> {
         sqlx::query(
-            "INSERT INTO user_preferences (
-                user_id,
-                theme,
-                density,
-                language,
-                default_home_route,
-                time_format,
-                date_format,
-                timezone,
-                keyboard_shortcuts_enabled,
-                updated_at_micros
-             )
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            "INSERT INTO users_ext (user_id, preferences, preferences_updated_at)
+             VALUES ($1, $2, $3)
              ON CONFLICT (user_id) DO UPDATE
-                SET theme = EXCLUDED.theme,
-                    density = EXCLUDED.density,
-                    language = EXCLUDED.language,
-                    default_home_route = EXCLUDED.default_home_route,
-                    time_format = EXCLUDED.time_format,
-                    date_format = EXCLUDED.date_format,
-                    timezone = EXCLUDED.timezone,
-                    keyboard_shortcuts_enabled = EXCLUDED.keyboard_shortcuts_enabled,
-                    updated_at_micros = EXCLUDED.updated_at_micros",
+                SET preferences = EXCLUDED.preferences,
+                    preferences_updated_at = EXCLUDED.preferences_updated_at",
         )
         .bind(&user_id.0)
-        .bind(&preferences.theme)
-        .bind(&preferences.density)
-        .bind(&preferences.language)
-        .bind(&preferences.default_home_route)
-        .bind(&preferences.time_format)
-        .bind(&preferences.date_format)
-        .bind(&preferences.timezone)
-        .bind(preferences.keyboard_shortcuts_enabled)
-        .bind(TimestampMicros::now().0)
+        .bind(Json(&preferences))
+        .bind(TimestampMicros::now())
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;

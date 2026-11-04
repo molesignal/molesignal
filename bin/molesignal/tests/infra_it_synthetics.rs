@@ -16,6 +16,23 @@ async fn embedded_probe_distinguishes_test_and_operational_runs() {
     let server = common::TestServer::start().await;
     let (header_name, header_value) = server.auth_header();
 
+    // The check's target is this server, on loopback. The built-in location refuses that unless its
+    // egress policy allows it, and no API sets the policy of a built-in location.
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
+        .connect(&server.settings.meta_database.dsn)
+        .await
+        .expect("test pool");
+
+    sqlx::query(
+        "UPDATE synthetic_probe_locations
+         SET egress_policy = egress_policy || '{\"allowLoopback\":true}'::JSONB
+         WHERE id = 'builtin-local'",
+    )
+    .execute(&pool)
+    .await
+    .expect("let the built-in location reach loopback");
+
     let created = server
         .client
         .post(format!("{}/api/v1/synthetics/monitors", server.base_url))
@@ -37,24 +54,24 @@ async fn embedded_probe_distinguishes_test_and_operational_runs() {
                         "extractions": [],
                         "assertions": []
                     }],
-                    "follow_redirects": true,
-                    "max_redirects": 5,
-                    "verify_tls": true
+                    "followRedirects": true,
+                    "maxRedirects": 5,
+                    "verifyTls": true
                 }
             },
-            "schedule": { "kind": "interval", "every_seconds": 60 },
-            "timeout_millis": 5_000,
-            "max_retries": 0,
-            "consecutive_failures": 1,
-            "consecutive_recoveries": 2,
-            "freshness_seconds": 60,
-            "location_policy": { "kind": "any" },
-            "location_ids": ["builtin-local"],
-            "team_id": null,
+            "schedule": { "kind": "interval", "everySeconds": 60 },
+            "timeoutMillis": 5_000,
+            "maxRetries": 0,
+            "consecutiveFailures": 1,
+            "consecutiveRecoveries": 2,
+            "freshnessSeconds": 60,
+            "locationPolicy": { "kind": "any" },
+            "locationIds": ["builtin-local"],
+            "teamId": null,
             "tags": [],
-            "escalation_policy_id": null,
-            "alert_on_degraded": false,
-            "alert_on_flaky": false
+            "escalationPolicyId": null,
+            "alertOnDegraded": false,
+            "alertOnFlaky": false
         }))
         .send()
         .await
@@ -98,8 +115,8 @@ async fn embedded_probe_distinguishes_test_and_operational_runs() {
     }
 
     let result = persisted.expect("embedded Probe result persisted within ten seconds");
-    assert_eq!(result["monitor_revision_id"], revision_id);
-    assert_eq!(result["is_test"], true);
+    assert_eq!(result["monitorRevisionId"], revision_id);
+    assert_eq!(result["isTest"], true);
     assert_eq!(result["outcome"], "healthy");
 
     let mut revision_tested = false;
@@ -123,7 +140,7 @@ async fn embedded_probe_distinguishes_test_and_operational_runs() {
                     .iter()
                     .find(|revision| revision["id"] == revision_id)
             })
-            .is_some_and(|revision| !revision["last_test_passed_at"].is_null());
+            .is_some_and(|revision| !revision["lastTestPassedAt"].is_null());
         if revision_tested {
             assert_eq!(detail["monitor"]["state"], "unknown");
             break;
@@ -157,7 +174,7 @@ async fn embedded_probe_distinguishes_test_and_operational_runs() {
     assert_eq!(run.status(), StatusCode::ACCEPTED);
     let tasks: Vec<Value> = run.json().await.expect("operational Probe tasks");
     assert!(!tasks.is_empty());
-    assert!(tasks.iter().all(|task| task["is_test"] == false));
+    assert!(tasks.iter().all(|task| task["isTest"] == false));
 
     let mut operational_result = None;
     for _ in 0..100 {
@@ -173,10 +190,7 @@ async fn embedded_probe_distinguishes_test_and_operational_runs() {
             .expect("list synthetic results after operational run");
         assert_eq!(response.status(), StatusCode::OK);
         let results: Vec<Value> = response.json().await.expect("synthetic result list");
-        if let Some(result) = results
-            .into_iter()
-            .find(|result| result["is_test"] == false)
-        {
+        if let Some(result) = results.into_iter().find(|result| result["isTest"] == false) {
             operational_result = Some(result);
             break;
         }
@@ -220,7 +234,7 @@ async fn embedded_probe_distinguishes_test_and_operational_runs() {
     assert!(
         agents
             .iter()
-            .any(|agent| agent["location_id"] == "builtin-local"),
+            .any(|agent| agent["locationId"] == "builtin-local"),
         "organization Agent inventory includes the embedded platform Probe"
     );
 

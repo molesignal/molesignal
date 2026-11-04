@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 
+import { explorerRead } from '../fixtures/explorerReads';
 import { expect, FROZEN_NOW_ISO, mountMockRoutes, test } from '../fixtures/mockBackend';
 import { expectExplorerResults, serveExplorerResults } from '../fixtures/mockExplorers';
 import {
@@ -118,13 +119,13 @@ test.describe('scheduled log inspections: from the Logs page', () => {
         stream: 'application_logs',
         statement: "level = 'ERROR'",
         requirements: 'only payment-gateway',
-        window_secs: 3_600,
-        schedule: { type: 'interval', every_minutes: 60 },
+        windowSecs: 3_600,
+        schedule: { type: 'interval', everyMinutes: 60 },
         timezone: 'UTC',
-        provider_id: 'openai-gpt-4o',
+        providerId: 'openai-gpt-4o',
         model: null,
-        notify_when: 'abnormal',
-        notify_routes: [],
+        notifyWhen: 'abnormal',
+        notifyRoutes: [],
         language: 'en-us',
         enabled: true,
       },
@@ -139,10 +140,10 @@ test.describe('scheduled log inspections: from the Logs page', () => {
   });
 
   test('a query that matches nothing can still be saved, and the saved ones still reached', async ({ page }) => {
-    await page.route('**/api/v1/web/logs', (route) =>
-      route.fulfill({ json: { items: [], next_cursor: null, previous_cursor: null, has_more: false } }),
+    await page.route(explorerRead('web/logs'), (route) =>
+      route.fulfill({ json: { items: [], nextCursor: null, previousCursor: null, hasMore: false } }),
     );
-    const listed = page.waitForResponse('**/api/v1/web/logs');
+    const listed = page.waitForResponse(explorerRead('web/logs'));
     await page.goto(`/logs?q=${encodeURIComponent("service = 'no-such-service'")}`);
     await listed;
     await expect(front(page).getByTestId('logs-no-data')).toBeVisible();
@@ -247,7 +248,7 @@ test.describe('scheduled log inspections: the list', () => {
     // The backend picks it up and finishes it; the list follows without being reloaded.
     await updateMockInspectionRun(mockServer.port, run.id, {
       status: 'running',
-      started_at_micros: NOW_MICROS + SECOND,
+      startedAt: NOW_MICROS + SECOND,
     });
     await expect(paused).toContainText('Inspecting', FOLLOWED);
 
@@ -256,7 +257,7 @@ test.describe('scheduled log inspections: the list', () => {
       level: 'attention',
       summary: 'Debug logging is still on for checkout.',
       report: JSON.stringify({ level: 'attention', summary: 'Debug logging is still on for checkout.' }),
-      finished_at_micros: NOW_MICROS + 40 * SECOND,
+      finishedAt: NOW_MICROS + 40 * SECOND,
     });
     await expect(paused).toContainText('Needs attention', FOLLOWED);
     await expect(page.locator('[data-log-inspections-live]')).toHaveCount(0, FOLLOWED);
@@ -271,15 +272,15 @@ test.describe('scheduled log inspections: the list', () => {
         json: [
           {
             id: 'lark-ops',
-            organization_id: 'acme-prod',
+            organizationId: 'acme-prod',
             name: 'Lark · Ops',
-            connector_type: 'lark_app',
+            connectorType: 'lark_app',
             config: {},
-            capabilities: { direct_user: true, group: true, rich_text: true, interactive: false, acknowledgement: false, attachments: false },
+            capabilities: { directUser: true, group: true, richText: true, interactive: false, acknowledgement: false, attachments: false },
             enabled: true,
             status: 'connected',
-            created_at: 1,
-            updated_at: 1,
+            createdAt: 1,
+            updatedAt: 1,
           },
         ],
       }),
@@ -321,10 +322,10 @@ test.describe('scheduled log inspections: the list', () => {
       body: {
         name: 'Daily audit of application logs',
         schedule: { type: 'daily', hour: 7, minute: 30 },
-        notify_when: 'always',
-        notify_routes: [
-          { connector_id: 'lark-ops', target_type: 'fixed_group', target: 'oc_audit_7f' },
-          { connector_id: 'lark-ops', target_type: 'fixed_group', target: 'oc_security' },
+        notifyWhen: 'always',
+        notifyRoutes: [
+          { connectorId: 'lark-ops', targetType: 'fixed_group', target: 'oc_audit_7f' },
+          { connectorId: 'lark-ops', targetType: 'fixed_group', target: 'oc_security' },
         ],
       },
     });
@@ -359,7 +360,7 @@ test.describe('scheduled log inspections: the list', () => {
 
   test('an organization at the limit of the instance is offered no more', async ({ page, mockServer }) => {
     await mountMockRoutes(page, mockServer.port);
-    await setMockInspectionLimits(mockServer.port, { max_per_org: 4 });
+    await setMockInspectionLimits(mockServer.port, { maxPerOrg: 4 });
     await page.goto('/logs/inspections');
 
     await expect(page.locator('[data-log-inspection-count]')).toHaveText('4 saved; the limit is 4');
@@ -407,9 +408,9 @@ test.describe('scheduled log inspections: the list', () => {
     await expect(front(page).getByTestId('log-inspection-no-permission')).toBeVisible();
     await expect(front(page).locator('[data-log-inspections-entry]')).toHaveCount(0);
 
-    // The address itself leads away, as every page the reader may not open does.
+    // The address itself says why not, as every page the reader may not open does.
     await page.goto('/logs/inspections');
-    await expect(page).not.toHaveURL(/\/logs\/inspections/);
+    await expect(page.getByTestId('access-denied')).toBeVisible();
     expect(asked).toEqual([]);
   });
 });
@@ -503,8 +504,8 @@ test.describe('scheduled log inspections: the reports', () => {
       level: 'normal',
       summary: 'Nothing unusual in the last hour.',
       report: JSON.stringify({ level: 'normal', summary: 'Nothing unusual in the last hour.' }),
-      started_at_micros: NOW_MICROS + SECOND,
-      finished_at_micros: NOW_MICROS + 30 * SECOND,
+      startedAt: NOW_MICROS + SECOND,
+      finishedAt: NOW_MICROS + 30 * SECOND,
     });
 
     await expect(report).toHaveAttribute('data-log-inspection-run-report-status', 'succeeded', FOLLOWED);

@@ -29,8 +29,8 @@ pub(super) async fn run(
         summary: "log inspection run is queued".into(),
         verification: json!({
             "verified": true,
-            "inspection_id": run.inspection_id,
-            "run_id": run.id,
+            "inspectionId": run.inspection_id,
+            "runId": run.id,
             "status": run.status,
         }),
     })

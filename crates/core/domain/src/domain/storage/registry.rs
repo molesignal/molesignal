@@ -273,7 +273,6 @@ pub fn builtin_registry() -> StreamTypeRegistry {
             datasets: vec![
                 parquet_dataset(builtin::DATASET_METRIC_SAMPLES, false, true, true, true),
                 parquet_dataset(builtin::DATASET_METRIC_ROLLUP, false, false, false, true),
-                parquet_dataset(builtin::DATASET_METRIC_CATALOG, false, false, false, false),
             ],
         },
         StreamTypeDescriptor {
@@ -325,7 +324,6 @@ mod tests {
             (StreamType::LOGS, builtin::DATASET_RUM_ERROR_SUMMARY),
             (StreamType::METRICS, builtin::DATASET_METRIC_SAMPLES),
             (StreamType::METRICS, builtin::DATASET_METRIC_ROLLUP),
-            (StreamType::METRICS, builtin::DATASET_METRIC_CATALOG),
             (StreamType::TRACES, builtin::DATASET_TRACE_SPANS),
             (StreamType::TRACES, builtin::DATASET_TRACE_SUMMARY),
             (StreamType::PROFILES, builtin::DATASET_PROFILE_SAMPLES),

@@ -11,6 +11,7 @@ import {
   type ActionAccess,
   useActionAccess,
 } from '@/product/actionAccess';
+import { useRoleName } from '@/product/roleName';
 import { productStateFor } from '@/product/states';
 import { ChromeButton, Pill } from '@/shell/chrome';
 import {
@@ -23,16 +24,18 @@ import {
 } from '@/shell/FormDrawer';
 import { queryStateFor } from '@/shell/query/State';
 import { toast } from '@/shell/ui/sonner';
+import { isOrgEntryDeclined } from '@/stores/useOrgEntry';
 import { useOrgStore } from '@/stores/useOrgStore';
 
 import { IamListPage } from './IamLayout';
 
 export function Organizations() {
   const { t } = useTranslation('iam');
+  const roleName = useRoleName();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const manageAccess = useActionAccess({
-    permission: 'sys.organizations.manage',
+    permission: 'sys.organizations.create',
   });
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const currentOrgId = useOrgStore((s) => s.currentOrgId);
@@ -63,7 +66,7 @@ export function Organizations() {
       );
       navigate('/iam/users');
     } catch (error) {
-      toast.error(toApiError(error).message);
+      if (!isOrgEntryDeclined(error)) toast.error(toApiError(error).message);
     } finally {
       setSwitchingOrgId(null);
     }
@@ -105,7 +108,7 @@ export function Organizations() {
             key: 'role',
             header: t('organizations.columns.role'),
             cell: (r) =>
-              r.display_role ?? t('organizations.not_a_member'),
+              r.displayRole ? roleName(r.displayRole) : t('organizations.not_a_member'),
             width: 120,
           },
           { key: 'slug', header: t('organizations.columns.slug'), cell: (r) => r.slug ?? '—' },

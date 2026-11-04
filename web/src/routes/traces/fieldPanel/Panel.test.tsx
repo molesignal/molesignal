@@ -13,13 +13,13 @@ import type { TraceFieldDef, TraceQueryMode } from '../fieldQueryModel';
 import type { TraceFieldRecord } from './model';
 import { TraceFieldPanel } from './Panel';
 
-vi.mock('@/api/query', () => ({ runQuery: vi.fn() }));
+vi.mock('@/api/query', () => ({ readQuery: vi.fn() }));
 vi.mock('@/api/me', async (original) => {
   const actual = await original<typeof meApi>();
   return { ...actual, preferences: async () => actual.DEFAULT_USER_PREFERENCES };
 });
 
-const runQuery = vi.mocked(queryApi.runQuery);
+const readQuery = vi.mocked(queryApi.readQuery);
 
 const FIELDS: TraceFieldDef[] = [
   { name: 'trace_id', dataType: 'utf8', physical: true, scope: 'span' },
@@ -42,7 +42,7 @@ const trace = (id: string, durationMs: number, spans = 3): TraceFieldRecord => (
 });
 const TRACES = [trace('t-1', 10), trace('t-2', 20), trace('t-3', 30)];
 
-const result = (columns: string[], rows: unknown[][]): QueryResult => ({ columns, rows, scanned_rows: 0, took_ms: 0 });
+const result = (columns: string[], rows: unknown[][]): QueryResult => ({ columns, rows, scannedRows: 0, tookMs: 0 });
 const SERVICES = {
   top: result(['value', 'traces', 'spans'], [['web', 3, 7], ['router', 1, 2]]),
   summary: result(['distinct_values', 'traces', 'samples'], [[2, 3, 9]]),
@@ -50,7 +50,7 @@ const SERVICES = {
 
 /** Answers the two statements a field of a span is read with. */
 function answer({ top, summary }: { top: QueryResult; summary: QueryResult }) {
-  runQuery.mockImplementation(async (request) => (request.statement.includes('distinct_values') ? summary : top));
+  readQuery.mockImplementation(async (request) => (request.statement.includes('distinct_values') ? summary : top));
 }
 
 interface Options {
@@ -60,6 +60,7 @@ interface Options {
   stream?: string;
   filterMode?: TraceQueryMode;
   onToggleField?: (field: string) => void;
+  visibleFields?: string[];
   isValueFiltered?: (field: TraceFieldDef, value: string, op: string) => boolean;
 }
 
@@ -70,6 +71,7 @@ function renderPanel({
   stream = 'default',
   filterMode = 'fields',
   onToggleField,
+  visibleFields = ['http.route'],
   isValueFiltered = () => false,
 }: Options = {}) {
   const onFilterValue = vi.fn();
@@ -89,7 +91,7 @@ function renderPanel({
         onInsertField={onInsertField}
         isValueFiltered={isValueFiltered}
         onFilterValue={onFilterValue}
-        {...(onToggleField ? { visibleFields: ['duration_ns'], onToggleField } : {})}
+        {...(onToggleField ? { visibleFields, onToggleField } : {})}
       />
     </QueryClientProvider>,
   );
@@ -109,7 +111,7 @@ const actions = (name: string, value: string) =>
 
 beforeEach(async () => {
   await i18n.changeLanguage('en-US');
-  runQuery.mockReset();
+  readQuery.mockReset();
 });
 afterEach(cleanup);
 
@@ -123,7 +125,7 @@ describe('the trace field list', () => {
     // Each id is in one trace: a "1" and a sliver of a bar on every row would say nothing.
     expect(values('trace_id').querySelector('[data-field-value="t-1"]')).toHaveTextContent(/^t-1$/);
     expect(values('trace_id').querySelector('[data-field-value-share]')).toBeNull();
-    expect(runQuery).not.toHaveBeenCalled();
+    expect(readQuery).not.toHaveBeenCalled();
   });
 
   it('counts a trace once, however many rows a statement lists it on', async () => {
@@ -134,7 +136,7 @@ describe('the trace field list', () => {
 
     open('service.name');
     await waitFor(() => expect(values('service.name')).toHaveTextContent('2 values · in 3 of 3 traces'));
-    expect(runQuery.mock.calls[0]![0].statement).toContain("trace_id IN ('t-1', 't-2', 't-3') AND");
+    expect(readQuery.mock.calls[0]![0].statement).toContain("trace_id IN ('t-1', 't-2', 't-3') AND");
   });
 
   it('does not open a field of a span when there is no stream to read it from', () => {
@@ -158,11 +160,11 @@ describe('the trace field list', () => {
     expect(web).toHaveTextContent(/^web3$/);
     expect(web.querySelector<HTMLElement>('[data-field-value-share]')!.style.width).toBe('100%');
 
-    const request = runQuery.mock.calls[0]![0];
+    const request = readQuery.mock.calls[0]![0];
     expect(request.statement).toContain(`WHERE trace_id IN ('t-1', 't-2', 't-3') AND "service.name" IS NOT NULL`);
-    expect(request.stream).toEqual({ name: 'default', stream_type: 'traces' });
+    expect(request.stream).toEqual({ name: 'default', streamType: 'traces' });
     // The traces' own stretch of time, not the whole range that was asked for.
-    expect(request.time_range).toEqual({ start: 2_000_000_000 - 1_000_000, end: 2_000_030_000 + 1_000_000 });
+    expect(request.timeRange).toEqual({ start: 2_000_000_000 - 1_000_000, end: 2_000_030_000 + 1_000_000 });
   });
 
   it('says how many values there are when it lists only the most common', async () => {
@@ -173,12 +175,15 @@ describe('the trace field list', () => {
     await waitFor(() => expect(values('span_id')).toHaveTextContent('Top 2 of 36 values · in 3 of 3 traces'));
   });
 
-  it('offers a field query the value, and only SQL the leaving out of it', async () => {
+  it('offers a value of a span both ways, in a field query as in SQL', async () => {
     answer(SERVICES);
     renderPanel();
     open('service.name');
 
-    await waitFor(() => expect(actions('service.name', 'web')).toEqual(['Filter for service.name = web']));
+    // Left out, the value keeps the traces none of whose spans has it.
+    await waitFor(() =>
+      expect(actions('service.name', 'web')).toEqual(['Filter for service.name = web', 'Filter out service.name = web']),
+    );
     cleanup();
 
     renderPanel({ filterMode: 'sql' });
@@ -202,6 +207,9 @@ describe('the trace field list', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Filter for service.name = router' }));
     expect(onFilterValue).toHaveBeenCalledWith(field('service.name'), 'router', '=');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Filter out service.name = router' }));
+    expect(onFilterValue).toHaveBeenLastCalledWith(field('service.name'), 'router', '!=');
   });
 
   it('shows a filter that is in the query as on', async () => {
@@ -230,7 +238,7 @@ describe('the trace field list', () => {
   });
 
   it('says when the values could not be read, and reads them again', async () => {
-    runQuery.mockRejectedValue(new Error('boom'));
+    readQuery.mockRejectedValue(new Error('boom'));
     renderPanel();
     open('service.name');
 
@@ -246,12 +254,12 @@ describe('the trace field list', () => {
     open('service.name');
     await waitFor(() => expect(values('service.name')).toHaveTextContent('The loaded traces have no value for this field.'));
     cleanup();
-    runQuery.mockClear();
+    readQuery.mockClear();
 
     renderPanel({ traces: [] });
     open('service.name');
     expect(values('service.name')).toHaveTextContent('No traces are loaded.');
-    expect(runQuery).not.toHaveBeenCalled();
+    expect(readQuery).not.toHaveBeenCalled();
   });
 
   it('does not open a document field, and says why it cannot be put in a field query', () => {
@@ -265,19 +273,39 @@ describe('the trace field list', () => {
     expect(onInsertField).toHaveBeenCalledWith(field('span_id'));
   });
 
-  it('offers the eye only where a picked trace is shown, for what its row carries', () => {
-    renderPanel();
-    expect(screen.queryByRole('button', { name: /^(Show|Hide) / })).toBeNull();
+  it('offers the eye where the table can show a field of the root span beside the traces', () => {
+    const ROOT = [...FIELDS, { name: 'http.route', dataType: 'utf8', physical: true, scope: 'span' } as TraceFieldDef];
+    const eye = /^(Show .* as a column|Remove the .* column)$/;
+    renderPanel({ fields: ROOT });
+    expect(screen.queryByRole('button', { name: eye })).toBeNull();
     cleanup();
 
     const onToggleField = vi.fn();
-    renderPanel({ onToggleField });
-    expect(within(row('duration_ns')).getByRole('button', { name: 'Hide duration_ns' })).toHaveAttribute('aria-pressed', 'true');
-    // A span's id is not on a trace's row: there is nothing to show beside the trace.
-    expect(within(row('span_id')).queryByRole('button', { name: /^(Show|Hide) / })).toBeNull();
+    renderPanel({ fields: [...ROOT, { name: 'deployment.environment', dataType: 'utf8', physical: true, scope: 'span' }], onToggleField });
+    expect(within(row('http.route')).getByRole('button', { name: 'Remove the http.route column' })).toHaveAttribute('aria-pressed', 'true');
+    // The trace's own columns, and a document, are not fields of the root to add.
+    for (const name of ['trace_id', 'span_id', 'duration_ns', 'service.name', 'span_count', 'attributes']) {
+      expect(within(row(name)).queryByRole('button', { name: eye })).toBeNull();
+    }
 
-    fireEvent.click(within(row('trace_id')).getByRole('button', { name: 'Show trace_id' }));
-    expect(onToggleField).toHaveBeenCalledWith('trace_id');
+    fireEvent.click(within(row('deployment.environment')).getByRole('button', { name: "Show deployment.environment of each trace's root span as a column" }));
+    expect(onToggleField).toHaveBeenCalledWith('deployment.environment');
+  });
+
+  it('puts what a trace is first narrowed by first, the HTTP status under the name the stream writes it with', () => {
+    const named = (name: string, dataType: TraceFieldDef['dataType'] = 'utf8'): TraceFieldDef => ({ name, dataType, physical: true, scope: 'span' });
+    renderPanel({ fields: [...FIELDS, named('name'), named('status_code'), named('http.status_code', 'int64')] });
+
+    const common = document.querySelector<HTMLElement>('[data-side-panel-section]')!;
+    expect([...common.querySelectorAll<HTMLElement>('[data-trace-field]')].map((item) => item.dataset.traceField))
+      .toEqual(['service.name', 'name', 'status_code', 'http.status_code', 'duration_ns']);
+    cleanup();
+
+    // The name the conventions use now wins over the older one.
+    renderPanel({ fields: [...FIELDS, named('http.status_code', 'int64'), named('http.response.status_code', 'int64')] });
+    const pinned = document.querySelector<HTMLElement>('[data-side-panel-section]')!;
+    expect(pinned.querySelector('[data-trace-field="http.response.status_code"]')).not.toBeNull();
+    expect(pinned.querySelector('[data-trace-field="http.status_code"]')).toBeNull();
   });
 
   describe('attributes that share the first part of their names', () => {
@@ -291,7 +319,7 @@ describe('the trace field list', () => {
       ...FIELDS,
       span('http.request.method'),
       span('http.route'),
-      span('http.response.status_code', 'int64'),
+      span('http.request.body.size', 'int64'),
       span('url.path'),
     ];
     const group = (name: string) => document.querySelector<HTMLElement>(`[data-field-group="${name}"]`);
@@ -314,7 +342,7 @@ describe('the trace field list', () => {
       expect(toggle.getAttribute('aria-expanded')).toBe('true');
       // By the rest of their names, the whole name a pointer away.
       const rows = [...http.querySelectorAll<HTMLElement>('[data-trace-field-row]')];
-      expect(rows.map((item) => item.textContent)).toEqual(['Trequest.method', '#response.status_code', 'Troute']);
+      expect(rows.map((item) => item.textContent)).toEqual(['#request.body.size', 'Trequest.method', 'Troute']);
       expect(within(row('http.route')).getByText('route').getAttribute('title')).toBe('http.route');
     });
 
@@ -336,15 +364,15 @@ describe('the trace field list', () => {
     it('are all open on what a search has left, and a single match is a field of its own', () => {
       renderPanel({ fields: ATTRIBUTES, fieldFilter: 're' });
 
-      // The request and the response match, the route does not: still a group, open without asking.
+      // Both fields of the request match, the route does not: still a group, open without asking.
       expect(within(group('http')!).getByRole('button', { name: 'http: 2 fields' }).getAttribute('aria-expanded')).toBe('true');
       expect(row('http.request.method')).not.toBeNull();
       expect(row('http.route')).toBeNull();
 
       cleanup();
-      renderPanel({ fields: ATTRIBUTES, fieldFilter: 'status' });
+      renderPanel({ fields: ATTRIBUTES, fieldFilter: 'size' });
       expect(group('http')).toBeNull();
-      expect(row('http.response.status_code').textContent).toBe('#http.response.status_code');
+      expect(row('http.request.body.size').textContent).toBe('#http.request.body.size');
     });
   });
 
@@ -358,22 +386,25 @@ describe('the trace field list', () => {
       item.name === 'trace_id' || item.name === 'service.name' ? { ...item, indexed: true } : item,
     );
 
-    it('are the fields kept in an index, and the rest, where no field can be put on display', () => {
+    it('are the common fields, the fields kept in an index, and the rest, where no field can be put on display', () => {
       renderPanel({ fields: INDEXED });
 
       expect(sections()).toEqual([
-        { heading: 'Indexed fields2', fields: ['trace_id', 'service.name'] },
-        { heading: 'Other fields4', fields: ['span_id', 'duration_ns', 'span_count', 'attributes'] },
+        { heading: 'Common fields2', fields: ['service.name', 'duration_ns'] },
+        { heading: 'Indexed fields1', fields: ['trace_id'] },
+        { heading: 'Other fields3', fields: ['span_id', 'span_count', 'attributes'] },
       ]);
     });
 
-    it('begin with the fields on display, which are then in no other part', () => {
-      // The harness puts `duration_ns` on display where the view can show a field beside a trace.
-      renderPanel({ fields: INDEXED, onToggleField: () => undefined });
+    it('put the fields on display after the common ones, and in no other part', () => {
+      // The harness puts `http.route` on display where the table can show a field beside a trace.
+      const route: TraceFieldDef = { name: 'http.route', dataType: 'utf8', physical: true, scope: 'span' };
+      renderPanel({ fields: [...INDEXED, route], onToggleField: () => undefined });
 
       expect(sections()).toEqual([
-        { heading: 'Displayed fields1', fields: ['duration_ns'] },
-        { heading: 'Indexed fields2', fields: ['trace_id', 'service.name'] },
+        { heading: 'Common fields2', fields: ['service.name', 'duration_ns'] },
+        { heading: 'Displayed fields1', fields: ['http.route'] },
+        { heading: 'Indexed fields1', fields: ['trace_id'] },
         { heading: 'Other fields3', fields: ['span_id', 'span_count', 'attributes'] },
       ]);
     });
@@ -381,7 +412,7 @@ describe('the trace field list', () => {
     it('say so where the stream keeps no field in an index', () => {
       renderPanel();
 
-      expect(sections().map((section) => section.heading)).toEqual(['Indexed fields0', 'Other fields6']);
+      expect(sections().map((section) => section.heading)).toEqual(['Common fields2', 'Indexed fields0', 'Other fields4']);
       expect(screen.getByText('This stream keeps no field in an index.')).not.toBeNull();
     });
 

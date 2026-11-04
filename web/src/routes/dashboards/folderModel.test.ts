@@ -57,18 +57,18 @@ describe('dashboard folder model', () => {
     });
     expect(folderPayload(' API ', root.id)).toEqual({
       name: 'API',
-      parent_id: 'platform',
+      parentId: 'platform',
     });
   });
 
   it('prevents moving a folder below its own descendant', () => {
     const folders: Folder[] = [
-      { id: root.id, org_id: 'org', name: root.name },
+      { id: root.id, orgId: 'org', name: root.name },
       {
         id: child.id,
-        org_id: 'org',
+        orgId: 'org',
         name: child.name,
-        parent_id: root.id,
+        parentId: root.id,
       },
     ];
 

@@ -35,11 +35,11 @@ const SIGNAL_TYPES = ['logs', 'metrics', 'traces', 'profiles'] as const;
 function summarizeSignals(runtime: streamsApi.StreamRuntimeOverview | undefined) {
   const streams = runtime?.streams ?? [];
   const now =
-    runtime?.generated_at_micros != null
-      ? toMicros(runtime.generated_at_micros)
+    runtime?.generatedAt != null
+      ? toMicros(runtime.generatedAt)
       : Date.now() * 1000;
   return SIGNAL_TYPES.map((type) => {
-    const matching = streams.filter((stream) => stream.stream_type === type);
+    const matching = streams.filter((stream) => stream.streamType === type);
     return {
       type,
       fleet: summarizeFleet(matching, now),
@@ -80,31 +80,31 @@ export function SystemHealthSection({
     { id: 'rows', label: t('home.health.metrics.events') },
   ];
   const chartData = (overview?.buckets ?? []).map((bucket) => {
-    if (metric === 'intake') return bucket.intake_bytes ?? 0;
-    if (metric === 'stored') return bucket.stored_bytes;
+    if (metric === 'intake') return bucket.intakeBytes ?? 0;
+    if (metric === 'stored') return bucket.storedBytes;
     return bucket.rows;
   });
   const chartTotal =
     metric === 'intake'
-      ? overview?.intake_bytes
+      ? overview?.intakeBytes
       : metric === 'stored'
-        ? overview?.stored_bytes
+        ? overview?.storedBytes
         : overview?.rows;
   const total = splitMetricValue(
     metric === 'rows' ? formatCount(chartTotal) : formatBytes(chartTotal),
   );
   const hasChartData = chartData.some((value) => value > 0);
   const timestamps = (overview?.buckets ?? []).map((bucket) =>
-    Math.round((bucket.start_micros + bucket.end_micros) / 2),
+    Math.round((bucket.startTime + bucket.endTime) / 2),
   );
   const chartDomain: [number, number] = [
-    overview?.window?.start_micros ?? 0,
-    overview?.window?.end_micros ?? 1,
+    overview?.window?.startTime ?? 0,
+    overview?.window?.endTime ?? 1,
   ];
   const signals = summarizeSignals(runtimeOverview);
   const windowSecs =
-    runtimeOverview?.window_secs ?? overview?.window?.window_secs ?? 1;
-  const generatedAtMicros = runtimeOverview?.generated_at_micros;
+    runtimeOverview?.windowSecs ?? overview?.window?.windowSecs ?? 1;
+  const generatedAtMicros = runtimeOverview?.generatedAt;
 
   const body = () => {
     if (state === 'loading') return <PlotSkeleton />;
@@ -148,11 +148,11 @@ export function SystemHealthSection({
                 <button
                   key={item.id}
                   type="button"
-                  disabled={item.id === 'intake' && overview?.intake_bytes == null}
+                  disabled={item.id === 'intake' && overview?.intakeBytes == null}
                   aria-pressed={metric === item.id}
                   onClick={() => onMetricChange(item.id)}
                   className={cn(
-                    'rounded px-2.5 py-1.5 font-sans text-xs font-strong transition-colors disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none',
+                    'rounded-sm px-2.5 py-1.5 font-sans text-xs font-strong transition-colors disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none',
                     metric === item.id
                       ? 'bg-bg-4 text-tx-0'
                       : 'text-tx-2 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 focus-visible:text-tx-0',
@@ -231,7 +231,7 @@ export function SystemHealthSection({
                       </span>
                       <span>
                         {formatRelativeMicros(
-                          fleet.lastReceivedAtMicros,
+                          fleet.lastReceivedAt,
                           i18n.resolvedLanguage ?? i18n.language,
                           generatedAtMicros,
                         )}

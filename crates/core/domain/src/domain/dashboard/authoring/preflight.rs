@@ -16,13 +16,14 @@ pub enum PreflightStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PanelPreflight {
     pub path: String,
     pub title: String,
     pub query_kind: String,
     pub status: PreflightStatus,
-    pub tested_from_micros: i64,
-    pub tested_to_micros: i64,
+    pub tested_from: i64,
+    pub tested_to: i64,
     pub returned_rows: usize,
     pub scanned_rows: u64,
     pub took_ms: u64,

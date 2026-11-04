@@ -1,7 +1,6 @@
 import type {
-  ActiveWindow,
+  CoverageSegment,
   Rotation,
-  RotationKind,
   Schedule,
 } from '@/types/alerting';
 
@@ -33,22 +32,6 @@ export interface ScheduleTimelineSegment {
   overrideId?: string;
 }
 
-const timeZoneFormatters = new Map<string, Intl.DateTimeFormat>();
-
-function formatterFor(timeZone: string): Intl.DateTimeFormat {
-  const normalized = safeTimeZone(timeZone);
-  const cached = timeZoneFormatters.get(normalized);
-  if (cached) return cached;
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: normalized,
-    weekday: 'short',
-    hour: '2-digit',
-    hourCycle: 'h23',
-  });
-  timeZoneFormatters.set(normalized, formatter);
-  return formatter;
-}
-
 export function safeTimeZone(timeZone: string): string {
   try {
     new Intl.DateTimeFormat('en-US', { timeZone }).format();
@@ -58,57 +41,40 @@ export function safeTimeZone(timeZone: string): string {
   }
 }
 
-export function rotationPeriodMicros(kind: RotationKind): number {
-  if (kind === 'daily') return MICROS_PER_DAY;
-  if (kind === 'weekly') return 7 * MICROS_PER_DAY;
-  return Math.max(1, kind.custom.period_secs) * 1_000_000;
+/* Who is on call when comes from the server (`schedule.coverage`), worked out in the
+ * schedule's timezone with its daylight-saving changes and minute-precise windows.
+ * These helpers only read it: outside the covered stretch nobody is known to be on call. */
+
+/** The server's segments, with neighbours that only differ in whom an override replaces joined up. */
+function segmentsOf(schedule: Schedule): CoverageSegment[] {
+  const joined: CoverageSegment[] = [];
+  for (const segment of schedule.coverage?.segments ?? []) {
+    const last = joined[joined.length - 1];
+    if (last && last.endAt === segment.startAt && sameHolder(last, segment)) {
+      joined[joined.length - 1] = { ...last, endAt: segment.endAt };
+    } else {
+      joined.push(segment);
+    }
+  }
+  return joined;
 }
 
-export function activeWindowContains(
-  window: ActiveWindow,
-  atMicros: number,
-  timeZone: string,
-): boolean {
-  const parts = formatterFor(timeZone).formatToParts(
-    new Date(atMicros / 1000),
+function sameHolder(left: CoverageSegment, right: CoverageSegment): boolean {
+  return (
+    left.source === right.source
+    && left.userId === right.userId
+    && left.rotationId === right.rotationId
+    && left.overrideId === right.overrideId
   );
-  const weekday = parts.find((part) => part.type === 'weekday')?.value;
-  const hour = Number(parts.find((part) => part.type === 'hour')?.value);
-  const weekdayIndex: Record<string, number> = {
-    Sun: 0,
-    Mon: 1,
-    Tue: 2,
-    Wed: 3,
-    Thu: 4,
-    Fri: 5,
-    Sat: 6,
-  };
-  const day = weekday ? weekdayIndex[weekday] : undefined;
-  if (day === undefined || !Number.isFinite(hour)) return false;
-  if ((window.weekday_mask & (1 << day)) === 0) return false;
-  if (window.hour_start <= window.hour_end) {
-    return window.hour_start <= hour && hour < window.hour_end;
-  }
-  return hour >= window.hour_start || hour < window.hour_end;
 }
 
-function resolveRotation(
-  rotation: Rotation,
+function segmentAt(
+  schedule: Schedule,
   atMicros: number,
-  timeZone: string,
-): string | null {
-  if (rotation.members.length === 0 || atMicros < rotation.start_at) {
-    return null;
-  }
-  if (
-    rotation.active_window
-    && !activeWindowContains(rotation.active_window, atMicros, timeZone)
-  ) {
-    return null;
-  }
-  const period = rotationPeriodMicros(rotation.kind);
-  const index = Math.floor((atMicros - rotation.start_at) / period);
-  return rotation.members[index % rotation.members.length] ?? null;
+): CoverageSegment | undefined {
+  return segmentsOf(schedule).find(
+    (segment) => segment.startAt <= atMicros && atMicros < segment.endAt,
+  );
 }
 
 export function resolveScheduleAt(
@@ -116,32 +82,22 @@ export function resolveScheduleAt(
   atMicros: number,
 ): OnCallResolution | null {
   if (!schedule.enabled) return null;
-  const activeOverride = schedule.overrides.find(
-    (override) =>
-      override.start_at <= atMicros && atMicros < override.end_at,
+  const segment = segmentAt(schedule, atMicros);
+  if (!segment?.userId || segment.source === 'gap') return null;
+  return {
+    userId: segment.userId,
+    source: segment.source,
+    ...(segment.rotationId ? { rotationId: segment.rotationId } : {}),
+    ...(segment.overrideId ? { overrideId: segment.overrideId } : {}),
+  };
+}
+
+/** Under an override at `atMicros`: whom the rotation would have had on call. */
+export function replacedUserAt(schedule: Schedule, atMicros: number): string | null {
+  const segment = (schedule.coverage?.segments ?? []).find(
+    (item) => item.startAt <= atMicros && atMicros < item.endAt,
   );
-  if (activeOverride) {
-    return {
-      userId: activeOverride.user_id,
-      source: 'override',
-      overrideId: activeOverride.id,
-    };
-  }
-  for (const rotation of schedule.rotations) {
-    const userId = resolveRotation(
-      rotation,
-      atMicros,
-      schedule.timezone,
-    );
-    if (userId) {
-      return {
-        userId,
-        source: 'rotation',
-        rotationId: rotation.id,
-      };
-    }
-  }
-  return null;
+  return segment?.source === 'override' ? segment.replacedUserId ?? null : null;
 }
 
 export function scheduleMemberIds(schedule: Schedule): string[] {
@@ -150,28 +106,17 @@ export function scheduleMemberIds(schedule: Schedule): string[] {
   );
 }
 
+/** When the stretch on call at `atMicros` began: a handoff, a window opening or an override. */
 export function resolutionStartedAt(
   schedule: Schedule,
   resolution: OnCallResolution | null,
   atMicros: number,
 ): number | null {
   if (!resolution) return null;
-  if (resolution.source === 'override') {
-    return (
-      schedule.overrides.find(
-        (override) => override.id === resolution.overrideId,
-      )?.start_at ?? null
-    );
-  }
-  const rotation = schedule.rotations.find(
-    (item) => item.id === resolution.rotationId,
-  );
-  if (!rotation || atMicros < rotation.start_at) return null;
-  const period = rotationPeriodMicros(rotation.kind);
-  const cycle = Math.floor((atMicros - rotation.start_at) / period);
-  return rotation.start_at + cycle * period;
+  return segmentAt(schedule, atMicros)?.startAt ?? null;
 }
 
+/** The next time someone else (or nobody) takes over, within `horizonMicros`. */
 export function nextScheduleBoundary(
   schedule: Schedule,
   afterMicros: number,
@@ -179,31 +124,10 @@ export function nextScheduleBoundary(
 ): number | null {
   if (!schedule.enabled) return null;
   const limit = afterMicros + horizonMicros;
-  const candidates: number[] = [];
-
-  for (const override of schedule.overrides) {
-    if (override.start_at > afterMicros && override.start_at <= limit) {
-      candidates.push(override.start_at);
-    }
-    if (override.end_at > afterMicros && override.end_at <= limit) {
-      candidates.push(override.end_at);
-    }
-  }
-
-  for (const rotation of schedule.rotations) {
-    if (rotation.members.length === 0) continue;
-    if (rotation.start_at > afterMicros) {
-      if (rotation.start_at <= limit) candidates.push(rotation.start_at);
-      continue;
-    }
-    const period = rotationPeriodMicros(rotation.kind);
-    const elapsed = Math.max(0, afterMicros - rotation.start_at);
-    const cycle = Math.floor(elapsed / period) + 1;
-    const next = rotation.start_at + cycle * period;
-    if (next <= limit) candidates.push(next);
-  }
-
-  return candidates.length > 0 ? Math.min(...candidates) : null;
+  const next = segmentsOf(schedule).find(
+    (segment) => segment.startAt > afterMicros && segment.startAt <= limit,
+  );
+  return next?.startAt ?? null;
 }
 
 export function scheduleStatus(
@@ -216,7 +140,7 @@ export function scheduleStatus(
   const firstStart = Math.min(
     ...schedule.rotations
       .filter((rotation) => rotation.members.length > 0)
-      .map((rotation) => rotation.start_at),
+      .map((rotation) => rotation.startAt),
   );
   if (Number.isFinite(firstStart) && nowMicros < firstStart) {
     return 'not_started';
@@ -234,8 +158,8 @@ export function liveOrFutureOverrides(
   nowMicros: number,
 ): Schedule['overrides'] {
   return schedule.overrides
-    .filter((override) => override.end_at > nowMicros)
-    .sort((a, b) => a.start_at - b.start_at);
+    .filter((override) => override.endAt > nowMicros)
+    .sort((a, b) => a.startAt - b.startAt);
 }
 
 export function buildScheduleTimeline(
@@ -244,31 +168,22 @@ export function buildScheduleTimeline(
   days = 7,
 ): ScheduleTimelineSegment[] {
   const endAt = fromMicros + Math.max(1, days) * MICROS_PER_DAY;
-  const segments: ScheduleTimelineSegment[] = [];
-  let cursor = fromMicros;
-
-  while (cursor < endAt && segments.length < 80) {
-    const resolved = resolveScheduleAt(schedule, cursor);
-    const boundary =
-      nextScheduleBoundary(schedule, cursor, endAt - cursor) ?? endAt;
-    const next = Math.min(endAt, Math.max(cursor + 1, boundary));
-    segments.push({
-      id: `${cursor}-${resolved?.overrideId ?? resolved?.rotationId ?? 'gap'}`,
-      startAt: cursor,
-      endAt: next,
-      userId: resolved?.userId ?? null,
-      source: resolved?.source ?? 'gap',
-      ...(resolved?.rotationId
-        ? { rotationId: resolved.rotationId }
-        : {}),
-      ...(resolved?.overrideId
-        ? { overrideId: resolved.overrideId }
-        : {}),
+  return segmentsOf(schedule)
+    .filter((segment) => segment.endAt > fromMicros && segment.startAt < endAt)
+    .slice(0, 80)
+    .map((segment) => {
+      const startAt = Math.max(segment.startAt, fromMicros);
+      const userId = schedule.enabled ? segment.userId ?? null : null;
+      return {
+        id: `${startAt}-${segment.overrideId ?? segment.rotationId ?? 'gap'}`,
+        startAt,
+        endAt: Math.min(segment.endAt, endAt),
+        userId,
+        source: userId ? segment.source : 'gap',
+        ...(segment.rotationId ? { rotationId: segment.rotationId } : {}),
+        ...(segment.overrideId ? { overrideId: segment.overrideId } : {}),
+      };
     });
-    cursor = next;
-  }
-
-  return segments;
 }
 
 export function rotationRole(schedule: Schedule): 'primary' | 'secondary' {
@@ -280,11 +195,14 @@ export function rotationRole(schedule: Schedule): 'primary' | 'secondary' {
 export function rotationKindKey(
   rotation: Rotation,
 ): 'daily' | 'weekly' | 'workdays' | 'custom' {
+  const [only, ...more] = rotation.activeWindows ?? [];
   if (
     rotation.kind === 'daily'
-    && rotation.active_window?.weekday_mask === 62
-    && rotation.active_window.hour_start === 0
-    && rotation.active_window.hour_end === 24
+    && only
+    && more.length === 0
+    && only.weekdayMask === 62
+    && only.start === '00:00'
+    && only.end === '24:00'
   ) {
     return 'workdays';
   }

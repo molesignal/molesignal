@@ -7,6 +7,7 @@ import {
   grafanaMetricSeriesName,
   type MetricSeries,
 } from '@/lib/metricsSeries';
+import { PROMQL_RANGE_ROWS, promqlStepMicros } from '@/lib/promqlRange';
 
 export type MetricsResultFormat = 'time_series' | 'table';
 export type MetricsQueryType = 'range' | 'instant';
@@ -27,7 +28,6 @@ export const DEFAULT_METRICS_QUERY_OPTIONS: MetricsQueryOptions = {
   exemplars: true,
 };
 
-const AUTO_RANGE_LIMIT = 1_000;
 const STEP_UNIT_MILLISECONDS: Record<string, number> = {
   ms: 1,
   s: 1_000,
@@ -65,23 +65,26 @@ export function isValidMetricsStep(value: string): boolean {
 }
 
 /**
- * The current PromQL API derives its range step from `time span / limit`.
- * Translate the editable Explore step into that existing contract. `limit=1`
- * selects the engine's instant-evaluation path.
+ * The step and row cap the Explore options ask `POST /query` for: a range
+ * query at the chosen step (or a thousand steps for Auto), and neither for an
+ * instant query, which PromQL answers at the end of the range.
  */
-export function metricsQueryLimit(
+export function metricsQueryRange(
   options: MetricsQueryOptions,
   startMicros: number,
   endMicros: number,
-): number {
-  if (options.type === 'instant') return 1;
+): { step?: number; limit?: number } {
+  if (options.type === 'instant') return {};
   const stepMilliseconds = parseMetricsStepMilliseconds(options.step);
-  if (stepMilliseconds === null) return AUTO_RANGE_LIMIT;
-  const spanMilliseconds = Math.max((endMicros - startMicros) / 1_000, 1);
-  return Math.min(
-    AUTO_RANGE_LIMIT,
-    Math.max(2, Math.ceil(spanMilliseconds / stepMilliseconds)),
-  );
+
+  return {
+    step: promqlStepMicros(
+      startMicros,
+      endMicros,
+      stepMilliseconds === null ? null : stepMilliseconds * 1_000,
+    ),
+    limit: PROMQL_RANGE_ROWS,
+  };
 }
 
 /** Match Dashboard's Grafana-compatible Auto, Verbose, and Custom modes. */

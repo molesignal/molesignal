@@ -67,4 +67,20 @@ describe('pipeline steps', () => {
     expect(names(moveStep(steps, 0, -1))).toEqual(['a', 'b', 'c']);
     expect(names(moveStep(steps, 2, 1))).toEqual(['a', 'b', 'c']);
   });
+
+  it('goes through labels when an alert pipeline renames or keeps by the set', () => {
+    expect(newStep('rename_regex', [], 'alert').processor).toMatchObject({ op: 'rename_regex', within: 'labels' });
+    expect(newStep('keep', [], 'alert').processor).toMatchObject({ op: 'keep', within: 'labels' });
+    expect(newStep('rename_regex', [], 'scheduled').processor).toMatchObject({ within: '' });
+    expect(retypeStep(newStep('vrl', []), 'keep', [], 'alert').processor).toMatchObject({ within: 'labels' });
+  });
+
+  it('starts the steps that go outside with what they still have to be told', () => {
+    expect(newStep('http_enrich', [])).toEqual({ name: 'call-api', kind: 'http_enrich', script: '', connectorId: '' });
+
+    const query = newStep('query_enrich', ['query']);
+    expect(query.name).toBe('query-2');
+    expect(query.query).toMatchObject({ language: 'sql', stream: '', windowSecs: 300, maxRows: 5 });
+    expect(stepType(query)).toBe('query_enrich');
+  });
 });

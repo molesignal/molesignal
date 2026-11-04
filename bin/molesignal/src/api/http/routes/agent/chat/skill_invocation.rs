@@ -82,6 +82,10 @@ pub(super) async fn invoke_skill(
                 return Err(refuse(StatusCode::BAD_REQUEST, COMMAND_UNAVAILABLE, &shown));
             }
             ChatScope::Team { .. } => {}
+            // 组织会话只用组织的 Skill。
+            ChatScope::Org => {
+                return Err(refuse(StatusCode::BAD_REQUEST, COMMAND_UNAVAILABLE, &shown));
+            }
             ChatScope::Personal { mounted_teams, .. } => {
                 if !viewer.manager && !viewer.is_member(&team.id) {
                     return Err(refuse(StatusCode::FORBIDDEN, COMMAND_UNAVAILABLE, &shown));

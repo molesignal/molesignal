@@ -1,28 +1,31 @@
 import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { RumDetailPage, RumListPage } from './RumLayout';
+import type * as productAccess from '@/product/access';
+
+import { RumDetailPage, RumGeoCredit, RumListPage } from './RumLayout';
+
+// The tabs ask what the reader may open.
+vi.mock('@/product/access', async (importOriginal) => ({
+  ...(await importOriginal<typeof productAccess>()),
+  useProductAccess: () => null,
+}));
 
 function credit(container: HTMLElement) {
   return container.querySelector<HTMLAnchorElement>('[data-rum-geo-credit] a');
 }
 
 describe('RUM geolocation credit', () => {
-  it('links the foot of every RUM page that shows content to DB-IP', () => {
-    const list = render(
-      <MemoryRouter initialEntries={['/rum/sessions']}>
-        <RumListPage>
-          <div>sessions</div>
-        </RumListPage>
-      </MemoryRouter>,
-    );
+  it('links to DB-IP, the source of the country of every row', () => {
+    const line = render(<RumGeoCredit />);
 
-    expect(credit(list.container)).toHaveAttribute('href', 'https://db-ip.com');
-    expect(credit(list.container)).toHaveAttribute('target', '_blank');
-    expect(credit(list.container)?.getAttribute('rel')).toContain('noopener');
-    list.unmount();
+    expect(credit(line.container)).toHaveAttribute('href', 'https://db-ip.com');
+    expect(credit(line.container)).toHaveAttribute('target', '_blank');
+    expect(credit(line.container)?.getAttribute('rel')).toContain('noopener');
+  });
 
+  it('ends the page of a session, which says where its client was', () => {
     const detail = render(
       <MemoryRouter initialEntries={['/rum/sessions/view/s-1']}>
         <RumDetailPage title="s-1">
@@ -34,15 +37,26 @@ describe('RUM geolocation credit', () => {
     expect(credit(detail.container)).toHaveAttribute('href', 'https://db-ip.com');
   });
 
-  it('leaves it off state screens and the settings, which show no lookup results', () => {
+  it('leaves it off state screens, the applications and the settings, which show no lookup result', () => {
     const empty = render(
-      <MemoryRouter initialEntries={['/rum/overview']}>
+      <MemoryRouter initialEntries={['/rum/applications']}>
         <RumListPage state={{ variant: 'empty' }} />
       </MemoryRouter>,
     );
 
     expect(credit(empty.container)).toBeNull();
     empty.unmount();
+
+    const applications = render(
+      <MemoryRouter initialEntries={['/rum/applications']}>
+        <RumListPage>
+          <div>applications</div>
+        </RumListPage>
+      </MemoryRouter>,
+    );
+
+    expect(credit(applications.container)).toBeNull();
+    applications.unmount();
 
     const settings = render(
       <MemoryRouter initialEntries={['/rum/settings/sdk']}>

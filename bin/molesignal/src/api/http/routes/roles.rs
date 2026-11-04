@@ -10,10 +10,11 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
+use super::iam::grant_limit;
 use crate::{
     api::AppState,
     app::iam::IamContext,
-    domain::iam::permission,
+    domain::iam::{IamScope, permission},
     infra::persistence::repositories::iam::roles::{IamRole, RoleUsage},
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
@@ -25,6 +26,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct RoleResp {
     id: String,
     key: String,
@@ -33,16 +35,21 @@ struct RoleResp {
     builtin: bool,
     role_type: String,
     scope: String,
+    /// The role's own permissions.
     permissions: Vec<String>,
+    /// The permission policies it attaches.
+    policy_ids: Vec<String>,
+    /// Its own permissions and those of its policies.
+    effective_permissions: Vec<String>,
     usage: RoleUsageResp,
-    created_at_micros: i64,
-    updated_at_micros: i64,
+    created_at: i64,
+    updated_at: i64,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct RoleUsageResp {
     memberships: i64,
-    api_tokens: i64,
     service_accounts: i64,
     invitations: i64,
     bindings: i64,
@@ -50,6 +57,7 @@ struct RoleUsageResp {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateReq {
     key: String,
     name: String,
@@ -57,21 +65,25 @@ struct CreateReq {
     description: String,
     #[serde(default)]
     permissions: Vec<String>,
+    #[serde(default)]
+    policy_ids: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct UpdateReq {
     name: String,
     #[serde(default)]
     description: String,
     #[serde(default)]
     permissions: Vec<String>,
+    #[serde(default)]
+    policy_ids: Vec<String>,
 }
 
 fn usage_resp(usage: RoleUsage) -> RoleUsageResp {
     RoleUsageResp {
         memberships: usage.memberships,
-        api_tokens: usage.api_tokens,
         service_accounts: usage.service_accounts,
         invitations: usage.invitations,
         bindings: usage.bindings,
@@ -89,13 +101,15 @@ fn to_resp(role: IamRole, usage: RoleUsage) -> RoleResp {
         role_type: role.role_type,
         scope: role.scope,
         permissions: role.permissions,
+        policy_ids: role.policy_ids.into_iter().map(|id| id.0).collect(),
+        effective_permissions: role.effective_permissions,
         usage: usage_resp(usage),
-        created_at_micros: role.created_at.0,
-        updated_at_micros: role.updated_at.0,
+        created_at: role.created_at.0,
+        updated_at: role.updated_at.0,
     }
 }
 
-#[permission("iam.roles.read")]
+#[permission(any("iam.roles.read", "sys.administrators.read"))]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -114,7 +128,7 @@ async fn list(
     ))
 }
 
-#[permission("iam.roles.manage")]
+#[permission(any("iam.roles.manage", "sys.administrators.manage"))]
 async fn create(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -136,7 +150,17 @@ async fn create(
 
     let name = normalize_name(&req.name)?;
     let permissions = normalize_permissions(req.permissions);
+    let policy_ids = req.policy_ids.into_iter().map(Id).collect::<Vec<_>>();
+    let granted = granted_by(&state, &ctx.org_id, &permissions, &policy_ids).await?;
+    grant_limit::require_held(&ctx, &granted)?;
     let now = TimestampMicros::now();
+
+    // A role holds the permissions of the session it is made in: the platform organization's
+    // roles the platform's, and any other organization's its own.
+    let scope = match ctx.scope {
+        IamScope::System => "platform",
+        IamScope::Organization | IamScope::ApiToken => "organization",
+    };
 
     let role = IamRole {
         id: Id::new(),
@@ -145,9 +169,11 @@ async fn create(
         name,
         description: req.description.trim().to_string(),
         builtin: false,
-        role_type: "organization".into(),
-        scope: "organization".into(),
+        role_type: scope.into(),
+        scope: scope.into(),
         permissions,
+        policy_ids,
+        effective_permissions: Vec::new(),
         created_at: now,
         updated_at: now,
     };
@@ -163,7 +189,7 @@ async fn create(
     Ok(Json(to_resp(saved, usage)))
 }
 
-#[permission("iam.roles.manage")]
+#[permission(any("iam.roles.manage", "sys.administrators.manage"))]
 async fn update(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -177,6 +203,18 @@ async fn update(
         return Err(Error::forbidden("built-in roles cannot be edited"));
     }
 
+    // What the role already holds may stay: saving it is not handing that out again.
+    let permissions = normalize_permissions(req.permissions);
+    let policy_ids = req.policy_ids.into_iter().map(Id).collect::<Vec<_>>();
+    let granted = granted_by(&state, &ctx.org_id, &permissions, &policy_ids).await?;
+
+    grant_limit::require_held(
+        &ctx,
+        granted
+            .iter()
+            .filter(|permission| !existing.effective_permissions.contains(permission)),
+    )?;
+
     let role = IamRole {
         id: existing.id,
         org_id: existing.org_id,
@@ -186,7 +224,9 @@ async fn update(
         builtin: false,
         role_type: existing.role_type,
         scope: existing.scope,
-        permissions: normalize_permissions(req.permissions),
+        permissions,
+        policy_ids,
+        effective_permissions: Vec::new(),
         created_at: existing.created_at,
         updated_at: TimestampMicros::now(),
     };
@@ -202,7 +242,24 @@ async fn update(
     Ok(Json(to_resp(saved, usage)))
 }
 
-#[permission("iam.roles.manage")]
+/// What a role with these permissions and policies holds.
+async fn granted_by(
+    state: &AppState,
+    org_id: &Id,
+    permissions: &[String],
+    policy_ids: &[Id],
+) -> Result<Vec<String>> {
+    let mut granted = permissions.to_vec();
+
+    for policy_id in policy_ids {
+        let entry = state.iam.policies.get(org_id, policy_id).await?;
+        granted.extend(entry.policy.permissions);
+    }
+
+    Ok(granted)
+}
+
+#[permission(any("iam.roles.delete", "sys.administrators.manage"))]
 async fn delete(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -233,12 +290,8 @@ async fn delete(
 
     if usage.total() > 0 {
         return Err(Error::conflict(format!(
-            "role is in use: memberships={}, api_tokens={}, service_accounts={}, invitations={}, bindings={}",
-            usage.memberships,
-            usage.api_tokens,
-            usage.service_accounts,
-            usage.invitations,
-            usage.bindings
+            "role is in use: memberships={}, service_accounts={}, invitations={}, bindings={}",
+            usage.memberships, usage.service_accounts, usage.invitations, usage.bindings
         )));
     }
 

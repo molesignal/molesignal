@@ -138,6 +138,8 @@ async fn upload_one(
     let content_length = artifact.bytes.len() as u64;
     let sha256 = Sha256::digest(&artifact.bytes).to_vec();
 
+    // `X-MoleSignal-Content-SHA256`; header names are case-insensitive and `from_static` takes
+    // the lowercase spelling.
     headers.insert(
         HeaderName::from_static("x-molesignal-content-sha256"),
         HeaderValue::from_str(&hex::encode(&sha256))?,

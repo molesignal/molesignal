@@ -99,6 +99,7 @@ export function LogFieldList({
         node.kind === 'group' ? (
           <FieldGroup
             key={`group:${node.name}`}
+            variant="flat"
             name={node.name}
             count={node.children.length}
             // A field that is open on its values keeps its group open around it.

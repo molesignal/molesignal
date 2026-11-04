@@ -46,6 +46,7 @@ impl ProbeTaskState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProbeTask {
     pub id: Id,
     pub organization_id: Id,
@@ -59,6 +60,9 @@ pub struct ProbeTask {
     pub deadline_at: TimestampMicros,
     pub timeout_millis: u32,
     pub max_attempts: u8,
+    /// The revision's diagnostics, which the Agent runs the task with.
+    pub inject_trace_context: bool,
+    pub traceroute_on_failure: bool,
     pub lease_agent_id: Option<Id>,
     pub lease_token_hash: Option<String>,
     pub leased_until: Option<TimestampMicros>,

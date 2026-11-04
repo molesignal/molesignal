@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { FormInput } from '@/shell/FormDrawer';
 import { cn } from '@/shell/lib/cn';
+import { IconSwap } from '@/shell/polish/IconSwap';
 import { Button } from '@/shell/ui/button';
 
 import { emptyRow, looksSecret, type NamedValueRow } from './namedValues';
@@ -67,7 +68,11 @@ export function NamedValuesEditor({
               onClick={() => update(row.key, { secret: !row.secret })}
               className={cn('shrink-0', secret ? 'text-indigo' : 'text-tx-3')}
             >
-              {secret ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
+              <IconSwap
+                active={secret}
+                inactiveIcon={<LockOpen className="h-3.5 w-3.5" />}
+                activeIcon={<Lock className="h-3.5 w-3.5" />}
+              />
             </Button>
             <Button
               type="button"

@@ -85,7 +85,7 @@ async fn get_saved_view(
     let view = runtime
         .data
         .saved_views
-        .get_by_id(&Id(args.required("view_id")?))
+        .get_by_id(&Id(args.required("viewId")?))
         .await?;
 
     ensure_org(&view.org_id, auth)?;
@@ -118,7 +118,7 @@ async fn get_pipeline(
         &runtime
             .data
             .scheduled_pipelines
-            .get(&auth.org_id, &Id(args.required("pipeline_id")?))
+            .get(&auth.org_id, &Id(args.required("pipelineId")?))
             .await?,
     )
 }
@@ -145,7 +145,7 @@ async fn list_pipeline_runs(
                 &auth.org_id,
                 &pipeline_id,
                 args.limit.unwrap_or(50).clamp(1, 200) as i64,
-                args.before_micros,
+                args.before_time,
             )
             .await?,
     )
@@ -175,7 +175,7 @@ async fn get_function(
     let function = runtime
         .data
         .functions
-        .get_by_id(&Id(args.required("function_id")?))
+        .get_by_id(&Id(args.required("functionId")?))
         .await?;
 
     if function.org_id.as_str() != "__builtin__" {
@@ -310,7 +310,7 @@ async fn get_log_pattern(
         &runtime
             .data
             .log_patterns
-            .get(&auth.org_id, &Id(args.required("pattern_id")?))
+            .get(&auth.org_id, &Id(args.required("patternId")?))
             .await?,
     )
 }
@@ -335,7 +335,7 @@ async fn get_regex_pattern(
     value: Value,
 ) -> Result<ToolResult> {
     let args: IdArgs = parse_args(value)?;
-    let id = args.required("pattern_id")?;
+    let id = args.required("patternId")?;
 
     let pattern = runtime
         .data
@@ -370,7 +370,7 @@ async fn effective_field_masking(
         &runtime
             .data
             .field_masking
-            .effective_for_stream(&auth.org_id, &Id(args.required("stream_id")?))
+            .effective_for_stream(&auth.org_id, &Id(args.required("streamId")?))
             .await?,
     )
 }
@@ -401,7 +401,7 @@ async fn get_connector(
         runtime
             .data
             .connectors
-            .get(&auth.org_id, &Id(args.required("connector_id")?))
+            .get(&auth.org_id, &Id(args.required("connectorId")?))
             .await?,
     ])
 }
@@ -411,13 +411,13 @@ fn connector_result(connectors: Vec<crate::infra::connectors::Connector>) -> Res
         json!({"connectors": connectors.into_iter().map(|connector| json!({
         "id": connector.id, "name": connector.name, "kind": connector.kind,
         "config": redact_credentials(&connector.config_json), "enabled": connector.enabled,
-        "last_run_at": connector.last_run_at, "created_at": connector.created_at, "updated_at": connector.updated_at,
+        "lastRunAt": connector.last_run_at, "createdAt": connector.created_at, "updatedAt": connector.updated_at,
     })).collect::<Vec<_>>() }),
     ))
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ListArgs {
     #[serde(default)]
     limit: Option<usize>,
@@ -428,7 +428,7 @@ struct ListArgs {
 }
 
 #[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct IdArgs {
     view_id: Option<String>,
     pipeline_id: Option<String>,
@@ -441,12 +441,12 @@ struct IdArgs {
 impl IdArgs {
     fn required(&self, field: &str) -> Result<String> {
         let value = match field {
-            "view_id" => &self.view_id,
-            "pipeline_id" => &self.pipeline_id,
-            "function_id" => &self.function_id,
-            "pattern_id" => &self.pattern_id,
-            "stream_id" => &self.stream_id,
-            "connector_id" => &self.connector_id,
+            "viewId" => &self.view_id,
+            "pipelineId" => &self.pipeline_id,
+            "functionId" => &self.function_id,
+            "patternId" => &self.pattern_id,
+            "streamId" => &self.stream_id,
+            "connectorId" => &self.connector_id,
             _ => unreachable!(),
         };
 
@@ -459,11 +459,11 @@ impl IdArgs {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct PipelineRunArgs {
     pipeline_id: String,
     #[serde(default)]
-    before_micros: Option<i64>,
+    before_time: Option<i64>,
     #[serde(default)]
     limit: Option<usize>,
 }

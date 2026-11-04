@@ -5,7 +5,10 @@ import * as authApi from '@/api/auth';
 import * as meApi from '@/api/me';
 import { toApiError } from '@/lib/http';
 import { AccountSection } from '@/routes/account/AccountSection';
-import { ChromeButton, Pill } from '@/shell/chrome';
+import { LinkedSignIns } from '@/routes/account/LinkedSignIns';
+import { MfaSection } from '@/routes/account/mfa';
+import { SecurityRow } from '@/routes/account/SecurityRow';
+import { ChromeButton } from '@/shell/chrome';
 import { toast } from '@/shell/ui/sonner';
 
 export function AccountSecurity() {
@@ -57,47 +60,9 @@ export function AccountSecurity() {
             </ChromeButton>
           }
         />
-        <SecurityRow
-          label={t('account:security.mfa')}
-          description={t('account:security.mfa_description')}
-          action={
-            <span aria-readonly="true">
-              <Pill tone="dim">{t('account:security.not_configured')}</Pill>
-            </span>
-          }
-        />
-        <SecurityRow
-          label={t('account:security.passkeys')}
-          description={t('account:security.passkeys_description')}
-          action={
-            <span aria-readonly="true">
-              <Pill tone="dim">{t('account:security.not_configured')}</Pill>
-            </span>
-          }
-        />
+        <LinkedSignIns />
+        <MfaSection email={profileQuery.data?.email ?? ''} />
       </div>
     </AccountSection>
-  );
-}
-
-function SecurityRow({
-  label,
-  description,
-  action,
-}: {
-  label: string;
-  description: string;
-  action: React.ReactNode;
-}) {
-  return (
-    <div className="grid min-h-20 gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-      <div>
-        <div className="font-sans text-sm font-strong text-tx-0">{label}</div>
-        <div className="mt-1 max-w-xl font-sans text-xs leading-relaxed text-tx-2">
-          {description}
-        </div>
-      </div>
-      <div>{action}</div>
-    </div>
   );
 }

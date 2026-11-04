@@ -26,7 +26,7 @@ export function ProfileActivation({
         <>
           <Link
             to="/datasource/recommended/continuous-profiling"
-            className="ms-press inline-flex h-9 items-center rounded-md bg-indigo px-3 font-sans text-sm font-bold text-white shadow-primary hover:brightness-90 focus-visible:brightness-90"
+            className="ms-press inline-flex h-9 items-center rounded-md bg-indigo px-3 font-sans text-sm font-strong text-white hover:brightness-90 focus-visible:brightness-90"
           >
             {t('upload.datasource_link')}
           </Link>

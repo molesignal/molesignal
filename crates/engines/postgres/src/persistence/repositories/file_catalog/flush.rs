@@ -67,7 +67,7 @@ pub(super) async fn commit_flush(
 
     let inserted = sqlx::query(
         "INSERT INTO storage_flush_commits (org_id, dataset_id, flush_id, writer_node_id, \
-         writer_epoch, sequence_start, sequence_end, committed_at_micros, collected_bytes)
+         writer_epoch, sequence_start, sequence_end, committed_at, collected_bytes)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          ON CONFLICT (org_id, dataset_id, flush_id) DO NOTHING",
     )
@@ -78,7 +78,7 @@ pub(super) async fn commit_flush(
     .bind(to_i64(provenance.writer_epoch.0, "writer_epoch")?)
     .bind(to_i64(provenance.sequence.start.0, "sequence_start")?)
     .bind(to_i64(provenance.sequence.end.0, "sequence_end")?)
-    .bind(TimestampMicros::now().0)
+    .bind(TimestampMicros::now())
     .bind(
         provenance
             .collected_bytes
@@ -110,19 +110,19 @@ pub(super) async fn commit_flush(
 
     sqlx::query(
         "INSERT INTO wal_checkpoints (org_id, dataset_id, writer_node_id, writer_epoch, \
-         committed_sequence, updated_at_micros)
+         committed_sequence, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT (org_id, dataset_id, writer_node_id, writer_epoch) DO UPDATE SET
              committed_sequence = GREATEST(wal_checkpoints.committed_sequence, \
                                            EXCLUDED.committed_sequence),
-             updated_at_micros = EXCLUDED.updated_at_micros",
+             updated_at = EXCLUDED.updated_at",
     )
     .bind(scope.organization_id.as_str())
     .bind(command.dataset_id.as_str())
     .bind(provenance.writer_node_id.as_str())
     .bind(to_i64(provenance.writer_epoch.0, "writer_epoch")?)
     .bind(to_i64(provenance.sequence.end.0, "committed_sequence")?)
-    .bind(TimestampMicros::now().0)
+    .bind(TimestampMicros::now())
     .execute(&mut *tx)
     .await
     .map_err(sqlx_err)?;

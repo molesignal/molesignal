@@ -8,7 +8,7 @@ export type SearchJobState = (typeof SEARCH_JOB_STATES)[number];
 export type SearchJobKind = 'query' | 'backfill';
 
 export interface SearchJobSubmitter {
-  display_name: string;
+  displayName: string;
   email: string;
 }
 
@@ -16,42 +16,42 @@ export interface SearchJobSubmitter {
 export interface SearchJobRequest {
   language: 'sql' | 'promql';
   statement: string;
-  time_range: { start: number; end: number };
-  stream: { name: string; stream_type: string } | null;
+  timeRange: { start: number; end: number };
+  stream: { name: string; streamType: string } | null;
   limit: number | null;
 }
 
 export interface SearchJob {
-  job_id: string;
+  jobId: string;
   state: SearchJobState;
   kind: SearchJobKind;
   /** The pipeline a backfill belongs to; null for a query. */
-  pipeline_id: string | null;
+  pipelineId: string | null;
   /** The generation of the execution: 0 at first, one higher after every retry. */
   attempt: number;
-  user_id: string;
+  userId: string;
   /** Null once the user record is gone. */
-  submitted_by: SearchJobSubmitter | null;
+  submittedBy: SearchJobSubmitter | null;
   /** Null when the stored request cannot be decoded. */
   request: SearchJobRequest | null;
-  submitted_at_micros: number;
-  started_at_micros: number | null;
-  finished_at_micros: number | null;
-  result_object_key: string | null;
-  result_rows: number | null;
+  submittedAt: number;
+  startedAt: number | null;
+  finishedAt: number | null;
+  resultObjectKey: string | null;
+  resultRows: number | null;
   error: string | null;
-  expires_at_micros: number;
+  expiresAt: number;
 }
 
 export type SearchJobSummary = Record<SearchJobState, number> & { total: number };
 
 export interface SearchJobResultPage {
   state: SearchJobState;
-  result_rows: number | null;
+  resultRows: number | null;
   page: number;
-  page_size: number;
+  pageSize: number;
   rows: unknown[];
-  has_more: boolean;
+  hasMore: boolean;
   error: string | null;
 }
 
@@ -109,7 +109,7 @@ export async function results(
   pageSize: number,
 ): Promise<SearchJobResultPage> {
   const { data } = await http.get<SearchJobResultPage>(`${jobPath(id)}/results`, {
-    params: { page, page_size: pageSize },
+    params: { page, pageSize: pageSize },
   });
   return data;
 }

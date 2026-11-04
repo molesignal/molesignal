@@ -33,7 +33,8 @@ use crate::{
     infra::persistence::repositories::{log_patterns::LogPattern, regex_patterns::RegexPattern},
     protocol::cluster::v1::{
         CancelQueryRequest, CancelQueryResponse, ClusterRef, EventServiceGossipClustersRequest,
-        EventServiceGossipClustersResponse, PushEventsRequest, PushEventsResponse,
+        EventServiceGossipClustersResponse, ForwardAlertsRequest, ForwardAlertsResponse,
+        PushEventsRequest, PushEventsResponse, RealtimeCountsRequest, RealtimeCountsResponse,
         event_service_server::{EventService, EventServiceServer},
     },
     shared::{Error, Result, ids::Id},
@@ -65,11 +66,15 @@ fn applied_vec() -> &'static prometheus::IntCounterVec {
 
 pub struct EventServiceGrpc {
     state: AppState,
+    realtime: super::realtime_federation::RealtimeFederation,
 }
 
 impl EventServiceGrpc {
     pub fn new(state: AppState) -> Self {
-        Self { state }
+        Self {
+            state,
+            realtime: Default::default(),
+        }
     }
 
     pub fn into_server(self) -> EventServiceServer<Self> {
@@ -84,7 +89,7 @@ impl EventService for EventServiceGrpc {
         request: Request<PushEventsRequest>,
     ) -> std::result::Result<Response<PushEventsResponse>, Status> {
         // bearer：批内所有事件共用发送端的 per-org token（worker 按 org 分组发送）；
-        // argon2 校验昂贵，**整批只验一次**，把 token 的 org 下传给逐条的映射断言。
+        // **整批只验一次**，把 token 的 org 下传给逐条的映射断言。
         let bearer = request
             .metadata()
             .get("authorization")
@@ -225,6 +230,22 @@ impl EventService for EventServiceGrpc {
         let incoming = request.into_inner().known;
         let known = merge_gossip(&self.state, &incoming).await;
         Ok(Response::new(EventServiceGossipClustersResponse { known }))
+    }
+
+    /// 联邦里别的集群转来的外部告警：本集群是告警来源的接收集群。
+    async fn forward_alerts(
+        &self,
+        request: Request<ForwardAlertsRequest>,
+    ) -> std::result::Result<Response<ForwardAlertsResponse>, Status> {
+        super::alert_sources::forward_alerts(&self.state, request).await
+    }
+
+    /// 实时规则的汇总集群来拉本集群的计数。
+    async fn realtime_counts(
+        &self,
+        request: Request<RealtimeCountsRequest>,
+    ) -> std::result::Result<Response<RealtimeCountsResponse>, Status> {
+        super::realtime_federation::realtime_counts(&self.state, &self.realtime, request).await
     }
 }
 
@@ -430,8 +451,36 @@ async fn apply_resource(
             resource_id,
             data
         ),
+        ResourceKind::InhibitRule => apply_id_scoped!(
+            state.alerting.inhibitions.rules(),
+            crate::domain::alerting::inhibit::InhibitRule,
+            action,
+            local_org,
+            resource_id,
+            data
+        ),
         ResourceKind::NotifyTemplate => {
             apply_notify_template(state, action, local_org, resource_id, data).await
+        }
+        ResourceKind::AlertSource => {
+            super::alert_sources::apply_source(state, action, local_org, resource_id, data).await
+        }
+        ResourceKind::HolidayCalendar => {
+            let applied: Result<()> = apply_id_scoped!(
+                state.alerting.holidays.repository(),
+                crate::domain::alerting::holiday::HolidayCalendar,
+                action,
+                local_org,
+                resource_id,
+                data
+            );
+
+            applied?;
+            state
+                .alerting
+                .holidays
+                .applied(&Id(resource_id.to_string()))
+                .await
         }
     }
 }

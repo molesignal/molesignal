@@ -352,9 +352,9 @@ function ManagementNavContents({
                         onClick={onNavigate}
                         className={({ isActive }) =>
                           cn(
-                            'relative flex min-h-11 items-center rounded-md px-2.5 font-sans text-sm text-tx-1 transition-colors duration-fast hover:bg-bg-3 hover:text-tx-0 lg:min-h-[30px]',
+                            'relative flex min-h-11 items-center rounded-md px-2.5 font-sans text-sm text-[var(--nav-ink)] transition-colors duration-fast hover:bg-[var(--nav-hover-surface)] hover:text-[var(--nav-hover-ink)] lg:min-h-[30px]',
                             'focus-visible:bg-bg-3 focus-visible:text-tx-0',
-                            isActive && 'bg-indigo-dim font-strong text-indigo-soft',
+                            isActive && 'bg-[var(--nav-current-surface)] text-[var(--nav-current-ink)] hover:bg-[var(--nav-current-surface)] hover:text-[var(--nav-current-ink)]',
                           )
                         }
                       >

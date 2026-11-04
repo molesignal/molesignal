@@ -1,0 +1,107 @@
+{
+  "roles": {
+    "body": {
+      "family": "Microsoft YaHei, Arial",
+      "size": 24.0,
+      "weight": "normal",
+      "cjk_chars_per_100px": 3.9,
+      "latin_chars_per_100px": 8.1,
+      "caps_chars_per_100px": 7.5,
+      "digits_chars_per_100px": 7.1,
+      "citation_chars_per_100px": 7.5,
+      "script_clusters_per_100px": {},
+      "longest_planned_line": {
+        "px": 1059.2,
+        "slide": "P13",
+        "text": "建议55%研发412500、20%Cloud150000、15%客户及市场11…"
+      }
+    },
+    "title": {
+      "family": "Microsoft YaHei, Arial",
+      "size": 44.0,
+      "weight": "normal",
+      "cjk_chars_per_100px": 2.1,
+      "latin_chars_per_100px": 4.4,
+      "caps_chars_per_100px": 4.1,
+      "digits_chars_per_100px": 3.9,
+      "citation_chars_per_100px": 4.1,
+      "script_clusters_per_100px": {},
+      "longest_planned_line": {
+        "px": 495.0,
+        "slide": "P09",
+        "text": "选择 MoleSignal 的理由"
+      }
+    },
+    "subtitle": {
+      "family": "Microsoft YaHei, Arial",
+      "size": 30.0,
+      "weight": "normal",
+      "cjk_chars_per_100px": 3.1,
+      "latin_chars_per_100px": 6.5,
+      "caps_chars_per_100px": 6.0,
+      "digits_chars_per_100px": 5.7,
+      "citation_chars_per_100px": 6.0,
+      "script_clusters_per_100px": {},
+      "longest_planned_line": {
+        "px": 1324.0,
+        "slide": "P13",
+        "text": "建议55%研发412500、20%Cloud150000、15%客户及市场11…"
+      }
+    },
+    "annotation": {
+      "family": "Microsoft YaHei, Arial",
+      "size": 20.0,
+      "weight": "normal",
+      "cjk_chars_per_100px": 4.7,
+      "latin_chars_per_100px": 9.7,
+      "caps_chars_per_100px": 9.0,
+      "digits_chars_per_100px": 8.6,
+      "citation_chars_per_100px": 9.0,
+      "script_clusters_per_100px": {},
+      "longest_planned_line": null
+    },
+    "display": {
+      "family": "Microsoft YaHei, Arial",
+      "size": 76.0,
+      "weight": "normal",
+      "cjk_chars_per_100px": 1.2,
+      "latin_chars_per_100px": 2.6,
+      "caps_chars_per_100px": 2.4,
+      "digits_chars_per_100px": 2.3,
+      "citation_chars_per_100px": 2.4,
+      "script_clusters_per_100px": {},
+      "longest_planned_line": null
+    },
+    "footnote": {
+      "family": "Microsoft YaHei, Arial",
+      "size": 16.0,
+      "weight": "normal",
+      "cjk_chars_per_100px": 5.9,
+      "latin_chars_per_100px": 12.1,
+      "caps_chars_per_100px": 11.2,
+      "digits_chars_per_100px": 10.7,
+      "citation_chars_per_100px": 11.3,
+      "script_clusters_per_100px": {},
+      "longest_planned_line": null
+    },
+    "kicker": {
+      "family": "Microsoft YaHei, Arial",
+      "size": 18.0,
+      "weight": "normal",
+      "cjk_chars_per_100px": 5.2,
+      "latin_chars_per_100px": 10.8,
+      "caps_chars_per_100px": 10.0,
+      "digits_chars_per_100px": 9.5,
+      "citation_chars_per_100px": 10.0,
+      "script_clusters_per_100px": {},
+      "longest_planned_line": null
+    }
+  },
+  "script_samples": {},
+  "source": "spec_lock.md",
+  "generated_at": "2026-11-01T17:28:14Z",
+  "notes": [
+    "role display (76px, at least twice body) has no display_family and uses body_family; declare display_family if it is display type",
+    "every role is measured at normal weight; recalibrate a role realized as bold deck-wide with --role NAME:FAMILY:SIZE:bold: bold widens Latin and digits about 7%, while the bundled advance table gives CJK one width for both weights"
+  ]
+}

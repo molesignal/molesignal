@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BellOff, Check, CircleCheck } from 'lucide-react';
+import { Check, CircleCheck } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,10 +13,14 @@ import { FormDrawer } from '@/shell/FormDrawer';
 import { LoadingState } from '@/shell/LoadingState';
 import { toast } from '@/shell/ui/sonner';
 
+import { IncidentActions } from './Actions';
 import { IncidentBody } from './Body';
+import { priorityLabel, urgencyNote, urgencyOf, useImportance } from './Importance';
 import { InvestigateWithAgent } from './InvestigateWithAgent';
+import { hasRule } from './origin';
+import { refreshIncidents } from './refresh';
 import { IncidentSilenceDialog } from './SilenceDialog';
-import { SEVERITY_TONE, STATUS_TONE } from './tones';
+import { PRIORITY_TONE, SEVERITY_TONE, STATUS_TONE } from './tones';
 
 /**
  * Incident detail drawer. Loads the full incident via
@@ -37,12 +41,13 @@ interface IncidentDetailDrawerProps {
 
 export function IncidentDetailDrawer({ incidentId, onClose }: IncidentDetailDrawerProps) {
   const { t } = useTranslation('alerts');
+  const levels = useImportance();
   const queryClient = useQueryClient();
   const [silenceOpen, setSilenceOpen] = React.useState(false);
   const acknowledgePermission = useActionAccess({
-    permission: 'alerts.acknowledge',
+    permission: 'alerts.incidents.acknowledge',
   });
-  const silencePermission = useActionAccess({ permission: 'alerts.silence' });
+  const silencePermission = useActionAccess({ permission: 'alerts.incidents.silence' });
 
   React.useEffect(() => {
     if (!incidentId) setSilenceOpen(false);
@@ -60,8 +65,7 @@ export function IncidentDetailDrawer({ incidentId, onClose }: IncidentDetailDraw
     mutationFn: (id: string) => incidentsApi.ack(id),
     onSuccess: async () => {
       toast.success(t('drawer.actions.ack_success', { defaultValue: 'Incident acknowledged' }));
-      await queryClient.invalidateQueries({ queryKey: ['incidents', incidentId] });
-      await queryClient.invalidateQueries({ queryKey: ['alerts', 'incidents'] });
+      await refreshIncidents(queryClient, incidentId ?? undefined);
     },
     onError: (err: unknown) => toast.error(toApiError(err).message),
   });
@@ -70,17 +74,17 @@ export function IncidentDetailDrawer({ incidentId, onClose }: IncidentDetailDraw
     mutationFn: (id: string) => incidentsApi.resolve(id),
     onSuccess: async () => {
       toast.success(t('drawer.actions.resolve_success', { defaultValue: 'Incident resolved' }));
-      await queryClient.invalidateQueries({ queryKey: ['incidents', incidentId] });
-      await queryClient.invalidateQueries({ queryKey: ['alerts', 'incidents'] });
+      await refreshIncidents(queryClient, incidentId ?? undefined);
     },
     onError: (err: unknown) => toast.error(toApiError(err).message),
   });
 
   const incident = q.data ?? null;
+  // An incident a synthetic check or an alert source opened has no rule to read: its `rule_id` is theirs.
   const ruleQuery = useQuery({
-    queryKey: ['alerts', 'rule', incident?.rule_id],
-    queryFn: () => alertsApi.get(incident!.rule_id),
-    enabled: Boolean(incident?.rule_id),
+    queryKey: ['alerts', 'rule', incident?.ruleId],
+    queryFn: () => alertsApi.get(incident!.ruleId),
+    enabled: hasRule(incident),
     staleTime: 30_000,
   });
   const open = !!incidentId;
@@ -127,6 +131,16 @@ export function IncidentDetailDrawer({ incidentId, onClose }: IncidentDetailDraw
               <Pill tone={STATUS_TONE[incident.status]}>
                 {t(`center.incidents.status.${incident.status}`)}
               </Pill>
+              {incident.priority && (
+                <span data-incident-priority={incident.priority} className="contents">
+                  <Pill tone={PRIORITY_TONE[incident.priority]}>{priorityLabel(levels, incident.priority)}</Pill>
+                </span>
+              )}
+              {urgencyNote(levels, incident, t) && (
+                <span data-incident-urgency={urgencyOf(incident)} className="contents">
+                  <Pill tone="dim">{urgencyNote(levels, incident, t)}</Pill>
+                </span>
+              )}
             </span>
           ) : undefined
         }
@@ -134,20 +148,15 @@ export function IncidentDetailDrawer({ incidentId, onClose }: IncidentDetailDraw
           incident ? (
             <>
               <span className="mr-auto">
-                <InvestigateWithAgent incident={incident} size="sm" />
+                <InvestigateWithAgent incident={incident} rule={ruleQuery.data ?? undefined} size="sm" onStarted={onClose} />
               </span>
-              <ChromeButton
-                size="sm"
-                disabled={silenceAccess.disabled}
-                disabledReason={silenceAccess.reason}
-                onClick={() => {
-                  if (silenceAccess.allowed) setSilenceOpen(true);
-                }}
-                data-testid="incident-silence"
-              >
-                <BellOff className="h-3 w-3" />
-                {t('drawer.actions.silence')}
-              </ChromeButton>
+              {active && !incident.mergedInto && (
+                <IncidentActions
+                  incident={incident}
+                  size="sm"
+                  onSilence={silenceAccess.allowed ? () => setSilenceOpen(true) : undefined}
+                />
+              )}
               <ChromeButton
                 size="sm"
                 disabled={ackMut.isPending || acknowledgeAccess.disabled}

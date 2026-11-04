@@ -21,12 +21,12 @@ function row(
   currency: string | null = cost > 0 ? 'USD' : null,
 ): DailyUsageRow {
   return {
-    day_start_micros: day * DAY,
+    dayStart: day * DAY,
     origin,
     calls: 1,
-    unpriced_calls: unpriced,
-    prompt_tokens: tokens,
-    completion_tokens: 0,
+    unpricedCalls: unpriced,
+    promptTokens: tokens,
+    completionTokens: 0,
     cost,
     currency,
   };
@@ -34,13 +34,13 @@ function row(
 
 describe('Mole Agent usage', () => {
   it('reads the share of the limit, and none without a limit', () => {
-    expect(usedPercent({ used_tokens: 41_000, limit_tokens: 50_000 })).toBe(82);
-    expect(usedPercent({ used_tokens: 60_000, limit_tokens: 50_000 })).toBe(120);
-    expect(usedPercent({ used_tokens: 10, limit_tokens: 0 })).toBeNull();
+    expect(usedPercent({ usedTokens: 41_000, limitTokens: 50_000 })).toBe(82);
+    expect(usedPercent({ usedTokens: 60_000, limitTokens: 50_000 })).toBe(120);
+    expect(usedPercent({ usedTokens: 10, limitTokens: 0 })).toBeNull();
   });
 
   it('dates a status to the UTC day before it resets', () => {
-    expect(statusDayStart({ resets_at: 20_378 * DAY })).toBe(20_377 * DAY);
+    expect(statusDayStart({ resetsAt: 20_378 * DAY })).toBe(20_377 * DAY);
   });
 
   it('groups rows into days, newest first, split by origin', () => {
@@ -51,7 +51,7 @@ describe('Mole Agent usage', () => {
       row(10, 'llm_eval', 5),
     ]);
 
-    expect(days.map((day) => day.dayStartMicros)).toEqual([11 * DAY, 10 * DAY]);
+    expect(days.map((day) => day.dayStart)).toEqual([11 * DAY, 10 * DAY]);
     expect(days[1]?.tokens).toBe(165);
     expect(days[1]?.calls).toBe(3);
     expect(days[1]?.costs.USD).toBeCloseTo(0.75);
@@ -73,11 +73,11 @@ describe('Mole Agent usage', () => {
     expect(limitChoice(0)).toBe('unlimited');
     expect(limitChoice(50_000)).toBe('custom');
 
-    expect(budgetInput('inherit', '', 'block')).toEqual({ daily_token_limit: null, interactive_mode: 'block' });
-    expect(budgetInput('unlimited', '', 'warn')).toEqual({ daily_token_limit: 0, interactive_mode: 'warn' });
+    expect(budgetInput('inherit', '', 'block')).toEqual({ dailyTokenLimit: null, interactiveMode: 'block' });
+    expect(budgetInput('unlimited', '', 'warn')).toEqual({ dailyTokenLimit: 0, interactiveMode: 'warn' });
     expect(budgetInput('custom', ' 200000 ', 'block')).toEqual({
-      daily_token_limit: 200_000,
-      interactive_mode: 'block',
+      dailyTokenLimit: 200_000,
+      interactiveMode: 'block',
     });
     expect(budgetInput('custom', '', 'block')).toBeNull();
     expect(budgetInput('custom', '1.5', 'block')).toBeNull();

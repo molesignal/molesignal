@@ -12,20 +12,19 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::{
-    app::iam::{IamAccessService, IamContext, IamService},
-    domain::iam::IamScope,
+    app::iam::{IamAccessService, IamContext, IamService, member::member_context},
     shared::{Error, Result, ids::Id},
 };
 
 /// 执行一次巡检需要的权限：用 Mole Agent，查询数据流。
-pub const RUN_PERMISSIONS: [&str; 2] = ["agent.use", "streams.query"];
+pub const RUN_PERMISSIONS: [&str; 2] = ["agent.use", "logs.read"];
 
 /// 保存巡检的人能不能成为它的执行身份。
 ///
 /// API Token 只代表它绑定的那个角色，以签发者本人的身份去读日志会越过这个角色，所以用
 /// API Token 保存的请求没有可用身份，直接拒绝。
 pub fn run_as_user(saver: &IamContext) -> Result<Id> {
-    if saver.scope != IamScope::Organization {
+    if saver.scope != crate::domain::iam::IamScope::Organization {
         return Err(Error::forbidden(
             "a scheduled log inspection runs as the organization member who saves it: save it \
              while signed in to the organization, not with an API token",
@@ -65,61 +64,16 @@ impl IamRunIdentity {
 #[async_trait]
 impl RunIdentity for IamRunIdentity {
     async fn resolve(&self, org_id: &Id, user_id: &Id) -> Result<IamContext> {
-        let user = match self.iam.current_user(user_id).await {
-            Ok(user) => user,
-            Err(Error::NotFound(_)) => {
-                return Err(unusable(&format!("user {}", user_id.0), "no longer exists"));
-            }
-            Err(error) => return Err(error),
-        };
+        let member = member_context(&self.iam, &self.access, org_id, user_id, unusable).await?;
 
-        // 与请求进来时的鉴权同一套核对：账号状态、组织状态，再解析成员关系和权限。
-        let admitted = async {
-            self.iam.ensure_user_access(user_id).await?;
-            self.iam.ensure_organization_access(org_id).await
-        };
-
-        if let Err(error) = admitted.await {
-            return Err(match error {
-                Error::Unauthorized(reason) | Error::Forbidden(reason) => unusable(
-                    &user.email,
-                    &format!("can no longer sign in to this organization ({reason})"),
-                ),
-                other => other,
-            });
-        }
-
-        let mut context = IamContext {
-            user_id: user_id.clone(),
-            org_id: org_id.clone(),
-            display_role: String::new(),
-            roles: Vec::new(),
-            credential_role_id: None,
-            credential_application_id: None,
-            credential_service_account_id: None,
-            scope: IamScope::Organization,
-            permissions: Default::default(),
-            policy_version: 0,
-        };
-
-        if let Err(error) = self.access.enrich_context(&mut context).await {
-            return Err(match error {
-                Error::Unauthorized(reason) | Error::Forbidden(reason) => unusable(
-                    &user.email,
-                    &format!("is no longer a member of this organization ({reason})"),
-                ),
-                other => other,
-            });
-        }
-
-        if let Some(permission) = missing_run_permission(&context) {
+        if let Some(permission) = missing_run_permission(&member.context) {
             return Err(unusable(
-                &user.email,
+                &member.email,
                 &format!("no longer holds {permission}"),
             ));
         }
 
-        Ok(context)
+        Ok(member.context)
     }
 }
 
@@ -134,6 +88,7 @@ fn unusable(who: &str, why: &str) -> Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::iam::IamScope;
 
     fn context(scope: IamScope, permissions: &[&str]) -> IamContext {
         IamContext {
@@ -141,7 +96,7 @@ mod tests {
             org_id: Id::from_string("org-1"),
             display_role: String::new(),
             roles: Vec::new(),
-            credential_role_id: None,
+            credential_token_id: None,
             credential_application_id: None,
             credential_service_account_id: None,
             scope,
@@ -168,7 +123,7 @@ mod tests {
     fn the_first_missing_run_permission_is_named() {
         assert_eq!(
             missing_run_permission(&context(IamScope::Organization, &["agent.use"])),
-            Some("streams.query")
+            Some("logs.read")
         );
         assert_eq!(
             missing_run_permission(&context(IamScope::Organization, &[])),

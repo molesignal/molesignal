@@ -34,6 +34,7 @@ pub struct RunState {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SourceState {
     /// Events of the source from before this time (microseconds) have been handled.
     pub read_until: i64,
@@ -47,6 +48,7 @@ pub struct SourceState {
 
 /// A window that failed and is waiting to be tried again.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Retry {
     /// Attempts at the window that failed so far.
     pub failures: u32,

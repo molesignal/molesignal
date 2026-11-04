@@ -12,6 +12,7 @@ import { DashboardRenderer } from '@/dashboard-engine/DashboardRenderer';
 import { parseDashboardDefinition } from '@/dashboard-engine/model';
 import { toApiError } from '@/lib/http';
 import { ProductState } from '@/product/states';
+import { uiSectionTitleClass } from '@/shell/chrome';
 import { PageBody, PageHeader } from '@/shell/PageHeader';
 import { toast } from '@/shell/ui/sonner';
 import { useAuthStore } from '@/stores/auth';
@@ -23,7 +24,7 @@ export function DashboardDraftPage() {
   const { t } = useTranslation('agent');
   const { id = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const orgId = useAuthStore((state) => state.ctx?.org_id ?? '');
+  const orgId = useAuthStore((state) => state.ctx?.orgId ?? '');
   const draftQuery = useDashboardDraft(id);
   const propose = useProposeDashboardCreation();
   const execute = useExecuteDashboardCreation(id);
@@ -39,7 +40,7 @@ export function DashboardDraftPage() {
     if (!draftQuery.data) return { dashboard: null, error: null };
     try {
       return {
-        dashboard: parseDashboardDefinition(draftQuery.data.compiled_model),
+        dashboard: parseDashboardDefinition(draftQuery.data.compiledModel),
         error: null,
       };
     } catch (error) {
@@ -53,8 +54,8 @@ export function DashboardDraftPage() {
     actionInFlight.current = true;
     propose.mutate(
       {
-        draftId: draft.draft_id,
-        expectedHash: draft.model_hash,
+        draftId: draft.draftId,
+        expectedHash: draft.modelHash,
         reason: t('dashboard_authoring.proposal_reason'),
         impact: t('dashboard_authoring.proposal_impact'),
       },
@@ -70,15 +71,15 @@ export function DashboardDraftPage() {
 
   const confirmCreate = () => {
     const draft = draftQuery.data;
-    const approvalId = draft?.operation?.approval_id;
+    const approvalId = draft?.operation?.approvalId;
     if (!draft || !approvalId || execute.isPending || actionInFlight.current) return;
     actionInFlight.current = true;
     execute.mutate(
       {
         approvalId,
         idempotencyKey: dashboardCreationIdempotencyKey(
-          draft.draft_id,
-          draft.model_hash,
+          draft.draftId,
+          draft.modelHash,
         ),
       },
       {
@@ -87,7 +88,7 @@ export function DashboardDraftPage() {
             toast.error(result.error || t('dashboard_authoring.creation_failed'));
             return;
           }
-          const route = result.verification.dashboard_route;
+          const route = result.verification.dashboardRoute;
           toast.success(t('dashboard_authoring.created'));
           navigate(route || '/dashboards');
         },
@@ -99,7 +100,7 @@ export function DashboardDraftPage() {
     );
   };
 
-  const title = draftQuery.data?.compiled_model.title || t('dashboard_authoring.title');
+  const title = draftQuery.data?.compiledModel.title || t('dashboard_authoring.title');
   return (
     <>
       <PageHeader
@@ -136,7 +137,7 @@ export function DashboardDraftPage() {
               <div className="flex items-center gap-2 border-b border-bd-0 bg-bg-2 px-4 py-3">
                 <LayoutDashboard className="h-4 w-4 text-indigo" />
                 <div>
-                  <h2 className="text-sm font-display-strong text-tx-0">
+                  <h2 className={uiSectionTitleClass}>
                     {t('dashboard_authoring.preview_title')}
                   </h2>
                   <p className="mt-0.5 text-xs text-tx-3">

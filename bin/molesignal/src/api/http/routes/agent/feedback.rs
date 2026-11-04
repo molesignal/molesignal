@@ -4,12 +4,12 @@
 //! 对 Mole Agent 产出的 👍 / 👎。
 //!
 //! - `PUT    /api/v1/agent/feedback`                       保存自己对一个对象的评价
-//! - `DELETE /api/v1/agent/feedback/{target_kind}/{target_id}` 撤回自己的评价
+//! - `DELETE /api/v1/agent/feedback/{target_kind}/{target_id}?chat_id=` 撤回自己的评价
 //! - `GET    /api/v1/agent/feedback?target_kind=&target_ids=` 自己对这些对象的评价
 //!
 //! 对话回答只有问这个问题的人能评价（团队会话里也是）；事件 RCA 组织里能用 Mole Agent 的人
-//! 都能评价。评价时记下被
-//! 评价的回答当时用的模型与 prompt 版本。
+//! 都能评价。评价时记下被评价的回答当时用的模型与 prompt 版本；评价之后重新打分，评为没帮助的
+//! 交给评审（见 `quality`）。
 
 use axum::{
     Extension, Json, Router,
@@ -25,7 +25,10 @@ use crate::{
     },
     api::{
         AppState,
-        http::routes::{activity_audit, agent::viewer::readable_chat},
+        http::routes::{
+            activity_audit,
+            agent::{quality, viewer::readable_chat},
+        },
     },
     app::iam::IamContext,
     domain::iam::permission,
@@ -36,26 +39,28 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/agent/feedback", get(list_feedback).put(put_feedback))
         .route(
-            "/agent/feedback/{target_kind}/{target_id}",
+            "/agent/feedback/{targetKind}/{targetId}",
             delete(delete_feedback),
         )
 }
 
 #[derive(Debug, Deserialize)]
-struct FeedbackRequest {
-    target_kind: String,
-    target_id: String,
+#[serde(rename_all = "camelCase")]
+pub(crate) struct FeedbackRequest {
+    pub(crate) target_kind: String,
+    pub(crate) target_id: String,
     /// 对话回答所在的会话；评价对话回答时必填。
     #[serde(default)]
-    chat_id: Option<String>,
-    rating: String,
+    pub(crate) chat_id: Option<String>,
+    pub(crate) rating: String,
     #[serde(default)]
-    reasons: Vec<String>,
+    pub(crate) reasons: Vec<String>,
     #[serde(default)]
-    comment: String,
+    pub(crate) comment: String,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct FeedbackQuery {
     target_kind: String,
     /// 逗号分隔的对象 ID。
@@ -75,7 +80,7 @@ async fn provenance(
         FeedbackTarget::ChatMessage => {
             let chat_id = chat_id
                 .filter(|id| !id.trim().is_empty())
-                .ok_or_else(|| Error::invalid("chat_id is required to rate a chat answer"))?;
+                .ok_or_else(|| Error::invalid("chatId is required to rate a chat answer"))?;
 
             let (chat, _) = readable_chat(state, ctx, &Id(chat_id.to_string())).await?;
             let messages = state.agent.chats.list_messages(&chat.id).await?;
@@ -102,17 +107,17 @@ async fn provenance(
             let message = &messages[position];
 
             Ok(json!({
-                "chat_id": chat.id.0,
+                "chatId": chat.id.0,
                 "provider": chat.provider,
-                "provider_id": chat.provider_id,
+                "providerId": chat.provider_id,
                 "model": chat.model,
-                "analysis_mode": chat.analysis_mode,
-                "prompt_template_id": message.prompt_template_id,
-                "prompt_builtin_key": message.prompt_builtin_key,
-                "prompt_version": message.prompt_version,
-                "prompt_hash": message.prompt_hash,
-                "prompt_tokens": message.prompt_tokens,
-                "completion_tokens": message.completion_tokens,
+                "analysisMode": chat.analysis_mode,
+                "promptTemplateId": message.prompt_template_id,
+                "promptBuiltinKey": message.prompt_builtin_key,
+                "promptVersion": message.prompt_version,
+                "promptHash": message.prompt_hash,
+                "promptTokens": message.prompt_tokens,
+                "completionTokens": message.completion_tokens,
                 "cost": message.cost,
             }))
         }
@@ -128,15 +133,15 @@ async fn provenance(
                 })?;
 
             Ok(json!({
-                "incident_id": rca.incident_id.0,
+                "incidentId": rca.incident_id.0,
                 "provider": rca.provider,
                 "model": rca.model,
-                "prompt_builtin_key": rca.prompt_builtin_key,
-                "prompt_hash": rca.prompt_hash,
-                "prompt_tokens": rca.prompt_tokens,
-                "completion_tokens": rca.completion_tokens,
-                "finish_reason": rca.finish_reason,
-                "generated_at_micros": rca.updated_at.0,
+                "promptBuiltinKey": rca.prompt_builtin_key,
+                "promptHash": rca.prompt_hash,
+                "promptTokens": rca.prompt_tokens,
+                "completionTokens": rca.completion_tokens,
+                "finishReason": rca.finish_reason,
+                "generatedAt": rca.updated_at.0,
             }))
         }
     }
@@ -148,6 +153,15 @@ async fn put_feedback(
     Extension(ctx): Extension<IamContext>,
     Json(request): Json<FeedbackRequest>,
 ) -> Result<Json<AgentFeedback>> {
+    submit(&state, &ctx, request).await.map(Json)
+}
+
+/// 保存一条评价、重新打分并记审计；IM 里的 `/feedback` 也走这里。
+pub(crate) async fn submit(
+    state: &AppState,
+    ctx: &IamContext,
+    request: FeedbackRequest,
+) -> Result<AgentFeedback> {
     let target_kind = FeedbackTarget::parse(&request.target_kind)?;
     let rating = FeedbackRating::parse(&request.rating)?;
 
@@ -158,8 +172,8 @@ async fn put_feedback(
         .collect::<Result<Vec<_>>>()?;
 
     let provenance = provenance(
-        &state,
-        &ctx,
+        state,
+        ctx,
         target_kind,
         &request.target_id,
         request.chat_id.as_deref(),
@@ -185,23 +199,44 @@ async fn put_feedback(
 
     let saved = state.agent.feedback.upsert(feedback).await?;
 
+    quality::rated(
+        state,
+        &ctx.org_id,
+        (saved.target_kind, &saved.target_id),
+        request
+            .chat_id
+            .as_deref()
+            .map(|id| Id(id.to_string()))
+            .as_ref(),
+        saved.rating == FeedbackRating::Down,
+    )
+    .await;
+
     // 审计只记评分与原因，备注可能含业务细节，不进审计。
     activity_audit::record(
-        &state,
-        &ctx,
+        state,
+        ctx,
         "agent.feedback.submitted",
         "agent_feedback",
         &saved.target_id,
         json!({
-            "target_kind": saved.target_kind,
+            "targetKind": saved.target_kind,
             "rating": saved.rating,
             "reasons": saved.reasons,
-            "has_comment": !saved.comment.is_empty(),
+            "hasComment": !saved.comment.is_empty(),
         }),
     )
     .await;
 
-    Ok(Json(saved))
+    Ok(saved)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WithdrawQuery {
+    /// 对话回答所在的会话：撤回后重新打分要用。
+    #[serde(default)]
+    chat_id: Option<String>,
 }
 
 #[permission("agent.use")]
@@ -209,6 +244,7 @@ async fn delete_feedback(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
     Path((target_kind, target_id)): Path<(String, String)>,
+    Query(query): Query<WithdrawQuery>,
 ) -> Result<Json<Value>> {
     let target_kind = FeedbackTarget::parse(&target_kind)?;
 
@@ -225,7 +261,16 @@ async fn delete_feedback(
             "agent.feedback.withdrawn",
             "agent_feedback",
             &target_id,
-            json!({ "target_kind": target_kind }),
+            json!({ "targetKind": target_kind }),
+        )
+        .await;
+
+        quality::rated(
+            &state,
+            &ctx.org_id,
+            (target_kind, &target_id),
+            query.chat_id.map(Id).as_ref(),
+            false,
         )
         .await;
     }

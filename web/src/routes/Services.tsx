@@ -56,7 +56,7 @@ export function Services() {
   const q = useTopology(range);
 
   const nodes = React.useMemo(
-    () => [...(q.data?.nodes ?? [])].sort((a, b) => b.span_count - a.span_count),
+    () => [...(q.data?.nodes ?? [])].sort((a, b) => b.spanCount - a.spanCount),
     [q.data],
   );
 
@@ -77,7 +77,7 @@ export function Services() {
           : null;
 
   const totalRps = nodes.reduce((sum, n) => sum + n.rps, 0);
-  const degraded = nodes.filter((n) => n.error_rate >= 0.01).length;
+  const degraded = nodes.filter((n) => n.errorRate >= 0.01).length;
 
   return (
     <ListPage
@@ -114,19 +114,19 @@ export function Services() {
           {
             key: 'error_rate',
             header: t('list.columns.error_rate', { defaultValue: 'Error rate' }),
-            cell: (n) => <Pill tone={errorTone(n.error_rate)}>{fmtPct(n.error_rate)}</Pill>,
+            cell: (n) => <Pill tone={errorTone(n.errorRate)}>{fmtPct(n.errorRate)}</Pill>,
             width: 130,
           },
           {
             key: 'p95',
             header: t('list.columns.p95', { defaultValue: 'p95' }),
-            cell: (n) => <span className="tabular-nums text-[var(--blue-ink)]">{fmtMs(n.p95_ms)}</span>,
+            cell: (n) => <span className="tabular-nums text-[var(--blue-ink)]">{fmtMs(n.p95Ms)}</span>,
             width: 110,
           },
           {
             key: 'spans',
             header: t('list.columns.spans', { defaultValue: 'Spans' }),
-            cell: (n) => <span className="tabular-nums text-tx-3">{n.span_count.toLocaleString()}</span>,
+            cell: (n) => <span className="tabular-nums text-tx-3">{n.spanCount.toLocaleString()}</span>,
             width: 120,
           },
         ]}
@@ -174,10 +174,10 @@ export function ServiceDetail() {
         { label: t('list.columns.rps', { defaultValue: 'RPS' }), value: <span className="tabular-nums">{fmtRps(node.rps)}</span> },
         {
           label: t('list.columns.error_rate', { defaultValue: 'Error rate' }),
-          value: <Pill tone={errorTone(node.error_rate)}>{fmtPct(node.error_rate)}</Pill>,
+          value: <Pill tone={errorTone(node.errorRate)}>{fmtPct(node.errorRate)}</Pill>,
         },
-        { label: t('list.columns.p95', { defaultValue: 'p95' }), value: <span className="tabular-nums">{fmtMs(node.p95_ms)}</span> },
-        { label: t('list.columns.spans', { defaultValue: 'Spans' }), value: <span className="tabular-nums">{node.span_count.toLocaleString()}</span> },
+        { label: t('list.columns.p95', { defaultValue: 'p95' }), value: <span className="tabular-nums">{fmtMs(node.p95Ms)}</span> },
+        { label: t('list.columns.spans', { defaultValue: 'Spans' }), value: <span className="tabular-nums">{node.spanCount.toLocaleString()}</span> },
       ]
     : undefined;
 
@@ -246,8 +246,8 @@ function DepSection({
               <span className="tabular-nums text-xs text-tx-2">
                 {t('detail.edge_rps', { defaultValue: '{{rps}} rps', rps: fmtRps(e.rps) })}
               </span>
-              <Pill tone={errorTone(e.err_rate)}>{fmtPct(e.err_rate)}</Pill>
-              <span className="tabular-nums text-xs text-[var(--blue-ink)]">{fmtMs(e.p95_ms)}</span>
+              <Pill tone={errorTone(e.errRate)}>{fmtPct(e.errRate)}</Pill>
+              <span className="tabular-nums text-xs text-[var(--blue-ink)]">{fmtMs(e.p95Ms)}</span>
             </li>
           ))}
         </ul>

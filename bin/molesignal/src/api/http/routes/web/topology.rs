@@ -33,6 +33,7 @@ pub struct TopologyQuery {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TopologyNode {
     pub id: String,
     pub name: String,
@@ -43,6 +44,7 @@ pub struct TopologyNode {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TopologyEdge {
     pub source: String,
     pub target: String,
@@ -63,7 +65,7 @@ fn parse_ts(s: &str) -> Result<i64, Error> {
         .map_err(|e| Error::invalid(format!("invalid timestamp {s}: {e}")))
 }
 
-#[permission(any("streams.query", "sys.telemetry.read"))]
+#[permission(any("traces.read", "sys.telemetry.read"))]
 async fn topology(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -184,7 +186,8 @@ mod tests {
             org_id: Id("orgA".into()),
             client_service: client.into(),
             server_service: server.into(),
-            bucket_at_micros: 0,
+            environment: String::new(),
+            bucket_at: 0,
             request_count: req,
             error_count: err,
             p50_us: None,

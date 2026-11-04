@@ -48,7 +48,7 @@ function Archive({ view, context }: { view: ArchiveView; context: PublicStatusCo
   const { snapshot, page, language, copy } = context;
   const [endMonth, setEndMonth] = useState<number | null>(null);
   const historyDays = statusPageHistoryDays(page);
-  const months = archiveMonthWindow(snapshot.generated_at, historyDays, page.timezone, endMonth);
+  const months = archiveMonthWindow(snapshot.generatedAt, historyDays, page.timezone, endMonth);
   const headingId = `${view}-heading`;
 
   return (

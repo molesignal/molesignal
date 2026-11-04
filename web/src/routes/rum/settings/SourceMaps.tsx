@@ -15,6 +15,7 @@ import { toast } from '@/shell/ui/sonner';
 import { formatMicros } from '../_helpers';
 import { rumDocumentationUrl } from '../documentation';
 import { RumListPage, RumSectionHeader, useRumBasePath } from '../RumLayout';
+import { platformName } from './platforms';
 
 export function SourceMaps() {
   const { t, i18n } = useTranslation('rum');
@@ -22,7 +23,7 @@ export function SourceMaps() {
   const basePath = useRumBasePath();
   const queryClient = useQueryClient();
   const manageAccess = useActionAccess({
-    permission: 'streams.configure',
+    permission: 'debug_artifacts.manage',
   });
   const [deleting, setDeleting] = React.useState<debugArtifactsApi.DebugArtifactMeta | null>(null);
 
@@ -106,14 +107,14 @@ export function SourceMaps() {
                     key={row.id}
                     className="grid gap-3 py-4 lg:grid-cols-[130px_130px_110px_170px_90px_minmax(180px,1fr)_160px_72px] lg:items-center lg:gap-4"
                   >
-                    <span className="truncate font-mono text-xs text-tx-1">{row.application_id}</span>
+                    <span className="truncate font-mono text-xs text-tx-1">{row.applicationId}</span>
                     <span className="truncate text-sm font-strong text-tx-0">{row.service}</span>
                     <span className="truncate font-mono text-xs text-tx-1">{row.release}</span>
                     <Pill tone="blue">{t(`source_maps.kinds.${row.kind}`)}</Pill>
-                    <span className="min-w-0 text-xs font-strong uppercase text-tx-2">
-                      <span className="block truncate">{row.platform}</span>
+                    <span className="min-w-0 text-xs font-strong text-tx-2">
+                      <span className="block truncate">{platformName(row.platform)}</span>
                       {row.architecture && (
-                        <span className="mt-0.5 block truncate font-mono font-normal normal-case text-tx-3">
+                        <span className="mt-0.5 block truncate font-mono font-normal text-tx-3">
                           {row.architecture}
                         </span>
                       )}
@@ -124,14 +125,14 @@ export function SourceMaps() {
                         <span className="block truncate font-mono text-xs text-tx-1">
                           {row.filename}
                         </span>
-                        {row.debug_id && (
+                        {row.debugId && (
                           <span className="mt-0.5 block truncate font-mono text-xs text-tx-3">
-                            {row.debug_id}
+                            {row.debugId}
                           </span>
                         )}
                       </span>
                     </span>
-                    <span className="text-xs text-tx-2">{formatMicros(row.uploaded_at_micros)}</span>
+                    <span className="text-xs text-tx-2">{formatMicros(row.uploadedAt)}</span>
                     <ChromeButton
                       size="sm"
                       variant="ghost"

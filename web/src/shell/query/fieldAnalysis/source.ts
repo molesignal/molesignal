@@ -30,24 +30,24 @@ export interface FieldAnalysisPayload {
   total?: number;
   present?: number;
   distinct?: number;
-  distinct_exact?: boolean;
+  distinctExact?: boolean;
   range?: { min: string; max: string } | null;
   spread?: {
     avg?: number | null;
     q1?: number | null;
     median?: number | null;
     q3?: number | null;
-    stddev_samp?: number | null;
-    stddev_pop?: number | null;
+    stddevSamp?: number | null;
+    stddevPop?: number | null;
     skewness?: number | null;
     kurtosis?: number | null;
   } | null;
   bars?: { origin: number; width: number; counts: number[] } | null;
   top?: Array<{ value: string; count: number }> | null;
-  top_skipped?: boolean;
+  topSkipped?: boolean;
   trend?: {
-    origin_micros: number;
-    bucket_micros: number;
+    originTime: number;
+    bucketTime: number;
     series: Array<{ value: string; counts: number[] }>;
   } | null;
   unavailable?: string | null;
@@ -72,7 +72,7 @@ export function answerFromPayload(payload: FieldAnalysisPayload | null | undefin
       total: count(payload.total),
       present: count(payload.present),
       distinct: count(payload.distinct),
-      distinctExact: payload.distinct_exact === true,
+      distinctExact: payload.distinctExact === true,
       range: range && typeof range.min === 'string' && typeof range.max === 'string' ? { min: range.min, max: range.max } : null,
       spread: spread
         ? {
@@ -80,8 +80,8 @@ export function answerFromPayload(payload: FieldAnalysisPayload | null | undefin
             q1: statistic(spread.q1),
             median: statistic(spread.median),
             q3: statistic(spread.q3),
-            stddevSamp: statistic(spread.stddev_samp),
-            stddevPop: statistic(spread.stddev_pop),
+            stddevSamp: statistic(spread.stddevSamp),
+            stddevPop: statistic(spread.stddevPop),
             skewness: statistic(spread.skewness),
             kurtosis: statistic(spread.kurtosis),
           }
@@ -91,12 +91,12 @@ export function answerFromPayload(payload: FieldAnalysisPayload | null | undefin
           ? { origin: bars.origin, width: bars.width, counts: bars.counts.map(count) }
           : null,
       top: (payload.top ?? []).map((item) => ({ value: String(item.value), count: count(item.count) })),
-      topSkipped: payload.top_skipped === true,
+      topSkipped: payload.topSkipped === true,
       trend:
-        trend && Number.isFinite(trend.origin_micros) && trend.bucket_micros > 0 && Array.isArray(trend.series) && trend.series.length > 0
+        trend && Number.isFinite(trend.originTime) && trend.bucketTime > 0 && Array.isArray(trend.series) && trend.series.length > 0
           ? {
-              originMicros: trend.origin_micros,
-              bucketMicros: trend.bucket_micros,
+              originTime: trend.originTime,
+              bucketTime: trend.bucketTime,
               series: trend.series.map((item) => ({ value: String(item.value), counts: item.counts.map(count) })),
             }
           : null,

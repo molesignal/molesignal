@@ -32,7 +32,7 @@ profile_interval_secs = 600
 profile_duration_secs = 10
 ```
 
-配置中不接受旧的 `[telemetry.self_intake]`、`telemetry.trace.self_intake_enabled`，也不接受 `org_slug`、`logs_enabled`、`logs_retention_days` 或 `traces_enabled`；出现这些字段会被当作未知字段拒绝。运行时始终通过常量 `SYSTEM_ORG_SLUG = "_sys"` 解析系统组织。`metrics_enabled` 和 `profiles_enabled` 分别控制 metrics 与 profiles，且都要求总开关 `telemetry.self_collect.enabled = true`；Profile 默认关闭，只有显式设置 `profiles_enabled = true` 才会创建 Profile stream 并启动采集。Trace 只有在该总开关开启且 `telemetry.trace.enabled` 的有效策略允许捕获时才写入 `_sys/traces/_molesignal`；关闭 self telemetry 不影响独立配置的外部 OTLP Trace 导出。
+配置中不接受旧的 `[telemetry.self_intake]`、`telemetry.trace.self_intake_enabled`，也不接受 `org_slug`、`logs_enabled`、`logs_retention_days` 或 `traces_enabled`；出现这些字段会被当作未知字段拒绝。运行时始终通过常量 `SYSTEM_ORG_SLUG = "_sys"` 解析系统组织。`metrics_enabled` 和 `profiles_enabled` 分别控制 metrics 与 profiles，且都要求总开关 `telemetry.self_collect.enabled = true`；Profile 默认关闭，只有显式设置 `profiles_enabled = true` 才会创建 Profile stream 并启动采集。Trace 只有在该总开关开启且 `telemetry.trace.enabled` 的有效策略允许捕获时才写入 `_sys/traces/_molesignal`；关闭 self telemetry 只停掉这些写入，租户发来的链路照常写入各自的 traces stream，独立配置的外部 OTLP Trace 导出也不受影响。
 
 ## 权限和写保护
 

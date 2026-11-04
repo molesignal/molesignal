@@ -29,17 +29,17 @@ const RANGE = { start: NOW_MICROS - 24 * HOUR_MICROS, end: NOW_MICROS };
 function view(overrides: Partial<SavedView> = {}): SavedView {
   return {
     id: 'v1',
-    org_id: 'org-1',
-    owner_user_id: 'user-1',
+    orgId: 'org-1',
+    ownerUserId: 'user-1',
     name: 'Yesterday errors',
     language: 'sql',
     statement: 'SELECT service, count(*) AS errors FROM "app_logs" GROUP BY service',
-    time_range_secs: 6 * 3_600,
+    timeRangeSecs: 6 * 3_600,
     stream: 'app_logs',
     tags: [],
     pinned: false,
-    created_at: 0,
-    updated_at: 0,
+    createdAt: 0,
+    updatedAt: 0,
     ...overrides,
   };
 }
@@ -49,7 +49,7 @@ function stream(name: string, type: string, queryable = true) {
 }
 
 beforeEach(() => {
-  mocks.runQuery.mockResolvedValue({ columns: ['service'], rows: [['api']], scanned_rows: 1, took_ms: 1 });
+  mocks.runQuery.mockResolvedValue({ columns: ['service'], rows: [['api']], scannedRows: 1, tookMs: 1 });
   mocks.listStreams.mockResolvedValue([]);
 });
 
@@ -78,7 +78,7 @@ describe('reportRange', () => {
   });
 
   it("is the view's own look-back when the report states none", () => {
-    expect(reportRange(view({ time_range_secs: 6 * 3_600 }), undefined, NOW)).toEqual({
+    expect(reportRange(view({ timeRangeSecs: 6 * 3_600 }), undefined, NOW)).toEqual({
       start: NOW_MICROS - 6 * HOUR_MICROS,
       end: NOW_MICROS,
     });
@@ -96,11 +96,11 @@ describe('runSavedView', () => {
     const result = await runSavedView(view(), 'org-1', RANGE);
 
     expect(mocks.runQuery).toHaveBeenCalledExactlyOnceWith({
-      org_id: 'org-1',
+      orgId: 'org-1',
       language: 'sql',
       statement: 'SELECT service, count(*) AS errors FROM "app_logs" GROUP BY service',
-      time_range: RANGE,
-      stream: { name: 'app_logs', stream_type: 'logs' },
+      timeRange: RANGE,
+      stream: { name: 'app_logs', streamType: 'logs' },
       limit: REPORT_ROW_LIMIT + 1,
     });
     expect(mocks.listStreams).not.toHaveBeenCalled();
@@ -109,7 +109,7 @@ describe('runSavedView', () => {
 
   it('prints no more than the row limit and says the statement returns more', async () => {
     const rows = Array.from({ length: REPORT_ROW_LIMIT + 1 }, (_, index) => [`svc-${index}`]);
-    mocks.runQuery.mockResolvedValue({ columns: ['service'], rows, scanned_rows: 0, took_ms: 0 });
+    mocks.runQuery.mockResolvedValue({ columns: ['service'], rows, scannedRows: 0, tookMs: 0 });
 
     const result = await runSavedView(view(), 'org-1', RANGE);
 
@@ -120,7 +120,7 @@ describe('runSavedView', () => {
 
   it('does not call a result that fits exactly truncated', async () => {
     const rows = Array.from({ length: REPORT_ROW_LIMIT }, (_, index) => [`svc-${index}`]);
-    mocks.runQuery.mockResolvedValue({ columns: ['service'], rows, scanned_rows: 0, took_ms: 0 });
+    mocks.runQuery.mockResolvedValue({ columns: ['service'], rows, scannedRows: 0, tookMs: 0 });
 
     const result = await runSavedView(view(), 'org-1', RANGE);
 
@@ -139,7 +139,7 @@ describe('runSavedView', () => {
     await runSavedView(view({ stream: null }), 'org-1', RANGE);
 
     expect(mocks.runQuery.mock.calls[0]?.[0]).toMatchObject({
-      stream: { name: 'app_logs', stream_type: 'logs' },
+      stream: { name: 'app_logs', streamType: 'logs' },
     });
   });
 
@@ -152,12 +152,12 @@ describe('runSavedView', () => {
     expect(mocks.runQuery).not.toHaveBeenCalled();
   });
 
-  it('sends PromQL as a range query sampled to the row limit, with no stream', async () => {
+  it('sends PromQL as a range query with a step per printed row, sampled to the row limit, with no stream', async () => {
     mocks.runQuery.mockResolvedValue({
       columns: ['_timestamp', 'value', 'status'],
       rows: [[NOW_MICROS, 12.5, '500']],
-      scanned_rows: 1,
-      took_ms: 1,
+      scannedRows: 1,
+      tookMs: 1,
     });
 
     const result = await runSavedView(
@@ -167,10 +167,12 @@ describe('runSavedView', () => {
     );
 
     expect(mocks.runQuery).toHaveBeenCalledExactlyOnceWith({
-      org_id: 'org-1',
+      orgId: 'org-1',
       language: 'promql',
       statement: 'sum by (status) (rate(http_requests_total[5m]))',
-      time_range: RANGE,
+      timeRange: RANGE,
+      // The day of the range in as many steps as the report prints rows.
+      step: (24 * HOUR_MICROS) / REPORT_ROW_LIMIT,
       limit: REPORT_ROW_LIMIT,
     });
     expect(mocks.listStreams).not.toHaveBeenCalled();

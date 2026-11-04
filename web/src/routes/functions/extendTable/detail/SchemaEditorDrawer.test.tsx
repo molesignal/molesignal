@@ -11,20 +11,20 @@ afterEach(cleanup);
 
 const field: ExtendValueField = {
   name: 'tier',
-  field_type: 'string',
+  fieldType: 'string',
   required: false,
   description: i18n.t('functions:extend_tables.field_description'),
 };
 
 function table(rowCount: number): ExtendTableSummary {
   return {
-    table_name: 'customers',
+    tableName: 'customers',
     description: i18n.t('functions:extend_tables.definition_description'),
-    key_field: 'customer_id',
-    value_fields: [field],
-    row_count: rowCount,
-    updated_at: 1_700_000_000_000_000,
-    usage_locations: [],
+    keyField: 'customer_id',
+    valueFields: [field],
+    rowCount: rowCount,
+    updatedAt: 1_700_000_000_000_000,
+    usageLocations: [],
   };
 }
 

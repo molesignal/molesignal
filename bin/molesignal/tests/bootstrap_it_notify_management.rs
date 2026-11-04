@@ -22,7 +22,7 @@ async fn notify_connector_endpoint_and_preference_round_trip() {
         .header(header_name, &header_value)
         .json(&serde_json::json!({
             "name": "Company SMTP",
-            "connector_type": "email_smtp",
+            "connectorType": "email_smtp",
             "config": {
                 "host": "smtp.example.com",
                 "port": 587,
@@ -30,7 +30,7 @@ async fn notify_connector_endpoint_and_preference_round_trip() {
                 "password": "notify-secret-password",
                 "from": "alerts@example.com",
                 "tls": "starttls",
-                "timeout_secs": 10
+                "timeoutSecs": 10
             },
             "enabled": true
         }))
@@ -71,9 +71,9 @@ async fn notify_connector_endpoint_and_preference_round_trip() {
         ))
         .header(header_name, &header_value)
         .json(&serde_json::json!({
-            "connector_id": connector_id,
-            "external_identity": "root@test.example",
-            "display_name": "Work email",
+            "connectorId": connector_id,
+            "externalIdentity": "root@test.example",
+            "displayName": "Work email",
             "metadata": {},
             "verified": true,
             "enabled": true
@@ -83,7 +83,7 @@ async fn notify_connector_endpoint_and_preference_round_trip() {
         .unwrap();
     assert_eq!(endpoint.status().as_u16(), 201);
     let endpoint: Value = endpoint.json().await.unwrap();
-    assert_eq!(endpoint["provider_type"], "email_smtp");
+    assert_eq!(endpoint["providerType"], "email_smtp");
     assert_eq!(endpoint["verified"], true);
     let endpoint_id = endpoint["id"].as_str().unwrap().to_string();
 
@@ -96,14 +96,14 @@ async fn notify_connector_endpoint_and_preference_round_trip() {
         .header(header_name, &header_value)
         .json(&serde_json::json!({
             "enabled": true,
-            "endpoint_ids": [endpoint_id],
-            "quiet_hours": {
+            "endpointIds": [endpoint_id],
+            "quietHours": {
                 "enabled": true,
                 "timezone": "Asia/Shanghai",
                 "start": "22:00",
                 "end": "08:00"
             },
-            "allow_critical_bypass": true
+            "allowHighUrgencyBypass": true
         }))
         .send()
         .await
@@ -111,8 +111,8 @@ async fn notify_connector_endpoint_and_preference_round_trip() {
     assert!(preference.status().is_success());
     let preference: Value = preference.json().await.unwrap();
     assert_eq!(preference["category"], "alert");
-    assert_eq!(preference["steps"][0]["step_order"], 1);
-    assert_eq!(preference["steps"][0]["endpoint_id"], endpoint_id);
+    assert_eq!(preference["steps"][0]["stepOrder"], 1);
+    assert_eq!(preference["steps"][0]["endpointId"], endpoint_id);
 
     let team = server
         .client
@@ -120,7 +120,7 @@ async fn notify_connector_endpoint_and_preference_round_trip() {
         .header(header_name, &header_value)
         .json(&serde_json::json!({
             "name": "Notify responders",
-            "member_ids": [server.root_user_id]
+            "memberIds": [server.root_user_id]
         }))
         .send()
         .await
@@ -139,8 +139,8 @@ async fn notify_connector_endpoint_and_preference_round_trip() {
         .json(&serde_json::json!({
             "enabled": true,
             "routes": [{
-                "connector_id": connector_id,
-                "target_type": "fixed_address",
+                "connectorId": connector_id,
+                "targetType": "fixed_address",
                 "target": "team@test.example",
                 "order": 1
             }]
@@ -160,8 +160,8 @@ async fn notify_connector_endpoint_and_preference_round_trip() {
         .json(&serde_json::json!({
             "enabled": true,
             "routes": [{
-                "connector_id": connector_id,
-                "target_type": "fixed_address",
+                "connectorId": connector_id,
+                "targetType": "fixed_address",
                 "target": "noc@test.example",
                 "order": 1
             }]
@@ -231,21 +231,21 @@ async fn notify_connector_endpoint_and_preference_round_trip() {
 
     let policy_input = serde_json::json!({
         "name": "Critical alert",
-        "event_type": "alert.triggered",
+        "eventType": "alert.triggered",
         "category": "alert",
         "matchers": {"severity": ["critical"]},
-        "recipient_resolver": "fixed_users",
-        "resolver_config": {
-            "user_ids": [server.root_user_id],
-            "team_id": team_id
+        "recipientResolver": "fixed_users",
+        "resolverConfig": {
+            "userIds": [server.root_user_id],
+            "teamId": team_id
         },
-        "delivery_mode": "prefer_user",
-        "delivery_config": {"connector_ids": []},
-        "template_id": template_id,
-        "fallback_config": {
-            "use_user_fallbacks": true,
-            "use_team_defaults": true,
-            "use_organization_defaults": true
+        "deliveryMode": "prefer_user",
+        "deliveryConfig": {"connectorIds": []},
+        "templateId": template_id,
+        "fallbackConfig": {
+            "useUserFallbacks": true,
+            "useTeamDefaults": true,
+            "useOrganizationDefaults": true
         },
         "enabled": true,
         "priority": 10
@@ -270,7 +270,7 @@ async fn notify_connector_endpoint_and_preference_round_trip() {
         ))
         .header(header_name, &header_value)
         .json(&serde_json::json!({
-            "event_id": "event-preview",
+            "eventId": "event-preview",
             "attributes": {"severity": "critical"}
         }))
         .send()
@@ -279,17 +279,17 @@ async fn notify_connector_endpoint_and_preference_round_trip() {
     assert!(preview.status().is_success());
     let preview: Value = preview.json().await.unwrap();
     assert_eq!(preview["matched"], true);
-    assert_eq!(preview["recipients"][0]["resolved_by"], "fixed_users");
+    assert_eq!(preview["recipients"][0]["resolvedBy"], "fixed_users");
     assert_eq!(
-        preview["recipients"][0]["delivery_plan"][0]["stage"],
+        preview["recipients"][0]["deliveryPlan"][0]["stage"],
         "user_primary"
     );
     assert_eq!(
-        preview["recipients"][0]["delivery_plan"][1]["stage"],
+        preview["recipients"][0]["deliveryPlan"][1]["stage"],
         "team_fallback"
     );
     assert_eq!(
-        preview["recipients"][0]["delivery_plan"][2]["stage"],
+        preview["recipients"][0]["deliveryPlan"][2]["stage"],
         "organization_fallback"
     );
 
@@ -305,7 +305,7 @@ async fn notify_connector_endpoint_and_preference_round_trip() {
         .json(&serde_json::json!({
             "policy": draft_policy,
             "event": {
-                "event_id": "event-draft-preview",
+                "eventId": "event-draft-preview",
                 "attributes": {"severity": "critical"}
             }
         }))
@@ -316,7 +316,7 @@ async fn notify_connector_endpoint_and_preference_round_trip() {
     let draft_preview: Value = draft_preview.json().await.unwrap();
     assert_eq!(draft_preview["matched"], true);
     assert_eq!(
-        draft_preview["recipients"][0]["delivery_plan"]
+        draft_preview["recipients"][0]["deliveryPlan"]
             .as_array()
             .unwrap()
             .len(),
@@ -336,7 +336,7 @@ async fn notify_connector_endpoint_and_preference_round_trip() {
         .as_array()
         .unwrap()
         .iter()
-        .find(|user| user["user_id"].as_str() == Some(server.root_user_id.as_str()))
+        .find(|user| user["userId"].as_str() == Some(server.root_user_id.as_str()))
         .unwrap();
     assert_eq!(root["endpoints"][0]["id"], endpoint_id);
 

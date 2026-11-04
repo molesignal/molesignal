@@ -3,6 +3,7 @@ import * as React from 'react';
 
 import { useScope } from '@/keyboard/controller';
 import { cn } from '@/shell/lib/cn';
+import { IconSwap } from '@/shell/polish/IconSwap';
 import { Badge } from '@/shell/ui/badge';
 import { Kbd } from '@/shell/ui/kbd';
 import { Separator } from '@/shell/ui/separator';
@@ -87,8 +88,8 @@ export function DrawerFrame({ frame, index, total, isTop, leaveDelayMs }: Drawer
           <Badge variant="outline" id={`drawer-${frame.id}-title`}>
             {FRAME_KIND_LABELS[frame.kind]}
           </Badge>
-          {frame.parent_frame_id && (
-            <span className="text-muted-foreground">from #{frame.parent_frame_id.slice(0, 4)}</span>
+          {frame.parentFrameId && (
+            <span className="text-muted-foreground">from #{frame.parentFrameId.slice(0, 4)}</span>
           )}
         </div>
         <div className="flex items-center gap-1.5">
@@ -106,7 +107,11 @@ export function DrawerFrame({ frame, index, total, isTop, leaveDelayMs }: Drawer
             className="rounded p-1 text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={frame.pinned ? 'Unpin frame' : 'Pin frame'}
           >
-            {frame.pinned ? <Pin className="h-3.5 w-3.5" /> : <PinOff className="h-3.5 w-3.5" />}
+            <IconSwap
+              active={frame.pinned}
+              inactiveIcon={<PinOff className="h-3.5 w-3.5" />}
+              activeIcon={<Pin className="h-3.5 w-3.5" />}
+            />
           </button>
           <Separator orientation="vertical" className="h-4" />
           <button

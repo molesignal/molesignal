@@ -443,7 +443,7 @@ impl StatusPageService {
                         "status-automation:{}:{kind}:{}",
                         candidate.id, observed_at.0
                     ),
-                    payload: json!({ "observed_at_micros": observed_at.0 }),
+                    payload: json!({ "observed_at": observed_at.0 }),
                     attempts: 0,
                     available_at: observed_at,
                     created_at: TimestampMicros::now(),

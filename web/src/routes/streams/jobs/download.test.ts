@@ -12,16 +12,16 @@ vi.mock('@/api/searchJobs', async (importOriginal) => ({
 }));
 
 const api = vi.mocked(searchJobsApi);
-const JOB = { job_id: 'job-1', state: 'done' } as SearchJob;
+const JOB = { jobId: 'job-1', state: 'done' } as SearchJob;
 
 function page(rows: unknown[], hasMore: boolean): SearchJobResultPage {
   return {
     state: 'done',
-    result_rows: null,
+    resultRows: null,
     page: 1,
-    page_size: RESULT_PAGE_SIZE,
+    pageSize: RESULT_PAGE_SIZE,
     rows,
-    has_more: hasMore,
+    hasMore: hasMore,
     error: null,
   };
 }

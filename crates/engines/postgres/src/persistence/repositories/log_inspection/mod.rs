@@ -32,8 +32,8 @@ impl PgLogInspectionRepository {
 
 const COLS: &str = "id, org_id, name, stream, statement, window_secs, requirements, schedule,
     timezone, provider_id, model, notify_when, notify_routes, language, enabled,
-    run_as_user_id, next_run_at_micros, last_run_at_micros, last_run_status, last_run_level,
-    created_by, created_at_micros, updated_at_micros";
+    run_as_user_id, next_run_at, last_run_at, last_run_status, last_run_level,
+    created_by, created_at, updated_at";
 
 fn id(row: &PgRow, column: &str) -> Result<Id> {
     Ok(Id::from_string(
@@ -49,14 +49,11 @@ fn optional_id(row: &PgRow, column: &str) -> Result<Option<Id>> {
 }
 
 fn timestamp(row: &PgRow, column: &str) -> Result<TimestampMicros> {
-    Ok(TimestampMicros(row.try_get(column).map_err(sqlx_err)?))
+    row.try_get(column).map_err(sqlx_err)
 }
 
 fn optional_timestamp(row: &PgRow, column: &str) -> Result<Option<TimestampMicros>> {
-    Ok(row
-        .try_get::<Option<i64>, _>(column)
-        .map_err(sqlx_err)?
-        .map(TimestampMicros))
+    row.try_get(column).map_err(sqlx_err)
 }
 
 fn optional_level(row: &PgRow, column: &str) -> Result<Option<InspectionLevel>> {
@@ -73,7 +70,7 @@ fn row_to_inspection(row: PgRow) -> Result<LogInspection> {
     let notify_when: String = row.try_get("notify_when").map_err(sqlx_err)?;
 
     // 三列一起写、一起空：有时间就一定有状态。
-    let last_run = match optional_timestamp(&row, "last_run_at_micros")? {
+    let last_run = match optional_timestamp(&row, "last_run_at")? {
         Some(at) => {
             let status: Option<String> = row.try_get("last_run_status").map_err(sqlx_err)?;
 
@@ -103,11 +100,11 @@ fn row_to_inspection(row: PgRow) -> Result<LogInspection> {
         language: row.try_get("language").map_err(sqlx_err)?,
         enabled: row.try_get("enabled").map_err(sqlx_err)?,
         run_as_user_id: id(&row, "run_as_user_id")?,
-        next_run_at: optional_timestamp(&row, "next_run_at_micros")?,
+        next_run_at: optional_timestamp(&row, "next_run_at")?,
         last_run,
         created_by: id(&row, "created_by")?,
-        created_at: timestamp(&row, "created_at_micros")?,
-        updated_at: timestamp(&row, "updated_at_micros")?,
+        created_at: timestamp(&row, "created_at")?,
+        updated_at: timestamp(&row, "updated_at")?,
     })
 }
 
@@ -123,8 +120,8 @@ impl LogInspectionRepository for PgLogInspectionRepository {
             "INSERT INTO log_inspections (
                  id, org_id, name, stream, statement, window_secs, requirements, schedule,
                  timezone, provider_id, model, notify_when, notify_routes, language, enabled,
-                 run_as_user_id, next_run_at_micros, created_by, created_at_micros,
-                 updated_at_micros
+                 run_as_user_id, next_run_at, created_by, created_at,
+                 updated_at
              ) VALUES (
                  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
                  $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
@@ -149,10 +146,10 @@ impl LogInspectionRepository for PgLogInspectionRepository {
             .bind(&inspection.language)
             .bind(inspection.enabled)
             .bind(&inspection.run_as_user_id.0)
-            .bind(inspection.next_run_at.map(|at| at.0))
+            .bind(inspection.next_run_at)
             .bind(&inspection.created_by.0)
-            .bind(inspection.created_at.0)
-            .bind(inspection.updated_at.0)
+            .bind(inspection.created_at)
+            .bind(inspection.updated_at)
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
@@ -166,7 +163,7 @@ impl LogInspectionRepository for PgLogInspectionRepository {
                  name = $3, stream = $4, statement = $5, window_secs = $6, requirements = $7,
                  schedule = $8, timezone = $9, provider_id = $10, model = $11,
                  notify_when = $12, notify_routes = $13, language = $14, enabled = $15,
-                 run_as_user_id = $16, next_run_at_micros = $17, updated_at_micros = $18
+                 run_as_user_id = $16, next_run_at = $17, updated_at = $18
              WHERE id = $1 AND org_id = $2
              RETURNING {COLS}"
         );
@@ -188,8 +185,8 @@ impl LogInspectionRepository for PgLogInspectionRepository {
             .bind(&inspection.language)
             .bind(inspection.enabled)
             .bind(&inspection.run_as_user_id.0)
-            .bind(inspection.next_run_at.map(|at| at.0))
-            .bind(inspection.updated_at.0)
+            .bind(inspection.next_run_at)
+            .bind(inspection.updated_at)
             .fetch_optional(&self.pool)
             .await
             .map_err(sqlx_err)?
@@ -273,7 +270,7 @@ impl LogInspectionRepository for PgLogInspectionRepository {
     ) -> Result<LogInspection> {
         let sql = format!(
             "UPDATE log_inspections
-                SET enabled = $3, next_run_at_micros = $4, updated_at_micros = $5
+                SET enabled = $3, next_run_at = $4, updated_at = $5
               WHERE org_id = $1 AND id = $2
               RETURNING {COLS}"
         );
@@ -282,8 +279,8 @@ impl LogInspectionRepository for PgLogInspectionRepository {
             .bind(&org_id.0)
             .bind(&id.0)
             .bind(enabled)
-            .bind(next_run_at.map(|at| at.0))
-            .bind(now.0)
+            .bind(next_run_at)
+            .bind(now)
             .fetch_optional(&self.pool)
             .await
             .map_err(sqlx_err)?
@@ -295,13 +292,13 @@ impl LogInspectionRepository for PgLogInspectionRepository {
     async fn list_due(&self, now: TimestampMicros, limit: i64) -> Result<Vec<LogInspection>> {
         let sql = format!(
             "SELECT {COLS} FROM log_inspections
-              WHERE enabled AND next_run_at_micros IS NOT NULL AND next_run_at_micros <= $1
-              ORDER BY next_run_at_micros, id
+              WHERE enabled AND next_run_at IS NOT NULL AND next_run_at <= $1
+              ORDER BY next_run_at, id
               LIMIT $2"
         );
 
         sqlx::query(&sql)
-            .bind(now.0)
+            .bind(now)
             .bind(limit.max(1))
             .fetch_all(&self.pool)
             .await

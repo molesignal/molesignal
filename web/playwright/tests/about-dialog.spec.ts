@@ -15,9 +15,7 @@ test.describe('about dialog', () => {
         },
       });
     });
-    await mountMockRoutes(page, mockServer.port, {
-      token: 'fake-jwt',
-    });
+    await mountMockRoutes(page, mockServer.port);
     await page.goto('/account/settings/profile');
 
     await page.getByRole('button', { name: 'Help' }).click();

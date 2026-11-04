@@ -33,7 +33,7 @@ export function useFeedbackMap(
   });
 
   return React.useMemo(
-    () => new Map((query.data ?? []).map((feedback) => [feedback.target_id, feedback])),
+    () => new Map((query.data ?? []).map((feedback) => [feedback.targetId, feedback])),
     [query.data],
   );
 }

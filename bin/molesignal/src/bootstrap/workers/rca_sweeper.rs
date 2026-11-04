@@ -10,12 +10,15 @@
 
 //! 无可用 provider 的 org 直接跳过；已有 RCA 的 incident 不重复生成；组织今天的 Mole Agent
 //! token 预算用完时跳过，预算重置后自然补上。失败仅 warn、下个 tick 自然重试（不落失败行）。
+//! 组织启用了会写 RCA 的事件自动化（「事件自动分析」）时整个跳过：那边带着工具调查，结论写回
+//! 事件的 RCA，不再各分析一遍。
 
 use std::{sync::Arc, time::Duration};
 
 use tokio::task::JoinHandle;
 
 use crate::{
+    agent::automations::AutomationRepository,
     api::rca::{RcaGenerator, RcaOutputLocale},
     app::cluster::{PeerRole, WorkOwnership},
     domain::{
@@ -52,6 +55,8 @@ pub struct RcaSweeper {
     cfg: RcaSweeperConfig,
     /// 只有 alert 主节点生成 RCA；默认不分担（本节点就是主节点）。
     ownership: Arc<WorkOwnership>,
+    /// 组织有会写 RCA 的事件自动化时由它接手。
+    automations: Option<Arc<dyn AutomationRepository>>,
 }
 
 impl RcaSweeper {
@@ -73,7 +78,14 @@ impl RcaSweeper {
             generator,
             cfg,
             ownership: WorkOwnership::solo(PeerRole::Alert),
+            automations: None,
         }
+    }
+
+    /// 组织有会写 RCA 的事件自动化时跳过它。
+    pub fn with_automations(mut self, automations: Arc<dyn AutomationRepository>) -> Self {
+        self.automations = Some(automations);
+        self
     }
 
     /// 与其余 alert 节点分担：只有主节点生成 RCA。
@@ -116,6 +128,13 @@ impl RcaSweeper {
         for org in orgs {
             if generated >= self.cfg.max_per_tick {
                 break;
+            }
+
+            // 事件自动分析接手了这个组织的 RCA。
+            if let Some(automations) = &self.automations
+                && automations.writes_rca(&org.id).await?
+            {
+                continue;
             }
 
             // 选 org 的可用 provider（enabled + key_set）；无则跳过该 org。

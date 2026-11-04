@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 
+import { explorerRead, explorerReadBody, isExplorerRead } from '../fixtures/explorerReads';
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 
 /** The explorer in front; the ones behind stay mounted but are not shown. */
@@ -27,19 +28,27 @@ function fades(page: Page) {
   });
 }
 
-/** Waits until the surface has stopped gliding and lies under the tab in front. */
-async function surfaceSettled(page: Page) {
+/**
+ * Waits until the strip has stopped moving: nothing in it is on its way
+ * anywhere, and it is not scrolling. The running mark pulses for as long as
+ * its query runs; that goes nowhere.
+ */
+async function stripSettled(page: Page) {
   await expect
     .poll(() =>
-      strip(page).evaluate((element) => {
-        const surface = element.querySelector('[data-query-tab-surface]')!;
-        const drawn = surface.getBoundingClientRect();
-        const tab = element.querySelector('[data-tab-active="true"]')!.getBoundingClientRect();
-        // The surface is placed in whole pixels and a tab is not: at rest the
-        // two can be up to a pixel apart.
-        const apart = Math.max(Math.abs(drawn.left - tab.left), Math.abs(drawn.right - tab.right));
-        return surface.getAnimations().length === 0 && apart < 1.5;
-      }),
+      strip(page).evaluate(
+        (element) =>
+          new Promise<boolean>((resolve) => {
+            const before = element.scrollLeft;
+            const moving = () =>
+              element
+                .getAnimations({ subtree: true })
+                .some((animation) => animation.effect?.getTiming().iterations !== Infinity);
+            requestAnimationFrame(() =>
+              requestAnimationFrame(() => resolve(!moving() && element.scrollLeft === before)),
+            );
+          }),
+      ),
     )
     .toBe(true);
 }
@@ -69,29 +78,29 @@ function cutOff(page: Page) {
 const LOG_STREAM = {
   id: 'application-logs',
   name: 'application_logs',
-  stream_type: 'logs',
+  streamType: 'logs',
   schema: {
     fields: [
-      { name: '_timestamp', data_type: 'timestamp', nullable: false, indexed: true },
-      { name: 'message', data_type: 'utf8', nullable: true, indexed: false },
+      { name: '_timestamp', dataType: 'timestamp', nullable: false, indexed: true },
+      { name: 'message', dataType: 'utf8', nullable: true, indexed: false },
     ],
   },
   retention: { days: 7 },
-  effective_retention: { days: 7 },
+  effectiveRetention: { days: 7 },
   settings: {
     description: null,
-    index_rules: [],
-    retention_filter: null,
-    keep_conditions: [],
-    max_query_range_hours: null,
-    flatten_level: null,
-    use_stream_stats_for_partitioning: false,
-    store_original_data: false,
-    enable_distinct_values: true,
+    indexRules: [],
+    retentionFilter: null,
+    keepConditions: [],
+    maxQueryRangeHours: null,
+    flattenLevel: null,
+    useStreamStatsForPartitioning: false,
+    storeOriginalData: false,
+    enableDistinctValues: true,
     queryable: true,
   },
-  created_at_micros: 1,
-  updated_at_micros: 1,
+  createdAt: 1,
+  updatedAt: 1,
 };
 
 /**
@@ -101,13 +110,13 @@ const LOG_STREAM = {
  */
 async function openLogTabs(page: Page, count: number) {
   await page.route('**/api/v1/streams**', (route) => route.fulfill({ json: [LOG_STREAM] }));
-  await page.route('**/api/v1/web/logs', (route) =>
+  await page.route(explorerRead('web/logs'), (route) =>
     route.fulfill({
       json: {
         items: [{ _timestamp: (Date.now() - 2_000) * 1_000, message: 'checkout completed' }],
-        next_cursor: null,
-        previous_cursor: null,
-        has_more: false,
+        nextCursor: null,
+        previousCursor: null,
+        hasMore: false,
       },
     }),
   );
@@ -132,7 +141,7 @@ async function pickLastTabAgain(page: Page) {
   await tabs(page).last().click();
   await expect(tabs(page).last()).toHaveAttribute('aria-selected', 'true');
   await expect.poll(() => cutOff(page)).toBeLessThan(1);
-  await surfaceSettled(page);
+  await stripSettled(page);
 }
 
 function runFrontQuery(page: Page) {
@@ -145,8 +154,8 @@ function runFrontQuery(page: Page) {
 function promqlRequests(page: Page): string[] {
   const statements: string[] = [];
   page.on('request', (request) => {
-    if (request.method() !== 'POST' || new URL(request.url()).pathname !== '/api/v1/query') return;
-    const body = request.postDataJSON() as { language?: string; statement?: string };
+    if (!isExplorerRead(request, 'query')) return;
+    const body = explorerReadBody<{ language?: string; statement?: string }>(request);
     if (body.language === 'promql' && body.statement) statements.push(body.statement);
   });
   return statements;
@@ -282,74 +291,101 @@ test.describe('Query tabs', () => {
     await expect(tabs(page).nth(1)).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('the strip sits above the workbench on every explorer', async ({ page }) => {
-    for (const path of ['/logs', '/traces', '/metrics']) {
+  test('every explorer lists its tabs as blocks in its query box, folded or open', async ({ page }) => {
+    // What the bar stands under: the top bar, or the module's tabs on RUM. It is 12px off either.
+    const explorers = [
+      { path: '/logs', above: page.getByRole('banner') },
+      { path: '/traces', above: page.getByRole('banner') },
+      { path: '/metrics', above: page.getByRole('banner') },
+      { path: '/rum/explorer', above: page.locator('[data-rum-navigation="surface"]') },
+    ];
+    for (const { path, above } of explorers) {
       await page.goto(path);
-      const strip = page.locator('[data-query-tab-strip]');
       const workbench = front(page).locator('[data-query-workbench-appearance="surface"]');
-      await expect(strip).toBeVisible();
-      await expect(workbench).toBeVisible();
+      const folded = workbench.locator('[data-query-editor-state="collapsed"]');
+      await expect(folded).toBeVisible();
+      const [aboveBox, workbenchBox] = await Promise.all([above.boundingBox(), workbench.boundingBox()]);
+      expect(workbenchBox!.y - (aboveBox!.y + aboveBox!.height)).toBe(12);
 
-      const [stripBox, workbenchBox] = await Promise.all([
-        strip.boundingBox(),
-        workbench.boundingBox(),
+      // Folded, the tabs open the frame of the query; the rest of it is the button that opens it.
+      await expect(folded.locator('[data-query-tab-strip]')).toBeVisible();
+      const expand = folded.getByRole('button', { name: /^Expand query/ });
+      await expect(expand.getByRole('tab')).toHaveCount(0);
+      await page.getByRole('button', { name: 'New tab' }).click();
+      await expect(tabs(page)).toHaveCount(2);
+      // The tab in front is a tinted block, the other a plain one.
+      const [selected, other] = await Promise.all([
+        tabs(page).nth(1).evaluate((tab) => getComputedStyle(tab.closest('[data-query-tab]')!).backgroundColor),
+        tabs(page).nth(0).evaluate((tab) => getComputedStyle(tab.closest('[data-query-tab]')!).backgroundColor),
       ]);
-      expect(stripBox!.y + stripBox!.height).toBeLessThanOrEqual(workbenchBox!.y);
-      // One compact row: the data loses as little height to it as it can.
-      expect(stripBox!.height).toBeLessThanOrEqual(40);
+      expect(selected).not.toBe(other);
+      expect(other).not.toBe('rgba(0, 0, 0, 0)');
 
-      // The tabs stand close under the top bar and close over the bar they name: 4px and 6px.
-      const [topbarBox, tabBox] = await Promise.all([
-        page.getByRole('banner').boundingBox(),
-        strip.locator('[data-query-tab]').first().boundingBox(),
-      ]);
-      expect(tabBox!.y - (topbarBox!.y + topbarBox!.height)).toBe(4);
-      expect(workbenchBox!.y - (tabBox!.y + tabBox!.height)).toBe(6);
+      // Open, they stand at the start of its head, where the query's letter or name stood.
+      await front(page).getByRole('button', { name: /^Expand query/ }).click();
+      await expect(front(page).locator('[data-query-editor-state="expanded"]')).toBeVisible();
+      await expect(workbench.locator('[data-query-editor-tabs] [data-query-tab-strip]')).toBeVisible();
+      await expect(tabs(page)).toHaveCount(2);
+      await expect(page.getByRole('tablist', { name: 'Open queries' })).toHaveCount(1);
     }
   });
 
-  // The surface takes a moment to follow a tab that has become narrower or has
-  // gone, and until it has, it reaches past the last tab. That is not a tab
+  test('the tabs keep the focus when another tab comes forward with its own query box', async ({ page }) => {
+    await page.goto('/logs');
+    await page.getByRole('button', { name: 'New tab' }).click();
+    await expect(tabs(page).nth(1)).toBeFocused();
+
+    // The arrow keys go from tab to tab, each bringing its page forward.
+    await page.keyboard.press('ArrowLeft');
+    await expect(tabs(page).first()).toHaveAttribute('aria-selected', 'true');
+    await expect(tabs(page).first()).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(tabs(page).nth(1)).toHaveAttribute('aria-selected', 'true');
+    await expect(tabs(page).nth(1)).toBeFocused();
+  });
+
+  // What the strip measured of a tab that has become narrower, or has gone,
+  // lags behind it for a moment, reaching past the last tab. That is not a tab
   // beyond the edge: no end of the strip fades for it, then or afterwards.
   test('a tab is not left faded at its end when its query finishes', async ({ page }) => {
-    // The answer waits until the surface has settled under the tab and its
-    // running mark, so the mark goes while the surface is still that wide.
+    // The answer waits until the strip has settled with the tab's running
+    // mark, so the mark goes while the tab was last measured that wide.
     const answer = await hold(page, /\/api\/v1\/web\/traces(\?.*)?$/);
     await page.goto('/traces');
     const running = strip(page).locator('[data-query-tab-running]');
     await expect(running).toBeVisible({ timeout: 10_000 });
-    await surfaceSettled(page);
+    await stripSettled(page);
 
     answer();
     await expect(running).toHaveCount(0, { timeout: 10_000 });
-    await surfaceSettled(page);
+    await stripSettled(page);
     expect(await fades(page)).toEqual({ start: '0px', end: '0px' });
   });
 
   test('a tab given a shorter name is not left faded at its end', async ({ page }) => {
-    await page.goto('/logs');
+    await page.goto('/metrics');
     await tabs(page).first().dblclick();
-    // The field a name is typed into is wider than the name; the surface is under the field.
+    // The field a name is typed into is wider than the name.
     const name = page.getByRole('textbox', { name: 'Tab name' });
     await name.fill('p95');
-    await surfaceSettled(page);
+    await stripSettled(page);
 
     await name.press('Enter');
     await expect(tabs(page).first()).toHaveAccessibleName('p95');
-    await surfaceSettled(page);
+    await stripSettled(page);
     expect(await fades(page)).toEqual({ start: '0px', end: '0px' });
   });
 
   test('closing the tab in front leaves no fade where it was', async ({ page }) => {
-    await page.goto('/logs');
+    await page.goto('/metrics');
     await page.getByRole('button', { name: 'New tab' }).click();
     await expect(tabs(page).nth(1)).toHaveAttribute('aria-selected', 'true');
-    await surfaceSettled(page);
+    await stripSettled(page);
 
-    // The surface glides back to the tab that is left, from beyond its end.
+    // The tab in front was measured beyond the end of the one that is left.
     await page.getByRole('button', { name: 'Close Query 2' }).click();
     await expect(tabs(page)).toHaveCount(1);
-    await surfaceSettled(page);
+    await stripSettled(page);
     expect(await fades(page)).toEqual({ start: '0px', end: '0px' });
   });
 
@@ -398,10 +434,10 @@ test.describe('Query tabs', () => {
     await pickLastTabAgain(page);
 
     // The running mark makes the tab wider, at the very end of the strip.
-    const answer = await hold(page, /\/api\/v1\/web\/logs$/);
+    const answer = await hold(page, explorerRead('web/logs'));
     await runFrontQuery(page);
     await expect(strip(page).locator('[data-query-tab-running]')).toBeVisible();
-    await surfaceSettled(page);
+    await stripSettled(page);
     await expect.poll(() => cutOff(page)).toBeLessThan(1);
     await expect.poll(() => fades(page)).toEqual({ start: '28px', end: '0px' });
 
@@ -420,17 +456,17 @@ test.describe('Query tabs', () => {
     const scrolled = () => strip(page).evaluate((element) => element.scrollLeft);
     await expect.poll(scrolled).toBe(0);
 
-    // Its query runs and its tab changes size, out of view. The surface has
-    // followed the tab by the time it has settled; the strip has not moved.
-    const answer = await hold(page, /\/api\/v1\/web\/logs$/);
+    // Its query runs and its tab changes size, out of view. Once the strip has
+    // settled, it has not moved.
+    const answer = await hold(page, explorerRead('web/logs'));
     await runFrontQuery(page);
     await expect(strip(page).locator('[data-query-tab-running]')).toHaveCount(1);
-    await surfaceSettled(page);
+    await stripSettled(page);
     expect(await scrolled()).toBe(0);
 
     answer();
     await expect(strip(page).locator('[data-query-tab-running]')).toHaveCount(0);
-    await surfaceSettled(page);
+    await stripSettled(page);
     expect(await scrolled()).toBe(0);
   });
 });

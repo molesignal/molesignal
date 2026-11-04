@@ -66,11 +66,11 @@ export function toMicros(value: number): number {
 
 export function classifyStreamCondition({
   status,
-  lastReceivedAtMicros,
+  lastReceivedAt: lastReceivedAtMicros,
   nowMicros,
 }: {
   status: StreamRuntimeStatus;
-  lastReceivedAtMicros: number | null | undefined;
+  lastReceivedAt: number | null | undefined;
   nowMicros: number;
 }): StreamCondition {
   switch (status) {
@@ -102,10 +102,10 @@ export interface FleetSummary {
   receiving: number;
   /** Every stream is in the verdict's condition, so the page can say "all N". */
   uniform: boolean;
-  lastReceivedAtMicros: number | null;
+  lastReceivedAt: number | null;
 }
 
-type FleetStream = Pick<StreamRuntime, 'status' | 'last_received_at_micros'>;
+type FleetStream = Pick<StreamRuntime, 'status' | 'lastReceivedAt'>;
 
 function emptyCounts(): Record<StreamCondition, number> {
   return {
@@ -126,7 +126,7 @@ export const UNKNOWN_FLEET: FleetSummary = {
   affected: 0,
   receiving: 0,
   uniform: false,
-  lastReceivedAtMicros: null,
+  lastReceivedAt: null,
 };
 
 // Worst first: an operator reads the page top-down and stops at the first match.
@@ -149,12 +149,12 @@ export function summarizeFleet(
   for (const stream of streams) {
     const condition = classifyStreamCondition({
       status: stream.status,
-      lastReceivedAtMicros: stream.last_received_at_micros,
+      lastReceivedAt: stream.lastReceivedAt,
       nowMicros,
     });
     counts[condition] += 1;
-    if (stream.last_received_at_micros != null) {
-      const micros = toMicros(stream.last_received_at_micros);
+    if (stream.lastReceivedAt != null) {
+      const micros = toMicros(stream.lastReceivedAt);
       lastReceived = lastReceived == null ? micros : Math.max(lastReceived, micros);
     }
   }
@@ -172,6 +172,6 @@ export function summarizeFleet(
     affected,
     receiving: counts.healthy,
     uniform: total > 0 && affected === total,
-    lastReceivedAtMicros: lastReceived,
+    lastReceivedAt: lastReceived,
   };
 }

@@ -39,56 +39,54 @@ pub(super) fn routes() -> Router<AppState> {
             get(list_pending_candidates),
         )
         .route(
-            "/status-pages/{page_id}/automation/rules",
+            "/status-pages/{pageId}/automation/rules",
             get(list_rules).post(create_rule),
         )
         .route(
-            "/status-pages/{page_id}/automation/rules/order",
+            "/status-pages/{pageId}/automation/rules/order",
             axum::routing::put(reorder_rules),
         )
         .route(
-            "/status-pages/{page_id}/automation/rules/{rule_id}/revisions",
+            "/status-pages/{pageId}/automation/rules/{ruleId}/revisions",
             post(create_revision),
         )
         .route(
-            "/status-pages/{page_id}/automation/rules/{rule_id}/revisions/{revision_id}/activate",
+            "/status-pages/{pageId}/automation/rules/{ruleId}/revisions/{revisionId}/activate",
             post(activate_revision),
         )
         .route(
-            "/status-pages/{page_id}/automation/rules/{rule_id}/lifecycle",
+            "/status-pages/{pageId}/automation/rules/{ruleId}/lifecycle",
             axum::routing::put(set_lifecycle),
         )
+        .route("/status-pages/{pageId}/automation/simulate", post(simulate))
         .route(
-            "/status-pages/{page_id}/automation/simulate",
-            post(simulate),
-        )
-        .route(
-            "/status-pages/{page_id}/automation/candidates",
+            "/status-pages/{pageId}/automation/candidates",
             get(list_candidates),
         )
         .route(
-            "/status-pages/{page_id}/automation/candidates/{candidate_id}",
+            "/status-pages/{pageId}/automation/candidates/{candidateId}",
             get(get_candidate),
         )
         .route(
-            "/status-pages/{page_id}/automation/candidates/{candidate_id}/approve",
+            "/status-pages/{pageId}/automation/candidates/{candidateId}/approve",
             post(approve_candidate),
         )
         .route(
-            "/status-pages/{page_id}/automation/candidates/{candidate_id}/reject",
+            "/status-pages/{pageId}/automation/candidates/{candidateId}/reject",
             post(reject_candidate),
         )
         .route(
-            "/status-pages/{page_id}/automation/candidates/{candidate_id}/retry",
+            "/status-pages/{pageId}/automation/candidates/{candidateId}/retry",
             post(retry_candidate),
         )
         .route(
-            "/status-pages/{page_id}/automation/settings",
+            "/status-pages/{pageId}/automation/settings",
             get(get_settings).put(set_settings),
         )
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SimulationRequest {
     source_kind: AutomationSourceKind,
     source_id: Id,
@@ -121,7 +119,7 @@ const fn default_limit() -> u32 {
     100
 }
 
-#[permission("status_pages.read")]
+#[permission("status_pages.automation.read")]
 async fn list_rules(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -135,7 +133,7 @@ async fn list_rules(
     ))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.automation.manage")]
 async fn create_rule(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -153,7 +151,7 @@ async fn create_rule(
     Ok((StatusCode::CREATED, Json(rule)))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.automation.manage")]
 async fn reorder_rules(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -173,14 +171,14 @@ async fn reorder_rules(
         "status_page.automation_rule.reorder",
         "status_page",
         page_id.as_str(),
-        serde_json::json!({ "rule_ids": input.rule_ids }),
+        serde_json::json!({ "ruleIds": input.rule_ids }),
     )
     .await;
 
     Ok(Json(rules))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.automation.manage")]
 async fn create_revision(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -201,7 +199,7 @@ async fn create_revision(
     Ok((StatusCode::CREATED, Json(revision)))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.automation.manage")]
 async fn activate_revision(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -221,7 +219,7 @@ async fn activate_revision(
     Ok(Json(active))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.automation.manage")]
 async fn set_lifecycle(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -237,7 +235,7 @@ async fn set_lifecycle(
     Ok(Json(rule))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.automation.manage")]
 async fn simulate(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -269,7 +267,7 @@ async fn simulate(
     ))
 }
 
-#[permission("status_pages.read")]
+#[permission("status_pages.automation.read")]
 async fn list_candidates(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -284,7 +282,7 @@ async fn list_candidates(
     ))
 }
 
-#[permission("status_pages.publish")]
+#[permission("status_pages.automation.approve")]
 async fn list_pending_candidates(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -297,7 +295,7 @@ async fn list_pending_candidates(
     ))
 }
 
-#[permission("status_pages.publish")]
+#[permission("status_pages.automation.approve")]
 async fn get_candidate(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -311,7 +309,7 @@ async fn get_candidate(
     ))
 }
 
-#[permission("status_pages.publish")]
+#[permission("status_pages.automation.approve")]
 async fn approve_candidate(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -333,7 +331,7 @@ async fn approve_candidate(
     Ok(Json(candidate))
 }
 
-#[permission("status_pages.publish")]
+#[permission("status_pages.automation.approve")]
 async fn reject_candidate(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -355,7 +353,7 @@ async fn reject_candidate(
     Ok(Json(candidate))
 }
 
-#[permission("status_pages.publish")]
+#[permission("status_pages.automation.approve")]
 async fn retry_candidate(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -375,7 +373,7 @@ async fn retry_candidate(
     Ok(Json(candidate))
 }
 
-#[permission("status_pages.read")]
+#[permission("status_pages.automation.read")]
 async fn get_settings(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -391,7 +389,7 @@ async fn get_settings(
     }))
 }
 
-#[permission("status_pages.manage")]
+#[permission("status_pages.automation.manage")]
 async fn set_settings(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -437,7 +435,7 @@ async fn audit_rule(
         "status_page_automation_rule",
         rule.id.as_str(),
         serde_json::json!({
-            "status_page_id": rule.status_page_id,
+            "statusPageId": rule.status_page_id,
             "lifecycle": rule.lifecycle,
         }),
     )
@@ -457,7 +455,7 @@ async fn audit_candidate(
         "status_page_automation_candidate",
         candidate.id.as_str(),
         serde_json::json!({
-            "status_page_id": candidate.status_page_id,
+            "statusPageId": candidate.status_page_id,
             "state": candidate.state,
             "automatic": candidate.automatic,
         }),

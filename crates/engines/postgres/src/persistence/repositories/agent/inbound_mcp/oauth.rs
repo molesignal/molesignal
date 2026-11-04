@@ -16,10 +16,10 @@ use crate::{
 const CLIENT_COLS: &str = "client_id,client_name,redirect_uris,grant_types,response_types,\
     token_endpoint_auth_method,scope,client_secret_hash,client_id_issued_at,\
     client_secret_expires_at,client_uri,software_id,software_version,\
-    created_at_micros,updated_at_micros";
+    created_at,updated_at";
 
 const TOKEN_COLS: &str = "id,token_hash,token_kind,family_id,client_id,org_id,user_id,scope,\
-    resource,expires_at_micros,revoked_at_micros,rotated_from,created_at_micros";
+    resource,expires_at,revoked_at,rotated_from,created_at";
 
 fn json_strings(row: &sqlx::postgres::PgRow, column: &str) -> Result<Vec<String>> {
     let value: Json<Value> = row.try_get(column).map_err(sqlx_err)?;
@@ -44,8 +44,12 @@ fn client_row(row: sqlx::postgres::PgRow) -> Result<InboundMcpOAuthClient> {
         client_uri: row.try_get("client_uri").map_err(sqlx_err)?,
         software_id: row.try_get("software_id").map_err(sqlx_err)?,
         software_version: row.try_get("software_version").map_err(sqlx_err)?,
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -73,7 +77,7 @@ pub(super) async fn create_client(
     .bind(client.client_uri)
     .bind(client.software_id)
     .bind(client.software_version)
-    .bind(now.0)
+    .bind(now)
     .fetch_one(pool)
     .await
     .map_err(sqlx_err)?;
@@ -99,7 +103,7 @@ pub(super) async fn get_client(
 pub(super) async fn list_clients(pool: &PgPool) -> Result<Vec<InboundMcpOAuthClient>> {
     sqlx::query(&format!(
         "SELECT {CLIENT_COLS} FROM inbound_mcp_oauth_clients
-         ORDER BY created_at_micros DESC,client_id ASC LIMIT 1000"
+         ORDER BY created_at DESC,client_id ASC LIMIT 1000"
     ))
     .fetch_all(pool)
     .await
@@ -123,7 +127,7 @@ pub(super) async fn create_code(pool: &PgPool, code: InboundMcpAuthorizationCode
     sqlx::query(
         "INSERT INTO inbound_mcp_oauth_codes
             (code_hash,client_id,org_id,user_id,redirect_uri,scope,resource,code_challenge,
-             code_challenge_method,expires_at_micros,consumed_at_micros,created_at_micros)
+             code_challenge_method,expires_at,consumed_at,created_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NULL,$11)",
     )
     .bind(code.code_hash)
@@ -135,8 +139,8 @@ pub(super) async fn create_code(pool: &PgPool, code: InboundMcpAuthorizationCode
     .bind(code.resource)
     .bind(code.code_challenge)
     .bind(code.code_challenge_method)
-    .bind(code.expires_at.0)
-    .bind(code.created_at.0)
+    .bind(code.expires_at)
+    .bind(code.created_at)
     .execute(pool)
     .await
     .map_err(sqlx_err)?;
@@ -155,8 +159,12 @@ fn code_row(row: sqlx::postgres::PgRow) -> Result<InboundMcpAuthorizationCode> {
         resource: row.try_get("resource").map_err(sqlx_err)?,
         code_challenge: row.try_get("code_challenge").map_err(sqlx_err)?,
         code_challenge_method: row.try_get("code_challenge_method").map_err(sqlx_err)?,
-        expires_at: TimestampMicros(row.try_get("expires_at_micros").map_err(sqlx_err)?),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
+        expires_at: row
+            .try_get::<TimestampMicros, _>("expires_at")
+            .map_err(sqlx_err)?,
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -170,19 +178,19 @@ pub(super) async fn consume_code(
     now: TimestampMicros,
 ) -> Result<Option<InboundMcpAuthorizationCode>> {
     sqlx::query(
-        "UPDATE inbound_mcp_oauth_codes SET consumed_at_micros=$6
+        "UPDATE inbound_mcp_oauth_codes SET consumed_at=$6
          WHERE code_hash=$1 AND client_id=$2 AND redirect_uri=$3 AND resource=$4
            AND code_challenge=$5 AND code_challenge_method='S256'
-           AND consumed_at_micros IS NULL AND expires_at_micros>$6
+           AND consumed_at IS NULL AND expires_at>$6
          RETURNING code_hash,client_id,org_id,user_id,redirect_uri,scope,resource,
-                   code_challenge,code_challenge_method,expires_at_micros,created_at_micros",
+                   code_challenge,code_challenge_method,expires_at,created_at",
     )
     .bind(code_hash)
     .bind(client_id)
     .bind(redirect_uri)
     .bind(resource)
     .bind(code_challenge)
-    .bind(now.0)
+    .bind(now)
     .fetch_optional(pool)
     .await
     .map_err(sqlx_err)?
@@ -211,16 +219,19 @@ fn token_row(row: sqlx::postgres::PgRow) -> Result<InboundMcpOAuthToken> {
         user_id: Id(row.try_get("user_id").map_err(sqlx_err)?),
         scope: row.try_get("scope").map_err(sqlx_err)?,
         resource: row.try_get("resource").map_err(sqlx_err)?,
-        expires_at: TimestampMicros(row.try_get("expires_at_micros").map_err(sqlx_err)?),
+        expires_at: row
+            .try_get::<TimestampMicros, _>("expires_at")
+            .map_err(sqlx_err)?,
         revoked_at: row
-            .try_get::<Option<i64>, _>("revoked_at_micros")
-            .map_err(sqlx_err)?
-            .map(TimestampMicros),
+            .try_get::<Option<TimestampMicros>, _>("revoked_at")
+            .map_err(sqlx_err)?,
         rotated_from: row
             .try_get::<Option<String>, _>("rotated_from")
             .map_err(sqlx_err)?
             .map(Id),
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -244,10 +255,10 @@ async fn insert_token(
     .bind(token.user_id.0)
     .bind(token.scope)
     .bind(token.resource)
-    .bind(token.expires_at.0)
-    .bind(token.revoked_at.map(|value| value.0))
+    .bind(token.expires_at)
+    .bind(token.revoked_at)
     .bind(token.rotated_from.map(|value| value.0))
-    .bind(token.created_at.0)
+    .bind(token.created_at)
     .execute(connection)
     .await
     .map_err(sqlx_err)?
@@ -288,12 +299,12 @@ pub(super) async fn rotate_token_pair(
     let mut transaction = sqlx::begin(pool).await.map_err(sqlx_err)?;
 
     let consumed = sqlx::query(
-        "UPDATE inbound_mcp_oauth_tokens SET revoked_at_micros=$2
-         WHERE token_hash=$1 AND token_kind='refresh' AND revoked_at_micros IS NULL
-           AND expires_at_micros>$2",
+        "UPDATE inbound_mcp_oauth_tokens SET revoked_at=$2
+         WHERE token_hash=$1 AND token_kind='refresh' AND revoked_at IS NULL
+           AND expires_at>$2",
     )
     .bind(refresh_token_hash)
-    .bind(now.0)
+    .bind(now)
     .execute(&mut *transaction)
     .await
     .map_err(sqlx_err)?
@@ -332,7 +343,7 @@ pub(super) async fn find_token(
 pub(super) async fn list_tokens(pool: &PgPool, org_id: &Id) -> Result<Vec<InboundMcpOAuthToken>> {
     sqlx::query(&format!(
         "SELECT {TOKEN_COLS} FROM inbound_mcp_oauth_tokens
-         WHERE org_id=$1 ORDER BY created_at_micros DESC LIMIT 500"
+         WHERE org_id=$1 ORDER BY created_at DESC LIMIT 500"
     ))
     .bind(&org_id.0)
     .fetch_all(pool)
@@ -350,9 +361,9 @@ pub(super) async fn list_connections(
 ) -> Result<Vec<InboundMcpOAuthConnection>> {
     let rows = sqlx::query(
         "WITH family_summary AS (
-            SELECT family_id,MIN(created_at_micros) AS created_at_micros,
-                   MAX(expires_at_micros) AS last_expires_at_micros,
-                   BOOL_OR(revoked_at_micros IS NULL AND expires_at_micros>$2) AS active
+            SELECT family_id,MIN(created_at) AS created_at,
+                   MAX(expires_at) AS last_expires_at,
+                   BOOL_OR(revoked_at IS NULL AND expires_at>$2) AS active
               FROM inbound_mcp_oauth_tokens
              WHERE org_id=$1
              GROUP BY family_id
@@ -361,22 +372,22 @@ pub(super) async fn list_connections(
                    family_id,client_id,user_id,scope,resource
               FROM inbound_mcp_oauth_tokens
              WHERE org_id=$1
-             ORDER BY family_id,created_at_micros DESC,id DESC
+             ORDER BY family_id,created_at DESC,id DESC
          )
          SELECT summary.family_id,latest.client_id,
                 COALESCE(client.client_name,latest.client_id) AS client_name,
                 latest.user_id,account.display_name AS user_display_name,
                 latest.scope,latest.resource,
-                summary.created_at_micros,summary.last_expires_at_micros,summary.active
+                summary.created_at,summary.last_expires_at,summary.active
            FROM family_summary summary
            JOIN latest USING (family_id)
            LEFT JOIN inbound_mcp_oauth_clients client ON client.client_id=latest.client_id
            JOIN users account ON account.id=latest.user_id
-          ORDER BY summary.created_at_micros DESC,summary.family_id ASC
+          ORDER BY summary.created_at DESC,summary.family_id ASC
           LIMIT 1000",
     )
     .bind(&org_id.0)
-    .bind(now.0)
+    .bind(now)
     .fetch_all(pool)
     .await
     .map_err(sqlx_err)?;
@@ -391,10 +402,10 @@ pub(super) async fn list_connections(
                 user_display_name: row.try_get("user_display_name").map_err(sqlx_err)?,
                 scope: row.try_get("scope").map_err(sqlx_err)?,
                 resource: row.try_get("resource").map_err(sqlx_err)?,
-                created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-                last_expires_at: TimestampMicros(
-                    row.try_get("last_expires_at_micros").map_err(sqlx_err)?,
-                ),
+                created_at: row
+                    .try_get::<TimestampMicros, _>("created_at")
+                    .map_err(sqlx_err)?,
+                last_expires_at: row.try_get("last_expires_at").map_err(sqlx_err)?,
                 active: row.try_get("active").map_err(sqlx_err)?,
             })
         })
@@ -407,11 +418,11 @@ pub(super) async fn revoke_token(
     now: TimestampMicros,
 ) -> Result<()> {
     sqlx::query(
-        "UPDATE inbound_mcp_oauth_tokens SET revoked_at_micros=COALESCE(revoked_at_micros,$2)
+        "UPDATE inbound_mcp_oauth_tokens SET revoked_at=COALESCE(revoked_at,$2)
          WHERE token_hash=$1",
     )
     .bind(token_hash)
-    .bind(now.0)
+    .bind(now)
     .execute(pool)
     .await
     .map_err(sqlx_err)?;
@@ -426,11 +437,11 @@ pub(super) async fn revoke_family(
     now: TimestampMicros,
 ) -> Result<()> {
     sqlx::query(
-        "UPDATE inbound_mcp_oauth_tokens SET revoked_at_micros=COALESCE(revoked_at_micros,$2)
+        "UPDATE inbound_mcp_oauth_tokens SET revoked_at=COALESCE(revoked_at,$2)
          WHERE family_id=$1 AND org_id=$3",
     )
     .bind(&family_id.0)
-    .bind(now.0)
+    .bind(now)
     .bind(&org_id.0)
     .execute(pool)
     .await
@@ -446,11 +457,11 @@ pub(super) async fn revoke_client_tokens(
     now: TimestampMicros,
 ) -> Result<()> {
     sqlx::query(
-        "UPDATE inbound_mcp_oauth_tokens SET revoked_at_micros=COALESCE(revoked_at_micros,$2)
+        "UPDATE inbound_mcp_oauth_tokens SET revoked_at=COALESCE(revoked_at,$2)
          WHERE client_id=$1 AND org_id=$3",
     )
     .bind(client_id)
-    .bind(now.0)
+    .bind(now)
     .bind(&org_id.0)
     .execute(pool)
     .await

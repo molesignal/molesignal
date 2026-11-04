@@ -75,8 +75,8 @@ export function findPublicIncident(
   incidentId: string,
 ): PublicStatusPageIncident | undefined {
   return [
-    ...snapshot.active_incidents,
-    ...snapshot.scheduled_maintenance,
+    ...snapshot.activeIncidents,
+    ...snapshot.scheduledMaintenance,
     ...snapshot.history,
   ].find((incident) => incident.id === incidentId);
 }
@@ -98,10 +98,10 @@ export function pastIncidentDays(snapshot: PublicStatusPageSnapshot): number {
  */
 export function pastPublicIncidents(snapshot: PublicStatusPageSnapshot): PublicStatusPageIncident[] {
   const open = new Set(
-    [...snapshot.active_incidents, ...snapshot.scheduled_maintenance].map((incident) => incident.id),
+    [...snapshot.activeIncidents, ...snapshot.scheduledMaintenance].map((incident) => incident.id),
   );
-  const since = snapshot.generated_at - pastIncidentDays(snapshot) * DAY_MICROS;
-  const endOf = (incident: PublicStatusPageIncident) => incident.ended_at ?? incident.started_at;
+  const since = snapshot.generatedAt - pastIncidentDays(snapshot) * DAY_MICROS;
+  const endOf = (incident: PublicStatusPageIncident) => incident.endedAt ?? incident.startedAt;
 
   return snapshot.history
     .filter((incident) => !open.has(incident.id) && endOf(incident) >= since)
@@ -121,18 +121,18 @@ const IMPACT_RANK: Record<PublicStatusPageIncident['impact'], number> = {
  * that began last.
  */
 export function ongoingPublicIncidents(snapshot: PublicStatusPageSnapshot): PublicStatusPageIncident[] {
-  return [...snapshot.active_incidents].sort(
+  return [...snapshot.activeIncidents].sort(
     (left, right) =>
-      IMPACT_RANK[right.impact] - IMPACT_RANK[left.impact] || right.started_at - left.started_at,
+      IMPACT_RANK[right.impact] - IMPACT_RANK[left.impact] || right.startedAt - left.startedAt,
   );
 }
 
 /** Maintenance that is announced and has not begun, the soonest first. */
 export function upcomingMaintenance(snapshot: PublicStatusPageSnapshot): PublicStatusPageIncident[] {
-  return [...snapshot.scheduled_maintenance].sort((left, right) => left.started_at - right.started_at);
+  return [...snapshot.scheduledMaintenance].sort((left, right) => left.startedAt - right.startedAt);
 }
 
 /** An incident's updates, the latest first: what a reader arriving now wants to read first. */
 export function latestFirst(incident: PublicStatusPageIncident): PublicStatusPageIncident['updates'] {
-  return [...incident.updates].sort((left, right) => right.created_at - left.created_at);
+  return [...incident.updates].sort((left, right) => right.createdAt - left.createdAt);
 }

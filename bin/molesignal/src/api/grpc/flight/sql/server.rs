@@ -6,7 +6,7 @@
 //! 与内部 shard 协议（[`super::super::FlightGrpc`]，可信网络免鉴权）**分端口**部署：
 //! 本服务由 [`crate::api::grpc::serve_flight_sql`] 挂在 `flight_sql.bind:port`（默认 5083），
 //! 端口可暴露给用户网络 —— 除 Handshake 外每个 RPC 都要求
-//! `authorization: Bearer ms_...` 并重新走 [`authenticate_bearer`] + `StreamRead`
+//! `authorization: Bearer mspat-...` 并重新走 [`authenticate_bearer`] + `StreamRead`
 //! 权限校验，org 隔离与 HTTP `/api/v1/query` 完全一致。
 //!
 //! - 语句执行：`CommandStatementQuery` / 无参 prepared statement。SQL 经
@@ -49,21 +49,31 @@ use prost::Message;
 use tonic::{Request, Response, Status, Streaming};
 
 use crate::{
-    api::http::middleware::{
-        Permission,
-        auth::{authenticate_api_token, authenticate_bearer},
+    api::http::{
+        client_ip::ClientIpResolverHandle,
+        middleware::{
+            Permission,
+            auth::{authenticate_api_token, authenticate_bearer},
+        },
     },
     app::{
-        iam::{IamContext, IamContextEnricher, IamService},
+        iam::{IamContext, IamContextEnricher, IamService, signin_limit::SigninLimiter},
         query::QueryService,
     },
     config::FlightSqlSettings,
     domain::{
-        iam::{IamMembership, api_token::ApiTokenRepository},
+        iam::{
+            IamMembership,
+            api_token::{ApiTokenRepository, has_token_marker},
+        },
         query::{QueryLanguage, QueryRequest, StreamHint},
         stream::{StreamRepository, StreamType},
     },
-    infra::{query::parser::prepare_flight_sql_select, storage::arrow_schema::to_arrow},
+    infra::{
+        mfa::{MfaFactorRepository, SigninPolicyRepository},
+        query::parser::prepare_flight_sql_select,
+        storage::arrow_schema::to_arrow,
+    },
     protocol::query::v1::FlightSqlTicket,
     shared::{
         Error as MsError,
@@ -137,7 +147,14 @@ pub struct FlightSqlGrpc {
     iam: Arc<IamService>,
     iam_access: Arc<dyn IamContextEnricher>,
     settings: FlightSqlSettings,
+    /// 账号的第二因素：开了多因素认证的账号不能只凭密码握手。
+    second_factors: Option<Arc<dyn MfaFactorRepository>>,
+    signin_policies: Option<Arc<dyn SigninPolicyRepository>>,
+    /// 密码握手和 Web 登录共用输错次数。
+    signin_limiter: Option<(Arc<SigninLimiter>, ClientIpResolverHandle)>,
 }
+
+mod password_login;
 
 type DoGetStream = <FlightSqlGrpc as FlightService>::DoGetStream;
 
@@ -157,6 +174,9 @@ impl FlightSqlGrpc {
             iam,
             iam_access,
             settings,
+            second_factors: None,
+            signin_policies: None,
+            signin_limiter: None,
         }
     }
 
@@ -165,7 +185,7 @@ impl FlightSqlGrpc {
     }
 
     /// per-RPC 鉴权（spec flight-sql）：bearer 按 HTTP 中间件相同的前缀规则分发
-    /// （`ms_` → API token，其余 → JWT），再 `StreamRead`。缺失/非法 →
+    /// （`mspat-` → API token，其余 → JWT），再 `StreamRead`。缺失/非法 →
     /// `UNAUTHENTICATED`，权限不足 → `PERMISSION_DENIED`。
     async fn authenticate<T>(&self, request: &Request<T>) -> Result<IamContext, Status> {
         let bearer = request
@@ -181,6 +201,11 @@ impl FlightSqlGrpc {
         let mut ctx = authenticate_bearer(bearer, self.iam.as_ref(), self.api_tokens.clone())
             .await
             .map_err(|e| Status::unauthenticated(e.to_string()))?;
+
+        // 密码握手换来的 token 用到登录结束：组织之后加了要求，也不能再用。
+        if ctx.credential_token_id.is_none() {
+            self.refuse_required_signin(&ctx.org_id).await?;
+        }
 
         self.iam_access
             .enrich_iam_context(&mut ctx)
@@ -270,6 +295,7 @@ impl FlightSqlGrpc {
                 .stream
                 .map(|(name, stream_type)| StreamHint { name, stream_type }),
             limit: None,
+            step: None,
             federation_clusters: Vec::new(),
         })
     }
@@ -282,11 +308,18 @@ impl FlightSqlGrpc {
     ) -> Result<Response<DoGetStream>, Status> {
         let req = self.build_query_request(ctx, sql)?;
 
-        let out = self
-            .query
-            .run_tracked(req, ctx.user_id.clone(), ctx.organization_role_key())
-            .await
-            .map_err(error_to_status)?;
+        // The query reads `_audit` only for a caller with audit.read, as over HTTP.
+        let grants = crate::infra::query::grants::ReadGrants::of_caller(
+            ctx.has_permission(crate::infra::query::grants::AUDIT_READ),
+        );
+
+        let out = crate::infra::query::grants::scope(
+            grants,
+            self.query
+                .run_tracked(req, ctx.user_id.clone(), ctx.organization_role_key()),
+        )
+        .await
+        .map_err(error_to_status)?;
 
         let batch = super::encode::query_result_to_batch(&out)
             .map_err(|e| Status::internal(format!("arrow encode: {e}")))?;
@@ -442,7 +475,7 @@ impl FlightSqlService for FlightSqlGrpc {
 
     /// Handshake（spec flight-sql）：basic auth 双凭据分发，复用既有认证体系 ——
     ///
-    /// - password 以 `ms_` 开头 → API token 路径，校验后原样回 bearer（username 忽略）；
+    /// - password 以 `mspat-` 开头 → API token 路径，校验后原样回 bearer（username 忽略）；
     /// - 其余 → username 当邮箱（末段可带 `@<org>` 选择子）、password 当账号密码，
     ///   走 `IamService::authenticate`（与 HTTP login 同函数）签 JWT 回 bearer。
     ///
@@ -461,6 +494,8 @@ impl FlightSqlService for FlightSqlGrpc {
             .to_str()
             .map_err(|_| Status::unauthenticated("authorization header not parsable"))?;
 
+        let source = self.signin_source(&request);
+
         let (token, ctx) = if let Some(b64) = header.strip_prefix("Basic ") {
             let decoded = decode_basic_b64(b64)
                 .ok_or_else(|| Status::unauthenticated("basic auth not decodable"))?;
@@ -471,7 +506,7 @@ impl FlightSqlService for FlightSqlGrpc {
                 .split_once(':')
                 .ok_or_else(|| Status::unauthenticated("malformed basic auth"))?;
 
-            if pass.starts_with("ms_") {
+            if has_token_marker(pass) {
                 let ctx = authenticate_api_token(pass, self.iam.as_ref(), self.api_tokens.clone())
                     .await
                     .map_err(|e| Status::unauthenticated(e.to_string()))?;
@@ -482,13 +517,11 @@ impl FlightSqlService for FlightSqlGrpc {
                 // UNAUTHENTICATED（文档引导其使用 API token）。
                 let (email, org_selector) = split_login_username(user);
 
-                let logged_in = self
-                    .iam
-                    .authenticate(email, pass)
-                    .await
-                    .map_err(|e| Status::unauthenticated(e.to_string()))?;
+                let logged_in = self.authenticate_password(email, pass, source).await?;
 
+                self.refuse_second_factor_accounts(&logged_in.id).await?;
                 let m = self.resolve_membership(&logged_in.id, org_selector).await?;
+                self.refuse_required_signin(&m.org_id).await?;
 
                 let jwt = self
                     .iam
@@ -500,7 +533,7 @@ impl FlightSqlService for FlightSqlGrpc {
                     org_id: m.org_id,
                     display_role: String::new(),
                     roles: Vec::new(),
-                    credential_role_id: None,
+                    credential_token_id: None,
                     credential_application_id: None,
                     credential_service_account_id: None,
                     scope: crate::domain::iam::IamScope::Organization,

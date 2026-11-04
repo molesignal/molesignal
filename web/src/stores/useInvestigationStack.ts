@@ -22,25 +22,25 @@ export interface Frame {
   id: string;
   kind: FrameKind;
   params: Record<string, unknown>;
-  time_range_override?: TimeWindow;
-  anchor_override?: string;
-  parent_frame_id?: string;
+  timeRangeOverride?: TimeWindow;
+  anchorOverride?: string;
+  parentFrameId?: string;
   pinned: boolean;
-  created_at: number;
+  createdAt: number;
 }
 
 /**
  * A frame as an address names it: what it shows, without the identity it has
  * while it is open. Addresses carry no frame ids.
  */
-export type FrameContent = Omit<Frame, 'id' | 'created_at'>;
+export type FrameContent = Omit<Frame, 'id' | 'createdAt'>;
 
 export const MAX_FRAMES = 6;
 
 interface StackState {
   frames: Frame[];
   forward: Frame[];
-  push: (frame: Omit<Frame, 'id' | 'created_at' | 'pinned'> & { pinned?: boolean }) => Frame | null;
+  push: (frame: Omit<Frame, 'id' | 'createdAt' | 'pinned'> & { pinned?: boolean }) => Frame | null;
   pop: () => void;
   back: () => void;
   forwardOne: () => void;
@@ -58,9 +58,9 @@ function contentKey(frame: FrameContent): string {
   return JSON.stringify([
     frame.kind,
     frame.params,
-    frame.time_range_override,
-    frame.anchor_override,
-    frame.parent_frame_id,
+    frame.timeRangeOverride,
+    frame.anchorOverride,
+    frame.parentFrameId,
   ]);
 }
 
@@ -73,7 +73,7 @@ export const useInvestigationStack = create<StackState>((set, get) => ({
       ...incoming,
       pinned: incoming.pinned ?? false,
       id: nanoid(10),
-      created_at: Date.now(),
+      createdAt: Date.now(),
     };
     if (frames.length >= MAX_FRAMES) {
       // drop oldest unpinned; refuse if all pinned
@@ -128,7 +128,7 @@ export const useInvestigationStack = create<StackState>((set, get) => ({
     const next = named.map((content): Frame => {
       const key = contentKey(content);
       const at = openKeys.findIndex((openKey, i) => i >= from && openKey === key);
-      if (at < 0) return { ...content, id: nanoid(10), created_at: Date.now() };
+      if (at < 0) return { ...content, id: nanoid(10), createdAt: Date.now() };
 
       from = at + 1;
       const open = frames[at]!;

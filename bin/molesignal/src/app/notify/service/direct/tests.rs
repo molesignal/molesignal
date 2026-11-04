@@ -13,7 +13,9 @@ use crate::{
         engine::tests::{MemoryStore, connector},
     },
     domain::notify::{
-        connector::{ConnectorAdapter, ConnectorCapabilities, ConnectorDeliveryResult},
+        connector::{
+            ConnectorAdapter, ConnectorCapabilities, ConnectorDeliveryResult, NotifyChannel,
+        },
         repositories::{
             NotifyConnectorRepository, NotifyDeliveryRepository, NotifyRouteReferenceRepository,
         },
@@ -46,6 +48,10 @@ impl ConnectorAdapter for Provider {
             group: true,
             ..ConnectorCapabilities::default()
         }
+    }
+
+    fn channel(&self) -> NotifyChannel {
+        NotifyChannel::Im
     }
 
     fn validate_config(&self, _config: &Value) -> Result<()> {
@@ -120,6 +126,7 @@ impl Fixture {
             store.clone(),
             store.clone(),
             Arc::new(NoReferences),
+            store.clone(),
             Arc::new(registry),
         );
 
@@ -166,6 +173,9 @@ fn direct(target: NotifyTarget, key: &str) -> DirectSend {
             markdown: None,
             html: None,
             metadata: Default::default(),
+            provider_templates: Default::default(),
+            event: None,
+            card: None,
         },
         event_id: "log_inspection.run:run-1".into(),
         idempotency_key: key.into(),

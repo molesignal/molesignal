@@ -21,7 +21,7 @@ pub(super) async fn get_chats(pool: &PgPool, org_id: &Id, ids: &[Id]) -> Result<
 
     let rows = sqlx::query(&format!(
         "SELECT {CHAT_COLS} FROM agent_chats
-         WHERE org_id = $1 AND id = ANY($2) AND deleted_at_micros IS NULL"
+         WHERE org_id = $1 AND id = ANY($2) AND deleted_at IS NULL"
     ))
     .bind(&org_id.0)
     .bind(&ids)
@@ -36,7 +36,7 @@ pub(super) async fn get_chats(pool: &PgPool, org_id: &Id, ids: &[Id]) -> Result<
 pub(super) async fn name_chat(pool: &PgPool, id: &Id, title: &str) -> Result<bool> {
     let named = sqlx::query(
         "UPDATE agent_chats SET title = $2, title_provisional = FALSE
-         WHERE id = $1 AND title_provisional AND deleted_at_micros IS NULL",
+         WHERE id = $1 AND title_provisional AND deleted_at IS NULL",
     )
     .bind(&id.0)
     .bind(title)
@@ -51,7 +51,7 @@ pub(super) async fn name_chat(pool: &PgPool, id: &Id, title: &str) -> Result<boo
 pub(super) async fn rename_chat(pool: &PgPool, id: &Id, title: &str) -> Result<()> {
     sqlx::query(
         "UPDATE agent_chats SET title = $2, title_provisional = FALSE
-         WHERE id = $1 AND deleted_at_micros IS NULL",
+         WHERE id = $1 AND deleted_at IS NULL",
     )
     .bind(&id.0)
     .bind(title)

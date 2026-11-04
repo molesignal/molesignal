@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import { listContent } from '@/product/listContent';
 import { ProductState, type ProductStateProps } from '@/product/states';
 import { PageTitleRow } from '@/shell/PageTitleRow';
 
@@ -10,8 +11,8 @@ export function NotifySettingsPage({
   subtitle,
   toolbar,
   filters,
-  state,
-  children,
+  state: requestedState,
+  children: list,
 }: {
   title: ReactNode;
   subtitle?: string;
@@ -20,6 +21,8 @@ export function NotifySettingsPage({
   state?: ProductStateProps | null;
   children?: ReactNode;
 }) {
+  const { state, children } = listContent(requestedState, list);
+
   return (
     <div data-notify-settings-page className="min-w-0">
       <header data-notify-settings-header className="min-w-0">

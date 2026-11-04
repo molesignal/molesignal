@@ -7,9 +7,9 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import type { ReplayEvent, SessionEvent } from '@/api/rum';
+import type { ReplayEvent, TimelineItem } from '@/api/rum';
 
-import { formatDurationMs } from '../_helpers';
+import { formatDurationNs } from '../_helpers';
 
 export interface PlayerEvent {
   key: string;
@@ -21,9 +21,73 @@ export interface PlayerEvent {
   raw: Record<string, unknown>;
 }
 
+/** What a row of the session's timeline is called, where it is told, and what else it says. */
+function describeItem(item: TimelineItem): { label: string; url?: string; detail?: string } {
+  const text = (name: string) => stringValue(item[name]);
+  const number = (name: string) => numeric(item[name]);
+  const joined = (...parts: Array<string | undefined>) => parts.filter(Boolean).join(' · ') || undefined;
+
+  switch (item.type) {
+    case 'view':
+      return {
+        label: text('view.name') ?? text('view.url_path') ?? item.type,
+        ...(text('view.url_path') ? { url: text('view.url_path')! } : {}),
+        ...optional(joined(formatDurationNsOf(number('view.loading_time')))),
+      };
+    case 'action':
+      return {
+        label: text('action.target.name') ?? text('action.type') ?? item.type,
+        ...(text('view.url_path') ? { url: text('view.url_path')! } : {}),
+        ...optional(joined(text('action.type'), text('action.target.selector'), text('action.frustration.type'))),
+      };
+    case 'error':
+      return {
+        label: text('error.message') ?? text('error.type') ?? item.type,
+        ...(text('view.url_path') ? { url: text('view.url_path')! } : {}),
+        ...optional(joined(text('error.type'), text('error.source'), text('error.handling'))),
+      };
+    case 'resource':
+      return {
+        label: joined(text('resource.method'), text('resource.url')) ?? item.type,
+        ...(text('view.url_path') ? { url: text('view.url_path')! } : {}),
+        ...optional(
+          joined(
+            number('resource.status_code') ? `HTTP ${number('resource.status_code')}` : undefined,
+            formatDurationNsOf(number('resource.duration')),
+          ),
+        ),
+      };
+    case 'long_task':
+      return {
+        label: item.type,
+        ...(text('view.url_path') ? { url: text('view.url_path')! } : {}),
+        ...optional(joined(formatDurationNsOf(number('long_task.duration')), text('long_task.entry_type'))),
+      };
+    case 'log':
+      return {
+        label: text('message') ?? item.type,
+        ...(text('view.url_path') ? { url: text('view.url_path')! } : {}),
+        ...optional(joined(text('level'), text('log.logger'))),
+      };
+    default:
+      return { label: text('vital.name') ?? item.type, ...optional(formatDurationNsOf(number('vital.duration'))) };
+  }
+}
+
+/** What an item is called beside the recorded events: an action by the kind of action it was, a click. */
+function playerType(item: TimelineItem): string {
+  return item.type === 'action' ? (stringValue(item['action.type']) ?? 'action') : item.type;
+}
+
+const optional = (detail: string | undefined) => (detail ? { detail } : {});
+
+function formatDurationNsOf(ns: number | undefined): string | undefined {
+  return ns === undefined ? undefined : formatDurationNs(ns);
+}
+
 export function normalizePlayerEvents(
   replayEvents: ReplayEvent[],
-  actionEvents: SessionEvent[],
+  items: TimelineItem[],
 ): PlayerEvent[] {
   const replay = replayEvents.flatMap((event, index) => {
     const raw = event as Record<string, unknown>;
@@ -49,31 +113,26 @@ export function normalizePlayerEvents(
     if (detail) item.detail = detail;
     return [item];
   });
-  const actions = actionEvents
-    .map((event, index) => {
-      const item: PlayerEvent = {
-        key: `action-${event.ts_micros}-${index}`,
-        type: event.type,
-        timestamp: event.ts_micros / 1_000,
-        label: event.name ?? event.type,
-        raw: event.payload,
-      };
-      if (event.url) item.url = event.url;
-      const details = [
-        event.status ? `HTTP ${event.status}` : undefined,
-        event.duration_ms != null ? formatDurationMs(event.duration_ms) : undefined,
-        stringValue(event.payload.selector),
-      ].filter(Boolean);
-      if (details.length > 0) item.detail = details.join(' · ');
-      return item;
-    });
+  const timeline = items.map((item, index) => {
+    const described = describeItem(item);
+    const event: PlayerEvent = {
+      key: `timeline-${item.timestamp}-${index}`,
+      type: playerType(item),
+      timestamp: item.timestamp / 1_000,
+      label: described.label,
+      raw: item,
+    };
+    if (described.url) event.url = described.url;
+    if (described.detail) event.detail = described.detail;
+    return event;
+  });
 
   const seen = new Set(
     replay.map((event) => eventIdentity(event.type, event.timestamp, event.label)),
   );
   return [
     ...replay,
-    ...actions.filter(
+    ...timeline.filter(
       (event) => !seen.has(eventIdentity(event.type, event.timestamp, event.label)),
     ),
   ].sort((a, b) => a.timestamp - b.timestamp);
@@ -99,6 +158,7 @@ export function EventTimeline({
       {events.map((event, index) => (
         <div
           key={event.key}
+          data-rum-timeline-event={event.type}
           className="grid min-h-[58px] grid-cols-[84px_24px_minmax(0,1fr)_minmax(120px,220px)] items-center gap-3 py-2.5"
         >
           <span className="font-mono text-xs text-tx-3">

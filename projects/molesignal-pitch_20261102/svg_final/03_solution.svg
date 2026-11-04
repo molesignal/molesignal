@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-pptx-page-role="content" font-family="Microsoft YaHei, Arial">
+<rect id="bg" data-pptx-role="background" width="1280" height="720" fill="#F7F9FC" />
+<g id="heading" data-pptx-bounds="56 44 1168 115"><text x="56" y="65" font-size="18" fill="#007E87">02 / 产品方案</text><text x="56" y="126" font-size="44" fill="#102C44" font-weight="bold">在同一环境中调查问题、组织响应</text></g>
+<g id="telemetry" data-pptx-bounds="56 202 550 150"><text x="56" y="238" font-size="30" fill="#1766D3" font-weight="bold">统一遥测</text><text fill="#173247" font-size="24" x="56" y="288">日志、指标、链路与跨信号调查。</text><text fill="#173247" font-size="24" x="56" y="324">SQL / PromQL，保留调查上下文。</text></g>
+<g id="response" data-pptx-bounds="680 202 544 150"><text x="680" y="238" font-size="30" fill="#1766D3" font-weight="bold">事件响应</text><text fill="#173247" font-size="24" x="680" y="288">告警、值班、升级、状态更新与复盘。</text><text fill="#173247" font-size="24" x="680" y="324">让调查结果进入团队处理流程。</text></g>
+<g id="agent" data-pptx-bounds="56 390 550 155"><text x="56" y="426" font-size="30" fill="#007E87" font-weight="bold">Mole Agent</text><text fill="#173247" font-size="24" x="56" y="476">在平台权限内收集证据、检验假设。</text><text fill="#173247" font-size="24" x="56" y="512">模型可选，高风险操作经过审批。</text></g>
+<g id="deployment" data-pptx-bounds="680 390 544 155"><text x="680" y="426" font-size="30" fill="#007E87" font-weight="bold">可自主部署</text><text fill="#173247" font-size="24" x="680" y="476">Rust 二进制，PostgreSQL 元数据，</text><text fill="#173247" font-size="24" x="680" y="512">本地或对象存储；支持标准协议接入。</text></g>
+<g id="entry" data-pptx-bounds="56 584 1168 52"><text x="56" y="618" font-size="24" fill="#102C44">渐进接入：先接现有告警，再按需要迁移遥测。</text></g>
+<text id="footer" data-pptx-role="footer" x="56" y="682" font-size="16" fill="#53677B">依据当前源码与文档；仍处于发布前打磨，尚无外部生产验证。</text><text id="page" data-pptx-role="page-number" x="1224" y="682" text-anchor="end" font-size="16" fill="#53677B">03 / 14</text>
+</svg>

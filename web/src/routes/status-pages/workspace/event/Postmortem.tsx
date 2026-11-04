@@ -39,7 +39,7 @@ export function PostmortemSection({
 }) {
   const { t, i18n } = useTranslation('status-pages');
   const postmortem = event.postmortem ?? null;
-  const published = postmortem?.publication_state === 'published';
+  const published = postmortem?.publicationState === 'published';
   const resolved = event.status === 'resolved';
   const [body, setBody] = React.useState(postmortem?.body ?? '');
   const [view, setView] = React.useState<'write' | 'preview'>('write');
@@ -48,8 +48,8 @@ export function PostmortemSection({
 
   React.useEffect(() => {
     setBody(event.postmortem?.body ?? '');
-    setNotify(event.postmortem?.publication_state !== 'published');
-  }, [event.id, event.postmortem?.body, event.postmortem?.publication_state]);
+    setNotify(event.postmortem?.publicationState !== 'published');
+  }, [event.id, event.postmortem?.body, event.postmortem?.publicationState]);
 
   const trimmed = body.trim();
   const changed = trimmed !== (postmortem?.body ?? '').trim();
@@ -74,12 +74,12 @@ export function PostmortemSection({
     ? t('forms.postmortem.none')
     : published
       ? [
-          t('forms.postmortem.published_at', { time: time(postmortem.published_at ?? postmortem.updated_at) }),
-          postmortem.revised_at && postmortem.revised_at !== postmortem.published_at
-            ? t('forms.postmortem.revised_at', { time: time(postmortem.revised_at) })
+          t('forms.postmortem.published_at', { time: time(postmortem.publishedAt ?? postmortem.updatedAt) }),
+          postmortem.revisedAt && postmortem.revisedAt !== postmortem.publishedAt
+            ? t('forms.postmortem.revised_at', { time: time(postmortem.revisedAt) })
             : null,
         ].filter(Boolean).join(' · ')
-      : t('forms.postmortem.draft_saved_at', { time: time(postmortem.updated_at) });
+      : t('forms.postmortem.draft_saved_at', { time: time(postmortem.updatedAt) });
 
   return (
     <FormSection title={t('forms.postmortem.title')} description={state}>

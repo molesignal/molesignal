@@ -16,6 +16,7 @@ use super::super::sqlx_err;
 use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChatArchive {
     pub id: Id,
     pub chat_id: Id,
@@ -34,7 +35,7 @@ pub trait ChatArchiveRepository: Send + Sync {
     async fn record(&self, a: ChatArchive) -> Result<ChatArchive>;
     async fn list_for_chat(&self, chat_id: &Id) -> Result<Vec<ChatArchive>>;
     async fn list_for_org(&self, org_id: &Id, limit: i64) -> Result<Vec<ChatArchive>>;
-    /// 删除 `created_at_micros < cutoff` 的归档行，返回这些行的 object_key（非空者）。
+    /// 删除 `created_at < cutoff` 的归档行，返回这些行的 object_key（非空者）。
     async fn delete_older_than(&self, cutoff_micros: i64) -> Result<Vec<String>>;
 }
 
@@ -49,7 +50,7 @@ impl PgChatArchiveRepository {
 }
 
 const COLS: &str = "id, chat_id, org_id, object_key, sha256, bytes, status, error, \
-    created_by, created_at_micros";
+    created_by, created_at";
 
 fn row_to(r: sqlx::postgres::PgRow) -> Result<ChatArchive> {
     Ok(ChatArchive {
@@ -62,7 +63,9 @@ fn row_to(r: sqlx::postgres::PgRow) -> Result<ChatArchive> {
         status: r.try_get("status").map_err(sqlx_err)?,
         error: r.try_get("error").map_err(sqlx_err)?,
         created_by: r.try_get("created_by").map_err(sqlx_err)?,
-        created_at: TimestampMicros(r.try_get("created_at_micros").map_err(sqlx_err)?),
+        created_at: r
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -72,7 +75,7 @@ impl ChatArchiveRepository for PgChatArchiveRepository {
         sqlx::query(
             "INSERT INTO agent_chat_archives
                 (id, chat_id, org_id, object_key, sha256, bytes, status, error,
-                 created_by, created_at_micros)
+                 created_by, created_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
         )
         .bind(&a.id.0)
@@ -84,7 +87,7 @@ impl ChatArchiveRepository for PgChatArchiveRepository {
         .bind(&a.status)
         .bind(&a.error)
         .bind(&a.created_by)
-        .bind(a.created_at.0)
+        .bind(a.created_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -95,7 +98,7 @@ impl ChatArchiveRepository for PgChatArchiveRepository {
     async fn list_for_chat(&self, chat_id: &Id) -> Result<Vec<ChatArchive>> {
         let rows = sqlx::query(&format!(
             "SELECT {COLS} FROM agent_chat_archives
-             WHERE chat_id = $1 ORDER BY created_at_micros DESC"
+             WHERE chat_id = $1 ORDER BY created_at DESC"
         ))
         .bind(&chat_id.0)
         .fetch_all(&self.pool)
@@ -108,7 +111,7 @@ impl ChatArchiveRepository for PgChatArchiveRepository {
     async fn list_for_org(&self, org_id: &Id, limit: i64) -> Result<Vec<ChatArchive>> {
         let rows = sqlx::query(&format!(
             "SELECT {COLS} FROM agent_chat_archives
-             WHERE org_id = $1 ORDER BY created_at_micros DESC LIMIT $2"
+             WHERE org_id = $1 ORDER BY created_at DESC LIMIT $2"
         ))
         .bind(&org_id.0)
         .bind(limit.clamp(1, 500))
@@ -121,9 +124,9 @@ impl ChatArchiveRepository for PgChatArchiveRepository {
 
     async fn delete_older_than(&self, cutoff_micros: i64) -> Result<Vec<String>> {
         let rows = sqlx::query(
-            "DELETE FROM agent_chat_archives WHERE created_at_micros < $1 RETURNING object_key",
+            "DELETE FROM agent_chat_archives WHERE created_at < $1 RETURNING object_key",
         )
-        .bind(cutoff_micros)
+        .bind(TimestampMicros(cutoff_micros))
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;

@@ -15,6 +15,7 @@ use serde_json::Value;
 use crate::shared::{ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Dashboard {
     pub id: Id,
     pub org_id: Id,
@@ -34,6 +35,7 @@ pub struct Dashboard {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Folder {
     pub id: Id,
     pub org_id: Id,

@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   ChevronDown,
+  Copy,
   Download,
   Ellipsis,
   Maximize2,
@@ -11,7 +12,9 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
+import * as dashboardsApi from '@/api/dashboards';
 import * as foldersApi from '@/api/folders';
+import { toApiError } from '@/lib/http';
 import {
   restrictActionAccess,
   useActionAccess,
@@ -35,9 +38,11 @@ import { toast } from '@/shell/ui/sonner';
 import { setFullscreenDashboard } from '@/shell/wallboard';
 import { useAuthStore } from '@/stores/auth';
 
+import { copiedModel } from './copiedModel';
 import { DashboardRenderer } from './DashboardRenderer';
 import { isDashboardEngineEnabled } from './featureFlag';
 import { flattenElements, serializeDashboardDefinition } from './model';
+import { isBuiltinModel, useOpeningWindow } from './openingWindow';
 import {
   parseIntervalMilliseconds,
   type DashboardRefreshCadence,
@@ -45,6 +50,8 @@ import {
 import { DashboardReport } from './report/DashboardReport';
 import type { DashboardDefinition } from './schema';
 import { useDashboardDefinition } from './useDashboardDefinition';
+import { addressWithVariables, variablesInAddress } from './variableAddress';
+import type { DashboardVariableValues } from './variables';
 
 /**
  * A dashboard at its own address: the page a person works in, or, when the
@@ -60,7 +67,8 @@ function DashboardScreen() {
   const { t, i18n } = useTranslation('dashboards');
   const { id } = useParams<{ id: string }>();
   const nav = useNavigate();
-  const orgId = useAuthStore((state) => state.ctx?.org_id ?? '');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const orgId = useAuthStore((state) => state.ctx?.orgId ?? '');
   const shareAccess = useActionAccess({ permission: 'dashboards.share' });
   const editPermission = useActionAccess({ permission: 'dashboards.edit' });
   const [detailsOpen, setDetailsOpen] = React.useState(false);
@@ -76,6 +84,55 @@ function DashboardScreen() {
   const foldersQuery = useQuery({
     queryKey: ['folders', 'list'],
     queryFn: foldersApi.list,
+  });
+  useOpeningWindow(
+    definition && isBuiltinModel(dashboardQuery.data?.model) ? definition.uid : undefined,
+    definition?.timeSettings,
+    searchParams,
+  );
+  // The variables a person has chosen are in the address, so the page can be sent to someone else
+  // or linked to with an application already chosen. The address is read by its text, so a change
+  // of the time range in it does not read as a change of the variables.
+  const variableText = definition
+    ? addressWithVariables(
+        new URLSearchParams(),
+        definition.variables,
+        variablesInAddress(searchParams, definition.variables),
+      ).toString()
+    : '';
+  const variableValues = React.useMemo(
+    () =>
+      definition
+        ? variablesInAddress(new URLSearchParams(variableText), definition.variables)
+        : undefined,
+    [definition, variableText],
+  );
+  const rememberVariables = React.useCallback(
+    (values: DashboardVariableValues) => {
+      if (!definition) return;
+      setSearchParams(
+        (current) => addressWithVariables(current, definition.variables, values),
+        { replace: true },
+      );
+    },
+    [definition, setSearchParams],
+  );
+  // A dashboard that cannot be changed is copied to be: the copy is the person's own.
+  const createPermission = useActionAccess({ permission: 'dashboards.create' });
+  const copyDashboard = useMutation({
+    mutationFn: () =>
+      dashboardsApi.create(
+        copiedModel(
+          dashboardQuery.data?.model ?? {},
+          t('list.copy_name', { title: definition?.title ?? '' }),
+        ),
+        definition?.folderId,
+      ),
+    onSuccess: (copy) => {
+      toast.success(t('list.toast.copied', { title: copy.title }));
+      nav(`/dashboards/${copy.id}`);
+    },
+    onError: (error: unknown) => toast.error(toApiError(error).message),
   });
   const editAccess = restrictActionAccess(
     editPermission,
@@ -234,6 +291,17 @@ function DashboardScreen() {
                 <Share2 className="h-3 w-3" />
                 {t('actions.share')}
               </ChromeButton>
+              {!definition.editable && (
+                <ChromeButton
+                  className="border-0 disabled:border-0 focus-visible:bg-bg-3"
+                  disabled={createPermission.disabled || copyDashboard.isPending}
+                  disabledReason={createPermission.reason}
+                  onClick={() => copyDashboard.mutate()}
+                >
+                  <Copy className="h-3 w-3" />
+                  {t('list.actions.copy')}
+                </ChromeButton>
+              )}
               <ChromeButton
                 className="border-0 disabled:border-0 focus-visible:bg-bg-3"
                 onClick={() => {
@@ -293,6 +361,8 @@ function DashboardScreen() {
             refreshNonce={refreshNonce}
             refreshIntervalOverride={refreshInterval}
             onRefreshStateChange={setRefreshing}
+            {...(variableValues ? { variableValues } : {})}
+            onVariablesChange={rememberVariables}
             {...(editAccess.allowed
               ? {
                   onEditPanel: (panelId: string) =>

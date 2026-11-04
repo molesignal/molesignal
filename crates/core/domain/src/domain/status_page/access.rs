@@ -33,6 +33,7 @@ impl StatusPageAccessRuleKind {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusPageAccessRule {
     pub id: Id,
     pub org_id: Id,
@@ -58,6 +59,7 @@ pub struct StatusPageMagicLink {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusPageAccessSession {
     pub id: Id,
     pub org_id: Id,

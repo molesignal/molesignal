@@ -1,7 +1,7 @@
 /**
  * Visual regression baselines — web-investigation-shell.
  *
- * Coverage: 10 screenshots × (dark+light) × (compact+comfortable) = 40 PNG baselines.
+ * Coverage: 11 screenshots × (dark+light) × (compact+comfortable) = 44 PNG baselines.
  *
  * Screenshots:
  *   1. Sign-in page
@@ -14,6 +14,7 @@
  *   8. Metrics route
  *   9. Traces route
  *   10. Dashboards route
+ *   11. APM overview route
  *
  * Generate baselines locally with:
  *   pnpm -C web playwright test --update-snapshots playwright/tests/05-visual.spec.ts
@@ -25,6 +26,7 @@
  */
 import type { Page } from '@playwright/test';
 
+import { installApmRoutes } from '../fixtures/mockApm';
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 import { serveExplorerResults } from '../fixtures/mockExplorers';
 
@@ -78,7 +80,7 @@ for (const combo of COMBINATIONS) {
         signedOut: true,
       });
       await page.goto('/signin');
-      await expect(page.getByTestId('signin-card')).toBeVisible();
+      await expect(page.getByTestId('signin-channels')).toBeVisible();
       await expect(page.locator('html')).toHaveAttribute('data-theme', combo.theme);
       await expect(page).toHaveScreenshot(`login-${combo.theme}-${combo.density}.png`, {
         fullPage: true,
@@ -107,6 +109,8 @@ for (const combo of COMBINATIONS) {
       await settled(page);
       await page.keyboard.press('Meta+K');
       await expect(page.getByPlaceholder(/search commands/i)).toBeVisible();
+      // What waits on the reader comes from a request of its own.
+      await expect(page.locator('[data-acknowledge]').first()).toBeVisible();
       await expect(page).toHaveScreenshot(`palette-${combo.theme}-${combo.density}.png`, {
         fullPage: true,
         animations: 'disabled',
@@ -192,6 +196,24 @@ for (const combo of COMBINATIONS) {
     });
     test('dashboards route', async ({ page, mockServer }) => {
       await snap(page, mockServer.port, '/dashboards', 'dashboards');
+    });
+    test('apm overview route', async ({ page, mockServer }) => {
+      await signedIn(page, mockServer.port);
+      // The shared mock knows no APM data; the APM specs' backend is the one APM is drawn from.
+      await installApmRoutes(page);
+      // Tall enough for every card of the overview, which scrolls inside the shell.
+      await page.setViewportSize({ width: 1280, height: 1600 });
+      await page.goto('/apm/overview');
+      await page.waitForLoadState('networkidle');
+      await settled(page);
+      await expect(page.locator('[data-apm-overview-pulse]')).toBeVisible();
+      await expect(page.locator('[data-apm-alert="inc-1"]')).toBeVisible();
+      await expect(page.locator('[data-apm-insight="anomaly"]')).toBeVisible();
+      await expect(page).toHaveScreenshot(`apm-overview-${combo.theme}-${combo.density}.png`, {
+        fullPage: true,
+        animations: 'disabled',
+        maxDiffPixelRatio: 0.005,
+      });
     });
   });
 }

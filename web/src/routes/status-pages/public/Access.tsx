@@ -82,16 +82,16 @@ export function PublicStatusAccess({
   const requestError = request.error ? toApiError(request.error).message : null;
 
   return (
-    <AccessFrame brandColor={page.brand_color} credit={copy('public.powered_by')}>
+    <AccessFrame brandColor={page.brandColor} credit={copy('public.powered_by')}>
       <div className="mx-auto w-full max-w-md rounded-2xl border border-bd-0 bg-white p-6 sm:p-8">
         <div className="flex items-center gap-3">
-          {page.logo_url ? (
-            <img src={page.logo_url} alt="" className="h-12 w-12 rounded-lg border border-bd-0 object-contain p-1" />
+          {page.logoUrl ? (
+            <img src={page.logoUrl} alt="" className="h-12 w-12 rounded-lg border border-bd-0 object-contain p-1" />
           ) : (
             <span
               aria-hidden
               className="grid h-12 w-12 place-items-center rounded-lg text-lg font-bold text-white"
-              style={{ backgroundColor: page.brand_color }}
+              style={{ backgroundColor: page.brandColor }}
             >
               {page.name.slice(0, 1).toUpperCase()}
             </span>
@@ -151,7 +151,7 @@ export function PublicStatusAccess({
               size="lg"
               disabled={!email.trim() || request.isPending}
               className={cn(PUBLIC_CONTROL_HEIGHT, 'w-full text-white')}
-              style={{ backgroundColor: page.brand_color }}
+              style={{ backgroundColor: page.brandColor }}
             >
               {request.isPending ? copy('public.access.sending') : copy('public.access.send_link')}
             </Button>

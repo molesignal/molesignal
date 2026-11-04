@@ -3,23 +3,32 @@
 
 //! Hour-window cardinality admission for bounded APM dimensions.
 
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
+
+use parking_lot::RwLock;
 
 use crate::{
-    config::ApmCardinalitySettings,
     domain::apm::{
-        ApmSpanFact, DependencyIdentity, ErrorIdentity, ServiceIdentity, TransactionIdentity,
+        ApmLimits, ApmSpanFact, DependencyCategory, DependencyIdentity, ErrorIdentity,
+        OTHER_DIMENSION, ServiceIdentity, TransactionIdentity,
     },
     shared::ids::Id,
 };
 
 const HOUR_MICROS: i64 = 3_600_000_000;
 
+/// The limits a limiter keeps to, a platform setting changed while it runs.
+pub type ApmLimitsHandle = Arc<RwLock<ApmLimits>>;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CardinalityReason {
     ServiceRejected,
     TransactionOverflow,
     DependencyOverflow,
+    OperationOverflow,
     ErrorOverflow,
     VersionSuppressed,
     InstanceSuppressed,
@@ -31,6 +40,7 @@ impl CardinalityReason {
             Self::ServiceRejected => "service_rejected",
             Self::TransactionOverflow => "transaction_overflow",
             Self::DependencyOverflow => "dependency_overflow",
+            Self::OperationOverflow => "operation_overflow",
             Self::ErrorOverflow => "error_overflow",
             Self::VersionSuppressed => "version_suppressed",
             Self::InstanceSuppressed => "instance_suppressed",
@@ -60,21 +70,23 @@ struct ServiceWindowKey {
 #[derive(Default)]
 struct ServiceWindow {
     transactions: HashSet<TransactionIdentity>,
-    dependencies: HashSet<DependencyIdentity>,
+    /// The targets called, and the operations called on each.
+    dependencies: HashSet<(DependencyCategory, String)>,
+    operations: HashMap<(DependencyCategory, String), HashSet<String>>,
     errors: HashSet<ErrorIdentity>,
     versions: HashSet<String>,
     instances: HashSet<String>,
 }
 
 pub struct ApmCardinalityLimiter {
-    limits: ApmCardinalitySettings,
+    limits: ApmLimitsHandle,
     org_services: HashMap<OrgWindowKey, HashSet<ServiceIdentity>>,
     service_windows: HashMap<ServiceWindowKey, ServiceWindow>,
     newest_hour: i64,
 }
 
 impl ApmCardinalityLimiter {
-    pub fn new(limits: ApmCardinalitySettings) -> Self {
+    pub fn new(limits: ApmLimitsHandle) -> Self {
         Self {
             limits,
             org_services: HashMap::new(),
@@ -84,6 +96,7 @@ impl ApmCardinalityLimiter {
     }
 
     pub fn admit(&mut self, fact: &mut ApmSpanFact) -> CardinalityDecision {
+        let limits = *self.limits.read();
         let hour_at = fact.event_time.0.div_euclid(HOUR_MICROS) * HOUR_MICROS;
         self.prune(hour_at);
 
@@ -94,11 +107,7 @@ impl ApmCardinalityLimiter {
 
         let services = self.org_services.entry(org_key).or_default();
 
-        if !admit_value(
-            services,
-            fact.service.clone(),
-            self.limits.services_per_org_hour,
-        ) {
+        if !admit_value(services, fact.service.clone(), limits.services_per_org_hour) {
             return CardinalityDecision {
                 accepted: false,
                 reasons: vec![CardinalityReason::ServiceRejected],
@@ -120,29 +129,40 @@ impl ApmCardinalityLimiter {
             && !admit_value(
                 &mut window.transactions,
                 transaction.clone(),
-                self.limits.transactions_per_service_hour,
+                limits.transactions_per_service_hour,
             )
         {
             *transaction = TransactionIdentity::other();
             reasons.push(CardinalityReason::TransactionOverflow);
         }
 
-        if let Some(dependency) = fact.dependency.as_mut()
-            && !admit_value(
+        if let Some(dependency) = fact.dependency.as_mut() {
+            let target = (dependency.category, dependency.target.clone());
+
+            if !admit_value(
                 &mut window.dependencies,
-                dependency.clone(),
-                self.limits.dependencies_per_service_hour,
-            )
-        {
-            *dependency = DependencyIdentity::other(dependency.category);
-            reasons.push(CardinalityReason::DependencyOverflow);
+                target.clone(),
+                limits.dependencies_per_service_hour,
+            ) {
+                *dependency = DependencyIdentity::other(dependency.category);
+                reasons.push(CardinalityReason::DependencyOverflow);
+            } else if let Some(operation) = dependency.operation.as_mut()
+                && !admit_value(
+                    window.operations.entry(target).or_default(),
+                    operation.clone(),
+                    limits.operations_per_dependency_hour,
+                )
+            {
+                *operation = OTHER_DIMENSION.to_owned();
+                reasons.push(CardinalityReason::OperationOverflow);
+            }
         }
 
         if let Some(error) = fact.error.as_mut()
             && !admit_value(
                 &mut window.errors,
                 error.clone(),
-                self.limits.error_groups_per_service_hour,
+                limits.error_groups_per_service_hour,
             )
         {
             *error = overflow_error(&fact.org_id, &fact.service);
@@ -153,22 +173,35 @@ impl ApmCardinalityLimiter {
             && !admit_value(
                 &mut window.versions,
                 version.clone(),
-                self.limits.versions_per_service_hour,
+                limits.versions_per_service_hour,
             )
         {
             fact.service_version = None;
             reasons.push(CardinalityReason::VersionSuppressed);
         }
 
+        // Past the limit an instance is counted in the overflow row, so the
+        // instances still add up to the service.
         if let Some(instance) = fact.service_instance_id.as_ref()
             && !admit_value(
                 &mut window.instances,
                 instance.clone(),
-                self.limits.instances_per_service_hour,
+                limits.instances_per_service_hour,
             )
         {
-            fact.service_instance_id = None;
+            fact.service_instance_id = Some(OTHER_DIMENSION.to_owned());
             reasons.push(CardinalityReason::InstanceSuppressed);
+        }
+
+        // A look at an instance told apart by its pod or host counts against the same limit.
+        if let Some(sighting) = fact.instance.as_ref()
+            && !admit_value(
+                &mut window.instances,
+                sighting.instance_id.clone(),
+                limits.instances_per_service_hour,
+            )
+        {
+            fact.instance = None;
         }
 
         CardinalityDecision {
@@ -207,7 +240,7 @@ fn overflow_error(org_id: &Id, service: &ServiceIdentity) -> ErrorIdentity {
 
     ErrorIdentity {
         fingerprint: blake3::hash(seed.as_bytes()).to_hex()[..32].to_owned(),
-        error_type: crate::domain::apm::OTHER_DIMENSION.to_owned(),
+        error_type: OTHER_DIMENSION.to_owned(),
         application_frame: None,
         transaction_name: None,
         overflow: true,
@@ -237,7 +270,7 @@ mod tests {
             span_id: "span".into(),
             parent_span_id: None,
             event_time: TimestampMicros(1),
-            duration_micros: 10,
+            duration: 10,
             span_kind: ApmSpanKind::Server,
             outcome: ApmOutcome::Success,
             transaction: Some(TransactionIdentity {
@@ -251,18 +284,23 @@ mod tests {
             }),
             error: None,
             exception: None,
+            response_status: None,
+            timed_out: false,
+            retried: false,
+            instance: None,
         }
     }
 
-    fn limits() -> ApmCardinalitySettings {
-        ApmCardinalitySettings {
+    fn limits() -> ApmLimitsHandle {
+        Arc::new(RwLock::new(ApmLimits {
             services_per_org_hour: 1,
             transactions_per_service_hour: 1,
             dependencies_per_service_hour: 1,
+            operations_per_dependency_hour: 32,
             error_groups_per_service_hour: 1,
             versions_per_service_hour: 1,
             instances_per_service_hour: 1,
-        }
+        }))
     }
 
     #[test]
@@ -295,7 +333,33 @@ mod tests {
             crate::domain::apm::OTHER_DIMENSION
         );
         assert!(overflow.service_version.is_none());
-        assert!(overflow.service_instance_id.is_none());
+        assert_eq!(
+            overflow.service_instance_id.as_deref(),
+            Some(crate::domain::apm::OTHER_DIMENSION)
+        );
+    }
+
+    #[test]
+    fn a_target_keeps_its_name_past_its_operation_limit() {
+        let mut limiter = ApmCardinalityLimiter::new(limits());
+        let with_operation = |operation: &str| {
+            let mut value = fact("a");
+            value.dependency.as_mut().unwrap().operation = Some(operation.into());
+            value
+        };
+
+        for index in 0..32 {
+            let mut admitted = with_operation(&format!("SELECT {index}"));
+            assert!(limiter.admit(&mut admitted).reasons.is_empty());
+        }
+
+        let mut past = with_operation("SELECT past");
+        let decision = limiter.admit(&mut past);
+        let dependency = past.dependency.unwrap();
+
+        assert_eq!(decision.reasons, vec![CardinalityReason::OperationOverflow]);
+        assert_eq!(dependency.target, "one");
+        assert_eq!(dependency.operation.as_deref(), Some(OTHER_DIMENSION));
     }
 
     #[test]

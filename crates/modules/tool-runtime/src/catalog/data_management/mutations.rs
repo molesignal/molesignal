@@ -3,7 +3,7 @@
 
 use serde_json::{Value, json};
 
-use super::super::{BuiltinToolKind, open_output};
+use super::super::{BuiltinToolKind, open_output, timestamp_schema};
 use crate::{RiskLevel, ToolSpec};
 
 pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
@@ -22,7 +22,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::UpdateSavedView => (
             "Replace one saved SQL or PromQL view.",
             "saved_views",
-            saved_view_schema(Some("view_id")),
+            saved_view_schema(Some("viewId")),
             "saved_views.edit",
             &["Search", "Saved views", "CRUD", "Update"][..],
             RiskLevel::L2,
@@ -32,7 +32,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::DeleteSavedView => (
             "Delete one saved query view.",
             "saved_views",
-            proposal_id_schema("view_id"),
+            proposal_id_schema("viewId"),
             "saved_views.delete",
             &["Search", "Saved views", "CRUD", "Delete"][..],
             RiskLevel::L3,
@@ -52,7 +52,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::UpdateFunction => (
             "Replace one organization processing function after compilation precheck.",
             "functions",
-            function_schema(Some("function_id")),
+            function_schema(Some("functionId")),
             "functions.edit",
             &["Functions", "CRUD", "Update"][..],
             RiskLevel::L2,
@@ -62,7 +62,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::DeleteFunction => (
             "Delete one organization processing function.",
             "functions",
-            proposal_id_schema("function_id"),
+            proposal_id_schema("functionId"),
             "functions.delete",
             &["Functions", "CRUD", "Delete"][..],
             RiskLevel::L3,
@@ -86,13 +86,13 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
 }
 
 fn saved_view_schema(id_field: Option<&str>) -> Value {
-    let mut required = vec!["name", "language", "statement", "time_range_secs"];
+    let mut required = vec!["name", "language", "statement", "timeRangeSecs"];
 
     let mut properties = json!({
         "name": {"type": "string", "minLength": 1, "maxLength": 255},
         "language": {"type": "string", "enum": ["sql", "promql"]},
         "statement": {"type": "string", "minLength": 1},
-        "time_range_secs": {"type": "integer", "minimum": 1, "maximum": 31622400},
+        "timeRangeSecs": {"type": "integer", "minimum": 1, "maximum": 31622400},
         "stream": {"type": ["string", "null"], "maxLength": 255},
         "tags": {"type": "array", "items": {"type": "string"}},
         "pinned": {"type": "boolean", "default": false}
@@ -117,7 +117,7 @@ fn function_schema(id_field: Option<&str>) -> Value {
         "name": {"type": "string", "minLength": 1},
         "language": {"type": "string", "enum": ["vrl", "js", "llm"]},
         "source": {"type": "string"},
-        "params_schema": {"type": "object"}
+        "paramsSchema": {"type": "object"}
     });
 
     if let Some(field) = id_field {
@@ -146,7 +146,7 @@ fn proposal_schema(required: &[&str], properties: Value) -> Value {
         json!({
             "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
             "impact": {"type": "string", "minLength": 1, "maxLength": 2000},
-            "expires_at_micros": {"type": "integer"}
+            "expiresAt": timestamp_schema()
         })
         .as_object()
         .cloned()

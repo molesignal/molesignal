@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { useActionAccess } from '@/product/actionAccess';
+import { TokenScopeLabel } from '@/routes/iam/ApiTokens/scope';
 import { IconButton } from '@/shell/chrome';
 import { CopyField } from '@/shell/CopyField';
 import { DisabledControl } from '@/shell/DisabledControl';
@@ -17,19 +18,19 @@ import type { IntakeContext } from '../intakeContext';
  * may do, where and until when on the line under it.
  */
 export function TokenField({ context }: { context: IntakeContext }) {
-  const { t, i18n } = useTranslation('onboarding');
-  const tokenManageAccess = useActionAccess({ permission: 'api_tokens.manage' });
+  const { t } = useTranslation('onboarding');
+  // An application's RUM token is managed with the organization's tokens; the
+  // default intake token is the signed-in user's own.
+  const tokenManageAccess = useActionAccess({
+    permission: context.isRum ? 'api_tokens.issue' : 'personal_tokens.manage',
+  });
+  const manageTokensPath = context.isRum ? '/iam/api-tokens' : '/account/settings/api-tokens';
   const [revealed, setRevealed] = React.useState(false);
-  const expiry = context.tokenExpiresAtMicros
-    ? new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(
-        new Date(context.tokenExpiresAtMicros / 1000),
-      )
-    : t('datasource_page.token_never_expires');
   const revealLabel = revealed
     ? t('datasource_page.hide_token')
     : t('datasource_page.show_token');
 
-  // An app-bound token cannot be issued before the application is named.
+  // An app-bound token cannot be issued before the application is chosen.
   if (context.isRum && !context.applicationValid) {
     return (
       <p className="m-0 flex min-h-9 items-center font-sans text-sm leading-relaxed text-tx-3">
@@ -89,9 +90,21 @@ export function TokenField({ context }: { context: IntakeContext }) {
               : maskToken(context.token)}
       </CopyField>
       <div className="mt-[6px] flex min-w-0 flex-wrap items-center gap-x-[14px] gap-y-1 font-sans text-xs text-tx-3">
-        <TokenFact label={t('datasource_page.token_permission')} value={context.tokenRole} />
+        <TokenFact
+          label={t('datasource_page.token_permission')}
+          value={
+            context.tokenScope ? (
+              <TokenScopeLabel token={context.tokenScope} />
+            ) : (
+              '—'
+            )
+          }
+        />
         <TokenFact label={t('datasource_page.token_workspace')} value={context.orgLabel} />
-        <TokenFact label={t('datasource_page.token_expiry')} value={expiry} />
+        <TokenFact
+          label={t('datasource_page.token_expiry')}
+          value={t('datasource_page.token_never_expires')}
+        />
         <DisabledControl disabled={tokenManageAccess.disabled} reason={tokenManageAccess.reason}>
           {tokenManageAccess.disabled ? (
             <span aria-disabled className="ml-auto cursor-not-allowed font-strong text-tx-3">
@@ -99,7 +112,7 @@ export function TokenField({ context }: { context: IntakeContext }) {
             </span>
           ) : (
             <Link
-              to="/iam/api-tokens"
+              to={manageTokensPath}
               className="ml-auto rounded font-strong text-indigo-soft outline-none hover:underline focus-visible:underline"
             >
               {t('datasource_page.manage_tokens')}
@@ -111,7 +124,7 @@ export function TokenField({ context }: { context: IntakeContext }) {
   );
 }
 
-function TokenFact({ label, value }: { label: string; value: string }) {
+function TokenFact({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <span className="min-w-0 truncate">
       {label} <span className="font-strong text-tx-2">{value}</span>

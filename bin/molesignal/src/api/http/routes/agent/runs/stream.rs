@@ -167,9 +167,9 @@ async fn finish(state: &AppState, run: &Run, seq: i64, tx: &Sender<Frame>) {
         kind: RunEventKind::Done,
         payload: json!({
             "status": run.status.as_str(),
-            "message_id": run.assistant_message_id.as_ref().map(|id| id.0.clone()),
-            "prompt_tokens": run.prompt_tokens,
-            "completion_tokens": run.completion_tokens,
+            "messageId": run.assistant_message_id.as_ref().map(|id| id.0.clone()),
+            "promptTokens": run.prompt_tokens,
+            "completionTokens": run.completion_tokens,
             "cost": run.cost,
             "error": run.error,
         }),

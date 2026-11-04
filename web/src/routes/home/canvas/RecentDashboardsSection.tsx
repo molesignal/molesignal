@@ -39,7 +39,7 @@ export function RecentDashboardsSection({
   const { t, i18n } = useTranslation('onboarding');
   const orderedDashboards = [...dashboards].sort(
     (a, b) =>
-      (b.updated_at || b.created_at) - (a.updated_at || a.created_at),
+      (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt),
   );
   const recentDashboards = orderedDashboards
     .filter((dashboard) => dashboardPanelCount(dashboard) > 0)
@@ -110,7 +110,7 @@ export function RecentDashboardsSection({
           {recentDashboards.map((dashboard) => {
             const panelCount = dashboardPanelCount(dashboard);
             const updated = formatRelativeMicros(
-              dashboard.updated_at || dashboard.created_at,
+              dashboard.updatedAt || dashboard.createdAt,
               i18n.resolvedLanguage ?? i18n.language,
             );
 

@@ -21,7 +21,6 @@ import {
   DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shell/ui/dropdown-menu';
 
@@ -56,7 +55,7 @@ export function HomeToolbar({
   const { t, i18n } = useTranslation('onboarding');
   const nav = useNavigate();
   const dashboardCreateAccess = useActionAccess({ permission: 'dashboards.create' });
-  const alertCreateAccess = useActionAccess({ permission: 'alerts.manage' });
+  const alertCreateAccess = useActionAccess({ permission: 'alerts.rules.manage' });
   const streamCreateAccess = useActionAccess({ permission: 'streams.create' });
   const pipelineCreateAccess = useActionAccess({ permission: 'pipelines.create' });
   const functionCreateAccess = useActionAccess({ permission: 'functions.create' });
@@ -137,7 +136,6 @@ export function HomeToolbar({
             <Database className="h-4 w-4 text-tx-2" />
             {t('home.toolbar.new_stream')}
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
           <DropdownMenuItem
             disabled={pipelineCreateAccess.disabled}
             disabledReason={pipelineCreateAccess.reason}

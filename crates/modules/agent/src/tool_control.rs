@@ -32,6 +32,7 @@ pub enum ManagedToolStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolPolicy {
     pub org_id: Id,
     pub tool_name: String,
@@ -48,6 +49,7 @@ pub struct ToolPolicy {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolPolicyDefaults {
     pub org_id: Id,
     /// `l0` ... `l4` → [`ToolExecutionMode`]。
@@ -94,6 +96,7 @@ pub struct MemberCredentialSpec {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct McpServer {
     pub id: Id,
     pub org_id: Id,
@@ -173,6 +176,7 @@ pub struct McpServerRuntime {
 
 /// 一个成员给一台服务器存的凭据，只有末四位。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MemberCredential {
     pub server_id: Id,
     pub user_id: Id,
@@ -181,6 +185,7 @@ pub struct MemberCredential {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct McpTool {
     pub id: Id,
     pub org_id: Id,

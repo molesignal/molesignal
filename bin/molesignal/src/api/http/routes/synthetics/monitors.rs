@@ -11,7 +11,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     api::{AppState, http::routes::activity_audit},
-    app::{iam::IamContext, synthetics::CreateMonitorInput},
+    app::{
+        iam::IamContext,
+        synthetics::{CreateMonitorInput, MissingRuns},
+    },
     domain::{
         iam::permission,
         synthetics::{
@@ -25,38 +28,42 @@ use crate::{
 pub(super) fn routes() -> Router<AppState> {
     Router::new()
         .route("/synthetics/monitors", get(list).post(create))
-        .route("/synthetics/monitors/{monitor_id}", get(get_one))
+        .route("/synthetics/monitors/{monitorId}", get(get_one))
         .route(
-            "/synthetics/monitors/{monitor_id}/revisions",
+            "/synthetics/monitors/{monitorId}/revisions",
             post(create_revision),
         )
         .route(
-            "/synthetics/monitors/{monitor_id}/revisions/{revision_id}/test",
+            "/synthetics/monitors/{monitorId}/revisions/{revisionId}/test",
             post(test_revision),
         )
         .route(
-            "/synthetics/monitors/{monitor_id}/revisions/{revision_id}/publish",
+            "/synthetics/monitors/{monitorId}/revisions/{revisionId}/publish",
             post(publish_revision),
         )
-        .route("/synthetics/monitors/{monitor_id}/run", post(run_monitor))
-        .route("/synthetics/monitors/{monitor_id}/pause", post(pause))
-        .route("/synthetics/monitors/{monitor_id}/resume", post(resume))
-        .route("/synthetics/monitors/{monitor_id}/archive", post(archive))
+        .route("/synthetics/monitors/{monitorId}/run", post(run_monitor))
+        .route("/synthetics/monitors/{monitorId}/pause", post(pause))
+        .route("/synthetics/monitors/{monitorId}/resume", post(resume))
+        .route("/synthetics/monitors/{monitorId}/archive", post(archive))
         .route(
-            "/synthetics/monitors/{monitor_id}/results",
+            "/synthetics/monitors/{monitorId}/results",
             get(list_results),
         )
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct MonitorDetail {
     monitor: SyntheticMonitor,
     revisions: Vec<MonitorRevision>,
+    /// Where the published revision is missing runs.
+    missing_runs: MissingRuns,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ResultListQuery {
-    before_micros: Option<i64>,
+    before_time: Option<i64>,
     #[serde(default = "default_result_limit")]
     limit: u32,
 }
@@ -65,7 +72,7 @@ const fn default_result_limit() -> u32 {
     100
 }
 
-#[permission("synthetics.read")]
+#[permission("synthetics.monitors.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -73,7 +80,7 @@ async fn list(
     Ok(Json(state.synthetics.list_monitors(&context.org_id).await?))
 }
 
-#[permission("synthetics.read")]
+#[permission("synthetics.monitors.read")]
 async fn get_one(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -91,10 +98,19 @@ async fn get_one(
         .list_revisions(&context.org_id, &monitor_id)
         .await?;
 
-    Ok(Json(MonitorDetail { monitor, revisions }))
+    let missing_runs = state
+        .synthetics
+        .missing_runs(&context.org_id, &monitor_id)
+        .await?;
+
+    Ok(Json(MonitorDetail {
+        monitor,
+        revisions,
+        missing_runs,
+    }))
 }
 
-#[permission("synthetics.manage")]
+#[permission("synthetics.monitors.manage")]
 async fn create(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -109,7 +125,7 @@ async fn create(
     Ok((StatusCode::CREATED, Json(created)))
 }
 
-#[permission("synthetics.manage")]
+#[permission("synthetics.monitors.manage")]
 async fn create_revision(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -140,7 +156,7 @@ async fn create_revision(
     Ok((StatusCode::CREATED, Json(revision)))
 }
 
-#[permission("synthetics.manage")]
+#[permission("synthetics.monitors.manage")]
 async fn test_revision(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -154,7 +170,7 @@ async fn test_revision(
     Ok((StatusCode::ACCEPTED, Json(tasks)))
 }
 
-#[permission("synthetics.manage")]
+#[permission("synthetics.monitors.manage")]
 async fn publish_revision(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -177,7 +193,7 @@ async fn publish_revision(
     Ok(Json(published))
 }
 
-#[permission("synthetics.manage")]
+#[permission("synthetics.monitors.run")]
 async fn run_monitor(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -191,7 +207,7 @@ async fn run_monitor(
     Ok((StatusCode::ACCEPTED, Json(tasks)))
 }
 
-#[permission("synthetics.manage")]
+#[permission("synthetics.monitors.manage")]
 async fn pause(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -200,7 +216,7 @@ async fn pause(
     lifecycle(&state, &context, Id(monitor_id), MonitorLifecycle::Paused).await
 }
 
-#[permission("synthetics.manage")]
+#[permission("synthetics.monitors.manage")]
 async fn resume(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -209,7 +225,7 @@ async fn resume(
     lifecycle(&state, &context, Id(monitor_id), MonitorLifecycle::Active).await
 }
 
-#[permission("synthetics.manage")]
+#[permission("synthetics.monitors.archive")]
 async fn archive(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -218,7 +234,7 @@ async fn archive(
     lifecycle(&state, &context, Id(monitor_id), MonitorLifecycle::Archived).await
 }
 
-#[permission("synthetics.read")]
+#[permission("synthetics.results.read")]
 async fn list_results(
     State(state): State<AppState>,
     Extension(context): Extension<IamContext>,
@@ -231,7 +247,7 @@ async fn list_results(
             .list_results(
                 &context.org_id,
                 &Id(monitor_id),
-                query.before_micros.map(TimestampMicros),
+                query.before_time.map(TimestampMicros),
                 query.limit,
             )
             .await?,
@@ -269,8 +285,8 @@ async fn audit(
         serde_json::json!({
             "kind": monitor.kind,
             "lifecycle": monitor.lifecycle,
-            "revision_id": revision.map(|value| value.id.as_str()),
-            "revision_number": revision.map(|value| value.number),
+            "revisionId": revision.map(|value| value.id.as_str()),
+            "revisionNumber": revision.map(|value| value.number),
         }),
     )
     .await;

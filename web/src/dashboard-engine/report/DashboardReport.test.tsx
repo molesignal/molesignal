@@ -43,14 +43,14 @@ const root = document.documentElement;
 function stored(definition: DashboardDefinition): Dashboard {
   return {
     id: 'd1',
-    org_id: 'org-1',
+    orgId: 'org-1',
     uid: definition.uid,
     title: definition.title,
     tags: [],
     model: dashboardDefinitionToModel(definition),
     version: 1,
-    created_at: 0,
-    updated_at: 0,
+    createdAt: 0,
+    updatedAt: 0,
   };
 }
 
@@ -137,7 +137,7 @@ function frame(): DataFrame {
   };
 }
 
-function renderReport(url = '/dashboards/d1?report_render=1') {
+function renderReport(url = '/dashboards/d1?reportRender=1') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
@@ -167,8 +167,7 @@ function facts(): Record<string, string> {
 
 beforeEach(() => {
   useAuthStore.setState({
-    token: 'token',
-    ctx: { user_id: 'user-1', org_id: 'org-1', display_role: 'Owner', roles: [] },
+    ctx: { userId: 'user-1', orgId: 'org-1', displayRole: 'Owner', roles: [] },
   });
   setActiveTimePreference('Asia/Shanghai', 'iso_24h');
   mocks.get.mockResolvedValue(stored(definition()));
@@ -182,7 +181,7 @@ afterEach(() => {
   mocks.executePanelQuery.mockReset();
   setActiveTimePreference('', 'iso_24h');
   useTimeStore.setState({ window: DEFAULT_WINDOW });
-  useAuthStore.setState({ token: null, ctx: null });
+  useAuthStore.setState({ ctx: null });
 });
 
 describe('DashboardReport', () => {

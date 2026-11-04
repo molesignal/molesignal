@@ -11,6 +11,8 @@
 //! MS_RUN_IT=1 cargo test -p molesignal --test infra_it_persistence -- --nocapture
 //! ```
 
+mod common;
+
 use molesignal::{
     config::MetaDatabaseSettings,
     domain::iam::{Organization, OrganizationRepository, User, UserRepository},
@@ -20,8 +22,6 @@ use molesignal::{
     },
     shared::{ids::Id, time::TimestampMicros},
 };
-use testcontainers::runners::AsyncRunner;
-use testcontainers_modules::postgres::Postgres as PgImage;
 
 fn skip_unless_enabled() -> bool {
     std::env::var("MS_RUN_IT").ok().as_deref() != Some("1")
@@ -34,10 +34,7 @@ async fn custom_migration_table_and_repository_roundtrip() {
         return;
     }
 
-    let pg = PgImage::default().start().await.expect("start pg");
-    let port = pg.get_host_port_ipv4(5432).await.expect("pg port");
-    let host = pg.get_host().await.expect("pg host");
-    let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+    let (dsn, _pg) = common::test_database().await;
 
     let store = MetaStore::connect(&MetaDatabaseSettings {
         dsn,
@@ -48,7 +45,7 @@ async fn custom_migration_table_and_repository_roundtrip() {
     .expect("connect + migrate with custom tracking table");
 
     let migration_table: Option<String> =
-        sqlx::query_scalar("SELECT to_regclass('_molesignal_schema_meta')::TEXT")
+        sqlx::query_scalar("SELECT to_regclass('_molesignal_schema')::TEXT")
             .fetch_one(&store.pool)
             .await
             .expect("resolve custom migration tracking table");
@@ -57,11 +54,11 @@ async fn custom_migration_table_and_repository_roundtrip() {
             .fetch_one(&store.pool)
             .await
             .expect("resolve legacy migration tracking table");
-    let migration_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM _molesignal_schema_meta")
+    let migration_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM _molesignal_schema")
         .fetch_one(&store.pool)
         .await
         .expect("count migration records");
-    assert_eq!(migration_table.as_deref(), Some("_molesignal_schema_meta"));
+    assert_eq!(migration_table.as_deref(), Some("_molesignal_schema"));
     assert_eq!(legacy_migration_table, None);
     assert_eq!(migration_count, 3);
 
@@ -137,6 +134,7 @@ async fn custom_migration_table_and_repository_roundtrip() {
             disabled: false,
             status: molesignal::domain::iam::UserStatus::Active,
             created_at: TimestampMicros::now(),
+            sessions_valid_after: TimestampMicros(0),
         })
         .await
         .expect("create user");

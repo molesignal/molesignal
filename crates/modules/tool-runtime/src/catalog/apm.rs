@@ -8,7 +8,7 @@ use crate::ToolSpec;
 
 pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
     let common = json!({
-        "time_range": time_range_schema(), "namespace": {"type": "string"},
+        "timeRange": time_range_schema(), "namespace": {"type": "string"},
         "environment": {"type": "string"}, "version": {"type": "string"}
     });
 
@@ -20,7 +20,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         ),
         BuiltinToolKind::ListApmServices => {
             let mut fields = common.clone();
-            fields["sort"] = json!({"type": "string", "enum": ["request_count", "error_rate", "p95_micros", "name"]});
+            fields["sort"] = json!({"type": "string", "enum": ["request_count", "error_rate", "p95_time", "name"]});
             fields["limit"] =
                 json!({"type": "integer", "minimum": 1, "maximum": 100, "default": 25});
 
@@ -93,20 +93,40 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         BuiltinToolKind::CompareApmVersions => {
             let mut fields = common.clone();
             fields["service"] = json!({"type": "string"});
-            fields["baseline_version"] = json!({"type": "string"});
-            fields["candidate_version"] = json!({"type": "string"});
+            fields["baselineVersion"] = json!({"type": "string"});
+            fields["candidateVersion"] = json!({"type": "string"});
 
             (
                 "Compare RED metrics and regressions between two service versions.",
-                json!({"type": "object", "required": ["service", "baseline_version", "candidate_version"], "properties": fields, "additionalProperties": false}),
+                json!({"type": "object", "required": ["service", "baselineVersion", "candidateVersion"], "properties": fields, "additionalProperties": false}),
                 vec!["APM", "Versions"],
             )
         }
         BuiltinToolKind::GetApmHealth => (
             "Return APM projection freshness, coverage, and data-quality health.",
-            object_schema(common),
+            object_schema(common.clone()),
             vec!["APM", "Health"],
         ),
+        BuiltinToolKind::GetApmInsights => {
+            let mut fields = common.clone();
+            fields["service"] = json!({"type": "string"});
+
+            (
+                "Return what APM finds worth a look for the services in view, or one service: errors, latency or traffic that moved against the stretch before and the same stretch a week before, with when it began and the deployments, configuration changes and feature flags near then; versions that regressed; and where time could be won back (a dependency taking most of the time, calls repeated many times a request, slow SQL, the hottest endpoint).",
+                object_schema(fields),
+                vec!["APM", "Insights"],
+            )
+        }
+        BuiltinToolKind::GetApmBlastRadius => {
+            let mut fields = common;
+            fields["service"] = json!({"type": "string"});
+
+            (
+                "Return what a service reaches along the service map: the services that call it, up to three hops, which its trouble reaches; and what it calls or publishes to, up to two hops, the unhealthy first, where its trouble may come from.",
+                json!({"type": "object", "required": ["service"], "properties": fields, "additionalProperties": false}),
+                vec!["APM", "Service map"],
+            )
+        }
         _ => unreachable!("APM catalog received unrelated kind"),
     };
 
@@ -117,7 +137,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         "apm",
         input,
         open_output(),
-        &["streams.query", "sys.telemetry.read"],
+        &["apm.services.read", "sys.telemetry.read"],
         &tags,
     )
     .any_permission()

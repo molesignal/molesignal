@@ -2,37 +2,38 @@ import { readFile } from 'node:fs/promises';
 
 import { expect, test } from '@playwright/test';
 
+import { explorerRead } from '../fixtures/explorerReads';
 import { installMockShellSession } from '../fixtures/mockSession';
 
 const LOG_STREAM = {
   id: 'application-logs',
   name: 'application_logs',
-  stream_type: 'logs',
+  streamType: 'logs',
   schema: {
     fields: [
-      { name: '_timestamp', data_type: 'timestamp', nullable: false, indexed: true },
-      { name: 'level', data_type: 'utf8', nullable: true, indexed: true },
-      { name: 'service.name', data_type: 'utf8', nullable: true, indexed: true },
-      { name: 'message', data_type: 'utf8', nullable: true, indexed: false },
-      { name: 'trace_id', data_type: 'utf8', nullable: true, indexed: true },
+      { name: '_timestamp', dataType: 'timestamp', nullable: false, indexed: true },
+      { name: 'level', dataType: 'utf8', nullable: true, indexed: true },
+      { name: 'service.name', dataType: 'utf8', nullable: true, indexed: true },
+      { name: 'message', dataType: 'utf8', nullable: true, indexed: false },
+      { name: 'trace_id', dataType: 'utf8', nullable: true, indexed: true },
     ],
   },
   retention: { days: 7 },
-  effective_retention: { days: 7 },
+  effectiveRetention: { days: 7 },
   settings: {
     description: null,
-    index_rules: [],
-    retention_filter: null,
-    keep_conditions: [],
-    max_query_range_hours: null,
-    flatten_level: null,
-    use_stream_stats_for_partitioning: false,
-    store_original_data: false,
-    enable_distinct_values: true,
+    indexRules: [],
+    retentionFilter: null,
+    keepConditions: [],
+    maxQueryRangeHours: null,
+    flattenLevel: null,
+    useStreamStatsForPartitioning: false,
+    storeOriginalData: false,
+    enableDistinctValues: true,
     queryable: true,
   },
-  created_at_micros: 1,
-  updated_at_micros: 1,
+  createdAt: 1,
+  updatedAt: 1,
 };
 
 const LOG_MESSAGE = 'message follows the configured order and keeps going long enough to verify capped column widths';
@@ -42,7 +43,7 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/v1/streams**', (route) =>
     route.fulfill({ json: [LOG_STREAM] }),
   );
-  await page.route('**/api/v1/web/logs', (route) =>
+  await page.route(explorerRead('web/logs'), (route) =>
     route.fulfill({
       json: {
         items: [
@@ -54,9 +55,9 @@ test.beforeEach(async ({ page }) => {
             trace_id: 'trace-1',
           },
         ],
-        next_cursor: null,
-        previous_cursor: null,
-        has_more: false,
+        nextCursor: null,
+        previousCursor: null,
+        hasMore: false,
       },
     }),
   );
@@ -83,8 +84,9 @@ test('dragged field order drives result columns', async ({ page }) => {
     'trace_id',
   ]);
   const logsRow = page.locator('[data-log-result-row="logs"]').first();
-  await expect(logsRow.locator(':scope > *').nth(1)).toHaveText(LOG_MESSAGE);
-  await expect(logsRow.locator(':scope > *').nth(2)).toHaveText('INFO');
+  // The cells in their order, the level's edge down the row aside.
+  await expect(logsRow.locator('[data-log-field]').nth(1)).toHaveText(LOG_MESSAGE);
+  await expect(logsRow.locator('[data-log-field]').nth(2)).toHaveText('INFO');
 });
 
 test('restores a hidden log column to its original position', async ({ page }) => {
@@ -184,13 +186,14 @@ test('result actions share the event summary row and download CSV or LOG text', 
   const actions = summary.locator('[data-log-result-actions]');
   const actionButtons = actions.getByRole('button');
   // Rows are one height and the field list folds from its own head: neither has a control here.
-  // All three are signs without a word; each is named by what it does.
-  await expect(actionButtons).toHaveText(['', '', '']);
-  await expect(actionButtons.nth(0)).toHaveAccessibleName('Columns');
-  await expect(actionButtons.nth(1)).toHaveAccessibleName('Hide histogram');
-  await expect(actionButtons.nth(2)).toHaveAccessibleName('Download logs');
+  // All four are signs without a word; each is named by what it does.
+  await expect(actionButtons).toHaveText(['', '', '', '']);
+  await expect(actionButtons.nth(0)).toHaveAccessibleName('Split in two');
+  await expect(actionButtons.nth(1)).toHaveAccessibleName('Columns');
+  await expect(actionButtons.nth(2)).toHaveAccessibleName('Hide histogram');
+  await expect(actionButtons.nth(3)).toHaveAccessibleName('Download logs');
 
-  await actionButtons.nth(2).click();
+  await actionButtons.nth(3).click();
   const csvDownloadPromise = page.waitForEvent('download');
   await page.getByRole('menuitem', { name: 'CSV', exact: true }).click();
   const csvDownload = await csvDownloadPromise;
@@ -201,7 +204,7 @@ test('result actions share the event summary row and download CSV or LOG text', 
     '"_timestamp","level","service.name","message","trace_id"',
   );
 
-  await actionButtons.nth(2).click();
+  await actionButtons.nth(3).click();
   const logDownloadPromise = page.waitForEvent('download');
   await page.getByRole('menuitem', { name: 'LOG (text)', exact: true }).click();
   const logDownload = await logDownloadPromise;

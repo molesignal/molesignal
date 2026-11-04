@@ -151,6 +151,14 @@ test.describe('Mole Agent editors', () => {
       );
     await drawer.getByRole('button', { name: 'Save' }).click();
 
+    // An organization prompt for RCAs is checked before it becomes the default; the
+    // organization lets it be set anyway.
+    const promotion = page.getByRole('dialog', {
+      name: 'Set Production root-cause investigation as the default',
+    });
+    await expect(promotion.locator('[data-prompt-gate-reason="prompt_check_required"]')).toBeVisible();
+    await promotion.getByRole('button', { name: 'Set it anyway' }).click();
+
     const customRow = page
       .locator('article')
       .filter({ hasText: 'Production root-cause investigation' });
@@ -167,13 +175,10 @@ test.describe('Mole Agent editors', () => {
     await expect(page.getByText('Verify recovery')).toBeVisible();
 
     await page.goto('/agent/automations');
-    await page.getByRole('button', { name: 'Edit' }).click();
-    await page
-      .getByLabel('Description')
-      .fill('Editable critical-alert investigation workflow');
-    await page.getByRole('button', { name: 'Save' }).click();
-    await expect(
-      page.getByText('Editable critical-alert investigation workflow'),
-    ).toBeVisible();
+    await page.getByRole('button', { name: 'Edit Daily health check' }).click();
+    const drawer = page.getByRole('dialog');
+    await drawer.getByLabel('Description').fill('Checkout services before the stand-up');
+    await drawer.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByText('Checkout services before the stand-up')).toBeVisible();
   });
 });

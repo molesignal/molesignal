@@ -37,7 +37,7 @@ export function LocationDetailDrawer({
   const { t, i18n } = useTranslation('synthetics');
   const nowMicros = Date.now() * 1000;
   const manageable =
-    location && canManage && !location.system_managed && location.lifecycle !== 'archived';
+    location && canManage && !location.systemManaged && location.lifecycle !== 'archived';
 
   return (
     <FormDrawer
@@ -103,9 +103,9 @@ export function LocationDetailDrawer({
                         <div className="mt-[2px] truncate font-sans text-xs text-tx-2">
                           {[
                             agent.hostname,
-                            `v${agent.agent_version}`,
-                            agent.last_heartbeat_at
-                              ? formatRelativeMicros(agent.last_heartbeat_at, i18n.language, nowMicros)
+                            `v${agent.agentVersion}`,
+                            agent.lastHeartbeatAt
+                              ? formatRelativeMicros(agent.lastHeartbeatAt, i18n.language, nowMicros)
                               : undefined,
                           ]
                             .filter(Boolean)
@@ -133,14 +133,14 @@ export function LocationDetailDrawer({
               <div className="min-w-0">
                 <div>
                   {t(
-                    location.egress_policy.allow_private_networks
+                    location.egressPolicy.allowPrivateNetworks
                       ? 'locations.allow_private'
                       : 'locations.public_only',
                   )}
                 </div>
-                {location.egress_policy.allowed_domains.length > 0 && (
+                {location.egressPolicy.allowedDomains.length > 0 && (
                   <div className="mt-[4px] break-all font-code text-xs text-tx-2">
-                    {location.egress_policy.allowed_domains.join(', ')}
+                    {location.egressPolicy.allowedDomains.join(', ')}
                   </div>
                 )}
               </div>

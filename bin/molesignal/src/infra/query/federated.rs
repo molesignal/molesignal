@@ -313,6 +313,11 @@ impl QueryEngine for FederatedDistributedEngine {
     ) -> Result<QueryResult> {
         self.execute_inner(req, fed_id).await
     }
+
+    /// 只规划不执行，用本集群的 schema；联邦查询也不问远端。
+    async fn explain(&self, req: QueryRequest) -> Result<String> {
+        self.inner.explain(req).await
+    }
 }
 
 impl FederatedDistributedEngine {
@@ -338,10 +343,15 @@ impl FederatedDistributedEngine {
 
         let started = std::time::Instant::now();
 
-        let stream = req
+        let mut stream = req
             .stream
             .clone()
             .ok_or_else(|| Error::invalid("federated query requires query.stream hint to scan"))?;
+
+        // 提示写成当前版本视图的名字，说的就是视图所属的流。
+        if let Some(base) = crate::infra::query::current_views::base_stream(&stream.name) {
+            stream.name = base.to_string();
+        }
 
         // final SQL 在本层自建的 SessionContext 上跑，`inner.execute` 的归属 / queryable
         // 校验对这条路径不生效。在本地扫描与远端扇出之前先校验。
@@ -351,6 +361,7 @@ impl FederatedDistributedEngine {
                 &req.org_id,
                 &stream.name,
                 stream.stream_type,
+                req.time_range,
             )
             .await?;
         }
@@ -502,10 +513,20 @@ impl FederatedDistributedEngine {
             ));
         }
 
-        let mem = MemTable::try_new(schema, vec![all_batches])
-            .map_err(|e| Error::internal(format!("federated memtable: {e}")))?;
-        ctx.register_table(TableReference::bare(stream.name.clone()), Arc::new(mem))
+        let mem = Arc::new(
+            MemTable::try_new(schema, vec![all_batches])
+                .map_err(|e| Error::internal(format!("federated memtable: {e}")))?,
+        );
+        ctx.register_table(TableReference::bare(stream.name.clone()), mem.clone())
             .map_err(|e| Error::internal(format!("federated register: {e}")))?;
+
+        // 当前版本视图在聚合后的批次上取最新版本；只有联邦扫描的那条流有数据。
+        for view in crate::infra::query::current_views::mentioned(&req.statement)
+            .into_iter()
+            .filter(|view| view.base() == stream.name)
+        {
+            view.register(&ctx, mem.clone())?;
+        }
 
         // datafusion/sqlparser 原始 error（含内部列名 / schema 细节）只进服务端 log，
         // 对外给泛化提示——与单机 DataFusionEngine 一致，别在联邦路径漏内部细节。

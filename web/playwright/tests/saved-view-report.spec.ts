@@ -15,8 +15,8 @@ const UNBROKEN = `trace-${'9f3c'.repeat(120)}`;
 interface QueryBody {
   language?: string;
   statement?: string;
-  time_range?: { start: number; end: number };
-  stream?: { name: string; stream_type: string };
+  timeRange?: { start: number; end: number };
+  stream?: { name: string; streamType: string };
   limit?: number;
 }
 
@@ -40,8 +40,8 @@ async function answerQueries(page: Page): Promise<QueryBody[]> {
           'ERROR',
           index === 1 ? UNBROKEN : `upstream timed out after ${index + 1}s`,
         ]),
-        scanned_rows: 48_210,
-        took_ms: 31,
+        scannedRows: 48_210,
+        tookMs: 31,
       }),
     });
   });
@@ -59,7 +59,7 @@ test.describe('saved view report', () => {
   test('prints the rows the view returns over the report range, alone on the document', async ({ page }) => {
     const asked = await answerQueries(page);
 
-    await page.goto('/saved-views?view=sv1&report_render=1&time=now-7d..now&report_tz=Asia%2FShanghai');
+    await page.goto('/saved-views?view=sv1&reportRender=1&time=now-7d..now&reportTz=Asia%2FShanghai');
 
     // The renderer waits on this, and prints when it says ready.
     await expect(page.locator('html')).toHaveAttribute('data-report-render-state', 'ready', {
@@ -93,8 +93,8 @@ test.describe('saved view report', () => {
     expect(asked[0]).toMatchObject({
       language: 'sql',
       statement: `SELECT * FROM "app_logs" WHERE level = 'ERROR'`,
-      time_range: { start: NOW_MICROS - 7 * DAY_MICROS, end: NOW_MICROS },
-      stream: { name: 'app_logs', stream_type: 'logs' },
+      timeRange: { start: NOW_MICROS - 7 * DAY_MICROS, end: NOW_MICROS },
+      stream: { name: 'app_logs', streamType: 'logs' },
     });
 
     // None of the application is on the page: no navigation, no top bar, no list to manage.
@@ -160,13 +160,13 @@ test.describe('saved view report', () => {
   test("covers the view's own look-back when the report states no range", async ({ page }) => {
     const asked = await answerQueries(page);
 
-    await page.goto('/saved-views?view=sv1&report_render=1');
+    await page.goto('/saved-views?view=sv1&reportRender=1');
 
     await expect(page.locator('html')).toHaveAttribute('data-report-render-state', 'ready', {
       timeout: 15_000,
     });
     // The mock view looks back 24 hours.
-    expect(asked[0]?.time_range).toEqual({ start: NOW_MICROS - DAY_MICROS, end: NOW_MICROS });
+    expect(asked[0]?.timeRange).toEqual({ start: NOW_MICROS - DAY_MICROS, end: NOW_MICROS });
   });
 
   test('is still the list a person manages without the report parameter', async ({ page }) => {
@@ -180,7 +180,7 @@ test.describe('saved view report', () => {
   });
 
   test('fails the report with the reason instead of printing an error page', async ({ page }) => {
-    await page.goto('/saved-views?view=does-not-exist&report_render=1');
+    await page.goto('/saved-views?view=does-not-exist&reportRender=1');
 
     await expect(page.locator('html')).toHaveAttribute('data-report-render-state', 'error', {
       timeout: 15_000,
@@ -203,7 +203,7 @@ test.describe('saved view report', () => {
       }),
     );
 
-    await page.goto('/saved-views?view=sv1&report_render=1&time=now-24h..now');
+    await page.goto('/saved-views?view=sv1&reportRender=1&time=now-24h..now');
 
     await expect(page.locator('html')).toHaveAttribute('data-report-render-state', 'error', {
       timeout: 15_000,

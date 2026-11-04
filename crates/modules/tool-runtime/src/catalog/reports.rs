@@ -15,23 +15,23 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         ),
         BuiltinToolKind::GetReportTemplate => (
             "Get one report template by id.",
-            json!({"type": "object", "required": ["template_id"], "properties": {"template_id": {"type": "string"}}, "additionalProperties": false}),
+            json!({"type": "object", "required": ["templateId"], "properties": {"templateId": {"type": "string"}}, "additionalProperties": false}),
             vec!["Reports", "Templates"],
         ),
         BuiltinToolKind::ListScheduledReports => (
             "List scheduled reports in the current organization.",
-            object_schema(json!({"enabled_only": {"type": "boolean", "default": false}})),
+            object_schema(json!({"enabledOnly": {"type": "boolean", "default": false}})),
             vec!["Reports", "Schedules"],
         ),
         BuiltinToolKind::GetScheduledReport => (
             "Get one scheduled report by id.",
-            json!({"type": "object", "required": ["report_id"], "properties": {"report_id": {"type": "string"}}, "additionalProperties": false}),
+            json!({"type": "object", "required": ["reportId"], "properties": {"reportId": {"type": "string"}}, "additionalProperties": false}),
             vec!["Reports", "Schedules"],
         ),
         BuiltinToolKind::ListReportDeliveries => (
             "List bounded delivery history for one scheduled report.",
-            json!({"type": "object", "required": ["report_id"], "properties": {
-                "report_id": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}
+            json!({"type": "object", "required": ["reportId"], "properties": {
+                "reportId": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}
             }, "additionalProperties": false}),
             vec!["Reports", "Deliveries"],
         ),

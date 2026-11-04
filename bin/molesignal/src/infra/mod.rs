@@ -10,6 +10,7 @@
 //! - [`search`]        datafusion 查询执行 + tantivy 倒排索引（占位）
 //! - [`segment_wal`]   分段 Write-Ahead-Log，落地到本地磁盘
 //! - [`notify`]        邮件 / Slack / Webhook 通知发送
+//! - [`im`]            Mole Agent 在 IM 里：飞书、Slack、钉钉的长连接与回复
 //! - [`messaging`]     节点间或进程内消息总线
 //! - [`intake_sink`]   `IntakeSink` 的 当前内存实现
 
@@ -19,10 +20,13 @@ pub use ::postgres::cipher;
 pub mod cluster;
 pub mod connectors;
 pub mod enrichment;
+pub mod im;
 pub mod intake;
 pub mod intake_sink;
+pub mod mailbox;
 pub mod masking;
 pub mod messaging;
+pub mod mfa;
 pub mod notify;
 pub use ::postgres as persistence;
 pub mod pipeline;
@@ -34,6 +38,7 @@ pub use ::function_runtime as runtime;
 pub mod search;
 pub mod secret;
 pub mod segment_wal;
+pub mod signin;
 pub mod sso;
 pub mod status_page;
 pub mod storage;

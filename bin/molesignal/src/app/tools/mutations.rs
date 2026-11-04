@@ -27,7 +27,7 @@ pub(super) async fn execute(
 
     let reason = take_required_string(&mut parameters, "reason")?;
     let impact = take_required_string(&mut parameters, "impact")?;
-    let expires_at_micros = parameters.remove("expires_at_micros");
+    let expires_at = parameters.remove("expiresAt");
     let (action, target) = operation_target(kind, &mut parameters)?;
 
     dashboard::execute(
@@ -41,7 +41,7 @@ pub(super) async fn execute(
             "parameters": Value::Object(parameters),
             "reason": reason,
             "impact": impact,
-            "expires_at_micros": expires_at_micros,
+            "expiresAt": expires_at,
         }),
     )
     .await
@@ -52,83 +52,103 @@ fn operation_target(
     parameters: &mut Map<String, Value>,
 ) -> Result<(&'static str, String)> {
     let mapping = match kind {
-        BuiltinToolKind::TriggerAlertRule => ("trigger_alert_rule", Some("rule_id")),
-        BuiltinToolKind::AcknowledgeIncident => ("acknowledge_alert", Some("incident_id")),
-        BuiltinToolKind::ResolveIncident => ("resolve_alert", Some("incident_id")),
+        BuiltinToolKind::TriggerAlertRule => ("trigger_alert_rule", Some("ruleId")),
+        BuiltinToolKind::AcknowledgeIncident => ("acknowledge_alert", Some("incidentId")),
+        BuiltinToolKind::ResolveIncident => ("resolve_alert", Some("incidentId")),
+        BuiltinToolKind::ReassignIncident => ("reassign_alert", Some("incidentId")),
+        BuiltinToolKind::AddIncidentResponders => ("add_alert_responders", Some("incidentId")),
+        BuiltinToolKind::EscalateIncident => ("escalate_alert", Some("incidentId")),
+        BuiltinToolKind::SnoozeIncident => ("snooze_alert", Some("incidentId")),
+        BuiltinToolKind::LiftIncidentInhibition => ("lift_alert_inhibition", Some("incidentId")),
+        BuiltinToolKind::SetIncidentSeverity => ("set_alert_severity", Some("incidentId")),
+        BuiltinToolKind::SetIncidentPriority => ("set_alert_priority", Some("incidentId")),
+        BuiltinToolKind::SetIncidentUrgency => ("set_alert_urgency", Some("incidentId")),
+        BuiltinToolKind::CreateIncident => ("create_incident", None),
+        BuiltinToolKind::MergeIncidents => ("merge_alerts", Some("incidentId")),
+        BuiltinToolKind::AddIncidentNote => ("note_alert", Some("incidentId")),
+        BuiltinToolKind::CreateTicket => ("create_incident_ticket", Some("incidentId")),
+        BuiltinToolKind::RunRemediationAction => ("run_remediation_action", Some("incidentId")),
+        BuiltinToolKind::DeclareMajorIncident => ("declare_major_incident", Some("incidentId")),
+        BuiltinToolKind::AssignIncidentRole => ("assign_incident_role", Some("incidentId")),
+        BuiltinToolKind::PostIncidentUpdate => ("post_incident_update", Some("incidentId")),
+        BuiltinToolKind::AddIncidentTask => ("add_incident_task", Some("incidentId")),
+        BuiltinToolKind::DraftIncidentPostmortem => {
+            ("draft_incident_postmortem", Some("incidentId"))
+        }
         BuiltinToolKind::CreateAlertRule => ("create_alert_rule", None),
-        BuiltinToolKind::UpdateAlertRule => ("update_alert_rule", Some("rule_id")),
-        BuiltinToolKind::DeleteAlertRule => ("delete_alert_rule", Some("rule_id")),
+        BuiltinToolKind::UpdateAlertRule => ("update_alert_rule", Some("ruleId")),
+        BuiltinToolKind::DeleteAlertRule => ("delete_alert_rule", Some("ruleId")),
         BuiltinToolKind::CreateDashboard => ("create_dashboard_model", None),
-        BuiltinToolKind::UpdateDashboard => ("update_dashboard", Some("dashboard_id")),
-        BuiltinToolKind::DeleteDashboard => ("delete_dashboard", Some("dashboard_id")),
+        BuiltinToolKind::UpdateDashboard => ("update_dashboard", Some("dashboardId")),
+        BuiltinToolKind::DeleteDashboard => ("delete_dashboard", Some("dashboardId")),
         BuiltinToolKind::CreateFolder => ("create_folder", None),
-        BuiltinToolKind::UpdateFolder => ("update_folder", Some("folder_id")),
-        BuiltinToolKind::DeleteFolder => ("delete_folder", Some("folder_id")),
+        BuiltinToolKind::UpdateFolder => ("update_folder", Some("folderId")),
+        BuiltinToolKind::DeleteFolder => ("delete_folder", Some("folderId")),
         BuiltinToolKind::CreateAnnotation => ("create_annotation", None),
-        BuiltinToolKind::UpdateAnnotation => ("update_annotation", Some("annotation_id")),
-        BuiltinToolKind::DeleteAnnotation => ("delete_annotation", Some("annotation_id")),
-        BuiltinToolKind::AddDashboardPanel => ("add_dashboard_panel", Some("dashboard_id")),
-        BuiltinToolKind::UpdateDashboardPanel => ("update_dashboard_panel", Some("dashboard_id")),
-        BuiltinToolKind::MoveDashboardPanel => ("move_dashboard_panel", Some("dashboard_id")),
-        BuiltinToolKind::DeleteDashboardPanel => ("delete_dashboard_panel", Some("dashboard_id")),
+        BuiltinToolKind::UpdateAnnotation => ("update_annotation", Some("annotationId")),
+        BuiltinToolKind::DeleteAnnotation => ("delete_annotation", Some("annotationId")),
+        BuiltinToolKind::AddDashboardPanel => ("add_dashboard_panel", Some("dashboardId")),
+        BuiltinToolKind::UpdateDashboardPanel => ("update_dashboard_panel", Some("dashboardId")),
+        BuiltinToolKind::MoveDashboardPanel => ("move_dashboard_panel", Some("dashboardId")),
+        BuiltinToolKind::DeleteDashboardPanel => ("delete_dashboard_panel", Some("dashboardId")),
         BuiltinToolKind::SubmitSearchJob => ("submit_search_job", None),
-        BuiltinToolKind::CancelSearchJob => ("cancel_search_job", Some("job_id")),
-        BuiltinToolKind::RetrySearchJob => ("retry_search_job", Some("job_id")),
-        BuiltinToolKind::DeleteSearchJob => ("delete_search_job", Some("job_id")),
+        BuiltinToolKind::CancelSearchJob => ("cancel_search_job", Some("jobId")),
+        BuiltinToolKind::RetrySearchJob => ("retry_search_job", Some("jobId")),
+        BuiltinToolKind::DeleteSearchJob => ("delete_search_job", Some("jobId")),
         BuiltinToolKind::CreateSavedView => ("create_saved_view", None),
-        BuiltinToolKind::UpdateSavedView => ("update_saved_view", Some("view_id")),
-        BuiltinToolKind::DeleteSavedView => ("delete_saved_view", Some("view_id")),
+        BuiltinToolKind::UpdateSavedView => ("update_saved_view", Some("viewId")),
+        BuiltinToolKind::DeleteSavedView => ("delete_saved_view", Some("viewId")),
         BuiltinToolKind::CreateFunction => ("create_function", None),
-        BuiltinToolKind::UpdateFunction => ("update_function", Some("function_id")),
-        BuiltinToolKind::DeleteFunction => ("delete_function", Some("function_id")),
+        BuiltinToolKind::UpdateFunction => ("update_function", Some("functionId")),
+        BuiltinToolKind::DeleteFunction => ("delete_function", Some("functionId")),
         BuiltinToolKind::EnableScheduledPipeline => {
-            ("enable_scheduled_pipeline", Some("pipeline_id"))
+            ("enable_scheduled_pipeline", Some("pipelineId"))
         }
         BuiltinToolKind::DisableScheduledPipeline => {
-            ("disable_scheduled_pipeline", Some("pipeline_id"))
+            ("disable_scheduled_pipeline", Some("pipelineId"))
         }
         BuiltinToolKind::DeleteScheduledPipeline => {
-            ("delete_scheduled_pipeline", Some("pipeline_id"))
+            ("delete_scheduled_pipeline", Some("pipelineId"))
         }
-        BuiltinToolKind::RunSyntheticMonitor => ("run_synthetic_monitor", Some("monitor_id")),
-        BuiltinToolKind::PauseSyntheticMonitor => ("pause_synthetic_monitor", Some("monitor_id")),
-        BuiltinToolKind::ResumeSyntheticMonitor => ("resume_synthetic_monitor", Some("monitor_id")),
+        BuiltinToolKind::RunSyntheticMonitor => ("run_synthetic_monitor", Some("monitorId")),
+        BuiltinToolKind::PauseSyntheticMonitor => ("pause_synthetic_monitor", Some("monitorId")),
+        BuiltinToolKind::ResumeSyntheticMonitor => ("resume_synthetic_monitor", Some("monitorId")),
         BuiltinToolKind::ArchiveSyntheticMonitor => {
-            ("archive_synthetic_monitor", Some("monitor_id"))
+            ("archive_synthetic_monitor", Some("monitorId"))
         }
-        BuiltinToolKind::ArchiveStatusPage => ("archive_status_page", Some("page_id")),
-        BuiltinToolKind::RestoreStatusPage => ("restore_status_page", Some("page_id")),
+        BuiltinToolKind::ArchiveStatusPage => ("archive_status_page", Some("pageId")),
+        BuiltinToolKind::RestoreStatusPage => ("restore_status_page", Some("pageId")),
         BuiltinToolKind::PauseStatusPageAutomation => {
-            ("pause_status_page_automation", Some("page_id"))
+            ("pause_status_page_automation", Some("pageId"))
         }
         BuiltinToolKind::ResumeStatusPageAutomation => {
-            ("resume_status_page_automation", Some("page_id"))
+            ("resume_status_page_automation", Some("pageId"))
         }
         // The page stays in the parameters: an incident is read through its page.
         BuiltinToolKind::DraftStatusPagePostmortem => {
-            ("draft_status_page_postmortem", Some("event_id"))
+            ("draft_status_page_postmortem", Some("eventId"))
         }
-        BuiltinToolKind::RunLogInspection => ("run_log_inspection", Some("inspection_id")),
+        BuiltinToolKind::RunLogInspection => ("run_log_inspection", Some("inspectionId")),
         BuiltinToolKind::RetryNotificationDelivery => {
-            ("retry_notification_delivery", Some("delivery_id"))
+            ("retry_notification_delivery", Some("deliveryId"))
         }
         BuiltinToolKind::AcknowledgeNotificationDelivery => {
-            ("acknowledge_notification_delivery", Some("delivery_id"))
+            ("acknowledge_notification_delivery", Some("deliveryId"))
         }
         BuiltinToolKind::CreateApiToken => ("create_api_token", None),
-        BuiltinToolKind::RevokeApiToken => ("revoke_api_token", Some("token_id")),
+        BuiltinToolKind::RevokeApiToken => ("revoke_api_token", Some("tokenId")),
         BuiltinToolKind::CreateServiceAccount => ("create_service_account", None),
         BuiltinToolKind::UpdateServiceAccount => {
-            ("update_service_account", Some("service_account_id"))
+            ("update_service_account", Some("serviceAccountId"))
         }
         BuiltinToolKind::EnableServiceAccount => {
-            ("enable_service_account", Some("service_account_id"))
+            ("enable_service_account", Some("serviceAccountId"))
         }
         BuiltinToolKind::DisableServiceAccount => {
-            ("disable_service_account", Some("service_account_id"))
+            ("disable_service_account", Some("serviceAccountId"))
         }
         BuiltinToolKind::DeleteServiceAccount => {
-            ("delete_service_account", Some("service_account_id"))
+            ("delete_service_account", Some("serviceAccountId"))
         }
         _ => unreachable!("mutation handler received unrelated tool"),
     };
@@ -159,22 +179,22 @@ mod tests {
     #[test]
     fn every_managed_mutation_maps_to_a_registered_operation_with_the_same_risk() {
         let target_fields = [
-            "rule_id",
-            "incident_id",
-            "dashboard_id",
-            "folder_id",
-            "annotation_id",
-            "job_id",
-            "view_id",
-            "function_id",
-            "pipeline_id",
-            "monitor_id",
-            "page_id",
-            "delivery_id",
-            "token_id",
-            "service_account_id",
-            "inspection_id",
-            "event_id",
+            "ruleId",
+            "incidentId",
+            "dashboardId",
+            "folderId",
+            "annotationId",
+            "jobId",
+            "viewId",
+            "functionId",
+            "pipelineId",
+            "monitorId",
+            "pageId",
+            "deliveryId",
+            "tokenId",
+            "serviceAccountId",
+            "inspectionId",
+            "eventId",
         ];
         for kind in BuiltinToolKind::ALL
             .iter()

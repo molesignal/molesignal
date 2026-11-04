@@ -25,7 +25,7 @@ export interface IncidentSubject {
     summary: string;
     severity: string;
     status: string;
-    created_at_micros: number;
+    createdAt: number;
   };
   /** The team the incident's escalation policy names, when the person can start a chat for it. */
   team: { id: string; name: string } | null;

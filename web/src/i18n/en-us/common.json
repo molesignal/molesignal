@@ -1,6 +1,7 @@
 {
   "app_name": "MoleSignal",
   "access": {
+    "super_administrator": "Super administrator",
     "loading": "Access permissions are still loading.",
     "read_only": "You have read-only access.",
     "page_unavailable": "Your current permissions do not allow access to this page.",
@@ -14,18 +15,18 @@
     "system_workspace": "The system organization is immutable."
   },
   "timezone": {
-    "label": "Page timezone",
+    "label": "Timezone",
     "browser": "Browser timezone",
-    "use_global": "Use personal default",
-    "use_personal_default": "Timezone: use default ({{offset}})",
-    "use_personal_default_option": "Use personal default · {{timezone}} · {{offset}}",
-    "browser_option": "Browser timezone · {{timezone}} · {{offset}}",
-    "page_override_label": "{{timezone}} · {{offset}} · this page only",
+    "use_personal_default_option": "Use personal default · {{zone}}",
+    "browser_option": "Browser timezone · {{zone}}",
+    "page_override_label": "{{zone}} · this page only",
     "search": "Search timezones…",
     "empty": "No matching timezone.",
     "set_as_default": "Set as my default timezone",
     "saving_default": "Saving default timezone…",
-    "default_saved": "Default timezone updated"
+    "default_saved": "Default timezone updated",
+    "change": "Change",
+    "done": "Done"
   },
   "query_syntax_help": {
     "aria": "Open query syntax reference",
@@ -41,6 +42,8 @@
     "labels": {
       "equals": "Exact value",
       "contains": "Contains",
+      "exclude": "Exclude",
+      "either": "Either",
       "substring": "Substring",
       "full_text": "Full text",
       "basic": "Basic query",
@@ -78,6 +81,11 @@
     "filters": "Filters",
     "add": "Filter",
     "add_aria": "Add a filter",
+    "add_in_group": "Add a filter to group {{number}}",
+    "add_alternative": "OR",
+    "add_alternative_aria": "Add an OR group",
+    "or": "OR",
+    "group": "Group {{number}}",
     "edit": "Edit filter {{filter}}",
     "remove": "Remove filter {{filter}}",
     "unsupported": "Not a filter",
@@ -94,6 +102,7 @@
     "submit_update": "Update",
     "cancel": "Cancel",
     "text": "Search text",
+    "text_in_group": "Search text of group {{number}}",
     "text_placeholder": "Search text…",
     "sql_active": "The statement in Code is SQL, which filters cannot show. Adding a filter here starts a field query."
   },
@@ -162,7 +171,8 @@
     "rotate": "Rotate",
     "add": "Add",
     "choose_file": "Choose file",
-    "copied": "Copied"
+    "copied": "Copied",
+    "confirm": "Confirm"
   },
   "error_state": {
     "unknown": "Unknown error",
@@ -174,7 +184,9 @@
     "code": "Code",
     "message": "Message",
     "error_id": "Error ID",
-    "empty": "(empty)"
+    "empty": "(empty)",
+    "request_id": "Request ID",
+    "copy_request_id": "Copy request ID"
   },
   "status": {
     "loading": "Loading…",
@@ -190,7 +202,8 @@
     "on": "on",
     "off": "off",
     "enabled": "enabled",
-    "disabled": "disabled"
+    "disabled": "disabled",
+    "working": "Working…"
   },
   "labels": {
     "email": "Email",
@@ -311,11 +324,14 @@
       "password_hint": "Enter the access password set by the creator.",
       "password_placeholder": "Access password",
       "password_invalid": "Incorrect password. Try again.",
+      "visit_ended": "This visit has ended. Open the share link again.",
+      "password_unchecked": "The password could not be checked. Try again later.",
       "continue": "Continue",
       "invalid_dashboard": "Dashboard snapshot unavailable",
       "invalid_dashboard_hint": "The public model failed its safe-structure validation. Ask the owner to create a new link.",
       "unavailable_title": "Link unavailable",
-      "unavailable_hint": "This link has expired, been disabled, or reached its visit limit.",
+      "unavailable_hint": "This link is no longer valid, or the shared content has been deleted. Ask the owner to create a new link.",
+      "open_failed": "This share could not be opened. Try again later.",
       "loading_title": "Opening secure share",
       "loading_hint": "Verifying the link and access restrictions…",
       "trust_label": "MoleSignal restricted share",
@@ -459,7 +475,7 @@
     "button_aria": "Time range: {{value}}",
     "quick_ranges": "Quick ranges",
     "absolute": "Absolute range",
-    "local_time": "Browser local time",
+    "zone_time": "In {{zone}}",
     "from": "From",
     "to": "To",
     "apply": "Apply",
@@ -476,5 +492,72 @@
       "last_7d": "Last 7 days",
       "last_30d": "Last 30 days"
     }
+  },
+  "weekly_ranges": {
+    "add": "Add range",
+    "remove": "Remove range",
+    "weekdays": "Days",
+    "start": "Start (HH:MM)",
+    "end": "End (HH:MM)",
+    "hint": "An end not after the start runs past midnight and counts for the day it starts; a whole day is 00:00–24:00.",
+    "problems": {
+      "no_days": "Pick at least one day.",
+      "same_time": "Start and end can't be the same; a whole day is 00:00–24:00.",
+      "bad_time": "Write times as HH:MM, such as 09:30; only an end can be 24:00."
+    },
+    "timezone": "Timezone"
+  },
+  "time_condition": {
+    "label": "Time",
+    "any": "Any time",
+    "inside": "Only inside these hours",
+    "outside": "Only outside these hours"
+  },
+  "people": {
+    "someone": "Someone",
+    "non_member": "Non-member"
+  },
+  "holidays": {
+    "label": "Holidays",
+    "calendar": "Holiday calendar",
+    "modes": {
+      "none": "Don't count holidays",
+      "exclude": "Leave holidays out",
+      "only": "Holidays only"
+    },
+    "hints": {
+      "none": "Holidays count like any other day.",
+      "exclude": "On holidays these hours don't apply; a make-up workday counts as a Monday.",
+      "only": "These hours apply on holidays only."
+    },
+    "no_calendars": "Add a holiday calendar in Settings → Alerting → Holiday calendars first."
+  },
+  "confirm_dialog": {
+    "type_to_confirm": "Type {{name}} to confirm",
+    "type_required": "Type the name first"
+  },
+  "unsaved": {
+    "discard_title": "Discard your changes?",
+    "discard_description": "What you entered here has not been saved and will be lost.",
+    "keep_editing": "Keep editing",
+    "discard": "Discard",
+    "leave_title": "Leave without saving?",
+    "leave_description": "Your changes on this page have not been saved and will be lost.",
+    "leave": "Leave"
+  },
+  "table": {
+    "select_all": "Select all rows",
+    "select_row": "Select row",
+    "selected_one": "{{count}} selected",
+    "selected_other": "{{count}} selected",
+    "clear_selection": "Clear selection",
+    "bulk_label": "Actions on the selected rows",
+    "export_csv": "Export CSV",
+    "export_empty": "No rows to export",
+    "bulk_done_one": "{{count}} row updated",
+    "bulk_done_other": "{{count}} rows updated",
+    "bulk_failed_one": "{{count}} of {{total}} failed: {{reason}}",
+    "bulk_failed_other": "{{count}} of {{total}} failed: {{reason}}",
+    "clear_filters": "Clear filters"
   }
 }

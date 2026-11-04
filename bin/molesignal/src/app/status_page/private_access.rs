@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use base64::Engine as _;
-use rand::TryRng as _;
 use serde::Serialize;
 use url::Url;
 
@@ -15,6 +13,7 @@ use crate::{
         StatusPage, StatusPageAccessRule, StatusPageAccessSession, StatusPageDomainState,
         StatusPageMagicLinkExchange, StatusPageSubscriberChannel, StatusPageVisibility,
     },
+    infra::persistence::repositories::api_tokens::generate_token,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
@@ -34,6 +33,7 @@ pub struct StatusPageAccessSessionOutcome {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusPageAccessMetadata {
     pub name: String,
     pub slug: String,
@@ -145,7 +145,7 @@ impl StatusPageService {
             return Ok(StatusPageAccessRequestOutcome { accepted: true });
         };
 
-        let raw_token = opaque_token(32);
+        let raw_token = generate_token();
         let now = TimestampMicros::now();
 
         let created = self
@@ -199,8 +199,8 @@ impl StatusPageService {
 
         let message = copy.with_payload(serde_json::json!({
             "type": "status_page_magic_link",
-            "page_slug": page.slug,
-            "access_url": access_url,
+            "pageSlug": page.slug,
+            "accessUrl": access_url,
         }));
 
         if let Err(error) = sender
@@ -227,7 +227,7 @@ impl StatusPageService {
         }
 
         let origin_host = self.allowed_origin_host(&page, requested_origin).await?;
-        let raw_session_token = opaque_token(32);
+        let raw_session_token = generate_token();
         let now = TimestampMicros::now();
 
         let consumed = self
@@ -413,16 +413,6 @@ pub fn access_cookie_name(page_id: &Id) -> String {
 
 pub fn token_hash(raw: &str) -> String {
     blake3::hash(raw.as_bytes()).to_hex().to_string()
-}
-
-pub(super) fn opaque_token(bytes: usize) -> String {
-    let mut value = vec![0u8; bytes];
-
-    rand::rngs::SysRng
-        .try_fill_bytes(&mut value)
-        .expect("operating-system random source");
-
-    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(value)
 }
 
 fn validate_access_token(token: &str) -> Result<()> {

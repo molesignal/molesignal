@@ -136,7 +136,7 @@ impl FunctionExecutor for LlmFunctionExecutor {
 /// 从 `params_schema.output_field` 取结果写回字段名；缺省 / 空 → `_llm_eval`。
 fn output_field(params_schema: &Value) -> String {
     params_schema
-        .get("output_field")
+        .get("outputField")
         .and_then(|v| v.as_str())
         .map(str::trim)
         .filter(|s| !s.is_empty())
@@ -167,10 +167,10 @@ mod tests {
     #[test]
     fn output_field_defaults_and_overrides() {
         assert_eq!(output_field(&json!({})), "_llm_eval");
-        assert_eq!(output_field(&json!({"output_field": ""})), "_llm_eval");
-        assert_eq!(output_field(&json!({"output_field": "  "})), "_llm_eval");
+        assert_eq!(output_field(&json!({"outputField": ""})), "_llm_eval");
+        assert_eq!(output_field(&json!({"outputField": "  "})), "_llm_eval");
         assert_eq!(
-            output_field(&json!({"output_field": "severity"})),
+            output_field(&json!({"outputField": "severity"})),
             "severity"
         );
     }

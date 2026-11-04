@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ConfirmDialog } from '@/admin';
+import * as mfaApi from '@/api/mfa';
 import * as rolesApi from '@/api/roles';
 import * as usersApi from '@/api/users';
 import { toApiError } from '@/lib/http';
@@ -35,8 +36,11 @@ export function Users() {
   const qc = useQueryClient();
   const auth = useAuthStore((state) => state.ctx);
   const manageAccess = useActionAccess({
-    permission: 'org.members.manage',
+    permission: 'org.members.update',
   });
+  const inviteAccess = useActionAccess({ permission: 'org.members.invite' });
+  const removeAccess = useActionAccess({ permission: 'org.members.remove' });
+  const resetMfaAccess = useActionAccess({ permission: 'org.members.mfa_reset' });
   const [inviting, setInviting] = React.useState(false);
   const [detailUser, setDetailUser] =
     React.useState<usersApi.UserView | null>(null);
@@ -45,6 +49,8 @@ export function Users() {
   const [statusChange, setStatusChange] =
     React.useState<StatusChange | null>(null);
   const [removing, setRemoving] =
+    React.useState<usersApi.UserView | null>(null);
+  const [resettingMfa, setResettingMfa] =
     React.useState<usersApi.UserView | null>(null);
 
   const usersQuery = useQuery({
@@ -69,9 +75,9 @@ export function Users() {
       emptyAction: (
         <ChromeButton
           variant="primary"
-          disabled={manageAccess.disabled}
-          disabledReason={manageAccess.reason}
-          onClick={() => manageAccess.allowed && setInviting(true)}
+          disabled={inviteAccess.disabled}
+          disabledReason={inviteAccess.reason}
+          onClick={() => inviteAccess.allowed && setInviting(true)}
         >
           <Plus className="h-3.5 w-3.5" />
           {t('users.invite')}
@@ -84,8 +90,8 @@ export function Users() {
 
   const removeMembership = useMutation({
     mutationFn: (userId: string) => {
-      if (!auth?.org_id) throw new Error('Missing active organization');
-      return usersApi.removeMembership(auth.org_id, userId);
+      if (!auth?.orgId) throw new Error('Missing active organization');
+      return usersApi.removeMembership(auth.orgId, userId);
     },
     onSuccess: () => {
       toast.success(t('users.toast_removed'));
@@ -114,6 +120,17 @@ export function Users() {
     },
     onError: (error) => toast.error(toApiError(error).message),
   });
+  const resetMfa = useMutation({
+    mutationFn: (user: usersApi.UserView) => mfaApi.resetMember(user.id),
+    onSuccess: (_data, user) => {
+      toast.success(
+        t('users.mfa.toast_reset', { user: user.displayName || user.email }),
+      );
+      void refreshUsers();
+      setResettingMfa(null);
+    },
+    onError: (error) => toast.error(toApiError(error).message),
+  });
   const updateRole = useMutation({
     mutationFn: ({
       user,
@@ -122,10 +139,10 @@ export function Users() {
       user: usersApi.UserView;
       roleIds: string[];
     }) => {
-      if (!auth?.org_id) throw new Error('Missing active organization');
-      return usersApi.upsertMembership(auth.org_id, {
-        user_id: user.id,
-        role_ids: roleIds,
+      if (!auth?.orgId) throw new Error('Missing active organization');
+      return usersApi.upsertMembership(auth.orgId, {
+        userId: user.id,
+        roleIds: roleIds,
       });
     },
     onSuccess: () => {
@@ -144,20 +161,21 @@ export function Users() {
         toolbar={
           <ChromeButton
             variant="primary"
-            disabled={manageAccess.disabled}
-            disabledReason={manageAccess.reason}
-            onClick={() => manageAccess.allowed && setInviting(true)}
+            disabled={inviteAccess.disabled}
+            disabledReason={inviteAccess.reason}
+            onClick={() => inviteAccess.allowed && setInviting(true)}
           >
             <Plus className="h-3.5 w-3.5" />
             {t('users.invite')}
           </ChromeButton>
         }
-        state={pageState}
+        state={pageState?.variant === 'loading' ? null : pageState}
       >
         <UsersTable
           access={manageAccess}
           approvePending={approve.isPending}
-          currentUserId={auth?.user_id}
+          currentUserId={auth?.userId}
+          loading={usersQuery.isLoading}
           locale={i18n.language}
           removePending={removeMembership.isPending}
           roles={rolesQuery.data ?? []}
@@ -169,18 +187,19 @@ export function Users() {
             setStatusChange({ user, disabled: !user.disabled })
           }
           onRemove={setRemoving}
+          onResetMfa={setResettingMfa}
           onView={setDetailUser}
         />
       </IamListPage>
 
       <InviteDrawer
-        access={manageAccess}
+        access={inviteAccess}
         open={inviting}
         onClose={() => setInviting(false)}
       />
       <UserDetailDrawer
         user={detailUser}
-        currentUserId={auth?.user_id}
+        currentUserId={auth?.userId}
         locale={i18n.language}
         onClose={() => setDetailUser(null)}
       />
@@ -189,8 +208,8 @@ export function Users() {
           roleUser
             ? restrictActionAccess(
                 manageAccess,
-                roleUser.id !== auth?.user_id && !roleUser.is_root,
-                roleUser.id === auth?.user_id
+                roleUser.id !== auth?.userId && !roleUser.isRoot,
+                roleUser.id === auth?.userId
                   ? t('users.current_user_read_only')
                   : t('users.root_user_read_only'),
               )
@@ -217,7 +236,7 @@ export function Users() {
           statusChange?.disabled
             ? 'users.disable_confirm_description'
             : 'users.enable_confirm_description',
-          { user: statusChange?.user.display_name || statusChange?.user.email },
+          { user: statusChange?.user.displayName || statusChange?.user.email },
         )}
         confirmLabel={t(
           statusChange?.disabled
@@ -227,14 +246,14 @@ export function Users() {
         busy={updateStatus.isPending}
         disabled={
           manageAccess.disabled ||
-          statusChange?.user.id === auth?.user_id ||
-          Boolean(statusChange?.user.is_root)
+          statusChange?.user.id === auth?.userId ||
+          Boolean(statusChange?.user.isRoot)
         }
         disabledReason={
           manageAccess.reason ??
-          (statusChange?.user.id === auth?.user_id
+          (statusChange?.user.id === auth?.userId
             ? t('users.current_user_status_locked')
-            : statusChange?.user.is_root
+            : statusChange?.user.isRoot
               ? t('users.root_user_read_only')
               : undefined)
         }
@@ -242,8 +261,8 @@ export function Users() {
           if (
             manageAccess.allowed &&
             statusChange &&
-            statusChange.user.id !== auth?.user_id &&
-            !statusChange.user.is_root
+            statusChange.user.id !== auth?.userId &&
+            !statusChange.user.isRoot
           ) {
             updateStatus.mutate(statusChange);
           }
@@ -255,32 +274,49 @@ export function Users() {
         destructive
         title={t('users.remove_confirm_title')}
         description={t('users.remove_confirm_description', {
-          user: removing?.display_name || removing?.email,
+          user: removing?.displayName || removing?.email,
         })}
         confirmLabel={t('users.actions.remove_member')}
         busy={removeMembership.isPending}
         disabled={
-          manageAccess.disabled ||
-          removing?.id === auth?.user_id ||
-          Boolean(removing?.is_root)
+          removeAccess.disabled ||
+          removing?.id === auth?.userId ||
+          Boolean(removing?.isRoot)
         }
         disabledReason={
-          manageAccess.reason ??
-          (removing?.id === auth?.user_id
+          removeAccess.reason ??
+          (removing?.id === auth?.userId
             ? t('users.current_user_remove_locked')
-            : removing?.is_root
+            : removing?.isRoot
               ? t('users.actions.root_cannot_remove')
               : undefined)
         }
         onConfirm={() => {
           if (
-            manageAccess.allowed &&
+            removeAccess.allowed &&
             removing &&
-            removing.id !== auth?.user_id &&
-            !removing.is_root
+            removing.id !== auth?.userId &&
+            !removing.isRoot
           ) {
             removeMembership.mutate(removing.id);
           }
+        }}
+      />
+      <ConfirmDialog
+        open={resettingMfa !== null}
+        onOpenChange={(open) => !open && setResettingMfa(null)}
+        destructive
+        title={t('users.mfa.reset_title', {
+          user: resettingMfa?.displayName || resettingMfa?.email,
+        })}
+        description={t('users.mfa.reset_description')}
+        confirmLabel={t('users.mfa.reset')}
+        busy={resetMfa.isPending}
+        busyLabel={t('users.mfa.resetting')}
+        disabled={resetMfaAccess.disabled}
+        disabledReason={resetMfaAccess.reason}
+        onConfirm={() => {
+          if (resetMfaAccess.allowed && resettingMfa) resetMfa.mutate(resettingMfa);
         }}
       />
     </>

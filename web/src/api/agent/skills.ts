@@ -16,25 +16,25 @@ export interface Skill {
   version?: string | null;
   source: SkillSource;
   scope: SkillScope;
-  team_id?: string | null;
-  owner_id?: string | null;
+  teamId?: string | null;
+  ownerId?: string | null;
   enabled: boolean;
   /** The one who reads can change and move it. */
   editable: boolean;
   /** The one who reads can turn it off and remove it. */
   moderatable: boolean;
   hash: string;
-  file_count: number;
-  argument_hint?: string | null;
-  allowed_tools: string[];
+  fileCount: number;
+  argumentHint?: string | null;
+  allowedTools: string[];
   tags: string[];
   examples: string[];
-  requires_runner: boolean;
-  repository_id?: string | null;
-  package_name?: string | null;
+  requiresRunner: boolean;
+  repositoryId?: string | null;
+  packageName?: string | null;
   /** The folder of an instance skill, or of a skill in a repository. */
   dir?: string | null;
-  updated_at_micros?: number | null;
+  updatedAt?: number | null;
 }
 
 export interface SkillFile {
@@ -60,7 +60,7 @@ export interface SkillPaths {
   roots: string[];
   /** Only administrators see them. */
   problems: SkillPathProblem[];
-  scanned_at_micros?: number | null;
+  scannedAt?: number | null;
 }
 
 export async function listSkills(): Promise<{ skills: Skill[]; paths: SkillPaths }> {
@@ -98,7 +98,7 @@ export async function downloadSkillPackage(id: string): Promise<{ blob: Blob; fi
 
 export interface SkillScopeInput {
   scope: 'org' | 'team' | 'personal';
-  team_id?: string | undefined;
+  teamId?: string | undefined;
 }
 
 /**
@@ -114,7 +114,7 @@ export async function uploadSkill(
   const form = new FormData();
   form.append('file', file);
   form.append('scope', target.scope);
-  if (target.team_id) form.append('team_id', target.team_id);
+  if (target.teamId) form.append('teamId', target.teamId);
   if (replace) form.append('replace', 'true');
   await http.post('/agent/skills', form);
 }
@@ -146,29 +146,29 @@ export type RepositoryStatus = 'pending' | 'ok' | 'partial' | 'failed';
 /** Whose a repository is, as the backend writes it. */
 export type RepositoryScope =
   | { scope: 'org' }
-  | { scope: 'team'; team_id: string }
-  | { scope: 'personal'; owner_id: string };
+  | { scope: 'team'; teamId: string }
+  | { scope: 'personal'; ownerId: string };
 
 export interface SkillRepository {
   id: string;
-  org_id: string;
+  orgId: string;
   scope: RepositoryScope;
   url: string;
   host: RepoHost;
-  archive_url?: string | null;
+  archiveUrl?: string | null;
   /** A branch or a tag; empty is the default branch. */
-  git_ref: string;
+  gitRef: string;
   /** The folder of the repository the skills are in; empty is all of it. */
   dir: string;
-  auto_sync: boolean;
-  token_set: boolean;
-  token_last4?: string | null;
+  autoSync: boolean;
+  tokenSet: boolean;
+  tokenLast4?: string | null;
   status: RepositoryStatus;
-  last_error?: string | null;
-  last_commit?: string | null;
-  last_synced_at?: number | null;
-  created_by: string;
-  updated_by: string;
+  lastError?: string | null;
+  lastCommit?: string | null;
+  lastSyncedAt?: number | null;
+  createdBy: string;
+  updatedBy: string;
   editable: boolean;
 }
 
@@ -187,13 +187,13 @@ export interface RepositoryInput extends SkillScopeInput {
   url: string;
   /** Read from the address when left out. */
   host?: RepoHost | 'auto';
-  archive_url?: string;
-  git_ref: string;
+  archiveUrl?: string;
+  gitRef: string;
   dir: string;
-  auto_sync: boolean;
+  autoSync: boolean;
   /** Write-only; left out keeps the saved one. */
   token?: string;
-  clear_token?: boolean;
+  clearToken?: boolean;
 }
 
 export async function listSkillRepositories(): Promise<SkillRepository[]> {

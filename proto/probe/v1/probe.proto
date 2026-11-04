@@ -75,6 +75,9 @@ message AgentHeartbeat {
   uint32 active_tasks = 3;
   uint64 result_spool_bytes = 4;
   bool draining = 5;
+  // What the Agent can run beyond the first protocol. The server hands an Agent only tasks whose
+  // checks need no higher level. An Agent that predates the field sends none, which reads as 0.
+  uint32 feature_level = 6;
 }
 
 message AgentCapacity {
@@ -155,6 +158,11 @@ message ProbeTask {
   repeated ResolvedSecret secrets = 13;
   bool test_run = 14;
   repeated ArtifactUploadTarget artifact_uploads = 15;
+  // A W3C trace context on every HTTP request and gRPC call, so that the traces of the services
+  // they reach lead back to the run.
+  bool inject_trace_context = 16;
+  // A traceroute to the address a failed run could not reach, kept as step evidence.
+  bool traceroute_on_failure = 17;
 
   oneof spec {
     HttpJourneySpec http = 20;
@@ -213,6 +221,31 @@ message HttpJourneySpec {
   bool follow_redirects = 2;
   uint32 max_redirects = 3;
   bool verify_tls = 4;
+  HttpVersion http_version = 5;
+  // The certificate the check shows a server that asks for one, in PEM.
+  ClientCertificate client_certificate = 6;
+  // The DNS server host names are looked up on, as host or host:port.
+  optional string dns_server = 7;
+  repeated HostBinding hosts = 8;
+}
+
+enum HttpVersion {
+  // What TLS negotiates; HTTP/1.1 over plain HTTP.
+  HTTP_VERSION_AUTO = 0;
+  HTTP_VERSION_HTTP1 = 1;
+  // HTTP/2 only; over plain HTTP by prior knowledge.
+  HTTP_VERSION_HTTP2 = 2;
+}
+
+message ClientCertificate {
+  Value certificate = 1;
+  Value private_key = 2;
+}
+
+// A host name reached at chosen addresses, as a hosts file would.
+message HostBinding {
+  string name = 1;
+  repeated string addresses = 2;
 }
 
 message HttpStep {

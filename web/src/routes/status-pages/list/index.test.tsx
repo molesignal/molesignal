@@ -32,24 +32,24 @@ const now = Date.UTC(2026, 7, 10, 12) * 1_000;
 function statusPage(id: string, overrides: Partial<StatusPage> = {}): StatusPage {
   return {
     id,
-    org_id: 'org',
+    orgId: 'org',
     name: id,
     slug: id.toLowerCase().replace(/\s+/g, '-'),
-    logo_url: null,
-    brand_color: '#4F46E5',
-    custom_domain: null,
+    logoUrl: null,
+    brandColor: '#4F46E5',
+    customDomain: null,
     timezone: 'UTC',
     language: 'en-us',
     languages: ['en-us'],
-    history_days: 90,
-    delivery_retention_days: 30,
-    private_session_days: 7,
+    historyDays: 90,
+    deliveryRetentionDays: 30,
+    privateSessionDays: 7,
     visibility: 'public',
     lifecycle: 'active',
-    archived_at: null,
-    purge_after: null,
-    created_at: now,
-    updated_at: now,
+    archivedAt: null,
+    purgeAfter: null,
+    createdAt: now,
+    updatedAt: now,
     ...overrides,
   };
 }
@@ -57,29 +57,29 @@ function statusPage(id: string, overrides: Partial<StatusPage> = {}): StatusPage
 function snapshot(page: StatusPage, overrides: Partial<StatusPageSnapshot> = {}): StatusPageSnapshot {
   const component = (name: string, position: number) => ({
     id: name,
-    org_id: 'org',
-    status_page_id: page.id,
+    orgId: 'org',
+    statusPageId: page.id,
     name,
     description: '',
     status: 'operational' as const,
     visibility: 'enabled' as const,
     lifecycle: 'active' as const,
     position,
-    archived_at: null,
-    created_at: now,
-    updated_at: now,
+    archivedAt: null,
+    createdAt: now,
+    updatedAt: now,
   });
 
   return {
     page,
-    overall_status: 'operational',
+    overallStatus: 'operational',
     components: [component('API', 0), component('Dashboard', 1)],
-    component_status_events: [],
-    active_incidents: [],
-    scheduled_maintenance: [],
+    componentStatusEvents: [],
+    activeIncidents: [],
+    scheduledMaintenance: [],
     history: [],
-    updated_at: now,
-    generated_at: now,
+    updatedAt: now,
+    generatedAt: now,
     ...overrides,
   };
 }
@@ -120,26 +120,26 @@ describe('StatusPages', () => {
     get.mockImplementation(async (pageId) =>
       pageId === cloud.id
         ? snapshot(cloud, {
-            overall_status: 'partial_outage',
-            active_incidents: [
+            overallStatus: 'partial_outage',
+            activeIncidents: [
               {
                 id: 'errors',
-                org_id: 'org',
-                status_page_id: cloud.id,
-                source_incident_id: null,
+                orgId: 'org',
+                statusPageId: cloud.id,
+                sourceIncidentId: null,
                 kind: 'incident',
                 title: 'Errors',
                 impact: 'major',
                 status: 'identified',
-                publication_state: 'published',
-                draft_message: null,
-                component_ids: ['API'],
+                publicationState: 'published',
+                draftMessage: null,
+                componentIds: ['API'],
                 updates: [],
-                started_at: now,
-                ended_at: null,
-                published_at: now,
-                created_at: now,
-                updated_at: now,
+                startedAt: now,
+                endedAt: null,
+                publishedAt: now,
+                createdAt: now,
+                updatedAt: now,
               },
             ],
           })
@@ -186,8 +186,8 @@ describe('StatusPages', () => {
     list.mockResolvedValue([
       statusPage('Acme Classic', {
         lifecycle: 'archived',
-        archived_at: Date.UTC(2026, 7, 1) * 1_000,
-        purge_after: Date.UTC(2026, 7, 31) * 1_000,
+        archivedAt: Date.UTC(2026, 7, 1) * 1_000,
+        purgeAfter: Date.UTC(2026, 7, 31) * 1_000,
       }),
     ]);
     renderList('/status-pages?lifecycle=archived');

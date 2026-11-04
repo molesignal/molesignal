@@ -36,10 +36,10 @@ function incident(
     title: id,
     impact,
     status: 'resolved',
-    component_ids: ['api'],
+    componentIds: ['api'],
     updates: [],
-    started_at: resolvedAt - 60 * 60 * 1_000_000,
-    ended_at: resolvedAt,
+    startedAt: resolvedAt - 60 * 60 * 1_000_000,
+    endedAt: resolvedAt,
   };
 }
 
@@ -47,15 +47,15 @@ const snapshot: PublicStatusPageSnapshot = {
   page: {
     name: 'Acme Cloud',
     slug: 'acme-cloud',
-    logo_url: null,
-    brand_color: '#4F46E5',
+    logoUrl: null,
+    brandColor: '#4F46E5',
     timezone: 'UTC',
     language: 'en-us',
     languages: ['en-us', 'zh-cn'],
-    history_days: 90,
+    historyDays: 90,
     visibility: 'public',
   },
-  overall_status: 'operational',
+  overallStatus: 'operational',
   components: [
     {
       id: 'api',
@@ -64,9 +64,9 @@ const snapshot: PublicStatusPageSnapshot = {
       status: 'operational',
     },
   ],
-  component_status_events: [],
-  active_incidents: [],
-  scheduled_maintenance: [],
+  componentStatusEvents: [],
+  activeIncidents: [],
+  scheduledMaintenance: [],
   history: [
     incident('Critical API outage', 'critical', Date.UTC(2026, 7, 5, 12) * 1_000),
     incident('Major API outage', 'major', Date.UTC(2026, 7, 4, 21) * 1_000),
@@ -78,8 +78,8 @@ const snapshot: PublicStatusPageSnapshot = {
       incident(`July incident ${index + 1}`, 'minor', Date.UTC(2026, 6, 10 + index, 12) * 1_000),
     ),
   ],
-  updated_at: Date.UTC(2026, 7, 10, 11, 45) * 1_000,
-  generated_at: Date.UTC(2026, 7, 10, 12) * 1_000,
+  updatedAt: Date.UTC(2026, 7, 10, 11, 45) * 1_000,
+  generatedAt: Date.UTC(2026, 7, 10, 12) * 1_000,
 };
 
 function renderArchive(view: 'history' | 'uptime') {

@@ -1,17 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use std::{collections::HashSet, sync::Arc};
+use std::sync::Arc;
 
 use serde_json::Value;
 
 mod direct;
+mod preference_steps;
+mod regions;
 mod testing;
 
 pub use direct::{DirectSend, DirectSendOutcome};
+pub use preference_steps::PreferenceSteps;
+pub use regions::ConnectorRegionsQuery;
 
 use super::{
-    ConnectorRegistry,
+    ConnectorRegistry, SupportedConnectorType,
     config::{
         merge_masked_config, normalize_object, normalize_optional_text, validate_endpoint_identity,
         validate_name,
@@ -19,14 +23,21 @@ use super::{
     quiet::validate_quiet_hours,
 };
 use crate::{
-    domain::notify::{
-        connector::{ConnectorStatus, NotifyConnector},
-        delivery::{DeliveryFilter, NotifyDelivery},
-        endpoint::UserNotifyEndpoint,
-        preference::{NotifyCategory, UserNotifyPreference, UserNotifyPreferenceStep},
-        repositories::{
-            NotifyConnectorRepository, NotifyDeliveryRepository, NotifyRouteReferenceRepository,
-            UserNotifyEndpointRepository, UserNotifyPreferenceRepository,
+    domain::{
+        alerting::importance::StepGroup,
+        notify::{
+            connector::{ConnectorStatus, NotifyConnector},
+            delivery::{DeliveryFilter, NotifyDelivery},
+            endpoint::UserNotifyEndpoint,
+            preference::{
+                NotifyCategory, UserNotifyPreference, UserNotifyPreferenceStep,
+                has_low_urgency_steps,
+            },
+            repositories::{
+                NotifyConnectorRepository, NotifyDeliveryRepository,
+                NotifyRouteReferenceRepository, NotifyTemplateRepository,
+                UserNotifyEndpointRepository, UserNotifyPreferenceRepository,
+            },
         },
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
@@ -83,6 +94,8 @@ pub struct NotifyService {
     preferences: Arc<dyn UserNotifyPreferenceRepository>,
     deliveries: Arc<dyn NotifyDeliveryRepository>,
     route_references: Arc<dyn NotifyRouteReferenceRepository>,
+    /// 测试发送时套用的通知模板。
+    templates: Arc<dyn NotifyTemplateRepository>,
     registry: Arc<ConnectorRegistry>,
 }
 
@@ -93,6 +106,7 @@ impl NotifyService {
         preferences: Arc<dyn UserNotifyPreferenceRepository>,
         deliveries: Arc<dyn NotifyDeliveryRepository>,
         route_references: Arc<dyn NotifyRouteReferenceRepository>,
+        templates: Arc<dyn NotifyTemplateRepository>,
         registry: Arc<ConnectorRegistry>,
     ) -> Self {
         Self {
@@ -101,16 +115,12 @@ impl NotifyService {
             preferences,
             deliveries,
             route_references,
+            templates,
             registry,
         }
     }
 
-    pub fn supported_connector_types(
-        &self,
-    ) -> Vec<(
-        &'static str,
-        crate::domain::notify::connector::ConnectorCapabilities,
-    )> {
+    pub fn supported_connector_types(&self) -> Vec<SupportedConnectorType> {
         self.registry.supported_types()
     }
 
@@ -120,8 +130,9 @@ impl NotifyService {
         input: CreateNotifyConnector,
     ) -> Result<NotifyConnector> {
         validate_name(&input.name)?;
-        let adapter = self.registry.get(&input.connector_type)?;
-        adapter.validate_config(&input.config)?;
+        let adapter = self
+            .registry
+            .validated(&input.connector_type, &input.config)?;
         let now = TimestampMicros::now();
 
         self.connectors
@@ -165,8 +176,9 @@ impl NotifyService {
             None => connector.config,
         };
 
-        let adapter = self.registry.get(&connector.connector_type)?;
-        adapter.validate_config(&connector.config)?;
+        let adapter = self
+            .registry
+            .validated(&connector.connector_type, &connector.config)?;
         connector.name = input.name;
         connector.enabled = input.enabled;
         connector.capabilities = adapter.capabilities();
@@ -188,7 +200,7 @@ impl NotifyService {
         if endpoint_references > 0 || route_references > 0 {
             return Err(Error::conflict(
                 "notify connector is referenced by user endpoints, policies, default routes, \
-                 scheduled log inspections, or status pages",
+                 scheduled log inspections, status pages, or Mole Agent in IM",
             ));
         }
 
@@ -303,6 +315,7 @@ impl NotifyService {
         self.endpoints.delete(organization_id, user_id, id).await
     }
 
+    /// 保存一个类别的接收顺序：高紧急度一组，告警和升级两类还有低紧急度一组（见 [`PreferenceSteps`]）。
     #[allow(clippy::too_many_arguments)]
     pub async fn upsert_preference(
         &self,
@@ -310,33 +323,39 @@ impl NotifyService {
         user_id: &Id,
         category: NotifyCategory,
         enabled: bool,
-        endpoint_ids: Vec<Id>,
+        steps: PreferenceSteps,
         quiet_hours: Option<Value>,
-        allow_critical_bypass: bool,
+        allow_high_urgency_bypass: bool,
     ) -> Result<UserNotifyPreference> {
-        if endpoint_ids.len() > 20 {
+        if !has_low_urgency_steps(category) && !steps.low_endpoint_ids.is_empty() {
             return Err(Error::invalid(
-                "notify preference supports at most 20 endpoints",
+                "only alert and escalation notifications have low-urgency steps",
             ));
         }
 
-        let mut seen = HashSet::new();
+        let high = self
+            .checked_steps(
+                organization_id,
+                user_id,
+                category,
+                steps.endpoint_ids,
+                steps.step_delays_secs,
+            )
+            .await?;
 
-        for endpoint_id in &endpoint_ids {
-            if !seen.insert(endpoint_id.0.clone()) {
-                return Err(Error::invalid(
-                    "notify preference endpoint_ids must be unique",
-                ));
-            }
-
-            self.endpoints
-                .get(organization_id, user_id, endpoint_id)
-                .await?;
-        }
+        let low = self
+            .checked_steps(
+                organization_id,
+                user_id,
+                category,
+                steps.low_endpoint_ids,
+                steps.low_step_delays_secs,
+            )
+            .await?;
 
         let quiet_hours = quiet_hours
             .map(|value| -> Result<Value> {
-                let value = normalize_object(value, "quiet_hours")?;
+                let value = normalize_object(value, "quietHours")?;
                 validate_quiet_hours(&value)?;
                 Ok(value)
             })
@@ -353,15 +372,24 @@ impl NotifyService {
             .map(|value| (value.id, value.created_at))
             .unwrap_or_else(|| (Id::new(), now));
 
-        let steps = endpoint_ids
+        let steps = [(StepGroup::High, high), (StepGroup::Low, low)]
             .into_iter()
-            .enumerate()
-            .map(|(index, endpoint_id)| UserNotifyPreferenceStep {
-                id: Id::new(),
-                preference_id: id.clone(),
-                endpoint_id,
-                step_order: i32::try_from(index + 1).unwrap_or(i32::MAX),
-                created_at: now,
+            .flat_map(|(urgency, list)| {
+                let preference_id = id.clone();
+
+                list.into_iter()
+                    .enumerate()
+                    .map(
+                        move |(index, (endpoint_id, delay_secs))| UserNotifyPreferenceStep {
+                            id: Id::new(),
+                            preference_id: preference_id.clone(),
+                            endpoint_id,
+                            step_order: i32::try_from(index + 1).unwrap_or(i32::MAX),
+                            delay_secs,
+                            urgency,
+                            created_at: now,
+                        },
+                    )
             })
             .collect();
 
@@ -373,7 +401,7 @@ impl NotifyService {
                 category,
                 enabled,
                 quiet_hours,
-                allow_critical_bypass,
+                allow_high_urgency_bypass,
                 steps,
                 created_at,
                 updated_at: now,

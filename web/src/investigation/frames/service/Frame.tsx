@@ -17,14 +17,14 @@ export function ServiceFrame({ frame }: FrameProps) {
         push({
           kind: 'service',
           params: { service: serviceId },
-          parent_frame_id: frame.id,
+          parentFrameId: frame.id,
         });
       }}
       onEdgeClick={(e) => {
         push({
           kind: 'service_to_service',
           params: e,
-          parent_frame_id: frame.id,
+          parentFrameId: frame.id,
         });
       }}
     />

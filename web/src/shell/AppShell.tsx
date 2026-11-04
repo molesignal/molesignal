@@ -6,6 +6,7 @@ import {
   canAccessProductPath,
   useProductAccess,
 } from '@/product/access';
+import { findProductRoute, isProductRouteActive, PRODUCT_NAV_ITEMS } from '@/product/ia';
 import { ProductRouteAccessGuard } from '@/routes/RouteGuard';
 import { InvestigationContextBar } from '@/shell/InvestigationContextBar';
 import { cn } from '@/shell/lib/cn';
@@ -33,7 +34,6 @@ const SURFACE_WORKBENCH_ROUTES = [
   '/profiles',
   '/alerts',
   '/synthetics',
-  '/business-services',
   '/status-pages',
   '/agent',
   '/datasource',
@@ -89,6 +89,15 @@ export function AppShell(_props: AppShellProps) {
   const access = useProductAccess();
   const canUseMoleAgent = canAccessProductPath('/agent', access);
   useSpotlight();
+
+  React.useEffect(() => {
+    const route = [...PRODUCT_NAV_ITEMS]
+      .filter((item) => isProductRouteActive(item, location.pathname))
+      .sort((a, b) => (b.activePrefix ?? b.path).length - (a.activePrefix ?? a.path).length)[0]
+      ?? findProductRoute(location.pathname);
+    document.title = route ? `${t(`nav:${route.labelKey}`)}｜MoleSignal` : 'MoleSignal';
+    return () => { document.title = 'MoleSignal'; };
+  }, [location.pathname, t]);
 
   React.useEffect(() => {
     setMobileNavOpen(false);

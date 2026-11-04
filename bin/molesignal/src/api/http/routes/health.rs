@@ -20,11 +20,11 @@ async fn version() -> impl IntoResponse {
         "version": env!("MOLESIGNAL_PRODUCT_VERSION"),
         "commit": option_env!("MOLESIGNAL_GIT_COMMIT").unwrap_or("unknown"),
         "branch": option_env!("MOLESIGNAL_GIT_BRANCH").unwrap_or("unknown"),
-        "build_epoch_secs": option_env!("MOLESIGNAL_BUILD_EPOCH")
+        "buildEpochSecs": option_env!("MOLESIGNAL_BUILD_EPOCH")
             .and_then(|s| s.parse::<i64>().ok())
             .unwrap_or(0),
-        "build_id": option_env!("MOLESIGNAL_BUILD_ID").unwrap_or("unknown"),
-        "release_channel": build_info::release_channel(),
+        "buildId": option_env!("MOLESIGNAL_BUILD_ID").unwrap_or("unknown"),
+        "releaseChannel": build_info::release_channel(),
         "edition": "oss",
     }))
     .into_response()

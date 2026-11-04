@@ -1,45 +1,63 @@
 import { Navigate, type RouteObject, useLocation } from 'react-router-dom';
 
+import { FirstOpenablePage } from '@/product/moduleAccess';
+import { QueryTabs } from '@/shell/queryTabs';
+
 import {
   Applications,
-  Errors,
-  ErrorDetail,
-  Overview,
-  Pages,
-  PerfApis,
-  PerfErrors,
-  PerfOverview,
-  PerfWebVitals,
+  RumAnalytics,
+  RumAnalyticsHeatmaps,
+  RumAnalyticsPaths,
+  RumAnalyticsRetention,
+  RumErrors,
+  RumExplorer,
+  RumExplorerFrame,
+  RumFeatureFlags,
+  RumFrustration,
+  RumOverview,
+  RumPerformance,
+  RumPerformanceLongTasks,
+  RumPerformanceResources,
+  RumPlaylistPage,
+  RumPlaylists,
   RumSettingsGuide,
   SessionDetail,
-  SessionReplay,
-  Sessions,
   SourceMaps,
   UploadSourceMaps,
 } from './index';
+import { RUM_PAGES } from './RumLayout';
 import {
   legacyApmUserExperienceTarget,
   legacyRumSettingsTarget,
 } from '../apm/compat';
 
 export const RUM_ROUTE_CHILDREN: RouteObject[] = [
-  { index: true, element: <Navigate to="/rum/overview" replace /> },
-  { path: 'overview', element: <Overview /> },
-  { path: 'applications', element: <Applications /> },
-  { path: 'sessions', element: <Sessions /> },
-  { path: 'sessions/view/:id', element: <SessionDetail /> },
-  { path: 'pages', element: <Pages /> },
-  { path: 'errors', element: <Errors /> },
-  { path: 'errors/view/:id', element: <ErrorDetail /> },
+  { index: true, element: <FirstOpenablePage paths={RUM_PAGES} /> },
+  { path: 'overview', element: <RumOverview /> },
   {
-    path: 'performance',
-    element: <Navigate to="/rum/performance/overview" replace />,
+    path: 'explorer',
+    element: (
+      <RumExplorerFrame>
+        <QueryTabs kind="rum">
+          <RumExplorer />
+        </QueryTabs>
+      </RumExplorerFrame>
+    ),
   },
-  { path: 'performance/overview', element: <PerfOverview /> },
-  { path: 'performance/web-vitals', element: <PerfWebVitals /> },
-  { path: 'performance/errors', element: <PerfErrors /> },
-  { path: 'performance/apis', element: <PerfApis /> },
-  { path: 'session-replay', element: <SessionReplay /> },
+  { path: 'errors', element: <RumErrors /> },
+  { path: 'performance', element: <RumPerformance /> },
+  { path: 'performance/resources', element: <RumPerformanceResources /> },
+  { path: 'performance/long-tasks', element: <RumPerformanceLongTasks /> },
+  { path: 'frustration', element: <RumFrustration /> },
+  { path: 'analytics', element: <RumAnalytics /> },
+  { path: 'analytics/paths', element: <RumAnalyticsPaths /> },
+  { path: 'analytics/retention', element: <RumAnalyticsRetention /> },
+  { path: 'analytics/heatmaps', element: <RumAnalyticsHeatmaps /> },
+  { path: 'feature-flags', element: <RumFeatureFlags /> },
+  { path: 'playlists', element: <RumPlaylists /> },
+  { path: 'playlists/:id', element: <RumPlaylistPage /> },
+  { path: 'applications', element: <Applications /> },
+  { path: 'sessions/view/:id', element: <SessionDetail /> },
   {
     path: 'settings',
     element: <Navigate to="/rum/settings/sdk" replace />,

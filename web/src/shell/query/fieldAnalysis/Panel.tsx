@@ -50,7 +50,7 @@ function Figure({ label, value, hint }: { label: string; value: React.ReactNode;
   return (
     <div className="flex min-w-0 items-baseline justify-between gap-2" title={hint}>
       <dt className="min-w-0 truncate font-sans text-xs text-tx-2">{label}</dt>
-      <dd className="min-w-0 truncate text-right font-mono text-xs font-body tabular-nums text-tx-0">{value}</dd>
+      <dd className="min-w-0 truncate text-right text-xs font-body tabular-nums text-tx-0">{value}</dd>
     </div>
   );
 }
@@ -119,7 +119,7 @@ export function FieldAnalysisPanel({
     >
       <header className="flex shrink-0 items-center gap-2 pl-3 pr-1 pt-1">
         <FieldTypeChip glyph={chip.glyph} tone={chip.tone} />
-        <h2 className="min-w-0 flex-1 truncate font-sans text-sm font-strong text-tx-0" title={name}>
+        <h2 className="min-w-0 flex-1 truncate font-sans text-sm font-display text-tx-0" title={name}>
           {name}
         </h2>
         <button

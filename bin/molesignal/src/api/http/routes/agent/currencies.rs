@@ -34,13 +34,14 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct CurrencyResp {
     code: Currency,
     name: Option<String>,
     symbol: Option<String>,
     /// 用这种币种计价的模型服务。
     used_by: Vec<String>,
-    updated_at_micros: i64,
+    updated_at: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -66,11 +67,11 @@ fn resp(currency: PriceCurrency, providers: &[ModelProvider]) -> CurrencyResp {
         code: currency.code,
         name: currency.name,
         symbol: currency.symbol,
-        updated_at_micros: currency.updated_at.0,
+        updated_at: currency.updated_at.0,
     }
 }
 
-#[permission("agent.use")]
+#[permission("agent.usage.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -86,7 +87,7 @@ async fn list(
     })))
 }
 
-#[permission("agent.manage")]
+#[permission("agent.usage.manage")]
 async fn save(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -115,7 +116,7 @@ async fn save(
     Ok(Json(resp(saved, &providers)))
 }
 
-#[permission("agent.manage")]
+#[permission("agent.usage.manage")]
 async fn remove(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

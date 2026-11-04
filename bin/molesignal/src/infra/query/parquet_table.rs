@@ -3,9 +3,9 @@
 
 //! 由 QueryFile 候选清单构造的 DataFusion Parquet TableProvider。
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
-use arrow::{array::RecordBatch, compute::SortOptions, datatypes::SchemaRef};
+use arrow::{array::RecordBatch, datatypes::SchemaRef};
 use async_trait::async_trait;
 use datafusion::{
     catalog::{
@@ -15,20 +15,49 @@ use datafusion::{
     common::{DFSchema, ScalarValue},
     datasource::{
         listing::PartitionedFile,
-        physical_plan::{FileGroup, FileScanConfigBuilder, ParquetSource},
+        physical_plan::{
+            FileGroup, FileScanConfigBuilder, ParquetSource,
+            parquet::{CachedParquetFileReaderFactory, ParquetRowSelection},
+        },
     },
-    execution::object_store::ObjectStoreUrl,
+    execution::{
+        cache::{
+            cache_manager::{CachedFileMetadataEntry, FileMetadataCache},
+            default_cache::DefaultCache,
+        },
+        object_store::ObjectStoreUrl,
+    },
     logical_expr::{Expr, TableProviderFilterPushDown, TableType, utils::conjunction},
-    physical_expr::{LexOrdering, PhysicalSortExpr, expressions::col as physical_col},
+    physical_expr::LexOrdering,
     physical_plan::{ExecutionPlan, empty::EmptyExec, union::UnionExec},
     prelude::{col, lit},
 };
 
 use crate::{
     domain::storage::{DatasetTypeId, QueryFile},
-    infra::storage::parquet::partition::storage_sort_column_names,
+    infra::storage::parquet::partition::storage_ordering,
     shared::time::TimeRange,
 };
+
+/// Footer bytes read with the first request to each file: the Thrift footer and the page index
+/// that precedes it usually fit, so opening a file costs one request instead of two or three.
+const FOOTER_READ_BYTES: usize = 512 * 1024;
+
+/// Parsed Parquet footers (with page indexes) shared across queries, keyed by object key.
+/// Primary Artifact objects are immutable, so an entry never goes stale.
+pub type ParquetMetadataCache = Arc<FileMetadataCache>;
+
+/// `None` when `max_bytes` is 0 (the cache is off).
+pub fn parquet_metadata_cache(max_bytes: u64) -> Option<ParquetMetadataCache> {
+    let limit = usize::try_from(max_bytes).unwrap_or(usize::MAX);
+
+    (limit > 0).then(|| {
+        Arc::new(
+            DefaultCache::<object_store::path::Path, CachedFileMetadataEntry>::new(limit)
+                .with_name("parquet_metadata"),
+        ) as ParquetMetadataCache
+    })
+}
 
 #[derive(Debug)]
 pub struct PrunedParquetTable {
@@ -38,6 +67,7 @@ pub struct PrunedParquetTable {
     time_range: TimeRange,
     dataset_type: Option<DatasetTypeId>,
     buffered_batches: Vec<RecordBatch>,
+    metadata_cache: Option<ParquetMetadataCache>,
 }
 
 impl PrunedParquetTable {
@@ -58,6 +88,7 @@ impl PrunedParquetTable {
             time_range,
             dataset_type,
             buffered_batches: Vec::new(),
+            metadata_cache: None,
         }
     }
 
@@ -66,26 +97,42 @@ impl PrunedParquetTable {
         self
     }
 
+    pub fn with_metadata_cache(mut self, cache: Option<ParquetMetadataCache>) -> Self {
+        self.metadata_cache = cache;
+        self
+    }
+
+    /// Rows to read from some files, by object key: a file with a selection is read only where
+    /// those rows lie. The filters still run on every row read, so a selection only has to hold
+    /// every row the query can return.
+    pub fn with_row_selections(
+        mut self,
+        selections: &HashMap<String, ParquetRowSelection>,
+    ) -> Self {
+        if selections.is_empty() {
+            return self;
+        }
+
+        self.files = std::mem::take(&mut self.files)
+            .into_iter()
+            .map(
+                |file| match selections.get(file.object_meta.location.as_ref()) {
+                    Some(selection) => file.with_extension(selection.clone()),
+                    None => file,
+                },
+            )
+            .collect();
+
+        self
+    }
+
     fn physical_ordering(&self) -> Vec<LexOrdering> {
         // Writer / compactor 均按这组键降序写每个物理文件。每文件
         // 作为独立 execution partition 并声明局部有序后，DataFusion 可以对
         // ORDER BY + LIMIT 使用 SortPreservingMerge / Top-K，而不是先读完所有文件。
-        let columns = storage_sort_column_names(self.schema.as_ref(), self.dataset_type.as_ref())
+        storage_ordering(self.schema.as_ref(), self.dataset_type.as_ref())
             .into_iter()
-            .filter(|name| self.schema.index_of(name).is_ok())
-            .filter_map(|name| physical_col(name, self.schema.as_ref()).ok())
-            .map(|expression| {
-                PhysicalSortExpr::new(
-                    expression,
-                    SortOptions {
-                        descending: true,
-                        nulls_first: false,
-                    },
-                )
-            })
-            .collect::<Vec<_>>();
-
-        LexOrdering::new(columns).into_iter().collect()
+            .collect()
     }
 }
 
@@ -145,10 +192,20 @@ impl TableProvider for PrunedParquetTable {
             let df_schema = DFSchema::try_from(self.schema.clone())?;
             let physical_filter = state.create_physical_expr(logical_filter, &df_schema)?;
 
-            let source = ParquetSource::new(self.schema.clone())
+            let mut source = ParquetSource::new(self.schema.clone())
                 .with_predicate(physical_filter)
                 .with_pushdown_filters(true)
-                .with_bloom_filter_on_read(true);
+                .with_bloom_filter_on_read(true)
+                .with_metadata_size_hint(FOOTER_READ_BYTES);
+
+            if let Some(cache) = &self.metadata_cache {
+                // The org-scoped store this query registered; the cache only skips footer reads.
+                let store = state.runtime_env().object_store(&self.object_store_url)?;
+
+                source = source.with_parquet_file_reader_factory(Arc::new(
+                    CachedParquetFileReaderFactory::new(store, cache.clone()),
+                ));
+            }
 
             let file_groups = self
                 .files

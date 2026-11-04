@@ -18,9 +18,9 @@ import { formatMicros, statusTone } from '../model';
 import { NotifySettingsPage } from '../SettingsPage';
 
 const CAPABILITY_KEYS: Array<keyof notifyApi.ConnectorCapabilities> = [
-  'direct_user',
+  'directUser',
   'group',
-  'rich_text',
+  'richText',
   'interactive',
   'acknowledgement',
   'attachments',
@@ -35,7 +35,8 @@ function ConnectorIcon({ type }: { type: string }) {
 export function NotifyConnectorsPage() {
   const { t, i18n } = useTranslation('notify');
   const qc = useQueryClient();
-  const manage = useActionAccess({ permission: 'alerts.manage' });
+  const manage = useActionAccess({ permission: 'notify.connectors.manage' });
+  const canDelete = useActionAccess({ permission: 'notify.connectors.delete' });
   const [editorOpen, setEditorOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<notifyApi.NotifyConnector | null>(null);
   const [removing, setRemoving] = React.useState<notifyApi.NotifyConnector | null>(null);
@@ -108,7 +109,7 @@ export function NotifyConnectorsPage() {
                 cell: (row) => (
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="grid h-8 w-8 shrink-0 place-items-center text-tx-2">
-                      <ConnectorIcon type={row.connector_type} />
+                      <ConnectorIcon type={row.connectorType} />
                     </span>
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold text-tx-0">{row.name}</div>
@@ -123,7 +124,7 @@ export function NotifyConnectorsPage() {
                 width: 150,
                 cell: (row) => (
                   <Pill tone="blue">
-                    {t(`connector_types.${row.connector_type}`, { defaultValue: row.connector_type })}
+                    {t(`connector_types.${row.connectorType}`, { defaultValue: row.connectorType })}
                   </Pill>
                 ),
               },
@@ -147,7 +148,7 @@ export function NotifyConnectorsPage() {
                 width: 170,
                 cell: (row) => (
                   <span className="text-xs text-tx-2">
-                    {formatMicros(row.last_tested_at, i18n.language)}
+                    {formatMicros(row.lastTestedAt, i18n.language)}
                   </span>
                 ),
               },
@@ -190,8 +191,8 @@ export function NotifyConnectorsPage() {
                       <TooltipTrigger asChild>
                         <IconButton
                           aria-label={t('common.delete')}
-                          disabled={manage.disabled}
-                          disabledReason={manage.reason}
+                          disabled={canDelete.disabled}
+                          disabledReason={canDelete.reason}
                           onClick={(event) => {
                             event.stopPropagation();
                             setRemoving(row);

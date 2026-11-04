@@ -1,5 +1,4 @@
-import { http } from '@/lib/http';
-import { useAuthStore } from '@/stores/auth';
+import { authFetch, http } from '@/lib/http';
 
 import type { Cost } from './usage';
 
@@ -26,7 +25,7 @@ export type QuestionKind = 'single' | 'multiple' | 'text';
 
 export interface PendingQuestion {
   type: 'question';
-  call_id: string;
+  callId: string;
   question: string;
   kind: QuestionKind;
   options: string[];
@@ -34,34 +33,56 @@ export interface PendingQuestion {
 
 export interface PendingConfirmation {
   type: 'confirmation';
-  call_id: string;
+  callId: string;
   tool: string;
   arguments: Record<string, unknown>;
   risk: string;
 }
 
-export type RunPending = PendingQuestion | PendingConfirmation;
+/**
+ * Authorize to continue: an MCP server that takes a credential from every
+ * member has none from the person who asked, or turned theirs down. Once they
+ * save it, the tool call runs again.
+ */
+export interface PendingAuthorization {
+  type: 'authorization';
+  callId: string;
+  /** The tool that needs the credential. */
+  tool: string;
+  serverId: string;
+  server: string;
+  /** The request header the credential is sent in, lowercase. */
+  header: string;
+  /** Sent as `Bearer <credential>`. */
+  bearer: boolean;
+  /** Where to get the credential, as the server's administrators wrote it. */
+  instructions: string;
+  /** The saved credential was turned down. */
+  rejected: boolean;
+}
+
+export type RunPending = PendingQuestion | PendingConfirmation | PendingAuthorization;
 
 export interface Run {
   id: string;
-  chat_id: string;
+  chatId: string;
   status: RunStatus;
   source: string;
   kind: RunKind;
-  initiator_id: string;
-  user_message_id?: string | null;
-  assistant_message_id?: string | null;
+  initiatorId: string;
+  userMessageId?: string | null;
+  assistantMessageId?: string | null;
   pending?: RunPending | null;
-  cancel_requested: boolean;
-  last_seq: number;
-  prompt_tokens: number;
-  completion_tokens: number;
+  cancelRequested: boolean;
+  lastSeq: number;
+  promptTokens: number;
+  completionTokens: number;
   /** In the currency of the model provider; null when it has no prices. */
   cost?: Cost | null;
   error?: string | null;
-  created_at_micros: number;
-  started_at_micros?: number | null;
-  finished_at_micros?: number | null;
+  createdAt: number;
+  startedAt?: number | null;
+  finishedAt?: number | null;
 }
 
 export const LIVE_STATUSES: readonly RunStatus[] = ['running', 'waiting_input', 'waiting_approval'];
@@ -86,13 +107,13 @@ export interface TodoItem {
 /** The end of a run: how it ended, and the answer when there is one. */
 export interface DoneEvent {
   status: RunStatus;
-  message_id?: string | null;
+  messageId?: string | null;
   content?: string | null;
-  prompt_tokens?: number;
-  completion_tokens?: number;
+  promptTokens?: number;
+  completionTokens?: number;
   /** In the currency of the model provider; null when it has no prices. */
   cost?: Cost | null;
-  finish_reason?: string | null;
+  finishReason?: string | null;
   error?: string | null;
   /** A fixed reason the page writes in the reader's language, such as the budget. */
   code?: string | null;
@@ -103,13 +124,13 @@ export type RunNotice =
   | {
       kind: 'budget';
       level: 'warning' | 'exhausted';
-      used_tokens: number;
-      limit_tokens: number;
-      resets_at_micros: number;
+      usedTokens: number;
+      limitTokens: number;
+      resetsAt: number;
     }
   | { kind: 'compacted'; automatic: boolean; messages: number }
-  | { kind: 'team_mounted'; team_id: string; team: string }
-  | { kind: 'no_response'; call_id: string }
+  | { kind: 'team_mounted'; teamId: string; team: string }
+  | { kind: 'no_response'; callId: string }
   | { kind: 'memories'; count: number; names: string[] }
   /** The chat was named while answering its first question. */
   | { kind: 'title'; title: string }
@@ -127,11 +148,12 @@ export type RunEvent =
   | {
       seq: number;
       kind: 'tool_end';
-      payload: { id: string; name: string; result: string; truncated: boolean; is_error: boolean };
+      payload: { id: string; name: string; result: string; truncated: boolean; isError: boolean };
     }
   | { seq: number; kind: 'todo'; payload: { items: TodoItem[] } }
   | { seq: number; kind: 'question'; payload: PendingQuestion }
   | { seq: number; kind: 'confirmation'; payload: PendingConfirmation }
+  | { seq: number; kind: 'authorization'; payload: PendingAuthorization }
   | { seq: number; kind: 'response'; payload: Record<string, unknown> }
   | { seq: number; kind: 'notice'; payload: RunNotice }
   | { seq: number; kind: 'done'; payload: DoneEvent };
@@ -155,10 +177,12 @@ export async function cancelRun(id: string): Promise<Run> {
 }
 
 export interface RespondInput {
-  call_id: string;
+  callId: string;
   choices?: string[];
   text?: string;
   approved?: boolean;
+  /** The credential is saved: run the tool again. False skips the server in this answer. */
+  authorized?: boolean;
 }
 
 export async function respondRun(id: string, input: RespondInput): Promise<Run> {
@@ -206,16 +230,12 @@ export async function streamRunEvents(
   runId: string,
   { after, onEvent, signal }: StreamOptions,
 ): Promise<'done' | 'closed' | 'aborted' | 'failed'> {
-  const token = useAuthStore.getState().token;
   let response: Response;
   try {
-    response = await fetch(
+    response = await authFetch(
       `/api/v1/agent/runs/${encodeURIComponent(runId)}/events?after=${after}`,
       {
-        headers: {
-          accept: 'text/event-stream',
-          ...(token ? { authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { accept: 'text/event-stream' },
         signal,
       },
     );

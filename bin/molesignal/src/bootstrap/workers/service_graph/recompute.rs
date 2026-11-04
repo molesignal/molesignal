@@ -26,7 +26,7 @@ use crate::{
         query::{QueryLanguage, QueryRequest, StreamHint},
         stream::{StreamRepository, StreamType},
     },
-    infra::traces::{ServiceGraphAggregator, ServiceGraphRepository},
+    infra::traces::{ENVIRONMENT_FIELDS, ServiceGraphAggregator, ServiceGraphRepository},
     shared::{
         Result,
         ids::Id,
@@ -135,14 +135,20 @@ impl ServiceGraphRecomputer {
         let from_bucket = (from / BUCKET_SIZE_US) * BUCKET_SIZE_US;
 
         for org in self.orgs.list().await? {
-            let traces: Vec<String> = self
+            // Each traces stream with the field that says its spans' environment, when it has one.
+            let traces: Vec<(String, Option<&str>)> = self
                 .streams
                 .list(&org.id)
                 .await
                 .unwrap_or_default()
                 .into_iter()
                 .filter(|s| s.stream_type == StreamType::TRACES)
-                .map(|s| s.name)
+                .map(|s| {
+                    let environment = ENVIRONMENT_FIELDS
+                        .into_iter()
+                        .find(|field| s.schema.fields.iter().any(|def| def.name == *field));
+                    (s.name, environment)
+                })
                 .collect();
 
             if traces.is_empty() {
@@ -152,8 +158,11 @@ impl ServiceGraphRecomputer {
             let agg = ServiceGraphAggregator::new();
             let mut queried_ok = false;
 
-            for stream in &traces {
-                match self.query_into(&org.id, stream, from, now, &agg).await {
+            for (stream, environment) in &traces {
+                match self
+                    .query_into(&org.id, stream, *environment, from, now, &agg)
+                    .await
+                {
                     Ok(()) => queried_ok = true,
                     // 缺列（如无 parent_span_id）/查询失败 → 跳过该流（debug，不噪）。
                     Err(e) => tracing::debug!(
@@ -180,11 +189,12 @@ impl ServiceGraphRecomputer {
         Ok(())
     }
 
-    /// 查一个 traces 流的窗口 span，喂给聚合器。
+    /// 查一个 traces 流的窗口 span，喂给聚合器。`environment` 为该流记录环境的字段（没有则不读）。
     async fn query_into(
         &self,
         org_id: &Id,
         stream: &str,
+        environment: Option<&str>,
         from: i64,
         to: i64,
         agg: &ServiceGraphAggregator,
@@ -194,9 +204,12 @@ impl ServiceGraphRecomputer {
             return Ok(());
         }
 
+        let environment_column =
+            environment.map_or_else(|| "''".to_owned(), |field| format!("\"{field}\""));
         let sql = format!(
             "SELECT _timestamp, trace_id, span_id, parent_span_id, \"service.name\", \
-                    \"service.namespace\", \"molesignal.execution.role\", duration_ns, status_code \
+                    \"service.namespace\", \"molesignal.execution.role\", duration_ns, status_code, \
+                    {environment_column} \
              FROM \"{stream}\" WHERE _timestamp BETWEEN {from} AND {to}"
         );
 
@@ -210,13 +223,14 @@ impl ServiceGraphRecomputer {
                 stream_type: StreamType::TRACES,
             }),
             limit: Some(self.cfg.max_rows),
+            step: None,
             federation_clusters: Vec::new(),
         };
 
         let result = self.query.run_raw(req).await?;
 
         for row in &result.rows {
-            if row.len() < 9 {
+            if row.len() < 10 {
                 continue;
             }
 
@@ -249,12 +263,13 @@ impl ServiceGraphRecomputer {
                 .map(|s| s.eq_ignore_ascii_case("ERROR"))
                 .unwrap_or(false);
 
-            agg.observe_span(
+            agg.observe_span_in(
                 org_id,
                 trace_id,
                 span_id,
                 parent,
                 &service,
+                row[9].as_str().unwrap_or_default(),
                 ts,
                 duration_us,
                 is_error,

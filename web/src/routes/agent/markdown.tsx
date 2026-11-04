@@ -165,9 +165,9 @@ export function MarkdownMessage({
   className?: string;
   variant?: MarkdownVariant;
 }) {
-  const blocks = React.useMemo(() => parseMarkdownBlocks(content), [content]);
-  // While streaming, the trailing block is the one still being written — give
-  // it the live-text shimmer so the freshly arriving copy reads as "in flight".
+  const { shown, ink } = useInkStream(content, Boolean(streaming));
+  const blocks = React.useMemo(() => parseMarkdownBlocks(shown), [shown]);
+  // The words still bleeding in are the newest, at the end of the block being written.
   const lastIndex = blocks.length - 1;
   return (
     <div
@@ -178,20 +178,140 @@ export function MarkdownMessage({
       )}
     >
       {blocks.map((block, index) =>
-        renderBlock(block, index, Boolean(streaming) && index === lastIndex, variant),
+        renderBlock(block, index, index === lastIndex && ink.length > 0 ? ink : null, variant),
       )}
-      {streaming && <span className="inline-block h-4 w-1.5 animate-pulse rounded-sm bg-indigo align-text-bottom" />}
     </div>
   );
+}
+
+/** The time a released character takes to bleed in: the length of `ms-ink` (polish/motion.css). */
+const INK_MS = 600;
+/** A backlog is worked off in about this many frames, never slower than a character a frame. */
+const CATCH_UP_FRAMES = 12;
+
+/** What one frame released: `start` and `end` index the shown text. */
+interface InkChunk {
+  start: number;
+  end: number;
+  born: number;
+}
+
+/**
+ * An answer arrives in bursts. While it streams, release its text at an even pace instead, a
+ * few characters a frame and faster when a burst piles up, and remember for a moment what each
+ * frame released, so those characters bleed in like ink rather than drop in. Text already
+ * there when the message mounts, and a message that never streamed, shows whole at once.
+ */
+function useInkStream(content: string, streaming: boolean): { shown: string; ink: readonly InkChunk[] } {
+  const [frame, setFrame] = React.useState<{ length: number; ink: readonly InkChunk[] }>(() => ({
+    length: content.length,
+    ink: [],
+  }));
+  const latest = React.useRef(frame);
+  const target = React.useRef(content.length);
+  const streamed = React.useRef(streaming);
+  const loop = React.useRef<number | null>(null);
+  target.current = content.length;
+  if (streaming) streamed.current = true;
+
+  React.useEffect(() => {
+    if (!streamed.current) {
+      if (latest.current.length !== content.length || latest.current.ink.length > 0) {
+        latest.current = { length: content.length, ink: [] };
+        setFrame(latest.current);
+      }
+      return;
+    }
+    if (latest.current.length > content.length) {
+      latest.current = { length: content.length, ink: [] };
+      setFrame(latest.current);
+    }
+    if (loop.current !== null) return;
+
+    const tick = (now: number) => {
+      const { length, ink } = latest.current;
+      const backlog = target.current - length;
+      const next = backlog > 0 ? length + Math.max(1, Math.ceil(backlog / CATCH_UP_FRAMES)) : length;
+      const alive = ink.filter((chunk) => now - chunk.born < INK_MS);
+      if (next > length) alive.push({ start: length, end: next, born: now });
+      if (next !== length || alive.length !== ink.length) {
+        latest.current = { length: next, ink: alive };
+        setFrame(latest.current);
+      }
+      loop.current = next < target.current || alive.length > 0 ? window.requestAnimationFrame(tick) : null;
+    };
+    loop.current = window.requestAnimationFrame(tick);
+  }, [content]);
+
+  React.useEffect(
+    () => () => {
+      if (loop.current !== null) window.cancelAnimationFrame(loop.current);
+    },
+    [],
+  );
+
+  return { shown: content.slice(0, frame.length), ink: frame.ink };
+}
+
+/**
+ * Wrap the last characters of a block's inline nodes in fading spans, one per released chunk,
+ * the newest last. A chunk's span keeps its key across renders, so it bleeds in once while
+ * the text grows past it, and leaves the plain text it settles into unchanged.
+ */
+function bleedInk(nodes: readonly React.ReactNode[], ink: readonly InkChunk[]): React.ReactNode[] {
+  const chunks = [...ink].reverse();
+  let chunk = 0;
+  let placed = 0;
+
+  const walk = (list: readonly React.ReactNode[]): React.ReactNode[] => {
+    const out: React.ReactNode[] = [];
+    for (let index = list.length - 1; index >= 0; index -= 1) {
+      const node = list[index];
+      if (chunk >= chunks.length) {
+        out.unshift(node);
+      } else if (typeof node === 'string') {
+        let text = node;
+        const pieces: React.ReactNode[] = [];
+        while (text.length > 0 && chunk < chunks.length) {
+          const current = chunks[chunk]!;
+          const take = Math.min(current.end - current.start - placed, text.length);
+          pieces.unshift(
+            <span key={`ink-${current.start}-${placed}`} className="ms-ink">
+              {text.slice(text.length - take)}
+            </span>,
+          );
+          text = text.slice(0, text.length - take);
+          placed += take;
+          if (placed >= current.end - current.start) {
+            chunk += 1;
+            placed = 0;
+          }
+        }
+        if (text) pieces.unshift(text);
+        out.unshift(...pieces);
+      } else if (
+        React.isValidElement<{ children?: React.ReactNode }>(node) &&
+        typeof node.props.children === 'string'
+      ) {
+        out.unshift(React.cloneElement(node, undefined, ...walk([node.props.children])));
+      } else {
+        out.unshift(node);
+      }
+    }
+    return out;
+  };
+
+  return walk(nodes);
 }
 
 function renderBlock(
   block: MarkdownBlock,
   index: number,
-  shimmer = false,
+  ink: readonly InkChunk[] | null = null,
   variant: MarkdownVariant = 'default',
 ): React.ReactNode {
   const answer = variant === 'answer';
+  const inline = (text: string) => (ink ? bleedInk(renderInline(text), ink) : renderInline(text));
   switch (block.type) {
     case 'heading': {
       const className = cn(
@@ -201,7 +321,7 @@ function renderBlock(
         !answer && block.level === 2 && 'text-base',
         !answer && block.level >= 3 && 'text-sm',
       );
-      const children = renderInline(block.text);
+      const children = inline(block.text);
       if (block.level === 1) return <h1 key={index} className={className}>{children}</h1>;
       if (block.level === 2) return <h2 key={index} className={className}>{children}</h2>;
       if (block.level === 3) return <h3 key={index} className={className}>{children}</h3>;
@@ -214,10 +334,9 @@ function renderBlock(
           className={cn(
             'whitespace-pre-wrap break-words',
             'text-tx-1',
-            shimmer && 'text-shimmer',
           )}
         >
-          {renderInline(block.text)}
+          {inline(block.text)}
         </p>
       );
     case 'list': {
@@ -233,7 +352,7 @@ function renderBlock(
         >
           {block.items.map((item, itemIndex) => (
             <li key={`${index}-${itemIndex}`} className="pl-0.5">
-              {renderInline(item)}
+              {itemIndex === block.items.length - 1 ? inline(item) : renderInline(item)}
             </li>
           ))}
         </ListTag>
@@ -248,21 +367,21 @@ function renderBlock(
             </div>
           )}
           <pre className="whitespace-pre-wrap break-words p-3 font-mono text-xs leading-relaxed text-tx-0 [overflow-wrap:anywhere]">
-            <code>{block.code}</code>
+            <code>{ink ? bleedInk([block.code], ink) : block.code}</code>
           </pre>
         </div>
       );
     case 'quote':
       return (
         <blockquote key={index} className="border-l-2 border-indigo/50 pl-3 text-tx-2">
-          {renderInline(block.text)}
+          {inline(block.text)}
         </blockquote>
       );
     case 'table':
       return (
         <div key={index} className="overflow-x-auto rounded-md border border-bd-0">
           <table className="min-w-full border-collapse bg-bg-1 font-sans text-xs">
-            <thead className="bg-bg-2 text-tx-2">
+            <thead className="bg-[var(--table-head-surface)] text-tx-0">
               <tr>
                 {block.headers.map((header, headerIndex) => (
                   <th key={`${index}-h-${headerIndex}`} className="border-b border-bd-0 px-2.5 py-1.5 text-left font-strong">

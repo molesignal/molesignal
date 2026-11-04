@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { TFunction } from 'i18next';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -19,7 +20,8 @@ import {
 import { Checkbox } from '@/shell/ui/checkbox';
 import { toast } from '@/shell/ui/sonner';
 import { useUsers } from '@/shell/useUsers';
-import type { EscalationPolicy, EscalationStep, EscalationTarget, Severity } from '@/types/alerting';
+import { windowsInvalid } from '@/shell/weekly-ranges/WeeklyWindowsFields';
+import type { EscalationPolicy, EscalationStep, EscalationTarget, Severity, UrgencyRule } from '@/types/alerting';
 
 import {
   ACK_TIMEOUTS,
@@ -27,8 +29,10 @@ import {
   emptyTarget,
   secsLabel,
   targetRefId,
+  type TargetNames,
   withRefId,
 } from './steps';
+import { UrgencyFields } from './UrgencyFields';
 
 const SEVERITIES: Severity[] = ['info', 'warning', 'error', 'critical'];
 
@@ -36,6 +40,8 @@ interface RefOptions {
   users: Array<{ value: string; label: string }>;
   schedules: Array<{ value: string; label: string }>;
   teams: Array<{ value: string; label: string }>;
+  /** What to call a target its list does not hold: the list is still loading, or leaves it out. */
+  unlisted: TargetNames;
 }
 
 /** The form of one escalation policy: its steps, who each tells, and how long each waits. */
@@ -50,18 +56,24 @@ export function EscalationDrawer({
 }) {
   const { t } = useTranslation('alerts');
   const qc = useQueryClient();
-  const manageAccess = useActionAccess({ permission: 'alerts.manage' });
+  const manageAccess = useActionAccess({ permission: 'alerts.escalations.manage' });
   const [name, setName] = React.useState('');
   const [repeat, setRepeat] = React.useState(false);
   const [maxLoops, setMaxLoops] = React.useState(1);
+  const [ackRetrigger, setAckRetrigger] = React.useState('');
   const [steps, setSteps] = React.useState<EscalationStep[]>(() => [emptyStep()]);
+  const [urgencyRule, setUrgencyRule] = React.useState<UrgencyRule>({ mode: 'by_severity' });
+  const [escalateLow, setEscalateLow] = React.useState(false);
 
   React.useEffect(() => {
     if (!open) return;
     setName(editing?.name ?? '');
     setRepeat(editing?.repeat ?? false);
-    setMaxLoops(editing?.max_loops ?? 1);
+    setMaxLoops(editing?.maxLoops ?? 1);
+    setAckRetrigger(editing?.ackRetriggerSecs ? String(editing.ackRetriggerSecs) : '');
     setSteps(editing?.steps?.length ? editing.steps.map((s) => ({ ...s })) : [emptyStep()]);
+    setUrgencyRule(editing?.urgencyRule ?? { mode: 'by_severity' });
+    setEscalateLow(editing?.escalateLowUrgency ?? false);
   }, [open, editing]);
 
   const users = useUsers();
@@ -73,8 +85,21 @@ export function EscalationDrawer({
       users: users.users.map((u) => ({ value: u.id, label: u.name })),
       schedules: (schedulesQuery.data ?? []).map((s) => ({ value: s.id, label: s.name })),
       teams: (teamsQuery.data ?? []).map((tm) => ({ value: tm.id, label: tm.name })),
+      unlisted: {
+        user: users.nameOf,
+        schedule: () => (schedulesQuery.isPending ? '…' : t('escalations.missing_target')),
+        team: () => (teamsQuery.isPending ? '…' : t('escalations.missing_target')),
+      },
     }),
-    [users.users, schedulesQuery.data, teamsQuery.data],
+    [
+      users.users,
+      users.nameOf,
+      schedulesQuery.data,
+      schedulesQuery.isPending,
+      teamsQuery.data,
+      teamsQuery.isPending,
+      t,
+    ],
   );
 
   const save = useMutation({
@@ -82,15 +107,18 @@ export function EscalationDrawer({
       const cleanSteps: EscalationStep[] = steps
         .map((s) => ({
           targets: s.targets.filter((tg) => targetRefId(tg).trim() !== ''),
-          ack_timeout_secs: Math.max(0, Math.floor(s.ack_timeout_secs) || 0),
-          min_severity: s.min_severity ?? null,
+          ackTimeoutSecs: Math.max(0, Math.floor(s.ackTimeoutSecs) || 0),
+          minSeverity: s.minSeverity ?? null,
         }))
         .filter((s) => s.targets.length > 0);
       const payload: escalationsApi.EscalationPolicyInput = {
         name: name.trim(),
         steps: cleanSteps,
         repeat,
-        max_loops: repeat ? Math.max(1, Math.floor(maxLoops) || 1) : 1,
+        maxLoops: repeat ? Math.max(1, Math.floor(maxLoops) || 1) : 1,
+        ackRetriggerSecs: ackRetrigger ? Number(ackRetrigger) : null,
+        urgencyRule: urgencyRule,
+        escalateLowUrgency: escalateLow,
       };
       return editing ? escalationsApi.update(editing.id, payload) : escalationsApi.create(payload);
     },
@@ -111,6 +139,10 @@ export function EscalationDrawer({
     }
     if (steps.every((s) => s.targets.every((tg) => targetRefId(tg).trim() === ''))) {
       toast.error(t('escalations.errors.target_required', { defaultValue: 'Add at least one target.' }));
+      return;
+    }
+    if (urgencyRule.mode === 'support_hours' && windowsInvalid(urgencyRule.hours)) {
+      toast.error(t('escalations.errors.support_hours'));
       return;
     }
     save.mutate();
@@ -163,12 +195,22 @@ export function EscalationDrawer({
               />
             </FormField>
           )}
+          <FormField
+            label={t('escalations.fields.ack_retrigger')}
+            hint={t('escalations.hints.ack_retrigger')}
+          >
+            <FormSelect
+              value={ackRetrigger}
+              onChange={setAckRetrigger}
+              ariaLabel={t('escalations.fields.ack_retrigger')}
+              options={ackRetriggerOptions(t, ackRetrigger)}
+            />
+          </FormField>
         </FormSection>
 
         <FormSection
           title={t('escalations.sections.steps', { defaultValue: 'Escalation steps' })}
           description={t('escalations.sections.steps_description', { defaultValue: 'Each step emits a Notify event for its targets. Notify Policies select connectors, preferences and fallback routes.' }) as string}
-          className="mb-0"
         >
           <FieldArray<EscalationStep>
             items={steps}
@@ -184,6 +226,13 @@ export function EscalationDrawer({
           {/* True of every target alike, so it is said once and not under each of them. */}
           <p className="mt-3 font-sans text-xs text-tx-2">{t('escalations.fields.notify_routing')}</p>
         </FormSection>
+
+        <UrgencyFields
+          rule={urgencyRule}
+          onRule={setUrgencyRule}
+          escalateLow={escalateLow}
+          onEscalateLow={setEscalateLow}
+        />
         </fieldset>
       </form>
     </FormDrawer>
@@ -227,15 +276,15 @@ function StepFields({
       <div className="grid grid-cols-2 gap-2">
         <FormField label={t('escalations.fields.min_severity', { defaultValue: 'Applies from severity' })}>
           <FormSelect
-            value={step.min_severity ?? ''}
-            onChange={(v) => setStep({ ...step, min_severity: v ? (v as Severity) : null })}
+            value={step.minSeverity ?? ''}
+            onChange={(v) => setStep({ ...step, minSeverity: v ? (v as Severity) : null })}
             options={severityOptions}
           />
         </FormField>
         <FormField label={t('escalations.fields.ack_timeout', { defaultValue: 'Ack timeout' })}>
           <FormSelect
-            value={String(step.ack_timeout_secs)}
-            onChange={(v) => setStep({ ...step, ack_timeout_secs: Number(v) })}
+            value={String(step.ackTimeoutSecs)}
+            onChange={(v) => setStep({ ...step, ackTimeoutSecs: Number(v) })}
             options={ackOptions}
           />
         </FormField>
@@ -284,6 +333,8 @@ function TargetFields({
       : target.kind === 'schedule'
         ? refs.schedules
         : refs.teams;
+  const refId = targetRefId(target);
+  const unlisted = refId !== '' && !refOptions.some((option) => option.value === refId);
 
   return (
     <div className="flex items-center gap-2">
@@ -295,11 +346,38 @@ function TargetFields({
           />
         </div>
         <FormSelect
-          value={targetRefId(target)}
+          value={refId}
           onChange={(v) => setTarget(withRefId(target, v))}
-          options={[{ value: '', label: t('escalations.pick_ref', { defaultValue: '— select —' }) }, ...refOptions]}
+          options={[
+            { value: '', label: t('escalations.pick_ref', { defaultValue: '— select —' }) },
+            ...refOptions,
+            // What the step points at stays a choice, so that saving does not drop it.
+            ...(unlisted ? [{ value: refId, label: refs.unlisted[target.kind](refId) }] : []),
+          ]}
           className="flex-1"
         />
     </div>
   );
+}
+
+/** The choices of how long an acknowledged incident may stay unresolved; a wait set through the
+ * API that no preset matches is listed too. */
+function ackRetriggerOptions(
+  t: TFunction<'alerts'>,
+  current: string,
+): Array<{ value: string; label: string }> {
+  const presets = [1800, 3600, 7200, 14400];
+  const secs = Number(current);
+  const values = current && !presets.includes(secs) ? [...presets, secs].sort((a, b) => a - b) : presets;
+
+  return [
+    { value: '', label: t('escalations.ack_retrigger.off') },
+    ...values.map((value) => ({
+      value: String(value),
+      label:
+        value % 3600 === 0
+          ? t('escalations.ack_retrigger.hours', { count: value / 3600 })
+          : t('escalations.ack_retrigger.minutes', { count: Math.round(value / 60) }),
+    })),
+  ];
 }

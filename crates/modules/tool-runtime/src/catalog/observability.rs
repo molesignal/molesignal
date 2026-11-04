@@ -3,31 +3,32 @@
 
 use serde_json::json;
 
-use super::{BuiltinToolKind, object_schema, open_output, time_range_schema};
+use super::{BuiltinToolKind, object_schema, open_output, time_range_schema, timestamp_schema};
 use crate::ToolSpec;
 
 pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
     let (description, category, input, tags) = match kind {
         BuiltinToolKind::QueryLogs => (
-            "Run bounded read-only SQL against one logs stream. First inspect the exact schema with get_stream_schema; time_range already constrains event time.",
+            "Run bounded read-only SQL against one logs stream. First inspect the exact schema with get_stream_schema; timeRange already constrains event time.",
             "logs",
             json!({
-                "type": "object", "required": ["sql", "stream", "time_range"],
+                "type": "object", "required": ["sql", "stream", "timeRange"],
                 "properties": {
                     "sql": {"type": "string"}, "stream": {"type": "string"},
-                    "time_range": time_range_schema(),
+                    "timeRange": time_range_schema(),
                     "limit": {"type": "integer", "minimum": 1, "maximum": 5000, "default": 500}
                 }, "additionalProperties": false
             }),
             vec!["Logs", "SQL"],
         ),
         BuiltinToolKind::QueryMetrics => (
-            "Run one bounded read-only PromQL range query. Grafana template helpers such as label_values() are not PromQL.",
+            "Run one bounded read-only PromQL range query; step_seconds sets the resolution and defaults to a hundredth of the time range. Grafana template helpers such as label_values() are not PromQL.",
             "metrics",
             json!({
-                "type": "object", "required": ["promql", "time_range"],
+                "type": "object", "required": ["promql", "timeRange"],
                 "properties": {
-                    "promql": {"type": "string"}, "time_range": time_range_schema(),
+                    "promql": {"type": "string"}, "timeRange": time_range_schema(),
+                    "stepSeconds": {"type": "integer", "minimum": 1},
                     "limit": {"type": "integer", "minimum": 1, "maximum": 5000, "default": 1000}
                 }, "additionalProperties": false
             }),
@@ -37,7 +38,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "List queryable streams as compact summaries; use get_stream_schema for fields.",
             "streams",
             object_schema(json!({
-                "stream_type": {"type": "string", "enum": ["logs", "metrics", "traces", "profiles", "extend"]},
+                "streamType": {"type": "string", "enum": ["logs", "metrics", "traces", "profiles", "extend"]},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 200}
             })),
             vec!["Streams", "Discovery"],
@@ -46,10 +47,10 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "Return exact fields, types, settings, and retention for one stream.",
             "streams",
             json!({
-                "type": "object", "required": ["stream", "stream_type"],
+                "type": "object", "required": ["stream", "streamType"],
                 "properties": {
                     "stream": {"type": "string"},
-                    "stream_type": {"type": "string", "enum": ["logs", "metrics", "traces", "profiles", "extend"]}
+                    "streamType": {"type": "string", "enum": ["logs", "metrics", "traces", "profiles", "extend"]}
                 }, "additionalProperties": false
             }),
             vec!["Streams", "Schema"],
@@ -58,16 +59,16 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "Return query, retention, partitioning, and ingestion settings for one stream without repeating its full schema.",
             "streams",
             json!({
-                "type": "object", "required": ["stream", "stream_type"],
+                "type": "object", "required": ["stream", "streamType"],
                 "properties": {
                     "stream": {"type": "string"},
-                    "stream_type": {"type": "string", "enum": ["logs", "metrics", "traces", "profiles", "extend"]}
+                    "streamType": {"type": "string", "enum": ["logs", "metrics", "traces", "profiles", "extend"]}
                 }, "additionalProperties": false
             }),
             vec!["Streams", "Settings"],
         ),
         BuiltinToolKind::ListMetricNames => (
-            "List metric stream names, optionally filtered by a substring.",
+            "List metric names, optionally filtered by a substring.",
             "metrics",
             object_schema(json!({
                 "query": {"type": "string"},
@@ -79,17 +80,17 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "List distinct values for one real metric label field without using non-PromQL helpers.",
             "metrics",
             json!({
-                "type": "object", "required": ["metric", "label", "time_range"],
+                "type": "object", "required": ["metric", "label", "timeRange"],
                 "properties": {
                     "metric": {"type": "string"}, "label": {"type": "string"},
-                    "time_range": time_range_schema(), "query": {"type": "string"},
+                    "timeRange": time_range_schema(), "query": {"type": "string"},
                     "limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 200}
                 }, "additionalProperties": false
             }),
             vec!["Metrics", "Labels"],
         ),
         BuiltinToolKind::ListMetricLabels => (
-            "List real label fields for one metric stream.",
+            "List real label fields for one metric.",
             "metrics",
             json!({
                 "type": "object", "required": ["metric"],
@@ -101,9 +102,9 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "List bounded distinct metric-label series for a time range.",
             "metrics",
             json!({
-                "type": "object", "required": ["metric", "time_range"],
+                "type": "object", "required": ["metric", "timeRange"],
                 "properties": {
-                    "metric": {"type": "string"}, "time_range": time_range_schema(),
+                    "metric": {"type": "string"}, "timeRange": time_range_schema(),
                     "match": {"type": "object", "additionalProperties": {"type": "string"}},
                     "limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 200}
                 }, "additionalProperties": false
@@ -114,12 +115,12 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "Fetch log rows immediately before and after an anchor timestamp.",
             "logs",
             json!({
-                "type": "object", "required": ["stream", "anchor_micros"],
+                "type": "object", "required": ["stream", "anchorTime"],
                 "properties": {
-                    "stream": {"type": "string"}, "anchor_micros": {"type": "integer"},
+                    "stream": {"type": "string"}, "anchorTime": timestamp_schema(),
                     "before": {"type": "integer", "minimum": 1, "maximum": 250, "default": 25},
                     "after": {"type": "integer", "minimum": 1, "maximum": 250, "default": 25},
-                    "filter_sql": {"type": "string", "description": "Optional boolean SQL expression; no SELECT/ORDER/LIMIT."}
+                    "filterSql": {"type": "string", "description": "Optional boolean SQL expression; no SELECT/ORDER/LIMIT."}
                 }, "additionalProperties": false
             }),
             vec!["Logs", "Context"],
@@ -128,11 +129,11 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "Return bounded distinct values and counts for one exact stream field.",
             "logs",
             json!({
-                "type": "object", "required": ["stream", "field", "time_range"],
+                "type": "object", "required": ["stream", "field", "timeRange"],
                 "properties": {
                     "stream": {"type": "string"}, "field": {"type": "string"},
-                    "stream_type": {"type": "string", "enum": ["logs", "metrics", "traces", "profiles", "extend"], "default": "logs"},
-                    "time_range": time_range_schema(), "query": {"type": "string"},
+                    "streamType": {"type": "string", "enum": ["logs", "metrics", "traces", "profiles", "extend"], "default": "logs"},
+                    "timeRange": time_range_schema(), "query": {"type": "string"},
                     "limit": {"type": "integer", "minimum": 1, "maximum": 500, "default": 50}
                 }, "additionalProperties": false
             }),
@@ -142,11 +143,11 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "Return bounded links between incidents, traces, logs, RUM, and profiles for a service or trace.",
             "correlation",
             json!({
-                "type": "object", "required": ["time_range"],
+                "type": "object", "required": ["timeRange"],
                 "properties": {
-                    "time_range": time_range_schema(), "service": {"type": "string"},
-                    "trace_id": {"type": "string"}, "incident_id": {"type": "string"},
-                    "limit_per_signal": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}
+                    "timeRange": time_range_schema(), "service": {"type": "string"},
+                    "traceId": {"type": "string"}, "incidentId": {"type": "string"},
+                    "limitPerSignal": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}
                 }, "additionalProperties": false
             }),
             vec!["Correlation", "Investigation"],
@@ -155,9 +156,9 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             "Return a bounded service dependency graph for a time range.",
             "topology",
             json!({
-                "type": "object", "required": ["time_range"],
+                "type": "object", "required": ["timeRange"],
                 "properties": {
-                    "time_range": time_range_schema(), "service": {"type": "string"},
+                    "timeRange": time_range_schema(), "service": {"type": "string"},
                     "limit": {"type": "integer", "minimum": 1, "maximum": 500, "default": 100}
                 }, "additionalProperties": false
             }),

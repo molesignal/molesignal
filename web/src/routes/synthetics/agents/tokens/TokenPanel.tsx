@@ -152,7 +152,7 @@ function columns(
           </span>
           <div>
             <div className="font-strong text-tx-0">{token.name}</div>
-            <div className="font-code text-type-micro text-tx-3">{token.token_prefix}…</div>
+            <div className="font-code text-type-micro text-tx-3">{token.tokenPrefix}…</div>
           </div>
         </div>
       ),
@@ -180,23 +180,23 @@ function columns(
       key: 'location',
       header: t('agents.location'),
       width: 160,
-      cell: (token) => locations.find((location) => location.id === token.location_id)?.name
-        ?? token.location_id,
+      cell: (token) => locations.find((location) => location.id === token.locationId)?.name
+        ?? token.locationId,
     },
     {
       key: 'last_used',
       header: t('agent_tokens.last_used'),
       width: 130,
-      cell: (token) => token.last_used_at
-        ? formatRelativeTimestamp(token.last_used_at, locale)
+      cell: (token) => token.lastUsedAt
+        ? formatRelativeTimestamp(token.lastUsedAt, locale)
         : t('agent_tokens.never_used'),
     },
     {
       key: 'expires',
       header: t('agent_tokens.expires'),
       width: 130,
-      cell: (token) => token.expires_at
-        ? formatRelativeTimestamp(token.expires_at, locale)
+      cell: (token) => token.expiresAt
+        ? formatRelativeTimestamp(token.expiresAt, locale)
         : t('agent_tokens.expiry_never'),
     },
     {
@@ -224,5 +224,5 @@ function columns(
 }
 
 function isExpired(token: ProbeAgentToken): boolean {
-  return token.expires_at !== undefined && token.expires_at <= Date.now() * 1_000;
+  return token.expiresAt !== undefined && token.expiresAt <= Date.now() * 1_000;
 }

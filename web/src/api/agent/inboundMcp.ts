@@ -1,59 +1,59 @@
 import { http } from '@/lib/http';
 
 export interface InboundMcpSettings {
-  org_id: string;
+  orgId: string;
   enabled: boolean;
-  allowed_origins: string[];
+  allowedOrigins: string[];
   /** MiB a request body may take. */
-  max_request_size: number;
+  maxRequestSize: number;
   /** MiB a response may take. */
-  max_response_size: number;
-  max_concurrent_calls: number;
-  calls_per_minute: number;
-  read_timeout_ms: number;
-  updated_by: string;
-  created_at: number;
-  updated_at: number;
+  maxResponseSize: number;
+  maxConcurrentCalls: number;
+  callsPerMinute: number;
+  readTimeoutMs: number;
+  updatedBy: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export type InboundMcpSettingsInput = Pick<
   InboundMcpSettings,
   | 'enabled'
-  | 'allowed_origins'
-  | 'max_request_size'
-  | 'max_response_size'
-  | 'max_concurrent_calls'
-  | 'calls_per_minute'
-  | 'read_timeout_ms'
+  | 'allowedOrigins'
+  | 'maxRequestSize'
+  | 'maxResponseSize'
+  | 'maxConcurrentCalls'
+  | 'callsPerMinute'
+  | 'readTimeoutMs'
 >;
 
 export interface InboundMcpSettingsResponse {
   settings: InboundMcpSettings;
   endpoint: string;
-  protocol_versions: string[];
+  protocolVersions: string[];
   transports: string[];
   /** The most MiB a request or response size can be set to. */
-  hard_max_size: number;
+  hardMaxSize: number;
   oauth: {
-    protected_resource_metadata: string;
-    authorization_server_metadata: string;
-    authorization_endpoint: string;
-    token_endpoint: string;
-    registration_endpoint: string;
-    revocation_endpoint: string;
+    protectedResourceMetadata: string;
+    authorizationServerMetadata: string;
+    authorizationEndpoint: string;
+    tokenEndpoint: string;
+    registrationEndpoint: string;
+    revocationEndpoint: string;
   };
 }
 
 export interface InboundMcpOAuthConnection {
-  family_id: string;
-  client_id: string;
-  client_name: string;
-  user_id: string;
-  user_display_name: string;
+  familyId: string;
+  clientId: string;
+  clientName: string;
+  userId: string;
+  userDisplayName: string;
   scope: string;
   resource: string;
-  created_at: number;
-  last_expires_at: number;
+  createdAt: number;
+  lastExpiresAt: number;
   active: boolean;
 }
 

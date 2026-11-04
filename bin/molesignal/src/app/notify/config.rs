@@ -85,18 +85,21 @@ const SENSITIVE_CONFIG_KEYS: &[&str] = &[
     "password",
     "secret",
     "token",
-    "api_key",
-    "access_key",
-    "secret_key",
-    "client_secret",
-    "private_key",
-    "webhook_url",
+    "apikey",
+    "accesskey",
+    "secretkey",
+    "clientsecret",
+    "privatekey",
+    "aeskey",
+    "credentials",
+    "webhookurl",
     "url",
     "headers",
 ];
 
 fn sensitive_key(key: &str) -> bool {
-    let normalized = key.to_ascii_lowercase();
+    // 键名是 camelCase（`clientSecret`），也认 snake_case：去掉分隔符再比。
+    let normalized = key.to_ascii_lowercase().replace(['_', '-'], "");
 
     SENSITIVE_CONFIG_KEYS.iter().any(|candidate| {
         normalized == *candidate || (*candidate != "url" && normalized.ends_with(candidate))
@@ -159,13 +162,13 @@ mod tests {
         let config = serde_json::json!({
             "host": "smtp.example.com",
             "url": "https://hooks.example.com/secret",
-            "api_base_url": "https://api.example.com",
+            "apiBaseUrl": "https://api.example.com",
             "auth": {"password": "secret", "username": "mailer"}
         });
         let masked = mask_connector_config(&config);
         assert_eq!(masked["host"], "smtp.example.com");
         assert_eq!(masked["url"], "***");
-        assert_eq!(masked["api_base_url"], "https://api.example.com");
+        assert_eq!(masked["apiBaseUrl"], "https://api.example.com");
         assert_eq!(masked["auth"]["password"], "***");
         assert_eq!(masked["auth"]["username"], "mailer");
     }
@@ -176,19 +179,37 @@ mod tests {
             "host": "old.example.com",
             "password": "secret",
             "url": "https://hooks.example.com/secret",
-            "api_base_url": "https://api.example.com"
+            "apiBaseUrl": "https://api.example.com"
         });
         let desired = serde_json::json!({
             "host": "new.example.com",
             "password": "***",
             "url": "***",
-            "api_base_url": "https://new-api.example.com"
+            "apiBaseUrl": "https://new-api.example.com"
         });
         let merged = merge_masked_config(&existing, &desired);
         assert_eq!(merged["host"], "new.example.com");
         assert_eq!(merged["password"], "secret");
         assert_eq!(merged["url"], "https://hooks.example.com/secret");
-        assert_eq!(merged["api_base_url"], "https://new-api.example.com");
+        assert_eq!(merged["apiBaseUrl"], "https://new-api.example.com");
+    }
+
+    #[test]
+    fn app_credentials_are_masked_whole() {
+        let config = serde_json::json!({
+            "credentials": {"client_email": "mole@p.iam.gserviceaccount.com", "private_key": "pem"},
+            "appToken": "xapp-1",
+            "corpSecret": "s",
+            "agentId": 1_000_002,
+        });
+        let masked = mask_connector_config(&config);
+        assert_eq!(masked["credentials"], "***");
+        assert_eq!(masked["appToken"], "***");
+        assert_eq!(masked["corpSecret"], "***");
+        assert_eq!(masked["agentId"], 1_000_002);
+
+        let kept = merge_masked_config(&config, &serde_json::json!({"credentials": "***"}));
+        assert_eq!(kept["credentials"], config["credentials"]);
     }
 
     #[test]

@@ -28,6 +28,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ListParams {
     #[serde(default)]
     pub from: Option<i64>,
@@ -42,14 +43,15 @@ pub struct ListParams {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateReq {
     pub title: String,
     #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,
-    pub time_start_micros: i64,
-    pub time_end_micros: i64,
+    pub time_start: i64,
+    pub time_end: i64,
     #[serde(default)]
     pub dashboard_id: Option<String>,
     #[serde(default)]
@@ -57,6 +59,7 @@ pub struct CreateReq {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateReq {
     #[serde(default)]
     pub title: Option<String>,
@@ -65,9 +68,9 @@ pub struct UpdateReq {
     #[serde(default)]
     pub tags: Option<Vec<String>>,
     #[serde(default)]
-    pub time_start_micros: Option<i64>,
+    pub time_start: Option<i64>,
     #[serde(default)]
-    pub time_end_micros: Option<i64>,
+    pub time_end: Option<i64>,
     #[serde(default)]
     pub dashboard_id: Patch<String>,
     #[serde(default)]
@@ -88,17 +91,18 @@ impl<'de, T: DeserializeOwned> Deserialize<'de> for Patch<T> {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Resp {
     pub id: String,
     pub title: String,
     pub description: Option<String>,
     pub tags: Vec<String>,
-    pub time_start_micros: i64,
-    pub time_end_micros: i64,
+    pub time_start: i64,
+    pub time_end: i64,
     pub dashboard_id: Option<String>,
     pub stream_name: Option<String>,
     pub created_by: String,
-    pub created_at_micros: i64,
+    pub created_at: i64,
 }
 
 fn to_resp(a: Annotation) -> Resp {
@@ -107,16 +111,16 @@ fn to_resp(a: Annotation) -> Resp {
         title: a.title,
         description: a.description,
         tags: a.tags,
-        time_start_micros: a.time_start.0,
-        time_end_micros: a.time_end.0,
+        time_start: a.time_start.0,
+        time_end: a.time_end.0,
         dashboard_id: a.dashboard_id.map(|i| i.0),
         stream_name: a.stream_name,
         created_by: a.created_by.0,
-        created_at_micros: a.created_at.0,
+        created_at: a.created_at.0,
     }
 }
 
-#[permission("dashboards.read")]
+#[permission("dashboards.annotations.read")]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -142,7 +146,7 @@ async fn list(
     ))
 }
 
-#[permission("dashboards.read")]
+#[permission("dashboards.annotations.read")]
 async fn get_one(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -155,7 +159,7 @@ async fn get_one(
     }
 }
 
-#[permission("dashboards.edit")]
+#[permission("dashboards.annotations.manage")]
 async fn create(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -167,8 +171,8 @@ async fn create(
         title: req.title,
         description: req.description,
         tags: req.tags,
-        time_start: TimestampMicros(req.time_start_micros),
-        time_end: TimestampMicros(req.time_end_micros),
+        time_start: TimestampMicros(req.time_start),
+        time_end: TimestampMicros(req.time_end),
         dashboard_id: req.dashboard_id.map(Id),
         stream_name: req.stream_name,
         created_by: ctx.user_id.clone(),
@@ -180,7 +184,7 @@ async fn create(
     Ok(Json(to_resp(a)))
 }
 
-#[permission("dashboards.edit")]
+#[permission("dashboards.annotations.manage")]
 async fn update(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -206,11 +210,11 @@ async fn update(
         annotation.tags = tags;
     }
 
-    if let Some(time_start) = req.time_start_micros {
+    if let Some(time_start) = req.time_start {
         annotation.time_start = TimestampMicros(time_start);
     }
 
-    if let Some(time_end) = req.time_end_micros {
+    if let Some(time_end) = req.time_end {
         annotation.time_end = TimestampMicros(time_end);
     }
 
@@ -266,14 +270,14 @@ fn validate_annotation(title: &str, start: i64, end: i64) -> Result<()> {
 
     if end < start {
         return Err(Error::invalid(
-            "time_end_micros must be greater than or equal to time_start_micros",
+            "timeEnd must be greater than or equal to timeStart",
         ));
     }
 
     Ok(())
 }
 
-#[permission("dashboards.edit")]
+#[permission("dashboards.annotations.manage")]
 async fn delete(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

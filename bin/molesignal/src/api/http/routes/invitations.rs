@@ -12,6 +12,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
+use super::iam::grant_limit;
 use crate::{
     api::AppState,
     app::iam::IamContext,
@@ -28,6 +29,7 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateReq {
     email: String,
     #[serde(default)]
@@ -35,6 +37,7 @@ struct CreateReq {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct Resp {
     id: String,
     org_id: String,
@@ -44,8 +47,8 @@ struct Resp {
     role_name: String,
     inviter_id: String,
     status: String,
-    sent_at_micros: i64,
-    updated_at_micros: i64,
+    sent_at: i64,
+    updated_at: i64,
 }
 
 fn to_resp(invitation: Invitation, role: IamAssignedRole) -> Resp {
@@ -58,8 +61,8 @@ fn to_resp(invitation: Invitation, role: IamAssignedRole) -> Resp {
         role_name: role.name,
         inviter_id: invitation.inviter_id.0,
         status: invitation.status,
-        sent_at_micros: invitation.sent_at.0,
-        updated_at_micros: invitation.updated_at.0,
+        sent_at: invitation.sent_at.0,
+        updated_at: invitation.updated_at.0,
     }
 }
 
@@ -112,7 +115,7 @@ async fn list(
     Ok(Json(responses))
 }
 
-#[permission("org.members.manage")]
+#[permission("org.members.invite")]
 async fn create(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -145,7 +148,9 @@ async fn create(
         .repository()
         .role_summary(&ctx.org_id, &role_id)
         .await?
-        .ok_or_else(|| Error::invalid("role_id must reference an IAM role in this organization"))?;
+        .ok_or_else(|| Error::invalid("roleId must reference an IAM role in this organization"))?;
+
+    grant_limit::require_roles_held(&state, &ctx, std::slice::from_ref(&role_id)).await?;
 
     let now = TimestampMicros::now();
 
@@ -164,7 +169,7 @@ async fn create(
     Ok(Json(resolve_resp(&state, invitation).await?))
 }
 
-#[permission("org.members.manage")]
+#[permission("org.members.invite")]
 async fn resend(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -181,7 +186,7 @@ async fn resend(
     Ok(Json(resolve_resp(&state, invitation).await?))
 }
 
-#[permission("org.members.manage")]
+#[permission("org.members.invite")]
 async fn revoke(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,

@@ -20,7 +20,7 @@ const BINDING_COLUMNS: &str = "capability_key, revision,
     model_contract_key, model_contract_version, model_schema_hash,
     authoring_contract_key, authoring_contract_version, authoring_schema_hash,
     visualization_contract_key, visualization_contract_version, visualization_schema_hash,
-    compiler_version, enabled, updated_at_micros";
+    compiler_version, enabled, updated_at";
 
 pub struct PgDashboardContractRepository {
     pool: PgPool,
@@ -52,7 +52,7 @@ impl PgDashboardContractRepository {
     ) -> Result<DashboardContractVersion> {
         let row = sqlx::query(
             "SELECT contract_key, version, kind, dialect, document, schema_hash,
-                    status, published_at_micros
+                    status, published_at
              FROM agent_contract_versions
              WHERE contract_key = $1 AND version = $2 AND schema_hash = $3",
         )
@@ -82,7 +82,7 @@ impl DashboardContractRepository for PgDashboardContractRepository {
             sqlx::query(
                 "INSERT INTO agent_contract_versions
                  (contract_key, version, kind, dialect, document, schema_hash, status,
-                  published_at_micros)
+                  published_at)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                  ON CONFLICT (contract_key, version) DO NOTHING",
             )
@@ -93,7 +93,7 @@ impl DashboardContractRepository for PgDashboardContractRepository {
             .bind(Json(&version.document))
             .bind(&version.schema_hash)
             .bind(version.status.as_str())
-            .bind(version.published_at.0)
+            .bind(version.published_at)
             .execute(&mut *transaction)
             .await
             .map_err(sqlx_err)?;
@@ -143,21 +143,21 @@ impl DashboardContractRepository for PgDashboardContractRepository {
                m.version AS model_version_version, m.kind AS model_version_kind,
                m.dialect AS model_version_dialect, m.document AS model_version_document,
                m.schema_hash AS model_version_schema_hash, m.status AS model_version_status,
-               m.published_at_micros AS model_version_published_at_micros,
+               m.published_at AS model_version_published_at,
                a.contract_key AS authoring_version_contract_key,
                a.version AS authoring_version_version, a.kind AS authoring_version_kind,
                a.dialect AS authoring_version_dialect,
                a.document AS authoring_version_document,
                a.schema_hash AS authoring_version_schema_hash,
                a.status AS authoring_version_status,
-               a.published_at_micros AS authoring_version_published_at_micros,
+               a.published_at AS authoring_version_published_at,
                v.contract_key AS visualization_version_contract_key,
                v.version AS visualization_version_version,
                v.kind AS visualization_version_kind, v.dialect AS visualization_version_dialect,
                v.document AS visualization_version_document,
                v.schema_hash AS visualization_version_schema_hash,
                v.status AS visualization_version_status,
-               v.published_at_micros AS visualization_version_published_at_micros
+               v.published_at AS visualization_version_published_at
              FROM agent_capability_contract_bindings b
              JOIN agent_contract_versions m
                ON (m.contract_key, m.version, m.schema_hash) =
@@ -224,7 +224,7 @@ impl DashboardContractRepository for PgDashboardContractRepository {
                visualization_schema_hash = EXCLUDED.visualization_schema_hash,
                compiler_version = EXCLUDED.compiler_version,
                enabled = EXCLUDED.enabled,
-               updated_at_micros = EXCLUDED.updated_at_micros
+               updated_at = EXCLUDED.updated_at
              RETURNING {BINDING_COLUMNS}"
         ))
         .bind(&selection.capability_key)
@@ -239,7 +239,7 @@ impl DashboardContractRepository for PgDashboardContractRepository {
         .bind(&selection.visualization.schema_hash)
         .bind(&selection.compiler_version)
         .bind(selection.enabled)
-        .bind(now.0)
+        .bind(now)
         .fetch_one(&mut *transaction)
         .await
         .map_err(sqlx_err)?;
@@ -261,7 +261,7 @@ async fn insert_default_binding(
           model_contract_key, model_contract_version, model_schema_hash,
           authoring_contract_key, authoring_contract_version, authoring_schema_hash,
           visualization_contract_key, visualization_contract_version,
-          visualization_schema_hash, compiler_version, enabled, updated_at_micros)
+          visualization_schema_hash, compiler_version, enabled, updated_at)
          VALUES ($1, 1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
          ON CONFLICT (capability_key) DO NOTHING",
     )
@@ -277,7 +277,7 @@ async fn insert_default_binding(
     .bind(&selection.visualization.schema_hash)
     .bind(&selection.compiler_version)
     .bind(selection.enabled)
-    .bind(now.0)
+    .bind(now)
     .execute(transaction)
     .await
     .map_err(sqlx_err)?;
@@ -296,7 +296,9 @@ fn row_to_binding(row: &PgRow) -> Result<DashboardContractBinding> {
             enabled: row.try_get("enabled").map_err(sqlx_err)?,
         },
         revision: row.try_get("revision").map_err(sqlx_err)?,
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -338,10 +340,9 @@ fn row_to_version(row: &PgRow, prefix: &str) -> Result<DashboardContractVersion>
             .map_err(sqlx_err)?,
         status: DashboardContractStatus::parse(&status)
             .ok_or_else(|| Error::internal("unknown Dashboard contract status"))?,
-        published_at: TimestampMicros(
-            row.try_get(column("published_at_micros").as_str())
-                .map_err(sqlx_err)?,
-        ),
+        published_at: row
+            .try_get(column("published_at").as_str())
+            .map_err(sqlx_err)?,
     })
 }
 

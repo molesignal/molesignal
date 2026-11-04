@@ -24,7 +24,7 @@ export function TraceSessionDetail() {
   const { t } = useTranslation('traces');
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const orgId = useAuthStore((s) => s.ctx?.org_id ?? '');
+  const orgId = useAuthStore((s) => s.ctx?.orgId ?? '');
 
   // Use the existing /query endpoint to fetch traces tagged with this session id.
   const q = useQuery({
@@ -49,12 +49,12 @@ export function TraceSessionDetail() {
         WHERE "session.id" = ${sqlLiteral(id)}
         GROUP BY trace_id
         ORDER BY start_ns ASC`;
-      const result = await queryApi.runQuery({
-        org_id: orgId,
+      const result = await queryApi.readQuery({
+        orgId: orgId,
         language: 'sql',
         statement: sql,
-        time_range: { start: now - sevenDays, end: now },
-        stream: { name: traceStream.name, stream_type: 'traces' },
+        timeRange: { start: now - sevenDays, end: now },
+        stream: { name: traceStream.name, streamType: 'traces' },
       });
       const idx = (col: string) => result.columns.indexOf(col);
       const cols = {

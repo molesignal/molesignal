@@ -95,20 +95,20 @@ export function AccessGrantDrawer({
   const save = useMutation({
     mutationFn: () =>
       grantsApi.createRoleBinding({
-        role_id: roleId,
-        principal_type: principalKind,
-        principal_id: principalId,
+        roleId: roleId,
+        principalType: principalKind,
+        principalId: principalId,
         ...(resourceType === 'all'
           ? {}
           : {
-              resource_type: resourceType,
-              ...(resourceId ? { resource_id: resourceId } : {}),
+              resourceType: resourceType,
+              ...(resourceId ? { resourceId: resourceId } : {}),
             }),
         ...(environment
           ? { conditions: { environment: environment.trim() } }
           : {}),
         ...(expiresAt
-          ? { expires_at_micros: new Date(expiresAt).getTime() * 1_000 }
+          ? { expiresAt: new Date(expiresAt).getTime() * 1_000 }
           : {}),
       }),
     onSuccess: async () => {
@@ -122,7 +122,7 @@ export function AccessGrantDrawer({
     principalKind === 'user'
       ? (usersQuery.data ?? []).map((user) => ({
           value: user.id,
-          label: user.display_name || user.email,
+          label: user.displayName || user.email,
         }))
       : (teamsQuery.data ?? []).map((team) => ({
           value: team.id,

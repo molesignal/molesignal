@@ -72,9 +72,9 @@ export function LogStreamSelect({
         data-log-stream-select
         onPointerEnter={tellWhenCut}
         // A row of the list is its name with 48px around it (the list's edge, the tick before the
-        // name, the row's end). The field has the same around its longest name and 1px to spare,
-        // its arrow and the gap before it included, so no row is cut while the field is not.
-        className="h-9 w-auto max-w-[220px] shrink-0 gap-[calc(35px-1.25rem)] rounded-md border-0 bg-[var(--control-surface)] px-2.5 font-sans text-xs font-strong text-tx-0 shadow-none"
+        // name, the row's end). The field has the same around its longest name and 1px to spare:
+        // 8px a side, 19px of gap and the 14px arrow, so no row is cut while the field is not.
+        className="h-9 w-auto max-w-[220px] shrink-0 gap-[19px] rounded-md border-0 bg-[var(--control-surface)] px-2.5 font-sans text-xs font-strong text-tx-0 shadow-none"
       >
         {/* One cell holds the chosen name and, unseen, the longest names of the list: it is as wide as the widest. */}
         <span className="grid min-w-0 text-left">

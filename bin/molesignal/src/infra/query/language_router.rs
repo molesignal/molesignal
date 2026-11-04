@@ -80,6 +80,7 @@ mod tests {
             time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(1)),
             stream: None,
             limit: Some(1),
+            step: None,
             federation_clusters: Vec::new(),
         }
     }

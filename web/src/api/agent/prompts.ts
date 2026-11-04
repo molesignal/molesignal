@@ -7,41 +7,42 @@ export type PromptPurpose =
   | 'root_cause'
   | 'alert_explain'
   | 'query_generation'
-  | 'dashboard_authoring';
+  | 'dashboard_authoring'
+  | 'evaluation';
 
 export interface AgentPrompt {
   id: string;
-  org_id?: string | null;
-  user_id?: string | null;
+  orgId?: string | null;
+  userId?: string | null;
   scope: PromptScope;
-  builtin_key?: string | null;
+  builtinKey?: string | null;
   purpose: PromptPurpose;
   name: string;
   body: string;
-  variables_schema: Record<string, unknown>;
-  is_default: boolean;
+  variablesSchema: Record<string, unknown>;
+  isDefault: boolean;
   enabled: boolean;
   version: number;
-  parent_id?: string | null;
-  created_at_micros: number;
-  updated_at_micros: number;
+  parentId?: string | null;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface CreatePromptInput {
   scope: 'org' | 'user';
   purpose: PromptPurpose;
-  builtin_key?: string | undefined;
+  builtinKey?: string | undefined;
   name: string;
   body: string;
-  variables_schema?: Record<string, unknown> | undefined;
-  parent_id?: string | undefined;
+  variablesSchema?: Record<string, unknown> | undefined;
+  parentId?: string | undefined;
   enabled?: boolean | undefined;
 }
 
 export interface UpdatePromptInput {
   name: string;
   body: string;
-  variables_schema?: Record<string, unknown> | undefined;
+  variablesSchema?: Record<string, unknown> | undefined;
   enabled?: boolean | undefined;
 }
 
@@ -63,9 +64,14 @@ export async function update(id: string, input: UpdatePromptInput): Promise<Agen
   return data;
 }
 
-export async function setDefault(id: string): Promise<AgentPrompt> {
+/**
+ * Make a prompt the default. An organization prompt waits for its check first: `confirm`
+ * sets it anyway when the organization lets a missing or worse check be confirmed.
+ */
+export async function setDefault(id: string, confirm = false): Promise<AgentPrompt> {
   const { data } = await http.post<AgentPrompt>(
     `/agent/settings/prompts/${encodeURIComponent(id)}/set-default`,
+    { confirm },
   );
   return data;
 }

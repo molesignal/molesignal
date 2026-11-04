@@ -99,8 +99,8 @@ describe('Settings form layout', () => {
       </SettingsSection>,
     );
 
-    // 18px page title (type-heading) > 15px section > 13.5px topic > 12.5px row label.
-    expect(screen.getByText(COPY.workspaceInformation).className).toContain('text-lg');
+    // 18px page title (type-heading) > 16px section (type-section-title) > 14px topic > 13px row label.
+    expect(screen.getByText(COPY.workspaceInformation).className).toContain('type-section-title');
     expect(screen.getByText(COPY.basicInformation).className).toContain('text-md');
   });
 

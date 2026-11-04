@@ -18,6 +18,4 @@ pub mod puffin_directory;
 pub use puffin::{
     BlobMetadata, BlobTypes, CompressionCodec, FOOTER_SIZE, MAGIC, PuffinFooterFlags, PuffinMeta,
 };
-pub use puffin_directory::{
-    PuffinDirReader, PuffinDirWriter, TantivyFooter, build_footer_cache_for_test_only,
-};
+pub use puffin_directory::{HotCache, PuffinDirReader, PuffinDirWriter, TantivyFooter};

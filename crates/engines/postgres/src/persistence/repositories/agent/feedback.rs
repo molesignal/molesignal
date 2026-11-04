@@ -16,7 +16,7 @@ use crate::{
 };
 
 const COLS: &str = "id, org_id, target_kind, target_id, user_id, rating, reasons, comment, \
-    provenance, created_at_micros, updated_at_micros";
+    provenance, created_at, updated_at";
 
 pub struct PgAgentFeedbackRepository {
     pool: PgPool,
@@ -48,8 +48,12 @@ fn feedback_row(row: sqlx::postgres::PgRow) -> Result<AgentFeedback> {
             .collect::<Result<_>>()?,
         comment: row.try_get("comment").map_err(sqlx_err)?,
         provenance: provenance.0,
-        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?),
-        updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(sqlx_err)?),
+        created_at: row
+            .try_get::<TimestampMicros, _>("created_at")
+            .map_err(sqlx_err)?,
+        updated_at: row
+            .try_get::<TimestampMicros, _>("updated_at")
+            .map_err(sqlx_err)?,
     })
 }
 
@@ -70,7 +74,7 @@ impl AgentFeedbackRepository for PgAgentFeedbackRepository {
                 reasons = EXCLUDED.reasons,
                 comment = EXCLUDED.comment,
                 provenance = EXCLUDED.provenance,
-                updated_at_micros = EXCLUDED.updated_at_micros
+                updated_at = EXCLUDED.updated_at
              RETURNING {COLS}"
         ))
         .bind(&feedback.id.0)
@@ -82,8 +86,8 @@ impl AgentFeedbackRepository for PgAgentFeedbackRepository {
         .bind(Json(&reasons))
         .bind(&feedback.comment)
         .bind(Json(&feedback.provenance))
-        .bind(feedback.created_at.0)
-        .bind(feedback.updated_at.0)
+        .bind(feedback.created_at)
+        .bind(feedback.updated_at)
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -111,6 +115,27 @@ impl AgentFeedbackRepository for PgAgentFeedbackRepository {
         .map_err(sqlx_err)?;
 
         Ok(result.rows_affected() > 0)
+    }
+
+    async fn list_for_target(
+        &self,
+        org_id: &Id,
+        target_kind: FeedbackTarget,
+        target_id: &str,
+    ) -> Result<Vec<AgentFeedback>> {
+        let rows = sqlx::query(&format!(
+            "SELECT {COLS} FROM agent_feedback
+             WHERE org_id = $1 AND target_kind = $2 AND target_id = $3
+             ORDER BY updated_at DESC"
+        ))
+        .bind(&org_id.0)
+        .bind(target_kind.as_str())
+        .bind(target_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
+
+        rows.into_iter().map(feedback_row).collect()
     }
 
     async fn list_for_user(
