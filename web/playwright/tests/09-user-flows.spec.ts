@@ -259,8 +259,7 @@ test.describe('Connect a data source', () => {
     await expect(page).toHaveURL(/\/datasource\/[^/]+\/[^/]+/, { timeout: 10_000 });
   });
 
-  test('signal-specific datasource links select the matching guide and endpoint', async ({ page }) => {
-    const cases = [
+  const datasourceCases = [
       {
         route: '/datasource/custom/curl?signal=logs&stream=app_logs',
         signal: 'Logs',
@@ -281,17 +280,18 @@ test.describe('Connect a data source', () => {
         signal: 'Profiles',
         endpoint: '/api/v1/profiles/intake',
       },
-    ] as const;
+  ] as const;
 
-    for (const item of cases) {
+  for (const item of datasourceCases) {
+    test(`${item.signal} datasource link selects the matching guide and endpoint`, async ({ page }) => {
       await page.goto(item.route);
       await expect(page.getByRole('button', { name: item.signal, pressed: true })).toBeVisible({
         timeout: 10_000,
       });
       await expect(page.locator('code').filter({ hasText: item.endpoint }).first()).toBeVisible();
       await expect(page.getByText('Unexpected Application Error!')).toHaveCount(0);
-    }
-  });
+    });
+  }
 });
 
 test.describe('IAM capability route guard', () => {
