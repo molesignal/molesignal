@@ -6,6 +6,7 @@ import { cn } from '@/shell/lib/cn';
 
 import { type AxisClock, utcOffsetMicros } from './axis';
 import { type HistogramCountsSource, type HistogramUnavailable, useHistogramCounts } from './counts';
+import { type LatencyLabels, LatencyPlot } from './LatencyPlot';
 import {
   binHistogram,
   fitHistogramRange,
@@ -15,7 +16,6 @@ import {
   type HistogramRange,
   planHistogram,
 } from './model';
-import { type LatencyLabels, LatencyPlot } from './LatencyPlot';
 import { ASSUMED_PLOT_PIXELS, type HistogramLabels, HistogramPlot } from './Plot';
 import { useWidth } from './width';
 

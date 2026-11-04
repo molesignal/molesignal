@@ -9,8 +9,8 @@ import { RouterProvider } from 'react-router-dom';
 
 import { KeyboardProvider } from '@/keyboard/controller';
 import { router } from '@/routes';
-import { ThemeBootstrap } from '@/shell/ThemeBootstrap';
 import { OrgEntryDialog } from '@/routes/account/mfa/OrgEntryDialog';
+import { ThemeBootstrap } from '@/shell/ThemeBootstrap';
 import { Toaster } from '@/shell/ui/sonner';
 import { TooltipProvider } from '@/shell/ui/tooltip';
 

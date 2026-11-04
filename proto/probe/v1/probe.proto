@@ -230,8 +230,8 @@ message HttpJourneySpec {
 }
 
 enum HttpVersion {
-  // What TLS negotiates; HTTP/1.1 over plain HTTP.
-  HTTP_VERSION_AUTO = 0;
+  // Unspecified selects what TLS negotiates; HTTP/1.1 over plain HTTP.
+  HTTP_VERSION_UNSPECIFIED = 0;
   HTTP_VERSION_HTTP1 = 1;
   // HTTP/2 only; over plain HTTP by prior knowledge.
   HTTP_VERSION_HTTP2 = 2;

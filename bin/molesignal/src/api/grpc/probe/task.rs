@@ -140,7 +140,7 @@ fn spec_to_wire(spec: &MonitorSpec) -> Result<wire::probe_task::Spec> {
             max_redirects: u32::from(value.max_redirects),
             verify_tls: value.verify_tls,
             http_version: match value.http_version {
-                HttpVersion::Auto => wire::HttpVersion::Auto,
+                HttpVersion::Auto => wire::HttpVersion::Unspecified,
                 HttpVersion::Http1 => wire::HttpVersion::Http1,
                 HttpVersion::Http2 => wire::HttpVersion::Http2,
             } as i32,
