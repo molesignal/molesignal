@@ -65,7 +65,7 @@ describe('the provider standing', () => {
     );
 
     expect(catalog).toContain("('iam.sso.test', '/iam/sso/tests/:id', 'organization', 'all'");
-    expect(catalog).toMatch(/'\/iam\/sso\/tests\/:id'.*ARRAY\['org\.settings\.manage'\]/);
+    expect(catalog).toMatch(/'\/iam\/sso\/tests\/:id'.*ARRAY\['org\.sso\.manage'\]/);
   });
 });
 
