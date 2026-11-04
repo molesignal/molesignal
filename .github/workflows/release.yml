@@ -157,7 +157,8 @@ jobs:
     # 影响产物。
     container:
       image: rust:1.96-bullseye
-    timeout-minutes: 60
+    # Cold builds include ThinLTO for the server and probe; 60 minutes is insufficient.
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -238,11 +239,16 @@ jobs:
           # 产物上传后持续数十分钟并拖到 job 超时，不应阻断交付链路。
           save-if: false
 
-      - name: build release binaries once
+      - name: build release server
         env:
           # 所有交付阶段共用这一套参数；pprof 需要可回溯栈帧与符号。
           RUSTFLAGS: "-C force-frame-pointers=yes"
-        run: cargo build --release --locked --target ${{ matrix.target }} -p molesignal -p probe-agent
+        run: cargo build --release --locked --timings --target ${{ matrix.target }} -p molesignal
+
+      - name: build release probe agent
+        env:
+          RUSTFLAGS: "-C force-frame-pointers=yes"
+        run: cargo build --release --locked --timings --target ${{ matrix.target }} -p probe-agent
 
       # glibc 地板守护：确认两个二进制要求的最高 GLIBC 符号版本均 ≤ 2.31，既匹配
       # Server 的 bullseye runtime，也让 Probe Agent 二进制仍可脱离 bookworm 镜像
