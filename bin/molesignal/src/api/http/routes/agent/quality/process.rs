@@ -10,24 +10,21 @@
 //!
 //! 出错的过一会儿再试，最多 [`MAX_JOB_ATTEMPTS`] 次。
 
+use agent::{
+    automations::reasons,
+    scoring::{
+        JobReason, JobStatus, MAX_JOB_ATTEMPTS, NewJob, RULES_SCORER, Review, ReviewCause,
+        ReviewStatus, SCORE_STREAM, Score, ScoreJob, ScoreSubject, ScoringSettings, rules, sampled,
+    },
+};
+use domain::{intake::IntakeBatch, stream::StreamType};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
 use super::{
     evaluating,
     facts::{Facts, gather},
 };
-use crate::{
-    agent::{
-        automations::reasons,
-        scoring::{
-            JobReason, JobStatus, MAX_JOB_ATTEMPTS, NewJob, RULES_SCORER, Review, ReviewCause,
-            ReviewStatus, SCORE_STREAM, Score, ScoreJob, ScoreSubject, ScoringSettings, rules,
-            sampled,
-        },
-    },
-    api::AppState,
-    app::scoring::score_event,
-    domain::{intake::IntakeBatch, stream::StreamType},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::{api::AppState, app::scoring::score_event};
 
 /// 领走的打分多久没做完算节点没了：一批评审调用可能要好几分钟。
 const LEASE_MICROS: i64 = 15 * 60 * 1_000_000;
@@ -133,6 +130,19 @@ async fn by_rules(state: &AppState, job: &ScoreJob) -> Result<Outcome> {
     };
 
     save(state, &facts.subject, &score).await?;
+
+    // What the calls say about the data, kept with the answer for the data gaps, apart from the
+    // score.
+    state
+        .agent
+        .scoring
+        .put_trajectory(
+            &job.org_id,
+            job.target_kind,
+            &job.target_id,
+            facts.trajectory().as_ref(),
+        )
+        .await?;
 
     if facts.subject.source.is_private() {
         return Ok(Outcome::Done);

@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 打分数据存在哪：评审与设置、排队的打分、分数、待审与 Prompt 检查。
+//! Storage for scoring data: evaluators and settings, queued scoring jobs, scores, pending reviews,
+//! and Prompt checks.
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::Serialize;
 
 use super::{
     Evaluator, JobStatus, NewJob, Review, ReviewDecision, ReviewStatus, RuleDimension, Score,
     ScoreJob, ScoreSubject, ScoreTarget, ScoringSettings, TargetSource, check::PromptCheck,
+    drills::DrillRepository, gaps::TrajectoryRow, trajectory::Trajectory,
 };
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
-/// 一个对象和它的全部分数：规则打分在前，评审按评分的先后。
+/// A target and all its scores: rule-based scoring first, then evaluators in scoring order.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ScoredTarget {
     #[serde(flatten)]
@@ -20,7 +22,7 @@ pub struct ScoredTarget {
     pub scores: Vec<Score>,
 }
 
-/// 待审的一条，和它的对象（对象的分数被删掉时没有）。
+/// A review entry and its target (absent when the target's scores are deleted).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ReviewItem {
     #[serde(flatten)]
@@ -28,14 +30,14 @@ pub struct ReviewItem {
     pub subject: Option<ScoreSubject>,
 }
 
-/// 列出打过分的对象：最新的在前，个人对话不在其中。
+/// Lists scored targets, newest first, excluding personal chats.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScoredFilter {
     pub since: TimestampMicros,
     pub source: Option<TargetSource>,
-    /// 只要有一个分数低于它的。
+    /// Includes targets with at least one score below this value.
     pub below: Option<f64>,
-    /// 从这个对象之后（更早）接着列：产生时间与对象 ID。
+    /// Continues listing after this target (earlier targets): creation time and target ID.
     pub before: Option<(TimestampMicros, String)>,
     pub limit: i64,
 }
@@ -43,7 +45,8 @@ pub struct ScoredFilter {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReviewFilter {
     pub status: Option<ReviewStatus>,
-    /// 从这一条之后（更早）接着列：进入待审的时间与 ID。
+    /// Continues listing after this entry (earlier entries): time of entering pending review and
+    /// ID.
     pub before: Option<(TimestampMicros, Id)>,
     pub limit: i64,
 }
@@ -54,14 +57,15 @@ pub struct OverviewFilter {
     pub source: Option<TargetSource>,
 }
 
-/// 一段时间里的质量。规则打分覆盖每个对象；评审只评抽到的。
+/// Quality over a period of time.
+/// Rule-based scoring covers every target; evaluators score only sampled targets.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QualityOverview {
-    /// 打过分的对象。
+    /// Scored targets.
     pub answers: i64,
     pub rules_mean: Option<f64>,
-    /// 评审评过的对象。
+    /// Targets scored by evaluators.
     pub evaluated: i64,
     pub evaluator_mean: Option<f64>,
     pub thumbs_up: i64,
@@ -75,7 +79,8 @@ pub struct QualityOverview {
     pub models: Vec<GroupQuality>,
 }
 
-/// 一天（UTC）的质量。`day` 是从 1970-01-01 起的天数。
+/// Quality for one day (UTC).
+/// `day` is the number of days since 1970-01-01.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DailyQuality {
@@ -90,16 +95,16 @@ pub struct DailyQuality {
 pub struct DimensionMean {
     pub dimension: RuleDimension,
     pub mean: f64,
-    /// 有这个维度的对象：没调工具的回答没有工具成功率。
+    /// Targets with this dimension: answers without tool calls have no tool success rate.
     pub answers: i64,
 }
 
-/// 按来源、Prompt 版本、Skill 或模型分组的质量。
+/// Quality grouped by source, Prompt version, Skill, or model.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GroupQuality {
     pub key: String,
-    /// Prompt 的版本、Skill 的版本。
+    /// The Prompt version or Skill version.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
     pub answers: i64,
@@ -108,17 +113,19 @@ pub struct GroupQuality {
     pub evaluator_mean: Option<f64>,
 }
 
+/// Storage of everything quality keeps; drills ([`DrillRepository`]) are part of it.
 #[async_trait]
-pub trait ScoringRepository: Send + Sync {
+pub trait ScoringRepository: DrillRepository + Send + Sync {
     async fn list_evaluators(&self, org_id: &Id) -> Result<Vec<Evaluator>>;
     async fn get_evaluator(&self, org_id: &Id, id: &Id) -> Result<Evaluator>;
-    /// 新建评审；名称在组织里唯一，超过 [`super::MAX_EVALUATORS_PER_ORG`] 个时拒绝。
+    /// Creates an evaluator with a name unique within the organization; rejects creation if the
+    /// count exceeds [`super::MAX_EVALUATORS_PER_ORG`].
     async fn create_evaluator(&self, evaluator: Evaluator) -> Result<Evaluator>;
     async fn update_evaluator(&self, evaluator: Evaluator) -> Result<Evaluator>;
-    /// 删除评审；它给过的分数留着，排着的打分作废。
+    /// Deletes an evaluator, retaining its scores and invalidating its queued scoring jobs.
     async fn delete_evaluator(&self, org_id: &Id, id: &Id) -> Result<()>;
 
-    /// 组织的设置；没设过时是默认值。
+    /// The organization's settings, using defaults when none are set.
     async fn settings(&self, org_id: &Id) -> Result<ScoringSettings>;
     async fn put_settings(
         &self,
@@ -126,9 +133,11 @@ pub trait ScoringRepository: Send + Sync {
         settings: &ScoringSettings,
     ) -> Result<ScoringSettings>;
 
-    /// 排进队列；同一个对象、同一个打分器已经排着的跳过。返回新排的个数。
+    /// Enqueues jobs, skipping any target and scorer pair already queued.
+    /// Returns the number of newly queued jobs.
     async fn enqueue(&self, jobs: &[NewJob]) -> Result<u64>;
-    /// 领走到点的打分（含领走后节点没了、租约过期的）。
+    /// Claims due scoring jobs, including those whose claiming node is gone and whose lease
+    /// expires.
     async fn claim_jobs(
         &self,
         now: TimestampMicros,
@@ -136,23 +145,39 @@ pub trait ScoringRepository: Send + Sync {
         limit: i64,
     ) -> Result<Vec<ScoreJob>>;
     async fn finish_job(&self, id: &Id, status: JobStatus, error: Option<&str>) -> Result<()>;
-    /// 出错了，过一会儿再试。
+    /// Retries later after an error.
     async fn retry_job(&self, id: &Id, not_before: TimestampMicros, error: &str) -> Result<()>;
-    /// 有评审要评或已经评过这个对象。
+    /// An evaluator plans to score or has already scored this target.
     async fn evaluator_planned(
         &self,
         org_id: &Id,
         kind: ScoreTarget,
         target_id: &str,
     ) -> Result<bool>;
-    /// 删掉结束早于 `before` 的打分记录。
+    /// Deletes scoring job records completed before `before`.
     async fn purge_jobs(&self, before: TimestampMicros) -> Result<u64>;
 
-    /// 记下被打分的对象，已有时替换：分数之前先记它。
+    /// Records the scored target, replacing it if present; record it before its scores.
     async fn put_subject(&self, subject: &ScoreSubject) -> Result<()>;
-    /// 保存一个对象在一个打分器下的分数，已有时替换。
+    /// Saves a target's score from a scorer, replacing it if present.
     async fn put_score(&self, score: &Score) -> Result<()>;
-    /// 一个对象和它的全部分数；没打过分时为 `None`。
+    /// Keeps what the target's tool calls say about its data with its subject; `None` clears it
+    /// (an answer that called no tool, an incident RCA). Record the subject first.
+    async fn put_trajectory(
+        &self,
+        org_id: &Id,
+        kind: ScoreTarget,
+        target_id: &str,
+        trajectory: Option<&Trajectory>,
+    ) -> Result<()>;
+    /// Answers with a trajectory produced since `since`, newest first, at most `limit`.
+    async fn trajectories(
+        &self,
+        org_id: &Id,
+        since: TimestampMicros,
+        limit: i64,
+    ) -> Result<Vec<TrajectoryRow>>;
+    /// A target and all its scores, or `None` if it has not been scored.
     async fn scored(
         &self,
         org_id: &Id,
@@ -161,7 +186,7 @@ pub trait ScoringRepository: Send + Sync {
     ) -> Result<Option<ScoredTarget>>;
     async fn list_scored(&self, org_id: &Id, filter: &ScoredFilter) -> Result<Vec<ScoredTarget>>;
     async fn overview(&self, org_id: &Id, filter: &OverviewFilter) -> Result<QualityOverview>;
-    /// 这个评审最近评过的对象，最新的在前。
+    /// Targets recently scored by this evaluator, newest first.
     async fn recent_evaluated(
         &self,
         org_id: &Id,
@@ -170,7 +195,8 @@ pub trait ScoringRepository: Send + Sync {
         limit: i64,
     ) -> Result<Vec<ScoredTarget>>;
 
-    /// 进入待审；对象已在待审里（不论审没审过）时什么都不做，返回 `false`。
+    /// Opens a review; does nothing and returns `false` if the target already has a review entry,
+    /// whether reviewed or not.
     async fn open_review(&self, review: &Review) -> Result<bool>;
     async fn get_review(&self, org_id: &Id, id: &Id) -> Result<Review>;
     async fn review_of(
@@ -186,7 +212,7 @@ pub trait ScoringRepository: Send + Sync {
         id: &Id,
         decision: &ReviewDecision,
     ) -> Result<Review>;
-    /// 采纳过的待审，最新的在前：回归集。
+    /// Accepted review entries, newest first: the regression set.
     async fn regression_set(
         &self,
         org_id: &Id,
@@ -196,14 +222,14 @@ pub trait ScoringRepository: Send + Sync {
 
     async fn create_check(&self, check: &PromptCheck) -> Result<()>;
     async fn get_check(&self, org_id: &Id, id: &Id) -> Result<PromptCheck>;
-    /// 一个 Prompt 最近的一次检查。
+    /// The most recent check for a Prompt.
     async fn latest_check(&self, org_id: &Id, prompt_id: &Id) -> Result<Option<PromptCheck>>;
-    /// 领走一次排着的检查（含领走后节点没了、租约过期的）。
+    /// Claims a queued check, including one whose claiming node is gone and whose lease expires.
     async fn claim_check(
         &self,
         now: TimestampMicros,
         lease_until: TimestampMicros,
     ) -> Result<Option<PromptCheck>>;
-    /// 记下进度或结果，并续上租约。
+    /// Records progress or results and renews the lease.
     async fn save_check(&self, check: &PromptCheck, lease_until: TimestampMicros) -> Result<()>;
 }

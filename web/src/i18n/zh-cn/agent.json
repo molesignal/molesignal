@@ -420,6 +420,10 @@
     "notice": "这是自动化「{{name}}」的一次运行，只能查看。想再来一次，就再运行这条自动化。",
     "open": "查看自动化"
   },
+  "drill_run": {
+    "notice": "这是演练「{{name}}」的一次运行，只能查看。想再来一次，就在「质量」页签的「演练」里再运行。",
+    "open": "查看演练"
+  },
   "quality": {
     "title": "质量",
     "description": "Mole Agent 回答得怎么样：每个回答都按规则打分，评审用模型抽样打分，分数低的与被评为没帮助的进入待审。",
@@ -427,7 +431,129 @@
       "overview": "概览",
       "answers": "回答",
       "reviews": "待审",
+      "gaps": "数据缺口",
+      "drills": "演练",
       "evaluators": "评审"
+    },
+    "gaps": {
+      "description": "从回答调用工具的过程看数据缺了什么：数据在哪、服务叫什么、有没有先提炼数据的工具。个人对话只计入合计。",
+      "empty_title": "这段时间没有调用过工具的回答",
+      "empty_hint": "回答打分时会读它调用工具的过程；可以换一个更长的时间段。",
+      "none_listed": "能列出的回答里没有发现缺口。",
+      "no_stream": "某个数据流",
+      "answers_one": "{{count}} 个回答",
+      "answers_other": "{{count}} 个回答",
+      "totals": {
+        "label": "这段时间的数据缺口",
+        "answers": "调用过工具的回答",
+        "with_gaps": "有缺口"
+      },
+      "kinds": {
+        "data_map": {
+          "title": "数据在哪",
+          "hint": "反复查同一个数据流却多半为空或报错，或反复看结构的回答"
+        },
+        "field_alignment": {
+          "title": "服务的名字",
+          "hint": "在指标或 APM 里查到了某个服务，在日志或链路里按同一个名字却查不到的回答"
+        },
+        "feature_tools": {
+          "title": "先提炼再看",
+          "hint": "反复拉原始日志或原始序列，没有看模式或趋势的回答"
+        }
+      },
+      "fixes": {
+        "data_map": "写清每个服务的数据在哪、怎么过滤：写进服务目录的数据入口，或知识里的 MOLE.md。",
+        "field_alignment": "让同一个服务在各类数据里用同一个名字（service.name），或在服务目录里把它的其他名字记为别名。",
+        "feature_tools": "让 Mole Agent 能用「分析日志模式」和「分析指标趋势」：检查组织的 Agent Profile 的工具集有没有把它们排除在外。"
+      },
+      "notes": {
+        "repeated_queries_one": "{{stream}} 查了 {{count}} 次，{{misses}} 次为空或报错",
+        "repeated_queries_other": "{{stream}} 查了 {{count}} 次，{{misses}} 次为空或报错",
+        "structure_lookups_one": "看了 {{count}} 次结构",
+        "structure_lookups_other": "看了 {{count}} 次结构",
+        "structure_lookups_stream_one": "看了 {{count}} 次结构，多半是 {{stream}}",
+        "structure_lookups_stream_other": "看了 {{count}} 次结构，多半是 {{stream}}",
+        "service_mismatch": "{{service}} 在指标或 APM 里有数据，按这个名字查 {{stream}} 却为空",
+        "raw_log_pulls_one": "拉了 {{count}} 次 {{stream}} 的原始日志，没有看日志模式",
+        "raw_log_pulls_other": "拉了 {{count}} 次 {{stream}} 的原始日志，没有看日志模式",
+        "raw_metric_pulls_one": "拉了 {{count}} 次 {{stream}} 的原始序列，没有看指标趋势",
+        "raw_metric_pulls_other": "拉了 {{count}} 次 {{stream}} 的原始序列，没有看指标趋势"
+      }
+    },
+    "drills": {
+      "description": "把已经解决的事件当作正在发生，让 Mole Agent 重新调查，再拿结论和事后确认的根因比对打分。换了模型、Prompt 或工具之后全部重跑一遍，就能看出调查有没有变好。",
+      "new": "新建演练",
+      "new_title": "新建演练",
+      "new_subtitle": "选一个要重新调查的事件，以及用来比对结论的根因",
+      "create": "创建",
+      "created": "已创建演练「{{name}}」",
+      "run": "运行",
+      "run_named": "运行演练「{{name}}」",
+      "run_all": "全部重跑",
+      "runs": "运行记录",
+      "runs_named": "「{{name}}」的运行记录",
+      "runs_title": "演练的运行记录",
+      "more_named": "「{{name}}」的更多操作",
+      "started": "演练开始运行，调查结束后打分。",
+      "started_all_one": "{{count}} 个演练开始运行",
+      "started_all_other": "{{count}} 个演练开始运行",
+      "deleted": "已删除演练",
+      "delete": "删除",
+      "delete_confirm": {
+        "title": "删除演练「{{name}}」？",
+        "description": "它的运行记录和分数会一并删除，运行时的对话保留。",
+        "busy": "正在删除…"
+      },
+      "none": "还没有演练",
+      "none_hint": "从近 180 天已解决、复盘里写了根因的事件新建一个。",
+      "never_run": "还没运行",
+      "no_runs": "还没运行过。",
+      "columns": {
+        "drill": "演练",
+        "source": "参考根因",
+        "last_run": "最近一次",
+        "mean": "平均分",
+        "runs": "次数"
+      },
+      "sources": {
+        "postmortem": "取自复盘",
+        "manual": "手写"
+      },
+      "status": {
+        "running": "调查中…",
+        "grading": "打分中…",
+        "done": "已打分",
+        "failed": "没有分数"
+      },
+      "failures": {
+        "budget_exhausted": "今天的 AI 预算已用完",
+        "no_model": "没有可用的 AI 模型",
+        "incident_gone": "事件已不存在",
+        "start_failed": "没能开始运行",
+        "run_failed": "调查失败了",
+        "run_cancelled": "调查被停止了",
+        "run_interrupted": "调查被中断了",
+        "no_answer": "调查没有写出回答",
+        "grading_failed": "没能给回答打分"
+      },
+      "reference": "参考根因",
+      "reference_hint": "事后确认的根因，调查找到的根因拿来和它比对。",
+      "reference_text": "根因",
+      "own_reference": "不用复盘里的根因，自己写",
+      "pick_first": "先选一个事件。",
+      "incident": "事件",
+      "incident_hint": "近 180 天已解决、复盘里写了根因的事件。",
+      "candidates": "已解决的事件",
+      "candidate_hint": "{{resolved}} 解决 · {{cause}}",
+      "no_candidates": "近 180 天已解决的事件里，没有复盘写了根因的。可以填一个事件 ID，自己写根因。",
+      "other_incident": "其他事件",
+      "other_incident_hint": "填它的 ID，自己写根因",
+      "incident_id": "事件 ID",
+      "incident_id_placeholder": "事件页地址里的 ID",
+      "open_incident": "打开事件",
+      "open_run": "查看调查",
+      "prompt_version": "Prompt v{{version}}"
     },
     "empty_title": "还没有打过分的回答",
     "empty_hint": "回答写完就会打分。在「评审」里添加评审，可以再用模型抽样打分。",

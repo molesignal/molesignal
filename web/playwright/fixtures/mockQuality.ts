@@ -15,6 +15,7 @@ import type {
   ScoredAnswer,
   ScoringSettings,
 } from '../../src/api/agent/quality';
+import { registerDrillRoutes } from './mockQualityDrills';
 
 const MINUTE = 60_000_000;
 const DAY = 24 * 60 * MINUTE;
@@ -247,6 +248,8 @@ export function registerQualityRoutes(
   const checks = new Map<string, CheckState>();
   const evaluatorNames = () =>
     evaluators.map((evaluator) => ({ id: evaluator.id, name: evaluator.name, enabled: evaluator.enabled }));
+
+  registerDrillRoutes(app, now);
   const subjectOf = (review: Review) => {
     const answer = answers.find((item) => item.targetId === review.targetId);
     return answer ? { ...answer, scores: undefined } : null;

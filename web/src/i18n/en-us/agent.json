@@ -420,6 +420,10 @@
     "notice": "A run of the automation “{{name}}”, kept to be read. To ask again, run the automation.",
     "open": "Automations"
   },
+  "drill_run": {
+    "notice": "A run of the drill “{{name}}”, kept to be read. To run it again, go to Drills in the Quality tab.",
+    "open": "Drills"
+  },
   "quality": {
     "title": "Quality",
     "description": "How good Mole Agent's answers are. Every answer is scored by rules, evaluators score a sample of them with a model, and low scores and unhelpful ratings wait for review.",
@@ -427,7 +431,129 @@
       "overview": "Overview",
       "answers": "Answers",
       "reviews": "Reviews",
+      "gaps": "Data gaps",
+      "drills": "Drills",
       "evaluators": "Evaluators"
+    },
+    "gaps": {
+      "description": "What the tool calls of answers say is missing from the data: where it is, one name per service, tools that sum data up. Personal chats only count in the totals.",
+      "empty_title": "No answer called a tool in this period",
+      "empty_hint": "The tool calls of an answer are read when it is scored; try a longer period.",
+      "none_listed": "No gap was found in the answers that can be listed.",
+      "no_stream": "a stream",
+      "answers_one": "{{count}} answer",
+      "answers_other": "{{count}} answers",
+      "totals": {
+        "label": "Data gaps in the period",
+        "answers": "Answers with tool calls",
+        "with_gaps": "With a gap"
+      },
+      "kinds": {
+        "data_map": {
+          "title": "Where the data is",
+          "hint": "Answers that queried the same stream for nothing, or looked up the structure again and again"
+        },
+        "field_alignment": {
+          "title": "One name per service",
+          "hint": "Answers that found a service in metrics or APM but not under the same name in logs or traces"
+        },
+        "feature_tools": {
+          "title": "Summing data up",
+          "hint": "Answers that read raw logs or series again and again instead of their patterns or trend"
+        }
+      },
+      "fixes": {
+        "data_map": "Write down where the data of each service is and how to filter it: in the data sources of the service catalog, or in MOLE.md of the knowledge.",
+        "field_alignment": "Give a service one name in every signal (service.name), or list its other names as aliases in the service catalog.",
+        "feature_tools": "Let Mole Agent use Analyze log patterns and Analyze metric trend: check that the toolsets of the organization's Agent Profiles do not leave them out."
+      },
+      "notes": {
+        "repeated_queries_one": "{{stream}} queried {{count}} time, {{misses}} empty or failed",
+        "repeated_queries_other": "{{stream}} queried {{count}} times, {{misses}} empty or failed",
+        "structure_lookups_one": "The structure looked up {{count}} time",
+        "structure_lookups_other": "The structure looked up {{count}} times",
+        "structure_lookups_stream_one": "The structure looked up {{count}} time, mostly of {{stream}}",
+        "structure_lookups_stream_other": "The structure looked up {{count}} times, mostly of {{stream}}",
+        "service_mismatch": "{{service}} has data in metrics or APM, but a query of {{stream}} by that name found nothing",
+        "raw_log_pulls_one": "Raw logs of {{stream}} pulled {{count}} time without their patterns",
+        "raw_log_pulls_other": "Raw logs of {{stream}} pulled {{count}} times without their patterns",
+        "raw_metric_pulls_one": "Raw series of {{stream}} pulled {{count}} time without their trend",
+        "raw_metric_pulls_other": "Raw series of {{stream}} pulled {{count}} times without their trend"
+      }
+    },
+    "drills": {
+      "description": "Resolved incidents investigated again as if they were happening, graded against the root cause established after the incident. Run them all again after changing the model, a prompt or the tools.",
+      "new": "New drill",
+      "new_title": "New drill",
+      "new_subtitle": "An incident to investigate again, and the root cause the answer is compared with",
+      "create": "Create",
+      "created": "Drill “{{name}}” created",
+      "run": "Run",
+      "run_named": "Run the drill “{{name}}”",
+      "run_all": "Run all again",
+      "runs": "Runs",
+      "runs_named": "Runs of “{{name}}”",
+      "runs_title": "Drill runs",
+      "more_named": "More for “{{name}}”",
+      "started": "The drill is running. It is graded once the investigation ends.",
+      "started_all_one": "{{count}} drill is running",
+      "started_all_other": "{{count}} drills are running",
+      "deleted": "Drill deleted",
+      "delete": "Delete",
+      "delete_confirm": {
+        "title": "Delete the drill “{{name}}”?",
+        "description": "Its runs and scores are deleted with it. The chats of its runs stay.",
+        "busy": "Deleting…"
+      },
+      "none": "No drills yet",
+      "none_hint": "Make one from an incident resolved in the last 180 days whose postmortem states its root cause.",
+      "never_run": "Not run yet",
+      "no_runs": "Not run yet.",
+      "columns": {
+        "drill": "Drill",
+        "source": "Reference",
+        "last_run": "Last run",
+        "mean": "Mean",
+        "runs": "Runs"
+      },
+      "sources": {
+        "postmortem": "Postmortem",
+        "manual": "Written"
+      },
+      "status": {
+        "running": "Investigating…",
+        "grading": "Grading…",
+        "done": "Graded",
+        "failed": "No score"
+      },
+      "failures": {
+        "budget_exhausted": "Today's AI budget is used up",
+        "no_model": "No AI model is set up",
+        "incident_gone": "The incident is gone",
+        "start_failed": "The run could not start",
+        "run_failed": "The investigation failed",
+        "run_cancelled": "The investigation was stopped",
+        "run_interrupted": "The investigation was interrupted",
+        "no_answer": "The investigation wrote no answer",
+        "grading_failed": "The answer could not be graded"
+      },
+      "reference": "Reference root cause",
+      "reference_hint": "The root cause established after the incident; the root cause the investigation finds is compared with it.",
+      "reference_text": "Root cause",
+      "own_reference": "Write the root cause instead of taking the postmortem's",
+      "pick_first": "Pick an incident first.",
+      "incident": "Incident",
+      "incident_hint": "Incidents resolved in the last 180 days whose postmortem states a root cause.",
+      "candidates": "Resolved incidents",
+      "candidate_hint": "Resolved {{resolved}} · {{cause}}",
+      "no_candidates": "No incident resolved in the last 180 days has a postmortem that states its root cause. Enter an incident ID and write its root cause.",
+      "other_incident": "Another incident",
+      "other_incident_hint": "Enter its ID and write its root cause",
+      "incident_id": "Incident ID",
+      "incident_id_placeholder": "The ID in the address of the incident",
+      "open_incident": "Open the incident",
+      "open_run": "Open the investigation",
+      "prompt_version": "prompt v{{version}}"
     },
     "empty_title": "No answer has been scored yet",
     "empty_hint": "An answer is scored once it is written. Add an evaluator under Evaluators to score a sample of them with a model as well.",

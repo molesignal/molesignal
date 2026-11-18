@@ -3530,6 +3530,72 @@ CREATE INDEX IF NOT EXISTS idx_agent_prompt_checks_prompt
 CREATE INDEX IF NOT EXISTS idx_agent_prompt_checks_open
     ON agent_prompt_checks(created_at) WHERE status IN ('queued', 'running');
 
+-- Drills: a resolved incident investigated again by Mole Agent and graded against the root cause
+-- people established (the root-cause section of its internal postmortem, or one written by hand).
+-- One per incident.
+CREATE TABLE IF NOT EXISTS agent_drills (
+    id                  VARCHAR(64)  PRIMARY KEY,
+    org_id              VARCHAR(64)  NOT NULL,
+    incident_id         VARCHAR(64)  NOT NULL,
+    -- The incident's summary when the drill was made.
+    title               TEXT         NOT NULL,
+    -- The root cause an answer is compared with.
+    reference           TEXT         NOT NULL,
+    -- postmortem | manual
+    source              VARCHAR(16)  NOT NULL,
+    created_by          VARCHAR(64)  NOT NULL,
+    created_at          TIMESTAMPTZ  NOT NULL,
+    updated_at          TIMESTAMPTZ  NOT NULL,
+    CONSTRAINT chk_agent_drills_source CHECK (source IN ('postmortem', 'manual'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_drills_incident
+    ON agent_drills(org_id, incident_id);
+CREATE INDEX IF NOT EXISTS idx_agent_drills_org
+    ON agent_drills(org_id, created_at DESC);
+
+-- One run of a drill: its hidden chat and Run, then its grade (a score from 0 to 1 and the grading
+-- model's reason in the starter's language), or why it ended without one. Graded by the scoring
+-- worker once the Run has ended; `not_before` is a grading node's lease or the time of a later try.
+CREATE TABLE IF NOT EXISTS agent_drill_runs (
+    id                  VARCHAR(64)  PRIMARY KEY,
+    org_id              VARCHAR(64)  NOT NULL,
+    drill_id            VARCHAR(64)  NOT NULL REFERENCES agent_drills(id) ON DELETE CASCADE,
+    chat_id             VARCHAR(64),
+    run_id              VARCHAR(64),
+    -- running | grading | done | failed
+    status              VARCHAR(16)  NOT NULL,
+    score               DOUBLE PRECISION,
+    reasoning           TEXT         NOT NULL DEFAULT '',
+    -- budget_exhausted | no_model | incident_gone | start_failed | run_failed | run_cancelled
+    -- | run_interrupted | no_answer | grading_failed
+    reason              VARCHAR(32),
+    detail              TEXT,
+    -- The model that investigated, and the version of the prompt it answered with.
+    model               VARCHAR(128),
+    prompt_version      INTEGER,
+    grader_model        VARCHAR(128),
+    -- The interface language of the person who started it: the reason is written in it.
+    language            VARCHAR(16)  NOT NULL,
+    -- Runs started together share it.
+    batch_id            VARCHAR(64),
+    -- Grading attempts so far.
+    attempts            INTEGER      NOT NULL DEFAULT 0,
+    started_by          VARCHAR(64)  NOT NULL,
+    created_at          TIMESTAMPTZ  NOT NULL,
+    finished_at         TIMESTAMPTZ,
+    updated_at          TIMESTAMPTZ  NOT NULL,
+    not_before          TIMESTAMPTZ,
+    CONSTRAINT chk_agent_drill_runs_status
+        CHECK (status IN ('running', 'grading', 'done', 'failed')),
+    CONSTRAINT chk_agent_drill_runs_score CHECK (score IS NULL OR score BETWEEN 0 AND 1)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_drill_runs_drill
+    ON agent_drill_runs(drill_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_drill_runs_org
+    ON agent_drill_runs(org_id, drill_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_drill_runs_pending
+    ON agent_drill_runs(updated_at) WHERE status IN ('running', 'grading');
+
 -- Mole Agent 在 IM 里回答：开了这个功能的应用连接器（飞书、Slack、钉钉、企业微信智能机器人、
 -- Google Chat）。机器人用长连接（Google Chat 是 Pub/Sub 订阅）收消息，同一时间只有一个节点连着
 -- （租约）。connector_id 指向的 notify_connectors 在后面的 Notify 一节
@@ -3791,7 +3857,7 @@ CREATE TABLE IF NOT EXISTS agent_runs (
     finished_at              TIMESTAMPTZ,
     updated_at               TIMESTAMPTZ NOT NULL,
     CONSTRAINT chk_agent_runs_source
-        CHECK (source IN ('chat', 'automation', 'incident', 'api', 'im')),
+        CHECK (source IN ('chat', 'automation', 'incident', 'api', 'im', 'drill')),
     CONSTRAINT chk_agent_runs_status CHECK (status IN (
         'queued', 'running', 'waiting_input', 'waiting_approval',
         'succeeded', 'failed', 'cancelled', 'interrupted'
@@ -8215,6 +8281,8 @@ FROM (VALUES
     ('agent.answer.confidence.medium', 'zh-cn', '置信度：中'),
     ('agent.answer.confidence.low', 'en-us', 'Confidence: Low'),
     ('agent.answer.confidence.low', 'zh-cn', '置信度：低'),
+    ('agent.drill.question', 'en-us', 'Find the root cause of the incident "{summary}", investigating it as it happened between {start} and {end} (UTC).'),
+    ('agent.drill.question', 'zh-cn', '找出事件「{summary}」的根因：按它发生时的情况调查，时间段为 {start} 至 {end}（UTC）。'),
     -- What Mole Agent writes in IM: links, commands and why it did not answer, in the
     -- language of whoever asked (the workspace's default before they are linked). A
     -- platform's name is filled in as it reads in the sentence.

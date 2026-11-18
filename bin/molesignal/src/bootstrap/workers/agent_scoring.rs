@@ -5,17 +5,18 @@
 //!
 //! 提供完整 HTTP 的节点各起一份，靠数据库协调：打分与检查都用 SKIP LOCKED 领走、带着租约，节点
 //! 没了由别的节点接着做。检查要重新回答与评好几个样本，放在单独的循环里，不挡打分。
+//!
+//! Runs of drills whose investigation has ended are graded in a loop of their own, claimed the
+//! same way.
 
 use std::{sync::Arc, time::Duration};
 
+use kernel::time::TimestampMicros;
 use tokio::task::JoinHandle;
 
-use crate::{
-    api::{
-        AppState,
-        http::routes::agent::quality::{process_due, process_next_check},
-    },
-    shared::time::TimestampMicros,
+use crate::api::{
+    AppState,
+    http::routes::agent::quality::{process_drills, process_due, process_next_check},
 };
 
 /// 多久看一次排着的打分。
@@ -29,6 +30,10 @@ const CHECK_TICK: Duration = Duration::from_secs(10);
 /// 多久清理一次做完的打分记录，留多久。
 const PURGE_EVERY: Duration = Duration::from_secs(60 * 60);
 const KEEP_MICROS: i64 = 7 * 24 * 60 * 60 * 1_000_000;
+/// How often runs of drills are looked at for grading, and how many make a full batch (as
+/// `quality::drills::grade` claims them).
+const DRILL_TICK: Duration = Duration::from_secs(15);
+const DRILL_BATCH: usize = 5;
 
 pub struct ScoringWorker {
     state: AppState,
@@ -42,11 +47,20 @@ impl ScoringWorker {
     pub fn spawn(self) -> JoinHandle<()> {
         let worker = Arc::new(self);
         let checks = worker.clone();
+        let drills = worker.clone();
 
         tokio::spawn(async move {
             loop {
                 tokio::time::sleep(CHECK_TICK).await;
                 checks.checks().await;
+            }
+        });
+
+        // Drills are graded apart: a grading waits on a model and must not hold scores up.
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(DRILL_TICK).await;
+                drills.drills().await;
             }
         });
 
@@ -109,6 +123,25 @@ impl ScoringWorker {
                 Ok(false) => break,
                 Err(error) => {
                     tracing::warn!(%error, "a prompt check could not be run");
+                    break;
+                }
+            }
+        }
+    }
+
+    #[tracing::instrument(
+        name = "worker.agent_drills",
+        parent = None,
+        skip_all,
+        fields(otel.kind = "internal", molesignal.worker.name = "agent_drills")
+    )]
+    async fn drills(&self) {
+        loop {
+            match process_drills(&self.state).await {
+                Ok(claimed) if claimed >= DRILL_BATCH => {}
+                Ok(_) => break,
+                Err(error) => {
+                    tracing::warn!(%error, "drill runs could not be claimed for grading");
                     break;
                 }
             }

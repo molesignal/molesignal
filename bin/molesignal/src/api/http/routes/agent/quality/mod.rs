@@ -10,29 +10,36 @@
 //!
 //! 接口都要 `agent.manage`：持有它的人本来就能读团队对话与组织的自动化。个人对话只在合计里。
 //! 规则见 `agent::scoring`。
+//!
+//! - Data gaps: [`gaps`] (what the tool calls of a period's answers say is missing from the data)
+//! - Drills: [`drills`] (resolved incidents investigated again and graded against their known root
+//!   cause); their answers are not scored like other answers
 
 mod checks;
+mod drills;
 mod evaluating;
 mod evaluators;
 mod facts;
+mod gaps;
 mod process;
 mod replay;
 mod reviews;
 mod views;
 
+use agent::{
+    feedback::FeedbackTarget,
+    runs::{Run, RunSource},
+    scoring::{ScoreTarget, TargetSource},
+};
 use axum::Router;
 pub(crate) use checks::{gate_set_default, process_next as process_next_check};
+pub(crate) use drills::process_due as process_drills;
+use kernel::{Result, ids::Id};
 pub(crate) use process::process_due;
 
 use crate::{
-    agent::{
-        feedback::FeedbackTarget,
-        runs::Run,
-        scoring::{ScoreTarget, TargetSource},
-    },
     api::AppState,
     app::scoring::{enqueue_answered, enqueue_rated},
-    shared::{Result, ids::Id},
 };
 
 pub fn routes() -> Router<AppState> {
@@ -41,10 +48,17 @@ pub fn routes() -> Router<AppState> {
         .merge(reviews::routes())
         .merge(evaluators::routes())
         .merge(checks::routes())
+        .merge(gaps::routes())
+        .merge(drills::routes())
 }
 
 /// 一轮回答结束、写下了回答之后排上打分。出错只记日志：打分不挡回答。
 pub(crate) async fn answered(state: &AppState, run: &Run, message_id: &Id) {
+    // A drill's answer is graded against its known root cause, not scored with the others.
+    if run.source == RunSource::Drill {
+        return;
+    }
+
     let queued = async {
         let chat = state
             .agent

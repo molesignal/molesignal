@@ -1,32 +1,47 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Mole Agent 产出的质量：打分、待审与 Prompt 晋级检查。
+//! Quality of Mole Agent output: scoring, pending review, and Prompt promotion checks.
 //!
-//! 一个回答结束、一份事件 RCA 生成、一条评价提交之后排队打分：
+//! Scoring is queued after an answer completes, an incident RCA is generated, or feedback is
+//! submitted:
 //!
-//! - 规则打分（[`rules`]）不调模型：工具成功率、回答引用的证据、查询能否解析、回答格式、是否
-//!   完成，以及提问人的 👍 / 👎。
-//! - 评审（[`evaluation`]）是组织配置的打分器：按比例抽样，用组织的模型照评分标准给
-//!   1 到 5 分并写一句理由；被评为没帮助的必评，低分的再评一次取平均。
+//! - Rule-based scoring ([`rules`]) makes no model calls: tool success rate, evidence cited in the
+//!   answer, query parseability, answer format, completion, and the asker's 👍 / 👎.
+//! - Evaluators ([`evaluation`]) are organization-configured scorers: they sample targets and use
+//!   the organization's model to score them from 1 to 5 against a rubric with a one-sentence
+//!   reason; targets rated unhelpful are always evaluated, and low scores are evaluated again and
+//!   averaged.
 //!
-//! 分数存进 Postgres，并写进 `_agent_score_traces`。分数低于阈值的、被评为没帮助的与随机抽到的
-//! 进入待审，审核人采纳或驳回；采纳的成为回归集。把一个组织 Prompt 设为默认之前，用回归集与
-//! 最近评过的回答检查新版本有没有变差（[`check`]）。
+//! Scores are stored in Postgres and written to `_agent_score_traces`. Targets with scores below
+//! the threshold, targets rated unhelpful, and randomly selected targets enter pending review,
+//! where a reviewer accepts or rejects them; accepted targets form the regression set. Before an
+//! organization Prompt is set as the default, the regression set and recently evaluated answers are
+//! used to check the new version for regressions ([`check`]).
 //!
-//! 个人对话只做规则打分，不进评审、待审与回归集：除了本人，谁都读不到它们。
+//! Personal conversations receive only rule-based scoring and do not enter evaluation, pending
+//! review, or the regression set: only their owner can read them.
+//!
+//! Apart from scores, rule-based scoring keeps each answer's trajectory ([`trajectory`]): what its
+//! tool calls say about the data it had to work with, summed up over a period as data gaps
+//! ([`gaps`]). Drills ([`drills`]) investigate resolved incidents again and grade the root cause
+//! found against the one people established.
 
 pub mod check;
 mod config;
+pub mod drills;
 pub mod evaluation;
+pub mod gaps;
 mod queue;
 mod repository;
 pub mod rules;
+pub mod trajectory;
 
 pub use config::{
     Evaluator, GateMode, MAX_EVALUATOR_NAME_CHARS, MAX_EVALUATORS_PER_ORG, MAX_RUBRIC_CHARS,
     ScoringSettings,
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 pub use queue::{
     JobReason, JobStatus, MAX_JOB_ATTEMPTS, MAX_REVIEW_NOTE_CHARS, NewJob, Review, ReviewCause,
     ReviewDecision, ReviewStatus, ScoreJob,
@@ -37,22 +52,22 @@ pub use repository::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+pub use trajectory::Trajectory;
 
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
-
-/// 规则打分在分数里的打分器名；评审用自己的 ID。
+/// The scorer name for rule-based scores; evaluators use their own IDs.
 pub const RULES_SCORER: &str = "rules";
 
-/// 分数写进的流。
+/// The stream to which scores are written.
 pub const SCORE_STREAM: &str = "_agent_score_traces";
 
-/// 被打分的对象。
+/// The target being scored.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ScoreTarget {
-    /// 对话里的一条回答，对象 ID 是消息 ID；自动化的运行也是它的会话里的回答。
+    /// An answer in a conversation, with the message ID as its target ID; an automation run is also
+    /// an answer in its session.
     ChatAnswer,
-    /// 事件的 RCA，对象 ID 是事件 ID。
+    /// An incident's RCA, with the incident ID as its target ID.
     IncidentRca,
 }
 
@@ -73,13 +88,13 @@ impl ScoreTarget {
     }
 }
 
-/// 对象出自哪里：评审按它挑对象，页面按它筛选。
+/// The target's source, used by evaluators to select targets and by the page to filter them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TargetSource {
     PersonalChat,
     TeamChat,
-    /// 自动化运行的回答，组织、团队与个人的规则都算。
+    /// Answers from automation runs, including organization, team, and personal rules.
     Automation,
     IncidentRca,
 }
@@ -92,7 +107,7 @@ impl TargetSource {
         Self::IncidentRca,
     ];
 
-    /// 评审能评的：个人对话除外。
+    /// Targets evaluators can evaluate, excluding personal conversations.
     pub const EVALUATED: [Self; 3] = [Self::TeamChat, Self::Automation, Self::IncidentRca];
 
     pub const fn as_str(self) -> &'static str {
@@ -111,7 +126,8 @@ impl TargetSource {
             .ok_or_else(|| Error::invalid(format!("unknown score source `{value}`")))
     }
 
-    /// 只有本人读得到：不进评审、待审与回归集，列表里也不出现。
+    /// Readable only by the owner: excluded from evaluation, pending review, regression sets, and
+    /// lists.
     pub const fn is_private(self) -> bool {
         matches!(self, Self::PersonalChat)
     }
@@ -124,21 +140,21 @@ impl TargetSource {
     }
 }
 
-/// 规则打分的维度。
+/// A dimension of rule-based scoring.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RuleDimension {
-    /// 没出错的工具调用占多少。
+    /// The proportion of tool calls that complete without errors.
     ToolSuccess,
-    /// 回答引用了证据，并且有成功的工具调用撑着。
+    /// The answer cites evidence backed by successful tool calls.
     Evidence,
-    /// 工具调用里的 SQL 与 PromQL 能解析。
+    /// SQL and PromQL in tool calls can be parsed.
     QueryValidity,
-    /// 回答是要求的 JSON 形状。
+    /// The answer has the required JSON shape.
     AnswerFormat,
-    /// 这一轮做完了。
+    /// The turn completes.
     Completion,
-    /// 提问人的 👍 / 👎。
+    /// The asker's 👍 / 👎.
     Feedback,
 }
 
@@ -170,7 +186,8 @@ impl RuleDimension {
     }
 }
 
-/// 规则打分的一个维度：0 到 1 的分数，和算出它的事实（各维度的键见 [`rules`]）。
+/// A rule-based scoring dimension: a score from 0 to 1 and the facts used to calculate it (see
+/// [`rules`] for each dimension's keys).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DimensionScore {
     pub dimension: RuleDimension,
@@ -179,7 +196,8 @@ pub struct DimensionScore {
     pub detail: Value,
 }
 
-/// 对象出自哪一轮、用了什么：按 Prompt 版本、模型与 Skill 看分数。
+/// The turn a target comes from and what it uses, for viewing scores by Prompt version, model, and
+/// Skill.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Attribution {
@@ -189,7 +207,7 @@ pub struct Attribution {
     pub team_id: Option<Id>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub automation_id: Option<Id>,
-    /// 提问的人；事件 RCA 没有。
+    /// The person asking the question; absent for incident RCA.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub user_id: Option<Id>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -202,14 +220,15 @@ pub struct Attribution {
     pub provider_id: Option<Id>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
-    /// 这一轮用斜杠命令调用的 Skill：名称、版本。
+    /// The Skill invoked by a slash command in this turn: name and version.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skill: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skill_version: Option<String>,
 }
 
-/// 被打分的对象：出自哪里、那一轮用了什么，以及列表里显示的问题与回答的开头。
+/// The target being scored: its source, what its turn uses, and the beginnings of the question and
+/// answer shown in lists.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScoreSubject {
@@ -217,17 +236,17 @@ pub struct ScoreSubject {
     pub target_kind: ScoreTarget,
     pub target_id: String,
     pub source: TargetSource,
-    /// 问题与回答的开头；个人对话不记。
+    /// The beginnings of the question and answer; not recorded for personal conversations.
     #[serde(default)]
     pub question: String,
     #[serde(default)]
     pub answer: String,
     pub attribution: Attribution,
-    /// 对象产生的时间。
+    /// The time the target is produced.
     pub target_at: TimestampMicros,
 }
 
-/// 一个对象在一个打分器下的分数。
+/// A target's score from one scorer.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Score {
@@ -235,19 +254,20 @@ pub struct Score {
     pub org_id: Id,
     pub target_kind: ScoreTarget,
     pub target_id: String,
-    /// [`RULES_SCORER`]，或评审的 ID。
+    /// [`RULES_SCORER`] or an evaluator's ID.
     pub scorer: String,
-    /// 0 到 1。
+    /// 0 to 1.
     pub score: f64,
-    /// 规则打分的各个维度；评审没有。
+    /// The dimensions of rule-based scoring; absent for evaluators.
     #[serde(default)]
     pub dimensions: Vec<DimensionScore>,
-    /// 评审的理由；规则打分为空，页面按维度的事实写说明。
+    /// The evaluator's reason; empty for rule-based scoring, where the page describes each
+    /// dimension using its facts.
     #[serde(default)]
     pub reason: String,
-    /// 评审评了几次，分数是平均：低分会再评一次。
+    /// The number of evaluations, whose scores are averaged: low scores trigger another evaluation.
     pub samples: i32,
-    /// 评审用的模型。
+    /// The model used by the evaluator.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evaluator_model: Option<String>,
     pub created_at: TimestampMicros,
@@ -259,7 +279,7 @@ impl Score {
         self.scorer == RULES_SCORER
     }
 
-    /// 某个维度的分数。
+    /// The score for a dimension.
     pub fn dimension(&self, dimension: RuleDimension) -> Option<f64> {
         self.dimensions
             .iter()
@@ -268,7 +288,7 @@ impl Score {
     }
 }
 
-/// 一个对象的分数：有评审评过时取评审的平均，否则取规则打分。
+/// A target's score: the average evaluator score if evaluated, otherwise the rule-based score.
 pub fn overall(scores: &[Score]) -> Option<f64> {
     let evaluated = scores
         .iter()
@@ -286,7 +306,8 @@ pub fn overall(scores: &[Score]) -> Option<f64> {
         .map(|score| score.score)
 }
 
-/// 由 `seed` 决定的一个 0 到 99 的数：同一个对象、同一个打分器每次抽到的都一样。
+/// A number from 0 to 99 determined by `seed`: the same target and scorer get the same draw every
+/// time.
 pub fn draw(seed: &str) -> u8 {
     use sha2::{Digest, Sha256};
 
@@ -297,7 +318,7 @@ pub fn draw(seed: &str) -> u8 {
     (u64::from_be_bytes(first) % 100) as u8
 }
 
-/// 按比例抽样：`percent` 为 0 时一个也不抽，100 时都抽。
+/// Samples by percentage: selects none when `percent` is 0 and all when it is 100.
 pub fn sampled(seed: &str, percent: u8) -> bool {
     percent > 0 && draw(seed) < percent.min(100)
 }

@@ -9,6 +9,9 @@ import { QUALITY_DAYS } from './model';
 /** Everything the Quality tab reads lies under this key. */
 export const QUALITY_KEY = ['agent', 'quality'] as const;
 
+/** The drills and what they lead to (candidates, runs) lie under this key. */
+export const DRILLS_KEY = [...QUALITY_KEY, 'drills'] as const;
+
 const DEFAULT_DAYS = 30;
 const SOURCES: readonly ScoreSource[] = ['personal_chat', 'team_chat', 'automation', 'incident_rca'];
 

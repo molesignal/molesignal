@@ -15,6 +15,8 @@ export const QUALITY_VIEWS = [
   { value: 'overview', path: '/agent/quality', key: 'quality.views.overview' },
   { value: 'answers', path: '/agent/quality/answers', key: 'quality.views.answers' },
   { value: 'reviews', path: '/agent/quality/reviews', key: 'quality.views.reviews' },
+  { value: 'gaps', path: '/agent/quality/gaps', key: 'quality.views.gaps' },
+  { value: 'drills', path: '/agent/quality/drills', key: 'quality.views.drills' },
   { value: 'evaluators', path: '/agent/quality/evaluators', key: 'quality.views.evaluators' },
 ] as const;
 

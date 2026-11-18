@@ -6,28 +6,32 @@
 //!
 //! 评审与设置的 SQL 在 [`config`]，排队的打分在 [`jobs`]，分数与列表在 [`scores`]，汇总在
 //! [`overview`]，待审在 [`reviews`]，Prompt 检查在 [`checks`]。
+//!
+//! Each answer's trajectory (`agent_score_subjects.trajectory`) is in [`trajectories`]; drills
+//! (`agent_drills`, `agent_drill_runs`) are in [`drills`].
 
 mod checks;
 mod config;
+mod drills;
 mod jobs;
 mod overview;
 mod reviews;
 mod scores;
+mod trajectories;
 
+use agent::scoring::{
+    Evaluator, JobStatus, NewJob, OverviewFilter, QualityOverview, Review, ReviewDecision,
+    ReviewFilter, ReviewItem, Score, ScoreJob, ScoreSubject, ScoreTarget, ScoredFilter,
+    ScoredTarget, ScoringRepository, ScoringSettings, TargetSource, Trajectory, check::PromptCheck,
+    gaps::TrajectoryRow,
+};
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use sqlx::{PgPool, Row, postgres::PgRow, types::Json};
 
 use super::super::sqlx_err;
-use crate::{
-    agent::scoring::{
-        Evaluator, JobStatus, NewJob, OverviewFilter, QualityOverview, Review, ReviewDecision,
-        ReviewFilter, ReviewItem, Score, ScoreJob, ScoreSubject, ScoreTarget, ScoredFilter,
-        ScoredTarget, ScoringRepository, ScoringSettings, TargetSource, check::PromptCheck,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgScoringRepository {
     pool: PgPool,
@@ -145,6 +149,25 @@ impl ScoringRepository for PgScoringRepository {
 
     async fn put_score(&self, score: &Score) -> Result<()> {
         scores::put(&self.pool, score).await
+    }
+
+    async fn put_trajectory(
+        &self,
+        org_id: &Id,
+        kind: ScoreTarget,
+        target_id: &str,
+        trajectory: Option<&Trajectory>,
+    ) -> Result<()> {
+        trajectories::put(&self.pool, org_id, kind, target_id, trajectory).await
+    }
+
+    async fn trajectories(
+        &self,
+        org_id: &Id,
+        since: TimestampMicros,
+        limit: i64,
+    ) -> Result<Vec<TrajectoryRow>> {
+        trajectories::list(&self.pool, org_id, since, limit).await
     }
 
     async fn scored(

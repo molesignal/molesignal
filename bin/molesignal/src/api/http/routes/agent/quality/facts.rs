@@ -6,25 +6,26 @@
 //! 对话回答从会话、消息、Run、自动化的运行记录与评价里读；事件 RCA 从 RCA、事件与评价里读。
 //! 对象没了（会话删了、消息找不到）时为 `None`。
 
+use agent::{
+    answer::{Headings, StructuredAnswer, conclusion},
+    automations::AutomationRunStatus,
+    commands::{CommandRecord, CommandSource},
+    feedback::{FeedbackRating, FeedbackReason, FeedbackTarget},
+    runs::{RunStatus, TranscriptStep},
+    scoring::{
+        Attribution, DimensionScore, ScoreSubject, ScoreTarget, TargetSource, Trajectory,
+        evaluation::Material,
+        rules::{self, AnswerFacts},
+        trajectory,
+    },
+};
+use kernel::{Error, Result, ids::Id};
+use postgres::repositories::agent::chats::Chat;
 use serde_json::Value;
 
 use crate::{
-    agent::{
-        answer::{Headings, StructuredAnswer, conclusion},
-        automations::AutomationRunStatus,
-        commands::{CommandRecord, CommandSource},
-        feedback::{FeedbackRating, FeedbackReason, FeedbackTarget},
-        runs::{RunStatus, TranscriptStep},
-        scoring::{
-            Attribution, DimensionScore, ScoreSubject, ScoreTarget, TargetSource,
-            evaluation::Material,
-            rules::{self, AnswerFacts},
-        },
-    },
     api::{AppState, rca::incident_facts},
     app::scoring::ParserSyntax,
-    infra::persistence::repositories::agent::chats::Chat,
-    shared::{Error, Result, ids::Id},
 };
 
 /// 列表里问题与回答的开头最多这么多字符。
@@ -96,6 +97,15 @@ impl Facts {
 
     pub(super) fn thumbs_down(&self) -> bool {
         matches!(self.feedback, Some((FeedbackRating::Down, _)))
+    }
+
+    /// What the answer's tool calls say about the data it worked with; `None` for an RCA or an
+    /// answer that called no tool.
+    pub(super) fn trajectory(&self) -> Option<Trajectory> {
+        match self.kind {
+            Kind::Answer { .. } => trajectory::analyze(&self.steps),
+            Kind::Rca { .. } => None,
+        }
     }
 }
 

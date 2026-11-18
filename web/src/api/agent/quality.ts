@@ -374,3 +374,58 @@ export async function startPromptCheck(promptId: string): Promise<PromptCheck> {
   );
   return data;
 }
+
+/** What a data gap says is missing: where the data is, one name per service, or a tool that sums data up. */
+export type GapKind = 'data_map' | 'field_alignment' | 'feature_tools';
+
+export const GAP_KINDS: readonly GapKind[] = ['data_map', 'field_alignment', 'feature_tools'];
+
+/** The rule that found a gap in the tool calls of an answer. */
+export type GapRule =
+  | 'repeated_queries'
+  | 'structure_lookups'
+  | 'service_mismatch'
+  | 'raw_log_pulls'
+  | 'raw_metric_pulls';
+
+/** An answer that found a gap: where to read it. */
+export interface GapExample {
+  targetId: string;
+  chatId?: string | undefined;
+  source: ScoreSource;
+  question: string;
+  targetAt: number;
+}
+
+/** One gap found again and again: the same rule on the same stream, and service. */
+export interface GapGroup {
+  kind: GapKind;
+  rule: GapRule;
+  stream?: string | undefined;
+  service?: string | undefined;
+  /** Answers that found it. */
+  answers: number;
+  /** The calls the rule counted over those answers: queries, lookups or pulls. */
+  calls: number;
+  /** Of those, the ones that came back empty or failed. */
+  misses: number;
+  lastAt: number;
+  examples: GapExample[];
+}
+
+/** The gaps of a period. Personal chats count in the totals only. */
+export interface DataGaps {
+  /** Answers that called tools. */
+  answers: number;
+  /** Of those, the answers with at least one gap. */
+  withGaps: number;
+  kinds: Array<{ kind: GapKind; answers: number }>;
+  groups: GapGroup[];
+}
+
+export async function dataGaps(days: number): Promise<{ days: number; gaps: DataGaps }> {
+  const { data } = await http.get<{ days: number; gaps: DataGaps }>('/agent/quality/gaps', {
+    params: { days },
+  });
+  return data;
+}
