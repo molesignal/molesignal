@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuerierSettings {
+    /// SQL 查询的 DataFusion 并行度，0 = 按 CPU 数。每次表扫描最多同时读这么多个文件。
     #[serde(default)]
     pub concurrency: u32,
     #[serde(default = "default_max_scan")]
@@ -108,11 +109,12 @@ impl Default for StreamAggCacheSettings {
     }
 }
 
-/// Search admission（并发槽位准入）设置。空 / 0 = 不限（OSS 默认零行为）。
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+/// Search admission（并发槽位准入）设置：每个工作组在本节点同时执行的查询数有上限，超出的按
+/// 到达顺序排队。
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdmissionSettings {
-    /// 未在 `groups` 显式配置的工作组的**节点**并发上限；0 = 不限。
-    #[serde(default)]
+    /// 未在 `groups` 显式配置的工作组的**节点**并发上限；0 = 不限。默认 CPU 数的 2 倍。
+    #[serde(default = "default_admission_max_concurrent")]
     pub default_max_concurrent: usize,
     /// 工作组名 → 节点并发上限。
     #[serde(default)]
@@ -120,6 +122,9 @@ pub struct AdmissionSettings {
     /// 角色名（owner/admin/editor/viewer）→ 工作组名；缺省落 `default`。
     #[serde(default)]
     pub role_map: std::collections::HashMap<String, String>,
+    /// 节点槽位满时查询排队最多等的秒数，等不到返回 429；0 = 满了立刻返回 429。
+    #[serde(default = "default_admission_max_wait_secs")]
+    pub max_wait_secs: u64,
     /// 未在 `cluster_groups` 配置的工作组的**集群**（全节点合计）软上限；0 = 不限。
     #[serde(default)]
     pub cluster_default_max_concurrent: usize,
@@ -132,6 +137,33 @@ pub struct AdmissionSettings {
     /// 集群负载行新鲜度窗口（秒）；超此未更新的节点行不计入集群视图。0 = 默认 30s。
     #[serde(default)]
     pub cluster_stale_secs: u64,
+}
+
+/// 一条查询自己就能用满全部 CPU（DataFusion 并行度默认按 CPU 数），同时执行再多只会互相拖慢。
+/// 2 倍留出查询在等 I/O、做规划时的空当。
+fn default_admission_max_concurrent() -> usize {
+    std::thread::available_parallelism()
+        .map_or(1, usize::from)
+        .saturating_mul(2)
+}
+
+fn default_admission_max_wait_secs() -> u64 {
+    60
+}
+
+impl Default for AdmissionSettings {
+    fn default() -> Self {
+        Self {
+            default_max_concurrent: default_admission_max_concurrent(),
+            groups: Default::default(),
+            role_map: Default::default(),
+            max_wait_secs: default_admission_max_wait_secs(),
+            cluster_default_max_concurrent: 0,
+            cluster_groups: Default::default(),
+            cluster_sync_interval_secs: 0,
+            cluster_stale_secs: 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

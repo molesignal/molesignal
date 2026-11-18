@@ -23,7 +23,14 @@
 use std::{sync::Arc, time::Duration};
 
 use bytes::Bytes;
+use domain::{
+    pipeline::scheduled::ScheduledConfig,
+    query::{QueryRequest, QueryResult},
+};
+use function_runtime::VrlRuntime;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use object_store::{ObjectStore, ObjectStoreExt, PutPayload, path::Path};
+use postgres::repositories::search::jobs::{SearchJob, SearchJobRepository};
 use serde_json::Value;
 use tokio::task::{JoinHandle, JoinSet};
 use tracing::Instrument;
@@ -38,19 +45,12 @@ use crate::{
         intake::IntakeService,
         query::QueryService,
     },
-    domain::{
-        pipeline::scheduled::ScheduledConfig,
-        query::{QueryRequest, QueryResult},
-    },
     infra::{
         connectors::{ConnectorDispatcher, ConnectorRepository},
-        persistence::repositories::search::jobs::{SearchJob, SearchJobRepository},
         pipeline::{ScheduledPipelineRepository, exec::parse_signal_type},
         query::grants::{ReadGrants, scope},
-        runtime::VrlRuntime,
         storage::layout::StorageLayout,
     },
-    shared::{Result, ids::Id, time::TimestampMicros},
 };
 
 #[derive(Debug, Clone)]
@@ -194,12 +194,10 @@ impl SearchJobScheduler {
     }
 
     async fn process(&self, job: SearchJob) -> Result<()> {
-        let (context, span) = crate::shared::trace_context::linked_execution_root(
-            job.trace_link.as_ref(),
-            "search_job",
-        );
+        let (context, span) =
+            signals::trace_context::linked_execution_root(job.trace_link.as_ref(), "search_job");
 
-        crate::shared::trace_context::with_current_trace_context(
+        signals::trace_context::with_current_trace_context(
             context,
             self.process_inner(job).instrument(span),
         )
@@ -303,7 +301,7 @@ impl SearchJobScheduler {
         self.object_store
             .put(&location, PutPayload::from(Bytes::from(ndjson)))
             .await
-            .map_err(|e| crate::shared::Error::internal(format!("upload result: {e}")))?;
+            .map_err(|e| kernel::Error::internal(format!("upload result: {e}")))?;
 
         let committed = self
             .repo

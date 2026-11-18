@@ -5,23 +5,23 @@
 
 use std::sync::Arc;
 
+use domain::query::{PromqlEngine, QueryEngine};
+use postgres::repositories::cluster::events::{
+    ClusterEventOutboxRepository, ClusterOrgLinkRepository, ClusterResourceVersionRepository,
+    PgClusterEventOutboxRepository, PgClusterOrgLinkRepository, PgClusterResourceVersionRepository,
+    PgSeenEventsRepository, SeenEventsRepository,
+};
+use settings::Settings;
+
 use super::{core::Core, iam::IamRuntime, storage::StorageRuntime};
 use crate::{
     api::state::LocalQueryEngines,
     app::query::QueryService,
-    config::Settings,
-    domain::query::{PromqlEngine, QueryEngine},
     infra::{
         caching::QueryResultCache,
         cluster::{
             ClusterSecretRepository, PgClusterSecretRepository, PgRemoteClustersRepository,
             RemoteClustersRepository,
-        },
-        persistence::repositories::cluster::events::{
-            ClusterEventOutboxRepository, ClusterOrgLinkRepository,
-            ClusterResourceVersionRepository, PgClusterEventOutboxRepository,
-            PgClusterOrgLinkRepository, PgClusterResourceVersionRepository, PgSeenEventsRepository,
-            SeenEventsRepository,
         },
         query::{
             federated::FederatedDistributedEngine,
@@ -73,13 +73,12 @@ impl QueryRuntime {
                 .with_footer_cache(tantivy_footer_cache),
         );
 
-        let log_patterns: Arc<
-            dyn crate::infra::persistence::repositories::log_patterns::LogPatternRepository,
-        > = Arc::new(
-            crate::infra::persistence::repositories::log_patterns::PgLogPatternRepository::new(
-                core.pool.clone(),
-            ),
-        );
+        let log_patterns: Arc<dyn postgres::repositories::log_patterns::LogPatternRepository> =
+            Arc::new(
+                postgres::repositories::log_patterns::PgLogPatternRepository::new(
+                    core.pool.clone(),
+                ),
+            );
 
         let local_engine = Arc::new(
             DataFusionEngine::new(storage.catalog_files.clone(), read_store.clone())
@@ -182,11 +181,18 @@ impl QueryRuntime {
             .with_streams(core.streams.clone()),
         );
 
+        tracing::info!(
+            default_max_concurrent = settings.search.admission.default_max_concurrent,
+            max_wait_secs = settings.search.admission.max_wait_secs,
+            "query admission configured"
+        );
+
         let admission = Arc::new(crate::app::search::AdmissionController::new(
             crate::app::search::AdmissionConfig {
                 default_max_concurrent: settings.search.admission.default_max_concurrent,
                 groups: settings.search.admission.groups.clone(),
                 role_map: settings.search.admission.role_map.clone(),
+                max_wait: std::time::Duration::from_secs(settings.search.admission.max_wait_secs),
                 cluster_default_max_concurrent: settings
                     .search
                     .admission
@@ -212,9 +218,9 @@ impl QueryRuntime {
 
         let _admission_sync = (core.roles.run_querier && cluster_admission_enabled).then(|| {
             let repository: Arc<
-                dyn crate::infra::persistence::repositories::search::admission_load::SearchAdmissionLoadRepository,
+                dyn postgres::repositories::search::admission_load::SearchAdmissionLoadRepository,
             > = Arc::new(
-                crate::infra::persistence::repositories::search::admission_load::PgSearchAdmissionLoadRepository::new(
+                postgres::repositories::search::admission_load::PgSearchAdmissionLoadRepository::new(
                     core.pool.clone(),
                 ),
             );

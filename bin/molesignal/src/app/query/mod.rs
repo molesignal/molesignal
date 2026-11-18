@@ -17,22 +17,19 @@ use std::{
     time::Duration,
 };
 
+use domain::{
+    masking::FieldMaskingProvider,
+    metrics::PrometheusExemplarQueryResult,
+    query::{
+        PromqlEngine, QueryEngine, QueryLanguage, QueryRequest, QueryResult, QueryResultCachePort,
+    },
+    storage::DatasetTypeId,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use parking_lot::RwLock;
 use serde::Serialize;
 
-use crate::{
-    app::search::AdmissionController,
-    domain::{
-        masking::FieldMaskingProvider,
-        metrics::PrometheusExemplarQueryResult,
-        query::{
-            PromqlEngine, QueryEngine, QueryLanguage, QueryRequest, QueryResult,
-            QueryResultCachePort,
-        },
-        storage::DatasetTypeId,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::app::search::AdmissionController;
 
 pub mod jobs;
 
@@ -229,12 +226,7 @@ impl QueryService {
         req: QueryRequest,
         role_key: &str,
     ) -> Result<PrometheusExemplarQueryResult> {
-        let _slot = self.admission.acquire_for_role(role_key).ok_or_else(|| {
-            Error::resource_exhausted(
-                "search admission: too many concurrent queries for your work group; retry shortly",
-            )
-        })?;
-
+        let _slot = self.admission.admit_for_role(role_key).await?;
         let mut result = self.promql.query_exemplars(req.clone()).await?;
 
         if let Some(masking) = &self.field_masking {
@@ -257,7 +249,8 @@ impl QueryService {
     /// 准入 + 注册 + 执行 + 反注册。`/api/v1/query` / `/api/v1/query/stream` 与 Flight SQL
     /// 调用，让 `/api/v1/query/running` 能看到这条查询。`role` 决定准入工作组。
     ///
-    /// 先按角色申请并发槽位（[`AdmissionController`]）：满则返 429（`ResourceExhausted`），
+    /// 命中整结果缓存的查询直接返回，不占槽位，也不排队。其余先按角色申请并发槽位
+    /// （[`AdmissionController`]）：满了按到达顺序排队，等不到返 429（`ResourceExhausted`），
     /// 不进入执行；槽位 RAII guard 持有到本次执行结束自动释放。
     #[tracing::instrument(
         name = "query.execute",
@@ -274,15 +267,9 @@ impl QueryService {
         user_id: Id,
         role_key: &str,
     ) -> Result<QueryResult> {
-        let _slot = self.admission.acquire_for_role(role_key).ok_or_else(|| {
-            Error::resource_exhausted(
-                "search admission: too many concurrent queries for your work group; retry shortly",
-            )
-        })?;
-
-        let (cancel, fed_id, _guard) = self.track_query(&req, user_id, Id::new());
-
         let Some(cache) = self.result_cache.clone() else {
+            let _slot = self.admission.admit_for_role(role_key).await?;
+            let (cancel, fed_id, _guard) = self.track_query(&req, user_id, Id::new());
             let mut result = self.run_cancellable(req.clone(), &cancel, fed_id).await?;
             self.mask_result(&req, &mut result).await?;
             return Ok(result);
@@ -299,6 +286,8 @@ impl QueryService {
             return Ok(hit);
         }
 
+        let _slot = self.admission.admit_for_role(role_key).await?;
+        let (cancel, fed_id, _guard) = self.track_query(&req, user_id, Id::new());
         let raw = self.run_cancellable(req.clone(), &cancel, fed_id).await?;
         cache.put(&req, &role_filter, now, raw.clone()).await;
         let mut result = raw;
@@ -318,12 +307,7 @@ impl QueryService {
         attempt: i32,
         raw: bool,
     ) -> Result<QueryResult> {
-        let _slot = self.admission.acquire_for_role(role_key).ok_or_else(|| {
-            Error::resource_exhausted(
-                "search admission: too many concurrent queries for your work group; retry shortly",
-            )
-        })?;
-
+        let _slot = self.admission.admit_for_role(role_key).await?;
         let execution_id = jobs::execution_id(&job_id, attempt);
         let (cancel, fed_id, _guard) = self.track_query(&req, user_id, execution_id);
         let mut result = self.run_cancellable(req.clone(), &cancel, fed_id).await?;
@@ -416,13 +400,11 @@ const CANCEL_POLL_INTERVAL: Duration = Duration::from_millis(50);
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
+    use domain::query::{FederationMeta, QueryResult};
+    use kernel::time::{TimeRange, TimestampMicros};
 
     use super::*;
-    use crate::{
-        app::search::AdmissionConfig,
-        domain::query::{FederationMeta, QueryResult},
-        shared::time::{TimeRange, TimestampMicros},
-    };
+    use crate::app::search::AdmissionConfig;
 
     /// 模拟一条很慢的查询：sleep 远超测试预算后才返回。cancel 必须在 sleep 完成前中断它。
     struct SlowEngine;

@@ -9,13 +9,13 @@
 use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{PgPool, Row, types::Json};
 use tokio::{sync::Notify, task::JoinHandle};
 
 use super::super::sqlx_err;
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 mod listing;
 
@@ -81,7 +81,7 @@ pub struct SearchJob {
     pub request_json: Value,
     /// Bounded diagnostic correlation only; consumers must never derive auth from it.
     #[serde(default)]
-    pub trace_link: Option<crate::shared::trace_context::SerializedTraceLink>,
+    pub trace_link: Option<signals::trace_context::SerializedTraceLink>,
     pub state: SearchJobState,
     /// Monotonic execution generation. Retry increments this so a stale worker cannot commit.
     pub attempt: i32,
@@ -248,9 +248,7 @@ fn row_to(r: sqlx::postgres::PgRow) -> SearchJob {
         role_key: r.try_get::<String, _>("role_key").unwrap_or_default(),
         request_json: req.0,
         trace_link: r
-            .try_get::<Option<Json<crate::shared::trace_context::SerializedTraceLink>>, _>(
-                "trace_link",
-            )
+            .try_get::<Option<Json<signals::trace_context::SerializedTraceLink>>, _>("trace_link")
             .unwrap_or_default()
             .map(|link| link.0),
         state: SearchJobState::parse(&r.try_get::<String, _>("state").unwrap_or_default()),
@@ -440,7 +438,7 @@ impl SearchJobRepository for PgSearchJobRepository {
         if current.state == SearchJobState::Cancelled {
             Ok(current)
         } else {
-            Err(crate::shared::Error::invalid(format!(
+            Err(kernel::Error::invalid(format!(
                 "search job in state `{}` cannot be cancelled",
                 current.state.as_str()
             )))
@@ -486,7 +484,7 @@ impl SearchJobRepository for PgSearchJobRepository {
             None => {
                 let current = self.get(org_id, id).await?;
 
-                Err(crate::shared::Error::invalid(format!(
+                Err(kernel::Error::invalid(format!(
                     "search job in state `{}` cannot be retried",
                     current.state.as_str()
                 )))
