@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import i18n from './index';
@@ -91,8 +94,17 @@ describe('builtin tool catalog translations', () => {
   const zhCatalog = leafValue(ZH.agent ?? {}, 'tools') as Bundle;
 
   it('contains complete localized metadata for all builtin tools', () => {
-    expect(Object.keys(enCatalog)).toHaveLength(249);
-    expect(Object.keys(zhCatalog).sort()).toEqual(Object.keys(enCatalog).sort());
+    const builtinToolKinds = readFileSync(
+      resolve('../crates/modules/tool-runtime/src/catalog/kind.rs'),
+      'utf8',
+    );
+    const builtinNames = Array.from(
+      builtinToolKinds.matchAll(/\b\w+\s*=>\s*"([^"]+)"/g),
+      ([, name]) => name,
+    ).sort();
+    expect(builtinNames.length).toBeGreaterThan(0);
+    expect(Object.keys(enCatalog).sort()).toEqual(builtinNames);
+    expect(Object.keys(zhCatalog).sort()).toEqual(builtinNames);
 
     for (const [name, metadata] of Object.entries(enCatalog)) {
       expect(name).toMatch(/^[a-z][a-z0-9_]*$/);
