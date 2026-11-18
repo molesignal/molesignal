@@ -4,7 +4,6 @@ import {
   createSearchParams,
   type SetURLSearchParams,
   useLocation,
-  useNavigate,
   useNavigationType,
 } from 'react-router-dom';
 import { useShallow } from 'zustand/react/shallow';
@@ -20,7 +19,6 @@ import {
 } from '@/stores/useTimeStore';
 
 import {
-  composeSearch,
   MAX_QUERY_TABS,
   ownSearch,
   type QueryTab,
@@ -48,6 +46,7 @@ import {
   useQueryTabsStore,
 } from './store';
 import { QueryTabStrip } from './Strip';
+import { useQueryTabAddress } from './useQueryTabAddress';
 
 /**
  * Runs an explorer as a set of tabs, each a query of its own.
@@ -94,7 +93,6 @@ function QueryTabsHost({
 }) {
   const { t } = useTranslation('common');
   const location = useLocation();
-  const navigate = useNavigate();
   const navigationType = useNavigationType();
   const state = useQueryTabsStore((store) => store.scopes[scope]);
   const running = useQueryTabsRuntime((runtime) => runtime.running);
@@ -204,79 +202,7 @@ function QueryTabsHost({
   }, [frontTab, ready, scope, tabIds]);
 
   // ── address bar: a mirror of the tab in front ───────────────────────────
-  const mirror = React.useRef<{
-    /** The tab and params the address bar was last reconciled with. */
-    seen: string | null;
-    /** What was asked of the router and has not shown up yet. */
-    pending: string | null;
-    askedAt: string | null;
-    replace: boolean;
-  }>({ seen: null, pending: null, askedAt: null, replace: true });
-
-  const activeSearch = active?.search;
-  React.useEffect(() => {
-    if (!activeId || activeSearch === undefined) return;
-    const book = mirror.current;
-    const shown = ownSearch(location.search);
-    const wanted = `${activeId}\n${activeSearch}`;
-
-    const ask = () => {
-      const tab = frontTab();
-      if (!tab) return;
-      const search = composeSearch(
-        activeSearch,
-        location.search,
-        queryTabTimeStore(scope, tab).getState(),
-      );
-      book.pending = wanted;
-      book.askedAt = location.key;
-      navigate(
-        { pathname: location.pathname, search: search ? `?${search}` : '', hash: location.hash },
-        { replace: book.replace, state: location.state },
-      );
-      book.replace = true;
-    };
-
-    // Tabs can have identical queries and different time ranges. Switching between
-    // them must publish the time too, before the shell reads the old URL back.
-    if (book.seen !== null && !book.seen.startsWith(`${activeId}\n`)) {
-      book.seen = wanted;
-      ask();
-      return;
-    }
-    if (shown === activeSearch) {
-      book.pending = null;
-      book.seen = wanted;
-      return;
-    }
-    if (book.pending !== null) {
-      // Asked and not there: still on its way, or a write that started before
-      // it landed on top. Ask again once the address has moved without us.
-      if (book.pending !== wanted || book.askedAt !== location.key) ask();
-      book.seen = wanted;
-      return;
-    }
-    if (book.seen !== wanted) {
-      // The tab changed (another one came forward, or the page wrote its params).
-      book.seen = wanted;
-      ask();
-      return;
-    }
-    // The address changed under an unchanged tab: a link, the history, or the
-    // shell. It is about what is on screen, so the tab in front takes it.
-    useQueryTabsStore.getState().setSearch(scope, activeId, shown);
-  }, [
-    activeId,
-    activeSearch,
-    frontTab,
-    location.hash,
-    location.key,
-    location.pathname,
-    location.search,
-    location.state,
-    navigate,
-    scope,
-  ]);
+  const onParamsWrite = useQueryTabAddress(scope, activeId, active?.search, frontTab);
 
   // ── tabs ────────────────────────────────────────────────────────────────
   // A tab mounts its page the first time it comes forward, so tabs restored
@@ -327,10 +253,6 @@ function QueryTabsHost({
     },
     [showFrontTime],
   );
-
-  const onParamsWrite = React.useCallback((replace: boolean) => {
-    mirror.current.replace = replace;
-  }, []);
 
   // On a split page the tab that is touched is the one worked in: it comes to the front.
   const workIn = React.useCallback(

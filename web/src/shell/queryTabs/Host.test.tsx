@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as React from 'react';
-import { createMemoryRouter, Link, RouterProvider } from 'react-router-dom';
+import { createMemoryRouter, Link, type LoaderFunction, RouterProvider } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import i18n from '@/i18n';
@@ -66,6 +66,9 @@ function Explorer() {
       >
         {COPY.setQuery}
       </button>
+      <button type="button" onClick={() => setParams({}, { replace: true })}>
+        Clear query
+      </button>
       <button type="button" onClick={() => setWindow(SIX_HOURS)}>
         {COPY.setRange}
       </button>
@@ -83,11 +86,12 @@ function Explorer() {
   );
 }
 
-function renderExplorer(initialEntry = '/metrics') {
+function renderExplorer(initialEntry = '/metrics', loader?: LoaderFunction) {
   const router = createMemoryRouter(
     [
       {
         path: '/metrics',
+        ...(loader && { loader }),
         element: (
           <QueryTabs kind="metrics">
             <Explorer />
@@ -165,6 +169,22 @@ describe('QueryTabs', () => {
     expect(front().getByTestId('query').textContent).toBe('latency');
     // The address bar follows the tab in front.
     await waitFor(() => expect(router.state.location.search).toBe('?q=latency'));
+  });
+
+  it('keeps a cleared query when the previous navigation is still loading', async () => {
+    let finish!: () => void;
+    const slowLoad = new Promise<null>((resolve) => { finish = () => resolve(null); });
+    const { router } = renderExplorer('/metrics', ({ request }) =>
+      new URL(request.url).searchParams.has('q') ? slowLoad : null,
+    );
+    await screen.findByTestId('query');
+    fireEvent.click(front().getByRole('button', { name: COPY.setQuery }));
+    await waitFor(() => expect(router.state.navigation.location?.search).toBe('?q=errors'));
+    fireEvent.click(front().getByRole('button', { name: 'Clear query' }));
+    await act(async () => { finish(); await slowLoad; });
+    await waitFor(() => expect(router.state.navigation.state).toBe('idle'));
+    expect(router.state.location.search).toBe('');
+    expect(front().getByTestId('query').textContent).toBe('(none)');
   });
 
   it('keeps a tab mounted behind the others, so its results are there when it comes back', () => {
