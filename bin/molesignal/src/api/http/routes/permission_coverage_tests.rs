@@ -46,6 +46,10 @@ const OPEN: &[(&str, &str)] = &[
     ("/readyz", "probes"),
     ("/version", "public"),
     (
+        "/version/updates",
+        "public release metadata, no organization data",
+    ),
+    (
         "/metrics",
         "the Prometheus scrape, public in the auth middleware",
     ),

@@ -15,7 +15,6 @@ import {
   DialogContent,
   DialogDescription,
   DialogFooter,
-  DialogHeader,
   DialogTitle,
 } from '@/shell/ui/dialog';
 import {
@@ -23,6 +22,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/shell/ui/tooltip';
+import { ReleaseUpdatePanel } from '@/shell/updates/ReleaseUpdatePanel';
 
 const EDITION_TRANSLATION_KEYS = {
   community: 'about.editions.community',
@@ -50,9 +50,7 @@ export function shouldShowBuildBranch(
 ): boolean {
   if (!version?.branch) return false;
   if (isDevelopmentBuild) return true;
-  return /(?:dev|develop|test|staging|preview|alpha|beta|rc|snapshot|canary)/i.test(
-    `${version.version} ${version.branch}`,
-  );
+  return !['main', 'HEAD', 'unknown'].includes(version.branch);
 }
 
 function useClipboardFeedback() {
@@ -118,7 +116,6 @@ export function AboutDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         'MoleSignal',
         `${t('about.version')}: v${v.version}`,
         `${t('about.edition')}: ${edition} (${v.edition})`,
-        `${t('about.release_channel')}: ${v.releaseChannel}`,
         `${t('about.commit')}: ${v.commit}`,
         `${t('about.build_id')}: ${v.buildId}`,
         `${t('about.built')}: ${buildTimeUtc}`,
@@ -129,15 +126,8 @@ export function AboutDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-[540px] gap-0 overflow-y-auto p-0 sm:rounded-xl">
-        <DialogHeader className="px-6 pb-0 pt-4 pr-12">
-          <DialogTitle
-            aria-label={t('about.accessible_title')}
-            className="text-base leading-6"
-          >
-            {t('about.title')}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="px-6 pb-4 pt-3">
+        <DialogTitle className="sr-only">{t('about.accessible_title')}</DialogTitle>
+        <div className="px-6 pb-4 pt-6">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bg-2">
               <LogoMark size={30} />
@@ -152,6 +142,8 @@ export function AboutDialog({ open, onOpenChange }: { open: boolean; onOpenChang
             </div>
           </div>
 
+          <ReleaseUpdatePanel open={open} />
+
           <dl className="mt-4">
             <InfoRow
               label={t('about.version')}
@@ -163,12 +155,6 @@ export function AboutDialog({ open, onOpenChange }: { open: boolean; onOpenChang
               label={t('about.edition')}
               value={edition}
               testId="about-edition"
-            />
-            <InfoRow
-              label={t('about.release_channel')}
-              value={v?.releaseChannel ?? dash}
-              code
-              testId="about-release-channel"
             />
           </dl>
 

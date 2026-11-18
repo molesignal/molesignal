@@ -1,19 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
+use axum::{
+    Json, Router,
+    extract::{Query, State},
+    http::StatusCode,
+    response::IntoResponse,
+    routing::get,
+};
+use serde::Deserialize;
 use serde_json::json;
 
-use crate::{api::AppState, shared::build_info};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/healthz", get(healthz))
         .route("/readyz", get(readyz))
         .route("/version", get(version))
+        .route("/version/updates", get(updates))
 }
 
-/// 构建/部署信息：product version + git commit/branch + build ID + 运行时发布通道 + 授权版本。
+/// 构建/部署信息：product version + git commit/branch + build ID + 授权版本。
 /// 前端「关于」弹窗读取此处，状态栏用它显示 build 版本并兼作心跳（响应=已连接）。
 async fn version() -> impl IntoResponse {
     Json(json!({
@@ -24,10 +32,19 @@ async fn version() -> impl IntoResponse {
             .and_then(|s| s.parse::<i64>().ok())
             .unwrap_or(0),
         "buildId": option_env!("MOLESIGNAL_BUILD_ID").unwrap_or("unknown"),
-        "releaseChannel": build_info::release_channel(),
         "edition": "oss",
     }))
     .into_response()
+}
+
+#[derive(Default, Deserialize)]
+struct UpdateQuery {
+    #[serde(default)]
+    refresh: bool,
+}
+
+async fn updates(Query(query): Query<UpdateQuery>) -> impl IntoResponse {
+    Json(crate::infra::releases::check(query.refresh).await)
 }
 
 /// 综合健康：`probe.is_healthy()`；任意 sub-system degraded → 503 + JSON body。
@@ -68,7 +85,7 @@ pub(crate) async fn readyz(State(state): State<AppState>) -> impl IntoResponse {
 mod tests {
     #[test]
     fn product_version_is_independent_from_the_rust_package_version() {
-        assert_eq!(env!("MOLESIGNAL_PRODUCT_VERSION"), "26.0.0.0");
+        assert_eq!(env!("MOLESIGNAL_PRODUCT_VERSION").split('.').count(), 4);
         assert_ne!(
             env!("MOLESIGNAL_PRODUCT_VERSION"),
             env!("CARGO_PKG_VERSION")

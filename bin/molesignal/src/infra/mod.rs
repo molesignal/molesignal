@@ -32,6 +32,7 @@ pub use ::postgres as persistence;
 pub mod pipeline;
 pub use ::profiles;
 pub mod query;
+pub mod releases;
 pub mod reporting;
 pub mod rum;
 pub use ::function_runtime as runtime;
