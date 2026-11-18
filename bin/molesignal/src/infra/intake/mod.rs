@@ -5,10 +5,11 @@
 //!
 //! 数据流：
 //! ```text
-//!   IntakeService::intake(batch)
+//!   IntakeService::intake(batch)          IntakeService::intake_json(body), columnar path
+//!     ├─ rows_to_columns(events)          ├─ decode(body) → columns
 //!     ├─ DatasetResolver.resolve(stream, dataset_type) → PhysicalDataset
 //!     └─ BufferPool[dataset_id] lock:
-//!          WalPool[dataset_id].append(payload) → (epoch, seq) → push(events, position)
+//!          WalPool[dataset_id].append(Arrow IPC record) → (epoch, seq) → push_batch(columns, position)
 //!
 //!   FlushScheduler tick:
 //!     for each buffer where size >= buffer_max_size OR age >= flush_interval_secs:
@@ -25,8 +26,10 @@ pub mod dataset_resolver;
 pub mod metrics;
 pub(crate) mod physical_schema;
 pub mod rotation;
+pub mod row_columns;
 pub mod sink;
 pub mod wal_pool;
+pub mod wal_record;
 
 pub use buffer_pool::{
     BufferKey, BufferPool, BufferWriter, BufferedRecordBatch, DatasetBuffer, Discarded,

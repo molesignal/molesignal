@@ -15,6 +15,7 @@
 //!
 //! 类型冲突的事件单条剔除并填到 `IntakeResult.errors`。
 
+mod columnar;
 mod forward;
 mod metrics;
 pub mod realtime;
@@ -23,29 +24,27 @@ pub mod usage;
 
 use std::sync::Arc;
 
+pub use columnar::{ColumnarBatch, ColumnarSink, JsonIntake};
+use domain::{
+    intake::{
+        EVENT_ID_FIELD, IntakeBatch, IntakeError, IntakeResult, IntakeSink, RawEvent,
+        ServiceGraphObserver,
+    },
+    masking::{Masker, MaskingProvider},
+    metrics::MetricDirectory,
+    rum::{RumEventWriter, RumIssueTracker, RumSessionMerger, event::RumStream},
+    storage::DatasetTypeId,
+    stream::{
+        Schema, StreamDefinition, StreamRepository, StreamType, is_reserved_system_stream,
+        refuse_platform_stream, validate_stream_name,
+    },
+};
 pub use forward::IntakeForwarder;
+use kernel::{Error, Result, drain::DrainController, ids::Id, time::TimestampMicros};
 pub use metrics::MetricRecorder;
 pub use schema::{apply_index_rules, check_event_types, infer_schema_extension};
 
-pub use crate::domain::function::FunctionExecutor;
-use crate::{
-    app::alerting::realtime::RealtimeAlerts,
-    domain::{
-        intake::{
-            EVENT_ID_FIELD, IntakeBatch, IntakeError, IntakeResult, IntakeSink, RawEvent,
-            ServiceGraphObserver,
-        },
-        masking::{Masker, MaskingProvider},
-        metrics::MetricDirectory,
-        rum::{RumEventWriter, RumIssueTracker, RumSessionMerger, event::RumStream},
-        storage::DatasetTypeId,
-        stream::{
-            Schema, StreamDefinition, StreamRepository, StreamType, is_reserved_system_stream,
-            refuse_platform_stream, validate_stream_name,
-        },
-    },
-    shared::{Error, Result, drain::DrainController, ids::Id, time::TimestampMicros},
-};
+use crate::app::alerting::realtime::RealtimeAlerts;
 
 type InternalUsageRecorder = Arc<dyn Fn(&Id, usage::IntakeReceipt, u64) + Send + Sync + 'static>;
 
@@ -75,6 +74,8 @@ pub struct IntakeService {
     rum_sessions: Option<Arc<dyn RumSessionMerger>>,
     /// 把写入 `rum_errors` 的错误归到 issue：开新 issue、记录再现、判回归。没有它的节点照原样写。
     rum_issues: Option<Arc<dyn RumIssueTracker>>,
+    /// Where native log writes go by the columnar path; nodes without the intake role have none.
+    columnar: Option<Arc<dyn ColumnarSink>>,
 }
 
 impl IntakeService {
@@ -93,7 +94,14 @@ impl IntakeService {
             metric_recorder: None,
             rum_sessions: None,
             rum_issues: None,
+            columnar: None,
         }
+    }
+
+    /// Native log writes to plain streams are decoded straight into columns and written here.
+    pub fn with_columnar_sink(mut self, sink: Arc<dyn ColumnarSink>) -> Self {
+        self.columnar = Some(sink);
+        self
     }
 
     /// 注入 RUM 会话合并器：`rum_sessions` 流收到的 view 补丁经它变成会话行。
@@ -386,7 +394,7 @@ impl IntakeService {
             None => batch
                 .events
                 .iter()
-                .map(crate::domain::intake::usage::event_bytes)
+                .map(domain::intake::usage::event_bytes)
                 .collect::<Result<Vec<_>>>()?,
         };
 
@@ -623,13 +631,12 @@ fn assign_log_event_ids(batch_id: &Id, events: &mut [RawEvent]) {
 
 #[cfg(test)]
 mod tests {
+    use domain::stream::{FieldDef, FieldType, StreamIndexType};
+    use kernel::time::TimestampMicros;
     use serde_json::json;
+    use signals::trace::summary::TRACE_SUMMARY_MARKER_FIELD;
 
     use super::*;
-    use crate::{
-        domain::stream::{FieldDef, FieldType},
-        shared::{time::TimestampMicros, trace::summary::TRACE_SUMMARY_MARKER_FIELD},
-    };
 
     #[derive(Default)]
     struct RecordingSink {
@@ -686,10 +693,8 @@ mod tests {
                 name: "msg".into(),
                 data_type: FieldType::Utf8,
                 nullable: false,
-                index_type: None,
-                indexed: false,
+                index_type: StreamIndexType::None,
                 encrypted: false,
-                exact: false,
             }],
         };
         assert!(check_event_types(&s, &ev(json!({"msg":"x"}))).is_ok());
@@ -703,10 +708,8 @@ mod tests {
                 name: "msg".into(),
                 data_type: FieldType::Utf8,
                 nullable: false,
-                index_type: None,
-                indexed: false,
+                index_type: StreamIndexType::None,
                 encrypted: false,
-                exact: false,
             }],
         };
         let events = vec![
@@ -739,18 +742,27 @@ mod tests {
             TRACE_SUMMARY_MARKER_FIELD,
         ] {
             let fd = by_name(f);
-            assert!(fd.indexed && fd.exact, "{f} 应自动 exact-indexed");
+            assert_eq!(
+                fd.index_type,
+                StreamIndexType::Exact,
+                "{f} 应自动 exact-indexed"
+            );
         }
         // 普通字段不受影响。
         let sc = by_name("http.status_code");
-        assert!(!sc.indexed && !sc.exact, "普通字段不应被自动索引");
+        assert_eq!(
+            sc.index_type,
+            StreamIndexType::None,
+            "普通字段不应被自动索引"
+        );
 
         // 同名字段在 logs 流不触发（策略仅限 traces）。
         let logs = infer_schema_extension(&Schema { fields: vec![] }, &events, StreamType::LOGS)
             .expect("extension");
         let tid = logs.fields.iter().find(|f| f.name == "trace_id").unwrap();
-        assert!(
-            !tid.indexed && !tid.exact,
+        assert_eq!(
+            tid.index_type,
+            StreamIndexType::None,
             "logs 流不应自动 exact-index trace_id"
         );
     }
@@ -779,7 +791,7 @@ mod tests {
     // drain 拒写：退役中 intake() 在触碰 sink/streams 之前就返回 503，故 stub 方法 unreachable。
     struct UnreachableSink;
     #[async_trait::async_trait]
-    impl crate::domain::intake::IntakeSink for UnreachableSink {
+    impl domain::intake::IntakeSink for UnreachableSink {
         async fn write(&self, _: IntakeBatch) -> Result<IntakeResult> {
             unreachable!("draining must short-circuit before sink")
         }
@@ -797,7 +809,7 @@ mod tests {
             &self,
             _: &Id,
             _: &str,
-            _: crate::domain::stream::StreamType,
+            _: domain::stream::StreamType,
         ) -> Result<StreamDefinition> {
             unreachable!()
         }
@@ -860,7 +872,7 @@ mod tests {
 
     #[tokio::test]
     async fn intake_rejected_with_503_when_draining() {
-        use crate::shared::drain::DrainController;
+        use kernel::drain::DrainController;
 
         let drain = Arc::new(DrainController::new());
         assert!(drain.begin_drain());
@@ -870,7 +882,7 @@ mod tests {
             batch_id: Id::new(),
             org_id: Id::from_string("org-1"),
             stream: "s".into(),
-            stream_type: crate::domain::stream::StreamType::LOGS,
+            stream_type: domain::stream::StreamType::LOGS,
             events: vec![ev(json!({"msg": "x"}))],
             received_at: TimestampMicros::now(),
         };
@@ -884,7 +896,7 @@ mod tests {
         let batch = IntakeBatch {
             batch_id: Id::new(),
             org_id: Id::from_string("org-1"),
-            stream: crate::domain::stream::MOLESIGNAL_SYSTEM_STREAM.into(),
+            stream: domain::stream::MOLESIGNAL_SYSTEM_STREAM.into(),
             stream_type: StreamType::LOGS,
             events: vec![ev(json!({"message": "spoof"}))],
             received_at: TimestampMicros::now(),
@@ -1036,7 +1048,7 @@ mod tests {
 
         let err = svc
             .intake_pipeline_output(pipeline_output(
-                crate::domain::stream::MOLESIGNAL_SYSTEM_STREAM,
+                domain::stream::MOLESIGNAL_SYSTEM_STREAM,
                 vec![ev(json!({ "message": "spoof" }))],
             ))
             .await
@@ -1095,10 +1107,8 @@ mod tests {
                         name: "message".into(),
                         data_type: FieldType::Utf8,
                         nullable: false,
-                        index_type: None,
-                        indexed: false,
+                        index_type: StreamIndexType::None,
                         encrypted: false,
-                        exact: false,
                     }],
                 },
                 retention: None,
@@ -1108,7 +1118,7 @@ mod tests {
         });
         let sink = Arc::new(RecordingSink::default());
         let accepted = ev(json!({"message":"中文\n测试"}));
-        let expected = crate::domain::intake::usage::event_bytes(&accepted).unwrap();
+        let expected = domain::intake::usage::event_bytes(&accepted).unwrap();
         let svc = IntakeService::new(sink.clone(), streams);
         let result = svc
             .intake(IntakeBatch {
@@ -1138,10 +1148,10 @@ mod tests {
             def: StreamDefinition {
                 id: Id::new(),
                 org_id: org_id.clone(),
-                name: crate::domain::stream::MOLESIGNAL_SYSTEM_STREAM.into(),
+                name: domain::stream::MOLESIGNAL_SYSTEM_STREAM.into(),
                 stream_type: StreamType::LOGS,
                 schema: Schema { fields: vec![] },
-                retention: Some(crate::domain::stream::Retention { days: 7 }),
+                retention: Some(domain::stream::Retention { days: 7 }),
                 created_at: now,
                 updated_at: now,
             },
@@ -1163,7 +1173,7 @@ mod tests {
             .intake_self_telemetry(IntakeBatch {
                 batch_id: Id::new(),
                 org_id: org_id.clone(),
-                stream: crate::domain::stream::MOLESIGNAL_SYSTEM_STREAM.into(),
+                stream: domain::stream::MOLESIGNAL_SYSTEM_STREAM.into(),
                 stream_type: StreamType::LOGS,
                 events: vec![ev(json!({"message": "self"}))],
                 received_at: now,
@@ -1177,11 +1187,11 @@ mod tests {
         assert_eq!(recorded[0].0, org_id);
         assert_eq!(
             recorded[0].1.credential.kind,
-            crate::domain::intake::usage::source::CredentialKind::Internal
+            domain::intake::usage::source::CredentialKind::Internal
         );
         assert_eq!(
             recorded[0].1.stream,
-            crate::domain::stream::MOLESIGNAL_SYSTEM_STREAM
+            domain::stream::MOLESIGNAL_SYSTEM_STREAM
         );
         assert!(recorded[0].1.bytes > 0);
         assert_eq!(recorded[0].2, 1);
@@ -1196,7 +1206,7 @@ mod tests {
             .intake_self_telemetry(IntakeBatch {
                 batch_id: Id::new(),
                 org_id: Id::from_string("tenant-org"),
-                stream: crate::domain::stream::MOLESIGNAL_SYSTEM_STREAM.into(),
+                stream: domain::stream::MOLESIGNAL_SYSTEM_STREAM.into(),
                 stream_type: StreamType::LOGS,
                 events: vec![ev(json!({"message": "misrouted"}))],
                 received_at: TimestampMicros::now(),
@@ -1209,7 +1219,7 @@ mod tests {
 
     #[tokio::test]
     async fn trusted_self_telemetry_still_respects_drain() {
-        use crate::shared::drain::DrainController;
+        use kernel::drain::DrainController;
 
         let drain = Arc::new(DrainController::new());
         assert!(drain.begin_drain());
@@ -1221,7 +1231,7 @@ mod tests {
             .intake_self_telemetry(IntakeBatch {
                 batch_id: Id::new(),
                 org_id: system_org_id,
-                stream: crate::domain::stream::MOLESIGNAL_SYSTEM_STREAM.into(),
+                stream: domain::stream::MOLESIGNAL_SYSTEM_STREAM.into(),
                 stream_type: StreamType::LOGS,
                 events: vec![ev(json!({"message": "late"}))],
                 received_at: TimestampMicros::now(),

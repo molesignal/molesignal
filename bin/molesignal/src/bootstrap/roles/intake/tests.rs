@@ -7,23 +7,23 @@ use std::sync::{
 };
 
 use async_trait::async_trait;
+use domain::{
+    intake::RawEvent,
+    storage::{FileCatalog, is_stale_writer_epoch, primary_dataset_type},
+    stream::{
+        FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType, StreamType,
+    },
+};
 use futures::StreamExt;
+use kernel::{Error, ids::Id, time::TimestampMicros};
 use object_store::{ObjectStore, memory::InMemory};
 use serde_json::json;
 use tempfile::tempdir;
 
 use super::*;
-use crate::{
-    domain::{
-        intake::RawEvent,
-        storage::{FileCatalog, is_stale_writer_epoch, primary_dataset_type},
-        stream::{FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamType},
-    },
-    infra::{
-        intake::dataset_resolver::test_support::{StubFileCatalog, test_catalog_and_resolver},
-        segment_wal::{FsyncPolicy, SegmentWal, scan_segment_max_index},
-    },
-    shared::{Error, ids::Id, time::TimestampMicros},
+use crate::infra::{
+    intake::dataset_resolver::test_support::{StubFileCatalog, test_catalog_and_resolver},
+    segment_wal::{FsyncPolicy, SegmentWal, scan_segment_max_index},
 };
 
 /// 只有一条流的仓库；`gone` 置位后这条流对读取表现为已被删除。
@@ -82,10 +82,8 @@ fn stream_definition() -> StreamDefinition {
                 name: "level".into(),
                 data_type: FieldType::Utf8,
                 nullable: false,
-                index_type: None,
-                indexed: false,
+                index_type: StreamIndexType::None,
                 encrypted: false,
-                exact: false,
             }],
         },
         retention: Some(Retention { days: 7 }),

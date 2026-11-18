@@ -5,20 +5,12 @@
 
 use std::io::{self, Write};
 
-use serde::{Deserialize, Serialize};
+use kernel::{Error, Result};
 
-use super::{IntakeBatch, RawEvent};
-use crate::shared::{Error, Result};
+use super::RawEvent;
 
 pub mod budget;
 pub mod source;
-
-/// WAL payload containing the accepted batch and its pre-transformation measurement.
-#[derive(Serialize, Deserialize)]
-pub struct MeteredBatch<T = IntakeBatch> {
-    pub batch: T,
-    pub collected_bytes: Option<u64>,
-}
 
 /// Count UTF-8 JSON bytes without allocating a serialized copy of the payload.
 /// The canonical event includes its timestamp and fields, but no transport/batch framing.
@@ -48,11 +40,9 @@ pub fn event_bytes(event: &RawEvent) -> Result<u64> {
 
 #[cfg(test)]
 mod tests {
+    use kernel::time::TimestampMicros;
+
     use super::*;
-    use crate::{
-        domain::stream::StreamType,
-        shared::{ids::Id, time::TimestampMicros},
-    };
 
     #[test]
     fn counts_utf8_and_escaping_exactly() {
@@ -65,27 +55,5 @@ mod tests {
             event_bytes(&event).unwrap(),
             serde_json::to_vec(&event).unwrap().len() as u64
         );
-    }
-
-    #[test]
-    fn metered_wal_round_trips() {
-        let batch = IntakeBatch {
-            batch_id: Id::new(),
-            org_id: Id::new(),
-            stream: "logs".into(),
-            stream_type: StreamType::LOGS,
-            events: vec![],
-            received_at: TimestampMicros(1),
-        };
-        let metered: MeteredBatch = serde_json::from_slice(
-            &serde_json::to_vec(&MeteredBatch {
-                batch: &batch,
-                collected_bytes: Some(123),
-            })
-            .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(metered.collected_bytes, Some(123));
-        assert_eq!(metered.batch.batch_id, batch.batch_id);
     }
 }

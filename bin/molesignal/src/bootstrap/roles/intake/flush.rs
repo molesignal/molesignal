@@ -8,21 +8,17 @@ use std::{
     time::{Duration, Instant},
 };
 
+use domain::{
+    storage::{CommitFlush, FlushId, OrganizationScope, PhysicalDatasetId, is_stale_writer_epoch},
+    stream::{StreamDefinition, StreamType},
+};
 use futures::{StreamExt, stream};
+use kernel::{Error, Result, drain::DrainController};
 use tokio::task::JoinHandle;
 
-use super::{IntakeWorker, PendingWalCleanup, SHARDING_TTL};
-use crate::{
-    domain::{
-        storage::{
-            CommitFlush, FlushId, OrganizationScope, PhysicalDatasetId, is_stale_writer_epoch,
-        },
-        stream::{FieldPartitions, StreamDefinition, StreamType},
-    },
-    infra::intake::{
-        BufferKey, DatasetBuffer, FlushInflightGuard, RotationReason, inc_flush_error, inc_rotation,
-    },
-    shared::{Error, Result, drain::DrainController},
+use super::{FileLayout, IntakeWorker, LAYOUT_TTL, PendingWalCleanup};
+use crate::infra::intake::{
+    BufferKey, DatasetBuffer, FlushInflightGuard, RotationReason, inc_flush_error, inc_rotation,
 };
 
 impl IntakeWorker {
@@ -40,45 +36,53 @@ impl IntakeWorker {
         self.flush_one_inner(key, None).await
     }
 
-    /// The partition fields of `stream`, read from its settings at most once per [`SHARDING_TTL`]:
-    /// flushes every few seconds do not read the settings each time. Only logs and traces are
-    /// partitioned. A failed read keeps the last answer.
-    async fn sharding(&self, stream: &StreamDefinition) -> Option<FieldPartitions> {
+    /// The partition fields and the clustering of `stream`, read from its settings at most once
+    /// per [`LAYOUT_TTL`]: flushes every few seconds do not read the settings each time. Only logs
+    /// and traces are partitioned, and only logs are clustered. A failed read keeps the last
+    /// answer.
+    async fn layout(&self, stream: &StreamDefinition) -> FileLayout {
         if !matches!(stream.stream_type, StreamType::LOGS | StreamType::TRACES) {
-            return None;
+            return FileLayout::default();
         }
 
         let cached = self
-            .sharding
+            .layouts
             .get(&stream.id)
             .map(|entry| entry.value().clone());
 
-        if let Some((read_at, partition)) = &cached
-            && read_at.elapsed() < SHARDING_TTL
+        if let Some((read_at, layout)) = &cached
+            && read_at.elapsed() < LAYOUT_TTL
         {
-            return partition.clone();
+            return layout.clone();
         }
 
-        let partition = match self.streams.get_settings(&stream.id).await {
-            // Saved settings were validated; ones edited around that are not followed, since
-            // the shard numbers of their files could not be read back.
-            Ok(settings) => Some(settings.partitions)
-                .filter(|partitions| !partitions.is_empty() && partitions.validate().is_ok()),
+        // Saved settings were validated; ones edited around that are not followed, since the
+        // shard numbers and the order of their files could not be read back.
+        let layout = match self.streams.get_settings(&stream.id).await {
+            Ok(settings) => FileLayout {
+                sharding: Some(settings.partitions)
+                    .filter(|partitions| !partitions.is_empty() && partitions.validate().is_ok()),
+                clustering: Some(settings.clustering).filter(|clustering| {
+                    stream.stream_type == StreamType::LOGS
+                        && !clustering.is_empty()
+                        && clustering.validate().is_ok()
+                }),
+            },
             Err(error) => {
                 tracing::warn!(
                     stream_id = %stream.id,
                     %error,
-                    "stream settings unreadable; flushing with the last known partition"
+                    "stream settings unreadable; flushing with the last known file layout"
                 );
 
-                return cached.and_then(|(_, partition)| partition);
+                return cached.map(|(_, layout)| layout).unwrap_or_default();
             }
         };
 
-        self.sharding
-            .insert(stream.id.clone(), (Instant::now(), partition.clone()));
+        self.layouts
+            .insert(stream.id.clone(), (Instant::now(), layout.clone()));
 
-        partition
+        layout
     }
 
     async fn flush_one_if_due(&self, key: &BufferKey) -> Result<()> {
@@ -157,16 +161,17 @@ impl IntakeWorker {
             &buffer.dataset.dataset.dataset_type,
         );
 
-        let sharding = self.sharding(&stream_definition).await;
+        let layout = self.layout(&stream_definition).await;
 
         let segments = match self
             .parquet_writer
-            .flush_catalog(
+            .flush_catalog_clustered(
                 &physical_stream,
                 &buffer.dataset.dataset,
                 &provenance,
                 generation.batch.clone(),
-                sharding.as_ref(),
+                layout.sharding.as_ref(),
+                layout.clustering.as_ref(),
             )
             .await
         {

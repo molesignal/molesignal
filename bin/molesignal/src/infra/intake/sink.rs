@@ -6,25 +6,29 @@
 //! 入口语义：
 //! 1. 用 batch 的 `(org, stream_type, stream)` 找 [`StreamDefinition`]（schema 已由
 //!    [`IntakeService`] 演化好），再经 [`DatasetResolver`] 解析出物理数据集。
-//! 2. 串行先写 WAL（durable）后写 buffer（内存）：
-//!    - 整批 JSON 序列化 → [`WalPool::append`]（按 dataset 键入独立 WAL，
-//!      sequence 由 WAL 分配返回）
-//!    - 逐条 [`BufferPool::push`]，并把高水位 `seq` 记入 buffer
-//! 3. 返 `IntakeResult { accepted, rejected: 0, errors: [] }`。
+//! 2. 事件先按流的 schema 变成 Arrow 列（[`rows_to_columns`]，加密字段在这一步加密）；
+//!    列式写入（[`DurableIntakeSink::write_columns`]）已经是列，跳过这一步。
+//! 3. 串行先写 WAL（durable）后写 buffer（内存）：
+//!    - 整批写成一条 Arrow IPC 记录（[`wal_record`]）→ [`WalPool::append_position`]（按 dataset
+//!      键入独立 WAL，sequence 由 WAL 分配返回）
+//!    - 整批 [`RecordBuilder::push_batch`](super::RecordBuilder::push_batch)，并把 `seq` 记入 buffer
+//! 4. 返 `IntakeResult { accepted, rejected: 0, errors: [] }`。
 
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use domain::{
+    intake::{IntakeBatch, IntakeResult, IntakeSink},
+    storage::{DatasetTypeId, WriterEpoch, WriterNodeId},
+    stream::{StreamDefinition, StreamRepository},
+};
+use kernel::{Error, Result};
+use postgres::cipher::{FieldKeyService, OrgFieldKey};
 
-use super::{BufferPool, BufferWriter, DatasetResolver, WalPool, physical_schema};
-use crate::{
-    domain::{
-        intake::{IntakeBatch, IntakeResult, IntakeSink},
-        storage::{DatasetTypeId, WriterEpoch, WriterNodeId},
-        stream::StreamRepository,
-    },
-    infra::cipher::FieldKeyService,
-    shared::{Error, Result},
+use super::{
+    BufferPool, BufferWriter, DatasetResolver, WalPool, physical_schema,
+    row_columns::{encrypt_columns, rows_to_columns},
+    wal_record::{self, WalBatch},
 };
 
 pub struct DurableIntakeSink {
@@ -73,11 +77,7 @@ impl DurableIntakeSink {
         collected_bytes: Option<u64>,
     ) -> Result<IntakeResult> {
         if batch.events.is_empty() {
-            return Ok(IntakeResult {
-                accepted: 0,
-                rejected: 0,
-                errors: Vec::new(),
-            });
+            return Ok(accepted(0));
         }
 
         let stream = self
@@ -85,32 +85,82 @@ impl DurableIntakeSink {
             .get(&batch.org_id, &batch.stream, batch.stream_type)
             .await?;
 
-        let field_dek = if stream.schema.fields.iter().any(|f| f.encrypted) {
-            match &self.field_keys {
-                Some(svc) => Some(svc.current(&batch.org_id).await?),
-                None => {
-                    return Err(Error::internal(
-                        "stream has encrypted fields but field key service not configured",
-                    ));
-                }
-            }
-        } else {
-            None
+        let field_key = self.field_key(&stream).await?;
+
+        let columns = rows_to_columns(
+            &physical_schema::project(&stream, &dataset_type),
+            &batch.events,
+            field_key.as_ref(),
+        )
+        .map_err(|error| Error::internal(format!("intake columns: {error}")))?;
+
+        let batch = WalBatch {
+            org_id: batch.org_id,
+            stream: batch.stream,
+            stream_type: batch.stream_type,
+            collected_bytes,
+            columns,
         };
 
-        let resolved = self.datasets.resolve(&stream, dataset_type.clone()).await?;
+        self.write_to(&stream, dataset_type, batch).await
+    }
 
-        let payload = serde_json::to_vec(&crate::domain::intake::usage::MeteredBatch {
-            batch: &batch,
-            collected_bytes,
-        })
-        .map_err(|e| Error::internal(format!("intake serialize: {e}")))?;
+    /// Writes a batch that already has its buffer columns: the columnar intake path, which builds
+    /// them straight from the request body. Encrypted fields come as plain text and are encrypted
+    /// here, before the WAL sees them.
+    pub async fn write_columns(
+        &self,
+        dataset_type: DatasetTypeId,
+        mut batch: WalBatch,
+    ) -> Result<IntakeResult> {
+        if batch.columns.num_rows() == 0 {
+            return Ok(accepted(0));
+        }
+
+        let stream = self
+            .streams
+            .get(&batch.org_id, &batch.stream, batch.stream_type)
+            .await?;
+
+        if let Some(key) = self.field_key(&stream).await? {
+            batch.columns = encrypt_columns(&stream, batch.columns, &key)
+                .map_err(|error| Error::internal(format!("intake columns: {error}")))?;
+        }
+
+        self.write_to(&stream, dataset_type, batch).await
+    }
+
+    /// The organization's current field key, when `stream` has encrypted fields.
+    async fn field_key(&self, stream: &StreamDefinition) -> Result<Option<OrgFieldKey>> {
+        if !stream.schema.fields.iter().any(|field| field.encrypted) {
+            return Ok(None);
+        }
+
+        match &self.field_keys {
+            Some(keys) => Ok(Some(keys.current(&stream.org_id).await?)),
+            None => Err(Error::internal(
+                "stream has encrypted fields but field key service not configured",
+            )),
+        }
+    }
+
+    /// The batch into the WAL as one record, then into the dataset buffer under the same lock.
+    async fn write_to(
+        &self,
+        stream: &StreamDefinition,
+        dataset_type: DatasetTypeId,
+        batch: WalBatch,
+    ) -> Result<IntakeResult> {
+        let resolved = self.datasets.resolve(stream, dataset_type.clone()).await?;
+
+        let payload = wal_record::encode(&batch)
+            .map_err(|error| Error::internal(format!("intake wal record: {error}")))?;
 
         let reservation = self.buffer.try_reserve(stream.stream_type, payload.len())?;
 
         let buffer = self
             .buffer
-            .get_or_create_dataset(&stream, resolved.clone())?;
+            .get_or_create_dataset(stream, resolved.clone())?;
 
         // 被栅栏的 writer 永远无法发布数据：写入直接拒绝。
         if let Some(epoch) = self.wal.current_epoch(&resolved.dataset.id)
@@ -126,7 +176,7 @@ impl DurableIntakeSink {
         // across append + push closes the historical window where a flush high-watermark could
         // cover a WAL record that had not entered the memory buffer yet.
         let mut guard = buffer.records().lock().await;
-        guard.sync_schema(&physical_schema::project(&stream, &dataset_type));
+        guard.sync_schema(&physical_schema::project(stream, &dataset_type));
 
         let position = self
             .wal
@@ -134,39 +184,33 @@ impl DurableIntakeSink {
             .await
             .map_err(|e| Error::internal(format!("wal append: {e}")))?;
 
-        if let Some(dek) = field_dek {
-            guard.set_field_key(dek);
-        }
-
         guard.add_accounted_bytes(reservation.commit());
-        let accepted = batch.events.len();
+        guard.add_collected_bytes(batch.collected_bytes);
+
+        let rows = batch.columns.num_rows();
         let writer =
             BufferWriter::new(WriterNodeId::new(self.wal.node_id()), position.writer_epoch);
 
         let buffer_span = tracing::info_span!(
             "intake.buffer",
             otel.kind = "internal",
-            molesignal.intake.event_count = accepted,
+            molesignal.intake.event_count = rows,
             molesignal.dataset.type = resolved.dataset.dataset_type.as_str()
         );
 
-        guard.add_collected_bytes(collected_bytes);
+        buffer_span
+            .in_scope(|| guard.push_batch(&batch.columns, &writer, position.sequence))
+            .map_err(|e| Error::internal(format!("buffer push: {e}")))?;
 
-        buffer_span.in_scope(|| {
-            for event in &batch.events {
-                guard
-                    .push_with_position(event, &writer, position.sequence)
-                    .map_err(|e| Error::internal(format!("buffer push: {e}")))?;
-            }
+        Ok(accepted(rows))
+    }
+}
 
-            Ok::<(), Error>(())
-        })?;
-
-        Ok(IntakeResult {
-            accepted,
-            rejected: 0,
-            errors: Vec::new(),
-        })
+fn accepted(rows: usize) -> IntakeResult {
+    IntakeResult {
+        accepted: rows,
+        rejected: 0,
+        errors: Vec::new(),
     }
 }
 
@@ -178,7 +222,7 @@ impl IntakeSink for DurableIntakeSink {
 
     fn primary_dataset_type(
         &self,
-        stream_type: crate::domain::stream::StreamType,
+        stream_type: domain::stream::StreamType,
     ) -> Result<DatasetTypeId> {
         self.datasets.primary_dataset_type(stream_type)
     }
@@ -221,18 +265,20 @@ mod tests {
 
     use arrow::array::Array;
     use async_trait::async_trait;
+    use domain::{
+        intake::RawEvent,
+        storage::primary_dataset_type,
+        stream::{
+            FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType, StreamType,
+        },
+    };
+    use kernel::{ids::Id, time::TimestampMicros};
     use serde_json::json;
     use tempfile::tempdir;
 
     use super::*;
-    use crate::{
-        domain::{
-            intake::RawEvent,
-            storage::primary_dataset_type,
-            stream::{FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamType},
-        },
-        infra::intake::{BufferPool, WalPool, dataset_resolver::test_support::test_resolver},
-        shared::{ids::Id, time::TimestampMicros},
+    use crate::infra::intake::{
+        BufferPool, WalPool, dataset_resolver::test_support::test_resolver,
     };
 
     struct InMemStreamRepo {
@@ -265,11 +311,7 @@ mod tests {
             );
             Ok(def)
         }
-        async fn update_schema(
-            &self,
-            id: &Id,
-            schema: crate::domain::stream::Schema,
-        ) -> Result<()> {
+        async fn update_schema(&self, id: &Id, schema: domain::stream::Schema) -> Result<()> {
             let mut streams = self.inner.lock().unwrap();
             let stream = streams
                 .values_mut()
@@ -310,10 +352,8 @@ mod tests {
                     name: "level".into(),
                     data_type: FieldType::Utf8,
                     nullable: false,
-                    index_type: None,
-                    indexed: true,
+                    index_type: StreamIndexType::FullText,
                     encrypted: false,
-                    exact: false,
                 }],
             },
             retention: Some(Retention { days: 7 }),
@@ -438,10 +478,8 @@ mod tests {
             name: "user_id".into(),
             data_type: FieldType::Utf8,
             nullable: true,
-            index_type: None,
-            indexed: false,
+            index_type: StreamIndexType::None,
             encrypted: false,
-            exact: false,
         });
         streams
             .update_schema(&stream.id, evolved.schema.clone())

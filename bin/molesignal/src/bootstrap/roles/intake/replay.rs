@@ -5,15 +5,15 @@
 
 use std::sync::Arc;
 
+use domain::{
+    storage::{OrganizationScope, WalSequence, WriterEpoch, WriterNodeId},
+    stream::StreamDefinition,
+};
+use kernel::{Error, Result};
+
 use super::IntakeWorker;
-use crate::{
-    domain::{
-        intake::usage::MeteredBatch,
-        storage::{OrganizationScope, WalSequence, WriterEpoch, WriterNodeId},
-        stream::StreamDefinition,
-    },
-    infra::intake::{BufferWriter, DatasetBuffer, WalRecoverySource, physical_schema},
-    shared::{Error, Result},
+use crate::infra::intake::{
+    BufferWriter, DatasetBuffer, WalRecoverySource, physical_schema, wal_record,
 };
 
 impl IntakeWorker {
@@ -98,7 +98,7 @@ impl IntakeWorker {
                         continue;
                     }
 
-                    let metered: MeteredBatch = match serde_json::from_slice(&record.payload) {
+                    let batch = match wal_record::decode(&record.payload) {
                         Ok(batch) => batch,
                         Err(error) => {
                             tracing::warn!(
@@ -110,9 +110,7 @@ impl IntakeWorker {
                         }
                     };
 
-                    let batch = metered.batch;
-
-                    if batch.events.is_empty() {
+                    if batch.columns.num_rows() == 0 {
                         continue;
                     }
 
@@ -163,26 +161,6 @@ impl IntakeWorker {
                             Some(self.buffer.get_or_create_dataset(definition, resolved)?);
                     }
 
-                    let field_key = if definition.schema.fields.iter().any(|field| field.encrypted)
-                    {
-                        match &self.field_keys {
-                            Some(service) => {
-                                Some(service.current(&batch.org_id).await.map_err(|error| {
-                                    Error::internal(format!(
-                                        "field DEK resolve during replay: {error}"
-                                    ))
-                                })?)
-                            }
-                            None => {
-                                return Err(Error::internal(
-                                    "stream has encrypted fields but no field key service",
-                                ));
-                            }
-                        }
-                    } else {
-                        None
-                    };
-
                     let entry = buffer_entry
                         .as_ref()
                         .expect("buffer entry initialized above");
@@ -190,21 +168,14 @@ impl IntakeWorker {
                     let mut guard = entry.records().lock().await;
                     guard.sync_schema(&physical_schema::project(definition, &source.dataset_type));
 
-                    if let Some(field_key) = field_key {
-                        guard.set_field_key(field_key);
-                    }
-
                     let reservation = self.buffer.force_reserve(record.payload.len())?;
                     guard.add_accounted_bytes(reservation.commit());
-                    guard.add_collected_bytes(metered.collected_bytes);
+                    guard.add_collected_bytes(batch.collected_bytes);
+                    guard
+                        .push_batch(&batch.columns, &writer, WalSequence(record.index))
+                        .map_err(|error| Error::internal(format!("replay push: {error}")))?;
 
-                    for event in &batch.events {
-                        guard
-                            .push_with_position(event, &writer, WalSequence(record.index))
-                            .map_err(|error| Error::internal(format!("replay push: {error}")))?;
-
-                        rows += 1;
-                    }
+                    rows += batch.columns.num_rows();
 
                     drop(guard);
 

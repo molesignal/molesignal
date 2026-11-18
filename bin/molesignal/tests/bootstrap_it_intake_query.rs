@@ -19,23 +19,20 @@ use std::sync::Arc;
 
 use arrow::array::{RecordBatch, StringArray, TimestampMicrosecondArray};
 use common::{TestServer, skip_unless_enabled};
-use molesignal::{
-    domain::{
-        storage::{
-            CommitFlush, FileCatalog, FlushProvenance, OrganizationScope, SequenceRange,
-            WalSequence, WriterEpoch, WriterNodeId, primary_dataset_type,
-        },
-        stream::{
-            FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamRepository, StreamType,
-        },
+use domain::{
+    storage::{
+        CommitFlush, FileCatalog, FlushProvenance, OrganizationScope, SequenceRange, WalSequence,
+        WriterEpoch, WriterNodeId, primary_dataset_type,
     },
-    infra::{
-        persistence::repositories::{file_catalog::PgFileCatalog, streams::PgStreamRepository},
-        storage::{arrow_schema::to_arrow, parquet::writer::ParquetWriter},
+    stream::{
+        FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType,
+        StreamRepository, StreamType,
     },
-    shared::{ids::Id, time::TimestampMicros},
 };
+use kernel::{ids::Id, time::TimestampMicros};
+use molesignal::infra::storage::{arrow_schema::to_arrow, parquet::writer::ParquetWriter};
 use object_store::{ObjectStore, local::LocalFileSystem};
+use postgres::repositories::{file_catalog::PgFileCatalog, streams::PgStreamRepository};
 use serde_json::json;
 
 async fn seed_stream(s: &TestServer) -> StreamDefinition {
@@ -57,10 +54,8 @@ async fn seed_stream(s: &TestServer) -> StreamDefinition {
                     name: "level".into(),
                     data_type: FieldType::Utf8,
                     nullable: false,
-                    index_type: None,
-                    indexed: true,
+                    index_type: StreamIndexType::FullText,
                     encrypted: false,
-                    exact: false,
                 }],
             },
             retention: Some(Retention { days: 30 }),

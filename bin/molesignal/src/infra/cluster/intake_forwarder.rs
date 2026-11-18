@@ -10,26 +10,22 @@
 use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
+use domain::{
+    cluster::{ClusterRegistry, PeerInfo, PeerRole, intake_routing_key},
+    intake::{IntakeBatch, IntakeError, IntakeResult},
+    stream::StreamType,
+};
+use kernel::{Error, Result, ids::Id};
 use parking_lot::Mutex;
+use protocol::intake::v1::{
+    PushRequest, PushResponse, StreamType as ProtoStreamType,
+    intake_service_client::IntakeServiceClient,
+};
+use signals::rendezvous;
 use tonic::{Code, Status, transport::Channel};
 
-use super::{grpc_channel, grpc_status::status_to_error};
-use crate::{
-    app::{
-        cluster::{ClusterRegistry, PeerInfo, PeerRole},
-        intake::IntakeForwarder,
-    },
-    domain::{
-        cluster::intake_routing_key,
-        intake::{IntakeBatch, IntakeError, IntakeResult},
-        stream::StreamType,
-    },
-    protocol::intake::v1::{
-        PushRequest, PushResponse, StreamType as ProtoStreamType,
-        intake_service_client::IntakeServiceClient,
-    },
-    shared::{Error, Result, ids::Id, rendezvous},
-};
+use super::grpc_status::status_to_error;
+use crate::app::intake::IntakeForwarder;
 
 /// 一次转发最多尝试的 intake 节点数。
 const MAX_ATTEMPTS: usize = 3;
@@ -61,7 +57,7 @@ impl GrpcIntakeForwarder {
             return Ok(channel.clone());
         }
 
-        let channel = grpc_channel::connect(addr, false)
+        let channel = grpc_client::connect(addr, false)
             .await
             .map_err(Status::unavailable)?;
 
@@ -79,11 +75,11 @@ impl GrpcIntakeForwarder {
     ) -> std::result::Result<PushResponse, Status> {
         let mut client = IntakeServiceClient::new(self.channel(addr).await?);
 
-        let response = crate::shared::grpc_trace::call(
+        let response = signals::grpc_trace::call(
             tonic::Request::new(request),
             "intake.v1.IntakeService",
             "Push",
-            crate::shared::grpc_trace::GrpcTarget::Internal,
+            signals::grpc_trace::GrpcTarget::Internal,
             |request| client.push(request),
         )
         .await?;

@@ -97,17 +97,15 @@ impl RecordBuilder {
 
 #[cfg(test)]
 mod tests {
+    use domain::{
+        intake::RawEvent,
+        storage::{WalSequence, WriterEpoch, WriterNodeId},
+        stream::{FieldDef, FieldType, Schema, StreamDefinition, StreamIndexType, StreamType},
+    };
+    use kernel::{ids::Id, time::TimestampMicros};
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        domain::{
-            intake::RawEvent,
-            storage::{WalSequence, WriterEpoch, WriterNodeId},
-            stream::{FieldDef, FieldType, Schema, StreamDefinition, StreamType},
-        },
-        shared::{ids::Id, time::TimestampMicros},
-    };
 
     fn stream() -> StreamDefinition {
         StreamDefinition {
@@ -120,10 +118,8 @@ mod tests {
                     name: "level".into(),
                     data_type: FieldType::Utf8,
                     nullable: false,
-                    index_type: None,
-                    indexed: false,
+                    index_type: StreamIndexType::None,
                     encrypted: false,
-                    exact: false,
                 }],
             },
             retention: None,

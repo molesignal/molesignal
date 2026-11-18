@@ -8,7 +8,7 @@
 //!   other streams.
 //! - Spans are changed where they are written ([`spans`]).
 //! - Metrics, spans, profile rows and RUM rows keep the fields
-//!   [`crate::domain::pipeline::protected`] names: a step that changes one fails the event, and so
+//!   [`domain::pipeline::protected`] names: a step that changes one fails the event, and so
 //!   does a step that drops a RUM view or vital.
 //! - Steps that keep count change no field: a metric step adds the event to its metric
 //!   ([`generated`]); a quota or a throttle ([`limits`]) lets it on, or drops it, or sends it to
@@ -18,22 +18,20 @@ use std::{
     sync::Arc,
 };
 
+use domain::{
+    function::{Function, FunctionExecutor, FunctionLanguage, FunctionOutcome},
+    intake::{IntakeBatch, IntakeError, IntakeResult, RawEvent, usage::event_bytes},
+    pipeline::{
+        limit::OverAction,
+        processing::{ProcessingKind, ProcessingStep},
+        protected::{Guard, changed_protected, protected_of},
+        realtime::{RealtimePipeline, RealtimePipelineRepository},
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 
 use super::{IntakeOrigin, IntakeService};
-use crate::{
-    domain::{
-        function::{Function, FunctionExecutor, FunctionLanguage, FunctionOutcome},
-        intake::{IntakeBatch, IntakeError, IntakeResult, RawEvent, usage::event_bytes},
-        pipeline::{
-            limit::OverAction,
-            processing::{ProcessingKind, ProcessingStep},
-            protected::{Guard, changed_protected, protected_of},
-            realtime::{RealtimePipeline, RealtimePipelineRepository},
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub mod generated;
 pub mod limits;
@@ -298,7 +296,7 @@ impl IntakeService {
 
         for (index, mut event) in events.into_iter().enumerate() {
             let size = event_bytes(&event)?;
-            let original = pipeline.routing.retain_source.then(|| event.clone());
+            let original = pipeline.retain_source.then(|| event.clone());
             let value = Value::Object(std::mem::take(&mut event.fields));
 
             let arrival = Arrival {
@@ -310,7 +308,7 @@ impl IntakeService {
             let (passage, routed) = engine
                 .pass(&pipeline, &functions, guard, value, arrival, &mut counted)
                 .await;
-            let mut destination = routed.clone().unwrap_or_else(|| pipeline.target.clone());
+            let destination = routed.unwrap_or_else(|| pipeline.target.clone());
 
             let value = match passage {
                 Passage::Kept(value) => value,
@@ -334,11 +332,6 @@ impl IntakeService {
                     continue;
                 }
             };
-
-            // Preserve earlier configurations until they are saved as a built-in step.
-            if routed.is_none() {
-                destination = pipeline.routing.destination(&value, &pipeline.target);
-            }
 
             let Value::Object(fields) = value else {
                 errors.push(IntakeError {

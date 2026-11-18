@@ -103,6 +103,7 @@ rustls-platform-verifier.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_json_path.workspace = true
+simd-json.workspace = true
 serde_yaml.workspace = true
 service-graph = { path = "../../crates/engines/service-graph" }
 settings = { path = "../../crates/core/settings" }

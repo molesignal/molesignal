@@ -13,7 +13,7 @@
 //! `extend_schema` 在 schema 演化时对历史行追加 null 补齐。
 
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashMap, VecDeque},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -21,23 +21,19 @@ use std::{
 use anyhow::{Result, anyhow};
 use arrow::{
     array::{
-        ArrayRef, BooleanBuilder, Float64Builder, Int64Builder, StringBuilder,
-        TimestampMicrosecondBuilder,
+        Array, ArrayRef, AsArray, BooleanBuilder, Float64Builder, Int64Builder, RecordBatch,
+        StringBuilder, TimestampMicrosecondBuilder,
     },
-    datatypes::{DataType, Field, TimeUnit},
+    datatypes::{DataType, Field, Float64Type, Int64Type, TimestampMicrosecondType},
+};
+use domain::{
+    storage::{PhysicalDatasetId, WalSequence},
+    stream::{FieldDef, FieldType, StreamDefinition},
 };
 
-use crate::{
-    domain::{
-        intake::RawEvent,
-        storage::{PhysicalDatasetId, WalSequence, WriterEpoch, WriterNodeId},
-        stream::{FieldDef, FieldType, StreamDefinition},
-    },
-    infra::{
-        cipher::{OrgFieldKey, encrypt_field},
-        intake::rotation::RotationReason,
-        storage::arrow_schema::TS_COL,
-    },
+use crate::infra::{
+    intake::{rotation::RotationReason, row_columns::timestamp_type},
+    storage::arrow_schema::TS_COL,
 };
 
 mod discard;
@@ -71,17 +67,18 @@ impl ColumnBuilder {
             FieldType::Int64 => Self::Int64(Int64Builder::new()),
             FieldType::Float64 => Self::Float64(Float64Builder::new()),
             FieldType::Utf8 | FieldType::Json => Self::Utf8(StringBuilder::new()),
-            FieldType::Timestamp => Self::Timestamp(TimestampMicrosecondBuilder::new()),
+            FieldType::Timestamp => Self::new_timestamp(),
         }
     }
 
+    /// A time column, in UTC like the arrays appended to it.
     fn new_timestamp() -> Self {
-        Self::Timestamp(TimestampMicrosecondBuilder::new())
+        Self::Timestamp(TimestampMicrosecondBuilder::new().with_data_type(timestamp_type()))
     }
 
     fn data_type(&self) -> DataType {
         match self {
-            Self::Timestamp(_) => DataType::Timestamp(TimeUnit::Microsecond, Some("UTC".into())),
+            Self::Timestamp(_) => timestamp_type(),
             Self::Bool(_) => DataType::Boolean,
             Self::Int64(_) => DataType::Int64,
             Self::Float64(_) => DataType::Float64,
@@ -89,83 +86,57 @@ impl ColumnBuilder {
         }
     }
 
-    fn append_null(&mut self) {
+    fn append_nulls(&mut self, rows: usize) {
         match self {
-            Self::Timestamp(b) => b.append_null(),
-            Self::Bool(b) => b.append_null(),
-            Self::Int64(b) => b.append_null(),
-            Self::Float64(b) => b.append_null(),
-            Self::Utf8(b) => b.append_null(),
+            Self::Timestamp(b) => b.append_nulls(rows),
+            Self::Bool(b) => b.append_nulls(rows),
+            Self::Int64(b) => b.append_nulls(rows),
+            Self::Float64(b) => b.append_nulls(rows),
+            Self::Utf8(b) => b.append_nulls(rows),
         }
     }
 
-    /// 追加一个 JSON 值，返回写入的近似字节数供 `buffer_max_size` 判断。
-    ///
-    /// 由本函数顺带返回长度，是为了让 Utf8 列上 Object/Array 的 `to_string()` 每行只做一次：
-    /// 调用方若另调一个估算函数，同一个值会被完整串化两次（一次写入、一次仅为量长度后丢弃）。
-    fn append_json(&mut self, v: &serde_json::Value) -> Result<usize> {
-        if v.is_null() {
-            self.append_null();
-            return Ok(1);
-        }
+    /// Appends `array`, which must be of this column's type, and returns the bytes it adds to the
+    /// generation's size: a string's bytes, eight for a number or a time, one for a boolean or a
+    /// null.
+    fn append_array(&mut self, array: &dyn Array) -> Result<usize> {
+        let nulls = array.null_count();
+        let values = array.len() - nulls;
+        let expected = self.data_type();
+        let wrong = || anyhow!("expect {expected:?}, got {:?}", array.data_type());
 
-        let written = match self {
+        let bytes = match self {
+            Self::Timestamp(b) => {
+                let array = array
+                    .as_primitive_opt::<TimestampMicrosecondType>()
+                    .ok_or_else(wrong)?;
+
+                b.append_array(array);
+                values * 8 + nulls
+            }
             Self::Bool(b) => {
-                b.append_value(v.as_bool().ok_or_else(|| anyhow!("expect bool"))?);
-                1
+                b.append_array(array.as_boolean_opt().ok_or_else(wrong)?);
+                array.len()
             }
             Self::Int64(b) => {
-                b.append_value(v.as_i64().ok_or_else(|| anyhow!("expect i64"))?);
-                8
+                b.append_array(array.as_primitive_opt::<Int64Type>().ok_or_else(wrong)?);
+                values * 8 + nulls
             }
             Self::Float64(b) => {
-                b.append_value(v.as_f64().ok_or_else(|| anyhow!("expect f64"))?);
-                8
+                b.append_array(array.as_primitive_opt::<Float64Type>().ok_or_else(wrong)?);
+                values * 8 + nulls
             }
-            Self::Utf8(b) => match v {
-                serde_json::Value::String(s) => {
-                    b.append_value(s);
-                    s.len()
-                }
-                other => {
-                    let s = other.to_string();
-                    let n = s.len();
-                    b.append_value(s);
-                    n
-                }
-            },
-            Self::Timestamp(b) => {
-                let micros = v
-                    .as_i64()
-                    .ok_or_else(|| anyhow!("expect timestamp i64 micros"))?;
+            Self::Utf8(b) => {
+                let array = array.as_string_opt::<i32>().ok_or_else(wrong)?;
+                let offsets = array.value_offsets();
+                let text = (offsets[array.len()] - offsets[0]) as usize;
 
-                b.append_value(micros);
-                8
+                b.append_array(array)?;
+                text + nulls
             }
         };
 
-        Ok(written)
-    }
-
-    fn append_timestamp_micros(&mut self, micros: i64) -> Result<()> {
-        match self {
-            Self::Timestamp(b) => {
-                b.append_value(micros);
-                Ok(())
-            }
-            _ => Err(anyhow!("append_timestamp_micros on non-timestamp builder")),
-        }
-    }
-
-    /// 直接追加一个 Utf8 值（加密字段：追加密文串）。仅 Utf8 builder 可用。
-    fn append_utf8(&mut self, s: &str) -> Result<()> {
-        match self {
-            Self::Utf8(b) => {
-                b.append_value(s);
-                Ok(())
-            }
-            _ => Err(anyhow!("append_utf8 on non-utf8 builder")),
-        }
+        Ok(bytes)
     }
 
     fn finish(&mut self) -> ArrayRef {
@@ -213,11 +184,6 @@ pub struct RecordBuilder {
     pending: VecDeque<BufferedRecordBatch>,
     /// 正在编码 / 上传 / Catalog commit 的 generation。发布期间查询仍必须看见它。
     inflight: Option<BufferedRecordBatch>,
-    /// 当前 org 的字段加密 DEK；由调用方（sink / replay）在 push 前 `set_field_key` 注入。
-    /// `None` 且存在加密字段时 push 报错。
-    field_key: Option<OrgFieldKey>,
-    /// 标 `encrypted` 的列名集合：push 时这些列的值先用 DEK 加密成 `kid:` 串再落 Utf8 列。
-    encrypted_cols: HashSet<String>,
 }
 
 impl RecordBuilder {
@@ -225,22 +191,15 @@ impl RecordBuilder {
         let mut fields: Vec<Field> = Vec::with_capacity(stream.schema.fields.len() + 1);
         let mut columns: HashMap<String, ColumnBuilder> = HashMap::new();
         let mut column_order: Vec<String> = Vec::new();
-        let mut encrypted_cols: HashSet<String> = HashSet::new();
 
         // 1. _timestamp（隐式列）
-        fields.push(Field::new(
-            TS_COL,
-            DataType::Timestamp(TimeUnit::Microsecond, Some("UTC".into())),
-            false,
-        ));
-
+        fields.push(Field::new(TS_COL, timestamp_type(), false));
         columns.insert(TS_COL.to_string(), ColumnBuilder::new_timestamp());
         column_order.push(TS_COL.to_string());
 
-        // 2. domain schema 各列（加密列建 Utf8 密文列）
+        // 2. domain schema 各列（加密列是 Utf8 密文列）
         for f in &stream.schema.fields {
             let builder = if f.encrypted {
-                encrypted_cols.insert(f.name.clone());
                 ColumnBuilder::Utf8(StringBuilder::new())
             } else {
                 ColumnBuilder::new(f.data_type)
@@ -265,19 +224,7 @@ impl RecordBuilder {
             active_sequences: Vec::new(),
             pending: VecDeque::new(),
             inflight: None,
-            field_key: None,
-            encrypted_cols,
         }
-    }
-
-    /// 是否含加密字段（调用方据此决定是否需要在 push 前解析 + 注入 DEK）。
-    pub fn has_encrypted_fields(&self) -> bool {
-        !self.encrypted_cols.is_empty()
-    }
-
-    /// 注入 / 刷新当前 org 字段加密 DEK（轮换后值会变，故每批 push 前由调用方设置）。
-    pub fn set_field_key(&mut self, key: OrgFieldKey) {
-        self.field_key = Some(key);
     }
 
     pub fn row_count(&self) -> usize {
@@ -325,21 +272,15 @@ impl RecordBuilder {
             .unwrap_or_default()
     }
 
-    /// 把一条事件 push 进 buffer。
-    /// - 缺字段填 null；
-    /// - 未知字段当前忽略（schema 演化路径走 `extend_schema`）。
-    /// - 同时记录 `(writer node, epoch, sequence)`，供 flush provenance 与查询去重。
-    pub fn push(&mut self, event: &RawEvent, seq: u64) -> Result<()> {
-        self.push_with_position(
-            event,
-            &BufferWriter::new(WriterNodeId::new("test-node"), WriterEpoch(1)),
-            WalSequence(seq),
-        )
-    }
-
-    pub fn push_with_position(
+    /// Appends a batch that is in the WAL at `sequence`.
+    ///
+    /// The batch's columns are matched to the buffer's by name: a buffer column the batch lacks is
+    /// null for its rows, and a batch column the buffer lacks is an error, since the caller
+    /// synchronizes the schema first (`sync_schema`). `writer` and `sequence` are recorded for every
+    /// row, for flush provenance and for deduplication by queries.
+    pub fn push_batch(
         &mut self,
-        event: &RawEvent,
+        batch: &RecordBatch,
         writer: &BufferWriter,
         sequence: WalSequence,
     ) -> Result<()> {
@@ -363,50 +304,51 @@ impl RecordBuilder {
             ));
         }
 
-        // _timestamp 列：用 event.timestamp（domain Required）。
-        let ts_col = self
-            .columns
-            .get_mut(TS_COL)
-            .ok_or_else(|| anyhow!("internal: _timestamp column missing"))?;
+        let rows = batch.num_rows();
 
-        ts_col.append_timestamp_micros(event.timestamp.0)?;
+        if rows == 0 {
+            return Ok(());
+        }
 
-        // 其余列：按 column_order 取，event 缺则 null。
-        let mut bytes_estimate = 8usize; // timestamp
+        if let Some(unknown) = batch
+            .schema()
+            .fields()
+            .iter()
+            .find(|field| !self.columns.contains_key(field.name()))
+        {
+            return Err(anyhow!(
+                "column {} is not in the buffer schema",
+                unknown.name()
+            ));
+        }
 
-        for name in self.column_order.iter().skip(1) {
-            let col = self
+        let mut bytes = 0;
+
+        for name in &self.column_order {
+            let column = self
                 .columns
                 .get_mut(name)
                 .ok_or_else(|| anyhow!("column {name} missing from builder map"))?;
 
-            match event.fields.get(name) {
-                Some(v) if !v.is_null() => {
-                    if self.encrypted_cols.contains(name) {
-                        let key = self.field_key.as_ref().ok_or_else(|| {
-                            anyhow!("field `{name}` is encrypted but no field DEK injected")
-                        })?;
-
-                        let ct = encrypt_field(key, &value_to_plaintext(v))
-                            .map_err(|e| anyhow!("encrypt field `{name}`: {e}"))?;
-                        bytes_estimate += ct.len();
-                        col.append_utf8(&ct)?;
-                    } else {
-                        bytes_estimate += col.append_json(v)?;
-                    }
+            match batch.column_by_name(name) {
+                Some(array) => {
+                    bytes += column
+                        .append_array(array.as_ref())
+                        .map_err(|error| anyhow!("column {name}: {error}"))?;
                 }
-                _ => {
-                    col.append_null();
-                    bytes_estimate += 1;
+                None => {
+                    column.append_nulls(rows);
+                    bytes += rows;
                 }
             }
         }
 
-        self.row_count += 1;
-        self.approx_size_bytes += bytes_estimate;
+        self.row_count += rows;
+        self.approx_size_bytes += bytes;
         self.active_started_at.get_or_insert_with(Instant::now);
         self.active_writer.get_or_insert_with(|| writer.clone());
-        self.active_sequences.push(sequence);
+        self.active_sequences
+            .extend(std::iter::repeat_n(sequence, rows));
         Ok(())
     }
 
@@ -441,15 +383,12 @@ impl RecordBuilder {
         }
 
         let mut col = if field.encrypted {
-            self.encrypted_cols.insert(field.name.clone());
             ColumnBuilder::Utf8(StringBuilder::new())
         } else {
             ColumnBuilder::new(field.data_type)
         };
 
-        for _ in 0..self.row_count {
-            col.append_null();
-        }
+        col.append_nulls(self.row_count);
 
         let dt = col.data_type();
         self.fields
@@ -475,25 +414,73 @@ impl RecordBuilder {
     }
 }
 
-/// 加密字段写入前的明文串化：与 Utf8 列的常规追加一致（String 取内值，其余 JSON 串化），
-/// 保证 `decrypt(col)` 还原出的明文与未加密时落库的字符串一致。
-fn value_to_plaintext(v: &serde_json::Value) -> String {
-    match v {
-        serde_json::Value::String(s) => s.clone(),
-        other => other.to_string(),
+/// Test shorthands: an event becomes a one-row batch under this buffer's columns.
+#[cfg(test)]
+impl RecordBuilder {
+    pub fn push(&mut self, event: &domain::intake::RawEvent, seq: u64) -> Result<()> {
+        self.push_with_position(
+            event,
+            &BufferWriter::new(
+                domain::storage::WriterNodeId::new("test-node"),
+                domain::storage::WriterEpoch(1),
+            ),
+            WalSequence(seq),
+        )
+    }
+
+    pub fn push_with_position(
+        &mut self,
+        event: &domain::intake::RawEvent,
+        writer: &BufferWriter,
+        sequence: WalSequence,
+    ) -> Result<()> {
+        let fields = self
+            .fields
+            .iter()
+            .skip(1)
+            .map(|field| FieldDef {
+                name: field.name().clone(),
+                data_type: match field.data_type() {
+                    DataType::Boolean => FieldType::Bool,
+                    DataType::Int64 => FieldType::Int64,
+                    DataType::Float64 => FieldType::Float64,
+                    DataType::Timestamp(..) => FieldType::Timestamp,
+                    _ => FieldType::Utf8,
+                },
+                nullable: field.is_nullable(),
+                index_type: domain::stream::StreamIndexType::None,
+                encrypted: false,
+            })
+            .collect();
+
+        let stream = StreamDefinition {
+            id: kernel::ids::Id::new(),
+            org_id: kernel::ids::Id::from_string("test-org"),
+            name: "test".into(),
+            stream_type: domain::stream::StreamType::LOGS,
+            schema: domain::stream::Schema { fields },
+            retention: None,
+            created_at: kernel::time::TimestampMicros(0),
+            updated_at: kernel::time::TimestampMicros(0),
+        };
+
+        let batch =
+            super::row_columns::rows_to_columns(&stream, std::slice::from_ref(event), None)?;
+        self.push_batch(&batch, writer, sequence)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use arrow::array::Array;
+    use domain::{
+        intake::RawEvent,
+        stream::{Retention, Schema, StreamIndexType, StreamType},
+    };
+    use kernel::{ids::Id, time::TimestampMicros};
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        domain::stream::{Retention, Schema, StreamType},
-        shared::{ids::Id, time::TimestampMicros},
-    };
 
     fn stream_def() -> StreamDefinition {
         StreamDefinition {
@@ -507,19 +494,15 @@ mod tests {
                         name: "level".into(),
                         data_type: FieldType::Utf8,
                         nullable: false,
-                        index_type: None,
-                        indexed: true,
+                        index_type: StreamIndexType::FullText,
                         encrypted: false,
-                        exact: false,
                     },
                     FieldDef {
                         name: "latency_ms".into(),
                         data_type: FieldType::Int64,
                         nullable: true,
-                        index_type: None,
-                        indexed: true,
+                        index_type: StreamIndexType::Skip,
                         encrypted: false,
-                        exact: false,
                     },
                 ],
             },
@@ -646,10 +629,8 @@ mod tests {
             name: "trace_id".into(),
             data_type: FieldType::Utf8,
             nullable: true,
-            index_type: None,
-            indexed: false,
+            index_type: StreamIndexType::None,
             encrypted: false,
-            exact: false,
         });
         let mut f2 = serde_json::Map::new();
         f2.insert("level".into(), json!("new"));
@@ -734,10 +715,8 @@ mod tests {
             name: "user_id".into(),
             data_type: FieldType::Utf8,
             nullable: true,
-            index_type: None,
-            indexed: false,
+            index_type: StreamIndexType::None,
             encrypted: false,
-            exact: false,
         };
         b.extend_schema(&new_field);
 
@@ -771,19 +750,15 @@ mod tests {
                 name: "trace_id".into(),
                 data_type: FieldType::Utf8,
                 nullable: true,
-                index_type: None,
-                indexed: false,
+                index_type: StreamIndexType::None,
                 encrypted: false,
-                exact: false,
             },
             FieldDef {
                 name: "duration_ns".into(),
                 data_type: FieldType::Int64,
                 nullable: true,
-                index_type: None,
-                indexed: false,
+                index_type: StreamIndexType::None,
                 encrypted: false,
-                exact: false,
             },
         ]);
 
@@ -833,88 +808,12 @@ mod tests {
         let dataset = resolver
             .resolve(
                 &s,
-                crate::domain::storage::primary_dataset_type(s.stream_type).unwrap(),
+                domain::storage::primary_dataset_type(s.stream_type).unwrap(),
             )
             .await
             .unwrap();
         let b1 = pool.get_or_create_dataset(&s, dataset.clone()).unwrap();
         let b2 = pool.get_or_create_dataset(&s, dataset).unwrap();
         assert!(Arc::ptr_eq(&b1, &b2));
-    }
-
-    fn stream_with_encrypted_field() -> StreamDefinition {
-        StreamDefinition {
-            id: Id::new(),
-            org_id: Id::from_string("org-a"),
-            name: "users".into(),
-            stream_type: StreamType::LOGS,
-            schema: Schema {
-                fields: vec![FieldDef {
-                    name: "email".into(),
-                    data_type: FieldType::Utf8,
-                    nullable: true,
-                    index_type: None,
-                    indexed: false,
-                    encrypted: true,
-                    exact: false,
-                }],
-            },
-            retention: Some(Retention { days: 7 }),
-            created_at: TimestampMicros::now(),
-            updated_at: TimestampMicros::now(),
-        }
-    }
-
-    fn test_dek() -> OrgFieldKey {
-        OrgFieldKey {
-            key_id: "key-1".into(),
-            version: 1,
-            raw_key: vec![4u8; 32],
-        }
-    }
-
-    #[test]
-    fn encrypted_field_is_sealed_as_ciphertext_column() {
-        let dek = test_dek();
-        let s = stream_with_encrypted_field();
-        let mut b = RecordBuilder::new(&s);
-        b.set_field_key(dek.clone());
-        let mut f = serde_json::Map::new();
-        f.insert("email".into(), json!("alice@example.com"));
-        b.push(&raw_event(1_000_000, f), 1).unwrap();
-
-        let batch = b.begin_flush().unwrap().unwrap();
-        // 列类型固定 Utf8（密文）。
-        let col = batch.batch.column_by_name("email").unwrap();
-        let arr = col
-            .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
-            .unwrap();
-        let stored = arr.value(0);
-        assert!(
-            stored.starts_with("kid:key-1:v1:"),
-            "stored value must be DEK ciphertext, got {stored}"
-        );
-        assert_ne!(stored, "alice@example.com");
-        // 用对应 DEK 可还原明文。
-        let keys: std::collections::HashMap<String, Vec<u8>> =
-            [("key-1".to_string(), vec![4u8; 32])].into_iter().collect();
-        assert_eq!(
-            crate::infra::cipher::decrypt_field(&keys, stored).as_deref(),
-            Some("alice@example.com")
-        );
-    }
-
-    #[test]
-    fn encrypted_field_without_dek_errors_on_push() {
-        let s = stream_with_encrypted_field();
-        let mut b = RecordBuilder::new(&s); // no field key injected
-        let mut f = serde_json::Map::new();
-        f.insert("email".into(), json!("bob@example.com"));
-        let err = b.push(&raw_event(1_000_000, f), 1).unwrap_err();
-        assert!(
-            err.to_string().contains("no field DEK"),
-            "expected missing-DEK error, got {err}"
-        );
     }
 }

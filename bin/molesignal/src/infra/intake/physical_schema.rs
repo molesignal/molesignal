@@ -9,15 +9,13 @@
 
 use std::collections::HashSet;
 
-use crate::{
-    domain::{
-        storage::{DatasetTypeId, type_id::builtin},
-        stream::StreamDefinition,
-    },
-    shared::trace::summary::{
-        TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
-        TRACE_SUMMARY_MARKER_FIELD, TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
-    },
+use domain::{
+    storage::{DatasetTypeId, type_id::builtin},
+    stream::StreamDefinition,
+};
+use signals::trace::summary::{
+    TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD, TRACE_SUMMARY_MARKER_FIELD,
+    TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
 };
 
 /// A trace summary is the root Span's own row narrowed to these fields: its
@@ -62,21 +60,18 @@ pub(crate) fn project(stream: &StreamDefinition, dataset_type: &DatasetTypeId) -
 
 #[cfg(test)]
 mod tests {
+    use domain::stream::{FieldDef, FieldType, Schema, StreamIndexType, StreamType};
+    use kernel::{ids::Id, time::TimestampMicros};
+
     use super::*;
-    use crate::{
-        domain::stream::{FieldDef, FieldType, Schema, StreamType},
-        shared::{ids::Id, time::TimestampMicros},
-    };
 
     fn field(name: &str) -> FieldDef {
         FieldDef {
             name: name.to_string(),
             data_type: FieldType::Utf8,
             nullable: true,
-            index_type: None,
-            indexed: false,
+            index_type: StreamIndexType::None,
             encrypted: false,
-            exact: false,
         }
     }
 

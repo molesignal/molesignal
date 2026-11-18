@@ -21,6 +21,12 @@ use axum::{
     response::{IntoResponse, Response},
     routing::post,
 };
+use domain::{
+    iam::{IamContext, permission},
+    intake::{IntakeBatch, RawEvent, usage::source::IntakeCredential},
+    stream::StreamType,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use opentelemetry_proto::tonic::{
     collector::{
         logs::v1::{ExportLogsServiceRequest, ExportLogsServiceResponse},
@@ -32,28 +38,15 @@ use opentelemetry_proto::tonic::{
 };
 use serde::Serialize;
 use serde_json::{Map, Value};
+use signals::trace_normalization::{
+    CanonicalEvent, CanonicalLink, CanonicalResource, CanonicalScope, CanonicalSpan, TraceLimits,
+    sanitize_and_limit_span,
+};
 
 use super::{DEFAULT_STREAM, stream_name};
 use crate::{
     api::AppState,
-    app::{
-        iam::IamContext,
-        intake::usage::{IntakeReceipt, ServiceTally},
-    },
-    domain::{
-        iam::permission,
-        intake::{IntakeBatch, RawEvent, usage::source::IntakeCredential},
-        stream::StreamType,
-    },
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::TimestampMicros,
-        trace_normalization::{
-            CanonicalEvent, CanonicalLink, CanonicalResource, CanonicalScope, CanonicalSpan,
-            TraceLimits, sanitize_and_limit_span,
-        },
-    },
+    app::intake::usage::{IntakeReceipt, ServiceTally},
 };
 
 mod json;
@@ -459,7 +452,7 @@ pub(crate) async fn intake(
 #[permission("logs.write")]
 async fn otlp_logs(
     State(state): State<AppState>,
-    axum::Extension(ctx): axum::Extension<crate::app::iam::IamContext>,
+    axum::Extension(ctx): axum::Extension<domain::iam::IamContext>,
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Response> {
@@ -476,7 +469,7 @@ async fn otlp_logs(
 #[permission("metrics.write")]
 async fn otlp_metrics(
     State(state): State<AppState>,
-    axum::Extension(ctx): axum::Extension<crate::app::iam::IamContext>,
+    axum::Extension(ctx): axum::Extension<domain::iam::IamContext>,
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Response> {
@@ -501,8 +494,8 @@ async fn otlp_metrics(
 #[permission("traces.write")]
 async fn otlp_traces(
     State(state): State<AppState>,
-    axum::Extension(ctx): axum::Extension<crate::app::iam::IamContext>,
-    axum::Extension(trace_context): axum::Extension<crate::shared::trace_context::TraceContext>,
+    axum::Extension(ctx): axum::Extension<domain::iam::IamContext>,
+    axum::Extension(trace_context): axum::Extension<signals::trace_context::TraceContext>,
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Response> {
@@ -531,12 +524,12 @@ pub(crate) async fn submit_traces(
     stream: String,
     mut spans: Vec<CanonicalSpan>,
     bytes: usize,
-    trace_context: &crate::shared::trace_context::TraceContext,
+    trace_context: &signals::trace_context::TraceContext,
     suppress_external: bool,
 ) -> Result<usize> {
     // Spans are written after tail sampling, where a refusal reaches no one: a stream only the
     // platform writes is refused here, while the sender waits for the answer.
-    crate::domain::stream::refuse_platform_stream(&stream)?;
+    domain::stream::refuse_platform_stream(&stream)?;
 
     let receipt = IntakeReceipt {
         credential: IntakeCredential::of(ctx),
@@ -547,13 +540,13 @@ pub(crate) async fn submit_traces(
     };
 
     let force_keep = match trace_context.trust {
-        crate::shared::trace_context::TraceTrust::DebugToken if trace_context.force_keep => {
-            crate::shared::tail_sampling::ForceKeep::DebugToken
+        signals::trace_context::TraceTrust::DebugToken if trace_context.force_keep => {
+            signals::tail_sampling::ForceKeep::DebugToken
         }
-        crate::shared::trace_context::TraceTrust::Internal if trace_context.force_keep => {
-            crate::shared::tail_sampling::ForceKeep::TrustedInternal
+        signals::trace_context::TraceTrust::Internal if trace_context.force_keep => {
+            signals::tail_sampling::ForceKeep::TrustedInternal
         }
-        _ => crate::shared::tail_sampling::ForceKeep::None,
+        _ => signals::tail_sampling::ForceKeep::None,
     };
 
     let count = spans.len();
@@ -572,14 +565,16 @@ pub(crate) async fn submit_traces(
     for span in spans {
         // Queue exhaustion is an explicitly measured fail-open drop; OTLP producer success
         // must not backpressure the caller.
-        let submitted = state.telemetry.trace_candidates.try_submit(
-            crate::shared::tail_sampling::TraceCandidate {
-                org_id: ctx.org_id.0.clone(),
-                stream: Some(stream.clone()),
-                span,
-                force_keep,
-            },
-        );
+        let submitted =
+            state
+                .telemetry
+                .trace_candidates
+                .try_submit(signals::tail_sampling::TraceCandidate {
+                    org_id: ctx.org_id.0.clone(),
+                    stream: Some(stream.clone()),
+                    span,
+                    force_keep,
+                });
 
         taken += u64::from(submitted.is_ok());
     }

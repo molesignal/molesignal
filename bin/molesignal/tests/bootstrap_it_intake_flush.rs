@@ -13,39 +13,39 @@ mod common;
 use std::{path::PathBuf, sync::Arc};
 
 use common::skip_unless_enabled;
+use domain::{
+    iam::{Organization, OrganizationRepository},
+    intake::{IntakeBatch, IntakeSink, RawEvent},
+    storage::{
+        DatasetSelection, FileCatalog, OrganizationScope, builtin_registry, primary_dataset_type,
+    },
+    stream::{
+        FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType,
+        StreamRepository, StreamType,
+    },
+};
+use kernel::{
+    health::Probe,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use molesignal::{
     bootstrap::roles::intake::IntakeWorker,
-    config::IntakeSettings,
-    domain::{
-        iam::{Organization, OrganizationRepository},
-        intake::{IntakeBatch, IntakeSink, RawEvent},
-        storage::{
-            DatasetSelection, FileCatalog, OrganizationScope, builtin_registry,
-            primary_dataset_type,
-        },
-        stream::{
-            FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamRepository, StreamType,
-        },
-    },
     infra::{
         intake::{BufferPool, DatasetResolver, WalPool},
-        persistence::{
-            MetaStore,
-            repositories::{
-                file_catalog::PgFileCatalog, organizations::PgOrganizationRepository,
-                streams::PgStreamRepository,
-            },
-        },
         segment_wal::FsyncPolicy,
         storage::{object, parquet::writer::ParquetWriter},
     },
-    shared::{
-        health::Probe,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
+};
+use postgres::{
+    MetaStore,
+    repositories::{
+        file_catalog::PgFileCatalog, organizations::PgOrganizationRepository,
+        streams::PgStreamRepository,
     },
 };
 use serde_json::json;
+use settings::IntakeSettings;
 use testcontainers_modules::postgres::Postgres as PgImage;
 
 struct Fixture {
@@ -67,7 +67,7 @@ async fn fixture() -> Fixture {
     let object_root = tempfile::tempdir().unwrap();
     let wal_root = tempfile::tempdir().unwrap();
 
-    let meta_cfg = molesignal::config::MetaDatabaseSettings {
+    let meta_cfg = settings::MetaDatabaseSettings {
         dsn,
         min_connections: 1,
         max_connections: 4,
@@ -99,10 +99,8 @@ async fn fixture() -> Fixture {
                 name: "level".into(),
                 data_type: FieldType::Utf8,
                 nullable: false,
-                index_type: None,
-                indexed: true,
+                index_type: StreamIndexType::FullText,
                 encrypted: false,
-                exact: false,
             }],
         },
         retention: Some(Retention { days: 7 }),
@@ -111,7 +109,7 @@ async fn fixture() -> Fixture {
     };
     streams.create(stream.clone()).await.unwrap();
 
-    let object_cfg = molesignal::config::ObjectStoreSettings {
+    let object_cfg = settings::ObjectStoreSettings {
         backend: "local".into(),
         root: object_root.path().to_string_lossy().into(),
         ..Default::default()
@@ -271,7 +269,21 @@ async fn it_5000_rows_flush_then_replay() {
     drop(f.worker);
     // 直接往 WAL 追写一批（不经过 buffer），模拟"flush 前进程崩溃"
     let extra_batch = batch_of(&f.stream, 1_700_500_000_000_000, 200);
-    let payload = serde_json::to_vec(&extra_batch).unwrap();
+    let payload = molesignal::infra::intake::wal_record::encode(
+        &molesignal::infra::intake::wal_record::WalBatch {
+            org_id: extra_batch.org_id.clone(),
+            stream: extra_batch.stream.clone(),
+            stream_type: extra_batch.stream_type,
+            collected_bytes: None,
+            columns: molesignal::infra::intake::row_columns::rows_to_columns(
+                &f.stream,
+                &extra_batch.events,
+                None,
+            )
+            .unwrap(),
+        },
+    )
+    .unwrap();
     let resolved = f
         .resolver
         .resolve(
@@ -293,7 +305,7 @@ async fn it_5000_rows_flush_then_replay() {
         4 * 1024,
         FsyncPolicy::none_default(),
     ));
-    let object_cfg = molesignal::config::ObjectStoreSettings {
+    let object_cfg = settings::ObjectStoreSettings {
         backend: "local".into(),
         root: f.object_root.path().to_string_lossy().into(),
         ..Default::default()

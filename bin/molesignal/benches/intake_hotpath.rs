@@ -8,20 +8,19 @@
 use std::{hint::black_box, time::Duration};
 
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
-use molesignal::{
-    domain::{
-        intake::RawEvent,
-        stream::{FieldDef, FieldType, Schema, StreamDefinition, StreamType},
+use domain::{
+    intake::RawEvent,
+    storage::{WalSequence, WriterEpoch, WriterNodeId},
+    stream::{FieldDef, FieldType, Schema, StreamDefinition, StreamIndexType, StreamType},
+};
+use kernel::{ids::Id, time::TimestampMicros};
+use molesignal::infra::{
+    intake::{BufferWriter, RecordBuilder, row_columns::rows_to_columns},
+    query::promql::{
+        InstantVector, LabelSet, MetricSampleMetadata, MetricTemporality, RangeWindow, Series,
+        apply_histogram_quantile, apply_rate_like,
     },
-    infra::{
-        intake::RecordBuilder,
-        query::promql::{
-            InstantVector, LabelSet, MetricSampleMetadata, MetricTemporality, Series,
-            apply_histogram_quantile, apply_rate_like,
-        },
-        storage::arrow_schema::{align_batch_to_schema, to_arrow},
-    },
-    shared::{ids::Id, time::TimestampMicros},
+    storage::arrow_schema::{align_batch_to_schema, to_arrow},
 };
 use serde_json::json;
 
@@ -30,10 +29,8 @@ fn fd(name: &str, ty: FieldType) -> FieldDef {
         name: name.into(),
         data_type: ty,
         nullable: true,
-        index_type: None,
-        indexed: false,
+        index_type: StreamIndexType::None,
         encrypted: false,
-        exact: false,
     }
 }
 
@@ -128,14 +125,15 @@ fn bench(c: &mut Criterion) {
     let stream = stream_def();
     let events: Vec<RawEvent> = (0..1_000).map(event).collect();
 
-    // write: RawEvent -> Arrow columnar build.
-    c.bench_function("record_builder/push_finish_1000", |b| {
+    let writer = BufferWriter::new(WriterNodeId::new("bench-node"), WriterEpoch(1));
+
+    // write: RawEvent -> Arrow columns -> buffer generation.
+    c.bench_function("record_builder/rows_to_columns_push_finish_1000", |b| {
         b.iter_batched(
             || RecordBuilder::new(&stream),
             |mut rb| {
-                for (seq, e) in events.iter().enumerate() {
-                    rb.push(e, seq as u64).unwrap();
-                }
+                let columns = rows_to_columns(&stream, &events, None).unwrap();
+                rb.push_batch(&columns, &writer, WalSequence(1)).unwrap();
                 black_box(
                     rb.begin_flush()
                         .unwrap()
@@ -150,9 +148,8 @@ fn bench(c: &mut Criterion) {
     let target = to_arrow(&stream.schema);
     let batch = {
         let mut rb = RecordBuilder::new(&stream);
-        for (seq, e) in events.iter().enumerate() {
-            rb.push(e, seq as u64).unwrap();
-        }
+        let columns = rows_to_columns(&stream, &events, None).unwrap();
+        rb.push_batch(&columns, &writer, WalSequence(1)).unwrap();
         rb.begin_flush()
             .unwrap()
             .expect("non-empty benchmark buffer")
@@ -166,11 +163,13 @@ fn bench(c: &mut Criterion) {
     });
 
     // query: PromQL leaf math over already-built series/vectors.
+    // The series hold one sample a second from 0 to 999 s, all inside the window.
+    let window = RangeWindow::new(999_000_000, Duration::from_secs(1_000));
     let series = rate_series(1_000);
     c.bench_function("promql/rate_1000pts", |b| {
         b.iter_batched(
             || series.clone(),
-            |s| black_box(apply_rate_like("rate", s, Duration::from_secs(300))),
+            |s| black_box(apply_rate_like("rate", s, window)),
             BatchSize::SmallInput,
         )
     });
@@ -178,7 +177,7 @@ fn bench(c: &mut Criterion) {
     c.bench_function("promql/rate_delta_1000pts", |b| {
         b.iter_batched(
             || delta_series.clone(),
-            |s| black_box(apply_rate_like("rate", s, Duration::from_secs(300))),
+            |s| black_box(apply_rate_like("rate", s, window)),
             BatchSize::SmallInput,
         )
     });

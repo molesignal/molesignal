@@ -9,26 +9,24 @@ use std::{
     },
 };
 
+use domain::{
+    iam::DEFAULT_INTAKE_USAGE_MAX_SERVICES_PER_ORG,
+    intake::{
+        IntakeBatch, RawEvent,
+        usage::source::{
+            IntakeCredential, IntakeUsageRepository, IntakeUsageRow, MAX_SERVICE_NAME_CHARS,
+            OTHER_SERVICES, UNNAMED_SERVICE, hour_bucket_start,
+        },
+    },
+    stream::{StreamType, validate_stream_name},
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use parking_lot::Mutex;
 use serde_json::{Map, Value};
-
-use crate::{
-    domain::{
-        iam::DEFAULT_INTAKE_USAGE_MAX_SERVICES_PER_ORG,
-        intake::{
-            IntakeBatch, RawEvent,
-            usage::source::{
-                IntakeCredential, IntakeUsageRepository, IntakeUsageRow, MAX_SERVICE_NAME_CHARS,
-                OTHER_SERVICES, UNNAMED_SERVICE, hour_bucket_start,
-            },
-        },
-        stream::{StreamType, validate_stream_name},
-    },
-    shared::{Result, ids::Id, time::TimestampMicros, trace_normalization::CanonicalSpan},
-};
+use signals::trace_normalization::CanonicalSpan;
 
 /// The fields an event names its service in, in the order they are looked at.
-const SERVICE_FIELDS: [&str; 3] = ["service.name", "service", "service_name"];
+pub(crate) const SERVICE_FIELDS: [&str; 3] = ["service.name", "service", "service_name"];
 
 /// The most rows kept between two writes. A database that stays away for long costs the rows that
 /// no longer fit, not the memory of the node.
@@ -149,12 +147,29 @@ impl IntakeReceipt {
         bytes: u64,
         events: &[RawEvent],
     ) -> Self {
+        Self::of_services(
+            credential,
+            stream_type,
+            stream,
+            bytes,
+            ServiceTally::of_events(events),
+        )
+    }
+
+    /// A request whose events were already counted by service.
+    pub fn of_services(
+        credential: IntakeCredential,
+        stream_type: StreamType,
+        stream: &str,
+        bytes: u64,
+        services: ServiceTally,
+    ) -> Self {
         Self {
             credential,
             stream_type,
             stream: stream.to_string(),
             bytes,
-            services: ServiceTally::of_events(events),
+            services,
         }
     }
 }
@@ -441,15 +456,13 @@ mod tests {
     use std::sync::atomic::AtomicBool;
 
     use async_trait::async_trait;
+    use domain::intake::usage::source::{
+        IntakeUsageBucket, SourceUsage, UsageDimension, UsageSelection, stream_source_key,
+    };
+    use kernel::Error;
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        domain::intake::usage::source::{
-            IntakeUsageBucket, SourceUsage, UsageDimension, UsageSelection, stream_source_key,
-        },
-        shared::Error,
-    };
 
     #[derive(Default)]
     struct Rows {
@@ -507,7 +520,7 @@ mod tests {
 
     fn token(id: &str) -> IntakeCredential {
         IntakeCredential {
-            kind: crate::domain::intake::usage::source::CredentialKind::ApiToken,
+            kind: domain::intake::usage::source::CredentialKind::ApiToken,
             id: id.into(),
         }
     }

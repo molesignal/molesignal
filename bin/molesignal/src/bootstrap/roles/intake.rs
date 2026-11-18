@@ -3,6 +3,7 @@
 
 //! Intake role composition: durable append, bounded replay, and ordered catalog publication.
 
+mod columnar;
 mod discard;
 mod flush;
 mod replay;
@@ -14,23 +15,21 @@ use std::{
 
 use async_trait::async_trait;
 use dashmap::DashMap;
+use domain::{
+    intake::{IntakeBatch, IntakeResult, IntakeSink},
+    storage::{DatasetTypeId, FileCatalog, PhysicalDatasetId},
+    stream::{Clustering, FieldPartitions, StreamRepository},
+};
+use kernel::{Result, drain::DrainController, health::Probe, ids::Id};
+use postgres::cipher::FieldKeyService;
+use settings::IntakeSettings;
 use tokio::sync::{Mutex, Notify};
 
-use crate::{
-    config::IntakeSettings,
-    domain::{
-        intake::{IntakeBatch, IntakeResult, IntakeSink},
-        storage::{DatasetTypeId, FileCatalog, PhysicalDatasetId},
-        stream::{FieldPartitions, StreamRepository},
+use crate::infra::{
+    intake::{
+        AdaptiveRotation, BufferKey, BufferPool, DatasetResolver, DurableIntakeSink, WalPool,
     },
-    infra::{
-        cipher::FieldKeyService,
-        intake::{
-            AdaptiveRotation, BufferKey, BufferPool, DatasetResolver, DurableIntakeSink, WalPool,
-        },
-        storage::parquet::writer::ParquetWriter,
-    },
-    shared::{Result, drain::DrainController, health::Probe, ids::Id},
+    storage::parquet::writer::ParquetWriter,
 };
 
 #[derive(Debug, Clone)]
@@ -41,8 +40,16 @@ struct PendingWalCleanup {
 
 const DEFAULT_REPLAY_BYTE_CAP: usize = 512 * 1024 * 1024;
 
-/// How long a stream's partition fields read from its settings are used before they are read again.
-const SHARDING_TTL: Duration = Duration::from_secs(30);
+/// How long a stream's file layout read from its settings is used before it is read again.
+const LAYOUT_TTL: Duration = Duration::from_secs(30);
+
+/// How a flush lays out a stream's rows in files: the shards it splits them into and the order of
+/// the rows inside each file.
+#[derive(Debug, Clone, Default)]
+struct FileLayout {
+    sharding: Option<FieldPartitions>,
+    clustering: Option<Clustering>,
+}
 
 pub struct IntakeWorker {
     sink: Arc<DurableIntakeSink>,
@@ -60,11 +67,10 @@ pub struct IntakeWorker {
     /// Catalog committed, while local WAL cleanup still needs retrying.
     pending_wal_cleanup: DashMap<BufferKey, PendingWalCleanup>,
     adaptive_rotation: AdaptiveRotation,
-    field_keys: Option<Arc<FieldKeyService>>,
     drain: Option<Arc<DrainController>>,
     replay_byte_cap: usize,
-    /// Stream id → when its settings were read, and the partition fields they named.
-    sharding: DashMap<Id, (Instant, Option<FieldPartitions>)>,
+    /// Stream id → when its settings were read, and the file layout they named.
+    layouts: DashMap<Id, (Instant, FileLayout)>,
 }
 
 impl IntakeWorker {
@@ -103,10 +109,9 @@ impl IntakeWorker {
             flush_locks: DashMap::new(),
             pending_wal_cleanup: DashMap::new(),
             adaptive_rotation,
-            field_keys: None,
             drain: None,
             replay_byte_cap: DEFAULT_REPLAY_BYTE_CAP,
-            sharding: DashMap::new(),
+            layouts: DashMap::new(),
         }
     }
 
@@ -128,10 +133,9 @@ impl IntakeWorker {
                 self.streams.clone(),
                 self.datasets.clone(),
             )
-            .with_field_keys(service.clone()),
+            .with_field_keys(service),
         );
 
-        self.field_keys = Some(service);
         self
     }
 
@@ -159,7 +163,7 @@ impl IntakeSink for IntakeWorker {
 
     fn primary_dataset_type(
         &self,
-        stream_type: crate::domain::stream::StreamType,
+        stream_type: domain::stream::StreamType,
     ) -> Result<DatasetTypeId> {
         self.datasets.primary_dataset_type(stream_type)
     }
@@ -201,13 +205,21 @@ impl IntakeSink for IntakeWorker {
             .write_metered_dataset(dataset_type, batch, collected_bytes)
             .await?;
 
-        if let Some(buffer) = self.buffer.get(&key)
+        self.notify_when_rotation_due(&key).await;
+        Ok(result)
+    }
+}
+
+impl IntakeWorker {
+    /// Wakes the flush scheduler when the dataset's buffer is due to rotate after a write.
+    async fn notify_when_rotation_due(&self, key: &BufferKey) {
+        if let Some(buffer) = self.buffer.get(key)
             && buffer
                 .records()
                 .lock()
                 .await
                 .rotation_due(
-                    self.rotation_threshold(&key),
+                    self.rotation_threshold(key),
                     self.flush_max_age(),
                     Instant::now(),
                 )
@@ -215,8 +227,6 @@ impl IntakeSink for IntakeWorker {
         {
             self.flush_notify.notify_one();
         }
-
-        Ok(result)
     }
 }
 

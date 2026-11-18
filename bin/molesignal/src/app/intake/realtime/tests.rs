@@ -2,17 +2,15 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::{
+    pipeline::realtime::{OutputKind, RealtimeStep, Routing},
+    stream::{Schema, StreamDefinition, StreamRepository, StreamType},
+};
+use kernel::time::TimestampMicros;
 use parking_lot::Mutex;
 use serde_json::json;
 
 use super::*;
-use crate::{
-    domain::{
-        pipeline::realtime::{OutputKind, RealtimeStep, Routing},
-        stream::{Schema, StreamDefinition, StreamRepository, StreamType},
-    },
-    shared::time::TimestampMicros,
-};
 
 #[derive(Default)]
 struct Streams(Mutex<Vec<StreamDefinition>>);
@@ -66,14 +64,14 @@ struct Sink {
 }
 
 #[async_trait]
-impl crate::domain::intake::IntakeSink for Sink {
+impl domain::intake::IntakeSink for Sink {
     async fn write(&self, _: IntakeBatch) -> Result<IntakeResult> {
         unreachable!()
     }
 
     async fn write_metered_dataset(
         &self,
-        _: crate::domain::storage::DatasetTypeId,
+        _: domain::storage::DatasetTypeId,
         batch: IntakeBatch,
         size: Option<u64>,
     ) -> Result<IntakeResult> {
@@ -115,18 +113,27 @@ fn pipeline(retain: bool) -> RealtimePipeline {
         signal: StreamType::LOGS,
         target: "unused".into(),
         updated_at: TimestampMicros(1),
-        routing: Routing {
-            kind: OutputKind::Field,
-            field: "appname".into(),
-            prefix: String::new(),
-            fallback: "default".into(),
-            retain_source: retain,
-        },
-        steps: vec![RealtimeStep {
-            transform_name: "enrich".into(),
-            script: ".processed = true".into(),
-            ..Default::default()
-        }],
+        retain_source: retain,
+        steps: vec![
+            RealtimeStep {
+                transform_name: "enrich".into(),
+                script: ".processed = true".into(),
+                ..Default::default()
+            },
+            // Each event goes to the stream its `appname` names, to `default` when it names none.
+            RealtimeStep {
+                transform_name: "route".into(),
+                kind: ProcessingKind::Builtin,
+                operation: "route".into(),
+                routing: Routing {
+                    kind: OutputKind::Field,
+                    field: "appname".into(),
+                    prefix: String::new(),
+                    fallback: "default".into(),
+                },
+                ..Default::default()
+            },
+        ],
     }
 }
 
@@ -150,14 +157,14 @@ fn batch(values: Vec<Value>) -> IntakeBatch {
 fn service(pipeline: RealtimePipeline, sink: Arc<Sink>) -> IntakeService {
     IntakeService::new(sink, Arc::new(Streams::default())).with_realtime(RealtimeEngine {
         repository: Arc::new(Repo(pipeline)),
-        executor: Arc::new(crate::infra::runtime::vrl::executor::VrlFunctionExecutor::new()),
+        executor: Arc::new(function_runtime::vrl::executor::VrlFunctionExecutor::new()),
         steps: step_state(),
     })
 }
 
 fn step_state() -> Arc<StepState> {
     Arc::new(StepState::new(Arc::new(
-        crate::domain::pipeline::limit::MemoryLimitUsageLedger::default(),
+        domain::pipeline::limit::MemoryLimitUsageLedger::default(),
     )))
 }
 
@@ -270,7 +277,7 @@ async fn another_organization_does_not_run_the_route() {
 async fn builtin_uses_values_at_its_position_and_keeps_original_copy() {
     let sink = Arc::new(Sink::default());
     let mut p = pipeline(true);
-    p.steps = crate::domain::pipeline::processing::parse_processing_steps(&json!({"steps":[
+    p.steps = domain::pipeline::processing::parse_processing_steps(&json!({"steps":[
         {"transformName":"before","script":".appname = \"orders\""},
         {"transformName":"route","kind":"builtin","operation":"route","routing":{"kind":"field","field":"appname","prefix":"logs_","fallback":"default"}},
         {"transformName":"after","script":".appname = \"changed\""}
@@ -288,7 +295,7 @@ async fn builtin_uses_values_at_its_position_and_keeps_original_copy() {
         .unwrap();
     assert_eq!(routed.0.events[0].fields["appname"], "changed");
     let mut payload = routed.0.events[0].fields.clone();
-    payload.remove(crate::domain::intake::EVENT_ID_FIELD);
+    payload.remove(domain::intake::EVENT_ID_FIELD);
     assert_eq!(
         Value::Object(payload),
         json!({"message":"original","appname":"changed"})
@@ -344,7 +351,7 @@ fn in_place(signal: StreamType, scripts: &[&str]) -> RealtimePipeline {
     RealtimePipeline {
         signal,
         target: "default".into(),
-        routing: Routing::default(),
+        retain_source: false,
         steps: scripts
             .iter()
             .map(|script| RealtimeStep {
@@ -494,7 +501,7 @@ async fn a_rum_view_changes_in_its_custom_parts_and_is_never_dropped() {
     let svc = IntakeService::new(sink.clone(), Arc::new(Streams::default())).with_realtime(
         RealtimeEngine {
             repository: Arc::new(Rum(pipeline)),
-            executor: Arc::new(crate::infra::runtime::vrl::executor::VrlFunctionExecutor::new()),
+            executor: Arc::new(function_runtime::vrl::executor::VrlFunctionExecutor::new()),
             steps: step_state(),
         },
     );
@@ -532,7 +539,7 @@ fn service_with(
 ) -> IntakeService {
     IntakeService::new(sink, Arc::new(Streams::default())).with_realtime(RealtimeEngine {
         repository: Arc::new(Repo(pipeline)),
-        executor: Arc::new(crate::infra::runtime::vrl::executor::VrlFunctionExecutor::new()),
+        executor: Arc::new(function_runtime::vrl::executor::VrlFunctionExecutor::new()),
         steps,
     })
 }
@@ -541,11 +548,9 @@ fn service_with(
 fn counting(steps: Value) -> RealtimePipeline {
     RealtimePipeline {
         target: "default".into(),
-        routing: Routing::default(),
-        steps: crate::domain::pipeline::processing::parse_processing_steps(
-            &json!({ "steps": steps }),
-        )
-        .unwrap(),
+        retain_source: false,
+        steps: domain::pipeline::processing::parse_processing_steps(&json!({ "steps": steps }))
+            .unwrap(),
         ..pipeline(false)
     }
 }

@@ -7,14 +7,12 @@
 use std::hint::black_box;
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use molesignal::{
-    app::intake::{check_event_types, infer_schema_extension},
-    domain::{
-        intake::RawEvent,
-        stream::{FieldDef, FieldType, Schema, StreamType},
-    },
-    shared::time::TimestampMicros,
+use domain::{
+    intake::RawEvent,
+    stream::{FieldDef, FieldType, Schema, StreamIndexType, StreamType},
 };
+use kernel::time::TimestampMicros;
+use molesignal::app::intake::{check_event_types, infer_schema_extension};
 use serde_json::json;
 
 fn fd(name: &str, ty: FieldType) -> FieldDef {
@@ -22,10 +20,8 @@ fn fd(name: &str, ty: FieldType) -> FieldDef {
         name: name.into(),
         data_type: ty,
         nullable: true,
-        index_type: None,
-        indexed: false,
+        index_type: StreamIndexType::None,
         encrypted: false,
-        exact: false,
     }
 }
 
