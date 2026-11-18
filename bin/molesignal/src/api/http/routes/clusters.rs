@@ -10,15 +10,12 @@ use axum::{
     extract::{Path, State},
     routing::get,
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::cluster::events::OrgLink;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::permission,
-    infra::{cluster::RemoteCluster, persistence::repositories::cluster::events::OrgLink},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::{api::AppState, infra::cluster::RemoteCluster};
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -281,7 +278,7 @@ pub struct RemoteNodeResp {
 }
 
 fn role_name(v: i32) -> String {
-    use crate::protocol::cluster::v1::NodeRole;
+    use protocol::cluster::v1::NodeRole;
 
     match NodeRole::try_from(v).unwrap_or(NodeRole::Unspecified) {
         NodeRole::Router => "router",
@@ -301,14 +298,13 @@ async fn list_nodes(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Vec<RemoteNodeResp>>> {
-    use crate::{
-        infra::{cluster::grpc_channel, secret::resolve_secret_ref},
-        protocol::cluster::v1::{NodeServiceListRequest, node_service_client::NodeServiceClient},
-    };
+    use protocol::cluster::v1::{NodeServiceListRequest, node_service_client::NodeServiceClient};
+
+    use crate::infra::secret::resolve_secret_ref;
 
     let c = state.cluster.remote_clusters.get(&Id(id)).await?;
 
-    let channel = grpc_channel::connect(&c.advertise_addr, c.tls_verify)
+    let channel = grpc_client::connect(&c.advertise_addr, c.tls_verify)
         .await
         .map_err(|e| Error::internal(format!("connect remote cluster: {e}")))?;
 
@@ -322,17 +318,17 @@ async fn list_nodes(
     )
     .await
     {
-        grpc_channel::with_bearer(&mut req, &token)
+        grpc_client::with_bearer(&mut req, &token)
             .map_err(|e| Error::internal(format!("bearer: {e}")))?;
     }
 
     let mut client = NodeServiceClient::new(channel);
 
-    let resp = crate::shared::grpc_trace::call(
+    let resp = signals::grpc_trace::call(
         req,
         "cluster.v1.NodeService",
         "List",
-        crate::shared::grpc_trace::GrpcTarget::Internal,
+        signals::grpc_trace::GrpcTarget::Internal,
         |request| client.list(request),
     )
     .await

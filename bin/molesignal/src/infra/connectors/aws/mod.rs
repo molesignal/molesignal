@@ -14,8 +14,7 @@ pub mod sigv4;
 mod sts;
 
 pub use credentials::{CredentialSource, Signer, credential_provider, signer_credentials};
-
-use crate::shared::ids::Id;
+use kernel::ids::Id;
 
 /// The external ID STS is asked with when a connector of `org_id` assumes a role.
 ///

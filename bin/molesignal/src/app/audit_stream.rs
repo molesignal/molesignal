@@ -2,7 +2,7 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 //! Every audit event, also as a row of the organization's `_audit` log stream
-//! ([`AUDIT_STREAM`]), where it can be searched and delivered elsewhere — to a SIEM — by a
+//! ([`AUDIT_STREAM`](domain::stream::AUDIT_STREAM)), where it can be searched and delivered elsewhere — to a SIEM — by a
 //! scheduled pipeline. Postgres keeps the record the audit pages read; reading the stream needs
 //! `audit.read`, as they do.
 //!
@@ -13,16 +13,12 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::audit_events::{
+    AuditEvent, AuditEventRepository, AuditQuery, AuditRangeSummary, sanitize_audit_event,
+};
 use serde_json::{Map, Value, json};
 use tokio::sync::mpsc;
-
-pub use crate::domain::stream::AUDIT_STREAM;
-use crate::{
-    infra::persistence::repositories::audit_events::{
-        AuditEvent, AuditEventRepository, AuditQuery, AuditRangeSummary, sanitize_audit_event,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 /// Events waiting to be written, at most.
 const QUEUE_CAPACITY: usize = 4096;

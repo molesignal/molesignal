@@ -26,9 +26,9 @@ use syn::{
 
 /// Require one database-catalog IAM permission before entering an HTTP handler.
 ///
-/// The annotated function must extract an `IamContext` (or compatibility
-/// `AuthContext`) through axum's `Extension`. The binding name is discovered
-/// from the signature, so both `ctx` and `context` work:
+/// The annotated function must extract an `IamContext` through axum's
+/// `Extension`. The binding name is discovered from the signature, so both
+/// `ctx` and `context` work:
 ///
 /// ```ignore
 /// #[permission("dashboards.read")]
@@ -458,7 +458,7 @@ fn app_state_binding(function: &ItemFn) -> syn::Result<Ident> {
 }
 
 fn is_auth_extension(ty: &Type) -> bool {
-    is_extractor_with_inner(ty, "Extension", &["IamContext", "AuthContext"])
+    is_extractor_with_inner(ty, "Extension", &["IamContext"])
 }
 
 fn is_app_state_extractor(ty: &Type) -> bool {
@@ -508,8 +508,8 @@ mod tests {
     fn expands_against_discovered_context_binding() {
         let function: ItemFn = parse_quote! {
             async fn handler(
-                axum::Extension(context): axum::Extension<crate::app::iam::IamContext>,
-            ) -> crate::shared::Result<()> {
+                axum::Extension(context): axum::Extension<domain::iam::IamContext>,
+            ) -> kernel::Result<()> {
                 Ok(())
             }
         };
@@ -527,7 +527,7 @@ mod tests {
         let function: ItemFn = parse_quote! {
             async fn handler(
                 Extension(ctx): Extension<IamContext>,
-            ) -> crate::shared::Result<()> {
+            ) -> kernel::Result<()> {
                 Ok(())
             }
         };
@@ -554,7 +554,7 @@ mod tests {
                 State(app): State<AppState>,
                 Extension(ctx): Extension<IamContext>,
                 Path(id): Path<String>,
-            ) -> crate::shared::Result<Dashboard> {
+            ) -> kernel::Result<Dashboard> {
                 Ok(dashboard)
             }
         };
@@ -584,7 +584,7 @@ mod tests {
                 State(state): State<AppState>,
                 Extension(context): Extension<IamContext>,
                 Path(id): Path<Id>,
-            ) -> crate::shared::Result<StreamDefinition> {
+            ) -> kernel::Result<StreamDefinition> {
                 Ok(stream)
             }
         };
@@ -612,7 +612,7 @@ mod tests {
                 State(state): State<AppState>,
                 Extension(context): Extension<IamContext>,
                 Path(id): Path<Id>,
-            ) -> crate::shared::Result<ResourceShare> {
+            ) -> kernel::Result<ResourceShare> {
                 Ok(share)
             }
         };
@@ -639,7 +639,7 @@ mod tests {
                 State(state): State<AppState>,
                 Extension(context): Extension<IamContext>,
                 Json(request): Json<CreateShareRequest>,
-            ) -> crate::shared::Result<ShareableResource> {
+            ) -> kernel::Result<ShareableResource> {
                 Ok(resource)
             }
         };
@@ -667,7 +667,7 @@ mod tests {
                 State(state): State<AppState>,
                 Extension(context): Extension<IamContext>,
                 Path(id): Path<Id>,
-            ) -> crate::shared::Result<ScheduledPipeline> {
+            ) -> kernel::Result<ScheduledPipeline> {
                 Ok(pipeline)
             }
         };
@@ -690,7 +690,7 @@ mod tests {
     #[test]
     fn rejects_handler_without_auth_context() {
         let function: ItemFn = parse_quote! {
-            async fn handler() -> crate::shared::Result<()> {
+            async fn handler() -> kernel::Result<()> {
                 Ok(())
             }
         };
@@ -707,7 +707,7 @@ mod tests {
         let function: ItemFn = parse_quote! {
             async fn handler(
                 Extension(ctx): Extension<IamContext>,
-            ) -> crate::shared::Result<()> {
+            ) -> kernel::Result<()> {
                 Ok(())
             }
         };
@@ -724,7 +724,7 @@ mod tests {
         let function: ItemFn = parse_quote! {
             async fn handler(
                 Extension(ctx): Extension<IamContext>,
-            ) -> crate::shared::Result<()> {
+            ) -> kernel::Result<()> {
                 Ok(())
             }
         };

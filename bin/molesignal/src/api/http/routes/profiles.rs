@@ -29,10 +29,25 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
+use domain::{
+    iam::{IamContext, IamScope, permission},
+    intake::usage::source::IntakeCredential,
+    query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
+    stream::{DEFAULT_PROFILE_STREAM, MOLESIGNAL_SYSTEM_STREAM, Schema, StreamType},
+};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use opentelemetry_proto::tonic::{
     collector::profiles::v1development::ExportProfilesServiceRequest,
     common::v1::AnyValue,
     profiles::v1development::{Profile, ProfilesDictionary},
+};
+use profiles::{
+    Frame, NormalizedProfile, ProfileType, Sample, ValueType,
+    merge::{self as profiles_merge, DiffFlamebearer, Flamebearer},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -42,25 +57,7 @@ use crate::{
         AppState,
         http::routes::intake::otlp::{any_value_to_json, decode_otlp, detect_encoding, hex},
     },
-    app::{
-        iam::IamContext,
-        intake::usage::{IntakeReceipt, ServiceTally, split_by_events},
-    },
-    domain::{
-        iam::{IamScope, permission},
-        intake::usage::source::IntakeCredential,
-        query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
-        stream::{DEFAULT_PROFILE_STREAM, MOLESIGNAL_SYSTEM_STREAM, Schema, StreamType},
-    },
-    infra::profiles::{
-        self, Frame, NormalizedProfile, ProfileType, Sample, ValueType,
-        merge::{self as profiles_merge, DiffFlamebearer, Flamebearer},
-    },
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
+    app::intake::usage::{IntakeReceipt, ServiceTally, split_by_events},
 };
 
 /// `_timestamp` 隐式时间列（匹配存储层 `arrow_schema::TS_COL`）。
@@ -247,7 +244,6 @@ pub(crate) async fn store_profile(
 #[derive(Debug, Deserialize)]
 struct UploadParams {
     service: Option<String>,
-    #[serde(alias = "profile_type")]
     r#type: Option<String>,
     /// `pprof`（默认）| `jfr`（待实现）。
     format: Option<String>,
@@ -675,7 +671,6 @@ fn any_value_to_label(av: &AnyValue) -> String {
 #[serde(rename_all = "camelCase")]
 struct ListParams {
     service: Option<String>,
-    #[serde(alias = "profile_type")]
     r#type: Option<String>,
     from: Option<i64>,
     to: Option<i64>,
@@ -830,7 +825,6 @@ fn row_matches_label(labels: Option<&Value>, want: &Option<(String, String)>) ->
 #[serde(rename_all = "camelCase")]
 struct FlamegraphParams {
     service: Option<String>,
-    #[serde(alias = "profile_type")]
     r#type: Option<String>,
     from: Option<i64>,
     to: Option<i64>,
@@ -958,13 +952,10 @@ async fn flamegraph_selection(
 #[serde(rename_all = "camelCase")]
 struct DiffParams {
     service: Option<String>,
-    #[serde(alias = "profile_type")]
     r#type: Option<String>,
     from: Option<i64>,
     to: Option<i64>,
-    #[serde(alias = "baselineFrom")]
     baseline_from: Option<i64>,
-    #[serde(alias = "baselineTo")]
     baseline_to: Option<i64>,
     label: Option<String>,
     max_merge: Option<usize>,
@@ -1172,6 +1163,7 @@ async fn build_flamegraph_response(
 
 #[cfg(test)]
 mod otlp_tests {
+    use domain::stream::{FieldDef, FieldType, StreamIndexType};
     use opentelemetry_proto::tonic::{
         common::v1::{AnyValue, KeyValue, any_value},
         profiles::v1development::{
@@ -1183,7 +1175,6 @@ mod otlp_tests {
     };
 
     use super::*;
-    use crate::domain::stream::{FieldDef, FieldType};
 
     #[test]
     fn system_scope_reads_the_protected_self_telemetry_profile_stream() {
@@ -1207,10 +1198,8 @@ mod otlp_tests {
                     name: name.to_string(),
                     data_type: FieldType::Utf8,
                     nullable: true,
-                    index_type: None,
-                    indexed: false,
+                    index_type: StreamIndexType::None,
                     encrypted: false,
-                    exact: false,
                 })
                 .collect(),
         };

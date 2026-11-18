@@ -9,25 +9,22 @@ use axum::{
     extract::{Path, Query, State},
     routing::{get, post},
 };
+use domain::{
+    alerting::schedule::{Rotation, Schedule, ScheduleOverride},
+    federation::{CudAction, ResourceKind},
+    iam::{IamContext, permission, resource_permission},
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::{
-    api::{
-        AppState,
-        http::{
-            federation::{delete_payload, emit_cud},
-            middleware::ProtectedResource,
-            routes::{activity_audit, schedule_coverage::schedule_view},
-        },
+use crate::api::{
+    AppState,
+    http::{
+        federation::{delete_payload, emit_cud},
+        middleware::ProtectedResource,
+        routes::{activity_audit, schedule_coverage::schedule_view},
     },
-    app::iam::IamContext,
-    domain::{
-        alerting::schedule::{Rotation, Schedule, ScheduleOverride},
-        federation::{CudAction, ResourceKind},
-        iam::{permission, resource_permission},
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
 };
 
 /// 把保存后的 schedule 既序列化返回（带覆盖时段）、又发一条 Updated 事件（override 增删也走这条）。
@@ -142,7 +139,7 @@ async fn create(
     Json(req): Json<ScheduleWriteReq>,
 ) -> Result<Json<Value>> {
     if req.name.trim().is_empty() {
-        return Err(crate::shared::Error::invalid("name cannot be empty"));
+        return Err(kernel::Error::invalid("name cannot be empty"));
     }
 
     let now = TimestampMicros::now();
@@ -225,7 +222,7 @@ async fn update(
     Json(req): Json<ScheduleWriteReq>,
 ) -> Result<Json<Value>> {
     if req.name.trim().is_empty() {
-        return Err(crate::shared::Error::invalid("name cannot be empty"));
+        return Err(kernel::Error::invalid("name cannot be empty"));
     }
 
     let enabled = req.enabled.unwrap_or(existing.enabled);
@@ -331,9 +328,7 @@ async fn add_override(
     Json(req): Json<OverrideReq>,
 ) -> Result<Json<Value>> {
     if req.end_at <= req.start_at {
-        return Err(crate::shared::Error::invalid(
-            "endAt must be greater than startAt",
-        ));
+        return Err(kernel::Error::invalid("endAt must be greater than startAt"));
     }
 
     let mut schedule = schedule;
@@ -402,9 +397,7 @@ async fn update_override(
     Json(req): Json<OverrideReq>,
 ) -> Result<Json<Value>> {
     if req.end_at <= req.start_at {
-        return Err(crate::shared::Error::invalid(
-            "endAt must be greater than startAt",
-        ));
+        return Err(kernel::Error::invalid("endAt must be greater than startAt"));
     }
 
     let mut schedule = schedule;
@@ -415,7 +408,7 @@ async fn update_override(
         .overrides
         .iter_mut()
         .find(|ov| ov.id.0 == override_id)
-        .ok_or_else(|| crate::shared::Error::not_found("schedule override not found"))?;
+        .ok_or_else(|| kernel::Error::not_found("schedule override not found"))?;
 
     schedule_override.user_id = req.user_id;
     schedule_override.start_at = TimestampMicros(req.start_at);
@@ -464,7 +457,7 @@ async fn remove_override(
         .iter()
         .find(|ov| ov.id.0 == override_id)
         .cloned()
-        .ok_or_else(|| crate::shared::Error::not_found("schedule override not found"))?;
+        .ok_or_else(|| kernel::Error::not_found("schedule override not found"))?;
 
     schedule.overrides.retain(|ov| ov.id.0 != override_id);
     schedule.updated_by = Some(ctx.user_id.clone());
@@ -524,7 +517,7 @@ fn validate_override_window(
     });
 
     if overlaps {
-        return Err(crate::shared::Error::invalid(
+        return Err(kernel::Error::invalid(
             "override overlaps an existing override",
         ));
     }

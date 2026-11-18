@@ -18,13 +18,10 @@
 //! shared 字段：`{ target_stream, batch_size_max }`。
 
 use async_trait::async_trait;
+use domain::intake::RawEvent;
+use kernel::{Error, Result, ids::Id};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::{
-    domain::intake::RawEvent,
-    shared::{Error, Result, ids::Id},
-};
 
 pub mod aws;
 pub mod check;

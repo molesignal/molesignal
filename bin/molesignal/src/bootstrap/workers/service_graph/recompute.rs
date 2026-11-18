@@ -14,25 +14,21 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::{
+    cluster::PeerRole,
+    iam::{InstanceSettingsRepository, OrganizationRepository},
+    query::{QueryLanguage, QueryRequest, StreamHint},
+    stream::{StreamRepository, StreamType},
+};
+use kernel::{
+    Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+use service_graph::{ENVIRONMENT_FIELDS, ServiceGraphAggregator, ServiceGraphRepository};
 use tokio::task::JoinHandle;
 
-use crate::{
-    app::{
-        cluster::{PeerRole, WorkOwnership},
-        query::QueryService,
-    },
-    domain::{
-        iam::{InstanceSettingsRepository, OrganizationRepository},
-        query::{QueryLanguage, QueryRequest, StreamHint},
-        stream::{StreamRepository, StreamType},
-    },
-    infra::traces::{ENVIRONMENT_FIELDS, ServiceGraphAggregator, ServiceGraphRepository},
-    shared::{
-        Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::app::{cluster::WorkOwnership, query::QueryService};
 
 const BUCKET_SIZE_US: i64 = 60 * 1_000_000;
 
@@ -246,7 +242,7 @@ impl ServiceGraphRecomputer {
 
             let parent = row[3].as_str().filter(|s| !s.is_empty());
 
-            let service = crate::infra::traces::service_graph::effective_service_name(
+            let service = service_graph::effective_service_name(
                 row[4].as_str(),
                 row[5].as_str(),
                 row[6].as_str(),

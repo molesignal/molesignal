@@ -5,6 +5,25 @@
 
 use std::sync::Arc;
 
+use domain::{function::FunctionRepository, rum::DebugArtifactRepository};
+use kernel::Result;
+use postgres::repositories::{
+    annotations::{AnnotationRepository, PgAnnotationRepository},
+    debug_artifacts::PgDebugArtifactRepository,
+    domains::{DomainRepository, PgDomainRepository},
+    file_download_tokens::{FileDownloadTokenRepository, PgFileDownloadTokenRepository},
+    functions::PgFunctionRepository,
+    log_patterns::{LogPatternRepository, PgLogPatternRepository},
+    pipelines::runs::{PgPipelineRunRepository, PipelineRunRepository},
+    report_templates::{PgReportTemplateRepository, ReportTemplateRepository},
+    resource_shares::{PgResourceShareRepository, ResourceShareRepository},
+    scheduled_reports::{PgScheduledReportRepository, ScheduledReportRepository},
+    search::jobs::{PgSearchJobRepository, SearchJobRepository},
+    web_search::{PgWebSearchRepository, WebSearchRepository},
+};
+use report_renderer::ReportRenderer;
+use settings::Settings;
+
 use super::{
     core::Core,
     iam::IamRuntime,
@@ -12,33 +31,14 @@ use super::{
     roles::{HttpKind, plan_servers},
     storage::StorageRuntime,
 };
-use crate::{
-    config::Settings,
-    domain::{function::FunctionRepository, rum::DebugArtifactRepository},
-    infra::{
-        connectors::{ConnectorRepository, PgConnectorRepository},
-        enrichment::{GeoIp, GeoLookup},
-        persistence::repositories::{
-            annotations::{AnnotationRepository, PgAnnotationRepository},
-            debug_artifacts::PgDebugArtifactRepository,
-            domains::{DomainRepository, PgDomainRepository},
-            file_download_tokens::{FileDownloadTokenRepository, PgFileDownloadTokenRepository},
-            functions::PgFunctionRepository,
-            log_patterns::{LogPatternRepository, PgLogPatternRepository},
-            pipelines::runs::{PgPipelineRunRepository, PipelineRunRepository},
-            report_templates::{PgReportTemplateRepository, ReportTemplateRepository},
-            resource_shares::{PgResourceShareRepository, ResourceShareRepository},
-            scheduled_reports::{PgScheduledReportRepository, ScheduledReportRepository},
-            search::jobs::{PgSearchJobRepository, SearchJobRepository},
-            web_search::{PgWebSearchRepository, WebSearchRepository},
-        },
-        pipeline::{
-            ExtendKvRepository, ExtendTable, PgExtendKvRepository, PgScheduledPipelineRepository,
-            ScheduledPipelineRepository,
-            lookups::{GeoSource, PlatformLookups},
-        },
+use crate::infra::{
+    connectors::{ConnectorRepository, PgConnectorRepository},
+    enrichment::{GeoIp, GeoLookup},
+    pipeline::{
+        ExtendKvRepository, ExtendTable, PgExtendKvRepository, PgScheduledPipelineRepository,
+        ScheduledPipelineRepository,
+        lookups::{GeoSource, PlatformLookups},
     },
-    shared::{ReportRenderer, Result},
 };
 
 pub(super) struct PlatformRuntime {
@@ -169,18 +169,18 @@ impl PlatformRuntime {
                 "scheduled-reports headless renderer configured"
             );
 
-            let config = crate::report_renderer::RendererConfig {
+            let config = report_renderer::RendererConfig {
                 concurrent_renders: renderer.concurrent_renders as usize,
                 render_timeout_secs: renderer.render_timeout_secs as u64,
-                viewport: crate::shared::Viewport {
+                viewport: report_renderer::Viewport {
                     width: renderer.viewport_width,
                     height: renderer.viewport_height,
                 },
             };
 
-            Some(Arc::new(
-                crate::report_renderer::HeadlessChromeRenderer::new(config),
-            ))
+            Some(Arc::new(report_renderer::HeadlessChromeRenderer::new(
+                config,
+            )))
         };
 
         // 定时报告的渲染需要无头 Chrome，由 alert 角色（含 standalone）的节点承担；多个 alert 节点
@@ -249,7 +249,7 @@ impl PlatformRuntime {
 
         // VRL 的 `lookup` 查组织的扩展表，`geoip_lookup` 查这份库：加载了的节点直接用，别的节点
         // 第一次有程序查地理位置时才读。
-        crate::infra::runtime::vrl::lookups::install(Arc::new(PlatformLookups::new(
+        function_runtime::vrl::lookups::install(Arc::new(PlatformLookups::new(
             extend_table.clone(),
             if receives_rum {
                 GeoSource::Loaded(geoip.clone())

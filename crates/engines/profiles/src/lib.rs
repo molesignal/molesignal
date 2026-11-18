@@ -1,37 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Continuous Profiling 的内部规范表示与编解码。
+//! Internal canonical representation and encoding/decoding for Continuous Profiling.
 //!
-//! 三种摄取来源——pprof / JFR 直传、Pyroscope 兼容 `/intake`、OTLP Profiles
-//! ——都先归一化到 [`NormalizedProfile`]（语义贴近 pprof，便于无损往返），再走
-//! 统一的双路落盘：规范 pprof + zstd 归档到 object store，元数据行进
-//! `StreamType::PROFILES` 流。
+//! The three intake sources (pprof / JFR direct upload, the Pyroscope-compatible
+//! `/intake`, and OTLP Profiles) are all normalized into [`NormalizedProfile`] first
+//! (semantics close to pprof, to make lossless round trips easy) and then go through one
+//! unified dual-path write: canonical pprof + zstd archived to the object store, and the
+//! metadata row goes into the `StreamType::PROFILES` stream.
 //!
-//! 火焰图聚合逻辑位于 [`merge`]，其余规范模型与编解码入口保留在本模块。
+//! The flame graph aggregation logic lives in [`merge`]; the rest of the canonical model
+//! and the encode/decode entry points stay in this module.
 
 use std::collections::{BTreeMap, HashMap};
 
+use ::domain::intake::RawEvent;
+use ::protocol::pprof::profiles as pb;
+use kernel::{Error, Result, time::TimestampMicros};
 use prost::Message;
 use serde_json::{Map, Value};
-
-use crate::{
-    domain::intake::RawEvent,
-    protocol::pprof::profiles as pb,
-    shared::{Error, Result, time::TimestampMicros},
-};
-
-pub mod domain {
-    pub use ::domain::*;
-}
-
-pub mod protocol {
-    pub use ::protocol::*;
-}
-
-pub mod shared {
-    pub use kernel::{Error, Result, ids, time};
-}
 
 mod archive;
 pub use archive::{
@@ -41,15 +28,15 @@ pub use archive::{
 
 pub mod merge;
 
-/// 一份 profile 的某一路采样值的类型与单位，对应 pprof `ValueType`。
+/// Type and unit of one series of a profile's sample values, matching the pprof `ValueType`.
 ///
-/// 例如 CPU profile 常见 `("cpu", "nanoseconds")` / `("samples", "count")`，
-/// 内存 profile 常见 `("alloc_space", "bytes")`。
+/// For example, a CPU profile commonly has `("cpu", "nanoseconds")` / `("samples", "count")`,
+/// and a memory profile commonly has `("alloc_space", "bytes")`.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ValueType {
-    /// 值类型名（pprof string_table 解引用后的明文）。
+    /// The value type name (plain text after dereferencing the pprof string_table).
     pub ty: String,
-    /// 单位（`nanoseconds` / `bytes` / `count` / ...）。
+    /// Unit (`nanoseconds` / `bytes` / `count` / ...).
     pub unit: String,
 }
 
@@ -62,34 +49,35 @@ impl ValueType {
     }
 }
 
-/// 栈中的一帧。已符号化来源带 `function`；未符号化来源（如 eBPF 原生栈）
-/// 仅有 `address` + `build_id`，此时 `function` 为空，profile 会被标
-/// `unsymbolized = true`。
+/// A frame in a stack. A symbolized source carries `function`; an unsymbolized source
+/// (such as a native eBPF stack) has only `address` + `build_id`; in that case `function`
+/// is empty and the profile is marked `unsymbolized = true`.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Frame {
-    /// 函数名；未符号化时为空串。
+    /// Function name; an empty string when unsymbolized.
     pub function: String,
-    /// 源文件名（可空）。
+    /// Source file name (optional).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file: Option<String>,
-    /// 行号（可空）。
+    /// Line number (optional).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub line: Option<i64>,
-    /// 指令地址（未符号化栈用于区分帧）。
+    /// Instruction address (used to tell frames apart in unsymbolized stacks).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub address: Option<u64>,
-    /// 所属 mapping 的 build_id（未符号化栈关联符号文件用）。
+    /// The build_id of the owning mapping (used to link unsymbolized stacks to symbol files).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub build_id: Option<String>,
 }
 
 impl Frame {
-    /// 该帧是否已符号化（有函数名）。
+    /// Whether the frame is symbolized (has a function name).
     pub fn is_symbolized(&self) -> bool {
         !self.function.is_empty()
     }
 
-    /// 火焰图节点显示名：优先函数名，否则回退到 `0xADDR` 或 `unknown`。
+    /// Flame graph node display name: prefers the function name, otherwise falls back to
+    /// `0xADDR` or `unknown`.
     pub fn display_name(&self) -> String {
         if !self.function.is_empty() {
             self.function.clone()
@@ -101,24 +89,30 @@ impl Frame {
     }
 }
 
-/// 一条带权采样：一条调用栈 + 与 `sample_types` 一一对应的值向量 + 样本级标签。
+/// A weighted sample: one call stack, a value vector that corresponds one-to-one with
+/// `sample_types`, and sample-level labels.
 ///
-/// `stack[0]` 是根（最外层 / 调用链底部）帧，末尾是叶子（on-CPU）。与 folded 文本
-/// 同序，便于火焰图自根向下建树；pprof 编解码内部做叶/根翻转保证落盘语义正确。
+/// `stack[0]` is the root frame (outermost / bottom of the call chain), and the end is
+/// the leaf (on-CPU). It has the same order as folded text, which makes it easy to build
+/// the flame graph tree from the root down; the pprof codec flips leaf/root internally so
+/// that the persisted semantics are correct.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Sample {
-    /// 根在前（`stack[0]` 最外层）的调用栈。
+    /// The call stack, root first (`stack[0]` is the outermost).
     pub stack: Vec<Frame>,
-    /// 与 [`NormalizedProfile::sample_types`] 一一对应的值向量。
+    /// Value vector corresponding one-to-one to [`NormalizedProfile::sample_types`].
     pub values: Vec<i64>,
-    /// 样本级标签（pprof `Label`）；trace 关联常以 `trace_id` / `span_id` 出现于此。
+    /// Sample-level labels (pprof `Label`); trace correlation usually shows up here as
+    /// `trace_id` / `span_id`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub labels: BTreeMap<String, String>,
 }
 
-/// profile 的语义类型，用于元数据行的 `profile_type` 列与前端筛选。
+/// The semantic type of a profile, used for the `profile_type` column of the metadata row
+/// and for frontend filtering.
 ///
-/// `Other` 兜底任意来源类型名，保证未知类型也能被接纳而非拒收。
+/// `Other` is the catch-all for any source type name, so that unknown types are accepted
+/// rather than rejected.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProfileType {
@@ -136,7 +130,7 @@ pub enum ProfileType {
 }
 
 impl ProfileType {
-    /// 稳定字符串表示（落入元数据 `profile_type` 列）。
+    /// Stable string representation (stored in the metadata `profile_type` column).
     pub fn as_str(&self) -> &str {
         match self {
             ProfileType::Cpu => "cpu",
@@ -153,7 +147,8 @@ impl ProfileType {
         }
     }
 
-    /// 从采样类型名 / Pyroscope app 名后缀推断 profile 类型；未知归 `Other`。
+    /// Infers the profile type from a sample type name / the suffix of a Pyroscope app name;
+    /// anything unknown becomes `Other`.
     pub fn from_name(name: &str) -> Self {
         match name.trim().to_ascii_lowercase().as_str() {
             "cpu" | "samples" | "process_cpu" | "cpu_samples" => ProfileType::Cpu,
@@ -174,50 +169,53 @@ impl ProfileType {
     }
 }
 
-/// 三协议归一化后的统一 profile 表示。
+/// The unified profile representation after normalizing the three protocols.
 ///
-/// 字段贴近 pprof 语义，便于 pprof 来源无损往返；非 pprof 来源
-/// （folded / lines / JFR / OTLP）由各自适配器构造此结构，再统一编码为规范 pprof
-/// 归档。
+/// The fields stay close to pprof semantics, which allows lossless round trips for pprof
+/// sources. Non-pprof sources (folded / lines / JFR / OTLP) have their own adapters build
+/// this struct, which is then uniformly encoded as canonical pprof and archived.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct NormalizedProfile {
-    /// 服务名（来自 OTLP resource `service.name` / Pyroscope `name` / 上传参数）。
+    /// Service name (from OTLP resource `service.name` / Pyroscope `name` / upload parameters).
     pub service: String,
-    /// profile 语义类型。
+    /// The semantic type of the profile.
     pub profile_type: ProfileType,
-    /// 各路采样值的类型与单位（与每个 `Sample.values` 一一对应）。
+    /// The type and unit of each series of sample values (corresponding one-to-one to
+    /// each `Sample.values`).
     pub sample_types: Vec<ValueType>,
-    /// 用于火焰图聚合的主采样值下标（pprof `default_sample_type`）。
+    /// Index of the primary sample value used for flame graph aggregation
+    /// (pprof `default_sample_type`).
     pub default_value_index: usize,
-    /// 带权采样集合。
+    /// The set of weighted samples.
     pub samples: Vec<Sample>,
-    /// 采样事件间隔的类型（pprof `period_type`，可空）。
+    /// Type of the sampling event interval (pprof `period_type`, optional).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub period_type: Option<ValueType>,
-    /// 采样事件间隔（pprof `period`）。
+    /// Sampling event interval (pprof `period`).
     pub period: i64,
-    /// profile 时间窗口起点（micros since epoch）。
+    /// Start of the profile's time window (micros since epoch).
     pub start_time_micros: i64,
-    /// 采样时长（纳秒）。
+    /// Sampling duration (nanoseconds).
     pub duration_nanos: i64,
-    /// profile 级标签（如 `pod` / `version` / `region`）。
+    /// Profile-level labels (such as `pod` / `version` / `region`).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub labels: BTreeMap<String, String>,
-    /// 关联 trace（可空）。
+    /// Associated trace (optional).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trace_id: Option<String>,
-    /// 关联 span（可空）。
+    /// Associated span (optional).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub span_id: Option<String>,
 }
 
 impl NormalizedProfile {
-    /// 样本条数。
+    /// Number of samples.
     pub fn sample_count(&self) -> usize {
         self.samples.len()
     }
 
-    /// 主采样值的合计（用于元数据 `total_value` 列与排序 / 概览）。
+    /// Total of the primary sample value (used for the metadata `total_value` column and for
+    /// sorting / overview).
     pub fn total_value(&self) -> i64 {
         let idx = self.default_value_index;
 
@@ -227,14 +225,15 @@ impl NormalizedProfile {
             .sum()
     }
 
-    /// 是否含未符号化帧（任一样本的任一帧无函数名）。
+    /// Whether it contains unsymbolized frames (any frame of any sample has no function name).
     pub fn unsymbolized(&self) -> bool {
         self.samples
             .iter()
             .any(|s| s.stack.iter().any(|f| !f.is_symbolized()))
     }
 
-    /// 主采样值的类型名，用作 profile_type 推断回退。
+    /// The type name of the primary sample value, used as the fallback for
+    /// profile_type inference.
     pub fn default_sample_type_name(&self) -> Option<&str> {
         self.sample_types
             .get(self.default_value_index)
@@ -242,15 +241,17 @@ impl NormalizedProfile {
     }
 }
 
-// ===== pprof 编解码（task 2.1）=====
+// ===== pprof encoding/decoding (task 2.1) =====
 //
-// 解码接受 gzip 或裸 protobuf；编码产出 gzip pprof（生态约定）。pprof 来源走"归档
-// 原始字节"保证无损往返；非 pprof 来源（folded / lines / JFR / OTLP）由各适配器
-// 构造 [`NormalizedProfile`] 后用 [`encode_pprof`] 产出规范 pprof 再归档。
+// Decoding accepts gzip or raw protobuf; encoding produces gzip pprof (the ecosystem
+// convention). pprof sources take the "archive the original bytes" route, which guarantees
+// a lossless round trip; non-pprof sources (folded / lines / JFR / OTLP) have their adapters
+// construct a [`NormalizedProfile`], then use [`encode_pprof`] to produce canonical pprof
+// and archive it.
 
 const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
 
-/// 若是 gzip（magic `1f 8b`）则解压，否则原样返回（裸 protobuf）。
+/// Decompresses if it is gzip (magic `1f 8b`); otherwise returns it as is (raw protobuf).
 fn maybe_gunzip(bytes: &[u8]) -> Result<Vec<u8>> {
     if bytes.len() >= 2 && bytes[0] == GZIP_MAGIC[0] && bytes[1] == GZIP_MAGIC[1] {
         use std::io::Read;
@@ -267,7 +268,8 @@ fn maybe_gunzip(bytes: &[u8]) -> Result<Vec<u8>> {
     }
 }
 
-/// gzip 压缩裸 pprof protobuf（下载 / 编码产物的生态约定形态）。
+/// Compresses a raw pprof protobuf with gzip (the ecosystem-conventional form for
+/// downloads / encoded output).
 pub fn gzip_pprof(bytes: &[u8]) -> Result<Vec<u8>> {
     use std::io::Write;
     let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
@@ -281,19 +283,21 @@ pub fn gzip_pprof(bytes: &[u8]) -> Result<Vec<u8>> {
         .map_err(|e| Error::internal(format!("pprof gzip finish: {e}")))
 }
 
-/// 解码 pprof（gzip 或裸 protobuf）为 prost `Profile`。
+/// Decodes pprof (gzip or raw protobuf) into a prost `Profile`.
 pub fn decode_pprof(bytes: &[u8]) -> Result<pb::Profile> {
     let raw = maybe_gunzip(bytes)?;
     pb::Profile::decode(raw.as_slice()).map_err(|e| Error::invalid(format!("pprof decode: {e}")))
 }
 
-/// 上传 pprof 归一为裸 protobuf（gunzip if needed），供原样无损归档。
+/// Normalizes an uploaded pprof into a raw protobuf (gunzip if needed), so that it can be
+/// archived as is, losslessly.
 pub fn decompress_pprof_input(bytes: &[u8]) -> Result<Vec<u8>> {
     maybe_gunzip(bytes)
 }
 
-/// pprof `Profile` → [`NormalizedProfile`]。`service` / `extra_labels` 由调用方
-/// （upload 参数 / Pyroscope `name`）提供，pprof 本身不携带服务名。
+/// pprof `Profile` -> [`NormalizedProfile`]. `service` / `extra_labels` are provided by
+/// the caller (upload parameters / Pyroscope `name`), because pprof itself does not carry
+/// a service name.
 pub fn normalize_pprof(
     profile: &pb::Profile,
     service: impl Into<String>,
@@ -328,7 +332,7 @@ pub fn normalize_pprof(
             };
 
             if loc.line.is_empty() {
-                // 未符号化帧：仅地址 + build_id。
+                // Unsymbolized frame: address + build_id only.
                 let build_id = (loc.mapping_id != 0)
                     .then(|| mappings.get(&loc.mapping_id))
                     .flatten()
@@ -343,7 +347,7 @@ pub fn normalize_pprof(
                     build_id,
                 });
             } else {
-                // 一个 location 多行 = 内联帧，line[0] 最内层。
+                // A location with multiple lines = inlined frames; line[0] is the innermost.
                 for ln in &loc.line {
                     let func = funcs.get(&ln.function_id);
                     let function = func.map(|f| st(f.name).to_string()).unwrap_or_default();
@@ -364,7 +368,7 @@ pub fn normalize_pprof(
             }
         }
 
-        // pprof 是叶子在前；翻转为根在前（NormalizedProfile 约定）。
+        // pprof stores leaf first; reverse to root first (the NormalizedProfile convention).
         stack.reverse();
         let mut labels = BTreeMap::new();
 
@@ -391,7 +395,8 @@ pub fn normalize_pprof(
         });
     }
 
-    // 主采样值下标：default_sample_type 命中则用之，否则取最后一路（pprof 约定）。
+    // Primary sample value index: use default_sample_type if it matches, otherwise take the
+    // last series (pprof convention).
     let default_value_index = if profile.default_sample_type != 0 {
         let name = st(profile.default_sample_type);
 
@@ -433,7 +438,7 @@ pub fn normalize_pprof(
     }
 }
 
-/// 从样本级 / profile 级标签提取 `trace_id` / `span_id`（task 3.3）。
+/// Extracts `trace_id` / `span_id` from sample-level / profile-level labels (task 3.3).
 fn extract_trace_ids(
     samples: &[Sample],
     profile_labels: &BTreeMap<String, String>,
@@ -468,7 +473,7 @@ fn extract_trace_ids(
     (trace, span)
 }
 
-/// pprof `string_table` 内联器：index 0 恒为 ""。
+/// pprof `string_table` interner: index 0 is always "".
 struct Interner {
     strings: Vec<String>,
     map: HashMap<String, i64>,
@@ -497,13 +502,15 @@ impl Interner {
     }
 }
 
-/// [`NormalizedProfile`] → 规范 pprof（gzip protobuf）。供非 pprof 来源归档 /
-/// 下载用。裸 protobuf 版见 [`encode_pprof_raw`]。
+/// [`NormalizedProfile`] -> canonical pprof (gzip protobuf).
+/// For archiving / downloading non-pprof sources. For the raw protobuf version, see
+/// [`encode_pprof_raw`].
 pub fn encode_pprof(p: &NormalizedProfile) -> Result<Vec<u8>> {
     gzip_pprof(&encode_pprof_raw(p)?)
 }
 
-/// [`NormalizedProfile`] → 裸 pprof protobuf（无 gzip）。归档前的规范形态。
+/// [`NormalizedProfile`] -> raw pprof protobuf (without gzip).
+/// The canonical form before archiving.
 pub fn encode_pprof_raw(p: &NormalizedProfile) -> Result<Vec<u8>> {
     let mut interner = Interner::new();
 
@@ -525,9 +532,10 @@ pub fn encode_pprof_raw(p: &NormalizedProfile) -> Result<Vec<u8>> {
     for s in &p.samples {
         let mut location_id = Vec::with_capacity(s.stack.len());
 
-        // NormalizedProfile 根在前；pprof location_id 叶子在前，翻转写入。
+        // NormalizedProfile is root-first; pprof location_id is leaf-first, so write it reversed.
         for fr in s.stack.iter().rev() {
-            // 先 intern 字符串，避免与 entry() 闭包争借 interner。
+            // Intern the string first, so it does not contend with the entry() closure
+            // for borrowing the interner.
             let name_idx = if fr.function.is_empty() {
                 0
             } else {
@@ -641,11 +649,11 @@ pub fn encode_pprof_raw(p: &NormalizedProfile) -> Result<Vec<u8>> {
     Ok(buf)
 }
 
-// ===== 归档 + 元数据落盘（task 3.1 / 3.2 / 3.3）=====
+// ===== Archive + metadata persistence (task 3.1 / 3.2 / 3.3) =====
 
-/// 构造 profiles 元数据流的一行 [`RawEvent`]（task 3.2）。
+/// Constructs one [`RawEvent`] row for the profiles metadata stream (task 3.2).
 ///
-/// `timestamp` 由调用方决定（profile 自带时间则用之，否则用接收时间）。
+/// The caller decides `timestamp` (the profile's own time if present, otherwise the receive time).
 pub fn metadata_event(
     profile: &NormalizedProfile,
     object_key: &str,
@@ -677,9 +685,11 @@ pub fn metadata_event(
 
     fields.insert("labels".into(), Value::Object(labels));
 
-    // trace_id / span_id 始终写入（无关联时为空串）：保证 schema-on-write 建出这两列，
-    // 否则首条无 trace 关联的 profile 会让流缺列，后续按列名 SELECT 无法 plan。
-    // 查询侧已把空串视作"无关联"（`.filter(|s| !s.is_empty())`）。
+    // trace_id / span_id are always written (empty string when there is no association), so that
+    // schema-on-write creates both columns. Otherwise the first profile with no trace association
+    // would leave the stream missing those columns, and later SELECTs by column name could not be
+    // planned. The query side already treats an empty string as "no association"
+    // (`.filter(|s| !s.is_empty())`).
     fields.insert(
         "trace_id".into(),
         Value::from(profile.trace_id.clone().unwrap_or_default()),
@@ -696,13 +706,14 @@ pub fn metadata_event(
     RawEvent { timestamp, fields }
 }
 
-// ===== folded / lines 文本栈解析（task 2.4）=====
+// ===== Parsing folded / lines text stacks (task 2.4) =====
 
-/// 解析 folded / collapsed 文本栈（Brendan Gregg 约定）：每行
-/// `frame1;frame2;...;frameN <count>`，`frame1` 为根、`frameN` 为叶子，与
-/// [`Sample`] 的根在前约定一致。空行 / `#` 注释行跳过。
+/// Parses folded / collapsed text stacks (Brendan Gregg convention). Each line is
+/// `frame1;frame2;...;frameN <count>`, where `frame1` is the root and `frameN` is the leaf,
+/// consistent with the root-first convention of [`Sample`]. Blank lines and `#` comment
+/// lines are skipped.
 ///
-/// Pyroscope 的 `format=lines` 与 `format=folded` 都走本解析器。
+/// Pyroscope's `format=lines` and `format=folded` both go through this parser.
 pub fn parse_folded(
     text: &str,
     service: impl Into<String>,
@@ -778,9 +789,10 @@ pub fn parse_folded(
     })
 }
 
-/// 解析 Pyroscope `name` 参数：`app{key=val,...}`。返回
-/// `(service, profile_type_hint, labels)`。末段若是已知 profile 类型
-/// （如 `myapp.cpu`）则剥离为 hint，否则整体作为 service。
+/// Parses the Pyroscope `name` parameter: `app{key=val,...}`. Returns
+/// `(service, profile_type_hint, labels)`. If the last segment is a known profile type
+/// (such as `myapp.cpu`), it is stripped off as the hint; otherwise the whole name becomes
+/// the service.
 pub fn parse_pyroscope_name(name: &str) -> (String, Option<String>, BTreeMap<String, String>) {
     let (app, labels_str) = match name.split_once('{') {
         Some((a, rest)) => (a.trim(), rest.trim_end_matches('}')),
@@ -947,7 +959,7 @@ mod tests {
     fn decode_accepts_raw_and_gzip() {
         let p = cpu_profile();
         let gz = encode_pprof(&p).expect("encode");
-        // 裸 protobuf（手动去 gzip）也应被接受。
+        // Raw protobuf (gzip stripped manually) should also be accepted.
         let raw = maybe_gunzip(&gz).expect("gunzip");
         assert_ne!(&raw[..2], &[0x1f, 0x8b]);
         assert!(decode_pprof(&raw).is_ok());
@@ -986,7 +998,8 @@ mod tests {
             ev.fields["object_key"],
             Value::from("blobs/v1/o/profiles/api/cpu/20231114/x.pprof.zst")
         );
-        // trace_id / span_id 必须始终成列（无关联时为空串），否则 schema-on-write 缺列。
+        // trace_id / span_id must always be columns (empty string when there is no association),
+        // otherwise schema-on-write is missing columns.
         assert!(ev.fields.contains_key("trace_id"));
         assert!(ev.fields.contains_key("span_id"));
         assert_eq!(ev.timestamp.0, p.start_time_micros);

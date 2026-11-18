@@ -3,16 +3,11 @@
 
 mod semantic;
 
+use contracts::{ContractIssue, ContractValidator, dashboard_model_validator};
+use domain::dashboard::authoring::{VisualizationManifest, visualization_manifest};
+use kernel::Error;
 pub use semantic::{validate_dashboard_semantics, validate_dashboard_semantics_with};
 use serde_json::Value;
-
-use crate::{
-    domain::dashboard::authoring::{VisualizationManifest, visualization_manifest},
-    shared::{
-        Error,
-        contracts::{ContractIssue, ContractValidator, dashboard_model_validator},
-    },
-};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DashboardValidationMode {

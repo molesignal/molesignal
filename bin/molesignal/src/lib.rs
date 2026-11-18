@@ -11,14 +11,6 @@
 pub mod api;
 pub mod app;
 pub mod bootstrap;
-pub mod config;
-pub mod domain;
+#[cfg(test)]
+mod i18n_language_seed;
 pub mod infra;
-pub mod protocol;
-pub mod shared;
-pub mod tantivy;
-
-// Product modules are workspace crates and are re-exported for API compatibility.
-pub use ::agent;
-pub use ::domain_management;
-pub use ::report_renderer;

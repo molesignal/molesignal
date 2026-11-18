@@ -5,10 +5,6 @@
 
 pub mod policy;
 
-pub mod domain {
-    pub use ::domain::*;
-}
-
 pub mod shared {
     pub mod metrics;
     pub mod rendezvous;
@@ -17,7 +13,6 @@ pub mod shared {
     pub mod telemetry;
     pub mod trace;
 
-    pub use kernel::{Error, Result, ids, time};
     pub use trace::{
         context as trace_context, coverage as trace_coverage, fixtures as trace_fixtures,
         grpc as grpc_trace, http as http_trace, metrics as trace_metrics,

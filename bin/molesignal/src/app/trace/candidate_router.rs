@@ -16,8 +16,18 @@ use std::{
     time::Duration,
 };
 
-use grpc_client as grpc_channel;
+use domain::cluster::{ClusterRegistry, PeerInfo, PeerRole};
+use kernel::time::TimestampMicros;
+use protocol::cluster::v1::{
+    TraceCandidateDisposition, TraceCandidateServiceSubmitRequest, TraceForceKeep,
+    trace_candidate_service_client::TraceCandidateServiceClient,
+};
 use serde::Serialize;
+use signals::{
+    tail_sampling::{ForceKeep, SamplerNode, TraceCandidate, rendezvous_owner},
+    trace_metrics,
+    trace_normalization::{TraceLimits, sanitize_and_limit_span},
+};
 use tokio::{
     sync::{Mutex, mpsc},
     task::JoinHandle,
@@ -29,20 +39,7 @@ use crate::{
     api::grpc::trace::candidate_server::{
         MAX_TRACE_CANDIDATE_BYTES, TRACE_CANDIDATE_ORIGIN_HEADER, TRACE_CANDIDATE_ORIGIN_VALUE,
     },
-    app::{
-        cluster::{ClusterRegistry, PeerInfo, PeerRole},
-        trace::{TracePipeline, TraceSubmitError},
-    },
-    protocol::cluster::v1::{
-        TraceCandidateDisposition, TraceCandidateServiceSubmitRequest, TraceForceKeep,
-        trace_candidate_service_client::TraceCandidateServiceClient,
-    },
-    shared::{
-        tail_sampling::{ForceKeep, SamplerNode, TraceCandidate, rendezvous_owner},
-        time::TimestampMicros,
-        trace_metrics,
-        trace_normalization::{TraceLimits, sanitize_and_limit_span},
-    },
+    app::trace::{TracePipeline, TraceSubmitError},
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -139,7 +136,7 @@ impl RouterWorkerContext {
             return Ok(channel.clone());
         }
 
-        let channel = grpc_channel::connect(endpoint, false).await?;
+        let channel = grpc_client::connect(endpoint, false).await?;
 
         self.channels
             .lock()
@@ -479,11 +476,11 @@ async fn deliver_candidate(context: &RouterWorkerContext, queued: QueuedCandidat
             let channel = context.channel(&owner.endpoint).await?;
             let mut client = TraceCandidateServiceClient::new(channel);
 
-            crate::shared::grpc_trace::call(
+            signals::grpc_trace::call(
                 request,
                 "cluster.v1.TraceCandidateService",
                 "Submit",
-                crate::shared::grpc_trace::GrpcTarget::Internal,
+                signals::grpc_trace::GrpcTarget::Internal,
                 |request| client.submit(request),
             )
             .await
@@ -599,7 +596,7 @@ fn build_request(
 
     // Both headers are required. Metadata construction cannot fail for these static values and
     // the token was already parsed from a process environment variable.
-    let _ = grpc_channel::with_bearer(&mut request, token);
+    let _ = grpc_client::with_bearer(&mut request, token);
 
     request.metadata_mut().insert(
         TRACE_CANDIDATE_ORIGIN_HEADER,
@@ -612,7 +609,9 @@ fn build_request(
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
+    use domain::intake::ServiceGraphObserver;
     use service_graph::{ServiceGraphAggregator, ServiceGraphObserverImpl};
+    use signals::trace_normalization::CanonicalSpan;
     use tokio_stream::wrappers::TcpListenerStream;
     use tonic::transport::Server;
 
@@ -620,8 +619,6 @@ mod tests {
     use crate::{
         api::grpc::trace::candidate_server::TraceCandidateGrpc,
         app::trace::{MemoryTraceSink, TracePipelineConfig, TraceSinkWorkerConfig},
-        domain::intake::ServiceGraphObserver,
-        shared::trace_normalization::CanonicalSpan,
     };
 
     struct FixedRegistry(Vec<PeerInfo>);
@@ -643,8 +640,8 @@ mod tests {
 
     fn local_pipeline() -> Arc<TracePipeline> {
         let sampler = Arc::new(
-            crate::shared::tail_sampling::TailSampler::new(
-                crate::shared::tail_sampling::TraceRuntimePolicy::default(),
+            signals::tail_sampling::TailSampler::new(
+                signals::tail_sampling::TraceRuntimePolicy::default(),
                 false,
                 TraceLimits::default(),
             )
@@ -805,7 +802,7 @@ mod tests {
             .try_submit(TraceCandidate {
                 org_id: "org".into(),
                 stream: None,
-                span: crate::shared::trace_fixtures::canonical_http_trace().remove(0),
+                span: signals::trace_fixtures::canonical_http_trace().remove(0),
                 force_keep: ForceKeep::None,
             })
             .unwrap();
@@ -830,11 +827,11 @@ mod tests {
         let self_intake = Arc::new(MemoryTraceSink::default());
         let external = Arc::new(MemoryTraceSink::default());
         let sampler = Arc::new(
-            crate::shared::tail_sampling::TailSampler::new(
-                crate::shared::tail_sampling::TraceRuntimePolicy {
+            signals::tail_sampling::TailSampler::new(
+                signals::tail_sampling::TraceRuntimePolicy {
                     normal_sample_ratio: 1.0,
                     root_grace_ms: 1,
-                    ..crate::shared::tail_sampling::TraceRuntimePolicy::default()
+                    ..signals::tail_sampling::TraceRuntimePolicy::default()
                 },
                 false,
                 TraceLimits::default(),
@@ -995,7 +992,7 @@ mod tests {
             .cloned()
             .map(CanonicalSpan::into_raw_event)
             .collect::<Vec<_>>();
-        observer.observe(&crate::shared::ids::Id("system-org".into()), &graph_events);
+        observer.observe(&kernel::ids::Id("system-org".into()), &graph_events);
         let edges = graph.flush_due(i64::MAX);
         assert!(edges.iter().any(|edge| {
             edge.client_service == "molesignal-router"
@@ -1033,11 +1030,11 @@ mod tests {
     async fn failed_owner_is_excluded_and_candidate_rehashes_to_live_owner() {
         let sink = Arc::new(MemoryTraceSink::default());
         let sampler = Arc::new(
-            crate::shared::tail_sampling::TailSampler::new(
-                crate::shared::tail_sampling::TraceRuntimePolicy {
+            signals::tail_sampling::TailSampler::new(
+                signals::tail_sampling::TraceRuntimePolicy {
                     normal_sample_ratio: 1.0,
                     root_grace_ms: 1,
-                    ..crate::shared::tail_sampling::TraceRuntimePolicy::default()
+                    ..signals::tail_sampling::TraceRuntimePolicy::default()
                 },
                 false,
                 TraceLimits::default(),

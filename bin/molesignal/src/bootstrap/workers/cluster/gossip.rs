@@ -15,23 +15,23 @@
 
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
+use domain::{cluster::PeerRole, iam::InstanceSettingsRepository};
+use kernel::ids::Id;
+use postgres::repositories::cluster::events::ClusterOrgLinkRepository;
+use protocol::cluster::v1::{
+    ClusterRef, EventServiceGossipClustersRequest, event_service_client::EventServiceClient,
+};
 use tokio::task::JoinHandle;
 
 use crate::{
-    app::cluster::{PeerRole, WorkOwnership},
-    domain::iam::InstanceSettingsRepository,
+    app::cluster::WorkOwnership,
     infra::{
         cluster::{
-            cluster_secrets_repo::ClusterSecretRepository, grpc_channel,
+            cluster_secrets_repo::ClusterSecretRepository,
             remote_clusters_repo::RemoteClustersRepository,
         },
-        persistence::repositories::cluster::events::ClusterOrgLinkRepository,
         secret::resolve_cluster_control_token,
     },
-    protocol::cluster::v1::{
-        ClusterRef, EventServiceGossipClustersRequest, event_service_client::EventServiceClient,
-    },
-    shared::ids::Id,
 };
 
 pub struct ClusterGossip {
@@ -146,7 +146,7 @@ impl ClusterGossip {
                 continue; // 无任何可解析 token → 跳过该 peer。
             };
 
-            let Ok(channel) = grpc_channel::connect(&peer.advertise_addr, peer.tls_verify).await
+            let Ok(channel) = grpc_client::connect(&peer.advertise_addr, peer.tls_verify).await
             else {
                 continue;
             };
@@ -155,17 +155,17 @@ impl ClusterGossip {
                 known: known_refs.clone(),
             });
 
-            if grpc_channel::with_bearer(&mut req, &token).is_err() {
+            if grpc_client::with_bearer(&mut req, &token).is_err() {
                 continue;
             }
 
             let mut client = EventServiceClient::new(channel);
 
-            let resp = match crate::shared::grpc_trace::call(
+            let resp = match signals::grpc_trace::call(
                 req,
                 "cluster.v1.EventService",
                 "GossipClusters",
-                crate::shared::grpc_trace::GrpcTarget::Internal,
+                signals::grpc_trace::GrpcTarget::Internal,
                 |request| client.gossip_clusters(request),
             )
             .await

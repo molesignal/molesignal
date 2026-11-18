@@ -14,12 +14,9 @@
 
 mod page_url;
 
+use kernel::{Error, Result};
 pub use page_url::render_page_url;
-
-use crate::{
-    infra::persistence::repositories::scheduled_reports::ScheduledReport,
-    shared::{Error, Result},
-};
+use postgres::repositories::scheduled_reports::ScheduledReport;
 
 /// 渲染静态报表 payload（json / csv / svg）。PDF/PNG 必须由 headless renderer 生成。
 pub fn render_payload(r: &ScheduledReport) -> Result<Vec<u8>> {
@@ -84,10 +81,10 @@ pub fn content_type_for(format: &str) -> &'static str {
 
 #[cfg(test)]
 mod tests {
+    use kernel::{ids::Id, time::TimestampMicros};
     use serde_json::json;
 
     use super::*;
-    use crate::shared::{ids::Id, time::TimestampMicros};
 
     fn mk_report(format: &str) -> ScheduledReport {
         ScheduledReport {

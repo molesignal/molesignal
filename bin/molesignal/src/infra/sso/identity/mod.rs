@@ -13,13 +13,10 @@
 pub mod link_requests;
 
 use async_trait::async_trait;
+use domain::iam::{SsoPlatform, SsoProviderKind};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::sqlx_err;
 use sqlx::{PgPool, Row};
-
-use crate::{
-    domain::iam::{SsoPlatform, SsoProviderKind},
-    infra::persistence::sqlx_err,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 /// 绑定是怎么建立的。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

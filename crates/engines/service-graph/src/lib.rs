@@ -1,56 +1,39 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Service graph aggregator + repository。
+//! Service graph aggregator + repository.
 //!
-//! 工作流：
-//! 1. intake 在 flush traces stream 的 RecordBatch 之前，遍历每个 span，
-//!    经 [`ServiceGraphAggregator::record`] 把 client→server 这条边的样本累计到
-//!    `DashMap<EdgeKey, Bucket>`。
-//! 2. 每分钟边界（`bucket_at = floor(now / 60s)` 变化时）由
-//!    [`ServiceGraphAggregator::flush_due`] 把上一窗口的桶 drain，转 [`EdgeSnapshot`]
-//!    通过 [`ServiceGraphRepository::insert_many`] 落 `service_graph_edges` 表。
-//! 3. HTTP `GET /api/v1/traces/service_graph` 走 [`ServiceGraphRepository::query`] 返边集。
+//! Workflow:
+//! 1. Before intake flushes a RecordBatch of the traces stream, it iterates over each span and
+//!    accumulates the samples of each client->server edge, via
+//!    [`ServiceGraphAggregator::record`], into `DashMap<EdgeKey, Bucket>`.
+//! 2. At each minute boundary (when `bucket_at = floor(now / 60s)` changes),
+//!    [`ServiceGraphAggregator::flush_due`] drains the buckets of the previous window, converts
+//!    them to [`EdgeSnapshot`], and writes them to the `service_graph_edges` table through
+//!    [`ServiceGraphRepository::insert_many`].
+//! 3. HTTP `GET /api/v1/traces/service_graph` returns the edge set via
+//!    [`ServiceGraphRepository::query`].
 //!
-//! 分位数采用每桶滑动样本（capped 1024 上限，避免长尾爆内存）+ 简化 nearest-rank。
+//! Quantiles use a sliding sample per bucket (capped at 1024, so long tails cannot blow up
+//! memory) plus a simplified nearest-rank.
 
 use std::sync::Arc;
 
+use ::domain::intake::{RawEvent, ServiceGraphObserver};
 use dashmap::DashMap;
+use kernel::{ids::Id, time::TimestampMicros};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
-
-use crate::{
-    domain::intake::{RawEvent, ServiceGraphObserver},
-    shared::{
-        ids::Id, time::TimestampMicros,
-        trace_normalization::effective_service_name as canonical_effective_service_name,
-    },
-};
-
-pub mod domain {
-    pub use ::domain::*;
-}
+use signals::trace_normalization::effective_service_name as canonical_effective_service_name;
 
 mod repository;
 
 pub use repository::{PgServiceGraphRepository, ServiceGraphRepository};
 
-pub mod infra {
-    pub mod persistence {
-        pub use postgres::sqlx_err;
-    }
-}
-
-pub mod shared {
-    pub use kernel::{Result, ids, time};
-    pub use signals::trace_normalization;
-}
-
 const BUCKET_SIZE_US: i64 = 60 * 1_000_000;
 const SAMPLE_CAP: usize = 1024;
 
-/// 未配对 span 暂存上限（防 span_id 永不配对时内存无界增长）。
+/// Cap on buffered unpaired spans (prevents unbounded memory growth if a span_id never pairs).
 const SPAN_CAP: usize = 100_000;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -70,7 +53,7 @@ struct Bucket {
     samples_us: Vec<i64>,
 }
 
-/// 一条已观察、待配对的 span（按 span_id 索引）。
+/// A span that has been observed and awaits pairing (indexed by span_id).
 #[derive(Debug, Clone)]
 struct PendingSpan {
     service: String,
@@ -78,7 +61,8 @@ struct PendingSpan {
     ts: TimestampMicros,
     duration_us: i64,
     is_error: bool,
-    /// 观察时的墙钟时间（μs），用于 [`ServiceGraphAggregator::prune`] 过期清理。
+    /// Wall-clock time (μs) when observed, used by [`ServiceGraphAggregator::prune`] to clean up
+    /// expired entries.
     seen_at_us: i64,
 }
 
@@ -102,9 +86,11 @@ pub struct EdgeSnapshot {
 #[derive(Default)]
 pub struct ServiceGraphAggregator {
     buckets: DashMap<EdgeKey, Mutex<Bucket>>,
-    /// `(org_id, trace_id, span_id)` → span 信息：供后到的子 span 找到其父。
+    /// `(org_id, trace_id, span_id)` -> span info, which lets a child span that arrives later
+    /// find its parent.
     pending: DashMap<(Id, String, String), PendingSpan>,
-    /// `(org_id, trace_id, parent_span_id)` → 已到但其父尚未到的子 span。
+    /// `(org_id, trace_id, parent_span_id)` -> child spans that have arrived while their parent
+    /// has not yet arrived.
     waiting: DashMap<(Id, String, String), Vec<PendingSpan>>,
 }
 
@@ -113,8 +99,9 @@ impl ServiceGraphAggregator {
         Self::default()
     }
 
-    /// 记录一条 span 派生的 edge 样本。
-    /// `ts` 为 span 的发生时间；`duration_us` 端到端耗时；`is_error` 来自 status code。
+    /// Records one edge sample derived from a span.
+    /// `ts` is when the span occurred; `duration_us` is the end-to-end duration; `is_error` is
+    /// derived from the status code.
     pub fn record(
         &self,
         org_id: &Id,
@@ -170,14 +157,19 @@ impl ServiceGraphAggregator {
         }
     }
 
-    /// 观察一条 span：按 span_id 与父子关系配对，跨服务即累计一条调用边。
+    /// Observes one span: pairs it by span_id and parent-child relationship, and when the pair
+    /// crosses services, accumulates one call edge.
     ///
-    /// 配对是双向的：子 span 到达时若其父已记录（且服务不同）→ 立即连边；父尚未到达 →
-    /// 暂存等待，父到达时回填。边方向 = 父(调用方)服务 → 子(被调方)服务；该边的时延与
-    /// 错误取**子 span**（被调端视角的 RED 指标）。同一服务内部的父子 span 不连边。
+    /// Pairing is bidirectional: when a child span arrives and its parent is already recorded
+    /// (and the services differ) -> connect the edge immediately; if the parent has not arrived
+    /// yet -> buffer the child and wait, backfilling when the parent arrives. Edge direction =
+    /// parent (caller) service -> child (callee) service; the edge's latency and errors come from
+    /// the **child span** (RED metrics from the callee's perspective). Parent and child spans in
+    /// the same service form no edge.
     ///
-    /// 注：配对状态是单进程内存态——分布式部署下同一 trace 的父子 span 若落到不同
-    /// intake 进程则无法配对（边会偏少，但不会出现错误的边）。
+    /// Note: the pairing state is held in the memory of a single process. In a distributed
+    /// deployment, if the parent and child spans of the same trace land on different intake
+    /// processes, they cannot be paired (fewer edges result, but never incorrect ones).
     #[allow(clippy::too_many_arguments)]
     pub fn observe_span(
         &self,
@@ -231,7 +223,8 @@ impl ServiceGraphAggregator {
             seen_at_us: TimestampMicros::now().0,
         };
 
-        // 1) 正向：我的父是否已记录？记录了就立即连边，否则把自己挂到 waiting 等父到达。
+        // 1) Forward: is my parent already recorded? If so, connect the edge immediately,
+        // otherwise park this span in waiting until the parent arrives.
         if let Some(parent) = parent_span_id.filter(|p| !p.is_empty()) {
             let pk = (org_id.clone(), trace_id.to_string(), parent.to_string());
             let parent = self
@@ -251,21 +244,22 @@ impl ServiceGraphAggregator {
                         is_error,
                     );
                 }
-                Some(_) => {} // 同服务内部边，忽略
+                Some(_) => {} // Edge within a single service, ignored
                 None => {
                     self.waiting.entry(pk).or_default().push(me.clone());
                 }
             }
         }
 
-        // 2) 记录自身，供后到的子 span 配对；超上限只跳过存储（不影响已存配对）。
+        // 2) Record itself so that child spans arriving later can pair with it; over the cap,
+        // only the storing is skipped (pairings already stored are unaffected).
         let myk = (org_id.clone(), trace_id.to_string(), span_id.to_string());
 
         if self.pending.len() < SPAN_CAP {
             self.pending.insert(myk.clone(), me.clone());
         }
 
-        // 3) 反向：回填此前等待"我"作为父的子 span。
+        // 3) Reverse: backfill the child spans previously waiting for "me" as their parent.
         if let Some((_, children)) = self.waiting.remove(&myk) {
             for child in children {
                 if me.service != child.service {
@@ -283,8 +277,8 @@ impl ServiceGraphAggregator {
         }
     }
 
-    /// 清理早于 `cutoff_micros`（按观察墙钟时间）的未配对 span，防内存累积。
-    /// 由 flush worker 每个 tick 调一次。
+    /// Removes unpaired spans older than `cutoff_micros` (by observation wall-clock time) to
+    /// prevent memory buildup. Called once per tick by the flush worker.
     pub fn prune(&self, cutoff_micros: i64) {
         self.pending.retain(|_, v| v.seen_at_us >= cutoff_micros);
 
@@ -294,7 +288,7 @@ impl ServiceGraphAggregator {
         });
     }
 
-    /// 把所有 `bucket_at < cutoff` 的桶 drain 出来转 snapshot。
+    /// Drains all buckets with `bucket_at < cutoff` and converts them to snapshots.
     pub fn flush_due(&self, cutoff_micros: i64) -> Vec<EdgeSnapshot> {
         let mut drained: Vec<EdgeKey> = Vec::new();
 
@@ -347,10 +341,12 @@ fn edge_environment<'a>(caller: &'a str, callee: &'a str) -> &'a str {
     if caller.is_empty() { callee } else { caller }
 }
 
-/// 把 trace 事件批旁路喂给 [`ServiceGraphAggregator`] 的 [`ServiceGraphObserver`] 适配器。
+/// A [`ServiceGraphObserver`] adapter that feeds trace event batches to
+/// [`ServiceGraphAggregator`] on a side path.
 ///
-/// 从 OTLP/native trace 接入约定的字段抽取：`trace_id` / `span_id` / `parent_span_id` /
-/// `service.name` / `duration_ns` / `status_code`（缺 Trace/Span ID 的事件跳过）。
+/// Extracts fields following the OTLP/native trace intake convention: `trace_id` / `span_id` /
+/// `parent_span_id` / `service.name` / `duration_ns` / `status_code` (events without a
+/// Trace/Span ID are skipped).
 pub struct ServiceGraphObserverImpl {
     agg: Arc<ServiceGraphAggregator>,
 }
@@ -460,7 +456,7 @@ mod tests {
         }
         let snaps = a.flush_due(BUCKET_SIZE_US);
         assert_eq!(snaps[0].request_count, (SAMPLE_CAP * 3) as u64);
-        // p99 必须 < SAMPLE_CAP（说明只用了前 cap 个样本）
+        // p99 must be < SAMPLE_CAP (which shows only the first cap samples were used)
         assert!(snaps[0].p99_us.unwrap() < SAMPLE_CAP as i64);
     }
 
@@ -469,16 +465,19 @@ mod tests {
         let a = ServiceGraphAggregator::new();
         let org = Id("o".to_string());
         let ts = TimestampMicros(120 * BUCKET_SIZE_US);
-        // 父(调用方) span 先到
+        // Parent (caller) span arrives first
         a.observe_span(&org, "trace-a", "p1", None, "web", ts, 10_000, false);
-        // 子(被调方) span 后到，parent = p1
+        // Child (callee) span arrives later, parent = p1
         a.observe_span(&org, "trace-a", "c1", Some("p1"), "api", ts, 5_000, true);
         let snaps = a.flush_due(121 * BUCKET_SIZE_US);
         assert_eq!(snaps.len(), 1);
         assert_eq!(snaps[0].client_service, "web");
         assert_eq!(snaps[0].server_service, "api");
         assert_eq!(snaps[0].request_count, 1);
-        assert_eq!(snaps[0].error_count, 1, "错误取子 span 的 status");
+        assert_eq!(
+            snaps[0].error_count, 1,
+            "the error count follows the child span's status"
+        );
     }
 
     #[test]
@@ -486,13 +485,13 @@ mod tests {
         let a = ServiceGraphAggregator::new();
         let org = Id("o".to_string());
         let ts = TimestampMicros(120 * BUCKET_SIZE_US);
-        // 子先到 → 进 waiting，尚无边
+        // Child arrives first -> goes into waiting, no edge yet
         a.observe_span(&org, "trace-a", "c1", Some("p1"), "api", ts, 5_000, false);
         assert!(
             a.flush_due(121 * BUCKET_SIZE_US).is_empty(),
-            "父未到不应有边"
+            "no edge before the parent arrives"
         );
-        // 父到达 → 回填成边
+        // Parent arrives -> backfilled into an edge
         a.observe_span(&org, "trace-a", "p1", None, "web", ts, 10_000, false);
         let snaps = a.flush_due(121 * BUCKET_SIZE_US);
         assert_eq!(snaps.len(), 1);
@@ -560,7 +559,7 @@ mod tests {
         a.observe_span(&org, "trace-a", "c1", Some("p1"), "web", ts, 5_000, false);
         assert!(
             a.flush_due(121 * BUCKET_SIZE_US).is_empty(),
-            "同服务内部父子不连边"
+            "no edge between a parent and child in the same service"
         );
     }
 
@@ -570,11 +569,11 @@ mod tests {
         let org = Id("o".to_string());
         let ts = TimestampMicros(0);
         a.observe_span(&org, "trace-a", "c1", Some("p1"), "api", ts, 1_000, false);
-        a.prune(i64::MAX); // 清空所有未配对态
+        a.prune(i64::MAX); // Clear all unpaired state
         a.observe_span(&org, "trace-a", "p1", None, "web", ts, 1_000, false);
         assert!(
             a.flush_due(BUCKET_SIZE_US).is_empty(),
-            "子已被 prune，父到达不应回填"
+            "the child was pruned, so the arriving parent must not backfill an edge"
         );
     }
 
@@ -646,7 +645,7 @@ mod tests {
         );
         assert!(
             a.flush_due(121 * BUCKET_SIZE_US).is_empty(),
-            "相同 span_id 不得跨 Trace 配对"
+            "the same span_id must not pair across traces"
         );
 
         a.observe_span(

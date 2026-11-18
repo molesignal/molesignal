@@ -19,22 +19,21 @@
 use std::{sync::Arc, time::Duration};
 
 use bytes::Bytes;
+use domain::run_claim::{OpenGate, RunGate};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use object_store::{ObjectStore, ObjectStoreExt, PutPayload, path::Path};
+use postgres::repositories::scheduled_reports::{
+    DeliveryStatus, ReportDelivery, ReportRecipient, ScheduledReport, ScheduledReportRepository,
+};
+use report_renderer::{ReportFormat, ReportRenderer, Viewport, validate_report_bytes};
 use tokio::task::JoinHandle;
 
+use crate::app::reporting::ReportRenderSession;
 // 报表 payload 渲染下沉到 infra::reporting（与 /scheduled_reports/{id}/preview 共用）。
 // 别名为 `render`，保持本文件既有 call sites / 测试不变。
-use crate::infra::reporting::{content_type_for, render_page_url, render_payload as render};
-use crate::{
-    app::reporting::ReportRenderSession,
-    domain::run_claim::{OpenGate, RunGate},
-    infra::persistence::repositories::scheduled_reports::{
-        DeliveryStatus, ReportDelivery, ReportRecipient, ScheduledReport, ScheduledReportRepository,
-    },
-    shared::{
-        Error, ReportFormat, ReportRenderer, Result, Viewport, ids::Id, time::TimestampMicros,
-        validate_report_bytes,
-    },
+use crate::infra::{
+    reporting::{content_type_for, render_page_url, render_payload as render},
+    storage::layout::StorageLayout,
 };
 
 const TICK_SECS: u64 = 60;
@@ -249,16 +248,16 @@ impl ScheduledReportRunner {
                     .header("Content-Type", content_type_for(&r.format))
                     .body(body.to_vec());
 
-                let resp = crate::shared::http_trace::send(
+                let resp = signals::http_trace::send(
                     &self.http,
                     request,
-                    crate::shared::http_trace::HttpTarget::ThirdParty,
+                    signals::http_trace::HttpTarget::ThirdParty,
                 )
                 .await
-                .map_err(|e| crate::shared::Error::internal(format!("webhook: {e}")))?;
+                .map_err(|e| kernel::Error::internal(format!("webhook: {e}")))?;
 
                 if !resp.status().is_success() {
-                    return Err(crate::shared::Error::internal(format!(
+                    return Err(kernel::Error::internal(format!(
                         "webhook {} returned {}",
                         recipient.target,
                         resp.status()
@@ -268,23 +267,23 @@ impl ScheduledReportRunner {
                 Ok(())
             }
             "s3" => {
-                // `target` 是 object key prefix；写到 `<prefix>/<report-id>-<ts>.<ext>`
-                let ext = ext_for(&r.format);
-                let ts = chrono::Utc::now().format("%Y%m%dT%H%M%SZ");
-
-                let key = format!(
-                    "{prefix}/{id}-{ts}.{ext}",
-                    prefix = recipient.target.trim_end_matches('/'),
-                    id = r.id.0
+                let file_name = format!(
+                    "{}-{}.{}",
+                    r.id.0,
+                    chrono::Utc::now().format("%Y%m%dT%H%M%SZ"),
+                    ext_for(&r.format)
                 );
+
+                let key =
+                    StorageLayout::report_export_key(&r.org_id, &recipient.target, &file_name);
 
                 self.object_store
                     .put(
-                        &Path::from(key.clone()),
+                        &Path::from(key.as_str()),
                         PutPayload::from(Bytes::copy_from_slice(body)),
                     )
                     .await
-                    .map_err(|e| crate::shared::Error::internal(format!("s3 put: {e}")))?;
+                    .map_err(|e| kernel::Error::internal(format!("s3 put: {e}")))?;
 
                 Ok(())
             }
@@ -299,10 +298,10 @@ impl ScheduledReportRunner {
                     );
                     Ok(())
                 } else {
-                    Err(crate::shared::Error::invalid("invalid email recipient"))
+                    Err(kernel::Error::invalid("invalid email recipient"))
                 }
             }
-            other => Err(crate::shared::Error::invalid(format!(
+            other => Err(kernel::Error::invalid(format!(
                 "unknown recipient kind: {other}"
             ))),
         }
@@ -439,10 +438,8 @@ mod tests {
     async fn svg_path_does_not_call_renderer() {
         use async_trait::async_trait;
         use bytes::Bytes;
-
-        use crate::shared::{
-            ReportFormat, ReportRenderer, Result as SResult, SessionCookie, Viewport,
-        };
+        use kernel::Result as SResult;
+        use report_renderer::{ReportFormat, ReportRenderer, SessionCookie, Viewport};
 
         struct PanicRenderer;
         #[async_trait]
@@ -511,7 +508,7 @@ mod tests {
             url: &str,
             format: ReportFormat,
             _viewport: Viewport,
-            session: Option<&crate::shared::SessionCookie>,
+            session: Option<&report_renderer::SessionCookie>,
         ) -> Result<Bytes> {
             self.renders
                 .lock()
@@ -576,7 +573,7 @@ mod tests {
     #[tokio::test]
     async fn a_pdf_report_is_rendered_with_the_session_issued_for_it() {
         let mut report = mk_report("pdf", None, "every:1d");
-        stored(&mut report, "reports/weekly");
+        stored(&mut report, "s3://weekly");
         let repo = Reports::new(vec![report.clone()]);
         let renderer = Arc::new(RecordingRenderer::default());
         let (runner, store) =
@@ -608,7 +605,7 @@ mod tests {
             objects[0]
                 .location
                 .as_ref()
-                .starts_with(&format!("reports/weekly/{}-", report.id.0)),
+                .starts_with(&format!("reports/orgA/weekly/{}-", report.id.0)),
             "{}",
             objects[0].location
         );
@@ -778,12 +775,12 @@ mod tests {
     fn sharded_gate(
         nodes: &Arc<crate::app::cluster::ownership::test_support::Nodes>,
         node_id: &str,
-        claims: &Arc<crate::domain::run_claim::MemoryRunClaims>,
+        claims: &Arc<domain::run_claim::MemoryRunClaims>,
     ) -> Arc<dyn RunGate> {
         let ownership = crate::app::cluster::WorkOwnership::new(
             nodes.clone(),
             node_id,
-            crate::app::cluster::PeerRole::Alert,
+            domain::cluster::PeerRole::Alert,
             Duration::ZERO,
         );
         Arc::new(crate::app::cluster::ShardedRunGate::new(
@@ -798,9 +795,9 @@ mod tests {
         let repo = Reports::new(vec![mk_report("json", None, "every:1d")]);
         let nodes = crate::app::cluster::ownership::test_support::Nodes::of(&[(
             "a",
-            crate::app::cluster::PeerRole::Alert,
+            domain::cluster::PeerRole::Alert,
         )]);
-        let claims = Arc::new(crate::domain::run_claim::MemoryRunClaims::default());
+        let claims = Arc::new(domain::run_claim::MemoryRunClaims::default());
         let runner = runner_with_gate(repo.clone(), sharded_gate(&nodes, "a", &claims));
 
         assert_eq!(runner.tick_once().await.unwrap(), 1);
@@ -814,15 +811,15 @@ mod tests {
     async fn a_report_held_by_another_node_is_not_run() {
         let report = mk_report("json", None, "every:1d");
         let repo = Reports::new(vec![report.clone()]);
-        let claims = Arc::new(crate::domain::run_claim::MemoryRunClaims::default());
+        let claims = Arc::new(domain::run_claim::MemoryRunClaims::default());
         // 两个节点各自只看到自己，都认为自己拥有这份报告。
         let mine = crate::app::cluster::ownership::test_support::Nodes::of(&[(
             "b",
-            crate::app::cluster::PeerRole::Alert,
+            domain::cluster::PeerRole::Alert,
         )]);
         let theirs = crate::app::cluster::ownership::test_support::Nodes::of(&[(
             "a",
-            crate::app::cluster::PeerRole::Alert,
+            domain::cluster::PeerRole::Alert,
         )]);
         let _running_on_a = sharded_gate(&theirs, "a", &claims)
             .admit(RUN_KIND, report.id.as_str())
@@ -842,10 +839,10 @@ mod tests {
             .collect();
         let repo = Reports::new(reports);
         let nodes = crate::app::cluster::ownership::test_support::Nodes::of(&[
-            ("a", crate::app::cluster::PeerRole::Alert),
-            ("b", crate::app::cluster::PeerRole::Alert),
+            ("a", domain::cluster::PeerRole::Alert),
+            ("b", domain::cluster::PeerRole::Alert),
         ]);
-        let claims = Arc::new(crate::domain::run_claim::MemoryRunClaims::default());
+        let claims = Arc::new(domain::run_claim::MemoryRunClaims::default());
         let on_a = runner_with_gate(repo.clone(), sharded_gate(&nodes, "a", &claims));
         let on_b = runner_with_gate(repo.clone(), sharded_gate(&nodes, "b", &claims));
 
@@ -870,10 +867,10 @@ mod tests {
             Ok(r)
         }
         async fn get(&self, _: &Id, _: &Id) -> Result<ScheduledReport> {
-            Err(crate::shared::Error::not_found("test"))
+            Err(kernel::Error::not_found("test"))
         }
         async fn get_by_id(&self, _: &Id) -> Result<ScheduledReport> {
-            Err(crate::shared::Error::not_found("test"))
+            Err(kernel::Error::not_found("test"))
         }
         async fn list(&self, _: &Id) -> Result<Vec<ScheduledReport>> {
             Ok(vec![])

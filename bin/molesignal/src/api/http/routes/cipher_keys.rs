@@ -17,14 +17,11 @@ use axum::{
     extract::{Path, State},
     routing::{get, post},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::permission,
-    shared::{Error, Result},
-};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -77,7 +74,7 @@ fn decode_b64_32(s: &str) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
-fn to_resp(k: &crate::infra::cipher::CipherKey) -> KeyResp {
+fn to_resp(k: &postgres::cipher::CipherKey) -> KeyResp {
     KeyResp {
         id: k.id.0.clone(),
         name: k.name.clone(),

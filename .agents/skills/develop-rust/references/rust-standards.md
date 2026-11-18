@@ -2,9 +2,9 @@
 
 ## 基础原则
 
-- 使用类型表达业务语义，复用 `crate::shared::ids::Id`、`TimestampMicros`、`TimeRange`、`StreamType` 等现有类型。
+- 使用类型表达业务语义，复用 `kernel::ids::Id`、`TimestampMicros`、`TimeRange`、`StreamType` 等现有类型。
 - 默认将组织隔离视为硬约束；repository、service、缓存、对象路径和事件携带 `org_id` 或 `organization_id`。
-- 使用 `crate::shared::{Error, Result}`，不要把 `Result<T, String>` 作为长期接口。
+- 使用 `kernel::{Error, Result}`，不要把 `Result<T, String>` 作为长期接口。
 - handler/service/repository 不因外部输入 `panic!`；优先返回带语义的 `Error`。
 - 外部协议的解析、认证与时间单位归一尽量在 `bin/molesignal/src/api` 边界完成。
 - 先查找并复用现有抽象，不创建同义的第二套领域类型或 repository。

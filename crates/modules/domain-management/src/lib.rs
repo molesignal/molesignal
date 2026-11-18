@@ -1,36 +1,31 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Custom domain + ACME 证书管理（spec domain-management，付费版独占）。
+//! Custom domain + ACME certificate management (spec domain-management, paid edition only).
 //!
-//! 提供：
-//! - `Domain` 模型 + `DomainRepository` trait
-//! - `hostname_valid()` —— DNS hostname 合法性校验（含国际化禁止）
-//! - `AcmeClient` trait —— HTTP-01 / DNS-01 挑战；具体 ACME 实现（如 `instant-acme`）
-//!   由 OSS 注入
-//! - `RenewalSchedule` —— 30 天前触发续期；6h 重试间隔
+//! Provides:
+//! - `Domain` model + `DomainRepository` trait
+//! - `hostname_valid()`: DNS hostname validity check (internationalized names are forbidden)
+//! - `AcmeClient` trait: HTTP-01 / DNS-01 challenges; the concrete ACME implementation (such as
+//!   `instant-acme`) is injected by OSS
+//! - `RenewalSchedule`: renewal is triggered 30 days ahead; 6h retry interval
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
-
-pub mod shared {
-    pub use kernel::{Error, Result, ids, time};
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DomainState {
-    /// 注册成功，等待 ACME 挑战完成
+    /// Registration succeeded; waiting for the ACME challenge to complete.
     Pending,
-    /// 证书已签发并部署
+    /// The certificate has been issued and deployed.
     Active,
-    /// 证书续期失败超过重试上限
+    /// Certificate renewal failed and exceeded the retry limit.
     Failed,
-    /// 用户删除（待对象存储清理）
+    /// Deleted by the user (awaiting object storage cleanup).
     Cancelled,
 }
 
@@ -52,7 +47,7 @@ pub struct Domain {
     pub org_id: Id,
     pub hostname: String,
     pub state: DomainState,
-    /// PEM 证书链；为空表示尚未签发
+    /// PEM certificate chain; empty means not yet issued.
     pub cert_pem: Option<String>,
     pub cert_not_after: Option<TimestampMicros>,
     pub created_at: TimestampMicros,
@@ -75,11 +70,12 @@ pub trait DomainRepository: Send + Sync {
     async fn delete(&self, org_id: &Id, id: &Id) -> Result<()>;
 }
 
-/// ACME 客户端抽象（HTTP-01 挑战即可，DNS-01 留 future）。
+/// ACME client abstraction (HTTP-01 challenges are enough; DNS-01 is left for the future).
 #[async_trait]
 pub trait AcmeClient: Send + Sync {
-    /// 请求新证书；调用方负责把返回的 `challenge_token` / `challenge_response`
-    /// 暴露在 `/.well-known/acme-challenge/<token>` 路径让 ACME server 抓取。
+    /// Requests a new certificate; the caller is responsible for exposing the returned
+    /// `challenge_token` / `challenge_response` at the `/.well-known/acme-challenge/<token>` path
+    /// so the ACME server can fetch them.
     async fn issue_certificate(&self, hostname: &str) -> Result<IssuedCertificate>;
 }
 
@@ -91,19 +87,20 @@ pub struct IssuedCertificate {
     pub not_after: i64,
 }
 
-/// 续期调度：返 30 天内即将过期的 cutoff 时间戳。
+/// Renewal scheduling: returns the cutoff timestamp for certificates expiring within 30 days.
 pub fn renewal_cutoff_micros(now: TimestampMicros) -> TimestampMicros {
     TimestampMicros(now.0 + 30 * 24 * 3600 * 1_000_000)
 }
 
-/// 重试间隔（6h）。
+/// Retry interval (6h).
 pub const RENEWAL_RETRY_SECS: i64 = 6 * 3600;
 
-// RFC 1123-ish hostname：每段 1-63 字符，整体 ≤ 253，TLD 至少 2 字符。
+// RFC 1123-ish hostname: each label is 1-63 characters, total length at most 253, and the TLD
+// is at least 2 characters.
 static HOSTNAME_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$").unwrap());
 
-/// Hostname 合法性校验。返 ok 或 Error::Invalid。
+/// Hostname validity check. Returns ok or Error::Invalid.
 pub fn hostname_valid(h: &str) -> Result<()> {
     if h.is_empty() {
         return Err(Error::invalid("hostname must not be empty"));
@@ -124,7 +121,7 @@ pub fn hostname_valid(h: &str) -> Result<()> {
     Ok(())
 }
 
-/// 决定一个 domain 是否需要续期：cert_not_after 在 cutoff 之前。
+/// Decides whether a domain needs renewal: cert_not_after is before the cutoff.
 pub fn needs_renewal(domain: &Domain, now: TimestampMicros) -> bool {
     let cutoff = renewal_cutoff_micros(now);
     domain.cert_not_after.is_some_and(|t| t.0 < cutoff.0)
@@ -169,14 +166,14 @@ mod tests {
             hostname: "x.com".into(),
             state: DomainState::Active,
             cert_pem: Some("PEM".into()),
-            // 还有 15 天就过期（now + 15d < cutoff = now + 30d）→ 需续
+            // Only 15 days left until expiry (now + 15d < cutoff = now + 30d) -> needs renewal
             cert_not_after: Some(TimestampMicros(now.0 + 15 * 86400 * 1_000_000)),
             created_at: now,
             last_renewal_at: None,
         };
         assert!(needs_renewal(&d, now));
 
-        // 60 天后过期，不需续
+        // Expires in 60 days, no renewal needed
         let d2 = Domain {
             cert_not_after: Some(TimestampMicros(now.0 + 60 * 86400 * 1_000_000)),
             ..d

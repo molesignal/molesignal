@@ -26,5 +26,3 @@ pub use tantivy::{
     footer::{TantivyFooterCache, TantivyFooterCacheRef},
     result::{TantivyResultCache, TantivyResultCacheRef, TantivyResultKey},
 };
-
-pub use crate::config::CacheLayerSettings;

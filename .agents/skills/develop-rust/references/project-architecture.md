@@ -39,9 +39,8 @@ crate 名为 `signals`；`sqlx-shim` 保持原名。除最终产品名外，单�
 - 尚未独立的 object store、DataFusion、Tantivy、WAL、通知等 adapter 暂留
   `bin/molesignal/src/infra`，后续只有形成稳定职责边界时再提取。
 
-`bin/molesignal/src/{domain,config,protocol,shared}` 以及部分 `infra` 模块是兼容 facade，
-用于保持现有应用代码的 import 稳定；新 crate 间依赖应直接引用实际 crate，避免通过
-`molesignal` 反向依赖 composition root。
+代码直接引用实际 crate：领域类型用 `domain::…`，错误、ID、时间等基础类型用 `kernel::…`，
+配置用 `settings::…`，遥测与追踪用 `signals::…`，PostgreSQL repository 用 `postgres::…`。
 
 ## Repository 与装配
 

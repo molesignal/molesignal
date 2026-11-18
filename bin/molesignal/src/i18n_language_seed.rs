@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 
-use crate::domain::i18n_language::{FALLBACK_LANGUAGE_CODE, LanguagePack};
+use domain::i18n_language::{FALLBACK_LANGUAGE_CODE, LanguagePack};
 
 /// The seeded entries under `key_prefix`, read the way the repository reads
 /// them: `language_code` first, the fallback language for what it lacks.

@@ -70,10 +70,6 @@ MoleSignal 后端使用 virtual Cargo workspace。仓库根 `Cargo.toml` 只管�
 adapter。PostgreSQL 实现位于 `crates/engines/postgres`。应用 use case、外部 API 和进程
 生命周期分别由 `bin/molesignal/src/app`、`api`、`bootstrap` 管理。
 
-主 package 中的 `domain`、`config`、`protocol`、`shared` 以及部分 `infra` module 是
-迁移期兼容 facade，用于让现有应用 import 保持稳定。workspace crate 之间应直接依赖
-实际 crate，不应经由这些 facade 形成对主 package 的反向依赖。
-
 ## 生成与持久化边界
 
 - `.proto` 源文件统一位于 `proto/`；`make proto-lint` 使用 Buf 校验 schema。

@@ -3,9 +3,6 @@
 
 //! Dependency-light primitives shared by every MoleSignal package.
 
-pub mod contracts {
-    pub use ::contracts::*;
-}
 pub mod cursor;
 pub mod drain;
 pub mod error;

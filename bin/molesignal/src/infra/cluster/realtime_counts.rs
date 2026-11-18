@@ -20,26 +20,20 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::{
+    alerting::realtime_snapshot::{CountSnapshot, RealtimeSnapshotRepository},
+    cluster::{ClusterRegistry, PeerInfo, PeerRole},
+};
 use futures::future::join_all;
+use kernel::{ids::Id, time::TimestampMicros};
 use parking_lot::Mutex;
+use protocol::alerting::v1::{
+    RealtimeServiceCountsRequest, realtime_service_client::RealtimeServiceClient,
+};
 use tonic::transport::Channel;
 
-use super::grpc_channel;
-use crate::{
-    app::{
-        alerting::realtime::{
-            INTERNAL_ORIGIN_HEADER, REALTIME_COUNTS_ORIGIN, RealtimeAlerts, RealtimeCounts,
-        },
-        cluster::{ClusterRegistry, PeerRole},
-    },
-    domain::{
-        alerting::realtime_snapshot::{CountSnapshot, RealtimeSnapshotRepository},
-        cluster::PeerInfo,
-    },
-    protocol::alerting::v1::{
-        RealtimeServiceCountsRequest, realtime_service_client::RealtimeServiceClient,
-    },
-    shared::{ids::Id, time::TimestampMicros},
+use crate::app::alerting::realtime::{
+    INTERNAL_ORIGIN_HEADER, REALTIME_COUNTS_ORIGIN, RealtimeAlerts, RealtimeCounts,
 };
 
 /// 每个节点最多等多久：汇总每秒一轮。
@@ -114,7 +108,7 @@ impl ClusterRealtimeCounts {
             return Ok(channel.clone());
         }
 
-        let channel = grpc_channel::connect(address, false).await?;
+        let channel = grpc_client::connect(address, false).await?;
 
         self.channels
             .lock()
@@ -135,7 +129,7 @@ impl ClusterRealtimeCounts {
             rule_ids: rule_ids.iter().map(|id| id.0.clone()).collect(),
         });
         request.set_timeout(COUNTS_TIMEOUT);
-        grpc_channel::with_bearer(&mut request, token)?;
+        grpc_client::with_bearer(&mut request, token)?;
         request.metadata_mut().insert(
             INTERNAL_ORIGIN_HEADER,
             REALTIME_COUNTS_ORIGIN
@@ -340,7 +334,7 @@ impl ClusterRealtimeCounts {
 async fn load(
     repository: &dyn RealtimeSnapshotRepository,
     rule_ids: &HashSet<Id>,
-) -> crate::shared::Result<Arc<Vec<CountSnapshot>>> {
+) -> kernel::Result<Arc<Vec<CountSnapshot>>> {
     let rule_ids: Vec<Id> = rule_ids.iter().cloned().collect();
     Ok(Arc::new(repository.load_rules(&rule_ids).await?))
 }

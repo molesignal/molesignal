@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! ReportRenderer 端口（spec scheduled-reports / change `scheduled-reports-headless`）。
+//! ReportRenderer port (spec scheduled-reports / change `scheduled-reports-headless`).
 //!
-//! 在 `shared` 而非 `app`/`infra`，因为 API 即时导出与
-//! `ScheduledReportRunner` 定时投递都需要调用同一渲染端口。
+//! It lives in `shared` rather than `app`/`infra`, because the API instant export and the
+//! `ScheduledReportRunner` scheduled delivery both need to call the same render port.
 
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -14,7 +14,8 @@ mod chrome;
 
 pub use chrome::{HeadlessChromeRenderer, MAX_POOL_SIZE, MAX_TIMEOUT_SECS, RendererConfig};
 
-/// 输出格式；只接 image / PDF（其它格式不走 renderer，由 runner 自己产）。
+/// Output format; only image / PDF are accepted (other formats skip the renderer and are
+/// produced by the runner itself).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReportFormat {
     Png,
@@ -33,7 +34,7 @@ impl ReportFormat {
 impl std::str::FromStr for ReportFormat {
     type Err = kernel::Error;
 
-    /// `"png"` / `"pdf"` 字面量解析；其它输入 → error。
+    /// Parses the `"png"` / `"pdf"` literals; any other input returns an error.
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s {
             "png" => Ok(Self::Png),
@@ -45,7 +46,7 @@ impl std::str::FromStr for ReportFormat {
     }
 }
 
-/// Render viewport 像素尺寸（headless Chrome `setDeviceMetricsOverride`）。
+/// Render viewport size in pixels (headless Chrome `setDeviceMetricsOverride`).
 #[derive(Debug, Clone, Copy)]
 pub struct Viewport {
     pub width: u32,
@@ -53,8 +54,9 @@ pub struct Viewport {
 }
 
 impl Viewport {
-    /// 交给 renderer 用它自己配置的视口（`[scheduled_reports.renderer].viewport_*`）。
-    /// 调用方没有理由偏离部署配置时都传它；传具体尺寸会盖过配置。
+    /// Use the renderer's own configured viewport (`[scheduled_reports.renderer].viewport_*`).
+    /// Pass it whenever the caller has no reason to deviate from the deployment config;
+    /// passing a specific size overrides the configuration.
     pub const CONFIGURED: Self = Self {
         width: 0,
         height: 0,
@@ -70,7 +72,7 @@ impl Default for Viewport {
     }
 }
 
-/// 渲染失败原因；caller 用来填 `report_deliveries.error`。
+/// Reason a render failed; the caller uses it to fill `report_deliveries.error`.
 #[derive(Debug, thiserror::Error)]
 pub enum RenderError {
     #[error("render timeout after {0}s")]
@@ -96,20 +98,22 @@ impl From<RenderError> for kernel::Error {
     }
 }
 
-/// 给 ScheduledReportRunner 用的渲染入口。
+/// Render entry point for ScheduledReportRunner.
 ///
-/// 具体实现由 composition root 注入。
+/// The concrete implementation is injected by the composition root.
 #[async_trait]
 pub trait ReportRenderer: Send + Sync {
-    /// 把 `url` 加载到 headless Chrome 中，按 `format` 截图或打印为 PDF。
+    /// Loads `url` in headless Chrome and, per `format`, takes a screenshot or prints to PDF.
     ///
-    /// `viewport` 是页面加载时的视口；[`Viewport::CONFIGURED`] 表示用 renderer 配置的尺寸。
-    /// 输出的宽度等于视口宽度，高度跟随页面内容。
+    /// `viewport` is the viewport used when the page loads; [`Viewport::CONFIGURED`] means the
+    /// size the renderer is configured with.
+    /// The output width equals the viewport width, and the height follows the page content.
     ///
-    /// `session` 是这次渲染的登录 Cookie：只写进这次借出的 Chrome 实例，不拼入 URL，打印后
-    /// 立即清除。
+    /// `session` is the sign-in cookie for this render: it is written only into the Chrome
+    /// instance borrowed for this render, never put in the URL, and cleared right after printing.
     ///
-    /// 返 raw bytes；caller 决定怎么 deliver（webhook POST / s3 PUT / email attach）。
+    /// Returns the raw bytes; the caller decides how to deliver them
+    /// (webhook POST / s3 PUT / email attach).
     async fn render(
         &self,
         url: &str,
@@ -119,17 +123,17 @@ pub trait ReportRenderer: Send + Sync {
     ) -> Result<Bytes>;
 }
 
-/// 渲染报表页时浏览器带的登录 Cookie。
+/// The sign-in cookie the browser carries when rendering a report page.
 #[derive(Debug, Clone)]
 pub struct SessionCookie {
     pub name: String,
     pub value: String,
-    /// Cookie 的 `Path`。
+    /// The cookie's `Path`.
     pub path: String,
 }
 
-/// 在声明 PDF/PNG MIME 前校验 renderer 的 magic bytes，避免把错误页、JSON 或 SVG
-/// 伪装成对应文件下载。
+/// Validates the renderer's magic bytes before declaring a PDF/PNG MIME type, so that an error
+/// page, JSON, or SVG cannot be passed off as the corresponding file download.
 pub fn validate_report_bytes(format: ReportFormat, bytes: &[u8]) -> Result<()> {
     let valid = match format {
         ReportFormat::Pdf => bytes.starts_with(b"%PDF-"),

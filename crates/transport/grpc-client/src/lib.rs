@@ -1,24 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 跨集群 gRPC channel 构造（共用基元）。
+//! Cross-cluster gRPC channel construction (shared primitive).
 //!
-//! 把 `advertise_addr`（裸 `host:port` 或带 scheme）解析为 endpoint、挂连接/请求超时、
-//! 按需开 webpki TLS，返回 tonic [`Channel`]；并提供给请求挂 bearer 的 helper。
-//! 联邦查询扇出、跨集群事件推送、查询取消、gossip 节点发现共用同一套连接逻辑。
+//! Resolves `advertise_addr` (a bare `host:port` or one with a scheme) into an endpoint,
+//! attaches connect/request timeouts, enables webpki TLS on demand, and returns a tonic
+//! [`Channel`]; it also provides a helper for attaching a bearer to a request.
+//! Federated query fan-out, cross-cluster event push, query cancellation, and gossip node
+//! discovery all share this one set of connection logic.
 
 use std::time::Duration;
 
 use tonic::transport::{Channel, ClientTlsConfig};
 
-/// 连接超时（与联邦查询一致）。
+/// Connect timeout (consistent with federated queries).
 pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// 请求超时（与联邦查询一致）。
+/// Request timeout (consistent with federated queries).
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// 把 `advertise_addr` 解析为 endpoint URL。
-/// 已带 scheme 则原样返回；裸地址按 `tls_verify` 选 https / http。
+/// Resolves `advertise_addr` into an endpoint URL.
+/// Returns it unchanged if it already has a scheme; a bare address gets https / http
+/// depending on `tls_verify`.
 pub fn endpoint_url(advertise_addr: &str, tls_verify: bool) -> String {
     if advertise_addr.starts_with("http://") || advertise_addr.starts_with("https://") {
         advertise_addr.to_string()
@@ -29,8 +32,9 @@ pub fn endpoint_url(advertise_addr: &str, tls_verify: bool) -> String {
     }
 }
 
-/// 建一个到远端集群的 tonic [`Channel`]（超时 + 可选 webpki TLS）。
-/// 失败返回泛化文案（不含 secret / 内部指针），供调用方记入 degraded / 仅 warn。
+/// Builds a tonic [`Channel`] to a remote cluster (timeouts + optional webpki TLS).
+/// On failure returns a generic message (no secrets or internal pointers), so the caller can
+/// record it under degraded or merely warn.
 pub async fn connect(advertise_addr: &str, tls_verify: bool) -> Result<Channel, String> {
     let url = endpoint_url(advertise_addr, tls_verify);
 
@@ -51,7 +55,8 @@ pub async fn connect(advertise_addr: &str, tls_verify: bool) -> Result<Channel, 
         .map_err(|e| format!("connect: {e}"))
 }
 
-/// 给一个 tonic 请求挂 `authorization: Bearer <token>` 头。明文 token 绝不入日志。
+/// Attaches an `authorization: Bearer <token>` header to a tonic request.
+/// The plaintext token never goes into logs.
 pub fn with_bearer<T>(req: &mut tonic::Request<T>, token: &str) -> Result<(), String> {
     let bearer = format!("Bearer {token}");
 

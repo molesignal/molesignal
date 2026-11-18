@@ -5,58 +5,57 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::{
+    cluster::{ClusterRegistry, PeerRole},
+    i18n_language::I18nLanguageRepository,
+    iam::{IamPlatformAdministratorRepository, Organization},
+    metrics::MetricDirectory,
+    run_claim::RunGate,
+};
+use kernel::{Result, drain::DrainController};
 use object_store::ObjectStore;
+use postgres::{
+    MetaStore,
+    cipher::{CipherKeyRepository, CipherRootKey, FieldKeyService, PgCipherKeyRepository},
+    repositories::{
+        alert_rules::PgAlertRuleRepository,
+        cluster::nodes::{ClusterNodesRepository, PgClusterNodesRepository, PgClusterRegistry},
+        dashboard_authoring::PgDashboardDraftRepository,
+        dashboard_contract_registry::PgDashboardContractRepository,
+        dashboards::PgDashboardRepository,
+        escalation_policies::PgEscalationPolicyRepository,
+        folders::PgFolderRepository,
+        i18n_language::PgI18nLanguageRepository,
+        iam::{
+            memberships::PgIamMembershipRepository,
+            platform_administrators::PgIamPlatformAdministratorRepository,
+        },
+        incidents::PgIncidentRepository,
+        metric_directory::PgMetricDirectory,
+        organizations::PgOrganizationRepository,
+        password_resets::{PasswordResetRepository, PgPasswordResetRepository},
+        run_claims::PgRunClaimRepository,
+        saved_views::PgSavedViewRepository,
+        schedules::PgScheduleRepository,
+        streams::PgStreamRepository,
+        teams::PgTeamRepository,
+        trace_policies::{PgTraceDebugTokenRepository, PgTracePolicyRepository},
+        users::PgUserRepository,
+    },
+};
+use settings::{Role, Settings};
+use signals::policy::{TraceDebugTokenRepository, TracePolicyRepository};
 
 use crate::{
-    app::cluster::{ClusterRegistry, PeerRole, ShardedRunGate, WorkOwnership},
-    config::{Role, Settings},
-    domain::{
-        i18n_language::I18nLanguageRepository,
-        iam::{IamPlatformAdministratorRepository, Organization},
-        metrics::MetricDirectory,
-        run_claim::RunGate,
-        trace_policy::{TraceDebugTokenRepository, TracePolicyRepository},
-    },
+    app::cluster::{ShardedRunGate, WorkOwnership},
     infra::{
         caching::OrgSchemaCache,
-        cipher::{CipherKeyRepository, CipherRootKey, FieldKeyService, PgCipherKeyRepository},
         masking::MaskingService,
-        persistence::{
-            MetaStore,
-            repositories::{
-                alert_rules::PgAlertRuleRepository,
-                cluster::nodes::{
-                    ClusterNodesRepository, PgClusterNodesRepository, PgClusterRegistry,
-                },
-                dashboard_authoring::PgDashboardDraftRepository,
-                dashboard_contract_registry::PgDashboardContractRepository,
-                dashboards::PgDashboardRepository,
-                escalation_policies::PgEscalationPolicyRepository,
-                folders::PgFolderRepository,
-                i18n_language::PgI18nLanguageRepository,
-                iam::{
-                    memberships::PgIamMembershipRepository,
-                    platform_administrators::PgIamPlatformAdministratorRepository,
-                },
-                incidents::PgIncidentRepository,
-                metric_directory::PgMetricDirectory,
-                organizations::PgOrganizationRepository,
-                password_resets::{PasswordResetRepository, PgPasswordResetRepository},
-                run_claims::PgRunClaimRepository,
-                saved_views::PgSavedViewRepository,
-                schedules::PgScheduleRepository,
-                streams::PgStreamRepository,
-                teams::PgTeamRepository,
-                trace_policies::{PgTraceDebugTokenRepository, PgTracePolicyRepository},
-                users::PgUserRepository,
-            },
-        },
         storage::{
             object::{self, production::ProductionObjectStore},
             object_reader::ObjectReader,
         },
     },
-    shared::{Result, drain::DrainController},
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -102,9 +101,9 @@ pub(super) struct Core {
     pub(super) cipher_keys: Arc<dyn CipherKeyRepository>,
     pub(super) field_key_service: Arc<FieldKeyService>,
     pub(super) regex_patterns:
-        Arc<dyn crate::infra::persistence::repositories::regex_patterns::RegexPatternRepository>,
+        Arc<dyn postgres::repositories::regex_patterns::RegexPatternRepository>,
     pub(super) masking_service: Arc<MaskingService>,
-    pub(super) field_masking_rules: Arc<dyn crate::domain::masking::FieldMaskingRuleRepository>,
+    pub(super) field_masking_rules: Arc<dyn domain::masking::FieldMaskingRuleRepository>,
     pub(super) field_masking_service: Arc<crate::infra::masking::FieldMaskingService>,
     pub(super) cluster_repo: Arc<dyn ClusterNodesRepository>,
     pub(super) registry: Arc<dyn ClusterRegistry>,
@@ -144,11 +143,11 @@ impl Core {
 
         let system_org = match orgs.ensure_system_organization().await {
             Ok(system_org) => {
-                crate::shared::trace_metrics::set_system_load("system_org", true);
+                signals::trace_metrics::set_system_load("system_org", true);
                 system_org
             }
             Err(error) => {
-                crate::shared::trace_metrics::set_system_load("system_org", false);
+                signals::trace_metrics::set_system_load("system_org", false);
                 return Err(error);
             }
         };
@@ -219,21 +218,18 @@ impl Core {
         let field_key_service = Arc::new(FieldKeyService::new(cipher_keys.clone()));
 
         let regex_patterns: Arc<
-            dyn crate::infra::persistence::repositories::regex_patterns::RegexPatternRepository,
+            dyn postgres::repositories::regex_patterns::RegexPatternRepository,
         > = Arc::new(
-            crate::infra::persistence::repositories::regex_patterns::PgRegexPatternRepository::new(
-                pool.clone(),
-            ),
+            postgres::repositories::regex_patterns::PgRegexPatternRepository::new(pool.clone()),
         );
 
         let masking_service = Arc::new(MaskingService::new(regex_patterns.clone()));
 
-        let field_masking_rules: Arc<dyn crate::domain::masking::FieldMaskingRuleRepository> =
-            Arc::new(
-                crate::infra::persistence::repositories::field_masking_rules::PgFieldMaskingRuleRepository::new(
-                    pool.clone(),
-                ),
-            );
+        let field_masking_rules: Arc<dyn domain::masking::FieldMaskingRuleRepository> = Arc::new(
+            postgres::repositories::field_masking_rules::PgFieldMaskingRuleRepository::new(
+                pool.clone(),
+            ),
+        );
 
         let field_masking_service = Arc::new(crate::infra::masking::FieldMaskingService::new(
             field_masking_rules.clone(),

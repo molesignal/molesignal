@@ -5,7 +5,6 @@
 //!
 //! 各子模块都是 domain 端口（port）的具体实现（adapter）：
 //!
-//! - [`persistence`]   元数据库（sqlx + Postgres），实现各 repository trait
 //! - [`storage`]       parquet + object_store，承担列式持久化
 //! - [`search`]        datafusion 查询执行 + tantivy 倒排索引（占位）
 //! - [`segment_wal`]   分段 Write-Ahead-Log，落地到本地磁盘
@@ -16,7 +15,6 @@
 
 pub mod apm;
 pub mod caching;
-pub use ::postgres::cipher;
 pub mod cluster;
 pub mod connectors;
 pub mod enrichment;
@@ -28,14 +26,11 @@ pub mod masking;
 pub mod messaging;
 pub mod mfa;
 pub mod notify;
-pub use ::postgres as persistence;
 pub mod pipeline;
-pub use ::profiles;
 pub mod query;
 pub mod releases;
 pub mod reporting;
 pub mod rum;
-pub use ::function_runtime as runtime;
 pub mod search;
 pub mod secret;
 pub mod segment_wal;
@@ -43,5 +38,4 @@ pub mod signin;
 pub mod sso;
 pub mod status_page;
 pub mod storage;
-pub use ::postgres::synthetics;
 pub mod traces;

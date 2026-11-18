@@ -46,7 +46,7 @@ async fn main() -> anyhow::Result<()> {
     molesignal::bootstrap::tls::install_crypto_provider()?;
 
     let cli = Cli::parse();
-    let settings = molesignal::config::load(cli.config.as_deref())?;
+    let settings = settings::load(cli.config.as_deref())?;
 
     // LoggerGuard 必须保活到 main 退出，否则后台非阻塞写线程被 drop、文件日志会丢。
     // Capture is shared by both retained-trace sinks. Disabling self-intake must
@@ -55,7 +55,7 @@ async fn main() -> anyhow::Result<()> {
     let self_telemetry_enabled = settings.telemetry.self_collect.enabled;
 
     let self_telemetry_init = (self_telemetry_enabled || trace_capture_enabled).then(|| {
-        use molesignal::shared::self_telemetry::{ResourceIdentity, SelfTelemetryInit};
+        use signals::self_telemetry::{ResourceIdentity, SelfTelemetryInit};
 
         let roles = settings
             .node
@@ -78,15 +78,14 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    let logger_guard = molesignal::shared::telemetry::init_full_with_self_telemetry(
-        molesignal::shared::telemetry::FullTelemetryInit {
+    let logger_guard =
+        signals::telemetry::init_full_with_self_telemetry(signals::telemetry::FullTelemetryInit {
             log_level: &settings.telemetry.log_level,
             format: parse_log_format(&settings.telemetry.log_format),
             output: build_log_output(&settings.telemetry),
             trace_filter: &settings.telemetry.trace.filter,
             self_telemetry: self_telemetry_init,
-        },
-    )?;
+        })?;
 
     // config 文件 hot-reload watcher。
     // 当前 apply 路径仅打 log（mutable 字段如 telemetry.log_level / notify.* 的真实
@@ -97,19 +96,15 @@ async fn main() -> anyhow::Result<()> {
         read_initial_toml(cli.config.as_deref()),
     ) {
         (Some(path), Some(snapshot)) => {
-            match molesignal::config::watcher::spawn_config_watcher(
-                path.to_path_buf(),
-                snapshot,
-                |diffs| {
-                    for d in diffs {
-                        if d.immutable {
-                            tracing::warn!(field = %d.path, "config change ignored (immutable, restart required)");
-                        } else {
-                            tracing::info!(field = %d.path, "config changed (hot-apply not yet wired)");
-                        }
+            match settings::watcher::spawn_config_watcher(path.to_path_buf(), snapshot, |diffs| {
+                for d in diffs {
+                    if d.immutable {
+                        tracing::warn!(field = %d.path, "config change ignored (immutable, restart required)");
+                    } else {
+                        tracing::info!(field = %d.path, "config changed (hot-apply not yet wired)");
                     }
-                },
-            ) {
+                }
+            }) {
                 Ok(w) => Some(Box::leak(Box::new(w))),
                 Err(e) => {
                     tracing::warn!(error = %e, "config watcher disabled");
@@ -119,10 +114,6 @@ async fn main() -> anyhow::Result<()> {
         }
         _ => None,
     };
-
-    // JWT secret 不再从 config 读，由 DB 持久化。
-    // 仅打 deprecation 警告（若旧 [auth].jwt_secret 字段仍在）。
-    settings.auth.warn_if_deprecated_secret_present();
 
     // 离线子命令：KEK 轮换重包。跑完即退出，不起服务。
     if let Some(Command::RewrapKek { old_key }) = &cli.command {
@@ -173,8 +164,8 @@ async fn main() -> anyhow::Result<()> {
     roles::run(app_state, settings).await
 }
 
-fn parse_log_format(s: &str) -> molesignal::shared::telemetry::LogFormat {
-    use molesignal::shared::telemetry::LogFormat;
+fn parse_log_format(s: &str) -> signals::telemetry::LogFormat {
+    use signals::telemetry::LogFormat;
 
     match s {
         "json" => LogFormat::Json,
@@ -182,10 +173,8 @@ fn parse_log_format(s: &str) -> molesignal::shared::telemetry::LogFormat {
     }
 }
 
-fn build_log_output(
-    t: &molesignal::config::TelemetrySettings,
-) -> molesignal::shared::telemetry::LogOutput {
-    use molesignal::shared::telemetry::{FileRotation, LogOutput};
+fn build_log_output(t: &settings::TelemetrySettings) -> signals::telemetry::LogOutput {
+    use signals::telemetry::{FileRotation, LogOutput};
 
     match t.log_output.as_str() {
         "file" => LogOutput::File {
@@ -203,8 +192,8 @@ fn build_log_output(
     }
 }
 
-fn role_str(r: &molesignal::config::Role) -> &'static str {
-    use molesignal::config::Role::*;
+fn role_str(r: &settings::Role) -> &'static str {
+    use settings::Role::*;
 
     match r {
         Standalone => "standalone",

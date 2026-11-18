@@ -3,6 +3,37 @@
 
 use std::sync::Arc;
 
+use agent::{
+    automations::AutomationRepository, currencies::CurrencyRepository,
+    feedback::AgentFeedbackRepository, im::ImRepository, inbound_mcp::InboundMcpRepository,
+    knowledge::KnowledgeStore, memory::MemoryStore, model::AgentRepository,
+    network::NetworkPolicyStore, runs::RunRepository, scoring::ScoringRepository,
+    tool_control::ToolControlRepository,
+};
+use domain::{
+    alerting::{
+        incident_group::IncidentGroupRepository, mute::MuteRuleRepository,
+        repositories::IncidentRcaRepository, semantic_group::SemanticGroupRepository,
+    },
+    cluster::ClusterRegistry,
+    function::{FunctionExecutor, FunctionRepository},
+    i18n_language::I18nLanguageRepository,
+    iam::{
+        IamPlatformAdministratorRepository, InstanceSettingsRepository, SsoProviderRepository,
+        TeamRepository, api_token::ApiTokenRepository, service_account::ServiceAccountRepository,
+    },
+    intake::usage::{budget::IntakeBudgetRepository, source::IntakeUsageRepository},
+    metrics::MetricDirectory,
+    query::{PromqlEngine, QueryEngine, SlowQueryRepository},
+    rum::{
+        DebugArtifactRepository, RumAlertSource, RumApplicationRepository, RumIssueRepository,
+        RumPlaylistRepository, RumReplayCommentRepository, RumSessionSummaryRepository,
+    },
+    saved_view::SavedViewRepository,
+    storage::QueryFileSource,
+    stream::StreamRepository,
+};
+use kernel::{drain::DrainController, health::Probe, ids::Id};
 use object_store::ObjectStore;
 use postgres::{
     cipher::{CipherKeyRepository, FieldKeyService},
@@ -52,21 +83,13 @@ use signals::{
 };
 
 use crate::{
-    agent::{
-        automations::AutomationRepository, currencies::CurrencyRepository,
-        feedback::AgentFeedbackRepository, im::ImRepository, inbound_mcp::InboundMcpRepository,
-        knowledge::KnowledgeStore, memory::MemoryStore, model::AgentRepository,
-        network::NetworkPolicyStore, runs::RunRepository, scoring::ScoringRepository,
-        tool_control::ToolControlRepository,
-    },
     app::{
         agent_usage::AgentUsage,
         alerting::{AlertSources, AlertingService, RuleEvaluator},
-        cluster::ClusterRegistry,
         dashboard::{DashboardService, authoring::DashboardAuthoringService},
         iam::{IamAccessService, IamService, signin_limit::SigninLimiter},
         intake::{
-            FunctionExecutor, IntakeService,
+            IntakeService,
             usage::{IntakeSourceDirectory, IntakeUsageMeter},
         },
         log_inspection::LogInspectionService,
@@ -82,33 +105,8 @@ use crate::{
         tools::ToolRuntime,
         trace::{TracePipeline, candidate_router::TraceCandidateRouter},
     },
-    domain::{
-        alerting::{
-            incident_group::IncidentGroupRepository, mute::MuteRuleRepository,
-            repositories::IncidentRcaRepository, semantic_group::SemanticGroupRepository,
-        },
-        function::FunctionRepository,
-        i18n_language::I18nLanguageRepository,
-        iam::{
-            IamPlatformAdministratorRepository, InstanceSettingsRepository, SsoProviderRepository,
-            TeamRepository, api_token::ApiTokenRepository,
-            service_account::ServiceAccountRepository,
-        },
-        intake::usage::{budget::IntakeBudgetRepository, source::IntakeUsageRepository},
-        metrics::MetricDirectory,
-        query::{PromqlEngine, QueryEngine, SlowQueryRepository},
-        rum::{
-            DebugArtifactRepository, RumAlertSource, RumApplicationRepository, RumIssueRepository,
-            RumPlaylistRepository, RumReplayCommentRepository, RumSessionSummaryRepository,
-        },
-        saved_view::SavedViewRepository,
-        storage::QueryFileSource,
-        stream::StreamRepository,
-        trace_policy::{TraceDebugTokenRepository, TracePolicyRepository},
-    },
     infra::{
         caching::OrgSchemaCache,
-        cipher::{CipherKeyRepository, FieldKeyService},
         cluster::{ClusterSecretRepository, RemoteClustersRepository},
         connectors::ConnectorRepository,
         enrichment::GeoLookup,
@@ -119,42 +117,6 @@ use crate::{
             SigninPolicyRepository,
         },
         notify::EmailSender,
-        persistence::repositories::{
-            agent::{
-                chat_archives::ChatArchiveRepository, chats::ChatRepository,
-                model_providers::ModelProviderRepository, prompts::AgentPromptRepository,
-                toolsets::AgentToolsetRepository,
-            },
-            annotations::AnnotationRepository,
-            audit_events::AuditEventRepository,
-            cluster::{
-                events::{
-                    ClusterEventOutboxRepository, ClusterOrgLinkRepository,
-                    ClusterResourceVersionRepository, SeenEventsRepository,
-                },
-                nodes::ClusterNodesRepository,
-            },
-            domains::DomainRepository,
-            email_domains::EmailDomainRepository,
-            file_download_tokens::FileDownloadTokenRepository,
-            iam::{policies::IamPolicyRepository, roles::IamRoleRepository},
-            investigation_blobs::InvestigationBlobRepository,
-            invitations::InvitationRepository,
-            log_patterns::LogPatternRepository,
-            notify::NotifyTemplateManagementRepository,
-            password_resets::PasswordResetRepository,
-            pipelines::runs::PipelineRunRepository,
-            regex_patterns::RegexPatternRepository,
-            report_templates::ReportTemplateRepository,
-            resource_shares::ResourceShareRepository,
-            scheduled_reports::ScheduledReportRepository,
-            search::jobs::SearchJobRepository,
-            signing_secrets::SigningSecretRepository,
-            user_preferences::UserPreferencesRepository,
-            user_ui_preference::UserUiPreferenceRepository,
-            web_search::WebSearchRepository,
-            workspace_preference_defaults::WorkspacePreferenceDefaultsRepository,
-        },
         pipeline::{ExtendKvRepository, ExtendTable, ScheduledPipelineRepository},
         query::{catalog_source::CatalogQuerySource, federation_cancel::FederationCancelRegistry},
         rum::{intake::RumIntake, replay::RumReplayWriter},
@@ -163,10 +125,6 @@ use crate::{
             JwksCache, SsoIdentityRepository, SsoLinkRequestRepository, SsoSigninTestRepository,
             SsoStateStore,
         },
-        traces::ServiceGraphRepository,
-    },
-    shared::{
-        ReportRenderer, drain::DrainController, health::Probe, ids::Id, tail_sampling::TailSampler,
     },
 };
 
@@ -232,7 +190,7 @@ pub struct AlertingState {
     /// 换班申请：发起、答复、批准、撤回。
     pub swaps: Arc<crate::app::alerting::ShiftSwaps>,
     /// 心跳规则的打卡地址与最后一次打卡。
-    pub heartbeats: Arc<dyn crate::domain::alerting::heartbeat::HeartbeatRepository>,
+    pub heartbeats: Arc<dyn domain::alerting::heartbeat::HeartbeatRepository>,
     /// 修复动作：定义、在事件上发起、审批后执行与验证。
     pub remediation: Arc<crate::app::alerting::RemediationService>,
     /// 工单：Jira 与飞书项目的连接器、建单、同步与评论。
@@ -246,7 +204,7 @@ pub struct AlertingState {
     /// 实时规则在本集群各节点的计数之和：联邦里规则的汇总集群来拉。
     pub realtime_counts: Arc<dyn crate::app::alerting::realtime::RealtimeCounts>,
     /// 自动发现找到的问题。
-    pub discovery: Arc<dyn crate::domain::alerting::discovery::DiscoveryRepository>,
+    pub discovery: Arc<dyn domain::alerting::discovery::DiscoveryRepository>,
     /// 节假日日历。
     pub holidays: Arc<crate::app::alerting::HolidayCalendars>,
     /// 组织的优先级与紧急度档位。
@@ -304,12 +262,12 @@ pub struct TelemetryState {
     pub metric_directory: Arc<dyn MetricDirectory>,
     pub self_telemetry_org_id: Option<Id>,
     pub self_telemetry_runtime: Option<Arc<SelfTelemetryRuntime>>,
-    pub self_telemetry_resource: Option<crate::shared::self_telemetry::ResourceIdentity>,
+    pub self_telemetry_resource: Option<signals::self_telemetry::ResourceIdentity>,
     pub self_telemetry_profiles_enabled: bool,
     pub self_telemetry_cluster_token: Option<Arc<str>>,
     pub profile_storage: Arc<ProfileStorageService>,
     pub profiling_service: Arc<ProfilingService>,
-    pub profiling_settings: crate::config::ProfilingSettings,
+    pub profiling_settings: settings::ProfilingSettings,
     pub prometheus_series_admission: Arc<PrometheusSeriesAdmission>,
     pub probe: Arc<Probe>,
     pub system_load_health: TraceSystemLoadHealth,
@@ -331,7 +289,7 @@ pub struct TelemetryState {
     pub geoip: Arc<dyn GeoLookup>,
     pub apm_query: Arc<crate::app::apm::ApmQueryService>,
     /// What people keep about services: definitions and error states.
-    pub apm_catalog: Arc<dyn crate::domain::apm::ApmCatalogRepository>,
+    pub apm_catalog: Arc<dyn domain::apm::ApmCatalogRepository>,
     pub apm_runtime: Option<Arc<crate::app::apm::ApmRuntime>>,
     pub trace_policies: Arc<dyn TracePolicyRepository>,
     pub trace_debug_tokens: Arc<dyn TraceDebugTokenRepository>,
@@ -369,7 +327,7 @@ pub struct StorageState {
     pub pipeline_runs: Arc<dyn PipelineRunRepository>,
     pub regex_patterns: Arc<dyn RegexPatternRepository>,
     pub masking: Arc<MaskingService>,
-    pub field_masking_rules: Arc<dyn crate::domain::masking::FieldMaskingRuleRepository>,
+    pub field_masking_rules: Arc<dyn domain::masking::FieldMaskingRuleRepository>,
     pub field_masking: Arc<FieldMaskingService>,
 }
 

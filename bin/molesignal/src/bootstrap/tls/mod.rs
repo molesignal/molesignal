@@ -5,9 +5,8 @@
 
 pub mod sni_resolver;
 
+use kernel::{Error, Result};
 pub use sni_resolver::SniCertResolver;
-
-use crate::shared::{Error, Result};
 
 /// Select the process-wide rustls provider before any TLS client or server is built.
 ///

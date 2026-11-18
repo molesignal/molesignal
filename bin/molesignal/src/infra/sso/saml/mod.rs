@@ -20,17 +20,15 @@ pub mod metadata;
 use std::{collections::BTreeMap, io::Write};
 
 use base64::{Engine as _, engine::general_purpose};
+use domain::iam::SsoFieldMapping;
 use flate2::{Compression, write::DeflateEncoder};
+use kernel::{Error, Result, time::TimestampMicros};
 use rand::TryRng as _;
 use roxmltree::Document;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    domain::iam::SsoFieldMapping,
-    shared::{Error, Result, time::TimestampMicros},
-};
-
-/// 旧 `SsoConfig` 的兼容 alias —— 实际配置走 `crate::domain::iam::SsoSamlConfig`。
+/// The settings a SAML sign-in runs with, taken from the provider's
+/// [`domain::iam::SsoSamlConfig`].
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SamlConfig {

@@ -21,25 +21,24 @@ use std::{
     time::Duration,
 };
 
+use domain::{cluster::PeerRole, iam::InstanceSettingsRepository};
+use kernel::{Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::cluster::events::{
+    ClusterEventOutboxRepository, ClusterOrgLinkRepository, OrgLink, OutboxRow,
+    SeenEventsRepository,
+};
+use protocol::cluster::v1::{PushEventsRequest, event_service_client::EventServiceClient};
 use tokio::task::JoinHandle;
 
 use crate::{
-    app::cluster::{PeerRole, WorkOwnership},
-    domain::iam::InstanceSettingsRepository,
+    app::cluster::WorkOwnership,
     infra::{
         cluster::{
             cluster_secrets_repo::ClusterSecretRepository,
-            grpc_channel,
             remote_clusters_repo::{RemoteCluster, RemoteClustersRepository},
-        },
-        persistence::repositories::cluster::events::{
-            ClusterEventOutboxRepository, ClusterOrgLinkRepository, OrgLink, OutboxRow,
-            SeenEventsRepository,
         },
         secret::resolve_secret_ref,
     },
-    protocol::cluster::v1::{PushEventsRequest, event_service_client::EventServiceClient},
-    shared::{Result, ids::Id, time::TimestampMicros},
 };
 
 static OUTBOX_LAG: OnceLock<prometheus::IntGaugeVec> = OnceLock::new();
@@ -49,7 +48,7 @@ static PUSH_ERRORS: OnceLock<prometheus::IntCounterVec> = OnceLock::new();
 /// `federation_outbox_lag{cluster}`：某集群 `max_seq - acked_seq`（待投递积压）。
 fn outbox_lag() -> &'static prometheus::IntGaugeVec {
     OUTBOX_LAG.get_or_init(|| {
-        crate::shared::metrics::register_int_gauge_vec(
+        signals::metrics::register_int_gauge_vec(
             "federation_outbox_lag",
             "undelivered cross-cluster events per remote cluster",
             &["cluster"],
@@ -60,7 +59,7 @@ fn outbox_lag() -> &'static prometheus::IntGaugeVec {
 /// `federation_events_pushed_total`：累计推送出去的事件数。
 fn pushed_total() -> &'static prometheus::IntCounter {
     PUSHED.get_or_init(|| {
-        crate::shared::metrics::register_int_counter(
+        signals::metrics::register_int_counter(
             "federation_events_pushed_total",
             "cross-cluster events pushed to remote clusters",
         )
@@ -70,7 +69,7 @@ fn pushed_total() -> &'static prometheus::IntCounter {
 /// `federation_push_errors_total{cluster}`：推送失败次数（软降级，下 tick 重试）。
 fn push_errors() -> &'static prometheus::IntCounterVec {
     PUSH_ERRORS.get_or_init(|| {
-        crate::shared::metrics::register_int_counter_vec(
+        signals::metrics::register_int_counter_vec(
             "federation_push_errors_total",
             "cross-cluster event push failures per remote cluster",
             &["cluster"],
@@ -251,7 +250,7 @@ impl ClusterEventSync {
         }
 
         // channel 复用：同一集群的各 org 推送共用一条连接。
-        let channel = grpc_channel::connect(&c.advertise_addr, c.tls_verify).await?;
+        let channel = grpc_client::connect(&c.advertise_addr, c.tls_verify).await?;
         let mut retry_ids: HashSet<String> = HashSet::new();
 
         for (org, rows) in by_org {
@@ -281,15 +280,15 @@ impl ClusterEventSync {
                 events_json,
             });
 
-            grpc_channel::with_bearer(&mut req, &token)?;
+            grpc_client::with_bearer(&mut req, &token)?;
             let mut client = EventServiceClient::new(channel.clone())
                 .max_encoding_message_size(self.max_message_size);
 
-            let resp = crate::shared::grpc_trace::call(
+            let resp = signals::grpc_trace::call(
                 req,
                 "cluster.v1.EventService",
                 "PushEvents",
-                crate::shared::grpc_trace::GrpcTarget::Internal,
+                signals::grpc_trace::GrpcTarget::Internal,
                 |request| client.push_events(request),
             )
             .await

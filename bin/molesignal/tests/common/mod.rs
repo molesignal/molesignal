@@ -13,24 +13,19 @@
 use std::sync::Arc;
 
 use arrow::array::RecordBatch;
-use molesignal::{
-    api::http,
-    config::{
-        AuthSettings, MetaDatabaseSettings, NotifySettings, ObjectStoreSettings, ProbeGrpcSettings,
-        Settings,
+use domain::{
+    iam::{IamMembership, IamMembershipRepository, IamScope, Organization, OrganizationRepository},
+    storage::{
+        ArtifactRole, ArtifactState, DatasetState, PhysicalDataset, PhysicalDatasetId, QueryFile,
+        primary_dataset_type, type_id,
     },
-    domain::{
-        iam::{
-            IamMembership, IamMembershipRepository, IamScope, Organization, OrganizationRepository,
-        },
-        storage::{
-            ArtifactRole, ArtifactState, DatasetState, PhysicalDataset, PhysicalDatasetId,
-            QueryFile, primary_dataset_type, type_id,
-        },
-        stream::StreamDefinition,
-    },
-    infra::storage::parquet::writer::ParquetWriter,
-    shared::{ids::Id, time::TimestampMicros},
+    stream::StreamDefinition,
+};
+use kernel::{ids::Id, time::TimestampMicros};
+use molesignal::{api::http, infra::storage::parquet::writer::ParquetWriter};
+use settings::{
+    AuthSettings, MetaDatabaseSettings, NotifySettings, ObjectStoreSettings, ProbeGrpcSettings,
+    Settings,
 };
 use testcontainers::{ContainerAsync, runners::AsyncRunner};
 use testcontainers_modules::postgres::Postgres as PgImage;
@@ -92,7 +87,7 @@ pub struct TestServer {
     pub state: molesignal::api::AppState,
     pub settings: Settings,
     pub object_store_root: tempfile::TempDir,
-    _logger_guard: Option<molesignal::shared::telemetry::LoggerGuard>,
+    _logger_guard: Option<signals::telemetry::LoggerGuard>,
     _pg: Option<ContainerAsync<PgImage>>,
     _server: tokio::task::JoinHandle<()>,
     _wal_root: tempfile::TempDir,
@@ -161,8 +156,8 @@ impl TestServer {
         adjust: impl FnOnce(&mut Settings),
     ) -> Self {
         // 全局 config 单例必须先 init，否则 `/api/v1/query` 等 handler 调
-        // `molesignal::config::get()` 会 panic。tests/common 内只 init 一次（OnceCell）。
-        let _ = molesignal::config::load(None);
+        // `settings::get()` 会 panic。tests/common 内只 init 一次（OnceCell）。
+        let _ = settings::load(None);
 
         let (dsn, pg) = test_database().await;
 
@@ -185,7 +180,6 @@ impl TestServer {
             ..Default::default()
         };
         settings.auth = AuthSettings {
-            deprecated_jwt_secret: None,
             session_ttl_secs: 3600,
             // 留空让我们手动建用户（更可控）
             root_email: String::new(),
@@ -216,29 +210,28 @@ impl TestServer {
         adjust(&mut settings);
 
         let logger_guard = if capture_traces {
-            use molesignal::shared::{
+            use signals::{
                 self_telemetry::{ResourceIdentity, SelfTelemetryInit},
                 telemetry::{FullTelemetryInit, LogFormat, LogOutput},
             };
-            let guard =
-                molesignal::shared::telemetry::init_full_with_self_telemetry(FullTelemetryInit {
-                    log_level: &settings.telemetry.log_level,
-                    format: LogFormat::Text,
-                    output: LogOutput::Console,
-                    trace_filter: &settings.telemetry.trace.filter,
-                    self_telemetry: Some(SelfTelemetryInit {
-                        queue_capacity: settings.telemetry.self_collect.queue_capacity,
-                        traces_enabled: true,
-                        resource: ResourceIdentity::new(
-                            "molesignal",
-                            env!("CARGO_PKG_VERSION"),
-                            "test",
-                            "standalone",
-                            "trace-e2e-node",
-                        ),
-                    }),
-                })
-                .expect("initialize traced integration-test subscriber");
+            let guard = signals::telemetry::init_full_with_self_telemetry(FullTelemetryInit {
+                log_level: &settings.telemetry.log_level,
+                format: LogFormat::Text,
+                output: LogOutput::Console,
+                trace_filter: &settings.telemetry.trace.filter,
+                self_telemetry: Some(SelfTelemetryInit {
+                    queue_capacity: settings.telemetry.self_collect.queue_capacity,
+                    traces_enabled: true,
+                    resource: ResourceIdentity::new(
+                        "molesignal",
+                        env!("CARGO_PKG_VERSION"),
+                        "test",
+                        "standalone",
+                        "trace-e2e-node",
+                    ),
+                }),
+            })
+            .expect("initialize traced integration-test subscriber");
             Some(guard)
         } else {
             // 测试期间把 server 端 tracing 打到 stderr，方便 `--nocapture` 下定位
@@ -262,7 +255,7 @@ impl TestServer {
             .expect("build_state");
         if let Some(hub) = logger_guard
             .as_ref()
-            .and_then(molesignal::shared::telemetry::LoggerGuard::self_telemetry)
+            .and_then(signals::telemetry::LoggerGuard::self_telemetry)
         {
             molesignal::bootstrap::activate_self_telemetry(&mut state, settings_static, hub)
                 .expect("activate traced integration-test self telemetry");
@@ -274,13 +267,10 @@ impl TestServer {
             .connect(&dsn)
             .await
             .expect("test pool");
-        let orgs = molesignal::infra::persistence::repositories::organizations::PgOrganizationRepository::new(
-            pool.clone(),
-        );
+        let orgs =
+            postgres::repositories::organizations::PgOrganizationRepository::new(pool.clone());
         let memberships =
-            molesignal::infra::persistence::repositories::iam::memberships::PgIamMembershipRepository::new(
-                pool.clone(),
-            );
+            postgres::repositories::iam::memberships::PgIamMembershipRepository::new(pool.clone());
 
         let org = orgs
             .create(Organization {
@@ -473,7 +463,7 @@ impl Credential for reqwest::RequestBuilder {
     fn credential(self, token: impl AsRef<str>) -> Self {
         let token = token.as_ref();
 
-        if molesignal::domain::iam::api_token::has_token_marker(token) {
+        if domain::iam::api_token::has_token_marker(token) {
             self.bearer_auth(token)
         } else {
             self.header(reqwest::header::COOKIE, format!("accessToken={token}"))
@@ -528,7 +518,7 @@ pub async fn write_parquet_fixture(
     batch: RecordBatch,
 ) -> QueryFile {
     let dataset_type = primary_dataset_type(stream.stream_type).unwrap();
-    let registry = molesignal::domain::storage::builtin_registry();
+    let registry = domain::storage::builtin_registry();
     let descriptor = registry
         .dataset_type(&stream.stream_type, &dataset_type)
         .expect("built-in raw dataset descriptor");
@@ -578,6 +568,7 @@ pub async fn write_parquet_fixture(
         null_counts: segment.column_stats.null_counts,
         indexed_at_micros: segment.column_stats.indexed_at_micros,
         shard: None,
+        clustering: Default::default(),
     }
 }
 
@@ -626,13 +617,15 @@ where
 #[allow(dead_code)]
 pub async fn seed_stream(
     state: &molesignal::api::AppState,
-    org_id: &molesignal::shared::ids::Id,
+    org_id: &kernel::ids::Id,
     name: &str,
-    stream_type: molesignal::domain::stream::StreamType,
-) -> molesignal::domain::stream::StreamDefinition {
-    use molesignal::domain::stream::{FieldDef, FieldType, Retention, Schema, StreamDefinition};
+    stream_type: domain::stream::StreamType,
+) -> domain::stream::StreamDefinition {
+    use domain::stream::{
+        FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType,
+    };
     let def = StreamDefinition {
-        id: molesignal::shared::ids::Id::new(),
+        id: kernel::ids::Id::new(),
         org_id: org_id.clone(),
         name: name.into(),
         stream_type,
@@ -641,15 +634,13 @@ pub async fn seed_stream(
                 name: "msg".into(),
                 data_type: FieldType::Utf8,
                 nullable: true,
-                index_type: None,
-                indexed: false,
+                index_type: StreamIndexType::None,
                 encrypted: false,
-                exact: false,
             }],
         },
         retention: Some(Retention { days: 7 }),
-        created_at: molesignal::shared::time::TimestampMicros::now(),
-        updated_at: molesignal::shared::time::TimestampMicros::now(),
+        created_at: kernel::time::TimestampMicros::now(),
+        updated_at: kernel::time::TimestampMicros::now(),
     };
     state
         .telemetry

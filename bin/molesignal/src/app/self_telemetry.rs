@@ -16,41 +16,36 @@ use std::{
 };
 
 use async_trait::async_trait;
-use grpc_client as grpc_channel;
+use domain::{
+    cluster::ClusterRegistry,
+    intake::{IntakeBatch, RawEvent},
+    stream::{MOLESIGNAL_SYSTEM_STREAM, StreamType},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use protocol::intake::v1::{
+    PushRequest, StreamType as ProtoStreamType, intake_service_client::IntakeServiceClient,
+};
+use settings::SelfCollectSettings;
+use signals::{
+    metrics::gather_structured,
+    self_telemetry::{
+        SelfTelemetryHub, SelfTelemetrySignal, metric_samples_to_events, record_accepted,
+        record_batch, record_drop, record_retry, with_suppression,
+    },
+    tail_sampling::{ForceKeep, TraceCandidate},
+    trace_normalization::CanonicalSpan,
+};
 use tokio::{
     sync::{mpsc, watch},
     task::JoinHandle,
     time::{Instant, sleep, timeout},
 };
 
-use crate::{
-    app::{
-        cluster::ClusterRegistry,
-        intake::IntakeService,
-        profile_storage::ProfileStorageService,
-        profiling::{CaptureError, CapturedProfile, ProfilingService},
-        trace::candidate_router::TraceCandidateRouter,
-    },
-    config::SelfCollectSettings,
-    domain::{
-        intake::{IntakeBatch, RawEvent},
-        stream::{MOLESIGNAL_SYSTEM_STREAM, StreamType},
-    },
-    protocol::intake::v1::{
-        PushRequest, StreamType as ProtoStreamType, intake_service_client::IntakeServiceClient,
-    },
-    shared::{
-        Error, Result,
-        ids::Id,
-        metrics::gather_structured,
-        self_telemetry::{
-            SelfTelemetryHub, SelfTelemetrySignal, metric_samples_to_events, record_accepted,
-            record_batch, record_drop, record_retry, with_suppression,
-        },
-        tail_sampling::{ForceKeep, TraceCandidate},
-        time::TimestampMicros,
-        trace_normalization::CanonicalSpan,
-    },
+use crate::app::{
+    intake::IntakeService,
+    profile_storage::ProfileStorageService,
+    profiling::{CaptureError, CapturedProfile, ProfilingService},
+    trace::candidate_router::TraceCandidateRouter,
 };
 
 /// 分角色内部 RPC 的共享 token。该 token 只来自进程环境，不写入日志或数据流。
@@ -170,7 +165,7 @@ impl Delivery for RemoteDelivery {
                     .await
                     .ok_or_else(|| "no intake available".to_string())?;
 
-                let channel = grpc_channel::connect(&peer.advertise_addr, false)
+                let channel = grpc_client::connect(&peer.advertise_addr, false)
                     .await
                     .map_err(|error| format!("connect failed: {error}"))?;
 
@@ -184,7 +179,7 @@ impl Delivery for RemoteDelivery {
                     stream_type_name: String::new(),
                 });
 
-                grpc_channel::with_bearer(&mut request, &self.token)?;
+                grpc_client::with_bearer(&mut request, &self.token)?;
 
                 request.metadata_mut().insert(
                     INTERNAL_ORIGIN_HEADER,
@@ -195,11 +190,11 @@ impl Delivery for RemoteDelivery {
 
                 let mut client = IntakeServiceClient::new(channel);
 
-                let response = crate::shared::grpc_trace::call(
+                let response = signals::grpc_trace::call(
                     request,
                     "intake.v1.IntakeService",
                     "Push",
-                    crate::shared::grpc_trace::GrpcTarget::Internal,
+                    signals::grpc_trace::GrpcTarget::Internal,
                     |request| client.push(request),
                 )
                 .await
@@ -826,20 +821,18 @@ async fn persist_profile_with(
 mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
+    use domain::cluster::{PeerInfo, PeerRole};
+    use protocol::intake::v1::{
+        PushResponse,
+        intake_service_server::{IntakeService as ProtoIntakeService, IntakeServiceServer},
+    };
     use serde_json::Map;
+    use signals::self_telemetry::{ResourceIdentity, SelfTelemetryInit};
     use tokio::net::TcpListener;
     use tokio_stream::wrappers::TcpListenerStream;
     use tonic::{Request, Response, Status, transport::Server};
 
     use super::*;
-    use crate::{
-        app::cluster::{PeerInfo, PeerRole},
-        protocol::intake::v1::{
-            PushResponse,
-            intake_service_server::{IntakeService as ProtoIntakeService, IntakeServiceServer},
-        },
-        shared::self_telemetry::{ResourceIdentity, SelfTelemetryInit},
-    };
 
     struct RecordingDelivery {
         calls: AtomicUsize,

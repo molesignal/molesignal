@@ -8,10 +8,9 @@
 //! 在 list/get 响应中 mask 为 `***`。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row};
-
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -97,7 +96,7 @@ impl RemoteClustersRepository for PgRemoteClustersRepository {
         .bind(c.updated_at)
         .execute(&self.pool)
         .await
-        .map_err(super::super::persistence::sqlx_err)?;
+        .map_err(postgres::sqlx_err)?;
 
         Ok(c)
     }
@@ -125,7 +124,7 @@ impl RemoteClustersRepository for PgRemoteClustersRepository {
         .bind(c.updated_at)
         .execute(&self.pool)
         .await
-        .map_err(super::super::persistence::sqlx_err)?;
+        .map_err(postgres::sqlx_err)?;
 
         Ok(c)
     }
@@ -146,7 +145,7 @@ impl RemoteClustersRepository for PgRemoteClustersRepository {
         .bind(TimestampMicros(now))
         .execute(&self.pool)
         .await
-        .map_err(super::super::persistence::sqlx_err)?;
+        .map_err(postgres::sqlx_err)?;
 
         Ok(res.rows_affected())
     }
@@ -156,7 +155,7 @@ impl RemoteClustersRepository for PgRemoteClustersRepository {
             .bind(&id.0)
             .execute(&self.pool)
             .await
-            .map_err(super::super::persistence::sqlx_err)?;
+            .map_err(postgres::sqlx_err)?;
 
         Ok(())
     }
@@ -168,7 +167,7 @@ impl RemoteClustersRepository for PgRemoteClustersRepository {
             .bind(&id.0)
             .fetch_one(&self.pool)
             .await
-            .map_err(super::super::persistence::sqlx_err)?;
+            .map_err(postgres::sqlx_err)?;
 
         Ok(row_to(row))
     }
@@ -179,7 +178,7 @@ impl RemoteClustersRepository for PgRemoteClustersRepository {
         let rows = sqlx::query(&sql)
             .fetch_all(&self.pool)
             .await
-            .map_err(super::super::persistence::sqlx_err)?;
+            .map_err(postgres::sqlx_err)?;
 
         Ok(rows.into_iter().map(row_to).collect())
     }
@@ -190,7 +189,7 @@ impl RemoteClustersRepository for PgRemoteClustersRepository {
         let rows = sqlx::query(&sql)
             .fetch_all(&self.pool)
             .await
-            .map_err(super::super::persistence::sqlx_err)?;
+            .map_err(postgres::sqlx_err)?;
 
         Ok(rows.into_iter().map(row_to).collect())
     }

@@ -1,38 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Function 运行时：
+//! Function runtime:
 //!
-//! - [`vrl::runtime::VrlRuntime`]：编译 + 执行 VRL 源码，把 `serde_json::Value` 当作
-//!   target，stdlib 函数（`parse_json` / `to_int` / `del` / `match` 等）默认可用。
-//! - [`vrl::executor::VrlFunctionExecutor`]：实现 `app::intake::FunctionExecutor`，
-//!   包装 `VrlRuntime` + per-function compile cache。
-//! - [`chained_executor::ChainedFunctionExecutor`]：把 VRL + 可选 JS 组合成单一
-//!   `FunctionExecutor`，按 `function.language` 路由。
-//! - [`js_executor::JsFunctionExecutor`]（仅 `feature = "js-runtime"`）：基于
-//!   `deno_core` 的 V8 isolate runtime，spec functions-runtime ADDED 段所述。
-
-pub mod app {
-    pub mod intake {
-        pub use domain::function::FunctionExecutor;
-    }
-}
-
-pub mod domain {
-    pub use ::domain::*;
-}
-
-pub mod infra {
-    pub mod runtime {
-        pub use crate::{ChainedFunctionExecutor, VrlFunctionExecutor, VrlRuntime, vrl};
-        #[cfg(feature = "js-runtime")]
-        pub use crate::{JsFunctionExecutor, js_executor};
-    }
-}
-
-pub mod shared {
-    pub use kernel::{Error, Result, ids, time};
-}
+//! - [`vrl::runtime::VrlRuntime`]: compiles and runs VRL source with a `serde_json::Value` as
+//!   the target; stdlib functions (`parse_json` / `to_int` / `del` / `match`, etc.) are
+//!   available by default.
+//! - [`vrl::executor::VrlFunctionExecutor`]: implements `domain::function::FunctionExecutor`,
+//!   wrapping `VrlRuntime` plus a per-function compile cache.
+//! - [`chained_executor::ChainedFunctionExecutor`]: combines VRL and optional JS into a single
+//!   `FunctionExecutor`, routing by `function.language`.
+//! - [`js_executor::JsFunctionExecutor`] (only with `feature = "js-runtime"`): a V8 isolate
+//!   runtime based on `deno_core`, as described in the ADDED section of spec functions-runtime.
 
 pub mod chained_executor;
 pub mod vrl;

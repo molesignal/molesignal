@@ -62,35 +62,14 @@ use crate::{
             ToolRuntime, ToolRuntimeDependencies,
         },
     },
-    config::{Role, Settings},
-    domain::{
-        rum::{
-            RumApplicationRepository, RumIssueRepository, RumPlaylistRepository,
-            RumReplayCommentRepository, RumSessionSummaryRepository,
-        },
-        stream::StreamRepository,
-    },
     infra::{
-        cipher::CipherRootKey,
         mfa::{
             PgMfaChallengeRepository, PgMfaFactorRepository, PgMfaLockoutRepository,
             PgPasskeyRepository, PgSigninPolicyRepository,
         },
-        persistence::{
-            MetaStore,
-            repositories::{
-                rum_applications::PgRumApplicationRepository,
-                rum_issues::{PgRumIssueRepository, PgRumVersionRepository},
-                rum_playlists::PgRumPlaylistRepository,
-                rum_replay_notes::{PgRumReplayCommentRepository, PgRumSessionSummaryRepository},
-                usage::PgIntakeBudgetRepository,
-                workspace_preference_defaults::PgWorkspacePreferenceDefaultsRepository,
-            },
-        },
         rum::intake::RumIntake,
         signin::{PgSigninAttemptRepository, PgSignupRequestRepository},
     },
-    shared::{Error, Result},
 };
 
 /// KEK 轮换离线工具：用 `old_key_b64`（旧 KEK，base64 32B）解、当前 `MS_CIPHER_KEY`（新 KEK）
@@ -102,7 +81,7 @@ pub async fn rewrap_kek(settings: &Settings, old_key_b64: &str) -> Result<Vec<(S
     let new = CipherRootKey::from_env()
         .map_err(|e| Error::invalid(format!("new KEK (MS_CIPHER_KEY) invalid: {e}")))?;
     let meta = MetaStore::connect(&settings.meta_database).await?;
-    crate::infra::cipher::kek_rewrap::rewrap_all(&meta.pool, &old, &new).await
+    postgres::cipher::kek_rewrap::rewrap_all(&meta.pool, &old, &new).await
 }
 
 /// 多因素认证离线重置：关掉 `email` 这个账号的多因素认证，它所有设备上的登录作废。返回原来是否
@@ -147,8 +126,8 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             Arc::new(
                 crate::infra::pipeline::alert::PgAlertPipelineRepository::new(core.pool.clone()),
             ),
-            Arc::new(crate::infra::runtime::ChainedFunctionExecutor::new(
-                Arc::new(crate::infra::runtime::VrlFunctionExecutor::new()),
+            Arc::new(function_runtime::ChainedFunctionExecutor::new(
+                Arc::new(function_runtime::VrlFunctionExecutor::new()),
                 None,
                 Some(Arc::new(
                     crate::bootstrap::llm_executor::LlmFunctionExecutor::new(
@@ -184,7 +163,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
     )?;
 
     let pg_synthetic_repository = Arc::new(
-        crate::infra::persistence::repositories::synthetics::PgSyntheticRepository::new(
+        postgres::repositories::synthetics::PgSyntheticRepository::new(
             core.pool.clone(),
             core.cipher_root_key.clone(),
         ),
@@ -198,7 +177,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
                     env!("CARGO_PKG_VERSION"),
                     &crate::bootstrap::workers::synthetics::embedded_capabilities(),
                     probe_agent::executor::FEATURE_LEVEL,
-                    crate::shared::time::TimestampMicros::now(),
+                    kernel::time::TimestampMicros::now(),
                 )
                 .await?,
         )
@@ -206,11 +185,11 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         None
     };
 
-    let synthetic_repository: Arc<dyn crate::domain::synthetics::SyntheticRepository> =
+    let synthetic_repository: Arc<dyn domain::synthetics::SyntheticRepository> =
         pg_synthetic_repository;
 
     let probe_authority = Arc::new(
-        crate::infra::synthetics::ProbeCertificateAuthority::load_or_create(
+        postgres::synthetics::ProbeCertificateAuthority::load_or_create(
             &core.pool,
             &core.cipher_root_key,
             &settings.probe.server_names,
@@ -543,7 +522,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         super::workers::audit_stream::AuditStreamWriter::new(audit_stream_receiver, intake.clone())
             .spawn();
 
-    let intake_budgets: Arc<dyn crate::domain::intake::usage::budget::IntakeBudgetRepository> =
+    let intake_budgets: Arc<dyn domain::intake::usage::budget::IntakeBudgetRepository> =
         Arc::new(PgIntakeBudgetRepository::new(core.pool.clone()));
 
     let intake_sources = Arc::new(crate::app::intake::usage::IntakeSourceDirectory::new(
@@ -566,7 +545,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
                     core.pool.clone(),
                 )),
             )),
-            core.orgs.clone() as Arc<dyn crate::domain::iam::OrganizationRepository>,
+            core.orgs.clone() as Arc<dyn domain::iam::OrganizationRepository>,
             core.alert_ownership.clone(),
             drain_controller.clone(),
         )
@@ -581,6 +560,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             i18n_language: core.i18n_language.clone(),
         },
         settings.http.external_url.clone(),
+        reply_callbacks.clone(),
     )));
 
     let stream_repository: Arc<dyn StreamRepository> = streams.clone();
@@ -607,7 +587,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
     let _discovery_worker = core.roles.run_alert.then(|| {
         crate::app::alerting::discovery::DiscoveryWorker::new(
             discovery_findings.clone(),
-            core.orgs.clone() as Arc<dyn crate::domain::iam::OrganizationRepository>,
+            core.orgs.clone() as Arc<dyn domain::iam::OrganizationRepository>,
             Some(apm_query.clone()),
             Some(Arc::new(
                 crate::app::alerting::discovery::RumDiscovery::new(
@@ -965,21 +945,22 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
 mod tests {
     use std::sync::Mutex;
 
+    use domain::{
+        iam::{Organization, OrganizationRepository},
+        stream::{
+            MOLESIGNAL_SYSTEM_STREAM, Retention, Schema, StreamDefinition, StreamRepository,
+            StreamType,
+        },
+    };
+    use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+    use settings::{SelfCollectSettings, WalFlushStrategy, WalSettings, WalSyncLevel};
+
     use crate::{
         bootstrap::{
             storage::build_fsync_policy,
             tracing::{SYSTEM_STREAM_RETENTION_DAYS, prepare_self_telemetry_streams},
         },
-        config::{SelfCollectSettings, WalFlushStrategy, WalSettings, WalSyncLevel},
-        domain::{
-            iam::{Organization, OrganizationRepository},
-            stream::{
-                MOLESIGNAL_SYSTEM_STREAM, Retention, Schema, StreamDefinition, StreamRepository,
-                StreamType,
-            },
-        },
         infra::segment_wal::FsyncPolicy,
-        shared::{Error, Result, ids::Id, time::TimestampMicros},
     };
 
     struct TestOrganizations {

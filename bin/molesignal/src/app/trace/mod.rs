@@ -13,8 +13,20 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::{
+    intake::IntakeBatch,
+    storage::{DatasetTypeId, type_id::builtin},
+    stream::{MOLESIGNAL_SYSTEM_STREAM, StreamType},
+};
+use kernel::{ids::Id, time::TimestampMicros};
 use parking_lot::RwLock;
 use serde::Serialize;
+use signals::{
+    self_telemetry::with_suppression,
+    tail_sampling::{DecidedTrace, SamplerOutput, TailSampler, TraceCandidate},
+    trace_metrics,
+    trace_normalization::{TraceLimits, validate_sink_invariants},
+};
 use tokio::{
     sync::{Mutex, mpsc},
     task::JoinHandle,
@@ -22,22 +34,7 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::{
-    app::intake::IntakeService,
-    domain::{
-        intake::IntakeBatch,
-        storage::{DatasetTypeId, type_id::builtin},
-        stream::{MOLESIGNAL_SYSTEM_STREAM, StreamType},
-    },
-    shared::{
-        ids::Id,
-        self_telemetry::with_suppression,
-        tail_sampling::{DecidedTrace, SamplerOutput, TailSampler, TraceCandidate},
-        time::TimestampMicros,
-        trace_metrics,
-        trace_normalization::{TraceLimits, validate_sink_invariants},
-    },
-};
+use crate::app::intake::IntakeService;
 
 pub mod candidate_router;
 pub mod export;
@@ -302,10 +299,7 @@ impl TracePipeline {
 
         // Producer enqueue 与 sink export 各做一次同源 invariant check，避免 RPC/WAL
         // 边界把未清理的用户值带入 sampler cache。
-        crate::shared::trace_normalization::sanitize_and_limit_span(
-            &mut candidate.span,
-            self.limits,
-        );
+        signals::trace_normalization::sanitize_and_limit_span(&mut candidate.span, self.limits);
 
         self.candidate_depth.fetch_add(1, Ordering::Relaxed);
 
@@ -886,16 +880,15 @@ impl TraceSink for MemoryTraceSink {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        app::apm::ApmCandidateProjector,
-        domain::apm::ApmSpanFact,
-        shared::{
-            tail_sampling::{CandidateDisposition, ForceKeep, TraceRuntimePolicy},
-            trace_fixtures,
-            trace_normalization::CanonicalSpan,
-        },
+    use domain::apm::ApmSpanFact;
+    use signals::{
+        tail_sampling::{CandidateDisposition, ForceKeep, TraceRuntimePolicy},
+        trace_fixtures,
+        trace_normalization::CanonicalSpan,
     };
+
+    use super::*;
+    use crate::app::apm::ApmCandidateProjector;
 
     #[derive(Default)]
     struct RecordingApmProjector {

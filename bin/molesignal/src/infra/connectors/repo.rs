@@ -7,15 +7,13 @@
 //! 封存到 `secrets_*` 列，推送令牌另存 SHA-256 供推送端点反查。
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::cipher::CipherRootKey;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{PgPool, Row, types::Json};
 
 use super::secrets;
-use crate::{
-    infra::cipher::CipherRootKey,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -99,7 +97,7 @@ const COLS: &str = "id, org_id, name, kind, config_json, secrets_ciphertext, sec
                     enabled, last_run_at, read_state, created_at, updated_at";
 
 fn sqlx_err(error: sqlx::Error) -> Error {
-    super::super::persistence::sqlx_err(error)
+    postgres::sqlx_err(error)
 }
 
 /// A write refused by the push token's unique index says so, rather than naming the index.

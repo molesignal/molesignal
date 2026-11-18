@@ -25,7 +25,7 @@ description: Review MoleSignal Rust diffs, pull requests, or working-tree change
 ## 检查项
 
 - 正确性：边界条件、状态转换、错误映射、取消、重试、幂等和资源释放。
-- 类型：使用 `crate::shared::ids::Id`、`TimestampMicros`、`TimeRange` 和领域 enum，避免长期使用 `Result<T, String>`。
+- 类型：使用 `kernel::ids::Id`、`TimestampMicros`、`TimeRange` 和领域 enum，避免长期使用 `Result<T, String>`。
 - 架构：不新增不必要的反向依赖；repository trait、PG 实现和 wire 装配位置正确。
 - 租户：`org_id` / `organization_id` 从入口贯穿 SQL、缓存、对象路径和事件。
 - Async：不持有同步锁跨 `.await`，不在热路径引入阻塞 IO 或无界并发。
