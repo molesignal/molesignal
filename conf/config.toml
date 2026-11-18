@@ -240,8 +240,8 @@ min_requests_per_version = 1000
 enabled = false
 # pprof listener 监听地址；allow_remote=false 时必须为 loopback 地址。
 bind = "127.0.0.1"
-# pprof listener 端口；启用时必须大于 0。
-port = 5084
+# pprof listener 端口；启用时必须大于 0，且不能与 HTTP、gRPC、Probe 等其它 listener 的端口相同。
+port = 5086
 # 是否允许 pprof listener 绑定非 loopback 地址；远程暴露可能泄露运行时信息。
 allow_remote = false
 

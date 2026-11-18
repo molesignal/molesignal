@@ -32,6 +32,7 @@ mod cluster;
 mod env;
 mod features;
 mod intake;
+mod listeners;
 mod meta_database;
 mod network;
 mod node;
@@ -186,6 +187,7 @@ impl Settings {
         self.telemetry.self_collect.validate()?;
         self.telemetry.trace.validate()?;
         self.profiling.validate()?;
+        self.validate_profiling_port()?;
         self.scheduled_reports.renderer.validate()?;
         self.intake.validate()?;
         self.compactor.validate()?;

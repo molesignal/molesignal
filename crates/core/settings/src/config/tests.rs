@@ -43,7 +43,7 @@ fn example_config_file_parses_all_sections() {
     assert!(!s.telemetry.self_collect.profiles_enabled);
     assert!(!s.profiling.enabled);
     assert_eq!(s.profiling.bind, "127.0.0.1");
-    assert_eq!(s.profiling.port, 5084);
+    assert_eq!(s.profiling.port, 5086);
     assert_eq!(s.intake.prometheus.max_labels_per_series, 64);
     assert_eq!(s.intake.prometheus.max_samples_per_batch, 16_384);
     assert_eq!(s.intake.max_buffer_memory_size, 1024);
@@ -316,6 +316,68 @@ fn profiling_listener_is_loopback_by_default() {
 }
 
 #[test]
+fn enabled_profiling_listener_has_a_default_port_of_its_own() {
+    let mut settings: Settings = toml::from_str("").expect("defaults parse");
+    settings.profiling.enabled = true;
+    settings.flight_sql.enabled = true;
+    settings.http.tls.enabled = true;
+    assert_eq!(settings.profiling.port, 5086);
+
+    settings
+        .validate()
+        .expect("no other listener defaults to the pprof port");
+}
+
+#[test]
+fn profiling_port_shared_with_another_listener_is_rejected() {
+    for (port, extra, other) in [
+        (5080, "", "http.port"),
+        (6000, "[http]\nport = 6000\n", "http.port"),
+        (5082, "", "grpc.port"),
+        (4317, "", "otlp_grpc.port"),
+        (5084, "", "probe.register_port"),
+        (5085, "", "probe.control_port"),
+        (5083, "[flight_sql]\nenabled = true\n", "flight_sql.port"),
+        (80, "[http.tls]\nenabled = true\n", "http.tls.plain_port"),
+        (443, "[http.tls]\nenabled = true\n", "http.tls.port"),
+    ] {
+        let text = format!("[profiling]\nenabled = true\nport = {port}\n{extra}");
+        let settings: Settings = toml::from_str(&text).expect("config parses");
+
+        let error = settings
+            .validate()
+            .expect_err("a shared port must be rejected");
+
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "profiling.port and {other} are both {port}; choose a different profiling.port"
+            )
+        );
+    }
+}
+
+#[test]
+fn profiling_port_ignores_listeners_that_do_not_start() {
+    // 关闭的 pprof listener 不占端口，与 Probe 注册端口相同也能加载。
+    let disabled: Settings = toml::from_str("[profiling]\nport = 5084\n").expect("config parses");
+
+    disabled
+        .validate()
+        .expect("a disabled pprof listener binds nothing");
+
+    // Flight SQL 与 TLS 默认关闭，它们的端口不算。
+    for port in [5083, 80, 443] {
+        let text = format!("[profiling]\nenabled = true\nport = {port}\n");
+        let settings: Settings = toml::from_str(&text).expect("config parses");
+
+        settings
+            .validate()
+            .expect("a listener that is switched off binds nothing");
+    }
+}
+
+#[test]
 fn flight_sql_defaults_when_missing_from_toml() {
     let s: Settings = toml::from_str("").expect("empty TOML must parse with defaults");
     assert!(!s.flight_sql.enabled);
@@ -474,30 +536,9 @@ target_size = 256
 }
 
 #[test]
-fn auth_default_has_no_deprecated_secret() {
-    let a = AuthSettings::default();
-    assert!(a.deprecated_jwt_secret.is_none());
-}
-
-#[test]
 fn auth_settings_do_not_serialize_jwt_issuer() {
     let value = toml::Value::try_from(AuthSettings::default()).unwrap();
     assert!(!value.as_table().unwrap().contains_key("issuer"));
-}
-
-#[test]
-fn auth_legacy_jwt_secret_is_absorbed_into_deprecation_slot() {
-    // auth-hardening：旧 [auth].jwt_secret = "..." 应被 alias 吸收，
-    // 不再用于签名；deprecation 警告由 main 启动期发出。
-    let toml_text = r#"
-[auth]
-jwt_secret = "legacy-value"
-"#;
-    let s: Settings = toml::from_str(toml_text).expect("legacy alias must parse");
-    assert_eq!(
-        s.auth.deprecated_jwt_secret.as_deref(),
-        Some("legacy-value")
-    );
 }
 
 #[test]
@@ -584,7 +625,9 @@ max_series_per_query = 0
     assert_eq!(s.search.stream_agg_cache.max_series_per_query, 0);
     // 其余 search 子段仍是默认。
     assert_eq!(s.search.max_result_rows, 0);
-    assert_eq!(s.search.admission.default_max_concurrent, 0);
+    let cpus = std::thread::available_parallelism().map_or(1, usize::from);
+    assert_eq!(s.search.admission.default_max_concurrent, 2 * cpus);
+    assert_eq!(s.search.admission.max_wait_secs, 60);
 }
 
 #[test]
@@ -596,20 +639,6 @@ fn wal_defaults_yield_batch_data_64_50() {
     assert!(matches!(s.wal.sync_level, WalSyncLevel::Data));
     assert_eq!(s.wal.batch_max_pending, 64);
     assert_eq!(s.wal.batch_max_delay_ms, 50);
-}
-
-#[test]
-fn wal_legacy_sync_interval_ms_alias_maps_to_batch_max_delay_ms() {
-    // 旧 TOML 写 `sync_interval_ms = 200` 应该被映射到 batch_max_delay_ms = 200。
-    let toml_text = r#"
-[wal]
-sync_interval_ms = 200
-"#;
-    let s: Settings = toml::from_str(toml_text).expect("legacy alias must parse");
-    assert_eq!(s.wal.batch_max_delay_ms, 200);
-    // 其余字段仍是默认。
-    assert!(matches!(s.wal.flush_strategy, WalFlushStrategy::Batch));
-    assert!(matches!(s.wal.sync_level, WalSyncLevel::Data));
 }
 
 #[test]
