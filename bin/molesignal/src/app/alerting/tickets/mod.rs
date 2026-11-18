@@ -15,6 +15,20 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use domain::{
+    alerting::{
+        incident::Incident,
+        repositories::{IncidentRcaRepository, IncidentRepository},
+        ticket::{
+            IncidentTicket, TICKET_SYNC_INTERVAL_MICROS, TicketConnector, TicketRepository,
+            TicketSystem,
+        },
+        timeline::{IncidentTimelineRepository, TimelineEntry, TimelineKind},
+    },
+    i18n_language::I18nLanguageRepository,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::workspace_preference_defaults::WorkspacePreferenceDefaultsRepository;
 use serde_json::{Value, json};
 
 pub use self::{draft::TicketDraft, follow::TicketLifecycleSink};
@@ -22,22 +36,6 @@ use self::{
     jira::JiraClient,
     meegle::{MeegleClient, PluginToken},
     servicenow::ServiceNowClient,
-};
-use crate::{
-    domain::{
-        alerting::{
-            incident::Incident,
-            repositories::{IncidentRcaRepository, IncidentRepository},
-            ticket::{
-                IncidentTicket, TICKET_SYNC_INTERVAL_MICROS, TicketConnector, TicketRepository,
-                TicketSystem,
-            },
-            timeline::{IncidentTimelineRepository, TimelineEntry, TimelineKind},
-        },
-        i18n_language::I18nLanguageRepository,
-    },
-    infra::persistence::repositories::workspace_preference_defaults::WorkspacePreferenceDefaultsRepository,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// 一轮最多同步多少张工单。

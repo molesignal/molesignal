@@ -5,15 +5,13 @@
 
 use std::collections::BTreeMap;
 
+use kernel::time::TimestampMicros;
 use serde::{Deserialize, Serialize};
 
 use super::is_reserved_label;
-use crate::{
-    domain::alerting::{incident::Severity, priority::Priority, urgency::Urgency},
-    shared::time::TimestampMicros,
-};
+use crate::domain::alerting::{incident::Severity, priority::Priority, urgency::Urgency};
 
-/// 接口里 `dedup_key` 最多几个字符。
+/// 接口里 `dedupKey` 最多几个字符。
 pub const MAX_DEDUP_KEY_CHARS: usize = 255;
 /// 事件标题最多几个字符；更长的截断。
 pub const MAX_SUMMARY_CHARS: usize = 1024;

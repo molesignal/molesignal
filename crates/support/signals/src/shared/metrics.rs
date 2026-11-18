@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 全局 prometheus::Registry 单例 + 注册 helper。
+//! Global prometheus::Registry singleton plus registration helpers.
 //!
-//! 所有模块通过 [`global_registry`] / `register_*` 把 metric family 注册到这里；
-//! HTTP `/metrics` handler 从 [`gather_text`] 取文本格式输出。重复注册同名 metric
-//! 容忍 `AlreadyReg`（多次调用 init 路径不会 panic）。
+//! All modules register their metric families here through [`global_registry`] / `register_*`;
+//! the HTTP `/metrics` handler gets the text-format output from [`gather_text`].
+//! Registering the same metric name more than once tolerates `AlreadyReg` (calling the init
+//! path several times does not panic).
 
 use std::{collections::BTreeMap, sync::OnceLock};
 
@@ -29,20 +30,20 @@ pub struct MetricSample {
     pub labels: BTreeMap<String, String>,
 }
 
-/// 全局 metrics registry。第一次访问时惰性初始化。
+/// Global metrics registry. Initialized lazily on first access.
 pub fn global_registry() -> &'static Registry {
     REGISTRY.get_or_init(Registry::new)
 }
 
-/// `prometheus::TextEncoder` 编码当前所有 metric 为 Prometheus 文本格式。
+/// Encodes all current metrics into Prometheus text format with `prometheus::TextEncoder`.
 pub fn gather_text() -> Result<String, prometheus::Error> {
     let encoder = prometheus::TextEncoder::new();
     let mf = global_registry().gather();
     encoder.encode_to_string(&mf)
 }
 
-/// Prometheus registry 的结构化快照。self-intake 直接消费此表示，避免 scrape/解析
-/// 自己的 `/metrics` 文本端点。
+/// Structured snapshot of the Prometheus registry. Self-intake consumes this representation
+/// directly, avoiding scraping or parsing its own `/metrics` text endpoint.
 #[allow(deprecated)]
 pub fn gather_structured() -> Vec<MetricSample> {
     use prometheus::proto::MetricType;

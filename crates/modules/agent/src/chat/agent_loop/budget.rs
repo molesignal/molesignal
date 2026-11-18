@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 一轮回答能用掉多少：工具调用次数、时间、上下文与采样温度。
+//! Limits for one answer: tool call count, time, context, and sampling temperature.
 
 use std::time::{Duration, Instant};
 
-use crate::agent::tools::{ToolContent, ToolResult};
+use tool_runtime::{ToolContent, ToolResult};
 
-/// 调用方没有给上限时，一轮回答最多执行的工具调用数。
+/// The maximum number of tool calls per answer when the caller provides no limit.
 pub const DEFAULT_MAX_TOOL_CALLS: usize = 8;
 
-/// 调用方没有给温度时用这个值：排查要稳定、可复现，不要发散。
+/// The default temperature when the caller provides none: troubleshooting stays stable and
+/// reproducible, without diverging.
 pub const DEFAULT_TEMPERATURE: f32 = 0.2;
 
 const TOOL_BUDGET_FINAL_SYSTEM_PROMPT: &str = "\
@@ -35,13 +36,15 @@ pub(crate) const INVALID_FINAL_RESPONSE_FALLBACK_MESSAGE: &str = "\
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LoopLimits {
-    /// 一轮回答里最多执行几次工具调用；0 按 1 处理。
+    /// The maximum number of tool calls per answer; 0 is treated as 1.
     pub max_tool_calls: usize,
-    /// 一轮回答的总时限；到点后不再调用工具，让模型用已有结果收尾。
+    /// The total time limit for one answer; once reached, stops calling tools and lets the model
+    /// finish with existing results.
     pub max_duration: Option<Duration>,
-    /// 采样温度；`None` 时不传，用模型服务的默认值。
+    /// The sampling temperature; omitted when `None` to use the model service's default.
     pub temperature: Option<f32>,
-    /// 交给模型的上下文估算超过它的 80% 时先压缩历史；`None` 时用实例的设置。
+    /// Compacts history when the estimated context sent to the model exceeds 80% of this value;
+    /// `None` uses the instance setting.
     pub context_tokens: Option<u64>,
 }
 
@@ -56,7 +59,7 @@ impl Default for LoopLimits {
     }
 }
 
-/// 为什么不再调用工具。
+/// The reason tools can no longer be called.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Exhaustion {
     ToolCalls,
@@ -71,7 +74,7 @@ impl Exhaustion {
         }
     }
 
-    /// 收尾那次调用前追加给模型的指令。
+    /// The instruction appended for the model before the final call.
     pub(crate) const fn final_prompt(self) -> &'static str {
         match self {
             Self::ToolCalls => TOOL_BUDGET_FINAL_SYSTEM_PROMPT,
@@ -79,7 +82,7 @@ impl Exhaustion {
         }
     }
 
-    /// 收尾的回答不能用时给用户看的话。
+    /// The message shown to the user when the final answer is unusable.
     pub(crate) const fn fallback(self) -> &'static str {
         match self {
             Self::ToolCalls => TOOL_BUDGET_FALLBACK_MESSAGE,
@@ -87,7 +90,8 @@ impl Exhaustion {
         }
     }
 
-    /// 额度用完后没有执行的工具调用回给模型的结果，保证每个调用都有对应的结果。
+    /// The result returned to the model for a tool call skipped after the budget runs out,
+    /// so that every call has a corresponding result.
     pub(crate) fn skipped_result(self) -> ToolResult {
         let text = match self {
             Self::ToolCalls => "Not executed: the tool-call budget for this answer is used up.",
@@ -101,7 +105,7 @@ impl Exhaustion {
     }
 }
 
-/// 一轮回答剩下的额度。
+/// The remaining budget for one answer.
 #[derive(Debug)]
 pub(crate) struct Budget {
     remaining: usize,
@@ -118,7 +122,7 @@ impl Budget {
         }
     }
 
-    /// 现在是否已经不能再调用工具。
+    /// Whether tools can no longer be called now.
     pub(crate) fn exhausted(&self) -> Option<Exhaustion> {
         if self
             .deadline
@@ -130,7 +134,8 @@ impl Budget {
         (self.remaining == 0).then_some(Exhaustion::ToolCalls)
     }
 
-    /// 占用一次工具调用；额度不够时返回原因，不占用。
+    /// Consumes one tool call; returns the reason without consuming it if the budget is
+    /// insufficient.
     pub(crate) fn take(&mut self) -> Result<(), Exhaustion> {
         if let Some(reason) = self.exhausted() {
             return Err(reason);

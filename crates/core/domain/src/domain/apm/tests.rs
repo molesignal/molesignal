@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use kernel::{ids::Id, time::TimestampMicros};
+
 use super::*;
-use crate::shared::{ids::Id, time::TimestampMicros};
 
 #[test]
 fn service_identity_uses_stable_fallbacks_and_preferred_environment() {
@@ -359,6 +360,8 @@ fn a_service_definition_needs_a_name_and_a_bounded_description() {
         tags: [("domain".to_owned(), "orders".to_owned())].into(),
         apdex_threshold: Some(300_000),
         key_transactions: Vec::new(),
+        aliases: vec!["order_service".into()],
+        data_sources: ServiceDataSources::default(),
         archived: false,
         updated_by: Id::from_string("u"),
         updated_at: TimestampMicros(0),

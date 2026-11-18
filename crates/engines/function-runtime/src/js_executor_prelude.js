@@ -1,16 +1,17 @@
 // Prelude installed at JS isolate boot. Defines the `molesignal` global the spec
 // promises (fields / set / del / now / log / parse_json / encode_json / sha256).
-// 注意：
-// - 不引入 deno_runtime，所以 globalThis 上没有 fetch / setTimeout / Promise scheduler，
-//   `crypto.subtle` 与 `TextEncoder` 也缺；sha256 退化成 pure-JS 实现（含 UTF-8 编码），
-//   避免每次落到 Rust op。
-// - `__reset` / `__dump` 是内部 hook，Rust 侧每条 event 调用；用户不要碰。
+// Notes:
+// - deno_runtime is not pulled in, so globalThis has no fetch / setTimeout / Promise scheduler,
+//   and `crypto.subtle` and `TextEncoder` are missing as well; sha256 is a pure-JS
+//   implementation (UTF-8 encoding included) rather than a call into a Rust op every time.
+// - `__reset` / `__dump` are internal hooks that the Rust side calls for every event; user
+//   code must not touch them.
 
 globalThis.molesignal = (() => {
   let _fields = {};
   const _logs = [];
 
-  // 按 FIPS 180-4 编写的 32-bit pure-JS SHA-256（约 200 行精简实现）。
+  // 32-bit pure-JS SHA-256 written to FIPS 180-4 (a compact implementation of about 200 lines).
   const K = new Uint32Array([
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
     0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
@@ -25,7 +26,8 @@ globalThis.molesignal = (() => {
     0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
   ]);
   const rotr = (x, n) => (x >>> n) | (x << (32 - n));
-  // UTF-8 编码。裸 deno_core 没有 TextEncoder；孤立 surrogate 与 TextEncoder 一致，替换为 U+FFFD。
+  // UTF-8 encoding. Bare deno_core has no TextEncoder; as with TextEncoder, a lone surrogate
+  // is replaced with U+FFFD.
   function utf8Bytes(str) {
     const out = [];
     for (let i = 0; i < str.length; i++) {
@@ -129,7 +131,8 @@ globalThis.molesignal = (() => {
       delete _fields[name];
     },
     now() {
-      // µs since epoch；Rust 侧把它当数字读，超 2^53 后失精度但够 transform 用。
+      // µs since epoch. The Rust side reads it as a number; precision is lost past 2^53, which
+      // is good enough for transforms.
       return Date.now() * 1000;
     },
     log(level, msg) {

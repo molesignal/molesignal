@@ -13,13 +13,11 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::incident::{EXTERNAL_KIND_LABEL, Severity};
-use crate::{
-    domain::iam::api_token::TOKEN_MARKER,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::domain::iam::api_token::TOKEN_MARKER;
 
 mod alert;
 mod email;

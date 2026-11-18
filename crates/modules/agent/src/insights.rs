@@ -1,22 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! `/insight`：回头看一段时间里 Mole Agent 用得怎么样。
+//! `/insight`: reviews Mole Agent usage over a period of time.
 //!
-//! 范围随会话：团队会话看本队的会话与自动化；个人会话看本人的个人会话、本人所在团队的会话，
-//! 以及本人与这些团队的自动化。组织作用域的自动化两种会话都算。只读，不改任何东西。
+//! The scope follows the session: team sessions cover that team's sessions and automations;
+//! personal sessions cover the user's personal sessions, sessions of teams they belong to, and
+//! automations of the user and those teams. Both session types include organization-scoped
+//! automations. Read-only; changes nothing.
 
 use std::collections::BTreeMap;
 
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::Serialize;
 
-use crate::shared::{ids::Id, time::TimestampMicros};
-
-/// 回看最多这么多天。
+/// The maximum number of days to look back.
 pub const MAX_DAYS: i64 = 90;
 pub const DEFAULT_DAYS: i64 = 30;
 
-/// 看谁的：组织里一个人的个人会话（团队会话时为空），加上这些团队。
+/// Whose data to review: one user's personal sessions in the organization (empty for team
+/// sessions), plus these teams.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InsightScope {
     pub org_id: Id,
@@ -24,14 +26,14 @@ pub struct InsightScope {
     pub team_ids: Vec<Id>,
 }
 
-/// 一个名字被用了几次。
+/// The number of times a name is used.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Count {
     pub name: String,
     pub count: i64,
 }
 
-/// 一个工具被调了几次、几次出错。
+/// The number of calls and errors for a tool.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ToolUse {
     pub name: String,
@@ -39,7 +41,7 @@ pub struct ToolUse {
     pub errors: i64,
 }
 
-/// 一条自动化的运行，按状态数。
+/// Runs of an automation, counted by status.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct AutomationUse {
     pub name: String,
@@ -50,23 +52,24 @@ pub struct AutomationUse {
 #[serde(rename_all = "camelCase")]
 pub struct Insights {
     pub since: TimestampMicros,
-    /// 有人提问的会话数与问题数，自动化的不算。
+    /// The number of sessions with user questions and the number of questions, excluding
+    /// automations.
     pub chats: i64,
     pub questions: i64,
-    /// 回答（Run）按状态数。
+    /// Answers (Run), counted by status.
     pub runs: BTreeMap<String, i64>,
     pub helpful: i64,
     pub unhelpful: i64,
-    /// 「没帮助」的原因。
+    /// Reasons for `Not helpful`.
     pub unhelpful_reasons: Vec<Count>,
-    /// 调用最多的工具，最多 20 个。
+    /// The most frequently called tools, up to 20.
     pub tools: Vec<ToolUse>,
-    /// 用到的 Skill：用命令调的，加上模型自己读的。
+    /// Skills used: those invoked by commands, plus those read by the model itself.
     pub skills: Vec<Count>,
     pub automations: Vec<AutomationUse>,
 }
 
-/// 把一组 (名字, 次数) 合并，多的在前，同样多的按名字排。
+/// Merges a set of (name, count) pairs, sorting by count descending and then by name for ties.
 pub fn ranked(counts: impl IntoIterator<Item = (String, i64)>) -> Vec<Count> {
     let mut merged = BTreeMap::<String, i64>::new();
 

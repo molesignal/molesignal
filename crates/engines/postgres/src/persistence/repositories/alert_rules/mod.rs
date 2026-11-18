@@ -2,19 +2,19 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::alerting::{
+    anomaly::AnomalyParams,
+    incident::Severity,
+    repositories::AlertRuleRepository,
+    rule::{
+        AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, RuleGuide, RuleState, SeverityThreshold,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::alerting::{
-        anomaly::AnomalyParams,
-        incident::Severity,
-        repositories::AlertRuleRepository,
-        rule::{AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, RuleState, SeverityThreshold},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub mod evaluation_state;
 
@@ -31,7 +31,7 @@ impl PgAlertRuleRepository {
 const COLS: &str = "id, org_id, name, description, enabled, kind, query, trigger,
      anomaly_params_json, escalation_policy_id, labels, annotations,
      last_eval_at, last_state, created_at, updated_at,
-     thresholds, severity";
+     thresholds, severity, guide";
 
 fn row_to_rule(row: sqlx::postgres::PgRow) -> Result<AlertRule> {
     let id = Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?);
@@ -59,6 +59,8 @@ fn row_to_rule(row: sqlx::postgres::PgRow) -> Result<AlertRule> {
         .map_err(sqlx_err)?
         .and_then(|s| Severity::from_label(&s));
 
+    let guide = decode_guide(row.try_get("guide").ok(), &id);
+
     Ok(AlertRule {
         id,
         org_id: Id::from_string(row.try_get::<String, _>("org_id").map_err(sqlx_err)?),
@@ -77,6 +79,7 @@ fn row_to_rule(row: sqlx::postgres::PgRow) -> Result<AlertRule> {
         ),
         labels: labels.0,
         annotations: annotations.0,
+        guide,
         last_eval_at: last_eval_at.map(TimestampMicros),
         last_state: last_state.0,
         created_at: row
@@ -85,6 +88,19 @@ fn row_to_rule(row: sqlx::postgres::PgRow) -> Result<AlertRule> {
         updated_at: row
             .try_get::<TimestampMicros, _>("updated_at")
             .map_err(sqlx_err)?,
+    })
+}
+
+/// The guide of a rule row. A guide that cannot be read leaves the rule without one instead of
+/// keeping the whole rule from being evaluated.
+fn decode_guide(raw: Option<Value>, rule_id: &Id) -> RuleGuide {
+    let Some(raw) = raw else {
+        return RuleGuide::default();
+    };
+
+    serde_json::from_value(raw).unwrap_or_else(|error| {
+        tracing::warn!(rule = %rule_id, %error, "alert rule guide decode failed");
+        RuleGuide::default()
     })
 }
 
@@ -112,8 +128,9 @@ async fn insert_rule<'e, E: sqlx::PgExecutor<'e>>(executor: E, r: &AlertRule) ->
          (id, org_id, name, description, enabled, kind, query, trigger,
           anomaly_params_json, escalation_policy_id, labels, annotations,
           last_eval_at, last_state, created_at, updated_at,
-          thresholds, severity)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)",
+          thresholds, severity, guide)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
+                 $19)",
     )
     .bind(&r.id.0)
     .bind(&r.org_id.0)
@@ -133,6 +150,7 @@ async fn insert_rule<'e, E: sqlx::PgExecutor<'e>>(executor: E, r: &AlertRule) ->
     .bind(r.updated_at)
     .bind(Json(&r.thresholds))
     .bind(r.severity.map(|s| s.as_str()))
+    .bind(Json(&r.guide))
     .execute(executor)
     .await
     .map_err(sqlx_err)?;
@@ -147,7 +165,7 @@ async fn update_rule<'e, E: sqlx::PgExecutor<'e>>(executor: E, r: &AlertRule) ->
            name = $2, description = $3, enabled = $4, kind = $5, query = $6,
            trigger = $7, anomaly_params_json = $8, escalation_policy_id = $9,
            labels = $10, annotations = $11, updated_at = $12,
-           thresholds = $13, severity = $14
+           thresholds = $13, severity = $14, guide = $15
          WHERE id = $1",
     )
     .bind(&r.id.0)
@@ -164,6 +182,7 @@ async fn update_rule<'e, E: sqlx::PgExecutor<'e>>(executor: E, r: &AlertRule) ->
     .bind(r.updated_at)
     .bind(Json(&r.thresholds))
     .bind(r.severity.map(|s| s.as_str()))
+    .bind(Json(&r.guide))
     .execute(executor)
     .await
     .map_err(sqlx_err)?;

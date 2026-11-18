@@ -130,7 +130,6 @@ const DYNAMIC_KEY_SENTINEL: &str = "__molesignal_environment_key__";
 fn environment_schema(defaults: &Settings) -> Settings {
     let mut schema = defaults.clone();
 
-    schema.auth.deprecated_jwt_secret = Some(String::new());
     schema.object_store.credentials_file = Some(std::path::PathBuf::new());
     schema.telemetry.log_directory = Some(String::new());
     schema.telemetry.log_rotation = Some(String::new());

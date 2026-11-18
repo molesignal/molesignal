@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! MCP 服务器提供的 prompt。同步时记下名称、说明与参数，命令菜单里写成 `/<handle>:<prompt>`。
+//! Prompts provided by MCP servers.
 //!
-//! 调用时把命令后面的文字填进参数：每个词都写成 `名称=值` 时按名称填；否则按顺序一个词填
-//! 一个参数，最后一个参数拿走剩下的全部文字（只有一个参数时就是整段文字）。值里有空白时
-//! 可以加引号。
+//! Synchronization records names, descriptions, and arguments; the command menu displays them as
+//! `/<handle>:<prompt>`. Text after the command fills the arguments: if every word uses
+//! `name=value`, bind by name; otherwise, bind one word per argument in order, with the last
+//! argument taking all remaining text (a single argument takes the entire text). Values containing
+//! whitespace can be quoted.
 
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-
-use crate::shared::{ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct McpPromptArgument {
@@ -26,7 +27,7 @@ pub struct McpPromptArgument {
 pub struct McpPrompt {
     pub org_id: Id,
     pub server_id: Id,
-    /// 服务器上的名称，调用 `prompts/get` 用。
+    /// The name on the server, used when calling `prompts/get`.
     pub name: String,
     pub title: Option<String>,
     pub description: String,
@@ -35,7 +36,7 @@ pub struct McpPrompt {
 }
 
 impl McpPrompt {
-    /// 菜单里的参数提示：必填的写 `<名称>`，选填的写 `[名称]`。
+    /// Argument hints in the menu: required arguments use `<name>`, optional ones use `[name]`.
     pub fn argument_hint(&self) -> Option<String> {
         if self.arguments.is_empty() {
             return None;
@@ -57,7 +58,8 @@ impl McpPrompt {
     }
 }
 
-/// 按空白切词，引号里的空白不切；引号本身去掉。
+/// Splits words on whitespace, preserves whitespace inside quotes, and removes the quotes
+/// themselves.
 fn words(text: &str) -> Vec<String> {
     let mut words = Vec::new();
     let mut current = String::new();
@@ -92,7 +94,8 @@ fn words(text: &str) -> Vec<String> {
     words
 }
 
-/// 命令后的文字 → prompt 参数。缺了必填参数时返回它的名称。
+/// Converts text after the command to prompt arguments. Returns the name of a missing required
+/// argument.
 pub fn bind_arguments(
     arguments: &[McpPromptArgument],
     text: &str,
@@ -159,8 +162,9 @@ fn content_text(content: &Value) -> Option<String> {
     }
 }
 
-/// `prompts/get` 的结果 → 这一轮交给模型的文字：按顺序取文本与内嵌资源里的文本，图片等写一个
-/// 占位；助手角色的消息前面标上 `Assistant:`。超过 `max_bytes` 的截掉。
+/// Converts a `prompts/get` result to text passed to the model for this turn: collects text and
+/// text from embedded resources in order, uses placeholders for images and similar content, and
+/// prefixes assistant messages with `Assistant:`. Truncates anything beyond `max_bytes`.
 pub fn prompt_text(result: &Value, max_bytes: usize) -> String {
     let mut parts = Vec::new();
 

@@ -1,34 +1,34 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 一轮回答里模型走过的步骤：每一步是模型写的一段说明和它要调的工具，连同工具结果。
+//! Steps the model takes in one answer, each containing its explanation, tool calls, and tool
+//! results.
 //!
-//! 回答存下时一起存（`agent_messages.tool_transcript`）；下一轮交给模型时还原成带工具调用的
-//! assistant 消息与工具结果，追问时模型看得到上一轮查到的数据。结果超过
-//! [`MAX_INLINE_RESULT_BYTES`] 的只留开头，完整结果在证据里。
+//! Store these with the answer (`agent_messages.tool_transcript`); for the next turn, restore them
+//! as assistant messages with tool calls and tool results so the model can see the data retrieved
+//! in the previous turn when answering follow-up questions. For results exceeding
+//! [`MAX_INLINE_RESULT_BYTES`], keep only the beginning; the full results are in the evidence.
 
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use crate::{
-    agent::chat::{ChatMessage, MessageRole},
-    shared::{ids::Id, time::TimestampMicros},
-};
+use crate::chat::{ChatMessage, MessageRole};
 
-/// 一个工具结果在历史里最多留这么多字节。
+/// Keep at most this many bytes of a tool result in the history.
 pub const MAX_INLINE_RESULT_BYTES: usize = 16 * 1024;
 
-/// 没等到结果的调用（被停下）在历史里的结果。
+/// The result stored in the history for a call stopped before its result arrives.
 const UNFINISHED_RESULT: &str = "[the run was stopped before this call returned]";
 
-/// 一次工具调用。
+/// A single tool call.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TranscriptCall {
     pub id: String,
     pub name: String,
     pub arguments: Value,
-    /// 结果文本，太长时截断；还没有结果时为空。
+    /// The result text, truncated if too long; empty if no result is available yet.
     #[serde(default)]
     pub result: Option<String>,
     #[serde(default)]
@@ -37,7 +37,7 @@ pub struct TranscriptCall {
     pub is_error: bool,
 }
 
-/// 模型的一次调用：先写的说明（可以为空），和它要调的工具。
+/// One model call: its initial explanation (possibly empty) and the tools it wants to call.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct TranscriptStep {
     #[serde(default)]
@@ -45,7 +45,7 @@ pub struct TranscriptStep {
     pub calls: Vec<TranscriptCall>,
 }
 
-/// 结果在历史里留的样子：太长时留开头，并说明截断了。
+/// The result as stored in the history: keep the beginning if too long and indicate truncation.
 pub fn inline_result(result: &str) -> (String, bool) {
     if result.len() <= MAX_INLINE_RESULT_BYTES {
         return (result.to_string(), false);
@@ -67,11 +67,11 @@ pub fn inline_result(result: &str) -> (String, bool) {
     )
 }
 
-/// 按流式事件记下一轮回答的步骤。
+/// Record the steps of one answer from streaming events.
 #[derive(Debug, Default)]
 pub struct TranscriptBuilder {
     steps: Vec<TranscriptStep>,
-    /// 这次模型调用写到现在的文字。
+    /// Text written so far in this model call.
     text: String,
 }
 
@@ -80,8 +80,9 @@ impl TranscriptBuilder {
         self.text.push_str(delta);
     }
 
-    /// 一次工具调用开始。同一次模型调用的工具调用都在任何结果之前到：前一步已经有结果，
-    /// 或者这之前又写了文字，就是新的一步。
+    /// Start a tool call.
+    /// All tool calls from the same model call arrive before any results: if the previous step
+    /// already has results, or more text is written before this call, this is a new step.
     pub fn start(&mut self, id: &str, name: &str, arguments: Value) {
         let new_step = !self.text.is_empty()
             || self
@@ -125,7 +126,7 @@ impl TranscriptBuilder {
         }
     }
 
-    /// 最后一次模型调用写的文字：回答，或被停下时写到一半的文字。
+    /// Text from the last model call: the answer, or partially written text when stopped.
     pub fn pending_text(&self) -> &str {
         &self.text
     }
@@ -139,7 +140,8 @@ impl TranscriptBuilder {
     }
 }
 
-/// 还原成交给模型的消息：每一步一条带工具调用的 assistant 消息，后面跟各个工具结果。
+/// Restore messages for the model: one assistant message with tool calls per step, followed by
+/// each tool result.
 pub fn transcript_messages(
     chat_id: &Id,
     steps: &[TranscriptStep],
@@ -223,7 +225,7 @@ mod tests {
         builder.end("a", "[]", false);
         builder.end("b", "boom", true);
 
-        // 下一次调用只调工具、不写字，也是新的一步。
+        // The next call starts a new step even if it only calls tools and writes no text.
         builder.start("c", "get_service", json!({"name": "api"}));
         builder.end("c", "{}", false);
         builder.text("The API is failing.");

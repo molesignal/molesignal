@@ -18,21 +18,17 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
+use domain::storage::QueryFile;
 use futures::{StreamExt, stream};
 use object_store::{ObjectStore, path::Path};
 use prometheus::IntCounter;
+use query_language::{Refuted, WhereTree, atom_bit};
+use signals::metrics::register_int_counter;
 
-use crate::{
-    domain::storage::QueryFile,
-    infra::{
-        caching::{IndexHandleCache, TantivyFooterCache, TantivyResultCache, TantivyResultKey},
-        query::{
-            parser::{Refuted, WhereTree, atom_bit},
-            refutations::Refutations,
-        },
-        search::tantivy_index::{IndexHandle, TantivyArchiveOpener},
-    },
-    shared::metrics::register_int_counter,
+use crate::infra::{
+    caching::{IndexHandleCache, TantivyFooterCache, TantivyResultCache, TantivyResultKey},
+    query::refutations::Refutations,
+    search::tantivy_index::{IndexHandle, TantivyArchiveOpener},
 };
 
 mod atoms;

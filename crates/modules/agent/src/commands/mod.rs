@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Mole Agent 对话里的斜杠命令。
+//! Slash commands in Mole Agent conversations.
 //!
-//! 对话输入以 `/名称 参数` 开头时是命令。control 类命令只改输入框里的状态（模式、时间、
-//! 模型……），由前端执行，不发给模型；task 类命令发给后端跑一轮，后端在这里解析、校验，把原文
-//! 和命令一起记在用户消息上，模型拿到的是命令展开后的问题。未知命令直接报错，不发给模型。
+//! Conversation input starting with `/name arguments` is a command. Control commands only change
+//! input state (mode, time, model, etc.) and run on the frontend without being sent to the model;
+//! task commands go to the backend for one run. The backend parses and validates them here, records
+//! the original text and command on the user message, and sends the expanded question to the model.
+//! Unknown commands return an error without being sent to the model.
 
 mod builtin;
 mod parse;
@@ -14,48 +16,49 @@ pub use builtin::{Argument, BUILTIN_COMMANDS, BuiltinCommand, Suggest, find_buil
 pub use parse::{Input, Invocation, parse, text_for_model};
 use serde::{Deserialize, Serialize};
 
-/// 命令由谁执行。
+/// Who executes the command.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CommandKind {
-    /// 改输入框里的状态，由前端执行，不发给后端。
+    /// Changes input state on the frontend without being sent to the backend.
     Control,
-    /// 发给后端跑一轮。
+    /// Sends to the backend for one run.
     Task,
 }
 
-/// 命令从哪来。
+/// Where the command comes from.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CommandSource {
     #[default]
     Builtin,
     Skill,
-    /// MCP 服务器提供的 prompt：`/<服务器>:<prompt>`。
+    /// A prompt provided by an MCP server: `/<server>:<prompt>`.
     Mcp,
 }
 
-/// 记在用户消息上的命令：重新生成时按它重放，打分时按它归因。
+/// The command recorded on a user message for replay during regeneration and attribution during
+/// rating.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandRecord {
-    /// 调用时的写法，Skill 可能带 `@团队`。
+    /// The spelling used at invocation; a Skill may include `@team`.
     pub name: String,
     pub args: String,
     pub source: CommandSource,
-    /// 交给模型的文字：命令展开后的问题。
+    /// The text passed to the model: the expanded question.
     pub model_text: String,
-    /// `/rca` 调查的事件。
+    /// The incident investigated by `/rca`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub incident_id: Option<String>,
-    /// 调用的 Skill 及它当时的版本与内容 hash。
+    /// The invoked Skill and its version and content hash at the time.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skill_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skill_version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skill_hash: Option<String>,
-    /// 调用的 MCP prompt：服务器与服务器上的名称。
+    /// The invoked MCP prompt: its server and name on that server.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mcp_server_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

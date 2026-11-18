@@ -14,13 +14,10 @@
 use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
+use domain::masking::{Masker, MaskingProvider};
+use kernel::{Result, ids::Id};
 use moka::future::Cache;
-
-use crate::{
-    domain::masking::{Masker, MaskingProvider},
-    infra::persistence::repositories::regex_patterns::RegexPatternRepository,
-    shared::{Result, ids::Id},
-};
+use postgres::repositories::regex_patterns::RegexPatternRepository;
 
 mod field;
 
@@ -76,11 +73,10 @@ impl MaskingProvider for MaskingService {
 mod tests {
     use std::sync::Mutex as StdMutex;
 
+    use kernel::time::TimestampMicros;
+    use postgres::repositories::regex_patterns::RegexPattern;
+
     use super::*;
-    use crate::{
-        infra::persistence::repositories::regex_patterns::RegexPattern,
-        shared::time::TimestampMicros,
-    };
 
     /// 进程内 RegexPatternRepository，仅测试用。
     #[derive(Default)]

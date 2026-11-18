@@ -1,29 +1,32 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 记忆：个人的与团队的。
+//! Personal and team memories.
 //!
-//! 四类：preference（偏好）、procedure（做法）、fact（事实）、lesson（教训）；每条有名称、一句话
-//! 说明何时适用、正文。写到哪里跟着会话：个人会话写发起人的记忆，团队会话写本队的。当前会话
-//! 作用域的记忆目录（名称与说明）进系统提示，正文用 `read_memory` 按需读。preference 在它说明的
-//! 范围内优先于 Skill 的默认做法；其余三类用之前先按当前情况核实。
+//! Four categories: preference (preferences), procedure (practices), fact (facts), and lesson
+//! (lessons). Each entry has a name, a one-sentence description of when it applies, and a body.
+//! The session determines where memories are written: personal sessions write to the initiator's
+//! memories, team sessions to the team's. The memory index (names and descriptions) for the
+//! current session's scope goes into the system prompt; bodies are read on demand with
+//! `read_memory`. Within its stated scope, a preference takes priority over a Skill's default
+//! practices; the other three categories are checked against the current situation before use.
 //!
-//! 来源：提问人说「记住 / 忘掉」时模型调 `remember` / `forget`；组织打开「会话结束后提炼」时，
-//! 会话停下一段时间后由模型从对话里提炼。忘掉只是标记，可以撤销。
+//! Sources: the model calls `remember` / `forget` when the requester asks it to remember or forget
+//! something; when the organization enables "Distill memories after chats", the model distills
+//! memories from the conversation after the session has been idle for a while. Forgetting only
+//! marks a memory and can be undone.
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    agent::scope::Scope,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::scope::Scope;
 
 pub const MAX_MEMORIES: usize = 200;
 pub const MAX_NAME_CHARS: usize = 120;
 pub const MAX_DESCRIPTION_CHARS: usize = 300;
 pub const MAX_BODY_CHARS: usize = 4_000;
-/// 进系统提示的目录最多这么多条，最近改过的在前。
+/// The maximum number of entries in the system prompt's index, most recently modified first.
 const INDEX_ENTRIES: usize = 100;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -57,24 +60,25 @@ impl MemoryKind {
 pub struct Memory {
     pub id: Id,
     pub org_id: Id,
-    /// 团队或个人。
+    /// Team or personal.
     pub scope: Scope,
     pub kind: MemoryKind,
     pub name: String,
-    /// 一句话说明何时适用。
+    /// A one-sentence description of when it applies.
     pub description: String,
     pub body: String,
-    /// 从哪个会话记下的。
+    /// The session from which the memory was recorded.
     pub source_chat_id: Option<Id>,
     pub created_by: Id,
     pub updated_by: Id,
     pub created_at: TimestampMicros,
     pub updated_at: TimestampMicros,
-    /// 忘掉的时间；撤销时清空。
+    /// The time it was forgotten; cleared when undone.
     pub forgotten_at: Option<TimestampMicros>,
 }
 
-/// 一条记忆能不能收：作用域是团队或个人，名称、说明、正文都在长度里且不为空。
+/// Checks whether a memory is acceptable: its scope is team or personal, and its name, description,
+/// and body are nonempty and within length limits.
 pub fn check_memory(scope: &Scope, name: &str, description: &str, body: &str) -> Result<()> {
     if *scope == Scope::Org {
         return Err(Error::invalid("a memory belongs to a person or a team"));
@@ -99,7 +103,8 @@ pub fn check_memory(scope: &Scope, name: &str, description: &str, body: &str) ->
     Ok(())
 }
 
-/// 进系统提示的记忆目录。`owner` 说明是谁的记忆，例如「你的」或团队名。
+/// The memory index for the system prompt. `owner` indicates whose memories these are, such as
+/// `yours` or a team name.
 pub fn index_prompt(memories: &[Memory], owner: &str) -> Option<String> {
     let mut active = memories
         .iter()
@@ -129,13 +134,14 @@ pub fn index_prompt(memories: &[Memory], owner: &str) -> Option<String> {
     Some(text)
 }
 
-/// 一次提炼最多记下这么多条。
+/// The maximum number of memories recorded per extraction.
 pub const DISTILL_MAX: usize = 5;
 
-/// 让模型从一段对话里提炼记忆的指令。
+/// Instructions for the model to extract memories from a conversation.
 pub const DISTILL_INSTRUCTION: &str = "Read the conversation above and pick out what is worth remembering for later chats: a preference the person stated, a procedure that worked, a lasting fact about their systems, or a lesson from a mistake. Leave out anything specific to this one incident, anything already in the memories listed, and anything you are not sure of. Answer with a JSON array only, at most 5 items, each {\"kind\": \"preference|procedure|fact|lesson\", \"name\": short title, \"description\": one sentence on when it applies, \"body\": the memory itself}. Answer [] when nothing is worth remembering.";
 
-/// 读出模型提炼的记忆：一个 JSON 数组，可能包在代码块里；读不出或不合规的条目跳过。
+/// Reads memories extracted by the model: a JSON array, possibly wrapped in a code block; skips
+/// unreadable or invalid entries.
 pub fn parse_drafts(text: &str) -> Vec<MemoryDraft> {
     let text = text.trim();
 
@@ -168,17 +174,18 @@ pub fn parse_drafts(text: &str) -> Vec<MemoryDraft> {
         .collect()
 }
 
-/// 组织对记忆的设置。
+/// The organization's memory settings.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MemorySettings {
-    /// 会话停下一段时间后，由模型从对话里提炼记忆（计入预算）。
+    /// The model extracts memories from the conversation after the session has been idle for a
+    /// while (counts toward the budget).
     pub distill_after_chat: bool,
     pub updated_by: Option<Id>,
     pub updated_at: Option<TimestampMicros>,
 }
 
-/// 一条要写的记忆。
+/// A memory to write.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MemoryDraft {
     pub kind: MemoryKind,
@@ -189,12 +196,13 @@ pub struct MemoryDraft {
 
 #[async_trait]
 pub trait MemoryStore: Send + Sync {
-    /// 一个作用域里没忘掉的记忆，最近改过的在前。
+    /// Memories in a scope that have not been forgotten, most recently modified first.
     async fn list(&self, org_id: &Id, scope: &Scope) -> Result<Vec<Memory>>;
     async fn get(&self, org_id: &Id, id: &Id) -> Result<Memory>;
-    /// 按名称找（不分大小写），没忘掉的。
+    /// Finds a memory by name (case-insensitive) that has not been forgotten.
     async fn find(&self, org_id: &Id, scope: &Scope, name: &str) -> Result<Option<Memory>>;
-    /// 按名称写入：同名的替换，忘掉的同名记忆被它取代。超出条数时报错。
+    /// Writes by name: replaces any memory with the same name, including forgotten memories.
+    /// Returns an error if the entry limit is exceeded.
     async fn remember(
         &self,
         org_id: &Id,
@@ -205,11 +213,12 @@ pub trait MemoryStore: Send + Sync {
     ) -> Result<Memory>;
     async fn update(&self, org_id: &Id, id: &Id, draft: &MemoryDraft, actor: &Id)
     -> Result<Memory>;
-    /// 忘掉：标记，撤销时还原。
+    /// Forgets a memory by marking it; restores it when undone.
     async fn forget(&self, org_id: &Id, id: &Id, actor: &Id) -> Result<Memory>;
-    /// 撤销忘掉；同名的已经又记过一条时报冲突。
+    /// Undoes forgetting; reports a conflict if another memory with the same name has been
+    /// recorded.
     async fn restore(&self, org_id: &Id, id: &Id, actor: &Id) -> Result<Memory>;
-    /// 彻底删除：撤销一次「记住」，或在记忆页删除。
+    /// Permanently deletes a memory: undoes a "Remember" action or deletes it from the memory page.
     async fn delete(&self, org_id: &Id, id: &Id) -> Result<bool>;
     async fn settings(&self, org_id: &Id) -> Result<MemorySettings>;
     async fn set_settings(

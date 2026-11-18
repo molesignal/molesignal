@@ -24,22 +24,20 @@ use std::{
     sync::Arc,
 };
 
+use agent::{
+    mcp::{McpPrompt, prompt_command},
+    network::NetworkPolicyStore,
+    scope::{ChatScope, Scope, Viewer},
+    tool_control::{McpServer, MemberCredential, ToolControlRepository},
+};
 pub use execution::{AUTHORIZATION_REQUIRED, CredentialNeed, McpToolCall};
+use kernel::{Error, Result, ids::Id};
 pub(crate) use schema::validate_schema;
 use serde::Serialize;
 pub use servers::{ImportReport, ServerDraft};
 pub use sync::{RemoteMcpTool, SyncOutcome, TestOutcome, safe_runtime_error};
 
-use crate::{
-    agent::{
-        mcp::{McpPrompt, prompt_command},
-        network::NetworkPolicyStore,
-        scope::{ChatScope, Scope, Viewer},
-        tool_control::{McpServer, MemberCredential, ToolControlRepository},
-    },
-    app::egress::TargetPolicy,
-    shared::{Error, Result, ids::Id},
-};
+use crate::app::egress::TargetPolicy;
 
 pub struct McpService {
     repo: Arc<dyn ToolControlRepository>,

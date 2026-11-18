@@ -4,7 +4,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// 微秒级时间戳。默认值是纪元起点。
+/// Microsecond-resolution timestamp. The default value is the start of the epoch.
 #[derive(
     Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
 )]
@@ -33,7 +33,7 @@ impl TimestampMicros {
     }
 }
 
-/// 时间区间，闭区间 `[start, end]`。
+/// Time range, a closed interval `[start, end]`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TimeRange {
     pub start: TimestampMicros,
@@ -45,7 +45,7 @@ impl TimeRange {
         Self { start, end }
     }
 
-    /// 单点构造：把单个时间戳包成 [t, t]。
+    /// Single-point constructor: wraps one timestamp as [t, t].
     pub fn at(t: TimestampMicros) -> Self {
         Self { start: t, end: t }
     }
@@ -54,19 +54,21 @@ impl TimeRange {
         self.end.0.saturating_sub(self.start.0)
     }
 
-    /// 闭区间包含。
+    /// Closed-interval containment.
     pub fn contains(&self, t: TimestampMicros) -> bool {
         self.start.0 <= t.0 && t.0 <= self.end.0
     }
 
-    /// 闭区间相交（共享至少一个点即为 true）。
+    /// Closed-interval intersection (true if they share at least one point).
     pub fn overlaps(&self, other: TimeRange) -> bool {
         self.start.0 <= other.end.0 && other.start.0 <= self.end.0
     }
 }
 
-/// 时间点按 `TIMESTAMPTZ` 存取，精度同为微秒。`i64::MAX` 与 `i64::MIN` 表示不设上限、下限，
-/// 存成 `infinity` 与 `-infinity`：它们落在 `DateTime<Utc>` 的范围之外，却是查询区间常用的端点。
+/// Time points are stored in and read from `TIMESTAMPTZ`, with the same microsecond precision.
+/// `i64::MAX` and `i64::MIN` mean no upper bound and no lower bound, and are stored as
+/// `infinity` and `-infinity`: they fall outside the range of `DateTime<Utc>`, yet are common
+/// endpoints of query ranges.
 #[cfg(feature = "postgres")]
 mod postgres {
     use chrono::{DateTime, Utc};
@@ -79,8 +81,9 @@ mod postgres {
 
     use super::TimestampMicros;
 
-    /// Postgres 的纪元 2000-01-01T00:00:00Z，自 Unix 纪元起的微秒数。二进制格式存的是距它的微秒数，
-    /// `i64::MAX` 与 `i64::MIN` 是 `infinity` 与 `-infinity`。
+    /// The Postgres epoch, 2000-01-01T00:00:00Z, in microseconds since the Unix epoch.
+    /// The binary format stores microseconds relative to it, and `i64::MAX` and `i64::MIN`
+    /// are `infinity` and `-infinity`.
     const POSTGRES_EPOCH: i64 = 946_684_800_000_000;
 
     impl Type<Postgres> for TimestampMicros {
@@ -123,7 +126,8 @@ mod postgres {
         }
     }
 
-    /// 紧挨 `i64::MIN` 的值减去纪元会溢出，饱和成 `-infinity`。
+    /// A value close to `i64::MIN` overflows when the epoch is subtracted, so it
+    /// saturates to `-infinity`.
     fn to_postgres(micros: i64) -> i64 {
         match micros {
             i64::MAX => i64::MAX,
@@ -131,7 +135,8 @@ mod postgres {
         }
     }
 
-    /// `infinity` 和 Postgres 范围最末约 30 年加上纪元会超出 `i64`，饱和成 `i64::MAX`。
+    /// Adding the epoch to `infinity` or to roughly the last 30 years of the Postgres range
+    /// would exceed `i64`, so the result saturates to `i64::MAX`.
     fn from_postgres(micros: i64) -> i64 {
         match micros {
             i64::MIN => i64::MIN,

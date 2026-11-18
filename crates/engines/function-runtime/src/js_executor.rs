@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! JS function runtime（spec functions-runtime / change `js-runtime-functions`）。
+//! JS function runtime.
 //!
-//! 由 `js-runtime` feature 编译；`molesignal` 主二进制默认启用。设计选型见
-//! `openspec/changes/js-runtime-functions/design.md`。
+//! Built with the `js-runtime` feature; the main `molesignal` binary enables it by default.
 //!
-//! 关键约束：`deno_core::JsRuntime` 内含 `RefCell<dyn Any>` → `!Send + !Sync`。
-//! `FunctionExecutor` trait 又要求 `async fn run` 在 multi-thread tokio scheduler
-//! 上可调度，所以 `JsRuntime` 不能直接挂在 `Arc<...>` 跨线程共享。
+//! Key constraint: `deno_core::JsRuntime` contains a `RefCell<dyn Any>`, so it is
+//! `!Send + !Sync`. The `FunctionExecutor` trait, in turn, requires `async fn run` to be
+//! schedulable on the multi-thread tokio scheduler, so a `JsRuntime` cannot be shared
+//! across threads directly through an `Arc<...>`.
 //!
-//! 解决方案：每个 `(function_id, updated_at)` 起一个 OS 线程拥有 `JsRuntime`，
-//! 外部通过 `mpsc::Sender<Job>` 投递评估请求 + `tokio::oneshot` 拿结果。
-//! `v8::IsolateHandle` 自带 `Send + Sync`，主线程拿一份用于 `terminate_execution`
-//! 实现 wall-clock 超时。
+//! Solution: each `(function_id, updated_at)` gets an OS thread that owns the `JsRuntime`.
+//! Callers submit evaluation requests through an `mpsc::Sender<Job>` and get results through
+//! a `tokio::oneshot`. `v8::IsolateHandle` is `Send + Sync` on its own, so the main thread
+//! keeps a copy for `terminate_execution`, which implements the wall-clock timeout.
 
 use std::{
     sync::{
@@ -27,13 +27,9 @@ use std::{
 use async_trait::async_trait;
 use dashmap::DashMap;
 use deno_core::{JsRuntime, RuntimeOptions, v8};
+use domain::function::{Function, FunctionExecutor, FunctionLanguage, FunctionOutcome};
+use kernel::{Error, Result};
 use tokio::sync::oneshot;
-
-use crate::{
-    app::intake::FunctionExecutor,
-    domain::function::{Function, FunctionLanguage, FunctionOutcome},
-    shared::{Error, Result},
-};
 
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_millis(50);
 pub const DEFAULT_HEAP_MAX_BYTES: usize = 32 * 1024 * 1024;
@@ -41,7 +37,7 @@ pub const DEFAULT_HEAP_MAX_BYTES: usize = 32 * 1024 * 1024;
 const PRELUDE: &str = include_str!("js_executor_prelude.js");
 
 pub struct JsFunctionExecutor {
-    /// per-function worker thread；每个 worker 独占一个 `JsRuntime`。
+    /// Per-function worker threads; each worker exclusively owns one `JsRuntime`.
     workers: DashMap<(String, i64), Arc<IsolateWorker>>,
     timeout: Duration,
     heap_max_bytes: usize,
@@ -49,8 +45,8 @@ pub struct JsFunctionExecutor {
 
 impl JsFunctionExecutor {
     pub fn new(timeout: Duration, heap_max_bytes: usize) -> Self {
-        // 不在这里 init V8：deno_core 的 JsRuntime::new 内部走 `init_v8`，
-        // 二次 `V8::initialize_platform` 会触发 `Check failed: !IsFrozen()` abort。
+        // V8 is not initialized here: deno_core's JsRuntime::new calls `init_v8` internally,
+        // and a second `V8::initialize_platform` would abort with `Check failed: !IsFrozen()`.
         Self {
             workers: DashMap::new(),
             timeout,
@@ -73,14 +69,14 @@ impl JsFunctionExecutor {
 
         let worker = Arc::new(IsolateWorker::spawn(f.source.clone(), self.heap_max_bytes)?);
         self.workers.insert(key, worker.clone());
-        // 旧版本同 function_id 清理。
+        // Clean up older versions of the same function_id.
         self.workers
             .retain(|k, _| k.0 != f.id.0 || k.1 == f.updated_at.0);
         Ok(worker)
     }
 
-    /// 同步路径：throwaway isolate 跑 parse-only 校验。
-    /// 由 `precheck_compile` 在 HTTP CRUD 路径调用，**不要**在 tokio 任务里跑。
+    /// Synchronous path: runs the parse-only check in a throwaway isolate.
+    /// Called by `precheck_compile` on the HTTP CRUD path; do **not** run it in a tokio task.
     pub fn parse_only(source: &str) -> Result<()> {
         let mut runtime = JsRuntime::new(RuntimeOptions::default());
         let wrapped = format!("(function(){{\n{source}\n}})");
@@ -119,7 +115,8 @@ impl FunctionExecutor for JsFunctionExecutor {
             })
             .map_err(|_| Error::internal("js worker thread dead"))?;
 
-        // wall-clock timer：超时把 isolate terminate；worker 那条 evaluate 会带 error 返。
+        // Wall-clock timer: on timeout, terminates the isolate; the worker's evaluate call
+        // returns with an error.
         let handle = worker.handle();
 
         let terminator = tokio::spawn(async move {
@@ -172,7 +169,7 @@ enum Job {
     Shutdown,
 }
 
-/// 持有 worker 线程 + sender + handle；JsRuntime 永远在 worker 线程内。
+/// Holds the worker thread, sender, and handle; the JsRuntime always stays on the worker thread.
 struct IsolateWorker {
     tx: SyncSender<Job>,
     handle: v8::IsolateHandle,
@@ -182,7 +179,7 @@ struct IsolateWorker {
 
 impl IsolateWorker {
     fn spawn(source: String, heap_max_bytes: usize) -> Result<Self> {
-        // bound=1：单 producer 单 consumer，反压自然。
+        // bound=1: single producer, single consumer, so backpressure comes naturally.
         let (tx, rx) = mpsc::sync_channel::<Job>(1);
         let (handle_tx, handle_rx) = mpsc::sync_channel::<Result<v8::IsolateHandle>>(1);
 
@@ -250,7 +247,7 @@ impl IsolateWorker {
 
 impl Drop for IsolateWorker {
     fn drop(&mut self) {
-        // 优雅退出：先 terminate 醒来阻塞的 evaluate；再投 Shutdown。
+        // Graceful exit: terminate first to wake the blocked evaluate, then post Shutdown.
         self.handle.terminate_execution();
         let _ = self.tx.send(Job::Shutdown);
 
@@ -270,7 +267,8 @@ fn build_runtime(source: &str, heap_max_bytes: usize) -> Result<JsRuntime> {
         ..Default::default()
     });
 
-    // 接近 heap 上限 → terminate 当前 evaluate；返回 current 表示「不再扩张」。
+    // Close to the heap limit: terminate the current evaluate; returning current means
+    // "no further expansion".
     let handle = runtime.v8_isolate().thread_safe_handle();
 
     runtime.add_near_heap_limit_callback(move |current, _initial| {
@@ -282,7 +280,7 @@ fn build_runtime(source: &str, heap_max_bytes: usize) -> Result<JsRuntime> {
         .execute_script("[molesignal:prelude]", PRELUDE)
         .map_err(|e| Error::invalid(format!("js prelude: {e}")))?;
 
-    // user source 包成函数，编译只发生一次。
+    // Wrap the user source in a function, so compilation happens only once.
     let wrapped = format!("globalThis.__obsv_user = function() {{\n{source}\n}};");
 
     runtime
@@ -293,7 +291,8 @@ fn build_runtime(source: &str, heap_max_bytes: usize) -> Result<JsRuntime> {
 }
 
 fn run_once(runtime: &mut JsRuntime, event_json: &str) -> Result<String> {
-    // 双层 JSON：内层是 fields object 序列化；外层包成 JS string literal。
+    // Double-layer JSON: the inner layer is the serialized fields object;
+    // the outer layer wraps it as a JS string literal.
     let arg_literal = serde_json::to_string(event_json)
         .map_err(|e| Error::internal(format!("encode event literal: {e}")))?;
 
@@ -321,10 +320,10 @@ fn run_once(runtime: &mut JsRuntime, event_json: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
+    use kernel::{ids::Id, time::TimestampMicros};
     use serde_json::json;
 
     use super::*;
-    use crate::shared::{ids::Id, time::TimestampMicros};
 
     fn mk_fn(source: &str, updated_micros: i64) -> Function {
         Function {
@@ -371,7 +370,8 @@ mod tests {
         assert!(err.to_string().contains("timeout"), "{err}");
     }
 
-    /// 裸 deno_core 没有 `TextEncoder`：sha256 自带 UTF-8 编码，多字节与代理对也要与标准哈希一致。
+    /// Bare deno_core has no `TextEncoder`: sha256 does its own UTF-8 encoding, and multi-byte
+    /// characters and surrogate pairs must also match the standard hash.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn js_sha256_hashes_utf8_text() {
         let ex = JsFunctionExecutor::with_defaults();

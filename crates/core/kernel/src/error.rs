@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use contracts::ContractIssue;
 use thiserror::Error;
-
-use super::contracts::ContractIssue;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -85,23 +84,25 @@ impl Error {
         Self::Cancelled(msg.into())
     }
 
-    /// 资源准入耗尽（429 Too Many Requests）：并发槽位满 / 工作组配额用尽时拒绝。
+    /// Resource admission exhausted (429 Too Many Requests): rejects when concurrency slots are
+    /// full or the work group quota is exhausted.
     pub fn resource_exhausted(msg: impl Into<String>) -> Self {
         Self::ResourceExhausted(msg.into())
     }
 
-    /// 请求体过大 / 超存储配额（413 Payload Too Large）：profiles 等摄取超
-    /// `max_storage_bytes` 时返回，调用方不写对象。
+    /// Request body too large / storage quota exceeded (413 Payload Too Large): returned when
+    /// intake of profiles and the like exceeds `max_storage_bytes`; the caller writes no object.
     pub fn payload_too_large(msg: impl Into<String>) -> Self {
         Self::PayloadTooLarge(msg.into())
     }
 
-    /// 服务不可用（503 Service Unavailable）：节点 drain 退役中、停接新活时拒绝。
+    /// Service unavailable (503 Service Unavailable): rejects while the node is draining and
+    /// not taking new work.
     pub fn unavailable(msg: impl Into<String>) -> Self {
         Self::Unavailable(msg.into())
     }
 
-    /// HTTP 状态码语义映射。任何 HTTP 适配层都可以拿这个数值用。
+    /// Semantic mapping to an HTTP status code. Any HTTP adapter layer can use this value.
     pub fn http_status_code(&self) -> u16 {
         match self {
             Error::NotFound(_) => 404,
@@ -111,14 +112,15 @@ impl Error {
             Error::Forbidden(_) => 403,
             Error::ResourceExhausted(_) => 429,
             Error::PayloadTooLarge(_) => 413,
-            // 499 是 nginx 风格的客户端取消；标准 4xx 中没有专门状态码，沿用最贴近的语义。
+            // 499 is nginx-style client cancellation; standard 4xx has no dedicated status code,
+            // so the closest semantics are reused.
             Error::Cancelled(_) => 499,
             Error::Unavailable(_) => 503,
             Error::Internal(_) | Error::Other(_) => 500,
         }
     }
 
-    /// 给前端 / API 客户端用的统一错误码字符串。
+    /// Unified error code string for the frontend and API clients.
     pub fn http_error_code(&self) -> &'static str {
         match self {
             Error::NotFound(_) => "not_found",
@@ -152,12 +154,14 @@ mod axum_impl {
             let status = StatusCode::from_u16(self.http_status_code())
                 .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
 
-            // 5xx 把详情记到 tracing（客户端看不到，避免泄露内部细节，但 ops 能定位）。
+            // 5xx: log the details to tracing (clients cannot see them, which avoids leaking
+            // internal details, but ops can locate the cause).
             if status.is_server_error() {
                 tracing::error!(error = ?self, "request failed with server error");
             }
 
-            // 客户端响应：5xx 抹去 message；4xx 把 message 直接吐出去更便于客户端理解。
+            // Client response: 5xx strips the message; 4xx sends the message as is, which is
+            // easier for clients to understand.
             let message = match &self {
                 Error::Internal(_) | Error::Other(_) => "internal error".to_string(),
                 other => other.to_string(),

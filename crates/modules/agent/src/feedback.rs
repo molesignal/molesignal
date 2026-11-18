@@ -1,29 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 对 Mole Agent 产出的评价：👍 / 👎、👎 的原因与备注。
+//! Feedback on Mole Agent output: 👍 / 👎, reasons for 👎, and comments.
 //!
-//! 每人对每个对象只留一条，可以改、可以撤回。评价时记下被评价的回答当时用的模型与
-//! prompt，之后按版本对比质量时不必再回头找。
+//! Each person has one entry per target, which they can edit or withdraw. Feedback records the
+//! model and prompt used for the rated answer, so later quality comparisons by version do not
+//! require looking them up again.
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
-
-/// 备注最多这么多字。
+/// The maximum number of characters in a comment.
 pub const MAX_COMMENT_CHARS: usize = 2_000;
 
-/// 一次最多查这么多个对象的评价。
+/// The maximum number of targets whose feedback can be looked up at once.
 pub const MAX_TARGETS_PER_LOOKUP: usize = 200;
 
-/// 被评价的是什么。
+/// What the feedback is about.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FeedbackTarget {
-    /// 对话里的一条回答，对象 ID 是消息 ID。
+    /// An answer in a conversation; the target ID is the message ID.
     ChatMessage,
-    /// 事件的根因分析，对象 ID 是事件 ID。
+    /// An incident's root cause analysis; the target ID is the incident ID.
     IncidentRca,
 }
 
@@ -68,17 +68,17 @@ impl FeedbackRating {
     }
 }
 
-/// 👎 的原因，可以多选。
+/// Reasons for 👎; multiple selections are allowed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FeedbackReason {
-    /// 结论或根因是错的。
+    /// The conclusion or root cause is wrong.
     WrongConclusion,
-    /// 没有定位到问题。
+    /// Fails to identify the problem.
     MissedCause,
-    /// 给出的处置建议用不上。
+    /// The suggested remediation is unusable.
     UnusableAdvice,
-    /// 答非所问。
+    /// Does not answer the question.
     OffTopic,
     Other,
 }
@@ -121,14 +121,15 @@ pub struct AgentFeedback {
     pub rating: FeedbackRating,
     pub reasons: Vec<FeedbackReason>,
     pub comment: String,
-    /// 被评价的回答当时用的模型服务、模型与 prompt 版本。
+    /// The model service, model, and prompt version used for the rated answer.
     pub provenance: serde_json::Value,
     pub created_at: TimestampMicros,
     pub updated_at: TimestampMicros,
 }
 
 impl AgentFeedback {
-    /// 整理并检查一条评价：原因去重排序，👍 不带原因，备注不超长。
+    /// Normalizes and validates feedback: deduplicates and sorts reasons, removes reasons for 👍,
+    /// and checks the comment length limit.
     pub fn normalized(mut self) -> Result<Self> {
         if self.target_id.trim().is_empty() {
             return Err(Error::invalid("feedback target id is required"));
@@ -155,10 +156,11 @@ impl AgentFeedback {
 
 #[async_trait]
 pub trait AgentFeedbackRepository: Send + Sync {
-    /// 保存一个人对一个对象的评价；已有时替换评分、原因与备注，保留创建时间。
+    /// Saves a person's feedback on a target; replaces the rating, reasons, and comment if it
+    /// exists, preserving the creation time.
     async fn upsert(&self, feedback: AgentFeedback) -> Result<AgentFeedback>;
 
-    /// 撤回一个人对一个对象的评价；原本没有时返回 `false`。
+    /// Withdraws a person's feedback on a target; returns `false` if none exists.
     async fn remove(
         &self,
         org_id: &Id,
@@ -167,7 +169,7 @@ pub trait AgentFeedbackRepository: Send + Sync {
         user_id: &Id,
     ) -> Result<bool>;
 
-    /// 大家对一个对象给过的评价，最近改的在前。
+    /// Everyone's feedback on a target, most recently edited first.
     async fn list_for_target(
         &self,
         org_id: &Id,
@@ -175,7 +177,7 @@ pub trait AgentFeedbackRepository: Send + Sync {
         target_id: &str,
     ) -> Result<Vec<AgentFeedback>>;
 
-    /// 一个人对这些对象给过的评价。
+    /// A person's feedback on these targets.
     async fn list_for_user(
         &self,
         org_id: &Id,

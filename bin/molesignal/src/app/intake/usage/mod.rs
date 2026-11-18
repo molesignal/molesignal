@@ -14,6 +14,7 @@ mod meter;
 mod sources;
 
 pub use budgets::{BudgetStanding, budget_standings};
+pub(crate) use meter::SERVICE_FIELDS;
 pub use meter::{
     IntakeReceipt, IntakeUsageMeter, ServiceTally, service_of_fields, split_by_events,
 };

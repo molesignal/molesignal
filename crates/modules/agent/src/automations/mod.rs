@@ -1,16 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 自动化：不用人在场，让 Mole Agent 做一件事。
+//! Automations let Mole Agent perform a task without a person present.
 //!
-//! 一条规则 = 名称 + 作用域（组织 / 团队 / 个人）+ 任务提示 + 触发 + 输出。每触发一次是一次运行：
-//! 在一个隐藏的会话里排一轮回答（Run，来源 `automation`，事件触发的是 `incident`），以最后保存
-//! 规则的人的身份执行；结束后按输出发通知、写回事件的 RCA，并把结果记在运行记录里。
+//! A rule = name + scope (organization / team / personal) + task prompt + trigger + outputs. Each
+//! trigger creates a run: one answer turn is queued in a hidden session (Run, source `automation`,
+//! or `incident` for incident triggers), executed as the person who last saves the rule. On
+//! completion, it sends notifications and writes the incident RCA according to the outputs, and
+//! records the results in the run record.
 //!
-//! - 触发：Cron（带时区，最短 15 分钟一次）、API（规则自己的令牌）、新事件（按严重级别、告警规则、
-//!   服务与标签筛选，同一事件只分析一次）、新的自动发现（按种类、最低严重度和对象筛选，同一条发现只
-//!   调查一次）、手动。
-//! - 运行状态见 [`AutomationRunStatus`]；没有人可问时，提问、确认与缺凭据都不等，记为阻塞。
+//! - Triggers: Cron (with a time zone, at most once every 15 minutes), API (the rule's own token),
+//!   new incidents (filtered by severity, alert rule, service, and labels; each incident is
+//!   analyzed only once), new automatic findings (filtered by kind, minimum severity, and subject;
+//!   each finding is investigated only once), manual.
+//! - See [`AutomationRunStatus`] for run statuses; with no one to ask, questions, confirmations,
+//!   and missing credentials cause the run to be marked as blocked without waiting.
 
 mod findings;
 mod incidents;
@@ -18,47 +22,47 @@ mod incidents;
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use domain::notify::connector::NotifyTargetType;
 pub use findings::FindingFilter;
 pub use incidents::{IncidentFacts, MERGE_WINDOW_MICROS};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{
-    agent::scope::Scope,
-    domain::notify::connector::NotifyTargetType,
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::scope::Scope;
 
-/// 一个组织最多这么多条规则。
+/// The maximum number of rules per organization.
 pub const MAX_AUTOMATIONS_PER_ORG: usize = 50;
-/// 任务提示最长这么多字符。
+/// The maximum task prompt length in characters.
 pub const MAX_PROMPT_CHARS: usize = 8_000;
-/// 一条规则最多发到这么多个通知渠道。
+/// The maximum number of notification channels a rule can send to.
 pub const MAX_CHANNELS: usize = 5;
-/// API 触发时请求体里的 `text` 最长这么多字符。
+/// The maximum length in characters of `text` in the request body for an API trigger.
 pub const MAX_INPUT_CHARS: usize = 8_000;
-/// 一次运行默认最多跑这么久，可设 1 到 60 分钟。
+/// The default maximum run duration, configurable from 1 to 60 minutes.
 pub const DEFAULT_TIMEOUT_SECS: u32 = 600;
 pub const MIN_TIMEOUT_SECS: u32 = 60;
 pub const MAX_TIMEOUT_SECS: u32 = 3_600;
-/// 手动运行之间至少隔这么久。
+/// The minimum interval between manual runs.
 pub const MANUAL_RUN_INTERVAL_MICROS: i64 = 60_000_000;
-/// 每条规则留这么多条运行记录，更早的删掉。
+/// The number of run records retained per rule; older records are deleted.
 pub const KEPT_RUNS_PER_AUTOMATION: i64 = 100;
 
-/// 什么时候运行。
+/// When to run.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AutomationTrigger {
-    /// 按 Cron 表达式（五段：分 时 日 月 周）在一个时区里定时运行。
+    /// Runs on a schedule in a time zone using a Cron expression (five fields: minute, hour, day,
+    /// month, weekday).
     Schedule { cron: String, timezone: String },
-    /// 外部系统带着规则的令牌调接口触发；请求体里的 `text` 是这一次的上下文。
+    /// External systems trigger a run by calling the API with the rule's token; `text` in the
+    /// request body provides context for this run.
     Api,
-    /// 新事件触发。
+    /// Triggers on a new incident.
     Incident(IncidentFilter),
-    /// 自动发现新找到的问题触发。
+    /// Triggers on a problem newly found by automatic discovery.
     Finding(FindingFilter),
-    /// 只手动运行。
+    /// Runs only manually.
     Manual,
 }
 
@@ -73,31 +77,32 @@ impl AutomationTrigger {
         }
     }
 
-    /// 事件或发现触发：要从游标往后读新的。
+    /// Incident or finding triggers need to read new items after the cursor.
     pub fn reads_events(&self) -> bool {
         matches!(self, Self::Incident(_) | Self::Finding(_))
     }
 }
 
-/// 哪些新事件触发：每一项留空表示不限，填了的都要满足。
+/// Specifies which new incidents trigger a run: empty fields impose no limit; all set fields must
+/// match.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IncidentFilter {
-    /// `info`、`warning`、`error`、`critical`。
+    /// `info`, `warning`, `error`, `critical`.
     #[serde(default)]
     pub severities: Vec<String>,
-    /// 告警规则的 ID。
+    /// Alert rule IDs.
     #[serde(default)]
     pub rule_ids: Vec<String>,
-    /// 受影响的服务。
+    /// Affected services.
     #[serde(default)]
     pub services: Vec<String>,
-    /// 事件标签，值要相等。
+    /// Incident labels whose values must match.
     #[serde(default)]
     pub labels: BTreeMap<String, String>,
 }
 
-/// 一次运行是怎么触发的。
+/// How a run is triggered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TriggerKind {
@@ -132,7 +137,7 @@ impl TriggerKind {
     }
 }
 
-/// 结果发到哪里：一个通知连接器上的固定地址或固定群组。
+/// Where results are sent: a fixed address or group on a notification connector.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AutomationChannel {
@@ -141,19 +146,19 @@ pub struct AutomationChannel {
     pub target: String,
 }
 
-/// 一次运行结束后做什么。
+/// What to do after a run ends.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AutomationOutputs {
-    /// 把结果发到这些渠道。
+    /// Sends results to these channels.
     #[serde(default)]
     pub channels: Vec<AutomationChannel>,
-    /// 事件触发的运行把结论写成事件的 RCA。
+    /// Incident-triggered runs write the conclusion as the incident's RCA.
     #[serde(default)]
     pub write_rca: bool,
 }
 
-/// 最近一次运行，列表里显示规则现在的状况。
+/// The latest run, showing the rule's current state in the list.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LastAutomationRun {
     pub id: Id,
@@ -166,27 +171,29 @@ pub struct LastAutomationRun {
 pub struct Automation {
     pub id: Id,
     pub org_id: Id,
-    /// 每次运行的会话作用域；创建后不改，换作用域用克隆。
+    /// The session scope for each run; immutable after creation, so clone to change the scope.
     pub scope: Scope,
     pub name: String,
     pub description: String,
-    /// 每次运行时作为问题交给 Mole Agent。
+    /// Passed to Mole Agent as the question for each run.
     pub prompt: String,
     pub enabled: bool,
     pub trigger: AutomationTrigger,
     pub outputs: AutomationOutputs,
-    /// 以谁的身份运行：最后保存规则的人。
+    /// The execution identity: the person who last saves the rule.
     pub run_as_user_id: Id,
-    /// 保存时的界面语言：回答与通知都用它。
+    /// The interface language at save time, used for both answers and notifications.
     pub language: String,
     pub timeout_secs: u32,
-    /// 从哪个内置模板建的。
+    /// The built-in template used to create the rule.
     pub template: Option<String>,
-    /// API 触发令牌的前缀；没有令牌时为空。令牌本身只在生成时出现一次。
+    /// The API trigger token's prefix; empty when there is no token.
+    /// The token itself is shown only once, when generated.
     pub api_token_prefix: Option<String>,
-    /// 下一次定时运行的时刻。
+    /// The time of the next scheduled run.
     pub next_run_at: Option<TimestampMicros>,
-    /// 事件、发现触发：这之后创建的事件、发现才算新的。
+    /// For incident and finding triggers, only incidents and findings created after this time count
+    /// as new.
     pub incident_cursor: Option<TimestampMicros>,
     pub last_run: Option<LastAutomationRun>,
     pub created_by: Id,
@@ -195,23 +202,25 @@ pub struct Automation {
     pub updated_at: TimestampMicros,
 }
 
-/// 一次运行到了哪一步、怎么结束的。
+/// The current stage of a run and how it ends.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AutomationRunStatus {
-    /// Mole Agent 正在做。
+    /// Mole Agent is working.
     Running,
-    /// 做完了，结果都送到了。
+    /// The task is complete, and all results are delivered.
     Succeeded,
-    /// 做完了，但有的通知没发出去，或 RCA 没写成。
+    /// The task is complete, but some notifications fail to send or the RCA fails to write.
     Partial,
-    /// 没做完：模型出错、超时，或执行身份不再可用。
+    /// The task is incomplete: a model error, a timeout, or an execution identity that is no longer
+    /// available.
     Failed,
-    /// 没有开始：预算用完、上一次还没做完，或同一事件刚分析过。
+    /// The run does not start: the budget is exhausted, the previous run is still in progress, or
+    /// the same incident was just analyzed.
     Skipped,
-    /// 做的时候要有人回答、确认或补凭据，没有人可问。
+    /// The task needs someone to answer, confirm, or provide credentials, but no one is available.
     Blocked,
-    /// 被停下或中断了。
+    /// The run is stopped or interrupted.
     Abandoned,
 }
 
@@ -249,39 +258,41 @@ impl AutomationRunStatus {
     }
 }
 
-/// 运行没有开始或没有做好的原因：固定的代码，页面写成读者的语言。
+/// Reasons a run does not start or complete successfully: fixed codes displayed in the reader's
+/// language on the page.
 pub mod reasons {
-    /// 组织今天的 Mole Agent token 预算用完了。
+    /// The organization's Mole Agent token budget for today is exhausted.
     pub const BUDGET_EXHAUSTED: &str = "budget_exhausted";
-    /// 上一次运行还没结束。
+    /// The previous run is still in progress.
     pub const STILL_RUNNING: &str = "still_running";
-    /// 同一事件（或同一组事件）刚分析过。
+    /// The same incident (or group of incidents) was just analyzed.
     pub const ALREADY_ANALYZED: &str = "already_analyzed";
-    /// 执行身份不再可用：账号停用、离开组织或失去权限。
+    /// The execution identity is no longer available: the account is disabled, leaves the
+    /// organization, or loses permissions.
     pub const RUN_AS_UNAVAILABLE: &str = "run_as_unavailable";
-    /// 没有可用的模型服务。
+    /// No model service is available.
     pub const NO_MODEL: &str = "no_model";
-    /// 超过了规则的总时限。
+    /// The rule's total time limit is exceeded.
     pub const TIMEOUT: &str = "timeout";
-    /// 模型或工具出错。
+    /// A model or tool error occurs.
     pub const ERROR: &str = "error";
-    /// 要人回答一个问题。
+    /// Someone needs to answer a question.
     pub const QUESTION: &str = "question";
-    /// 要人确认执行一个工具。
+    /// Someone needs to confirm execution of a tool.
     pub const CONFIRMATION: &str = "confirmation";
-    /// 一台 MCP 服务器要执行身份自己的凭据，而他还没存。
+    /// An MCP server requires the execution identity's own credentials, which are not yet saved.
     pub const CREDENTIAL: &str = "credential";
-    /// 有通知没有发出去。
+    /// Some notifications fail to send.
     pub const DELIVERY: &str = "delivery";
-    /// 事件的 RCA 没写成。
+    /// The incident's RCA fails to write.
     pub const RCA: &str = "rca";
-    /// 被人停下。
+    /// Someone stops the run.
     pub const STOPPED: &str = "stopped";
-    /// 执行它的服务器停了。
+    /// The server executing the run stops.
     pub const INTERRUPTED: &str = "interrupted";
 }
 
-/// 一次运行。
+/// A single run.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AutomationRun {
@@ -290,29 +301,30 @@ pub struct AutomationRun {
     pub automation_id: Id,
     pub trigger: TriggerKind,
     pub status: AutomationRunStatus,
-    /// [`reasons`] 里的代码，多个时用逗号隔开。
+    /// Codes from [`reasons`], separated by commas when there are multiple.
     pub reason: Option<String>,
-    /// 隐藏的会话：点开能看到全过程。
+    /// The hidden session: open it to see the entire process.
     pub chat_id: Option<Id>,
-    /// 这一轮回答的 Run。
+    /// The Run for this answer turn.
     pub run_id: Option<Id>,
-    /// 事件触发时的事件。
+    /// The incident for an incident-triggered run.
     pub incident_id: Option<Id>,
-    /// 同一组事件的键（事件的指纹）：一段时间内只分析一次。
+    /// The key for a group of incidents (the incident fingerprint): analyzed only once within a
+    /// time period.
     pub group_key: Option<String>,
-    /// 这一次的上下文：API 请求带的文字，或事件的摘要。
+    /// Context for this run: text from the API request or the incident summary.
     pub input: Option<String>,
-    /// 回答的开头，列表里看。
+    /// The beginning of the answer, shown in the list.
     pub summary: Option<String>,
-    /// 通知与 RCA 的结果：`{"deliveries": [...], "rca": true}`。
+    /// Notification and RCA results: `{"deliveries": [...], "rca": true}`.
     pub outputs: Value,
-    /// 手动运行的人。
+    /// The person who starts a manual run.
     pub started_by: Option<Id>,
     pub created_at: TimestampMicros,
     pub finished_at: Option<TimestampMicros>,
 }
 
-/// 一次运行怎么结束的，回写到运行记录。
+/// How a run ends, written back to the run record.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RunEnding {
     pub status: AutomationRunStatus,
@@ -325,23 +337,25 @@ pub struct RunEnding {
 pub trait AutomationRepository: Send + Sync {
     async fn list(&self, org_id: &Id) -> Result<Vec<Automation>>;
     async fn get(&self, org_id: &Id, id: &Id) -> Result<Automation>;
-    /// 不知道组织时按 ID 找（API 触发只带规则 ID），连同令牌的哈希。
+    /// Looks up by ID when the organization is unknown (API triggers carry only the rule ID), along
+    /// with the token hash.
     async fn get_with_token(&self, id: &Id) -> Result<Option<(Automation, Option<String>)>>;
     async fn count(&self, org_id: &Id) -> Result<usize>;
     async fn create(&self, automation: Automation) -> Result<Automation>;
     async fn update(&self, automation: Automation) -> Result<Automation>;
     async fn delete(&self, org_id: &Id, id: &Id) -> Result<bool>;
     async fn set_enabled(&self, org_id: &Id, id: &Id, enabled: bool) -> Result<Automation>;
-    /// 换上新令牌（哈希与前缀）；`None` 收回令牌。
+    /// Replaces the API Token (hash and prefix); `None` revokes it.
     async fn set_api_token(
         &self,
         org_id: &Id,
         id: &Id,
         token: Option<(String, String)>,
     ) -> Result<()>;
-    /// 领走到点该运行的定时规则，最早的在前：领走时把下一次先推到 `hold_until`，别的节点就不会
-    /// 再领；算出真正的下一次后由 [`Self::set_next_run`] 写回。节点在两步之间没了，规则晚一点
-    /// 照常运行。
+    /// Claims scheduled rules due to run, earliest first.
+    /// Claiming first moves the next run to `hold_until` so other nodes cannot claim it;
+    /// [`Self::set_next_run`] writes back the actual next run once calculated. If the node
+    /// disappears between these steps, the rule runs normally a little later.
     async fn claim_due(
         &self,
         now: TimestampMicros,
@@ -349,16 +363,17 @@ pub trait AutomationRepository: Send + Sync {
         limit: i64,
     ) -> Result<Vec<Automation>>;
     async fn set_next_run(&self, id: &Id, next: Option<TimestampMicros>) -> Result<()>;
-    /// 启用中的事件触发和发现触发的规则，各组织的。
+    /// Enabled incident-triggered and finding-triggered rules across organizations.
     async fn incident_rules(&self) -> Result<Vec<Automation>>;
-    /// 把事件（或发现）游标从 `from` 推到 `to`；别的节点已经推过时返回 false，这一批由它处理。
+    /// Advances the incident (or finding) cursor from `from` to `to`; returns false if another
+    /// node has already advanced it and handles this batch.
     async fn advance_incident_cursor(
         &self,
         id: &Id,
         from: Option<TimestampMicros>,
         to: TimestampMicros,
     ) -> Result<bool>;
-    /// 组织有没有启用中、会写事件 RCA 的事件触发规则。
+    /// Whether the organization has an enabled incident-triggered rule that writes incident RCA.
     async fn writes_rca(&self, org_id: &Id) -> Result<bool>;
 
     async fn create_run(&self, run: AutomationRun) -> Result<AutomationRun>;
@@ -372,9 +387,9 @@ pub trait AutomationRepository: Send + Sync {
         automation_id: &Id,
         limit: i64,
     ) -> Result<Vec<AutomationRun>>;
-    /// 还在运行的记录，各组织的：执行它的节点没了时由这里收尾。
+    /// Run records still in progress across organizations, finalized here if their node disappears.
     async fn running_runs(&self, limit: i64) -> Result<Vec<AutomationRun>>;
-    /// 这条规则分析过这个事件，或在 `since` 之后分析过同一组事件。
+    /// Whether this rule has analyzed this incident or the same group of incidents since `since`.
     async fn analyzed(
         &self,
         automation_id: &Id,
@@ -382,7 +397,7 @@ pub trait AutomationRepository: Send + Sync {
         group_key: &str,
         since: TimestampMicros,
     ) -> Result<bool>;
-    /// 每条规则只留最近 `keep` 条运行记录。
+    /// Keeps only the latest `keep` run records for each rule.
     async fn purge_runs(&self, keep: i64) -> Result<u64>;
 }
 

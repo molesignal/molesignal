@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 火焰图合并器（task 4.2 / 4.4）。
+//! Flame graph merger (task 4.2 / 4.4).
 //!
-//! 把窗口内多份 [`NormalizedProfile`] 按 frame 路径聚合成一棵栈树，再扁平化为
-//! **flamebearer**（`names[]` + `levels[]`，与生态火焰图渲染兼容）。差分（diff）
-//! 在 baseline / comparison 两侧累计后按 frame 路径求带符号增量。
+//! Aggregates multiple [`NormalizedProfile`] instances in a window into one stack tree by frame
+//! path, then flattens it into a **flamebearer** (`names[]` + `levels[]`, compatible with
+//! ecosystem flame graph renderers). A diff accumulates the baseline / comparison sides, then
+//! computes the signed delta per frame path.
 //!
-//! flamebearer `levels[d]` 是该深度所有 bar 的扁平整型数组，单 bar 4 个整数：
-//! `[offset, total, self, name_index]`，`offset` 为同层相对上一 bar 右沿的间隙。
-//! diff 单 bar 5 个整数：`[offset, total, self, name_index, delta]`，`total` =
-//! 两侧之和（决定宽度，保证仅一侧出现的帧也可见），`delta` = comparison − baseline。
+//! In a flamebearer, `levels[d]` is the flat integer array of all bars at that depth, with 4
+//! integers per bar: `[offset, total, self, name_index]`, where `offset` is the gap from the
+//! right edge of the previous bar on the same level.
+//! A diff bar has 5 integers: `[offset, total, self, name_index, delta]`, where `total` = the
+//! sum of both sides (it determines the width and guarantees that frames present on only one
+//! side are also visible), and `delta` = comparison - baseline.
 
 use std::collections::{BTreeSet, HashMap};
 
@@ -18,32 +21,32 @@ use serde::{Deserialize, Serialize};
 
 use super::NormalizedProfile;
 
-/// 单窗口聚合 flamebearer。
+/// Aggregated flamebearer for a single window.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Flamebearer {
-    /// frame 名字符串表，`names[0]` 恒为 `"total"`（根）。
+    /// Frame name string table; `names[0]` is always `"total"` (the root).
     pub names: Vec<String>,
-    /// 每层 bar 的扁平数组，单 bar 4 整数 `[offset, total, self, name_index]`。
+    /// Flat array of bars per level, 4 integers per bar: `[offset, total, self, name_index]`.
     pub levels: Vec<Vec<i64>>,
-    /// 根总值（= 合并样本主值之和）。
+    /// Total value at the root (= sum of the primary values of the merged samples).
     pub num_ticks: i64,
-    /// 单帧 self 最大值（着色归一用）。
+    /// Maximum self value of a single frame (for color normalization).
     pub max_self: i64,
-    /// 主采样值单位（`nanoseconds` / `bytes` / `count` ...）。
+    /// Unit of the primary sample value (`nanoseconds` / `bytes` / `count` ...).
     pub units: String,
 }
 
-/// 差分 flamebearer。单 bar 5 整数 `[offset, total, self, name_index, delta]`。
+/// Differential flamebearer. 5 integers per bar: `[offset, total, self, name_index, delta]`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiffFlamebearer {
     pub names: Vec<String>,
     pub levels: Vec<Vec<i64>>,
-    /// 两侧总值之和。
+    /// Sum of the totals of both sides.
     pub num_ticks: i64,
     pub max_self: i64,
-    /// 单帧带符号增量的最大绝对值（着色归一用）。
+    /// Maximum absolute value of the signed delta of any single frame (for color normalization).
     pub max_abs_delta: i64,
     pub units: String,
 }
@@ -56,7 +59,7 @@ fn units_of(profiles: &[NormalizedProfile]) -> String {
         .unwrap_or_default()
 }
 
-// ===== 单窗口合并 =====
+// ===== Single-window merge =====
 
 struct Node {
     name_idx: usize,
@@ -115,7 +118,7 @@ impl Builder {
                 continue;
             }
 
-            // 先 intern（结束对 self 的可变借用），再走树。
+            // Intern first (ending the mutable borrow of self), then walk the tree.
             let idxs: Vec<usize> = s
                 .stack
                 .iter()
@@ -165,7 +168,7 @@ fn walk(
     }
 
     let mut kids: Vec<&Node> = node.children.values().collect();
-    // 宽优先稳定排序：total 降序，再 name_idx 升序。
+    // Widest-first stable sort: total descending, then name_idx ascending.
     kids.sort_by(|a, b| b.total.cmp(&a.total).then(a.name_idx.cmp(&b.name_idx)));
     let mut cx = x_start;
 
@@ -175,7 +178,7 @@ fn walk(
     }
 }
 
-/// 合并多份 profile 为单窗口 flamebearer。
+/// Merges multiple profiles into a single-window flamebearer.
 pub fn build_flamebearer(profiles: &[NormalizedProfile]) -> Flamebearer {
     let mut b = Builder::new();
 
@@ -195,7 +198,7 @@ pub fn build_flamebearer(profiles: &[NormalizedProfile]) -> Flamebearer {
     }
 }
 
-// ===== 差分合并 =====
+// ===== Differential merge =====
 
 struct DiffNode {
     name_idx: usize,
@@ -368,7 +371,7 @@ fn diff_walk(
     }
 }
 
-/// 合并 baseline / comparison 两组 profile 为差分 flamebearer。
+/// Merges the baseline / comparison profile groups into a differential flamebearer.
 pub fn build_diff(
     baseline: &[NormalizedProfile],
     comparison: &[NormalizedProfile],
@@ -402,10 +405,11 @@ pub fn build_diff(
     }
 }
 
-// ===== 窗口内均匀采样（task 4.2 上限）=====
+// ===== Even sampling within a window (task 4.2 limit) =====
 
-/// 当 `items` 超过 `max` 时，按下标均匀采样到 `max` 个并返回 `truncated = true`；
-/// 否则原样返回、`truncated = false`。`max == 0` 视为不限制。
+/// When `items` exceeds `max`, samples evenly by index down to `max` items and returns
+/// `truncated = true`; otherwise returns `items` unchanged with `truncated = false`.
+/// `max == 0` means no limit.
 pub fn even_sample<T>(items: Vec<T>, max: usize) -> (Vec<T>, bool) {
     let n = items.len();
 

@@ -5,25 +5,26 @@ use serde::{Deserialize, Serialize};
 use svix_ksuid::{Ksuid, KsuidLike};
 use uuid::Uuid;
 
-/// 全局排序友好的 ID（默认 KSUID）。
+/// Globally sort-friendly ID (KSUID by default).
 ///
-/// 内部存为 `String`，可同时承载 KSUID（默认）或 UUID 文本（hyphenated）。
-/// 为了与 sea-orm 的 `Uuid` 主键互转，提供了 [`Id::from_uuid`] / [`Id::as_uuid`] /
-/// [`Id::new_uuid`] 三个辅助方法。
+/// Stored internally as a `String`, which can hold either a KSUID (the default) or UUID text
+/// (hyphenated). To convert to and from sea-orm's `Uuid` primary keys, three helper methods are
+/// provided: [`Id::from_uuid`] / [`Id::as_uuid`] / [`Id::new_uuid`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Id(pub String);
 
 impl Id {
-    /// 默认生成 KSUID，27 字符、字典序近似时间序。
+    /// Generates a KSUID by default: 27 characters, and lexicographic order
+    /// approximates time order.
     pub fn new() -> Self {
         // svix-ksuid 0.10 requires a Timestamp type annotation; pass None so
         // the crate picks "now" via its default impl on SystemTime.
         Self(Ksuid::new(None::<std::time::SystemTime>, None).to_string())
     }
 
-    /// 生成时间序友好的 UUID v7，并以 hyphenated 字符串存入。
-    /// 当目标存储是 Postgres `UUID` 列时优先用这个。
+    /// Generates a time-sortable UUID v7, stored as a hyphenated string.
+    /// Prefer this when the target storage is a Postgres `UUID` column.
     pub fn new_uuid() -> Self {
         Self(Uuid::now_v7().to_string())
     }
@@ -32,18 +33,19 @@ impl Id {
         Self(s.into())
     }
 
-    /// 把 [`uuid::Uuid`] 包装为 `Id`（hyphenated 字符串）。
+    /// Wraps a [`uuid::Uuid`] as an `Id` (hyphenated string).
     pub fn from_uuid(u: Uuid) -> Self {
         Self(u.to_string())
     }
 
-    /// 把内部字符串当作 UUID 解析。
-    /// 对 KSUID 字符串会返回 `None`（KSUID 长度/字符集与 UUID 不同）。
+    /// Parses the internal string as a UUID.
+    /// Returns `None` for KSUID strings (their length and character set differ from a UUID's).
     pub fn as_uuid(&self) -> Option<Uuid> {
         Uuid::parse_str(&self.0).ok()
     }
 
-    /// 强制按 UUID 取值，失败 panic — 仅用于"已知是 UUID"的入口（如 sea-orm 主键映射）。
+    /// Forces the value to be read as a UUID and panics on failure; only for entry points that
+    /// are "known to be a UUID" (such as sea-orm primary key mapping).
     pub fn expect_uuid(&self) -> Uuid {
         self.as_uuid()
             .unwrap_or_else(|| panic!("Id {:?} is not a valid UUID", self.0))

@@ -9,28 +9,24 @@
 
 use std::sync::Arc;
 
+use domain::{
+    alerting::{
+        escalation::EscalationPolicy,
+        handling::EscalationReason,
+        incident::{Incident, IncidentStatus},
+        repositories::{EscalationPolicyRepository, IncidentRepository},
+        timeline::{ActionVia, IncidentTimelineRepository, TimelineEntry, TimelineKind, note_text},
+    },
+    iam::IamMembershipRepository,
+    notify::repositories::NotifyDeliveryRepository,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::{Value, json};
 
 use super::{AlertIncidentLifecycleSink, AlertRouting, AlertingService, dispatcher};
-use crate::{
-    app::{
-        alerting::service::WRITE_ATTEMPTS,
-        notify::{NotifyEngine, alert_page_dispatch},
-    },
-    domain::{
-        alerting::{
-            escalation::EscalationPolicy,
-            handling::EscalationReason,
-            incident::{Incident, IncidentStatus},
-            repositories::{EscalationPolicyRepository, IncidentRepository},
-            timeline::{
-                ActionVia, IncidentTimelineRepository, TimelineEntry, TimelineKind, note_text,
-            },
-        },
-        iam::IamMembershipRepository,
-        notify::repositories::NotifyDeliveryRepository,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use crate::app::{
+    alerting::service::WRITE_ATTEMPTS,
+    notify::{NotifyEngine, alert_page_dispatch},
 };
 
 mod assign;
@@ -128,7 +124,7 @@ impl IncidentActions {
     pub(super) async fn levels(
         &self,
         org_id: &Id,
-    ) -> Arc<crate::domain::alerting::importance::ImportanceLevels> {
+    ) -> Arc<domain::alerting::importance::ImportanceLevels> {
         crate::app::alerting::importance::levels_of(self.importance.as_ref(), org_id).await
     }
 

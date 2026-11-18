@@ -12,8 +12,14 @@ mod sms;
 mod voice;
 
 use aws_lc_rs::rand::{SecureRandom, SystemRandom};
+use domain::notify::{
+    connector::{ConnectorAddress, ConnectorRegion, NotifyMessage, RegionHost},
+    template::ProviderTemplate,
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Map, Value};
+use signals::http_trace::{self, HttpTarget};
 pub use sms::{ALIYUN_SMS_CONNECTOR_TYPE, AliyunSmsConnectorAdapter};
 use url::Url;
 pub use voice::{ALIYUN_VOICE_CONNECTOR_TYPE, AliyunVoiceConnectorAdapter};
@@ -21,16 +27,6 @@ pub use voice::{ALIYUN_VOICE_CONNECTOR_TYPE, AliyunVoiceConnectorAdapter};
 use super::{
     common::{self, default_timeout_secs},
     phone,
-};
-use crate::{
-    domain::notify::{
-        connector::{ConnectorAddress, ConnectorRegion, NotifyMessage, RegionHost},
-        template::ProviderTemplate,
-    },
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-    },
 };
 
 const API_VERSION: &str = "2017-05-25";
@@ -324,10 +320,10 @@ mod tests {
     }
 
     /// 还没保存的连接器：列地域不用凭证。
-    pub(super) fn draft(connector_type: &str) -> crate::domain::notify::connector::NotifyConnector {
-        crate::domain::notify::connector::NotifyConnector {
-            id: crate::shared::ids::Id::from_string("draft"),
-            organization_id: crate::shared::ids::Id::from_string("org-1"),
+    pub(super) fn draft(connector_type: &str) -> domain::notify::connector::NotifyConnector {
+        domain::notify::connector::NotifyConnector {
+            id: kernel::ids::Id::from_string("draft"),
+            organization_id: kernel::ids::Id::from_string("org-1"),
             name: String::new(),
             connector_type: connector_type.into(),
             config: json!({}),
@@ -337,8 +333,8 @@ mod tests {
             last_tested_at: None,
             last_test_status: None,
             last_test_error: None,
-            created_at: crate::shared::time::TimestampMicros(1),
-            updated_at: crate::shared::time::TimestampMicros(1),
+            created_at: kernel::time::TimestampMicros(1),
+            updated_at: kernel::time::TimestampMicros(1),
         }
     }
 

@@ -7,17 +7,14 @@ use argon2::{
     Argon2,
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
 };
-use parking_lot::RwLock;
-use tokio::sync::Semaphore;
-
-use crate::{
-    config::AuthSettings,
-    domain::iam::{
-        IamMembershipRepository, OrganizationRepository, User, UserRepository, UserStatus,
-        sessions_always_valid,
-    },
-    shared::{Error, Result, ids::Id},
+use domain::iam::{
+    IamMembershipRepository, OrganizationRepository, User, UserRepository, UserStatus,
+    sessions_always_valid,
 };
+use kernel::{Error, Result, ids::Id};
+use parking_lot::RwLock;
+use settings::AuthSettings;
+use tokio::sync::Semaphore;
 
 const JWT_ISSUER: &str = "molesignal";
 /// 同时算几个 Argon2：每个约 19 MiB 内存、几十毫秒 CPU。
@@ -48,8 +45,6 @@ pub use access::{
 pub use jwt_secrets::JwtSecretSource;
 pub use navigation::resolve_route_access;
 pub use session::{SessionTokens, SignInMethod, SignInSession, sessions_end_now};
-
-pub use crate::domain::iam::IamContext;
 
 pub struct IamService {
     pub users: Arc<dyn UserRepository>,
@@ -181,7 +176,7 @@ impl IamService {
             password_hash,
             disabled: false,
             status: UserStatus::Active,
-            created_at: crate::shared::time::TimestampMicros::now(),
+            created_at: kernel::time::TimestampMicros::now(),
             sessions_valid_after: sessions_always_valid(),
         };
 
@@ -196,11 +191,9 @@ impl IamService {
         email: String,
         display_name: String,
         password_plain: &str,
-    ) -> Result<(User, crate::domain::iam::Organization)> {
-        use crate::{
-            domain::iam::{IamMembership, Organization},
-            shared::time::TimestampMicros,
-        };
+    ) -> Result<(User, domain::iam::Organization)> {
+        use domain::iam::{IamMembership, Organization};
+        use kernel::time::TimestampMicros;
 
         let count = self.users.count().await?;
 
@@ -256,7 +249,8 @@ impl IamService {
         password_hash: String,
         status: UserStatus,
     ) -> Result<User> {
-        use crate::{domain::iam::IamMembership, shared::time::TimestampMicros};
+        use domain::iam::IamMembership;
+        use kernel::time::TimestampMicros;
 
         // 已存在邮箱：仅当此前被「拒绝」时允许重新申请（复用既有 user + membership，
         // 更新资料/密码并重置状态，重新走审批/激活）。其余状态一律拒绝重复注册。
@@ -330,7 +324,7 @@ impl IamService {
         Ok(user)
     }
 
-    pub async fn enabled_tenant_organization(&self) -> Result<crate::domain::iam::Organization> {
+    pub async fn enabled_tenant_organization(&self) -> Result<domain::iam::Organization> {
         self.orgs
             .list()
             .await?
@@ -419,8 +413,9 @@ pub fn verify_password(plain: &str, hash: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use domain::iam::{IamAssignedRole, IamContext, IamScope};
+
     use super::*;
-    use crate::domain::iam::{IamAssignedRole, IamScope};
 
     #[test]
     fn hash_verify_roundtrip() {
@@ -466,8 +461,8 @@ mod tests {
                 password_hash,
                 disabled,
                 status,
-                created_at: crate::shared::time::TimestampMicros(0),
-                sessions_valid_after: crate::shared::time::TimestampMicros(0),
+                created_at: kernel::time::TimestampMicros(0),
+                sessions_valid_after: kernel::time::TimestampMicros(0),
             }
         }
 

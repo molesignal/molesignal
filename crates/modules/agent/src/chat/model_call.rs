@@ -1,35 +1,36 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 每一次模型调用的记录。
+//! A record of each model call.
 //!
-//! Agent 循环与单次调用（RCA、`_llm_eval`）在每次调用模型服务之后交出一条 [`ModelCall`]，
-//! 由调用方注入的 [`ModelCallObserver`] 决定记到哪里：用量流、每日用量、预算。这里只描述
-//! "这次调用发生了什么"，谁发起、属于哪个组织由观察者自己知道。
+//! The Agent loop and individual calls (RCA, `_llm_eval`) produce a [`ModelCall`] after each call
+//! to the model service. The caller-injected [`ModelCallObserver`] decides where to record it:
+//! the usage stream, daily usage, or budget. This only describes "what happened in this call";
+//! the observer knows who initiated it and which organization it belongs to.
 
 use std::{sync::Arc, time::Instant};
 
 use async_trait::async_trait;
+use kernel::Result;
 
 use super::{CompletionRequest, CompletionResponse, Provider, ProviderAdapter};
-use crate::shared::Result;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ModelCall {
     pub provider: Provider,
     pub model: String,
-    /// 全部输入，含命中缓存的部分。
+    /// All input, including the portion served from cache.
     pub prompt_tokens: i64,
-    /// 输入里命中缓存的部分。
+    /// The portion of input served from cache.
     pub cached_prompt_tokens: i64,
     pub completion_tokens: i64,
-    /// 从发出请求到拿完回答（流式时到流结束）。
+    /// The time from sending the request to receiving the full response (stream end for streaming).
     pub latency_ms: u64,
     pub streaming: bool,
-    /// 这次回答里模型请求的工具调用数。
+    /// The number of tool calls the model requests in this response.
     pub tool_calls: usize,
     pub finish_reason: Option<String>,
-    /// 调用失败时的原因；成功时为空。
+    /// The reason for a failed call; empty on success.
     pub error: Option<String>,
 }
 
@@ -45,16 +46,17 @@ impl ModelCall {
 
 #[async_trait]
 pub trait ModelCallObserver: Send + Sync {
-    /// 记一次调用。不返回错误：记不上不能影响回答本身。
+    /// Records one call.
+    /// Returns no errors: failure to record must not affect the response itself.
     async fn observe(&self, call: ModelCall);
 }
 
-/// 从 `started` 到现在的毫秒数。
+/// The number of milliseconds from `started` to now.
 pub fn elapsed_ms(started: Instant) -> u64 {
     u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
-/// 调一次非流式补全，并把结果交给观察者。
+/// Makes one non-streaming completion call and passes the result to the observer.
 pub async fn observed_complete(
     adapter: &dyn ProviderAdapter,
     request: CompletionRequest,

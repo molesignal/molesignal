@@ -28,8 +28,7 @@ pub use notification::{ConnectorSender, NotificationSender};
 pub use runner::{InspectionRunner, RunOutcome};
 pub use schedule::{next_run_after, parse_timezone};
 pub use service::LogInspectionService;
-
-use crate::config::LogInspectionSettings;
+use settings::LogInspectionSettings;
 
 /// 运行租约十分钟到期。总超时最长八分钟，再留两分钟判定「执行它的节点已经退出」，一条卡住
 /// 的执行就一定在别的节点能重新认领之前被了结。

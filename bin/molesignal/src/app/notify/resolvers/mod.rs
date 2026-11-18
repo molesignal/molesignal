@@ -7,20 +7,17 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::{
+    alerting::repositories::ScheduleRepository,
+    iam::IamMembershipRepository,
+    notify::{
+        policy::NotifyEvent,
+        recipient::{NotifyRecipient, RecipientResolver},
+    },
+};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::Value;
-
-use crate::{
-    domain::{
-        alerting::repositories::ScheduleRepository,
-        iam::IamMembershipRepository,
-        notify::{
-            policy::NotifyEvent,
-            recipient::{NotifyRecipient, RecipientResolver},
-        },
-    },
-    shared::{Error, Result, ids::Id},
-};
 
 mod oncall;
 mod team;
@@ -224,11 +221,10 @@ impl RecipientResolver for CurrentOncallResolver {
 
 #[cfg(test)]
 mod tests {
+    use domain::alerting::schedule::{Schedule, ScheduleOverride};
+    use kernel::time::TimestampMicros;
+
     use super::*;
-    use crate::{
-        domain::alerting::schedule::{Schedule, ScheduleOverride},
-        shared::time::TimestampMicros,
-    };
 
     struct ScheduleRepo {
         schedule: Schedule,

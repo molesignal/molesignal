@@ -28,6 +28,15 @@ mod validate;
 
 use std::{net::IpAddr, sync::Arc, time::Duration};
 
+use domain::{
+    intake::{IntakeBatch, RawEvent},
+    rum::{
+        DEFAULT_FILTER, RumApplication, RumApplicationRepository, RumApplicationSettings,
+        RumEventWriter, RumVersionRepository, event::RumStream,
+    },
+    stream::{StreamRepository, StreamType},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use moka::future::Cache;
 use serde::Serialize;
 use serde_json::{Map, Value, json};
@@ -42,18 +51,7 @@ use self::{
     split::{Row, StreamRows},
 };
 use super::issues::{VersionLedger, identity::issue_id};
-use crate::{
-    domain::{
-        intake::{IntakeBatch, RawEvent},
-        rum::{
-            DEFAULT_FILTER, RumApplication, RumApplicationRepository, RumApplicationSettings,
-            RumEventWriter, RumVersionRepository, event::RumStream,
-        },
-        stream::{StreamRepository, StreamType},
-    },
-    infra::enrichment::GeoLookup,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::infra::enrichment::GeoLookup;
 
 /// How long an application is remembered, whether it exists or not.
 const APPLICATION_TTL: Duration = Duration::from_secs(30);

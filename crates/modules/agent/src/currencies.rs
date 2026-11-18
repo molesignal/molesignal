@@ -1,42 +1,43 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 模型服务单价可选的币种：每个组织一份，管理员可以增改删。
+//! Currencies available for model service unit prices, maintained per organization, which
+//! administrators can add, edit, and delete.
 //!
-//! 代码是 ISO 4217 的三个大写字母，是单价与成本记账用的；名称与符号只管显示，为空时界面按读者
-//! 的语言用标准的名称与符号。组织第一次读这份列表时写入常用的几种。
+//! The code consists of three uppercase ISO 4217 letters and is used for unit prices and cost
+//! accounting. The name and symbol are for display only; when empty, the UI uses the standard name
+//! and symbol in the reader's language. Common currencies are added when the organization first
+//! reads this list.
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    agent::usage::Currency,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::usage::Currency;
 
-/// 组织第一次读时写入的币种，常用的在前。
+/// Currencies added on the organization's first read, with common ones first.
 pub const DEFAULT_CURRENCIES: [&str; 8] = ["USD", "CNY", "EUR", "GBP", "JPY", "HKD", "SGD", "KRW"];
 
-/// 名称最多这么多个字符。
+/// The maximum number of characters in a name.
 pub const MAX_NAME_CHARS: usize = 64;
 
-/// 符号最多这么多个字符。
+/// The maximum number of characters in a symbol.
 pub const MAX_SYMBOL_CHARS: usize = 8;
 
-/// 组织备下的一种币种。
+/// A currency configured by an organization.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PriceCurrency {
     pub code: Currency,
-    /// 自己起的名称；为空时用标准名称。
+    /// A custom name; uses the standard name when empty.
     pub name: Option<String>,
-    /// 自己定的符号；为空时用标准符号。
+    /// A custom symbol; uses the standard symbol when empty.
     pub symbol: Option<String>,
     pub updated_at: TimestampMicros,
 }
 
 impl PriceCurrency {
-    /// 校验并整理一份写入：首尾空白去掉，空串当作没有填。
+    /// Validates and normalizes a write: trims whitespace and treats empty strings as unspecified.
     pub fn new(code: Currency, name: Option<&str>, symbol: Option<&str>) -> Result<Self> {
         Ok(Self {
             code,
@@ -63,13 +64,13 @@ fn trimmed(value: Option<&str>, field: &str, max_chars: usize) -> Result<Option<
 
 #[async_trait]
 pub trait CurrencyRepository: Send + Sync {
-    /// 组织的币种，先写入的在前；还一种都没有时先写入常用的几种。
+    /// The organization's currencies, earliest additions first; adds common ones if none exist yet.
     async fn list(&self, org_id: &Id) -> Result<Vec<PriceCurrency>>;
 
-    /// 添加一种币种，或改它的名称与符号。
+    /// Adds a currency or changes its name and symbol.
     async fn put(&self, org_id: &Id, currency: &PriceCurrency) -> Result<PriceCurrency>;
 
-    /// 删掉一种币种；没有这种时返回 false。
+    /// Deletes a currency; returns false if it does not exist.
     async fn delete(&self, org_id: &Id, code: Currency) -> Result<bool>;
 }
 

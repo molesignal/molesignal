@@ -1,28 +1,32 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Prompt 晋级检查：把一个组织 Prompt 设为默认之前，看新版本有没有比现在的默认差。
+//! Prompt promotion check: before making an organization Prompt the default, check whether the
+//! new version performs worse than the current default.
 //!
-//! 样本先取回归集（审核人采纳过的），再取评审最近评过的，最多 [`MAX_CHECK_SAMPLES`] 个。每个样本
-//! 用现在的默认与新版本各重新回答一次：工具不再调用，交给模型的是原来那一轮工具查到的结果
-//! （事件 RCA 是事件的事实），同一个评审给两份回答打分。新版本的平均分比现在的默认低超过
-//! [`MARGIN`] 算变差；评成的样本少于 [`MIN_CHECK_SAMPLES`] 个时说不准。
+//! Take samples from the regression set (accepted by reviewers) first, then those recently scored
+//! by evaluators, up to [`MAX_CHECK_SAMPLES`]. Generate a new answer for each sample using both the
+//! current default and the new version: do not call tools again; give the model the tool results
+//! from the original turn (incident facts for incident RCA). The same evaluator scores both
+//! answers. The new version is worse if its average score is lower than the current default by
+//! more than [`MARGIN`]; the result is inconclusive if fewer than [`MIN_CHECK_SAMPLES`] samples
+//! are successfully evaluated.
 //!
-//! 门禁（[`gate`]）只管 [`CHECKED_PURPOSES`] 里的用途：它们的产出有评审评。
+//! The gate ([`gate`]) only covers purposes in [`CHECKED_PURPOSES`]: their outputs have evaluators.
 
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{GateMode, ScoreTarget, TargetSource};
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
-/// 一次检查最多用这么多个样本。
+/// Use at most this many samples per check.
 pub const MAX_CHECK_SAMPLES: usize = 8;
-/// 评成的样本少于这么多时说不准。
+/// The result is inconclusive if fewer than this many samples are successfully evaluated.
 pub const MIN_CHECK_SAMPLES: usize = 3;
-/// 平均分差在这个范围内算一样。
+/// Treat average scores as equal when their difference is within this range.
 pub const MARGIN: f64 = 0.05;
 
-/// 晋级前要检查的 Prompt 用途，和它们的产出出自哪里。
+/// Prompt purposes to check before promotion, and the sources of their outputs.
 pub const CHECKED_PURPOSES: [(&str, &[TargetSource]); 2] = [
     (
         "system",
@@ -31,7 +35,7 @@ pub const CHECKED_PURPOSES: [(&str, &[TargetSource]); 2] = [
     ("root_cause", &[TargetSource::IncidentRca]),
 ];
 
-/// 一个用途的产出出自哪里；不在检查范围里时为 `None`。
+/// The sources of a purpose's outputs; `None` if the purpose is outside the scope of checks.
 pub fn checked_sources(purpose: &str) -> Option<&'static [TargetSource]> {
     CHECKED_PURPOSES
         .iter()
@@ -77,7 +81,7 @@ pub enum CheckVerdict {
     Better,
     Same,
     Worse,
-    /// 评成的样本太少。
+    /// Too few samples are successfully evaluated.
     Inconclusive,
 }
 
@@ -104,13 +108,13 @@ impl CheckVerdict {
     }
 }
 
-/// 一个样本的两份回答的分数。
+/// Scores for the two answers to one sample.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CheckSample {
     pub target_kind: ScoreTarget,
     pub target_id: String,
-    /// 来自回归集。
+    /// Comes from the regression set.
     #[serde(default)]
     pub regression: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -121,7 +125,7 @@ pub struct CheckSample {
     pub baseline_reason: String,
     #[serde(default)]
     pub candidate_reason: String,
-    /// 这个样本没评成的原因。
+    /// Why this sample is not successfully evaluated.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
@@ -140,7 +144,7 @@ pub struct PromptCheck {
     pub prompt_id: Id,
     pub prompt_version: i32,
     pub purpose: String,
-    /// 检查时的默认：组织的默认 Prompt 或内置的。
+    /// The default at check time: the organization's default Prompt or the built-in one.
     pub baseline_prompt_id: Id,
     pub baseline_version: i32,
     pub evaluator_id: Id,
@@ -155,7 +159,7 @@ pub struct PromptCheck {
     pub verdict: Option<CheckVerdict>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
-    /// 评审与重新回答用掉的 token。
+    /// Tokens used for evaluation and regenerating answers.
     #[serde(default)]
     pub tokens: i64,
     pub requested_by: Id,
@@ -165,7 +169,7 @@ pub struct PromptCheck {
 }
 
 impl PromptCheck {
-    /// 算出两边的平均分与结论。
+    /// Calculate both average scores and the conclusion.
     pub fn conclude(&mut self) {
         let scored = self
             .samples
@@ -197,7 +201,7 @@ impl PromptCheck {
         });
     }
 
-    /// 检查的还是现在这个版本、比的还是现在的默认。
+    /// The check still covers the current version and compares it against the current default.
     pub fn current(&self, prompt_version: i32, baseline: (&Id, i32)) -> bool {
         self.prompt_version == prompt_version
             && self.baseline_prompt_id == *baseline.0
@@ -205,17 +209,17 @@ impl PromptCheck {
     }
 }
 
-/// 为什么不能直接设为默认。
+/// Why it cannot be set as the default directly.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum GateReason {
-    /// 还没检查这个版本，或检查之后默认变了。
+    /// This version is not checked yet, or the default changes after the check.
     NotChecked,
-    /// 检查还没做完。
+    /// The check is not complete yet.
     Checking,
-    /// 新版本比现在的默认差。
+    /// The new version performs worse than the current default.
     Worse,
-    /// 没有启用的评审评这个用途的产出，检查不了。
+    /// No enabled evaluator scores outputs for this purpose, so the check cannot run.
     NoEvaluator,
 }
 
@@ -233,13 +237,15 @@ impl GateReason {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Gate {
     Allow,
-    /// 再确认一次就能设。
+    /// Can be set after another confirmation.
     Confirm(GateReason),
     Refuse(GateReason),
 }
 
-/// 设为默认之前的判定。`check` 是这个 Prompt 最近的检查，`current` 表示它检查的就是现在的
-/// 版本与默认；`evaluated` 表示有启用的评审评这个用途的产出；`confirmed` 是设的人已经确认过。
+/// Decide whether to allow setting the default.
+/// `check` is this Prompt's latest check; `current` means it checks the current version against the
+/// current default; `evaluated` means an enabled evaluator scores outputs for this purpose;
+/// `confirmed` means the person setting it has already confirmed.
 pub fn gate(
     mode: GateMode,
     purpose: &str,

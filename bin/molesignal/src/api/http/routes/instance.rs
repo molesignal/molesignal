@@ -5,7 +5,7 @@
 //!
 //! - `GET /api/v1/instance` → `{ external_url, signup_enabled, signup_verifies_email, passkey_signin,
 //!   version }` 数据源/RUM 接入页用它拼真实 intake URL（留空时前端按访问来源推导）；登录页和注册页
-//!   读 `signup_enabled`、`signup_verifies_email`、`passkey_signin` 与 `version`。该接口无需认证，所以只给这几项：发布通道、
+//!   读 `signup_enabled`、`signup_verifies_email`、`passkey_signin` 与 `version`。该接口无需认证，所以只给这几项：
 //!   commit、branch 等部署细节只出现在已认证的 `GET /api/v1/version`（前端「关于」弹窗）里。
 
 use axum::{
@@ -13,6 +13,9 @@ use axum::{
     extract::{Query, State},
     routing::get,
 };
+use domain::iam::{ClientIpResolverSettings, IamContext, MAX_AUDIT_RETENTION_DAYS, permission};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::audit_events::{AuditEvent, AuditRangeSummary};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -21,10 +24,7 @@ use crate::{
         AppState,
         http::{client_ip, routes::auth::can_verify_email},
     },
-    app::iam::{IamContext, mfa::passkey},
-    domain::iam::{ClientIpResolverSettings, MAX_AUDIT_RETENTION_DAYS, permission},
-    infra::persistence::repositories::audit_events::{AuditEvent, AuditRangeSummary},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    app::iam::mfa::passkey,
 };
 
 mod alerting;
@@ -71,7 +71,7 @@ pub struct InstanceResp {
     pub signup_verifies_email: bool,
     /// 这个实例能不能用 Passkey 登录：signin 页据此显示「使用 Passkey 登录」。
     pub passkey_signin: bool,
-    /// 产品版本：signin 页公开展示；不含发布通道、commit、branch（见模块文档）。
+    /// 产品版本：signin 页公开展示；不含commit、branch（见模块文档）。
     pub version: &'static str,
 }
 
@@ -460,7 +460,7 @@ mod tests {
             version: "26.0.0.0",
         };
 
-        // 公开接口不带发布通道：登录页只展示版本号，部署成熟度留给已认证的 /version。
+        // 登录页只展示产品版本号。
         assert_eq!(
             serde_json::to_value(&resp).expect("instance response serializes"),
             json!({

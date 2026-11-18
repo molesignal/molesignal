@@ -3,10 +3,10 @@
 
 use std::collections::BTreeMap;
 
+use kernel::ids::Id;
 use serde::{Deserialize, Serialize};
 
 use super::{connector::NotifyChannel, preference::NotifyCategory};
-use crate::shared::ids::Id;
 
 mod presets;
 

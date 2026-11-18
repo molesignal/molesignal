@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 消息里的引用：输入框里用 `@` 插入的事件、告警规则、服务、RUM 应用、仪表盘与数据流。
+//! References in messages: incidents, alert rules, services, RUM applications, dashboards, and
+//! streams inserted with `@` in the input box.
 //!
-//! 发消息时后端核对提问人能不能读每个引用，再把它们解析成上下文块交给模型（事件的摘要、触发
-//! 查询、时间窗、相关服务……）；用户消息上记下引用，界面据此画胶囊。
+//! When a message is sent, the backend checks whether the requester can read each reference, then
+//! resolves them into context blocks for the model (incident summary, triggering query, time
+//! window, related services, etc.); references are recorded on the user message so the UI can
+//! render chips.
 
 use serde::{Deserialize, Serialize};
 
-/// 一条消息最多带这么多引用。
+/// The maximum number of references per message.
 pub const MAX_REFERENCES: usize = 10;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -39,12 +42,12 @@ impl ReferenceKind {
 pub struct MessageReference {
     pub kind: ReferenceKind,
     pub id: String,
-    /// 胶囊上显示的名字；后端解析时按当前的名字改写。
+    /// The name displayed on the chip; replaced with the current name when the backend resolves it.
     #[serde(default)]
     pub label: String,
 }
 
-/// 一个引用交给模型时的样子。
+/// The representation of a reference passed to the model.
 pub fn context_block(reference: &MessageReference, facts: &str) -> String {
     format!(
         "<reference kind=\"{}\" id=\"{}\" name=\"{}\">\n{}\n</reference>",
@@ -55,7 +58,7 @@ pub fn context_block(reference: &MessageReference, facts: &str) -> String {
     )
 }
 
-/// 引用的说明放在这些块前面。
+/// The introduction to the references goes before these blocks.
 pub const REFERENCES_INTRODUCTION: &str = "The person attached the objects below to this question. Use them as the subject of the question; fetch more about them with your tools when needed.";
 
 #[cfg(test)]

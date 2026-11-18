@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Mole Agent 控制面领域模型。
+//! Domain models for the Mole Agent control plane.
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-pub use tool_runtime::RiskLevel;
-
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
+use tool_runtime::RiskLevel;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -275,10 +274,11 @@ pub struct AgentProfile {
     pub max_context_tokens: i32,
     pub max_investigation_secs: i32,
     pub max_tool_calls: i32,
-    /// 采样温度；`None` 时用 Mole Agent 的默认值。
+    /// Sampling temperature; uses the Mole Agent default when `None`.
     #[serde(default)]
     pub temperature: Option<f32>,
-    /// 用它的对话能选 bypass permissions：对话里不再问提问人；组织审批照旧。
+    /// Conversations using it can select bypass permissions: no further prompts to the requester
+    /// in the conversation; organization approvals still apply.
     #[serde(default)]
     pub allow_bypass_permissions: bool,
     pub is_default: bool,

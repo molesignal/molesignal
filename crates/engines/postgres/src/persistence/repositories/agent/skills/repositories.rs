@@ -4,15 +4,13 @@
 //! `agent_skill_repositories`：拉取 Skill 的仓库。访问令牌用 [`CipherRootKey`] seal 后存在
 //! `sealed_secrets`（`owner_kind = 'skill_repository'`），列表与详情只有 `token_set` 与末四位。
 //!
-//! [`CipherRootKey`]: crate::infra::cipher::CipherRootKey
+//! [`CipherRootKey`]: crate::cipher::CipherRootKey
 
+use agent::skills::{RepoHost, RepositoryStatus, SkillRepository, TokenChange};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{Row, postgres::PgRow};
 
 use super::{super::super::sqlx_err, PgSkillStore, scope_of};
-use crate::{
-    agent::skills::{RepoHost, RepositoryStatus, SkillRepository, TokenChange},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 const REPOSITORY_COLS: &str = "id, org_id, scope, team_id, owner_id, url, host, archive_url, \
     git_ref, dir, auto_sync, token_set, token_last4, status, last_error, last_commit, \

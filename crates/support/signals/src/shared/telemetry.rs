@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 启动期装配全局 tracing subscriber。
+//! Assembles the global tracing subscriber at startup.
 //!
-//! 日志层通过 [`LoggerBuilder`] 流式构造，支持 Text / JSON 两种 formatter
-//! 与 Console / File（按时间轮转）
-//! 两种 sink；写入路径走 `tracing-appender` 的 non-blocking writer，因此返回的
-//! [`LoggerGuard`] 必须在应用生命周期内保活，否则后台写线程被 drop、日志会丢。
+//! The log layer is built fluently through [`LoggerBuilder`] and supports two formatters
+//! (Text / JSON) and two sinks (Console / File, rotated by time). Writes go through the
+//! non-blocking writer of `tracing-appender`, so the returned [`LoggerGuard`] must be kept
+//! alive for the application's lifetime; otherwise the background writer thread is dropped
+//! and logs are lost.
 //!
-//! Trace 外发统一由 tail-sampler 后的 `telemetry.trace.external` pipeline 管理，
-//! 本模块不安装旁路 OTLP exporter。
+//! All outbound trace export is managed by the `telemetry.trace.external` pipeline after the
+//! tail-sampler; this module installs no bypass OTLP exporter.
 
 use std::sync::{Arc, OnceLock};
 
@@ -30,12 +31,12 @@ use crate::shared::{
     self_telemetry::{SelfTelemetryHub, SelfTelemetryInit, SelfTelemetryLayer},
 };
 
-/// subscriber 仅装配一次（多 role 同进程共享）。
+/// The subscriber is set up only once (shared by multiple roles in the same process).
 static SUBSCRIBER_INIT: OnceLock<Result<(), String>> = OnceLock::new();
 
-/// DataFusion 的 Top-K aggregate 在 Trace 日志开启时会把 RecordBatch 原样写到
-/// stdout。在 `log` 桥接入口屏蔽该模块，使它的 `log_enabled!(Trace)` 守卫始终为
-/// false，同时保留其他 DataFusion 日志。
+/// DataFusion's Top-K aggregate writes RecordBatches to stdout verbatim when Trace logging is
+/// enabled. The `log` bridge entry silences that module so that its `log_enabled!(Trace)`
+/// guard is always false, while other DataFusion logs are kept.
 const DATAFUSION_TOPK_LOG_TARGET: &str = "datafusion_physical_plan::aggregates::topk_stream";
 
 fn is_log_event(metadata: &tracing::Metadata<'_>) -> bool {
@@ -60,14 +61,14 @@ where
         .map_err(|error| format!("failed to install log compatibility tracer: {error}"))
 }
 
-/// 日志格式。
+/// Log format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LogFormat {
     Text,
     Json,
 }
 
-/// 文件轮转策略。
+/// File rotation policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileRotation {
     Minutely,
@@ -87,7 +88,7 @@ impl From<FileRotation> for Rotation {
     }
 }
 
-/// 日志输出目标。
+/// Log output target.
 #[derive(Debug, Clone)]
 pub enum LogOutput {
     Console,
@@ -99,7 +100,7 @@ pub enum LogOutput {
     },
 }
 
-/// 完整日志与 self-telemetry 初始化参数。
+/// Initialization parameters for full logging and self-telemetry.
 pub struct FullTelemetryInit<'a> {
     pub log_level: &'a str,
     pub format: LogFormat,
@@ -108,23 +109,25 @@ pub struct FullTelemetryInit<'a> {
     pub self_telemetry: Option<SelfTelemetryInit>,
 }
 
-/// 持有 non-blocking writer 的 guard。
-/// 在此值被 drop 之前，后台写入线程会持续运行并保证日志刷新。
-/// 应用必须在整个生命周期内保持该值存活。
+/// Guard that holds the non-blocking writer.
+/// Until this value is dropped, the background writer thread keeps running and guarantees that
+/// logs are flushed.
+/// The application must keep this value alive for its entire lifetime.
 pub struct LoggerGuard {
     _writer: WorkerGuard,
     self_telemetry: Option<Arc<SelfTelemetryHub>>,
 }
 
 impl LoggerGuard {
-    /// 启动早期创建的 bounded self-telemetry bridge。bootstrap 在管理组织和系统流
-    /// 准备完成后取得它并绑定异步 runtime；在此之前 callback 只写有界内存队列。
+    /// The bounded self-telemetry bridge created early in startup. Once the management
+    /// organization and system streams are ready, bootstrap obtains it and binds the async
+    /// runtime; until then the callback only writes to a bounded in-memory queue.
     pub fn self_telemetry(&self) -> Option<Arc<SelfTelemetryHub>> {
         self.self_telemetry.clone()
     }
 }
 
-/// 日志与 self-telemetry 初始化构建器。
+/// Builder for logging and self-telemetry initialization.
 pub struct LoggerBuilder {
     format: LogFormat,
     output: LogOutput,
@@ -160,27 +163,29 @@ impl LoggerBuilder {
         self
     }
 
-    /// 设置日志级别。优先级低于环境变量 `RUST_LOG`；接受 `"info"` 这类简写或
-    /// 完整 `EnvFilter` 指令（如 `"info,sqlx=warn"`）。
+    /// Sets the log level. Has lower priority than the `RUST_LOG` environment variable; accepts
+    /// a shorthand such as `"info"` or a full `EnvFilter` directive (e.g. `"info,sqlx=warn"`).
     pub fn level(mut self, level: impl Into<String>) -> Self {
         self.level = level.into();
         self
     }
 
-    /// 设置只作用于 Span capture/export 的 filter；不读取或修改 `RUST_LOG`。
+    /// Sets a filter for span capture/export only; does not read or modify `RUST_LOG`.
     pub fn trace_filter(mut self, filter: impl Into<String>) -> Self {
         self.trace_filter = filter.into();
         self
     }
 
-    /// 安装进程内 self-telemetry hook。这里只创建 bounded queue；DB/网络 worker
-    /// 必须在 bootstrap 完成后通过 guard 返回的 hub 激活。
+    /// Installs the in-process self-telemetry hook. This only creates the bounded queue; the
+    /// DB/network workers must be activated after bootstrap completes, through the hub returned
+    /// by the guard.
     pub fn self_telemetry(mut self, init: SelfTelemetryInit) -> Self {
         self.self_telemetry = Some(init);
         self
     }
 
-    /// 初始化全局 subscriber。返回的 [`LoggerGuard`] 必须保活直到进程退出。
+    /// Initializes the global subscriber. The returned [`LoggerGuard`] must be kept alive until
+    /// the process exits.
     pub fn init(self) -> anyhow::Result<LoggerGuard> {
         let is_console = matches!(&self.output, LogOutput::Console);
         let (writer, worker_guard) = make_writer(&self.output);
@@ -294,20 +299,7 @@ fn make_writer(output: &LogOutput) -> (NonBlocking, WorkerGuard) {
     }
 }
 
-/// 旧版兼容入口：仅日志，无 OTLP，Console 输出。
-pub fn init(log_level: &str, json_format: bool) -> anyhow::Result<LoggerGuard> {
-    LoggerBuilder::new()
-        .level(log_level)
-        .trace_filter(log_level)
-        .format(if json_format {
-            LogFormat::Json
-        } else {
-            LogFormat::Text
-        })
-        .init()
-}
-
-/// 完整 init，并额外安装 bounded self-telemetry callback bridge。
+/// Full init that additionally installs a bounded self-telemetry callback bridge.
 pub fn init_full_with_self_telemetry(init: FullTelemetryInit<'_>) -> anyhow::Result<LoggerGuard> {
     let FullTelemetryInit {
         log_level,

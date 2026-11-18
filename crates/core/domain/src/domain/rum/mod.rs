@@ -38,6 +38,7 @@ pub use issue::{
     RumIssueChange, RumIssueEnvironment, RumIssueMoment, RumIssueRepository, RumIssueSighting,
     RumIssueStatus, RumVersionRepository, cut, environment_key, version_key,
 };
+use kernel::{Error, Result};
 pub use playlist::{
     MAX_PLAYLIST_DESCRIPTION_LEN, MAX_PLAYLIST_NAME_LEN, MAX_PLAYLIST_SESSIONS, RumPlaylist,
     RumPlaylistEntry, RumPlaylistPatch, RumPlaylistRepository, validate_playlist_description,
@@ -57,8 +58,6 @@ pub use segment::{
     SEGMENT_USER_PREFIX, normalize_segments,
 };
 pub use summary::{RumSessionSummary, RumSessionSummaryRepository, RumSummaryChapter};
-
-use crate::shared::{Error, Result};
 
 /// Validate and normalize the stable identifier shared by RUM credentials,
 /// events, replay segments, and debug artifacts.

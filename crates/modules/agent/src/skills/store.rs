@@ -1,27 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Skill 的存储：上传与仓库来源的 Skill、组织对实例级 Skill（内置、实例目录）的启停、Skill
-//! 仓库与它的访问令牌（加密保存，列表里只有末四位）。文件本身在对象存储里。
+//! Skill storage: uploaded and repository-sourced Skills, organization-level enablement of
+//! instance-level Skills (built-in and instance directories), Skill repositories, and their access
+//! tokens (stored encrypted, with only the last four characters shown in lists). The files
+//! themselves are in object storage.
 
 use std::collections::HashMap;
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{FileEntry, RepoHost, SkillManifest};
-use crate::{
-    scope::Scope,
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::scope::Scope;
 
-/// 一个 Skill 从哪来。
+/// Where a Skill comes from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SkillSource {
-    /// 随产品发布。
+    /// Ships with the product.
     Builtin,
-    /// 实例配置的服务器目录（`[agent] skill_paths`）。
+    /// A server directory configured for the instance (`[agent] skill_paths`).
     Path,
     Upload,
     Repository,
@@ -37,13 +37,14 @@ impl SkillSource {
         }
     }
 
-    /// 实例级：所有组织可见、只读，组织只能启停。
+    /// Instance-level: visible to all organizations and read-only; organizations can only enable or
+    /// disable it.
     pub fn instance_level(self) -> bool {
         matches!(self, Self::Builtin | Self::Path)
     }
 }
 
-/// 数据库里的一个 Skill（上传或仓库来源）。
+/// A Skill in the database (uploaded or repository-sourced).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StoredSkill {
@@ -51,7 +52,7 @@ pub struct StoredSkill {
     pub org_id: Id,
     pub source: SkillSource,
     pub repository_id: Option<Id>,
-    /// 仓库里这个 Skill 的目录。
+    /// The directory of this Skill in the repository.
     pub repository_dir: Option<String>,
     pub scope: Scope,
     pub name: String,
@@ -60,9 +61,9 @@ pub struct StoredSkill {
     pub manifest: SkillManifest,
     pub files: Vec<FileEntry>,
     pub content_hash: String,
-    /// 对象存储里文件的前缀（含 hash，换版本时换前缀）。
+    /// The file prefix in object storage (includes a hash; changes with the version).
     pub object_prefix: String,
-    /// 上传的原包。
+    /// The original uploaded package.
     pub package_object_key: Option<String>,
     pub package_name: Option<String>,
     pub enabled: bool,
@@ -72,14 +73,14 @@ pub struct StoredSkill {
     pub updated_at: TimestampMicros,
 }
 
-/// 同步的结果。
+/// The synchronization result.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RepositoryStatus {
-    /// 还没同步过。
+    /// Has not been synchronized yet.
     Pending,
     Ok,
-    /// 有的 Skill 没导入（重名、格式不对），其余正常。
+    /// Some Skills are not imported (duplicate names or invalid formats); the rest are fine.
     Partial,
     Failed,
 }
@@ -104,7 +105,7 @@ impl RepositoryStatus {
     }
 }
 
-/// 一个 Skill 仓库。
+/// A Skill repository.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillRepository {
@@ -113,18 +114,18 @@ pub struct SkillRepository {
     pub scope: Scope,
     pub url: String,
     pub host: RepoHost,
-    /// 托管方式为 `archive` 时的压缩包地址，含 `{ref}`。
+    /// The archive URL when the hosting method is `archive`, containing `{ref}`.
     pub archive_url: Option<String>,
-    /// 分支或标签；空是默认分支。
+    /// The branch or tag; empty means the default branch.
     pub git_ref: String,
-    /// 仓库里放 Skill 的目录；空是整个仓库。
+    /// The directory containing Skills in the repository; empty means the entire repository.
     pub dir: String,
-    /// 每天自动同步一次。
+    /// Synchronizes automatically once a day.
     pub auto_sync: bool,
     pub token_set: bool,
     pub token_last4: Option<String>,
     pub status: RepositoryStatus,
-    /// 失败原因，或没导入的 Skill 与原因（一行一个）。
+    /// The failure reason, or Skills that are not imported and their reasons (one per line).
     pub last_error: Option<String>,
     pub last_commit: Option<String>,
     pub last_synced_at: Option<TimestampMicros>,
@@ -134,7 +135,7 @@ pub struct SkillRepository {
     pub updated_at: TimestampMicros,
 }
 
-/// 写令牌：不改、换成新值、清除。
+/// Token writes: leave unchanged, replace with a new value, or clear.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenChange {
     Keep,
@@ -146,18 +147,19 @@ pub enum TokenChange {
 pub trait SkillStore: Send + Sync {
     async fn list(&self, org_id: &Id) -> Result<Vec<StoredSkill>>;
     async fn get(&self, org_id: &Id, id: &Id) -> Result<StoredSkill>;
-    /// 同一作用域里同名的（不分大小写）。
+    /// Finds a matching name in the same scope (case-insensitive).
     async fn find_by_name(
         &self,
         org_id: &Id,
         scope: &Scope,
         name: &str,
     ) -> Result<Option<StoredSkill>>;
-    /// 新建或按 ID 更新；同一作用域里重名时报冲突。
+    /// Creates or updates by ID; reports a conflict for duplicate names in the same scope.
     async fn save(&self, skill: StoredSkill) -> Result<StoredSkill>;
     async fn delete(&self, org_id: &Id, id: &Id) -> Result<bool>;
 
-    /// 组织对实例级 Skill 的启停：键是 `builtin:<名称>` 或 `path:<名称>`，没有记录的为启用。
+    /// Organization-level enablement of instance-level Skills: keys are `builtin:<name>` or
+    /// `path:<name>`; enabled if no record exists.
     async fn instance_settings(&self, org_id: &Id) -> Result<HashMap<String, bool>>;
     async fn set_instance_enabled(
         &self,
@@ -183,8 +185,9 @@ pub trait SkillStore: Send + Sync {
         error: Option<&str>,
         commit: Option<&str>,
     ) -> Result<()>;
-    /// 删除仓库与它导入的全部 Skill。
+    /// Deletes the repository and all Skills it imports.
     async fn delete_repository(&self, org_id: &Id, id: &Id) -> Result<bool>;
-    /// 所有组织里开了自动同步、最近同步早于 `before` 的仓库。
+    /// Repositories across all organizations with automatic synchronization enabled and their
+    /// latest synchronization before `before`.
     async fn repositories_due(&self, before: TimestampMicros) -> Result<Vec<SkillRepository>>;
 }

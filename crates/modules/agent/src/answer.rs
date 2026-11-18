@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 回答的形状：模型按要求返回的一个 JSON 对象——结论、证据、可能的原因、没能确认的、下一步、
-//! 相关链接与置信度。
+//! The answer format is a JSON object the model returns as requested: conclusion, evidence,
+//! possible causes, unconfirmed details, next steps, related links, and confidence.
 //!
-//! 对话页按这个形状显示回答。后端在这里读它：通知与运行记录只用结论，写成事件的 RCA 时排成
-//! Markdown，打分时看格式与证据。不是这个形状的回答（纯文本、只生成查询）原样使用。
+//! The conversation page displays answers in this format. The backend reads it here: notifications
+//! and run records use only the conclusion, incident RCA uses Markdown, and scoring checks the
+//! format and evidence. Answers outside this format (plain text or query-only output) are used as
+//! is.
 
 use serde_json::{Map, Value};
 
-/// 认得出是这个形状的字段：至少有一个。
+/// Fields that identify this format: at least one must be present.
 const KEYS: [&str; 7] = [
     "summary",
     "anomaly_points",
@@ -20,11 +22,11 @@ const KEYS: [&str; 7] = [
     "related_links",
 ];
 
-/// 回答里的一条证据或一个相关链接。
+/// A piece of evidence or a related link in the answer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Cited {
     pub label: String,
-    /// 产品内的页面地址，以 `/` 开头。
+    /// An in-product page address that starts with `/`.
     pub route: Option<String>,
 }
 
@@ -44,7 +46,7 @@ impl Confidence {
         }
     }
 
-    /// 模型写的置信度：等级的词，或 0 到 1（也可能是百分数）的数。
+    /// Model-provided confidence: a level word or a number from 0 to 1 (possibly a percentage).
     fn read(value: &Value) -> Option<Self> {
         if let Some(word) = value.as_str() {
             return match word.trim().to_ascii_lowercase().as_str() {
@@ -68,7 +70,7 @@ impl Confidence {
     }
 }
 
-/// 读出来的回答。
+/// The parsed answer.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct StructuredAnswer {
     pub summary: String,
@@ -80,7 +82,7 @@ pub struct StructuredAnswer {
     pub confidence: Option<Confidence>,
 }
 
-/// 排成 Markdown 时各部分的标题与置信度那一行，用读者的语言。
+/// Section headings and the confidence line for Markdown formatting, in the reader's language.
 #[derive(Debug, Clone, Default)]
 pub struct Headings {
     pub likely_causes: String,
@@ -88,14 +90,15 @@ pub struct Headings {
     pub next_steps: String,
     pub limitations: String,
     pub related_links: String,
-    /// 三个等级各自的一整行，例如「置信度：高」。
+    /// A complete line for each of the three levels, such as `Confidence: High`.
     pub confidence_high: String,
     pub confidence_medium: String,
     pub confidence_low: String,
 }
 
 impl StructuredAnswer {
-    /// 读一条回答；不是这个形状时为 `None`。外面可以套一层 ```json 围栏。
+    /// Parses an answer; returns `None` if it does not match this format.
+    /// An outer ```json fence is allowed.
     pub fn parse(content: &str) -> Option<Self> {
         let mut candidates = Vec::new();
 
@@ -133,7 +136,7 @@ impl StructuredAnswer {
         }
     }
 
-    /// 排成 Markdown：结论在前，各部分有内容时各带一个标题。
+    /// Formats as Markdown: the conclusion comes first, and each nonempty section has a heading.
     pub fn to_markdown(&self, headings: &Headings) -> String {
         let mut parts = Vec::new();
 
@@ -170,7 +173,7 @@ impl StructuredAnswer {
     }
 }
 
-/// 回答的结论：是这个形状时取 `summary`，否则是去掉首尾空白的原文。
+/// The answer's conclusion: `summary` for this format, otherwise the original text trimmed.
 pub fn conclusion(content: &str) -> String {
     match StructuredAnswer::parse(content) {
         Some(answer) if !answer.summary.is_empty() => answer.summary,
@@ -264,7 +267,7 @@ fn links(items: &[Cited]) -> String {
             let label = item.label.replace('[', "\\[").replace(']', "\\]");
 
             match item.route.as_deref() {
-                // 地址里有空白或括号时链接会断开，只写文字。
+                // Whitespace or parentheses in the address break the link, so output only text.
                 Some(route) if !route.contains([' ', '(', ')']) => {
                     format!("- [{label}]({route})")
                 }

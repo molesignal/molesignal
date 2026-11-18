@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 页面什么时候可以出图，什么时候应当让报表失败。
+//! When the page is ready to render, and when it should fail the report.
 //!
-//! 报表页（前端 `web/src/report-render`）通过 `<html data-report-render-state>` 说明自己的
-//! 状态：到 `ready` 才出图；到 `error` 就带着 `data-report-render-error` 里的原因失败，而不是
-//! 把一张写着「出错了」的页面打印成 magic bytes 正确、内容却不可用的文件。仪表盘和已保存
-//! 视图的报表页都遵守这个协议。
+//! The report page (frontend `web/src/report-render`) declares its own state through
+//! `<html data-report-render-state>`: it renders only once the state reaches `ready`; on `error`
+//! it fails with the reason in `data-report-render-error`, instead of printing a page that says
+//! "something went wrong" into a file with correct magic bytes but unusable content.
+//! The report pages for dashboards and saved views both follow this protocol.
 
 use std::time::Duration;
 
@@ -14,20 +15,23 @@ use headless_chrome::Tab;
 
 use crate::RenderError;
 
-/// 报表页最多用这么久取数。
+/// Maximum time a report page may take to fetch its data.
 const READY_TIMEOUT_MILLIS: u64 = 15_000;
 
-/// 报表页说 `ready` 之后，留给浏览器完成最后一次绘制的时间。
+/// Time left for the browser to finish its last paint after the report page says `ready`.
 const READY_SETTLE: Duration = Duration::from_millis(200);
 
-/// 不是报表页的页面没有就绪信号可等，留一个异步请求稳定下来的窗口。
+/// Pages that are not report pages have no readiness signal to wait for, so leave a window
+/// for async requests to settle.
 const UNSIGNALLED_SETTLE: Duration = Duration::from_millis(750);
 
-/// 报表页被带到登录页：渲染用的登录态没有写入、已经过期，或者被后端拒绝。
+/// The report page was redirected to the sign-in page: the sign-in state used for rendering
+/// was not written, has expired, or was rejected by the backend.
 const SIGNED_OUT: &str =
     "the report page asked to sign in: the render session is missing, expired or was rejected";
 
-/// 等到页面可以出图；页面说明自己出错、被带去登录或一直没有就绪时返回原因。
+/// Waits until the page is ready to render; returns the reason when the page reports an error,
+/// is redirected to sign-in, or never becomes ready.
 pub(super) fn wait_until_printable(tab: &Tab, url: &str) -> Result<(), RenderError> {
     if is_report_page_url(url) {
         wait_for_report_ready(tab)?;
@@ -39,8 +43,9 @@ pub(super) fn wait_until_printable(tab: &Tab, url: &str) -> Result<(), RenderErr
     ensure_page_renderable(tab)
 }
 
-/// 地址是否是报表页：查询参数里有 `reportRender=1`。定时投递、即时导出和分享快照用的地址
-/// 都带着它，无论报表引用的是仪表盘还是已保存视图。
+/// Whether the URL is a report page: the query parameters contain `reportRender=1`.
+/// The URLs used for scheduled delivery, instant export, and share snapshots all carry it,
+/// whether the report refers to a dashboard or a saved view.
 fn is_report_page_url(url: &str) -> bool {
     let Some((_, rest)) = url.split_once('?') else {
         return false;
@@ -57,8 +62,9 @@ fn wait_for_report_ready(tab: &Tab) -> Result<(), RenderError> {
     let value = match tab.evaluate(&expression, true) {
         Ok(value) => value,
         Err(_) => {
-            // 整页跳转会销毁正在等待的执行上下文（登录态被后端拒绝时，前端整页跳去登录页）。
-            // 在新文档上再等一次，由它说明自己是什么页面。
+            // A full-page navigation destroys the execution context being waited on (when the
+            // backend rejects the sign-in state, the frontend navigates the whole page to the
+            // sign-in page). Wait again on the new document; it says what kind of page it is.
             tab.wait_for_element("body").map_err(|error| {
                 RenderError::PageError(format!("wait for report page: {error}"))
             })?;
@@ -80,7 +86,7 @@ fn wait_for_report_ready(tab: &Tab) -> Result<(), RenderError> {
     }
 }
 
-/// 轮询页面状态的脚本：就绪时得到空串，否则得到失败原因。
+/// Script that polls the page state: yields an empty string when ready, else the failure reason.
 fn ready_expression() -> String {
     format!(
         r#"
@@ -179,7 +185,7 @@ mod tests {
 
     #[test]
     fn every_report_page_speaks_the_ready_protocol() {
-        // 仪表盘和已保存视图的报表页都要等就绪信号。
+        // Report pages for both dashboards and saved views wait for the readiness signal.
         assert!(is_report_page_url(
             "http://127.0.0.1:5173/dashboards/d1?reportRender=1"
         ));
@@ -197,7 +203,8 @@ mod tests {
         assert!(!is_report_page_url(
             "http://127.0.0.1:5173/saved-views?view=v1"
         ));
-        // 参数要完整等于 reportRender=1：别的取值、别的参数里出现这段文字、片段里出现都不算。
+        // The parameter must be exactly reportRender=1: other values, this text in another
+        // parameter, or this text in the fragment do not count.
         assert!(!is_report_page_url(
             "http://127.0.0.1:5173/dashboards/d1?reportRender=10"
         ));
@@ -222,7 +229,7 @@ mod tests {
         assert!(script.contains("location.pathname === '/signin'"));
         assert!(script.contains(SIGNED_OUT));
         assert!(script.contains("did not become ready within 15000ms"));
-        // 格式化之后花括号要成对，否则浏览器解析不了这段脚本。
+        // After formatting, the braces must be balanced, or the browser cannot parse the script.
         assert_eq!(script.matches('{').count(), script.matches('}').count());
     }
 }

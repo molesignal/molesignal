@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 节点里关于 Run 的提醒。
+//! Run notifications within a node.
 //!
-//! 有新事件、要求停止、有了回答时，写的那一方发一个提醒：同一节点直接发，其他节点经
-//! PostgreSQL NOTIFY 转来。提醒只说哪个 Run 变了，内容去库里读；丢了也不要紧，等的一方隔一会儿
-//! 自己去读一次。
+//! When there is a new event, a stop request, or an answer, the writer sends a notification:
+//! directly on the same node, or through PostgreSQL NOTIFY from other nodes. Notifications only
+//! identify which Run changes; the content is read from the database. Lost notifications are
+//! harmless: the waiting side periodically reads the database itself.
 
 use std::time::Duration;
 
+use kernel::ids::Id;
 use tokio::sync::broadcast::{self, error::RecvError};
 
-use crate::shared::ids::Id;
-
-/// 来不及看的提醒最多攒这么多；再多时当作每个 Run 都变了。
+/// Buffer at most this many unread notifications; beyond this, treat every Run as changed.
 const CAPACITY: usize = 1024;
 
 #[derive(Debug, Clone)]
@@ -34,7 +34,8 @@ impl RunSignalHub {
         let _ = self.tx.send(run_id.to_string());
     }
 
-    /// 先订阅、再读库：读完之后到的提醒不会漏掉。
+    /// Subscribe before reading the database so notifications arriving after the read are not
+    /// missed.
     pub fn subscribe(&self) -> RunSignals {
         RunSignals {
             rx: self.tx.subscribe(),
@@ -47,7 +48,7 @@ pub struct RunSignals {
 }
 
 impl RunSignals {
-    /// 等到这个 Run 有提醒，最多等 `timeout`；超时返回 false。
+    /// Wait for a notification for this Run for at most `timeout`; return false on timeout.
     pub async fn changed(&mut self, run_id: &Id, timeout: Duration) -> bool {
         let wait = async {
             loop {

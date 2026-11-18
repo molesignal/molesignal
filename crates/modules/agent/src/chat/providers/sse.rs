@@ -1,28 +1,28 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Mole Agent Model Gateway 共享 SSE 解析工具。
+//! Shared SSE parsing utilities for Mole Agent Model Gateway.
 //!
-//! 把 `reqwest::Response::bytes_stream()` 喂给 [`eventsource_stream::EventStream`]，
-//! 输出 `SseEvent`（含 `event` 名 + `data` 字段）。Adapter 自行决定 JSON 怎么解。
+//! Feeds `reqwest::Response::bytes_stream()` into [`eventsource_stream::EventStream`],
+//! producing `SseEvent` (with an `event` name + `data` field). Each adapter decides how to decode
+//! JSON.
 //!
-//! `eventsource_stream` 已处理：
-//! - `data:` 单行 / 多行拼接（用 `\n` join）
-//! - `event:` 名解析（默认 "message"）
-//! - `retry:` / 注释行忽略
-//! - SSE 帧边界（空行）
+//! `eventsource_stream` already handles:
+//! - Single-line / multiline `data:` concatenation (joined with `\n`)
+//! - `event:` name parsing (defaults to "message")
+//! - Ignoring `retry:` / comment lines
+//! - SSE frame boundaries (blank lines)
 
 use std::pin::Pin;
 
 use bytes::Bytes;
 use eventsource_stream::{Event, Eventsource};
 use futures::stream::{Stream, StreamExt};
-
-use crate::shared::Error;
+use kernel::Error;
 
 pub type SseEvent = Event;
 
-/// 把字节流转 SSE 帧流；错误转 `crate::shared::Error`。
+/// Converts a byte stream into an SSE frame stream; converts errors to `kernel::Error`.
 pub fn parse_sse<S>(byte_stream: S) -> impl Stream<Item = Result<SseEvent, Error>>
 where
     S: Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
@@ -33,7 +33,7 @@ where
         .map(|r| r.map_err(|e| Error::internal(format!("sse parse: {e}"))))
 }
 
-/// 把 reqwest streaming response 转 `SseEvent` 流，统一类型签名。
+/// Converts a reqwest streaming response into an `SseEvent` stream with a unified type signature.
 pub fn response_to_sse(
     resp: reqwest::Response,
 ) -> Pin<Box<dyn Stream<Item = Result<SseEvent, Error>> + Send>> {

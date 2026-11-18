@@ -2,7 +2,7 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 //! 自动发现的后台任务：每个组织每 [`ROUND_EVERY`] 找一遍 APM、RUM、日志（[`logs`]）和资源指标
-//! （[`metrics`]）的问题，结果并进 `discovery_findings`（见 [`crate::domain::alerting::discovery`]）。
+//! （[`metrics`]）的问题，结果并进 `discovery_findings`（见 [`domain::alerting::discovery`]）。
 //! 组织按 id 分给各 alert 节点；结束满 30 天的发现由主节点删掉。
 //!
 //! 一边读不出来（APM 或 RUM 不可用、查询出错）时，这一轮不动那一边进行中的发现，免得它们被当成
@@ -17,22 +17,20 @@ use std::{
     time::Duration,
 };
 
+use domain::{
+    alerting::discovery::{
+        DISCOVERY_DIMENSIONS, DISCOVERY_VALUE_COLUMN, DiscoveryQuery, DiscoveryRepository, Finding,
+        FindingKind, FindingSource, KEEP_ENDED_DAYS, merge, severity_rank,
+    },
+    iam::OrganizationRepository,
+    query::{QueryResult, StreamHint},
+    stream::StreamType,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde_json::json;
 use tokio::task::JoinHandle;
 
-use crate::{
-    app::{apm::ApmQueryService, cluster::WorkOwnership},
-    domain::{
-        alerting::discovery::{
-            DISCOVERY_DIMENSIONS, DISCOVERY_VALUE_COLUMN, DiscoveryQuery, DiscoveryRepository,
-            Finding, FindingKind, FindingSource, KEEP_ENDED_DAYS, merge, severity_rank,
-        },
-        iam::OrganizationRepository,
-        query::{QueryResult, StreamHint},
-        stream::StreamType,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::app::{apm::ApmQueryService, cluster::WorkOwnership};
 
 mod apm;
 mod logs;
@@ -290,8 +288,9 @@ pub fn open_by_kind(findings: &[Finding]) -> HashMap<FindingKind, usize> {
 
 #[cfg(test)]
 mod tests {
+    use domain::alerting::{discovery::Detection, incident::Severity};
+
     use super::*;
-    use crate::domain::alerting::{discovery::Detection, incident::Severity};
 
     fn finding(kind: FindingKind, severity: Severity) -> Finding {
         merge(

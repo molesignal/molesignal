@@ -1,28 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 知识：组织一份，每个团队一份。
+//! Knowledge: one base for the organization and one for each team.
 //!
-//! 一份知识是一组 UTF-8 文本文件，可以分子目录。入口文件 [`ENTRY_FILE`] 在会话里自动加载，只放
-//! 目录与一句话导引，用 `@路径` 指向其他文件；其他文件在需要时用工具读。单个文件不超过
-//! [`MAX_FILE_BYTES`]，一份合计不超过 [`MAX_TOTAL_BYTES`]、[`MAX_FILES`] 个文件；不收以 `.` 开头的
-//! 文件或目录。组织知识放跨团队的约定，团队知识放本队的服务、值班手册与上下游。
+//! A knowledge base is a set of UTF-8 text files, optionally organized into subdirectories. The
+//! entry file [`ENTRY_FILE`] loads automatically in sessions and contains only a directory listing
+//! and a one-sentence guide, using `@path` to point to other files; tools read other files as
+//! needed. Each file is limited to [`MAX_FILE_BYTES`], and each base is limited to
+//! [`MAX_TOTAL_BYTES`] and [`MAX_FILES`] files; files or directories starting with `.` are not
+//! accepted. Organization knowledge holds cross-team conventions; team knowledge holds the team's
+//! services, on-call handbooks, and upstream and downstream dependencies.
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    agent::scope::Scope,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::scope::Scope;
 
-/// 入口文件。
+/// The entry file.
 pub const ENTRY_FILE: &str = "MOLE.md";
 pub const MAX_FILE_BYTES: usize = 1024 * 1024;
 pub const MAX_TOTAL_BYTES: usize = 5 * 1024 * 1024;
 pub const MAX_FILES: usize = 200;
 pub const MAX_PATH_CHARS: usize = 512;
-/// 一个入口文件交给模型时最多这么长。
+/// The maximum length of an entry file passed to the model.
 const ENTRY_PROMPT_BYTES: usize = 32 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -40,7 +41,7 @@ pub struct KnowledgeFile {
     pub updated_at: TimestampMicros,
 }
 
-/// 不带内容的文件。
+/// A file without its content.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeFileMeta {
@@ -50,31 +51,32 @@ pub struct KnowledgeFileMeta {
     pub updated_at: TimestampMicros,
 }
 
-/// 一份知识的概况。
+/// An overview of a knowledge base.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeBase {
     pub scope: Scope,
     pub files: i64,
     pub bytes: i64,
-    /// 入口文件最后一次修改；没有入口文件时为空。
+    /// The entry file's last modification time; empty if there is no entry file.
     pub entry_updated_at: Option<TimestampMicros>,
-    /// 入口文件之后又改过的其他文件数：入口文件可能过期了。
+    /// The number of other files changed after the entry file: the entry file may be outdated.
     pub changed_since_entry: i64,
     pub updated_at: Option<TimestampMicros>,
 }
 
-/// 搜到的一行。
+/// A line found by search.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct KnowledgeHit {
     pub scope: Scope,
     pub path: String,
-    /// 从 1 数起。
+    /// Counts from 1.
     pub line: usize,
     pub text: String,
 }
 
-/// 检查并规整一个路径：`/` 分隔、不以 `/` 开头，没有空段、`.`、`..`，也没有以 `.` 开头的段。
+/// Validates and normalizes a path: separated by `/`, with no leading `/`, empty segments, `.`,
+/// `..`, or segments starting with `.`.
 pub fn normalize_path(raw: &str) -> Result<String> {
     let path = raw.trim().trim_start_matches("./").replace('\\', "/");
     let path = path.trim_matches('/');
@@ -106,7 +108,7 @@ pub fn normalize_path(raw: &str) -> Result<String> {
     Ok(path.to_string())
 }
 
-/// 一个文件的内容能不能收：不超过单文件上限，是文本（没有 NUL）。
+/// Checks whether file content is accepted: within the per-file limit and text (no NUL).
 pub fn check_content(content: &str) -> Result<()> {
     if content.len() > MAX_FILE_BYTES {
         return Err(Error::invalid(format!(
@@ -122,7 +124,8 @@ pub fn check_content(content: &str) -> Result<()> {
     Ok(())
 }
 
-/// 写完之后这份知识还在份额里。`files` 与 `bytes` 是写完之后的合计。
+/// Checks that the knowledge base remains within quota after the write.
+/// `files` and `bytes` are the totals after the write.
 pub fn check_quota(files: usize, bytes: usize) -> Result<()> {
     if files > MAX_FILES {
         return Err(Error::invalid(format!(
@@ -140,7 +143,8 @@ pub fn check_quota(files: usize, bytes: usize) -> Result<()> {
     Ok(())
 }
 
-/// 内容里含有 `query` 的行（不分大小写）；`query` 有几个词时每个词都要在这一行里。
+/// Lines containing `query` (case-insensitive); if `query` has multiple words, every word must
+/// appear in the line.
 pub fn matching_lines(content: &str, query: &str, limit: usize) -> Vec<(usize, String)> {
     let words = query
         .split_whitespace()
@@ -163,7 +167,8 @@ pub fn matching_lines(content: &str, query: &str, limit: usize) -> Vec<(usize, S
         .collect()
 }
 
-/// 会话自动加载的入口文件交给模型时的样子。`entries` 是（来源说明, 内容），按组织、团队的顺序。
+/// The form in which automatically loaded session entry files are passed to the model.
+/// `entries` contains (source description, content) pairs, ordered by organization, then team.
 pub fn entry_prompt(entries: &[(String, String)]) -> Option<String> {
     if entries.is_empty() {
         return None;
@@ -197,11 +202,12 @@ pub fn entry_prompt(entries: &[(String, String)]) -> Option<String> {
 
 #[async_trait]
 pub trait KnowledgeStore: Send + Sync {
-    /// 组织里有文件的每份知识的概况。
+    /// Overviews of all knowledge bases in the organization that contain files.
     async fn bases(&self, org_id: &Id) -> Result<Vec<KnowledgeBase>>;
     async fn list(&self, org_id: &Id, scope: &Scope) -> Result<Vec<KnowledgeFileMeta>>;
     async fn get(&self, org_id: &Id, scope: &Scope, path: &str) -> Result<Option<KnowledgeFile>>;
-    /// 写入一组文件（新建或替换）。份额按写完之后算，超出时一个都不写。
+    /// Writes a set of files (creating or replacing them).
+    /// Quota is calculated after the write; if exceeded, no files are written.
     async fn put(
         &self,
         org_id: &Id,
@@ -210,7 +216,8 @@ pub trait KnowledgeStore: Send + Sync {
         actor: &Id,
     ) -> Result<()>;
     async fn delete(&self, org_id: &Id, scope: &Scope, path: &str) -> Result<bool>;
-    /// 改名或移到别的目录；目标已有文件时报冲突。
+    /// Renames or moves a file to another directory; reports a conflict if the destination file
+    /// already exists.
     async fn rename(
         &self,
         org_id: &Id,
@@ -219,7 +226,7 @@ pub trait KnowledgeStore: Send + Sync {
         to: &str,
         actor: &Id,
     ) -> Result<()>;
-    /// 在这些作用域的文件里找，最多 `limit` 行。
+    /// Searches files in these scopes, returning at most `limit` lines.
     async fn search(
         &self,
         org_id: &Id,

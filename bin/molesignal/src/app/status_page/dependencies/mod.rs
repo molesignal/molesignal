@@ -14,27 +14,25 @@ use std::{
     sync::Arc,
 };
 
+use domain::{
+    alerting::{
+        incident::Incident,
+        mute::{MuteRuleRepository, match_labels_for_incident},
+        repositories::AlertRuleRepository,
+    },
+    status_page::{
+        ActiveAutomationRule, AutomationSourceKind, AutomationSourceObservation,
+        ComponentDependency, ComponentKind, ComponentLifecycle, ComponentStatus, DependencyHealth,
+        DependencyKind, DependencyMode, DependencyStatus, HealthSignals, HealthWrite,
+        IncidentSignal, MonitorSignal, StatusPageComponent, StatusPageComponentStatusEvent,
+        evaluate_dependencies, normalize_dependencies,
+    },
+    synthetics::{MonitorLifecycle, SyntheticRepository},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 pub use signals::{DependencyAlertSink, DependencySignalQueue, DependencySyntheticSink};
 
 use super::StatusPageService;
-use crate::{
-    domain::{
-        alerting::{
-            incident::Incident,
-            mute::{MuteRuleRepository, match_labels_for_incident},
-            repositories::AlertRuleRepository,
-        },
-        status_page::{
-            ActiveAutomationRule, AutomationSourceKind, AutomationSourceObservation,
-            ComponentDependency, ComponentKind, ComponentLifecycle, ComponentStatus,
-            DependencyHealth, DependencyKind, DependencyMode, DependencyStatus, HealthSignals,
-            HealthWrite, IncidentSignal, MonitorSignal, StatusPageComponent,
-            StatusPageComponentStatusEvent, evaluate_dependencies, normalize_dependencies,
-        },
-        synthetics::{MonitorLifecycle, SyntheticRepository},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 /// The labels an alert carries the name of its service under.
 const SERVICE_LABELS: [&str; 3] = ["service", "service.name", "service_name"];
@@ -401,11 +399,12 @@ fn incident_services(incident: &Incident) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::domain::{
+    use domain::{
         alerting::incident::Severity,
         status_page::{ComponentVisibility, DependencyImpact},
     };
+
+    use super::*;
 
     fn checkout(health: Option<DependencyHealth>) -> StatusPageComponent {
         StatusPageComponent {

@@ -1,22 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 交给模型的上下文：历史太长时怎么压缩，回答用什么语言。
+//! Context passed to the model: how to compact long histories and which language to answer in.
 //!
-//! token 数按字符估算：ASCII 约 4 个字符一个，其余每个字符一个。超过上下文的 80% 时，把
-//! 最近 [`COMPACTION_KEEP_TURNS`] 轮之前的对话压缩成摘要；`/compact` 把到现在为止的全部
-//! 对话压缩。摘要存在会话上，之后交给模型时代替被压缩的那些消息。
+//! Token counts are estimated from characters: about 4 ASCII characters per token, one token per
+//! other character. When usage exceeds 80% of the context, conversations before the most recent
+//! [`COMPACTION_KEEP_TURNS`] turns are compacted into a summary; `/compact` compacts the entire
+//! conversation so far. The summary is stored on the session and replaces the compacted messages
+//! when subsequently passed to the model.
 
-/// 自动压缩时原样保留最近几轮。
+/// The number of recent turns kept intact during automatic compaction.
 pub const COMPACTION_KEEP_TURNS: usize = 2;
 
-/// 让模型写摘要的指令。
+/// The instruction that asks the model to write a summary.
 pub const COMPACTION_INSTRUCTION: &str = "Summarize the conversation above so that the investigation can continue from the summary alone. Keep what was asked; what was found and with which tools, with the key numbers, identifiers, services, queries and time ranges; the conclusions and the evidence behind them; and what is still open. Leave out greetings and anything that was later corrected. Write at most 800 words.";
 
-/// 摘要交给模型时的开头。
+/// The prefix used when passing the summary to the model.
 const SUMMARY_PREFIX: &str = "Summary of the earlier part of this conversation:";
 
-/// 估算一段文字的 token 数。
+/// Estimates the token count of a piece of text.
 pub fn estimate_tokens(text: &str) -> u64 {
     let (ascii, other) = text
         .chars()
@@ -31,13 +33,15 @@ pub fn estimate_tokens(text: &str) -> u64 {
     ascii.div_ceil(4) + other
 }
 
-/// 历史用到了上下文的 80%。
+/// The history uses 80% of the context.
 pub fn compaction_due(tokens: u64, window: u64) -> bool {
     window > 0 && tokens.saturating_mul(5) > window.saturating_mul(4)
 }
 
-/// 压缩时从哪条消息起原样保留：倒数第 `keep_turns` 个用户问题。`roles` 是各条消息的角色，
-/// 按时间先后；`keep_turns` 为 0 时全部压缩。前面没有可压缩的消息时返回 `None`。
+/// Finds where to start keeping messages intact during compaction: the `keep_turns`-th user
+/// question from the end. `roles` contains the role of each message in chronological order; when
+/// `keep_turns` is 0, everything is compacted. Returns `None` if there are no earlier messages to
+/// compact.
 pub fn compaction_split(roles: &[&str], keep_turns: usize) -> Option<usize> {
     if keep_turns == 0 {
         return (!roles.is_empty()).then_some(roles.len());
@@ -58,12 +62,13 @@ pub fn compaction_split(roles: &[&str], keep_turns: usize) -> Option<usize> {
     (split > 0).then_some(split)
 }
 
-/// 摘要交给模型时的样子。
+/// The summary as presented to the model.
 pub fn summary_text(summary: &str) -> String {
     format!("{SUMMARY_PREFIX}\n\n{summary}")
 }
 
-/// 告诉模型用哪种语言回答；语言在会话创建时按发起人的界面语言定下。
+/// Tells the model which language to answer in; this is set from the initiator's UI language when
+/// the session is created.
 pub fn language_instruction(language: &str) -> Option<String> {
     let name = match language.trim().to_ascii_lowercase().as_str() {
         "" => return None,

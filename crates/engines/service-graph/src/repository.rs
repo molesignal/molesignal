@@ -6,20 +6,18 @@
 //! or a step at a time for one edge.
 
 use async_trait::async_trait;
-use kernel::time::TimestampMicros;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use postgres::sqlx_err;
 use sqlx::{PgPool, Row};
 
-use crate::{
-    BUCKET_SIZE_US, EdgeSnapshot,
-    shared::{Result, ids::Id},
-};
+use crate::{BUCKET_SIZE_US, EdgeSnapshot};
 
 #[async_trait]
 pub trait ServiceGraphRepository: Send + Sync {
     async fn insert_many(&self, edges: &[EdgeSnapshot]) -> Result<()>;
-    /// 删除某 org 在 `[from_micros, to_micros]`（按 bucket_at）内的边。
-    /// storage 模式重算 worker 用来「先删后插」实现窗口幂等（重算覆盖、含晚到数据）。
+    /// Deletes the edges of an org within `[from_micros, to_micros]` (by bucket_at).
+    /// The storage-mode recompute worker uses it to "delete first, then insert", making windows
+    /// idempotent (a recompute overwrites, including late-arriving data).
     async fn delete_range(&self, org_id: &Id, from_micros: i64, to_micros: i64) -> Result<()>;
     async fn query(
         &self,

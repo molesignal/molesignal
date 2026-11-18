@@ -1,22 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 内置命令，全部对应已有的能力。说明与参数提示是给人看的文字，按读者的界面语言放在
-//! `i18n_language` 表（`agent.command.<名称>.description` 与 `.argument`）。
+//! Built-in commands, all corresponding to existing capabilities.
+//! Descriptions and argument hints are human-readable text stored in the `i18n_language` table
+//! (`agent.command.<name>.description` and `.argument`) in the reader's interface language.
 
 use serde::{Deserialize, Serialize};
 
 use super::CommandKind;
 
-/// 命令的参数。
+/// A command's argument.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Argument {
     None,
-    /// 必须带：`choices` 里的一个词，或一段文字。
+    /// Required: a word from `choices`, or a piece of text.
     Required,
 }
 
-/// 参数候选由前端从组织里已有的对象取。
+/// The frontend retrieves argument suggestions from existing objects in the organization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Suggest {
@@ -24,7 +25,7 @@ pub enum Suggest {
     Profiles,
     Prompts,
     Incidents,
-    /// 本人所在的团队（管理员是全部团队）。
+    /// Teams the current user belongs to (all teams for administrators).
     Teams,
 }
 
@@ -33,10 +34,10 @@ pub struct BuiltinCommand {
     pub name: &'static str,
     pub kind: CommandKind,
     pub argument: Argument,
-    /// 参数只能是这几个词；空表示不限。
+    /// The argument must be one of these words; empty means unrestricted.
     pub choices: &'static [&'static str],
     pub suggest: Option<Suggest>,
-    /// 除 `agent.use` 之外还要的权限。
+    /// The permission required in addition to `agent.use`.
     pub permission: Option<&'static str>,
 }
 
@@ -75,7 +76,7 @@ const fn task(name: &'static str) -> BuiltinCommand {
     }
 }
 
-/// 输入框里列出的顺序。
+/// The order listed in the input box.
 pub const BUILTIN_COMMANDS: &[BuiltinCommand] = &[
     control("help"),
     control("new"),

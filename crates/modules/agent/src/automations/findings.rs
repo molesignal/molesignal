@@ -1,23 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 发现触发：自动发现新找到的一个问题是否满足规则的筛选。同一条发现只调查一次。
+//! Finding triggers check whether a newly discovered problem matches the rule's filters.
+//! Each finding is investigated only once.
 
+use domain::alerting::{discovery::Finding, incident::Severity};
 use serde::{Deserialize, Serialize};
 
-use crate::domain::alerting::{discovery::Finding, incident::Severity};
-
-/// 哪些新发现触发：每一项留空表示不限，填了的都要满足。
+/// Specifies which new findings trigger a run: empty fields impose no limit; all set fields must
+/// match.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FindingFilter {
-    /// 发现的种类，如 `apm_anomaly`、`log_error_surge`。
+    /// Finding kinds, such as `apm_anomaly`, `log_error_surge`.
     #[serde(default)]
     pub kinds: Vec<String>,
-    /// 至少这么严重：`info`、`warning`、`error`、`critical`。
+    /// Minimum severity: `info`, `warning`, `error`, `critical`.
     #[serde(default)]
     pub min_severity: Option<String>,
-    /// 对象：APM 服务、RUM 应用、日志里的服务、主机或容器。
+    /// Subjects: APM services, RUM applications, services in logs, hosts, or containers.
     #[serde(default)]
     pub subjects: Vec<String>,
 }

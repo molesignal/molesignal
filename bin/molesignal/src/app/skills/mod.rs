@@ -13,6 +13,16 @@ pub mod session;
 
 use std::{collections::HashMap, sync::Arc};
 
+use agent::{
+    network::NetworkPolicyStore,
+    scope::{ChatScope, Scope, Viewer},
+    skills::{
+        FileEntry, SkillBundle, SkillFile, SkillManifest, SkillSource, SkillStore, StoredSkill,
+        is_text,
+    },
+};
+use domain::{i18n_language::LanguagePack, iam::TeamRepository};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use moka::sync::Cache;
 use object_store::{ObjectStore, ObjectStoreExt as _, path::Path as ObjPath};
 use serde::Serialize;
@@ -23,18 +33,6 @@ pub use self::{
     instance::{InstanceSkills, PathProblem},
     repositories::RepositoryInput,
     session::{Lookup, SessionSkill, SessionSkills, SkillLocation, team_handle},
-};
-use crate::{
-    agent::{
-        network::NetworkPolicyStore,
-        scope::{ChatScope, Scope, Viewer},
-        skills::{
-            FileEntry, SkillBundle, SkillFile, SkillManifest, SkillSource, SkillStore, StoredSkill,
-            is_text,
-        },
-    },
-    domain::{i18n_language::LanguagePack, iam::TeamRepository},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// 对象存储里 Skill 文件的根。

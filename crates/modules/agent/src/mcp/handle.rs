@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 服务器在本组织里的前缀（handle）：由名称生成，只含小写字母、数字和 `_`，以字母开头，
-//! 组织内唯一，改名时不变。工具在 Agent 里叫 `mcp__<handle>__<工具>`（不超过 64 个字符，
-//! 模型接口对工具名有这个限制），prompt 的命令是 `/<handle>:<prompt>`。
+//! The server's prefix (handle) within its organization is generated from its name, contains only
+//! lowercase letters, digits, and `_`, starts with a letter, is unique within the organization, and
+//! stays unchanged when renamed. Tools are named `mcp__<handle>__<tool>` in the Agent (at most 64
+//! characters, the model API's limit for tool names), and prompt commands are `/<handle>:<prompt>`.
 
 use std::collections::HashSet;
 
@@ -11,7 +12,8 @@ const MAX_HANDLE: usize = 20;
 const MAX_TOOL_NAME: usize = 64;
 const MAX_PROMPT_NAME: usize = 48;
 
-/// 小写 ASCII 字母和数字照留，其余连续的字符换成一个分隔符，去掉首尾的分隔符。
+/// Keeps lowercase ASCII letters and digits, replaces consecutive other characters with a single
+/// separator, and removes leading and trailing separators.
 fn slug(value: &str, keep: &[char], max: usize) -> String {
     let mut result = String::new();
     let mut separated = false;
@@ -35,7 +37,8 @@ fn slug(value: &str, keep: &[char], max: usize) -> String {
         .to_string()
 }
 
-/// 由服务器名称生成的前缀，还没去重。名称里没有可用的字母（例如全是中文）时是 `mcp`。
+/// The prefix generated from a server name, before deduplication.
+/// Uses `mcp` when the name has no usable letters (for example, when it is entirely Chinese).
 pub fn handle_base(name: &str) -> String {
     let slug = slug(name, &[], MAX_HANDLE);
 
@@ -53,7 +56,8 @@ pub fn handle_base(name: &str) -> String {
     }
 }
 
-/// `candidate`、`candidate_2`、`candidate_3`……里第一个没被占用的，长度不超过 `max`。
+/// The first available name among `candidate`, `candidate_2`, `candidate_3`, and so on, with a
+/// length no greater than `max`.
 fn first_free(candidate: &str, taken: &HashSet<String>, max: usize) -> String {
     if !taken.contains(candidate) {
         return candidate.to_string();
@@ -71,12 +75,13 @@ fn first_free(candidate: &str, taken: &HashSet<String>, max: usize) -> String {
         .unwrap_or_default()
 }
 
-/// 组织里还没用过的前缀。
+/// A prefix not yet used in the organization.
 pub fn unique_handle(name: &str, taken: &HashSet<String>) -> String {
     first_free(&handle_base(name), taken, MAX_HANDLE)
 }
 
-/// 工具在 Agent 里的名称；同一台服务器上折算后重名的，后来的加序号。
+/// The tool's name in the Agent; if names on the same server collide after normalization, later
+/// ones get a sequence number.
 pub fn tool_registry_name(handle: &str, remote: &str, taken: &HashSet<String>) -> String {
     let prefix = format!("mcp__{handle}__");
     let room = MAX_TOOL_NAME.saturating_sub(prefix.len()).max(8);
@@ -86,7 +91,7 @@ pub fn tool_registry_name(handle: &str, remote: &str, taken: &HashSet<String>) -
     first_free(&format!("{prefix}{tool}"), taken, MAX_TOOL_NAME)
 }
 
-/// prompt 的命令名（不带 `/`）。
+/// The prompt's command name (without `/`).
 pub fn prompt_command(handle: &str, prompt: &str) -> String {
     let name = slug(prompt, &['-'], MAX_PROMPT_NAME);
     let name = if name.is_empty() {

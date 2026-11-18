@@ -1,46 +1,49 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Run 的事件：按序号递增，浏览器从某个序号之后续读。
+//! Run events have increasing sequence numbers, and the browser resumes reading after a given
+//! number.
 //!
-//! 模型写出的文字一小段一小段地到，合并后再写：攒够 [`TEXT_FLUSH_BYTES`] 或攒了
-//! [`TEXT_FLUSH_MILLIS`] 毫秒写一条；其他事件之前先把攒着的文字写掉，保证顺序。最后一个事件
-//! 总是 [`RunEventKind::Done`]。
+//! Text from the model arrives in small chunks and is combined before writing: one event is written
+//! after accumulating [`TEXT_FLUSH_BYTES`] or waiting [`TEXT_FLUSH_MILLIS`] milliseconds. Buffered
+//! text is written before other events to preserve order. The last event is always
+//! [`RunEventKind::Done`].
 
 use std::time::{Duration, Instant};
 
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::shared::{ids::Id, time::TimestampMicros};
-
-/// 攒够这么多字节的文字就写一条。
+/// Writes one event after accumulating this many bytes of text.
 pub const TEXT_FLUSH_BYTES: usize = 1024;
-/// 文字最多攒这么久。
+/// The maximum time to buffer text.
 pub const TEXT_FLUSH_MILLIS: u64 = 200;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RunEventKind {
-    /// 状态变了：开始执行、在等回答、在等确认、回到执行。
+    /// The status changes: execution starts, waits for an answer, waits for confirmation, or
+    /// resumes.
     Status,
-    /// 模型写出的文字。一次调用以工具调用结束时，这些文字是中间的说明，不是回答。
+    /// Text written by the model.
+    /// When a call ends with tool calls, this text is intermediate commentary, not an answer.
     Text,
     ToolStart,
     ToolEnd,
-    /// 任务清单（整份）。
+    /// The task list in full.
     Todo,
-    /// 向提问人提的问题。
+    /// A question for the requester.
     Question,
-    /// 请提问人确认执行一个工具。
+    /// Asks the requester to confirm running a tool.
     Confirmation,
-    /// 请提问人存下他在一台 MCP 服务器上的凭据（「授权以继续」）。
+    /// Asks the requester to save their credentials for an MCP server (`Authorize to continue`).
     Authorization,
-    /// 提问人的回答或决定。
+    /// The requester's answer or decision.
     Response,
-    /// 提醒：预算、上下文压缩……
+    /// A notice: budget, context compaction, etc.
     Notice,
-    /// 结束：成功、失败、停止或中断。
+    /// Completion: success, failure, stop, or interruption.
     Done,
 }
 
@@ -90,7 +93,7 @@ pub struct RunEvent {
     pub created_at: TimestampMicros,
 }
 
-/// 还没分到序号的事件。
+/// An event that has not yet been assigned a sequence number.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NewRunEvent {
     pub kind: RunEventKind,
@@ -103,7 +106,7 @@ impl NewRunEvent {
     }
 }
 
-/// 攒着还没写的文字。
+/// Buffered text that has not yet been written.
 #[derive(Debug, Default)]
 pub struct TextBuffer {
     text: String,
@@ -111,7 +114,7 @@ pub struct TextBuffer {
 }
 
 impl TextBuffer {
-    /// 放进一段文字；攒够了就把全部取出来。
+    /// Adds a chunk of text and takes out all buffered text when enough has accumulated.
     pub fn push(&mut self, delta: &str) -> Option<String> {
         if delta.is_empty() {
             return None;
@@ -123,7 +126,7 @@ impl TextBuffer {
         (self.text.len() >= TEXT_FLUSH_BYTES).then(|| self.take())
     }
 
-    /// 攒得够久了。
+    /// Text has been buffered long enough.
     pub fn due(&self, now: Instant) -> bool {
         self.since.is_some_and(|since| {
             now.duration_since(since) >= Duration::from_millis(TEXT_FLUSH_MILLIS)
@@ -134,7 +137,7 @@ impl TextBuffer {
         self.text.is_empty()
     }
 
-    /// 取出攒着的全部文字。
+    /// Takes out all buffered text.
     pub fn take(&mut self) -> String {
         self.since = None;
         std::mem::take(&mut self.text)

@@ -1,30 +1,31 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 输入原文 → 普通文字或命令。规则与前端 `web/src/routes/agent/chat/composer/commands.ts`
-//! 一致：
+//! Converts raw input to plain text or a command.
+//! The rules match the frontend's `web/src/routes/agent/chat/composer/commands.ts`:
 //!
-//! - 去掉开头的空白后，`/` 加一个字母开头、到第一个空白为止的一段只含字母、数字、`_`、`-`、
-//!   `:` 时是命令；名称不分大小写，其后去掉首尾空白是参数。
-//! - 名称后可以跟 `@团队`（到空白为止），用来指定某个团队的 Skill。
-//! - 这一段里还有别的字符（例如 `/var/log/app.log`）时是普通文字。
-//! - 以 `\/` 开头是转义：去掉反斜杠，按普通文字处理。
+//! - After removing leading whitespace, `/` followed by a segment that starts with a letter and
+//!   contains only letters, digits, `_`, `-`, and `:` up to the first whitespace is a command;
+//!   names are case-insensitive, and the remaining text, trimmed at both ends, is the argument.
+//! - The name may be followed by `@team` (up to whitespace) to specify a team's Skill.
+//! - If the segment contains other characters (such as `/var/log/app.log`), it is plain text.
+//! - A leading `\/` is an escape: remove the backslash and treat the input as plain text.
 
 use super::CommandRecord;
 
-/// 一次命令调用。
+/// A command invocation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Invocation {
-    /// 小写的命令名。
+    /// The lowercase command name.
     pub name: String,
-    /// `/名称@团队` 里的团队写法。
+    /// The team spelling in `/name@team`.
     pub team: Option<String>,
     pub args: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Input {
-    /// 普通文字；转义的反斜杠已经去掉。
+    /// Plain text with the escape backslash already removed.
     Text(String),
     Command(Invocation),
 }
@@ -66,7 +67,8 @@ pub fn parse(content: &str) -> Input {
     })
 }
 
-/// 一条用户消息交给模型的文字：命令用记下的展开问题，转义去掉反斜杠，其余照原文。
+/// The text of a user message passed to the model: the recorded expanded question for a command,
+/// the text with the escape backslash removed for escaped input, or the original text otherwise.
 pub fn text_for_model(content: &str, command: Option<&CommandRecord>) -> String {
     if let Some(command) = command {
         return command.model_text.clone();

@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Mole Agent Model Gateway provider adapter 实装。
+//! Mole Agent Model Gateway provider adapter implementations.
 //!
-//! 三个 ProviderAdapter：
+//! Three ProviderAdapter implementations:
 //!
-//! - [`openai::OpenAiAdapter`]：POST `{base_url}/chat/completions`，SSE 解析
-//!   `data: <json>` 帧，提取 `choices[0].delta.content` + 增量 tool_calls。
-//! - [`anthropic::AnthropicAdapter`]：POST `{base_url}/v1/messages`，SSE
-//!   `event: content_block_delta` / `message_delta` / `message_stop`。
-//! - [`openai_compatible::OpenAiCompatibleAdapter`]：复用 OpenAi 解析；不同
-//!   `base_url`（Together / vLLM / Ollama / Groq）。
+//! - [`openai::OpenAiAdapter`]: POST `{base_url}/chat/completions`, parses SSE
+//!   `data: <json>` frames, extracts `choices[0].delta.content` + incremental tool_calls.
+//! - [`anthropic::AnthropicAdapter`]: POST `{base_url}/v1/messages`, SSE
+//!   `event: content_block_delta` / `message_delta` / `message_stop`.
+//! - [`openai_compatible::OpenAiCompatibleAdapter`]: reuses OpenAi parsing with a different
+//!   `base_url` (Together / vLLM / Ollama / Groq).
 //!
-//! 三者共用 [`transport`]：连接超时、读空闲超时与有限重试。
+//! All three share [`transport`]: connection timeout, read idle timeout, and limited retries.
 
 use std::sync::Arc;
 
@@ -23,18 +23,18 @@ pub mod sse;
 pub mod transport;
 
 pub use anthropic::AnthropicAdapter;
+use kernel::{Error, Result};
 pub use openai::OpenAiAdapter;
 pub use openai_compatible::OpenAiCompatibleAdapter;
 pub use transport::TransportOptions;
 
 use super::{Provider, ProviderAdapter};
-use crate::shared::{Error, Result};
 
-/// 按 [`Provider`] 从环境变量构造对应的 [`ProviderAdapter`]
-/// （task 3.3 / design D5）。
+/// Constructs the corresponding [`ProviderAdapter`] from environment variables based on
+/// [`Provider`] (task 3.3 / design D5).
 ///
-/// 约定：每个 provider 用 `MS_AGENT_<UPPER>_API_KEY` 与 `_BASE_URL` 两个
-/// env var 注入；缺 API key → `Err(invalid)`。
+/// Convention: each provider uses two env vars, `MS_AGENT_<UPPER>_API_KEY` and `_BASE_URL`,
+/// for injection; missing API key -> `Err(invalid)`.
 pub fn adapter_from_env(provider: Provider) -> Result<Arc<dyn ProviderAdapter>> {
     let prefix = match provider {
         Provider::OpenAi => "MS_AGENT_OPENAI",
@@ -49,10 +49,12 @@ pub fn adapter_from_env(provider: Provider) -> Result<Arc<dyn ProviderAdapter>> 
     }
 }
 
-/// 从 PG provider 行（解密后的 API key + 可选 base_url + 超时设置）构造 [`ProviderAdapter`]。
+/// Constructs a [`ProviderAdapter`] from a PG provider row (decrypted API key + optional base_url +
+/// timeout settings).
 ///
-/// `base_url` 为空时按 provider 取默认；OpenAI-compatible 必须显式提供 base_url。
-/// 空 key → `Err(invalid)`（disabled / 未配置 key 的 provider 不应走到这里）。
+/// When `base_url` is empty, uses the provider's default; OpenAI-compatible requires an explicit
+/// `base_url`. An empty key returns `Err(invalid)` (disabled providers and providers without a
+/// configured key should not reach here).
 pub fn adapter_from_parts(
     provider: Provider,
     base_url: Option<String>,

@@ -1,30 +1,31 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 组织的 Mole Agent 网络策略：团队成员与个人建的连接（Skill 仓库、MCP 服务器）默认只能连
-//! 公网，这里列出组织允许他们连的内网主机与网段。管理员建的组织级连接不受它约束。
+//! The organization's Mole Agent network policy: connections created by team members and
+//! individuals (Skill repositories, MCP servers) can only access the public network by default;
+//! this lists the internal hosts and subnets the organization allows them to access.
+//! Organization-level connections created by administrators are not subject to this policy.
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
-
-/// 每类最多多少条。
+/// The maximum number of entries per category.
 pub const MAX_POLICY_ENTRIES: usize = 100;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MemberNetworkPolicy {
-    /// 主机名，含其子域。
+    /// Hostnames, including their subdomains.
     pub private_hosts: Vec<String>,
-    /// CIDR 网段。
+    /// CIDR subnets.
     pub private_cidrs: Vec<String>,
     pub updated_by: Option<Id>,
     pub updated_at: Option<TimestampMicros>,
 }
 
 impl MemberNetworkPolicy {
-    /// 去掉空白与重复，校验主机名与网段的写法。
+    /// Removes whitespace and duplicates, and validates hostname and subnet syntax.
     pub fn normalized(mut self) -> Result<Self> {
         let mut hosts = Vec::new();
 
@@ -80,7 +81,7 @@ impl MemberNetworkPolicy {
 
 #[async_trait]
 pub trait NetworkPolicyStore: Send + Sync {
-    /// 组织还没设过时是空策略。
+    /// Returns an empty policy if the organization has not configured one.
     async fn get(&self, org_id: &Id) -> Result<MemberNetworkPolicy>;
     async fn put(&self, org_id: &Id, policy: MemberNetworkPolicy) -> Result<MemberNetworkPolicy>;
 }

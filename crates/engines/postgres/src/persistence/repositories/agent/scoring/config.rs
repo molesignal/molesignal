@@ -3,16 +3,14 @@
 
 //! 评审与组织的打分设置。
 
+use agent::scoring::{Evaluator, GateMode, MAX_EVALUATORS_PER_ORG, ScoringSettings};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row, postgres::PgRow, types::Json};
 
 use super::{
     super::super::org_settings::{self, sections::AGENT_SCORING},
     is_unique_violation, json, micros, optional_text, sqlx_err, text,
-};
-use crate::{
-    agent::scoring::{Evaluator, GateMode, MAX_EVALUATORS_PER_ORG, ScoringSettings},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 fn evaluator_row(row: PgRow) -> Result<Evaluator> {

@@ -1,26 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! `SKILL.md` 的 YAML frontmatter：`name`、`description`，可选 `allowed-tools`、
-//! `argument-hint`、`version`、`tags`、`examples`、`requires`。其余字段（`license`、
-//! `metadata` 等）照样接受，`metadata.version` 在没有 `version` 时当作版本。
+//! Defines `SKILL.md` YAML frontmatter: `name`, `description`, and optional `allowed-tools`,
+//! `argument-hint`, `version`, `tags`, `examples`, `requires`. Other fields (`license`, `metadata`,
+//! etc.) are also accepted; `metadata.version` serves as the version when `version` is absent.
 
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 
-use crate::shared::{Error, Result};
-
-/// 名称长度上限。
+/// Maximum name length.
 pub const MAX_NAME_CHARS: usize = 64;
 
-/// 说明长度上限，与开放格式一致。
+/// Maximum description length, matching the open format.
 pub const MAX_DESCRIPTION_CHARS: usize = 1024;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SkillManifest {
     pub name: String,
     pub description: String,
-    /// 本轮直接可见的工具；仍受组织工具策略与审批约束。
+    /// Tools directly visible this turn, still subject to organization tool policies and approvals.
     #[serde(default)]
     pub allowed_tools: Vec<String>,
     #[serde(default)]
@@ -29,15 +28,15 @@ pub struct SkillManifest {
     pub version: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,
-    /// 「试试这样问」。
+    /// "Try asking" examples.
     #[serde(default)]
     pub examples: Vec<String>,
-    /// 要跑脚本，只能在 Runner 上用。
+    /// Requires script execution and is available only on a Runner.
     #[serde(default)]
     pub requires_runner: bool,
 }
 
-/// 名称：字母开头，字母、数字、`-`、`_`，1–64 个字符。
+/// Names start with a letter and contain letters, digits, `-`, or `_`, with 1-64 characters.
 pub fn validate_name(name: &str) -> Result<()> {
     let mut chars = name.chars();
 
@@ -64,7 +63,7 @@ fn text(value: &Value) -> Option<String> {
     .filter(|text| !text.is_empty())
 }
 
-/// 列表字段既可以写成 YAML 列表，也可以写成用逗号或空白分开的一行。
+/// List fields accept either a YAML list or a single line separated by commas or whitespace.
 fn list(value: Option<&Value>) -> Vec<String> {
     let items: Vec<String> = match value {
         Some(Value::Sequence(items)) => items.iter().filter_map(text).collect(),
@@ -89,7 +88,7 @@ fn list(value: Option<&Value>) -> Vec<String> {
     seen
 }
 
-/// 拆出 frontmatter 与正文。
+/// Separates frontmatter from the body.
 fn split_front_matter(text: &str) -> Result<(&str, &str)> {
     let text = text.trim_start_matches('\u{feff}');
 
@@ -117,7 +116,7 @@ fn split_front_matter(text: &str) -> Result<(&str, &str)> {
     ))
 }
 
-/// 读 `SKILL.md`：清单与去掉 frontmatter 的正文。
+/// Reads `SKILL.md` into a manifest and a body with frontmatter removed.
 pub fn parse_skill_md(content: &str) -> Result<(SkillManifest, String)> {
     let (front, body) = split_front_matter(content)?;
 

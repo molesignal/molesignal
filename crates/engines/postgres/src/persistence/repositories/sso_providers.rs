@@ -4,15 +4,13 @@
 //! `sso_providers` Postgres 实装。provider kind 映射字符串，config 落 JSONB。
 
 use async_trait::async_trait;
+use domain::iam::{
+    SsoPlatform, SsoProvider, SsoProviderConfig, SsoProviderKind, SsoProviderRepository,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::iam::{
-        SsoPlatform, SsoProvider, SsoProviderConfig, SsoProviderKind, SsoProviderRepository,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgSsoProviderRepository {
     pool: PgPool,
@@ -49,8 +47,7 @@ fn row_to_provider(row: sqlx::postgres::PgRow) -> Result<SsoProvider> {
         ))
     })?;
 
-    let config_json: Json<serde_json::Value> = row.try_get("config").map_err(sqlx_err)?;
-    let config_value = upgrade_config(kind, config_json.0);
+    let Json(config_value): Json<serde_json::Value> = row.try_get("config").map_err(sqlx_err)?;
 
     // 用 kind 引导 deserialize，让各 variant 不被 untagged 误判。
     let config: SsoProviderConfig = match kind {
@@ -87,44 +84,6 @@ fn row_to_provider(row: sqlx::postgres::PgRow) -> Result<SsoProvider> {
             .try_get::<TimestampMicros, _>("updated_at")
             .map_err(sqlx_err)?,
     })
-}
-
-fn upgrade_config(kind: SsoProviderKind, mut value: serde_json::Value) -> serde_json::Value {
-    if kind != SsoProviderKind::Ldap
-        || value
-            .get("fieldMapping")
-            .is_some_and(|mapping| mapping.is_object())
-    {
-        return value;
-    }
-
-    let Some(config) = value.as_object_mut() else {
-        return value;
-    };
-
-    let legacy = |name: &str, fallback: &str| -> String {
-        config
-            .get(name)
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or(fallback)
-            .to_owned()
-    };
-
-    let email = legacy("email_attribute", "mail");
-    let display_name = legacy("display_name_attribute", "displayName");
-    let groups = legacy("group_attribute", "memberOf");
-
-    config.insert(
-        "fieldMapping".into(),
-        serde_json::json!({
-            "subject": "dn",
-            "email": email,
-            "displayName": display_name,
-            "groups": groups,
-        }),
-    );
-
-    value
 }
 
 fn config_to_value(config: &SsoProviderConfig) -> serde_json::Value {

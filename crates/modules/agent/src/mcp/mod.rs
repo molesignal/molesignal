@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 外部 MCP 服务器上与网络无关的规则：哪些请求头和环境变量算敏感、服务器在组织里的前缀、
-//! 导入其他客户端的配置、prompt 的参数怎么填。服务器与工具的记录在 [`crate::tool_control`]，
-//! 连接、同步与执行在服务端的 `app::mcp`。
+//! Network-independent rules for external MCP servers: which headers and environment variables are
+//! sensitive, server prefixes within an organization, importing other clients' configurations, and
+//! filling in prompt arguments. Server and tool records are in [`crate::tool_control`]; connection,
+//! synchronization, and execution are in the server's `app::mcp`.
 
 mod handle;
 mod import;

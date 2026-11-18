@@ -183,7 +183,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
     }
 }
 
-/// `scope` 与 `team` 加上各工具自己的参数。
+/// `scope` and `team`, plus each tool's own parameters.
 fn scope_schema(properties: Value, required: &[&str]) -> Value {
     let mut all = json!({
         "scope": {"type": "string", "enum": ["org", "team"], "description": "Whose knowledge: the organization's, or a team's. Defaults to this chat's team, else the organization."},

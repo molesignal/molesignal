@@ -19,9 +19,11 @@ pub struct StorageSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CatalogSettings {
-    /// Seal partitions whose end is older than this many hours. Zero disables sealing. A sealed
-    /// partition gets its manifest and the Bloom filters of its exact fields, and is no longer
-    /// compacted: two days leave time for the hours to be merged into their day.
+    /// Seal partitions whose end is older than this many hours, taking only the segments written
+    /// at least that long ago, so data that arrives late is compacted first as well. Zero disables
+    /// sealing. A sealed partition gets its manifest and the Bloom filters of its exact fields, and
+    /// its sealed segments are no longer compacted: two days leave time for the hours to be merged
+    /// into their day.
     #[serde(default = "default_seal_after_hours")]
     pub seal_after_hours: u32,
     /// 清单缓存的内存大小，单位 MiB。

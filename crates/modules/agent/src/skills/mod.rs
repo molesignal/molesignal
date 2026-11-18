@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Agent Skills：一个目录里的 `SKILL.md`（YAML frontmatter + 正文）加任意参考文件，兼容开放的
-//! Agent Skills 格式。这里是与来源无关的部分：读清单、解包、找出包或仓库里的 Skill、算内容
-//! hash、填参数、渲染给模型看的清单。来源（内置、实例目录、上传、仓库）与存储在应用层。
+//! Agent Skills consist of `SKILL.md` (YAML frontmatter + body) and arbitrary reference files in a
+//! directory, compatible with the open Agent Skills format. This module contains source-independent
+//! functionality: reading manifests, unpacking archives, finding Skills in packages or
+//! repositories, computing content hashes, substituting arguments, and rendering the catalog for
+//! the model. Sources (built-in, instance directory, upload, repository) and storage reside in the
+//! application layer.
 
 mod archive;
 mod catalog;
@@ -22,6 +25,7 @@ pub use catalog::{
     CatalogEntry, MAX_CATALOG_CHARS, MAX_CATALOG_ENTRIES, SKILL_SAFETY_NOTE, render_catalog,
     wrap_skill_body,
 };
+use kernel::{Error, Result};
 pub use manifest::{MAX_DESCRIPTION_CHARS, SkillManifest, parse_skill_md, validate_name};
 pub use repository::{
     ArchiveRequest, RepoHost, archive_request, normalize_repo_dir, parse_repo_url,
@@ -33,67 +37,65 @@ pub use store::{
 };
 pub use template::render_invocation;
 
-use crate::shared::{Error, Result};
-
-/// 每个 Skill 根目录下的入口文件。
+/// Entry file in each Skill's root directory.
 pub const SKILL_FILE: &str = "SKILL.md";
 
-/// 上传的包最大多少字节。
+/// Maximum bytes in an uploaded package.
 pub const MAX_PACKAGE_BYTES: usize = 20 * 1024 * 1024;
 
-/// 从仓库下载的压缩包最大多少字节。
+/// Maximum bytes in an archive downloaded from a repository.
 pub const MAX_REPOSITORY_ARCHIVE_BYTES: usize = 64 * 1024 * 1024;
 
-/// 一个 Skill 最多多少个文件。
+/// Maximum files in one Skill.
 pub const MAX_FILES: usize = 300;
 
-/// 单个文件最大多少字节。
+/// Maximum bytes in a single file.
 pub const MAX_FILE_BYTES: u64 = 8 * 1024 * 1024;
 
-/// 一个 Skill 解开后最多多少字节。
+/// Maximum unpacked bytes in one Skill.
 pub const MAX_UNPACKED_BYTES: u64 = 20 * 1024 * 1024;
 
-/// 一个仓库最多导入多少个 Skill。
+/// Maximum Skills imported from one repository.
 pub const MAX_SKILLS_PER_REPOSITORY: usize = 50;
 
-/// 预览或交给模型读的文本文件最多多少字节。
+/// Maximum bytes in a text file previewed or passed to the model.
 pub const MAX_TEXT_FILE_BYTES: usize = 256 * 1024;
 
-/// Skill 里的一个文件：相对 Skill 根目录的路径与内容。
+/// A file in a Skill: its path relative to the Skill root and its contents.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SkillFile {
     pub path: String,
     pub bytes: Vec<u8>,
 }
 
-/// 文件清单里的一项。
+/// An entry in the file list.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FileEntry {
     pub path: String,
     pub size: u64,
-    /// 能当文本预览、交给模型读。
+    /// Can be previewed as text and passed to the model.
     pub text: bool,
 }
 
-/// 内容是 UTF-8 文本且不太大时当文本。
+/// Treats contents as text if they are UTF-8 and not too large.
 pub fn is_text(bytes: &[u8]) -> bool {
     bytes.len() <= MAX_TEXT_FILE_BYTES && !bytes.contains(&0) && std::str::from_utf8(bytes).is_ok()
 }
 
-/// 一个 Skill 的全部内容。
+/// The complete contents of one Skill.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SkillBundle {
     pub manifest: SkillManifest,
-    /// `SKILL.md` 去掉 frontmatter 的正文。
+    /// The body of `SKILL.md` with frontmatter removed.
     pub body: String,
-    /// 按路径排好序，含 `SKILL.md`。
+    /// Sorted by path, including `SKILL.md`.
     pub files: Vec<SkillFile>,
-    /// 全部文件的 sha256：路径、长度与内容依次参与。
+    /// The sha256 of all files, incorporating each path, length, and contents in order.
     pub hash: String,
 }
 
 impl SkillBundle {
-    /// 由 Skill 根目录下的文件组成，根目录下必须有 `SKILL.md`。
+    /// Builds from files under the Skill root, which must contain `SKILL.md`.
     pub fn from_files(mut files: Vec<SkillFile>) -> Result<Self> {
         files.sort_by(|left, right| left.path.cmp(&right.path));
 
@@ -163,7 +165,7 @@ pub fn content_hash(files: &[SkillFile]) -> String {
     hex::encode(hasher.finalize())
 }
 
-/// 去掉一层前缀后的路径；不在这一层下时为空。
+/// Returns the path with one directory prefix removed, or none if it is not under that directory.
 fn strip_dir<'a>(path: &'a str, dir: &str) -> Option<&'a str> {
     if dir.is_empty() {
         return Some(path);
@@ -172,7 +174,7 @@ fn strip_dir<'a>(path: &'a str, dir: &str) -> Option<&'a str> {
     path.strip_prefix(dir)?.strip_prefix('/')
 }
 
-/// 上传的包：`SKILL.md` 在包的根，或在包唯一的顶层目录里。
+/// For uploaded packages, `SKILL.md` is at the archive root or in its sole top-level directory.
 pub fn bundle_from_package(files: Vec<SkillFile>) -> Result<SkillBundle> {
     if files.iter().any(|file| file.path == SKILL_FILE) {
         return SkillBundle::from_files(files);
@@ -212,7 +214,8 @@ pub fn bundle_from_package(files: Vec<SkillFile>) -> Result<SkillBundle> {
     }
 }
 
-/// 仓库压缩包的唯一顶层目录（托管站打包时加的 `仓库名-提交/`）。
+/// The sole top-level directory in a repository archive (`repository-commit/` added by the hosting
+/// service).
 pub fn archive_top_dir(paths: &[String]) -> Option<String> {
     let tops: BTreeSet<&str> = paths
         .iter()
@@ -224,8 +227,9 @@ pub fn archive_top_dir(paths: &[String]) -> Option<String> {
         .flatten()
 }
 
-/// `base` 目录下的 Skill 目录（相对仓库根）：含 `SKILL.md` 的目录，嵌在另一个 Skill 目录里的
-/// 不算。`base` 本身是 Skill 时只有它一个。
+/// Lists Skill directories under `base` relative to the repository root: directories containing
+/// `SKILL.md`, excluding those nested inside another Skill directory. If `base` itself is a Skill,
+/// it is the only result.
 pub fn skill_dirs(paths: &[String], base: &str) -> Vec<String> {
     let mut dirs: Vec<String> = paths
         .iter()
@@ -265,7 +269,7 @@ pub fn skill_dirs(paths: &[String], base: &str) -> Vec<String> {
         .collect()
 }
 
-/// 某个 Skill 目录下的文件，路径改成相对这个目录。
+/// Returns files under a Skill directory, with paths made relative to that directory.
 pub fn files_under(files: &[SkillFile], dir: &str) -> Vec<SkillFile> {
     files
         .iter()

@@ -1,40 +1,41 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 组织的打分配置：评审与设置（待审阈值、抽样比例、Prompt 晋级门禁）。
+//! Organization scoring configuration: evaluators and settings (review threshold, sampling rate,
+//! Prompt promotion gate).
 
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::TargetSource;
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
-/// 一个组织最多这么多个评审。
+/// The maximum number of evaluators per organization.
 pub const MAX_EVALUATORS_PER_ORG: usize = 10;
 pub const MAX_EVALUATOR_NAME_CHARS: usize = 80;
-/// 评分标准最长这么多字符。
+/// The maximum number of characters in a rubric.
 pub const MAX_RUBRIC_CHARS: usize = 4_000;
 const MAX_MODEL_CHARS: usize = 128;
 
-/// 评审：用一个模型照评分标准给回答打分。
+/// An evaluator that uses a model to score answers against a rubric.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Evaluator {
     pub id: Id,
     pub org_id: Id,
     pub name: String,
-    /// 交给评审的评分标准，填进 `evaluation` Prompt 的 `{{rubric}}`。
+    /// The rubric given to the evaluator, inserted into `{{rubric}}` in the `evaluation` Prompt.
     pub rubric: String,
-    /// 评哪些对象；个人对话不在其中。
+    /// The targets to evaluate; personal conversations are excluded.
     pub targets: Vec<TargetSource>,
-    /// 新对象里抽这个百分比来评；被评为没帮助的不论比例都评。
+    /// The percentage of new targets to evaluate; targets rated unhelpful are always evaluated.
     pub sample_percent: u8,
-    /// 用哪个模型服务；为空时用组织第一个可用的。
+    /// The model provider to use; if empty, uses the organization's first available provider.
     pub provider_id: Option<Id>,
-    /// 模型；为空时用模型服务的默认模型。
+    /// The model to use; if empty, uses the model provider's default model.
     pub model: Option<String>,
     pub temperature: f32,
     pub enabled: bool,
-    /// 评审写理由用的语言：最后保存它的人的界面语言。
+    /// The language for evaluation reasons: the UI language of the person who last saves it.
     pub language: String,
     pub created_by: Id,
     pub updated_by: Id,
@@ -43,7 +44,8 @@ pub struct Evaluator {
 }
 
 impl Evaluator {
-    /// 整理并检查：名称与评分标准去掉首尾空白，对象去重，个人对话不能评。
+    /// Normalizes and validates: trims names and rubrics, deduplicates targets, and disallows
+    /// evaluation of personal conversations.
     pub fn normalized(mut self) -> Result<Self> {
         self.name = self.name.trim().to_string();
         self.rubric = self.rubric.trim().to_string();
@@ -105,16 +107,17 @@ impl Evaluator {
     }
 }
 
-/// 把一个组织 Prompt 设为默认之前怎么检查。
+/// How to check an organization Prompt before setting it as the default.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum GateMode {
-    /// 不检查。
+    /// Skips checks.
     Off,
-    /// 检查过且没变差时直接设；没检查或变差时要再确认一次。
+    /// Sets the default directly if checked with no regression; requires another confirmation if
+    /// unchecked or regressed.
     #[default]
     Warn,
-    /// 只有检查过且没变差才能设。
+    /// Allows setting the default only if checked with no regression.
     Block,
 }
 
@@ -140,9 +143,9 @@ impl GateMode {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScoringSettings {
-    /// 分数低于它的进入待审（0 到 1）。
+    /// Scores below this threshold enter pending review (0 to 1).
     pub review_threshold: f64,
-    /// 另外随机抽这个百分比的回答进入待审，用来校准评审。
+    /// The additional percentage of answers randomly selected for review to calibrate evaluators.
     pub review_sample_percent: u8,
     pub gate: GateMode,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 节点优雅退役（drain）状态机。
+//! State machine for graceful node retirement (drain).
 //!
-//! 进程级单例：被 admin 触发后，角色循环观察它来「停接新活 + 把 pending 数据 flush 干净」。
+//! Process-level singleton: once triggered by an admin, the role loops observe it to
+//! "stop accepting new work and flush all pending data".
 //!
-//! 三相单调推进，不可回退：
-//! - `Running`  —— 正常服务，接受写入。
-//! - `Draining` —— 停接新写入；intake flush loop 把全部 buffer 落盘后推进到 Drained。
-//! - `Drained`  —— pending 数据已全部 flush，可安全下线该节点。
+//! It advances monotonically through three phases and never goes back:
+//! - `Running`: normal service, accepts writes.
+//! - `Draining`: stops accepting new writes; the intake flush loop writes all buffers to disk,
+//!   then advances to Drained.
+//! - `Drained`: all pending data has been flushed, so the node can be taken offline safely.
 //!
-//! 无 intake 角色的节点（如纯 querier）没有待 flush 的 buffer，停在 `Draining` 即「可下线」
-//! 语义（无人推进到 Drained）。
+//! A node without the intake role (such as a pure querier) has no buffers to flush, so it stays
+//! in `Draining`, which means "can be taken offline" (nothing advances it to Drained).
 
 use std::sync::atomic::{AtomicU8, Ordering};
 
@@ -36,7 +38,8 @@ impl DrainPhase {
     }
 }
 
-/// 进程级 drain 状态。`Arc` 共享给 intake 用例、intake flush loop、compactor loop、admin 路由。
+/// Process-level drain state, shared via `Arc` with the intake use case, the intake flush loop,
+/// the compactor loop, and the admin routes.
 #[derive(Debug)]
 pub struct DrainController {
     phase: AtomicU8,
@@ -57,26 +60,29 @@ impl DrainController {
         }
     }
 
-    /// 触发退役：`Running → Draining`。幂等；已在 draining/drained 时返回 `false`（无状态变更）。
+    /// Triggers the drain: `Running → Draining`. Idempotent; returns `false` (no state change)
+    /// if already draining or drained.
     pub fn begin_drain(&self) -> bool {
         self.phase
             .compare_exchange(RUNNING, DRAINING, Ordering::AcqRel, Ordering::Acquire)
             .is_ok()
     }
 
-    /// intake 把 buffer 全部 flush 完后调用：`Draining → Drained`。非 draining 时 no-op。
+    /// Called by intake once it has flushed all buffers: `Draining → Drained`.
+    /// No-op when not draining.
     pub fn mark_drained(&self) {
         let _ = self
             .phase
             .compare_exchange(DRAINING, DRAINED, Ordering::AcqRel, Ordering::Acquire);
     }
 
-    /// 是否已进入退役（draining 或 drained）——角色循环据此停接新活。
+    /// Whether retirement has begun (draining or drained); the role loops use it to stop taking
+    /// new work.
     pub fn is_draining(&self) -> bool {
         self.phase.load(Ordering::Acquire) != RUNNING
     }
 
-    /// 是否仍接受写入（仅 `Running`）。
+    /// Whether the node still accepts writes (only in `Running`).
     pub fn accepts_writes(&self) -> bool {
         self.phase.load(Ordering::Acquire) == RUNNING
     }

@@ -1,20 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! VRL runtime。
+//! VRL runtime.
 //!
-//! 设计：
-//! - 编译期 `compile(source)` 返回 `CompiledProgram`（缓存在 `VrlFunctionExecutor` 里，按
-//!   `function_id+updated_at` 做 key）；
-//! - 执行期 `run(&program, event)` 拿到 `serde_json::Value`、转 `vrl::value::Value`
-//!   做 target，跑解释器，再转回 `serde_json::Value`；
-//! - VRL `del()`/`.field = ...` 直接突变 target；返回值是程序末尾表达式的值（这里忽略）。
+//! Design:
+//! - At compile time, `compile(source)` returns a `CompiledProgram` (cached in
+//!   `VrlFunctionExecutor`, keyed by `function_id+updated_at`);
+//! - At run time, `run(&program, event)` takes the `serde_json::Value`, converts it to a
+//!   `vrl::value::Value` as the target, runs the interpreter, then converts it back to
+//!   `serde_json::Value`;
+//! - VRL `del()`/`.field = ...` mutates the target directly; the return value is the value
+//!   of the program's final expression (ignored here).
 //!
-//! 时间预算：VRL stdlib 是纯函数 + 解释器，每条 event 评估 < 100µs；不引入 `runtime::Runtime`
-//! 共享状态以避免锁竞争，每次 `run` 新建一个 `Runtime` 实例（成本可忽略）。
+//! Time budget: the VRL stdlib is pure functions plus an interpreter, and evaluating
+//! each event takes < 100µs. No shared `runtime::Runtime` state is introduced, to avoid
+//! lock contention, and each `run` creates a new `Runtime` instance (the cost is negligible).
 
 use std::sync::Arc;
 
+use domain::function::FunctionOutcome;
+use kernel::{Error, Result, ids::Id};
 use parking_lot::Mutex;
 use vrl::{
     compiler::{
@@ -25,33 +30,33 @@ use vrl::{
 };
 
 use super::lookups::{self, VrlLookups};
-use crate::{
-    domain::function::FunctionOutcome,
-    shared::{Error, Result, ids::Id},
-};
 
-/// 编译好的 VRL 程序（克隆便宜：内部 `Program` 是 Arc 化的 AST 表示）。
+/// A compiled VRL program (cheap to clone: the inner `Program` is an Arc-wrapped AST
+/// representation).
 #[derive(Clone)]
 pub struct CompiledProgram {
     program: Arc<Program>,
-    /// 程序里 `lookup` 读的扩展表，执行前由 [`VrlRuntime::prepare`] 读进来。
+    /// The extend tables that the program reads with `lookup`; [`VrlRuntime::prepare`] loads
+    /// them before execution.
     tables: Arc<[String]>,
 }
 
 impl CompiledProgram {
-    /// 程序能不能丢掉事件：写了 `abort` 就能。
+    /// Whether the program can drop the event: it can if it contains an `abort`.
     pub fn can_abort(&self) -> bool {
         self.program.info().abortable
     }
 }
 
 pub struct VrlRuntime {
-    /// `lookup` 与 `geoip_lookup` 读的数据；没给时用启动时 [`lookups::install`] 接上的那份（用到时
-    /// 才取，运行时可以先于它建好）。
+    /// The data read by `lookup` and `geoip_lookup`; when none is given, the one connected
+    /// at startup by [`lookups::install`] is used (fetched only when needed, so the runtime
+    /// can be built before it is installed).
     lookups: Option<Arc<dyn VrlLookups>>,
-    /// `Runtime` 复用：`vrl::compiler::runtime::Runtime` 是 cheap；我们仍按 thread-local 兜底。
+    /// `Runtime` reuse: `vrl::compiler::runtime::Runtime` is cheap; we still use
+    /// thread-local as a fallback.
     _phantom: std::marker::PhantomData<()>,
-    /// 多线程共享缓存的占位 mutex（暂不缓存，简化）
+    /// Placeholder mutex for a cache shared across threads (not cached for now, to simplify).
     _lock: Mutex<()>,
 }
 
@@ -70,19 +75,21 @@ impl VrlRuntime {
         }
     }
 
-    /// 用这份数据代替启动时接上的那份（测试用）。
+    /// Uses this data instead of the one connected at startup (for tests).
     pub fn with_lookups(mut self, lookups: Arc<dyn VrlLookups>) -> Self {
         self.lookups = Some(lookups);
         self
     }
 
-    /// 只为检查而编译 source；失败 → Error::invalid（HTTP CRUD 校验路径可直接 400）。没有组织：
-    /// 这样编译出的程序里 `lookup` 返回 `null`，要执行的程序用 [`Self::compile_for`]。
+    /// Compiles source only to check it; failure -> Error::invalid (the HTTP CRUD validation
+    /// path can respond 400 directly). There is no organization, so `lookup` returns `null`
+    /// in programs compiled this way; use [`Self::compile_for`] for programs to be executed.
     pub fn compile(&self, source: &str) -> Result<CompiledProgram> {
         self.compile_with(None, source)
     }
 
-    /// 为组织 `org` 编译要执行的 source：`lookup` 查的是这个组织的扩展表。
+    /// Compiles source to be executed for organization `org`: `lookup` queries that
+    /// organization's extend tables.
     pub fn compile_for(&self, org: &Id, source: &str) -> Result<CompiledProgram> {
         self.compile_with(Some(org), source)
     }
@@ -90,7 +97,8 @@ impl VrlRuntime {
     fn compile_with(&self, org: Option<&Id>, source: &str) -> Result<CompiledProgram> {
         let tables = Arc::new(Mutex::new(Vec::new()));
 
-        // stdlib（`parse_json`/`del`/`match`/`to_int` 等），再加上查表与地理位置。
+        // The stdlib (`parse_json`/`del`/`match`/`to_int`, etc.), plus table lookup and
+        // geolocation lookup.
         let mut fns = vrl::stdlib::all();
         fns.extend(lookups::functions(org, self.lookups(), tables.clone()));
 
@@ -107,7 +115,8 @@ impl VrlRuntime {
         })
     }
 
-    /// 把 program 里 `lookup` 读的扩展表读进来，执行之前调用；不读表的程序什么也不做。
+    /// Loads the extend tables that the program reads with `lookup`; call it before execution.
+    /// Does nothing for a program that reads no tables.
     pub async fn prepare(&self, org: &Id, program: &CompiledProgram) -> Result<()> {
         match self.lookups() {
             Some(lookups) if !program.tables.is_empty() => {
@@ -121,10 +130,12 @@ impl VrlRuntime {
         self.lookups.clone().or_else(lookups::installed)
     }
 
-    /// 在 `event` 上执行 program；event 被原地突变（VRL `.field = ...` 语义）。程序末尾表达式的值
-    /// 忽略，pipeline 关心的是突变后的 event。程序里写的 `abort` 是有意丢弃这条 event，返回
-    /// [`FunctionOutcome::Dropped`]，不算失败；运行出错（含未处理的可失败表达式）才返回 `Err`。
-    /// 无论结果如何，`event` 都是程序停下时的样子。
+    /// Runs the program on `event`; the event is mutated in place (VRL `.field = ...`
+    /// semantics). The value of the program's final expression is ignored; the pipeline cares
+    /// about the mutated event. An `abort` in the program deliberately drops this event and
+    /// returns [`FunctionOutcome::Dropped`], which is not a failure; only a runtime error
+    /// (including an unhandled fallible expression) returns `Err`. Whatever the outcome,
+    /// `event` is left as it was when the program stopped.
     pub fn run(
         &self,
         program: &CompiledProgram,
@@ -133,7 +144,8 @@ impl VrlRuntime {
         self.run_with_metadata(program, event, serde_json::Map::new())
     }
 
-    /// [`Self::run`]，另带程序以 `%name` 读取的元数据。元数据不属于 event，也不会写进 event。
+    /// [`Self::run`], plus metadata that the program reads as `%name`. The metadata is not
+    /// part of the event and is never written into it.
     pub fn run_with_metadata(
         &self,
         program: &CompiledProgram,
@@ -159,7 +171,8 @@ impl VrlRuntime {
     }
 }
 
-/// VRL `Value` → `serde_json::Value`。`Timestamp` 转 ISO8601；`Bytes` 转 UTF-8 字符串（无效 UTF-8 退化 base64）。
+/// VRL `Value` -> `serde_json::Value`. `Timestamp` becomes ISO8601; `Bytes` becomes a UTF-8
+/// string (invalid UTF-8 falls back to base64).
 fn vrl_to_json(v: VrlValue) -> serde_json::Value {
     use serde_json::Value as J;
     use vrl::value::Value as V;

@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Mole Agent 模型调用统计查询。
+//! Mole Agent model call statistics queries.
+
+use kernel::ids::Id;
 
 use super::AGENT_STREAM;
-use crate::shared::ids::Id;
 
-/// 用量流里只有部分调用才写的列：没填单价的模型服务不写 `cost` 与 `cost_currency`，根因分析
-/// 与 LLM 函数的调用不写 `user_id`。一列从没写过时不在流的 schema 里，SQL 引用它会无法规划，
-/// 所以查询前按 schema 决定引用它还是换成 NULL。
+/// Columns written only for some calls in the usage stream.
+/// Model services with no unit price do not write `cost` or `cost_currency`; root cause analysis
+/// and LLM function calls do not write `user_id`. A column that has never been written is absent
+/// from the stream schema, so SQL referencing it cannot be planned. Before querying, the schema
+/// determines whether to reference the column or substitute NULL.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct OptionalColumns {
     pub cost: bool,
@@ -16,7 +19,7 @@ pub struct OptionalColumns {
 }
 
 impl OptionalColumns {
-    /// 从流 schema 的字段名得出。
+    /// Derives from field names in the stream schema.
     pub fn from_names<'a>(names: impl IntoIterator<Item = &'a str>) -> Self {
         let mut columns = Self::default();
 
@@ -31,7 +34,7 @@ impl OptionalColumns {
         columns
     }
 
-    /// 合计成本；从没有调用算过成本时为 NULL，不是 0。
+    /// Total cost; NULL, not 0, if no call has ever had its cost calculated.
     fn cost(self) -> &'static str {
         if self.cost {
             "sum(cost)"
@@ -40,7 +43,8 @@ impl OptionalColumns {
         }
     }
 
-    /// 成本的币种：不同币种的成本分行合计，不能加在一起。
+    /// The cost currency: costs in different currencies are totaled in separate rows and cannot be
+    /// added together.
     fn currency(self) -> &'static str {
         if self.cost {
             "cost_currency"
@@ -58,7 +62,7 @@ pub struct AgentStatsQuery {
 }
 
 impl AgentStatsQuery {
-    /// 合计，每个币种一行；没有单价的调用在币种为空的那行。
+    /// Totals, one row per currency; calls with no unit price go in the row with an empty currency.
     pub fn overall_sql(&self) -> String {
         format!(
             "SELECT {currency} AS currency,
@@ -76,7 +80,7 @@ impl AgentStatsQuery {
         )
     }
 
-    /// 调用最多的模型；同一个模型用不同币种计价时分行。
+    /// The most frequently called models; a model priced in different currencies has separate rows.
     pub fn top_models_sql(&self, limit: u32) -> String {
         format!(
             "SELECT model,
@@ -97,8 +101,9 @@ impl AgentStatsQuery {
         )
     }
 
-    /// 按调用记在谁名下排行（对话的提问人、巡检的执行身份），不记在人名下的调用不算。还没有
-    /// 这样的调用时没有可查的列，返回 `None`。
+    /// Ranks calls by the person they are attributed to (the conversation's questioner or the
+    /// inspection's execution identity), excluding calls not attributed to a person. Returns `None`
+    /// if there are no such calls yet, since there is no column to query.
     pub fn top_users_sql(&self, limit: u32) -> Option<String> {
         if !self.columns.user_id {
             return None;

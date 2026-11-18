@@ -3,13 +3,11 @@
 
 //! 排队的打分：排进去、领走、结束、过一会儿再试。
 
+use agent::scoring::{JobReason, JobStatus, NewJob, RULES_SCORER, ScoreJob, ScoreTarget};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, postgres::PgRow};
 
 use super::{is_unique_violation, micros, optional_text, sqlx_err, text};
-use crate::{
-    agent::scoring::{JobReason, JobStatus, NewJob, RULES_SCORER, ScoreJob, ScoreTarget},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 fn job_row(row: PgRow) -> Result<ScoreJob> {
     Ok(ScoreJob {

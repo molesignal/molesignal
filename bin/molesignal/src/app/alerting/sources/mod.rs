@@ -10,26 +10,26 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use async_trait::async_trait;
+use domain::{
+    alerting::{
+        escalation::DEFAULT_POLICY_ID,
+        incident::{Incident, Severity},
+        repositories::{EscalationPolicyRepository, IncidentRepository},
+        source::{
+            AlertSource, AlertSourceKind, AlertSourceRepository, EmailRules, ExternalAction,
+            ExternalAlert, IntakeRequest, IntakeRequestRepository, MailboxRepository,
+            SourceIncident, SourceIncidentRepository,
+        },
+        timeline::ActionVia,
+    },
+    iam::InstanceSettingsRepository,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Serialize;
 
 use crate::{
     app::alerting::{AlertingService, RuleEvaluator},
-    domain::{
-        alerting::{
-            escalation::DEFAULT_POLICY_ID,
-            incident::{Incident, Severity},
-            repositories::{EscalationPolicyRepository, IncidentRepository},
-            source::{
-                AlertSource, AlertSourceKind, AlertSourceRepository, EmailRules, ExternalAction,
-                ExternalAlert, IntakeRequest, IntakeRequestRepository, MailboxRepository,
-                SourceIncident, SourceIncidentRepository,
-            },
-            timeline::ActionVia,
-        },
-        iam::InstanceSettingsRepository,
-    },
     infra::cluster::RemoteClustersRepository,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub mod formats;

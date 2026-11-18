@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 对话的名字，照 ChatGPT 与 Claude 的做法：对话页先拿第一个问题当临时标题，回答第一个问题时
-//! 由模型起一个短名，之后不再变。名字说这场对话是关于什么的，用问题的语言，是短语不是问句，
-//! 不带引号、表情和句末标点；问题还没有主题（只是打招呼、试一下）时不起，等下一个问题。
+//! Conversation names follow the approach used by ChatGPT and Claude.
+//! The conversation page initially uses the first question as a temporary title; the model
+//! generates a short name while answering the first question, and the name stays unchanged
+//! afterward. The name describes the conversation's topic in the question's language, as a phrase
+//! rather than a question, with no quotes, emoji, or ending punctuation. If the question has no
+//! topic yet (just a greeting or a test), naming waits for the next question.
 
-/// 交给模型的起名要求。
+/// Naming instructions for the model.
 pub const TITLE_INSTRUCTION: &str = "Name this chat for the person's list of chats, the way ChatGPT and Claude name a conversation from its first question. Answer with the name only.
 - Say what the chat is about: the subject and what is wanted, as a short noun phrase, not a question or a full sentence.
 - Write it in the language the question is written in.
@@ -19,19 +22,20 @@ Why is checkout-api returning 502 since 10:00? -> checkout-api 502 errors since 
 帮我看下 payment 服务最近一小时的错误日志 -> payment 服务近一小时错误日志
 hi -> -";
 
-/// 交给模型的问题最多这么多字符。
+/// The maximum number of characters in the question passed to the model.
 pub const QUESTION_CHARS: usize = 2_000;
 
-/// 名字最多这么多字符；模型写长了截断。
+/// The maximum number of characters in the name; truncates longer model output.
 pub const MAX_TITLE_CHARS: usize = 60;
 
-/// 起名用的问题：太长时只留开头。
+/// The question used for naming: keeps only the beginning if it is too long.
 pub fn question_for_title(question: &str) -> String {
     question.trim().chars().take(QUESTION_CHARS).collect()
 }
 
-/// 读出模型起的名字：去掉思考过程、"Title:" 一类的前缀、包着的引号与句末标点，太长截断。
-/// 模型回 `-` 或什么都没有时是还不该起名。
+/// Extracts the model-generated name: removes reasoning, prefixes such as "Title:", enclosing
+/// quotes, and ending punctuation, and truncates it if too long. If the model returns `-` or
+/// nothing, it is not yet time to name the conversation.
 pub fn clean_title(text: &str) -> Option<String> {
     let text = match text.rfind("</think>") {
         Some(end) => &text[end + "</think>".len()..],
@@ -56,13 +60,13 @@ pub fn clean_title(text: &str) -> Option<String> {
     Some(title.trim_end().to_string())
 }
 
-/// 包在名字两边的引号、括号与 Markdown 记号。
+/// Quotes, brackets, and Markdown markers enclosing the name.
 const QUOTES: &str = "\"'`*#“”‘’「」『』《》【】";
 
-/// 名字末尾不要的标点。
+/// Unwanted punctuation at the end of the name.
 const TRAILING: &str = ".。!！?？,，:：;；、…";
 
-/// 去掉模型偶尔写在前面的"Title:" / "标题："。
+/// Removes the "Title:" / `标题：` prefix the model occasionally adds.
 fn strip_label(line: &str) -> &str {
     for label in ["title:", "title：", "标题：", "标题:", "name:", "名字："] {
         let starts = line

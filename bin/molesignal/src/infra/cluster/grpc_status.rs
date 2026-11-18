@@ -4,9 +4,8 @@
 //! `Error` 与 gRPC `Status` 之间的对应关系。内部 RPC 的两端都用它，调用方看到的错误类别
 //! （以及 HTTP 状态码）与在本地执行时相同。
 
+use kernel::Error;
 use tonic::{Code, Status};
-
-use crate::shared::Error;
 
 pub fn error_to_status(error: Error) -> Status {
     match error {

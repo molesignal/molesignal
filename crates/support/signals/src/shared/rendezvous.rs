@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Highest-random-weight（rendezvous）哈希。
+//! Highest-random-weight (rendezvous) hashing.
 //!
-//! 给定 key 与候选节点，持有同一份候选集合的进程选出同一个 owner；节点增减只迁移该节点
-//! 名下的 key，其余 key 的 owner 不变。Trace 尾采样与后台工作归属共用这一个实现。
+//! Given a key and candidate nodes, every process holding the same candidate set picks the
+//! same owner; adding or removing a node only moves that node's keys, and all other keys keep
+//! their owner. Trace tail sampling and background work ownership share this one implementation.
 
-/// `(key, node_id)` 的权重；owner 是权重最大的节点。
+/// Weight of `(key, node_id)`; the owner is the node with the largest weight.
 pub fn weight(key: &str, node_id: &str) -> u128 {
     let mut hasher = blake3::Hasher::new();
     hasher.update(key.as_bytes());
@@ -15,7 +16,7 @@ pub fn weight(key: &str, node_id: &str) -> u128 {
     u128::from_be_bytes(hasher.finalize().as_bytes()[..16].try_into().unwrap())
 }
 
-/// 从候选节点 ID 中选出 `key` 的 owner；候选为空时返回 `None`。
+/// Picks the owner of `key` from the candidate node IDs; returns `None` if there are none.
 pub fn owner<'a>(key: &str, node_ids: impl IntoIterator<Item = &'a str>) -> Option<&'a str> {
     node_ids
         .into_iter()
@@ -57,7 +58,8 @@ mod tests {
                 .or_default() += 1;
         }
         assert_eq!(owned.len(), 3);
-        // 1000 个 key 均分给 3 个节点时每个约 333；远离 0 即说明没有节点被饿死。
+        // 1000 keys spread evenly over 3 nodes give about 333 each; being far from 0
+        // means no node is starved.
         assert!(owned.values().all(|count| *count > 200), "{owned:?}");
     }
 

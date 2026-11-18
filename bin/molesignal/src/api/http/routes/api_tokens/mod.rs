@@ -16,14 +16,14 @@ use axum::{
     http::header::{CACHE_CONTROL, PRAGMA},
     response::{IntoResponse, Response},
 };
+use domain::iam::{
+    IamContext,
+    api_token::{ApiToken, ApiTokenScope, ManagedApiToken},
+};
+use kernel::{Error, Result};
 use serde::Serialize;
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::api_token::{ApiToken, ApiTokenScope, ManagedApiToken},
-    shared::{Error, Result},
-};
+use crate::api::AppState;
 
 mod issue;
 mod organization;
@@ -151,11 +151,10 @@ fn require_organization_scope(context: &IamContext) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use domain::iam::{IamScope, api_token::ApiTokenKind};
+    use kernel::{ids::Id, time::TimestampMicros};
+
     use super::*;
-    use crate::{
-        domain::iam::{IamScope, api_token::ApiTokenKind},
-        shared::{ids::Id, time::TimestampMicros},
-    };
 
     fn token(scope: ApiTokenScope) -> ApiToken {
         ApiToken {
@@ -183,7 +182,7 @@ mod tests {
             user_id: Id::from_string("root"),
             org_id: Id::from_string("_sys"),
             display_role: "Platform Steward".into(),
-            roles: vec![crate::domain::iam::IamAssignedRole {
+            roles: vec![domain::iam::IamAssignedRole {
                 id: Id::from_string("database-role"),
                 key: "platform_steward".into(),
                 name: "Platform Steward".into(),

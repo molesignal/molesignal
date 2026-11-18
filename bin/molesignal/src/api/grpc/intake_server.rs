@@ -11,21 +11,18 @@
 
 use std::sync::Arc;
 
+use domain::{
+    intake::{IntakeBatch, RawEvent},
+    stream::StreamType,
+};
+use kernel::{ids::Id, time::TimestampMicros};
+use protocol::intake::v1::{
+    IntakeError as ProtoIntakeError, PushRequest, PushResponse, StreamType as ProtoStreamType,
+    intake_service_server::{IntakeService as IntakeServiceTrait, IntakeServiceServer},
+};
 use tonic::{Request, Response, Status};
 
-use crate::{
-    app::intake::IntakeService,
-    domain::{
-        intake::{IntakeBatch, RawEvent},
-        stream::StreamType,
-    },
-    infra::cluster::grpc_status::error_to_status,
-    protocol::intake::v1::{
-        IntakeError as ProtoIntakeError, PushRequest, PushResponse, StreamType as ProtoStreamType,
-        intake_service_server::{IntakeService as IntakeServiceTrait, IntakeServiceServer},
-    },
-    shared::{ids::Id, time::TimestampMicros},
-};
+use crate::{app::intake::IntakeService, infra::cluster::grpc_status::error_to_status};
 
 pub struct IntakeGrpc {
     service: Arc<IntakeService>,

@@ -1,26 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! `FunctionExecutor` 的 VRL 实装。
+//! The VRL implementation of `FunctionExecutor`.
 //!
-//! 按 `function.id` 缓存 `CompiledProgram`，避免每条 event 重新编译。
-//! 缓存键还带 `function.updated_at` 微秒戳，源码改了缓存自动失效。
+//! Caches the `CompiledProgram` by `function.id` to avoid recompiling for every event.
+//! The cache key also carries the `function.updated_at` microsecond timestamp,
+//! so the cache is invalidated automatically when the source changes.
 
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use dashmap::DashMap;
+use domain::function::{Function, FunctionExecutor, FunctionLanguage, FunctionOutcome};
+use kernel::{Error, Result};
 
-use crate::{
-    app::intake::FunctionExecutor,
-    domain::function::{Function, FunctionLanguage, FunctionOutcome},
-    infra::runtime::vrl::runtime::{CompiledProgram, VrlRuntime},
-    shared::{Error, Result},
-};
+use crate::vrl::runtime::{CompiledProgram, VrlRuntime};
 
 pub struct VrlFunctionExecutor {
     runtime: VrlRuntime,
-    /// `(function_id, updated_at)` → 已编译程序。
+    /// `(function_id, updated_at)` -> compiled program.
     cache: DashMap<(String, i64), Arc<CompiledProgram>>,
 }
 
@@ -41,7 +39,7 @@ impl VrlFunctionExecutor {
 
         let compiled = Arc::new(self.runtime.compile_for(&f.org_id, &f.source)?);
         self.cache.insert(key, compiled.clone());
-        // 清理同 function_id 的旧版本，避免缓存膨胀
+        // Clean out older versions of the same function_id to keep the cache from bloating
         self.cache
             .retain(|k, _| k.0 != f.id.0 || k.1 == f.updated_at.0);
         Ok(compiled)
@@ -90,10 +88,10 @@ impl FunctionExecutor for VrlFunctionExecutor {
 
 #[cfg(test)]
 mod tests {
+    use kernel::{ids::Id, time::TimestampMicros};
     use serde_json::json;
 
     use super::*;
-    use crate::shared::{ids::Id, time::TimestampMicros};
 
     fn mk_fn(source: &str, updated_micros: i64) -> Function {
         Function {
@@ -115,7 +113,7 @@ mod tests {
         let mut ev = json!({ "user": "a", "pw": "x" });
         ex.run(&f, &mut ev).await.unwrap();
         assert!(ev.get("pw").is_none());
-        // 再跑一次：应命中缓存
+        // Run it again: it should hit the cache
         let mut ev2 = json!({ "user": "b", "pw": "y" });
         ex.run(&f, &mut ev2).await.unwrap();
         assert!(ev2.get("pw").is_none());
@@ -124,11 +122,11 @@ mod tests {
     #[tokio::test]
     async fn vrl_executor_invalidates_on_update() {
         let ex = VrlFunctionExecutor::new();
-        // v1：del(.pw)
+        // v1: del(.pw)
         ex.run(&mk_fn(r#"del(.pw)"#, 1), &mut json!({"pw": "a"}))
             .await
             .unwrap();
-        // v2：del(.token)
+        // v2: del(.token)
         let mut ev = json!({"token": "t"});
         ex.run(&mk_fn(r#"del(.token)"#, 2), &mut ev).await.unwrap();
         assert!(ev.get("token").is_none());

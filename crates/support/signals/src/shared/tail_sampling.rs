@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Trace-ID affinity 与有界、确定性的分布式 tail-sampler 核心。
+//! Core of a bounded, deterministic distributed tail-sampler with Trace-ID affinity.
 //!
-//! 本模块不做网络 I/O。producer transport 只需把 [`TraceCandidate`] 发送给
-//! [`rendezvous_owner`] 选出的节点；owner 在单个同步临界区内去重、绑定策略版本、
-//! 聚合并决策。所有入口均为非阻塞内存操作。
+//! This module does no network I/O. The producer transport only needs to send a
+//! [`TraceCandidate`] to the node chosen by [`rendezvous_owner`]; within a single synchronous
+//! critical section, the owner deduplicates, binds the policy version, aggregates, and decides.
+//! All entry points are non-blocking in-memory operations.
 
 use std::{
     cmp::Reverse,
@@ -16,14 +17,13 @@ use std::{
     },
 };
 
+use kernel::time::TimestampMicros;
 use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::shared::{
-    rendezvous,
-    time::TimestampMicros,
-    trace_metrics,
+    rendezvous, trace_metrics,
     trace_normalization::{
         CanonicalSpan, PartialReason, SamplingReason, TraceLimits, sanitize_and_limit_span,
     },
@@ -270,8 +270,8 @@ pub enum ForceKeep {
 #[derive(Debug, Clone)]
 pub struct TraceCandidate {
     pub org_id: String,
-    /// `None` 表示 MoleSignal 自身 Trace，落 `_sys/_molesignal`；
-    /// `Some` 表示公共 OTLP 的租户 stream。
+    /// `None` means MoleSignal's own traces, written to `_sys/_molesignal`;
+    /// `Some` means the tenant stream of public OTLP.
     pub stream: Option<String>,
     pub span: CanonicalSpan,
     pub force_keep: ForceKeep,
@@ -414,7 +414,7 @@ impl TailSampler {
         })
     }
 
-    /// 原子发布新策略；已存在的 Trace 继续持有其创建时 Arc。
+    /// Atomically publishes a new policy; existing traces keep the Arc they were created with.
     pub fn publish_policy(&self, policy: TraceRuntimePolicy) -> Result<(), String> {
         policy.validate()?;
         *self.policy.write() = Arc::new(policy);
@@ -607,7 +607,8 @@ impl TailSampler {
         decided
     }
 
-    /// owner 退出/崩溃估算：不复制、不写 Trace WAL，明确丢掉一个窗口的未决量。
+    /// Owner exit/crash estimate: does not replicate or write the trace WAL, and explicitly
+    /// drops one window's unresolved volume.
     pub fn abandon_unresolved(&self) -> usize {
         let mut state = self.state.lock();
         let count = state.traces.len();
@@ -1021,7 +1022,7 @@ pub struct SamplerNode {
     pub healthy: bool,
 }
 
-/// Highest-random-weight rendezvous hashing；与 `(org_id, stream)` WAL 分片无关。
+/// Highest-random-weight rendezvous hashing; unrelated to the `(org_id, stream)` WAL sharding.
 pub fn rendezvous_owner<'a>(trace_id: &str, nodes: &'a [SamplerNode]) -> Option<&'a SamplerNode> {
     nodes
         .iter()

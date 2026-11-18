@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 进程级 health probe：被 `/api/v1/healthz` 端点读，被 intake / object_store probe 写。
+//! Process-level health probe: read by the `/api/v1/healthz` endpoint, written by the intake
+//! and object_store probes.
 //!
-//! 当前覆盖：
-//! - `replay_done`：intake WAL replay 完成前，整进程对外返 503。
-//! - `object_store_degraded`：连续 N 次对象存储 round-trip 失败时 set（design / spec 16.9）。
+//! Currently covers:
+//! - `replay_done`: until the intake WAL replay completes, the whole process returns 503
+//!   externally.
+//! - `object_store_degraded`: set when N consecutive object store round-trips fail
+//!   (design / spec 16.9).
 
 use std::sync::{
     Arc,
@@ -32,8 +35,8 @@ impl Probe {
         }
     }
 
-    /// 没有 intake role 的进程（如 standalone querier-only）启动即 ready：
-    /// 此 helper 直接构造一个 `replay_done=true` 的 probe。
+    /// A process without the intake role (such as a standalone querier-only process) is ready
+    /// at startup, so this helper directly builds a probe with `replay_done=true`.
     pub fn ready() -> Self {
         let p = Self::new();
         p.set_replay_done(true);
@@ -60,12 +63,12 @@ impl Probe {
         self.object_store_degraded.load(Ordering::Acquire)
     }
 
-    /// 综合健康状态：replay 未完或 object_store degraded → unhealthy。
+    /// Overall health status: unhealthy if replay has not finished or object_store is degraded.
     pub fn is_healthy(&self) -> bool {
         self.is_replay_done() && !self.is_object_store_degraded()
     }
 
-    /// 返回 (healthy, reason)：reason 在 unhealthy 时给出主因。
+    /// Returns (healthy, reason): when unhealthy, reason gives the main cause.
     pub fn snapshot(&self) -> (bool, Option<&'static str>) {
         if !self.is_replay_done() {
             return (false, Some("intake wal replay in progress"));

@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Headless-Chrome `ReportRenderer` 实装（change `scheduled-reports-headless`）。
+//! Headless-Chrome implementation of `ReportRenderer` (change `scheduled-reports-headless`).
 //!
-//! 设计要点：
-//! - `headless_chrome` 是同步 API；每次 render 用 `tokio::task::spawn_blocking`
-//!   离开 reactor 线程，避免阻塞别的 ingress / query。
-//! - Chrome instance 走小池（默认 2，硬上限 4）；用 `tokio::sync::Semaphore`
-//!   限并发，用 `parking_lot::Mutex<Vec<Browser>>` 做 checkout / checkin。
-//! - Instance 渲染失败 / 超时 → 不回池，由 next render 重启实例。
-//! - 30s wall-clock timeout（spec 上限 60s）；`tokio::time::timeout` 包整次 render；
-//!   超时不 abort blocking task（headless_chrome 不响应 cancel），而是把 Chrome
-//!   实例丢弃（spawn_blocking 自己跑完后看到 receiver dropped → 不入池）。
+//! Design points:
+//! - `headless_chrome` is a synchronous API; each render uses `tokio::task::spawn_blocking` to
+//!   leave the reactor thread, so it does not block other ingress / query work.
+//! - Chrome instances come from a small pool (default 2, hard cap 4); `tokio::sync::Semaphore`
+//!   limits concurrency and `parking_lot::Mutex<Vec<Browser>>` does checkout / checkin.
+//! - An instance that fails to render or times out is not returned to the pool; the next render
+//!   restarts the instance.
+//! - 30s wall-clock timeout (spec limit 60s); `tokio::time::timeout` wraps the whole render.
+//!   On timeout, the blocking task is not aborted (headless_chrome does not respond to cancel);
+//!   instead the Chrome instance is discarded (when spawn_blocking finishes by itself, it sees
+//!   the receiver dropped -> the instance is not returned to the pool).
 
 use std::{sync::Arc, time::Duration};
 
@@ -30,26 +32,28 @@ use crate::{RenderError, ReportFormat, ReportRenderer, SessionCookie, Viewport};
 
 mod readiness;
 
-/// 硬上限：>= 4 个 Chrome instance 在常见 pod 资源下会 OOM；spec scheduled-reports
-/// "Renderer Resource Bounds" 要求 clamp。
+/// Hard cap: >= 4 Chrome instances will OOM under common pod resources; spec scheduled-reports
+/// "Renderer Resource Bounds" requires clamping.
 pub const MAX_POOL_SIZE: usize = 4;
 
 pub const MAX_TIMEOUT_SECS: u64 = 60;
 const DEFAULT_POOL_SIZE: usize = 2;
 const DEFAULT_TIMEOUT_SECS: u64 = 30;
 
-/// 单页输出的高度上限（CSS px）。Chrome 截图单边上限 16384px，PDF 单页上限 200in
-/// （19200px），取对两者都安全的值；更长的内容 PNG 截到这里为止，PDF 续到下一页。
+/// Height cap for single-page output (CSS px). Chrome screenshots are limited to 16384px per
+/// side and a single PDF page to 200in (19200px); the value is chosen to be safe for both. For
+/// longer content, the PNG is cut off at this height, and the PDF continues on the next page.
 const MAX_CAPTURE_HEIGHT_PX: u32 = 16_000;
 
-/// PDF 纸张比内容多留的高度。打印布局与屏幕布局会有不到 1px 的出入，而纸张只要比内容矮
-/// 一点，不可分割的块就会被整体推到第二页，留下一张几乎空白的首页。
+/// Extra height the PDF paper has beyond the content. The print layout can differ from the
+/// screen layout by less than 1px, and if the paper is even slightly shorter than the content,
+/// an indivisible block is pushed whole to the second page, leaving a nearly blank first page.
 const PDF_PAGE_SLACK_PX: u32 = 1;
 
 const CSS_PX_PER_INCH: f64 = 96.0;
 
-/// 创建 `HeadlessChromeRenderer` 的配置；运行期 bootstrap 阶段从
-/// `[scheduled_reports.renderer]` 段读出后传入。
+/// Configuration for creating a `HeadlessChromeRenderer`; read from the
+/// `[scheduled_reports.renderer]` section during runtime bootstrap and then passed in.
 #[derive(Debug, Clone)]
 pub struct RendererConfig {
     pub concurrent_renders: usize,
@@ -67,7 +71,8 @@ impl Default for RendererConfig {
     }
 }
 
-/// 把超出 spec 上限的配置裁紧；超过时 emit 一次性 warn 让 ops 知道。
+/// Clamps configuration that exceeds the spec limits; when it does, emits a one-time warn
+/// to let ops know.
 fn clamp(config: RendererConfig) -> RendererConfig {
     let mut c = config;
 
@@ -121,8 +126,8 @@ impl HeadlessChromeRenderer {
 }
 
 fn launch_browser() -> std::result::Result<Browser, RenderError> {
-    // `--js-flags=--max-old-space-size=512` 给 V8 加 heap 上限（spec scheduled-reports
-    // "Renderer Resource Bounds" 要求）。
+    // `--js-flags=--max-old-space-size=512` adds a heap limit to V8
+    // (required by spec scheduled-reports "Renderer Resource Bounds").
     let options = LaunchOptions::default_builder()
         .args(vec![std::ffi::OsStr::new(
             "--js-flags=--max-old-space-size=512",
@@ -160,7 +165,8 @@ impl ReportRenderer for HeadlessChromeRenderer {
 
         let pool = self.pool.clone();
 
-        // 用 Option 让 spawn_blocking 内决定 instance 是否回池（成功才回）。
+        // Use an Option so spawn_blocking can decide whether the instance returns to the pool
+        // (it returns only on success).
         let bytes_result = tokio::time::timeout(
             self.timeout,
             tokio::task::spawn_blocking({
@@ -182,7 +188,8 @@ impl ReportRenderer for HeadlessChromeRenderer {
                         let mut guard = pool.lock();
                         guard.push(browser);
                     } else {
-                        // 失败 instance 直接 drop（headless_chrome Browser drop 杀进程）。
+                        // A failed instance is dropped directly (a headless_chrome Browser kills
+                        // its process on drop).
                     }
 
                     result
@@ -198,8 +205,9 @@ impl ReportRenderer for HeadlessChromeRenderer {
                 Err(RenderError::Internal(format!("blocking task: {join_err}")).into())
             }
             Err(_) => {
-                // 超时：不重启 spawn_blocking（headless_chrome 不响应 cancel），
-                // 但 task 跑完时会看到 timeout 已发生，instance 不入池。
+                // Timeout: spawn_blocking is not restarted (headless_chrome does not respond
+                // to cancel), but when the task finishes it sees that the timeout has occurred,
+                // and the instance is not returned to the pool.
                 let secs = self.timeout.as_secs();
                 Err(RenderError::Timeout(secs).into())
             }
@@ -228,21 +236,24 @@ fn render_blocking(
         .new_tab()
         .map_err(|e| RenderError::PageError(format!("new_tab: {e}")))?;
 
-    // Browser instance 会复用，但登录态不得跨报告/用户复用：先清掉上一次留下的 Cookie，再写
-    // 这次渲染的。登录态只在 Cookie 里，不出现在 URL。
+    // Browser instances are reused, but the login state must not be reused across
+    // reports/users: first clear the Cookies left by the previous render, then write this
+    // render's. The login state lives only in Cookies and never appears in the URL.
     install_session(&tab, url, session)?;
 
     set_device_viewport(&tab, viewport)?;
     navigate_and_wait(&tab, url)?;
 
-    // 不能只等 window.load：报表页此时可能还在取数，或者已经出错。
+    // Waiting only for window.load is not enough: the report page may still be fetching data
+    // at that point, or may already have failed.
     readiness::wait_until_printable(&tab, url)?;
 
     let page = page_size(&tab, viewport)?;
 
     let result = match format {
         ReportFormat::Png => {
-            // 视口之外的内容不会被绘制：先把视口拉到内容高度，再按整页裁剪。
+            // Content outside the viewport is not painted: first enlarge the viewport to the
+            // content height, then clip the full page.
             if page.height != viewport.height {
                 set_device_viewport(&tab, page)?;
                 std::thread::sleep(Duration::from_millis(150));
@@ -266,8 +277,9 @@ fn render_blocking(
             Ok(Bytes::from(img))
         }
         ReportFormat::Pdf => {
-            // 一页装下整份内容。页边距为零时打印布局的宽度就是视口宽度，和量高度时的布局
-            // 一致；留白由页面自己给。
+            // Fit all the content on one page. With zero page margins, the print layout width
+            // is the viewport width, consistent with the layout used when measuring the height;
+            // whitespace comes from the page itself.
             let opts = PrintToPdfOptions {
                 landscape: Some(false),
                 display_header_footer: Some(false),
@@ -303,7 +315,8 @@ fn render_blocking(
     result
 }
 
-/// 清掉浏览器里所有 Cookie，再写这次渲染的登录 Cookie（HttpOnly，页面脚本读不到）。
+/// Clears all Cookies in the browser, then writes the login Cookie for this render
+/// (HttpOnly, so page scripts cannot read it).
 fn install_session(
     tab: &Tab,
     url: &str,
@@ -341,10 +354,12 @@ fn install_session(
     Ok(())
 }
 
-/// 出图的尺寸：宽度是视口，高度是页面内容。
+/// Size of the rendered image: the width is the viewport, the height is the page content.
 ///
-/// 报表页（前端 `report-render`）让文档随内容增高，根元素的高度就是整份报表，可以比
-/// 视口高，也可以比它矮。仍在固定视口里滚动的页面量出来等于视口高度，出图与视口一致。
+/// The report page (frontend `report-render`) lets the document grow with its content, so the
+/// height of the root element is the whole report, and it can be taller or shorter than the
+/// viewport. A page that still scrolls within a fixed viewport measures as the viewport height,
+/// so the rendered image matches the viewport.
 fn page_size(
     tab: &headless_chrome::Tab,
     viewport: Viewport,
@@ -364,8 +379,9 @@ fn page_size(
     })
 }
 
-/// 根元素自己的盒子带小数，也包含 `body` 的外边距；文档被限制在视口高度、内容在其外滚动时，
-/// 盒子只有一屏高，这时取滚动高度。
+/// The root element's own box has a fractional height and also includes the margin of `body`;
+/// when the document is confined to the viewport height and the content scrolls beyond it, the
+/// box is only one screen tall, so the scroll height is used.
 const PAGE_HEIGHT_SCRIPT: &str = r#"
 (() => {
   const root = document.documentElement;
@@ -376,8 +392,9 @@ const PAGE_HEIGHT_SCRIPT: &str = r#"
 })()
 "#;
 
-/// 内容高度带小数（1232.02px）时向上取整，否则最后一行像素会被裁掉。量不出来就退回
-/// 视口高度。
+/// Rounds the content height up when it has a fractional part (1232.02px), because the last
+/// row of pixels would be cut off otherwise. Falls back to the viewport height if the height
+/// cannot be measured.
 fn page_height(content_height: f64, viewport_height: u32) -> u32 {
     if !content_height.is_finite() || content_height < 1.0 {
         return viewport_height;
@@ -462,7 +479,7 @@ mod tests {
 
     #[test]
     fn page_height_follows_the_content() {
-        // 比视口高、比视口矮都跟内容走；小数向上取整。
+        // Taller or shorter than the viewport, it follows the content; fractions round up.
         assert_eq!(page_height(2400.0, 800), 2400);
         assert_eq!(page_height(1232.02, 800), 1233);
         assert_eq!(page_height(312.4, 800), 313);
@@ -483,13 +500,15 @@ mod tests {
         assert_eq!(page_height(250_000.0, 800), MAX_CAPTURE_HEIGHT_PX);
     }
 
-    /// chrome 不存在 → `RenderError::ChromeUnavailable`，不 panic。
-    /// CI 没装 chromium 时跑这个 path 会拿到 launch 错误，正好验证。
+    /// chrome not found -> `RenderError::ChromeUnavailable`, no panic.
+    /// When CI has no chromium installed, running this path gets a launch error, which is exactly
+    /// what the test checks.
     #[test]
     fn launch_browser_returns_friendly_error_when_chrome_missing() {
-        // 走 spawn_blocking 等价路径的子集：直接调 launch_browser。
-        // 若 host 装了 Chrome 这里会成功 → skip；用 ignore 的更稳妥。
-        // 默认：尝试 launch；任何 Err 都视为"chrome 不可用"被吞掉，不 panic。
+        // A subset of the path equivalent to spawn_blocking: call launch_browser directly.
+        // If the host has Chrome installed, this succeeds -> skip; using ignore would be safer.
+        // Default: try to launch; any Err counts as "chrome unavailable" and is swallowed;
+        // no panic.
         match launch_browser() {
             Ok(b) => {
                 drop(b);
@@ -499,8 +518,8 @@ mod tests {
         }
     }
 
-    /// timeout 路径单测：用极小 timeout + 一个永远不返的 fake task。
-    /// 这里不真起 chrome；只验 timeout future 行为。
+    /// Unit test for the timeout path: a tiny timeout plus a fake task that never returns.
+    /// This does not actually start chrome; it only verifies the timeout future's behavior.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn timeout_future_returns_timeout_error() {
         let timeout = Duration::from_millis(20);

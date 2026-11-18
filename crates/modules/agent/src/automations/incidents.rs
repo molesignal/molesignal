@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 事件触发：一个新事件是否满足规则的筛选。
+//! Incident triggers check whether a new incident matches the rule's filters.
 //!
-//! 同一事件只分析一次；同一组事件（同一告警规则与同一组标签，即事件的指纹）在
-//! [`MERGE_WINDOW_MICROS`] 之内只分析一次，接连开关的告警不会让同一个问题被分析好几遍。
+//! Each incident is analyzed only once; each group of incidents (the same alert rule and label set,
+//! which form the incident fingerprint) is analyzed only once within [`MERGE_WINDOW_MICROS`], so
+//! alerts that repeatedly open and close do not cause repeated analysis of the same problem.
+
+use domain::alerting::incident::Incident;
 
 use super::IncidentFilter;
-use crate::domain::alerting::incident::Incident;
 
-/// 同一组事件在这段时间内只分析一次。
+/// Each group of incidents is analyzed only once within this time period.
 pub const MERGE_WINDOW_MICROS: i64 = 30 * 60 * 1_000_000;
 
-/// 筛选用到的事件事实。
+/// Incident facts used for filtering.
 #[derive(Debug, Clone, Copy)]
 pub struct IncidentFacts<'a> {
     pub severity: &'a str,
@@ -33,7 +35,8 @@ impl<'a> IncidentFacts<'a> {
 }
 
 impl IncidentFilter {
-    /// 填了的每一项都满足：严重级别、告警规则各中一个，服务里有一个受影响，标签值相等。
+    /// All set fields must match: one severity, one alert rule, one affected service, and equal
+    /// label values.
     pub fn matches(&self, facts: IncidentFacts<'_>) -> bool {
         let severity = self.severities.is_empty()
             || self

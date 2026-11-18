@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! MCP 服务器的请求头与环境变量。
+//! Headers and environment variables for MCP servers.
 //!
-//! 名称里有 key、secret、token、password、credential、auth、cookie 这类词的值算敏感：加密
-//! 保存，读出来只有末四位，修改时留空表示不变。别的值也可以手动标成敏感；自动认出的敏感值
-//! 不能改回明文。
+//! Values whose names contain words such as key, secret, token, password, credential, auth, or
+//! cookie are sensitive: stored encrypted, read back with only the last four characters, and left
+//! unchanged when blank during edits. Other values can also be marked sensitive manually;
+//! automatically identified sensitive values cannot be changed back to plaintext.
 
 use std::collections::HashSet;
 
+use kernel::{Error, Result};
 use reqwest::header::{HeaderName, HeaderValue};
 use serde::{Deserialize, Serialize};
 
-use crate::shared::{Error, Result};
-
-/// 名称里出现这些词（不分大小写）时值算敏感。
+/// Values are sensitive when their names contain these words (case-insensitive).
 const SECRET_PARTS: &[&str] = &[
     "key",
     "secret",
@@ -27,7 +27,7 @@ const SECRET_PARTS: &[&str] = &[
     "signature",
 ];
 
-/// 由 MCP 客户端自己设置、不能被覆盖的请求头。
+/// Headers set by the MCP client itself that cannot be overridden.
 const RESERVED_HEADERS: &[&str] = &[
     "host",
     "content-length",
@@ -56,7 +56,7 @@ pub fn looks_secret(name: &str) -> bool {
     SECRET_PARTS.iter().any(|part| name.contains(part))
 }
 
-/// 末四个字符，掩码显示用。
+/// The last four characters, used for masked display.
 pub fn last4(value: &str) -> String {
     let characters: Vec<char> = value.chars().collect();
 
@@ -65,23 +65,25 @@ pub fn last4(value: &str) -> String {
         .collect()
 }
 
-/// 保存下来的一个请求头或环境变量。敏感的只有是否已填与末四位。
+/// A saved header or environment variable. Sensitive values expose only whether they are set and
+/// their last four characters.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NamedValue {
     pub name: String,
     pub secret: bool,
-    /// 不敏感时的值。
+    /// The value when it is not sensitive.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
-    /// 敏感值的末四位。
+    /// The last four characters of a sensitive value.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last4: Option<String>,
-    /// 敏感值已经填了。
+    /// The sensitive value has been filled in.
     #[serde(default)]
     pub set: bool,
 }
 
-/// 写入时的一项：敏感值为 `None` 表示保留原来的值（原来没有就是还没填）。
+/// An entry to write: `None` for a sensitive value preserves the original value (if none exists,
+/// it remains unset).
 #[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize)]
 pub struct NamedValueInput {
     pub name: String,
@@ -115,7 +117,9 @@ fn valid_env_name(name: &str) -> bool {
         && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
-/// 校验并整理：请求头名转小写；同名只能有一个；名称像敏感的一律按敏感存；不敏感的必须填值。
+/// Validates and normalizes values: lowercases header names, permits only one entry per name,
+/// stores all values with sensitive-looking names as sensitive, and requires non-sensitive values
+/// to be set.
 pub fn normalize_values(
     kind: ValueKind,
     items: Vec<NamedValueInput>,
@@ -205,7 +209,7 @@ pub fn normalize_values(
     Ok(normalized)
 }
 
-/// 两组里有同名的（不分大小写）时返回它。
+/// Returns a name present in both groups (case-insensitive).
 pub fn find_reserved_overlap<'a>(values: &'a [NamedValueInput], taken: &[&str]) -> Option<&'a str> {
     values
         .iter()

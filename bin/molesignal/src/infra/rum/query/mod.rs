@@ -30,8 +30,9 @@ pub use self::{
         timeline_columns,
     },
     distribution::{
-        BarPlan, DEFAULT_BARS, Distribution, DistributionBar, MAX_BARS, bars_sql, bounds_sql,
-        read_bars, read_bounds, single_bar,
+        BarPlan, Distribution, DistributionBar, EXACT_PERCENTILES_UP_TO, MAX_BARS, bars_for,
+        bars_sql, bounds_sql, exact_percentiles_sql, read_bars, read_bounds,
+        read_exact_percentiles, single_bar,
     },
     filter::{Condition, Filter, asks_about_traffic, conditions, people_only, text_conditions},
     heatmap::{

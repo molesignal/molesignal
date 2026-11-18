@@ -112,6 +112,10 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
         policy: WorkerTracePolicy::RootPerRun,
     },
     WorkerCoverage {
+        source: "src/bootstrap/workers/purge.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
         source: "src/bootstrap/workers/rca_sweeper.rs",
         policy: WorkerTracePolicy::RootPerRun,
     },

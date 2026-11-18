@@ -17,9 +17,8 @@
 use std::{borrow::Cow, sync::Arc};
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id};
 use regex::Regex;
-
-use crate::shared::{Result, ids::Id};
 
 mod field;
 

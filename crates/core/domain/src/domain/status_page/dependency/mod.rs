@@ -11,10 +11,10 @@ mod model;
 
 use async_trait::async_trait;
 pub use evaluation::{Evaluation, HealthSignals, IncidentSignal, MonitorSignal, evaluate};
+use kernel::{Result, ids::Id};
 pub use model::*;
 
 use super::StatusPageComponent;
-use crate::shared::{Result, ids::Id};
 
 #[async_trait]
 pub trait StatusPageDependencyRepository: Send + Sync {

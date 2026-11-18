@@ -30,7 +30,7 @@ mod contract_tests {
         all[reader].as_array().expect("cases").clone()
     }
 
-    fn check<T: serde::Serialize>(reader: &str, read: impl Fn(&str) -> crate::shared::Result<T>) {
+    fn check<T: serde::Serialize>(reader: &str, read: impl Fn(&str) -> kernel::Result<T>) {
         for case in cases(reader) {
             let query = case["query"].as_str().expect("query");
 

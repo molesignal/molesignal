@@ -1,26 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Mole Agent chat 运行时。
+//! Mole Agent chat runtime.
 //!
-//! 提供：
-//! - **Chat / Message** 模型 + repo trait
-//! - **ProviderAdapter** trait —— OpenAI / Anthropic / OpenAI-compatible 三 provider
-//!   抽象，实装与构造入口在 [`providers`]
-//! - **AgentLoop** —— 用户 message → LLM → 编译期工具注册表调用 →
-//!   结果回灌 LLM → 最终 assistant 回答，见 [`agent_loop`]
-//! - **ModelCall** —— 每次模型调用交给调用方的记录，见 [`model_call`]
+//! Provides:
+//! - **Chat / Message** models + repo trait
+//! - **ProviderAdapter** trait: abstraction over three providers, OpenAI / Anthropic /
+//!   OpenAI-compatible; implementations and construction entry points are in [`providers`].
+//! - **AgentLoop**: user message -> LLM -> compile-time tool registry call ->
+//!   results fed back to LLM -> final assistant answer; see [`agent_loop`].
+//! - **ModelCall**: a record passed to the caller for each model call; see [`model_call`].
 //!
-//! 实际 SSE streaming handler 由 OSS api crate cfg-gated 实装；本 crate 提供
-//! 协议层。
+//! The actual SSE streaming handler is implemented behind cfg gates in the OSS api crate;
+//! this crate provides the protocol layer.
 
 use std::pin::Pin;
 
 use async_trait::async_trait;
 use futures::stream::Stream;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 pub mod agent_loop;
 pub mod model_call;
@@ -88,9 +87,9 @@ pub struct ChatMessage {
     pub chat_id: Id,
     pub role: MessageRole,
     pub content: String,
-    /// tool_call_id（role=Tool 时填）
+    /// tool_call_id (populated when role=Tool).
     pub tool_call_id: Option<String>,
-    /// tool_calls（role=Assistant 时填）
+    /// tool_calls (populated when role=Assistant).
     pub tool_calls: serde_json::Value,
     pub created_at: TimestampMicros,
     pub prompt_tokens: Option<i32>,
@@ -108,7 +107,7 @@ pub trait ChatRepository: Send + Sync {
     async fn list_messages(&self, chat_id: &Id) -> Result<Vec<ChatMessage>>;
 }
 
-/// LLM completion 请求（provider 中立）。
+/// An LLM completion request (provider-neutral).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ToolChoice {
@@ -124,7 +123,7 @@ pub enum ToolChoice {
 pub struct CompletionRequest {
     pub model: String,
     pub messages: Vec<ChatMessage>,
-    /// 若为 Some，LLM 可以返 tool_call；否则纯文本
+    /// If Some, the LLM can return tool_call; otherwise, plain text.
     pub tools: Option<serde_json::Value>,
     #[serde(default)]
     pub tool_choice: ToolChoice,
@@ -169,13 +168,13 @@ impl CompletionRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompletionResponse {
-    /// 文本内容（不含 tool_calls 时填）
+    /// Text content (populated when there are no tool_calls).
     pub content: Option<String>,
-    /// LLM 决定要调用的 tool 列表（OpenAI tool_calls 同形态）
+    /// The list of tools the LLM decides to call (same format as OpenAI tool_calls).
     pub tool_calls: Vec<RequestedToolCall>,
-    /// 全部输入，含命中缓存的部分。
+    /// All input, including cache hits.
     pub prompt_tokens: i32,
-    /// 输入里命中缓存的 token；模型服务没有报时为 0。
+    /// Input tokens that hit the cache; 0 when the model service does not report them.
     #[serde(default)]
     pub cached_prompt_tokens: i32,
     pub completion_tokens: i32,
@@ -189,17 +188,18 @@ pub struct RequestedToolCall {
     pub arguments: serde_json::Value,
 }
 
-/// Provider adapter：注入到 AgentLoop。
-/// OSS 实现可基于 reqwest 调 OpenAI / Anthropic API。
+/// Provider adapter injected into AgentLoop.
+/// OSS implementations can use reqwest to call the OpenAI / Anthropic API.
 #[async_trait]
 pub trait ProviderAdapter: Send + Sync {
     fn provider(&self) -> Provider;
     async fn complete(&self, req: CompletionRequest) -> Result<CompletionResponse>;
-    /// Streaming variant（change `agent-provider-adapter`）：返一个 SSE 帧拆解后的
-    /// chunk 流；caller 可逐块转发到客户端。默认实装基于 `complete()` 单帧返回，
-    /// 真实 provider 应 override。
+    /// Streaming variant (change `agent-provider-adapter`): returns a stream of chunks parsed
+    /// from SSE frames; the caller can forward them to the client one by one.
+    /// The default implementation returns a single frame using `complete()`; actual providers
+    /// should override it.
     async fn complete_stream(&self, req: CompletionRequest) -> Result<ChatStream> {
-        // 默认实装：fall back 到非流式 complete()，作为单 chunk 返回。
+        // Default implementation: falls back to non-streaming complete(), returning a single chunk.
         let resp = self.complete(req).await?;
         let mut chunks: Vec<Result<ChunkOrToolCall>> = Vec::new();
 
@@ -228,38 +228,42 @@ pub trait ProviderAdapter: Send + Sync {
     }
 }
 
-/// 单个流增量：要么是文本片段、要么是一个聚合好的 tool_call、要么是 usage 终结块。
+/// A single stream increment: a text fragment, an assembled tool_call, or a final usage chunk.
 #[derive(Debug, Clone)]
 pub enum ChunkOrToolCall {
-    /// Provider 返的文本增量；AgentLoop 把它转发到客户端 SSE。
+    /// A text increment returned by the provider; AgentLoop forwards it to the client over SSE.
     Text(String),
-    /// Provider 聚合完成的 tool call（adapter 内部已经把所有 SSE 分片拼好）。
+    /// A fully assembled tool call from the provider (the adapter has joined all SSE fragments).
     ToolCall {
         id: String,
         name: String,
-        /// arguments 序列化后字符串；caller 自己 parse JSON（兼容 partial / final 一致）。
+        /// The serialized arguments string; the caller parses JSON (consistent for partial /
+        /// final).
         arguments: String,
     },
-    /// usage 块（OpenAI 在 stream 结束附加；Anthropic 在 `message_delta` 内）。输入含命中缓存的
-    /// 部分，`cached_prompt_tokens` 是其中命中的。
+    /// A usage chunk (OpenAI appends it at the end of the stream; Anthropic includes it in
+    /// `message_delta`). Input includes cache hits, with `cached_prompt_tokens` counting those
+    /// hits.
     Usage {
         prompt_tokens: i32,
         cached_prompt_tokens: i32,
         completion_tokens: i32,
     },
-    /// 流结束。`finish_reason` 来自 provider（"stop" / "tool_calls" / "length"）。
+    /// The stream ends.
+    /// `finish_reason` comes from the provider ("stop" / "tool_calls" / "length").
     Done(String),
 }
 
-/// Provider stream 类型别名；trait-object-safe。
+/// A type alias for the provider stream; trait-object-safe.
 pub type ChatStream = Pin<Box<dyn Stream<Item = Result<ChunkOrToolCall>> + Send>>;
 
-/// 一轮回答过程中发生的事（AgentLoop 流式运行的产出）。
+/// Events during one answer (output from streaming AgentLoop execution).
 ///
-/// - [`Delta`] 是模型正在写出的一小段文字；这次调用以工具调用结束时，它们是中间的说明。
-/// - [`Chunk`] 是最终回答的全文，紧接着 [`Done`]。
-/// - [`ToolStart`] / [`ToolEnd`] 是一次工具调用的开始与结果。
-/// - [`Done`] 或 [`Error`] 之后不再有事件。
+/// - [`Delta`] is a small piece of text the model is writing; when the call ends with tool calls,
+///   these pieces are intermediate explanations.
+/// - [`Chunk`] is the full final answer, immediately followed by [`Done`].
+/// - [`ToolStart`] / [`ToolEnd`] are the start and result of a tool call.
+/// - No events follow [`Done`] or [`Error`].
 #[derive(Debug, Clone)]
 pub enum AgentStreamEvent {
     Delta(String),
@@ -285,13 +289,13 @@ pub enum AgentStreamEvent {
 
 pub type AgentEventStream = Pin<Box<dyn Stream<Item = AgentStreamEvent> + Send>>;
 
-/// 流式运行把事件交到哪里，以及怎么知道被停下了。
+/// Where streaming execution sends events and how it detects that it has been stopped.
 #[async_trait]
 pub trait AgentSink: Send + Sync {
     async fn emit(&self, event: AgentStreamEvent);
-    /// 已经被停下：不再调用模型和工具。
+    /// Whether execution has stopped: no more model or tool calls.
     fn is_cancelled(&self) -> bool;
-    /// 被停下时返回，用来打断正在进行的模型调用或工具。
+    /// Returns when stopped, to interrupt an ongoing model call or tool.
     async fn cancelled(&self);
 }
 

@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Mole Agent 模型遥测 fan-out hook。
+//! Mole Agent model telemetry fan-out hook.
 //!
-//! 集成位：在 OTLP traces receiver 把 OTLP span → RawEvent 之后，调
-//! [`AgentFanoutHook::extract`] 抽出 0..n 条 Agent 派生事件；非 LLM span 返空。
-//! 派生事件走与原 trace 同样的 `IntakeService::intake` 路径写入第二份
-//! stream（`stream_type = Traces, stream = "agent_model_traces"`），从而透过普通查询/查询
-//! 缓存/Tantivy 索引接通。
+//! Integration point: after the OTLP traces receiver converts an OTLP span -> RawEvent, call
+//! [`AgentFanoutHook::extract`] to extract 0..n Agent-derived events; returns empty for non-LLM
+//! spans. Derived events follow the same `IntakeService::intake` path as the original trace into a
+//! second stream (`stream_type = Traces, stream = "agent_model_traces"`), making them accessible
+//! through regular queries, the query cache, and the Tantivy index.
 
+use domain::intake::RawEvent;
 use serde_json::{Map, Value};
 
 use super::redact::redact_pii;
-use crate::domain::intake::RawEvent;
 
-/// Agent 派生事件抽取器。无状态，挂在 traces intake path。
+/// Agent-derived event extractor.
+/// Stateless, attached to the traces intake path.
 #[derive(Default, Clone)]
 pub struct AgentFanoutHook;
 
@@ -23,7 +24,7 @@ impl AgentFanoutHook {
         Self
     }
 
-    /// 输入一条 trace 事件，输出可能的 LLM 派生事件。
+    /// Takes a trace event and returns a possible LLM-derived event.
     pub fn extract(&self, ev: &RawEvent) -> Option<RawEvent> {
         let has_gen_ai = ev.fields.keys().any(|k| k.starts_with("gen_ai."));
 
@@ -63,7 +64,8 @@ impl AgentFanoutHook {
             "total_tokens",
         );
 
-        // 外部应用报的成本是美元（`gen_ai.usage.cost_usd`），与 Mole Agent 自己的调用记在同两列。
+        // External applications report costs in dollars (`gen_ai.usage.cost_usd`), recorded in the
+        // same two columns as Mole Agent's own calls.
         if let Some(cost) = ev.fields.get("gen_ai.usage.cost_usd") {
             out.insert("cost".to_string(), cost.clone());
             out.insert("cost_currency".to_string(), Value::String("USD".into()));
@@ -96,8 +98,9 @@ pub fn extract_batch(hook: &AgentFanoutHook, events: &[RawEvent]) -> Vec<RawEven
 
 #[cfg(test)]
 mod tests {
+    use kernel::time::TimestampMicros;
+
     use super::*;
-    use crate::shared::time::TimestampMicros;
 
     fn ev(map: Map<String, Value>) -> RawEvent {
         RawEvent {

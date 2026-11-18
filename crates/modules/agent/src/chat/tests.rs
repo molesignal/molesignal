@@ -6,8 +6,10 @@ use std::{
     time::Duration,
 };
 
+use tool_runtime::{ToolCall, ToolContent, ToolResult};
+
 use super::{agent_loop::contains_internal_tool_transport, *};
-use crate::agent::tools::{ToolAuthContext, ToolCall, ToolContent, ToolDispatcher, ToolResult};
+use crate::tools::{ToolAuthContext, ToolDispatcher};
 
 #[test]
 fn provider_string_roundtrip() {
@@ -21,7 +23,7 @@ fn provider_string_roundtrip() {
     assert!(Provider::parse("garbage").is_err());
 }
 
-// Mock provider：第一次回 tool_call，第二次回最终文本
+// Mock provider: returns tool_call first, then the final text
 struct ScriptedProvider {
     calls: Mutex<usize>,
 }
@@ -128,7 +130,8 @@ async fn loop_executes_one_tool_call_then_stops() {
     assert_eq!(r.completion_tokens_total, 50); // 30 + 20
 }
 
-// Provider 永远返 tool_call → 用完工具调用额度后走无工具收尾。
+// Provider always returns tool_call -> finalizes without tools after exhausting the tool call
+// budget.
 struct LoopForeverProvider;
 
 #[async_trait]
@@ -166,9 +169,9 @@ async fn loop_finalizes_after_max_loops() {
     assert!(r.assistant_content.contains("工具调用次数"));
 }
 
-/// task 2.2：tool call 回灌的 stream 版本。
-/// 第一次调 provider 返 tool_call，第二次返文本 → stream 应依次给出
-/// ToolStart / ToolEnd / Chunk / Done。
+/// task 2.2: the streaming version of feeding tool call results back.
+/// The first provider call returns tool_call, and the second returns text -> the stream should emit
+/// ToolStart / ToolEnd / Chunk / Done in order.
 #[tokio::test]
 async fn stream_run_executes_tool_then_finalizes() {
     use futures::StreamExt;
@@ -190,7 +193,7 @@ async fn stream_run_executes_tool_then_finalizes() {
     while let Some(e) = stream.next().await {
         events.push(e);
     }
-    // 必须含至少一个 ToolStart + ToolEnd + Done（含最终文本）。
+    // Must contain at least one ToolStart + ToolEnd + Done (with the final text).
     let mut saw_tool_start = false;
     let mut saw_tool_end = false;
     let mut final_content = String::new();
@@ -210,7 +213,8 @@ async fn stream_run_executes_tool_then_finalizes() {
             }
             AgentStreamEvent::Error(e) => panic!("unexpected error: {e}"),
             AgentStreamEvent::Chunk(chunk) => visible_chunks.push_str(chunk),
-            // 写出中的文字（含中间的说明）只用于实时显示，回答以 Chunk 为准。
+            // Text being written (including intermediate explanations) is only for live display;
+            // Chunk determines the response.
             AgentStreamEvent::Delta(_) => {}
         }
     }
@@ -226,7 +230,8 @@ async fn stream_run_executes_tool_then_finalizes() {
     );
 }
 
-/// 额度用完在 stream 模式下应走 Done，不把内部预算错误暴露给用户。
+/// Exhausting the budget in stream mode should emit Done without exposing the internal budget
+/// error to the user.
 #[tokio::test]
 async fn stream_run_finalizes_after_max_loops() {
     use futures::StreamExt;
@@ -465,7 +470,7 @@ impl ToolDispatcher for DashboardAuthoringDispatcher {
                 if attempt == 1 && self.repair_first {
                     return Err(Error::validation(
                         "dashboard authoring specification is invalid",
-                        vec![crate::shared::contracts::ContractIssue::new(
+                        vec![contracts::ContractIssue::new(
                             "CONTRACT_REQUIRED",
                             "/title",
                             "title is required",
@@ -633,7 +638,8 @@ async fn dashboard_chat_degrades_to_preview_when_proposal_tool_is_absent() {
     );
 }
 
-/// 记下每次请求，按脚本回答：前 `rounds` 次每次请求 `calls_per_round` 个工具调用。
+/// Records each request and responds according to a script: requests `calls_per_round` tool calls
+/// in each of the first `rounds` rounds.
 struct RecordingProvider {
     rounds: usize,
     calls_per_round: usize,
@@ -765,7 +771,7 @@ async fn calls_beyond_the_limit_get_a_result_without_running() {
     assert_eq!(*dispatcher.calls.lock().unwrap(), 2);
     assert_eq!(result.tool_calls_made, 2);
 
-    // 收尾请求里三个调用都有结果，第三个说明没有执行。
+    // The finalization request contains results for all three calls; the third says it did not run.
     let requests = provider.requests.lock().unwrap();
     let final_request = requests.last().unwrap();
     let results: Vec<&ChatMessage> = final_request
@@ -940,7 +946,8 @@ async fn failed_calls_are_observed_with_their_error() {
     assert_eq!(calls[0].provider, Provider::Anthropic);
 }
 
-/// 调用方丢掉事件流（停止按钮、离开页面）后，循环不再调用模型。
+/// The loop stops calling the model after the caller drops the event stream (stop button,
+/// leaving the page).
 #[tokio::test]
 async fn a_dropped_stream_stops_before_the_next_model_call() {
     let provider = Arc::new(RecordingProvider::new(usize::MAX, 1));
@@ -950,7 +957,8 @@ async fn a_dropped_stream_stops_before_the_next_model_call() {
     let stream = loop_.run_stream(ctx(), "m".into(), vec![user_msg("hi")], tools(), None);
     drop(stream);
 
-    // 单线程运行时里，后台任务要等这里让出才开始；开始时事件流已经没人收了。
+    // In a single-threaded runtime, the background task starts only after yielding here;
+    // by then, no one is receiving the event stream.
     tokio::time::sleep(Duration::from_millis(20)).await;
 
     assert!(provider.requests.lock().unwrap().is_empty());

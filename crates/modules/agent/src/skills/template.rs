@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 显式调用 `/名称 参数` 时，把参数填进 `SKILL.md` 正文：`$ARGUMENTS` 是全部参数，
-//! `$1`…`$9` 是按空白分开的第几个。正文里没有占位符而参数不为空时，参数附在正文后面。
+//! Substitutes arguments into the `SKILL.md` body for explicit `/name arguments` invocations:
+//! `$ARGUMENTS` is all arguments, and `$1`...`$9` are the corresponding whitespace-separated
+//! arguments. If the body has no placeholders and the arguments are nonempty, appends the arguments
+//! to the body.
 
-/// 填好参数的正文。
+/// The body with arguments substituted.
 pub fn render_invocation(body: &str, arguments: &str) -> String {
     let arguments = arguments.trim();
     let positional: Vec<&str> = arguments.split_whitespace().collect();

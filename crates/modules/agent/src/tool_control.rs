@@ -1,25 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Mole Agent 工具控制面领域模型。
+//! Mole Agent tool control plane domain model.
 //!
-//! 内置工具定义仍由 [`crate::agent::tools`] 编译期注册；本模块只保存
-//! 组织级启用状态、执行策略，以及显式导入的 MCP Server / tool / prompt 元数据。MCP 服务器
-//! 有组织、团队、个人三级作用域（[`Scope`]）；敏感请求头与凭据由 repository 加密保存，
-//! 成员凭据按人保存、彼此隔离。
+//! Built-in tool definitions are still registered at compile time by [`crate::tools`]; this
+//! module stores only organization-level enablement, execution policies, and explicitly imported
+//! MCP Server / tool / prompt metadata. MCP servers have three scope levels: organization, team,
+//! and personal ([`Scope`]). The repository stores sensitive headers and credentials encrypted;
+//! member credentials are stored per person and isolated from one another.
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-pub use tool_runtime::ToolExecutionMode;
+use tool_runtime::{RiskLevel, ToolExecutionMode};
 
 use crate::{
-    agent::{
-        mcp::{McpPrompt, NamedValue, NamedValueInput},
-        model::RiskLevel,
-        scope::Scope,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
+    mcp::{McpPrompt, NamedValue, NamedValueInput},
+    scope::Scope,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -38,7 +36,7 @@ pub struct ToolPolicy {
     pub tool_name: String,
     pub enabled: bool,
     pub execution_mode: ToolExecutionMode,
-    /// 环境级覆盖，例如 `{"production":"single_approval"}`。
+    /// Environment-level overrides, such as `{"production":"single_approval"}`.
     pub environment_overrides: Value,
     pub timeout_ms: i64,
     pub max_calls_per_run: i32,
@@ -52,9 +50,9 @@ pub struct ToolPolicy {
 #[serde(rename_all = "camelCase")]
 pub struct ToolPolicyDefaults {
     pub org_id: Id,
-    /// `l0` ... `l4` → [`ToolExecutionMode`]。
+    /// `l0` ... `l4` -> [`ToolExecutionMode`].
     pub risk_modes: Value,
-    /// `development` / `staging` / `production` → 风险策略对象。
+    /// `development` / `staging` / `production` -> risk policy objects.
     pub environment_overrides: Value,
     pub updated_by: Id,
     pub created_at: TimestampMicros,
@@ -82,15 +80,16 @@ impl ToolPolicyDefaults {
     }
 }
 
-/// 成员凭据：每个人填自己的值，调用时放进这个请求头。`auth_type` 为 `member_secret` 时有。
+/// Member credentials: each person provides their own value, placed in this header during calls.
+/// Present when `auth_type` is `member_secret`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MemberCredentialSpec {
-    /// 小写的请求头名，例如 `authorization`、`x-api-key`。
+    /// A lowercase header name, such as `authorization` or `x-api-key`.
     pub header: String,
-    /// 值前面加 `Bearer `。
+    /// Prepends `Bearer ` to the value.
     #[serde(default)]
     pub bearer: bool,
-    /// 告诉成员去哪里拿凭据、要哪些权限。
+    /// Tells members where to obtain credentials and which permissions are required.
     #[serde(default)]
     pub instructions: String,
 }
@@ -101,22 +100,24 @@ pub struct McpServer {
     pub id: Id,
     pub org_id: Id,
     pub scope: Scope,
-    /// 工具名与 prompt 命令的前缀，组织内唯一，改名时不变。
+    /// The prefix for tool names and prompt commands, unique within the organization and unchanged
+    /// when renamed.
     pub handle: String,
     pub name: String,
     pub transport: String,
     pub endpoint_url: Option<String>,
-    /// stdio 服务器的命令行，由服务端按实例允许的命令起。
+    /// The command line for a stdio server, launched by the server using instance-allowed commands.
     pub command_template: Option<String>,
     pub auth_type: String,
     pub auth_header: Option<String>,
-    /// 仅用于掩码展示；永远不包含完整凭据。
+    /// Used only for masked display; never contains the full credential.
     pub credential_last4: Option<String>,
     pub credential_set: bool,
     pub member_credential: Option<MemberCredentialSpec>,
-    /// 请求头；敏感的只有末四位。
+    /// Request headers; sensitive values contain only the last four characters.
     pub headers: Vec<NamedValue>,
-    /// stdio 服务器的环境变量；敏感的只有末四位。
+    /// Environment variables for the stdio server; sensitive values contain only the last four
+    /// characters.
     pub env: Vec<NamedValue>,
     pub private_only: bool,
     pub allowed_domains: Vec<String>,
@@ -148,7 +149,7 @@ pub struct McpServerInput {
     pub auth_type: String,
     pub auth_header: Option<String>,
     pub member_credential: Option<MemberCredentialSpec>,
-    /// 敏感值为 `None` 时保留原来的值。
+    /// Keeps the original value when a sensitive value is `None`.
     pub headers: Vec<NamedValueInput>,
     pub env: Vec<NamedValueInput>,
     pub private_only: bool,
@@ -166,15 +167,17 @@ pub struct McpServerInput {
 pub struct McpServerRuntime {
     pub server: McpServer,
     pub credential: Option<String>,
-    /// 请求头的明文，敏感的已解密；还没填值的不在里面。
+    /// Plaintext request headers, with sensitive values decrypted; excludes those with no value
+    /// yet.
     pub headers: Vec<(String, String)>,
-    /// stdio 服务器的环境变量的明文，敏感的已解密；还没填值的不在里面。
+    /// Plaintext environment variables for the stdio server, with sensitive values decrypted;
+    /// excludes those with no value yet.
     pub env: Vec<(String, String)>,
-    /// 这次调用的发起人自己的凭据。
+    /// The credentials belonging to the initiator of this call.
     pub member_credential: Option<String>,
 }
 
-/// 一个成员给一台服务器存的凭据，只有末四位。
+/// Credentials a member stores for a server, containing only the last four characters.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MemberCredential {
@@ -190,9 +193,9 @@ pub struct McpTool {
     pub id: Id,
     pub org_id: Id,
     pub server_id: Id,
-    /// MCP Server 返回的原始 tool name。
+    /// The original tool name returned by the MCP Server.
     pub remote_name: String,
-    /// Agent registry 中的唯一、稳定名称。
+    /// The unique, stable name in the Agent registry.
     pub name: String,
     pub display_name: String,
     pub description: String,
@@ -230,7 +233,8 @@ pub trait ToolControlRepository: Send + Sync {
 
     async fn list_mcp_servers(&self, org_id: &Id) -> Result<Vec<McpServer>>;
     async fn get_mcp_server(&self, org_id: &Id, id: &Id) -> Result<McpServer>;
-    /// 连接用的明文；`member` 是这次调用的发起人，带上他自己的凭据。
+    /// Plaintext for the connection; `member` is the initiator of this call, whose own credentials
+    /// are included.
     async fn get_mcp_server_runtime(
         &self,
         org_id: &Id,
@@ -263,7 +267,8 @@ pub trait ToolControlRepository: Send + Sync {
         enabled: bool,
     ) -> Result<McpServer>;
     async fn delete_mcp_server(&self, org_id: &Id, id: &Id) -> Result<()>;
-    /// 所有组织里到了重新同步时间的服务器：启用、同步过、不靠成员凭据，上次检查早于 `before`。
+    /// Servers across all organizations due for resynchronization: enabled, previously
+    /// synchronized, independent of member credentials, and last checked before `before`.
     async fn mcp_servers_due(&self, before: TimestampMicros, limit: i64) -> Result<Vec<McpServer>>;
 
     async fn list_member_credentials(
@@ -286,7 +291,7 @@ pub trait ToolControlRepository: Send + Sync {
     ) -> Result<bool>;
 
     async fn list_mcp_prompts(&self, org_id: &Id) -> Result<Vec<McpPrompt>>;
-    /// 换成服务器现在列出的 prompt。
+    /// Replaces prompts with those currently listed by the server.
     async fn replace_mcp_prompts(
         &self,
         org_id: &Id,

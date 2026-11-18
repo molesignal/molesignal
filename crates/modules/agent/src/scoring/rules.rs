@@ -1,32 +1,35 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 规则打分：不调模型，按记下的事实给每个维度 0 到 1 的分，总分是有的维度的平均。
+//! Rule-based scoring assigns each dimension a score from 0 to 1 based on recorded facts without
+//! calling a model; the overall score is the average of the available dimensions.
 //!
-//! 各维度的事实（[`DimensionScore::detail`]）：
+//! Facts for each dimension ([`DimensionScore::detail`]):
 //!
-//! - `tool_success`：`{failed, total}`。没调工具的回答没有这一项。
-//! - `evidence`：`{cited, backed}`，回答引用了几条证据、有没有成功的工具调用撑着。回答是要求的
-//!   形状、且调过工具时才有。
-//! - `query_validity`：`{invalid, total, firstInvalid}`，工具调用里的 SQL 与 PromQL。没有查询时
-//!   没有这一项。
-//! - `answer_format`：`{structured}`。只生成查询的一轮与事件 RCA 没有这一项。
-//! - `completion`：`{status}`，Run 的结局；自动化里途中被挡住的记 `blocked`。
-//! - `feedback`：`{rating, reasons}`。没人评价时没有这一项。
+//! - `tool_success`: `{failed, total}`. Absent for answers without tool calls.
+//! - `evidence`: `{cited, backed}`, the number of pieces of evidence cited in the answer and
+//!   whether successful tool calls support it. Present only when the answer has the required shape
+//!   and tools are called.
+//! - `query_validity`: `{invalid, total, firstInvalid}`, SQL and PromQL in tool calls. Absent when
+//!   there are no queries.
+//! - `answer_format`: `{structured}`. Absent for query-only turns and incident RCA.
+//! - `completion`: `{status}`, the Run outcome; blocked automation runs are recorded as `blocked`.
+//! - `feedback`: `{rating, reasons}`. Absent when no one provides feedback.
 
 use serde_json::{Value, json};
 
 use super::{DimensionScore, RuleDimension};
-use crate::agent::{
+use crate::{
     answer::StructuredAnswer,
     feedback::{FeedbackRating, FeedbackReason},
     runs::{RunStatus, TranscriptStep},
 };
 
-/// 记在事实里的第一条解析不了的查询最多这么多字符。
+/// The maximum number of characters recorded in the facts for the first unparseable query.
 const QUERY_EXCERPT_CHARS: usize = 300;
 
-/// 查询能不能解析：SQL 用 query-language 的解析器，PromQL 用 PromQL 解析器，由调用方提供。
+/// Checks whether a query can be parsed: SQL uses the query-language parser, and PromQL uses the
+/// PromQL parser, both supplied by the caller.
 pub trait QuerySyntax: Send + Sync {
     fn sql_parses(&self, sql: &str) -> bool;
     fn promql_parses(&self, promql: &str) -> bool;
@@ -38,27 +41,28 @@ pub enum QueryLanguage {
     PromQl,
 }
 
-/// 一次工具调用里带的查询。
+/// A query included in a tool call.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ToolQuery {
     pub language: QueryLanguage,
     pub text: String,
 }
 
-/// 一条对话回答的事实。
+/// Facts about a chat answer.
 #[derive(Debug, Clone, Copy)]
 pub struct AnswerFacts<'a> {
     pub content: &'a str,
     pub steps: &'a [TranscriptStep],
-    /// 要求回答是 JSON 形状：只生成查询的一轮不要求。
+    /// Requires the answer to have a JSON shape; not required for query-only turns.
     pub structured_expected: bool,
     pub status: RunStatus,
-    /// 自动化里途中要人回答、确认或补凭据，没有人能处理。
+    /// Automation requires a human response, confirmation, or additional credentials along the way,
+    /// but no one is available to handle it.
     pub blocked: bool,
     pub feedback: Option<(FeedbackRating, &'a [FeedbackReason])>,
 }
 
-/// 一条对话回答的规则打分。
+/// Rule-based scoring for a chat answer.
 pub fn score_answer(facts: &AnswerFacts<'_>, syntax: &dyn QuerySyntax) -> Vec<DimensionScore> {
     let calls = facts
         .steps
@@ -137,7 +141,7 @@ pub fn score_answer(facts: &AnswerFacts<'_>, syntax: &dyn QuerySyntax) -> Vec<Di
     dimensions
 }
 
-/// 一份事件 RCA 的规则打分：写出来了没有，以及大家的评价。
+/// Rule-based scoring for an incident RCA: whether it is written and people's feedback.
 pub fn score_rca(
     summary: &str,
     feedback_given: Option<(FeedbackRating, &[FeedbackReason])>,
@@ -153,7 +157,7 @@ pub fn score_rca(
     dimensions
 }
 
-/// 有的维度的平均。
+/// The average of the available dimensions.
 pub fn mean(dimensions: &[DimensionScore]) -> f64 {
     if dimensions.is_empty() {
         return 0.0;
@@ -166,8 +170,8 @@ pub fn mean(dimensions: &[DimensionScore]) -> f64 {
         / dimensions.len() as f64
 }
 
-/// 工具调用里带的查询：`sql`、`promql` 参数，或成对的 `language` 与 `statement`；经
-/// `tools_call` 调用的工具看它转交的参数。
+/// Queries included in tool calls: `sql`, `promql` parameters, or paired `language` and
+/// `statement`; for tools called through `tools_call`, inspect the forwarded arguments.
 pub fn queries(steps: &[TranscriptStep]) -> Vec<ToolQuery> {
     let mut found = Vec::new();
 
@@ -261,7 +265,7 @@ fn feedback(given: Option<(FeedbackRating, &[FeedbackReason])>) -> Option<Dimens
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agent::runs::TranscriptCall;
+    use crate::runs::TranscriptCall;
 
     struct Syntax;
 

@@ -1,16 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! VRL 里查组织的扩展表（`lookup`）和 IP 的地理位置（`geoip_lookup`）。
+//! Looks up an organization's extend tables (`lookup`) and an IP's location (`geoip_lookup`)
+//! from VRL.
 //!
-//! - 数据在二进制里（扩展表、DB-IP 库），启动时由 [`install`] 接进来一次；没接的进程里两个函数都
-//!   返回 `null`。
-//! - 组织在编译程序时绑进函数（[`super::VrlRuntime::compile_for`]），程序改不了：`%` 元数据可以被
-//!   程序改写，所以组织不从那里读。只做检查的编译（[`super::VrlRuntime::compile`]）没有组织，
-//!   `lookup` 返回 `null`。
-//! - `lookup` 的表名必须写成字面量：编译时就知道程序读哪些表，执行前由
-//!   [`super::VrlRuntime::prepare`] 先把它们读进来，执行时 VRL 同步地查内存。
-//! - 两个函数都不会失败：查不到、键不是文本、IP 不合法，都返回 `null`。
+//! - The data lives in the binary (extend tables, the DB-IP database) and is connected
+//!   once at startup by [`install`]; in a process where it is not connected, both functions
+//!   return `null`.
+//! - The organization is bound into the functions when the program is compiled
+//!   ([`super::VrlRuntime::compile_for`]) and the program cannot change it: `%` metadata
+//!   can be rewritten by the program, so the organization is not read from there. A compile
+//!   used only for checking ([`super::VrlRuntime::compile`]) has no organization, so
+//!   `lookup` returns `null`.
+//! - The table name passed to `lookup` must be a literal: the tables a program reads are
+//!   known at compile time, [`super::VrlRuntime::prepare`] reads them in before execution,
+//!   and VRL then looks them up in memory synchronously at execution time.
+//! - Neither function can fail: nothing found, a non-text key, or an invalid IP all return
+//!   `null`.
 
 use std::{
     net::IpAddr,
@@ -18,27 +24,30 @@ use std::{
 };
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id};
 use parking_lot::Mutex;
 use vrl::compiler::prelude::*;
 
-use crate::shared::{Result, ids::Id};
-
-/// VRL 函数读的数据。
+/// The data that the VRL functions read.
 #[async_trait]
 pub trait VrlLookups: Send + Sync {
-    /// 把组织的这几张扩展表读进来（或在过期时重读），之后 [`Self::row`] 才查得到。
+    /// Loads the given extend tables of the organization (or reloads them when stale); only
+    /// afterward can [`Self::row`] find them.
     async fn prepare(&self, org: &Id, tables: &[String]) -> Result<()>;
 
-    /// 组织的扩展表 `table` 里键为 `key` 的那一行；没有这张表、这一行，或还没读进来时为 `None`。
+    /// The row with key `key` in the organization's extend table `table`; `None` if there is
+    /// no such table, no such row, or it has not been loaded yet.
     fn row(&self, org: &Id, table: &str, key: &str) -> Option<serde_json::Value>;
 
-    /// IP 地址所在的地方（`country`、`city`……）；库里没有时为 `None`。
+    /// The location of an IP address (`country`, `city`, ...);
+    /// `None` if the database has no entry.
     fn geoip(&self, ip: IpAddr) -> Option<serde_json::Value>;
 }
 
 static INSTALLED: OnceLock<Arc<dyn VrlLookups>> = OnceLock::new();
 
-/// 接上本进程的扩展表和地理位置库。只认第一次。
+/// Connects this process's extend tables and geolocation database.
+/// Only the first call takes effect.
 pub fn install(lookups: Arc<dyn VrlLookups>) {
     let _ = INSTALLED.set(lookups);
 }
@@ -47,7 +56,8 @@ pub(super) fn installed() -> Option<Arc<dyn VrlLookups>> {
     INSTALLED.get().cloned()
 }
 
-/// 编译一个程序时额外可用的函数。`tables` 收集程序里 `lookup` 写的表名。
+/// Extra functions available when compiling a program.
+/// `tables` collects the table names written in the program's `lookup` calls.
 pub(super) fn functions(
     org: Option<&Id>,
     lookups: Option<Arc<dyn VrlLookups>>,

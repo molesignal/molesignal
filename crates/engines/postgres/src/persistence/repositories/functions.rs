@@ -8,13 +8,11 @@
 //! `JsRuntime` 走 `feature = "js"`）。
 
 use async_trait::async_trait;
+use domain::function::{Function, FunctionLanguage, FunctionRepository};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::function::{Function, FunctionLanguage, FunctionRepository},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgFunctionRepository {
     pool: PgPool,
@@ -174,13 +172,13 @@ impl FunctionRepository for PgFunctionRepository {
 ///   走 `JsFunctionExecutor::parse_only` 在 throwaway V8 isolate 上做 syntax check，
 ///   语法错抛 invalid。
 ///
-/// VRL 路径：跑 [`crate::infra::runtime::VrlRuntime::compile`]，diagnostics 透传给客户端。
+/// VRL 路径：跑 [`function_runtime::VrlRuntime::compile`]，diagnostics 透传给客户端。
 pub fn precheck_compile(
     language: FunctionLanguage,
     source: &str,
     js_runtime_enabled: bool,
 ) -> Result<()> {
-    use crate::shared::Error;
+    use kernel::Error;
 
     if source.is_empty() {
         return Err(Error::invalid("function source must not be empty"));
@@ -193,7 +191,7 @@ pub fn precheck_compile(
     match language {
         FunctionLanguage::Vrl => {
             // 真编译：VRL 解释器 stdlib `del` / `parse_json` / 字段赋值 全在。
-            crate::infra::runtime::VrlRuntime::new()
+            function_runtime::VrlRuntime::new()
                 .compile(source)
                 .map(|_| ())
         }
@@ -206,7 +204,7 @@ pub fn precheck_compile(
 
             #[cfg(feature = "js-runtime")]
             {
-                crate::infra::runtime::js_executor::JsFunctionExecutor::parse_only(source)
+                function_runtime::js_executor::JsFunctionExecutor::parse_only(source)
             }
 
             #[cfg(not(feature = "js-runtime"))]

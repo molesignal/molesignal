@@ -14,9 +14,8 @@ use async_trait::async_trait;
 pub use book::{belongs_to, day_kind, forget, remember, replace_all};
 use chrono::NaiveDate;
 pub use ics::parse_ics;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 /// 日历名称最多几个字。
 pub const MAX_CALENDAR_NAME_CHARS: usize = 80;

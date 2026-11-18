@@ -14,8 +14,14 @@ mod sign;
 mod sms;
 mod voice;
 
+use domain::notify::{
+    connector::{ConnectorAddress, ConnectorRegion, NotifyConnector, NotifyMessage, RegionHost},
+    template::ProviderTemplate,
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use signals::http_trace::{self, HttpTarget};
 pub use sms::{TENCENT_SMS_CONNECTOR_TYPE, TencentSmsConnectorAdapter};
 use url::Url;
 pub use voice::{TENCENT_VOICE_CONNECTOR_TYPE, TencentVoiceConnectorAdapter};
@@ -23,18 +29,6 @@ pub use voice::{TENCENT_VOICE_CONNECTOR_TYPE, TencentVoiceConnectorAdapter};
 use super::{
     common::{self, default_timeout_secs},
     phone,
-};
-use crate::{
-    domain::notify::{
-        connector::{
-            ConnectorAddress, ConnectorRegion, NotifyConnector, NotifyMessage, RegionHost,
-        },
-        template::ProviderTemplate,
-    },
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-    },
 };
 
 /// 通知模板里写给腾讯云的那一份用这个名字。
@@ -319,10 +313,10 @@ mod tests {
     pub(super) fn draft(
         connector_type: &str,
         config: Value,
-    ) -> crate::domain::notify::connector::NotifyConnector {
-        crate::domain::notify::connector::NotifyConnector {
-            id: crate::shared::ids::Id::from_string("draft"),
-            organization_id: crate::shared::ids::Id::from_string("org-1"),
+    ) -> domain::notify::connector::NotifyConnector {
+        domain::notify::connector::NotifyConnector {
+            id: kernel::ids::Id::from_string("draft"),
+            organization_id: kernel::ids::Id::from_string("org-1"),
             name: String::new(),
             connector_type: connector_type.into(),
             config,
@@ -332,8 +326,8 @@ mod tests {
             last_tested_at: None,
             last_test_status: None,
             last_test_error: None,
-            created_at: crate::shared::time::TimestampMicros(1),
-            updated_at: crate::shared::time::TimestampMicros(1),
+            created_at: kernel::time::TimestampMicros(1),
+            updated_at: kernel::time::TimestampMicros(1),
         }
     }
 

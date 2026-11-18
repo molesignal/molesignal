@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
-use crate::shared::{ids::Id, time::TimestampMicros};
-
-/// 请求与响应大小按 MiB 设：默认 1，最多 8。
+/// Request and response sizes are set in MiB: the default is 1, and the maximum is 8.
 pub const DEFAULT_REQUEST_SIZE: i32 = 1;
 pub const DEFAULT_RESPONSE_SIZE: i32 = 1;
 pub const HARD_MAX_SIZE: i32 = 8;
@@ -21,9 +20,9 @@ pub struct InboundMcpSettings {
     pub org_id: Id,
     pub enabled: bool,
     pub allowed_origins: Vec<String>,
-    /// 一次请求的正文最大多少 MiB。
+    /// The maximum request body size in MiB.
     pub max_request_size: i32,
-    /// 一次响应最大多少 MiB。
+    /// The maximum response size in MiB.
     pub max_response_size: i32,
     pub max_concurrent_calls: i32,
     pub calls_per_minute: i32,
@@ -52,18 +51,18 @@ impl InboundMcpSettings {
         }
     }
 
-    /// 一次请求的正文最多多少字节。
+    /// The maximum request body size in bytes.
     pub fn max_request_bytes(&self) -> usize {
         mib_to_bytes(self.max_request_size)
     }
 
-    /// 一次响应最多多少字节。
+    /// The maximum response size in bytes.
     pub fn max_response_bytes(&self) -> usize {
         mib_to_bytes(self.max_response_size)
     }
 }
 
-/// 无论组织怎么设，一次请求或响应都不会超过这么多字节。
+/// The maximum bytes per request or response, regardless of the organization's settings.
 pub fn hard_max_bytes() -> usize {
     mib_to_bytes(HARD_MAX_SIZE)
 }
@@ -84,7 +83,8 @@ mod tests {
         settings.max_response_size = 8;
         assert_eq!(settings.max_response_bytes(), 8 * 1_048_576);
 
-        // 存坏了的 0 也至少按 1 MiB 算，不会把每个响应都拦下。
+        // Even an incorrectly stored 0 counts as at least 1 MiB, so it does not block every
+        // response.
         settings.max_response_size = 0;
         assert_eq!(settings.max_response_bytes(), 1_048_576);
     }

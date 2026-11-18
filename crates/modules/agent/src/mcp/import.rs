@@ -1,39 +1,40 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 粘贴其他 MCP 客户端的配置，一次导入一台或多台服务器。
+//! Paste another MCP client's configuration to import one or more servers at once.
 //!
-//! 认得这几种写法：Claude Desktop / Claude Code / Cursor 的 `{"mcpServers": {...}}`，VS Code 的
-//! `{"servers": {...}}` 与设置里的 `{"mcp": {"servers": {...}}}`，也可以直接是 `{名称: 配置}`。
-//! 有 `url` 的直接可用（`type` 为 `sse` 或地址以 `/sse` 结尾时按旧版 SSE 连接）；有 `command`
-//! 的保存下来，要在 Mole Runner 上运行。值里引用 `${input:…}`、`${env:…}` 这类变量时不导入
-//! 这个值，记在 `missing` 里，导入后再填。
+//! Recognizes Claude Desktop / Claude Code / Cursor's `{"mcpServers": {...}}`, VS Code's
+//! `{"servers": {...}}` and `{"mcp": {"servers": {...}}}` in settings, or a direct
+//! `{name: config}`. Servers with `url` are ready to use (connect using legacy SSE when `type` is
+//! `sse` or the address ends in `/sse`); servers with `command` are saved to run on Mole Runner.
+//! Values referencing variables such as `${input:…}` or `${env:…}` are not imported; they are
+//! recorded in `missing` to be filled in after import.
 
+use kernel::{Error, Result};
 use serde_json::{Map, Value};
 
 use super::values::NamedValueInput;
-use crate::shared::{Error, Result};
 
 const MAX_SERVERS: usize = 50;
 
-/// 解析出的一台服务器，还没校验。
+/// A parsed server that has not yet been validated.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportedServer {
     pub name: String,
-    /// `streamable_http`、`sse` 或 `stdio`。
+    /// `streamable_http`, `sse`, or `stdio`.
     pub transport: String,
     pub endpoint_url: Option<String>,
-    /// stdio 服务器的命令行（命令加参数）。
+    /// The command line for a stdio server (command plus arguments).
     pub command: Option<String>,
     pub headers: Vec<NamedValueInput>,
     pub env: Vec<NamedValueInput>,
-    /// 引用了变量、导入后要补填的请求头与环境变量。
+    /// Headers and environment variables that reference variables and need filling in after import.
     pub missing: Vec<String>,
-    /// 原配置里标了 `disabled`。
+    /// Marked as `disabled` in the original configuration.
     pub disabled: bool,
 }
 
-/// 各家客户端放服务器列表的位置。
+/// Locations where different clients store their server lists.
 const SERVER_PATHS: &[&[&str]] = &[&["mcpServers"], &["servers"], &["mcp", "servers"]];
 
 fn servers_map(value: &Value) -> Option<&Map<String, Value>> {
@@ -65,7 +66,8 @@ fn uses_variable(value: &str) -> bool {
     value.contains("${")
 }
 
-/// 一个参数要不要加引号：带空白或引号时用单引号包起来。
+/// Determines whether to quote an argument: wraps it in single quotes if it contains whitespace
+/// or quotes.
 fn quote(argument: &str) -> String {
     if !argument.is_empty()
         && !argument
@@ -78,7 +80,8 @@ fn quote(argument: &str) -> String {
     format!("'{}'", argument.replace('\'', r"'\''"))
 }
 
-/// 请求头或环境变量的对象 → 列表；引用变量的值不导入，按敏感值记成待填。
+/// Converts a header or environment variable object to a list; skips values that reference
+/// variables and marks them as sensitive values to be filled in.
 fn named_values(value: Option<&Value>, missing: &mut Vec<String>) -> Result<Vec<NamedValueInput>> {
     let Some(value) = value else {
         return Ok(Vec::new());
@@ -217,7 +220,7 @@ fn imported_server(name: &str, config: &Value) -> Result<ImportedServer> {
     })
 }
 
-/// 解析一段客户端配置。格式不对时说明哪一台有问题。
+/// Parses a client configuration. Identifies the problematic server if the format is invalid.
 pub fn parse_client_config(value: &Value) -> Result<Vec<ImportedServer>> {
     let servers = servers_map(value).ok_or_else(|| {
         Error::invalid("no MCP servers found; paste an object with mcpServers or servers")

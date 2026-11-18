@@ -8,23 +8,21 @@
 
 use std::sync::Arc;
 
+use domain::{
+    query::{PromqlEngine, QueryEngine, QueryRequest},
+    storage::DatasetTypeId,
+};
+use kernel::Result;
+use protocol::query::v1::{
+    ExecuteOp, ExecuteRequest, ExecuteResponse,
+    query_execution_service_server::{QueryExecutionService, QueryExecutionServiceServer},
+};
 use serde::Serialize;
 use tonic::{Request, Response, Status};
 
-use crate::{
-    domain::{
-        query::{PromqlEngine, QueryEngine, QueryRequest},
-        storage::DatasetTypeId,
-    },
-    infra::{
-        cluster::grpc_status::error_to_status,
-        query::grants::{self, ReadGrants},
-    },
-    protocol::query::v1::{
-        ExecuteOp, ExecuteRequest, ExecuteResponse,
-        query_execution_service_server::{QueryExecutionService, QueryExecutionServiceServer},
-    },
-    shared::Result,
+use crate::infra::{
+    cluster::grpc_status::error_to_status,
+    query::grants::{self, ReadGrants},
 };
 
 pub struct QueryExecutionGrpc {

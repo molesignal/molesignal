@@ -1,17 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 公共 OTLP 接入、进程内 finished-span exporter、tail sampler 与两个 sink
-//! 共用的有界 Trace 契约。
+//! Bounded trace contract shared by public OTLP intake, the in-process finished-span exporter,
+//! the tail sampler, and the two sinks.
 //!
-//! MoleSignal 固定使用 OpenTelemetry Semantic Conventions 1.43.0。标准字段保持
-//! 规范名称；产品私有字段必须位于 `molesignal.*` 命名空间。
+//! MoleSignal pins OpenTelemetry Semantic Conventions to 1.43.0. Standard fields keep their
+//! specification names; product-private fields must be in the `molesignal.*` namespace.
 
 use std::{
     collections::{BTreeMap, HashSet},
     sync::OnceLock,
 };
 
+use domain::{
+    intake::RawEvent,
+    stream::{FieldDef, FieldType, Schema, StreamIndexType},
+};
+use kernel::{Error, Result, time::TimestampMicros};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -20,13 +25,6 @@ use sha2::{Digest, Sha256};
 use super::summary::{
     TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD, TRACE_SUMMARY_MARKER_FIELD,
     TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
-};
-use crate::{
-    domain::{
-        intake::RawEvent,
-        stream::{FieldDef, FieldType, Schema},
-    },
-    shared::{Error, Result, time::TimestampMicros},
 };
 
 pub const SEMCONV_VERSION: &str = "1.43.0";
@@ -239,14 +237,16 @@ impl CanonicalSpan {
         }
     }
 
-    /// 稳定内容摘要，用于 `(org_id, trace_id, span_id)` 的相同重试/冲突判定。
+    /// Stable content digest, used to tell an identical retry from a conflict for
+    /// `(org_id, trace_id, span_id)`.
     pub fn content_digest(&self) -> [u8; 32] {
         let bytes = serde_json::to_vec(self).unwrap_or_default();
         *blake3::hash(&bytes).as_bytes()
     }
 
-    /// 只读取 [`Self::into_raw_event`] 写出的稳定 canonical 字段。用于启动早期
-    /// tracing callback queue 在 AppState/TracePipeline 激活后无损接管。
+    /// Reads only the stable canonical fields written by [`Self::into_raw_event`]. Used so that
+    /// the early-startup tracing callback queue can be taken over losslessly once
+    /// AppState/TracePipeline is activated.
     pub fn try_from_raw_event(event: &RawEvent) -> Result<Self> {
         let fields = &event.fields;
 
@@ -361,8 +361,9 @@ impl CanonicalSpan {
         })
     }
 
-    /// 存储契约既保留完整嵌套结构，也复制常用标准维度为顶层列，兼容现有
-    /// Trace 查询、Tantivy exact 索引和服务图。
+    /// The storage contract keeps the full nested structure and also copies commonly used
+    /// standard dimensions into top-level columns, staying compatible with existing trace
+    /// queries, the Tantivy exact index, and the service graph.
     pub fn into_raw_event(self) -> RawEvent {
         let mut fields = Map::new();
         fields.insert("trace_id".into(), Value::String(self.trace_id));
@@ -552,74 +553,57 @@ impl TraceLimits {
 /// Fresh `_sys/traces/_molesignal` streams start with this stable field order.
 /// There is intentionally no legacy-schema union or migration.
 pub fn canonical_trace_schema() -> Schema {
-    let field = |name: &str, data_type: FieldType, indexed: bool, exact: bool| FieldDef {
+    // The identifiers are indexed whole; every other field has no index.
+    let field = |name: &str, data_type: FieldType, exact: bool| FieldDef {
         name: name.into(),
         data_type,
         nullable: true,
-        index_type: None,
-        indexed,
+        index_type: if exact {
+            StreamIndexType::Exact
+        } else {
+            StreamIndexType::None
+        },
         encrypted: false,
-        exact,
     };
 
     Schema {
         fields: vec![
-            field("trace_id", FieldType::Utf8, true, true),
-            field("span_id", FieldType::Utf8, true, true),
-            field("parent_span_id", FieldType::Utf8, true, true),
-            field("trace_flags", FieldType::Int64, false, false),
-            field("trace_state", FieldType::Utf8, false, false),
-            field("name", FieldType::Utf8, false, false),
-            field("kind", FieldType::Int64, false, false),
-            field("start_time_unix_nano", FieldType::Int64, false, false),
-            field("end_time_unix_nano", FieldType::Int64, false, false),
-            field("duration_ns", FieldType::Int64, false, false),
-            field("status_code", FieldType::Utf8, false, false),
-            field("status_message", FieldType::Utf8, false, false),
-            field("service.namespace", FieldType::Utf8, false, false),
-            field("service.name", FieldType::Utf8, true, true),
-            field("molesignal.execution.role", FieldType::Utf8, false, false),
-            field(TRACE_SUMMARY_MARKER_FIELD, FieldType::Utf8, true, true),
-            field(TRACE_SUMMARY_START_NS_FIELD, FieldType::Int64, false, false),
-            field(
-                TRACE_SUMMARY_DURATION_NS_FIELD,
-                FieldType::Int64,
-                false,
-                false,
-            ),
-            field(
-                TRACE_SUMMARY_SPAN_COUNT_FIELD,
-                FieldType::Int64,
-                false,
-                false,
-            ),
-            field(
-                TRACE_SUMMARY_ERROR_COUNT_FIELD,
-                FieldType::Int64,
-                false,
-                false,
-            ),
-            field("resource", FieldType::Json, false, false),
-            field("scope", FieldType::Json, false, false),
-            field("attributes", FieldType::Json, false, false),
-            field("events", FieldType::Json, false, false),
-            field("links", FieldType::Json, false, false),
-            field("dropped_attributes_count", FieldType::Int64, false, false),
-            field("dropped_events_count", FieldType::Int64, false, false),
-            field("dropped_links_count", FieldType::Int64, false, false),
-            field("schema_version", FieldType::Int64, false, false),
-            field(
-                "semantic_conventions_version",
-                FieldType::Utf8,
-                false,
-                false,
-            ),
-            field("sampling_reason", FieldType::Utf8, false, false),
-            field("partial", FieldType::Bool, false, false),
-            field("partial_reasons", FieldType::Json, false, false),
-            field("late", FieldType::Bool, false, false),
-            field("duplicate", FieldType::Bool, false, false),
-            field("conflict", FieldType::Bool, false, false),
+            field("trace_id", FieldType::Utf8, true),
+            field("span_id", FieldType::Utf8, true),
+            field("parent_span_id", FieldType::Utf8, true),
+            field("trace_flags", FieldType::Int64, false),
+            field("trace_state", FieldType::Utf8, false),
+            field("name", FieldType::Utf8, false),
+            field("kind", FieldType::Int64, false),
+            field("start_time_unix_nano", FieldType::Int64, false),
+            field("end_time_unix_nano", FieldType::Int64, false),
+            field("duration_ns", FieldType::Int64, false),
+            field("status_code", FieldType::Utf8, false),
+            field("status_message", FieldType::Utf8, false),
+            field("service.namespace", FieldType::Utf8, false),
+            field("service.name", FieldType::Utf8, true),
+            field("molesignal.execution.role", FieldType::Utf8, false),
+            field(TRACE_SUMMARY_MARKER_FIELD, FieldType::Utf8, true),
+            field(TRACE_SUMMARY_START_NS_FIELD, FieldType::Int64, false),
+            field(TRACE_SUMMARY_DURATION_NS_FIELD, FieldType::Int64, false),
+            field(TRACE_SUMMARY_SPAN_COUNT_FIELD, FieldType::Int64, false),
+            field(TRACE_SUMMARY_ERROR_COUNT_FIELD, FieldType::Int64, false),
+            field("resource", FieldType::Json, false),
+            field("scope", FieldType::Json, false),
+            field("attributes", FieldType::Json, false),
+            field("events", FieldType::Json, false),
+            field("links", FieldType::Json, false),
+            field("dropped_attributes_count", FieldType::Int64, false),
+            field("dropped_events_count", FieldType::Int64, false),
+            field("dropped_links_count", FieldType::Int64, false),
+            field("schema_version", FieldType::Int64, false),
+            field("semantic_conventions_version", FieldType::Utf8, false),
+            field("sampling_reason", FieldType::Utf8, false),
+            field("partial", FieldType::Bool, false),
+            field("partial_reasons", FieldType::Json, false),
+            field("late", FieldType::Bool, false),
+            field("duplicate", FieldType::Bool, false),
+            field("conflict", FieldType::Bool, false),
         ],
     }
 }
@@ -730,9 +714,11 @@ fn truncate_utf8(value: &str, limit: usize) -> String {
     value[..end].to_string()
 }
 
-/// 对完整对象 key、SQL shape 等敏感但需要稳定关联的值生成可选 keyed fingerprint。
-/// key 只从进程环境读取并缓存，绝不写入 config diff、日志、Span 或响应。未配置时
-/// 返回 None，调用方不得退回 unkeyed hash（后者容易被字典反推）。
+/// Generates an optional keyed fingerprint for values such as full object keys and SQL shapes
+/// that are sensitive but need stable correlation. The key is read only from the process
+/// environment and cached, and is never written to a config diff, log, span, or response.
+/// When it is not configured, it returns None; callers must not fall back to an unkeyed hash
+/// (the latter is easily reversed with a dictionary).
 pub fn optional_hmac_fingerprint(value: &str) -> Option<String> {
     static KEY: OnceLock<Option<Vec<u8>>> = OnceLock::new();
 
@@ -826,10 +812,12 @@ fn sanitize_map(map: &mut Map<String, Value>, max_string_bytes: usize, stats: &m
     });
 }
 
-/// Span、进程内日志与审计 payload 共用的递归隐私边界。
+/// Recursive privacy boundary shared by spans, in-process logs, and audit payloads.
 ///
-/// 禁止 key 会被移除；包含凭据、邮件地址、完整 URL 等敏感模式的字符串会整体替换，
-/// 其余字符串按 UTF-8 边界截断。调用方可用返回值记录丢弃/截断诊断，但绝不能记录原值。
+/// Forbidden keys are removed; strings containing sensitive patterns such as credentials, email
+/// addresses, or full URLs are replaced as a whole, and all other strings are truncated at
+/// UTF-8 boundaries. Callers can use the return value to record drop/truncation diagnostics,
+/// but must never record the original value.
 pub fn sanitize_telemetry_fields(
     fields: &mut Map<String, Value>,
     max_string_bytes: usize,
@@ -881,7 +869,8 @@ fn truncate_attributes(attributes: &mut BTreeMap<String, Value>, maximum: usize)
     dropped
 }
 
-/// 入队前与每个 sink 前都调用同一个函数。它不会保留禁止字段的原值。
+/// The same function is called before enqueueing and before each sink.
+/// It never retains the original value of a forbidden field.
 pub fn sanitize_and_limit_span(span: &mut CanonicalSpan, limits: TraceLimits) -> SanitizeStats {
     let mut stats = SanitizeStats::default();
 
@@ -1009,7 +998,7 @@ pub fn validate_telemetry_fields(
     validate_map(fields, max_string_bytes)
 }
 
-/// sink 前的第二道不变量检查。
+/// Second invariant check before the sink.
 pub fn validate_sink_invariants(span: &CanonicalSpan, limits: TraceLimits) -> Result<()> {
     if span.trace_id.len() != 32 || !span.trace_id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err(Error::invalid(
@@ -1077,7 +1066,8 @@ pub fn validate_sink_invariants(span: &CanonicalSpan, limits: TraceLimits) -> Re
     Ok(())
 }
 
-/// 进程内 tracing layer 的最小完成态输入。转换后立即进入完整 CanonicalSpan。
+/// Minimal finished-state input from the in-process tracing layer.
+/// After conversion it immediately enters the full CanonicalSpan.
 pub struct FinishedSpan {
     pub name: String,
     pub trace_id: Option<String>,
@@ -1105,7 +1095,8 @@ fn take_btree(
         .collect()
 }
 
-/// 保持旧调用点的 RawEvent 接口，但内部只经 CanonicalSpan 生成存储行。
+/// Keeps the RawEvent interface of the legacy call sites, but internally generates storage rows
+/// only through CanonicalSpan.
 pub fn finished_span_to_event(mut fields: Map<String, Value>, span: FinishedSpan) -> RawEvent {
     let trace_id = span.trace_id.unwrap_or_else(|| "0".repeat(32));
     let span_id = span.span_id.unwrap_or_else(|| "0".repeat(16));

@@ -14,15 +14,13 @@ pub use browser::{BrowserAction, BrowserJourneySpec, BrowserStep, Viewport};
 pub use http::{
     ClientCertificate, ClientKey, HeaderValue, HostBinding, HttpJourneySpec, HttpStep, HttpVersion,
 };
+use kernel::{ids::Id, time::TimestampMicros};
 pub use network::{
     DnsSpec, GrpcCall, GrpcSpec, IcmpSpec, SshAuthentication, SshSpec, TcpSpec, TlsSpec,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    domain::alerting::incident::Severity,
-    shared::{ids::Id, time::TimestampMicros},
-};
+use crate::domain::alerting::incident::Severity;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

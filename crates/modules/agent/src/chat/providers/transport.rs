@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 调模型服务的 HTTP 传输：连接超时、读空闲超时与有限重试。
+//! HTTP transport for model service calls: connection timeout, read idle timeout, and limited
+//! retries.
 //!
-//! 超时按"多久没收到数据"算，而不是一次请求的总时长：流式回答可能持续几分钟，总超时会把
-//! 正常的长回答截断。重试只发生在拿到可用响应之前（连接失败、限流、服务端暂时不可用），
-//! 已经开始交给调用方的回答不会重来。
+//! The timeout measures "how long no data has arrived", rather than the total request duration:
+//! streaming responses may last several minutes, and a total timeout would cut off normal long
+//! responses. Retries only happen before a usable response arrives (connection failure, rate
+//! limiting, or temporary server unavailability). Responses already being delivered to the caller
+//! are not restarted.
 
 use std::{
     future::Future,
@@ -14,24 +17,25 @@ use std::{
 
 use reqwest::{Response, StatusCode, header::HeaderMap};
 
-/// 一次调用在第一次之外最多再试几次。
+/// The maximum number of retries after the initial attempt for one call.
 pub const DEFAULT_MAX_RETRIES: u32 = 2;
 
-/// 模型服务没有配置超时时，多久没收到数据算失败。
+/// How long without receiving data counts as failure when the model service has no timeout setting.
 pub const DEFAULT_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 
-/// 建立连接最多等这么久；配置的超时更短时取配置值。
+/// The maximum wait for a connection; uses the configured timeout if shorter.
 const CONNECT_TIMEOUT_CAP: Duration = Duration::from_secs(10);
 
 const BASE_BACKOFF: Duration = Duration::from_millis(500);
 const MAX_BACKOFF: Duration = Duration::from_secs(8);
 
-/// 服务端要求的等待时间超过这个值时按这个值等，免得一轮回答卡在重试上。
+/// Caps the server-requested wait at this value so that a response turn does not get stuck
+/// retrying.
 const MAX_RETRY_AFTER: Duration = Duration::from_secs(20);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TransportOptions {
-    /// 多久没有收到任何数据就判定这次请求失败。
+    /// How long without receiving any data causes the request to be considered failed.
     pub idle_timeout: Duration,
     pub max_retries: u32,
 }
@@ -46,7 +50,8 @@ impl Default for TransportOptions {
 }
 
 impl TransportOptions {
-    /// 按模型服务配置里的 `timeout_ms` 构造；不是正数时用默认值。
+    /// Constructs from `timeout_ms` in the model service configuration; uses the default if not
+    /// positive.
     pub fn from_timeout_ms(timeout_ms: i64) -> Self {
         let idle_timeout = u64::try_from(timeout_ms)
             .ok()
@@ -64,7 +69,7 @@ impl TransportOptions {
         self.idle_timeout.min(CONNECT_TIMEOUT_CAP)
     }
 
-    /// 带连接超时与读空闲超时的 HTTP 客户端。
+    /// An HTTP client with connection and read idle timeouts.
     pub fn client(&self) -> reqwest::Client {
         reqwest::Client::builder()
             .connect_timeout(self.connect_timeout())
@@ -77,15 +82,17 @@ impl TransportOptions {
     }
 }
 
-/// 这个状态码值得再试一次：请求超时、限流、服务端暂时不可用或过载。
+/// This status code warrants a retry: request timeout, rate limiting, temporary server
+/// unavailability, or overload.
 pub fn retryable_status(status: StatusCode) -> bool {
     matches!(status.as_u16(), 408 | 429 | 500 | 502 | 503 | 504 | 529)
 }
 
-/// 第 `attempt` 次重试（从 0 起）前等多久。
+/// How long to wait before retry `attempt` (starting at 0).
 ///
-/// 服务端在 `retry-after-ms` 或 `retry-after`（秒）里给了时间就照办，但不超过上限；
-/// 否则指数退避，再加最多 250 ms 的抖动，免得同时失败的请求一起重来。
+/// Uses the server-provided time in `retry-after-ms` or `retry-after` (seconds), capped at the
+/// limit; otherwise uses exponential backoff plus up to 250 ms of jitter so that requests failing
+/// simultaneously do not all retry together.
 pub fn retry_delay(attempt: u32, headers: Option<&HeaderMap>) -> Duration {
     if let Some(requested) = headers.and_then(requested_delay) {
         return requested.min(MAX_RETRY_AFTER);
@@ -123,11 +130,13 @@ fn jitter() -> Duration {
     Duration::from_millis(u64::from(nanos % 250))
 }
 
-/// 发出一次逻辑请求。
+/// Sends one logical request.
 ///
-/// `send` 每次调用都重新构造并发出请求（请求体不能重放）。连接失败与可重试的状态码按
-/// [`retry_delay`] 等待后重来；读超时不重试，同样的慢请求再来一遍多半还是慢。重试用完后
-/// 原样返回最后一次的结果，由调用方决定怎么报错。
+/// Each `send` call reconstructs and sends the request (the request body cannot be replayed).
+/// Connection failures and retryable status codes trigger retries after waiting for
+/// [`retry_delay`]; read timeouts are not retried, since the same slow request would likely be
+/// slow again. After retries are exhausted, returns the last result unchanged, leaving error
+/// reporting to the caller.
 pub async fn send_with_retry<F, Fut>(
     options: TransportOptions,
     mut send: F,
@@ -243,7 +252,7 @@ mod tests {
         assert!(late <= MAX_BACKOFF + Duration::from_millis(250));
     }
 
-    /// 前 `failures` 次回 `status`，之后回 200。
+    /// Returns `status` for the first `failures` attempts, then returns 200.
     struct FlakyResponder {
         status: u16,
         failures: usize,
@@ -316,7 +325,7 @@ mod tests {
         let client = options.client();
         let attempts = AtomicUsize::new(0);
 
-        // 端口 9 (discard) 在本机通常没有监听，连接立刻被拒绝。
+        // Port 9 (discard) usually has no local listener, so the connection is refused immediately.
         let outcome = send_with_retry(options, || {
             attempts.fetch_add(1, Ordering::SeqCst);
             client.post("http://127.0.0.1:9/unreachable").send()

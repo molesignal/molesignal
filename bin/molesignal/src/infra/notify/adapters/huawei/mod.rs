@@ -11,6 +11,8 @@ mod sms;
 mod voice;
 
 use aws_lc_rs::rand::{SecureRandom, SystemRandom};
+use domain::notify::{connector::NotifyMessage, template::ProviderTemplate};
+use kernel::{Error, Result};
 use serde::Deserialize;
 pub use sms::{HUAWEI_SMS_CONNECTOR_TYPE, HuaweiSmsConnectorAdapter};
 pub use voice::{HUAWEI_VOICE_CONNECTOR_TYPE, HuaweiVoiceConnectorAdapter};
@@ -18,10 +20,6 @@ pub use voice::{HUAWEI_VOICE_CONNECTOR_TYPE, HuaweiVoiceConnectorAdapter};
 use super::{
     common::{self, default_timeout_secs},
     phone,
-};
-use crate::{
-    domain::notify::{connector::NotifyMessage, template::ProviderTemplate},
-    shared::{Error, Result},
 };
 
 /// 通知模板里写给华为云的那一份用这个名字。

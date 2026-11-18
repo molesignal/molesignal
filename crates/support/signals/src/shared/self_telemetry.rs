@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! tracing callback 与异步 self-intake worker 之间的无阻塞桥。
+//! Non-blocking bridge between the tracing callback and the async self-intake worker.
 
 use std::{
     cell::Cell,
@@ -15,6 +15,11 @@ use std::{
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
+use domain::{
+    intake::RawEvent,
+    metrics::{METRIC_KIND_FIELD, METRIC_NAME_FIELD},
+};
+use kernel::{ids::Id as MoleId, time::TimestampMicros};
 use prometheus::{IntCounterVec, IntGaugeVec};
 use serde_json::{Map, Number, Value};
 use tokio::sync::mpsc;
@@ -25,18 +30,10 @@ use tracing::{
 };
 use tracing_subscriber::{Layer, layer::Context, registry::LookupSpan};
 
-use crate::{
-    domain::{
-        intake::RawEvent,
-        metrics::{METRIC_KIND_FIELD, METRIC_NAME_FIELD},
-    },
-    shared::{
-        ids::Id as MoleId,
-        metrics::{register_int_counter_vec, register_int_gauge_vec},
-        time::TimestampMicros,
-        trace_context, trace_metrics,
-        trace_normalization::{CanonicalEvent, FinishedSpan, finished_span_to_event},
-    },
+use crate::shared::{
+    metrics::{register_int_counter_vec, register_int_gauge_vec},
+    trace_context, trace_metrics,
+    trace_normalization::{CanonicalEvent, FinishedSpan, finished_span_to_event},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

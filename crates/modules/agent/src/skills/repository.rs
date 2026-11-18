@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 从代码仓库拉取 Skill：仓库地址与分支 / 标签 → 压缩包地址与认证头。
+//! Fetches Skills from code repositories: repository URL and branch / tag -> archive URL and
+//! authentication headers.
 //!
-//! 不走 git 协议：按托管方的接口下载某个分支或标签的 `.tar.gz`。GitHub（含企业版）、
-//! GitLab、Gitea / Forgejo、Bitbucket 由地址或所选的托管方式决定地址格式；其他托管方填
-//! 含 `{ref}` 的压缩包地址。
+//! Uses the hosting provider's API to download a branch or tag as `.tar.gz`, without the git
+//! protocol. For GitHub (including Enterprise), GitLab, Gitea / Forgejo, and Bitbucket, the URL or
+//! selected hosting type determines the URL format; other providers use an archive URL containing
+//! `{ref}`.
 
+use kernel::{Error, Result};
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::shared::{Error, Result};
-
-/// 仓库在哪种托管服务上。
+/// The type of service hosting the repository.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RepoHost {
@@ -21,7 +22,7 @@ pub enum RepoHost {
     Gitlab,
     Gitea,
     Bitbucket,
-    /// 直接给出压缩包地址。
+    /// Provides the archive URL directly.
     Archive,
 }
 
@@ -47,7 +48,8 @@ impl RepoHost {
         }
     }
 
-    /// 由公开托管站的域名认出；自建的要另选。
+    /// Detects public hosting services by domain; self-hosted services require a separate
+    /// selection.
     pub fn detect(url: &Url) -> Option<Self> {
         match url.host_str()?.to_ascii_lowercase().as_str() {
             "github.com" | "www.github.com" => Some(Self::Github),
@@ -59,23 +61,23 @@ impl RepoHost {
     }
 }
 
-/// 一次下载：地址与认证方式。
+/// A download request: URL and authentication method.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArchiveRequest {
     pub url: String,
-    /// 带令牌时用的请求头名与值的前缀（`Bearer `、`token ` 或空）。
+    /// Header name and value prefix (`Bearer `, `token `, or empty) used with a token.
     pub auth_header: &'static str,
     pub auth_prefix: &'static str,
 }
 
 impl ArchiveRequest {
-    /// 带上令牌的请求头。
+    /// The request header with the token included.
     pub fn auth(&self, token: &str) -> (&'static str, String) {
         (self.auth_header, format!("{}{token}", self.auth_prefix))
     }
 }
 
-/// 仓库地址校验：只接受 https，不许在地址里写凭据。
+/// Validates repository URLs: accepts only https and disallows credentials in the URL.
 pub fn parse_repo_url(raw: &str) -> Result<Url> {
     let url = Url::parse(raw.trim())
         .map_err(|error| Error::invalid(format!("invalid repository address: {error}")))?;
@@ -97,7 +99,8 @@ pub fn parse_repo_url(raw: &str) -> Result<Url> {
     Ok(url)
 }
 
-/// 仓库在托管站上的路径段：`owner/repo`，GitLab 可以有子组。
+/// Repository path segments on the hosting service: `owner/repo`, with subgroups allowed for
+/// GitLab.
 fn repo_path(url: &Url) -> Result<Vec<String>> {
     let mut segments: Vec<String> = url
         .path_segments()
@@ -109,7 +112,7 @@ fn repo_path(url: &Url) -> Result<Vec<String>> {
         })
         .unwrap_or_default();
 
-    // 浏览器里复制来的地址常带 `/-/tree/main`、`/tree/main`、`/src/branch/main`。
+    // URLs copied from a browser often include `/-/tree/main`, `/tree/main`, or `/src/branch/main`.
     if let Some(cut) = segments
         .iter()
         .position(|part| matches!(part.as_str(), "-" | "tree" | "blob" | "src"))
@@ -132,7 +135,7 @@ fn repo_path(url: &Url) -> Result<Vec<String>> {
     Ok(segments)
 }
 
-/// 除了不需要转义的 `-._~`，其余都转义：分支名里的 `/` 也转成 `%2F`。
+/// Escapes everything except the unreserved `-._~`; `/` in branch names also becomes `%2F`.
 const SEGMENT: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'-')
     .remove(b'.')
@@ -143,7 +146,8 @@ fn encode(value: &str) -> String {
     utf8_percent_encode(value, SEGMENT).to_string()
 }
 
-/// 某个分支或标签的压缩包；`git_ref` 为空时取默认分支（Gitea 与 Bitbucket 要写明）。
+/// Requests a branch or tag archive; an empty `git_ref` selects the default branch, which must be
+/// explicit for Gitea and Bitbucket.
 pub fn archive_request(
     host: RepoHost,
     repo_url: &Url,
@@ -260,7 +264,8 @@ pub fn archive_request(
     }
 }
 
-/// 仓库里的一个目录作 Skill 来源时的路径：去掉首尾的 `/`，不许 `..`。
+/// Normalizes a repository directory path used as a Skill source: strips leading and trailing `/`
+/// and disallows `..`.
 pub fn normalize_repo_dir(raw: &str) -> Result<String> {
     let trimmed = raw.trim().trim_matches('/');
 

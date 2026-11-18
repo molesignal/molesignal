@@ -1,23 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 组织 / 团队 / 个人三级作用域：谁能改一项 Agent 资源，谁能在列表里看到它，一个会话里能
-//! 用到哪些资源。Skill、MCP 服务器以及之后的知识、记忆、自动化都用这一套判定，规则只写在
-//! 这里。
+//! Organization, team, and personal scopes determine who can edit an Agent resource, who can see it
+//! in lists, and which resources a session can use. Skills, MCP servers, and future knowledge,
+//! memory, and automation all use these checks; the rules are defined only here.
 //!
-//! - 组织资源由 `agent.manage` 持有人管理，所有人可用。
-//! - 团队资源由团队成员和 `agent.manage` 持有人管理（管理员不必先入队）。
-//! - 个人资源只有本人能改；管理员能看到并停用、删除，看不到其中的凭据。
-//! - 团队会话只加载组织资源与本队资源，任何人的个人资源都不进团队会话；个人会话加载组织资源、
-//!   本人的个人资源，以及已经挂进来的团队的资源；组织会话（组织作用域的自动化）只加载组织资源。
+//! - Organization resources are managed by `agent.manage` holders and available to everyone.
+//! - Team resources are managed by team members and `agent.manage` holders (administrators do not
+//!   need to join the team first).
+//! - Personal resources can only be edited by their owner; administrators can see, disable, and
+//!   delete them, but cannot see their credentials.
+//! - Team sessions load only organization resources and their own team's resources; no one's
+//!   personal resources enter team sessions. Personal sessions load organization resources, the
+//!   owner's personal resources, and resources from teams already attached to the session.
+//!   Organization sessions (organization-scoped automation) load only organization resources.
 
 use std::collections::HashSet;
 
+use kernel::{Error, Result, ids::Id};
 use serde::{Deserialize, Serialize};
 
-use crate::shared::{Error, Result, ids::Id};
-
-/// 一项 Agent 资源属于谁。
+/// Who owns an Agent resource.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(
     tag = "scope",
@@ -53,7 +56,7 @@ impl Scope {
         }
     }
 
-    /// 同一作用域里名称唯一时用的键：`org`、`team:<id>`、`personal:<id>`。
+    /// The key used for names unique within a scope: `org`, `team:<id>`, `personal:<id>`.
     pub fn key(&self) -> String {
         match self {
             Self::Org => "org".into(),
@@ -62,7 +65,7 @@ impl Scope {
         }
     }
 
-    /// 存储里的三列还原成作用域。
+    /// Restore a scope from the three stored columns.
     pub fn from_parts(kind: &str, team_id: Option<&str>, owner_id: Option<&str>) -> Result<Self> {
         fn present(value: Option<&str>) -> Option<&str> {
             value.map(str::trim).filter(|value| !value.is_empty())
@@ -85,7 +88,7 @@ impl Scope {
     }
 }
 
-/// 发起请求的人：所在的团队，是否持有 `agent.manage`。
+/// The requester: their teams and whether they hold `agent.manage`.
 #[derive(Debug, Clone, Default)]
 pub struct Viewer {
     pub user_id: Id,
@@ -98,7 +101,7 @@ impl Viewer {
         self.teams.contains(team_id)
     }
 
-    /// 能在这一作用域新建、修改、移入资源。
+    /// Can create, edit, and move resources into this scope.
     pub fn can_edit(&self, scope: &Scope) -> bool {
         match scope {
             Scope::Org => self.manager,
@@ -107,7 +110,7 @@ impl Viewer {
         }
     }
 
-    /// 能在列表里看到。
+    /// Can see it in lists.
     pub fn can_see(&self, scope: &Scope) -> bool {
         match scope {
             Scope::Org => true,
@@ -116,28 +119,30 @@ impl Viewer {
         }
     }
 
-    /// 能停用或删除：能改的人，以及管理员。
+    /// Can disable or delete: anyone who can edit, and administrators.
     pub fn can_moderate(&self, scope: &Scope) -> bool {
         self.manager || self.can_edit(scope)
     }
 }
 
-/// 一个会话属于谁。新会话在第一条消息前选定，之后不再改变。
+/// Who owns a session.
+/// Chosen before the first message in a new session and never changed afterward.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ChatScope {
-    /// 个人会话：发起人，以及已经挂进来的团队。
+    /// A personal session: the initiator and teams already attached to it.
     Personal {
         owner_id: Id,
         mounted_teams: Vec<Id>,
     },
-    /// 团队会话：团队成员都能读、能续聊。
+    /// A team session: all team members can read and continue the conversation.
     Team { team_id: Id },
-    /// 组织会话：组织作用域的自动化每次运行用它，只加载组织的资源，没有记忆。
+    /// An organization session, used for each organization-scoped automation run, loads only
+    /// organization resources and has no memory.
     Org,
 }
 
 impl ChatScope {
-    /// 这一作用域的资源在会话里能用。
+    /// Resources in this scope are available in the session.
     pub fn loads(&self, scope: &Scope) -> bool {
         match (self, scope) {
             (_, Scope::Org) => true,
@@ -160,7 +165,8 @@ impl ChatScope {
         }
     }
 
-    /// 会话的记忆写在哪里：团队会话写本队的，个人会话写发起人的；组织会话没有记忆。
+    /// Where session memory is written: to the team for team sessions, or to the initiator for
+    /// personal sessions; organization sessions have no memory.
     pub fn memory_scope(&self) -> Option<Scope> {
         match self {
             Self::Team { team_id } => Some(Scope::Team {
@@ -174,13 +180,14 @@ impl ChatScope {
     }
 }
 
-/// 一个会话对一个人开放到什么程度。
+/// The level of access a person has to a session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChatAccess {
     None,
-    /// 只看标题、用量等元数据，可以删除：管理员对别人的个人会话。
+    /// Can only view metadata such as the title and usage, and can delete: administrators accessing
+    /// other people's personal sessions.
     Metadata,
-    /// 能读、能续聊。
+    /// Can read and continue the conversation.
     Full,
 }
 
@@ -190,7 +197,7 @@ impl ChatAccess {
     }
 }
 
-/// `owner_id` 是发起会话的人。
+/// `owner_id` is the person who initiates the session.
 pub fn chat_access(viewer: &Viewer, chat: &ChatScope, owner_id: &Id) -> ChatAccess {
     match chat {
         ChatScope::Personal { .. } if *owner_id == viewer.user_id => ChatAccess::Full,
@@ -200,12 +207,14 @@ pub fn chat_access(viewer: &Viewer, chat: &ChatScope, owner_id: &Id) -> ChatAcce
             ChatAccess::Full
         }
         ChatScope::Team { .. } => ChatAccess::None,
-        // 组织自动化的运行：组织资源人人可用，它的结果也是。
+        // Organization automation runs: organization resources and their results are open to
+        // everyone.
         ChatScope::Org => ChatAccess::Full,
     }
 }
 
-/// 能删除会话：个人会话的本人，团队会话的发起人，以及管理员。
+/// Who can delete a session: the owner of a personal session, the initiator of a team session,
+/// and administrators.
 pub fn can_delete_chat(viewer: &Viewer, chat: &ChatScope, owner_id: &Id) -> bool {
     viewer.manager
         || (*owner_id == viewer.user_id && chat_access(viewer, chat, owner_id) == ChatAccess::Full)
@@ -246,7 +255,7 @@ mod tests {
         assert!(admin.can_edit(&Scope::Org));
         assert!(!member.can_edit(&Scope::Org));
 
-        // 管理员不必先入队。
+        // Administrators do not need to join the team first.
         assert!(admin.can_edit(&team("sre")));
         assert!(member.can_edit(&team("sre")));
         assert!(!outsider.can_edit(&team("sre")));
@@ -340,7 +349,8 @@ mod tests {
             ChatAccess::None
         );
 
-        // 团队会话由发起人或管理员删除，其他成员只能读和续聊。
+        // Team sessions can be deleted by the initiator or an administrator; other members can only
+        // read and continue the conversation.
         assert!(can_delete_chat(
             &viewer("ann", false, &["sre"]),
             &team_chat,

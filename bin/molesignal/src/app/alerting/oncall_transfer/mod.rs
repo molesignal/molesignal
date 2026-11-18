@@ -11,11 +11,11 @@
 
 use std::collections::{BTreeMap, HashMap};
 
+use kernel::{Error, Result, ids::Id};
 use serde::Serialize;
 use serde_json::Value;
 
 use super::rule_transfer::{ImportAction, MAX_IMPORT_BYTES};
-use crate::shared::{Error, Result, ids::Id};
 
 pub mod directory;
 pub mod foreign;

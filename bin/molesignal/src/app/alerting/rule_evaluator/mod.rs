@@ -22,32 +22,32 @@
 
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
+use domain::{
+    alerting::{
+        discovery::DiscoveryRepository,
+        heartbeat::HeartbeatRepository,
+        incident::Incident,
+        incident_group::IncidentGroupRepository,
+        repositories::{AlertRuleEvalStateRepository, AlertRuleRepository, IncidentRepository},
+        rule::{AlertRule, AlertRuleKind, RuleState},
+        semantic_group::SemanticGroupRepository,
+        timeline::IncidentTimelineRepository,
+    },
+    cluster::PeerRole,
+    query::QueryEngine,
+    rum::RumAlertSource,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
+
 use super::realtime::is_matched_at_intake;
-use crate::{
-    app::{
-        alerting::{
-            AlertIncidentLifecycleSink, ApmAlertSlot, IncidentMerger, IncidentRouter,
-            apm_source::apm_stream_hint, discovery::discovery_stream_hint,
-            event_pipelines::AlertPipelines, rum_source::rum_stream_hint,
-        },
-        cluster::{PeerRole, WorkOwnership, record_overlap_skipped},
-        notify::NotifyEngine,
+use crate::app::{
+    alerting::{
+        AlertIncidentLifecycleSink, ApmAlertSlot, IncidentMerger, IncidentRouter,
+        apm_source::apm_stream_hint, discovery::discovery_stream_hint,
+        event_pipelines::AlertPipelines, rum_source::rum_stream_hint,
     },
-    domain::{
-        alerting::{
-            discovery::DiscoveryRepository,
-            heartbeat::HeartbeatRepository,
-            incident::Incident,
-            incident_group::IncidentGroupRepository,
-            repositories::{AlertRuleEvalStateRepository, AlertRuleRepository, IncidentRepository},
-            rule::{AlertRule, AlertRuleKind, RuleState},
-            semantic_group::SemanticGroupRepository,
-            timeline::IncidentTimelineRepository,
-        },
-        query::QueryEngine,
-        rum::RumAlertSource,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
+    cluster::{WorkOwnership, record_overlap_skipped},
+    notify::NotifyEngine,
 };
 
 mod decision;

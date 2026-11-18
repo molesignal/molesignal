@@ -16,6 +16,8 @@ mod retention;
 #[cfg(test)]
 mod tests;
 
+use domain::rum::event::RumStream;
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 pub use self::{
@@ -31,10 +33,6 @@ pub use self::{
     },
 };
 use super::query::{Condition, Filter, asks_about_traffic, conditions, people_only};
-use crate::{
-    domain::rum::event::RumStream,
-    shared::{Error, Result},
-};
 
 /// Fewest and most steps a funnel has.
 pub const MIN_STEPS: usize = 2;

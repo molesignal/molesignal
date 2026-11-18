@@ -25,13 +25,16 @@ mod save;
 mod start;
 mod views;
 
+use agent::automations::{AutomationTrigger, MANUAL_RUN_INTERVAL_MICROS, TriggerKind};
 use axum::{
     Extension, Json, Router,
     extract::{Path, Query, State},
     http::StatusCode,
     routing::{get, post},
 };
+use domain::iam::{IamContext, permission};
 pub(crate) use finish::{AnswerEnd, finished, reconcile};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 pub use public::public_routes;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -43,7 +46,6 @@ use self::{
     views::AutomationView,
 };
 use crate::{
-    agent::automations::{AutomationTrigger, MANUAL_RUN_INTERVAL_MICROS, TriggerKind},
     api::{
         AppState,
         http::{
@@ -51,12 +53,7 @@ use crate::{
             routes::{activity_audit, agent::viewer::viewer},
         },
     },
-    app::{
-        automations::{templates, token},
-        iam::IamContext,
-    },
-    domain::iam::permission,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    app::automations::{templates, token},
 };
 
 pub fn routes() -> Router<AppState> {

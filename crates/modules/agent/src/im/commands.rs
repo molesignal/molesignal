@@ -1,33 +1,33 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! IM 里自己的命令：`/help`、`/new`、`/scope`、`/feedback`。
+//! Commands specific to IM: `/help`, `/new`, `/scope`, and `/feedback`.
 //!
-//! 别的斜杠命令（`/rca`、`/insight`、Skill……）不在这里，照常交给 Mole Agent。
+//! Other slash commands (`/rca`, `/insight`, Skill, etc.) are handled by Mole Agent as usual.
 
-/// `/scope` 要换成什么会话。
+/// The session to switch to with `/scope`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ScopeTarget {
     Personal,
-    /// 团队的名称或 ID。
+    /// The team's name or ID.
     Team(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ImCommand {
     Help,
-    /// 这个话题从新会话开始。
+    /// Starts this thread with a new session.
     New,
-    /// 没带参数时说现在是什么会话。
+    /// Reports the current session when no argument is provided.
     Scope(Option<ScopeTarget>),
-    /// 评价这个话题里最近的一个回答。
+    /// Rates the most recent answer in this thread.
     Feedback {
         helpful: bool,
         comment: String,
     },
 }
 
-/// 认不出的用法：回复用法说明。
+/// Unrecognized usage: replies with usage instructions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Usage {
     Feedback,
@@ -37,7 +37,7 @@ const PERSONAL: [&str; 4] = ["me", "personal", "个人", "我"];
 const HELPFUL: [&str; 6] = ["up", "good", "+1", "👍", "有帮助", "好"];
 const UNHELPFUL: [&str; 6] = ["down", "bad", "-1", "👎", "没帮助", "差"];
 
-/// 是 IM 命令时解析它；不是时返回 `None`，交给 Mole Agent。
+/// Parses IM commands; otherwise returns `None` to pass the input to Mole Agent.
 pub fn parse(text: &str) -> Option<Result<ImCommand, Usage>> {
     let text = text.trim();
     let rest = text.strip_prefix('/')?;

@@ -147,8 +147,8 @@ impl TraceSettings {
         }
     }
 
-    pub fn runtime_policy(&self) -> crate::shared::tail_sampling::TraceRuntimePolicy {
-        use crate::shared::tail_sampling::{SlowThresholds, TraceRuntimePolicy};
+    pub fn runtime_policy(&self) -> signals::tail_sampling::TraceRuntimePolicy {
+        use signals::tail_sampling::{SlowThresholds, TraceRuntimePolicy};
 
         TraceRuntimePolicy {
             version: 1,
@@ -515,5 +515,5 @@ fn default_profiling_bind() -> String {
 }
 
 fn default_profiling_port() -> u16 {
-    5084
+    5086
 }

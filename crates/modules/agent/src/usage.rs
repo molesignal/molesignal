@@ -1,42 +1,44 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Mole Agent 用量：每日 token 计数、组织的每日预算与模型单价。
+//! Mole Agent usage: daily token counts, daily organization budgets, and model unit prices.
 //!
-//! 用量按 UTC 自然日、按调用来源计数。预算只看 token：本仓没有模型价目表，管理员在模型
-//! 服务上填了单价才算得出成本，成本用那个模型服务选的币种记，不同币种分开合计。预算用完后，
-//! 后台调用（自动 RCA、巡检、写入管道里的 LLM 函数）一律跳过；有人在等的调用（对话、手动
-//! 生成 RCA）按组织设置拦截或只提示。
+//! Usage is counted by UTC calendar day and call origin. Budgets consider only tokens: this
+//! repository has no model price list, so costs can only be calculated after an administrator sets
+//! unit prices on the model service. Costs use the currency selected for that model service, with
+//! separate totals for each currency. Once the budget is exhausted, all background calls (automatic
+//! RCA, inspections, and LLM functions in write pipelines) are skipped; calls with a user waiting
+//! (chat and manual RCA generation) are blocked or only show a warning, according to the
+//! organization settings.
 
 use std::fmt;
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 const MICROS_PER_DAY: i64 = 86_400_000_000;
 
-/// 预算提示的默认阈值：用到上限的这个百分比时开始提醒。
+/// Default budget warning threshold: warnings start at this percentage of the limit.
 pub const DEFAULT_WARNING_PERCENT: u8 = 80;
 
-/// 一次模型调用是为了什么发起的。
+/// The purpose of a model call.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum UsageOrigin {
-    /// 对话，含仪表盘创作。
+    /// Chat, including dashboard creation.
     Chat,
-    /// 事件的根因分析，后台自动生成与手动生成都算。
+    /// Root cause analysis of incidents, including automatic background and manual generation.
     Rca,
-    /// 定时日志巡检。
+    /// Scheduled log inspections.
     Inspection,
-    /// 写入管道里的 LLM 函数（`_llm_eval`）。
+    /// LLM functions in write pipelines (`_llm_eval`).
     LlmEval,
-    /// 自动化的运行，事件触发的也算。
+    /// Automation runs, including those triggered by events.
     Automation,
-    /// 评审打分，以及晋级检查里的重新回答。
+    /// Review scoring and regenerated answers in promotion checks.
     Evaluation,
-    /// RUM 会话回放的摘要和章节。
+    /// Summaries and chapters for RUM session replays.
     ReplaySummary,
 }
 
@@ -71,7 +73,7 @@ impl UsageOrigin {
     }
 }
 
-/// UTC 的一天，存成从 1970-01-01 起的天数。
+/// A UTC day, stored as the number of days since 1970-01-01.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct UsageDay(pub i64);
 
@@ -84,7 +86,7 @@ impl UsageDay {
         Self::of(TimestampMicros::now())
     }
 
-    /// 这一天开始的时刻（UTC 零点）。
+    /// The start of this day (midnight UTC).
     pub fn start(self) -> TimestampMicros {
         TimestampMicros(self.0.saturating_mul(MICROS_PER_DAY))
     }
@@ -98,17 +100,17 @@ impl UsageDay {
     }
 }
 
-/// 一次或几次调用要加进计数的量。
+/// The amount to add to the counters for one or more calls.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct UsageDelta {
     pub calls: i64,
-    /// 其中模型服务没有填单价的调用：它们不计入成本。
+    /// Calls among these whose model service has no unit prices: they are excluded from costs.
     pub unpriced_calls: i64,
     pub prompt_tokens: i64,
     pub completion_tokens: i64,
-    /// 用 `currency` 记的成本；没有币种时是 0。
+    /// Cost in `currency`; 0 when there is no currency.
     pub cost: f64,
-    /// 成本的币种：模型服务上选的；调用都没有单价时为空。
+    /// Cost currency selected on the model service; absent when all calls lack unit prices.
     pub currency: Option<Currency>,
 }
 
@@ -118,14 +120,15 @@ impl UsageDelta {
     }
 }
 
-/// 一个组织某一天某个来源、某个币种的用量。没有单价的调用记在没有币种的那一行。
+/// An organization's usage for a day, origin, and currency.
+/// Calls without unit prices are recorded in the row with no currency.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DailyUsage {
     pub day: UsageDay,
     pub origin: UsageOrigin,
     pub calls: i64,
-    /// 模型服务没有填单价、没有计入成本的调用次数。
+    /// Number of calls with no model service unit prices that are excluded from costs.
     pub unpriced_calls: i64,
     pub prompt_tokens: i64,
     pub completion_tokens: i64,
@@ -139,14 +142,14 @@ impl DailyUsage {
     }
 }
 
-/// 预算用完时，有人在等的调用怎么处理。
+/// How to handle calls with a user waiting when the budget is exhausted.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum InteractiveBudgetMode {
-    /// 不再调用模型，告诉用户今天的额度用完了。
+    /// Stop calling the model and tell the user that today's quota is exhausted.
     #[default]
     Block,
-    /// 照常回答，只提示超出了预算。
+    /// Answer as usual and only warn that the budget is exceeded.
     Warn,
 }
 
@@ -169,12 +172,13 @@ impl InteractiveBudgetMode {
     }
 }
 
-/// 组织自己的预算设置。没有这一行时全部跟随实例默认值。
+/// An organization's own budget settings.
+/// When this row is absent, all settings follow the instance defaults.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageBudget {
     pub org_id: Id,
-    /// 每日 token 上限；`None` 跟随实例默认值，0 表示不限。
+    /// Daily token limit; `None` follows the instance default, and 0 means unlimited.
     pub daily_token_limit: Option<i64>,
     pub interactive_mode: InteractiveBudgetMode,
     pub updated_by: Id,
@@ -184,26 +188,26 @@ pub struct UsageBudget {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BudgetLevel {
-    /// 没有设上限。
+    /// No limit is set.
     Unlimited,
     Ok,
-    /// 用到了提醒阈值。
+    /// The warning threshold is reached.
     Warning,
-    /// 用完了。
+    /// The budget is exhausted.
     Exhausted,
 }
 
-/// 一个组织今天的预算状况。
+/// An organization's budget status for today.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BudgetStatus {
     pub level: BudgetLevel,
     pub used_tokens: i64,
-    /// 0 表示不限。
+    /// 0 means unlimited.
     pub limit_tokens: i64,
     pub warning_percent: u8,
     pub interactive_mode: InteractiveBudgetMode,
-    /// 计数归零的时刻（下一个 UTC 零点）。
+    /// The time when the counters reset to zero (the next midnight UTC).
     pub resets_at: TimestampMicros,
 }
 
@@ -239,7 +243,9 @@ impl BudgetStatus {
         }
     }
 
-    /// 这次调用能不能做。后台调用额度用完就不做；有人在等的调用在"只提示"时照做。
+    /// Whether this call is allowed.
+    /// Background calls stop when the quota is exhausted; calls with a user waiting proceed in
+    /// warning-only mode.
     pub fn allows(&self, interactive: bool) -> bool {
         match self.level {
             BudgetLevel::Exhausted => {
@@ -249,12 +255,12 @@ impl BudgetStatus {
         }
     }
 
-    /// 是否该提醒用户：接近或已经超过上限。
+    /// Whether to warn the user: usage is near or already above the limit.
     pub fn should_warn(&self) -> bool {
         matches!(self.level, BudgetLevel::Warning | BudgetLevel::Exhausted)
     }
 
-    /// 把一次调用算进已用量（缓存里的状态在下次刷新前也大致准确）。
+    /// Count a call toward usage (keeping cached status roughly accurate until the next refresh).
     pub fn with_spent(self, tokens: i64) -> Self {
         Self::evaluate(
             self.used_tokens.saturating_add(tokens.max(0)),
@@ -266,12 +272,12 @@ impl BudgetStatus {
     }
 }
 
-/// 币种：ISO 4217 的三个大写字母，例如 `USD`、`CNY`。
+/// Currency: three uppercase ISO 4217 letters, such as `USD`, `CNY`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Currency([u8; 3]);
 
 impl Currency {
-    /// 没有选币种的模型服务按美元记。
+    /// Model services with no currency selected use US dollars.
     pub const USD: Self = Self(*b"USD");
 
     pub fn parse(code: &str) -> Result<Self> {
@@ -286,7 +292,7 @@ impl Currency {
     }
 
     pub fn as_str(&self) -> &str {
-        // 只有 `parse` 造得出来：三个 ASCII 大写字母。
+        // Only `parse` can construct this: three uppercase ASCII letters.
         std::str::from_utf8(&self.0).unwrap_or("USD")
     }
 }
@@ -316,7 +322,7 @@ impl<'de> Deserialize<'de> for Currency {
     }
 }
 
-/// 一笔成本：金额与它的币种。
+/// A cost: an amount and its currency.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Cost {
     pub amount: f64,
@@ -324,7 +330,7 @@ pub struct Cost {
 }
 
 impl Cost {
-    /// 存成两列（金额、币种）的成本：两列都有值才算有成本。
+    /// A cost stored in two columns (amount, currency) exists only when both columns have values.
     pub fn from_columns(amount: Option<f64>, currency: Option<&str>) -> Result<Option<Self>> {
         match (amount, currency) {
             (Some(amount), Some(code)) if !code.is_empty() => Ok(Some(Self {
@@ -336,19 +342,21 @@ impl Cost {
     }
 }
 
-/// 一次调用用掉的 token：输入里有多少是命中缓存的。
+/// Tokens used by a call, including how many input tokens hit the cache.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct TokenCounts {
-    /// 全部输入，含命中缓存的部分。
+    /// All input, including cache hits.
     pub prompt: i64,
-    /// 输入里命中缓存的部分。
+    /// The portion of input that hits the cache.
     pub cached_prompt: i64,
     pub completion: i64,
 }
 
-/// 模型服务的单价：每百万 token 的价格，用 `currency` 记。有的厂商输入分缓存命中与未命中
-/// 两个价：`input_per_mtok` 是未命中（也是不分的厂商的输入价），`cached_input_per_mtok`
-/// 是命中；没有填命中价时命中的输入也按输入价算。
+/// Model service unit prices per million tokens, in `currency`.
+/// Some providers price input cache hits and misses separately: `input_per_mtok` is for misses
+/// (and is also the input price for providers that do not distinguish them), while
+/// `cached_input_per_mtok` is for hits; when no cache-hit price is set, cached input also uses the
+/// input price.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelPrices {
@@ -359,7 +367,8 @@ pub struct ModelPrices {
 }
 
 impl ModelPrices {
-    /// 输入与输出单价都没填时没有价格；只填一个时另一个按 0 算。
+    /// No pricing exists when both input and output prices are unset; if only one is set, the other
+    /// is treated as 0.
     pub fn from_parts(
         currency: Currency,
         input_per_mtok: Option<f64>,
@@ -378,7 +387,7 @@ impl ModelPrices {
         })
     }
 
-    /// 这些 token 的成本，用 `currency` 记。
+    /// The cost of these tokens, in `currency`.
     pub fn cost(&self, tokens: TokenCounts) -> f64 {
         let cached = tokens.cached_prompt.clamp(0, tokens.prompt.max(0));
         let uncached = tokens.prompt.max(0) - cached;
@@ -391,7 +400,8 @@ impl ModelPrices {
     }
 }
 
-/// 单价的合法范围：非负、有限，并且不至于大到明显是填错了单位（韩元、日元的价也在内）。
+/// Valid unit prices are nonnegative, finite, and not so large that they clearly indicate incorrect
+/// units (including prices in Korean won and Japanese yen).
 pub fn validate_price(value: Option<f64>, field: &str) -> Result<()> {
     match value {
         Some(price) if !price.is_finite() || !(0.0..=1_000_000.0).contains(&price) => {
@@ -405,7 +415,7 @@ pub fn validate_price(value: Option<f64>, field: &str) -> Result<()> {
 
 #[async_trait]
 pub trait AgentUsageRepository: Send + Sync {
-    /// 把一次调用加进当天这个来源的计数。
+    /// Add a call to the counters for this origin on that day.
     async fn add(
         &self,
         org_id: &Id,
@@ -414,10 +424,11 @@ pub trait AgentUsageRepository: Send + Sync {
         delta: &UsageDelta,
     ) -> Result<()>;
 
-    /// 一个组织 `from..=to` 这几天的用量，按天、来源分行，只含有调用的行。
+    /// An organization's usage for `from..=to`, with rows by day and origin, including only rows
+    /// with calls.
     async fn list(&self, org_id: &Id, from: UsageDay, to: UsageDay) -> Result<Vec<DailyUsage>>;
 
-    /// 一个组织某一天用掉的 token 总数。
+    /// The total tokens used by an organization on a given day.
     async fn tokens_on(&self, org_id: &Id, day: UsageDay) -> Result<i64>;
 
     async fn get_budget(&self, org_id: &Id) -> Result<Option<UsageBudget>>;
@@ -512,7 +523,8 @@ mod tests {
         let cny = Currency::parse("CNY").unwrap();
         let prices = ModelPrices::from_parts(cny, Some(2.0), Some(0.5), Some(8.0)).unwrap();
 
-        // 一百万输入里四十万命中缓存：60 万 × 2 + 40 万 × 0.5，再加 10 万输出 × 8。
+        // Of 1 million input tokens, 400,000 hit the cache: 600,000 * 2 + 400,000 * 0.5,
+        // plus 100,000 output tokens * 8.
         let cost = prices.cost(TokenCounts {
             prompt: 1_000_000,
             cached_prompt: 400_000,
@@ -520,7 +532,7 @@ mod tests {
         });
         assert!((cost - (1.2 + 0.2 + 0.8)).abs() < 1e-9, "{cost}");
 
-        // 没有填命中价时，命中的输入按输入价算。
+        // When no cache-hit price is set, cached input uses the input price.
         let flat = ModelPrices::from_parts(cny, Some(2.0), None, Some(8.0)).unwrap();
         let cost = flat.cost(TokenCounts {
             prompt: 1_000_000,
@@ -529,7 +541,7 @@ mod tests {
         });
         assert!((cost - 2.0).abs() < 1e-9, "{cost}");
 
-        // 报上来的命中数超过输入时，按全部输入命中算。
+        // When reported cache hits exceed input tokens, treat all input as cache hits.
         let cost = prices.cost(TokenCounts {
             prompt: 100,
             cached_prompt: 1_000,

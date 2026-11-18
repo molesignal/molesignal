@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! W3C Trace Context/Baggage 的有界表示。
+//! Bounded representation of W3C Trace Context/Baggage.
 //!
-//! 传播上下文不是授权来源：外部 `org.id` 只是未受信输入，鉴权完成后必须由
-//! [`TraceContext::set_authenticated_org`] 覆盖。第三方出站只注入 Trace
-//! Context；内部 Baggage 仅发送到调用方明确判定为可信的目标。
+//! Propagation context is not a source of authorization: an external `org.id` is only
+//! untrusted input and must be overwritten by [`TraceContext::set_authenticated_org`] after
+//! authentication completes. Outbound requests to third parties inject only Trace Context;
+//! internal Baggage is sent only to targets the caller has explicitly determined to be trusted.
 
 use std::{cell::RefCell, collections::BTreeMap, future::Future};
 
@@ -31,8 +32,8 @@ tokio::task_local! {
     static ACTIVE_TRACE_CONTEXT: RefCell<TraceContext>;
 }
 
-/// 将请求上下文绑定到当前 async task。深层 HTTP/gRPC/queue wrapper 可读取它，
-/// 不需要把传播上下文混入授权参数。
+/// Binds the request context to the current async task. Deep HTTP/gRPC/queue wrappers can read
+/// it without having to mix the propagation context into authorization parameters.
 pub async fn with_current_trace_context<F: Future>(context: TraceContext, future: F) -> F::Output {
     ACTIVE_TRACE_CONTEXT
         .scope(RefCell::new(context), future)
@@ -84,7 +85,7 @@ pub struct TraceContext {
     pub baggage: BTreeMap<String, String>,
     pub request_id: String,
     pub trust: TraceTrust,
-    /// 仅作为诊断提示，不能直接映射为 tail-sampler force keep。
+    /// Only a diagnostic hint; it must not be mapped directly to a tail-sampler force keep.
     #[serde(default)]
     pub inbound_sampled_hint: bool,
     #[serde(default)]
@@ -107,7 +108,8 @@ impl TraceContext {
         }
     }
 
-    /// 提取父上下文并创建本地 child。格式错误安全退回新 root。
+    /// Extracts the parent context and creates a local child.
+    /// Malformed input safely falls back to a new root.
     pub fn extract_http(headers: &HeaderMap, trust: TraceTrust) -> Self {
         let baggage = extract_baggage(
             headers
@@ -216,7 +218,8 @@ impl TraceContext {
         }
     }
 
-    /// 为队列/重试持久化一个有界 Link。消费端创建新 root，且不得用于授权。
+    /// Persists a bounded Link for queues/retries.
+    /// The consumer creates a new root, and the Link must not be used for authorization.
     pub fn serialized_link(&self) -> SerializedTraceLink {
         SerializedTraceLink {
             trace_id: self.trace_id.clone(),

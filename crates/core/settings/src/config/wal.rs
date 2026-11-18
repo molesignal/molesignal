@@ -46,8 +46,7 @@ pub struct WalSettings {
     #[serde(default = "default_batch_max_pending")]
     pub batch_max_pending: u32,
     /// `Batch` 模式下两次 `sync_*` 的最大间隔（毫秒）。
-    /// 兼容 alias：旧 TOML 用 `sync_interval_ms = N` 写法仍被接受并映射到本字段。
-    #[serde(default = "default_batch_max_delay_ms", alias = "sync_interval_ms")]
+    #[serde(default = "default_batch_max_delay_ms")]
     pub batch_max_delay_ms: u32,
     /// WAL 落盘 at-rest 加密：true 时每条 record 的 payload 用 `CipherRootKey`（KEK）加密后
     /// 再写 segment（recover 时解密）。默认 false → 明文落盘（与现状一致）。

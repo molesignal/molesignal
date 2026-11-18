@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Mole Agent PII 脱敏：email / phone / credit card。
+//! Mole Agent PII masking: email / phone / credit card.
 
 use once_cell::sync::Lazy;
 use regex::Regex;

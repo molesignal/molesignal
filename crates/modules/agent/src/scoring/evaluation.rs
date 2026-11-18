@@ -1,24 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 评审：把一个对象交给模型，照评分标准打分。
+//! Evaluates a target by giving it to a model to score against a rubric.
 //!
-//! system 是组织的 `evaluation` Prompt，填进评分标准与写理由用的语言，后面固定接上
-//! [`VERDICT_INSTRUCTION`]：改了 Prompt 也读得出分数。user 是要评的材料：问题、工具查到的、
-//! 回答；事件 RCA 是事件的事实与 RCA。材料按长度截断。模型给 1 到 5 分，换算成 0 到 1。
+//! The system message is the organization's `evaluation` Prompt, filled with the rubric and the
+//! language for reasons, always followed by [`VERDICT_INSTRUCTION`]: scores remain readable after
+//! Prompt changes. The user message contains the material to evaluate: the question, tool
+//! findings, and answer; for incident RCA, the incident facts and RCA. Material is truncated by
+//! length. The model gives a score from 1 to 5, converted to 0 to 1.
 
+use kernel::{Error, Result};
 use serde_json::Value;
 
 use super::ScoreTarget;
-use crate::{
-    agent::runs::TranscriptStep,
-    shared::{Error, Result},
-};
+use crate::runs::TranscriptStep;
 
-/// 评审 Prompt 的用途（与 baseline 里内置的 `evaluation.default` 一致）。
+/// The evaluation Prompt's purpose (matches the built-in `evaluation.default` in baseline).
 pub const EVALUATION_PURPOSE: &str = "evaluation";
 
-/// 接在评审 Prompt 后面的输出格式。
+/// The output format appended to the evaluation Prompt.
 pub const VERDICT_INSTRUCTION: &str = "Return only one JSON object without a Markdown fence: \
      {\"score\": <an integer from 1 (unusable) to 5 (excellent)>, \"reason\": \"<at most two \
      sentences on the main strength or flaw>\"}.";
@@ -26,26 +26,27 @@ pub const VERDICT_INSTRUCTION: &str = "Return only one JSON object without a Mar
 const QUESTION_CHARS: usize = 4_000;
 const ANSWER_CHARS: usize = 8_000;
 const NOTE_CHARS: usize = 2_000;
-/// 一个工具结果最多交给评审这么多字符，全部工具结果合起来最多这么多。
+/// The maximum characters given to the evaluator for one tool result and for all tool results
+/// combined.
 const RESULT_CHARS: usize = 1_500;
 const FINDINGS_CHARS: usize = 12_000;
 const ARGUMENT_CHARS: usize = 400;
 const REASON_CHARS: usize = 500;
 
-/// 要评的材料。
+/// The material to evaluate.
 #[derive(Debug, Clone, Copy)]
 pub struct Material<'a> {
     pub kind: ScoreTarget,
-    /// 对话回答是问题；事件 RCA 是事件的事实。
+    /// The question for a conversation answer; the incident facts for incident RCA.
     pub question: &'a str,
-    /// 回答过程中的工具调用与结果。
+    /// Tool calls and results during answer generation.
     pub findings: &'a [TranscriptStep],
     pub answer: &'a str,
-    /// 审核人对原回答的备注：回归集里的对象才有。
+    /// The reviewer's note on the original answer, present only for targets in the regression set.
     pub note: Option<&'a str>,
 }
 
-/// 交给评审的 user 消息。
+/// The user message given to the evaluator.
 pub fn material_text(material: &Material<'_>) -> String {
     let (question_heading, answer_heading) = match material.kind {
         ScoreTarget::ChatAnswer => ("Question", "Answer"),
@@ -80,7 +81,8 @@ pub fn material_text(material: &Material<'_>) -> String {
     text
 }
 
-/// 工具调用一行一个，结果截断后缩进写在下面。晋级检查重新回答时也这样交给模型。
+/// Lists one tool call per line, with truncated results indented below.
+/// Also given to the model in this form when regenerating answers for promotion checks.
 pub fn findings_text(steps: &[TranscriptStep]) -> String {
     let mut text = String::new();
     let mut index = 0;
@@ -113,7 +115,8 @@ pub fn findings_text(steps: &[TranscriptStep]) -> String {
     text.trim_end().to_string()
 }
 
-/// 写理由用的语言的名称，填进评审 Prompt 的 `{{output_language}}`。
+/// The name of the language for reasons, inserted into `{{output_language}}` in the evaluation
+/// Prompt.
 pub fn output_language(language: &str) -> &'static str {
     if language.trim().to_ascii_lowercase().starts_with("zh") {
         "Simplified Chinese"
@@ -122,17 +125,17 @@ pub fn output_language(language: &str) -> &'static str {
     }
 }
 
-/// 评审给的分。
+/// The score given by the evaluator.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Verdict {
-    /// 0 到 1。
+    /// 0 to 1.
     pub score: f64,
-    /// 模型给的 1 到 5 分。
+    /// The model's score from 1 to 5.
     pub points: u8,
     pub reason: String,
 }
 
-/// 读评审的回答：一个 JSON 对象，可以带围栏或前后的文字。
+/// Reads the evaluator's response: a JSON object, optionally fenced or surrounded by text.
 pub fn parse_verdict(content: &str) -> Result<Verdict> {
     let object = json_object(content)
         .ok_or_else(|| Error::internal("the evaluator did not return a JSON object"))?;
@@ -175,7 +178,7 @@ fn json_object(content: &str) -> Option<serde_json::Map<String, Value>> {
     }
 }
 
-/// 最多 `chars` 个字符，截断处说明一下。
+/// Limits text to `chars` characters, with a note at the truncation point.
 fn clip(text: &str, chars: usize) -> String {
     if text.chars().count() <= chars {
         return text.to_string();
@@ -191,7 +194,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::agent::runs::TranscriptCall;
+    use crate::runs::TranscriptCall;
 
     #[test]
     fn reads_the_score_from_a_fenced_or_wordy_reply() {

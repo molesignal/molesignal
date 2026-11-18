@@ -9,26 +9,23 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-
-use crate::{
-    domain::{
-        alerting::{
-            incident::Severity,
-            priority::Priority,
-            repositories::EscalationPolicyRepository,
-            routing::{
-                IncidentOrigin, LabelCondition, MAX_ROUTING_RULES, RoutingExplanation, RoutingRule,
-                RoutingRuleRepository, RoutingSubject, RoutingTarget, ServiceOwner,
-                ServiceOwnerSource, TeamPolicy, TeamPolicyRepository,
-            },
-            time_window::TimeCondition,
+use domain::{
+    alerting::{
+        incident::Severity,
+        priority::Priority,
+        repositories::EscalationPolicyRepository,
+        routing::{
+            IncidentOrigin, LabelCondition, MAX_ROUTING_RULES, RoutingExplanation, RoutingRule,
+            RoutingRuleRepository, RoutingSubject, RoutingTarget, ServiceOwner, ServiceOwnerSource,
+            TeamPolicy, TeamPolicyRepository,
         },
-        apm::ApmCatalogRepository,
-        iam::TeamRepository,
+        time_window::TimeCondition,
     },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    apm::ApmCatalogRepository,
+    iam::TeamRepository,
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use serde::{Deserialize, Serialize};
 
 mod router;
 
@@ -369,7 +366,7 @@ impl AlertRouting {
         }
 
         Ok(Id::from_string(
-            crate::domain::alerting::escalation::DEFAULT_POLICY_ID,
+            domain::alerting::escalation::DEFAULT_POLICY_ID,
         ))
     }
 
@@ -381,8 +378,7 @@ impl AlertRouting {
     /// 按现在的路由表，这组标签会怎么分派（来源用默认策略时）。
     pub async fn explain(&self, org_id: &Id, probe: RoutingProbe) -> Result<RoutingExplanation> {
         let table = self.router.table(org_id).await?;
-        let default_policy =
-            Id::from_string(crate::domain::alerting::escalation::DEFAULT_POLICY_ID);
+        let default_policy = Id::from_string(domain::alerting::escalation::DEFAULT_POLICY_ID);
 
         Ok(table.explain(&RoutingSubject {
             labels: &probe.labels,

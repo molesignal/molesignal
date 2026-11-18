@@ -5,13 +5,10 @@
 
 use std::io::Read;
 
+use domain::rum::DebugArtifactKind;
 use flate2::read::GzDecoder;
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
-
-use crate::{
-    domain::rum::DebugArtifactKind,
-    shared::{Error, Result},
-};
 
 mod android_mapping;
 mod javascript;

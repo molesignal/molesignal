@@ -5,11 +5,9 @@
 
 use std::sync::Arc;
 
-use crate::{
-    config::ApmSettings,
-    domain::apm::{ApmCatalogRepository, ApmOrgSettings, ApmQueryRepository, HistogramSchema},
-    shared::{Result, ids::Id},
-};
+use ::settings::ApmSettings;
+use domain::apm::{ApmCatalogRepository, ApmOrgSettings, ApmQueryRepository, HistogramSchema};
+use kernel::{Result, ids::Id};
 
 mod aggregate;
 mod alert;

@@ -1,27 +1,28 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 排队的打分与待审。
+//! Queued scoring jobs and pending reviews.
 
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{ScoreTarget, TargetSource};
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
-/// 一次打分最多试这么多次。
+/// The maximum number of attempts for a scoring job.
 pub const MAX_JOB_ATTEMPTS: i32 = 3;
-/// 审核备注最多这么多字。
+/// The maximum number of characters in a review note.
 pub const MAX_REVIEW_NOTE_CHARS: usize = 2_000;
 
-/// 为什么排这一次打分。
+/// The reason for queuing this scoring job.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum JobReason {
-    /// 新的回答或 RCA。
+    /// A new answer or RCA.
     Answered,
-    /// 提问人评价了它：刷新规则打分里的评价；被评为没帮助时评审必评。
+    /// The asker rates it: refresh feedback in rule-based scoring; an unhelpful rating requires
+    /// evaluator scoring.
     Feedback,
-    /// 评审给了低分，再评一次取平均。
+    /// An evaluator gives a low score, so score it again and take the average.
     Resample,
 }
 
@@ -52,7 +53,8 @@ pub enum JobStatus {
     Queued,
     Running,
     Done,
-    /// 没有评：对象没了、评审停用了，或今天的 token 预算用完了。
+    /// Scoring is skipped: the target is gone, the evaluator is disabled, or today's token budget
+    /// is exhausted.
     Skipped,
     Failed,
 }
@@ -82,13 +84,14 @@ impl JobStatus {
     }
 }
 
-/// 要排的一次打分。同一个对象、同一个打分器同时只排一次。
+/// A scoring job to queue.
+/// Only one job per target and scorer is queued at a time.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NewJob {
     pub org_id: Id,
     pub target_kind: ScoreTarget,
     pub target_id: String,
-    /// 对话回答所在的会话。
+    /// The session containing the chat answer.
     pub chat_id: Option<Id>,
     pub scorer: String,
     pub reason: JobReason,
@@ -104,20 +107,20 @@ pub struct ScoreJob {
     pub scorer: String,
     pub reason: JobReason,
     pub status: JobStatus,
-    /// 领走过几次，含这一次。
+    /// The number of times claimed, including this time.
     pub attempts: i32,
     pub created_at: TimestampMicros,
 }
 
-/// 为什么进入待审。
+/// The reason for entering pending review.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReviewCause {
-    /// 分数低于阈值。
+    /// The score is below the threshold.
     LowScore,
-    /// 提问人评为没帮助。
+    /// The asker rates it as unhelpful.
     ThumbsDown,
-    /// 随机抽到，用来校准评审。
+    /// Randomly sampled to calibrate the evaluator.
     Sampled,
 }
 
@@ -144,9 +147,9 @@ impl ReviewCause {
 #[serde(rename_all = "snake_case")]
 pub enum ReviewStatus {
     Pending,
-    /// 审核人确认这个回答有问题：它进入回归集。
+    /// The reviewer confirms that the answer has a problem: it enters the regression set.
     Accepted,
-    /// 审核人认为回答没有问题。
+    /// The reviewer considers the answer correct.
     Rejected,
 }
 
@@ -169,7 +172,8 @@ impl ReviewStatus {
     }
 }
 
-/// 待审的一个对象。一个对象只进一次，后来的原因不再另起一条。
+/// A target pending review.
+/// Each target enters only once; subsequent reasons do not create another entry.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Review {
@@ -179,11 +183,12 @@ pub struct Review {
     pub target_id: String,
     pub source: TargetSource,
     pub cause: ReviewCause,
-    /// 进入待审时的分数。
+    /// The score when the target enters pending review.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub score: Option<f64>,
     pub status: ReviewStatus,
-    /// 审核人写的：回答错在哪、应该怎么答。检查 Prompt 时交给评审参考。
+    /// The reviewer's notes on what is wrong with the answer and how it should be answered.
+    /// Provided to the evaluator for reference during Prompt checks.
     #[serde(default)]
     pub note: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -194,7 +199,7 @@ pub struct Review {
     pub updated_at: TimestampMicros,
 }
 
-/// 审核人的决定。
+/// The reviewer's decision.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReviewDecision {
     pub status: ReviewStatus,

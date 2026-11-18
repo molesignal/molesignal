@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 解开 Skill 包：`.zip` / `.skill`（zip）与 `.tar.gz` / `.tgz`。
+//! Unpacks Skill packages: `.zip` / `.skill` (zip) and `.tar.gz` / `.tgz`.
 //!
-//! 只接受普通文件与目录：绝对路径、`..` 一律拒绝；上传的包里有符号链接、硬链接或设备文件时
-//! 整包拒绝，仓库压缩包里的这些条目略过不跟。文件数、单个文件与解开后的总大小都有上限，防
-//! 压缩炸弹。macOS 打包时带的 `__MACOSX/` 与 `.DS_Store` 略过。仓库压缩包可以很大，先用
-//! [`list_paths`] 看清有哪些文件，再用 `keep` 只留需要的那部分。
+//! Only regular files and directories are accepted: absolute paths and `..` are always rejected.
+//! Uploaded packages containing symbolic links, hard links, or device files are rejected entirely;
+//! these entries in repository archives are skipped without following them. Limits on file count,
+//! individual file size, and total unpacked size prevent decompression bombs. The `__MACOSX/` and
+//! `.DS_Store` entries added by macOS are skipped. Repository archives can be large; first use
+//! [`list_paths`] to see which files exist, then use `keep` to retain only the needed portion.
 
 use std::io::{Cursor, Read};
 
@@ -14,7 +16,7 @@ use flate2::read::GzDecoder;
 
 use super::{MAX_FILE_BYTES, MAX_FILES, MAX_UNPACKED_BYTES, SkillFile};
 
-/// 一次解包留下多少文件、多少字节，遇到链接怎么办。
+/// Controls how many files and bytes an unpack operation retains and how it handles links.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UnpackLimits {
     pub max_files: usize,
@@ -22,25 +24,26 @@ pub struct UnpackLimits {
     pub skip_links: bool,
 }
 
-/// 上传的一个 Skill 包。
+/// Limits for one uploaded Skill package.
 pub const PACKAGE_LIMITS: UnpackLimits = UnpackLimits {
     max_files: MAX_FILES,
     max_bytes: MAX_UNPACKED_BYTES,
     skip_links: false,
 };
 
-/// 一个仓库里的全部 Skill。
+/// Limits for all Skills in one repository.
 pub const REPOSITORY_LIMITS: UnpackLimits = UnpackLimits {
     max_files: 2_000,
     max_bytes: 128 * 1024 * 1024,
     skip_links: true,
 };
-use crate::shared::{Error, Result};
+use kernel::{Error, Result};
 
-/// 读仓库压缩包时最多看多少个条目，留下的文件另有上限。
+/// Maximum entries to inspect when reading a repository archive; retained files have a separate
+/// limit.
 const MAX_ENTRIES: usize = 50_000;
 
-/// 读仓库压缩包时最多解出多少字节（包括略过的文件）。
+/// Maximum bytes to unpack when reading a repository archive, including skipped files.
 const MAX_SCANNED_BYTES: u64 = 512 * 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,7 +52,7 @@ pub enum ArchiveKind {
     TarGz,
 }
 
-/// 由文件名判断格式。
+/// Determines the format from the file name.
 pub fn archive_kind(file_name: &str) -> Option<ArchiveKind> {
     let name = file_name.trim().to_ascii_lowercase();
 
@@ -62,14 +65,15 @@ pub fn archive_kind(file_name: &str) -> Option<ArchiveKind> {
     }
 }
 
-/// 解开后的文件，与仓库压缩包里记下的提交（tar 的 pax 全局头 `comment=`）。
+/// Unpacked files and the commit recorded in a repository archive (tar pax global header
+/// `comment=`).
 #[derive(Debug, Default)]
 pub struct Unpacked {
     pub files: Vec<SkillFile>,
     pub commit: Option<String>,
 }
 
-/// 包里的路径改成安全的相对路径；不安全或要略过时为空。
+/// Converts an archive path to a safe relative path; returns none if unsafe or to be skipped.
 pub fn safe_path(raw: &str) -> Result<Option<String>> {
     let normalized = raw.replace('\\', "/");
 
@@ -173,7 +177,7 @@ impl Budget {
     }
 }
 
-/// 读一个文件，最多读到上限加一个字节，读多了就是声明的大小不实。
+/// Reads one file up to the limit plus one byte; excess bytes indicate an incorrect declared size.
 fn read_limited(reader: impl Read, path: &str) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
 
@@ -191,7 +195,8 @@ fn read_limited(reader: impl Read, path: &str) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
-/// 包里有哪些普通文件（安全的相对路径），不读内容；链接与要略过的条目不列。
+/// Lists regular files as safe relative paths without reading contents, excluding links and skipped
+/// entries.
 pub fn list_paths(bytes: &[u8], kind: ArchiveKind) -> Result<Vec<String>> {
     let mut paths = Vec::new();
 
@@ -209,7 +214,7 @@ pub fn list_paths(bytes: &[u8], kind: ArchiveKind) -> Result<Vec<String>> {
     Ok(paths)
 }
 
-/// 解开包，`keep` 决定一个文件要不要留下。
+/// Unpacks an archive, using `keep` to decide whether to retain each file.
 pub fn unpack(
     bytes: &[u8],
     kind: ArchiveKind,
@@ -322,7 +327,7 @@ fn unpack_tar_gz(
         let kind = entry.header().entry_type();
 
         if kind.is_pax_global_extensions() {
-            // `git archive` 把提交写在 pax 全局头里：`comment=<sha>`。
+            // `git archive` writes the commit in the pax global header: `comment=<sha>`.
             let mut header = String::new();
             let _ = (&mut entry).take(64 * 1024).read_to_string(&mut header);
 
@@ -373,7 +378,7 @@ fn unpack_tar_gz(
     Ok(unpacked)
 }
 
-/// 把一个 Skill 的文件打成 zip，放在以 `root` 命名的目录里，下载用。
+/// Packages a Skill's files into a zip under a directory named `root` for download.
 pub fn zip_files(root: &str, files: &[SkillFile]) -> Result<Vec<u8>> {
     use std::io::Write;
 
