@@ -106,14 +106,12 @@ function detectPostgresContainer() {
       });
     const preferred = rows.find((r) => /postgres/i.test(r.name) && /molesignal/i.test(r.name));
     if (preferred) return preferred.name;
-    const legacy = rows.find((r) => /postgres/i.test(r.name) && /observabil/i.test(r.name));
-    if (legacy) return legacy.name;
     const anyPg = rows.find((r) => /postgres/i.test(r.name) || /postgres/i.test(r.image));
     if (anyPg) return anyPg.name;
   } catch {
-    // docker not available — fall through to historical devcontainer name.
+    // docker not available — fall through to the name the repository's devcontainer gives it.
   }
-  return 'observabil_devcontainer-postgres-1';
+  return 'molesignal_devcontainer-postgresql-1';
 }
 
 const sqlString = (v) => `'${String(v).replaceAll("'", "''")}'`;
