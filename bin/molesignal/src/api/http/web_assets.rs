@@ -39,7 +39,6 @@ const BACKEND_PREFIXES: &[&str] = &[
     "/api",
     "/metrics",
     "/.well-known",
-    "/docs/inbound-mcp",
     "/s",
     "/healthz",
     "/readyz",

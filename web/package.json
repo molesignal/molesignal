@@ -20,7 +20,6 @@
     "test:coverage": "vitest run --coverage",
     "playwright": "playwright test --grep-invert @perf",
     "playwright:perf": "playwright test --grep @perf",
-    "dump:keymap": "tsx scripts/dump-keymap.ts",
     "a11y:contrast": "tsx scripts/check-contrast.ts",
     "dashboard-contracts:sync": "tsx scripts/sync-dashboard-contracts.ts",
     "dashboard-contracts:check": "tsx scripts/sync-dashboard-contracts.ts --check",

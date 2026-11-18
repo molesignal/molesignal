@@ -64,7 +64,7 @@ docker compose -f deploy/docker/docker-compose.yaml --profile standalone up -d
    curl -X POST http://localhost:5080/api/v1/intake/alerts \
      -H 'Authorization: Bearer <告警来源 Token>' \
      -H 'Content-Type: application/json' \
-     -d '{"dedup_key": "disk-full/web-1", "summary": "Disk almost full on web-1", "severity": "critical", "labels": {"host.name": "web-1"}}'
+     -d '{"dedupKey": "disk-full/web-1", "summary": "Disk almost full on web-1", "severity": "critical", "labels": {"host.name": "web-1"}}'
    ```
 
    Alertmanager 则是加一个接收器，并在路由里把告警交给它：
@@ -169,7 +169,7 @@ service:
 ### 数据与查询
 
 - **存储**：数据以 Parquet 存放，用 Tantivy 建索引，查询时按文件裁剪。PostgreSQL 只存元数据和文件目录。
-- **查询**：[完整 SQL](https://docs.molesignal.com/zh-Hans/query)（JOIN、CTE、窗口函数）和 [PromQL 子集](docs/promql_subset.md)，大查询可以转成异步搜索任务。也可以通过 Arrow Flight SQL 从 DBeaver、JDBC 或 ADBC 连接（默认关闭）。
+- **查询**：[完整 SQL](https://docs.molesignal.com/zh-Hans/query)（JOIN、CTE、窗口函数）和 [PromQL 子集](https://docs.molesignal.com/zh-Hans/query/promql-subset)，大查询可以转成异步搜索任务。也可以通过 Arrow Flight SQL 从 DBeaver、JDBC 或 ADBC 连接（默认关闭）。
 - **跨集群**：一次查询可以覆盖多个已注册的集群，不可达的集群会标记出来，不影响其余结果。
 - **[流水线和函数](https://docs.molesignal.com/zh-Hans/pipelines)**：写入时或按计划用 VRL、JavaScript 处理数据，也可以调用模型；支持分流、重试、死信和回填，扩展表可以做查找。
 

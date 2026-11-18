@@ -41,7 +41,6 @@ const OPEN: &[(&str, &str)] = &[
     ("/.well-known/", "public metadata and the ACME challenge"),
     ("/auth/", "signing in, out and up"),
     ("/oauth/", "the OAuth flow authenticates by itself"),
-    ("/docs/inbound-mcp", "public documentation"),
     ("/healthz", "probes"),
     ("/readyz", "probes"),
     ("/version", "public"),

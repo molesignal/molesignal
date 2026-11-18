@@ -4,8 +4,7 @@
 
 技术栈：**React 18 + Vite + TypeScript + shadcn/ui + Tailwind + uPlot + ReactFlow + TanStack Query + zustand**。
 
-> 想了解整体设计取舍：见 `openspec/changes/web-investigation-shell/{proposal,design}.md`。
-> 想看每条键位的来源：见 [`docs/web/keyboard.md`](../docs/web/keyboard.md)。
+> 想看每条键位：在应用里按 `⌘/`；全局键位在 `src/routes/ShellRoot.tsx` 注册。
 
 ## 开发
 
@@ -88,7 +87,7 @@ web/src/
 | `n` / `N`          | trace flame：下 / 上一个搜索匹配              |
 | `f` / `w`          | trace flame：flame / waterfall 模式          |
 
-完整列表（含 scope-specific bindings）：`pnpm -C web dump:keymap`（生成 `docs/web/keyboard.md`）。
+完整列表（含 scope-specific bindings）在应用里按 `⌘/` 查看：帮助面板列出当前生效的全部键位。
 
 ## 投资栈 URL 与 `y`
 

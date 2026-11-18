@@ -114,7 +114,7 @@ shell 和浏览器执行。
   `search_around`、`search_field_values`
 - Traces / AI Sessions：`list_traces`、`get_trace`、`get_trace_dag`、
   `list_trace_sessions`、`get_trace_session`、`list_trace_users`
-- Incidents / On-call：`list_recent_alerts`、`list_incidents`、`get_incident`、
+- Incidents / On-call：`list_incidents`、`get_incident`、
   `get_incident_rca`、`get_incident_insights`、`acknowledge_incident`、
   `resolve_incident`、`list_on_call_schedules`、
   `get_on_call_schedule`、`get_current_on_call`
@@ -210,7 +210,7 @@ Catalog 的 exposure 既用于生成列表，也由 `ToolRuntime::authorize` 在
 - Automation：默认不暴露内置 Tool，直到具体 Tool 显式声明 automation surface；adapter
   不能沿用 Mole Agent 的列表。目前声明了 automation surface 的只有三个只读日志工具：
   `query_logs`、`get_stream_schema`、`search_field_values`，由定时日志巡检使用
-  （`bootstrap/workers/log_inspection/dispatcher.rs`，见 [log-inspection.md](log-inspection.md)）。
+  （`bootstrap/workers/log_inspection/dispatcher.rs`，见文档站[日志巡检](https://docs.molesignal.com/zh-Hans/logs/inspections)）。
   这个 adapter 没有人在场审批：组织 Tool Policy 下不是 Automatic 的工具不进入清单、按名字
   调用也会被拒绝，`stream` 参数必须是巡检所选的数据流，执行策略固定为只读。
 

@@ -1,7 +1,7 @@
 # MoleSignal HTTP API v1
 # OpenAPI 3.0 描述。当前覆盖 intake / query / streams / alerts / dashboards / 派生查询 /
 # 付费版 (sso/clusters/cipher_keys/connectors/agent)。
-# 完整 endpoint 索引见各 handler 文件 `src/api/http/routes/*.rs`。
+# 完整 endpoint 索引见 `bin/molesignal/src/api/http/routes/` 下的各 handler 文件。
 
 openapi: 3.0.3
 info:

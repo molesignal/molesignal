@@ -64,7 +64,7 @@ Then pick a path.
    curl -X POST http://localhost:5080/api/v1/intake/alerts \
      -H 'Authorization: Bearer <source token>' \
      -H 'Content-Type: application/json' \
-     -d '{"dedup_key": "disk-full/web-1", "summary": "Disk almost full on web-1", "severity": "critical", "labels": {"host.name": "web-1"}}'
+     -d '{"dedupKey": "disk-full/web-1", "summary": "Disk almost full on web-1", "severity": "critical", "labels": {"host.name": "web-1"}}'
    ```
 
    For Alertmanager, add a receiver and route alerts to it:
@@ -169,7 +169,7 @@ The **Datasource** page in the product has setup steps for more than 40 sources.
 ### Data and query
 
 - **Storage**: data is stored as Parquet and indexed with Tantivy, and queries prune by file. PostgreSQL holds only metadata and the file catalog.
-- **Query**: [full SQL](https://docs.molesignal.com/en-US/query) (JOINs, CTEs, window functions) and a [PromQL subset](docs/promql_subset.md). Large queries can run as async search jobs. DBeaver, JDBC and ADBC can connect over Arrow Flight SQL (off by default).
+- **Query**: [full SQL](https://docs.molesignal.com/en-US/query) (JOINs, CTEs, window functions) and a [PromQL subset](https://docs.molesignal.com/en-US/query/promql-subset). Large queries can run as async search jobs. DBeaver, JDBC and ADBC can connect over Arrow Flight SQL (off by default).
 - **Across clusters**: one query can cover several registered clusters. Unreachable clusters are flagged without affecting the other results.
 - **[Pipelines and functions](https://docs.molesignal.com/en-US/pipelines)**: process data at intake or on a schedule with VRL or JavaScript, or call a model. Fan-out, retries, dead letters and backfill are supported, and extend tables provide lookups.
 
