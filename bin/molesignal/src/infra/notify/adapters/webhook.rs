@@ -20,26 +20,21 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::notify::connector::{
+    ConnectorAdapter, ConnectorCapabilities, ConnectorDeliveryResult, NotifyChannel, NotifyMessage,
+    NotifyTarget, NotifyTargetType,
+};
+use kernel::{Error, Result, time::TimestampMicros};
 use reqwest::{
     Method,
     header::{CONTENT_TYPE, HeaderName, HeaderValue},
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
+use signals::http_trace::{self, HttpTarget};
 use url::Url;
 
-use crate::{
-    domain::notify::connector::{
-        ConnectorAdapter, ConnectorCapabilities, ConnectorDeliveryResult, NotifyChannel,
-        NotifyMessage, NotifyTarget, NotifyTargetType,
-    },
-    infra::connectors::dispatcher::http::{pinned_client, signature},
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-        time::TimestampMicros,
-    },
-};
+use crate::infra::connectors::dispatcher::http::{pinned_client, signature};
 
 pub const WEBHOOK_CONNECTOR_TYPE: &str = "webhook";
 
@@ -80,7 +75,7 @@ impl WebhookMethod {
 /// 请求体发什么。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum WebhookBody {
+pub(super) enum WebhookBody {
     /// 写给机器读的事件，加上目标与渲染好的消息。
     #[default]
     Event,
@@ -300,6 +295,15 @@ fn request_body(
         return Ok((message.text.clone().into_bytes(), content_type));
     }
 
+    let bytes = serde_json::to_vec(&event_body(target, message)?)
+        .map_err(|_| Error::internal("webhook body could not be written"))?;
+
+    Ok((bytes, "application/json"))
+}
+
+/// The `event` body: the machine-readable event the notify engine wrote, with the target and the
+/// rendered message beside it. Amazon SNS publishes the same JSON.
+pub(super) fn event_body(target: &NotifyTarget, message: &NotifyMessage) -> Result<Value> {
     let mut shown = message.clone();
     shown.event = None;
     shown
@@ -325,14 +329,11 @@ fn request_body(
         serde_json::to_value(&shown).map_err(|_| Error::internal("webhook body"))?,
     );
 
-    let bytes = serde_json::to_vec(&Value::Object(body))
-        .map_err(|_| Error::internal("webhook body could not be written"))?;
-
-    Ok((bytes, "application/json"))
+    Ok(Value::Object(body))
 }
 
 /// 通知类型：告警的写在元数据里，其余的写在事件里。
-fn event_type(message: &NotifyMessage) -> Option<&str> {
+pub(super) fn event_type(message: &NotifyMessage) -> Option<&str> {
     message
         .metadata
         .get("event_type")

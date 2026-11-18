@@ -773,7 +773,7 @@
       }
     },
     "im": {
-      "description": "Mole Agent answers in Feishu, Slack, DingTalk, WeCom, Google Chat and Microsoft Teams through these connectors: mention it in a group or message it directly. Teams posts messages to a public callback address of MoleSignal; for the others one server receives them over a long connection or a Pub/Sub subscription, so no public address is needed. Once it is on, alert notifications sent through Feishu or Slack carry Acknowledge and Resolve buttons.",
+      "description": "Mole Agent answers in Feishu, Slack, DingTalk, WeCom, Google Chat, Microsoft Teams and Telegram through these connectors: mention it in a group or message it directly. Teams posts messages to a public callback address of MoleSignal; for the others one server receives them over a long connection, long polling or a Pub/Sub subscription, so no public address is needed. Once it is on, alert notifications sent through Feishu, Slack or Telegram carry Acknowledge and Resolve buttons.",
       "guide": "Setup guide",
       "no_external_url": "No external URL is configured (http.external_url): people cannot link their IM accounts themselves, answers carry no link to their chat, and Microsoft Teams cannot deliver messages. An administrator can still add and verify their IM accounts in their notification methods.",
       "none": "No connector that can answer in IM yet",
@@ -814,7 +814,8 @@
         "dingtalk": "DingTalk",
         "wecom": "WeCom",
         "google_chat": "Google Chat",
-        "teams": "Microsoft Teams"
+        "teams": "Microsoft Teams",
+        "telegram": "Telegram"
       },
       "last_message": "last message {{at}}",
       "callback": "Callback",
@@ -1785,7 +1786,8 @@
       "dingtalk": "DingTalk",
       "wecom": "WeCom",
       "google_chat": "Google Chat",
-      "teams": "Teams"
+      "teams": "Teams",
+      "telegram": "Telegram"
     }
   },
   "starter_title": "What should we investigate tonight?",

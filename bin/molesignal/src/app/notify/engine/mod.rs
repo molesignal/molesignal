@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+mod action_links;
 mod blocks;
 mod buttons;
 mod calls;
@@ -24,18 +25,7 @@ mod webhook;
 
 use std::sync::Arc;
 
-pub use model::{
-    NotifyDefaultInput, NotifyDeliveryPlanStep, NotifyDispatch, NotifyEventOutcome,
-    NotifyPolicyInput, NotifyPolicyOutcome, NotifyPolicyPreview, NotifyRecipientOutcome,
-    NotifyRecipientPlan,
-};
-pub use reachability::Reachability;
-pub use replies::reply_line_key;
-pub(super) use template::render_sample;
-pub use template::validate_notify_template;
-
-use super::{AlertButtonSlot, AlertButtonSource, ConnectorRegistry, RecipientResolverRegistry};
-use crate::domain::{
+use domain::{
     alerting::{
         mute::MuteRuleRepository,
         repositories::{AlertRuleRepository, IncidentRepository},
@@ -48,6 +38,17 @@ use crate::domain::{
         UserNotifyEndpointRepository, UserNotifyPreferenceRepository,
     },
 };
+pub use model::{
+    NotifyDefaultInput, NotifyDeliveryPlanStep, NotifyDispatch, NotifyEventOutcome,
+    NotifyPolicyInput, NotifyPolicyOutcome, NotifyPolicyPreview, NotifyRecipientOutcome,
+    NotifyRecipientPlan,
+};
+pub use reachability::Reachability;
+pub use replies::reply_line_key;
+pub(super) use template::render_sample;
+pub use template::validate_notify_template;
+
+use super::{AlertButtonSlot, AlertButtonSource, ConnectorRegistry, RecipientResolverRegistry};
 
 pub struct NotifyEngineDependencies {
     pub connectors: Arc<dyn NotifyConnectorRepository>,
@@ -89,11 +90,15 @@ pub struct NotifyEngine {
     /// 告警通知看哪里的静默；没有时不看静默。
     silences: Option<silences::Silences>,
     /// 回复短信、电话按键的引用记在哪里；没有时不收回复。
-    replies: Option<Arc<dyn crate::domain::notify::reply::NotifyReplyRepository>>,
+    replies: Option<Arc<dyn domain::notify::reply::NotifyReplyRepository>>,
     /// 组织的优先级与紧急度档位：告警通知按它取个人的步骤、判断免打扰；没有时按内置的高、低。
     importance: Option<Arc<crate::app::alerting::ImportanceService>>,
     /// 策略发送告警通知之前经过的告警流水线；没有时照原样发。
     alert_pipelines: Option<Arc<crate::app::alerting::event_pipelines::AlertPipelines>>,
+    /// Where one-time action links are kept; without it no links are issued.
+    action_links: Option<Arc<dyn domain::notify::action_links::NotifyActionLinkRepository>>,
+    /// When expired action links were last purged (microseconds).
+    action_links_purged_at: std::sync::atomic::AtomicI64,
 }
 
 impl NotifyEngine {
@@ -120,6 +125,8 @@ impl NotifyEngine {
             replies: None,
             importance: None,
             alert_pipelines: None,
+            action_links: None,
+            action_links_purged_at: std::sync::atomic::AtomicI64::new(0),
         }
     }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import en from '@/i18n/en-us/notify.json';
 import zh from '@/i18n/zh-cn/notify.json';
 
 import type { NotifyConnector, NotifyConnectorAddress } from '@/api/notify';
@@ -9,6 +10,7 @@ import {
   PHONE_CONNECTOR_TYPES,
   buildConfig,
   credentialsComplete,
+  defaultTargetType,
   fieldSpecs,
   fieldsFrom,
   regionQuery,
@@ -25,6 +27,20 @@ const AWS: NotifyConnectorAddress[] = [
   },
 ];
 
+/** The types added with Telegram, Discord, Mattermost, Webex, Matrix, WhatsApp, Amazon SNS and PagerDuty. */
+const NEWER_TYPES = [
+  'telegram_bot',
+  'discord_webhook',
+  'mattermost_bot',
+  'mattermost_webhook',
+  'webex_bot',
+  'webex_webhook',
+  'matrix_bot',
+  'twilio_whatsapp',
+  'aws_sns',
+  'pagerduty',
+];
+
 const aliyun = (service: string): NotifyConnectorAddress[] => [
   {
     field: 'apiBaseUrl',
@@ -37,6 +53,7 @@ const aliyun = (service: string): NotifyConnectorAddress[] => [
 const ADDRESSES: Record<string, NotifyConnectorAddress[]> = {
   aws_sms: AWS,
   aws_voice: AWS,
+  aws_sns: [{ ...AWS[0]!, byRegion: { service: 'sns', domains: ['amazonaws.com', 'amazonaws.com.cn'] } }],
   aliyun_sms: aliyun('dysmsapi'),
   aliyun_voice: aliyun('dyvmsapi'),
   lark_app: [
@@ -71,6 +88,21 @@ const ADDRESSES: Record<string, NotifyConnectorAddress[]> = {
       ],
     },
   ],
+  // Microsoft 365 is signed in to in the worldwide cloud only.
+  email_smtp: [{ field: 'loginBaseUrl', choices: [{ key: 'default', url: 'https://login.microsoftonline.com' }] }],
+  pagerduty: [
+    {
+      field: 'apiBaseUrl',
+      picker: 'region',
+      choices: [
+        { key: 'us', url: 'https://events.pagerduty.com' },
+        { key: 'eu', url: 'https://events.eu.pagerduty.com' },
+      ],
+    },
+  ],
+  telegram_bot: [{ field: 'apiBaseUrl', choices: [{ key: 'default', url: 'https://api.telegram.org' }] }],
+  webex_bot: [{ field: 'apiBaseUrl', choices: [{ key: 'default', url: 'https://webexapis.com/v1' }] }],
+  twilio_whatsapp: [{ field: 'apiBaseUrl', choices: [{ key: 'default', url: 'https://api.twilio.com' }] }],
 };
 
 const specsOf = (connectorType: string) => fieldSpecs(connectorType, ADDRESSES[connectorType]);
@@ -273,20 +305,175 @@ describe('notify connector fields', () => {
     expect(credentialsComplete('aliyun_voice', { ...values, replies: 'false' })).toBe(true);
   });
 
-  it('names every phone connector and each of its fields', () => {
-    const drawer = zh.connectors.drawer as {
-      field: Record<string, string>;
-      hints: Record<string, string>;
-    };
+  it('names every type and each of its fields in both languages, and says what the newer types need', () => {
+    for (const pack of [zh, en]) {
+      const drawer = pack.connectors.drawer as {
+        field: Record<string, string>;
+        hints: Record<string, string>;
+        type_fields: Record<string, Record<string, string>>;
+      };
 
-    for (const connectorType of PHONE_CONNECTOR_TYPES) {
-      expect(FIELDS[connectorType], connectorType).toBeDefined();
-      expect((zh.connector_types as Record<string, string>)[connectorType], connectorType).toBeTruthy();
-      expect(drawer.hints[connectorType], connectorType).toBeTruthy();
+      for (const connectorType of Object.keys(FIELDS)) {
+        expect((pack.connector_types as Record<string, string>)[connectorType], connectorType).toBeTruthy();
 
-      for (const field of FIELDS[connectorType]!) {
-        expect(drawer.field[field.key], `${connectorType}.${field.key}`).toBeTruthy();
+        for (const field of fieldSpecs(connectorType, ADDRESSES[connectorType])) {
+          const label = drawer.type_fields[connectorType]?.[field.key] ?? drawer.field[field.key];
+          expect(label, `${connectorType}.${field.key}`).toBeTruthy();
+        }
+      }
+
+      for (const connectorType of [...PHONE_CONNECTOR_TYPES, ...NEWER_TYPES]) {
+        expect(FIELDS[connectorType], connectorType).toBeDefined();
+        expect(drawer.hints[connectorType], connectorType).toBeTruthy();
       }
     }
+
+    // WhatsApp texts a phone: a person's endpoint on it is a number.
+    expect(PHONE_CONNECTOR_TYPES.has('twilio_whatsapp')).toBe(true);
+  });
+
+  it('keeps the words of each choice under the key of the field that offers it', () => {
+    // The editor looks the words up by the field's own key; words kept under another spelling are
+    // never shown, and the choice reads as its raw value.
+    const selects = new Set(
+      Object.keys(FIELDS).flatMap((connectorType) =>
+        fieldSpecs(connectorType, ADDRESSES[connectorType])
+          .filter((field) => field.type === 'select')
+          .map((field) => field.key),
+      ),
+    );
+
+    for (const pack of [zh, en]) {
+      const options = pack.connectors.drawer.options as Record<string, Record<string, string>>;
+
+      for (const key of Object.keys(options)) expect(selects, key).toContain(key);
+
+      for (const field of fieldSpecs('http_sms').filter((spec) => spec.type === 'select')) {
+        for (const option of field.options ?? []) {
+          expect(options[field.key]?.[option], `${field.key}.${option}`).toBeTruthy();
+        }
+      }
+    }
+  });
+});
+
+describe('the newer connector types', () => {
+  it('asks a bot for its token, and a self-hosted server for its address', () => {
+    expect(keys('telegram_bot', {})).toEqual(['botToken', 'apiBaseUrl', 'timeoutSecs']);
+    expect(fieldsFrom(specsOf('telegram_bot')).apiBaseUrl).toBe('https://api.telegram.org');
+    expect(keys('mattermost_bot', {})).toEqual(['serverUrl', 'botToken', 'timeoutSecs']);
+    expect(keys('matrix_bot', {})).toEqual(['homeserverUrl', 'accessToken', 'timeoutSecs']);
+    expect(keys('webex_bot', {})).toEqual(['botToken', 'apiBaseUrl', 'timeoutSecs']);
+
+    // A Discord webhook may post under a name and avatar of its own.
+    const discord = specsOf('discord_webhook');
+    expect(discord.filter((field) => field.optional).map((field) => field.key)).toEqual(['username', 'avatarUrl']);
+    expect(rowsOf(discord).map((row) => row.map((field) => field.key))).toEqual([
+      ['webhookUrl'],
+      ['username', 'avatarUrl'],
+      ['timeoutSecs'],
+    ]);
+  });
+
+  it('sends a test of what posts to one place to a group', () => {
+    for (const connectorType of ['webhook', 'pagerduty', 'aws_sns', 'discord_webhook', 'mattermost_webhook']) {
+      expect(defaultTargetType(connectorType), connectorType).toBe('fixed_group');
+    }
+    expect(defaultTargetType('telegram_bot')).toBe('direct_user');
+    expect(defaultTargetType('twilio_whatsapp')).toBe('direct_user');
+    expect(defaultTargetType('email_smtp')).toBe('fixed_address');
+  });
+
+  it('picks the PagerDuty service region, which only sets the address', () => {
+    const specs = specsOf('pagerduty');
+    const values = fieldsFrom(specs);
+
+    expect(values).toMatchObject({ region: 'us', apiBaseUrl: 'https://events.pagerduty.com' });
+    expect(rowsOf(specs).map((row) => row.map((field) => field.key))).toEqual([
+      ['routingKey', 'region'],
+      ['apiBaseUrl'],
+      ['timeoutSecs'],
+    ]);
+
+    const eu = withValue(specs, values, 'region', 'eu');
+    expect(buildConfig(specs, eu)).toEqual({
+      routingKey: '',
+      apiBaseUrl: 'https://events.eu.pagerduty.com',
+      timeoutSecs: 10,
+    });
+    expect(fieldsFrom(specs, saved({ apiBaseUrl: 'https://events.eu.pagerduty.com' })).region).toBe('eu');
+  });
+
+  it('signs Amazon SNS in as the other AWS connectors do, and sends the event or the template', () => {
+    expect(keys('aws_sns', { auth: 'node_role' })).toEqual(['auth', 'region', 'apiBaseUrl', 'topicArn', 'body', 'timeoutSecs']);
+    expect(fieldsFrom(specsOf('aws_sns')).body).toBe('event');
+    expect(credentialsComplete('aws_sns', { auth: 'access_key', accessKey: 'AKIA' })).toBe(false);
+    expect(regionQuery('aws_sns', specsOf('aws_sns'), { auth: 'node_role' })).toEqual({ auth: 'node_role' });
+  });
+});
+
+describe('email sign-in', () => {
+  const specs = specsOf('email_smtp');
+
+  it('asks for a password, or for the Microsoft 365 app, or for the Google service account', () => {
+    expect(fieldsFrom(specs).auth).toBe('password');
+    expect(keys('email_smtp', { auth: 'password' })).toEqual([
+      'host',
+      'port',
+      'auth',
+      'username',
+      'password',
+      'from',
+      'tls',
+      'timeoutSecs',
+    ]);
+    // The sign-in address shows, not edited, for Microsoft alone.
+    expect(keys('email_smtp', { auth: 'microsoft' })).toEqual([
+      'host',
+      'port',
+      'auth',
+      'tenantId',
+      'clientId',
+      'clientSecret',
+      'loginBaseUrl',
+      'username',
+      'from',
+      'tls',
+      'timeoutSecs',
+    ]);
+    expect(specs.find((field) => field.key === 'loginBaseUrl')).toMatchObject({
+      type: 'fixed',
+      defaultValue: 'https://login.microsoftonline.com',
+    });
+    expect(keys('email_smtp', { auth: 'google' })).toEqual([
+      'host',
+      'port',
+      'auth',
+      'credentials',
+      'username',
+      'from',
+      'tls',
+      'timeoutSecs',
+    ]);
+  });
+
+  it('sends with OAuth as a mailbox, named as the user name', () => {
+    expect(credentialsComplete('email_smtp', { auth: 'password', username: '' })).toBe(true);
+    expect(credentialsComplete('email_smtp', { auth: 'microsoft', username: ' ' })).toBe(false);
+    expect(credentialsComplete('email_smtp', { auth: 'google', username: 'alerts@example.com' })).toBe(true);
+  });
+
+  it('saves the Microsoft sign-in address with Microsoft, and nothing of the other ways', () => {
+    const values = { ...fieldsFrom(specs), auth: 'microsoft', password: 'typed-before', tenantId: 't', clientId: 'c' };
+    const config = buildConfig(specs, values);
+
+    expect(config).toMatchObject({ auth: 'microsoft', loginBaseUrl: 'https://login.microsoftonline.com' });
+    expect(config).not.toHaveProperty('password');
+    expect(config).not.toHaveProperty('credentials');
+
+    // A connector saved before sign-in modes signs in with its password.
+    const older = fieldsFrom(specs, saved({ host: 'smtp.example.com', username: 'u', password: '***' }));
+    expect(older.auth).toBe('password');
+    expect(buildConfig(specs, older)).not.toHaveProperty('loginBaseUrl');
   });
 });

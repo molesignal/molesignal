@@ -3,17 +3,15 @@
 
 //! 飞书卡片：App 发的告警卡片（带操作按钮）与群机器人发的卡片或文本。
 
+use domain::notify::{
+    buttons::{AlertAction, AlertButtons},
+    connector::NotifyMessage,
+};
 use serde_json::{Value, json};
 
-use crate::{
-    domain::notify::{
-        buttons::{AlertAction, AlertButtons},
-        connector::NotifyMessage,
-    },
-    infra::notify::adapters::{
-        card::{CardColor, card_color, card_title, severity_color},
-        common::truncate_chars,
-    },
+use crate::infra::notify::adapters::{
+    card::{CardColor, card_color, card_title, severity_color},
+    common::truncate_chars,
 };
 
 /// 告警卡片上操作按钮的值放在这个键下，点了以后由它认出来。
@@ -76,7 +74,7 @@ pub(crate) fn lark_card(
             json!({
                 "tag": "button",
                 "text": { "tag": "plain_text", "content": label },
-                "type": if matches!(action, AlertAction::Acknowledge | AlertAction::AcknowledgeAll) { "primary" } else { "default" },
+                "type": if matches!(action, AlertAction::Acknowledge | AlertAction::AcknowledgeAll | AlertAction::Approve) { "primary" } else { "default" },
                 "value": { LARK_ALERT_VALUE_KEY: buttons.value(*action) },
             })
         })
@@ -167,10 +165,9 @@ fn header_color(color: CardColor) -> &'static str {
 mod tests {
     use std::collections::BTreeMap;
 
+    use domain::notify::template::{NotifyCard, NotifyCardColor, NotifyCardField, NotifyCardLink};
+
     use super::*;
-    use crate::domain::notify::template::{
-        NotifyCard, NotifyCardColor, NotifyCardField, NotifyCardLink,
-    };
 
     #[test]
     fn an_alert_card_carries_its_buttons_and_says_who_acted() {
@@ -197,6 +194,7 @@ mod tests {
                 "在 MoleSignal 中查看".into(),
                 "https://example/alerts/incidents/incident-1".into(),
             )),
+            callback: None,
         };
 
         let card = lark_card(&message, &buttons, Some("Alice 确认了这个告警。"));

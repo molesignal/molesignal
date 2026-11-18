@@ -10,17 +10,31 @@
 
 use std::sync::Arc;
 
+use agent::im::{
+    AlertCard, CardAction, CardAnswer, ImBot, ImPlatform, ImRepository, Inbound, NoticeKind,
+};
 use async_trait::async_trait;
+use domain::{
+    alerting::{
+        incident::{Incident, IncidentStatus},
+        timeline::ActionVia,
+    },
+    iam::IamContext,
+    notify::{
+        buttons::{AlertAction, AlertButtonLabels, AlertButtons, MAX_BUNDLE_ALERTS, SNOOZE_SECS},
+        connector::NotifyConnector,
+        reply::ReplyAction,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 
 use super::{
     inbound::{Identity, Place, identify, principal},
     links::{self, Offer},
+    mattermost,
     texts::{TextSources, Texts},
 };
 use crate::{
-    agent::im::{
-        AlertCard, CardAction, CardAnswer, ImBot, ImPlatform, ImRepository, Inbound, NoticeKind,
-    },
     api::{
         AppState,
         http::{
@@ -29,27 +43,14 @@ use crate::{
     },
     app::{
         alerting::Actor,
-        iam::IamContext,
-        notify::{AlertButtonSource, ReplyHints},
-    },
-    domain::{
-        alerting::{
-            incident::{Incident, IncidentStatus},
-            timeline::ActionVia,
-        },
-        notify::{
-            buttons::{
-                AlertAction, AlertButtonLabels, AlertButtons, MAX_BUNDLE_ALERTS, SNOOZE_SECS,
-            },
-            connector::NotifyConnector,
-            reply::ReplyAction,
-        },
+        notify::{ActionLinkLabels, AlertButtonSource, ReplyCallbacks, ReplyHints},
     },
     infra::{
         im,
-        notify::adapters::{WECOM_APP_CONNECTOR_TYPE, WecomCallback},
+        notify::adapters::{
+            MATTERMOST_BOT_CONNECTOR_TYPE, WECOM_APP_CONNECTOR_TYPE, WecomCallback,
+        },
     },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// 告警通知上的按钮：机器人开着才画，字用收通知的人的语言（发到群里时用工作区的）。
@@ -57,6 +58,8 @@ pub(crate) struct ImAlertButtons {
     bots: Arc<dyn ImRepository>,
     texts: TextSources,
     external_url: String,
+    /// The callback tokens written into the address Mattermost posts presses to.
+    callbacks: Arc<ReplyCallbacks>,
 }
 
 impl ImAlertButtons {
@@ -64,11 +67,13 @@ impl ImAlertButtons {
         bots: Arc<dyn ImRepository>,
         texts: TextSources,
         external_url: String,
+        callbacks: Arc<ReplyCallbacks>,
     ) -> Self {
         Self {
             bots,
             texts,
             external_url,
+            callbacks,
         }
     }
 }
@@ -90,6 +95,15 @@ impl AlertButtonSource for ImAlertButtons {
         })
     }
 
+    async fn link_labels(&self, organization_id: &Id, recipient: &Id) -> Option<ActionLinkLabels> {
+        let texts = Texts::from(&self.texts, organization_id, Some(recipient)).await;
+
+        Some(ActionLinkLabels {
+            acknowledge: texts.get("alert.acknowledge", &[]),
+            resolve: texts.get("alert.resolve", &[]),
+        })
+    }
+
     async fn labels(
         &self,
         connector: &NotifyConnector,
@@ -106,6 +120,19 @@ impl AlertButtonSource for ImAlertButtons {
 
             let texts = Texts::from(&self.texts, &connector.organization_id, recipient).await;
             return Some(labels(&texts, &self.external_url));
+        }
+
+        // A Mattermost bot is not one of Mole Agent's bots either: Mattermost posts presses to
+        // the address written on the button, so the buttons need only the external URL.
+        if connector.connector_type == MATTERMOST_BOT_CONNECTOR_TYPE {
+            let token = self.callbacks.token(&connector.id);
+            let callback = mattermost::callback_url(&self.external_url, &connector.id, &token)?;
+            let texts = Texts::from(&self.texts, &connector.organization_id, recipient).await;
+
+            return Some(AlertButtonLabels {
+                callback: Some(callback),
+                ..labels(&texts, &self.external_url)
+            });
         }
 
         let platform = ImPlatform::of_connector(&connector.connector_type)?;
@@ -138,7 +165,10 @@ fn labels(texts: &Texts, external_url: &str) -> AlertButtonLabels {
         resolve: texts.get("alert.resolve", &[]),
         snooze: texts.get("alert.snooze", &[]),
         acknowledge_all: texts.get("alert.acknowledge_all", &[]),
+        approve: texts.get("approval.approve", &[]),
+        reject: texts.get("approval.reject", &[]),
         open: (!base.is_empty()).then(|| (texts.get("open", &[]), base.to_string())),
+        callback: None,
     }
 }
 
@@ -207,6 +237,10 @@ pub(crate) async fn carry_out(
     user_id: &Id,
     action: &CardAction,
 ) -> Result<CardAnswer> {
+    if action.value.action.decides_approval() {
+        return super::approvals::carry_out(state, org_id, user_id, action).await;
+    }
+
     let texts = Texts::for_user(state, org_id, Some(user_id)).await;
 
     let ctx = match resolve_principal(state, org_id, &principal(user_id)).await {
@@ -273,7 +307,9 @@ pub(crate) async fn carry_out(
                 .await
         }
         // 前面已经处理了。
-        AlertAction::AcknowledgeAll => Ok(incident.clone()),
+        AlertAction::AcknowledgeAll | AlertAction::Approve | AlertAction::Reject => {
+            Ok(incident.clone())
+        }
     };
 
     // 已经解决了的不能再确认：按库里现在的样子换卡片。
@@ -375,6 +411,11 @@ fn outcome(action: AlertAction, before: IncidentStatus) -> (NoticeKind, &'static
         (AlertAction::Acknowledge, IncidentStatus::Acknowledged) => {
             (NoticeKind::Info, "alert.already_acknowledged")
         }
+        // Approvals are answered in `approvals` before an alert is looked at.
+        (
+            AlertAction::Approve | AlertAction::Reject,
+            IncidentStatus::Open | IncidentStatus::Acknowledged,
+        ) => (NoticeKind::Info, "alert.not_found"),
         (_, IncidentStatus::Resolved | IncidentStatus::Closed) => {
             (NoticeKind::Info, "alert.already_resolved")
         }

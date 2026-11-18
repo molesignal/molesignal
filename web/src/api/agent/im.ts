@@ -1,7 +1,7 @@
 import { http } from '@/lib/http';
 
 /** The platforms Mole Agent answers in, by their app connector. */
-export type ImPlatform = 'feishu' | 'slack' | 'dingtalk' | 'wecom' | 'google_chat' | 'teams';
+export type ImPlatform = 'feishu' | 'slack' | 'dingtalk' | 'wecom' | 'google_chat' | 'teams' | 'telegram';
 
 export const IM_PLATFORMS: readonly ImPlatform[] = [
   'feishu',
@@ -10,6 +10,7 @@ export const IM_PLATFORMS: readonly ImPlatform[] = [
   'wecom',
   'google_chat',
   'teams',
+  'telegram',
 ];
 
 /** How a bot's long connection is doing: `idle` while it is off or no server holds it yet. */

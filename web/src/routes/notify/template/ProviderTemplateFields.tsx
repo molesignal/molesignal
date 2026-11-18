@@ -6,24 +6,27 @@ import { ViewTabs } from '@/shell/tabs/ViewTabs';
 
 import {
   FILLED_BY_POSITION,
-  TEMPLATE_PROVIDERS,
+  providersOf,
   type ProviderDraft,
   type ProviderParam,
   type ProviderProblem,
   type TemplateProvider,
 } from './providerDrafts';
 
-/** What a provider's template code looks like. */
+/** What a provider's template code looks like: WhatsApp's is the Twilio Content SID. */
 const CODE_PLACEHOLDER: Record<TemplateProvider, Record<'sms' | 'phone', string>> = {
   aliyun: { sms: 'SMS_123456789', phone: 'TTS_123456789' },
   tencent: { sms: '1110', phone: '4356' },
   huawei: { sms: '8ff55eac1d0b478ab3c06c3c6a492300', phone: 'alert_notice' },
+  whatsapp: { sms: 'HXb5b62575e6e4ff6129ad7c8efe1f983e', phone: '' },
 };
 
 /**
  * The approved templates of an SMS or phone template: Alibaba Cloud, Tencent Cloud and Huawei Cloud
- * send only templates they approved, so their connectors send this code with these variables, and
- * other providers the body. One provider is shown at a time; each keeps what was written for it.
+ * send only templates they approved, and WhatsApp texts only Content templates it approved, so their
+ * connectors send this code with these variables, and other providers the body. One provider is
+ * shown at a time; each keeps what was written for it. A provider's name is spaced for a Chinese
+ * sentence, so it is trimmed where it stands alone.
  * Not a `<label>` around the variables: a click on their heading would land in the first one.
  */
 export function ProviderTemplateFields({
@@ -64,10 +67,12 @@ export function ProviderTemplateFields({
         label={t('templates.provider.title')}
         value={provider}
         onValueChange={onProvider}
-        items={TEMPLATE_PROVIDERS.map((key) => ({ key, label: t(`templates.provider.names.${key}`) }))}
+        items={providersOf(channel).map((key) => ({ key, label: t(`templates.provider.names.${key}`).trim() }))}
       />
       <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_180px]">
-        <FormField label={t('templates.provider.code')}>
+        <FormField
+          label={t(`templates.provider.code_labels.${provider}`, { defaultValue: t('templates.provider.code') })}
+        >
           <FormInput
             className="font-mono"
             placeholder={CODE_PLACEHOLDER[provider][channel]}
@@ -127,7 +132,9 @@ export function ProviderTemplateFields({
       )}
       {!problem && problemElsewhere && (
         <p role="alert" className="text-xs text-red-soft">
-          {t('templates.provider.problem_elsewhere', { provider: t(`templates.provider.names.${problemElsewhere}`) })}
+          {t('templates.provider.problem_elsewhere', {
+            provider: t(`templates.provider.names.${problemElsewhere}`),
+          }).trim()}
         </p>
       )}
     </section>

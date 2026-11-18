@@ -11,6 +11,22 @@ mod regions;
 mod testing;
 
 pub use direct::{DirectSend, DirectSendOutcome};
+use domain::{
+    alerting::importance::StepGroup,
+    notify::{
+        connector::{ConnectorStatus, NotifyConnector},
+        delivery::{DeliveryFilter, NotifyDelivery},
+        endpoint::UserNotifyEndpoint,
+        preference::{
+            NotifyCategory, UserNotifyPreference, UserNotifyPreferenceStep, has_low_urgency_steps,
+        },
+        repositories::{
+            NotifyConnectorRepository, NotifyDeliveryRepository, NotifyRouteReferenceRepository,
+            NotifyTemplateRepository, UserNotifyEndpointRepository, UserNotifyPreferenceRepository,
+        },
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 pub use preference_steps::PreferenceSteps;
 pub use regions::ConnectorRegionsQuery;
 
@@ -21,26 +37,6 @@ use super::{
         validate_name,
     },
     quiet::validate_quiet_hours,
-};
-use crate::{
-    domain::{
-        alerting::importance::StepGroup,
-        notify::{
-            connector::{ConnectorStatus, NotifyConnector},
-            delivery::{DeliveryFilter, NotifyDelivery},
-            endpoint::UserNotifyEndpoint,
-            preference::{
-                NotifyCategory, UserNotifyPreference, UserNotifyPreferenceStep,
-                has_low_urgency_steps,
-            },
-            repositories::{
-                NotifyConnectorRepository, NotifyDeliveryRepository,
-                NotifyRouteReferenceRepository, NotifyTemplateRepository,
-                UserNotifyEndpointRepository, UserNotifyPreferenceRepository,
-            },
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 #[derive(Debug, Clone)]
@@ -340,6 +336,7 @@ impl NotifyService {
                 category,
                 steps.endpoint_ids,
                 steps.step_delays_secs,
+                steps.step_boosts,
             )
             .await?;
 
@@ -350,6 +347,7 @@ impl NotifyService {
                 category,
                 steps.low_endpoint_ids,
                 steps.low_step_delays_secs,
+                steps.low_step_boosts,
             )
             .await?;
 
@@ -377,19 +375,18 @@ impl NotifyService {
             .flat_map(|(urgency, list)| {
                 let preference_id = id.clone();
 
-                list.into_iter()
-                    .enumerate()
-                    .map(
-                        move |(index, (endpoint_id, delay_secs))| UserNotifyPreferenceStep {
-                            id: Id::new(),
-                            preference_id: preference_id.clone(),
-                            endpoint_id,
-                            step_order: i32::try_from(index + 1).unwrap_or(i32::MAX),
-                            delay_secs,
-                            urgency,
-                            created_at: now,
-                        },
-                    )
+                list.into_iter().enumerate().map(
+                    move |(index, (endpoint_id, delay_secs, boost))| UserNotifyPreferenceStep {
+                        id: Id::new(),
+                        preference_id: preference_id.clone(),
+                        endpoint_id,
+                        step_order: i32::try_from(index + 1).unwrap_or(i32::MAX),
+                        delay_secs,
+                        urgency,
+                        boost,
+                        created_at: now,
+                    },
+                )
             })
             .collect();
 

@@ -3,7 +3,12 @@
 
 use std::sync::{Arc, Mutex};
 
+use agent::im::{AlertCard, CardAction, ConversationKind, Inbound, NoticeKind};
 use async_trait::async_trait;
+use domain::notify::{
+    buttons::{AlertAction, AlertButtons},
+    connector::NotifyMessage,
+};
 use tokio::net::TcpListener;
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
@@ -11,13 +16,6 @@ use wiremock::{
 };
 
 use super::*;
-use crate::{
-    agent::im::{AlertCard, CardAction, ConversationKind, Inbound, NoticeKind},
-    domain::notify::{
-        buttons::{AlertAction, AlertButtons},
-        connector::NotifyMessage,
-    },
-};
 
 fn header(key: &str, value: &str) -> Header {
     Header {
@@ -167,6 +165,7 @@ fn acknowledged() -> CardAnswer {
                 alert_ids: Vec::new(),
                 actions: vec![(AlertAction::Resolve, "解决".into())],
                 open: None,
+                callback: None,
             },
             note: Some("Alice 确认了这个告警。".into()),
         }),

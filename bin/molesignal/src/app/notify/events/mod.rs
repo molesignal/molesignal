@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+mod agent_approval;
 mod alert;
 mod intake_budget;
 mod oncall;
 
+pub use agent_approval::{
+    AGENT_APPROVAL_LANGUAGE_PREFIX, AGENT_APPROVAL_REQUESTED_EVENT, AgentApprovalNotice,
+    approval_message, approvals_url,
+};
 pub use alert::{
     ALERT_ACKNOWLEDGED_EVENT, ALERT_ESCALATED_EVENT, ALERT_RESOLVED_EVENT, ALERT_TRIGGERED_EVENT,
     alert_dispatch, alert_escalation_dispatch, alert_page_dispatch, escalated_event_prefix,

@@ -3,18 +3,16 @@
 
 //! Teams 卡片：频道 Webhook 的卡片，与 Bot 发的卡片（模板卡片、带操作按钮的告警卡片）。
 
+use domain::notify::{
+    buttons::{AlertAction, AlertButtons},
+    connector::NotifyMessage,
+};
 use serde_json::{Value, json};
 
 use super::MAX_TEXT_CHARS;
-use crate::{
-    domain::notify::{
-        buttons::{AlertAction, AlertButtons},
-        connector::NotifyMessage,
-    },
-    infra::notify::adapters::{
-        card::{CardColor, card_color, card_title, severity_color},
-        common::{body, truncate_chars},
-    },
+use crate::infra::notify::adapters::{
+    card::{CardColor, card_color, card_title, severity_color},
+    common::{body, truncate_chars},
 };
 
 /// 告警卡片上的操作按钮（`Action.Execute`）的 `verb`；按钮的值放在 `data` 的这个键下，点了以后
@@ -145,7 +143,7 @@ pub(crate) fn teams_card(
         .map(|(action, label)| {
             let primary = matches!(
                 action,
-                AlertAction::Acknowledge | AlertAction::AcknowledgeAll
+                AlertAction::Acknowledge | AlertAction::AcknowledgeAll | AlertAction::Approve
             );
             execute(label, json!(buttons.value(*action)), primary)
         })
@@ -223,11 +221,12 @@ pub(crate) fn card_message(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::domain::notify::{
+    use domain::notify::{
         buttons::{AlertButtonValue, AlertButtons},
         template::{NotifyCard, NotifyCardColor, NotifyCardField, NotifyCardLink},
     };
+
+    use super::*;
 
     fn message(card: Option<NotifyCard>) -> NotifyMessage {
         NotifyMessage {
@@ -307,6 +306,7 @@ mod tests {
                 "Open in MoleSignal".into(),
                 "https://molesignal.example.com".into(),
             )),
+            callback: None,
         };
 
         let content = teams_card(&message(None), &buttons, Some("Acknowledged by Ada"));

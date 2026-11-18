@@ -46,10 +46,12 @@ export function EndpointEditor({
   const [displayName, setDisplayName] = React.useState('');
   const [enabled, setEnabled] = React.useState(true);
   const [verified, setVerified] = React.useState(false);
-  // A phone connector calls or texts the identity, which is then a phone number.
-  const phone = PHONE_CONNECTOR_TYPES.has(
-    options.find((connector) => connector.id === connectorId)?.connectorType ?? '',
-  );
+  // What the identity is on this type: the person's ID or name there, or, for a phone connector,
+  // which calls or texts it, a phone number.
+  const connectorType = options.find((connector) => connector.id === connectorId)?.connectorType ?? '';
+  const identityHint =
+    t(`endpoints.identity_hints.${connectorType}`, { defaultValue: '' }) ||
+    (PHONE_CONNECTOR_TYPES.has(connectorType) ? t('endpoints.phone_hint') : '');
 
   React.useEffect(() => {
     if (!open) return;
@@ -123,7 +125,7 @@ export function EndpointEditor({
         <FormField
           label={t('endpoints.identity')}
           required
-          {...(phone ? { hint: t('endpoints.phone_hint') } : {})}
+          {...(identityHint ? { hint: identityHint } : {})}
         >
           <FormInput
             className="h-11 text-base md:h-9 md:text-sm"

@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{
-    domain::alerting::importance::StepGroup,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::domain::alerting::importance::StepGroup;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -66,7 +64,45 @@ pub struct UserNotifyPreferenceStep {
     pub delay_secs: i32,
     #[serde(default)]
     pub urgency: StepGroup,
+    /// After the message is sent, page the person harder through the same IM app (Feishu
+    /// message urgent, DingTalk DING, WeCom emergency call); `None` sends the message only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub boost: Option<StepBoost>,
     pub created_at: TimestampMicros,
+}
+
+/// How an IM app pages a person beyond the message itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StepBoost {
+    /// A persistent in-app alert.
+    App,
+    /// A text message from the IM platform.
+    Sms,
+    /// A phone call from the IM platform.
+    Phone,
+}
+
+/// Where a step's boost travels to the connector: the delivery target's metadata.
+pub const STEP_BOOST_KEY: &str = "boost";
+
+impl StepBoost {
+    pub const ALL: [Self; 3] = [Self::App, Self::Sms, Self::Phone];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::App => "app",
+            Self::Sms => "sms",
+            Self::Phone => "phone",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|boost| boost.as_str() == value.trim())
+            .ok_or_else(|| Error::invalid(format!("unknown notify step boost: {value}")))
+    }
 }
 
 /// 只有告警和升级两类有低紧急度的步骤。
@@ -175,6 +211,7 @@ mod tests {
             step_order: order,
             delay_secs: 0,
             urgency,
+            boost: None,
             created_at: TimestampMicros(0),
         };
         let mut preference = UserNotifyPreference {

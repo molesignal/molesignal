@@ -6,20 +6,18 @@
 
 mod sms;
 mod voice;
+mod whatsapp;
 
+use domain::notify::connector::ConnectorAddress;
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::Value;
+use signals::http_trace::{self, HttpTarget};
 pub use sms::{TWILIO_SMS_CONNECTOR_TYPE, TwilioSmsConnectorAdapter};
 pub use voice::{TWILIO_VOICE_CONNECTOR_TYPE, TwilioVoiceConnectorAdapter};
+pub use whatsapp::{TWILIO_WHATSAPP_CONNECTOR_TYPE, TwilioWhatsappConnectorAdapter};
 
 use super::common::{self, default_timeout_secs};
-use crate::{
-    domain::notify::connector::ConnectorAddress,
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-    },
-};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]

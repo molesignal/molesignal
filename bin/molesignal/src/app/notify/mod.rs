@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+mod action_links;
 mod buttons;
 mod config;
 mod engine;
@@ -12,7 +13,8 @@ mod replies;
 mod resolvers;
 mod service;
 
-pub use buttons::{AlertButtonSlot, AlertButtonSource, ReplyHints};
+pub use action_links::{action_token_hash, action_url, new_action_token};
+pub use buttons::{ActionLinkLabels, AlertButtonSlot, AlertButtonSource, ReplyHints};
 pub use config::mask_connector_config;
 pub use engine::{
     NotifyDefaultInput, NotifyDeliveryPlanStep, NotifyDispatch, NotifyEngine,
@@ -21,12 +23,13 @@ pub use engine::{
     validate_notify_template,
 };
 pub use events::{
-    ALERT_ACKNOWLEDGED_EVENT, ALERT_ESCALATED_EVENT, ALERT_RESOLVED_EVENT, ALERT_TRIGGERED_EVENT,
+    AGENT_APPROVAL_LANGUAGE_PREFIX, AGENT_APPROVAL_REQUESTED_EVENT, ALERT_ACKNOWLEDGED_EVENT,
+    ALERT_ESCALATED_EVENT, ALERT_RESOLVED_EVENT, ALERT_TRIGGERED_EVENT, AgentApprovalNotice,
     INTAKE_BUDGET_EXCEEDED_EVENT, INTAKE_BUDGET_WARNING_EVENT, IntakeBudgetEventProducer,
     ONCALL_COVERAGE_MISSING_EVENT, ONCALL_MEMBER_UNREACHABLE_EVENT, ONCALL_OVERRIDE_CREATED_EVENT,
     ONCALL_SHIFT_STARTED_EVENT, ONCALL_SHIFT_STARTING_EVENT, ONCALL_SWAP_UPDATED_EVENT,
     OncallEventProducer, alert_dispatch, alert_escalation_dispatch, alert_page_dispatch,
-    override_created_dispatch, swap_dispatch, triggered_event_id,
+    approval_message, approvals_url, override_created_dispatch, swap_dispatch, triggered_event_id,
 };
 pub use matcher::{policy_matches, validate_matchers};
 pub use quiet::{quiet_hours_active, validate_quiet_hours};

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+mod action_links;
 mod calls;
 mod connectors;
 mod defaults;
@@ -13,6 +14,7 @@ mod preferences;
 mod replies;
 mod templates;
 
+pub use action_links::PgNotifyActionLinkRepository;
 pub use calls::PgNotifyCallRepository;
 pub use connectors::PgNotifyConnectorRepository;
 pub use defaults::{

@@ -7,26 +7,22 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::notify::{
+    buttons::{AlertAction, AlertButtons},
+    connector::{
+        ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
+        NotifyChannel, NotifyMessage, NotifyTarget, NotifyTargetType,
+    },
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
+use signals::http_trace::{self, HttpTarget};
 use url::Url;
 
 use super::{
     card::{card_color, card_title},
     common::truncate_chars,
-};
-use crate::{
-    domain::notify::{
-        buttons::{AlertAction, AlertButtons},
-        connector::{
-            ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
-            NotifyChannel, NotifyMessage, NotifyTarget, NotifyTargetType,
-        },
-    },
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-    },
 };
 
 pub const SLACK_APP_CONNECTOR_TYPE: &str = "slack_app";
@@ -66,7 +62,7 @@ fn escape(text: &str) -> String {
 
 /// 卡片放进消息里的部分。有模板卡片时：标题块、正文、字段，`note` 是一句谁做了什么，按钮（告警的操作与
 /// 模板卡片的链接），最后是页脚，都放进带颜色条的附件。没有时直接是 `blocks`：加粗的标题与正文、`note`、
-/// 告警的按钮。操作按钮的值是 [`crate::domain::notify::buttons::AlertButtonValue`] 的 JSON。
+/// 告警的按钮。操作按钮的值是 [`domain::notify::buttons::AlertButtonValue`] 的 JSON。
 pub(crate) fn slack_card(
     message: &NotifyMessage,
     buttons: &AlertButtons,
@@ -142,7 +138,7 @@ pub(crate) fn slack_card(
 
             if matches!(
                 action,
-                AlertAction::Acknowledge | AlertAction::AcknowledgeAll
+                AlertAction::Acknowledge | AlertAction::AcknowledgeAll | AlertAction::Approve
             ) {
                 button["style"] = json!("primary");
             }
@@ -592,10 +588,9 @@ fn validate_http_base(value: &str, field: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use domain::notify::template::{NotifyCard, NotifyCardColor, NotifyCardField, NotifyCardLink};
+
     use super::*;
-    use crate::domain::notify::template::{
-        NotifyCard, NotifyCardColor, NotifyCardField, NotifyCardLink,
-    };
 
     #[test]
     fn validates_app_config_and_recipient_ids() {
@@ -666,6 +661,7 @@ mod tests {
                 "Open in MoleSignal".into(),
                 "https://example/alerts/incidents/incident-1".into(),
             )),
+            callback: None,
         };
 
         let card = slack_card(&message, &buttons, Some("Alice acknowledged this alert."));

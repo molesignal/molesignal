@@ -12,24 +12,20 @@
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use agent::im::{CardAction, CardAnswer, ConversationKind, Inbound, NoticeKind, Sender};
+use domain::notify::buttons::AlertButtonValue;
 use futures::{SinkExt, StreamExt};
+use kernel::{Error, Result};
 use serde_json::{Value, json};
+use signals::http_trace::{self, HttpTarget};
 use tokio::time::{Instant, interval_at};
 use tokio_tungstenite::tungstenite::Message;
 use tokio_util::sync::CancellationToken;
 
 use super::{Listener, ws};
-use crate::{
-    agent::im::{CardAction, CardAnswer, ConversationKind, Inbound, NoticeKind, Sender},
-    domain::notify::buttons::AlertButtonValue,
-    infra::notify::adapters::{
-        DINGTALK_ALERT_PARAM, DINGTALK_API_BASE_URL, DINGTALK_CARD_CALLBACK_TOPIC, DingTalkApp,
-        DingTalkRecipient, dingtalk_card_params, post_dingtalk_markdown,
-    },
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-    },
+use crate::infra::notify::adapters::{
+    DINGTALK_ALERT_PARAM, DINGTALK_API_BASE_URL, DINGTALK_CARD_CALLBACK_TOPIC, DingTalkApp,
+    DingTalkRecipient, dingtalk_card_params, post_dingtalk_markdown,
 };
 
 pub(crate) const BOT_MESSAGE_TOPIC: &str = "/v1.0/im/bot/messages/get";
@@ -476,17 +472,14 @@ mod tests {
 
     #[tokio::test]
     async fn a_pressed_card_gets_new_variables_and_the_presser_a_direct_message() {
+        use agent::im::AlertCard;
+        use domain::notify::{
+            buttons::{AlertAction, AlertButtons},
+            connector::NotifyMessage,
+        };
         use wiremock::{
             Mock, MockServer, ResponseTemplate,
             matchers::{body_partial_json, method, path},
-        };
-
-        use crate::{
-            agent::im::AlertCard,
-            domain::notify::{
-                buttons::{AlertAction, AlertButtons},
-                connector::NotifyMessage,
-            },
         };
 
         let server = MockServer::start().await;
@@ -549,6 +542,7 @@ mod tests {
                 alert_ids: Vec::new(),
                 actions: vec![(AlertAction::Resolve, "解决".into())],
                 open: None,
+                callback: None,
             },
             note: Some("staff1 确认了".into()),
         };

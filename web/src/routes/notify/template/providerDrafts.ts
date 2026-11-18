@@ -1,12 +1,18 @@
 import type { ProviderTemplate } from '@/api/notify/templates';
 
-/** The providers SMS and phone templates carry a template for: they send no other. */
-export const TEMPLATE_PROVIDERS = ['aliyun', 'tencent', 'huawei'] as const;
+/** The providers SMS and phone templates carry a template for: they send no other. WhatsApp, through
+ * Twilio, sends texts only. */
+export const TEMPLATE_PROVIDERS = ['aliyun', 'tencent', 'huawei', 'whatsapp'] as const;
 
 export type TemplateProvider = (typeof TEMPLATE_PROVIDERS)[number];
 
-/** Tencent Cloud and Huawei Cloud fill a template's variables by position: they are named 1, 2, 3. */
-export const FILLED_BY_POSITION: ReadonlySet<TemplateProvider> = new Set(['tencent', 'huawei']);
+/** The providers a template of this channel carries a template for. */
+export function providersOf(channel: 'sms' | 'phone'): readonly TemplateProvider[] {
+  return channel === 'sms' ? TEMPLATE_PROVIDERS : TEMPLATE_PROVIDERS.filter((provider) => provider !== 'whatsapp');
+}
+
+/** Tencent Cloud, Huawei Cloud and WhatsApp fill a template's variables by position: they are named 1, 2, 3. */
+export const FILLED_BY_POSITION: ReadonlySet<TemplateProvider> = new Set(['tencent', 'huawei', 'whatsapp']);
 
 export type ProviderDrafts = Record<TemplateProvider, ProviderDraft>;
 
@@ -15,13 +21,17 @@ export function providerDrafts(templates: Record<string, ProviderTemplate> | und
     aliyun: providerDraft(templates?.aliyun),
     tencent: providerDraft(templates?.tencent),
     huawei: providerDraft(templates?.huawei),
+    whatsapp: providerDraft(templates?.whatsapp),
   };
 }
 
-/** The first provider with something that keeps it from being saved. */
-export function draftsProblem(drafts: ProviderDrafts): { provider: TemplateProvider; problem: ProviderProblem } | null {
-  for (const provider of TEMPLATE_PROVIDERS) {
-    const problem = providerProblem(drafts[provider]);
+/** The first provider of the channel (of any, without one) with something that keeps it from being saved. */
+export function draftsProblem(
+  drafts: ProviderDrafts,
+  channel?: 'sms' | 'phone',
+): { provider: TemplateProvider; problem: ProviderProblem } | null {
+  for (const provider of channel ? providersOf(channel) : TEMPLATE_PROVIDERS) {
+    const problem = providerProblem(drafts[provider], provider);
     if (problem) return { provider, problem };
   }
 
@@ -48,20 +58,25 @@ export function providerDraft(template: ProviderTemplate | undefined): ProviderD
   };
 }
 
-export type ProviderProblem = 'code' | 'param_name' | 'param_twice' | 'param_value' | 'max_chars';
+export type ProviderProblem = 'code' | 'content_sid' | 'param_name' | 'param_twice' | 'param_value' | 'max_chars';
 
 const WORD = /^[A-Za-z0-9_-]{1,64}$/;
 const VARIABLE = /^[A-Za-z0-9_]{1,64}$/;
+
+/** A Twilio Content SID: HX and 32 hexadecimal digits. */
+const CONTENT_SID = /^HX[0-9a-fA-F]{32}$/;
 
 function written(draft: ProviderDraft): ProviderParam[] {
   return draft.params.filter((param) => param.name.trim() !== '' || param.value.trim() !== '');
 }
 
-/** What keeps a provider template from being saved, checked as the server checks it. */
-export function providerProblem(draft: ProviderDraft): ProviderProblem | null {
+/** What keeps a provider template from being saved, checked as the server checks it; a WhatsApp
+ * template is also checked to be a Content SID, which is all Twilio takes. */
+export function providerProblem(draft: ProviderDraft, provider?: TemplateProvider): ProviderProblem | null {
   const params = written(draft);
   if (draft.code.trim() === '' && params.length === 0 && draft.maxChars.trim() === '') return null;
   if (!WORD.test(draft.code.trim())) return 'code';
+  if (provider === 'whatsapp' && !CONTENT_SID.test(draft.code.trim())) return 'content_sid';
 
   const names = params.map((param) => param.name.trim());
   if (names.some((name) => !VARIABLE.test(name))) return 'param_name';
@@ -76,11 +91,15 @@ export function providerProblem(draft: ProviderDraft): ProviderProblem | null {
   return null;
 }
 
-/** The provider templates a template is saved with: none for an empty draft. */
-export function providerTemplates(drafts: ProviderDrafts): Record<string, ProviderTemplate> {
+/** The provider templates a template is saved with: none for an empty draft, nor for a provider
+ * the channel does not send through. */
+export function providerTemplates(
+  drafts: ProviderDrafts,
+  channel?: 'sms' | 'phone',
+): Record<string, ProviderTemplate> {
   const saved: Record<string, ProviderTemplate> = {};
 
-  for (const provider of TEMPLATE_PROVIDERS) {
+  for (const provider of channel ? providersOf(channel) : TEMPLATE_PROVIDERS) {
     const draft = drafts[provider];
     const code = draft.code.trim();
 

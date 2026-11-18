@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::notify::connector::{NotifyTarget, NotifyTargetType};
+use kernel::{Error, Result};
 use serde_json::Value;
 
 use super::ConnectorRegistry;
-use crate::{
-    domain::notify::connector::{NotifyTarget, NotifyTargetType},
-    shared::{Error, Result},
-};
 
 pub(super) fn validate_name(name: &str) -> Result<()> {
     let name = name.trim();
@@ -91,6 +89,7 @@ const SENSITIVE_CONFIG_KEYS: &[&str] = &[
     "clientsecret",
     "privatekey",
     "aeskey",
+    "routingkey",
     "credentials",
     "webhookurl",
     "url",

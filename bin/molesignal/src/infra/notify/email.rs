@@ -6,19 +6,17 @@
 //! `lettre` 的 `SmtpTransport` 是同步的，我们用 `tokio::task::spawn_blocking` 包一层。
 //! TLS 由 `[notify.smtp].tls`（`none` / `starttls` / `tls`）决定。
 
+use kernel::{Error, Result};
 use lettre::{
     Message, SmtpTransport, Transport,
     message::header::ContentType,
     transport::smtp::{
-        authentication::Credentials,
+        SmtpTransportBuilder,
+        authentication::{Credentials, Mechanism},
         client::{Tls, TlsParameters},
     },
 };
-
-use crate::{
-    config::{SmtpSettings, SmtpTls},
-    shared::{Error, Result},
-};
+use settings::{SmtpSettings, SmtpTls};
 
 pub struct EmailSender {
     transport: SmtpTransport,
@@ -27,40 +25,36 @@ pub struct EmailSender {
 
 impl EmailSender {
     pub fn new(cfg: &SmtpSettings) -> Result<Self> {
-        if cfg.host.is_empty() {
-            return Err(Error::invalid("notify.smtp.host is empty"));
-        }
-
-        if cfg.from.is_empty() {
-            return Err(Error::invalid("notify.smtp.from is empty"));
-        }
-
-        let port = if cfg.port == 0 { 587 } else { cfg.port };
-
-        let mut builder = match cfg.tls {
-            SmtpTls::None => SmtpTransport::builder_dangerous(&cfg.host).port(port),
-            SmtpTls::Starttls => SmtpTransport::starttls_relay(&cfg.host)
-                .map_err(|e| Error::internal(format!("smtp starttls: {e}")))?
-                .port(port),
-            SmtpTls::Tls => {
-                let params = TlsParameters::new(cfg.host.clone())
-                    .map_err(|e| Error::internal(format!("smtp tls params: {e}")))?;
-
-                SmtpTransport::relay(&cfg.host)
-                    .map_err(|e| Error::internal(format!("smtp relay: {e}")))?
-                    .port(port)
-                    .tls(Tls::Wrapper(params))
-            }
-        };
+        let mut builder = transport(cfg)?;
 
         if !cfg.username.is_empty() {
             builder =
                 builder.credentials(Credentials::new(cfg.username.clone(), cfg.password.clone()));
         }
 
-        builder = builder.timeout(Some(std::time::Duration::from_secs(
-            cfg.timeout_secs.max(1) as u64,
-        )));
+        Ok(Self {
+            transport: builder.build(),
+            from: cfg.from.clone(),
+        })
+    }
+
+    /// Signs in with an OAuth 2.0 access token (SASL XOAUTH2) as `cfg.username`, the way
+    /// Microsoft 365 and Gmail ask applications to; `cfg.password` is not used.
+    pub fn with_xoauth2(cfg: &SmtpSettings, access_token: &str) -> Result<Self> {
+        let username = cfg.username.trim();
+
+        if username.is_empty() {
+            return Err(Error::invalid(
+                "OAuth sign-in needs the sending mailbox as the SMTP username",
+            ));
+        }
+
+        let builder = transport(cfg)?
+            .credentials(Credentials::new(
+                username.to_string(),
+                access_token.to_string(),
+            ))
+            .authentication(vec![Mechanism::Xoauth2]);
 
         Ok(Self {
             transport: builder.build(),
@@ -168,4 +162,37 @@ impl EmailSender {
 
         Ok(())
     }
+}
+
+/// The transport to `cfg.host` with its TLS mode and timeout; the caller adds the credentials.
+fn transport(cfg: &SmtpSettings) -> Result<SmtpTransportBuilder> {
+    if cfg.host.is_empty() {
+        return Err(Error::invalid("notify.smtp.host is empty"));
+    }
+
+    if cfg.from.is_empty() {
+        return Err(Error::invalid("notify.smtp.from is empty"));
+    }
+
+    let port = if cfg.port == 0 { 587 } else { cfg.port };
+
+    let builder = match cfg.tls {
+        SmtpTls::None => SmtpTransport::builder_dangerous(&cfg.host).port(port),
+        SmtpTls::Starttls => SmtpTransport::starttls_relay(&cfg.host)
+            .map_err(|e| Error::internal(format!("smtp starttls: {e}")))?
+            .port(port),
+        SmtpTls::Tls => {
+            let params = TlsParameters::new(cfg.host.clone())
+                .map_err(|e| Error::internal(format!("smtp tls params: {e}")))?;
+
+            SmtpTransport::relay(&cfg.host)
+                .map_err(|e| Error::internal(format!("smtp relay: {e}")))?
+                .port(port)
+                .tls(Tls::Wrapper(params))
+        }
+    };
+
+    Ok(builder.timeout(Some(std::time::Duration::from_secs(
+        cfg.timeout_secs.max(1) as u64,
+    ))))
 }

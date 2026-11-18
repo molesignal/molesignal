@@ -3,6 +3,14 @@
 
 use std::time::Instant;
 
+use domain::notify::{
+    connector::{NotifyChannel, NotifyTargetType},
+    delivery::{DeliveryCompletion, DeliveryStatus, NotifyDelivery},
+    policy::{NotifyEvent, NotifyPolicy},
+    recipient::NotifyRecipient,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
 use super::{
     NotifyEngine,
     calls::merge_window,
@@ -15,18 +23,9 @@ use super::{
     template::{PolicyMessages, policy_template_id},
     webhook::webhook_event,
 };
-use crate::{
-    app::notify::{
-        config::{mask_target, truncate_error},
-        policy_matches,
-    },
-    domain::notify::{
-        connector::{NotifyChannel, NotifyTargetType},
-        delivery::{DeliveryCompletion, DeliveryStatus, NotifyDelivery},
-        policy::{NotifyEvent, NotifyPolicy},
-        recipient::NotifyRecipient,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use crate::app::notify::{
+    config::{mask_target, truncate_error},
+    policy_matches,
 };
 
 impl NotifyEngine {
@@ -71,8 +70,8 @@ impl NotifyEngine {
         &self,
         policy: &NotifyPolicy,
         event: &NotifyEvent,
-        message: &crate::domain::notify::connector::NotifyMessage,
-        stage_override: Option<crate::domain::notify::delivery::DeliveryStage>,
+        message: &domain::notify::connector::NotifyMessage,
+        stage_override: Option<domain::notify::delivery::DeliveryStage>,
     ) -> NotifyPolicyOutcome {
         // 模板和收件人都从流水线留下的副本出发。
         let copy = match self.policy_copy(policy, event, message).await {
@@ -226,7 +225,7 @@ impl NotifyEngine {
         event: &NotifyEvent,
         recipient: NotifyRecipient,
         messages: &PolicyMessages,
-        stage_override: Option<crate::domain::notify::delivery::DeliveryStage>,
+        stage_override: Option<domain::notify::delivery::DeliveryStage>,
     ) -> NotifyRecipientOutcome {
         let routes = match self.resolve_routes(policy, event, &recipient).await {
             Ok(routes) => routes,
@@ -242,15 +241,14 @@ impl NotifyEngine {
         };
 
         let mut attempts = Vec::new();
-        let multi_connector = policy.delivery_mode
-            == crate::domain::notify::policy::NotifyDeliveryMode::MultiConnector;
+        let multi_connector =
+            policy.delivery_mode == domain::notify::policy::NotifyDeliveryMode::MultiConnector;
         let mut user_route_succeeded = false;
         let delays = step_delays(policy, event, stage_override.is_some(), &routes);
         let started_at = TimestampMicros::now();
 
         for mut route in routes {
-            let primary_route =
-                route.stage == crate::domain::notify::delivery::DeliveryStage::UserPrimary;
+            let primary_route = route.stage == domain::notify::delivery::DeliveryStage::UserPrimary;
             let user_step = is_user_step(&route);
             let delay_secs = route.delay_secs;
 
@@ -428,6 +426,17 @@ impl NotifyEngine {
                         .send_as(&route.connector, &route.target, &message)
                         .await
                 } else {
+                    // Sent to one person without buttons of its own: one-time action links.
+                    let message = self
+                        .with_action_links_for(
+                            event,
+                            recipient,
+                            &route,
+                            adapter.as_ref(),
+                            message.into_owned(),
+                        )
+                        .await;
+
                     adapter
                         .send_as(&route.connector, &route.target, &message)
                         .await
@@ -526,12 +535,23 @@ fn idempotency_key(
         route
             .endpoint_id
             .as_ref()
-            .map_or("", crate::shared::ids::Id::as_str),
+            .map_or("", kernel::ids::Id::as_str),
         route.target.target_type.as_str(),
         &route.target.value,
     ] {
         hasher.update(&(part.len() as u64).to_le_bytes());
         hasher.update(part.as_bytes());
+    }
+
+    // The same endpoint may come twice in one order, once per boost: each is its own delivery.
+    // Routes without a boost keep the key they always had.
+    if let Some(boost) = route
+        .target
+        .metadata
+        .get(domain::notify::preference::STEP_BOOST_KEY)
+    {
+        hasher.update(&(boost.len() as u64).to_le_bytes());
+        hasher.update(boost.as_bytes());
     }
 
     format!("notify:{}", hasher.finalize().to_hex())
@@ -559,8 +579,7 @@ fn replyable_alerts(event: &NotifyEvent) -> Vec<Id> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::domain::notify::{
+    use domain::notify::{
         connector::{
             ConnectorCapabilities, ConnectorStatus, NotifyConnector, NotifyTarget, NotifyTargetType,
         },
@@ -568,6 +587,8 @@ mod tests {
         policy::{NotifyDeliveryConfig, NotifyDeliveryMode, NotifyFallbackConfig},
         preference::NotifyCategory,
     };
+
+    use super::*;
 
     #[test]
     fn idempotency_changes_with_target_and_tenant() {

@@ -3,6 +3,7 @@
 
 //! Notify HTTP 控制面。
 
+mod actions;
 pub(in crate::api::http::routes) mod callback_auth;
 mod callbacks;
 mod connectors;
@@ -17,16 +18,17 @@ mod users;
 mod wecom_callback;
 
 use axum::Router;
+use domain::iam::IamContext;
+use kernel::{Error, Result, ids::Id};
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::AppState;
 
 /// 服务商的公网回调：短信回复、电话按键与企业微信自建应用的「接收消息」。
 pub fn public_routes() -> Router<AppState> {
-    callbacks::public_routes().merge(wecom_callback::public_routes())
+    callbacks::public_routes()
+        .merge(wecom_callback::public_routes())
+        .merge(actions::public_routes())
+        .merge(super::agent::im::mattermost_routes())
 }
 
 pub fn routes() -> Router<AppState> {
@@ -43,10 +45,8 @@ pub fn routes() -> Router<AppState> {
         .merge(deliveries::routes())
 }
 
-pub(super) fn parse_category(
-    value: &str,
-) -> Result<crate::domain::notify::preference::NotifyCategory> {
-    use crate::domain::notify::preference::NotifyCategory;
+pub(super) fn parse_category(value: &str) -> Result<domain::notify::preference::NotifyCategory> {
+    use domain::notify::preference::NotifyCategory;
 
     match value {
         "alert" => Ok(NotifyCategory::Alert),

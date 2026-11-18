@@ -21,6 +21,10 @@ pub enum AlertAction {
     Snooze,
     /// 合成一条的通知上：确认里面全部的告警。
     AcknowledgeAll,
+    /// On an approval request: approve the operation. `alert_id` holds the request's ID.
+    Approve,
+    /// On an approval request: reject the operation.
+    Reject,
 }
 
 /// 卡片上的「暂缓」暂缓多久：1 小时。
@@ -30,11 +34,13 @@ pub const SNOOZE_SECS: u32 = 3600;
 pub const MAX_BUNDLE_ALERTS: usize = 20;
 
 impl AlertAction {
-    pub const ALL: [Self; 4] = [
+    pub const ALL: [Self; 6] = [
         Self::Acknowledge,
         Self::Resolve,
         Self::Snooze,
         Self::AcknowledgeAll,
+        Self::Approve,
+        Self::Reject,
     ];
 
     pub const fn as_str(self) -> &'static str {
@@ -43,7 +49,14 @@ impl AlertAction {
             Self::Resolve => "resolve",
             Self::Snooze => "snooze",
             Self::AcknowledgeAll => "acknowledge_all",
+            Self::Approve => "approve",
+            Self::Reject => "reject",
         }
+    }
+
+    /// Whether it decides an approval request rather than acting on an alert.
+    pub const fn decides_approval(self) -> bool {
+        matches!(self, Self::Approve | Self::Reject)
     }
 
     pub fn parse(value: &str) -> Option<Self> {
@@ -68,6 +81,8 @@ impl AlertAction {
             Self::Resolve => "button.resolve",
             Self::Snooze => "button.snooze",
             Self::AcknowledgeAll => "button.acknowledge_all",
+            Self::Approve => "button.approve",
+            Self::Reject => "button.reject",
         }
     }
 }
@@ -78,6 +93,7 @@ const EVENT_TYPE: &str = "event_type";
 const POLICY_ID: &str = "policy_id";
 const OPEN_LABEL: &str = "button.open";
 const OPEN_URL: &str = "button.open_url";
+const CALLBACK: &str = "button.callback";
 
 /// 操作按钮带着的值，点了原样带回来。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -101,8 +117,15 @@ pub struct AlertButtonLabels {
     pub resolve: String,
     pub snooze: String,
     pub acknowledge_all: String,
+    /// The two buttons of an approval request.
+    pub approve: String,
+    pub reject: String,
     /// 「在 MoleSignal 中查看」与 MoleSignal 的对外地址；没有对外地址时不画。
     pub open: Option<(String, String)>,
+    /// Where the platform posts a press, for platforms that call the address written on the
+    /// button (Mattermost); it carries its own credential. `None` where presses come back over
+    /// the bot's connection or a callback configured on the platform.
+    pub callback: Option<String>,
 }
 
 impl AlertButtonLabels {
@@ -112,6 +135,8 @@ impl AlertButtonLabels {
             AlertAction::Resolve => &self.resolve,
             AlertAction::Snooze => &self.snooze,
             AlertAction::AcknowledgeAll => &self.acknowledge_all,
+            AlertAction::Approve => &self.approve,
+            AlertAction::Reject => &self.reject,
         }
     }
 }
@@ -128,6 +153,8 @@ pub struct AlertButtons {
     pub actions: Vec<(AlertAction, String)>,
     /// 「在 MoleSignal 中查看」：按钮上的字与地址。
     pub open: Option<(String, String)>,
+    /// Where the platform posts a press (see [`AlertButtonLabels::callback`]).
+    pub callback: Option<String>,
 }
 
 impl AlertButtons {
@@ -158,6 +185,7 @@ impl AlertButtons {
                     ),
                 )
             }),
+            callback: labels.callback.clone(),
         }
     }
 
@@ -182,7 +210,35 @@ impl AlertButtons {
                     format!("{}/alerts/incidents", base.trim().trim_end_matches('/')),
                 )
             }),
+            callback: labels.callback.clone(),
             alert_ids,
+        }
+    }
+
+    /// The buttons of an approval request sent as a notification: approve, reject, and "Open in
+    /// MoleSignal" to the approvals page. `approval_id` travels in `alert_id`.
+    pub fn approval(
+        approval_id: &str,
+        event_type: &str,
+        policy_id: Option<&str>,
+        labels: &AlertButtonLabels,
+    ) -> Self {
+        Self {
+            alert_id: approval_id.to_string(),
+            event_type: event_type.to_string(),
+            policy_id: policy_id.map(str::to_string),
+            alert_ids: Vec::new(),
+            actions: vec![
+                (AlertAction::Approve, labels.approve.clone()),
+                (AlertAction::Reject, labels.reject.clone()),
+            ],
+            open: labels.open.as_ref().map(|(label, base)| {
+                (
+                    label.clone(),
+                    format!("{}/agent/approvals", base.trim().trim_end_matches('/')),
+                )
+            }),
+            callback: labels.callback.clone(),
         }
     }
 
@@ -224,6 +280,10 @@ impl AlertButtons {
             metadata.insert(OPEN_LABEL.into(), label.clone());
             metadata.insert(OPEN_URL.into(), url.clone());
         }
+
+        if let Some(callback) = &self.callback {
+            metadata.insert(CALLBACK.into(), callback.clone());
+        }
     }
 
     /// 消息带着的按钮；不是告警通知或一个操作按钮也没有时为 `None`。
@@ -261,6 +321,7 @@ impl AlertButtons {
                 .get(OPEN_LABEL)
                 .zip(metadata.get(OPEN_URL))
                 .map(|(label, url)| (label.clone(), url.clone())),
+            callback: metadata.get(CALLBACK).cloned(),
         })
     }
 }
@@ -293,11 +354,53 @@ mod tests {
             resolve: "解决".into(),
             snooze: "暂缓 1 小时".into(),
             acknowledge_all: "全部确认".into(),
+            approve: "批准".into(),
+            reject: "驳回".into(),
             open: Some((
                 "在 MoleSignal 中查看".into(),
                 "https://molesignal.example/".into(),
             )),
+            callback: None,
         }
+    }
+
+    #[test]
+    fn an_approval_request_offers_approve_and_reject_and_opens_the_approvals() {
+        let buttons = AlertButtons::approval(
+            "approval-1",
+            "agent.approval.requested",
+            Some("policy-9"),
+            &labels(),
+        );
+
+        assert_eq!(
+            buttons.actions,
+            vec![
+                (AlertAction::Approve, "批准".to_string()),
+                (AlertAction::Reject, "驳回".to_string()),
+            ]
+        );
+        assert_eq!(
+            buttons.open,
+            Some((
+                "在 MoleSignal 中查看".to_string(),
+                "https://molesignal.example/agent/approvals".to_string(),
+            ))
+        );
+
+        let value = buttons.value(AlertAction::Approve);
+        assert_eq!(value.alert_id, "approval-1");
+        assert_eq!(value.event_type, "agent.approval.requested");
+        assert!(value.action.decides_approval());
+        assert!(!AlertAction::Acknowledge.decides_approval());
+
+        let written = serde_json::to_value(&value).unwrap();
+        assert_eq!(written["action"], "approve");
+        assert_eq!(AlertAction::parse("reject"), Some(AlertAction::Reject));
+
+        let mut message = message();
+        buttons.write(&mut message);
+        assert_eq!(AlertButtons::read(&message), Some(buttons));
     }
 
     #[test]
@@ -418,5 +521,40 @@ mod tests {
         let value = read.value(AlertAction::AcknowledgeAll);
         assert_eq!(value.alert_ids.len(), MAX_BUNDLE_ALERTS);
         assert!(read.value(AlertAction::Acknowledge).alert_ids.is_empty());
+    }
+
+    #[test]
+    fn the_address_presses_go_to_travels_with_the_buttons() {
+        let callback = "https://molesignal.example/api/v1/public/notify/c1/mattermost?token=t";
+        let with_callback = AlertButtonLabels {
+            callback: Some(callback.into()),
+            ..labels()
+        };
+
+        let single = AlertButtons::new(
+            "incident-1",
+            "open",
+            "alert.triggered",
+            None,
+            &with_callback,
+        );
+
+        let mut written = message();
+        single.write(&mut written);
+
+        let read = AlertButtons::read(&written).expect("buttons");
+        assert_eq!(read.callback.as_deref(), Some(callback));
+        assert_eq!(read, single);
+
+        let ids = vec!["inc-1".to_string(), "inc-2".to_string()];
+        let bundle = AlertButtons::bundle(&ids, "alert.triggered", None, &with_callback);
+        assert_eq!(bundle.callback.as_deref(), Some(callback));
+
+        // Without one, nothing is written and nothing is read back.
+        let mut plain = message();
+        AlertButtons::new("incident-1", "open", "alert.triggered", None, &labels())
+            .write(&mut plain);
+        assert!(!plain.metadata.contains_key(CALLBACK));
+        assert_eq!(AlertButtons::read(&plain).unwrap().callback, None);
     }
 }

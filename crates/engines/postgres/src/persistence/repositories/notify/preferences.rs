@@ -4,20 +4,18 @@
 use std::collections::BTreeSet;
 
 use async_trait::async_trait;
+use domain::{
+    alerting::importance::StepGroup,
+    notify::{
+        preference::{NotifyCategory, StepBoost, UserNotifyPreference, UserNotifyPreferenceStep},
+        repositories::UserNotifyPreferenceRepository,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::super::sqlx_err;
-use crate::{
-    domain::{
-        alerting::importance::StepGroup,
-        notify::{
-            preference::{NotifyCategory, UserNotifyPreference, UserNotifyPreferenceStep},
-            repositories::UserNotifyPreferenceRepository,
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 /// `user_notify_preferences.steps` 里的一步。
 #[derive(Serialize, Deserialize)]
@@ -27,6 +25,8 @@ struct StoredStep {
     step_order: i32,
     delay_secs: i32,
     urgency: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    boost: Option<String>,
     created_at: TimestampMicros,
 }
 
@@ -38,6 +38,7 @@ impl StoredStep {
             step_order: step.step_order,
             delay_secs: step.delay_secs,
             urgency: step.urgency.as_str().to_owned(),
+            boost: step.boost.map(|boost| boost.as_str().to_owned()),
             created_at: step.created_at,
         }
     }
@@ -54,6 +55,7 @@ impl StoredStep {
             step_order: self.step_order,
             delay_secs: self.delay_secs,
             urgency,
+            boost: self.boost.as_deref().map(StepBoost::parse).transpose()?,
             created_at: self.created_at,
         })
     }

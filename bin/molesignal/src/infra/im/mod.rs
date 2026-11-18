@@ -20,20 +20,19 @@ pub(crate) mod feishu;
 pub(crate) mod google_chat;
 pub(crate) mod slack;
 pub(crate) mod teams;
+pub(crate) mod telegram;
 pub(crate) mod wecom;
 mod ws;
 
 use std::time::Duration;
 
+use agent::im::{CardAction, CardAnswer, ImPlatform, Inbound};
 use async_trait::async_trait;
+use kernel::Result;
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;
 
-use crate::{
-    agent::im::{CardAction, CardAnswer, ImPlatform, Inbound},
-    infra::notify::adapters::DingTalkApp,
-    shared::Result,
-};
+use crate::infra::notify::adapters::DingTalkApp;
 
 /// 在确认里带回点击结果的平台最多等这么久（飞书等 3 秒）。
 pub(crate) const ANSWER_WITHIN: Duration = Duration::from_millis(2_500);
@@ -67,6 +66,7 @@ pub(crate) async fn listen(
         ImPlatform::WeCom => wecom::listen(config, listener, cancel).await,
         ImPlatform::GoogleChat => google_chat::listen(config, listener, cancel).await,
         ImPlatform::Teams => teams::listen(config, listener, cancel).await,
+        ImPlatform::Telegram => telegram::listen(config, listener, cancel).await,
     }
 }
 
@@ -77,7 +77,8 @@ pub(crate) fn takes_card_actions(platform: ImPlatform, config: &Value) -> bool {
         | ImPlatform::Slack
         | ImPlatform::Teams
         | ImPlatform::GoogleChat
-        | ImPlatform::WeCom => true,
+        | ImPlatform::WeCom
+        | ImPlatform::Telegram => true,
         ImPlatform::DingTalk => {
             DingTalkApp::parse(config).is_ok_and(|app| app.card_template_id().is_some())
         }
@@ -103,6 +104,7 @@ pub(crate) async fn answer(
         ImPlatform::GoogleChat => google_chat::answer(config, action, answer).await,
         ImPlatform::DingTalk => dingtalk::answer(config, action, answer).await,
         ImPlatform::WeCom => wecom::answer(config, action, answer).await,
+        ImPlatform::Telegram => telegram::answer(config, action, answer).await,
     }
 }
 
@@ -119,7 +121,8 @@ pub(crate) fn holds(platform: ImPlatform, config: &Value) -> bool {
         | ImPlatform::Slack
         | ImPlatform::DingTalk
         | ImPlatform::GoogleChat
-        | ImPlatform::Teams => true,
+        | ImPlatform::Teams
+        | ImPlatform::Telegram => true,
     }
 }
 
@@ -137,6 +140,7 @@ pub(crate) async fn reply(
         ImPlatform::WeCom => wecom::reply(config, reply, markdown).await,
         ImPlatform::GoogleChat => google_chat::reply(config, reply, markdown).await,
         ImPlatform::Teams => teams::reply(config, reply, markdown).await,
+        ImPlatform::Telegram => telegram::reply(config, reply, markdown).await,
     }
 }
 
@@ -155,6 +159,7 @@ pub(crate) async fn react(
         ImPlatform::WeCom => wecom::react(config, reply, working).await.map(Some),
         ImPlatform::GoogleChat => google_chat::react(config, reply, working).await.map(Some),
         ImPlatform::Teams => teams::react(config, reply, working).await.map(Some),
+        ImPlatform::Telegram => telegram::react(config, reply).await.map(Some),
     }
 }
 
@@ -174,6 +179,7 @@ pub(crate) async fn finish(
             return google_chat::finish(config, reply, working, markdown).await;
         }
         (ImPlatform::Teams, _) => return teams::finish(config, reply, working, markdown).await,
+        (ImPlatform::Telegram, Some(reaction)) => telegram::unreact(config, reply, reaction).await,
         _ => Ok(()),
     };
 
@@ -199,5 +205,6 @@ pub(crate) async fn tell_sender(
         ImPlatform::WeCom => wecom::tell(config, sender_id, markdown).await,
         ImPlatform::GoogleChat => google_chat::tell(config, sender_id, markdown).await,
         ImPlatform::Teams => teams::tell(config, reply, sender_id, markdown).await,
+        ImPlatform::Telegram => telegram::tell(config, reply, sender_id, markdown).await,
     }
 }

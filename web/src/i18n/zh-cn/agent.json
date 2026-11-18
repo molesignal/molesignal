@@ -773,7 +773,7 @@
       }
     },
     "im": {
-      "description": "Mole Agent 通过这些连接器在飞书、Slack、钉钉、企业微信、Google Chat 和 Microsoft Teams 里回答：在群里 @ 它或私聊它。Teams 把消息投到 MoleSignal 的公网回调地址；其他平台由一台服务器用长连接或 Pub/Sub 订阅收消息，不需要公网地址。开启后，经飞书和 Slack 发出的告警通知带确认、解决按钮。",
+      "description": "Mole Agent 通过这些连接器在飞书、Slack、钉钉、企业微信、Google Chat、Microsoft Teams 和 Telegram 里回答：在群里 @ 它或私聊它。Teams 把消息投到 MoleSignal 的公网回调地址；其他平台由一台服务器用长连接、长轮询或 Pub/Sub 订阅收消息，不需要公网地址。开启后，经飞书、Slack 和 Telegram 发出的告警通知带确认、解决按钮。",
       "guide": "接入说明",
       "no_external_url": "没有配置对外地址（http.external_url）：IM 里的人不能自己绑定账号，回答里没有会话的链接，Microsoft Teams 也收不到消息。管理员仍可以在成员的通知方式里添加并验证他们的 IM 账号。",
       "none": "还没有能在 IM 里回答的连接器",
@@ -814,7 +814,8 @@
         "dingtalk": "钉钉",
         "wecom": "企业微信",
         "google_chat": "Google Chat",
-        "teams": "Microsoft Teams"
+        "teams": "Microsoft Teams",
+        "telegram": "Telegram"
       },
       "last_message": "最近消息 {{at}}",
       "callback": "回调地址",
@@ -1785,7 +1786,8 @@
       "dingtalk": "钉钉",
       "wecom": "企业微信",
       "google_chat": " Google Chat ",
-      "teams": " Teams "
+      "teams": " Teams ",
+      "telegram": " Telegram "
     }
   },
   "starter_title": "今晚想调查什么？",

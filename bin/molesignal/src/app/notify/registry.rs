@@ -3,14 +3,12 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use serde_json::Value;
-
-use crate::{
-    domain::notify::connector::{
-        ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, validate_addresses,
-    },
-    shared::{Error, Result},
+use domain::notify::{
+    connector::{ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, validate_addresses},
+    preference::StepBoost,
 };
+use kernel::{Error, Result};
+use serde_json::Value;
 
 /// 能建的一种连接器：类型、能力，以及配置里服务商地址的目录。
 #[derive(Debug, Clone)]
@@ -18,6 +16,8 @@ pub struct SupportedConnectorType {
     pub connector_type: &'static str,
     pub capabilities: ConnectorCapabilities,
     pub addresses: Vec<ConnectorAddress>,
+    /// How the type's IM app can page a person beyond the message.
+    pub boosts: &'static [StepBoost],
 }
 
 /// 启动期构建、运行期只读的连接器 adapter 注册表。
@@ -81,6 +81,7 @@ impl ConnectorRegistry {
                 connector_type,
                 capabilities: adapter.capabilities(),
                 addresses: adapter.addresses(),
+                boosts: adapter.boosts(),
             })
             .collect::<Vec<_>>();
 
@@ -92,12 +93,12 @@ impl ConnectorRegistry {
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
+    use domain::notify::connector::{
+        ConnectorDeliveryResult, NotifyChannel, NotifyMessage, NotifyTarget,
+    };
     use serde_json::json;
 
     use super::*;
-    use crate::domain::notify::connector::{
-        ConnectorDeliveryResult, NotifyChannel, NotifyMessage, NotifyTarget,
-    };
 
     struct FakeAdapter(&'static str);
 

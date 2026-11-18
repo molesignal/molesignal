@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/shell/ui/tooltip';
 
 import { EndpointEditor } from './EndpointEditor';
 import { connectorName } from './model';
-import { PreferenceSection } from './PreferenceSection';
+import { PreferenceSection } from './preference';
 
 const CATEGORIES: notifyApi.NotifyCategory[] = ['alert', 'oncall', 'report'];
 
@@ -37,6 +37,15 @@ export function UserNotifyPanel({ userId }: { userId: string }) {
     queryKey: ['notify', 'preferences', userId],
     queryFn: () => notifyApi.listPreferences(userId),
   });
+  // How each type's IM app can page harder; the steps show it once the types are in.
+  const connectorTypes = useQuery({
+    queryKey: ['notify', 'connector-types'],
+    queryFn: notifyApi.listConnectorTypes,
+  });
+  const boosts = React.useMemo(
+    () => Object.fromEntries((connectorTypes.data ?? []).map((type) => [type.connectorType, type.boosts ?? []])),
+    [connectorTypes.data],
+  );
   const remove = useMutation({
     mutationFn: (id: string) => notifyApi.removeEndpoint(userId, id),
     onSuccess: () => {
@@ -163,6 +172,7 @@ export function UserNotifyPanel({ userId }: { userId: string }) {
               category={category}
               endpoints={endpointRows}
               connectors={connectorRows}
+              boosts={boosts}
               preference={preferenceRows.find((value) => value.category === category)}
               onSaved={() => invalidate(qc, userId)}
             />

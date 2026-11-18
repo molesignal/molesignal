@@ -33,6 +33,7 @@ export const EVENT_TYPES = [
   'oncall.member.unreachable',
   'intake.budget.warning',
   'intake.budget.exceeded',
+  'agent.approval.requested',
 ] as const;
 
 /** A policy's name; a built-in one in the reader's language, of which its saved name is the English. */

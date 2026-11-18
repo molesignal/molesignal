@@ -8,8 +8,9 @@ export type ConnectorChannel = NotifyChannel | 'other';
 
 /**
  * The types of each channel. A Chinese interface lists the domestic platforms and vendors first,
- * any other the international ones; a platform's app comes before its webhook. A generic type,
- * which speaks to any vendor, comes last in either language.
+ * any other the international ones; a platform's app or bot comes before its webhook. A generic
+ * type, which speaks to any vendor, comes last in either language. WhatsApp messages go out with
+ * the texts; incident services and message topics with the webhook, under Integrations.
  */
 const CHANNEL_TYPES: Record<
   NotifyChannel,
@@ -17,16 +18,20 @@ const CHANNEL_TYPES: Record<
 > = {
   im: {
     domestic: ['lark_app', 'lark_webhook', 'dingtalk_app', 'dingtalk_webhook', 'wecom_app', 'wecom_bot', 'wecom_webhook'],
-    international: ['slack_app', 'slack_webhook', 'teams_app', 'teams_webhook', 'google_chat_app', 'google_chat_webhook'],
+    international: [
+      'slack_app', 'slack_webhook', 'teams_app', 'teams_webhook', 'google_chat_app', 'google_chat_webhook',
+      'telegram_bot', 'discord_webhook', 'mattermost_bot', 'mattermost_webhook', 'webex_bot', 'webex_webhook',
+      'matrix_bot',
+    ],
   },
   phone: { domestic: ['aliyun_voice', 'tencent_voice', 'huawei_voice'], international: ['twilio_voice', 'aws_voice'] },
   sms: {
     domestic: ['aliyun_sms', 'tencent_sms', 'huawei_sms'],
-    international: ['twilio_sms', 'aws_sms'],
+    international: ['twilio_sms', 'aws_sms', 'twilio_whatsapp'],
     generic: ['http_sms'],
   },
   email: { domestic: [], international: ['email_smtp'] },
-  webhook: { domestic: [], international: ['webhook'] },
+  webhook: { domestic: [], international: ['pagerduty', 'aws_sns'], generic: ['webhook'] },
 };
 
 export interface ChannelType {

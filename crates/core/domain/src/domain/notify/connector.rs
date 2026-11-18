@@ -4,11 +4,14 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::template::{NotifyCard, ProviderTemplate};
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
+use super::{
+    preference::StepBoost,
+    template::{NotifyCard, ProviderTemplate},
+};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -371,6 +374,11 @@ pub trait ConnectorAdapter: Send + Sync {
     /// 例如 Webhook 与 SMTP。
     fn addresses(&self) -> Vec<ConnectorAddress> {
         Vec::new()
+    }
+    /// How this IM app can page a person beyond the message (see [`StepBoost`]); a step of a
+    /// person's notification order may ask for one of them. Most connectors offer none.
+    fn boosts(&self) -> &'static [StepBoost] {
+        &[]
     }
     fn validate_config(&self, config: &Value) -> Result<()>;
     fn validate_target(&self, target: &NotifyTarget) -> Result<()>;

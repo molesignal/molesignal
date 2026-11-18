@@ -10,21 +10,21 @@
 //!
 //! 都要 `agent.manage`。连接器本身（凭据）在通知设置里管。
 
+use agent::im::{ImBot, ImPlatform};
 use axum::{
     Extension, Json, Router,
     extract::{Path, State},
     routing::get,
 };
+use domain::{
+    iam::{IamContext, permission},
+    notify::connector::NotifyConnector,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::{
-    agent::im::{ImBot, ImPlatform},
-    api::{AppState, http::routes::activity_audit},
-    app::iam::IamContext,
-    domain::{iam::permission, notify::connector::NotifyConnector},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::{AppState, http::routes::activity_audit};
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new().route("/agent/im/bots", get(list)).route(
@@ -71,6 +71,10 @@ fn missing(connector: &NotifyConnector) -> Vec<&'static str> {
             .filter(|key| !filled(key))
             .collect(),
         Some(ImPlatform::Teams) => ["appId", "clientSecret", "tenantId"]
+            .into_iter()
+            .filter(|key| !filled(key))
+            .collect(),
+        Some(ImPlatform::Telegram) => ["botToken"]
             .into_iter()
             .filter(|key| !filled(key))
             .collect(),
@@ -299,8 +303,9 @@ async fn remove(
 
 #[cfg(test)]
 mod tests {
+    use domain::notify::connector::{ConnectorCapabilities, ConnectorStatus};
+
     use super::*;
-    use crate::domain::notify::connector::{ConnectorCapabilities, ConnectorStatus};
 
     fn connector(kind: &str, config: Value) -> NotifyConnector {
         NotifyConnector {

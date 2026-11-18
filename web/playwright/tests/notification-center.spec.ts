@@ -8,6 +8,15 @@ test.describe('the bell', () => {
 
     const bell = page.getByTestId('notification-bell');
     await expect(bell).toHaveAttribute('aria-label', /unread/);
+    // The bell's shoulder says how many, not just that there are some.
+    const count = bell.getByTestId('notification-count');
+    await expect(count).toHaveText(/^(\d{1,2}|99\+)$/);
+    // A small disc centred on the bell's top corner, smaller than the 16px bell itself.
+    const disc = (await count.boundingBox())!;
+    const icon = (await bell.locator('svg').boundingBox())!;
+    expect(disc.height).toBe(12);
+    expect(Math.abs(disc.x + disc.width / 2 - (icon.x + icon.width))).toBeLessThanOrEqual(2);
+    expect(Math.abs(disc.y + disc.height / 2 - icon.y)).toBeLessThanOrEqual(0.5);
     await bell.click();
 
     const panel = page.getByTestId('notification-panel');

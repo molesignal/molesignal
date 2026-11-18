@@ -1,21 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use super::{NotifyEngine, model::ResolvedRoute};
-use crate::{
-    app::notify::quiet_hours_active,
-    domain::{
-        alerting::{importance::StepGroup, urgency::Urgency},
-        notify::{
-            connector::{ConnectorStatus, NotifyTarget, NotifyTargetType},
-            delivery::DeliveryStage,
-            policy::{NotifyEvent, NotifyPolicy},
-            recipient::NotifyRecipient,
-            routing::NotifyDefaultRoute,
-        },
+use domain::{
+    alerting::{importance::StepGroup, urgency::Urgency},
+    notify::{
+        connector::{ConnectorStatus, NotifyTarget, NotifyTargetType},
+        delivery::DeliveryStage,
+        policy::{NotifyEvent, NotifyPolicy},
+        recipient::NotifyRecipient,
+        routing::NotifyDefaultRoute,
     },
-    shared::{Result, ids::Id, time::TimestampMicros},
 };
+use kernel::{Result, ids::Id, time::TimestampMicros};
+
+use super::{NotifyEngine, model::ResolvedRoute};
+use crate::app::notify::quiet_hours_active;
 
 impl NotifyEngine {
     pub(super) async fn resolve_routes(
@@ -25,11 +24,11 @@ impl NotifyEngine {
         recipient: &NotifyRecipient,
     ) -> Result<Vec<ResolvedRoute>> {
         let mut routes = match policy.delivery_mode {
-            crate::domain::notify::policy::NotifyDeliveryMode::PreferUser => {
+            domain::notify::policy::NotifyDeliveryMode::PreferUser => {
                 self.user_routes(policy, event, recipient).await?
             }
-            crate::domain::notify::policy::NotifyDeliveryMode::ForceConnector
-            | crate::domain::notify::policy::NotifyDeliveryMode::MultiConnector => {
+            domain::notify::policy::NotifyDeliveryMode::ForceConnector
+            | domain::notify::policy::NotifyDeliveryMode::MultiConnector => {
                 self.configured_user_routes(policy, event, recipient)
                     .await?
             }
@@ -133,11 +132,19 @@ impl NotifyEngine {
                 continue;
             }
 
-            let target = NotifyTarget {
+            let mut target = NotifyTarget {
                 target_type: NotifyTargetType::DirectUser,
                 value: endpoint.external_identity,
                 metadata: Default::default(),
             };
+
+            // The step asks the IM app to page harder after the message.
+            if let Some(boost) = step.boost {
+                target.metadata.insert(
+                    domain::notify::preference::STEP_BOOST_KEY.into(),
+                    boost.as_str().into(),
+                );
+            }
 
             self.connector_registry
                 .get(&connector.connector_type)?
@@ -283,7 +290,7 @@ impl NotifyEngine {
 /// 免打扰时段里：紧急度那一档说一律不打扰的就不打扰，说看开关的看个人的「免打扰时仍接收高紧急度」
 /// （内置的低是前一种，高是后一种）。没有紧急度的通知（排班、换班等）按高紧急度算。
 fn preference_is_quiet(
-    preference: &crate::domain::notify::preference::UserNotifyPreference,
+    preference: &domain::notify::preference::UserNotifyPreference,
     event: &NotifyEvent,
 ) -> bool {
     let bypass = preference.allow_high_urgency_bypass && quiet_follows_switch(event);

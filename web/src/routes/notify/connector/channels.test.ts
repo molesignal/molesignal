@@ -53,10 +53,10 @@ describe('connector types by channel', () => {
   });
 
   it('keeps only what the server offers, and lists an unknown type last', () => {
-    expect(orderConnectorTypes(['webhook', 'pagerduty', 'twilio_sms'], 'zh-cn')).toEqual([
+    expect(orderConnectorTypes(['webhook', 'carrier_pigeon', 'twilio_sms'], 'zh-cn')).toEqual([
       { channel: 'sms', connectorType: 'twilio_sms' },
       { channel: 'webhook', connectorType: 'webhook' },
-      { channel: 'other', connectorType: 'pagerduty' },
+      { channel: 'other', connectorType: 'carrier_pigeon' },
     ]);
   });
 
@@ -64,6 +64,34 @@ describe('connector types by channel', () => {
     expect(channelOf('aliyun_voice')).toBe('phone');
     expect(channelOf('http_sms')).toBe('sms');
     expect(channelOf('lark_app')).toBe('im');
-    expect(channelOf('pagerduty')).toBeNull();
+    expect(channelOf('carrier_pigeon')).toBeNull();
+  });
+
+  it('lists the newer IM platforms after Google Chat, each bot before its webhook', () => {
+    const offered = [
+      'discord_webhook', 'google_chat_app', 'lark_app', 'matrix_bot', 'mattermost_bot', 'mattermost_webhook',
+      'telegram_bot', 'webex_bot', 'webex_webhook',
+    ];
+
+    expect(orderConnectorTypes(offered, 'en-US').map((item) => item.connectorType)).toEqual([
+      'google_chat_app', 'telegram_bot', 'discord_webhook', 'mattermost_bot', 'mattermost_webhook', 'webex_bot',
+      'webex_webhook', 'matrix_bot', 'lark_app',
+    ]);
+    expect(orderConnectorTypes(offered, 'zh-CN')[0]?.connectorType).toBe('lark_app');
+    expect(new Set(offered.map(channelOf))).toEqual(new Set(['im']));
+  });
+
+  it('sends WhatsApp with the texts, and PagerDuty and Amazon SNS with the webhook, which comes last', () => {
+    const offered = ['aws_sms', 'aws_sns', 'http_sms', 'pagerduty', 'twilio_sms', 'twilio_whatsapp', 'webhook'];
+
+    expect(orderConnectorTypes(offered, 'zh-CN')).toEqual([
+      { channel: 'sms', connectorType: 'twilio_sms' },
+      { channel: 'sms', connectorType: 'aws_sms' },
+      { channel: 'sms', connectorType: 'twilio_whatsapp' },
+      { channel: 'sms', connectorType: 'http_sms' },
+      { channel: 'webhook', connectorType: 'pagerduty' },
+      { channel: 'webhook', connectorType: 'aws_sns' },
+      { channel: 'webhook', connectorType: 'webhook' },
+    ]);
   });
 });

@@ -8,11 +8,15 @@
 use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
+use domain::notify::{buttons::AlertButtonLabels, connector::NotifyConnector};
+use kernel::ids::Id;
 
-use crate::{
-    domain::notify::{buttons::AlertButtonLabels, connector::NotifyConnector},
-    shared::ids::Id,
-};
+/// The words on the one-time action links, in the recipient's language.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ActionLinkLabels {
+    pub acknowledge: String,
+    pub resolve: String,
+}
 
 /// 收得到回复的短信与电话末尾说的那句：短信回复哪个代码，电话按哪个键。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,6 +44,13 @@ pub trait AlertButtonSource: Send + Sync {
         resolve: &str,
     ) -> Option<ReplyHints> {
         let _ = (organization_id, recipient, ack, resolve);
+        None
+    }
+
+    /// The words on the one-time action links sent to `recipient`, in their language; `None`
+    /// issues no links.
+    async fn link_labels(&self, organization_id: &Id, recipient: &Id) -> Option<ActionLinkLabels> {
+        let _ = (organization_id, recipient);
         None
     }
 }

@@ -15,27 +15,23 @@
 //!   按钮在 `*_text` 不为空时显示，点了是「回传请求」，回传参数 [`DINGTALK_ALERT_PARAM`] 绑定 `*_value`；
 //! - `open_text` / `open_url`：在 MoleSignal 中查看。
 
+use domain::notify::{
+    buttons::{AlertAction, AlertButtons},
+    connector::NotifyMessage,
+};
+use kernel::{Error, Result};
 use serde_json::{Map, Value, json};
+use signals::http_trace::{self, HttpTarget};
 
 use super::{DingTalkApp, MAX_TEXT_CHARS, Recipient};
-use crate::{
-    domain::notify::{
-        buttons::{AlertAction, AlertButtons},
-        connector::NotifyMessage,
-    },
-    infra::notify::adapters::{
-        card::card_title,
-        common::{TOKENS, body, provider_message, truncate_chars},
-    },
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-    },
+use crate::infra::notify::adapters::{
+    card::card_title,
+    common::{TOKENS, body, provider_message, truncate_chars},
 };
 
 /// Stream 连接里卡片回调的主题。
 pub(crate) const DINGTALK_CARD_CALLBACK_TOPIC: &str = "/v1.0/card/instances/callback";
-/// 回传参数里按钮的值（[`crate::domain::notify::buttons::AlertButtonValue`] 的 JSON）放在这个键下。
+/// 回传参数里按钮的值（[`domain::notify::buttons::AlertButtonValue`] 的 JSON）放在这个键下。
 pub(crate) const DINGTALK_ALERT_PARAM: &str = "value";
 
 /// 填进模板的变量。
@@ -220,16 +216,16 @@ impl DingTalkApp {
 
 #[cfg(test)]
 mod tests {
+    use domain::notify::{
+        buttons::AlertButtonValue,
+        template::{NotifyCard, NotifyCardColor, NotifyCardField, NotifyCardLink},
+    };
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
         matchers::{body_partial_json, header, method, path},
     };
 
     use super::*;
-    use crate::domain::notify::{
-        buttons::AlertButtonValue,
-        template::{NotifyCard, NotifyCardColor, NotifyCardField, NotifyCardLink},
-    };
 
     fn message(card: Option<NotifyCard>) -> NotifyMessage {
         NotifyMessage {
@@ -258,6 +254,7 @@ mod tests {
                 "在 MoleSignal 中查看".into(),
                 "https://ms.example.com".into(),
             )),
+            callback: None,
         }
     }
 

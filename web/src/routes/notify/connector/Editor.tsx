@@ -448,7 +448,7 @@ function AwsExternalId() {
   return (
     <ReadOnlyField
       name="external_id"
-      label={t('connectors.drawer.field.external_id')}
+      label={t('connectors.drawer.field.externalId')}
       hint={t('connectors.drawer.external_id_hint')}
     >
       <CopyableValue

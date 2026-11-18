@@ -175,6 +175,8 @@ pub struct AlertingState {
     pub actions: Arc<crate::app::alerting::IncidentActions>,
     /// 短信回复、电话按键的回调：认出回复的是哪条消息，回调 Token。
     pub reply_callbacks: Arc<crate::app::notify::ReplyCallbacks>,
+    /// One-time action links on notifications: what each does, and whether it was used.
+    pub action_links: Arc<dyn domain::notify::action_links::NotifyActionLinkRepository>,
     /// 洞察里人的部分：响应（MTTA、升级率、各级确认率）和值班负担。
     pub insights: Arc<crate::app::alerting::AlertInsights>,
     /// 像这个事件的过去的事件，和它触发前后的变更。

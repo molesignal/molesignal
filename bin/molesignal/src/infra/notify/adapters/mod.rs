@@ -6,16 +6,23 @@ mod aws;
 mod card;
 mod common;
 mod dingtalk;
+mod discord;
 mod email;
+mod google_account;
 mod google_chat;
 mod http_sms;
 mod huawei;
 mod lark;
+mod matrix;
+mod mattermost;
+mod pagerduty;
 mod phone;
 mod slack;
 mod teams;
+mod telegram;
 mod tencent;
 mod twilio;
+mod webex;
 mod webhook;
 mod wecom;
 mod wecom_bot;
@@ -25,8 +32,8 @@ pub use aliyun::{
     AliyunVoiceConnectorAdapter,
 };
 pub use aws::{
-    AWS_SMS_CONNECTOR_TYPE, AWS_VOICE_CONNECTOR_TYPE, AwsSmsConnectorAdapter,
-    AwsVoiceConnectorAdapter,
+    AWS_SMS_CONNECTOR_TYPE, AWS_SNS_CONNECTOR_TYPE, AWS_VOICE_CONNECTOR_TYPE,
+    AwsSmsConnectorAdapter, AwsSnsConnectorAdapter, AwsVoiceConnectorAdapter,
 };
 pub(crate) use common::{TOKENS, TokenCache, google_chat_text, truncate_bytes, truncate_chars};
 pub(crate) use dingtalk::{
@@ -38,6 +45,7 @@ pub use dingtalk::{
     DINGTALK_APP_CONNECTOR_TYPE, DINGTALK_WEBHOOK_CONNECTOR_TYPE, DingTalkAppConnectorAdapter,
     DingTalkWebhookConnectorAdapter,
 };
+pub use discord::{DISCORD_WEBHOOK_CONNECTOR_TYPE, DiscordWebhookConnectorAdapter};
 pub use email::{EMAIL_SMTP_CONNECTOR_TYPE, EmailSmtpConnectorAdapter};
 #[cfg(test)]
 pub(crate) use google_chat::test_key as google_chat_test_key;
@@ -60,6 +68,13 @@ pub use lark::{
     LARK_APP_CONNECTOR_TYPE, LARK_WEBHOOK_CONNECTOR_TYPE, LarkAppConnectorAdapter,
     LarkWebhookConnectorAdapter,
 };
+pub use matrix::{MATRIX_BOT_CONNECTOR_TYPE, MatrixBotConnectorAdapter};
+pub(crate) use mattermost::mattermost_post;
+pub use mattermost::{
+    MATTERMOST_BOT_CONNECTOR_TYPE, MATTERMOST_WEBHOOK_CONNECTOR_TYPE,
+    MattermostBotConnectorAdapter, MattermostWebhookConnectorAdapter,
+};
+pub use pagerduty::{PAGERDUTY_CONNECTOR_TYPE, PagerDutyConnectorAdapter};
 pub(crate) use slack::{SLACK_ALERT_BLOCK_ID, SLACK_SITES, mrkdwn, slack_card};
 pub use slack::{
     SLACK_APP_CONNECTOR_TYPE, SLACK_WEBHOOK_CONNECTOR_TYPE, SlackAppConnectorAdapter,
@@ -73,13 +88,18 @@ pub use teams::{
     TEAMS_APP_CONNECTOR_TYPE, TEAMS_WEBHOOK_CONNECTOR_TYPE, TeamsAppConnectorAdapter,
     TeamsWebhookConnectorAdapter,
 };
+pub use telegram::{TELEGRAM_BOT_CONNECTOR_TYPE, TelegramBotConnectorAdapter};
 pub use tencent::{
     TENCENT_SMS_CONNECTOR_TYPE, TENCENT_VOICE_CONNECTOR_TYPE, TencentSmsConnectorAdapter,
     TencentVoiceConnectorAdapter,
 };
 pub use twilio::{
-    TWILIO_SMS_CONNECTOR_TYPE, TWILIO_VOICE_CONNECTOR_TYPE, TwilioSmsConnectorAdapter,
-    TwilioVoiceConnectorAdapter,
+    TWILIO_SMS_CONNECTOR_TYPE, TWILIO_VOICE_CONNECTOR_TYPE, TWILIO_WHATSAPP_CONNECTOR_TYPE,
+    TwilioSmsConnectorAdapter, TwilioVoiceConnectorAdapter, TwilioWhatsappConnectorAdapter,
+};
+pub use webex::{
+    WEBEX_BOT_CONNECTOR_TYPE, WEBEX_WEBHOOK_CONNECTOR_TYPE, WebexBotConnectorAdapter,
+    WebexWebhookConnectorAdapter,
 };
 pub use webhook::{WEBHOOK_CONNECTOR_TYPE, WebhookConnectorAdapter};
 pub use wecom::{
@@ -97,10 +117,10 @@ pub use wecom_bot::{WECOM_BOT_CONNECTOR_TYPE, WecomBotConnectorAdapter};
 mod tests {
     use std::sync::Arc;
 
+    use domain::notify::connector::{ConnectorAdapter, validate_addresses};
     use serde_json::{Map, Value, json};
 
     use super::*;
-    use crate::domain::notify::connector::{ConnectorAdapter, validate_addresses};
 
     #[test]
     fn a_provider_address_is_taken_only_from_the_catalogue() {
@@ -120,6 +140,12 @@ mod tests {
             Arc::new(AwsSmsConnectorAdapter::new()),
             Arc::new(TencentVoiceConnectorAdapter::new()),
             Arc::new(TencentSmsConnectorAdapter::new()),
+            Arc::new(WebexBotConnectorAdapter::new()),
+            Arc::new(EmailSmtpConnectorAdapter::new()),
+            Arc::new(TwilioWhatsappConnectorAdapter::new()),
+            Arc::new(AwsSnsConnectorAdapter::new()),
+            Arc::new(PagerDutyConnectorAdapter::new()),
+            Arc::new(TelegramBotConnectorAdapter::new()),
         ];
 
         let config = |field: &str, url: &str| {
@@ -157,5 +183,8 @@ mod tests {
         assert!(WebhookConnectorAdapter::new().addresses().is_empty());
         assert!(HttpSmsConnectorAdapter::new().addresses().is_empty());
         assert!(SlackWebhookConnectorAdapter::new().addresses().is_empty());
+        assert!(DiscordWebhookConnectorAdapter::new().addresses().is_empty());
+        assert!(WebexWebhookConnectorAdapter::new().addresses().is_empty());
+        assert!(MatrixBotConnectorAdapter::new().addresses().is_empty());
     }
 }

@@ -481,6 +481,10 @@ test.describe('Voice and SMS connectors', () => {
     await expect(drawer.getByRole('textbox', { name: 'Body', exact: true })).toHaveValue('{"phone": "{{phone}}", "content": "{{content}}"}');
     await expect(drawer).toContainText('A phone number with + and the country code');
 
+    // The choices read as words, not as the values saved.
+    await expect(drawer.getByRole('combobox', { name: 'Body format' })).toContainText('JSON');
+    await expect(drawer.getByRole('combobox', { name: 'Number format' })).toContainText('(E.164)');
+
     await drawer.getByRole('combobox', { name: 'HTTP method' }).click();
     await page.getByRole('option', { name: 'GET' }).click();
     await expect(drawer.getByRole('textbox', { name: 'Body', exact: true })).toHaveCount(0);

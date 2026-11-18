@@ -5,25 +5,29 @@
 
 use std::borrow::Cow;
 
-use super::{NotifyEngine, model::ResolvedRoute, pipelines::PolicyCopy};
-use crate::{
-    app::notify::alert_dispatch,
-    domain::{
-        alerting::incident::Incident,
-        notify::{
-            buttons::{AlertAction, AlertButtons},
-            call::QueuedCall,
-            connector::{
-                NotifyChannel, NotifyConnector, NotifyMessage, NotifyTarget, NotifyTargetType,
-            },
-            policy::{NotifyEvent, NotifyPolicy},
-            recipient::NotifyRecipient,
+use domain::{
+    alerting::incident::Incident,
+    notify::{
+        buttons::{AlertAction, AlertButtons},
+        call::QueuedCall,
+        connector::{
+            NotifyChannel, NotifyConnector, NotifyMessage, NotifyTarget, NotifyTargetType,
         },
+        policy::{NotifyEvent, NotifyPolicy},
+        recipient::NotifyRecipient,
     },
-    shared::ids::Id,
 };
+use kernel::ids::Id;
+
+use super::{NotifyEngine, model::ResolvedRoute, pipelines::PolicyCopy};
+use crate::app::notify::{AGENT_APPROVAL_REQUESTED_EVENT, AlertButtonSource, alert_dispatch};
 
 impl NotifyEngine {
+    /// MoleSignal's external address (`http.external_url`); empty when none is set.
+    pub fn external_url(&self) -> &str {
+        &self.external_url
+    }
+
     /// 合成一条的通知上的「全部确认」：确认里面的告警，字用收通知的人的语言（发到群里时用工作区的）。
     pub(super) async fn with_bundle_buttons(
         &self,
@@ -87,6 +91,12 @@ impl NotifyEngine {
         let Some(source) = self.alert_buttons.source() else {
             return Cow::Borrowed(message);
         };
+
+        // An approval request carries approve and reject instead of an alert's buttons.
+        if event.event_type == AGENT_APPROVAL_REQUESTED_EVENT {
+            return approval_buttons(source.as_ref(), policy, event, recipient, route, message)
+                .await;
+        }
 
         let (Some(alert_id), Some(status)) = (
             event.attributes["alert_id"].as_str(),
@@ -171,4 +181,40 @@ impl NotifyEngine {
             }
         }
     }
+}
+
+/// Approve and reject on an approval request sent where presses are heard, in the recipient's
+/// language when it goes to one person.
+async fn approval_buttons<'a>(
+    source: &dyn AlertButtonSource,
+    policy: &NotifyPolicy,
+    event: &NotifyEvent,
+    recipient: &NotifyRecipient,
+    route: &ResolvedRoute,
+    message: &'a NotifyMessage,
+) -> Cow<'a, NotifyMessage> {
+    let Some(approval_id) = event.attributes["approval_id"].as_str() else {
+        return Cow::Borrowed(message);
+    };
+
+    let direct = route.target.target_type == NotifyTargetType::DirectUser;
+
+    let Some(labels) = source
+        .labels(&route.connector, direct.then_some(&recipient.user_id))
+        .await
+    else {
+        return Cow::Borrowed(message);
+    };
+
+    let mut message = message.clone();
+
+    AlertButtons::approval(
+        approval_id,
+        &event.event_type,
+        Some(policy.id.as_str()),
+        &labels,
+    )
+    .write(&mut message);
+
+    Cow::Owned(message)
 }

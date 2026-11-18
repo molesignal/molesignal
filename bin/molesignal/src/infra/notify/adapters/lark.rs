@@ -2,6 +2,7 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 mod card;
+mod urgent;
 
 use std::{
     collections::BTreeMap,
@@ -11,25 +12,22 @@ use std::{
 use async_trait::async_trait;
 use aws_lc_rs::hmac;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64_STANDARD};
+use domain::notify::{
+    buttons::AlertButtons,
+    connector::{
+        ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
+        NotifyChannel, NotifyMessage, NotifyTarget, NotifyTargetType,
+    },
+    preference::{STEP_BOOST_KEY, StepBoost},
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use signals::http_trace::{self, HttpTarget};
 use url::Url;
 
 use self::card::webhook_body;
 pub(crate) use self::card::{LARK_ALERT_VALUE_KEY, lark_card};
-use crate::{
-    domain::notify::{
-        buttons::AlertButtons,
-        connector::{
-            ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
-            NotifyChannel, NotifyMessage, NotifyTarget, NotifyTargetType,
-        },
-    },
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-    },
-};
 
 pub const LARK_APP_CONNECTOR_TYPE: &str = "lark_app";
 pub const LARK_WEBHOOK_CONNECTOR_TYPE: &str = "lark_webhook";
@@ -149,6 +147,10 @@ impl ConnectorAdapter for LarkAppConnectorAdapter {
         vec![ConnectorAddress::picked("apiBaseUrl", "site", &LARK_SITES)]
     }
 
+    fn boosts(&self) -> &'static [StepBoost] {
+        &urgent::BOOSTS
+    }
+
     fn validate_config(&self, config: &Value) -> Result<()> {
         LarkAppConfig::parse(config)?.validate()
     }
@@ -256,7 +258,7 @@ impl ConnectorAdapter for LarkAppConnectorAdapter {
                 .post(format!(
                     "{base}/im/v1/messages?receive_id_type={receive_id_type}"
                 ))
-                .bearer_auth(token.tenant_access_token)
+                .bearer_auth(&token.tenant_access_token)
                 .json(&json!({
                     "receive_id": target.value.trim(),
                     "msg_type": msg_type,
@@ -286,8 +288,30 @@ impl ConnectorAdapter for LarkAppConnectorAdapter {
             )));
         }
 
+        let message_id = response.data.and_then(|data| data.message_id);
+
+        // A step of the person's order asked to page them harder than the message.
+        if let Some(boost) = target.metadata.get(STEP_BOOST_KEY)
+            && target.target_type == NotifyTargetType::DirectUser
+        {
+            let message_id = message_id.as_deref().ok_or_else(|| {
+                Error::unavailable("lark_app returned no message ID to page about")
+            })?;
+
+            urgent::page(
+                &client,
+                base,
+                &token.tenant_access_token,
+                message_id,
+                receive_id_type,
+                target.value.trim(),
+                StepBoost::parse(boost)?,
+            )
+            .await?;
+        }
+
         Ok(ConnectorDeliveryResult {
-            provider_message_id: response.data.and_then(|data| data.message_id),
+            provider_message_id: message_id,
             delivered: true,
             latency_ms: u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
             metadata: BTreeMap::new(),

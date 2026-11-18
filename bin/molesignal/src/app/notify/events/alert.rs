@@ -3,33 +3,31 @@
 
 use std::collections::BTreeMap;
 
+use domain::{
+    alerting::{
+        escalation::EscalationTarget,
+        handling::EscalationReason,
+        incident::{DESCRIPTION_ANNOTATION, Incident, SYNTHETIC_STATE_LABEL},
+    },
+    notify::{connector::NotifyMessage, policy::NotifyEvent},
+    pipeline::alert::AlertFields,
+};
+use kernel::ids::Id;
 use serde_json::{Map, Value};
 
-use crate::{
-    app::notify::NotifyDispatch,
-    domain::{
-        alerting::{
-            escalation::EscalationTarget,
-            handling::EscalationReason,
-            incident::{DESCRIPTION_ANNOTATION, Incident, SYNTHETIC_STATE_LABEL},
-        },
-        notify::{connector::NotifyMessage, policy::NotifyEvent},
-        pipeline::alert::AlertFields,
-    },
-    shared::ids::Id,
-};
+use crate::app::notify::NotifyDispatch;
 
 pub const ALERT_TRIGGERED_EVENT: &str = "alert.triggered";
 pub const ALERT_ACKNOWLEDGED_EVENT: &str = "alert.acknowledged";
 pub const ALERT_RESOLVED_EVENT: &str = "alert.resolved";
 pub const ALERT_ESCALATED_EVENT: &str = "alert.escalated";
 
-pub fn triggered_event_id(incident_id: &crate::shared::ids::Id) -> String {
+pub fn triggered_event_id(incident_id: &kernel::ids::Id) -> String {
     format!("{ALERT_TRIGGERED_EVENT}:{incident_id}")
 }
 
 /// 一个告警事件各次升级的通知事件 ID 的共同前缀（见 [`alert_escalation_dispatch`]）。
-pub fn escalated_event_prefix(incident_id: &crate::shared::ids::Id) -> String {
+pub fn escalated_event_prefix(incident_id: &kernel::ids::Id) -> String {
     format!("{ALERT_ESCALATED_EVENT}:{incident_id}:")
 }
 
@@ -526,10 +524,7 @@ fn title_prefix(incident: &Incident, event_type: &str) -> String {
     }
 }
 
-fn event_occurred_at(
-    incident: &Incident,
-    event_type: &str,
-) -> crate::shared::time::TimestampMicros {
+fn event_occurred_at(incident: &Incident, event_type: &str) -> kernel::time::TimestampMicros {
     match event_type {
         ALERT_ACKNOWLEDGED_EVENT => incident.acknowledged_at.unwrap_or(incident.created_at),
         ALERT_RESOLVED_EVENT => incident.resolved_at.unwrap_or(incident.created_at),
@@ -550,11 +545,10 @@ fn copy_context_attribute(attributes: &mut Map<String, Value>, incident: &Incide
 
 #[cfg(test)]
 mod tests {
+    use domain::alerting::incident::{IncidentStatus, Severity};
+    use kernel::{ids::Id, time::TimestampMicros};
+
     use super::*;
-    use crate::{
-        domain::alerting::incident::{IncidentStatus, Severity},
-        shared::{ids::Id, time::TimestampMicros},
-    };
 
     #[test]
     fn alert_event_id_is_stable() {
@@ -610,7 +604,7 @@ mod tests {
 
     #[test]
     fn a_pipeline_before_a_notification_retells_it_and_leaves_who_receives_it() {
-        use crate::domain::alerting::priority::Priority;
+        use domain::alerting::priority::Priority;
 
         let incident = Incident {
             id: Id::from_string("incident"),

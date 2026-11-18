@@ -7,27 +7,23 @@ use axum::{
     http::StatusCode,
     routing::get,
 };
+use domain::{
+    iam::{IamContext, permission},
+    notify::connector::{
+        ConnectorAddress, ConnectorCapabilities, ConnectorRegion, ConnectorStatus,
+        ConnectorTestStatus, NotifyConnector, NotifyMessage, NotifyTarget, NotifyTargetType,
+    },
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
     api::AppState,
-    app::{
-        iam::IamContext,
-        notify::{
-            ConnectorRegionsQuery, CreateNotifyConnector, UpdateNotifyConnector,
-            mask_connector_config,
-        },
-    },
-    domain::{
-        iam::permission,
-        notify::connector::{
-            ConnectorAddress, ConnectorCapabilities, ConnectorRegion, ConnectorStatus,
-            ConnectorTestStatus, NotifyConnector, NotifyMessage, NotifyTarget, NotifyTargetType,
-        },
+    app::notify::{
+        ConnectorRegionsQuery, CreateNotifyConnector, UpdateNotifyConnector, mask_connector_config,
     },
     infra::connectors::aws,
-    shared::{Result, ids::Id, time::TimestampMicros},
 };
 
 pub(super) fn routes() -> Router<AppState> {
@@ -50,7 +46,6 @@ pub(super) fn routes() -> Router<AppState> {
 #[serde(rename_all = "camelCase")]
 struct CreateConnectorRequest {
     name: String,
-    #[serde(alias = "type")]
     connector_type: String,
     config: Value,
     #[serde(default = "default_true")]
@@ -133,6 +128,8 @@ struct ConnectorTypeResponse {
     connector_type: &'static str,
     capabilities: ConnectorCapabilities,
     addresses: Vec<ConnectorAddress>,
+    /// How the type's IM app can page a person beyond the message: `app`, `sms`, `phone`.
+    boosts: Vec<&'static str>,
 }
 
 #[derive(Debug, Serialize)]
@@ -226,6 +223,11 @@ async fn list_types(
                 connector_type: supported.connector_type,
                 capabilities: supported.capabilities,
                 addresses: supported.addresses,
+                boosts: supported
+                    .boosts
+                    .iter()
+                    .map(|boost| boost.as_str())
+                    .collect(),
             })
             .collect(),
     ))

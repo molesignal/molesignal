@@ -250,13 +250,13 @@ fn a_card_press_is_an_action_and_so_is_an_old_clients_submit() {
     assert!(card_action(&activity("personal", "a:1xyz", "<at>Mole</at> hi")).is_none());
 }
 
-fn alert_card() -> crate::agent::im::AlertCard {
-    use crate::domain::notify::{
+fn alert_card() -> agent::im::AlertCard {
+    use domain::notify::{
         buttons::{AlertAction, AlertButtons},
         connector::NotifyMessage,
     };
 
-    crate::agent::im::AlertCard {
+    agent::im::AlertCard {
         message: NotifyMessage {
             title: "CRITICAL · Disk full".into(),
             text: "Disk is at **97%**.".into(),
@@ -274,6 +274,7 @@ fn alert_card() -> crate::agent::im::AlertCard {
             alert_ids: Vec::new(),
             actions: vec![(AlertAction::Resolve, "Resolve".into())],
             open: None,
+            callback: None,
         },
         note: Some("Acknowledged by Alice".into()),
     }
@@ -281,7 +282,7 @@ fn alert_card() -> crate::agent::im::AlertCard {
 
 #[test]
 fn the_invoke_answer_shows_the_new_card_or_the_notice() {
-    use crate::agent::im::NoticeKind;
+    use agent::im::NoticeKind;
 
     let card = invoke_response(Some(&CardAnswer {
         notice: Some((NoticeKind::Success, "Acknowledged".into())),
@@ -347,10 +348,7 @@ async fn a_pressed_card_is_replaced_for_everyone_in_the_conversation() {
         &config(&server),
         &action,
         &CardAnswer {
-            notice: Some((
-                crate::agent::im::NoticeKind::Info,
-                "Already resolved".into(),
-            )),
+            notice: Some((agent::im::NoticeKind::Info, "Already resolved".into())),
             card: None,
         },
     )

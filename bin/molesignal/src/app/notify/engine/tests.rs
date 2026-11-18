@@ -10,55 +10,53 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::{
+    alerting::{
+        incident::{Incident, IncidentStatus, Severity},
+        mute::{MuteRule, MuteRuleRepository, MuteWindow},
+        repositories::IncidentRepository,
+        semantic_group::{LabelMatcher, MatchOp},
+    },
+    iam::{Team, TeamRepository},
+    notify::{
+        buttons::{AlertAction, AlertButtonLabels, AlertButtons},
+        call::{CallLine, QueuedCall},
+        connector::{
+            ConnectorAdapter, ConnectorCapabilities, ConnectorDeliveryResult, ConnectorStatus,
+            ConnectorTestStatus, NotifyChannel, NotifyConnector, NotifyMessage, NotifyTarget,
+            NotifyTargetType,
+        },
+        delivery::{
+            DeliveryClaim, DeliveryCompletion, DeliveryFilter, DeliveryStage, DeliveryStatus,
+            NotifyDelivery,
+        },
+        endpoint::UserNotifyEndpoint,
+        event::{NotifyEventClaim, NotifyEventRecord, NotifyEventStatus},
+        follow_up::NotifyFollowUp,
+        policy::{
+            NotifyDeliveryConfig, NotifyDeliveryMode, NotifyEvent, NotifyFallbackConfig,
+            NotifyPolicy,
+        },
+        preference::{NotifyCategory, UserNotifyPreference, UserNotifyPreferenceStep},
+        recipient::{NotifyRecipient, RecipientResolver},
+        repositories::{
+            NotifyCallRepository, NotifyConnectorRepository, NotifyDeliveryRepository,
+            NotifyEventRepository, NotifyFollowUpRepository, NotifyPolicyRepository,
+            NotifyTemplateRepository, OrganizationNotifyDefaultRepository,
+            TeamNotifyDefaultRepository, UserNotifyEndpointRepository,
+            UserNotifyPreferenceRepository,
+        },
+        routing::{NotifyDefaultRoute, OrganizationNotifyDefault, TeamNotifyDefault},
+        template::NotifyTemplate,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 
 use super::*;
-use crate::{
-    app::notify::{
-        ALERT_RESOLVED_EVENT, ALERT_TRIGGERED_EVENT, AlertButtonSource, ConnectorRegistry,
-        RecipientResolverRegistry, alert_dispatch,
-    },
-    domain::{
-        alerting::{
-            incident::{Incident, IncidentStatus, Severity},
-            mute::{MuteRule, MuteRuleRepository, MuteWindow},
-            repositories::IncidentRepository,
-            semantic_group::{LabelMatcher, MatchOp},
-        },
-        iam::{Team, TeamRepository},
-        notify::{
-            buttons::{AlertAction, AlertButtonLabels, AlertButtons},
-            call::{CallLine, QueuedCall},
-            connector::{
-                ConnectorAdapter, ConnectorCapabilities, ConnectorDeliveryResult, ConnectorStatus,
-                ConnectorTestStatus, NotifyChannel, NotifyConnector, NotifyMessage, NotifyTarget,
-                NotifyTargetType,
-            },
-            delivery::{
-                DeliveryClaim, DeliveryCompletion, DeliveryFilter, DeliveryStage, DeliveryStatus,
-                NotifyDelivery,
-            },
-            endpoint::UserNotifyEndpoint,
-            event::{NotifyEventClaim, NotifyEventRecord, NotifyEventStatus},
-            follow_up::NotifyFollowUp,
-            policy::{
-                NotifyDeliveryConfig, NotifyDeliveryMode, NotifyEvent, NotifyFallbackConfig,
-                NotifyPolicy,
-            },
-            preference::{NotifyCategory, UserNotifyPreference, UserNotifyPreferenceStep},
-            recipient::{NotifyRecipient, RecipientResolver},
-            repositories::{
-                NotifyCallRepository, NotifyConnectorRepository, NotifyDeliveryRepository,
-                NotifyEventRepository, NotifyFollowUpRepository, NotifyPolicyRepository,
-                NotifyTemplateRepository, OrganizationNotifyDefaultRepository,
-                TeamNotifyDefaultRepository, UserNotifyEndpointRepository,
-                UserNotifyPreferenceRepository,
-            },
-            routing::{NotifyDefaultRoute, OrganizationNotifyDefault, TeamNotifyDefault},
-            template::NotifyTemplate,
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use crate::app::notify::{
+    ALERT_RESOLVED_EVENT, ALERT_TRIGGERED_EVENT, AlertButtonSource, ConnectorRegistry,
+    RecipientResolverRegistry, alert_dispatch,
 };
 
 /// 内存里的通知仓储。`service` 里不经策略直接发送的测试也用它。
@@ -1509,6 +1507,7 @@ async fn falls_back_from_user_to_team_and_organization_and_deduplicates_success(
                     step_order: 1,
                     delay_secs: 0,
                     urgency: Default::default(),
+                    boost: None,
                     created_at: TimestampMicros(1),
                 },
                 UserNotifyPreferenceStep {
@@ -1518,6 +1517,7 @@ async fn falls_back_from_user_to_team_and_organization_and_deduplicates_success(
                     step_order: 2,
                     delay_secs: 0,
                     urgency: Default::default(),
+                    boost: None,
                     created_at: TimestampMicros(1),
                 },
             ],
@@ -1848,6 +1848,7 @@ async fn alert_order(
             step_order: i32::try_from(index + 1).unwrap(),
             delay_secs: *delay_secs,
             urgency: Default::default(),
+            boost: None,
             created_at: TimestampMicros(1),
         });
     }
@@ -2030,7 +2031,10 @@ impl AlertButtonSource for FakeButtons {
             resolve: "解决".into(),
             snooze: "暂缓 1 小时".into(),
             acknowledge_all: "全部确认".into(),
+            approve: "批准".into(),
+            reject: "驳回".into(),
             open: None,
+            callback: None,
         })
     }
 }
@@ -2796,16 +2800,17 @@ async fn a_silence_holds_the_acknowledgement_escalation_of_a_policy() {
 /// 超预算的通知走通知策略：同一档、同一周期、同一额度只发一次，调高额度后再次超出才再发。
 #[tokio::test]
 async fn a_budget_past_its_limit_is_told_once_until_its_limit_changes() {
+    use domain::intake::usage::{
+        budget::{BudgetPeriod, BudgetState, IntakeBudget},
+        source::UsageDimension,
+    };
+
     use crate::{
         app::{
             intake::usage::{BudgetStanding, SourceLabel},
             notify::events::budget_dispatch,
         },
-        domain::intake::usage::{
-            budget::{BudgetPeriod, BudgetState, IntakeBudget},
-            source::UsageDimension,
-        },
-        shared::i18n_language_seed::seeded_pack,
+        i18n_language_seed::seeded_pack,
     };
 
     const MIB: u64 = 1024 * 1024;
@@ -2836,6 +2841,7 @@ async fn a_budget_past_its_limit_is_told_once_until_its_limit_changes() {
                 step_order: 1,
                 delay_secs: 0,
                 urgency: Default::default(),
+                boost: None,
                 created_at: TimestampMicros(1),
             }],
             created_at: TimestampMicros(1),
@@ -2950,21 +2956,18 @@ async fn a_budget_past_its_limit_is_told_once_until_its_limit_changes() {
 }
 
 /// 组织启用着的告警流水线，照给的；只记有没有被记数。
-struct NotifyStagePipelines(Vec<crate::domain::pipeline::alert::AlertPipeline>);
+struct NotifyStagePipelines(Vec<domain::pipeline::alert::AlertPipeline>);
 
 #[async_trait]
-impl crate::domain::pipeline::alert::AlertPipelineRepository for NotifyStagePipelines {
-    async fn enabled(
-        &self,
-        _org: &Id,
-    ) -> Result<Vec<crate::domain::pipeline::alert::AlertPipeline>> {
+impl domain::pipeline::alert::AlertPipelineRepository for NotifyStagePipelines {
+    async fn enabled(&self, _org: &Id) -> Result<Vec<domain::pipeline::alert::AlertPipeline>> {
         Ok(self.0.clone())
     }
 
     async fn record(
         &self,
         _pipeline: &Id,
-        _outcome: crate::domain::pipeline::alert::AlertOutcome,
+        _outcome: domain::pipeline::alert::AlertOutcome,
     ) -> Result<()> {
         Ok(())
     }
@@ -2977,14 +2980,14 @@ fn notify_stage(
     policies: serde_json::Value,
     script: &str,
 ) -> Arc<crate::app::alerting::event_pipelines::AlertPipelines> {
-    let config = crate::domain::pipeline::alert::AlertConfig::parse(&serde_json::json!({
+    let config = domain::pipeline::alert::AlertConfig::parse(&serde_json::json!({
         "mode": "alert",
         "alert": { "stage": "notify", "policies": policies },
         "steps": [{ "transformName": "the-step", "script": script }],
     }))
     .unwrap();
 
-    let pipeline = crate::domain::pipeline::alert::AlertPipeline {
+    let pipeline = domain::pipeline::alert::AlertPipeline {
         id: Id::from_string(format!("pipeline-{name}")),
         org_id: org.clone(),
         name: name.into(),
@@ -2994,7 +2997,7 @@ fn notify_stage(
 
     Arc::new(crate::app::alerting::event_pipelines::AlertPipelines::new(
         Arc::new(NotifyStagePipelines(vec![pipeline])),
-        Arc::new(crate::infra::runtime::VrlFunctionExecutor::new()),
+        Arc::new(function_runtime::VrlFunctionExecutor::new()),
     ))
 }
 

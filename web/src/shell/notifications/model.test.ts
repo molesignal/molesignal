@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import type { Incident } from '@/types/alerting';
 
-import { byUrgency, countUnread, isWaitingOn, parseReadNotifications, settleRead, type AppNotification } from './model';
+import {
+  byUrgency,
+  countUnread,
+  isWaitingOn,
+  parseReadNotifications,
+  settleRead,
+  unreadBadge,
+  type AppNotification,
+} from './model';
 
 function incident(fields: Partial<Incident>): Incident {
   return { status: 'open', assignees: [], severity: 'error', createdAt: 1, ...fields } as Incident;
@@ -48,5 +56,13 @@ describe('what was read', () => {
     expect(parseReadNotifications({ ids: ['a'] })).toEqual({ ids: ['a'] });
     expect(parseReadNotifications({ ids: [1] })).toBeNull();
     expect(parseReadNotifications('nonsense')).toBeNull();
+  });
+});
+
+describe('unreadBadge', () => {
+  it('says the count, and past two digits that there are more than 99', () => {
+    expect(unreadBadge(4)).toBe('4');
+    expect(unreadBadge(99)).toBe('99');
+    expect(unreadBadge(100)).toBe('99+');
   });
 });

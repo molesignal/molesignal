@@ -26,23 +26,20 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
+use domain::{
+    iam::{IamContext, permission},
+    notify::{
+        connector::NotifyConnector,
+        reply::{ReplyAction, ReplyRef, parse_sms_reply},
+    },
+};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use self::respond::{keypress_reply, press_found, sms_reply};
 use super::callback_auth::{sns_verified, twilio_signature_matches};
-use crate::{
-    api::{AppState, http::routes::agent::im::keypress_answer},
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        notify::{
-            connector::NotifyConnector,
-            reply::{ReplyAction, ReplyRef},
-        },
-    },
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::{AppState, http::routes::agent::im::keypress_answer};
 
 mod respond;
 
@@ -157,6 +154,7 @@ async fn callback_urls(
 
     let (replies, keypress) = match connector.connector_type.as_str() {
         "twilio_sms" => (address("replies", true), Value::Null),
+        "twilio_whatsapp" => (address("replies", true), Value::Null),
         "aws_sms" => (address("replies", true), Value::Null),
         "aliyun_sms" | "tencent_sms" | "http_sms" => (address("replies", false), Value::Null),
         "aliyun_voice" | "tencent_voice" => (Value::Null, address("keypress", false)),
@@ -190,6 +188,13 @@ async fn replies(
             let text = form.get("Body").cloned().unwrap_or_default();
 
             sms_reply(&state, &connector, &from, &text).await;
+            Ok(twiml("<Response></Response>"))
+        }
+        "twilio_whatsapp" => {
+            let form = twilio_form(&state, &connector, &headers, &body, "replies", None)?;
+            let (from, text) = whatsapp_reply(&form);
+
+            sms_reply(&state, &connector, from, text).await;
             Ok(twiml("<Response></Response>"))
         }
         "aws_sms" => {
@@ -401,6 +406,24 @@ fn twilio_form(
     Ok(form)
 }
 
+/// A WhatsApp message through Twilio, read as a text reply: the sender's number without Twilio's
+/// `whatsapp:` channel prefix, and what they wrote. A tap on a quick-reply button carries the
+/// button's id as `ButtonPayload`; when the template made that id a reply code, the code is the
+/// reply.
+fn whatsapp_reply(form: &BTreeMap<String, String>) -> (&str, &str) {
+    let from = form.get("From").map_or("", String::as_str);
+    let from = from.strip_prefix("whatsapp:").unwrap_or(from);
+    let body = form.get("Body").map_or("", String::as_str);
+
+    let text = form
+        .get("ButtonPayload")
+        .map(String::as_str)
+        .filter(|payload| parse_sms_reply(payload).is_some())
+        .unwrap_or(body);
+
+    (from, text)
+}
+
 /// 推送的内容：一个对象或一组对象。
 fn items(body: &[u8]) -> Result<Vec<Value>> {
     match serde_json::from_slice::<Value>(body) {
@@ -484,4 +507,47 @@ fn tencent_received() -> Response {
 /// 阿里云推送要的回答：收到了。
 fn aliyun_received() -> Response {
     Json(json!({ "code": 0, "msg": "成功" })).into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn form(fields: &[(&str, &str)]) -> BTreeMap<String, String> {
+        fields
+            .iter()
+            .map(|(name, value)| (name.to_string(), value.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn a_whatsapp_reply_is_read_like_a_text_from_the_bare_number() {
+        let typed = form(&[
+            ("From", "whatsapp:+14155550123"),
+            ("To", "whatsapp:+14155550100"),
+            ("Body", "31 on it"),
+            ("WaId", "14155550123"),
+        ]);
+
+        assert_eq!(whatsapp_reply(&typed), ("+14155550123", "31 on it"));
+
+        // A quick-reply button whose id the template filled with a reply code.
+        let tapped = form(&[
+            ("From", "whatsapp:+14155550123"),
+            ("Body", "Acknowledge"),
+            ("ButtonText", "Acknowledge"),
+            ("ButtonPayload", "31"),
+        ]);
+
+        assert_eq!(whatsapp_reply(&tapped), ("+14155550123", "31"));
+
+        // A button whose id is no reply code: what it says is the reply.
+        let other = form(&[
+            ("From", "whatsapp:+14155550123"),
+            ("Body", "2"),
+            ("ButtonPayload", "resolve"),
+        ]);
+
+        assert_eq!(whatsapp_reply(&other), ("+14155550123", "2"));
+    }
 }

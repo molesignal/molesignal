@@ -93,6 +93,7 @@ import { LogsInspector } from './logs/Inspector';
 import { Metrics } from './Metrics';
 import { Noc } from './Noc';
 import { NotFound } from './NotFound';
+import { NotifyActionPage } from './notify/action';
 import { NotifyConnectorsPage } from './notify/connector';
 import { NotifyDefaultsPage } from './notify/DefaultsPage';
 import { NotifyDeliveriesPage } from './notify/DeliveriesPage';
@@ -273,6 +274,7 @@ export const router = createBrowserRouter(aboveShell([
     ),
   },
   { path: '/shared', element: <PublicShare /> },
+  { path: '/notify/actions/:token', element: <NotifyActionPage /> },
   {
     path: '/history',
     element: (

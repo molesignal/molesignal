@@ -97,9 +97,10 @@ function CallbackLine({ bot }: { bot: ImBot }) {
 
 /**
  * The connectors Mole Agent answers in: Feishu, Slack, DingTalk, WeCom, Google
- * Chat and Microsoft Teams. One server holds each one's long connection or
- * Pub/Sub subscription; Teams posts to a public callback instead. The
- * connector's credentials stay in the notification settings.
+ * Chat, Microsoft Teams and Telegram. One server holds each one's long
+ * connection, Pub/Sub subscription or Telegram long poll; Teams posts to a
+ * public callback instead. The connector's credentials stay in the
+ * notification settings.
  */
 export function ImPanel() {
   const { t, i18n } = useTranslation('agent');

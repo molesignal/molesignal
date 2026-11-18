@@ -21,6 +21,7 @@ import {
   countUnread,
   parseReadNotifications,
   settleRead,
+  unreadBadge,
   type AppNotification,
   type NotificationCategory,
 } from './model';
@@ -131,7 +132,17 @@ export function NotificationCenter() {
         )}
       >
         <Bell className="h-4 w-4" />
-        {unread > 0 && <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-red" />}
+        {unread > 0 && (
+          // How many are unread, on the bell's shoulder; the button's name says it in words. A 12px
+          // disc centred on the bell's top corner, so it stays smaller than the bell it marks.
+          <span
+            aria-hidden="true"
+            data-testid="notification-count"
+            className="type-micro absolute right-0.5 top-0.5 flex h-3 min-w-3 items-center justify-center rounded-full bg-destructive px-0.5 font-sans font-strong leading-none tabular-nums text-destructive-foreground"
+          >
+            {unreadBadge(unread)}
+          </span>
+        )}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[380px] p-0" data-testid="notification-panel">
         <div className="flex min-h-10 items-center justify-between gap-3 border-b border-bd-0 px-3 py-1.5">

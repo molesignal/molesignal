@@ -349,12 +349,10 @@ fn a_press_of_an_alert_button_is_an_action_in_either_event_form() {
 
 #[tokio::test]
 async fn a_pressed_card_is_updated_and_the_presser_is_told_privately() {
-    use crate::{
-        agent::im::AlertCard,
-        domain::notify::{
-            buttons::{AlertAction, AlertButtons},
-            connector::NotifyMessage,
-        },
+    use agent::im::AlertCard;
+    use domain::notify::{
+        buttons::{AlertAction, AlertButtons},
+        connector::NotifyMessage,
     };
 
     let api = MockServer::start().await;
@@ -406,6 +404,7 @@ async fn a_pressed_card_is_updated_and_the_presser_is_told_privately() {
             alert_ids: Vec::new(),
             actions: vec![(AlertAction::Resolve, "Resolve".into())],
             open: None,
+            callback: None,
         },
         note: None,
     };

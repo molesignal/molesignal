@@ -58,14 +58,24 @@
     "aws_voice": "AWS voice",
     "aws_sms": "AWS SMS",
     "http_sms": "Generic HTTP SMS",
-    "webhook": "Webhook"
+    "webhook": "Webhook",
+    "telegram_bot": "Telegram bot",
+    "discord_webhook": "Discord webhook",
+    "mattermost_bot": "Mattermost bot",
+    "mattermost_webhook": "Mattermost webhook",
+    "webex_bot": "Webex bot",
+    "webex_webhook": "Webex webhook",
+    "matrix_bot": "Matrix bot",
+    "twilio_whatsapp": "Twilio WhatsApp",
+    "aws_sns": "Amazon SNS",
+    "pagerduty": "PagerDuty"
   },
   "connector_channels": {
     "im": "Instant messaging",
     "phone": "Phone calls",
     "sms": "SMS",
     "email": "Email",
-    "webhook": "Custom",
+    "webhook": "Integrations",
     "other": "Other"
   },
   "capabilities": {
@@ -185,7 +195,14 @@
         "externalId": "External ID",
         "signingSecret": "Signing secret",
         "replies": "Act on replies",
-        "replyTopicArn": "Reply SNS topic ARN"
+        "replyTopicArn": "Reply SNS topic ARN",
+        "avatarUrl": "Avatar URL",
+        "serverUrl": "Server URL",
+        "homeserverUrl": "Homeserver URL",
+        "accessToken": "Access token",
+        "topicArn": "Topic ARN",
+        "routingKey": "Integration key",
+        "loginBaseUrl": "Sign-in URL"
       },
       "hints": {
         "slack_app": "The bot token sends notifications. With the client ID and secret, visitors of a status page can add it to their own Slack channels; choose this connector in the Slack settings of the page. Fill in at least one of the two. The app-level token (xapp-) lets Mole Agent answer in Slack over Socket Mode.",
@@ -210,7 +227,17 @@
         "aws_voice": "Voice messages from AWS End User Messaging, read by Amazon Polly. The origination identity is a voice-capable phone number, a pool, or the ARN of one; the Polly voice is MATTHEW when left empty, ZHIYU for Mandarin. A sandboxed account only calls verified numbers. The region is one the account has enabled; listing them needs ec2:DescribeRegions.",
         "aws_sms": "Transactional texts from AWS End User Messaging. With no origination identity AWS picks a number on the account for the destination; or name a phone number, sender ID or pool. A sandboxed account only texts verified numbers. The region is one the account has enabled; listing them needs ec2:DescribeRegions.",
         "http_sms": "Hands texts to your own SMS gateway, or to a provider without a connector of its own. Write placeholders in the gateway URL, headers and body: {{phone}} is the number, {{content}} the text (the title line and the text line, up to 320 characters), then {{title}}, {{text}}, and {{secret}} for the secret below, kept encrypted. Values are JSON-escaped in a JSON body and URL-encoded in a form or the URL. A 2xx answer counts as sent; with a success field, its value must also equal the success value.",
-        "webhook": "Every request carries X-MoleSignal-Event (the notification type) and X-MoleSignal-Delivery (the delivery ID, to drop duplicates). With a signing secret (at least 16 characters, such as one from openssl rand -hex 32) it also carries X-MoleSignal-Timestamp and X-MoleSignal-Sign: sha256=<hex>, the HMAC-SHA256 of \"<timestamp>.<body>\" under the secret. Only the addresses the host resolves to are connected to, cloud metadata addresses are refused and redirects are not followed."
+        "webhook": "Every request carries X-MoleSignal-Event (the notification type) and X-MoleSignal-Delivery (the delivery ID, to drop duplicates). With a signing secret (at least 16 characters, such as one from openssl rand -hex 32) it also carries X-MoleSignal-Timestamp and X-MoleSignal-Sign: sha256=<hex>, the HMAC-SHA256 of \"<timestamp>.<body>\" under the secret. Only the addresses the host resolves to are connected to, cloud metadata addresses are refused and redirects are not followed.",
+        "telegram_bot": "Create a bot with @BotFather in Telegram (/newbot) and enter the token it gives as the bot token. A direct target is a person's numeric user ID, and they must have sent the bot /start first; a group target is the chat ID of a group or channel (negative, -100… for supergroups and channels) or a channel's @username, with the bot added to the group or made an admin of the channel. Once it is turned on in Mole Agent → Settings → IM, Mole Agent also answers in Telegram, and alert notifications carry Acknowledge and Resolve buttons.",
+        "discord_webhook": "A Discord channel's webhook: create one under the channel's Integrations → Webhooks and copy its URL. The display name and avatar URL are optional; the webhook's own are used otherwise. Messages go out as an embed and mention nobody.",
+        "mattermost_bot": "A Mattermost bot account: once bot account creation is allowed in the System Console, add one under Integrations → Bot Accounts and enter its access token as the bot token; the server URL is the address of your Mattermost, like https://chat.example.com. A direct target is a username (with or without the @) or a user ID; a group target is a channel ID or team-name/channel-name, with the bot added to that team and channel. With the external URL set, alert notifications carry Acknowledge and Resolve buttons, and whoever presses one is known by their notify method on this connector; when the external URL is on an internal network, add it to Allow untrusted internal connections in the Mattermost System Console.",
+        "mattermost_webhook": "A channel's incoming webhook: add one under Integrations → Incoming Webhooks in Mattermost.",
+        "webex_bot": "Create a bot under My Webex Apps on developer.webex.com and enter its bot access token as the bot token. A direct target is the email address of a person's Webex account or their person ID; a group target is a space (room) ID, with the bot added to the space. Messages go out as Adaptive Cards.",
+        "webex_webhook": "The URL the Incoming Webhooks integration of the Webex App Hub gives (https://webexapis.com/v1/webhooks/incoming/…); messages go to the space chosen when it was made.",
+        "matrix_bot": "A Matrix bot account: the homeserver URL (like https://matrix.org) and the account's access token (sign in to it in Element and find it under Settings → Help & About → Advanced). A group target is a room ID (!…) or alias (#…), with the bot in the room or the room open to it; a direct target is a user ID (@name:server), and the bot opens a direct room and invites them. Messages are not encrypted.",
+        "twilio_whatsapp": "Sends WhatsApp messages through Twilio. The sender is a WhatsApp-enabled number in E.164 (like +14155550100) or a Messaging Service (MG…). WhatsApp lets a business start a conversation only with templates it approved: build one in Twilio's Content Template Builder and get it approved for WhatsApp, then write its Content SID (HX…) and variables into the WhatsApp block of an SMS notify template, naming the variables 1, 2, 3 by position, and choose that template for the SMS channel in notify policies.",
+        "aws_sns": "Publishes notifications to an Amazon SNS topic, whose subscriptions pass them on to Lambda, SQS, HTTPS endpoints or email. The topic ARN looks like arn:aws:sns:us-east-1:123456789012:alerts; choose the region the topic is in. Listing the regions needs ec2:DescribeRegions, publishing sns:Publish, and an encrypted topic also kms:GenerateDataKey and kms:Decrypt. Messages carry the attributes event_type and severity for subscription filter policies; a FIFO topic (.fifo) groups them by alert and drops duplicate deliveries.",
+        "pagerduty": "PagerDuty Events API v2: add an Events API V2 integration on the service's Integrations tab and enter its integration key (the routing key) here; choose EU for an account in the EU service region. An alert that fires or escalates triggers a PagerDuty alert, which is acknowledged and resolved along with it, deduplicated per MoleSignal alert."
       },
       "options": {
         "auth": {
@@ -218,7 +245,10 @@
           "temporary_key": "Temporary key",
           "node_role": "Node identity",
           "assume_role": "Assume a role",
-          "web_identity": "Web identity"
+          "web_identity": "Web identity",
+          "password": "User name and password",
+          "microsoft": "Microsoft 365 (OAuth 2.0)",
+          "google": "Google Workspace (OAuth 2.0)"
         },
         "site": {
           "feishu": "Feishu",
@@ -238,11 +268,11 @@
           "patch": "PATCH",
           "get": "GET"
         },
-        "body_format": {
+        "bodyFormat": {
           "json": "JSON",
           "form": "Form (x-www-form-urlencoded)"
         },
-        "phone_format": {
+        "phoneFormat": {
           "e164": "+8613800138000 (E.164)",
           "digits": "8613800138000 (no +)",
           "mainland": "13800138000 (mainland numbers without the country code)"
@@ -250,15 +280,22 @@
         "body": {
           "event": "MoleSignal event",
           "template": "Notify template body"
+        },
+        "region": {
+          "us": "US",
+          "eu": "EU"
         }
       },
       "option_hints": {
         "auth": {
-          "access_key": "A long-lived key of an IAM user. Give that user only what it needs: sms-voice:SendTextMessage and sms-voice:SendVoiceMessage to send, and ec2:DescribeRegions to list the regions.",
+          "access_key": "A long-lived key of an IAM user. Give that user only what it needs: sms-voice:SendTextMessage and sms-voice:SendVoiceMessage to text and call, sns:Publish to publish to an SNS topic, and ec2:DescribeRegions to list the regions.",
           "temporary_key": "A short-lived key from AWS STS, valid only together with its session token. It stops working when it expires and has to be replaced here.",
           "node_role": "No key is stored. MoleSignal uses the identity of the node it runs on: EKS IRSA or Pod Identity, an ECS task role, or an EC2 instance profile. Every organization in this deployment can choose it.",
           "assume_role": "MoleSignal assumes this role through AWS STS, with the access key when you give one and as the node's identity otherwise. The role's trust policy has to allow that identity and require the external ID below.",
-          "web_identity": "MoleSignal assumes this role with the web identity token on the node, such as the service account token EKS projects for IRSA (its path is in AWS_WEB_IDENTITY_TOKEN_FILE)."
+          "web_identity": "MoleSignal assumes this role with the web identity token on the node, such as the service account token EKS projects for IRSA (its path is in AWS_WEB_IDENTITY_TOKEN_FILE).",
+          "password": "The SMTP account's user name and password; where the mail provider asks for one, the password is the authorization code or app password it gives.",
+          "microsoft": "Sends as a mailbox of worldwide Microsoft 365 over OAuth 2.0: register an app in Microsoft Entra ID and give it the Office 365 Exchange Online application permission SMTP.SendAsApp with admin consent; an Exchange admin then registers the app's service principal and grants it the sending mailbox. The tenant ID and client ID are on the app's Overview page; create the client secret under Certificates & secrets. The user name is the sending mailbox; the server is smtp.office365.com, port 587, STARTTLS.",
+          "google": "Sends as a Google Workspace mailbox over OAuth 2.0: create a service account and paste its JSON key; under domain-wide delegation in the Google Admin console, authorize the service account's numeric client ID for the scope https://mail.google.com/. The user name is the sending mailbox in your domain; the server is smtp.gmail.com, port 587, STARTTLS."
         },
         "cloud": {
           "gcc_high": "A US government cloud: tokens come from login.microsoftonline.us, and messages to Mole Agent are verified by the government Bot Framework.",
@@ -268,8 +305,11 @@
           "govslack": "The US government's Slack: the API and the status page authorization are on slack-gov.com."
         },
         "body": {
-          "event": "The body is the event for machines to read: version, event, alert, rule and escalation, with the target and the rendered message. Fields are only ever added.",
-          "template": "The body is the template the notify policy chose for the webhook channel, sent as written; a JSON template is sent as JSON with its values escaped."
+          "event": "Sends the event for machines to read: version, event, alert, rule and escalation, with the target and the rendered message. Fields are only ever added.",
+          "template": "Sends the template the notify policy chose for the webhook channel, its body as written; a JSON template is sent as JSON with its values escaped."
+        },
+        "region": {
+          "eu": "For a PagerDuty account whose address ends in .eu.pagerduty.com."
         }
       },
       "switch_hints": {
@@ -283,7 +323,8 @@
           "tencent_sms": "Tencent Cloud sends approved templates only: put the variables reply.ack and reply.resolve in the template parameters, and the recipient replies with those codes to acknowledge or resolve, for a day. Replies act as the recipient, with their permissions.",
           "tencent_voice": "Whoever answers presses 1 to acknowledge or 2 to resolve. The template has to say so itself, and the keypress callback must be on in the console; a keypress counts for the latest call to that number.",
           "huawei_sms": "Huawei Cloud sends approved templates only: put the variables reply.ack and reply.resolve in the template parameters, and the recipient replies with those codes to acknowledge or resolve, for a day. Replies act as the recipient, with their permissions.",
-          "huawei_voice": "One key is collected after the template plays: whoever answers presses 1 to acknowledge or 2 to resolve. The template has to say so itself."
+          "huawei_voice": "One key is collected after the template plays: whoever answers presses 1 to acknowledge or 2 to resolve. The template has to say so itself.",
+          "twilio_whatsapp": "WhatsApp sends approved templates only: put the variables reply.ack and reply.resolve in the template variables, and the recipient replies with those codes to acknowledge or resolve, for a day. Replies act as the recipient, with their permissions."
         }
       },
       "type_fields": {
@@ -311,6 +352,18 @@
         "huawei_sms": {
           "apiBaseUrl": "App address",
           "sender": "Channel number"
+        },
+        "discord_webhook": {
+          "username": "Display name"
+        },
+        "twilio_whatsapp": {
+          "sender": "WhatsApp sender"
+        },
+        "aws_sns": {
+          "body": "Message"
+        },
+        "pagerduty": {
+          "region": "Service region"
         }
       },
       "copy": "Copy",
@@ -336,7 +389,8 @@
           "huawei_sms": "When creating the SMS app, enter this as the address for inbound messages; its last segment is the callback token.",
           "huawei_voice": "Under App Management, enter this as the address for call status; its last segment is the callback token.",
           "http_sms": "Have the gateway POST the replies it receives to this URL as JSON with the fields phone and text.",
-          "wecom_app": "Set up API receiving under the app's Receive messages: the URL is this one, the token and EncodingAESKey the two fields above. The URL's domain must be on an ICP filing of the company."
+          "wecom_app": "Set up API receiving under the app's Receive messages: the URL is this one, the token and EncodingAESKey the two fields above. The URL's domain must be on an ICP filing of the company.",
+          "twilio_whatsapp": "In Twilio, set the incoming message webhook of the WhatsApp sender (or of its Messaging Service) to this URL, HTTP POST."
         }
       }
     },
@@ -374,7 +428,14 @@
     "save": "Save endpoint",
     "delete_title": "Delete endpoint?",
     "delete_description": "Remove this endpoint from every delivery preference first.",
-    "phone_hint": "A phone number with + and the country code, like +14155550100; Alibaba Cloud, Tencent Cloud, Huawei Cloud and generic HTTP SMS connectors also take an 11-digit mainland mobile number."
+    "phone_hint": "A phone number with + and the country code, like +14155550100; Alibaba Cloud, Tencent Cloud, Huawei Cloud and generic HTTP SMS connectors also take an 11-digit mainland mobile number.",
+    "identity_hints": {
+      "telegram_bot": "A numeric Telegram user ID, not the @username; @userinfobot tells anyone theirs. The person must open the bot in Telegram and press Start first, or it cannot message them.",
+      "mattermost_bot": "A Mattermost username in lowercase, with or without the @, or the 26-character user ID. Presses on card buttons are matched against this value.",
+      "webex_bot": "The email address of the Webex account, or its Webex person ID.",
+      "matrix_bot": "A Matrix user ID, like @name:matrix.org. With the first notification the bot invites the person to a direct room; accepting it shows the messages.",
+      "twilio_whatsapp": "A WhatsApp number with + and the country code, like +14155550100."
+    }
   },
   "preferences": {
     "title": "Delivery preferences",
@@ -387,8 +448,8 @@
     "system": "System",
     "enabled": "Receive this category",
     "endpoint_order": "Endpoint order",
-    "move_up": "Move endpoint up",
-    "move_down": "Move endpoint down",
+    "move_up": "Move step up",
+    "move_down": "Move step down",
     "no_endpoints": "Bind an endpoint before configuring this category.",
     "quiet_enabled": "Use quiet hours",
     "timezone": "Timezone",
@@ -402,7 +463,36 @@
     "low_urgency_steps": "Low-urgency alerts, in order",
     "low_urgency_hint": "Left empty, only the first method above is used.",
     "high_urgency_bypass": "Still get high-urgency alerts during quiet hours",
-    "quiet_low_urgency": "Low-urgency alerts never come during quiet hours."
+    "quiet_low_urgency": "Low-urgency alerts never come during quiet hours.",
+    "add_step": "Add a step: {{method}}",
+    "remove_step": "Remove step {{step}}",
+    "boost_label": "Urgent paging of step {{step}}",
+    "boosts": {
+      "default": {
+        "none": "Not urgent",
+        "app": "Urgent in app",
+        "sms": "Urgent by SMS",
+        "phone": "Urgent by phone"
+      },
+      "lark_app": {
+        "none": "No buzz",
+        "app": "Buzz in app",
+        "sms": "Buzz by SMS",
+        "phone": "Buzz by phone"
+      },
+      "dingtalk_app": {
+        "none": "No DING",
+        "app": "DING in app",
+        "sms": "DING by SMS",
+        "phone": "DING by phone"
+      }
+    },
+    "boost_hint": "Urgent paging follows the message with an in-app alert, a text or a call.",
+    "boost_wait_hint": "Urgent paging follows the message with an in-app alert, a text or a call. A method can come twice with different paging: a message first and, if nobody acknowledged it within 5 minutes, the same method again with a call.",
+    "boost_notes": {
+      "lark_app": "On Lark, the international site, only in-app buzz works.",
+      "dingtalk_app": "DING needs DingTalk Professional or Exclusive, and SMS and phone DINGs need a purchased quota."
+    }
   },
   "event_types": {
     "alert": {
@@ -431,6 +521,11 @@
     },
     "incident": {
       "status_update": "Major incident update"
+    },
+    "agent": {
+      "approval": {
+        "requested": "Mole Agent approval requested"
+      }
     }
   },
   "resolver_types": {
@@ -532,7 +627,8 @@
       "incident_status_update": "Major incident update: notify the stakeholders",
       "oncall_member_unreachable": "Unreachable on-call member: notify them and the schedule managers",
       "intake_budget_warning": "Intake budget nearly used: notify the people it names",
-      "intake_budget_exceeded": "Intake budget exceeded: notify the people it names"
+      "intake_budget_exceeded": "Intake budget exceeded: notify the people it names",
+      "agent_approval_requested": "Approval needed: notify the people who can approve"
     },
     "restore_title": "Restore the default settings?",
     "restore_description": "The built-in policy goes back to its default settings, and the changes made to it are lost.",
@@ -745,14 +841,18 @@
     },
     "provider": {
       "title": "Templates approved by the provider",
-      "description_sms": "Alibaba Cloud, Tencent Cloud and Huawei Cloud send only SMS templates they approved: their SMS connectors send the one written here, other SMS connectors the body above.",
+      "description_sms": "Alibaba Cloud, Tencent Cloud and Huawei Cloud send only SMS templates they approved, and WhatsApp only Content templates it approved: their connectors send the one written here, other SMS connectors the body above.",
       "description_phone": "Alibaba Cloud, Tencent Cloud and Huawei Cloud read out only voice templates they approved: their phone connectors read the one written here, other phone connectors the body above.",
       "names": {
         "aliyun": "Alibaba Cloud",
         "tencent": "Tencent Cloud",
-        "huawei": "Huawei Cloud"
+        "huawei": "Huawei Cloud",
+        "whatsapp": "WhatsApp"
       },
       "code": "Template code",
+      "code_labels": {
+        "whatsapp": "Content SID"
+      },
       "max_chars": "Characters per variable",
       "max_chars_placeholder": {
         "aliyun_sms": "35 (default)",
@@ -760,7 +860,8 @@
         "tencent_sms": "6 (default)",
         "tencent_phone": "20 (default)",
         "huawei_sms": "20 (default)",
-        "huawei_phone": "32 (default)"
+        "huawei_phone": "32 (default)",
+        "whatsapp_sms": "300 (default)"
       },
       "params": "Variables",
       "param_name": "Variable",
@@ -773,6 +874,7 @@
       "problem_elsewhere": "The {{provider}} template is not finished, and has to be before saving.",
       "problems": {
         "code": "Enter the template code the provider gave, using letters, digits, underscores and hyphens.",
+        "content_sid": "Enter the Twilio Content SID: HX followed by 32 hexadecimal characters.",
         "param_name": "A variable name uses letters, digits and underscores only.",
         "param_twice": "A variable is written twice.",
         "param_value": "Every variable needs a value.",
@@ -872,6 +974,29 @@
       "none": "You can't get alerts right now: neither alert nor escalation notifications have a method that works, and no team or organization route sends them to a group. Bind a method below and add it to your steps.",
       "group_only": "You have no method of your own, so alerts reach you only through a team or organization group. Bind a method below and add it to your steps."
     }
+  },
+  "action_link": {
+    "loading": "Reading the link…",
+    "acknowledge": "Acknowledge alert",
+    "resolve": "Resolve alert",
+    "acknowledging": "Acknowledging…",
+    "resolving": "Resolving…",
+    "explain_acknowledge": "Acknowledges the alert as the person this notification was sent to. The link works once, until {{until}}.",
+    "explain_resolve": "Resolves the alert as the person this notification was sent to. The link works once, until {{until}}.",
+    "started": "Started {{at}}",
+    "acknowledged": "The alert is acknowledged.",
+    "resolved": "The alert is resolved.",
+    "used": "This link has been used already.",
+    "used_at": "This link was used on {{at}}.",
+    "inactive": "The alert no longer needs this: it was handled already or has recovered.",
+    "no_access": "You may no longer act on this alert, so the link did nothing.",
+    "expired": "This link has expired.",
+    "failed": "Could not finish: {{error}}",
+    "unavailable_title": "This link no longer works",
+    "unavailable_hint": "It has expired or is not a valid link. Handle the alert in MoleSignal.",
+    "load_failed_title": "Could not read this link",
+    "open_alert": "Open the alert in MoleSignal",
+    "open_alerts": "Open MoleSignal"
   },
   "target_types": {
     "direct_user": "Direct user",

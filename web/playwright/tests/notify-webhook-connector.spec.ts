@@ -53,7 +53,7 @@ test('a webhook sends the event for machines and signs it with its secret', asyn
   // The event for machines to read unless the policy's template is chosen.
   const body = drawer.getByRole('combobox', { name: /^Body/ });
   await expect(body).toContainText('MoleSignal event');
-  await expect(drawer).toContainText('The body is the event for machines to read');
+  await expect(drawer).toContainText('Sends the event for machines to read');
   await body.click();
   await page.getByRole('option', { name: 'Notify template body' }).click();
   await expect(drawer).toContainText('a JSON template is sent as JSON with its values escaped');

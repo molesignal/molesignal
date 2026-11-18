@@ -46,6 +46,11 @@ export function countUnread(items: readonly AppNotification[], read: ReadonlySet
   return items.filter((item) => !read.has(item.id)).length;
 }
 
+/** What the bell's badge says: the count, and past two digits that there are more than 99. */
+export function unreadBadge(count: number): string {
+  return count > 99 ? '99+' : String(count);
+}
+
 /** The most ids kept: the store takes a bounded list. */
 export const MAX_READ_NOTIFICATIONS = 200;
 

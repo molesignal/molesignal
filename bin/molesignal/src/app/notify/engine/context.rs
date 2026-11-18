@@ -4,16 +4,14 @@
 //! 告警事件只带告警的快照。存下事件之前补上模板常用、快照里却没有的：规则的说明、触发时的阈值，以及
 //! 告警在 MoleSignal 里的地址。
 
+use domain::{
+    alerting::rule::{AlertRule, AlertRuleKind},
+    notify::policy::NotifyEvent,
+};
+use kernel::ids::Id;
 use serde_json::{Number, Value};
 
 use super::NotifyEngine;
-use crate::{
-    domain::{
-        alerting::rule::{AlertRule, AlertRuleKind},
-        notify::policy::NotifyEvent,
-    },
-    shared::ids::Id,
-};
 
 impl NotifyEngine {
     /// 给告警事件补上规则的说明、阈值与告警的地址。规则读不到（已经删了，或这是拨测的监控项）时只补地址。
@@ -103,9 +101,9 @@ fn complete_alert_attributes(attributes: &mut Value, rule: Option<&AlertRule>, e
 /// 两项发，模板能用名称。
 pub(super) fn complete_importance(
     attributes: &mut Value,
-    levels: &crate::domain::alerting::importance::ImportanceLevels,
+    levels: &domain::alerting::importance::ImportanceLevels,
 ) {
-    use crate::domain::alerting::{priority::Priority, urgency::Urgency};
+    use domain::alerting::{priority::Priority, urgency::Urgency};
 
     let Some(attributes) = attributes.as_object_mut() else {
         return;
@@ -164,19 +162,17 @@ fn threshold_of(rule: &AlertRule, severity: Option<&str>) -> Option<f64> {
 
 #[cfg(test)]
 mod tests {
+    use domain::{
+        alerting::{
+            incident::Severity,
+            rule::{AlertQuery, AlertTrigger, ComparisonOp, RuleState, SeverityThreshold},
+        },
+        query::QueryLanguage,
+    };
+    use kernel::time::TimestampMicros;
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        domain::{
-            alerting::{
-                incident::Severity,
-                rule::{AlertQuery, AlertTrigger, ComparisonOp, RuleState, SeverityThreshold},
-            },
-            query::QueryLanguage,
-        },
-        shared::time::TimestampMicros,
-    };
 
     fn rule(kind: AlertRuleKind, thresholds: Vec<SeverityThreshold>) -> AlertRule {
         AlertRule {
@@ -218,6 +214,7 @@ mod tests {
             escalation_policy_id: Id::from_string("policy-1"),
             labels: Default::default(),
             annotations: Default::default(),
+            guide: Default::default(),
             last_eval_at: None,
             last_state: RuleState::Healthy,
             created_at: TimestampMicros(0),

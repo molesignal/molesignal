@@ -8,31 +8,29 @@
 //!
 //! 能选的区域用连接器的凭证向 AWS 查（[`regions`]），不写死。
 //!
-//! [`ConnectorAdapter::send_as`]: crate::domain::notify::connector::ConnectorAdapter::send_as
+//! [`ConnectorAdapter::send_as`]: domain::notify::connector::ConnectorAdapter::send_as
 
 mod sms;
+mod sns;
 mod voice;
 
+use domain::notify::connector::{ConnectorAddress, ConnectorRegion, NotifyConnector, RegionHost};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::Value;
+use signals::http_trace::{self, HttpTarget};
 pub use sms::{AWS_SMS_CONNECTOR_TYPE, AwsSmsConnectorAdapter};
+pub use sns::{AWS_SNS_CONNECTOR_TYPE, AwsSnsConnectorAdapter};
 use url::Url;
 pub use voice::{AWS_VOICE_CONNECTOR_TYPE, AwsVoiceConnectorAdapter};
 
 use super::common::{self, default_timeout_secs};
-use crate::{
-    domain::notify::connector::{ConnectorAddress, ConnectorRegion, NotifyConnector, RegionHost},
-    infra::connectors::{
-        aws::{
-            self as aws_identity, CredentialSource, Signer,
-            sigv4::{self, SigningKey},
-        },
-        config::aws::AwsAuth,
+use crate::infra::connectors::{
+    aws::{
+        self as aws_identity, CredentialSource, Signer,
+        sigv4::{self, SigningKey},
     },
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-    },
+    config::aws::AwsAuth,
 };
 
 /// SigV4 签名用的服务名与 `X-Amz-Target` 的前缀。
@@ -101,11 +99,13 @@ impl Account {
 
     /// 请求发往的地址：没有另填就是区域的 End User Messaging 端点。
     fn endpoint(&self) -> String {
+        self.endpoint_at(aws_identity::sms_voice_host)
+    }
+
+    /// Where requests go: the endpoint `host` names for the region, unless another address is set.
+    fn endpoint_at(&self, host: fn(&str) -> String) -> String {
         match self.api_base_url.trim() {
-            "" => format!(
-                "https://{}/",
-                aws_identity::sms_voice_host(self.region.trim())
-            ),
+            "" => format!("https://{}/", host(self.region.trim())),
             base => format!("{}/", base.trim_end_matches('/')),
         }
     }
@@ -119,79 +119,23 @@ async fn send_message(
     operation: &str,
     body: &Value,
 ) -> Result<Option<String>> {
-    let auth = AwsAuth::parse(&connector.config)?;
-    let region = account.region.trim();
-
-    let signer = Signer {
-        id: &connector.id,
-        org_id: &connector.organization_id,
-        updated_at: connector.updated_at,
-    };
-
-    let credential =
-        aws_identity::signer_credentials(signer, &auth, region, CredentialSource::Kept)?
-            .get_credential()
-            .await
-            .map_err(|error| Error::unauthorized(format!("aws credentials: {error}")))?;
-
-    let url = Url::parse(&account.endpoint()).map_err(|_| {
-        Error::invalid(format!(
-            "{connector_type} apiBaseUrl must be an absolute URL"
-        ))
-    })?;
-
-    let host = match (url.host_str(), url.port()) {
-        (Some(host), Some(port)) => format!("{host}:{port}"),
-        (Some(host), None) => host.to_string(),
-        (None, _) => {
-            return Err(Error::invalid(format!(
-                "{connector_type} apiBaseUrl must name a host"
-            )));
-        }
-    };
-
     let target = format!("{TARGET_PREFIX}.{operation}");
-    let body = body.to_string();
 
     let headers = [
         ("content-type", "application/x-amz-json-1.0"),
         ("x-amz-target", target.as_str()),
     ];
 
-    let signed = sigv4::sign_post(
-        &SigningKey {
-            access_key: &credential.key_id,
-            secret_key: &credential.secret_key,
-            session_token: credential.token.as_deref(),
-        },
-        region,
+    let response = signed_post(
+        connector_type,
+        connector,
+        account,
+        &account.endpoint(),
         SERVICE,
-        &host,
         &headers,
-        body.as_bytes(),
-        &sigv4::amz_date_now(),
-    );
-
-    let client = common::client(account.timeout_secs, connector_type)?;
-
-    let mut request = client
-        .post(url)
-        .header("content-type", headers[0].1)
-        .header("x-amz-target", &target)
-        .header("x-amz-date", &signed.amz_date)
-        .header("authorization", &signed.authorization);
-
-    if let Some(token) = credential
-        .token
-        .as_deref()
-        .filter(|token| !token.is_empty())
-    {
-        request = request.header("x-amz-security-token", token);
-    }
-
-    let response = http_trace::send(&client, request.body(body), HttpTarget::ThirdParty)
-        .await
-        .map_err(|_| Error::unavailable(format!("{connector_type} request failed")))?;
+        body.to_string(),
+    )
+    .await?;
 
     let status = response.status();
     let answer = response.json::<Value>().await.unwrap_or(Value::Null);
@@ -221,6 +165,87 @@ async fn send_message(
         status.as_u16(),
         common::provider_message(message)
     )))
+}
+
+/// Signs a POST to `endpoint` for `service` in the account's region with the credentials kept for
+/// `connector`, and sends it. `headers` are the request's own headers (lower-case names): they are
+/// signed and sent as they are.
+async fn signed_post(
+    connector_type: &str,
+    connector: &NotifyConnector,
+    account: &Account,
+    endpoint: &str,
+    service: &str,
+    headers: &[(&str, &str)],
+    body: String,
+) -> Result<reqwest::Response> {
+    let auth = AwsAuth::parse(&connector.config)?;
+    let region = account.region.trim();
+
+    let signer = Signer {
+        id: &connector.id,
+        org_id: &connector.organization_id,
+        updated_at: connector.updated_at,
+    };
+
+    let credential =
+        aws_identity::signer_credentials(signer, &auth, region, CredentialSource::Kept)?
+            .get_credential()
+            .await
+            .map_err(|error| Error::unauthorized(format!("aws credentials: {error}")))?;
+
+    let url = Url::parse(endpoint).map_err(|_| {
+        Error::invalid(format!(
+            "{connector_type} apiBaseUrl must be an absolute URL"
+        ))
+    })?;
+
+    let host = match (url.host_str(), url.port()) {
+        (Some(host), Some(port)) => format!("{host}:{port}"),
+        (Some(host), None) => host.to_string(),
+        (None, _) => {
+            return Err(Error::invalid(format!(
+                "{connector_type} apiBaseUrl must name a host"
+            )));
+        }
+    };
+
+    let signed = sigv4::sign_post(
+        &SigningKey {
+            access_key: &credential.key_id,
+            secret_key: &credential.secret_key,
+            session_token: credential.token.as_deref(),
+        },
+        region,
+        service,
+        &host,
+        headers,
+        body.as_bytes(),
+        &sigv4::amz_date_now(),
+    );
+
+    let client = common::client(account.timeout_secs, connector_type)?;
+
+    let mut request = client
+        .post(url)
+        .header("x-amz-date", &signed.amz_date)
+        .header("authorization", &signed.authorization);
+
+    for (name, value) in headers {
+        request = request.header(*name, *value);
+    }
+
+    if let Some(token) = credential
+        .token
+        .as_deref()
+        .filter(|token| !token.is_empty())
+    {
+        request = request.header("x-amz-security-token", token);
+    }
+
+    http_trace::send(&client, request.body(body), HttpTarget::ThirdParty)
+        .await
+        .map_err(|_| Error::unavailable(format!("{connector_type} request failed")))
 }
 
 /// 账号开通了的区域与各区域的 End User Messaging 地址。AWS 没有按服务列区域的公开接口，这里用 EC2
@@ -377,13 +402,11 @@ fn needs_the_connector(connector_type: &str) -> Error {
 
 #[cfg(test)]
 mod tests {
+    use domain::notify::connector::{ConnectorCapabilities, ConnectorStatus};
+    use kernel::{ids::Id, time::TimestampMicros};
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        domain::notify::connector::{ConnectorCapabilities, ConnectorStatus},
-        shared::{ids::Id, time::TimestampMicros},
-    };
 
     pub(super) fn connector(id: &str, config: Value) -> NotifyConnector {
         NotifyConnector {

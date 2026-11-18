@@ -9,6 +9,7 @@
 //! [`interactive`]）。Mole Agent 在钉钉里回复也走这里。
 
 mod card;
+mod ding;
 mod group;
 mod interactive;
 
@@ -17,8 +18,18 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use async_trait::async_trait;
 use aws_lc_rs::hmac;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64_STANDARD};
+use domain::notify::{
+    buttons::AlertButtons,
+    connector::{
+        ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
+        NotifyChannel, NotifyMessage, NotifyTarget, NotifyTargetType,
+    },
+    preference::{STEP_BOOST_KEY, StepBoost},
+};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use signals::http_trace::{self, HttpTarget};
 use url::Url;
 
 use self::card::{card_message, webhook_card};
@@ -28,20 +39,6 @@ pub(crate) use self::interactive::{
 use super::common::{
     TOKENS, TokenCache, body, client, default_timeout_secs, delivered, provider_message, require,
     truncate_chars, validate_http_url, validate_timeout,
-};
-use crate::{
-    domain::notify::{
-        buttons::AlertButtons,
-        connector::{
-            ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
-            NotifyChannel, NotifyMessage, NotifyTarget, NotifyTargetType,
-        },
-    },
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-        ids::Id,
-    },
 };
 
 pub const DINGTALK_APP_CONNECTOR_TYPE: &str = "dingtalk_app";
@@ -326,6 +323,10 @@ impl ConnectorAdapter for DingTalkAppConnectorAdapter {
         vec![ConnectorAddress::fixed("apiBaseUrl", DINGTALK_API_BASE_URL)]
     }
 
+    fn boosts(&self) -> &'static [StepBoost] {
+        &ding::BOOSTS
+    }
+
     fn validate_config(&self, config: &Value) -> Result<()> {
         DingTalkApp::parse(config).map(|_| ())
     }
@@ -384,6 +385,19 @@ impl ConnectorAdapter for DingTalkAppConnectorAdapter {
                     .await?
             }
         };
+
+        // A step of the person's order asked to page them harder than the message.
+        if let Some(boost) = target.metadata.get(STEP_BOOST_KEY)
+            && target.target_type == NotifyTargetType::DirectUser
+        {
+            app.ding(
+                &http,
+                target.value.trim(),
+                &message.title,
+                StepBoost::parse(boost)?,
+            )
+            .await?;
+        }
 
         Ok(delivered(id, started))
     }

@@ -6,16 +6,13 @@ use axum::{
     extract::{Path, State},
     routing::get,
 };
+use domain::{iam::IamContext, notify::preference::UserNotifyPreference};
+use kernel::{Result, ids::Id};
 use serde::Deserialize;
 use serde_json::Value;
 
 use super::{ensure_user_scope, parse_category};
-use crate::{
-    api::AppState,
-    app::{iam::IamContext, notify::PreferenceSteps},
-    domain::notify::preference::UserNotifyPreference,
-    shared::{Result, ids::Id},
-};
+use crate::{api::AppState, app::notify::PreferenceSteps};
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new()
@@ -36,11 +33,16 @@ struct PreferenceRequest {
     /// 各步的等待时间（秒），与 `endpoint_ids` 一一对应；不传表示都不等。
     #[serde(default)]
     step_delays_secs: Vec<i32>,
+    /// Each step's boost (`app`, `sms`, `phone`, or null), one per endpoint; empty means none.
+    #[serde(default)]
+    step_boosts: Vec<Option<String>>,
     /// 低紧急度告警用的步骤（只有告警和升级两类有）；空着时只用上面那组的第一步。
     #[serde(default)]
     low_endpoint_ids: Vec<Id>,
     #[serde(default)]
     low_step_delays_secs: Vec<i32>,
+    #[serde(default)]
+    low_step_boosts: Vec<Option<String>>,
     #[serde(default)]
     quiet_hours: Option<Value>,
     /// 免打扰时段里仍接收高紧急度的告警。
@@ -90,8 +92,10 @@ async fn upsert_preference(
                 PreferenceSteps {
                     endpoint_ids: request.endpoint_ids,
                     step_delays_secs: request.step_delays_secs,
+                    step_boosts: request.step_boosts,
                     low_endpoint_ids: request.low_endpoint_ids,
                     low_step_delays_secs: request.low_step_delays_secs,
+                    low_step_boosts: request.low_step_boosts,
                 },
                 request.quiet_hours,
                 request.allow_high_urgency_bypass,

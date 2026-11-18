@@ -6,25 +6,21 @@
 //! 按钮的 `key` 是按钮的值（[`AlertButtonValue`] 的 JSON），点了以后企业微信原样带回来。模板卡片
 //! 至少要有一个按钮：告警处理完、没有可做的操作时，换上一个点了没有反应的「✓」。
 //!
-//! [`AlertButtonValue`]: crate::domain::notify::buttons::AlertButtonValue
+//! [`AlertButtonValue`]: domain::notify::buttons::AlertButtonValue
 
+use domain::notify::{
+    buttons::{AlertAction, AlertButtons},
+    connector::NotifyMessage,
+};
+use kernel::{Error, Result};
 use serde_json::{Value, json};
+use signals::http_trace::{self, HttpTarget};
 
 use super::{TOKEN_ERRORS, WECOM_APP_CONNECTOR_TYPE, WecomAppConfig, WecomResponse};
-use crate::{
-    domain::notify::{
-        buttons::{AlertAction, AlertButtons},
-        connector::NotifyMessage,
-    },
-    infra::notify::adapters::{
-        card::card_title,
-        common::{TOKENS, client, provider_message, truncate_chars, with_query},
-        phone::plain,
-    },
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-    },
+use crate::infra::notify::adapters::{
+    card::card_title,
+    common::{TOKENS, client, provider_message, truncate_chars, with_query},
+    phone::plain,
 };
 
 /// 处理完以后那个点了没有反应的按钮的 `key`。
@@ -91,7 +87,7 @@ pub(crate) fn wecom_template_card(
             let key = serde_json::to_string(&buttons.value(*action)).ok()?;
             let primary = matches!(
                 action,
-                AlertAction::Acknowledge | AlertAction::AcknowledgeAll
+                AlertAction::Acknowledge | AlertAction::AcknowledgeAll | AlertAction::Approve
             );
 
             (key.len() <= MAX_KEY_BYTES).then(|| {
@@ -185,11 +181,12 @@ pub(crate) async fn tell_wecom_member(config: &Value, user: &str, text: &str) ->
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::domain::notify::{
+    use domain::notify::{
         buttons::AlertButtonValue,
         template::{NotifyCard, NotifyCardColor, NotifyCardField},
     };
+
+    use super::*;
 
     fn message(card: Option<NotifyCard>) -> NotifyMessage {
         NotifyMessage {
@@ -216,6 +213,7 @@ mod tests {
                 (AlertAction::Resolve, "解决".into()),
             ],
             open: Some(("查看".into(), "https://ms.example.com".into())),
+            callback: None,
         };
         let card = NotifyCard {
             title: "Disk full on db-1".into(),

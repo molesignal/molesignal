@@ -43,6 +43,7 @@ import {
   type ProviderDraft,
   providerDrafts,
   providerProblem,
+  providersOf,
   providerTemplates,
   TEMPLATE_PROVIDERS,
   type TemplateProvider,
@@ -151,9 +152,9 @@ export function TemplateEditor({
       };
     }
   }, [draft.params, attributes, body, card, category, previewEvent, t]);
-  const shownProblem = plainText ? providerProblem(draft) : null;
+  const shownProblem = plainText ? providerProblem(draft, provider) : null;
   // A provider not on show may be the one that stops the save: the fields say which.
-  const problem = plainText ? draftsProblem(drafts) : null;
+  const problem = plainText ? draftsProblem(drafts, plainText) : null;
   const cardIssue = carded ? cardProblem(card) : null;
   React.useEffect(() => {
     if (!open) return;
@@ -164,9 +165,8 @@ export function TemplateEditor({
     setFormat(template?.format ?? 'text');
     setBody(template?.body ?? '');
     setDrafts(providerDrafts(template?.providerTemplates));
-    setProvider(
-      TEMPLATE_PROVIDERS.find((name) => template?.providerTemplates[name]) ?? 'aliyun',
-    );
+    const offered = template?.channel === 'phone' ? providersOf('phone') : TEMPLATE_PROVIDERS;
+    setProvider(offered.find((name) => template?.providerTemplates[name]) ?? 'aliyun');
     setCardOn(Boolean(template?.card));
     setCard(template?.card ?? startingCard(nextCategory, t));
     insertTarget.current = null;
@@ -187,7 +187,7 @@ export function TemplateEditor({
         format: plainText ? 'text' : format,
         category,
         channel: channel === 'general' ? null : channel,
-        providerTemplates: plainText ? providerTemplates(drafts) : {},
+        providerTemplates: plainText ? providerTemplates(drafts, plainText) : {},
         card: carded ? cardToSave(card) : null,
       };
       return template
@@ -218,6 +218,8 @@ export function TemplateEditor({
     setChannel(next);
     // An SMS or a call is one plain text; only a webhook's body is JSON.
     if (isPlainText(next) || (next !== 'webhook' && format === 'json')) setFormat('text');
+    // WhatsApp sends texts only: a call shows the first provider instead.
+    if (isPlainText(next) && !providersOf(next).includes(provider)) setProvider(providersOf(next)[0]!);
   };
   const usePreset = (preset: templatesApi.NotifyTemplatePreset) => {
     // The preview shows the event the preset is written for: a resolved alert for a resolved notice.
@@ -429,7 +431,7 @@ export function TemplateEditor({
                       {t('templates.provider.preview', {
                         provider: t(`templates.provider.names.${provider}`),
                         code: draft.code.trim(),
-                      })}
+                      }).trim()}
                     </h4>
                     <dl className="mt-2 space-y-1 text-xs">
                       {preview.params.map((param) => (

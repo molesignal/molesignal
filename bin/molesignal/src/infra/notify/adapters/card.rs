@@ -4,7 +4,7 @@
 //! 即时通讯模板里的卡片（[`NotifyCard`]）：飞书、钉钉、企业微信、Slack、Teams、Google Chat 的 App 与
 //! 群机器人各按自己的卡片格式发出，这里是它们共用的部分：标题、颜色与把正文排进 HTML 的写法。
 
-use crate::domain::notify::{
+use domain::notify::{
     connector::NotifyMessage,
     template::{NotifyCard, NotifyCardColor},
 };
@@ -148,6 +148,8 @@ fn links_html(line: &str) -> String {
         out.push_str(&rest[..open]);
 
         if url.starts_with("https://") || url.starts_with("http://") {
+            // A quote in the address would end the attribute.
+            let url = url.replace('"', "&quot;");
             out.push_str(&format!("<a href=\"{url}\">{label}</a>"));
         } else {
             out.push_str(&rest[open..=end]);

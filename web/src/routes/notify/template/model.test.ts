@@ -20,6 +20,7 @@ import {
   draftsProblem,
   type ProviderDrafts,
   providerProblem,
+  providersOf,
   providerTemplates,
 } from './providerDrafts';
 
@@ -288,5 +289,32 @@ describe('templates of several providers', () => {
     expect(
       draftsProblem(drafts({ huawei: { code: '', params: [{ name: '1', value: 'x' }], maxChars: '' } })),
     ).toEqual({ provider: 'huawei', problem: 'code' });
+  });
+
+  it('writes a WhatsApp template as a Twilio Content SID with positional variables, for texts only', () => {
+    const whatsapp = {
+      code: 'HXb5b62575e6e4ff6129ad7c8efe1f983e',
+      params: [{ name: '1', value: '{{rule.name}}' }],
+      maxChars: '',
+    };
+
+    expect(providersOf('sms')).toContain('whatsapp');
+    expect(providersOf('phone')).not.toContain('whatsapp');
+    expect(providerProblem(whatsapp, 'whatsapp')).toBeNull();
+    expect(providerProblem({ ...whatsapp, code: 'SMS_123' }, 'whatsapp')).toBe('content_sid');
+    // Another provider's code is not a Content SID, and need not be.
+    expect(providerProblem({ ...whatsapp, code: 'SMS_123' }, 'aliyun')).toBeNull();
+
+    expect(providerTemplates(drafts({ whatsapp }), 'sms')).toEqual({
+      whatsapp: { code: 'HXb5b62575e6e4ff6129ad7c8efe1f983e', params: { '1': '{{rule.name}}' } },
+    });
+    // A call carries no WhatsApp template, nor stops on one left from when it was a text.
+    expect(providerTemplates(drafts({ whatsapp }), 'phone')).toEqual({});
+    expect(draftsProblem(drafts({ whatsapp: { ...whatsapp, code: 'x' } }), 'phone')).toBeNull();
+    expect(draftsProblem(drafts({ whatsapp: { ...whatsapp, code: 'x' } }), 'sms')).toEqual({
+      provider: 'whatsapp',
+      problem: 'content_sid',
+    });
+    expect(providerDrafts({ whatsapp: { code: 'HX1', params: { '1': 'x' } } }).whatsapp.code).toBe('HX1');
   });
 });

@@ -12,33 +12,29 @@ mod app;
 use std::time::Instant;
 
 use async_trait::async_trait;
+use domain::notify::{
+    buttons::AlertButtons,
+    connector::{
+        ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
+        NotifyChannel, NotifyMessage, NotifyTarget, NotifyTargetType,
+    },
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use signals::http_trace::{self, HttpTarget};
 
-#[cfg(test)]
-pub(crate) use self::app::test_key;
 pub(crate) use self::app::{
     CHAT_BOT_SCOPE, GOOGLE_CHAT_API_BASE_URL, GOOGLE_PUBSUB_BASE_URL, GoogleChatApp, PUBSUB_SCOPE,
     check, space_name,
 };
+#[cfg(test)]
+pub(crate) use super::google_account::test_key;
 use super::{
     card::{card_title, escape_html, markdown_html},
     common::{
         body, client, default_timeout_secs, delivered, google_chat_text, provider_message,
         truncate_chars, validate_http_url, validate_timeout,
-    },
-};
-use crate::{
-    domain::notify::{
-        buttons::AlertButtons,
-        connector::{
-            ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
-            NotifyChannel, NotifyMessage, NotifyTarget, NotifyTargetType,
-        },
-    },
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
     },
 };
 
@@ -396,7 +392,7 @@ mod tests {
         let key = json!({
             "type": "service_account",
             "client_email": "mole@project.iam.gserviceaccount.com",
-            "private_key": app::test_key(),
+            "private_key": test_key(),
         });
 
         adapter
@@ -421,7 +417,7 @@ mod tests {
             json!({
                 "credentials": {
                     "client_email": "mole@project.iam.gserviceaccount.com",
-                    "private_key": app::test_key(),
+                    "private_key": test_key(),
                     "token_uri": token_uri,
                 },
             })
@@ -456,7 +452,7 @@ mod tests {
 
     #[test]
     fn a_card_is_a_chat_card_with_fields_buttons_and_footer() {
-        use crate::domain::notify::template::{
+        use domain::notify::template::{
             NotifyCard, NotifyCardColor, NotifyCardField, NotifyCardLink,
         };
 
@@ -510,7 +506,7 @@ mod tests {
 
     #[test]
     fn an_alert_card_calls_back_with_its_buttons_value() {
-        use crate::domain::notify::buttons::{AlertAction, AlertButtonValue};
+        use domain::notify::buttons::{AlertAction, AlertButtonValue};
 
         let message = NotifyMessage {
             title: "CRITICAL · Disk full".into(),
@@ -529,6 +525,7 @@ mod tests {
             alert_ids: Vec::new(),
             actions: vec![(AlertAction::Acknowledge, "Acknowledge".into())],
             open: Some(("Open".into(), "https://molesignal.example.com".into())),
+            callback: None,
         };
 
         let payload = payload(&message, Some(buttons));
