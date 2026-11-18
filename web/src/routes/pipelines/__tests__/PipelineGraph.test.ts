@@ -31,7 +31,7 @@ const route = (overrides: Partial<TransformStep> = {}, routing: Partial<Transfor
   script: '',
   target: 'orders',
   ...overrides,
-  routing: { kind: 'fixed', field: '', prefix: '', fallback: 'default', retainSource: false, ...routing },
+  routing: { kind: 'fixed', field: '', prefix: '', fallback: 'default', ...routing },
 });
 
 const found = (model: PipelineGraphModel, connectors?: string[]) =>
@@ -368,10 +368,6 @@ describe('a pipeline as the editor opens it', () => {
     expect(open(undefined)).toEqual([]);
     expect(open({ steps: [] })).toEqual([]);
     expect(open({ steps: [{ transformName: 'keep', script: '. = .' }] })).toEqual([{ name: 'keep', script: '. = .' }]);
-    // Shapes older editors saved.
-    expect(open([{ function_name: 'old', script: '.a = 1' }])).toEqual([{ name: 'old', script: '.a = 1' }]);
-    expect(open({ transformName: 'single', script: '.b = 2' })).toEqual([{ name: 'single', script: '.b = 2' }]);
-    expect(open('.c = 3')).toEqual([{ name: '', script: '.c = 3' }]);
   });
 });
 
@@ -672,25 +668,6 @@ it('roundtrips realtime output settings and removes the schedule', () => {
   const restored = pipelineGraphFromPipeline({ ...payload, id: 'one' });
   expect(restored).toMatchObject({ mode: 'realtime', retainSource: true, sources: ['default'], sinks: ['default'] });
   expect(restored.transforms).toEqual(model.transforms);
-});
-
-it('opens routing an earlier editor saved beside the steps as the routing step it is now', () => {
-  const restored = pipelineGraphFromPipeline({
-    id: 'old',
-    name: 'old',
-    sourceStream: 'default',
-    targetStream: 'default',
-    functionSteps: {
-      mode: 'realtime',
-      steps: [],
-      routing: { kind: 'field', field: 'appname', prefix: 'app_', fallback: 'default', retainSource: true },
-    },
-  });
-
-  expect(restored.retainSource).toBe(true);
-  expect(restored.transforms).toEqual([
-    route({ target: 'default' }, { kind: 'field', field: 'appname', prefix: 'app_', fallback: 'default', retainSource: true }),
-  ]);
 });
 
 it('roundtrips interleaved built-in and VRL steps without generating a script for routing', () => {

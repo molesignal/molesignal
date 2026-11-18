@@ -109,7 +109,7 @@ export function SourceRequests({ requests }: { requests: readonly IntakeRequest[
               </TableRow>
               {expanded && (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={4} className="whitespace-normal bg-[var(--page-canvas)]">
+                  <TableCell colSpan={4} className="whitespace-normal bg-[var(--inset-surface)]">
                     <RequestDetail request={request} />
                   </TableCell>
                 </TableRow>

@@ -40,9 +40,8 @@ export interface Routing {
   field: string;
   prefix: string;
   fallback: string;
-  retainSource: boolean;
 }
-export const defaultRouting: Routing = { kind: 'fixed', field: 'appname', prefix: '', fallback: 'default', retainSource: false };
+export const defaultRouting: Routing = { kind: 'fixed', field: 'appname', prefix: '', fallback: 'default' };
 export function executionMode(pipeline: ScheduledPipeline | null | undefined): PipelineMode {
   const mode = stepObject(pipeline?.functionSteps).mode;
   return mode === 'realtime' || mode === 'alert' ? mode : 'scheduled';
@@ -220,7 +219,7 @@ export function pipelineGraphFromPipeline(
   return {
     mode,
     alert: alertConditions(steps.alert),
-    retainSource: typeof steps.retainSource === 'boolean' ? steps.retainSource : stepObject(steps.routing).retainSource === true,
+    retainSource: steps.retainSource === true,
     signalType,
     // A pipeline that names no stream yet has the place for one, to be chosen. An alert pipeline
     // reads alert events and writes them back: it has no stream on either side.
@@ -389,22 +388,17 @@ function firstString(obj: Record<string, unknown>, keys: string[]): string {
 }
 
 /**
- * 把 function_steps 解析成处理步骤列表。兼容三种历史/当前形态：
- * 新结构 `{ steps: [{transformName, script}] }`、裸数组 `[{...}]`、以及旧单对象
- * `{ transformName, script }`。Nothing saved means no steps: the editor shows what runs.
+ * The steps of `function_steps`: `{ steps: [{ transformName, script }] }`. Nothing saved means no
+ * steps: the editor shows what runs.
  */
 function transformsFromSteps(value: unknown): TransformStep[] {
   const obj = stepObject(value);
-  const rawSteps: unknown[] | null = Array.isArray(value)
-    ? value
-    : Array.isArray(obj.steps)
-      ? (obj.steps as unknown[])
-      : null;
+  const rawSteps: unknown[] | null = Array.isArray(obj.steps) ? (obj.steps as unknown[]) : null;
   if (rawSteps) {
     const parsed: TransformStep[] = [];
     for (const step of rawSteps) {
       const so = stepObject(step);
-      const name = firstString(so, ['transformName', 'function_name', 'name']);
+      const name = firstString(so, ['transformName']);
       if (so.kind === 'ai_summary') {
         parsed.push({
           name,
@@ -448,17 +442,6 @@ function transformsFromSteps(value: unknown): TransformStep[] {
     }
     return parsed;
   }
-  if ('script' in obj || 'transformName' in obj || 'function_name' in obj) {
-    return [
-      {
-        name: firstString(obj, ['transformName', 'function_name', 'name']),
-        script: typeof obj.script === 'string' ? obj.script : '',
-      },
-    ];
-  }
-  if (typeof value === 'string' && value.trim()) {
-    return [{ name: '', script: value }];
-  }
   return [];
 }
 
@@ -466,13 +449,6 @@ function routeConfig(routing: Routing) {
   return { kind: routing.kind, field: routing.field, prefix: routing.prefix, fallback: routing.fallback };
 }
 
-/** Routing an earlier editor saved beside the steps, as the routing step it is now. */
-function withLegacyRouting(steps: TransformStep[], routing: Routing | undefined, target: string): TransformStep[] {
-  return routing ? [...steps, { name: 'route', kind: 'builtin', operation: 'route', script: '', target, routing }] : steps;
-}
-
 function processingStepsFromPipeline(pipeline: ScheduledPipeline | null | undefined): TransformStep[] {
-  const config = stepObject(pipeline?.functionSteps);
-  const steps = transformsFromSteps(pipeline?.functionSteps);
-  return withLegacyRouting(steps, config.routing ? { ...defaultRouting, ...stepObject(config.routing) } as Routing : undefined, pipeline?.targetStream ?? 'default');
+  return transformsFromSteps(pipeline?.functionSteps);
 }

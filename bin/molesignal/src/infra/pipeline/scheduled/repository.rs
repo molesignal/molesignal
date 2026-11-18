@@ -4,11 +4,10 @@
 //! `scheduled_pipelines` 表 CRUD。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{PgPool, Row, types::Json};
-
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -121,12 +120,9 @@ impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
         .bind(p.audit_reader_id.as_ref().map(|id| id.0.as_str()))
         .execute(&mut *transaction)
         .await
-        .map_err(super::super::super::persistence::sqlx_err)?;
+        .map_err(postgres::sqlx_err)?;
 
-        transaction
-            .commit()
-            .await
-            .map_err(crate::infra::persistence::sqlx_err)?;
+        transaction.commit().await.map_err(postgres::sqlx_err)?;
 
         crate::infra::pipeline::note_change();
 
@@ -165,12 +161,9 @@ impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
         .bind(p.audit_reader_id.as_ref().map(|id| id.0.as_str()))
         .execute(&mut *transaction)
         .await
-        .map_err(super::super::super::persistence::sqlx_err)?;
+        .map_err(postgres::sqlx_err)?;
 
-        transaction
-            .commit()
-            .await
-            .map_err(crate::infra::persistence::sqlx_err)?;
+        transaction.commit().await.map_err(postgres::sqlx_err)?;
 
         crate::infra::pipeline::note_change();
 
@@ -183,7 +176,7 @@ impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
             .bind(&id.0)
             .execute(&self.pool)
             .await
-            .map_err(super::super::super::persistence::sqlx_err)?;
+            .map_err(postgres::sqlx_err)?;
 
         crate::infra::pipeline::note_change();
 
@@ -197,7 +190,7 @@ impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
             .bind(&id.0)
             .fetch_one(&self.pool)
             .await
-            .map_err(super::super::super::persistence::sqlx_err)?;
+            .map_err(postgres::sqlx_err)?;
 
         Ok(row_to(row))
     }
@@ -210,7 +203,7 @@ impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
             .bind(&id.0)
             .fetch_one(&self.pool)
             .await
-            .map_err(super::super::super::persistence::sqlx_err)?;
+            .map_err(postgres::sqlx_err)?;
 
         Ok(row_to(row))
     }
@@ -222,7 +215,7 @@ impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
             .bind(&org.0)
             .fetch_all(&self.pool)
             .await
-            .map_err(super::super::super::persistence::sqlx_err)?;
+            .map_err(postgres::sqlx_err)?;
 
         Ok(rows.into_iter().map(row_to).collect())
     }
@@ -235,7 +228,7 @@ impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
         let rows = sqlx::query(&sql)
             .fetch_all(&self.pool)
             .await
-            .map_err(super::super::super::persistence::sqlx_err)?;
+            .map_err(postgres::sqlx_err)?;
 
         Ok(rows.into_iter().map(row_to).collect())
     }
@@ -249,7 +242,7 @@ impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
         .bind(Json(run_state))
         .execute(&self.pool)
         .await
-        .map_err(super::super::super::persistence::sqlx_err)?;
+        .map_err(postgres::sqlx_err)?;
 
         Ok(())
     }

@@ -20,6 +20,7 @@ import { useActionAccess, type ActionAccess } from '@/product/actionAccess';
 import { ProductState } from '@/product/states';
 import { ChromeButton, Pill } from '@/shell/chrome';
 import { PageBody, PageHeader } from '@/shell/PageHeader';
+import { useRecordVisit } from '@/shell/recentVisits';
 import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 
 import { publicStatusPageUrl } from '../publicUrl';
@@ -66,6 +67,17 @@ export function StatusPageWorkspaceLayout() {
     queryFn: () => statusPagesApi.get(pageId),
     enabled: Boolean(pageId),
   });
+  const visitedPage = snapshotQuery.data?.page;
+  useRecordVisit(
+    visitedPage
+      ? {
+          kind: 'status_page',
+          id: visitedPage.id,
+          label: visitedPage.name,
+          path: `/status-pages/${encodeURIComponent(visitedPage.id)}`,
+        }
+      : null,
+  );
   const domainCapabilityQuery = useQuery({
     queryKey: ['status-pages', pageId, 'domain-capability'],
     queryFn: () => statusPagesApi.getDomainCapability(pageId),

@@ -5,8 +5,7 @@
 //! 投资栈超 4 KB 时把 payload 放到这里，URL 仅持有 blob_id。
 //!
 //! 内容外置到对象存储(S3)：`investigations/{org}/{id}.json`，PG 行 `investigation_blobs`
-//! 只存 `object_key` 指针；旧行 payload 在 PG（fetch 双读兜底）。compactor 每天清理
-//! 7 天前的行并顺带删 S3 对象（roles/compactor.rs）。
+//! 只存 `object_key` 指针。compactor 每天清理 7 天前的行并顺带删 S3 对象（roles/compactor.rs）。
 
 use axum::{
     Extension, Router,
@@ -14,16 +13,13 @@ use axum::{
     response::Json,
     routing::{get, post},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, ids::Id};
 use object_store::{ObjectStoreExt, PutPayload, path::Path as ObjPath};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::permission,
-    shared::{Error, ids::Id},
-};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -87,32 +83,28 @@ async fn fetch(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, Error> {
-    let stored = state
+    let key = state
         .storage
         .investigation_blobs
         .fetch(&ctx.org_id, &Id(id))
         .await?;
 
-    if let Some(key) = stored.object_key {
-        let path = ObjPath::parse(&key).map_err(|e| Error::internal(format!("blob path: {e}")))?;
+    let path = ObjPath::parse(&key).map_err(|e| Error::internal(format!("blob path: {e}")))?;
 
-        let result = state
-            .storage
-            .object_store
-            .get(&path)
-            .await
-            .map_err(|e| Error::internal(format!("blob store get: {e}")))?;
+    let result = state
+        .storage
+        .object_store
+        .get(&path)
+        .await
+        .map_err(|e| Error::internal(format!("blob store get: {e}")))?;
 
-        let bytes = result
-            .bytes()
-            .await
-            .map_err(|e| Error::internal(format!("blob read: {e}")))?;
+    let bytes = result
+        .bytes()
+        .await
+        .map_err(|e| Error::internal(format!("blob read: {e}")))?;
 
-        let value: Value = serde_json::from_slice(&bytes)
-            .map_err(|e| Error::internal(format!("blob parse: {e}")))?;
-        return Ok(Json(value));
-    }
+    let value: Value =
+        serde_json::from_slice(&bytes).map_err(|e| Error::internal(format!("blob parse: {e}")))?;
 
-    // 旧行：payload 还在 PG。
-    Ok(Json(stored.legacy_payload.unwrap_or(Value::Null)))
+    Ok(Json(value))
 }

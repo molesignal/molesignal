@@ -65,12 +65,12 @@ export function StatusPageHistory() {
       page,
     ],
     queryFn: () => statusPagesApi.history(pageId, {
-      ...(kind ? { type: kind } : {}),
+      ...(kind ? { kind } : {}),
       ...(status ? { status } : {}),
-      ...(component ? { component } : {}),
+      ...(component ? { componentId: component } : {}),
       ...(from ? { from } : {}),
       ...(to ? { to } : {}),
-      ...(searchQuery ? { q: searchQuery } : {}),
+      ...(searchQuery ? { search: searchQuery } : {}),
       page,
     }),
   });

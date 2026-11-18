@@ -13,7 +13,8 @@ async fn realtime_configuration_is_unique_and_cannot_be_backfilled() {
     let (hk, hv) = s.auth_header();
     let url = format!("{}/api/v1/scheduled_pipelines", s.base_url);
     let payload = json!({"name":"app routing","sourceStream":"default","targetStream":"default","cron":"","lookbackSecs":300,"enabled":true,
-        "functionSteps":{"mode":"realtime","signalType":"logs","sources":["default"],"sinks":["default"],"steps":[],"routing":{"kind":"field","field":"appname","fallback":"default","retainSource":true}}});
+        "functionSteps":{"mode":"realtime","signalType":"logs","sources":["default"],"sinks":["default"],"retainSource":true,
+            "steps":[{"transformName":"route","kind":"builtin","operation":"route","routing":{"kind":"field","field":"appname","fallback":"default"}}]}});
     let response = s
         .client
         .post(&url)
@@ -54,13 +55,11 @@ async fn realtime_configuration_is_unique_and_cannot_be_backfilled() {
             .await
             .unwrap(),
     );
-    use molesignal::{
-        domain::{
-            intake::{IntakeBatch, RawEvent},
-            stream::StreamType,
-        },
-        shared::{ids::Id, time::TimestampMicros},
+    use domain::{
+        intake::{IntakeBatch, RawEvent},
+        stream::StreamType,
     };
+    use kernel::{ids::Id, time::TimestampMicros};
     let now = TimestampMicros::now();
     let result = s
         .state
@@ -99,7 +98,7 @@ async fn realtime_configuration_is_unique_and_cannot_be_backfilled() {
             .is_ok()
     );
     // Repository projection must keep the organization predicate.
-    use molesignal::domain::pipeline::realtime::RealtimePipelineRepository;
+    use domain::pipeline::realtime::RealtimePipelineRepository;
     assert!(
         repo.for_source(&s.root_org_id, StreamType::LOGS, "default")
             .await
@@ -107,13 +106,9 @@ async fn realtime_configuration_is_unique_and_cannot_be_backfilled() {
             .is_some()
     );
     assert!(
-        repo.for_source(
-            &molesignal::shared::ids::Id::new(),
-            StreamType::LOGS,
-            "default"
-        )
-        .await
-        .unwrap()
-        .is_none()
+        repo.for_source(&kernel::ids::Id::new(), StreamType::LOGS, "default")
+            .await
+            .unwrap()
+            .is_none()
     );
 }

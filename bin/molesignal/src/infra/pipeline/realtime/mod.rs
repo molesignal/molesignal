@@ -13,16 +13,13 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::{
+    pipeline::realtime::{RealtimePipeline, RealtimePipelineRepository, validate_config},
+    stream::StreamType,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 use sqlx::{PgPool, Row, postgres::PgRow, types::Json};
-
-use crate::{
-    domain::{
-        pipeline::realtime::{RealtimePipeline, RealtimePipelineRepository, validate_config},
-        stream::StreamType,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub mod limit_usage;
 
@@ -93,7 +90,7 @@ impl PgRealtimePipelineRepository {
 
     async fn load(&self, org: &Id) -> Result<HashMap<SourceKey, Slot>> {
         let rows = sqlx::query("SELECT id, source_stream, target_stream, function_steps, updated_at FROM scheduled_pipelines WHERE org_id = $1 AND enabled = TRUE AND function_steps->>'mode' = 'realtime'")
-            .bind(org.as_str()).fetch_all(&self.pool).await.map_err(crate::infra::persistence::sqlx_err)?;
+            .bind(org.as_str()).fetch_all(&self.pool).await.map_err(postgres::sqlx_err)?;
 
         let mut slots = HashMap::new();
 
@@ -131,14 +128,14 @@ fn projection(org: &Id, source: &str, config: &Value, row: &PgRow) -> Result<Rea
     let target: String = row.get("target_stream");
     let setup = validate_config(config, source, &target)?
         .ok_or_else(|| Error::internal("invalid realtime projection"))?;
-    let steps = crate::domain::pipeline::processing::parse_processing_steps(config)?;
+    let steps = domain::pipeline::processing::parse_processing_steps(config)?;
 
     Ok(RealtimePipeline {
         id: Id(row.get("id")),
         org_id: org.clone(),
         signal: setup.signal,
         target,
-        routing: setup.routing,
+        retain_source: setup.retain_source,
         steps,
         updated_at: row.get::<TimestampMicros, _>("updated_at"),
     })

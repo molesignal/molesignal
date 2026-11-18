@@ -108,7 +108,7 @@ describe('PipelineFlow', () => {
           operation: 'route',
           script: '',
           target: 'default',
-          routing: { kind: 'field', field: 'appname', prefix: '', fallback: 'default', retainSource: false },
+          routing: { kind: 'field', field: 'appname', prefix: '', fallback: 'default' },
         },
       ],
     });

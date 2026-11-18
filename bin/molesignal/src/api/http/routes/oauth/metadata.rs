@@ -1,19 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use axum::{
-    Json, Router,
-    extract::State,
-    http::{HeaderMap, header},
-    routing::get,
-};
+use axum::{Json, Router, extract::State, http::HeaderMap, routing::get};
+use kernel::{Error, Result};
 use serde_json::{Value, json};
 use url::Url;
 
-use crate::{
-    api::AppState,
-    shared::{Error, Result},
-};
+use crate::api::AppState;
+
+/// The human-readable documentation both metadata documents point at. It lives on the
+/// documentation site, which is maintained in both languages, rather than in this binary.
+const DOCUMENTATION_URL: &str = "https://docs.molesignal.com/en-US/inbound-mcp";
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new()
@@ -29,23 +26,6 @@ pub(super) fn routes() -> Router<AppState> {
             "/.well-known/oauth-authorization-server",
             get(authorization_server_metadata),
         )
-        .route("/docs/inbound-mcp", get(documentation))
-}
-
-async fn documentation() -> ([(&'static str, &'static str); 2], &'static str) {
-    (
-        [
-            (
-                header::CONTENT_TYPE.as_str(),
-                "text/markdown; charset=utf-8",
-            ),
-            (header::CACHE_CONTROL.as_str(), "public, max-age=300"),
-        ],
-        include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../docs/inbound-mcp.md"
-        )),
-    )
 }
 
 pub(crate) fn external_base(state: &AppState, headers: &HeaderMap) -> Result<String> {
@@ -135,7 +115,7 @@ async fn protected_resource_metadata(
         "authorization_servers": [base],
         "bearer_methods_supported": ["header"],
         "scopes_supported": ["mcp", "offline_access"],
-        "resource_documentation": format!("{base}/docs/inbound-mcp")
+        "resource_documentation": DOCUMENTATION_URL
     })))
 }
 
@@ -156,7 +136,7 @@ async fn authorization_server_metadata(
         "token_endpoint": format!("{base}/api/v1/oauth/token"),
         "registration_endpoint": format!("{base}/api/v1/oauth/register"),
         "revocation_endpoint": format!("{base}/api/v1/oauth/revoke"),
-        "service_documentation": format!("{base}/docs/inbound-mcp"),
+        "service_documentation": DOCUMENTATION_URL,
         "response_types_supported": ["code"],
         "grant_types_supported": ["authorization_code", "refresh_token"],
         "code_challenge_methods_supported": ["S256"],

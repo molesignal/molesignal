@@ -172,12 +172,12 @@ export async function appendIncidentUpdate(
 }
 
 export interface HistoryFilters {
-  type?: StatusPageIncidentKind;
+  kind?: StatusPageIncidentKind;
   status?: string;
-  component?: string;
+  componentId?: string;
   from?: number;
   to?: number;
-  q?: string;
+  search?: string;
   page?: number;
 }
 

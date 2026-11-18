@@ -6,6 +6,7 @@
 //! Three kinds keep count across events and so run only as events arrive, in a realtime pipeline:
 //! `generate_metric` ([`super::metric`]), `quota` and `throttle` ([`super::limit`]). They apply to
 //! the events their `conditions` pick and change no field.
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -15,7 +16,6 @@ use super::{
     metric::MetricSpec,
     realtime::{OutputKind, Routing, writable_stream},
 };
-use crate::shared::{Error, Result};
 
 /// The name of a step that keeps count is at most this long: what it counted is stored under it.
 const MAX_NAME_LENGTH: usize = 255;
@@ -41,7 +41,7 @@ impl ProcessingKind {
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProcessingStep {
-    #[serde(default, alias = "function_name", alias = "name")]
+    #[serde(default)]
     pub transform_name: String,
     #[serde(default)]
     pub kind: ProcessingKind,
@@ -88,17 +88,10 @@ impl ProcessingStep {
 }
 
 pub fn parse_processing_steps(config: &Value) -> Result<Vec<ProcessingStep>> {
-    let raw = if config.is_array() {
-        config.clone()
-    } else if let Some(steps) = config.get("steps") {
-        steps.clone()
-    } else if config.get("script").is_some() {
-        serde_json::json!([config])
-    } else if let Some(script) = config.as_str() {
-        serde_json::json!([{"script":script}])
-    } else {
-        serde_json::json!([])
-    };
+    let raw = config
+        .get("steps")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!([]));
 
     let mut steps: Vec<ProcessingStep> = serde_json::from_value(raw)
         .map_err(|error| Error::invalid(format!("invalid pipeline processing steps: {error}")))?;

@@ -7,6 +7,7 @@
 //! routed to other streams; the others are changed in place, in the stream they arrive in, and keep
 //! the fields [`super::protected`] names.
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -15,15 +16,12 @@ use super::{
     processing::{ProcessingKind, parse_processing_steps},
     protected::Guard,
 };
-use crate::{
-    domain::{
-        rum::event::RumStream,
-        stream::{
-            DEFAULT_PROFILE_STREAM, StreamType, is_platform_stream, is_reserved_system_stream,
-            validate_stream_name,
-        },
+use crate::domain::{
+    rum::event::RumStream,
+    stream::{
+        DEFAULT_PROFILE_STREAM, StreamType, is_platform_stream, is_reserved_system_stream,
+        validate_stream_name,
     },
-    shared::{Error, Result, ids::Id},
 };
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -45,8 +43,6 @@ pub struct Routing {
     pub prefix: String,
     #[serde(default)]
     pub fallback: String,
-    #[serde(default)]
-    pub retain_source: bool,
 }
 
 pub use super::processing::ProcessingStep as RealtimeStep;
@@ -58,16 +54,17 @@ pub struct RealtimePipeline {
     /// What its source stream holds: logs, metrics, traces or profile metadata.
     pub signal: StreamType,
     pub target: String,
-    pub routing: Routing,
+    /// Logs only: the event is also kept, as it arrived, in the stream it arrived in.
+    pub retain_source: bool,
     pub steps: Vec<RealtimeStep>,
-    pub updated_at: crate::shared::time::TimestampMicros,
+    pub updated_at: kernel::time::TimestampMicros,
 }
 
 /// How a saved realtime pipeline is set up: the data it changes and where its events go.
 #[derive(Debug, Clone)]
 pub struct RealtimeConfig {
     pub signal: StreamType,
-    pub routing: Routing,
+    pub retain_source: bool,
 }
 
 pub fn is_realtime(config: &Value) -> bool {
@@ -184,21 +181,12 @@ pub fn validate_config(
         return Err(Error::invalid("realtime output must be a data stream"));
     }
 
-    let mut routing: Routing = serde_json::from_value(
-        config
-            .get("routing")
-            .cloned()
-            .unwrap_or_else(|| serde_json::json!({})),
-    )
-    .map_err(|_| Error::invalid("invalid realtime routing configuration"))?;
-
-    routing.validate()?;
-
-    if let Some(retain_source) = config.get("retainSource") {
-        routing.retain_source = retain_source
+    let retain_source = match config.get("retainSource") {
+        Some(value) => value
             .as_bool()
-            .ok_or_else(|| Error::invalid("retainSource must be a boolean"))?;
-    }
+            .ok_or_else(|| Error::invalid("retainSource must be a boolean"))?,
+        None => false,
+    };
 
     let steps = parse_processing_steps(config)?;
 
@@ -208,8 +196,7 @@ pub fn validate_config(
     // over streams would no longer be one.
     if (signal != StreamType::LOGS || rum.is_some())
         && (target != source
-            || routing.kind != OutputKind::Fixed
-            || routing.retain_source
+            || retain_source
             || steps.iter().any(|step| {
                 step.kind == ProcessingKind::Builtin || step.over_limit_target().is_some()
             }))
@@ -220,7 +207,10 @@ pub fn validate_config(
         ));
     }
 
-    Ok(Some(RealtimeConfig { signal, routing }))
+    Ok(Some(RealtimeConfig {
+        signal,
+        retain_source,
+    }))
 }
 
 /// Where the steps that keep count can run. Metrics are made of logs, RUM events and spans. A quota
@@ -364,13 +354,13 @@ mod tests {
     }
     #[test]
     fn realtime_accepts_source_as_output_but_requires_valid_routing() {
-        let mut config = json!({"mode":"realtime","signalType":"logs","steps":[],"routing":{"kind":"field","field":"appname","fallback":"default"}});
+        let mut config = json!({"mode":"realtime","signalType":"logs","steps":[{"kind":"builtin","operation":"route","routing":{"kind":"field","field":"appname","fallback":"default"}}]});
         assert!(
             validate_config(&config, "default", "default")
                 .unwrap()
                 .is_some()
         );
-        config["routing"]["fallback"] = json!("_molesignal");
+        config["steps"][0]["routing"]["fallback"] = json!("_molesignal");
         assert!(validate_config(&config, "default", "default").is_err());
         assert!(validate_config(&json!({"mode":"typo"}), "default", "target").is_err());
         assert!(
@@ -448,7 +438,6 @@ mod tests {
             field: "kind".into(),
             prefix: "rum_".into(),
             fallback: "default".into(),
-            ..Default::default()
         };
 
         assert_eq!(

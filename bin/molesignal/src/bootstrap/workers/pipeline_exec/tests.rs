@@ -7,17 +7,15 @@ use std::sync::{
 };
 
 use async_trait::async_trait;
+use domain::{
+    intake::{IntakeBatch, IntakeResult, IntakeSink},
+    stream::{FieldDef, FieldType, Schema, StreamDefinition, StreamIndexType, StreamRepository},
+};
+use kernel::time::TimestampMicros;
 use serde_json::json;
 
 use super::{delivery::connector_key, streams::to_raw_event, *};
-use crate::{
-    domain::{
-        intake::{IntakeBatch, IntakeResult, IntakeSink},
-        stream::{FieldDef, FieldType, Schema, StreamDefinition, StreamRepository},
-    },
-    infra::{connectors::Connector, intake_sink::MemoryIntakeSink},
-    shared::time::TimestampMicros,
-};
+use crate::infra::{connectors::Connector, intake_sink::MemoryIntakeSink};
 
 /// 只实现 `get`（egress 路径用到的唯一方法）；其余方法测试不触达。
 struct Connectors(Vec<Connector>);
@@ -166,10 +164,8 @@ fn field(name: &str, data_type: FieldType) -> FieldDef {
         name: name.into(),
         data_type,
         nullable: true,
-        index_type: None,
-        indexed: false,
+        index_type: StreamIndexType::None,
         encrypted: false,
-        exact: false,
     }
 }
 

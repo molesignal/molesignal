@@ -7,23 +7,20 @@ use axum::{
     http::StatusCode,
     routing::{get, post},
 };
+use domain::{
+    iam::{IamContext, permission},
+    status_page::{
+        IncidentImpact, PublicIncidentStatus, StatusPageEventList, StatusPageEventView,
+        StatusPageHistoryPage, StatusPageHistoryQuery, StatusPageIncident, StatusPageIncidentKind,
+        StatusPagePublicationState,
+    },
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 
 use crate::{
     api::{AppState, http::routes::activity_audit},
-    app::{
-        iam::IamContext,
-        status_page::{StatusPageIncidentInput, StatusPageIncidentUpdateInput},
-    },
-    domain::{
-        iam::permission,
-        status_page::{
-            IncidentImpact, PublicIncidentStatus, StatusPageEventList, StatusPageEventView,
-            StatusPageHistoryPage, StatusPageHistoryQuery, StatusPageIncident,
-            StatusPageIncidentKind, StatusPagePublicationState,
-        },
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
+    app::status_page::{StatusPageIncidentInput, StatusPageIncidentUpdateInput},
 };
 
 pub(super) fn routes() -> Router<AppState> {
@@ -130,14 +127,11 @@ struct EventUpdateRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct HistoryQuery {
-    #[serde(alias = "type")]
     kind: Option<StatusPageIncidentKind>,
     status: Option<PublicIncidentStatus>,
-    #[serde(alias = "component")]
     component_id: Option<Id>,
     from: Option<TimestampMicros>,
     to: Option<TimestampMicros>,
-    #[serde(alias = "q")]
     search: Option<String>,
     #[serde(default = "default_page")]
     page: u32,

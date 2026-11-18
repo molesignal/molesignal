@@ -52,7 +52,7 @@ export function PipelineImport() {
           name: obj.name ?? 'imported',
           sourceStream: obj.sourceStream ?? '',
           targetStream: obj.targetStream ?? '',
-          functionSteps: [],
+          functionSteps: { steps: [] },
           cron: obj.cron ?? 'every:5m',
         };
       }

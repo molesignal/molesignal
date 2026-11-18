@@ -155,7 +155,7 @@ export function SnippetBlock({ content, label }: { content: string; label: strin
   };
 
   return (
-    <div className="relative min-w-0 rounded-md bg-[var(--page-canvas)]">
+    <div className="relative min-w-0 rounded-md bg-[var(--inset-surface)]">
       <pre
         data-source-snippet
         className="m-0 whitespace-pre-wrap px-3 py-2.5 pr-12 font-mono text-xs leading-relaxed text-tx-1 [overflow-wrap:anywhere]"

@@ -68,7 +68,7 @@ const ROUTE = {
   operation: 'route' as const,
   script: '',
   target: 'default',
-  routing: { kind: 'field' as const, field: 'appname', prefix: 'app_', fallback: 'default', retainSource: false },
+  routing: { kind: 'field' as const, field: 'appname', prefix: 'app_', fallback: 'default' },
 };
 
 const MODEL: PipelineGraphModel = {

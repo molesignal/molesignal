@@ -26,9 +26,32 @@ use axum::{
     routing::{get, post},
 };
 use base64::Engine as _;
+use domain::{
+    dashboard::Dashboard,
+    iam::{
+        IamContext,
+        access::{IamCrossOrgGrant, IamCrossOrgGrantStatus, IamPrincipalType},
+        permission, resource_permission,
+    },
+    query::{QueryLanguage, QueryRequest, StreamHint},
+    stream::StreamType,
+};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use object_store::{ObjectStoreExt, PutPayload, path::Path as ObjectPath};
+use postgres::repositories::{
+    audit_events::AuditEvent,
+    resource_shares::{
+        ResourceShare, ResourceShareMode, ResourceSharePolicy, ResourceShareSession,
+    },
+    scheduled_reports::ScheduledReport,
+};
 use rand::TryRng as _;
 use regex::Regex;
+use report_renderer::{ReportFormat, Viewport, validate_report_bytes};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
@@ -40,29 +63,7 @@ use crate::{
             Permission, ProtectedResource, authorize_resource as authorize_protected_resource,
         },
     },
-    app::iam::{IamContext, hash_password_off_thread},
-    domain::{
-        dashboard::Dashboard,
-        iam::{
-            access::{IamCrossOrgGrant, IamCrossOrgGrantStatus, IamPrincipalType},
-            permission, resource_permission,
-        },
-        query::{QueryLanguage, QueryRequest, StreamHint},
-        stream::StreamType,
-    },
-    infra::persistence::repositories::{
-        audit_events::AuditEvent,
-        resource_shares::{
-            ResourceShare, ResourceShareMode, ResourceSharePolicy, ResourceShareSession,
-        },
-        scheduled_reports::ScheduledReport,
-    },
-    shared::{
-        Error, ReportFormat, Result, Viewport,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-        validate_report_bytes,
-    },
+    app::iam::hash_password_off_thread,
 };
 
 const SHARE_SESSION_COOKIE: &str = "molesignal_share_session";
@@ -718,7 +719,7 @@ async fn public_query(
     visitor: ShareVisitor,
     headers: HeaderMap,
     Json(request): Json<PublicQueryRequest>,
-) -> Result<Json<crate::domain::query::QueryResult>> {
+) -> Result<Json<domain::query::QueryResult>> {
     let (_session, share) = public_share_context(&state, &headers, true).await?;
 
     if share.resource_type != "dashboard" {
@@ -1309,7 +1310,6 @@ fn sanitize_dashboard_model(mut model: Value, share_id: &Id, constraints: &Value
     );
 
     let allowed_variables = constraint_strings(constraints, "allowedVariables");
-    let uses_current_schema = object.get("elements").is_some_and(Value::is_array);
 
     if let Some(variables) = object.get_mut("variables").and_then(Value::as_array_mut) {
         variables.retain(|variable| {
@@ -1327,16 +1327,8 @@ fn sanitize_dashboard_model(mut model: Value, share_id: &Id, constraints: &Value
         }
     }
 
-    if uses_current_schema {
-        if let Some(elements) = object.get_mut("elements").and_then(Value::as_array_mut) {
-            sanitize_elements(elements, &allowed_variables);
-        }
-    } else {
-        sanitize_legacy_variables(object, &allowed_variables);
-
-        if let Some(panels) = object.get_mut("panels").and_then(Value::as_array_mut) {
-            sanitize_legacy_panels(panels);
-        }
+    if let Some(elements) = object.get_mut("elements").and_then(Value::as_array_mut) {
+        sanitize_elements(elements, &allowed_variables);
     }
 
     object.remove("createdBy");
@@ -1393,373 +1385,18 @@ fn sanitize_elements(elements: &mut [Value], allowed_variables: &BTreeSet<String
     }
 }
 
-fn sanitize_legacy_variables(
-    dashboard: &mut Map<String, Value>,
-    allowed_variables: &BTreeSet<String>,
-) {
-    let Some(variables) = dashboard
-        .get_mut("templating")
-        .and_then(Value::as_object_mut)
-        .and_then(|templating| templating.get_mut("list"))
-        .and_then(Value::as_array_mut)
-    else {
-        return;
-    };
-
-    variables.retain(|variable| {
-        variable
-            .get("name")
-            .and_then(Value::as_str)
-            .is_some_and(|name| allowed_variables.contains(name))
-    });
-
-    for variable in variables {
-        let Some(variable) = variable.as_object_mut() else {
-            continue;
-        };
-
-        for key in ["query", "datasource", "definition", "regex", "allValue"] {
-            variable.remove(key);
-        }
-
-        variable.insert("refresh".into(), Value::String("never".into()));
-    }
-}
-
-fn sanitize_legacy_panels(panels: &mut [Value]) {
-    for panel in panels {
-        let Some(panel) = panel.as_object_mut() else {
-            continue;
-        };
-
-        let panel_context = panel.clone();
-        panel.insert("links".into(), Value::Array(Vec::new()));
-        panel.remove("datasource");
-
-        if let Some(targets) = panel.get_mut("targets").and_then(Value::as_array_mut) {
-            *targets = targets
-                .iter()
-                .enumerate()
-                .filter_map(|(index, target)| sanitize_legacy_target(target, &panel_context, index))
-                .collect();
-        }
-
-        if let Some(children) = panel.get_mut("panels").and_then(Value::as_array_mut) {
-            sanitize_legacy_panels(children);
-        }
-    }
-}
-
-fn sanitize_legacy_target(
-    target: &Value,
-    panel: &Map<String, Value>,
-    index: usize,
-) -> Option<Value> {
-    let target = target.as_object()?;
-    let statement = legacy_statement(target)?;
-    let language = legacy_language(target, statement);
-    let source_type = legacy_source_type(target, panel, language, statement);
-
-    let mut sanitized = Map::from_iter([
-        ("refId".into(), Value::String(legacy_ref_id(target, index))),
-        (
-            "hide".into(),
-            Value::Bool(target.get("hide").and_then(Value::as_bool).unwrap_or(false)),
-        ),
-        ("language".into(), Value::String(language.into())),
-        ("stream_type".into(), Value::String(source_type.into())),
-    ]);
-
-    if language == "promql" {
-        sanitized.insert(
-            "expr".into(),
-            Value::String("__molesignal_public_query__".into()),
-        );
-    } else {
-        sanitized.insert("rawSql".into(), Value::String("SELECT 1".into()));
-    }
-
-    for key in ["legendFormat", "format"] {
-        if let Some(value) = target.get(key).and_then(Value::as_str) {
-            sanitized.insert(key.into(), Value::String(value.into()));
-        }
-    }
-
-    Some(Value::Object(sanitized))
-}
-
 fn find_saved_panel_query(model: &Value, panel_id: &str, ref_id: &str) -> Option<Value> {
-    if let Some(elements) = model.get("elements").and_then(Value::as_array) {
-        let query = find_query_in_elements(elements, panel_id, ref_id)?;
-        let shared = query.get("sharedQuery").and_then(Value::as_object);
+    let elements = model.get("elements").and_then(Value::as_array)?;
+    let query = find_query_in_elements(elements, panel_id, ref_id)?;
 
-        return match shared {
-            Some(shared) => {
-                let source_panel = shared.get("sourcePanelId")?.as_str()?;
-                let source_ref = shared.get("sourceRefId")?.as_str()?;
-                find_query_in_elements(elements, source_panel, source_ref).or(Some(query))
-            }
-            None => Some(query),
-        };
-    }
-
-    model
-        .get("panels")
-        .and_then(Value::as_array)
-        .and_then(|panels| find_legacy_query_in_panels(panels, panel_id, ref_id))
-}
-
-fn find_legacy_query_in_panels(panels: &[Value], panel_id: &str, ref_id: &str) -> Option<Value> {
-    for (panel_index, panel) in panels.iter().enumerate() {
-        let panel = panel.as_object()?;
-
-        if legacy_panel_id(panel, panel_index) == panel_id
-            && let Some((target_index, target)) = panel
-                .get("targets")
-                .and_then(Value::as_array)
-                .into_iter()
-                .flatten()
-                .enumerate()
-                .find(|(index, target)| {
-                    target
-                        .as_object()
-                        .is_some_and(|target| legacy_ref_id(target, *index) == ref_id)
-                })
-        {
-            return normalize_legacy_query(target, panel, target_index);
+    match query.get("sharedQuery").and_then(Value::as_object) {
+        Some(shared) => {
+            let source_panel = shared.get("sourcePanelId")?.as_str()?;
+            let source_ref = shared.get("sourceRefId")?.as_str()?;
+            find_query_in_elements(elements, source_panel, source_ref).or(Some(query))
         }
-
-        if let Some(found) = panel
-            .get("panels")
-            .and_then(Value::as_array)
-            .and_then(|children| find_legacy_query_in_panels(children, panel_id, ref_id))
-        {
-            return Some(found);
-        }
+        None => Some(query),
     }
-
-    None
-}
-
-fn normalize_legacy_query(
-    target: &Value,
-    panel: &Map<String, Value>,
-    index: usize,
-) -> Option<Value> {
-    let target = target.as_object()?;
-    let statement = legacy_statement(target)?;
-    let language = legacy_language(target, statement);
-    let source_type = legacy_source_type(target, panel, language, statement);
-    let mut config = Map::from_iter([("language".into(), Value::String(language.to_string()))]);
-
-    config.insert(
-        if language == "promql" {
-            "expression".into()
-        } else {
-            "statement".into()
-        },
-        Value::String(statement.to_string()),
-    );
-
-    if let Some(stream_name) = legacy_stream_name(target) {
-        config.insert("streamName".into(), Value::String(stream_name.into()));
-        let stream_type = legacy_stream_type(target).unwrap_or(source_type);
-        config.insert("streamType".into(), Value::String(stream_type.into()));
-    }
-
-    if let Some(limit) = target.get("limit").and_then(Value::as_u64) {
-        config.insert("limit".into(), Value::from(limit));
-    }
-
-    Some(json!({
-        "refId": legacy_ref_id(target, index),
-        "enabled": !target.get("hide").and_then(Value::as_bool).unwrap_or(false),
-        "dataSourceType": source_type,
-        "query": Value::Object(config),
-    }))
-}
-
-fn legacy_statement(target: &Map<String, Value>) -> Option<&str> {
-    ["expr", "rawSql", "query"]
-        .into_iter()
-        .find_map(|key| target.get(key).and_then(Value::as_str))
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-}
-
-fn legacy_language(target: &Map<String, Value>, statement: &str) -> &'static str {
-    let configured = target
-        .get("language")
-        .and_then(Value::as_str)
-        .or_else(|| {
-            target
-                .get("datasource")
-                .and_then(Value::as_object)
-                .and_then(|datasource| datasource.get("type"))
-                .and_then(Value::as_str)
-        })
-        .unwrap_or_default()
-        .to_ascii_lowercase();
-
-    if configured.contains("prom") || configured == "metrics" {
-        return "promql";
-    }
-
-    if configured.contains("sql")
-        || configured.contains("postgres")
-        || configured.contains("mysql")
-        || configured.contains("datafusion")
-    {
-        return "sql";
-    }
-
-    if statement.to_ascii_lowercase().contains("select") {
-        "sql"
-    } else {
-        "promql"
-    }
-}
-
-fn legacy_source_type(
-    target: &Map<String, Value>,
-    panel: &Map<String, Value>,
-    language: &str,
-    statement: &str,
-) -> &'static str {
-    let configured = [
-        target
-            .get("datasource")
-            .and_then(Value::as_object)
-            .and_then(|datasource| datasource.get("type"))
-            .and_then(Value::as_str),
-        target.get("stream_type").and_then(Value::as_str),
-        target.get("streamType").and_then(Value::as_str),
-        panel
-            .get("datasource")
-            .and_then(Value::as_object)
-            .and_then(|datasource| datasource.get("type"))
-            .and_then(Value::as_str),
-    ]
-    .into_iter()
-    .flatten()
-    .collect::<Vec<_>>()
-    .join(" ")
-    .to_ascii_lowercase();
-
-    if configured.contains("trace") || configured.contains("tempo") {
-        return "traces";
-    }
-
-    if configured.contains("profile") {
-        return "profiles";
-    }
-
-    if configured.contains("log")
-        || configured.contains("loki")
-        || configured.contains("elasticsearch")
-    {
-        return "logs";
-    }
-
-    if configured.contains("metric") || configured.contains("prom") {
-        return "metrics";
-    }
-
-    if language == "promql" {
-        return "metrics";
-    }
-
-    let hint = format!(
-        "{} {statement}",
-        panel
-            .get("title")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-    )
-    .to_ascii_lowercase();
-
-    if hint.contains("trace") {
-        "traces"
-    } else if hint.contains("profile") {
-        "profiles"
-    } else if hint.contains("log") {
-        "logs"
-    } else {
-        "sql"
-    }
-}
-
-fn legacy_stream_name(target: &Map<String, Value>) -> Option<&str> {
-    target
-        .get("stream_name")
-        .and_then(Value::as_str)
-        .or_else(|| {
-            target
-                .get("stream")
-                .and_then(Value::as_object)
-                .and_then(|stream| stream.get("name"))
-                .and_then(Value::as_str)
-        })
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-}
-
-fn legacy_stream_type(target: &Map<String, Value>) -> Option<&str> {
-    target
-        .get("stream_type")
-        .and_then(Value::as_str)
-        .or_else(|| target.get("streamType").and_then(Value::as_str))
-        .or_else(|| {
-            target
-                .get("stream")
-                .and_then(Value::as_object)
-                .and_then(|stream| stream.get("stream_type"))
-                .and_then(Value::as_str)
-        })
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-}
-
-fn legacy_ref_id(target: &Map<String, Value>, index: usize) -> String {
-    target
-        .get("refId")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_owned)
-        .unwrap_or_else(|| {
-            if index < 26 {
-                ((b'A' + index as u8) as char).to_string()
-            } else {
-                format!("Q{}", index + 1)
-            }
-        })
-}
-
-fn legacy_panel_id(panel: &Map<String, Value>, index: usize) -> String {
-    let fallback = (index + 1).to_string();
-
-    let raw = match panel.get("id") {
-        Some(Value::String(value)) => value.clone(),
-        Some(Value::Number(value)) => value.to_string(),
-        Some(Value::Bool(value)) => value.to_string(),
-        _ => fallback.clone(),
-    };
-
-    let safe = raw
-        .trim()
-        .chars()
-        .map(|character| {
-            if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
-                character
-            } else {
-                '-'
-            }
-        })
-        .collect::<String>();
-
-    let safe = if safe.is_empty() { fallback } else { safe };
-    format!("legacy-{safe}-{}", index + 1)
 }
 
 fn find_query_in_elements(elements: &[Value], panel_id: &str, ref_id: &str) -> Option<Value> {
@@ -2214,55 +1851,6 @@ mod tests {
         share.raw_token = Some("Ab3kP9xY2mQ7".into());
         let value = serde_json::to_value(resource_share_view(share)).unwrap();
         assert!(value["url"].is_null());
-    }
-
-    #[test]
-    fn legacy_public_dashboard_is_scrubbed_and_keeps_server_query_lookup() {
-        let model = json!({
-            "title": "Legacy dashboard",
-            "templating": {
-                "list": [{
-                    "name": "service",
-                    "query": "label_values(http_requests_total, service)",
-                    "current": {"value": "checkout"}
-                }]
-            },
-            "panels": [{
-                "id": 4,
-                "title": "Request rate",
-                "type": "graph",
-                "targets": [{
-                    "refId": "A",
-                    "expr": "rate(http_requests_total{service=\"$service\"}[5m])",
-                    "datasource": {"type": "prometheus"}
-                }]
-            }]
-        });
-
-        let query = find_saved_panel_query(&model, "legacy-4-1", "A").unwrap();
-        assert_eq!(query["dataSourceType"], "metrics");
-        assert_eq!(
-            query["query"]["expression"],
-            "rate(http_requests_total{service=\"$service\"}[5m])"
-        );
-
-        let sanitized = sanitize_dashboard_model(
-            model,
-            &Id::from_string("share-1"),
-            &json!({"allowedVariables": ["service"]}),
-        );
-        assert_eq!(
-            sanitized["panels"][0]["targets"][0]["expr"],
-            "__molesignal_public_query__"
-        );
-        assert_eq!(
-            sanitized["templating"]["list"][0]["current"]["value"],
-            "checkout"
-        );
-        assert!(sanitized["templating"]["list"][0].get("query").is_none());
-        let serialized = sanitized.to_string();
-        assert!(!serialized.contains("rate(http_requests_total"));
-        assert!(!serialized.contains("label_values"));
     }
 
     fn test_share() -> ResourceShare {

@@ -21,39 +21,40 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::{
+    alerting::{
+        anomaly::AnomalyParams,
+        escalation::{DEFAULT_POLICY_ID, EscalationPolicy},
+        incident::{Incident, IncidentStatus, Severity},
+        incident_group::{IncidentGroup, IncidentGroupRepository, IncidentGroupState},
+        repositories::{
+            AlertRuleEvalState, AlertRuleEvalStateRepository, AlertRuleRepository,
+            EscalationPolicyRepository, IncidentRepository, ScheduleRepository,
+        },
+        rule::{
+            AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, ComparisonOp, MAX_ALERT_GROUPS,
+            NoDataAction, NoDataCondition, RuleState, SeverityThreshold,
+        },
+        schedule::Schedule,
+        semantic_group::{LabelMatcher, MatchOp, SemanticGroup, SemanticGroupRepository},
+        timeline::ActionVia,
+    },
+    cluster::{ClusterRegistry, PeerInfo, PeerRole},
+    query::{PromqlEngine, QueryEngine, QueryLanguage, QueryRequest, QueryResult, StreamHint},
+    stream::StreamType,
+    synthetics::{
+        MonitorKind, MonitorLifecycle, MonitorRevision, MonitorSchedule, MonitorSpec, MonitorState,
+        MultiLocationPolicy, SyntheticMonitor, SyntheticStateTransition,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use molesignal::{
     app::{
         alerting::{AlertingService, RuleEvaluator},
-        cluster::{ClusterRegistry, PeerInfo, PeerRole, WorkOwnership},
+        cluster::WorkOwnership,
         synthetics::NoDataChange,
     },
-    domain::{
-        alerting::{
-            anomaly::AnomalyParams,
-            escalation::{DEFAULT_POLICY_ID, EscalationPolicy},
-            incident::{Incident, IncidentStatus, Severity},
-            incident_group::{IncidentGroup, IncidentGroupRepository, IncidentGroupState},
-            repositories::{
-                AlertRuleEvalState, AlertRuleEvalStateRepository, AlertRuleRepository,
-                EscalationPolicyRepository, IncidentRepository, ScheduleRepository,
-            },
-            rule::{
-                AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, ComparisonOp, MAX_ALERT_GROUPS,
-                NoDataAction, NoDataCondition, RuleState, SeverityThreshold,
-            },
-            schedule::Schedule,
-            semantic_group::{LabelMatcher, MatchOp, SemanticGroup, SemanticGroupRepository},
-            timeline::ActionVia,
-        },
-        query::{PromqlEngine, QueryEngine, QueryLanguage, QueryRequest, QueryResult, StreamHint},
-        stream::StreamType,
-        synthetics::{
-            MonitorKind, MonitorLifecycle, MonitorRevision, MonitorSchedule, MonitorSpec,
-            MonitorState, MultiLocationPolicy, SyntheticMonitor, SyntheticStateTransition,
-        },
-    },
     infra::query::language_router::LanguageRoutedEngine,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 // ---- in-mem AlertRuleRepository ----
@@ -80,7 +81,7 @@ impl AlertRuleRepository for InMemRules {
             .iter()
             .find(|r| &r.id == id)
             .cloned()
-            .ok_or_else(|| molesignal::shared::Error::not_found("rule"))
+            .ok_or_else(|| kernel::Error::not_found("rule"))
     }
     async fn list(&self, _org: &Id) -> Result<Vec<AlertRule>> {
         Ok(self.inner.lock().unwrap().clone())
@@ -167,7 +168,7 @@ impl IncidentRepository for InMemIncidents {
             .iter()
             .find(|i| &i.id == id)
             .cloned()
-            .ok_or_else(|| molesignal::shared::Error::not_found("incident"))
+            .ok_or_else(|| kernel::Error::not_found("incident"))
     }
     async fn list_active(&self, org: &Id) -> Result<Vec<Incident>> {
         Ok(self
@@ -215,7 +216,7 @@ impl IncidentRepository for InMemIncidents {
     async fn list_since(
         &self,
         org: &Id,
-        since: molesignal::shared::time::TimestampMicros,
+        since: kernel::time::TimestampMicros,
     ) -> Result<Vec<Incident>> {
         Ok(self
             .inner
@@ -367,6 +368,7 @@ fn sample_rule() -> AlertRule {
         escalation_policy_id: Id::from_string("pol-1"),
         labels: BTreeMap::new(),
         annotations: BTreeMap::new(),
+        guide: Default::default(),
         last_eval_at: None,
         last_state: RuleState::default(),
         created_at: TimestampMicros::now(),
@@ -495,6 +497,7 @@ fn anomaly_rule() -> AlertRule {
         escalation_policy_id: Id::from_string("pol-1"),
         labels: BTreeMap::new(),
         annotations: BTreeMap::new(),
+        guide: Default::default(),
         last_eval_at: None,
         last_state: RuleState::default(),
         created_at: TimestampMicros::now(),
@@ -539,9 +542,7 @@ struct HistoryFailEngine {
 impl QueryEngine for HistoryFailEngine {
     async fn execute(&self, req: QueryRequest) -> Result<QueryResult> {
         if req.time_range.end.0 < self.boundary {
-            return Err(molesignal::shared::Error::internal(
-                "transient history failure",
-            ));
+            return Err(kernel::Error::internal("transient history failure"));
         }
         Ok(QueryResult {
             columns: vec!["v".into()],
@@ -670,7 +671,7 @@ impl IncidentGroupRepository for RecordingIncidentGroups {
         })
     }
     async fn get(&self, _: &Id, _: &Id) -> Result<IncidentGroup> {
-        Err(molesignal::shared::Error::not_found("group"))
+        Err(kernel::Error::not_found("group"))
     }
     async fn list(
         &self,
@@ -708,7 +709,7 @@ impl SemanticGroupRepository for StaticSemanticGroups {
         Ok(g)
     }
     async fn get(&self, _: &Id) -> Result<SemanticGroup> {
-        Err(molesignal::shared::Error::not_found("group"))
+        Err(kernel::Error::not_found("group"))
     }
     async fn list(&self, _: &Id) -> Result<Vec<SemanticGroup>> {
         Ok(self.groups.clone())

@@ -134,7 +134,7 @@ export function TryRouting({
           ) : run.data ? (
             <Outcome explanation={run.data} rules={rules} policies={policies} teams={teams} />
           ) : (
-            <p className="m-0 rounded-md bg-[var(--page-canvas)] px-3 py-2.5 font-sans text-sm text-tx-2">
+            <p className="m-0 rounded-md bg-[var(--inset-surface)] px-3 py-2.5 font-sans text-sm text-tx-2">
               {t('routing.try_idle')}
             </p>
           )}
@@ -212,7 +212,7 @@ function Outcome({
 
   return (
     <div data-routing-outcome={reason} className="flex min-w-0 flex-col gap-3">
-      <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 rounded-md bg-[var(--page-canvas)] px-3 py-2.5 font-sans text-sm">
+      <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 rounded-md bg-[var(--inset-surface)] px-3 py-2.5 font-sans text-sm">
         <dt className="text-tx-2">{t('routing.outcome_team')}</dt>
         <dd className="m-0 truncate font-strong text-tx-0" data-routing-outcome-team>
           {decision.teamId ? teamName(decision.teamId) : t('routing.no_team')}

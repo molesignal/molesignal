@@ -54,7 +54,6 @@ import { AlertsSources } from './alerts/sources';
 import { AlertsSourceDetail } from './alerts/sources/Detail';
 import { AlertsTickets } from './alerts/tickets';
 import { ApmCatalog, ApmErrors, ApmLayout, ApmOverview, ApmService, ApmServiceMap, ApmSettings, ApmSlos } from './apm';
-import { apmIndexTarget, legacyServicesTarget } from './apm/compat';
 import { APM_PAGES } from './apm/frame/Navigation';
 import { Dashboards, DashboardView } from './dashboards';
 import { DashboardEditor } from './dashboards/Editor';
@@ -117,10 +116,7 @@ import { Reports } from './reports';
 import { RequireAuth } from './RequireAuth';
 import { RouteError } from './RouteError';
 import { RumLayout } from './rum';
-import {
-  LegacyApmUserExperienceRedirect,
-  RUM_ROUTE_CHILDREN,
-} from './rum/routes';
+import { RUM_ROUTE_CHILDREN } from './rum/routes';
 import { SavedViewsRoute } from './saved-views';
 import { SemanticGroups } from './SemanticGroups';
 import {
@@ -215,17 +211,7 @@ function DatasourceRedirect() {
 function ApmIndexRedirect() {
   const location = useLocation();
   const [landing] = useOpenablePages(APM_PAGES, (path) => path);
-  return <Navigate to={apmIndexTarget(location.search, location.hash, landing)} replace />;
-}
-
-function LegacyServicesRedirect() {
-  const location = useLocation();
-  return (
-    <Navigate
-      to={legacyServicesTarget(location.pathname, location.search, location.hash)}
-      replace
-    />
-  );
+  return <Navigate to={`${landing ?? '/apm/overview'}${location.search}${location.hash}`} replace />;
 }
 
 function AuthenticatedShell() {
@@ -334,7 +320,6 @@ export const router = createBrowserRouter(aboveShell([
       { path: 'datasource', element: <Datasource /> },
       { path: 'datasource/:category', element: <Datasource /> },
       { path: 'datasource/:category/:source', element: <Datasource /> },
-      { path: 'datasources', element: <Navigate to="/datasource" replace /> },
       { path: 'intake', element: <Navigate to="/datasource" replace /> },
       { path: 'intake/:category', element: <DatasourceRedirect /> },
       { path: 'intake/:category/:source', element: <DatasourceRedirect /> },
@@ -390,14 +375,8 @@ export const router = createBrowserRouter(aboveShell([
           { path: 'settings', element: <ApmSettings /> },
           { path: 'services/:service', element: <ApmService /> },
           { path: 'services/:service/:section', element: <ApmService /> },
-          {
-            path: 'user-experience/*',
-            element: <LegacyApmUserExperienceRedirect />,
-          },
         ],
       },
-      { path: 'services', element: <LegacyServicesRedirect /> },
-      { path: 'services/:service', element: <LegacyServicesRedirect /> },
       {
         path: 'rum',
         element: <RumLayout />,

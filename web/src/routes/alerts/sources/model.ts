@@ -131,7 +131,7 @@ export function setupSnippet(kind: AlertSourceKind, url: string, token: string =
         content: `curl -X POST '${url}' \\
   -H 'Authorization: Bearer ${token}' \\
   -H 'Content-Type: application/json' \\
-  -d '{"dedup_key": "disk-full/web-1", "summary": "Disk almost full on web-1", "severity": "critical", "labels": {"host.name": "web-1"}}'`,
+  -d '{"dedupKey": "disk-full/web-1", "summary": "Disk almost full on web-1", "severity": "critical", "labels": {"host.name": "web-1"}}'`,
       };
     case 'alertmanager':
       return {

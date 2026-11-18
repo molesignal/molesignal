@@ -23,16 +23,14 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-use crate::{
-    domain::{
-        alerting::{incident::Severity, time_window::TimeCondition},
-        query::QueryLanguage,
-        stream::StreamType,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use crate::domain::{
+    alerting::{incident::Severity, time_window::TimeCondition},
+    query::QueryLanguage,
+    stream::StreamType,
 };
 
 pub mod fields;
@@ -182,7 +180,7 @@ struct RawConditions {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RawStep {
-    #[serde(default, alias = "name")]
+    #[serde(default)]
     transform_name: String,
     #[serde(default)]
     kind: String,

@@ -6,11 +6,10 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{PgPool, Row, types::Json};
-
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -162,7 +161,7 @@ impl ExtendKvRepository for PgExtendKvRepository {
         .bind(table.updated_at)
         .execute(&self.pool)
         .await
-        .map_err(super::super::super::persistence::sqlx_err)?;
+        .map_err(postgres::sqlx_err)?;
 
         Ok(table)
     }
@@ -198,7 +197,7 @@ impl ExtendKvRepository for PgExtendKvRepository {
         .bind(require_empty)
         .execute(&self.pool)
         .await
-        .map_err(super::super::super::persistence::sqlx_err)?;
+        .map_err(postgres::sqlx_err)?;
 
         Ok(result.rows_affected() == 1)
     }
@@ -209,27 +208,23 @@ impl ExtendKvRepository for PgExtendKvRepository {
         fields(db.system.name = "postgresql", db.operation.name = "TRANSACTION", db.collection.name = "extend_tables")
     )]
     async fn delete_table(&self, org: &Id, table: &str) -> Result<()> {
-        let mut tx = sqlx::begin(&self.pool)
-            .await
-            .map_err(super::super::super::persistence::sqlx_err)?;
+        let mut tx = sqlx::begin(&self.pool).await.map_err(postgres::sqlx_err)?;
 
         sqlx::query("DELETE FROM extend_kv WHERE org_id = $1 AND table_name = $2")
             .bind(&org.0)
             .bind(table)
             .execute(&mut *tx)
             .await
-            .map_err(super::super::super::persistence::sqlx_err)?;
+            .map_err(postgres::sqlx_err)?;
 
         sqlx::query("DELETE FROM extend_table_definitions WHERE org_id = $1 AND table_name = $2")
             .bind(&org.0)
             .bind(table)
             .execute(&mut *tx)
             .await
-            .map_err(super::super::super::persistence::sqlx_err)?;
+            .map_err(postgres::sqlx_err)?;
 
-        tx.commit()
-            .await
-            .map_err(super::super::super::persistence::sqlx_err)?;
+        tx.commit().await.map_err(postgres::sqlx_err)?;
 
         Ok(())
     }
@@ -251,7 +246,7 @@ impl ExtendKvRepository for PgExtendKvRepository {
         .bind(row.updated_at)
         .execute(&self.pool)
         .await
-        .map_err(super::super::super::persistence::sqlx_err)?;
+        .map_err(postgres::sqlx_err)?;
 
         Ok(())
     }
@@ -283,7 +278,7 @@ impl ExtendKvRepository for PgExtendKvRepository {
             .bind(&times)
             .execute(&self.pool)
             .await
-            .map_err(super::super::super::persistence::sqlx_err)?;
+            .map_err(postgres::sqlx_err)?;
         }
 
         Ok(())
@@ -296,7 +291,7 @@ impl ExtendKvRepository for PgExtendKvRepository {
             .bind(key)
             .execute(&self.pool)
             .await
-            .map_err(super::super::super::persistence::sqlx_err)?;
+            .map_err(postgres::sqlx_err)?;
 
         Ok(())
     }
@@ -311,7 +306,7 @@ impl ExtendKvRepository for PgExtendKvRepository {
             .bind(table)
             .fetch_all(&self.pool)
             .await
-            .map_err(super::super::super::persistence::sqlx_err)?;
+            .map_err(postgres::sqlx_err)?;
 
         Ok(rows.into_iter().map(row_to).collect())
     }
@@ -327,7 +322,7 @@ impl ExtendKvRepository for PgExtendKvRepository {
         .bind(&org.0)
         .fetch_all(&self.pool)
         .await
-        .map_err(super::super::super::persistence::sqlx_err)?;
+        .map_err(postgres::sqlx_err)?;
 
         let stats = sqlx::query(
             "SELECT rows.table_name,
@@ -352,7 +347,7 @@ impl ExtendKvRepository for PgExtendKvRepository {
         .bind(&org.0)
         .fetch_all(&self.pool)
         .await
-        .map_err(super::super::super::persistence::sqlx_err)?;
+        .map_err(postgres::sqlx_err)?;
 
         let mut summaries = BTreeMap::<String, ExtendTableSummary>::new();
 

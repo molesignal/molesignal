@@ -20,7 +20,7 @@ const route = (routing: Partial<Routing>, target = 'default') => ({
   operation: 'route' as const,
   script: '',
   target,
-  routing: { kind: 'fixed' as const, field: '', prefix: '', fallback: 'default', retainSource: false, ...routing },
+  routing: { kind: 'fixed' as const, field: '', prefix: '', fallback: 'default', ...routing },
 });
 
 function graph(overrides: Partial<PipelineGraphModel>): PipelineGraphModel {
@@ -236,7 +236,6 @@ describe('routeDestination', () => {
     field: 'service.name',
     prefix: '',
     fallback: 'default',
-    retainSource: false,
   };
 
   it('sends everything to the fixed stream', () => {
