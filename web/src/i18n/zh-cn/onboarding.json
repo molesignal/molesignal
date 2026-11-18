@@ -43,191 +43,26 @@
       },
       "sample_data": {
         "title": "加载示例数据",
-        "description": "用一小批相互关联的日志、指标和链路体验产品。"
+        "description": "加载关联的日志、指标和链路，同时准备总览仪表盘、4 个查询视图；告警编辑器提供 3 个样例模板。"
       }
     },
     "load": "加载",
     "loading": "加载中…",
-    "load_success": "已加载 {{rows}} 行样例数据（日志 / 指标 / 链路）",
+    "load_success": "已加载 {{rows}} 行样例数据，仪表盘和 4 个查询视图已就绪",
     "done": "已完成"
   },
   "home": {
-    "title": "首页",
-    "subtitle": "系统状态、异常与下一步操作",
-    "loading": "加载中…",
     "view_all": "查看全部",
-    "connect_action": "接入数据源",
-    "sidebar_label": "运维上下文",
-    "condition": {
-      "healthy": "正常",
-      "delayed": "接收延迟",
-      "interrupted": "断流",
-      "stale": "长期断流",
-      "inactive": "无数据",
-      "unknown": "未知"
-    },
     "critical": {
       "title": "严重 · {{count}} 个触发中"
     },
     "toolbar": {
-      "quick_start": "快速开始",
-      "refresh": "刷新",
       "new": "新建",
-      "window_24h": "最近 24 小时",
-      "window_7d": "最近 7 天",
       "new_dashboard": "新建仪表盘",
       "new_alert": "新建告警规则",
       "new_stream": "新建数据流",
       "new_pipeline": "新建流水线",
-      "new_function": "新建函数",
-      "updated": "更新于 {{time}}"
-    },
-    "hero": {
-      "eyebrow": "数据接入",
-      "ask_agent": "让 Mole Agent 分析",
-      "agent_prompt": "首页显示「{{title}}」（{{detail}}）。请帮我分析可能的原因，并给出优先排查的步骤。",
-      "verdict": {
-        "no_streams": {
-          "title": "尚未接入数据",
-          "detail": "接入第一个数据源，系统健康状态会在这里实时呈现。",
-          "action": "接入数据源"
-        },
-        "healthy": {
-          "title": "数据接入正常",
-          "detail": "{{receiving}} / {{total}} 个数据流正常接收。",
-          "detail_all": "全部 {{total}} 个数据流都在正常接收。",
-          "action": "查看数据流"
-        },
-        "delayed": {
-          "title": "部分数据流延迟",
-          "detail": "{{count}} / {{total}} 个数据流接收延迟。",
-          "detail_all": "全部 {{total}} 个数据流接收延迟。",
-          "action": "查看延迟的数据流"
-        },
-        "interrupted": {
-          "title": "数据流已断流",
-          "detail": "{{count}} / {{total}} 个数据流已停止接收数据。",
-          "detail_all": "全部 {{total}} 个数据流已停止接收数据。",
-          "action": "排查数据接入"
-        },
-        "stale": {
-          "title": "数据长期断流",
-          "detail": "{{count}} / {{total}} 个数据流已断流超过 24 小时。",
-          "detail_all": "全部 {{total}} 个数据流已断流超过 24 小时。",
-          "action": "检查数据接入"
-        },
-        "no_data": {
-          "title": "尚无数据",
-          "detail": "已注册 {{total}} 个数据流，但还没有收到任何数据。",
-          "action": "接入数据源"
-        },
-        "unknown": {
-          "title": "状态未知",
-          "detail": "暂时无法获取数据流的运行状态。",
-          "action": "重新获取"
-        }
-      }
-    },
-    "kpis": {
-      "label": "系统关键指标",
-      "last_received": "最后接收：{{when}}",
-      "active_alerts": "当前告警",
-      "alert_detail": "{{firing}} 个触发中 · {{acknowledged}} 个已确认",
-      "intake_bytes": "原始摄入量",
-      "intake_detail": "{{rate}} · {{rows}} 个事件",
-      "stored_bytes": "压缩后数据量",
-      "compression_pending": "等待原始摄入计量",
-      "compression_saved": "较原始体积减少 {{percent}}%",
-      "compression_overhead": "小批量存储开销 +{{percent}}%",
-      "unavailable": "暂时无法获取"
-    },
-    "health": {
-      "title": "系统健康概览",
-      "total_window": "{{window}}合计",
-      "signals": "信号状态",
-      "empty": "尚未注册可观测数据流。",
-      "no_window_data": "所选时段暂无数据",
-      "no_window_data_hint": "数据源可能已停止发送，恢复后这里会自动显示摄入趋势。",
-      "check_action": "检查数据接入",
-      "metrics": {
-        "intake": "原始摄入",
-        "stored": "压缩存储",
-        "events": "事件数"
-      }
-    },
-    "streams": {
-      "title": "重点数据流",
-      "empty": "尚未注册数据流。",
-      "columns": {
-        "stream": "数据流名称",
-        "type": "类型",
-        "status": "状态",
-        "rate": "摄入速率",
-        "last_received": "最后接收",
-        "action": "操作"
-      }
-    },
-    "activity": {
-      "title": "最近活动",
-      "empty_title": "暂无最近活动",
-      "empty_description": "创建仪表盘、告警或流水线后，相关操作会显示在这里。",
-      "create_alert": "创建告警"
-    },
-    "on_call": {
-      "title": "当前值班",
-      "mine_title": "我的值班",
-      "active_title": "正在值班",
-      "active_badge": "值班中",
-      "coverage_gap_badge": "需要补位",
-      "override_title": "临时替班生效中",
-      "gap_title": "值班覆盖异常",
-      "view": "查看",
-      "arrange": "立即安排",
-      "empty_title": "尚未配置值班排班",
-      "empty_description": "配置排班后可在首页查看当前负责人。",
-      "empty_action": "配置排班",
-      "gap_description": "当前无人值班，需要立即补齐覆盖。",
-      "no_current": "当前暂无值班人",
-      "unknown_member": "未知成员",
-      "unassigned_team": "未关联团队",
-      "you_are_on_call": "你当前正在值班",
-      "currently_on_call": "正在值班",
-      "override_description": "{{current}} 正在替代 {{original}}",
-      "override_until_label": "替班截至",
-      "next_handoff": "下次交接",
-      "next_label": "下一位",
-      "remaining_label": "剩余时间",
-      "remaining": "剩余 {{duration}}",
-      "shift_progress": "本次值班进度",
-      "overview_title": "本次值班概览",
-      "elapsed_label": "已值班",
-      "shift_incidents": "本班事件",
-      "acknowledged_label": "已确认",
-      "escalated_label": "已升级",
-      "no_escalation_policy": "未关联升级策略",
-      "more_escalation_policies": "{{name}} +{{count}}",
-      "started_at": "{{time}} 开始",
-      "no_handoff": "暂无计划交接",
-      "today_at": "今天 {{time}}",
-      "tomorrow_at": "明天 {{time}}",
-      "pending_label": "待确认",
-      "pending_incidents": "个事件待确认",
-      "no_pending": "没有待确认事件",
-      "pending_summary_one": "{{count}} 个事件需要确认",
-      "pending_summary_other": "{{count}} 个事件需要确认",
-      "open_incidents": "打开事件",
-      "view_schedule": "查看排班",
-      "unavailable_title": "无法加载值班信息"
-    },
-    "dashboards": {
-      "title": "最近仪表盘",
-      "empty_title": "还没有仪表盘",
-      "empty_description": "创建一个仪表盘，固定团队最常查看的运营视图。",
-      "empty_with_dashboards_title": "还没有包含面板的仪表盘",
-      "empty_with_dashboards_description": "为最近更新的仪表盘添加面板，让它成为可用的运营视图。",
-      "add_panels": "添加面板",
-      "panel_count": "{{count}} 个面板",
-      "updated": "{{when}}更新"
+      "new_function": "新建函数"
     }
   },
   "datasource": {
@@ -359,5 +194,124 @@
     "copy": "复制",
     "expand_code": "展开代码",
     "collapse_code": "收起代码"
+  },
+  "workbench": {
+    "title": "工作台",
+    "loading": "正在加载…",
+    "open": "打开",
+    "kinds": {
+      "dashboard": "仪表盘",
+      "service": "服务",
+      "incident": "事件",
+      "saved_view": "查询",
+      "check": "拨测",
+      "status_page": "状态页"
+    },
+    "severity": {
+      "critical": "严重",
+      "error": "错误",
+      "warning": "警告",
+      "info": "信息"
+    },
+    "recent": {
+      "title": "最近访问",
+      "empty": "打开过的仪表盘、服务、事件和查询会出现在这里，换台设备也能看到。"
+    },
+    "resources": {
+      "title": "我的资源",
+      "kinds_label": "资源类型",
+      "scope_label": "范围",
+      "me": "我",
+      "fallback": "{{chosen}}里还没有，先显示{{shown}}的",
+      "view_all_one": "查看全部 {{count}} 个{{kind}}",
+      "view_all_other": "查看全部 {{count}} 个{{kind}}",
+      "tabs": {
+        "services": "服务",
+        "dashboards": "仪表盘",
+        "saved_views": "查询",
+        "checks": "拨测",
+        "status_pages": "状态页"
+      },
+      "scopes": {
+        "mine": "我负责的",
+        "team": "我的团队",
+        "starred": "我收藏的",
+        "all": "全部"
+      },
+      "columns": {
+        "state": "状态",
+        "detail": "说明",
+        "requestRate": "请求/秒",
+        "errorRate": "错误率",
+        "p95Time": "P95",
+        "updatedAt": "更新",
+        "owner": "负责人"
+      },
+      "details": {
+        "services": "环境",
+        "dashboards": "说明",
+        "saved_views": "语言",
+        "checks": "类型",
+        "status_pages": "地址"
+      },
+      "states": {
+        "healthy": "正常",
+        "warning": "告警",
+        "critical": "异常",
+        "no_traffic": "无流量",
+        "flaky": "不稳定",
+        "degraded": "降级",
+        "failing": "失败",
+        "unknown": "未知"
+      },
+      "empty": {
+        "services": "还没有服务上报链路数据。",
+        "dashboards": "还没有仪表盘。",
+        "saved_views": "还没有保存的查询。",
+        "checks": "还没有拨测。",
+        "status_pages": "还没有状态页。"
+      },
+      "no_access": "账号没有查看服务、仪表盘、查询、拨测或状态页的权限。"
+    },
+    "todos": {
+      "title": "我的待办",
+      "empty": "没有等你处理的事。",
+      "acknowledge": "确认",
+      "approval": "等你审批",
+      "action_item": "复盘：{{title}}",
+      "overdue_one": "逾期 {{count}} 天",
+      "overdue_other": "逾期 {{count}} 天",
+      "due_in_one": "{{count}} 天后到期",
+      "due_in_other": "{{count}} 天后到期",
+      "stream_gap_one": "{{count}} 条数据流停止接收",
+      "stream_gap_other": "{{count}} 条数据流停止接收",
+      "stream_gap_meta": "数据流",
+      "activation_one": "开始使用还差 {{count}} 步",
+      "activation_other": "开始使用还差 {{count}} 步",
+      "activation_next": "下一步：{{step}}",
+      "incidents_unavailable": "无法获取事件"
+    },
+    "oncall": {
+      "title": "我的值班",
+      "schedules": "排班",
+      "on_now": "值班中",
+      "next": "下一班",
+      "hands_over": "{{time}}交班",
+      "none": "近 30 天没有你的班。",
+      "covering": "替 {{name}} 值班 · {{schedule}}",
+      "holding": "正在值班 · {{schedule}}",
+      "unreachable": "你在排班里，但收不到告警。",
+      "set_up_notify": "设置通知方式",
+      "unavailable": "无法加载值班信息",
+      "gap": "{{schedule}} 此刻无人值班。",
+      "arrange": "立即安排"
+    },
+    "usage": {
+      "title": "本月用量",
+      "details": "详情",
+      "taken_in": "已摄入",
+      "budgets": "各数据流已用预算",
+      "no_budgets": "给数据流设预算后，这里会显示离预算还有多远。"
+    }
   }
 }

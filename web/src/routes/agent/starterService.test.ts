@@ -20,7 +20,7 @@ function logStream(fields: string[], name = 'app_logs'): StreamSummary {
         name: field,
         dataType: 'utf8',
         nullable: true,
-        indexed: false,
+        indexType: 'none',
       })),
     },
     retention: null,

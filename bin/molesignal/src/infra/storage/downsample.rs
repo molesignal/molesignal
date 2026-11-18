@@ -18,15 +18,12 @@ use arrow::{
     datatypes::{DataType, TimeUnit},
 };
 use datafusion::prelude::SessionContext;
+use domain::metrics::{
+    METRIC_START_TIME_UNIX_NANO_FIELD, METRIC_TEMPORALITY_FIELD, PROMETHEUS_EXEMPLAR_MARKER_FIELD,
+};
+use kernel::{Error, Result};
 
 use super::arrow_schema::{TS_COL, align_batch_to_schema};
-use crate::{
-    domain::metrics::{
-        METRIC_START_TIME_UNIX_NANO_FIELD, METRIC_TEMPORALITY_FIELD,
-        PROMETHEUS_EXEMPLAR_MARKER_FIELD,
-    },
-    shared::{Error, Result},
-};
 
 /// 数值列 → SQL cast 目标类型（同时标识它是"度量"列）；非数值返回 None（作分组键）。
 fn measure_cast_type(dt: &DataType) -> Option<&'static str> {
@@ -178,8 +175,7 @@ async fn downsample_samples(batch: RecordBatch, bucket_secs: u32) -> Result<Reco
         .await
         .map_err(|e| Error::internal(format!("downsample plan ({sql}): {e}")))?;
 
-    let out = df
-        .collect()
+    let out = crate::infra::query::executor::collect(df)
         .await
         .map_err(|e| Error::internal(format!("downsample collect: {e}")))?;
 

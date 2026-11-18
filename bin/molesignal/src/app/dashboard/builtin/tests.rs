@@ -4,23 +4,21 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
+use domain::{
+    dashboard::{
+        Dashboard, Folder,
+        repositories::{DashboardRepository, FolderRepository},
+    },
+    rum::{
+        RumApplication, RumApplicationPatch, RumApplicationRepository, RumApplicationSettings,
+        RumPlatform,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use parking_lot::Mutex;
 
 use super::*;
-use crate::{
-    app::dashboard::DashboardService,
-    domain::{
-        dashboard::{
-            Dashboard, Folder,
-            repositories::{DashboardRepository, FolderRepository},
-        },
-        rum::{
-            RumApplication, RumApplicationPatch, RumApplicationRepository, RumApplicationSettings,
-            RumPlatform,
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::app::dashboard::DashboardService;
 
 #[derive(Default)]
 struct Dashboards {
@@ -328,4 +326,30 @@ async fn a_dashboard_somebody_else_made_with_the_uid_is_left_alone() {
     assert_eq!(kept.title, "Mine");
     assert_eq!(kept.version, 3);
     assert_eq!(kept.model["title"], "Mine");
+}
+
+#[tokio::test]
+async fn sample_install_is_valid_idempotent_and_preserves_user_edits() {
+    let (service, repo) = service();
+    let org = Id::from_string("sample-org");
+    let user = Id::from_string("sample-user");
+    let first = service.install_sample(&org, &user).await.unwrap();
+    assert_eq!(first.model["elements"].as_array().unwrap().len(), 6);
+
+    let mut changed = first.clone();
+    changed.title = "My overview".into();
+    changed.model["title"] = serde_json::json!("My overview");
+    repo.update(changed).await.unwrap();
+
+    let again = service.install_sample(&org, &user).await.unwrap();
+    assert_eq!(again.id, first.id);
+    assert_eq!(again.title, "My overview");
+    assert_eq!(repo.list(&org, None).await.unwrap().len(), 1);
+
+    let other = service
+        .install_sample(&Id::from_string("other-org"), &user)
+        .await
+        .unwrap();
+    assert_ne!(other.id, first.id);
+    assert_eq!(other.org_id.0, "other-org");
 }

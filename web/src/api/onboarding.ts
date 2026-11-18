@@ -14,6 +14,8 @@ export interface LoadSampleResult {
   loaded: boolean;
   totalRows: number;
   streams: LoadedStream[];
+  dashboardId: string;
+  savedViewIds: string[];
 }
 
 /** `GET /onboarding/sample-data` — probe whether sample streams exist. */

@@ -43,191 +43,26 @@
       },
       "sample_data": {
         "title": "Load sample data",
-        "description": "Try the product on a small set of related logs, metrics, and traces."
+        "description": "Load linked logs, metrics and traces with an overview dashboard and four saved queries. Three sample templates are available in the alert editor."
       }
     },
     "load": "Load",
     "loading": "Loading…",
-    "load_success": "Loaded {{rows}} sample rows across logs, metrics & traces",
+    "load_success": "Loaded {{rows}} sample rows; your dashboard and four saved queries are ready",
     "done": "Done"
   },
   "home": {
-    "title": "Home",
-    "subtitle": "System status, anomalies, and next actions",
-    "loading": "Loading…",
     "view_all": "View all",
-    "connect_action": "Connect a data source",
-    "sidebar_label": "Operational context",
-    "condition": {
-      "healthy": "Healthy",
-      "delayed": "Delayed",
-      "interrupted": "Interrupted",
-      "stale": "Stale",
-      "inactive": "No data",
-      "unknown": "Unknown"
-    },
     "critical": {
       "title": "Critical · {{count}} firing"
     },
     "toolbar": {
-      "quick_start": "Quick start",
-      "refresh": "Refresh",
       "new": "New",
-      "window_24h": "Last 24 hours",
-      "window_7d": "Last 7 days",
       "new_dashboard": "New dashboard",
       "new_alert": "New alert rule",
       "new_stream": "New stream",
       "new_pipeline": "New pipeline",
-      "new_function": "New function",
-      "updated": "Updated {{time}}"
-    },
-    "hero": {
-      "eyebrow": "Data intake",
-      "ask_agent": "Ask Mole Agent",
-      "agent_prompt": "Home shows “{{title}}” ({{detail}}). Help me work out the likely causes and the first things to check.",
-      "verdict": {
-        "no_streams": {
-          "title": "No data connected yet",
-          "detail": "Connect your first data source and system health will show up here.",
-          "action": "Connect a data source"
-        },
-        "healthy": {
-          "title": "Intake is healthy",
-          "detail": "{{receiving}} of {{total}} streams are receiving normally.",
-          "detail_all": "All {{total}} streams are receiving normally.",
-          "action": "View streams"
-        },
-        "delayed": {
-          "title": "Some streams are delayed",
-          "detail": "{{count}} of {{total}} streams are receiving late.",
-          "detail_all": "All {{total}} streams are receiving late.",
-          "action": "Review delayed streams"
-        },
-        "interrupted": {
-          "title": "Streams interrupted",
-          "detail": "{{count}} of {{total}} streams stopped receiving data.",
-          "detail_all": "All {{total}} streams stopped receiving data.",
-          "action": "Investigate intake"
-        },
-        "stale": {
-          "title": "Data is stale",
-          "detail": "{{count}} of {{total}} streams have had no data for over 24 hours.",
-          "detail_all": "All {{total}} streams have had no data for over 24 hours.",
-          "action": "Check data intake"
-        },
-        "no_data": {
-          "title": "No data yet",
-          "detail": "{{total}} streams are registered, but none has received data.",
-          "action": "Connect a data source"
-        },
-        "unknown": {
-          "title": "Status unknown",
-          "detail": "Stream runtime status is unavailable right now.",
-          "action": "Try again"
-        }
-      }
-    },
-    "kpis": {
-      "label": "System key metrics",
-      "last_received": "Last received: {{when}}",
-      "active_alerts": "Active alerts",
-      "alert_detail": "{{firing}} firing · {{acknowledged}} acknowledged",
-      "intake_bytes": "Raw intake volume",
-      "intake_detail": "{{rate}} · {{rows}} events",
-      "stored_bytes": "Compressed data size",
-      "compression_pending": "Waiting for raw intake metering",
-      "compression_saved": "{{percent}}% smaller than raw",
-      "compression_overhead": "Small-batch storage overhead +{{percent}}%",
-      "unavailable": "Could not be fetched"
-    },
-    "health": {
-      "title": "System health overview",
-      "total_window": "Total · {{window}}",
-      "signals": "Signal status",
-      "empty": "No observable streams registered yet.",
-      "no_window_data": "No data in the selected period",
-      "no_window_data_hint": "A source may have stopped sending. The intake trend appears here once data flows again.",
-      "check_action": "Check data intake",
-      "metrics": {
-        "intake": "Raw intake",
-        "stored": "Compressed",
-        "events": "Events"
-      }
-    },
-    "streams": {
-      "title": "Priority streams",
-      "empty": "No streams registered yet.",
-      "columns": {
-        "stream": "Stream name",
-        "type": "Type",
-        "status": "Status",
-        "rate": "Intake rate",
-        "last_received": "Last received",
-        "action": "Action"
-      }
-    },
-    "activity": {
-      "title": "Recent activity",
-      "empty_title": "No recent activity",
-      "empty_description": "Dashboard, alert, and pipeline changes will appear here.",
-      "create_alert": "Create alert"
-    },
-    "on_call": {
-      "title": "Current on-call",
-      "mine_title": "My on-call",
-      "active_title": "On call now",
-      "active_badge": "Active",
-      "coverage_gap_badge": "Needs coverage",
-      "override_title": "Temporary override active",
-      "gap_title": "On-call coverage gap",
-      "view": "View",
-      "arrange": "Assign now",
-      "empty_title": "No on-call schedule configured",
-      "empty_description": "Configure a schedule to see the current owner here.",
-      "empty_action": "Set up a schedule",
-      "gap_description": "No one is currently on call. Coverage needs attention.",
-      "no_current": "No one is currently on call",
-      "unknown_member": "Unknown member",
-      "unassigned_team": "No team",
-      "you_are_on_call": "You are currently on call",
-      "currently_on_call": "On call",
-      "override_description": "{{current}} is covering for {{original}}",
-      "override_until_label": "Override until",
-      "next_handoff": "Next handoff",
-      "next_label": "Next",
-      "remaining_label": "Time remaining",
-      "remaining": "{{duration}} remaining",
-      "shift_progress": "Current shift progress",
-      "overview_title": "Current shift overview",
-      "elapsed_label": "On duty",
-      "shift_incidents": "Shift events",
-      "acknowledged_label": "Acknowledged",
-      "escalated_label": "Escalated",
-      "no_escalation_policy": "No escalation policy",
-      "more_escalation_policies": "{{name}} +{{count}}",
-      "started_at": "Started {{time}}",
-      "no_handoff": "No handoff scheduled",
-      "today_at": "Today {{time}}",
-      "tomorrow_at": "Tomorrow {{time}}",
-      "pending_label": "Unacknowledged",
-      "pending_incidents": "events awaiting ack",
-      "no_pending": "No events awaiting acknowledgement",
-      "pending_summary_one": "{{count}} event needs acknowledgement",
-      "pending_summary_other": "{{count}} events need acknowledgement",
-      "open_incidents": "Open incidents",
-      "view_schedule": "View schedule",
-      "unavailable_title": "Could not load the schedules"
-    },
-    "dashboards": {
-      "title": "Recent dashboards",
-      "empty_title": "No dashboards yet",
-      "empty_description": "Create a dashboard to pin your team's most useful operational view.",
-      "empty_with_dashboards_title": "No dashboards with panels yet",
-      "empty_with_dashboards_description": "Add a panel to your most recent dashboard to make it useful here.",
-      "add_panels": "Add panels",
-      "panel_count": "{{count}} panels",
-      "updated": "Updated {{when}}"
+      "new_function": "New function"
     }
   },
   "datasource": {
@@ -359,5 +194,124 @@
     "copy": "Copy",
     "expand_code": "Expand code",
     "collapse_code": "Collapse code"
+  },
+  "workbench": {
+    "title": "Home",
+    "loading": "Loading…",
+    "open": "Open",
+    "kinds": {
+      "dashboard": "Dashboard",
+      "service": "Service",
+      "incident": "Incident",
+      "saved_view": "Query",
+      "check": "Check",
+      "status_page": "Status page"
+    },
+    "severity": {
+      "critical": "Critical",
+      "error": "Error",
+      "warning": "Warning",
+      "info": "Info"
+    },
+    "recent": {
+      "title": "Recently visited",
+      "empty": "The dashboards, services, incidents and queries you open show up here, on any device."
+    },
+    "resources": {
+      "title": "My resources",
+      "kinds_label": "Kind of resource",
+      "scope_label": "Scope",
+      "me": "Me",
+      "fallback": "Nothing in {{chosen}} yet: showing {{shown}}",
+      "view_all_one": "View all {{count}} {{kind}}",
+      "view_all_other": "View all {{count}} {{kind}}",
+      "tabs": {
+        "services": "Services",
+        "dashboards": "Dashboards",
+        "saved_views": "Queries",
+        "checks": "Checks",
+        "status_pages": "Status pages"
+      },
+      "scopes": {
+        "mine": "Owned by me",
+        "team": "My teams",
+        "starred": "My favorites",
+        "all": "All"
+      },
+      "columns": {
+        "state": "Status",
+        "detail": "Detail",
+        "requestRate": "Requests/s",
+        "errorRate": "Error rate",
+        "p95Time": "P95",
+        "updatedAt": "Updated",
+        "owner": "Owner"
+      },
+      "details": {
+        "services": "Environment",
+        "dashboards": "Detail",
+        "saved_views": "Language",
+        "checks": "Kind",
+        "status_pages": "Address"
+      },
+      "states": {
+        "healthy": "Healthy",
+        "warning": "Warning",
+        "critical": "Critical",
+        "no_traffic": "No traffic",
+        "flaky": "Flaky",
+        "degraded": "Degraded",
+        "failing": "Failing",
+        "unknown": "Unknown"
+      },
+      "empty": {
+        "services": "No service has sent traces yet.",
+        "dashboards": "No dashboards yet.",
+        "saved_views": "No saved queries yet.",
+        "checks": "No checks yet.",
+        "status_pages": "No status pages yet."
+      },
+      "no_access": "The account has no permission to view services, dashboards, queries, checks, or status pages."
+    },
+    "todos": {
+      "title": "My to-dos",
+      "empty": "Nothing is waiting on you.",
+      "acknowledge": "Acknowledge",
+      "approval": "Waiting for your approval",
+      "action_item": "Postmortem: {{title}}",
+      "overdue_one": "{{count}} day overdue",
+      "overdue_other": "{{count}} days overdue",
+      "due_in_one": "Due in {{count}} day",
+      "due_in_other": "Due in {{count}} days",
+      "stream_gap_one": "{{count}} stream stopped receiving",
+      "stream_gap_other": "{{count}} streams stopped receiving",
+      "stream_gap_meta": "Streams",
+      "activation_one": "{{count}} setup step remaining",
+      "activation_other": "{{count}} setup steps remaining",
+      "activation_next": "Next: {{step}}",
+      "incidents_unavailable": "Incidents could not be fetched"
+    },
+    "oncall": {
+      "title": "My on-call",
+      "schedules": "Schedules",
+      "on_now": "On call",
+      "next": "Next shift",
+      "hands_over": "Hands over {{time}}",
+      "none": "No shift of yours in the next 30 days.",
+      "covering": "Covering for {{name}} · {{schedule}}",
+      "holding": "On call now · {{schedule}}",
+      "unreachable": "You are on the schedule but cannot get alerts.",
+      "set_up_notify": "Set up notifications",
+      "unavailable": "Could not load the schedules",
+      "gap": "Nobody is on call for {{schedule}} now.",
+      "arrange": "Assign now"
+    },
+    "usage": {
+      "title": "This month's intake",
+      "details": "Details",
+      "taken_in": "taken in",
+      "budgets": "Budget used, by stream",
+      "no_budgets": "Set budgets on streams to see here how close each one is."
+    }
   }
 }

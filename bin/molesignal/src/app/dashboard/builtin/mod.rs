@@ -8,6 +8,7 @@
 mod install;
 mod panel;
 pub mod rum;
+pub mod sample;
 
 pub use install::Installed;
 pub use rum::RumDashboard;

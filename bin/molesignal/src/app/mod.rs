@@ -23,6 +23,7 @@ pub mod intake;
 pub mod log_inspection;
 pub mod mcp;
 pub mod notify;
+pub mod onboarding;
 pub mod profile_storage;
 pub mod profiling;
 pub mod query;

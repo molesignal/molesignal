@@ -39,6 +39,9 @@ const EVERY_READ: PermissionKey[] = [
 
 const EVERY_CONFIGURE: PermissionKey[] = [
   'logs.write',
+  'metrics.write',
+  'traces.write',
+  'saved_views.create',
   'dashboards.create',
   'alerts.rules.manage',
   'schedules.create',
@@ -341,7 +344,7 @@ describe('the sample data step', () => {
   });
 
   it('does not move ready by not being offered, for a narrow reader either', () => {
-    const narrow = access(['streams.read', 'streams.query', 'logs.write']);
+    const narrow = access(['streams.read', 'streams.query', 'logs.write', 'metrics.write', 'traces.write', 'dashboards.create', 'saved_views.create']);
 
     // The two steps this reader can see set the bar at two, offered or not: one done is not enough.
     expect(deriveActivationState({ ...EMPTY_ORG, streams: [OWN_STREAM] }, narrow).ready).toBe(false);
@@ -377,5 +380,15 @@ describe('canReadActivationStep', () => {
       canReadActivationStep('schedule', access(['schedules.read'], [], 'loading')),
     ).toBe(false);
     expect(canReadActivationStep('schedule', null)).toBe(false);
+  });
+});
+
+
+describe('sample pack permissions', () => {
+  it('requires each resource write before offering installation', () => {
+    for (const missing of ['logs.write', 'metrics.write', 'traces.write', 'dashboards.create', 'saved_views.create']) {
+      const reader = access([...EVERY_READ, ...EVERY_CONFIGURE.filter((key) => key !== missing)]);
+      expect(deriveActivationState(EMPTY_ORG, reader).steps.some((step) => step.id === 'sample-data')).toBe(false);
+    }
   });
 });

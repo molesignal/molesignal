@@ -102,7 +102,9 @@ const STEP_ACCESS: Record<ActivationStepId, { read: AccessRule; configure: Acces
   },
   'sample-data': {
     read: anyOf('streams.query', 'sys.telemetry.read'),
-    configure: anyOf('logs.write'),
+    configure: (access) =>
+      (['logs.write', 'metrics.write', 'traces.write', 'dashboards.create', 'saved_views.create'] as const)
+        .every((permission) => hasPermission(permission, access)),
   },
 };
 

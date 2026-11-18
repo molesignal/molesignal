@@ -6,27 +6,24 @@
 //! 无需先跑外部 seed 脚本就能在几秒内复现一次跨信号下钻。
 //!
 //! - `POST /onboarding/sample-data`：在当前 org intake 一批内置样例（复用 IntakeService
-//!   的 schema-on-write 自动建流），返回写入的流与行数。
-//! - `GET  /onboarding/sample-data`：探测样例流是否已存在，供前端 activation 判定 completed。
+//!   的 schema-on-write 自动建流），安装样例看板和查询，返回写入行数与资源 ID。
+//! - `GET  /onboarding/sample-data`：检查三个样例流、看板和四个查询是否完整，供前端判定 completed。
 //!
 //! 数据是确定性生成的（相对当前时刻铺开过去几小时），不依赖随机数，重复加载只是按
 //! 新时间窗追加。模拟 `frontend → checkout → payment → db` 调用链：每个 trace 的 span
 //! 与日志共享同一 trace_id，metrics 给出各 service 的时延曲线。
 
 use axum::{Extension, Json, Router, extract::State, routing::post};
+use domain::{
+    iam::{IamContext, permission},
+    intake::{IntakeBatch, RawEvent},
+    stream::StreamType,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        intake::{IntakeBatch, RawEvent},
-        stream::StreamType,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::{AppState, http::middleware::Permission};
 
 const SAMPLE_LOGS: &str = "sample_app_logs";
 const SAMPLE_METRICS: &str = "sample_app_metrics";
@@ -65,6 +62,8 @@ struct LoadResult {
     loaded: bool,
     total_rows: usize,
     streams: Vec<LoadedStream>,
+    dashboard_id: Id,
+    saved_view_ids: Vec<Id>,
 }
 
 /// 探测样例流是否已存在 → 前端 activation 的 `sampleDataAvailable`。
@@ -73,12 +72,26 @@ async fn sample_data_status(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<SampleDataStatus>> {
-    let loaded = state
-        .telemetry
-        .streams
-        .get(&ctx.org_id, SAMPLE_LOGS, StreamType::LOGS)
-        .await
-        .is_ok();
+    for (name, kind) in [
+        (SAMPLE_LOGS, StreamType::LOGS),
+        (SAMPLE_METRICS, StreamType::METRICS),
+        (SAMPLE_TRACES, StreamType::TRACES),
+    ] {
+        match state.telemetry.streams.get(&ctx.org_id, name, kind).await {
+            Ok(_) => {}
+            Err(Error::NotFound(_)) => return Ok(Json(SampleDataStatus { loaded: false })),
+            Err(error) => return Err(error),
+        }
+    }
+
+    let dashboard_ready = match state.dashboard.sample_dashboard(&ctx.org_id).await {
+        Ok(_) => true,
+        Err(Error::NotFound(_)) => false,
+        Err(error) => return Err(error),
+    };
+    let loaded = dashboard_ready
+        && crate::app::onboarding::views_ready(state.platform.saved_view.as_ref(), &ctx.org_id)
+            .await?;
 
     Ok(Json(SampleDataStatus { loaded }))
 }
@@ -88,6 +101,15 @@ async fn load_sample_data(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<LoadResult>> {
+    for key in [
+        "metrics.write",
+        "traces.write",
+        "dashboards.create",
+        "saved_views.create",
+    ] {
+        Permission::require_key(&ctx, key)?;
+    }
+
     let now_us = TimestampMicros::now().0;
 
     let mut streams = Vec::new();
@@ -114,10 +136,23 @@ async fn load_sample_data(
         });
     }
 
+    let dashboard = state
+        .dashboard
+        .install_sample(&ctx.org_id, &ctx.user_id)
+        .await?;
+    let saved_view_ids = crate::app::onboarding::install_views(
+        state.platform.saved_view.as_ref(),
+        &ctx.org_id,
+        &ctx.user_id,
+    )
+    .await?;
+
     Ok(Json(LoadResult {
         loaded: true,
         total_rows,
         streams,
+        dashboard_id: dashboard.id,
+        saved_view_ids,
     }))
 }
 
