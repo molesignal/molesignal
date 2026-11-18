@@ -171,15 +171,13 @@ test.describe('Query tabs split in two', () => {
     expect((await boxOf(halves(page).locator('aside').first())).width).toBeGreaterThan(200);
   });
 
-  test('every explorer splits the same way, from the switch that leads the signs over its results', async ({
-    page,
-  }) => {
-    for (const [explorer, path] of [
-      ['logs', '/logs'],
-      ['traces', '/traces'],
-      ['metrics', '/metrics'],
-      ['rum', '/rum/explorer'],
-    ] as const) {
+  for (const [explorer, path] of [
+    ['logs', '/logs'],
+    ['traces', '/traces'],
+    ['metrics', '/metrics'],
+    ['rum', '/rum/explorer'],
+  ] as const) {
+    test(`${explorer} splits from the switch at the head of its results`, async ({ page }) => {
       await page.goto(path);
       await expect(splitSwitch(page)).toBeVisible();
       expect(await switchLeadsHead(page, RESULTS_HEADS[explorer])).toBe(true);
@@ -196,8 +194,8 @@ test.describe('Query tabs split in two', () => {
       for (const side of [0, 1] as const) {
         expect(await half(page, side).evaluate((element) => element.scrollWidth - element.clientWidth)).toBe(0);
       }
-    }
-  });
+    });
+  }
 
   test('a window too narrow for two halves is not split, and has no switch for it', async ({ page }) => {
     await openSplitLogs(page);
