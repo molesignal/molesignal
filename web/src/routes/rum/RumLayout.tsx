@@ -193,8 +193,9 @@ export function RumDetailPage({
 /**
  * The credit DB-IP's licence asks for on every web page that shows results from
  * its database. The country of a RUM event comes from DB-IP City Lite, so a RUM
- * page that shows one (the explorer, a session) ends with this line. Like the
- * credit at the foot of a public status page, it is the quietest thing on the page.
+ * page that shows one says it at its foot: the explorer in the row of the list's
+ * pages (or under what it draws), a session and the overview under their content.
+ * Like the credit at the foot of a public status page, it is the quietest thing on the page.
  */
 export function RumGeoCredit({ className }: { className?: string }) {
   const { t } = useTranslation('rum');

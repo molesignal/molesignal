@@ -12,11 +12,10 @@ use std::{collections::HashSet, sync::Arc};
 
 use async_trait::async_trait;
 use bytes::Bytes;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use object_store::{ObjectStore, ObjectStoreExt, path::Path as ObjPath};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 mod repository;
 
@@ -649,6 +648,18 @@ mod tests {
                 "contenthash"
             ),
             "blobs/v1/org-1/rum/apphash/session-1/0000000007-contenthash.ndjson.zst"
+        );
+    }
+
+    #[test]
+    fn replay_objects_go_with_their_organization() {
+        let org = Id::from_string("org-1");
+        let key = replay_object_key(&org, "apphash", "session-1", 7, "contenthash");
+
+        assert!(
+            crate::infra::storage::layout::StorageLayout::organization_prefixes(&org)
+                .iter()
+                .any(|prefix| key.starts_with(prefix.as_str()))
         );
     }
 }

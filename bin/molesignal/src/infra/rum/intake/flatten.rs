@@ -7,15 +7,15 @@
 
 use std::{collections::HashMap, sync::LazyLock};
 
+use domain::{
+    rum::event::{RumField, RumStream, field, fields},
+    stream::FieldType,
+};
 use serde_json::{Map, Value};
 
 use super::{
     address,
     convert::{column_value, truncate},
-};
-use crate::domain::{
-    rum::event::{RumField, RumStream, field, fields},
-    stream::FieldType,
 };
 
 #[derive(Default)]
@@ -213,9 +213,7 @@ fn derive_top_script(row: &mut Map<String, Value>) {
         };
 
         let max_len = field(RumStream::LongTasks, column)
-            .map_or(crate::domain::rum::event::DEFAULT_TEXT_LEN, |field| {
-                field.max_len
-            });
+            .map_or(domain::rum::event::DEFAULT_TEXT_LEN, |field| field.max_len);
 
         found.push((
             column.to_string(),
@@ -262,9 +260,7 @@ fn field_len(prefix: &str, name: &str) -> usize {
 
     field(stream, name)
         .filter(|field| field.data_type == FieldType::Utf8)
-        .map_or(crate::domain::rum::event::DEFAULT_TEXT_LEN, |field| {
-            field.max_len
-        })
+        .map_or(domain::rum::event::DEFAULT_TEXT_LEN, |field| field.max_len)
 }
 
 #[cfg(test)]

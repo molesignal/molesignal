@@ -1,4 +1,4 @@
-import { Navigate, type RouteObject, useLocation } from 'react-router-dom';
+import { Navigate, type RouteObject } from 'react-router-dom';
 
 import { FirstOpenablePage } from '@/product/moduleAccess';
 import { QueryTabs } from '@/shell/queryTabs';
@@ -26,10 +26,6 @@ import {
   UploadSourceMaps,
 } from './index';
 import { RUM_PAGES } from './RumLayout';
-import {
-  legacyApmUserExperienceTarget,
-  legacyRumSettingsTarget,
-} from '../apm/compat';
 
 export const RUM_ROUTE_CHILDREN: RouteObject[] = [
   { index: true, element: <FirstOpenablePage paths={RUM_PAGES} /> },
@@ -65,34 +61,4 @@ export const RUM_ROUTE_CHILDREN: RouteObject[] = [
   { path: 'settings/source-maps', element: <SourceMaps /> },
   { path: 'settings/source-maps/upload', element: <UploadSourceMaps /> },
   { path: 'settings/:section', element: <RumSettingsGuide /> },
-  { path: 'source-maps', element: <LegacyRumSettingsRedirect /> },
-  { path: 'upload-source-maps', element: <LegacyRumSettingsRedirect /> },
 ];
-
-export function LegacyApmUserExperienceRedirect() {
-  const location = useLocation();
-  return (
-    <Navigate
-      to={legacyApmUserExperienceTarget(
-        location.pathname,
-        location.search,
-        location.hash,
-      )}
-      replace
-    />
-  );
-}
-
-function LegacyRumSettingsRedirect() {
-  const location = useLocation();
-  return (
-    <Navigate
-      to={legacyRumSettingsTarget(
-        location.pathname,
-        location.search,
-        location.hash,
-      )}
-      replace
-    />
-  );
-}

@@ -8,6 +8,8 @@ use axum::{
     Extension, Json,
     extract::{Query, State},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -17,13 +19,11 @@ use super::{
 };
 use crate::{
     api::AppState,
-    app::iam::IamContext,
-    domain::iam::permission,
     infra::rum::query::{
-        BarPlan, Column, DEFAULT_BARS, Distribution, Filter, MAX_BARS, Scope, Unavailable,
-        bars_sql, bounds_sql, read_bars, read_bounds, single_bar,
+        BarPlan, Column, Distribution, EXACT_PERCENTILES_UP_TO, Filter, MAX_BARS, Scope,
+        Unavailable, bars_for, bars_sql, bounds_sql, exact_percentiles_sql, read_bars, read_bounds,
+        read_exact_percentiles, single_bar,
     },
-    shared::{Error, Result},
 };
 
 #[derive(Debug, Default, Deserialize)]
@@ -129,7 +129,30 @@ async fn distribution(
         Counted::Unavailable(reason) => return Ok(answer(Distribution::default(), Some(reason))),
     };
 
-    let wanted = request.bars.unwrap_or(DEFAULT_BARS).clamp(1, MAX_BARS);
+    // Few rows: the estimates can stand where no value is, so the percentiles are worked out. When
+    // that cannot be done in time, the estimates stay.
+    let bounds = if bounds.rows > 0 && bounds.rows <= EXACT_PERCENTILES_UP_TO {
+        match reader
+            .count(
+                selection.stream,
+                selection.span,
+                exact_percentiles_sql(&scope, &column),
+            )
+            .await?
+        {
+            Counted::Rows(Some(result)) => {
+                read_exact_percentiles(bounds, &result.columns, &result.rows)
+            }
+            Counted::Rows(None) | Counted::Unavailable(_) => bounds,
+        }
+    } else {
+        bounds
+    };
+
+    let wanted = request
+        .bars
+        .unwrap_or_else(|| bars_for(bounds.rows))
+        .clamp(1, MAX_BARS);
 
     let Some(plan) = BarPlan::of(&bounds, &column, wanted) else {
         return Ok(answer(single_bar(bounds), None));

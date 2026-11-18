@@ -12,8 +12,9 @@ import {
   FIELD_FLAT_ROW_CLASS,
   FieldGroup,
 } from '@/shell/query/fields/Group';
-import { fieldTree, fieldTreeSize, type FieldTreeLeaf, type FieldTreeNode } from '@/shell/query/fields/tree';
+import { fieldTree, fieldTreeSize, splitFieldTree, type FieldTreeLeaf } from '@/shell/query/fields/tree';
 import { type FieldTypeTone, FieldTypeChip } from '@/shell/query/fields/TypeChip';
+import { EXPLORER_FOOT_HEIGHT } from '@/shell/query/foot';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shell/ui/tooltip';
 
 import { isRumFieldQueryable } from './fieldQuery';
@@ -84,22 +85,23 @@ export function RumFieldPanel({
     [fields, needle],
   );
   const [expandedField, setExpandedField] = React.useState<string | null>(null);
+  // Every group stands folded until it is opened, on display too.
   const [openGroups, setOpenGroups] = React.useState<ReadonlySet<string>>(() => new Set());
 
   const sections = React.useMemo(() => {
     const shown = new Set(visibleColumns);
-    const part = (keep: (field: RumField) => boolean): FieldTreeNode<RumField>[] => fieldTree(filtered.filter(keep));
+    // Every field is one tree, the columns on display first in their order, then parted: the fields of
+    // one name are listed in one place, the first part any of them belongs to (on display, indexed,
+    // the rest), and the ones on display lead their group.
+    const columns = visibleColumns.flatMap((name) => filtered.filter((field) => field.name === name));
+    const tree = fieldTree([...columns, ...filtered.filter((field) => !shown.has(field.name))]);
+    const [displayed, rest] = splitFieldTree(tree, (field) => shown.has(field.name));
+    const [indexed, other] = splitFieldTree(rest, (field) => field.indexed);
 
     return [
-      // What is on display is a plain list, in the order of the columns: a field keeps its whole name there.
-      {
-        key: 'displayed_fields',
-        nodes: visibleColumns
-          .map((name) => filtered.find((field) => field.name === name))
-          .flatMap((field) => (field ? [{ kind: 'field' as const, field, label: field.name }] : [])),
-      },
-      { key: 'indexed_fields', nodes: part((field) => !shown.has(field.name) && field.indexed) },
-      { key: 'other_fields', nodes: part((field) => !shown.has(field.name) && !field.indexed) },
+      { key: 'displayed_fields', nodes: displayed },
+      { key: 'indexed_fields', nodes: indexed },
+      { key: 'other_fields', nodes: other },
     ] as const;
   }, [filtered, visibleColumns]);
 
@@ -158,7 +160,7 @@ export function RumFieldPanel({
       collapseLabel={t('explorer.fields.collapse')}
       expandLabel={t('explorer.fields.expand')}
       footer={
-        <div className="flex h-11 items-center truncate px-3 font-sans text-xs text-tx-3">
+        <div className={`flex items-center truncate px-3 font-sans text-xs text-tx-3 ${EXPLORER_FOOT_HEIGHT}`}>
           {t('explorer.fields.summary', { shown: filtered.length, total: fields.length })}
         </div>
       }

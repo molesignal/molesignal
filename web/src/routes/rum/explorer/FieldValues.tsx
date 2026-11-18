@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import * as rumApi from '@/api/rum';
 import type { RumField } from '@/api/rum';
+import { useTimeFormatter } from '@/lib/time';
 import { FieldValueList, type FieldValueAction, type FieldValueItem } from '@/shell/query/FieldValues';
 import { Skeleton } from '@/shell/ui/skeleton';
 
@@ -52,6 +53,7 @@ export function RumFieldValuesBlock({
 }: RumFieldValuesBlockProps) {
   const { t } = useTranslation('rum');
   const { t: tCommon } = useTranslation('common');
+  const clock = useTimeFormatter();
   const { orgId, tab, range, parsed, epoch } = source;
 
   const query = useQuery({
@@ -118,7 +120,7 @@ export function RumFieldValuesBlock({
   }
 
   const describe = (value: string) => {
-    const cell = describeCell(field, numberOf(field, value), language);
+    const cell = describeCell(field, numberOf(field, value), language, clock.millis);
     return cell?.text ?? value;
   };
   const top = Math.max(...values.map((item) => item.count));

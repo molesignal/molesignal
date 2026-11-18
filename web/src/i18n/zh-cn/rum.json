@@ -1570,14 +1570,34 @@
       "open_session": "打开会话",
       "close": "关闭详情",
       "loading": "正在加载该行",
-      "stack": "堆栈",
-      "general": "通用",
       "sections": {
-        "aria": "视图的分区",
+        "aria": "详情的分区",
         "waterfall": "加载瀑布",
-        "fields": "属性"
+        "stack": "堆栈",
+        "fields": "字段",
+        "json": "JSON"
       },
-      "failed": "这一行读取失败。"
+      "failed": "这一行读取失败。",
+      "position": "第 {{current}} 行，共 {{total}} 行",
+      "copy_json": "复制这一行的 JSON",
+      "copied_json": "已复制",
+      "replay": "查看回放",
+      "find_field": "查找字段",
+      "no_field_match": "没有匹配的字段",
+      "facts": {
+        "frustrations": "受挫",
+        "email": "邮箱",
+        "os": "系统",
+        "device": "设备",
+        "location": "位置",
+        "application": "应用",
+        "env": "环境",
+        "resources": "资源",
+        "long_tasks": "长任务",
+        "trace": "链路",
+        "issue": "问题",
+        "logger": "记录器"
+      }
     },
     "recovery": {
       "query_failed": "查询失败",

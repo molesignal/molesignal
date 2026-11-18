@@ -73,7 +73,7 @@
       {
         "name": "session.last_activity",
         "dataType": "int64",
-        "unit": "ms",
+        "unit": "epoch_ms",
         "facetable": true,
         "indexed": false
       },
@@ -512,7 +512,7 @@
       {
         "name": "session.start",
         "dataType": "int64",
-        "unit": "ms",
+        "unit": "epoch_ms",
         "facetable": true,
         "indexed": false
       },
@@ -1508,7 +1508,7 @@
       {
         "name": "session.start",
         "dataType": "int64",
-        "unit": "ms",
+        "unit": "epoch_ms",
         "facetable": true,
         "indexed": false
       },
@@ -2226,7 +2226,7 @@
       {
         "name": "session.start",
         "dataType": "int64",
-        "unit": "ms",
+        "unit": "epoch_ms",
         "facetable": true,
         "indexed": false
       },
@@ -2973,7 +2973,7 @@
       {
         "name": "session.start",
         "dataType": "int64",
-        "unit": "ms",
+        "unit": "epoch_ms",
         "facetable": true,
         "indexed": false
       },
@@ -3811,7 +3811,7 @@
       {
         "name": "session.start",
         "dataType": "int64",
-        "unit": "ms",
+        "unit": "epoch_ms",
         "facetable": true,
         "indexed": false
       },
@@ -4472,7 +4472,7 @@
       {
         "name": "session.start",
         "dataType": "int64",
-        "unit": "ms",
+        "unit": "epoch_ms",
         "facetable": true,
         "indexed": false
       },
@@ -5128,7 +5128,7 @@
       {
         "name": "session.start",
         "dataType": "int64",
-        "unit": "ms",
+        "unit": "epoch_ms",
         "facetable": true,
         "indexed": false
       },

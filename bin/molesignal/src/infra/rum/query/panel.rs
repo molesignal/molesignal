@@ -11,6 +11,8 @@
 //!
 //! The aggregate charts are written by [`super::Plan`]; the distribution is written here.
 
+use domain::{rum::event::RumStream, stream::FieldType};
+use kernel::{Error, Result};
 use serde::Serialize;
 
 use super::{
@@ -18,11 +20,7 @@ use super::{
     member::Column,
     sql::{ident, literal},
 };
-use crate::{
-    domain::{rum::event::RumStream, stream::FieldType},
-    infra::query::current_views::CURRENT_VIEWS,
-    shared::{Error, Result},
-};
+use crate::infra::query::current_views::CURRENT_VIEWS;
 
 /// How many bars a distribution is drawn in, as the explorer draws it.
 const DISTRIBUTION_BARS: usize = 40;
@@ -318,6 +316,14 @@ mod tests {
             shown("COUNT(*)", "count"),
             ("COUNT(*)".to_string(), "count")
         );
+
+        // A moment is no duration: it is shown as it is, with no unit after it.
+        assert_eq!(
+            shown("MAX(\"session.last_activity\")", "epoch_ms"),
+            ("MAX(\"session.last_activity\")".to_string(), "epoch_ms")
+        );
+        assert_eq!(suffix("epoch_ms"), "");
+        assert_eq!(suffix("ms"), " || ' ms'");
     }
 
     #[test]

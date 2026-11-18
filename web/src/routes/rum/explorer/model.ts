@@ -111,6 +111,14 @@ export function tableColumns(
   });
 }
 
+/**
+ * Whether a column says when something happened (`session.last_activity`), not how long it took or
+ * how much there was: it is written as the time of a row is, and is not measured.
+ */
+export function isMoment(field: RumField): boolean {
+  return field.unit === 'epoch_ms';
+}
+
 /** What a row is called in a head: the most telling of its columns, else its id. */
 export function rowTitle(tab: RumTab, row: RumRow): string {
   const text = (name: string) => {

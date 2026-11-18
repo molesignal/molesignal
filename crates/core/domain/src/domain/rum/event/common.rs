@@ -17,7 +17,7 @@ pub(super) const COMMON: &[RumField] = &[
     RumField::text("session.id").exact(),
     RumField::text("session.type"),
     RumField::flag("session.has_replay"),
-    RumField::int("session.start").unit(RumUnit::Milliseconds),
+    RumField::epoch_ms("session.start"),
     // What drove a session that no person did: the check and the run of it, or the test.
     RumField::text("synthetics.test_id").exact(),
     RumField::text("synthetics.result_id").exact(),

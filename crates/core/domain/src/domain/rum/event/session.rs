@@ -15,7 +15,7 @@ pub(super) const SESSION: &[RumField] = &[
     RumField::text("synthetics.location_id"),
     RumField::text("ci_test.test_execution_id").exact(),
     RumField::flag("session.has_replay"),
-    RumField::int("session.last_activity").unit(RumUnit::Milliseconds),
+    RumField::epoch_ms("session.last_activity"),
     RumField::ns("session.duration"),
     RumField::count("session.view.count"),
     RumField::count("session.action.count"),

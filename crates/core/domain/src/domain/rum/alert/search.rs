@@ -5,14 +5,12 @@
 //! matches, as the explorer asks for it. The query is kept as it was written, for people to read
 //! and change, and as the filters and words it was read into, which are what is evaluated.
 
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    domain::{
-        rum::event::{RumStream, RumUnit, field},
-        stream::FieldType,
-    },
-    shared::{Error, Result},
+use crate::domain::{
+    rum::event::{RumStream, RumUnit, field},
+    stream::FieldType,
 };
 
 /// As many filters and words as the explorer takes.
@@ -138,7 +136,8 @@ impl RumAlertSearch {
         matches!(self.measure.function.as_str(), "count" | "count_distinct")
     }
 
-    /// The unit the number is in, as rule pages say it: a duration in milliseconds.
+    /// The unit the number is in, as rule pages say it: a duration in milliseconds. A moment is no
+    /// amount of anything, and has none.
     pub fn unit(&self) -> &'static str {
         if self.counts() {
             return "count";
@@ -157,7 +156,9 @@ impl RumAlertSearch {
             RumUnit::Score => "score",
             RumUnit::Bytes => "bytes",
             RumUnit::Count => "count",
-            RumUnit::None | RumUnit::PerSecond | RumUnit::Pixels => "none",
+            RumUnit::None | RumUnit::EpochMilliseconds | RumUnit::PerSecond | RumUnit::Pixels => {
+                "none"
+            }
         }
     }
 
@@ -358,6 +359,9 @@ mod tests {
             "milliseconds"
         );
         assert!(search("views", "p75", Some("view.loading_time")).in_nanoseconds());
+        // When the session began is a moment, not an amount of milliseconds.
+        assert_eq!(search("views", "max", Some("session.start")).unit(), "none");
+        assert!(!search("views", "max", Some("session.start")).in_nanoseconds());
         assert_eq!(
             search("views", "avg", Some("view.performance.cls.score")).unit(),
             "score"

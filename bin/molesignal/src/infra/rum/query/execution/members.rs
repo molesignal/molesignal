@@ -6,8 +6,9 @@
 
 use super::{aggregates::run, *};
 use crate::infra::rum::query::{
-    AggregateSpec, BarPlan, Column, MeasureSpec, Plan, bars_sql, bounds_sql, clicks_sql, keys_sql,
-    people_only, read_bars, read_bounds, read_clicks, read_scroll, scroll_sql,
+    AggregateSpec, BarPlan, Column, MeasureSpec, Plan, bars_sql, bounds_sql, clicks_sql,
+    exact_percentiles_sql, keys_sql, people_only, read_bars, read_bounds, read_clicks,
+    read_exact_percentiles, read_scroll, scroll_sql,
 };
 
 fn flagged(id: &'static str, flags: &'static str, ms: i64) -> Written {
@@ -306,4 +307,32 @@ async fn a_number_falls_into_bars_from_its_smallest_value_and_the_last_takes_wha
     assert_eq!(read.bars.iter().map(|bar| bar.rows).sum::<u64>(), 4);
     assert_eq!(read.bars[0].rows, 2);
     assert_eq!(read.bars[1].to, 300_000_000.0);
+}
+
+#[tokio::test]
+async fn the_percentiles_of_few_rows_are_worked_out_exactly() {
+    let context = context(
+        RumStream::Views,
+        &[
+            flagged("a", "{}", 100),
+            flagged("b", "{}", 100),
+            flagged("c", "{}", 200),
+            flagged("d", "{}", 300),
+        ],
+    );
+
+    let column = Column::resolve(RumStream::Views, "view.loading_time")
+        .unwrap()
+        .unwrap();
+
+    let scoped = scope(RumStream::Views, &[]);
+    let (columns, rows) = run(&context, &bounds_sql(&scoped, &column)).await;
+    let bounds = read_bounds(&columns, &rows);
+    let (columns, rows) = run(&context, &exact_percentiles_sql(&scoped, &column)).await;
+    let exact = read_exact_percentiles(bounds, &columns, &rows);
+
+    // Between the values on either side, as a person would read it off the sorted list.
+    assert_eq!(exact.rows, 4);
+    assert_eq!(exact.p50, Some(150_000_000.0));
+    assert_eq!(exact.p75, Some(225_000_000.0));
 }

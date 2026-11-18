@@ -13,6 +13,9 @@ pub enum RumUnit {
     None,
     Nanoseconds,
     Milliseconds,
+    /// A moment, in milliseconds since the Unix epoch: when something happened, not how long it
+    /// took. A page writes it as a date and a time.
+    EpochMilliseconds,
     Bytes,
     Count,
     Score,
@@ -27,6 +30,7 @@ impl RumUnit {
             Self::None => "none",
             Self::Nanoseconds => "ns",
             Self::Milliseconds => "ms",
+            Self::EpochMilliseconds => "epoch_ms",
             Self::Bytes => "bytes",
             Self::Count => "count",
             Self::Score => "score",
@@ -85,6 +89,11 @@ impl RumField {
         Self::of(name, FieldType::Int64).unit(RumUnit::Nanoseconds)
     }
 
+    /// A moment, in milliseconds since the Unix epoch.
+    pub const fn epoch_ms(name: &'static str) -> Self {
+        Self::of(name, FieldType::Int64).unit(RumUnit::EpochMilliseconds)
+    }
+
     /// A counter that only grows.
     pub const fn count(name: &'static str) -> Self {
         Self::of(name, FieldType::Int64).unit(RumUnit::Count)
@@ -132,10 +141,8 @@ impl RumField {
             name: self.name.to_string(),
             data_type: self.data_type,
             nullable: true,
-            index_type: Some(self.index),
-            indexed: self.index != StreamIndexType::None,
+            index_type: self.index,
             encrypted: false,
-            exact: self.index == StreamIndexType::Exact,
         }
     }
 }
@@ -155,12 +162,19 @@ mod tests {
     }
 
     #[test]
+    fn a_moment_is_told_apart_from_a_duration() {
+        const MOMENT: RumField = RumField::epoch_ms("session.last_activity");
+
+        assert_eq!(MOMENT.data_type, FieldType::Int64);
+        assert_eq!(MOMENT.unit, RumUnit::EpochMilliseconds);
+        assert_eq!(MOMENT.unit.as_str(), "epoch_ms");
+    }
+
+    #[test]
     fn exact_columns_become_exact_indexes() {
         let def = RumField::text("session.id").exact().field_def();
 
-        assert!(def.indexed);
-        assert!(def.exact);
-        assert_eq!(def.effective_index_type(), StreamIndexType::Exact);
+        assert_eq!(def.index_type, StreamIndexType::Exact);
     }
 
     #[test]

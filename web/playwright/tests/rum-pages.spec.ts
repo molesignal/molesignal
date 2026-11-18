@@ -93,6 +93,8 @@ test.describe('RUM explorer', () => {
     const rows = page.locator('[data-rum-row]');
     await expect(rows).toHaveCount(SESSIONS.length);
 
+    // `browser.name` is one of the fields of `browser`, folded under its group until it is opened.
+    await page.locator('[data-field-group="browser"] > button').click();
     await page.locator('[data-rum-field="browser.name"]').first().getByRole('button', { expanded: false }).first().click();
     const values = page.locator('[data-rum-field-values="browser.name"]');
     // The values are counted over the rows the query matches.

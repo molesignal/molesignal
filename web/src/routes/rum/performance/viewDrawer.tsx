@@ -1,7 +1,7 @@
 import * as React from 'react';
 
 import { type OpenView } from './openView';
-import { RumDetailDrawer, type RumDrawerState } from '../explorer/Drawer';
+import { RumDetailDrawer, type RumDrawerState } from '../explorer/drawer';
 import { useRumSchema } from '../explorer/useRumSchema';
 
 /** How long before the thing that led here a view is looked for: a day, which no page load outlasts. */

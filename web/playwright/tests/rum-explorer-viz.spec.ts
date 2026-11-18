@@ -85,7 +85,14 @@ test.describe('RUM explorer: the rows drawn as numbers', () => {
 
     await page.locator('[data-rum-viz="timeseries"]').click();
     await expect(page).toHaveURL(/[?&]viz=timeseries/);
-    await expect(page.locator('[data-rum-aggregate="timeseries"]')).toBeVisible();
+    // What is counted stands in the head of the results, before the ways of drawing them: the query's card
+    // takes no row for it.
+    const head = page.locator('[data-rum-results-head]');
+    const counted = head.locator('[data-rum-aggregate="timeseries"]');
+    await expect(counted).toBeVisible();
+    await expect(page.locator('[data-query-workbench-appearance] [data-rum-aggregate]')).toHaveCount(0);
+    const [countedBox, switchBox] = await Promise.all([counted.boundingBox(), head.locator('[data-rum-viz-switch]').boundingBox()]);
+    expect(countedBox!.x + countedBox!.width).toBeLessThanOrEqual(switchBox!.x);
     await expect(page.getByTestId('time-series-chart')).toBeVisible();
     await expect(rows).toHaveCount(0);
 
@@ -329,8 +336,9 @@ test.describe('RUM explorer: the rows drawn as numbers, in Chinese', () => {
     await mountMockRoutes(page, mockServer.port, { preferences: { language: 'zh-cn' } });
     await open(page, `/rum/explorer?type=views&viz=timeseries&m=p75:${LCP}&by=view.url_path_group`);
 
-    await expect(page.locator('[data-rum-results-head]')).toContainText('可视化为');
-    await expect(page.locator('[data-rum-viz="toplist"]')).toHaveText('Top 列表');
+    // The ways of drawing are icons: the row and each icon name themselves.
+    await expect(page.locator('[data-rum-results-head]').getByRole('group', { name: '可视化为' })).toBeVisible();
+    await expect(page.locator('[data-rum-viz="toplist"]')).toHaveAccessibleName('Top 列表');
     await expect(page.locator('[data-rum-aggregate]')).toContainText('时间桶');
     await expect(status(page)).toContainText('每点');
   });

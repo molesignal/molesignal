@@ -1570,14 +1570,34 @@
       "open_session": "Open the session",
       "close": "Close the details",
       "loading": "Loading the row",
-      "stack": "Stack",
-      "general": "General",
       "sections": {
-        "aria": "Sections of the view",
+        "aria": "Sections of the details",
         "waterfall": "Load waterfall",
-        "fields": "Fields"
+        "stack": "Stack",
+        "fields": "Fields",
+        "json": "JSON"
       },
-      "failed": "This row could not be read."
+      "failed": "This row could not be read.",
+      "position": "Row {{current}} of {{total}}",
+      "copy_json": "Copy the row as JSON",
+      "copied_json": "Copied",
+      "replay": "Watch the replay",
+      "find_field": "Find a field",
+      "no_field_match": "No field matches",
+      "facts": {
+        "frustrations": "Frustrations",
+        "email": "Email",
+        "os": "OS",
+        "device": "Device",
+        "location": "Location",
+        "application": "Application",
+        "env": "Environment",
+        "resources": "Resources",
+        "long_tasks": "Long tasks",
+        "trace": "Trace",
+        "issue": "Issue",
+        "logger": "Logger"
+      }
     },
     "recovery": {
       "query_failed": "The query failed",

@@ -1,7 +1,7 @@
 import type { RumAggregateParams, RumField, RumFilter, RumMeasureFn, RumQuery } from '@/api/rum';
 import { alignDown, alignUp, binWidthFor, type HistogramRange } from '@/shell/query/histogram/model';
 
-import type { RumTab } from '../model';
+import { isMoment, type RumTab } from '../model';
 import type { RumChart, RumVizAddress } from './address';
 
 /** The field the map is drawn by: every type of row carries where its client was. */
@@ -43,7 +43,8 @@ export function isAdditive(fn: RumMeasureFn): boolean {
   return fn === 'count' || fn === 'count_distinct' || fn === 'sum';
 }
 
-const isNumber = (field: RumField) => field.dataType === 'int64' || field.dataType === 'float64';
+/** A number that can be summed and spread into bars: a moment is a when, not a how much. */
+const isNumber = (field: RumField) => (field.dataType === 'int64' || field.dataType === 'float64') && !isMoment(field);
 
 /** The fields a function can take: none for `count`, any with values for `count_distinct`, a number for the rest. */
 export function measureFields(fn: RumMeasureFn, fields: readonly RumField[]): RumField[] {
@@ -62,7 +63,8 @@ export function groupFields(fields: readonly RumField[]): RumField[] {
     (field) =>
       field.facetable &&
       (field.dataType === 'utf8' || field.dataType === 'bool' || field.dataType === 'int64') &&
-      !MEASUREMENT_UNITS.has(field.unit),
+      !MEASUREMENT_UNITS.has(field.unit) &&
+      !isMoment(field),
   );
 }
 
@@ -109,7 +111,7 @@ const DEFAULT_NUMBER: Record<RumTab, string> = {
   logs: 'display.viewport.width',
 };
 
-/** The fields a distribution can be of: numbers. */
+/** The fields a distribution can be of: numbers, and no moment. */
 export function numberFields(fields: readonly RumField[]): RumField[] {
   return fields.filter(isNumber);
 }

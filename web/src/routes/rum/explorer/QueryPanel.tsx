@@ -49,8 +49,6 @@ interface RumQueryPanelProps {
   savedViews: React.ReactNode;
   /** What is drawn, put on a dashboard or watched by an alert rule. */
   exports?: React.ReactNode;
-  /** The row under the query that says what is counted of its rows, when they are drawn as numbers. */
-  aggregation?: React.ReactNode;
 }
 
 /** The bar over the explorer: the types, the query and what is done with it, the query tabs in the query's box. */
@@ -76,7 +74,6 @@ export function RumQueryPanel({
   shareSearch,
   savedViews,
   exports,
-  aggregation,
 }: RumQueryPanelProps) {
   const { t } = useTranslation('rum');
   const { t: tCommon } = useTranslation('common');
@@ -101,8 +98,6 @@ export function RumQueryPanel({
       // Right under the module's tabs, which keep the room every RUM page has under them.
       className="shrink-0"
       inlineBody={collapsed}
-      // The slot under the query: a row of its own there, for what is counted of what it finds.
-      notice={aggregation}
       // No title row on this page: the bar carries the name and the row goes to the data.
       title={<WorkbenchTitle title={t('explorer.title')} />}
       toolbar={
@@ -112,7 +107,6 @@ export function RumQueryPanel({
             activeId={tab}
             onChange={onTabChange}
             tone="indigo"
-            selectionStyle="underline"
           />
           <QueryModeSwitch mode={editorMode} onChange={onEditorModeChange} />
           <QuerySyntaxHelp

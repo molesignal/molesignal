@@ -5,27 +5,25 @@
 //! list, its column picker and its filters from.
 
 use axum::{Extension, Json, extract::Path};
+use domain::{
+    iam::{IamContext, permission},
+    rum::event::{RumStream, fields},
+    stream::{FieldType, StreamIndexType},
+};
+use kernel::Result;
 use serde::Serialize;
 
 use super::selection::stream_of;
-use crate::{
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        rum::event::{RumStream, fields},
-        stream::{FieldType, StreamIndexType},
-    },
-    infra::rum::query::{default_columns, is_facetable, is_internal},
-    shared::Result,
-};
+use crate::infra::rum::query::{default_columns, is_facetable, is_internal};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct SchemaField {
     name: &'static str,
     data_type: FieldType,
-    /// `ns`, `ms`, `bytes`, `count`, `score`, `percent`, `per_second`, `px` or `none`. A duration
-    /// is stored in the nanoseconds the SDK sent; the page formats it by this.
+    /// `ns`, `ms`, `epoch_ms`, `bytes`, `count`, `score`, `percent`, `per_second`, `px` or `none`.
+    /// A duration is stored in the nanoseconds the SDK sent, a moment (`epoch_ms`) in milliseconds
+    /// since the Unix epoch; the page formats it by this.
     unit: &'static str,
     /// Its values can be counted; a JSON document has none to count.
     facetable: bool,
@@ -113,6 +111,24 @@ mod tests {
             .expect("session id");
 
         assert!(session.indexed);
+    }
+
+    #[test]
+    fn a_moment_is_said_to_be_one_and_not_a_duration() {
+        let unit = |stream: RumStream, name: &str| {
+            describe(stream)
+                .fields
+                .iter()
+                .find(|column| column.name == name)
+                .map(|column| column.unit)
+        };
+
+        assert_eq!(
+            unit(RumStream::Sessions, "session.last_activity"),
+            Some("epoch_ms")
+        );
+        assert_eq!(unit(RumStream::Views, "session.start"), Some("epoch_ms"));
+        assert_eq!(unit(RumStream::Sessions, "session.duration"), Some("ns"));
     }
 
     #[test]

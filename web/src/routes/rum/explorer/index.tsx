@@ -16,7 +16,6 @@ import { useAuthStore } from '@/stores/auth';
 import { resolveWindow, type TimeWindow } from '@/stores/useTimeStore';
 
 import { rumDocumentationUrl } from '../documentation';
-import { RumGeoCredit } from '../RumLayout';
 import { rumQueryCompletions } from './completions';
 import { RumAddToDashboard } from './export/AddToDashboard';
 import { rumAlertPlan } from './export/alertSource';
@@ -397,9 +396,6 @@ function RumExplorerPage() {
             <RumNewAlert plan={alertPlan} tab={tab} ready={schema.isSuccess} />
           </>
         }
-        aggregation={
-          viz.spec ? <RumAggregateRow spec={viz.spec} fields={fields} range={viz.range} onChange={viz.onSettingsChange} /> : null
-        }
       />
 
       {/* The workspace fills the remaining viewport. The result pane owns its scrolling so an empty
@@ -420,6 +416,9 @@ function RumExplorerPage() {
           arranged={columns.arranged}
           onResetColumns={columns.reset}
           vizSwitch={<RumVizSwitch viz={viz.viz} canMap={viz.canMap} onChange={viz.onVizChange} />}
+          vizControls={
+            viz.spec ? <RumAggregateRow spec={viz.spec} fields={fields} range={viz.range} onChange={viz.onSettingsChange} /> : null
+          }
           vizBody={
             listInFront ? null : schema.isError ? (
               // Without the fields of the type there is nothing to ask for.
@@ -451,8 +450,6 @@ function RumExplorerPage() {
           onExport={exportList}
         />
       </div>
-      {/* Every row says where its client was: the lookup's source is credited under them. */}
-      <RumGeoCredit className="shrink-0 px-[var(--pane-gutter-start,20px)] py-[4px]" />
     </div>
   );
 }

@@ -8,6 +8,7 @@
 //! Two statements: the first finds where the bars lie and the percentiles that mark them, the second
 //! counts the rows of each bar. The rows are counted as they are stored, without estimates.
 
+use domain::stream::FieldType;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -15,11 +16,23 @@ use super::{
     member::Column,
     sql::{Relation, Scope},
 };
-use crate::domain::stream::FieldType;
 
-/// How many bars a question gets unless it says, and the most it can ask for.
+/// The most bars a question gets unless it says, and the most it can ask for.
 pub const DEFAULT_BARS: usize = 40;
 pub const MAX_BARS: usize = 100;
+
+/// Up to how many rows the percentiles are worked out exactly. Past it the estimate stands: it is
+/// close at that size, and the exact figure keeps every value in memory.
+pub const EXACT_PERCENTILES_UP_TO: u64 = 100_000;
+
+/// How many bars the rows of a question fill unless it says: twice the cube root of the rows (the
+/// Rice rule), so that three values make three bars and not two slivers at the ends of forty. From
+/// 8,000 rows on, `DEFAULT_BARS`.
+pub fn bars_for(rows: u64) -> usize {
+    let bars = (2.0 * (rows as f64).cbrt()).ceil() as usize;
+
+    bars.clamp(1, DEFAULT_BARS)
+}
 
 const ROWS: &str = "__rows";
 const LOW: &str = "__low";
@@ -51,27 +64,61 @@ pub struct Distribution {
     pub bars: Vec<DistributionBar>,
 }
 
-/// Where the bars lie: read by the first statement.
+/// The four percentiles that mark the bars, by `function` of DataFusion.
+fn percentiles(function: &str, value: &str) -> String {
+    [(0.5, P50), (0.75, P75), (0.95, P95), (0.99, P99)]
+        .map(|(at, name)| format!("{function}({at}) WITHIN GROUP (ORDER BY {value}) AS \"{name}\""))
+        .join(", ")
+}
+
+/// Where the bars lie: read by the first statement, with the percentiles estimated.
 pub fn bounds_sql(scope: &Scope<'_>, column: &Column) -> String {
     let relation = Relation::of(scope, &[column.stored_name()]);
     let value = column.number();
     let present = [format!("{value} IS NOT NULL")];
 
-    let percentile = |at: f64, name: &str| {
-        format!("approx_percentile_cont({at}) WITHIN GROUP (ORDER BY {value}) AS \"{name}\"")
-    };
-
     format!(
         "{}SELECT COUNT({value}) AS \"{ROWS}\", MIN({value}) AS \"{LOW}\", MAX({value}) AS \"{TOP}\", \
-         {}, {}, {}, {} FROM {} WHERE {}",
+         {} FROM {} WHERE {}",
         relation.with,
-        percentile(0.5, P50),
-        percentile(0.75, P75),
-        percentile(0.95, P95),
-        percentile(0.99, P99),
+        percentiles("approx_percentile_cont", &value),
         relation.from,
         relation.where_clause(&present),
     )
+}
+
+/// The percentiles worked out exactly, for a question of few rows. The estimate of the first
+/// statement can fall where no value is: 25.5, 38.5, 51.5 and 51.5 seconds made a median of 48.25.
+pub fn exact_percentiles_sql(scope: &Scope<'_>, column: &Column) -> String {
+    let relation = Relation::of(scope, &[column.stored_name()]);
+    let value = column.number();
+    let present = [format!("{value} IS NOT NULL")];
+
+    format!(
+        "{}SELECT {} FROM {} WHERE {}",
+        relation.with,
+        percentiles("percentile_cont", &value),
+        relation.from,
+        relation.where_clause(&present),
+    )
+}
+
+/// The exact percentiles in place of the estimates; an estimate stays where none came back.
+pub fn read_exact_percentiles(
+    mut found: Distribution,
+    columns: &[String],
+    rows: &[Vec<Value>],
+) -> Distribution {
+    let Some(row) = rows.first() else {
+        return found;
+    };
+
+    found.p50 = number(columns, row, P50).or(found.p50);
+    found.p75 = number(columns, row, P75).or(found.p75);
+    found.p95 = number(columns, row, P95).or(found.p95);
+    found.p99 = number(columns, row, P99).or(found.p99);
+
+    found
 }
 
 fn number(columns: &[String], row: &[Value], name: &str) -> Option<f64> {
@@ -208,13 +255,11 @@ pub fn single_bar(mut found: Distribution) -> Distribution {
 
 #[cfg(test)]
 mod tests {
+    use domain::rum::event::RumStream;
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        domain::rum::event::RumStream,
-        infra::rum::query::{Condition, member::resolved},
-    };
+    use crate::infra::rum::query::{Condition, member::resolved};
 
     fn scope<'a>(stream: RumStream, conditions: &'a [Condition]) -> Scope<'a> {
         Scope {
@@ -327,6 +372,34 @@ mod tests {
             }]
         );
         assert!(single_bar(Distribution::default()).bars.is_empty());
+    }
+
+    #[test]
+    fn the_rows_say_how_many_bars_they_fill() {
+        assert_eq!(bars_for(0), 1);
+        assert_eq!(bars_for(3), 3);
+        assert_eq!(bars_for(96), 10);
+        assert_eq!(bars_for(8_000), DEFAULT_BARS);
+        assert_eq!(bars_for(5_000_000), DEFAULT_BARS);
+    }
+
+    #[test]
+    fn few_rows_have_their_percentiles_worked_out() {
+        let column = resolved(RumStream::Resources, "resource.duration").unwrap();
+        let sql = exact_percentiles_sql(&scope(RumStream::Resources, &[]), &column);
+
+        assert!(sql.contains("percentile_cont(0.5) WITHIN GROUP"), "{sql}");
+        assert!(!sql.contains("approx_"), "{sql}");
+
+        let read = read_exact_percentiles(
+            found(1.0, 9.0, 10.0),
+            &["__p50".to_string()],
+            &[vec![json!(5.0)]],
+        );
+
+        // What came back takes the estimate's place; what did not leaves it.
+        assert_eq!(read.p50, Some(5.0));
+        assert_eq!(read.p99, Some(9.0));
     }
 
     #[test]

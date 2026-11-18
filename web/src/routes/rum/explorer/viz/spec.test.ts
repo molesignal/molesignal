@@ -15,6 +15,7 @@ import {
   measureName,
   measureOfToken,
   measureToken,
+  numberFields,
   resolveVizSpec,
   vizRequest,
 } from './spec';
@@ -63,6 +64,23 @@ describe('the fields a measure and a group can take', () => {
       'view.error.count',
       'session.id',
     ]);
+  });
+
+  it('neither measures, groups nor spreads a moment: when a session was last active is no amount', () => {
+    const lastActive = field('session.last_activity', 'int64', 'epoch_ms');
+    const fields = [...FIELDS, lastActive];
+
+    expect(measureFields('max', fields)).not.toContainEqual(lastActive);
+    expect(groupFields(fields)).not.toContainEqual(lastActive);
+    expect(numberFields(fields).map((entry) => entry.name)).toEqual([
+      'view.performance.lcp.timestamp',
+      'view.error.count',
+      'view.performance.cls.score',
+    ]);
+    expect(measureOfToken('max:session.last_activity', fields)).toBeNull();
+    expect(resolveVizSpec('distribution', asked('field=session.last_activity'), 'sessions', fields).field).toBe(
+      'view.performance.lcp.timestamp',
+    );
   });
 
   it('opens a ranking on what the type is most often ranked by, else on a common field', () => {

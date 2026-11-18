@@ -56,8 +56,8 @@ test.describe('RUM view drawer: the load waterfall', () => {
     await expect(drawer(page).getByText('Checkout', { exact: true }).first()).toBeVisible();
     expect((await drawer(page).boundingBox())!.width).toBeGreaterThan(900);
 
-    await sections.getByRole('button', { name: 'Fields' }).click();
-    await expect(drawer(page).locator('[data-rum-field-group]').first()).toBeVisible();
+    await sections.getByRole('button', { name: /^Fields/ }).click();
+    await expect(drawer(page).locator('[data-rum-drawer-fields]')).toBeVisible();
     await expect(drawer(page).locator('[data-rum-waterfall]')).toHaveCount(0);
 
     await sections.getByRole('button', { name: 'Load waterfall' }).click();
@@ -229,8 +229,9 @@ test.describe('RUM view drawer: the load waterfall', () => {
   test('has no waterfall for a screen of an app, which has no page to load', async ({ page }) => {
     await openView(page, SCREEN);
 
-    await expect(drawer(page).locator('[data-rum-field-group]').first()).toBeVisible();
-    await expect(drawer(page).locator('[data-rum-drawer-sections]')).toHaveCount(0);
+    // It opens on its fields; of the sections, none is a load.
+    await expect(drawer(page).locator('[data-rum-drawer-fields]')).toBeVisible();
+    await expect(drawer(page).locator('[data-rum-drawer-sections]')).not.toContainText('Load waterfall');
     await expect(drawer(page).locator('[data-rum-waterfall]')).toHaveCount(0);
   });
 
@@ -253,7 +254,7 @@ test.describe('RUM view drawer in Chinese', () => {
     const sections = drawer(page).locator('[data-rum-drawer-sections]');
 
     await expect(sections).toContainText('加载瀑布');
-    await expect(sections).toContainText('属性');
+    await expect(sections).toContainText('字段');
     await expect(drawer(page).locator('[data-rum-waterfall-sentence]')).toContainText(`这次浏览 ${duration((CHECKOUT['view.loading_time'] as number) / 1_000_000)} 加载完`);
     await expect(drawer(page).locator('[data-rum-waterfall-lane]')).toContainText('主线程');
     await expect(drawer(page).locator('[data-rum-waterfall-late]')).toContainText('个资源在页面加载之后才发起');

@@ -51,10 +51,8 @@ pub fn stream_schema(stream: RumStream) -> Schema {
         name: EVENT_ID_FIELD.to_string(),
         data_type: FieldType::Utf8,
         nullable: true,
-        index_type: Some(StreamIndexType::Exact),
-        indexed: true,
+        index_type: StreamIndexType::Exact,
         encrypted: false,
-        exact: true,
     }];
 
     fields.extend(self::fields(stream).iter().map(RumField::field_def));
@@ -67,6 +65,7 @@ mod tests {
     use std::collections::HashSet;
 
     use super::*;
+    use crate::domain::rum::event::RumUnit;
 
     #[test]
     fn column_names_are_unique_within_a_stream() {
@@ -154,5 +153,31 @@ mod tests {
 
             assert_eq!(field.index, StreamIndexType::Exact, "{name}");
         }
+    }
+
+    #[test]
+    fn the_moments_of_a_session_are_moments_and_not_durations() {
+        let unit = |stream: RumStream, name: &str| field(stream, name).map(|field| field.unit);
+
+        assert_eq!(
+            unit(RumStream::Sessions, "session.last_activity"),
+            Some(RumUnit::EpochMilliseconds)
+        );
+
+        for stream in RumStream::ALL {
+            if stream != RumStream::Sessions {
+                assert_eq!(
+                    unit(stream, "session.start"),
+                    Some(RumUnit::EpochMilliseconds),
+                    "{stream:?}"
+                );
+            }
+        }
+
+        // How long after the app started is a duration all the same.
+        assert_eq!(
+            unit(RumStream::Errors, "error.time_since_app_start"),
+            Some(RumUnit::Milliseconds)
+        );
     }
 }

@@ -24,16 +24,20 @@ import {
   topChoices,
 } from './spec';
 
+// `sm:h-8` too: the select's own `sm:h-9` would stand it 4px over the pickers beside it from 640px up.
 const SELECT =
-  'h-8 border-0 bg-[var(--control-surface)] px-2.5 text-xs text-tx-0 hover:bg-bg-3 focus-visible:bg-bg-3 data-[state=open]:bg-bg-3';
+  'h-8 sm:h-8 border-0 bg-[var(--control-surface)] px-2.5 text-xs text-tx-0 hover:bg-bg-3 focus-visible:bg-bg-3 data-[state=open]:bg-bg-3';
+/** A picker and the button that takes it away: they wrap onto a new line together. */
+const PAIR = 'flex items-center gap-[6px]';
 const REMOVE =
   'grid h-8 w-6 shrink-0 place-items-center rounded-md text-tx-3 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 focus-visible:text-tx-0 focus-visible:outline-none';
 const AUTO = 'auto';
 
 /**
- * The row under the query that says what is counted of the rows it matches: the number (a
- * function of a field), the groups the rows are told apart in, how long a bar of time is, and how
- * many groups are drawn. Each change is made at once, and written to the address.
+ * What is counted of the rows the query matches, in the head of the results before the ways of
+ * drawing them: the number (a function of a field), the groups the rows are told apart in, how
+ * long a bar of time is, and how many groups are drawn. Each change is made at once, and written to
+ * the address. Where the head is narrow, the controls wrap onto lines of their own, to its end.
  */
 export function RumAggregateRow({
   spec,
@@ -82,7 +86,7 @@ export function RumAggregateRow({
   // A distribution is of one number: there is nothing to count it by, and nothing to group.
   if (viz === 'distribution') {
     return (
-      <div data-rum-aggregate={viz} role="group" aria-label={t('explorer.viz.aggregate')} className="flex flex-wrap items-center gap-[6px]">
+      <div data-rum-aggregate={viz} role="group" aria-label={t('explorer.viz.aggregate')} className="flex min-w-0 flex-wrap items-center justify-end gap-[6px]">
         <FieldPicker
           fields={numberFields(fields)}
           value={spec.field}
@@ -96,9 +100,9 @@ export function RumAggregateRow({
   }
 
   return (
-    <div data-rum-aggregate={viz} role="group" aria-label={t('explorer.viz.aggregate')} className="flex flex-wrap items-center gap-[6px]">
+    <div data-rum-aggregate={viz} role="group" aria-label={t('explorer.viz.aggregate')} className="flex min-w-0 flex-wrap items-center justify-end gap-[6px]">
       {spec.measures.map((measure, index) => (
-        <React.Fragment key={`${measure.fn}:${measure.field ?? ''}`}>
+        <span key={`${measure.fn}:${measure.field ?? ''}`} className={PAIR}>
           <MeasurePicker
             measure={measure}
             fields={fields}
@@ -118,7 +122,7 @@ export function RumAggregateRow({
               <X aria-hidden="true" className="h-3 w-3" />
             </button>
           )}
-        </React.Fragment>
+        </span>
       ))}
       {spec.measures.length < MAX_MEASURES[viz] && (
         <MeasurePicker
@@ -144,7 +148,7 @@ export function RumAggregateRow({
       ) : (
         <>
           {spec.groups.map((group, index) => (
-            <React.Fragment key={group}>
+            <span key={group} className={PAIR}>
               <FieldPicker
                 // The other groups are not offered again: a field is grouped by once.
                 fields={groupable.filter((field) => field.name === group || !spec.groups.includes(field.name))}
@@ -159,7 +163,7 @@ export function RumAggregateRow({
                   <X aria-hidden="true" className="h-3 w-3" />
                 </button>
               )}
-            </React.Fragment>
+            </span>
           ))}
           {spec.groups.length < MAX_GROUPS[viz] && (
             <FieldPicker

@@ -17,11 +17,15 @@ export type RumType =
 
 export type RumFieldType = 'bool' | 'int64' | 'float64' | 'utf8' | 'timestamp' | 'json';
 
-/** What a column is measured in. A duration is stored in the nanoseconds the SDK sent. */
+/**
+ * What a column is measured in. A duration is stored in the nanoseconds the SDK sent; a moment
+ * (`epoch_ms`) in milliseconds since the Unix epoch.
+ */
 export type RumUnit =
   | 'none'
   | 'ns'
   | 'ms'
+  | 'epoch_ms'
   | 'bytes'
   | 'count'
   | 'score'

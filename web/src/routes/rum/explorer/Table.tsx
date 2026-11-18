@@ -7,7 +7,7 @@ import { gridMinWidth } from '@/routes/apm/frame/gridWidth';
 import { cn } from '@/shell/lib/cn';
 import { LONG_LIST_ROW_CLASS, longListRowStyle } from '@/shell/list/longList';
 
-import { columnLayout, RumCell } from './cells';
+import { columnLayout, isLengthColumn, RumCell, TIME_TRACK, type WriteMoment } from './cells';
 import { columnLabel } from './labels';
 import { isTroubled, type RumTab, rowId } from './model';
 
@@ -15,13 +15,12 @@ import { isTroubled, type RumTab, rowId } from './model';
 const ROW_HEIGHT = 32;
 const ROW_STYLE = { minHeight: ROW_HEIGHT, ...longListRowStyle(ROW_HEIGHT - 1) };
 
-/** When a row happened is the first column of every type. */
-const TIME_TRACK = 'minmax(150px, 0.9fr)';
-
 interface Clock {
   tz: string;
   format: ReturnType<typeof useTimeFormatter>['format'];
   dateFormat: ReturnType<typeof useTimeFormatter>['dateFormat'];
+  /** A moment a column holds, written as the time of the row is. */
+  millis: WriteMoment;
 }
 
 interface RumTableProps {
@@ -44,10 +43,25 @@ export function RumTable({ tab, columns, rows, openId, onOpen, empty }: RumTable
   const { t, i18n } = useTranslation('rum');
   const fmt = useTimeFormatter();
   const clock = React.useMemo<Clock>(
-    () => ({ tz: fmt.tz, format: fmt.format, dateFormat: fmt.dateFormat }),
+    () => ({
+      tz: fmt.tz,
+      format: fmt.format,
+      dateFormat: fmt.dateFormat,
+      millis: (millis) => formatMicros(millis * 1_000, fmt.tz, fmt.format, true, fmt.dateFormat),
+    }),
     [fmt.dateFormat, fmt.format, fmt.tz],
   );
   const layouts = React.useMemo(() => columns.map(columnLayout), [columns]);
+  // How long the longest row lasted: the bars of the column that says so are drawn against it. A
+  // type has one such column; a number, so a row is not drawn again while it stays the same.
+  const longest = React.useMemo(() => {
+    const lengths = columns.filter(isLengthColumn);
+
+    return rows.reduce((most, row) => {
+      const values = lengths.map((column) => row[column.name]).filter((value): value is number => typeof value === 'number');
+      return Math.max(most, ...values);
+    }, 0);
+  }, [columns, rows]);
   const tracks = React.useMemo(() => [TIME_TRACK, ...layouts.map((layout) => layout.track)], [layouts]);
   const grid = tracks.join(' ');
   // The head and every row are as wide as their columns: past the pane's edge the table scrolls sideways as one.
@@ -97,6 +111,7 @@ export function RumTable({ tab, columns, rows, openId, onOpen, empty }: RumTable
               id={id}
               columns={columns}
               layouts={layouts}
+              longest={longest}
               grid={grid}
               minWidth={minWidth}
               clock={clock}
@@ -121,6 +136,7 @@ const RumTableRow = React.memo(function RumTableRow({
   id,
   columns,
   layouts,
+  longest,
   grid,
   minWidth,
   clock,
@@ -135,6 +151,7 @@ const RumTableRow = React.memo(function RumTableRow({
   id: string;
   columns: readonly RumField[];
   layouts: ReturnType<typeof columnLayout>[];
+  longest: number;
   grid: string;
   minWidth: string;
   clock: Clock;
@@ -172,7 +189,14 @@ const RumTableRow = React.memo(function RumTableRow({
           key={column.name}
           className={cn('flex min-w-0', layouts[index]?.align === 'end' && 'justify-end')}
         >
-          <RumCell field={column} value={row[column.name]} language={language} />
+          <RumCell
+            field={column}
+            value={row[column.name]}
+            language={language}
+            moment={clock.millis}
+            longest={longest}
+            failed={troubled}
+          />
         </span>
       ))}
     </button>

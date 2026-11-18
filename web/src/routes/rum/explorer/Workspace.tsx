@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import type { RumField, RumRow } from '@/api/rum';
 import { CursorPagination } from '@/shell/CursorPagination';
-import { cn } from '@/shell/lib/cn';
+import { EXPLORER_PAGINATION_CLASS } from '@/shell/query/foot';
 import { QueryIconAction } from '@/shell/query/IconAction';
 import {
   QueryRecoveryState,
@@ -14,7 +14,8 @@ import {
 import type { queryStateFor } from '@/shell/query/State';
 import { QuerySplitToggle } from '@/shell/queryTabs';
 
-import { type DrawerNeighbours, RumDetailDrawer, type RumDrawerState } from './Drawer';
+import { RumGeoCredit } from '../RumLayout';
+import { type DrawerNeighbours, RumDetailDrawer, type RumDrawerState } from './drawer';
 import { RumHistogramBand, type RumHistogramModel, RumHistogramToggle } from './Histogram';
 import { type RumTab, rowId } from './model';
 import { RumTable } from './Table';
@@ -40,6 +41,8 @@ interface RumWorkspaceProps {
   onResetColumns: () => void;
   /** The switch between the rows and the ways of drawing numbers over them. */
   vizSwitch: React.ReactNode;
+  /** What is counted of the rows drawn as numbers, set before the switch; none while the list is in front. */
+  vizControls: React.ReactNode | null;
   /** What is drawn in the rows' place when they are drawn as numbers; none while the list is in front. */
   vizBody: React.ReactNode | null;
   /** What is said of what is drawn: its range, its points and its groups. */
@@ -68,6 +71,7 @@ export function RumWorkspace({
   arranged,
   onResetColumns,
   vizSwitch,
+  vizControls,
   vizBody,
   vizStatus,
   onExport,
@@ -104,6 +108,7 @@ export function RumWorkspace({
   const neighbours: DrawerNeighbours = {
     ...(index > 0 ? { onPrevious: () => step(-1) } : {}),
     ...(index >= 0 && index < rows.length - 1 ? { onNext: () => step(1) } : {}),
+    ...(index >= 0 ? { position: { current: index + 1, total: rows.length } } : {}),
   };
 
   return (
@@ -116,46 +121,65 @@ export function RumWorkspace({
       <div data-workspace-pane="rum-results" className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden [contain:size]">
         <div data-rum-results-head className="shrink-0">
           <div className="flex min-h-11 items-center justify-between gap-3 px-3 py-1.5">
-            {vizSwitch}
-            {/* What is said of the results, then their signs, the switch that splits the page first. */}
-            <div className={cn('flex min-w-0 items-center gap-3', !vizBody && 'shrink-0')}>
-              {vizBody ? (
-                <span data-rum-viz-status="" className="min-w-0 truncate font-sans text-xs text-tx-3">
-                  {vizStatus}
-                </span>
-              ) : (
-                <span className="min-w-0 truncate font-sans text-xs font-semibold text-tx-0">
-                  {t('explorer.results.loaded_count', { count: rows.length })}
-                </span>
+            {/* What is said of the results stands first; at the end, what is counted of them and how
+                they are drawn, then their signs, the switch that splits the page first. In a narrow
+                pane what is counted wraps onto lines of its own before the switch gives way. */}
+            {vizBody ? (
+              // A few words at most: they keep their room while what is counted wraps beside them.
+              <span data-rum-viz-status="" className="shrink-0 font-sans text-xs text-tx-3">
+                {vizStatus}
+              </span>
+            ) : (
+              <span className="min-w-0 truncate font-sans text-xs font-semibold text-tx-0">
+                {t('explorer.results.loaded_count', { count: rows.length })}
+              </span>
+            )}
+            <div className="flex min-w-0 items-center justify-end gap-1.5">
+              {vizControls && (
+                <>
+                  {vizControls}
+                  <span aria-hidden="true" className="mx-1.5 h-4 w-px shrink-0 bg-bd-1" />
+                </>
               )}
-              <div className="flex shrink-0 items-center gap-1.5 empty:hidden">
-                <QuerySplitToggle size="sm" />
-                {!vizBody && arranged && (
-                  <QueryIconAction
-                    icon={RotateCcw}
-                    label={t('explorer.results.reset_columns')}
-                    onClick={onResetColumns}
-                  />
-                )}
-                {!vizBody && <RumHistogramToggle model={histogram} />}
-                {!vizBody && (
-                  <QueryIconAction
-                    icon={Download}
-                    label={t('explorer.results.export')}
-                    data-rum-export=""
-                    disabled={exporting || rows.length === 0}
-                    onClick={() => {
-                      setExporting(true);
-                      void onExport().finally(() => setExporting(false));
-                    }}
-                  />
-                )}
+              <div className="flex shrink-0 items-center gap-1.5">
+                {vizSwitch}
+                <div className="flex shrink-0 items-center gap-1.5 empty:hidden">
+                  <QuerySplitToggle size="sm" />
+                  {!vizBody && arranged && (
+                    <QueryIconAction
+                      icon={RotateCcw}
+                      label={t('explorer.results.reset_columns')}
+                      onClick={onResetColumns}
+                    />
+                  )}
+                  {!vizBody && <RumHistogramToggle model={histogram} />}
+                  {!vizBody && (
+                    <QueryIconAction
+                      icon={Download}
+                      label={t('explorer.results.export')}
+                      data-rum-export=""
+                      disabled={exporting || rows.length === 0}
+                      onClick={() => {
+                        setExporting(true);
+                        void onExport().finally(() => setExporting(false));
+                      }}
+                    />
+                  )}
+                </div>
               </div>
             </div>
           </div>
           {!vizBody && <RumHistogramBand model={histogram} tab={tab} className="mb-[4px]" />}
         </div>
-        {vizBody ?? (
+        {/* The country of a row is DB-IP's, which its licence asks to be credited for: in the row of
+            the pages under the list, and under what is drawn, inside the card. The card then ends where
+            the Logs and Traces cards do. */}
+        {vizBody ? (
+          <>
+            {vizBody}
+            <RumGeoCredit className="shrink-0 truncate px-3 py-[4px]" />
+          </>
+        ) : (
           <>
             <RumTable
               tab={tab}
@@ -189,7 +213,8 @@ export function RumWorkspace({
               onPrevious={pagination.onPrevious}
               onNext={pagination.onNext}
               onPageSizeChange={pagination.onPageSizeChange}
-              className="border-t-0 bg-transparent"
+              note={<RumGeoCredit className="truncate" />}
+              className={EXPLORER_PAGINATION_CLASS}
             />
           </>
         )}
