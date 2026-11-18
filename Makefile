@@ -36,8 +36,8 @@ DOCKERFILE_WEB := $(DEPLOY_DIR)/docker/Dockerfile.web
 DOCKERFILE_PROBE_AGENT := $(DEPLOY_DIR)/docker/Dockerfile.probe-agent
 
 # --- 版本管理 ---
-# 优先级: 环境变量 VERSION → VERSION 文件 → Git 标签 → Cargo.toml workspace.package.version → 默认值
-# 采用 SemVer (Major.Minor.Patch[-prerelease])。
+# 优先级: 环境变量 VERSION → VERSION 文件 → Git 标签 → 开发版本
+# 采用四段产品版本 (X.Y.Z.N)。
 VERSION_FILE := VERSION
 
 ifndef VERSION
@@ -48,12 +48,7 @@ ifndef VERSION
     ifneq (,$(GIT_TAG_VERSION))
       VERSION := $(GIT_TAG_VERSION)
     else
-      CARGO_VERSION := $(shell sed -n 's/^version *= *"\([^"]*\)".*/\1/p' Cargo.toml | head -n1)
-      ifneq (,$(CARGO_VERSION))
-        VERSION := $(CARGO_VERSION)
-      else
-        VERSION := 0.1.0
-      endif
+      VERSION := 26.0.0.0
     endif
   endif
 endif
@@ -64,7 +59,6 @@ GIT_COMMIT   := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 GIT_SHA      := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
 BUILD_DATE   := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 BUILD_ID     ?= local-$(GIT_COMMIT)
-RELEASE_CHANNEL ?= alpha
 
 # 构建目标
 RUST_TARGETS := \
@@ -175,7 +169,7 @@ run-debug:
 	RELEASE_CHANNEL="$(RELEASE_CHANNEL)" BUILD_ID="$(BUILD_ID)" cargo run $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS) -- --config $(CONFIG_DIR)/config.toml
 
 run-release: web-build
-	RELEASE_CHANNEL="$(RELEASE_CHANNEL)" BUILD_ID="$(BUILD_ID)" cargo run --release $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS) -- --config $(CONFIG_DIR)/config.toml
+	BUILD_ID="$(BUILD_ID)" cargo run --release $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS) -- --config $(CONFIG_DIR)/config.toml
 
 # === 测试 ===
 .PHONY: test test-unit test-integration test-all
@@ -289,7 +283,6 @@ docker-push:
 
 docker-run:
 	docker run --rm -p $(HTTP_PORT):$(HTTP_PORT) \
-		--env RELEASE_CHANNEL="$(RELEASE_CHANNEL)" \
 		-v $(PWD)/$(DATA_DIR):/app/data \
 		-v $(PWD)/$(CONFIG_DIR):/app/conf \
 		$(DOCKER_IMAGE):$(DOCKER_TAG) /app/$(BIN_NAME) --config /app/conf/config.toml
@@ -301,32 +294,20 @@ docker-run:
 version:
 	@echo "$(VERSION)"
 
-# 校验 SemVer 格式 (Major.Minor.Patch[-prerelease])
+# 校验四段产品版本
 version-check:
-	@echo "$(VERSION)" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$$' \
-		&& echo "✓ version $(VERSION) is valid (SemVer)" \
-		|| (echo "✗ version $(VERSION) is INVALID (expected Major.Minor.Patch[-prerelease])" && exit 1)
+	@echo "$(VERSION)" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$$' \
+		&& echo "✓ version $(VERSION) is valid (X.Y.Z.N)" \
+		|| (echo "✗ version $(VERSION) is INVALID (expected X.Y.Z.N)" && exit 1)
 
-# 写入 VERSION 文件：make version-set VERSION=0.2.0
+# 写入 VERSION 文件：make version-set VERSION=26.2.0.0
 version-set:
 	@if [ -z "$(VERSION)" ]; then echo "VERSION is not set"; exit 1; fi
 	@$(MAKE) version-check VERSION=$(VERSION)
 	@echo "$(VERSION)" > $(VERSION_FILE)
 	@echo "→ wrote $(VERSION) to $(VERSION_FILE)"
-	@echo "  remember: also bump workspace.package.version in Cargo.toml"
 
-# 同步 VERSION 到 Cargo.toml workspace.package.version
-.PHONY: version-sync-cargo
-version-sync-cargo:
-	@$(MAKE) version-check
-	@if [ "$$(uname)" = "Darwin" ]; then \
-		sed -i '' -E 's/^(version[[:space:]]*=[[:space:]]*)"[^"]+"/\1"$(VERSION)"/' Cargo.toml; \
-	else \
-		sed -i -E 's/^(version[[:space:]]*=[[:space:]]*)"[^"]+"/\1"$(VERSION)"/' Cargo.toml; \
-	fi
-	@echo "→ synced Cargo.toml workspace.package.version to $(VERSION)"
-
-# 创建 Git tag (vX.Y.Z)
+# 创建 Git tag (vX.Y.Z.N)
 version-tag:
 	@if [ -z "$(VERSION)" ]; then echo "VERSION is not set"; exit 1; fi
 	@$(MAKE) version-check
@@ -343,28 +324,27 @@ _V_MINOR := $(word 2,$(subst ., ,$(_BASE_VERSION)))
 _V_PATCH := $(word 3,$(subst ., ,$(_BASE_VERSION)))
 
 version-bump-patch:
-	@new=$$(printf "%d.%d.%d" $(_V_MAJOR) $(_V_MINOR) $$(( $(_V_PATCH) + 1 ))); \
+	@new=$$(printf "%d.%d.%d.0" $(_V_MAJOR) $(_V_MINOR) $$(( $(_V_PATCH) + 1 ))); \
 	echo "$$new" > $(VERSION_FILE); \
 	echo "→ bumped patch: $(VERSION) → $$new"
 
 version-bump-minor:
-	@new=$$(printf "%d.%d.0" $(_V_MAJOR) $$(( $(_V_MINOR) + 1 ))); \
+	@new=$$(printf "%d.%d.0.0" $(_V_MAJOR) $$(( $(_V_MINOR) + 1 ))); \
 	echo "$$new" > $(VERSION_FILE); \
 	echo "→ bumped minor: $(VERSION) → $$new"
 
 version-bump-major:
-	@new=$$(printf "%d.0.0" $$(( $(_V_MAJOR) + 1 ))); \
+	@new=$$(printf "%d.0.0.0" $$(( $(_V_MAJOR) + 1 ))); \
 	echo "$$new" > $(VERSION_FILE); \
 	echo "→ bumped major: $(VERSION) → $$new"
 
-# 发布前完整流程：bump → 同步 Cargo.toml → 检查 → 提示
+# 发布前完整流程：bump → 检查 → 提示
 .PHONY: release-prepare
 release-prepare:
 	@$(MAKE) version-check
-	@$(MAKE) version-sync-cargo
 	@echo ""
 	@echo "next steps:"
-	@echo "  1) review changes:  git diff Cargo.toml $(VERSION_FILE)"
+	@echo "  1) review changes:  git diff $(VERSION_FILE)"
 	@echo "  2) commit:          git commit -am 'chore: release v$(VERSION)'"
 	@echo "  3) tag:             make version-tag"
 	@echo "  4) push:            git push && git push origin v$(VERSION)"
@@ -404,7 +384,7 @@ help:
 	@echo "  FEATURES= 可叠加付费版 feature"
 	@echo ""
 	@echo "运行:"
-	@echo "  make run / run-release          - 本地启动（RELEASE_CHANNEL 默认 alpha）"
+	@echo "  make run / run-release          - 本地启动"
 	@echo ""
 	@echo "测试 / 质量:"
 	@echo "  make test / test-integration / test-all"
@@ -424,9 +404,8 @@ help:
 	@echo ""
 	@echo "版本:"
 	@echo "  make version                    - 显示当前版本"
-	@echo "  make version-check              - 校验 SemVer 格式"
-	@echo "  make version-set VERSION=X.Y.Z  - 写入 VERSION 文件"
-	@echo "  make version-sync-cargo         - 同步到 Cargo.toml"
+	@echo "  make version-check              - 校验四段产品版本"
+	@echo "  make version-set VERSION=X.Y.Z.N - 写入 VERSION 文件"
 	@echo "  make version-bump-patch / minor / major"
 	@echo "  make version-tag                - 创建 git tag v\$$VERSION"
 	@echo "  make release-prepare            - 发布前流程"

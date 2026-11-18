@@ -5,6 +5,8 @@ WORKDIR /src/web
 RUN corepack enable && corepack prepare pnpm@9 --activate
 COPY web/package.json web/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
+# `pnpm run build` type-checks tests too; some import shared fixtures from ../contracts.
+COPY contracts /src/contracts
 COPY web/ ./
 RUN BUILD_HASH="$GIT_SHA" pnpm run build
 
@@ -32,7 +34,6 @@ COPY Cargo.toml Cargo.lock* rust-toolchain.toml ./
 COPY .cargo ./.cargo
 COPY bin ./bin
 COPY crates ./crates
-COPY tools ./tools
 COPY proto ./proto
 COPY contracts ./contracts
 COPY --from=web-builder /src/web/dist ./web/dist

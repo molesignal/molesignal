@@ -22,7 +22,6 @@ x-molesignal-base: &molesignal-base
   volumes:
     - ../../conf/config.toml:/app/conf/config.toml:ro
   environment: &molesignal-env
-    RELEASE_CHANNEL: ${RELEASE_CHANNEL:-alpha}
     MS_TELEMETRY_LOG_LEVEL: info
     MS_META_DATABASE_DSN: "postgres://molesignal:molesignal@postgresql:5432/molesignal"
     MS_OBJECT_STORE_BACKEND: s3

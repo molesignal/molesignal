@@ -1,4 +1,13 @@
 # pprof 的低开销回溯器直接沿 frame pointer 取栈；所有受支持的原生构建
 # 都必须保留它，否则 release profile 会退化为不完整栈。
-[target.'cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "riscv64", target_arch = "loongarch64"))']
+[target.'cfg(any(all(not(target_os = "linux"), any(target_arch = "x86_64", target_arch = "aarch64")), target_arch = "riscv64", target_arch = "loongarch64"))']
 rustflags = ["-C", "force-frame-pointers=yes"]
+
+# Instruction sets of Linux servers: x86-64-v3 (AVX2, BMI2, FMA) lets Arrow's kernels vectorize to
+# 256 bits; aarch64 adds AES, SHA2, CRC and LSE atomics (ARMv8.1+) to NEON. The release workflow
+# also builds an x86-64-v4 (AVX-512) archive. Each target matches exactly one of these tables.
+[target.'cfg(all(target_os = "linux", target_arch = "x86_64"))']
+rustflags = ["-C", "force-frame-pointers=yes", "-C", "target-cpu=x86-64-v3"]
+
+[target.'cfg(all(target_os = "linux", target_arch = "aarch64"))']
+rustflags = ["-C", "force-frame-pointers=yes", "-C", "target-feature=+aes,+sha2,+crc,+lse"]

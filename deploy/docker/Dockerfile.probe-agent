@@ -22,10 +22,10 @@ COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY .cargo ./.cargo
 COPY bin ./bin
 COPY crates ./crates
-COPY tools ./tools
 COPY proto ./proto
 COPY contracts ./contracts
-RUN cargo build --release --locked --bin probe-agent
+# default-members lists only bin/molesignal, so `--bin` alone cannot find this binary.
+RUN cargo build --release --locked -p probe-agent --bin probe-agent
 
 ################ Stage 2: runtime ################
 # bookworm carries a maintained Chromium package. The Probe Agent binary was

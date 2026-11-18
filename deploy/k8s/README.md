@@ -24,9 +24,7 @@
 环境变量（覆盖 ConfigMap 里的 `[node].roles`）。每个角色启动时都会对对象存储做一次读写自检，
 所以 `router` 与其它角色一样需要对象存储凭据。
 
-交付通道也不参与镜像构建。`10-configmap.yaml` 的 `release_channel` 会注入为
-`RELEASE_CHANNEL`；从 `alpha` 晋升到 `beta`、`rc` 或 `stable` 时继续使用同一个
-`BUILD_ID` 对应的不可变镜像，只更新该值并滚动部署。
+部署使用版本号或 `BUILD_ID` 对应的不可变镜像。
 
 ## 依赖
 

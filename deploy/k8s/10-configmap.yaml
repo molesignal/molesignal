@@ -4,8 +4,6 @@ metadata:
   name: molesignal-config
   namespace: molesignal
 data:
-  # 部署晋升时只修改运行时通道，不重新构建镜像。
-  release_channel: alpha
   # 同一份配置喂给所有 role；具体角色由 MS_NODE_ROLES 环境变量覆盖。
   # 凡敏感字段（object_store_access_key / object_store_secret_key / cipher_key /
   # jwt_secret_override）都从

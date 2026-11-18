@@ -13,6 +13,10 @@ COPY web/package.json web/pnpm-lock.yaml ./
 
 RUN pnpm install --frozen-lockfile
 
+# `pnpm run build` type-checks tests too; some import shared fixtures from
+# ../contracts, which is /contracts from this WORKDIR.
+COPY contracts /contracts
+
 # Bring in sources and build.
 COPY web/ ./
 RUN pnpm run build

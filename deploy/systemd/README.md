@@ -21,12 +21,6 @@ sudo install -Dm644 mmdb/dbip-city-lite.mmdb \
 `mmdb/NOTICE.txt`。旧版本安装的 `/usr/share/molesignal/mmdb/GeoLite2-City.mmdb` 可以删除；如果
 `/etc/molesignal/config.toml` 里的 `db_path` 仍指向它，改成上面的路径。
 
-交付通道是运行时元数据。在 `/etc/molesignal/molesignal.env` 中配置当前通道：
-
-```ini
-RELEASE_CHANNEL=alpha
-```
-
 根据环境修改 `/etc/molesignal/config.toml` 中的 PostgreSQL、对象存储及密钥配置，
 然后启动服务：
 

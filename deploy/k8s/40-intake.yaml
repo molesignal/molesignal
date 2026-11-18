@@ -18,8 +18,6 @@ spec:
           imagePullPolicy: IfNotPresent
           args: ["--config", "/app/conf/config.toml"]
           env:
-            - name: RELEASE_CHANNEL
-              valueFrom: { configMapKeyRef: { name: molesignal-config, key: release_channel } }
             - name: MS_NODE_ROLES
               value: '["intake"]'
             - name: POD_IP

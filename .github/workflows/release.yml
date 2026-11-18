@@ -20,38 +20,30 @@ env:
   GIT_SHA: ${{ github.sha }}
 
 jobs:
-  # 0. 通道闸：tag 所在 commit 必须至少在 main/rc/beta/alpha 之一上。
-  # 通道判定 + 衍生字段（title/float_tag/versioned_tag/prerelease）的逻辑
-  # 抽到 .github/scripts/detect-release-channel.sh，便于本地测试与单点维护。
-  detect-channel:
-    name: detect channel
+  # Tags identify a single product release, built from main.
+  release-version:
+    name: validate release version
     runs-on: ubuntu-26.04
     outputs:
-      channel: ${{ steps.detect.outputs.channel }}
-      version: ${{ steps.detect.outputs.version }}
-      prerelease: ${{ steps.detect.outputs.prerelease }}
-      title: ${{ steps.detect.outputs.title }}
-      float_tag: ${{ steps.detect.outputs.float_tag }}
-      versioned_tag: ${{ steps.detect.outputs.versioned_tag }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
-      - name: fetch release-channel branches
+      - name: validate version and source
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          for branch in main rc beta alpha; do
-            git fetch origin "+refs/heads/${branch}:refs/remotes/origin/${branch}" --quiet || true
-          done
-
-      - name: detect channel
-        id: detect
-        run: .github/scripts/detect-release-channel.sh
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
 
   # 1. 前端只构建一次，后续质量门禁和两个原生架构编译复用同一份确定性产物。
   web-assets:
     name: embedded web assets
-    needs: detect-channel
+    needs: release-version
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v6
@@ -80,7 +72,7 @@ jobs:
   # 1b. DB-IP City Lite（CC BY 4.0）不入库：每次发布下载一次当月版本，二进制包和镜像共用这一份。
   geoip-db:
     name: DB-IP City Lite
-    needs: detect-channel
+    needs: release-version
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v6
@@ -96,7 +88,7 @@ jobs:
   # 2. 质量门禁：和 ci.yml 同一套 fmt + clippy + 单测，release 路径上再跑一遍兜底。
   quality-gate:
     name: quality gate
-    needs: [detect-channel, web-assets]
+    needs: [release-version, web-assets]
     runs-on: ubuntu-26.04
     timeout-minutes: 60
     steps:
@@ -147,8 +139,8 @@ jobs:
 
   # 3. 多平台原生编译：每个 target 在对应架构 runner 上原生 build，避免 cross-compile。
   build:
-    name: build (${{ matrix.target }})
-    needs: [detect-channel, web-assets, quality-gate, geoip-db]
+    name: build (${{ matrix.target }}${{ matrix.variant }})
+    needs: [release-version, web-assets, quality-gate, geoip-db]
     runs-on: ${{ matrix.os }}
     # 构建在 rust:1.96-bullseye 容器（Debian 11, glibc 2.31）内进行，产物 glibc
     # 地板 2.31，低于目标机地板 2.34（Alma 9 / Ubuntu 22.04）。Server runtime
@@ -168,14 +160,28 @@ jobs:
           # glibc 地板：构建容器 rust:1.96-bullseye 的 glibc 是 2.31，覆盖目标机
           # 地板 2.34（Alma 9）与 Ubuntu 22.04（2.35）；runtime debian:bullseye-slim
           # 同为 2.31；下方 assert 步骤守护该地板不被漂移。
+          # Instruction sets: x86-64 builds for x86-64-v3 (AVX2, BMI2, FMA) and once more for
+          # x86-64-v4 (AVX-512) as a separate archive; the Docker image takes the v3 build.
+          # aarch64 adds AES, SHA2, CRC and LSE atomics to NEON (ARMv8.1+: Graviton2, Ampere
+          # Altra, Kunpeng 920 and later).
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-26.04
             archive_arch: x86_64
             archive_os: linux
+            variant: ""
+            rustflags: "-C force-frame-pointers=yes -C target-cpu=x86-64-v3"
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-26.04
+            archive_arch: x86_64-v4
+            archive_os: linux
+            variant: "-v4"
+            rustflags: "-C force-frame-pointers=yes -C target-cpu=x86-64-v4"
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-24.04-arm
             archive_arch: aarch64
             archive_os: linux
+            variant: ""
+            rustflags: "-C force-frame-pointers=yes -C target-feature=+aes,+sha2,+crc,+lse"
 
     steps:
       - uses: actions/checkout@v6
@@ -241,13 +247,14 @@ jobs:
 
       - name: build release server
         env:
-          # 所有交付阶段共用这一套参数；pprof 需要可回溯栈帧与符号。
-          RUSTFLAGS: "-C force-frame-pointers=yes"
+          PRODUCT_VERSION: ${{ needs.release-version.outputs.version }}
+          RUSTFLAGS: ${{ matrix.rustflags }}
         run: cargo build --release --locked --timings --target ${{ matrix.target }} -p molesignal
 
       - name: build release probe agent
         env:
-          RUSTFLAGS: "-C force-frame-pointers=yes"
+          PRODUCT_VERSION: ${{ needs.release-version.outputs.version }}
+          RUSTFLAGS: ${{ matrix.rustflags }}
         run: cargo build --release --locked --timings --target ${{ matrix.target }} -p probe-agent
 
       # glibc 地板守护：确认两个二进制要求的最高 GLIBC 符号版本均 ≤ 2.31，既匹配
@@ -301,13 +308,13 @@ jobs:
       - name: upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.target }}-${{ github.ref_name }}
+          name: ${{ matrix.target }}${{ matrix.variant }}-${{ github.ref_name }}
           path: dist/*.tar.gz
           if-no-files-found: error
 
       # Docker 镜像直接复用上面已经验证并打包的同一个 Linux 二进制，不再重新 cargo build。
       - name: upload docker binary
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.variant == ''
         uses: actions/upload-artifact@v7
         with:
           name: docker-binary-${{ matrix.target }}-${{ github.run_id }}
@@ -315,7 +322,7 @@ jobs:
           if-no-files-found: error
 
       - name: upload Probe Agent docker binary
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.variant == ''
         uses: actions/upload-artifact@v7
         with:
           name: probe-docker-binary-${{ matrix.target }}-${{ github.run_id }}
@@ -325,7 +332,7 @@ jobs:
   # 4. Docker 多平台镜像：把 step 3 的原生 release 二进制分别封装进两个镜像。
   docker:
     name: docker images
-    needs: [detect-channel, build]
+    needs: [release-version, build]
     runs-on: ubuntu-26.04
     timeout-minutes: 90
     steps:
@@ -380,18 +387,14 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          # 关掉 metadata-action 默认的 latest 自动行为；下面按 channel 显式控制。
+          # Publish the exact version and the shared latest tag.
           flavor: |
             latest=false
-          # Keep the exact version from the Git tag and add one floating channel tag.
           tags: |
             type=raw,value=build-${{ env.BUILD_ID }}
             type=sha,format=long,prefix=sha-
             type=match,pattern=v(.*),group=1
-            type=raw,value=latest,enable=${{ needs.detect-channel.outputs.channel == 'stable' }}
-            type=raw,value=rc,enable=${{ needs.detect-channel.outputs.channel == 'rc' }}
-            type=raw,value=beta,enable=${{ needs.detect-channel.outputs.channel == 'beta' }}
-            type=raw,value=alpha,enable=${{ needs.detect-channel.outputs.channel == 'alpha' }}
+            type=raw,value=latest
           labels: |
             io.molesignal.build-id=${{ env.BUILD_ID }}
 
@@ -406,10 +409,7 @@ jobs:
             type=raw,value=build-${{ env.BUILD_ID }}
             type=sha,format=long,prefix=sha-
             type=match,pattern=v(.*),group=1
-            type=raw,value=latest,enable=${{ needs.detect-channel.outputs.channel == 'stable' }}
-            type=raw,value=rc,enable=${{ needs.detect-channel.outputs.channel == 'rc' }}
-            type=raw,value=beta,enable=${{ needs.detect-channel.outputs.channel == 'beta' }}
-            type=raw,value=alpha,enable=${{ needs.detect-channel.outputs.channel == 'alpha' }}
+            type=raw,value=latest
           labels: |
             io.molesignal.build-id=${{ env.BUILD_ID }}
             org.opencontainers.image.title=MoleSignal Probe Agent
@@ -441,7 +441,7 @@ jobs:
   # 5. GitHub Release：cliff 生成 changelog + 上传所有 target 的 tar.gz。
   release:
     name: github release
-    needs: [detect-channel, build, docker]
+    needs: [release-version, build, docker]
     runs-on: ubuntu-26.04
     permissions:
       contents: write
@@ -463,8 +463,8 @@ jobs:
 
       - name: append docker image info to changelog
         env:
-          VERSIONED_TAG: ${{ needs.detect-channel.outputs.versioned_tag }}
-          FLOAT_TAG: ${{ needs.detect-channel.outputs.float_tag }}
+          VERSIONED_TAG: ${{ needs.release-version.outputs.version }}
+          FLOAT_TAG: latest
         run: |
           cat >> CHANGELOG.md << EOF
 
@@ -512,7 +512,7 @@ jobs:
       - name: create release
         uses: softprops/action-gh-release@v3
         with:
-          name: ${{ needs.detect-channel.outputs.title }}
-          prerelease: ${{ needs.detect-channel.outputs.prerelease == 'true' }}
+          name: ${{ github.ref_name }}
+          prerelease: false
           body_path: CHANGELOG.md
           files: artifacts/*.tar.gz
