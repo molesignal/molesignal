@@ -11,6 +11,26 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::{
+    alerting::{
+        escalation::EscalationPolicy,
+        incident::{Incident, IncidentStatus, Severity},
+        repositories::{
+            AlertRuleEvalState, AlertRuleEvalStateRepository, AlertRuleRepository,
+            EscalationPolicyRepository, IncidentRepository, ScheduleRepository,
+        },
+        rule::{AlertRule, RuleState},
+        schedule::Schedule,
+        source::{
+            AlertSource, AlertSourceKind, AlertSourceRepository, EmailRules, IntakeRequest,
+            IntakeRequestRepository, IntakeStatus, KeyLock, MailCursor, Mailbox, MailboxRepository,
+            SourceIncident, SourceIncidentRepository,
+        },
+        timeline::ActionVia,
+    },
+    query::{QueryEngine, QueryRequest, QueryResult},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use molesignal::{
     app::alerting::{
         AlertSources, AlertingService, RuleEvaluator,
@@ -19,27 +39,7 @@ use molesignal::{
             SourceWrite,
         },
     },
-    domain::{
-        alerting::{
-            escalation::EscalationPolicy,
-            incident::{Incident, IncidentStatus, Severity},
-            repositories::{
-                AlertRuleEvalState, AlertRuleEvalStateRepository, AlertRuleRepository,
-                EscalationPolicyRepository, IncidentRepository, ScheduleRepository,
-            },
-            rule::{AlertRule, RuleState},
-            schedule::Schedule,
-            source::{
-                AlertSource, AlertSourceKind, AlertSourceRepository, EmailRules, IntakeRequest,
-                IntakeRequestRepository, IntakeStatus, KeyLock, MailCursor, Mailbox,
-                MailboxRepository, SourceIncident, SourceIncidentRepository,
-            },
-            timeline::ActionVia,
-        },
-        query::{QueryEngine, QueryRequest, QueryResult},
-    },
     infra::cluster::{RemoteCluster, RemoteClustersRepository},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 use serde_json::{Value, json};
 use tokio::sync::{Mutex as AsyncMutex, OwnedMutexGuard};
@@ -865,7 +865,7 @@ async fn the_api_triggers_acknowledges_and_resolves_by_dedup_key() {
     let world = world();
     let (_, token) = world.source(AlertSourceKind::Api, None).await;
 
-    let trigger = json!({"dedup_key": "disk/web-1", "summary": "Disk full on web-1",
+    let trigger = json!({"dedupKey": "disk/web-1", "summary": "Disk full on web-1",
                          "severity": "error", "labels": {"host.name": "web-1"}});
 
     assert_eq!(outcome(&world.send(&token, &trigger).await), "opened");
@@ -875,7 +875,7 @@ async fn the_api_triggers_acknowledges_and_resolves_by_dedup_key() {
     assert_eq!(incident.host_ids, vec!["web-1".to_string()]);
     assert_eq!(incident.severity, Severity::Error);
 
-    let acknowledge = json!({"action": "acknowledge", "dedup_key": "disk/web-1"});
+    let acknowledge = json!({"action": "acknowledge", "dedupKey": "disk/web-1"});
     assert_eq!(
         outcome(&world.send(&token, &acknowledge).await),
         "acknowledged"
@@ -887,13 +887,13 @@ async fn the_api_triggers_acknowledges_and_resolves_by_dedup_key() {
 
     assert_eq!(outcome(&world.send(&token, &trigger).await), "unchanged");
 
-    let resolve = json!({"action": "resolve", "dedup_key": "disk/web-1"});
+    let resolve = json!({"action": "resolve", "dedupKey": "disk/web-1"});
     assert_eq!(outcome(&world.send(&token, &resolve).await), "resolved");
     assert_eq!(outcome(&world.send(&token, &resolve).await), "ignored");
 
     let batch = json!([
-        {"dedup_key": "a", "summary": "A"},
-        {"dedup_key": "b", "summary": "B"}
+        {"dedupKey": "a", "summary": "A"},
+        {"dedupKey": "b", "summary": "B"}
     ]);
 
     let reply = world.send(&token, &batch).await;
@@ -1241,7 +1241,7 @@ async fn alerts_received_by_another_cluster_open_incidents_on_the_home_cluster()
         body: json!({"alerts": [{"outcome": "opened"}]}),
     });
 
-    let trigger = json!({"dedup_key": "k", "summary": "Disk full"});
+    let trigger = json!({"dedupKey": "k", "summary": "Disk full"});
     let reply = world.send(&token, &trigger).await;
 
     assert_eq!(outcome(&reply), "opened");
@@ -1302,7 +1302,7 @@ async fn removing_a_source_resolves_what_it_left_open() {
     let (source, token) = world.source(AlertSourceKind::Api, None).await;
 
     world
-        .send(&token, &json!({"dedup_key": "k", "summary": "Disk full"}))
+        .send(&token, &json!({"dedupKey": "k", "summary": "Disk full"}))
         .await;
 
     world
@@ -1321,7 +1321,7 @@ async fn removing_a_source_resolves_what_it_left_open() {
     world
         .send(
             &token,
-            &json!({"dedup_key": "j", "summary": "Queue backlog"}),
+            &json!({"dedupKey": "j", "summary": "Queue backlog"}),
         )
         .await;
 

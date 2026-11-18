@@ -44,6 +44,7 @@ pub mod response;
 pub mod routing;
 pub mod rule;
 pub mod rule_conditions;
+pub mod rule_guide;
 pub mod schedule;
 pub mod semantic_group;
 pub mod source;

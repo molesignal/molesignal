@@ -440,15 +440,14 @@ mod tests {
     fn anomaly_alert_rule_survives_cross_cluster_round_trip() {
         use std::collections::BTreeMap;
 
-        use crate::{
-            domain::{
-                alerting::rule::{
-                    AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, ComparisonOp, RuleState,
-                },
-                federation::{CloudEvent, CudAction, ResourceKind, parse_event_type},
-                query::QueryLanguage,
+        use kernel::{ids::Id, time::TimestampMicros};
+
+        use crate::domain::{
+            alerting::rule::{
+                AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, ComparisonOp, RuleState,
             },
-            shared::{ids::Id, time::TimestampMicros},
+            federation::{CloudEvent, CudAction, ResourceKind, parse_event_type},
+            query::QueryLanguage,
         };
 
         let rule = AlertRule {
@@ -496,6 +495,7 @@ mod tests {
             escalation_policy_id: Id::from_string("esc-1"),
             labels: BTreeMap::new(),
             annotations: BTreeMap::new(),
+            guide: Default::default(),
             last_eval_at: None,
             last_state: RuleState::Healthy,
             created_at: TimestampMicros(1),

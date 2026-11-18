@@ -9,13 +9,11 @@
 
 use std::collections::BTreeMap;
 
-use crate::{
-    domain::{
-        alerting::{incident::TriggeringSample, rule::AlertRule},
-        query::QueryResult,
-    },
-    shared::time::TimestampMicros,
+use domain::{
+    alerting::{incident::TriggeringSample, rule::AlertRule},
+    query::QueryResult,
 };
+use kernel::time::TimestampMicros;
 
 /// list/detail 暴露的 trace_id 最多保留多少条；过多会让 drawer 拥挤、payload 膨胀。
 const MAX_TRACE_IDS_PER_INCIDENT: usize = 10;
@@ -181,17 +179,15 @@ fn row_labels(columns: &[String], row: &[serde_json::Value]) -> BTreeMap<String,
 
 #[cfg(test)]
 mod tests {
+    use domain::{
+        alerting::rule::{AlertQuery, AlertRuleKind, AlertTrigger, ComparisonOp, RuleState},
+        query::{QueryLanguage, StreamHint},
+        stream::StreamType,
+    };
+    use kernel::ids::Id;
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        domain::{
-            alerting::rule::{AlertQuery, AlertRuleKind, AlertTrigger, ComparisonOp, RuleState},
-            query::{QueryLanguage, StreamHint},
-            stream::StreamType,
-        },
-        shared::ids::Id,
-    };
 
     fn sample_rule() -> AlertRule {
         AlertRule {
@@ -236,6 +232,7 @@ mod tests {
             escalation_policy_id: Id::from_string("pol-1"),
             labels: [("env".to_string(), "prod".to_string())].into(),
             annotations: [("runbook".to_string(), "https://wiki/r".to_string())].into(),
+            guide: Default::default(),
             last_eval_at: None,
             last_state: RuleState::Healthy,
             created_at: TimestampMicros(0),

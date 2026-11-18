@@ -11,30 +11,27 @@ use std::{
 };
 
 use async_trait::async_trait;
-use molesignal::{
-    app::alerting::{
-        AlertRouting, RuleEvaluator,
-        routing::{RoutingProbe, RuleWrite},
-    },
-    domain::{
-        alerting::{
-            escalation::{DEFAULT_POLICY_ID, EscalationPolicy},
-            incident::{Incident, IncidentStatus, Severity},
-            repositories::{
-                AlertRuleEvalState, AlertRuleEvalStateRepository, AlertRuleRepository,
-                EscalationPolicyRepository, IncidentRepository,
-            },
-            routing::{
-                ConditionOperator, LabelCondition, RoutingReason, RoutingRule,
-                RoutingRuleRepository, RoutingTarget, ServiceOwner, ServiceOwnerSource, TeamPolicy,
-                TeamPolicyRepository,
-            },
-            rule::{AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, ComparisonOp, RuleState},
+use domain::{
+    alerting::{
+        escalation::{DEFAULT_POLICY_ID, EscalationPolicy},
+        incident::{Incident, IncidentStatus, Severity},
+        repositories::{
+            AlertRuleEvalState, AlertRuleEvalStateRepository, AlertRuleRepository,
+            EscalationPolicyRepository, IncidentRepository,
         },
-        iam::{Team, TeamRepository},
-        query::{QueryEngine, QueryLanguage, QueryRequest, QueryResult},
+        routing::{
+            ConditionOperator, LabelCondition, RoutingReason, RoutingRule, RoutingRuleRepository,
+            RoutingTarget, ServiceOwner, ServiceOwnerSource, TeamPolicy, TeamPolicyRepository,
+        },
+        rule::{AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, ComparisonOp, RuleState},
     },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    iam::{Team, TeamRepository},
+    query::{QueryEngine, QueryLanguage, QueryRequest, QueryResult},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use molesignal::app::alerting::{
+    AlertRouting, RuleEvaluator,
+    routing::{RoutingProbe, RuleWrite},
 };
 
 // ---- 内存仓库 ----
@@ -491,6 +488,7 @@ fn rule(rule_id: &str, policy: &str, labels: &[(&str, &str)]) -> AlertRule {
             .map(|(key, value)| (key.to_string(), value.to_string()))
             .collect(),
         annotations: BTreeMap::new(),
+        guide: Default::default(),
         last_eval_at: None,
         last_state: RuleState::default(),
         created_at: TimestampMicros(0),

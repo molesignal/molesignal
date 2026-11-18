@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use serde_json::json;
-
-use super::*;
-use crate::domain::{
+use domain::{
     alerting::{
         incident::Severity,
         rule::{AlertQuery, AlertTrigger, ComparisonOp, SeverityThreshold},
     },
     query::{QueryLanguage, StreamHint},
 };
+use serde_json::json;
+
+use super::*;
 
 const SECOND: i64 = 1_000_000;
 
@@ -57,6 +57,7 @@ fn rule(id: &str, statement: &str, threshold: f64) -> AlertRule {
         escalation_policy_id: Id::from_string("default"),
         labels: Default::default(),
         annotations: Default::default(),
+        guide: Default::default(),
         last_eval_at: None,
         last_state: Default::default(),
         created_at: TimestampMicros(0),

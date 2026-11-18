@@ -25,6 +25,7 @@ import { IncidentSilenceDialog } from '@/shell/incident/SilenceDialog';
 import { STATUS_TONE } from '@/shell/incident/tones';
 import { queryStateFor } from '@/shell/query/State';
 import { STATEMENT_CELL, Statement } from '@/shell/readout/Statement';
+import { useRecordVisit } from '@/shell/recentVisits';
 import { toast } from '@/shell/ui/sonner';
 import { useUsers } from '@/shell/useUsers';
 import { formatRelativeMicros } from '@/time/relative';
@@ -98,6 +99,16 @@ export function IncidentDetail() {
   // incident the server no longer has.
   const notFound = query.isError && toApiError(query.error).status === 404;
   const incident = notFound ? null : query.data ?? null;
+  useRecordVisit(
+    incident
+      ? {
+          kind: 'incident',
+          id: incident.id,
+          label: incident.summary || incident.id,
+          path: `/alerts/incidents/${encodeURIComponent(incident.id)}`,
+        }
+      : null,
+  );
   // An incident a synthetic check or an alert source opened has no rule: its `rule_id` is theirs.
   const syntheticCheck = syntheticCheckOf(incident);
   const external = externalSourceOf(incident);

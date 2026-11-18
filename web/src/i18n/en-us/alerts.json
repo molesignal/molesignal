@@ -78,7 +78,20 @@
     "remediation": "Remediation",
     "tickets": "Tickets",
     "postmortems": "Postmortems",
-    "discovery": "Discovery"
+    "discovery": "Discovery",
+    "group_respond": "Respond",
+    "group_detect": "Detect",
+    "group_noise": "Reduce noise",
+    "group_notify": "Notify",
+    "group_follow_up": "Follow up",
+    "search_placeholder": "Search alert pages…",
+    "search_aria": "Search the pages of Alerts",
+    "no_results": "No page matches",
+    "collapse_group": "Collapse {{group}}",
+    "expand_group": "Expand {{group}}",
+    "open_navigation": "Open the alerts navigation",
+    "collapse_navigation": "Collapse the alerts navigation",
+    "expand_navigation": "Expand the alerts navigation"
   },
   "history": {
     "error_title": "Cannot load alert history",
@@ -283,7 +296,34 @@
       "condition": "Query and trigger condition",
       "condition_description": "Validate the query, threshold, and duration in one context.",
       "delivery": "Notify and response",
-      "delivery_description": "Alert lifecycle events are routed by Notify policies; keep the responder guidance with the rule."
+      "delivery_description": "Alert lifecycle events are routed by Notify policies; keep the responder guidance with the rule.",
+      "guide": "Investigation guide",
+      "guide_description": "What to do first when one of this rule's incidents is looked into. It shows on the incident, and Mole Agent reads it before it investigates."
+    },
+    "guide": {
+      "steps": "Steps",
+      "steps_hint": "Markdown: what to check first and in what order.",
+      "steps_placeholder": "1. Check which endpoints the errors come from…",
+      "queries": "Queries",
+      "queries_hint": "Each one opens from the incident over the incident's time range. At most {{count}}.",
+      "add_query": "Add query",
+      "remove_query": "Remove query {{index}}",
+      "query_name": "Name",
+      "query_name_placeholder": "Errors by endpoint",
+      "query_language": "Query language",
+      "query_stream": "Stream",
+      "query_stream_type": "Stream type",
+      "query_statement": "Query",
+      "stream_types": {
+        "logs": "Logs",
+        "traces": "Traces",
+        "metrics": "Metrics"
+      },
+      "dashboards": "Dashboards",
+      "dashboards_hint": "Opened from the incident. At most {{count}}.",
+      "add_dashboard": "Add a dashboard",
+      "no_dashboards": "No dashboards to add",
+      "remove_dashboard": "Remove {{name}}"
     },
     "fields": {
       "name": "Rule name",
@@ -355,6 +395,18 @@
       "trace_latency": {
         "title": "High trace latency",
         "description": "Average trace duration stays elevated"
+      },
+      "sample_errors": {
+        "title": "Sample · Error logs",
+        "description": "Count errors in the sample logs; choose a window and owner before saving."
+      },
+      "sample_no_data": {
+        "title": "Sample · No incoming data",
+        "description": "Samples are imported once; the count becomes zero when the window moves past them."
+      },
+      "sample_latency": {
+        "title": "Sample · Span latency",
+        "description": "Measure sample span latency in milliseconds."
       }
     },
     "intervals": {
@@ -461,7 +513,17 @@
       "rum_application_required": "Choose the application to alert on",
       "group_by_missing": "The query result has no column to split by: {{columns}}",
       "group_by_too_many": "Split by at most {{count}} columns.",
-      "recovery_side": "The recovery threshold has to be on the healthy side: no higher than a threshold the value fires above, no lower than one it fires below, with every band firing the same way."
+      "recovery_side": "The recovery threshold has to be on the healthy side: no higher than a threshold the value fires above, no lower than one it fires below, with every band firing the same way.",
+      "guide": {
+        "steps_too_long": "The steps of the investigation guide hold at most {{limit}} characters.",
+        "too_many_queries": "An investigation guide holds at most {{limit}} queries.",
+        "query_name_required": "Query {{index}} of the investigation guide needs a name.",
+        "query_name_too_long": "The name of query {{index}} is longer than {{limit}} characters.",
+        "query_statement_required": "Query {{index}} of the investigation guide is empty.",
+        "query_statement_too_long": "Query {{index}} is longer than {{limit}} characters.",
+        "query_stream_required": "Query {{index}} is SQL: name the stream it reads.",
+        "too_many_dashboards": "An investigation guide links at most {{limit}} dashboards."
+      }
     },
     "toast": {
       "saved": "Rule “{{name}}” saved and enabled",
@@ -729,7 +791,12 @@
       "remediation": "Remediation",
       "tickets": "Tickets",
       "major": "Major incident",
-      "postmortem": "Postmortem"
+      "postmortem": "Postmortem",
+      "guide": "Investigation guide"
+    },
+    "guide": {
+      "queries": "Queries",
+      "dashboards": "Dashboards"
     },
     "investigation": {
       "open_trigger": "Open triggering query",
@@ -1238,7 +1305,7 @@
       "configure": "Set up the sender"
     },
     "setup_guide": {
-      "api": "Send alerts with the request below. A trigger, acknowledgement and recovery with the same dedup_key land on one incident.",
+      "api": "Send alerts with the request below. A trigger, acknowledgement and recovery with the same dedupKey land on one incident.",
       "alertmanager": "Add the receiver below to alertmanager.yml and route alerts to it. Keep send_resolved true.",
       "grafana": "Add a webhook contact point under Alerting → Contact points as below, then use it in a notification policy.",
       "datadog": "Create a webhook under Integrations → Webhooks as below, then mention @webhook-<name> in a monitor's message.",
@@ -2399,6 +2466,8 @@
       "rejected": "Rejected",
       "requested_one": "Sent for approval; {{count}} approver needed",
       "requested_other": "Sent for approval; {{count}} approvers needed",
+      "ran_preapproved": "Ran at once under the pre-approval",
+      "preapproved": "Pre-approved",
       "title": "Run “{{name}}”",
       "needs_one": "One person who can approve has to approve it; it runs right after.",
       "needs_two": "Two people who can approve have to approve it; it runs right after.",
@@ -2415,6 +2484,61 @@
         "verified": "Passed check",
         "verification_failed": "Failed check"
       }
+    },
+    "preapproval": {
+      "title": "Pre-approval",
+      "switch_label": "Let pre-approved actions run without waiting",
+      "switch_hint": "Off until turned on. An action runs at once only on the incidents its pre-approval covers, at most as often as its window allows, and never with fewer approvers than its risk needs.",
+      "switched_on": "Pre-approval turned on",
+      "switched_off": "Pre-approval turned off",
+      "states": {
+        "none": "Not pre-approved",
+        "off": "Pre-approved · off for the organization",
+        "expired": "Pre-approval expired",
+        "awaiting_approver": "Pre-approved · waits for a second person",
+        "used_up": "Pre-approved · runs used up ({{used}}/{{max}})",
+        "active": "Pre-approved · {{used}}/{{max}} runs in the window"
+      },
+      "set": "Pre-approve",
+      "edit": "Edit pre-approval",
+      "confirm": "Confirm pre-approval",
+      "confirmed": "Pre-approval confirmed",
+      "clear": "Remove pre-approval",
+      "cleared": "Pre-approval removed",
+      "save": "Save pre-approval",
+      "saved": "Pre-approval saved",
+      "dialog_title": "Pre-approve “{{name}}”",
+      "dialog_l2": "It runs at once on incidents of these services, without waiting for approval. Saving counts as the one approval an L2 action needs.",
+      "dialog_l3": "It runs at once on incidents of these services, without waiting for approval. Saving counts as one of the two approvals an L3 action needs; another person confirms it before it takes effect.",
+      "services": "Services",
+      "services_hint": "Comma separated; each one of the services the action is for.",
+      "services_hint_any": "Comma separated.",
+      "max_runs": "Runs at most",
+      "window": "Within",
+      "windows": {
+        "900": "15 minutes",
+        "3600": "1 hour",
+        "21600": "6 hours",
+        "86400": "1 day",
+        "604800": "7 days"
+      },
+      "expires": "Expires",
+      "expiries": {
+        "1": "In 1 day",
+        "7": "In 7 days",
+        "30": "In 30 days",
+        "90": "In 90 days",
+        "never": "Never"
+      },
+      "channels": "Notify after it runs",
+      "channels_hint": "Told after every pre-approved run, whether it worked or not.",
+      "channels_denied": "Choosing channels takes the permission to read notification connectors.",
+      "channels_none": "No notification connector can take a group or an address yet.",
+      "add_channel": "Add a channel",
+      "remove_channel": "Remove the channel",
+      "channel_connector": "Connector of channel {{number}}",
+      "channel_kind": "Kind of channel {{number}}",
+      "channel_target": "Group or address of channel {{number}}"
     }
   },
   "tickets": {

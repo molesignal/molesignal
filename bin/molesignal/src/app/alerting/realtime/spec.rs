@@ -6,6 +6,15 @@
 //! 实时规则的语句形态固定为 `SELECT count(*) FROM <stream> [WHERE <condition>]`：统计最近
 //! `period_secs` 秒内写入该数据流且满足条件的记录数，并与触发阈值比较。
 
+use domain::{
+    alerting::{
+        incident::Severity,
+        rule::{AlertRule, ComparisonOp},
+    },
+    query::QueryLanguage,
+    stream::StreamType,
+};
+use kernel::{Error, Result};
 use sqlparser::{
     ast::{
         Expr, FunctionArg, FunctionArgExpr, FunctionArguments, ObjectName, Select, SelectItem,
@@ -16,17 +25,6 @@ use sqlparser::{
 };
 
 use super::predicate::Predicate;
-use crate::{
-    domain::{
-        alerting::{
-            incident::Severity,
-            rule::{AlertRule, ComparisonOp},
-        },
-        query::QueryLanguage,
-        stream::StreamType,
-    },
-    shared::{Error, Result},
-};
 
 /// 实时规则窗口的上限（秒）。窗口按秒分桶保存计数，上限同时约束内存。
 pub const MAX_WINDOW_SECS: u32 = 3600;
@@ -112,18 +110,25 @@ impl RealtimeSpec {
             .as_ref()
             .is_none_or(|predicate| predicate.matches(fields))
     }
+
+    /// Adds the fields [`Self::matches`] reads to `out`.
+    pub(super) fn fields<'a>(&'a self, out: &mut Vec<&'a str>) {
+        if let Some(predicate) = &self.predicate {
+            predicate.fields(out);
+        }
+    }
 }
 
 /// 写入路径上的匹配器负责 `rule` 时返回 `true`。其余 `real_time` 规则（语句形态不被匹配器
 /// 支持）仍由周期评估器按查询结果评估。
 pub fn is_matched_at_intake(rule: &AlertRule) -> bool {
-    rule.kind == crate::domain::alerting::rule::AlertRuleKind::RealTime
+    rule.kind == domain::alerting::rule::AlertRuleKind::RealTime
         && RealtimeSpec::from_rule(rule).is_ok()
 }
 
 /// 创建或更新 `real_time` 规则时校验它能在写入路径上运行。
 pub fn validate(rule: &AlertRule) -> Result<()> {
-    if rule.kind != crate::domain::alerting::rule::AlertRuleKind::RealTime {
+    if rule.kind != domain::alerting::rule::AlertRuleKind::RealTime {
         return Ok(());
     }
 
@@ -291,16 +296,14 @@ fn object_name_ident(name: &ObjectName) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use domain::{
+        alerting::rule::{AlertQuery, AlertTrigger, SeverityThreshold},
+        query::StreamHint,
+    };
+    use kernel::{ids::Id, time::TimestampMicros};
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        domain::{
-            alerting::rule::{AlertQuery, AlertTrigger, SeverityThreshold},
-            query::StreamHint,
-        },
-        shared::{ids::Id, time::TimestampMicros},
-    };
 
     fn rule(statement: &str) -> AlertRule {
         AlertRule {
@@ -309,7 +312,7 @@ mod tests {
             name: "errors".into(),
             description: String::new(),
             enabled: true,
-            kind: crate::domain::alerting::rule::AlertRuleKind::RealTime,
+            kind: domain::alerting::rule::AlertRuleKind::RealTime,
             query: AlertQuery {
                 language: QueryLanguage::Sql,
                 statement: statement.into(),
@@ -345,6 +348,7 @@ mod tests {
             escalation_policy_id: Id::from_string("default"),
             labels: Default::default(),
             annotations: Default::default(),
+            guide: Default::default(),
             last_eval_at: None,
             last_state: Default::default(),
             created_at: TimestampMicros(0),
@@ -464,7 +468,7 @@ mod tests {
         assert!(is_matched_at_intake(&rule("SELECT count(*) FROM app")));
         assert!(!is_matched_at_intake(&rule("SELECT avg(latency) FROM app")));
         let mut scheduled = rule("SELECT count(*) FROM app");
-        scheduled.kind = crate::domain::alerting::rule::AlertRuleKind::Scheduled;
+        scheduled.kind = domain::alerting::rule::AlertRuleKind::Scheduled;
         assert!(!is_matched_at_intake(&scheduled));
         // 校验只约束 real_time 规则。
         assert!(validate(&scheduled).is_ok());

@@ -1,24 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
-pub use super::rule_conditions::{
-    MAX_CONDITION_PERIODS, NoDataAction, NoDataCondition, RecoveryCondition, recovery_operator,
-    validate_conditions,
-};
 use super::{
     anomaly::AnomalyParams, composite::CompositeQuery, discovery::DiscoveryQuery,
     forecast::ForecastParams, heartbeat::HeartbeatParams, incident::Severity,
     outlier::OutlierParams, priority::Priority, urgency::Urgency,
 };
-use crate::{
-    domain::{
-        apm::{ApmAlertMetric, ApmAlertQuery},
-        query::{QueryLanguage, StreamHint},
-        rum::RumAlertQuery,
+pub use super::{
+    rule_conditions::{
+        MAX_CONDITION_PERIODS, NoDataAction, NoDataCondition, RecoveryCondition, recovery_operator,
+        validate_conditions,
     },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    rule_guide::{GuideQuery, RuleGuide},
+};
+use crate::domain::{
+    apm::{ApmAlertMetric, ApmAlertQuery},
+    query::{QueryLanguage, StreamHint},
+    rum::RumAlertQuery,
 };
 
 /// 规则求值类型。不同 kind 分派到不同评估管线：
@@ -112,6 +113,9 @@ pub struct AlertRule {
     pub escalation_policy_id: Id,
     pub labels: std::collections::BTreeMap<String, String>,
     pub annotations: std::collections::BTreeMap<String, String>,
+    /// What to do first when one of its incidents is looked into: steps, queries, dashboards.
+    #[serde(default, skip_serializing_if = "RuleGuide::is_empty")]
+    pub guide: RuleGuide,
     /// 上一次评估完成的时间（None = 从未评估过）。
     pub last_eval_at: Option<TimestampMicros>,
     /// 上一次评估完成后规则所处状态；evaluator 重启会丢，但 fingerprint 去重兜底。

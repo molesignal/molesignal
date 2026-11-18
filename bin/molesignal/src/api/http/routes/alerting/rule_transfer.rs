@@ -8,13 +8,22 @@
 //!   "createOnly": false}`。`content` 是导出包（JSON 或 YAML）或 Prometheus 的告警规则文件；默认
 //!   只预演，`dryRun: false` 才写。每一条按名称对上已有规则，整包都说得通才一次写进去。
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use axum::{
     Extension, Json, Router,
     extract::{Query, State},
     routing::{get, post},
 };
+use domain::{
+    alerting::{
+        escalation::{DEFAULT_POLICY_ID, EscalationPolicy},
+        rule::{AlertRule, RuleState},
+    },
+    federation::{CudAction, ResourceKind},
+    iam::{IamContext, permission},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -27,22 +36,10 @@ use crate::{
         AppState,
         http::{federation::emit_cud, routes::activity_audit},
     },
-    app::{
-        alerting::rule_transfer::{
-            self, ImportAction, ImportItem, ImportReport,
-            bundle::{BUNDLE_FORMAT, PortableRule, RuleBundle, changed_fields, portable},
-        },
-        iam::IamContext,
+    app::alerting::rule_transfer::{
+        self, ImportAction, ImportItem, ImportReport,
+        bundle::{BUNDLE_FORMAT, PortableRule, RuleBundle, changed_fields, portable},
     },
-    domain::{
-        alerting::{
-            escalation::{DEFAULT_POLICY_ID, EscalationPolicy},
-            rule::{AlertRule, RuleState},
-        },
-        federation::{CudAction, ResourceKind},
-        iam::permission,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub(super) fn routes() -> Router<AppState> {
@@ -124,6 +121,15 @@ async fn import(
     let policies = state.alerting.service.list_policies(&ctx.org_id).await?;
     let now = TimestampMicros::now();
 
+    // A guide names dashboards by id: those of another organization are left out.
+    let dashboards: HashSet<String> = state
+        .dashboard
+        .list(&ctx.org_id, None)
+        .await?
+        .into_iter()
+        .map(|dashboard| dashboard.id.0)
+        .collect();
+
     // 同名的已有规则，和这一包里每个名称最后落到哪条规则上。
     let mut by_name: HashMap<&str, Vec<&AlertRule>> = HashMap::new();
 
@@ -154,6 +160,7 @@ async fn import(
         planned: &planned,
         existing_names: &names,
         policies: &policies,
+        dashboards: &dashboards,
     };
 
     let mut items = Vec::new();
@@ -316,6 +323,8 @@ struct Lookups<'a> {
     planned: &'a HashMap<String, Id>,
     existing_names: &'a BTreeMap<String, String>,
     policies: &'a [EscalationPolicy],
+    /// The organization's dashboards, by id.
+    dashboards: &'a HashSet<String>,
 }
 
 async fn built_rule(
@@ -330,6 +339,7 @@ async fn built_rule(
         planned,
         existing_names,
         policies,
+        dashboards,
     } = lookups;
 
     let escalation_policy_id = match rule.escalation_policy.as_deref() {
@@ -376,6 +386,11 @@ async fn built_rule(
         check_composite(state, org_id, kind, &query, Some(&id)).await?;
     }
 
+    let mut guide = rule.guide;
+    guide
+        .dashboards
+        .retain(|dashboard| dashboards.contains(dashboard.as_str()));
+
     Ok(AlertRule {
         id,
         org_id: org_id.clone(),
@@ -391,6 +406,7 @@ async fn built_rule(
         escalation_policy_id,
         labels: rule.labels,
         annotations: rule.annotations,
+        guide,
         last_eval_at: current.and_then(|current| current.last_eval_at),
         last_state: current
             .map(|current| current.last_state)

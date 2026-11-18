@@ -1,6 +1,8 @@
 import type { FindingKind } from '@/api/discovery';
 import type { LabelMatcher } from '@/api/semanticGroups';
 
+import type { RuleGuide } from './alertRuleGuide';
+
 export type { LabelMatcher, MatchOp } from '@/api/semanticGroups';
 
 export type Severity = 'info' | 'warning' | 'error' | 'critical';
@@ -252,6 +254,8 @@ export interface AlertRule {
   escalationPolicyId: string;
   labels: Record<string, string>;
   annotations: Record<string, string>;
+  /** What to do first when one of its incidents is looked into; absent when the rule has none. */
+  guide?: RuleGuide;
   /** Epoch microseconds of the last completed evaluator pass. */
   lastEvalAt?: number | null;
   lastState?: AlertRuleState;

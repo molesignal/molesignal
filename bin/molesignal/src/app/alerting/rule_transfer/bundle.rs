@@ -7,14 +7,13 @@
 
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
-
-use crate::domain::alerting::{
+use domain::alerting::{
     anomaly::AnomalyParams,
     escalation::{DEFAULT_POLICY_ID, EscalationPolicy},
     incident::Severity,
-    rule::{AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, SeverityThreshold},
+    rule::{AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, RuleGuide, SeverityThreshold},
 };
+use serde::{Deserialize, Serialize};
 
 /// 导出包的格式名。
 pub const BUNDLE_FORMAT: &str = "molesignal.alert-rules/v1";
@@ -56,6 +55,10 @@ pub struct PortableRule {
     pub labels: BTreeMap<String, String>,
     #[serde(default)]
     pub annotations: BTreeMap<String, String>,
+    /// The investigation guide; its dashboards are ids of the organization it came from, and an
+    /// import keeps only those the organization it goes to has.
+    #[serde(default, skip_serializing_if = "RuleGuide::is_empty")]
+    pub guide: RuleGuide,
 }
 
 fn enabled_by_default() -> bool {
@@ -73,7 +76,7 @@ pub fn portable(
     if let Some(composite) = &mut query.composite {
         for id in composite.rules.values_mut() {
             if let Some(name) = rule_names.get(id.as_str()) {
-                *id = crate::shared::ids::Id(name.clone());
+                *id = kernel::ids::Id(name.clone());
             }
         }
     }
@@ -100,6 +103,7 @@ pub fn portable(
         escalation_policy,
         labels: rule.labels.clone(),
         annotations: rule.annotations.clone(),
+        guide: rule.guide.clone(),
     }
 }
 
@@ -134,6 +138,7 @@ pub fn changed_fields(before: &PortableRule, after: &PortableRule) -> Vec<&'stat
     );
     check("labels", before.labels == after.labels);
     check("annotations", before.annotations == after.annotations);
+    check("guide", json(&before.guide) == json(&after.guide));
 
     fields
 }

@@ -121,6 +121,22 @@ impl Predicate {
         self.eval(fields) == Some(true)
     }
 
+    /// Adds the fields the predicate reads to `out`.
+    pub(super) fn fields<'a>(&'a self, out: &mut Vec<&'a str>) {
+        match self {
+            Self::Compare { field, .. }
+            | Self::In { field, .. }
+            | Self::Like { field, .. }
+            | Self::Between { field, .. }
+            | Self::IsNull { field, .. } => out.push(field),
+            Self::Not(inner) => inner.fields(out),
+            Self::And(left, right) | Self::Or(left, right) => {
+                left.fields(out);
+                right.fields(out);
+            }
+        }
+    }
+
     fn eval(&self, fields: &Map<String, Json>) -> Option<bool> {
         match self {
             Self::Compare { field, op, value } => {

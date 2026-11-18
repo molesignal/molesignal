@@ -4,7 +4,7 @@
 //! MoleSignal 自己的接口：一个对象，或最多 [`MAX_API_ALERTS`] 个对象的数组。
 //!
 //! ```json
-//! {"action": "trigger", "dedup_key": "disk-full/web-1", "summary": "web-1 磁盘使用率 95%",
+//! {"action": "trigger", "dedupKey": "disk-full/web-1", "summary": "web-1 磁盘使用率 95%",
 //!  "severity": "critical", "priority": "P2", "urgency": "high", "labels": {"host.name": "web-1"},
 //!  "annotations": {"description": "…"}, "links": [{"name": "Runbook", "url": "https://…"}]}
 //! ```
@@ -13,22 +13,20 @@
 
 use std::collections::BTreeMap;
 
+use domain::alerting::{
+    incident::Severity,
+    priority::Priority,
+    source::{
+        ExternalAction, ExternalAlert, MAX_ALERT_ANNOTATIONS, MAX_ALERT_LABELS,
+        MAX_DEDUP_KEY_CHARS, MAX_SUMMARY_CHARS, is_reserved_label,
+    },
+    urgency::Urgency,
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::Value;
 
 use super::{Parsed, json, reason, web_address};
-use crate::{
-    domain::alerting::{
-        incident::Severity,
-        priority::Priority,
-        source::{
-            ExternalAction, ExternalAlert, MAX_ALERT_ANNOTATIONS, MAX_ALERT_LABELS,
-            MAX_DEDUP_KEY_CHARS, MAX_SUMMARY_CHARS, is_reserved_label,
-        },
-        urgency::Urgency,
-    },
-    shared::{Error, Result},
-};
 
 /// 一次请求最多几条告警。
 pub const MAX_API_ALERTS: usize = 100;
@@ -36,7 +34,7 @@ pub const MAX_API_ALERTS: usize = 100;
 const MAX_LINKS: usize = 10;
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ApiAlert {
     #[serde(default)]
     action: Option<String>,
@@ -144,12 +142,12 @@ impl ApiAlert {
         let dedup_key = match self.dedup_key.map(|key| key.trim().to_string()) {
             Some(key) if !key.is_empty() => key,
             _ if action == ExternalAction::Trigger => derived_key(&summary, &self.labels),
-            _ => return Err(Error::invalid("acknowledge and resolve need a dedup_key")),
+            _ => return Err(Error::invalid("acknowledge and resolve need a dedupKey")),
         };
 
         if dedup_key.chars().count() > MAX_DEDUP_KEY_CHARS {
             return Err(Error::invalid(format!(
-                "dedup_key has at most {MAX_DEDUP_KEY_CHARS} characters"
+                "dedupKey has at most {MAX_DEDUP_KEY_CHARS} characters"
             )));
         }
 
@@ -201,7 +199,7 @@ fn check_labels(labels: &BTreeMap<String, String>) -> Result<()> {
     }
 }
 
-/// 没带 `dedup_key` 的触发按标题和标签算一个：同样的告警重复发来还是同一个事件。
+/// 没带 `dedupKey` 的触发按标题和标签算一个：同样的告警重复发来还是同一个事件。
 fn derived_key(summary: &str, labels: &BTreeMap<String, String>) -> String {
     let mut hasher = blake3::Hasher::new();
     hasher.update(summary.as_bytes());
@@ -272,7 +270,7 @@ mod tests {
     #[test]
     fn a_trigger_carries_everything_it_was_given() {
         let alert = one(
-            r#"{"dedup_key":"disk-full/web-1","summary":"web-1 磁盘使用率 95%","severity":"critical",
+            r#"{"dedupKey":"disk-full/web-1","summary":"web-1 磁盘使用率 95%","severity":"critical",
                 "labels":{"host.name":"web-1"},"annotations":{"description":"/data"},
                 "links":[{"name":"Runbook","url":"https://wiki.example.com/disk"},
                          {"url":"https://grafana.example.com/d/1"}]}"#,
@@ -308,10 +306,10 @@ mod tests {
     fn mistakes_are_refused_with_the_alert_they_are_in() {
         let refused = |body: &str| parse(body.as_bytes()).unwrap_err().to_string();
 
-        assert!(refused(r#"{"action":"resolve"}"#).contains("need a dedup_key"));
-        assert!(refused(r#"{"dedup_key":"x"}"#).contains("needs a summary"));
+        assert!(refused(r#"{"action":"resolve"}"#).contains("need a dedupKey"));
+        assert!(refused(r#"{"dedupKey":"x"}"#).contains("needs a summary"));
         assert!(refused(r#"{"summary":"x","severity":"high"}"#).contains("severity"));
-        assert!(refused(r#"{"summary":"x","dedupKey":"y"}"#).contains("unknown field"));
+        assert!(refused(r#"{"summary":"x","dedup_key":"y"}"#).contains("unknown field"));
         assert!(refused(r#"{"summary":"x","labels":{"alert.source":"y"}}"#).contains("kept"));
         assert!(refused(r#"{"summary":"x","links":[{"url":"ftp://x"}]}"#).contains("http(s)"));
         assert!(refused(r#"[{"summary":"x"},{"action":"stop"}]"#).contains("alert #1: action"));

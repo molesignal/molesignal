@@ -3,26 +3,25 @@
 
 use std::sync::Arc;
 
-use crate::{
-    app::{
-        alerting::{
-            AlertIncidentLifecycleSink,
-            realtime::{self, RealtimeAlerts},
-        },
-        notify::{ALERT_ACKNOWLEDGED_EVENT, ALERT_RESOLVED_EVENT, NotifyEngine, alert_dispatch},
+use domain::alerting::{
+    discovery,
+    escalation::{DEFAULT_POLICY_ID, EscalationPolicy, EscalationStep, EscalationStepInput},
+    incident::{Incident, IncidentStatus},
+    repositories::{
+        AlertRuleRepository, EscalationPolicyRepository, IncidentRepository, ScheduleRepository,
     },
-    domain::alerting::{
-        discovery,
-        escalation::{DEFAULT_POLICY_ID, EscalationPolicy, EscalationStep, EscalationStepInput},
-        incident::{Incident, IncidentStatus},
-        repositories::{
-            AlertRuleRepository, EscalationPolicyRepository, IncidentRepository, ScheduleRepository,
-        },
-        rule::{AlertQuery, AlertRule, validate_conditions},
-        schedule::Schedule,
-        timeline::{ActionVia, IncidentTimelineRepository, TimelineEntry, TimelineKind},
+    rule::{AlertQuery, AlertRule, validate_conditions},
+    schedule::Schedule,
+    timeline::{ActionVia, IncidentTimelineRepository, TimelineEntry, TimelineKind},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
+use crate::app::{
+    alerting::{
+        AlertIncidentLifecycleSink,
+        realtime::{self, RealtimeAlerts},
     },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    notify::{ALERT_ACKNOWLEDGED_EVENT, ALERT_RESOLVED_EVENT, NotifyEngine, alert_dispatch},
 };
 
 /// 写回一个事件最多试几次：每次落空都是别人刚改过，重读再改。
@@ -57,8 +56,7 @@ impl AlertingService {
             escalations,
             notify_engine: None,
             lifecycle_sink: None,
-            default_ack_timeout_secs: crate::config::AlertSettings::default()
-                .default_ack_timeout_secs,
+            default_ack_timeout_secs: settings::AlertSettings::default().default_ack_timeout_secs,
             realtime_alerts: None,
             timeline: None,
         }
@@ -109,6 +107,7 @@ impl AlertingService {
         refuse_audit_trail(&rule)?;
         realtime::validate(&rule)?;
         validate_conditions(rule.kind, &rule.trigger, &rule.thresholds)?;
+        rule.guide.normalize()?;
         self.ensure_policy_exists(&rule.org_id, &rule.escalation_policy_id)
             .await?;
         let created = self.rules.create(rule).await?;
@@ -125,6 +124,7 @@ impl AlertingService {
         refuse_audit_trail(&rule)?;
         realtime::validate(&rule)?;
         validate_conditions(rule.kind, &rule.trigger, &rule.thresholds)?;
+        rule.guide.normalize()?;
         // 只校验被改动的引用：策略事后被删的规则仍可继续编辑其它字段。
         let existing = self.rules.get(&rule.id).await?;
 
@@ -149,6 +149,7 @@ impl AlertingService {
         refuse_audit_trail(rule)?;
         realtime::validate(rule)?;
         validate_conditions(rule.kind, &rule.trigger, &rule.thresholds)?;
+        rule.guide.normalize()?;
         self.ensure_policy_exists(&rule.org_id, &rule.escalation_policy_id)
             .await
     }
@@ -475,7 +476,7 @@ fn reads_audit_trail(query: &AlertQuery) -> bool {
     query
         .stream
         .as_ref()
-        .is_some_and(|stream| stream.name == crate::domain::stream::AUDIT_STREAM)
+        .is_some_and(|stream| stream.name == domain::stream::AUDIT_STREAM)
         || crate::infra::query::grants::statement_names_audit(&query.statement)
 }
 

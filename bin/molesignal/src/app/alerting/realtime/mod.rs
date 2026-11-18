@@ -29,24 +29,21 @@ use std::{
 };
 
 pub use coordinator::{FederatedCounts, RealtimeCoordinator, RealtimeCounts};
+use domain::{
+    alerting::{
+        realtime_snapshot::CountSnapshot,
+        rule::{AlertRule, AlertRuleKind},
+    },
+    intake::{IntakeError, RawEvent},
+    stream::StreamType,
+};
+use kernel::{ids::Id, time::TimestampMicros};
 use parking_lot::{Mutex, RwLock};
 use spec::RealtimeSpec;
 pub use spec::{MAX_WINDOW_SECS, is_matched_at_intake, validate};
 use tokio::sync::Notify;
 use window::SlidingCounter;
 pub use worker::RealtimeAlertWorker;
-
-use crate::{
-    domain::{
-        alerting::{
-            realtime_snapshot::CountSnapshot,
-            rule::{AlertRule, AlertRuleKind},
-        },
-        intake::{IntakeError, RawEvent},
-        stream::StreamType,
-    },
-    shared::{ids::Id, time::TimestampMicros},
-};
 
 /// 集群内部调用的来源标记头；拉计数时取 [`REALTIME_COUNTS_ORIGIN`]。
 pub const INTERNAL_ORIGIN_HEADER: &str = "x-molesignal-internal-origin";
@@ -88,6 +85,25 @@ impl RealtimeAlerts {
     /// 规则被创建、修改或删除：唤醒后台任务立即重新加载。
     pub fn rules_changed(&self) {
         self.changed.notify_one();
+    }
+
+    /// The fields real-time rules on `stream` read, when any rule watches it: its records, with
+    /// at least these fields, must reach [`Self::observe`].
+    pub fn watched_fields(
+        &self,
+        org_id: &Id,
+        stream: &str,
+        stream_type: StreamType,
+    ) -> Option<HashSet<String>> {
+        let entries = self.entries.read().clone();
+        let rules = entries.get(&(org_id.clone(), stream_type, stream.to_owned()))?;
+        let mut fields = Vec::new();
+
+        for entry in rules {
+            entry.runtime.spec.fields(&mut fields);
+        }
+
+        Some(fields.into_iter().map(str::to_owned).collect())
     }
 
     /// 对一批将要写入的记录求值；该数据流没有规则命中任何记录时返回 `None`。

@@ -10,15 +10,14 @@
 
 use std::collections::BTreeMap;
 
-use super::{decision::Decision, evaluation::compare_value};
-use crate::{
-    domain::alerting::{
-        incident::Severity,
-        repositories::AlertRuleEvalState,
-        rule::{AlertRule, NoDataAction, recovery_operator},
-    },
-    shared::time::TimestampMicros,
+use domain::alerting::{
+    incident::Severity,
+    repositories::AlertRuleEvalState,
+    rule::{AlertRule, NoDataAction, recovery_operator},
 };
+use kernel::time::TimestampMicros;
+
+use super::{decision::Decision, evaluation::compare_value};
 
 /// 一轮读到的东西。没有值按 `zero` 处理的规则已经换成了 0（见 [`with_no_data_value`]）。
 #[derive(Debug, Clone)]
@@ -191,17 +190,16 @@ fn healthy_side(rule: &AlertRule, value: f64, matched: bool) -> bool {
 mod tests {
     use std::collections::BTreeMap;
 
-    use super::*;
-    use crate::{
-        domain::{
-            alerting::rule::{
-                AlertQuery, AlertRuleKind, AlertTrigger, ComparisonOp, NoDataCondition,
-                RecoveryCondition, RuleState, SeverityThreshold,
-            },
-            query::QueryLanguage,
+    use domain::{
+        alerting::rule::{
+            AlertQuery, AlertRuleKind, AlertTrigger, ComparisonOp, NoDataCondition,
+            RecoveryCondition, RuleState, SeverityThreshold,
         },
-        shared::ids::Id,
+        query::QueryLanguage,
     };
+    use kernel::ids::Id;
+
+    use super::*;
 
     fn rule(trigger: AlertTrigger, thresholds: Vec<SeverityThreshold>) -> AlertRule {
         AlertRule {
@@ -234,6 +232,7 @@ mod tests {
             escalation_policy_id: Id::from_string("default"),
             labels: BTreeMap::new(),
             annotations: BTreeMap::new(),
+            guide: Default::default(),
             last_eval_at: None,
             last_state: RuleState::Healthy,
             created_at: TimestampMicros(0),

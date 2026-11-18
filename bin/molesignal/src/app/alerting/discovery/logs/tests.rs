@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::stream::{FieldDef, FieldType, Schema, StreamIndexType};
 use serde_json::json;
 
 use super::*;
-use crate::domain::stream::{FieldDef, FieldType, Schema};
 
 fn stream(name: &str, fields: &[&str]) -> StreamDefinition {
     StreamDefinition {
@@ -19,10 +19,8 @@ fn stream(name: &str, fields: &[&str]) -> StreamDefinition {
                     name: name.to_string(),
                     data_type: FieldType::Utf8,
                     nullable: true,
-                    index_type: None,
-                    indexed: false,
+                    index_type: StreamIndexType::None,
                     encrypted: false,
-                    exact: false,
                 })
                 .collect(),
         },

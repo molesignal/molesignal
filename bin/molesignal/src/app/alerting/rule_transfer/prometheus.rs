@@ -13,20 +13,18 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use domain::{
+    alerting::{
+        incident::Severity,
+        rule::{AlertQuery, AlertRuleKind, AlertTrigger, ComparisonOp},
+    },
+    query::{QueryLanguage, StreamHint},
+    stream::StreamType,
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 
 use super::bundle::PortableRule;
-use crate::{
-    domain::{
-        alerting::{
-            incident::Severity,
-            rule::{AlertQuery, AlertRuleKind, AlertTrigger, ComparisonOp},
-        },
-        query::{QueryLanguage, StreamHint},
-        stream::StreamType,
-    },
-    shared::{Error, Result},
-};
 
 /// 没写 `interval` 的规则组多久评估一次。
 const DEFAULT_INTERVAL_SECS: u32 = 60;
@@ -216,6 +214,8 @@ fn alert_rule(alert: &str, rule: &PromRule, interval: u32) -> Result<PortableRul
         escalation_policy: None,
         labels,
         annotations: rule.annotations.clone(),
+        // A Prometheus file has no guide: its runbook_url stays an annotation.
+        guide: Default::default(),
     })
 }
 

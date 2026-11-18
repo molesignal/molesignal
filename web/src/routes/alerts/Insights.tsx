@@ -115,13 +115,13 @@ export function AlertsInsights() {
 
   return (
     <AlertsPage
-      // What the tab is looking at is said where the tabs are, not in the page's header.
-      tabsEnd={
+      // What the page is looking at stands with the header's actions, as small as they are.
+      action={
         <Select
           value={String(windowSecs)}
           onValueChange={(value) => setWindowSecs(Number(value) as WindowSecs)}
         >
-          <SelectTrigger className="h-8 w-[150px]" aria-label={t('insights.window.label')}>
+          <SelectTrigger className="h-8 w-[150px] sm:h-8" aria-label={t('insights.window.label')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent align="end">

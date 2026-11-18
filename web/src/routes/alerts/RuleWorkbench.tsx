@@ -66,6 +66,14 @@ import {
   missingGroupColumns,
   parseGroupBy,
 } from './rule-workbench/groupBy';
+import {
+  EMPTY_GUIDE_DRAFT,
+  type GuideDraft,
+  guideDraftOf,
+  guidePayload,
+  guideProblem,
+} from './rule-workbench/guide';
+import { GuideFields, guideProblemMessage } from './rule-workbench/GuideFields';
 import { HomeClusterField } from './rule-workbench/HomeClusterField';
 import { ImportanceFields } from './rule-workbench/ImportanceFields';
 import {
@@ -165,6 +173,8 @@ export function AlertRuleWorkbench() {
   // When an incident recovers, and what a round without a value counts as.
   const [conditions, setConditions] = React.useState<RuleConditions>(() => conditionsOf(undefined, periodSecs));
   const [runbook, setRunbook] = React.useState('');
+  // What to do first when one of the rule's incidents is looked into.
+  const [guide, setGuide] = React.useState<GuideDraft>(EMPTY_GUIDE_DRAFT);
   // How the rule fires, and what the kinds that judge themselves need.
   const [ruleKind, setRuleKind] = React.useState<WorkbenchKind>('scheduled');
   const [composite, setComposite] = React.useState<CompositeQuery>(defaultComposite);
@@ -208,6 +218,7 @@ export function AlertRuleWorkbench() {
     setUrgency(rule.trigger.urgency ?? null);
     setThresholds(seedThresholds(rule));
     setRunbook(rule.annotations.runbook_url ?? '');
+    setGuide(guideDraftOf(rule.guide));
     if (isWorkbenchKind(rule.kind)) setRuleKind(rule.kind ?? 'scheduled');
     const params = kindParamsOf(rule);
     setComposite(params.composite);
@@ -383,6 +394,8 @@ export function AlertRuleWorkbench() {
         throw new Error(t('workbench.errors.group_by_too_many', { count: MAX_GROUP_BY_COLUMNS }));
       }
       if (recoveryInvalid) throw new Error(t('workbench.errors.recovery_side'));
+      const guideIssue = guideProblem(guide);
+      if (guideIssue) throw new Error(guideProblemMessage(guideIssue, t));
       const bands = thresholds.map((band) => ({
         ...band,
         threshold: Number(band.threshold),
@@ -451,6 +464,7 @@ export function AlertRuleWorkbench() {
           ...withoutLegacyNotifyAnnotations(existing?.annotations ?? {}),
           ...(runbook.trim() ? { runbook_url: runbook.trim() } : {}),
         },
+        guide: guidePayload(guide),
         ...(existing?.escalationPolicyId
           ? { escalationPolicyId: existing.escalationPolicyId }
           : {}),
@@ -915,6 +929,15 @@ export function AlertRuleWorkbench() {
                   </span>
                 )}
               </FormField>
+            </WorkbenchSection>
+
+            <WorkbenchSection
+              id="guide"
+              number="04"
+              title={t('workbench.sections.guide')}
+              description={t('workbench.sections.guide_description')}
+            >
+              <GuideFields value={guide} onChange={setGuide} readOnly={manageAccess.disabled} />
             </WorkbenchSection>
           </main>
 

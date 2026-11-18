@@ -5,6 +5,54 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::{
+    alerting::{
+        discovery::DiscoveryRepository, incident_group::IncidentGroupRepository,
+        mute::MuteRuleRepository, semantic_group::SemanticGroupRepository,
+        timeline::IncidentTimelineRepository,
+    },
+    iam::{IamMembershipRepository, OrganizationRepository, TeamRepository},
+    notify::{
+        reply::NotifyReplyRepository,
+        repositories::{
+            NotifyCallRepository, NotifyConnectorRepository, NotifyDeliveryRepository,
+            NotifyEventRepository, NotifyFollowUpRepository, NotifyPolicyRepository,
+            NotifyRouteReferenceRepository, NotifyTemplateRepository,
+            OrganizationNotifyDefaultRepository, TeamNotifyDefaultRepository,
+            UserNotifyEndpointRepository, UserNotifyPreferenceRepository,
+        },
+    },
+};
+use kernel::Result;
+use postgres::repositories::{
+    agent::im::PgImRepository,
+    alert_heartbeats::PgHeartbeatRepository,
+    alert_routing::{PgRoutingRuleRepository, PgTeamPolicyRepository},
+    alert_rules::evaluation_state::PgAlertRuleEvalStateRepository,
+    discovery_findings::PgDiscoveryRepository,
+    holiday_calendars::PgHolidayCalendarRepository,
+    incident_importance::PgImportanceRepository,
+    incidents::{groups::PgIncidentGroupRepository, timeline::PgIncidentTimelineRepository},
+    inhibit_rules::PgInhibitRuleRepository,
+    instance_settings::PgInstanceSettingsRepository,
+    mute_rules::PgMuteRuleRepository,
+    notify::{
+        NotifyTemplateManagementRepository, PgNotifyActionLinkRepository, PgNotifyCallRepository,
+        PgNotifyConnectorRepository, PgNotifyDeliveryRepository, PgNotifyEventRepository,
+        PgNotifyFollowUpRepository, PgNotifyPolicyRepository, PgNotifyReplyRepository,
+        PgNotifyRouteReferenceRepository, PgNotifyTemplateRepository,
+        PgOrganizationNotifyDefaultRepository, PgTeamNotifyDefaultRepository,
+        PgUserNotifyEndpointRepository, PgUserNotifyPreferenceRepository,
+    },
+    realtime_snapshots::PgRealtimeSnapshotRepository,
+    rum_applications::PgRumApplicationRepository,
+    rum_issues::PgRumIssueRepository,
+    semantic_groups::PgSemanticGroupRepository,
+    status_pages::PgStatusPageRepository,
+    synthetics::PgSyntheticRepository,
+};
+use settings::Settings;
+
 use super::{
     alerting_notify::{connector_registry, resolver_registry},
     alerting_response::{ResponseInputs, ResponseServices},
@@ -31,65 +79,16 @@ use crate::{
             StatusPageAlertIncidentSink, StatusPageService,
         },
     },
-    config::Settings,
-    domain::{
-        alerting::{
-            discovery::DiscoveryRepository, incident_group::IncidentGroupRepository,
-            mute::MuteRuleRepository, semantic_group::SemanticGroupRepository,
-            timeline::IncidentTimelineRepository,
-        },
-        iam::{IamMembershipRepository, OrganizationRepository, TeamRepository},
-        notify::{
-            reply::NotifyReplyRepository,
-            repositories::{
-                NotifyCallRepository, NotifyConnectorRepository, NotifyDeliveryRepository,
-                NotifyEventRepository, NotifyFollowUpRepository, NotifyPolicyRepository,
-                NotifyRouteReferenceRepository, NotifyTemplateRepository,
-                OrganizationNotifyDefaultRepository, TeamNotifyDefaultRepository,
-                UserNotifyEndpointRepository, UserNotifyPreferenceRepository,
-            },
-        },
-    },
     infra::{
         cluster::{
             realtime_counts::ClusterRealtimeCounts, realtime_federation::GrpcFederatedCounts,
         },
         notify::StatusPageNotifyAdapter,
-        persistence::repositories::{
-            agent::im::PgImRepository,
-            alert_heartbeats::PgHeartbeatRepository,
-            alert_routing::{PgRoutingRuleRepository, PgTeamPolicyRepository},
-            alert_rules::evaluation_state::PgAlertRuleEvalStateRepository,
-            discovery_findings::PgDiscoveryRepository,
-            holiday_calendars::PgHolidayCalendarRepository,
-            incident_importance::PgImportanceRepository,
-            incidents::{
-                groups::PgIncidentGroupRepository, timeline::PgIncidentTimelineRepository,
-            },
-            inhibit_rules::PgInhibitRuleRepository,
-            instance_settings::PgInstanceSettingsRepository,
-            mute_rules::PgMuteRuleRepository,
-            notify::{
-                NotifyTemplateManagementRepository, PgNotifyCallRepository,
-                PgNotifyConnectorRepository, PgNotifyDeliveryRepository, PgNotifyEventRepository,
-                PgNotifyFollowUpRepository, PgNotifyPolicyRepository, PgNotifyReplyRepository,
-                PgNotifyRouteReferenceRepository, PgNotifyTemplateRepository,
-                PgOrganizationNotifyDefaultRepository, PgTeamNotifyDefaultRepository,
-                PgUserNotifyEndpointRepository, PgUserNotifyPreferenceRepository,
-            },
-            realtime_snapshots::PgRealtimeSnapshotRepository,
-            rum_applications::PgRumApplicationRepository,
-            rum_issues::PgRumIssueRepository,
-            semantic_groups::PgSemanticGroupRepository,
-            status_pages::PgStatusPageRepository,
-            synthetics::PgSyntheticRepository,
-        },
         status_page::{
             ConnectorSlackApps, DnsStatusPageDomainVerifier, StatusPageAdminEmailNotifier,
             StatusPageAssetCleaner,
         },
     },
-    shared::Result,
 };
 
 pub(super) struct AlertingRuntime {
@@ -109,13 +108,15 @@ pub(super) struct AlertingRuntime {
     /// Where APM rules read their figures; filled once APM's query service is built.
     pub(super) apm_alerts: Arc<crate::app::alerting::ApmAlertSlot>,
     /// Where RUM rules read their figures, and the preview of the rule editor.
-    pub(super) rum_alerts: Arc<dyn crate::domain::rum::RumAlertSource>,
+    pub(super) rum_alerts: Arc<dyn domain::rum::RumAlertSource>,
     /// 路由：新事件交给哪个团队、走哪条升级策略。
     pub(super) routing: Arc<crate::app::alerting::AlertRouting>,
     /// 人对事件的处理：转派、升级、暂缓、合并、备注、批量处理与时间线。
     pub(super) actions: Arc<IncidentActions>,
     /// 短信回复、电话按键的回调。
     pub(super) reply_callbacks: Arc<ReplyCallbacks>,
+    /// One-time action links on notifications.
+    pub(super) action_links: Arc<dyn domain::notify::action_links::NotifyActionLinkRepository>,
     /// 洞察里人的部分：响应和值班负担。
     pub(super) insights: Arc<AlertInsights>,
     /// 像这个事件的过去的事件，和它触发前后的变更。
@@ -125,7 +126,7 @@ pub(super) struct AlertingRuntime {
     /// 换班申请。
     pub(super) swaps: Arc<ShiftSwaps>,
     /// 心跳规则的打卡地址与最后一次打卡。
-    pub(super) heartbeats: Arc<dyn crate::domain::alerting::heartbeat::HeartbeatRepository>,
+    pub(super) heartbeats: Arc<dyn domain::alerting::heartbeat::HeartbeatRepository>,
     /// 修复动作：定义、发起、执行与验证。
     pub(super) remediation: Arc<RemediationService>,
     /// 工单：Jira 与飞书项目。
@@ -152,9 +153,8 @@ impl AlertingRuntime {
         dashboard_contracts: Arc<dyn DashboardContractResolver>,
         alert_pipelines: Arc<crate::app::alerting::event_pipelines::AlertPipelines>,
     ) -> Result<Self> {
-        let eval_state: Arc<
-            dyn crate::domain::alerting::repositories::AlertRuleEvalStateRepository,
-        > = Arc::new(PgAlertRuleEvalStateRepository::new(core.pool.clone()));
+        let eval_state: Arc<dyn domain::alerting::repositories::AlertRuleEvalStateRepository> =
+            Arc::new(PgAlertRuleEvalStateRepository::new(core.pool.clone()));
 
         let template_repository = Arc::new(PgNotifyTemplateRepository::new(core.pool.clone()));
         let notify_templates: Arc<dyn NotifyTemplateManagementRepository> =
@@ -184,6 +184,8 @@ impl AlertingRuntime {
             Arc::new(PgNotifyCallRepository::new(core.pool.clone()));
         let replies: Arc<dyn NotifyReplyRepository> =
             Arc::new(PgNotifyReplyRepository::new(core.pool.clone()));
+        let action_links: Arc<dyn domain::notify::action_links::NotifyActionLinkRepository> =
+            Arc::new(PgNotifyActionLinkRepository::new(core.pool.clone()));
         let policies: Arc<dyn NotifyPolicyRepository> =
             Arc::new(PgNotifyPolicyRepository::new(core.pool.clone()));
         let team_defaults: Arc<dyn TeamNotifyDefaultRepository> =
@@ -196,7 +198,7 @@ impl AlertingRuntime {
         let route_references: Arc<dyn NotifyRouteReferenceRepository> =
             Arc::new(PgNotifyRouteReferenceRepository::new(core.pool.clone()));
         let memberships: Arc<dyn IamMembershipRepository> = core.iam_memberships.clone();
-        let schedules: Arc<dyn crate::domain::alerting::repositories::ScheduleRepository> =
+        let schedules: Arc<dyn domain::alerting::repositories::ScheduleRepository> =
             core.schedules.clone();
         let teams: Arc<dyn TeamRepository> = core.teams.clone();
         let engine_templates: Arc<dyn NotifyTemplateRepository> = template_repository;
@@ -238,6 +240,7 @@ impl AlertingRuntime {
             .with_alert_context(core.alert_rules.clone(), settings.http.external_url.clone())
             .with_silences(mute_rules.clone(), core.incidents.clone())
             .with_replies(replies.clone())
+            .with_action_links(action_links.clone())
             .with_importance(importance.clone())
             .with_alert_pipelines(alert_pipelines.clone()),
         );
@@ -269,7 +272,7 @@ impl AlertingRuntime {
             Arc::new(PgIncidentTimelineRepository::new(core.pool.clone()));
 
         // 路由与相似事件读 APM 服务目录；服务目录直接读库，不等 APM 的查询服务。
-        let apm_catalog: Arc<dyn crate::domain::apm::ApmCatalogRepository> =
+        let apm_catalog: Arc<dyn domain::apm::ApmCatalogRepository> =
             Arc::new(crate::infra::apm::PgApmRepository::new(core.pool.clone()));
 
         let ResponseServices {
@@ -358,7 +361,7 @@ impl AlertingRuntime {
         ));
 
         // A RUM rule reads the same rows as the RUM pages, through the engine the other rules use.
-        let rum_alerts: Arc<dyn crate::domain::rum::RumAlertSource> =
+        let rum_alerts: Arc<dyn domain::rum::RumAlertSource> =
             Arc::new(crate::infra::rum::alerts::RumAlerts::new(
                 query.alert_engine.clone(),
                 Arc::new(PgRumApplicationRepository::new(core.pool.clone())),
@@ -393,7 +396,7 @@ impl AlertingRuntime {
             .with_importance(importance.clone()),
         );
 
-        let heartbeats: Arc<dyn crate::domain::alerting::heartbeat::HeartbeatRepository> =
+        let heartbeats: Arc<dyn domain::alerting::heartbeat::HeartbeatRepository> =
             Arc::new(PgHeartbeatRepository::new(core.pool.clone()));
 
         // 一个进程跑全部角色时查询读得到自己的缓冲，规则不设评估延迟就不挪窗口；分角色集群里按
@@ -452,7 +455,7 @@ impl AlertingRuntime {
         // 实时规则在接收写入的节点上计数：intake 与 standalone 角色运行匹配器的后台任务，每 5 秒存
         // 一份计数快照，重启时读回。
         let realtime_snapshots: Arc<
-            dyn crate::domain::alerting::realtime_snapshot::RealtimeSnapshotRepository,
+            dyn domain::alerting::realtime_snapshot::RealtimeSnapshotRepository,
         > = Arc::new(PgRealtimeSnapshotRepository::new(core.pool.clone()));
 
         let _realtime_alert_worker = core.roles.run_intake.then(|| {
@@ -554,6 +557,7 @@ impl AlertingRuntime {
             routing,
             actions,
             reply_callbacks,
+            action_links,
             insights,
             related,
             calendar,

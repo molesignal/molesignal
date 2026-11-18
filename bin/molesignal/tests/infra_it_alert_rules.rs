@@ -14,20 +14,18 @@ mod common;
 
 use std::collections::BTreeMap;
 
-use molesignal::{
-    config::MetaDatabaseSettings,
-    domain::{
-        alerting::{
-            anomaly::AnomalyParams,
-            repositories::AlertRuleRepository,
-            rule::{AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, ComparisonOp, RuleState},
-        },
-        query::{QueryLanguage, StreamHint},
-        stream::StreamType,
+use domain::{
+    alerting::{
+        anomaly::AnomalyParams,
+        repositories::AlertRuleRepository,
+        rule::{AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, ComparisonOp, RuleState},
     },
-    infra::persistence::{MetaStore, repositories::alert_rules::PgAlertRuleRepository},
-    shared::{ids::Id, time::TimestampMicros},
+    query::{QueryLanguage, StreamHint},
+    stream::StreamType,
 };
+use kernel::{ids::Id, time::TimestampMicros};
+use postgres::{MetaStore, repositories::alert_rules::PgAlertRuleRepository};
+use settings::MetaDatabaseSettings;
 
 fn skip_unless_enabled() -> bool {
     std::env::var("MS_RUN_IT").ok().as_deref() != Some("1")
@@ -90,6 +88,7 @@ fn base_rule(id: &str, org: &str, kind: AlertRuleKind, params: Option<AnomalyPar
         escalation_policy_id: Id::from_string("default"),
         labels: BTreeMap::new(),
         annotations: BTreeMap::new(),
+        guide: Default::default(),
         last_eval_at: None,
         last_state: RuleState::Healthy,
         created_at: now,

@@ -78,7 +78,20 @@
     "remediation": "修复动作",
     "tickets": "工单",
     "postmortems": "复盘",
-    "discovery": "自动发现"
+    "discovery": "自动发现",
+    "group_respond": "处理",
+    "group_detect": "检测",
+    "group_noise": "降噪",
+    "group_notify": "通知",
+    "group_follow_up": "联动",
+    "search_placeholder": "搜索告警页面…",
+    "search_aria": "搜索告警的页面",
+    "no_results": "没有匹配的页面",
+    "collapse_group": "收起{{group}}",
+    "expand_group": "展开{{group}}",
+    "open_navigation": "打开告警导航",
+    "collapse_navigation": "收起告警导航",
+    "expand_navigation": "展开告警导航"
   },
   "history": {
     "error_title": "无法加载告警历史",
@@ -283,7 +296,34 @@
       "condition": "查询与触发条件",
       "condition_description": "查询、阈值和持续时间在同一上下文中验证。",
       "delivery": "Notify 与处理",
-      "delivery_description": "告警生命周期事件由 Notify 策略路由，规则中只保留处理指南。"
+      "delivery_description": "告警生命周期事件由 Notify 策略路由，规则中只保留处理指南。",
+      "guide": "排查线索",
+      "guide_description": "有人排查这条规则的事件时先做什么。事件详情里会显示，Mole Agent 调查前也会先读。"
+    },
+    "guide": {
+      "steps": "排查步骤",
+      "steps_hint": "Markdown：先查什么、按什么顺序查。",
+      "steps_placeholder": "1. 先看错误来自哪些接口……",
+      "queries": "排查查询",
+      "queries_hint": "在事件详情里按事件的时间段一键打开。最多 {{count}} 条。",
+      "add_query": "添加查询",
+      "remove_query": "删除第 {{index}} 条查询",
+      "query_name": "名称",
+      "query_name_placeholder": "按接口拆分错误",
+      "query_language": "查询语言",
+      "query_stream": "数据流",
+      "query_stream_type": "数据类型",
+      "query_statement": "查询语句",
+      "stream_types": {
+        "logs": "日志",
+        "traces": "链路",
+        "metrics": "指标"
+      },
+      "dashboards": "相关仪表盘",
+      "dashboards_hint": "在事件详情里打开。最多 {{count}} 个。",
+      "add_dashboard": "添加仪表盘",
+      "no_dashboards": "没有可添加的仪表盘",
+      "remove_dashboard": "移除 {{name}}"
     },
     "fields": {
       "name": "规则名称",
@@ -355,6 +395,18 @@
       "trace_latency": {
         "title": "链路耗时过高",
         "description": "平均 Trace 耗时持续升高"
+      },
+      "sample_errors": {
+        "title": "样例 · 错误日志",
+        "description": "查询样例日志中的错误数量；选择评估窗口和负责人后保存。"
+      },
+      "sample_no_data": {
+        "title": "样例 · 数据停止上报",
+        "description": "样例为一次性导入，窗口移出样例时间后计数会归零。"
+      },
+      "sample_latency": {
+        "title": "样例 · 链路延迟",
+        "description": "查询样例 Span 平均耗时，阈值单位为毫秒。"
       }
     },
     "intervals": {
@@ -461,7 +513,17 @@
       "rum_application_required": "选择要告警的应用",
       "group_by_missing": "查询结果里没有用来拆分的列：{{columns}}",
       "group_by_too_many": "最多按 {{count}} 列拆分。",
-      "recovery_side": "恢复阈值要在健康的一侧：高于阈值触发时不能比阈值高，低于阈值触发时不能比阈值低，而且各档要朝同一个方向。"
+      "recovery_side": "恢复阈值要在健康的一侧：高于阈值触发时不能比阈值高，低于阈值触发时不能比阈值低，而且各档要朝同一个方向。",
+      "guide": {
+        "steps_too_long": "排查步骤最多 {{limit}} 个字符。",
+        "too_many_queries": "排查线索最多 {{limit}} 条查询。",
+        "query_name_required": "第 {{index}} 条排查查询需要名称。",
+        "query_name_too_long": "第 {{index}} 条查询的名称超过 {{limit}} 个字符。",
+        "query_statement_required": "第 {{index}} 条排查查询还没有语句。",
+        "query_statement_too_long": "第 {{index}} 条查询超过 {{limit}} 个字符。",
+        "query_stream_required": "第 {{index}} 条查询是 SQL，要指定它读的数据流。",
+        "too_many_dashboards": "排查线索最多关联 {{limit}} 个仪表盘。"
+      }
     },
     "toast": {
       "saved": "规则「{{name}}」已保存并启用",
@@ -729,7 +791,12 @@
       "remediation": "修复动作",
       "tickets": "工单",
       "major": "重大事件",
-      "postmortem": "复盘"
+      "postmortem": "复盘",
+      "guide": "排查线索"
+    },
+    "guide": {
+      "queries": "排查查询",
+      "dashboards": "相关仪表盘"
     },
     "investigation": {
       "open_trigger": "打开触发查询",
@@ -1238,7 +1305,7 @@
       "configure": "配置发送方"
     },
     "setup_guide": {
-      "api": "用下面的请求发送告警；同一个 dedup_key 的触发、确认和恢复落在同一个事件上。",
+      "api": "用下面的请求发送告警；同一个 dedupKey 的触发、确认和恢复落在同一个事件上。",
       "alertmanager": "把下面的接收器加进 alertmanager.yml，并在路由里把告警交给它；send_resolved 要保持 true。",
       "grafana": "在 Alerting → Contact points 新建 Webhook 联系点，按下面填写，再在通知策略里使用它。",
       "datadog": "在 Integrations → Webhooks 新建 Webhook，按下面填写，再在监控的通知消息里写 @webhook-名称。",
@@ -2399,6 +2466,8 @@
       "rejected": "已驳回",
       "requested_one": "已提交审批，需要 {{count}} 人批准",
       "requested_other": "已提交审批，需要 {{count}} 人批准",
+      "ran_preapproved": "已按预批准直接执行",
+      "preapproved": "预批准",
       "title": "执行「{{name}}」",
       "needs_one": "提交后要一位有审批权限的人批准，批准后马上执行。",
       "needs_two": "提交后要两位有审批权限的人批准，批准后马上执行。",
@@ -2415,6 +2484,61 @@
         "verified": "验证通过",
         "verification_failed": "验证没通过"
       }
+    },
+    "preapproval": {
+      "title": "预批准",
+      "switch_label": "允许预批准的动作不等审批直接执行",
+      "switch_hint": "默认关闭。动作只在预批准覆盖的事件上直接执行，次数不超过时间窗内的上限，批准的人数也不少于风险等级要求的人数。",
+      "switched_on": "已开启预批准",
+      "switched_off": "已关闭预批准",
+      "states": {
+        "none": "未预批准",
+        "off": "已预批准 · 组织未开启",
+        "expired": "预批准已过期",
+        "awaiting_approver": "已预批准 · 等第二人确认",
+        "used_up": "已预批准 · 次数已用完（{{used}}/{{max}}）",
+        "active": "已预批准 · 时间窗内已执行 {{used}}/{{max}} 次"
+      },
+      "set": "预批准",
+      "edit": "修改预批准",
+      "confirm": "确认预批准",
+      "confirmed": "已确认预批准",
+      "clear": "取消预批准",
+      "cleared": "已取消预批准",
+      "save": "保存预批准",
+      "saved": "已保存预批准",
+      "dialog_title": "预批准「{{name}}」",
+      "dialog_l2": "在这些服务的事件上直接执行，不等审批。保存即算作 L2 动作需要的那一人批准。",
+      "dialog_l3": "在这些服务的事件上直接执行，不等审批。保存算作 L3 动作需要的两人批准之一，还要另一人确认后才生效。",
+      "services": "适用的服务",
+      "services_hint": "逗号分隔，须在动作适用的服务里。",
+      "services_hint_any": "逗号分隔。",
+      "max_runs": "最多执行次数",
+      "window": "时间窗",
+      "windows": {
+        "900": "15 分钟",
+        "3600": "1 小时",
+        "21600": "6 小时",
+        "86400": "1 天",
+        "604800": "7 天"
+      },
+      "expires": "有效期",
+      "expiries": {
+        "1": "1 天",
+        "7": "7 天",
+        "30": "30 天",
+        "90": "90 天",
+        "never": "长期有效"
+      },
+      "channels": "执行后通知",
+      "channels_hint": "每次按预批准执行以后都会通知，成功失败都发。",
+      "channels_denied": "选择通知渠道需要读取通知连接器的权限。",
+      "channels_none": "还没有能发到群或地址的通知连接器。",
+      "add_channel": "添加渠道",
+      "remove_channel": "移除渠道",
+      "channel_connector": "渠道 {{number}} 的连接器",
+      "channel_kind": "渠道 {{number}} 的类型",
+      "channel_target": "渠道 {{number}} 的群或地址"
     }
   },
   "tickets": {

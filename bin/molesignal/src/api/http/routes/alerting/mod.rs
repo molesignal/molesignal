@@ -18,6 +18,7 @@ mod inhibitions;
 mod intake;
 mod oncall_load;
 mod oncall_transfer;
+mod postmortem_actions;
 mod remediation;
 mod remediation_clusters;
 mod resources;
@@ -39,35 +40,33 @@ use axum::{
     routing::{get, post},
 };
 use chrono::{TimeZone, Timelike, Utc};
+use domain::{
+    alerting::{
+        anomaly::{AnomalyParams, MAX_ANOMALY_LOOKBACK_DAYS, SUPPORTED_DETECTORS},
+        escalation::{
+            DEFAULT_POLICY_ID, EscalationPolicy, EscalationStepInput, validate_ack_retrigger,
+        },
+        incident::{Incident, IncidentStatus, Severity},
+        rule::{
+            AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, RuleGuide, RuleState,
+            SeverityThreshold,
+        },
+        timeline::ActionVia,
+        urgency::UrgencyRule,
+    },
+    federation::{CudAction, ResourceKind},
+    iam::{IamContext, permission, resource_permission},
+};
 pub use heartbeats::public_routes as heartbeat_routes;
 pub use intake::{INTAKE_PATH, public_routes as intake_routes};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 pub use tickets::public_routes as ticket_webhook_routes;
 
-use crate::{
-    api::{
-        AppState,
-        http::federation::{delete_payload, emit_cud},
-    },
-    app::iam::IamContext,
-    domain::{
-        alerting::{
-            anomaly::{AnomalyParams, MAX_ANOMALY_LOOKBACK_DAYS, SUPPORTED_DETECTORS},
-            escalation::{
-                DEFAULT_POLICY_ID, EscalationPolicy, EscalationStepInput, validate_ack_retrigger,
-            },
-            incident::{Incident, IncidentStatus, Severity},
-            rule::{
-                AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, RuleState, SeverityThreshold,
-            },
-            timeline::ActionVia,
-            urgency::UrgencyRule,
-        },
-        federation::{CudAction, ResourceKind},
-        iam::{permission, resource_permission},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use crate::api::{
+    AppState,
+    http::federation::{delete_payload, emit_cud},
 };
 
 pub fn routes() -> Router<AppState> {
@@ -118,6 +117,7 @@ pub fn routes() -> Router<AppState> {
         .merge(remediation_clusters::routes())
         .merge(tickets::routes())
         .merge(response::routes())
+        .merge(postmortem_actions::routes())
 }
 
 #[derive(Debug, Deserialize)]
@@ -146,6 +146,9 @@ struct RuleWriteReq {
     labels: BTreeMap<String, String>,
     #[serde(default)]
     annotations: BTreeMap<String, String>,
+    /// The investigation guide. Left out on an update, the rule keeps the one it has.
+    #[serde(default)]
+    guide: Option<RuleGuide>,
 }
 
 fn default_true() -> bool {
@@ -304,6 +307,7 @@ async fn create_rule(
             .unwrap_or_else(|| Id::from_string(DEFAULT_POLICY_ID)),
         labels: req.labels,
         annotations: req.annotations,
+        guide: req.guide.unwrap_or_default(),
         last_eval_at: None,
         last_state: RuleState::Healthy,
         created_at: now,
@@ -388,6 +392,7 @@ async fn update_rule(
             .unwrap_or(existing.escalation_policy_id),
         labels: req.labels,
         annotations: req.annotations,
+        guide: req.guide.unwrap_or(existing.guide),
         last_eval_at: existing.last_eval_at,
         last_state: existing.last_state,
         created_at: existing.created_at,
@@ -589,7 +594,7 @@ async fn generate_incident_rca(
         .generate_for_locale(
             &incident.org_id,
             &incident,
-            crate::shared::time::TimestampMicros::now(),
+            kernel::time::TimestampMicros::now(),
             locale,
         )
         .await?;

@@ -24,6 +24,7 @@ pub mod remediation;
 pub mod response;
 pub mod routing;
 pub mod rule_evaluator;
+pub mod rule_guide;
 pub mod rule_transfer;
 pub mod rum_source;
 pub mod service;

@@ -3,6 +3,17 @@
 
 use std::collections::BTreeMap;
 
+use domain::{
+    alerting::{
+        incident::{
+            Incident, IncidentStatus, Severity, TriggeringQuery, generate_title,
+            resolve_incident_severity,
+        },
+        rule::{AlertRule, AlertRuleKind},
+    },
+    query::QueryResult,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -14,20 +25,7 @@ use super::{
     round::with_no_data_value,
     window::row_limit,
 };
-use crate::{
-    app::notify::ALERT_TRIGGERED_EVENT,
-    domain::{
-        alerting::{
-            incident::{
-                Incident, IncidentStatus, Severity, TriggeringQuery, generate_title,
-                resolve_incident_severity,
-            },
-            rule::{AlertRule, AlertRuleKind},
-        },
-        query::QueryResult,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::app::notify::ALERT_TRIGGERED_EVENT;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -78,7 +76,7 @@ impl RuleEvaluator {
         now: TimestampMicros,
     ) -> Result<AlertRuleTestResult> {
         if rule.kind.without_query() {
-            return Err(crate::shared::Error::invalid(format!(
+            return Err(kernel::Error::invalid(format!(
                 "a {} rule runs no query to test",
                 rule.kind.as_str()
             )));
@@ -100,7 +98,7 @@ impl RuleEvaluator {
                     .is_some()
                     .then(crate::app::alerting::rum_source::rum_stream_hint)
             })
-            .ok_or_else(|| crate::shared::Error::invalid("alert rule query.stream is required"))?;
+            .ok_or_else(|| kernel::Error::invalid("alert rule query.stream is required"))?;
 
         let period_us = i64::from(rule.query.period_secs).saturating_mul(1_000_000);
 
@@ -124,9 +122,7 @@ impl RuleEvaluator {
                 .eval_anomaly(rule, &stream, current, now, period_us)
                 .await
                 .ok_or_else(|| {
-                    crate::shared::Error::invalid(
-                        "anomaly rule could not build a complete baseline",
-                    )
+                    kernel::Error::invalid("anomaly rule could not build a complete baseline")
                 })?;
 
             let severity = decision.firing.then(|| {
@@ -232,7 +228,7 @@ impl RuleEvaluator {
             resolved_by: None,
             team_id: None,
             routing: None,
-            handling: crate::domain::alerting::handling::IncidentHandling {
+            handling: domain::alerting::handling::IncidentHandling {
                 urgency: rule.trigger.urgency.clone(),
                 priority: rule.trigger.priority,
                 ..Default::default()
